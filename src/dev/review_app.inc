@@ -561,6 +561,31 @@ static DxReviewDataIdentity review_workspace_scope(App *a,bool fields) {
     }
     return data;
 }
+static void review_workspace_geometry(App *a,const DxReviewWidget *widget,Rectangle visible) {
+    if (!review_armed(a) || !widget || visible.width<=0 || visible.height<=0) return;
+    static const struct { const char *id,*part; } targets[]={
+        {"pane.fields.search","fields_search"},{"analysis.context.browse","context_browse"},
+        {"analysis.shelf.rows.add","rows_add"},{"analysis.shelf.columns.add","columns_add"},
+        {"analysis.marks.representation","representation"},{"analysis.shelf.values.add","values_add"},
+        {"analysis.shelf.filters.add","filters_add"},{"analysis.marks.target.color","color"},
+    };
+    const char *part=NULL; bool dynamic=false;
+    for (size_t i=0;i<sizeof(targets)/sizeof(*targets);i++) if (!strcmp(widget->id,targets[i].id)) { part=targets[i].part; break; }
+    if (!part) {
+        if (strstr(widget->id,"pane.fields.field.")==widget->id && strstr(widget->id,".more")) part="field_more";
+        else if (strstr(widget->id,"analysis.shelf.rows.token.")==widget->id && !strstr(widget->id,".remove")) part="rows_token";
+        else if (strstr(widget->id,"analysis.shelf.columns.token.")==widget->id && !strstr(widget->id,".remove")) part="columns_token";
+        else if (strstr(widget->id,"analysis.shelf.values.token.")==widget->id && strstr(widget->id,".remove")) part="values_remove";
+        dynamic=part!=NULL;
+    }
+    if (!part) return;
+    char key[64],state[384]; snprintf(key,sizeof(key)," workspace_%s_rect=",part);
+    if (strstr(a->review->frame.state_text,key)) return; /* One actual visible representative per family. */
+    snprintf(state,sizeof(state),"%s%.3f,%.3f,%.3f,%.3f",key,visible.x,visible.y,visible.width,visible.height);
+    review_author_capture_state(a,state);
+    if (dynamic) { snprintf(state,sizeof(state)," workspace_%s_id=%s",part,widget->id); review_author_capture_state(a,state); }
+    if (!strcmp(part,"values_remove")) { snprintf(state,sizeof(state)," workspace_values_remove_enabled=%d",widget->enabled); review_author_capture_state(a,state); }
+}
 static DxReviewWidget *review_workspace_widget(App *a,const char *id,const char *parent,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,int pivot_role,int index,int layer,const char *file,int line) {
     if (!review_armed(a)) return NULL;
     Rectangle visible=GetCollisionRec(GetCollisionRec(bounds,clip),box(0,0,GetScreenWidth(),GetScreenHeight()));
@@ -577,6 +602,7 @@ static DxReviewWidget *review_workspace_widget(App *a,const char *id,const char 
     snprintf(widget.source_file,sizeof(widget.source_file),"%s",file); widget.source_line=(uint32_t)line; widget.truncated|=widget.value.truncated;
     DxReviewStatus status=dx_review_add(a->review->registry,&widget);
     if (status!=DX_REVIEW_OK) { fprintf(stderr,"Review workspace registration %s: %s\n",id,dx_review_status_text(status)); return NULL; }
+    review_workspace_geometry(a,&widget,visible);
     a->review->registry->truncated|=widget.truncated; return (DxReviewWidget *)dx_review_find(a->review->registry,id);
 }
 static void review_workspace_control(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,int pivot_role,int index,const char *file,int line) {
