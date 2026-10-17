@@ -23,6 +23,18 @@ const UIRibbonGroup ribbon_groups[RIBBON_TABS][UI_RIBBON_GROUPS]={
     {{"Panes",0,4,90,false},{"Layout",4,3,80,false},{"Worksheet",7,3,40,false},{"Help",10,2,10,false}},
     {{"Visuals",0,4,90,false},{"Structure",4,4,80,false},{"Inspect",8,2,40,false},{"Return",10,1,10,false}}
 };
+UICarbonIcon ui_ribbon_group_icon(int tab,int group) {
+    static const UICarbonIcon icons[RIBBON_TABS][UI_RIBBON_GROUPS]={
+        {CARBON_COPY,CARBON_TEXT_BOLD,CARBON_TEXT_ALIGN_LEFT,CARBON_CURRENCY_DOLLAR,CARBON_FILTER,CARBON_DATA_VIEW},
+        {CARBON_DATA_VIEW,CARBON_TABLE},
+        {CARBON_SORT_ASCENDING,CARBON_FILTER,CARBON_DATA_STRUCTURED},
+        {CARBON_CHART_BAR,CARBON_ROW,CARBON_SQL,CARBON_TABLE},
+        {CARBON_DATA_STRUCTURED,CARBON_SETTINGS_ADJUST,CARBON_GRID,CARBON_KEYBOARD},
+        {CARBON_CHART_BAR,CARBON_ROW,CARBON_SQL,CARBON_TABLE}
+    };
+    if (tab<0 || tab>=RIBBON_TABS || group<0 || group>=ribbon_group_counts[tab]) return CARBON_COUNT;
+    return icons[tab][group];
+}
 UIRibbonLayout ui_ribbon_spec_layout(float width,int mode,int tab,const float labels[UI_RIBBON_COMMANDS],const float names[UI_RIBBON_GROUPS]) {
     if (tab<0 || tab>=RIBBON_TABS) return (UIRibbonLayout){0};
     if (mode==3) return ui_ribbon_layout(width,mode,ribbon_groups[tab],ribbon_group_counts[tab],labels,names);
@@ -49,9 +61,9 @@ UIRibbonLayout ui_ribbon_spec_layout(float width,int mode,int tab,const float la
     cells[19]=(Rectangle){6+sort+8,14,filter,28};
     cells[20]=(Rectangle){cells[19].x+filter+8,14,clear,28};
     expanded[4]=cells[20].x+clear+18;
-    /* The study reserves 98 units for history above 700 and 38 for overflow
-       below it. History is outside the groups and never steals their targets. */
-    float reserve=width>=700 ? 92 : 32;
+    /* The action dock already includes overflow. Reserve it once, including
+       on wide windows before any group actually needs the overflow button. */
+    float reserve=width>=700 ? 98 : 38;
     if (tab==RIBBON_HOME && (mode==1 || mode==2)) {
         UIRibbonGroup groups[UI_RIBBON_GROUPS]; float measures[UI_RIBBON_COMMANDS]={0},sizes[UI_RIBBON_GROUPS]={0};
         Rectangle targets[UI_RIBBON_COMMANDS]={0}; int mapping[UI_RIBBON_COMMANDS],count=0;
@@ -66,16 +78,14 @@ UIRibbonLayout ui_ribbon_spec_layout(float width,int mode,int tab,const float la
             }
             sizes[g]=x+7+21+12; /* group padding + disclosure + occupied gutter */
         }
-        UIRibbonLayout result=ui_ribbon_layout_custom(width-reserve,mode,groups,6,measures,names,sizes,targets);
+        UIRibbonLayout result=ui_ribbon_layout_docked(width,mode,groups,6,measures,names,sizes,targets,reserve);
         Rectangle remapped[UI_RIBBON_COMMANDS]={0};
         for (int c=0;c<count;c++) remapped[mapping[c]]=result.commands[c];
         for (int c=0;c<UI_RIBBON_COMMANDS;c++) result.commands[c]=remapped[c];
-        if (result.overflow_count) result.overflow.x=width-(width>=700 ? 98 : 38);
         return result;
     }
-    UIRibbonLayout result=ui_ribbon_layout_custom(width-reserve,mode,ribbon_groups[tab],ribbon_group_counts[tab],labels,names,
-        tab==RIBBON_HOME ? expanded : NULL,tab==RIBBON_HOME ? cells : NULL);
-    if (result.overflow_count) result.overflow.x=width-(width>=700 ? 98 : 38);
+    UIRibbonLayout result=ui_ribbon_layout_docked(width,mode,ribbon_groups[tab],ribbon_group_counts[tab],labels,names,
+        tab==RIBBON_HOME ? expanded : NULL,tab==RIBBON_HOME ? cells : NULL,reserve);
     return result;
 }
 bool ui_ribbon_command_visible(int tab,int mode,int command) {

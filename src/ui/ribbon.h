@@ -28,6 +28,14 @@ UIRibbonLayout ui_ribbon_layout(float width,int mode,const UIRibbonGroup *groups
 UIRibbonLayout ui_ribbon_layout_custom(float width,int mode,const UIRibbonGroup *groups,int count,
     const float command_labels[UI_RIBBON_COMMANDS],const float group_labels[UI_RIBBON_GROUPS],
     const float expanded[UI_RIBBON_GROUPS],const Rectangle cells[UI_RIBBON_COMMANDS]);
+/* Reference ribbon: reserve the external history/overflow dock exactly once.
+   Expanded cells keep the custom-layout geometry; collapsed button rectangles
+   use the reference's 4-unit side padding, 1-unit slot border and intrinsic
+   width. Fit uses rounded offsetWidth + 8, as in the reference's JS.
+   dock_width includes the complete 98/38-unit action dock, not outer padding. */
+UIRibbonLayout ui_ribbon_layout_docked(float width,int mode,const UIRibbonGroup *groups,int count,
+    const float command_labels[UI_RIBBON_COMMANDS],const float group_labels[UI_RIBBON_GROUPS],
+    const float expanded[UI_RIBBON_GROUPS],const Rectangle cells[UI_RIBBON_COMMANDS],float dock_width);
 int ui_ribbon_group_for(const UIRibbonGroup *groups,int count,int command);
 float ui_ribbon_height(int mode);
 #endif

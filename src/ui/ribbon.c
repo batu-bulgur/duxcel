@@ -8,16 +8,17 @@ int ui_ribbon_group_for(const UIRibbonGroup *groups,int count,int command) {
     for (int g=0;g<count;g++) if (command>=groups[g].first && command<groups[g].first+groups[g].count) return g;
     return -1;
 }
-static float occupied(const UIRibbonLayout *layout,const float full[],const float compact[]) {
-    float width=layout->overflow_count ? 40 : 0;
+static float occupied(const UIRibbonLayout *layout,const float full[],const float compact[],bool docked) {
+    float width=!docked && layout->overflow_count ? 40 : 0;
     for (int g=0;g<layout->group_count;g++) if (layout->states[g]!=UI_RIBBON_OVERFLOW)
-        width+=(layout->states[g]==UI_RIBBON_EXPANDED ? full[g] : compact[g])+12;
+        width+=layout->states[g]==UI_RIBBON_EXPANDED ? full[g]+12 : compact[g]+(docked ? 8 : 12);
     return width;
 }
-UIRibbonLayout ui_ribbon_layout_custom(float width,int mode,const UIRibbonGroup *groups,int count,const float labels[UI_RIBBON_COMMANDS],const float names[UI_RIBBON_GROUPS],const float expanded[UI_RIBBON_GROUPS],const Rectangle cells[UI_RIBBON_COMMANDS]) {
+static UIRibbonLayout layout(float width,int mode,const UIRibbonGroup *groups,int count,const float labels[UI_RIBBON_COMMANDS],const float names[UI_RIBBON_GROUPS],const float expanded[UI_RIBBON_GROUPS],const Rectangle cells[UI_RIBBON_COMMANDS],bool docked,float dock_width) {
     UIRibbonLayout out={0};
     if (!isfinite(width) || width<64 || mode<0 || mode>3 || !groups || count<1 || count>UI_RIBBON_GROUPS || !labels || !names) return out;
-    unsigned used=0; float full[UI_RIBBON_GROUPS]={0},compact[UI_RIBBON_GROUPS]={0},command[UI_RIBBON_COMMANDS]={0};
+    if (docked && (!isfinite(dock_width) || dock_width<32 || dock_width>width-12)) return out;
+    unsigned used=0; float full[UI_RIBBON_GROUPS]={0},compact[UI_RIBBON_GROUPS]={0},buttons[UI_RIBBON_GROUPS]={0},command[UI_RIBBON_COMMANDS]={0};
     out.group_count=count; out.height=ui_ribbon_height(mode);
     for (int g=0;g<count;g++) {
         int first=groups[g].first,n=groups[g].count;
@@ -39,12 +40,16 @@ UIRibbonLayout ui_ribbon_layout_custom(float width,int mode,const UIRibbonGroup 
                 if (!isfinite(r.x) || !isfinite(r.y) || !isfinite(r.width) || !isfinite(r.height) || r.x<0 || r.y<0 || r.width<=0 || r.height<=0 || r.x+r.width>full[g] || r.y+r.height>(mode==0 ? 58 : 28)) return (UIRibbonLayout){0};
             }
         }
-        compact[g]=mode==2 ? 40 : mode==0 ? fmaxf(53,names[g]+12) : names[g]+44;
+        buttons[g]=docked ? mode==2 ? 41 : mode==0 ? fmaxf(53,names[g]+14) : names[g]+50 :
+            mode==2 ? 40 : mode==0 ? fmaxf(53,names[g]+12) : names[g]+44;
+        /* CSS offsetWidth rounds the fit budget; rendered button bounds keep
+           fractional text width. The live slot also has its 1-unit border. */
+        compact[g]=docked ? roundf(buttons[g]) : buttons[g];
     }
     if (mode==3) { out.valid=true; return out; }
-    float available=width-12;
+    float available=width-12-(docked ? dock_width : 0);
     /* Monotonic two-step degradation keeps explicit display mode unchanged. */
-    for (int pass=0;pass<2;pass++) while (occupied(&out,full,compact)>available) {
+    for (int pass=0;pass<2;pass++) while (occupied(&out,full,compact,docked)>available) {
         int choice=-1;
         for (int g=0;g<count;g++) {
             bool eligible=pass==0 ? out.states[g]==UI_RIBBON_EXPANDED && compact[g]<full[g] : out.states[g]!=UI_RIBBON_OVERFLOW;
@@ -57,9 +62,11 @@ UIRibbonLayout ui_ribbon_layout_custom(float width,int mode,const UIRibbonGroup 
     float x=6,y=mode==0 ? 5 : mode==1 ? 4 : 2;
     for (int g=0;g<count;g++) {
         if (out.states[g]==UI_RIBBON_OVERFLOW) continue;
-        float w=out.states[g]==UI_RIBBON_EXPANDED ? full[g] : compact[g];
+        float w=out.states[g]==UI_RIBBON_EXPANDED ? full[g] : buttons[g];
         float control_height=mode==0 && groups[g].prominent ? 52 : 28,control_y=mode==0 && !groups[g].prominent ? 18 : y;
         out.groups[g]=(Rectangle){x,y,w,mode==0 ? 66 : control_height};
+        if (docked && out.states[g]==UI_RIBBON_COLLAPSED)
+            out.groups[g]=(Rectangle){x+4,mode==0 ? 10 : mode==1 ? 4 : 2.5f,w,mode==0 ? 62 : mode==1 ? 28 : 27};
         if (out.states[g]==UI_RIBBON_EXPANDED) {
             float cx=x;
             for (int c=groups[g].first;c<groups[g].first+groups[g].count;c++) {
@@ -68,10 +75,16 @@ UIRibbonLayout ui_ribbon_layout_custom(float width,int mode,const UIRibbonGroup 
             }
             out.launchers[g]=mode==0 ? (Rectangle){x+w-10,58,20,20} : (Rectangle){x+w-17,y,17,control_height};
         }
-        x+=w+12;
+        x+=w+(docked && out.states[g]==UI_RIBBON_COLLAPSED ? 9 : 12);
     }
-    if (out.overflow_count) out.overflow=(Rectangle){width-38,mode==0 ? 18 : y,32,28};
+    if (out.overflow_count) out.overflow=(Rectangle){width-(docked ? dock_width : 38),mode==0 ? 18 : y,32,28};
     out.valid=true; return out;
+}
+UIRibbonLayout ui_ribbon_layout_custom(float width,int mode,const UIRibbonGroup *groups,int count,const float labels[UI_RIBBON_COMMANDS],const float names[UI_RIBBON_GROUPS],const float expanded[UI_RIBBON_GROUPS],const Rectangle cells[UI_RIBBON_COMMANDS]) {
+    return layout(width,mode,groups,count,labels,names,expanded,cells,false,0);
+}
+UIRibbonLayout ui_ribbon_layout_docked(float width,int mode,const UIRibbonGroup *groups,int count,const float labels[UI_RIBBON_COMMANDS],const float names[UI_RIBBON_GROUPS],const float expanded[UI_RIBBON_GROUPS],const Rectangle cells[UI_RIBBON_COMMANDS],float dock_width) {
+    return layout(width,mode,groups,count,labels,names,expanded,cells,true,dock_width);
 }
 UIRibbonLayout ui_ribbon_layout(float width,int mode,const UIRibbonGroup *groups,int count,const float labels[UI_RIBBON_COMMANDS],const float names[UI_RIBBON_GROUPS]) {
     return ui_ribbon_layout_custom(width,mode,groups,count,labels,names,NULL,NULL);

@@ -17,6 +17,9 @@ extern const int ribbon_counts[RIBBON_TABS],ribbon_group_counts[RIBBON_TABS];
 extern const UIRibbonCommand ribbon_commands[RIBBON_TABS][UI_RIBBON_COMMANDS];
 extern const UIRibbonGroup ribbon_groups[RIBBON_TABS][UI_RIBBON_GROUPS];
 UIRibbonLayout ui_ribbon_spec_layout(float width,int mode,int tab,const float labels[UI_RIBBON_COMMANDS],const float names[UI_RIBBON_GROUPS]);
+/* Explicit group artwork from the executable reference, not its first action.
+   Invalid tab/group returns CARBON_COUNT, the existing no-icon sentinel. */
+UICarbonIcon ui_ribbon_group_icon(int tab,int group);
 int ui_ribbon_action_index(int tab,UIAction action);
 bool ui_ribbon_command_visible(int tab,int mode,int command);
 #endif
