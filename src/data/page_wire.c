@@ -52,7 +52,7 @@ static bool type_equals(Text text,const char *value) {
     for (size_t i=0;i<text.size;i++) if (upper(text.bytes[i])!=(unsigned char)value[i]) return false;
     return true;
 }
-static bool decimal_name(Text text,const char *base) {
+static bool decimal_name(Text text,const char *base,NumberType *number) {
     size_t length=strlen(base);
     if (text.size<=length || text.bytes[length]!='(') return false;
     if (!type_equals((Text){text.bytes,length},base)) return false;
@@ -71,7 +71,9 @@ static bool decimal_name(Text text,const char *base) {
         if (scale>38) return false;
     }
     while (at<text.size && text.bytes[at]==' ') at++;
-    return digits && scale<=precision && at+1==text.size && text.bytes[at]==')';
+    if (!digits || scale>precision || at+1!=text.size || text.bytes[at]!=')') return false;
+    if (number) *number=(NumberType){NUM_DECIMAL,(unsigned char)precision,(unsigned char)scale};
+    return true;
 }
 static duckdb_type sql_type(Text text) {
     static const struct { const char *name; duckdb_type type; } types[]={
@@ -95,8 +97,41 @@ static duckdb_type sql_type(Text text) {
         {"UUID",DUCKDB_TYPE_UUID},{"SQLNULL",DUCKDB_TYPE_SQLNULL},{"NULL",DUCKDB_TYPE_SQLNULL}
     };
     for (size_t i=0;i<sizeof(types)/sizeof(*types);i++) if (type_equals(text,types[i].name)) return types[i].type;
-    if (decimal_name(text,"DECIMAL") || decimal_name(text,"NUMERIC")) return DUCKDB_TYPE_DECIMAL;
+    if (decimal_name(text,"DECIMAL",NULL) || decimal_name(text,"NUMERIC",NULL)) return DUCKDB_TYPE_DECIMAL;
     return DUCKDB_TYPE_VARCHAR;
+}
+bool page_type_from_sql(const char *name,duckdb_type *type,NumberType *number) {
+    if (!name || !type || !number) return false;
+    size_t size=0; while (size<=128 && name[size]) size++;
+    Text text={(const unsigned char *)name,size};
+    if (!size || size>128 || !utf8(text)) return false;
+    NumberType parsed={0}; duckdb_type id=sql_type(text);
+    if (type_equals(text,"DECIMAL") || type_equals(text,"NUMERIC")) return false;
+    const char *decimal_names[]={"DECIMAL","NUMERIC"};
+    for (size_t i=0;i<2;i++) {
+        size_t prefix=strlen(decimal_names[i]);
+        if (size>prefix && name[prefix]=='(' && type_equals((Text){text.bytes,prefix},decimal_names[i])) {
+            /* A described DECIMAL array is a complex value, rendered via its
+               canonical text just like other unknown compound SQL types. */
+            if (name[size-1]==']') continue;
+            if (!decimal_name(text,decimal_names[i],&parsed)) return false;
+        }
+    }
+    switch (id) {
+    case DUCKDB_TYPE_TINYINT: parsed.kind=NUM_I8; break;
+    case DUCKDB_TYPE_SMALLINT: parsed.kind=NUM_I16; break;
+    case DUCKDB_TYPE_INTEGER: parsed.kind=NUM_I32; break;
+    case DUCKDB_TYPE_BIGINT: parsed.kind=NUM_I64; break;
+    case DUCKDB_TYPE_HUGEINT: parsed.kind=NUM_I128; break;
+    case DUCKDB_TYPE_UTINYINT: parsed.kind=NUM_U8; break;
+    case DUCKDB_TYPE_USMALLINT: parsed.kind=NUM_U16; break;
+    case DUCKDB_TYPE_UINTEGER: parsed.kind=NUM_U32; break;
+    case DUCKDB_TYPE_UBIGINT: parsed.kind=NUM_U64; break;
+    case DUCKDB_TYPE_UHUGEINT: parsed.kind=NUM_U128; break;
+    case DUCKDB_TYPE_FLOAT: case DUCKDB_TYPE_DOUBLE: parsed.kind=NUM_FLOAT; break;
+    default: break;
+    }
+    *type=id; *number=parsed; return true;
 }
 static bool number_type(Text text,uint32_t precision,uint32_t scale,NumberType *out) {
     static const char *kinds[]={"none","i8","i16","i32","i64","i128","u8","u16","u32","u64","u128","decimal","float"};
