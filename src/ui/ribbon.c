@@ -77,7 +77,7 @@ static UIRibbonLayout layout(float width,int mode,const UIRibbonGroup *groups,in
         }
         x+=w+(docked && out.states[g]==UI_RIBBON_COLLAPSED ? 9 : 12);
     }
-    if (out.overflow_count) out.overflow=(Rectangle){width-(docked ? dock_width : 38),mode==0 ? 18 : y,32,28};
+    if (out.overflow_count) out.overflow=docked ? (Rectangle){width-dock_width+4,mode==0 ? 27 : y,28,28} : (Rectangle){width-38,mode==0 ? 18 : y,32,28};
     out.valid=true; return out;
 }
 UIRibbonLayout ui_ribbon_layout_custom(float width,int mode,const UIRibbonGroup *groups,int count,const float labels[UI_RIBBON_COMMANDS],const float names[UI_RIBBON_GROUPS],const float expanded[UI_RIBBON_GROUPS],const Rectangle cells[UI_RIBBON_COMMANDS]) {

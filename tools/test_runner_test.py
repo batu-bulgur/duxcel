@@ -18,7 +18,7 @@ SPEC.loader.exec_module(runner)
 class RunnerTests(unittest.TestCase):
     def test_inventory(self):
         self.assertEqual(len(runner.NATIVE), 18)
-        self.assertEqual(sum(row[1] for row in runner.NATIVE), 1053)
+        self.assertEqual(sum(row[1] for row in runner.NATIVE), 1069)
         self.assertEqual(len({row[0] for row in runner.NATIVE}), 18)
         self.assertNotIn("core", runner.FAST_MODULES)
         self.assertNotIn("workbook", runner.FAST_MODULES)
@@ -31,7 +31,7 @@ class RunnerTests(unittest.TestCase):
         for name, (start, end, marker) in runner.LAYOUT_PROFILES.items():
             with self.subTest(feature=name):
                 self.assertGreater(end, start)
-                self.assertLessEqual(end, 620)
+                self.assertLessEqual(end, 636)
                 self.assertIn(marker, source)
                 if start not in (0, 250):
                     self.assertIn(f'"{start}"', source)
@@ -154,7 +154,7 @@ class RunnerTests(unittest.TestCase):
         with mock.patch.object(runner, "Runner") as constructor:
             with contextlib.redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(runner.main(["--list"]), 0)
-            self.assertIn("1053 application stages", output.getvalue())
+            self.assertIn("1069 application stages", output.getvalue())
             constructor.assert_not_called()
         for arguments in (["affected"], ["full", "--modules", "grid"], ["native"], ["native", "--scenario", "export", "--modules", "grid"], ["fast", "--scenario", "export"], ["fast", "--jobs", "3"], ["fast", "--timeout", "0"], ["fast", "--feature", "shelves"], ["affected", "--feature", "shelves", "--require-data"]):
             with self.subTest(arguments=arguments), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):

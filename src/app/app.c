@@ -5928,7 +5928,7 @@ static void update_ribbon_layout(App *a) {
     if (a->ribbon_layout.valid && a->ribbon_layout_width==width && a->ribbon_layout_scale==s && a->ribbon_layout_tab==a->ribbon_tab && a->ribbon_layout_mode==a->ribbon_mode && a->ribbon_layout_variant==variant && a->ribbon_layout_raster==a->ui.raster_size) return;
     float commands[UI_RIBBON_COMMANDS]={0},groups[UI_RIBBON_GROUPS]={0};
     for (int c=0;c<ribbon_counts[a->ribbon_tab];c++) commands[c]=ui_measure(&a->ui,command_label(a,c),12)/s;
-    for (int g=0;g<ribbon_group_counts[a->ribbon_tab];g++) groups[g]=ui_measure_weight(&a->ui,ribbon_groups[a->ribbon_tab][g].name,12,UI_MEDIUM)/s;
+    for (int g=0;g<ribbon_group_counts[a->ribbon_tab];g++) groups[g]=ui_measure(&a->ui,ribbon_groups[a->ribbon_tab][g].name,a->ribbon_mode==0 ? 11.5f : 12)/s;
     a->ribbon_layout=ui_ribbon_spec_layout(width,a->ribbon_mode,a->ribbon_tab,commands,groups);
     a->ribbon_layout_width=width; a->ribbon_layout_scale=s; a->ribbon_layout_tab=a->ribbon_tab; a->ribbon_layout_mode=a->ribbon_mode; a->ribbon_layout_variant=variant;
     a->ribbon_layout_raster=a->ui.raster_size;
@@ -5942,7 +5942,7 @@ static void open_command_group(App *a,int group,int focus) {
         for (int i=0;i<spec->count && !command_enabled(a,spec->first+focus);i++) focus=(focus+1)%spec->count;
     }
     a->ribbon_popup_group=group; a->ribbon_popup_focus=focus; a->modal=MODAL_COMMANDS;
-    a->ribbon_focus=false; a->key_tips=false; a->consume_grid_input=true;
+    a->ribbon_focus=a->pivot_search_focus=false; a->pivot_focus=a->chrome_focus=0; a->key_tips=false; a->consume_grid_input=true;
 }
 static void close_command_group(App *a) {
     int group=a->ribbon_popup_group;
@@ -6034,7 +6034,7 @@ static void draw_command_popup(App *a) {
         bool focused=a->ribbon_popup_focus==i;
         if (group<0) {
             int g=indices[i];
-            if (ui_carbon_command(u,row,ribbon_commands[a->ribbon_tab][ribbon_groups[a->ribbon_tab][g].first].icon,ribbon_groups[a->ribbon_tab][g].name,false,true)) { open_command_group(a,g,0); return; }
+            if (ui_carbon_command(u,row,ui_ribbon_group_icon(a->ribbon_tab,g),ribbon_groups[a->ribbon_tab][g].name,false,true)) { open_command_group(a,g,0); return; }
         } else {
             int c=ribbon_groups[a->ribbon_tab][group].first+i; bool available=command_enabled(a,c);
             if (ui_carbon_command(u,row,ribbon_commands[a->ribbon_tab][c].icon,command_label(a,c),command_active(a,c),available)) { invoke_command(a,c); return; }
@@ -6074,6 +6074,30 @@ static bool draw_ribbon_control(App *a,int command,Rectangle r,bool enabled) {
     }
     u->pointer_blocked=blocked; return clicked;
 }
+static bool draw_collapsed_group(App *a,int group,Rectangle r,bool enabled) {
+    UIContext *u=&a->ui; float s=u->scale; bool hover=false;
+    bool clicked=ui_control_input(u,r,enabled,&hover),expanded=a->modal==MODAL_COMMANDS && a->ribbon_popup_group==group;
+    Color base[]={UI_BG,UI_BG,{52,79,99,255}},colors[]={hover || expanded ? (Color){226,235,242,255} : UI_BG,
+        hover || expanded ? (Color){180,201,217,255} : UI_BG,expanded ? (Color){21,75,114,255} : base[2]};
+    if (!enabled) colors[2]=(Color){153,160,172,255};
+    ui_feedback_colors(u,r,20,base,colors);
+    float corner=4*s/fminf(r.width,r.height);
+    DrawRectangleRounded(r,corner,4,colors[0]); DrawRectangleRoundedLinesEx(r,corner,4,s,colors[1]);
+    UICarbonIcon icon=ui_ribbon_group_icon(a->ribbon_tab,group);
+    if (a->ribbon_mode==0) {
+        float line=15.525f*s,top=r.y+(r.height-20*s-3*s-line)*.5f;
+        ui_carbon(u,icon,box(r.x+(r.width-20*s)*.5f,top,20*s,20*s),colors[2]);
+        const char *name=ribbon_groups[a->ribbon_tab][group].name; float text=ui_measure(u,name,11.5f);
+        ui_label(u,name,box(r.x+(r.width-text)*.5f,top+23*s,text+.01f*s,line),11.5f,colors[2],false,UI_REGULAR);
+        ui_carbon(u,CARBON_CHEVRON_DOWN,box(r.x+r.width-13*s,r.y+r.height-11*s,10*s,10*s),colors[2]);
+    } else {
+        float left=r.x+(a->ribbon_mode==2 ? 6 : 7)*s;
+        ui_carbon(u,icon,box(left,r.y+(r.height-16*s)*.5f,16*s,16*s),colors[2]);
+        if (a->ribbon_mode!=2) ui_label(u,ribbon_groups[a->ribbon_tab][group].name,box(left+22*s,r.y,r.width-50*s,r.height),12,colors[2],false,UI_REGULAR);
+        ui_carbon(u,CARBON_CHEVRON_DOWN,box(r.x+r.width-(a->ribbon_mode==2 ? 16 : 17)*s,r.y+(r.height-10*s)*.5f,10*s,10*s),colors[2]);
+    }
+    return clicked;
+}
 static void draw_ribbon_commands(App *a,bool enabled) {
     update_ribbon_layout(a); UIContext *u=&a->ui; float s=u->scale;
     if (a->command_activate) { int c=a->ribbon_command; a->command_activate=false; invoke_command(a,c); enabled=a->modal==MODAL_NONE && !a->io_busy; }
@@ -6088,10 +6112,8 @@ static void draw_ribbon_commands(App *a,bool enabled) {
         const UIRibbonGroup *group=&ribbon_groups[a->ribbon_tab][g]; Rectangle r=ribbon_rect(a,a->ribbon_layout.groups[g]);
         bool focus=a->ribbon_focus && a->ribbon_command>=group->first && a->ribbon_command<group->first+group->count;
         if (state==UI_RIBBON_COLLAPSED) {
-            if (ui_carbon_command(u,r,ribbon_commands[a->ribbon_tab][group->first].icon,a->ribbon_mode==2 ? NULL : group->name,false,passive_control(a,enabled))) { open_command_group(a,g,0); enabled=false; }
-            float cx=r.x+r.width-7*s,cy=r.y+(a->ribbon_mode==0 ? 9*s : r.height/2);
-            DrawLineEx((Vector2){cx-3*s,cy-2*s},(Vector2){cx,cy+s},s,UI_MUTED); DrawLineEx((Vector2){cx,cy+s},(Vector2){cx+3*s,cy-2*s},s,UI_MUTED);
-            if (focus) DrawRectangleLinesEx(r,1.5f*s,UI_ACCENT);
+            if (draw_collapsed_group(a,g,r,passive_control(a,enabled))) { open_command_group(a,g,0); enabled=false; }
+            if (focus) ui_focus_border(r,r,2*s);
             if (a->key_tips) {
                 char tips[12]; if (group->count==1) snprintf(tips,sizeof(tips),"%d",(group->first+1)%10);
                 else snprintf(tips,sizeof(tips),"%d–%d",(group->first+1)%10,(group->first+group->count)%10);
@@ -6104,7 +6126,7 @@ static void draw_ribbon_commands(App *a,bool enabled) {
                 if (draw_ribbon_control(a,c,cr,available)) { invoke_command(a,c); enabled=false; }
                 UIAction action=ribbon_commands[a->ribbon_tab][c].action;
                 bool select=a->ribbon_mode!=2 && (action==ACTION_FONT_SIZE || action==ACTION_NUMBER_FORMAT);
-                if (focus && a->ribbon_command==c && !select) DrawRectangleLinesEx(box(cr.x-s,cr.y-s,cr.width+2*s,cr.height+2*s),1.5f*s,UI_ACCENT);
+                if (focus && a->ribbon_command==c && !select) ui_focus_border(cr,cr,2*s);
                 if (a->key_tips && c<10) command_badge(a,c,cr);
                 if (a->ribbon_mode==2 && available && CheckCollisionPointRec(ui_mouse_position(),cr)) { a->ribbon_hover=command_label(a,c); a->ribbon_hover_rect=cr; }
             }
@@ -6115,7 +6137,9 @@ static void draw_ribbon_commands(App *a,bool enabled) {
                 ui_label(u,group->name,box(r.x+(r.width-text)*.5f,r.y+53*s,text+1,20*s),11,UI_MUTED,false,UI_REGULAR);
             }
         }
-        float divider=r.x+r.width+6*s; DrawLineV((Vector2){divider,61*s},(Vector2){divider,(56+a->ribbon_layout.height-5)*s},UI_BORDER);
+        bool collapsed=state==UI_RIBBON_COLLAPSED;
+        float divider=r.x+r.width+(collapsed ? 4 : 6)*s;
+        DrawLineV((Vector2){divider,61*s},(Vector2){divider,(56+a->ribbon_layout.height-(collapsed ? 3 : 5))*s},(Color){216,224,230,255});
     }
     if (GetScreenWidth()/s>=700) {
         Worksheet *sheet=active_sheet(a); float y=(56+(a->ribbon_mode==0 ? 25 : 4))*s;
@@ -6124,10 +6148,11 @@ static void draw_ribbon_commands(App *a,bool enabled) {
     }
     if (a->ribbon_layout.overflow_count) {
         Rectangle more=ribbon_rect(a,a->ribbon_layout.overflow);
-        if (ui_button(u,more,"…",false,passive_control(a,enabled))) open_command_group(a,-1,0);
+        if (ui_button(u,more,"",false,passive_control(a,enabled))) open_command_group(a,-1,0);
+        ui_carbon(u,CARBON_OVERFLOW_MENU_HORIZONTAL,box(more.x+(more.width-16*s)*.5f,more.y+(more.height-16*s)*.5f,16*s,16*s),UI_TEXT);
         if (a->ribbon_focus && a->ribbon_command>=0) {
             int g=ui_ribbon_group_for(ribbon_groups[a->ribbon_tab],ribbon_group_counts[a->ribbon_tab],a->ribbon_command);
-            if (g>=0 && a->ribbon_layout.states[g]==UI_RIBBON_OVERFLOW) DrawRectangleLinesEx(more,1.5f*s,UI_ACCENT);
+            if (g>=0 && a->ribbon_layout.states[g]==UI_RIBBON_OVERFLOW) ui_focus_border(more,more,2*s);
         }
     }
     DrawLine(0,(int)((56+a->ribbon_layout.height)*s),GetScreenWidth(),(int)((56+a->ribbon_layout.height)*s),UI_BORDER);
@@ -6236,6 +6261,7 @@ static void draw_app(App *a) {
     bool toast_press=toast_visible && ((CheckCollisionPointRec(ui_mouse_position(),a->toast_rect) && (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)||IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)||GetMouseWheelMoveV().y)) || ui_gesture_starts_in(a->toast_rect));
     if (toast_press) { DxPointerGesture gesture; while (ui_take_gesture_from(a->toast_rect,&gesture)) { } u->pointer_blocked=true; a->consume_grid_input=true; }
     enabled=enabled && !u->pointer_blocked;
+    bool chrome_enabled=a->modal==MODAL_NONE && !a->io_busy && !(a->busy && a->pending_kind==JOB_EXPORT) && !u->pointer_blocked;
     if (a->last_window_width!=GetScreenWidth() || a->last_window_height!=GetScreenHeight() || a->last_interface_scale!=s) {
         a->last_window_width=GetScreenWidth(); a->last_window_height=GetScreenHeight(); a->last_interface_scale=s; a->pivot_reveal_object=true; a->reveal_tab=true;
     }
@@ -6267,7 +6293,7 @@ static void draw_app(App *a) {
     float tab_x=0,selected_x=0,selected_width=0,total=0;
     float widths[RIBBON_TABS];
     for (int i=0;i<tabs;i++) { widths[i]=fmaxf(ui_measure(u,ui_ribbon_tabs[i],12),ui_measure_weight(u,ui_ribbon_tabs[i],12,UI_MEDIUM))/s+2+(width>=1400 ? 34 : width>=900 ? 28 : 20); if (i==a->ribbon_tab) { selected_x=total; selected_width=widths[i]; } total+=widths[i]+1; }
-    if (enabled && CheckCollisionPointRec(ui_mouse_position(),strip)) a->ribbon_tabs_scroll-=GetMouseWheelMoveV().y*28+GetMouseWheelMoveV().x*28;
+    if (chrome_enabled && CheckCollisionPointRec(ui_mouse_position(),strip)) a->ribbon_tabs_scroll-=GetMouseWheelMoveV().y*28+GetMouseWheelMoveV().x*28;
     float limit=fmaxf(0,total-strip.width/s); a->ribbon_tabs_scroll=fmaxf(0,fminf(limit,a->ribbon_tabs_scroll));
     if (a->ribbon_focus) {
         if (selected_x<a->ribbon_tabs_scroll) a->ribbon_tabs_scroll=selected_x;
@@ -6277,7 +6303,7 @@ static void draw_app(App *a) {
     for (int i=0;i<tabs;i++) {
         Rectangle tab=box(strip.x+(tab_x-a->ribbon_tabs_scroll)*s,28*s,widths[i]*s,28*s);
         if (i==a->ribbon_tab) DrawRectangleRec(GetCollisionRec(tab,strip),(Color){251,252,253,255});
-        bool clicked=ui_tool_button(u,tab,"",false,enabled);
+        bool clicked=ui_tool_button(u,tab,"",false,chrome_enabled);
         ui_label(u,ui_ribbon_tabs[i],box(tab.x+(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.y,tab.width-2*(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.height),12,i==a->ribbon_tab ? UI_ACCENT : UI_TEXT,false,i==a->ribbon_tab ? UI_MEDIUM : UI_REGULAR);
         if (clicked) { a->chrome_focus=0; a->ribbon_tab=i; a->ribbon_focus=false; a->ribbon_layout.valid=false; }
         if (a->ribbon_focus && a->ribbon_command<0 && i==a->ribbon_tab) ui_focus_border(tab,strip,s);
@@ -6289,7 +6315,7 @@ static void draw_app(App *a) {
     a->ribbon_indicator_width=ui_motion_update_at(&a->ribbon_width_motion,target_width,u->paint_time,.16f,a->reduced_motion)*s;
     DrawRectangleRec(GetCollisionRec(box(a->ribbon_indicator,54*s,a->ribbon_indicator_width,2*s),strip),UI_ACCENT);
     ui_clear_clip(u); DrawLine(0,(int)(56*s),GetScreenWidth(),(int)(56*s),UI_BORDER);
-    draw_ribbon_commands(a,enabled);
+    draw_ribbon_commands(a,chrome_enabled);
     }
     Worksheet *sheet=active_sheet(a);
     bool pivot_active=selected_pivot(a)!=NULL && a->ribbon_mode!=3 && !a->grid.moving && !a->grid.dragging && a->grid.resizing<0;
@@ -6520,7 +6546,7 @@ static void draw_app(App *a) {
         draw_left_presence(a,panel,pivot_active,true);
     }
     if (pivot_active) draw_pivot_drag(a);
-    draw_status(a,enabled);
+    draw_status(a,chrome_enabled);
     if (a->grid.filter_requested) {
         a->grid.filter_requested=false;
         SheetObject *object=selected_object(a);
@@ -7265,7 +7291,7 @@ static void sort_smoke_step(App *a,int *step) {
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: sort application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
 }
-#define LAYOUT_SMOKE_STAGES 620
+#define LAYOUT_SMOKE_STAGES 636
 /* Count the actual focus ink in one modal, excluding document token colors. */
 static unsigned smoke_focus_pixels(Rectangle region) {
     Image frame=LoadImageFromScreen(); Vector2 dpi=GetWindowScaleDPI(); unsigned count=0;
@@ -8201,6 +8227,7 @@ static void layout_smoke_step(App *a,int *step) {
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"540")) { *step=540; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"555")) { *step=555; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"596")) { *step=596; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"620")) { *step=620; return; }
         }
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->statistics_enabled=true; a->statistics_mask=49;
         grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=0; a->grid.horizontal=0; break;
@@ -9399,7 +9426,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->modal!=MODAL_FORMAT || a->format_action!=ACTION_NUMBER_FORMAT || a->request_id!=request) goto failed; break;
     case 611:
         if (a->modal!=MODAL_NONE || active_format(a).number!=FORMAT_NUMBER || a->request_id!=request) goto failed;
-        a->selected_object=0; a->pivot_focus=PIVOT_FILTERS+2; a->pivot_value=0; a->author_reveal=true;
+        a->selected_object=0; a->ribbon_focus=false; a->pivot_focus=PIVOT_FILTERS+2; a->pivot_value=0; a->author_reveal=true;
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->left_drawer=true; break;
     case 612:
         if (!a->workspace.narrow || !a->left_drawer || !a->author_marks_layout.valid || a->author_marks_layout.filters[0].width<=0 || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || a->request_id!=request) goto failed;
@@ -9422,6 +9449,55 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->modal!=MODAL_NONE || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed; break;
     case 619:
         puts("PASS: cached actual view-filter criteria, real PIVOT Apply/Cancel/Undo, native representation/Plot/font/number select pointer and keyboard actions, 100/150 percent narrow clipping and idle cache/query retention"); break;
+
+    case 620:
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 621:
+        if (!object_ready(a,0)) return;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=true; a->pipeline=false; a->workbook_collapsed=false; a->sidebar_width=228;
+        a->selected_object=0; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; a->pivot_search_focus=false;
+        set_ribbon_mode(a,0); a->ribbon_tab=RIBBON_HOME; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; break;
+    case 622:
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); break;
+    case 623:
+        if (a->ribbon_layout.overflow_count!=1 || a->ribbon_layout.states[0]!=UI_RIBBON_OVERFLOW || !a->left_drawer || a->request_id!=request) goto failed;
+        for (int g=1;g<6;g++) if (a->ribbon_layout.states[g]!=UI_RIBBON_COLLAPSED || fabsf(a->ribbon_layout.groups[g].height-62)>.01f || a->ribbon_layout.groups[g].x+a->ribbon_layout.groups[g].width>=a->ribbon_layout.overflow.x) goto failed;
+        if (fabsf(a->ribbon_layout.groups[1].x-10)>.01f || fabsf(a->ribbon_layout.groups[1].width-53)>.01f || fabsf(a->ribbon_layout.groups[2].x-72)>.01f) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-collapsed-ribbon-150.png"); break;
+    case 624:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=1 || !a->left_drawer || a->pivot_focus || a->pivot_search_focus || a->request_id!=request) goto failed; break;
+    case 625:
+        if (a->modal!=MODAL_NONE || !a->ribbon_focus || ui_ribbon_group_for(ribbon_groups[RIBBON_HOME],6,a->ribbon_command)!=1 || !smoke_focus_pixels(ribbon_rect(a,a->ribbon_layout.groups[1])) || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-collapsed-ribbon-focus.png"); break;
+    case 626:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=4 || !a->left_drawer || a->request_id!=request) goto failed; break;
+    case 627:
+        if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->request_id!=request) goto failed;
+        set_ribbon_mode(a,1); a->ribbon_focus=false; break;
+    case 628:
+        if (a->ribbon_mode!=1 || a->ribbon_layout.height!=36 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-collapsed-compact-150.png"); break;
+    case 629:
+        set_ribbon_mode(a,2); a->ribbon_focus=false; break;
+    case 630:
+        if (a->ribbon_mode!=2 || a->ribbon_layout.height!=32 || a->request_id!=request) goto failed;
+        for (int g=0;g<6;g++) if (a->ribbon_layout.groups[g].width && a->ribbon_layout.groups[g].x+a->ribbon_layout.groups[g].width>=GetScreenWidth()/a->ui.scale-38) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-collapsed-icons-150.png"); set_ribbon_mode(a,3); break;
+    case 631:
+        if (a->ribbon_mode!=3 || a->ribbon_layout.height || a->left_drawer || a->request_id!=request) goto failed;
+        set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 632:
+        if (a->ribbon_mode || !a->ribbon_layout.valid || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-collapsed-wide-return.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 633:
+        if (a->ribbon_mode || !a->ribbon_layout.valid || a->request_id!=request) goto failed;
+        for (int g=0;g<6;g++) if (a->ribbon_layout.groups[g].width && a->ribbon_layout.groups[g].x+a->ribbon_layout.groups[g].width>=GetScreenWidth()/a->ui.scale-38) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 634:
+        if (a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed; break;
+    case 635:
+        puts("PASS: exact reserved collapsed ribbon with Alignment retained, reference group icons and typography, live chrome above narrow overlay, pointer flyouts/Escape focus and Full/Compact/Icons/Focus resizing without SQL or cache changes"); break;
 
     }
     free(error); (*step)++; return;
@@ -10779,7 +10855,7 @@ int app_run(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620"));
     if (focused_layout) { SetWindowSize(1440,988); workspace_job(&a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(&a,"",true);
     else if (options->nyc_smoke) open_source(&a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -11213,6 +11289,17 @@ int app_run(const AppOptions *options) {
                     ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
                 } else if (layout_smoke==573) ui_note_key_press(KEY_END,DX_MOD_SUPER|DX_MOD_SHIFT);
                 active_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=624 && layout_smoke<=627) {
+            static unsigned collapsed_injected=0; unsigned bit=1u<<(layout_smoke-624);
+            if (!(collapsed_injected&bit)) {
+                if (layout_smoke==624 || layout_smoke==626) {
+                    Rectangle r=ribbon_rect(&a,a.ribbon_layout.groups[layout_smoke==624 ? 1 : 4]);
+                    float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else ui_note_key_press(KEY_ESCAPE,0);
+                collapsed_injected|=bit;
             }
         }
         if (options->layout_smoke && a.frames%24==2 && layout_smoke>=600 && layout_smoke<=615) {

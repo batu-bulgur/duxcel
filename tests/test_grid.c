@@ -423,7 +423,7 @@ static void test_ribbon_reference_collapse(void) {
     for (size_t k=0;k<sizeof(widths)/sizeof(*widths);k++) {
         UIRibbonLayout l=ui_ribbon_spec_layout(widths[k],0,RIBBON_HOME,labels,names);
         CHECK(l.valid && l.overflow_count==1 && l.states[0]==UI_RIBBON_OVERFLOW);
-        CHECK(l.overflow.x==widths[k]-38 && l.overflow.width==32);
+        CHECK(l.overflow.x==widths[k]-34 && l.overflow.width==28 && l.overflow.y==27 && l.overflow.height==28);
         float x=10;
         for (int g=1;g<6;g++) {
             Rectangle r=l.groups[g]; CHECK(l.states[g]==UI_RIBBON_COLLAPSED);
