@@ -34,7 +34,7 @@ def parse_options(argv=None):
     parser.add_argument('--review',action='store_true')
     parser.add_argument('--access-only',action='store_true',help='Focused blank-workbook access keys and File/document flow; requires --review')
     parser.add_argument('--zoom-only',action='store_true',help='Focused real C grid zoom/header geometry and pointer checks; requires --review, optional transactions.csv')
-    parser.add_argument('--review-controls-only',action='store_true',help='Focused real C contextual menu review targets and cancel ownership; requires --review and transactions.csv')
+    parser.add_argument('--review-controls-only',action='store_true',help='Focused real C contextual targets, editable width/Move and Close guard; requires --review and transactions.csv')
     parser.add_argument('--review-outbox',type=Path,help='Private shared outbox for an integrated native/browser review gate')
     parser.add_argument('--review-offline',action='store_true',help='Commit a report offline, reload real IndexedDB, then automatically upload')
     parser.add_argument('--dpr',type=int,choices=(1,2),default=1)
@@ -179,7 +179,7 @@ def main():
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
             record['profile']='review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
             if options.review_controls_only:
-                record['scope']='Shared C source/manual contextual semantic targets, modal ownership and frozen-state cancellation; real source import, no analytical-object or report-upload acceptance.'
+                record['scope']='Shared C source/manual contextual targets, editable width/Move drafts and guarded Close, modal ownership and frozen-state cancellation; real source import, no analytical-object or report-upload acceptance.'
             if options.zoom_only:
                 record['scope']='Shared C blank/source grid zoom, fixed header geometry and rendered label bounds, pointer selection/resize/filter and independent UI scale; no report upload or physical gesture acceptance.'
             if options.access_only:
