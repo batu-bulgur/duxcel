@@ -95,7 +95,9 @@ async function hintMotion(){
  }
  await key('Alt','AltLeft',18);await key('h','KeyH',72);await key('Escape','Escape',27);await pause(160);
  const dismissed=await platformSnapshot();check(Number(dismissed.keytips)===0,'Alt H Escape left keytips visible');
- return {results,dismissed};
+ const altEvents=await evaluate('globalThis.duxcelTestAltEvents');
+ check(altEvents.length>=3&&altEvents.every(e=>e.canvas&&e.prevented),'Focused canvas Alt escaped to browser menu handling');
+ return {results,dismissed,altEvents};
 }
 // Sample the shared C GL framebuffer in rAF, without review/hotkeys freezing
 // or clearing the spring. The only full readback is the first stretched PNG.
@@ -220,6 +222,7 @@ try{
  }
  check(ready,'Shared C App did not initialize');await pause(350);
  await evaluate('globalThis.duxcelTestNavigation=[];window.addEventListener("keydown",event=>{if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Home","End","PageUp","PageDown"].includes(event.key))globalThis.duxcelTestNavigation.push({key:event.key,shift:event.shiftKey,default_prevented:event.defaultPrevented,canvas:event.target===document.querySelector("canvas")})});true');
+ await evaluate('globalThis.duxcelTestAltEvents=[];window.addEventListener("keydown",e=>{if(e.key==="Alt")globalThis.duxcelTestAltEvents.push({canvas:e.target===document.querySelector("canvas"),prevented:e.defaultPrevented})});true');
  if(canvasTransform){await evaluate('Object.assign(document.querySelector("canvas").style,{position:"absolute",left:"8%",top:"6%",transform:"scale(.8)",transformOrigin:"top left"})');await frames();}
  const errors=events.filter(e=>e.method==='Runtime.exceptionThrown');check(!errors.length,'Uncaught browser exception');
  const glErrors=events.filter(e=>e.method==='Log.entryAdded'&&/WebGL: (INVALID|too many)/.test(e.params.entry.text));
