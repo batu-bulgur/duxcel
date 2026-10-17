@@ -645,6 +645,15 @@ static void test_worker(void) {
 static void guard_fixture(const char *path,const char *text) {
     FILE *file=fopen(path,"wb"); size_t length=strlen(text); CHECK(file && fwrite(text,1,length,file)==length && !fclose(file));
 }
+typedef struct { Database *db; const char *path; uint64_t queries,stamp; bool changed; } WorkerSourceTouch;
+static bool touch_worker_source(void *context) {
+    WorkerSourceTouch *touch=context;
+    if (!touch->changed && touch->db->query_count>touch->queries) {
+        FILE *file=fopen(touch->path,"ab"); CHECK(file && fputc('\n',file)!=EOF && !fclose(file));
+        CHECK(dx_file_stamp(touch->path)!=touch->stamp); touch->changed=true;
+    }
+    return false;
+}
 static void test_worker_source_guards(void) {
     char *directory=dx_temp_directory(); CHECK(directory); char *source=dx_printf("%s/source.csv",directory),*other=dx_printf("%s/table.csv",directory),*destination=dx_printf("%s/export.parquet",directory),*error=NULL;
     guard_fixture(source,"id,value\n1,original\n2,original\n3,original\n"); guard_fixture(other,"id,value\n7,table\n8,table\n"); guard_fixture(destination,"Preserve destination");
@@ -697,6 +706,28 @@ static void test_worker_source_guards(void) {
         CHECK(pivot_assign(&request->pivot,PIVOT_ROWS,"value",AGG_SUM,&error) && pivot_assign(&request->pivot,PIVOT_VALUES,"id",AGG_MAX,&error));
         worker_submit(&worker,request); reply=wait_reply(&worker);
         CHECK(fresh ? !reply->error && reply->clipboard && !strcmp(reply->clipboard,"replacement\t101") : reply->error && strstr(reply->error,"source changed") && !reply->clipboard); reply_free(reply);
+    }
+    for (unsigned operation=0;operation<4;operation++) {
+        bool fresh=operation>=2,distinct=operation%2;
+        request=job(18+operation,SOURCE_CSV,source); request->kind=distinct ? JOB_DISTINCT : JOB_COUNT; request->expected_source_stamp=fresh ? refreshed : old_stamp;
+        if (distinct) { request->column=dx_strdup("value"); request->search=dx_strdup(""); request->date_level=-1; }
+        queries=worker.db.query_count; worker_submit(&worker,request); reply=wait_reply(&worker);
+        if (!fresh) CHECK(reply->error && strstr(reply->error,"source changed") && !reply->counted_rows && !reply->distinct.count && !reply->distinct.values && worker.db.query_count==queries);
+        else CHECK(!reply->error && (distinct ? reply->distinct.count==1 && !strcmp(reply->distinct.values[0].value,"replacement") : reply->counted_rows==2));
+        reply_free(reply);
+    }
+    /* Override the idle connection's existing cancellation callback only in
+       this private test. A false callback appends a harmless blank line after
+       execution starts, proving the final check discards staged results. */
+    for (unsigned distinct=0;distinct<2;distinct++) {
+        WorkerSourceTouch touch={&worker.db,source,worker.db.query_count,dx_file_stamp(source),false};
+        dx_lock(&worker.mutex); bool (*original)(void *)=worker.db.cancelled; void *original_context=worker.db.cancel_context;
+        worker.db.cancelled=touch_worker_source; worker.db.cancel_context=&touch; dx_unlock(&worker.mutex);
+        request=job(22+distinct,SOURCE_CSV,source); request->kind=distinct ? JOB_DISTINCT : JOB_COUNT; request->expected_source_stamp=touch.stamp;
+        if (distinct) { request->column=dx_strdup("value"); request->search=dx_strdup(""); request->date_level=-1; }
+        worker_submit(&worker,request); reply=wait_reply(&worker);
+        dx_lock(&worker.mutex); worker.db.cancelled=original; worker.db.cancel_context=original_context; dx_unlock(&worker.mutex);
+        CHECK(touch.changed && worker.db.query_count>touch.queries && reply->error && strstr(reply->error,"source changed") && !reply->counted_rows && !reply->distinct.count && !reply->distinct.values); reply_free(reply);
     }
     worker_stop(&worker);
     char preserved[32]={0}; FILE *file=fopen(destination,"rb"); CHECK(file && fread(preserved,1,sizeof(preserved)-1,file)==20 && fgetc(file)==EOF && !fclose(file) && !strcmp(preserved,"Preserve destination"));
