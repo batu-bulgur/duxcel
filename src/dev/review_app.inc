@@ -2279,7 +2279,23 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         t->wait_frame=a->frames;
     }
     if (t->stage>=71) {
-        int progress=t->stage>=REVIEW_FORMAT_END ? review_smoke_sql_tick(a,t) : t->stage>=REVIEW_SETTINGS_END ? review_smoke_format_tick(a,t) : t->stage>=REVIEW_INSPECTOR_END ? review_smoke_settings_tick(a,t) : t->stage>=REVIEW_STATS_END ? review_smoke_inspector_tick(a,t) : t->stage>=REVIEW_SORT_END ? review_smoke_stats_tick(a,t) : t->stage>=REVIEW_RELATION_END ? review_smoke_sort_tick(a,t) : t->stage>=REVIEW_QUERY_END ? review_smoke_relation_tick(a,t) : t->stage>=REVIEW_SHEET_END ? review_smoke_query_tick(a,t) : t->stage>=REVIEW_PLOT_END ? review_smoke_sheet_tick(a,t) : t->stage>=REVIEW_DIALOG_END ? review_smoke_plot_identity_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
+        static const struct { int exclusive_end; int (*tick)(App *,ReviewSmoke *); } handlers[]={
+            {REVIEW_AUTHOR_END,review_smoke_author_tick},
+            {REVIEW_DIALOG_END,review_smoke_dialog_tick},
+            {REVIEW_PLOT_END,review_smoke_plot_identity_tick},
+            {REVIEW_SHEET_END,review_smoke_sheet_tick},
+            {REVIEW_QUERY_END,review_smoke_query_tick},
+            {REVIEW_RELATION_END,review_smoke_relation_tick},
+            {REVIEW_SORT_END,review_smoke_sort_tick},
+            {REVIEW_STATS_END,review_smoke_stats_tick},
+            {REVIEW_INSPECTOR_END,review_smoke_inspector_tick},
+            {REVIEW_SETTINGS_END,review_smoke_settings_tick},
+            {REVIEW_FORMAT_END,review_smoke_format_tick},
+            {REVIEW_SMOKE_STAGES,review_smoke_sql_tick},
+        };
+        int progress=-1;
+        for (size_t i=0;i<sizeof(handlers)/sizeof(*handlers);i++)
+            if (t->stage<handlers[i].exclusive_end) { progress=handlers[i].tick(a,t); break; }
         if (progress<0) goto failed; if (!progress) return;
         t->stage++; return;
     }
