@@ -1,0 +1,151 @@
+/* Browser-only backend, included after the common owned job/reply cleanup.
+   The official engine lives in a separate Worker. Callbacks copy a bounded
+   transport into C memory and publish only the current session/request. */
+#include "browser_query.h"
+#include "page_wire.h"
+#include <emscripten/emscripten.h>
+#include <inttypes.h>
+#include <stdio.h>
+
+typedef enum { BROWSER_DESCRIBE, BROWSER_PAGE, BROWSER_COUNT, BROWSER_VALIDATE } BrowserStage;
+typedef struct {
+    QueryJob *job;
+    QueryReply *reply;
+    char *relation;
+    BrowserStage stage;
+    unsigned ticket;
+    double started;
+} BrowserQuery;
+static QueryWorker *browser_owner;
+static BrowserQuery browser_query;
+static Page browser_schema;
+static char *browser_schema_key;
+static unsigned browser_cookie,browser_sequence;
+EM_JS(void, browser_send, (unsigned cookie,unsigned ticket,const char *sql,const char *generation,const char *object,const char *revision,const char *offset,const char *total,const char *columns), {
+    cookie=cookie>>>0;ticket=ticket>>>0;
+    Module['dxEngine'].submit({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_query_result},cookie,ticket,{requestId:String(ticket),generation:UTF8ToString(generation),documentId:String(cookie),sourceId:'0',objectId:UTF8ToString(object),revision:UTF8ToString(revision),offset:UTF8ToString(offset),knownTotal:total?UTF8ToString(total):null,rowLimit:256,sql:UTF8ToString(sql),...(columns?{columns:JSON.parse(UTF8ToString(columns))}:{})});
+})
+EM_JS(void, browser_cancel, (int close), { Module['dxEngine'].cancel(Boolean(close)); })
+static void browser_discard(void) {
+    job_free(browser_query.job); reply_free(browser_query.reply); free(browser_query.relation);
+    browser_query=(BrowserQuery){0};
+    if (browser_owner) browser_owner->running=false;
+}
+static void browser_publish(const char *error) {
+    QueryWorker *w=browser_owner; QueryReply *r=browser_query.reply;
+    if (error) { free(r->error); r->error=dx_strdup(error); }
+    printf("Browser worker reply: {\"id\":\"%" PRIu64 "\",\"kind\":%d,\"rows\":%zu,\"columns\":%zu,\"total\":\"%" PRIu64 "\",\"counted\":\"%" PRIu64 "\",\"pending\":%d,\"error\":%d}\n",r->id,(int)r->kind,r->page.row_count,r->page.column_count,r->page.total,r->counted_rows,r->page.count_pending,r->error!=NULL);
+    browser_query.reply=NULL;
+    reply_free(w->reply); w->reply=r;
+    browser_discard();
+}
+static char *browser_json_string(const char *text) {
+    size_t size=strlen(text); char *out=dx_alloc(size*6+3),*p=out; *p++='"';
+    static const char hex[]="0123456789abcdef";
+    for (const unsigned char *s=(const unsigned char *)text;*s;s++) {
+        if (*s=='"' || *s=='\\') { *p++='\\'; *p++=(char)*s; }
+        else if (*s<32) { *p++='\\'; *p++='u'; *p++='0'; *p++='0'; *p++=hex[*s>>4]; *p++=hex[*s&15]; }
+        else *p++=(char)*s;
+    }
+    *p++='"'; *p=0; return out;
+}
+static char *browser_columns_json(void) {
+    static const char *kinds[]={"none","i8","i16","i32","i64","i128","u8","u16","u32","u64","u128","decimal","float"};
+    char *json=dx_strdup("[");
+    for (size_t i=0;i<browser_schema.column_count;i++) {
+        Column *c=&browser_schema.columns[i]; char *name=browser_json_string(c->name),*type=browser_json_string(c->type_name);
+        dx_append(&json,"%s{\"name\":%s,\"typeName\":%s,\"numberKind\":\"%s\",\"precision\":%u,\"scale\":%u}",i ? "," : "",name,type,kinds[c->number_type.kind],c->number_type.precision,c->number_type.scale);
+        free(name); free(type);
+    }
+    dx_append(&json,"]"); return json;
+}
+static void browser_execute(char *sql,BrowserStage stage) {
+    if (!sql) { browser_publish("Could not build the browser query."); return; }
+    if (browser_sequence==UINT32_MAX) { free(sql); browser_publish("Browser request limit reached. Reopen the page."); return; }
+    BrowserQuery *q=&browser_query; QueryJob *j=q->job;
+    q->stage=stage; q->ticket=++browser_sequence;
+    char id[24],object[24],revision[24],offset[24],total[24];
+    snprintf(id,sizeof(id),"%" PRIu64,j->id); snprintf(object,sizeof(object),"%" PRIu64,j->object_id); snprintf(revision,sizeof(revision),"%" PRIu64,j->revision);
+    snprintf(offset,sizeof(offset),"%" PRIu64,stage==BROWSER_PAGE ? j->offset : 0);
+    snprintf(total,sizeof(total),"%" PRIi64,j->known_total);
+    char *columns=stage==BROWSER_PAGE ? browser_columns_json() : NULL;
+    /* Browser counters count submitted SQL; the async host may supersede a
+       request before the official engine executes it. */
+    browser_owner->sql_executed++; if (stage==BROWSER_COUNT) browser_owner->counts_executed++;
+    browser_send(browser_cookie,q->ticket,sql,id,object,revision,offset,stage==BROWSER_PAGE && j->known_total>=0 ? total : NULL,columns);
+    free(sql); free(columns);
+}
+static void browser_fetch_page(void) {
+    char *error=NULL,*sql=browser_page_sql(browser_query.relation,&browser_schema,browser_query.job->offset,&error);
+    if (error) { browser_publish(error); free(error); return; }
+    browser_execute(sql,BROWSER_PAGE);
+}
+static bool browser_uint64(const char *text,uint64_t *value) {
+    if (!text || !*text || *text<'0' || *text>'9') return false;
+    uint64_t result=0;
+    for (const char *p=text;*p;p++) { if (*p<'0' || *p>'9' || result>(UINT64_MAX-(unsigned)(*p-'0'))/10) return false; result=result*10+(unsigned)(*p-'0'); }
+    *value=result; return true;
+}
+EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,const char *total_text,int pending,const char *failure) {
+    if (!browser_owner || !browser_query.job || cookie!=browser_cookie || ticket!=browser_query.ticket) return;
+    if (failure && *failure) { browser_publish(failure); return; }
+    uint64_t total=0; char *error=NULL; Page page={0};
+    QueryJob *j=browser_query.job; QueryReply *r=browser_query.reply;
+    uint64_t offset=browser_query.stage==BROWSER_PAGE ? j->offset : 0;
+    if (!browser_uint64(total_text,&total)) { browser_publish("Invalid browser row count."); return; }
+    if (!page_from_wire(&page,wire,size,offset,total,pending!=0,&error)) { browser_publish(error); free(error); return; }
+    if (browser_query.stage==BROWSER_DESCRIBE || browser_query.stage==BROWSER_VALIDATE) {
+        bool valid=browser_schema_from_describe(&browser_schema,&page,&error); page_free(&page);
+        if (!valid) { browser_publish(error); free(error); return; }
+        free(browser_schema_key); browser_schema_key=dx_strdup(browser_query.relation);
+        if (browser_query.stage==BROWSER_VALIDATE) browser_publish(NULL); else browser_fetch_page();
+        return;
+    }
+    if (browser_query.stage==BROWSER_COUNT) {
+        bool valid=page.row_count==1 && page.column_count==1 && !page.cells[0].is_null && browser_uint64(page.cells[0].text,&r->counted_rows);
+        page_free(&page); browser_publish(valid ? NULL : "Invalid browser count result."); return;
+    }
+    for (size_t c=0;c<page.column_count;c++) {
+        Column *column=&page.columns[c]; column->filtered=analysis_filter_get(&r->analysis,column->name,NULL,NULL);
+        analysis_filter_number(&r->analysis,column->name,column->number_type);
+        for (size_t n=0;n<DX_ANALYSIS_SORTS;n++) {
+            AnalysisSort sort=analysis_sort_at(&r->analysis,n); if (sort.column && !strcmp(sort.column,column->name)) { column->sort_priority=(unsigned char)(n+1); column->sort_descending=sort.descending; }
+        }
+    }
+    page.query_ms=dx_millis()-browser_query.started; r->page=page;
+    browser_publish(NULL);
+}
+bool worker_start(QueryWorker *w) {
+    if (browser_owner || browser_cookie==UINT32_MAX) return false;
+    memset(w,0,sizeof(*w)); dx_mutex_init(&w->mutex); dx_cond_init(&w->condition);
+    browser_owner=w; browser_cookie++; w->started=true; return true;
+}
+void worker_submit(QueryWorker *w,QueryJob *j) {
+    browser_discard(); reply_free(w->reply); w->reply=NULL;
+    w->latest_id=w->active_id=j->id; w->running=true; w->jobs_started++;
+    BrowserQuery *q=&browser_query; q->job=j; q->started=dx_millis();
+    QueryReply *r=q->reply=dx_alloc(sizeof(*r)); r->id=j->id; r->kind=j->kind;
+    r->object_id=j->object_id; r->revision=j->revision; r->is_preview=j->is_preview;
+    r->analysis=j->analysis; memset(&j->analysis,0,sizeof(j->analysis)); r->path=j->path; j->path=NULL;
+    if (j->kind!=JOB_PAGE && j->kind!=JOB_COUNT && j->kind!=JOB_VALIDATE_SQL && j->kind!=JOB_STEP_PREVIEW && !(j->kind==JOB_PIVOT && j->is_table)) {
+        browser_cancel(0); browser_publish("This analytical operation is not connected to the browser engine yet."); return;
+    }
+    char *error=NULL; q->relation=browser_relation_sql(&r->analysis,NULL,&error);
+    if (!q->relation) { browser_cancel(0); browser_publish(error); free(error); return; }
+    if (j->kind==JOB_COUNT) {
+        char *sql=browser_count_sql(q->relation,&error);
+        if (error) { browser_publish(error); free(error); return; } browser_execute(sql,BROWSER_COUNT); return;
+    }
+    if (j->refresh_source) { page_free(&browser_schema); free(browser_schema_key); browser_schema_key=NULL; }
+    if (j->kind!=JOB_VALIDATE_SQL && browser_schema_key && !strcmp(browser_schema_key,q->relation)) { browser_fetch_page(); return; }
+    char *sql=browser_describe_sql(q->relation,&error);
+    if (error) { browser_publish(error); free(error); return; }
+    browser_execute(sql,j->kind==JOB_VALIDATE_SQL ? BROWSER_VALIDATE : BROWSER_DESCRIBE);
+}
+QueryReply *worker_poll(QueryWorker *w) { QueryReply *r=w->reply; w->reply=NULL; return r; }
+void worker_cancel(QueryWorker *w) { w->latest_id++; browser_discard(); reply_free(w->reply); w->reply=NULL; browser_cancel(0); }
+void worker_stop(QueryWorker *w) {
+    if (!w->started) return;
+    worker_cancel(w); browser_cancel(1); page_free(&browser_schema); free(browser_schema_key); browser_schema_key=NULL; browser_owner=NULL;
+    dx_cond_destroy(&w->condition); dx_mutex_destroy(&w->mutex); w->started=false;
+}

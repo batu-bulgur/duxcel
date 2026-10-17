@@ -69,7 +69,7 @@ def inventory(root):
             pin = pins.get("browser_packages", {}).get(name, {})
             require(pin.get("version") == version and pin.get("integrity") == entry["integrity"] and pin.get("tarball") == expected_url, "Package-lock disagrees with toolchain pins: " + name)
         if name == "@duckdb/duckdb-wasm":
-            selected = [path / "dist" / filename for filename in ("duckdb-browser.mjs", "duckdb-browser-mvp.worker.js", "duckdb-mvp.wasm")]
+            selected = [path / "dist" / filename for filename in ("duckdb-browser.mjs", "duckdb-browser-eh.worker.js", "duckdb-eh.wasm")]
         elif name == "apache-arrow":
             selected = sorted(path.rglob("*.mjs"))
             require(path / "Arrow.dom.mjs" in selected, "Missing Arrow browser entry")
@@ -133,7 +133,7 @@ def package_vendor(root: Path, destination: Path):
                "@duckdb/duckdb-wasm": browser, "@duckdb/duckdb-wasm/dist/duckdb-browser.mjs": browser}
     return {"schema": "duxcel.web-vendor", "version": 1, "packages": packages, "files": manifest,
             "bytes": sum(item["bytes"] for item in manifest.values()), "import_map": {"imports": imports},
-            "worker": {"moduleURL": "./vendor/duckdb/dist/duckdb-mvp.wasm", "workerURL": "./vendor/duckdb/dist/duckdb-browser-mvp.worker.js"},
+            "worker": {"moduleURL": "./vendor/duckdb/dist/duckdb-eh.wasm", "workerURL": "./vendor/duckdb/dist/duckdb-browser-eh.worker.js"},
             "missing_standalone_licenses": missing}
 
 

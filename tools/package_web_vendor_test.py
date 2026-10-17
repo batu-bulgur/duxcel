@@ -36,8 +36,8 @@ class VendorTests(unittest.TestCase):
         self.write(self.web / "toolchain.lock.json", json.dumps({"schema": "duxcel.web-toolchain", "version": 1, "browser_packages": pins}))
         self.sources = {
             "@duckdb/duckdb-wasm/dist/duckdb-browser.mjs": 'import * as arrow from "apache-arrow";',
-            "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js": "// official worker fixture",
-            "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm": "fixture Wasm bytes",
+            "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js": "// official worker fixture",
+            "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm": "fixture Wasm bytes",
             "apache-arrow/Arrow.dom.mjs": 'export * from "./sub/child.mjs";',
             "apache-arrow/sub/child.mjs": 'import * as f from "flatbuffers"; import { __extends } from "tslib";',
             "apache-arrow/Arrow.node.mjs": "// unused node entry, retained .mjs tree",
@@ -64,7 +64,7 @@ class VendorTests(unittest.TestCase):
             self.assertEqual(entry, {"sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)})
             self.assertFalse(path.endswith((".map", ".d.ts", ".cjs")))
             self.assertNotIn("-coi", path)
-            self.assertNotIn("-eh", path)
+            self.assertNotIn("-mvp", path)
         self.assertEqual(result["bytes"], sum(item["bytes"] for item in files.values()))
         self.assertIn("vendor/apache-arrow/sub/child.mjs", files)
         self.assertIn("vendor/flatbuffers/mjs/constants.js", files)
@@ -90,7 +90,7 @@ class VendorTests(unittest.TestCase):
             vendor.package_vendor(self.root, self.destination)
 
     def test_missing_required_asset_or_license_never_publishes(self):
-        asset = self.web / "node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm"
+        asset = self.web / "node_modules/@duckdb/duckdb-wasm/dist/duckdb-eh.wasm"
         asset.unlink()
         with self.assertRaises(OSError):
             vendor.package_vendor(self.root, self.destination)
@@ -113,7 +113,7 @@ class VendorTests(unittest.TestCase):
     def test_source_and_destination_symlinks_and_source_overlap_are_rejected(self):
         outside = self.base / "outside"
         outside.write_text("outside")
-        asset = self.web / "node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm"
+        asset = self.web / "node_modules/@duckdb/duckdb-wasm/dist/duckdb-eh.wasm"
         asset.unlink(); asset.symlink_to(outside)
         with self.assertRaises(vendor.VendorError):
             vendor.package_vendor(self.root, self.destination)

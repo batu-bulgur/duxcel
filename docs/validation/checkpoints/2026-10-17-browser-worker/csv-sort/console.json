@@ -1,0 +1,722 @@
+[
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342056.764,
+    "text": [
+      "INFO: Initializing raylib 6.0"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342056.902,
+    "text": [
+      "INFO: Platform backend: WEB (HTML5)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342056.949,
+    "text": [
+      "INFO: Supported raylib modules:"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342056.989,
+    "text": [
+      "INFO:     > rcore:..... loaded (mandatory)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342057.032,
+    "text": [
+      "INFO:     > rlgl:...... loaded (mandatory)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342057.071,
+    "text": [
+      "INFO:     > rshapes:... loaded (optional)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342057.111,
+    "text": [
+      "INFO:     > rtextures:. loaded (optional)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342057.149,
+    "text": [
+      "INFO:     > rtext:..... loaded (optional)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342057.194,
+    "text": [
+      "INFO:     > rmodels:... loaded (optional)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342057.237,
+    "text": [
+      "INFO:     > raudio:.... loaded (optional)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342077.736,
+    "text": [
+      "INFO: DISPLAY: Device initialized successfully (HighDPI)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342077.859,
+    "text": [
+      "INFO:     > Display size: 1280 x 820"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342077.908,
+    "text": [
+      "INFO:     > Screen size:  1280 x 820"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342077.962,
+    "text": [
+      "INFO:     > Render size:  1280 x 820"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342078.007,
+    "text": [
+      "INFO:     > Viewport offsets: 0, 0"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342078.619,
+    "text": [
+      "INFO: GL: Supported extensions count: 73"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342078.997,
+    "text": [
+      "INFO: GL: OpenGL device information:"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342079.234,
+    "text": [
+      "INFO:     > Vendor:   WebKit"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342079.28,
+    "text": [
+      "INFO:     > Renderer: WebKit WebGL"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342079.568,
+    "text": [
+      "INFO:     > Version:  OpenGL ES 2.0 (WebGL 1.0 (OpenGL ES 2.0 Chromium))"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342079.721,
+    "text": [
+      "INFO:     > GLSL:     OpenGL ES GLSL ES 1.00 (WebGL GLSL ES 1.0 (OpenGL ES GLSL ES 1.0 Chromium))"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342080.142,
+    "text": [
+      "INFO: GL: VAO extension detected, VAO functions loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342080.186,
+    "text": [
+      "WARNING: GL: NPOT textures extension not found, limited NPOT support (no-mipmaps, no-repeat)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342080.233,
+    "text": [
+      "INFO: GL: DXT compressed textures supported"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342080.272,
+    "text": [
+      "INFO: GL: ETC1 compressed textures supported"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342081.39,
+    "text": [
+      "INFO: PLATFORM: WEB: Initialized successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342082.65,
+    "text": [
+      "INFO: TEXTURE: [ID 2] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342082.72,
+    "text": [
+      "INFO: TEXTURE: [ID 2] Default texture loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342093.306,
+    "text": [
+      "INFO: SHADER: [ID 3] Vertex shader compiled successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342094.82,
+    "text": [
+      "INFO: SHADER: [ID 4] Fragment shader compiled successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342098.369,
+    "text": [
+      "INFO: SHADER: [ID 5] Program shader loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342098.467,
+    "text": [
+      "INFO: SHADER: [ID 5] Default shader loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342098.947,
+    "text": [
+      "INFO: RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342099.47,
+    "text": [
+      "INFO: RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342099.599,
+    "text": [
+      "INFO: RLGL: Default OpenGL state initialized successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342099.835,
+    "text": [
+      "INFO: TEXTURE: [ID 12] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342099.965,
+    "text": [
+      "INFO: FONT: Default font loaded successfully (224 glyphs)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342100.06,
+    "text": [
+      "INFO: SYSTEM: Working Directory: /"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342100.121,
+    "text": [
+      "Native test window: visible"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342100.172,
+    "text": [
+      "WARNING: GetWindowHandle() not implemented on target platform"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342101.069,
+    "text": [
+      "INFO: IMAGE: Data loaded successfully (16x16 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342101.153,
+    "text": [
+      "INFO: IMAGE: Data loaded successfully (32x32 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342101.241,
+    "text": [
+      "INFO: IMAGE: Data loaded successfully (64x64 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342101.398,
+    "text": [
+      "INFO: IMAGE: Data loaded successfully (128x128 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342101.795,
+    "text": [
+      "INFO: IMAGE: Data loaded successfully (256x256 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342103.145,
+    "text": [
+      "INFO: IMAGE: Data loaded successfully (512x512 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342103.218,
+    "text": [
+      "WARNING: SetWindowIcons() not available on target platform"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342104.377,
+    "text": [
+      "INFO: IMAGE: Data loaded successfully (512x512 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342104.615,
+    "text": [
+      "INFO: TEXTURE: [ID 13] Texture loaded successfully (512x512 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342104.762,
+    "text": [
+      "INFO: TEXTURE: [ID 13] Mipmaps generated automatically, total: 10"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342104.852,
+    "text": [
+      "WARNING: GetCurrentMonitor() not implemented on target platform"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342104.897,
+    "text": [
+      "WARNING: GetMonitorRefreshRate() not implemented on target platform"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342105.108,
+    "text": [
+      "INFO: TIMER: Target time per frame: 0.000 milliseconds"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342105.147,
+    "text": [
+      "Frame pacing cap=0 monitor=0 Hz (vsync requested)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342106.026,
+    "text": [
+      "INFO: FILEIO: [/assets/ui/carbon-atlas.png] File loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342109.418,
+    "text": [
+      "INFO: IMAGE: Data loaded successfully (512x640 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342109.655,
+    "text": [
+      "INFO: TEXTURE: [ID 14] Texture loaded successfully (512x640 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342110.005,
+    "text": [
+      "INFO: FILEIO: [/assets/fonts/IBMPlexSans-Regular.otf] File loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342110.187,
+    "text": [
+      "INFO: FILEIO: [/assets/fonts/IBMPlexSans-Medium.otf] File loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342110.279,
+    "text": [
+      "INFO: FILEIO: [/assets/fonts/IBMPlexSans-SemiBold.otf] File loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342110.365,
+    "text": [
+      "INFO: FILEIO: [/assets/fonts/IBMPlexSans-Italic.otf] File loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342110.446,
+    "text": [
+      "INFO: FILEIO: [/assets/fonts/IBMPlexSans-SemiBoldItalic.otf] File loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342110.533,
+    "text": [
+      "INFO: FILEIO: [/assets/fonts/JetBrainsMono-Regular.ttf] File loaded successfully"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342115.434,
+    "text": [
+      "WARNING: FONT: Requested codepoints glyphs found: [417/979]"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342116.246,
+    "text": [
+      "INFO: TEXTURE: [ID 15] Texture loaded successfully (512x512 | GRAY_ALPHA | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342116.417,
+    "text": [
+      "INFO: FONT: Data loaded successfully (21 pixel size | 417 glyphs)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342120.195,
+    "text": [
+      "WARNING: FONT: Requested codepoints glyphs found: [417/979]"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342121.004,
+    "text": [
+      "INFO: TEXTURE: [ID 16] Texture loaded successfully (512x512 | GRAY_ALPHA | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342121.135,
+    "text": [
+      "INFO: FONT: Data loaded successfully (15 pixel size | 417 glyphs)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342124.985,
+    "text": [
+      "WARNING: FONT: Requested codepoints glyphs found: [417/979]"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342125.581,
+    "text": [
+      "INFO: TEXTURE: [ID 17] Texture loaded successfully (512x512 | GRAY_ALPHA | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342125.741,
+    "text": [
+      "INFO: FONT: Data loaded successfully (21 pixel size | 417 glyphs)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342129.639,
+    "text": [
+      "WARNING: FONT: Requested codepoints glyphs found: [417/979]"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342130.241,
+    "text": [
+      "INFO: TEXTURE: [ID 18] Texture loaded successfully (512x512 | GRAY_ALPHA | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342130.384,
+    "text": [
+      "INFO: FONT: Data loaded successfully (21 pixel size | 417 glyphs)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342134.642,
+    "text": [
+      "WARNING: FONT: Requested codepoints glyphs found: [417/979]"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342135.303,
+    "text": [
+      "INFO: TEXTURE: [ID 19] Texture loaded successfully (512x512 | GRAY_ALPHA | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342135.454,
+    "text": [
+      "INFO: FONT: Data loaded successfully (21 pixel size | 417 glyphs)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342139.518,
+    "text": [
+      "WARNING: FONT: Requested codepoints glyphs found: [417/979]"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342140.171,
+    "text": [
+      "INFO: TEXTURE: [ID 20] Texture loaded successfully (512x512 | GRAY_ALPHA | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342140.315,
+    "text": [
+      "INFO: FONT: Data loaded successfully (21 pixel size | 417 glyphs)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342140.504,
+    "text": [
+      "INFO: TEXTURE: [ID 21] Texture loaded successfully (64x64 | GRAY_ALPHA | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342140.551,
+    "text": [
+      "INFO: FONT: Data loaded successfully (14 pixel size | 7 glyphs)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247342140.975,
+    "text": [
+      "Render batch buffers=1 elements=2048"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247343317.696,
+    "text": [
+      "Browser worker reply: {\"id\":\"2\",\"kind\":0,\"rows\":5,\"columns\":6,\"total\":\"5\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247343332.762,
+    "text": [
+      "First visible rows: 1278.30 ms; cache: 5 rows, 1203 bytes"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247343541.469,
+    "text": [
+      "Browser worker reply: {\"id\":\"3\",\"kind\":0,\"rows\":5,\"columns\":6,\"total\":\"5\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247343933.855,
+    "text": [
+      "INFO: TEXTURE: [ID 23] Texture loaded successfully (320x192 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247343949.895,
+    "text": [
+      "INFO: TEXTURE: [ID 25] Texture loaded successfully (320x192 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247344317.202,
+    "text": [
+      "INFO: TEXTURE: [ID 27] Texture loaded successfully (256x512 | R8G8B8A8 | 1 mipmaps)"
+    ]
+  }
+]

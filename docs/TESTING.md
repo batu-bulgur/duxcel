@@ -84,8 +84,22 @@ python3 tools/test_review_build.py --shipping ./duxcel --review build/review/dux
 python3 tools/test_review_build.py --shipping ./duxcel-debug --review build/review-sanitize/duxcel-review
 ```
 
-These inspect immutable artifact copies for linked review symbols, source paths, protocol/command strings and isolated build configuration; they do not launch applications. Hidden native acceptance still needs an unlocked macOS graphics session. A locked screen can prevent even a hidden context from being created; that is a recorded failed gate, not permission to activate a visible app. The native scenario exercises queued controller input and real GPU pixels, not physical Cocoa shortcut/IME delivery. Capture/write timings are recorded separately from ordinary app frame summaries, whose sampling pauses during composition.
+These inspect immutable artifact copies for linked review symbols, source paths, protocol/command strings and isolated build configuration; they do not launch applications. Hidden native acceptance still needs an unlocked macOS graphics session. A locked screen can prevent even a hidden context from being created; that is a recorded failed gate, not permission to activate a visible app. The native scenario exercises queued controller input and real GPU pixels, not physical Cocoa shortcut/IME delivery. Capture/write timings are recorded separately from ordinary app frame summaries; normal, capture and frozen composition frames are all sampled.
 
 ## Isolated web preparation
 
 `python3 tools/web_toolchain_test.py` checks bootstrap fixtures without network or graphics. `python3 tools/web_toolchain.py status` verifies the installed local compiler; `python3 tools/build_web_raylib.py` builds the pinned dependency with one compiler process, validates every archive object as Wasm, and publishes its library atomically under `build/web/raylib/`. It uses a private copied source/build tree and does not use Homebrew's native archive. The dependency uses its upstream GNU99 web setting for Emscripten `EM_ASM`; application C remains C99. See [setup and constraints](../web/README.md) and [actual compiler/dependency evidence](validation/checkpoints/2026-10-17-web-toolchain/). Toolchain checks alone do not close browser acceptance. `make web` builds the shared App; `python3 tools/test_web_app.py --no-build` acquires the desktop lock and checks it in an owned headless Chromium profile. The W1 interaction proof is separate from W2 query/ownership acceptance.
+
+## Real browser engine gates
+
+```sh
+make test-browser-core
+python3 tools/build_web.py --worker-driver
+python3 tools/test_web_app.py --no-build --worker-driver
+make web
+python3 tools/test_web_app.py --no-build --source tests/fixtures/transactions.csv
+python3 tools/test_web_app.py --no-build --source tests/downloads/yellow_tripdata_2025-01.parquet
+python3 tools/test_web_app.py --no-build --worker-probe
+```
+
+Core gates are independent release/ASan C ownership/SQL/model checks plus pure JS/packaging tests. The separate no-window C Worker driver runs13 real semantic stages; the optional probe separately checks the official adapter/engine. Application source gates use its real Open command and browser chooser, wait for actual C page/count publication, and preserve wide/narrow captures. The CSV fixture also uses the actual descending-sort button. All browser runs acquire the desktop lock and use only an owned headless Chromium profile; no user browser or OS input is touched. Immutable App/driver outputs have separate manifests and latest pointers. The probe is served only by the test server, and the C driver/host is never packaged with the normal App. The loopback server avoids reverse DNS (previously35 s of setup); setup/browser/total timings are now explicit. Full browser input/DPR/GPU and reference parity are separate acceptance.

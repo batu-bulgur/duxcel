@@ -1,9 +1,9 @@
-# Web toolchain preparation
+# Shared C99 browser proof
 
 This directory pins the tools for compiling Duxcel's existing C99/raylib UI.
 The bootstrap installs a compiler and raylib source. The shared App now runs
 through a browser-scheduled tick, with owned hidden Chromium interaction evidence.
-The W2 DuckDB-Wasm Worker bridge remains pending. No alternate JavaScript UI or
+The official DuckDB-Wasm source-query bridge and asynchronous CSV/Parquet import are now running. No alternate JavaScript UI or
 custom combined DuckDB build is introduced.
 
 From the checkout root:
@@ -78,7 +78,7 @@ lookups during bootstrap.
   `1.33.1-dev57.0`; stable published 1.32.0 is pinned deliberately. The intended
   bridge uses the [official asynchronous Worker API](https://duckdb.org/docs/stable/clients/wasm/instantiation.html),
   initially its single threaded bundles. Package pins do not establish the
-  embedded engine version; W2 must obtain that from the running engine.
+  embedded engine version; the Worker checkpoint obtains that from the running engine.
 
 Browser packages are declared for the later bridge and are not downloaded or
 installed by this bootstrap. Their full transitive packaging lock belongs with
@@ -136,7 +136,7 @@ upstream audio warnings are retained in `build/web/raylib/build.txt`.
 
 [Compiler/dependency evidence](../docs/validation/checkpoints/2026-10-17-web-toolchain/)
 records timing, sizes and hashes. The shared App renderer is now implemented; the official
-DuckDB-Wasm Worker bridge remains pending.
+DuckDB-Wasm Worker source bridge and file import are implemented.
 
 ## Shared App renderer
 
@@ -153,8 +153,22 @@ an ephemeral loopback port, and starts installed Chromium in headless mode with
 a fresh temporary profile. It never uses a user's browser/profile or activates
 a window. Set `DUXCEL_CHROMIUM` to an existing compatible executable if needed.
 
-This checkpoint contains the real C UI and sparse manual cells. Browser engine,
-Open/Save/relink and workbook persistence are explicitly unavailable until their
-adapters are connected. Native production still uses native DuckDB and Cocoa.
+This checkpoint contains the real C UI, sparse manual cells and official asynchronous
+DuckDB-Wasm source pages/count/SQL validation/preview. Open imports CSV/TSV/Parquet
+through the browser file chooser (Ctrl+O in this proof). Save/relink, workbook
+persistence and further analytical operations remain explicitly unavailable. Native production still uses native DuckDB and Cocoa.
 Current evidence is DPR 1; Retina/clipboard/IME/physical input and full browser
 parity are separate gates. See the [renderer checkpoint](../docs/validation/checkpoints/2026-10-17-shared-browser/).
+
+The local browser packages are installed with `npm ci --ignore-scripts --no-audit --no-fund`
+in `web/`, using the committed lock. The packager copies only same-origin runtime
+assets/licenses and records hashes; the accepted engine is the official single-threaded
+EH bundle, requiring WebAssembly exception handling. Tested Chromium 150 reports
+engine v1.4.3 from package 1.32.0. The MVP bundle's SQL error behavior failed acceptance
+and is not packaged. Native distribution is unaffected.
+
+Run `make test-browser-core` for the fast release/sanitizer/transport gate.
+`python3 tools/build_web.py --worker-driver` builds a separate no-window C acceptance
+artifact; `python3 tools/test_web_app.py --no-build --worker-driver` exercises the
+full real-engine bridge. Source UI gates and current limits are in
+[TESTING.md](../docs/TESTING.md) and the [Worker checkpoint](../docs/validation/checkpoints/2026-10-17-browser-worker/).

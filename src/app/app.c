@@ -12,6 +12,13 @@
 #include "../ui/dockview.h"
 #include "../ui/marksview.h"
 #include "../ui/statusview.h"
+#ifdef DUXCEL_BROWSER_HOST
+#include <emscripten/emscripten.h>
+static unsigned browser_app_id;
+EM_JS(void, app_browser_choose_file, (unsigned session), {
+    Module['dxEngine'].chooseFile({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_file_result},session);
+})
+#endif
 #include <rlgl.h>
 #include "../ui/ribbon.h"
 #include "../ui/ribbon_spec.h"
@@ -812,7 +819,12 @@ static void open_source(App *a,const char *path,bool demo) {
     if (!demo && workbook_is_path(path)) { request_document_action(a,DOCUMENT_OPEN,path); return; }
     SourceKind kind=demo ? SOURCE_DEMO : source_kind(path);
     if (kind==SOURCE_NONE) { status(a,"Choose a .csv, .csv.gz, .tsv, .parquet or .duckdb file."); return; }
+#ifdef DUXCEL_BROWSER_HOST
+    /* This identity names an owned file in the engine Worker's virtual FS. */
+    char *absolute=dx_strdup(demo ? "" : path);
+#else
     char *absolute=demo ? dx_strdup("") : dx_absolute_path(path);
+#endif
     if (!absolute) { status(a,"Source file is missing or inaccessible. Open its current location to recover."); return; }
     capture_sheet(a);
     Analysis source={.kind=kind,.path=absolute}; char *error=NULL;
@@ -1470,8 +1482,9 @@ static void history(App *a,bool redo) {
 }
 static void open_modal(App *a,Modal modal) {
 #ifdef DUXCEL_BROWSER_HOST
-    if (modal==MODAL_OPEN || modal==MODAL_SAVE || modal==MODAL_RELINK) {
-        status(a,"Browser file access is not connected yet."); a->consume_grid_input=true; return;
+    if (modal==MODAL_OPEN) { a->consume_grid_input=true; app_browser_choose_file(browser_app_id); return; }
+    if (modal==MODAL_SAVE || modal==MODAL_RELINK) {
+        status(a,"Browser workbook save/relink is not connected yet."); a->consume_grid_input=true; return;
     }
 #endif
 #ifdef __APPLE__
@@ -11074,6 +11087,18 @@ struct AppSession {
 #endif
 };
 static AppSession *active_session; /* raylib owns one process-wide window/context. */
+#ifdef DUXCEL_BROWSER_HOST
+EMSCRIPTEN_KEEPALIVE void dx_browser_file_result(unsigned session,const char *path,const char *label,const char *error) {
+    if (!active_session || active_session->finished || session!=browser_app_id) return;
+    App *a=&active_session->app;
+    if (error && *error) status(a,error);
+    else if (path && *path) {
+        open_source(a,path,false);
+        Worksheet *sheet=active_sheet(a);
+        if (sheet && label && *label && !strcmp(a->analysis.path ? a->analysis.path : "",path)) { free(sheet->name); sheet->name=dx_strdup(label); }
+    }
+}
+#endif
 static void app_session_free(AppSession *session) {
     if (active_session==session) active_session=NULL;
     free(session->path); free(session->screenshot); free(session);
@@ -11082,6 +11107,9 @@ AppSession *app_start(const AppOptions *options) {
     if (!options || active_session) return NULL;
     AppSession *session=dx_alloc(sizeof(*session));
     active_session=session;
+#ifdef DUXCEL_BROWSER_HOST
+    browser_app_id++;
+#endif
     session->options=*options;
     if (options->path) session->options.path=session->path=dx_strdup(options->path);
     if (options->screenshot) session->options.screenshot=session->screenshot=dx_strdup(options->screenshot);

@@ -1,0 +1,21 @@
+{
+  "normal_artifact": "/Users/h2o/dev/duxcel/build/web/app/d795294094acc1d21eb6",
+  "wasm_sha256": "5366f547ad88b6ee91333cce59dc0d7c2995818c2ae8b706672a968cb4c84192",
+  "forbidden_bytes_absent": {
+    "dx_review_": true,
+    "duxcel.ui-report": true,
+    "dxBrowserWorkerTestDone": true,
+    "test_browser_worker.c": true
+  },
+  "qa_assets_absent": true,
+  "native": {
+    "duxcel": {
+      "sha256": "49b927308aa5a0679b9f77b5d0fd3774d96bf5a569c7616059c624450d75c2cd",
+      "added_browser_or_review_symbols": []
+    },
+    "duxcel-debug": {
+      "sha256": "bf781d032827eaf450ef84867bdce5780364c962025478ec5e5f492414cc1a6d",
+      "added_browser_or_review_symbols": []
+    }
+  }
+}

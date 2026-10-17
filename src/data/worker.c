@@ -129,26 +129,5 @@ void worker_stop(QueryWorker *w) {
 }
 
 #else
-/* W1 renderer-only backend. Every attempted engine action returns an owned,
-   explicit error; it never publishes sample rows or pretends to save data.
-   The official asynchronous Worker transport replaces this boundary in W2. */
-bool worker_start(QueryWorker *w) {
-    memset(w,0,sizeof(*w)); dx_mutex_init(&w->mutex); dx_cond_init(&w->condition);
-    w->started=true; return true;
-}
-void worker_submit(QueryWorker *w,QueryJob *j) {
-    w->latest_id=j->id; reply_free(w->reply);
-    QueryReply *r=dx_alloc(sizeof(*r)); r->id=j->id; r->kind=j->kind;
-    r->object_id=j->object_id; r->revision=j->revision; r->is_preview=j->is_preview;
-    r->analysis=j->analysis; memset(&j->analysis,0,sizeof(j->analysis));
-    r->path=j->path; j->path=NULL;
-    r->error=dx_strdup("The browser query backend is not connected yet.");
-    w->reply=r; job_free(j);
-}
-QueryReply *worker_poll(QueryWorker *w) { QueryReply *r=w->reply; w->reply=NULL; return r; }
-void worker_cancel(QueryWorker *w) { w->latest_id++; reply_free(w->reply); w->reply=NULL; }
-void worker_stop(QueryWorker *w) {
-    if (!w->started) return;
-    worker_cancel(w); dx_cond_destroy(&w->condition); dx_mutex_destroy(&w->mutex); w->started=false;
-}
+#include "worker_browser.inc"
 #endif

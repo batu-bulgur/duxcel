@@ -1,0 +1,362 @@
+[
+  {
+    "method": "Log.entryAdded",
+    "type": null,
+    "timestamp": null,
+    "text": [],
+    "details": {
+      "entry": {
+        "source": "network",
+        "level": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (File not found)",
+        "timestamp": 1792247429807.886,
+        "url": "http://127.0.0.1:58884/favicon.ico",
+        "networkRequestId": "53802.146"
+      }
+    }
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430376.15,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254740993\",\"kind\":0,\"rows\":1,\"columns\":12,\"total\":\"1\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430383.858,
+    "text": [
+      "PASS browser-worker: exact owned values and uint64 identities"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430396.501,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254740997\",\"kind\":0,\"rows\":256,\"columns\":3,\"total\":\"256\",\"counted\":\"0\",\"pending\":1,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430398.401,
+    "text": [
+      "PASS browser-worker: range first page / DESCRIBE then canonical query"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430403.524,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741001\",\"kind\":0,\"rows\":256,\"columns\":3,\"total\":\"512\",\"counted\":\"0\",\"pending\":1,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430415.735,
+    "text": [
+      "PASS browser-worker: range second page / described schema reused"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430419.368,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741005\",\"kind\":0,\"rows\":88,\"columns\":3,\"total\":\"600\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430432.149,
+    "text": [
+      "PASS browser-worker: range final page / precise lower bound"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430443.99,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741009\",\"kind\":8,\"rows\":0,\"columns\":0,\"total\":\"0\",\"counted\":\"600\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430448.617,
+    "text": [
+      "PASS browser-worker: real count 600"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430453.076,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741013\",\"kind\":5,\"rows\":256,\"columns\":3,\"total\":\"600\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430465.72,
+    "text": [
+      "PASS browser-worker: table-scoped page and known count / no redundant DESCRIBE"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430468.165,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741017\",\"kind\":11,\"rows\":0,\"columns\":0,\"total\":\"0\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430481.973,
+    "text": [
+      "PASS browser-worker: real SQL validation / owned empty reply"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430485.266,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741021\",\"kind\":12,\"rows\":88,\"columns\":3,\"total\":\"600\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430498.752,
+    "text": [
+      "PASS browser-worker: historical preview page and schema reuse"
+    ]
+  },
+  {
+    "method": "Log.entryAdded",
+    "type": null,
+    "timestamp": null,
+    "text": [],
+    "details": {
+      "entry": {
+        "source": "worker",
+        "level": "info",
+        "text": "Error: Binder Error: Referenced column \"definitely_missing_column\" not found in FROM clause!\nCandidate bindings: \"City\"\n\nLINE 11: SELECT definitely_missing_column FROM input\n                ^",
+        "timestamp": 1792247430508.132,
+        "url": "http://127.0.0.1:58884/vendor/duckdb/dist/duckdb-browser-eh.worker.js",
+        "lineNumber": 0,
+        "stackTrace": {
+          "callFrames": [
+            {
+              "functionName": "onMessage",
+              "scriptId": "3",
+              "url": "http://127.0.0.1:58884/vendor/duckdb/dist/duckdb-browser-eh.worker.js",
+              "lineNumber": 0,
+              "columnNumber": 752411
+            }
+          ]
+        },
+        "workerId": "555FF994326442C611E4E6F7D3ACF4DB"
+      }
+    }
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430508.589,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741025\",\"kind\":0,\"rows\":0,\"columns\":0,\"total\":\"0\",\"counted\":\"0\",\"pending\":0,\"error\":1}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430515.448,
+    "text": [
+      "PASS browser-worker: useful real engine SQL error"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430519.361,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741029\",\"kind\":0,\"rows\":256,\"columns\":3,\"total\":\"600\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430532.266,
+    "text": [
+      "PASS browser-worker: error recovery retains the valid described schema"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430534.596,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741033\",\"kind\":11,\"rows\":0,\"columns\":0,\"total\":\"0\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Log.entryAdded",
+    "type": null,
+    "timestamp": null,
+    "text": [],
+    "details": {
+      "entry": {
+        "source": "worker",
+        "level": "info",
+        "text": "Error: query was canceled",
+        "timestamp": 1792247430651.239,
+        "url": "http://127.0.0.1:58884/vendor/duckdb/dist/duckdb-browser-eh.worker.js",
+        "lineNumber": 0,
+        "stackTrace": {
+          "callFrames": [
+            {
+              "functionName": "onMessage",
+              "scriptId": "3",
+              "url": "http://127.0.0.1:58884/vendor/duckdb/dist/duckdb-browser-eh.worker.js",
+              "lineNumber": 0,
+              "columnNumber": 752411
+            }
+          ]
+        },
+        "workerId": "555FF994326442C611E4E6F7D3ACF4DB"
+      }
+    }
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430654.193,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741041\",\"kind\":0,\"rows\":1,\"columns\":1,\"total\":\"1\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430665.421,
+    "text": [
+      "PASS browser-worker: rapid long/short latest-wins / only current reply"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247430835.732,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741045\",\"kind\":11,\"rows\":0,\"columns\":0,\"total\":\"0\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Log.entryAdded",
+    "type": null,
+    "timestamp": null,
+    "text": [],
+    "details": {
+      "entry": {
+        "source": "worker",
+        "level": "info",
+        "text": "Error: query was canceled",
+        "timestamp": 1792247430951.164,
+        "url": "http://127.0.0.1:58884/vendor/duckdb/dist/duckdb-browser-eh.worker.js",
+        "lineNumber": 0,
+        "stackTrace": {
+          "callFrames": [
+            {
+              "functionName": "onMessage",
+              "scriptId": "3",
+              "url": "http://127.0.0.1:58884/vendor/duckdb/dist/duckdb-browser-eh.worker.js",
+              "lineNumber": 0,
+              "columnNumber": 752411
+            }
+          ]
+        },
+        "workerId": "555FF994326442C611E4E6F7D3ACF4DB"
+      }
+    }
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247431054.622,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741053\",\"kind\":0,\"rows\":1,\"columns\":1,\"total\":\"1\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247431065.424,
+    "text": [
+      "PASS browser-worker: explicit cancel, cookie/ticket fences and recovery"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247431067.919,
+    "text": [
+      "Browser worker reply: {\"id\":\"9007199254741057\",\"kind\":11,\"rows\":0,\"columns\":0,\"total\":\"0\",\"counted\":\"0\",\"pending\":0,\"error\":0}"
+    ]
+  },
+  {
+    "method": "Log.entryAdded",
+    "type": null,
+    "timestamp": null,
+    "text": [],
+    "details": {
+      "entry": {
+        "source": "worker",
+        "level": "info",
+        "text": "Error: query was canceled",
+        "timestamp": 1792247431185.007,
+        "url": "http://127.0.0.1:58884/vendor/duckdb/dist/duckdb-browser-eh.worker.js",
+        "lineNumber": 0,
+        "stackTrace": {
+          "callFrames": [
+            {
+              "functionName": "onMessage",
+              "scriptId": "3",
+              "url": "http://127.0.0.1:58884/vendor/duckdb/dist/duckdb-browser-eh.worker.js",
+              "lineNumber": 0,
+              "columnNumber": 752411
+            }
+          ]
+        },
+        "workerId": "555FF994326442C611E4E6F7D3ACF4DB"
+      }
+    }
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247431332.072,
+    "text": [
+      "PASS browser-worker: early stop and scheduled stale callbacks are ignored"
+    ]
+  },
+  {
+    "method": "Runtime.consoleAPICalled",
+    "type": "log",
+    "timestamp": 1792247431332.301,
+    "text": [
+      "PASS browser-worker complete: 1907 checks, 13 stages, 22 SQL, 1 counts"
+    ]
+  }
+]
