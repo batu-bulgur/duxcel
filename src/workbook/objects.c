@@ -42,7 +42,8 @@ bool objects_valid(const ObjectStore *s,char **error) {
     for (size_t i=0;i<s->count;i++) {
         const SheetObject *o=&s->items[i];
         for (size_t j=0;j<i;j++) if (s->items[j].id==o->id) return fail(error,"Duplicate sheet object ID.");
-        if (!o->id || !o->name || !*o->name || strlen(o->name)>4096 || (unsigned)o->kind>OBJECT_TABLE || (unsigned)o->mark>MARK_SCATTER || (o->kind!=OBJECT_CHART && o->mark!=MARK_BAR) || (o->chart_measure && o->chart_measure>=o->pivot.counts[PIVOT_VALUES]) || !pivot_valid(&o->pivot,error) || !marks_valid(&o->marks,error)) return fail(error,"Invalid sheet object definition.");
+        if (!o->id || o->id>s->next_id) return fail(error,"Invalid sheet object ID allocation high-water mark.");
+        if (!o->name || !*o->name || strlen(o->name)>4096 || (unsigned)o->kind>OBJECT_TABLE || (unsigned)o->mark>MARK_SCATTER || (o->kind!=OBJECT_CHART && o->mark!=MARK_BAR) || (o->chart_measure && o->chart_measure>=o->pivot.counts[PIVOT_VALUES]) || !pivot_valid(&o->pivot,error) || !marks_valid(&o->marks,error)) return fail(error,"Invalid sheet object definition.");
         if (o->kind==OBJECT_TABLE) {
             if (marks_text_bytes(&o->marks) || o->source_id || !source_valid(&o->source,error)) return fail(error,"Invalid table source definition.");
             for (int r=0;r<4;r++) if (o->pivot.counts[r]) return fail(error,"A table cannot contain pivot shelves.");
@@ -66,7 +67,8 @@ void objects_copy(ObjectStore *to,const ObjectStore *from) {
     objects_free(to); to->items=copy.items; to->count=copy.count; to->next_id=next; to->title_revision=titles; to->marks_revision=marks;
 }
 int objects_add(ObjectStore *s,uint64_t row,size_t col,const char *name,char **error) {
-    if (s->count==DX_MAX_OBJECTS || s->next_id==UINT64_MAX || row>DX_SHEET_ROWS-5 || col>16384-4 || !name || !*name || strlen(name)>4096) { fail(error,"Choose a destination inside the sheet; use up to 32 objects per sheet."); return -1; }
+    if (s->next_id==UINT64_MAX) { fail(error,"This worksheet has exhausted its object IDs."); return -1; }
+    if (s->count==DX_MAX_OBJECTS || row>DX_SHEET_ROWS-5 || col>16384-4 || !name || !*name || strlen(name)>4096) { fail(error,"Choose a destination inside the sheet; use up to 32 objects per sheet."); return -1; }
     remember(s); s->items=dx_realloc(s->items,(s->count+1)*sizeof(SheetObject));
     s->items[s->count]=(SheetObject){.id=++s->next_id,.row=row,.col=col,.rows=5,.columns=4,.revision=1,.name=dx_strdup(name)};
     return (int)s->count++;
