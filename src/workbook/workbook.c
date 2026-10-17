@@ -1,6 +1,8 @@
 #include "workbook.h"
 #include "../platform/platform.h"
+#ifndef DUXCEL_BROWSER_HOST
 #include <duckdb.h>
+#endif
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -265,6 +267,9 @@ char *workbook_relative_path(const char *workspace,const char *source) {
     size_t n=strlen(dir); if (n && dir[n-1]!='/' && dir[n-1]!='\\') dx_append(&out,"../");
     dx_append(&out,"%s",source+common); free(dir); return out;
 }
+/* The shared model and path helpers above need no engine. Native persistence
+   stays intact; the browser renderer supplies an explicit unavailable adapter. */
+#ifndef DUXCEL_BROWSER_HOST
 static bool exec(duckdb_connection c,const char *sql,char **error) {
     duckdb_result r; bool ok=duckdb_query(c,sql,&r)==DuckDBSuccess;
     if (!ok) error_set(error,duckdb_result_error(&r)); duckdb_destroy_result(&r); return ok;
@@ -939,3 +944,4 @@ bool workbook_load(Workbook *out,const char *path,char **error) {
  done:
     duckdb_destroy_result(&r); workbook_free(&book); if (c) duckdb_disconnect(&c); if (db) duckdb_close(&db); dx_remove_temp_directory(temporary); free(temporary); free(target); return ok;
 }
+#endif
