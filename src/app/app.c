@@ -405,6 +405,8 @@ static void review_sql_content(App *a,const char *sql,Rectangle bounds,Rectangle
 static void review_guide(App *a,const GuideReviewFrame *frame);
 static void review_cell_editor(App *a,Rectangle bounds,Rectangle clip,const char *file,int line);
 static void review_error_content(App *a,Rectangle bounds,size_t painted_lines,bool clipped,const char *file,int line);
+static void review_query_status(App *a,const char *text,Rectangle bounds,const char *file,int line);
+static void review_query_error(App *a,Rectangle bounds,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -440,6 +442,8 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_GUIDE(a) review_guide(a,&(a)->guide.review)
 #define REVIEW_CELL_EDITOR(a,bounds,clip) review_cell_editor(a,bounds,clip,__FILE__,__LINE__)
 #define REVIEW_ERROR_CONTENT(a,bounds,painted,clipped) review_error_content(a,bounds,painted,clipped,__FILE__,__LINE__)
+#define REVIEW_QUERY_STATUS(a,text,bounds) review_query_status(a,text,bounds,__FILE__,__LINE__)
+#define REVIEW_QUERY_ERROR(a,bounds) review_query_error(a,bounds,__FILE__,__LINE__)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -473,6 +477,8 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_GUIDE(...) ((void)0)
 #define REVIEW_CELL_EDITOR(...) ((void)0)
 #define REVIEW_ERROR_CONTENT(...) ((void)0)
+#define REVIEW_QUERY_STATUS(...) ((void)0)
+#define REVIEW_QUERY_ERROR(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -4929,8 +4935,12 @@ static void draw_source_query(App *a) {
         int max=(int)a->query_errors.count-(int)(error.height/(21*s)); if (max<0) max=0;
         if (a->query_error_scroll<0) a->query_error_scroll=0; if (a->query_error_scroll>max) a->query_error_scroll=max;
         text_lines_draw(&a->query_errors,u,a->query_error,(size_t)a->query_error_scroll,error);
+        REVIEW_QUERY_ERROR(a,error);
     }
-    ui_text_clip(u,a->query_loading ? "Checking the query… Escape cancels; the displayed source stays intact." : "Apply clears source filters, sort and summary in one undoable action.",box(x+13*s,y+h-114*s,w-26*s,23*s),12,UI_MUTED,false);
+    const char *query_status=a->query_loading ? "Checking the query… Escape cancels; the displayed source stays intact." : "Apply clears source filters, sort and summary in one undoable action.";
+    Rectangle query_status_bounds=box(x+13*s,y+h-114*s,w-26*s,23*s);
+    ui_text_clip(u,query_status,query_status_bounds,12,UI_MUTED,false);
+    REVIEW_QUERY_STATUS(a,query_status,query_status_bounds);
     ui_text_clip(u,"Enter: new line · Tab: actions · Command+Enter: validate and apply",box(x+13*s,y+h-89*s,w-26*s,22*s),11,UI_MUTED,false);
     Rectangle actions[]={box(x+20*s,y+h-49*s,140*s,30*s),box(x+w-272*s,y+h-49*s,90*s,30*s),box(x+w-172*s,y+h-49*s,152*s,30*s)};
     const char *labels[]={"Use original source","Cancel","Validate & apply"};
