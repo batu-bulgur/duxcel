@@ -373,6 +373,19 @@ static void review_sheet_choice(App *a,const char *kind,const char *key,const ch
     snprintf(id,sizeof(id),"author.%s.action.%s",kind,semantic);
     DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id); if (w) w->data=review_sheet_scope(a,sheet);
 }
+static void review_sheet_scroll(App *a,Rectangle track,Rectangle thumb,Rectangle clip,bool dragging,const char *file,int line) {
+    if (!review_armed(a) || track.width<=0 || track.height<=0 || clip.width<=0 || clip.height<=0) return;
+    const Rectangle bounds[]={track,thumb}; const char *const ids[]={"pane.workbook.scrollbar","pane.workbook.scrollbar.thumb"};
+    bool enabled=!a->ui.pointer_blocked && a->modal==MODAL_NONE && !a->io_busy && a->sidebar && !a->workbook_collapsed;
+    for (size_t i=0;i<2;i++) {
+        DxReviewWidget w; dx_review_widget_init(&w,ids[i],"workbook.scroll","workspace/left/workbook/scrollbar","scrollbar",i ? "Worksheet scroll thumb" : "Worksheet scroll");
+        snprintf(w.parent_id,sizeof(w.parent_id),"%s",i ? ids[0] : "pane.workbook"); w.bounds=review_rect(bounds[i]); w.clip=review_rect(i ? GetCollisionRec(track,clip) : clip); w.layer=(int)(53+i);
+        w.enabled=w.input_eligible=enabled; w.focused=i && dragging; w.data=review_sheet_scope(a,a->book.active); snprintf(w.data.kind,sizeof(w.data.kind),"workbook-position");
+        snprintf(w.source_file,sizeof(w.source_file),"%s",file); w.source_line=(uint32_t)line;
+        DxReviewStatus status=dx_review_add(a->review->registry,&w);
+        if (status!=DX_REVIEW_OK) fprintf(stderr,"Review worksheet scroll registration %s: %s\n",ids[i],dx_review_status_text(status));
+    }
+}
 static DxReviewWidget *review_filter_item(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,int layer,int focus,bool enabled) {
     DxReviewWidget w; dx_review_widget_init(&w,id,action,"popup/column-filter",role,label);
     snprintf(w.parent_id,sizeof(w.parent_id),"filter.panel");
