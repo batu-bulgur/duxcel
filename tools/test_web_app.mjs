@@ -13,6 +13,7 @@ await fs.mkdir(output,{recursive:true});
 const profile=await fs.mkdtemp(path.join(os.tmpdir(),'duxcel-browser-'));
 const browser=spawn(process.env.DUXCEL_CHROMIUM??'/Applications/Chromium.app/Contents/MacOS/Chromium',
  ['--headless','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--no-proxy-server','about:blank'],{stdio:['ignore','ignore','pipe']});
+await fs.writeFile(path.join(output,'browser-process.json'),JSON.stringify({pid:browser.pid,parent_pid:process.pid,started_ms:Date.now(),headless:true,profile:'owned temporary profile'},null,2));
 const workerProbe=process.argv.includes('--worker-probe');
 const workerDriver=process.argv.includes('--worker-driver');
 const filters=process.argv.includes('--filters');
@@ -145,6 +146,7 @@ try{
   if(ready)break;await pause(100);
  }
  check(ready,'Shared C App did not initialize');await pause(350);
+ await evaluate('globalThis.duxcelTestNavigation=[];window.addEventListener("keydown",event=>{if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Home","End","PageUp","PageDown"].includes(event.key))globalThis.duxcelTestNavigation.push({key:event.key,shift:event.shiftKey,default_prevented:event.defaultPrevented,canvas:event.target===document.querySelector("canvas")})});true');
  if(canvasTransform){await evaluate('Object.assign(document.querySelector("canvas").style,{position:"absolute",left:"8%",top:"6%",width:"80%",height:"80%"})');await frames();}
  const errors=events.filter(e=>e.method==='Runtime.exceptionThrown');check(!errors.length,'Uncaught browser exception');
  const glErrors=events.filter(e=>e.method==='Log.entryAdded'&&/WebGL: (INVALID|too many)/.test(e.params.entry.text));
@@ -237,6 +239,10 @@ try{
  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Shift',code:'ShiftLeft',windowsVirtualKeyCode:16,modifiers:8});
  await key('ArrowRight','ArrowRight',39,'',8);await key('ArrowDown','ArrowDown',40,'',8);
  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Shift',code:'ShiftLeft',windowsVirtualKeyCode:16});await frames();await capture('selection');
+ const navigation=await evaluate('globalThis.duxcelTestNavigation');
+ await fs.writeFile(path.join(output,'navigation.json'),JSON.stringify(navigation,null,2));
+ check(['ArrowUp','ArrowRight','ArrowDown'].every(key=>navigation.some(event=>event.key===key&&event.canvas&&event.default_prevented)),'Shared canvas navigation escaped to browser defaults');
+ check(navigation.some(event=>event.key==='ArrowRight'&&event.shift)&&navigation.some(event=>event.key==='ArrowDown'&&event.shift),'Shift navigation did not reach the real canvas');
  }
  await click(294,42);await capture('view-ribbon');
  await click(1174,42);await capture('ribbon-display');await key('Escape','Escape',27);
@@ -256,10 +262,11 @@ try{
  console.error(error);process.exitCode=1;
 }finally{
  const released=await cdp?.releaseHeldKeys()??[];
+ const beforeCleanup={pid:browser.pid,exit_code:browser.exitCode,signal:browser.signalCode};
  ws?.close();browser.kill('SIGTERM');
  await Promise.race([new Promise(resolve=>browser.once('exit',resolve)),pause(2000)]);
  if(browser.exitCode===null)browser.kill('SIGKILL');
- await fs.writeFile(path.join(output,'cleanup.json'),JSON.stringify({held_keys:released},null,2));
+ await fs.writeFile(path.join(output,'cleanup.json'),JSON.stringify({held_keys:released,browser_before_cleanup:beforeCleanup,browser_after_cleanup:{pid:browser.pid,exit_code:browser.exitCode,signal:browser.signalCode}},null,2));
  await fs.writeFile(path.join(output,'browser.txt'),stderr);
  await fs.rm(profile,{recursive:true,force:true});
 }

@@ -3,8 +3,10 @@
 import createDuxcel from './duxcel.mjs';
 import {createEngineHost} from './engine_host.mjs';
 import {createReviewHost} from './review_host.mjs';
+import {installCanvasInput} from './canvas_input.mjs';
 const canvas=document.getElementById('canvas');
 canvas.addEventListener('contextmenu',event=>event.preventDefault());
+const disposeInput=installCanvasInput(canvas);
 try {
     if(!canvas.getContext('webgl',{alpha:false,antialias:false,premultipliedAlpha:false}))throw new Error('WebGL is unavailable.');
     const [vendor,build]=await Promise.all([fetch('./vendor.json').then(r=>r.json()),fetch('./build.json').then(r=>r.json())]);
@@ -13,5 +15,6 @@ try {
     await createDuxcel({canvas,dxEngine,dxReview,print:message=>console.log(message),printErr:message=>console.error(message)});
     canvas.focus({preventScroll:true});
 } catch(error) {
+    disposeInput();
     console.error(error);const message=document.getElementById('error');message.textContent=String(error);message.style.display='block';
 }

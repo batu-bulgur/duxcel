@@ -30,6 +30,9 @@ def main():
     check('-DDUXCEL_DEV_REVIEW' not in shipping['flags'] and '-DDUXCEL_DEV_REVIEW' in development['flags'],'Review compile configurations overlap')
     check('dxReview' not in (normal/'host.mjs').read_text(),'Shipping loader includes the review bridge')
     check('createReviewHost' in (review/'host.mjs').read_text() and (review/'review_host.mjs').is_file(),'Review platform host is missing')
+    for directory in (normal,review):
+        check("import {installCanvasInput} from './canvas_input.mjs'" in (directory/'host.mjs').read_text() and (directory/'canvas_input.mjs').is_file(),'Canvas input platform policy is missing')
+    check((normal/'canvas_input.mjs').read_bytes()==(review/'canvas_input.mjs').read_bytes(),'Normal/review canvas input policies differ')
     forbidden=[b'dx_review_',b'duxcel.native-review',b'duxcel.browser-review',b'dxBrowserWorkerTestDone',b'test_browser_worker.c']
     wasm=(normal/'duxcel.wasm').read_bytes();markers={value.decode():value not in wasm for value in forbidden}
     check(all(markers.values()),'Shipping Wasm contains review/acceptance markers')
