@@ -159,6 +159,37 @@ static void review_file_menu(App *a) {
         if (w) snprintf(w->parent_id,sizeof(w->parent_id),"file.scrollbar");
     }
 }
+static void review_choice_menu(App *a,const UIChoiceLayout *layout,const char *title,const char *const *names,int count,int selected,int focus) {
+    if (!review_armed(a) || !layout || !layout->valid) return;
+    int kind=a->modal==MODAL_RIBBON ? 0 : a->modal==MODAL_INTERFACE_SCALE ? 1 : a->modal==MODAL_DENSITY ? 2 : a->modal==MODAL_FORMAT && a->format_action==ACTION_TEXT_COLOR ? 3 : -1;
+    if (kind<0 || count<1 || count>4 || count!=layout->count) return;
+    static const char *const roots[]={"ribbon_display","interface_scale","row_density","text_color"};
+    static const char *const options[][4]={{"full","compact","icons","focus"},{"compact","standard","large","extra_large"},{"compact","default","comfortable",NULL},{"automatic","blue","teal","red"}};
+    char id[128],parent[96],path[96];
+    snprintf(parent,sizeof(parent),"choice.%s",roots[kind]); snprintf(path,sizeof(path),"popup/%s",roots[kind]);
+    Rectangle clip=a->ui.clipping ? GetCollisionRec(layout->panel,a->ui.clip) : layout->panel;
+    float offset=a->popup_capturing ? a->popup_presence.offset*a->ui.scale : 0; clip.y+=offset;
+    /* The modal itself owns input. Its rows are above any retained parent
+       flyout, while File's separate top-level surface keeps its higher layer. */
+    review_control(a,parent,"choice.inspect",path,"menu",title,layout->panel,30,true,false,true,__FILE__,__LINE__);
+    DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,parent);
+    if (w) { w->clip=review_rect(clip); w->expanded=true; w->input_eligible=false; }
+    snprintf(id,sizeof(id),"%s.background",parent);
+    review_control(a,id,"choice.inspect",path,"region","Menu background",layout->panel,30,true,false,false,__FILE__,__LINE__);
+    w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
+    if (w) { w->clip=review_rect(clip); snprintf(w->parent_id,sizeof(w->parent_id),"%s",parent); }
+    snprintf(id,sizeof(id),"%s.heading",parent);
+    review_control(a,id,"choice.inspect",path,"text",title,layout->title,31,true,false,false,__FILE__,__LINE__);
+    w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
+    if (w) { w->clip=review_rect(clip); snprintf(w->parent_id,sizeof(w->parent_id),"%s",parent); }
+    for (int i=0;i<count;i++) {
+        if (!options[kind][i]) continue;
+        snprintf(id,sizeof(id),"%s.option.%s",parent,options[kind][i]);
+        review_control(a,id,"choice.select",path,"menuitemradio",names[i],layout->rows[i],31,true,i==focus,false,__FILE__,__LINE__);
+        w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
+        if (w) { w->clip=review_rect(clip); snprintf(w->parent_id,sizeof(w->parent_id),"%s",parent); w->checked=i==selected; w->input_eligible=true; }
+    }
+}
 static DxReviewWidget *review_filter_item(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,int layer,int focus,bool enabled) {
     DxReviewWidget w; dx_review_widget_init(&w,id,action,"popup/column-filter",role,label);
     snprintf(w.parent_id,sizeof(w.parent_id),"filter.panel");
@@ -303,10 +334,11 @@ static void review_native_command(App *a,DxCommand command) {
 /* Focused native acceptance; never enabled in shipping, uses the same queued
    input/controller routes as other App scenarios and private outbox fixtures. */
 #ifndef DUXCEL_BROWSER_HOST
-#define REVIEW_SMOKE_STAGES 47
+#define REVIEW_SMOKE_STAGES 62
 typedef struct {
     int stage; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
+    Modal choice_modal; int choice_focus,choice_ribbon_mode; float choice_scale,choice_row_height; uint64_t choice_formats;
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -364,6 +396,36 @@ static bool review_smoke_file_targets(App *a,bool scrolling) {
     if (!track || !thumb || strcmp(thumb->parent_id,"file.scrollbar") || track->bounds.width!=8*a->ui.scale || thumb->bounds.y<=track->bounds.y) return false;
     return dx_review_pick(registry,thumb->bounds.x+thumb->bounds.width*.5f,thumb->bounds.y+thumb->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) && !strcmp(picked.widget.id,"file.scrollbar.thumb") &&
         dx_review_pick(registry,track->bounds.x+a->ui.scale,track->bounds.y+a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) && !strcmp(picked.widget.id,"file.scrollbar");
+}
+static void review_smoke_choice_remember(App *a,ReviewSmoke *t) {
+    t->request=a->request_id; t->page=a->page.cells; t->selection=grid_location(&a->grid); t->dirty=a->book.dirty; t->history=active_sheet(a)->undo_actions_count;
+    t->choice_modal=a->modal; t->choice_focus=a->modal==MODAL_RIBBON ? a->ribbon_menu_focus : a->context_focus;
+    t->choice_ribbon_mode=a->ribbon_mode; t->choice_scale=a->ui.scale; t->choice_row_height=a->grid.row_height; t->choice_formats=active_sheet(a)->formats.revision;
+    dx_lock(&a->worker.mutex); t->jobs=a->worker.jobs_started; dx_unlock(&a->worker.mutex);
+}
+static bool review_smoke_choice_same(App *a,ReviewSmoke *t) {
+    GridLocation g=grid_location(&a->grid); int focus=a->modal==MODAL_RIBBON ? a->ribbon_menu_focus : a->context_focus;
+    dx_lock(&a->worker.mutex); bool jobs=a->worker.jobs_started==t->jobs; dx_unlock(&a->worker.mutex);
+    return a->modal==t->choice_modal && focus==t->choice_focus && a->ribbon_mode==t->choice_ribbon_mode && a->ui.scale==t->choice_scale && a->grid.row_height==t->choice_row_height &&
+        a->request_id==t->request && a->page.cells==t->page && a->book.dirty==t->dirty && active_sheet(a)->undo_actions_count==t->history && active_sheet(a)->formats.revision==t->choice_formats && jobs &&
+        g.row==t->selection.row && g.col==t->selection.col && g.end_row==t->selection.end_row && g.end_col==t->selection.end_col;
+}
+static bool review_smoke_choice_targets(App *a,const char *root,const char *const *options,int count,int selected,int focus) {
+    DxReviewRegistry *registry=a->review->registry; DxReviewTarget picked; char id[128];
+    const DxReviewWidget *menu=dx_review_find(registry,root);
+    if (!menu || !menu->container || !menu->expanded || menu->input_eligible || registry->duplicate_count || registry->invalid_count) return false;
+    snprintf(id,sizeof(id),"%s.background",root);
+    if (!dx_review_pick(registry,menu->bounds.x+2*a->ui.scale,menu->bounds.y+2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id)) return false;
+    snprintf(id,sizeof(id),"%s.heading",root); const DxReviewWidget *heading=dx_review_find(registry,id);
+    if (!heading || heading->input_eligible || strcmp(heading->parent_id,root) || !dx_review_pick(registry,heading->bounds.x+heading->bounds.width*.5f,heading->bounds.y+heading->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id)) return false;
+    for (int i=0;i<count;i++) {
+        snprintf(id,sizeof(id),"%s.option.%s",root,options[i]); const DxReviewWidget *w=dx_review_find(registry,id);
+        if (!w || !w->enabled || !w->input_eligible || w->checked!=(i==selected) || w->focused!=(i==focus) || strcmp(w->role,"menuitemradio") || strcmp(w->parent_id,root) || w->layer<=menu->layer) return false;
+        if (w->transform.ty!=menu->transform.ty || w->clip.x<menu->bounds.x || w->clip.y<menu->bounds.y || w->clip.x+w->clip.width>menu->bounds.x+menu->bounds.width || w->clip.y+w->clip.height>menu->bounds.y+menu->bounds.height) return false;
+        float x=w->bounds.x+w->bounds.width*.5f,y=w->bounds.y+w->bounds.height*.5f;
+        if (!dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id) || !dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTAINER,&picked) || strcmp(picked.widget.id,root)) return false;
+    }
+    return !dx_review_find(registry,"file.menu");
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
@@ -615,7 +677,83 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         if (a->file_menu || a->io_busy || a->file_menu_drag) goto failed;
         break;
     case 46: {
-        printf("PASS: native review filter/selection isolation, typed frozen cell, disabled ribbon/overflow, pane controls, 100/150 percent, capture/write retry, durable reports, queued query reply, title/ribbon pointer/keyboard targets and bounded File menu targets\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); break;
+        printf("PASS: native review filter/selection isolation, typed frozen cell, disabled ribbon/overflow, pane controls, 100/150 percent, capture/write retry, durable reports, queued query reply, title/ribbon pointer/keyboard targets and bounded File menu targets\n"); break;
+    }
+    case 47:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        a->modal=MODAL_RIBBON; a->ribbon_menu_focus=a->ribbon_mode;
+        if (!a->popup_presence.active || a->popup_presence.alpha!=1 || a->popup_presence.offset) return;
+        review_smoke_choice_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 48: {
+        if (r->phase!=DX_REPORT_PICK) return;
+        const char *options[]={"full","compact","icons","focus"};
+        if (!review_smoke_choice_same(a,t) || !review_smoke_choice_targets(a,"choice.ribbon_display",options,4,a->ribbon_mode,a->ribbon_menu_focus)) goto failed;
+        review_smoke_pick(a,"choice.ribbon_display.option.full"); break;
+    }
+    case 49:
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (strcmp(r->target.widget.id,"choice.ribbon_display.option.full") || !r->target.widget.checked || !r->target.widget.focused || !review_smoke_choice_same(a,t)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); break;
+    case 50:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        if (!review_smoke_choice_same(a,t)) goto failed;
+        a->modal=MODAL_NONE; ui_set_scale(&a->ui,1.5f); SetWindowSize(760,640); break;
+    case 51:
+        if (r->phase!=DX_REPORT_IDLE || a->ui.scale!=1.5f) return;
+        if (a->modal!=MODAL_INTERFACE_SCALE) { begin_scale_menu(a,(Vector2){300,280}); a->context_focus=3; }
+        if (!a->popup_presence.active || a->popup_presence.alpha!=1 || a->popup_presence.offset) return;
+        review_smoke_choice_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 52: {
+        if (r->phase!=DX_REPORT_PICK) return;
+        const char *options[]={"compact","standard","large","extra_large"};
+        if (r->frame.ui_scale!=1.5f || !review_smoke_choice_same(a,t) || !review_smoke_choice_targets(a,"choice.interface_scale",options,4,3,3)) goto failed;
+        review_smoke_pick(a,"choice.interface_scale.option.extra_large"); break;
+    }
+    case 53:
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (strcmp(r->target.widget.id,"choice.interface_scale.option.extra_large") || !r->target.widget.checked || !r->target.widget.focused || !review_smoke_choice_same(a,t)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); break;
+    case 54:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        if (a->modal==MODAL_INTERFACE_SCALE) { if (!review_smoke_choice_same(a,t)) goto failed; a->modal=MODAL_DENSITY; a->context_origin=(Vector2){300,280}; a->context_focus=1; }
+        if (!a->popup_presence.active || a->popup_presence.alpha!=1 || a->popup_presence.offset) return;
+        review_smoke_choice_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 55: {
+        if (r->phase!=DX_REPORT_PICK) return;
+        const char *options[]={"compact","default","comfortable"};
+        if (!review_smoke_choice_same(a,t) || !review_smoke_choice_targets(a,"choice.row_density",options,3,1,1)) goto failed;
+        review_smoke_pick(a,"choice.row_density.option.default"); break;
+    }
+    case 56:
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (strcmp(r->target.widget.id,"choice.row_density.option.default") || !r->target.widget.checked || !r->target.widget.focused || !review_smoke_choice_same(a,t)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); break;
+    case 57:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        if (a->modal==MODAL_DENSITY) {
+            if (!review_smoke_choice_same(a,t)) goto failed;
+            a->modal=MODAL_FORMAT; a->format_action=ACTION_TEXT_COLOR; a->format_origin=(Vector2){300,280}; a->format_return_group=a->format_return_command=-1; a->context_focus=3;
+        }
+        if (!a->popup_presence.active || a->popup_presence.alpha!=1 || a->popup_presence.offset) return;
+        review_smoke_choice_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 58: {
+        if (r->phase!=DX_REPORT_PICK) return;
+        const char *options[]={"automatic","blue","teal","red"};
+        if (!review_smoke_choice_same(a,t) || !review_smoke_choice_targets(a,"choice.text_color",options,4,-1,3)) goto failed;
+        review_smoke_pick(a,"choice.text_color.option.red"); break;
+    }
+    case 59:
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (strcmp(r->target.widget.id,"choice.text_color.option.red") || r->target.widget.checked || !r->target.widget.focused || !review_smoke_choice_same(a,t)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); break;
+    case 60:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        if (!review_smoke_choice_same(a,t)) goto failed;
+        close_format_menu(a); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 61: {
+        if (r->phase!=DX_REPORT_IDLE || a->ui.scale!=1) return;
+        if (a->modal!=MODAL_NONE || a->ui.scissor_depth || a->ui.paint_depth) goto failed;
+        printf("PASS: native headed choice targets retain checked/focused state, popup clipping and frozen ribbon, UI scale, row density and text color\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); break;
     }
     }
     t->stage++; return;
