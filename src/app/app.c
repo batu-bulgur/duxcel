@@ -2511,7 +2511,6 @@ static void draw_pivot_field_popup(App *a) {
     int direction=ui_key(KEY_UP) || (ui_pressed(KEY_TAB)&&ui_key_shift(KEY_TAB)) || ui_pressed(KEY_END) ? -1 : 1;
     for (int i=0;i<count && !allowed[a->context_focus];i++) a->context_focus=(a->context_focus+count+direction)%count;
     ui_choice_frame(u,&layout,title);
-    REVIEW_CHOICES(a,&layout,title,names,count,selected,*focus);
     for (int item=0;item<count;item++) {
         bool chosen=ui_choice_row(u,layout.rows[item],labels[item],NULL,icons[item],checked[item],a->context_focus==item,allowed[item]);
         bool activate=!a->consume_grid_input && a->context_focus==item && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE));
@@ -4379,6 +4378,7 @@ static int draw_choices(App *a,const char *title,const char *const *names,int co
     int before=a->context_focus; a->context_focus=*focus; context_keys(a,count,count); *focus=a->context_focus;
     if (focus!=&a->context_focus) a->context_focus=before;
     ui_choice_frame(u,&layout,title);
+    REVIEW_CHOICES(a,&layout,title,names,count,selected,*focus);
     for (int i=0;i<count;i++) {
         UICarbonIcon icon=separator==i ? CARBON_MAXIMIZE : CARBON_COUNT;
         bool chosen=ui_choice_row(u,layout.rows[i],names[i],separator==i ? "⌘⇧F" : NULL,icon,i==selected,i==*focus,true);
