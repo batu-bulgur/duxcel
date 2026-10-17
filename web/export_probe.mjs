@@ -86,8 +86,8 @@ export async function runExportProbe(input={}){
         try{const details=await bounded(Promise.resolve().then(operation),config.timeoutMs);checks.push({name,status:'passed',milliseconds:now()-begin,details});return details;}
         catch(error){checks.push({name,status:'failed',milliseconds:now()-begin,error:errorRecord(error)});throw error;}
     }
-    async function query(text){check(!closed,'Parquet probe is closed');check(encoder.encode(text).length<=1024*1024,'Probe SQL exceeds 1 MiB');sql.push(text);return adapter.connection.query(text);}
-    async function absent(name){equal((await adapter.database.globFiles(name)).length,0,`Private file removed: ${name}`);}
+    async function query(text){check(!closed,'Parquet probe is closed');check(encoder.encode(text).length<=1024*1024,'Probe SQL exceeds 1 MiB');sql.push(text);return bounded(adapter.connection.query(text),config.timeoutMs);}
+    async function absent(name){equal((await bounded(adapter.database.globFiles(name),config.timeoutMs)).length,0,`Private file removed: ${name}`);}
     async function verify(name){
         const relation=`read_parquet('${name}')`,description=await query(`DESCRIBE SELECT * FROM ${relation}`);
         equal(description.numRows,Object.keys(TYPES).length,'Reopened Parquet column count');
@@ -119,14 +119,17 @@ export async function runExportProbe(input={}){
         });
         for(const mode of MODES){
             const name=`export-probe-${mode}.parquet`,reopen=`export-probe-reopen-${mode}.parquet`;
-            let exported,candidateError,cleanupError;
+            let exported,candidateError,cleanupError,fileInfos;
             const begin=now();
             try{
                 await absent(name);await absent(reopen);
                 if(mode==='buffer')await adapter.registerFile(name,new Uint8Array(0));
                 const copied=await query(`COPY (${fixtureSQL()}) TO '${name}' (FORMAT PARQUET)`);
                 equal(copied.numRows,1,'COPY affected-row scalar');equal(String(cell(copied,0,'Count')),'600','COPY exported full relation');
-                const bytes=await readParquetExport(adapter.database,name),header=inspectParquet(bytes);
+                const database=adapter.database;
+                const bytes=await bounded(readParquetExport({flushFiles:()=>database.flushFiles(),
+                    globFiles:async file=>{fileInfos=await database.globFiles(file);return fileInfos;},
+                    copyFileToBuffer:file=>database.copyFileToBuffer(file)},name),config.timeoutMs),header=inspectParquet(bytes);
                 exported={mode,filename:name,bytes,byteLength:header.byteLength,footerBytes:header.footerBytes,sha256:await digest(bytes)};
                 // Drop the generated file before reopening independently owned
                 // bytes under a fresh immutable registration name.
@@ -144,7 +147,7 @@ export async function runExportProbe(input={}){
                 }catch(error){cleanupError=error;}
             }
             checks.push({name:`parquet-${mode}-candidate`,status:candidateError?'unsupported':'passed',milliseconds:now()-begin,
-                ...(candidateError?{error:errorRecord(candidateError)}:{details:{...exported,bytes:undefined}})});
+                ...(candidateError?{error:errorRecord(candidateError),details:{fileInfos}}:{details:{...exported,bytes:undefined,fileInfos}})});
             checks.push({name:`parquet-${mode}-private-cleanup`,status:cleanupError?'failed':'passed',...(cleanupError?{error:errorRecord(cleanupError)}:{})});
             if(cleanupError)throw cleanupError;
             if(candidateError?.code==='PROBE_TIMEOUT')throw candidateError;
