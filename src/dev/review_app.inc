@@ -1065,8 +1065,8 @@ static DxReviewWidget *review_filter_item(App *a,const char *id,const char *acti
     w.bounds=review_rect(bounds); float offset=a->popup_presence.offset*a->ui.scale;
     w.transform.ty=offset; w.bounds.y+=offset; clip.y+=offset; w.clip=review_rect(clip); w.layer=layer;
     w.enabled=enabled; w.input_eligible=enabled; w.focused=a->filter_focus==focus;
-    w.data=review_scope(a); SheetObject *o=filter_object(a); if (o) { w.data.object_id=o->id; w.data.source_id=o->source_id; w.data.query_generation=o->revision; w.data.schema_generation=object_source_revision(a,o); }
-    Page *fields=filter_fields(a); if (a->field<fields->column_count) snprintf(w.data.field,sizeof(w.data.field),"%s",fields->columns[a->field].name);
+    w.data=review_feedback_origin(a,"filter",filter_object(a));
+    w.truncated|=strstr(w.data.kind,"-truncated")!=NULL;
     snprintf(w.source_file,sizeof(w.source_file),"%s",__FILE__); w.source_line=__LINE__;
     DxReviewRegistry *registry=a->review->registry;
     if (dx_review_add(registry,&w)!=DX_REVIEW_OK) return NULL;
@@ -1083,6 +1083,7 @@ static void review_filter(App *a) {
     if (!review_armed(a) || a->modal!=MODAL_FILTER || !a->filter_layout.valid) return;
     UIFilterLayout r=a->filter_layout; float s=a->ui.scale; bool allow=!a->filter_condition_menu && !a->values_selecting;
     review_control(a,"filter.panel","filter.inspect","popup/column-filter","dialog","Column filter",r.panel,0,true,false,true,__FILE__,__LINE__);
+    DxReviewWidget *panel=(DxReviewWidget *)dx_review_find(a->review->registry,"filter.panel"); if (panel) panel->data=review_feedback_origin(a,"filter",filter_object(a));
 #define FILTER_ITEM(id,action,role,label,rect,focus,enabled) review_filter_item(a,id,action,role,label,rect,r.panel,101,focus,enabled)
     FILTER_ITEM("filter.close","filter.close","button","Close",box(r.title.x+r.title.width-33*s,r.title.y+6.5f*s,23*s,23*s),0,!a->filter_condition_menu);
     FILTER_ITEM("filter.sort.ascending","command.sort_asc","button","Sort ascending",r.sort[0],1,allow && !selected_pivot(a));
@@ -1098,7 +1099,8 @@ static void review_filter(App *a) {
         snprintf(id,sizeof(id),"filter.value.%llu.%zu.%d.%llu",(unsigned long long)a->request_id,a->field,a->date_level,(unsigned long long)index);
         DxReviewWidget *w=review_filter_item(a,id,"filter.toggle_value","checkbox",v->label,box(r.list.x,r.list.y+(3+row*25)*s,r.list.width-10*s,25*s),r.list,101,a->filter_focus==5 && a->values_focus==(int64_t)index ? 5 : -1,allow);
         if (!w) continue; bool partial=false;
-        w->checked=value_checked(a,v->key,&partial); w->indeterminate=partial;
+        w->checked=value_checked(a,v->key,&partial); w->indeterminate=partial; w->data.row=index;
+        snprintf(w->parent_id,sizeof(w->parent_id),"filter.values");
         dx_review_value_set(&w->value,filter_fields(a)->columns[a->field].type_name,v->is_null,v->value);
     }
     if (a->date_level>0) FILTER_ITEM("filter.date.parent","filter.date_parent","button","Parent",box(r.dates.x+r.dates.width-79*s,r.dates.y+2*s,73*s,23*s),-1,allow);
@@ -1114,6 +1116,7 @@ static void review_filter(App *a) {
         FilterOp choices[8]; int count=filter_conditions(a,choices);
         UISelectMenuLayout m=ui_select_menu_layout((Vector2){r.condition.x,r.condition.y+r.condition.height},(Vector2){GetScreenWidth(),GetScreenHeight()},s,r.condition.width/s,count);
         review_control(a,"filter.conditions","filter.conditions","popup/column-filter/conditions","menu","Conditions",m.panel,10,true,false,true,__FILE__,__LINE__);
+        DxReviewWidget *conditions=(DxReviewWidget *)dx_review_find(a->review->registry,"filter.conditions"); if (conditions) conditions->data=review_feedback_origin(a,"filter",filter_object(a));
         for (int row=0;row<m.visible;row++) { int i=row+a->filter_condition_scroll; if (i<0 || i>=count) continue; char id[64]; snprintf(id,sizeof(id),"filter.condition.option.%s",review_filter_op(choices[i])); DxReviewWidget *w=review_filter_item(a,id,"filter.choose_condition","menuitem",filter_condition_label(a,choices[i]),ui_select_menu_row(&m,row),m.panel,111,-1,true); if (w) { w->focused=i==a->filter_condition_index; w->checked=a->filter_condition_enabled ? choices[i]==a->filter_op : (int)choices[i]<0; snprintf(w->parent_id,sizeof(w->parent_id),"filter.conditions"); } }
     }
 #undef FILTER_ITEM
@@ -3396,7 +3399,16 @@ static bool review_smoke_feedback_targets(App *a,ReviewSmoke *t,int item) {
         if (!status || !status->value.present || status->value.is_null || strcmp(status->value.exact_text,"Loading step preview…") || !readout || readout->value.present || !a->step_preview.loading || a->step_preview.page.column_count) return false;
     } else if (item==3) {
         const DxReviewWidget *track=dx_review_find(registry,"filter.values.scrollbar"); bool child=false;
-        for (size_t i=0;i<registry->count;i++) { const DxReviewWidget *widget=&registry->widgets[i]; if (!strncmp(widget->id,"filter.value.",13)) { DxReviewTarget picked; Rectangle shown=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height}); child=dx_review_pick(registry,shown.x+shown.width*.5f,shown.y+shown.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) && !strcmp(picked.widget.id,widget->id); if (child) break; } }
+        for (size_t i=0;i<registry->count;i++) {
+            const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,"filter.value.",13)) continue;
+            const DxReviewDataIdentity *data=&widget->data; DistinctPage *page=cached_values(a,data->row/DX_DISTINCT_ROWS*DX_DISTINCT_ROWS);
+            if (strcmp(widget->parent_id,"filter.values") || strcmp(data->kind,"filter-domain") || strcmp(data->document_id,document) || data->sheet_id!=a->book.active+1 || data->object_id!=table->id || data->source_id!=table->id || data->schema_generation!=table->revision || data->query_generation!=table->revision || data->has_cell || data->column!=1 || strcmp(data->field,"City") || data->row<a->values_scroll || !page || data->row-page->offset>=page->count) return false;
+            const DistinctValue *value=&page->values[data->row-page->offset];
+            if (!widget->value.present || widget->value.truncated || strcmp(widget->value.type,filter_fields(a)->columns[1].type_name) || widget->value.is_null!=value->is_null || strcmp(widget->value.exact_text,value->value ? value->value : "")) return false;
+            DxReviewTarget picked; Rectangle shown=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height});
+            if (!dx_review_pick(registry,shown.x+shown.width*.5f,shown.y+shown.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,widget->id)) return false;
+            child=true;
+        }
         if (!child || !track || chosen->bounds.y<=track->bounds.y || !chosen->input_eligible || strcmp(chosen->parent_id,track->id) || a->values_total!=96 || !a->values_scroll || dx_review_find(registry,"filter.values.status")) return false;
     } else if (!chosen->value.present || chosen->value.is_null || strcmp(chosen->value.type,"VARCHAR") || chosen->input_eligible || (item==4 ? strcmp(chosen->value.exact_text,"No matching values") || a->values_total!=0 || a->values_failed : strcmp(chosen->value.exact_text,t->feedback_message) || !a->values_failed || (!strstr(chosen->value.exact_text,"feedback.csv") && strcmp(chosen->value.exact_text,"The source changed since its displayed result. Refresh before using its data."))) || dx_review_find(registry,"filter.values.scrollbar")) return false;
     DxReviewTarget picked; Rectangle shown=GetCollisionRec((Rectangle){chosen->bounds.x,chosen->bounds.y,chosen->bounds.width,chosen->bounds.height},(Rectangle){chosen->clip.x,chosen->clip.y,chosen->clip.width,chosen->clip.height});
