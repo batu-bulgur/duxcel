@@ -374,7 +374,24 @@ static void test_column_plans(void) {
     reject_planned_page(&body,&rows,&columns,&p,&plan); page_free(&body); page_free(&rows); page_free(&columns); free(large);
     page_free(&domains[0]); browser_pivot_plan_free(&plan); browser_pivot_plan_free(&plan); pivot_free(&p); analysis_free(&source); free(error);
 }
+static void test_count_projection(void) {
+    Analysis source={.kind=SOURCE_DEMO}; PivotDefinition p={0};
+    CHECK(pivot_assign_grain(&p,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_MONTH,NULL));
+    CHECK(pivot_assign_grain(&p,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_QUARTER,NULL));
+    CHECK(pivot_assign(&p,PIVOT_VALUES,"occurred",AGG_COUNT,NULL));
+    char *input=pivot_input_sql(&source,&p); CHECK(strstr(input,"date_trunc('month'") && strstr(input,"quarter(\"occurred\")") && !strstr(input,",\"occurred\" FROM")); free(input);
+    char *sql=pivot_sql(&source,&p); CHECK(strstr(sql,"PIVOT (") && strstr(sql,"COUNT(*)") && !strstr(sql,",\"occurred\" FROM")); free(sql);
+    CHECK(pivot_assign(&p,PIVOT_VALUES,"occurred",AGG_MAX,NULL));
+    input=pivot_input_sql(&source,&p); CHECK(strstr(input,",\"occurred\" FROM")); free(input); pivot_free(&p);
+    CHECK(pivot_assign(&p,PIVOT_VALUES,"Nullable",AGG_COUNT,NULL));
+    input=pivot_input_sql(&source,&p); CHECK(!strstr(input,"\"Nullable\"")); free(input);
+    sql=pivot_sql(&source,&p); CHECK(strstr(sql,"SELECT ") && strstr(sql,"COUNT(*)") && !strstr(sql,"PIVOT (") && !strstr(sql,"GROUP BY")); free(sql);
+    sql=pivot_totals_sql(&source,&p); CHECK(strstr(sql,"1 AS v0") && !strstr(sql,"\"Nullable\" AS v0")); free(sql);
+    CHECK(pivot_assign(&p,PIVOT_VALUES,"Nullable",AGG_SUM,NULL));
+    input=pivot_input_sql(&source,&p); CHECK(strstr(input,"SELECT \"Nullable\" FROM")); free(input);
+    sql=pivot_sql(&source,&p); CHECK(strstr(sql,"COUNT(*)") && strstr(sql,"SUM(\"Nullable\")") && !strstr(sql,"PIVOT (")); free(sql); pivot_free(&p);
+}
 int main(void) {
-    test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion(); test_column_plans();
+    test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion(); test_column_plans(); test_count_projection();
     printf("PASS: %u browser query checks\n",checks); return 0;
 }

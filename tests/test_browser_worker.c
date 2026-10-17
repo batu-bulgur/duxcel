@@ -117,6 +117,7 @@ typedef enum {
     WAIT_MATRIX_RECOVERY,WAIT_MATRIX_CANCEL_COUNT,WAIT_MATRIX_CANCEL_GRAND,WAIT_MATRIX_FINAL,
     WAIT_COLUMNS_EXACT,WAIT_COLUMNS_GRAND,WAIT_COLUMNS_EMPTY,WAIT_COLUMNS_DATE,WAIT_COLUMNS0,WAIT_COLUMNS256,WAIT_COLUMNS512,WAIT_COLUMNS_NO_TOTALS,
     WAIT_COLUMNS_WIDE,WAIT_COLUMNS_BOUND,WAIT_COLUMNS_PRODUCT,WAIT_COLUMNS_SQL_LIMIT,WAIT_COLUMNS_LARGE,WAIT_COLUMNS_CANCEL_DOMAIN,WAIT_COLUMNS_CANCEL_ROWS,WAIT_COLUMNS_CANCEL_FOOTER,WAIT_COLUMNS_FINAL,
+    WAIT_MATRIX_COUNT,WAIT_MATRIX_COUNT_EMPTY,
     WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
     WAIT_OVERSIZE_ERROR,WAIT_OVERSIZE_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
@@ -192,22 +193,23 @@ static void submit_decimal(JobKind kind,unsigned sql_count) {
     expected_offset=0; expected_preview=false; expected_sql+=sql_count; if (kind==JOB_COUNT) expected_counts++;
     worker_submit(&worker,job);
 }
-typedef enum { MATRIX_RANGE,MATRIX_EXACT,MATRIX_GRAND,MATRIX_EMPTY,MATRIX_HUGE,MATRIX_DATE,MATRIX_COLUMNS,MATRIX_INVALID,MATRIX_LARGE } MatrixCase;
+typedef enum { MATRIX_RANGE,MATRIX_EXACT,MATRIX_GRAND,MATRIX_EMPTY,MATRIX_HUGE,MATRIX_DATE,MATRIX_COLUMNS,MATRIX_INVALID,MATRIX_LARGE,MATRIX_COUNT,MATRIX_COUNT_EMPTY } MatrixCase;
 static void submit_matrix(MatrixCase kind,uint64_t offset,int64_t total,bool totals,unsigned sql_count) {
     CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job));
     job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=JOB_PIVOT; expected_preview=false;
-    bool exact=kind==MATRIX_EXACT || kind==MATRIX_GRAND || kind==MATRIX_EMPTY || kind==MATRIX_HUGE;
+    bool exact=kind==MATRIX_EXACT || kind==MATRIX_GRAND || kind==MATRIX_EMPTY || kind==MATRIX_HUGE || kind==MATRIX_COUNT || kind==MATRIX_COUNT_EMPTY;
     const char *source=exact ? matrix_exact_sql : kind==MATRIX_DATE ? dates_sql : kind==MATRIX_LARGE ? matrix_large_sql : range_sql;
     job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(source)}; job->offset=offset; job->known_total=total; job->include_totals=totals;
     job->object_id=object_id; job->revision=revision_id; expected_offset=totals || total<0 ? 0 : offset;
     if (exact) {
         if (kind==MATRIX_EXACT) CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,"category",AGG_SUM,NULL));
         if (kind==MATRIX_HUGE) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"wide",AGG_SUM,NULL));
+        else if (kind==MATRIX_COUNT || kind==MATRIX_COUNT_EMPTY) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"wide",AGG_COUNT,NULL));
         else {
             CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"amount",AGG_SUM,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"amount",AGG_AVG,NULL));
             CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"wide",AGG_MAX,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"wide",AGG_DISTINCT,NULL));
         }
-        CHECK(pivot_assign(&job->pivot,PIVOT_FILTERS,"gate",AGG_SUM,NULL)); job->pivot.fields[PIVOT_FILTERS][0].filter=FILTER_GREATER; job->pivot.fields[PIVOT_FILTERS][0].value=dx_strdup(kind==MATRIX_EMPTY ? "2.00" : "1.005");
+        CHECK(pivot_assign(&job->pivot,PIVOT_FILTERS,"gate",AGG_SUM,NULL)); job->pivot.fields[PIVOT_FILTERS][0].filter=FILTER_GREATER; job->pivot.fields[PIVOT_FILTERS][0].value=dx_strdup(kind==MATRIX_EMPTY || kind==MATRIX_COUNT_EMPTY ? "2.00" : "1.005");
     } else if (kind==MATRIX_DATE) {
         CHECK(pivot_assign_grain(&job->pivot,PIVOT_ROWS,"occurred",AGG_SUM,PIVOT_DATE_MONTH,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"occurred",AGG_COUNT,NULL));
     } else {
@@ -674,6 +676,14 @@ static void tick(void) {
     case WAIT_COLUMNS_FINAL:
         if (!received(false)) return;
         columns_range_values(512,88,true); release_reply(); pass("Columns cancellation/memory-error recovery publishes only the current fully owned result");
+        submit_matrix(MATRIX_COUNT,0,-1,true,5); enter(WAIT_MATRIX_COUNT); return;
+    case WAIT_MATRIX_COUNT:
+        if (!received(false)) return;
+        CHECK(reply->page.row_count==1 && reply->page.column_count==1 && reply->page.total==1 && !strcmp(reply->page.cells[0].text,"4") && reply->page.columns[0].type==DUCKDB_TYPE_BIGINT && reply->page.totals && !strcmp(reply->page.totals->columns.cells[0].text,"4") && reply->page.sql && !strstr(reply->page.sql,"PIVOT (")); release_reply(); pass("global COUNT(*) counts nullable records without an implicit grouping column");
+        submit_matrix(MATRIX_COUNT_EMPTY,0,-1,true,4); enter(WAIT_MATRIX_COUNT_EMPTY); return;
+    case WAIT_MATRIX_COUNT_EMPTY:
+        if (!received(false)) return;
+        CHECK(reply->page.row_count==1 && reply->page.column_count==1 && reply->page.total==1 && !strcmp(reply->page.cells[0].text,"0") && reply->page.totals && !strcmp(reply->page.totals->columns.cells[0].text,"0")); release_reply(); pass("empty global COUNT(*) produces one typed zero row and a source zero footer");
         submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_OVERSIZE_SCHEMA); return;
     case WAIT_OVERSIZE_SCHEMA:
         if (!received(false)) return;
@@ -745,7 +755,7 @@ static void tick(void) {
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
         retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
         page_free(&retained); page_free(&retained); pass("early stop and scheduled stale callbacks are ignored");
-        CHECK(stages==66 && worker.jobs_started==73 && expected_sql==180 && expected_counts==19);
+        CHECK(stages==68 && worker.jobs_started==75 && expected_sql==189 && expected_counts==21);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
