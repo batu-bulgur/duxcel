@@ -1,0 +1,55 @@
+{
+  "schema": "duxcel.web-toolchain",
+  "version": 1,
+  "verified_on": "2026-10-17",
+  "runtime": {
+    "python_min": [3, 10, 0],
+    "node_min": [18, 3, 0]
+  },
+  "emsdk": {
+    "version": "6.0.12",
+    "repository": "emscripten-core/emsdk",
+    "commit": "35ff8a6d150541276abbc6bae512ca90bcfbe220",
+    "release_hash": "6e9f6885cb17a3d6c8fd488a5cff730f50aba61d",
+    "url": "https://codeload.github.com/emscripten-core/emsdk/tar.gz/35ff8a6d150541276abbc6bae512ca90bcfbe220",
+    "sha256": "b1d10c3d4a5dc714cc558622f9828f591635aec3f9172a63925f0a71280ec07a",
+    "bytes": 177386,
+    "source": "https://github.com/emscripten-core/emsdk/tree/6.0.12",
+    "artifacts": {
+      "darwin-arm64": {
+        "url": "https://storage.googleapis.com/webassembly/emscripten-releases-builds/mac/6e9f6885cb17a3d6c8fd488a5cff730f50aba61d/wasm-binaries-arm64.tar.xz",
+        "filename": "emscripten-6.0.12-macos-arm64.tar.xz",
+        "sha256": "8e91c0eca2b8728aa2babb32b805318eaf5e8d6652c6535163d0ea467a6d907c",
+        "bytes": 280157468,
+        "source": "https://github.com/emscripten-core/emsdk/blob/35ff8a6d150541276abbc6bae512ca90bcfbe220/emsdk_manifest.json"
+      }
+    }
+  },
+  "raylib": {
+    "version": "6.0",
+    "repository": "raysan5/raylib",
+    "commit": "dbc56a87da87d973a9c5baa4e7438a9d20121d28",
+    "url": "https://codeload.github.com/raysan5/raylib/tar.gz/dbc56a87da87d973a9c5baa4e7438a9d20121d28",
+    "sha256": "81b06ce7c19cf3b634b0271c23c361ba6ad8bf45fb8b036abbfeb4260ec1e126",
+    "bytes": 52562578,
+    "source": "https://github.com/raysan5/raylib/releases/tag/6.0",
+    "reason": "Matches installed native raylib 6.0.0; this preparation does not upgrade the renderer API."
+  },
+  "browser_packages": {
+    "@duckdb/duckdb-wasm": {
+      "version": "1.32.0",
+      "tarball": "https://registry.npmjs.org/@duckdb/duckdb-wasm/-/duckdb-wasm-1.32.0.tgz",
+      "integrity": "sha512-IewXTNYEjsZCPE9weUWgtjGxUlMRo7qhX0GF6tq/KjK8bnY+RAl4cyUdYUfcdzbyb4b9ZxPC+FOsCcxgaKFWMg==",
+      "source": "https://registry.npmjs.org/@duckdb/duckdb-wasm/1.32.0",
+      "reason": "Published stable semver; npm latest was prerelease-named 1.33.1-dev57.0 when checked. Package version is not a claim about the embedded engine version.",
+      "worker_model": "Official AsyncDuckDB Worker, initially single threaded mvp/eh bundles; no custom combined engine build."
+    },
+    "apache-arrow": {
+      "version": "17.0.0",
+      "tarball": "https://registry.npmjs.org/apache-arrow/-/apache-arrow-17.0.0.tgz",
+      "integrity": "sha512-X0p7auzdnGuhYMVKYINdQssS4EcKec9TCXyez/qtJt32DrIMGbzqiaMiQ0X6fQlQpw8Fl0Qygcv4dfRAr5Gu9Q==",
+      "source": "https://registry.npmjs.org/apache-arrow/17.0.0",
+      "reason": "Satisfies the locked DuckDB-Wasm package's apache-arrow ^17.0.0 dependency."
+    }
+  }
+}
