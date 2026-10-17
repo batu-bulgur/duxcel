@@ -569,7 +569,7 @@ typedef struct {
     uint64_t dialog_revision,dialog_chart_revision; int dialog_focus; DocumentAction dialog_action;
     bool sheet_fixture; size_t sheet_original,sheet_other,sheet_count,sheet_active,sheet_index;
     char *sheet_names[DX_MAX_SHEETS]; bool sheet_hidden[DX_MAX_SHEETS]; uint64_t sheet_generation;
-    int sheet_focus,sheet_scroll,sheet_unhide_scroll; Rectangle sheet_navigation;
+    int sheet_focus,sheet_scroll,sheet_unhide_scroll,sheet_pick_diagnostic_stage; Rectangle sheet_navigation;
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -1037,6 +1037,26 @@ static void review_smoke_sheet_diagnostic(App *a,ReviewSmoke *t,int item,bool sa
         shown++;
     }
 }
+static void review_smoke_sheet_pointer_diagnostic(App *a,ReviewSmoke *t,const char *when) {
+    DxReviewCapture *r=a->review; const DxReviewWidget *widget=dx_review_find(r->registry,t->author_target);
+    Rectangle bounds={0},clip={0},visible={0},display={0};
+    if (widget) {
+        bounds=(Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height};
+        clip=(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height}; visible=GetCollisionRec(bounds,clip);
+    }
+    float x=visible.x+visible.width*.5f,y=visible.y+visible.height*.5f;
+    if (r->image.width>0 && r->image.height>0) {
+        float w=GetScreenWidth(),h=GetScreenHeight(),aspect=(float)r->image.width/r->image.height;
+        display=(Rectangle){0,0,w,h};
+        if (w/h>aspect) { display.width=h*aspect; display.x=(w-display.width)*.5f; }
+        else { display.height=w/aspect; display.y=(h-display.height)*.5f; }
+    }
+    DxReviewCaptureLayout picker=dx_review_capture_layout(GetScreenWidth(),GetScreenHeight(),a->ui.scale,r->toolbar_top);
+    Vector2 mapped={0};
+    if (display.width>0 && display.height>0) mapped=(Vector2){(x-display.x)*r->frame.window_width/display.width,(y-display.y)*r->frame.window_height/display.height};
+    DxReviewTarget direct={0},transformed={0}; dx_review_pick(r->registry,x,y,r->mode,&direct); dx_review_pick(r->registry,mapped.x,mapped.y,r->mode,&transformed);
+    fprintf(stderr,"Review worksheet pointer %s stage=%d target=%s bounds=%.2f,%.2f,%.2f,%.2f clip=%.2f,%.2f,%.2f,%.2f queued_point=%.2f,%.2f window=%dx%d render=%dx%d frame=%ux%u framebuffer=%ux%u image=%dx%d texture=%dx%d display=%.2f,%.2f,%.2f,%.2f mapped=%.2f,%.2f bar=%.2f,%.2f,%.2f,%.2f top=%d mode=%d phase=%d pending=%d blocked=%d mouse=%d/%d/%d,%d/%d/%d direct=%s transformed=%s actual=%s keyboard=%d dragging=%d\n",when,t->stage,t->author_target,bounds.x,bounds.y,bounds.width,bounds.height,clip.x,clip.y,clip.width,clip.height,x,y,GetScreenWidth(),GetScreenHeight(),GetRenderWidth(),GetRenderHeight(),r->frame.window_width,r->frame.window_height,r->frame.framebuffer_width,r->frame.framebuffer_height,r->image.width,r->image.height,r->texture.width,r->texture.height,display.x,display.y,display.width,display.height,mapped.x,mapped.y,picker.picker_bar.x,picker.picker_bar.y,picker.picker_bar.width,picker.picker_bar.height,r->toolbar_top,(int)r->mode,(int)r->phase,ui_has_pointer_gesture(),dx_review_input_blocked(),IsMouseButtonPressed(MOUSE_BUTTON_LEFT),IsMouseButtonReleased(MOUSE_BUTTON_LEFT),IsMouseButtonDown(MOUSE_BUTTON_LEFT),IsMouseButtonPressed(MOUSE_BUTTON_RIGHT),IsMouseButtonReleased(MOUSE_BUTTON_RIGHT),IsMouseButtonDown(MOUSE_BUTTON_RIGHT),direct.found ? direct.widget.id : "<none>",transformed.found ? transformed.widget.id : "<none>",r->target.found ? r->target.widget.id : "<none>",r->keyboard_pick,r->dragging);
+}
 static int review_smoke_sheet_tick(App *a,ReviewSmoke *t) {
     int item=(t->stage-REVIEW_PLOT_END)/6,phase=(t->stage-REVIEW_PLOT_END)%6; DxReviewCapture *r=a->review; float scale=item==3 ? 1.5f : 1;
     if (phase==0) {
@@ -1062,10 +1082,14 @@ static int review_smoke_sheet_tick(App *a,ReviewSmoke *t) {
         if (r->phase!=DX_REPORT_PICK) return 0;
         bool same=review_smoke_sheet_same(a,t),targets=same && review_smoke_sheet_targets(a,t,item);
         if (!same || !targets) { review_smoke_sheet_diagnostic(a,t,item,same,targets); return -1; }
-        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target);
+        if (item==3) review_smoke_sheet_pointer_diagnostic(a,t,"queued"); return 1;
     }
     if (phase==3) {
-        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (r->phase!=DX_REPORT_NOTE) {
+            if (t->sheet_pick_diagnostic_stage!=t->stage) { review_smoke_sheet_pointer_diagnostic(a,t,"after picker draw"); t->sheet_pick_diagnostic_stage=t->stage; }
+            return 0;
+        }
         if (strcmp(r->target.widget.id,t->author_target) || !review_smoke_sheet_same(a,t)) return -1;
         ui_note_key_press(KEY_ESCAPE,0); return 1;
     }
