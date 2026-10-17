@@ -1,0 +1,75 @@
+INFO: Initializing raylib 6.0
+INFO: Platform backend: DESKTOP (GLFW)
+INFO: Supported raylib modules:
+INFO:     > rcore:..... loaded (mandatory)
+INFO:     > rlgl:...... loaded (mandatory)
+INFO:     > rshapes:... loaded (optional)
+INFO:     > rtextures:. loaded (optional)
+INFO:     > rtext:..... loaded (optional)
+INFO:     > rmodels:... loaded (optional)
+INFO:     > raudio:.... loaded (optional)
+INFO: DISPLAY: Trying to enable VSYNC
+INFO: DISPLAY: Device initialized successfully (HighDPI)
+INFO:     > Display size: 1680 x 1050
+INFO:     > Screen size:  640 x 360
+INFO:     > Render size:  1280 x 720
+INFO:     > Viewport offsets: 0, 0
+INFO: GLAD: OpenGL extensions loaded successfully
+INFO: GL: Supported extensions count: 43
+INFO: GL: OpenGL device information:
+INFO:     > Vendor:   Apple
+INFO:     > Renderer: Apple M1
+INFO:     > Version:  4.1 Metal - 90.5
+INFO:     > GLSL:     4.10
+INFO: GL: VAO extension detected, VAO functions loaded successfully
+INFO: GL: NPOT textures extension detected, full NPOT textures supported
+INFO: GL: DXT compressed textures supported
+INFO: PLATFORM: DESKTOP (GLFW - Cocoa): Initialized successfully
+INFO: TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 1] Default texture loaded successfully
+INFO: SHADER: [ID 1] Vertex shader compiled successfully
+INFO: SHADER: [ID 2] Fragment shader compiled successfully
+INFO: SHADER: [ID 3] Program shader loaded successfully
+INFO: SHADER: [ID 3] Default shader loaded successfully
+INFO: RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+INFO: RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+INFO: RLGL: Default OpenGL state initialized successfully
+INFO: TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Default font loaded successfully (224 glyphs)
+INFO: SYSTEM: Working Directory: /Users/h2o/dev/duxcel
+INFO: TIMER: Target time per frame: 16.667 milliseconds
+Native titlebar control: scale=1.00 kind=0 x=9.00 y=9.00 width=14.00 height=14.00 center_delta=2.00
+Native titlebar control: scale=1.00 kind=1 x=32.00 y=9.00 width=14.00 height=14.00 center_delta=2.00
+Native titlebar control: scale=1.00 kind=2 x=55.00 y=9.00 width=14.00 height=14.00 center_delta=2.00
+Native titlebar surface: scale=1.00 title=28.00 inset=81.00 logical=640x360 render=1280x720 view_top=360.00 window_top=360.00
+INFO: FILEIO: [tests/results/titlebar-current/native-titlebar-100.png] File saved successfully
+INFO: FILEIO: [tests/results/titlebar-current/native-titlebar-100.png] Image exported successfully
+Native titlebar control: scale=0.80 kind=0 x=9.00 y=9.00 width=14.00 height=14.00 center_delta=4.80
+Native titlebar control: scale=0.80 kind=1 x=32.00 y=9.00 width=14.00 height=14.00 center_delta=4.80
+Native titlebar control: scale=0.80 kind=2 x=55.00 y=9.00 width=14.00 height=14.00 center_delta=4.80
+Native titlebar surface: scale=0.80 title=22.40 inset=81.00 logical=640x360 render=1280x720 view_top=360.00 window_top=360.00
+INFO: FILEIO: [tests/results/titlebar-current/native-titlebar-80.png] File saved successfully
+INFO: FILEIO: [tests/results/titlebar-current/native-titlebar-80.png] Image exported successfully
+Native titlebar control: scale=1.50 kind=0 x=9.00 y=9.00 width=14.00 height=14.00 center_delta=-5.00
+Native titlebar control: scale=1.50 kind=1 x=32.00 y=9.00 width=14.00 height=14.00 center_delta=-5.00
+Native titlebar control: scale=1.50 kind=2 x=55.00 y=9.00 width=14.00 height=14.00 center_delta=-5.00
+Native titlebar surface: scale=1.50 title=42.00 inset=81.00 logical=640x360 render=1280x720 view_top=360.00 window_top=360.00
+INFO: FILEIO: [tests/results/titlebar-current/native-titlebar-150.png] File saved successfully
+INFO: FILEIO: [tests/results/titlebar-current/native-titlebar-150.png] Image exported successfully
+Native titlebar control: scale=1.50 kind=0 x=9.00 y=9.00 width=14.00 height=14.00 center_delta=-5.00
+Native titlebar control: scale=1.50 kind=1 x=32.00 y=9.00 width=14.00 height=14.00 center_delta=-5.00
+Native titlebar control: scale=1.50 kind=2 x=55.00 y=9.00 width=14.00 height=14.00 center_delta=-5.00
+Native titlebar surface: scale=1.50 title=42.00 inset=81.00 logical=800x480 render=1600x960 view_top=480.00 window_top=480.00
+INFO: FILEIO: [tests/results/titlebar-current/native-titlebar-resized-150.png] File saved successfully
+INFO: FILEIO: [tests/results/titlebar-current/native-titlebar-resized-150.png] Image exported successfully
+Native titlebar control: scale=0.00 kind=0 x=9.00 y=9.00 width=14.00 height=14.00 center_delta=0.00
+Native titlebar control: scale=0.00 kind=1 x=32.00 y=9.00 width=14.00 height=14.00 center_delta=0.00
+Native titlebar control: scale=0.00 kind=2 x=55.00 y=9.00 width=14.00 height=14.00 center_delta=0.00
+Native titlebar surface: scale=0.00 title=0.00 inset=81.00 logical=800x480 render=1600x960 view_top=480.00 window_top=480.00
+INFO: FILEIO: [tests/results/titlebar-current/native-titlebar-focus.png] File saved successfully
+INFO: FILEIO: [tests/results/titlebar-current/native-titlebar-focus.png] Image exported successfully
+INFO: TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+INFO: SHADER: [ID 3] Default shader unloaded successfully
+INFO: TEXTURE: [ID 1] Default texture unloaded successfully
+INFO: Window closed successfully
+PASS: 1937 native titlebar checks (actual unified content/control geometry,80/100/150% andFocus,hidden resize,real before/after-swap pixels,noactivation;nophysical drag/fullscreen claim)

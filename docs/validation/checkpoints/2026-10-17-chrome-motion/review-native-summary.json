@@ -1,0 +1,65 @@
+{
+  "started_utc": "2026-10-17T17:48:58.210288+00:00",
+  "status": "passed",
+  "configs": {
+    "sanitize": {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/review-sanitize/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "900"
+      ],
+      "elapsed_seconds": 2.966,
+      "log": "tests/results/runs/20261017T174858-review-8680/sanitize.log",
+      "binary_sha256": "e2f9231ac67d443b67a5d64da6a514f0e34345526211cc6bcae26aa0f2d79968",
+      "build_header_sha256": "aaf8e9c6f4e7e5c1fc9f7a095af5381132cdbd1b6256ab6077c53bc3825e9ffc",
+      "completed_stages": 37,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792259341-8726-1",
+          "target": "filter.search",
+          "frame_id": "20",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 416449,
+            "sha256": "6b04b6963f74eb49eb06f3b9b29e62c40c5c56d969654457eacab9e6a5dc375c",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T174858-review-8680/sanitize/outbox/DXR-S-1792259341-8726-1/frame.png"
+          },
+          "capture_sha256": "fd69a741167b672ea9cfa0fbd496364c9010391e51ec1f8ca8e49277487fb4f5"
+        },
+        {
+          "report_id": "DXR-S-1792259341-8726-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "44",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 267483,
+            "sha256": "c2646103c11133d297ab9735f29550dbb074673e71f6e4f37a4fd02b84def335",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T174858-review-8680/sanitize/outbox/DXR-S-1792259341-8726-2/frame.png"
+          },
+          "capture_sha256": "9398cd3664d5e6877aba18d0331af84a5dd1bfb9ac5e2b6f9d50d75de96c10c5"
+        }
+      ]
+    }
+  },
+  "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual",
+  "source": {
+    "commit": "75f104dfef161b6e82b08160196f62afb06eb724",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "55cbc0d2efb09169b0995ec13b667fc823968460230dd1febfb8dabe3ec5e58a",
+    "source_files": 232
+  },
+  "background": {
+    "command": [
+      "./tests/test_background-native-debug"
+    ],
+    "elapsed_seconds": 1.816,
+    "log": "tests/results/runs/20261017T174858-review-8680/background.log"
+  },
+  "finished_utc": "2026-10-17T17:49:03.245026+00:00"
+}

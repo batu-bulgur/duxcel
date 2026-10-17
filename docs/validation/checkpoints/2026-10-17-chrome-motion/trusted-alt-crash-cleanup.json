@@ -1,0 +1,20 @@
+{
+  "held_keys": [
+    {
+      "key": "v",
+      "code": "KeyV",
+      "status": "failed",
+      "error": "Error: CDP WebSocket error"
+    }
+  ],
+  "browser_before_cleanup": {
+    "pid": 8242,
+    "exit_code": null,
+    "signal": "SIGSEGV"
+  },
+  "browser_after_cleanup": {
+    "pid": 8242,
+    "exit_code": null,
+    "signal": "SIGSEGV"
+  }
+}

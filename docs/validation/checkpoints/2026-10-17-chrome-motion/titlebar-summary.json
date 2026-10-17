@@ -1,0 +1,11 @@
+{
+  "exit_code": 0,
+  "source": {
+    "commit": "3cc85850e245934f1fc2f76b589eda9b02281459",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "12c0e7395316846cde013ac695cd2dad233ad6f9c8f67e0e2ae2fa560f93fb88",
+    "source_files": 232
+  },
+  "binary_sha256": "6ab5548653b55f27180dddd67ef5d96c3b1c668ce886be705b38cbf0d2ce2287",
+  "seconds": 3.488
+}

@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T17:51:29.227675+00:00",
+  "tier": "native",
+  "config": "release",
+  "jobs": 1,
+  "no_build": true,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "91f480f7e65b0e8018379c14c3e3bb36713172a6",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "2d37c1958f4cdbb99bd82b6974ad6e054578ca697eb7818be18c429e969ba91c",
+    "source_files": 232
+  },
+  "results": [
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T175129-native-9226/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.002
+    },
+    {
+      "name": "native-base",
+      "command": [
+        "./duxcel",
+        "--smoke",
+        "--frames",
+        "240",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261017T175129-native-9226/base.png"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T175129-native-9226/native-base.txt",
+      "expected_stages": 6,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 3.747
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/duxcel": "5fa4517189add4fe12b4344548c8aaf76af038b9f10700827f96f11e4c325d29",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "elapsed_seconds": 4.839,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/duxcel": "5fa4517189add4fe12b4344548c8aaf76af038b9f10700827f96f11e4c325d29",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "finished_utc": "2026-10-17T17:51:34.190951+00:00"
+}
