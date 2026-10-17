@@ -192,6 +192,117 @@ static void review_choice_menu(App *a,const UIChoiceLayout *layout,const char *t
         if (w) { w->clip=review_rect(clip); snprintf(w->parent_id,sizeof(w->parent_id),"%s",parent); w->checked=i==selected; w->input_eligible=true; }
     }
 }
+/* Authoring controllers supply their actual drawn rectangles and states. Only
+   the capture frame derives semantic identity here; no layout is recomputed,
+   borrowed field text retained or query made by this adapter. */
+static uint64_t review_field_hash(const char *text) {
+    uint64_t hash=UINT64_C(14695981039346656037);
+    for (const unsigned char *p=(const unsigned char *)(text ? text : "");*p;p++) { hash^=*p; hash*=UINT64_C(1099511628211); }
+    return hash;
+}
+static const char *review_author_identity(App *a,const char *kind,char parent[128],DxReviewDataIdentity *data) {
+    SheetObject *object=selected_object(a); const char *field=NULL,*scope=NULL;
+    static const char *const roles[]={"rows","columns","values","filters"};
+    static const char *const marks[]={"color","size","label","detail","tooltip","shape"};
+    *data=review_scope(a);
+    if (object) {
+        data->object_id=object->id; data->source_id=object->kind==OBJECT_TABLE ? object->id : object->source_id;
+        data->query_generation=object->revision; data->schema_generation=object_source_revision(a,object);
+    }
+    if (!strcmp(kind,"pivot_field")) {
+        int role=a->pivot_drag_role,index=a->pivot_drag_index;
+        if (object && role>=0 && role<4 && index>=0 && (size_t)index<object->pivot.counts[role]) { scope=roles[role]; field=object->pivot.fields[role][index].name; }
+        else if (a->pivot_drag_field>=0 && (size_t)a->pivot_drag_field<context_fields(a)->column_count) field=context_fields(a)->columns[a->pivot_drag_field].name;
+    } else if (!strcmp(kind,"field") && a->pivot_field>=0 && (size_t)a->pivot_field<context_fields(a)->column_count) field=context_fields(a)->columns[a->pivot_field].name;
+    else if (!strcmp(kind,"marks") && (unsigned)a->mark_role<DX_MARK_ROLES) scope=marks[a->mark_role];
+    else if (!strcmp(kind,"assign_field") && (unsigned)a->pivot_role<4) scope=roles[a->pivot_role];
+    if (!strcmp(kind,"step") && a->step_menu_index>=0 && (size_t)a->step_menu_index<a->pipeline_row_count) {
+        static const char *const kinds[]={"source","unique","filter","group","sort"};
+        const UIStep *step=&a->pipeline_rows[a->step_menu_index]; scope=(unsigned)step->kind<5 ? kinds[step->kind] : "unknown";
+        field=step->column; data->row=step->index;
+    } else if (!strcmp(kind,"context") || !strcmp(kind,"source_context")) {
+        scope=a->grid.selection==SELECT_ROWS ? "rows" : a->grid.selection==SELECT_COLUMNS ? "columns" : "cells";
+        data->has_cell=true; data->row=a->grid.row; data->column=a->grid.col;
+        if (!strcmp(kind,"context")) snprintf(data->kind,sizeof(data->kind),"worksheet-position");
+        else {
+            Page *page=&a->page;
+            if (object && object->kind==OBJECT_TABLE) { page=&a->objects[a->selected_object].page; data->row=a->grid.row-object->row-2; data->column=a->grid.col-object->col; }
+            if (data->column<page->column_count) field=page->columns[data->column].name;
+        }
+    }
+    snprintf(parent,128,"author.%s",kind);
+    if (field) snprintf(data->field,sizeof(data->field),"%s",field);
+    return scope;
+}
+static DxReviewWidget *review_author_widget(App *a,const char *id,const char *parent,const char *kind,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,int layer,bool enabled,bool checked,bool focused,bool container,const char *field,const char *file,int line) {
+    if (!review_armed(a) || bounds.width<=0 || bounds.height<=0 || clip.width<=0 || clip.height<=0) return NULL;
+    DxReviewWidget w; dx_review_widget_init(&w,id,action,"",role,label);
+    snprintf(w.path,sizeof(w.path),"popup/author/%s",kind); snprintf(w.parent_id,sizeof(w.parent_id),"%s",parent ? parent : "");
+    char identity[128]; const char *scope=review_author_identity(a,kind,identity,&w.data);
+    if (scope) snprintf(w.path,sizeof(w.path),"popup/author/%s/%s",kind,scope);
+    if (field) { int n=snprintf(w.data.field,sizeof(w.data.field),"%s",field); if (n<0 || (size_t)n>=sizeof(w.data.field)) w.truncated=true; }
+    w.bounds=review_rect(bounds); w.clip=review_rect(clip); w.layer=layer;
+    if (a->popup_capturing) { w.transform.ty=a->popup_presence.offset*a->ui.scale; w.bounds.y+=w.transform.ty; w.clip.y+=w.transform.ty; }
+    w.enabled=enabled; w.checked=checked; w.focused=focused; w.container=container; w.expanded=container;
+    w.input_eligible=enabled && !container && strcmp(role,"text") && strcmp(role,"region");
+    snprintf(w.source_file,sizeof(w.source_file),"%s",file); w.source_line=(uint32_t)line;
+    DxReviewStatus status=dx_review_add(a->review->registry,&w);
+    if (status!=DX_REVIEW_OK) { fprintf(stderr,"Review authoring registration %s: %s\n",id,dx_review_status_text(status)); return NULL; }
+    return (DxReviewWidget *)dx_review_find(a->review->registry,id);
+}
+static void review_author_capture_state(App *a,const char *text) {
+    /* Capture and registry each own their frame. Keep the diagnostic console
+       and serialized archive identical without adding App state or idle work. */
+    DxReviewFrame *frames[]={&a->review->frame,&a->review->registry->frame};
+    for (size_t i=0;i<sizeof(frames)/sizeof(*frames);i++) {
+        size_t used=strlen(frames[i]->state_text); int n=snprintf(frames[i]->state_text+used,sizeof(frames[i]->state_text)-used,"%s",text);
+        if (n<0 || (size_t)n>=sizeof(frames[i]->state_text)-used) frames[i]->truncated=true;
+    }
+}
+static void review_author_capture_count(App *a,int count) {
+    DxReviewFrame *frames[]={&a->review->frame,&a->review->registry->frame};
+    for (size_t i=0;i<sizeof(frames)/sizeof(*frames);i++) {
+        char *value=strstr(frames[i]->state_text," author_count=");
+        if (value) { unsigned n=(unsigned)(count>16 ? 16 : count); value+=14; value[0]=(char)('0'+n/10); value[1]=(char)('0'+n%10); }
+        value=strstr(frames[i]->state_text," author_overflow=");
+        if (value) value[17]=count>16 ? '1' : '0';
+    }
+}
+static void review_author_panel(App *a,const char *kind,const char *title,Rectangle panel,Rectangle heading,const char *file,int line) {
+    if (!review_armed(a)) return;
+    char parent[128],id[128]; DxReviewDataIdentity data; review_author_identity(a,kind,parent,&data);
+    Rectangle clip=a->ui.clipping ? GetCollisionRec(panel,a->ui.clip) : panel;
+    review_author_widget(a,parent,NULL,kind,"author.inspect","menu",title,panel,clip,130,true,false,false,true,NULL,file,line);
+    snprintf(id,sizeof(id),"%s.background",parent); review_author_widget(a,id,parent,kind,"author.inspect","region","Menu background",panel,clip,130,true,false,false,false,NULL,file,line);
+    snprintf(id,sizeof(id),"%s.heading",parent); review_author_widget(a,id,parent,kind,"author.inspect","text",title,heading,clip,131,true,false,false,false,NULL,file,line);
+    float offset=a->popup_capturing ? a->popup_presence.offset*a->ui.scale : 0;
+    char state[480]; snprintf(state,sizeof(state)," author_kind=%s author_parent=%s author_count=00 author_overflow=0 author_panel=%.3f,%.3f,%.3f,%.3f author_heading=%.3f,%.3f,%.3f,%.3f",kind,parent,panel.x,panel.y+offset,panel.width,panel.height,heading.x,heading.y+offset,heading.width,heading.height);
+    review_author_capture_state(a,state);
+}
+static void review_author_item(App *a,const char *kind,const char *key,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,const char *file,int line) {
+    if (!review_armed(a)) return;
+    char parent[128],id[128]; DxReviewDataIdentity data; review_author_identity(a,kind,parent,&data);
+    bool field_list=field && (!strcmp(kind,"marks") || !strcmp(kind,"assign_field") || !strcmp(kind,"plot"));
+    int length=field_list ? snprintf(id,sizeof(id),"%s.action.%s.f%016llx",parent,key,(unsigned long long)review_field_hash(field)) : snprintf(id,sizeof(id),"%s.action.%s",parent,key);
+    int row=0; DxReviewRegistry *registry=a->review->registry;
+    for (size_t i=0;i<registry->count;i++) if (!strcmp(registry->widgets[i].parent_id,parent) && strstr(registry->widgets[i].id,".action.")) row++;
+    DxReviewWidget *w=review_author_widget(a,id,parent,kind,action,role,label,bounds,clip,131,enabled,checked,focused,false,field,file,line);
+    if (w && (length<0 || (size_t)length>=sizeof(id))) w->identity_truncated=true;
+    if (w && row<16) {
+        Rectangle visible=GetCollisionRec((Rectangle){w->bounds.x,w->bounds.y,w->bounds.width,w->bounds.height},(Rectangle){w->clip.x,w->clip.y,w->clip.width,w->clip.height});
+        char state[512]; snprintf(state,sizeof(state)," author_row%d=%.3f,%.3f,%.3f,%.3f author_key%d=%s author_id%d=%s author_flags%d=%d,%d,%d",row,visible.x,visible.y,visible.width,visible.height,row,key,row,id,row,enabled,checked,focused);
+        review_author_capture_state(a,state);
+    }
+    if (w) review_author_capture_count(a,row+1);
+}
+static void review_author_scroll(App *a,const char *kind,Rectangle track,Rectangle thumb,Rectangle clip,bool dragging,const char *file,int line) {
+    if (!review_armed(a)) return;
+    char parent[128],id[128],track_id[128]; DxReviewDataIdentity data; review_author_identity(a,kind,parent,&data);
+    snprintf(track_id,sizeof(track_id),"%s.scrollbar",parent);
+    review_author_widget(a,track_id,parent,kind,"author.scroll","scrollbar","Menu scroll",track,clip,132,true,false,false,false,NULL,file,line);
+    snprintf(id,sizeof(id),"%s.thumb",track_id);
+    review_author_widget(a,id,track_id,kind,"author.scroll","scrollbar","Menu scroll thumb",thumb,GetCollisionRec(track,clip),133,true,false,dragging,false,NULL,file,line);
+}
 static DxReviewWidget *review_filter_item(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,int layer,int focus,bool enabled) {
     DxReviewWidget w; dx_review_widget_init(&w,id,action,"popup/column-filter",role,label);
     snprintf(w.parent_id,sizeof(w.parent_id),"filter.panel");
