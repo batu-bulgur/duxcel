@@ -41,12 +41,12 @@
       "bytes": 3192,
       "original": "tests/results/runs/20261017T210739-fast-70501/summary.json"
     },
-    "native-release/background.log": {
+    "native-release/background.txt": {
       "sha256": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
       "bytes": 2468,
       "original": "tests/results/runs/20261017T210837-review-71080/background.log"
     },
-    "native-release/release.log": {
+    "native-release/release.txt": {
       "sha256": "bf39979bf55bc60ce66eb73e1b1776fc23367f3d2e695b8a95ff44a67fbf9305",
       "bytes": 115451,
       "original": "tests/results/runs/20261017T210837-review-71080/release.log"
@@ -56,12 +56,12 @@
       "bytes": 3093,
       "original": "tests/results/runs/20261017T210837-review-71080/summary.json"
     },
-    "native-sanitize/background.log": {
+    "native-sanitize/background.txt": {
       "sha256": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
       "bytes": 2468,
       "original": "tests/results/runs/20261017T211443-review-73418/background.log"
     },
-    "native-sanitize/sanitize.log": {
+    "native-sanitize/sanitize.txt": {
       "sha256": "70556879a0b0ebdc84bf1e0911e3333ef3667a0020ff81d04414f79d04fa5d1a",
       "bytes": 115518,
       "original": "tests/results/runs/20261017T211443-review-73418/sanitize.log"
