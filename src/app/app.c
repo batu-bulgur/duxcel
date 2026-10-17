@@ -7084,8 +7084,11 @@ static void draw_app(App *a) {
     if (a->split_side && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) a->sidebar_width=fminf(360,fmaxf(188,mouse.x/s));
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) a->split_side=false;
     Rectangle gr=a->workspace.canvas;
-    if (enabled && !u->pointer_blocked && !pivot_active && !over_inspector && !a->left_drawer &&
-        ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse,gr)) || ui_gesture_starts_in(gr))) {
+    if (enabled && !u->pointer_blocked && !over_inspector && !a->left_drawer &&
+        (((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) && CheckCollisionPointRec(mouse,gr)) || ui_gesture_starts_in(gr))) {
+        /* Pointer ownership returns from a keyboard-focused pane to either
+           the worksheet or its active analytical surface. Browser button
+           edges need the same takeover as queued native gestures. */
         a->chrome_focus=a->pivot_focus=0; a->pivot_search_focus=false; a->ribbon_focus=false; a->consume_grid_input=false;
     }
     if (a->workspace.left.width>0 && !a->workspace.left_overlay) {
