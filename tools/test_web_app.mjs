@@ -839,7 +839,10 @@ async function generatedSQLWheel(state,deltaY){
  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});await send('Input.dispatchMouseEvent',{type:'mouseWheel',...point,deltaX:0,deltaY});await frames(3);
  const delivered=await evaluate('globalThis.duxcelSQLWheelEvent');
  await fs.writeFile(path.join(output,'generated-sql-wheel-delivery.json'),JSON.stringify({deltaY,point,delivered},null,2));
- check(delivered?.trusted&&delivered.canvas&&delivered.deltaY===deltaY,'Generated SQL wheel did not reach the actual canvas through trusted CDP input');
+ // Chromium/macOS can scale protocol wheel deltas at Retina density (120
+ // protocol units arrive as60 DOM pixels at DPR2). Check real delivery and
+ // direction here; the actual C scroll/clamp assertions below verify use.
+ check(delivered?.trusted&&delivered.canvas&&Number.isFinite(delivered.deltaY)&&Math.sign(delivered.deltaY)===Math.sign(deltaY),'Generated SQL wheel did not reach the actual canvas through trusted CDP input');
  return{deltaY,point,delivered,state:await platformSnapshot()};
 }
 async function browserGeneratedSQL(foundation){
