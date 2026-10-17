@@ -1365,7 +1365,7 @@ typedef struct {
     UIContextTitleLayout workspace_title; Rectangle workspace_fields,workspace_tokens[4][DX_PIVOT_FIELDS];
     char workspace_mark_labels[DX_MARK_ROLES][512];
     bool feedback_fixture,feedback_table_added,feedback_transformed,feedback_pivot_added,feedback_started,feedback_end_sent,feedback_hidden,feedback_resume;
-    int feedback_table,feedback_pivot,feedback_item,feedback_scroll,feedback_chrome,feedback_filter_focus;
+    int feedback_table,feedback_pivot,feedback_item,feedback_scroll,feedback_chrome,feedback_filter_focus; float feedback_width;
     char feedback_path[4096],feedback_backup[4096]; Analysis feedback_source,feedback_preview_source;
     StepPreview feedback_preview; GridLocation feedback_preview_selection; DistinctPage feedback_values[4]; char *feedback_keys[4],*feedback_context,*feedback_pending,*feedback_message;
     int64_t feedback_total,feedback_value_focus; uint64_t feedback_value_scroll,feedback_search_revision; bool feedback_loading,feedback_failed,feedback_all;
@@ -3326,7 +3326,7 @@ static bool review_smoke_feedback_fixture(ReviewSmoke *t) {
 static void review_smoke_feedback_remember(App *a,ReviewSmoke *t) {
     review_smoke_cell_remember(a,t);
     SheetObject *table=&active_sheet(a)->objects.items[t->feedback_table]; t->feedback_source=analysis_copy(&table->source);
-    t->feedback_scroll=a->step_scroll; t->feedback_chrome=a->chrome_focus; t->feedback_filter_focus=a->filter_focus;
+    t->feedback_scroll=a->step_scroll; t->feedback_chrome=a->chrome_focus; t->feedback_filter_focus=a->filter_focus; t->feedback_width=a->pipeline_width;
     t->sql_pane_visible=a->pipeline; t->sql_pane_collapsed=a->pipeline_collapsed; t->sql_pane_mode=a->pipeline_sql; t->sql_pane_focus=a->pipeline_focus_index; t->sql_pane_step=a->pipeline_selected_step;
     t->sql_pane_pointer=a->inspector_sql_text; t->sql_pane_text=a->inspector_sql_text ? dx_strdup(a->inspector_sql_text) : NULL; t->sql_pane_scroll=a->inspector_sql_scroll; t->sql_pane_lines=a->inspector_sql_lines;
     if (a->inspector_sql_lines.offsets) { size_t bytes=(a->inspector_sql_lines.count+1)*sizeof(size_t); t->sql_pane_offsets=dx_alloc(bytes); memcpy(t->sql_pane_offsets,a->inspector_sql_lines.offsets,bytes); }
@@ -3364,7 +3364,7 @@ static bool review_smoke_feedback_same(App *a,ReviewSmoke *t,int item) {
         sheet->cells.cells!=t->cell_borrowed.cells || sheet->cells.capacity!=t->cell_borrowed.capacity || sheet->cells.revision!=t->cell_borrowed.revision || sheet->cells.undo_count!=t->cell_borrowed.undo_count || sheet->cells.redo_count!=t->cell_borrowed.redo_count || sheet->redo_actions_count!=t->cell_worksheet_redo || sheet->objects.next_id!=t->cell_object_next ||
         !analysis_same_result(source,&t->feedback_source) || !analysis_sorts_equal(source,&t->feedback_source) || a->modal!=t->choice_modal || a->request_id!=t->request || a->page.cells!=t->page || a->book.dirty!=t->dirty || sheet->undo_actions_count!=t->history || sheet->formats.revision!=t->choice_formats || a->ui.scale!=t->choice_scale || a->ribbon_mode!=t->choice_ribbon_mode ||
         location.row!=t->selection.row || location.col!=t->selection.col || location.end_row!=t->selection.end_row || location.end_col!=t->selection.end_col || a->grid.row_height!=t->choice_row_height ||
-        a->pipeline!=t->sql_pane_visible || a->pipeline_collapsed!=t->sql_pane_collapsed || a->pipeline_sql!=t->sql_pane_mode || a->pipeline_focus_index!=t->sql_pane_focus || a->pipeline_selected_step!=t->sql_pane_step || a->step_scroll!=t->feedback_scroll || a->chrome_focus!=t->feedback_chrome || a->filter_focus!=t->feedback_filter_focus ||
+        a->pipeline!=t->sql_pane_visible || a->pipeline_collapsed!=t->sql_pane_collapsed || a->pipeline_sql!=t->sql_pane_mode || a->pipeline_focus_index!=t->sql_pane_focus || a->pipeline_selected_step!=t->sql_pane_step || a->step_scroll!=t->feedback_scroll || a->chrome_focus!=t->feedback_chrome || a->filter_focus!=t->feedback_filter_focus || a->pipeline_width!=t->feedback_width ||
         a->inspector_sql_text!=t->sql_pane_pointer || !review_smoke_text_same(a->inspector_sql_text,t->sql_pane_text) || a->inspector_sql_scroll!=t->sql_pane_scroll || memcmp(&a->inspector_sql_lines,&t->sql_pane_lines,sizeof(TextLines)) || (t->sql_pane_offsets && memcmp(a->inspector_sql_lines.offsets,t->sql_pane_offsets,(t->sql_pane_lines.count+1)*sizeof(size_t))) ||
         memcmp(&a->statistics,&t->stats_cache,sizeof(SelectionStats)) || memcmp(&a->statistics_key,&t->stats_key,sizeof(StatsKey)) || a->statistics_state!=t->stats_state || a->statistics_request!=t->stats_request || a->statistics_object!=t->stats_object || a->statistics_frame!=t->stats_frame ||
         a->message!=t->feedback_message_pointer || strcmp(a->message ? a->message : "",t->feedback_message) || a->message_since!=t->feedback_message_since || a->message_revision!=t->feedback_message_revision ||
@@ -3402,10 +3402,19 @@ static bool review_smoke_feedback_targets(App *a,ReviewSmoke *t,int item) {
             size_t count=0; bool child=false;
             for (size_t i=0;i<registry->count;i++) { const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,"pane.transformations.step.",26)) continue; count++; if (widget->data.row==0) child=review_smoke_sheet_pick(a,widget,"pane.transformations.steps"); }
             if (count!=3 || !child || !chosen->enabled || !chosen->input_eligible) return false;
-        } else { const DxReviewWidget *sql=dx_review_find(registry,"pane.transformations.sql"); if (!sql || !sql->value.present || sql->value.is_null || strcmp(sql->value.type,"SQL") || strcmp(sql->value.exact_text,t->sql_pane_text) || sql->value.truncated || !chosen->enabled || !chosen->input_eligible || dx_review_find(registry,"pane.transformations.steps")) return false; }
+        } else {
+            const DxReviewWidget *sql=dx_review_find(registry,"pane.transformations.sql"),*body=dx_review_find(registry,"pane.transformations.body"),*back=dx_review_find(registry,"pane.transformations.back");
+            float width=fmaxf(340,t->feedback_width)*a->ui.scale;
+            if (!sql || !body || !back || a->ui.scale!=1.5f || registry->frame.ui_scale!=1.5f || fabsf(body->bounds.width-width)>.01f || fabsf(a->pipeline_extent-fmaxf(340,t->feedback_width))>.01f || fabsf(sql->bounds.width-(a->pipeline_layout.sql_code.width-8*a->ui.scale))>.01f || !sql->value.present || sql->value.is_null || strcmp(sql->value.type,"SQL") || strcmp(sql->value.exact_text,t->sql_pane_text) || sql->value.truncated || !chosen->enabled || !chosen->input_eligible || !back->enabled || !back->input_eligible || dx_review_find(registry,"pane.transformations.steps")) return false;
+            const DxReviewWidget *parts[]={body,sql,chosen,back};
+            for (size_t i=0;i<sizeof(parts)/sizeof(*parts);i++) {
+                const DxReviewWidget *widget=parts[i]; Rectangle bounds={widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},clip={widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height}; Rectangle shown=GetCollisionRec(bounds,clip);
+                if (fabsf(shown.x-bounds.x)>.01f || fabsf(shown.y-bounds.y)>.01f || fabsf(shown.width-bounds.width)>.01f || fabsf(shown.height-bounds.height)>.01f || bounds.x<body->bounds.x-.01f || bounds.y<body->bounds.y-.01f || bounds.x+bounds.width>body->bounds.x+body->bounds.width+.01f || bounds.y+bounds.height>body->bounds.y+body->bounds.height+.01f || bounds.x+bounds.width>GetScreenWidth()+.01f || bounds.y+bounds.height>GetScreenHeight()+.01f) return false;
+            }
+        }
     } else if (item==2) {
-        const DxReviewWidget *status=dx_review_find(registry,"preview.status"),*readout=dx_review_find(registry,"cell.readout.value");
-        if (!status || !status->value.present || status->value.is_null || strcmp(status->value.exact_text,"Loading step preview…") || !readout || readout->value.present || !a->step_preview.loading || a->step_preview.page.column_count) return false;
+        const DxReviewWidget *status=dx_review_find(registry,"preview.status"),*readout=dx_review_find(registry,"cell.readout.value"),*body=dx_review_find(registry,"pane.transformations.body");
+        if (!status || !status->value.present || status->value.is_null || strcmp(status->value.exact_text,"Loading step preview…") || !readout || readout->value.present || !a->step_preview.loading || a->step_preview.page.column_count || !body || a->pipeline_sql || fabsf(body->bounds.width-t->feedback_width*a->ui.scale)>.01f) return false;
     } else if (item==3) {
         const DxReviewWidget *track=dx_review_find(registry,"filter.values.scrollbar"); bool child=false;
         for (size_t i=0;i<registry->count;i++) {
@@ -3442,6 +3451,7 @@ static int review_smoke_feedback_tick(App *a,ReviewSmoke *t) {
         if (!object_ready(a,(size_t)t->feedback_pivot)) return 0;
         if (!t->feedback_started || t->feedback_item!=item) {
             if (a->modal!=MODAL_NONE || a->step_preview.active) goto failed;
+            if ((item==1 || item==2) && a->pipeline_width!=t->feedback_width) goto failed;
             t->feedback_item=item; t->feedback_started=true; t->feedback_end_sent=false; t->feedback_resume=false;
             a->selected_object=t->feedback_pivot; SheetObject *pivot=selected_pivot(a); if (!pivot || pivot->source_id!=active_sheet(a)->objects.items[t->feedback_table].id) goto failed;
             grid_select_cell(&a->grid,pivot->row,pivot->col,false); a->matrix_cells_active=false; a->pivot_focus=0; a->pivot_search_focus=false; a->ribbon_focus=false;
@@ -3459,9 +3469,9 @@ static int review_smoke_feedback_tick(App *a,ReviewSmoke *t) {
             }
             return 0;
         }
-        if (a->ui.scale!=(item==0 ? 1 : 1.5f) || GetScreenWidth()!=(item==0 ? 1280 : 1920) || GetScreenHeight()!=(item==0 ? 900 : 1120) || fabsf(a->pipeline_extent-a->pipeline_width)>.01f || !a->pipeline_layout.valid || !review_can_capture(a) || a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
+        if (a->ui.scale!=(item==0 ? 1 : 1.5f) || GetScreenWidth()!=(item==0 ? 1280 : 1920) || GetScreenHeight()!=(item==0 ? 900 : 1120) || fabsf(a->pipeline_extent-pipeline_target_width(a))>.01f || !a->pipeline_layout.valid || !review_can_capture(a) || a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
         if (item==1 && (a->frames<=t->note_frame || !a->inspector_sql_valid || a->inspector_sql_id!=active_sheet(a)->objects.items[t->feedback_table].id || !a->inspector_sql_lines.offsets ||
-            a->inspector_sql_lines.scale!=a->ui.scale || a->inspector_sql_lines.raster_size!=a->ui.raster_size || fabsf(a->inspector_sql_lines.width-(a->pipeline_layout.sql_code.width-8*a->ui.scale))>.01f)) return 0;
+            fabsf((a->pipeline_extent-pipeline_target_width(a))*a->ui.scale)>.005f || a->inspector_sql_lines.scale!=a->ui.scale || a->inspector_sql_lines.raster_size!=a->ui.raster_size || fabsf(a->inspector_sql_lines.width-(a->pipeline_layout.sql_code.width-8*a->ui.scale))>.01f)) return 0;
         if (item>=3) {
             if (a->modal!=MODAL_FILTER || a->popup_presence.offset || a->popup_presence.alpha!=1 || !a->filter_layout.valid) return 0;
             if ((item!=5 && a->values_total<0) || (item==5 && !a->values_failed)) return 0;
