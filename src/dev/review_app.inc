@@ -245,6 +245,7 @@ static bool review_can_capture(App *a) {
         !a->chart_resizing && a->pivot_drag_field<0 && a->pivot_drag_role<0 && !a->matrix_selecting &&
         !(a->modal==MODAL_GROUP && a->summary_drag>=0) && !a->split_side && !a->split_pipeline &&
         !a->steps_drag && !a->workbook_drag && !a->field_drag && !a->values_drag && !a->context_drag &&
+        !(a->file_menu && a->file_menu_drag) &&
         !a->inspector_drag && !a->table_relation_drag && !a->input.dragging && !a->filter_term.dragging &&
         !a->filter_end.dragging && !a->pivot_search.dragging && !a->chart_columns.dragging && !a->sort_editor.search.dragging;
 }
@@ -312,6 +313,10 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
                 *drags[i]=true; bool captured=review_can_capture(a); *drags[i]=false;
                 if (captured) goto failed;
             }
+            a->file_menu_drag=true;
+            if (!review_can_capture(a)) goto failed; /* A closed menu owns no active gesture. */
+            a->file_menu=true; if (review_can_capture(a)) goto failed;
+            a->file_menu=a->file_menu_drag=false;
         }
         grid_select_cell(&a->grid,1,1,false); a->grid.end_row=3; open_modal(a,MODAL_FILTER); break;
     case 1:
