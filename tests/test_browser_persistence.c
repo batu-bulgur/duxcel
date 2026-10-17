@@ -71,7 +71,7 @@ static bool compare_books(const Workbook *a,const Workbook *b) {
             REQUIRE(p->range.r0==q->range.r0 && p->range.r1==q->range.r1 && p->range.c0==q->range.c0 && p->range.c1==q->range.c1 &&
                 p->mask==q->mask && format_same(p->value,q->value),"Saved format range/properties changed");
         }
-        REQUIRE(x->objects.count==y->objects.count,"Table/pivot/chart object count changed");
+        REQUIRE(x->objects.count==y->objects.count && x->objects.next_id==y->objects.next_id,"Table/pivot/chart object count or allocation high-water changed");
         for (size_t o=0;o<x->objects.count;o++) {
             const SheetObject *p=&x->objects.items[o],*q=&y->objects.items[o];
             REQUIRE(p->id==q->id && p->row==q->row && p->col==q->col && p->rows==q->rows && p->columns==q->columns &&
@@ -113,11 +113,11 @@ static bool fixture_expected(const Workbook *book) {
     ok=true;
 done: return ok;
 }
+static bool version_expected(const char *path,int expected);
 static bool create_fixture(const char *path) {
     bool ok=false; struct stat info; char *error=NULL; Workbook book,loaded; workbook_init(&book); workbook_init(&loaded);
     Analysis source={.kind=SOURCE_CSV,.path=dx_absolute_path("tests/fixtures/transactions.csv")},blank={0};
     PivotDefinition pivot={0}; MarkDefinition marks={0};
-    REQUIRE(DX_WORKSPACE_VERSION==12,"BP0 fixture expects current native v12; update acceptance deliberately for a new version");
     REQUIRE(strlen(path)>=5 && !strcmp(path+strlen(path)-5,".dxls"),"Fixture output must end in .dxls");
     errno=0; REQUIRE(lstat(path,&info)!=0 && errno==ENOENT,"Refusing to overwrite an existing fixture path");
     REQUIRE(source.path,"Run fixture creation from the checkout root; transactions.csv is required");
@@ -159,6 +159,7 @@ static bool create_fixture(const char *path) {
     REQUIRE(marks_assign(&marks,MARKS_LABEL,&label,&error) && marks_assign(&marks,MARKS_DETAIL,&detail,&error) &&
         objects_marks(&sheet->objects,2,&marks,&error),error ? error : "Set chart Marks");
     REQUIRE(workbook_save(&book,path,&error),error ? error : "Native workbook_save failed");
+    REQUIRE(version_expected(path,12),"The unchanged lossless BP0 fixture must still be written as native v12");
     REQUIRE(workbook_load(&loaded,path,&error),error ? error : "Native fixture readback failed");
     REQUIRE(fixture_expected(&loaded),"Native fixture readback content mismatch");
     printf("PASS browser-persistence create: native v12, 2 sheets, 9 sparse cells, 2 formats, 3 objects; %u checks\n",checks); ok=true;
@@ -168,6 +169,58 @@ done:
 static bool sql(duckdb_connection connection,const char *query,duckdb_result *result) {
     if (duckdb_query(connection,query,result)==DuckDBSuccess) return true;
     return fail(duckdb_result_error(result) ? duckdb_result_error(result) : "DuckDB query failed",__LINE__);
+}
+static bool version_expected(const char *path,int expected) {
+    bool ok=false; duckdb_config config=NULL; duckdb_database db=NULL; duckdb_connection connection=NULL; duckdb_result result={0}; char *message=NULL,*temporary=dx_temp_directory();
+    REQUIRE(temporary && duckdb_create_config(&config)==DuckDBSuccess,"Configure private metadata version reader");
+    REQUIRE(duckdb_set_config(config,"access_mode","READ_ONLY")==DuckDBSuccess && duckdb_set_config(config,"memory_limit","128MB")==DuckDBSuccess && duckdb_set_config(config,"threads","1")==DuckDBSuccess && duckdb_set_config(config,"temp_directory",temporary)==DuckDBSuccess,"Bound metadata version reader");
+    REQUIRE(duckdb_open_ext(path,&db,config,&message)==DuckDBSuccess,message ? message : "Open native workbook version reader");
+    REQUIRE(duckdb_connect(db,&connection)==DuckDBSuccess && sql(connection,"SELECT version FROM _duxcel_workspace.meta LIMIT 2",&result),"Read actual persisted workspace version");
+    REQUIRE(duckdb_row_count(&result)==1 && duckdb_column_type(&result,0)==DUCKDB_TYPE_INTEGER && !duckdb_value_is_null(&result,0,0) && duckdb_value_int32(&result,0,0)==expected,"Unexpected actual persisted workspace version"); ok=true;
+done:
+    duckdb_destroy_result(&result); if (connection) duckdb_disconnect(&connection); if (db) duckdb_close(&db); if (config) duckdb_destroy_config(&config); duckdb_free(message); dx_remove_temp_directory(temporary); free(temporary); return ok;
+}
+static bool owner_fixture_expected(const Workbook *book) {
+    bool ok=false; const uint64_t base=UINT64_C(9007199254740992);
+    REQUIRE(book->count==3 && book->active==0,"Owner fixture sheet/active count changed");
+    const Worksheet *live=&book->sheets[0],*exhausted=&book->sheets[1],*empty=&book->sheets[2];
+    REQUIRE(live->objects.count==1 && live->objects.items[0].id==base+1 && live->objects.next_id==base+2,"Retired high-water above2^53 was lost");
+    REQUIRE(!exhausted->objects.count && exhausted->objects.next_id==UINT64_MAX && !empty->objects.count && !empty->objects.next_id,"Empty/exhausted owner lifetimes changed");
+    REQUIRE(live->formats.count==1 && empty->formats.count==1 && !live->formats.scope_count && !empty->formats.scope_count,"Spatial-only format package changed");
+    REQUIRE(!strcmp(cells_get(&live->cells,20,0),"9007199254740993.1234567890") && !strcmp(cells_get(&live->cells,21,0),"NULL") && !*cells_get(&live->cells,22,0),"Exact/manual/missing owner fixture cells changed");
+    REQUIRE(format_at(&live->formats,20,0).flags==FORMAT_BOLD && format_at(&empty->formats,500,1).flags==FORMAT_BOLD,"Spatial format precedence changed"); ok=true;
+done: return ok;
+}
+static bool create_owner_fixture(const char *path) {
+    bool ok=false; char *error=NULL; struct stat info; Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={.path=""}; const uint64_t base=UINT64_C(9007199254740992);
+    REQUIRE(strlen(path)>=5 && !strcmp(path+strlen(path)-5,".dxls"),"Owner fixture path must end in .dxls");
+    errno=0; REQUIRE(lstat(path,&info)!=0 && errno==ENOENT,"Refusing to overwrite an existing owner fixture");
+    REQUIRE(workbook_add(&book,"Owner lifetime",&blank,&error) && workbook_add(&book,"Exhausted owner",&blank,&error) && workbook_add(&book,"Never allocated",&blank,&error),error ? error : "Create owner fixture"); book.active=0;
+    for (size_t i=0;i<book.count;i++) book.sheets[i].view.canvas_zoom=1;
+    Worksheet *live=&book.sheets[0],*exhausted=&book.sheets[1]; live->objects.next_id=base;
+    REQUIRE(objects_add(&live->objects,0,8,"Live owner",&error)==0 && objects_add(&live->objects,8,8,"Deleted owner",&error)==1 && objects_remove(&live->objects,1),error ? error : "Create retired owner ID");
+    exhausted->objects.next_id=UINT64_MAX-1; REQUIRE(objects_add(&exhausted->objects,0,8,"Maximum owner",&error)==0 && objects_remove(&exhausted->objects,0),"Create exhausted owner lifetime");
+    REQUIRE(cells_set(&live->cells,20,0,"9007199254740993.1234567890",&error) && cells_set(&live->cells,21,0,"NULL",&error),"Create exact sparse owner fixture cells");
+    CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    REQUIRE(format_apply(&live->formats,(FormatRange){20,21,0,0},FORMAT_BOLD,bold,&error) && format_apply(&book.sheets[2].formats,(FormatRange){0,DX_SHEET_ROWS-1,1,1},FORMAT_BOLD,bold,&error),error ? error : "Create spatial owner fixture formats");
+    REQUIRE(workbook_save(&book,path,&error),error ? error : "Write owner fixture"); REQUIRE(version_expected(path,13),"Owner fixture must use actual v13");
+    REQUIRE(workbook_load(&loaded,path,&error) && owner_fixture_expected(&loaded) && compare_books(&book,&loaded),error ? error : "Owner fixture native readback");
+    REQUIRE(objects_add(&loaded.sheets[0].objects,8,8,"After native reopen",&error)==1 && loaded.sheets[0].objects.items[1].id==base+3,"Reopen reused a retired owner ID");
+    REQUIRE(objects_add(&loaded.sheets[1].objects,0,8,"Cannot wrap",&error)<0 && error && !loaded.sheets[1].objects.count,"Reopen lost uint64 exhaustion");
+    printf("PASS browser-persistence create-owners: native owner-only v13, 3 sheets, retired IDs above2^53 and UINT64_MAX exhaustion; %u checks\n",checks); ok=true;
+done: workbook_free(&book); workbook_free(&loaded); free(error); return ok;
+}
+static bool verify_owner_files(const char *original,const char *exported) {
+    bool ok=false; char *error=NULL; struct stat info; Workbook a,b; workbook_init(&a); workbook_init(&b);
+    REQUIRE(lstat(original,&info)==0 && S_ISREG(info.st_mode) && info.st_size>0 && info.st_size<=32*1024*1024,"Original owner fixture must be a bounded regular file");
+    REQUIRE(lstat(exported,&info)==0 && S_ISREG(info.st_mode) && info.st_size>0 && info.st_size<=64*1024*1024 && !dx_same_file(original,exported),"Owner export must be a different bounded regular file");
+    REQUIRE(version_expected(original,13) && version_expected(exported,13),"Owner fixture/export must retain actual v13");
+    REQUIRE(workbook_load(&a,original,&error) && workbook_load(&b,exported,&error),error ? error : "Read owner fixture/export");
+    REQUIRE(owner_fixture_expected(&a) && owner_fixture_expected(&b) && compare_books(&a,&b),"Official Worker changed the native owner model");
+    REQUIRE(objects_add(&b.sheets[0].objects,8,8,"After Worker export",&error)==1 && b.sheets[0].objects.items[1].id==UINT64_C(9007199254740995),"Worker export reused a retired owner ID");
+    REQUIRE(objects_add(&b.sheets[1].objects,0,8,"Cannot wrap",&error)<0 && error && !b.sheets[1].objects.count,"Worker export lost owner exhaustion");
+    printf("PASS browser-persistence verify-owners: native owner-only v13 metadata and spatial formats retained with exact uint64 lifetimes; %u checks\n",checks); ok=true;
+done: workbook_free(&a); workbook_free(&b); free(error); return ok;
 }
 static bool scalar_text(duckdb_result *result,idx_t column,const char *expected) {
     if (duckdb_value_is_null(result,column,0)) return expected==NULL;
@@ -224,6 +277,8 @@ done: workbook_free(&a); workbook_free(&b); free(error); return ok;
 }
 int main(int argc,char **argv) {
     if (argc==3 && !strcmp(argv[1],"create")) return create_fixture(argv[2]) ? 0 : 1;
+    if (argc==3 && !strcmp(argv[1],"create-owners")) return create_owner_fixture(argv[2]) ? 0 : 1;
+    if (argc==4 && !strcmp(argv[1],"verify-owners")) return verify_owner_files(argv[2],argv[3]) ? 0 : 1;
     if (argc==4 && !strcmp(argv[1],"verify")) return verify_files(argv[2],argv[3]) ? 0 : 1;
-    fprintf(stderr,"Usage: %s create <new-owned-fixture.dxls> | verify <original.dxls> <browser-export.dxls>\n",argv[0]); return 2;
+    fprintf(stderr,"Usage: %s create|create-owners <new-owned-fixture.dxls> | verify|verify-owners <original.dxls> <browser-export.dxls>\n",argv[0]); return 2;
 }
