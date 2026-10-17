@@ -46,9 +46,9 @@ static const Binding bindings[]={
 #undef D
 #undef E
 static const char *const tab_keys[RIBBON_TABS]={"H","N","A","Y","W","J"};
-/* Import is a Duxcel extension; existing Excel File sequences stay unchanged. */
-static const char *const file_keys[UI_KEYTIP_FILE_COUNT]={"N","O","S","A","C","I","X"};
-static const char *const file_names[UI_KEYTIP_FILE_COUNT]={"New workbook","Open…","Save","Save as…","Close workbook","Import table…","Quit Duxcel"};
+/* Import is a Duxcel extension; Export retains the Excel File E sequence. */
+static const char *const file_keys[UI_KEYTIP_FILE_COUNT]={"N","O","S","A","C","I","E","X"};
+static const char *const file_names[UI_KEYTIP_FILE_COUNT]={"New workbook","Open…","Save","Save as…","Close workbook","Import table…","Export Parquet…","Quit Duxcel"};
 
 static size_t prefix_length(const UIKeytips *state) {
     if (!state) return UI_KEYTIPS_PREFIX_CAP;

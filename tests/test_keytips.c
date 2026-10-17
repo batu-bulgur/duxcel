@@ -111,7 +111,7 @@ int main(void) {
     CHECK(!ui_keytips_command_custom(RIBBON_DATA,ACTION_SORT_ASC));
     CHECK(ui_keytips_command_custom(RIBBON_ANALYZE,ACTION_MATRIX));
     CHECK(ui_keytips_command_custom(RIBBON_VIEW,ACTION_FIELDS));
-    const char *const file_keys[]={"N","O","S","A","C","I","X"};
+    const char *const file_keys[]={"N","O","S","A","C","I","E","X"};
     CHECK(UI_KEYTIP_FILE_COUNT==sizeof(file_keys)/sizeof(*file_keys));
     for (int action=0;action<UI_KEYTIP_FILE_COUNT;action++) {
         ui_keytips_begin(&state); sequence(&state,"f");
@@ -121,6 +121,19 @@ int main(void) {
         UIKeytipResult result=sequence(&state,keys);
         CHECK(result.kind==UI_KEYTIP_FILE && result.value==action && !state.active);
     }
+    /* Export has its own Excel sequence, rather than consuming Import or Quit.
+       A repeat cannot export, and cancellation retains only its fade context. */
+    CHECK(!strcmp(ui_keytips_file_name(UI_KEYTIP_FILE_EXPORT),"Export Parquet…"));
+    ui_keytips_begin(&state); sequence(&state,"f"); saved=state;
+    CHECK(ui_keytips_feed(&state,'e',true).kind==UI_KEYTIP_NONE);
+    CHECK(!memcmp(&state,&saved,sizeof(state)));
+    CHECK(!strcmp(ui_keytips_file_label(&state,UI_KEYTIP_FILE_EXPORT),"E"));
+    UIKeytipResult exported=sequence(&state,"e");
+    CHECK(exported.kind==UI_KEYTIP_FILE && exported.value==UI_KEYTIP_FILE_EXPORT && !state.active);
+    CHECK(ui_keytips_feed(&state,'E',false).kind==UI_KEYTIP_NONE);
+    ui_keytips_begin(&state); sequence(&state,"f"); ui_keytips_cancel(&state);
+    CHECK(!strcmp(ui_keytips_file_label(&state,UI_KEYTIP_FILE_EXPORT),"E"));
+    CHECK(ui_keytips_feed(&state,'E',false).kind==UI_KEYTIP_NONE);
     CHECK(!ui_keytips_file_name(UI_KEYTIP_FILE_COUNT));
     CHECK(!ui_keytips_file_label(NULL,UI_KEYTIP_FILE_NEW));
     CHECK(!ui_keytips_command_label(NULL,RIBBON_HOME,ACTION_COPY));
