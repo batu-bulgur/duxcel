@@ -424,7 +424,7 @@ static bool review_can_capture(App *a) {
         !(a->step_preview.initialized && review_grid_gesture(&a->step_preview.grid)) &&
         !a->analysis_vbar.dragging && !a->matrix_hbar.dragging && !a->matrix_vbar.dragging &&
         !a->dock_scrollbars[0].dragging && !a->dock_scrollbars[1].dragging && !a->author_scrollbar.dragging &&
-        !a->chart_resizing && a->pivot_drag_field<0 && a->pivot_drag_role<0 && !a->matrix_selecting &&
+        !a->chart_resizing && (a->modal==MODAL_PIVOT_FIELD || (a->pivot_drag_field<0 && a->pivot_drag_role<0)) && !a->matrix_selecting &&
         !(a->modal==MODAL_GROUP && a->summary_drag>=0) && !a->split_side && !a->split_pipeline &&
         !a->steps_drag && !a->workbook_drag && !a->field_drag && !a->values_drag && !a->context_drag &&
         !(a->file_menu && a->file_menu_drag) &&
@@ -563,6 +563,12 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
             if (!review_can_capture(a)) goto failed; /* A closed menu owns no active gesture. */
             a->file_menu=true; if (review_can_capture(a)) goto failed;
             a->file_menu=a->file_menu_drag=false;
+            a->pivot_drag_field=0; if (review_can_capture(a)) goto failed;
+            a->modal=MODAL_PIVOT_FIELD; if (!review_can_capture(a)) goto failed;
+            a->pivot_drag_field=-1; a->pivot_drag_role=PIVOT_ROWS;
+            if (!review_can_capture(a)) goto failed;
+            a->modal=MODAL_NONE; if (review_can_capture(a)) goto failed;
+            a->pivot_drag_role=-1;
         }
         grid_select_cell(&a->grid,1,1,false); a->grid.end_row=3; open_modal(a,MODAL_FILTER); break;
     case 1:
