@@ -40,12 +40,12 @@ export function installCanvasWheel(canvas){
         const sx=width>0?width/rect.width:1,sy=height>0?height/rect.height:1;
         let dx=Number(event.deltaX),dy=Number(event.deltaY);
         if(!Number.isFinite(dx)||!Number.isFinite(dy))return;
+        // Trackpads already deliver both axes. Shift remaps a one-axis mouse
+        // before page/coordinate transforms, preserving real diagonals.
+        if(!event.ctrlKey&&event.shiftKey&&!dx){dx=dy;dy=0;}
         if(event.deltaMode===1){dx*=linePixels;dy*=linePixels;}
         else if(event.deltaMode===2){dx*=rect.width;dy*=rect.height;}
         else if(event.deltaMode!==0&&event.deltaMode!==undefined)return;
-        // Trackpads already deliver both axes. Shift remaps a one-axis mouse
-        // before the local-coordinate transform, preserving real diagonals.
-        if(!event.ctrlKey&&event.shiftKey&&!dx){dx=dy;dy=0;}
         dx=bounded(dx*sx);dy=bounded(dy*sy);
         if(!dx&&!dy)return;
         if(event.ctrlKey)zoomDelta=bounded(zoomDelta+dy);
