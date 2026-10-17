@@ -707,6 +707,26 @@ static DxReviewDataIdentity review_feedback_origin(App *a,const char *producer,c
 static void review_feedback_metadata(App *a,const DxReviewWidget *widget) {
     if (!review_armed(a) || !widget) return;
     char state[512]; const char *id=widget->id;
+    static const struct { const char *id,*key; } geometry[]={
+        {"pane.transformations.inspect","pipeline_inspect"},{"pane.transformations.sql","pipeline_sql"},
+        {"pane.transformations.copy","pipeline_copy"},{"pane.transformations.back","pipeline_back"},
+        {"pane.transformations.preview","pipeline_preview"},{"preview.status","preview_status"},
+        {"preview.return","preview_return"},{"filter.values.status","filter_status"},
+        {"filter.values.scrollbar.thumb","filter_thumb"},{"status.source_count","source_count"},
+        {"cell.readout.value","readout_value"},{"toast.content","toast"}
+    };
+    Rectangle shown=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height});
+    if (!strncmp(id,"pane.transformations.step.",26) && !strstr(a->review->frame.state_text," feedback_pipeline_step_rect=")) {
+        snprintf(state,sizeof(state)," feedback_pipeline_step_rect=%.3f,%.3f,%.3f,%.3f feedback_pipeline_step_id=%s",shown.x,shown.y,shown.width,shown.height,id); review_author_capture_state(a,state);
+    }
+    for (size_t i=0;i<sizeof(geometry)/sizeof(*geometry);i++) if (!strcmp(id,geometry[i].id)) {
+        snprintf(state,sizeof(state)," feedback_%s_rect=%.3f,%.3f,%.3f,%.3f",geometry[i].key,shown.x,shown.y,shown.width,shown.height); review_author_capture_state(a,state); break;
+    }
+    if (!strcmp(id,"preview.status") || !strcmp(id,"filter.values.status")) {
+        char hex[129]; bool cut=review_author_hex64(hex,widget->value.present ? widget->value.exact_text : NULL);
+        const char *key=!strcmp(id,"preview.status") ? "preview_status" : "filter_status";
+        snprintf(state,sizeof(state)," feedback_%s_hex=%s feedback_%s_truncated=%d",key,hex,key,cut || widget->value.truncated); review_author_capture_state(a,state);
+    }
     if (!strcmp(id,"pane.transformations.sql") && a->modal==MODAL_NONE) {
         snprintf(state,sizeof(state)," feedback_sql_cache=%llu,%llu,%zu,%llu,%llu feedback_sql_layout=%d,%zu,%d",(unsigned long long)a->inspector_sql_id,(unsigned long long)a->inspector_sql_revision,a->inspector_sql_sheet,(unsigned long long)a->inspector_sql_generation,(unsigned long long)a->inspector_sql_steps_key,a->inspector_sql_scroll,a->inspector_sql_lines.count,a->inspector_sql_lines.limited); review_author_capture_state(a,state);
     } else if (!strcmp(id,"status.metrics") && a->modal==MODAL_NONE && !a->file_menu) {
