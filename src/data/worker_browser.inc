@@ -22,6 +22,11 @@ typedef struct {
     BrowserStage stage;
     unsigned ticket;
     double started;
+#ifdef DUXCEL_DEV_REVIEW
+    uint64_t wire_bytes,decoded_bytes;
+    unsigned callbacks;
+    double decode_ms;
+#endif
 } BrowserQuery;
 static QueryWorker *browser_owner;
 static BrowserQuery browser_query;
@@ -47,6 +52,9 @@ static void browser_publish(const char *error) {
     QueryWorker *w=browser_owner; QueryReply *r=browser_query.reply;
     if (error) { free(r->error); r->error=dx_strdup(error); }
     printf("Browser worker reply: {\"id\":\"%" PRIu64 "\",\"kind\":%d,\"rows\":%zu,\"columns\":%zu,\"total\":\"%" PRIu64 "\",\"counted\":\"%" PRIu64 "\",\"pending\":%d,\"error\":%d,\"distinct_count\":%zu,\"distinct_total\":\"%" PRIu64 "\"}\n",r->id,(int)r->kind,r->page.row_count,r->page.column_count,r->page.total,r->counted_rows,r->page.count_pending,r->error!=NULL,r->distinct.count,r->distinct.total);
+#ifdef DUXCEL_DEV_REVIEW
+    printf("Browser worker metrics: {\"id\":\"%" PRIu64 "\",\"elapsed_ms\":%.3f,\"callbacks\":%u,\"wire_bytes\":%" PRIu64 ",\"decoded_page_bytes\":%" PRIu64 ",\"retained_page_bytes\":%zu,\"decode_ms\":%.3f}\n",r->id,dx_millis()-browser_query.started,browser_query.callbacks,browser_query.wire_bytes,browser_query.decoded_bytes,r->page.bytes,browser_query.decode_ms);
+#endif
     browser_query.reply=NULL;
     reply_free(w->reply); w->reply=r;
     browser_discard();
@@ -186,7 +194,15 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
     QueryJob *j=browser_query.job; QueryReply *r=browser_query.reply;
     uint64_t offset=(browser_query.stage==BROWSER_PAGE || browser_query.stage==BROWSER_DISTINCT_PAGE) ? j->offset : 0;
     if (!browser_uint64(total_text,&total)) { browser_publish("Invalid browser row count."); return; }
-    if (!page_from_wire(&page,wire,size,offset,total,pending!=0,&error)) { browser_publish(error); free(error); return; }
+#ifdef DUXCEL_DEV_REVIEW
+    double decode_started=dx_millis();
+    browser_query.callbacks++; browser_query.wire_bytes+=size;
+#endif
+    bool decoded=page_from_wire(&page,wire,size,offset,total,pending!=0,&error);
+#ifdef DUXCEL_DEV_REVIEW
+    browser_query.decode_ms+=dx_millis()-decode_started; browser_query.decoded_bytes+=page.bytes;
+#endif
+    if (!decoded) { browser_publish(error); free(error); return; }
     if (browser_query.stage==BROWSER_TYPE_DESCRIBE) {
         unsigned slot=browser_query.type_slot; bool valid=browser_schema_from_describe(&browser_type_schema[slot],&page,&error); page_free(&page);
         if (!valid) { browser_publish(error); free(error); return; }
