@@ -15,6 +15,7 @@ const workerDriver=process.argv.includes('--worker-driver');
 const filters=process.argv.includes('--filters');
 const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
+const copyOnly=process.argv.includes('--copy-only');
 const focusOnly=process.argv.includes('--focus-only');
 const reviewErrorOnly=process.argv.includes('--review-error-only');
 const reviewCellOnly=process.argv.includes('--review-cell-only');
@@ -39,6 +40,7 @@ const altStress=process.argv.includes('--alt-stress');
 const persistenceOwners=process.argv.includes('--persistence-owners');
 const persistence=process.argv.includes('--persistence')||persistenceOwners;
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
+if(copyOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='null-text.csv'||['--focus-only','--review-error-only','--review-cell-only','--review-guide-only','--access-only','--zoom-only','--review-controls-only','--analysis-only','--analysis-columns-only','--analysis-statistics-only','--statistics-only','--review-query-only','--review-sql-only','--review-values-only','--table-statistics-only','--mixed-statistics-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--persistence-owners','--query-apply','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--copy-only requires --review/null-text.csv and excludes other profiles/engine/report-upload options');
 if(focusOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--review-error-only','--review-cell-only','--review-guide-only','--access-only','--zoom-only','--review-controls-only','--analysis-only','--analysis-columns-only','--analysis-statistics-only','--statistics-only','--review-query-only','--review-sql-only','--review-values-only','--table-statistics-only','--mixed-statistics-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--persistence-owners','--query-apply','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--focus-only requires --review/transactions.csv and excludes other profiles/engine/report-upload options');
 if(reviewErrorOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--review-cell-only','--review-guide-only','--access-only','--zoom-only','--review-controls-only','--analysis-only','--analysis-columns-only','--analysis-statistics-only','--statistics-only','--review-query-only','--review-sql-only','--review-values-only','--table-statistics-only','--mixed-statistics-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--persistence-owners','--query-apply','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-error-only requires --review/transactions.csv and excludes other profiles/engine/report-upload options');
 if(reviewCellOnly&&(!review||['--source','--review-guide-only','--access-only','--zoom-only','--review-controls-only','--analysis-only','--analysis-columns-only','--analysis-statistics-only','--statistics-only','--review-query-only','--review-sql-only','--review-values-only','--table-statistics-only','--mixed-statistics-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--persistence-owners','--query-apply','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-cell-only requires --review and excludes source/other profiles/engine/report-upload options');
@@ -78,6 +80,7 @@ let reviewGuideResult;
 let reviewCellResult;
 let reviewErrorResult;
 let focusResult;
+let copyResult;
 let stderr='',ws,cdp,activePhase='';const events=[],steps=[];let checks=0;const started=Date.now();
 function check(value,message){checks++;if(!value)throw new Error(message);}
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -135,6 +138,21 @@ async function click(x,y){
 function replies(){return events.filter(e=>e.method==='Runtime.consoleAPICalled').flatMap(e=>e.params.args).map(a=>String(a.value??'')).filter(t=>t.startsWith('Browser worker reply: ')).map(t=>JSON.parse(t.slice('Browser worker reply: '.length)));}
 function starts(){return events.filter(e=>e.method==='Runtime.consoleAPICalled').flatMap(e=>e.params.args).map(a=>String(a.value??'')).filter(t=>t.startsWith('Browser worker started: ')).map(t=>JSON.parse(t.slice('Browser worker started: '.length)));}
 function consoleText(prefix){return events.filter(e=>e.method==='Runtime.consoleAPICalled').flatMap(e=>e.params.args).map(a=>String(a.value??'')).filter(t=>t.startsWith(prefix));}
+function copyClipboardHarnessSource(){
+ return `(()=>{const pending=new Map(),state={mode:'defer',memory:'owned clipboard baseline',attempts:[],fallbacks:[]};
+ const writeText=text=>{text=String(text);const attempt={index:state.attempts.length,text,mode:state.mode,status:'pending'};state.attempts.push(attempt);
+  if(state.mode==='throw'){attempt.status='threw';throw new Error('Owned clipboard synchronous failure');}
+  if(state.mode==='reject'){attempt.status='rejected';return Promise.reject(new Error('Owned clipboard rejected write'));}
+  if(state.mode==='success'){state.memory=text;attempt.status='fulfilled';return Promise.resolve();}
+  return new Promise((resolve,reject)=>pending.set(attempt.index,{resolve:()=>{state.memory=text;attempt.status='fulfilled';resolve();},reject:()=>{attempt.status='rejected';reject(new Error('Owned deferred clipboard rejection'));}}));};
+ const clipboard=Object.freeze({writeText,readText:()=>Promise.resolve(state.memory),write:()=>Promise.reject(new Error('Owned clipboard supports text only'))});
+ Object.defineProperty(navigator,'clipboard',{configurable:true,get:()=>state.mode==='unavailable'?undefined:clipboard});
+ const exec=document.execCommand?.bind(document);document.execCommand=(command,...args)=>{if(/^(copy|cut|paste)$/i.test(command)){state.fallbacks.push('execCommand:'+command);throw new Error('OS clipboard fallback is disabled by owned acceptance');}return exec?.(command,...args)??false;};
+ for(const name of ['copy','cut','paste'])window.addEventListener(name,event=>{event.preventDefault();state.fallbacks.push('default:'+name);},true);
+ state.resolve=index=>{const entry=pending.get(index);if(!entry)throw new Error('Unknown owned clipboard Promise');pending.delete(index);entry.resolve();};
+ state.reject=index=>{const entry=pending.get(index);if(!entry)throw new Error('Unknown owned clipboard Promise');pending.delete(index);entry.reject();};
+ Object.defineProperty(globalThis,'duxcelTestClipboard',{value:state});})();`;
+}
 function persistenceOwnerReport(report){
  const highWater=['9007199254740994','18446744073709551615','0'];
  check(report.mode==='owners'&&report.metadataVersion===13&&JSON.stringify(report.ownerHighWater)===JSON.stringify(highWater),'Owner persistence probe did not verify exact v13 uint64 allocation lifetimes');
@@ -840,6 +858,73 @@ function cellEditorState(state,text,{partial=false,fromModel=false}={}){
 function cellModelRetained(before,after,message){
  const fields=['sheet','manual_cells','sheet_count','dirty','source_revision','schema','page','spare','active','anchor','extent','grid_selection','selected_object','object_count'];check(fields.every(name=>before[name]!==undefined&&before[name]===after[name]),message);
 }
+function copyExpectedTSV(repetitions=1){
+ // Independent fixture inventory, not a renderer/cache read or a second codec.
+ // The fourth fixture value contains two literal double quotes (six in TSV).
+ const rows=['1\t\t10','2\tNULL\t10','3\t""\t10','4\t""""""\t10','5\t(blank)\t10','6\tnull\t10'];
+ return Array.from({length:6*repetitions},(_,row)=>rows[row%6]+'\t\t'+(row===0?'"O\'Brien ""quoted"""':'')).join('\n');
+}
+function copyState(state){
+ const {clipboard_pending:pending,clipboard_completed:completed,clipboard_status:status,clipboard_message_hex:hex,clipboard_message_truncated:truncated}=state;
+ check(/^\d+$/.test(pending??'')&&/^\d+$/.test(completed??'')&&['0','1','2'].includes(status),'Copy lost actual pending/completed/status ownership');
+ check((hex==='-'||/^(?:[0-9a-f]{2}){1,64}$/.test(hex??''))&&['0','1'].includes(truncated),'Copy lost its bounded actual status text');
+ const message=hex==='-'?'':Buffer.from(hex,'hex').toString('utf8');check(!message.includes('\ufffd'),'Copy status prefix split a UTF-8 codepoint');
+ if(pending!=='0')check(BigInt(pending)>BigInt(completed)&&status==='0','Pending clipboard Promise was reported as completed or successful');
+ if(status!=='0')check(pending==='0'&&completed!=='0','Terminal clipboard status has no adopted result identity');
+ if(status==='2')check(message.startsWith('Could not copy: '),'Rejected/unavailable browser copy did not show its actual failure');
+ return{pending,completed,status,message,truncated};
+}
+async function copyMemory(){return evaluate('({mode:duxcelTestClipboard.mode,memory:duxcelTestClipboard.memory,attempts:duxcelTestClipboard.attempts.map(row=>({...row})),fallbacks:[...duxcelTestClipboard.fallbacks]})');}
+async function copyMode(mode){check(['defer','reject','throw','unavailable','success'].includes(mode),'Invalid owned clipboard test mode');await evaluate('duxcelTestClipboard.mode='+JSON.stringify(mode));}
+async function copyKey(){
+ await evaluate('globalThis.duxcelCopyKeys=[];globalThis.duxcelCopyKeyListener=event=>{if(event.code==="KeyC")duxcelCopyKeys.push({key:event.key,control:event.ctrlKey,trusted:event.isTrusted,canvas:event.target===document.querySelector("canvas")});};window.addEventListener("keydown",duxcelCopyKeyListener);true');
+ await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Control','ControlLeft',17));try{await key('c','KeyC',67,'',2);}finally{await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Control','ControlLeft',17));}
+ const delivered=await evaluate('window.removeEventListener("keydown",duxcelCopyKeyListener);duxcelCopyKeys');check(delivered.length===1&&delivered[0].key==='c'&&delivered[0].control&&delivered[0].trusted&&delivered[0].canvas,'Normal CtrlC did not reach the focused shared-C canvas as a trusted shortcut');return delivered;
+}
+async function waitCopyCompleted(previous,status){
+ for(const deadline=Date.now()+15000;Date.now()<deadline;){const state=await platformSnapshot(),ownership=copyState(state);if(BigInt(ownership.completed)>BigInt(previous)){check(ownership.pending==='0'&&ownership.status===String(status),'Real clipboard result was adopted with the wrong terminal status');return{state,ownership};}await pause(20);}
+ throw new Error('Real asynchronous clipboard result was not adopted by an ordinary C frame');
+}
+function copyRetained(before,after,message,{request=true}={}){
+ cellModelRetained(before,after,message);check(Object.keys(before).filter(name=>name.startsWith('stats_')).every(name=>before[name]===after[name]),message);
+ const fields=['modal','busy','io_busy','focus','top','horizontal','fraction'];if(request)fields.push('request');
+ check(fields.every(name=>before[name]!==undefined&&before[name]===after[name]),message);
+}
+function copyCacheCoverage(state,rows){
+ const intervals=['page','spare'].map(name=>{const pair=state[name]?.split('/').map(Number);check(pair?.length===2&&pair.every(Number.isSafeInteger)&&pair[0]>=0&&pair[1]>=0,'Copy cache metadata omitted its actual owned page range');return pair;});
+ let covered=0;for(let row=0;row<rows;row++)if(intervals.some(([offset,count])=>row>=offset&&row<offset+count))covered++;
+ check(covered>0&&covered<rows,'Uncached-copy fixture is wholly cached or has no actual cached contributor');return{intervals,covered,missing:rows-covered};
+}
+async function browserCopy(){
+ const source=await zoomSource({total:'6',columns:3});await sourceHome();const initial=await platformSnapshot();copyState(initial);check(initial.manual_cells==='0'&&initial.object_count==='0','Copy gate requires the real unmodified null/text source');
+ for(let index=0;index<4;index++)await key('ArrowRight','ArrowRight',39);await key('F2','F2',113);
+ const manualText='O\'Brien "quoted"';for(const character of manualText){const letter=/^[a-z]$/i.test(character),code=letter?'Key'+character.toUpperCase():character===' '?'Space':'Quote',virtual=letter?character.toUpperCase().charCodeAt(0):character===' '?32:222;await key(character,code,virtual,character);}await key('Enter','Enter',13);await sourceHome();
+ const manual=await platformSnapshot();check(manual.manual_cells==='1'&&manual.active==='0,0'&&manual.object_count==='0','Actual F2 commit did not retain one manual quote/apostrophe cell beside the source');
+ async function selectUsed(rows){
+  const state=await platformSnapshot(),[x,y,w,h]=state.body.split(',').map(Number),[cw,rh]=state.grid_cell.split(',').map(Number);await click(x+Math.min(cw,w)/2,y+Math.min(rh,h)/2);await sourceHome();const prior=replies().filter(reply=>reply.kind===10).at(-1)?.id;
+  await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Control','ControlLeft',17));await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16,{modifiers:2}));try{await key('End','End',35,'',10);}finally{await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16,{modifiers:2}));await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Control','ControlLeft',17));}
+  const reply=await waitStatistics(prior??null),selected=await platformSnapshot();check(selected.active==='0,0'&&selected.anchor==='0,0'&&selected.extent===(rows-1)+',4'&&selected.grid_selection==='0'&&selected.stats_state==='3'&&selected.stats_cells===String(rows*5)&&selected.busy==='0'&&selected.io_busy==='0','Real used-range selection did not settle over the expected source/manual rectangle');return{reply,state:selected};
+ }
+ const selected=await selectUsed(6),expected=copyExpectedTSV(),baseline=selected.state,jobs=starts().length,memoryBefore=await copyMemory();check(memoryBefore.memory==='owned clipboard baseline'&&memoryBefore.attempts.length===0&&memoryBefore.fallbacks.length===0,'Pre-loader memory clipboard was not isolated from OS fallback');
+ await copyMode('defer');const delivered=await copyKey(),pending=await platformSnapshot(),pendingOwnership=copyState(pending),unresolved=await copyMemory();copyRetained(baseline,pending,'Cached copy changed workbook/selection or submitted SQL');check(pendingOwnership.pending!=='0'&&pendingOwnership.completed==='0'&&pendingOwnership.status==='0'&&unresolved.attempts.length===1&&unresolved.attempts[0].status==='pending'&&unresolved.attempts[0].text===expected&&unresolved.memory===memoryBefore.memory,'Unresolved cached copy changed the clipboard, lost exact typed TSV or claimed success');
+ await beginReview();const frozen=capturedState();copyState(frozen);check(frozen.clipboard_pending===pendingOwnership.pending&&frozen.clipboard_completed==='0','Frozen capture did not pin the actual unresolved clipboard write');await evaluate('duxcelTestClipboard.resolve(0);true');await frames(5);const resolvedFrozen=await copyMemory();check(resolvedFrozen.memory===expected&&resolvedFrozen.attempts[0].status==='fulfilled'&&JSON.stringify(capturedState())===JSON.stringify(frozen),'Frozen review state did not retain pending ownership across the platform Promise result');await capture('copy-frozen-pending');await key('Escape','Escape',27);
+ const fulfilled=await waitCopyCompleted('0',1);check(fulfilled.ownership.completed===pendingOwnership.pending,'Post-cancel clipboard adoption took a different write result');copyRetained(baseline,fulfilled.state,'Clipboard adoption after review cancellation changed workbook/selection/cache');const failures=[];let previous=fulfilled.ownership.completed;
+ for(const mode of ['reject','throw','unavailable']){
+  await copyMode(mode);const before=await platformSnapshot(),memory=await copyMemory(),delivery=await copyKey(),outcome=await waitCopyCompleted(previous,2),after=await copyMemory();copyRetained(before,outcome.state,'Failed '+mode+' copy changed the retained workbook/selection/cache');check(after.memory===expected&&after.memory===memory.memory&&after.fallbacks.length===0,'Failed '+mode+' copy changed memory or attempted an OS clipboard fallback');
+  if(mode==='unavailable')check(after.attempts.length===memory.attempts.length,'Unavailable clipboard invoked a nonexistent writer');else{const attempt=after.attempts.at(-1);check(after.attempts.length===memory.attempts.length+1&&attempt.text===expected&&attempt.mode===mode&&attempt.status===(mode==='throw'?'threw':'rejected'),'Failure mode did not run through the actual dynamically acquired platform writer');}
+  check(starts().length===jobs,'Cached failed clipboard write submitted database work');failures.push({mode,before,delivery,outcome,memory:after});previous=outcome.ownership.completed;
+ }
+ await copyMode('success');const recoveryBefore=await platformSnapshot(),recoveryDelivery=await copyKey(),recovery=await waitCopyCompleted(previous,1),recoveredMemory=await copyMemory();copyRetained(recoveryBefore,recovery.state,'Post-failure copy recovery changed workbook/selection/cache');check(recoveredMemory.memory===expected&&recoveredMemory.attempts.at(-1).status==='fulfilled'&&starts().length===jobs,'Actual clipboard recovery lost exact TSV or submitted SQL');await capture('copy-cached-recovered');
+ // A real source edit creates more rows than the two owned C pages can hold.
+ // Neither the query nor clipboard controller is called directly from JS.
+ await focusTransformations();await key('F10','F10',121,'',8);await authorActivate('step','edit');const draft=await sourceQueryDraft('SELECT ID,Value,Amount FROM input CROSS JOIN range(100) AS t(i) ORDER BY i,ID'),known=new Set(replies().map(reply=>reply.id));await authorActivate('source_query','apply');
+ let validation;for(const deadline=Date.now()+15000;Date.now()<deadline&&!validation;){validation=replies().find(reply=>reply.kind===11&&!known.has(reply.id));if(!validation)await pause(20);}check(validation&&!validation.error,'Actual uncached-copy source query did not bind successfully');const expanded=await waitPage(source.id);check(expanded.total==='600'&&expanded.columns===3,'Real source query did not publish the independent 600-row null/text fixture');await frames(4);
+ const expandedSelection=await selectUsed(600),largeBaseline=expandedSelection.state,coverage=copyCacheCoverage(largeBaseline,600);check(largeBaseline.manual_cells==='1'&&largeBaseline.object_count==='0'&&BigInt(largeBaseline.source_revision)>BigInt(baseline.source_revision),'Source Apply lost the manual owner or did not produce a fresh source revision');const largeExpected=copyExpectedTSV(100),beforeCopyJobs=starts().length,previousCopyReply=replies().filter(reply=>reply.kind===9).at(-1)?.id;
+ await copyMode('defer');const workerDelivery=await copyKey();let copyReply;for(const deadline=Date.now()+15000;Date.now()<deadline&&!copyReply;){copyReply=replies().filter(reply=>reply.kind===9&&(previousCopyReply===undefined||BigInt(reply.id)>BigInt(previousCopyReply))).at(-1);if(!copyReply)await pause(20);}check(copyReply&&!copyReply.error,'Uncached real C selection did not complete JOB_RANGE_COPY9');await frames(4);const workerPending=await platformSnapshot(),workerOwnership=copyState(workerPending),workerMemory=await copyMemory();copyRetained(largeBaseline,workerPending,'Real range-copy reply changed source/manual/selection/cache',{request:false});check(workerPending.request===copyReply.id&&workerOwnership.pending!=='0'&&workerOwnership.completed===recovery.ownership.completed&&workerOwnership.status==='0'&&workerMemory.attempts.at(-1).status==='pending'&&workerMemory.attempts.at(-1).text===largeExpected&&workerMemory.memory===expected,'Real Worker copy lost exact typed TSV, pending identity or retained clipboard');
+ const copyJobs=starts().slice(beforeCopyJobs);check(copyJobs.length===1&&copyJobs[0].kind===9&&copyJobs[0].id===copyReply.id,'Uncached copy did not use exactly one real shared-C range-copy Worker job');await evaluate('duxcelTestClipboard.resolve('+workerMemory.attempts.at(-1).index+');true');const workerCompleted=await waitCopyCompleted(recovery.ownership.completed,1);check(workerCompleted.ownership.completed===workerOwnership.pending,'Worker clipboard acknowledgement adopted a different result');copyRetained(workerPending,workerCompleted.state,'Worker clipboard acknowledgement changed cached source/manual/selection');const finalMemory=await copyMemory();check(finalMemory.memory===largeExpected&&finalMemory.fallbacks.length===0,'Worker copy lost exact six-state TSV or attempted OS clipboard fallback');await capture('copy-worker-completed');
+ const idleJobs=starts().length;await pause(300);await frames(3);const final=await platformSnapshot();copyRetained(workerCompleted.state,final,'Idle copied selection changed its retained source/manual/cache');check(starts().length===idleJobs,'Idle copied selection resubmitted database work');check(consoleText('Browser review prepared: ').length===0&&(await pendingReports()).length===0,'Copy acceptance staged a saved review report');const queue=await(await fetch(new URL('/__review/queue',url))).json();check(queue.reports.length===0,'Copy-only acceptance wrote into the persistent queue');
+ const result={source,initial,manual,selected,expected,baseline,delivered,pending,pendingOwnership,unresolved,frozen,resolvedFrozen,fulfilled,failures,recoveryDelivery,recovery,recoveredMemory,draft,validation,expanded,expandedSelection,coverage,workerDelivery,copyReply,copyJobs,workerPending,workerOwnership,workerCompleted,finalMemory,final,scope:'Actual shared-C cached and uncached rectangular copy through trusted CtrlC into a pre-loader owned memory Promise writer. Exact NULL/zero-byte text/literal NULL/quoted text/apostrophe TSV, unresolved versus terminal ownership, Promise rejection/synchronous failure/unavailable writer and recovery. A captured pending review snapshot stays pinned across platform fulfillment and is adopted after normal cancellation. Real query Apply creates 600 rows; actual page coverage proves uncached cells and exactly one official Worker kind9 supplies complete TSV. Workbook/selection/statistics/cache and idle query ownership remain intact. No OS clipboard, native clipboard, physical typing, saved reports, Table/Pivot copy or export acceptance.'};await fs.writeFile(path.join(output,'copy.json'),JSON.stringify(result,null,2));return result;
+}
 async function cellEditorPick(text,name){
  const jobs=starts().length,captured=await beginReview(),before=capturedState(),editor=cellEditorState(before,text,{partial:true}),target={id:'author.cell_editor.input',bounds:editor.bounds};
  const surface=await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};})()');[surface.logicalWidth,surface.logicalHeight]=before.logical.split(',').map(Number);
@@ -1129,6 +1214,7 @@ async function sourceQueryDraft(text){
   else if(character===',')await key(',','Comma',188,',');
   else if(character==='(')await key('(','Digit9',57,'(');
   else if(character===')')await key(')','Digit0',48,')');
+  else if(/^\d$/.test(character))await key(character,'Digit'+character,character.charCodeAt(0),character);
   else await key(character,'Key'+character.toUpperCase(),character.toUpperCase().charCodeAt(0),character);
  }
  await key('End','End',35);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));await key('ArrowLeft','ArrowLeft',37,'',8);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16));
@@ -1430,6 +1516,7 @@ try{
  await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:dpr,mobile:false});
  if(review)await send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:output});
+ if(copyOnly)await send('Page.addScriptToEvaluateOnNewDocument',{source:copyClipboardHarnessSource()});
  if(reviewOffline)await send('Page.addScriptToEvaluateOnNewDocument',{source:`globalThis.duxcelReviewOffline=true;const originalFetch=globalThis.fetch.bind(globalThis);globalThis.fetch=(input,...args)=>globalThis.duxcelReviewOffline&&new URL(typeof input==='string'?input:input.url??input,location.href).pathname.startsWith('/__review/')?Promise.reject(new Error('Owned offline review acceptance')):originalFetch(input,...args);`});
  const navigation=await send('Page.navigate',{url});check(!navigation.errorText,'Navigation failed: '+navigation.errorText);
  if(workerDriver){
@@ -1459,7 +1546,9 @@ try{
  check(surface.dpr===dpr,'Browser device pixel ratio mismatch');
  check(surface.canvas[0]===1280*dpr&&surface.canvas[1]===820*dpr,'Framebuffer is not rendered at actual DPR');
  await capture('wide');
- if(focusOnly){
+ if(copyOnly){
+  copyResult=await browserCopy();
+ }else if(focusOnly){
   focusResult=await browserFocus();
  }else if(reviewErrorOnly){
   reviewErrorResult=await browserReviewError();
@@ -1697,9 +1786,9 @@ try{
  resources.c_bridge=consoleText('Browser worker metrics: ').map(line=>JSON.parse(line.slice('Browser worker metrics: '.length)));
  resources.scope='Navigation-to-first completed C frame and parent resource timing; main JS heap excludes Worker/GPU/process RSS. C bridge metrics are review-only bounded callback/job observations; decode_ms is C validation/allocation/copy, elapsed_ms includes asynchronous engine/transport scheduling. Worker network bytes are not inferred from parent Resource Timing.';
  await fs.writeFile(path.join(output,'resources.json'),JSON.stringify(resources,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,reviewControlsResult,analysisResult,queryReviewResult,statisticsResult,reviewValuesResult,reviewGuideResult,reviewCellResult,reviewErrorResult,focusResult,sqlReviewResult,workerProbe,
-  profile:focusOnly?'focus-only':reviewErrorOnly?'review-error-only':reviewCellOnly?'review-cell-only':reviewGuideOnly?'review-guide-only':persistenceOwners?'persistence-owners':reviewSQLOnly?'review-sql-only':mixedStatisticsOnly?'mixed-statistics-only':tableStatisticsOnly?'table-statistics-only':reviewValuesOnly?'review-values-only':analysisStatisticsOnly?'analysis-statistics-only':statisticsOnly?'statistics-only':queryApply?'review-query-apply':reviewQueryOnly?'review-query-only':analysisColumnsOnly?'analysis-columns-only':analysisOnly?'analysis-only':reviewControlsOnly?'review-controls-only':zoomOnly?'zoom-only':accessOnly?'access-only':'standard',
-  scope:focusOnly?focusResult.scope:reviewErrorOnly?reviewErrorResult.scope:reviewCellOnly?reviewCellResult.scope:reviewGuideOnly?reviewGuideResult.scope:persistenceOwners?'BP0 official Worker/native v13 owner lifetime file compatibility: typed metadata rewrite/export/reopen and separate native release/ASan readback; no shared C browser Save/Open codec/controller or OPFS acceptance.':reviewSQLOnly?sqlReviewResult.scope:mixedStatisticsOnly?analysisResult.scope:tableStatisticsOnly?analysisResult.scope:reviewValuesOnly?reviewValuesResult.scope:analysisStatisticsOnly?analysisResult.scope:statisticsOnly?statisticsResult.scope:reviewQueryOnly?queryReviewResult.scope:analysisColumnsOnly?analysisResult.scope:analysisOnly?'Shared C same-sheet Rows/Values analysis, real matrix/grand totals and source/manual ownership; no Columns pivot, broad analytics or report upload.':reviewControlsOnly?'Shared C source/manual contextual targets and field-menu children, editable width/Move drafts and guarded Close, trusted input ownership and cancel retention, narrow150% clipping; no analytical-object or report-upload acceptance.':zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,reviewControlsResult,analysisResult,queryReviewResult,statisticsResult,reviewValuesResult,reviewGuideResult,reviewCellResult,reviewErrorResult,focusResult,copyResult,sqlReviewResult,workerProbe,
+  profile:copyOnly?'copy-only':focusOnly?'focus-only':reviewErrorOnly?'review-error-only':reviewCellOnly?'review-cell-only':reviewGuideOnly?'review-guide-only':persistenceOwners?'persistence-owners':reviewSQLOnly?'review-sql-only':mixedStatisticsOnly?'mixed-statistics-only':tableStatisticsOnly?'table-statistics-only':reviewValuesOnly?'review-values-only':analysisStatisticsOnly?'analysis-statistics-only':statisticsOnly?'statistics-only':queryApply?'review-query-apply':reviewQueryOnly?'review-query-only':analysisColumnsOnly?'analysis-columns-only':analysisOnly?'analysis-only':reviewControlsOnly?'review-controls-only':zoomOnly?'zoom-only':accessOnly?'access-only':'standard',
+  scope:copyOnly?copyResult.scope:focusOnly?focusResult.scope:reviewErrorOnly?reviewErrorResult.scope:reviewCellOnly?reviewCellResult.scope:reviewGuideOnly?reviewGuideResult.scope:persistenceOwners?'BP0 official Worker/native v13 owner lifetime file compatibility: typed metadata rewrite/export/reopen and separate native release/ASan readback; no shared C browser Save/Open codec/controller or OPFS acceptance.':reviewSQLOnly?sqlReviewResult.scope:mixedStatisticsOnly?analysisResult.scope:tableStatisticsOnly?analysisResult.scope:reviewValuesOnly?reviewValuesResult.scope:analysisStatisticsOnly?analysisResult.scope:statisticsOnly?statisticsResult.scope:reviewQueryOnly?queryReviewResult.scope:analysisColumnsOnly?analysisResult.scope:analysisOnly?'Shared C same-sheet Rows/Values analysis, real matrix/grand totals and source/manual ownership; no Columns pivot, broad analytics or report upload.':reviewControlsOnly?'Shared C source/manual contextual targets and field-menu children, editable width/Move drafts and guarded Close, trusted input ownership and cancel retention, narrow150% clipping; no analytical-object or report-upload acceptance.':zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){
