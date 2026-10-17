@@ -72,7 +72,10 @@ int objects_add(ObjectStore *s,uint64_t row,size_t col,const char *name,char **e
     return (int)s->count++;
 }
 int objects_add_chart(ObjectStore *s,uint64_t row,size_t col,const char *name,const PivotDefinition *definition,char **error) {
-    if (row>DX_SHEET_ROWS-12 || col>16384-6 || !pivot_valid(definition,error)) { if (!*error) fail(error,"Choose space for a chart inside the sheet."); return -1; }
+    if (row>DX_SHEET_ROWS-12 || col>16384-6) { if (!error || !*error) fail(error,"Choose space for a chart inside the sheet."); return -1; }
+    char *ignored_error=NULL;
+    bool valid=pivot_valid(definition,error ? error : &ignored_error); free(ignored_error);
+    if (!valid) return -1;
     SheetObject candidate={.name=(char *)name,.pivot=*definition}; ObjectSnapshot current={s->items,s->count},add={&candidate,1};
     if (!name || bytes(&current)+bytes(&add)>8*1024*1024) { fail(error,"Sheet object definitions exceed 8 MiB."); return -1; }
     int index=objects_add(s,row,col,name,error); if (index<0) return index;

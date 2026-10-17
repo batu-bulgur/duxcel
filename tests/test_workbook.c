@@ -51,6 +51,27 @@ static void test_cells(void) {
     CHECK(cells_paste(&s,2,4,"New",&rows,&columns,&error) && s.undo_count==history);
     cells_free(&s); cells_free(&copy);
 }
+static void test_chart_optional_errors(void) {
+    ObjectStore store={0}; PivotDefinition definition={0}; char *error=NULL;
+    CHECK(objects_add_chart(&store,0,0,"Existing chart",&definition,&error)==0);
+    size_t undo=store.undo_count; uint64_t next=store.next_id;
+    CHECK(objects_add_chart(&store,DX_SHEET_ROWS-11,0,"Outside rows",&definition,NULL)==-1);
+    CHECK(objects_add_chart(&store,0,16384-5,"Outside columns",&definition,NULL)==-1);
+    PivotDefinition invalid={0}; invalid.counts[PIVOT_ROWS]=DX_PIVOT_FIELDS+1;
+    CHECK(objects_add_chart(&store,0,0,"Invalid definition",&invalid,NULL)==-1);
+    CHECK(store.count==1 && store.next_id==next && store.undo_count==undo && !store.redo_count);
+    CHECK(!strcmp(store.items[0].name,"Existing chart") && !store.items[0].row && !store.items[0].col);
+    CHECK(objects_add_chart(&store,DX_SHEET_ROWS-11,0,"Outside rows",&definition,&error)==-1);
+    CHECK(error && !strcmp(error,"Choose space for a chart inside the sheet."));
+    free(error); error=NULL;
+    CHECK(objects_add_chart(&store,0,16384-5,"Outside columns",&definition,&error)==-1);
+    CHECK(error && !strcmp(error,"Choose space for a chart inside the sheet."));
+    free(error); error=NULL;
+    CHECK(objects_add_chart(&store,0,0,"Invalid definition",&invalid,&error)==-1);
+    CHECK(error && strstr(error,"eight") && !strstr(error,"space"));
+    CHECK(store.count==1 && store.next_id==next && store.undo_count==undo && !store.redo_count);
+    free(error); objects_free(&store);
+}
 static void test_objects(void) {
     Workbook b,loaded; workbook_init(&b); workbook_init(&loaded); char *error=NULL;
     Analysis a={.kind=SOURCE_CSV,.path=dx_absolute_path("tests/fixtures/transactions.csv")};
@@ -852,6 +873,7 @@ static void test_marks_workspace(void) {
     marks_free(&marks); workbook_free(&book); workbook_free(&loaded); free(error);
 }
 int main(void) {
+    test_chart_optional_errors();
     test_marks_workspace();
     test_combined_filter_workspace();
     test_pivot_grain_workspace();
