@@ -19,7 +19,7 @@ typedef struct {
     char *type_relation;
     unsigned type_slot;
     bool resolved_types[2];
-    bool matrix;
+    bool matrix,analytical;
     Page totals_schema;
     char *totals_sql;
     BrowserPivotPlan plan;
@@ -149,7 +149,7 @@ static bool browser_temporal(duckdb_type type) {
     return type==DUCKDB_TYPE_DATE || type==DUCKDB_TYPE_TIMESTAMP || type==DUCKDB_TYPE_TIMESTAMP_S || type==DUCKDB_TYPE_TIMESTAMP_MS || type==DUCKDB_TYPE_TIMESTAMP_NS || type==DUCKDB_TYPE_TIMESTAMP_TZ;
 }
 static PivotDefinition *browser_context(void) {
-    QueryJob *j=browser_query.job; return browser_query.matrix || (j->kind==JOB_DISTINCT && j->object_id && !j->is_table) ? &j->pivot : NULL;
+    QueryJob *j=browser_query.job; return browser_query.analytical || (j->kind==JOB_DISTINCT && j->object_id && !j->is_table) ? &j->pivot : NULL;
 }
 static bool browser_apply_types(unsigned slot,char **error) {
     const Page *schema=&browser_type_schema[slot]; Analysis *a=&browser_query.reply->analysis;
@@ -201,11 +201,11 @@ static void browser_prepare_query(void) {
         if ((needed[0] || needed[1]) && !distinct_query_build(&q->distinct,a,pivot,j->column,j->search,j->date_level,j->date_start,j->date_end,false,&error)) { browser_fail(error); free(error); return; }
         browser_execute(distinct_page_sql(&q->distinct,j->offset),BROWSER_DISTINCT_PAGE); return;
     }
-    if (needed[0] || (q->matrix && needed[1])) {
-        free(q->relation); q->relation=browser_relation_sql(a,q->matrix ? pivot : NULL,&error); if (!q->relation) { browser_fail(error); free(error); return; }
+    if (needed[0] || (q->analytical && needed[1])) {
+        free(q->relation); q->relation=browser_relation_sql(a,q->analytical ? pivot : NULL,&error); if (!q->relation) { browser_fail(error); free(error); return; }
         if (q->matrix && !pivot->counts[PIVOT_COLUMNS]) { free(q->totals_sql); q->totals_sql=browser_pivot_totals_sql(a,pivot,&error); if (!q->totals_sql) { browser_fail(error); free(error); return; } }
     }
-    if (q->matrix && pivot->counts[PIVOT_COLUMNS]) {
+    if (q->analytical && pivot->counts[PIVOT_COLUMNS]) {
         char *sql=browser_pivot_domain_sql(a,pivot,q->domain_index,&error);
         if (!sql) { browser_fail(error); free(error); return; }
         browser_execute(sql,BROWSER_PIVOT_DOMAIN); return;
@@ -253,7 +253,12 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
 #endif
     if (!decoded) { browser_publish(error); free(error); return; }
     if (browser_query.stage==BROWSER_STATISTICS) {
-        BrowserQuery *q=&browser_query; size_t retained=browser_schema.bytes+strlen(q->relation)+1;
+        BrowserQuery *q=&browser_query; size_t retained=browser_schema.bytes+strlen(q->relation)+1+analysis_text_bytes(&r->analysis);
+        if (q->plan.bytes>DX_PAGE_WIRE_TEXT_BYTES || retained>DX_PAGE_WIRE_TEXT_BYTES-q->plan.bytes) { page_free(&page); browser_publish("Selection statistics plan exceeds 4 MiB."); return; } retained+=q->plan.bytes;
+        for (size_t role=0;role<4;role++) for (size_t field=0;field<j->pivot.counts[role];field++) {
+            const PivotField *f=&j->pivot.fields[role][field]; size_t bytes=strlen(f->name)+1+(f->value ? strlen(f->value)+1 : 0);
+            if (bytes>DX_PAGE_WIRE_TEXT_BYTES || retained>DX_PAGE_WIRE_TEXT_BYTES-bytes) { page_free(&page); browser_publish("Selection statistics definitions exceed 4 MiB."); return; } retained+=bytes;
+        }
         for (size_t i=0;i<2;i++) {
             if (browser_type_schema[i].bytes>DX_PAGE_WIRE_TEXT_BYTES || retained>DX_PAGE_WIRE_TEXT_BYTES-browser_type_schema[i].bytes) { page_free(&page); browser_publish("Selection statistics schemas exceed 4 MiB."); return; }
             retained+=browser_type_schema[i].bytes;
@@ -273,12 +278,12 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
         for (size_t i=0;i<DX_PIVOT_FIELDS;i++) page_free(&q->domains[i]);
         if (!valid) { browser_publish(error); free(error); return; }
         free(q->relation); q->relation=dx_strdup(q->plan.sql);
-        if (j->include_totals) {
+        if (q->matrix && j->include_totals) {
             q->rows_sql=browser_pivot_readout_sql(&r->analysis,&j->pivot,&q->plan,true,j->offset,&error);
             if (q->rows_sql) q->columns_sql=browser_pivot_readout_sql(&r->analysis,&j->pivot,&q->plan,false,0,&error);
             if (!q->rows_sql || !q->columns_sql) { browser_publish(error); free(error); return; }
         }
-        if (browser_schema_key && !strcmp(browser_schema_key,q->relation)) browser_fetch_page();
+        if (browser_schema_key && !strcmp(browser_schema_key,q->relation)) browser_fetch_result();
         else { char *sql=browser_describe_sql(q->relation,&error); if (!sql) { browser_publish(error); free(error); return; } browser_execute(sql,BROWSER_DESCRIBE); }
         return;
     }
@@ -371,12 +376,15 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
     printf("Browser worker started: {\"id\":\"%" PRIu64 "\",\"kind\":%d}\n",r->id,(int)r->kind);
     if (j->refresh_source) browser_clear_schemas();
     q->matrix=j->kind==JOB_PIVOT && !j->is_table;
+    q->analytical=q->matrix || (j->kind==JOB_STATISTICS && j->object_id && !j->is_table);
     bool invalid_pivot=false;
     for (size_t role=0;role<4;role++) invalid_pivot|=j->pivot.counts[role]>DX_PIVOT_FIELDS;
     if (invalid_pivot) { browser_fail("Matrix shelves exceed their bounded field limit."); return; }
     if (j->kind==JOB_STATISTICS) {
         bool pivot=false; for (size_t role=0;role<4;role++) pivot|=j->pivot.counts[role]!=0;
-        if (j->statistics || j->object_id || j->is_table || pivot) { browser_fail("Browser statistics currently support direct primary-source selections; mixed cells and analytical objects are not connected yet."); return; }
+        if (j->statistics) { browser_fail("Mixed cells are not connected to browser statistics yet. Choose a direct source, table or matrix range."); return; }
+        if ((j->is_table && (!j->object_id || pivot)) || (!j->object_id && pivot)) { browser_fail("Invalid statistics object identity or table definition."); return; }
+        if (q->analytical && !j->pivot.counts[PIVOT_VALUES]) { browser_fail("Add a field to Values for analytical result statistics."); return; }
         if (j->expected_source_stamp) { browser_fail("Native source stamps cannot be verified by the browser engine."); return; }
         if (!j->cols || j->cols>256 || j->offset>DX_SHEET_ROWS || j->rows>DX_SHEET_ROWS-j->offset) { browser_fail("Selection statistics support up to 256 columns inside the worksheet."); return; }
     }
@@ -396,7 +404,7 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
         if (!valid) { browser_fail(error); free(error); return; }
         if (j->pivot.counts[PIVOT_COLUMNS]) free(valid); else q->totals_sql=valid;
     }
-    q->relation=browser_relation_sql(&r->analysis,q->matrix ? &j->pivot : NULL,&error);
+    q->relation=browser_relation_sql(&r->analysis,q->analytical ? &j->pivot : NULL,&error);
     if (!q->relation) { browser_fail(error); free(error); return; }
     browser_prepare_query();
 }

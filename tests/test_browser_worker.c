@@ -127,6 +127,7 @@ typedef enum {
     WAIT_MATRIX_COUNT,WAIT_MATRIX_COUNT_EMPTY,
     WAIT_STATS_RANGE,WAIT_STATS_OFFSET,WAIT_STATS_EXACT,WAIT_STATS_TINY,WAIT_STATS_TEXT,WAIT_STATS_FILTERED,WAIT_STATS_OVERFLOW,WAIT_STATS_NONFINITE,WAIT_STATS_ZERO,WAIT_STATS_EMPTY,
     WAIT_STATS_OBJECT,WAIT_STATS_PIVOT,WAIT_STATS_MIXED,WAIT_STATS_STAMP,WAIT_STATS_BOUNDS,WAIT_STATS_COLUMN,WAIT_STATS_CANCEL,WAIT_STATS_FINAL,
+    WAIT_STATS_TABLE,WAIT_STATS_ROWS,WAIT_STATS_ROWS_AVG,WAIT_STATS_COLUMNS_AVG,WAIT_STATS_COLUMNS_SUBSET,WAIT_STATS_COLUMNS_DATE,WAIT_STATS_GRAND,WAIT_STATS_TABLE_BAD,WAIT_STATS_ANALYSIS_CANCEL,WAIT_STATS_ANALYSIS_FINAL,
     WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
     WAIT_OVERSIZE_ERROR,WAIT_OVERSIZE_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
@@ -141,7 +142,7 @@ static char *retained_rejection;
 static Stage stage;
 static double entered;
 static uint64_t next_id=UINT64_C(9007199254740993),expected_id,expected_offset,expected_sql,expected_counts;
-static uint64_t statistics_object;
+static uint64_t statistics_object,statistics_revision;
 static JobKind expected_kind;
 static bool expected_preview;
 static unsigned checks,stages,stale_cookie,stale_ticket,late_callbacks,rejection_cancels;
@@ -160,7 +161,7 @@ static void counters(void) { CHECK(worker.sql_executed==expected_sql); CHECK(wor
 static void identity(void) {
     char id[24],object[24],revision[24],offset[24];
     snprintf(id,sizeof(id),"%" PRIu64,expected_id); snprintf(object,sizeof(object),"%" PRIu64,expected_kind==JOB_STATISTICS ? statistics_object : object_id);
-    snprintf(revision,sizeof(revision),"%" PRIu64,revision_id); snprintf(offset,sizeof(offset),"%" PRIu64,expected_offset);
+    snprintf(revision,sizeof(revision),"%" PRIu64,expected_kind==JOB_STATISTICS ? statistics_revision : revision_id); snprintf(offset,sizeof(offset),"%" PRIu64,expected_offset);
     CHECK(observed_identity(id,object,revision,offset));
 }
 static void submit(JobKind kind,const char *sql,uint64_t offset,int64_t total,bool preview,unsigned sql_count) {
@@ -255,11 +256,11 @@ static void submit_columns(ColumnsCase kind,uint64_t offset,int64_t total,bool t
     expected_sql+=sql_count; if (total<0 && kind!=COLUMNS_PRODUCT && kind!=COLUMNS_SQL_LIMIT) expected_counts++;
     worker_submit(&worker,job);
 }
-typedef enum { STAT_RANGE,STAT_OFFSET,STAT_EXACT,STAT_TINY,STAT_TEXT,STAT_FILTERED,STAT_OVERFLOW,STAT_NONFINITE,STAT_ZERO,STAT_EMPTY,STAT_OBJECT,STAT_PIVOT,STAT_MIXED,STAT_STAMP,STAT_BOUNDS,STAT_COLUMN,STAT_FINAL } StatisticsCase;
+typedef enum { STAT_RANGE,STAT_OFFSET,STAT_EXACT,STAT_TINY,STAT_TEXT,STAT_FILTERED,STAT_OVERFLOW,STAT_NONFINITE,STAT_ZERO,STAT_EMPTY,STAT_OBJECT,STAT_PIVOT,STAT_MIXED,STAT_STAMP,STAT_BOUNDS,STAT_COLUMN,STAT_FINAL,STAT_TABLE,STAT_ROWS,STAT_ROWS_AVG,STAT_COLUMNS_AVG,STAT_COLUMNS_SUBSET,STAT_COLUMNS_DATE,STAT_GRAND,STAT_TABLE_BAD,STAT_COLUMNS_NEW_REVISION } StatisticsCase;
 static void submit_statistics(StatisticsCase kind,unsigned sql_count) {
-    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job)); job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=JOB_STATISTICS; expected_preview=false; expected_offset=0; statistics_object=0;
-    const char *sql=kind==STAT_EXACT || kind==STAT_TINY ? statistics_exact_sql : kind==STAT_TEXT ? statistics_text_sql : kind==STAT_FILTERED ? statistics_filter_sql : kind==STAT_OVERFLOW ? statistics_overflow_sql : kind==STAT_NONFINITE ? statistics_nonfinite_sql : kind>=STAT_ZERO && kind<=STAT_COLUMN ? statistics_zero_sql : range_sql;
-    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(sql)}; job->revision=revision_id; job->rows=600; job->first_col=2; job->cols=1;
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job)); job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=JOB_STATISTICS; expected_preview=false; expected_offset=0; statistics_object=0; statistics_revision=revision_id;
+    const char *sql=kind==STAT_EXACT || kind==STAT_TINY ? statistics_exact_sql : kind==STAT_TEXT ? statistics_text_sql : kind==STAT_FILTERED ? statistics_filter_sql : kind==STAT_OVERFLOW ? statistics_overflow_sql : kind==STAT_NONFINITE ? statistics_nonfinite_sql : kind>=STAT_ZERO && kind<=STAT_COLUMN ? statistics_zero_sql : kind>=STAT_ROWS_AVG && kind<=STAT_COLUMNS_NEW_REVISION ? kind==STAT_COLUMNS_DATE ? dates_sql : columns_exact_sql : range_sql;
+    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(sql)}; job->revision=statistics_revision; job->rows=600; job->first_col=2; job->cols=1;
     if (kind==STAT_OFFSET) { job->offset=256; job->rows=400; job->first_col=0; job->cols=3; }
     if (kind==STAT_EXACT || kind==STAT_TINY) { job->rows=3; job->first_col=kind==STAT_TINY ? 1 : 0; job->cols=kind==STAT_TINY ? 1 : 3; }
     if (kind>=STAT_TEXT && kind<=STAT_COLUMN) { job->rows=kind==STAT_TEXT ? 5 : kind==STAT_NONFINITE ? 4 : 2; job->first_col=0; }
@@ -272,11 +273,26 @@ static void submit_statistics(StatisticsCase kind,unsigned sql_count) {
     if (kind==STAT_BOUNDS) { job->offset=DX_SHEET_ROWS; job->rows=1; }
     if (kind==STAT_COLUMN) job->first_col=SIZE_MAX;
     if (kind==STAT_FINAL) { job->offset=10; job->rows=100; }
+    if (kind>=STAT_TABLE) {
+        job->object_id=statistics_object=object_id;
+        if (kind==STAT_TABLE) job->is_table=true;
+        else if (kind==STAT_TABLE_BAD) { job->is_table=true; job->object_id=statistics_object=0; }
+        else if (kind==STAT_ROWS) { CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,"row_id",AGG_SUM,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"amount",AGG_SUM,NULL)); job->first_col=1; }
+        else if (kind==STAT_COLUMNS_DATE) {
+            CHECK(pivot_assign_grain(&job->pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_MONTH,NULL) && pivot_assign_grain(&job->pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_QUARTER,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"occurred",AGG_COUNT,NULL)); job->rows=1; job->first_col=0; job->cols=15;
+        } else if (kind==STAT_GRAND) { CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"id",AGG_COUNT,NULL)); job->rows=1; job->first_col=0; }
+        else {
+            CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,"r",AGG_SUM,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"v",AGG_AVG,NULL)); job->rows=5; job->first_col=1;
+            if (kind!=STAT_ROWS_AVG) { CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,"c",AGG_SUM,NULL)); job->cols=9; }
+            if (kind==STAT_COLUMNS_SUBSET || kind==STAT_COLUMNS_NEW_REVISION) { job->offset=2; job->rows=2; }
+            if (kind==STAT_COLUMNS_NEW_REVISION) job->revision=statistics_revision=revision_id+4;
+        }
+    }
     expected_sql+=sql_count; worker_submit(&worker,job);
 }
 static bool poll_received(bool error,bool sent) {
     CHECK(!reply); reply=worker_poll(&worker); if (!reply) return false;
-    CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==(expected_kind==JOB_STATISTICS ? statistics_object : object_id) && reply->revision==revision_id && reply->is_preview==expected_preview);
+    CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==(expected_kind==JOB_STATISTICS ? statistics_object : object_id) && reply->revision==(expected_kind==JOB_STATISTICS ? statistics_revision : revision_id) && reply->is_preview==expected_preview);
     CHECK((reply->error!=NULL)==error); CHECK(!worker.running); counters(); if (sent) identity(); retained_values(); return true;
 }
 static bool received(bool error) { return poll_received(error,true); }
@@ -766,15 +782,15 @@ static void tick(void) {
         submit_statistics(STAT_OBJECT,0); enter(WAIT_STATS_OBJECT); return;
     case WAIT_STATS_OBJECT:
         if (!poll_received(true,false)) return;
-        CHECK(strstr(reply->error,"primary-source")); statistics_error(); release_reply(); pass("object statistics reject before SQL until their bound-result path is implemented");
+        CHECK(strstr(reply->error,"field to Values")); statistics_error(); release_reply(); pass("analytical statistics reject an incomplete object definition before SQL");
         submit_statistics(STAT_PIVOT,0); enter(WAIT_STATS_PIVOT); return;
     case WAIT_STATS_PIVOT:
         if (!poll_received(true,false)) return;
-        CHECK(strstr(reply->error,"primary-source")); statistics_error(); release_reply(); pass("pivot definitions cannot bypass primary-source statistics restrictions");
+        CHECK(strstr(reply->error,"object identity")); statistics_error(); release_reply(); pass("pivot statistics require a real object identity before SQL");
         submit_statistics(STAT_MIXED,0); enter(WAIT_STATS_MIXED); return;
     case WAIT_STATS_MIXED:
         if (!poll_received(true,false)) return;
-        CHECK(strstr(reply->error,"mixed cells")); statistics_error(); release_reply(); pass("owned mixed-selection snapshots reject and release before any browser SQL");
+        CHECK(strstr(reply->error,"Mixed cells")); statistics_error(); release_reply(); pass("owned mixed-selection snapshots reject and release before any browser SQL");
         submit_statistics(STAT_STAMP,0); enter(WAIT_STATS_STAMP); return;
     case WAIT_STATS_STAMP:
         if (!poll_received(true,false)) return;
@@ -795,6 +811,45 @@ static void tick(void) {
     case WAIT_STATS_FINAL:
         if (!received(false)) return;
         statistics_values(100,100,100,100); CHECK(!reply->statistics.approximate && !strcmp(reply->statistics.sum,"4950") && !strcmp(reply->statistics.average,"49.5")); release_reply(); pass("statistics cancellation recovery reuses schema and publishes only the current full interval");
+        submit_statistics(STAT_TABLE,1); enter(WAIT_STATS_TABLE); return;
+    case WAIT_STATS_TABLE:
+        if (!received(false)) return;
+        statistics_values(600,600,600,100); CHECK(!reply->statistics.approximate && !strcmp(reply->statistics.sum,"29700") && !strcmp(reply->statistics.average,"49.5")); release_reply(); pass("direct table statistics reuse its full typed relation and preserve bound object/revision identity");
+        submit_statistics(STAT_ROWS,2); enter(WAIT_STATS_ROWS); return;
+    case WAIT_STATS_ROWS:
+        if (!received(false)) return;
+        statistics_values(600,600,600,100); CHECK(!reply->statistics.approximate && !strcmp(reply->statistics.sum,"29700") && !strcmp(reply->statistics.average,"49.5")); release_reply(); pass("Rows result statistics aggregate600 actual pivot cells without a Page/count/totals submission");
+        submit_statistics(STAT_ROWS_AVG,2); enter(WAIT_STATS_ROWS_AVG); return;
+    case WAIT_STATS_ROWS_AVG:
+        if (!received(false)) return;
+        statistics_values(5,5,5,5); CHECK(reply->statistics.approximate && !strcmp(reply->statistics.sum,"320") && !strcmp(reply->statistics.average,"64") && !strcmp(reply->statistics.minimum,"4.5") && !strcmp(reply->statistics.maximum,"200")); release_reply(); pass("statistics over AVG result cells average selected group averages rather than raw source values");
+        submit_statistics(STAT_COLUMNS_AVG,3); enter(WAIT_STATS_COLUMNS_AVG); return;
+    case WAIT_STATS_COLUMNS_AVG:
+        if (!received(false)) return;
+        statistics_values(45,10,10,8); CHECK(reply->statistics.approximate && !strcmp(reply->statistics.sum,"348") && !strcmp(reply->statistics.average,"34.8") && !strcmp(reply->statistics.minimum,"2") && !strcmp(reply->statistics.maximum,"200")); release_reply(); pass("bounded real Columns PIVOT statistics preserve sparse NULL intersections and result-cell semantics");
+        submit_statistics(STAT_COLUMNS_SUBSET,2); enter(WAIT_STATS_COLUMNS_SUBSET); return;
+    case WAIT_STATS_COLUMNS_SUBSET:
+        if (!received(false)) return;
+        statistics_values(18,7,7,5); CHECK(reply->statistics.approximate && !strcmp(reply->statistics.sum,"38") && strtod(reply->statistics.average,NULL)>5.42 && strtod(reply->statistics.average,NULL)<5.43 && !strcmp(reply->statistics.minimum,"2") && !strcmp(reply->statistics.maximum,"11")); release_reply(); pass("Columns result OFFSET statistics recompute the selected full interval without cached-page sampling");
+        submit_statistics(STAT_COLUMNS_DATE,5); enter(WAIT_STATS_COLUMNS_DATE); return;
+    case WAIT_STATS_COLUMNS_DATE:
+        if (!received(false)) return;
+        statistics_values(15,15,15,3); CHECK(!reply->statistics.approximate && !strcmp(reply->statistics.sum,"9") && !strcmp(reply->statistics.average,"0.6") && !strcmp(reply->statistics.minimum,"0") && !strcmp(reply->statistics.maximum,"5")); release_reply(); pass("date-domain COUNT(*) result statistics retain zero intersections and typed result descriptors");
+        submit_statistics(STAT_GRAND,2); enter(WAIT_STATS_GRAND); return;
+    case WAIT_STATS_GRAND:
+        if (!received(false)) return;
+        statistics_values(1,1,1,1); CHECK(!reply->statistics.approximate && !strcmp(reply->statistics.sum,"13") && !strcmp(reply->statistics.average,"13")); release_reply(); pass("scalar analytical-result statistics measure the aggregate result row");
+        submit_statistics(STAT_TABLE_BAD,0); enter(WAIT_STATS_TABLE_BAD); return;
+    case WAIT_STATS_TABLE_BAD:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"object identity")); statistics_error(); release_reply(); pass("a table statistics flag without an owner rejects before SQL");
+        hold_matrix_reply(6); submit_statistics(STAT_COLUMNS_AVG,3); enter(WAIT_STATS_ANALYSIS_CANCEL); return;
+    case WAIT_STATS_ANALYSIS_CANCEL:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        counters(); worker_cancel(&worker); CHECK(!worker.running); submit_statistics(STAT_COLUMNS_NEW_REVISION,2); release_matrix_reply(); CHECK(worker.running && !worker_poll(&worker)); pass("late analytical statistics from an old object revision cannot replace the active newer request"); enter(WAIT_STATS_ANALYSIS_FINAL); return;
+    case WAIT_STATS_ANALYSIS_FINAL:
+        if (!received(false)) return;
+        statistics_values(18,7,7,5); CHECK(reply->revision==revision_id+4 && !strcmp(reply->statistics.sum,"38")); release_reply(); pass("analytical statistics recovery publishes the current object revision with independently owned results");
         submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_OVERSIZE_SCHEMA); return;
     case WAIT_OVERSIZE_SCHEMA:
         if (!received(false)) return;
@@ -866,7 +921,7 @@ static void tick(void) {
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
         retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
         page_free(&retained); page_free(&retained); statistics_free(&retained_statistics); statistics_free(&retained_statistics); pass("early stop and scheduled stale callbacks are ignored");
-        CHECK(stages==86 && worker.jobs_started==93 && expected_sql==210 && expected_counts==21);
+        CHECK(stages==96 && worker.jobs_started==103 && expected_sql==232 && expected_counts==21);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
