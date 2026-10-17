@@ -821,6 +821,36 @@ static void test_format_workspace(void) {
     for (unsigned i=0;i<32;i++) format_model_history(sheet,true); CHECK(!strcmp(cells_get(&sheet->cells,40,25),"Raw 69") && format_at(&sheet->formats,40,25).flags==FORMAT_BOLD);
     workbook_free(&book); workbook_free(&loaded); free(error);
 }
+static void test_scoped_format_save_guard(void) {
+    Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
+    CHECK(workbook_add(&book,"Scoped save guard",&blank,&error)); Worksheet *sheet=&book.sheets[0];
+    CHECK(cells_set(&sheet->cells,0,0,"Original file value",&error));
+    const char *path="tests/generated/scoped-save-guard.dxls",*fresh="tests/generated/scoped-save-new.dxls";
+    remove(path); remove(fresh); CHECK(workbook_save(&book,path,&error));
+    FILE *file=fopen(path,"rb"); CHECK(file && fseek(file,0,SEEK_END)==0); long length=ftell(file); CHECK(length>0 && fseek(file,0,SEEK_SET)==0);
+    unsigned char *before=dx_alloc((size_t)length),*after=dx_alloc((size_t)length);
+    CHECK(fread(before,1,(size_t)length,file)==(size_t)length && !fclose(file));
+    const char definition[]="exact source/version/schema definition"; FormatScopeView scope={9,definition,sizeof(definition)-1}; CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    CHECK(format_apply_scoped(&sheet->formats,(FormatRange){0,0,0,0},FORMAT_BOLD,bold,&scope,1,false,&error)); worksheet_record(sheet,EDIT_FORMAT);
+    Workbook *snapshot=workbook_snapshot(&book);
+    CHECK(snapshot->sheets[0].formats.scopes[0].definition!=sheet->formats.scopes[0].definition && snapshot->sheets[0].formats.items[0].guard_ids!=sheet->formats.items[0].guard_ids);
+    CHECK(!workbook_save(snapshot,path,&error) && error && strstr(error,"v12")); free(error); error=NULL;
+    workbook_free(snapshot); free(snapshot);
+    file=fopen(path,"rb"); CHECK(file && fread(after,1,(size_t)length,file)==(size_t)length && fgetc(file)==EOF && !fclose(file));
+    CHECK(!memcmp(before,after,(size_t)length)); free(before); free(after);
+    CHECK(!workbook_save(&book,fresh,&error) && error && strstr(error,"v12")); free(error); error=NULL;
+    file=fopen(fresh,"rb"); CHECK(!file);
+    CHECK(workbook_load(&loaded,path,&error) && !loaded.sheets[0].formats.count && !strcmp(cells_get(&loaded.sheets[0].cells,0,0),"Original file value"));
+    CHECK(workbook_duplicate(&book,0,&error));
+    CHECK(book.sheets[1].formats.scopes[0].definition!=book.sheets[0].formats.scopes[0].definition);
+    format_free(&book.sheets[1].formats); sheet=&book.sheets[0];
+    format_model_history(sheet,false); CHECK(!sheet->formats.count && sheet->formats.redo_count==1);
+    /* Dormant session history is not serialized and must not block an ordinary save. */
+    CHECK(workbook_save(&book,path,&error) && workbook_load(&loaded,path,&error));
+    format_model_history(sheet,true); CHECK(format_resolve(&sheet->formats,0,0,&scope).flags==FORMAT_BOLD);
+    CHECK(!workbook_save(&book,path,&error) && error && strstr(error,"v12")); free(error);
+    workbook_free(&book); workbook_free(&loaded);
+}
 static void test_combined_filter_workspace(void) {
     Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); char *error=NULL;
     Analysis source={.kind=SOURCE_DEMO,.path=dx_strdup("")}; char *payload=analysis_filter_pack(FILTER_NOT_IN,"[\"Bursa\"]",FILTER_CONTAINS,"stan");
@@ -878,6 +908,7 @@ int main(void) {
     test_combined_filter_workspace();
     test_pivot_grain_workspace();
     test_format_workspace();
+    test_scoped_format_save_guard();
     test_unique_workspace();
     test_query_workspace();
     test_cells();

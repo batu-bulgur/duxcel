@@ -36,6 +36,8 @@ static void review_begin_frame(App *a) {
     used=strlen(f.state_text);
     Worksheet *sheet=active_sheet(a); CellFormat format=active_format(a);
     snprintf(f.state_text+used,sizeof(f.state_text)-used," keytip_tab=%d keytip_prefix=%s file_menu=%d active_format_flags=%u manual_cells=%zu sheet_count=%zu",a->keytip_state.tab,a->keytip_state.prefix[0] ? a->keytip_state.prefix : "-",a->file_menu,format.flags,sheet ? sheet->cells.count : 0,a->book.count);
+    UIChoiceListLayout file=file_menu_layout(a); used=strlen(f.state_text);
+    snprintf(f.state_text+used,sizeof(f.state_text)-used," file_focus=%d file_scroll=%d file_visible=%d file_panel=%.3f,%.3f,%.3f,%.3f",a->file_menu_focus,a->file_menu_scroll,file.visible,file.frame.panel.x,file.frame.panel.y,file.frame.panel.width,file.frame.panel.height);
     int last_command=-1;
     for (unsigned i=0;i<a->review->trace_count;i++) {
         const char *line=a->review->trace[(a->review->trace_head+i)%DX_REVIEW_EVENTS];

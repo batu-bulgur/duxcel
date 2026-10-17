@@ -29,7 +29,10 @@ int main(void) {
     FormatStore styles={0}; CellFormat accounting=format_default(); accounting.number=FORMAT_ACCOUNTING;
     CHECK(format_apply(&styles,(FormatRange){0,DX_SHEET_ROWS-1,2,2},FORMAT_NUMERIC,accounting,&error));
     CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&styles,(FormatRange){0,0,1,1},FORMAT_BOLD,bold,&error));
+    const char definition[]="unverified source/version/schema"; FormatScopeView scope={74,definition,sizeof(definition)-1};
+    CHECK(format_apply_scoped(&styles,(FormatRange){0,DX_SHEET_ROWS-1,1,1},FORMAT_BOLD,bold,&scope,1,false,&error));
     step_preview_presentation(&preview,&original,&grid,&styles,0); CHECK(preview.formats.count==1 && preview.formats.items!=styles.items);
+    CHECK(!preview.formats.scope_count && !preview.formats.items[0].guard_count && styles.scope_count==1 && !memcmp(styles.scopes[0].definition,definition,sizeof(definition)-1));
     CHECK(preview.grid.zoom==.9f && preview.grid.freeze && !preview.grid.elastic_enabled);
     CHECK(!step_preview_start(&preview,&live,99,74,9,&grid)); CHECK(preview.active && preview.step==0);
     QueryJob *job=step_preview_job(&preview,1,false); CHECK(job && job->kind==JOB_STEP_PREVIEW && job->is_preview && job->known_total==-1 && job->analysis.path!=preview.source.path);

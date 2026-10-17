@@ -188,7 +188,10 @@ typedef struct {
     bool key_tips, ribbon_focus, diagnostics, consume_grid_input;
     UIKeytips keytip_state;
     bool file_menu,window_closed,background_test;
-    int file_menu_focus;
+    int file_menu_focus,file_menu_scroll;
+    double file_menu_wheel;
+    bool file_menu_drag;
+    float file_menu_grab;
     unsigned file_menu_frame;
     int chrome_focus,status_focus,workbook_focus_index,workbook_visible_rows,pipeline_focus_index,pipeline_visible_rows;
     float workbook_stride,workbook_row_height;
@@ -810,6 +813,10 @@ static void activate_sheet(App *a,size_t index,bool capture) {
     } else { request_page(a,false); status(a,"Loading worksheet…"); }
 }
 static void workspace_job(App *a,JobKind kind,const char *path) {
+    if (kind==JOB_SAVE) for (size_t i=0;i<a->book.count;i++) {
+        char *error=NULL; bool ok=format_persistable(&a->book.sheets[i].formats,&error);
+        if (!ok) { status(a,error); free(error); return; }
+    }
     end_step_preview(a);
     if (a->io_busy) return;
     /* A command-line workspace can begin loading before its first reply. Keep
@@ -5785,7 +5792,7 @@ static bool keytip_input(App *a,DxCommand command) {
         UIKeytipResult result=ui_keytips_feed(&a->keytip_state,key,false);
         a->key_tips=a->keytip_state.active;
         if (result.kind==UI_KEYTIP_TAB) {
-            a->file_menu=result.value==UI_KEYTIPS_FILE; a->file_menu_focus=0; a->file_menu_frame=a->frames;
+            a->file_menu=result.value==UI_KEYTIPS_FILE; a->file_menu_focus=a->file_menu_scroll=0; a->file_menu_wheel=0; a->file_menu_drag=false; a->file_menu_frame=a->frames;
             if (!a->file_menu) { a->ribbon_tab=result.value; a->ribbon_focus=true; a->ribbon_command=-1; a->pivot_focus=a->chrome_focus=0; }
         } else if (result.kind==UI_KEYTIP_COMMAND) {
             a->ribbon_command=ui_ribbon_action_index(a->ribbon_tab,(UIAction)result.value); a->ribbon_focus=true;
@@ -6569,14 +6576,45 @@ static void draw_toast(App *a) {
     ui_carbon(u,CARBON_INFORMATION,box(panel.x+14*s,panel.y+(height-16*s)*.5f,16*s,16*s),Fade(WHITE,progress));
     text_lines_draw_sized(lines,u,a->message,0,box(panel.x+38*s,panel.y+10*s,fmaxf(0,width-52*s),height-20*s),11.5f,15,Fade(WHITE,progress));
 }
+static bool file_action_available(const App *a,int action) {
+    if (a->io_busy || action<0 || action>=UI_KEYTIP_FILE_COUNT) return false;
+#ifdef DUXCEL_BROWSER_HOST
+    if (action==UI_KEYTIP_FILE_SAVE || action==UI_KEYTIP_FILE_SAVE_AS || action==UI_KEYTIP_FILE_QUIT) return false;
+#endif
+    return true;
+}
+static UIChoiceListLayout file_menu_layout(const App *a) {
+    float s=a->ui.scale; Vector2 origin={dx_native_titlebar_inset()+8*s,28*s},viewport={GetScreenWidth(),GetScreenHeight()};
+    UIChoiceListLayout layout={.frame=ui_choice_layout(origin,viewport,s,UI_KEYTIP_FILE_COUNT,4),.visible=UI_KEYTIP_FILE_COUNT};
+    if (!layout.frame.valid) return ui_choice_list_layout(origin,viewport,s,UI_KEYTIP_FILE_COUNT);
+    layout.items=layout.frame.rows[0]; Rectangle last=layout.frame.rows[UI_KEYTIP_FILE_COUNT-1];
+    layout.items.height=last.y+last.height-layout.items.y; return layout;
+}
 static void draw_file_menu(App *a) {
     if (!a->file_menu || a->modal!=MODAL_NONE) return;
-    UIContext *u=&a->ui; float s=u->scale;
-    UIChoiceLayout layout=ui_choice_layout((Vector2){dx_native_titlebar_inset()+8*s,28*s},(Vector2){GetScreenWidth(),GetScreenHeight()},s,UI_KEYTIP_FILE_COUNT,4);
+    UIContext *u=&a->ui; float s=u->scale; UIChoiceListLayout list=file_menu_layout(a); UIChoiceLayout layout=list.frame;
+    if (!layout.valid) {
+        a->file_menu=a->key_tips=a->ribbon_focus=false; ui_keytips_cancel(&a->keytip_state); a->consume_grid_input=true; return;
+    }
     bool pointer=u->pointer_blocked; u->pointer_blocked=false;
     if (!a->key_tips && ui_pressed(KEY_ESCAPE)) { a->file_menu=false; a->consume_grid_input=true; }
-    if (ui_key(KEY_DOWN)) a->file_menu_focus=(a->file_menu_focus+1)%UI_KEYTIP_FILE_COUNT;
-    if (ui_key(KEY_UP)) a->file_menu_focus=(a->file_menu_focus+UI_KEYTIP_FILE_COUNT-1)%UI_KEYTIP_FILE_COUNT;
+    const int keys[]={KEY_UP,KEY_DOWN,KEY_TAB,KEY_HOME,KEY_END};
+    bool reveal=a->file_menu_frame==a->frames || ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE);
+    for (size_t k=0;k<sizeof(keys)/sizeof(*keys);k++) if ((k<2 && ui_key(keys[k])) || (k>=2 && ui_pressed(keys[k]))) {
+        int key=keys[k],direction=key==KEY_UP || key==KEY_END || (key==KEY_TAB && ui_key_shift(key)) ? -1 : 1;
+        int focus=key==KEY_HOME ? 0 : key==KEY_END ? UI_KEYTIP_FILE_COUNT-1 : (a->file_menu_focus+UI_KEYTIP_FILE_COUNT+direction)%UI_KEYTIP_FILE_COUNT;
+        for (int n=0;n<UI_KEYTIP_FILE_COUNT && !file_action_available(a,focus);n++) focus=(focus+UI_KEYTIP_FILE_COUNT+direction)%UI_KEYTIP_FILE_COUNT;
+        a->file_menu_focus=focus; reveal=true;
+    }
+    if (reveal) {
+        a->file_menu_drag=false; a->file_menu_wheel=0;
+        if (a->file_menu_focus<a->file_menu_scroll) a->file_menu_scroll=a->file_menu_focus;
+        if (a->file_menu_focus>=a->file_menu_scroll+list.visible) a->file_menu_scroll=a->file_menu_focus-list.visible+1;
+    }
+    int maximum=UI_KEYTIP_FILE_COUNT-list.visible;
+    if (!reveal && CheckCollisionPointRec(ui_mouse_position(),list.items)) a->file_menu_scroll+=ui_scroll_steps(&a->file_menu_wheel,-GetMouseWheelMoveV().y*3);
+    if (a->file_menu_scroll<0) a->file_menu_scroll=0;
+    if (a->file_menu_scroll>maximum) a->file_menu_scroll=maximum;
     if (a->file_menu_frame!=a->frames) {
         Rectangle p=layout.panel; DxPointerGesture gesture;
         bool outside=IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),p);
@@ -6586,28 +6624,27 @@ static void draw_file_menu(App *a) {
     }
     if (a->file_menu) {
         ui_choice_frame(u,&layout,"File");
+        if (maximum) list_scrollbar(a,list.items,UI_KEYTIP_FILE_COUNT,list.visible,&a->file_menu_scroll,&a->file_menu_drag,&a->file_menu_grab,!reveal);
         const UICarbonIcon icons[]={CARBON_DOCUMENT_BLANK,CARBON_FOLDER_OPEN,CARBON_SAVE,CARBON_SAVE,CARBON_CLOSE,CARBON_CLOSE};
-        for (int i=0;i<UI_KEYTIP_FILE_COUNT;i++) {
-            bool available=!a->io_busy;
-#ifdef DUXCEL_BROWSER_HOST
-            if (i==UI_KEYTIP_FILE_SAVE || i==UI_KEYTIP_FILE_SAVE_AS || i==UI_KEYTIP_FILE_QUIT) available=false;
-#endif
-            bool chosen=ui_choice_row(u,layout.rows[i],ui_keytips_file_name((UIKeytipFileAction)i),NULL,icons[i],false,i==a->file_menu_focus,available);
+        for (int row=0;row<list.visible;row++) {
+            int i=row+a->file_menu_scroll; bool available=file_action_available(a,i); Rectangle item=layout.rows[row]; if (maximum) item.width-=9*s;
+            bool chosen=ui_choice_row(u,item,ui_keytips_file_name((UIKeytipFileAction)i),NULL,icons[i],false,i==a->file_menu_focus,available);
             const char *hint=ui_keytips_file_label(&a->keytip_state,(UIKeytipFileAction)i);
-            if (a->keytip_alpha>0 && hint) ui_keytip(u,box(layout.rows[i].x+layout.rows[i].width-24*s,layout.rows[i].y+5*s,18*s,16*s),hint,a->keytip_alpha);
-            if (available && (chosen || (i==a->file_menu_focus && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER))))) { file_action(a,(UIKeytipFileAction)i); break; }
+            if (a->keytip_alpha>0 && hint) ui_keytip(u,box(item.x+item.width-24*s,item.y+5*s,18*s,16*s),hint,a->keytip_alpha);
+            if (available && (chosen || (i==a->file_menu_focus && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE))))) { file_action(a,(UIKeytipFileAction)i); break; }
         }
     }
     u->pointer_blocked=pointer;
 }
 static void draw_app(App *a) {
     UIContext *u=&a->ui; float s=u->scale; bool enabled=a->modal==MODAL_NONE && !a->file_menu && !a->io_busy && !a->left_drawer && !(a->busy && a->pending_kind==JOB_EXPORT);
+    bool frame_pointer_blocked=u->pointer_blocked;
     u->paint_time=GetTime(); u->reduced_motion=a->reduced_motion;
     a->keytip_alpha=ui_motion_update_at(&a->keytip_motion,a->key_tips ? 1 : 0,u->paint_time,.14f,a->reduced_motion);
     dx_native_titlebar_height(a->ribbon_mode==3 ? 0 : 28*s);
     /* Modality blocks input without repainting valid chrome as unavailable. */
-    u->pointer_blocked=u->pointer_blocked || a->modal!=MODAL_NONE;
-    bool toast_visible=a->toast_rect.width>0 && a->modal==MODAL_NONE && !a->left_drawer && !a->busy && !a->io_busy && dx_millis()-a->message_since<3200;
+    u->pointer_blocked=frame_pointer_blocked || a->modal!=MODAL_NONE || a->file_menu;
+    bool toast_visible=a->toast_rect.width>0 && a->modal==MODAL_NONE && !a->file_menu && !a->left_drawer && !a->busy && !a->io_busy && dx_millis()-a->message_since<3200;
     bool toast_press=toast_visible && ((CheckCollisionPointRec(ui_mouse_position(),a->toast_rect) && (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)||IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)||GetMouseWheelMoveV().y)) || ui_gesture_starts_in(a->toast_rect));
     if (toast_press) { DxPointerGesture gesture; while (ui_take_gesture_from(a->toast_rect,&gesture)) { } u->pointer_blocked=true; a->consume_grid_input=true; }
     enabled=enabled && !u->pointer_blocked;
@@ -6631,8 +6668,10 @@ static void draw_app(App *a) {
     ui_label(u,"Duxcel",box(brand.x+25*s,0,61*s,28*s),15,(Color){25,78,112,255},false,UI_SEMIBOLD);
     REVIEW_CONTROL(a,"chrome.brand","chrome.inspect_brand","chrome/title-bar/brand","text","Duxcel",brand,20,true,false,false);
 #ifdef DUXCEL_BROWSER_HOST
-    bool brand_hover=false;
-    if (ui_control_input(u,brand,a->modal==MODAL_NONE && !a->io_busy,&brand_hover)) { a->file_menu=!a->file_menu; a->file_menu_focus=0; a->file_menu_frame=a->frames; a->consume_grid_input=true; }
+    bool brand_hover=false,brand_blocked=u->pointer_blocked;
+    u->pointer_blocked=frame_pointer_blocked || a->modal!=MODAL_NONE;
+    if (ui_control_input(u,brand,a->modal==MODAL_NONE && !a->io_busy,&brand_hover)) { a->file_menu=!a->file_menu; a->file_menu_focus=a->file_menu_scroll=0; a->file_menu_wheel=0; a->file_menu_drag=false; a->file_menu_frame=a->frames; a->consume_grid_input=true; }
+    u->pointer_blocked=brand_blocked || a->file_menu || a->consume_grid_input;
 #endif
     if (a->keytip_alpha>0 && a->keytip_state.tab==UI_KEYTIPS_ROOT) ui_keytip(u,box(brand.x+brand.width-16*s,brand.y,16*s,16*s),"F",a->keytip_alpha);
     DrawLineV((Vector2){leading+104*s,7*s},(Vector2){leading+104*s,22*s},(Color){185,197,207,255});

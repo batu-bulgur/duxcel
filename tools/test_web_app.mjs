@@ -80,8 +80,12 @@ async function fastKeys(sequence){
   await evaluate('(()=>{const state=globalThis.duxcelFastKeys;if(state){state.active=false;window.removeEventListener("keydown",state.listener);}return true;})()');
  }
 }
-async function click(x,y){
+async function canvasPoint(x,y){
  if(canvasTransform){const rect=await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,w:innerWidth,h:innerHeight}})()');x=rect.x+x*rect.width/rect.w;y=rect.y+y*rect.height/rect.h;}
+ return {x,y};
+}
+async function click(x,y){
+ ({x,y}=await canvasPoint(x,y));
  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});
  await send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});await frames();
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});await frames();
@@ -231,6 +235,38 @@ async function accessKeys(){
  check(menu.file_menu==='1','Pointer File menu did not open');
  await key('Delete','Delete',46);const protectedCell=await platformSnapshot();
  check(protectedCell.file_menu==='1'&&protectedCell.manual_cells===seeded.manual_cells&&protectedCell.active_format_flags===bold.active_format_flags&&protectedCell.modal==='0','Delete leaked through the pointer File menu into worksheet editing');
+ const fileNavigation=[];
+ for(const [name,code,virtual,expected] of [['End','End',35,4],['Home','Home',36,0],['ArrowUp','ArrowUp',38,4],['ArrowDown','ArrowDown',40,0],['Tab','Tab',9,1],['Tab','Tab',9,4]]){
+  await key(name,code,virtual);const state=await platformSnapshot();fileNavigation.push({key:name,state});
+  check(state.file_menu==='1'&&Number(state.file_focus)===expected,'File navigation failed to wrap or skip unavailable browser commands: '+name);
+ }
+ await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));
+ await key('Tab','Tab',9,'',8);
+ await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16));await frames(2);
+ const reverseTab=await platformSnapshot();check(reverseTab.file_focus==='1','Reverse Tab entered a disabled File command');
+ await send('Emulation.setDeviceMetricsOverride',{width:1280,height:180,deviceScaleFactor:dpr,mobile:false});await frames(5);
+ await key('End','End',35);const shortFile=await platformSnapshot();
+ const [fileX,fileY,fileWidth,fileHeight]=shortFile.file_panel.split(',').map(Number);
+ check(shortFile.file_menu==='1'&&shortFile.file_focus==='4'&&Number(shortFile.file_visible)>0&&Number(shortFile.file_visible)<6&&Number(shortFile.file_scroll)>0,'Short-window File menu lost its rows or failed to reveal the focused command');
+ check(fileX>=0&&fileY>=0&&fileX+fileWidth<=1280&&fileY+fileHeight<=180,'Short-window File menu escaped the canvas');
+ await capture('file-menu-short');
+ await key('Home','Home',36);const homeFile=await platformSnapshot();check(homeFile.file_focus==='0'&&homeFile.file_scroll==='0','File Home did not reveal the first command');
+ const filePointer=await canvasPoint(fileX+fileWidth/2,fileY+fileHeight-20);
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',...filePointer});
+ await send('Input.dispatchMouseEvent',{type:'mouseWheel',...filePointer,deltaX:0,deltaY:80});await frames(4);
+ const scrolledFile=await platformSnapshot();check(Number(scrolledFile.file_scroll)>0&&scrolledFile.manual_cells===seeded.manual_cells&&scrolledFile.active===seeded.active,'File wheel failed to scroll or leaked to worksheet selection');
+ await key('End','End',35);await key(' ','Space',32,' ');const spaceClose=await platformSnapshot();
+ check(spaceClose.file_menu==='0'&&spaceClose.modal!=='0'&&spaceClose.manual_cells===seeded.manual_cells,'Space failed to activate focused Close in the short File menu');
+ await key('Escape','Escape',27);
+ await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:dpr,mobile:false});await frames(5);
+ await click(40,14);const reopenedFile=await platformSnapshot();
+ check(reopenedFile.file_menu==='1'&&reopenedFile.file_focus==='0'&&reopenedFile.file_scroll==='0','Reopened File retained obsolete short-window focus or scrolling');
+ await click(1262,42);const helpBlocked=await platformSnapshot();
+ check(helpBlocked.file_menu==='0'&&helpBlocked.modal==='0'&&helpBlocked.manual_cells===seeded.manual_cells,'Outside File click activated Help behind the menu');
+ await click(40,14);await send('Emulation.setDeviceMetricsOverride',{width:1280,height:70,deviceScaleFactor:dpr,mobile:false});await frames(5);
+ const tinyFile=await platformSnapshot();check(tinyFile.file_menu==='0','Unrenderable tiny File menu stayed invisibly active');
+ await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:dpr,mobile:false});await frames(5);
+ await click(40,14);
  const [bodyX,bodyY,bodyWidth,bodyHeight]=protectedCell.body.split(',').map(Number);
  await click(bodyX+Math.min(160,bodyWidth-8),bodyY+Math.min(70,bodyHeight-8));const outside=await platformSnapshot();
  check(outside.file_menu==='0'&&outside.manual_cells===seeded.manual_cells&&outside.active===protectedCell.active&&outside.extent===protectedCell.extent&&outside.modal==='0','Normal outside click failed to dismiss File or clicked through into worksheet editing/selection');
@@ -244,8 +280,8 @@ async function accessKeys(){
  await key('ArrowRight','ArrowRight',39);await key('Enter','Enter',13);const closed=await platformSnapshot();
  check(closed.modal==='0'&&closed.dirty==='0'&&closed.manual_cells==='0'&&closed.sheet_count==='1','Discard Close did not retain a live blank browser surface');
  check(starts().length===jobs,'Access keys or document close added unexpected database jobs');
- const result={before,seeded,boldBatch,bold,copyBatch,copied,menu,protectedCell,outside,closePrompt,cancelled,closed,
-  scope:'Trusted CDP sequences, actual C formatting/Copy dispatch, File-menu edit quarantine, normal held outside click and cancel/discard document lifecycle. This does not accept completed between-frame pointer capture, browser clipboard delivery, Worker queries or report upload.'};
+ const result={before,seeded,boldBatch,bold,copyBatch,copied,menu,protectedCell,fileNavigation,reverseTab,shortFile,homeFile,scrolledFile,spaceClose,reopenedFile,helpBlocked,tinyFile,outside,closePrompt,cancelled,closed,
+  scope:'Trusted CDP sequences, actual C formatting/Copy dispatch, File-menu edit quarantine, disabled-skipping/wrapping navigation, short-window keyboard/wheel scrolling, Space activation, normal held outside click and cancel/discard document lifecycle. This does not accept completed between-frame pointer capture, browser clipboard delivery, Worker queries or report upload.'};
  await fs.writeFile(path.join(output,'access-keys.json'),JSON.stringify(result,null,2));
  return result;
 }

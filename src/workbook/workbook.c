@@ -522,7 +522,7 @@ bool workbook_save(const Workbook *b,const char *path,char **error) {
         for (size_t c=0;c<v->column_count;c++) if (!v->columns[c] || !isfinite(v->widths[c]) || v->widths[c]<52 || v->widths[c]>1200) {
             error_set(error,"Invalid column presentation metadata."); return false;
         }
-        if (!objects_valid(&s->objects,error) || !format_valid(&s->formats,error)) return false;
+        if (!objects_valid(&s->objects,error) || !format_valid(&s->formats,error) || !format_persistable(&s->formats,error)) return false;
         for (size_t j=0;j<s->objects.count;j++) {
             const SheetObject *o=&s->objects.items[j];
             if (!o->id || !o->name || (unsigned)o->kind>OBJECT_TABLE || strlen(o->name)>4096 || !pivot_valid(&o->pivot,error) ||

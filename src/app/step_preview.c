@@ -33,7 +33,7 @@ void step_preview_presentation(StepPreview *preview,const Page *fields,const Gri
     preview->formats.items=dx_alloc(formats->count*sizeof(FormatPatch));
     for (size_t i=0;i<formats->count;i++) {
         FormatPatch patch=formats->items[i];
-        if (patch.range.r0 || patch.range.r1!=DX_SHEET_ROWS-1 || patch.range.c1<first || patch.range.c0>=first+fields->column_count) continue;
+        if (patch.selector!=FORMAT_SPATIAL || patch.range.r0 || patch.range.r1!=DX_SHEET_ROWS-1 || patch.range.c1<first || patch.range.c0>=first+fields->column_count) continue;
         patch.range.c0=patch.range.c0>first ? patch.range.c0-first : 0;
         patch.range.c1=patch.range.c1-first<fields->column_count ? patch.range.c1-first : fields->column_count-1;
         preview->formats.items[preview->formats.count++]=patch;
