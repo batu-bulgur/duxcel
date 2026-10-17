@@ -1,6 +1,6 @@
 # Project documentation
 
-The latest user instruction establishes the browser interface as the exact design definition. Preserve its anatomy and demonstrated interactions while connecting them to real native commands and DuckDB results. Production remains C99/raylib; the reference's mock calculations, sample counts and design JSON are not production behavior.
+The JavaScript prototype remains the frozen design reference. The latest approved execution priority is a native agentic review build, followed by a browser proof that compiles the same C99/raylib UI to WebAssembly and uses the official DuckDB-Wasm Worker behind a thin typed bridge. Refine actual application behavior through native evidence and versioned design decisions; the reference's mock calculations, sample counts and design JSON are not production behavior. Native distribution gains no web runtime.
 
 | Document | Purpose |
 | --- | --- |
@@ -9,6 +9,9 @@ The latest user instruction establishes the browser interface as the exact desig
 | [REQUIREMENTS.md](REQUIREMENTS.md) | Original brief and later user decisions reconciled |
 | [design/DESIGN.md](design/DESIGN.md) | Product/visual requirements |
 | [design/INTERACTIONS.md](design/INTERACTIONS.md) | Detailed behavior, motion, selection and pane rules |
+| [design/FEEDBACK.md](design/FEEDBACK.md) | Pinpoint review tools, local feedback queue and design/native handoff rules |
+| [design/NATIVE_REVIEW_FEASIBILITY.md](design/NATIVE_REVIEW_FEASIBILITY.md) | Proposed native review build, production exclusion and shared Wasm/browser path |
+| [design/NATIVE_REVIEW_PLAN.md](design/NATIVE_REVIEW_PLAN.md) | Approved native feedback priority, selected Wasm architecture and implementation acceptance |
 | [../design/prototype/](../design/prototype/) | Read-only executable reference, source, fonts and browser QA |
 | [USER_GUIDE.md](USER_GUIDE.md) | Current controls, keyboard reference, file format and limits |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Source ownership, memory boundaries and parallel lanes |
@@ -20,4 +23,4 @@ The latest user instruction establishes the browser interface as the exact desig
 
 Resolve conflicts in this order: latest human requirements; the rendered prototype for demonstrated UI; explicit product/interaction requirements beyond its scope; current native acceptance matrix; historical records. The prototype's earlier “disposable study / awaiting approval” wording records its creation. It does not revoke the later instruction to implement it exactly. Missing native capabilities need honest disabled states or completed real actions, never pretend calculations.
 
-All paths in code spans are repository-relative unless stated otherwise. Small root/design entry-point files preserve older links; the substantive written specifications and plans live here. Windows/Linux validation and WebAssembly remain outside the current macOS work.
+All paths in code spans are repository-relative unless stated otherwise. Small root/design entry-point files preserve older links; the substantive written specifications and plans live here. macOS is the current execution platform. Linux/Windows remain portability targets without new execution claims; Wasm is an approved subsequent milestone with its own browser verification.

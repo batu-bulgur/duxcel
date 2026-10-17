@@ -2,7 +2,9 @@
 
 ## Product and source of truth
 
-- Production is C99 + raylib + DuckDB, currently macOS only. Use the existing toolchain; do not add a web runtime or dependency for the UI port.
+- Product UI and interaction logic remain C99 + raylib, with DuckDB for computation. macOS is the currently validated native platform; retain portable native boundaries for Linux/Windows. Do not add a web runtime to the native app.
+- The approved browser target compiles the same C99/raylib UI to WebAssembly. Start browser engine integration with the official DuckDB-Wasm asynchronous Worker behind a thin typed bridge; minimal browser loader/platform glue is allowed, a second JavaScript spreadsheet UI is not. Pin browser/toolchain dependencies in isolated development tooling when that milestone starts.
+- Prioritize the native agentic review build before further broad GUI refinement. Follow `docs/design/NATIVE_REVIEW_PLAN.md`: portable semantic widget IDs/registry, same-frame capture and owned bounded state/trace, native feedback composer, and external agent/queue adapter. Exclude all new review code/data/commands/bridges from production at compile/link time, rather than relying on a runtime switch. Keep review/sanitizer/release objects and binaries isolated.
 - `design/prototype/` is the read-only, executable **exact UI definition**. Its original study instructions describe its creation, not a requirement to redesign or await approval again. Do not replace real native calculations with mock data or JSON saves.
 - Start with `docs/README.md`, `docs/STATUS.md`, and `docs/ROADMAP.md`. Detailed requirements live in `docs/design/`; historical checkpoint narratives in `docs/archive/` are evidence, not the current task list.
 - Preserve typed SQL NULL versus zero-length text versus literal `NULL`. Missing worksheet cells are sparse and display their distinct NULL mark. Preserve exact integer/DECIMAL text and explicit memory ownership.
@@ -14,6 +16,7 @@
 - Native GUI, clipboard, file-panel, preferences, signing and bundle tests have a single desktop owner across worktrees. Use the test runner's desktop lock. Do not interact with or terminate a user's running app to perform tests.
 - Do not share writable generated databases between worktrees. Preserve core-before-workbook fixture ordering. Never overwrite an executable while a test suite is using it.
 - Review and integrate small commits; do not use broad refactors to create artificial parallelism. Never force-reset another agent's work. Do not modify global Git identity/configuration.
+- Attribute every Codex-created commit to `Codex <codex@openai.com>` as both author and committer. Set `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, and `GIT_COMMITTER_EMAIL` only for the commit command; preserve the user's configured identity for their own commits.
 
 ## Verification and reporting
 

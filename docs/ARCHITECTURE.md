@@ -22,3 +22,13 @@ At audit baseline, `src/app/app.c` has approximately 11,000 lines and roughly 3,
 Logical UI units, interface scale, per-sheet canvas zoom and framebuffer density are distinct. Geometry modules should remain pure where possible. Native render/input controllers consume that geometry; tests should verify invariants and meaningful behavior, not copy implementation arithmetic.
 
 `design/prototype/` remains executable design material with its own JavaScript dependencies. It is never part of native `SRC`, linked into the app, or copied into its bundle. Dormant Windows/Linux packaging remains related project source but has no current execution claim.
+
+## Approved review and browser boundaries
+
+The native agentic review build is the next integration priority; [NATIVE_REVIEW_PLAN.md](design/NATIVE_REVIEW_PLAN.md) defines its feature slices and acceptance. The App/build/shared-interface integrator remains the owner. A portable C99 review core should define semantic widget identities, clipped/layered geometry, bounded frame records, state snapshots and serialization without OS handles, live DuckDB handles or borrowed page pointers. Native rendering/composer/input hooks and capture/file adapters consume those records. New review modules, data, commands and transport exports are absent from production source/object lists and conditional fields/hooks; feature flags are part of isolated build signatures.
+
+Agent/queue communication runs outside the app, initially through atomic local bundles and a reader. A later optional local IPC/MCP adapter consumes the same versioned schema; its availability is not required to save feedback. Preserve same-frame image/state provenance, worker ownership and the desktop lock. Logical widget identity is separate from current ribbon/overflow placement and from action identity.
+
+The browser product compiles shared C99/raylib UI and interactions through Emscripten. The selected starting engine is official DuckDB-Wasm in a Worker, connected by bounded asynchronous typed requests/pages. Keep browser file/clipboard/composition/lifetime glue behind platform adapters. Preserve SQL generation and transformations in shared C where applicable; JavaScript marshals rather than reimplements analytical behavior. Browser persistence must account for the direct DuckDB C API in `workbook.c`, not just replace `worker.c`.
+
+Native/browser review use the same registry and schema, with platform-specific capture/transport adapters. A canvas exposes no automatic HTML button identities. Review snapshots may enumerate visible controls and compute cell targets on demand; never export an entire worksheet each frame. This debug infrastructure is not a completed native/browser accessibility implementation.
