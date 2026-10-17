@@ -1,0 +1,91 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T18:19:06.449882+00:00",
+  "tier": "records",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "ac0759f36c921844c228e879d6627d64c6b2deb0",
+    "status": "M src/app/app.c\n M src/dev/review_app.inc\n M src/platform/macos.m\n M tests/test_pan_native.m\n?? tools/ui-review/",
+    "source_sha256": "6207b84f0aad31a39fd0cd1ad68e4689cfb6116db2e333c8dfc0af53e86ea0d0",
+    "source_files": 238
+  },
+  "results": [
+    {
+      "name": "build-records",
+      "command": [
+        "make",
+        "tests/test_record_sql",
+        "tests/test_record_pages",
+        "tests/test_record_sql-debug",
+        "tests/test_record_pages-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T181906-records-18108/build-records.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 6.478
+    },
+    {
+      "name": "record_sql-release",
+      "command": [
+        "./tests/test_record_sql"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T181906-records-18108/record_sql-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.668
+    },
+    {
+      "name": "record_pages-release",
+      "command": [
+        "./tests/test_record_pages"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T181906-records-18108/record_pages-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 2.667
+    },
+    {
+      "name": "record_sql-sanitize",
+      "command": [
+        "./tests/test_record_sql-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T181906-records-18108/record_sql-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.997
+    },
+    {
+      "name": "record_pages-sanitize",
+      "command": [
+        "./tests/test_record_pages-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T181906-records-18108/record_pages-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 3.958
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_record_sql": "430fbed2d49e6453f9e4f8cef9578cff9904cedf2190b76c6abb9b0a2f879886",
+    "/Users/h2o/dev/duxcel/tests/test_record_pages": "69a71239e6f530d1d99d9a859fe998f0665d16079c5a2f9c078f93ad30ec5cd2",
+    "/Users/h2o/dev/duxcel/tests/test_record_sql-debug": "0795331fe7d1a741239ffae88acbd7427ef6d47abbf4dc201d02d74dc9ad538b",
+    "/Users/h2o/dev/duxcel/tests/test_record_pages-debug": "8146af89c0eeb20d29055a1c7295c5015f7920a4f1b8bfc564b46ec2b725eb00"
+  },
+  "elapsed_seconds": 14.882,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_record_sql": "430fbed2d49e6453f9e4f8cef9578cff9904cedf2190b76c6abb9b0a2f879886",
+    "/Users/h2o/dev/duxcel/tests/test_record_pages": "69a71239e6f530d1d99d9a859fe998f0665d16079c5a2f9c078f93ad30ec5cd2",
+    "/Users/h2o/dev/duxcel/tests/test_record_sql-debug": "0795331fe7d1a741239ffae88acbd7427ef6d47abbf4dc201d02d74dc9ad538b",
+    "/Users/h2o/dev/duxcel/tests/test_record_pages-debug": "8146af89c0eeb20d29055a1c7295c5015f7920a4f1b8bfc564b46ec2b725eb00"
+  },
+  "finished_utc": "2026-10-17T18:19:21.479904+00:00"
+}

@@ -1,0 +1,65 @@
+{
+  "started_utc": "2026-10-17T18:24:51.098387+00:00",
+  "status": "passed",
+  "configs": {
+    "sanitize": {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/review-sanitize/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "900"
+      ],
+      "elapsed_seconds": 2.606,
+      "log": "tests/results/runs/20261017T182451-review-21019/sanitize.log",
+      "binary_sha256": "9aa74ea2e4c6353ccc14969782fd584e5a92beba27bcf32848aa6e92603e6306",
+      "build_header_sha256": "90adcf64cc7af44e83f050a232a6103e09f3e86d1305d5d607ecc446a9e5d2e8",
+      "completed_stages": 37,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792261492-21024-1",
+          "target": "filter.search",
+          "frame_id": "18",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 416449,
+            "sha256": "6b04b6963f74eb49eb06f3b9b29e62c40c5c56d969654457eacab9e6a5dc375c",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T182451-review-21019/sanitize/outbox/DXR-S-1792261492-21024-1/frame.png"
+          },
+          "capture_sha256": "db3d7d092bb2096459832f76193a740fca79de06093ea2ada8995e9f8e756da7"
+        },
+        {
+          "report_id": "DXR-S-1792261492-21024-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "41",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 267483,
+            "sha256": "c2646103c11133d297ab9735f29550dbb074673e71f6e4f37a4fd02b84def335",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T182451-review-21019/sanitize/outbox/DXR-S-1792261492-21024-2/frame.png"
+          },
+          "capture_sha256": "1111d39431e6195cfab1e480c84beac30a76356d7df7a7749bd3528f9c3c4ef3"
+        }
+      ]
+    }
+  },
+  "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual",
+  "source": {
+    "commit": "721ec275990369547195222fd36da4517cd34740",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "ff3f6f986bd5b8a8bcd48a7b8534992f1008eb5b9f222546a30111645dcb3454",
+    "source_files": 238
+  },
+  "background": {
+    "command": [
+      "./tests/test_background-native-debug"
+    ],
+    "elapsed_seconds": 0.781,
+    "log": "tests/results/runs/20261017T182451-review-21019/background.log"
+  },
+  "finished_utc": "2026-10-17T18:24:54.710698+00:00"
+}
