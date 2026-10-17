@@ -1,0 +1,62 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "14cd21f814726dc689435bd3acdfbd3447ce34b0",
+    "status": "",
+    "source_sha256": "6fe9650ad87f88332506c113b111aa62ad5b1367850680e426583aaafa5f2ea4",
+    "source_files": 243
+  },
+  "artifact": "/Users/h2o/dev/duxcel/build/web/review/a1ecc972ef621b5ac5e7",
+  "artifact_source": {
+    "commit": "375c521e61578538d50d91ca0b222d380be0ea00",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "bdef2c97f7c762211645274b8c8e7d4faa16a1bfc5de5e125e0c805c00c6000e",
+    "source_files": 242
+  },
+  "vendor": {
+    "@duckdb/duckdb-wasm": {
+      "version": "1.32.0",
+      "integrity": "sha512-IewXTNYEjsZCPE9weUWgtjGxUlMRo7qhX0GF6tq/KjK8bnY+RAl4cyUdYUfcdzbyb4b9ZxPC+FOsCcxgaKFWMg==",
+      "license": "MIT",
+      "license_files": []
+    },
+    "apache-arrow": {
+      "version": "17.0.0",
+      "integrity": "sha512-X0p7auzdnGuhYMVKYINdQssS4EcKec9TCXyez/qtJt32DrIMGbzqiaMiQ0X6fQlQpw8Fl0Qygcv4dfRAr5Gu9Q==",
+      "license": "Apache-2.0",
+      "license_files": [
+        "vendor/apache-arrow/LICENSE.txt",
+        "vendor/apache-arrow/NOTICE.txt"
+      ]
+    },
+    "flatbuffers": {
+      "version": "24.12.23",
+      "integrity": "sha512-dLVCAISd5mhls514keQzmEG6QHmUUsNuWsb4tFafIUwvvgDjXhtfAYSKOzt5SWOy+qByV5pbsDZ+Vb7HUOBEdA==",
+      "license": "Apache-2.0",
+      "license_files": [
+        "vendor/flatbuffers/LICENSE"
+      ]
+    },
+    "tslib": {
+      "version": "2.8.1",
+      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
+      "license": "0BSD",
+      "license_files": [
+        "vendor/tslib/CopyrightNotice.txt",
+        "vendor/tslib/LICENSE.txt"
+      ]
+    }
+  },
+  "command": [
+    "node",
+    "tools/test_web_export.mjs",
+    "http://127.0.0.1:57170/",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T221026-parquet-export-93075"
+  ],
+  "exit_code": 0,
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "elapsed_seconds": 6.008,
+  "desktop_visibility": "one owned headless browser/profile under the desktop lock; no downloads",
+  "scope": "Pinned Parquet virtual-file capability only; no C export/controller or product activation."
+}

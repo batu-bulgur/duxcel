@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "checks": 15,
+  "elapsed_ms": 3684,
+  "acceptedModes": [
+    "plain"
+  ],
+  "scope": "Pinned official Worker Parquet virtual-file capability only: typed fixture COPY, known-size bounded binary copy, cleanup and fresh exact reimport. No shared C export SQL/controller, download, OPFS or product export acceptance. Output transfer size does not bound engine/process memory during COPY."
+}

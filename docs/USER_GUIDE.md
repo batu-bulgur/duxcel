@@ -216,6 +216,8 @@ The native **Data → Sort by Multiple Columns…** menu action edits up to eigh
 
 Rectangular copy combines the data table, adjacent manual cells and pivot results. Cached selections avoid a database query; uncached source/pivot intersections are projected on the worker. Missing values produce empty TSV fields, while genuine empty strings produce quoted `""` fields. Native clipboard consumers may still interpret these according to their own import rules. Typed native clipboard formats remain future work.
 
+Browser copying uses the same bounded TSV path, up to20,000 cells/8MiB. It shows **Copying to clipboard…** until the browser acknowledges the write; denied/unavailable writes report a failure. Quotes, apostrophes and literal `NULL` are preserved. Actual cached and uncached copying is tested with an isolated memory clipboard; system permission and other browsers still need separate validation. Browser data export and workbook Save/Open remain unfinished.
+
 
 Native typography follows the confirmed **IBM Plex Sans** choice: Regular for data, Medium for commands/column headers, and Semibold for pane titles. All three cuts and the OFL license are bundled; raylib font-data checks verify equal digit advances at eight raster sizes. Typed NULL/empty marks use bundled **JetBrains Mono Regular** (five glyphs at current display density), with its separate OFL license. Font provenance is in `assets/fonts/`; no system font path is required. Retina native layout screenshots have been inspected. Broader fallback coverage, atlas/startup profiling and mixed-monitor validation remain pending.
 

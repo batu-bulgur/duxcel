@@ -221,3 +221,12 @@ python3 tools/test_web_app.py --worker-driver --no-build
 ```
 
 Build matching review or Worker-driver artifacts first. Native358 passed13.857s optimized/15.361s ASan+UBSan, with the same three reports/configuration. Separate real browser Guide832/17.225s, Cell142/23.116s, Error1129/33.255s and focus92/15.004s cover owned text, frozen cancellation, normal dismissal and actual commit/Undo or source-error recovery. The139-stage real Worker passes121,724 C checks/8.773s, including exact copy/budget/cancellation recovery; this is backend acceptance, with no clipboard delivery or export claim. These gates never use the OS clipboard or visible file panels. [Evidence and source/binary scopes](validation/checkpoints/2026-10-18-guide-cell-error-copy/).
+
+The subsequent actual Copy gate and isolated Parquet capability proof run separately:
+
+```sh
+python3 tools/test_web_app.py --review --copy-only --no-build --source tests/fixtures/null-text.csv --dpr 2 --canvas-transform
+python3 tools/test_web_export.py --latest build/web/review/latest.json
+```
+
+Copy217 passes21.877s with a pre-loader memory clipboard, retained pending/failed/completed IDs, frozen capture/cancel, exact cached TSV and a real600-row uncached kind9 result. No OS clipboard is used. Native364 takes13.939s optimized/16.845s sanitizer, adding actual pending-query text/validation-error ownership. The standalone Parquet proof uses one owned headless official Worker and the immutable artifact's vendor assets;15 harness checks/nine records take6.008s, and private bytes are saved only inside its results directory. It proves virtual-file capability and exact reimport; there is no product controller/download claim. [Retained evidence](validation/checkpoints/2026-10-18-clipboard-query-feedback/).
