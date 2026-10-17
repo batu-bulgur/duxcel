@@ -5,6 +5,7 @@
 # Compiled tests; keep their C sources.
 /tests/test_*
 !/tests/test_*.c
+!/tests/test_*.m
 /tests/generated/
 /tests/downloads/
 /tests/results/

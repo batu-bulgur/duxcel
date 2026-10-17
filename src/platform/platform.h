@@ -43,6 +43,7 @@ bool dx_replace_file(const char *temporary,const char *target);
 bool dx_same_file(const char *first,const char *second);
 uint64_t dx_file_stamp(const char *path);
 void dx_native_setup(void *window);
+void dx_native_shutdown(void); /* detach input/menu hooks before destroying the window */
 bool dx_native_set_icon(const unsigned char *icns,size_t length);
 void dx_native_context(bool modal,bool text_input,bool pivot,bool key_tips);
 bool dx_native_quit_requested(void);

@@ -11023,9 +11023,35 @@ static void record_frame(App *a,double started) {
 #ifdef DUXCEL_DEV_REVIEW
 #include "../dev/review_app.inc"
 #endif
-int app_run(const AppOptions *options) {
-    App a={0}; a.gridlines=true; a.ribbon_command=a.selected_object=a.filter_object=a.sort_object=a.pivot_drag_field=a.pivot_drag_role=-1;
-    workbook_init(&a.book); a.known_total=-1; a.launched_ms=dx_millis(); a.sidebar_width=228; a.pipeline_width=280; a.sidebar=a.fields_visible=true; a.field_highlight=-1;
+/* A frame may return to a host scheduler without losing owned App state.
+   The native runner uses the same start/frame/finish contract as future hosts. */
+struct AppSession {
+    App app;
+    AppOptions options;
+    char *path,*screenshot;
+    rlRenderBatch render_batch;
+    bool automated,trace_input,smoke_pass_seen,finished;
+    int layout_start,layout_target,applied_cursor;
+    int smoke,workspace_smoke,filter_smoke,pivot_smoke,export_smoke,count_smoke,clipboard_smoke,sort_smoke,layout_smoke,navigation_smoke,nyc_smoke,document_smoke,chart_smoke,statistics_smoke,table_smoke,icon_smoke,query_smoke,unique_smoke;
+#ifdef DUXCEL_DEV_REVIEW
+    ReviewSmoke review_smoke;
+#endif
+};
+static AppSession *active_session; /* raylib owns one process-wide window/context. */
+static void app_session_free(AppSession *session) {
+    if (active_session==session) active_session=NULL;
+    free(session->path); free(session->screenshot); free(session);
+}
+AppSession *app_start(const AppOptions *options) {
+    if (!options || active_session) return NULL;
+    AppSession *session=dx_alloc(sizeof(*session));
+    active_session=session;
+    session->options=*options;
+    if (options->path) session->options.path=session->path=dx_strdup(options->path);
+    if (options->screenshot) session->options.screenshot=session->screenshot=dx_strdup(options->screenshot);
+    options=&session->options;
+    App *a=&session->app; a->gridlines=true; a->ribbon_command=a->selected_object=a->filter_object=a->sort_object=a->pivot_drag_field=a->pivot_drag_role=-1;
+    workbook_init(&a->book); a->known_total=-1; a->launched_ms=dx_millis(); a->sidebar_width=228; a->pipeline_width=280; a->sidebar=a->fields_visible=true; a->field_highlight=-1;
     bool automated=
 #ifdef DUXCEL_DEV_REVIEW
         options->review_smoke ||
@@ -11037,9 +11063,9 @@ int app_run(const AppOptions *options) {
        can switch Spaces. Hidden windows retain their real GL framebuffer. */
     SetConfigFlags(FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT |
         (background_test ? FLAG_WINDOW_HIDDEN | FLAG_WINDOW_UNFOCUSED | FLAG_WINDOW_ALWAYS_RUN : 0));
-    a.statistics_mask=49; a.statistics_enabled=!automated || options->statistics_smoke; a.statistics_object=-1;
+    a->statistics_mask=49; a->statistics_enabled=!automated || options->statistics_smoke; a->statistics_object=-1;
     InitWindow(1280,820,automated ? "Duxcel — automated test" : "Duxcel");
-    if (!IsWindowReady()) { fprintf(stderr,"Cannot initialize the native window and graphics context.\n"); return 1; }
+    if (!IsWindowReady()) { fprintf(stderr,"Cannot initialize the native window and graphics context.\n"); app_session_free(session); return NULL; }
     printf("Native test window: %s\n",background_test ? "hidden, unfocused" : "visible");
     dx_native_setup(GetWindowHandle()); SetWindowMinSize(640,640); SetExitKey(KEY_NULL);
     if (!brand_install_icon()) TraceLog(LOG_WARNING,"Cannot install the application icon");
@@ -11055,739 +11081,761 @@ int app_run(const AppOptions *options) {
     char *font=override ? dx_strdup(override) : font_asset("IBMPlexSans-Regular.otf");
     char *medium=font_asset("IBMPlexSans-Medium.otf"),*emphasis=font_asset("IBMPlexSans-SemiBold.otf");
     char *mono=mono_override ? dx_strdup(mono_override) : font_asset("JetBrainsMono-Regular.ttf");
-    if (!FileExists(font) || !FileExists(medium) || !FileExists(emphasis) || !FileExists(mono) || !ui_init(&a.ui,font,medium,emphasis,mono)) {
+    if (!FileExists(font) || !FileExists(medium) || !FileExists(emphasis) || !FileExists(mono) || !ui_init(&a->ui,font,medium,emphasis,mono)) {
         fprintf(stderr,"Cannot load bundled font family at %s. Keep assets/fonts with the application.\n",font);
-        free(font); free(medium); free(emphasis); free(mono); ui_destroy(&a.ui); brand_shutdown(); CloseWindow(); return 1;
+        free(font); free(medium); free(emphasis); free(mono); ui_destroy(&a->ui); brand_shutdown(); dx_native_shutdown(); CloseWindow(); app_session_free(session); return NULL;
     }
-    free(font); free(medium); free(emphasis); free(mono); grid_init(&a.grid); grid_init(&a.source_preview); a.grid.row_height=24; a.grid.freeze=!automated; input_set(&a.input,""); input_set(&a.pivot_search,"");
+    free(font); free(medium); free(emphasis); free(mono); grid_init(&a->grid); grid_init(&a->source_preview); a->grid.row_height=24; a->grid.freeze=!automated; input_set(&a->input,""); input_set(&a->pivot_search,"");
     if (options->icon_smoke) for (int i=0;i<16;i++) {
         char *path=dx_printf("%sassets/icons/png/duxcel-%d.png",GetApplicationDirectory(),icon_preview_sizes[i]);
         if (!FileExists(path)) { free(path); path=dx_printf("%s../Resources/assets/icons/png/duxcel-%d.png",GetApplicationDirectory(),icon_preview_sizes[i]); }
-        a.icon_previews[i]=LoadTexture(path); if (a.icon_previews[i].id) SetTextureFilter(a.icon_previews[i],TEXTURE_FILTER_BILINEAR); free(path);
+        a->icon_previews[i]=LoadTexture(path); if (a->icon_previews[i].id) SetTextureFilter(a->icon_previews[i],TEXTURE_FILTER_BILINEAR); free(path);
     }
     DxPresentation presentation={0};
     if (!automated && dx_presentation_load(&presentation)) {
-        a.app_presentation_loaded=true; a.ribbon_mode=presentation.ribbon_mode; a.previous_ribbon_mode=presentation.previous_ribbon_mode;
-        a.sidebar=presentation.workbook; a.fields_visible=presentation.fields; a.pipeline=presentation.transformations; a.pipeline_collapsed=presentation.transformations_collapsed;
-        a.workbook_collapsed=presentation.workbook_collapsed; a.fields_collapsed=false;
-        a.sidebar_width=presentation.sidebar_width; a.pipeline_width=presentation.pipeline_width; a.reduced_motion=presentation.reduced_motion;
-        a.statistics_mask=presentation.statistics_mask; a.grid.freeze=presentation.freeze;
-        ui_set_scale(&a.ui,presentation.interface_scale);
+        a->app_presentation_loaded=true; a->ribbon_mode=presentation.ribbon_mode; a->previous_ribbon_mode=presentation.previous_ribbon_mode;
+        a->sidebar=presentation.workbook; a->fields_visible=presentation.fields; a->pipeline=presentation.transformations; a->pipeline_collapsed=presentation.transformations_collapsed;
+        a->workbook_collapsed=presentation.workbook_collapsed; a->fields_collapsed=false;
+        a->sidebar_width=presentation.sidebar_width; a->pipeline_width=presentation.pipeline_width; a->reduced_motion=presentation.reduced_motion;
+        a->statistics_mask=presentation.statistics_mask; a->grid.freeze=presentation.freeze;
+        ui_set_scale(&a->ui,presentation.interface_scale);
     }
-    a.app_presentation_loaded=!automated;
-    if (!worker_start(&a.worker)) {
+    a->app_presentation_loaded=!automated;
+    if (!worker_start(&a->worker)) {
         fprintf(stderr,"Cannot start the query worker.\n");
-        for (int i=0;i<16;i++) if (a.icon_previews[i].id) UnloadTexture(a.icon_previews[i]);
-        brand_shutdown(); grid_destroy(&a.grid); ui_destroy(&a.ui); input_free(&a.input); input_free(&a.filter_term); input_free(&a.filter_end); input_free(&a.pivot_search); CloseWindow(); return 1;
+        for (int i=0;i<16;i++) if (a->icon_previews[i].id) UnloadTexture(a->icon_previews[i]);
+        brand_shutdown(); grid_destroy(&a->grid); ui_destroy(&a->ui); input_free(&a->input); input_free(&a->filter_term); input_free(&a->filter_end); input_free(&a->pivot_search); dx_native_shutdown(); CloseWindow(); app_session_free(session); return NULL;
     }
     /* Scissor changes flush raylib's batch. Rotate existing rlgl buffers so
        the driver need not overwrite vertex data still being read by the GPU. */
     int render_buffers=8; const char *buffers_override=getenv("DUXCEL_RENDER_BUFFERS");
     if (buffers_override) { char *end=NULL; long value=strtol(buffers_override,&end,10); if (end && !*end && value>=1 && value<=16) render_buffers=(int)value; }
-    rlRenderBatch render_batch={0};
-    if (render_buffers>1) { render_batch=rlLoadRenderBatch(render_buffers,RL_DEFAULT_BATCH_BUFFER_ELEMENTS); if (render_batch.vertexBuffer && render_batch.draws) rlSetRenderBatchActive(&render_batch); }
+    if (render_buffers>1) { session->render_batch=rlLoadRenderBatch(render_buffers,RL_DEFAULT_BATCH_BUFFER_ELEMENTS); if (session->render_batch.vertexBuffer && session->render_batch.draws) rlSetRenderBatchActive(&session->render_batch); }
     printf("Render batch buffers=%d elements=%d\n",render_buffers,RL_DEFAULT_BATCH_BUFFER_ELEMENTS);
 #ifdef DUXCEL_DEV_REVIEW
-    a.review=dx_review_capture_create();
-    if (!a.review) fprintf(stderr,"Native review initialization failed: out of memory.\n");
+    a->review=dx_review_capture_create();
+    if (!a->review) fprintf(stderr,"Native review initialization failed: out of memory.\n");
 #endif
-    status(&a,"Ready");
+    status(a,"Ready");
     const char *layout_from=getenv("DUXCEL_LAYOUT_FROM");
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
     bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
-    if (focused_layout) { SetWindowSize(1440,988); workspace_job(&a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
-    else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(&a,"",true);
-    else if (options->nyc_smoke) open_source(&a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
-    else if (options->sort_smoke) open_source(&a,"tests/fixtures/sort-keys.csv",false);
-    else if (options->chart_smoke) open_source(&a,"tests/fixtures/chart-series.csv",false);
-    else if (options->statistics_smoke) open_source(&a,"tests/fixtures/transactions.csv",false);
-    else if (options->path) open_source(&a,options->path,false);
-    else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(&a,"tests/fixtures/null-text.csv",false);
-    else { new_sheet(&a); a.book.dirty=false; }
-    int smoke=0,workspace_smoke=0,filter_smoke=0,pivot_smoke=0,export_smoke=0,count_smoke=0,clipboard_smoke=0,sort_smoke=0,layout_smoke=focused_layout ? 250 : 0,navigation_smoke=0,nyc_smoke=0,document_smoke=0,chart_smoke=0,statistics_smoke=0,table_smoke=0,icon_smoke=0,query_smoke=0,unique_smoke=0;
+    if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
+    else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
+    else if (options->nyc_smoke) open_source(a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
+    else if (options->sort_smoke) open_source(a,"tests/fixtures/sort-keys.csv",false);
+    else if (options->chart_smoke) open_source(a,"tests/fixtures/chart-series.csv",false);
+    else if (options->statistics_smoke) open_source(a,"tests/fixtures/transactions.csv",false);
+    else if (options->path) open_source(a,options->path,false);
+    else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(a,"tests/fixtures/null-text.csv",false);
+    else { new_sheet(a); a->book.dirty=false; }
+    session->layout_smoke=focused_layout ? 250 : 0;
+    session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
+    session->applied_cursor=-1;
+    session->automated=automated; session->layout_start=layout_start; session->layout_target=layout_target;
+    return session;
+}
+bool app_frame(AppSession *session) {
+    if (!session || session->finished) return false;
+    App *a=&session->app; const AppOptions *options=&session->options;
+    int layout_target=session->layout_target;
+    bool trace_input=session->trace_input;
+    if (options->frames && a->frames>=(unsigned)options->frames) goto finished;
     const SmokeCompletion completions[]={
-        {options->smoke,&smoke,6},{options->workspace_smoke,&workspace_smoke,4},
-        {options->filter_smoke,&filter_smoke,66},{options->pivot_smoke,&pivot_smoke,45},
-        {options->export_smoke,&export_smoke,20},{options->count_smoke,&count_smoke,12},
-        {options->clipboard_smoke,&clipboard_smoke,13},{options->sort_smoke,&sort_smoke,12},
-        {options->layout_smoke,&layout_smoke,layout_target},{options->navigation_smoke,&navigation_smoke,13},
-        {options->nyc_smoke,&nyc_smoke,8},{options->document_smoke,&document_smoke,10},
-        {options->chart_smoke,&chart_smoke,33},{options->statistics_smoke,&statistics_smoke,31},
-        {options->table_smoke,&table_smoke,73},{options->icon_smoke,&icon_smoke,8},
-        {options->query_smoke,&query_smoke,QUERY_SMOKE_STAGES},{options->unique_smoke,&unique_smoke,32}
+        {options->smoke,&session->smoke,6},{options->workspace_smoke,&session->workspace_smoke,4},
+        {options->filter_smoke,&session->filter_smoke,66},{options->pivot_smoke,&session->pivot_smoke,45},
+        {options->export_smoke,&session->export_smoke,20},{options->count_smoke,&session->count_smoke,12},
+        {options->clipboard_smoke,&session->clipboard_smoke,13},{options->sort_smoke,&session->sort_smoke,12},
+        {options->layout_smoke,&session->layout_smoke,layout_target},{options->navigation_smoke,&session->navigation_smoke,13},
+        {options->nyc_smoke,&session->nyc_smoke,8},{options->document_smoke,&session->document_smoke,10},
+        {options->chart_smoke,&session->chart_smoke,33},{options->statistics_smoke,&session->statistics_smoke,31},
+        {options->table_smoke,&session->table_smoke,73},{options->icon_smoke,&session->icon_smoke,8},
+        {options->query_smoke,&session->query_smoke,QUERY_SMOKE_STAGES},{options->unique_smoke,&session->unique_smoke,32}
     };
-    bool smoke_pass_seen=false;
-    bool trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
-    int applied_cursor=-1;
+    double frame=dx_millis(); ui_set_canvas_zoom(&a->ui,active_canvas_zoom(a)); ui_update(&a->ui);
+    DxKeyModifiers modifiers; while (dx_take_key_modifiers(&modifiers)) { ui_note_key_modifiers(modifiers.key,modifiers.modifiers); REVIEW_EVENT(a,"key",modifiers.key); }
+    DxPointerGesture gesture; while (dx_take_pointer_gesture(&gesture)) { ui_note_pointer_gesture(gesture); REVIEW_EVENT(a,"pointer",gesture.right ? 2 : 1); }
 #ifdef DUXCEL_DEV_REVIEW
-    ReviewSmoke review_smoke={0};
-#endif
-    while (!options->frames || a.frames<(unsigned)options->frames) {
-        double frame=dx_millis(); ui_set_canvas_zoom(&a.ui,active_canvas_zoom(&a)); ui_update(&a.ui);
-        DxKeyModifiers modifiers; while (dx_take_key_modifiers(&modifiers)) { ui_note_key_modifiers(modifiers.key,modifiers.modifiers); REVIEW_EVENT(&a,"key",modifiers.key); }
-        DxPointerGesture gesture; while (dx_take_pointer_gesture(&gesture)) { ui_note_pointer_gesture(gesture); REVIEW_EVENT(&a,"pointer",gesture.right ? 2 : 1); }
-#ifdef DUXCEL_DEV_REVIEW
-        if (options->review_smoke) {
-            review_smoke_tick(&a,&review_smoke);
-            if (review_smoke.stage<0 || (review_smoke.stage==REVIEW_SMOKE_STAGES && a.review->phase==DX_REPORT_IDLE && smoke_work_idle(&a))) break;
-        }
-        bool report_requested=dx_review_take_native_request() || (ui_pressed(KEY_PERIOD) && ui_key_shift(KEY_PERIOD) && (ui_key_shortcut(KEY_PERIOD) || ui_key_control(KEY_PERIOD)));
-        if (report_requested && a.review && a.review->phase==DX_REPORT_IDLE) a.review->pending=true;
-        if (a.review && a.review->pending && review_can_capture(&a)) { a.review->pending=false; dx_review_capture_request(a.review); }
-        if (a.review && a.review->phase!=DX_REPORT_IDLE && a.review->phase!=DX_REPORT_ARMED) {
-            if (WindowShouldClose() || dx_native_quit_requested()) { dx_review_capture_cancel(a.review); dx_native_acknowledge_quit(); request_document_action(&a,DOCUMENT_QUIT,NULL); }
-            else {
-                DxCommand command;
-                while ((command=dx_take_command())!=DX_COMMAND_NONE) review_native_command(&a,command);
-                dx_take_magnification();
-                if (IsFileDropped()) { FilePathList files=LoadDroppedFiles(); UnloadDroppedFiles(files); }
-                double draw_start=dx_millis(); BeginDrawing(); bool closed=dx_review_capture_draw(a.review,&a.ui); review_resolve_grid(&a); dx_native_context(true,true,false,false);
-                if (applied_cursor!=a.ui.cursor) { SetMouseCursor(a.ui.cursor); applied_cursor=a.ui.cursor; }
-                a.render_ms[a.frames%600]=dx_millis()-draw_start;
-                EndDrawing();
-                if (closed && a.review->last_report_id[0]) status(&a,a.review->last_report_id);
-                record_frame(&a,frame); continue;
-            }
-        }
-        bool review_capture=a.review && a.review->phase==DX_REPORT_ARMED;
-        if (review_capture) { dx_take_magnification(); ui_review_discard_input(); dx_review_input_quarantine(true); }
-        if (!review_capture) {
-#endif
-        if (a.count_deferred && !a.grid.scrollbar && !a.busy && (!a.page_stale || a.waiting_count_page)) { a.count_deferred=false; publish_count(&a,a.deferred_total); }
-        watch_statistics(&a);
-        poll_query(&a);
-        watch_statistics(&a);
-        if (WindowShouldClose() || dx_native_quit_requested()) { dx_native_acknowledge_quit(); request_document_action(&a,DOCUMENT_QUIT,NULL); }
-        continue_document_action(&a);
-        if (a.exit_ready) break;
-        if (IsFileDropped()) {
-            FilePathList files=LoadDroppedFiles(); if (files.count) open_source(&a,files.paths[0],false); UnloadDroppedFiles(files);
-        }
-#ifdef DUXCEL_DEV_REVIEW
-        }
-#endif
-        a.consume_grid_input=false;
-        if (trace_input) {
-            const int keys[]={KEY_ENTER,KEY_ESCAPE,KEY_F2,KEY_F6,KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT};
-            for (size_t i=0;i<sizeof(keys)/sizeof(*keys);i++) if (ui_pressed(keys[i])) fprintf(stderr,"Canvas key=%d\n",keys[i]);
-        }
-        if (options->layout_smoke && a.frames%24==2) {
-            static unsigned marks_injected=0;
-            int bit=layout_smoke==173 ? 0 : layout_smoke==174 ? 1 : layout_smoke==175 ? 2 : layout_smoke==176 ? 3 : layout_smoke==177 ? 4 : layout_smoke==178 ? 5 : layout_smoke==179 ? 6 : layout_smoke==180 ? 7 : layout_smoke==189 ? 8 : layout_smoke==190 ? 9 : -1;
-            if (bit>=0 && !(marks_injected&(1u<<bit))) {
-                if (bit==7) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
-                else if (bit==8) ui_note_key_press(KEY_ESCAPE,0);
-                else if (bit==9) ui_note_key_press(KEY_BACKSPACE,0);
-                else if (bit==2 || bit==5 || bit==6) {
-                    Rectangle from=bit==2 ? a.author_fields : a.pivot_tokens[PIVOT_VALUES][bit==5 ? 1 : 0];
-                    Rectangle to=a.author_marks[bit==2 ? MARKS_COLOR : MARKS_SIZE];
-                    float x0=from.x+35*a.ui.scale,y0=bit==2 ? from.y+(3*24+11)*a.ui.scale : from.y+11*a.ui.scale;
-                    float x1=to.x+to.width*.5f,y1=to.y+to.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x0,y0,x1,y1,0,false});
-                } else {
-                    Rectangle target;
-                    if (bit==0 || bit==3) target=a.author_marks[bit==0 ? MARKS_COLOR : MARKS_LABEL];
-                    else { int count=(int)context_fields(&a)->column_count+(selected_pivot(&a)->marks.counts[a.mark_role] ? 1 : 0); UIMenuLayout menu=ui_action_menu_layout(a.context_origin,count>11 ? 11 : count,240,a.ui.scale,(Vector2){GetScreenWidth(),GetScreenHeight()}); target=box(menu.items.x,menu.items.y+(bit==1 ? 4 : 5)*28*a.ui.scale,menu.items.width,28*a.ui.scale); }
-                    float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                }
-                marks_injected|=1u<<bit;
-            }
-        }
-        if (options->filter_smoke && a.frames%24==2) {
-            static unsigned injected=0; int bit=filter_smoke==34 ? 0 : filter_smoke==35 ? 1 : filter_smoke==37 ? 2 : filter_smoke==41 ? 3 : filter_smoke==52 ? 4 : filter_smoke==62 ? 5 : filter_smoke==64 ? 6 : -1;
-            if (bit>=0 && !(injected&(1u<<bit))) {
-                if (bit==1) { a.filter_condition_index=4; ui_note_key_press(KEY_ENTER,0); }
-                else {
-                    Rectangle target=bit==0 || bit==5 ? a.filter_layout.condition : bit==2 || bit==6 ? a.filter_layout.apply : bit==4 ? a.filter_layout.all : a.filter_layout.cancel;
-                    float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                    if (bit==5) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
-                }
-                injected|=1u<<bit;
-            }
-        }
-        if (options->layout_smoke && (layout_smoke==97 || layout_smoke==99 || layout_smoke==102 || layout_smoke==104)) {
-            static unsigned injected=0;
-            unsigned mask=layout_smoke==97 ? 1 : layout_smoke==99 ? 2 : layout_smoke==102 ? 4 : 8;
-            if (!(injected&mask) && a.frames%24==2) {
-                bool field=layout_smoke==97 || layout_smoke==104;
-                Rectangle from=field ? a.author_fields : layout_smoke==99 ? a.pivot_tokens[PIVOT_ROWS][0] : a.pivot_tokens[PIVOT_COLUMNS][0];
-                Rectangle to=layout_smoke==97 ? a.pivot_shelves[PIVOT_FILTERS] : a.pivot_contents[PIVOT_COLUMNS];
-                float y=from.y+(layout_smoke==97 ? 2*24+11 : 11)*a.ui.scale;
-                float x=layout_smoke==102 ? to.x+to.width-a.ui.scale : to.x+5*a.ui.scale;
-                ui_note_pointer_gesture((DxPointerGesture){from.x+35*a.ui.scale,y,x,to.y+11*a.ui.scale,0,false});
-                injected|=mask;
-            }
-        }
-        if (options->layout_smoke && (layout_smoke==115 || layout_smoke==118) && a.frames%24==2) {
-            static unsigned preview_injected=0; unsigned bit=layout_smoke==115 ? 1 : 2;
-            if (!(preview_injected&bit)) {
-                Grid *grid=&a.source_preview; float scale=a.ui.scale*grid->zoom;
-                float x=layout_smoke==115 ? grid->body.x+(grid->offsets[1]-grid->horizontal)*scale-12*scale : grid->body.x+10*scale;
-                float y=layout_smoke==115 ? grid->rect.y+39*scale : grid->body.y+35*scale;
-                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); preview_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && (layout_smoke==121 || layout_smoke==123) && a.frames%24==2) {
-            static unsigned matrix_injected=0; unsigned bit=layout_smoke==121 ? 1 : 2;
-            if (!(matrix_injected&bit)) {
-                Rectangle panel=a.authoring_layout.matrix; float scale=a.ui.scale;
-                float x=panel.x+12*scale,y=layout_smoke==121 ? panel.y+panel.height-5*scale : panel.y+(31+48+12)*scale;
-                float end=layout_smoke==121 ? panel.x+panel.width*.8f : x+230*scale;
-                ui_note_pointer_gesture((DxPointerGesture){x,y,end,y,0,false}); matrix_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && (layout_smoke==211 || layout_smoke==212) && a.frames%24==2) {
-            static unsigned totals_injected=0; unsigned bit=layout_smoke==211 ? 1 : 2;
-            if (!(totals_injected&bit)) {
-                Rectangle panel=a.authoring_layout.matrix; float scale=a.ui.scale;
-                float x=layout_smoke==211 ? panel.x+50*scale : panel.x+panel.width-30*scale;
-                float y=layout_smoke==211 ? panel.y+panel.height-22*scale : panel.y+(31+48+12)*scale;
-                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); totals_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=218 && layout_smoke<=227) {
-            static unsigned inspector_injected=0; int bit=layout_smoke==218 ? 0 : layout_smoke==219 ? 1 : layout_smoke==220 ? 2 : layout_smoke==223 ? 3 : layout_smoke==224 ? 4 : layout_smoke==225 ? 5 : layout_smoke==226 ? 6 : layout_smoke==227 ? 7 : -1;
-            if (bit>=0 && !(inspector_injected&(1u<<bit))) {
-                if (bit==2 || bit==4) ui_note_key_press(KEY_ESCAPE,0);
-                else if (bit==6) ui_note_key_press(KEY_C,DX_MOD_SUPER);
-                else if (bit==7) { ui_note_key_press(KEY_TAB,0); ui_note_key_press(KEY_ENTER,0); }
-                else {
-                    Rectangle target=bit<=1 ? box(a.pipeline_layout.list.x,a.pipeline_layout.list.y+a.pipeline_layout.row_height*a.ui.scale,a.pipeline_layout.list.width,a.pipeline_layout.row_height*a.ui.scale) : bit==3 ? a.pipeline_layout.edit : a.pipeline_layout.inspect;
-                    float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,bit==1});
-                }
-                inspector_injected|=1u<<bit;
-            }
-        }
-        if (options->layout_smoke && layout_smoke==229 && a.frames%24==2) {
-            static bool narrow_inspector_injected=false;
-            if (!narrow_inspector_injected) { Rectangle list=a.pipeline_layout.list; float x=list.x+list.width*.5f,y=list.y+a.pipeline_layout.row_height*a.ui.scale*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); narrow_inspector_injected=true; }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=233 && layout_smoke<=248) {
-            static unsigned preview_injected=0; unsigned bit=1u<<(layout_smoke-233);
-            if (!(preview_injected&bit)) {
-                bool ready=true;
-                if (layout_smoke==233 || layout_smoke==244 || layout_smoke==247) {
-                    Rectangle target=a.pipeline_layout.preview;
-                    ready=target.width>0 && !a.pipeline_sql && fabsf(a.pipeline_extent-a.pipeline_width)<.1f && fabsf(a.pipeline_layout.title.x-a.workspace.inspector.x-13*a.ui.scale)<.1f;
-                    if (ready) { float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
-                } else if (layout_smoke==234) {
-                    Rectangle target=grid_range_rect(&a.step_preview.grid,a.ui.scale*a.step_preview.grid.zoom,1,0,1,1); float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else if (layout_smoke==235) { ui_note_key_press(KEY_RIGHT,0); ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_RIGHT,DX_MOD_SHIFT); }
-                else if (layout_smoke==236) ui_note_key_press(KEY_C,DX_MOD_SUPER);
-                else if (layout_smoke==237) ui_note_key_press(KEY_F2,0);
-                else if (layout_smoke==238) ui_note_key_press(KEY_F10,DX_MOD_SHIFT);
-                else if (layout_smoke==239 || layout_smoke==246 || layout_smoke==248) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==240) ui_note_key_press(KEY_A,DX_MOD_SUPER);
-                else if (layout_smoke==241) ui_note_key_press(KEY_DELETE,0);
-                else if (layout_smoke==243) {
-                    UIPreviewLayout target=ui_preview_layout((Rectangle){a.step_preview.grid.rect.x,a.step_preview.grid.rect.y-57*a.ui.scale,a.step_preview.grid.rect.width,a.step_preview.grid.rect.height+57*a.ui.scale},a.ui.scale);
-                    float x=target.return_button.x+target.return_button.width*.5f,y=target.return_button.y+target.return_button.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                }
-                if (ready) preview_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=251 && layout_smoke<=262) {
-            static unsigned statistics_injected=0; unsigned bit=1u<<(layout_smoke-251);
-            if (!(statistics_injected&bit)) {
-                if (layout_smoke==251 || layout_smoke==259) ui_note_key_press(KEY_M,DX_MOD_SUPER|DX_MOD_SHIFT);
-                else if (layout_smoke==252) { Rectangle row=a.statistics_layout.rows[1]; float x=row.x+row.width*.5f,y=row.y+row.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
-                else if (layout_smoke==253 || layout_smoke==260) ui_note_key_press(KEY_C,DX_MOD_SUPER);
-                else if (layout_smoke==254) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
-                else if (layout_smoke==256 || layout_smoke==261 || layout_smoke==262) ui_note_key_press(KEY_ESCAPE,0);
-                statistics_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=266 && layout_smoke<=273) {
-            static unsigned guide_injected=0; unsigned bit=1u<<(layout_smoke-266);
-            if (!(guide_injected&bit)) {
-                if (layout_smoke==266 || layout_smoke==270) ui_note_key_press(KEY_TAB,0);
-                else if (layout_smoke==267 || layout_smoke==268) ui_note_key_press(KEY_ENTER,0);
-                else if (layout_smoke==271) ui_note_key_press(KEY_TAB,DX_MOD_SHIFT);
-                else if (layout_smoke==272) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==273) ui_note_key_press(KEY_F6,0);
-                guide_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=277 && layout_smoke<=288) {
-            static unsigned choices_injected=0; unsigned bit=1u<<(layout_smoke-277);
-            if (!(choices_injected&bit)) {
-                if (layout_smoke==277) ui_note_key_press(KEY_END,0);
-                else if (layout_smoke==278) ui_note_key_press(KEY_ENTER,0);
-                else if (layout_smoke==282) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
-                else if (layout_smoke==286) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
-                else if (layout_smoke==287) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==280 || layout_smoke==284) {
-                    UIChoiceLayout menu=ui_choice_layout(a.context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a.ui.scale,layout_smoke==280 ? 4 : 3,-1);
-                    Rectangle row=menu.rows[layout_smoke==280 ? 1 : 0]; float x=row.x+row.width*.5f,y=row.y+row.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else if (layout_smoke==288) ui_note_pointer_gesture((DxPointerGesture){4,4,4,4,0,false});
-                choices_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==291 || layout_smoke==293)) {
-            static unsigned source_focus_injected=0; unsigned bit=layout_smoke==291 ? 1 : 2;
-            if (!(source_focus_injected&bit)) {
-                if (layout_smoke==291) {
-                    Rectangle first=grid_range_rect(&a.grid,a.ui.scale*a.grid.zoom,5,5,1,1),last=grid_range_rect(&a.grid,a.ui.scale*a.grid.zoom,8,5,1,1);
-                    ui_note_pointer_gesture((DxPointerGesture){first.x+first.width*.5f,first.y+first.height*.5f,last.x+last.width*.5f,last.y+last.height*.5f,0,false});
-                } else ui_note_key_press(KEY_ESCAPE,0);
-                source_focus_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=296 && layout_smoke<=302) {
-            static unsigned flyout_injected=0; unsigned bit=1u<<(layout_smoke-296);
-            if (!(flyout_injected&bit)) {
-                int control=layout_smoke==296 ? 5 : layout_smoke==297 ? 4 : layout_smoke==301 ? 16 : -1;
-                if (control>=0) {
-                    Rectangle r=a.ribbon_flyout.commands[control]; float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else if (layout_smoke==298) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
-                else if (layout_smoke==299 || layout_smoke==302) ui_note_key_press(KEY_ESCAPE,0);
-                flyout_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==307 || layout_smoke==308)) {
-            static unsigned field_more_injected=0; unsigned bit=layout_smoke==307 ? 1 : 2;
-            if (!(field_more_injected&bit)) {
-                if (layout_smoke==307) {
-                    Rectangle list=a.field_list; float x=list.x+list.width-9.5f*a.ui.scale,y=list.y+(5*24+12)*a.ui.scale;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else ui_note_key_press(KEY_ESCAPE,0);
-                field_more_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==314 || layout_smoke==316 || layout_smoke==317)) {
-            static unsigned dock_injected=0; unsigned bit=layout_smoke==314 ? 1 : layout_smoke==316 ? 2 : 4;
-            if (!(dock_injected&bit)) {
-                if (layout_smoke==314) {
-                    Rectangle viewport=a.dock_layout.viewport; float x=viewport.x+viewport.width-3*a.ui.scale,y=viewport.y+viewport.height-4*a.ui.scale;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else ui_note_key_press(layout_smoke==316 ? KEY_HOME : KEY_SLASH,0);
-                dock_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=322 && layout_smoke<=331) {
-            static unsigned status_injected=0; unsigned bit=1u<<(layout_smoke-322);
-            if (!(status_injected&bit)) {
-                if (layout_smoke==322 || layout_smoke==331) {
-                    Rectangle r=layout_smoke==322 ? a.status_layout.level : a.toast_rect; float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else if (layout_smoke>=323 && layout_smoke<=325) ui_note_key_press(KEY_TAB,0);
-                else if (layout_smoke==326) ui_note_key_press(KEY_ENTER,0);
-                else if (layout_smoke==328) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
-                status_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=338 && layout_smoke<=355) {
-            static unsigned fields_injected=0; unsigned bit=1u<<(layout_smoke-338);
-            if (!(fields_injected&bit)) {
-                int action=layout_smoke==342 ? 3 : layout_smoke==345 ? 4 : layout_smoke==348 ? 5 : layout_smoke==349 ? 6 : layout_smoke==352 ? 2 : layout_smoke==353 ? 7 : -1;
-                if (layout_smoke==338) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==340) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
-                else if (layout_smoke==355) ui_note_pointer_gesture((DxPointerGesture){4,4,4,4,0,false});
-                else if (action>=0) {
-                    UIChoiceLayout menu=ui_choice_layout(a.context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a.ui.scale,9,3);
-                    Rectangle row=menu.rows[action]; float x=row.x+row.width*.5f,y=row.y+row.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                }
-                fields_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==373 || layout_smoke==375 || layout_smoke==376)) {
-            static unsigned book_injected=0; unsigned bit=layout_smoke==373 ? 1 : layout_smoke==375 ? 2 : 4;
-            if (!(book_injected&bit)) {
-                if (layout_smoke==373) {
-                    float x=workbook_new_target.x+workbook_new_target.width*.5f,y=workbook_new_target.y+workbook_new_target.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else ui_note_key_press(KEY_F12,0);
-                book_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && layout_smoke==382 && a.frames%24==2) {
-            static bool background_injected=false;
-            if (!background_injected) {
-                Rectangle copy=ribbon_rect(&a,a.ribbon_layout.commands[0]); float x=copy.x+copy.width*.5f,y=copy.y+copy.height*.5f;
-                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); background_injected=true;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2) {
-            static unsigned format_injected=0;
-            int bit=layout_smoke==126 ? 0 : layout_smoke==127 ? 1 : layout_smoke==129 ? 2 : layout_smoke==131 ? 3 : layout_smoke==133 ? 4 : layout_smoke==142 ? 5 : -1;
-            if (bit>=0 && !(format_injected&(1u<<bit))) {
-                if (bit==1) ui_note_key_press(KEY_U,DX_MOD_SUPER);
-                else if (bit==5) ui_note_key_press(KEY_ESCAPE,0);
-                else {
-                    Rectangle target;
-                    if (!bit) target=ribbon_rect(&a,a.ribbon_layout.commands[6]);
-                    else {
-                        int count=bit==2 ? 6 : bit==3 ? 4 : 2,index=bit==2 ? 5 : bit==3 ? 3 : 1;
-                        UIMenuLayout menu=ui_menu_layout(a.format_origin,count+1,28,220,a.ui.scale,(Vector2){GetScreenWidth(),GetScreenHeight()});
-                        target=box(menu.items.x,menu.items.y+(index+1)*28*a.ui.scale,menu.items.width,27*a.ui.scale);
-                        if (bit==3) { UIChoiceLayout colors=ui_choice_layout(a.format_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a.ui.scale,4,-1); target=colors.rows[3]; }
-                    }
-                    float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                }
-                format_injected|=1u<<bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==151 || layout_smoke==152 || layout_smoke==153 || layout_smoke==159 || layout_smoke==161 || layout_smoke==166)) {
-            static unsigned definition_injected=0; unsigned bit=layout_smoke==151 ? 1 : layout_smoke==159 ? 2 : layout_smoke==161 ? 4 : layout_smoke==152 ? 8 : layout_smoke==153 ? 16 : 32;
-            if (!(definition_injected&bit)) {
-                if (bit>=8) { ui_note_key_press(bit==8 ? KEY_DOWN : bit==16 ? KEY_ENTER : KEY_ESCAPE,0); definition_injected|=bit; }
-                else {
-                Grid *preview=&a.source_preview; Rectangle target;
-                if (bit==1) target=a.author_plot;
-                else if (bit==2) target=box(preview->rect.x+preview->rect.width-68*a.ui.scale,preview->rect.y+preview->rect.height-25*a.ui.scale,61*a.ui.scale,23*a.ui.scale);
-                else target=preview->hthumb;
-                float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
-                float end=bit==4 ? preview->htrack.x+preview->htrack.width-preview->hthumb.width*.5f : x;
-                ui_note_pointer_gesture((DxPointerGesture){x,y,end,y,0,false}); definition_injected|=bit;
-                }
-            }
-        }
-        if (options->query_smoke && query_smoke==40 && a.frames%24==2) {
-            static bool date_menu_injected=false;
-            if (!date_menu_injected) {
-                UIChoiceLayout menu=ui_choice_layout(a.context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a.ui.scale,7,3);
-                float x=menu.rows[3].x+60*a.ui.scale,y=menu.rows[3].y+14*a.ui.scale;
-                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); date_menu_injected=true;
-            }
-        }
-        if (options->layout_smoke && layout_smoke==403 && a.modal==MODAL_FIELD_NAV) ui_note_key_press(KEY_ESCAPE,0);
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=429 && layout_smoke<=432) {
-            static unsigned marks_geometry_injected=0; unsigned bit=1u<<(layout_smoke-429);
-            if (!(marks_geometry_injected&bit)) {
-                if (layout_smoke==429) {
-                    Rectangle track=a.author_marks_layout.scrollbar; float x=track.x+track.width*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,track.y+5,x,track.y+track.height-5,0,false});
-                } else if (layout_smoke==431) ui_note_key_press(KEY_ENTER,0);
-                else if (layout_smoke==432) ui_note_key_press(KEY_ESCAPE,0);
-                marks_geometry_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=438 && layout_smoke<=448) {
-            static unsigned shelf_menu_injected=0; unsigned bit=1u<<(layout_smoke-438);
-            if (!(shelf_menu_injected&bit)) {
-                if (layout_smoke==438) {
-                    Rectangle add=a.axis_shelves[PIVOT_COLUMNS].add; float x=add.x+add.width*.5f,y=add.y+add.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else if (layout_smoke==439 || layout_smoke==441 || layout_smoke==448) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==440 || layout_smoke==442 || layout_smoke==444 || layout_smoke==447) ui_note_key_press(KEY_ENTER,0);
-                else if (layout_smoke==443) ui_note_key_press(KEY_DOWN,0);
-                shelf_menu_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=452 && layout_smoke<=457) {
-            static unsigned assign_menu_injected=0; unsigned bit=1u<<(layout_smoke-452);
-            if (!(assign_menu_injected&bit)) {
-                if (layout_smoke==452) ui_note_key_press(KEY_END,0);
-                else if (layout_smoke==453) ui_note_key_press(KEY_SLASH,0);
-                else if (layout_smoke==455 || layout_smoke==457) ui_note_key_press(KEY_ESCAPE,0);
-                assign_menu_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke==437) {
-            static bool wrapped_arrow_injected=false;
-            if (!wrapped_arrow_injected) { ui_note_key_press(KEY_DOWN,0); wrapped_arrow_injected=true; }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=460 && layout_smoke<=472) {
-            static unsigned view_menu_injected=0; unsigned bit=1u<<(layout_smoke-460);
-            if (!(view_menu_injected&bit)) {
-                if (layout_smoke==460 || layout_smoke==463) {
-                    Rectangle panel=layout_smoke==460 ? a.authoring_layout.matrix : a.authoring_layout.chart;
-                    float x=panel.x+panel.width-18*a.ui.scale,y=panel.y+15*a.ui.scale;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else if (layout_smoke==461) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
-                else if (layout_smoke==464 || layout_smoke==472) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
-                else if (layout_smoke==468) ui_note_key_press(KEY_ESCAPE,0);
-                view_menu_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=480 && layout_smoke<=496) {
-            static unsigned context_menu_injected=0; unsigned bit=1u<<(layout_smoke-480);
-            if (!(context_menu_injected&bit)) {
-                if (layout_smoke==480 || layout_smoke==481 || layout_smoke==485 || layout_smoke==487 || layout_smoke==488 || layout_smoke==494) ui_note_key_press(KEY_ENTER,0);
-                else if (layout_smoke==486 || layout_smoke==496) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==493) ui_note_key_press(KEY_DELETE,0);
-                else if (layout_smoke==495) ui_note_key_press(KEY_END,0);
-                else if (layout_smoke==492) {
-                    Rectangle token=a.pivot_tokens[PIVOT_VALUES][0]; float x=token.x+token.width-10*a.ui.scale,y=token.y+token.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                }
-                context_menu_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=503 && layout_smoke<=507) {
-            static unsigned canvas_scroll_injected=0; unsigned bit=1u<<(layout_smoke-503);
-            if (!(canvas_scroll_injected&bit)) {
-                if (layout_smoke==503) {
-                    Rectangle canvas=a.workspace.canvas; float x=canvas.x+canvas.width-4.5f*a.ui.scale;
-                    ui_note_pointer_gesture((DxPointerGesture){x,canvas.y+5*a.ui.scale,x,canvas.y+canvas.height-5*a.ui.scale,0,false});
-                } else if (layout_smoke==505) {
-                    Rectangle track=a.source_preview.vtrack; float x=track.x+track.width*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,track.y+3*a.ui.scale,x,track.y+track.height-3*a.ui.scale,0,false});
-                } else if (layout_smoke==506) {
-                    Rectangle panel=a.authoring_layout.matrix; float x=panel.x+panel.width-18*a.ui.scale,y=panel.y+15*a.ui.scale;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else if (layout_smoke==507) ui_note_key_press(KEY_ESCAPE,0);
-                canvas_scroll_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==512 || layout_smoke==514 || layout_smoke==517)) {
-            static unsigned source_return_injected=0; unsigned bit=layout_smoke==512 ? 1 : layout_smoke==514 ? 2 : 4;
-            if (!(source_return_injected&bit)) {
-                Rectangle target=layout_smoke==514 ? grid_range_rect(&a.source_preview,a.ui.scale*a.grid.zoom,2,1,1,1) : a.context_title.browse;
-                float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
-                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); source_return_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=557 && layout_smoke<=573) {
-            static unsigned active_injected=0; unsigned bit=1u<<(layout_smoke-557);
-            if (!(active_injected&bit)) {
-                if (layout_smoke==557) {
-                    Rectangle first=grid_range_rect(&a.grid,a.ui.scale*a.grid.zoom,5,5,1,1),last=grid_range_rect(&a.grid,a.ui.scale*a.grid.zoom,8,5,1,1);
-                    ui_note_pointer_gesture((DxPointerGesture){first.x+first.width*.5f,first.y+first.height*.5f,last.x+last.width*.5f,last.y+last.height*.5f,0,false});
-                } else if (layout_smoke==558 || layout_smoke==559) ui_note_key_press(layout_smoke==558 ? KEY_DOWN : KEY_UP,DX_MOD_SHIFT);
-                else if (layout_smoke==560 || layout_smoke==561) ui_note_key_press(KEY_TAB,layout_smoke==561 ? DX_MOD_SHIFT : 0);
-                else if (layout_smoke==562) ui_note_key_press(KEY_ENTER,0);
-                else if (layout_smoke==563) ui_note_key_press(KEY_RIGHT,0);
-                else if (layout_smoke==565) {
-                    Rectangle target=a.author_marks[MARKS_COLOR]; float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else if (layout_smoke==566 || layout_smoke==569) ui_note_key_press(KEY_DOWN,0);
-                else if (layout_smoke==567 || layout_smoke==570) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==568) {
-                    UIMenuLayout menu=ui_action_menu_layout(a.context_origin,11,240,a.ui.scale,(Vector2){GetScreenWidth(),GetScreenHeight()});
-                    float x=menu.panel.x+80*a.ui.scale,y=menu.panel.y+16*a.ui.scale;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else if (layout_smoke==573) ui_note_key_press(KEY_END,DX_MOD_SUPER|DX_MOD_SHIFT);
-                active_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && ((layout_smoke>=624 && layout_smoke<=627) || (layout_smoke>=634 && layout_smoke<=636))) {
-            static unsigned collapsed_injected=0; unsigned bit=1u<<(layout_smoke-624);
-            if (!(collapsed_injected&bit)) {
-                if (layout_smoke==624 || layout_smoke==626) {
-                    Rectangle r=ribbon_rect(&a,a.ribbon_layout.groups[layout_smoke==624 ? 1 : 4]);
-                    float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else if (layout_smoke==634 || layout_smoke==636) {
-                    Rectangle r=layout_smoke==634 ? a.status_layout.scale : (Rectangle){300,4,40,20};
-                    float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                } else ui_note_key_press(KEY_ESCAPE,0);
-                collapsed_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=640 && layout_smoke<=662) {
-            static unsigned more_injected=0; unsigned bit=1u<<(layout_smoke-640);
-            if (!(more_injected&bit)) {
-                Rectangle target={0};
-                if (layout_smoke==640 || layout_smoke==650 || layout_smoke==655 || layout_smoke==656 || layout_smoke==661) target=ribbon_rect(&a,a.ribbon_layout.overflow);
-                else if (layout_smoke==647 || layout_smoke==648) target=a.ribbon_more_menu.rows[layout_smoke==647 ? 0 : 1];
-                else if (layout_smoke==641 || layout_smoke==643 || layout_smoke==644 || layout_smoke==651 || layout_smoke==654 || layout_smoke==662) ui_note_key_press(KEY_ENTER,0);
-                else if (layout_smoke==645 || layout_smoke==653) ui_note_key_press(KEY_SPACE,0);
-                else if (layout_smoke==642 || layout_smoke==652) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==646) ui_note_key_press(KEY_RIGHT,0);
-                if (target.width) { float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
-                more_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=600 && layout_smoke<=615) {
-            static unsigned selects_injected=0; unsigned bit=1u<<(layout_smoke-600);
-            if (!(selects_injected&bit)) {
-                Rectangle target={0};
-                if (layout_smoke==600) target=a.pivot_tokens[PIVOT_FILTERS][0];
-                else if (layout_smoke==604 || layout_smoke==614) target=GetCollisionRec(a.author_marks_layout.representation,a.author_marks_layout.viewport);
-                else if (layout_smoke==606) target=a.author_plot;
-                else if (layout_smoke==608 || layout_smoke==610) {
-                    UIAction action=layout_smoke==608 ? ACTION_FONT_SIZE : ACTION_NUMBER_FORMAT;
-                    for (int i=0;i<ribbon_counts[a.ribbon_tab];i++) if (ribbon_commands[a.ribbon_tab][i].action==action) {
-                        Rectangle r=a.ribbon_layout.commands[i]; target=(Rectangle){r.x*a.ui.scale,(56+r.y)*a.ui.scale,r.width*a.ui.scale,r.height*a.ui.scale}; break;
-                    }
-                } else if (layout_smoke==601 || layout_smoke==615) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==605 || layout_smoke==609 || layout_smoke==611) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
-                else if (layout_smoke==607) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
-                if (target.width>0 && target.height>0) {
-                    float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                }
-                selects_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=524 && layout_smoke<=537) {
-            static unsigned shared_actions_injected=0; unsigned bit=1u<<(layout_smoke-524);
-            if (!(shared_actions_injected&bit)) {
-                if (layout_smoke==524 || layout_smoke==536) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
-                else if (layout_smoke==525 || layout_smoke==532 || layout_smoke==534 || layout_smoke==537) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==531) ui_note_key_press(KEY_UP,0);
-                else if (layout_smoke==526 || layout_smoke==528) {
-                    UIChoiceLayout menu=ui_choice_layout(a.context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a.ui.scale,layout_smoke==526 ? 7 : 6,layout_smoke==526 ? 2 : 3);
-                    Rectangle target=menu.rows[layout_smoke==526 ? 2 : 0]; float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
-                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
-                }
-                shared_actions_injected|=bit;
-            }
-        }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=543 && layout_smoke<=553) {
-            static unsigned author_menus_injected=0; unsigned bit=1u<<(layout_smoke-543);
-            if (!(author_menus_injected&bit)) {
-                if (layout_smoke==543 || layout_smoke==552) ui_note_key_press(KEY_END,0);
-                else if (layout_smoke==544 || layout_smoke==547 || layout_smoke==553) ui_note_key_press(KEY_ESCAPE,0);
-                else if (layout_smoke==546 || layout_smoke==549 || layout_smoke==550) ui_note_key_press(KEY_DOWN,0);
-                author_menus_injected|=bit;
-            }
-        }
-#ifdef DUXCEL_DEV_REVIEW
-        if (review_capture) { review_begin_frame(&a); a.consume_grid_input=true; }
-        else
-#endif
-        shortcuts(&a);
-        memset(a.author_marks,0,sizeof(a.author_marks)); double draw_start=dx_millis(); BeginDrawing(); draw_app(&a); if (a.icon_preview) draw_icon_gallery(&a);
-#ifdef DUXCEL_DEV_REVIEW
-        if (review_capture) {
-            if (a.ui.paint_depth || a.ui.scissor_depth || rlGetActiveFramebuffer()) { fprintf(stderr,"Native review capture reached an unbalanced render boundary.\n"); dx_review_capture_cancel(a.review); }
-            else dx_review_capture_pixels(a.review);
-            dx_review_input_quarantine(false); ui_review_discard_input();
-        }
-#endif
-        a.render_ms[a.frames%600]=dx_millis()-draw_start;
-        if (applied_cursor!=a.ui.cursor) { SetMouseCursor(a.ui.cursor); applied_cursor=a.ui.cursor; }
-        dx_native_context(a.modal!=MODAL_NONE,a.pivot_search_focus,selected_pivot(&a)!=NULL,a.key_tips);
-        EndDrawing();
-#ifdef DUXCEL_DEV_REVIEW
-        if (review_capture) { record_frame(&a,frame); continue; }
-#endif
-        if (options->layout_smoke && layout_smoke>=359 && layout_smoke<=365) {
-            unsigned bit=layout_smoke==359 ? 1 : layout_smoke==360 ? 2 : layout_smoke==364 ? 4 : layout_smoke==365 ? 8 : 0;
-            bool middle=bit<4 ? a.left_motion.elapsed>=.05f && a.left_motion.elapsed<.16f && a.left_extent>0 && a.left_extent<a.sidebar_width : a.pipeline_motion.elapsed>=.05f && a.pipeline_motion.elapsed<.16f && a.pipeline_extent>0 && a.pipeline_extent<280;
-            if (bit && middle) {
-                if (!(pane_motion_evidence&bit)) smoke_snapshot(bit==1 ? "tests/results/workspace-layout/native-left-closing-mid.png" : bit==2 ? "tests/results/workspace-layout/native-left-opening-mid.png" : bit==4 ? "tests/results/workspace-layout/native-right-opening-mid.png" : "tests/results/workspace-layout/native-right-closing-mid.png");
-                pane_motion_evidence|=bit;
-            }
-        }
-        if (options->layout_smoke && layout_smoke>=370 && layout_smoke<=377 && a.workbook_motion.elapsed>=.05f && a.workbook_motion.elapsed<.16f && a.workbook_open>0 && a.workbook_open<1) {
-            unsigned bit=layout_smoke==370 ? 16 : layout_smoke==371 ? 32 : 0;
-            if (bit && !(pane_motion_evidence&bit)) smoke_snapshot(bit==16 ? "tests/results/workspace-layout/native-workbook-closing-mid.png" : "tests/results/workspace-layout/native-workbook-opening-mid.png");
-            pane_motion_evidence|=bit;
-            if (layout_smoke==377 && a.workbook_collapsed && a.workbook_motion.elapsed>=.04f) { a.workbook_collapsed=false; pane_motion_evidence|=64; }
-        }
-        if (options->layout_smoke && layout_smoke==390 && a.workbook_motion.elapsed>=.04f && !(pane_motion_evidence&128)) {
-            a.sidebar=a.fields_visible=false; pane_motion_evidence|=128;
-        }
-        if (options->layout_smoke && layout_smoke==402 && a.popup_presence.active && a.popup_presence.alpha>0 && a.popup_presence.alpha<1 && !(pane_motion_evidence&256)) {
-            smoke_snapshot("tests/results/workspace-layout/native-popup-opening-mid.png"); pane_motion_evidence|=256;
-        }
-        if (options->layout_smoke && layout_smoke==403) {
-            if (a.modal==MODAL_NONE && a.popup_presence.visible && a.popup_presence.alpha>0 && a.popup_presence.alpha<1 && !(pane_motion_evidence&512)) {
-                smoke_snapshot("tests/results/workspace-layout/native-popup-closing-mid.png"); pane_motion_evidence|=512;
-            }
-        }
-        if (options->layout_smoke && layout_smoke==414 && a.author_context_progress>0 && a.author_context_progress<1 && !(pane_motion_evidence&1024)) {
-            smoke_snapshot("tests/results/workspace-layout/native-context-opening-mid.png"); pane_motion_evidence|=1024;
-        }
-        process_sheet_action(&a);
-        if (a.pending_new_sheet) { a.pending_new_sheet=false; a.pending_sheet=a.pending_relation=false; new_sheet(&a); }
-        else if (a.pending_sheet) { a.pending_sheet=false; a.pending_relation=false; activate_sheet(&a,a.pending_sheet_index,true); }
-        else if (a.pending_relation) { a.pending_relation=false; if (a.pending_relation_index<a.page.relation_count) select_relation(&a,&a.page.relations[a.pending_relation_index]); }
-        if (!a.step_preview.active && !a.waiting_count_page && !a.page_stale && a.spare.column_count && !grid_cached(&a.grid,&a.page) && grid_cached(&a.grid,&a.spare)) {
-            Page swap=a.page; a.page=a.spare; a.spare=swap;
-        }
-        if (a.last_top!=a.grid.top) { a.last_top=a.grid.top; a.viewport_changed=dx_millis(); }
-        if (!a.step_preview.active && !a.waiting_count_page && !a.page_stale && a.page.column_count && a.modal==MODAL_NONE && !a.io_busy && !a.fetch_failed && !grid_cached(&a.grid,&a.page) &&
-            dx_millis()-a.viewport_changed>=25 &&
-            (!a.busy || (a.pending_kind==JOB_PAGE && (a.grid.top<a.pending_offset || a.grid.top+a.grid.render_rows>a.pending_offset+DX_PAGE_ROWS)))) request_page(&a,false);
-        StepPreview *preview=&a.step_preview;
-        if (preview->active && !preview->loading && preview->spare.column_count && !grid_cached(&preview->grid,&preview->page) && grid_cached(&preview->grid,&preview->spare)) { Page swap=preview->page; preview->page=preview->spare; preview->spare=swap; }
-        watch_statistics(&a); schedule_step_preview(&a); schedule_pivot(&a); schedule_count(&a); schedule_table_count(&a); schedule_statistics(&a);
-        if (options->smoke && a.frames%24==0) smoke_step(&a,&smoke);
-        if (options->workspace_smoke && a.frames%24==0) workspace_smoke_step(&a,&workspace_smoke);
-        if (options->filter_smoke && a.frames%24==0) filter_smoke_step(&a,&filter_smoke);
-        if (options->pivot_smoke && a.frames%24==0) pivot_smoke_step(&a,&pivot_smoke);
-        if (options->export_smoke && a.frames%24==0) export_smoke_step(&a,&export_smoke);
-        if (options->count_smoke && a.frames%24==0) count_smoke_step(&a,&count_smoke);
-        if (options->clipboard_smoke && a.frames%24==0) clipboard_smoke_step(&a,&clipboard_smoke);
-        if (options->sort_smoke && a.frames%24==0) sort_smoke_step(&a,&sort_smoke);
-        if (options->layout_smoke && layout_smoke<layout_target && a.frames%24==0) layout_smoke_step(&a,&layout_smoke);
-        if (options->navigation_smoke && a.frames%24==0) navigation_smoke_step(&a,&navigation_smoke);
-        if (options->nyc_smoke && a.frames%24==0) nyc_smoke_step(&a,&nyc_smoke);
-        if (options->document_smoke && a.frames%24==0) document_smoke_step(&a,&document_smoke);
-        if (options->chart_smoke && a.frames%24==0) chart_smoke_step(&a,&chart_smoke);
-        if (options->statistics_smoke && a.frames%24==0) statistics_smoke_step(&a,&statistics_smoke);
-        if (options->table_smoke && a.frames%24==0) table_smoke_step(&a,&table_smoke);
-        if (options->icon_smoke && a.frames%24==0) icon_smoke_step(&a,&icon_smoke);
-        if (options->unique_smoke && a.frames%24==0) unique_smoke_step(&a,&unique_smoke);
-        if (options->query_smoke && a.frames%24==0) query_smoke_step(&a,&query_smoke);
-        record_frame(&a,frame);
-        /* A terminal stage runs after drawing. Render its final state once
-           before exiting, and never let one enabled scenario end another.
-           Document Quit still exits through exit_ready after save publication. */
-        if (options->layout_smoke && layout_smoke<0) break;
-        bool complete=smoke_stages_complete(completions,sizeof(completions)/sizeof(*completions));
-        if (complete && smoke_pass_seen && smoke_work_idle(&a)) break;
-        smoke_pass_seen=complete;
+    if (options->review_smoke) {
+        review_smoke_tick(a,&session->review_smoke);
+        if (session->review_smoke.stage<0 || (session->review_smoke.stage==REVIEW_SMOKE_STAGES && a->review->phase==DX_REPORT_IDLE && smoke_work_idle(a))) goto finished;
     }
+    bool report_requested=dx_review_take_native_request() || (ui_pressed(KEY_PERIOD) && ui_key_shift(KEY_PERIOD) && (ui_key_shortcut(KEY_PERIOD) || ui_key_control(KEY_PERIOD)));
+    if (report_requested && a->review && a->review->phase==DX_REPORT_IDLE) a->review->pending=true;
+    if (a->review && a->review->pending && review_can_capture(a)) { a->review->pending=false; dx_review_capture_request(a->review); }
+    if (a->review && a->review->phase!=DX_REPORT_IDLE && a->review->phase!=DX_REPORT_ARMED) {
+        if (WindowShouldClose() || dx_native_quit_requested()) { dx_review_capture_cancel(a->review); dx_native_acknowledge_quit(); request_document_action(a,DOCUMENT_QUIT,NULL); }
+        else {
+            DxCommand command;
+            while ((command=dx_take_command())!=DX_COMMAND_NONE) review_native_command(a,command);
+            dx_take_magnification();
+            if (IsFileDropped()) { FilePathList files=LoadDroppedFiles(); UnloadDroppedFiles(files); }
+            double draw_start=dx_millis(); BeginDrawing(); bool closed=dx_review_capture_draw(a->review,&a->ui); review_resolve_grid(a); dx_native_context(true,true,false,false);
+            if (session->applied_cursor!=a->ui.cursor) { SetMouseCursor(a->ui.cursor); session->applied_cursor=a->ui.cursor; }
+            a->render_ms[a->frames%600]=dx_millis()-draw_start;
+            EndDrawing();
+            if (closed && a->review->last_report_id[0]) status(a,a->review->last_report_id);
+            record_frame(a,frame); return true;
+        }
+    }
+    bool review_capture=a->review && a->review->phase==DX_REPORT_ARMED;
+    if (review_capture) { dx_take_magnification(); ui_review_discard_input(); dx_review_input_quarantine(true); }
+    if (!review_capture) {
+#endif
+    if (a->count_deferred && !a->grid.scrollbar && !a->busy && (!a->page_stale || a->waiting_count_page)) { a->count_deferred=false; publish_count(a,a->deferred_total); }
+    watch_statistics(a);
+    poll_query(a);
+    watch_statistics(a);
+    if (WindowShouldClose() || dx_native_quit_requested()) { dx_native_acknowledge_quit(); request_document_action(a,DOCUMENT_QUIT,NULL); }
+    continue_document_action(a);
+    if (a->exit_ready) goto finished;
+    if (IsFileDropped()) {
+        FilePathList files=LoadDroppedFiles(); if (files.count) open_source(a,files.paths[0],false); UnloadDroppedFiles(files);
+    }
+#ifdef DUXCEL_DEV_REVIEW
+    }
+#endif
+    a->consume_grid_input=false;
+    if (trace_input) {
+        const int keys[]={KEY_ENTER,KEY_ESCAPE,KEY_F2,KEY_F6,KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT};
+        for (size_t i=0;i<sizeof(keys)/sizeof(*keys);i++) if (ui_pressed(keys[i])) fprintf(stderr,"Canvas key=%d\n",keys[i]);
+    }
+    if (options->layout_smoke && a->frames%24==2) {
+        static unsigned marks_injected=0;
+        int bit=session->layout_smoke==173 ? 0 : session->layout_smoke==174 ? 1 : session->layout_smoke==175 ? 2 : session->layout_smoke==176 ? 3 : session->layout_smoke==177 ? 4 : session->layout_smoke==178 ? 5 : session->layout_smoke==179 ? 6 : session->layout_smoke==180 ? 7 : session->layout_smoke==189 ? 8 : session->layout_smoke==190 ? 9 : -1;
+        if (bit>=0 && !(marks_injected&(1u<<bit))) {
+            if (bit==7) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (bit==8) ui_note_key_press(KEY_ESCAPE,0);
+            else if (bit==9) ui_note_key_press(KEY_BACKSPACE,0);
+            else if (bit==2 || bit==5 || bit==6) {
+                Rectangle from=bit==2 ? a->author_fields : a->pivot_tokens[PIVOT_VALUES][bit==5 ? 1 : 0];
+                Rectangle to=a->author_marks[bit==2 ? MARKS_COLOR : MARKS_SIZE];
+                float x0=from.x+35*a->ui.scale,y0=bit==2 ? from.y+(3*24+11)*a->ui.scale : from.y+11*a->ui.scale;
+                float x1=to.x+to.width*.5f,y1=to.y+to.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x0,y0,x1,y1,0,false});
+            } else {
+                Rectangle target;
+                if (bit==0 || bit==3) target=a->author_marks[bit==0 ? MARKS_COLOR : MARKS_LABEL];
+                else { int count=(int)context_fields(a)->column_count+(selected_pivot(a)->marks.counts[a->mark_role] ? 1 : 0); UIMenuLayout menu=ui_action_menu_layout(a->context_origin,count>11 ? 11 : count,240,a->ui.scale,(Vector2){GetScreenWidth(),GetScreenHeight()}); target=box(menu.items.x,menu.items.y+(bit==1 ? 4 : 5)*28*a->ui.scale,menu.items.width,28*a->ui.scale); }
+                float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            }
+            marks_injected|=1u<<bit;
+        }
+    }
+    if (options->filter_smoke && a->frames%24==2) {
+        static unsigned injected=0; int bit=session->filter_smoke==34 ? 0 : session->filter_smoke==35 ? 1 : session->filter_smoke==37 ? 2 : session->filter_smoke==41 ? 3 : session->filter_smoke==52 ? 4 : session->filter_smoke==62 ? 5 : session->filter_smoke==64 ? 6 : -1;
+        if (bit>=0 && !(injected&(1u<<bit))) {
+            if (bit==1) { a->filter_condition_index=4; ui_note_key_press(KEY_ENTER,0); }
+            else {
+                Rectangle target=bit==0 || bit==5 ? a->filter_layout.condition : bit==2 || bit==6 ? a->filter_layout.apply : bit==4 ? a->filter_layout.all : a->filter_layout.cancel;
+                float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                if (bit==5) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
+            }
+            injected|=1u<<bit;
+        }
+    }
+    if (options->layout_smoke && (session->layout_smoke==97 || session->layout_smoke==99 || session->layout_smoke==102 || session->layout_smoke==104)) {
+        static unsigned injected=0;
+        unsigned mask=session->layout_smoke==97 ? 1 : session->layout_smoke==99 ? 2 : session->layout_smoke==102 ? 4 : 8;
+        if (!(injected&mask) && a->frames%24==2) {
+            bool field=session->layout_smoke==97 || session->layout_smoke==104;
+            Rectangle from=field ? a->author_fields : session->layout_smoke==99 ? a->pivot_tokens[PIVOT_ROWS][0] : a->pivot_tokens[PIVOT_COLUMNS][0];
+            Rectangle to=session->layout_smoke==97 ? a->pivot_shelves[PIVOT_FILTERS] : a->pivot_contents[PIVOT_COLUMNS];
+            float y=from.y+(session->layout_smoke==97 ? 2*24+11 : 11)*a->ui.scale;
+            float x=session->layout_smoke==102 ? to.x+to.width-a->ui.scale : to.x+5*a->ui.scale;
+            ui_note_pointer_gesture((DxPointerGesture){from.x+35*a->ui.scale,y,x,to.y+11*a->ui.scale,0,false});
+            injected|=mask;
+        }
+    }
+    if (options->layout_smoke && (session->layout_smoke==115 || session->layout_smoke==118) && a->frames%24==2) {
+        static unsigned preview_injected=0; unsigned bit=session->layout_smoke==115 ? 1 : 2;
+        if (!(preview_injected&bit)) {
+            Grid *grid=&a->source_preview; float scale=a->ui.scale*grid->zoom;
+            float x=session->layout_smoke==115 ? grid->body.x+(grid->offsets[1]-grid->horizontal)*scale-12*scale : grid->body.x+10*scale;
+            float y=session->layout_smoke==115 ? grid->rect.y+39*scale : grid->body.y+35*scale;
+            ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); preview_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && (session->layout_smoke==121 || session->layout_smoke==123) && a->frames%24==2) {
+        static unsigned matrix_injected=0; unsigned bit=session->layout_smoke==121 ? 1 : 2;
+        if (!(matrix_injected&bit)) {
+            Rectangle panel=a->authoring_layout.matrix; float scale=a->ui.scale;
+            float x=panel.x+12*scale,y=session->layout_smoke==121 ? panel.y+panel.height-5*scale : panel.y+(31+48+12)*scale;
+            float end=session->layout_smoke==121 ? panel.x+panel.width*.8f : x+230*scale;
+            ui_note_pointer_gesture((DxPointerGesture){x,y,end,y,0,false}); matrix_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && (session->layout_smoke==211 || session->layout_smoke==212) && a->frames%24==2) {
+        static unsigned totals_injected=0; unsigned bit=session->layout_smoke==211 ? 1 : 2;
+        if (!(totals_injected&bit)) {
+            Rectangle panel=a->authoring_layout.matrix; float scale=a->ui.scale;
+            float x=session->layout_smoke==211 ? panel.x+50*scale : panel.x+panel.width-30*scale;
+            float y=session->layout_smoke==211 ? panel.y+panel.height-22*scale : panel.y+(31+48+12)*scale;
+            ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); totals_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=218 && session->layout_smoke<=227) {
+        static unsigned inspector_injected=0; int bit=session->layout_smoke==218 ? 0 : session->layout_smoke==219 ? 1 : session->layout_smoke==220 ? 2 : session->layout_smoke==223 ? 3 : session->layout_smoke==224 ? 4 : session->layout_smoke==225 ? 5 : session->layout_smoke==226 ? 6 : session->layout_smoke==227 ? 7 : -1;
+        if (bit>=0 && !(inspector_injected&(1u<<bit))) {
+            if (bit==2 || bit==4) ui_note_key_press(KEY_ESCAPE,0);
+            else if (bit==6) ui_note_key_press(KEY_C,DX_MOD_SUPER);
+            else if (bit==7) { ui_note_key_press(KEY_TAB,0); ui_note_key_press(KEY_ENTER,0); }
+            else {
+                Rectangle target=bit<=1 ? box(a->pipeline_layout.list.x,a->pipeline_layout.list.y+a->pipeline_layout.row_height*a->ui.scale,a->pipeline_layout.list.width,a->pipeline_layout.row_height*a->ui.scale) : bit==3 ? a->pipeline_layout.edit : a->pipeline_layout.inspect;
+                float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,bit==1});
+            }
+            inspector_injected|=1u<<bit;
+        }
+    }
+    if (options->layout_smoke && session->layout_smoke==229 && a->frames%24==2) {
+        static bool narrow_inspector_injected=false;
+        if (!narrow_inspector_injected) { Rectangle list=a->pipeline_layout.list; float x=list.x+list.width*.5f,y=list.y+a->pipeline_layout.row_height*a->ui.scale*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); narrow_inspector_injected=true; }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=233 && session->layout_smoke<=248) {
+        static unsigned preview_injected=0; unsigned bit=1u<<(session->layout_smoke-233);
+        if (!(preview_injected&bit)) {
+            bool ready=true;
+            if (session->layout_smoke==233 || session->layout_smoke==244 || session->layout_smoke==247) {
+                Rectangle target=a->pipeline_layout.preview;
+                ready=target.width>0 && !a->pipeline_sql && fabsf(a->pipeline_extent-a->pipeline_width)<.1f && fabsf(a->pipeline_layout.title.x-a->workspace.inspector.x-13*a->ui.scale)<.1f;
+                if (ready) { float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
+            } else if (session->layout_smoke==234) {
+                Rectangle target=grid_range_rect(&a->step_preview.grid,a->ui.scale*a->step_preview.grid.zoom,1,0,1,1); float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else if (session->layout_smoke==235) { ui_note_key_press(KEY_RIGHT,0); ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_RIGHT,DX_MOD_SHIFT); }
+            else if (session->layout_smoke==236) ui_note_key_press(KEY_C,DX_MOD_SUPER);
+            else if (session->layout_smoke==237) ui_note_key_press(KEY_F2,0);
+            else if (session->layout_smoke==238) ui_note_key_press(KEY_F10,DX_MOD_SHIFT);
+            else if (session->layout_smoke==239 || session->layout_smoke==246 || session->layout_smoke==248) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==240) ui_note_key_press(KEY_A,DX_MOD_SUPER);
+            else if (session->layout_smoke==241) ui_note_key_press(KEY_DELETE,0);
+            else if (session->layout_smoke==243) {
+                UIPreviewLayout target=ui_preview_layout((Rectangle){a->step_preview.grid.rect.x,a->step_preview.grid.rect.y-57*a->ui.scale,a->step_preview.grid.rect.width,a->step_preview.grid.rect.height+57*a->ui.scale},a->ui.scale);
+                float x=target.return_button.x+target.return_button.width*.5f,y=target.return_button.y+target.return_button.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            }
+            if (ready) preview_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=251 && session->layout_smoke<=262) {
+        static unsigned statistics_injected=0; unsigned bit=1u<<(session->layout_smoke-251);
+        if (!(statistics_injected&bit)) {
+            if (session->layout_smoke==251 || session->layout_smoke==259) ui_note_key_press(KEY_M,DX_MOD_SUPER|DX_MOD_SHIFT);
+            else if (session->layout_smoke==252) { Rectangle row=a->statistics_layout.rows[1]; float x=row.x+row.width*.5f,y=row.y+row.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
+            else if (session->layout_smoke==253 || session->layout_smoke==260) ui_note_key_press(KEY_C,DX_MOD_SUPER);
+            else if (session->layout_smoke==254) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (session->layout_smoke==256 || session->layout_smoke==261 || session->layout_smoke==262) ui_note_key_press(KEY_ESCAPE,0);
+            statistics_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=266 && session->layout_smoke<=273) {
+        static unsigned guide_injected=0; unsigned bit=1u<<(session->layout_smoke-266);
+        if (!(guide_injected&bit)) {
+            if (session->layout_smoke==266 || session->layout_smoke==270) ui_note_key_press(KEY_TAB,0);
+            else if (session->layout_smoke==267 || session->layout_smoke==268) ui_note_key_press(KEY_ENTER,0);
+            else if (session->layout_smoke==271) ui_note_key_press(KEY_TAB,DX_MOD_SHIFT);
+            else if (session->layout_smoke==272) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==273) ui_note_key_press(KEY_F6,0);
+            guide_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=277 && session->layout_smoke<=288) {
+        static unsigned choices_injected=0; unsigned bit=1u<<(session->layout_smoke-277);
+        if (!(choices_injected&bit)) {
+            if (session->layout_smoke==277) ui_note_key_press(KEY_END,0);
+            else if (session->layout_smoke==278) ui_note_key_press(KEY_ENTER,0);
+            else if (session->layout_smoke==282) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (session->layout_smoke==286) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (session->layout_smoke==287) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==280 || session->layout_smoke==284) {
+                UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,session->layout_smoke==280 ? 4 : 3,-1);
+                Rectangle row=menu.rows[session->layout_smoke==280 ? 1 : 0]; float x=row.x+row.width*.5f,y=row.y+row.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else if (session->layout_smoke==288) ui_note_pointer_gesture((DxPointerGesture){4,4,4,4,0,false});
+            choices_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && (session->layout_smoke==291 || session->layout_smoke==293)) {
+        static unsigned source_focus_injected=0; unsigned bit=session->layout_smoke==291 ? 1 : 2;
+        if (!(source_focus_injected&bit)) {
+            if (session->layout_smoke==291) {
+                Rectangle first=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,5,5,1,1),last=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,8,5,1,1);
+                ui_note_pointer_gesture((DxPointerGesture){first.x+first.width*.5f,first.y+first.height*.5f,last.x+last.width*.5f,last.y+last.height*.5f,0,false});
+            } else ui_note_key_press(KEY_ESCAPE,0);
+            source_focus_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=296 && session->layout_smoke<=302) {
+        static unsigned flyout_injected=0; unsigned bit=1u<<(session->layout_smoke-296);
+        if (!(flyout_injected&bit)) {
+            int control=session->layout_smoke==296 ? 5 : session->layout_smoke==297 ? 4 : session->layout_smoke==301 ? 16 : -1;
+            if (control>=0) {
+                Rectangle r=a->ribbon_flyout.commands[control]; float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else if (session->layout_smoke==298) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (session->layout_smoke==299 || session->layout_smoke==302) ui_note_key_press(KEY_ESCAPE,0);
+            flyout_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && (session->layout_smoke==307 || session->layout_smoke==308)) {
+        static unsigned field_more_injected=0; unsigned bit=session->layout_smoke==307 ? 1 : 2;
+        if (!(field_more_injected&bit)) {
+            if (session->layout_smoke==307) {
+                Rectangle list=a->field_list; float x=list.x+list.width-9.5f*a->ui.scale,y=list.y+(5*24+12)*a->ui.scale;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else ui_note_key_press(KEY_ESCAPE,0);
+            field_more_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && (session->layout_smoke==314 || session->layout_smoke==316 || session->layout_smoke==317)) {
+        static unsigned dock_injected=0; unsigned bit=session->layout_smoke==314 ? 1 : session->layout_smoke==316 ? 2 : 4;
+        if (!(dock_injected&bit)) {
+            if (session->layout_smoke==314) {
+                Rectangle viewport=a->dock_layout.viewport; float x=viewport.x+viewport.width-3*a->ui.scale,y=viewport.y+viewport.height-4*a->ui.scale;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else ui_note_key_press(session->layout_smoke==316 ? KEY_HOME : KEY_SLASH,0);
+            dock_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=322 && session->layout_smoke<=331) {
+        static unsigned status_injected=0; unsigned bit=1u<<(session->layout_smoke-322);
+        if (!(status_injected&bit)) {
+            if (session->layout_smoke==322 || session->layout_smoke==331) {
+                Rectangle r=session->layout_smoke==322 ? a->status_layout.level : a->toast_rect; float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else if (session->layout_smoke>=323 && session->layout_smoke<=325) ui_note_key_press(KEY_TAB,0);
+            else if (session->layout_smoke==326) ui_note_key_press(KEY_ENTER,0);
+            else if (session->layout_smoke==328) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            status_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=338 && session->layout_smoke<=355) {
+        static unsigned fields_injected=0; unsigned bit=1u<<(session->layout_smoke-338);
+        if (!(fields_injected&bit)) {
+            int action=session->layout_smoke==342 ? 3 : session->layout_smoke==345 ? 4 : session->layout_smoke==348 ? 5 : session->layout_smoke==349 ? 6 : session->layout_smoke==352 ? 2 : session->layout_smoke==353 ? 7 : -1;
+            if (session->layout_smoke==338) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==340) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (session->layout_smoke==355) ui_note_pointer_gesture((DxPointerGesture){4,4,4,4,0,false});
+            else if (action>=0) {
+                UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,9,3);
+                Rectangle row=menu.rows[action]; float x=row.x+row.width*.5f,y=row.y+row.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            }
+            fields_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && (session->layout_smoke==373 || session->layout_smoke==375 || session->layout_smoke==376)) {
+        static unsigned book_injected=0; unsigned bit=session->layout_smoke==373 ? 1 : session->layout_smoke==375 ? 2 : 4;
+        if (!(book_injected&bit)) {
+            if (session->layout_smoke==373) {
+                float x=workbook_new_target.x+workbook_new_target.width*.5f,y=workbook_new_target.y+workbook_new_target.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else ui_note_key_press(KEY_F12,0);
+            book_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && session->layout_smoke==382 && a->frames%24==2) {
+        static bool background_injected=false;
+        if (!background_injected) {
+            Rectangle copy=ribbon_rect(a,a->ribbon_layout.commands[0]); float x=copy.x+copy.width*.5f,y=copy.y+copy.height*.5f;
+            ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); background_injected=true;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2) {
+        static unsigned format_injected=0;
+        int bit=session->layout_smoke==126 ? 0 : session->layout_smoke==127 ? 1 : session->layout_smoke==129 ? 2 : session->layout_smoke==131 ? 3 : session->layout_smoke==133 ? 4 : session->layout_smoke==142 ? 5 : -1;
+        if (bit>=0 && !(format_injected&(1u<<bit))) {
+            if (bit==1) ui_note_key_press(KEY_U,DX_MOD_SUPER);
+            else if (bit==5) ui_note_key_press(KEY_ESCAPE,0);
+            else {
+                Rectangle target;
+                if (!bit) target=ribbon_rect(a,a->ribbon_layout.commands[6]);
+                else {
+                    int count=bit==2 ? 6 : bit==3 ? 4 : 2,index=bit==2 ? 5 : bit==3 ? 3 : 1;
+                    UIMenuLayout menu=ui_menu_layout(a->format_origin,count+1,28,220,a->ui.scale,(Vector2){GetScreenWidth(),GetScreenHeight()});
+                    target=box(menu.items.x,menu.items.y+(index+1)*28*a->ui.scale,menu.items.width,27*a->ui.scale);
+                    if (bit==3) { UIChoiceLayout colors=ui_choice_layout(a->format_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,4,-1); target=colors.rows[3]; }
+                }
+                float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            }
+            format_injected|=1u<<bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && (session->layout_smoke==151 || session->layout_smoke==152 || session->layout_smoke==153 || session->layout_smoke==159 || session->layout_smoke==161 || session->layout_smoke==166)) {
+        static unsigned definition_injected=0; unsigned bit=session->layout_smoke==151 ? 1 : session->layout_smoke==159 ? 2 : session->layout_smoke==161 ? 4 : session->layout_smoke==152 ? 8 : session->layout_smoke==153 ? 16 : 32;
+        if (!(definition_injected&bit)) {
+            if (bit>=8) { ui_note_key_press(bit==8 ? KEY_DOWN : bit==16 ? KEY_ENTER : KEY_ESCAPE,0); definition_injected|=bit; }
+            else {
+            Grid *preview=&a->source_preview; Rectangle target;
+            if (bit==1) target=a->author_plot;
+            else if (bit==2) target=box(preview->rect.x+preview->rect.width-68*a->ui.scale,preview->rect.y+preview->rect.height-25*a->ui.scale,61*a->ui.scale,23*a->ui.scale);
+            else target=preview->hthumb;
+            float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+            float end=bit==4 ? preview->htrack.x+preview->htrack.width-preview->hthumb.width*.5f : x;
+            ui_note_pointer_gesture((DxPointerGesture){x,y,end,y,0,false}); definition_injected|=bit;
+            }
+        }
+    }
+    if (options->query_smoke && session->query_smoke==40 && a->frames%24==2) {
+        static bool date_menu_injected=false;
+        if (!date_menu_injected) {
+            UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,7,3);
+            float x=menu.rows[3].x+60*a->ui.scale,y=menu.rows[3].y+14*a->ui.scale;
+            ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); date_menu_injected=true;
+        }
+    }
+    if (options->layout_smoke && session->layout_smoke==403 && a->modal==MODAL_FIELD_NAV) ui_note_key_press(KEY_ESCAPE,0);
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=429 && session->layout_smoke<=432) {
+        static unsigned marks_geometry_injected=0; unsigned bit=1u<<(session->layout_smoke-429);
+        if (!(marks_geometry_injected&bit)) {
+            if (session->layout_smoke==429) {
+                Rectangle track=a->author_marks_layout.scrollbar; float x=track.x+track.width*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,track.y+5,x,track.y+track.height-5,0,false});
+            } else if (session->layout_smoke==431) ui_note_key_press(KEY_ENTER,0);
+            else if (session->layout_smoke==432) ui_note_key_press(KEY_ESCAPE,0);
+            marks_geometry_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=438 && session->layout_smoke<=448) {
+        static unsigned shelf_menu_injected=0; unsigned bit=1u<<(session->layout_smoke-438);
+        if (!(shelf_menu_injected&bit)) {
+            if (session->layout_smoke==438) {
+                Rectangle add=a->axis_shelves[PIVOT_COLUMNS].add; float x=add.x+add.width*.5f,y=add.y+add.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else if (session->layout_smoke==439 || session->layout_smoke==441 || session->layout_smoke==448) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==440 || session->layout_smoke==442 || session->layout_smoke==444 || session->layout_smoke==447) ui_note_key_press(KEY_ENTER,0);
+            else if (session->layout_smoke==443) ui_note_key_press(KEY_DOWN,0);
+            shelf_menu_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=452 && session->layout_smoke<=457) {
+        static unsigned assign_menu_injected=0; unsigned bit=1u<<(session->layout_smoke-452);
+        if (!(assign_menu_injected&bit)) {
+            if (session->layout_smoke==452) ui_note_key_press(KEY_END,0);
+            else if (session->layout_smoke==453) ui_note_key_press(KEY_SLASH,0);
+            else if (session->layout_smoke==455 || session->layout_smoke==457) ui_note_key_press(KEY_ESCAPE,0);
+            assign_menu_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke==437) {
+        static bool wrapped_arrow_injected=false;
+        if (!wrapped_arrow_injected) { ui_note_key_press(KEY_DOWN,0); wrapped_arrow_injected=true; }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=460 && session->layout_smoke<=472) {
+        static unsigned view_menu_injected=0; unsigned bit=1u<<(session->layout_smoke-460);
+        if (!(view_menu_injected&bit)) {
+            if (session->layout_smoke==460 || session->layout_smoke==463) {
+                Rectangle panel=session->layout_smoke==460 ? a->authoring_layout.matrix : a->authoring_layout.chart;
+                float x=panel.x+panel.width-18*a->ui.scale,y=panel.y+15*a->ui.scale;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else if (session->layout_smoke==461) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (session->layout_smoke==464 || session->layout_smoke==472) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (session->layout_smoke==468) ui_note_key_press(KEY_ESCAPE,0);
+            view_menu_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=480 && session->layout_smoke<=496) {
+        static unsigned context_menu_injected=0; unsigned bit=1u<<(session->layout_smoke-480);
+        if (!(context_menu_injected&bit)) {
+            if (session->layout_smoke==480 || session->layout_smoke==481 || session->layout_smoke==485 || session->layout_smoke==487 || session->layout_smoke==488 || session->layout_smoke==494) ui_note_key_press(KEY_ENTER,0);
+            else if (session->layout_smoke==486 || session->layout_smoke==496) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==493) ui_note_key_press(KEY_DELETE,0);
+            else if (session->layout_smoke==495) ui_note_key_press(KEY_END,0);
+            else if (session->layout_smoke==492) {
+                Rectangle token=a->pivot_tokens[PIVOT_VALUES][0]; float x=token.x+token.width-10*a->ui.scale,y=token.y+token.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            }
+            context_menu_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=503 && session->layout_smoke<=507) {
+        static unsigned canvas_scroll_injected=0; unsigned bit=1u<<(session->layout_smoke-503);
+        if (!(canvas_scroll_injected&bit)) {
+            if (session->layout_smoke==503) {
+                Rectangle canvas=a->workspace.canvas; float x=canvas.x+canvas.width-4.5f*a->ui.scale;
+                ui_note_pointer_gesture((DxPointerGesture){x,canvas.y+5*a->ui.scale,x,canvas.y+canvas.height-5*a->ui.scale,0,false});
+            } else if (session->layout_smoke==505) {
+                Rectangle track=a->source_preview.vtrack; float x=track.x+track.width*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,track.y+3*a->ui.scale,x,track.y+track.height-3*a->ui.scale,0,false});
+            } else if (session->layout_smoke==506) {
+                Rectangle panel=a->authoring_layout.matrix; float x=panel.x+panel.width-18*a->ui.scale,y=panel.y+15*a->ui.scale;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else if (session->layout_smoke==507) ui_note_key_press(KEY_ESCAPE,0);
+            canvas_scroll_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && (session->layout_smoke==512 || session->layout_smoke==514 || session->layout_smoke==517)) {
+        static unsigned source_return_injected=0; unsigned bit=session->layout_smoke==512 ? 1 : session->layout_smoke==514 ? 2 : 4;
+        if (!(source_return_injected&bit)) {
+            Rectangle target=session->layout_smoke==514 ? grid_range_rect(&a->source_preview,a->ui.scale*a->grid.zoom,2,1,1,1) : a->context_title.browse;
+            float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+            ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); source_return_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=557 && session->layout_smoke<=573) {
+        static unsigned active_injected=0; unsigned bit=1u<<(session->layout_smoke-557);
+        if (!(active_injected&bit)) {
+            if (session->layout_smoke==557) {
+                Rectangle first=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,5,5,1,1),last=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,8,5,1,1);
+                ui_note_pointer_gesture((DxPointerGesture){first.x+first.width*.5f,first.y+first.height*.5f,last.x+last.width*.5f,last.y+last.height*.5f,0,false});
+            } else if (session->layout_smoke==558 || session->layout_smoke==559) ui_note_key_press(session->layout_smoke==558 ? KEY_DOWN : KEY_UP,DX_MOD_SHIFT);
+            else if (session->layout_smoke==560 || session->layout_smoke==561) ui_note_key_press(KEY_TAB,session->layout_smoke==561 ? DX_MOD_SHIFT : 0);
+            else if (session->layout_smoke==562) ui_note_key_press(KEY_ENTER,0);
+            else if (session->layout_smoke==563) ui_note_key_press(KEY_RIGHT,0);
+            else if (session->layout_smoke==565) {
+                Rectangle target=a->author_marks[MARKS_COLOR]; float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else if (session->layout_smoke==566 || session->layout_smoke==569) ui_note_key_press(KEY_DOWN,0);
+            else if (session->layout_smoke==567 || session->layout_smoke==570) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==568) {
+                UIMenuLayout menu=ui_action_menu_layout(a->context_origin,11,240,a->ui.scale,(Vector2){GetScreenWidth(),GetScreenHeight()});
+                float x=menu.panel.x+80*a->ui.scale,y=menu.panel.y+16*a->ui.scale;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else if (session->layout_smoke==573) ui_note_key_press(KEY_END,DX_MOD_SUPER|DX_MOD_SHIFT);
+            active_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && ((session->layout_smoke>=624 && session->layout_smoke<=627) || (session->layout_smoke>=634 && session->layout_smoke<=636))) {
+        static unsigned collapsed_injected=0; unsigned bit=1u<<(session->layout_smoke-624);
+        if (!(collapsed_injected&bit)) {
+            if (session->layout_smoke==624 || session->layout_smoke==626) {
+                Rectangle r=ribbon_rect(a,a->ribbon_layout.groups[session->layout_smoke==624 ? 1 : 4]);
+                float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else if (session->layout_smoke==634 || session->layout_smoke==636) {
+                Rectangle r=session->layout_smoke==634 ? a->status_layout.scale : (Rectangle){300,4,40,20};
+                float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            } else ui_note_key_press(KEY_ESCAPE,0);
+            collapsed_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=640 && session->layout_smoke<=662) {
+        static unsigned more_injected=0; unsigned bit=1u<<(session->layout_smoke-640);
+        if (!(more_injected&bit)) {
+            Rectangle target={0};
+            if (session->layout_smoke==640 || session->layout_smoke==650 || session->layout_smoke==655 || session->layout_smoke==656 || session->layout_smoke==661) target=ribbon_rect(a,a->ribbon_layout.overflow);
+            else if (session->layout_smoke==647 || session->layout_smoke==648) target=a->ribbon_more_menu.rows[session->layout_smoke==647 ? 0 : 1];
+            else if (session->layout_smoke==641 || session->layout_smoke==643 || session->layout_smoke==644 || session->layout_smoke==651 || session->layout_smoke==654 || session->layout_smoke==662) ui_note_key_press(KEY_ENTER,0);
+            else if (session->layout_smoke==645 || session->layout_smoke==653) ui_note_key_press(KEY_SPACE,0);
+            else if (session->layout_smoke==642 || session->layout_smoke==652) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==646) ui_note_key_press(KEY_RIGHT,0);
+            if (target.width) { float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
+            more_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=600 && session->layout_smoke<=615) {
+        static unsigned selects_injected=0; unsigned bit=1u<<(session->layout_smoke-600);
+        if (!(selects_injected&bit)) {
+            Rectangle target={0};
+            if (session->layout_smoke==600) target=a->pivot_tokens[PIVOT_FILTERS][0];
+            else if (session->layout_smoke==604 || session->layout_smoke==614) target=GetCollisionRec(a->author_marks_layout.representation,a->author_marks_layout.viewport);
+            else if (session->layout_smoke==606) target=a->author_plot;
+            else if (session->layout_smoke==608 || session->layout_smoke==610) {
+                UIAction action=session->layout_smoke==608 ? ACTION_FONT_SIZE : ACTION_NUMBER_FORMAT;
+                for (int i=0;i<ribbon_counts[a->ribbon_tab];i++) if (ribbon_commands[a->ribbon_tab][i].action==action) {
+                    Rectangle r=a->ribbon_layout.commands[i]; target=(Rectangle){r.x*a->ui.scale,(56+r.y)*a->ui.scale,r.width*a->ui.scale,r.height*a->ui.scale}; break;
+                }
+            } else if (session->layout_smoke==601 || session->layout_smoke==615) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==605 || session->layout_smoke==609 || session->layout_smoke==611) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (session->layout_smoke==607) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            if (target.width>0 && target.height>0) {
+                float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            }
+            selects_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=524 && session->layout_smoke<=537) {
+        static unsigned shared_actions_injected=0; unsigned bit=1u<<(session->layout_smoke-524);
+        if (!(shared_actions_injected&bit)) {
+            if (session->layout_smoke==524 || session->layout_smoke==536) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (session->layout_smoke==525 || session->layout_smoke==532 || session->layout_smoke==534 || session->layout_smoke==537) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==531) ui_note_key_press(KEY_UP,0);
+            else if (session->layout_smoke==526 || session->layout_smoke==528) {
+                UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,session->layout_smoke==526 ? 7 : 6,session->layout_smoke==526 ? 2 : 3);
+                Rectangle target=menu.rows[session->layout_smoke==526 ? 2 : 0]; float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+            }
+            shared_actions_injected|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=543 && session->layout_smoke<=553) {
+        static unsigned author_menus_injected=0; unsigned bit=1u<<(session->layout_smoke-543);
+        if (!(author_menus_injected&bit)) {
+            if (session->layout_smoke==543 || session->layout_smoke==552) ui_note_key_press(KEY_END,0);
+            else if (session->layout_smoke==544 || session->layout_smoke==547 || session->layout_smoke==553) ui_note_key_press(KEY_ESCAPE,0);
+            else if (session->layout_smoke==546 || session->layout_smoke==549 || session->layout_smoke==550) ui_note_key_press(KEY_DOWN,0);
+            author_menus_injected|=bit;
+        }
+    }
+#ifdef DUXCEL_DEV_REVIEW
+    if (review_capture) { review_begin_frame(a); a->consume_grid_input=true; }
+    else
+#endif
+    shortcuts(a);
+    memset(a->author_marks,0,sizeof(a->author_marks)); double draw_start=dx_millis(); BeginDrawing(); draw_app(a); if (a->icon_preview) draw_icon_gallery(a);
+#ifdef DUXCEL_DEV_REVIEW
+    if (review_capture) {
+        if (a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer()) { fprintf(stderr,"Native review capture reached an unbalanced render boundary.\n"); dx_review_capture_cancel(a->review); }
+        else dx_review_capture_pixels(a->review);
+        dx_review_input_quarantine(false); ui_review_discard_input();
+    }
+#endif
+    a->render_ms[a->frames%600]=dx_millis()-draw_start;
+    if (session->applied_cursor!=a->ui.cursor) { SetMouseCursor(a->ui.cursor); session->applied_cursor=a->ui.cursor; }
+    dx_native_context(a->modal!=MODAL_NONE,a->pivot_search_focus,selected_pivot(a)!=NULL,a->key_tips);
+    EndDrawing();
+#ifdef DUXCEL_DEV_REVIEW
+    if (review_capture) { record_frame(a,frame); return true; }
+#endif
+    if (options->layout_smoke && session->layout_smoke>=359 && session->layout_smoke<=365) {
+        unsigned bit=session->layout_smoke==359 ? 1 : session->layout_smoke==360 ? 2 : session->layout_smoke==364 ? 4 : session->layout_smoke==365 ? 8 : 0;
+        bool middle=bit<4 ? a->left_motion.elapsed>=.05f && a->left_motion.elapsed<.16f && a->left_extent>0 && a->left_extent<a->sidebar_width : a->pipeline_motion.elapsed>=.05f && a->pipeline_motion.elapsed<.16f && a->pipeline_extent>0 && a->pipeline_extent<280;
+        if (bit && middle) {
+            if (!(pane_motion_evidence&bit)) smoke_snapshot(bit==1 ? "tests/results/workspace-layout/native-left-closing-mid.png" : bit==2 ? "tests/results/workspace-layout/native-left-opening-mid.png" : bit==4 ? "tests/results/workspace-layout/native-right-opening-mid.png" : "tests/results/workspace-layout/native-right-closing-mid.png");
+            pane_motion_evidence|=bit;
+        }
+    }
+    if (options->layout_smoke && session->layout_smoke>=370 && session->layout_smoke<=377 && a->workbook_motion.elapsed>=.05f && a->workbook_motion.elapsed<.16f && a->workbook_open>0 && a->workbook_open<1) {
+        unsigned bit=session->layout_smoke==370 ? 16 : session->layout_smoke==371 ? 32 : 0;
+        if (bit && !(pane_motion_evidence&bit)) smoke_snapshot(bit==16 ? "tests/results/workspace-layout/native-workbook-closing-mid.png" : "tests/results/workspace-layout/native-workbook-opening-mid.png");
+        pane_motion_evidence|=bit;
+        if (session->layout_smoke==377 && a->workbook_collapsed && a->workbook_motion.elapsed>=.04f) { a->workbook_collapsed=false; pane_motion_evidence|=64; }
+    }
+    if (options->layout_smoke && session->layout_smoke==390 && a->workbook_motion.elapsed>=.04f && !(pane_motion_evidence&128)) {
+        a->sidebar=a->fields_visible=false; pane_motion_evidence|=128;
+    }
+    if (options->layout_smoke && session->layout_smoke==402 && a->popup_presence.active && a->popup_presence.alpha>0 && a->popup_presence.alpha<1 && !(pane_motion_evidence&256)) {
+        smoke_snapshot("tests/results/workspace-layout/native-popup-opening-mid.png"); pane_motion_evidence|=256;
+    }
+    if (options->layout_smoke && session->layout_smoke==403) {
+        if (a->modal==MODAL_NONE && a->popup_presence.visible && a->popup_presence.alpha>0 && a->popup_presence.alpha<1 && !(pane_motion_evidence&512)) {
+            smoke_snapshot("tests/results/workspace-layout/native-popup-closing-mid.png"); pane_motion_evidence|=512;
+        }
+    }
+    if (options->layout_smoke && session->layout_smoke==414 && a->author_context_progress>0 && a->author_context_progress<1 && !(pane_motion_evidence&1024)) {
+        smoke_snapshot("tests/results/workspace-layout/native-context-opening-mid.png"); pane_motion_evidence|=1024;
+    }
+    process_sheet_action(a);
+    if (a->pending_new_sheet) { a->pending_new_sheet=false; a->pending_sheet=a->pending_relation=false; new_sheet(a); }
+    else if (a->pending_sheet) { a->pending_sheet=false; a->pending_relation=false; activate_sheet(a,a->pending_sheet_index,true); }
+    else if (a->pending_relation) { a->pending_relation=false; if (a->pending_relation_index<a->page.relation_count) select_relation(a,&a->page.relations[a->pending_relation_index]); }
+    if (!a->step_preview.active && !a->waiting_count_page && !a->page_stale && a->spare.column_count && !grid_cached(&a->grid,&a->page) && grid_cached(&a->grid,&a->spare)) {
+        Page swap=a->page; a->page=a->spare; a->spare=swap;
+    }
+    if (a->last_top!=a->grid.top) { a->last_top=a->grid.top; a->viewport_changed=dx_millis(); }
+    if (!a->step_preview.active && !a->waiting_count_page && !a->page_stale && a->page.column_count && a->modal==MODAL_NONE && !a->io_busy && !a->fetch_failed && !grid_cached(&a->grid,&a->page) &&
+        dx_millis()-a->viewport_changed>=25 &&
+        (!a->busy || (a->pending_kind==JOB_PAGE && (a->grid.top<a->pending_offset || a->grid.top+a->grid.render_rows>a->pending_offset+DX_PAGE_ROWS)))) request_page(a,false);
+    StepPreview *preview=&a->step_preview;
+    if (preview->active && !preview->loading && preview->spare.column_count && !grid_cached(&preview->grid,&preview->page) && grid_cached(&preview->grid,&preview->spare)) { Page swap=preview->page; preview->page=preview->spare; preview->spare=swap; }
+    watch_statistics(a); schedule_step_preview(a); schedule_pivot(a); schedule_count(a); schedule_table_count(a); schedule_statistics(a);
+    if (options->smoke && a->frames%24==0) smoke_step(a,&session->smoke);
+    if (options->workspace_smoke && a->frames%24==0) workspace_smoke_step(a,&session->workspace_smoke);
+    if (options->filter_smoke && a->frames%24==0) filter_smoke_step(a,&session->filter_smoke);
+    if (options->pivot_smoke && a->frames%24==0) pivot_smoke_step(a,&session->pivot_smoke);
+    if (options->export_smoke && a->frames%24==0) export_smoke_step(a,&session->export_smoke);
+    if (options->count_smoke && a->frames%24==0) count_smoke_step(a,&session->count_smoke);
+    if (options->clipboard_smoke && a->frames%24==0) clipboard_smoke_step(a,&session->clipboard_smoke);
+    if (options->sort_smoke && a->frames%24==0) sort_smoke_step(a,&session->sort_smoke);
+    if (options->layout_smoke && session->layout_smoke<layout_target && a->frames%24==0) layout_smoke_step(a,&session->layout_smoke);
+    if (options->navigation_smoke && a->frames%24==0) navigation_smoke_step(a,&session->navigation_smoke);
+    if (options->nyc_smoke && a->frames%24==0) nyc_smoke_step(a,&session->nyc_smoke);
+    if (options->document_smoke && a->frames%24==0) document_smoke_step(a,&session->document_smoke);
+    if (options->chart_smoke && a->frames%24==0) chart_smoke_step(a,&session->chart_smoke);
+    if (options->statistics_smoke && a->frames%24==0) statistics_smoke_step(a,&session->statistics_smoke);
+    if (options->table_smoke && a->frames%24==0) table_smoke_step(a,&session->table_smoke);
+    if (options->icon_smoke && a->frames%24==0) icon_smoke_step(a,&session->icon_smoke);
+    if (options->unique_smoke && a->frames%24==0) unique_smoke_step(a,&session->unique_smoke);
+    if (options->query_smoke && a->frames%24==0) query_smoke_step(a,&session->query_smoke);
+    record_frame(a,frame);
+    /* A terminal stage runs after drawing. Render its final state once
+       before exiting, and never let one enabled scenario end another.
+       Document Quit still exits through exit_ready after save publication. */
+    if (options->layout_smoke && session->layout_smoke<0) goto finished;
+    bool complete=smoke_stages_complete(completions,sizeof(completions)/sizeof(*completions));
+    if (complete && session->smoke_pass_seen && smoke_work_idle(a)) goto finished;
+    session->smoke_pass_seen=complete;
+    return true;
+finished:
+    session->finished=true;
+    return false;
+}
+int app_finish(AppSession *session) {
+    if (!session) return 1;
+    App *a=&session->app; const AppOptions *options=&session->options;
+    bool automated=session->automated;
+    int layout_start=session->layout_start,layout_target=session->layout_target;
+    DxPresentation presentation={0};
     if (options->screenshot) {
         Image image=LoadImageFromScreen(); ExportImage(image,options->screenshot); UnloadImage(image);
     }
-    size_t samples=a.frames<600 ? a.frames : 600;
-    qsort(a.frame_samples,samples,sizeof(*a.frame_samples),compare_frame);
-    double p95=samples ? a.frame_samples[(samples-1)*95/100] : 0;
-    qsort(a.render_ms,samples,sizeof(*a.render_ms),compare_frame);
-    printf("Draw submission CPU p95=%.3f ms (excludes swap/pacing)\n",samples ? a.render_ms[(samples-1)*95/100] : 0);
+    size_t samples=a->frames<600 ? a->frames : 600;
+    qsort(a->frame_samples,samples,sizeof(*a->frame_samples),compare_frame);
+    double p95=samples ? a->frame_samples[(samples-1)*95/100] : 0;
+    qsort(a->render_ms,samples,sizeof(*a->render_ms),compare_frame);
+    printf("Draw submission CPU p95=%.3f ms (excludes swap/pacing)\n",samples ? a->render_ms[(samples-1)*95/100] : 0);
     printf("Final relation rows=%" PRIu64 " columns=%zu cache offset=%" PRIu64 " top=%" PRIu64 " first_col=%zu\n",
-        a.page.total,a.page.column_count,a.page.offset,a.grid.top,a.grid.first_col);
+        a->page.total,a->page.column_count,a->page.offset,a->grid.top,a->grid.first_col);
     printf("Duxcel frames=%u mean=%.2f ms p95=%.2f ms max=%.2f ms dpi=%.1fx%.1f logical=%dx%d framebuffer=%dx%d smoke=%d\n",
-        a.frames,a.frames ? a.sum_frame_ms/a.frames : 0,p95,a.worst_frame_ms,a.ui.dpi.x,a.ui.dpi.y,
-        GetScreenWidth(),GetScreenHeight(),GetRenderWidth(),GetRenderHeight(),smoke);
-    bool smoke_ok=smoke==6 && !a.busy && !a.fetch_failed && a.page.total==4 && a.page.column_count==2;
-    if (options->filter_smoke && filter_smoke!=66) fprintf(stderr,"Filter smoke unfinished at stage %d: %s\n",filter_smoke,a.message ? a.message : "");
-    if (options->pivot_smoke && pivot_smoke!=45) fprintf(stderr,"Pivot smoke unfinished at stage %d: %s\n",pivot_smoke,a.message ? a.message : "");
-    if (options->export_smoke && export_smoke!=20) fprintf(stderr,"Export smoke unfinished at stage %d: %s\n",export_smoke,a.message ? a.message : "");
-    if (options->count_smoke && count_smoke!=12) fprintf(stderr,"Count smoke unfinished at stage %d: %s\n",count_smoke,a.message ? a.message : "");
-    if (options->clipboard_smoke && clipboard_smoke!=13) fprintf(stderr,"Clipboard smoke unfinished at stage %d: %s\n",clipboard_smoke,a.message ? a.message : "");
-    if (options->sort_smoke && sort_smoke!=12) fprintf(stderr,"Sort smoke unfinished at stage %d: %s\n",sort_smoke,a.message ? a.message : "");
-    if (options->layout_smoke && layout_smoke!=layout_target) fprintf(stderr,"Layout smoke unfinished at stage %d: %s\n",layout_smoke,a.message ? a.message : "");
-    if (options->layout_smoke && layout_smoke==layout_target) printf("Layout smoke completed [%d,%d)\n",layout_start,layout_target);
-    if (options->layout_smoke && layout_smoke>=250 && layout_smoke!=layout_target) fprintf(stderr,"Statistics state=%d error=%s enabled=%d source=%d columns=%zu active=%d\n",a.statistics_state,a.statistics_error ? a.statistics_error : "none",a.statistics_enabled,a.analysis.kind,a.statistics_columns,a.statistics_key.active);
-    if (options->navigation_smoke && navigation_smoke!=13) fprintf(stderr,"Navigation smoke unfinished at stage %d: %s\n",navigation_smoke,a.message ? a.message : "");
-    if (options->nyc_smoke && nyc_smoke!=8) fprintf(stderr,"NYC smoke unfinished at stage %d: %s\n",nyc_smoke,a.message ? a.message : "");
-    if (options->chart_smoke && chart_smoke!=33) fprintf(stderr,"Chart smoke unfinished at stage %d: %s\n",chart_smoke,a.message ? a.message : "");
-    if (options->statistics_smoke && statistics_smoke!=31) fprintf(stderr,"Statistics smoke unfinished at stage %d: %s\n",statistics_smoke,a.statistics_error ? a.statistics_error : a.message);
-    if (options->table_smoke && table_smoke!=73) fprintf(stderr,"Table smoke unfinished at stage %d: %s\n",table_smoke,a.message ? a.message : "");
-    if (options->unique_smoke && unique_smoke!=32) fprintf(stderr,"Unique rows smoke unfinished at stage %d\n",unique_smoke);
-    if (options->query_smoke && query_smoke!=QUERY_SMOKE_STAGES) fprintf(stderr,"Query smoke unfinished at stage %d\n",query_smoke);
-    if (options->icon_smoke && icon_smoke!=8) fprintf(stderr,"Icon smoke unfinished at stage %d\n",icon_smoke);
-    bool document_ok=document_smoke==10 && a.exit_ready && !a.book.dirty && !a.io_busy && a.document_action==DOCUMENT_NONE;
+        a->frames,a->frames ? a->sum_frame_ms/a->frames : 0,p95,a->worst_frame_ms,a->ui.dpi.x,a->ui.dpi.y,
+        GetScreenWidth(),GetScreenHeight(),GetRenderWidth(),GetRenderHeight(),session->smoke);
+    bool smoke_ok=session->smoke==6 && !a->busy && !a->fetch_failed && a->page.total==4 && a->page.column_count==2;
+    if (options->filter_smoke && session->filter_smoke!=66) fprintf(stderr,"Filter smoke unfinished at stage %d: %s\n",session->filter_smoke,a->message ? a->message : "");
+    if (options->pivot_smoke && session->pivot_smoke!=45) fprintf(stderr,"Pivot smoke unfinished at stage %d: %s\n",session->pivot_smoke,a->message ? a->message : "");
+    if (options->export_smoke && session->export_smoke!=20) fprintf(stderr,"Export smoke unfinished at stage %d: %s\n",session->export_smoke,a->message ? a->message : "");
+    if (options->count_smoke && session->count_smoke!=12) fprintf(stderr,"Count smoke unfinished at stage %d: %s\n",session->count_smoke,a->message ? a->message : "");
+    if (options->clipboard_smoke && session->clipboard_smoke!=13) fprintf(stderr,"Clipboard smoke unfinished at stage %d: %s\n",session->clipboard_smoke,a->message ? a->message : "");
+    if (options->sort_smoke && session->sort_smoke!=12) fprintf(stderr,"Sort smoke unfinished at stage %d: %s\n",session->sort_smoke,a->message ? a->message : "");
+    if (options->layout_smoke && session->layout_smoke!=layout_target) fprintf(stderr,"Layout smoke unfinished at stage %d: %s\n",session->layout_smoke,a->message ? a->message : "");
+    if (options->layout_smoke && session->layout_smoke==layout_target) printf("Layout smoke completed [%d,%d)\n",layout_start,layout_target);
+    if (options->layout_smoke && session->layout_smoke>=250 && session->layout_smoke!=layout_target) fprintf(stderr,"Statistics state=%d error=%s enabled=%d source=%d columns=%zu active=%d\n",a->statistics_state,a->statistics_error ? a->statistics_error : "none",a->statistics_enabled,a->analysis.kind,a->statistics_columns,a->statistics_key.active);
+    if (options->navigation_smoke && session->navigation_smoke!=13) fprintf(stderr,"Navigation smoke unfinished at stage %d: %s\n",session->navigation_smoke,a->message ? a->message : "");
+    if (options->nyc_smoke && session->nyc_smoke!=8) fprintf(stderr,"NYC smoke unfinished at stage %d: %s\n",session->nyc_smoke,a->message ? a->message : "");
+    if (options->chart_smoke && session->chart_smoke!=33) fprintf(stderr,"Chart smoke unfinished at stage %d: %s\n",session->chart_smoke,a->message ? a->message : "");
+    if (options->statistics_smoke && session->statistics_smoke!=31) fprintf(stderr,"Statistics smoke unfinished at stage %d: %s\n",session->statistics_smoke,a->statistics_error ? a->statistics_error : a->message);
+    if (options->table_smoke && session->table_smoke!=73) fprintf(stderr,"Table smoke unfinished at stage %d: %s\n",session->table_smoke,a->message ? a->message : "");
+    if (options->unique_smoke && session->unique_smoke!=32) fprintf(stderr,"Unique rows smoke unfinished at stage %d\n",session->unique_smoke);
+    if (options->query_smoke && session->query_smoke!=QUERY_SMOKE_STAGES) fprintf(stderr,"Query smoke unfinished at stage %d\n",session->query_smoke);
+    if (options->icon_smoke && session->icon_smoke!=8) fprintf(stderr,"Icon smoke unfinished at stage %d\n",session->icon_smoke);
+    bool document_ok=session->document_smoke==10 && a->exit_ready && !a->book.dirty && !a->io_busy && a->document_action==DOCUMENT_NONE;
     if (options->document_smoke) {
         if (document_ok) puts("PASS: pending cell commit, clean/modified close, cancel, save-then-open, failed save/load preservation, no-op edit and Quit waiting for successful save");
-        else fprintf(stderr,"Document smoke unfinished at stage %d: %s\n",document_smoke,a.message ? a.message : "");
+        else fprintf(stderr,"Document smoke unfinished at stage %d: %s\n",session->document_smoke,a->message ? a->message : "");
     }
     if (!automated) {
-        presentation=(DxPresentation){.ribbon_mode=a.ribbon_mode,.previous_ribbon_mode=a.previous_ribbon_mode,.workbook=a.sidebar,.fields=a.fields_visible,.transformations=a.pipeline,.transformations_collapsed=a.pipeline_collapsed,.workbook_collapsed=a.workbook_collapsed,.fields_collapsed=a.fields_collapsed,.reduced_motion=a.reduced_motion,.sidebar_width=a.sidebar_width,.pipeline_width=a.pipeline_width,.interface_scale=a.ui.requested_scale,.statistics_mask=a.statistics_mask,.freeze=a.grid.freeze};
+        presentation=(DxPresentation){.ribbon_mode=a->ribbon_mode,.previous_ribbon_mode=a->previous_ribbon_mode,.workbook=a->sidebar,.fields=a->fields_visible,.transformations=a->pipeline,.transformations_collapsed=a->pipeline_collapsed,.workbook_collapsed=a->workbook_collapsed,.fields_collapsed=a->fields_collapsed,.reduced_motion=a->reduced_motion,.sidebar_width=a->sidebar_width,.pipeline_width=a->pipeline_width,.interface_scale=a->ui.requested_scale,.statistics_mask=a->statistics_mask,.freeze=a->grid.freeze};
         dx_presentation_save(&presentation);
     }
 #ifdef DUXCEL_DEV_REVIEW
-    dx_review_capture_destroy(a.review); a.review=NULL;
+    dx_review_capture_destroy(a->review); a->review=NULL;
 #endif
-    cancel_values(&a); worker_stop(&a.worker); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a.worker.jobs_started,a.worker.sql_executed,a.worker.counts_executed);
-    statistics_free(&a.statistics); free(a.statistics_error);
-    page_free(&a.page); page_free(&a.spare); analysis_free(&a.analysis);
-    workbook_free(&a.book); inspector_free(&a); sort_editor_free(&a.sort_editor);
-    reply_free(a.query_validated); text_editor_free(&a.query_editor); text_lines_free(&a.query_errors); free(a.query_error);
-    clear_value_choices(&a); free(a.value_pending_key); free(a.values_context);
-    for (int i=0;i<4;i++) { distinct_free(&a.value_cache[i]); free(a.value_cache_keys[i]); }
-    for (int i=0;i<5;i++) { free(a.date_starts[i]); free(a.date_ends[i]); }
-    for (int i=0;i<16;i++) if (a.icon_previews[i].id) UnloadTexture(a.icon_previews[i]);
+    cancel_values(a); worker_stop(&a->worker); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a->worker.jobs_started,a->worker.sql_executed,a->worker.counts_executed);
+    statistics_free(&a->statistics); free(a->statistics_error);
+    page_free(&a->page); page_free(&a->spare); analysis_free(&a->analysis);
+    workbook_free(&a->book); inspector_free(a); sort_editor_free(&a->sort_editor);
+    reply_free(a->query_validated); text_editor_free(&a->query_editor); text_lines_free(&a->query_errors); free(a->query_error);
+    clear_value_choices(a); free(a->value_pending_key); free(a->values_context);
+    for (int i=0;i<4;i++) { distinct_free(&a->value_cache[i]); free(a->value_cache_keys[i]); }
+    for (int i=0;i<5;i++) { free(a->date_starts[i]); free(a->date_ends[i]); }
+    for (int i=0;i<16;i++) if (a->icon_previews[i].id) UnloadTexture(a->icon_previews[i]);
     brand_shutdown();
-    if (render_batch.vertexBuffer && render_batch.draws) { rlSetRenderBatchActive(NULL); rlUnloadRenderBatch(render_batch); }
-    a.busy=false; step_preview_free(&a.step_preview); ui_guide_free(&a.guide); clear_object_views(&a); grid_destroy(&a.source_preview); grid_destroy(&a.grid); ui_destroy(&a.ui); input_free(&a.input); input_free(&a.filter_term); input_free(&a.filter_end); input_free(&a.pivot_search); input_free(&a.chart_columns); free(a.chart_resize_error); free(a.object_name_error); free(a.range_move_error); free(a.field_matches); text_lines_free(&a.toast_lines); text_lines_free(&a.inspector_sql_lines); free(a.inspector_sql_text); free(a.sql_text); free(a.message); free(a.pipeline_text); free(a.document_path); CloseWindow();
-    return
+    if (session->render_batch.vertexBuffer && session->render_batch.draws) { rlSetRenderBatchActive(NULL); rlUnloadRenderBatch(session->render_batch); }
+    a->busy=false; step_preview_free(&a->step_preview); ui_guide_free(&a->guide); clear_object_views(a); grid_destroy(&a->source_preview); grid_destroy(&a->grid); ui_destroy(&a->ui); input_free(&a->input); input_free(&a->filter_term); input_free(&a->filter_end); input_free(&a->pivot_search); input_free(&a->chart_columns); free(a->chart_resize_error); free(a->object_name_error); free(a->range_move_error); free(a->field_matches); text_lines_free(&a->toast_lines); text_lines_free(&a->inspector_sql_lines); free(a->inspector_sql_text); free(a->sql_text); free(a->message); free(a->pipeline_text); free(a->document_path); dx_native_shutdown(); CloseWindow();
+    int result=
 #ifdef DUXCEL_DEV_REVIEW
-        (options->review_smoke && review_smoke.stage!=REVIEW_SMOKE_STAGES) ||
+        (options->review_smoke && session->review_smoke.stage!=REVIEW_SMOKE_STAGES) ||
 #endif
-        (options->smoke && !smoke_ok) || (options->workspace_smoke && workspace_smoke!=4) || (options->filter_smoke && filter_smoke!=66) || (options->pivot_smoke && pivot_smoke!=45) || (options->export_smoke && export_smoke!=20) || (options->count_smoke && count_smoke!=12) || (options->clipboard_smoke && clipboard_smoke!=13) || (options->sort_smoke && sort_smoke!=12) || (options->layout_smoke && layout_smoke!=layout_target) || (options->navigation_smoke && navigation_smoke!=13) || (options->nyc_smoke && nyc_smoke!=8) || (options->document_smoke && !document_ok) || (options->chart_smoke && chart_smoke!=33) || (options->statistics_smoke && statistics_smoke!=31) || (options->table_smoke && table_smoke!=73) || (options->icon_smoke && icon_smoke!=8) || (options->query_smoke && query_smoke!=QUERY_SMOKE_STAGES) || (options->unique_smoke && unique_smoke!=32) ? 1 : 0;
+        (options->smoke && !smoke_ok) || (options->workspace_smoke && session->workspace_smoke!=4) || (options->filter_smoke && session->filter_smoke!=66) || (options->pivot_smoke && session->pivot_smoke!=45) || (options->export_smoke && session->export_smoke!=20) || (options->count_smoke && session->count_smoke!=12) || (options->clipboard_smoke && session->clipboard_smoke!=13) || (options->sort_smoke && session->sort_smoke!=12) || (options->layout_smoke && session->layout_smoke!=layout_target) || (options->navigation_smoke && session->navigation_smoke!=13) || (options->nyc_smoke && session->nyc_smoke!=8) || (options->document_smoke && !document_ok) || (options->chart_smoke && session->chart_smoke!=33) || (options->statistics_smoke && session->statistics_smoke!=31) || (options->table_smoke && session->table_smoke!=73) || (options->icon_smoke && session->icon_smoke!=8) || (options->query_smoke && session->query_smoke!=QUERY_SMOKE_STAGES) || (options->unique_smoke && session->unique_smoke!=32) ? 1 : 0;
+    app_session_free(session);
+    return result;
+}
+
+int app_run(const AppOptions *options) {
+    AppSession *session=app_start(options);
+    if (!session) return 1;
+    while (app_frame(session)) {}
+    return app_finish(session);
 }

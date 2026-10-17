@@ -105,6 +105,7 @@ char *dx_open_table_panel(bool relink) { (void)relink; return NULL; }
 char *dx_save_file_panel(const char *suggested) { (void)suggested; return NULL; }
 char *dx_export_parquet_panel(const char *suggested) { (void)suggested; return NULL; }
 void dx_native_setup(void *window) { (void)window; }
+void dx_native_shutdown(void) {}
 bool dx_native_set_icon(const unsigned char *icns,size_t length) { (void)icns; (void)length; return false; }
 void dx_native_context(bool modal,bool text_input,bool pivot,bool key_tips) { (void)modal; (void)text_input; (void)pivot; (void)key_tips; }
 float dx_take_magnification(void) { return 0; }

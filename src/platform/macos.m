@@ -77,10 +77,12 @@ static NSWindow *canvas_window; /* borrowed from GLFW */
     id previous;
 }
 - (instancetype)initWithDelegate:(id)delegate;
+- (id)previousDelegate;
 @end
 @implementation DuxcelApplicationDelegate
 - (instancetype)initWithDelegate:(id)delegate { previous=[delegate retain]; return self; }
 - (void)dealloc { [previous release]; [super dealloc]; }
+- (id)previousDelegate { return previous; }
 - (BOOL)respondsToSelector:(SEL)selector {
     return selector==@selector(applicationShouldTerminate:) || [previous respondsToSelector:selector];
 }
@@ -284,6 +286,38 @@ void dx_native_setup(void *window) {
 #endif
     }
     [context makeCurrentContext];
+}
+void dx_native_shutdown(void) {
+    @autoreleasepool {
+        if (pointer_monitor) [NSEvent removeMonitor:pointer_monitor];
+        if (gesture_monitor) [NSEvent removeMonitor:gesture_monitor];
+        if (shortcut_monitor) [NSEvent removeMonitor:shortcut_monitor];
+        pointer_monitor=gesture_monitor=shortcut_monitor=nil;
+        canvas_window=nil;
+        pointer_count=pointer_head=command_count=command_head=modifier_count=modifier_head=0;
+        pointer_recording[0]=pointer_recording[1]=false; magnification=0;
+        app_modal=text_input=pivot_context=key_tips=quit_requested=native_panel_active=false;
+        active_native_panel=nil; trace_input=false;
+#ifdef DUXCEL_DEV_REVIEW
+        review_request=false;
+#endif
+        /* Remove only menus installed by this session. Restore GLFW's delegate
+           before its shutdown, so the next session wraps the new delegate. */
+        NSArray *roots=[[NSApp.mainMenu.itemArray copy] autorelease];
+        if (actions) for (NSMenuItem *root in roots) {
+            NSMenu *menu=root.submenu;
+            if (menu.numberOfItems && [menu itemAtIndex:0].target==actions && root!=[NSApp.mainMenu itemAtIndex:0])
+                [NSApp.mainMenu removeItem:root];
+            else for (NSMenuItem *item in menu.itemArray) if (item.target==actions) {
+                item.target=NSApp; item.action=@selector(orderFrontStandardAboutPanel:);
+            }
+        }
+        native_edit_menu=nil;
+        if (NSApp.delegate==(id<NSApplicationDelegate>)application_delegate)
+            NSApp.delegate=(id<NSApplicationDelegate>)[application_delegate previousDelegate];
+        [application_delegate release]; application_delegate=nil;
+        [actions release]; actions=nil;
+    }
 }
 bool dx_native_set_icon(const unsigned char *icns,size_t length) {
     if (!icns || !length || !NSApp) return false;
