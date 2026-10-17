@@ -648,6 +648,12 @@ static bool review_smoke_author_targets(App *a,const char *kind,const char *targ
     snprintf(t->author_target,sizeof(t->author_target),"%s",chosen->id);
     return true;
 }
+static bool review_smoke_author_select_ready(App *a,Modal modal) {
+    Rectangle field=author_select_field(a,modal);
+    Rectangle clip=GetCollisionRec(a->author_marks_layout.viewport,box(0,0,GetScreenWidth(),GetScreenHeight()));
+    Rectangle visible=GetCollisionRec(field,clip);
+    return field.width>0 && field.height>0 && visible.width+.01f>=field.width && visible.height+.01f>=field.height;
+}
 /* Five stages per case keep captures tied to settled, real controllers while
    preserving the original report/write-retry inventory above. No reports are
    created here; each native picker enters and cancels its owned composer. */
@@ -690,7 +696,9 @@ static int review_smoke_author_tick(App *a,ReviewSmoke *t) {
                     if (!ok) { pivot_free(&definition); return -1; } if (!set_pivot_definition(a,&definition)) return -1; return 0;
                 }
                 if (object->pivot.counts[PIVOT_VALUES]!=2) return -1;
-                a->modal=MODAL_CHART_MEASURE; a->context_focus=0; a->pivot_focus=7; a->author_reveal=true;
+                a->pivot_focus=7; a->author_reveal=true;
+                if (!review_smoke_author_select_ready(a,MODAL_CHART_MEASURE)) return 0;
+                begin_author_select(a,MODAL_CHART_MEASURE); if (a->modal!=MODAL_CHART_MEASURE) return -1;
             }
             else { a->modal=MODAL_VIEW; a->view_menu_chart=true; a->context_focus=1; }
         }
@@ -825,9 +833,12 @@ static int review_smoke_plot_identity_tick(App *a,ReviewSmoke *t) {
             if (!ok) { pivot_free(&definition); return -1; } if (!set_pivot_definition(a,&definition)) return -1; return 0;
         }
         if (object->pivot.counts[PIVOT_VALUES]!=2) return -1;
-        show_workspace(a); a->modal=MODAL_CHART_MEASURE; a->context_focus=a->context_scroll=0; a->pivot_focus=7; a->author_reveal=true; a->consume_grid_input=true; return 1;
+        show_workspace(a); a->pivot_focus=7; a->author_reveal=true;
+        if (!review_smoke_author_select_ready(a,MODAL_CHART_MEASURE)) return 0;
+        begin_author_select(a,MODAL_CHART_MEASURE); return a->modal==MODAL_CHART_MEASURE ? 1 : -1;
     }
     if (phase==1) {
+        if (a->modal==MODAL_NONE) { fprintf(stderr,"FAIL: duplicate Plot controller closed before review capture\n"); return -1; }
         if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || a->popup_presence.offset || a->popup_presence.alpha!=1 || !review_can_capture(a)) return 0;
         review_smoke_author_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
     }
