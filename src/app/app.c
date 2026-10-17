@@ -381,6 +381,7 @@ static void review_author_input(App *a,const char *kind,const char *key,const ch
 static void review_sheet_row(App *a,size_t sheet,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *file,int line);
 static void review_sheet_scroll(App *a,Rectangle track,Rectangle thumb,Rectangle clip,bool dragging,const char *file,int line);
 static void review_sheet_choice(App *a,const char *kind,const char *key,const char *action,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,size_t sheet,const char *file,int line);
+static void review_relation_choice(App *a,const Relation *relation,size_t index,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -401,6 +402,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_SHEET_ROW(a,sheet,label,bounds,clip,enabled,checked,focused) review_sheet_row(a,sheet,label,bounds,clip,enabled,checked,focused,__FILE__,__LINE__)
 #define REVIEW_SHEET_SCROLL(a,track,thumb,clip,dragging) review_sheet_scroll(a,track,thumb,clip,dragging,__FILE__,__LINE__)
 #define REVIEW_SHEET_CHOICE(a,kind,key,action,label,bounds,clip,enabled,checked,focused,sheet) review_sheet_choice(a,kind,key,action,label,bounds,clip,enabled,checked,focused,sheet,__FILE__,__LINE__)
+#define REVIEW_RELATION_CHOICE(a,relation,index,bounds,clip,checked,focused) review_relation_choice(a,relation,index,bounds,clip,checked,focused,__FILE__,__LINE__)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -419,6 +421,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_SHEET_ROW(...) ((void)0)
 #define REVIEW_SHEET_SCROLL(...) ((void)0)
 #define REVIEW_SHEET_CHOICE(...) ((void)0)
+#define REVIEW_RELATION_CHOICE(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -4755,18 +4758,21 @@ static void draw_table_relations(App *a) {
     if (close) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
     DrawRectangleRounded(box(panel.x+4*s,panel.y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(panel,.035f,4,UI_BG); DrawRectangleLinesEx(panel,1,UI_BORDER);
+    REVIEW_AUTHOR_PANEL(a,"source_relation","Choose table or view",panel,box(panel.x+20*s,panel.y+12*s,w-40*s,30*s));
     ui_text(u,"Choose table or view",panel.x+20*s,panel.y+12*s,18,UI_TEXT);
     ui_text_clip(u,store->items[index].name,box(panel.x+20*s,panel.y+38*s,w-40*s,24*s),12,UI_MUTED,false);
     bool enter=ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE);
     for (int j=0;j<visible;j++) {
         int i=j+a->table_relation_scroll; Relation *r=&page->relations[i]; Rectangle row=box(list.x+3*s,list.y+j*34*s,list.width-17*s,29*s);
         bool active=source->schema && source->table && !strcmp(source->schema,r->schema) && !strcmp(source->table,r->name);
+        REVIEW_RELATION_CHOICE(a,r,(size_t)i,row,list,active,a->table_relation_focus==i);
         if (a->table_relation_focus==i) ui_border(box(row.x-2*s,row.y-2*s,row.width+4*s,row.height+4*s),panel,1.5f*s,UI_ACCENT);
         if (ui_button(u,row,r->label,active,true) || (enter && a->table_relation_focus==i)) { choose_table_relation(a,(size_t)i); return; }
     }
     list_scrollbar(a,list,count,visible,&a->table_relation_scroll,&a->table_relation_drag,&a->table_relation_grab,true);
     ui_text_clip(u,"Changing the table clears its filters and sort.",box(panel.x+16*s,panel.y+h-72*s,w-32*s,24*s),11,UI_MUTED,false);
     Rectangle cancel=box(panel.x+w-116*s,panel.y+h-40*s,96*s,28*s);
+    REVIEW_AUTHOR_ITEM(a,"source_relation","cancel","dialog.cancel","button","Cancel",cancel,panel,true,false,a->table_relation_focus==count,NULL);
     if (a->table_relation_focus==count) ui_border(box(cancel.x-2*s,cancel.y-2*s,cancel.width+4*s,cancel.height+4*s),panel,1.5f*s,UI_ACCENT);
     if (ui_button(u,cancel,"Cancel",false,true) || (enter && a->table_relation_focus==count)) { a->modal=MODAL_NONE; a->consume_grid_input=true; }
 }
@@ -5227,6 +5233,7 @@ static void list_scrollbar(App *a,Rectangle r,int count,int visible,int *offset,
 #ifdef DUXCEL_DEV_REVIEW
     if (review_armed(a) && count>visible) {
         const char *kind=a->modal==MODAL_MARKS ? "marks" : a->modal==MODAL_OBJECT ? "object" : a->modal==MODAL_ASSIGN_FIELD ? "assign_field" : a->modal==MODAL_UNHIDE ? "sheet_unhide" : NULL;
+        if (a->modal==MODAL_TABLE_RELATION && offset==&a->table_relation_scroll) kind="source_relation";
         if (kind) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_AUTHOR_SCROLL(a,kind,track,ui_scrollbar_thumb(track,count,visible,position,false,s),r,state.dragging); }
         if (offset==&a->sheet_scroll) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_SHEET_SCROLL(a,track,ui_scrollbar_thumb(track,count,visible,position,false,s),a->ui.clipping ? GetCollisionRec(r,a->ui.clip) : r,state.dragging); }
     }
