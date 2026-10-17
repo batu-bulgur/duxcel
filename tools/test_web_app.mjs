@@ -6,6 +6,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {createHash} from 'node:crypto';
+import {createCDP} from './test_web_cdp.mjs';
 const url=process.argv[2]??'http://127.0.0.1:8767';
 const output=path.resolve(process.argv[3]??'build/web/browser-qa/cdp');
 await fs.mkdir(output,{recursive:true});
@@ -24,19 +25,26 @@ let filterResult;
 let busyResult;
 let reviewResult;
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
-let stderr='',ws,id=0;const waiting=new Map(),events=[],steps=[];let checks=0;const started=Date.now();
+let stderr='',ws,cdp,activePhase='';const events=[],steps=[];let checks=0;const started=Date.now();
 function check(value,message){checks++;if(!value)throw new Error(message);}
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-function send(method,params={},timeout=15000){const request=++id;return new Promise((resolve,reject)=>{
- const timer=setTimeout(()=>{waiting.delete(request);reject(new Error('Timed out: '+method));},timeout);
- waiting.set(request,{resolve:value=>{clearTimeout(timer);resolve(value);},reject:error=>{clearTimeout(timer);reject(error);}});
- ws.send(JSON.stringify({id:request,method,params}));});}
+function send(method,params={},timeout=15000){
+ if(!cdp)return Promise.reject(new Error('CDP WebSocket is not connected'));
+ const context=activePhase||(method==='Runtime.evaluate'?params.expression.slice(0,160):method==='Input.dispatchKeyEvent'?params.type+' '+params.key:'');
+ return cdp.send(method,params,timeout,context);
+}
 async function evaluate(expression,timeout){const result=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},timeout);if(result.exceptionDetails)throw new Error(JSON.stringify(result.exceptionDetails));return result.result?.value;}
 async function frames(count=2){await evaluate(`new Promise(resolve=>{let n=${count};function tick(){if(--n<=0)resolve(true);else requestAnimationFrame(tick)}requestAnimationFrame(tick)})`);}
 async function key(key,code,virtual,text='',modifiers=0){
- steps.push({key,time:Date.now()});
- await send('Input.dispatchKeyEvent',{type:'keyDown',key,code,windowsVirtualKeyCode:virtual,nativeVirtualKeyCode:virtual,text,unmodifiedText:text,modifiers});await frames();
- await send('Input.dispatchKeyEvent',{type:'keyUp',key,code,windowsVirtualKeyCode:virtual,nativeVirtualKeyCode:virtual,modifiers});await frames();
+ const step={key,time:Date.now(),phases:[]};steps.push(step);
+ async function phase(name,action){
+  const entry={phase:name,time:Date.now()},previous=activePhase;step.phases.push(entry);activePhase=key+' '+name;
+  try{await action();entry.completed_ms=Date.now();}catch(error){entry.error=String(error);throw error;}finally{activePhase=previous;}
+ }
+ await phase('keyDown',()=>send('Input.dispatchKeyEvent',{type:'keyDown',key,code,windowsVirtualKeyCode:virtual,nativeVirtualKeyCode:virtual,text,unmodifiedText:text,modifiers}));
+ await phase('frames_after_keyDown',()=>frames());
+ await phase('keyUp',()=>send('Input.dispatchKeyEvent',{type:'keyUp',key,code,windowsVirtualKeyCode:virtual,nativeVirtualKeyCode:virtual,modifiers}));
+ await phase('frames_after_keyUp',()=>frames());
 }
 async function click(x,y){
  if(canvasTransform){const rect=await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,w:innerWidth,h:innerHeight}})()');x=rect.x+x*rect.width/rect.w;y=rect.y+y*rect.height/rect.h;}
@@ -72,6 +80,37 @@ async function waitDistinct(afterId=null){
  throw new Error('C available-values reply did not complete');
 }
 async function capture(name){await fs.writeFile(path.join(output,name+'.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}
+async function failureDiagnostics(){
+ // Snapshot the original failed request before diagnostic requests can replace
+ // transport failure metadata. These probes never retry application input.
+ const diagnostics={failure:cdp?.failure??null,pending:cdp?.pending()??[],held_keys:cdp?.heldKeys()??[]};
+ async function probe(name,action){
+  const started_ms=Date.now();
+  try{const value=await action();diagnostics[name]={status:'passed',started_ms,elapsed_ms:Date.now()-started_ms,value};}
+  catch(error){diagnostics[name]={status:'failed',started_ms,elapsed_ms:Date.now()-started_ms,error:String(error)};}
+ }
+ await probe('visibility_focus',async()=>{
+  const result=await send('Runtime.evaluate',{expression:'({visibility:document.visibilityState,hidden:document.hidden,focused:document.hasFocus(),activeElement:{tag:document.activeElement?.tagName,id:document.activeElement?.id},readyState:document.readyState})',returnByValue:true,awaitPromise:false},2000);
+  if(result.exceptionDetails)throw new Error(JSON.stringify(result.exceptionDetails));
+  return result.result?.value;
+ });
+ const eventStart=events.length;
+ try{
+  await probe('debugger_pause',async()=>{
+   await send('Debugger.pause',{},2000);await pause(300);
+   const paused=events.slice(eventStart).filter(event=>event.method==='Debugger.paused');
+   await fs.writeFile(path.join(output,'pause.json'),JSON.stringify(paused,null,2));
+   if(!paused.length)throw new Error('Debugger.pause returned without a Debugger.paused stack event');
+   return paused;
+  });
+ }finally{
+  // Even a timed-out pause command may subsequently pause the target.
+  await probe('debugger_resume',()=>send('Debugger.resume',{},2000));
+ }
+ await probe('screenshot',async()=>{await capture('failed');return 'failed.png';});
+ await fs.writeFile(path.join(output,'diagnostics.json'),JSON.stringify(diagnostics,null,2));
+ return diagnostics;
+}
 
 try{
  browser.stderr.on('data',data=>{stderr+=data;});
@@ -79,8 +118,12 @@ try{
  const port=stderr.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//)?.[1];check(port,'No owned DevTools endpoint');
  const targets=await(await fetch('http://127.0.0.1:'+port+'/json/list')).json();
  ws=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);
- await new Promise((resolve,reject)=>{ws.addEventListener('open',resolve,{once:true});ws.addEventListener('error',reject,{once:true});});
- ws.addEventListener('message',event=>{const message=JSON.parse(event.data);if(message.id){const request=waiting.get(message.id);waiting.delete(message.id);if(request)message.error?request.reject(new Error(JSON.stringify(message.error))):request.resolve(message.result);}else events.push(message);});
+ cdp=createCDP(ws,events);
+ await new Promise((resolve,reject)=>{
+  ws.addEventListener('open',resolve,{once:true});
+  ws.addEventListener('error',()=>reject(new Error('CDP WebSocket connection error')),{once:true});
+  ws.addEventListener('close',event=>reject(new Error('CDP WebSocket closed while connecting (code '+event.code+')')),{once:true});
+ });
  await send('Runtime.enable');await send('Debugger.enable');await send('Page.enable');await send('Log.enable');await send('Network.enable');
  await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:dpr,mobile:false});
@@ -207,15 +250,16 @@ try{
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){
- try{await send('Debugger.pause');await pause(300);await fs.writeFile(path.join(output,'pause.json'),JSON.stringify(events.filter(e=>e.method==='Debugger.paused'),null,2));await send('Debugger.resume');}catch{}
- try{await fs.writeFile(path.join(output,'failed.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}catch{}
+ const diagnostics=await failureDiagnostics();
  await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'failed',checks,error:String(error),url,elapsed_ms:Date.now()-started,steps},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'failed',checks,error:String(error),url,elapsed_ms:Date.now()-started,steps,diagnostics},null,2));
  console.error(error);process.exitCode=1;
 }finally{
+ const released=await cdp?.releaseHeldKeys()??[];
  ws?.close();browser.kill('SIGTERM');
  await Promise.race([new Promise(resolve=>browser.once('exit',resolve)),pause(2000)]);
  if(browser.exitCode===null)browser.kill('SIGKILL');
+ await fs.writeFile(path.join(output,'cleanup.json'),JSON.stringify({held_keys:released},null,2));
  await fs.writeFile(path.join(output,'browser.txt'),stderr);
  await fs.rm(profile,{recursive:true,force:true});
 }
