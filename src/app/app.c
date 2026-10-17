@@ -4977,7 +4977,8 @@ static void draw_chart_measure_menu(App *a) {
         int index=row+a->context_scroll; char label[512]; pivot_label(a,label,&o->pivot.fields[PIVOT_VALUES][index],PIVOT_VALUES);
 #ifdef DUXCEL_DEV_REVIEW
         char key[48]; const PivotField *measure=&o->pivot.fields[PIVOT_VALUES][index];
-        snprintf(key,sizeof(key),"select.%u.%u",(unsigned)measure->aggregate,(unsigned)measure->grain);
+        static const char *const aggregates[]={"sum","count","distinct","avg","min","max"},*const grains[]={"exact","year","quarter","month"};
+        snprintf(key,sizeof(key),"select.%s.%s",aggregates[measure->aggregate],grains[measure->grain]);
         REVIEW_AUTHOR_ITEM(a,"plot",key,"view.measure","menuitemradio",label,ui_select_menu_row(&menu,row),menu.panel,true,o->chart_measure==index,a->context_focus==index,measure->name);
 #endif
         if (ui_select_menu_option(u,&menu,row,label,UI_SELECT_PLOT,o->chart_measure==index,a->context_focus==index,true,!a->consume_grid_input) || (!a->consume_grid_input && a->context_focus==index && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
