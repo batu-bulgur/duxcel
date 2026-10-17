@@ -30,6 +30,16 @@ static Page fetch(Database *db,Analysis *a,uint64_t offset) {
     if (!database_fetch_table_window(db,a,offset,-1,&page,&error)) { fprintf(stderr,"Fetch: %s\n",error); exit(1); }
     free(error); return page;
 }
+static void check_file_identity(const Page *page,const char *path) {
+#if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+    SourceFileIdentity current; SourceDigest digest; char error[DX_SOURCE_DIGEST_ERROR_BYTES];
+    CHECK(page->records.file_identity_valid && source_file_identity(path,&current,error)==SOURCE_DIGEST_OK);
+    CHECK(source_file_identity_same(&page->records.file_identity,&current));
+    CHECK(source_digest_file(path,NULL,NULL,&digest,error)==SOURCE_DIGEST_OK && source_file_identity_same(&page->records.file_identity,&digest.identity));
+#else
+    (void)path; CHECK(!page->records.file_identity_valid);
+#endif
+}
 static void check_page(Database *db,Analysis *a,uint64_t offset,const char *where,const char *order) {
     Page page=fetch(db,a,offset); char *quoted=dx_quote(a->path,'\'');
     char *sql=dx_printf("SELECT * EXCLUDE(file_row_number),file_row_number::UBIGINT+1 AS expected_record FROM read_parquet(%s,file_row_number=true) %s %s LIMIT 256 OFFSET %" PRIu64,quoted,where,order,offset);
@@ -80,16 +90,16 @@ static void check_consumers(Database *db,Analysis *a,const char *dir) {
 static void test_fallbacks(Database *db,const char *path,const char *dir) {
     char *error=NULL; Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup(path)};
     CHECK(analysis_query_set(&a,"SELECT * FROM input",&error)); Page page=fetch(db,&a,0);
-    CHECK(page.column_count==8 && !page.records.ids && !page.records.source_key); page_free(&page);
+    CHECK(page.column_count==8 && !page.records.ids && !page.records.source_key && !page.records.file_identity_valid); page_free(&page);
     CHECK(analysis_query_set(&a,"",&error)); a.unique_rows=true; page=fetch(db,&a,0);
-    CHECK(page.column_count==8 && !page.records.ids && !page.records.source_key); page_free(&page);
+    CHECK(page.column_count==8 && !page.records.ids && !page.records.source_key && !page.records.file_identity_valid); page_free(&page);
     a.unique_rows=false; a.group_column=dx_strdup("tie key"); a.measure_column=dx_strdup("Money"); a.aggregate=AGG_SUM; page=fetch(db,&a,0);
-    CHECK(page.column_count==2 && !page.records.ids && !page.records.source_key); page_free(&page); analysis_free(&a);
+    CHECK(page.column_count==2 && !page.records.ids && !page.records.source_key && !page.records.file_identity_valid); page_free(&page); analysis_free(&a);
     a=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup("tests/fixtures/transactions.csv")}; page=fetch(db,&a,0);
     CHECK(page.column_count==6 && page.records.ids && page.records.count==page.row_count && page.records.ids[0]==1); page_free(&page); analysis_free(&a);
     char *collision=dx_printf("%s/collision.parquet",dir); write_parquet(db,collision,"SELECT 17 AS FiLe_RoW_NuMbEr,42 AS value");
     a=(Analysis){.kind=SOURCE_PARQUET,.path=collision}; page=fetch(db,&a,0);
-    CHECK(page.column_count==2 && !page.records.ids && !strcmp(page.cells[0].text,"17")); page_free(&page); CHECK(unlink(collision)==0); analysis_free(&a);
+    CHECK(page.column_count==2 && !page.records.ids && !page.records.file_identity_valid && !strcmp(page.cells[0].text,"17")); page_free(&page); CHECK(unlink(collision)==0); analysis_free(&a);
     char *wide=dx_printf("%s/wide.parquet",dir),*sql=dx_strdup("SELECT 1 AS c0");
     for (size_t i=1;i<256;i++) dx_append(&sql,",%zu AS c%zu",i,i); write_parquet(db,wide,sql); free(sql);
     a=(Analysis){.kind=SOURCE_PARQUET,.path=wide}; page=fetch(db,&a,0);
@@ -105,6 +115,7 @@ static void test_optional_budget(Database *db,const char *dir) {
     write_parquet(db,path,sql); free(sql); Analysis source={.kind=SOURCE_PARQUET,.path=path}; Page page=fetch(db,&source,0);
     CHECK(page.row_count==256 && page.column_count==1 && strlen(page.cells[255].text)==length);
     CHECK(page.bytes<=budget && budget-page.bytes<1500 && !page.records.ids && !page.records.source_key);
+    check_file_identity(&page,path); /* Inline observation does not consume the optional ID/scope budget. */
     CHECK(db->page_record_alias!=NULL); /* Hidden column was read but omitted, not exposed. */
     page_free(&page); CHECK(unlink(path)==0); analysis_free(&source);
 }
@@ -130,6 +141,54 @@ static bool touch_during_query(void *context) {
         CHECK(utimes(touch->path,times)==0); touch->changed=true;
     }
     return false; /* Mutate the private fixture without canceling execution. */
+}
+#if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+typedef struct { Database *db; const char *path; uint64_t queries; unsigned phase; bool changed; } IdentityTouch;
+static bool touch_file_identity(void *context) {
+    IdentityTouch *touch=context;
+    if (!touch->changed && touch->db->query_count>=touch->queries+touch->phase) {
+        struct stat file; CHECK(lstat(touch->path,&file)==0);
+        uint64_t stamp=dx_file_stamp(touch->path);
+        CHECK(chmod(touch->path,(file.st_mode&0100) ? 0600 : 0700)==0);
+        CHECK(dx_file_stamp(touch->path)==stamp); /* Deliberately invisible to the old stamp. */
+        touch->changed=true;
+    }
+    return false;
+}
+#endif
+static void test_exact_file_observation(Database *db,const char *dir,SourceKind kind) {
+    char *path=dx_printf("%s/exact-identity.%s",dir,kind==SOURCE_CSV ? "csv" : "parquet"),*error=NULL;
+    if (kind==SOURCE_CSV) write_csv(db,path,"SELECT i::BIGINT AS id,'original' AS value FROM range(700) t(i)");
+    else write_parquet(db,path,"SELECT i::BIGINT AS id,'original' AS value FROM range(700) t(i)");
+    Analysis source={.kind=kind,.path=path}; Page page=fetch(db,&source,0); check_file_identity(&page,path);
+    SourceFileIdentity retained=page.records.file_identity; page_free(&page);
+    CHECK(!page.records.file_identity_valid && !page.records.file_identity.inode);
+    CHECK(database_fetch_table(db,&source,256,-1,&page,&error) && page.total==700 && !page.count_pending); check_file_identity(&page,path); page_free(&page);
+    uint64_t known_counts=db->count_queries;
+    CHECK(database_fetch_table_window(db,&source,512,700,&page,&error) && page.total==700 && !page.count_pending && db->count_queries==known_counts); check_file_identity(&page,path); page_free(&page);
+#if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+    for (unsigned phase=0;phase<3;phase++) {
+        CHECK(database_refresh(db,&error));
+        SourceFileIdentity before,after; CHECK(source_file_identity(path,&before,NULL)==SOURCE_DIGEST_OK);
+        uint64_t stamp=dx_file_stamp(path),counts=db->count_queries;
+        IdentityTouch touch={db,path,db->query_count,phase,false}; db->cancelled=touch_file_identity; db->cancel_context=&touch;
+        bool ok=database_fetch_table(db,&source,0,-1,&page,&error);
+        db->cancelled=NULL; db->cancel_context=NULL;
+        CHECK(!ok && touch.changed && db->count_queries==counts+1 && db->query_count==touch.queries+2);
+        CHECK(error && strstr(error,"exact file identity") && !page.records.file_identity_valid);
+        CHECK(source_file_identity(path,&after,NULL)==SOURCE_DIGEST_OK && !source_file_identity_same(&before,&after) && dx_file_stamp(path)==stamp);
+        free(error); error=NULL; page_free(&page);
+        Page refreshed=fetch(db,&source,0); check_file_identity(&refreshed,path);
+        CHECK(!source_file_identity_same(&retained,&refreshed.records.file_identity)); page_free(&refreshed);
+    }
+    char *alias=dx_printf("%s/identity-link.%s",dir,kind==SOURCE_CSV ? "csv" : "parquet"); CHECK(symlink(path,alias)==0);
+    Analysis linked={.kind=kind,.path=alias}; page=fetch(db,&linked,0);
+    CHECK(page.row_count==256 && page.records.ids && !page.records.file_identity_valid); /* Ordinary read is preserved. */
+    page_free(&page); CHECK(unlink(alias)==0); analysis_free(&linked);
+#else
+    (void)retained;
+#endif
+    CHECK(unlink(path)==0); analysis_free(&source); free(error);
 }
 static void check_destination(const char *path) {
     char text[32]={0}; FILE *file=fopen(path,"rb"); CHECK(file && fread(text,1,sizeof(text)-1,file)==20 && fgetc(file)==EOF && !fclose(file));
@@ -223,12 +282,12 @@ static void check_window_page(Database *db,Analysis *a,uint64_t offset,const cha
 static void check_window_fallbacks(Database *db,Analysis *source) {
     Analysis fallback=analysis_copy(source); char *error=NULL;
     CHECK(analysis_query_set(&fallback,"SELECT * FROM input",&error)); Page page=fetch(db,&fallback,0);
-    CHECK(page.column_count && !page.records.ids && !page.records.source_key); page_free(&page);
+    CHECK(page.column_count && !page.records.ids && !page.records.source_key && !page.records.file_identity_valid); page_free(&page);
     CHECK(analysis_query_set(&fallback,"",&error)); fallback.unique_rows=true; page=fetch(db,&fallback,0);
-    CHECK(page.column_count && !page.records.ids && !page.records.source_key); page_free(&page);
+    CHECK(page.column_count && !page.records.ids && !page.records.source_key && !page.records.file_identity_valid); page_free(&page);
     fallback.unique_rows=false; fallback.group_column=dx_strdup(source->kind==SOURCE_CSV ? "tie key" : "City");
     fallback.measure_column=dx_strdup(source->kind==SOURCE_CSV ? "Money" : "Amount"); fallback.aggregate=AGG_SUM; page=fetch(db,&fallback,0);
-    CHECK(page.column_count==2 && !page.records.ids && !page.records.source_key); page_free(&page); analysis_free(&fallback); free(error);
+    CHECK(page.column_count==2 && !page.records.ids && !page.records.source_key && !page.records.file_identity_valid); page_free(&page); analysis_free(&fallback); free(error);
 }
 static void test_csv_pages(Database *db,const char *dir) {
     char *path=dx_printf("%s/raw 'quoted.csv",dir); write_csv(db,path,"SELECT * FROM original");
@@ -267,6 +326,7 @@ static void test_csv_pages(Database *db,const char *dir) {
 static void test_demo_pages(Database *db,const char *dir) {
     Analysis source={.kind=SOURCE_DEMO}; char *error=NULL; Page retained=fetch(db,&source,0);
     CHECK(retained.column_count==6 && retained.columns[1].type==DUCKDB_TYPE_DATE && retained.columns[3].type==DUCKDB_TYPE_DECIMAL);
+    CHECK(!retained.records.file_identity_valid);
     CHECK(!strcmp(retained.columns[3].type_name,"DECIMAL(12,2)") && retained.cells[5].is_null && retained.records.ids[0]==1);
     for (uint64_t offset=0;offset<=512;offset+=256) check_window_page(db,&source,offset,"","");
     CHECK(analysis_sort_set(&source,"City",false,false,&error));
@@ -357,6 +417,7 @@ int main(int argc,char **argv) {
     check_page(&db,&source,0,"WHERE id>9223372036854775807","ORDER BY \"tie key\" ASC,Money DESC,expected_record ASC");
     test_fallbacks(&db,path,dir); test_optional_budget(&db,dir); test_observed_versions(&db,dir); test_csv_pages(&db,dir); test_demo_pages(&db,dir);
     test_bound_consumers(&db,dir,SOURCE_PARQUET); test_bound_consumers(&db,dir,SOURCE_CSV);
+    test_exact_file_observation(&db,dir,SOURCE_PARQUET); test_exact_file_observation(&db,dir,SOURCE_CSV);
     CHECK(database_refresh(&db,&error)); CHECK(retained.records.ids[255]==256 && !strcmp(retained.records.source_key,scope));
     Page moved=retained; retained=(Page){0}; database_close(&db); page_free(&retained); page_free(&moved); free(scope);
     CHECK(unlink(path)==0); analysis_free(&source); CHECK(rmdir(dir)==0); free(error);

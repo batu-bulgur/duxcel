@@ -421,6 +421,8 @@ static bool execute_page(Database *db,Analysis *a,uint64_t offset,duckdb_result 
 }
 static bool fetch_window(Database *db,Analysis *a,uint64_t offset,int64_t known_total,Page *p,bool exact,size_t budget,size_t columns,char **error) {
     double start = dx_millis(); memset(p, 0, sizeof(*p)); p->offset = offset;
+    SourceFileIdentity before;
+    bool file_identity=(a->kind==SOURCE_CSV || a->kind==SOURCE_PARQUET) && !a->query && !a->unique_rows && !a->group_column && a->path && !strpbrk(a->path,"*?[]") && source_file_identity(a->path,&before,NULL)==SOURCE_DIGEST_OK;
     if (!source_prepare(db,a,p,error) || !resolve_analysis_types(db,a,error)) return false;
     duckdb_result r={0};
     bool ok=execute_page(db,a,offset,&r,error);
@@ -459,6 +461,13 @@ static bool fetch_window(Database *db,Analysis *a,uint64_t offset,int64_t known_
         p->total=p->row_count || !offset ? offset+p->row_count : 0;
     } else if (!database_count(db,a,&p->total,error)) return false;
     if (records && dx_file_stamp(a->path)!=p->records.stamp) { fail(error,"The source changed during the query. Refresh before using its records."); return false; }
+    if (records && file_identity) {
+        SourceFileIdentity after;
+        if (source_file_identity(a->path,&after,NULL)!=SOURCE_DIGEST_OK || !source_file_identity_same(&before,&after)) {
+            fail(error,"The source changed during the query. Its exact file identity no longer matches the fetched records. Refresh before using its data."); return false;
+        }
+        p->records.file_identity=before; p->records.file_identity_valid=true;
+    }
     p->query_ms = dx_millis() - start; return true;
 }
 bool database_fetch(Database *db,Analysis *a,uint64_t offset,int64_t total,Page *p,char **error) { return fetch_window(db,a,offset,total,p,true,16*1024*1024,0,error); }

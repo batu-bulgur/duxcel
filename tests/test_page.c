@@ -52,6 +52,8 @@ static void test_moved_and_nested_ownership(void) {
     page.totals->rows=owned_page(1,release_b); page.totals->rows.cells[0].text=text_b(exact);
     page.totals->columns=owned_page(1,NULL); page.totals->columns.cells[0].text=dx_strdup("18446744073709551615");
     page.totals->has_columns=true;
+    page.records.file_identity=(SourceFileIdentity){.device=1,.inode=UINT64_MAX,.size=9007199254740993,.changed_seconds=17}; page.records.file_identity_valid=true;
+    page.totals->rows.records.file_identity=(SourceFileIdentity){.device=2,.inode=3}; page.totals->rows.records.file_identity_valid=true;
     CHECK(page.cells[0].is_null && !page.cells[0].text);
     CHECK(!page.cells[1].is_null && page.cells[1].text && !*page.cells[1].text);
     CHECK(!page.cells[2].is_null && !strcmp(page.cells[2].text,"NULL"));
@@ -59,9 +61,12 @@ static void test_moved_and_nested_ownership(void) {
     CHECK(!page.columns[0].categories[0] && !*page.columns[0].categories[1] && !strcmp(page.columns[0].categories[2],"NULL"));
     Page moved=page; page=(Page){0}; page_free(&page);
     CHECK(!releases_a && !releases_b && moved.release_cell_text==release_a);
+    CHECK(moved.records.file_identity_valid && moved.records.file_identity.inode==UINT64_MAX && moved.records.file_identity.size==UINT64_C(9007199254740993) && moved.records.file_identity.changed_seconds==17);
+    CHECK(moved.totals->rows.records.file_identity_valid && moved.totals->rows.records.file_identity.device==2 && moved.totals->rows.records.file_identity.inode==3);
     page_free(&moved);
     CHECK(releases_a==4 && releases_b==1);
     CHECK(!moved.cells && !moved.columns && !moved.totals && !moved.release_cell_text && !moved.row_count && !moved.column_count);
+    CHECK(!moved.records.file_identity_valid && !moved.records.file_identity.inode && !moved.records.file_identity.size);
     page_free(&moved); CHECK(releases_a==4 && releases_b==1);
 }
 static void test_default_and_partial_pages(void) {

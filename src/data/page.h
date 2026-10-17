@@ -1,6 +1,7 @@
 #ifndef DUXCEL_PAGE_H
 #define DUXCEL_PAGE_H
 #include <duckdb.h> /* SQL type IDs only; this model owns no engine handles. */
+#include "source_digest.h"
 #include "../transforms/analysis.h"
 #include "../transforms/pivot.h"
 #define DX_PAGE_ROWS 256
@@ -73,6 +74,13 @@ typedef struct {
     char *source_key;
     size_t count;
     uint64_t stamp;
+    /* Optional native raw-file observation, checked unchanged around the whole
+       fetch (including preparation and an exact count when requested). Inline
+       POD owns no bytes beyond Page itself; may remain when optional IDs do not
+       fit. A later digest must explicitly match it before claiming Page binding.
+       Absent for demo, browser and unsupported/rejected file observations. */
+    SourceFileIdentity file_identity;
+    bool file_identity_valid;
 } PageRecords;
 /* Page owns columns/cells/relations, including all text. Never shared while mutable.
    Every non-NULL Cell.text uses release_cell_text, or free when the callback is
