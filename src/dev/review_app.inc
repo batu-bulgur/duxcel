@@ -462,6 +462,10 @@ static void review_author_panel(App *a,const char *kind,const char *title,Rectan
     float offset=a->popup_capturing ? a->popup_presence.offset*a->ui.scale : 0;
     char state[480]; snprintf(state,sizeof(state)," author_kind=%s author_parent=%s author_count=00 author_overflow=0 author_panel=%.3f,%.3f,%.3f,%.3f author_heading=%.3f,%.3f,%.3f,%.3f",kind,parent,panel.x,panel.y+offset,panel.width,panel.height,heading.x,heading.y+offset,heading.width,heading.height);
     review_author_capture_state(a,state);
+    if (!strcmp(kind,"error")) {
+        const DxReviewWidget *widget=dx_review_find(a->review->registry,parent);
+        if (widget) { const DxReviewDataIdentity *origin=&widget->data; char identity[256]; snprintf(identity,sizeof(identity)," error_kind=%s error_origin=%llu,%llu,%llu,%llu,%llu,%d,%llu,%llu",origin->kind,(unsigned long long)origin->sheet_id,(unsigned long long)origin->object_id,(unsigned long long)origin->source_id,(unsigned long long)origin->schema_generation,(unsigned long long)origin->query_generation,origin->has_cell,(unsigned long long)origin->row,(unsigned long long)origin->column); review_author_capture_state(a,identity); }
+    }
     if (!strcmp(kind,"source_query")) {
         char query[320]; snprintf(query,sizeof(query)," query_object=%d query_source_revision=%llu query_draft_revision=%llu query_focus=%d query_loading=%d query_cursor=%zu query_anchor=%zu query_scroll=%d",a->query_object,(unsigned long long)a->query_source_revision,(unsigned long long)a->input.revision,a->query_focus,a->query_loading,a->input.cursor,a->input.anchor,a->query_editor.scroll);
         review_author_capture_state(a,query);
