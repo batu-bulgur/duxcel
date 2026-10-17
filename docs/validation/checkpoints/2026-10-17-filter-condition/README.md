@@ -18,7 +18,7 @@ Review targets now use the same displayed rows/scroll offset and selected-state 
 | --- | --- | --- |
 | Current optimized shipping App |66 maintained stages;35.612s App /36.607s total;477 hidden-window checks|[summary](release/summary.json), [App log](release/native-filter.txt)|
 | Current O1 ASan/UBSan App |Same66 stages;37.611s App /38.783s total;477 background checks|[summary](sanitize/summary.json), [App log](sanitize/native-filter.txt)|
-| O1 ASan/UBSan native reporting |26 stages,2.351s App; two actual frame-bound reports retrieved|[summary](review/summary.json), [log](review/sanitize.log)|
+| O1 ASan/UBSan native reporting |26 stages,2.351s App; two actual frame-bound reports retrieved|[summary](review/summary.json), [log](review/native-review.txt)|
 | Integrated choiceview/select painters, release and ASan/UBSan |8,780 checks each;2.890s including1.702s build|[summary](helper/summary.json)|
 | Old style compatibility |2,048 before/after drawing/state scenarios identical; all6,302 prior geometry assertions retained|[helper evidence](helper-compatibility.json)|
 | Current optimized shipping versus current sanitizer review binary |Build contract + actual linked absence passed|[absence record](shipping-absence.json)|
