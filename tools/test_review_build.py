@@ -22,6 +22,7 @@ MODULES = ("registry", "store", "input", "capture")
 REQUIRED_SYMBOLS = ("dx_review_begin", "dx_review_store_write", "dx_review_input_blocked",
                     "dx_review_capture_create", "ui_review_discard_input", "dx_review_take_native_request")
 MARKERS = (b"--review-smoke", b"DUXCEL_REVIEW_OUTBOX", b"duxcel.native-review", b"Report UI issue")
+TEST_MARKERS = (b"dx_test_source_digest_checkpoint",)
 SYMBOL = re.compile(r"(?<![A-Za-z0-9_])_?((?:dx|ui)_review_[A-Za-z0-9_]+)(?![A-Za-z0-9_])")
 
 
@@ -166,12 +167,14 @@ def inspect_binary(path, nm="nm"):
     return {"path": str(path), "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
             "symbols": sorted(set(SYMBOL.findall(result.stdout))),
             "markers": [marker.decode() for marker in MARKERS if marker in data],
+            "test_markers": [marker.decode() for marker in TEST_MARKERS if marker in data],
             "review_source_paths": bool(re.search(rb"src[/\\]dev[/\\]review_[A-Za-z_]+\.[ch]", data))}
 
 
 def check_binaries(shipping, review, nm="nm"):
     require(Path(shipping).resolve() != Path(review).resolve(), "Shipping and review artifacts must be distinct")
     production, development = inspect_binary(shipping, nm), inspect_binary(review, nm)
+    require(not production["test_markers"] and not development["test_markers"], "Application artifact includes isolated test checkpoints")
     require(not production["symbols"], "Shipping linked review symbols: " + ", ".join(production["symbols"]))
     require(not production["markers"], "Shipping embeds review command/data strings: " + ", ".join(production["markers"]))
     require(not production["review_source_paths"], "Shipping embeds review module source paths")
@@ -241,6 +244,16 @@ class FixtureTests(unittest.TestCase):
                 self.shipping.write_bytes(b"shipping\0" + marker)
                 with self.assertRaises(ContractError):
                     check_binaries(self.shipping, self.review)
+
+    def test_isolated_checkpoints_fail_in_both_application_configurations(self):
+        for target in (self.shipping, self.review):
+            original=target.read_bytes()
+            try:
+                target.write_bytes(original+b"\0"+TEST_MARKERS[0])
+                with mock.patch.object(subprocess,"run",side_effect=self.nm), self.assertRaises(ContractError):
+                    check_binaries(self.shipping,self.review)
+            finally:
+                target.write_bytes(original)
 
     def test_shipping_symbols_fail_and_review_symbols_are_required(self):
         for shipping in (True, False):

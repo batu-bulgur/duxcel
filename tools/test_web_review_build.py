@@ -37,6 +37,8 @@ def main():
     forbidden=[b'dx_review_',b'duxcel.native-review',b'duxcel.browser-review',b'dxBrowserWorkerTestDone',b'test_browser_worker.c']
     wasm=(normal/'duxcel.wasm').read_bytes();markers={value.decode():value not in wasm for value in forbidden}
     check(all(markers.values()),'Shipping Wasm contains review/acceptance markers')
+    for directory in (normal,review):
+        check(b'dx_test_source_digest_checkpoint' not in (directory/'duxcel.wasm').read_bytes(),'Browser App contains an isolated native verification test checkpoint')
     check(not any((normal/name).exists() for name in ('review_host.mjs','host_review.mjs','review_queue.mjs','worker_test_host.mjs','official_worker_probe.mjs','persistence_probe.mjs')),'Shipping contains review/acceptance host assets')
     for directory in (normal,review):
         for name in ('canvas_surface.mjs','canvas_wheel.mjs','browser_platform.mjs','clipboard.mjs','download.mjs'):

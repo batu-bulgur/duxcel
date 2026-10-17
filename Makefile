@@ -16,7 +16,7 @@ THREAD_LIBS =
 endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c
+CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c
 SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/app/step_preview.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m
@@ -290,8 +290,8 @@ test-records:
 	python3 tools/test.py records $(TEST_ARGS)
 .PHONY: test-records
 
-# Native source verification prerequisite; not linked into App until its worker
-# request/source-version lifetime is integrated. No database or window needed.
+# Native source verification prerequisites. The helper has no database/window;
+# the isolated worker gate proves cancellation without opening a connection.
 SOURCE_DIGEST_TEST = src/data/source_digest.c tests/test_source_digest.c
 build/data-tests/test-source-digest: $(SOURCE_DIGEST_TEST) src/data/source_digest.h
 	mkdir -p $(@D)
@@ -307,6 +307,17 @@ test-source-digest: build/data-tests/test-source-digest build/data-tests/test-so
 	ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-source-digest-sanitize
 	./build/data-tests/test-source-digest-unsupported
 .PHONY: test-source-digest
+WORKER_SOURCE_DIGEST_TEST = $(CORE) tests/test_worker_source_digest.c
+build/data-tests/test-worker-source-digest: $(WORKER_SOURCE_DIGEST_TEST) $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror -DDUXCEL_TEST_SOURCE_DIGEST $(WORKER_SOURCE_DIGEST_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+build/data-tests/test-worker-source-digest-sanitize: $(WORKER_SOURCE_DIGEST_TEST) $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) -DDUXCEL_TEST_SOURCE_DIGEST $(WORKER_SOURCE_DIGEST_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+test-worker-source-digest: build/data-tests/test-worker-source-digest build/data-tests/test-worker-source-digest-sanitize
+	./build/data-tests/test-worker-source-digest
+	ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-worker-source-digest-sanitize
+.PHONY: test-worker-source-digest
 tests/test_workbook: $(CORE) tests/test_workbook.c $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 tests/test_workbook-debug: $(CORE) tests/test_workbook.c $(HEADERS)
