@@ -100,6 +100,23 @@ static void test_request_ownership(void) {
     CHECK(!*request->texts[0] && !strcmp(request->texts[1],"NULL"));
     statistics_request_free(request); statistics_request_free(NULL); free(error);
 }
+static void test_rejected_request_cleanup(void) {
+    StatisticsRequest *request=dx_alloc(sizeof(*request)); request->text_count=request->text_capacity=SIZE_MAX;
+    statistics_request_free(request); CHECK(true); /* No pointer array exists. */
+    for (size_t test=0;test<3;test++) {
+        size_t count=test==2 ? 32768 : 2;
+        request=dx_alloc(sizeof(*request)); request->texts=dx_alloc(count*sizeof(char *));
+        for (size_t i=0;i<count;i++) request->texts[i]=dx_strdup(i%2 ? "NULL" : "");
+        request->text_capacity=test==1 || test==2 ? SIZE_MAX : count;
+        request->text_count=test==1 ? count : SIZE_MAX;
+        request->count=SIZE_MAX; request->sources.count=SIZE_MAX;
+        for (size_t i=0;i<DX_MAX_OBJECTS+1;i++) CHECK(pivot_assign(&request->ranges[i].pivot,PIVOT_VALUES,"Owned rejected measure",AGG_SUM,NULL));
+        for (size_t i=0;i<DX_MAX_OBJECTS;i++) request->sources.items[i]=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup("owned-rejected-source.csv")};
+        statistics_request_free(request); CHECK(true); /* ASan verifies every loop stays within its owned bound. */
+    }
+    request=dx_alloc(sizeof(*request)); request->texts=dx_alloc(sizeof(char *)); request->text_count=SIZE_MAX;
+    statistics_request_free(request); CHECK(true); /* Zero capacity owns no text entries. */
+}
 #ifdef DUXCEL_PAGE_ENGINE_TEST
 static void test_native_allocator(void) {
     char *error=NULL; Database database={0}; Page page={0};
@@ -125,7 +142,7 @@ static void test_native_allocator(void) {
 }
 #endif
 int main(void) {
-    test_moved_and_nested_ownership(); test_default_and_partial_pages(); test_distinct_and_statistics(); test_request_ownership();
+    test_moved_and_nested_ownership(); test_default_and_partial_pages(); test_distinct_and_statistics(); test_request_ownership(); test_rejected_request_cleanup();
 #ifdef DUXCEL_PAGE_ENGINE_TEST
     test_native_allocator();
 #endif

@@ -1,6 +1,7 @@
 #include "page.h"
 #include <stdlib.h>
 #include <string.h>
+enum { STATISTICS_TEXT_LIMIT=32768 };
 
 static void fail(char **error,const char *text) {
     free(*error); *error=dx_strdup(text ? text : "DuckDB query failed");
@@ -64,13 +65,15 @@ void statistics_request_free(StatisticsRequest *request) {
     if (!request) return;
     for (size_t i=0;i<request->count && i<DX_MAX_OBJECTS+1;i++) pivot_free(&request->ranges[i].pivot);
     source_snapshot_free(&request->sources);
-    for (size_t i=0;i<request->text_count;i++) free(request->texts[i]);
+    /* Rejected owned jobs may have malformed counts. Capacity is the allocated
+       pointer-array bound; valid helper-owned requests never exceed 32,768. */
+    for (size_t i=0;request->texts && i<request->text_count && i<request->text_capacity && i<STATISTICS_TEXT_LIMIT;i++) free(request->texts[i]);
     free(request->texts); free(request);
 }
 bool statistics_request_text(StatisticsRequest *request,const char *text,char **error) {
     if (!text) return true;
     size_t bytes=strlen(text)+1;
-    if (request->text_count>=32768 || bytes>8*1024*1024-request->text_bytes) { fail(error,"Selection labels exceed the 8 MiB statistics snapshot limit."); return false; }
+    if (request->text_count>=STATISTICS_TEXT_LIMIT || bytes>8*1024*1024-request->text_bytes) { fail(error,"Selection labels exceed the 8 MiB statistics snapshot limit."); return false; }
     if (request->text_count==request->text_capacity) { request->text_capacity=request->text_capacity ? request->text_capacity*2 : 32; request->texts=dx_realloc(request->texts,request->text_capacity*sizeof(*request->texts)); }
     request->texts[request->text_count++]=dx_strdup(text); request->text_bytes+=bytes; return true;
 }
