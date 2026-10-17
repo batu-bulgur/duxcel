@@ -21,6 +21,7 @@ const reviewControlsOnly=process.argv.includes('--review-controls-only');
 const analysisOnly=process.argv.includes('--analysis-only');
 const analysisColumnsOnly=process.argv.includes('--analysis-columns-only');
 const reviewQueryOnly=process.argv.includes('--review-query-only');
+const reviewValuesOnly=process.argv.includes('--review-values-only');
 const analysisStatisticsOnly=process.argv.includes('--analysis-statistics-only');
 const statisticsOnly=process.argv.includes('--statistics-only');
 const queryApply=process.argv.includes('--query-apply');
@@ -30,12 +31,14 @@ const platform=process.argv.includes('--platform');
 const altStress=process.argv.includes('--alt-stress');
 const persistence=process.argv.includes('--persistence');
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
-if(accessOnly&&(!review||['--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--review-controls-only','--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
-if(zoomOnly&&(!review||['--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--review-controls-only','--access-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--zoom-only requires --review and excludes access/engine/platform/report-upload options');
-if(reviewControlsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-controls-only requires --review/transactions.csv and excludes access/zoom/engine/platform/report-upload options');
-if((analysisOnly||analysisColumnsOnly||analysisStatisticsOnly)&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||Number(analysisOnly)+Number(analysisColumnsOnly)+Number(analysisStatisticsOnly)>1||['--statistics-only','--review-query-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('Analytical profiles require --review/transactions.csv and exclude other focused profiles or report-upload options');
-if(reviewQueryOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--analysis-statistics-only','--statistics-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-query-only requires --review/transactions.csv and excludes other profiles or report-upload options');
-if(statisticsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--analysis-statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--statistics-only requires --review/transactions.csv and excludes other profiles or report-upload options');
+if(review&&workerProbe)throw new Error('--review and --worker-probe require separate artifact/server profiles');
+if(accessOnly&&(!review||['--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--review-controls-only','--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
+if(zoomOnly&&(!review||['--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--review-controls-only','--access-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--zoom-only requires --review and excludes access/engine/platform/report-upload options');
+if(reviewControlsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-controls-only requires --review/transactions.csv and excludes access/zoom/engine/platform/report-upload options');
+if((analysisOnly||analysisColumnsOnly||analysisStatisticsOnly)&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||Number(analysisOnly)+Number(analysisColumnsOnly)+Number(analysisStatisticsOnly)>1||['--review-values-only','--statistics-only','--review-query-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('Analytical profiles require --review/transactions.csv and exclude other focused profiles or report-upload options');
+if(reviewQueryOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--review-values-only','--analysis-statistics-only','--statistics-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-query-only requires --review/transactions.csv and excludes other profiles or report-upload options');
+if(statisticsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--review-values-only','--analysis-statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--statistics-only requires --review/transactions.csv and excludes other profiles or report-upload options');
+if(reviewValuesOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='null-text.csv'||['--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-values-only requires --review/null-text.csv and excludes other profiles or report-upload options');
 if(queryApply&&!reviewQueryOnly)throw new Error('--query-apply requires --review-query-only');
 await fs.mkdir(output,{recursive:true});
 const profile=await fs.mkdtemp(path.join(os.tmpdir(),'duxcel-browser-'));
@@ -55,6 +58,7 @@ let reviewControlsResult;
 let analysisResult;
 let queryReviewResult;
 let statisticsResult;
+let reviewValuesResult;
 let stderr='',ws,cdp,activePhase='';const events=[],steps=[];let checks=0;const started=Date.now();
 function check(value,message){checks++;if(!value)throw new Error(message);}
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -548,12 +552,12 @@ async function waitStatistics(afterId=null){
  }
  throw new Error('Actual C selection did not publish statistics');
 }
-function statisticsCache(state,{rows,values,reply,row=0,column=2,owner=-1,counts=[rows,rows,rows,rows]}={}){
+function statisticsCache(state,{rows,values,reply,row=0,column=2,owner=-1,counts=[rows,rows,rows,rows],flags='1,0,0,0'}={}){
  check(state.stats_state==='3'&&state.stats_request==='0'&&state.stats_object===String(owner)&&state.stats_error==='0','Actual selection statistics are not ready/error-free with released request ownership');
  const key=state.stats_key?.split(',');check(key?.length===7&&key.every(value=>/^[0-9]+$/.test(value)),'Missing actual cached statistics selection/source key');
  check(key.join(',')===[String(row),String(row+rows-1),String(column),String(column),state.source_revision,state.sheet,'1'].join(','),'Statistics cache belongs to a stale source/selection');
  check(state.stats_cells===String(rows)&&state.stats_counts===counts.join(','),'Statistics did not retain selected-cell, filled, numeric and distinct counts');
- check(state.stats_flags==='1,0,0,0','Amount statistics lost approximate/finite/overflow semantics');
+ check(state.stats_flags===flags,'Amount statistics lost approximate/finite/overflow semantics');
  check(state.grid_selection==='0'&&state.active===row+','+column&&state.anchor===row+','+column&&state.extent===(row+rows-1)+','+column,'Statistics changed the actual selected Amount cells');
  if(reply)check(state.request===reply.id,'App did not adopt the current real statistics reply');
  const metrics={};for(const [index,name]of ['sum','average','minimum','maximum'].entries()){
@@ -614,6 +618,75 @@ async function browserStatistics(){
   idle:{minimum_milliseconds:300,observed_milliseconds:Date.now()-idleStart,started_jobs:idleJobs},
   scope:'Actual trusted primary-source Amount C1:C5 selection, official Worker kind10 publication and owned C counts/Sum/Average/Minimum/Maximum; current result retained through real sheet pan/zoom, status dialog and idle rendering without resubmission. Single-cell invalidation and actual City checklist filtering create a fresh two-row source revision/readout. Mixed/manual/object statistics, forced in-flight cancellation, physical input and report upload remain separate.'};
  await fs.writeFile(path.join(output,'statistics.json'),JSON.stringify(result,null,2));return result;
+}
+function retainedValueReview(pick,prefix){
+ const fields=Object.keys(pick.before).filter(name=>name.startsWith(prefix));
+ check(fields.length>0&&fields.every(name=>pick.after[name]===pick.before[name]),'Review cancellation changed owned '+prefix+' state/value/origin');
+}
+function statisticsReviewMenu(menu,expected){
+ const state=menu.state,keys=['cells','filled','numeric','distinct','sum','average','minimum','maximum','done'];
+ check(menu.rows.map(row=>row.key).join(',')===keys.join(',')&&menu.rows.every(row=>row.enabled),'Actual Statistics popup lost a metric checkbox or Done action');
+ check(state.stats_menu_enabled==='1'&&state.stats_menu_preview==='0'&&state.stats_menu_frame==='0'&&state.stats_menu_object==='-1'&&state.stats_menu_state==='3'&&state.stats_menu_range==='0,5,2,2'&&state.stats_menu_flags==='0,0,0,0','Actual Statistics popup does not describe its current exact source range');
+ const mask=Number(state.stats_menu_mask),focus=Number(state.stats_menu_focus);
+ check(Number.isInteger(mask)&&Number.isInteger(focus)&&menu.rows.every((row,index)=>row.checked===(index<8&&!!(mask&(1<<index)))&&row.focused===(index===focus)),'Statistics checkbox/focus flags differ from the actual cached mask');
+ statisticsCache(state,expected);return{mask,focus};
+}
+function inspectorReviewState(menu,{row,text,isNull}){
+ const state=menu.state;check(menu.rows.map(item=>item.key).join(',')==='copy,close'&&menu.rows[0].enabled===!isNull&&menu.rows[1].enabled&&menu.rows.every(item=>!item.checked&&!item.focused),'Inspector Copy availability or Close semantics do not match the actual NULL value');
+ const decode=name=>{const value=state[name];check(value==='-'||/^(?:[0-9a-f]{2})+$/.test(value??''),'Missing bounded inspector '+name);return value==='-'?'':Buffer.from(value,'hex').toString('utf8');};
+ check(state.inspector_null===String(Number(isNull))&&state.inspector_bytes===String(Buffer.byteLength(text))&&decode('inspector_text_hex')===text&&decode('inspector_type_hex')==='VARCHAR'&&decode('inspector_field_hex')==='Value','Inspector lost the exact SQL NULL/empty/literal source value or type');
+ check(['inspector_origin_truncated','inspector_value_truncated','inspector_text_truncated','inspector_type_truncated','inspector_field_truncated','inspector_limited','inspector_origin_stale'].every(name=>state[name]==='0')&&state.inspector_origin_valid==='1','Inspector origin/value is stale, limited or truncated');
+ const origin=state.inspector_origin?.split(',');check(origin?.join(',')===['1','0',String(Number(state.sheet)+1),'0','0','0',state.source_revision,String(row),'1'].join(','),'Inspector pinned the wrong source cell/revision');
+ const bounds=state.inspector_value_rect?.split(',').map(Number),panel=menu.panel;check(bounds?.length===4&&bounds.every(Number.isFinite)&&bounds[2]>0&&bounds[3]>0&&bounds[0]>=panel[0]&&bounds[1]>=panel[1]&&bounds[0]+bounds[2]<=panel[0]+panel[2]+.01&&bounds[1]+bounds[3]<=panel[1]+panel[3]+.01,'Inspector value target escaped its actual clipped panel');
+ check(state.inspector_scroll==='0'&&Number(state.inspector_lines)>=0,'Short inspector value unexpectedly retained a scroll offset');return{origin,bounds,text,isNull};
+}
+async function browserReviewValues(){
+ const source=await zoomSource({total:'6',columns:3}),initial=await platformSnapshot();check(initial.manual_cells==='0'&&initial.object_count==='0','Value review requires the unmodified imported NULL/text fixture');
+ await selectAmount(6);const reply=await waitStatistics(),ready=await platformSnapshot(),expected={rows:6,counts:[6,6,6,1],values:[60,10,10,10],flags:'0,0,0,0',reply},cache=statisticsCache(ready,expected);
+ let status=false;for(let index=0;index<8;index++){await key('F6','F6',117);const state=await platformSnapshot();if(state.focus?.split('/')[0]==='10'){status=true;break;}}
+ check(status,'Real status focus traversal could not open Statistics');await key('Enter','Enter',13);
+ const opened=authorState(await platformSnapshot(),'statistics'),original=statisticsReviewMenu(opened,expected),statisticsJobs=starts().length;
+ await authorActivate('statistics','minimum');const checked=authorState(await platformSnapshot(),'statistics'),toggled=statisticsReviewMenu(checked,expected);
+ check(toggled.mask===(original.mask^64)&&toggled.focus===6&&checked.rows[6].checked!==opened.rows[6].checked,'Actual minimum checkbox did not toggle without changing cached values');
+ const statisticsPicks=[];
+ for(const [name,choose,frozenName]of[
+  ['values-statistics-sum',menu=>menu.rows.find(row=>row.key==='sum'),'values-statistics'],
+  ['values-statistics-heading',menu=>({id:menu.state.author_parent+'.heading',bounds:menu.heading}),null],
+  ['values-statistics-done',menu=>menu.rows.find(row=>row.key==='done'),null]]){
+  const picked=await authorPick('statistics',choose,name,{frozenName});retainedValueReview(picked,'stats_');statisticsPicks.push(picked);
+ }
+ await authorActivate('statistics','minimum');const restored=authorState(await platformSnapshot(),'statistics');check(statisticsReviewMenu(restored,expected).mask===original.mask,'Actual checkbox restoration lost the original metric mask');
+ check(starts().length===statisticsJobs,'Statistics checkbox/picker cancellation submitted additional SQL');await authorActivate('statistics','done');await key('Escape','Escape',27);await sourceHome();
+ const cases=[];
+ for(const specification of [{name:'sql-null',row:0,text:'',isNull:true},{name:'empty-varchar',row:2,text:'',isNull:false},{name:'literal-null',row:1,text:'NULL',isNull:false}]){
+  await sourceHome();await key('ArrowRight','ArrowRight',39);for(let index=0;index<specification.row;index++)await key('ArrowDown','ArrowDown',40);const selected=await platformSnapshot();
+  check(selected.active===specification.row+',1'&&selected.extent===selected.active,'Actual source row navigation did not select the intended Value cell');
+  const [bx]=selected.body.split(',').map(Number),[cw]=selected.grid_cell.split(',').map(Number),[,gy]=selected.grid_rect.split(',').map(Number),scale=Number(selected.ui_scale);
+  await rightClick(bx+1.5*cw-Number(selected.horizontal)*scale*Number(selected.zoom),gy+10*scale);await authorActivate('context','inspect');
+  if(specification.name==='literal-null'){await send('Emulation.setDeviceMetricsOverride',{width:640,height:480,deviceScaleFactor:dpr,mobile:false});await frames(4);}
+  const inspector=authorState(await platformSnapshot(),'cell_inspector'),value=inspectorReviewState(inspector,specification),picks=[],jobs=starts().length;await capture('values-inspector-'+specification.name);
+  const valuePick=await authorPick('cell_inspector',menu=>({id:'author.cell_inspector.value',bounds:menu.state.inspector_value_rect.split(',').map(Number)}),'values-'+specification.name,{frozenName:specification.isNull?'values-inspector':null});retainedValueReview(valuePick,'inspector_');picks.push(valuePick);
+  if(specification.name==='literal-null')for(const [name,choose]of[
+   ['values-inspector-heading',menu=>({id:menu.state.author_parent+'.heading',bounds:menu.heading})],
+   ['values-inspector-backdrop',menu=>({id:menu.state.author_parent+'.backdrop.background',bounds:[1,Number(menu.state.logical.split(',')[1])/2,2,2]} )],
+   ['values-inspector-close',menu=>menu.rows.find(row=>row.key==='close')]]){
+   const pick=await authorPick('cell_inspector',choose,name);retainedValueReview(pick,'inspector_');picks.push(pick);
+  }
+  const retained=authorState(await platformSnapshot(),'cell_inspector');inspectorReviewState(retained,specification);check(starts().length===jobs,'Cell Inspector review/picker cancellation submitted database work');
+  await authorActivate('cell_inspector','close');await sourceHome();const returned=await platformSnapshot();
+  check(returned.modal==='0'&&returned.active==='0,0'&&returned.extent==='0,0'&&returned.selected_object==='-1'&&['sheet','source_revision','schema','page','manual_cells','object_count'].every(name=>returned[name]===initial[name]),'Closing Inspector lost source ownership or fabricated worksheet values');
+  // Header inspection selects a whole column. Its ordinary Close may schedule
+  // legitimate range statistics before Ctrl+Home clears it; report cancellation
+  // above must not schedule anything. Keep these operations explicitly separate.
+  const closeJobs=starts().slice(jobs);check(closeJobs.every(job=>job.kind===10),'Ordinary Inspector Close scheduled work beyond existing selection statistics');
+  cases.push({specification,selected,opened:inspector.state,value,picks,retained:retained.state,returned,ordinary_close_jobs:closeJobs});
+ }
+ await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:dpr,mobile:false});await frames(4);const idleJobs=starts().length;await pause(300);await frames(3);const final=await platformSnapshot();
+ check(final.modal==='0'&&final.stats_state==='0'&&final.stats_request==='0'&&starts().length===idleJobs,'Idle restored source retained a stale inspector/statistics request or resubmitted SQL');
+ check(consoleText('Browser review prepared: ').length===0&&(await pendingReports()).length===0,'Value review unexpectedly staged a saved report');const queue=await(await fetch(new URL('/__review/queue',url))).json();check(queue.reports.length===0,'Value review wrote into the persistent queue');
+ const result={source,initial,reply,ready,cache,statistics:{opened:opened.state,original,checked:checked.state,toggled,picks:statisticsPicks,restored:restored.state},cases,final,
+  scope:'Actual imported null-text.csv through the shared C Open control and official Worker; exact cached Statistics values, real metric checkbox toggling and frozen Sum/heading/Done picking. Visible column-header Inspect value opens owned SQL NULL, zero-byte VARCHAR and literal NULL inspectors with exact type/text and pinned source cell/revision, including narrow-window clipping. Value/heading/backdrop/Close picking and composer cancellation preserve all cached state without SQL. Copy is never activated; ordinary header-inspector Close statistics are recorded separately. No clipboard, saved reports, mixed-range or forced pending-query acceptance.'};
+ await fs.writeFile(path.join(output,'review-values.json'),JSON.stringify(result,null,2));return result;
 }
 const queryOwnedFields=['query_object','query_source_revision','query_draft_revision','query_focus','query_loading','query_cursor','query_anchor','query_scroll','selected_object','object_count','object','object_page','pivot_counts'];
 async function sourceQueryDraft(text){
@@ -850,12 +923,12 @@ async function gridZoomHeaders(name,sourceHeader){
  const result={baseline,pixels,samples,interfaceScaled,interfaceRestored,enlarged,columnSelected,rowSelected,resizePointer,deliveredResize,resized,filter,final,jobs:newJobs,scope:'Actual shared C capture geometry and GL label bounds, DOM pixel Ctrl-wheel through C zoom, trusted pointer column/row selection and column resizing, real optional Worker distinct values, and keyboard Interface scale. Zoom/scale submit zero jobs; source selection may request existing browser-unsupported statistics. No physical pinch/trackpad or report-upload acceptance.'};
  await fs.writeFile(path.join(output,'zoom-'+name+'.json'),JSON.stringify(result,null,2));return result;
 }
-async function zoomSource(){
+async function zoomSource({total='5',columns=6}={}){
  await send('Page.setInterceptFileChooserDialog',{enabled:true});
  await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Control','ControlLeft',17));await key('o','KeyO',79,'',2);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Control','ControlLeft',17));await frames();
  const document=await send('DOM.getDocument'),input=await send('DOM.querySelector',{nodeId:document.root.nodeId,selector:'#duxcel-file-input'});
- check(input.nodeId,'C Open did not invoke browser file selection for zoom gate');await send('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[sourceFile]});
- const imported=await waitPage();check(imported.total==='5'&&imported.columns===6,'Zoom gate requires the real transactions source');await frames(4);return imported;
+ check(input.nodeId,'C Open did not invoke browser file selection for review gate');await send('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[sourceFile]});
+ const imported=await waitPage();check(imported.total===total&&imported.columns===columns,'Review gate requires the expected real imported source');await frames(4);return imported;
 }
 async function pendingReports(){
  return evaluate(`(async()=>{const {createIndexedDBReviewStore}=await import('/review_queue.mjs');const store=createIndexedDBReviewStore();try{return(await store.listPending()).map(row=>({report_id:row.reportId,digest:row.digest,bytes:row.blob.size}));}finally{store.close();}})()`);
@@ -954,7 +1027,9 @@ try{
  check(surface.dpr===dpr,'Browser device pixel ratio mismatch');
  check(surface.canvas[0]===1280*dpr&&surface.canvas[1]===820*dpr,'Framebuffer is not rendered at actual DPR');
  await capture('wide');
- if(statisticsOnly){
+ if(reviewValuesOnly){
+  reviewValuesResult=await browserReviewValues();
+ }else if(statisticsOnly){
   statisticsResult=await browserStatistics();
  }else if(reviewQueryOnly){
   queryReviewResult=await browserQueryReview();
@@ -1178,9 +1253,9 @@ try{
  resources.c_bridge=consoleText('Browser worker metrics: ').map(line=>JSON.parse(line.slice('Browser worker metrics: '.length)));
  resources.scope='Navigation-to-first completed C frame and parent resource timing; main JS heap excludes Worker/GPU/process RSS. C bridge metrics are review-only bounded callback/job observations; decode_ms is C validation/allocation/copy, elapsed_ms includes asynchronous engine/transport scheduling. Worker network bytes are not inferred from parent Resource Timing.';
  await fs.writeFile(path.join(output,'resources.json'),JSON.stringify(resources,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,reviewControlsResult,analysisResult,queryReviewResult,statisticsResult,workerProbe,
-  profile:analysisStatisticsOnly?'analysis-statistics-only':statisticsOnly?'statistics-only':queryApply?'review-query-apply':reviewQueryOnly?'review-query-only':analysisColumnsOnly?'analysis-columns-only':analysisOnly?'analysis-only':reviewControlsOnly?'review-controls-only':zoomOnly?'zoom-only':accessOnly?'access-only':'standard',
-  scope:analysisStatisticsOnly?analysisResult.scope:statisticsOnly?statisticsResult.scope:reviewQueryOnly?queryReviewResult.scope:analysisColumnsOnly?analysisResult.scope:analysisOnly?'Shared C same-sheet Rows/Values analysis, real matrix/grand totals and source/manual ownership; no Columns pivot, broad analytics or report upload.':reviewControlsOnly?'Shared C source/manual contextual targets and field-menu children, editable width/Move drafts and guarded Close, trusted input ownership and cancel retention, narrow150% clipping; no analytical-object or report-upload acceptance.':zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,reviewControlsResult,analysisResult,queryReviewResult,statisticsResult,reviewValuesResult,workerProbe,
+  profile:reviewValuesOnly?'review-values-only':analysisStatisticsOnly?'analysis-statistics-only':statisticsOnly?'statistics-only':queryApply?'review-query-apply':reviewQueryOnly?'review-query-only':analysisColumnsOnly?'analysis-columns-only':analysisOnly?'analysis-only':reviewControlsOnly?'review-controls-only':zoomOnly?'zoom-only':accessOnly?'access-only':'standard',
+  scope:reviewValuesOnly?reviewValuesResult.scope:analysisStatisticsOnly?analysisResult.scope:statisticsOnly?statisticsResult.scope:reviewQueryOnly?queryReviewResult.scope:analysisColumnsOnly?analysisResult.scope:analysisOnly?'Shared C same-sheet Rows/Values analysis, real matrix/grand totals and source/manual ownership; no Columns pivot, broad analytics or report upload.':reviewControlsOnly?'Shared C source/manual contextual targets and field-menu children, editable width/Move drafts and guarded Close, trusted input ownership and cancel retention, narrow150% clipping; no analytical-object or report-upload acceptance.':zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){

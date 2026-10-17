@@ -38,6 +38,7 @@ def parse_options(argv=None):
     parser.add_argument('--analysis-only',action='store_true',help='Real C same-sheet Rows/Values matrix and grand totals; requires --review and transactions.csv')
     parser.add_argument('--analysis-columns-only',action='store_true',help='Real C Columns Approved pivot over Rows City/SUM Amount; requires --review and transactions.csv')
     parser.add_argument('--review-query-only',action='store_true',help='Primary source-query review ownership while a pivot is selected; requires --review and transactions.csv')
+    parser.add_argument('--review-values-only',action='store_true',help='Actual Statistics/Cell Inspector review ownership and NULL/empty/literal values; requires --review and null-text.csv')
     parser.add_argument('--analysis-statistics-only',action='store_true',help='Real C Rows/Columns matrix-cell statistics and retained analytical/source ownership; requires --review and transactions.csv')
     parser.add_argument('--statistics-only',action='store_true',help='Real C source selection statistics, cache retention and filtered-source invalidation; requires --review and transactions.csv')
     parser.add_argument('--query-apply',action='store_true',help='Additionally validate/apply the real edited source through the official Worker; requires --review-query-only')
@@ -49,19 +50,28 @@ def parse_options(argv=None):
     parser.add_argument('--platform',action='store_true',help='Real C DPI/pixel pan/zoom gate (review source fixture)')
     parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker file compatibility (test-only, no Save UI claim)')
     options=parser.parse_args(argv)
+    if options.review and options.worker_probe:
+        parser.error('--review and --worker-probe use separate artifact/server profiles')
     if options.query_apply and not options.review_query_only:
         parser.error('--query-apply requires --review-query-only')
+    if options.review_values_only:
+        if not options.review or not options.source or options.source.name!='null-text.csv':
+            parser.error('--review-values-only requires --review and --source tests/fixtures/null-text.csv')
+        if any((options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.analysis_only,options.analysis_columns_only,options.access_only,options.zoom_only,options.review_controls_only,
+                options.filters,options.busy,options.worker_driver,options.worker_probe,options.platform,
+                options.alt_stress,options.persistence,options.review_offline,options.review_outbox)):
+            parser.error('--review-values-only is a separate value-review gate without other profiles or report-upload options')
     if options.statistics_only:
         if not options.review or not options.source or options.source.name!='transactions.csv':
             parser.error('--statistics-only requires --review and --source tests/fixtures/transactions.csv')
-        if any((options.analysis_statistics_only,options.review_query_only,options.analysis_only,options.analysis_columns_only,options.access_only,options.zoom_only,options.review_controls_only,
+        if any((options.review_values_only,options.analysis_statistics_only,options.review_query_only,options.analysis_only,options.analysis_columns_only,options.access_only,options.zoom_only,options.review_controls_only,
                 options.filters,options.busy,options.worker_driver,options.worker_probe,options.platform,
                 options.alt_stress,options.persistence,options.review_offline,options.review_outbox)):
             parser.error('--statistics-only is a separate source-statistics gate without other profiles or report-upload options')
     if options.review_query_only:
         if not options.review or not options.source or options.source.name!='transactions.csv':
             parser.error('--review-query-only requires --review and --source tests/fixtures/transactions.csv')
-        if any((options.analysis_statistics_only,options.statistics_only,options.access_only,options.zoom_only,options.review_controls_only,options.analysis_only,options.analysis_columns_only,
+        if any((options.review_values_only,options.analysis_statistics_only,options.statistics_only,options.access_only,options.zoom_only,options.review_controls_only,options.analysis_only,options.analysis_columns_only,
                 options.filters,options.busy,options.worker_driver,options.worker_probe,options.platform,
                 options.alt_stress,options.persistence,options.review_offline,options.review_outbox)):
             parser.error('--review-query-only is a separate source-query gate without other profiles or report-upload options')
@@ -69,21 +79,21 @@ def parse_options(argv=None):
         profile='--analysis-statistics-only' if options.analysis_statistics_only else '--analysis-columns-only' if options.analysis_columns_only else '--analysis-only'
         if not options.review or not options.source or options.source.name!='transactions.csv':
             parser.error(profile+' requires --review and --source tests/fixtures/transactions.csv')
-        if any((sum((options.analysis_only,options.analysis_columns_only,options.analysis_statistics_only))>1,options.statistics_only,options.review_query_only,options.access_only,options.zoom_only,options.review_controls_only,options.filters,
+        if any((options.review_values_only,sum((options.analysis_only,options.analysis_columns_only,options.analysis_statistics_only))>1,options.statistics_only,options.review_query_only,options.access_only,options.zoom_only,options.review_controls_only,options.filters,
                 options.busy,options.worker_driver,options.worker_probe,options.platform,
                 options.alt_stress,options.persistence,options.review_offline,options.review_outbox)):
             parser.error(profile+' is a separate analytical gate without other focused profiles or report-upload options')
     if options.review_controls_only:
         if not options.review or not options.source or options.source.name!='transactions.csv':
             parser.error('--review-controls-only requires --review and --source tests/fixtures/transactions.csv')
-        if any((options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.analysis_only,options.analysis_columns_only,options.access_only,options.zoom_only,options.filters,options.busy,options.worker_driver,
+        if any((options.review_values_only,options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.analysis_only,options.analysis_columns_only,options.access_only,options.zoom_only,options.filters,options.busy,options.worker_driver,
                 options.worker_probe,options.platform,options.alt_stress,options.persistence,
                 options.review_offline,options.review_outbox)):
             parser.error('--review-controls-only is a separate contextual review gate without access/zoom/engine/platform/report-upload options')
     if options.zoom_only:
         if not options.review:
             parser.error('--zoom-only requires --review')
-        if any((options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.analysis_only,options.analysis_columns_only,options.access_only,options.review_controls_only,options.filters,options.busy,options.worker_driver,options.worker_probe,
+        if any((options.review_values_only,options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.analysis_only,options.analysis_columns_only,options.access_only,options.review_controls_only,options.filters,options.busy,options.worker_driver,options.worker_probe,
                 options.platform,options.alt_stress,options.persistence,options.review_offline,
                 options.review_outbox)):
             parser.error('--zoom-only is a separate grid gate without access/engine/platform/report-upload options')
@@ -92,7 +102,7 @@ def parse_options(argv=None):
     if options.access_only:
         if not options.review:
             parser.error('--access-only requires --review')
-        if any((options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.analysis_only,options.analysis_columns_only,options.source,options.review_controls_only,options.filters,options.busy,options.worker_driver,options.worker_probe,
+        if any((options.review_values_only,options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.analysis_only,options.analysis_columns_only,options.source,options.review_controls_only,options.filters,options.busy,options.worker_driver,options.worker_probe,
                 options.platform,options.alt_stress,options.persistence,options.review_offline,
                 options.review_outbox)):
             parser.error('--access-only is a separate blank-workbook gate without source/engine/platform/report-upload options')
@@ -100,7 +110,7 @@ def parse_options(argv=None):
         parser.error('--filters requires --source tests/fixtures/transactions.csv')
     if options.busy and not options.source:
         parser.error('--busy requires a real --source')
-    if options.review and not options.access_only and not options.zoom_only and (options.worker_driver or not options.source or options.source.name!='transactions.csv'):
+    if options.review and not options.access_only and not options.zoom_only and not options.review_values_only and (options.worker_driver or not options.source or options.source.name!='transactions.csv'):
         parser.error('--review requires --source tests/fixtures/transactions.csv and cannot use --worker-driver')
     if options.canvas_transform and not options.review:
         parser.error('--canvas-transform requires --review')
@@ -170,6 +180,7 @@ def main():
             if options.analysis_only: command.append('--analysis-only')
             if options.analysis_columns_only: command.append('--analysis-columns-only')
             if options.review_query_only: command.append('--review-query-only')
+            if options.review_values_only: command.append('--review-values-only')
             if options.analysis_statistics_only: command.append('--analysis-statistics-only')
             if options.statistics_only: command.append('--statistics-only')
             if options.query_apply: command.append('--query-apply')
@@ -196,7 +207,7 @@ def main():
                     if hashlib.sha256(fixture.read_bytes()).hexdigest()!=fixture_hash:raise RuntimeError('Browser/native proof mutated its original fixture')
                     if any(hashlib.sha256(Path(name).read_bytes()).hexdigest()!=digest for name,digest in persistence_hashes.items()):raise RuntimeError('Native proof helper changed during acceptance')
                 except Exception as error:reader_error=str(error)
-            if options.review and not options.access_only and not options.zoom_only and not options.review_controls_only and not options.analysis_only and not options.analysis_columns_only and not options.review_query_only and not options.statistics_only and not options.analysis_statistics_only and process.returncode==0:
+            if options.review and not options.access_only and not options.zoom_only and not options.review_controls_only and not options.analysis_only and not options.analysis_columns_only and not options.review_query_only and not options.statistics_only and not options.analysis_statistics_only and not options.review_values_only and process.returncode==0:
                 try:
                     from native_review import ReviewStore,default_project
                     report=json.loads((output/'report-manifest.json').read_text());report_id=report['report_id']
@@ -213,7 +224,9 @@ def main():
             record={'status':'passed' if process.returncode==0 and unchanged and artifacts_unchanged and not reader_error else 'failed','source':before,'artifact':manifest,'reader_error':reader_error,'native_persistence_helpers':persistence_hashes,
                     'command':command,'exit_code':process.returncode,'source_unchanged':unchanged,'artifacts_unchanged':artifacts_unchanged,
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
-            record['profile']='analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            record['profile']='review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            if options.review_values_only:
+                record['scope']='Actual C Statistics metric checkbox/cache picking and Cell Inspector NULL/empty/literal text with pinned source origins, typed owned values and capture/composer cancellation; no Copy activation, clipboard, reports or forced pending-query acceptance.'
             if options.analysis_statistics_only:
                 record['scope']='Actual C Rows/Values and Columns matrix-cell selection statistics through the official Worker, object/revision and sparse/source retention, NULL-aware result counts and query-free idle cache; mixed/manual statistics, forced in-flight cancellation and report upload remain separate.'
             if options.statistics_only:
