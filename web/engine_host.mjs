@@ -114,7 +114,7 @@ export function createEngineHost(config,createAdapter=createOfficialWorkerAdapte
                     if(!/\.(parquet|tsv|csv(?:\.gz)?)$/i.test(file.name))throw new Error('Choose a CSV, TSV or Parquet source.');
                     const safe=file.name.replace(/[\\/\x00-\x1f\x7f]/g,'_');
                     if(encoder.encode(safe).length>200)throw new Error('Use a source filename of at most 200 UTF-8 bytes.');
-                    if(files.size>=FILE_LIMIT)throw new Error('This browser engine session has reached its 1024 source-name limit. Reload before importing more sources.');
+                    if(files.size>=FILE_LIMIT)throw new Error('This browser engine session has reached its 1024 source-name limit. Start another Duxcel session to import more sources.');
                     name=`import-${++fileSequence}-${safe}`;files.set(name,'reading');
                     const bytes=new Uint8Array(await file.arrayBuffer());if(current!==fileEpoch||closed){setFileStatus(name,'unused');return;}
                     const engine=await getEngine();if(current!==fileEpoch||closed){setFileStatus(name,'unused');return;}

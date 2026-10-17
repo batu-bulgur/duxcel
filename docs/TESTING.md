@@ -195,6 +195,7 @@ Typed value and same-sheet Table gates use actual C controls:
 python3 tools/test_web_app.py --review --review-values-only --no-build --source tests/fixtures/null-text.csv --dpr 2 --canvas-transform
 python3 tools/test_web_app.py --review --analysis-statistics-only --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
 python3 tools/test_web_app.py --review --table-statistics-only --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
+python3 tools/test_web_app.py --review --mixed-statistics-only --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
 ```
 
 The value gate passes875 checks/20.180s; analytical-result statistics261/17.745s; Table import/statistics213/20.934s. The Table profile preserves the source, an existing matrix and a manual value, rejects a moved destination, and separates synthetic DOM cancellation from trusted file delivery. It never claims physical chooser cancellation. The current113-stage official Worker passes79,988 C checks/8.101s, including global mixed/manual semantics; actual mixed App acceptance passes306 checks/31.812s. Native296 takes11.566s optimized/12.718s ASan+UBSan. [Retained evidence and exact artifact scopes](validation/checkpoints/2026-10-18-value-review-statistics/).

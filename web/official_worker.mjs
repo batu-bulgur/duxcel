@@ -187,7 +187,7 @@ export class DuckDBWorkerAdapter {
             check(!registration, 'IMMUTABLE_FILE', 'This source name was already used in this engine session. Import with a fresh virtual name.');
             return;
         }
-        check(this.#fileNames.size < LIMITS.fileNames, 'FILE_REGISTRY_LIMIT', 'The engine session has reached its file-name limit. Reload before importing more sources.');
+        check(this.#fileNames.size < LIMITS.fileNames, 'FILE_REGISTRY_LIMIT', 'The engine session has reached its file-name limit. Start another Duxcel session to import more sources.');
         this.#fileNames.add(name);
     }
     constructor({ database, connection, engineVersion = null, dispose = null }) {
