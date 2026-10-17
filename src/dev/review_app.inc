@@ -481,7 +481,7 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_DIALOG_END (REVIEW_AUTHOR_END+5*6)
 #define REVIEW_SMOKE_STAGES (REVIEW_DIALOG_END+5)
 typedef struct {
-    int stage; unsigned note_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
+    int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
     Modal choice_modal; int choice_focus,choice_ribbon_mode; float choice_scale,choice_row_height; uint64_t choice_formats;
     Analysis author_source; PivotDefinition author_pivot; MarkDefinition author_marks; bool author_owned;
@@ -683,19 +683,22 @@ static int review_smoke_author_tick(App *a,ReviewSmoke *t) {
             else if (item==9) begin_marks(a,MARKS_COLOR,box(620,280,100,20),false);
             else if (item==10) begin_assign_field(a,PIVOT_COLUMNS,box(620,280,100,20));
             else if (item==11) { a->modal=MODAL_REPRESENTATION; a->context_focus=0; a->pivot_focus=6; a->author_reveal=true; }
-            else if (item==12) { a->modal=MODAL_CHART_MEASURE; a->context_focus=0; a->pivot_focus=7; a->author_reveal=true; }
-            else { a->modal=MODAL_VIEW; a->view_menu_chart=false; }
+            else if (item==12) {
+                if (object->kind!=OBJECT_CHART) { if (!set_representation(a,1)) return -1; return 0; }
+                a->modal=MODAL_CHART_MEASURE; a->context_focus=0; a->pivot_focus=7; a->author_reveal=true;
+            }
+            else { a->modal=MODAL_VIEW; a->view_menu_chart=true; a->context_focus=1; }
         }
         return 1;
     }
     if (phase==1) {
+        if (a->modal==MODAL_NONE) { fprintf(stderr,"FAIL: authoring setup closed kind=%s case=%d selected=%d\n",kinds[item],item,a->selected_object); return -1; }
         if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || a->popup_presence.offset || a->popup_presence.alpha!=1 || !review_can_capture(a) || a->ui.scale!=(item>=3 ? 1.5f : 1)) return 0;
-        if (a->modal==MODAL_NONE) return -1;
         review_smoke_author_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
     }
     if (phase==2) {
         if (r->phase!=DX_REPORT_PICK) return 0;
-        const char *target=item==1 ? "Edit cell" : item==7 ? ".action.grain.year" : item==8 ? ".action.aggregate.sum" : NULL;
+        const char *target=item==1 ? "Edit cell" : item==7 ? ".action.grain.year" : item==8 ? ".action.aggregate.sum" : item==13 ? "Bar chart" : NULL;
         if (!review_smoke_author_same(a,t) || !review_smoke_author_targets(a,kinds[item],target,t)) return -1;
         r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
     }
@@ -832,7 +835,12 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
     if (t->diagnostic_stage!=t->stage) {
         fprintf(stderr,"Review smoke stage=%d phase=%d file=%d/%d/%d ui_scale=%.2f window=%dx%d target=%s\n",t->stage,(int)r->phase,a->file_menu,a->file_menu_focus,a->file_menu_scroll,a->ui.scale,GetScreenWidth(),GetScreenHeight(),r->target.widget.id);
-        t->diagnostic_stage=t->stage;
+        t->diagnostic_stage=t->stage; t->wait_frame=a->frames;
+    }
+    if (a->frames-t->wait_frame>=60) {
+        Rectangle plot=author_select_field(a,MODAL_CHART_MEASURE); SheetObject *object=selected_object(a);
+        fprintf(stderr,"Review smoke waiting stage=%d phase=%d modal=%d object=%d ui_scale=%.2f busy=%d/%d idle=%d capture=%d popup=%.3f/%.3f plot=%.2f,%.2f,%.2f,%.2f request=%llu\n",t->stage,(int)r->phase,(int)a->modal,object ? (int)object->kind : -1,a->ui.scale,a->busy,a->io_busy,smoke_work_idle(a),review_can_capture(a),a->popup_presence.alpha,a->popup_presence.offset,plot.x,plot.y,plot.width,plot.height,(unsigned long long)a->request_id);
+        t->wait_frame=a->frames;
     }
     if (t->stage>=71) {
         int progress=t->stage>=REVIEW_DIALOG_END ? review_smoke_plot_identity_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
