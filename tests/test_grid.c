@@ -964,6 +964,25 @@ static void test_addresses(void) {
         CHECK(!grid_parse_address(invalid[i],&row,&col)); CHECK(row==9 && col==9);
     }
     uint64_t row; size_t col; CHECK(!grid_parse_address("A1",NULL,&col) && !grid_parse_address("A1",&row,NULL));
+    const uint64_t model_rows[]={0,1,60,70,1048575,DX_SHEET_ROWS-1};
+    const size_t columns[]={0,7,20,24,26,16383};
+    for (int source=0;source<2;source++) for (size_t r=0;r<sizeof(model_rows)/sizeof(*model_rows);r++)
+        for (size_t c=0;c<sizeof(columns)/sizeof(*columns);c++) {
+            char text[48]; grid_format_address(model_rows[r],columns[c],source!=0,text);
+            row=123; col=123;
+            CHECK(grid_parse_display_address(text,source!=0,&row,&col));
+            CHECK(row==model_rows[r] && col==columns[c]);
+            CHECK(grid_row_number(row,source!=0)==model_rows[r]+1+(unsigned)source);
+        }
+    char text[48]; grid_format_address(60,20,true,text); CHECK(!strcmp(text,"U62"));
+    grid_format_address(60,20,false,text); CHECK(!strcmp(text,"U61"));
+    row=9; col=9; CHECK(grid_parse_display_address("  $y$0072 ",true,&row,&col) && row==70 && col==24);
+    CHECK(grid_parse_display_address("$XFD$1099511627777",true,&row,&col) && row==DX_SHEET_ROWS-1 && col==16383);
+    const char *bad_source[]={NULL,"A0","A1","$a$0001","XFD1099511627778","A18446744073709551616","XFE2","A2:B3","A-2"};
+    for (size_t i=0;i<sizeof(bad_source)/sizeof(*bad_source);i++) {
+        row=9; col=9; CHECK(!grid_parse_display_address(bad_source[i],true,&row,&col)); CHECK(row==9 && col==9);
+    }
+    CHECK(!grid_parse_display_address("A2",true,NULL,&col) && !grid_parse_display_address("A2",true,&row,NULL));
 }
 static void test_navigation_queue(void) {
     DxKeyModifiers event; while (ui_take_navigation_key(&event)) {}

@@ -100,6 +100,13 @@ void grid_update(Grid *g, UIContext *ui, const Page *page, Rectangle rect, bool 
 void grid_draw(Grid *g, UIContext *ui, const Page *page, bool busy);
 bool grid_cached(const Grid *g, const Page *p);
 void grid_bounds(const Grid *g, uint64_t *r0, uint64_t *r1, size_t *c0, size_t *c1);
+/* Displayed source headers occupy row 1; source data/manual/object cells use
+   model row +2, blank-sheet cells +1. Keep every displayed address consistent. */
+uint64_t grid_row_number(uint64_t model_row,bool source_header);
+void grid_format_address(uint64_t model_row,size_t column,bool source_header,char out[48]);
+/* Source display row 1 is header chrome, not an addressable model cell.
+   Outputs change only on success; final source display row is DX_SHEET_ROWS+1. */
+bool grid_parse_display_address(const char *text,bool source_header,uint64_t *row,size_t *column);
 /* Worksheet-local A1 address, optionally absolute; outputs change only on success. */
 bool grid_parse_address(const char *text,uint64_t *row,size_t *column);
 bool grid_cell_at(const Grid *grid,float scale,Vector2 point,uint64_t *row,size_t *column);

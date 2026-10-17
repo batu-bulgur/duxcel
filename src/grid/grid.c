@@ -115,7 +115,14 @@ void grid_select_cell(Grid *g,uint64_t row,size_t col,bool extend) {
     if (!extend) { g->row=g->anchor_row=row; g->col=g->anchor_col=col; }
     else keep_active_in_selection(g);
 }
-bool grid_parse_address(const char *text,uint64_t *row,size_t *column) {
+uint64_t grid_row_number(uint64_t row,bool source_header) { return row+(source_header ? 2 : 1); }
+void grid_format_address(uint64_t row,size_t column,bool source_header,char out[48]) {
+    char letters[24]; size_t n=0; column++;
+    do { column--; letters[n++]=(char)('A'+column%26); column/=26; } while (column && n<sizeof(letters));
+    for (size_t i=0;i<n;i++) out[i]=letters[n-i-1];
+    snprintf(out+n,48-n,"%" PRIu64,grid_row_number(row,source_header));
+}
+bool grid_parse_display_address(const char *text,bool source_header,uint64_t *row,size_t *column) {
     if (!text || !row || !column) return false;
     const unsigned char *p=(const unsigned char *)text; while (isspace(*p)) p++;
     if (*p=='$') p++;
@@ -128,11 +135,14 @@ bool grid_parse_address(const char *text,uint64_t *row,size_t *column) {
     if (!letters || !col) return false;
     if (*p=='$') p++;
     if (!isdigit(*p)) return false;
-    uint64_t number=0;
-    while (isdigit(*p)) { unsigned digit=*p++-'0'; if (number>(DX_SHEET_ROWS-digit)/10) return false; number=number*10+digit; }
+    uint64_t number=0,first=source_header ? 2 : 1,maximum=DX_SHEET_ROWS+first-1;
+    while (isdigit(*p)) { unsigned digit=*p++-'0'; if (number>(maximum-digit)/10) return false; number=number*10+digit; }
     while (isspace(*p)) p++;
-    if (*p || !number) return false;
-    *row=number-1; *column=col-1; return true;
+    if (*p || number<first) return false;
+    *row=number-first; *column=col-1; return true;
+}
+bool grid_parse_address(const char *text,uint64_t *row,size_t *column) {
+    return grid_parse_display_address(text,false,row,column);
 }
 void grid_bounds(const Grid *g,uint64_t *r0,uint64_t *r1,size_t *c0,size_t *c1) {
     *r0=MIN(g->anchor_row,g->end_row); *r1=MAX(g->anchor_row,g->end_row);
@@ -760,7 +770,7 @@ void grid_draw(Grid *g,UIContext *u,const Page *p,bool busy) {
     for (unsigned vr=0;vr<g->render_rows;vr++) {
         uint64_t row=g->top+vr; if (row>=DX_SHEET_ROWS) break;
         float y=y0+vr*rh,top=fmaxf(y,g->body.y),bottom=fminf(y+rh,g->body.y+g->body.height); if (bottom<=top) continue;
-        char text[32]; snprintf(text,sizeof(text),"%" PRIu64,row+(g->source_header ? 2 : 1));
+        char text[32]; snprintf(text,sizeof(text),"%" PRIu64,grid_row_number(row,g->source_header));
         ui_text_clip(u,text,(Rectangle){r.x,y,gutter,rh},11,UI_MUTED,true);
     }
     ui_clear_clip(u);

@@ -595,7 +595,6 @@ static SheetObject *selected_object(App *a);
 static bool object_ready(App *a,size_t index);
 #endif
 static void begin_move_range(App *a,bool whole_object);
-static void address(size_t col,uint64_t row,char out[48]);
 static void inspect_value(App *a);
 static float draw_workbook_section(App *a,Rectangle r,bool shared);
 static void begin_sheet_menu(App *a,size_t index,Vector2 origin);
@@ -4287,7 +4286,7 @@ static void inspect_value(App *a) {
     inspector_free(a); a->inspector_text=dx_strdup(text); a->inspector_type=dx_strdup(type); a->inspector_column=dx_strdup(column);
     REVIEW_INSPECTOR_PIN(a,p,o,row,col,!a->step_preview.active && !o && manual_cell(a));
     a->inspector_null=null; a->inspector_bytes=strlen(a->inspector_text); a->inspector_scroll=0; a->inspector_drag=false;
-    address(g->col,g->row+(a->step_preview.active || a->analysis.kind!=SOURCE_NONE ? 2 : 1),a->inspector_address);
+    grid_format_address(g->row,g->col,a->step_preview.active || a->analysis.kind!=SOURCE_NONE,a->inspector_address);
     a->modal=MODAL_INSPECT; a->consume_grid_input=true; a->key_tips=a->ribbon_focus=false;
 }
 static void inspector_copy(App *a) {
@@ -4409,12 +4408,12 @@ static void begin_move_range(App *a,bool whole_object) {
     free(a->range_move_error); a->range_move_error=NULL;
     if (!range_can_move(a,range,&a->range_move_error)) { status(a,a->range_move_error); a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
     if (object) { grid_select_cell(g,object->row,object->col,false); g->end_row=range.r1; g->end_col=range.c1; }
-    char name[48]; address(range.c0,range.r0+1,name); input_set(&a->input,name);
+    char name[48]; grid_format_address(range.r0,range.c0,a->analysis.kind!=SOURCE_NONE,name); input_set(&a->input,name);
     a->range_move_focus=0; a->modal=MODAL_MOVE_RANGE; a->consume_grid_input=true; a->chrome_focus=0; a->pivot_focus=0; a->ribbon_focus=false;
 }
 static bool apply_range_move(App *a) {
     uint64_t row; size_t column; free(a->range_move_error); a->range_move_error=NULL;
-    if (!grid_parse_address(a->input.text,&row,&column)) { a->range_move_error=dx_strdup("Enter a cell address in this sheet, such as H12."); return false; }
+    if (!grid_parse_display_address(a->input.text,a->analysis.kind!=SOURCE_NONE,&row,&column)) { a->range_move_error=dx_strdup("Enter a cell address in this sheet, such as H12."); return false; }
     SheetRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1);
     if (!move_selection(a,(int64_t)row-(int64_t)range.r0,(int)column-(int)range.c0,true,&a->range_move_error)) return false;
     a->modal=MODAL_NONE; a->consume_grid_input=true; status(a,"Range moved. Undo restores its previous location."); return true;
@@ -4428,7 +4427,7 @@ static void draw_move_range(App *a) {
     DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleLinesEx(box(x,y,w,h),1,UI_BORDER);
     ui_text(u,"Move selection",x+24*s,y+20*s,20,UI_TEXT);
     SheetRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1); char first[48],last[48],label[120];
-    address(range.c0,range.r0+1,first); address(range.c1,range.r1+1,last); snprintf(label,sizeof(label),"%s:%s · destination's top-left cell",first,last);
+    grid_format_address(range.r0,range.c0,a->analysis.kind!=SOURCE_NONE,first); grid_format_address(range.r1,range.c1,a->analysis.kind!=SOURCE_NONE,last); snprintf(label,sizeof(label),"%s:%s · destination's top-left cell",first,last);
     ui_text_clip(u,label,box(x+24*s,y+57*s,w-48*s,24*s),12,UI_MUTED,false);
     Rectangle field=box(x+24*s,y+94*s,w-48*s,34*s);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),field)) a->range_move_focus=0;
@@ -4612,7 +4611,7 @@ static void draw_source_context(App *a) {
     popup_capture(a,menu.panel);
     if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),menu.panel))) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
     context_keys(a,6,6);
-    char location[48],title[512]; address(a->grid.col,a->grid.row+(a->analysis.kind!=SOURCE_NONE ? 2 : 1),location);
+    char location[48],title[512]; grid_format_address(a->grid.row,a->grid.col,a->analysis.kind!=SOURCE_NONE,location);
     snprintf(title,sizeof(title),"%s · %s",page->columns[column].caption ? page->columns[column].caption : page->columns[column].name,location);
     ui_choice_frame(u,&menu,title);
     REVIEW_AUTHOR_PANEL(a,"source_context",title,menu.panel,menu.title);
@@ -4667,9 +4666,9 @@ static void draw_context(App *a) {
     context_keys(a,count,count);
     int direction=ui_key(KEY_UP) || (ui_pressed(KEY_TAB)&&ui_key_shift(KEY_TAB)) || ui_pressed(KEY_END) ? -1 : 1;
     for (int i=0;i<count && !available[a->context_focus];i++) a->context_focus=(a->context_focus+count+direction)%count;
-    char title[112],location[48]; address(a->grid.col,a->grid.row+1,location);
-    if (row_menu && row_count>1) snprintf(title,sizeof(title),"Rows %" PRIu64 "–%" PRIu64,first+1,last+1);
-    else if (row_menu) snprintf(title,sizeof(title),"Row %" PRIu64,first+1);
+    char title[112],location[48]; grid_format_address(a->grid.row,a->grid.col,a->analysis.kind!=SOURCE_NONE,location);
+    if (row_menu && row_count>1) snprintf(title,sizeof(title),"Rows %" PRIu64 "–%" PRIu64,grid_row_number(first,a->analysis.kind!=SOURCE_NONE),grid_row_number(last,a->analysis.kind!=SOURCE_NONE));
+    else if (row_menu) snprintf(title,sizeof(title),"Row %" PRIu64,grid_row_number(first,a->analysis.kind!=SOURCE_NONE));
     else if (a->grid.selection==SELECT_COLUMNS) { location[strcspn(location,"0123456789")]=0; snprintf(title,sizeof(title),"Column %s",location); }
     else snprintf(title,sizeof(title),"Cell %s",location);
     ui_choice_frame(u,&menu,title);
@@ -6548,12 +6547,6 @@ static void shortcuts(App *a) {
         if (a->analysis.kind!=SOURCE_NONE) change_analysis(a,false);
     }
 }
-static void address(size_t col,uint64_t row,char out[48]) {
-    char letters[24]; size_t n=0; col++;
-    do { col--; letters[n++]=(char)('A'+col%26); col/=26; } while (col && n<23);
-    for (size_t i=0;i<n;i++) out[i]=letters[n-i-1];
-    snprintf(out+n,48-n,"%" PRIu64,row);
-}
 static int command_source_index(App *a) {
     const SheetObject *owner=objects_source(&active_sheet(a)->objects,selected_object(a));
     return owner ? (int)(owner-active_sheet(a)->objects.items) : -1;
@@ -7300,7 +7293,7 @@ static void draw_app(App *a) {
     float context_left=a->workspace.context.x,context_right=GetScreenWidth()-a->pipeline_extent*s;
     DrawRectangleRec(box(context_left,context_y,fmaxf(0,context_right-context_left),28*s),(Color){246,248,250,255});
     DrawLineV((Vector2){context_left,context_y+27*s},(Vector2){context_right,context_y+27*s},UI_BORDER);
-    char cell_name[48]; address(value_grid->col,value_grid->row+(a->step_preview.active || a->analysis.kind!=SOURCE_NONE ? 2 : 1),cell_name);
+    char cell_name[48]; grid_format_address(value_grid->row,value_grid->col,a->step_preview.active || a->analysis.kind!=SOURCE_NONE,cell_name);
     const UICellReadout *readout=active_value(a);
     const char *value=readout ? readout->text : "Loading…",*type=readout ? readout->type_name : "LOADING";
     bool is_null=readout && readout->is_null;
@@ -8565,10 +8558,12 @@ static void layout_smoke_step(App *a,int *step) {
         if (!cells_set(&s->cells,60,20,"Move me",&error) || !cells_set(&s->cells,65,22,"Occupied",&error)) goto failed;
         worksheet_record(s,EDIT_CELLS); request=a->request_id;
         grid_select_cell(&a->grid,61,21,false); grid_select_cell(&a->grid,60,20,true); a->selected_object=-1;
-        begin_move_range(a,false); if (a->modal!=MODAL_MOVE_RANGE) goto failed;
+        begin_move_range(a,false); if (a->modal!=MODAL_MOVE_RANGE || strcmp(a->input.text,"U62")) goto failed;
+        char active_address[48]; grid_format_address(a->grid.row,a->grid.col,true,active_address);
+        if (strcmp(active_address,"V63")) goto failed;
         size_t actions=s->undo_actions_count; input_set(&a->input,"A0");
         if (apply_range_move(a) || !a->range_move_error || s->undo_actions_count!=actions || a->request_id!=request) goto failed;
-        input_set(&a->input,"W66");
+        input_set(&a->input,"W67");
         if (apply_range_move(a) || !a->range_move_error || strcmp(cells_get(&s->cells,60,20),"Move me") || strcmp(cells_get(&s->cells,65,22),"Occupied") || s->undo_actions_count!=actions) goto failed;
         break;
     }
@@ -8576,7 +8571,7 @@ static void layout_smoke_step(App *a,int *step) {
         smoke_snapshot("tests/results/workspace-layout/move-range-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 37: {
         smoke_snapshot("tests/results/workspace-layout/move-range-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
-        input_set(&a->input,"$Y$71");
+        input_set(&a->input,"$Y$72");
         if (!apply_range_move(a) || strcmp(cells_get(&s->cells,70,24),"Move me") || *cells_get(&s->cells,60,20) || a->grid.anchor_row!=71 || a->grid.end_row!=70 || a->grid.row!=71 || a->grid.col!=25 || a->request_id!=request) goto failed;
         history(a,false); if (strcmp(cells_get(&s->cells,60,20),"Move me") || *cells_get(&s->cells,70,24)) goto failed;
         history(a,true); if (strcmp(cells_get(&s->cells,70,24),"Move me") || a->request_id!=request) goto failed;
@@ -8591,7 +8586,7 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     }
     case 39:
-        grid_select_cell(&a->grid,29,20,false); grid_select_cell(&a->grid,34,23,true); begin_move_range(a,false); input_set(&a->input,"AA41");
+        grid_select_cell(&a->grid,29,20,false); grid_select_cell(&a->grid,34,23,true); begin_move_range(a,false); input_set(&a->input,"AA42");
         if (!apply_range_move(a) || s->objects.items[3].row!=41 || s->objects.items[3].col!=26 || strcmp(cells_get(&s->cells,40,28),"Row note") || s->undo_actions[s->undo_actions_count-1]!=EDIT_RANGE || a->request_id!=request) goto failed;
         history(a,false); if (s->objects.items[3].row!=30 || strcmp(cells_get(&s->cells,29,22),"Row note")) goto failed;
         history(a,true); if (s->objects.items[3].row!=41 || strcmp(cells_get(&s->cells,40,28),"Row note")) goto failed;
@@ -8599,7 +8594,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 40:
         a->selected_object=3; grid_select_cell(&a->grid,43,27,false); begin_move_range(a,true);
         if (a->grid.anchor_row!=41 || a->grid.end_row!=45 || a->grid.anchor_col!=26 || a->grid.end_col!=29) goto failed;
-        input_set(&a->input,"AG51"); if (!apply_range_move(a) || s->objects.items[3].row!=50 || s->objects.items[3].col!=32 || strcmp(cells_get(&s->cells,40,28),"Row note") || a->request_id!=request) goto failed;
+        input_set(&a->input,"AG52"); if (!apply_range_move(a) || s->objects.items[3].row!=50 || s->objects.items[3].col!=32 || strcmp(cells_get(&s->cells,40,28),"Row note") || a->request_id!=request) goto failed;
         break;
     case 41: {
         Rectangle moved=object_rect(a,&s->objects.items[3]),body=a->grid.body;
