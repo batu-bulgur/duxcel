@@ -435,7 +435,9 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         ui_note_key_press(KEY_ESCAPE,0); break;
     case 29:
         if (r->phase!=DX_REPORT_IDLE) return;
-        ui_set_scale(&a->ui,1.5f); SetWindowMinSize(400,640); SetWindowSize(400,640); a->ribbon_tabs_scroll=1000000; a->ribbon_focus=false;
+        ui_set_scale(&a->ui,1.5f);
+        if (a->ui.scale!=1.5f) return; /* ui_update applies requested scale next frame. */
+        SetWindowMinSize(400,640); SetWindowSize(400,640); a->ribbon_tabs_scroll=1000000; a->ribbon_focus=false;
         ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 30: {
         if (r->phase!=DX_REPORT_PICK) return;
