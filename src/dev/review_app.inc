@@ -63,7 +63,7 @@ static void review_begin_frame(App *a) {
     snprintf(f.state_text+used,sizeof(f.state_text)-used," grid_rect=%.3f,%.3f,%.3f,%.3f grid_gutter=%.3f grid_header=%.3f grid_cell=%.3f,%.3f source_header=%d grid_selection=%d",a->grid.rect.x,a->grid.rect.y,a->grid.rect.width,a->grid.rect.height,a->grid.body.x-a->grid.rect.x,a->grid.body.y-a->grid.rect.y,a->grid.width_count ? a->grid.widths[0]*cell_scale : 0,(a->grid.row_height>=18 ? a->grid.row_height : 27)*cell_scale,a->grid.source_header,(int)a->grid.selection);
     used=strlen(f.state_text);
     Worksheet *sheet=active_sheet(a); CellFormat format=active_format(a);
-    snprintf(f.state_text+used,sizeof(f.state_text)-used," keytip_tab=%d keytip_prefix=%s file_menu=%d active_format_flags=%u manual_cells=%zu sheet_count=%zu",a->keytip_state.tab,a->keytip_state.prefix[0] ? a->keytip_state.prefix : "-",a->file_menu,format.flags,sheet ? sheet->cells.count : 0,a->book.count);
+    snprintf(f.state_text+used,sizeof(f.state_text)-used," keytip_tab=%d keytip_prefix=%s file_menu=%d active_format_flags=%u manual_cells=%zu sheet_count=%zu selection_history=%zu,%zu selection_matrix=%d",a->keytip_state.tab,a->keytip_state.prefix[0] ? a->keytip_state.prefix : "-",a->file_menu,format.flags,sheet ? sheet->cells.count : 0,a->book.count,sheet ? sheet->undo_actions_count : 0,sheet ? sheet->redo_actions_count : 0,a->matrix_cells_active);
     UIChoiceListLayout file=file_menu_layout(a); used=strlen(f.state_text);
     snprintf(f.state_text+used,sizeof(f.state_text)-used," file_focus=%d file_scroll=%d file_visible=%d file_panel=%.3f,%.3f,%.3f,%.3f",a->file_menu_focus,a->file_menu_scroll,file.visible,file.frame.panel.x,file.frame.panel.y,file.frame.panel.width,file.frame.panel.height);
     int last_command=-1;
