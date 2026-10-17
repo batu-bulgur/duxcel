@@ -412,8 +412,62 @@ static void test_ribbon_flyouts(void) {
     CHECK(!ui_flyout_layout((Vector2){0,0},(Vector2){1440,988},1,0,6,labels).valid);
     labels[0]=NAN; CHECK(!ui_flyout_layout((Vector2){0,0},(Vector2){1440,988},1,0,0,labels).valid);
 }
+static void test_ribbon_reference_collapse(void) {
+    /* Measured executable reference: 640 physical / 150% UI has clientWidth
+       427. The six rounded collapsed buttons occupy 398 with JS's +8 slots. */
+    float labels[UI_RIBBON_COMMANDS]={0};
+    float names[UI_RIBBON_GROUPS]={50,23,52.901f,41.906f,25,42.828f};
+    const float buttons[]={64,53,66.901f,55.906f,53,56.828f};
+    for (int c=0;c<ribbon_counts[RIBBON_HOME];c++) labels[c]=strlen(ribbon_commands[RIBBON_HOME][c].label)*6;
+    const float widths[]={640/1.5f,427};
+    for (size_t k=0;k<sizeof(widths)/sizeof(*widths);k++) {
+        UIRibbonLayout l=ui_ribbon_spec_layout(widths[k],0,RIBBON_HOME,labels,names);
+        CHECK(l.valid && l.overflow_count==1 && l.states[0]==UI_RIBBON_OVERFLOW);
+        CHECK(l.overflow.x==widths[k]-38 && l.overflow.width==32);
+        float x=10;
+        for (int g=1;g<6;g++) {
+            Rectangle r=l.groups[g]; CHECK(l.states[g]==UI_RIBBON_COLLAPSED);
+            CHECK(fabsf(r.x-x)<.001f && fabsf(r.width-buttons[g])<.001f && r.y==10 && r.height==62);
+            CHECK(r.x+r.width<l.overflow.x && !l.launchers[g].width);
+            for (int c=ribbon_groups[0][g].first;c<ribbon_groups[0][g].first+ribbon_groups[0][g].count;c++) CHECK(!l.commands[c].width);
+            x+=buttons[g]+9; /* 4px side padding plus actual 1px slot border. */
+        }
+        CHECK(fabsf(l.groups[2].x-72)<.001f); /* Alignment remains directly after Font. */
+    }
+    UIRibbonLayout all=ui_ribbon_spec_layout(448,0,RIBBON_HOME,labels,names);
+    CHECK(all.valid && !all.overflow_count); for (int g=0;g<6;g++) CHECK(all.states[g]==UI_RIBBON_COLLAPSED);
+    UIRibbonLayout edge=ui_ribbon_spec_layout(447.99f,0,RIBBON_HOME,labels,names);
+    CHECK(edge.valid && edge.overflow_count==1 && edge.states[0]==UI_RIBBON_OVERFLOW && edge.states[2]==UI_RIBBON_COLLAPSED);
+    edge=ui_ribbon_spec_layout(376,0,RIBBON_HOME,labels,names); CHECK(edge.valid && edge.overflow_count==1);
+    edge=ui_ribbon_spec_layout(375.99f,0,RIBBON_HOME,labels,names); CHECK(edge.valid && edge.overflow_count==2 && edge.states[2]==UI_RIBBON_OVERFLOW);
+    /* The reserved dock is independent of whether overflow becomes necessary;
+       crossing that state must not charge for the same control a second time. */
+    UIRibbonGroup group={"Analysis",0,1,10,false}; float full[UI_RIBBON_GROUPS]={100}; Rectangle cells[UI_RIBBON_COMMANDS]={{0,0,56,28}};
+    float one_name[UI_RIBBON_GROUPS]={43};
+    UIRibbonLayout fit=ui_ribbon_layout_docked(115,0,&group,1,labels,one_name,full,cells,38);
+    CHECK(fit.valid && !fit.overflow_count && fit.states[0]==UI_RIBBON_COLLAPSED && fit.groups[0].width==57);
+    UIRibbonLayout hidden=ui_ribbon_layout_docked(114.99f,0,&group,1,labels,one_name,full,cells,38);
+    CHECK(hidden.valid && hidden.overflow_count==1 && hidden.states[0]==UI_RIBBON_OVERFLOW && !hidden.groups[0].width);
+    CHECK(ui_ribbon_layout_custom(115,0,&group,1,labels,one_name,full,cells).states[0]==UI_RIBBON_EXPANDED);
+    CHECK(!ui_ribbon_layout_docked(115,0,&group,1,labels,one_name,full,cells,NAN).valid);
+    CHECK(!ui_ribbon_layout_docked(115,0,&group,1,labels,one_name,full,cells,20).valid);
+    CHECK(!ui_ribbon_layout_docked(115,0,&group,1,labels,one_name,full,cells,104).valid);
+    const UICarbonIcon icons[RIBBON_TABS][UI_RIBBON_GROUPS]={
+        {CARBON_COPY,CARBON_TEXT_BOLD,CARBON_TEXT_ALIGN_LEFT,CARBON_CURRENCY_DOLLAR,CARBON_FILTER,CARBON_DATA_VIEW},
+        {CARBON_DATA_VIEW,CARBON_TABLE}, {CARBON_SORT_ASCENDING,CARBON_FILTER,CARBON_DATA_STRUCTURED},
+        {CARBON_CHART_BAR,CARBON_ROW,CARBON_SQL,CARBON_TABLE},
+        {CARBON_DATA_STRUCTURED,CARBON_SETTINGS_ADJUST,CARBON_GRID,CARBON_KEYBOARD},
+        {CARBON_CHART_BAR,CARBON_ROW,CARBON_SQL,CARBON_TABLE}
+    };
+    for (int tab=0;tab<RIBBON_TABS;tab++) {
+        for (int g=0;g<ribbon_group_counts[tab];g++) CHECK(ui_ribbon_group_icon(tab,g)==icons[tab][g]);
+        CHECK(ui_ribbon_group_icon(tab,-1)==CARBON_COUNT && ui_ribbon_group_icon(tab,ribbon_group_counts[tab])==CARBON_COUNT);
+    }
+    CHECK(ui_ribbon_group_icon(-1,0)==CARBON_COUNT && ui_ribbon_group_icon(RIBBON_TABS,0)==CARBON_COUNT);
+}
 static void test_ribbon_spec(void) {
-    const float widths[]={416,640,900,1280,1440,1920};
+    test_ribbon_reference_collapse();
+    const float widths[]={240,376,416,640/1.5f,448,640,699.9f,700,900,1280,1440,1920};
     for (int tab=0;tab<RIBBON_TABS;tab++) for (int mode=0;mode<4;mode++) for (size_t w=0;w<sizeof(widths)/sizeof(*widths);w++) {
         float labels[UI_RIBBON_COMMANDS]={0},names[UI_RIBBON_GROUPS]={0};
         for (int c=0;c<ribbon_counts[tab];c++) labels[c]=strlen(ribbon_commands[tab][c].label)*6;
@@ -425,6 +479,9 @@ static void test_ribbon_spec(void) {
             Rectangle group=layout.groups[g];
             if (layout.states[g]==UI_RIBBON_OVERFLOW) { CHECK(!group.width); continue; }
             CHECK(group.x>=0 && group.x+group.width<widths[w]-(widths[w]>=700 ? 62 : 0));
+            CHECK(group.x+group.width<widths[w]-(widths[w]>=700 ? 98 : 38));
+            if (layout.overflow_count) CHECK(group.x+group.width<layout.overflow.x);
+            for (int before=0;before<g;before++) if (layout.groups[before].width) CHECK(layout.groups[before].x+layout.groups[before].width<=group.x);
             if (layout.states[g]!=UI_RIBBON_EXPANDED) continue;
             for (int c=ribbon_groups[tab][g].first;c<ribbon_groups[tab][g].first+ribbon_groups[tab][g].count;c++) {
                 Rectangle cell=layout.commands[c];
