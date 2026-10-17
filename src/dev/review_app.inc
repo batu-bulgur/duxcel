@@ -2646,11 +2646,12 @@ static int review_smoke_cell_tick(App *a,ReviewSmoke *t) {
         if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
         if (!t->cell_setup_started || t->cell_setup_item!=item) {
             t->cell_setup_started=true; t->cell_setup_item=item; t->cell_clicked=t->cell_f2_sent=t->cell_inserted=t->cell_undo_sent=false;
-            ui_set_scale(&a->ui,item ? 1.5f : 1); SetWindowSize(item ? 760 : 1280,item ? 640 : 820); browse_source(a); close_workspace(a); present_pipeline(a,false,false); grid_select_cell(&a->grid,2,1+item,false); grid_reveal_cell(&a->grid,&a->page,a->ui.scale*a->grid.zoom); return 0;
+            ui_set_scale(&a->ui,item ? 1.5f : 1); SetWindowSize(item ? 760 : 1280,item ? 640 : 820); browse_source(a); close_workspace(a); present_pipeline(a,false,false); grid_select_cell(&a->grid,2,1+item,false); keyboard_object(a); grid_reveal_cell(&a->grid,&a->page,a->ui.scale*a->grid.zoom); return 0;
         }
         if (a->modal!=MODAL_NONE) goto failed;
         if (GetScreenWidth()!=(item ? 760 : 1280) || GetScreenHeight()!=(item ? 640 : 820) || a->ui.scale!=(item ? 1.5f : 1)) return 0;
         if (!t->cell_clicked) {
+            grid_reveal_cell(&a->grid,&a->page,a->ui.scale*a->grid.zoom);
             Rectangle cell=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,2,1+item,1,1),visible=GetCollisionRec(cell,a->grid.body);
             if (visible.width<=0 || visible.height<=0) return 0;
             review_smoke_click(visible); t->cell_clicked=true; return 0;
