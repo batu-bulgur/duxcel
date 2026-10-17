@@ -6577,7 +6577,13 @@ static void draw_file_menu(App *a) {
     if (!a->key_tips && ui_pressed(KEY_ESCAPE)) { a->file_menu=false; a->consume_grid_input=true; }
     if (ui_key(KEY_DOWN)) a->file_menu_focus=(a->file_menu_focus+1)%UI_KEYTIP_FILE_COUNT;
     if (ui_key(KEY_UP)) a->file_menu_focus=(a->file_menu_focus+UI_KEYTIP_FILE_COUNT-1)%UI_KEYTIP_FILE_COUNT;
-    if (a->file_menu_frame!=a->frames && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),layout.panel)) { a->file_menu=false; a->key_tips=false; a->consume_grid_input=true; }
+    if (a->file_menu_frame!=a->frames) {
+        Rectangle p=layout.panel; DxPointerGesture gesture;
+        bool outside=IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),p);
+        Rectangle regions[]={{0,0,GetScreenWidth(),p.y},{0,p.y+p.height,GetScreenWidth(),fmaxf(0,GetScreenHeight()-p.y-p.height)},{0,p.y,p.x,p.height},{p.x+p.width,p.y,fmaxf(0,GetScreenWidth()-p.x-p.width),p.height}};
+        for (int i=0;i<4;i++) outside|=ui_take_left_gesture_from(regions[i],&gesture);
+        if (outside) { a->file_menu=a->key_tips=a->ribbon_focus=false; a->ribbon_command=-1; a->consume_grid_input=true; }
+    }
     if (a->file_menu) {
         ui_choice_frame(u,&layout,"File");
         const UICarbonIcon icons[]={CARBON_DOCUMENT_BLANK,CARBON_FOLDER_OPEN,CARBON_SAVE,CARBON_SAVE,CARBON_CLOSE,CARBON_CLOSE};
@@ -10621,6 +10627,9 @@ static void document_smoke_step(App *a,int *step) {
     const char *first="tests/generated/document-first.dxls",*second="tests/generated/document-second.dxls",*invalid="tests/generated/document-invalid.dxls";
     switch (*step) {
     case 0:
+        a->file_menu=a->key_tips=a->ribbon_focus=true; a->file_menu_frame=a->frames-1;
+        ui_note_pointer_gesture((DxPointerGesture){600,600,600,600,0,false}); draw_file_menu(a);
+        if (a->file_menu || a->key_tips || a->ribbon_focus || a->book.dirty || a->grid.row || a->grid.col) goto failed;
 #ifdef __APPLE__
         request_document_action(a,DOCUMENT_CLOSE,NULL);
         if (!a->window_closed || a->exit_ready || !IsWindowHidden() || a->book.count!=1 || a->book.dirty || a->analysis.kind!=SOURCE_NONE) goto failed;
