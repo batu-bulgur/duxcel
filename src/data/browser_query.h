@@ -44,6 +44,10 @@ typedef struct {
 } BrowserPivotPlan;
 char *browser_pivot_domain_sql(const Analysis *source,const PivotDefinition *pivot,size_t field,char **error);
 bool browser_pivot_plan_build(BrowserPivotPlan *out,const Analysis *source,const PivotDefinition *pivot,const Page *domains,char **error);
+/* Caller-retained data (excluding these domains and the new output) shares
+   the 4 MiB owned-data limit with domains+new plan. Failure preserves out. This
+   accounts retained data, not allocator/process peaks during buffer growth. */
+bool browser_pivot_plan_build_retained(BrowserPivotPlan *out,const Analysis *source,const PivotDefinition *pivot,const Page *domains,size_t retained_bytes,char **error);
 void browser_pivot_plan_free(BrowserPivotPlan *plan);
 /* Source GROUPING SETS readouts: rows=true is the matching result-page interval;
    false is one row of category/measure totals followed by overall measures. */
