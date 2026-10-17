@@ -20,6 +20,7 @@ const zoomOnly=process.argv.includes('--zoom-only');
 const reviewControlsOnly=process.argv.includes('--review-controls-only');
 const analysisOnly=process.argv.includes('--analysis-only');
 const analysisColumnsOnly=process.argv.includes('--analysis-columns-only');
+const reviewSQLOnly=process.argv.includes('--review-sql-only');
 const reviewQueryOnly=process.argv.includes('--review-query-only');
 const mixedStatisticsOnly=process.argv.includes('--mixed-statistics-only');
 const tableStatisticsOnly=process.argv.includes('--table-statistics-only');
@@ -34,13 +35,14 @@ const altStress=process.argv.includes('--alt-stress');
 const persistence=process.argv.includes('--persistence');
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
 if(review&&workerProbe)throw new Error('--review and --worker-probe require separate artifact/server profiles');
-if(accessOnly&&(!review||['--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--review-controls-only','--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
-if(zoomOnly&&(!review||['--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--review-controls-only','--access-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--zoom-only requires --review and excludes access/engine/platform/report-upload options');
-if(reviewControlsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-controls-only requires --review/transactions.csv and excludes access/zoom/engine/platform/report-upload options');
-if((analysisOnly||analysisColumnsOnly||analysisStatisticsOnly||tableStatisticsOnly||mixedStatisticsOnly)&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||Number(analysisOnly)+Number(analysisColumnsOnly)+Number(analysisStatisticsOnly)+Number(tableStatisticsOnly)+Number(mixedStatisticsOnly)>1||['--review-values-only','--statistics-only','--review-query-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('Analytical profiles require --review/transactions.csv and exclude other focused profiles or report-upload options');
-if(reviewQueryOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-query-only requires --review/transactions.csv and excludes other profiles or report-upload options');
-if(statisticsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--statistics-only requires --review/transactions.csv and excludes other profiles or report-upload options');
-if(reviewValuesOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='null-text.csv'||['--mixed-statistics-only','--table-statistics-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-values-only requires --review/null-text.csv and excludes other profiles or report-upload options');
+if(accessOnly&&(!review||['--review-sql-only','--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--review-controls-only','--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
+if(zoomOnly&&(!review||['--review-sql-only','--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--review-controls-only','--access-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--zoom-only requires --review and excludes access/engine/platform/report-upload options');
+if(reviewControlsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--review-sql-only','--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-controls-only requires --review/transactions.csv and excludes access/zoom/engine/platform/report-upload options');
+if((analysisOnly||analysisColumnsOnly||analysisStatisticsOnly||tableStatisticsOnly||mixedStatisticsOnly)&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||Number(analysisOnly)+Number(analysisColumnsOnly)+Number(analysisStatisticsOnly)+Number(tableStatisticsOnly)+Number(mixedStatisticsOnly)>1||['--review-sql-only','--review-values-only','--statistics-only','--review-query-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('Analytical profiles require --review/transactions.csv and exclude other focused profiles or report-upload options');
+if(reviewQueryOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--review-sql-only','--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-query-only requires --review/transactions.csv and excludes other profiles or report-upload options');
+if(statisticsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--review-sql-only','--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--statistics-only requires --review/transactions.csv and excludes other profiles or report-upload options');
+if(reviewValuesOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='null-text.csv'||['--review-sql-only','--mixed-statistics-only','--table-statistics-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-values-only requires --review/null-text.csv and excludes other profiles or report-upload options');
+if(reviewSQLOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--access-only','--zoom-only','--review-controls-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-sql-only requires --review/transactions.csv and excludes other profiles or report-upload options');
 if(queryApply&&!reviewQueryOnly)throw new Error('--query-apply requires --review-query-only');
 await fs.mkdir(output,{recursive:true});
 const profile=await fs.mkdtemp(path.join(os.tmpdir(),'duxcel-browser-'));
@@ -59,6 +61,7 @@ let zoomResult;
 let reviewControlsResult;
 let analysisResult;
 let queryReviewResult;
+let sqlReviewResult;
 let statisticsResult;
 let reviewValuesResult;
 let stderr='',ws,cdp,activePhase='';const events=[],steps=[];let checks=0;const started=Date.now();
@@ -442,7 +445,7 @@ async function waitPivot(afterId=null){
 async function sourceHome(){
  await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Control','ControlLeft',17));await key('Home','Home',36,'',2);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Control','ControlLeft',17));await frames();
 }
-async function browserAnalysis(columnsMode=false,statisticsMode=false,tableMode=false){
+async function browserAnalysis(columnsMode=false,statisticsMode=false,tableMode=false,sqlMode=false){
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:988,deviceScaleFactor:dpr,mobile:false});await frames(4);
  const source=await zoomSource();await sourceHome();
  for(let i=0;i<7;i++)await key('ArrowRight','ArrowRight',39);for(let i=0;i<9;i++)await key('ArrowDown','ArrowDown',40);
@@ -460,6 +463,7 @@ async function browserAnalysis(columnsMode=false,statisticsMode=false,tableMode=
  check(model.counts.join(',')==='1,0,1,0'&&model.page.join(',')==='0,4,2,4,0,0','App did not publish the complete actual matrix into its selected object cache');
  check(published.totals_count==='4,1'&&published.object_grand0_null==='0'&&published.object_grand0_truncated==='0','Actual matrix source-derived row/grand totals are unavailable or truncated');
  let grand=Buffer.from(published.object_grand0_hex??'','hex').toString('utf8');check(Number(grand)===145.25,'Real source grand total differs from 145.25');
+ if(sqlMode)return browserGeneratedSQL({source,sentinel,baseline,empty,rows,rowsState,values,reply,published,grand});
  if(tableMode)return browserTableStatistics({source,sentinel,baseline,empty,rows,rowsState,values,reply,published,grand});
  if(statisticsMode)return browserAnalysisStatistics({source,sentinel,baseline,empty,rows,rowsState,values,reply,published,grand});
  let columns,categories,rowsFoundation;
@@ -809,6 +813,94 @@ async function browserReviewValues(){
   scope:'Actual imported null-text.csv through the shared C Open control and official Worker; exact cached Statistics values, real metric checkbox toggling and frozen Sum/heading/Done picking. Visible column-header Inspect value opens owned SQL NULL, zero-byte VARCHAR and literal NULL inspectors with exact type/text and pinned source cell/revision, including narrow-window clipping. Value/heading/backdrop/Close picking and composer cancellation preserve all cached state without SQL. Copy is never activated; ordinary header-inspector Close statistics are recorded separately. No clipboard, saved reports, mixed-range or forced pending-query acceptance.'};
  await fs.writeFile(path.join(output,'review-values.json'),JSON.stringify(result,null,2));return result;
 }
+async function focusTransformations(open=true){
+ if(open)await ribbonAnalysisAction('t');let focused=false;
+ for(let index=0;index<16;index++){await key('F6','F6',117);const state=await platformSnapshot();if(state.focus?.split('/')[0]==='8'){focused=true;break;}}
+ check(focused,'Real focus traversal did not reach Transformations');await key('Home','Home',36);
+}
+function generatedSQLState(menu,{cached=false}={}){
+ const state=menu.state,model=analysisObject(state);
+ check(menu.rows.map(row=>row.key).join(',')==='close,copy'&&menu.rows.every(row=>row.enabled&&!row.checked&&!row.focused),'Generated SQL lost its actual Close/Copy button semantics');
+ check(state.sql_origin_valid==='1'&&state.sql_origin_stale==='0'&&state.sql_value_truncated==='0','Generated SQL has an unknown, stale or truncated owned definition');
+ const origin=state.sql_origin?.split(','),expected=[String(Number(state.sheet)+1),cached?model.object[0]:'0','0',cached?state.source_revision:'0',cached?state.object_revision:state.source_revision];
+ check(origin?.join(',')===expected.join(','),'Generated SQL pinned the selected object instead of its actual '+(cached?'cached result':'primary source')+' origin');
+ const bytes=Number(state.sql_bytes),lines=Number(state.sql_lines),visible=Number(state.sql_visible),scroll=Number(state.sql_scroll),hex=state.sql_text_hex;
+ check(Number.isInteger(bytes)&&bytes>64&&bytes<1024&&Number.isInteger(lines)&&lines>0&&Number.isInteger(visible)&&visible>0&&Number.isInteger(scroll)&&scroll>=0&&scroll<=Math.max(0,lines-visible),'Generated SQL emitted invalid bounded text/line/scroll metadata');
+ check(/^(?:[0-9a-f]{2}){64}$/.test(hex??'')&&state.sql_text_truncated==='1','Generated SQL lost its explicitly bounded 64-byte prefix');
+ const text=Buffer.from(hex,'hex').toString('utf8');
+ check(cached?/^SELECT \* FROM \(PIVOT \(/.test(text):text.startsWith('-- Current source result\nWITH input AS (\n'),'Generated SQL content does not belong to its '+(cached?'real cached PIVOT':'primary source query')+' controller');
+ const bounds=state.sql_content_rect?.split(',').map(Number),panel=menu.panel;
+ check(bounds?.length===4&&bounds.every(Number.isFinite)&&bounds[2]>0&&bounds[3]>0&&bounds[0]>=panel[0]&&bounds[1]>=panel[1]&&bounds[0]+bounds[2]<=panel[0]+panel[2]+.01&&bounds[1]+bounds[3]<=panel[1]+panel[3]+.01,'Generated SQL content escaped its actual clipped panel');
+ return{origin,bytes,lines,visible,scroll,text,bounds,cached};
+}
+async function generatedSQLWheel(state,deltaY){
+ const [x,y,w,h]=state.sql_content_rect.split(',').map(Number),point=await canvasPoint(x+w/2,y+h/2);
+ await evaluate('globalThis.duxcelSQLWheelEvent=null;window.addEventListener("wheel",event=>{globalThis.duxcelSQLWheelEvent={trusted:event.isTrusted,canvas:event.target===document.querySelector("canvas"),deltaY:event.deltaY};},{once:true,capture:true});true');
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});await send('Input.dispatchMouseEvent',{type:'mouseWheel',...point,deltaX:0,deltaY});await frames(3);
+ const delivered=await evaluate('globalThis.duxcelSQLWheelEvent');check(delivered?.trusted&&delivered.canvas&&delivered.deltaY===deltaY,'Generated SQL wheel did not reach the actual canvas through trusted CDP input');
+ return{deltaY,point,delivered,state:await platformSnapshot()};
+}
+async function browserGeneratedSQL(foundation){
+ const {published,source,reply:originalPivot}=foundation;
+ await focusTransformations();
+ await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));await key('F10','F10',121,'',8);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16));await authorActivate('step','edit');
+ const editor=authorState(await platformSnapshot(),'source_query');
+ check(editor.state.query_object==='-1'&&editor.state.query_source_revision===published.source_revision&&editor.state.selected_object==='0','Long SQL editor did not retain primary ownership while the real Rows pivot stayed selected');
+ // Internal whitespace survives the real query parser without changing data.
+ // Trusted Enter keys produce enough genuine SQL lines to exercise scrolling.
+ const text='SELECT *'+'\n'.repeat(42)+'FROM input',draft=await sourceQueryDraft(text),jobsBeforeApply=starts().length,known=new Set(replies().map(reply=>reply.id));
+ await authorActivate('source_query','apply');let validation;
+ for(const deadline=Date.now()+15000;Date.now()<deadline;){validation=replies().find(value=>value.kind===11&&!known.has(value.id));if(validation)break;await pause(20);}
+ check(validation&&!validation.error,'Real multiline source Apply did not complete successful Worker validation');
+ const sourcePage=await waitPage(source.id),pivot=await waitPivot(originalPivot.id);await frames(4);const applied=await platformSnapshot(),model=analysisObject(applied);
+ check(sourcePage.rows===5&&sourcePage.columns===6&&sourcePage.total==='5'&&pivot.rows===4&&pivot.columns===2&&pivot.total==='4'&&!pivot.pending,'Multiline source query did not republish its actual five source/four City rows');
+ check(Number(applied.source_revision)>Number(published.source_revision)&&applied.object_revision===published.object_revision&&model.object.join(',')===published.object&&model.page.join(',')==='0,4,2,4,0,0'&&applied.pivot_counts==='1,0,1,0','Source Apply lost the selected same-sheet object identity, revision, shelves or actual matrix');
+ check(applied.modal==='0'&&applied.busy==='0'&&applied.io_busy==='0'&&applied.page==='0/5'&&applied.manual_cells==='1'&&applied.object_grand0_null==='0'&&applied.object_grand0_truncated==='0'&&Number(Buffer.from(applied.object_grand0_hex,'hex').toString('utf8'))===145.25,'Source Apply changed sparse data/grand totals or left a pending source job');
+ const applyJobs=starts().slice(jobsBeforeApply);check(applyJobs.some(job=>job.kind===11&&job.id===validation.id)&&applyJobs.some(job=>job.kind===0&&job.id===sourcePage.id)&&applyJobs.some(job=>job.kind===5&&job.id===pivot.id)&&applyJobs.every(job=>[0,5,8,11].includes(job.kind)),'Real source Apply used an unexpected operation instead of validation/source/result publication');
+ const jobs=starts().length;
+ // Enter on the visible Source step invokes inspect_source_sql. The existing
+ // pane remains open after Apply, so do not toggle Transformations closed.
+ await focusTransformations(false);await key('Enter','Enter',13);
+ const primary=authorState(await platformSnapshot(),'generated_sql'),primaryValue=generatedSQLState(primary);retainedAnalysisCache(applied,primary.state,'Opening primary Generated SQL replaced the actual matrix/source/manual cache');
+ check(primaryValue.scroll===0&&primaryValue.lines>primaryValue.visible&&primaryValue.lines>=43,'Applied multiline primary SQL did not create a legitimately scrollable definition');
+ const moved=await generatedSQLWheel(primary.state,120),scrolled=authorState(moved.state,'generated_sql'),scrollValue=generatedSQLState(scrolled);retainedAnalysisCache(applied,moved.state,'SQL scrolling changed the analytical/source cache');
+ check(scrollValue.scroll>0,'Trusted wheel did not move the actual long Generated SQL content');await capture('generated-sql-primary-scrolled');
+ const primaryPicks=[];
+ for(const [name,choose,frozenName]of[
+  ['sql-primary-content',menu=>({id:'author.generated_sql.content',bounds:menu.state.sql_content_rect.split(',').map(Number)}),'generated-sql-primary'],
+  ['sql-primary-copy',menu=>menu.rows.find(row=>row.key==='copy'),null],
+  ['sql-primary-close',menu=>menu.rows.find(row=>row.key==='close'),null],
+  ['sql-primary-backdrop',menu=>({id:menu.state.author_parent+'.backdrop.background',bounds:[1,Number(menu.state.logical.split(',')[1])/2,2,2]}),null]]){
+  const pick=await authorPick('generated_sql',choose,name,{frozenName});retainedValueReview(pick,'sql_');retainedAnalysisCache(pick.before,pick.after,'Primary SQL picker cancellation changed its selected matrix/source cache');
+  check(generatedSQLState(authorState(pick.after,'generated_sql')).scroll===scrollValue.scroll,'Report cancellation lost the actual nonzero SQL scroll');primaryPicks.push(pick);
+ }
+ const end=await generatedSQLWheel(moved.state,100000),endValue=generatedSQLState(authorState(end.state,'generated_sql'));
+ check(endValue.scroll===endValue.lines-endValue.visible,'Generated SQL wheel did not clamp at its actual final visible line');
+ const start=await generatedSQLWheel(end.state,-100000),startValue=generatedSQLState(authorState(start.state,'generated_sql'));check(startValue.scroll===0,'Generated SQL reverse wheel did not return to line zero');
+ for(const wheel of [end,start]){retainedAnalysisCache(applied,wheel.state,'SQL wheel clamp changed source/matrix ownership');check(['sql_bytes','sql_lines','sql_visible','sql_origin','sql_text_hex','sql_text_truncated','sql_value_truncated'].every(field=>wheel.state[field]===primary.state[field]),'SQL wheel clamp mutated its owned definition or pinned origin');}
+ await authorActivate('generated_sql','close');const sourceClosed=await platformSnapshot();retainedAnalysisCache(applied,sourceClosed,'Actual source SQL Close lost matrix/source ownership');check(sourceClosed.modal==='0','Actual SQL Close did not dismiss the source viewer');
+ // The selected matrix card is the ordinary object context surface. Its
+ // Inspect SQL action uses the complete cached Worker result definition.
+ const [mx,my,mw]=sourceClosed.matrix_rect.split(',').map(Number),scale=Number(sourceClosed.ui_scale);await rightClick(mx+Math.min(40*scale,mw/4),my+15*scale);await authorActivate('object','inspect_sql');
+ const cached=authorState(await platformSnapshot(),'generated_sql'),cachedValue=generatedSQLState(cached,{cached:true});retainedAnalysisCache(applied,cached.state,'Opening cached pivot SQL replaced matrix/source ownership');
+ check(cachedValue.scroll===0&&cached.state.sql_text_hex!==primary.state.sql_text_hex&&cached.state.sql_origin!==primary.state.sql_origin,'Direct pivot SQL reused the primary definition, origin or prior scroll');await capture('generated-sql-cached-pivot');
+ const cachedPicks=[];
+ for(const [name,choose,frozenName]of[
+  ['sql-cached-content',menu=>({id:'author.generated_sql.content',bounds:menu.state.sql_content_rect.split(',').map(Number)}),'generated-sql-cached'],
+  ['sql-cached-copy',menu=>menu.rows.find(row=>row.key==='copy'),null],
+  ['sql-cached-close',menu=>menu.rows.find(row=>row.key==='close'),null],
+  ['sql-cached-backdrop',menu=>({id:menu.state.author_parent+'.backdrop.background',bounds:[1,Number(menu.state.logical.split(',')[1])/2,2,2]}),null]]){
+  const pick=await authorPick('generated_sql',choose,name,{frozenName});retainedValueReview(pick,'sql_');retainedAnalysisCache(pick.before,pick.after,'Cached SQL picker cancellation changed matrix/source ownership');generatedSQLState(authorState(pick.after,'generated_sql'),{cached:true});cachedPicks.push(pick);
+ }
+ await key('Escape','Escape',27);const closed=await platformSnapshot();retainedAnalysisCache(applied,closed,'Actual Escape from cached SQL lost the selected matrix/source');check(closed.modal==='0'&&starts().length===jobs,'SQL inspection, wheel or reporting activated Copy/SQL work');
+ await pause(300);await frames(3);const idle=await platformSnapshot();retainedAnalysisCache(applied,idle,'Idle after Generated SQL inspection replaced analytical/source caches');check(starts().length===jobs,'Idle SQL inspection resubmitted database work');
+ await ribbonAnalysisAction('d');await sourceHome();for(let index=0;index<7;index++)await key('ArrowRight','ArrowRight',39);for(let index=0;index<9;index++)await key('ArrowDown','ArrowDown',40);const manual=await platformSnapshot();
+ check(manual.modal==='0'&&manual.selected_object==='-1'&&manual.active==='9,7'&&manual.extent==='9,7'&&manual.manual_cells==='1'&&manual.object_count==='1'&&['sheet','source_revision','schema','page'].every(field=>manual[field]===applied[field])&&starts().length===jobs,'Returning to source after SQL review lost sparse H10 data or scheduled database work');
+ check(consoleText('Browser review prepared: ').length===0&&(await pendingReports()).length===0,'Cancel-only Generated SQL review staged a saved report');const queue=await(await fetch(new URL('/__review/queue',url))).json();check(queue.reports.length===0,'Generated SQL review wrote into the persistent queue');
+ const result={foundation,editor:editor.state,text,draft,validation,sourcePage,pivot,applied,applyJobs,primary:primary.state,primaryValue,moved,scrollValue,primaryPicks,end,start,sourceClosed,cached:cached.state,cachedValue,cachedPicks,closed,idle,manual,
+  scope:'Actual Rows City/SUM Amount selected while Transformations edits/applies a primary source query with 42 internal newlines, real Worker validation and fresh five-row source/four-row PIVOT publication. Transformations Source opens primary Generated SQL with a pinned primary origin; direct matrix Inspect SQL opens the cached PIVOT with independent object/source revision identity. Trusted CDP wheel produces nonzero SQL scroll, retains it through content/Copy/Close/backdrop picking and composer cancellation, then clamps at both ends. Actual Close/Escape, cached source/matrix/footer/manual ownership and idle query counts remain intact. Copy is never activated; no clipboard, saved reports, forced in-flight cancellation or physical gesture acceptance.'};
+ await fs.writeFile(path.join(output,'review-sql.json'),JSON.stringify(result,null,2));return result;
+}
 const queryOwnedFields=['query_object','query_source_revision','query_draft_revision','query_focus','query_loading','query_cursor','query_anchor','query_scroll','selected_object','object_count','object','object_page','pivot_counts'];
 async function sourceQueryDraft(text){
  await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Control','ControlLeft',17));await key('a','KeyA',65,'',2);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Control','ControlLeft',17));
@@ -828,9 +920,7 @@ async function browserQueryReview(){
  const selected=await platformSnapshot();analysisObject(selected);check(selected.pivot_counts==='0,0,0,0','Query review requires a real empty analytical object');
  // The shared C Transformations source-step action edits the primary source
  // while retaining the selected pivot. No test-only controller command exists.
- await ribbonAnalysisAction('t');let inspector=false;
- for(let index=0;index<16;index++){await key('F6','F6',117);const state=await platformSnapshot();if(state.focus?.split('/')[0]==='8'){inspector=true;break;}}
- check(inspector,'Real focus traversal did not reach Transformations');await key('Home','Home',36);
+ await focusTransformations();
  await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));await key('F10','F10',121,'',8);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16));await authorActivate('step','edit');
  const opened=authorState(await platformSnapshot(),'source_query');
  check(opened.rows.map(row=>row.key).join(',')==='sql,original,cancel,apply'&&opened.rows.every(row=>row.enabled),'Actual source-query editor omitted an editable SQL/action target');
@@ -1152,6 +1242,8 @@ try{
   reviewValuesResult=await browserReviewValues();
  }else if(statisticsOnly){
   statisticsResult=await browserStatistics();
+ }else if(reviewSQLOnly){
+  sqlReviewResult=await browserAnalysis(false,false,false,true);
  }else if(reviewQueryOnly){
   queryReviewResult=await browserQueryReview();
  }else if(analysisOnly||analysisColumnsOnly||analysisStatisticsOnly||tableStatisticsOnly||mixedStatisticsOnly){
@@ -1375,9 +1467,9 @@ try{
  resources.c_bridge=consoleText('Browser worker metrics: ').map(line=>JSON.parse(line.slice('Browser worker metrics: '.length)));
  resources.scope='Navigation-to-first completed C frame and parent resource timing; main JS heap excludes Worker/GPU/process RSS. C bridge metrics are review-only bounded callback/job observations; decode_ms is C validation/allocation/copy, elapsed_ms includes asynchronous engine/transport scheduling. Worker network bytes are not inferred from parent Resource Timing.';
  await fs.writeFile(path.join(output,'resources.json'),JSON.stringify(resources,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,reviewControlsResult,analysisResult,queryReviewResult,statisticsResult,reviewValuesResult,workerProbe,
-  profile:mixedStatisticsOnly?'mixed-statistics-only':tableStatisticsOnly?'table-statistics-only':reviewValuesOnly?'review-values-only':analysisStatisticsOnly?'analysis-statistics-only':statisticsOnly?'statistics-only':queryApply?'review-query-apply':reviewQueryOnly?'review-query-only':analysisColumnsOnly?'analysis-columns-only':analysisOnly?'analysis-only':reviewControlsOnly?'review-controls-only':zoomOnly?'zoom-only':accessOnly?'access-only':'standard',
-  scope:mixedStatisticsOnly?analysisResult.scope:tableStatisticsOnly?analysisResult.scope:reviewValuesOnly?reviewValuesResult.scope:analysisStatisticsOnly?analysisResult.scope:statisticsOnly?statisticsResult.scope:reviewQueryOnly?queryReviewResult.scope:analysisColumnsOnly?analysisResult.scope:analysisOnly?'Shared C same-sheet Rows/Values analysis, real matrix/grand totals and source/manual ownership; no Columns pivot, broad analytics or report upload.':reviewControlsOnly?'Shared C source/manual contextual targets and field-menu children, editable width/Move drafts and guarded Close, trusted input ownership and cancel retention, narrow150% clipping; no analytical-object or report-upload acceptance.':zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,reviewControlsResult,analysisResult,queryReviewResult,statisticsResult,reviewValuesResult,sqlReviewResult,workerProbe,
+  profile:reviewSQLOnly?'review-sql-only':mixedStatisticsOnly?'mixed-statistics-only':tableStatisticsOnly?'table-statistics-only':reviewValuesOnly?'review-values-only':analysisStatisticsOnly?'analysis-statistics-only':statisticsOnly?'statistics-only':queryApply?'review-query-apply':reviewQueryOnly?'review-query-only':analysisColumnsOnly?'analysis-columns-only':analysisOnly?'analysis-only':reviewControlsOnly?'review-controls-only':zoomOnly?'zoom-only':accessOnly?'access-only':'standard',
+  scope:reviewSQLOnly?sqlReviewResult.scope:mixedStatisticsOnly?analysisResult.scope:tableStatisticsOnly?analysisResult.scope:reviewValuesOnly?reviewValuesResult.scope:analysisStatisticsOnly?analysisResult.scope:statisticsOnly?statisticsResult.scope:reviewQueryOnly?queryReviewResult.scope:analysisColumnsOnly?analysisResult.scope:analysisOnly?'Shared C same-sheet Rows/Values analysis, real matrix/grand totals and source/manual ownership; no Columns pivot, broad analytics or report upload.':reviewControlsOnly?'Shared C source/manual contextual targets and field-menu children, editable width/Move drafts and guarded Close, trusted input ownership and cancel retention, narrow150% clipping; no analytical-object or report-upload acceptance.':zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){
