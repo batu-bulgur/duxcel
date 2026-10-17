@@ -1,0 +1,83 @@
+{
+  "date": "2026-10-16",
+  "purpose": "Design specimen only; no native application font changes",
+  "sources": [
+    {
+      "file": "IBMPlexSans-Regular.otf",
+      "source": "https://raw.githubusercontent.com/IBM/plex/master/packages/plex-sans/fonts/complete/otf/IBMPlexSans-Regular.otf",
+      "sha256": "6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c"
+    },
+    {
+      "file": "IBMPlexSans-Medium.otf",
+      "source": "https://raw.githubusercontent.com/IBM/plex/master/packages/plex-sans/fonts/complete/otf/IBMPlexSans-Medium.otf",
+      "sha256": "27d25e3e08ea63df7cd1fa535c9c45aa04ba11ca75b8031b2ffb83f247601ad1"
+    },
+    {
+      "file": "IBMPlexSans-SemiBold.otf",
+      "source": "https://raw.githubusercontent.com/IBM/plex/master/packages/plex-sans/fonts/complete/otf/IBMPlexSans-SemiBold.otf",
+      "sha256": "1aff1f99f0f415632e71a4b9d43804d093e85b8954489a973f0cf1e2e24b9b04"
+    },
+    {
+      "file": "license.txt",
+      "source": "https://raw.githubusercontent.com/IBM/plex/master/packages/plex-sans/fonts/complete/otf/license.txt",
+      "sha256": "91c25c350d3cac39da2736d74f7ba37ef648f5237a4e330a240615bc8d8c4360"
+    }
+  ],
+  "font_checks": {
+    "Regular": {
+      "metadata": [
+        "IBM Plex Sans",
+        "Regular"
+      ],
+      "digit_advances_at_26px": {
+        "0": 16.0,
+        "1": 16.0,
+        "2": 16.0,
+        "3": 16.0,
+        "4": 16.0,
+        "5": 16.0,
+        "6": 16.0,
+        "7": 16.0,
+        "8": 16.0,
+        "9": 16.0
+      }
+    },
+    "Medium": {
+      "metadata": [
+        "IBM Plex Sans",
+        "Medium"
+      ],
+      "digit_advances_at_26px": {
+        "0": 16.0,
+        "1": 16.0,
+        "2": 16.0,
+        "3": 16.0,
+        "4": 16.0,
+        "5": 16.0,
+        "6": 16.0,
+        "7": 16.0,
+        "8": 16.0,
+        "9": 16.0
+      }
+    },
+    "Semibold": {
+      "metadata": [
+        "IBM Plex Sans",
+        "SemiBold"
+      ],
+      "digit_advances_at_26px": {
+        "0": 16.0,
+        "1": 16.0,
+        "2": 16.0,
+        "3": 16.0,
+        "4": 16.0,
+        "5": 16.0,
+        "6": 16.0,
+        "7": 16.0,
+        "8": 16.0,
+        "9": 16.0
+      }
+    }
+  },
+  "rendering": "Pillow/FreeType, 2 pixels per logical unit; native raylib rendering not validated"
+}

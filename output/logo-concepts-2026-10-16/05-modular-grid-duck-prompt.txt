@@ -1,0 +1,15 @@
+Created using the built-in image generation tool.
+References: 04-blue-green-grid-duck.png and 03-multicolor-data-duck.png
+
+Use case: logo-brand.
+Asset type: targeted refinement of the Duxcel blue-green hybrid logo.
+Input images: Image 1 is the EDIT TARGET: the current blue-green spreadsheet tile with a continuous white duck inside. Image 2 is a STRUCTURAL REFERENCE: the blue-and-green duck visibly assembled from gridded blocks.
+User correction: the DUCK ITSELF should also be somewhat gridded. Preserve a balance between smooth curves and modular spreadsheet cells.
+Change only the duck geometry within Image 1. Retain its blue-green rounded spreadsheet tile, tiny yellow bill, modern Duxcel wordmark, white presentation background and overall layout.
+Critical design change: replace the unbroken flowing white duck with a recognizable duck that is partly constructed from a small number of rounded grid-cell modules, borrowing the stepped modular rhythm of Image 2. Make the white head a smooth round-topped, flat-bottomed cell with a small dark eye; let the white neck and body descend in two aligned stepped rounded rectangular cell sections. Include one or two slim blue/green grid-aligned dividing seams across the white neck/body so the DUCK ALSO has visible cell divisions. Keep the head and bill pleasantly rounded. Smooth curves at the head and a few outer corners, visible grid geometry in the neck and body. Strong simple silhouette, about three white modules total. The duck should immediately read as partly cell-built, not simply a smooth duck painted on a grid.
+The most important requirement is the duck's own modular geometry. Avoid merely changing the colored background grid while leaving the duck continuous.
+Preserve the same restrained emerald-green and analytical-blue palette. Yellow only for the small bill.
+Composition: large primary icon above, identical smaller icon with the wordmark "Duxcel" underneath, small matching monochrome icon at the bottom, matching Image 1's presentation. Same geometry in all copies.
+Typography exact: "Duxcel", D-u-x-c-e-l. Keep the existing dark navy geometric sans-serif wordmark.
+Style: flat vector-like logo design, crisp edges, solid fills, minimal, attractive at small sizes.
+Avoid: all-yellow duck, yellow lowercase-d monogram, overly organic unsegmented duck, excessively tiny pixel mosaic, extra text, gradients, textures, shadows, 3D, watermark.

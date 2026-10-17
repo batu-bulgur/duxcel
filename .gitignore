@@ -1,0 +1,17 @@
+/duxcel
+/duxcel-debug
+/a.out
+*.dSYM/
+# Compiled tests; keep their C sources.
+/tests/test_*
+!/tests/test_*.c
+/tests/generated/
+/tests/downloads/
+/tests/results/
+/build/
+node_modules/
+/design/prototype/dist/
+.DS_Store
+*.o
+*.d
+*.log

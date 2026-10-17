@@ -1,0 +1,32 @@
+Created using the built-in image generation tool.
+
+01-yellow-duck-monogram.png
+Use case: logo-brand.
+Asset type: one polished logo concept presentation for Duxcel, a DuckDB-powered spreadsheet and visual analytics application combining the fluidity of Excel and Tableau.
+Primary request: Create an original, exceptionally simple geometric DUCK MONOGRAM logo. Inspiration: DuckDB's bold graphic confidence and yellow/black identity; Excel's modular cells; Tableau's precision. Develop a bold near-circular lowercase d / duck-head hybrid: a round head and a short flat projecting duck bill integrated into one strong silhouette, with one subtle rectangular negative-space cut suggesting a spreadsheet cell. Elegant enough for a modern analytics tool, instantly recognizable at 24 pixels. Make the duck read clearly, not as a generic letter.
+Style: crisp flat vector-like brand design, exact geometry, impeccable optical balance, no illustration texture.
+Palette: saturated golden yellow and near-black.
+Composition: a spacious white square presentation showing ONE consistent symbol design: large primary icon centered in the upper half; beneath it a carefully balanced horizontal lockup with a smaller copy of the same icon and the wordmark; at the bottom one small black monochrome version of the icon as a scalability check. The repeated symbols MUST be identical geometry.
+Text (verbatim): "Duxcel" only, spelled D-u-x-c-e-l. Dark near-black contemporary sans-serif wordmark with thoughtful custom spacing, medium weight, lowercase after capital D.
+Constraints: derive an original identity, do not reproduce existing company logos or combine actual logos. Use very few shapes, strong negative space. Solid colors, no gradients, no shadows, no 3D, no mockup objects, no slogans, no decorative labels, no watermark.
+
+02-green-cell-duck.png
+Use case: logo-brand.
+Asset type: one polished logo concept presentation for Duxcel, a DuckDB-powered spreadsheet and visual analytics application combining Excel and Tableau capabilities.
+Primary request: Create an original minimal CELL DUCK brand symbol. Inspiration: the spreadsheet geometry and emerald palette of Excel, the duck motif of DuckDB, and the visual clarity of Tableau. Use a compact emerald rounded-square spreadsheet tile with just a few well-proportioned white grid divisions; the central negative space ingeniously reveals a clean, unmistakable side-profile duck head with a tiny golden-yellow rectangular bill that emerges naturally from the grid. The logo must feel like ONE unified clever symbol rather than a duck pasted over a spreadsheet. Prioritize legibility and an attractive silhouette over detailed grids.
+Style: premium flat vector-like identity, disciplined mathematical geometry, playful intelligence, clean edges.
+Palette: rich emerald green, small golden-yellow accent, near-black typography, white background.
+Composition: a spacious white square presentation showing ONE consistent symbol design: large primary icon centered in the upper half; beneath it a horizontal lockup with a smaller copy of the identical icon followed by the wordmark; at the bottom a small black monochrome rendering of the SAME symbol. Generous whitespace.
+Text (verbatim): "Duxcel" only, spelled D-u-x-c-e-l. Refined dark geometric sans-serif lettering, medium weight, custom optical kerning.
+Constraints: original identity inspired by concepts, not a copy of the Excel X logo or any existing company logo. No large X on workbook. No duck illustration, no feathers, no gradients, no 3D, no shadows, no device mockups, no slogans, no headings, no watermark.
+
+03-multicolor-data-duck.png
+Use case: logo-brand.
+Asset type: one polished logo concept presentation for Duxcel, a DuckDB-powered spreadsheet and visual analytics application combining Excel and Tableau capabilities.
+Primary request: Create an original minimal DATA DUCK logo that translates chart marks into a compact duck silhouette. Inspiration: Tableau's colorful data marks and analytical clarity, DuckDB's duck motif, and Excel's modular grid. Arrange a very small number of carefully sized flat rounded-square data marks, on a strict grid with disciplined white gaps, to make an unmistakable side-profile duck: a single larger blue square head with one tiny white eye, a small golden-yellow bill, and a compact stepped green-and-blue body suggesting ascending bar-chart columns. It should be a coherent abstract logo, not a pixel-art mascot or a full chart. Strong rhythm, minimal complexity, about five to seven pieces total, works as an app icon.
+Style: Swiss-modernist flat vector-like logo, simple geometry, visual intelligence, sophisticated color balance.
+Palette: deep analytical blue, emerald green, one golden-yellow accent, dark navy wordmark on pure white.
+Composition: a spacious white square presentation showing ONE consistent symbol design: large primary icon in the upper half; below a horizontal icon-and-wordmark lockup using exactly the same mark; at the bottom one small black monochrome version with the separated geometry preserved. Beautiful generous margins.
+Text (verbatim): "Duxcel" only, spelled D-u-x-c-e-l. Dark navy modern sans-serif wordmark with confident proportions and excellent kerning.
+Constraints: original brand, not an imitation of the Tableau cross logo or any existing logo. No axes, no legend, no full spreadsheet, no extraneous shapes, no decorative typography, no gradient, no shadow, no 3D, no mockup objects, no headings, no slogans, no watermark.
+

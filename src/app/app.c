@@ -1,0 +1,10976 @@
+#include "app.h"
+#include "../data/worker.h"
+#include "../grid/grid.h"
+#include "../ui/ui.h"
+#include "../ui/motion.h"
+#include "../ui/popup.h"
+#include "../ui/choiceview.h"
+#include "../ui/cellreadout.h"
+#include "../ui/flyout.h"
+#include "../ui/dockview.h"
+#include "../ui/marksview.h"
+#include "../ui/statusview.h"
+#include <rlgl.h>
+#include "../ui/ribbon.h"
+#include "../ui/ribbon_spec.h"
+#include "../ui/workspace.h"
+#include "../ui/chartview.h"
+#include "../ui/chartencoding.h"
+#include "../ui/textview.h"
+#include "../ui/inspector.h"
+#include "../ui/stepview.h"
+#include "step_preview.h"
+#include "../ui/statsview.h"
+#include "../ui/guideview.h"
+#include "../ui/sortview.h"
+#include "../ui/brand.h"
+#include <inttypes.h>
+#include <limits.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW } Modal;
+typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
+typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW } SheetAction;
+typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN } DocumentAction;
+typedef struct { uint64_t id,revision,source_revision,counted_total,count_layout_key; Page page; char *error; bool dirty,failed,waiting_count,count_paused,count_resolved; } ObjectView;
+typedef enum { STATS_IDLE,STATS_WAITING,STATS_CALCULATING,STATS_READY,STATS_UNAVAILABLE,STATS_FAILED } StatsState;
+typedef struct { uint64_t r0,r1,source_revision,cell_revision,objects,total; size_t c0,c1,sheet,columns; bool count_pending,active; } StatsKey;
+typedef struct { GridLocation location; uint64_t id,revision; } SourceLocation;
+typedef struct {
+    UICellReadout value;
+    uint64_t row,source,revision,object_revision,titles,manual;
+    size_t sheet,column,step;
+    bool preview;
+} ActiveReadout;
+typedef struct {
+    UIContext ui;
+    Texture2D icon_previews[16];
+    int icon_preview;
+    QueryWorker worker;
+    SortEditor sort_editor;
+    Grid grid;
+    Grid source_preview;
+    SourceLocation source_locations[DX_MAX_OBJECTS+1];
+    UICellContextLayout cell_context;
+    ActiveReadout active_readout;
+    bool preview_valid;
+    uint64_t preview_source_id,preview_source_revision,preview_generation,preview_width_revision;
+    size_t preview_sheet;
+    UIAuthoringLayout authoring_layout;
+    UIContextTitleLayout context_title;
+    bool view_menu_chart;
+    StepPreview step_preview;
+    UIChartView chart_view;
+    UIChartEncoding chart_encoding;
+    uint64_t chart_marks_revision;
+    bool chart_encoding_valid,chart_encoding_line;
+    const Cell *chart_cells;
+    uint64_t chart_id,chart_revision,chart_source_revision,chart_generation,chart_offset;
+    size_t chart_sheet,chart_measure;
+    float analysis_scroll,matrix_horizontal,matrix_vertical,matrix_maximum;
+    UIScrollbar analysis_vbar;
+    UIScrollbar matrix_hbar,matrix_vbar;
+    bool matrix_selecting,matrix_cells_active;
+    int matrix_row;
+    uint64_t matrix_object;
+    Analysis analysis;
+    Workbook book;
+    bool io_busy, restore_view;
+    DocumentAction document_action;
+    char *document_path;
+    bool document_saving,exit_ready;
+    int document_focus,context_focus,context_scroll,width_focus;
+    Rectangle document_actions[3];
+    bool context_drag;
+    float context_grab;
+    double context_wheel;
+    bool width_invalid,context_keyboard;
+    SelectionStats statistics;
+    StatsKey statistics_key;
+    StatsState statistics_state;
+    uint64_t statistics_request,statistics_cells,statistics_first,statistics_rows;
+    size_t statistics_column,statistics_columns;
+    unsigned statistics_mask;
+    bool statistics_enabled,statistics_frame;
+    int statistics_object,statistics_focus;
+    UIStatsLayout statistics_layout;
+    UIGuide guide;
+    bool guide_button_focus;
+    double statistics_changed;
+    char *statistics_error;
+    char statistics_line[2048];
+    char status_metrics[2048],status_metrics_source[2048];
+    float status_metrics_width,status_metrics_scale;
+    int status_metrics_raster;
+    unsigned status_number_key;
+    bool status_number_valid,status_metrics_actual;
+    UIStatusLayout status_layout;
+    UIStatusMetrics status_metric_labels;
+    char preview_status_line[2048];
+    uint64_t preview_status_request,preview_status_cells;
+    unsigned preview_status_mask,preview_status_format;
+    int preview_status_state;
+    char *inspector_text,*inspector_type,*inspector_column;
+    char inspector_address[48];
+    TextLines inspector_lines;
+    size_t inspector_bytes,inspector_scroll;
+    bool inspector_null,inspector_drag;
+    float inspector_grab;
+    double inspector_layout_ms;
+    int ribbon_tab, tab_scroll,last_window_width,last_window_height;
+    float last_interface_scale;
+    bool reveal_tab;
+    int ribbon_mode,previous_ribbon_mode,ribbon_menu_focus; /* full, compact, icons, focus */
+    const char *ribbon_hover,*ribbon_last_hover;
+    double ribbon_hover_since;
+    Rectangle ribbon_hover_rect;
+    float ribbon_indicator,ribbon_tabs_scroll,ribbon_indicator_width;
+    UIMotion ribbon_indicator_motion,ribbon_width_motion,pipeline_motion,left_motion,left_alpha_motion,workbook_motion,pipeline_alpha_motion,workbook_alpha_motion;
+    UIMotion author_context_motion;
+    bool author_context_active;
+    float author_context_progress;
+    UIPopupPresence popup_presence;
+    UIPaintImage popup_image;
+    unsigned popup_back;
+    bool popup_capturing;
+    int popup_window_width,popup_window_height;
+    float popup_scale;
+    UIRibbonLayout ribbon_layout;
+    UIAction format_action;
+    Vector2 format_origin;
+    int format_return_command;
+    int format_return_group;
+    UIFlyoutLayout ribbon_flyout;
+    float ribbon_layout_width,ribbon_layout_scale;
+    int ribbon_layout_tab,ribbon_layout_mode,ribbon_layout_variant,ribbon_layout_raster;
+    int ribbon_popup_group,ribbon_popup_focus;
+    bool pipeline_sql,gridlines;
+    bool inspector_sql_valid;
+    uint64_t inspector_sql_id,inspector_sql_revision,inspector_sql_generation;
+    size_t inspector_sql_sheet;
+    char *inspector_sql_text;
+    int inspector_sql_scroll;
+    TextLines inspector_sql_lines;
+    UIStep pipeline_rows[DX_UI_STEPS];
+    size_t pipeline_row_count;
+    uint64_t pipeline_rows_key;
+    uint64_t inspector_sql_steps_key;
+    bool pipeline_rows_valid;
+    UIInspectorLayout pipeline_layout;
+    int pipeline_selected_step,step_menu_index;
+    bool step_menu_opening;
+    bool key_tips, ribbon_focus, diagnostics, consume_grid_input;
+    int chrome_focus,status_focus,workbook_focus_index,workbook_visible_rows,pipeline_focus_index,pipeline_visible_rows;
+    float workbook_stride,workbook_row_height;
+    int ribbon_command;
+    bool command_activate,ribbon_reveal_command;
+    Page page, spare;
+    ObjectView objects[DX_MAX_OBJECTS];
+    int selected_object,pivot_role,pivot_focus,pivot_field,pivot_value,pivot_field_scroll;
+    int pivot_drag_field,pivot_drag_role,pivot_drag_index;
+    bool pivot_drag_right,pivot_search_focus,pivot_reveal_object,reduced_motion,author_reveal,pivot_drop_pending;
+    float pivot_scroll[4];
+    Vector2 pivot_drag_origin,pivot_drop_point;
+    Rectangle pivot_shelves[4];
+    Rectangle pivot_tokens[4][DX_PIVOT_FIELDS],pivot_contents[4];
+    UIShelfLayout axis_shelves[2];
+    float pivot_token_widths[4][DX_PIVOT_FIELDS],pivot_metrics_scale;
+    uint64_t pivot_metrics_id,pivot_metrics_revision;
+    int pivot_metrics_raster;
+    char pivot_metrics_scope[4097];
+    UIWorkspaceLayout workspace;
+    bool left_drawer;
+    bool dock_compact;
+    float dock_scroll[2];
+    UIScrollbar dock_scrollbars[2];
+    UIDockLayout dock_layout;
+    float author_scroll; int author_visible;
+    UIMarksLayout author_marks_layout; UIScrollbar author_scrollbar;
+    double author_wheel;
+    Rectangle author_panel,author_body,author_fields,author_plot;
+    TextInput pivot_search;
+    TextInput chart_columns;
+    uint64_t chart_resize_id,chart_resize_rows;
+    size_t chart_resize_columns;
+    bool chart_resizing,chart_resize_valid;
+    int chart_size_focus;
+    char *chart_resize_error;
+    int object_name_focus;
+    char *object_name_error;
+    int range_move_focus;
+    char *range_move_error;
+    int table_relation_object,table_relation_focus,table_relation_scroll;
+    bool table_relation_drag;
+    float table_relation_grab;
+    double wheel_table_relation;
+    size_t *field_matches,field_match_count,field_match_capacity,field_schema_count;
+    uint64_t field_schema_generation,field_match_generation,field_search_revision;
+    uint64_t field_source_id,field_source_revision;
+    int field_visible;
+    Rectangle workbook_list,field_list,field_footer;
+    bool field_matches_valid;
+    bool workbook_drag,field_drag;
+    float workbook_grab,field_grab;
+    double pivot_changed;
+    int filter_object,filter_pill;
+    bool filter_anchor_valid;
+    Vector2 filter_anchor;
+    int sort_object;
+    DistinctPage value_cache[4];
+    char *value_cache_keys[4],*value_pending_key,*values_context;
+    unsigned value_cache_next;
+    char **value_choices,*date_starts[5],*date_ends[5];
+    size_t value_choice_count;
+    char **values_found;
+    size_t values_found_count,values_found_bytes;
+    bool values_selecting,value_checks_dirty,value_checks_all,value_checks_mixed,value_checks_override;
+    int filter_mode,condition_focus,date_level,date_max,summary_role,summary_drag,summary_scroll;
+    int filter_focus,filter_condition_index;
+    bool filter_condition_enabled,filter_condition_menu;
+    TextInput filter_term,filter_end;
+    UIFilterLayout filter_layout;
+    int mark_role;
+    int mark_open_key;
+    bool mark_menu_opening,mark_menu_anchor_pending;
+    Rectangle author_marks[DX_MARK_ROLES];
+    char mark_labels[DX_MARK_ROLES][512];
+    uint64_t mark_labels_id,mark_labels_revision,mark_labels_title,mark_labels_generation,mark_labels_marks;
+    size_t mark_labels_sheet;
+    Vector2 summary_origin,context_origin;
+    bool values_all,values_loading,values_drag,values_failed;
+    float values_grab;
+    uint64_t values_scroll,analysis_revision;
+    int64_t values_total,values_focus; /* -2 search, -1 All, otherwise distinct row. */
+    double values_changed;
+    uint64_t values_search_revision;
+    int64_t known_total;
+    uint64_t count_request_id,observed_rows;
+    bool count_paused,page_stale,waiting_count_page,count_deferred;
+    uint64_t deferred_total;
+    double count_started_ms;
+    char *pipeline_text;
+    char *sql_text;
+    TextEditor query_editor;
+    TextLines query_errors;
+    int query_error_scroll;
+    double query_error_wheel;
+    char *query_error;
+    int query_object,query_focus;
+    uint64_t query_source_revision,query_draft_revision,query_edit_revision;
+    bool query_loading;
+    QueryReply *query_validated;
+    double viewport_changed, render_ms[600];
+    uint64_t last_top;
+    uint64_t request_id, pending_offset;
+    uint64_t pending_object_id;
+    bool busy,new_schema,sidebar,fields_visible,workbook_collapsed,fields_collapsed,pipeline,pipeline_collapsed,fetch_failed;
+    bool field_reveal_requested;
+    int field_navigation,field_menu_focus; /* reveal, center, select column, go to active row */
+    bool field_menu_keyboard,left_render_workbook,left_render_fields;
+    bool app_presentation_loaded;
+    bool pending_sheet,pending_new_sheet,pending_relation;
+    size_t pending_sheet_index,pending_relation_index;
+    size_t sheet_menu_index;
+    int sheet_menu_focus,unhide_scroll;
+    SheetAction sheet_action;
+    bool sheet_rename_error;
+    int field_highlight;
+    double field_highlight_until;
+    bool refresh_plans;
+    JobKind pending_kind;
+    Modal modal;
+    TextInput input;
+    size_t field, measure;
+    FilterOp filter_op;
+    Aggregate aggregate;
+    char *message;
+    double message_since;
+    uint64_t message_revision,toast_revision;
+    TextLines toast_lines;
+    float toast_width,toast_height;
+    Rectangle toast_rect;
+    float sidebar_width,pipeline_width,pipeline_extent,left_extent,left_alpha,workbook_open,pipeline_alpha,workbook_alpha;
+    Rectangle workbook_body_clip;
+    bool split_side,split_pipeline,steps_drag;
+    float steps_grab;
+    int relation_scroll, sql_scroll, sheet_scroll,step_scroll;
+    double wheel_sheet,wheel_field,wheel_steps,wheel_values,wheel_unhide,wheel_sql,wheel_summary,wheel_inspector;
+    double launched_ms, first_rows_ms, last_frame_ms, worst_frame_ms, sum_frame_ms;
+    double frame_samples[600];
+    unsigned frames;
+} App;
+static SheetObject *selected_pivot(App *a);
+static bool set_representation(App *a,int representation);
+static void preview_to_source(App *a,uint64_t row,size_t column);
+static void remember_source_location(App *a);
+static void browse_source(App *a);
+static void draw_step_menu(App *a);
+static void pipeline_activate(App *a,size_t index);
+static void end_step_preview(App *a);
+static void statistics_line(App *a);
+static CellFormat active_format(App *a);
+static int compare_frame(const void *left,const void *right) {
+    double a=*(const double *)left, b=*(const double *)right; return (a>b)-(a<b);
+}
+static Rectangle box(float x,float y,float w,float h) { return (Rectangle){x,y,w,h}; }
+static float pipeline_target_width(const App *a) { return a->pipeline_collapsed ? 32 : a->pipeline_width; }
+static void present_pipeline(App *a,bool visible,bool collapsed) {
+    if (visible) a->left_drawer=false;
+    a->pipeline=visible; a->pipeline_collapsed=visible && collapsed;
+    a->chrome_focus=visible ? 8 : 0; a->pipeline_focus_index=0;
+    a->steps_drag=a->split_pipeline=false; a->consume_grid_input=true;
+}
+static void show_workspace(App *a) {
+    if (!a->sidebar && !a->fields_visible && !selected_pivot(a)) a->fields_visible=true;
+    a->left_drawer=true; a->ribbon_focus=false; a->chrome_focus=0;
+    a->consume_grid_input=true;
+}
+static void close_workspace(App *a) {
+    a->left_drawer=false; a->pivot_focus=a->chrome_focus=0;
+    a->pivot_drag_field=a->pivot_drag_role=-1;
+    a->pivot_drop_pending=false;
+    a->pivot_search_focus=false; a->consume_grid_input=true;
+}
+static void status(App *a,const char *text) { char *owned=dx_strdup(text); free(a->message); a->message=owned; a->message_since=dx_millis(); a->message_revision++; }
+static void open_modal(App *a,Modal modal);
+static void draw_command_popup(App *a);
+static void popup_capture(App *a,Rectangle panel);
+static bool popup_modal(Modal modal);
+static bool passive_control(App *a,bool enabled) { return enabled || (popup_modal(a->modal) && !a->io_busy); }
+static void begin_values(App *a);
+static void cancel_values(App *a);
+static void clear_values_cache(App *a);
+static void open_source(App *a,const char *path,bool demo);
+static void begin_chart_size(App *a);
+static void begin_object_name(App *a);
+static void begin_table_relation(App *a);
+static void begin_source_query(App *a);
+static void cancel_source_validation(App *a);
+static void list_scrollbar(App *a,Rectangle r,int count,int visible,int *offset,bool *drag,float *grab,bool enabled);
+static void smoke_snapshot(const char *path);
+static void workspace_job(App *a,JobKind kind,const char *path);
+static void activate_sheet(App *a,size_t index,bool capture);
+static void new_sheet(App *a);
+static void clear_object_views(App *a);
+static void create_pivot(App *a);
+static void create_chart(App *a);
+static void invalidate_object(App *a,size_t index);
+static bool publish_object_extent(App *a,size_t index,uint64_t total,char **error);
+static void open_pivot_filter(App *a,size_t index);
+static bool apply_pivot_filter(App *a,bool values,bool clear);
+static const char *encoding_reason(App *a,int role);
+static void open_table_filter(App *a,size_t index,size_t column);
+static SheetObject *selected_pivot(App *a);
+static SheetObject *selected_object(App *a);
+static bool object_ready(App *a,size_t index);
+static void begin_move_range(App *a,bool whole_object);
+static void address(size_t col,uint64_t row,char out[48]);
+static void inspect_value(App *a);
+static float draw_workbook_section(App *a,Rectangle r,bool shared);
+static void begin_sheet_menu(App *a,size_t index,Vector2 origin);
+static void begin_sheet_rename(App *a,size_t index);
+static void begin_field_menu(App *a,size_t column,Vector2 origin);
+static void inspector_copy(App *a);
+static bool commit_cell(App *a);
+static void request_document_action(App *a,DocumentAction action,const char *path);
+static void cancel_document_action(App *a);
+static Worksheet *active_sheet(App *a) { return a->book.count ? &a->book.sheets[a->book.active] : NULL; }
+static SheetObject *selected_object(App *a) {
+    Worksheet *sheet=active_sheet(a);
+    return sheet && a->selected_object>=0 && (size_t)a->selected_object<sheet->objects.count ? &sheet->objects.items[a->selected_object] : NULL;
+}
+static const Analysis *object_source(App *a,const SheetObject *o) {
+    const SheetObject *table=objects_source(&active_sheet(a)->objects,o);
+    return table ? &table->source : &a->analysis;
+}
+static uint64_t object_source_revision(App *a,const SheetObject *o) {
+    const SheetObject *table=objects_source(&active_sheet(a)->objects,o);
+    return table ? table->revision : a->analysis_revision;
+}
+static Page *object_fields(App *a,const SheetObject *o) {
+    ObjectStore *store=&active_sheet(a)->objects;
+    const SheetObject *table=objects_source(store,o);
+    return table ? &a->objects[(size_t)(table-store->items)].page : &a->page;
+}
+static Page *context_fields(App *a) { return object_fields(a,selected_object(a)); }
+static void end_step_preview(App *a) {
+    if (!a->step_preview.active) return;
+    if (a->step_preview.loading && a->step_preview.request==a->request_id) { worker_cancel(&a->worker); a->request_id++; a->busy=false; }
+    if (a->step_preview.stats_request && a->step_preview.stats_request==a->request_id) { worker_cancel(&a->worker); a->request_id++; a->busy=false; }
+    step_preview_free(&a->step_preview); a->consume_grid_input=true; status(a,"Current result restored.");
+    statistics_line(a);
+}
+static float active_canvas_zoom(App *a) { return a->step_preview.active ? a->step_preview.grid.zoom : a->grid.zoom; }
+static void schedule_step_preview(App *a) {
+    if (!a->step_preview.active || a->busy || a->io_busy || a->modal!=MODAL_NONE) return;
+    QueryJob *job=step_preview_job(&a->step_preview,a->request_id+1,false); if (!job) return;
+    a->request_id=job->id; a->busy=true; a->pending_kind=JOB_STEP_PREVIEW; worker_submit(&a->worker,job);
+}
+static SheetObject *filter_object(App *a) {
+    ObjectStore *store=&active_sheet(a)->objects;
+    return a->filter_object>=0 && (size_t)a->filter_object<store->count ? &store->items[a->filter_object] : NULL;
+}
+static Page *filter_fields(App *a) { return object_fields(a,filter_object(a)); }
+static uint64_t source_rows(App *a) { return a->page.count_pending ? UINT64_MAX : a->page.total; }
+static char *source_overlap(App *a,uint64_t rows,size_t columns) {
+    char *error=NULL; Worksheet *sheet=active_sheet(a);
+    for (size_t i=0;i<sheet->objects.count && !error;i++) {
+        SheetObject *o=&sheet->objects.items[i]; objects_fits(&sheet->objects,(int)i,o->row,o->col,o->rows,o->columns,&sheet->cells,rows,columns,&error);
+    }
+    for (size_t i=0;i<sheet->cells.count && !error;i++) if (sheet->cells.cells[i].row<rows && sheet->cells.cells[i].col<columns) error=dx_strdup("The new source result overlaps manual cells. Move them aside, then refresh, or undo the analysis change.");
+    return error;
+}
+static void validate_history_layout(App *a) {
+    char *error=source_overlap(a,source_rows(a),a->page.column_count); if (!error) return;
+    worker_cancel(&a->worker); a->request_id++; a->busy=false; a->count_request_id=0;
+    a->count_paused=true; a->count_deferred=false; a->waiting_count_page=false; a->page_stale=false; a->known_total=-1;
+    page_free(&a->page); page_free(&a->spare); clear_object_views(a); a->fetch_failed=true;
+    char *message=dx_printf("Restored worksheet content overlaps the current result. Undo another step, or move the restored range and refresh.\n%s",error);
+    status(a,message); free(message); free(error); a->modal=MODAL_ERROR;
+}
+static bool manual_range(App *a,uint64_t row,size_t col,uint64_t rows,size_t columns,char **error) {
+    if (!active_sheet(a)) { if (error) { free(*error); *error=dx_strdup("Wait for a worksheet before editing this range."); } return false; }
+    if (a->analysis.kind!=SOURCE_NONE && !a->page.column_count && !a->fetch_failed) {
+        if (error) { free(*error); *error=dx_strdup("Wait for the source columns before editing this range."); } return false;
+    }
+    return objects_fits(&active_sheet(a)->objects,-1,row,col,rows,columns,NULL,source_rows(a),a->page.column_count,error);
+}
+static bool paste_guard(void *context,uint64_t row,size_t col,size_t rows,size_t columns,char **error) { return manual_range(context,row,col,rows,columns,error); }
+static bool manual_cell(App *a) {
+    if (!active_sheet(a)) return false;
+    if (a->analysis.kind!=SOURCE_NONE && !a->page.column_count && !a->fetch_failed) return false;
+    return !(a->grid.row<source_rows(a) && a->grid.col<a->page.column_count) && objects_hit(&active_sheet(a)->objects,a->grid.row,a->grid.col)<0;
+}
+static void set_grid_navigation(App *a) {
+    a->grid.navigation=(GridRegion){0}; ObjectStore *store=&active_sheet(a)->objects;
+    int hit=objects_hit(store,a->grid.row,a->grid.col); if (hit<0) return;
+    SheetObject *o=&store->items[hit]; ObjectView *v=&a->objects[hit]; Page *page=&v->page;
+    if (o->kind==OBJECT_CHART || v->failed || v->dirty || v->waiting_count || !page->column_count || page->total>DX_SHEET_ROWS-o->row-2) return;
+    a->grid.navigation=(GridRegion){o->row+1,o->row+1+page->total,o->col,o->col+page->column_count-1,true};
+}
+static void keyboard_object(App *a) {
+    Grid *g=&a->grid; int hit=objects_hit(&active_sheet(a)->objects,g->row,g->col);
+    if (hit==a->selected_object) return;
+    a->selected_object=hit; a->pivot_search_focus=false;
+    a->pivot_reveal_object=hit>=0 && g->selection==SELECT_CELLS && g->anchor_row==g->end_row && g->anchor_col==g->end_col;
+}
+static void replay_canvas_keys(App *a,bool enabled) {
+    DxKeyModifiers event;
+    while (ui_take_navigation_key(&event)) {
+        if (!enabled || a->modal!=MODAL_NONE || a->grid.dragging || a->grid.moving || a->grid.resizing>=0 ||
+            a->grid.context_requested || a->grid.filter_requested || a->grid.fit_requested || a->grid.move_requested) continue;
+        if (event.key==KEY_DOWN && (event.modifiers&DX_MOD_ALT)) {
+            SheetObject *object=selected_object(a);
+            if (!a->io_busy && object && object->kind==OBJECT_TABLE && a->grid.col>=object->col) open_table_filter(a,(size_t)a->selected_object,a->grid.col-object->col);
+            else if (!a->io_busy && !a->analysis.group_column && !a->busy && a->grid.col<a->page.column_count) open_modal(a,MODAL_FILTER);
+            enabled=false; continue;
+        }
+    set_grid_navigation(a);
+        GridInput input={.mouse={-1000000,-1000000},.key=event.key,.separate_keyboard=true,
+            .key_shift=(event.modifiers&DX_MOD_SHIFT)!=0,.key_alt=(event.modifiers&DX_MOD_ALT)!=0};
+#ifdef __APPLE__
+        input.key_shortcut=(event.modifiers&DX_MOD_SUPER)!=0;
+#else
+        input.key_shortcut=(event.modifiers&DX_MOD_CONTROL)!=0;
+#endif
+        grid_handle_input(&a->grid,&a->ui,&a->page,&input);
+        keyboard_object(a);
+    }
+}
+static bool object_count_active(const App *a) {
+    return a->count_request_id && a->count_request_id==a->request_id && a->pending_kind==JOB_COUNT && a->pending_object_id;
+}
+static void cancel_object_query(App *a) {
+    if (!a->worker.started || (!(a->busy && a->pending_kind==JOB_PIVOT) && !object_count_active(a))) return;
+    worker_cancel(&a->worker); a->request_id++; a->count_request_id=0; a->busy=false;
+}
+static void clear_object_views(App *a) {
+    a->matrix_object=0; a->matrix_cells_active=false;
+    a->pivot_metrics_id=0;
+    a->pivot_drop_pending=false;
+    cancel_object_query(a);
+    for (size_t i=0;i<DX_MAX_OBJECTS;i++) { page_free(&a->objects[i].page); free(a->objects[i].error); a->objects[i]=(ObjectView){.dirty=true}; }
+    a->pivot_drag_field=a->pivot_drag_role=-1;
+}
+static void reconcile_object_views(App *a) {
+    a->pivot_drop_pending=false;
+    cancel_object_query(a);
+    ObjectView previous[DX_MAX_OBJECTS]; memcpy(previous,a->objects,sizeof(previous)); memset(a->objects,0,sizeof(a->objects));
+    const ObjectStore *store=&active_sheet(a)->objects;
+    for (size_t i=0;i<store->count;i++) {
+        const SheetObject *object=&store->items[i]; a->objects[i].dirty=true;
+        for (size_t j=0;j<DX_MAX_OBJECTS;j++) if (previous[j].id==object->id && previous[j].revision==object->revision && previous[j].source_revision==object_source_revision(a,object) && previous[j].page.column_count && !previous[j].failed) {
+            a->objects[i]=previous[j]; memset(&previous[j],0,sizeof(previous[j])); break;
+        }
+    }
+    for (size_t i=0;i<DX_MAX_OBJECTS;i++) { page_free(&previous[i].page); free(previous[i].error); }
+    /* A history snapshot can predate a background count. Cached query results
+       retain their full extent even when the restored placement was provisional. */
+    for (size_t i=0;i<store->count;i++) {
+        const SheetObject *o=&store->items[i]; ObjectView *v=&a->objects[i];
+        if (o->kind==OBJECT_CHART || v->dirty || v->failed || v->page.count_pending || !v->page.column_count) continue;
+        uint64_t rows=v->page.total+2<5 ? 5 : v->page.total+2; size_t columns=v->page.column_count<3 ? 3 : v->page.column_count;
+        if (o->rows!=rows || o->columns!=columns) { char *error=NULL; if (!publish_object_extent(a,i,v->page.total,&error)) { v->failed=true; free(v->error); v->error=error; } }
+    }
+    a->pivot_drag_field=a->pivot_drag_role=-1;
+}
+static void invalidate_object(App *a,size_t index) {
+    if (index>=active_sheet(a)->objects.count) return;
+    cancel_object_query(a);
+    ObjectView *v=&a->objects[index]; page_free(&v->page); free(v->error); *v=(ObjectView){.dirty=true};
+    a->pivot_changed=dx_millis(); a->book.dirty=true;
+}
+static bool set_table_source(App *a,size_t index,const Analysis *source) {
+    ObjectStore *store=&active_sheet(a)->objects; char *error=NULL;
+    if (index>=store->count || store->items[index].kind!=OBJECT_TABLE) return false;
+    uint64_t previous=store->items[index].revision;
+    const Analysis *old=&store->items[index].source; bool same=analysis_same_result(old,source);
+    for (size_t i=0;same && i<old->filter_count+(old->filter_column ? 1 : 0);i++) {
+        const char *before=i ? old->filters[i-1].column : old->filter_column,*after=i ? source->filters[i-1].column : source->filter_column;
+        same=before && after && !strcmp(before,after);
+    }
+    if (!objects_set_source(store,index,source,&error)) { status(a,error); free(error); return false; }
+    if (!same) {
+        worksheet_record(active_sheet(a),EDIT_OBJECTS); a->book.dirty=true;
+        if (store->items[index].revision!=previous) {
+            uint64_t id=store->items[index].id;
+            for (size_t i=0;i<store->count;i++) if (i==index || store->items[i].source_id==id) invalidate_object(a,i);
+        }
+    }
+    return true;
+}
+static void begin_table_relation(App *a) {
+    SheetObject *o=selected_object(a);
+    if (!o || o->kind!=OBJECT_TABLE || o->source.kind!=SOURCE_DATABASE) return;
+    Page *page=&a->objects[a->selected_object].page;
+    if (!page->relation_count) { status(a,"Wait for the database's tables and views to load."); return; }
+    a->table_relation_object=a->selected_object; a->table_relation_focus=a->table_relation_scroll=0; a->table_relation_drag=false;
+    for (size_t i=0;i<page->relation_count && i<INT_MAX;i++) if (o->source.schema && o->source.table && !strcmp(o->source.schema,page->relations[i].schema) && !strcmp(o->source.table,page->relations[i].name)) a->table_relation_focus=(int)i;
+    a->table_relation_scroll=a->table_relation_focus; a->modal=MODAL_TABLE_RELATION; a->consume_grid_input=true;
+}
+static bool choose_table_relation(App *a,size_t relation) {
+    size_t index=(size_t)a->table_relation_object; ObjectStore *store=&active_sheet(a)->objects;
+    if (index>=store->count || store->items[index].kind!=OBJECT_TABLE || store->items[index].source.kind!=SOURCE_DATABASE || relation>=a->objects[index].page.relation_count) return false;
+    const Analysis *old=&store->items[index].source; const Relation *r=&a->objects[index].page.relations[relation];
+    bool same=old->schema && old->table && !strcmp(old->schema,r->schema) && !strcmp(old->table,r->name);
+    if (!same) {
+        Analysis source={.kind=SOURCE_DATABASE,.path=dx_strdup(old->path),.schema=dx_strdup(r->schema),.table=dx_strdup(r->name)};
+        bool ok=set_table_source(a,index,&source); analysis_free(&source); if (!ok) return false;
+        clear_values_cache(a); a->field_matches_valid=false;
+    }
+    a->selected_object=(int)index; a->modal=MODAL_NONE; a->consume_grid_input=true;
+    status(a,same ? "Table selection unchanged." : "Source table changed. Its filters and sort were cleared."); return true;
+}
+static bool import_table(App *a,const char *path) {
+    if (a->io_busy || a->busy || !active_sheet(a)) return false;
+    SourceKind kind=source_kind(path); char *absolute=workbook_is_path(path) ? NULL : dx_absolute_path(path);
+    if (kind==SOURCE_NONE || !absolute) { free(absolute); status(a,"Choose an existing CSV, Parquet or DuckDB data file."); return false; }
+    Worksheet *sheet=active_sheet(a); char *error=NULL;
+    if (!objects_fits(&sheet->objects,-1,a->grid.row,a->grid.col,5,4,&sheet->cells,source_rows(a),a->page.column_count,&error)) { status(a,error); free(error); free(absolute); return false; }
+    Analysis source={.kind=kind,.path=absolute}; char name[64]; snprintf(name,sizeof(name),"Table %" PRIu64,sheet->objects.next_id+1);
+    int index=objects_add_table(&sheet->objects,a->grid.row,a->grid.col,name,&source,&error); analysis_free(&source);
+    if (index<0) { status(a,error); free(error); return false; }
+    worksheet_record(sheet,EDIT_OBJECTS); a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
+    invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Loading table at the selected range…"); return true;
+}
+static void import_table_panel(App *a) {
+    a->consume_grid_input=true; char *path=dx_open_table_panel(false);
+    if (path) { import_table(a,path); free(path); }
+}
+static void create_pivot(App *a) {
+    if (!context_fields(a)->column_count || a->io_busy) return;
+    remember_source_location(a);
+    Worksheet *s=active_sheet(a); char *error=NULL;
+    SheetObject *selected=selected_object(a);
+    const SheetObject *table=objects_source(&s->objects,selected);
+    uint64_t binding=table ? table->id : 0;
+    uint64_t row=a->grid.row; bool automatic=table || (row<source_rows(a) && a->grid.col<a->page.column_count);
+    size_t col=table ? table->col+table->columns+2 : automatic ? a->page.column_count+2 : a->grid.col;
+    if (table) row=table->row;
+    if (automatic && col>16384-4) {
+        if (a->page.count_pending) { status(a,"Wait for the exact row count to place a pivot below this wide table."); return; }
+        if (a->page.total>DX_SHEET_ROWS-7) { status(a,"This table fills the worksheet. Choose a source with space for an analysis object."); return; }
+        row=a->page.total+2; col=0;
+    }
+    if (!objects_fits(&s->objects,-1,row,col,5,4,&s->cells,source_rows(a),a->page.column_count,&error)) {
+        /* An automatic destination searches below the last object in the same lane. */
+        if (automatic) {
+            free(error); error=NULL; row=col<a->page.column_count ? a->page.total+2 : 0;
+            for (size_t i=0;i<s->objects.count;i++) if (s->objects.items[i].row+s->objects.items[i].rows+2>row) row=s->objects.items[i].row+s->objects.items[i].rows+2;
+            if (!objects_fits(&s->objects,-1,row,col,5,4,&s->cells,source_rows(a),a->page.column_count,&error)) { status(a,error); free(error); return; }
+        } else { status(a,error); free(error); return; }
+    }
+    char name[64]; snprintf(name,sizeof(name),"Pivot %" PRIu64,s->objects.next_id+1);
+    int index=objects_add(&s->objects,row,col,name,&error);
+    if (index<0) { status(a,error); free(error); return; }
+    s->objects.items[index].source_id=binding;
+    worksheet_record(s,EDIT_OBJECTS);
+    a->selected_object=index; a->pivot_role=PIVOT_ROWS; a->pivot_focus=1; a->pivot_field=0; a->pivot_value=0;
+    a->pivot_reveal_object=true; grid_ensure_columns(&a->grid,col+4); grid_select_cell(&a->grid,row,col,false);
+    a->grid.anchor_row=row; a->grid.end_row=row+4; a->grid.anchor_col=col; a->grid.end_col=col+3;
+    invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Pivot inserted. Add fields to Rows, Columns and Values.");
+}
+static void create_chart(App *a) {
+    if (!context_fields(a)->column_count || a->io_busy) return;
+    remember_source_location(a);
+    Worksheet *sheet=active_sheet(a); if (!sheet || (sheet->objects.count && !sheet->objects.items)) return;
+    SheetObject *source=selected_pivot(a); PivotDefinition definition=source ? pivot_copy(&source->pivot) : (PivotDefinition){0};
+    const SheetObject *table=objects_source(&sheet->objects,selected_object(a)); uint64_t binding=table ? table->id : 0;
+    uint64_t row=a->grid.row; size_t col=a->grid.col;
+    if (source) { row=source->row; col=source->col+source->columns+1; }
+    else if (table) { row=table->row; col=table->col+table->columns+1; }
+    else if (col<a->page.column_count) col=a->page.column_count+2;
+    char *error=NULL;
+    if (!objects_fits(&sheet->objects,-1,row,col,12,6,&sheet->cells,source_rows(a),a->page.column_count,&error)) {
+        free(error); error=NULL; row=0; col=a->page.column_count+2;
+        for (size_t i=0;i<sheet->objects.count;i++) if (row<sheet->objects.items[i].row+sheet->objects.items[i].rows+2) row=sheet->objects.items[i].row+sheet->objects.items[i].rows+2;
+        if (!objects_fits(&sheet->objects,-1,row,col,12,6,&sheet->cells,source_rows(a),a->page.column_count,&error)) { status(a,error); free(error); pivot_free(&definition); return; }
+    }
+    char name[64]; snprintf(name,sizeof(name),"Chart %" PRIu64,sheet->objects.next_id+1);
+    int index=objects_add_chart(&sheet->objects,row,col,name,&definition,&error); pivot_free(&definition);
+    if (index<0) { status(a,error); free(error); return; }
+    sheet->objects.items[index].source_id=binding;
+    worksheet_record(sheet,EDIT_OBJECTS);
+    a->selected_object=index; a->pivot_focus=0; a->pivot_reveal_object=true;
+    grid_ensure_columns(&a->grid,col+6); grid_select_cell(&a->grid,row,col,false);
+    invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Chart inserted. Its field shelves edit an independent definition.");
+}
+static void capture_sheet(App *a) {
+    Worksheet *sheet=active_sheet(a); if (!sheet) return;
+    analysis_free(&sheet->analysis); sheet->analysis=analysis_copy(&a->analysis);
+    if (!a->restore_view) {
+        SheetView *v=&sheet->view; view_free(v); Grid *g=&a->grid;
+        *v=(SheetView){.row=g->row,.col=g->col,.anchor_row=g->anchor_row,.anchor_col=g->anchor_col,
+            .end_row=g->end_row,.end_col=g->end_col,.top=g->top,.horizontal=g->horizontal,.fraction=g->fraction,.selection=g->selection,.canvas_zoom=g->zoom};
+        v->column_count=g->width_count; v->columns=dx_alloc(v->column_count*sizeof(char *)); v->widths=dx_alloc(v->column_count*sizeof(float));
+        for (size_t i=0;i<v->column_count;i++) { v->columns[i]=dx_strdup(g->column_names[i]); v->widths[i]=g->widths[i]; }
+    }
+    a->book.user_scale=a->ui.scale;
+    a->book.reduced_motion=a->reduced_motion;
+}
+static void cache_pipeline(App *a) {
+    a->pipeline_rows_valid=false;
+    free(a->pipeline_text); a->pipeline_text=dx_strdup("Source");
+    if (a->analysis.query) dx_append(&a->pipeline_text,"   →   Source query");
+    if (a->analysis.unique_rows) dx_append(&a->pipeline_text,"   →   Unique rows");
+    if (a->analysis.filter_column) dx_append(&a->pipeline_text,"   →   %s: %s",a->analysis.filter_column,filter_label(a->analysis.filter_op));
+    for (size_t i=0;i<a->analysis.filter_count;i++) dx_append(&a->pipeline_text,"   →   %s: %s",a->analysis.filters[i].column,filter_label(a->analysis.filters[i].op));
+    if (a->analysis.group_column) dx_append(&a->pipeline_text,"   →   Group %s · %s",a->analysis.group_column,aggregate_label(a->analysis.aggregate));
+    for (size_t i=0;i<a->analysis.sort_count+(a->analysis.sort_column ? 1 : 0);i++) { AnalysisSort sort=analysis_sort_at(&a->analysis,i); dx_append(&a->pipeline_text,"   →   Sort %s %s",sort.column,sort.descending ? "↓" : "↑"); }
+}
+static void stack_clear(Analysis *stack,size_t *count) { while (*count) analysis_free(&stack[--*count]); }
+static size_t analysis_bytes(const Analysis *a) { return sizeof(*a)+analysis_text_bytes(a); }
+static void stack_push(Analysis *stack,size_t *count,const Analysis *state) {
+    size_t bytes=analysis_bytes(state); for (size_t i=0;i<*count;i++) bytes+=analysis_bytes(&stack[i]);
+    while (*count && (*count==32 || bytes>8*1024*1024)) { bytes-=analysis_bytes(&stack[0]); analysis_free(&stack[0]); memmove(stack,stack+1,(--*count)*sizeof(*stack)); }
+    stack[(*count)++]=analysis_copy(state);
+}
+static void remember(App *a) {
+    Worksheet *s=active_sheet(a); if (!s) return;
+    stack_push(s->undo,&s->undo_count,&a->analysis); stack_clear(s->redo,&s->redo_count); a->book.dirty=true;
+    worksheet_record(s,EDIT_ANALYSIS);
+}
+static void request_page(App *a,bool reset) {
+    QueryJob *j=dx_alloc(sizeof(*j));
+    j->id=++a->request_id; j->analysis=analysis_copy(&a->analysis); j->kind=JOB_PAGE;
+    j->refresh_source=a->refresh_plans; a->refresh_plans=false;
+    uint64_t margin=a->grid.visible_rows+1<DX_PAGE_ROWS ? (DX_PAGE_ROWS-a->grid.visible_rows-1)/2 : 0;
+    j->offset=reset || a->grid.top<margin ? 0 : a->grid.top-margin;
+    j->known_total=a->known_total;
+    a->pending_offset=j->offset; a->pending_kind=JOB_PAGE; a->busy=true; a->fetch_failed=false;
+    if (reset) {
+        a->grid.elastic=a->grid.spring_velocity=(Vector2){0};
+        a->grid.top=0; a->grid.fraction=0; grid_select_cell(&a->grid,0,0,false);
+        a->grid.horizontal=0; page_free(&a->spare); a->waiting_count_page=false;
+        a->page_stale=a->page.column_count>0;
+    }
+    worker_submit(&a->worker,j);
+}
+static void change_analysis(App *a,bool schema) {
+    size_t column=a->grid.col; float horizontal=a->grid.horizontal;
+    ObjectStore *store=&active_sheet(a)->objects;
+    for (size_t i=0;i<store->count;i++) if (!objects_source(store,&store->items[i])) {
+        page_free(&a->objects[i].page); free(a->objects[i].error); a->objects[i]=(ObjectView){.dirty=true};
+    }
+    a->pivot_drag_field=a->pivot_drag_role=-1;
+    a->analysis_revision++; a->known_total=-1; a->observed_rows=0; a->count_request_id=0; a->count_paused=a->count_deferred=false; a->new_schema=schema; cache_pipeline(a); request_page(a,true);
+    /* Filters reindex rows; return to their first result without losing the column. */
+    if (!schema) { grid_select_cell(&a->grid,0,column,false); a->grid.horizontal=horizontal; }
+}
+static void restore_sheet_view(App *a) {
+    Worksheet *sheet=active_sheet(a); if (!sheet) return;
+    SheetView *v=&sheet->view; Grid *g=&a->grid;
+    g->elastic=g->spring_velocity=(Vector2){0};
+    grid_ensure_columns(g,v->column_count);
+    bool same=v->column_count>=g->data_columns && v->column_count<=g->width_count;
+    for (size_t i=0;same && i<v->column_count;i++) same=!strcmp(v->columns[i],g->column_names[i] ? g->column_names[i] : "");
+    if (same) for (size_t i=0;i<v->column_count;i++) grid_set_width(g,i,v->widths[i]);
+    g->row=v->row; g->col=v->col; g->anchor_row=v->anchor_row; g->anchor_col=v->anchor_col;
+    g->end_row=v->end_row; g->end_col=v->end_col; g->top=v->top; g->horizontal=v->horizontal; g->fraction=v->fraction;
+    g->zoom=v->canvas_zoom>0 ? v->canvas_zoom : 1;
+    g->selection=(SelectionMode)v->selection; grid_schema(g,&a->page,false); a->restore_view=false;
+    a->selected_object=objects_hit(&sheet->objects,g->row,g->col);
+}
+static void activate_sheet(App *a,size_t index,bool capture) {
+    end_step_preview(a);
+    if (index>=a->book.count || a->book.sheets[index].hidden || a->io_busy) return;
+    if (capture) capture_sheet(a);
+    memset(a->source_locations,0,sizeof(a->source_locations));
+    clear_object_views(a); a->selected_object=-1; a->filter_object=-1; a->pivot_focus=0; a->pivot_search_focus=false;
+    a->analysis_revision++; a->book.active=index; Worksheet *s=&a->book.sheets[index];
+    a->workbook_focus_index=0; for (size_t i=0;i<index;i++) a->workbook_focus_index+=!a->book.sheets[i].hidden;
+    a->reveal_tab=true;
+    analysis_free(&a->analysis); a->analysis=analysis_copy(&s->analysis); page_free(&a->page); page_free(&a->spare); a->page_stale=a->waiting_count_page=false;
+    a->known_total=-1; a->observed_rows=0; a->count_request_id=0; a->count_paused=a->count_deferred=false; a->new_schema=true; a->restore_view=true; a->modal=MODAL_NONE;
+    a->grid.top=s->view.top; a->grid.fraction=s->view.fraction; a->grid.horizontal=s->view.horizontal;
+    cache_pipeline(a);
+    if (a->analysis.kind==SOURCE_NONE) {
+        worker_cancel(&a->worker); a->request_id++; a->busy=false; a->fetch_failed=false;
+        grid_schema(&a->grid,&a->page,true); restore_sheet_view(a); status(a,"Ready");
+    } else { request_page(a,false); status(a,"Loading worksheet…"); }
+}
+static void workspace_job(App *a,JobKind kind,const char *path) {
+    end_step_preview(a);
+    if (a->io_busy) return;
+    /* A command-line workspace can begin loading before its first reply. Keep
+       the same usable blank-sheet invariant as opening from the native UI. */
+    if (kind==JOB_LOAD && !a->book.count) { new_sheet(a); a->book.dirty=false; }
+    char *requested=kind==JOB_SAVE && !workbook_is_path(path) ? dx_printf("%s.dxls",path) : dx_strdup(path);
+    char *absolute=kind==JOB_SAVE ? workbook_target_path(requested) : dx_absolute_path(requested); free(requested);
+    if (!absolute) { status(a,"Workspace path is missing or its directory is inaccessible."); return; }
+    QueryJob *j=dx_alloc(sizeof(*j)); j->id=++a->request_id; j->kind=kind; j->path=absolute;
+    if (kind==JOB_SAVE) { capture_sheet(a); j->workbook=workbook_snapshot(&a->book); }
+    a->pivot_drag_role=a->pivot_drag_field=-1; a->grid.moving=false; a->grid.resizing=-1;
+    a->pending_kind=kind; a->busy=a->io_busy=true; a->modal=MODAL_NONE;
+    worker_submit(&a->worker,j); status(a,kind==JOB_SAVE ? "Saving workspace…" : "Opening workspace…");
+}
+static void open_source(App *a,const char *path,bool demo) {
+    end_step_preview(a);
+    if (a->modal==MODAL_SOURCE_QUERY) cancel_source_validation(a);
+    if (a->io_busy) return;
+    if (!demo && workbook_is_path(path)) { request_document_action(a,DOCUMENT_OPEN,path); return; }
+    SourceKind kind=demo ? SOURCE_DEMO : source_kind(path);
+    if (kind==SOURCE_NONE) { status(a,"Choose a .csv, .csv.gz, .tsv, .parquet or .duckdb file."); return; }
+    char *absolute=demo ? dx_strdup("") : dx_absolute_path(path);
+    if (!absolute) { status(a,"Source file is missing or inaccessible. Open its current location to recover."); return; }
+    capture_sheet(a);
+    Analysis source={.kind=kind,.path=absolute}; char *error=NULL;
+    if (!workbook_add(&a->book,demo ? "Million-row demo" : dx_basename(path),&source,&error)) {
+        status(a,error); free(error); free(absolute); return;
+    }
+    analysis_free(&a->analysis); a->analysis=source; a->restore_view=false; page_free(&a->page); page_free(&a->spare); a->page_stale=a->waiting_count_page=false;
+    a->selected_object=-1; a->filter_object=-1; a->pivot_focus=0; a->pivot_search_focus=false;
+    a->reveal_tab=true;
+    a->relation_scroll=0; a->modal=MODAL_NONE; status(a,"Opening source through DuckDB…"); change_analysis(a,true);
+}
+static void cancel_document_action(App *a) {
+    free(a->document_path); a->document_path=NULL; a->document_action=DOCUMENT_NONE; a->document_saving=false;
+    if (a->modal==MODAL_UNSAVED) a->modal=MODAL_NONE;
+    a->consume_grid_input=true;
+}
+static void finish_document_action(App *a) {
+    DocumentAction action=a->document_action; char *path=a->document_path; a->document_path=NULL;
+    cancel_document_action(a);
+    if (action==DOCUMENT_QUIT) a->exit_ready=true;
+    else if (action==DOCUMENT_OPEN) workspace_job(a,JOB_LOAD,path);
+    free(path);
+}
+static void continue_document_action(App *a) {
+    if (a->document_action==DOCUMENT_NONE || a->io_busy || a->modal==MODAL_UNSAVED) return;
+    a->document_saving=false;
+    if (a->book.dirty) { a->modal=MODAL_UNSAVED; a->document_focus=0; a->consume_grid_input=true; }
+    else finish_document_action(a);
+}
+static void request_document_action(App *a,DocumentAction action,const char *path) {
+    if (a->document_action==DOCUMENT_QUIT && action!=DOCUMENT_QUIT) return;
+    if (a->modal==MODAL_CELL && !commit_cell(a)) return;
+    char *owned=path ? dx_strdup(path) : NULL;
+    free(a->document_path); a->document_path=owned; a->document_action=action;
+    if (a->modal==MODAL_FILTER) cancel_values(a);
+    if (a->modal==MODAL_SOURCE_QUERY) cancel_source_validation(a);
+    a->modal=MODAL_NONE; a->consume_grid_input=true;
+    continue_document_action(a);
+}
+static void save_document_action(App *a) {
+    a->modal=MODAL_NONE; a->consume_grid_input=true;
+    char *path=a->book.path ? dx_strdup(a->book.path) : dx_save_file_panel(NULL);
+    if (!path) { cancel_document_action(a); return; }
+    workspace_job(a,JOB_SAVE,path); free(path);
+    if (a->io_busy) a->document_saving=true;
+    else { cancel_document_action(a); a->modal=MODAL_ERROR; }
+}
+static bool export_ready(App *a) {
+    if (a->busy || a->io_busy) return false;
+    SheetObject *object=selected_object(a);
+    if (!object) return a->analysis.kind!=SOURCE_NONE && a->page.column_count && !a->page_stale && !a->fetch_failed;
+    ObjectView *view=&a->objects[a->selected_object];
+    return object_source(a,object)->kind!=SOURCE_NONE && view->page.column_count && !view->page.count_pending &&
+        !view->dirty && !view->failed && !view->waiting_count && view->revision==object->revision && view->source_revision==object_source_revision(a,object) &&
+        (object->kind==OBJECT_TABLE || object->pivot.counts[PIVOT_VALUES]);
+}
+static char *export_suggestion(App *a) {
+    SheetObject *object=selected_object(a);
+    char *name=dx_strdup(object ? object->name : a->analysis.kind==SOURCE_DEMO ? "Data" : dx_basename(a->analysis.path));
+    if (!object) { char *dot=strrchr(name,'.'); if (dot) *dot=0; }
+    for (char *p=name;*p;p++) if ((unsigned char)*p<32 || *p=='/' || *p==':' || *p=='\\') *p='_';
+    size_t length=strlen(name); while (length>180) { length=dx_utf8_prev(name,length); name[length]=0; }
+    char *suggested=dx_printf("%s-export.parquet",*name ? name : "Data"); free(name); return suggested;
+}
+static void start_export(App *a,const char *path) {
+    if (!export_ready(a) || !path || !*path) return;
+    if (a->book.path && dx_same_file(a->book.path,path)) { status(a,"Choose a destination other than the open workbook."); return; }
+    if (a->analysis.path && *a->analysis.path && dx_same_file(a->analysis.path,path)) { status(a,"Choose a destination other than a workbook data source."); return; }
+    for (size_t i=0;i<a->book.count;i++) {
+        Worksheet *sheet=&a->book.sheets[i];
+        if (sheet->analysis.path && *sheet->analysis.path && dx_same_file(sheet->analysis.path,path)) { status(a,"Choose a destination other than a workbook data source."); return; }
+        for (size_t j=0;j<sheet->objects.count;j++) {
+            SheetObject *table=&sheet->objects.items[j];
+            if (table->kind==OBJECT_TABLE && dx_same_file(table->source.path,path)) { status(a,"Choose a destination other than a workbook table source."); return; }
+        }
+    }
+    QueryJob *j=dx_alloc(sizeof(*j)); j->id=++a->request_id; j->kind=JOB_EXPORT;
+    SheetObject *object=selected_object(a);
+    j->analysis=analysis_copy(object_source(a,object)); j->path=dx_strdup(path);
+    if (object) { j->object_id=object->id; j->revision=object->revision; j->is_table=object->kind==OBJECT_TABLE; if (!j->is_table) j->pivot=pivot_copy(&object->pivot); }
+    a->pending_kind=JOB_EXPORT; a->busy=true; a->modal=MODAL_NONE;
+    status(a,"Exporting data to Parquet… Escape cancels."); worker_submit(&a->worker,j);
+}
+static void export_panel(App *a) {
+    if (!export_ready(a)) return;
+    char *suggested=export_suggestion(a);
+    char *path=dx_export_parquet_panel(suggested); free(suggested);
+    if (path) { start_export(a,path); free(path); }
+}
+static void schedule_count(App *a) {
+    if (a->step_preview.active) return;
+    Page *target=a->waiting_count_page ? &a->spare : &a->page;
+    if (!target->count_pending || (a->page_stale && !a->waiting_count_page) || a->known_total>=0 || a->count_paused || a->count_deferred || a->busy || a->io_busy || a->values_loading || a->modal!=MODAL_NONE || a->fetch_failed ||
+        (a->count_request_id && a->count_request_id==a->request_id)) return;
+    QueryJob *j=dx_alloc(sizeof(*j)); j->kind=JOB_COUNT; j->id=++a->request_id; j->analysis=analysis_copy(&a->analysis);
+    a->pending_kind=JOB_COUNT; a->pending_object_id=0; a->count_request_id=j->id; a->count_started_ms=dx_millis(); worker_submit(&a->worker,j);
+}
+static bool table_count_validation(App *a,size_t index,size_t columns) {
+    Worksheet *sheet=active_sheet(a); SheetObject *table=&sheet->objects.items[index];
+    for (size_t i=0;i<sheet->cells.count;i++) {
+        SheetCell *cell=&sheet->cells.cells[i];
+        if (cell->row>=table->row && cell->col>=table->col && cell->col-table->col<columns) return true;
+    }
+    for (size_t i=0;i<sheet->objects.count;i++) if (i!=index) {
+        SheetObject *other=&sheet->objects.items[i];
+        if (other->row+other->rows>table->row && other->col<table->col+columns && table->col<other->col+other->columns) return true;
+    }
+    return false;
+}
+static uint64_t table_layout_key(App *a) {
+    Worksheet *sheet=active_sheet(a); uint64_t key=UINT64_C(1469598103934665603)^sheet->cells.revision^source_rows(a)^a->page.column_count;
+    for (size_t i=0;i<sheet->objects.count;i++) {
+        const SheetObject *o=&sheet->objects.items[i]; const uint64_t values[]={o->id,o->row,o->col,o->rows,o->columns};
+        for (size_t j=0;j<sizeof(values)/sizeof(*values);j++) { key^=values[j]; key*=UINT64_C(1099511628211); }
+    }
+    return key;
+}
+static bool publish_object_extent(App *a,size_t index,uint64_t total,char **error) {
+    Worksheet *sheet=active_sheet(a); SheetObject *o=&sheet->objects.items[index]; ObjectView *v=&a->objects[index];
+    if (total<v->page.total || total>DX_SHEET_ROWS-2) {
+        if (error) { free(*error); *error=dx_strdup(total<v->page.total ? "The source changed while reading. Refresh the table." : "This table has more rows than the worksheet supports."); }
+        return false;
+    }
+    uint64_t rows=total+2<5 ? 5 : total+2; size_t columns=v->page.column_count<3 ? 3 : v->page.column_count;
+    if (!objects_fits(&sheet->objects,(int)index,o->row,o->col,rows,columns,&sheet->cells,source_rows(a),a->page.column_count,error)) return false;
+    bool whole=a->grid.selection==SELECT_CELLS && a->grid.anchor_row==o->row && a->grid.end_row==o->row+o->rows-1 && a->grid.anchor_col==o->col && a->grid.end_col==o->col+o->columns-1;
+    o->rows=rows; o->columns=columns; grid_ensure_columns(&a->grid,o->col+columns);
+    v->page.total=total; v->page.count_pending=v->waiting_count=v->count_paused=v->failed=v->count_resolved=false;
+    free(v->error); v->error=NULL;
+    if (whole) { a->grid.end_row=o->row+rows-1; a->grid.end_col=o->col+columns-1; }
+    return true;
+}
+static void schedule_table_count(App *a) {
+    if (a->step_preview.active) return;
+    if (a->busy || a->io_busy || a->values_loading || a->modal!=MODAL_NONE || a->fetch_failed || a->grid.dragging || a->grid.moving || a->grid.scrollbar ||
+        (a->count_request_id && a->count_request_id==a->request_id)) return;
+    ObjectStore *store=&active_sheet(a)->objects;
+    for (size_t i=0;i<store->count;i++) {
+        SheetObject *o=&store->items[i]; ObjectView *v=&a->objects[i];
+        if (v->failed && v->count_resolved) {
+            uint64_t key=table_layout_key(a);
+            if (key!=v->count_layout_key) {
+                v->count_layout_key=key; char *error=NULL;
+                if (publish_object_extent(a,i,v->counted_total,&error)) status(a,"Table ready.");
+                else { free(v->error); v->error=error; }
+            }
+        }
+        if (o->kind!=OBJECT_TABLE || v->dirty || v->failed || v->count_paused || !v->page.column_count || !v->page.count_pending) continue;
+        QueryJob *j=dx_alloc(sizeof(*j)); j->kind=JOB_COUNT; j->id=++a->request_id; j->analysis=analysis_copy(&o->source); j->object_id=o->id; j->revision=o->revision; j->is_table=true;
+        a->pending_kind=JOB_COUNT; a->pending_object_id=o->id; a->count_request_id=j->id; worker_submit(&a->worker,j); return;
+    }
+}
+static void source_ready(App *a) {
+    a->field_schema_generation++;
+    grid_schema(&a->grid,&a->page,false); if (a->restore_view) restore_sheet_view(a);
+    a->new_schema=false; a->page_stale=false; status(a,"Ready");
+    if (!a->first_rows_ms && a->page.row_count && grid_cached(&a->grid,&a->page)) {
+        a->first_rows_ms=dx_millis()-a->launched_ms;
+        printf("First visible rows: %.2f ms; cache: %zu rows, %zu bytes\n",a->first_rows_ms,a->page.row_count,a->page.bytes);
+    }
+}
+static bool count_requires_validation(App *a,const Page *page) {
+    Worksheet *sheet=active_sheet(a);
+    for (size_t i=0;i<sheet->cells.count;i++) if (sheet->cells.cells[i].col<page->column_count) return true;
+    for (size_t i=0;i<sheet->objects.count;i++) if (sheet->objects.items[i].col<page->column_count) return true;
+    return false;
+}
+static bool publish_count(App *a,uint64_t total) {
+    Page *target=a->waiting_count_page ? &a->spare : &a->page;
+    char *error=source_overlap(a,total,target->column_count);
+    if (error) {
+        if (a->waiting_count_page) { page_free(&a->spare); a->waiting_count_page=false; }
+        status(a,error); free(error); a->count_paused=true; a->fetch_failed=true; a->modal=MODAL_ERROR; return false;
+    }
+    if (a->waiting_count_page) {
+        page_free(&a->page); a->page=a->spare; memset(&a->spare,0,sizeof(a->spare)); a->waiting_count_page=false;
+    }
+    a->known_total=(int64_t)total; a->observed_rows=total; a->page.total=total; a->page.count_pending=false;
+    if (a->spare.column_count) { a->spare.total=total; a->spare.count_pending=false; }
+    if (a->page_stale) source_ready(a);
+    return true;
+}
+static bool receive_count(App *a,uint64_t total) {
+    if (a->grid.scrollbar) { a->count_deferred=true; a->deferred_total=total; return true; }
+    return publish_count(a,total);
+}
+static void pause_count(App *a) {
+    if (object_count_active(a)) {
+        ObjectStore *store=&active_sheet(a)->objects;
+        for (size_t i=0;i<store->count;i++) if (store->items[i].id==a->pending_object_id) a->objects[i].count_paused=true;
+        worker_cancel(&a->worker); a->request_id++; a->count_request_id=0; a->consume_grid_input=true;
+        status(a,"Table row counting paused. F5 retries."); return;
+    }
+    worker_cancel(&a->worker); a->request_id++; a->count_request_id=0; a->count_paused=true; a->consume_grid_input=true;
+    status(a,"Row counting paused. Data remains available; F5 retries.");
+}
+static void cancel_active_query(App *a) {
+    JobKind kind=a->pending_kind;
+    worker_cancel(&a->worker); a->request_id++; a->busy=false;
+    if (kind==JOB_PAGE) {
+        a->fetch_failed=true; status(a,"Data update cancelled. Press F5 to refresh.");
+    } else if (kind==JOB_PIVOT) {
+        ObjectStore *objects=&active_sheet(a)->objects;
+        for (size_t i=0;i<objects->count;i++) if (objects->items[i].id==a->pending_object_id) {
+            ObjectView *view=&a->objects[i]; view->failed=true; view->dirty=false;
+            free(view->error); view->error=dx_strdup("Update cancelled. Edit its fields or press F5 to refresh."); break;
+        }
+        status(a,"Pivot update cancelled. The data table remains available.");
+    } else status(a,"Copy cancelled. The clipboard has been preserved.");
+}
+static const char *statistics_value(App *a,int metric,char buffer[256]) {
+    StepPreview *preview=&a->step_preview;
+    if (!preview->active && a->statistics_frame) return "Not a cell selection";
+    uint64_t cells=preview->active ? preview->stats_bounds.active ? (preview->stats_bounds.r1-preview->stats_bounds.r0+1)*(preview->stats_bounds.c1-preview->stats_bounds.c0+1) : 0 : a->statistics_cells;
+    if (!metric) { snprintf(buffer,256,"%" PRIu64,cells); return buffer; }
+    if (preview->active && preview->stats_state!=PREVIEW_STATS_READY) return preview->stats_state==PREVIEW_STATS_LOADING || preview->stats_state==PREVIEW_STATS_WAITING ? "Calculating…" : "Unavailable";
+    if (!preview->active && a->statistics_state!=STATS_READY) return a->statistics_state==STATS_CALCULATING || a->statistics_state==STATS_WAITING ? "Calculating…" : "Unavailable";
+    SelectionStats *s=preview->active ? &preview->statistics : &a->statistics;
+    if (metric<=3) { snprintf(buffer,256,"%" PRIu64,metric==1 ? s->filled : metric==2 ? s->numeric : s->distinct); return buffer; }
+    if (s->non_finite) return "Non-finite values";
+    if ((metric==4 && s->sum_overflow) || (metric==5 && s->average_overflow)) return "Overflow";
+    const char *value=metric==4 ? s->sum : metric==5 ? s->average : metric==6 ? s->minimum : s->maximum;
+    if (!value) return "No numeric values";
+    if (s->approximate || metric==5) { snprintf(buffer,256,"~ %s",value); return buffer; }
+    return value;
+}
+static const char *statistics_names[]={"Cells","Filled","Numeric","Distinct","Sum","Average","Minimum","Maximum"};
+static const char *statistics_short[]={"Count","Filled","Numbers","Distinct","Sum","Avg","Min","Max"};
+static const char *statistics_display_value(App *a,int metric,char raw_buffer[256],char display[512]) {
+    const char *value=statistics_value(a,metric,raw_buffer);
+    bool preview=a->step_preview.active;
+    bool ready=preview ? a->step_preview.stats_state==PREVIEW_STATS_READY : a->statistics_state==STATS_READY;
+    if (metric<4) { if ((metric==0 || ready) && number_display(value,0,false,display)) return display; return value; }
+    SelectionStats *stats=preview ? &a->step_preview.statistics : &a->statistics;
+    if (!ready || stats->non_finite || (metric==4 && stats->sum_overflow) || (metric==5 && stats->average_overflow)) return value;
+    CellFormat format=preview ? format_at(&a->step_preview.formats,a->step_preview.grid.row,a->step_preview.grid.col) : active_format(a);
+    const char *raw=metric==4 ? stats->sum : metric==5 ? stats->average : metric==6 ? stats->minimum : stats->maximum;
+    if (raw && (format.number!=FORMAT_GENERAL || (format.specified&FORMAT_DECIMALS)) && number_display(raw,format.decimals,format.number!=FORMAT_NUMBER,display)) return display;
+    return value;
+}
+static void statistics_line(App *a) {
+    if (a->step_preview.active) return;
+    size_t at=0; a->statistics_line[0]=0;
+    if (a->statistics_state==STATS_IDLE || !a->statistics_mask) return;
+    if (a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) { snprintf(a->statistics_line,sizeof(a->statistics_line),"Selection · calculating…"); return; }
+    for (int i=0;i<8;i++) if (a->statistics_mask&(1u<<i)) {
+        if (i && a->statistics_state!=STATS_READY) continue;
+        char buffer[256],display[512]; const char *value=statistics_display_value(a,i,buffer,display);
+        int written=snprintf(a->statistics_line+at,sizeof(a->statistics_line)-at,"%s%s: %s",at ? " · " : "",statistics_short[i],value);
+        if (written<0 || (size_t)written>=sizeof(a->statistics_line)-at) break;
+        at+=(size_t)written;
+    }
+    if (!*a->statistics_line) snprintf(a->statistics_line,sizeof(a->statistics_line),"Selection statistics unavailable");
+}
+static void statistics_cancel(App *a) {
+    if (a->statistics_request && a->statistics_request==a->request_id) { worker_cancel(&a->worker); a->request_id++; }
+    a->statistics_request=0;
+}
+static bool authoring_frame_selected(App *a) {
+    SheetObject *o=selected_pivot(a); if (!o || a->ribbon_mode==3 || (o->kind==OBJECT_PIVOT && a->matrix_cells_active) || a->grid.selection!=SELECT_CELLS) return false;
+    uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1);
+    return r0>=o->row && r1<o->row+o->rows && c0>=o->col && c1<o->col+o->columns;
+}
+static void watch_statistics(App *a) {
+    if (a->step_preview.active) {
+        StepPreview *preview=&a->step_preview; uint64_t r0,r1; size_t c0,c1; grid_bounds(&preview->grid,&r0,&r1,&c0,&c1);
+        bool requested=a->statistics_enabled && ((a->statistics_mask && (r0!=r1 || c0!=c1)) || a->modal==MODAL_STATISTICS);
+        uint64_t request=preview->stats_request;
+        if (step_preview_watch_statistics(preview,requested) && request==a->request_id) { worker_cancel(&a->worker); a->request_id++; a->busy=false; }
+        return;
+    }
+    if (!a->statistics_enabled || !active_sheet(a)) return;
+    bool previous_frame=a->statistics_frame;
+    a->statistics_frame=authoring_frame_selected(a);
+    if (a->statistics_frame) {
+        statistics_cancel(a);
+        if (a->statistics_state!=STATS_IDLE) { statistics_free(&a->statistics); free(a->statistics_error); a->statistics_error=NULL; memset(&a->statistics_key,0,sizeof(a->statistics_key)); }
+        a->statistics_state=STATS_IDLE; a->statistics_object=a->selected_object; a->statistics_cells=0;
+        memset(&a->statistics_key,0,sizeof(a->statistics_key));
+        SheetObject *o=selected_pivot(a);
+        snprintf(a->statistics_line,sizeof(a->statistics_line),"%s selected · %zu %s",o->kind==OBJECT_CHART ? "Chart" : "Matrix",o->pivot.counts[PIVOT_VALUES],o->pivot.counts[PIVOT_VALUES]==1 ? "measure" : "measures");
+        return;
+    }
+    if (previous_frame) { memset(&a->statistics_key,0,sizeof(a->statistics_key)); a->statistics_line[0]=0; }
+    Worksheet *sheet=active_sheet(a); StatsKey key={0};
+    grid_bounds(&a->grid,&key.r0,&key.r1,&key.c0,&key.c1);
+    key.r1=key.r1<DX_SHEET_ROWS ? key.r1 : DX_SHEET_ROWS-1; key.c1=key.c1<16384 ? key.c1 : 16383;
+    uint64_t cells=(key.r1-key.r0+1)*(key.c1-key.c0+1);
+    key.source_revision=a->analysis_revision; key.cell_revision=sheet->cells.revision; key.sheet=a->book.active;
+    key.columns=a->page.column_count; key.total=a->page.total; key.count_pending=a->page.count_pending;
+    key.objects=UINT64_C(1469598103934665603)^sheet->objects.title_revision;
+    for (size_t i=0;i<sheet->objects.count;i++) {
+        SheetObject *o=&sheet->objects.items[i]; ObjectView *v=&a->objects[i]; const uint64_t parts[]={o->id,o->revision,o->row,o->col,o->rows,o->columns,v->id,v->revision,v->page.total,v->page.column_count,v->failed,v->dirty,v->source_revision,v->page.count_pending,v->waiting_count};
+        for (size_t j=0;j<sizeof(parts)/sizeof(*parts);j++) { key.objects^=parts[j]; key.objects*=UINT64_C(1099511628211); }
+    }
+    key.active=(a->statistics_mask && cells>1) || a->modal==MODAL_STATISTICS;
+    StatsKey *old=&a->statistics_key;
+    if (key.r0==old->r0 && key.r1==old->r1 && key.c0==old->c0 && key.c1==old->c1 && key.source_revision==old->source_revision && key.cell_revision==old->cell_revision && key.objects==old->objects && key.total==old->total && key.sheet==old->sheet && key.columns==old->columns && key.count_pending==old->count_pending && key.active==old->active) return;
+    statistics_cancel(a); statistics_free(&a->statistics); free(a->statistics_error); a->statistics_error=NULL;
+    a->statistics_key=key; a->statistics_cells=cells; a->statistics_object=-1; a->statistics_changed=dx_millis();
+    a->statistics_state=key.active ? STATS_UNAVAILABLE : STATS_IDLE;
+    if (!key.active) { statistics_line(a); return; }
+    bool source=a->analysis.kind!=SOURCE_NONE && key.c1<a->page.column_count && (a->page.count_pending || key.r0<a->page.total);
+    if (source) {
+        /* A selection extending below the table may contain other objects or
+           notes. Those mixed scopes will need a combined engine request. */
+        for (size_t i=0;i<sheet->objects.count;i++) { SheetObject *o=&sheet->objects.items[i]; if (key.r0<o->row+o->rows && key.r1>=o->row && key.c0<o->col+o->columns && key.c1>=o->col) source=false; }
+        for (size_t i=0;source && i<sheet->cells.count;i++) { SheetCell *c=&sheet->cells.cells[i]; if (c->row>=key.r0 && c->row<=key.r1 && c->col>=key.c0 && c->col<=key.c1) source=false; }
+    }
+    if (source) {
+        a->statistics_first=key.r0; a->statistics_rows=key.r1-key.r0+1; a->statistics_column=key.c0; a->statistics_columns=key.c1-key.c0+1; a->statistics_state=STATS_WAITING;
+    } else for (size_t i=0;i<sheet->objects.count;i++) {
+        SheetObject *o=&sheet->objects.items[i]; Page *p=&a->objects[i].page;
+        if (o->kind!=OBJECT_CHART && p->column_count && key.r0>=o->row+2 && key.r1<o->row+2+p->total && key.c0>=o->col && key.c1<o->col+p->column_count) {
+            a->statistics_object=(int)i; a->statistics_first=key.r0-o->row-2; a->statistics_rows=key.r1-key.r0+1; a->statistics_column=key.c0-o->col; a->statistics_columns=key.c1-key.c0+1; a->statistics_state=STATS_WAITING; break;
+        }
+    }
+    if (a->statistics_state==STATS_UNAVAILABLE) { a->statistics_object=-2; a->statistics_columns=key.c1-key.c0+1; a->statistics_state=STATS_WAITING; }
+    if (a->statistics_object!=-2 && a->statistics_columns>256) { a->statistics_state=STATS_UNAVAILABLE; a->statistics_error=dx_strdup("Choose up to 256 data columns for selection statistics."); }
+    statistics_line(a);
+}
+static StatisticsRequest *statistics_snapshot(App *a,char **error) {
+    StatisticsRequest *request=dx_alloc(sizeof(*request)); request->cells=a->statistics_cells;
+    const StatsKey *key=&a->statistics_key; Worksheet *sheet=active_sheet(a);
+    if (a->analysis.kind!=SOURCE_NONE && key->c0<a->page.column_count && (a->page.count_pending || key->r0<a->page.total)) {
+        uint64_t end=a->page.count_pending || key->r1<a->page.total ? key->r1+1 : a->page.total;
+        size_t last=key->c1<a->page.column_count ? key->c1+1 : a->page.column_count;
+        if (last-key->c0>256) { *error=dx_strdup("Choose up to 256 source data columns for selection statistics."); goto failed; }
+        request->ranges[request->count++]=(StatisticsRange){.first=key->r0,.rows=end-key->r0,.column=key->c0,.columns=last-key->c0};
+    }
+    for (size_t i=0;i<sheet->cells.count;i++) {
+        SheetCell *cell=&sheet->cells.cells[i];
+        if (cell->row>=key->r0 && cell->row<=key->r1 && cell->col>=key->c0 && cell->col<=key->c1 && !statistics_request_text(request,cell->text,error)) goto failed;
+    }
+    for (size_t i=0;i<sheet->objects.count;i++) {
+        SheetObject *o=&sheet->objects.items[i]; ObjectView *view=&a->objects[i]; Page *page=&view->page;
+        if (key->r0>=o->row+o->rows || key->r1<o->row || key->c0>=o->col+o->columns || key->c1<o->col) continue;
+        if (o->row>=key->r0 && o->row<=key->r1 && o->col>=key->c0 && o->col<=key->c1 && !statistics_request_text(request,o->name,error)) goto failed;
+        if (o->kind==OBJECT_CHART) continue; /* Only the title is a worksheet cell. */
+        if ((o->kind==OBJECT_TABLE || o->pivot.counts[PIVOT_VALUES]) && (view->dirty || view->failed || view->waiting_count || page->count_pending || !page->column_count || view->revision!=o->revision || view->source_revision!=object_source_revision(a,o))) { *error=dx_strdup("Wait for the selected table or pivot to finish updating."); goto failed; }
+        if (!page->column_count) continue;
+        size_t first=key->c0>o->col ? key->c0 : o->col,last=key->c1+1<o->col+page->column_count ? key->c1+1 : o->col+page->column_count;
+        if (first>=last) continue;
+        if (key->r0<=o->row+1 && key->r1>=o->row+1) for (size_t c=first;c<last;c++) {
+            Column *column=&page->columns[c-o->col]; char *label=column->detail ? dx_printf("%s_%s",column->caption ? column->caption : column->name,column->detail) : dx_strdup(column->caption ? column->caption : column->name);
+            bool ok=statistics_request_text(request,label,error); free(label); if (!ok) goto failed;
+        }
+        uint64_t start=key->r0>o->row+2 ? key->r0 : o->row+2,end=key->r1+1<o->row+2+page->total ? key->r1+1 : o->row+2+page->total;
+        if (start<end) {
+            const SheetObject *source=objects_source(&sheet->objects,o);
+            size_t binding=source ? source_snapshot_bind(&request->sources,source->id,&source->source,error) : 0;
+            if (binding==SIZE_MAX) goto failed;
+            request->ranges[request->count++]=(StatisticsRange){.source=binding,.is_pivot=o->kind!=OBJECT_TABLE,.pivot=pivot_copy(&o->pivot),.first=start-o->row-2,.rows=end-start,.column=first-o->col,.columns=last-first};
+        }
+    }
+    return request;
+failed:
+    statistics_request_free(request); return NULL;
+}
+static void schedule_statistics(App *a) {
+    if (a->step_preview.active) {
+        StepPreview *preview=&a->step_preview;
+        if (preview->stats_state==PREVIEW_STATS_LOADING && preview->stats_request!=a->request_id) { preview->stats_state=PREVIEW_STATS_WAITING; preview->stats_request=0; }
+        if (a->busy || a->io_busy || (a->modal!=MODAL_NONE && a->modal!=MODAL_STATISTICS)) return;
+        QueryJob *job=step_preview_statistics_job(preview,a->request_id+1); if (!job) return;
+        a->request_id=job->id; a->busy=true; a->pending_kind=JOB_STATISTICS; worker_submit(&a->worker,job); return;
+    }
+    if (!a->statistics_enabled) return;
+    if (a->statistics_state==STATS_CALCULATING && a->statistics_request!=a->request_id) { a->statistics_request=0; a->statistics_state=STATS_WAITING; statistics_line(a); }
+    if (a->statistics_state!=STATS_WAITING || a->busy || a->io_busy || a->page_stale || a->fetch_failed || a->values_loading || (a->modal!=MODAL_NONE && a->modal!=MODAL_STATISTICS) ||
+        (a->count_request_id && a->count_request_id==a->request_id) || a->grid.dragging || a->grid.moving || a->grid.resizing>=0 || dx_millis()-a->statistics_changed<180) return;
+    StatisticsRequest *snapshot=NULL;
+    if (a->statistics_object>=0 && (a->objects[a->statistics_object].waiting_count || a->objects[a->statistics_object].page.count_pending)) return;
+    if (a->statistics_object==-2) {
+        snapshot=statistics_snapshot(a,&a->statistics_error);
+        if (!snapshot) { a->statistics_state=STATS_UNAVAILABLE; statistics_line(a); return; }
+    }
+    QueryJob *j=dx_alloc(sizeof(*j)); j->statistics=snapshot; j->id=++a->request_id; j->kind=JOB_STATISTICS;
+    j->offset=a->statistics_first; j->rows=a->statistics_rows; j->first_col=a->statistics_column; j->cols=a->statistics_columns;
+    if (a->statistics_object>=0) {
+        SheetObject *o=&active_sheet(a)->objects.items[a->statistics_object];
+        j->analysis=analysis_copy(object_source(a,o));
+        j->pivot=pivot_copy(&o->pivot); j->object_id=o->id; j->revision=o->revision; j->is_table=o->kind==OBJECT_TABLE;
+    } else if (!snapshot) j->analysis=analysis_copy(&a->analysis);
+    else for (size_t i=0;i<snapshot->count;i++) if (!snapshot->ranges[i].source) { j->analysis=analysis_copy(&a->analysis); break; }
+    a->statistics_request=j->id; a->statistics_state=STATS_CALCULATING; statistics_line(a); worker_submit(&a->worker,j);
+}
+static const Analysis *query_source(App *a) {
+    if (a->query_object<0) return &a->analysis;
+    ObjectStore *store=&active_sheet(a)->objects;
+    return (size_t)a->query_object<store->count && store->items[a->query_object].kind==OBJECT_TABLE ? &store->items[a->query_object].source : NULL;
+}
+static void begin_source_query(App *a) {
+    if (a->busy || a->io_busy || a->values_loading) return;
+    SheetObject *o=selected_object(a); if (o && o->kind!=OBJECT_TABLE) { open_modal(a,MODAL_SQL); return; }
+    a->query_object=o ? a->selected_object : -1; const Analysis *source=query_source(a);
+    if (!source || source->kind==SOURCE_NONE) return;
+    a->query_source_revision=o ? o->revision : a->analysis_revision;
+    input_set(&a->input,source->query ? source->query : "SELECT * FROM input"); a->input.multiline=true;
+    text_editor_free(&a->query_editor); a->query_edit_revision=a->input.revision; a->query_focus=0; a->query_loading=false;
+    free(a->query_error); a->query_error=NULL; a->modal=MODAL_SOURCE_QUERY; a->consume_grid_input=true; a->chrome_focus=0; a->pivot_focus=0; a->ribbon_focus=false;
+    text_lines_free(&a->query_errors); a->query_error_scroll=0;
+}
+static void cancel_source_validation(App *a) {
+    if (a->query_loading) { worker_cancel(&a->worker); a->request_id++; a->busy=false; a->query_loading=false; }
+    reply_free(a->query_validated); a->query_validated=NULL;
+}
+static void submit_source_query(App *a) {
+    if (a->query_loading) return;
+    const Analysis *old=query_source(a); if (!old) return;
+    free(a->query_error); a->query_error=NULL;
+    text_lines_free(&a->query_errors); a->query_error_scroll=0;
+    Analysis candidate=analysis_copy(old);
+    if (!analysis_query_set(&candidate,a->input.text,&a->query_error)) { analysis_free(&candidate); return; }
+    bool same=old->query && candidate.query ? !strcmp(old->query,candidate.query) : old->query==candidate.query;
+    if (!old->query && candidate.query && !strcmp(candidate.query,"SELECT * FROM input")) same=true;
+    if (same) { analysis_free(&candidate); a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    analysis_filters_clear(&candidate); analysis_sorts_clear(&candidate); free(candidate.group_column); free(candidate.measure_column); candidate.group_column=candidate.measure_column=NULL;
+    QueryJob *job=dx_alloc(sizeof(*job)); job->id=++a->request_id; job->kind=JOB_VALIDATE_SQL; job->analysis=candidate;
+    if (a->query_object>=0) job->object_id=active_sheet(a)->objects.items[a->query_object].id;
+    job->revision=a->query_source_revision; a->query_draft_revision=a->query_edit_revision=a->input.revision; a->count_request_id=0;
+    a->pending_kind=JOB_VALIDATE_SQL; a->query_loading=a->busy=true; worker_submit(&a->worker,job);
+}
+static void receive_source_validation(App *a,QueryReply *r) {
+    a->query_loading=false;
+    text_lines_free(&a->query_errors); a->query_error_scroll=0;
+    if (a->modal!=MODAL_SOURCE_QUERY || a->input.revision!=a->query_draft_revision) return;
+    if (r->error) { free(a->query_error); a->query_error=dx_strdup(r->error); return; }
+    const Analysis *old=query_source(a); SheetObject *o=a->query_object>=0 && old ? &active_sheet(a)->objects.items[a->query_object] : NULL;
+    if (!old || (o ? o->id!=r->object_id || o->revision!=r->revision : a->analysis_revision!=r->revision)) {
+        free(a->query_error); a->query_error=dx_strdup("The source changed. Close and reopen the query editor."); return;
+    }
+    if (o) {
+        if (!set_table_source(a,(size_t)a->query_object,&r->analysis)) return;
+        clear_values_cache(a); a->field_matches_valid=false;
+    } else {
+        remember(a); analysis_free(&a->analysis); a->analysis=analysis_copy(&r->analysis); change_analysis(a,true);
+    }
+    a->modal=MODAL_NONE; a->consume_grid_input=true; status(a,"Source query applied. Undo restores the previous definition.");
+}
+static void poll_query(App *a) {
+    QueryReply *r=worker_poll(&a->worker); if (!r) return;
+    if (r->id!=a->request_id) { reply_free(r); return; }
+    a->busy=false;
+    if (r->kind==JOB_STEP_PREVIEW) { step_preview_reply(&a->step_preview,r); reply_free(r); return; }
+    if (r->is_preview) {
+        if (r->kind==JOB_COPY) { if (r->error) status(a,r->error); else { SetClipboardText(r->clipboard ? r->clipboard : ""); status(a,"Preview selection copied."); } }
+        else if (r->kind==JOB_STATISTICS) step_preview_statistics_reply(&a->step_preview,r);
+        reply_free(r); return;
+    }
+    if (r->kind==JOB_VALIDATE_SQL) { reply_free(a->query_validated); a->query_validated=r; return; }
+    if (r->object_id) {
+        ObjectStore *store=&active_sheet(a)->objects;
+        for (size_t i=0;i<store->count;i++) if (store->items[i].id==r->object_id) {
+            const SheetObject *table=objects_source(store,&store->items[i]);
+            if (table) {
+                size_t index=(size_t)(table-store->items); char *error=NULL;
+                if (!r->error && table->source.kind==SOURCE_DATABASE && !table->source.table && r->analysis.table) {
+                    if (objects_resolve_source(store,index,&r->analysis,&error)) a->book.dirty=true;
+                    else { r->error=error; error=NULL; }
+                }
+                free(error); analysis_merge_types(&store->items[index].source,&r->analysis);
+            }
+            else analysis_merge_types(&a->analysis,&r->analysis);
+            break;
+        }
+    } else analysis_merge_types(&a->analysis,&r->analysis);
+    if (r->kind==JOB_STATISTICS) {
+        a->statistics_request=0; statistics_free(&a->statistics); free(a->statistics_error); a->statistics_error=r->error; r->error=NULL;
+        a->statistics=r->statistics; memset(&r->statistics,0,sizeof(r->statistics)); a->statistics_state=a->statistics_error ? STATS_FAILED : STATS_READY;
+        statistics_line(a); reply_free(r); return;
+    }
+    if (r->kind==JOB_COUNT) {
+        a->count_request_id=0;
+        if (r->object_id) {
+            ObjectStore *store=&active_sheet(a)->objects;
+            for (size_t i=0;i<store->count;i++) if (store->items[i].id==r->object_id && store->items[i].revision==r->revision && store->items[i].kind==OBJECT_TABLE) {
+                ObjectView *v=&a->objects[i]; char *error=NULL;
+                if (r->error || !publish_object_extent(a,i,r->counted_rows,&error)) {
+                    free(v->error); v->error=r->error ? dx_strdup(r->error) : error; if (r->error) free(error);
+                    v->count_paused=true; v->failed=v->waiting_count || !r->error; status(a,v->error);
+                    if (!r->error) { v->count_resolved=true; v->counted_total=r->counted_rows; v->count_layout_key=table_layout_key(a); }
+                } else { status(a,"Table ready."); printf("Table %" PRIu64 " exact row count: %" PRIu64 "\n",r->object_id,r->counted_rows); }
+                break;
+            }
+            reply_free(r); return;
+        }
+        if (r->error) { a->count_paused=true; status(a,r->error); a->modal=MODAL_ERROR; }
+        else if (receive_count(a,r->counted_rows)) printf("Exact row count: %" PRIu64 " (%.2f ms background)\n",r->counted_rows,dx_millis()-a->count_started_ms);
+        reply_free(r); return;
+    }
+    if (r->kind==JOB_EXPORT) {
+        if (r->error) { status(a,r->error); a->modal=MODAL_ERROR; }
+        else {
+            if (!r->object_id && a->page.count_pending) publish_count(a,r->exported_rows);
+            if (!a->fetch_failed) { char *message=dx_printf("Exported %" PRIu64 " rows to %s",r->exported_rows,dx_basename(r->path)); status(a,message); free(message); }
+        }
+        reply_free(r); return;
+    }
+    if (r->kind==JOB_PIVOT_COPY || r->kind==JOB_RANGE_COPY) {
+        if (r->error) status(a,r->error); else { SetClipboardText(r->clipboard ? r->clipboard : ""); status(a,"Selection copied."); }
+        reply_free(r); return;
+    }
+    if (r->kind==JOB_PIVOT) {
+        ObjectStore *store=&active_sheet(a)->objects;
+        for (size_t i=0;i<store->count;i++) if (store->items[i].id==r->object_id && store->items[i].revision==r->revision) {
+            SheetObject *o=&store->items[i]; ObjectView *v=&a->objects[i]; char *error=NULL;
+            if (o->kind==OBJECT_TABLE && r->page.count_pending && v->page.count_pending && v->page.total>r->page.total) r->page.total=v->page.total;
+            size_t columns=o->kind==OBJECT_CHART ? o->columns : r->page.column_count<3 ? 3 : r->page.column_count;
+            uint64_t rows=o->kind==OBJECT_CHART ? o->rows : r->page.total+2<5 ? 5 : r->page.total+2;
+            if (o->kind==OBJECT_TABLE && r->page.count_pending && o->rows>rows) rows=o->rows;
+            bool fits=!r->error && objects_fits(store,(int)i,o->row,o->col,rows,columns,&active_sheet(a)->cells,source_rows(a),a->page.column_count,&error);
+            free(v->error); v->error=r->error ? dx_strdup(r->error) : error; if (r->error) free(error);
+            v->failed=!fits; v->dirty=false; v->revision=o->revision; v->source_revision=object_source_revision(a,o); v->id=o->id;
+            if (fits) {
+                bool schema=!v->page.column_count;
+                if (o->kind==OBJECT_TABLE) for (size_t c=0;c<r->page.column_count;c++) r->page.columns[c].filtered=analysis_filter_get(&o->source,r->page.columns[c].name,NULL,NULL);
+                page_free(&v->page); v->page=r->page; memset(&r->page,0,sizeof(r->page));
+                v->waiting_count=o->kind==OBJECT_TABLE && v->page.count_pending && table_count_validation(a,i,columns);
+                if (!v->page.count_pending) v->count_paused=false;
+                bool whole=a->grid.selection==SELECT_CELLS && a->grid.anchor_row==o->row && a->grid.end_row==o->row+o->rows-1 && a->grid.anchor_col==o->col && a->grid.end_col==o->col+o->columns-1;
+                if (!v->waiting_count) { o->rows=rows; o->columns=columns; grid_ensure_columns(&a->grid,o->col+columns); }
+                status(a,o->kind==OBJECT_TABLE ? v->waiting_count ? "Checking the table's full size before displaying it…" : v->page.count_pending ? "Table visible. Counting rows in the background…" : "Table ready." : "Pivot updated.");
+                if (o->kind==OBJECT_TABLE && schema) a->field_schema_generation++;
+                if (whole && !v->waiting_count) { a->grid.end_row=o->row+rows-1; a->grid.end_col=o->col+columns-1; }
+                if (o->kind==OBJECT_TABLE && schema && !v->waiting_count) printf("Table %" PRIu64 " viewport: %zu rows, %zu bytes, %.2f ms query; count %s\n",o->id,v->page.row_count,v->page.bytes,v->page.query_ms,v->page.count_pending ? "pending" : "complete");
+            } else {
+                /* Retain only the catalog on failure, so a removed relation can
+                   be replaced without publishing partial/overlapping data. */
+                if (o->kind==OBJECT_TABLE && r->page.relation_count) {
+                    page_free(&v->page); v->page.relations=r->page.relations; v->page.relation_count=r->page.relation_count;
+                    r->page.relations=NULL; r->page.relation_count=0;
+                }
+                status(a,v->error);
+            }
+            break;
+        }
+        reply_free(r); return;
+    }
+    if (r->kind==JOB_DISTINCT) {
+        a->values_loading=false;
+        if (r->error) { status(a,r->error); a->values_failed=true; }
+        else {
+            unsigned slot=a->value_cache_next++%4; distinct_free(&a->value_cache[slot]); free(a->value_cache_keys[slot]);
+            a->value_cache[slot]=r->distinct; memset(&r->distinct,0,sizeof(r->distinct));
+            a->value_cache_keys[slot]=a->value_pending_key; a->value_pending_key=NULL; a->values_total=(int64_t)a->value_cache[slot].total;
+            a->value_checks_dirty=true;
+        }
+        reply_free(r); return;
+    }
+    if (r->kind==JOB_SAVE || r->kind==JOB_LOAD) {
+        a->io_busy=false;
+        if (r->error) { cancel_document_action(a); status(a,r->error); a->modal=MODAL_ERROR; }
+        else if (r->kind==JOB_LOAD) {
+            workbook_free(&a->book); a->book=*r->workbook; workbook_init(r->workbook);
+            if (!a->app_presentation_loaded) { ui_set_scale(&a->ui,a->book.user_scale); a->reduced_motion=a->book.reduced_motion; }
+            activate_sheet(a,a->book.active,false);
+        } else {
+            free(a->book.path); a->book.path=r->path; r->path=NULL; a->book.dirty=false; status(a,"Workspace saved.");
+            if (!a->page.column_count && a->analysis.kind!=SOURCE_NONE) request_page(a,false);
+        }
+        reply_free(r); return;
+    }
+    if (r->error) {
+        char *text=dx_printf("Query failed: %s",r->error); status(a,text); free(text); a->fetch_failed=true;
+        a->modal=MODAL_ERROR;
+        fprintf(stderr,"Duxcel: %s\n",r->error);
+    } else if (r->kind==JOB_COPY) {
+        if (r->clipboard) SetClipboardText(r->clipboard);
+        status(a,"Selection copied as spreadsheet TSV.");
+    } else {
+        if (r->page.count_pending && a->known_total>=0) { r->page.count_pending=false; r->page.total=(uint64_t)a->known_total; }
+        if (r->page.count_pending) {
+            if (r->page.total>a->observed_rows) a->observed_rows=r->page.total;
+            r->page.total=a->observed_rows;
+        } else a->observed_rows=r->page.total;
+        char *overlap_error=source_overlap(a,r->page.total,r->page.column_count);
+        if (overlap_error) { status(a,overlap_error); free(overlap_error); a->fetch_failed=true; a->modal=MODAL_ERROR; reply_free(r); return; }
+        for (size_t c=0;c<r->page.column_count;c++) r->page.columns[c].filtered=analysis_filter_get(&a->analysis,r->page.columns[c].name,NULL,NULL);
+        if (!a->analysis.table && r->analysis.table) {
+            free(a->analysis.schema); a->analysis.schema=dx_strdup(r->analysis.schema); a->analysis.table=dx_strdup(r->analysis.table);
+        }
+        if (r->page.count_pending && count_requires_validation(a,&r->page)) {
+            page_free(&a->spare); a->spare=r->page; memset(&r->page,0,sizeof(r->page)); a->waiting_count_page=true; a->page_stale=true;
+            status(a,"Checking the new table size against existing worksheet content…"); reply_free(r); return;
+        }
+        page_free(&a->spare);
+        if (a->page_stale) page_free(&a->page); else a->spare=a->page;
+        a->page=r->page; memset(&r->page,0,sizeof(r->page)); a->waiting_count_page=false;
+        a->known_total=a->page.count_pending ? -1 : (int64_t)a->page.total;
+        source_ready(a);
+    }
+    reply_free(r);
+}
+static void shift_column_widths(Grid *g,size_t col,bool insert,float width) {
+    if (col>=g->width_count) return;
+    if (insert) { memmove(g->widths+col+1,g->widths+col,(g->width_count-col-1)*sizeof(float)); g->widths[col]=width; }
+    else { memmove(g->widths+col,g->widths+col+1,(g->width_count-col-1)*sizeof(float)); g->widths[g->width_count-1]=96; }
+    g->offsets[0]=0; for (size_t c=0;c<g->width_count;c++) g->offsets[c+1]=g->offsets[c]+g->widths[c]; g->width_revision++;
+}
+static void restore_column_widths(App *a,ColumnEdit edit,bool redo) {
+    if (edit.active) shift_column_widths(&a->grid,edit.column,redo ? edit.insert : !edit.insert,!redo && !edit.insert ? edit.width : 96);
+}
+static void history(App *a,bool redo) {
+    Worksheet *s=active_sheet(a); if (!s) return;
+    size_t count=redo ? s->redo_actions_count : s->undo_actions_count; if (!count) return;
+    EditKind kind=(redo ? s->redo_actions : s->undo_actions)[count-1];
+    unsigned effects=worksheet_edit_effects(kind);
+    ColumnEdit column=(redo ? s->redo_columns : s->undo_columns)[count-1];
+    if (effects&8) { if (!(redo ? s->formats.redo_count : s->formats.undo_count)) return; }
+    if (effects&4) {
+        if ((effects&2) && !(redo ? s->cells.redo_count : s->cells.undo_count)) return;
+        SheetObject *selected=selected_object(a),*author=selected_pivot(a);
+        uint64_t author_id=author ? author->id : 0,selected_id=0,active_row=0; size_t active_col=0;
+        uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1);
+        if (selected && a->grid.selection==SELECT_CELLS && r0==selected->row && r1==selected->row+selected->rows-1 && c0==selected->col && c1==selected->col+selected->columns-1) {
+            selected_id=selected->id;
+            active_row=a->grid.row>=selected->row && a->grid.row-selected->row<selected->rows ? a->grid.row-selected->row : 0;
+            active_col=a->grid.col>=selected->col && a->grid.col-selected->col<selected->columns ? a->grid.col-selected->col : 0;
+        }
+        if (objects_history(&s->objects,redo)) {
+            if (effects&2) cells_history(&s->cells,redo);
+            if (effects&8) format_history(&s->formats,redo);
+            worksheet_transfer_history(s,redo); restore_column_widths(a,column,redo); reconcile_object_views(a);
+            for (size_t i=0;selected_id && i<s->objects.count;i++) if (s->objects.items[i].id==selected_id) {
+                SheetObject *o=&s->objects.items[i];
+                a->grid.anchor_row=o->row; a->grid.end_row=o->row+o->rows-1; a->grid.anchor_col=o->col; a->grid.end_col=o->col+o->columns-1;
+                a->grid.row=o->row+(active_row<o->rows ? active_row : o->rows-1); a->grid.col=o->col+(active_col<o->columns ? active_col : o->columns-1);
+                break;
+            }
+            a->selected_object=objects_hit(&s->objects,a->grid.row,a->grid.col);
+            /* Authoring focus is independent of the remembered source-cell
+               selection. An offscreen edited view must still refresh on Undo. */
+            for (size_t i=0;author_id && i<s->objects.count;i++) if (s->objects.items[i].id==author_id) { a->selected_object=(int)i; break; }
+            a->book.dirty=true; validate_history_layout(a);
+        }
+        return;
+    }
+    if (effects&2) { if (cells_history(&s->cells,redo)) { if (effects&8) format_history(&s->formats,redo); worksheet_transfer_history(s,redo); restore_column_widths(a,column,redo); a->book.dirty=true; validate_history_layout(a); } return; }
+    if (effects==8) { if (format_history(&s->formats,redo)) { worksheet_transfer_history(s,redo); a->book.dirty=true; } return; }
+    Analysis *from=redo ? s->redo : s->undo, *to=redo ? s->undo : s->redo;
+    size_t *fc=redo ? &s->redo_count : &s->undo_count, *tc=redo ? &s->undo_count : &s->redo_count;
+    if (!*fc) return;
+    bool same=!a->fetch_failed && !a->page_stale && analysis_same_result(&a->analysis,&from[*fc-1]);
+    if (same) analysis_merge_types(&from[*fc-1],&a->analysis);
+    stack_push(to,tc,&a->analysis); analysis_free(&a->analysis); a->analysis=from[--*fc];
+    memset(&from[*fc],0,sizeof(*from)); worksheet_transfer_history(s,redo); a->book.dirty=true;
+    if (same) { cache_pipeline(a); if (!a->busy) status(a,"Ready"); } else change_analysis(a,true);
+}
+static void open_modal(App *a,Modal modal) {
+#ifdef __APPLE__
+    if (modal==MODAL_OPEN || modal==MODAL_SAVE || modal==MODAL_RELINK) {
+        a->consume_grid_input=true;
+        char *path=modal==MODAL_SAVE ? dx_save_file_panel(a->book.path) : dx_open_file_panel();
+        if (path) {
+            if (modal==MODAL_SAVE) workspace_job(a,JOB_SAVE,path);
+            else if (modal==MODAL_RELINK) {
+                if (source_kind(path)==a->analysis.kind) {
+                    remember(a); free(a->analysis.path); a->analysis.path=dx_strdup(path); a->modal=MODAL_NONE; change_analysis(a,true);
+                } else status(a,"Choose a source of the same file type.");
+            } else open_source(a,path,false);
+            free(path);
+        }
+        return;
+    }
+#endif
+    a->key_tips=a->ribbon_focus=false;
+    a->modal=modal; a->field=a->grid.col; a->measure=a->grid.col; a->aggregate=AGG_SUM;
+    a->filter_op=FILTER_CONTAINS; a->sql_scroll=0;
+    if (modal==MODAL_SORT) {
+        SheetObject *object=selected_object(a); bool table=object && object->kind==OBJECT_TABLE;
+        a->sort_object=table ? a->selected_object : -1;
+        sort_editor_open(&a->sort_editor,table ? &object->source : &a->analysis,table ? &a->objects[a->selected_object].page : &a->page,table && a->grid.col>=object->col ? a->grid.col-object->col : a->grid.col);
+        a->consume_grid_input=true; return;
+    }
+    if (modal==MODAL_CELL) { input_set(&a->input,cells_get(&active_sheet(a)->cells,a->grid.row,a->grid.col)); a->consume_grid_input=true; return; }
+    if (modal==MODAL_SQL) {
+        free(a->sql_text); SheetObject *o=selected_object(a);
+        if (o && a->objects[a->selected_object].page.sql) a->sql_text=dx_strdup(a->objects[a->selected_object].page.sql);
+        else if (o && o->kind==OBJECT_TABLE) a->sql_text=analysis_sql(&o->source,false);
+        else if (o && o->pivot.counts[PIVOT_VALUES]) { char *sql=pivot_sql(object_source(a,o),&o->pivot); a->sql_text=dx_printf("-- Template: the worker resolves column domains with explicit IN lists, including NULL.\n%s",sql); free(sql); }
+        else a->sql_text=o ? dx_strdup("-- Empty pivot template. Add a field to Values.") : analysis_sql(&a->analysis,false);
+    }
+    if (modal==MODAL_GROUP) {
+        a->summary_role=0; a->summary_drag=-1; a->summary_scroll=0;
+        for (size_t c=0;c<a->page.column_count;c++) if (a->page.columns[c].numeric) { a->measure=c; break; }
+    }
+    if (modal==MODAL_FILTER) {
+        a->filter_object=-1;
+        if (a->field>=a->page.column_count) { a->modal=MODAL_NONE; return; }
+        begin_values(a); return;
+    }
+    const char *text=modal==MODAL_OPEN ? "" : modal==MODAL_SAVE ? (a->book.path ? a->book.path : "workbook.dxls") :
+        modal==MODAL_RELINK ? a->analysis.path : a->analysis.filter_value;
+    input_set(&a->input,text ? text : "");
+    if (modal==MODAL_FILTER && a->analysis.filter_column) a->filter_op=a->analysis.filter_op;
+    while (GetCharPressed()) { }
+}
+static void new_sheet(App *a) {
+    end_step_preview(a);
+    if (a->io_busy) return;
+    capture_sheet(a); char *name=dx_printf("Sheet %zu",a->book.count+1),*error=NULL;
+    Analysis blank={.kind=SOURCE_NONE,.path=""};
+    if (!workbook_add(&a->book,name,&blank,&error)) { status(a,error); free(error); free(name); return; }
+    free(name); activate_sheet(a,a->book.active,false);
+}
+static void relink_source(App *a) {
+    char *path=dx_absolute_path(a->input.text);
+    if (!path || source_kind(path)!=a->analysis.kind) { free(path); status(a,"Choose an existing source with the same file type."); return; }
+    remember(a); free(a->analysis.path); a->analysis.path=path; a->modal=MODAL_NONE; change_analysis(a,true);
+}
+static void apply_sort_order(App *a,const Analysis *order) {
+    a->modal=MODAL_NONE;
+    if (a->sort_object>=0 && (size_t)a->sort_object<active_sheet(a)->objects.count && active_sheet(a)->objects.items[a->sort_object].kind==OBJECT_TABLE) {
+        SheetObject *table=&active_sheet(a)->objects.items[a->sort_object];
+        if (!analysis_sorts_equal(&table->source,order)) {
+            Analysis source=analysis_copy(&table->source); analysis_sorts_clear(&source);
+            for (size_t i=0;i<order->sort_count+(order->sort_column ? 1 : 0);i++) { AnalysisSort sort=analysis_sort_at(order,i); analysis_sort_set(&source,sort.column,sort.descending,true,NULL); }
+            set_table_source(a,(size_t)a->sort_object,&source); analysis_free(&source);
+        }
+        a->sort_object=-1; return;
+    }
+    if (analysis_sorts_equal(&a->analysis,order)) return;
+    remember(a); analysis_sorts_clear(&a->analysis);
+    for (size_t i=0;i<order->sort_count+(order->sort_column ? 1 : 0);i++) { AnalysisSort sort=analysis_sort_at(order,i); analysis_sort_set(&a->analysis,sort.column,sort.descending,true,NULL); }
+    a->new_schema=false; cache_pipeline(a);
+    size_t column=a->grid.col; float horizontal=a->grid.horizontal; a->count_paused=false; request_page(a,true);
+    grid_select_cell(&a->grid,0,column,false); a->grid.horizontal=horizontal;
+}
+static void sort_field(App *a,size_t column,bool descending) {
+    if (column>=a->page.column_count) return;
+    Analysis order={0}; analysis_sort_set(&order,a->page.columns[column].name,descending,false,NULL);
+    a->sort_object=-1; apply_sort_order(a,&order); analysis_free(&order);
+}
+static void sort_column(App *a,bool descending) { sort_field(a,a->grid.col,descending); }
+static const Cell *copy_cached_cell(const Page *page,uint64_t row,size_t column) {
+    if (!page->cells || !page->columns || column>=page->column_count || row<page->offset || row-page->offset>=page->row_count) return NULL;
+    return &page->cells[(row-page->offset)*page->column_count+column];
+}
+static void copy_selection(App *a) {
+    if (a->step_preview.active) {
+        StepPreview *preview=&a->step_preview; uint64_t r0,r1; size_t c0,c1; grid_bounds(&preview->grid,&r0,&r1,&c0,&c1);
+        if (!preview->page.total || r0>=preview->page.total || c0>=preview->page.column_count || preview->loading) { status(a,"Wait for a preview result before copying cells."); return; }
+        if (r1>=preview->page.total) r1=preview->page.total-1; if (c1>=preview->page.column_count) c1=preview->page.column_count-1;
+        if (r1-r0+1>DX_COPY_CELLS/(c1-c0+1)) { status(a,"Choose up to 20,000 preview cells to copy."); return; }
+        QueryJob *job=dx_alloc(sizeof(*job)); job->id=++a->request_id; job->kind=JOB_COPY; job->is_preview=true; job->analysis=analysis_copy(&preview->source); job->offset=r0; job->rows=r1-r0+1; job->first_col=c0; job->cols=c1-c0+1;
+        a->busy=true; a->pending_kind=JOB_COPY; worker_submit(&a->worker,job); a->consume_grid_input=true; return;
+    }
+    if (a->busy) return;
+    if (a->page_stale) { status(a,"The new analysis is still updating or needs attention. Copy after its result is ready."); return; }
+    uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1);
+    char *bounds_error=NULL;
+    if (!clipboard_bounds(&active_sheet(a)->cells,&active_sheet(a)->objects,source_rows(a),a->page.column_count,&r0,&r1,&c0,&c1,&bounds_error)) { status(a,bounds_error); free(bounds_error); return; }
+    if (r1-r0>=DX_CLIPBOARD_CELLS || c1-c0>=DX_CLIPBOARD_CELLS) { status(a,"Copy up to 20,000 cells at a time. Select a smaller range."); return; }
+    CopyRequest *copy=dx_alloc(sizeof(*copy)); char *error=NULL;
+    if (!clipboard_init(&copy->cells,(size_t)(r1-r0+1),c1-c0+1,&error)) goto failed;
+    bool missing[DX_MAX_OBJECTS+1]={0}; ObjectStore *objects=&active_sheet(a)->objects;
+    for (size_t row=0;row<copy->cells.rows;row++) for (size_t column=0;column<copy->cells.columns;column++) {
+        uint64_t r=r0+row; size_t c=c0+column; const char *value=NULL; char *header=NULL;
+        if (a->analysis.kind!=SOURCE_NONE && c<a->page.column_count && (a->page.count_pending || r<a->page.total)) {
+            const Cell *cell=copy_cached_cell(&a->page,r,c);
+            if (!cell) cell=copy_cached_cell(&a->spare,r,c);
+            if (!cell) missing[0]=true; else if (!cell->is_null) value=cell->text;
+        } else {
+            int index=objects_hit(objects,r,c);
+            if (index>=0) {
+                SheetObject *object=&objects->items[index]; ObjectView *view=&a->objects[index]; Page *page=&view->page;
+                if (r==object->row && c==object->col) value=object->name;
+                else if (object->kind!=OBJECT_CHART && r>object->row && c-object->col<page->column_count) {
+                    if (view->dirty || view->failed || view->waiting_count || page->count_pending || view->revision!=object->revision || view->source_revision!=object_source_revision(a,object)) {
+                        error=dx_strdup("Wait for the table or pivot to finish updating before copying its cells."); goto failed;
+                    }
+                    if (r==object->row+1) {
+                        Column *label=&page->columns[c-object->col];
+                        if (label->detail) { header=dx_printf("%s_%s",label->caption ? label->caption : label->name,label->detail); value=header; }
+                        else value=label->caption ? label->caption : label->name;
+                    } else if (r-object->row-2<page->total) {
+                        const Cell *cell=copy_cached_cell(page,r-object->row-2,c-object->col);
+                        if (!cell) missing[index+1]=true; else if (!cell->is_null) value=cell->text;
+                    }
+                } else if (object->kind!=OBJECT_CHART && (object->kind==OBJECT_TABLE || object->pivot.counts[PIVOT_VALUES]) && !page->column_count && r>object->row) {
+                    error=dx_strdup("Wait for the pivot result before copying its cells."); goto failed;
+                }
+            } else { const char *manual=cells_get(&active_sheet(a)->cells,r,c); if (*manual) value=manual; }
+        }
+        bool ok=clipboard_set(&copy->cells,row,column,value,&error); free(header); if (!ok) goto failed;
+    }
+    if (missing[0]) {
+        size_t end_column=c1+1<a->page.column_count ? c1+1 : a->page.column_count;
+        uint64_t end_row=!a->page.count_pending && r1+1>a->page.total ? a->page.total : r1+1;
+        copy->patches[copy->count++]=(CopyPatch){.first=r0,.rows=(size_t)(end_row-r0),.column=c0,.columns=end_column-c0};
+    }
+    for (size_t i=0;i<objects->count;i++) if (missing[i+1]) {
+        SheetObject *object=&objects->items[i]; Page *page=&a->objects[i].page;
+        uint64_t first=r0>object->row+2 ? r0 : object->row+2,end=r1+1<object->row+2+page->total ? r1+1 : object->row+2+page->total;
+        size_t column=c0>object->col ? c0 : object->col,end_column=c1+1<object->col+page->column_count ? c1+1 : object->col+page->column_count;
+        const SheetObject *source=objects_source(objects,object);
+        size_t binding=source ? source_snapshot_bind(&copy->sources,source->id,&source->source,&error) : 0;
+        if (binding==SIZE_MAX) goto failed;
+        copy->patches[copy->count++]=(CopyPatch){.source=binding,.is_pivot=object->kind!=OBJECT_TABLE,.pivot=pivot_copy(&object->pivot),.first=first-object->row-2,.rows=(size_t)(end-first),.column=column-object->col,.columns=end_column-column,.target_row=(size_t)(first-r0),.target_column=column-c0};
+    }
+    if (!copy->count) {
+        char *text=clipboard_tsv(&copy->cells,&error); if (!text) goto failed;
+        SetClipboardText(text); free(text); copy_request_free(copy); status(a,"Selection copied."); return;
+    }
+    QueryJob *job=dx_alloc(sizeof(*job)); job->id=++a->request_id; job->kind=JOB_RANGE_COPY;
+    job->copy=copy;
+    for (size_t i=0;i<copy->count;i++) if (!copy->patches[i].source) { job->analysis=analysis_copy(&a->analysis); break; }
+    a->busy=true; a->pending_kind=JOB_RANGE_COPY; worker_submit(&a->worker,job); return;
+failed:
+    status(a,error ? error : "The selection could not be copied."); free(error); copy_request_free(copy);
+}
+static void set_source_filter(App *a,const char *column,FilterOp op,const char *value,bool clear) {
+    FilterOp previous; const char *old=NULL; bool exists=analysis_filter_get(&a->analysis,column,&previous,&old);
+    if ((clear && !exists) || (!clear && exists && previous==op && (old && value ? !strcmp(old,value) : old==value))) { a->modal=MODAL_NONE; return; }
+    Analysis next=analysis_copy(&a->analysis); char *error=NULL;
+    if (clear) analysis_filter_remove(&next,column);
+    else if (!analysis_filter_set(&next,column,op,value,&error)) { status(a,error); free(error); analysis_free(&next); return; }
+    for (size_t c=0;c<a->page.column_count;c++) if (!strcmp(a->page.columns[c].name,column)) analysis_filter_number(&next,column,a->page.columns[c].number_type);
+    remember(a); analysis_free(&a->analysis); a->analysis=next;
+    a->modal=MODAL_NONE; change_analysis(a,false);
+}
+static void apply_filter(App *a) {
+    if (apply_pivot_filter(a,false,false)) return;
+    if (a->field<a->page.column_count) set_source_filter(a,a->page.columns[a->field].name,a->filter_op,a->input.text,false);
+}
+static void apply_group(App *a) {
+    if (a->field>=a->page.column_count || a->measure>=a->page.column_count) return;
+    remember(a); free(a->analysis.group_column); free(a->analysis.measure_column); analysis_sorts_clear(&a->analysis);
+    a->analysis.group_column=dx_strdup(a->page.columns[a->field].name);
+    a->analysis.measure_column=dx_strdup(a->page.columns[a->measure].name);
+    a->analysis.aggregate=a->aggregate; a->analysis.sort_column=NULL;
+    a->modal=MODAL_NONE; change_analysis(a,true);
+}
+static void clear_transforms(App *a) {
+    a->analysis.unique_rows=false;
+    analysis_filters_clear(&a->analysis);
+    free(a->analysis.group_column); a->analysis.group_column=NULL;
+    free(a->analysis.measure_column); a->analysis.measure_column=NULL;
+    analysis_sorts_clear(&a->analysis);
+}
+static void reset_analysis(App *a) {
+    SheetObject *object=selected_object(a);
+    if (object && object->kind==OBJECT_TABLE) {
+        Analysis source=analysis_copy(&object->source); source.unique_rows=false; analysis_filters_clear(&source); analysis_sorts_clear(&source);
+        free(source.group_column); free(source.measure_column); source.group_column=source.measure_column=NULL;
+        set_table_source(a,(size_t)a->selected_object,&source); analysis_free(&source); return;
+    }
+    remember(a); clear_transforms(a); change_analysis(a,true);
+}
+static bool set_unique_rows(App *a,int index,bool unique) {
+    if (a->busy || a->io_busy || a->query_loading) return false;
+    ObjectStore *store=&active_sheet(a)->objects;
+    if (index>=0 && ((size_t)index>=store->count || store->items[index].kind!=OBJECT_TABLE)) return false;
+    const Analysis *source=index>=0 ? &store->items[index].source : &a->analysis;
+    if (source->kind==SOURCE_NONE) return false;
+    if (source->unique_rows==unique) return true;
+    if (index>=0) {
+        Analysis copy=analysis_copy(source); copy.unique_rows=unique;
+        bool ok=set_table_source(a,(size_t)index,&copy); analysis_free(&copy); if (!ok) return false;
+    } else { remember(a); a->analysis.unique_rows=unique; change_analysis(a,false); }
+    a->consume_grid_input=true;
+    status(a,unique ? "Duplicate rows removed across all source columns. Undo restores them." : "Duplicate rows restored. Other transformations are retained."); return true;
+}
+static void select_relation(App *a,const Relation *r) {
+    char *schema=dx_strdup(r->schema), *name=dx_strdup(r->name);
+    remember(a); clear_transforms(a); free(a->analysis.schema); free(a->analysis.table);
+    a->analysis.schema=schema; a->analysis.table=name; free(a->analysis.query); a->analysis.query=NULL; change_analysis(a,true);
+}
+static void run_action(App *a,UIAction action);
+static void draw_sql_content(App *a,const char *sql,int *position,Rectangle r,bool interactive) {
+    UIContext *u=&a->ui; float s=u->scale;
+    const char *line=sql ? sql : ""; sql=line; int lines=1;
+    for (const char *p=sql;*p;p++) if (*p=='\n') lines++;
+    if (interactive && CheckCollisionPointRec(ui_mouse_position(),r)) *position+=ui_scroll_steps(&a->wheel_sql,-GetMouseWheelMoveV().y*3);
+    int visible=(int)(r.height/(20*s));
+    if (*position>lines-visible) *position=lines-visible;
+    if (*position<0) *position=0;
+    int index=0;
+    while (line && index<*position+visible) {
+        const char *next=strchr(line,'\n');
+        if (index>=*position) {
+            char text[2048]; size_t n=next ? (size_t)(next-line) : strlen(line); if (n>=sizeof(text)) n=sizeof(text)-1;
+            memcpy(text,line,n); text[n]=0; ui_text_clip(u,text,box(r.x,r.y+(index-*position)*20*s,r.width,20*s),12,UI_TEXT,false);
+        }
+        if (next) next++;
+        line=next; index++;
+    }
+}
+static void draw_sql(App *a,Rectangle r) { draw_sql_content(a,a->sql_text,&a->sql_scroll,r,true); }
+static void wrapped_message(App *a,Rectangle r) {
+    const char *p=a->message; float y=r.y, s=a->ui.scale;
+    while (p && *p && y+20*s<r.y+r.height) {
+        char line[1024]; size_t n=0;
+        while (*p && *p!='\n' && n<sizeof(line)-8) {
+            int bytes=0; GetCodepointNext(p,&bytes); if (bytes<=0) break;
+            memcpy(line+n,p,(size_t)bytes); line[n+(size_t)bytes]=0;
+            if (n && ui_measure(&a->ui,line,13)>r.width-16*s) break;
+            n+=(size_t)bytes; p+=bytes;
+        }
+        line[n]=0; ui_text_clip(&a->ui,line,box(r.x,y,r.width,21*s),13,UI_TEXT,false);
+        y+=22*s; if (*p=='\n') p++;
+    }
+}
+static void clear_value_choices(App *a) {
+    for (size_t i=0;i<a->value_choice_count;i++) free(a->value_choices[i]);
+    free(a->value_choices); a->value_choices=NULL; a->value_choice_count=0; a->value_checks_dirty=true; a->value_checks_override=false;
+}
+static bool value_checked(App *a,const char *key,bool *mixed) {
+    return analysis_value_checked(a->value_choices,a->value_choice_count,a->values_all,a->date_level>=0,key,mixed);
+}
+static void toggle_value(App *a,char *key) {
+    if (!analysis_toggle_value(&a->value_choices,&a->value_choice_count,a->values_all,a->date_level>=0,key)) status(a,"Selection is limited to 4,096 exceptions / 4 MiB. Use All values and exclude a smaller set.");
+    free(key); a->value_checks_dirty=true; a->value_checks_override=false;
+}
+static char *values_cache_key(App *a) {
+    SheetObject *o=a->filter_object>=0 && (size_t)a->filter_object<active_sheet(a)->objects.count ? &active_sheet(a)->objects.items[a->filter_object] : NULL;
+    return dx_printf("%" PRIu64 ":%zu:%d:%s:%s:%" PRIu64 ":%" PRIu64,object_source_revision(a,o),a->field,a->date_level,
+        a->date_level>0 ? a->date_starts[a->date_level-1] : "",a->input.text,o ? o->id : 0,o ? o->revision : 0);
+}
+static DistinctPage *cached_values(App *a,uint64_t offset) {
+    for (int i=0;i<4;i++) if (a->value_cache_keys[i] && a->value_cache[i].offset==offset && !strcmp(a->value_cache_keys[i],a->values_context)) return &a->value_cache[i];
+    return NULL;
+}
+static void cancel_values(App *a) {
+    if (a->values_loading) { worker_cancel(&a->worker); a->request_id++; a->values_loading=false; }
+    for (size_t i=0;i<a->values_found_count;i++) free(a->values_found[i]);
+    free(a->values_found); a->values_found=NULL; a->values_found_count=a->values_found_bytes=0; a->values_selecting=false;
+}
+static void clear_values_cache(App *a) {
+    cancel_values(a);
+    for (size_t i=0;i<4;i++) { distinct_free(&a->value_cache[i]); free(a->value_cache_keys[i]); a->value_cache_keys[i]=NULL; }
+    free(a->values_context); a->values_context=NULL; free(a->value_pending_key); a->value_pending_key=NULL;
+    a->values_total=-1; a->value_cache_next=0;
+}
+static void request_values(App *a,uint64_t offset) {
+    DistinctPage *cached=cached_values(a,offset); if (cached) { a->values_total=(int64_t)cached->total; return; }
+    Page *fields=filter_fields(a); SheetObject *object=filter_object(a);
+    if (a->values_loading || a->values_failed || a->field>=fields->column_count) return;
+    free(a->value_pending_key); a->value_pending_key=dx_strdup(a->values_context);
+    QueryJob *j=dx_alloc(sizeof(*j)); j->id=++a->request_id; j->kind=JOB_DISTINCT;
+    j->analysis=analysis_copy(object_source(a,object)); j->column=dx_strdup(fields->columns[a->field].name); j->search=dx_strdup(a->input.text);
+    j->date_level=a->date_level; j->offset=offset; j->known_total=a->values_total;
+    if (object) { j->pivot=pivot_copy(&object->pivot); j->object_id=object->id; j->is_table=object->kind==OBJECT_TABLE; }
+    if (a->date_level>0) { j->date_start=dx_strdup(a->date_starts[a->date_level-1]); j->date_end=dx_strdup(a->date_ends[a->date_level-1]); }
+    a->values_loading=true; a->pending_kind=JOB_DISTINCT; worker_submit(&a->worker,j);
+}
+static void restart_values(App *a) {
+    free(a->values_context); a->values_context=values_cache_key(a);
+    a->values_search_revision=a->input.revision;
+    cancel_values(a); a->value_checks_dirty=true; a->value_checks_override=false; a->values_focus=-2; a->values_scroll=0; a->values_total=-1; a->values_failed=false; a->values_changed=dx_millis();
+}
+static void select_found_values(App *a) {
+    if (a->values_total<0) { status(a,"Wait for the available values to finish loading."); return; }
+    if (a->values_total>4096) { status(a,"Narrow the search to select up to 4,096 matching values at once. Clear the search to select the whole column."); return; }
+    a->values_found=dx_alloc((size_t)a->values_total*sizeof(char *)); a->values_found_count=a->values_found_bytes=0; a->values_selecting=true;
+}
+static void collect_found_values(App *a) {
+    if (!a->values_selecting) return;
+    if (a->values_failed) { cancel_values(a); return; }
+    while (a->values_found_count<(size_t)a->values_total) {
+        uint64_t index=a->values_found_count; DistinctPage *page=cached_values(a,index/DX_DISTINCT_ROWS*DX_DISTINCT_ROWS);
+        if (!page || index-page->offset>=page->count) { request_values(a,index/DX_DISTINCT_ROWS*DX_DISTINCT_ROWS); return; }
+        const char *key=page->values[index-page->offset].key; size_t bytes=key ? strlen(key)+1 : 0;
+        if (bytes>4*1024*1024-a->values_found_bytes) { cancel_values(a); status(a,"Matching values exceed 4 MiB. Narrow the search."); return; }
+        a->values_found_bytes+=bytes; a->values_found[a->values_found_count++]=key ? dx_strdup(key) : NULL;
+    }
+    bool remove=a->values_found_count>0;
+    for (size_t i=0;i<a->values_found_count;i++) { bool mixed=false; remove&=value_checked(a,a->values_found[i],&mixed) && !mixed; }
+    bool ok=analysis_toggle_values(&a->value_choices,&a->value_choice_count,a->values_all,a->date_level>=0,a->values_found,a->values_found_count);
+    a->values_selecting=false; for (size_t i=0;i<a->values_found_count;i++) free(a->values_found[i]); free(a->values_found); a->values_found=NULL; a->values_found_count=a->values_found_bytes=0; a->value_checks_dirty=true;
+    if (!ok) status(a,"Selection exceeds 4,096 exceptions / 4 MiB. Narrow the search or exclude fewer values.");
+    else { a->value_checks_all=!remove && a->values_total>0; a->value_checks_mixed=false; a->value_checks_override=true; }
+}
+static void check_found_values(App *a) {
+    if (!a->value_checks_dirty) return; a->value_checks_dirty=false;
+    if (a->value_checks_override) return;
+    if (a->values_all && !a->value_choice_count && a->values_total>0) { a->value_checks_all=true; a->value_checks_mixed=false; return; }
+    if (!a->input.length && a->date_level<=0) { a->value_checks_all=a->values_all && !a->value_choice_count; a->value_checks_mixed=a->value_choice_count>0; return; }
+    bool all=a->values_total>0,any=false,unknown=false;
+    for (uint64_t i=0;i<(uint64_t)(a->values_total>0 ? a->values_total : 0);i++) {
+        DistinctPage *page=cached_values(a,i/DX_DISTINCT_ROWS*DX_DISTINCT_ROWS);
+        if (!page || i-page->offset>=page->count) { unknown=true; break; }
+        bool mixed=false,checked=value_checked(a,page->values[i-page->offset].key,&mixed); all&=checked && !mixed; any|=checked || mixed;
+    }
+    a->value_checks_all=all && !unknown; a->value_checks_mixed=unknown || (any && !all);
+}
+static void begin_values(App *a) {
+    a->filter_anchor_valid=false;
+    clear_value_choices(a); a->values_focus=-2; a->values_all=true; a->filter_mode=0; a->values_scroll=0; a->values_total=-1; a->values_failed=false;
+    a->filter_focus=3; a->filter_condition_enabled=a->filter_condition_menu=false;
+    input_set(&a->input,""); input_set(&a->filter_term,""); input_set(&a->filter_end,"");
+    for (int i=0;i<5;i++) { free(a->date_starts[i]); free(a->date_ends[i]); a->date_starts[i]=a->date_ends[i]=NULL; }
+    Page *fields=filter_fields(a); SheetObject *object=filter_object(a);
+    duckdb_type t=fields->columns[a->field].type;
+    a->date_level=t==DUCKDB_TYPE_DATE || t==DUCKDB_TYPE_TIMESTAMP || t==DUCKDB_TYPE_TIMESTAMP_S || t==DUCKDB_TYPE_TIMESTAMP_MS || t==DUCKDB_TYPE_TIMESTAMP_NS || t==DUCKDB_TYPE_TIMESTAMP_TZ ? 0 : -1;
+    a->date_max=t==DUCKDB_TYPE_DATE ? 2 : 4;
+    const char *value=NULL; FilterOp op=FILTER_NOT_IN; char *list=NULL,*term=NULL;
+    if (object && object->kind!=OBJECT_TABLE) {
+        if (a->filter_pill>=0 && (size_t)a->filter_pill<object->pivot.counts[PIVOT_FILTERS]) { const PivotField *f=&object->pivot.fields[PIVOT_FILTERS][a->filter_pill]; op=f->filter; value=f->value; }
+    }
+    else analysis_filter_get(object_source(a,object),fields->columns[a->field].name,&op,&value);
+    if (op==FILTER_COMPOSITE) {
+        FilterOp list_op;
+        if (analysis_filter_unpack(value,&list_op,&list,&op,&term)) {
+            analysis_parse_values(list,&a->value_choices,&a->value_choice_count);
+            a->values_all=list_op==FILTER_NOT_IN || list_op==FILTER_DATE_NOT_IN; value=term;
+        }
+    } else if (value && op>=FILTER_IN && op<=FILTER_DATE_NOT_IN) {
+        analysis_parse_values(value,&a->value_choices,&a->value_choice_count); a->values_all=op==FILTER_NOT_IN || op==FILTER_DATE_NOT_IN;
+    }
+    if (op<=FILTER_NOT_NULL || op==FILTER_BETWEEN) {
+        a->filter_condition_enabled=true; a->filter_op=op;
+        if (op==FILTER_BETWEEN) {
+            char **bounds=NULL; size_t count=0;
+            if (analysis_parse_values(value,&bounds,&count) && count==2) { input_set(&a->filter_term,bounds[0]); input_set(&a->filter_end,bounds[1]); }
+            for (size_t i=0;i<count;i++) free(bounds[i]); free(bounds);
+        } else input_set(&a->filter_term,value ? value : "");
+    } else a->filter_op=FILTER_CONTAINS;
+    free(list); free(term); free(a->values_context); a->values_context=values_cache_key(a);
+    a->values_search_revision=a->input.revision; a->values_changed=0; a->consume_grid_input=true;
+    request_values(a,0);
+}
+static void set_filter_mode(App *a,int mode) {
+    /* Control-Tab traverses the two regions without replacing either predicate. */
+    a->filter_mode=mode; a->filter_focus=mode ? 6 : 3;
+}
+static void open_pivot_filter(App *a,size_t index) {
+    if (a->selected_object<0) return;
+    SheetObject *o=&active_sheet(a)->objects.items[a->selected_object]; if (index>=o->pivot.counts[PIVOT_FILTERS]) return;
+    Page *fields=object_fields(a,o);
+    size_t col=0; while (col<fields->column_count && strcmp(fields->columns[col].name,o->pivot.fields[PIVOT_FILTERS][index].name)) col++;
+    if (col==fields->column_count) { status(a,"This field is no longer present in the source."); return; }
+    if (a->busy) { worker_cancel(&a->worker); a->request_id++; a->busy=false; }
+    a->filter_object=a->selected_object; a->filter_pill=(int)index; a->field=col; a->modal=MODAL_FILTER; begin_values(a);
+}
+static void open_view_filter_field(App *a,size_t column) {
+    SheetObject *object=selected_pivot(a); Page *fields=context_fields(a);
+    if (!object || column>=fields->column_count || a->io_busy) return;
+    const char *name=fields->columns[column].name;
+    for (size_t i=0;i<object->pivot.counts[PIVOT_FILTERS];i++) if (!strcmp(object->pivot.fields[PIVOT_FILTERS][i].name,name)) { open_pivot_filter(a,i); goto anchored; }
+    if (object->pivot.counts[PIVOT_FILTERS]>=DX_PIVOT_FIELDS) { status(a,"Use up to eight view filters."); return; }
+    if (a->busy) { worker_cancel(&a->worker); a->request_id++; a->busy=false; }
+    a->filter_object=a->selected_object; a->filter_pill=-1; a->field=column; a->modal=MODAL_FILTER; begin_values(a);
+anchored:
+    a->filter_anchor_valid=true; a->filter_anchor=(Vector2){260*a->ui.scale,220*a->ui.scale};
+    a->author_reveal=false; a->pivot_focus=PIVOT_FILTERS+2;
+}
+static void open_table_filter(App *a,size_t index,size_t column) {
+    ObjectStore *store=&active_sheet(a)->objects;
+    if (index>=store->count || store->items[index].kind!=OBJECT_TABLE || column>=a->objects[index].page.column_count || a->io_busy) return;
+    if (a->busy) { worker_cancel(&a->worker); a->request_id++; a->busy=false; }
+    a->selected_object=(int)index; a->filter_object=(int)index; a->filter_pill=-1; a->field=column; a->filter_op=FILTER_CONTAINS; a->modal=MODAL_FILTER; begin_values(a);
+}
+static bool commit_object_filter(App *a,FilterOp op,const char *value,bool clear) {
+    if (a->filter_object<0) return false;
+    cancel_values(a); int target=a->filter_object; ObjectStore *store=&active_sheet(a)->objects;
+    SheetObject *object=filter_object(a); Page *fields=filter_fields(a);
+    if (object && object->kind==OBJECT_TABLE) {
+        if (a->field>=fields->column_count) { a->modal=MODAL_NONE; a->filter_object=-1; return true; }
+        Analysis copy=analysis_copy(&object->source); const char *column=fields->columns[a->field].name; char *error=NULL;
+        if (clear) analysis_filter_remove(&copy,column);
+        else {
+            if (!analysis_filter_set(&copy,column,op,value,&error)) { status(a,error); free(error); analysis_free(&copy); return true; }
+            analysis_filter_number(&copy,column,fields->columns[a->field].number_type);
+        }
+        set_table_source(a,(size_t)target,&copy); analysis_free(&copy); a->modal=MODAL_NONE; a->filter_object=-1; return true;
+    }
+    if ((size_t)target>=store->count || a->field>=fields->column_count || (a->filter_pill>=0 && (size_t)a->filter_pill>=store->items[target].pivot.counts[PIVOT_FILTERS])) { a->modal=MODAL_NONE; a->filter_object=-1; return true; }
+    /* New fields are editor drafts. Cancel/Clear cannot change the view, its
+       result ownership, history or document state before a predicate exists. */
+    if (a->filter_pill<0 && clear) { a->modal=MODAL_NONE; a->filter_object=-1; return true; }
+    PivotDefinition copy=pivot_copy(&store->items[target].pivot); char *error=NULL;
+    size_t index=a->filter_pill>=0 ? (size_t)a->filter_pill : copy.counts[PIVOT_FILTERS];
+    if (a->filter_pill<0 && !pivot_assign(&copy,PIVOT_FILTERS,fields->columns[a->field].name,AGG_SUM,&error)) { status(a,error); free(error); pivot_free(&copy); return true; }
+    if (clear) pivot_remove(&copy,PIVOT_FILTERS,index);
+    else { PivotField *f=&copy.fields[PIVOT_FILTERS][index]; f->number=fields->columns[a->field].number_type; free(f->value); f->filter=op; f->value=dx_strdup(value); }
+    uint64_t previous=store->items[target].revision;
+    if (objects_update(store,(size_t)target,&copy,&error)) { if (store->items[target].revision!=previous) { worksheet_record(active_sheet(a),EDIT_OBJECTS); invalidate_object(a,(size_t)target); a->book.dirty=true; } }
+    else { status(a,error); free(error); }
+    pivot_free(&copy); a->modal=MODAL_NONE; a->filter_object=-1; return true;
+}
+static bool apply_pivot_filter(App *a,bool values,bool clear) {
+    char *list=values ? analysis_values_json(a->value_choices,a->value_choice_count) : NULL;
+    FilterOp op=!values ? a->filter_op : a->date_level<0 ? (a->values_all ? FILTER_NOT_IN : FILTER_IN) : (a->values_all ? FILTER_DATE_NOT_IN : FILTER_DATE_IN);
+    bool handled=commit_object_filter(a,op,values ? list : a->input.text,clear || (values && a->values_all && !a->value_choice_count)); free(list); return handled;
+}
+static void apply_filter_definition(App *a,bool clear) {
+    if (clear) {
+        cancel_values(a);
+        if (!commit_object_filter(a,FILTER_NOT_IN,"[]",true)) set_source_filter(a,a->page.columns[a->field].name,FILTER_NOT_IN,"[]",true);
+        return;
+    }
+    bool has_list=!a->values_all || a->value_choice_count,has_condition=a->filter_condition_enabled;
+    if (has_condition && a->filter_op!=FILTER_NULL && a->filter_op!=FILTER_NOT_NULL) {
+        if (!a->filter_term.length || (a->filter_op==FILTER_BETWEEN && !a->filter_end.length)) { status(a,"Enter a condition value before applying the filter."); a->filter_focus=!a->filter_term.length ? 7 : 8; return; }
+    }
+    char *list=has_list ? analysis_values_json(a->value_choices,a->value_choice_count) : NULL;
+    char *condition=NULL;
+    if (has_condition) {
+        if (a->filter_op==FILTER_BETWEEN) { char *bounds[]={a->filter_term.text,a->filter_end.text}; condition=analysis_values_json(bounds,2); }
+        else condition=dx_strdup(a->filter_term.text);
+    }
+    FilterOp list_op=a->date_level<0 ? (a->values_all ? FILTER_NOT_IN : FILTER_IN) : (a->values_all ? FILTER_DATE_NOT_IN : FILTER_DATE_IN);
+    FilterOp op=has_list && has_condition ? FILTER_COMPOSITE : has_condition ? a->filter_op : list_op;
+    char *payload=has_list && has_condition ? analysis_filter_pack(list_op,list,a->filter_op,condition) : dx_strdup(has_condition ? condition : list ? list : "[]");
+    if (!payload) { status(a,"The filter definition is invalid."); free(list); free(condition); return; }
+    clear=clear || (!has_list && !has_condition);
+    if (!commit_object_filter(a,op,payload,clear)) { cancel_values(a); set_source_filter(a,a->page.columns[a->field].name,op,payload,clear); }
+    free(list); free(condition); free(payload);
+}
+static void apply_values(App *a,bool clear) {
+    if (apply_pivot_filter(a,true,clear)) return;
+    cancel_values(a); char *value=analysis_values_json(a->value_choices,a->value_choice_count);
+    FilterOp op=a->date_level<0 ? (a->values_all ? FILTER_NOT_IN : FILTER_IN) : (a->values_all ? FILTER_DATE_NOT_IN : FILTER_DATE_IN);
+    set_source_filter(a,a->page.columns[a->field].name,op,value,clear || (a->values_all && !a->value_choice_count)); free(value);
+}
+static int filter_conditions(App *a,FilterOp choices[8]) {
+    choices[0]=(FilterOp)-1; int count=1;
+    Page *fields=filter_fields(a);
+    if (fields->columns[a->field].number_type.kind==NUM_NONE) choices[count++]=FILTER_CONTAINS;
+    choices[count++]=FILTER_EQUAL; choices[count++]=FILTER_GREATER; choices[count++]=FILTER_LESS; choices[count++]=FILTER_BETWEEN;
+    /* Existing workbooks can retain their explicit NULL predicate. */
+    if (a->filter_condition_enabled && (a->filter_op==FILTER_NULL || a->filter_op==FILTER_NOT_NULL)) { choices[count++]=FILTER_NULL; choices[count++]=FILTER_NOT_NULL; }
+    return count;
+}
+static const char *filter_condition_label(App *a,FilterOp op) {
+    return (int)op<0 ? "Any value" : a->date_level>=0 && op==FILTER_GREATER ? "After" : a->date_level>=0 && op==FILTER_LESS ? "Before" : filter_label(op);
+}
+static void filter_checkbox(UIContext *u,Rectangle row,bool checked,bool mixed) {
+    float s=u->scale; Rectangle mark=box(row.x+10*s,row.y+(row.height-14*s)*.5f,14*s,14*s);
+    DrawRectangleRounded(mark,.16f,4,checked || mixed ? UI_ACCENT : (Color){151,168,181,255});
+    if (!checked && !mixed) DrawRectangleRounded(box(mark.x+s,mark.y+s,mark.width-2*s,mark.height-2*s),.16f,4,WHITE);
+    if (mixed) DrawRectangleRec(box(mark.x+3*s,mark.y+6*s,8*s,2*s),WHITE);
+    else if (checked) { DrawLineEx((Vector2){mark.x+3*s,mark.y+7*s},(Vector2){mark.x+6*s,mark.y+10*s},1.5f*s,WHITE); DrawLineEx((Vector2){mark.x+6*s,mark.y+10*s},(Vector2){mark.x+11*s,mark.y+4*s},1.5f*s,WHITE); }
+}
+static void filter_focus_ring(App *a,Rectangle item,int focus) {
+    if (a->filter_focus==focus && !a->filter_condition_menu) DrawRectangleLinesEx(item,a->ui.scale,UI_ACCENT);
+}
+static void close_filter(App *a) { cancel_values(a); a->modal=MODAL_NONE; a->filter_object=a->filter_pill=-1; a->filter_condition_menu=false; a->consume_grid_input=true; }
+static bool filter_input_press(Rectangle rect) {
+    DxPointerGesture gesture;
+    if (ui_take_left_gesture_from(rect,&gesture)) { ui_note_pointer_gesture(gesture); return true; }
+    return IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),rect);
+}
+static void draw_filter(App *a) {
+    if (a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return;
+    UIContext *u=&a->ui; float s=u->scale; SheetObject *object=filter_object(a); Page *fields=filter_fields(a);
+    bool pivot=object && object->kind!=OBJECT_TABLE;
+    if (a->field>=fields->column_count) { close_filter(a); return; }
+    size_t column=a->field+(object && !pivot ? object->col : 0);
+    Vector2 anchor=a->filter_anchor_valid ? a->filter_anchor : (Vector2){pivot ? a->pivot_shelves[PIVOT_FILTERS].x : grid_column_x(&a->grid,s*a->grid.zoom,column),pivot ? a->pivot_shelves[PIVOT_FILTERS].y+a->pivot_shelves[PIVOT_FILTERS].height : a->grid.body.y};
+    bool needs_value=a->filter_condition_enabled && a->filter_op!=FILTER_NULL && a->filter_op!=FILTER_NOT_NULL;
+    int terms=needs_value ? a->filter_op==FILTER_BETWEEN ? 2 : 1 : 0;
+    UIFilterLayout r=ui_filter_layout(anchor,(Vector2){GetScreenWidth(),GetScreenHeight()},s,terms,a->date_level>=0); a->filter_layout=r;
+    if (!r.valid) return;
+    r.clear.width=fmaxf(r.clear.width,ui_measure(u,"Clear filter",11)+.001f*s); a->filter_layout=r;
+    popup_capture(a,box(r.panel.x,0,r.panel.width,GetScreenHeight()));
+    Vector2 mouse=ui_mouse_position();
+    if (ui_pressed(KEY_ESCAPE)) { if (a->filter_condition_menu) { a->filter_condition_menu=false; a->filter_focus=6; } else close_filter(a); return; }
+    if (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,r.panel) && !a->filter_condition_menu) { close_filter(a); return; }
+    collect_found_values(a);
+    bool allow=!a->filter_condition_menu && !a->values_selecting,opened=false,menu_opened=false,enter=allow && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)),space=allow && ui_pressed(KEY_SPACE);
+    if (allow && ui_pressed(KEY_TAB) && !ui_key_control(KEY_TAB)) {
+        do { a->filter_focus=(a->filter_focus+12+(ui_key_shift(KEY_TAB) ? -1 : 1))%12; }
+        while ((pivot && (a->filter_focus==1 || a->filter_focus==2)) || (!terms && a->filter_focus==7) || (terms!=2 && a->filter_focus==8));
+        if (a->filter_focus==5 && a->values_focus<0) a->values_focus=0;
+    }
+    for (int i=8;i>0;i--) DrawRectangleRounded(box(r.panel.x-i*s,r.panel.y+(5-i)*s,r.panel.width+2*i*s,r.panel.height+2*i*s),.025f,4,(Color){39,61,79,3});
+    DrawRectangleRounded(r.panel,.012f,4,WHITE); DrawRectangleRoundedLinesEx(r.panel,.012f,4,s,(Color){189,203,215,255});
+    ui_label(u,fields->columns[a->field].name,box(r.title.x+10*s,r.title.y,r.title.width-43*s,r.title.height),12.5f,(Color){39,63,81,255},false,UI_MEDIUM);
+    DrawLineEx((Vector2){r.title.x,r.title.y+r.title.height},(Vector2){r.title.x+r.title.width,r.title.y+r.title.height},s,(Color){224,231,237,255});
+    Rectangle close=box(r.title.x+r.title.width-33*s,r.title.y+6.5f*s,23*s,23*s);
+    filter_focus_ring(a,close,0);
+    if (ui_icon_button(u,close,CARBON_CLOSE,false,!a->filter_condition_menu) || (enter && !a->filter_focus)) { close_filter(a); return; }
+    for (int direction=0;direction<2;direction++) {
+        Rectangle item=r.sort[direction]; filter_focus_ring(a,item,1+direction);
+        bool click=ui_popup_row_input(u,item,direction ? "Sort descending" : "Sort ascending",direction ? CARBON_SORT_DESCENDING : CARBON_SORT_ASCENDING,!pivot,allow);
+        const char *caption=fields->columns[a->field].number_type.kind!=NUM_NONE ? direction ? "Largest first" : "Smallest first" : direction ? "Z → A" : "A → Z";
+        ui_label(u,caption,box(item.x+item.width-78*s,item.y,71*s,item.height),10,UI_MUTED,true,UI_REGULAR);
+        if (click || (!pivot && enter && a->filter_focus==1+direction)) {
+            cancel_values(a); a->modal=MODAL_NONE;
+            if (object) { Analysis order={0}; analysis_sort_set(&order,fields->columns[a->field].name,direction!=0,false,NULL); a->sort_object=a->filter_object; apply_sort_order(a,&order); analysis_free(&order); }
+            else sort_field(a,a->field,direction!=0);
+            a->filter_object=-1; return;
+        }
+    }
+    DrawLineEx((Vector2){r.title.x,r.sort[1].y+r.sort[1].height+5*s},(Vector2){r.title.x+r.title.width,r.sort[1].y+r.sort[1].height+5*s},s,(Color){225,231,237,255});
+    if (allow && filter_input_press(r.search)) a->filter_focus=3;
+    if (allow && a->filter_focus==3) { a->values_focus=-2; input_update(&a->input); }
+    DrawRectangleRounded(r.search,.14f,4,WHITE); DrawRectangleRoundedLinesEx(r.search,.14f,4,s,a->filter_focus==3 && allow ? UI_ACCENT : (Color){202,215,225,255});
+    ui_carbon(u,CARBON_SEARCH,box(r.search.x+6*s,r.search.y+6*s,16*s,16*s),UI_MUTED);
+    Rectangle search=box(r.search.x+22*s,r.search.y+1*s,r.search.width-24*s,r.search.height-2*s);
+    input_draw_sized(u,&a->input,search,11.5f,false);
+    if (!a->input.length) ui_label(u,"Search available values…",box(search.x+8*s,search.y,search.width-16*s,search.height),11.5f,UI_MUTED,false,UI_REGULAR);
+    if (a->values_search_revision!=a->input.revision) { int focus=a->filter_focus; restart_values(a); a->filter_focus=focus; }
+    check_found_values(a); bool all=a->value_checks_all,mixed=a->value_checks_mixed;
+    bool all_click=ui_popup_row(u,r.all,"",CARBON_COUNT,allow); filter_checkbox(u,r.all,all,mixed);
+    ui_label(u,"Select all",box(r.all.x+32*s,r.all.y,r.all.width-97*s,r.all.height),11.5f,UI_TEXT,false,UI_MEDIUM);
+    char domain[48]; if (a->values_total>=0) snprintf(domain,sizeof(domain),"%" PRId64,a->values_total); else snprintf(domain,sizeof(domain),"…");
+    ui_label(u,domain,box(r.all.x+r.all.width-63*s,r.all.y,53*s,r.all.height),10,UI_MUTED,true,UI_REGULAR);
+    DrawLineEx((Vector2){r.all.x,r.all.y+r.all.height},(Vector2){r.all.x+r.all.width,r.all.y+r.all.height},s,(Color){228,233,237,255});
+    filter_focus_ring(a,r.all,4);
+    if (all_click || (space && a->filter_focus==4)) {
+        if (a->input.length || a->date_level>0) select_found_values(a);
+        else { a->values_all=!all; clear_value_choices(a); }
+        a->filter_focus=4; a->values_focus=-1;
+    }
+    if (a->date_level>=0) {
+        const char *levels[]={"Years","Months","Days","Hours","Minutes"}; char breadcrumb[128];
+        const char *start=a->date_level>0 ? a->date_starts[a->date_level-1] : NULL;
+        snprintf(breadcrumb,sizeof(breadcrumb),"%s%s%.16s",levels[a->date_level],start ? " · " : "",start ? start : "");
+        ui_label(u,breadcrumb,box(r.dates.x+10*s,r.dates.y,r.dates.width-98*s,r.dates.height),11,UI_MUTED,false,UI_REGULAR);
+        if (a->date_level>0 && ui_popup_button(u,box(r.dates.x+r.dates.width-79*s,r.dates.y+2*s,73*s,23*s),"‹ Parent",false,true,allow)) { a->date_level--; restart_values(a); a->filter_focus=5; a->values_focus=0; return; }
+    }
+    unsigned visible=(unsigned)fmaxf(1,floorf((r.list.height-8*s)/(25*s))); bool reveal=false;
+    int64_t last=a->values_total>0 ? a->values_total-1 : -1;
+    if (allow && (a->filter_focus==3 || a->filter_focus==4) && ui_key(KEY_DOWN)) { a->filter_focus=a->filter_focus==3 ? 4 : 5; a->values_focus=a->filter_focus==4 ? -1 : 0; }
+    else if (allow && a->filter_focus==5) {
+        int direction=ui_key(KEY_DOWN)-ui_key(KEY_UP)+(ui_key(KEY_PAGE_DOWN) ? (int)visible : 0)-(ui_key(KEY_PAGE_UP) ? (int)visible : 0);
+        if (direction) { a->values_focus=direction>0 ? a->values_focus>last-direction ? last : a->values_focus+direction : a->values_focus < -direction ? 0 : a->values_focus+direction; reveal=true; }
+        if (ui_pressed(KEY_HOME)) { a->values_focus=0; reveal=true; }
+        if (ui_pressed(KEY_END)) { a->values_focus=last; reveal=true; }
+        if (a->date_level>0 && ui_pressed(KEY_LEFT)) { a->date_level--; restart_values(a); a->filter_focus=5; a->values_focus=0; return; }
+    }
+    if (reveal && a->values_focus>=0) { uint64_t focus=(uint64_t)a->values_focus; if (focus<a->values_scroll) a->values_scroll=focus; if (focus>=a->values_scroll+visible) a->values_scroll=focus-visible+1; }
+    if (allow && CheckCollisionPointRec(mouse,r.list)) { int delta=ui_scroll_steps(&a->wheel_values,-GetMouseWheelMoveV().y*3); if (delta<0) a->values_scroll=a->values_scroll<(uint64_t)-delta ? 0 : a->values_scroll-(uint64_t)-delta; else a->values_scroll+=(uint64_t)delta; }
+    uint64_t total=a->values_total<0 ? 0 : (uint64_t)a->values_total,max=total>visible ? total-visible : 0;
+    if (a->values_total>=0 && a->values_scroll>max) a->values_scroll=max;
+    if (!a->values_selecting && dx_millis()-a->values_changed>=160) request_values(a,a->values_scroll/DX_DISTINCT_ROWS*DX_DISTINCT_ROWS);
+    for (unsigned row=0;row<visible && a->values_scroll+row<total;row++) {
+        uint64_t index=a->values_scroll+row; DistinctPage *page=cached_values(a,index/DX_DISTINCT_ROWS*DX_DISTINCT_ROWS);
+        Rectangle item=box(r.list.x,r.list.y+(3+row*25)*s,r.list.width-10*s,25*s);
+        if (!page || index-page->offset>=page->count) { if (!a->values_selecting) request_values(a,index/DX_DISTINCT_ROWS*DX_DISTINCT_ROWS); continue; }
+        DistinctValue *v=&page->values[index-page->offset]; bool partial=false,checked=value_checked(a,v->key,&partial);
+        bool click=ui_popup_row(u,item,"",CARBON_COUNT,allow); filter_checkbox(u,item,checked,partial);
+        ui_value(u,v->label,v->is_null,box(item.x+25*s,item.y,item.width-45*s,item.height),11.5f,UI_TEXT,false);
+        bool focused=allow && a->filter_focus==5 && a->values_focus>=0 && index==(uint64_t)a->values_focus;
+        if (focused) DrawRectangleLinesEx(item,s,UI_ACCENT);
+        bool children=a->date_level>=0 && a->date_level<a->date_max && !v->is_null;
+        if (children) ui_carbon(u,CARBON_CHEVRON_RIGHT,box(item.x+item.width-19*s,item.y+5*s,15*s,15*s),UI_MUTED);
+        if (click || (focused && (space || (children && ui_pressed(KEY_RIGHT))))) {
+            a->filter_focus=5; a->values_focus=(int64_t)index;
+            if (children && ((click && mouse.x>item.x+item.width-24*s) || (focused && ui_pressed(KEY_RIGHT)))) {
+                free(a->date_starts[a->date_level]); free(a->date_ends[a->date_level]);
+                a->date_starts[a->date_level]=dx_strdup(v->value); a->date_ends[a->date_level]=dx_strdup(v->upper); a->date_level++; restart_values(a); a->filter_focus=5; a->values_focus=0; return;
+            } else toggle_value(a,v->key ? dx_strdup(v->key) : NULL);
+        }
+    }
+    if (total>visible) {
+        Rectangle track=box(r.list.x+r.list.width-8*s,r.list.y+3*s,8*s,r.list.height-8*s); float thumb=fminf(track.height,fmaxf(26*s,track.height*visible/(float)total)),travel=track.height-thumb;
+        Rectangle handle=box(track.x,track.y+(max ? (float)((double)a->values_scroll/max)*travel : 0),track.width,thumb);
+        DrawRectangleRec(track,UI_BG); DrawRectangleRounded(handle,.4f,3,(Color){173,184,199,255});
+        DxPointerGesture gesture;
+        if (allow && ui_take_left_gesture_from(track,&gesture) && travel>0) { float grab=CheckCollisionPointRec((Vector2){gesture.x0,gesture.y0},handle) ? gesture.y0-handle.y : thumb/2; a->values_scroll=(uint64_t)(fminf(1,fmaxf(0,(gesture.y1-track.y-grab)/travel))*max); }
+        else if (allow && CheckCollisionPointRec(mouse,track) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { a->values_drag=true; a->values_grab=CheckCollisionPointRec(mouse,handle) ? mouse.y-handle.y : thumb/2; }
+        if (allow && a->values_drag && IsMouseButtonDown(MOUSE_BUTTON_LEFT) && travel>0) a->values_scroll=(uint64_t)(fminf(1,fmaxf(0,(mouse.y-track.y-a->values_grab)/travel))*max);
+        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) a->values_drag=false;
+    }
+    if (!total) ui_label(u,a->values_failed ? a->message : a->values_total<0 ? "Loading available values…" : "No matching values",box(r.list.x+10*s,r.list.y+12*s,r.list.width-20*s,35*s),11,UI_MUTED,false,UI_REGULAR);
+    float cy=r.condition.y-7*s;
+    DrawLineEx((Vector2){r.title.x,cy},(Vector2){r.title.x+r.title.width,cy},s,(Color){224,231,237,255});
+    ui_label(u,"Condition",box(r.title.x+10*s,cy+7*s,65*s,25*s),10.5f,UI_MUTED,false,UI_REGULAR);
+    bool condition_click=ui_popup_button(u,r.condition,"",false,false,allow);
+    ui_label(u,filter_condition_label(a,a->filter_condition_enabled ? a->filter_op : (FilterOp)-1),box(r.condition.x+7*s,r.condition.y,r.condition.width-29*s,r.condition.height),11,UI_TEXT,false,UI_REGULAR);
+    ui_carbon(u,CARBON_CHEVRON_DOWN,box(r.condition.x+r.condition.width-18*s,r.condition.y+7*s,11*s,11*s),UI_MUTED); filter_focus_ring(a,r.condition,6);
+    if (condition_click || (allow && a->filter_focus==6 && (enter || space || ui_pressed(KEY_DOWN)))) {
+        a->filter_condition_menu=true; a->filter_focus=6; menu_opened=true;
+        /* A captured pointer click can be followed by Down/Enter in the same
+           event poll. Consume only a key that itself opened the dropdown. */
+        opened=!condition_click; enter=space=false;
+        FilterOp choices[8]; int count=filter_conditions(a,choices); a->filter_condition_index=0;
+        for (int i=0;i<count;i++) if (a->filter_condition_enabled && choices[i]==a->filter_op) a->filter_condition_index=i;
+    }
+    for (int term=0;term<terms;term++) {
+        Rectangle rect=term ? r.end : r.term; TextInput *input=term ? &a->filter_end : &a->filter_term;
+        if (allow && filter_input_press(rect)) a->filter_focus=term ? 8 : 7;
+        if (allow && a->filter_focus==(term ? 8 : 7)) input_update(input);
+        input_draw_sized(u,input,rect,11,true);
+        if (!input->length) ui_label(u,term ? "To" : "Value",box(rect.x+8*s,rect.y,rect.width-16*s,rect.height),11,UI_MUTED,false,UI_REGULAR);
+    }
+    ui_label(u,pivot ? "Available values · other view filters apply" : "Available values · other source filters apply",r.scope,10,UI_MUTED,false,UI_REGULAR);
+    DrawLineEx((Vector2){r.footer.x,r.footer.y},(Vector2){r.footer.x+r.footer.width,r.footer.y},s,(Color){220,228,235,255});
+    filter_focus_ring(a,r.clear,9); filter_focus_ring(a,r.cancel,10); filter_focus_ring(a,r.apply,11);
+    if (ui_popup_button(u,r.clear,"Clear filter",false,true,allow) || (enter && a->filter_focus==9)) { apply_filter_definition(a,true); return; }
+    if (ui_popup_button(u,r.cancel,"Cancel",false,false,!a->filter_condition_menu) || (enter && a->filter_focus==10)) { close_filter(a); return; }
+    if (ui_popup_button(u,r.apply,"Apply",true,false,allow) || (enter && a->filter_focus>=3) || (space && a->filter_focus==11)) { apply_filter_definition(a,false); return; }
+    if (a->filter_condition_menu) {
+        FilterOp choices[8]; int count=filter_conditions(a,choices);
+        UIMenuLayout menu=ui_menu_layout((Vector2){r.condition.x,r.condition.y+r.condition.height+2*s},count,27,r.condition.width/s,s,(Vector2){GetScreenWidth(),GetScreenHeight()});
+        if (!opened && ui_key(KEY_DOWN)) a->filter_condition_index=(a->filter_condition_index+1)%count;
+        if (!opened && ui_key(KEY_UP)) a->filter_condition_index=(a->filter_condition_index+count-1)%count;
+        if (!opened && ui_pressed(KEY_HOME)) a->filter_condition_index=0;
+        if (!opened && ui_pressed(KEY_END)) a->filter_condition_index=count-1;
+        if (ui_pressed(KEY_TAB)) { a->filter_condition_menu=false; a->filter_focus=terms ? 7 : 9; return; }
+        DrawRectangleRounded(box(menu.panel.x-3*s,menu.panel.y+2*s,menu.panel.width+6*s,menu.panel.height+3*s),.04f,4,(Color){39,61,79,25});
+        DrawRectangleRec(menu.panel,WHITE); DrawRectangleLinesEx(menu.panel,s,(Color){189,203,215,255});
+        for (int i=0;i<count;i++) {
+            Rectangle item=box(menu.items.x,menu.items.y+i*27*s,menu.items.width,27*s);
+            if (i==a->filter_condition_index) DrawRectangleRec(item,(Color){231,240,246,255});
+            /* A clamped submenu can overlap its opening control. Its opening
+               pointer press belongs only to that control, never to a choice. */
+            bool click=ui_popup_row_input(u,item,"",CARBON_COUNT,true,!menu_opened);
+            ui_label(u,filter_condition_label(a,choices[i]),box(item.x+8*s,item.y,item.width-16*s,item.height),11,UI_TEXT,false,UI_REGULAR);
+            if (click || (!opened && i==a->filter_condition_index && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
+                a->filter_condition_enabled=(int)choices[i]>=0; if (a->filter_condition_enabled) a->filter_op=choices[i]; a->filter_condition_menu=false; a->filter_focus=6; break;
+            }
+        }
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,menu.panel) && !CheckCollisionPointRec(mouse,r.condition)) { if (CheckCollisionPointRec(mouse,r.panel)) a->filter_condition_menu=false; else close_filter(a); }
+    }
+}
+
+static void draw_summary(App *a,float x,float y,float w,float h) {
+    UIContext *u=&a->ui; float s=u->scale,fields=fminf(232*s,w*.34f),right=x+fields+42*s,rw=w-fields-66*s;
+    Rectangle list=box(x+18*s,y+70*s,fields,h-134*s);
+    ui_text(u,"Fields",list.x+8*s,y+48*s,12,UI_MUTED);
+    DrawRectangleRec(list,WHITE); DrawRectangleLinesEx(list,1,UI_BORDER);
+    unsigned visible=(unsigned)(list.height/(30*s)); Vector2 mouse=ui_mouse_position();
+    if (CheckCollisionPointRec(mouse,list)) a->summary_scroll+=ui_scroll_steps(&a->wheel_summary,-GetMouseWheelMoveV().y*3);
+    if (a->summary_scroll<0) a->summary_scroll=0;
+    int max=(int)a->page.column_count-(int)visible; if (max<0) max=0; if (a->summary_scroll>max) a->summary_scroll=max;
+    Rectangle shelves[]={box(right,y+70*s,rw,70*s),box(right,y+158*s,rw,70*s)};
+    const char *labels[]={"Rows","Values"};
+    for (int role=0;role<2;role++) {
+        DrawRectangleRec(shelves[role],a->summary_role==role ? UI_TINT : WHITE); DrawRectangleLinesEx(shelves[role],1,UI_BORDER);
+        ui_text(u,labels[role],shelves[role].x+10*s,shelves[role].y+7*s,11,UI_MUTED);
+        size_t c=role ? a->measure : a->field;
+        if (c<a->page.column_count) ui_text_clip(u,a->page.columns[c].name,box(shelves[role].x+5*s,shelves[role].y+29*s,rw-10*s,30*s),13,UI_ACCENT,false);
+        if (CheckCollisionPointRec(mouse,shelves[role]) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) a->summary_role=role;
+    }
+    for (unsigned row=0;row<visible && row+(unsigned)a->summary_scroll<a->page.column_count;row++) {
+        size_t col=row+(size_t)a->summary_scroll; Rectangle item=box(list.x+4*s,list.y+row*30*s,list.width-8*s,29*s);
+        bool hover=CheckCollisionPointRec(mouse,item);
+        if (hover) { DrawRectangleRec(item,UI_TINT); u->cursor=MOUSE_CURSOR_POINTING_HAND; }
+        ui_text_clip(u,a->page.columns[col].name,item,12,UI_TEXT,false);
+        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { a->summary_drag=(int)col; a->summary_origin=mouse; }
+    }
+    if (a->summary_drag>=0 && (size_t)a->summary_drag<a->page.column_count) {
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            Rectangle pill=box(mouse.x+10*s,mouse.y+10*s,fminf(rw,210*s),30*s); DrawRectangleRec(pill,UI_TINT); DrawRectangleLinesEx(pill,1,UI_ACCENT); ui_text_clip(u,a->page.columns[a->summary_drag].name,pill,12,UI_ACCENT,false);
+        }
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+            int role=-1;
+            for (int i=0;i<2;i++) if (CheckCollisionPointRec(mouse,shelves[i])) role=i;
+            float dx=mouse.x-a->summary_origin.x,dy=mouse.y-a->summary_origin.y;
+            if (dx*dx+dy*dy<36*s*s) role=a->summary_role;
+            if (role==0) a->field=(size_t)a->summary_drag; else if (role==1) a->measure=(size_t)a->summary_drag;
+            a->summary_drag=-1;
+        }
+    }
+    ui_text(u,"Aggregation",right,y+247*s,12,UI_MUTED);
+    for (int i=0;i<6;i++) if (ui_button(u,box(right+(i%2)*(rw/2+3*s),y+(271+(i/2)*36)*s,rw/2-3*s,30*s),aggregate_caption((Aggregate)i),a->aggregate==(Aggregate)i,true)) a->aggregate=(Aggregate)i;
+    ui_text_clip(u,"Drag a field onto a shelf, or select a shelf and click a field.",box(x+12*s,y+h-56*s,w-190*s,34*s),11,UI_MUTED,false);
+    if (ui_button(u,box(x+w-162*s,y+h-54*s,144*s,34*s),"Create summary",true,true)) apply_group(a);
+}
+
+static SheetObject *selected_pivot(App *a) {
+    if (a->step_preview.active) return NULL;
+    SheetObject *object=selected_object(a);
+    return object && object->kind!=OBJECT_TABLE ? object : NULL;
+}
+static bool set_pivot_definition(App *a,PivotDefinition *p) {
+    SheetObject *o=selected_pivot(a); uint64_t previous=o ? o->revision : 0;
+    char *error=NULL; bool ok=o && objects_update(&active_sheet(a)->objects,(size_t)a->selected_object,p,&error);
+    if (ok && o->revision!=previous) { worksheet_record(active_sheet(a),EDIT_OBJECTS); invalidate_object(a,(size_t)a->selected_object); } else if (error) status(a,error);
+    free(error); pivot_free(p); return ok;
+}
+static bool field_numeric(App *a,const char *name) {
+    for (size_t c=0;c<context_fields(a)->column_count;c++) if (!strcmp(context_fields(a)->columns[c].name,name)) return context_fields(a)->columns[c].numeric;
+    return false;
+}
+static bool temporal_column(const Column *column) {
+    duckdb_type type=column->type;
+    return type==DUCKDB_TYPE_DATE || type==DUCKDB_TYPE_TIMESTAMP || type==DUCKDB_TYPE_TIMESTAMP_S || type==DUCKDB_TYPE_TIMESTAMP_MS || type==DUCKDB_TYPE_TIMESTAMP_NS || type==DUCKDB_TYPE_TIMESTAMP_TZ;
+}
+static bool aggregate_allowed(App *a,const char *name,Aggregate aggregate) {
+    if (aggregate==AGG_COUNT || aggregate==AGG_DISTINCT) return true;
+    if (aggregate==AGG_SUM || aggregate==AGG_AVG || (selected_pivot(a) && selected_pivot(a)->kind==OBJECT_CHART)) return field_numeric(a,name);
+    return true;
+}
+static bool scatter_available(App *a,const SheetObject *o) {
+    if (!o || o->pivot.counts[PIVOT_ROWS]!=1 || o->pivot.counts[PIVOT_VALUES]!=1) return false;
+    Page *fields=object_fields(a,o); bool x=false,y=false;
+    for (size_t c=0;c<fields->column_count;c++) {
+        if (!strcmp(fields->columns[c].name,o->pivot.fields[PIVOT_ROWS][0].name)) x=fields->columns[c].numeric;
+        if (!strcmp(fields->columns[c].name,o->pivot.fields[PIVOT_VALUES][0].name)) y=fields->columns[c].numeric;
+    }
+    const PivotField *value=&o->pivot.fields[PIVOT_VALUES][0];
+    return x && (value->aggregate==AGG_COUNT || value->aggregate==AGG_DISTINCT || y);
+}
+static void set_chart_mark(App *a,ChartMark mark) {
+    SheetObject *o=selected_pivot(a); if (!o || o->kind!=OBJECT_CHART || o->mark==mark || (mark==MARK_SCATTER && !scatter_available(a,o))) return;
+    char *error=NULL;
+    if (objects_mark(&active_sheet(a)->objects,(size_t)a->selected_object,mark,&error)) { worksheet_record(active_sheet(a),EDIT_OBJECTS); a->book.dirty=true; status(a,"Chart marks updated."); }
+    else status(a,error);
+    free(error);
+}
+static bool set_chart_measure(App *a,size_t measure) {
+    SheetObject *o=selected_pivot(a); if (!o) return false;
+    unsigned char old=o->chart_measure; char *error=NULL;
+    bool ok=objects_chart_measure(&active_sheet(a)->objects,(size_t)a->selected_object,measure,&error);
+    if (ok && old!=measure) { worksheet_record(active_sheet(a),EDIT_OBJECTS); a->book.dirty=true; status(a,"Chart measure updated."); }
+    else if (!ok) status(a,error);
+    free(error); return ok;
+}
+static void remove_pivot(App *a) {
+    if (a->selected_object<0) return;
+    if (objects_remove(&active_sheet(a)->objects,(size_t)a->selected_object)) { worksheet_record(active_sheet(a),EDIT_OBJECTS); reconcile_object_views(a); a->selected_object=-1; a->book.dirty=true; a->pivot_focus=0; status(a,"Object removed. Undo restores its definition and placement."); }
+    else status(a,"This table supplies a pivot or chart. Remove those objects before deleting their source table.");
+    a->modal=MODAL_NONE;
+}
+static void assign_pivot_field_at(App *a,PivotRole role,size_t destination,bool position_field) {
+    SheetObject *o=selected_pivot(a); if (!o) return; PivotDefinition copy=pivot_copy(&o->pivot); char *error=NULL; bool ok=false;
+    if (a->pivot_drag_role>=0) {
+        PivotRole from=(PivotRole)a->pivot_drag_role; size_t index=(size_t)a->pivot_drag_index;
+        if (role==PIVOT_VALUES && from!=PIVOT_VALUES && (unsigned)from<=PIVOT_FILTERS && index<copy.counts[from]) copy.fields[from][index].aggregate=AGG_DISTINCT;
+        ok=pivot_move(&copy,from,index,role,destination,&error);
+    }
+    else if (a->pivot_drag_field>=0 && (size_t)a->pivot_drag_field<context_fields(a)->column_count) {
+        Column *field=&context_fields(a)->columns[a->pivot_drag_field]; PivotDateGrain grain=role<PIVOT_VALUES && temporal_column(field) ? PIVOT_DATE_MONTH : PIVOT_DATE_EXACT;
+        ok=pivot_assign_grain(&copy,role,field->name,field->numeric ? AGG_SUM : AGG_DISTINCT,grain,&error);
+        if (ok && position_field && copy.counts[role]) {
+            size_t index=0,target=destination<copy.counts[role] ? destination : copy.counts[role]-1;
+            for (;index<copy.counts[role];index++) if (!strcmp(copy.fields[role][index].name,field->name) &&
+                copy.fields[role][index].grain==grain && (role!=PIVOT_VALUES || copy.fields[role][index].aggregate==(field->numeric ? AGG_SUM : AGG_DISTINCT))) break;
+            if (index<copy.counts[role] && index!=target) {
+                PivotField moving=copy.fields[role][index];
+                if (index<target) memmove(&copy.fields[role][index],&copy.fields[role][index+1],(target-index)*sizeof(moving));
+                else memmove(&copy.fields[role][target+1],&copy.fields[role][target],(index-target)*sizeof(moving));
+                copy.fields[role][target]=moving;
+            }
+        }
+    }
+    if (ok) { set_pivot_definition(a,&copy); a->pivot_role=role; a->pivot_focus=role+2; }
+    else { status(a,error ? error : "Choose an available field."); free(error); pivot_free(&copy); }
+    a->pivot_drag_field=a->pivot_drag_role=-1;
+}
+static void assign_pivot_field(App *a,PivotRole role,size_t destination) { assign_pivot_field_at(a,role,destination,false); }
+static void assign_pivot_ui_field(App *a,PivotRole role,size_t destination) {
+    if (role!=PIVOT_FILTERS) { assign_pivot_field(a,role,destination); return; }
+    SheetObject *object=selected_pivot(a); Page *fields=context_fields(a); const char *name=NULL;
+    if (a->pivot_drag_field>=0 && (size_t)a->pivot_drag_field<fields->column_count) name=fields->columns[a->pivot_drag_field].name;
+    else if (object && a->pivot_drag_role>=0 && a->pivot_drag_role<4 && a->pivot_drag_index>=0 && (size_t)a->pivot_drag_index<object->pivot.counts[a->pivot_drag_role]) name=object->pivot.fields[a->pivot_drag_role][a->pivot_drag_index].name;
+    size_t column=0; if (name) for (;column<fields->column_count && strcmp(name,fields->columns[column].name);column++) { }
+    a->pivot_drag_field=a->pivot_drag_role=-1;
+    if (name && column<fields->column_count) open_view_filter_field(a,column);
+}
+static void context_key(App *a,int count,int visible,int key,bool shift) {
+    if (key==KEY_UP) a->context_focus=(a->context_focus+count-1)%count;
+    else if (key==KEY_DOWN) a->context_focus=(a->context_focus+1)%count;
+    else if (key==KEY_TAB) a->context_focus=(a->context_focus+(shift ? count-1 : 1))%count;
+    else if (key==KEY_HOME) a->context_focus=0;
+    else if (key==KEY_END) a->context_focus=count-1;
+    else return;
+    if (a->context_focus<a->context_scroll) a->context_scroll=a->context_focus;
+    if (a->context_focus>=a->context_scroll+visible) a->context_scroll=a->context_focus-visible+1;
+}
+static void context_keys(App *a,int count,int visible) {
+    const int keys[]={KEY_UP,KEY_DOWN,KEY_TAB,KEY_HOME,KEY_END};
+    for (size_t i=0;i<sizeof(keys)/sizeof(*keys);i++) if ((i<2 && ui_key(keys[i])) || (i>=2 && ui_pressed(keys[i]))) context_key(a,count,visible,keys[i],ui_key_shift(keys[i]));
+}
+static void pivot_label(App *a,char label[512],const PivotField *f,int role);
+static const char *pivot_scope(App *a);
+static void draw_pivot_field_popup(App *a) {
+    SheetObject *o=selected_pivot(a); if (!o) { a->modal=MODAL_NONE; return; }
+    int role=a->pivot_drag_role,index=a->pivot_drag_index;
+    bool token=role>=0 && role<4 && index>=0 && (size_t)index<o->pivot.counts[role];
+    bool axis=token && role<2,measures=token && role==PIVOT_VALUES,date=false;
+    const PivotField *field=token ? &o->pivot.fields[role][index] : NULL;
+    if (axis) {
+        Page *fields=context_fields(a);
+        for (size_t c=0;c<fields->column_count;c++) if (!strcmp(fields->columns[c].name,field->name)) date=temporal_column(&fields->columns[c]);
+    }
+    UIContext *u=&a->ui;
+    const char *roles[]={"Rows","Columns","Measures","View filters"};
+    int count=axis && date ? 7 : 4;
+    UIChoiceLayout layout=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},u->scale,count,token ? 3 : -1);
+    if (!layout.valid) return;
+    popup_capture(a,layout.panel);
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),layout.panel))) {
+        a->modal=MODAL_NONE; a->pivot_drag_field=a->pivot_drag_role=-1; a->consume_grid_input=true; return;
+    }
+    char title[512]; if (field) pivot_label(a,title,field,role);
+    else if (a->pivot_drag_field>=0 && (size_t)a->pivot_drag_field<context_fields(a)->column_count) snprintf(title,sizeof(title),"%s",context_fields(a)->columns[a->pivot_drag_field].name);
+    else { a->modal=MODAL_NONE; return; }
+    const Aggregate aggregates[]={AGG_SUM,AGG_COUNT,AGG_AVG};
+    const char *measure=field ? field->name : "";
+    if (measures && !aggregate_allowed(a,measure,AGG_SUM)) {
+        Page *fields=context_fields(a);
+        for (size_t c=0;c<fields->column_count;c++) if (fields->columns[c].numeric) { measure=fields->columns[c].name; break; }
+    }
+    bool allowed[UI_CHOICE_MAX]={0},checked[UI_CHOICE_MAX]={0};
+    char labels[UI_CHOICE_MAX][512]; UICarbonIcon icons[UI_CHOICE_MAX];
+    for (int item=0;item<count;item++) {
+        allowed[item]=true; icons[item]=CARBON_COUNT;
+        if (axis) {
+            if (!item) { snprintf(labels[item],512,"Move earlier"); allowed[item]=index>0; icons[item]=CARBON_CHEVRON_LEFT; }
+            else if (item==1) { snprintf(labels[item],512,"Move later"); allowed[item]=(size_t)index+1<o->pivot.counts[role]; icons[item]=CARBON_CHEVRON_RIGHT; }
+            else if (item==2) { snprintf(labels[item],512,"Move to %s",roles[1-role]); icons[item]=CARBON_ARROWS_HORIZONTAL; }
+            else if (date && item<count-1) {
+                static const char *grains[]={"YEAR","QUARTER","MONTH"};
+                snprintf(labels[item],512,"%s(%s)",grains[item-3],field->name); checked[item]=field->grain==(PivotDateGrain)(item-2);
+            } else { snprintf(labels[item],512,"Remove field"); icons[item]=CARBON_TRASH_CAN; }
+        } else if (measures && item<3) {
+            Aggregate agg=aggregates[item]; PivotField candidate={.name=(char *)measure,.aggregate=agg};
+            pivot_label(a,labels[item],&candidate,PIVOT_VALUES); checked[item]=field->aggregate==agg;
+            allowed[item]=aggregate_allowed(a,measure,agg);
+            for (size_t j=0;j<o->pivot.counts[PIVOT_VALUES];j++) if (j!=(size_t)index) {
+                const PivotField *other=&o->pivot.fields[PIVOT_VALUES][j];
+                if (other->aggregate==agg && (agg==AGG_COUNT || !strcmp(other->name,measure))) allowed[item]=false;
+            }
+        } else if (measures) { snprintf(labels[item],512,"Remove measure"); icons[item]=CARBON_TRASH_CAN; allowed[item]=o->pivot.counts[PIVOT_VALUES]>1; }
+        else { snprintf(labels[item],512,"Add to %s",roles[item]); const UICarbonIcon role_icons[]={CARBON_ROW,CARBON_COLUMN,CARBON_FUNCTION,CARBON_FILTER}; icons[item]=role_icons[item]; }
+    }
+    context_keys(a,count,count);
+    int direction=ui_key(KEY_UP) || (ui_pressed(KEY_TAB)&&ui_key_shift(KEY_TAB)) || ui_pressed(KEY_END) ? -1 : 1;
+    for (int i=0;i<count && !allowed[a->context_focus];i++) a->context_focus=(a->context_focus+count+direction)%count;
+    ui_choice_frame(u,&layout,title);
+    for (int item=0;item<count;item++) {
+        bool chosen=ui_choice_row(u,layout.rows[item],labels[item],NULL,icons[item],checked[item],a->context_focus==item,allowed[item]);
+        bool activate=!a->consume_grid_input && a->context_focus==item && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE));
+        if (!allowed[item] || (!chosen&&!activate)) continue;
+        a->modal=MODAL_NONE; a->consume_grid_input=true;
+        if (!token) { assign_pivot_ui_field(a,(PivotRole)item,DX_PIVOT_FIELDS); return; }
+        PivotDefinition copy=pivot_copy(&o->pivot); char *error=NULL; bool ok=true;
+        if (axis) {
+            if (item<2) ok=pivot_move(&copy,(PivotRole)role,(size_t)index,(PivotRole)role,(size_t)(index+(item ? 1 : -1)),&error);
+            else if (item==2) ok=pivot_move(&copy,(PivotRole)role,(size_t)index,(PivotRole)(1-role),DX_PIVOT_FIELDS,&error);
+            else if (date && item<count-1) ok=pivot_set_grain(&copy,(PivotRole)role,(size_t)index,(PivotDateGrain)(item-2),&error);
+            else pivot_remove(&copy,(PivotRole)role,(size_t)index);
+        } else if (measures && item<3) {
+            PivotField *changed=&copy.fields[role][index];
+            if (strcmp(changed->name,measure)) { free(changed->name); changed->name=dx_strdup(measure); }
+            changed->aggregate=aggregates[item];
+        } else pivot_remove(&copy,(PivotRole)role,(size_t)index);
+        if (ok) set_pivot_definition(a,&copy); else { status(a,error); pivot_free(&copy); }
+        free(error); a->pivot_drag_field=a->pivot_drag_role=-1; a->pivot_focus=role+2; return;
+    }
+}
+static void draw_pivot_menu(App *a) {
+    if (a->modal==MODAL_PIVOT_FIELD) { draw_pivot_field_popup(a); return; }
+    SheetObject *target=selected_object(a); bool table=target && target->kind==OBJECT_TABLE,database=table && target->source.kind==SOURCE_DATABASE;
+    UIContext *u=&a->ui; int base_count=database ? 10 : table ? 9 : 6;
+    UIChoiceListLayout layout=ui_choice_list_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},u->scale,base_count+1);
+    if (!layout.frame.valid) return;
+    float s=u->scale; Rectangle panel=layout.frame.panel;
+    popup_capture(a,panel); Vector2 mouse=ui_mouse_position();
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,panel))) { a->modal=MODAL_NONE; a->pivot_drag_field=a->pivot_drag_role=-1; a->consume_grid_input=true; return; }
+    ui_choice_frame(u,&layout.frame,target ? target->name : "Object actions");
+    {
+        SheetObject *selected=selected_object(a); int count=base_count+1;
+        const char *labels[]={"Refresh object","Select object range","Inspect SQL",table ? "Create pivot table" : selected && selected->kind==OBJECT_CHART ? "Chart size…" : "Create chart","Rename…","Delete object","Create chart","Relink table source…","Choose table or view…","Edit source query…","Move object…"};
+        if (table) labels[base_count-1]="Edit source query…";
+        labels[base_count]="Move object…";
+        context_keys(a,count,layout.visible);
+        if (CheckCollisionPointRec(mouse,panel)) a->context_scroll+=ui_scroll_steps(&a->context_wheel,-GetMouseWheelMoveV().y*3);
+        int max=count-layout.visible; if (a->context_scroll<0) a->context_scroll=0; if (a->context_scroll>max) a->context_scroll=max;
+        Rectangle list=layout.items;
+        list_scrollbar(a,list,count,layout.visible,&a->context_scroll,&a->context_drag,&a->context_grab,true);
+        for (int j=0;j<layout.visible;j++) {
+            int i=j+a->context_scroll;
+            Rectangle item=layout.frame.rows[j]; if (max) item.width-=9*s;
+            const UICarbonIcon icons[]={CARBON_RENEW,CARBON_GRID,CARBON_SQL,CARBON_DATA_VIEW,CARBON_STRING_TEXT,CARBON_TRASH_CAN,CARBON_CHART_BAR,CARBON_FOLDER_OPEN,CARBON_LIST,CARBON_SQL,CARBON_DRAGGABLE};
+            UICarbonIcon icon=i==base_count ? CARBON_DRAGGABLE : table && i==base_count-1 ? CARBON_SQL : icons[i];
+            if (i==3) icon=table ? CARBON_TABLE : selected && selected->kind==OBJECT_CHART ? CARBON_MAXIMIZE : CARBON_CHART_BAR;
+            if (ui_choice_row(u,item,labels[i],NULL,icon,false,a->context_focus==i,true) || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
+            SheetObject *o=selected_object(a); a->modal=MODAL_NONE; if (!o) return;
+            if (i==base_count) begin_move_range(a,true);
+            else if (table && i==base_count-1) begin_source_query(a);
+            else if (i==0) {
+                clear_values_cache(a); a->refresh_plans=true; uint64_t id=o->id;
+                for (size_t j=0;j<active_sheet(a)->objects.count;j++) if ((int)j==a->selected_object || active_sheet(a)->objects.items[j].source_id==id) invalidate_object(a,j);
+            }
+            else if (i==1) { a->grid.selection=SELECT_CELLS; a->grid.anchor_row=o->row; a->grid.end_row=o->row+o->rows-1; a->grid.anchor_col=o->col; a->grid.end_col=o->col+o->columns-1; }
+            else if (i==2) open_modal(a,MODAL_SQL); else if (i==3) { if (table) create_pivot(a); else if (o->kind==OBJECT_CHART) begin_chart_size(a); else create_chart(a); }
+            else if (i==4) begin_object_name(a); else if (i==5) remove_pivot(a); else if (i==6) create_chart(a);
+            else if (i==8) begin_table_relation(a);
+            else {
+                size_t index=(size_t)a->selected_object; char *path=dx_open_table_panel(true);
+                if (path) {
+                    Analysis source=analysis_copy(&active_sheet(a)->objects.items[index].source);
+                    if (workbook_is_path(path) || source_kind(path)!=source.kind) status(a,"Choose a data source of the same file type.");
+                    else { free(source.path); source.path=dx_absolute_path(path); if (source.path) set_table_source(a,index,&source); else status(a,"The source file is inaccessible."); }
+                    analysis_free(&source); free(path);
+                }
+            }
+            a->consume_grid_input=true; return;
+            }
+        }
+    }
+}
+static bool contains_field(const char *name,const char *search) {
+    if (!search || !*search) return true;
+    for (const char *p=name;*p;p++) {
+        const unsigned char *a=(const unsigned char *)p,*b=(const unsigned char *)search;
+        while (*a && *b && tolower(*a)==tolower(*b)) { a++; b++; } if (!*b) return true;
+    }
+    return false;
+}
+static void match_fields(App *a) {
+    const SheetObject *table=objects_source(&active_sheet(a)->objects,selected_object(a));
+    uint64_t id=table ? table->id : 0,revision=table ? table->revision : a->analysis_revision;
+    if (a->field_matches_valid && a->field_source_id==id && a->field_source_revision==revision && a->field_match_generation==a->field_schema_generation && a->field_schema_count==context_fields(a)->column_count && a->field_search_revision==a->pivot_search.revision) return;
+    a->field_source_id=id; a->field_source_revision=revision;
+    bool search_changed=a->field_search_revision!=a->pivot_search.revision;
+    size_t columns=context_fields(a)->column_count<16384 ? context_fields(a)->column_count : 16384;
+    if (a->field_match_capacity<columns) { a->field_matches=dx_realloc(a->field_matches,columns*sizeof(*a->field_matches)); a->field_match_capacity=columns; }
+    a->field_match_count=0;
+    for (size_t i=0;i<columns;i++) if (contains_field(context_fields(a)->columns[i].name,a->pivot_search.text)) a->field_matches[a->field_match_count++]=i;
+    a->field_match_generation=a->field_schema_generation; a->field_schema_count=context_fields(a)->column_count; a->field_search_revision=a->pivot_search.revision; a->field_matches_valid=true;
+    bool found=false; for (size_t i=0;i<a->field_match_count;i++) if ((int)a->field_matches[i]==a->pivot_field) { found=true; break; }
+    if (!found) a->pivot_field=a->field_match_count ? (int)a->field_matches[0] : -1;
+    if (search_changed || !found) a->pivot_field_scroll=0;
+}
+static void pivot_menu_open(App *a,Vector2 point) {
+    a->modal=MODAL_PIVOT_FIELD; a->context_origin=point; a->context_focus=a->context_scroll=0;
+    a->context_drag=false; a->consume_grid_input=true;
+}
+static void begin_assign_field(App *a,PivotRole role,Rectangle anchor) {
+    a->pivot_role=role; a->pivot_search_focus=context_fields(a)->column_count>32; a->pivot_focus=role+2;
+    input_set(&a->pivot_search,""); match_fields(a); a->pivot_field=a->field_match_count ? (int)a->field_matches[0] : -1; a->pivot_field_scroll=0;
+    a->modal=MODAL_ASSIGN_FIELD; a->context_origin=(Vector2){anchor.x,anchor.y+anchor.height};
+    a->consume_grid_input=true;
+}
+static bool set_marks(App *a,const MarkDefinition *marks) {
+    SheetObject *o=selected_pivot(a); if (!o) return false; ObjectStore *store=&active_sheet(a)->objects;
+    uint64_t revision=store->marks_revision; char *error=NULL;
+    bool ok=objects_marks(store,(size_t)a->selected_object,marks,&error);
+    if (ok && revision!=store->marks_revision) { worksheet_record(active_sheet(a),EDIT_OBJECTS); a->book.dirty=true; status(a,"Marks assignments updated."); }
+    if (!ok) status(a,error); free(error); return ok;
+}
+static bool assign_mark_field(App *a,MarkRole role,const MarkField *field) {
+    SheetObject *o=selected_pivot(a); if (!o) return false;
+    MarkDefinition copy=marks_copy(&o->marks); char *error=NULL;
+    bool ok=marks_assign(&copy,role,field,&error);
+    if (ok) ok=set_marks(a,&copy); else status(a,error);
+    marks_free(&copy); free(error); return ok;
+}
+static MarkField source_mark_field(App *a,MarkRole role,size_t column) {
+    Page *fields=context_fields(a); SheetObject *o=selected_pivot(a);
+    MarkField f={.name=fields->columns[column].name};
+    f.measure=role!=MARKS_DETAIL && role!=MARKS_SHAPE && fields->columns[column].number_type.kind!=NUM_NONE;
+    if (f.measure && o) for (size_t i=0;i<o->pivot.counts[PIVOT_VALUES];i++) if (!strcmp(f.name,o->pivot.fields[PIVOT_VALUES][i].name)) { f.aggregate=o->pivot.fields[PIVOT_VALUES][i].aggregate; break; }
+    return f;
+}
+static void begin_marks(App *a,MarkRole role,Rectangle anchor,bool keyboard) {
+    a->mark_role=role; a->pivot_focus=8; a->pivot_search_focus=false;
+    a->modal=MODAL_MARKS; a->context_origin=(Vector2){anchor.x,anchor.y+anchor.height}; a->context_focus=a->context_scroll=0; a->consume_grid_input=true;
+    a->mark_menu_opening=true; a->mark_open_key=keyboard ? ui_pressed(KEY_SPACE) ? KEY_SPACE : KEY_ENTER : 0;
+    a->mark_menu_anchor_pending=anchor.width<=0; a->author_reveal=true;
+}
+static void finish_pivot_drag(App *a,Vector2 mouse) {
+    float s=a->ui.scale;
+    float dx=mouse.x-a->pivot_drag_origin.x,dy=mouse.y-a->pivot_drag_origin.y;
+    bool click=dx*dx+dy*dy<25*s*s; int role=-1;
+    if (!click) for (int r=0;r<DX_MARK_ROLES;r++) if (a->author_marks[r].width>0 && CheckCollisionPointRec(mouse,a->author_marks[r])) {
+        SheetObject *o=selected_pivot(a); MarkField field={0};
+        if (a->pivot_drag_field>=0 && (size_t)a->pivot_drag_field<context_fields(a)->column_count) field=source_mark_field(a,(MarkRole)r,(size_t)a->pivot_drag_field);
+        else if (o && a->pivot_drag_role>=0 && a->pivot_drag_index>=0 && (size_t)a->pivot_drag_index<o->pivot.counts[a->pivot_drag_role]) {
+            const PivotField *f=&o->pivot.fields[a->pivot_drag_role][a->pivot_drag_index]; field=(MarkField){.name=f->name,.measure=a->pivot_drag_role==PIVOT_VALUES,.aggregate=f->aggregate,.grain=f->grain};
+        }
+        if (field.name) assign_mark_field(a,(MarkRole)r,&field);
+        a->pivot_drag_field=a->pivot_drag_role=-1; a->pivot_focus=8; a->mark_role=r; a->consume_grid_input=true; return;
+    }
+    for (int r=0;r<4;r++) if (a->pivot_shelves[r].width>0 && CheckCollisionPointRec(mouse,a->pivot_shelves[r])) {
+        if (r<2 && a->workspace.left_overlay && CheckCollisionPointRec(mouse,a->workspace.left)) continue;
+        role=r;
+    }
+    if (click && a->pivot_drag_right) pivot_menu_open(a,mouse);
+    else if (click && a->pivot_drag_role==PIVOT_FILTERS) {
+        size_t index=(size_t)a->pivot_drag_index; a->pivot_drag_role=a->pivot_drag_field=-1; open_pivot_filter(a,index);
+    } else if (click && a->pivot_drag_role>=0) pivot_menu_open(a,mouse);
+    else if (click && a->pivot_drag_field>=0) {
+        a->pivot_field=a->pivot_drag_field; a->pivot_focus=1; a->pivot_drag_field=-1;
+    } else if (role>=0) {
+        SheetObject *o=selected_pivot(a); size_t at=0;
+        if (o && role<2) at=ui_shelf_insertion(a->pivot_tokens[role],o->pivot.counts[role],mouse);
+        else if (o) for (;at<o->pivot.counts[role];at++) {
+            Rectangle token=a->pivot_tokens[role][at];
+            if (role<2 ? mouse.x<token.x+token.width*.5f : mouse.y<token.y+token.height*.5f) break;
+        }
+        if (a->pivot_drag_role==role && a->pivot_drag_index>=0 && at>(size_t)a->pivot_drag_index) at--;
+        if (role==PIVOT_FILTERS && a->pivot_drag_role!=PIVOT_FILTERS) assign_pivot_ui_field(a,(PivotRole)role,at);
+        else assign_pivot_field_at(a,(PivotRole)role,at,true);
+        if (role<2 && a->workspace.narrow) a->left_drawer=false;
+    } else a->pivot_drag_field=a->pivot_drag_role=-1;
+}
+static const char *pivot_scope(App *a) {
+    const SheetObject *owner=objects_source(&active_sheet(a)->objects,selected_pivot(a));
+    return owner ? owner->name : active_sheet(a)->name;
+}
+static void pivot_label(App *a,char label[512],const PivotField *f,int role) {
+    if (role==PIVOT_VALUES) snprintf(label,512,"%s(%s)",f->aggregate==AGG_DISTINCT ? "COUNT DISTINCT" : aggregate_label(f->aggregate),f->aggregate==AGG_COUNT ? pivot_scope(a) : f->name);
+    else if (role==PIVOT_FILTERS) snprintf(label,512,"%s%s",f->name,f->filter==FILTER_NOT_IN && f->value && !strcmp(f->value,"[]") ? " · All" : " · Filtered");
+    else if (f->grain) { static const char *grains[]={"","YEAR","QUARTER","MONTH"}; snprintf(label,512,"%s(%s)",grains[f->grain],f->name); }
+    else snprintf(label,512,"%s",f->name);
+}
+static void measure_pivot_tokens(App *a,const SheetObject *o) {
+    if (a->pivot_metrics_id==o->id && a->pivot_metrics_revision==o->revision && a->pivot_metrics_scale==a->ui.scale && a->pivot_metrics_raster==a->ui.raster_size && !strcmp(a->pivot_metrics_scope,pivot_scope(a))) return;
+    for (int role=0;role<4;role++) for (size_t i=0;i<o->pivot.counts[role];i++) {
+        char label[512]; pivot_label(a,label,&o->pivot.fields[role][i],role);
+        a->pivot_token_widths[role][i]=role==PIVOT_FILTERS ? ui_measure(&a->ui,label,10.5f)+40*a->ui.scale : fminf(210*a->ui.scale,ui_measure(&a->ui,label,role==PIVOT_VALUES ? 11.5f : 11)+52*a->ui.scale);
+    }
+    a->pivot_metrics_id=o->id; a->pivot_metrics_revision=o->revision; a->pivot_metrics_scale=a->ui.scale; a->pivot_metrics_raster=a->ui.raster_size; snprintf(a->pivot_metrics_scope,sizeof(a->pivot_metrics_scope),"%s",pivot_scope(a));
+}
+static void mark_field_label(App *a,const MarkField *field,char label[512]) {
+    PivotField value={.name=field->name,.aggregate=field->aggregate,.grain=field->grain}; pivot_label(a,label,&value,field->measure ? PIVOT_VALUES : PIVOT_ROWS);
+}
+static void measure_mark_labels(App *a,const SheetObject *o) {
+    ObjectStore *store=&active_sheet(a)->objects;
+    if (a->mark_labels_id==o->id && a->mark_labels_revision==o->revision && a->mark_labels_title==store->title_revision && a->mark_labels_marks==store->marks_revision && a->mark_labels_generation==a->analysis_revision && a->mark_labels_sheet==a->book.active) return;
+    for (int role=0;role<DX_MARK_ROLES;role++) {
+        a->mark_labels[role][0]=0; size_t used=0;
+        for (size_t i=0;i<o->marks.counts[role];i++) {
+            char label[512]; mark_field_label(a,&o->marks.fields[role][i],label);
+            int count=snprintf(a->mark_labels[role]+used,sizeof(a->mark_labels[role])-used,"%s%s",i ? ", " : "",label);
+            if (count<0 || (size_t)count>=sizeof(a->mark_labels[role])-used) break; used+=(size_t)count;
+        }
+    }
+    a->mark_labels_id=o->id; a->mark_labels_revision=o->revision; a->mark_labels_title=store->title_revision; a->mark_labels_marks=store->marks_revision; a->mark_labels_generation=a->analysis_revision; a->mark_labels_sheet=a->book.active;
+}
+static void draw_pivot_tokens(App *a,int role,Rectangle shelf,Rectangle contents,bool enabled) {
+    SheetObject *o=selected_pivot(a); if (!o) return;
+    measure_pivot_tokens(a,o);
+    UIContext *u=&a->ui; float s=u->scale; Vector2 mouse=ui_mouse_position(); bool vertical=role>=2,wrapped=role==PIVOT_FILTERS && a->author_marks_layout.valid;
+    Rectangle clip=vertical ? GetCollisionRec(contents,a->author_body) : contents;
+    if (u->clipping) clip=GetCollisionRec(clip,u->clip);
+    a->pivot_shelves[role]=u->clipping ? GetCollisionRec(shelf,u->clip) : shelf; a->pivot_contents[role]=contents;
+    bool dragging=a->pivot_drag_field>=0 || a->pivot_drag_role>=0;
+    bool hover=enabled && CheckCollisionPointRec(mouse,u->clipping ? GetCollisionRec(shelf,u->clip) : shelf);
+    if (hover && dragging) { DrawRectangleRec(shelf,(Color){226,240,245,255}); ui_border(shelf,shelf,1.5f*s,UI_ACCENT); }
+    float total=0;
+    for (size_t i=0;i<o->pivot.counts[role];i++) {
+        if (!vertical) { a->pivot_tokens[role][i]=a->axis_shelves[role].tokens[i]; continue; }
+        if (wrapped) { a->pivot_tokens[role][i]=a->author_marks_layout.filters[i]; continue; }
+        float width=vertical ? contents.width : a->pivot_token_widths[role][i];
+        a->pivot_tokens[role][i]=box(contents.x+(vertical ? 0 : total),contents.y+(vertical ? total : 0),width,23*s);
+        total+=vertical ? 26*s : width+5*s;
+    }
+    if (vertical && o->pivot.counts[role] && !wrapped) total-=3*s;
+    float extent=vertical ? contents.height : contents.width;
+    a->pivot_scroll[role]=0;
+    a->pivot_scroll[role]=fmaxf(0,fminf(fmaxf(0,total-extent),a->pivot_scroll[role]));
+    ui_set_clip(u,clip);
+    if (vertical && !o->pivot.counts[role]) {
+        Rectangle empty=box(contents.x,contents.y,contents.width,23*s);
+        ui_dashed_border(empty,clip,s,3*s,3*s,(Color){189,203,213,255});
+        ui_text_clip(u,role==PIVOT_VALUES ? "Drop a measure here" : "Drop a field to filter this view",empty,10.5f,UI_MUTED,false);
+    }
+    for (size_t i=0;i<o->pivot.counts[role];i++) {
+        Rectangle token=a->pivot_tokens[role][i];
+        if (vertical) token.y-=a->pivot_scroll[role]; else token.x-=a->pivot_scroll[role];
+        a->pivot_tokens[role][i]=token;
+        Rectangle cut=GetCollisionRec(token,clip); if (cut.width<=0 || cut.height<=0) continue;
+        Color tint=role==PIVOT_VALUES ? (Color){220,235,232,255} : wrapped ? (Color){228,238,246,255} : (Color){220,234,244,255};
+        Color border=role==PIVOT_VALUES ? (Color){169,204,197,255} : wrapped ? (Color){191,209,223,255} : (Color){185,207,224,255};
+        if (!vertical && enabled && !dragging && CheckCollisionPointRec(mouse,cut)) { tint=(Color){207,223,236,255}; border=(Color){141,174,198,255}; }
+        DrawRectangleRounded(token,4.0f/23,4,tint); DrawRectangleRoundedLinesEx(token,4.0f/23,4,s,border);
+        char label[512]; pivot_label(a,label,&o->pivot.fields[role][i],role);
+        Color ink=role==PIVOT_VALUES ? (Color){34,94,88,255} : wrapped ? (Color){39,63,81,255} : (Color){36,86,119,255};
+        float icon=wrapped ? 12 : 14;
+        ui_carbon(u,role==PIVOT_VALUES ? CARBON_FUNCTION : wrapped ? CARBON_FILTER : CARBON_TABLE,box(token.x+(wrapped ? 5 : 7)*s,token.y+(token.height-icon*s)*.5f,icon*s,icon*s),ink);
+        ui_label(u,label,box(token.x+(wrapped ? 20 : 27)*s,token.y,fmaxf(0,token.width-(wrapped ? 40 : 52)*s)+.001f*s,token.height),wrapped ? 10.5f : role==PIVOT_VALUES ? 11.5f : 11,ink,false,UI_REGULAR);
+        float close_width=wrapped ? 18 : vertical ? 20 : 18,close_height=wrapped || !vertical ? token.height : 20*s;
+        Rectangle remove=box(token.x+token.width-(vertical ? close_width : 19)*s,token.y+(token.height-close_height)/2,close_width*s,close_height);
+        bool removing=false;
+        if (vertical) {
+            if (wrapped) {
+                bool remove_hover=false; removing=ui_control_input(u,remove,passive_control(a,enabled),&remove_hover);
+                ui_carbon(u,CARBON_CLOSE,box(remove.x+(remove.width-12*s)/2,remove.y+(remove.height-12*s)/2,12*s,12*s),ink);
+            } else removing=ui_icon_button(u,remove,CARBON_CLOSE,false,passive_control(a,enabled) && (role!=PIVOT_VALUES || o->pivot.counts[role]>1));
+        }
+        if (removing) { ui_clear_clip(u); PivotDefinition copy=pivot_copy(&o->pivot); pivot_remove(&copy,(PivotRole)role,i); set_pivot_definition(a,&copy); return; }
+        if (!vertical) ui_carbon(u,CARBON_CHEVRON_DOWN,box(remove.x+3*s,remove.y+5.5f*s,12*s,12*s),UI_MUTED);
+        Rectangle main=GetCollisionRec(box(token.x,token.y,token.width-(vertical ? 23*s : 0),token.height),clip);
+        DxPointerGesture gesture;
+        if (enabled && ui_take_gesture_from(main,&gesture)) {
+            a->pivot_drag_role=role; a->pivot_drag_index=(int)i; a->pivot_drag_field=-1;
+            a->pivot_drag_right=gesture.right; a->pivot_drag_origin=(Vector2){gesture.x0,gesture.y0};
+            a->pivot_role=role; a->pivot_value=(int)i; a->pivot_focus=role+2; a->pivot_search_focus=false; a->consume_grid_input=true;
+            a->pivot_drop_pending=true; a->pivot_drop_point=(Vector2){gesture.x1,gesture.y1}; continue;
+        }
+        if (enabled && CheckCollisionPointRec(mouse,main)) {
+            u->cursor=MOUSE_CURSOR_POINTING_HAND;
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)||IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+                a->pivot_drag_role=role; a->pivot_drag_index=(int)i; a->pivot_drag_field=-1;
+                a->pivot_drag_right=IsMouseButtonPressed(MOUSE_BUTTON_RIGHT); a->pivot_drag_origin=mouse;
+                a->pivot_role=role; a->pivot_value=(int)i; a->pivot_focus=role+2; a->pivot_search_focus=false; a->consume_grid_input=true;
+            }
+        }
+        if (a->modal==MODAL_NONE && a->pivot_focus==role+2 && a->pivot_value==(int)i) ui_focus_border(token,clip,s);
+        if (dragging && hover && (vertical ? mouse.y<token.y+token.height*.5f : ui_shelf_insertion(a->pivot_tokens[role],o->pivot.counts[role],mouse)==i)) {
+            Rectangle line=vertical ? box(contents.x,token.y-2*s,contents.width,2*s) : box(token.x-3*s,token.y,2*s,23*s);
+            ui_border(line,clip,2*s,UI_ACCENT); dragging=false;
+        }
+    }
+    ui_clear_clip(u);
+}
+static void draw_pivot_editor(App *a,float y,float bottom,float right) {
+    (void)bottom; SheetObject *o=selected_pivot(a); if (!o) return;
+    UIContext *u=&a->ui; float s=u->scale,left=a->workspace.context.x;
+    float width=right-left; bool enabled=a->modal==MODAL_NONE && !a->io_busy && !a->left_drawer &&
+        !(a->pipeline_extent>1 && CheckCollisionPointRec(ui_mouse_position(),a->workspace.inspector));
+    Rectangle title=box(left,y,width,26*s); DrawRectangleRec(title,(Color){248,250,251,255});
+    const SheetObject *bound=objects_source(&active_sheet(a)->objects,o);
+    const char *source=bound ? bound->name : active_sheet(a)->name;
+    UIContextTitleLayout header=ui_context_title_layout(box(left/s,y/s,width/s,26),a->workspace.narrow,
+        ui_measure_weight(u,o->name,12.5f,UI_MEDIUM)/s,ui_measure(u,source,10.5f)/s,ui_measure(u,"Browse all data",11)/s);
+    Rectangle *parts[]={&header.icon,&header.title,&header.source,&header.browse,&header.browse_text,&header.chevron};
+    for (size_t i=0;i<sizeof(parts)/sizeof(*parts);i++) { parts[i]->x*=s; parts[i]->y*=s; parts[i]->width*=s; parts[i]->height*=s; }
+    a->context_title=header;
+    ui_carbon(u,o->kind==OBJECT_CHART ? CARBON_CHART_BAR : CARBON_TABLE,header.icon,(Color){43,101,125,255});
+    ui_label(u,o->name,header.title,12.5f,UI_TEXT,false,UI_MEDIUM);
+    if (header.source.width) ui_label(u,source,header.source,10.5f,(Color){94,110,124,255},false,UI_REGULAR);
+    bool hover=false,browsing=ui_control_input(u,header.browse,passive_control(a,enabled),&hover);
+    Color base[]={{0,0,0,0},{0,0,0,0},UI_ACCENT},colors[]={hover ? (Color){228,237,244,255} : base[0],base[1],UI_ACCENT};
+    if (hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) colors[0]=(Color){212,228,238,255};
+    ui_feedback_colors(u,header.browse,7,base,colors);
+    DrawRectangleRounded(header.browse,4*s/header.browse.height,4,colors[0]);
+    ui_label(u,"Browse all data",header.browse_text,11,UI_ACCENT,false,UI_REGULAR);
+    ui_carbon(u,CARBON_CHEVRON_RIGHT,header.chevron,UI_ACCENT);
+    DrawLineV((Vector2){left,y+25*s},(Vector2){right,y+25*s},(Color){227,232,237,255});
+    if (browsing) { browse_source(a); return; }
+    for (int row=0;row<2;row++) {
+        int role=row==0 ? PIVOT_COLUMNS : PIVOT_ROWS;
+        UIShelfLayout layout=a->axis_shelves[role];
+        float shift=y-a->workspace.context.y;
+        Rectangle shelf=layout.panel,label=layout.label,contents=layout.fields,add=layout.add;
+        shelf.y+=shift; label.y+=shift; contents.y+=shift; add.y+=shift;
+        DrawRectangleRec(shelf,(Color){248,250,251,255});
+        if (!row) DrawLineV((Vector2){left,shelf.y+shelf.height-s},(Vector2){right,shelf.y+shelf.height-s},UI_BORDER);
+        float label_gap=a->workspace.narrow ? 5 : 8;
+        ui_carbon(u,row==0 ? CARBON_COLUMN : CARBON_ROW,box(label.x,label.y+5*s,14*s,14*s),(Color){60,107,133,255});
+        ui_label(u,row==0 ? "Columns" : "Rows",box(label.x+(14+label_gap)*s,label.y,label.width-(14+label_gap)*s,24*s),11.5f,(Color){66,92,112,255},false,UI_REGULAR);
+        for (size_t i=0;i<layout.count;i++) a->axis_shelves[role].tokens[i].y+=shift;
+        draw_pivot_tokens(a,role,shelf,contents,enabled);
+        for (size_t i=0;i<layout.count;i++) a->axis_shelves[role].tokens[i].y-=shift;
+        bool adding=ui_popup_row_input(u,add,"",CARBON_COUNT,true,enabled);
+        if (enabled && !u->pointer_blocked && CheckCollisionPointRec(ui_mouse_position(),add)) DrawRectangleRec(add,(Color){237,245,250,255});
+        ui_dashed_border(add,add,s,3*s,3*s,(Color){198,211,221,255});
+        ui_carbon(u,CARBON_ADD,box(add.x+8*s,add.y+4.5f*s,14*s,14*s),UI_MUTED);
+        ui_label(u,"Add field",box(add.x+27*s,add.y,add.width-35*s,add.height),11,UI_MUTED,false,UI_REGULAR);
+        if (adding) begin_assign_field(a,(PivotRole)role,add);
+        if (a->modal==MODAL_NONE && a->pivot_focus==role+2 && !o->pivot.counts[role]) ui_focus_border(add,add,s);
+    }
+    DrawLineV((Vector2){left,y+a->workspace.context.height-s},(Vector2){right,y+a->workspace.context.height-s},UI_BORDER);
+}
+static Rectangle visible_area(UIContext *ui,Rectangle rectangle) { return ui->pointer_blocked ? (Rectangle){0} : ui->clipping ? GetCollisionRec(rectangle,ui->clip) : rectangle; }
+static void draw_field_search(App *a,Rectangle rectangle,bool enabled) {
+    UIContext *u=&a->ui; float scale=u->scale;
+    DrawRectangleRec(rectangle,WHITE); DrawRectangleLinesEx(rectangle,scale,a->pivot_search_focus ? UI_ACCENT : UI_BORDER);
+    ui_carbon(u,CARBON_SEARCH,box(rectangle.x+6*scale,rectangle.y+5*scale,16*scale,16*scale),UI_MUTED);
+    Rectangle text=box(rectangle.x+21*scale,rectangle.y+scale,rectangle.width-23*scale-(a->pivot_search.length ? 22*scale : 0),rectangle.height-2*scale);
+    if (a->pivot_search_focus || a->pivot_search.length) input_draw_sized(u,&a->pivot_search,text,12,false);
+    else ui_text_clip(u,"Search fields…",text,12,UI_MUTED,false);
+    if (a->pivot_search.length && ui_icon_button(u,box(rectangle.x+rectangle.width-24*scale,rectangle.y+2*scale,20*scale,20*scale),CARBON_CLOSE,false,enabled)) { input_set(&a->pivot_search,""); a->pivot_search_focus=true; a->pivot_focus=1; a->consume_grid_input=true; }
+    DxPointerGesture gesture; if (enabled) ui_take_left_gesture_from(visible_area(u,rectangle),&gesture);
+}
+static bool draw_field_more(App *a,size_t column,Rectangle row,bool enabled) {
+    float s=a->ui.scale; Rectangle target=box(row.x+row.width-19*s,row.y+1.5f*s,19*s,21*s);
+    bool chosen=ui_tool_button(&a->ui,target,"",false,enabled);
+    Color color=UI_MUTED; if (!CheckCollisionPointRec(ui_mouse_position(),row) && !(a->pivot_focus==1 && a->pivot_field==(int)column)) color.a=64;
+    ui_carbon(&a->ui,CARBON_OVERFLOW_MENU_VERTICAL,box(target.x+1.5f*s,target.y+2.5f*s,16*s,16*s),color);
+    if (chosen) { begin_field_menu(a,column,(Vector2){target.x,target.y+target.height}); return true; } return false;
+}
+static UICarbonIcon field_icon(const Column *field) {
+    if (field->numeric) return CARBON_FUNCTION;
+    if (temporal_column(field) || field->date_grain || !strcmp(field->name,"Month")) return CARBON_CALENDAR;
+    if (!strcmp(field->name,"Account")) return CARBON_WALLET;
+    if (!strcmp(field->name,"Status")) return CARBON_CHECKMARK_OUTLINE;
+    if (!strcmp(field->name,"Category")) return CARBON_TAG;
+    return CARBON_STRING_TEXT;
+}
+static void draw_field_title(UIContext *ui,Rectangle title,const char *scope) {
+    ui_label(ui,"Fields",title,12.5f,UI_TEXT,false,UI_MEDIUM);
+    if (!scope || !*scope) return;
+    float prefix=ui_measure_weight(ui,"Fields",12.5f,UI_MEDIUM); char label[512]; snprintf(label,sizeof(label)," · %s",scope);
+    ui_label(ui,label,box(title.x+prefix,title.y,fmaxf(0,title.width-prefix),title.height),12.5f,(Color){89,108,125,255},false,UI_REGULAR);
+}
+static void draw_fields_footer(App *a,Rectangle rectangle,bool authoring) {
+    UIContext *u=&a->ui; float s=u->scale; a->field_footer=rectangle;
+    DrawLineV((Vector2){rectangle.x,rectangle.y},(Vector2){rectangle.x+rectangle.width,rectangle.y},(Color){228,232,236,255});
+    ui_label(u,authoring ? "Drag fields to shelves or use field actions" : "Click a field to reveal its column",box(rectangle.x+12*s,rectangle.y+6*s,rectangle.width-24*s,15*s),11,(Color){94,110,124,255},false,UI_REGULAR);
+    char count[48]; snprintf(count,sizeof(count),"%zu fields",context_fields(a)->column_count);
+    ui_label(u,count,box(rectangle.x+12*s,rectangle.y+21*s,rectangle.width-24*s,15*s),11,(Color){83,107,125,255},false,UI_REGULAR);
+}
+static UIMarksContent author_marks_content(App *a,const SheetObject *object) {
+    UIMarksContent content={.measures=(unsigned)object->pivot.counts[PIVOT_VALUES],.filters=(unsigned)object->pivot.counts[PIVOT_FILTERS],.plot=object->kind==OBJECT_CHART && object->pivot.counts[PIVOT_VALUES]>1};
+    measure_pivot_tokens(a,object);
+    for (unsigned i=0;i<UI_MARKS_ROLES;i++) content.assigned[i]=object->marks.counts[i]>0;
+    for (unsigned i=0;i<content.filters;i++) content.filter_widths[i]=a->pivot_token_widths[PIVOT_FILTERS][i]/a->ui.scale;
+    return content;
+}
+static float author_marks_height(App *a,const SheetObject *object) {
+    UIMarksContent content=author_marks_content(a,object); return ui_marks_content_height(a->sidebar_width-1,&content);
+}
+
+static void draw_author_dock(App *a,Rectangle panel) {
+    SheetObject *o=selected_pivot(a); if (!o) return;
+    UIContext *u=&a->ui; float s=u->scale; Vector2 mouse=ui_mouse_position();
+    bool enabled=!u->pointer_blocked && a->modal==MODAL_NONE && !a->io_busy && (a->workspace.left_overlay ||
+        !(a->pipeline_extent>1 && CheckCollisionPointRec(mouse,a->workspace.inspector)));
+    DrawRectangleRec(panel,UI_BG); panel.width-=s; if (!a->dock_layout.maximum) DrawLineV((Vector2){panel.x+panel.width,panel.y},(Vector2){panel.x+panel.width,panel.y+panel.height},UI_BORDER);
+    float y=a->sidebar ? draw_workbook_section(a,panel,true) : panel.y;
+    float bottom=panel.y+panel.height;
+    float wanted=author_marks_height(a,o)*s;
+    if (a->dock_compact) wanted=fminf(wanted,245*s);
+    float marks_height=fminf(wanted,fmaxf(60*s,bottom-y-(a->fields_visible ? 103*s : 0)));
+    float marks_y=a->fields_visible ? bottom-marks_height : y;
+    if (a->fields_visible) {
+        Rectangle fields=box(panel.x,y,panel.width,fmaxf(0,marks_y-y));
+        const SheetObject *source=objects_source(&active_sheet(a)->objects,o);
+        const char *scope=source ? source->name : a->analysis.kind!=SOURCE_NONE ? active_sheet(a)->name : "";
+        draw_field_title(u,box(panel.x+12*s,y,panel.width-44*s,29*s),scope);
+        if (ui_icon_button(u,box(panel.x+panel.width-31*s,y+4*s,21*s,21*s),CARBON_CLOSE,false,passive_control(a,enabled))) { a->fields_visible=false; a->pivot_focus=0; return; }
+        Rectangle search=box(panel.x+10*s,y+30*s,panel.width-20*s,26*s);
+        if (enabled && ((CheckCollisionPointRec(mouse,visible_area(u,search)) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || ui_gesture_starts_in(visible_area(u,search)))) { a->pivot_search_focus=true; a->pivot_focus=1; }
+        if (a->pivot_search_focus && enabled) input_update(&a->pivot_search);
+        draw_field_search(a,search,enabled);
+        float footnote=!a->dock_compact && fields.height>=160*s ? 43*s : 0;
+        Rectangle list=box(panel.x+6*s,y+61*s,panel.width-12*s,fmaxf(0,fields.height-61*s-footnote));
+        a->author_fields=a->field_list=list;
+        match_fields(a); int count=(int)a->field_match_count,visible=(int)(list.height/(24*s));
+        a->field_visible=visible; int max=count-visible; if (max<0) max=0;
+        if (enabled && CheckCollisionPointRec(mouse,visible_area(u,list))) a->pivot_field_scroll+=ui_scroll_steps(&a->wheel_field,-GetMouseWheelMoveV().y*3);
+        a->pivot_field_scroll=a->pivot_field_scroll<0 ? 0 : a->pivot_field_scroll>max ? max : a->pivot_field_scroll;
+        ui_set_clip(u,list);
+        for (int j=0;j<visible && j+a->pivot_field_scroll<count;j++) {
+            size_t col=a->field_matches[j+a->pivot_field_scroll]; Rectangle item=box(list.x,list.y+j*24*s,list.width-(count>visible ? 10*s : 0),24*s);
+            bool active=a->pivot_field==(int)col && a->pivot_focus==1;
+            if (active || (enabled && CheckCollisionPointRec(mouse,visible_area(u,item)))) DrawRectangleRec(item,UI_TINT);
+            const Column *field=&context_fields(a)->columns[col];
+            ui_carbon(u,field_icon(field),box(item.x+6*s,item.y+4*s,16*s,16*s),UI_MUTED);
+            ui_label(u,field->name,box(item.x+31*s,item.y,item.width-56*s,item.height),12.5f,UI_TEXT,false,UI_REGULAR);
+            if (draw_field_more(a,col,item,enabled)) break;
+            DxPointerGesture gesture;
+            if (enabled && ui_take_gesture_from(visible_area(u,item),&gesture)) {
+                a->pivot_drag_field=(int)col; a->pivot_drag_role=-1; a->pivot_drag_right=gesture.right;
+                a->pivot_drag_origin=(Vector2){gesture.x0,gesture.y0}; a->pivot_field=(int)col; a->pivot_focus=1; a->pivot_search_focus=false;
+                a->consume_grid_input=true; a->pivot_drop_pending=true; a->pivot_drop_point=(Vector2){gesture.x1,gesture.y1}; continue;
+            }
+            if (enabled && CheckCollisionPointRec(mouse,visible_area(u,item))) {
+                u->cursor=MOUSE_CURSOR_POINTING_HAND;
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)||IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+                    a->pivot_drag_field=(int)col; a->pivot_drag_role=-1; a->pivot_drag_right=IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
+                    a->pivot_drag_origin=mouse; a->pivot_field=(int)col; a->pivot_focus=1; a->pivot_search_focus=false; a->consume_grid_input=true;
+                }
+            }
+        }
+        ui_clear_clip(u); list_scrollbar(a,list,count,visible,&a->pivot_field_scroll,&a->field_drag,&a->field_grab,enabled);
+        if (footnote) draw_fields_footer(a,box(panel.x,marks_y-footnote,panel.width,footnote),true);
+    }
+    Rectangle marks=box(panel.x,marks_y,panel.width,marks_height); a->author_panel=marks;
+    UIMarksContent content=author_marks_content(a,o);
+    UIMarksLayout layout=ui_marks_layout(marks,s,&content,a->author_scroll); if (!layout.valid) return;
+    if (enabled && CheckCollisionPointRec(mouse,visible_area(u,marks))) a->author_scroll-=GetMouseWheelMoveV().y*24;
+    if (a->author_reveal) {
+        UIMarksLayout origin=ui_marks_layout(marks,s,&content,0); Rectangle target={0};
+        if (a->pivot_focus==6) target=origin.representation;
+        else if (a->pivot_focus==7) target=origin.plot;
+        else if (a->pivot_focus==4) target=(unsigned)a->pivot_value<content.measures ? origin.measures[a->pivot_value] : origin.measure_list;
+        else if (a->pivot_focus==5) target=(unsigned)a->pivot_value<content.filters ? origin.filters[a->pivot_value] : origin.empty_filter;
+        else if (a->pivot_focus==8 && (unsigned)a->mark_role<UI_MARKS_ROLES) target=origin.targets[a->mark_role];
+        if (target.height) {
+            float top=(target.y-marks.y)/s,bottom=top+target.height/s;
+            if (top<a->author_scroll) a->author_scroll=top;
+            else if (bottom>a->author_scroll+marks.height/s) a->author_scroll=bottom-marks.height/s;
+        }
+        a->author_reveal=false;
+    }
+    layout=ui_marks_layout(marks,s,&content,a->author_scroll); a->author_scroll=layout.offset;
+    if (layout.scrollable && ui_scrollbar(u,layout.scrollbar,layout.content_height,marks.height/s,&a->author_scroll,false,&a->author_scrollbar,enabled)) {
+        layout=ui_marks_layout(marks,s,&content,a->author_scroll); a->consume_grid_input=true;
+    }
+    a->author_marks_layout=layout; a->author_body=layout.viewport; a->author_visible=(int)(marks.height/s); a->author_plot=layout.plot;
+    DrawLineV((Vector2){marks.x,marks.y},(Vector2){marks.x+marks.width,marks.y},UI_BORDER);
+    ui_scissor_begin(u,layout.viewport);
+    ui_label(u,"Marks",box(layout.heading.x+2*s,layout.heading.y,layout.heading.width-4*s,layout.heading.height),12.5f,UI_TEXT,false,UI_MEDIUM);
+    ui_carbon(u,CARBON_CHEVRON_UP,box(layout.heading.x+layout.heading.width-14*s,layout.heading.y+8.5f*s,12*s,12*s),UI_MUTED);
+    const char *representations[]={"Matrix","Bar chart","Line chart","Dots","Scatter"}; int representation=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
+    Rectangle rep=layout.representation;
+    if (ui_button(u,rep,representations[representation],false,passive_control(a,enabled))) {
+        a->modal=MODAL_REPRESENTATION; a->context_origin=(Vector2){rep.x,rep.y+rep.height}; a->context_focus=representation; a->context_scroll=0; a->consume_grid_input=true;
+    }
+    ui_carbon(u,CARBON_CHEVRON_DOWN,box(rep.x+rep.width-18*s,rep.y+6*s,14*s,14*s),UI_MUTED);
+    for (int role=PIVOT_VALUES;role<=PIVOT_FILTERS;role++) {
+        Rectangle heading=role==PIVOT_VALUES ? layout.measure_heading : layout.filter_heading;
+        Rectangle add=box(heading.x+heading.width-20*s,heading.y+2*s,20*s,20*s);
+        ui_label(u,role==PIVOT_VALUES ? "Measures" : "View filters",box(heading.x,heading.y,heading.width-24*s,heading.height),11.5f,UI_TEXT,false,UI_MEDIUM);
+        if (ui_icon_button(u,add,CARBON_ADD,false,passive_control(a,enabled))) { ui_scissor_end(u); begin_assign_field(a,(PivotRole)role,add); return; }
+        Rectangle contents=role==PIVOT_VALUES ? layout.measure_list : box(layout.filter_heading.x,layout.filter_heading.y+layout.filter_heading.height,layout.filter_heading.width,layout.inherited.y-5*s-layout.filter_heading.y-layout.filter_heading.height);
+        draw_pivot_tokens(a,role,GetCollisionRec(contents,layout.viewport),contents,enabled); ui_set_clip(u,layout.viewport);
+        if (role!=PIVOT_VALUES) continue;
+        if (layout.plot.height) {
+            Rectangle plot=layout.plot; ui_label(u,"Plot",box(plot.x,plot.y,25*s,plot.height),11,UI_TEXT,false,UI_REGULAR);
+            Rectangle choice=box(plot.x+30*s,plot.y,plot.width-30*s,plot.height); char label[512]; pivot_label(a,label,&o->pivot.fields[PIVOT_VALUES][o->chart_measure],PIVOT_VALUES);
+            a->author_plot=GetCollisionRec(choice,layout.viewport);
+            if (ui_button(u,choice,label,false,passive_control(a,enabled))) { a->modal=MODAL_CHART_MEASURE; a->context_origin=(Vector2){choice.x,choice.y+choice.height}; a->context_focus=o->chart_measure; a->context_scroll=0; a->pivot_focus=7; a->consume_grid_input=true; }
+            ui_carbon(u,CARBON_CHEVRON_DOWN,box(choice.x+choice.width-17*s,choice.y+4*s,14*s,14*s),UI_MUTED);
+            if (a->pivot_focus==7) ui_focus_border(choice,layout.viewport,1.5f*s);
+        }
+        const UICarbonIcon icons[]={CARBON_COLOR_PALETTE,CARBON_ARROWS_HORIZONTAL,CARBON_STRING_TEXT,CARBON_DATA_STRUCTURED,CARBON_INFORMATION,CARBON_DATA_VIEW}; measure_mark_labels(a,o);
+        for (int i=0;i<DX_MARK_ROLES;i++) {
+            Rectangle target=layout.targets[i]; bool assigned=content.assigned[i],hover=false;
+            a->author_marks[i]=u->clipping ? GetCollisionRec(target,u->clip) : target;
+            bool click=ui_control_input(u,target,passive_control(a,enabled),&hover);
+            Color base[]={{250,251,252,255},{212,221,227,255},UI_TEXT},colors[]={hover ? (Color){231,238,243,255} : base[0],hover ? (Color){159,184,203,255} : base[1],UI_TEXT};
+            ui_feedback_colors(u,target,6,base,colors);
+            float rounded=4*s/fminf(target.width,target.height); DrawRectangleRounded(target,rounded,4,colors[0]); DrawRectangleRoundedLinesEx(target,rounded,4,s,colors[1]);
+            bool dropping=enabled && (a->pivot_drag_field>=0 || a->pivot_drag_role>=0) && CheckCollisionPointRec(mouse,a->author_marks[i]);
+            if (dropping) { DrawRectangleRec(a->author_marks[i],(Color){226,240,245,255}); ui_border(target,layout.viewport,2*s,(Color){113,159,184,255}); }
+            float icon_y=target.y+(assigned ? 4 : 5)*s+(hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? .5f*s : 0);
+            ui_carbon(u,icons[i],box(target.x+(target.width-15*s)/2,icon_y,15*s,15*s),(Color){72,102,120,255});
+            const char *name=marks_label((MarkRole)i); float text_width=ui_measure(u,name,10.5f);
+            ui_label(u,name,box(target.x+(target.width-text_width)/2,target.y+(assigned ? 20 : 21)*s,text_width+s,16*s),10.5f,colors[2],false,UI_REGULAR);
+            if (assigned) ui_label(u,a->mark_labels[i],box(target.x+target.width*.025f,target.y+34*s,target.width*.95f,10*s),9,(Color){36,94,123,255},false,UI_REGULAR);
+            if (a->pivot_focus==8 && a->mark_role==i) ui_focus_border(target,layout.viewport,1.5f*s);
+            if (click) { ui_scissor_end(u); begin_marks(a,(MarkRole)i,target,false); return; }
+            if (assigned && CheckCollisionPointRec(mouse,a->author_marks[i])) { a->ribbon_hover=encoding_reason(a,i); a->ribbon_hover_rect=target; }
+        }
+    }
+    const Analysis *source=object_source(a,o); char inherited[80]; snprintf(inherited,sizeof(inherited),"Source: %zu applied filters",source->filter_column ? source->filter_count+1 : 0);
+    ui_label(u,inherited,layout.inherited,10,UI_MUTED,false,UI_REGULAR); ui_scissor_end(u);
+}
+
+static void draw_pivot_drag(App *a) {
+    SheetObject *o=selected_pivot(a); if (!o || (a->pivot_drag_field<0 && a->pivot_drag_role<0)) return;
+    if (a->pivot_drop_pending) { a->pivot_drop_pending=false; finish_pivot_drag(a,a->pivot_drop_point); return; }
+    UIContext *u=&a->ui; float s=u->scale; Vector2 mouse=ui_mouse_position();
+    int button=a->pivot_drag_right ? MOUSE_BUTTON_RIGHT : MOUSE_BUTTON_LEFT;
+    if (IsMouseButtonDown(button)) {
+        const char *name=a->pivot_drag_field>=0 ? context_fields(a)->columns[a->pivot_drag_field].name : o->pivot.fields[a->pivot_drag_role][a->pivot_drag_index].name;
+        float dx=mouse.x-a->pivot_drag_origin.x,dy=mouse.y-a->pivot_drag_origin.y;
+        if (dx*dx+dy*dy>=25*s*s) {
+            Rectangle ghost=box(mouse.x+10*s,mouse.y+12*s,180*s,24*s); DrawRectangleRec(ghost,UI_TINT); DrawRectangleLinesEx(ghost,s,UI_ACCENT); ui_text_clip(u,name,ghost,11,UI_ACCENT,false);
+        }
+    }
+    if (IsMouseButtonReleased(button)) finish_pivot_drag(a,mouse);
+}
+static Rectangle object_rect(App *a,const SheetObject *o) {
+    Grid *g=&a->grid; float s=a->ui.scale*g->zoom;
+    return grid_range_rect(g,s,o->row,o->col,o->rows,o->columns);
+}
+static Rectangle object_outline(App *a,const SheetObject *o) {
+    return grid_range_outline(&a->grid,a->ui.scale*a->grid.zoom,o->row,o->col,o->rows,o->columns,a->grid.body);
+}
+static bool resize_chart(App *a,uint64_t rows,size_t columns) {
+    SheetObject *o=selected_pivot(a); if (!o || o->kind!=OBJECT_CHART) return false;
+    uint64_t old_rows=o->rows; size_t old_columns=o->columns; Grid *g=&a->grid; Worksheet *sheet=active_sheet(a);
+    free(a->chart_resize_error); a->chart_resize_error=NULL;
+    if (!objects_resize_chart(&sheet->objects,(size_t)a->selected_object,rows,columns,&sheet->cells,source_rows(a),a->page.column_count,&a->chart_resize_error)) return false;
+    if (rows!=old_rows || columns!=old_columns) {
+        worksheet_record(sheet,EDIT_OBJECTS); a->book.dirty=true;
+        if (g->selection==SELECT_CELLS && g->anchor_row==o->row && g->end_row==o->row+old_rows-1 && g->anchor_col==o->col && g->end_col==o->col+old_columns-1) { g->end_row=o->row+rows-1; g->end_col=o->col+columns-1; }
+        grid_ensure_columns(g,o->col+columns);
+    }
+    status(a,"Chart size updated."); return true;
+}
+static void chart_resize_target(App *a,Vector2 mouse) {
+    SheetObject *o=selected_pivot(a); if (!o || o->id!=a->chart_resize_id) { a->chart_resizing=false; return; }
+    Grid *g=&a->grid; float s=a->ui.scale*g->zoom;
+    mouse.x=fmaxf(g->body.x,fminf(g->body.x+g->body.width-1,mouse.x-s));
+    mouse.y=fmaxf(g->body.y,fminf(g->body.y+g->body.height-1,mouse.y-s));
+    uint64_t row; size_t col; if (!grid_cell_at(g,s,mouse,&row,&col)) return;
+    uint64_t rows=row>=o->row ? row-o->row+1 : 8; if (rows<8) rows=8; if (rows>4096) rows=4096;
+    size_t columns=col>=o->col ? col-o->col+1 : 3; if (columns<3) columns=3; if (columns>256) columns=256;
+    if (rows==a->chart_resize_rows && columns==a->chart_resize_columns) return;
+    a->chart_resize_rows=rows; a->chart_resize_columns=columns;
+    free(a->chart_resize_error); a->chart_resize_error=NULL;
+    a->chart_resize_valid=objects_fits(&active_sheet(a)->objects,a->selected_object,o->row,o->col,rows,columns,&active_sheet(a)->cells,source_rows(a),a->page.column_count,&a->chart_resize_error);
+    grid_ensure_columns(g,o->col+columns);
+}
+static void chart_resize_input(App *a) {
+    SheetObject *o=selected_pivot(a); UIContext *u=&a->ui;
+    if (a->modal!=MODAL_NONE || a->io_busy || !o || o->kind!=OBJECT_CHART || (a->chart_resizing && o->id!=a->chart_resize_id)) { a->chart_resizing=false; return; }
+    Grid *g=&a->grid; float s=u->scale*g->zoom; Vector2 mouse=ui_mouse_position();
+    Rectangle rect=object_rect(a,o),handle={rect.x+rect.width-7*s,rect.y+rect.height-7*s,14*s,14*s};
+    handle.x=fmaxf(handle.x,g->body.x); handle.y=fmaxf(handle.y,g->body.y);
+    handle.width=fmaxf(0,fminf(rect.x+rect.width+7*s,g->body.x+g->body.width)-handle.x);
+    handle.height=fmaxf(0,fminf(rect.y+rect.height+7*s,g->body.y+g->body.height)-handle.y);
+    DxPointerGesture gesture={0}; bool replay=false;
+    if (!a->chart_resizing && !a->consume_grid_input) {
+        replay=ui_take_left_gesture_from(handle,&gesture);
+        bool hover=CheckCollisionPointRec(mouse,handle); if (hover) u->cursor=MOUSE_CURSOR_RESIZE_NWSE;
+        if (replay || (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
+            a->chart_resizing=true; a->chart_resize_id=o->id; a->chart_resize_rows=o->rows; a->chart_resize_columns=o->columns; a->chart_resize_valid=true;
+            a->ribbon_focus=a->pivot_search_focus=false; a->pivot_focus=a->chrome_focus=0;
+            free(a->chart_resize_error); a->chart_resize_error=NULL;
+        }
+    }
+    if (!a->chart_resizing) return;
+    a->consume_grid_input=true; g->dragging=g->moving=false; g->resizing=-1; u->cursor=MOUSE_CURSOR_RESIZE_NWSE;
+    if (ui_pressed(KEY_ESCAPE)) { a->chart_resizing=false; status(a,"Chart resize cancelled."); return; }
+    chart_resize_target(a,replay ? (Vector2){gesture.x1,gesture.y1} : mouse);
+    if (replay || IsMouseButtonReleased(MOUSE_BUTTON_LEFT) || !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        if (a->chart_resize_valid) resize_chart(a,a->chart_resize_rows,a->chart_resize_columns);
+        else status(a,a->chart_resize_error);
+        a->chart_resizing=false;
+    }
+}
+static Rectangle clip_rect(Rectangle a,Rectangle b) {
+    float x=fmaxf(a.x,b.x),y=fmaxf(a.y,b.y); return box(x,y,fmaxf(0,fminf(a.x+a.width,b.x+b.width)-x),fmaxf(0,fminf(a.y+a.height,b.y+b.height)-y));
+}
+static void clipped_fill(Rectangle r,Rectangle clip,Color color) {
+    Rectangle cut=clip_rect(r,clip); if (cut.width>0 && cut.height>0) DrawRectangleRec(cut,color);
+}
+static void clipped_border(Rectangle r,Rectangle clip,float width,Color color) {
+    ui_border(r,clip,width,color);
+}
+static void matrix_cell_edges(Rectangle r,Rectangle clip,float s) {
+    Color color={228,233,237,255};
+    clipped_fill(box(r.x,r.y+r.height-s,r.width,s),clip,color);
+    clipped_fill(box(r.x+r.width-s,r.y,s,r.height),clip,color);
+}
+static void prepare_objects(App *a) {
+    Worksheet *sheet=active_sheet(a); a->grid.used_rows=0; a->grid.used_columns=0;
+    if (!sheet) return; ObjectStore *store=&sheet->objects;
+    for (size_t i=0;i<store->count;i++) {
+        grid_ensure_columns(&a->grid,store->items[i].col+store->items[i].columns);
+        uint64_t end=store->items[i].row+store->items[i].rows; if (end>a->grid.used_rows) a->grid.used_rows=end;
+        size_t columns=store->items[i].col+store->items[i].columns; if (columns>a->grid.used_columns) a->grid.used_columns=columns;
+    }
+    for (size_t i=0;i<sheet->cells.count;i++) {
+        const SheetCell *cell=&sheet->cells.cells[i]; grid_ensure_columns(&a->grid,cell->col+1);
+        if (cell->row+1>a->grid.used_rows) a->grid.used_rows=cell->row+1;
+        if (cell->col+1>a->grid.used_columns) a->grid.used_columns=cell->col+1;
+    }
+}
+static void reveal_pivot(App *a) {
+    SheetObject *o=selected_object(a); if (!o || !a->pivot_reveal_object) return;
+    Grid *g=&a->grid; float s=a->ui.scale*g->zoom,visible=g->body.width,left=g->offsets[o->col],right=g->offsets[o->col+o->columns];
+    /* In narrow windows the transformations pane overlays the full grid. Reveal
+       against the uncovered canvas, so a fitting result is not hidden under it. */
+    float pane_width=(a->pipeline && a->ribbon_mode!=3 ? pipeline_target_width(a) : a->pipeline_extent)*a->ui.scale;
+    if (pane_width>1) visible=fmaxf(s,fminf(visible,GetScreenWidth()-pane_width-g->body.x));
+    float view=visible/s;
+    grid_reveal_cell(g,&a->page,s);
+    if (g->col<g->width_count) {
+        float cell_left=g->offsets[g->col],cell_right=g->offsets[g->col+1];
+        if (cell_left<g->horizontal) g->horizontal=cell_left;
+        else if (cell_right>g->horizontal+view) g->horizontal=fmaxf(0,cell_right-view);
+    }
+    /* A tall result can still fit horizontally (and a wide one vertically). */
+    if (right-left<view) {
+        if (left<g->horizontal) g->horizontal=left;
+        else if (right>g->horizontal+view) g->horizontal=fmaxf(0,right-view+16);
+    }
+    if (o->rows<=g->visible_rows) {
+        if (o->row<=g->top) { g->top=o->row; g->fraction=0; }
+        else if (o->row+o->rows>g->top+g->visible_rows) { g->top=o->row+o->rows-g->visible_rows; g->fraction=0; }
+    } else if (g->row>=o->row && g->row-o->row<2) {
+        /* Keep a newly activated title/header above its first data rows. */
+        g->top=o->row; g->fraction=0;
+    }
+    a->pivot_reveal_object=false; grid_layout(g,s,&a->page,g->rect);
+}
+static bool replay_object_gesture(App *a,size_t index,DxPointerGesture gesture) {
+    SheetObject *o=&active_sheet(a)->objects.items[index]; Grid *g=&a->grid;
+    float scale=a->ui.scale,s=scale*g->zoom; Vector2 start={gesture.x0,gesture.y0};
+    uint64_t row; size_t col; if (!grid_cell_at(g,s,start,&row,&col)) return false;
+    bool same=(int)index==a->selected_object; Rectangle rect=object_outline(a,o);
+    bool edge=fabsf(start.x-rect.x)<4*s || fabsf(start.x-rect.x-rect.width)<4*s || fabsf(start.y-rect.y)<4*s || fabsf(start.y-rect.y-rect.height)<4*s;
+    a->selected_object=(int)index; a->pivot_focus=0; a->pivot_search_focus=false; a->chrome_focus=0;
+    if (gesture.right) {
+        grid_select_cell(g,row,col,false); a->modal=MODAL_OBJECT; a->context_focus=a->context_scroll=0; a->context_drag=false; a->context_origin=(Vector2){gesture.x1,gesture.y1}; a->consume_grid_input=true; return true;
+    }
+    if (o->kind==OBJECT_TABLE && row==o->row+1 && col>=o->col && col-o->col<a->objects[index].page.column_count) {
+        Rectangle header=grid_range_rect(g,s,row,col,1,1);
+        if (start.x>=header.x+header.width-25*s) { grid_select_cell(g,row,col,false); open_table_filter(a,index,col-o->col); return true; }
+    }
+    if (edge) {
+        if (o->kind==OBJECT_TABLE && a->objects[index].page.count_pending) { status(a,"Wait for the full row count before moving this table."); a->consume_grid_input=true; return true; }
+        grid_select_cell(g,o->row,o->col,false); g->end_row=o->row+o->rows-1; g->end_col=o->col+o->columns-1;
+        g->allow_move=worksheet_range_fits(active_sheet(a),(SheetRange){o->row,o->row+o->rows-1,o->col,o->col+o->columns-1},0,0,source_rows(a),a->page.column_count,NULL);
+    } else { grid_select_cell(g,row,col,(gesture.modifiers&DX_MOD_SHIFT)!=0); g->allow_move=false; }
+    a->ui.scale=s; grid_replay_gesture(g,&a->ui,&a->page,gesture); a->ui.scale=scale;
+    a->consume_grid_input=true; if (!same) a->pivot_reveal_object=true;
+    return true;
+}
+static void object_input(App *a) {
+    if (a->modal!=MODAL_NONE || a->io_busy || a->consume_grid_input || a->ribbon_focus) return;
+    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+        if (!ui_has_pointer_gesture()) return;
+        ObjectStore *store=&active_sheet(a)->objects; DxPointerGesture gesture;
+        for (size_t i=0;i<store->count;i++) {
+            Rectangle area=GetCollisionRec(object_outline(a,&store->items[i]),a->grid.body);
+            if (area.width>0 && area.height>0 && ui_take_gesture_from(area,&gesture)) { replay_object_gesture(a,i,gesture); return; }
+        }
+        return;
+    }
+    Grid *g=&a->grid; Vector2 mouse=ui_mouse_position(); uint64_t row; size_t col; float s=a->ui.scale*g->zoom;
+    if (!grid_cell_at(g,s,mouse,&row,&col)) return;
+    a->pivot_focus=0; a->pivot_search_focus=false;
+    a->chrome_focus=0;
+    int hit=objects_hit(&active_sheet(a)->objects,row,col);
+    if (hit>=0) {
+        bool same=hit==a->selected_object; SheetObject *o=&active_sheet(a)->objects.items[hit]; Rectangle rect=object_outline(a,o);
+        bool edge=fabsf(mouse.x-rect.x)<5*s || fabsf(mouse.x-rect.x-rect.width)<5*s || fabsf(mouse.y-rect.y)<5*s || fabsf(mouse.y-rect.y-rect.height)<5*s;
+        a->selected_object=hit; a->pivot_search_focus=false;
+        if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { a->modal=MODAL_OBJECT; a->context_focus=a->context_scroll=0; a->context_drag=false; a->context_origin=mouse; a->consume_grid_input=true; return; }
+        if (edge) {
+            if (o->kind==OBJECT_TABLE && a->objects[hit].page.count_pending) { status(a,"Wait for the full row count before moving this table."); a->consume_grid_input=true; return; }
+            g->selection=SELECT_CELLS; g->anchor_row=o->row; g->end_row=o->row+o->rows-1; g->anchor_col=o->col; g->end_col=o->col+o->columns-1; g->allow_move=true;
+        } else { grid_select_cell(g,row,col,ui_shift()); g->dragging=false; a->consume_grid_input=!same; if (!same) a->pivot_reveal_object=true; }
+    } else if (a->selected_object>=0) { a->selected_object=-1; a->pivot_focus=0; a->pivot_search_focus=false; grid_select_cell(g,row,col,ui_shift()); a->consume_grid_input=true; }
+}
+static void draw_column_parts(UIContext *u,const Column *c,Rectangle r,float size,Color color,const char *separator) {
+    if (!c->category_count) { ui_text_clip(u,c->caption ? c->caption : c->name,r,size,color,false); return; }
+    float x=r.x,end=r.x+r.width;
+    for (size_t i=0;i<c->category_count && x<end;i++) {
+        const char *raw=c->categories[i],*value=raw; char display[64];
+        if (raw && c->category_grains[i]) { pivot_date_label(c->category_grains[i],raw,display); value=display; }
+        float w=ui_value_width(u,value,!value,size,end-x)+18*u->scale;
+        ui_value(u,value,!value,box(x,r.y,fminf(w,end-x),r.height),size,color,false); x+=w;
+        if (i+1<c->category_count && x<end) { float gap=ui_measure(u,separator,size); ui_label(u,separator,box(x-7*u->scale,r.y,gap+1,r.height),size,UI_MUTED,false,UI_REGULAR); x+=gap-7*u->scale; }
+    }
+}
+static void draw_column_label(UIContext *u,const Column *c,Rectangle r,float size,Color color) { draw_column_parts(u,c,r,size,color," · "); }
+static void draw_matrix_category(UIContext *u,const Column *column,Rectangle r) {
+    float width=0; const char *separator=" / "; float gap=ui_measure(u,separator,10.5f)-7*u->scale;
+    for (size_t i=0;i<column->category_count;i++) {
+        const char *raw=column->categories[i],*label=raw; char display[64];
+        if (raw && column->category_grains[i]) { pivot_date_label(column->category_grains[i],raw,display); label=display; }
+        width+=ui_value_width(u,label,!raw,10.5f,r.width)+18*u->scale+(i ? gap : 0);
+    }
+    float inset=fmaxf(0,(r.width-width+18*u->scale)*.5f-7*u->scale); r.x+=inset; r.width-=inset;
+    draw_column_parts(u,column,r,10.5f,UI_TEXT,separator);
+}
+static float chart_group_width(UIContext *u,const Page *p,const UIChartView *view,size_t series) {
+    if (series==3 && view->other) return ui_measure(u,"Other groups",11);
+    if (!view->keys) return ui_measure(u,"Total",11);
+    float width=0;
+    for (size_t key=0;key<view->keys;key++) { const Cell *cell=&p->cells[view->rows[series]*p->column_count+key];
+        width+=ui_value_width(u,cell->text,cell->is_null,11,180*u->scale)+(key ? ui_measure(u," · ",11) : 0); }
+    return fminf(width,180*u->scale);
+}
+static void draw_chart_group(UIContext *u,const Page *p,const UIChartView *view,size_t series,Rectangle r,Color color) {
+    if (series==3 && view->other) { ui_label(u,"Other groups",r,11,color,false,UI_REGULAR); return; }
+    if (!view->keys) { ui_label(u,"Total",r,11,color,false,UI_REGULAR); return; }
+    float x=r.x,end=r.x+r.width;
+    for (size_t key=0;key<view->keys && x<end;key++) {
+        if (key) { float gap=ui_measure(u," · ",11); ui_label(u," · ",box(x,r.y,gap+1,r.height),11,UI_MUTED,false,UI_REGULAR); x+=gap; }
+        const Cell *cell=&p->cells[view->rows[series]*p->column_count+key]; float width=ui_value_width(u,cell->text,cell->is_null,11,end-x);
+        ui_value(u,cell->text,cell->is_null,box(x-7*u->scale,r.y,fminf(width,end-x)+16*u->scale,r.height),11,color,false); x+=width;
+    }
+}
+static void chart_category_label(UIContext *u,const Column *column,Rectangle r,bool short_month) {
+    if (!column->category_count) { float width=ui_measure(u,"Total",11); ui_label(u,"Total",box(r.x+(r.width-width)*.5f,r.y,width+1,r.height),11,UI_MUTED,false,UI_REGULAR); return; }
+    size_t last=column->category_count-1; const char *raw=column->categories[last],*label=raw; char text[64];
+    if (raw && column->category_grains[last]) { pivot_date_label(column->category_grains[last],raw,text); label=text; if (short_month && column->category_grains[last]==PIVOT_DATE_MONTH) { char *space=strchr(text,' '); if (space) *space=0; } }
+    float width=ui_value_width(u,label,!raw,11,r.width); float left=r.x+fmaxf(0,(r.width-width)*.5f);
+    ui_value(u,label,!raw,box(left-7*u->scale,r.y,fminf(width,r.width)+16*u->scale,r.height),11,UI_MUTED,false);
+}
+static void encoding_point(Vector2 point,float radius,Color color,uint64_t shape) {
+    if (shape==UINT64_MAX || shape%4==0) DrawCircleV(point,radius,color);
+    else if (shape%4==1) DrawRectangleRec(box(point.x-radius*.89f,point.y-radius*.89f,radius*1.78f,radius*1.78f),color);
+    else if (shape%4==2) DrawTriangle((Vector2){point.x,point.y-radius*1.55f},(Vector2){point.x-radius*1.35f,point.y+radius*.78f},(Vector2){point.x+radius*1.35f,point.y+radius*.78f},color);
+    else {
+        Vector2 top={point.x,point.y-radius*1.25f},left={point.x-radius*1.25f,point.y},right={point.x+radius*1.25f,point.y},bottom={point.x,point.y+radius*1.25f};
+        DrawTriangle(top,left,right,color); DrawTriangle(right,left,bottom,color);
+    }
+}
+static const char *encoding_reason(App *a,int role) {
+    if (!a->chart_encoding_valid) return "Waiting for a result.";
+    if (a->chart_encoding.active[role]) return a->chart_encoding.partial[role] ? "Some groups do not have this encoding value." : "Applied to the chart.";
+    if (role==MARKS_COLOR) return "Color needs fields already assigned to Rows.";
+    if (role==MARKS_SIZE) return "Size needs a numeric field already assigned to Rows or Measures.";
+    if (role==MARKS_SHAPE && !a->chart_encoding_line) return "Shape is available for line marks. The assignment is retained.";
+    return "Add the field to Rows, Columns or Measures to use this encoding.";
+}
+static void encoding_value_draw(UIContext *u,UIEncodingValue value,const MarkField *field,Rectangle rect) {
+    if (!value.available) { ui_text_clip(u,"Unavailable",rect,10,UI_MUTED,true); return; }
+    if (value.approximate && !value.is_null) { char text[96]; snprintf(text,sizeof(text),"~%.8g",value.number); ui_text_clip(u,text,rect,11,UI_TEXT,true); return; }
+    if (!value.numeric) { ui_value(u,value.raw,value.is_null,rect,11,UI_TEXT,true); return; }
+    CellFormat format=format_default(); format.number=field->measure && (field->aggregate==AGG_COUNT || field->aggregate==AGG_DISTINCT) ? FORMAT_NUMBER : FORMAT_ACCOUNTING;
+    format.decimals=format.number==FORMAT_NUMBER ? 0 : 2; ui_formatted_value(u,value.raw,value.is_null,true,false,value.number,rect,11,UI_TEXT,format);
+}
+static void draw_workspace_chart(App *a,SheetObject *o,Page *p,Rectangle rect,Rectangle clip) {
+    UIContext *u=&a->ui; float s=u->scale; uint64_t source=object_source_revision(a,o);
+    if (a->chart_cells!=p->cells || a->chart_id!=o->id || a->chart_revision!=o->revision || a->chart_source_revision!=source ||
+        a->chart_generation!=a->analysis_revision || a->chart_sheet!=a->book.active || a->chart_offset!=p->offset || a->chart_measure!=o->chart_measure) {
+        ui_chart_view(p,&o->pivot,o->chart_measure,&a->chart_view); a->chart_cells=p->cells; a->chart_id=o->id; a->chart_revision=o->revision;
+        a->chart_source_revision=source; a->chart_generation=a->analysis_revision; a->chart_sheet=a->book.active; a->chart_offset=p->offset; a->chart_measure=o->chart_measure;
+        a->chart_encoding_valid=false;
+    }
+    UIChartView *view=&a->chart_view;
+    if (!view->valid) { ui_text_clip(u,"Choose a numeric measure to plot this view.",box(rect.x+10*s,rect.y+60*s,rect.width-20*s,44*s),12,UI_MUTED,false); return; }
+    bool line=o->mark==MARK_LINE;
+    if (!a->chart_encoding_valid || a->chart_marks_revision!=active_sheet(a)->objects.marks_revision || a->chart_encoding_line!=line) {
+        a->chart_encoding_valid=ui_chart_encoding(p,&o->pivot,&o->marks,view,line,&a->chart_encoding);
+        a->chart_marks_revision=active_sheet(a)->objects.marks_revision; a->chart_encoding_line=line;
+    }
+    Color colors[]={{57,124,117,255},{178,139,82,255},{168,86,89,255},{124,139,151,255}};
+    const Color palette[]={{57,124,117,255},{178,139,82,255},{168,86,89,255},{64,121,169,255},{125,103,163,255},{97,137,151,255}};
+    UIChartEncoding *encoding=&a->chart_encoding;
+    if (a->chart_encoding_valid && encoding->active[MARKS_COLOR]) for (size_t i=0;i<view->series;i++) colors[i]=encoding->colors[i]==UINT64_MAX ? (Color){124,139,151,255} : palette[encoding->colors[i]%6];
+    float widths[4]={0},line_widths[4]={0}; size_t lines[4]={0},line_count=1;
+    float legend_width=fmaxf(40*s,rect.width-50*s);
+    for (size_t i=0;i<view->series;i++) { size_t series=view->legend[i]; widths[i]=fminf(legend_width,chart_group_width(u,p,view,series)+23*s);
+        if (line_widths[line_count-1] && line_widths[line_count-1]+widths[i]>legend_width) line_count++;
+        lines[i]=line_count-1; line_widths[line_count-1]+=widths[i]; }
+    float legend_height=fminf(48*s,line_count*17*s);
+    Rectangle plot=box(rect.x+69*s,rect.y+47*s,rect.width-91*s,250*s-16*s-8*s-30*s-legend_height);
+    if (plot.width<30*s || plot.height<30*s) return;
+    double ticks[5]; ui_chart_ticks(view->low,view->high,ticks); double low=ticks[0],high=ticks[4];
+    for (int tick=0;tick<5;tick++) {
+        float y=plot.y+plot.height*(1-tick/4.0f); clipped_fill(box(plot.x,y,plot.width,s),clip,(Color){228,232,236,255});
+        char label[40]; double value=ticks[tick];
+        if (fabs(value)>=1e6) snprintf(label,sizeof(label),"%.0fm",value/1e6); else if (fabs(value)>=1000) snprintf(label,sizeof(label),"%.0fk",value/1000); else snprintf(label,sizeof(label),"%.4g",value);
+        ui_text_clip(u,label,box(rect.x+4*s,y-9*s,57*s,18*s),11,UI_MUTED,true);
+    }
+    float band=plot.width/view->categories,bar_width=fmaxf(s,fminf(22*s,(band*.8f-(view->series-1)*4*s)/view->series));
+    float series_width=bar_width*view->series+(view->series-1)*4*s;
+    float zero=plot.y+plot.height*(1-(float)ui_chart_fraction(0,low,high));
+    Rectangle data_clip=clip_rect(plot,clip);
+    BeginScissorMode((int)ceilf(data_clip.x),(int)ceilf(data_clip.y),(int)fmaxf(0,floorf(data_clip.width)),(int)fmaxf(0,floorf(data_clip.height)));
+    for (size_t series=0;series<view->series;series++) for (size_t category=0;category<view->categories;category++) if (view->present[series][category]) {
+        float center=plot.x+(category+.5f)*band,y=plot.y+plot.height*(1-(float)ui_chart_fraction(view->values[series][category],low,high));
+        float size=1;
+        if (encoding->active[MARKS_SIZE] && encoding->sized[series][category]) size=.35f+.65f*(float)sqrt(encoding->size_max>0 ? encoding->sizes[series][category]/encoding->size_max : 0);
+        if (o->mark==MARK_BAR) { float width=bar_width*size; if (fabsf(y-zero)>.25f*s) clipped_fill(box(center-series_width*.5f+series*(bar_width+4*s)+(bar_width-width)*.5f,fminf(y,zero),width,fabsf(y-zero)),clip,colors[series]); }
+        else {
+            Vector2 point={center,y}; if (category && view->present[series][category-1]) { Vector2 from={center-band,plot.y+plot.height*(1-(float)ui_chart_fraction(view->values[series][category-1],low,high))}; DrawLineEx(from,point,2*s,colors[series]); }
+            encoding_point(point,3*s*size,colors[series],encoding->active[MARKS_SHAPE] ? encoding->shapes[series][category] : UINT64_MAX);
+        }
+    }
+    EndScissorMode(); ui_set_clip(u,clip);
+    clipped_fill(box(plot.x,zero,plot.width,s),clip,(Color){168,181,192,255});
+    for (size_t c=0;c<view->categories;c++) chart_category_label(u,&p->columns[view->keys+c*view->measures+view->measure],box(plot.x+c*band,plot.y+plot.height+4*s,band,22*s),true);
+    float legend_y=plot.y+plot.height+30*s,line_x[4]={0};
+    for (size_t i=0;i<view->series;i++) { size_t line=lines[i],series=view->legend[i]; if (line*17*s>=legend_height) continue;
+        float x=rect.x+20*s+(legend_width-line_widths[line])*.5f+line_x[line],y=legend_y+line*17*s;
+        clipped_fill(box(x,y+4*s,9*s,9*s),clip,colors[series]); draw_chart_group(u,p,view,series,box(x+13*s,y,widths[i]-23*s,17*s),UI_MUTED); line_x[line]+=widths[i]; }
+    char note[512]; const PivotField *measure=&o->pivot.fields[PIVOT_VALUES][view->measure];
+    int at=snprintf(note,sizeof(note),"%s",measure->aggregate==AGG_COUNT ? "Transactions" : measure->name);
+    for (size_t i=0;i<o->pivot.counts[PIVOT_COLUMNS] && at>0 && (size_t)at<sizeof(note);i++) {
+        char field[512]; pivot_label(a,field,&o->pivot.fields[PIVOT_COLUMNS][i],PIVOT_COLUMNS);
+        at+=snprintf(note+at,sizeof(note)-(size_t)at,"%s%s",i ? " / " : " · ",field);
+    }
+    if (at>0 && (size_t)at<sizeof(note)) snprintf(note+at,sizeof(note)-(size_t)at,"%s%s%s",view->other ? view->truncated ? " · 3 largest loaded groups + Other" : " · 3 largest groups + Other" : view->non_additive ? " · Other groups omitted for this aggregate" : "",view->non_finite ? " · Non-finite values omitted" : "",view->truncated && !view->other ? " · Loaded groups" : "");
+    ui_text_clip(u,note,box(rect.x+3*s,rect.y+287*s,rect.width-6*s,20*s),10,UI_MUTED,false);
+    Vector2 mouse=ui_mouse_position();
+    if (a->modal==MODAL_NONE && CheckCollisionPointRec(mouse,data_clip)) {
+        size_t category=(size_t)fminf(view->categories-1,fmaxf(0,(mouse.x-plot.x)/band));
+        size_t focused=0; float distance=INFINITY;
+        for (size_t series=0;series<view->series;series++) if (view->present[series][category]) {
+            float x=plot.x+(category+.5f)*band+(line ? 0 : -series_width*.5f+series*(bar_width+4*s)+bar_width*.5f);
+            float y=line ? plot.y+plot.height*(1-(float)ui_chart_fraction(view->values[series][category],low,high)) : mouse.y;
+            float d=fabsf(mouse.x-x)+fabsf(mouse.y-y); if (d<distance) { focused=series; distance=d; }
+        }
+        const MarkField *extra[24]; UIEncodingBinding bindings[24]; size_t extras=0;
+        const int roles[]={MARKS_LABEL,MARKS_DETAIL,MARKS_TOOLTIP};
+        for (size_t r=0;r<3;r++) for (size_t i=0;i<o->marks.counts[roles[r]];i++) {
+            UIEncodingBinding binding=encoding->bindings[roles[r]][i];
+            if (binding.kind==UI_BIND_MEASURE && binding.index==view->measure && roles[r]==MARKS_LABEL) continue;
+            const MarkField *field=&o->marks.fields[roles[r]][i]; bool duplicate=false;
+            for (size_t j=0;j<extras;j++) duplicate|=extra[j]->measure==field->measure && extra[j]->grain==field->grain && (!field->measure || extra[j]->aggregate==field->aggregate) && !strcmp(extra[j]->name,field->name);
+            if (!duplicate) { extra[extras]=field; bindings[extras++]=binding; }
+        }
+        size_t shown=extras<5 ? extras : 5;
+        float width=fminf(290*s,rect.width-16*s),height=(30+view->series*23+(shown ? 21 : 0)+shown*22+(extras>shown ? 17 : 0))*s;
+        height=fminf(height,rect.height-40*s);
+        Rectangle tip=box(fminf(rect.x+rect.width-width-8*s,mouse.x+12*s),fmaxf(rect.y+32*s,fminf(mouse.y-height,rect.y+rect.height-height-8*s)),width,height);
+        clipped_fill(tip,clip,WHITE); ui_border(tip,clip,s,UI_BORDER);
+        chart_category_label(u,&p->columns[view->keys+category*view->measures+view->measure],box(tip.x+6*s,tip.y+3*s,width-12*s,24*s),false);
+        for (size_t series=0;series<view->series;series++) {
+            Rectangle line=box(tip.x+8*s,tip.y+(28+series*23)*s,width-16*s,22*s); clipped_fill(box(line.x,line.y+6*s,8*s,8*s),clip,colors[series]);
+            draw_chart_group(u,p,view,series,box(line.x+13*s,line.y,line.width*.62f-13*s,line.height),UI_TEXT);
+            char raw[64]; const char *text=NULL; bool missing=!view->present[series][category];
+            if (!missing && series<3) text=p->cells[view->rows[series]*p->column_count+view->keys+category*view->measures+view->measure].text;
+            else if (!missing) { snprintf(raw,sizeof(raw),"%.17g",view->values[series][category]); text=raw; }
+            CellFormat format=format_default(); format.number=measure->aggregate==AGG_COUNT ? FORMAT_NUMBER : FORMAT_ACCOUNTING; format.decimals=measure->aggregate==AGG_COUNT ? 0 : 2;
+            ui_formatted_value(u,text,missing,true,false,view->values[series][category],box(line.x+line.width*.62f,line.y,line.width*.38f,line.height),11,UI_TEXT,format);
+        }
+        if (shown) {
+            float y=tip.y+(30+view->series*23)*s;
+            DrawLineEx((Vector2){tip.x+8*s,y},(Vector2){tip.x+width-8*s,y},s,UI_BORDER);
+            ui_text_clip(u,"Assigned fields · nearest group",box(tip.x+5*s,y+2*s,width-10*s,19*s),10,UI_MUTED,false); y+=21*s;
+            for (size_t i=0;i<shown;i++,y+=22*s) {
+                if (y+22*s>tip.y+height) break;
+                char label[512]; mark_field_label(a,extra[i],label);
+                ui_text_clip(u,label,box(tip.x+5*s,y,width*.52f-5*s,22*s),10.5f,UI_TEXT,false);
+                UIEncodingValue value=ui_encoding_value(p,&o->pivot,view,bindings[i],focused,category);
+                encoding_value_draw(u,value,extra[i],box(tip.x+width*.52f,y,width*.48f-8*s,22*s));
+            }
+            if (extras>shown && y+17*s<=tip.y+height) { char more[48]; snprintf(more,sizeof(more),"%zu more assigned fields",extras-shown); ui_text_clip(u,more,box(tip.x+5*s,y,width-10*s,17*s),10,UI_MUTED,false); }
+        }
+    }
+}
+static void draw_chart(App *a,SheetObject *o,Page *p,Rectangle rect,Rectangle clip,bool workspace) {
+    if (workspace && o->mark<=MARK_LINE) { draw_workspace_chart(a,o,p,rect,clip); return; }
+    UIContext *u=&a->ui; float s=u->scale;
+    size_t keys=o->pivot.counts[PIVOT_ROWS],available=p->column_count>keys ? p->column_count-keys : 0,series=available>4 ? 4 : available;
+    size_t rows=p->row_count>64 ? 64 : p->row_count;
+    const Color colors[]={{57,124,117,255},{178,139,82,255},{168,86,89,255},{124,139,151,255}};
+    bool scatter=o->mark==MARK_SCATTER;
+    if (scatter && (keys!=1 || !p->columns[0].numeric || !scatter_available(a,o))) { ui_text_clip(u,"Scatter needs one numeric Rows field and one numeric measure.",box(rect.x+12*s,rect.y+72*s,rect.width-24*s,48*s),12,UI_MUTED,false); return; }
+    Rectangle plot=box(rect.x+62*s,rect.y+(workspace ? 46 : 72)*s,rect.width-80*s,rect.height-(workspace ? 146 : scatter ? 146 : 126)*s);
+    if (plot.width<40*s || plot.height<40*s || !series) return;
+    double low=0,high=0,xlow=0,xhigh=0; size_t points=0;
+    for (size_t r=0;r<rows;r++) for (size_t j=0;j<series;j++) {
+        Cell *x=&p->cells[r*p->column_count]; if (scatter && (x->is_null || !isfinite(x->number))) continue;
+        Cell *cell=&p->cells[r*p->column_count+keys+j]; if (cell->is_null || !p->columns[keys+j].numeric || !isfinite(cell->number)) continue;
+        low=fmin(low,cell->number); high=fmax(high,cell->number);
+        if (scatter) { xlow=fmin(xlow,x->number); xhigh=fmax(xhigh,x->number); points++; }
+    }
+    if (low==high) high=low+1;
+    if (xlow==xhigh) xhigh=xlow+1;
+    if (scatter && !points) { ui_text_clip(u,"No paired finite numeric values in the loaded groups.",box(rect.x+12*s,rect.y+72*s,rect.width-24*s,48*s),12,UI_MUTED,false); return; }
+    if (scatter) for (int tick=0;tick<5;tick++) {
+        double fraction=tick/4.0,value=xlow*(1-fraction)+xhigh*fraction; float x=plot.x+plot.width*(.07f+.86f*(float)fraction);
+        clipped_fill(box(x,plot.y,s,plot.height),clip,UI_BORDER);
+        char label[40]; snprintf(label,sizeof(label),"%.3g",value); ui_text_clip(u,label,box(x-26*s,plot.y+plot.height+4*s,52*s,18*s),9,UI_MUTED,false);
+    }
+    if (scatter) { ui_text_clip(u,p->columns[0].name,box(plot.x,plot.y+plot.height+25*s,plot.width,18*s),10,UI_MUTED,false); }
+
+    for (int tick=0;tick<5;tick++) {
+        double fraction=tick/4.0,value=low*(1-fraction)+high*fraction; float y=plot.y+plot.height*(.93f-.86f*(float)fraction);
+        clipped_fill(box(plot.x,y,plot.width,s),clip,UI_BORDER);
+        char label[40]; snprintf(label,sizeof(label),"%.3g",value); ui_text_clip(u,label,box(rect.x+2*s,y-9*s,54*s,18*s),10,UI_MUTED,true);
+    }
+    for (size_t j=0;j<series;j++) {
+        Column *column=&p->columns[keys+j]; float w=(rect.width-20*s)/(workspace ? 2 : series);
+        float x=rect.x+10*s+(workspace ? j%2 : j)*w,y=workspace ? rect.y+rect.height-(62-(int)(j/2)*18)*s : rect.y+30*s;
+        clipped_fill(box(x,y+6*s,8*s,8*s),clip,colors[j]);
+        draw_column_label(u,column,box(x+12*s,y,w-18*s,column->detail && !workspace ? 15*s : 20*s),10,UI_MUTED);
+        if (column->detail && !workspace) ui_text_clip(u,column->detail,box(x+12*s,y+15*s,w-18*s,15*s),9,UI_MUTED,false);
+    }
+    float zero=plot.y+plot.height*(.93f-.86f*(float)ui_chart_fraction(0,low,high)),step=plot.width/fmaxf(1,(float)rows);
+    Rectangle data_clip=clip_rect(plot,clip);
+    BeginScissorMode((int)ceilf(data_clip.x),(int)ceilf(data_clip.y),(int)fmaxf(0,floorf(data_clip.width)),(int)fmaxf(0,floorf(data_clip.height)));
+    for (size_t r=0;r<rows;r++) {
+        for (size_t j=0;j<series;j++) {
+            Cell *xvalue=&p->cells[r*p->column_count]; if (scatter && (xvalue->is_null || !isfinite(xvalue->number))) continue;
+            float point_x=scatter ? plot.x+plot.width*(.07f+.86f*(float)ui_chart_fraction(xvalue->number,xlow,xhigh)) : plot.x+(r+.5f)*step;
+            Cell *cell=&p->cells[r*p->column_count+keys+j]; if (cell->is_null || !p->columns[keys+j].numeric || !isfinite(cell->number)) continue;
+            float y=plot.y+plot.height*(.93f-.86f*(float)ui_chart_fraction(cell->number,low,high)),width=step*.76f/series;
+            Rectangle bar=box(plot.x+r*step+step*.12f+j*width,fminf(y,zero),fmaxf(s,width-s),fmaxf(s,fabsf(zero-y)));
+            Vector2 point={point_x,y};
+            if (o->mark==MARK_BAR) clipped_fill(bar,clip,colors[j]);
+            else {
+                if (o->mark==MARK_LINE && r) {
+                    Cell *previous=&p->cells[(r-1)*p->column_count+keys+j];
+                    if (!previous->is_null && isfinite(previous->number)) {
+                        Vector2 from={point.x-step,plot.y+plot.height*(.93f-.86f*(float)ui_chart_fraction(previous->number,low,high))};
+                        DrawLineEx(from,point,2*s,colors[j]);
+                    }
+                }
+                DrawCircleV(point,(o->mark==MARK_DOT || scatter ? 4 : 2.5f)*s,colors[j]);
+            }
+        }
+    }
+    EndScissorMode();
+    /* Labels/tooltips follow all geometry, keeping the mark run contiguous. */
+    for (size_t r=0;r<rows;r++) {
+        for (size_t j=0;j<series;j++) {
+            Cell *xvalue=&p->cells[r*p->column_count]; if (scatter && (xvalue->is_null || !isfinite(xvalue->number))) continue;
+            float point_x=scatter ? plot.x+plot.width*(.07f+.86f*(float)ui_chart_fraction(xvalue->number,xlow,xhigh)) : plot.x+(r+.5f)*step;
+            Cell *cell=&p->cells[r*p->column_count+keys+j]; if (cell->is_null || !p->columns[keys+j].numeric || !isfinite(cell->number)) continue;
+            float y=plot.y+plot.height*(.93f-.86f*(float)ui_chart_fraction(cell->number,low,high)),width=step*.76f/series;
+            Rectangle bar=box(plot.x+r*step+step*.12f+j*width,fminf(y,zero),fmaxf(s,width-s),fmaxf(s,fabsf(zero-y)));
+            if (o->mark!=MARK_BAR) bar=box(point_x-6*s,y-6*s,12*s,12*s);
+            if (a->modal==MODAL_NONE && CheckCollisionPointRec(ui_mouse_position(),bar) && CheckCollisionPointRec(ui_mouse_position(),data_clip)) {
+                char detail[256]; snprintf(detail,sizeof(detail),"%s",cell->text);
+                Rectangle tooltip=box(fminf(bar.x,rect.x+rect.width-230*s),fmaxf(rect.y+27*s,bar.y-28*s),225*s,25*s);
+                clipped_fill(tooltip,clip,UI_BG);
+                Cell *key=keys ? &p->cells[r*p->column_count] : NULL;
+                ui_value(u,key ? key->text : "Total",key && key->is_null,box(tooltip.x,tooltip.y,115*s,tooltip.height),11,UI_TEXT,false);
+                ui_text_clip(u,detail,box(tooltip.x+115*s,tooltip.y,110*s,tooltip.height),11,UI_TEXT,true);
+            }
+        }
+        size_t stride=rows>10 ? (rows+9)/10 : 1;
+        if (!scatter && r%stride==0) {
+            Cell *key=keys ? &p->cells[r*p->column_count] : NULL;
+            ui_value(u,key ? key->text : "Total",key && key->is_null,box(plot.x+r*step,plot.y+plot.height+4*s,step*stride,22*s),9,UI_MUTED,false);
+        }
+    }
+    clipped_fill(box(plot.x,zero,plot.width,s),clip,UI_MUTED);
+    const char *marks[]={"Bar","Line","Dots","Scatter"};
+    char note[160]; if (scatter) snprintf(note,sizeof(note),"Scatter · %zu finite pairs · %zu of %" PRIu64 " groups · %zu of %zu series",points,rows,p->total,series,available); else snprintf(note,sizeof(note),"%s · %zu of %" PRIu64 " groups · %zu of %zu series",marks[o->mark],rows,p->total,series,available);
+    ui_text_clip(u,note,box(rect.x+10*s,rect.y+rect.height-24*s,rect.width-20*s,20*s),10,UI_MUTED,false);
+}
+static void draw_objects_plane(App *a,Grid *g,Rectangle clip) {
+    Worksheet *sheet=active_sheet(a); if (!sheet || clip.width<=0) return;
+    ObjectStore *store=&sheet->objects; UIContext *u=&a->ui; float s=u->scale;
+    uint64_t r0,r1; size_t c0,c1; grid_bounds(g,&r0,&r1,&c0,&c1);
+    ui_set_clip(u,clip);
+    for (size_t i=0;i<store->count;i++) {
+        SheetObject *o=&store->items[i]; ObjectView *view=&a->objects[i];
+        Rectangle rect=grid_range_rect(g,s,o->row,o->col,o->rows,o->columns);
+        Rectangle outline=grid_range_outline(g,s,o->row,o->col,o->rows,o->columns,clip);
+        if (!CheckCollisionRecs(outline,clip)) continue;
+        clipped_fill(outline,clip,WHITE);
+        clipped_fill(box(rect.x,rect.y,rect.width,g->row_height*s),clip,(int)i==a->selected_object ? UI_TINT : (Color){242,245,250,255});
+        char title[512];
+        if (o->pivot.counts[PIVOT_COLUMNS] && o->pivot.counts[PIVOT_VALUES]==1) snprintf(title,sizeof(title),"%s · %s · %s%s",o->name,aggregate_caption(o->pivot.fields[PIVOT_VALUES][0].aggregate),o->pivot.fields[PIVOT_VALUES][0].name,view->dirty ? " · Updating…" : "");
+        else snprintf(title,sizeof(title),"%s%s",o->name,view->dirty && (o->kind==OBJECT_TABLE || o->pivot.counts[PIVOT_VALUES]) ? " · Updating…" : "");
+        ui_text_clip(u,title,box(rect.x+5*s,rect.y,rect.width-10*s,g->row_height*s),12,UI_ACCENT,false);
+        Page *page=&view->page;
+        if (!page->column_count || view->failed || view->waiting_count) {
+            const char *hint=view->failed ? "Object needs attention" : view->waiting_count ? "Checking table size…" : o->kind==OBJECT_TABLE ? "Loading table…" : o->pivot.counts[PIVOT_VALUES] ? "Updating pivot…" : "Add fields to the shelves";
+            ui_text_clip(u,hint,box(rect.x+6*s,rect.y+35*s,rect.width-12*s,27*s),12,UI_TEXT,false);
+            ui_text_clip(u,view->failed ? view->error : o->kind==OBJECT_TABLE ? dx_basename(o->source.path) : "Rows · Columns · Values · Filters",box(rect.x+6*s,rect.y+67*s,rect.width-12*s,27*s),11,UI_MUTED,false);
+        } else if (o->kind==OBJECT_CHART) draw_chart(a,o,page,rect,clip,false);
+        else {
+            uint64_t first=g->top>o->row+2 ? g->top-o->row-2 : 0,last=first+g->render_rows+1; if (last>o->rows-2) last=o->rows-2;
+            /* Keep surfaces, headers, ordinary values and typed missing/empty
+               marks in separate runs instead of flushing a shape/font batch
+               for every visible cell. */
+            for (int phase=0;phase<4;phase++) for (size_t c=0;c<o->columns;c++) {
+                float x=grid_origin(g,s).x+(g->offsets[o->col+c]-g->horizontal)*s,w=g->widths[o->col+c]*s;
+                if (x+w<clip.x || x>clip.x+clip.width) continue;
+                Rectangle header=grid_range_rect(g,s,o->row+1,o->col+c,1,1);
+                Column *column=c<page->column_count ? &page->columns[c] : NULL;
+                if (!phase) { clipped_fill(header,clip,UI_TINT); clipped_border(header,clip,1,UI_BORDER); }
+                if (phase==1) {
+                    Rectangle label=header; if (o->kind==OBJECT_TABLE) label.width=fmaxf(0,label.width-27*s);
+                    if (!column) ui_value(u,NULL,true,label,12,UI_MUTED,false);
+                    else if (column->detail) { draw_column_label(u,column,box(label.x,label.y,label.width,13*s),10,UI_TEXT); ui_text_clip(u,column->detail,box(label.x,label.y+13*s,label.width,14*s),10,UI_MUTED,false); }
+                    else draw_column_label(u,column,label,12,UI_TEXT);
+                    if (o->kind==OBJECT_TABLE && column) {
+                        Rectangle button=box(header.x+header.width-25*s,header.y+4*s,21*s,19*s);
+                        bool clicked=ui_button(u,button,"",column->filtered,a->modal==MODAL_NONE && !a->io_busy);
+                        float cx=button.x+button.width*.5f,cy=button.y+button.height*.5f;
+                        if (cx-3*s>=clip.x && cx+3*s<=clip.x+clip.width && cy-2*s>=clip.y && cy+2*s<=clip.y+clip.height)
+                            DrawTriangle((Vector2){cx-3*s,cy-2*s},(Vector2){cx,cy+2*s},(Vector2){cx+3*s,cy-2*s},column->filtered ? UI_ACCENT : UI_MUTED);
+                        if (column->filtered) clipped_fill(box(cx-s,cy+2*s,2*s,3*s),clip,UI_ACCENT);
+                        if (clicked) { grid_select_cell(g,o->row+1,o->col+c,false); open_table_filter(a,i,c); }
+                    }
+                    continue;
+                }
+                for (uint64_t r=first;r<last;r++) {
+                    uint64_t sheet_row=o->row+r+2; size_t sheet_col=o->col+c;
+                    Rectangle cell=grid_range_rect(g,s,sheet_row,sheet_col,1,1);
+                    if (!phase) {
+                        if (sheet_row>=r0 && sheet_row<=r1 && sheet_col>=c0 && sheet_col<=c1 && !(sheet_row==g->row && sheet_col==g->col)) clipped_fill(cell,clip,UI_TINT);
+                        clipped_border(cell,clip,1,UI_BORDER); continue;
+                    }
+                    bool null=!column || (!page->count_pending && r>=page->total); const char *text=null ? NULL : "…"; const Cell *value=NULL;
+                    if (!null && r>=page->offset && r-page->offset<page->row_count) { value=&page->cells[(r-page->offset)*page->column_count+c]; null=value->is_null; text=value->text; }
+                    bool marker=null || (text && !*text); if ((phase==3)!=marker) continue;
+                    { char display[64]; if (column && column->date_grain && !null && text && *text) { pivot_date_label(column->date_grain,text,display); text=display; } ui_formatted_value(u,text,null,column && column->numeric,value && column && (column->type==DUCKDB_TYPE_FLOAT || column->type==DUCKDB_TYPE_DOUBLE),value ? value->number : 0,cell,13,value || null ? UI_TEXT : UI_MUTED,format_at(&sheet->formats,sheet_row,sheet_col)); }
+                }
+            }
+        }
+        clipped_border(outline,clip,(int)i==a->selected_object ? 2*s : 1,(int)i==a->selected_object ? UI_ACCENT : (Color){156,173,198,255});
+        if (o->kind!=OBJECT_CHART && r0<o->row+o->rows && r1>=o->row && c0<o->col+o->columns && c1>=o->col) {
+            size_t first=c0<g->width_count ? c0 : g->width_count-1,last=c1<g->width_count ? c1 : g->width_count-1;
+            uint64_t end=r1<DX_SHEET_ROWS ? r1 : DX_SHEET_ROWS-1;
+            Rectangle selection=grid_range_outline(g,s,r0,first,end-r0+1,last-first+1,clip);
+            clipped_border(selection,GetCollisionRec(outline,clip),2*s,UI_ACCENT);
+        }
+        if (o->kind!=OBJECT_CHART && (int)i==a->selected_object && g->row>o->row && g->row-o->row<o->rows && g->col>=o->col && g->col-o->col<o->columns) {
+            Rectangle active=grid_range_rect(g,s,g->row,g->col,1,1); clipped_border(active,clip,2*s,UI_ACCENT);
+        }
+        if ((int)i==a->selected_object) {
+            Rectangle handle=box(outline.x+outline.width-5*s,outline.y+outline.height-5*s,10*s,10*s);
+            if (o->kind==OBJECT_CHART) { clipped_fill(handle,clip,WHITE); clipped_border(handle,clip,2*s,UI_ACCENT); }
+            else clipped_fill(box(outline.x+outline.width-3*s,outline.y+outline.height-3*s,6*s,6*s),clip,UI_ACCENT);
+        }
+    }
+    if (a->chart_resizing) {
+        SheetObject *o=selected_pivot(a);
+        if (o) {
+            Rectangle preview=grid_range_rect(g,s,o->row,o->col,a->chart_resize_rows,a->chart_resize_columns);
+            Color color=a->chart_resize_valid ? UI_ACCENT : (Color){174,55,53,255};
+            clipped_border(preview,clip,2*s,color);
+            char text[96]; snprintf(text,sizeof(text),"%zu columns × %" PRIu64 " rows",a->chart_resize_columns,a->chart_resize_rows);
+            Rectangle label=box(fmaxf(clip.x,preview.x+preview.width-196*s),fmaxf(clip.y,fminf(clip.y+clip.height-30*s,preview.y+preview.height-32*s)),192*s,28*s);
+            clipped_fill(label,clip,WHITE); ui_text_clip(u,text,label,11,color,false);
+        }
+    }
+    ui_clear_clip(u);
+}
+static void draw_objects(App *a) {
+    Grid *g=&a->grid,plane=*g; plane.frozen_columns=0;
+    draw_objects_plane(a,&plane,grid_column_clip(g,a->ui.scale,g->frozen_columns));
+    if (g->frozen_columns) { plane.horizontal=0; plane.elastic.x=0; draw_objects_plane(a,&plane,grid_column_clip(g,a->ui.scale,0)); }
+}
+static void schedule_pivot(App *a) {
+    if (a->step_preview.active) return;
+    if (!active_sheet(a)) return;
+    if (a->busy || a->io_busy || a->values_loading || a->page_stale || a->fetch_failed || a->modal!=MODAL_NONE || dx_millis()-a->pivot_changed<150) return;
+    ObjectStore *store=&active_sheet(a)->objects;
+    for (size_t pass=0;pass<store->count;pass++) {
+        size_t i=a->selected_object>=0 ? (pass==0 ? (size_t)a->selected_object : pass<=(size_t)a->selected_object ? pass-1 : pass) : pass;
+        SheetObject *o=&store->items[i]; ObjectView *v=&a->objects[i]; if ((o->kind!=OBJECT_TABLE && !o->pivot.counts[PIVOT_VALUES]) || v->failed || v->waiting_count || (a->page.count_pending && o->col<a->page.column_count)) continue;
+        bool dirty=v->dirty || v->id!=o->id || v->revision!=o->revision || v->source_revision!=object_source_revision(a,o);
+        const SheetObject *bound=objects_source(store,selected_object(a));
+        bool dependency=bound && bound->id==o->id && !v->page.column_count;
+        Rectangle rect=object_outline(a,o); bool visible=CheckCollisionRecs(rect,a->grid.body);
+        if (!visible && !dependency && ((int)i!=a->selected_object || (!dirty && v->page.column_count && !v->page.count_pending))) continue;
+        uint64_t first=o->kind==OBJECT_CHART ? 0 : a->grid.top>o->row+2 ? a->grid.top-o->row-2 : 0;
+        bool cached=v->page.column_count && first>=v->page.offset && ((!v->page.count_pending && first>=v->page.total) || first+a->grid.render_rows<=v->page.offset+(v->page.count_pending && !v->page.row_count ? DX_PAGE_ROWS : v->page.row_count) || (!v->page.count_pending && v->page.offset+v->page.row_count==v->page.total));
+        if (!dirty && cached) continue;
+        QueryJob *j=dx_alloc(sizeof(*j)); j->id=++a->request_id; j->kind=JOB_PIVOT; j->analysis=analysis_copy(object_source(a,o)); j->pivot=pivot_copy(&o->pivot); j->object_id=o->id; j->revision=o->revision; j->is_table=o->kind==OBJECT_TABLE;
+        j->include_totals=!j->is_table;
+        j->refresh_source=a->refresh_plans; a->refresh_plans=false;
+        j->offset=first<96 ? 0 : first-96; j->known_total=dirty || v->page.count_pending ? -1 : (int64_t)v->page.total;
+        a->busy=true; a->pending_kind=JOB_PIVOT; a->pending_object_id=o->id; worker_submit(&a->worker,j); return;
+    }
+}
+static void preview_to_source(App *a,uint64_t row,size_t column) {
+    const SheetObject *table=objects_source(&active_sheet(a)->objects,selected_object(a));
+    a->selected_object=table ? (int)(table-active_sheet(a)->objects.items) : -1;
+    grid_select_cell(&a->grid,row+(table ? table->row+2 : 0),column+(table ? table->col : 0),false);
+    grid_reveal_cell(&a->grid,&a->page,a->ui.scale*a->grid.zoom);
+    a->pivot_reveal_object=false;
+    a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=false; a->consume_grid_input=true;
+}
+static void remember_source_location(App *a) {
+    if (a->io_busy || a->step_preview.active || !active_sheet(a)) return;
+    Grid *g=&a->grid; ObjectStore *store=&active_sheet(a)->objects;
+    int hit=objects_hit(store,g->row,g->col); size_t slot=0; uint64_t id=0,revision=a->analysis_revision;
+    if (hit>=0) {
+        const SheetObject *table=&store->items[hit]; const ObjectView *view=&a->objects[hit];
+        if (table->kind!=OBJECT_TABLE || view->dirty || view->failed || !view->page.column_count) return;
+        slot=(size_t)hit+1; id=table->id; revision=table->revision;
+    } else if (a->analysis.kind==SOURCE_NONE || !a->page.column_count || a->page_stale || g->row>=source_rows(a) || g->col>=a->page.column_count) return;
+    a->source_locations[slot]=(SourceLocation){.location=grid_location(g),.id=id,.revision=revision};
+}
+static void browse_source(App *a) {
+    ObjectStore *store=&active_sheet(a)->objects;
+    const SheetObject *table=objects_source(store,selected_object(a));
+    size_t slot=table ? (size_t)(table-store->items)+1 : 0;
+    SourceLocation *saved=&a->source_locations[slot];
+    uint64_t revision=table ? table->revision : a->analysis_revision;
+    if (saved->id!=(table ? table->id : 0) || saved->revision!=revision || !grid_restore_location(&a->grid,&saved->location)) { preview_to_source(a,0,0); return; }
+    a->selected_object=table ? (int)(slot-1) : -1;
+    a->pivot_reveal_object=false; a->matrix_cells_active=false; a->pivot_focus=a->chrome_focus=0;
+    a->pivot_search_focus=a->ribbon_focus=false; a->consume_grid_input=true;
+}
+static void zoom_canvas(App *a,float zoom,Vector2 pointer) {
+    if (a->step_preview.active) { grid_zoom_at(&a->step_preview.grid,&a->step_preview.page,a->ui.scale,zoom,pointer); return; }
+    float before=a->grid.zoom;
+    if (selected_pivot(a) && a->ribbon_mode!=3 && a->preview_valid) {
+        Page preview=*context_fields(a); preview.offset=0; preview.row_count=preview.row_count<12 ? preview.row_count : 12; preview.total=preview.row_count; preview.count_pending=false;
+        Grid *grid=&a->source_preview;
+        if (!CheckCollisionPointRec(pointer,grid->rect)) pointer=(Vector2){grid->body.x,grid->body.y};
+        grid_zoom_at(grid,&preview,a->ui.scale,zoom,pointer); a->grid.zoom=grid->zoom;
+    } else grid_zoom_at(&a->grid,&a->page,a->ui.scale,zoom,pointer);
+    if (before!=a->grid.zoom) a->book.dirty=true;
+}
+static void matrix_key(App *a,const SheetObject *o,const Page *page,int key,bool shift) {
+    if (!page->row_count || !page->column_count) return;
+    bool extending=shift && a->matrix_cells_active && (key==KEY_UP || key==KEY_DOWN || key==KEY_LEFT || key==KEY_RIGHT);
+    uint64_t focus_row=extending ? a->grid.end_row : a->grid.row; size_t focus_column=extending ? a->grid.end_col : a->grid.col;
+    uint64_t row=focus_row>=o->row+2 ? focus_row-o->row-2 : 0; size_t column=focus_column>=o->col ? focus_column-o->col : 0;
+    row=row<page->row_count ? row : page->row_count-1; column=column<page->column_count ? column : page->column_count-1;
+    switch (key) {
+    case KEY_UP: if (row) row--; break;
+    case KEY_DOWN: if (row+1<page->row_count) row++; break;
+    case KEY_ENTER: case KEY_KP_ENTER: if (shift) { if (row) row--; } else if (row+1<page->row_count) row++; break;
+    case KEY_LEFT: if (column) column--; break;
+    case KEY_RIGHT: if (column+1<page->column_count) column++; break;
+    case KEY_TAB: if (shift) { if (column) column--; } else if (column+1<page->column_count) column++; break;
+    case KEY_HOME: column=0; break;
+    case KEY_END: column=page->column_count-1; break;
+    case KEY_PAGE_UP: row=row>8 ? row-8 : 0; break;
+    case KEY_PAGE_DOWN: row=row+8<page->row_count ? row+8 : page->row_count-1; break;
+    default: return;
+    }
+    a->matrix_cells_active=true;
+    grid_select_cell(&a->grid,o->row+row+2,o->col+column,extending);
+    if ((int)row<a->matrix_row) a->matrix_vertical=row*24;
+    if ((int)row>=a->matrix_row+8) a->matrix_vertical=(row-7)*24;
+    float left=ui_matrix_column_left(column,o->pivot.counts[PIVOT_ROWS]),cell_width=ui_matrix_column_width(column,o->pivot.counts[PIVOT_ROWS]),width=fmaxf(80,a->authoring_layout.matrix.width/a->ui.scale-10);
+    if (left<a->matrix_horizontal) a->matrix_horizontal=left;
+    if (left+cell_width>a->matrix_horizontal+width) a->matrix_horizontal=fmaxf(0,left+cell_width-width);
+    a->consume_grid_input=true;
+}
+static void matrix_select_frame(App *a,const SheetObject *o) {
+    a->matrix_cells_active=false;
+    grid_select_cell(&a->grid,o->row,o->col,false); a->grid.end_row=o->row+o->rows-1; a->grid.end_col=o->col+o->columns-1;
+    a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=a->ribbon_focus=false; a->consume_grid_input=true;
+}
+static CellFormat matrix_total_format(App *a,uint64_t row,size_t column) {
+    CellFormat source=format_at(&active_sheet(a)->formats,row,column),out=format_default();
+    out.number=source.number; out.decimals=source.decimals; out.specified=source.specified&(FORMAT_NUMERIC|FORMAT_DECIMALS); return out;
+}
+static void matrix_select_at(App *a,const SheetObject *o,const Page *page,Rectangle rows,Vector2 point,bool extend) {
+    if (!page->row_count || !page->column_count) return;
+    double y=fmax(0,(point.y-rows.y)/a->ui.scale+a->matrix_vertical);
+    uint64_t row=(uint64_t)fmin((double)page->row_count-1,floor(y/24));
+    float x=fmaxf(0,(point.x-rows.x)/a->ui.scale+a->matrix_horizontal);
+    size_t columns=page->column_count+(page->totals && page->totals->has_columns ? o->pivot.counts[PIVOT_VALUES] : 0);
+    size_t column=ui_matrix_column_at(x,columns,o->pivot.counts[PIVOT_ROWS]);
+    if (column>=page->column_count) { matrix_select_frame(a,o); return; }
+    if (a->grid.anchor_row<o->row+2 || a->grid.anchor_row-o->row-2>=page->row_count || a->grid.anchor_col<o->col || a->grid.anchor_col-o->col>=page->column_count) extend=false;
+    a->matrix_cells_active=true; grid_select_cell(&a->grid,o->row+row+2,o->col+column,extend);
+    a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=a->ribbon_focus=false; a->consume_grid_input=true;
+}
+static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
+    SheetObject *o=selected_pivot(a); if (!o) return;
+    UIContext *u=&a->ui; float s=u->scale; Vector2 mouse=ui_mouse_position();
+    ObjectView *view=&a->objects[a->selected_object]; Page *result=&view->page,*source=object_fields(a,o);
+    const SheetObject *owner=objects_source(&active_sheet(a)->objects,o);
+    Rectangle logical=box(canvas.x/s,canvas.y/s,canvas.width/s,canvas.height/s);
+    UIAuthoringLayout layout=ui_authoring_layout(logical,a->analysis_scroll,a->workspace.context.height/s);
+    if (!layout.valid) return;
+    Rectangle preview_hit=box(layout.preview.x*s,layout.preview.y*s,layout.preview.width*s,layout.preview.height*s);
+    Rectangle matrix_hit=box(layout.matrix.x*s,layout.matrix.y*s,layout.matrix.width*s,layout.matrix.height*s);
+    float before_scroll=a->analysis_scroll; Vector2 wheel=GetMouseWheelMoveV();
+    bool over_preview=CheckCollisionPointRec(mouse,preview_hit),over_matrix=CheckCollisionPointRec(mouse,matrix_hit);
+    bool child_wheel=false;
+    if (over_preview) {
+        Grid *preview=&a->source_preview;
+        child_wheel=ui_shift() || (wheel.y>0 ? preview->top || preview->fraction>.001 : preview->vthumb.y+preview->vthumb.height<preview->vtrack.y+preview->vtrack.height-.01f*s);
+    } else if (over_matrix) child_wheel=ui_shift() || (wheel.y>0 ? a->matrix_vertical>.001f : a->matrix_vertical<a->matrix_maximum-.001f);
+    bool parent_wheel=enabled && wheel.y && !child_wheel && CheckCollisionPointRec(mouse,canvas);
+    if (parent_wheel) a->analysis_scroll-=wheel.y*32;
+    a->analysis_scroll=fmaxf(0,fminf(fmaxf(0,layout.height-logical.height),a->analysis_scroll));
+    Rectangle analysis_track=box(canvas.x+canvas.width-9*s,canvas.y,9*s,canvas.height);
+    if (ui_scrollbar_update(u,analysis_track,layout.height,logical.height,&a->analysis_scroll,false,&a->analysis_vbar,enabled)) a->consume_grid_input=true;
+    if (a->analysis_scroll!=before_scroll) layout=ui_authoring_layout(logical,a->analysis_scroll,a->workspace.context.height/s);
+    Rectangle *rects[]={&layout.label,&layout.preview,&layout.matrix,&layout.chart};
+    for (size_t i=0;i<4;i++) { rects[i]->x*=s; rects[i]->y*=s; rects[i]->width*=s; rects[i]->height*=s; }
+    if (a->matrix_object!=o->id) { a->matrix_object=o->id; a->matrix_row=0; a->matrix_horizontal=a->matrix_vertical=0; a->matrix_hbar=a->matrix_vbar=(UIScrollbar){0}; a->matrix_selecting=a->matrix_cells_active=false; }
+    if (enabled && !a->pivot_focus && !a->chrome_focus && !a->ribbon_focus && !a->consume_grid_input) {
+        if (ui_navigation_captured()) { DxKeyModifiers event; while (ui_take_navigation_key(&event)) matrix_key(a,o,result,event.key,(event.modifiers&DX_MOD_SHIFT)!=0); }
+        else {
+            const int keys[]={KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT,KEY_HOME,KEY_END,KEY_PAGE_UP,KEY_PAGE_DOWN,KEY_TAB,KEY_ENTER,KEY_KP_ENTER};
+            for (size_t i=0;i<sizeof(keys)/sizeof(*keys);i++) if (ui_key(keys[i])) matrix_key(a,o,result,keys[i],ui_key_shift(keys[i]));
+        }
+    }
+    a->authoring_layout=layout;
+    BeginScissorMode((int)canvas.x,(int)canvas.y,(int)canvas.width,(int)canvas.height);
+    DrawRectangleRec(canvas,(Color){250,251,252,255});
+    DrawRectangleRec(layout.label,(Color){251,252,253,255});
+    char label[160]; snprintf(label,sizeof(label),"Source preview · %zu of %" PRIu64 " rows%s",source->row_count<12 ? source->row_count : 12,source->total,source->offset ? " · current loaded page" : "");
+    ui_text_clip(u,label,box(layout.label.x+5*s,layout.label.y,layout.label.width*.7f,layout.label.height),10.5f,UI_MUTED,false);
+    ui_text_clip(u,"Current source result",box(layout.label.x+layout.label.width*.7f,layout.label.y,layout.label.width*.3f-8*s,layout.label.height),10.5f,UI_MUTED,true);
+    if (source->column_count && source->cells) {
+        Page preview=*source; preview.offset=0; preview.row_count=source->row_count<12 ? source->row_count : 12; preview.total=preview.row_count; preview.count_pending=false;
+        uint64_t id=owner ? owner->id : 0,revision=object_source_revision(a,o);
+        Grid *grid=&a->source_preview; grid->bounded=true; grid->source_header=true; grid->hide_selection=true; grid->row_height=a->grid.row_height; grid->zoom=a->grid.zoom; grid->hide_gridlines=!a->gridlines; grid->elastic_enabled=false; grid->freeze=a->grid.freeze;
+        if (!a->preview_valid || a->preview_source_id!=id || a->preview_source_revision!=revision || a->preview_generation!=a->analysis_revision || a->preview_sheet!=a->book.active || grid->data_columns!=source->column_count) {
+            grid_schema(grid,&preview,false); a->preview_source_id=id; a->preview_source_revision=revision; a->preview_generation=a->analysis_revision; a->preview_sheet=a->book.active; a->preview_valid=true;
+            a->preview_width_revision=UINT64_MAX;
+        }
+        if (a->preview_width_revision!=a->grid.width_revision) {
+            for (size_t c=0;c<source->column_count;c++) { size_t column=c+(owner ? owner->col : 0); if (column<a->grid.width_count) grid_set_width(grid,c,a->grid.widths[column]); }
+            a->preview_width_revision=a->grid.width_revision;
+        }
+        grid->formats=&active_sheet(a)->formats; grid->format_row=owner ? owner->row+2+source->offset : source->offset; grid->format_col=owner ? owner->col : 0;
+        uint64_t widths=grid->width_revision;
+        float scale=s*grid->zoom; grid_layout(grid,scale,&preview,layout.preview);
+        Rectangle visible=GetCollisionRec(layout.preview,canvas); DxPointerGesture gesture;
+        bool completed=enabled && ui_take_gesture_from(visible,&gesture),cell_click=false;
+        u->scale=scale;
+        if (completed) { uint64_t row; size_t column; cell_click=grid_cell_at(grid,scale,(Vector2){gesture.x0,gesture.y0},&row,&column) && row<preview.total; grid_replay_gesture(grid,u,&preview,gesture); }
+        GridInput input={.mouse=mouse,.wheel=enabled && CheckCollisionPointRec(mouse,visible) ? (Vector2){wheel.x,parent_wheel ? 0 : wheel.y} : (Vector2){0},.pressed=enabled && IsMouseButtonPressed(MOUSE_BUTTON_LEFT),.down=enabled && IsMouseButtonDown(MOUSE_BUTTON_LEFT),.released=IsMouseButtonReleased(MOUSE_BUTTON_LEFT),.shift=ui_shift(),.dt=GetFrameTime()};
+        if (enabled && (CheckCollisionPointRec(mouse,visible) || grid->resizing>=0 || grid->dragging || grid->scrollbar)) { uint64_t row; size_t column; cell_click|=input.pressed && grid_cell_at(grid,scale,mouse,&row,&column) && row<preview.total; grid_handle_input(grid,u,&preview,&input); }
+        if (!enabled) { grid->dragging=false; grid->resizing=-1; grid->scrollbar=0; }
+        if (grid->cursor!=MOUSE_CURSOR_DEFAULT && enabled && CheckCollisionPointRec(mouse,visible)) u->cursor=grid->cursor;
+        grid->controls_enabled=enabled && !a->io_busy;
+        grid_draw(grid,u,&preview,false); a->grid.freeze=grid->freeze; u->scale=s;
+        if (grid->fit_requested) { grid->fit_requested=false; size_t c=grid->fit_column; float width=ui_measure(u,source->columns[c].name,13)/s+30; for (size_t r=0;r<preview.row_count;r++) { Cell *cell=&preview.cells[r*preview.column_count+c]; width=fmaxf(width,ui_value_width(u,cell->text,cell->is_null,13,1170*s)/s+18); } grid_set_width(grid,c,width); }
+        if (widths!=grid->width_revision) {
+            for (size_t c=0;c<source->column_count;c++) { size_t column=c+(owner ? owner->col : 0); if (column<a->grid.width_count) grid_set_width(&a->grid,column,grid->widths[c]); }
+            a->preview_width_revision=a->grid.width_revision; a->book.dirty=true;
+        }
+        if (grid->filter_requested) {
+            grid->filter_requested=false; int selected=a->selected_object;
+            if (owner) open_table_filter(a,(size_t)(owner-active_sheet(a)->objects.items),grid->col);
+            else { size_t column=a->grid.col; a->grid.col=grid->col; open_modal(a,MODAL_FILTER); a->grid.col=column; }
+            a->selected_object=selected;
+            a->filter_anchor_valid=true; a->filter_anchor=(Vector2){grid_column_x(grid,scale,grid->col),grid->body.y};
+        } else if (cell_click) preview_to_source(a,source->offset+grid->row,grid->col);
+    } else ui_text_clip(u,source->column_count ? "No matching source rows" : "Loading source preview…",layout.preview,12,UI_MUTED,false);
+    for (int which=0;which<2;which++) {
+        bool scrollbar_input=false;
+        Rectangle panel=which ? layout.chart : layout.matrix,visible=GetCollisionRec(panel,canvas);
+        if (visible.width<=0 || visible.height<=0) continue;
+        bool active=which ? o->kind==OBJECT_CHART : o->kind==OBJECT_PIVOT;
+        DrawRectangleRec(panel,WHITE); ui_border(panel,canvas,(active ? 2 : 1)*s,active ? UI_ACCENT : UI_BORDER);
+        ui_set_clip(u,visible);
+        char summary[128];
+        if (result->total>result->row_count) snprintf(summary,sizeof(summary),"%zu of %" PRIu64 " groups · %zu measures",result->row_count,result->total,o->pivot.counts[PIVOT_VALUES]);
+        else snprintf(summary,sizeof(summary),"%" PRIu64 " groups · %zu measures",result->total,o->pivot.counts[PIVOT_VALUES]);
+        float summary_width=!which && panel.width>420*s ? ui_measure(u,summary,10)+16*s : 0;
+        ui_text_clip_weight(u,o->name,box(panel.x+5*s,panel.y,panel.width-42*s-summary_width,30*s),12,UI_TEXT,false,UI_MEDIUM);
+        if (summary_width) ui_text_clip(u,summary,box(panel.x+panel.width-38*s-summary_width,panel.y,summary_width,30*s),10,UI_MUTED,false);
+        Rectangle menu=box(panel.x+panel.width-30*s,panel.y+3*s,24*s,24*s);
+        if (ui_icon_button(u,menu,CARBON_OVERFLOW_MENU_HORIZONTAL,false,passive_control(a,enabled))) { a->view_menu_chart=which!=0; a->modal=MODAL_VIEW; a->context_origin=(Vector2){menu.x,menu.y+menu.height}; a->context_focus=a->context_scroll=0; a->consume_grid_input=true; }
+        DrawLineV((Vector2){panel.x,panel.y+30*s},(Vector2){panel.x+panel.width,panel.y+30*s},UI_BORDER);
+        if (!result->column_count || view->failed || !o->pivot.counts[PIVOT_VALUES]) {
+            ui_text_clip(u,view->failed ? "View needs attention" : o->pivot.counts[PIVOT_VALUES] ? "Updating view…" : "Drag fields to the shelves to build this view",box(panel.x+8*s,panel.y+60*s,panel.width-16*s,40*s),12,UI_MUTED,false); ui_clear_clip(u); continue;
+        }
+        if (which) {
+            SheetObject chart=*o; chart.kind=OBJECT_CHART;
+            draw_chart(a,&chart,result,panel,visible,true);
+            BeginScissorMode((int)canvas.x,(int)canvas.y,(int)canvas.width,(int)canvas.height);
+        } else {
+            Rectangle body=box(panel.x+1*s,panel.y+31*s,panel.width-2*s,panel.height-32*s);
+            size_t dims=o->pivot.counts[PIVOT_ROWS],measures=o->pivot.counts[PIVOT_VALUES];
+            PivotTotals *totals=result->totals; size_t columns=result->column_count+(totals && totals->has_columns ? measures : 0);
+            float row_height=24*s,header=48*s,footer_height=totals ? 24*s : 0,total=ui_matrix_column_left(columns,dims);
+            float area_width=body.width,area_height=body.height-header-footer_height;
+            bool horizontal=total>area_width/s; if (horizontal) area_height-=8*s;
+            bool vertical=result->row_count*24>area_height/s; if (vertical) area_width-=8*s;
+            if (!horizontal && total>area_width/s) { horizontal=true; area_height-=8*s; }
+            Rectangle rows=box(body.x,body.y+header,area_width,area_height),clip=GetCollisionRec(rows,canvas),head_clip=GetCollisionRec(box(body.x,body.y,area_width,header),canvas);
+            Rectangle footer=box(body.x,rows.y+rows.height,area_width,footer_height),footer_clip=GetCollisionRec(footer,canvas);
+            if (enabled && CheckCollisionPointRec(mouse,clip)) {
+                Vector2 scroll=GetMouseWheelMoveV(); if (parent_wheel) scroll.y=0; if (ui_shift()) a->matrix_horizontal-=scroll.y*36; else a->matrix_vertical-=scroll.y*72; a->matrix_horizontal-=scroll.x*36;
+            }
+            a->matrix_maximum=fmaxf(0,result->row_count*24-area_height/s);
+            a->matrix_vertical=fmaxf(0,fminf(a->matrix_maximum,a->matrix_vertical));
+            a->matrix_row=(int)(a->matrix_vertical/24); float fraction=(a->matrix_vertical-a->matrix_row*24)*s;
+            int visible_rows=(int)ceilf((area_height+fraction)/row_height);
+            a->matrix_horizontal=fmaxf(0,fminf(fmaxf(0,total-area_width/s),a->matrix_horizontal));
+            DxPointerGesture selection;
+            if (enabled && ui_take_left_gesture_from(clip,&selection)) {
+                if (!a->matrix_selecting) matrix_select_at(a,o,result,rows,(Vector2){selection.x0,selection.y0},(selection.modifiers&DX_MOD_SHIFT)!=0);
+                matrix_select_at(a,o,result,rows,(Vector2){selection.x1,selection.y1},true); a->matrix_selecting=false;
+                if (!active) set_representation(a,0);
+            } else if (enabled && CheckCollisionPointRec(mouse,clip) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                matrix_select_at(a,o,result,rows,mouse,ui_shift()); a->matrix_selecting=true; if (!active) set_representation(a,0);
+            } else if (enabled && a->matrix_selecting && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                float speed=GetFrameTime()*480;
+                if (mouse.y<rows.y) a->matrix_vertical-=speed; else if (mouse.y>rows.y+rows.height) a->matrix_vertical+=speed;
+                if (mouse.x<rows.x) a->matrix_horizontal-=speed; else if (mouse.x>rows.x+rows.width) a->matrix_horizontal+=speed;
+                a->matrix_vertical=fmaxf(0,fminf(fmaxf(0,result->row_count*24-area_height/s),a->matrix_vertical));
+                a->matrix_horizontal=fmaxf(0,fminf(fmaxf(0,total-area_width/s),a->matrix_horizontal));
+                matrix_select_at(a,o,result,rows,mouse,true);
+            }
+            if (!enabled || !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) a->matrix_selecting=false;
+            ui_set_clip(u,clip);
+            uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1);
+            for (int pass=0;pass<3;pass++) {
+            float x=body.x-a->matrix_horizontal*s;
+            for (size_t c=0;c<columns;c++) {
+                float width=ui_matrix_column_width(c,dims)*s; if (x>=body.x+body.width) break;
+                bool total_column=c>=result->column_count;
+                Column *column=total_column ? &totals->rows.columns[c-result->column_count] : &result->columns[c];
+                bool grouped=c>=dims && (column->category_count || total_column) && measures,first_group=grouped && (c-dims)%measures==0;
+                float group_width=first_group ? fminf((float)measures,(float)(columns-c))*width : width;
+                if (x+group_width>body.x) {
+                    Rectangle heading=box(x,body.y,width,header),category=box(x,body.y,group_width,24*s),measure=box(x,body.y+24*s,width,24*s);
+                    if (!pass) {
+                        if (grouped) { if (first_group) { clipped_fill(category,head_clip,(Color){231,240,247,255}); matrix_cell_edges(category,head_clip,s); } clipped_fill(measure,head_clip,(Color){241,246,250,255}); matrix_cell_edges(measure,head_clip,s); }
+                        else { clipped_fill(heading,head_clip,(Color){231,240,247,255}); matrix_cell_edges(heading,head_clip,s); }
+                    }
+                    if (pass==1) {
+                        ui_set_clip(u,head_clip);
+                        if (grouped) {
+                            if (first_group) { if (total_column) ui_text_clip_weight(u,"Total",category,10.5f,UI_TEXT,true,UI_MEDIUM); else draw_matrix_category(u,column,category); }
+                            const PivotField *field=&o->pivot.fields[PIVOT_VALUES][(c-dims)%measures];
+                            const char *label=field->aggregate==AGG_COUNT ? "Count" : field->aggregate==AGG_DISTINCT ? "Distinct count" : field->aggregate==AGG_AVG ? "Average" : field->name;
+                            ui_text_clip_weight(u,label,box(measure.x+s,measure.y,measure.width,measure.height),11.5f,UI_TEXT,true,UI_MEDIUM);
+                        } else { heading.x+=s; draw_column_label(u,column,heading,10.5f,UI_TEXT); }
+                    }
+                    ui_set_clip(u,clip);
+                    for (int j=0;j<visible_rows && (size_t)(j+a->matrix_row)<result->row_count;j++) {
+                        size_t row=(size_t)(j+a->matrix_row);
+                        Cell *cell=total_column ? &totals->rows.cells[row*measures+c-result->column_count] : &result->cells[row*result->column_count+c];
+                        Rectangle value=box(x,rows.y+j*row_height-fraction,width,row_height);
+                        if (!pass) {
+                            if (enabled && CheckCollisionPointRec(mouse,box(rows.x,value.y,rows.width,value.height))) clipped_fill(value,clip,(Color){241,246,250,255});
+                            if (!total_column && active && a->matrix_cells_active && o->row+row+2>=r0 && o->row+row+2<=r1 && o->col+c>=c0 && o->col+c<=c1) clipped_fill(value,clip,UI_TINT);
+                            matrix_cell_edges(value,clip,s);
+                            if (!total_column && active && a->matrix_cells_active && a->grid.row==o->row+row+2 && a->grid.col==o->col+c) ui_border(value,clip,2*s,UI_ACCENT);
+                        } else if ((pass==2)==(cell->is_null || !*cell->text)) {
+                            const char *text=cell->text; char display[64]; if (column->date_grain && !cell->is_null && *text) { pivot_date_label(column->date_grain,text,display); text=display; }
+                            CellFormat format=total_column ? matrix_total_format(a,o->row+row+2,o->col+dims+(c-result->column_count)%measures) : format_at(&active_sheet(a)->formats,o->row+row+2,o->col+c); if (c<dims && format.align==FORMAT_AUTO) format.align=FORMAT_LEFT;
+                            value.x+=s;
+                            ui_formatted_value(u,text,cell->is_null,column->numeric,column->type==DUCKDB_TYPE_FLOAT || column->type==DUCKDB_TYPE_DOUBLE,cell->number,value,11.5f,column->numeric && cell->number<0 ? (Color){164,51,55,255} : UI_TEXT,format);
+                        }
+                    }
+                    if (totals && c>=dims) {
+                        Rectangle value=box(x,footer.y,width,footer.height); size_t index=c-dims;
+                        Cell *cell=&totals->columns.cells[index]; Column *aggregate=&totals->columns.columns[index];
+                        if (!pass) { clipped_fill(value,footer_clip,(Color){230,239,246,255}); matrix_cell_edges(value,footer_clip,s); ui_border(box(value.x,value.y,value.width,s),footer_clip,s,(Color){185,204,217,255}); }
+                        else if ((pass==2)==(cell->is_null || !*cell->text)) {
+                            ui_set_clip(u,footer_clip);
+                            CellFormat format=matrix_total_format(a,o->row+2,o->col+(total_column ? dims+(c-result->column_count)%measures : c));
+                            ui_formatted_value_weight(u,cell->text,cell->is_null,aggregate->numeric,aggregate->type==DUCKDB_TYPE_FLOAT || aggregate->type==DUCKDB_TYPE_DOUBLE,cell->number,value,11.5f,UI_TEXT,format,UI_MEDIUM);
+                        }
+                    }
+                }
+                x+=width;
+            }
+            if (totals) {
+                float label_width=dims ? ui_matrix_column_left(dims,dims)*s : fminf(110*s,area_width);
+                Rectangle label=box(body.x-a->matrix_horizontal*s,footer.y,label_width,footer.height);
+                if (dims) {
+                    if (!pass) { clipped_fill(label,footer_clip,(Color){230,239,246,255}); matrix_cell_edges(label,footer_clip,s); ui_border(box(label.x,label.y,label.width,s),footer_clip,s,(Color){185,204,217,255}); }
+                    if (pass==1) { ui_set_clip(u,footer_clip); ui_text_clip_weight(u,"Grand total",label,11.5f,UI_TEXT,false,UI_MEDIUM); }
+                }
+            }
+            }
+            ui_set_clip(u,canvas);
+            if (horizontal) scrollbar_input|=ui_scrollbar(u,box(body.x,body.y+body.height-8*s,area_width,8*s),total,area_width/s,&a->matrix_horizontal,true,&a->matrix_hbar,enabled);
+            if (vertical) scrollbar_input|=ui_scrollbar(u,box(body.x+body.width-8*s,rows.y,8*s,area_height),result->row_count*24,area_height/s,&a->matrix_vertical,false,&a->matrix_vbar,enabled);
+            DxPointerGesture footer_gesture;
+            if (totals && enabled && ui_take_left_gesture_from(footer_clip,&footer_gesture)) { matrix_select_frame(a,o); if (!active) set_representation(a,0); }
+        }
+        ui_clear_clip(u);
+        DxPointerGesture gesture;
+        if (enabled && !scrollbar_input && ui_take_gesture_from(visible,&gesture)) { if (gesture.right) { a->modal=MODAL_OBJECT; a->context_origin=(Vector2){gesture.x1,gesture.y1}; a->context_focus=a->context_scroll=0; } else { if (!active) set_representation(a,which ? 1 : 0); if (gesture.y0<panel.y+30*s) a->matrix_cells_active=false; } a->consume_grid_input=true; }
+        else if (enabled && !scrollbar_input && !active && CheckCollisionPointRec(mouse,visible) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) set_representation(a,which ? 1 : 0);
+    }
+    EndScissorMode(); ui_clear_clip(u);
+    ui_scrollbar_paint(u,analysis_track,layout.height,logical.height,a->analysis_scroll,false);
+}
+static void draw_blank_cells(App *a) {
+    Worksheet *sheet=active_sheet(a); if (!sheet) return; Grid *g=&a->grid; UIContext *u=&a->ui; float s=u->scale;
+    Vector2 origin=grid_origin(g,s);
+    for (int pass=0;pass<(g->frozen_columns ? 2 : 1);pass++) {
+        size_t first=pass ? 0 : g->first_col,last=pass ? g->frozen_columns : g->width_count;
+        Rectangle clip=grid_column_clip(g,s,pass ? 0 : g->frozen_columns); ui_set_clip(u,clip);
+        for (size_t col=first;col<last;col++) {
+            float x=grid_column_x(g,s,col); if (x>=clip.x+clip.width) break; if (x+g->widths[col]*s<=clip.x) continue;
+            for (unsigned row=0;row<g->render_rows;row++) {
+                if (g->top+row>=DX_SHEET_ROWS) break;
+                if (g->top+row<source_rows(a) && col<a->page.column_count) continue;
+                if (objects_hit(&sheet->objects,g->top+row,col)>=0) continue;
+                const char *text=cells_get(&sheet->cells,g->top+row,col);
+                ui_formatted_value(u,text,!*text,false,false,0,box(x,origin.y+((float)row-(float)g->fraction)*g->row_height*s,g->widths[col]*s,g->row_height*s),13,UI_TEXT,format_at(&sheet->formats,g->top+row,col));
+            }
+        }
+    }
+    ui_clear_clip(u);
+}
+static bool commit_cell(App *a) {
+    char *error=NULL; Worksheet *sheet=active_sheet(a); Grid *g=&a->grid;
+    if (!sheet) return false;
+    uint64_t revision=sheet->cells.revision;
+    if (!manual_range(a,g->row,g->col,1,1,&error) || !cells_set(&sheet->cells,g->row,g->col,a->input.text,&error)) { status(a,error); free(error); return false; }
+    if (revision!=sheet->cells.revision) { worksheet_record(sheet,EDIT_CELLS); a->book.dirty=true; }
+    a->modal=MODAL_NONE; a->consume_grid_input=true; return true;
+}
+static void draw_cell_editor(App *a) {
+    UIContext *u=&a->ui; Grid *g=&a->grid; float scale=u->scale,s=scale*g->zoom;
+    Rectangle field=grid_range_rect(g,s,g->row,g->col,1,1); field.width=fmaxf(160*s,field.width);
+    if (field.x+field.width>g->body.x+g->body.width) field.width=g->body.x+g->body.width-field.x;
+    u->scale=s; input_update(&a->input); input_draw(u,&a->input,field); u->scale=scale;
+    if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; return; }
+    bool enter=ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER),tab=ui_pressed(KEY_TAB);
+    if (enter || tab || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),field))) {
+        if (!commit_cell(a)) return;
+        if (enter || tab) { int key=tab ? KEY_TAB : ui_pressed(KEY_KP_ENTER) ? KEY_KP_ENTER : KEY_ENTER; GridInput input={.key=key,.shift=ui_key_shift(key)}; u->scale=s; grid_handle_input(g,u,&a->page,&input); u->scale=scale; }
+    }
+}
+static void inspector_free(App *a) {
+    free(a->inspector_text); free(a->inspector_type); free(a->inspector_column);
+    a->inspector_text=a->inspector_type=a->inspector_column=NULL; text_lines_free(&a->inspector_lines);
+}
+static void inspect_value(App *a) {
+    const char *text=NULL,*type="VARCHAR",*column="Manual cell"; bool null=false;
+    Grid *g=a->step_preview.active ? &a->step_preview.grid : &a->grid;
+    Page *p=a->step_preview.active ? &a->step_preview.page : &a->page; uint64_t row=g->row; size_t col=g->col;
+    SheetObject *o=a->step_preview.active ? NULL : selected_object(a);
+    if (o) {
+        if (o->kind==OBJECT_CHART || row<o->row+2 || col<o->col) { status(a,"Select a pivot result cell to inspect."); return; }
+        row-=o->row+2; col-=o->col; p=&a->objects[a->selected_object].page;
+    } else if (!a->step_preview.active && manual_cell(a)) {
+        text=cells_get(&active_sheet(a)->cells,row,col);
+        null=!*text; if (null) type="NULL";
+    }
+    if (!text) {
+        if (a->step_preview.active && !copy_cached_cell(p,row,col) && copy_cached_cell(&a->step_preview.spare,row,col)) p=&a->step_preview.spare;
+        if (!a->step_preview.active && !o && !copy_cached_cell(p,row,col) && copy_cached_cell(&a->spare,row,col)) p=&a->spare;
+        const Cell *cell=copy_cached_cell(p,row,col);
+        if (!cell || (!p->count_pending && row>=p->total)) { status(a,"The selected cell is loading. Try again when it appears."); return; }
+        text=cell->text; null=cell->is_null; type=p->columns[col].type_name; column=p->columns[col].caption ? p->columns[col].caption : p->columns[col].name;
+    }
+    inspector_free(a); a->inspector_text=dx_strdup(text); a->inspector_type=dx_strdup(type); a->inspector_column=dx_strdup(column);
+    a->inspector_null=null; a->inspector_bytes=strlen(a->inspector_text); a->inspector_scroll=0; a->inspector_drag=false;
+    address(g->col,g->row+(a->step_preview.active || a->analysis.kind!=SOURCE_NONE ? 2 : 1),a->inspector_address);
+    a->modal=MODAL_INSPECT; a->consume_grid_input=true; a->key_tips=a->ribbon_focus=false;
+}
+static void inspector_copy(App *a) {
+    if (a->inspector_null) { status(a,"SQL NULL has no text value to copy."); return; }
+    SetClipboardText(a->inspector_text); status(a,a->inspector_bytes ? "Complete cell value copied." : "Empty text copied (0 bytes).");
+}
+static void draw_inspector(App *a) {
+    UIContext *u=&a->ui; float s=u->scale;
+    if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; inspector_free(a); return; }
+    float w=fminf(900*s,GetScreenWidth()-32*s),h=fminf(650*s,GetScreenHeight()-60*s),x=(GetScreenWidth()-w)/2,y=(GetScreenHeight()-h)/2;
+    Rectangle panel=box(x,y,w,h),content=box(x+24*s,y+105*s,w-65*s,h-177*s); Vector2 mouse=ui_mouse_position();
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,95});
+    DrawRectangleRec(box(x+4*s,y+5*s,w,h),(Color){20,32,45,36}); DrawRectangleRec(panel,UI_SURFACE); DrawRectangleLinesEx(panel,1,UI_BORDER);
+    ui_text(u,"Cell value",x+24*s,y+20*s,19,UI_TEXT);
+    char metadata[512]; snprintf(metadata,sizeof(metadata),"%s · %s · %s · %zu bytes%s",a->inspector_address,a->inspector_column,a->inspector_type,a->inspector_bytes,a->inspector_null ? " · SQL NULL" : !a->inspector_bytes ? " · empty text" : "");
+    ui_text_clip(u,metadata,box(x+17*s,y+60*s,w-34*s,27*s),12,UI_MUTED,false);
+    DrawRectangleLinesEx(box(content.x-8*s,content.y-8*s,content.width+33*s,content.height+16*s),1,UI_BORDER);
+    if (a->inspector_null || !a->inspector_bytes) {
+        ui_value(u,a->inspector_text,a->inspector_null,box(content.x-7*s,content.y,content.width,30*s),13,UI_TEXT,false);
+        ui_text_clip(u,a->inspector_null ? "Missing data. This is not the text NULL." : "VARCHAR with zero characters. This is not SQL NULL.",box(content.x-7*s,content.y+39*s,content.width,30*s),12,UI_MUTED,false);
+    } else {
+        TextLines *l=&a->inspector_lines;
+        if (!l->offsets || fabsf(l->width-content.width)>.5f || l->scale!=s || l->raster_size!=u->raster_size) {
+            double start=dx_millis(); text_lines_layout(l,u,a->inspector_text,content.width); a->inspector_layout_ms=dx_millis()-start;
+        }
+        size_t visible=(size_t)fmaxf(1,floorf(content.height/(21*s))),max=l->count>visible ? l->count-visible : 0;
+        int delta=0;
+        if (CheckCollisionPointRec(mouse,content)) delta=ui_scroll_steps(&a->wheel_inspector,-GetMouseWheelMoveV().y*3);
+        if (ui_key(KEY_UP)) delta--; if (ui_key(KEY_DOWN)) delta++;
+        if (ui_key(KEY_PAGE_UP)) delta-=(int)visible; if (ui_key(KEY_PAGE_DOWN)) delta+=(int)visible;
+        if (ui_pressed(KEY_HOME)) a->inspector_scroll=0; if (ui_pressed(KEY_END)) a->inspector_scroll=max;
+        if (delta<0) a->inspector_scroll=a->inspector_scroll<(size_t)-delta ? 0 : a->inspector_scroll-(size_t)-delta; else a->inspector_scroll+=(size_t)delta;
+        if (a->inspector_scroll>max) a->inspector_scroll=max;
+        text_lines_draw(l,u,a->inspector_text,a->inspector_scroll,content);
+        if (max) {
+            Rectangle track=box(content.x+content.width+10*s,content.y,10*s,content.height); float thumb=fmaxf(24*s,track.height*visible/(float)l->count),travel=track.height-thumb;
+            Rectangle handle=box(track.x,track.y+travel*(float)((double)a->inspector_scroll/max),track.width,thumb);
+            DrawRectangleRec(track,UI_BG); DrawRectangleRounded(handle,.5f,4,(Color){161,174,191,255});
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse,track)) { a->inspector_drag=true; a->inspector_grab=CheckCollisionPointRec(mouse,handle) ? mouse.y-handle.y : thumb/2; }
+            if (a->inspector_drag && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) a->inspector_scroll=(size_t)(fmaxf(0,fminf(1,(mouse.y-track.y-a->inspector_grab)/fmaxf(1,travel)))*max);
+            if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) a->inspector_drag=false;
+        }
+        char progress[160]; snprintf(progress,sizeof(progress),"Line %zu of %zu%s",a->inspector_scroll+1,l->count,l->limited ? " · display limit reached; Copy includes the complete value" : "");
+        ui_text_clip(u,progress,box(x+17*s,y+h-66*s,w-34*s,20*s),10,UI_MUTED,false);
+    }
+    if (ui_button(u,box(x+24*s,y+h-40*s,132*s,28*s),"Copy value",false,!a->inspector_null) || (ui_key_shortcut(KEY_C) && ui_pressed(KEY_C))) inspector_copy(a);
+    if (ui_button(u,box(x+w-112*s,y+h-40*s,88*s,28*s),"Close",true,true)) { a->modal=MODAL_NONE; inspector_free(a); }
+}
+static void fit_column(App *a,size_t col) {
+    UIContext *u=&a->ui; Grid *g=&a->grid; if (col>=g->width_count) return;
+    float scale=u->scale,old=g->widths[col]; u->scale*=g->zoom; grid_fit_column(g,u,&a->page,col); float width=g->widths[col];
+    Worksheet *sheet=active_sheet(a);
+    for (size_t i=0;i<sheet->cells.count;i++) if (sheet->cells.cells[i].col==col) width=fmaxf(width,ui_value_width(u,sheet->cells.cells[i].text,false,13,1180*u->scale)/u->scale+20);
+    for (size_t i=0;i<sheet->objects.count;i++) {
+        SheetObject *o=&sheet->objects.items[i]; Page *page=&a->objects[i].page;
+        if (o->kind==OBJECT_CHART || col<o->col || col-o->col>=page->column_count) continue;
+        size_t c=col-o->col; Column *column=&page->columns[c];
+        width=fmaxf(width,ui_measure_weight(u,column->caption ? column->caption : column->name,12,UI_MEDIUM)/u->scale+20);
+        if (column->detail) width=fmaxf(width,ui_measure(u,column->detail,10)/u->scale+20);
+        for (size_t r=0;r<page->row_count;r++) { Cell *cell=&page->cells[r*page->column_count+c]; width=fmaxf(width,ui_value_width(u,cell->text,cell->is_null,13,1180*u->scale)/u->scale+20); }
+    }
+    grid_set_width(g,col,width); u->scale=scale; grid_layout(g,scale*g->zoom,&a->page,g->rect);
+    if (old!=g->widths[col]) a->book.dirty=true;
+    status(a,"Column fitted using loaded data, pivot values and manual cells (up to 256 rows per result).");
+}
+static bool apply_column_width(App *a) {
+    char *end=NULL; double width=strtod(a->input.text,&end); while (end && isspace((unsigned char)*end)) end++;
+    if (end==a->input.text || !end || *end || !isfinite(width) || width<52 || width>1200) { a->width_invalid=true; return false; }
+    float old=a->grid.widths[a->grid.col]; grid_set_width(&a->grid,a->grid.col,(float)width);
+    if (old!=a->grid.widths[a->grid.col]) a->book.dirty=true;
+    a->modal=MODAL_NONE; a->consume_grid_input=true; return true;
+}
+static void selected_rows(const Grid *g,uint64_t *first,uint64_t *last) {
+    *first=*last=g->row;
+    if (g->selection==SELECT_ROWS) { *first=g->anchor_row<g->end_row ? g->anchor_row : g->end_row; *last=g->anchor_row>g->end_row ? g->anchor_row : g->end_row; }
+    if (*last>=DX_SHEET_ROWS) *last=DX_SHEET_ROWS-1; if (*first>*last) *first=*last;
+}
+static bool range_can_move(App *a,SheetRange range,char **error) {
+    const char *reason=NULL; Worksheet *sheet=active_sheet(a);
+    if (!sheet || a->io_busy) reason="Wait for the current operation before moving this range.";
+    else if (a->grid.selection!=SELECT_CELLS) reason="Select a rectangular cell range to move.";
+    else if (a->analysis.kind!=SOURCE_NONE && !a->page.column_count && !a->fetch_failed) reason="Wait for the source columns before moving this range.";
+    if (!reason) for (size_t i=0;i<sheet->objects.count;i++) {
+        SheetObject *o=&sheet->objects.items[i];
+        if (o->kind==OBJECT_TABLE && a->objects[i].page.count_pending && range.r0<o->row+o->rows && range.r1>=o->row && range.c0<o->col+o->columns && range.c1>=o->col) {
+            reason="Wait for the full row count before moving this table."; break;
+        }
+    }
+    if (reason) { if (error) { free(*error); *error=dx_strdup(reason); } return false; }
+    return worksheet_range_fits(sheet,range,0,0,source_rows(a),a->page.column_count,error);
+}
+static bool move_selection(App *a,int64_t dr,int dc,bool reveal,char **error) {
+    Grid *g=&a->grid; Worksheet *sheet=active_sheet(a); SheetRange range;
+    grid_bounds(g,&range.r0,&range.r1,&range.c0,&range.c1);
+    if (!range_can_move(a,range,error)) return false;
+    uint64_t revision=sheet->cells.revision; bool objects=false;
+    for (size_t i=0;i<sheet->objects.count;i++) {
+        SheetObject *o=&sheet->objects.items[i];
+        if (range.r0<=o->row && range.r1>=o->row+o->rows-1 && range.c0<=o->col && range.c1>=o->col+o->columns-1) objects=true;
+    }
+    if (!worksheet_move_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error)) return false;
+    g->anchor_row=(uint64_t)((int64_t)g->anchor_row+dr); g->end_row=(uint64_t)((int64_t)g->end_row+dr); g->row=(uint64_t)((int64_t)g->row+dr);
+    g->anchor_col=(size_t)((int)g->anchor_col+dc); g->end_col=(size_t)((int)g->end_col+dc); g->col=(size_t)((int)g->col+dc);
+    if (revision!=sheet->cells.revision || (objects && (dr || dc))) a->book.dirty=true;
+    a->selected_object=objects_hit(&sheet->objects,g->row,g->col);
+    size_t last=g->anchor_col>g->end_col ? g->anchor_col : g->end_col; grid_ensure_columns(g,last+1);
+    if (reveal) { grid_reveal_cell(g,&a->page,a->ui.scale*g->zoom); a->pivot_reveal_object=a->selected_object>=0; }
+    return true;
+}
+static void begin_move_range(App *a,bool whole_object) {
+    Grid *g=&a->grid; SheetRange range; grid_bounds(g,&range.r0,&range.r1,&range.c0,&range.c1);
+    SheetObject *object=whole_object ? selected_object(a) : NULL;
+    if (object) range=(SheetRange){object->row,object->row+object->rows-1,object->col,object->col+object->columns-1};
+    free(a->range_move_error); a->range_move_error=NULL;
+    if (!range_can_move(a,range,&a->range_move_error)) { status(a,a->range_move_error); a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    if (object) { grid_select_cell(g,object->row,object->col,false); g->end_row=range.r1; g->end_col=range.c1; }
+    char name[48]; address(range.c0,range.r0+1,name); input_set(&a->input,name);
+    a->range_move_focus=0; a->modal=MODAL_MOVE_RANGE; a->consume_grid_input=true; a->chrome_focus=0; a->pivot_focus=0; a->ribbon_focus=false;
+}
+static bool apply_range_move(App *a) {
+    uint64_t row; size_t column; free(a->range_move_error); a->range_move_error=NULL;
+    if (!grid_parse_address(a->input.text,&row,&column)) { a->range_move_error=dx_strdup("Enter a cell address in this sheet, such as H12."); return false; }
+    SheetRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1);
+    if (!move_selection(a,(int64_t)row-(int64_t)range.r0,(int)column-(int)range.c0,true,&a->range_move_error)) return false;
+    a->modal=MODAL_NONE; a->consume_grid_input=true; status(a,"Range moved. Undo restores its previous location."); return true;
+}
+static void draw_move_range(App *a) {
+    UIContext *u=&a->ui; float s=u->scale,w=fminf(520*s,GetScreenWidth()-32*s),h=252*s,x=(GetScreenWidth()-w)*.5f,y=(GetScreenHeight()-h)*.5f;
+    if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    if (ui_pressed(KEY_TAB)) a->range_move_focus=(a->range_move_focus+(ui_key_shift(KEY_TAB) ? 2 : 1))%3;
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
+    DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleLinesEx(box(x,y,w,h),1,UI_BORDER);
+    ui_text(u,"Move selection",x+24*s,y+20*s,20,UI_TEXT);
+    SheetRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1); char first[48],last[48],label[120];
+    address(range.c0,range.r0+1,first); address(range.c1,range.r1+1,last); snprintf(label,sizeof(label),"%s:%s · destination's top-left cell",first,last);
+    ui_text_clip(u,label,box(x+24*s,y+57*s,w-48*s,24*s),12,UI_MUTED,false);
+    Rectangle field=box(x+24*s,y+94*s,w-48*s,34*s);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),field)) a->range_move_focus=0;
+    if (!a->range_move_focus) input_update(&a->input); input_draw(u,&a->input,field);
+    if (a->range_move_error) ui_text_clip(u,a->range_move_error,box(x+16*s,y+138*s,w-32*s,48*s),11,(Color){174,55,53,255},false);
+    const char *labels[]={"Move","Cancel"};
+    for (int i=0;i<2;i++) {
+        Rectangle r=box(x+w-(216-i*104)*s,y+h-48*s,96*s,30*s);
+        if (a->range_move_focus==i+1) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
+        bool keyboard=(a->range_move_focus==i+1 || (!i && !a->range_move_focus)) && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)|| (a->range_move_focus && ui_pressed(KEY_SPACE)));
+        if (ui_button(u,r,labels[i],!i,true) || keyboard) { if (!i) apply_range_move(a); else { a->modal=MODAL_NONE; a->consume_grid_input=true; } return; }
+    }
+}
+static void column_action(App *a,ColumnAction action) {
+    Grid *g=&a->grid; Worksheet *sheet=active_sheet(a); a->consume_grid_input=true;
+    if (action==COLUMN_WIDTH) { char text[32]; snprintf(text,sizeof(text),"%.3f",g->widths[g->col]); input_set(&a->input,text); a->width_invalid=false; a->width_focus=0; a->modal=MODAL_WIDTH; return; }
+    a->modal=MODAL_NONE;
+    if (action==COLUMN_FIT) fit_column(a,g->col);
+    else if (action==RANGE_MOVE) begin_move_range(a,false);
+    else if (action==COLUMN_EDIT) open_modal(a,MODAL_CELL);
+    else if (action==COLUMN_FILTER) open_modal(a,MODAL_FILTER);
+    else if (action==COLUMN_ASC || action==COLUMN_DESC) sort_column(a,action==COLUMN_DESC);
+    else if (action==COLUMN_INSPECT) inspect_value(a);
+    else if (action==COLUMN_SORT) open_modal(a,MODAL_SORT);
+    else if (action==COLUMN_CLEAR) {
+        uint64_t r0,r1; size_t c0,c1; grid_bounds(g,&r0,&r1,&c0,&c1);
+        if (cells_clear(&sheet->cells,r0,r1,c0,c1)) { worksheet_record(sheet,EDIT_CELLS); a->book.dirty=true; }
+    } else if (action==ROW_ABOVE || action==ROW_BELOW || action==ROW_DELETE) {
+        uint64_t first,last; selected_rows(g,&first,&last);
+        uint64_t row=action==ROW_BELOW ? last+1 : first,count=last-first+1,rows=a->analysis.kind==SOURCE_NONE ? 0 : !a->page.column_count ? UINT64_MAX : source_rows(a); char *error=NULL;
+        bool moved=false; for (size_t i=0;i<sheet->objects.count;i++) if (action==ROW_DELETE ? sheet->objects.items[i].row>=row+count : sheet->objects.items[i].row>=row) moved=true;
+        uint64_t revision=sheet->cells.revision;
+        if (!worksheet_rows(sheet,row,count,action!=ROW_DELETE,rows,&error)) { status(a,error); free(error); return; }
+        bool changed=moved || revision!=sheet->cells.revision;
+        if (changed) a->book.dirty=true;
+        char text[96]; snprintf(text,sizeof(text),"%" PRIu64 " worksheet %s %s.",count,count==1 ? "row" : "rows",action==ROW_DELETE ? "deleted" : "inserted");
+        status(a,changed ? text : "These rows have no worksheet content to shift.");
+    } else {
+        size_t col=g->col+(action==COLUMN_RIGHT); char *error=NULL;
+        size_t source_columns=a->analysis.kind!=SOURCE_NONE && !a->page.column_count ? 16384 : a->page.column_count;
+        if (!worksheet_column(sheet,col,action!=COLUMN_DELETE,source_columns,&error)) { status(a,error); free(error); return; }
+        if (col<g->width_count) { sheet->undo_columns[sheet->undo_actions_count-1].width=g->widths[col]; shift_column_widths(g,col,action!=COLUMN_DELETE,96); }
+        a->book.dirty=true;
+    }
+}
+static void draw_column_width(App *a) {
+    UIContext *u=&a->ui; float s=u->scale,w=450*s,h=210*s,x=(GetScreenWidth()-w)*.5f,y=(GetScreenHeight()-h)*.5f;
+    if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    if (ui_pressed(KEY_TAB)) a->width_focus=(a->width_focus+(ui_key_shift(KEY_TAB) ? 2 : 1))%3;
+    if (!a->width_focus) input_update(&a->input);
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
+    DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleLinesEx(box(x,y,w,h),1,UI_BORDER);
+    ui_text(u,"Column width",x+24*s,y+20*s,20,UI_TEXT);
+    ui_text_clip(u,"Width at 100% canvas zoom · 52–1200",box(x+24*s,y+53*s,w-48*s,24*s),12,UI_MUTED,false);
+    Rectangle input=box(x+24*s,y+84*s,w-48*s,32*s); input_draw(u,&a->input,input);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),input)) a->width_focus=0;
+    if (a->width_invalid) ui_text_clip(u,"Enter a number between 52 and 1200.",box(x+24*s,y+120*s,w-48*s,24*s),12,UI_ACCENT,false);
+    const char *labels[]={"Apply","Cancel"};
+    for (int i=0;i<2;i++) {
+        Rectangle r=box(x+w-(228-i*108)*s,y+h-48*s,96*s,28*s);
+        if (a->width_focus==i+1) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
+        if (ui_button(u,r,labels[i],!i,true) || ((a->width_focus==i+1 || (!i && !a->width_focus)) && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)|| (a->width_focus && ui_pressed(KEY_SPACE))))) {
+            if (!i) apply_column_width(a); else { a->modal=MODAL_NONE; a->consume_grid_input=true; } return;
+        }
+    }
+}
+static void begin_chart_size(App *a) {
+    SheetObject *o=selected_pivot(a); if (!o || o->kind!=OBJECT_CHART) return;
+    char text[32]; snprintf(text,sizeof(text),"%zu",o->columns); input_set(&a->chart_columns,text);
+    snprintf(text,sizeof(text),"%" PRIu64,o->rows); input_set(&a->input,text);
+    free(a->chart_resize_error); a->chart_resize_error=NULL; a->chart_size_focus=0; a->modal=MODAL_CHART_SIZE; a->consume_grid_input=true;
+}
+static bool chart_dimension(const TextInput *field,size_t min,size_t max,size_t *result) {
+    const char *p=field->text; if (!p) return false;
+    while (isspace((unsigned char)*p)) p++;
+    if (!isdigit((unsigned char)*p)) return false;
+    size_t value=0;
+    while (isdigit((unsigned char)*p)) { unsigned digit=(unsigned)(*p++-'0'); if (value>(max-digit)/10) return false; value=value*10+digit; }
+    while (isspace((unsigned char)*p)) p++;
+    if (*p || value<min || value>max) return false;
+    *result=value; return true;
+}
+static bool apply_chart_size(App *a) {
+    size_t columns,rows;
+    if (!chart_dimension(&a->chart_columns,3,256,&columns) || !chart_dimension(&a->input,8,4096,&rows)) {
+        free(a->chart_resize_error); a->chart_resize_error=dx_strdup("Enter whole numbers: 3–256 columns and 8–4096 rows."); return false;
+    }
+    if (!resize_chart(a,(uint64_t)rows,columns)) return false;
+    a->modal=MODAL_NONE; a->consume_grid_input=true; return true;
+}
+static void draw_chart_size(App *a) {
+    UIContext *u=&a->ui; float s=u->scale,w=fminf(500*s,GetScreenWidth()-32*s),h=266*s,x=(GetScreenWidth()-w)*.5f,y=(GetScreenHeight()-h)*.5f;
+    if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    if (ui_pressed(KEY_TAB)) a->chart_size_focus=(a->chart_size_focus+(ui_key_shift(KEY_TAB) ? 3 : 1))%4;
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
+    DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleLinesEx(box(x,y,w,h),1,UI_BORDER);
+    ui_text(u,"Chart size",x+24*s,y+20*s,20,UI_TEXT);
+    ui_text_clip(u,"Size in worksheet cells",box(x+16*s,y+55*s,w-32*s,24*s),12,UI_MUTED,false);
+    float field_width=(w-56*s)/2;
+    Rectangle fields[]={box(x+24*s,y+112*s,field_width,34*s),box(x+32*s+field_width,y+112*s,field_width,34*s)};
+    for (int i=0;i<2;i++) {
+        ui_text(u,i ? "Rows (8–4096)" : "Columns (3–256)",fields[i].x,y+88*s,12,UI_TEXT);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),fields[i])) a->chart_size_focus=i;
+    }
+    TextInput *inputs[]={&a->chart_columns,&a->input};
+    for (int i=0;i<2;i++) { if (a->chart_size_focus==i) input_update(inputs[i]); input_draw(u,inputs[i],fields[i]); }
+    if (a->chart_resize_error) ui_text_clip(u,a->chart_resize_error,box(x+16*s,y+155*s,w-32*s,44*s),11,(Color){174,55,53,255},false);
+    const char *labels[]={"Apply","Cancel"};
+    for (int i=0;i<2;i++) {
+        Rectangle r=box(x+w-(216-i*104)*s,y+h-48*s,96*s,30*s);
+        if (a->chart_size_focus==i+2) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
+        bool keyboard=(a->chart_size_focus==i+2 || (!i && a->chart_size_focus<2)) && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)|| (a->chart_size_focus>=2 && ui_pressed(KEY_SPACE)));
+        if (ui_button(u,r,labels[i],!i,true) || keyboard) { if (!i) apply_chart_size(a); else { a->modal=MODAL_NONE; a->consume_grid_input=true; } return; }
+    }
+}
+static void begin_object_name(App *a) {
+    SheetObject *o=selected_object(a); if (!o) return;
+    input_set(&a->input,o->name); free(a->object_name_error); a->object_name_error=NULL;
+    a->object_name_focus=0; a->modal=MODAL_OBJECT_NAME; a->consume_grid_input=true;
+}
+static bool apply_object_name(App *a) {
+    Worksheet *sheet=active_sheet(a); if (!selected_object(a)) return false;
+    uint64_t revision=sheet->objects.title_revision; free(a->object_name_error); a->object_name_error=NULL;
+    if (!objects_rename(&sheet->objects,(size_t)a->selected_object,a->input.text,&a->object_name_error)) return false;
+    if (revision!=sheet->objects.title_revision) { worksheet_record(sheet,EDIT_OBJECTS); a->book.dirty=true; }
+    a->modal=MODAL_NONE; a->consume_grid_input=true; status(a,"Name updated."); return true;
+}
+static void draw_object_name(App *a) {
+    UIContext *u=&a->ui; float s=u->scale,w=fminf(500*s,GetScreenWidth()-32*s),h=224*s,x=(GetScreenWidth()-w)*.5f,y=(GetScreenHeight()-h)*.5f;
+    if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    if (ui_pressed(KEY_TAB)) a->object_name_focus=(a->object_name_focus+(ui_key_shift(KEY_TAB) ? 2 : 1))%3;
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
+    DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleLinesEx(box(x,y,w,h),1,UI_BORDER);
+    SheetObject *o=selected_object(a); ui_text(u,o && o->kind==OBJECT_TABLE ? "Rename table" : o && o->kind==OBJECT_CHART ? "Rename chart" : "Rename pivot",x+24*s,y+20*s,20,UI_TEXT);
+    ui_text(u,"Name",x+24*s,y+63*s,12,UI_TEXT);
+    Rectangle field=box(x+24*s,y+85*s,w-48*s,34*s);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),field)) a->object_name_focus=0;
+    if (!a->object_name_focus) input_update(&a->input); input_draw(u,&a->input,field);
+    if (a->object_name_error) ui_text_clip(u,a->object_name_error,box(x+16*s,y+125*s,w-32*s,32*s),11,(Color){174,55,53,255},false);
+    const char *labels[]={"Apply","Cancel"};
+    for (int i=0;i<2;i++) {
+        Rectangle r=box(x+w-(216-i*104)*s,y+h-48*s,96*s,30*s);
+        if (a->object_name_focus==i+1) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
+        bool keyboard=(a->object_name_focus==i+1 || (!i && !a->object_name_focus)) && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)|| (a->object_name_focus && ui_pressed(KEY_SPACE)));
+        if (ui_button(u,r,labels[i],!i,true) || keyboard) { if (!i) apply_object_name(a); else { a->modal=MODAL_NONE; a->consume_grid_input=true; } return; }
+    }
+}
+/* Ordinary source values use the design's six analytical actions. Header,
+   manual-range and object management menus retain their structural commands. */
+static bool source_cell_context(App *a) {
+    Grid *g=&a->grid; if (g->selection!=SELECT_CELLS) return false;
+    SheetObject *table=selected_object(a);
+    if (table) {
+        if (table->kind!=OBJECT_TABLE || g->row<table->row+2 || g->col<table->col) return false;
+        Page *page=&a->objects[a->selected_object].page;
+        return g->col-table->col<page->column_count && g->row-table->row-2<page->total;
+    }
+    return a->analysis.kind!=SOURCE_NONE && g->col<a->page.column_count && g->row<source_rows(a);
+}
+static void draw_source_context(App *a) {
+    UIContext *u=&a->ui; SheetObject *table=selected_object(a); int owner=table ? a->selected_object : -1;
+    size_t column=table ? a->grid.col-table->col : a->grid.col;
+    Page *page=table ? &a->objects[owner].page : &a->page;
+    UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},u->scale,6,4);
+    if (!menu.valid || column>=page->column_count) return;
+    popup_capture(a,menu.panel);
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),menu.panel))) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    context_keys(a,6,6);
+    char location[48],title[512]; address(a->grid.col,a->grid.row+(a->analysis.kind!=SOURCE_NONE ? 2 : 1),location);
+    snprintf(title,sizeof(title),"%s · %s",page->columns[column].caption ? page->columns[column].caption : page->columns[column].name,location);
+    ui_choice_frame(u,&menu,title);
+    const char *names[]={"Copy selection","Sort ascending","Sort descending","Filter column…","Create analysis","Inspect SQL"};
+    const UICarbonIcon icons[]={CARBON_COPY,CARBON_SORT_ASCENDING,CARBON_SORT_DESCENDING,CARBON_FILTER,CARBON_DATA_VIEW,CARBON_SQL};
+    for (int i=0;i<6;i++) {
+        bool available=(i!=1 && i!=2 && i!=4) || !a->busy;
+        bool chosen=ui_choice_row(u,menu.rows[i],names[i],NULL,icons[i],false,a->context_focus==i,available);
+        if (available && (chosen || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE))))) {
+            a->modal=MODAL_NONE; a->consume_grid_input=true;
+            if (!i) copy_selection(a);
+            else if (i<3) {
+                Analysis order={0}; analysis_sort_set(&order,page->columns[column].name,i==2,false,NULL);
+                a->sort_object=owner; apply_sort_order(a,&order); analysis_free(&order);
+            } else if (i==3) {
+                Vector2 anchor=a->context_origin;
+                if (table) open_table_filter(a,(size_t)owner,column); else open_modal(a,MODAL_FILTER);
+                a->filter_anchor_valid=true; a->filter_anchor=anchor;
+            } else if (i==4) run_action(a,ACTION_CREATE_VIEW);
+            else { a->pipeline_sql=true; present_pipeline(a,true,false); a->chrome_focus=8; }
+            return;
+        }
+    }
+}
+static void draw_context(App *a) {
+    if (source_cell_context(a)) { draw_source_context(a); return; }
+    static const char *names[]={"Column width…","Fit loaded values","Insert column left","Insert column right","Delete column","Edit cell","Clear manual cells","Filter available values","Sort ascending","Sort descending","Inspect value","Sort by multiple columns…","Insert row above","Insert row below","Delete row","Move selection…"};
+    ColumnAction actions[8]={COLUMN_WIDTH,COLUMN_FIT}; int count=2;
+    bool row_menu=a->grid.selection==SELECT_ROWS;
+    uint64_t first,last; selected_rows(&a->grid,&first,&last); uint64_t row_count=last-first+1;
+    if (row_menu) { count=0; actions[count++]=ROW_ABOVE; actions[count++]=ROW_BELOW; actions[count++]=ROW_DELETE; actions[count++]=COLUMN_EDIT; actions[count++]=COLUMN_CLEAR; actions[count++]=COLUMN_INSPECT; }
+    else if (a->analysis.kind==SOURCE_NONE || (a->page.column_count && a->grid.col>=a->page.column_count)) { actions[count++]=COLUMN_LEFT; actions[count++]=COLUMN_RIGHT; actions[count++]=COLUMN_DELETE; actions[count++]=COLUMN_EDIT; actions[count++]=COLUMN_CLEAR; }
+    else if (manual_cell(a)) { actions[count++]=COLUMN_EDIT; actions[count++]=COLUMN_CLEAR; }
+    else { actions[count++]=COLUMN_FILTER; actions[count++]=COLUMN_ASC; actions[count++]=COLUMN_DESC; actions[count++]=COLUMN_INSPECT; actions[count++]=COLUMN_SORT; }
+    if (!row_menu && a->grid.selection==SELECT_CELLS && manual_cell(a)) actions[count++]=RANGE_MOVE;
+    UIContext *u=&a->ui;
+    UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},u->scale,count,row_menu ? 3 : 2);
+    if (!menu.valid) return;
+    Rectangle panel=menu.panel; popup_capture(a,panel); Vector2 mouse=ui_mouse_position();
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,panel))) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    bool available[8];
+    for (int i=0;i<count;i++) {
+        available[i]=actions[i]!=COLUMN_SORT || !a->busy;
+        if (row_menu) {
+            uint64_t rows=a->analysis.kind==SOURCE_NONE ? 0 : !a->page.column_count ? UINT64_MAX : source_rows(a);
+            if (actions[i]==ROW_ABOVE || actions[i]==ROW_DELETE) available[i]=first>=rows;
+            if (actions[i]==ROW_BELOW) available[i]=last+1>=rows && row_count<=DX_SHEET_ROWS-(last+1);
+            if (actions[i]==COLUMN_EDIT) available[i]=manual_cell(a);
+        }
+    }
+    context_keys(a,count,count);
+    int direction=ui_key(KEY_UP) || (ui_pressed(KEY_TAB)&&ui_key_shift(KEY_TAB)) || ui_pressed(KEY_END) ? -1 : 1;
+    for (int i=0;i<count && !available[a->context_focus];i++) a->context_focus=(a->context_focus+count+direction)%count;
+    char title[112],location[48]; address(a->grid.col,a->grid.row+1,location);
+    if (row_menu && row_count>1) snprintf(title,sizeof(title),"Rows %" PRIu64 "–%" PRIu64,first+1,last+1);
+    else if (row_menu) snprintf(title,sizeof(title),"Row %" PRIu64,first+1);
+    else if (a->grid.selection==SELECT_COLUMNS) { location[strcspn(location,"0123456789")]=0; snprintf(title,sizeof(title),"Column %s",location); }
+    else snprintf(title,sizeof(title),"Cell %s",location);
+    ui_choice_frame(u,&menu,title);
+    const UICarbonIcon icons[]={CARBON_ARROWS_HORIZONTAL,CARBON_MAXIMIZE,CARBON_ARROW_LEFT,CARBON_ARROW_RIGHT,CARBON_TRASH_CAN,CARBON_STRING_TEXT,CARBON_TRASH_CAN,CARBON_FILTER,CARBON_SORT_ASCENDING,CARBON_SORT_DESCENDING,CARBON_INFORMATION,CARBON_LIST,CARBON_ARROW_UP,CARBON_ARROW_DOWN,CARBON_TRASH_CAN,CARBON_DRAGGABLE};
+    for (int i=0;i<count;i++) {
+        char text[96]; const char *label=names[actions[i]];
+        if (row_menu && row_count>1 && actions[i]>=ROW_ABOVE) {
+            if (actions[i]==ROW_DELETE) snprintf(text,sizeof(text),"Delete %" PRIu64 " rows",row_count);
+            else snprintf(text,sizeof(text),"Insert %" PRIu64 " rows %s",row_count,actions[i]==ROW_ABOVE ? "above" : "below");
+            label=text;
+        }
+        if (ui_choice_row(u,menu.rows[i],label,NULL,icons[actions[i]],false,a->context_focus==i,available[i]) || (!a->consume_grid_input && available[i] && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { column_action(a,actions[i]); return; }
+    }
+}
+
+static void set_ribbon_mode(App *a,int mode) {
+    if (mode<0 || mode>3) return;
+    if (mode==3 && a->ribbon_mode!=3) a->previous_ribbon_mode=a->ribbon_mode;
+    a->ribbon_mode=mode; a->ribbon_focus=false; a->ribbon_command=-1; a->key_tips=false;
+    a->pivot_focus=0; a->pivot_search_focus=false; a->consume_grid_input=true;
+    a->chrome_focus=0;
+    a->grid.dragging=a->grid.moving=false; a->grid.resizing=-1;
+    a->split_side=a->split_pipeline=a->steps_drag=a->workbook_drag=a->field_drag=false;
+    a->ribbon_layout.valid=false;
+}
+static int draw_choices(App *a,const char *title,const char *const *names,int count,int selected,int separator,int *focus,Vector2 origin) {
+    UIContext *u=&a->ui; float s=u->scale;
+    UIChoiceLayout layout=ui_choice_layout(origin,(Vector2){GetScreenWidth(),GetScreenHeight()},s,count,separator);
+    if (!layout.valid) return -2;
+    popup_capture(a,layout.panel);
+    Rectangle panel=layout.panel; DxPointerGesture gesture;
+    bool outside=false;
+    if (!a->consume_grid_input) {
+        outside=IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),panel);
+        Rectangle regions[]={{0,0,GetScreenWidth(),panel.y},{0,panel.y+panel.height,GetScreenWidth(),fmaxf(0,GetScreenHeight()-panel.y-panel.height)},{0,panel.y,panel.x,panel.height},{panel.x+panel.width,panel.y,fmaxf(0,GetScreenWidth()-panel.x-panel.width),panel.height}};
+        for (int i=0;i<4;i++) outside|=ui_take_left_gesture_from(regions[i],&gesture);
+    }
+    if (ui_pressed(KEY_ESCAPE)||outside) { a->consume_grid_input=true; return -2; }
+    int before=a->context_focus; a->context_focus=*focus; context_keys(a,count,count); *focus=a->context_focus;
+    if (focus!=&a->context_focus) a->context_focus=before;
+    ui_choice_frame(u,&layout,title);
+    for (int i=0;i<count;i++) {
+        UICarbonIcon icon=separator==i ? CARBON_MAXIMIZE : CARBON_COUNT;
+        bool chosen=ui_choice_row(u,layout.rows[i],names[i],separator==i ? "⌘⇧F" : NULL,icon,i==selected,i==*focus,true);
+        if (chosen || (!a->consume_grid_input && i==*focus && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { a->consume_grid_input=true; return i; }
+    }
+    return -1;
+}
+static void draw_ribbon_menu(App *a) {
+    const char *names[]={"Full ribbon","Compact · icons and names","Icons only","Focus view"};
+    float s=a->ui.scale,width=GetScreenWidth()/s<900 ? 26 : 110;
+    int result=draw_choices(a,"Ribbon display",names,4,a->ribbon_mode,3,&a->ribbon_menu_focus,(Vector2){GetScreenWidth()-(width+36)*s,58*s});
+    if (result>=0) set_ribbon_mode(a,result);
+    if (result!=-1) a->modal=MODAL_NONE;
+}
+static size_t sheet_display_position(const Workbook *book,size_t index) {
+    size_t position=0; for (size_t i=0;i<index && i<book->count;i++) position+=!book->sheets[i].hidden; return position;
+}
+static void begin_sheet_rename(App *a,size_t index) {
+    if (index>=a->book.count || a->io_busy) return;
+    a->sheet_menu_index=index; a->sheet_rename_error=false; input_set(&a->input,a->book.sheets[index].name);
+    a->workbook_focus_index=(int)sheet_display_position(&a->book,index);
+    a->modal=MODAL_RENAME; a->consume_grid_input=true; while (GetCharPressed()) { }
+}
+static void begin_sheet_menu(App *a,size_t index,Vector2 origin) {
+    if (index>=a->book.count || a->io_busy) return;
+    a->sheet_menu_index=index; a->sheet_menu_focus=0; a->context_origin=origin; a->modal=MODAL_SHEET; a->consume_grid_input=true;
+    a->unhide_scroll=0; a->context_drag=false;
+    a->workbook_focus_index=(int)sheet_display_position(&a->book,index);
+}
+static void process_sheet_action(App *a) {
+    SheetAction action=a->sheet_action; a->sheet_action=SHEET_ACTION_NONE;
+    size_t index=a->sheet_menu_index; if (action==SHEET_ACTION_NONE || a->io_busy || index>=a->book.count) return;
+    char *error=NULL; size_t previous=a->book.active; bool ok=false;
+    if (action==SHEET_ACTION_DUPLICATE || (action==SHEET_ACTION_HIDE && index==previous)) capture_sheet(a);
+    if (action==SHEET_ACTION_DUPLICATE) ok=workbook_duplicate(&a->book,index,&error);
+    else if (action==SHEET_ACTION_HIDE || action==SHEET_ACTION_SHOW) ok=workbook_hide(&a->book,index,action==SHEET_ACTION_HIDE,&error);
+    else {
+        size_t destination=index;
+        while (action==SHEET_ACTION_UP ? destination>0 : destination+1<a->book.count) {
+            destination=action==SHEET_ACTION_UP ? destination-1 : destination+1;
+            if (!a->book.sheets[destination].hidden) break;
+        }
+        ok=workbook_reorder(&a->book,index,destination,&error);
+    }
+    if (!ok) { status(a,error); free(error); return; }
+    if (action==SHEET_ACTION_DUPLICATE || (action==SHEET_ACTION_HIDE && index==previous)) activate_sheet(a,a->book.active,false);
+    else if (action==SHEET_ACTION_SHOW) activate_sheet(a,index,true);
+    a->workbook_focus_index=(int)sheet_display_position(&a->book,a->book.active); a->reveal_tab=true;
+    if (action==SHEET_ACTION_DUPLICATE) status(a,"Worksheet duplicated. Source files stay shared; notes, objects and layout are independent.");
+    else if (action==SHEET_ACTION_HIDE) status(a,"Worksheet hidden. Use Workbook → Unhide worksheets to show it again.");
+    else status(a,"Worksheet navigation updated.");
+}
+static void draw_sheet_modal(App *a) {
+    UIContext *u=&a->ui; float s=u->scale; bool rename=a->modal==MODAL_RENAME,unhide=a->modal==MODAL_UNHIDE;
+    if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->chrome_focus=2; a->consume_grid_input=true; return; }
+    if (rename) {
+        float w=fminf(520*s,GetScreenWidth()-32*s),h=226*s; Rectangle r=box((GetScreenWidth()-w)/2,(GetScreenHeight()-h)/2,w,h);
+        DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,70}); DrawRectangleRec(r,UI_BG); DrawRectangleLinesEx(r,1,UI_BORDER);
+        ui_text_clip_weight(u,"Rename worksheet",box(r.x+14*s,r.y+12*s,w-28*s,32*s),17,UI_TEXT,false,UI_SEMIBOLD);
+        input_update(&a->input); input_draw(u,&a->input,box(r.x+20*s,r.y+62*s,w-40*s,36*s));
+        if (a->sheet_rename_error) ui_text_clip(u,a->message,box(r.x+14*s,r.y+104*s,w-28*s,42*s),11,(Color){160,43,43,255},false);
+        bool apply=ui_button(u,box(r.x+w-130*s,r.y+h-48*s,110*s,30*s),"Rename",true,true)||ui_pressed(KEY_ENTER);
+        bool cancel=ui_button(u,box(r.x+w-248*s,r.y+h-48*s,110*s,30*s),"Cancel",false,true);
+        if (apply) {
+            char *error=NULL;
+            if (workbook_rename(&a->book,a->sheet_menu_index,a->input.text,&error)) { a->modal=MODAL_NONE; a->chrome_focus=2; status(a,"Worksheet renamed."); }
+            else { a->sheet_rename_error=true; status(a,error); free(error); }
+        } else if (cancel) { a->modal=MODAL_NONE; a->chrome_focus=2; }
+        return;
+    }
+    size_t hidden[DX_MAX_SHEETS],count=0;
+    if (unhide) for (size_t i=0;i<a->book.count;i++) if (a->book.sheets[i].hidden) hidden[count++]=i;
+    if (unhide && !count) { a->modal=MODAL_NONE; return; }
+    int rows=unhide ? (int)count : 6;
+    UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},s,rows);
+    if (!menu.frame.valid) return;
+    int visible=menu.visible; Rectangle r=menu.frame.panel;
+    popup_capture(a,r);
+    if (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),r)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    ui_choice_frame(u,&menu.frame,unhide ? "Show a hidden worksheet" : a->book.sheets[a->sheet_menu_index].name);
+    bool available[DX_MAX_SHEETS]; size_t index=a->sheet_menu_index;
+    for (int i=0;i<rows;i++) available[i]=unhide || (i==1 ? a->book.count<DX_MAX_SHEETS : i==2 ? sheet_display_position(&a->book,index)>0 : i==3 ? sheet_display_position(&a->book,index)+1<workbook_visible_count(&a->book) : i==4 ? workbook_visible_count(&a->book)>1 : i==5 ? workbook_visible_count(&a->book)<a->book.count : true);
+    if (ui_key(KEY_UP)) a->sheet_menu_focus=(a->sheet_menu_focus+rows-1)%rows;
+    if (ui_key(KEY_DOWN)) a->sheet_menu_focus=(a->sheet_menu_focus+1)%rows;
+    if (ui_pressed(KEY_TAB)) a->sheet_menu_focus=(a->sheet_menu_focus+rows+(ui_key_shift(KEY_TAB) ? -1 : 1))%rows;
+    if (ui_pressed(KEY_HOME)) a->sheet_menu_focus=0;
+    if (ui_pressed(KEY_END)) a->sheet_menu_focus=rows-1;
+    int direction=ui_key(KEY_UP) || (ui_pressed(KEY_TAB)&&ui_key_shift(KEY_TAB)) || ui_pressed(KEY_END) ? -1 : 1;
+    for (int i=0;i<rows && !available[a->sheet_menu_focus];i++) a->sheet_menu_focus=(a->sheet_menu_focus+rows+direction)%rows;
+    if (unhide && CheckCollisionPointRec(ui_mouse_position(),r)) a->unhide_scroll+=ui_scroll_steps(&a->wheel_unhide,-GetMouseWheelMoveV().y*3);
+    if (unhide && (ui_key(KEY_UP)||ui_key(KEY_DOWN)||ui_pressed(KEY_HOME)||ui_pressed(KEY_END)||ui_pressed(KEY_TAB))) {
+        if (a->sheet_menu_focus<a->unhide_scroll) a->unhide_scroll=a->sheet_menu_focus;
+        if (a->sheet_menu_focus>=a->unhide_scroll+visible) a->unhide_scroll=a->sheet_menu_focus-visible+1;
+    }
+    if (a->unhide_scroll>rows-visible) a->unhide_scroll=rows-visible; if (a->unhide_scroll<0 || !unhide) a->unhide_scroll=0;
+    const char *labels[]={"Rename…","Duplicate worksheet","Move up","Move down","Hide worksheet","Unhide worksheets…"};
+    const UICarbonIcon icons[]={CARBON_STRING_TEXT,CARBON_COPY,CARBON_ARROW_UP,CARBON_ARROW_DOWN,CARBON_MINIMIZE,CARBON_VIEW};
+    if (unhide) list_scrollbar(a,menu.items,rows,visible,&a->unhide_scroll,&a->context_drag,&a->context_grab,true);
+    for (int j=0;j<visible;j++) {
+        int i=j+a->unhide_scroll; Rectangle row=menu.frame.rows[j]; if (rows>visible) row.width-=9*s;
+        bool clicked=ui_choice_row(u,row,unhide ? a->book.sheets[hidden[i]].name : labels[i],!unhide && !i ? "F2" : NULL,unhide ? CARBON_TABLE : icons[i],false,i==a->sheet_menu_focus,available[i]);
+        if (!clicked && !(!a->consume_grid_input && available[i] && i==a->sheet_menu_focus && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) continue;
+        if (unhide) { a->sheet_menu_index=hidden[i]; a->sheet_action=SHEET_ACTION_SHOW; a->modal=MODAL_NONE; }
+        else if (i==0) begin_sheet_rename(a,index);
+        else if (i==5) { a->modal=MODAL_UNHIDE; a->sheet_menu_focus=a->unhide_scroll=0; a->context_drag=false; }
+        else { const SheetAction actions[]={SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE}; a->sheet_action=actions[i]; a->modal=MODAL_NONE; }
+        a->consume_grid_input=true; return;
+    }
+}
+static void begin_field_menu(App *a,size_t column,Vector2 origin) {
+    if (column>=context_fields(a)->column_count) return;
+    a->pivot_field=(int)column; a->field_menu_focus=0; a->context_origin=origin; a->modal=MODAL_FIELD_NAV; a->consume_grid_input=true;
+    a->field_menu_keyboard=ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)||ui_pressed(KEY_KB_MENU)||ui_pressed(KEY_F10);
+}
+static void navigate_field(App *a,int action) {
+    if (action<0 || action>3 || a->pivot_field<0 || (size_t)a->pivot_field>=context_fields(a)->column_count) return;
+    a->field_navigation=action; a->field_reveal_requested=true; a->modal=MODAL_NONE; a->consume_grid_input=true;
+    if (action>=2) { a->pivot_focus=0; a->pivot_search_focus=false; }
+}
+static bool field_analysis_target(App *a) {
+    if (selected_pivot(a)) return true;
+    Worksheet *sheet=active_sheet(a); const SheetObject *table=objects_source(&sheet->objects,selected_object(a));
+    uint64_t binding=table ? table->id : 0;
+    for (size_t i=0;i<sheet->objects.count;i++) {
+        SheetObject *object=&sheet->objects.items[i];
+        if (object->kind==OBJECT_TABLE || object->source_id!=binding) continue;
+        a->selected_object=(int)i; grid_select_cell(&a->grid,object->row,object->col,false);
+        a->grid.end_row=object->row+object->rows-1; a->grid.end_col=object->col+object->columns-1;
+        a->pivot_reveal_object=true; a->chrome_focus=0; return true;
+    }
+    create_pivot(a); return selected_pivot(a)!=NULL;
+}
+static void field_menu_action(App *a,int action) {
+    if (action<0 || action>=9 || a->pivot_field<0 || (size_t)a->pivot_field>=context_fields(a)->column_count) return;
+    size_t column=(size_t)a->pivot_field; a->modal=MODAL_NONE; a->consume_grid_input=true;
+    if (action<3) {
+        if (selected_pivot(a)) {
+            if (action<2) { a->field_highlight=(int)column; a->field_highlight_until=dx_millis()+1600; return; }
+            preview_to_source(a,0,column);
+        }
+        a->pivot_field=(int)column; navigate_field(a,action); return;
+    }
+    if (!field_analysis_target(a)) return;
+    a->pivot_field=(int)column; a->chrome_focus=0; a->pivot_search_focus=false; a->author_reveal=true;
+    if (action>=7) {
+        MarkRole role=action==7 ? MARKS_COLOR : MARKS_DETAIL; MarkField field=source_mark_field(a,role,column);
+        if (assign_mark_field(a,role,&field)) { a->mark_role=role; a->pivot_focus=8; }
+        return;
+    }
+    PivotRole role=action==3 ? PIVOT_ROWS : action==4 ? PIVOT_COLUMNS : action==5 ? PIVOT_VALUES : PIVOT_FILTERS;
+    a->pivot_drag_field=(int)column; a->pivot_drag_role=-1;
+    assign_pivot_ui_field(a,role,selected_pivot(a)->pivot.counts[role]);
+}
+
+static void draw_field_menu(App *a) {
+    UIContext *u=&a->ui;
+    if (a->pivot_field<0 || (size_t)a->pivot_field>=context_fields(a)->column_count) { a->modal=MODAL_NONE; return; }
+    UIChoiceLayout layout=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},u->scale,9,3);
+    if (!layout.valid) return;
+    popup_capture(a,layout.panel);
+    bool outside=false; DxPointerGesture gesture; Rectangle panel=layout.panel;
+    if (!a->consume_grid_input) {
+        outside=IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),panel);
+        Rectangle regions[]={{0,0,GetScreenWidth(),panel.y},{0,panel.y+panel.height,GetScreenWidth(),fmaxf(0,GetScreenHeight()-panel.y-panel.height)},{0,panel.y,panel.x,panel.height},{panel.x+panel.width,panel.y,fmaxf(0,GetScreenWidth()-panel.x-panel.width),panel.height}};
+        for (int i=0;i<4;i++) outside|=ui_take_left_gesture_from(regions[i],&gesture);
+    }
+    if (ui_pressed(KEY_ESCAPE)||outside) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    if (ui_key(KEY_UP)||ui_key(KEY_DOWN)||ui_pressed(KEY_HOME)||ui_pressed(KEY_END)||ui_pressed(KEY_TAB)) a->field_menu_keyboard=true;
+    int previous=a->context_focus; a->context_focus=a->field_menu_focus; context_keys(a,9,9); a->field_menu_focus=a->context_focus; a->context_focus=previous;
+    ui_choice_frame(u,&layout,context_fields(a)->columns[a->pivot_field].name);
+    const char *names[]={"Reveal column","Center column","Select column","Add to Rows","Add to Columns","Add measure","Filter this view","Add to Color","Add to Detail"};
+    const UICarbonIcon icons[]={CARBON_COLUMN,CARBON_TEXT_ALIGN_CENTER,CARBON_COLUMN,CARBON_ROW,CARBON_COLUMN,CARBON_FUNCTION,CARBON_FILTER,CARBON_COLOR_PALETTE,CARBON_DATA_STRUCTURED};
+    for (int i=0;i<9;i++) {
+        bool chosen=ui_choice_row(u,layout.rows[i],names[i],NULL,CARBON_COUNT,false,a->field_menu_keyboard && i==a->field_menu_focus,true);
+        ui_carbon(u,icons[i],box(layout.rows[i].x+8.5f*u->scale,layout.rows[i].y+6*u->scale,16*u->scale,16*u->scale),(Color){65,110,138,255});
+        if (chosen || (!a->consume_grid_input && i==a->field_menu_focus && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { field_menu_action(a,i); return; }
+    }
+}
+static void draw_unsaved(App *a) {
+    UIContext *u=&a->ui; float s=u->scale,w=fminf(574*s,GetScreenWidth()-32*s),h=226*s;
+    float x=(GetScreenWidth()-w)/2,y=(GetScreenHeight()-h)/2;
+    if (ui_pressed(KEY_ESCAPE)) { cancel_document_action(a); return; }
+    if (ui_pressed(KEY_TAB)) a->document_focus=(a->document_focus+(ui_key_shift(KEY_TAB) ? 2 : 1))%3;
+    if (ui_key(KEY_LEFT)) a->document_focus=(a->document_focus+2)%3;
+    if (ui_key(KEY_RIGHT)) a->document_focus=(a->document_focus+1)%3;
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,75});
+    DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38});
+    DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleRoundedLinesEx(box(x,y,w,h),.035f,4,1,UI_BORDER);
+    ui_text(u,"Save your changes?",x+24*s,y+22*s,20,UI_TEXT);
+    ui_text_clip_weight(u,a->book.path ? dx_basename(a->book.path) : "Untitled workbook",box(x+24*s,y+62*s,w-48*s,26*s),13,UI_TEXT,false,UI_MEDIUM);
+    ui_text_clip(u,a->document_action==DOCUMENT_QUIT ? "Save this workbook before closing Duxcel." : "Save this workbook before opening another workbook.",box(x+24*s,y+98*s,w-48*s,26*s),12,UI_MUTED,false);
+    ui_text_clip(u,"Cells, analysis definitions and layout are included in the dxls file.",box(x+24*s,y+128*s,w-48*s,24*s),11,UI_MUTED,false);
+    const char *labels[]={"Save…","Don't Save","Cancel"};
+    float button_width=fminf(124*s,(w-64*s)/3),button_start=x+w-24*s-3*button_width-16*s;
+    for (int i=0;i<3;i++) {
+        Rectangle r=box(button_start+i*(button_width+8*s),y+h-54*s,button_width,32*s); a->document_actions[i]=r;
+        if (a->document_focus==i) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
+        if (ui_button(u,r,labels[i],i==0,true) || (a->document_focus==i && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE)))) {
+            if (!i) save_document_action(a); else if (i==1) finish_document_action(a); else cancel_document_action(a);
+            return;
+        }
+    }
+}
+static void open_statistics(App *a) {
+    a->context_origin=ui_mouse_position();
+    if (!IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || !CheckCollisionPointRec(a->context_origin,box(0,GetScreenHeight()-22*a->ui.scale,GetScreenWidth(),22*a->ui.scale)))
+        a->context_origin=(Vector2){a->status_layout.valid ? a->status_layout.customize.x : GetScreenWidth()-240*a->ui.scale,GetScreenHeight()-365*a->ui.scale};
+    a->modal=MODAL_STATISTICS; a->statistics_focus=0; a->consume_grid_input=true;
+}
+static const char *statistics_scope(App *a) {
+    if (a->step_preview.active) return "Selected result cells";
+    if (a->statistics_frame) return selected_pivot(a) && selected_pivot(a)->kind==OBJECT_CHART ? "Chart frame" : "Matrix frame";
+    if (a->statistics_object==-2) return "Worksheet selection";
+    if (a->statistics_object<0) return "Selected result cells";
+    const Worksheet *sheet=active_sheet(a);
+    if (!sheet || (size_t)a->statistics_object>=sheet->objects.count) return "Object selection";
+    ObjectKind kind=sheet->objects.items[a->statistics_object].kind;
+    return kind==OBJECT_TABLE ? "Table selection" : kind==OBJECT_CHART ? "Chart data" : "Pivot result";
+}
+static void copy_statistics(App *a) {
+    bool ready=a->step_preview.active ? a->step_preview.stats_state==PREVIEW_STATS_READY : a->statistics_state==STATS_READY;
+    if (!ready) return;
+    char *text=dx_strdup("Selection statistics\n");
+    for (int i=0;i<8;i++) { char buffer[256]; dx_append(&text,"%s\t%s%s",statistics_names[i],statistics_value(a,i,buffer),i<7 ? "\n" : ""); }
+    SetClipboardText(text); free(text); status(a,"Selection statistics copied.");
+}
+static void draw_statistics(App *a) {
+    UIContext *u=&a->ui; float s=u->scale;
+    UIStatsLayout layout=ui_stats_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},s); a->statistics_layout=layout;
+    if (!layout.valid) return;
+    popup_capture(a,layout.panel);
+    bool pointer=!a->consume_grid_input;
+    if (ui_pressed(KEY_ESCAPE) || (pointer && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),layout.panel))) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    if (ui_pressed(KEY_TAB)) a->statistics_focus=(a->statistics_focus+(ui_key_shift(KEY_TAB) ? 8 : 1))%9;
+    if (ui_key(KEY_UP)) a->statistics_focus=(a->statistics_focus+8)%9;
+    if (ui_key(KEY_DOWN)) a->statistics_focus=(a->statistics_focus+1)%9;
+    if (ui_pressed(KEY_HOME)) a->statistics_focus=0; if (ui_pressed(KEY_END)) a->statistics_focus=8;
+    ui_stats_surface(u,&layout,statistics_scope(a));
+    const char *labels[]={"Count of cells","Filled cells","Numeric count","Distinct count","Sum","Average","Minimum","Maximum"};
+    for (int i=0;i<8;i++) {
+        char buffer[256],display[512]; bool checked=(a->statistics_mask&(1u<<i))!=0;
+        const char *value=statistics_display_value(a,i,buffer,display);
+        if (ui_stats_row(u,layout.rows[i],labels[i],value,checked,a->statistics_focus==i,pointer) || (a->statistics_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { a->statistics_focus=i; a->statistics_mask^=1u<<i; statistics_line(a); }
+    }
+    bool close=ui_tool_button(u,layout.done,"",false,pointer) || (a->statistics_focus==8 && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)));
+    float label=ui_measure(u,"Done",11); ui_label(u,"Done",box(layout.done.x+layout.done.width-10*s-label,layout.done.y,label,layout.done.height),11,UI_ACCENT,false,UI_REGULAR);
+    if (a->statistics_focus==8) ui_focus_border(layout.done,layout.done,s);
+    if (close) { a->modal=MODAL_NONE; a->consume_grid_input=true; }
+    if (ui_key_shortcut(KEY_C) && ui_pressed(KEY_C)) copy_statistics(a);
+}
+static void draw_table_relations(App *a) {
+    size_t index=(size_t)a->table_relation_object; ObjectStore *store=&active_sheet(a)->objects;
+    if (index>=store->count || store->items[index].kind!=OBJECT_TABLE || !a->objects[index].page.relation_count) { a->modal=MODAL_NONE; return; }
+    if (a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return;
+    UIContext *u=&a->ui; float s=u->scale; Page *page=&a->objects[index].page; Analysis *source=&store->items[index].source;
+    int count=page->relation_count>INT_MAX-1 ? INT_MAX-1 : (int)page->relation_count;
+    int visible=(int)((GetScreenHeight()-32*s-152*s)/(34*s)); if (visible<1) visible=1; if (visible>10) visible=10; if (visible>count) visible=count;
+    float w=fminf(620*s,GetScreenWidth()-32*s),h=(152+visible*34)*s;
+    Rectangle panel=box((GetScreenWidth()-w)/2,(GetScreenHeight()-h)/2,w,h),list=box(panel.x+16*s,panel.y+70*s,w-32*s,visible*34*s);
+    bool close=ui_pressed(KEY_ESCAPE);
+    if (ui_pressed(KEY_TAB)) a->table_relation_focus=(a->table_relation_focus+(ui_key_shift(KEY_TAB) ? count : 1))%(count+1);
+    if (ui_key(KEY_UP)) a->table_relation_focus=a->table_relation_focus>0 ? a->table_relation_focus-1 : count-1;
+    if (ui_key(KEY_DOWN)) a->table_relation_focus=a->table_relation_focus<count-1 ? a->table_relation_focus+1 : 0;
+    if (ui_pressed(KEY_HOME)) a->table_relation_focus=0;
+    if (ui_pressed(KEY_END)) a->table_relation_focus=count-1;
+    if (ui_pressed(KEY_PAGE_UP)) a->table_relation_focus=a->table_relation_focus>visible ? a->table_relation_focus-visible : 0;
+    if (ui_pressed(KEY_PAGE_DOWN)) a->table_relation_focus=a->table_relation_focus<count-visible ? a->table_relation_focus+visible : count-1;
+    bool keyboard=ui_key(KEY_UP)||ui_key(KEY_DOWN)||ui_pressed(KEY_HOME)||ui_pressed(KEY_END)||ui_pressed(KEY_PAGE_UP)||ui_pressed(KEY_PAGE_DOWN)||ui_pressed(KEY_TAB);
+    if (keyboard && a->table_relation_focus<count) {
+        if (a->table_relation_focus<a->table_relation_scroll) a->table_relation_scroll=a->table_relation_focus;
+        if (a->table_relation_focus>=a->table_relation_scroll+visible) a->table_relation_scroll=a->table_relation_focus-visible+1;
+    }
+    if (CheckCollisionPointRec(ui_mouse_position(),list)) a->table_relation_scroll+=ui_scroll_steps(&a->wheel_table_relation,-GetMouseWheelMoveV().y*3);
+    if (a->table_relation_scroll>count-visible) a->table_relation_scroll=count-visible; if (a->table_relation_scroll<0) a->table_relation_scroll=0;
+    if (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),panel)) close=true;
+    if (close) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
+    DrawRectangleRounded(box(panel.x+4*s,panel.y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(panel,.035f,4,UI_BG); DrawRectangleLinesEx(panel,1,UI_BORDER);
+    ui_text(u,"Choose table or view",panel.x+20*s,panel.y+12*s,18,UI_TEXT);
+    ui_text_clip(u,store->items[index].name,box(panel.x+20*s,panel.y+38*s,w-40*s,24*s),12,UI_MUTED,false);
+    bool enter=ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE);
+    for (int j=0;j<visible;j++) {
+        int i=j+a->table_relation_scroll; Relation *r=&page->relations[i]; Rectangle row=box(list.x+3*s,list.y+j*34*s,list.width-17*s,29*s);
+        bool active=source->schema && source->table && !strcmp(source->schema,r->schema) && !strcmp(source->table,r->name);
+        if (a->table_relation_focus==i) ui_border(box(row.x-2*s,row.y-2*s,row.width+4*s,row.height+4*s),panel,1.5f*s,UI_ACCENT);
+        if (ui_button(u,row,r->label,active,true) || (enter && a->table_relation_focus==i)) { choose_table_relation(a,(size_t)i); return; }
+    }
+    list_scrollbar(a,list,count,visible,&a->table_relation_scroll,&a->table_relation_drag,&a->table_relation_grab,true);
+    ui_text_clip(u,"Changing the table clears its filters and sort.",box(panel.x+16*s,panel.y+h-72*s,w-32*s,24*s),11,UI_MUTED,false);
+    Rectangle cancel=box(panel.x+w-116*s,panel.y+h-40*s,96*s,28*s);
+    if (a->table_relation_focus==count) ui_border(box(cancel.x-2*s,cancel.y-2*s,cancel.width+4*s,cancel.height+4*s),panel,1.5f*s,UI_ACCENT);
+    if (ui_button(u,cancel,"Cancel",false,true) || (enter && a->table_relation_focus==count)) { a->modal=MODAL_NONE; a->consume_grid_input=true; }
+}
+static void draw_source_query(App *a) {
+    UIContext *u=&a->ui; float s=u->scale,w=fminf(940*s,GetScreenWidth()-32*s),h=fminf(650*s,GetScreenHeight()-32*s);
+    Rectangle panel=box((GetScreenWidth()-w)/2,(GetScreenHeight()-h)/2,w,h); float x=panel.x,y=panel.y;
+    if (ui_pressed(KEY_ESCAPE)) { cancel_source_validation(a); a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    if (ui_pressed(KEY_TAB)) a->query_focus=(a->query_focus+(ui_key_shift(KEY_TAB) ? 3 : 1))%4;
+    bool enter=ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER),apply=(ui_pressed(KEY_ENTER) && ui_key_shortcut(KEY_ENTER)) || (ui_pressed(KEY_KP_ENTER) && ui_key_shortcut(KEY_KP_ENTER));
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
+    DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.025f,4,(Color){20,32,45,38}); DrawRectangleRounded(panel,.025f,4,UI_BG); DrawRectangleLinesEx(panel,1,UI_BORDER);
+    ui_text(u,"Edit source query",x+20*s,y+15*s,19,UI_TEXT);
+    ui_text_clip(u,"Read the original source as input. Use one SELECT, optionally with WITH.",box(x+13*s,y+47*s,w-26*s,25*s),12,UI_MUTED,false);
+    const Analysis *source=query_source(a); const char *name=a->query_object>=0 && source ? active_sheet(a)->objects.items[a->query_object].name : active_sheet(a)->name;
+    ui_text_clip(u,name,box(x+13*s,y+73*s,w-26*s,22*s),12,UI_TEXT,false);
+    float error_height=a->query_error ? fminf(132*s,h*.26f) : 0;
+    Rectangle editor=box(x+20*s,y+104*s,w-40*s,fmaxf(70*s,h-228*s-error_height));
+    if (text_editor_draw(&a->query_editor,&a->input,u,editor,a->query_focus==0)) a->query_focus=0;
+    if (a->query_edit_revision!=a->input.revision) {
+        cancel_source_validation(a); free(a->query_error); a->query_error=NULL; text_lines_free(&a->query_errors); a->query_edit_revision=a->input.revision;
+    }
+    if (a->query_error) {
+        Rectangle error=box(x+20*s,editor.y+editor.height+8*s,w-40*s,error_height-8*s);
+        if (!a->query_errors.offsets || a->query_errors.width!=error.width || a->query_errors.scale!=s || a->query_errors.raster_size!=u->raster_size) text_lines_layout(&a->query_errors,u,a->query_error,error.width);
+        if (CheckCollisionPointRec(ui_mouse_position(),error)) a->query_error_scroll+=ui_scroll_steps(&a->query_error_wheel,-GetMouseWheelMoveV().y*3);
+        int max=(int)a->query_errors.count-(int)(error.height/(21*s)); if (max<0) max=0;
+        if (a->query_error_scroll<0) a->query_error_scroll=0; if (a->query_error_scroll>max) a->query_error_scroll=max;
+        text_lines_draw(&a->query_errors,u,a->query_error,(size_t)a->query_error_scroll,error);
+    }
+    ui_text_clip(u,a->query_loading ? "Checking the query… Escape cancels; the displayed source stays intact." : "Apply clears source filters, sort and summary in one undoable action.",box(x+13*s,y+h-114*s,w-26*s,23*s),12,UI_MUTED,false);
+    ui_text_clip(u,"Enter: new line · Tab: actions · Command+Enter: validate and apply",box(x+13*s,y+h-89*s,w-26*s,22*s),11,UI_MUTED,false);
+    Rectangle actions[]={box(x+20*s,y+h-49*s,140*s,30*s),box(x+w-272*s,y+h-49*s,90*s,30*s),box(x+w-172*s,y+h-49*s,152*s,30*s)};
+    const char *labels[]={"Use original source","Cancel","Validate & apply"};
+    for (int i=0;i<3;i++) {
+        if (a->query_focus==i+1) ui_border(box(actions[i].x-2*s,actions[i].y-2*s,actions[i].width+4*s,actions[i].height+4*s),panel,1.5f*s,UI_ACCENT);
+        bool enabled=i!=2 || !a->query_loading;
+        if (ui_button(u,actions[i],labels[i],i==2,enabled) || (enabled && enter && !apply && a->query_focus==i+1)) {
+            if (!i) { cancel_source_validation(a); input_set(&a->input,""); a->query_edit_revision=a->input.revision; a->query_focus=0; free(a->query_error); a->query_error=NULL; text_lines_free(&a->query_errors); }
+            else if (i==1) { cancel_source_validation(a); a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+            else apply=true;
+        }
+    }
+    if (apply) submit_source_query(a);
+    /* Apply after this frame's native edits/cancel actions have been processed. */
+    if (a->query_validated) { QueryReply *reply=a->query_validated; a->query_validated=NULL; receive_source_validation(a,reply); reply_free(reply); }
+}
+static bool set_representation(App *a,int representation) {
+    SheetObject *o=selected_pivot(a); if (!o || representation<0 || representation>4) return false;
+    ObjectKind kind=representation ? OBJECT_CHART : OBJECT_PIVOT;
+    ChartMark mark=representation ? (ChartMark)(representation-1) : MARK_BAR;
+    if (mark==MARK_SCATTER && !scatter_available(a,o)) { status(a,"Scatter needs one numeric Rows field and one numeric measure."); return false; }
+    if (kind==OBJECT_CHART) for (size_t i=0;i<o->pivot.counts[PIVOT_VALUES];i++) {
+        const PivotField *value=&o->pivot.fields[PIVOT_VALUES][i];
+        if (value->aggregate!=AGG_COUNT && value->aggregate!=AGG_DISTINCT && !field_numeric(a,value->name)) { status(a,"Choose a numeric measure or a count for a chart."); return false; }
+    }
+    if (o->kind==kind && o->mark==mark) return true;
+    Page *page=&a->objects[a->selected_object].page;
+    uint64_t rows=kind==OBJECT_CHART ? o->kind==OBJECT_CHART ? o->rows : 12 : page->column_count && page->total>3 ? page->total+2 : 5;
+    size_t columns=kind==OBJECT_CHART ? o->kind==OBJECT_CHART ? o->columns : 6 : page->column_count>3 ? page->column_count : 3;
+    char *error=NULL;
+    bool ok=objects_representation(&active_sheet(a)->objects,(size_t)a->selected_object,kind,mark,rows,columns,
+        &active_sheet(a)->cells,source_rows(a),a->page.column_count,&error);
+    if (ok) { worksheet_record(active_sheet(a),EDIT_OBJECTS); a->book.dirty=true; a->pivot_reveal_object=true; a->matrix_cells_active=false; status(a,"View representation updated."); }
+    else status(a,error);
+    free(error); return ok;
+}
+static void draw_view_menu(App *a) {
+    SheetObject *o=selected_pivot(a); if (!o) { a->modal=MODAL_NONE; return; }
+    UIContext *u=&a->ui;
+    UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},u->scale,4,3);
+    if (!menu.valid) return;
+    popup_capture(a,menu.panel);
+    bool outside=false; DxPointerGesture gesture;
+    if (!a->consume_grid_input) {
+        outside=IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),menu.panel);
+        Rectangle panel=menu.panel;
+        Rectangle regions[]={{0,0,GetScreenWidth(),panel.y},{0,panel.y+panel.height,GetScreenWidth(),fmaxf(0,GetScreenHeight()-panel.y-panel.height)},{0,panel.y,panel.x,panel.height},{panel.x+panel.width,panel.y,fmaxf(0,GetScreenWidth()-panel.x-panel.width),panel.height}};
+        for (int i=0;i<4;i++) outside|=ui_take_left_gesture_from(regions[i],&gesture);
+    }
+    if (ui_pressed(KEY_ESCAPE)||outside) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    context_keys(a,4,4); ui_choice_frame(u,&menu,a->view_menu_chart ? "Chart view" : "Matrix view");
+    const char *names[]={"Matrix","Bar chart","Line chart","Return to data"};
+    const UICarbonIcon icons[]={CARBON_TABLE,CARBON_CHART_BAR,CARBON_CHART_LINE,CARBON_TABLE};
+    int current=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
+    for (int i=0;i<4;i++) {
+        bool chosen=ui_choice_row(u,menu.rows[i],names[i],NULL,icons[i],i<3 && i==current,a->context_focus==i,true);
+        if (chosen || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
+            a->modal=MODAL_NONE; a->consume_grid_input=true;
+            if (i==3) browse_source(a); else set_representation(a,i);
+            return;
+        }
+    }
+}
+static void draw_author_popup(App *a) {
+    if (!selected_pivot(a)) { a->modal=MODAL_NONE; return; }
+    UIContext *u=&a->ui; float s=u->scale; bool assigning=a->modal==MODAL_ASSIGN_FIELD,searching=false; UIMenuLayout assign_menu={0};
+    float width=fminf(280*s,GetScreenWidth()-16*s),height=assigning ? fminf(360*s,GetScreenHeight()-16*s) : 99*s;
+    float x=fmaxf(8*s,fminf(a->context_origin.x,GetScreenWidth()-width-8*s));
+    float y=fmaxf(8*s,fminf(a->context_origin.y,GetScreenHeight()-height-8*s));
+    Rectangle panel=box(x,y,width,height);
+    if (assigning) {
+        if (ui_pressed(KEY_SLASH) || (ui_pressed(KEY_F)&&ui_key_shortcut(KEY_F))) { a->pivot_search_focus=true; a->consume_grid_input=true; }
+        if (a->pivot_search_focus && !a->consume_grid_input) input_update(&a->pivot_search);
+        searching=a->pivot_search_focus || a->pivot_search.length || context_fields(a)->column_count>32;
+        match_fields(a); int count=(int)a->field_match_count;
+        assign_menu=ui_action_menu_layout(a->context_origin,count>11 ? 11 : count ? count : 1,240,s,(Vector2){GetScreenWidth(),GetScreenHeight()-(searching ? 35*s : 0)});
+        if (searching) { assign_menu.panel.height+=35*s; assign_menu.items.y+=35*s; }
+        panel=assign_menu.panel;
+    }
+    popup_capture(a,panel); Vector2 mouse=ui_mouse_position();
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,panel))) {
+        a->modal=MODAL_NONE; a->pivot_search_focus=false; a->pivot_focus=assigning ? a->pivot_role+2 : 6; a->consume_grid_input=true; return;
+    }
+    if (!assigning) {
+        DrawRectangleRec(box(x+3*s,y+4*s,width,height),(Color){20,32,50,35}); DrawRectangleRec(panel,WHITE); DrawRectangleLinesEx(panel,s,UI_BORDER);
+        const char *names[]={"Matrix","Bar chart","Line chart"};
+        if (a->context_focus>2) a->context_focus=2;
+        context_keys(a,3,3); SheetObject *o=selected_pivot(a); int current=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
+        for (int i=0;i<3;i++) {
+            Rectangle item=box(x+6*s,y+(6+i*29)*s,width-12*s,26*s); bool allowed=true;
+            if (a->context_focus==i) ui_focus_border(item,panel,2*s);
+            UICarbonIcon icons[]={CARBON_TABLE,CARBON_CHART_BAR,CARBON_CHART_LINE};
+            if (ui_menu_item(u,item,names[i],icons[i],i==current,allowed) || (allowed && !a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)))) {
+                if (set_representation(a,i)) { a->modal=MODAL_NONE; a->pivot_focus=6; a->consume_grid_input=true; }
+                return;
+            }
+        }
+        return;
+    }
+    const char *roles[]={"rows","columns","measures","view filters"}; char title[64]; snprintf(title,sizeof(title),"Add to %s",roles[a->pivot_role]);
+    int count=(int)a->field_match_count; UIMenuLayout menu=assign_menu;
+    UIChoiceLayout frame={.panel=panel,.title=box(panel.x+14*s,panel.y+5*s,panel.width-28*s,30*s),.valid=true};
+    ui_choice_frame(u,&frame,title);
+    if (searching) {
+        Rectangle search=box(panel.x+8*s,panel.y+35*s,panel.width-16*s,26*s);
+        if (CheckCollisionPointRec(mouse,search) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) a->pivot_search_focus=true;
+        input_draw(u,&a->pivot_search,search);
+    }
+    Rectangle list=menu.items; int visible=menu.visible,pos=0;
+    for (int i=0;i<count;i++) if ((int)a->field_matches[i]==a->pivot_field) pos=i;
+    if (ui_key(KEY_UP)) { pos=pos>0 ? pos-1 : count-1; a->pivot_search_focus=false; }
+    if (ui_key(KEY_DOWN) || ui_pressed(KEY_TAB)) { pos=pos+1<count ? pos+1 : 0; a->pivot_search_focus=false; }
+    if (ui_pressed(KEY_HOME)) pos=0;
+    if (ui_pressed(KEY_END)) pos=count-1;
+    if (ui_key(KEY_PAGE_UP)) pos=pos>visible ? pos-visible : 0;
+    if (ui_key(KEY_PAGE_DOWN)) pos=pos+visible<count ? pos+visible : count-1;
+    if (pos<a->pivot_field_scroll) a->pivot_field_scroll=pos;
+    if (pos>=a->pivot_field_scroll+visible) a->pivot_field_scroll=pos-visible+1;
+    if (CheckCollisionPointRec(mouse,list)) a->pivot_field_scroll+=ui_scroll_steps(&a->wheel_field,-GetMouseWheelMoveV().y*3);
+    int max=count-visible; if (max<0) max=0; if (a->pivot_field_scroll<0) a->pivot_field_scroll=0; if (a->pivot_field_scroll>max) a->pivot_field_scroll=max;
+    a->pivot_field=count ? (int)a->field_matches[pos] : -1;
+    ui_scissor_begin(u,list);
+    for (int j=0;j<visible && j+a->pivot_field_scroll<count;j++) {
+        int index=j+a->pivot_field_scroll; size_t field=a->field_matches[index]; Rectangle item=box(list.x,list.y+j*28*s,list.width-(max ? 8*s : 0),28*s);
+        bool active=(int)field==a->pivot_field;
+        if (ui_choice_row(u,item,context_fields(a)->columns[field].name,NULL,field_icon(&context_fields(a)->columns[field]),false,active,true) || (!a->consume_grid_input && active && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)))) {
+            ui_scissor_end(u); a->pivot_drag_field=(int)field; a->pivot_drag_role=-1; a->modal=MODAL_NONE;
+            a->pivot_search_focus=false; assign_pivot_ui_field(a,(PivotRole)a->pivot_role,DX_PIVOT_FIELDS); a->consume_grid_input=true; return;
+        }
+    }
+    ui_scissor_end(u); list_scrollbar(a,list,count,visible,&a->pivot_field_scroll,&a->field_drag,&a->field_grab,true);
+    if (!count) ui_text_clip(u,"No matching fields",list,11.5f,UI_MUTED,false);
+
+}
+static void draw_marks_menu(App *a) {
+    SheetObject *o=selected_pivot(a); if (!o || (unsigned)a->mark_role>=DX_MARK_ROLES) { a->modal=MODAL_NONE; return; }
+    UIContext *u=&a->ui; float s=u->scale; Page *fields=context_fields(a); bool opening=a->mark_menu_opening; a->mark_menu_opening=false;
+    if (a->mark_menu_anchor_pending && a->author_marks[a->mark_role].width>0) { Rectangle anchor=a->author_marks[a->mark_role]; a->context_origin=(Vector2){anchor.x,anchor.y+anchor.height}; a->mark_menu_anchor_pending=false; }
+    int count=(int)fields->column_count+(o->marks.counts[a->mark_role] ? 1 : 0);
+    UIMenuLayout menu=ui_action_menu_layout(a->context_origin,count>11 ? 11 : count,240,s,(Vector2){GetScreenWidth(),GetScreenHeight()});
+    if (!menu.visible) { a->modal=MODAL_NONE; return; }
+    popup_capture(a,menu.panel);
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),menu.panel))) {
+        a->modal=MODAL_NONE; a->pivot_focus=8; a->author_reveal=true; a->consume_grid_input=true; return;
+    }
+    context_keys(a,count,menu.visible);
+    char title[64]; snprintf(title,sizeof(title),"Add to %s",marks_label((MarkRole)a->mark_role)); title[7]=(char)tolower((unsigned char)title[7]);
+    UIChoiceLayout frame={.panel=menu.panel,.title=box(menu.panel.x+14*s,menu.panel.y+5*s,menu.panel.width-28*s,30*s),.valid=true};
+    ui_choice_frame(u,&frame,title);
+    for (int row=0;row<menu.visible;row++) {
+        int index=row+a->context_scroll; if (index>=count) break;
+        Rectangle item=box(menu.items.x,menu.items.y+row*28*s,menu.items.width-(count>menu.visible ? 9*s : 0),28*s); bool clear=(size_t)index>=fields->column_count;
+        const char *name=clear ? "Clear assignments" : fields->columns[index].name;
+        MarkField field=clear ? (MarkField){0} : source_mark_field(a,(MarkRole)a->mark_role,(size_t)index);
+        UICarbonIcon icon=clear ? CARBON_TRASH_CAN : field.measure ? CARBON_FUNCTION : temporal_column(&fields->columns[index]) ? CARBON_CALENDAR : CARBON_STRING_TEXT;
+        bool click=ui_choice_row_input(u,item,name,NULL,icon,false,a->context_focus==index,true,!opening);
+        bool enter=ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER),space=ui_pressed(KEY_SPACE);
+        if (opening && a->mark_open_key==KEY_ENTER) enter=false;
+        if (opening && a->mark_open_key==KEY_SPACE) space=false;
+        if (click || (a->context_focus==index && (enter || space))) {
+            if (clear) { MarkDefinition copy=marks_copy(&o->marks); while (copy.counts[a->mark_role]) marks_remove(&copy,(MarkRole)a->mark_role,copy.counts[a->mark_role]-1); set_marks(a,&copy); marks_free(&copy); }
+            else assign_mark_field(a,(MarkRole)a->mark_role,&field);
+            a->modal=MODAL_NONE; a->pivot_focus=8; a->author_reveal=true; a->consume_grid_input=true; return;
+        }
+    }
+    list_scrollbar(a,menu.items,count,menu.visible,&a->context_scroll,&a->context_drag,&a->context_grab,true);
+}
+static void draw_chart_measure_menu(App *a) {
+    SheetObject *o=selected_pivot(a); if (!o || !o->pivot.counts[PIVOT_VALUES]) { a->modal=MODAL_NONE; return; }
+    UIContext *u=&a->ui; float s=u->scale; int count=(int)o->pivot.counts[PIVOT_VALUES];
+    UIMenuLayout menu=ui_menu_layout(a->context_origin,count,28,244,s,(Vector2){GetScreenWidth(),GetScreenHeight()});
+    popup_capture(a,menu.panel);
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),menu.panel))) {
+        a->modal=MODAL_NONE; a->pivot_focus=7; a->author_reveal=true; a->consume_grid_input=true; return;
+    }
+    context_keys(a,count,menu.visible);
+    DrawRectangleRec(box(menu.panel.x+3*s,menu.panel.y+4*s,menu.panel.width,menu.panel.height),(Color){20,32,50,35});
+    DrawRectangleRec(menu.panel,WHITE); ui_border(menu.panel,menu.panel,s,UI_BORDER);
+    for (int row=0;row<menu.visible;row++) {
+        int index=row+a->context_scroll; char label[512]; pivot_label(a,label,&o->pivot.fields[PIVOT_VALUES][index],PIVOT_VALUES);
+        Rectangle item=box(menu.panel.x+6*s,menu.panel.y+(6+row*28)*s,menu.panel.width-12*s,25*s);
+        if (a->context_focus==index) ui_focus_border(item,menu.panel,2*s);
+        if (ui_menu_item(u,item,label,CARBON_FUNCTION,o->chart_measure==index,true) || (!a->consume_grid_input && a->context_focus==index && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
+            if (set_chart_measure(a,(size_t)index)) { a->modal=MODAL_NONE; a->pivot_focus=7; a->consume_grid_input=true; }
+            return;
+        }
+    }
+}
+static CellFormat active_format(App *a) {
+    Worksheet *sheet=active_sheet(a); return sheet ? format_at(&sheet->formats,a->grid.row,a->grid.col) : format_default();
+}
+static bool apply_format(App *a,unsigned mask,CellFormat value) {
+    Worksheet *sheet=active_sheet(a); if (!sheet) return false;
+    FormatRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1); char *error=NULL; uint64_t revision=sheet->formats.revision;
+    if (range.r1>=DX_SHEET_ROWS) range.r1=DX_SHEET_ROWS-1;
+    if (range.c1>=16384) range.c1=16383;
+    bool ok=format_apply(&sheet->formats,range,mask,value,&error);
+    if (ok && revision!=sheet->formats.revision) { worksheet_record(sheet,EDIT_FORMAT); a->book.dirty=true; }
+    if (!ok) status(a,error); free(error); return ok;
+}
+static void close_format_menu(App *a) {
+    a->modal=MODAL_NONE; a->consume_grid_input=true;
+    if (a->format_return_group>=0) {
+        a->ribbon_popup_group=a->format_return_group; a->ribbon_popup_focus=a->format_return_command-ribbon_groups[a->ribbon_tab][a->ribbon_popup_group].first;
+        a->modal=MODAL_COMMANDS; a->ribbon_focus=false;
+    } else if (a->format_return_command>=0) { a->ribbon_focus=true; a->ribbon_command=a->format_return_command; a->ribbon_reveal_command=true; }
+}
+static void draw_format_menu(App *a) {
+    UIContext *u=&a->ui; float s=u->scale; CellFormat current=active_format(a);
+    if (a->format_action==ACTION_TEXT_COLOR) {
+        const char *names[]={"Automatic","Blue","Teal","Red"};
+        int result=draw_choices(a,"Text color",names,4,-1,-1,&a->context_focus,a->format_origin);
+        if (result>=0) { current.color=(unsigned char)result; if (apply_format(a,FORMAT_COLOR,current)) close_format_menu(a); }
+        else if (result==-2) close_format_menu(a);
+        return;
+    }
+    int count=a->format_action==ACTION_FONT_SIZE ? 6 : a->format_action==ACTION_TEXT_COLOR ? 4 : 2;
+    UIMenuLayout menu=ui_menu_layout(a->format_origin,count+1,28,220,s,(Vector2){GetScreenWidth(),GetScreenHeight()});
+    popup_capture(a,menu.panel);
+    Vector2 mouse=ui_mouse_position();
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,menu.panel))) { close_format_menu(a); return; }
+    context_keys(a,count,count); const char *title=a->format_action==ACTION_FONT_SIZE ? "Grid font size" : a->format_action==ACTION_TEXT_COLOR ? "Text color" : "Number format";
+    DrawRectangleRec(box(menu.panel.x+2*s,menu.panel.y+4*s,menu.panel.width,menu.panel.height),(Color){25,42,70,24}); DrawRectangleRec(menu.panel,WHITE); DrawRectangleLinesEx(menu.panel,s,UI_BORDER);
+    ui_label(u,title,box(menu.items.x+7*s,menu.items.y,menu.items.width-14*s,27*s),12,UI_TEXT,false,UI_MEDIUM);
+    DrawLineV((Vector2){menu.items.x,menu.items.y+28*s},(Vector2){menu.items.x+menu.items.width,menu.items.y+28*s},UI_BORDER);
+    for (int i=0;i<count;i++) {
+        char label[32]; bool checked=false; CellFormat next=current; unsigned mask=0; UICarbonIcon icon=CARBON_TEXT_COLOR;
+        if (a->format_action==ACTION_FONT_SIZE) { snprintf(label,sizeof(label),"%d",11+i); next.size=(unsigned char)(11+i); mask=FORMAT_SIZE; checked=current.size==next.size; icon=CARBON_STRING_TEXT; }
+        else if (a->format_action==ACTION_TEXT_COLOR) { const char *colors[]={"Automatic","Blue","Teal","Red"}; snprintf(label,sizeof(label),"%s",colors[i]); next.color=(unsigned char)i; mask=FORMAT_COLOR; checked=current.color==next.color; }
+        else { snprintf(label,sizeof(label),"%s",i ? "Number" : "Accounting"); next.number=(unsigned char)(i ? FORMAT_NUMBER : FORMAT_ACCOUNTING); mask=FORMAT_NUMERIC; checked=current.number==next.number || (!i && current.number==FORMAT_GENERAL); icon=CARBON_CURRENCY_DOLLAR; }
+        Rectangle row=box(menu.items.x,menu.items.y+(i+1)*28*s,menu.items.width,27*s);
+        if (a->context_focus==i) ui_focus_border(row,menu.panel,2*s);
+        if (ui_menu_item(u,row,label,icon,checked,true) || (a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { if (apply_format(a,mask,next)) close_format_menu(a); return; }
+    }
+}
+static void begin_scale_menu(App *a,Vector2 origin) {
+    a->context_origin=origin; a->context_focus=a->context_scroll=0; a->modal=MODAL_INTERFACE_SCALE; a->consume_grid_input=true;
+}
+static void draw_scale_menu(App *a) {
+    const char *labels[]={"80%","100% · Default","125%","150%"}; const float scales[]={.8f,1,1.25f,1.5f};
+    int selected=0; for (int i=0;i<4;i++) if (fabsf(a->ui.requested_scale-scales[i])<.01f) selected=i;
+    int result=draw_choices(a,"Interface scale",labels,4,selected,-1,&a->context_focus,a->context_origin);
+    if (result>=0 && fabsf(a->ui.requested_scale-scales[result])>.01f) { ui_set_scale(&a->ui,scales[result]); }
+    if (result!=-1) a->modal=MODAL_NONE;
+}
+static void draw_density_menu(App *a) {
+    const char *labels[]={"Compact · 22 px","Default · 24 px","Comfortable · 28 px"}; const float values[]={22,24,28};
+    int selected=a->grid.row_height==22 ? 0 : a->grid.row_height==28 ? 2 : 1;
+    int result=draw_choices(a,"Row density",labels,3,selected,-1,&a->context_focus,a->context_origin);
+    if (result>=0) { a->grid.row_height=values[result]; grid_layout(&a->grid,a->ui.scale*a->grid.zoom,&a->page,a->grid.rect); grid_reveal_cell(&a->grid,&a->page,a->ui.scale*a->grid.zoom); }
+    if (result!=-1) a->modal=MODAL_NONE;
+}
+static void draw_guide(App *a) {
+    if (ui_guide_draw(&a->ui,&a->guide,!a->consume_grid_input)) { a->modal=MODAL_NONE; a->consume_grid_input=true; a->guide_button_focus=true; }
+}
+static bool popup_modal(Modal modal) {
+    switch (modal) {
+    case MODAL_FILTER: case MODAL_CONTEXT: case MODAL_PIVOT_FIELD: case MODAL_OBJECT:
+    case MODAL_RIBBON: case MODAL_SHEET: case MODAL_UNHIDE: case MODAL_FIELD_NAV:
+    case MODAL_STATISTICS: case MODAL_COMMANDS: case MODAL_ASSIGN_FIELD:
+    case MODAL_REPRESENTATION: case MODAL_DENSITY: case MODAL_FORMAT:
+    case MODAL_CHART_MEASURE: case MODAL_MARKS: case MODAL_STEP: case MODAL_INTERFACE_SCALE: case MODAL_VIEW: return true;
+    default: return false;
+    }
+}
+static void popup_capture(App *a,Rectangle panel) {
+    if (!popup_modal(a->modal) || a->popup_capturing) return;
+    float s=a->ui.scale;
+    Rectangle bounds=box(panel.x-12*s,panel.y-12*s,panel.width+24*s,panel.height+30*s);
+    unsigned slot=a->popup_back<UI_PAINT_DEPTH ? UI_PAINT_DEPTH : a->popup_back;
+    a->popup_capturing=ui_paint_cache_begin(&a->ui,slot,bounds,(Vector2){bounds.width,bounds.height});
+    if (!a->popup_capturing) { ui_pointer_offset((Vector2){0}); a->popup_image=(UIPaintImage){0}; }
+}
+static void draw_modal(App *a) {
+    if (a->modal==MODAL_NONE) return;
+    if (a->modal==MODAL_VIEW) { draw_view_menu(a); return; }
+    if (a->modal==MODAL_DENSITY) { draw_density_menu(a); return; }
+    if (a->modal==MODAL_INTERFACE_SCALE) { draw_scale_menu(a); return; }
+    if (a->modal==MODAL_GUIDE) { draw_guide(a); return; }
+    if (a->modal==MODAL_FORMAT) { draw_format_menu(a); return; }
+    if (a->modal==MODAL_CHART_MEASURE) { draw_chart_measure_menu(a); return; }
+    if (a->modal==MODAL_MARKS) { draw_marks_menu(a); return; }
+    if (a->modal==MODAL_STEP) { draw_step_menu(a); return; }
+    if (a->modal==MODAL_ASSIGN_FIELD || a->modal==MODAL_REPRESENTATION) { draw_author_popup(a); return; }
+    if (a->modal==MODAL_COMMANDS) { draw_command_popup(a); return; }
+    if (a->modal==MODAL_SOURCE_QUERY) { draw_source_query(a); return; }
+    if (a->modal==MODAL_STATISTICS) { draw_statistics(a); return; }
+    if (a->modal==MODAL_UNSAVED) { draw_unsaved(a); return; }
+    if (a->modal==MODAL_RIBBON) { draw_ribbon_menu(a); return; }
+    if (a->modal==MODAL_SHEET || a->modal==MODAL_RENAME || a->modal==MODAL_UNHIDE) { draw_sheet_modal(a); return; }
+    if (a->modal==MODAL_FIELD_NAV) { draw_field_menu(a); return; }
+    if (a->modal==MODAL_SORT) { Page *page=a->sort_object>=0 ? &a->objects[a->sort_object].page : &a->page; SortResult result=sort_editor_draw(&a->sort_editor,&a->ui,page); if (result==SORT_APPLY) apply_sort_order(a,&a->sort_editor.draft); else if (result==SORT_CANCEL) { a->modal=MODAL_NONE; a->sort_object=-1; } return; }
+    if (a->modal==MODAL_FILTER) { draw_filter(a); return; }
+    if (a->modal==MODAL_CELL) { draw_cell_editor(a); return; }
+    if (a->modal==MODAL_WIDTH) { draw_column_width(a); return; }
+    if (a->modal==MODAL_CHART_SIZE) { draw_chart_size(a); return; }
+    if (a->modal==MODAL_OBJECT_NAME) { draw_object_name(a); return; }
+    if (a->modal==MODAL_TABLE_RELATION) { draw_table_relations(a); return; }
+    if (a->modal==MODAL_MOVE_RANGE) { draw_move_range(a); return; }
+    if (a->modal==MODAL_INSPECT) { draw_inspector(a); return; }
+    if (a->modal==MODAL_PIVOT_FIELD || a->modal==MODAL_OBJECT) { draw_pivot_menu(a); return; }
+    if (a->modal==MODAL_CONTEXT) { draw_context(a); return; }
+    UIContext *u=&a->ui; float s=u->scale;
+    if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; return; }
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,95});
+    float w=fminf(a->modal==MODAL_SQL || a->modal==MODAL_ERROR ? 900*s : a->modal==MODAL_GROUP ? 820*s : 610*s,GetScreenWidth()-32*s);
+    float h=a->modal==MODAL_SQL || a->modal==MODAL_ERROR ? fminf(590*s,GetScreenHeight()-60*s) : a->modal==MODAL_GROUP ? fminf(480*s,GetScreenHeight()-40*s) : a->modal==MODAL_SETTINGS ? fminf((w/s<590 ? 394 : 290)*s,GetScreenHeight()-32*s) : a->modal==MODAL_FILTER ? 360*s : 245*s;
+    float x=(GetScreenWidth()-w)/2,y=(GetScreenHeight()-h)/2;
+    Rectangle panel=box(x,y,w,h); DrawRectangleRounded(panel,.025f,4,UI_BG); DrawRectangleLinesEx(panel,1,UI_BORDER);
+    const char *title=a->modal==MODAL_OPEN ? "Open data or workbook" : a->modal==MODAL_SAVE ? "Save workbook" : a->modal==MODAL_RELINK ? "Relink a missing source" : a->modal==MODAL_FILTER ? "Filter a column" : a->modal==MODAL_GROUP ? "Summarize data" : a->modal==MODAL_ERROR ? "Unable to complete the action" : a->modal==MODAL_SETTINGS ? "Settings" : "Generated SQL";
+    if (a->modal==MODAL_SETTINGS) brand_draw_cached(box(x+20*s,y+13*s,38*s,38*s));
+    ui_text(u,title,x+(a->modal==MODAL_SETTINGS ? 66 : 24)*s,y+22*s,19,UI_TEXT);
+    if (ui_button(u,box(x+w-45*s,y+16*s,28*s,28*s),"×",false,true)) { a->modal=MODAL_NONE; return; }
+    bool enter=ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER);
+    if (a->modal==MODAL_SETTINGS) {
+        ui_text(u,"Interface size",x+24*s,y+65*s,13,UI_TEXT);
+        const char *labels[]={"Compact 80%","Standard 100%","Large 125%","Large 150%"};
+        const float scales[]={.8f,1,1.25f,1.5f}; bool single=w/s<590;
+        float button_width=single ? w-48*s : (w-56*s)/2;
+        for (int i=0;i<4;i++) if (ui_button(u,box(x+24*s+(single ? 0 : i%2)*(button_width+8*s),y+(96+(single ? i : i/2)*42)*s,button_width,34*s),labels[i],fabsf(u->scale-scales[i])<.01f,true)) { ui_set_scale(u,scales[i]); }
+        float motion_y=single ? 274 : 190;
+        if (ui_button(u,box(x+24*s,y+motion_y*s,w-48*s,32*s),a->reduced_motion ? "Reduce motion: On" : "Reduce motion: Off",a->reduced_motion,true)) { a->reduced_motion=!a->reduced_motion; }
+        ui_text_clip(u,"Canvas zoom: Control + scroll, pinch, or the sheet zoom controls.",box(x+18*s,y+h-40*s,w-36*s,24*s),12,UI_MUTED,false);
+    } else if (a->modal==MODAL_ERROR) {
+        wrapped_message(a,box(x+18*s,y+65*s,w-36*s,h-130*s));
+        if (ui_button(u,box(x+24*s,y+h-52*s,120*s,30*s),"Copy error",false,true)) SetClipboardText(a->message);
+        if (a->analysis.kind!=SOURCE_DEMO && a->analysis.kind!=SOURCE_NONE &&
+            ui_button(u,box(x+158*s,y+h-52*s,135*s,30*s),"Relink source",false,true)) { open_modal(a,MODAL_RELINK); return; }
+        if (ui_button(u,box(x+w-126*s,y+h-52*s,102*s,30*s),"Close",true,true) || enter) a->modal=MODAL_NONE;
+    } else if (a->modal==MODAL_OPEN || a->modal==MODAL_SAVE || a->modal==MODAL_RELINK) {
+        ui_text(u,a->modal==MODAL_SAVE ? "Save definitions and layout; external data stays in its source file." :
+            a->modal==MODAL_RELINK ? "Choose the source's new location. Analysis steps are preserved." : "CSV, Parquet, DuckDB or dxls (.dxls) workbook · enter a file path",x+24*s,y+62*s,12,UI_MUTED);
+        input_update(&a->input); input_draw(u,&a->input,box(x+24*s,y+95*s,w-48*s,40*s));
+        ui_text_clip(u,a->modal==MODAL_SAVE ? ".dxls · Undo history and cached rows are not saved." :
+            a->modal==MODAL_RELINK ? "Use the same source type; existing files are never overwritten." : "Opening data adds a sheet. Opening a workspace replaces this workspace.",box(x+18*s,y+146*s,w-36*s,24*s),11,UI_MUTED,false);
+        if (ui_button(u,box(x+w-120*s,y+h-54*s,96*s,32*s),a->modal==MODAL_SAVE ? "Save" : a->modal==MODAL_RELINK ? "Relink" : "Open",true,true) || enter) {
+            if (a->modal==MODAL_SAVE) workspace_job(a,JOB_SAVE,a->input.text);
+            else if (a->modal==MODAL_RELINK) relink_source(a);
+            else open_source(a,a->input.text,false);
+        }
+    } else if (a->modal==MODAL_SQL) {
+        ui_text(u,"Relation definition. Paging adds a bounded LIMIT / OFFSET.",x+24*s,y+60*s,12,UI_MUTED);
+        draw_sql(a,box(x+18*s,y+92*s,w-36*s,h-162*s));
+        if (ui_button(u,box(x+24*s,y+h-52*s,112*s,30*s),"Copy SQL",true,true)) {
+            SetClipboardText(a->sql_text ? a->sql_text : ""); status(a,"Generated SQL copied.");
+        }
+        ui_text(u,"Scroll to inspect · Escape to close",x+155*s,y+h-44*s,12,UI_MUTED);
+    } else if (a->modal==MODAL_GROUP) draw_summary(a,x,y,w,h);
+
+}
+static void draw_modal_presence(App *a) {
+    UIContext *u=&a->ui; bool blocked=u->pointer_blocked;
+    u->pointer_blocked=a->consume_grid_input;
+    bool active=popup_modal(a->modal),resized=a->popup_window_width!=GetScreenWidth() || a->popup_window_height!=GetScreenHeight() || a->popup_scale!=u->scale;
+    if (resized) {
+        a->popup_image=(UIPaintImage){0};
+        a->popup_window_width=GetScreenWidth(); a->popup_window_height=GetScreenHeight(); a->popup_scale=u->scale;
+    }
+    /* Modal dialogs occupy a higher layer and must never reveal an old menu. */
+    if (a->modal!=MODAL_NONE && !active) a->popup_image=(UIPaintImage){0};
+    ui_popup_presence(&a->popup_presence,active,u->paint_time,a->reduced_motion || resized);
+    Modal before=a->modal; bool was_active=a->popup_presence.active;
+    a->popup_capturing=false;
+    if (active) ui_pointer_offset((Vector2){0,a->popup_presence.offset*u->scale});
+    draw_modal(a);
+    ui_pointer_offset((Vector2){0});
+    if (a->popup_capturing) {
+        UIPaintImage next=ui_paint_cache_end(u); a->popup_capturing=false;
+        /* Actions can close and free drafts halfway through drawing. Preserve
+           the previous complete image rather than that partial frame. */
+        if (a->modal==before) {
+            a->popup_image=next; a->popup_back=next.buffer_index==UI_PAINT_DEPTH ? UI_PAINT_DEPTH+1 : UI_PAINT_DEPTH;
+        }
+    }
+    active=popup_modal(a->modal);
+    if (was_active && !active) ui_popup_presence(&a->popup_presence,false,u->paint_time,a->reduced_motion);
+    if (a->modal==MODAL_NONE || active) {
+        if (a->popup_presence.visible) ui_paint_image(u,a->popup_image,a->popup_presence.alpha,(Vector2){0,a->popup_presence.offset*u->scale});
+        else a->popup_image=(UIPaintImage){0};
+    }
+    u->pointer_blocked=blocked;
+}
+
+static void list_scrollbar(App *a,Rectangle r,int count,int visible,int *offset,bool *drag,float *grab,bool enabled) {
+    float s=a->ui.scale,position=(float)*offset; UIScrollbar state={*drag,*grab};
+    if (ui_scrollbar(&a->ui,box(r.x+r.width-8*s,r.y,8*s,r.height),count,visible,&position,false,&state,enabled)) a->consume_grid_input=true;
+    *offset=(int)lroundf(position); *drag=state.dragging; *grab=state.grab;
+}
+static float draw_workbook_section(App *a,Rectangle r,bool shared) {
+    UIContext *u=&a->ui; float s=u->scale; bool enabled=!u->pointer_blocked && a->modal==MODAL_NONE && !a->io_busy;
+    float header=29*s;
+    Rectangle title=box(r.x+12*s,r.y,r.width-44*s,header);
+    ui_label(u,"Workbook",title,12.5f,UI_TEXT,false,UI_MEDIUM);
+    ui_carbon(u,a->workbook_collapsed ? CARBON_CHEVRON_DOWN : CARBON_CHEVRON_UP,box(r.x+r.width-53*s,r.y+6*s,14*s,14*s),UI_MUTED);
+    if (enabled && (ui_take_click_from(visible_area(u,title)) || (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),visible_area(u,title))))) a->workbook_collapsed=!a->workbook_collapsed;
+    if (ui_icon_button(u,box(r.x+r.width-31*s,r.y+4*s,21*s,21*s),CARBON_CLOSE,false,passive_control(a,enabled))) { a->sidebar=false; return r.y; }
+    if (a->chrome_focus==2 && a->workbook_collapsed) ui_border(title,r,1.5f*s,UI_ACCENT);
+    if (a->workbook_open<=0) {
+        a->workbook_list=a->workbook_body_clip=(Rectangle){0}; a->workbook_visible_rows=0;
+        float bottom=r.y+header+6*s; DrawLineV((Vector2){r.x,bottom},(Vector2){r.x+r.width,bottom},UI_BORDER); return bottom+s;
+    }
+    enabled=enabled && !a->workbook_collapsed;
+    size_t sheet_count=workbook_visible_count(&a->book);
+    int count=(int)(sheet_count+a->page.relation_count);
+    float available=shared ? fminf(190*s,fmaxf(66*s,r.height*.27f)) : r.height;
+    float list_height=shared && a->dock_compact ? 84*s : fmaxf(28*s,available-header-37*s);
+    UIWorkbookList rows=ui_workbook_list(list_height/s,(size_t)count,shared && a->dock_compact);
+    int visible=(int)rows.visible; list_height=rows.height*s;
+    a->workbook_stride=rows.stride; a->workbook_row_height=rows.row_height;
+    bool resized=a->workbook_visible_rows!=visible; a->workbook_visible_rows=visible;
+    Rectangle list=box(r.x+6*s,r.y+header,r.width-12*s,list_height); a->workbook_list=list;
+    Rectangle body=box(r.x,r.y+header,r.width,(list_height+30*s)*a->workbook_open);
+    a->workbook_body_clip=visible_area(u,body); ui_scissor_begin(u,body);
+    bool painting=ui_paint_begin(u,body,(Vector2){r.width,list_height+30*s},a->workbook_alpha);
+    if (a->reveal_tab || resized) {
+        int position=(int)sheet_display_position(&a->book,a->book.active);
+        if (a->sheet_scroll>position) a->sheet_scroll=position;
+        if (a->sheet_scroll+visible<=position) a->sheet_scroll=position-visible+1;
+        a->reveal_tab=false;
+    }
+    if (enabled && CheckCollisionPointRec(ui_mouse_position(),visible_area(u,list))) a->sheet_scroll+=ui_scroll_steps(&a->wheel_sheet,-GetMouseWheelMoveV().y*3);
+    int max=count-visible; if (a->sheet_scroll>max) a->sheet_scroll=max; if (a->sheet_scroll<0) a->sheet_scroll=0;
+    ui_scissor_begin(u,list); ui_set_clip(u,list);
+    for (int j=0;j<visible;j++) {
+        size_t position=(size_t)(j+a->sheet_scroll); bool sheet=position<sheet_count;
+        size_t index=sheet ? workbook_visible_sheet(&a->book,position) : position-sheet_count;
+        const Relation *relation=sheet ? NULL : &a->page.relations[index];
+        char label[512]; snprintf(label,sizeof(label),"%s%s",sheet ? "" : "↳ ",sheet ? a->book.sheets[index].name : relation->label);
+        bool active=sheet ? index==a->book.active : a->analysis.table && !strcmp(a->analysis.table,relation->name) && !strcmp(a->analysis.schema,relation->schema);
+        Rectangle row=box(list.x,list.y+j*rows.stride*s,list.width-(count>visible ? 10*s : 0),rows.row_height*s);
+        if (sheet && enabled && CheckCollisionPointRec(ui_mouse_position(),visible_area(u,row)) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { begin_sheet_menu(a,index,ui_mouse_position()); break; }
+        bool clicked=ui_list_row(u,row,"",active,passive_control(a,enabled) && (sheet || !a->busy));
+        ui_carbon(u,CARBON_TABLE,box(row.x+9*s,row.y+(row.height-17*s)*.5f,17*s,17*s),active ? UI_ACCENT : UI_MUTED);
+        ui_text_clip_weight(u,label,box(row.x+27*s,row.y,row.width-27*s,row.height),12.5f,active ? UI_ACCENT : UI_TEXT,false,active ? UI_MEDIUM : UI_REGULAR);
+        if (clicked) {
+            a->chrome_focus=0; a->pivot_focus=0; a->pivot_search_focus=false;
+            if (sheet) { if (index!=a->book.active) { a->pending_sheet=true; a->pending_sheet_index=index; } }
+            else { a->pending_relation=true; a->pending_relation_index=index; }
+            a->consume_grid_input=true; break;
+        }
+        if (a->chrome_focus==2 && (int)position==a->workbook_focus_index) ui_focus_border(row,list,1.5f*s);
+    }
+    ui_clear_clip(u); ui_scissor_end(u); list_scrollbar(a,list,count,visible,&a->sheet_scroll,&a->workbook_drag,&a->workbook_grab,enabled);
+    Rectangle add=box(r.x+6*s,list.y+list.height+4*s,r.width-12*s,26*s);
+    bool blocked=u->pointer_blocked; u->pointer_blocked=blocked || !enabled;
+    bool adding=ui_list_row(u,add,"",false,!a->io_busy);
+    ui_carbon(u,CARBON_ADD,box(add.x+9*s,add.y+5*s,16*s,16*s),UI_TEXT);
+    ui_label(u,"New sheet",box(add.x+35*s,add.y,add.width-44*s,add.height),12,UI_TEXT,false,UI_REGULAR);
+    u->pointer_blocked=blocked;
+    if (adding) { a->pending_new_sheet=true; a->consume_grid_input=true; }
+    if (painting) ui_paint_end(u); ui_scissor_end(u);
+    float bottom=body.y+body.height+6*s; DrawLineV((Vector2){r.x,bottom},(Vector2){r.x+r.width,bottom},UI_BORDER); return bottom+s;
+}
+static void draw_sidebar(App *a,Rectangle r) {
+    UIContext *u=&a->ui; float s=u->scale; Vector2 mouse=ui_mouse_position(); bool enabled=!u->pointer_blocked && a->modal==MODAL_NONE && !a->io_busy;
+    DrawRectangleRec(r,UI_BG); r.width-=s; if (!a->dock_layout.maximum) DrawLineV((Vector2){r.x+r.width,r.y},(Vector2){r.x+r.width,r.y+r.height},UI_BORDER);
+    float y=a->sidebar ? draw_workbook_section(a,r,a->fields_visible) : r.y;
+    if (!a->fields_visible) return;
+    SheetObject *selected=selected_object(a); const Analysis *source=object_source(a,selected);
+    const char *name=selected && selected->kind==OBJECT_TABLE ? selected->name : source->kind!=SOURCE_NONE ? active_sheet(a)->name : "";
+    Rectangle heading=box(r.x+12*s,y,r.width-44*s,29*s);
+    draw_field_title(u,heading,name);
+    if (ui_icon_button(u,box(r.x+r.width-31*s,y+4*s,21*s,21*s),CARBON_CLOSE,false,passive_control(a,enabled))) { a->fields_visible=false; a->pivot_focus=0; a->pivot_search_focus=false; return; }
+    /* The definition's Fields heading is a label, not a hidden disclosure. */
+    DxPointerGesture heading_click; if (enabled) ui_take_left_gesture_from(visible_area(u,heading),&heading_click);
+    Rectangle search=box(r.x+10*s,y+30*s,r.width-20*s,26*s);
+    if (enabled && ((CheckCollisionPointRec(mouse,visible_area(u,search)) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || ui_gesture_starts_in(visible_area(u,search)))) { a->chrome_focus=0; a->pivot_focus=1; a->pivot_search_focus=true; a->consume_grid_input=true; }
+    if (enabled && a->pivot_search_focus) input_update(&a->pivot_search);
+    draw_field_search(a,search,enabled);
+    float footnote=!a->dock_compact && r.y+r.height-y>=160*s ? 43*s : 0;
+    match_fields(a); Rectangle list=box(r.x+6*s,y+61*s,r.width-12*s,fmaxf(24*s,r.y+r.height-y-61*s-footnote)); a->field_list=list;
+    int visible=(int)(list.height/(24*s)),count=(int)a->field_match_count,max=count-visible; if (max<0) max=0;
+    a->field_visible=visible;
+    if (enabled && CheckCollisionPointRec(mouse,visible_area(u,list))) a->pivot_field_scroll+=ui_scroll_steps(&a->wheel_field,-GetMouseWheelMoveV().y*3);
+    if (a->pivot_field_scroll<0) a->pivot_field_scroll=0; if (a->pivot_field_scroll>max) a->pivot_field_scroll=max;
+    ui_set_clip(u,list);
+    for (int j=0;j<visible && j+a->pivot_field_scroll<count;j++) {
+        size_t c=a->field_matches[j+a->pivot_field_scroll]; Rectangle row=box(list.x,list.y+j*24*s,list.width-(count>visible ? 10*s : 0),24*s);
+        bool active=a->pivot_focus==1 && a->pivot_field==(int)c;
+        bool hover=enabled && CheckCollisionPointRec(mouse,visible_area(u,row));
+        if (active || hover) DrawRectangleRec(GetCollisionRec(row,list),active ? (Color){217,233,242,255} : (Color){228,234,240,255});
+        if (hover) u->cursor=MOUSE_CURSOR_POINTING_HAND;
+        if (draw_field_more(a,c,row,enabled)) break;
+        DxPointerGesture gesture={0}; bool completed=enabled && ui_take_gesture_from(visible_area(u,row),&gesture);
+        if ((completed && gesture.right) || (enabled && CheckCollisionPointRec(mouse,visible_area(u,row)) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))) { begin_field_menu(a,c,completed ? (Vector2){gesture.x1,gesture.y1} : mouse); break; }
+        bool clicked=enabled && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse,visible_area(u,box(row.x,row.y,row.width-19*s,row.height)));
+        const Column *column=&context_fields(a)->columns[c];
+        ui_carbon(u,field_icon(column),box(row.x+6*s,row.y+4*s,16*s,16*s),UI_MUTED);
+        ui_label(u,column->name,box(row.x+31*s,row.y,row.width-56*s,row.height),12.5f,UI_TEXT,false,UI_REGULAR);
+        if (clicked || (completed && CheckCollisionPointRec((Vector2){gesture.x1,gesture.y1},row))) {
+            a->chrome_focus=0; a->pivot_field=(int)c; a->pivot_focus=1; a->pivot_search_focus=false; a->field_navigation=0; a->field_reveal_requested=true; a->consume_grid_input=true;
+        }
+    }
+    ui_clear_clip(u); list_scrollbar(a,list,count,visible,&a->pivot_field_scroll,&a->field_drag,&a->field_grab,enabled);
+    if (!count) ui_text_clip(u,context_fields(a)->column_count ? "No matching fields" : "No fields loaded",list,11,UI_MUTED,false);
+    if (footnote) draw_fields_footer(a,box(r.x,r.y+r.height-footnote,r.width,footnote),false);
+}
+static void draw_dock(App *a,Rectangle panel,bool authoring) {
+    UIContext *u=&a->ui; float scale=u->scale; int mode=authoring ? 1 : 0;
+    SheetObject *object=authoring ? selected_pivot(a) : NULL;
+    float wanted=object ? author_marks_height(a,object) : 0;
+    size_t sheets=workbook_visible_count(&a->book)+a->page.relation_count;
+    a->workbook_open=ui_motion_update_at(&a->workbook_motion,a->workbook_collapsed ? 0 : 1,u->paint_time,.16f,a->reduced_motion);
+    a->workbook_alpha_motion.standard_ease=true;
+    a->workbook_alpha=ui_motion_update_at(&a->workbook_alpha_motion,a->workbook_collapsed ? 0 : 1,u->paint_time,.12f,a->reduced_motion);
+    UIDockLayout layout=ui_dock_layout_fraction(panel,scale,sheets,a->sidebar,a->workbook_open,a->fields_visible,a->fields_collapsed,authoring,wanted,a->dock_scroll[mode]);
+    if (!layout.valid) return;
+    a->dock_compact=layout.compact; a->dock_scroll[mode]=layout.offset; a->dock_layout=layout;
+    bool reveal_book=a->reveal_tab;
+    bool reveal=a->author_reveal || reveal_book || ui_pressed(KEY_F6) || ui_pressed(KEY_TAB) || ui_pressed(KEY_SLASH) || ui_key(KEY_UP) || ui_key(KEY_DOWN) || ui_key(KEY_HOME) || ui_key(KEY_END) || ui_key(KEY_PAGE_UP) || ui_key(KEY_PAGE_DOWN);
+    int old_sheet=a->sheet_scroll,old_field=a->pivot_field_scroll; float old_author=a->author_scroll;
+    ui_scissor_begin(u,panel);
+    if (authoring) draw_author_dock(a,layout.content); else draw_sidebar(a,layout.content);
+    ui_scissor_end(u);
+    Vector2 mouse=ui_mouse_position(); float wheel=GetMouseWheelMoveV().y;
+    bool enabled=!u->pointer_blocked && a->modal==MODAL_NONE && !a->io_busy;
+    if (reveal && layout.maximum>0) {
+        Rectangle target={0};
+        if (a->pivot_focus==1 && a->pivot_search_focus) target=box(a->field_list.x,a->field_list.y-31*scale,a->field_list.width,26*scale);
+        else if (a->pivot_focus==1) {
+            int position=-1; for (size_t i=0;i<a->field_match_count;i++) if ((int)a->field_matches[i]==a->pivot_field) { position=(int)i; break; }
+            if (position>=0) target=box(a->field_list.x,a->field_list.y+(position-a->pivot_field_scroll)*24*scale,a->field_list.width,24*scale);
+        } else if (authoring && a->pivot_focus==8 && (unsigned)a->mark_role<UI_MARKS_ROLES) target=a->author_marks_layout.targets[a->mark_role];
+        else if (authoring && a->pivot_focus==7) target=a->author_plot;
+        else if (authoring && a->pivot_focus==6) target=a->author_marks_layout.representation;
+        else if (authoring && a->pivot_focus==4) target=(unsigned)a->pivot_value<UI_MARKS_FIELDS && a->author_marks_layout.measures[a->pivot_value].height ? a->author_marks_layout.measures[a->pivot_value] : a->author_marks_layout.measure_list;
+        else if (authoring && a->pivot_focus==5) target=(unsigned)a->pivot_value<UI_MARKS_FIELDS && a->author_marks_layout.filters[a->pivot_value].height ? a->author_marks_layout.filters[a->pivot_value] : a->author_marks_layout.empty_filter;
+        else if (a->chrome_focus==2 || reveal_book) {
+            int index=a->chrome_focus==2 ? a->workbook_focus_index : (int)sheet_display_position(&a->book,a->book.active);
+            target=box(a->workbook_list.x,a->workbook_list.y+(index-a->sheet_scroll)*a->workbook_stride*scale,a->workbook_list.width,a->workbook_row_height*scale);
+        }
+        float next=ui_dock_reveal(layout,target,scale);
+        if (next!=a->dock_scroll[mode] && a->modal==MODAL_MARKS) a->mark_menu_anchor_pending=true;
+        a->dock_scroll[mode]=next;
+    }
+    bool child=old_sheet!=a->sheet_scroll || old_field!=a->pivot_field_scroll || old_author!=a->author_scroll;
+    int sheet_max=(int)sheets-a->workbook_visible_rows,field_max=(int)a->field_match_count-a->field_visible;
+    if (a->sidebar && !a->workbook_collapsed && CheckCollisionPointRec(mouse,GetCollisionRec(a->workbook_list,a->workbook_body_clip)) && ((wheel<0 && a->sheet_scroll<sheet_max) || (wheel>0 && a->sheet_scroll>0))) child=true;
+    if (CheckCollisionPointRec(mouse,a->field_list) && ((wheel<0 && a->pivot_field_scroll<field_max) || (wheel>0 && a->pivot_field_scroll>0))) child=true;
+    if (authoring && CheckCollisionPointRec(mouse,a->author_body)) {
+        float maximum=a->author_marks_layout.maximum;
+        if ((wheel<0 && a->author_scroll<maximum) || (wheel>0 && a->author_scroll>0)) child=true;
+    }
+    if (enabled && layout.maximum>0 && wheel && CheckCollisionPointRec(mouse,panel) && !child) a->dock_scroll[mode]-=wheel*32;
+    a->dock_scroll[mode]=fmaxf(0,fminf(layout.maximum,a->dock_scroll[mode]));
+    bool changed=ui_scrollbar(u,box(panel.x+panel.width-10*scale,panel.y,9*scale,panel.height),layout.content.height/scale,panel.height/scale,&a->dock_scroll[mode],false,&a->dock_scrollbars[mode],enabled);
+    if (layout.maximum>0) DrawLineV((Vector2){panel.x+panel.width-scale,panel.y},(Vector2){panel.x+panel.width-scale,panel.y+panel.height},UI_BORDER);
+    if (changed) a->consume_grid_input=true;
+}
+static void draw_left_presence(App *a,Rectangle clip,bool authoring,bool overlay) {
+    UIContext *u=&a->ui; float s=u->scale;
+    float progress=fminf(1,a->left_extent/fmaxf(1,a->sidebar_width));
+    Rectangle panel=box(clip.x-10*(1-progress)*s,clip.y,a->sidebar_width*s,clip.height);
+    bool closing=a->left_motion.target<=0,blocked=u->pointer_blocked;
+    bool workbook=a->sidebar,fields=a->fields_visible;
+    if (closing) { a->sidebar=a->left_render_workbook; a->fields_visible=a->left_render_fields; u->pointer_blocked=true; }
+    ui_scissor_begin(u,clip);
+    bool painting=ui_paint_begin(u,clip,(Vector2){a->sidebar_width*s,clip.height},a->left_alpha*progress);
+    if (overlay) {
+        DrawRectangleRec(panel,UI_BG);
+        ui_text_clip_weight(u,"Workspace",box(panel.x+12*s,panel.y,panel.width-42*s,32*s),12,UI_TEXT,false,UI_MEDIUM);
+        if (ui_button(u,box(panel.x+panel.width-28*s,panel.y+5.5f*s,21*s,21*s),"×",false,a->modal==MODAL_NONE)) close_workspace(a);
+        panel.y+=32*s; panel.height-=32*s;
+    }
+    draw_dock(a,panel,authoring); if (painting) ui_paint_end(u); ui_scissor_end(u);
+    if (closing) { a->sidebar=workbook; a->fields_visible=fields; }
+    u->pointer_blocked=blocked;
+}
+static size_t pipeline_steps(App *a) {
+    const Analysis *source=object_source(a,selected_object(a));
+    return 1+(source->unique_rows ? 1 : 0)+(source->filter_column ? source->filter_count+1 : 0)+(source->group_column ? 1 : 0)+(source->sort_column ? source->sort_count+1 : 0);
+}
+static void inspect_source_sql(App *a) {
+    int selected=a->selected_object; SheetObject *object=selected_object(a);
+    a->selected_object=-1; open_modal(a,MODAL_SQL); a->selected_object=selected;
+    if (objects_source(&active_sheet(a)->objects,object)) { free(a->sql_text); a->sql_text=analysis_sql(object_source(a,object),false); }
+    char *sql=dx_printf("-- Current source result\n%s",a->sql_text ? a->sql_text : ""); free(a->sql_text); a->sql_text=sql;
+}
+static void edit_source_query(App *a) {
+    int selected=a->selected_object; const SheetObject *table=objects_source(&active_sheet(a)->objects,selected_object(a));
+    a->selected_object=table ? (int)(table-active_sheet(a)->objects.items) : -1; begin_source_query(a); a->selected_object=selected;
+}
+static void edit_step_filter(App *a,const char *column) {
+    SheetObject *object=selected_object(a);
+    const SheetObject *table=objects_source(&active_sheet(a)->objects,object);
+    if (table) { Page *fields=object_fields(a,object);
+        for (size_t c=0;c<fields->column_count;c++) if (!strcmp(fields->columns[c].name,column)) { open_table_filter(a,(size_t)(table-active_sheet(a)->objects.items),c); return; }
+    }
+    for (size_t c=0;c<a->page.column_count;c++) if (!strcmp(a->page.columns[c].name,column)) {
+        size_t selected=a->grid.col; a->grid.col=c; open_modal(a,MODAL_FILTER); a->grid.col=selected; return;
+    }
+    status(a,"This field is upstream of the grouped result. Reset grouping to edit its filter.");
+}
+static const Analysis *pipeline_source(App *a,const SheetObject **table) {
+    *table=objects_source(&active_sheet(a)->objects,selected_object(a)); return *table ? &(*table)->source : &a->analysis;
+}
+static void pipeline_rows_cache(App *a) {
+    const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table); uint64_t key=UINT64_C(1469598103934665603);
+    const uint64_t values[]={table ? table->id : 0,a->book.active,a->analysis_revision,(uintptr_t)source->path,(uintptr_t)source->query,source->kind,source->unique_rows,(uintptr_t)source->filter_column,(uintptr_t)source->filter_value,source->filter_op,source->filter_number.kind,source->filter_number.precision,source->filter_number.scale,source->filter_count,(uintptr_t)source->group_column,(uintptr_t)source->measure_column,source->aggregate,(uintptr_t)source->sort_column,source->descending,source->sort_count,context_fields(a)->column_count};
+    for (size_t i=0;i<sizeof(values)/sizeof(*values);i++) { key^=values[i]; key*=UINT64_C(1099511628211); }
+    for (size_t i=0;i<source->filter_count;i++) { const AnalysisFilter *f=&source->filters[i]; key^=(uintptr_t)f->column; key*=UINT64_C(1099511628211); key^=(uintptr_t)f->value ^ f->op ^ ((uint64_t)f->number.kind<<16) ^ ((uint64_t)f->number.precision<<24) ^ ((uint64_t)f->number.scale<<32); key*=UINT64_C(1099511628211); }
+    for (size_t i=0;i<source->sort_count;i++) { key^=(uintptr_t)source->sorts[i].column ^ source->sorts[i].descending; key*=UINT64_C(1099511628211); }
+    if (!a->pipeline_rows_valid || a->pipeline_rows_key!=key) {
+        a->pipeline_row_count=ui_source_steps(source,context_fields(a)->column_count,a->pipeline_rows); a->pipeline_rows_key=key; a->pipeline_rows_valid=true;
+    }
+}
+static void pipeline_show_sql(App *a) {
+    a->pipeline_selected_step=a->pipeline_focus_index; a->pipeline_sql=true; a->pipeline_focus_index=0; a->chrome_focus=8; a->consume_grid_input=true;
+}
+static bool pipeline_step_editable(App *a,const UIStep *step) {
+    const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table);
+    return step->kind==UI_STEP_FILTER || step->kind==UI_STEP_SORT || step->kind==UI_STEP_UNIQUE || (step->kind==UI_STEP_SOURCE && source->kind!=SOURCE_NONE);
+}
+static void pipeline_edit_step(App *a,size_t index) {
+    end_step_preview(a);
+    if (index>=a->pipeline_row_count) return;
+    if (a->pipeline_rows[index].kind==UI_STEP_SOURCE) edit_source_query(a); else pipeline_activate(a,index);
+    if (a->modal==MODAL_FILTER) { a->filter_anchor_valid=true; a->filter_anchor=(Vector2){a->pipeline_layout.edit.x,a->pipeline_layout.edit.y+a->pipeline_layout.edit.height}; }
+}
+static bool pipeline_step_change(App *a,size_t index,int direction,bool remove) {
+    end_step_preview(a);
+    pipeline_rows_cache(a); if (index>=a->pipeline_row_count) return false;
+    UIStep step=a->pipeline_rows[index]; const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table); Analysis copy=analysis_copy(source); bool changed=false;
+    size_t count=step.kind==UI_STEP_FILTER ? source->filter_count+(source->filter_column ? 1 : 0) : source->sort_count+(source->sort_column ? 1 : 0);
+    if (remove) {
+        if (step.kind==UI_STEP_FILTER) { analysis_filter_remove(&copy,step.column); changed=true; }
+        else if (step.kind==UI_STEP_SORT) { analysis_sort_remove(&copy,step.index); changed=true; }
+        else if (step.kind==UI_STEP_UNIQUE) { copy.unique_rows=false; changed=true; }
+        else if (step.kind==UI_STEP_GROUP) { free(copy.group_column); free(copy.measure_column); copy.group_column=copy.measure_column=NULL; changed=true; }
+    } else if ((step.kind==UI_STEP_FILTER || step.kind==UI_STEP_SORT) && ((direction<0 && step.index) || (direction>0 && step.index+1<count))) {
+        size_t target=direction<0 ? step.index-1 : step.index+1;
+        changed=step.kind==UI_STEP_FILTER ? analysis_filter_move(&copy,step.index,target) : analysis_sort_move(&copy,step.index,target);
+    }
+    if (!changed) { analysis_free(&copy); return false; }
+    bool ok=true;
+    if (table) ok=set_table_source(a,(size_t)(table-active_sheet(a)->objects.items),&copy);
+    else {
+        bool same=analysis_same_result(&a->analysis,&copy),schema=(a->analysis.group_column!=NULL)!=(copy.group_column!=NULL);
+        remember(a); analysis_free(&a->analysis); a->analysis=copy; memset(&copy,0,sizeof(copy));
+        if (same) cache_pipeline(a); else change_analysis(a,schema);
+    }
+    analysis_free(&copy);
+    if (ok) { a->pipeline_rows_valid=false; a->pipeline_focus_index=(int)index+(remove ? 0 : direction); a->consume_grid_input=true; status(a,remove ? "Step removed." : "Step order updated."); }
+    return ok;
+}
+static void begin_step_menu(App *a,size_t index,Vector2 origin) {
+    a->step_menu_index=(int)index; a->context_origin=origin; a->context_focus=a->context_scroll=0; a->modal=MODAL_STEP; a->step_menu_opening=true; a->consume_grid_input=true;
+}
+static void draw_step_menu(App *a) {
+    pipeline_rows_cache(a); if (a->step_menu_index<0 || (size_t)a->step_menu_index>=a->pipeline_row_count) { a->modal=MODAL_NONE; return; }
+    UIContext *u=&a->ui; float scale=u->scale; size_t index=(size_t)a->step_menu_index; UIStep *step=&a->pipeline_rows[index];
+    const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table);
+    size_t count=step->kind==UI_STEP_FILTER ? source->filter_count+(source->filter_column ? 1 : 0) : source->sort_count+(source->sort_column ? 1 : 0);
+    bool movable=step->kind==UI_STEP_FILTER || step->kind==UI_STEP_SORT;
+    bool available[]={pipeline_step_editable(a,step),movable && step->index>0,movable && step->index+1<count,step->kind!=UI_STEP_SOURCE,source->kind!=SOURCE_NONE};
+    const char *labels[]={step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…","Move earlier","Move later","Remove step","Inspect SQL"};
+    const UICarbonIcon icons[]={CARBON_SETTINGS_ADJUST,CARBON_ARROW_UP,CARBON_ARROW_DOWN,CARBON_TRASH_CAN,CARBON_SQL};
+    UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},scale,5,-1);
+    if (!menu.valid) return;
+    popup_capture(a,menu.panel);
+    bool opening=a->step_menu_opening; a->step_menu_opening=false;
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),menu.panel))) { a->modal=MODAL_NONE; a->chrome_focus=8; a->consume_grid_input=true; return; }
+    context_keys(a,5,5);
+    int direction=ui_key(KEY_UP) || (ui_pressed(KEY_TAB)&&ui_key_shift(KEY_TAB)) || ui_pressed(KEY_END) ? -1 : 1;
+    for (int i=0;i<5 && !available[a->context_focus];i++) a->context_focus=(a->context_focus+5+direction)%5;
+    ui_choice_frame(u,&menu,step->title);
+    for (int action=0;action<5;action++) {
+        bool clicked=ui_choice_row_input(u,menu.rows[action],labels[action],NULL,icons[action],false,a->context_focus==action,available[action],!opening);
+        if (available[action] && (clicked || (!opening && !a->consume_grid_input && a->context_focus==action && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE))))) {
+            a->modal=MODAL_NONE; a->chrome_focus=8;
+            if (!action) pipeline_edit_step(a,index); else if (action==4) pipeline_show_sql(a); else pipeline_step_change(a,index,action==1 ? -1 : 1,action==3);
+            a->consume_grid_input=true; return;
+        }
+    }
+}
+static void draw_pipeline(App *a,Rectangle r) {
+    const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table);
+    UIContext *u=&a->ui; float scale=u->scale; Vector2 mouse=ui_mouse_position();
+    bool enabled=!u->pointer_blocked && a->pipeline && !a->left_drawer && a->ribbon_mode!=3 && a->modal==MODAL_NONE && !a->io_busy && !a->busy && !a->grid.dragging && !a->grid.moving && a->grid.resizing<0 && !a->grid.scrollbar;
+    bool header_enabled=!u->pointer_blocked && a->pipeline && !a->left_drawer && a->modal==MODAL_NONE && !a->io_busy;
+    if (enabled && CheckCollisionPointRec(mouse,r) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { a->chrome_focus=8; a->ribbon_focus=false; a->pivot_focus=0; a->pivot_search_focus=false; a->consume_grid_input=true; }
+    if (GetScreenWidth()/scale<1040) DrawRectangleRec(box(r.x-5*scale,r.y,5*scale,r.height),(Color){39,61,79,28});
+    DrawRectangleRec(r,(Color){251,252,253,255}); DrawLineV((Vector2){r.x,r.y},(Vector2){r.x,r.y+r.height},UI_BORDER);
+    if (a->pipeline_collapsed) {
+        Rectangle expand=box(r.x+3*scale,r.y+5*scale,26*scale,26*scale),dismiss=box(r.x+3*scale,r.y+36*scale,26*scale,26*scale);
+        if (ui_icon_button(u,expand,CARBON_DATA_STRUCTURED,false,passive_control(a,header_enabled))) { present_pipeline(a,true,false); return; }
+        if (ui_icon_button(u,dismiss,CARBON_CLOSE,false,passive_control(a,header_enabled))) { present_pipeline(a,false,false); return; }
+        if (a->chrome_focus==8) DrawRectangleLinesEx(a->pipeline_focus_index ? dismiss : expand,1.5f*scale,UI_ACCENT);
+        if (header_enabled && CheckCollisionPointRec(mouse,expand)) { a->ribbon_hover="Expand Transformations"; a->ribbon_hover_rect=expand; }
+        if (header_enabled && CheckCollisionPointRec(mouse,dismiss)) { a->ribbon_hover="Dismiss Transformations"; a->ribbon_hover_rect=dismiss; }
+        return;
+    }
+    pipeline_rows_cache(a); UIInspectorLayout layout=ui_inspector_layout(r,scale,a->pipeline_row_count,a->pipeline_sql); a->pipeline_layout=layout; if (!layout.valid) return;
+    ui_label(u,a->pipeline_sql ? "Inspect SQL" : "Transformations",layout.title,13,UI_TEXT,false,UI_SEMIBOLD);
+    if (ui_icon_button(u,layout.collapse,CARBON_CHEVRON_RIGHT,false,passive_control(a,header_enabled))) { present_pipeline(a,true,true); return; }
+    if (ui_icon_button(u,layout.dismiss,CARBON_CLOSE,false,passive_control(a,header_enabled))) { present_pipeline(a,false,false); return; }
+    DrawLineV((Vector2){r.x,r.y+35*scale},(Vector2){r.x+r.width,r.y+35*scale},(Color){220,228,234,255});
+    float prefix=ui_measure(u,"Source:",11.5f)+5*scale; ui_label(u,"Source:",layout.source,11.5f,UI_MUTED,false,UI_REGULAR);
+    ui_label(u,table ? table->name : active_sheet(a)->name,box(layout.source.x+prefix,layout.source.y,layout.source.width-prefix,layout.source.height),11.5f,(Color){48,79,102,255},false,UI_MEDIUM);
+    DrawLineV((Vector2){r.x,r.y+69*scale},(Vector2){r.x+r.width,r.y+69*scale},(Color){225,231,236,255});
+    if (a->pipeline_sql) {
+        uint64_t id=table ? table->id : 0,revision=table ? table->revision : a->analysis_revision;
+        if (!a->inspector_sql_valid || a->inspector_sql_id!=id || a->inspector_sql_revision!=revision || a->inspector_sql_generation!=a->analysis_revision || a->inspector_sql_sheet!=a->book.active || a->inspector_sql_steps_key!=a->pipeline_rows_key) {
+            free(a->inspector_sql_text); a->inspector_sql_text=analysis_sql(source,false); a->inspector_sql_scroll=0; a->inspector_sql_lines.count=0;
+            a->inspector_sql_id=id; a->inspector_sql_revision=revision; a->inspector_sql_generation=a->analysis_revision; a->inspector_sql_sheet=a->book.active; a->inspector_sql_valid=true;
+            a->inspector_sql_steps_key=a->pipeline_rows_key;
+        }
+        ui_label(u,"Read-only source result",layout.sql_description,11,UI_MUTED,false,UI_REGULAR);
+        Rectangle code=layout.sql_code; code.width-=8*scale; TextLines *lines=&a->inspector_sql_lines;
+        if (!lines->count || lines->width!=code.width || lines->scale!=scale || lines->raster_size!=u->raster_size) text_lines_layout_sized(lines,u,a->inspector_sql_text ? a->inspector_sql_text : "",code.width,12);
+        int visible=(int)(code.height/(20*scale)); if (visible<1) visible=1; int maximum=lines->count>(size_t)visible ? (int)lines->count-visible : 0;
+        if (enabled && CheckCollisionPointRec(mouse,code)) a->inspector_sql_scroll+=ui_scroll_steps(&a->wheel_sql,-GetMouseWheelMoveV().y*3);
+        if (a->inspector_sql_scroll>maximum) a->inspector_sql_scroll=maximum; if (a->inspector_sql_scroll<0) a->inspector_sql_scroll=0;
+        text_lines_draw_sized(lines,u,a->inspector_sql_text ? a->inspector_sql_text : "",(size_t)a->inspector_sql_scroll,code,12,20,(Color){49,91,118,255});
+        if (maximum) list_scrollbar(a,box(code.x+code.width,code.y,8*scale,code.height),(int)lines->count,visible,&a->inspector_sql_scroll,&a->steps_drag,&a->steps_grab,enabled);
+        DrawLineV((Vector2){r.x,layout.footer.y},(Vector2){r.x+r.width,layout.footer.y},(Color){220,228,235,255});
+        if (ui_carbon_command(u,layout.copy,CARBON_COPY,"Copy SQL",false,passive_control(a,header_enabled))) { SetClipboardText(a->inspector_sql_text ? a->inspector_sql_text : ""); status(a,"Source SQL copied."); }
+        if (ui_carbon_command(u,layout.steps,CARBON_DATA_STRUCTURED,"Steps",false,passive_control(a,header_enabled))) { a->pipeline_sql=false; a->pipeline_focus_index=a->pipeline_selected_step; }
+        if (a->chrome_focus==8) ui_focus_border(a->pipeline_focus_index ? layout.steps : layout.copy,a->pipeline_focus_index ? layout.steps : layout.copy,1.5f*scale);
+        return;
+    }
+    int previous_visible=a->pipeline_visible_rows;
+    int count=(int)a->pipeline_row_count,visible=(int)(layout.list.height/(layout.row_height*scale)); if (visible<1) visible=1; a->pipeline_visible_rows=visible;
+    int maximum=count>visible ? count-visible : 0;
+    if (a->pipeline_focus_index>=count) a->pipeline_focus_index=count ? count-1 : 0; if (a->pipeline_focus_index<0) a->pipeline_focus_index=0;
+    if (previous_visible!=visible && a->chrome_focus==8) {
+        if (a->pipeline_focus_index<a->step_scroll) a->step_scroll=a->pipeline_focus_index;
+        if (a->pipeline_focus_index>=a->step_scroll+visible) a->step_scroll=a->pipeline_focus_index-visible+1;
+    }
+    if (enabled && CheckCollisionPointRec(mouse,layout.list)) a->step_scroll+=ui_scroll_steps(&a->wheel_steps,-GetMouseWheelMoveV().y*2);
+    if (a->step_scroll<0) a->step_scroll=0; if (a->step_scroll>maximum) a->step_scroll=maximum;
+    ui_set_clip(u,layout.list);
+    for (int row=0;row<visible+1 && row+a->step_scroll<count;row++) {
+        int index=row+a->step_scroll; UIStep *step=&a->pipeline_rows[index]; Rectangle item=box(layout.list.x,layout.list.y+row*layout.row_height*scale,layout.list.width-8*scale,layout.row_height*scale);
+        bool selected=index==a->pipeline_focus_index;
+        if (ui_list_row(u,item,"",false,passive_control(a,enabled))) { a->pipeline_focus_index=index; a->chrome_focus=8; a->consume_grid_input=true; selected=true; }
+        if (selected) { clipped_fill(item,layout.list,(Color){225,237,246,255}); ui_border(item,layout.list,scale,(Color){201,223,239,255}); clipped_fill(box(item.x,item.y+6*scale,2*scale,item.height-12*scale),layout.list,(Color){44,113,156,255}); }
+        else clipped_fill(box(item.x,item.y+item.height-scale,item.width,scale),layout.list,(Color){229,234,240,255});
+        Rectangle number=box(item.x+6*scale,item.y+(item.height-26*scale)*.5f,24*scale,26*scale); clipped_fill(number,layout.list,WHITE); ui_border(number,layout.list,scale,(Color){224,231,237,255});
+        char ordinal[16]; snprintf(ordinal,sizeof(ordinal),"%d",index+1); float ordinal_width=ui_measure(u,ordinal,12);
+        ui_label(u,ordinal,box(number.x+(number.width-ordinal_width)*.5f,number.y,ordinal_width,number.height),12,(Color){55,101,128,255},false,UI_REGULAR);
+        ui_label(u,step->title,box(item.x+39*scale,item.y+6*scale,item.width-64*scale,15*scale),11.5f,(Color){41,72,94,255},false,UI_REGULAR);
+        ui_label(u,step->detail,box(item.x+39*scale,item.y+24*scale,item.width-64*scale,14*scale),10.5f,UI_MUTED,false,UI_REGULAR);
+        ui_carbon(u,CARBON_CHECKMARK,box(item.x+item.width-18*scale,item.y+(item.height-12*scale)*.5f,12*scale,12*scale),UI_MUTED);
+        DxPointerGesture gesture;
+        if (enabled && (ui_take_gesture_from(item,&gesture) && gesture.right)) { ui_clear_clip(u); a->pipeline_focus_index=index; begin_step_menu(a,(size_t)index,(Vector2){gesture.x1,gesture.y1}); return; }
+        if (enabled && CheckCollisionPointRec(mouse,item) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { ui_clear_clip(u); a->pipeline_focus_index=index; begin_step_menu(a,(size_t)index,mouse); return; }
+        if (selected && a->chrome_focus==8) ui_focus_border(item,layout.list,scale);
+    }
+    ui_clear_clip(u); if (maximum) list_scrollbar(a,layout.list,count,visible,&a->step_scroll,&a->steps_drag,&a->steps_grab,enabled);
+    DrawLineV((Vector2){r.x,layout.details.y},(Vector2){r.x+r.width,layout.details.y},(Color){220,228,235,255});
+    if (count) {
+        UIStep *step=&a->pipeline_rows[a->pipeline_focus_index];
+        ui_label(u,step->title,layout.detail_title,11.5f,UI_TEXT,false,UI_MEDIUM);
+        if (layout.description.height) ui_label(u,step->detail,layout.description,11,UI_MUTED,false,UI_REGULAR);
+        if (ui_popup_button(u,layout.edit,step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…",false,false,passive_control(a,enabled) && pipeline_step_editable(a,step))) pipeline_edit_step(a,(size_t)a->pipeline_focus_index);
+        if (ui_popup_button(u,layout.preview,"Preview…",false,false,passive_control(a,enabled) && !a->busy && source->kind!=SOURCE_NONE)) {
+            if (step_preview_start(&a->step_preview,source,(size_t)a->pipeline_focus_index,table ? table->id : 0,table ? table->revision : a->analysis_revision,&a->grid)) {
+                step_preview_presentation(&a->step_preview,context_fields(a),&a->grid,&active_sheet(a)->formats,table ? table->col : 0);
+                a->consume_grid_input=true; a->pivot_focus=0; a->ribbon_focus=false; status(a,"Historical step preview · read-only"); schedule_step_preview(a);
+            }
+        }
+    }
+    DrawLineV((Vector2){r.x,layout.footer.y},(Vector2){r.x+r.width,layout.footer.y},(Color){225,231,236,255});
+    if (ui_carbon_command(u,layout.inspect,CARBON_SQL,"Inspect SQL",false,passive_control(a,enabled) && source->kind!=SOURCE_NONE)) pipeline_show_sql(a);
+    if (layout.note.height) ui_label(u,"Current source steps",layout.note,10,UI_MUTED,false,UI_REGULAR);
+}
+static void paste_selection(App *a) {
+    const char *text=GetClipboardText(); char *error=NULL; size_t rows=0,columns=0;
+    Worksheet *sheet=active_sheet(a); uint64_t revision=sheet->cells.revision;
+    if (text && cells_paste_checked(&sheet->cells,a->grid.row,a->grid.col,text,&rows,&columns,paste_guard,a,&error)) {
+        if (revision!=sheet->cells.revision) worksheet_record(sheet,EDIT_CELLS);
+        grid_ensure_columns(&a->grid,a->grid.col+columns); grid_select_cell(&a->grid,a->grid.row,a->grid.col,false);
+        a->grid.end_row=a->grid.row+rows-1; a->grid.end_col=a->grid.col+columns-1;
+        a->book.dirty=true; status(a,"Cells pasted.");
+    } else if (error) { status(a,error); free(error); }
+    a->consume_grid_input=true;
+}
+static void select_region(App *a) {
+    if (a->page.count_pending && a->grid.col<a->page.column_count && !selected_pivot(a)) { status(a,"Counting the table rows. Select a range now, or retry Select All when the count finishes."); a->consume_grid_input=true; return; }
+    Worksheet *sheet=active_sheet(a); Grid *g=&a->grid;
+    SheetRange region=objects_region(&sheet->objects,&sheet->cells,a->page.total,a->page.column_count,g->row,g->col,false);
+    SheetRange used=objects_region(&sheet->objects,&sheet->cells,a->page.total,a->page.column_count,g->row,g->col,true);
+    bool current=g->selection==SELECT_CELLS && g->anchor_row==region.r0 && g->end_row==region.r1 && g->anchor_col==region.c0 && g->end_col==region.c1;
+    bool full=g->selection==SELECT_CELLS && g->anchor_row==used.r0 && g->end_row==used.r1 && g->anchor_col==used.c0 && g->end_col==used.c1;
+    if (full || g->selection==SELECT_ALL) g->selection=SELECT_ALL;
+    else {
+        if (current) region=used;
+        g->selection=SELECT_CELLS; g->anchor_row=region.r0; g->end_row=region.r1; g->anchor_col=region.c0; g->end_col=region.c1;
+    }
+    a->consume_grid_input=true;
+}
+static void cycle_focus(App *a,bool backwards) {
+    bool authoring=selected_pivot(a)!=NULL; int regions[16],n=0,current=0;
+    regions[n++]=1;
+    if (a->sidebar) regions[n++]=2;
+    if (a->fields_visible && (authoring || !a->fields_collapsed)) regions[n++]=3;
+    if (authoring) { regions[n++]=4; regions[n++]=5; regions[n++]=9; regions[n++]=6; if (selected_pivot(a)->kind==OBJECT_CHART && selected_pivot(a)->pivot.counts[PIVOT_VALUES]>1) regions[n++]=11; regions[n++]=12; regions[n++]=7; }
+    regions[n++]=0; if (a->pipeline) regions[n++]=8; regions[n++]=10;
+    if (a->chrome_focus) current=a->chrome_focus;
+    else if (a->ribbon_focus) current=1;
+    else if (a->pivot_focus==1) current=3;
+    else if (a->pivot_focus==6) current=9;
+    else if (a->pivot_focus==7) current=11;
+    else if (a->pivot_focus==8) current=12;
+    else if (a->pivot_focus>=2) current=a->pivot_focus==3 ? 4 : a->pivot_focus==2 ? 5 : a->pivot_focus==4 ? 6 : 7;
+    int index=0; for (int i=0;i<n;i++) if (regions[i]==current) { index=i; break; }
+    int next=regions[(index+n+(backwards ? -1 : 1))%n];
+    a->chrome_focus=0; a->ribbon_focus=false; a->pivot_focus=0;
+    if (next==1) a->ribbon_focus=true;
+    else if (next==2) { a->chrome_focus=2; a->workbook_focus_index=(int)sheet_display_position(&a->book,a->book.active); }
+    else if (next==3) a->pivot_focus=1;
+    else if (next>=4 && next<=7) { a->pivot_focus=next==4 ? 3 : next==5 ? 2 : next==6 ? 4 : 5; a->pivot_role=a->pivot_focus-2; }
+    else if (next==8) a->chrome_focus=8;
+    else if (next==9) a->pivot_focus=6;
+    else if (next==11) a->pivot_focus=7;
+    else if (next==12) a->pivot_focus=8;
+    else if (next==10) { a->chrome_focus=10; a->status_focus=0; }
+    if (GetScreenWidth()/a->ui.scale<700 && (next==2 || next==3 || next==6 || next==7 || next==9 || next==11 || next==12)) {
+        a->left_drawer=true;
+        if (next==6 || next==7 || next==9) a->author_scroll=0;
+    }
+    else a->left_drawer=false;
+    a->author_reveal=next==6 || next==7 || next==9 || next==11 || next==12;
+    a->ribbon_command=-1; a->pivot_search_focus=false; a->key_tips=false; a->consume_grid_input=true;
+}
+static void status_activate(App *a) {
+    if (!a->status_focus) open_statistics(a);
+    else if (a->status_focus==3) begin_scale_menu(a,(Vector2){a->status_layout.scale.x,GetScreenHeight()});
+    else if (a->status_focus==4) zoom_canvas(a,1,(Vector2){a->grid.body.x,a->grid.body.y});
+    else zoom_canvas(a,fminf(1.6f,fmaxf(.6f,roundf((active_canvas_zoom(a)+(a->status_focus==1 ? -.1f : .1f))*10)/10)),(Vector2){a->grid.body.x,a->grid.body.y});
+    a->consume_grid_input=true;
+}
+static void pipeline_activate(App *a,size_t index) {
+    if (a->pipeline_collapsed) { if (index<2) present_pipeline(a,index==0,false); return; }
+    const SheetObject *table=objects_source(&active_sheet(a)->objects,selected_object(a));
+    const Analysis *source=table ? &table->source : &a->analysis;
+    if (index>=pipeline_steps(a)) return;
+    if (!index) { inspect_source_sql(a); return; }
+    end_step_preview(a);
+    if (source->unique_rows && index==1) { set_unique_rows(a,table ? (int)(table-active_sheet(a)->objects.items) : -1,false); return; }
+    size_t step=index-(source->unique_rows ? 1 : 0),filters=source->filter_column ? source->filter_count+1 : 0;
+    if (step<=filters) edit_step_filter(a,step==1 ? source->filter_column : source->filters[step-2].column);
+    else if (source->group_column && step==filters+1) inspect_source_sql(a);
+    else { int selected=a->selected_object; if (table) a->selected_object=(int)(table-active_sheet(a)->objects.items); open_modal(a,MODAL_SORT); a->selected_object=selected; }
+}
+static bool chrome_keyboard(App *a) {
+    if (!a->chrome_focus) return false;
+    if (ui_key_control(KEY_TAB) && ui_pressed(KEY_TAB)) return false;
+    if ((a->chrome_focus==2 && !a->sidebar) || (a->chrome_focus==8 && !a->pipeline) || ui_pressed(KEY_ESCAPE)) { a->chrome_focus=0; a->consume_grid_input=true; return true; }
+    if (a->chrome_focus==10) {
+        const int order[]={0,3,1,4,2}; int index=0; for (int i=0;i<5;i++) if (order[i]==a->status_focus) index=i;
+        if (ui_key(KEY_LEFT) || (ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB))) a->status_focus=order[(index+4)%5];
+        if (ui_key(KEY_RIGHT) || (ui_pressed(KEY_TAB) && !ui_key_shift(KEY_TAB))) a->status_focus=order[(index+1)%5];
+        if (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE) || (!a->status_focus && (ui_pressed(KEY_KB_MENU) || (ui_pressed(KEY_F10) && ui_key_shift(KEY_F10))))) status_activate(a);
+        a->consume_grid_input=true; return true;
+    }
+    bool workbook=a->chrome_focus==2; size_t sheet_count=workbook_visible_count(&a->book);
+    if (!workbook && !a->pipeline_collapsed && a->pipeline_sql) {
+        if (ui_pressed(KEY_LEFT) && !ui_key_alt(KEY_LEFT)) { present_pipeline(a,true,true); return true; }
+        int visible=(int)(a->pipeline_layout.sql_code.height/(20*a->ui.scale)); if (visible<1) visible=1;
+        if (ui_key(KEY_UP)) a->inspector_sql_scroll--;
+        if (ui_key(KEY_DOWN)) a->inspector_sql_scroll++;
+        if (ui_key(KEY_PAGE_UP)) a->inspector_sql_scroll-=visible;
+        if (ui_key(KEY_PAGE_DOWN)) a->inspector_sql_scroll+=visible;
+        if (ui_pressed(KEY_HOME)) a->inspector_sql_scroll=0;
+        if (ui_pressed(KEY_END)) a->inspector_sql_scroll=INT_MAX;
+        if (ui_pressed(KEY_TAB)) a->pipeline_focus_index=a->pipeline_focus_index ? 0 : 1;
+        bool copy=ui_pressed(KEY_C) && ui_key_shortcut(KEY_C),activate=ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE);
+        if (copy || (activate && !a->pipeline_focus_index)) { SetClipboardText(a->inspector_sql_text ? a->inspector_sql_text : ""); status(a,"Source SQL copied."); }
+        else if (activate) { a->pipeline_sql=false; a->pipeline_focus_index=a->pipeline_selected_step; }
+        a->consume_grid_input=true; return true;
+    }
+    int count=workbook ? (int)(sheet_count+a->page.relation_count) : a->pipeline_collapsed ? 2 : (int)pipeline_steps(a);
+    int *index=workbook ? &a->workbook_focus_index : &a->pipeline_focus_index;
+    int *scroll=workbook ? &a->sheet_scroll : &a->step_scroll;
+    int visible=workbook ? a->workbook_visible_rows : a->pipeline_visible_rows; if (visible<1) visible=1;
+    if (ui_key(KEY_UP) && !ui_key_alt(KEY_UP)) (*index)--;
+    if (ui_key(KEY_DOWN) && !ui_key_alt(KEY_DOWN)) (*index)++;
+    if (ui_key(KEY_PAGE_UP)) *index-=visible;
+    if (ui_key(KEY_PAGE_DOWN)) *index+=visible;
+    if (ui_pressed(KEY_HOME)) *index=0;
+    if (ui_pressed(KEY_END)) *index=count-1;
+    if (*index>=count) *index=count-1; if (*index<0) *index=0;
+    if (!workbook && ((ui_pressed(KEY_LEFT) && !ui_key_alt(KEY_LEFT)) || (ui_pressed(KEY_RIGHT) && !ui_key_alt(KEY_RIGHT)))) {
+        present_pipeline(a,true,ui_pressed(KEY_LEFT)); return true;
+    }
+    if (workbook && (size_t)*index<sheet_count && (ui_pressed(KEY_F2) || ui_pressed(KEY_KB_MENU) || (ui_key_shift(KEY_F10) && ui_pressed(KEY_F10)))) {
+        size_t sheet=workbook_visible_sheet(&a->book,(size_t)*index);
+        if (ui_pressed(KEY_F2)) begin_sheet_rename(a,sheet);
+        else begin_sheet_menu(a,sheet,(Vector2){12*a->ui.scale,a->grid.rect.y+38*a->ui.scale});
+        return true;
+    }
+    if (*index<*scroll) *scroll=*index;
+    if (*index>=*scroll+visible) *scroll=*index-visible+1;
+    if (!workbook && !a->pipeline_collapsed && !a->busy) {
+        if (ui_pressed(KEY_KB_MENU) || (ui_pressed(KEY_F10) && ui_key_shift(KEY_F10))) {
+            begin_step_menu(a,(size_t)*index,(Vector2){a->pipeline_layout.list.x,a->pipeline_layout.list.y+(*index-*scroll+1)*a->pipeline_layout.row_height*a->ui.scale}); return true;
+        }
+        if (ui_pressed(KEY_DELETE) || ui_pressed(KEY_BACKSPACE)) { pipeline_step_change(a,(size_t)*index,0,true); return true; }
+        if (ui_key_alt(KEY_UP) && ui_pressed(KEY_UP)) { pipeline_step_change(a,(size_t)*index,-1,false); return true; }
+        if (ui_key_alt(KEY_DOWN) && ui_pressed(KEY_DOWN)) { pipeline_step_change(a,(size_t)*index,1,false); return true; }
+    }
+    if ((ui_key(KEY_LEFT) && ui_key_alt(KEY_LEFT)) || (ui_key(KEY_RIGHT) && ui_key_alt(KEY_RIGHT))) {
+        float *width=workbook ? &a->sidebar_width : &a->pipeline_width;
+        if (ui_key(KEY_LEFT)) *width+=workbook ? -8 : 8;
+        if (ui_key(KEY_RIGHT)) *width+=workbook ? 8 : -8;
+        *width=fmaxf(workbook ? 200 : 244,fminf(workbook ? 340 : 420,*width));
+    }
+    if (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)) {
+        if (workbook) {
+            if (a->workbook_collapsed) a->workbook_collapsed=false;
+            else if ((size_t)*index<sheet_count) { a->pending_sheet=true; a->pending_sheet_index=workbook_visible_sheet(&a->book,(size_t)*index); }
+            else { a->pending_relation=true; a->pending_relation_index=(size_t)*index-sheet_count; }
+        } else pipeline_activate(a,(size_t)*index);
+    }
+    a->consume_grid_input=true; return true;
+}
+static bool pivot_keyboard(App *a) {
+    SheetObject *o=selected_pivot(a); if (!o && (!a->fields_visible || a->fields_collapsed)) return false;
+    if (a->ribbon_focus) return false;
+    if (ui_key_control(KEY_TAB) && ui_pressed(KEY_TAB)) return false;
+    if (o) {
+        const int keys[]={KEY_R,KEY_C,KEY_V,KEY_F};
+        for (int i=0;i<4;i++) if (ui_pressed(keys[i]) && ui_key_alt(keys[i])) { a->pivot_role=i; a->pivot_focus=1; a->pivot_search_focus=false; a->key_tips=false; a->consume_grid_input=true; return true; }
+    }
+    if (!a->pivot_focus) return false;
+    if (ui_pressed(KEY_ESCAPE)) { a->pivot_focus=0; a->pivot_search_focus=false; a->consume_grid_input=true; return true; }
+    if (a->pivot_search_focus) { if (ui_pressed(KEY_ENTER)||ui_pressed(KEY_TAB)) a->pivot_search_focus=false; return true; }
+    if (a->pivot_drag_field>=0 || a->pivot_drag_role>=0) return true;
+    if (a->pivot_focus==1) {
+        if (ui_pressed(KEY_SLASH)) { a->pivot_search_focus=true; return true; }
+        match_fields(a); int position=0,visible=a->field_visible>0 ? a->field_visible : 1;
+        for (size_t i=0;i<a->field_match_count;i++) if ((int)a->field_matches[i]==a->pivot_field) { position=(int)i; break; }
+        if (ui_key(KEY_UP) && position>0) position--;
+        if (ui_key(KEY_DOWN) && position+1<(int)a->field_match_count) position++;
+        if (ui_key(KEY_PAGE_UP)) position=position>visible ? position-visible : 0;
+        if (ui_key(KEY_PAGE_DOWN)) position=position+visible<(int)a->field_match_count ? position+visible : (int)a->field_match_count-1;
+        if (ui_pressed(KEY_HOME)) position=0;
+        if (ui_pressed(KEY_END)) position=(int)a->field_match_count-1;
+        if (position<a->pivot_field_scroll) a->pivot_field_scroll=position;
+        if (position>=a->pivot_field_scroll+visible) a->pivot_field_scroll=position-visible+1;
+        a->pivot_field=a->field_match_count ? (int)a->field_matches[position] : -1;
+        if (!o && a->pivot_field>=0 && (ui_pressed(KEY_KB_MENU)||(ui_key_shift(KEY_F10) && ui_pressed(KEY_F10)))) { begin_field_menu(a,(size_t)a->pivot_field,(Vector2){a->sidebar_width*a->ui.scale,180*a->ui.scale}); return true; }
+        if (a->pivot_field>=0 && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE))) {
+            if (!o) { a->field_navigation=0; a->field_reveal_requested=true; }
+            else {
+                a->pivot_drag_field=a->pivot_field; a->pivot_drag_role=-1;
+                if (ui_pressed(KEY_SPACE)) { a->modal=MODAL_PIVOT_FIELD; a->context_origin=(Vector2){220*a->ui.scale,180*a->ui.scale}; }
+                else assign_pivot_ui_field(a,(PivotRole)a->pivot_role,8);
+            }
+            a->consume_grid_input=true;
+        }
+    } else if (o && a->pivot_focus==6) {
+        if (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)) {
+            a->modal=MODAL_REPRESENTATION; a->context_origin=(Vector2){a->author_body.x,a->author_body.y};
+            a->context_focus=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0; a->context_scroll=0; a->consume_grid_input=true;
+        } else if (o->kind==OBJECT_CHART) {
+            if (ui_key(KEY_LEFT) && o->mark>MARK_BAR) set_chart_mark(a,(ChartMark)(o->mark-1));
+            if (ui_key(KEY_RIGHT) && o->mark<MARK_SCATTER) set_chart_mark(a,(ChartMark)(o->mark+1));
+            for (int i=0;i<4;i++) if (ui_pressed(KEY_ONE+i)) set_chart_mark(a,(ChartMark)i);
+        }
+    } else if (o && a->pivot_focus==8) {
+        int delta=ui_key(KEY_RIGHT)-ui_key(KEY_LEFT)+3*(ui_key(KEY_DOWN)-ui_key(KEY_UP));
+        if (delta) { a->mark_role=(a->mark_role+DX_MARK_ROLES+delta)%DX_MARK_ROLES; a->author_reveal=true; }
+        if (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)) begin_marks(a,(MarkRole)a->mark_role,a->author_marks[a->mark_role],true);
+        if (ui_pressed(KEY_DELETE)||ui_pressed(KEY_BACKSPACE)) { MarkDefinition copy=marks_copy(&o->marks); while (copy.counts[a->mark_role]) marks_remove(&copy,(MarkRole)a->mark_role,copy.counts[a->mark_role]-1); set_marks(a,&copy); marks_free(&copy); }
+    } else if (o && a->pivot_focus==7) {
+        if (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)) {
+            a->modal=MODAL_CHART_MEASURE; a->context_origin=(Vector2){a->author_plot.x,a->author_plot.y+a->author_plot.height};
+            a->context_focus=o->chart_measure; a->context_scroll=0; a->consume_grid_input=true;
+        }
+    } else if (o && a->pivot_focus>=2 && a->pivot_focus<=5) {
+        int role=a->pivot_focus-2; size_t count=o->pivot.counts[role];
+        if (a->pivot_value<0 || (size_t)a->pivot_value>=count) a->pivot_value=0;
+        int direction=ui_key(KEY_LEFT) || ui_key(KEY_UP) ? -1 : ui_key(KEY_RIGHT) || ui_key(KEY_DOWN) ? 1 : 0;
+        if (direction && count) {
+            int next=role<2 && (ui_key(KEY_UP)||ui_key(KEY_DOWN)) ? (int)ui_shelf_neighbor(a->pivot_tokens[role],count,(size_t)a->pivot_value,ui_key(KEY_UP) ? -1 : 1) : a->pivot_value+direction; if (next<0) next=0; if (next>=(int)count) next=(int)count-1;
+            if ((ui_key_alt(direction<0 ? KEY_LEFT : KEY_RIGHT) || ui_key_alt(direction<0 ? KEY_UP : KEY_DOWN)) && next!=a->pivot_value) {
+                PivotDefinition copy=pivot_copy(&o->pivot); char *error=NULL;
+                if (pivot_move(&copy,(PivotRole)role,(size_t)a->pivot_value,(PivotRole)role,(size_t)next,&error)) set_pivot_definition(a,&copy); else { status(a,error); free(error); pivot_free(&copy); }
+            }
+            a->pivot_value=next;
+            a->author_reveal=true;
+        }
+        if (count && (role!=PIVOT_VALUES || count>1) && (ui_pressed(KEY_DELETE)||ui_pressed(KEY_BACKSPACE))) { PivotDefinition copy=pivot_copy(&o->pivot); pivot_remove(&copy,(PivotRole)role,(size_t)a->pivot_value); set_pivot_definition(a,&copy); }
+        else if (count && role==PIVOT_FILTERS && ui_pressed(KEY_ENTER)) open_pivot_filter(a,(size_t)a->pivot_value);
+        else if (count && role!=PIVOT_FILTERS && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE))) {
+            a->pivot_drag_role=role; a->pivot_drag_index=a->pivot_value; a->pivot_drag_field=-1;
+            Rectangle token=a->pivot_tokens[role][a->pivot_value]; pivot_menu_open(a,(Vector2){token.x,token.y+token.height});
+        }
+        else if (count && role==PIVOT_VALUES) for (int i=0;i<6;i++) if (ui_pressed(KEY_ONE+i)) {
+            if (!aggregate_allowed(a,o->pivot.fields[role][a->pivot_value].name,(Aggregate)i)) { status(a,"This aggregation requires a numeric field. Use Rows or Distinct for a text dimension."); break; }
+            PivotDefinition copy=pivot_copy(&o->pivot); copy.fields[role][a->pivot_value].aggregate=(Aggregate)i; set_pivot_definition(a,&copy); break;
+        }
+    }
+    return true;
+}
+static void cycle_sheet(App *a,bool backwards) {
+    if (a->book.count>1) {
+        size_t next=a->book.active;
+        do { next=(next+a->book.count+(backwards ? -1 : 1))%a->book.count; } while (a->book.sheets[next].hidden);
+        activate_sheet(a,next,true);
+    }
+    a->consume_grid_input=true;
+}
+static void shortcuts(App *a) {
+    DxCommand command=dx_take_command();
+    if (a->modal==MODAL_NONE && a->guide_button_focus) {
+        if (ui_pressed(KEY_F6) || command==DX_COMMAND_FOCUS_NEXT || command==DX_COMMAND_FOCUS_PREVIOUS) {
+            a->guide_button_focus=false; a->chrome_focus=0; a->pivot_focus=0; a->ribbon_focus=true;
+        }
+        else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || ui_gesture_starts_in(box(0,0,GetScreenWidth(),GetScreenHeight()))) a->guide_button_focus=false;
+        else if (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE)) { run_action(a,ACTION_GUIDE); return; }
+        else if (ui_pressed(KEY_TAB) && !ui_key_control(KEY_TAB)) { a->guide_button_focus=false; a->chrome_focus=0; a->pivot_focus=0; a->ribbon_focus=true; cycle_focus(a,ui_key_shift(KEY_TAB)); return; }
+        else a->consume_grid_input=true;
+    }
+    if (a->step_preview.active && a->modal==MODAL_NONE) {
+        bool canvas=!a->chrome_focus && !a->pivot_focus && !a->ribbon_focus && !a->pivot_search_focus;
+        bool editing=canvas && (command==DX_COMMAND_PASTE || (ui_pressed(KEY_V) && ui_key_shortcut(KEY_V)) || (ui_pressed(KEY_X) && ui_key_shortcut(KEY_X)));
+        if (ui_pressed(KEY_ESCAPE) && !a->step_preview.grid.dragging && a->step_preview.grid.resizing<0) { end_step_preview(a); return; }
+        if (command==DX_COMMAND_OPEN || command==DX_COMMAND_SAVE || command==DX_COMMAND_SAVE_AS || command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO || command==DX_COMMAND_IMPORT || command==DX_COMMAND_QUERY || command==DX_COMMAND_SORT || command==DX_COMMAND_UNIQUE || command==DX_COMMAND_PIVOT || command==DX_COMMAND_EXPORT ||
+            (ui_key_shortcut(KEY_O) && ui_pressed(KEY_O)) || (ui_key_shortcut(KEY_S) && ui_pressed(KEY_S)) || (ui_key_shortcut(KEY_Z) && ui_pressed(KEY_Z)) || (ui_key_shortcut(KEY_Y) && ui_pressed(KEY_Y)) ||
+            (ui_key_shortcut(KEY_E) && ui_key_shift(KEY_E) && ui_pressed(KEY_E)) || (ui_key_shortcut(KEY_P) && ui_key_alt(KEY_P) && ui_pressed(KEY_P))) end_step_preview(a);
+        else if (editing || (canvas && (ui_pressed(KEY_F2) || ui_pressed(KEY_DELETE) || ui_pressed(KEY_BACKSPACE)))) { status(a,"Preview is read-only. Return to the current result to edit it."); a->consume_grid_input=true; return; }
+        else if (canvas && (command==DX_COMMAND_CONTEXT || ui_pressed(KEY_KB_MENU) || (ui_pressed(KEY_F10) && ui_key_shift(KEY_F10)))) { inspect_value(a); return; }
+        else if (canvas && (command==DX_COMMAND_COPY || (ui_pressed(KEY_C) && ui_key_shortcut(KEY_C)))) { copy_selection(a); return; }
+        else if (canvas && (command==DX_COMMAND_SELECT_ALL || (ui_pressed(KEY_A) && ui_key_shortcut(KEY_A)))) {
+            Grid *grid=&a->step_preview.grid; Page *page=&a->step_preview.page;
+            if (page->total && page->column_count) { grid_select_cell(grid,0,0,false); grid->end_row=page->total-1; grid->end_col=page->column_count-1; }
+            a->consume_grid_input=true; return;
+        }
+        else if (canvas && ui_key_shortcut(KEY_F) && !ui_key_shift(KEY_F) && ui_pressed(KEY_F)) { a->step_preview.grid.filter_requested=true; a->consume_grid_input=true; return; }
+    }
+    if (a->modal==MODAL_NONE && (a->pivot_drag_field>=0 || a->pivot_drag_role>=0) && ui_pressed(KEY_ESCAPE)) {
+        a->pivot_drag_field=a->pivot_drag_role=-1; a->pivot_drop_pending=false; a->consume_grid_input=true; return;
+    }
+    if (a->modal==MODAL_NONE && a->left_drawer && ui_pressed(KEY_ESCAPE)) { close_workspace(a); return; }
+    if (command==DX_COMMAND_TAB_NEXT || command==DX_COMMAND_TAB_PREVIOUS) {
+        if (a->modal==MODAL_FILTER) { set_filter_mode(a,!a->filter_mode); a->consume_grid_input=true; }
+        else if (a->modal==MODAL_NONE && !a->io_busy && !a->chart_resizing) cycle_sheet(a,command==DX_COMMAND_TAB_PREVIOUS);
+        return;
+    }
+    if (a->chart_resizing) { if (command==DX_COMMAND_NONE) { a->consume_grid_input=true; return; } a->chart_resizing=false; }
+    bool native_navigation=command>=DX_COMMAND_FOCUS_NEXT && command<=DX_COMMAND_ALT_F;
+    if (a->modal==MODAL_NONE && command==DX_COMMAND_CONTEXT) {
+        a->consume_grid_input=true;
+        if (a->chrome_focus==10) open_statistics(a);
+        else if (a->chrome_focus==2 && (size_t)a->workbook_focus_index<workbook_visible_count(&a->book)) begin_sheet_menu(a,workbook_visible_sheet(&a->book,(size_t)a->workbook_focus_index),(Vector2){12*a->ui.scale,a->grid.rect.y+38*a->ui.scale});
+        else if (a->pivot_focus==1 && a->pivot_field>=0) {
+            if (!selected_pivot(a)) begin_field_menu(a,(size_t)a->pivot_field,(Vector2){a->sidebar_width*a->ui.scale,180*a->ui.scale});
+            else { a->pivot_drag_field=a->pivot_field; a->pivot_drag_role=-1; a->modal=MODAL_PIVOT_FIELD; a->context_origin=(Vector2){220*a->ui.scale,180*a->ui.scale}; }
+        } else if (!a->chrome_focus && !a->ribbon_focus && !a->pivot_focus) { a->grid.context_requested=true; a->context_keyboard=true; }
+        return;
+    }
+    if (a->modal==MODAL_NONE && (command==DX_COMMAND_STATISTICS || (ui_key_shortcut(KEY_M) && ui_key_shift(KEY_M) && ui_pressed(KEY_M)))) { open_statistics(a); return; }
+    if (a->modal==MODAL_NONE && a->statistics_request && a->statistics_request==a->request_id && ui_pressed(KEY_ESCAPE) && !a->grid.dragging && !a->grid.moving) {
+        statistics_cancel(a); a->statistics_state=STATS_FAILED; free(a->statistics_error); a->statistics_error=dx_strdup("Statistics cancelled. Change the selection to calculate again."); statistics_line(a); return;
+    }
+    if (a->modal==MODAL_NONE && a->ribbon_mode==3 && !a->busy && ui_pressed(KEY_ESCAPE) && !a->grid.dragging && !a->grid.moving && a->grid.resizing<0) { set_ribbon_mode(a,a->previous_ribbon_mode); return; }
+    if (a->modal==MODAL_NONE && !a->busy && !a->chrome_focus && !a->pivot_focus && !a->ribbon_focus && a->count_request_id && a->count_request_id==a->request_id && ui_pressed(KEY_ESCAPE) && !a->grid.dragging && !a->grid.moving && a->grid.resizing<0) {
+        pause_count(a); return;
+    }
+    if (a->busy && a->pending_kind==JOB_EXPORT) {
+        if (ui_pressed(KEY_ESCAPE)) { worker_cancel(&a->worker); a->request_id++; a->busy=false; status(a,"Export cancellation requested."); }
+        return;
+    }
+    if (a->modal!=MODAL_NONE || a->io_busy) {
+        if (a->modal==MODAL_ERROR && !a->io_busy) {
+            if (command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO) { a->modal=MODAL_NONE; history(a,command==DX_COMMAND_REDO); return; }
+            if (ui_pressed(KEY_F5)) { a->modal=MODAL_NONE; a->refresh_plans=true; change_analysis(a,false); return; }
+        }
+        bool editing=(a->modal==MODAL_ASSIGN_FIELD && a->pivot_search_focus) || (a->modal==MODAL_SOURCE_QUERY && !a->query_focus) || (a->modal==MODAL_SORT && a->sort_editor.focus==0) || (a->modal==MODAL_OBJECT_NAME && !a->object_name_focus) || (a->modal==MODAL_MOVE_RANGE && !a->range_move_focus) || (a->modal==MODAL_CHART_SIZE && a->chart_size_focus<2) || a->modal==MODAL_CELL || (a->modal==MODAL_WIDTH && !a->width_focus) || a->modal==MODAL_RENAME || (a->modal==MODAL_FILTER && !a->filter_condition_menu && (a->filter_focus==3 || a->filter_focus==7 || a->filter_focus==8)) || a->modal==MODAL_OPEN || a->modal==MODAL_SAVE || a->modal==MODAL_RELINK;
+        if (a->modal==MODAL_FILTER && (a->filter_focus==4 || a->filter_focus==5) && command==DX_COMMAND_SELECT_ALL) { a->values_all=true; clear_value_choices(a); }
+        TextInput *field=a->modal==MODAL_FILTER && a->filter_focus==7 ? &a->filter_term : a->modal==MODAL_FILTER && a->filter_focus==8 ? &a->filter_end : a->modal==MODAL_ASSIGN_FIELD ? &a->pivot_search : a->modal==MODAL_SORT ? &a->sort_editor.search : a->modal==MODAL_CHART_SIZE && !a->chart_size_focus ? &a->chart_columns : &a->input;
+        if (editing && command==DX_COMMAND_SELECT_ALL) field->select_all=true;
+        else if (editing && (command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO)) input_history(field,command==DX_COMMAND_REDO);
+        else if (editing && command==DX_COMMAND_COPY) { char *text=input_selection_text(field); if (text) { SetClipboardText(text); free(text); } }
+        else if (editing && command==DX_COMMAND_PASTE) {
+            const char *text=GetClipboardText(); if (text && (a->modal==MODAL_SOURCE_QUERY || !strpbrk(text,"\r\n"))) input_insert(field,text);
+        }
+        if (editing && command!=DX_COMMAND_NONE) field->native_edit=true;
+        if (a->modal==MODAL_INSPECT && command==DX_COMMAND_COPY) inspector_copy(a);
+        if (a->modal==MODAL_STATISTICS && command==DX_COMMAND_COPY) copy_statistics(a);
+        if (a->modal==MODAL_SQL && command==DX_COMMAND_COPY) SetClipboardText(a->sql_text ? a->sql_text : "");
+        return;
+    }
+    if (ui_key_control(KEY_F1) && ui_pressed(KEY_F1)) { a->modal=MODAL_RIBBON; a->ribbon_menu_focus=a->ribbon_mode; a->consume_grid_input=true; return; }
+    if (a->ribbon_mode==3 && (native_navigation || ui_pressed(KEY_F6) || ui_pressed(KEY_LEFT_ALT) || ui_pressed(KEY_RIGHT_ALT))) set_ribbon_mode(a,a->previous_ribbon_mode);
+    if (a->pivot_search_focus && (command==DX_COMMAND_COPY || command==DX_COMMAND_PASTE || command==DX_COMMAND_SELECT_ALL || command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO)) {
+        if (command==DX_COMMAND_SELECT_ALL) a->pivot_search.select_all=true;
+        else if (command==DX_COMMAND_COPY) { char *text=input_selection_text(&a->pivot_search); if (text) { SetClipboardText(text); free(text); } }
+        else if (command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO) input_history(&a->pivot_search,command==DX_COMMAND_REDO);
+        else { const char *text=GetClipboardText(); if (text && !strpbrk(text,"\r\n")) input_insert(&a->pivot_search,text); }
+        a->pivot_search.native_edit=true; a->consume_grid_input=true; return;
+    }
+    if (command!=DX_COMMAND_NONE) {
+        if (command==DX_COMMAND_COPY && a->pipeline && !a->pipeline_collapsed && a->pipeline_sql && a->chrome_focus==8) { SetClipboardText(a->inspector_sql_text ? a->inspector_sql_text : ""); status(a,"Source SQL copied."); a->consume_grid_input=true; return; }
+        a->consume_grid_input=true;
+        if (command==DX_COMMAND_OPEN) open_modal(a,MODAL_OPEN);
+        else if (command==DX_COMMAND_SAVE_AS || (command==DX_COMMAND_SAVE && !a->book.path)) open_modal(a,MODAL_SAVE);
+        else if (command==DX_COMMAND_SAVE) workspace_job(a,JOB_SAVE,a->book.path);
+        else if (command==DX_COMMAND_NEW_SHEET) new_sheet(a);
+        else if (command==DX_COMMAND_SETTINGS) open_modal(a,MODAL_SETTINGS);
+        else if (command==DX_COMMAND_PIVOT) create_pivot(a);
+        else if (command==DX_COMMAND_INSPECT) inspect_value(a);
+        else if (command==DX_COMMAND_EXPORT) export_panel(a);
+        else if (command==DX_COMMAND_TRANSFORM_PANE) run_action(a,ACTION_TRANSFORM);
+        else if (command==DX_COMMAND_FIELDS_PANE) run_action(a,ACTION_FIELDS);
+        else if (command==DX_COMMAND_WORKBOOK_PANE) run_action(a,ACTION_WORKBOOK);
+        else if (command==DX_COMMAND_SQL_PANE) run_action(a,ACTION_SQL);
+        else if (command==DX_COMMAND_FOCUS_VIEW) run_action(a,ACTION_FOCUS);
+        else if (command==DX_COMMAND_IMPORT) import_table_panel(a);
+        else if (command==DX_COMMAND_QUERY) edit_source_query(a);
+        else if (command==DX_COMMAND_SORT) {
+            int selected=a->selected_object; const SheetObject *owner=objects_source(&active_sheet(a)->objects,selected_object(a));
+            a->selected_object=owner ? (int)(owner-active_sheet(a)->objects.items) : -1; open_modal(a,MODAL_SORT); a->selected_object=selected;
+        }
+        else if (command==DX_COMMAND_UNIQUE) {
+            const SheetObject *owner=objects_source(&active_sheet(a)->objects,selected_object(a));
+            set_unique_rows(a,owner ? (int)(owner-active_sheet(a)->objects.items) : -1,!(owner ? owner->source.unique_rows : a->analysis.unique_rows));
+        }
+        else if (command>=DX_COMMAND_TIP_1 && command<=DX_COMMAND_TIP_0) {
+            int index=command-DX_COMMAND_TIP_1;
+            if (index<ribbon_counts[a->ribbon_tab]) { a->ribbon_focus=true; a->ribbon_command=index; a->command_activate=true; if (a->ribbon_mode==3) a->ribbon_mode=a->previous_ribbon_mode; a->pivot_focus=0; a->key_tips=false; }
+        }
+        else if (command==DX_COMMAND_COPY) copy_selection(a);
+        else if (command==DX_COMMAND_PASTE) paste_selection(a);
+        else if (command==DX_COMMAND_SELECT_ALL) select_region(a);
+        else if (command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO) history(a,command==DX_COMMAND_REDO);
+        else if (command==DX_COMMAND_FOCUS_NEXT || command==DX_COMMAND_FOCUS_PREVIOUS) cycle_focus(a,command==DX_COMMAND_FOCUS_PREVIOUS);
+        else if (native_navigation) {
+            a->chrome_focus=0;
+            if (selected_pivot(a) && command!=DX_COMMAND_ALT_H && command!=DX_COMMAND_ALT_D) {
+                a->pivot_role=command==DX_COMMAND_ALT_R ? PIVOT_ROWS : command==DX_COMMAND_ALT_C ? PIVOT_COLUMNS : command==DX_COMMAND_ALT_V ? PIVOT_VALUES : PIVOT_FILTERS;
+                a->pivot_focus=1; a->ribbon_focus=false; a->key_tips=false;
+            } else { a->ribbon_tab=command==DX_COMMAND_ALT_H ? RIBBON_HOME : command==DX_COMMAND_ALT_D ? RIBBON_DATA : RIBBON_VIEW; a->ribbon_focus=true; a->ribbon_command=-1; a->pivot_focus=0; a->key_tips=true; }
+            a->pivot_search_focus=false;
+        }
+        if (!native_navigation) return;
+    }
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && ui_mouse_position().y>(a->ribbon_mode==3 ? 0 : 56+ui_ribbon_height(a->ribbon_mode))*a->ui.scale) { a->ribbon_focus=false; a->ribbon_command=-1; a->key_tips=false; }
+    if (ui_pressed(KEY_F12)) a->diagnostics=!a->diagnostics;
+    if (!native_navigation && (ui_pressed(KEY_LEFT_ALT) || ui_pressed(KEY_RIGHT_ALT))) a->key_tips=!a->key_tips;
+    bool alt_role=(ui_pressed(KEY_R) && ui_key_alt(KEY_R)) || (ui_pressed(KEY_C) && ui_key_alt(KEY_C)) || (ui_pressed(KEY_V) && ui_key_alt(KEY_V)) || (ui_pressed(KEY_F) && ui_key_alt(KEY_F));
+    if (selected_pivot(a) && !a->ribbon_focus && alt_role) { pivot_keyboard(a); return; }
+    const int *counts=ribbon_counts;
+    if (a->key_tips) {
+        const int keys[]={KEY_H,KEY_N,KEY_D,KEY_A,KEY_V,KEY_Z};
+        for (int i=0;i<(selected_pivot(a) ? 6 : 5);i++) if (ui_pressed(keys[i])) { a->ribbon_tab=i; a->ribbon_focus=true; a->ribbon_command=-1; a->pivot_focus=0; a->pivot_search_focus=false; }
+        for (int i=0;i<10 && i<counts[a->ribbon_tab];i++) {
+            int key=i==9 ? KEY_ZERO : KEY_ONE+i;
+            if (!ui_pressed(key) || ui_key_shortcut(key) || ui_key_control(key) || ui_key_alt(key)) continue;
+            a->ribbon_focus=true; a->ribbon_command=i; a->command_activate=true; if (a->ribbon_mode==3) a->ribbon_mode=a->previous_ribbon_mode; a->pivot_focus=0; a->key_tips=false;
+        }
+    }
+    if (ui_pressed(KEY_F6)) {
+        cycle_focus(a,ui_key_shift(KEY_F6)); return;
+    }
+    if (ui_key_control(KEY_TAB) && ui_pressed(KEY_TAB)) {
+        cycle_sheet(a,ui_key_shift(KEY_TAB)); return;
+    }
+    if (chrome_keyboard(a)) return;
+    if (pivot_keyboard(a)) return;
+    if (a->ribbon_focus) {
+        int previous_command=a->ribbon_command;
+        a->consume_grid_input=true;
+        if (a->ribbon_command<0) {
+            if (ui_key(KEY_LEFT)) a->ribbon_tab=(a->ribbon_tab+(selected_pivot(a) ? 5 : 4))%(selected_pivot(a) ? 6 : 5);
+            if (ui_key(KEY_RIGHT)) a->ribbon_tab=(a->ribbon_tab+1)%(selected_pivot(a) ? 6 : 5);
+            if (ui_pressed(KEY_DOWN)||ui_pressed(KEY_TAB)||ui_pressed(KEY_ENTER)) { a->ribbon_command=ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB) ? counts[a->ribbon_tab]-1 : 0; if (a->ribbon_mode==3) a->ribbon_mode=a->previous_ribbon_mode; }
+        } else {
+            int count=counts[a->ribbon_tab];
+            if (ui_key(KEY_LEFT) || (ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB))) a->ribbon_command=(a->ribbon_command+count-1)%count;
+            if (ui_key(KEY_RIGHT) || (ui_pressed(KEY_TAB) && !ui_key_shift(KEY_TAB))) a->ribbon_command=(a->ribbon_command+1)%count;
+            if (ui_pressed(KEY_UP)) a->ribbon_command=-1;
+            if (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)) a->command_activate=true;
+        }
+        if (previous_command!=a->ribbon_command && a->ribbon_command>=0) a->ribbon_reveal_command=true;
+        if (ui_pressed(KEY_ESCAPE)) { a->ribbon_focus=a->key_tips=false; a->ribbon_command=-1; a->command_activate=false; }
+        return;
+    }
+    SheetObject *active=selected_object(a);
+    if (active && ui_pressed(KEY_F2) && a->grid.row==active->row && a->grid.col==active->col) { begin_object_name(a); return; }
+    /* Modified Space belongs to grid selection, even on editable blank cells. */
+    if (ui_pressed(KEY_SPACE) && (ui_key_shift(KEY_SPACE) || ui_key_shortcut(KEY_SPACE))) { while (GetCharPressed()) {} return; }
+    if (!a->step_preview.active && manual_cell(a)) {
+        Worksheet *sheet=active_sheet(a);
+        if (ui_pressed(KEY_DELETE)||ui_pressed(KEY_BACKSPACE)) {
+            uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1);
+            if (cells_clear(&sheet->cells,r0,r1,c0,c1)) { worksheet_record(sheet,EDIT_CELLS); a->book.dirty=true; }
+        }
+        if (ui_pressed(KEY_F2)) { open_modal(a,MODAL_CELL); return; }
+        if (!ui_shortcut()) {
+            int cp=GetCharPressed(); if (cp>=32) {
+                int bytes=0; const char *utf8=CodepointToUTF8(cp,&bytes); char text[8]={0}; if (bytes>0 && bytes<8) memcpy(text,utf8,(size_t)bytes);
+                open_modal(a,MODAL_CELL); input_set(&a->input,text); a->input.select_all=false; return;
+            }
+        }
+    }
+    if (ui_key_shift(KEY_I) && ui_key_shortcut(KEY_I) && ui_pressed(KEY_I)) { inspect_value(a); return; }
+    if (ui_key_shortcut(KEY_B) && !ui_key_alt(KEY_B) && !ui_key_shift(KEY_B) && ui_pressed(KEY_B)) { run_action(a,ACTION_BOLD); return; }
+    if (ui_key_shortcut(KEY_I) && !ui_key_alt(KEY_I) && !ui_key_shift(KEY_I) && ui_pressed(KEY_I)) { run_action(a,ACTION_ITALIC); return; }
+    if (ui_key_shortcut(KEY_U) && !ui_key_alt(KEY_U) && !ui_key_shift(KEY_U) && ui_pressed(KEY_U)) { run_action(a,ACTION_UNDERLINE); return; }
+    if (ui_key_shift(KEY_E) && ui_key_shortcut(KEY_E) && ui_pressed(KEY_E)) { export_panel(a); return; }
+    if (ui_key_alt(KEY_P) && ui_key_shortcut(KEY_P) && ui_pressed(KEY_P)) { create_pivot(a); return; }
+    if (ui_key_shortcut(KEY_A) && ui_pressed(KEY_A)) { select_region(a); return; }
+    if (ui_key_shortcut(KEY_V) && ui_pressed(KEY_V)) { paste_selection(a); return; }
+    if (ui_key_shortcut(KEY_O) && ui_pressed(KEY_O)) open_modal(a,MODAL_OPEN);
+    if (ui_key_shortcut(KEY_S) && ui_pressed(KEY_S) && a->book.count) {
+        if (a->book.path && !ui_key_shift(KEY_S)) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE);
+        return;
+    }
+    if (ui_key_shortcut(KEY_N) && ui_pressed(KEY_N)) { new_sheet(a); return; }
+    if (ui_key_shortcut(KEY_C) && ui_pressed(KEY_C)) copy_selection(a);
+    if (ui_key_shortcut(KEY_Z) && ui_pressed(KEY_Z)) history(a,ui_key_shift(KEY_Z));
+    if (ui_key_shortcut(KEY_Y) && ui_pressed(KEY_Y)) history(a,true);
+    const int pane_keys[]={KEY_T,KEY_F,KEY_W,KEY_I};
+    const UIAction pane_actions[]={ACTION_TRANSFORM,ACTION_FIELDS,ACTION_WORKBOOK,ACTION_SQL};
+    for (size_t i=0;i<4;i++) if (ui_pressed(pane_keys[i]) && ui_key_shortcut(pane_keys[i]) && ui_key_alt(pane_keys[i])) { run_action(a,pane_actions[i]); return; }
+    if (ui_key_shortcut(KEY_F) && ui_key_shift(KEY_F) && ui_pressed(KEY_F)) { run_action(a,ACTION_FOCUS); return; }
+    if (ui_key_shortcut(KEY_F) && ui_pressed(KEY_F)) {
+        SheetObject *table=selected_object(a);
+        if (table && table->kind==OBJECT_TABLE && a->grid.col>=table->col) open_table_filter(a,(size_t)a->selected_object,a->grid.col-table->col);
+        else if (a->page.column_count && !a->analysis.group_column) open_modal(a,MODAL_FILTER);
+    }
+    if (ui_key_shortcut(KEY_EQUAL) && ui_pressed(KEY_EQUAL)) zoom_canvas(a,active_canvas_zoom(a)+.1f,(Vector2){a->grid.body.x,a->grid.body.y});
+    if (ui_key_shortcut(KEY_MINUS) && ui_pressed(KEY_MINUS)) zoom_canvas(a,active_canvas_zoom(a)-.1f,(Vector2){a->grid.body.x,a->grid.body.y});
+    if (ui_key_shortcut(KEY_ZERO) && ui_pressed(KEY_ZERO)) zoom_canvas(a,1,(Vector2){a->grid.body.x,a->grid.body.y});
+    if (ui_pressed(KEY_ESCAPE) && a->busy) {
+        cancel_active_query(a);
+    }
+    if (ui_pressed(KEY_F5)) {
+        clear_values_cache(a); clear_object_views(a); a->refresh_plans=true;
+        if (a->analysis.kind!=SOURCE_NONE) change_analysis(a,false);
+    }
+}
+static void address(size_t col,uint64_t row,char out[48]) {
+    char letters[24]; size_t n=0; col++;
+    do { col--; letters[n++]=(char)('A'+col%26); col/=26; } while (col && n<23);
+    for (size_t i=0;i<n;i++) out[i]=letters[n-i-1];
+    snprintf(out+n,48-n,"%" PRIu64,row);
+}
+static int command_source_index(App *a) {
+    const SheetObject *owner=objects_source(&active_sheet(a)->objects,selected_object(a));
+    return owner ? (int)(owner-active_sheet(a)->objects.items) : -1;
+}
+static const char *command_label(App *a,int command) { return ribbon_commands[a->ribbon_tab][command].label; }
+static bool action_available(App *a,UIAction action) {
+    if (a->step_preview.active) switch (action) {
+    case ACTION_COPY: case ACTION_TRANSFORM: case ACTION_SQL: case ACTION_NEW_SHEET: case ACTION_BROWSE:
+    case ACTION_WORKBOOK: case ACTION_FIELDS: case ACTION_FOCUS: case ACTION_DENSITY: case ACTION_SCALE:
+    case ACTION_GRIDLINES: case ACTION_RESET_ZOOM: case ACTION_RESET_LAYOUT: case ACTION_GUIDE: break;
+    default: return false;
+    }
+    if (a->io_busy || (a->busy && a->pending_kind==JOB_EXPORT)) return false;
+    SheetObject *object=selected_pivot(a); Page *fields=context_fields(a);
+    int source_index=command_source_index(a); const Analysis *source=source_index>=0 ? &active_sheet(a)->objects.items[source_index].source : &a->analysis;
+    switch (action) {
+    case ACTION_CUT: case ACTION_FONT: case ACTION_WRAP: return false;
+    case ACTION_FONT_SIZE: case ACTION_BOLD: case ACTION_ITALIC: case ACTION_UNDERLINE: case ACTION_TEXT_COLOR:
+    case ACTION_ALIGN_LEFT: case ACTION_ALIGN_CENTER: case ACTION_ALIGN_RIGHT: case ACTION_NUMBER_FORMAT: case ACTION_ACCOUNTING: case ACTION_DECIMAL_LESS: case ACTION_DECIMAL_MORE: return active_sheet(a)!=NULL;
+    case ACTION_COPY: return !a->busy;
+    case ACTION_PASTE: return !a->busy && manual_cell(a);
+    case ACTION_SORT_ASC: case ACTION_SORT_DESC: case ACTION_FILTER: return !a->busy && fields->column_count;
+    case ACTION_CLEAR_FILTERS: return !a->busy && source->filter_column;
+    case ACTION_SOURCE_ORDER: return !a->busy && source->sort_column;
+    case ACTION_CREATE_VIEW: case ACTION_MATRIX: case ACTION_BAR: case ACTION_LINE: return fields->column_count || object;
+    case ACTION_ADD_ROWS: case ACTION_ADD_COLUMNS: case ACTION_SWAP_SHELVES: case ACTION_ADD_MEASURE: return object!=NULL;
+    case ACTION_SQL: return source->kind!=SOURCE_NONE || selected_object(a);
+    case ACTION_REFRESH: return !a->busy && (source->kind!=SOURCE_NONE || selected_object(a));
+    default: return true;
+    }
+}
+static bool action_enabled(App *a,UIAction action) {
+    return (a->modal==MODAL_NONE || a->modal==MODAL_COMMANDS) && action_available(a,action);
+}
+static bool command_enabled(App *a,int command) { return command>=0 && command<ribbon_counts[a->ribbon_tab] && action_enabled(a,ribbon_commands[a->ribbon_tab][command].action); }
+static bool command_active(App *a,int command) {
+    UIAction action=ribbon_commands[a->ribbon_tab][command].action; SheetObject *o=selected_pivot(a);
+    CellFormat format=active_format(a);
+    switch (action) {
+    case ACTION_BOLD: return (format.flags&FORMAT_BOLD)!=0;
+    case ACTION_ITALIC: return (format.flags&FORMAT_ITALIC)!=0;
+    case ACTION_UNDERLINE: return (format.flags&FORMAT_UNDERLINE)!=0;
+    case ACTION_ALIGN_LEFT: return format.align==FORMAT_LEFT;
+    case ACTION_ALIGN_CENTER: return format.align==FORMAT_CENTER;
+    case ACTION_ALIGN_RIGHT: return format.align==FORMAT_RIGHT;
+    case ACTION_WORKBOOK: return a->sidebar;
+    case ACTION_FIELDS: return a->fields_visible;
+    case ACTION_GRIDLINES: return a->gridlines;
+    case ACTION_FREEZE: return a->grid.freeze;
+    case ACTION_MATRIX: return o && o->kind==OBJECT_PIVOT;
+    case ACTION_BAR: return o && o->kind==OBJECT_CHART && o->mark==MARK_BAR;
+    case ACTION_LINE: return o && o->kind==OBJECT_CHART && o->mark==MARK_LINE;
+    default: return false;
+    }
+}
+static void run_action(App *a,UIAction action) {
+    if (a->step_preview.active && action==ACTION_BROWSE) { end_step_preview(a); return; }
+    if (!action_enabled(a,action)) return;
+    int format_return=a->ribbon_focus ? a->ribbon_command : -1;
+    a->modal=MODAL_NONE; a->chrome_focus=0; a->ribbon_focus=false; a->ribbon_command=-1;
+    a->command_activate=a->key_tips=false; a->consume_grid_input=true;
+    int source_index=command_source_index(a); Page *fields=context_fields(a);
+    const Analysis *source=source_index>=0 ? &active_sheet(a)->objects.items[source_index].source : &a->analysis;
+    size_t column=selected_pivot(a) ? (size_t)(a->pivot_field>=0 ? a->pivot_field : 0) : a->grid.col;
+    if (source_index>=0 && !selected_pivot(a)) { size_t first=active_sheet(a)->objects.items[source_index].col; column=column>=first ? column-first : 0; }
+    if (column>=fields->column_count) column=0;
+    switch (action) {
+    case ACTION_FONT_SIZE: case ACTION_TEXT_COLOR: case ACTION_NUMBER_FORMAT: {
+        a->format_action=action; a->format_return_command=format_return; a->format_origin=(Vector2){8*a->ui.scale,92*a->ui.scale};
+        for (int i=0;i<ribbon_counts[a->ribbon_tab];i++) if (ribbon_commands[a->ribbon_tab][i].action==action && a->ribbon_layout.commands[i].width>0) {
+            Rectangle r=a->ribbon_layout.commands[i]; a->format_origin=(Vector2){r.x*a->ui.scale,(56+r.y+r.height)*a->ui.scale}; break;
+        }
+        CellFormat format=active_format(a); a->context_focus=action==ACTION_FONT_SIZE ? format.size-11 : action==ACTION_TEXT_COLOR ? format.color : format.number==FORMAT_NUMBER ? 1 : 0;
+        a->context_scroll=0; a->modal=MODAL_FORMAT; break;
+    }
+    case ACTION_BOLD: case ACTION_ITALIC: case ACTION_UNDERLINE: {
+        unsigned mask=action==ACTION_BOLD ? FORMAT_BOLD : action==ACTION_ITALIC ? FORMAT_ITALIC : FORMAT_UNDERLINE; CellFormat format=active_format(a); format.flags^=(unsigned char)mask; apply_format(a,mask,format); break;
+    }
+    case ACTION_ALIGN_LEFT: case ACTION_ALIGN_CENTER: case ACTION_ALIGN_RIGHT: {
+        CellFormat format=active_format(a); format.align=(unsigned char)(action==ACTION_ALIGN_LEFT ? FORMAT_LEFT : action==ACTION_ALIGN_CENTER ? FORMAT_CENTER : FORMAT_RIGHT); apply_format(a,FORMAT_ALIGN,format); break;
+    }
+    case ACTION_ACCOUNTING: { CellFormat format=active_format(a); format.number=FORMAT_ACCOUNTING; apply_format(a,FORMAT_NUMERIC,format); break; }
+    case ACTION_DECIMAL_LESS: case ACTION_DECIMAL_MORE: {
+        CellFormat format=active_format(a); if (action==ACTION_DECIMAL_LESS && format.decimals) format.decimals--; if (action==ACTION_DECIMAL_MORE && format.decimals<4) format.decimals++;
+        apply_format(a,FORMAT_DECIMALS,format); break;
+    }
+    case ACTION_COPY: copy_selection(a); break;
+    case ACTION_PASTE: paste_selection(a); break;
+    case ACTION_NEW_SHEET: new_sheet(a); break;
+    case ACTION_SORT_ASC: case ACTION_SORT_DESC: case ACTION_SOURCE_ORDER: {
+        Analysis order={0};
+        if (action!=ACTION_SOURCE_ORDER) analysis_sort_set(&order,fields->columns[column].name,action==ACTION_SORT_DESC,false,NULL);
+        a->sort_object=source_index; apply_sort_order(a,&order); analysis_free(&order); break;
+    }
+    case ACTION_FILTER:
+        if (source_index>=0) open_table_filter(a,(size_t)source_index,column);
+        else { size_t previous=a->grid.col; a->grid.col=column; open_modal(a,MODAL_FILTER); a->grid.col=previous; } break;
+    case ACTION_CLEAR_FILTERS:
+        if (source_index>=0) { Analysis copy=analysis_copy(source); analysis_filters_clear(&copy); set_table_source(a,(size_t)source_index,&copy); analysis_free(&copy); }
+        else { remember(a); analysis_filters_clear(&a->analysis); change_analysis(a,false); } break;
+    case ACTION_CREATE_VIEW: if (!selected_pivot(a)) create_pivot(a); else { a->fields_visible=true; a->pivot_focus=1; } break;
+    case ACTION_MATRIX: case ACTION_BAR: case ACTION_LINE:
+        if (!selected_pivot(a)) { if (action==ACTION_MATRIX) create_pivot(a); else create_chart(a); }
+        if (selected_pivot(a)) set_representation(a,action==ACTION_MATRIX ? 0 : action==ACTION_BAR ? 1 : 2); break;
+    case ACTION_ADD_ROWS: case ACTION_ADD_COLUMNS: case ACTION_ADD_MEASURE:
+        begin_assign_field(a,action==ACTION_ADD_ROWS ? PIVOT_ROWS : action==ACTION_ADD_COLUMNS ? PIVOT_COLUMNS : PIVOT_VALUES,box(240*a->ui.scale,200*a->ui.scale,0,0)); break;
+    case ACTION_SWAP_SHELVES: {
+        SheetObject *o=selected_pivot(a); PivotDefinition copy=pivot_copy(&o->pivot);
+        for (size_t i=0;i<DX_PIVOT_FIELDS;i++) { PivotField f=copy.fields[PIVOT_ROWS][i]; copy.fields[PIVOT_ROWS][i]=copy.fields[PIVOT_COLUMNS][i]; copy.fields[PIVOT_COLUMNS][i]=f; }
+        size_t count=copy.counts[PIVOT_ROWS]; copy.counts[PIVOT_ROWS]=copy.counts[PIVOT_COLUMNS]; copy.counts[PIVOT_COLUMNS]=count; set_pivot_definition(a,&copy); break;
+    }
+    case ACTION_BROWSE: browse_source(a); break;
+    case ACTION_TRANSFORM: { bool show=!a->pipeline || a->pipeline_sql || a->pipeline_collapsed; a->pipeline_sql=false; present_pipeline(a,show,false); break; }
+    case ACTION_SQL: { bool show=!a->pipeline || !a->pipeline_sql || a->pipeline_collapsed; a->pipeline_sql=true; present_pipeline(a,show,false); break; }
+    case ACTION_REFRESH:
+        clear_values_cache(a); clear_object_views(a); a->refresh_plans=true;
+        if (a->analysis.kind!=SOURCE_NONE) change_analysis(a,false); break;
+    case ACTION_WORKBOOK: a->sidebar=!a->sidebar; if (a->sidebar && GetScreenWidth()/a->ui.scale<700) show_workspace(a); break;
+    case ACTION_FIELDS: a->fields_visible=!a->fields_visible; if (a->fields_visible && GetScreenWidth()/a->ui.scale<700) show_workspace(a); if (!a->fields_visible) { a->pivot_focus=0; a->pivot_search_focus=false; } break;
+    case ACTION_FOCUS: set_ribbon_mode(a,a->ribbon_mode==3 ? a->previous_ribbon_mode : 3); break;
+    case ACTION_DENSITY: a->modal=MODAL_DENSITY; a->context_focus=a->context_scroll=0; break;
+    case ACTION_SCALE: begin_scale_menu(a,a->context_origin); break;
+    case ACTION_GRIDLINES: a->gridlines=!a->gridlines; break;
+    case ACTION_FREEZE: a->grid.freeze=!a->grid.freeze; a->grid.elastic.x=a->grid.spring_velocity.x=0; break;
+    case ACTION_RESET_ZOOM: zoom_canvas(a,1,(Vector2){a->grid.body.x,a->grid.body.y}); break;
+    case ACTION_RESET_LAYOUT: a->sidebar=a->fields_visible=true; a->sidebar_width=228; a->pipeline_width=280; a->pipeline=false; a->left_drawer=false; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); break;
+    case ACTION_GUIDE: a->guide.scroll=0; a->guide.focus=0; a->guide_button_focus=false; a->modal=MODAL_GUIDE; break;
+    default: break;
+    }
+}
+static void invoke_command(App *a,int command) {
+    if (!command_enabled(a,command)) return;
+    UIAction action=ribbon_commands[a->ribbon_tab][command].action;
+    bool from_group=a->modal==MODAL_COMMANDS && a->ribbon_popup_group>=0;
+    int group=a->ribbon_popup_group,focus=a->ribbon_popup_focus;
+    Rectangle target=from_group ? a->ribbon_flyout.commands[command] : (Rectangle){0};
+    bool retain=from_group && (action==ACTION_BOLD || action==ACTION_ITALIC || action==ACTION_UNDERLINE || (action>=ACTION_ALIGN_LEFT && action<=ACTION_ALIGN_RIGHT) || action==ACTION_ACCOUNTING || action==ACTION_DECIMAL_LESS || action==ACTION_DECIMAL_MORE);
+    a->format_return_group=from_group ? group : -1;
+    if (action==ACTION_SCALE || action==ACTION_DENSITY) {
+        Rectangle anchor=a->ribbon_layout.commands[command];
+        if (anchor.width<=0) { int group=ui_ribbon_group_for(ribbon_groups[a->ribbon_tab],ribbon_group_counts[a->ribbon_tab],command); if (group>=0) anchor=a->ribbon_layout.groups[group]; }
+        a->context_origin=(Vector2){anchor.x*a->ui.scale,(anchor.y+anchor.height+60)*a->ui.scale};
+    }
+    run_action(a,action);
+    if (from_group && a->modal==MODAL_FORMAT) { a->format_origin=(Vector2){target.x,target.y+target.height}; a->format_return_command=command; }
+    if (retain && a->modal==MODAL_NONE) { a->modal=MODAL_COMMANDS; a->ribbon_popup_group=group; a->ribbon_popup_focus=focus; }
+}
+static void update_ribbon_layout(App *a) {
+    float s=a->ui.scale,width=GetScreenWidth()/s;
+    int variant=0; SheetObject *o=selected_object(a);
+    if (a->ribbon_tab==RIBBON_DATA) variant=(o && o->kind!=OBJECT_TABLE ? 1 : 0) | ((o && o->kind==OBJECT_TABLE ? o->source.unique_rows : a->analysis.unique_rows) ? 2 : 0);
+    if (a->ribbon_layout.valid && a->ribbon_layout_width==width && a->ribbon_layout_scale==s && a->ribbon_layout_tab==a->ribbon_tab && a->ribbon_layout_mode==a->ribbon_mode && a->ribbon_layout_variant==variant && a->ribbon_layout_raster==a->ui.raster_size) return;
+    float commands[UI_RIBBON_COMMANDS]={0},groups[UI_RIBBON_GROUPS]={0};
+    for (int c=0;c<ribbon_counts[a->ribbon_tab];c++) commands[c]=ui_measure(&a->ui,command_label(a,c),12)/s;
+    for (int g=0;g<ribbon_group_counts[a->ribbon_tab];g++) groups[g]=ui_measure_weight(&a->ui,ribbon_groups[a->ribbon_tab][g].name,12,UI_MEDIUM)/s;
+    a->ribbon_layout=ui_ribbon_spec_layout(width,a->ribbon_mode,a->ribbon_tab,commands,groups);
+    a->ribbon_layout_width=width; a->ribbon_layout_scale=s; a->ribbon_layout_tab=a->ribbon_tab; a->ribbon_layout_mode=a->ribbon_mode; a->ribbon_layout_variant=variant;
+    a->ribbon_layout_raster=a->ui.raster_size;
+}
+static Rectangle ribbon_rect(App *a,Rectangle r) {
+    float s=a->ui.scale; return box(r.x*s,(r.y+56)*s,r.width*s,r.height*s);
+}
+static void open_command_group(App *a,int group,int focus) {
+    if (group>=0 && group<ribbon_group_counts[a->ribbon_tab]) {
+        const UIRibbonGroup *spec=&ribbon_groups[a->ribbon_tab][group];
+        for (int i=0;i<spec->count && !command_enabled(a,spec->first+focus);i++) focus=(focus+1)%spec->count;
+    }
+    a->ribbon_popup_group=group; a->ribbon_popup_focus=focus; a->modal=MODAL_COMMANDS;
+    a->ribbon_focus=false; a->key_tips=false; a->consume_grid_input=true;
+}
+static void close_command_group(App *a) {
+    int group=a->ribbon_popup_group;
+    a->modal=MODAL_NONE; a->ribbon_focus=true;
+    a->ribbon_command=group>=0 ? ribbon_groups[a->ribbon_tab][group].first+a->ribbon_popup_focus : -1;
+    a->consume_grid_input=true;
+}
+static void command_badge(App *a,int command,Rectangle r) {
+    float s=a->ui.scale; char text[4]; snprintf(text,sizeof(text),"%d",(command+1)%10);
+    Rectangle b=box(r.x+r.width-17*s,r.y,16*s,16*s); DrawRectangleRec(b,UI_TEXT);
+    ui_text(&a->ui,text,b.x+(b.width-ui_measure(&a->ui,text,10))/2,b.y+3*s,10,WHITE);
+}
+static int command_popup_count(App *a,int indices[UI_RIBBON_GROUPS]) {
+    if (a->ribbon_popup_group>=0) return a->ribbon_popup_group<a->ribbon_layout.group_count ? ribbon_groups[a->ribbon_tab][a->ribbon_popup_group].count : 0;
+    int count=0;
+    for (int g=0;g<a->ribbon_layout.group_count;g++) if (a->ribbon_layout.states[g]==UI_RIBBON_OVERFLOW) indices[count++]=g;
+    return count;
+}
+static void command_popup_key(App *a,int key,bool shift) {
+    int indices[UI_RIBBON_GROUPS],count=command_popup_count(a,indices); if (!count) return;
+    int *focus=&a->ribbon_popup_focus;
+    if (key==KEY_DOWN || (key==KEY_TAB && !shift)) *focus=(*focus+1)%count;
+    if (key==KEY_UP || (key==KEY_TAB && shift)) *focus=(*focus+count-1)%count;
+    if (key==KEY_HOME) *focus=0;
+    if (key==KEY_END) *focus=count-1;
+    if (*focus<0 || *focus>=count) *focus=0;
+    if (a->ribbon_popup_group>=0) {
+        int first=ribbon_groups[a->ribbon_tab][a->ribbon_popup_group].first;
+        int direction=key==KEY_UP || (key==KEY_TAB && shift) || key==KEY_END ? -1 : 1;
+        for (int i=0;i<count && !command_enabled(a,first+*focus);i++) *focus=(*focus+count+direction)%count;
+    }
+    if (key==KEY_ESCAPE) { close_command_group(a); return; }
+    if (key==KEY_LEFT && a->ribbon_popup_group>=0 && a->ribbon_layout.states[a->ribbon_popup_group]==UI_RIBBON_OVERFLOW) { open_command_group(a,-1,0); return; }
+    if (key==KEY_ENTER || key==KEY_KP_ENTER || key==KEY_SPACE || (key==KEY_RIGHT && a->ribbon_popup_group<0)) {
+        if (a->ribbon_popup_group<0) open_command_group(a,indices[*focus],0);
+        else invoke_command(a,ribbon_groups[a->ribbon_tab][a->ribbon_popup_group].first+*focus);
+    }
+}
+static bool draw_ribbon_control(App *a,int command,Rectangle r,bool enabled);
+static void draw_command_popup(App *a) {
+    update_ribbon_layout(a); UIContext *u=&a->ui; float s=u->scale;
+    int group=a->ribbon_popup_group,indices[UI_RIBBON_GROUPS],count=command_popup_count(a,indices);
+    if (!count || a->ribbon_mode==3) { close_command_group(a); return; }
+    Rectangle anchor=group<0 || a->ribbon_layout.states[group]==UI_RIBBON_OVERFLOW ? a->ribbon_layout.overflow : a->ribbon_layout.states[group]==UI_RIBBON_EXPANDED ? a->ribbon_layout.launchers[group] : a->ribbon_layout.groups[group];
+    if (anchor.width<=0) anchor=box(GetScreenWidth()/s-38,4,32,28);
+    anchor=ribbon_rect(a,anchor);
+    if (group>=0) {
+        float labels[UI_RIBBON_COMMANDS]={0};
+        for (int c=0;c<ribbon_counts[a->ribbon_tab];c++) labels[c]=ui_measure(u,command_label(a,c),12)/s;
+        UIFlyoutLayout layout=ui_flyout_layout((Vector2){anchor.x,anchor.y+anchor.height+4*s},(Vector2){GetScreenWidth(),GetScreenHeight()},s,a->ribbon_tab,group,labels);
+        a->ribbon_flyout=layout; if (!layout.valid) { close_command_group(a); return; }
+        popup_capture(a,layout.panel);
+        if (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),layout.panel)) { close_command_group(a); return; }
+        const int keys[]={KEY_ESCAPE,KEY_DOWN,KEY_UP,KEY_TAB,KEY_HOME,KEY_END,KEY_LEFT,KEY_RIGHT,KEY_ENTER,KEY_KP_ENTER,KEY_SPACE};
+        if (!a->consume_grid_input) for (size_t k=0;k<sizeof(keys)/sizeof(*keys);k++) if (ui_key(keys[k])) {
+            command_popup_key(a,keys[k],ui_key_shift(keys[k])); if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=group) return;
+        }
+        UIChoiceLayout frame={.panel=layout.panel,.valid=true}; ui_choice_frame(u,&frame,NULL);
+        ui_label(u,ribbon_groups[a->ribbon_tab][group].name,layout.title,12.5f,UI_TEXT,false,UI_MEDIUM);
+        DrawLineV((Vector2){layout.panel.x,layout.panel.y+37*s},(Vector2){layout.panel.x+layout.panel.width,layout.panel.y+37*s},(Color){220,228,234,255});
+        if (ui_icon_button(u,layout.close,CARBON_CLOSE,false,!a->consume_grid_input)) { close_command_group(a); return; }
+        ui_scissor_begin(u,layout.body);
+        int first=ribbon_groups[a->ribbon_tab][group].first,chosen=-1;
+        for (int c=first;c<first+count;c++) {
+            int mode=a->ribbon_mode; a->ribbon_mode=0;
+            bool clicked=draw_ribbon_control(a,c,layout.commands[c],!a->consume_grid_input); a->ribbon_mode=mode;
+            if (command_enabled(a,c) && c-first==a->ribbon_popup_focus) ui_focus_border(layout.commands[c],layout.body,s);
+            if (clicked) chosen=c;
+        }
+        ui_scissor_end(u);
+        if (chosen>=0) { a->ribbon_popup_focus=chosen-first; invoke_command(a,chosen); }
+        return;
+    }
+    float width=fminf(286*s,GetScreenWidth()-16*s),height=(40+count*34)*s;
+    Rectangle panel=box(fminf(anchor.x,GetScreenWidth()-width-8*s),fminf(anchor.y+anchor.height+4*s,GetScreenHeight()-height-8*s),width,height);
+    popup_capture(a,panel);
+    if (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),panel)) { close_command_group(a); return; }
+    const int keys[]={KEY_ESCAPE,KEY_DOWN,KEY_UP,KEY_TAB,KEY_HOME,KEY_END,KEY_LEFT,KEY_RIGHT,KEY_ENTER,KEY_KP_ENTER,KEY_SPACE};
+    for (size_t k=0;k<sizeof(keys)/sizeof(*keys);k++) if (ui_key(keys[k])) {
+        command_popup_key(a,keys[k],ui_key_shift(keys[k]));
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=group) return;
+    }
+    DrawRectangleRec(box(panel.x+2*s,panel.y+4*s,width,height),(Color){25,42,70,24});
+    DrawRectangleRec(panel,WHITE); DrawRectangleLinesEx(panel,s,UI_BORDER);
+    ui_text_clip_weight(u,group<0 ? "More commands" : ribbon_groups[a->ribbon_tab][group].name,box(panel.x+4*s,panel.y+4*s,width-39*s,26*s),12,UI_TEXT,false,UI_SEMIBOLD);
+    if (ui_button(u,box(panel.x+width-30*s,panel.y+5*s,24*s,24*s),"×",false,true)) { close_command_group(a); return; }
+    for (int i=0;i<count;i++) {
+        Rectangle row=box(panel.x+8*s,panel.y+(35+i*34)*s,width-16*s,28*s);
+        bool focused=a->ribbon_popup_focus==i;
+        if (group<0) {
+            int g=indices[i];
+            if (ui_carbon_command(u,row,ribbon_commands[a->ribbon_tab][ribbon_groups[a->ribbon_tab][g].first].icon,ribbon_groups[a->ribbon_tab][g].name,false,true)) { open_command_group(a,g,0); return; }
+        } else {
+            int c=ribbon_groups[a->ribbon_tab][group].first+i; bool available=command_enabled(a,c);
+            if (ui_carbon_command(u,row,ribbon_commands[a->ribbon_tab][c].icon,command_label(a,c),command_active(a,c),available)) { invoke_command(a,c); return; }
+        }
+        if (focused) DrawRectangleLinesEx(box(row.x-s,row.y-s,row.width+2*s,row.height+2*s),1.5f*s,UI_ACCENT);
+    }
+}
+static bool draw_ribbon_control(App *a,int command,Rectangle r,bool enabled) {
+    UIContext *u=&a->ui; float s=u->scale; const UIRibbonCommand *item=&ribbon_commands[a->ribbon_tab][command];
+    bool blocked=u->pointer_blocked; u->pointer_blocked=blocked || !enabled;
+    bool available=action_available(a,item->action),active=command_active(a,command);
+    UIAction action=item->action;
+    bool selector=action==ACTION_FONT || action==ACTION_FONT_SIZE || action==ACTION_NUMBER_FORMAT;
+    bool glyph=(action>=ACTION_BOLD && action<=ACTION_ALIGN_RIGHT) || action==ACTION_ACCOUNTING;
+    bool decimal=action==ACTION_DECIMAL_LESS || action==ACTION_DECIMAL_MORE;
+    bool clicked=false;
+    if (selector && a->ribbon_mode!=2) {
+        if (action!=ACTION_FONT) clicked=ui_tool_button(u,r,"",false,available);
+        DrawRectangleRec(r,WHITE); DrawRectangleLinesEx(r,s,UI_BORDER);
+        Rectangle label=box(r.x+8*s,r.y,r.width-(action==ACTION_FONT ? 16 : 26)*s,r.height);
+        CellFormat format=active_format(a); char size[16]; snprintf(size,sizeof(size),"%u",format.size);
+        const char *text=action==ACTION_FONT_SIZE ? size : action==ACTION_NUMBER_FORMAT ? format.number==FORMAT_NUMBER ? "Number" : "Accounting" : item->label;
+        ui_label(u,text,label,12,available || action==ACTION_FONT ? UI_TEXT : UI_MUTED,false,UI_REGULAR);
+        if (action!=ACTION_FONT) ui_carbon(u,CARBON_CHEVRON_DOWN,box(r.x+r.width-17*s,r.y+(r.height-12*s)/2,12*s,12*s),UI_MUTED);
+    } else if (glyph || selector || a->ribbon_mode==2) clicked=ui_icon_button(u,r,item->icon,active,available);
+    else if (decimal) {
+        clicked=ui_tool_button(u,r,"",false,available);
+        ui_label(u,action==ACTION_DECIMAL_LESS ? ".0" : ".00",box(r.x+2*s,r.y,r.width-12*s,r.height),11,available ? UI_TEXT : UI_MUTED,false,UI_REGULAR);
+        ui_carbon(u,item->icon,box(r.x+r.width-11*s,r.y+(r.height-10*s)/2,10*s,10*s),available ? UI_TEXT : UI_MUTED);
+    } else clicked=ui_carbon_command(u,r,item->icon,item->label,active,available);
+    if (CheckCollisionPointRec(ui_mouse_position(),r)) {
+        a->ribbon_hover=action==ACTION_FONT ? "IBM Plex Sans" : action==ACTION_FONT_SIZE ? "Grid font size" : !available && action==ACTION_WRAP ? "Variable-height wrapping is outside the design demo slice" : item->label;
+        a->ribbon_hover_rect=r;
+    }
+    u->pointer_blocked=blocked; return clicked;
+}
+static void draw_ribbon_commands(App *a,bool enabled) {
+    update_ribbon_layout(a); UIContext *u=&a->ui; float s=u->scale;
+    if (a->command_activate) { int c=a->ribbon_command; a->command_activate=false; invoke_command(a,c); enabled=a->modal==MODAL_NONE && !a->io_busy; }
+    if (a->ribbon_reveal_command) {
+        a->ribbon_reveal_command=false;
+        int g=ui_ribbon_group_for(ribbon_groups[a->ribbon_tab],ribbon_group_counts[a->ribbon_tab],a->ribbon_command);
+        if (g>=0 && (a->ribbon_layout.states[g]!=UI_RIBBON_EXPANDED || a->ribbon_layout.commands[a->ribbon_command].width<=0) && a->modal==MODAL_NONE) { open_command_group(a,g,a->ribbon_command-ribbon_groups[a->ribbon_tab][g].first); enabled=false; }
+    }
+    DrawRectangleRec(box(0,56*s,GetScreenWidth(),a->ribbon_layout.height*s),UI_BG);
+    for (int g=0;g<a->ribbon_layout.group_count;g++) {
+        UIRibbonState state=a->ribbon_layout.states[g]; if (state==UI_RIBBON_OVERFLOW) continue;
+        const UIRibbonGroup *group=&ribbon_groups[a->ribbon_tab][g]; Rectangle r=ribbon_rect(a,a->ribbon_layout.groups[g]);
+        bool focus=a->ribbon_focus && a->ribbon_command>=group->first && a->ribbon_command<group->first+group->count;
+        if (state==UI_RIBBON_COLLAPSED) {
+            if (ui_carbon_command(u,r,ribbon_commands[a->ribbon_tab][group->first].icon,a->ribbon_mode==2 ? NULL : group->name,false,passive_control(a,enabled))) { open_command_group(a,g,0); enabled=false; }
+            float cx=r.x+r.width-7*s,cy=r.y+(a->ribbon_mode==0 ? 9*s : r.height/2);
+            DrawLineEx((Vector2){cx-3*s,cy-2*s},(Vector2){cx,cy+s},s,UI_MUTED); DrawLineEx((Vector2){cx,cy+s},(Vector2){cx+3*s,cy-2*s},s,UI_MUTED);
+            if (focus) DrawRectangleLinesEx(r,1.5f*s,UI_ACCENT);
+            if (a->key_tips) {
+                char tips[12]; if (group->count==1) snprintf(tips,sizeof(tips),"%d",(group->first+1)%10);
+                else snprintf(tips,sizeof(tips),"%d–%d",(group->first+1)%10,(group->first+group->count)%10);
+                Rectangle badge=box(r.x+r.width-32*s,r.y,32*s,16*s); DrawRectangleRec(badge,UI_TEXT);
+                ui_text(u,tips,badge.x+(badge.width-ui_measure(u,tips,10))/2,badge.y+3*s,10,WHITE);
+            }
+        } else {
+            for (int c=group->first;c<group->first+group->count;c++) {
+                Rectangle cr=ribbon_rect(a,a->ribbon_layout.commands[c]); if (cr.width<=0) continue; bool available=enabled && command_enabled(a,c);
+                if (draw_ribbon_control(a,c,cr,available)) { invoke_command(a,c); enabled=false; }
+                if (focus && a->ribbon_command==c) DrawRectangleLinesEx(box(cr.x-s,cr.y-s,cr.width+2*s,cr.height+2*s),1.5f*s,UI_ACCENT);
+                if (a->key_tips && c<10) command_badge(a,c,cr);
+                if (a->ribbon_mode==2 && available && CheckCollisionPointRec(ui_mouse_position(),cr)) { a->ribbon_hover=command_label(a,c); a->ribbon_hover_rect=cr; }
+            }
+            Rectangle launcher=ribbon_rect(a,a->ribbon_layout.launchers[g]);
+            if (ui_icon_button(u,launcher,CARBON_CHEVRON_DOWN,false,passive_control(a,enabled))) { open_command_group(a,g,0); enabled=false; }
+            if (a->ribbon_mode==0) {
+                float text=ui_measure(u,group->name,11);
+                ui_label(u,group->name,box(r.x+(r.width-text)*.5f,r.y+53*s,text+1,20*s),11,UI_MUTED,false,UI_REGULAR);
+            }
+        }
+        float divider=r.x+r.width+6*s; DrawLineV((Vector2){divider,61*s},(Vector2){divider,(56+a->ribbon_layout.height-5)*s},UI_BORDER);
+    }
+    if (GetScreenWidth()/s>=700) {
+        Worksheet *sheet=active_sheet(a); float y=(56+(a->ribbon_mode==0 ? 25 : 4))*s;
+        if (ui_icon_button(u,box(GetScreenWidth()-62*s,y,27*s,27*s),CARBON_UNDO,false,passive_control(a,enabled) && sheet && sheet->undo_actions_count)) history(a,false);
+        if (ui_icon_button(u,box(GetScreenWidth()-34*s,y,27*s,27*s),CARBON_REDO,false,passive_control(a,enabled) && sheet && sheet->redo_actions_count)) history(a,true);
+    }
+    if (a->ribbon_layout.overflow_count) {
+        Rectangle more=ribbon_rect(a,a->ribbon_layout.overflow);
+        if (ui_button(u,more,"…",false,passive_control(a,enabled))) open_command_group(a,-1,0);
+        if (a->ribbon_focus && a->ribbon_command>=0) {
+            int g=ui_ribbon_group_for(ribbon_groups[a->ribbon_tab],ribbon_group_counts[a->ribbon_tab],a->ribbon_command);
+            if (g>=0 && a->ribbon_layout.states[g]==UI_RIBBON_OVERFLOW) DrawRectangleLinesEx(more,1.5f*s,UI_ACCENT);
+        }
+    }
+    DrawLine(0,(int)((56+a->ribbon_layout.height)*s),GetScreenWidth(),(int)((56+a->ribbon_layout.height)*s),UI_BORDER);
+}
+static unsigned status_format_key(CellFormat format) { return format.number | ((unsigned)format.decimals<<8) | ((unsigned)(format.specified&(FORMAT_NUMERIC|FORMAT_DECIMALS))<<16); }
+static void draw_status(App *a,bool enabled) {
+    UIContext *u=&a->ui; float s=u->scale; Color ink={66,95,116,255};
+    bool preview=a->step_preview.active; SheetObject *object=selected_object(a); const Analysis *source=object_source(a,object);
+    const Page *page=preview ? &a->step_preview.page : object && object->kind==OBJECT_TABLE ? &a->objects[a->selected_object].page : &a->page;
+    const char *ready=preview ? "Preview" : a->busy || a->io_busy ? "Working…" : a->fetch_failed ? "Query failed" : "Ready";
+    const char *kind=source->kind==SOURCE_PARQUET ? "Parquet" : source->kind==SOURCE_CSV ? "CSV" : source->kind==SOURCE_DATABASE ? "DuckDB" : source->kind==SOURCE_DEMO ? "Synthetic data" : "";
+    char rows[544]={0},raw_count[64],count[512];
+    if (page->column_count) { snprintf(raw_count,sizeof(raw_count),"%" PRIu64,page->total); number_display(raw_count,0,false,count); snprintf(rows,sizeof(rows),"%s%s rows",page->count_pending ? "≥ " : "",count); }
+    const char *context[]={ready,kind,rows}; float widths[3]; for (int i=0;i<3;i++) widths[i]=ui_measure(u,context[i],12)/s;
+    char interface[24]; snprintf(interface,sizeof(interface),"UI %.0f%%",s*100);
+    UIStatusLayout layout=ui_status_layout((Vector2){GetScreenWidth(),GetScreenHeight()},s,widths,ui_measure(u,interface,11)/s); a->status_layout=layout;
+    if (!layout.valid) return;
+    DrawRectangleRec(layout.panel,(Color){240,244,247,255}); DrawLineV((Vector2){0,layout.panel.y},(Vector2){GetScreenWidth(),layout.panel.y},(Color){203,215,225,255});
+    for (int i=0;i<3;i++) if (layout.context[i].width) {
+        Rectangle entry=layout.context[i]; float left=i ? 11*s : 0;
+        ui_label(u,context[i],box(entry.x+left,entry.y,fmaxf(0,entry.width-left-12*s),entry.height),12,ink,false,UI_REGULAR);
+        DrawLineV((Vector2){entry.x+entry.width-s,layout.panel.y+5*s},(Vector2){entry.x+entry.width-s,layout.panel.y+17*s},(Color){199,212,222,255});
+    }
+    CellFormat format=preview ? format_at(&a->step_preview.formats,a->step_preview.grid.row,a->step_preview.grid.col) : active_format(a);
+    unsigned format_key=status_format_key(format);
+    if (!preview && (!a->status_number_valid || a->status_number_key!=format_key)) { a->status_number_key=format_key; a->status_number_valid=true; if (!a->statistics_frame) statistics_line(a); }
+    const char *metrics=""; bool actual=false;
+    if (preview) {
+        GridRegion *bounds=&a->step_preview.stats_bounds;
+        uint64_t cells=bounds->active ? (bounds->r1-bounds->r0+1)*(bounds->c1-bounds->c0+1) : 0;
+        if (a->statistics_enabled && a->statistics_mask && cells>1) {
+            if (a->preview_status_request!=a->step_preview.stats_request || a->preview_status_cells!=cells || a->preview_status_state!=(int)a->step_preview.stats_state || a->preview_status_format!=format_key || a->preview_status_mask!=a->statistics_mask) {
+                a->preview_status_request=a->step_preview.stats_request; a->preview_status_cells=cells; a->preview_status_state=a->step_preview.stats_state; a->preview_status_format=format_key; a->preview_status_mask=a->statistics_mask;
+                size_t at=0; a->preview_status_line[0]=0;
+                for (int i=0;i<8;i++) if (a->statistics_mask&(1u<<i)) {
+                    if (i && a->step_preview.stats_state!=PREVIEW_STATS_READY) continue;
+                    char buffer[256],display[512]; int written=snprintf(a->preview_status_line+at,sizeof(a->preview_status_line)-at,"%s%s: %s",at ? " · " : "",statistics_short[i],statistics_display_value(a,i,buffer,display));
+                    if (written<0 || (size_t)written>=sizeof(a->preview_status_line)-at) break; at+=(size_t)written;
+                }
+            }
+            metrics=a->preview_status_line; actual=true;
+        } else metrics="Read-only step preview";
+    } else if (*a->statistics_line) { metrics=a->statistics_line; actual=!a->statistics_frame; }
+    if (!actual && authoring_frame_selected(a)) { metrics=a->statistics_line; }
+    char diagnostic[256];
+    if (a->diagnostics) {
+        snprintf(diagnostic,sizeof(diagnostic),"Frame %.1f ms · Query %.1f ms · Cache %zu rows / %.0f KiB · DPI %.1f · UI %.0f%%",a->last_frame_ms,page->query_ms,page->row_count,page->bytes/1024.0,u->dpi.x,s*100);
+        metrics=diagnostic; actual=false;
+    }
+    float available=fmaxf(0,layout.metrics.width-16*s);
+    if (a->status_metrics_width!=available || a->status_metrics_scale!=s || a->status_metrics_raster!=u->raster_size || a->status_metrics_actual!=actual || strcmp(a->status_metrics_source,metrics)) {
+        snprintf(a->status_metrics_source,sizeof(a->status_metrics_source),"%s",metrics); a->status_metrics_width=available; a->status_metrics_scale=s; a->status_metrics_raster=u->raster_size; a->status_metrics_actual=actual;
+        if (actual) { ui_fit_metrics(u,metrics,available,a->status_metrics); ui_status_metrics_layout(u,a->status_metrics,&a->status_metric_labels); }
+        else snprintf(a->status_metrics,sizeof(a->status_metrics),"%s",metrics);
+    }
+    if (actual) ui_status_metrics_draw(u,&a->status_metric_labels,layout.metrics,ink);
+    else ui_label(u,a->status_metrics,box(layout.metrics.x+8*s,layout.metrics.y,fmaxf(0,layout.metrics.width-16*s),layout.metrics.height),12,ink,true,UI_REGULAR);
+    if (enabled && CheckCollisionPointRec(ui_mouse_position(),layout.panel) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) open_statistics(a);
+    if (ui_tool_button(u,layout.customize,"",false,passive_control(a,enabled))) open_statistics(a);
+    ui_carbon(u,CARBON_OVERFLOW_MENU_HORIZONTAL,box(layout.customize.x+3.5f*s,layout.customize.y+2*s,16*s,16*s),ink);
+    if (ui_tool_button(u,layout.scale,"",false,passive_control(a,enabled))) { a->chrome_focus=10; a->status_focus=3; begin_scale_menu(a,(Vector2){layout.scale.x,layout.scale.y+layout.scale.height+4*s}); }
+    DrawLineV((Vector2){layout.scale.x,layout.scale.y+4*s},(Vector2){layout.scale.x,layout.scale.y+layout.scale.height-4*s},(Color){199,212,222,255});
+    float pad=GetScreenWidth()/s>=900 ? 8 : 6;
+    ui_carbon(u,CARBON_SETTINGS_ADJUST,box(layout.scale.x+pad*s,layout.scale.y+4*s,12*s,12*s),ink);
+    if (layout.scale_text) ui_label(u,interface,box(layout.scale.x+(pad+16)*s,layout.scale.y,fmaxf(0,layout.scale.width-(pad+23)*s),layout.scale.height),11,ink,false,UI_REGULAR);
+    DrawRectangleRec(layout.zoom,(Color){251,252,253,255}); DrawRectangleLinesEx(layout.zoom,s,(Color){199,213,224,255});
+    float zoom=active_canvas_zoom(a); bool out=passive_control(a,enabled) && zoom>.6001f,in=passive_control(a,enabled) && zoom<1.5999f;
+    if (ui_tool_button(u,layout.minus,"",false,out)) zoom_canvas(a,fmaxf(.6f,roundf((zoom-.1f)*10)/10),(Vector2){a->grid.body.x,a->grid.body.y});
+    if (ui_tool_button(u,layout.plus,"",false,in)) zoom_canvas(a,fminf(1.6f,roundf((zoom+.1f)*10)/10),(Vector2){a->grid.body.x,a->grid.body.y});
+    ui_carbon(u,CARBON_ZOOM_OUT,box(layout.minus.x+5.5f*s,layout.minus.y+2.5f*s,12*s,12*s),out ? ink : Fade(ink,.4f));
+    ui_carbon(u,CARBON_ZOOM_IN,box(layout.plus.x+5.5f*s,layout.plus.y+2.5f*s,12*s,12*s),in ? ink : Fade(ink,.4f));
+    if (ui_tool_button(u,layout.level,"",false,passive_control(a,enabled))) zoom_canvas(a,1,(Vector2){a->grid.body.x,a->grid.body.y});
+    DrawLineV((Vector2){layout.level.x,layout.level.y},(Vector2){layout.level.x,layout.level.y+layout.level.height},(Color){220,229,236,255});
+    DrawLineV((Vector2){layout.level.x+layout.level.width-s,layout.level.y},(Vector2){layout.level.x+layout.level.width-s,layout.level.y+layout.level.height},(Color){220,229,236,255});
+    char zoom_label[24]; snprintf(zoom_label,sizeof(zoom_label),"%.0f%%",zoom*100); float label=ui_measure(u,zoom_label,11);
+    ui_label(u,zoom_label,box(layout.level.x+(layout.level.width-label)*.5f,layout.level.y,label+.001f*s,layout.level.height),11,ink,false,UI_REGULAR);
+    if (a->chrome_focus==10) {
+        Rectangle focus=a->status_focus==0 ? layout.customize : a->status_focus==3 ? layout.scale : a->status_focus==4 ? layout.level : a->status_focus==1 ? layout.minus : layout.plus;
+        ui_focus_border(focus,layout.panel,s);
+    }
+}
+static void draw_toast(App *a) {
+    UIContext *u=&a->ui; float s=u->scale; double elapsed=dx_millis()-a->message_since;
+    a->toast_rect=(Rectangle){0};
+    if (!a->message || !*a->message || !strcmp(a->message,"Ready") || elapsed<0 || elapsed>=3200 || a->modal!=MODAL_NONE || a->left_drawer || a->busy || a->io_busy) return;
+    float maximum=GetScreenWidth()*.8f,label_width=fmaxf(30*s,maximum-54*s); TextLines *lines=&a->toast_lines;
+    if (a->toast_revision!=a->message_revision || !lines->count || lines->width!=label_width || lines->scale!=s || lines->raster_size!=u->raster_size) {
+        text_lines_layout_sized(lines,u,a->message,label_width,11.5f); a->toast_revision=a->message_revision;
+        float widest=0;
+        for (size_t i=0;i<lines->count;i++) { size_t start=lines->offsets[i],length=lines->offsets[i+1]-start; char label[1024]; if (length>=sizeof(label)) length=sizeof(label)-1; memcpy(label,a->message+start,length); label[length]=0; widest=fmaxf(widest,ui_measure(u,label,11.5f)); }
+        a->toast_width=fminf(maximum,widest+54*s); a->toast_height=(fminf(8,(float)lines->count)*15+20)*s;
+    }
+    float progress=a->reduced_motion ? 1 : ui_motion_ease_out((float)elapsed/140),width=a->toast_width,height=a->toast_height;
+    Rectangle panel=box((GetScreenWidth()-width)*.5f,GetScreenHeight()-33*s-height+(1-progress)*4*s,width,height); a->toast_rect=panel;
+    DrawRectangleRounded(box(panel.x,panel.y+3*s,width,height),.06f,4,Fade((Color){38,62,82,255},progress*(38.0f/255)));
+    DrawRectangleRounded(panel,.06f,4,Fade((Color){41,76,101,255},progress)); DrawRectangleRoundedLinesEx(panel,.06f,4,s,Fade((Color){28,60,83,255},progress));
+    ui_carbon(u,CARBON_INFORMATION,box(panel.x+14*s,panel.y+(height-16*s)*.5f,16*s,16*s),Fade(WHITE,progress));
+    text_lines_draw_sized(lines,u,a->message,0,box(panel.x+38*s,panel.y+10*s,fmaxf(0,width-52*s),height-20*s),11.5f,15,Fade(WHITE,progress));
+}
+static void draw_app(App *a) {
+    UIContext *u=&a->ui; float s=u->scale; bool enabled=a->modal==MODAL_NONE && !a->io_busy && !a->left_drawer && !(a->busy && a->pending_kind==JOB_EXPORT);
+    u->paint_time=GetTime(); u->reduced_motion=a->reduced_motion;
+    /* Modality blocks input without repainting valid chrome as unavailable. */
+    u->pointer_blocked=u->pointer_blocked || a->modal!=MODAL_NONE;
+    bool toast_visible=a->toast_rect.width>0 && a->modal==MODAL_NONE && !a->left_drawer && !a->busy && !a->io_busy && dx_millis()-a->message_since<3200;
+    bool toast_press=toast_visible && ((CheckCollisionPointRec(ui_mouse_position(),a->toast_rect) && (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)||IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)||GetMouseWheelMoveV().y)) || ui_gesture_starts_in(a->toast_rect));
+    if (toast_press) { DxPointerGesture gesture; while (ui_take_gesture_from(a->toast_rect,&gesture)) { } u->pointer_blocked=true; a->consume_grid_input=true; }
+    enabled=enabled && !u->pointer_blocked;
+    if (a->last_window_width!=GetScreenWidth() || a->last_window_height!=GetScreenHeight() || a->last_interface_scale!=s) {
+        a->last_window_width=GetScreenWidth(); a->last_window_height=GetScreenHeight(); a->last_interface_scale=s; a->pivot_reveal_object=true; a->reveal_tab=true;
+    }
+    a->ribbon_hover=NULL;
+    ClearBackground(UI_BG);
+    update_ribbon_layout(a);
+    if (a->ribbon_mode!=3) {
+    float width=GetScreenWidth()/s; bool authoring=selected_pivot(a)!=NULL;
+    int tabs=authoring ? RIBBON_TABS : RIBBON_TABS-1;
+    if (a->ribbon_tab>=tabs) a->ribbon_tab=RIBBON_ANALYZE;
+    DrawRectangleRec(box(0,0,GetScreenWidth(),28*s),(Color){233,238,242,255});
+    ui_label(u,"Duxcel",box(12*s,0,54*s,28*s),15,(Color){25,78,112,255},false,UI_SEMIBOLD);
+    DrawLineV((Vector2){70*s,7*s},(Vector2){70*s,22*s},(Color){185,197,207,255});
+    char document[1024]; snprintf(document,sizeof(document),"%s%s",a->book.path ? dx_basename(a->book.path) : "Untitled.dxls",a->book.dirty ? " · Edited" : "");
+    ui_label(u,document,box(82*s,0,GetScreenWidth()-124*s,28*s),12,UI_TEXT,false,UI_REGULAR);
+    Rectangle save=box(GetScreenWidth()-34*s,2*s,24*s,24*s);
+    if (ui_icon_button(u,save,CARBON_SAVE,false,!a->io_busy && a->book.count)) {
+        a->consume_grid_input=true; if (a->book.path) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE);
+    }
+    if (CheckCollisionPointRec(ui_mouse_position(),save)) { a->ribbon_hover="Save workbook · ⌘S"; a->ribbon_hover_rect=save; }
+    float display_width=width<900 ? 26 : 110;
+    Rectangle display=box(GetScreenWidth()-(display_width+36)*s,30*s,display_width*s,24*s);
+    if (ui_button(u,display,width<900 ? "" : "Ribbon display",false,!a->io_busy)) { a->ribbon_menu_focus=a->ribbon_mode; a->modal=MODAL_RIBBON; a->consume_grid_input=true; }
+    ui_carbon(u,CARBON_CHEVRON_DOWN,box(display.x+display.width-17*s,display.y+6*s,12*s,12*s),UI_MUTED);
+    Rectangle help=box(GetScreenWidth()-30*s,30*s,24*s,24*s);
+    if (ui_icon_button(u,help,CARBON_HELP,false,!a->io_busy)) run_action(a,ACTION_GUIDE);
+    if (a->guide_button_focus) ui_focus_border(help,help,s);
+    Rectangle strip=box(8*s,28*s,fmaxf(0,display.x-14*s),28*s);
+    float tab_x=0,selected_x=0,selected_width=0,total=0;
+    float widths[RIBBON_TABS];
+    for (int i=0;i<tabs;i++) { widths[i]=fmaxf(ui_measure(u,ui_ribbon_tabs[i],12),ui_measure_weight(u,ui_ribbon_tabs[i],12,UI_MEDIUM))/s+2+(width>=1400 ? 34 : width>=900 ? 28 : 20); if (i==a->ribbon_tab) { selected_x=total; selected_width=widths[i]; } total+=widths[i]+1; }
+    if (enabled && CheckCollisionPointRec(ui_mouse_position(),strip)) a->ribbon_tabs_scroll-=GetMouseWheelMoveV().y*28+GetMouseWheelMoveV().x*28;
+    float limit=fmaxf(0,total-strip.width/s); a->ribbon_tabs_scroll=fmaxf(0,fminf(limit,a->ribbon_tabs_scroll));
+    if (a->ribbon_focus) {
+        if (selected_x<a->ribbon_tabs_scroll) a->ribbon_tabs_scroll=selected_x;
+        if (selected_x+selected_width>a->ribbon_tabs_scroll+strip.width/s) a->ribbon_tabs_scroll=selected_x+selected_width-strip.width/s;
+    }
+    ui_set_clip(u,strip);
+    for (int i=0;i<tabs;i++) {
+        Rectangle tab=box(strip.x+(tab_x-a->ribbon_tabs_scroll)*s,28*s,widths[i]*s,28*s);
+        if (i==a->ribbon_tab) DrawRectangleRec(GetCollisionRec(tab,strip),(Color){251,252,253,255});
+        bool clicked=ui_tool_button(u,tab,"",false,enabled);
+        ui_label(u,ui_ribbon_tabs[i],box(tab.x+(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.y,tab.width-2*(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.height),12,i==a->ribbon_tab ? UI_ACCENT : UI_TEXT,false,i==a->ribbon_tab ? UI_MEDIUM : UI_REGULAR);
+        if (clicked) { a->chrome_focus=0; a->ribbon_tab=i; a->ribbon_focus=false; a->ribbon_layout.valid=false; }
+        if (a->ribbon_focus && a->ribbon_command<0 && i==a->ribbon_tab) ui_focus_border(tab,strip,s);
+        if (a->key_tips) { const char *tips[]={"H","N","D","A","V","Z"}; Rectangle badge=box(tab.x+tab.width-17*s,tab.y,16*s,16*s); DrawRectangleRec(GetCollisionRec(badge,strip),UI_TEXT); ui_text_clip(u,tips[i],badge,10,WHITE,false); }
+        tab_x+=widths[i]+1;
+    }
+    float target=strip.x/s+selected_x-a->ribbon_tabs_scroll+9,target_width=selected_width-18;
+    a->ribbon_indicator=ui_motion_update_at(&a->ribbon_indicator_motion,target,u->paint_time,.16f,a->reduced_motion)*s;
+    a->ribbon_indicator_width=ui_motion_update_at(&a->ribbon_width_motion,target_width,u->paint_time,.16f,a->reduced_motion)*s;
+    DrawRectangleRec(GetCollisionRec(box(a->ribbon_indicator,54*s,a->ribbon_indicator_width,2*s),strip),UI_ACCENT);
+    ui_clear_clip(u); DrawLine(0,(int)(56*s),GetScreenWidth(),(int)(56*s),UI_BORDER);
+    draw_ribbon_commands(a,enabled);
+    }
+    Worksheet *sheet=active_sheet(a);
+    bool pivot_active=selected_pivot(a)!=NULL && a->ribbon_mode!=3 && !a->grid.moving && !a->grid.dragging && a->grid.resizing<0;
+    if (!pivot_active || !a->author_context_active) ui_motion_update_at(&a->author_context_motion,0,u->paint_time,.14f,true);
+    a->author_context_progress=ui_motion_update_at(&a->author_context_motion,pivot_active ? 1 : 0,u->paint_time,.14f,a->reduced_motion);
+    a->author_context_active=pivot_active;
+    float pane_target=a->pipeline && a->ribbon_mode!=3 ? pipeline_target_width(a) : 0;
+    float previous_extent=a->pipeline_extent;
+    a->pipeline_extent=ui_motion_update_at(&a->pipeline_motion,pane_target,u->paint_time,.16f,a->reduced_motion || a->split_pipeline);
+    a->pipeline_alpha=ui_motion_update_at(&a->pipeline_alpha_motion,pane_target>0 ? 1 : 0,u->paint_time,.12f,a->reduced_motion || a->split_pipeline);
+    if (a->pipeline_extent>previous_extent && selected_object(a)) a->pivot_reveal_object=true;
+    float name_y=(a->ribbon_mode==3 ? 0 : 57+ui_ribbon_height(a->ribbon_mode))*s;
+    if (GetScreenWidth()/s>=700 || a->ribbon_mode==3) a->left_drawer=false;
+    bool left_open=a->ribbon_mode!=3 && (pivot_active || a->sidebar || a->fields_visible) && (GetScreenWidth()/s>=700 || a->left_drawer);
+    if (left_open) { a->left_render_workbook=a->sidebar; a->left_render_fields=a->fields_visible; }
+    a->left_extent=ui_motion_update_at(&a->left_motion,left_open ? a->sidebar_width : 0,u->paint_time,.16f,a->reduced_motion || a->split_side);
+    a->left_alpha=ui_motion_update_at(&a->left_alpha_motion,left_open ? 1 : 0,u->paint_time,.12f,a->reduced_motion || a->split_side);
+    a->workspace=ui_workspace_layout(GetScreenWidth()/s,GetScreenHeight()/s,name_y/s,a->left_extent,a->pipeline_extent,
+        a->left_extent>0,a->left_drawer || (GetScreenWidth()/s<700 && a->left_extent>0),pivot_active,a->ribbon_mode==3);
+    if (pivot_active) {
+        SheetObject *author=selected_pivot(a); measure_pivot_tokens(a,author);
+        float shelf_y=a->workspace.context.y+26;
+        for (int row=0;row<2;row++) {
+            int role=row ? PIVOT_ROWS : PIVOT_COLUMNS; float widths[UI_SHELF_FIELDS]={0};
+            for (size_t i=0;i<author->pivot.counts[role];i++) widths[i]=a->pivot_token_widths[role][i]/s;
+            UIShelfLayout shelf=ui_shelf_layout(box(a->workspace.context.x,shelf_y,a->workspace.context.width,0),widths,author->pivot.counts[role],a->workspace.narrow,row==1);
+            shelf_y+=shelf.panel.height;
+            Rectangle *parts[]={&shelf.panel,&shelf.label,&shelf.fields,&shelf.add};
+            for (size_t i=0;i<sizeof(parts)/sizeof(*parts);i++) { parts[i]->x*=s; parts[i]->y*=s; parts[i]->width*=s; parts[i]->height*=s; }
+            for (size_t i=0;i<shelf.count;i++) { shelf.tokens[i].x*=s; shelf.tokens[i].y*=s; shelf.tokens[i].width*=s; shelf.tokens[i].height*=s; }
+            a->axis_shelves[role]=shelf;
+        }
+        ui_workspace_context_height(&a->workspace,shelf_y-a->workspace.context.y+1);
+    }
+    Rectangle *regions[]={&a->workspace.canvas,&a->workspace.left,&a->workspace.context,&a->workspace.inspector};
+    for (size_t i=0;i<sizeof(regions)/sizeof(*regions);i++) { regions[i]->x*=s; regions[i]->y*=s; regions[i]->width*=s; regions[i]->height*=s; }
+    float viewport_right=a->workspace.canvas.x+a->workspace.canvas.width;
+    Rectangle inspector=a->workspace.inspector;
+    bool over_inspector=a->pipeline_extent>1 && (CheckCollisionPointRec(ui_mouse_position(),inspector) || ui_gesture_starts_in(inspector));
+    float top=a->workspace.canvas.y;
+    memset(a->pivot_shelves,0,sizeof(a->pivot_shelves)); a->author_marks_layout=(UIMarksLayout){0}; a->field_list=a->field_footer=(Rectangle){0};
+    if (a->workspace.left_overlay && a->modal==MODAL_NONE) {
+        Rectangle outside=box(a->workspace.left.width,name_y,GetScreenWidth()-a->workspace.left.width,GetScreenHeight()-name_y);
+        Rectangle above=box(0,0,GetScreenWidth(),name_y); DxPointerGesture gesture;
+        if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),a->workspace.left)) ||
+            ui_take_left_gesture_from(outside,&gesture) || ui_take_left_gesture_from(above,&gesture)) close_workspace(a);
+    }
+    if (!pivot_active) {
+    float context_y=name_y+(a->step_preview.active ? 29*s : 0);
+    const Grid *value_grid=a->step_preview.active ? &a->step_preview.grid : &a->grid;
+    const Page *display_page=a->step_preview.active ? &a->step_preview.page : &a->page;
+    float context_left=a->workspace.context.x,context_right=GetScreenWidth()-a->pipeline_extent*s;
+    DrawRectangleRec(box(context_left,context_y,fmaxf(0,context_right-context_left),28*s),(Color){246,248,250,255});
+    DrawLineV((Vector2){context_left,context_y+27*s},(Vector2){context_right,context_y+27*s},UI_BORDER);
+    char cell_name[48]; address(value_grid->col,value_grid->row+(a->analysis.kind!=SOURCE_NONE ? 2 : 1),cell_name);
+    const char *value="",*type=""; bool is_null=false,has_value=false;
+    const Column *value_column=NULL; double value_number=0;
+    const Page *value_page=display_page;
+    const Cell *current=copy_cached_cell(value_page,value_grid->row,value_grid->col);
+    if (!current) { value_page=a->step_preview.active ? &a->step_preview.spare : &a->spare; current=copy_cached_cell(value_page,value_grid->row,value_grid->col); }
+    if (current) {
+        value=current->text; is_null=current->is_null; has_value=true; type=value_page->columns[value_grid->col].type_name;
+        value_column=&value_page->columns[value_grid->col]; value_number=current->number;
+    }
+    SheetObject *table=a->step_preview.active ? NULL : selected_object(a);
+    if (table && table->kind==OBJECT_TABLE && value_grid->row>=table->row && value_grid->col>=table->col) {
+        const Page *page=&a->objects[a->selected_object].page; size_t col=value_grid->col-table->col;
+        if (value_grid->row==table->row && !col) { value=table->name; type="TABLE"; has_value=true; }
+        else if (value_grid->row==table->row+1 && col<page->column_count) { value=page->columns[col].name; type=page->columns[col].type_name; has_value=true; }
+        else if (value_grid->row>=table->row+2) {
+            const Cell *cell=copy_cached_cell(page,value_grid->row-table->row-2,col);
+            if (cell) { value=cell->text; is_null=cell->is_null; type=page->columns[col].type_name; has_value=true; value_column=&page->columns[col]; value_number=cell->number; }
+            else if (page->column_count && (col>=page->column_count || (!page->count_pending && value_grid->row-table->row-2>=page->total))) { value=NULL; is_null=true; type="NULL"; has_value=true; }
+            else { value="Loading…"; type="LOADING"; has_value=true; }
+        }
+    }
+    if (!has_value && a->analysis.kind!=SOURCE_NONE && value_grid->col<display_page->column_count && (display_page->count_pending || value_grid->row<display_page->total)) { value="Loading…"; type="LOADING"; has_value=true; }
+    if (!a->step_preview.active && sheet && manual_cell(a)) { value=cells_get(&sheet->cells,value_grid->row,value_grid->col); is_null=!*value; has_value=true; type=is_null ? "NULL" : "VARCHAR"; }
+    char type_label[64]; size_t type_bytes=strcspn(type,"("); if (type_bytes>=sizeof(type_label)) type_bytes=sizeof(type_label)-1;
+    memcpy(type_label,type,type_bytes); type_label[type_bytes]=0;
+    if (!strcmp(type_label,"VARCHAR") || !strcmp(type_label,"CHAR")) snprintf(type_label,sizeof(type_label),"TEXT");
+    UICellContextLayout strip=ui_cell_context_layout(box(context_left/s,context_y/s,(context_right-context_left)/s,28),GetScreenWidth()/s,
+        a->workspace.narrow && a->ribbon_mode!=3,a->ribbon_mode==3,ui_measure(u,type_label,10)/s);
+    Rectangle *parts[]={&strip.address,&strip.address_text,&strip.chevron,&strip.function,&strip.value,&strip.type};
+    for (size_t i=0;i<sizeof(parts)/sizeof(*parts);i++) { parts[i]->x*=s; parts[i]->y*=s; parts[i]->width*=s; parts[i]->height*=s; }
+    a->cell_context=strip;
+    if (strip.valid) {
+    ui_label(u,cell_name,strip.address_text,12,UI_TEXT,false,UI_REGULAR);
+    ui_carbon(u,CARBON_CHEVRON_DOWN,strip.chevron,UI_MUTED);
+    DrawLineV((Vector2){strip.address.x+strip.address.width-s,strip.address.y},(Vector2){strip.address.x+strip.address.width-s,strip.address.y+strip.address.height},UI_BORDER);
+    ui_carbon(u,CARBON_FUNCTION,strip.function,UI_MUTED);
+    Rectangle value_box=strip.value;
+    DrawRectangleRounded(value_box,4*s/value_box.height,4,WHITE); DrawRectangleRoundedLinesEx(value_box,4*s/value_box.height,4,s,(Color){216,225,233,255});
+    if (has_value) { CellFormat format=a->step_preview.active ? format_at(&a->step_preview.formats,value_grid->row,value_grid->col) : active_format(a); format.flags=0; format.align=FORMAT_LEFT; format.specified&=FORMAT_NUMERIC|FORMAT_DECIMALS;
+        ui_formatted_value(u,value,is_null,value_column && value_column->numeric,value_column && (value_column->type==DUCKDB_TYPE_FLOAT || value_column->type==DUCKDB_TYPE_DOUBLE),value_number,value_box,12,value_column && value_column->numeric && value_number<0 ? (Color){164,51,55,255} : UI_TEXT,format); }
+    if (strip.type.width) ui_label(u,type_label,strip.type,10,UI_MUTED,true,UI_REGULAR);
+    }
+    }
+    float tabs_y=GetScreenHeight()-22*s, side=a->workspace.canvas.x;
+    float bottom=tabs_y;
+    Vector2 mouse=ui_mouse_position();
+    if (enabled && side>0 && CheckCollisionPointRec(mouse,box(side-3*s,top,6*s,bottom-top))) {
+        u->cursor=MOUSE_CURSOR_RESIZE_EW; if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) a->split_side=true;
+    }
+    if (a->split_side && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) a->sidebar_width=fminf(360,fmaxf(188,mouse.x/s));
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) a->split_side=false;
+    Rectangle gr=a->workspace.canvas;
+    if (enabled && !u->pointer_blocked && !pivot_active && !over_inspector && !a->left_drawer &&
+        ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse,gr)) || ui_gesture_starts_in(gr))) {
+        a->chrome_focus=a->pivot_focus=0; a->pivot_search_focus=false; a->ribbon_focus=false; a->consume_grid_input=false;
+    }
+    if (a->workspace.left.width>0 && !a->workspace.left_overlay) {
+        draw_left_presence(a,a->workspace.left,pivot_active,false);
+    }
+    if (pivot_active) {
+        float progress=a->author_context_progress,shift=-3*(1-progress)*s;
+        Rectangle context=box(a->workspace.context.x,name_y-3*s,viewport_right-a->workspace.context.x,a->workspace.context.height+3*s);
+        /* A dedicated short/wide target avoids growing a tall pane cache into
+           an oversized cross-product when authoring opens. */
+        bool painting=progress<1 && ui_paint_cache_begin(u,5,context,(Vector2){context.width,context.height});
+        draw_pivot_editor(a,name_y+(painting ? shift : 0),bottom,viewport_right);
+        if (painting) { UIPaintImage image=ui_paint_cache_end(u); ui_paint_image(u,image,progress,(Vector2){0}); }
+    }
+    if (a->workspace.narrow && a->ribbon_mode!=3) {
+        Rectangle recovery=box(3*s,name_y+(pivot_active ? .5f : 2)*s,28*s,24*s);
+        if (ui_icon_button(u,recovery,CARBON_MENU,a->left_drawer,a->modal==MODAL_NONE && !a->io_busy && !a->left_drawer)) show_workspace(a);
+        if (!a->left_drawer && CheckCollisionPointRec(ui_mouse_position(),recovery)) { a->ribbon_hover="Workbook, Fields and Marks"; a->ribbon_hover_rect=recovery; }
+    }
+    if (a->step_preview.active) {
+        bool preview_input=enabled && !over_inspector && !a->left_drawer && !a->chrome_focus && !a->pivot_focus && !a->ribbon_focus && !a->consume_grid_input;
+        a->step_preview.grid.hide_gridlines=!a->gridlines;
+        if (a->field_reveal_requested) {
+            a->field_reveal_requested=false; const Page *fields=context_fields(a); bool found=false;
+            if (a->pivot_field>=0 && (size_t)a->pivot_field<fields->column_count) for (size_t c=0;c<a->step_preview.page.column_count;c++) if (!strcmp(fields->columns[a->pivot_field].name,a->step_preview.page.columns[c].name)) { grid_reveal_column(&a->step_preview.grid,&a->step_preview.page,s*a->step_preview.grid.zoom,c,a->field_navigation==1); found=true; break; }
+            if (!found) status(a,"This field is not present at the previewed step.");
+        }
+        Vector2 wheel=GetMouseWheelMoveV(); float pinch=dx_take_magnification();
+        bool over=CheckCollisionPointRec(mouse,gr),control=IsKeyDown(KEY_LEFT_CONTROL)||IsKeyDown(KEY_RIGHT_CONTROL);
+        bool zooming=enabled && over && !over_inspector && !a->left_drawer && ((control && wheel.y) || pinch);
+        if (zooming) zoom_canvas(a,active_canvas_zoom(a)*expf(pinch+(control ? wheel.y*.08f : 0)),mouse);
+        if (ui_preview_draw(u,&a->step_preview.grid,&a->step_preview.page,box(gr.x,name_y,gr.width,bottom-name_y),a->step_preview.step,a->step_preview.title,enabled && !over_inspector && !a->left_drawer,preview_input && !zooming,a->step_preview.loading,a->step_preview.error)) end_step_preview(a);
+        if (a->step_preview.active && a->step_preview.grid.context_requested) { a->step_preview.grid.context_requested=false; inspect_value(a); }
+        if (a->step_preview.active && a->step_preview.grid.filter_requested) {
+            a->step_preview.grid.filter_requested=false; size_t field=a->step_preview.grid.col; Page *fields=context_fields(a); size_t match=fields->column_count;
+            if (field<a->step_preview.page.column_count) for (size_t c=0;c<fields->column_count;c++) if (!strcmp(a->step_preview.page.columns[field].name,fields->columns[c].name)) { match=c; break; }
+            if (match<fields->column_count) {
+                const SheetObject *owner=objects_source(&active_sheet(a)->objects,selected_object(a)); Vector2 anchor={grid_column_x(&a->step_preview.grid,s*a->step_preview.grid.zoom,field),a->step_preview.grid.body.y};
+                end_step_preview(a);
+                if (owner) open_table_filter(a,(size_t)(owner-active_sheet(a)->objects.items),match);
+                else { size_t column=a->grid.col; a->grid.col=match; open_modal(a,MODAL_FILTER); a->grid.col=column; }
+                a->filter_anchor_valid=true; a->filter_anchor=anchor;
+            } else status(a,"Column criteria are available in the current result.");
+        }
+        if (a->step_preview.active && a->step_preview.grid.fit_requested) { a->step_preview.grid.fit_requested=false; grid_fit_column(&a->step_preview.grid,u,&a->step_preview.page,a->step_preview.grid.fit_column); }
+    } else {
+    if (!a->grid.width_count) grid_schema(&a->grid,&a->page,false);
+    a->grid.source_header=a->analysis.kind!=SOURCE_NONE; a->grid.hide_gridlines=!a->gridlines;
+    a->grid.digit_width=u->digit_width;
+    a->grid.elastic_enabled=!a->reduced_motion;
+    a->grid.lock_structure=a->io_busy;
+    prepare_objects(a); grid_layout(&a->grid,s*a->grid.zoom,&a->page,gr); reveal_pivot(a);
+    if ((!pivot_active && !over_inspector && !a->left_drawer) || a->chart_resizing) chart_resize_input(a);
+    if (!pivot_active && !over_inspector && !a->left_drawer) object_input(a);
+    if (a->field_reveal_requested) {
+        a->field_reveal_requested=false;
+        if (a->pivot_field>=0 && (size_t)a->pivot_field<context_fields(a)->column_count) {
+            SheetObject *table=selected_object(a); bool imported=table && table->kind==OBJECT_TABLE;
+            size_t column=(size_t)a->pivot_field+(imported ? table->col : 0);
+            grid_reveal_column(&a->grid,&a->page,s*a->grid.zoom,column,a->field_navigation==1);
+            if (a->field_navigation>=2) {
+                grid_select_cell(&a->grid,a->grid.row,column,false);
+                if (a->field_navigation==2) a->grid.selection=SELECT_COLUMNS;
+                else grid_reveal_cell(&a->grid,&a->page,s*a->grid.zoom);
+                if (!imported) a->selected_object=-1; a->chrome_focus=0; a->ribbon_focus=false;
+            }
+            a->field_navigation=0;
+            a->field_highlight=a->pivot_field; a->field_highlight_until=dx_millis()+1500;
+            if (a->workspace.narrow) close_workspace(a);
+        }
+    }
+    Vector2 wheel=GetMouseWheelMoveV(); float pinch=dx_take_magnification();
+    bool over=CheckCollisionPointRec(mouse,gr),control=IsKeyDown(KEY_LEFT_CONTROL)||IsKeyDown(KEY_RIGHT_CONTROL);
+    bool zooming=enabled && over && !over_inspector && !a->left_drawer && ((control && wheel.y) || pinch);
+    if (zooming) zoom_canvas(a,active_canvas_zoom(a)*expf(pinch+(control ? wheel.y*.08f : 0)),mouse);
+    uint64_t mr0,mr1; size_t mc0,mc1; grid_bounds(&a->grid,&mr0,&mr1,&mc0,&mc1);
+    bool source_ready_for_move=a->analysis.kind==SOURCE_NONE || a->page.column_count || a->fetch_failed;
+    a->grid.allow_move=sheet && source_ready_for_move && a->grid.selection==SELECT_CELLS && worksheet_range_fits(sheet,(SheetRange){mr0,mr1,mc0,mc1},0,0,source_rows(a),a->page.column_count,NULL);
+    for (size_t i=0;a->grid.allow_move && i<sheet->objects.count;i++) {
+        SheetObject *o=&sheet->objects.items[i];
+        if (o->kind==OBJECT_TABLE && a->objects[i].page.count_pending && mr0<o->row+o->rows && mr1>=o->row && mc0<o->col+o->columns && mc1>=o->col) a->grid.allow_move=false;
+    }
+    u->scale=s*a->grid.zoom;
+    a->grid.block_pointer=over_inspector || a->left_drawer || u->pointer_blocked;
+    uint64_t width_revision=a->grid.width_revision; int resizing=a->grid.resizing;
+    a->grid.formats=sheet ? &sheet->formats : NULL; a->grid.format_row=0; a->grid.format_col=0;
+    set_grid_navigation(a);
+    bool canvas_input=!pivot_active && !zooming && !a->left_drawer && a->modal==MODAL_NONE && !a->chrome_focus && !a->ribbon_focus && !a->pivot_focus && !a->consume_grid_input && !a->split_side && !a->split_pipeline;
+    grid_update(&a->grid,u,&a->page,gr,canvas_input);
+    replay_canvas_keys(a,canvas_input);
+    if (!pivot_active) remember_source_location(a);
+    if (!ui_pressed(KEY_ESCAPE) && a->grid.resizing<0 && (width_revision!=a->grid.width_revision || (resizing>=0 && a->grid.widths[resizing]!=a->grid.width_start))) a->book.dirty=true;
+    if (!pivot_active && sheet && a->modal==MODAL_NONE && !a->pivot_focus && !a->consume_grid_input && !a->grid.dragging && !a->grid.moving &&
+        (ui_key(KEY_UP)||ui_key(KEY_DOWN)||ui_key(KEY_LEFT)||ui_key(KEY_RIGHT)||ui_key(KEY_TAB)||ui_key(KEY_ENTER)||ui_key(KEY_HOME)||ui_key(KEY_END)||ui_key(KEY_PAGE_UP)||ui_key(KEY_PAGE_DOWN))) {
+        keyboard_object(a);
+    }
+    if (a->grid.fit_requested) { a->grid.fit_requested=false; u->scale=s; fit_column(a,a->grid.fit_column); u->scale=s*a->grid.zoom; }
+    if (!pivot_active) grid_draw(&a->grid,u,&a->page,a->busy && !a->io_busy && a->pending_kind==JOB_PAGE);
+    double highlight_remaining=a->field_highlight_until-dx_millis();
+    if (a->field_highlight>=0 && (size_t)a->field_highlight<a->grid.width_count && highlight_remaining>0) {
+        Rectangle header=grid_range_rect(&a->grid,u->scale,a->grid.top,(size_t)a->field_highlight,1,1); header.y=gr.y; header.height=a->grid.body.y-gr.y;
+        Color color=UI_ACCENT; color.a=(unsigned char)(255*fmin(1,highlight_remaining/500));
+        clipped_border(header,box(a->grid.body.x,gr.y,a->grid.body.width,header.height),2*s,color);
+    }
+    if (!pivot_active) { draw_blank_cells(a); draw_objects(a); } u->scale=s;
+    if (pivot_active) draw_authoring_workspace(a,gr,enabled && !zooming && !over_inspector && !a->left_drawer);
+    if (a->grid.move_requested) {
+        a->grid.move_requested=false; char *error=NULL;
+        if (!move_selection(a,a->grid.move_dr,a->grid.move_dc,false,&error)) status(a,error);
+        free(error);
+    }
+    if (a->grid.context_requested) {
+        a->grid.context_requested=false; a->context_focus=a->context_scroll=0; a->context_drag=false; a->context_origin=ui_mouse_position();
+        if (a->context_keyboard || ui_pressed(KEY_F10)||ui_pressed(KEY_KB_MENU)) { Rectangle cell=grid_range_rect(&a->grid,s*a->grid.zoom,a->grid.row,a->grid.col,1,1); a->context_origin=(Vector2){cell.x,cell.y+cell.height}; }
+        int hit=a->grid.selection==SELECT_CELLS ? objects_hit(&sheet->objects,a->grid.row,a->grid.col) : -1;
+        if (hit>=0) a->selected_object=hit;
+        a->context_keyboard=false; a->modal=hit>=0 && !source_cell_context(a) ? MODAL_OBJECT : MODAL_CONTEXT; a->consume_grid_input=true;
+    }
+    }
+    if (a->pipeline_extent>1) {
+        inspector.y=name_y; inspector.height=bottom-name_y;
+        Rectangle splitter=box(inspector.x-3*s,inspector.y,6*s,inspector.height);
+        if (enabled && a->pipeline && !a->pipeline_collapsed && CheckCollisionPointRec(mouse,splitter)) { u->cursor=MOUSE_CURSOR_RESIZE_EW; if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) a->split_pipeline=true; }
+        if (a->split_pipeline && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) a->pipeline_width=fmaxf(244,fminf(420,(GetScreenWidth()-mouse.x)/s));
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) a->split_pipeline=false;
+        Rectangle contents=inspector;
+        contents.x+=12*(1-fminf(1,a->pipeline_extent/fmaxf(1,pipeline_target_width(a))))*s;
+        contents.width=pipeline_target_width(a)*s;
+        ui_scissor_begin(u,inspector);
+        float progress=fminf(1,a->pipeline_extent/fmaxf(1,pipeline_target_width(a)));
+        bool painting=ui_paint_begin(u,inspector,(Vector2){contents.width,inspector.height},a->pipeline_alpha*progress);
+        draw_pipeline(a,contents); if (painting) ui_paint_end(u); ui_scissor_end(u);
+    }
+    if (a->workspace.left_overlay && a->left_extent>0) {
+        Rectangle panel=a->workspace.left;
+        DrawRectangleRec(box(0,panel.y,GetScreenWidth(),panel.height),Fade((Color){35,52,66,255},a->left_alpha*(26.0f/255)));
+        draw_left_presence(a,panel,pivot_active,true);
+    }
+    if (pivot_active) draw_pivot_drag(a);
+    draw_status(a,enabled);
+    if (a->grid.filter_requested) {
+        a->grid.filter_requested=false;
+        SheetObject *object=selected_object(a);
+        if (object && object->kind==OBJECT_TABLE && a->grid.col>=object->col) open_table_filter(a,(size_t)a->selected_object,a->grid.col-object->col);
+        else if (!a->analysis.group_column && !a->busy && a->grid.col<a->page.column_count) open_modal(a,MODAL_FILTER);
+    }
+    if (a->ribbon_mode==3 && ui_button(u,box(GetScreenWidth()-116*s,2*s,108*s,24*s),"Exit focus",false,enabled)) set_ribbon_mode(a,a->previous_ribbon_mode);
+    if (a->ribbon_hover!=a->ribbon_last_hover) { a->ribbon_hover_since=dx_millis(); a->ribbon_last_hover=a->ribbon_hover; }
+    if (a->ribbon_hover && a->modal==MODAL_NONE && dx_millis()-a->ribbon_hover_since>400) {
+        float w=ui_measure(u,a->ribbon_hover,12)+20*s; Rectangle tip=box(fminf(a->ribbon_hover_rect.x,GetScreenWidth()-w-6*s),a->ribbon_hover_rect.y+a->ribbon_hover_rect.height+6*s,w,27*s);
+        DrawRectangleRec(tip,UI_TEXT); ui_text_clip(u,a->ribbon_hover,tip,12,WHITE,false);
+    }
+    draw_modal_presence(a); draw_toast(a);
+}
+static void smoke_step(App *a,int *step) {
+    if (a->page.count_pending) return;
+    if (a->busy || a->modal!=MODAL_NONE || !a->page.column_count) return;
+    switch (*step) {
+    case 0: a->grid.top=500000; grid_select_cell(&a->grid,500000,0,false); request_page(a,false); break;
+    case 1: grid_set_width(&a->grid,0,220); a->grid.horizontal=120; a->grid.col=3; sort_column(a,true); break;
+    case 2: a->field=3; a->filter_op=FILTER_GREATER; input_set(&a->input,"500"); apply_filter(a); break;
+    case 3: a->field=2; a->measure=3; a->aggregate=AGG_SUM; apply_group(a); break;
+    case 4: history(a,false); break;
+    case 5: history(a,true); break;
+    default: return;
+    }
+    (*step)++;
+}
+static void workspace_smoke_step(App *a,int *step) {
+    if (a->page.count_pending) return;
+    if (a->busy || a->modal!=MODAL_NONE || *step<0 || *step==4) return;
+    switch (*step) {
+    case 0:
+        if (!a->page.column_count) return;
+        grid_ensure_columns(&a->grid,104); grid_set_width(&a->grid,80,144);
+        grid_select_cell(&a->grid,500000,80,false); a->grid.top=499990; a->grid.fraction=.25;
+        new_sheet(a);
+        grid_ensure_columns(&a->grid,104); grid_set_width(&a->grid,80,177);
+        char *cell_error=NULL; if (!cells_set(&active_sheet(a)->cells,9000,80,"Saved manual cell",&cell_error)) { free(cell_error); goto failed; }
+        a->grid.zoom=1.25f; grid_select_cell(&a->grid,9000,80,false); a->grid.top=8990; a->grid.fraction=.5; a->grid.horizontal=7500;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-workspace.dxls");
+        break;
+    case 1:
+        new_sheet(a); workspace_job(a,JOB_LOAD,"tests/generated/app-workspace.dxls"); break;
+    case 2:
+        if (a->book.count!=2 || a->book.active!=1 || a->analysis.kind!=SOURCE_NONE ||
+            a->grid.row!=9000 || a->grid.col!=80 || a->grid.widths[80]!=177 || a->grid.zoom!=1.25f || strcmp(cells_get(&active_sheet(a)->cells,9000,80),"Saved manual cell") || fabs(a->grid.fraction-.5)>.00001) goto failed;
+        activate_sheet(a,0,true); break;
+    case 3:
+        if (a->analysis.kind!=SOURCE_DEMO || a->grid.row!=500000 || a->grid.col!=80 ||
+            a->grid.widths[80]!=144 || a->page.total!=1000000 || fabs(a->grid.fraction-.25)>.00001) goto failed;
+        activate_sheet(a,1,true); puts("PASS: native workspace save/load, blank sheet, expanded columns and per-sheet viewport restore"); break;
+    }
+    (*step)++; return;
+ failed:
+    fprintf(stderr,"FAIL: native workspace smoke at stage %d\n",*step); *step=-1;
+}
+static void filter_smoke_step(App *a,int *step) {
+    if (a->page.count_pending) return;
+    if (*step<0 || *step==66 || a->busy || a->values_loading) return;
+    if (a->fetch_failed || a->values_failed) goto failed;
+    static uint64_t request;
+    DistinctPage *d=a->modal==MODAL_FILTER ? cached_values(a,0) : NULL;
+    switch (*step) {
+    case 0:
+        if (!a->page.column_count) return;
+        a->grid.col=2; open_modal(a,MODAL_FILTER); break;
+    case 1:
+        if (!d) return;
+        if (d->total!=4) goto failed;
+        a->values_all=false; toggle_value(a,dx_strdup("İstanbul")); apply_values(a,false); break;
+    case 2:
+        if (a->page.total!=250000 || strcmp(a->page.cells[2].text,"İstanbul")) goto failed;
+        a->grid.col=2; open_modal(a,MODAL_FILTER); break;
+    case 3:
+        if (!d) return;
+        if (d->total!=4 || a->value_choice_count!=1 || a->values_all) goto failed;
+        input_set(&a->input,"An"); restart_values(a); request_values(a,0);
+        input_set(&a->input,"stan"); restart_values(a); a->values_changed=0; break;
+    case 4: {
+        if (!d) return;
+        if (d->total!=1 || strcmp(d->values[0].value,"İstanbul")) goto failed;
+        uint64_t request=a->request_id; request_values(a,0); if (request!=a->request_id) goto failed;
+        apply_values(a,true); break;
+    }
+    case 5:
+        if (a->page.total!=1000000) goto failed;
+        a->grid.col=1; open_modal(a,MODAL_FILTER); break;
+    case 6:
+        if (!d) return;
+        if (d->total!=1 || a->date_level!=0) goto failed;
+        a->date_starts[0]=dx_strdup(d->values[0].value); a->date_ends[0]=dx_strdup(d->values[0].upper);
+        a->date_level=1; restart_values(a); a->values_changed=0; break;
+    case 7:
+        if (!d) return;
+        if (d->total!=10 || strcmp(d->values[0].label,"January")) goto failed;
+        a->values_all=false; toggle_value(a,dx_strdup(d->values[0].key)); apply_values(a,false); break;
+    case 8:
+        if (a->page.total!=110732 || a->analysis.filter_op!=FILTER_DATE_IN) goto failed;
+        a->grid.col=1; open_modal(a,MODAL_FILTER); break;
+    case 9: {
+        if (!d) return;
+        bool mixed=false; value_checked(a,d->values[0].key,&mixed); if (d->total!=1 || !mixed) goto failed;
+        apply_values(a,true); break;
+    }
+    case 10:
+        if (a->page.total!=1000000 || a->analysis.filter_column) goto failed;
+        puts("PASS: native filter dropdown, distinct worker, rapid search cancellation, cache reuse, persisted choices, date hierarchy and apply/clear"); break;
+    case 11:
+        a->field=2; a->filter_op=FILTER_EQUAL; input_set(&a->input,"İstanbul"); apply_filter(a); break;
+    case 12:
+        if (a->page.total!=250000) goto failed;
+        a->field=3; a->filter_op=FILTER_GREATER; input_set(&a->input,"500"); apply_filter(a); break;
+    case 13:
+        if (a->analysis.filter_count!=1 || a->page.total>=250000 || !a->page.columns[2].filtered || !a->page.columns[3].filtered) goto failed;
+        a->grid.col=2; open_modal(a,MODAL_FILTER); a->filter_mode=0; input_set(&a->input,""); restart_values(a); break;
+    case 14:
+        if (!d) return;
+        if (d->total!=4) goto failed;
+        cancel_values(a); a->modal=MODAL_NONE; a->field=4; a->filter_op=FILTER_EQUAL; input_set(&a->input,"true"); apply_filter(a); break;
+    case 15:
+        if (a->analysis.filter_count!=2 || !a->page.total || a->page.total>=250000) goto failed;
+        a->field=2; apply_values(a,true); break;
+    case 16:
+        if (a->analysis.filter_count!=1 || strcmp(a->analysis.filter_column,"Amount") || a->page.columns[2].filtered || !a->page.columns[4].filtered) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-multi-filters.dxls"); break;
+    case 17: reset_analysis(a); break;
+    case 18: workspace_job(a,JOB_LOAD,"tests/generated/app-multi-filters.dxls"); break;
+    case 19:
+        if (a->analysis.filter_count!=1 || !analysis_filter_get(&a->analysis,"Amount",NULL,NULL) || !analysis_filter_get(&a->analysis,"Approved",NULL,NULL) || a->page.total>=1000000) goto failed;
+        puts("PASS: simultaneous column filters, contextual distinct values, individual clear, header indicators and filter save/reopen"); break;
+    case 20: {
+        a->grid.col=3; request=a->request_id; open_modal(a,MODAL_FILTER);
+        if (!a->filter_condition_enabled || a->filter_op!=FILTER_GREATER || a->filter_focus!=3 || strcmp(a->filter_term.text,"500") || a->request_id!=request+1) goto failed;
+        request=a->request_id; uint64_t revision=a->filter_term.revision; input_key(&a->filter_term,KEY_RIGHT,0); input_key(&a->filter_term,KEY_LEFT,DX_MOD_SHIFT);
+        if (revision!=a->filter_term.revision || a->request_id!=request) goto failed;
+        a->filter_focus=6; break;
+    }
+    case 21:
+        smoke_snapshot("tests/results/filter-keyboard/conditions-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 22:
+        smoke_snapshot("tests/results/filter-keyboard/conditions-150-narrow.png");
+        if (a->request_id!=request || a->analysis.filter_count!=1 || !analysis_filter_get(&a->analysis,"Amount",NULL,NULL)) goto failed;
+        cancel_values(a); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        puts("PASS: restored condition/value focus, caret navigation without new query, cancel preserves composed filters and 100/150 percent condition layouts"); break;
+    case 23:
+        a->grid.col=2; open_modal(a,MODAL_FILTER); break;
+    case 24:
+        if (!d) return;
+        if (d->total!=4 || a->filter_mode) goto failed;
+        input_insert(&a->input,"stan"); break; /* Native Edit changes text before draw/input_update. */
+    case 25:
+        if (!d) return;
+        if (d->total!=1 || strcmp(d->values[0].value,"İstanbul")) goto failed;
+        input_insert(&a->input,"zz"); break;
+    case 26:
+        if (!d) return;
+        if (d->total || !input_history(&a->input,false)) goto failed;
+        break;
+    case 27:
+        if (!d) return;
+        if (d->total!=1 || strcmp(d->values[0].value,"İstanbul")) goto failed;
+        request=a->request_id; input_key(&a->input,KEY_HOME,0); input_key(&a->input,KEY_END,DX_MOD_SHIFT); break;
+    case 28:
+        if (!d) return;
+        if (d->total!=1 || a->request_id!=request || !input_history(&a->input,true)) goto failed;
+        break;
+    case 29:
+        if (!d) return;
+        if (d->total || !input_history(&a->input,false) || !input_history(&a->input,false)) goto failed;
+        break;
+    case 30:
+        if (!d) return;
+        if (d->total!=4 || a->analysis.filter_count!=1 || !analysis_filter_get(&a->analysis,"Amount",NULL,NULL) || !analysis_filter_get(&a->analysis,"Approved",NULL,NULL)) goto failed;
+        cancel_values(a); a->modal=MODAL_NONE;
+        puts("PASS: native-style paste/Undo/Redo refresh distinct search, empty results and cached restoration, caret-only changes submit no query and cancel preserves filters"); break;
+    case 31: reset_analysis(a); break;
+    case 32:
+        if (a->page.total!=1000000) goto failed;
+        a->grid.col=3; open_modal(a,MODAL_FILTER); break;
+    case 33:
+        if (!d) return;
+        if (!a->filter_layout.valid || a->filter_layout.panel.width!=288 || a->filter_condition_enabled) goto failed;
+        break; /* Queued pointer opens the real condition menu before the next stage. */
+    case 34:
+        if (!a->filter_condition_menu || a->filter_focus!=6) goto failed;
+        smoke_snapshot("tests/results/filter-keyboard/compact-condition-menu.png"); break;
+    case 35:
+        if (a->filter_condition_menu || !a->filter_condition_enabled || a->filter_op!=FILTER_BETWEEN) goto failed;
+        a->values_all=false; clear_value_choices(a); toggle_value(a,dx_strdup("1.37")); toggle_value(a,dx_strdup("2.74")); toggle_value(a,dx_strdup("500.05"));
+        input_set(&a->filter_term,"1.00"); input_set(&a->filter_end,"3.00"); break;
+    case 36:
+        smoke_snapshot("tests/results/filter-keyboard/compact-combined-between.png"); break;
+    case 37:
+        if (a->modal!=MODAL_NONE || a->page.total!=20 || a->analysis.filter_op!=FILTER_COMPOSITE) goto failed;
+        a->grid.col=3; open_modal(a,MODAL_FILTER); break;
+    case 38:
+        if (!d) return;
+        if (a->value_choice_count!=3 || a->values_all || !a->filter_condition_enabled || a->filter_op!=FILTER_BETWEEN || strcmp(a->filter_term.text,"1.00") || strcmp(a->filter_end.text,"3.00")) goto failed;
+        input_set(&a->input,"1.37"); a->filter_focus=3; break;
+    case 39:
+        if (!d || a->values_search_revision!=a->input.revision) return;
+        if (!d->total || d->total>=100000 || !a->filter_condition_enabled || a->value_choice_count!=3) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
+    case 40:
+        if (!a->filter_layout.valid || a->filter_layout.panel.x<0 || a->filter_layout.panel.y<0 || a->filter_layout.panel.x+a->filter_layout.panel.width>640 || a->filter_layout.panel.y+a->filter_layout.panel.height>640) goto failed;
+        smoke_snapshot("tests/results/filter-keyboard/compact-between-150-narrow.png"); break;
+    case 41:
+        if (a->modal!=MODAL_NONE || a->page.total!=20 || a->analysis.filter_op!=FILTER_COMPOSITE) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); history(a,false); break;
+    case 42:
+        if (a->page.total!=1000000 || a->analysis.filter_column) goto failed;
+        history(a,true); break;
+    case 43:
+        if (a->page.total!=20 || a->analysis.filter_op!=FILTER_COMPOSITE) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-combined-filter.dxls"); break;
+    case 44: workspace_job(a,JOB_LOAD,"tests/generated/app-combined-filter.dxls"); break;
+    case 45:
+        if (a->page.total!=20 || a->analysis.filter_op!=FILTER_COMPOSITE) goto failed;
+        a->grid.col=3; open_modal(a,MODAL_FILTER); break;
+    case 46:
+        if (!d) return;
+        if (a->value_choice_count!=3 || a->filter_op!=FILTER_BETWEEN || strcmp(a->filter_end.text,"3.00")) goto failed;
+        apply_filter_definition(a,true); break;
+    case 47:
+        if (a->page.total!=1000000 || a->analysis.filter_column) goto failed;
+        puts("PASS: exact compact filter anatomy, real pointer condition/dropdown Apply/Cancel, inclusive typed Between AND checked values, independent search, 150 percent 640-wide bounds, source Undo/Redo and version-12 save/reopen"); break;
+
+    case 48: a->grid.col=2; open_modal(a,MODAL_FILTER); break;
+    case 49:
+        if (!d) return;
+        toggle_value(a,dx_strdup("Bursa")); input_set(&a->input,"stan"); a->filter_focus=3; break;
+    case 50:
+        if (!d || a->values_search_revision!=a->input.revision) return;
+        if (d->total!=1 || strcmp(d->values[0].value,"İstanbul")) goto failed;
+        select_found_values(a); break;
+    case 51: {
+        if (a->values_selecting) return;
+        bool mixed=false;
+        if (value_checked(a,"İstanbul",&mixed) || value_checked(a,"Bursa",&mixed) || !value_checked(a,"Ankara",&mixed)) goto failed;
+        break;
+    }
+    case 52: {
+        if (a->values_selecting) return;
+        bool mixed=false;
+        if (!value_checked(a,"İstanbul",&mixed) || value_checked(a,"Bursa",&mixed) || a->value_choice_count!=1) goto failed;
+        apply_filter_definition(a,false); break;
+    }
+    case 53:
+        if (a->page.total!=750000 || a->analysis.filter_op!=FILTER_NOT_IN) goto failed;
+        puts("PASS: searched Select all changes only matching values; unrelated excluded cities are retained"); break;
+    case 54: reset_analysis(a); break;
+    case 55:
+        if (a->page.total!=1000000) goto failed;
+        a->grid.col=3; open_modal(a,MODAL_FILTER); input_set(&a->input,".37"); restart_values(a); break;
+    case 56:
+        if (!d || a->values_search_revision!=a->input.revision) return;
+        if (d->total!=1000) goto failed;
+        select_found_values(a); break;
+    case 57:
+        if (a->values_selecting) return;
+        if (!a->values_all || a->value_choice_count!=1000 || a->page.total!=1000000) goto failed;
+        apply_filter_definition(a,false); break;
+    case 58:
+        if (a->page.total!=990000 || a->analysis.filter_op!=FILTER_NOT_IN) goto failed;
+        reset_analysis(a); break;
+    case 59:
+        if (a->page.total!=1000000) goto failed;
+        puts("PASS: atomic 1,000-value searched selection traverses eight bounded worker pages, preserves outside values, applies exact real counts and resets cleanly"); break;
+
+    case 60: a->grid.col=2; open_modal(a,MODAL_FILTER); break;
+    case 61:
+        if (!d) return;
+        break;
+    case 62:
+        if (a->filter_condition_menu || !a->filter_condition_enabled || a->filter_op!=FILTER_CONTAINS || a->modal!=MODAL_FILTER || a->page.total!=1000000) goto failed;
+        apply_filter_definition(a,false);
+        if (a->modal!=MODAL_FILTER || a->filter_focus!=7 || a->analysis.filter_column) goto failed;
+        input_set(&a->filter_term,"stanbul"); smoke_snapshot("tests/results/filter-keyboard/fast-text-condition.png"); break;
+    case 63: break;
+    case 64:
+        if (a->modal!=MODAL_NONE || a->page.total!=250000 || a->analysis.filter_op!=FILTER_CONTAINS) goto failed;
+        reset_analysis(a); break;
+    case 65:
+        if (a->page.total!=1000000) goto failed;
+        puts("PASS: clamped text-condition submenu consumes only its opening pointer, accepts queued Down/Enter, validates empty input without changing data and applies Contains in the real engine"); break;
+
+    }
+    (*step)++; return;
+ failed:
+    fprintf(stderr,"FAIL: native filter smoke at stage %d: %s\n",*step,a->message); *step=-1;
+}
+static void pivot_smoke_step(App *a,int *step) {
+    if (a->page.count_pending) return;
+    if (*step<0 || *step==45 || a->busy || a->values_loading) return;
+    ObjectStore *store=&active_sheet(a)->objects;
+    if (a->fetch_failed || a->values_failed) goto failed;
+    switch (*step) {
+    case 0:
+        if (!a->page.column_count) return;
+        create_pivot(a); if (store->count!=1 || store->items[0].pivot.counts[PIVOT_VALUES]) goto failed; break;
+    case 1:
+        a->pivot_drag_field=2; assign_pivot_field(a,PIVOT_ROWS,0);
+        a->pivot_drag_field=4; assign_pivot_field(a,PIVOT_COLUMNS,0);
+        a->pivot_drag_field=3; assign_pivot_field(a,PIVOT_VALUES,0); a->pivot_focus=0; break;
+    case 2: {
+        Page *p=&a->objects[0].page; if (!p->column_count) return;
+        if (p->total!=4 || p->column_count!=3 || a->page.total!=1000000 || a->page.column_count!=6) goto failed;
+        double sum=0; for (size_t r=0;r<p->row_count;r++) for (size_t c=1;c<p->column_count;c++) sum+=p->cells[r*p->column_count+c].number;
+        if (fabs(sum-499995000)>1) goto failed; break;
+    }
+    case 3:
+        a->pivot_drag_field=2; assign_pivot_field(a,PIVOT_FILTERS,0); open_pivot_filter(a,0); break;
+    case 4: {
+        DistinctPage *p=cached_values(a,0); if (!p) return;
+        if (p->total!=4) goto failed;
+        a->values_all=false; toggle_value(a,dx_strdup("İstanbul")); apply_values(a,false); break;
+    }
+    case 5:
+        if (!a->objects[0].page.column_count) return;
+        if (a->objects[0].page.total!=1 || a->page.total!=1000000) goto failed;
+        a->grid.anchor_row=store->items[0].row; a->grid.end_row=store->items[0].row+store->items[0].rows-1; a->grid.anchor_col=store->items[0].col; a->grid.end_col=store->items[0].col+store->items[0].columns-1;
+        a->grid.move_dr=8; a->grid.move_dc=0; a->grid.move_requested=true; break;
+    case 6: {
+        if (store->items[0].row!=8) goto failed;
+        Cell *cached=a->objects[0].page.cells; uint64_t request=a->request_id;
+        history(a,false); if (store->items[0].row || a->objects[0].page.cells!=cached || a->request_id!=request) goto failed;
+        history(a,true); if (store->items[0].row!=8 || a->objects[0].page.cells!=cached || a->request_id!=request) goto failed;
+        grid_select_cell(&a->grid,20,8,false); create_pivot(a);
+        if (store->count!=2) goto failed;
+        a->pivot_drag_field=2; assign_pivot_field(a,PIVOT_ROWS,0); a->pivot_drag_field=3; assign_pivot_field(a,PIVOT_VALUES,0); a->pivot_focus=0; break;
+    }
+    case 7:
+        if (!a->objects[1].page.column_count) return;
+        if (a->objects[1].page.total!=4 || a->objects[1].page.column_count!=2) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-pivots.dxls"); break;
+    case 8: {
+        Cell *second=a->objects[1].page.cells; uint64_t id=store->items[1].id;
+        a->selected_object=0; remove_pivot(a);
+        if (store->count!=1 || a->objects[0].id!=id || a->objects[0].page.cells!=second) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-pivots.dxls"); break;
+    }
+    case 9:
+        if (store->count!=2 || store->items[0].row!=8 || store->items[0].pivot.counts[PIVOT_FILTERS]!=1 || a->page.total!=1000000) goto failed;
+        a->selected_object=0; grid_select_cell(&a->grid,store->items[0].row,store->items[0].col,false); a->pivot_reveal_object=true; a->pivot_focus=0; break;
+    case 10:
+        if (!a->objects[0].page.column_count) return;
+        if (a->objects[0].page.total!=1 || a->objects[0].page.column_count!=3 || a->page.column_count!=6) goto failed;
+        puts("PASS: same-sheet pivots, live Rows/Columns/Values/Filters, real DuckDB PIVOT, independent source, move, second pivot and save/reopen"); break;
+    case 11:
+        a->selected_object=1; create_chart(a); a->pivot_focus=0;
+        if (store->count!=3 || store->items[2].kind!=OBJECT_CHART) goto failed; break;
+    case 12: {
+        Page *p=&a->objects[2].page; if (!p->column_count) return;
+        if (p->total!=4 || store->items[2].rows!=12 || store->items[2].columns!=6 || a->page.total!=1000000) goto failed;
+        PivotDefinition definition=pivot_copy(&store->items[2].pivot); definition.fields[PIVOT_VALUES][0].aggregate=AGG_AVG; set_pivot_definition(a,&definition); break;
+    }
+    case 13:
+        if (!a->objects[2].page.column_count) return;
+        if (a->objects[2].page.cells[1].number>1000 || store->items[1].pivot.fields[PIVOT_VALUES][0].aggregate!=AGG_SUM) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-chart.dxls"); break;
+    case 14: workspace_job(a,JOB_LOAD,"tests/generated/app-chart.dxls"); break;
+    case 15:
+        if (store->count!=3 || store->items[2].kind!=OBJECT_CHART || store->items[2].pivot.fields[PIVOT_VALUES][0].aggregate!=AGG_AVG) goto failed;
+        if (!a->objects[2].page.column_count) return;
+        if (a->objects[2].page.total!=4 || a->page.total!=1000000) goto failed;
+        puts("PASS: bounded chart, independent field shelves, retained pivot/source and chart save/reopen"); break;
+    case 16:
+        a->selected_object=-1; a->pivot_focus=0; grid_select_cell(&a->grid,8,7,false); SetClipboardText("Review note\nSecond note"); paste_selection(a);
+        if (active_sheet(a)->cells.count!=2 || strcmp(cells_get(&active_sheet(a)->cells,8,7),"Review note")) goto failed;
+        SetClipboardText("Must remain atomic\tOverlaps pivot"); paste_selection(a);
+        if (active_sheet(a)->cells.count!=2 || strcmp(cells_get(&active_sheet(a)->cells,8,7),"Review note")) goto failed; break;
+    case 17:
+        a->grid.move_dr=4; a->grid.move_dc=0; a->grid.move_requested=true; break;
+    case 18:
+        if (strcmp(cells_get(&active_sheet(a)->cells,12,7),"Review note")) goto failed;
+        history(a,false); if (strcmp(cells_get(&active_sheet(a)->cells,8,7),"Review note")) goto failed;
+        history(a,true); copy_selection(a); if (strcmp(GetClipboardText(),"Review note\nSecond note")) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-chart.dxls"); break;
+    case 19: workspace_job(a,JOB_LOAD,"tests/generated/app-chart.dxls"); break;
+    case 20:
+        if (strcmp(cells_get(&active_sheet(a)->cells,12,7),"Review note") || active_sheet(a)->cells.count!=2 || store->count!=3 || a->page.total!=1000000) goto failed;
+        a->selected_object=2; a->pivot_reveal_object=true; a->pivot_focus=0;
+        puts("PASS: editable cells beside source, guarded atomic paste, manual range move/copy, mixed undo/redo and save/reopen"); break;
+    case 21: open_source(a,"tests/fixtures/null-text.csv",false); break;
+    case 22:
+        if (a->page.total!=6 || a->page.column_count!=3 || !a->page.cells[1].is_null || a->page.cells[7].is_null || *a->page.cells[7].text) goto failed;
+        create_pivot(a); a->pivot_drag_field=1; assign_pivot_field(a,PIVOT_ROWS,0); a->pivot_drag_field=2; assign_pivot_field(a,PIVOT_VALUES,0); a->pivot_focus=0; break;
+    case 23: {
+        Page *p=&a->objects[0].page; if (!p->column_count) return;
+        if (p->total!=6 || p->column_count!=2 || !p->cells[0].is_null) goto failed;
+        a->pivot_drag_field=1; assign_pivot_field(a,PIVOT_COLUMNS,0); a->pivot_focus=0; break;
+    }
+    case 24: {
+        Page *p=&a->objects[0].page; if (!p->column_count) return;
+        if (p->total!=1 || p->column_count!=6) goto failed;
+        unsigned nulls=0,empty=0,literal=0;
+        for (size_t c=0;c<p->column_count;c++) {
+            Column *col=&p->columns[c]; if (col->category_count!=1 || p->cells[c].number!=10) goto failed;
+            if (!col->categories[0]) nulls++; else if (!*col->categories[0]) empty++; else if (!strcmp(col->categories[0],"NULL")) literal++;
+        }
+        if (nulls!=1 || empty!=1 || literal!=1 || !strstr(p->sql,"NULL AS")) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-nulls.dxls"); break;
+    }
+    case 25: workspace_job(a,JOB_LOAD,"tests/generated/app-nulls.dxls"); break;
+    case 26:
+        if (store->count!=1 || !a->objects[0].page.column_count) return;
+        if (a->objects[0].page.column_count!=6 || a->page.total!=6) goto failed;
+        a->selected_object=0; a->pivot_drag_field=1; assign_pivot_field(a,PIVOT_FILTERS,0); open_pivot_filter(a,0); break;
+    case 27: {
+        DistinctPage *p=cached_values(a,0); if (!p) return;
+        if (p->total!=6 || !p->values[0].is_null) goto failed;
+        a->values_all=false; clear_value_choices(a); toggle_value(a,NULL); apply_values(a,false); break;
+    }
+    case 28:
+        if (!a->objects[0].page.column_count) return;
+        if (a->objects[0].page.column_count!=1 || a->objects[0].page.cells[0].number!=10 || a->page.total!=6 || a->objects[0].page.columns[0].categories[0]) goto failed;
+        open_pivot_filter(a,0); break;
+    case 29:
+        if (!cached_values(a,0)) return;
+        a->values_all=true; clear_value_choices(a); apply_values(a,false); break;
+    case 30:
+        if (!a->objects[0].page.column_count) return;
+        if (a->objects[0].page.column_count!=6) goto failed;
+        a->grid.zoom=.8f; a->grid.horizontal=0; a->grid.top=0; a->pivot_reveal_object=false; a->pivot_focus=0;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-nulls.dxls"); break;
+    case 31:
+        puts("PASS: typed NULL, literal NULL, empty text and quote text in CSV, same-sheet real PIVOT categories, NULL-only filter, independent source and save/reopen"); break;
+    case 32:
+        a->selected_object=-1; grid_select_cell(&a->grid,0,1,false); inspect_value(a);
+        if (a->modal!=MODAL_INSPECT || !a->inspector_null || a->inspector_bytes) goto failed; break;
+    case 33:
+        a->modal=MODAL_NONE; inspector_free(a); grid_select_cell(&a->grid,2,1,false); inspect_value(a);
+        if (a->modal!=MODAL_INSPECT || a->inspector_null || a->inspector_bytes) goto failed; break;
+    case 34:
+        a->modal=MODAL_NONE; inspector_free(a); grid_select_cell(&a->grid,3,1,false); inspect_value(a);
+        if (a->inspector_null || a->inspector_bytes!=2 || strcmp(a->inspector_text,"\"\"")) goto failed; break;
+    case 35:
+        a->modal=MODAL_NONE; inspector_free(a); open_source(a,"tests/generated/odd'name.parquet",false); break;
+    case 36:
+        if (a->page.total!=5) goto failed;
+        grid_select_cell(&a->grid,3,5,false); inspect_value(a);
+        if (a->modal!=MODAL_INSPECT || a->inspector_null || a->inspector_bytes!=50000 || a->inspector_text==a->page.cells[23].text) goto failed; break;
+    case 37:
+        if (a->inspector_lines.count<20 || a->inspector_lines.limited) goto failed;
+        double copy_start=dx_millis(); inspector_copy(a); printf("Inspector 50 kB: layout %.3f ms, clipboard %.3f ms, %zu wrapped lines\n",a->inspector_layout_ms,dx_millis()-copy_start,a->inspector_lines.count); if (strlen(GetClipboardText())!=50000 || strcmp(GetClipboardText(),a->page.cells[23].text)) goto failed;
+        a->inspector_scroll=a->inspector_lines.count-1; break;
+    case 38:
+        puts("PASS: NULL/empty/literal distinction in inspector, owned 50 kB snapshot, cached wrapping, scrolling and complete-value copy"); break;
+    case 39:
+        break;
+    case 40:
+        a->modal=MODAL_NONE; inspector_free(a); grid_select_cell(&a->grid,0,8,false); create_pivot(a);
+        a->pivot_drag_field=5; assign_pivot_field(a,PIVOT_VALUES,0); break;
+    case 41:
+        if (!a->objects[0].page.column_count) return;
+        if (store->items[0].pivot.fields[PIVOT_VALUES][0].aggregate!=AGG_DISTINCT || a->objects[0].page.cells[0].number!=4 || a->page.total!=5) goto failed;
+        a->pivot_drag_field=0; assign_pivot_field(a,PIVOT_ROWS,0);
+        a->pivot_drag_role=PIVOT_ROWS; a->pivot_drag_index=0; assign_pivot_field(a,PIVOT_VALUES,1); break;
+    case 42:
+        if (!a->objects[0].page.column_count) return;
+        if (store->items[0].pivot.counts[PIVOT_ROWS] || a->objects[0].page.column_count!=2 || a->objects[0].page.cells[0].number!=4 || a->objects[0].page.cells[1].number!=5 || store->items[0].pivot.fields[PIVOT_VALUES][1].aggregate!=AGG_DISTINCT) goto failed;
+        a->pivot_drag_role=PIVOT_VALUES; a->pivot_drag_index=1; assign_pivot_field(a,PIVOT_VALUES,0); break;
+    case 43:
+        if (!a->objects[0].page.column_count) return;
+        if (a->objects[0].page.cells[0].number!=5 || a->objects[0].page.cells[1].number!=4 || !strstr(a->objects[0].page.sql,"COUNT(DISTINCT")) goto failed;
+        a->selected_object=-1; grid_select_cell(&a->grid,3,5,false); inspect_value(a); break;
+    case 44:
+        puts("PASS: categorical Values default to distinct count; numeric dimensions moved to Values count distinctly; Values reorder retains aggregation and source data"); break;
+    }
+    (*step)++; return;
+ failed:
+    fprintf(stderr,"FAIL: pivot application smoke at stage %d: %s\n",*step,a->message); *step=-1;
+}
+static void export_smoke_step(App *a,int *step) {
+    if (*step<0 || *step>=20 || a->busy || a->io_busy) return;
+    static Cell *table_cells,*pivot_cells; char *error=NULL;
+    if (a->fetch_failed || a->modal==MODAL_ERROR) goto failed;
+    switch (*step) {
+    case 0:
+        if (a->page.total!=6 || a->page.column_count!=3) return;
+        grid_select_cell(&a->grid,0,0,false); sort_column(a,false); break;
+    case 1: start_export(a,"tests/generated/app-export.parquet"); break;
+    case 2:
+        if (a->page.total!=6 || !a->message || !strstr(a->message,"Exported 6 rows")) goto failed;
+        open_source(a,"tests/generated/app-export.parquet",false); break;
+    case 3:
+        if (a->page.total!=6 || !a->page.cells[1].is_null || a->page.cells[7].is_null || *a->page.cells[7].text || strcmp(a->page.cells[10].text,"\"\"")) goto failed;
+        grid_select_cell(&a->grid,0,1,false); set_source_filter(a,"Value",FILTER_IN,"[null,\"NULL\",\"\"]",false); break;
+    case 4:
+        if (a->page.total!=3 || a->grid.col!=1) goto failed;
+        start_export(a,"tests/generated/app-export-filtered.parquet"); break;
+    case 5:
+        if (!a->message || !strstr(a->message,"Exported 3 rows")) goto failed;
+        open_source(a,"tests/generated/app-export-filtered.parquet",false); break;
+    case 6:
+        if (a->page.total!=3 || a->page.column_count!=3 || !a->page.cells[1].is_null || a->page.cells[4].is_null || strcmp(a->page.cells[4].text,"NULL") || a->page.cells[7].is_null || *a->page.cells[7].text) goto failed;
+        break;
+    case 7:
+        new_sheet(a); grid_select_cell(&a->grid,2,1,false);
+        if (!import_table(a,"tests/fixtures/transactions.csv")) goto failed;
+        break;
+    case 8: {
+        if (!object_ready(a,0)) return;
+        Analysis source=analysis_copy(&selected_object(a)->source);
+        bool ok=analysis_filter_set(&source,"City",FILTER_EQUAL,"İstanbul",&error) && set_table_source(a,0,&source);
+        analysis_free(&source); if (!ok) goto failed;
+        break;
+    }
+    case 9: {
+        if (!object_ready(a,0)) return;
+        if (!export_ready(a) || a->analysis.kind!=SOURCE_NONE || a->objects[0].page.total!=2) goto failed;
+        uint64_t request=a->request_id; start_export(a,"tests/fixtures/null-text.csv");
+        if (a->request_id!=request || a->busy) goto failed;
+        start_export(a,selected_object(a)->source.path);
+        if (a->request_id!=request || a->busy) goto failed;
+        char *suggested=export_suggestion(a); bool safe=!strcmp(suggested,"Table 1-export.parquet"); free(suggested); if (!safe) goto failed;
+        table_cells=a->objects[0].page.cells; start_export(a,"tests/generated/app-table-export.parquet"); break;
+    }
+    case 10: {
+        if (!a->message || !strstr(a->message,"Exported 2 rows") || a->page.total || a->objects[0].page.cells!=table_cells || a->objects[0].page.total!=2) goto failed;
+        create_pivot(a); PivotDefinition pivot={0};
+        bool ok=pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_COLUMNS,"Approved",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error);
+        if (!ok) { pivot_free(&pivot); goto failed; } set_pivot_definition(a,&pivot); break;
+    }
+    case 11:
+        if (!object_ready(a,1)) return;
+        if (!export_ready(a) || a->objects[1].page.total!=1 || !strstr(a->objects[1].page.sql,"PIVOT")) goto failed;
+        pivot_cells=a->objects[1].page.cells; start_export(a,"tests/generated/app-pivot-export.parquet"); break;
+    case 12:
+        if (!a->message || !strstr(a->message,"Exported 1 rows") || a->page.total || a->objects[0].page.cells!=table_cells || a->objects[1].page.cells!=pivot_cells) goto failed;
+        create_chart(a); break;
+    case 13:
+        if (!object_ready(a,2)) return;
+        if (!export_ready(a) || selected_object(a)->kind!=OBJECT_CHART) goto failed;
+        start_export(a,"tests/generated/app-chart-export.parquet"); break;
+    case 14:
+        if (!a->message || !strstr(a->message,"Exported 1 rows") || a->page.total || a->objects[0].page.cells!=table_cells || a->objects[1].page.cells!=pivot_cells) goto failed;
+        open_source(a,"tests/generated/app-table-export.parquet",false); break;
+    case 15:
+        if (a->page.total!=2 || a->page.column_count!=6 || strcmp(a->page.cells[1].text,"İstanbul") || strcmp(a->page.cells[7].text,"İstanbul")) goto failed;
+        break;
+    case 16: open_source(a,"tests/generated/app-pivot-export.parquet",false); break;
+    case 17:
+        if (a->page.total!=1 || a->page.column_count!=2 || strcmp(a->page.cells[0].text,"İstanbul") || a->page.cells[1].number!=19.75) goto failed;
+        open_source(a,"tests/generated/app-chart-export.parquet",false); break;
+    case 18:
+        if (a->page.total!=1 || a->page.column_count!=2 || strcmp(a->page.cells[0].text,"İstanbul") || a->page.cells[1].number!=19.75) goto failed;
+        break;
+    case 19:
+        puts("PASS: worker Parquet export, CSV NULL/empty/text preservation, sorted and filtered source, independent same-sheet table/pivot/chart scope, source overwrite guards, retained result buffers and exported-file reopen"); break;
+    }
+    free(error); (*step)++; return;
+ failed: fprintf(stderr,"FAIL: export application smoke at stage %d: %s (%s)\n",*step,a->message ? a->message : "",error ? error : ""); free(error); *step=-1;
+}
+static void count_smoke_step(App *a,int *step) {
+    if (*step<0 || *step==12 || a->busy || a->io_busy) return;
+    char *error=NULL; Worksheet *sheet=active_sheet(a);
+    if (a->modal==MODAL_ERROR && *step!=2 && *step!=9) goto failed;
+    switch (*step) {
+    case 0:
+        if (!a->page.column_count || a->page.count_pending) return;
+        if (a->page.total!=1000000) goto failed;
+        set_source_filter(a,"Transaction ID",FILTER_LESS,"10",false); break;
+    case 1:
+        if (a->page.count_pending) return;
+        if (a->page.total!=10 || !manual_range(a,500,0,1,1,&error) || !cells_set(&sheet->cells,500,0,"Keep this note",&error)) goto failed;
+        worksheet_record(sheet,EDIT_CELLS); set_source_filter(a,"Transaction ID",FILTER_LESS,NULL,true); break;
+    case 2:
+        if (a->modal!=MODAL_ERROR) return;
+        if (!a->page_stale || a->page.total!=10 || !a->fetch_failed || strcmp(cells_get(&sheet->cells,500,0),"Keep this note")) goto failed;
+        if (!manual_range(a,500,8,1,1,&error) || !cells_move(&sheet->cells,500,500,0,0,0,8,&error)) goto failed;
+        worksheet_record(sheet,EDIT_CELLS); a->modal=MODAL_NONE; change_analysis(a,false); break;
+    case 3:
+        if (a->page.count_pending) return;
+        if (a->page.total!=1000000 || a->page_stale || strcmp(cells_get(&sheet->cells,500,8),"Keep this note")) goto failed;
+        a->grid.top=490; request_page(a,false); break;
+    case 4:
+        if (500<a->page.offset || 500>=a->page.offset+a->page.row_count || strcmp(a->page.cells[(500-a->page.offset)*a->page.column_count].text,"500")) goto failed;
+        history(a,false);
+        if (!a->fetch_failed || a->modal!=MODAL_ERROR || a->page.column_count || strcmp(cells_get(&sheet->cells,500,0),"Keep this note")) goto failed;
+        a->modal=MODAL_NONE; history(a,true);
+        if (strcmp(cells_get(&sheet->cells,500,8),"Keep this note")) goto failed;
+        change_analysis(a,false); break;
+    case 5:
+        if (a->page.count_pending) return;
+        if (a->page.total!=1000000) goto failed;
+        a->page.count_pending=true; a->page.total=a->page.offset+a->page.row_count; a->known_total=-1;
+        a->grid.scrollbar=1; receive_count(a,1000000);
+        if (!a->count_deferred || !a->page.count_pending || a->page.total==1000000) goto failed;
+        a->grid.scrollbar=0; break;
+    case 6:
+        if (a->page.count_pending || a->known_total!=1000000 || a->count_deferred) goto failed;
+        a->page.count_pending=true; a->known_total=-1; schedule_count(a); pause_count(a);
+        if (!a->count_paused || a->count_request_id || !a->page.count_pending) goto failed;
+        change_analysis(a,false); break;
+    case 7:
+        if (a->page.count_pending) return;
+        if (a->page.total!=1000000) goto failed;
+        /* Reproduce a saved external source whose growth now overlaps a note. */
+        if (!cells_move(&sheet->cells,500,500,8,8,0,-8,&error)) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/count-conflict.dxls"); break;
+    case 8: workspace_job(a,JOB_LOAD,"tests/generated/count-conflict.dxls"); break;
+    case 9:
+        if (a->modal!=MODAL_ERROR) return;
+        if (a->page.column_count || !a->fetch_failed || strcmp(cells_get(&sheet->cells,500,0),"Keep this note")) goto failed;
+        if (!manual_range(a,500,8,1,1,&error) || !cells_move(&sheet->cells,500,500,0,0,0,8,&error)) goto failed;
+        worksheet_record(sheet,EDIT_CELLS); a->modal=MODAL_NONE; change_analysis(a,false); break;
+    case 10:
+        if (a->page.count_pending) return;
+        if (a->page.total!=1000000 || a->fetch_failed || a->page_stale || strcmp(cells_get(&sheet->cells,500,8),"Keep this note")) goto failed;
+        a->grid.top=490; a->grid.zoom=.8f; request_page(a,false); break;
+    case 11:
+        if (500<a->page.offset || 500>=a->page.offset+a->page.row_count || strcmp(a->page.cells[(500-a->page.offset)*a->page.column_count].text,"500") || strcmp(cells_get(&sheet->cells,500,8),"Keep this note")) goto failed;
+        puts("PASS: background count, last valid view on growth conflict, retained notes, undo/redo conflict recovery, deferred scrollbar extent, cancellation and reopen conflict recovery"); break;
+    }
+    free(error); (*step)++; return;
+ failed: fprintf(stderr,"FAIL: count application smoke at stage %d: %s (%s)\n",*step,a->message ? a->message : "",error ? error : ""); free(error); *step=-1;
+}
+static void clipboard_smoke_step(App *a,int *step) {
+    if (*step<0 || *step==13 || a->busy || a->io_busy) return;
+    char *error=NULL; Worksheet *sheet=active_sheet(a); uint64_t request=a->request_id;
+    if (a->modal==MODAL_ERROR) goto failed;
+    switch (*step) {
+    case 0:
+        if (!a->page.column_count) return;
+        if (a->page.total!=6 || !cells_set(&sheet->cells,0,4,"Side note",&error)) goto failed;
+        grid_select_cell(&a->grid,0,0,false); a->grid.end_row=2; a->grid.end_col=4; copy_selection(a);
+        if (a->busy || request!=a->request_id || strcmp(GetClipboardText(),"1\t\t10\t\tSide note\n2\tNULL\t10\t\t\n3\t\"\"\t10\t\t")) goto failed;
+        grid_select_cell(&a->grid,0,5,false); create_pivot(a);
+        { PivotDefinition definition={0}; if (!pivot_assign(&definition,PIVOT_ROWS,"ID",AGG_SUM,&error) || !pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_SUM,&error) || !set_pivot_definition(a,&definition)) goto failed; }
+        break;
+    case 1:
+        if (a->objects[0].dirty || !a->objects[0].page.column_count) return;
+        grid_select_cell(&a->grid,0,0,false); a->grid.end_row=3; a->grid.end_col=7; copy_selection(a);
+        if (a->busy || request!=a->request_id || !strstr(GetClipboardText(),"Side note\tPivot 1\t\t") || !strstr(GetClipboardText(),"2\tNULL\t10\t\t\tID\tSUM(Amount)\t") || !strstr(GetClipboardText(),"3\t\"\"\t10\t\t\t1\t10\t")) goto failed;
+        open_source(a,"tests/generated/million.parquet",false); break;
+    case 2:
+        if (!a->page.column_count || a->page.count_pending) return;
+        if (!cells_set(&sheet->cells,500,4,"Snapshot note",&error)) goto failed;
+        grid_select_cell(&a->grid,500,0,false); a->grid.end_row=501; a->grid.end_col=4; copy_selection(a);
+        if (!a->busy || a->pending_kind!=JOB_RANGE_COPY || !cells_set(&sheet->cells,500,4,"Newer note",&error)) goto failed;
+        break;
+    case 3:
+        if (strncmp(GetClipboardText(),"500\t0\t50.0\t\tSnapshot note\n501\t1\t50.1\t\t",strlen("500\t0\t50.0\t\tSnapshot note\n501\t1\t50.1\t\t")) || strstr(GetClipboardText(),"Newer note")) goto failed;
+        grid_select_cell(&a->grid,0,6,false); create_pivot(a);
+        { PivotDefinition definition={0}; if (!pivot_assign(&definition,PIVOT_ROWS,"ID",AGG_SUM,&error) || !pivot_assign(&definition,PIVOT_VALUES,"amount",AGG_SUM,&error) || !pivot_assign(&definition,PIVOT_FILTERS,"ID",AGG_SUM,&error)) goto failed;
+          definition.fields[PIVOT_FILTERS][0].filter=FILTER_LESS; free(definition.fields[PIVOT_FILTERS][0].value); definition.fields[PIVOT_FILTERS][0].value=dx_strdup("1000"); if (!set_pivot_definition(a,&definition)) goto failed; }
+        break;
+    case 4:
+        if (a->objects[0].dirty || !a->objects[0].page.column_count) return;
+        if (a->objects[0].page.total!=1000 || !cells_set(&sheet->cells,502,9,"Pivot snapshot note",&error)) goto failed;
+        grid_select_cell(&a->grid,502,6,false); a->grid.end_row=503; a->grid.end_col=9; copy_selection(a);
+        if (!a->busy || a->pending_kind!=JOB_RANGE_COPY) goto failed;
+        break;
+    case 5:
+        if (strcmp(GetClipboardText(),"500\t50.0\t\tPivot snapshot note\n501\t50.1\t\t")) goto failed;
+        grid_select_cell(&a->grid,0,0,false); a->grid.end_row=20000; a->grid.end_col=1; SetClipboardText("Keep clipboard"); copy_selection(a);
+        if (a->busy || strcmp(GetClipboardText(),"Keep clipboard")) goto failed;
+        activate_sheet(a,0,true); break;
+    case 6:
+        if (!a->page.column_count || a->objects[0].dirty || !a->objects[0].page.column_count) return;
+        /* Cached copy also composes a rectangle wholly outside the source. */
+        grid_select_cell(&a->grid,0,4,false); a->grid.end_row=3; a->grid.end_col=7; copy_selection(a);
+        if (a->busy || !strstr(GetClipboardText(),"Side note\tPivot 1\t\t") || !strstr(GetClipboardText(),"\n\tID\tSUM(Amount)\t")) goto failed;
+        break;
+    case 7:
+        activate_sheet(a,1,true); a->grid.top=0; request_page(a,false); break;
+    case 8:
+        if (a->page.count_pending) return;
+        a->grid.top=260; request_page(a,false); break;
+    case 9:
+        if (!copy_cached_cell(&a->page,300,0) || !copy_cached_cell(&a->spare,100,0)) goto failed;
+        grid_select_cell(&a->grid,100,0,false); a->grid.end_row=300; a->grid.end_col=2; copy_selection(a);
+        if (a->busy || request!=a->request_id || strncmp(GetClipboardText(),"100\t0\t10.0\n",strlen("100\t0\t10.0\n")) || !strstr(GetClipboardText(),"\n300\t0\t30.0")) goto failed;
+        break;
+    case 10:
+        grid_select_cell(&a->grid,800000,0,false); a->grid.end_row=800001; a->grid.end_col=2; SetClipboardText("Preserve cancellation"); copy_selection(a);
+        if (!a->busy || a->pending_kind!=JOB_RANGE_COPY) goto failed;
+        cancel_active_query(a); if (a->busy || a->fetch_failed || strcmp(GetClipboardText(),"Preserve cancellation")) goto failed;
+        a->selected_object=0; invalidate_object(a,0); a->pivot_changed=dx_millis()-151; schedule_pivot(a);
+        if (!a->busy || a->pending_kind!=JOB_PIVOT) goto failed;
+        cancel_active_query(a); if (a->busy || a->fetch_failed || !a->objects[0].failed) goto failed;
+        invalidate_object(a,0); break;
+    case 11:
+        if (a->objects[0].dirty || !a->objects[0].page.column_count) return;
+        if (a->objects[0].failed || a->page.total!=1000000) goto failed;
+        break;
+    case 12:
+        puts("PASS: cached source/manual/pivot rectangular copy, NULL versus empty TSV, uncached source/pivot projection, owned snapshots and clipboard preservation"); break;
+    }
+    free(error); (*step)++; return;
+failed:
+    fprintf(stderr,"FAIL: clipboard application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
+}
+static void smoke_snapshot(const char *path) {
+    Image image=LoadImageFromScreen(); ExportImage(image,path); UnloadImage(image);
+}
+static void sort_smoke_step(App *a,int *step) {
+    if (*step<0 || *step==12 || a->busy || a->io_busy) return;
+    char *error=NULL;
+    if (a->modal==MODAL_ERROR) goto failed;
+    switch (*step) {
+    case 0:
+        if (!a->page.column_count) return;
+        if (a->page.total!=7) goto failed;
+        open_modal(a,MODAL_SORT);
+        if (!analysis_sort_set(&a->sort_editor.draft,"GroupKey",false,true,&error) || !analysis_sort_set(&a->sort_editor.draft,"Amount",true,true,&error) || !analysis_sort_set(&a->sort_editor.draft,"ID",false,true,&error) || a->analysis.sort_column) goto failed;
+        ui_set_scale(&a->ui,.8f); break;
+    case 1: smoke_snapshot("tests/results/multisort/sort-80.png"); ui_set_scale(&a->ui,1); break;
+    case 2: smoke_snapshot("tests/results/multisort/sort-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 3:
+        smoke_snapshot("tests/results/multisort/sort-150-narrow.png"); apply_sort_order(a,&a->sort_editor.draft); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 4:
+        { int expected[]={2,7,5,4,1,3,6}; for (size_t i=0;i<7;i++) if (a->page.cells[i*3].number!=expected[i]) goto failed; }
+        if (a->analysis.sort_count!=2 || a->page.columns[1].sort_priority!=1 || !a->page.columns[2].sort_descending) goto failed;
+        history(a,false); break;
+    case 5:
+        if (a->analysis.sort_column || a->page.cells[0].number!=7) goto failed;
+        history(a,true); break;
+    case 6:
+        if (a->analysis.sort_count!=2 || a->page.cells[0].number!=2) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/sort-application.dxls"); break;
+    case 7: workspace_job(a,JOB_LOAD,"tests/generated/sort-application.dxls"); break;
+    case 8:
+        if (!a->page.column_count) return;
+        if (a->analysis.sort_count!=2 || a->page.cells[0].number!=2) goto failed;
+        open_modal(a,MODAL_SORT); analysis_sorts_clear(&a->sort_editor.draft); a->modal=MODAL_NONE;
+        if (a->analysis.sort_count!=2) goto failed;
+        break;
+    case 9:
+        { uint64_t request=a->request_id; Analysis same=analysis_copy(&a->analysis); apply_sort_order(a,&same); analysis_free(&same); if (request!=a->request_id || a->busy) goto failed; }
+        set_source_filter(a,"GroupKey",FILTER_NULL,NULL,false); break;
+    case 10:
+        if (a->page.total!=2 || a->page.cells[0].number!=3 || a->page.cells[3].number!=6 || !a->page.cells[1].is_null || !a->page.cells[5].is_null) goto failed;
+        grid_select_cell(&a->grid,0,0,false); a->grid.end_row=1; a->grid.end_col=2; copy_selection(a);
+        if (a->busy || strcmp(GetClipboardText(),"3\t\t4\n6\t\t")) goto failed;
+        break;
+    case 11:
+        puts("PASS: multi-column sort, NULL ordering, header priorities, draft cancel/no-op, undo/redo, version 5 save/reopen and 80/100/150 percent layouts"); break;
+    }
+    free(error); (*step)++; return;
+failed: fprintf(stderr,"FAIL: sort application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
+}
+#define LAYOUT_SMOKE_STAGES 555
+static unsigned pane_motion_evidence;
+static Rectangle workbook_new_target;
+static void layout_smoke_step(App *a,int *step) {
+    if (*step<0 || *step>=LAYOUT_SMOKE_STAGES || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
+    static uint64_t request; char *error=NULL; Worksheet *s=active_sheet(a);
+    static Cell *author_cells; static uint64_t author_revision;
+    static Cell *ribbon_cells; static uint64_t ribbon_row,ribbon_top; static size_t ribbon_col; static bool ribbon_dirty,previous_workbook;
+    static Grid preview_live_grid; static size_t preview_live_history,preview_live_cells;
+    static char *preview_root_sum;
+    static CellFormat flyout_format;
+    static size_t field_detail_count,field_color_count,field_actions_count;
+    static uint64_t paint_allocations;
+    static size_t paint_bytes;
+    static size_t draft_history; static uint64_t draft_revision; static bool draft_dirty;
+    if (a->modal==MODAL_ERROR || a->fetch_failed) goto failed;
+    switch (*step) {
+    case 0:
+        if (a->page.total!=6 || a->page.column_count!=3) goto failed;
+        request=a->request_id; a->reduced_motion=true; a->sidebar_width=236; a->pipeline_width=300;
+        grid_select_cell(&a->grid,0,8,false); create_pivot(a);
+        grid_select_cell(&a->grid,8,8,false); create_pivot(a);
+        if (s->objects.count!=2 || !cells_set(&s->cells,6,8,"Range note",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS);
+        grid_select_cell(&a->grid,0,8,false); grid_select_cell(&a->grid,12,11,true);
+        a->pivot_focus=0; a->grid.move_dr=4; a->grid.move_dc=2; a->grid.move_requested=true; break;
+    case 1:
+        if (s->objects.items[0].row!=4 || s->objects.items[1].row!=12 || s->objects.items[1].col!=10 || strcmp(cells_get(&s->cells,10,10),"Range note") || s->undo_actions[s->undo_actions_count-1]!=EDIT_RANGE) goto failed;
+        history(a,false); break;
+    case 2:
+        if (s->objects.items[0].row || s->objects.items[1].row!=8 || strcmp(cells_get(&s->cells,6,8),"Range note")) goto failed;
+        history(a,true); break;
+    case 3:
+        if (s->objects.items[0].row!=4 || strcmp(cells_get(&s->cells,10,10),"Range note")) goto failed;
+        a->selected_object=-1; a->pivot_focus=1; a->fields_visible=a->sidebar=a->pipeline=true;
+        grid_set_width(&a->grid,0,450); grid_set_width(&a->grid,1,450); grid_set_width(&a->grid,2,450);
+        grid_select_cell(&a->grid,0,0,false); grid_select_cell(&a->grid,2,1,true); a->grid.top=0; a->grid.fraction=0;
+        a->pivot_field=2; a->field_reveal_requested=true; break;
+    case 4:
+        if (a->grid.horizontal<=0 || a->grid.row!=2 || a->grid.col!=1 || a->grid.anchor_row || a->grid.end_row!=2 || a->grid.end_col!=1 || a->request_id!=request) goto failed;
+        if (fabsf(a->grid.rect.x-236)>1 || fabsf(a->grid.rect.y-164)>1 || fabsf(a->grid.rect.width-(GetScreenWidth()-536))>1 || fabsf(a->grid.rect.y+a->grid.rect.height-(GetScreenHeight()-22))>1) goto failed;
+        break;
+    case 5: smoke_snapshot("tests/results/workspace-layout/full-100.png"); set_ribbon_mode(a,1); break;
+    case 6:
+        if (fabsf(a->grid.rect.y-120)>1 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/compact-100.png"); set_ribbon_mode(a,2); break;
+    case 7:
+        if (fabsf(a->grid.rect.y-116)>1 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/icons-100.png"); set_ribbon_mode(a,3); break;
+    case 8:
+        if (a->grid.rect.x || fabsf(a->grid.rect.y-28)>1 || fabsf(a->grid.rect.width-GetScreenWidth())>1 || a->pipeline_extent || !a->sidebar || !a->fields_visible || !a->pipeline) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/focus-100.png"); set_ribbon_mode(a,a->previous_ribbon_mode); break;
+    case 9:
+        if (a->ribbon_mode!=2 || fabsf(a->grid.rect.x-236)>1 || fabsf(a->pipeline_extent-300)>1) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 10:
+        if (a->grid.rect.x || fabsf(a->grid.rect.width-GetScreenWidth())>1 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/overlay-150-narrow.png"); a->sidebar=a->fields_visible=a->pipeline=false; break;
+    case 11:
+        if (a->grid.rect.x || a->pipeline_extent || fabsf(a->grid.rect.width-GetScreenWidth())>1) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/dismissed-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 12:
+        input_set(&a->pivot_search,"no such field"); match_fields(a); if (a->field_match_count || a->pivot_field!=-1) goto failed;
+        { size_t *cached=a->field_matches; match_fields(a); if (a->field_matches!=cached || a->field_match_count) goto failed; }
+        input_set(&a->pivot_search,"value"); match_fields(a); if (a->field_match_count!=1 || a->pivot_field!=1) goto failed;
+        input_set(&a->pivot_search,""); break;
+    case 13:
+        grid_select_cell(&a->grid,20,20,false); inspect_value(a);
+        if (!a->inspector_null || a->inspector_bytes || strcmp(a->inspector_type,"NULL")) goto failed;
+        break;
+    case 14:
+        a->modal=MODAL_NONE; inspector_free(a);
+        if (!cells_set(&s->cells,20,20,"NULL",&error)) goto failed; worksheet_record(s,EDIT_CELLS); inspect_value(a);
+        if (a->inspector_null || a->inspector_bytes!=4 || strcmp(a->inspector_text,"NULL")) goto failed;
+        break;
+    case 15:
+        a->modal=MODAL_NONE; inspector_free(a); grid_select_cell(&a->grid,21,20,false); inspect_value(a);
+        if (!a->inspector_null || a->inspector_bytes || a->request_id!=request) goto failed;
+        a->modal=MODAL_NONE; inspector_free(a); set_ribbon_mode(a,0); a->sidebar=a->fields_visible=true; a->selected_object=0; a->pivot_reveal_object=true; break;
+    case 16:
+        smoke_snapshot("tests/results/workspace-layout/authoring-full-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); show_workspace(a); break;
+    case 17:
+        if (a->grid.rect.width<=0 || a->grid.rect.height<=0 || a->field_visible<1 || a->request_id!=request) goto failed;
+        for (int role=0;role<4;role++) for (int other=role+1;other<4;other++) if (CheckCollisionRecs(a->pivot_shelves[role],a->pivot_shelves[other])) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/authoring-full-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 18: {
+        size_t column=a->grid.col; float width=a->grid.widths[column];
+        column_action(a,COLUMN_WIDTH); input_set(&a->input,"NaN");
+        if (apply_column_width(a) || !a->width_invalid || a->grid.widths[column]!=width) goto failed;
+        input_set(&a->input,"51"); if (apply_column_width(a) || a->grid.widths[column]!=width) goto failed;
+        input_set(&a->input,"177.5 "); if (!apply_column_width(a) || a->grid.widths[column]!=177.5f || a->request_id!=request) goto failed;
+        fit_column(a,column); if (a->request_id!=request || a->grid.widths[column]<52 || a->grid.widths[column]>1200) goto failed;
+        grid_set_width(&a->grid,column,width);
+        int selected=a->selected_object; size_t old_col=a->grid.col,shift=a->page.column_count; float old_width=a->grid.widths[shift];
+        uint64_t object_col=s->objects.items[0].col; Cell *cached=a->objects[0].page.cells;
+        grid_set_width(&a->grid,shift,149); a->grid.col=shift; column_action(a,COLUMN_LEFT);
+        if (s->objects.items[0].col!=object_col+1 || a->grid.widths[shift]!=96 || a->grid.widths[shift+1]!=149 || a->objects[0].page.cells!=cached) goto failed;
+        history(a,false); if (s->objects.items[0].col!=object_col || a->grid.widths[shift]!=149 || a->objects[0].page.cells!=cached) goto failed;
+        history(a,true); if (s->objects.items[0].col!=object_col+1 || a->grid.widths[shift+1]!=149) goto failed;
+        history(a,false); if (s->objects.items[0].col!=object_col || a->grid.widths[shift]!=149 || a->request_id!=request) goto failed;
+        grid_set_width(&a->grid,shift,old_width); a->grid.col=old_col; a->selected_object=selected;
+        a->chrome_focus=0; a->ribbon_focus=false; a->pivot_focus=0;
+        cycle_focus(a,false); if (a->chrome_focus!=10) goto failed;
+        cycle_focus(a,false); if (!a->ribbon_focus) goto failed;
+        cycle_focus(a,false); if (a->chrome_focus!=2) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus!=1) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus!=3) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus!=2) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus!=6) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus!=4) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus!=8) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus!=5) goto failed;
+        cycle_focus(a,false); if (a->chrome_focus || a->ribbon_focus || a->pivot_focus) goto failed;
+        a->pipeline=true; cycle_focus(a,false); if (a->chrome_focus!=8) goto failed;
+        cycle_focus(a,false); if (a->chrome_focus!=10 || a->status_focus) goto failed;
+        cycle_focus(a,true); if (a->chrome_focus!=8) goto failed;
+        inspect_source_sql(a); if (a->selected_object!=0 || !strstr(a->sql_text,"-- Current source result") || a->request_id!=request) goto failed;
+        a->modal=MODAL_NONE; a->pipeline=false; a->sidebar=a->fields_visible=false; a->selected_object=-1; a->chrome_focus=0;
+        cycle_focus(a,false); if (a->chrome_focus!=10) goto failed;
+        cycle_focus(a,false); if (!a->ribbon_focus) goto failed;
+        cycle_focus(a,false); if (a->ribbon_focus || a->pivot_focus || a->chrome_focus) goto failed;
+        cycle_focus(a,false); if (a->chrome_focus!=10) goto failed;
+        cycle_focus(a,false); if (!a->ribbon_focus) goto failed;
+        a->sidebar=a->fields_visible=true; a->selected_object=0; set_ribbon_mode(a,0);
+        grid_select_cell(&a->grid,8,0,false); create_pivot(a);
+        if (s->objects.count!=3 || s->objects.items[2].row!=8 || s->objects.items[2].col || a->request_id!=request) goto failed;
+        a->selected_object=0; grid_select_cell(&a->grid,s->objects.items[0].row,s->objects.items[0].col,false); a->pivot_reveal_object=true;
+        puts("PASS: atomic mixed range moves, undo/redo, independent panes, field reveal without queries, four ribbon modes, focus restoration/cycling, source SQL scope, selected placement below data, narrow overlay, NULL canvas and 100/150 percent authoring layouts; exact width validation and query-free fit"); break;
+    }
+    case 19: {
+        grid_select_cell(&a->grid,30,20,false); create_pivot(a);
+        if (s->objects.count!=4 || !cells_set(&s->cells,29,22,"Row note",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS); Cell *cached=a->page.cells;
+        grid_select_cell(&a->grid,25,22,false); a->grid.selection=SELECT_ROWS; column_action(a,ROW_ABOVE);
+        if (s->objects.items[3].row!=31 || strcmp(cells_get(&s->cells,30,22),"Row note") || a->page.cells!=cached || a->request_id!=request) goto failed;
+        history(a,false); if (s->objects.items[3].row!=30 || strcmp(cells_get(&s->cells,29,22),"Row note")) goto failed;
+        history(a,true); if (s->objects.items[3].row!=31 || strcmp(cells_get(&s->cells,30,22),"Row note") || a->request_id!=request) goto failed;
+        a->selected_object=-1; grid_select_cell(&a->grid,25,22,false); a->grid.selection=SELECT_ROWS;
+        a->modal=MODAL_CONTEXT; a->context_focus=a->context_scroll=0; a->context_drag=false; a->context_origin=(Vector2){400,300}; break;
+    }
+    case 20:
+        smoke_snapshot("tests/results/workspace-layout/row-menu-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 21: {
+        smoke_snapshot("tests/results/workspace-layout/row-menu-150-narrow.png"); a->modal=MODAL_NONE;
+        size_t actions=s->undo_actions_count;
+        grid_select_cell(&a->grid,32,20,false); column_action(a,ROW_DELETE);
+        if (s->undo_actions_count!=actions || s->objects.items[3].row!=31 || a->request_id!=request) goto failed;
+        grid_select_cell(&a->grid,0,0,false); column_action(a,ROW_ABOVE);
+        if (s->undo_actions_count!=actions || a->page.total!=6 || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    }
+    case 22:
+        grid_select_cell(&a->grid,25,22,false); column_action(a,ROW_DELETE);
+        if (s->objects.items[3].row!=30 || strcmp(cells_get(&s->cells,29,22),"Row note") || a->request_id!=request) goto failed;
+        remove("tests/generated/layout-rows.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/layout-rows.dxls"); break;
+    case 23: workspace_job(a,JOB_LOAD,"tests/generated/layout-rows.dxls"); break;
+    case 24:
+        if (s->objects.count!=4 || s->objects.items[3].row!=30 || strcmp(cells_get(&s->cells,29,22),"Row note") || a->page.total!=6) goto failed;
+        if (a->grid.widths[0]!=450 || a->grid.widths[1]!=450 || a->grid.widths[2]!=450) goto failed;
+        puts("PASS: row context menu, atomic notes/object shifts, shared undo/redo, query-free source cache, protected source/object boundaries, 100/150 percent layouts and dxls save/reopen"); break;
+    case 25: {
+        Cell *cached=a->page.cells; request=a->request_id; grid_select_cell(&a->grid,25,22,false); a->grid.selection=SELECT_ROWS; a->grid.anchor_row=27; a->grid.end_row=25;
+        column_action(a,ROW_ABOVE);
+        if (s->objects.items[3].row!=33 || strcmp(cells_get(&s->cells,32,22),"Row note") || a->page.cells!=cached || a->request_id!=request) goto failed;
+        history(a,false); if (s->objects.items[3].row!=30 || strcmp(cells_get(&s->cells,29,22),"Row note")) goto failed;
+        history(a,true); if (s->objects.items[3].row!=33 || strcmp(cells_get(&s->cells,32,22),"Row note")) goto failed;
+        a->modal=MODAL_CONTEXT; a->context_focus=a->context_scroll=0; a->context_drag=false; a->context_origin=(Vector2){400,300}; break;
+    }
+    case 26: smoke_snapshot("tests/results/workspace-layout/multiple-row-menu.png"); a->modal=MODAL_NONE; break;
+    case 27: {
+        column_action(a,ROW_DELETE);
+        if (s->objects.items[3].row!=30 || strcmp(cells_get(&s->cells,29,22),"Row note") || a->request_id!=request) goto failed;
+        history(a,false); if (s->objects.items[3].row!=33) goto failed;
+        history(a,true); if (s->objects.items[3].row!=30) goto failed;
+        size_t actions=s->undo_actions_count; grid_select_cell(&a->grid,30,22,false); a->grid.selection=SELECT_ROWS; a->grid.end_row=31;
+        column_action(a,ROW_DELETE);
+        if (s->undo_actions_count!=actions || s->objects.items[3].row!=30 || a->request_id!=request) goto failed;
+        puts("PASS: reversed multi-row selection, plural context actions, atomic note/object insert/delete, one-step history, collision guards and query-free cache"); break;
+    }
+    case 28:
+        a->selected_object=-1; a->pivot_focus=1; a->sidebar=a->fields_visible=true; a->pipeline=false;
+        grid_select_cell(&a->grid,2,0,false); grid_select_cell(&a->grid,4,1,true); a->grid.top=1; a->grid.fraction=.25;
+        request=a->request_id; a->pivot_field=2; navigate_field(a,1); break;
+    case 29:
+        if (a->grid.row!=4 || a->grid.col!=1 || a->grid.anchor_row!=2 || a->grid.end_row!=4 || a->grid.horizontal<=0 || a->grid.top!=1 || fabs(a->grid.fraction-.25)>.00001 || a->request_id!=request) goto failed;
+        navigate_field(a,2); break;
+    case 30:
+        if (a->grid.selection!=SELECT_COLUMNS || a->grid.col!=2 || a->grid.row!=4 || a->grid.top!=1 || a->request_id!=request) goto failed;
+        a->pivot_field=0; navigate_field(a,0); break;
+    case 31:
+        if (a->grid.horizontal || a->grid.selection!=SELECT_COLUMNS || a->grid.col!=2 || a->grid.row!=4 || a->grid.top!=1 || a->request_id!=request) goto failed;
+        a->grid.top=100; a->grid.fraction=.5; a->pivot_field=1; navigate_field(a,3); break;
+    case 32:
+        if (a->grid.selection!=SELECT_CELLS || a->grid.col!=1 || a->grid.row!=4 || a->grid.top!=4 || a->grid.fraction || a->request_id!=request) goto failed;
+        begin_field_menu(a,2,(Vector2){a->sidebar_width*a->ui.scale,180*a->ui.scale}); break;
+    case 33:
+        smoke_snapshot("tests/results/workspace-layout/field-menu-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 34:
+        smoke_snapshot("tests/results/workspace-layout/field-menu-150-narrow.png");
+        if (a->request_id!=request || a->modal!=MODAL_FIELD_NAV || a->pivot_field!=2) goto failed;
+        a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        puts("PASS: field Reveal/Center retain active range and row offset, Select column preserves row, Go to active row reveals offscreen cell, no SQL and 100/150 percent menu layouts"); break;
+    case 35: {
+        if (!cells_set(&s->cells,60,20,"Move me",&error) || !cells_set(&s->cells,65,22,"Occupied",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS); request=a->request_id;
+        grid_select_cell(&a->grid,61,21,false); grid_select_cell(&a->grid,60,20,true); a->selected_object=-1;
+        begin_move_range(a,false); if (a->modal!=MODAL_MOVE_RANGE) goto failed;
+        size_t actions=s->undo_actions_count; input_set(&a->input,"A0");
+        if (apply_range_move(a) || !a->range_move_error || s->undo_actions_count!=actions || a->request_id!=request) goto failed;
+        input_set(&a->input,"W66");
+        if (apply_range_move(a) || !a->range_move_error || strcmp(cells_get(&s->cells,60,20),"Move me") || strcmp(cells_get(&s->cells,65,22),"Occupied") || s->undo_actions_count!=actions) goto failed;
+        break;
+    }
+    case 36:
+        smoke_snapshot("tests/results/workspace-layout/move-range-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 37: {
+        smoke_snapshot("tests/results/workspace-layout/move-range-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        input_set(&a->input,"$Y$71");
+        if (!apply_range_move(a) || strcmp(cells_get(&s->cells,70,24),"Move me") || *cells_get(&s->cells,60,20) || a->grid.anchor_row!=71 || a->grid.end_row!=70 || a->grid.row!=70 || a->grid.col!=24 || a->request_id!=request) goto failed;
+        history(a,false); if (strcmp(cells_get(&s->cells,60,20),"Move me") || *cells_get(&s->cells,70,24)) goto failed;
+        history(a,true); if (strcmp(cells_get(&s->cells,70,24),"Move me") || a->request_id!=request) goto failed;
+        break;
+    }
+    case 38: {
+        grid_select_cell(&a->grid,70,24,false); a->grid.end_row=71; a->grid.end_col=25;
+        begin_move_range(a,false); size_t actions=s->undo_actions_count;
+        if (!apply_range_move(a) || s->undo_actions_count!=actions || a->request_id!=request) goto failed;
+        a->grid.selection=SELECT_ROWS; begin_move_range(a,false);
+        if (a->modal!=MODAL_NONE || !a->range_move_error || s->undo_actions_count!=actions) goto failed;
+        break;
+    }
+    case 39:
+        grid_select_cell(&a->grid,29,20,false); grid_select_cell(&a->grid,34,23,true); begin_move_range(a,false); input_set(&a->input,"AA41");
+        if (!apply_range_move(a) || s->objects.items[3].row!=41 || s->objects.items[3].col!=26 || strcmp(cells_get(&s->cells,40,28),"Row note") || s->undo_actions[s->undo_actions_count-1]!=EDIT_RANGE || a->request_id!=request) goto failed;
+        history(a,false); if (s->objects.items[3].row!=30 || strcmp(cells_get(&s->cells,29,22),"Row note")) goto failed;
+        history(a,true); if (s->objects.items[3].row!=41 || strcmp(cells_get(&s->cells,40,28),"Row note")) goto failed;
+        break;
+    case 40:
+        a->selected_object=3; grid_select_cell(&a->grid,43,27,false); begin_move_range(a,true);
+        if (a->grid.anchor_row!=41 || a->grid.end_row!=45 || a->grid.anchor_col!=26 || a->grid.end_col!=29) goto failed;
+        input_set(&a->input,"AG51"); if (!apply_range_move(a) || s->objects.items[3].row!=50 || s->objects.items[3].col!=32 || strcmp(cells_get(&s->cells,40,28),"Row note") || a->request_id!=request) goto failed;
+        break;
+    case 41: {
+        Rectangle moved=object_rect(a,&s->objects.items[3]),body=a->grid.body;
+        if (moved.x<body.x-.1f || moved.y<body.y-.1f || moved.x+moved.width>body.x+body.width+.1f || moved.y+moved.height>body.y+body.height+.1f) goto failed;
+        size_t actions=s->undo_actions_count; grid_select_cell(&a->grid,0,0,false); a->selected_object=-1; begin_move_range(a,false);
+        if (a->modal!=MODAL_NONE || !a->range_move_error || s->undo_actions_count!=actions || a->request_id!=request) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/layout-range-move.dxls"); break;
+    }
+    case 42: workspace_job(a,JOB_LOAD,"tests/generated/layout-range-move.dxls"); break;
+    case 43:
+        if (s->objects.count!=4 || s->objects.items[3].row!=50 || s->objects.items[3].col!=32 || strcmp(cells_get(&s->cells,70,24),"Move me") || strcmp(cells_get(&s->cells,40,28),"Row note") || strcmp(cells_get(&s->cells,65,22),"Occupied")) goto failed;
+        break;
+    case 44:
+        puts("PASS: keyboard destination move, invalid/colliding/no-op/source guards, reversed ranges, mixed note/object atomic history, whole-object move, query-free translation, 100/150 percent dialog layouts and dxls persistence"); break;
+    case 45:
+        a->selected_object=-1; a->pivot_focus=0; a->ribbon_tab=RIBBON_DATA; set_ribbon_mode(a,0);
+        a->sidebar=true; a->fields_visible=true; a->pipeline=false; request=a->request_id;
+        ribbon_cells=a->page.cells; ribbon_row=a->grid.row; ribbon_col=a->grid.col; ribbon_top=a->grid.top; ribbon_dirty=a->book.dirty; break;
+    case 46:
+        if (!a->ribbon_layout.valid || a->ribbon_layout.overflow_count) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-ribbon-full.png"); open_command_group(a,0,0); break;
+    case 47:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group || a->ribbon_popup_focus) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-source-flyout.png");
+        command_popup_key(a,KEY_DOWN,false); if (a->ribbon_popup_focus!=1) goto failed;
+        command_popup_key(a,KEY_TAB,false); if (a->ribbon_popup_focus!=0) goto failed; /* Source order is disabled without a sort. */
+        command_popup_key(a,KEY_TAB,true); if (a->ribbon_popup_focus!=1) goto failed;
+        command_popup_key(a,KEY_ESCAPE,false); break;
+    case 48:
+        if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->ribbon_command!=1 || a->request_id!=request || a->page.cells!=ribbon_cells || a->book.dirty!=ribbon_dirty) goto failed;
+        a->ribbon_focus=false; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,1); ui_set_scale(&a->ui,1.5f); SetWindowMinSize(640,480); SetWindowSize(720,640); break;
+    case 49:
+        if (!a->ribbon_layout.valid || !a->ribbon_layout.overflow_count) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-ribbon-compact-150.png"); open_command_group(a,-1,0); break;
+    case 50: {
+        int indices[UI_RIBBON_GROUPS],count=command_popup_count(a,indices);
+        if (count!=a->ribbon_layout.overflow_count || !count) goto failed;
+        command_popup_key(a,KEY_END,false); if (a->ribbon_popup_focus!=count-1) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-ribbon-overflow-150.png");
+        command_popup_key(a,KEY_RIGHT,false); if (a->ribbon_popup_group!=indices[count-1]) goto failed; break;
+    }
+    case 51:
+        smoke_snapshot("tests/results/workspace-layout/native-overflow-group-150.png");
+        command_popup_key(a,KEY_LEFT,false); if (a->ribbon_popup_group!=-1) goto failed;
+        command_popup_key(a,KEY_ENTER,false); if (a->ribbon_popup_group<0) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1600,900); break;
+    case 52:
+        if (a->modal!=MODAL_COMMANDS || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-flyout-resized.png"); command_popup_key(a,KEY_ESCAPE,false); set_ribbon_mode(a,2); break;
+    case 53:
+        if (a->ribbon_layout.overflow_count || a->ribbon_mode!=2) goto failed;
+        for (int c=0;c<ribbon_counts[a->ribbon_tab];c++) if (ui_ribbon_command_visible(a->ribbon_tab,a->ribbon_mode,c) && a->ribbon_layout.commands[c].width<27) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-ribbon-icons.png");
+        a->ribbon_tab=RIBBON_VIEW; previous_workbook=a->sidebar; open_command_group(a,0,0); break;
+    case 54:
+        command_popup_key(a,KEY_ENTER,false);
+        if (a->sidebar==previous_workbook || a->modal!=MODAL_NONE || a->request_id!=request || a->book.dirty!=ribbon_dirty) goto failed;
+        invoke_command(a,0); if (a->sidebar!=previous_workbook) goto failed;
+        a->ribbon_tab=RIBBON_HOME; open_command_group(a,1,0); break;
+    case 55:
+        if (command_enabled(a,3)) goto failed; /* The definition's font-family label is read-only. */
+        invoke_command(a,3); if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_focus!=1 || a->request_id!=request) goto failed;
+        command_popup_key(a,KEY_ESCAPE,false); a->ribbon_tab=RIBBON_VIEW; invoke_command(a,ui_ribbon_action_index(RIBBON_VIEW,ACTION_SCALE)); break;
+    case 56:
+        if (a->modal!=MODAL_INTERFACE_SCALE || a->request_id!=request) goto failed;
+        a->modal=MODAL_NONE; a->ribbon_tab=RIBBON_DATA; set_ribbon_mode(a,0); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 57: {
+        int collapsed=-1;
+        for (int g=0;g<a->ribbon_layout.group_count;g++) if (a->ribbon_layout.states[g]!=UI_RIBBON_EXPANDED) { collapsed=g; break; }
+        if (collapsed<0) goto failed;
+        a->ribbon_focus=true; a->ribbon_command=ribbon_groups[RIBBON_DATA][collapsed].first; a->ribbon_reveal_command=true; break;
+    }
+    case 58:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group<0) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-keyboard-group-150.png"); command_popup_key(a,KEY_ESCAPE,false); break;
+    case 59:
+        if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->request_id!=request) goto failed;
+        set_ribbon_mode(a,3); break;
+    case 60:
+        if (a->ribbon_layout.height || a->grid.rect.x || a->pipeline_extent) goto failed;
+        set_ribbon_mode(a,a->previous_ribbon_mode); ui_set_scale(&a->ui,.8f); SetWindowSize(1280,820); break;
+    case 61:
+        if (a->ribbon_mode!=0 || a->ribbon_layout.overflow_count || a->ui.scale!=.8f) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-ribbon-80.png"); ui_set_scale(&a->ui,1); break;
+    case 62:
+        if (a->request_id!=request || a->page.cells!=ribbon_cells || a->grid.row!=ribbon_row || a->grid.col!=ribbon_col || a->grid.top!=ribbon_top || a->book.dirty!=ribbon_dirty) goto failed;
+        break;
+    case 63:
+        SetWindowMinSize(640,480);
+        puts("PASS: measured native ribbon, named collapse/overflow, group flyouts, keyboard reveal/traversal/cancel, disabled commands, resize anchoring, real command dispatch, 80/100/150 percent, preserved selection/cache/dirty state and no presentation SQL"); break;
+    case 64:
+        a->ribbon_focus=false; a->selected_object=-1; present_pipeline(a,true,false); break;
+    case 65:
+        if (!a->pipeline || a->pipeline_collapsed || fabsf(a->pipeline_extent-a->pipeline_width)>.1f || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-inspector-open.png"); present_pipeline(a,true,true); break;
+    case 66:
+        if (!a->pipeline || !a->pipeline_collapsed || fabsf(a->pipeline_extent-32)>.1f || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-inspector-retained.png"); pipeline_activate(a,0); break;
+    case 67:
+        if (!a->pipeline || a->pipeline_collapsed || fabsf(a->pipeline_extent-a->pipeline_width)>.1f) goto failed;
+        present_pipeline(a,true,true); break;
+    case 68:
+        pipeline_activate(a,1); if (a->pipeline || a->pipeline_collapsed) goto failed; break;
+    case 69:
+        if (a->pipeline_extent || a->request_id!=request || a->page.cells!=ribbon_cells || a->book.dirty!=ribbon_dirty) goto failed;
+        snprintf(a->statistics_line,sizeof(a->statistics_line),"Cells 10000 · Filled 9999 · Numeric 9000 · Distinct 8765 · Sum 123456789012345678901234567890 · Average 123456789012345678901234567890 · Minimum -123456789012345678901234567890 · Maximum 123456789012345678901234567890");
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 70:
+        if (ui_measure(&a->ui,a->status_metrics,12)>a->status_metrics_width+.01f || strstr(a->status_metrics,"…") || strstr(a->status_metrics,"Sum") || fabsf(a->grid.rect.y+a->grid.rect.height-(GetScreenHeight()-22*a->ui.scale))>.1f || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-status-fit-150.png"); a->statistics_line[0]=0; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 71:
+        if (a->grid.row!=ribbon_row || a->grid.col!=ribbon_col || a->grid.top!=ribbon_top || a->book.dirty!=ribbon_dirty || a->request_id!=request) goto failed;
+        puts("PASS: dense native Workbook/Fields rows, retained inspector expand/dismiss lifecycle, width recovery, 22-unit status, whole-metric fitting at 150 percent, separate UI scale/canvas zoom and no presentation SQL"); break;
+    case 72:
+        a->sidebar=true; a->fields_visible=false; a->selected_object=-1; a->pipeline=false;
+        a->pivot_focus=a->chrome_focus=0; set_ribbon_mode(a,1); SetWindowSize(640,720); break;
+    case 73:
+        if (!a->workspace.narrow || a->workspace.left.width || a->grid.rect.x || a->grid.rect.width!=GetScreenWidth() || a->request_id!=request) goto failed;
+        show_workspace(a); break;
+    case 74:
+        if (!a->workspace.left_overlay || a->workspace.left.width!=236 || a->grid.rect.x || a->grid.rect.width!=GetScreenWidth() || a->fields_visible || a->page.cells!=ribbon_cells || a->book.dirty!=ribbon_dirty) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-workspace-overlay.png"); close_workspace(a); break;
+    case 75:
+        if (a->left_drawer || a->workspace.left.width || !a->sidebar || a->fields_visible || a->request_id!=request) goto failed;
+        a->fields_visible=true; show_workspace(a); a->pivot_field=2; a->field_reveal_requested=true; break;
+    case 76:
+        if (a->left_drawer || a->grid.row!=ribbon_row || a->grid.col!=ribbon_col || a->request_id!=request) goto failed;
+        show_workspace(a); present_pipeline(a,true,false); if (a->left_drawer) goto failed; break;
+    case 77:
+        if (!a->workspace.right_overlay || a->workspace.left.width || a->grid.rect.x || a->grid.rect.width!=640 || a->pipeline_extent!=300) goto failed;
+        show_workspace(a); break;
+    case 78:
+        if (!a->workspace.left_overlay || !a->pipeline || !a->sidebar || !a->fields_visible || a->request_id!=request || a->book.dirty!=ribbon_dirty) goto failed;
+        close_workspace(a); a->pipeline=false; SetWindowSize(1280,820); break;
+    case 79: {
+        if (a->workspace.narrow || a->workspace.left.width!=236 || a->left_drawer) goto failed;
+        a->selected_object=0; set_ribbon_mode(a,0); a->sidebar=a->fields_visible=true;
+        if (!objects_move(&s->objects,0,100,40,&s->cells,source_rows(a),a->page.column_count,&error)) goto failed;
+        worksheet_record(s,EDIT_OBJECTS); grid_select_cell(&a->grid,100,40,false); a->pivot_reveal_object=true;
+        PivotDefinition definition={0};
+        bool ok=pivot_assign(&definition,PIVOT_ROWS,a->page.columns[0].name,AGG_SUM,&error) &&
+            pivot_assign(&definition,PIVOT_COLUMNS,a->page.columns[1].name,AGG_SUM,&error) &&
+            pivot_assign(&definition,PIVOT_VALUES,a->page.columns[2].name,AGG_SUM,&error);
+        if (!ok) { pivot_free(&definition); goto failed; }
+        if (!set_pivot_definition(a,&definition)) goto failed; break;
+    }
+    case 80:
+        if (!object_ready(a,0)) return;
+        if (a->grid.rect.y!=225 || a->pivot_shelves[PIVOT_COLUMNS].height!=31 || a->pivot_shelves[PIVOT_ROWS].height!=30 ||
+            a->pivot_shelves[PIVOT_VALUES].x>=a->grid.rect.x || a->pivot_shelves[PIVOT_FILTERS].x>=a->grid.rect.x || a->field_visible<1) goto failed;
+        request=a->request_id; author_cells=a->objects[0].page.cells; author_revision=s->objects.items[0].revision;
+        smoke_snapshot("tests/results/workspace-layout/native-authoring-spatial.png");
+        if (!set_representation(a,1)) goto failed; break;
+    case 81:
+        if (s->objects.items[0].kind!=OBJECT_CHART || s->objects.items[0].mark!=MARK_BAR || s->objects.items[0].revision!=author_revision || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-authoring-chart.png"); if (!set_representation(a,2)) goto failed; break;
+    case 82:
+        if (s->objects.items[0].mark!=MARK_LINE || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        history(a,false); break;
+    case 83:
+        if (s->objects.items[0].kind!=OBJECT_CHART || s->objects.items[0].mark!=MARK_BAR || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        history(a,true); break;
+    case 84:
+        if (s->objects.items[0].mark!=MARK_LINE || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        if (!set_representation(a,0)) goto failed; break;
+    case 85:
+        if (s->objects.items[0].kind!=OBJECT_PIVOT || s->objects.items[0].revision!=author_revision || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        begin_assign_field(a,PIVOT_VALUES,a->pivot_shelves[PIVOT_VALUES]); input_set(&a->pivot_search,"Amount"); break;
+    case 86:
+        if (a->modal!=MODAL_ASSIGN_FIELD || a->field_match_count!=1 || a->pivot_field!=2 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-measure-picker.png");
+        a->modal=MODAL_NONE; a->pivot_search_focus=false; input_set(&a->pivot_search,"");
+        a->pivot_drag_role=PIVOT_VALUES; a->pivot_drag_index=0; pivot_menu_open(a,(Vector2){240,360}); break;
+    case 87:
+        if (a->modal!=MODAL_PIVOT_FIELD || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-measure-menu.png"); a->modal=MODAL_NONE; a->pivot_drag_role=-1;
+        a->pivot_drag_field=1; assign_pivot_field(a,PIVOT_FILTERS,0); break;
+    case 88:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=1) goto failed;
+        open_pivot_filter(a,0); break;
+    case 89:
+        if (a->modal!=MODAL_FILTER || a->filter_object!=0 || a->filter_pill!=0) goto failed;
+        cancel_values(a); a->modal=MODAL_NONE; request=a->request_id; author_cells=a->objects[0].page.cells;
+        a->pivot_focus=0; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,720); show_workspace(a); break;
+    case 90:
+        if (!a->workspace.left_overlay || a->grid.rect.x || a->field_visible<1 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-authoring-overlay-150.png");
+        a->pivot_focus=5; a->author_reveal=true; break;
+    case 91:
+        if (a->pivot_shelves[PIVOT_FILTERS].height<=0 || a->pivot_shelves[PIVOT_FILTERS].y<a->author_body.y || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-view-filter-reveal-150.png");
+        close_workspace(a); SetWindowSize(1280,820); ui_set_scale(&a->ui,.8f); break;
+    case 92:
+        if (a->workspace.narrow || a->left_drawer || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-authoring-80.png"); ui_set_scale(&a->ui,1); a->pivot_focus=0;
+        workspace_job(a,JOB_SAVE,"tests/generated/layout-authoring.dxls"); break;
+    case 93: workspace_job(a,JOB_LOAD,"tests/generated/layout-authoring.dxls"); break;
+    case 94:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].kind!=OBJECT_PIVOT || s->objects.items[0].pivot.counts[PIVOT_VALUES]!=1 || s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=1) goto failed;
+        break;
+    case 95:
+        puts("PASS: recoverable narrow Workspace overlay, independent section preferences, field reveal/dismiss, inspector precedence, compact Columns/Rows and left Measures/Marks/Filters, real source-bound matrix/chart conversion with cached result and Undo/Redo, searchable field/aggregation menus, 80/100/150 percent and dxls persistence"); break;
+    case 96:
+        a->selected_object=0; a->sidebar=a->fields_visible=true; a->pipeline=false; a->pivot_focus=0;
+        a->pivot_field_scroll=0; a->author_scroll=10000; input_set(&a->pivot_search,"");
+        set_ribbon_mode(a,1); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 97:
+        if (s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=1 || a->modal!=MODAL_FILTER || a->filter_pill!=-1 || a->field!=2 || a->pivot_drop_pending) { error=dx_printf("Fast filter draft: filters=%zu field=%zu pill=%d pending=%d",s->objects.items[0].pivot.counts[PIVOT_FILTERS],a->field,a->filter_pill,a->pivot_drop_pending); goto failed; }
+        close_filter(a); break;
+    case 98:
+        if (!object_ready(a,0)) return;
+        smoke_snapshot("tests/results/workspace-layout/native-fast-field-drop.png"); break;
+    case 99:
+        if (s->objects.items[0].pivot.counts[PIVOT_ROWS] || s->objects.items[0].pivot.counts[PIVOT_COLUMNS]!=2 || strcmp(s->objects.items[0].pivot.fields[PIVOT_COLUMNS][0].name,"ID") || a->pivot_drop_pending) goto failed;
+        break;
+    case 100:
+        if (!object_ready(a,0)) return;
+        if (!strstr(a->objects[0].page.sql,"PIVOT")) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-fast-token-drop.png"); break;
+    case 101:
+        puts("PASS: complete between-frame field and token gestures defer drop resolution until all native destinations are laid out; field-to-filter opens an unapplied draft and Rows-to-Columns moves update real PIVOT"); break;
+    case 102:
+        if (s->objects.items[0].pivot.counts[PIVOT_COLUMNS]!=2 || strcmp(s->objects.items[0].pivot.fields[PIVOT_COLUMNS][0].name,"Value") || strcmp(s->objects.items[0].pivot.fields[PIVOT_COLUMNS][1].name,"ID")) goto failed;
+        break;
+    case 103:
+        if (!object_ready(a,0)) return;
+        smoke_snapshot("tests/results/workspace-layout/native-token-reorder.png"); break;
+    case 104:
+        if (s->objects.items[0].pivot.counts[PIVOT_COLUMNS]!=2 || strcmp(s->objects.items[0].pivot.fields[PIVOT_COLUMNS][0].name,"ID") || strcmp(s->objects.items[0].pivot.fields[PIVOT_COLUMNS][1].name,"Value")) goto failed;
+        break;
+    case 105:
+        if (!object_ready(a,0)) return;
+        request=a->request_id; author_cells=a->objects[0].page.cells; break;
+    case 106:
+        if (a->request_id!=request || a->objects[0].page.cells!=author_cells || a->pivot_drop_pending) goto failed;
+        break;
+    case 107:
+        puts("PASS: spatial insertion from field inventory, same-shelf insertion index adjustment, field-browser reorder without duplicate assignments, and cached token measurement"); break;
+    case 108:
+        if (!a->authoring_layout.valid || a->authoring_layout.stacked || a->source_preview.data_columns!=a->page.column_count || a->source_preview.render_rows>12 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        SetWindowSize(640,720); a->analysis_scroll=10000; break;
+    case 109:
+        if (!a->authoring_layout.stacked || a->authoring_layout.chart.y+a->authoring_layout.chart.height>a->workspace.canvas.y+a->workspace.canvas.height || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-authoring-stack-640.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); a->analysis_scroll=0; break;
+    case 110:
+        if (!a->authoring_layout.stacked || !a->workspace.narrow || a->source_preview.row_height!=a->grid.row_height || a->objects[0].page.cells!=author_cells) goto failed;
+        show_workspace(a); a->pivot_focus=5; a->author_reveal=true; break;
+    case 111:
+        if (!a->workspace.left_overlay || a->pivot_shelves[PIVOT_FILTERS].height<=0 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-dock-150.png"); close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->sidebar_width=228; a->analysis_scroll=0; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); break;
+    case 112:
+        if (a->authoring_layout.stacked || fabsf(a->authoring_layout.preview.height-fminf(336,fmaxf(150,(GetScreenHeight()-159)*.4f)))>.01f || a->authoring_layout.matrix.height!=318 || a->workspace.canvas.x!=228 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        break;
+    case 113:
+        smoke_snapshot("tests/results/workspace-layout/native-exact-authoring-1440.png"); break;
+    case 114:
+        if (a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; break;
+    case 115:
+        if (a->modal!=MODAL_FILTER || a->selected_object!=0 || a->filter_object!=-1 || a->field || !a->filter_anchor_valid || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-preview-column-filter.png"); cancel_values(a); a->modal=MODAL_NONE; request=a->request_id; break;
+    case 116:
+        if (a->selected_object!=0 || a->objects[0].page.cells!=author_cells || a->analysis.filter_column) goto failed;
+        grid_select_cell(&a->grid,s->objects.items[0].row+2,s->objects.items[0].col,false);
+        matrix_key(a,&s->objects.items[0],&a->objects[0].page,KEY_DOWN,false);
+        if (a->grid.row!=s->objects.items[0].row+2) goto failed; /* One result row: Down clamps at the last group. */
+        matrix_key(a,&s->objects.items[0],&a->objects[0].page,KEY_RIGHT,true);
+        if (a->grid.end_col!=s->objects.items[0].col+1 || a->grid.anchor_col!=s->objects.items[0].col || a->request_id!=request) goto failed;
+        break;
+    case 117:
+        a->consume_grid_input=false; break;
+    case 118:
+        if (a->selected_object!=-1 || a->grid.row!=1 || a->grid.col || a->pivot_focus || a->objects[0].page.cells!=author_cells) goto failed;
+        break;
+    case 119:
+        puts("PASS: native source preview and paired cached matrix/chart views, 880-unit stacking, scrollable analysis canvas, 100/150 percent and 1440x988 geometry, query-free presentation, preview header distinct filter/cancel retaining analysis, matrix keyboard selection and preview-cell return to source"); break;
+    case 120:
+        a->selected_object=0; a->pivot_focus=a->chrome_focus=0; a->matrix_object=0; a->matrix_horizontal=a->matrix_vertical=0; request=a->request_id; break;
+    case 121:
+        if (a->matrix_horizontal<=500 || a->request_id!=request || a->objects[0].page.cells!=author_cells || a->matrix_hbar.dragging) goto failed;
+        break;
+    case 122:
+        smoke_snapshot("tests/results/workspace-layout/native-matrix-horizontal-scroll.png"); a->matrix_horizontal=0; break;
+    case 123:
+        if (a->grid.anchor_row!=s->objects.items[0].row+2 || a->grid.end_row!=s->objects.items[0].row+2 || a->grid.anchor_col!=s->objects.items[0].col || a->grid.end_col!=s->objects.items[0].col+2 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        puts("PASS: complete between-frame matrix scrollbar drags, bounded horizontal scroll, range drag selection mapped to real worksheet cells, preserved query generation and result ownership"); break;
+    case 124:
+        preview_to_source(a,0,2); a->ribbon_tab=RIBBON_HOME; a->ribbon_focus=false; a->pivot_focus=a->chrome_focus=0;
+        a->grid.end_row=2; request=a->request_id; ribbon_cells=a->page.cells; break;
+    case 125:
+        run_action(a,ACTION_BOLD); if (!(active_format(a).flags&FORMAT_BOLD) || s->undo_actions[s->undo_actions_count-1]!=EDIT_FORMAT) goto failed; break;
+    case 126:
+        if (active_format(a).flags!=(FORMAT_BOLD|FORMAT_ITALIC) || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        break;
+    case 127:
+        if (active_format(a).flags!=(FORMAT_BOLD|FORMAT_ITALIC|FORMAT_UNDERLINE)) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-formatted-range.png"); run_action(a,ACTION_FONT_SIZE); break;
+    case 128:
+        if (a->modal!=MODAL_FORMAT || a->format_action!=ACTION_FONT_SIZE) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-font-size-menu.png"); break;
+    case 129:
+        if (a->modal!=MODAL_NONE || active_format(a).size!=16 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        run_action(a,ACTION_ALIGN_CENTER); run_action(a,ACTION_TEXT_COLOR); break;
+    case 130:
+        smoke_snapshot("tests/results/workspace-layout/native-text-color-menu.png"); break;
+    case 131:
+        if (a->modal!=MODAL_NONE || active_format(a).color!=3 || active_format(a).align!=FORMAT_CENTER) goto failed;
+        run_action(a,ACTION_NUMBER_FORMAT); break;
+    case 132:
+        smoke_snapshot("tests/results/workspace-layout/native-number-format-menu.png"); break;
+    case 133:
+        if (a->modal!=MODAL_NONE || active_format(a).number!=FORMAT_NUMBER) goto failed;
+        run_action(a,ACTION_DECIMAL_LESS); run_action(a,ACTION_DECIMAL_LESS); break;
+    case 134:
+        if (active_format(a).decimals || a->request_id!=request || a->page.cells!=ribbon_cells || strcmp(a->page.cells[2].text,"10")) goto failed;
+        history(a,false); if (active_format(a).decimals!=1) goto failed; history(a,true); if (active_format(a).decimals) goto failed;
+        grid_select_cell(&a->grid,0,0,false); a->grid.end_row=2; a->grid.end_col=2; run_action(a,ACTION_BOLD); break;
+    case 135:
+        if (!(format_at(&s->formats,0,1).flags&FORMAT_BOLD) || !a->page.cells[1].is_null || a->page.cells[4].is_null || strcmp(a->page.cells[4].text,"NULL") || *a->page.cells[7].text) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-format-null-literal-empty.png");
+        a->selected_object=0; grid_select_cell(&a->grid,s->objects.items[0].row+2,s->objects.items[0].col,false); run_action(a,ACTION_ACCOUNTING); break;
+    case 136:
+        if (active_format(a).number!=FORMAT_ACCOUNTING || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-formatted-matrix.png"); break;
+    case 137: workspace_job(a,JOB_SAVE,"tests/generated/layout-formats.dxls"); break;
+    case 138: workspace_job(a,JOB_LOAD,"tests/generated/layout-formats.dxls"); break;
+    case 139:
+        if (!object_ready(a,0)) return;
+        if (!s->formats.count || s->formats.undo_count || format_at(&s->formats,0,2).size!=16 || format_at(&s->formats,0,2).color!=3 || format_at(&s->formats,0,2).decimals || active_format(a).number!=FORMAT_ACCOUNTING) goto failed;
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); a->selected_object=-1; grid_select_cell(&a->grid,0,2,false); break;
+    case 140:
+        a->ribbon_focus=true; a->ribbon_command=4; run_action(a,ACTION_FONT_SIZE); break;
+    case 141:
+        if (a->modal!=MODAL_FORMAT || active_format(a).size!=16) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-format-menu-150.png"); break;
+    case 142:
+        if ((a->modal!=MODAL_NONE && a->modal!=MODAL_COMMANDS) ||
+            !(a->ribbon_focus || (a->modal==MODAL_COMMANDS && a->ribbon_popup_group==1 && a->ribbon_popup_focus==1)) ||
+            active_format(a).size!=16 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        a->modal=MODAL_NONE; a->ribbon_focus=false; a->ribbon_command=-1; ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+    case 143:
+        a->grid.selection=SELECT_ALL; run_action(a,ACTION_BOLD); break;
+    case 144: {
+        FormatPatch *last=&s->formats.items[s->formats.count-1];
+        if (s->formats.count>DX_FORMAT_PATCHES || last->range.r0 || last->range.r1!=DX_SHEET_ROWS-1 || last->range.c0 || last->range.c1!=16383 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        history(a,false); break;
+    }
+    case 145:
+        if (format_at(&s->formats,0,2).size!=16 || a->request_id!=request) goto failed;
+        a->selected_object=0; a->grid.selection=SELECT_CELLS; grid_select_cell(&a->grid,s->objects.items[0].row+2,s->objects.items[0].col,false); break;
+    case 146: smoke_snapshot("tests/results/workspace-layout/native-format-roundtrip-authoring.png"); break;
+    case 147:
+        puts("PASS: real native Bold/Italic/Underline, font-size/color/number menus, center alignment, decimal controls, exact raw values and typed NULL/text/empty preservation, matrix formatting, chronological Undo/Redo, bounded whole-sheet formatting, menu Escape/focus return and version-12 save/reopen at 100/150 percent"); break;
+    case 148: workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 149:
+        if (!object_ready(a,0)) return;
+        if (a->page.total!=240 || a->page.column_count!=12 || a->objects[0].page.total!=30 || a->objects[0].page.column_count!=8 || s->objects.items[0].pivot.counts[PIVOT_VALUES]!=2) goto failed;
+        a->selected_object=0; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; set_representation(a,1); a->grid.freeze=true;
+        request=a->request_id; author_cells=a->objects[0].page.cells; author_revision=s->objects.items[0].revision; break;
+    case 150:
+        if (!a->chart_view.valid || a->chart_view.categories!=3 || a->chart_view.series!=4 || fabs(a->chart_view.values[0][2]-335281.6)>.001 || a->author_plot.height<=0 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-definition-bars.png"); break;
+    case 151:
+        if (a->modal!=MODAL_CHART_MEASURE) goto failed;
+        break;
+    case 152:
+        if (a->modal!=MODAL_CHART_MEASURE || a->context_focus!=1) goto failed;
+        break;
+    case 153:
+        if (a->modal!=MODAL_NONE || s->objects.items[0].chart_measure!=1 || a->chart_view.measure!=1 || a->chart_view.values[0][2]!=9 || a->chart_view.values[3][0]!=61 || a->chart_view.values[3][2]!=64 || a->request_id!=request || a->objects[0].page.cells!=author_cells || s->objects.items[0].revision!=author_revision) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-definition-count.png"); history(a,false); break;
+    case 154:
+        if (s->objects.items[0].chart_measure || a->chart_view.measure || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        history(a,true); set_chart_mark(a,MARK_LINE); break;
+    case 155:
+        if (s->objects.items[0].chart_measure!=1 || s->objects.items[0].mark!=MARK_LINE || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-definition-line-count.png"); workspace_job(a,JOB_SAVE,"tests/generated/design-native-roundtrip.dxls"); break;
+    case 156: workspace_job(a,JOB_LOAD,"tests/generated/design-native-roundtrip.dxls"); break;
+    case 157:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].chart_measure!=1 || s->objects.items[0].mark!=MARK_LINE) goto failed;
+        request=a->request_id; author_cells=a->objects[0].page.cells; ribbon_cells=a->page.cells;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->grid.zoom=1.5f; a->grid.freeze=true; a->author_scroll=0; break;
+    case 158:
+        if (!a->source_preview.freeze || !a->source_preview.freeze_blocked || a->source_preview.frozen_columns!=2 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-frozen-crowded-150.png"); break;
+    case 159:
+        if (a->grid.freeze || a->source_preview.freeze || a->source_preview.freeze_blocked || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        run_action(a,ACTION_FREEZE); a->grid.zoom=1; ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+    case 160:
+        if (!a->source_preview.freeze || a->source_preview.freeze_blocked || a->source_preview.frozen_columns!=2 || a->request_id!=request) goto failed;
+        ribbon_top=(uint64_t)lroundf(grid_column_x(&a->source_preview,1,1)); break;
+    case 161:
+        if (a->source_preview.horizontal<=0 || (uint64_t)lroundf(grid_column_x(&a->source_preview,1,1))!=ribbon_top || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-frozen-preview-scrolled.png"); preview_to_source(a,0,1); break;
+    case 162:
+        if (selected_pivot(a) || !a->grid.freeze || a->grid.col!=1 || a->grid.row || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        a->grid.horizontal=350; grid_layout(&a->grid,1,&a->page,a->grid.rect); grid_reveal_column(&a->grid,&a->page,1,1,true);
+        if (a->grid.horizontal!=350) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-frozen-source-scrolled.png"); break;
+    case 163:
+        if (a->grid.horizontal!=350 || a->grid.col!=1 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        a->selected_object=0; a->pivot_focus=7; a->author_reveal=true; a->left_drawer=true; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
+    case 164:
+        if (!a->left_drawer || a->author_plot.height<=0 || a->author_plot.x<0 || a->author_plot.x+a->author_plot.width>GetScreenWidth()+1) goto failed;
+        a->modal=MODAL_CHART_MEASURE; a->context_origin=(Vector2){a->author_plot.x,a->author_plot.y+a->author_plot.height}; a->context_focus=1; a->context_scroll=0; break;
+    case 165: smoke_snapshot("tests/results/workspace-layout/native-plot-menu-150.png"); break;
+    case 166:
+        if (a->modal!=MODAL_NONE || a->pivot_focus!=7 || s->objects.items[0].chart_measure!=1 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); set_chart_measure(a,0); set_chart_mark(a,MARK_BAR); break;
+    case 167:
+        if (s->objects.items[0].chart_measure || a->chart_view.measure || a->request_id!=request) goto failed;
+        a->source_preview.horizontal=0; a->analysis_scroll=0; a->pivot_focus=0; set_representation(a,0); break;
+    case 168:
+        if (s->objects.items[0].kind!=OBJECT_PIVOT || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-definition-matrix.png"); break;
+    case 169: history(a,false); break;
+    case 170:
+        if (s->objects.items[0].kind!=OBJECT_CHART || s->objects.items[0].chart_measure || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        history(a,true); break;
+    case 171:
+        puts("PASS: canonical 240-row / 30-group real PIVOT fixture, ranked native Bar/Line, Plot menu pointer/keyboard, Count/Amount axes, presentation-only cache/history, dxls plot persistence, frozen source/preview columns, scrolled hit geometry, recoverable crowded view and 100/150 percent Plot focus"); break;
+    case 172:
+        a->selected_object=0; a->pivot_focus=8; a->mark_role=0; a->author_reveal=true; a->author_scroll=0;
+        grid_select_cell(&a->grid,s->objects.items[0].row,s->objects.items[0].col,false);
+        a->grid.end_row=s->objects.items[0].row+s->objects.items[0].rows-1; a->grid.end_col=s->objects.items[0].col+s->objects.items[0].columns-1; a->matrix_cells_active=false;
+        input_set(&a->pivot_search,""); match_fields(a); a->pivot_field_scroll=0;
+        request=a->request_id; author_cells=a->objects[0].page.cells; break;
+    case 173:
+        if (a->modal!=MODAL_MARKS || a->mark_role!=MARKS_COLOR || !a->author_marks[0].width) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-marks-color-menu.png"); break;
+    case 174:
+        if (a->modal!=MODAL_NONE || s->objects.items[0].marks.counts[MARKS_COLOR]!=1 || strcmp(s->objects.items[0].marks.fields[MARKS_COLOR][0].name,"Account") || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        break;
+    case 175:
+        if (s->objects.items[0].marks.counts[MARKS_COLOR]!=2 || s->objects.items[0].pivot.counts[PIVOT_ROWS]!=2 || s->objects.items[0].pivot.counts[PIVOT_COLUMNS]!=3 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-marks-multiple-color.png"); break;
+    case 176:
+        if (a->modal!=MODAL_MARKS || a->mark_role!=MARKS_LABEL) goto failed;
+        break;
+    case 177:
+        if (a->modal!=MODAL_NONE || s->objects.items[0].marks.counts[MARKS_LABEL]!=1 || !s->objects.items[0].marks.fields[MARKS_LABEL][0].measure || s->objects.items[0].marks.fields[MARKS_LABEL][0].aggregate!=AGG_SUM || a->request_id!=request) goto failed;
+        break;
+    case 178:
+        if (s->objects.items[0].marks.counts[MARKS_SIZE]!=1 || s->objects.items[0].marks.fields[MARKS_SIZE][0].aggregate!=AGG_COUNT || s->objects.items[0].pivot.counts[PIVOT_VALUES]!=2 || a->request_id!=request) goto failed;
+        break;
+    case 179:
+        if (s->objects.items[0].marks.counts[MARKS_SIZE]!=1 || s->objects.items[0].marks.fields[MARKS_SIZE][0].aggregate!=AGG_SUM || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        begin_marks(a,MARKS_COLOR,a->author_marks[MARKS_COLOR],false); break;
+    case 180:
+        if (s->objects.items[0].marks.counts[MARKS_COLOR] || a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
+        history(a,false); break;
+    case 181:
+        if (s->objects.items[0].marks.counts[MARKS_COLOR]!=2 || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        history(a,true); set_representation(a,1); break;
+    case 182:
+        if (s->objects.items[0].kind!=OBJECT_CHART || s->objects.items[0].marks.counts[MARKS_LABEL]!=1 || s->objects.items[0].marks.counts[MARKS_SIZE]!=1 || a->request_id!=request) goto failed;
+        set_representation(a,0); break;
+    case 183:
+        if (s->objects.items[0].kind!=OBJECT_PIVOT || !s->objects.items[0].marks.counts[MARKS_LABEL] || a->request_id!=request) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/design-native-marks-roundtrip.dxls"); break;
+    case 184: workspace_job(a,JOB_LOAD,"tests/generated/design-native-marks-roundtrip.dxls"); break;
+    case 185:
+        if (!a->objects[0].page.column_count) return;
+        if (s->objects.items[0].marks.counts[MARKS_COLOR] || s->objects.items[0].marks.counts[MARKS_LABEL]!=1 || s->objects.items[0].marks.counts[MARKS_SIZE]!=1 || s->objects.items[0].marks.fields[MARKS_SIZE][0].aggregate!=AGG_SUM || a->objects[0].page.total!=30 || a->page.total!=240) goto failed;
+        request=a->request_id; author_cells=a->objects[0].page.cells; a->selected_object=0; a->pivot_focus=8; a->mark_role=MARKS_LABEL; a->author_reveal=true;
+        break;
+    case 186:
+        smoke_snapshot("tests/results/workspace-layout/native-marks-assigned-100.png");
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); a->author_reveal=true; break;
+    case 187:
+        if (!a->left_drawer || !a->author_marks[MARKS_LABEL].width || a->author_marks[MARKS_LABEL].x<0 || a->author_marks[MARKS_LABEL].x+a->author_marks[MARKS_LABEL].width>GetScreenWidth()) goto failed;
+        begin_marks(a,MARKS_LABEL,a->author_marks[MARKS_LABEL],false); break;
+    case 188:
+        smoke_snapshot("tests/results/workspace-layout/native-marks-menu-150-narrow.png"); break;
+    case 189:
+        if (a->modal!=MODAL_NONE || a->pivot_focus!=8 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->pivot_focus=8; a->mark_role=MARKS_SIZE; a->author_reveal=true; break;
+    case 190:
+        if (s->objects.items[0].marks.counts[MARKS_SIZE] || a->request_id!=request) goto failed;
+        history(a,false); break;
+    case 191:
+        if (s->objects.items[0].marks.counts[MARKS_SIZE]!=1 || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        puts("PASS: six native Marks targets, pointer field choices and queued field/measure drops, multi-field Color, single Size replacement, clear/Undo/Redo, representation retention, keyboard focus/cancel/removal, cached result/query identity, 150 percent narrow bounds and version-12 save/reopen"); break;
+
+    case 192: {
+        a->selected_object=0; request=a->request_id; author_cells=a->objects[0].page.cells;
+        MarkField account={.name="Account"}; if (!assign_mark_field(a,MARKS_COLOR,&account)) goto failed; break;
+    }
+    case 193:
+        if (!a->chart_encoding_valid || !a->chart_encoding.active[MARKS_COLOR] || !a->chart_encoding.active[MARKS_SIZE] || !a->chart_encoding.active[MARKS_LABEL] || !a->chart_encoding.active[MARKS_DETAIL] || a->chart_encoding.size_max<=0 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        break;
+    case 194: {
+        MarkField month={.name="Date",.grain=PIVOT_DATE_MONTH};
+        if (!assign_mark_field(a,MARKS_SHAPE,&month) || !set_representation(a,2)) goto failed; break;
+    }
+    case 195:
+        if (!a->chart_encoding_line || !a->chart_encoding.active[MARKS_SHAPE] || a->chart_encoding.shapes[0][0]==a->chart_encoding.shapes[0][1] || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-encoded-line.png"); break;
+    case 196: {
+        MarkField amount={.name="Amount (USD)",.measure=true,.aggregate=AGG_SUM},currency={.name="Currency"};
+        if (!assign_mark_field(a,MARKS_TOOLTIP,&amount) || !assign_mark_field(a,MARKS_TOOLTIP,&currency)) goto failed; break;
+    }
+    case 197: {
+        UIEncodingValue value=ui_encoding_value(&a->objects[0].page,&s->objects.items[0].pivot,&a->chart_view,a->chart_encoding.bindings[MARKS_TOOLTIP][0],0,0);
+        if (!value.available || value.approximate || !value.raw || a->chart_encoding.bindings[MARKS_TOOLTIP][1].kind!=UI_BIND_NONE || a->request_id!=request) goto failed;
+        set_chart_measure(a,1); break;
+    }
+    case 198:
+        if (a->chart_view.measure!=1 || !a->chart_encoding.active[MARKS_LABEL] || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-encoded-count-line.png"); set_representation(a,1); break;
+    case 199:
+        if (a->chart_encoding_line || a->chart_encoding.active[MARKS_SHAPE] || s->objects.items[0].marks.counts[MARKS_SHAPE]!=1 || a->request_id!=request) goto failed;
+        break;
+    case 200: {
+        MarkDefinition copy=marks_copy(&s->objects.items[0].marks); marks_remove(&copy,MARKS_TOOLTIP,1);
+        bool ok=set_marks(a,&copy); marks_free(&copy); if (!ok) goto failed; break;
+    }
+    case 201:
+        if (!a->chart_encoding.active[MARKS_TOOLTIP] || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/design-native-encoded.dxls"); break;
+    case 202: workspace_job(a,JOB_LOAD,"tests/generated/design-native-encoded.dxls"); break;
+    case 203:
+        if (!a->objects[0].page.column_count) return;
+        if (s->objects.items[0].chart_measure!=1 || s->objects.items[0].mark!=MARK_BAR || s->objects.items[0].marks.counts[MARKS_SHAPE]!=1 || s->objects.items[0].marks.counts[MARKS_TOOLTIP]!=1 || s->objects.items[0].marks.counts[MARKS_DETAIL]!=1 || a->objects[0].page.total!=30) goto failed;
+        a->selected_object=0; request=a->request_id; author_cells=a->objects[0].page.cells; set_representation(a,2); break;
+    case 204:
+        if (!a->chart_encoding.active[MARKS_SHAPE] || !a->chart_encoding.active[MARKS_COLOR] || !a->chart_encoding.active[MARKS_SIZE] || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->analysis_scroll=0; break;
+    case 205:
+        smoke_snapshot("tests/results/workspace-layout/native-encoded-line-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+    case 206: {
+        MarkDefinition empty={0}; if (!set_marks(a,&empty)) goto failed; break;
+    }
+    case 207:
+        for (int role=0;role<DX_MARK_ROLES;role++) if (a->chart_encoding.active[role]) goto failed;
+        if (a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        puts("PASS: cached Row-field colors, numeric bar/point sizes, typed label/detail/tooltip values, line shapes, retained inactive mappings, Plot independence, reactivation, no presentation SQL/result replacement and version-12 encoding persistence at 100/150 percent"); break;
+    case 208: {
+        Page *page=&a->objects[0].page; PivotTotals *totals=page->totals;
+        if (!totals || totals->rows.row_count!=30 || totals->rows.column_count!=2 || totals->columns.column_count!=8 || !totals->has_columns || strcmp(totals->rows.cells[0].text,"439144.80") || strcmp(totals->rows.cells[1].text,"19") || strcmp(totals->columns.cells[6].text,"-1288834.30") || strcmp(totals->columns.cells[7].text,"240")) goto failed;
+        request=a->request_id; author_cells=page->cells; a->matrix_horizontal=a->matrix_vertical=0; set_representation(a,0); break;
+    }
+    case 209:
+        if (a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-matrix-grand-total.png"); a->matrix_horizontal=10000; break;
+    case 210:
+        if (a->matrix_horizontal<=200 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-matrix-total-columns.png");
+        matrix_key(a,&s->objects.items[0],&a->objects[0].page,KEY_DOWN,false); break;
+    case 211:
+        if (a->matrix_cells_active || a->grid.anchor_row!=s->objects.items[0].row || a->grid.end_row!=s->objects.items[0].row+s->objects.items[0].rows-1 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        matrix_key(a,&s->objects.items[0],&a->objects[0].page,KEY_RIGHT,false); a->matrix_horizontal=10000; break;
+    case 212:
+        if (a->matrix_cells_active || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->analysis_scroll=500; break;
+    case 213:
+        smoke_snapshot("tests/results/workspace-layout/native-matrix-totals-narrow-150.png");
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->analysis_scroll=0; workspace_job(a,JOB_SAVE,"tests/generated/design-native-totals.dxls"); break;
+    case 214: workspace_job(a,JOB_LOAD,"tests/generated/design-native-totals.dxls"); break;
+    case 215:
+        if (!a->objects[0].page.column_count) return;
+        if (!a->objects[0].page.totals || strcmp(a->objects[0].page.totals->columns.cells[6].text,"-1288834.30") || a->objects[0].page.total!=30 || a->objects[0].page.column_count!=8) goto failed;
+        puts("PASS: source-derived row/category/grand totals, pinned native footer, horizontal Total columns, frame selection for aggregate readouts, presentation-only scrolling, 150 percent narrow layout and regenerated dxls totals"); break;
+    case 216:
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->selected_object=0; a->pipeline_width=280; a->pipeline_sql=false; present_pipeline(a,true,false); request=a->request_id; author_cells=a->objects[0].page.cells; ribbon_cells=a->page.cells; break;
+    case 217:
+        if (!a->pipeline_layout.valid || a->pipeline_layout.row_height!=55 || a->pipeline_row_count!=4 || strcmp(a->pipeline_rows[1].title,"Filter Status = Posted") || strcmp(a->pipeline_rows[2].title,"Filter Currency = USD") || a->request_id!=request) goto failed;
+        break;
+    case 218:
+        if (a->pipeline_focus_index!=1 || a->chrome_focus!=8 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-inspector-steps.png"); break;
+    case 219:
+        if (a->modal!=MODAL_STEP || a->step_menu_index!=1 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-inspector-step-menu.png"); break;
+    case 220:
+        if (a->modal!=MODAL_NONE || a->chrome_focus!=8 || a->pipeline_focus_index!=1 || a->request_id!=request) goto failed;
+        if (!pipeline_step_change(a,1,1,false)) goto failed; break;
+    case 221:
+        if (strcmp(a->pipeline_rows[1].title,"Filter Currency = USD") || a->pipeline_focus_index!=2 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        history(a,false); a->pipeline_focus_index=1; break;
+    case 222:
+        if (strcmp(a->pipeline_rows[1].title,"Filter Status = Posted") || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
+        break;
+    case 223:
+        if (a->modal!=MODAL_FILTER || a->field!=6 || a->filter_object!=-1 || a->objects[0].page.cells!=author_cells) goto failed;
+        break;
+    case 224:
+        if (a->modal!=MODAL_NONE || a->page.total!=240 || a->objects[0].page.cells!=author_cells) goto failed;
+        request=a->request_id; free(a->sql_text); a->sql_text=dx_strdup("Unrelated dialog SQL"); break;
+    case 225:
+        if (!a->pipeline_sql || !a->inspector_sql_text || !a->inspector_sql_lines.count || a->inspector_sql_lines.font_size!=12 || a->pipeline_extent!=280 || strcmp(a->sql_text,"Unrelated dialog SQL") || strstr(a->inspector_sql_text,"PIVOT") || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-inspector-sql.png"); break;
+    case 226:
+        if (!a->pipeline_sql || strcmp(GetClipboardText(),a->inspector_sql_text) || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        break;
+    case 227:
+        if (a->pipeline_sql || a->pipeline_focus_index!=1 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->chrome_focus=8; break;
+    case 228:
+        if (!a->pipeline_layout.valid || !a->pipeline_layout.compact || a->pipeline_layout.edit.x+a->pipeline_layout.edit.width>GetScreenWidth()+1 || a->pipeline_focus_index<a->step_scroll || a->pipeline_focus_index>=a->step_scroll+a->pipeline_visible_rows || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-inspector-steps-narrow-150.png"); break;
+    case 229:
+        if (a->pipeline_sql || a->chrome_focus!=8 || a->pipeline_focus_index!=1 || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
+        pipeline_show_sql(a); break;
+    case 230:
+        if (!a->pipeline_sql || !a->pipeline_layout.valid || a->pipeline_layout.copy.x+a->pipeline_layout.copy.width>GetScreenWidth()+1 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-inspector-sql-narrow-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); present_pipeline(a,false,false); break;
+    case 231:
+        if (a->pipeline || a->pipeline_extent>1 || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || strcmp(a->sql_text,"Unrelated dialog SQL")) goto failed;
+        puts("PASS: native study inspector rows/details/source, exact filter labels, step context menu/cancel, query-free filter reorder/Undo, real criteria editing, separately owned wrapped SQL and keyboard copy/Steps, retained source/result cache and 150 percent narrow actions"); break;
+    case 232:
+        a->selected_object=-1; grid_select_cell(&a->grid,500,30,false); a->chrome_focus=8; a->pivot_focus=0; a->pipeline_focus_index=0;
+        a->pipeline_sql=false; a->step_scroll=0; present_pipeline(a,true,false); a->pipeline_focus_index=0; preview_live_grid=a->grid; preview_live_history=s->undo_actions_count; preview_live_cells=s->cells.count;
+        ribbon_dirty=a->book.dirty; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; break;
+    case 233:
+        if (!a->step_preview.active) return;
+        if (!a->step_preview.active || a->step_preview.loading || a->step_preview.page.total!=310 || a->step_preview.page.column_count!=12 || a->step_preview.source.filter_column || a->page.total!=240 || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-step-preview.png"); request=a->request_id; break;
+    case 234:
+        if (a->step_preview.grid.row!=1 || a->step_preview.grid.col || a->chrome_focus || a->request_id!=request) goto failed; break;
+    case 235:
+        if (a->step_preview.grid.row!=2 || a->step_preview.grid.col!=2 || a->step_preview.grid.anchor_col!=1 || a->grid.row!=preview_live_grid.row || a->grid.col!=preview_live_grid.col || a->request_id!=request) goto failed;
+        grid_select_cell(&a->step_preview.grid,0,0,false); break;
+    case 236:
+        if (strcmp(GetClipboardText(),a->step_preview.page.cells[0].text) || a->page.cells!=ribbon_cells || a->grid.widths!=preview_live_grid.widths) goto failed; request=a->request_id; break;
+    case 237:
+        if (a->modal!=MODAL_NONE || !a->step_preview.active || s->cells.count!=preview_live_cells || s->undo_actions_count!=preview_live_history || a->book.dirty!=ribbon_dirty || a->request_id!=request) goto failed; break;
+    case 238:
+        if (a->modal!=MODAL_INSPECT || strcmp(a->inspector_text,a->step_preview.page.cells[0].text) || strcmp(a->inspector_column,"Date")) goto failed; break;
+    case 239:
+        if (a->modal!=MODAL_NONE || !a->step_preview.active) goto failed; break;
+    case 240:
+        if (a->step_preview.grid.selection!=SELECT_CELLS || a->step_preview.grid.end_row!=309 || a->step_preview.grid.end_col!=11 || a->grid.row!=500 || a->grid.col!=30) goto failed; break;
+    case 241:
+        if (!a->step_preview.active || s->cells.count!=preview_live_cells || s->undo_actions_count!=preview_live_history || a->book.dirty!=ribbon_dirty || a->request_id!=request) goto failed;
+        zoom_canvas(a,1.2f,(Vector2){a->step_preview.grid.body.x,a->step_preview.grid.body.y}); present_pipeline(a,false,false); a->chrome_focus=8; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
+    case 242: {
+        Grid *grid=&a->step_preview.grid; UIPreviewLayout layout=ui_preview_layout(grid->rect,1.5f);
+        if (fabsf(grid->zoom-1.2f)>.01f || a->grid.zoom!=preview_live_grid.zoom || !layout.valid || grid->rect.x || grid->rect.x+grid->rect.width>640 || grid->rect.y+grid->rect.height>640-22*1.5f+.1f || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-step-preview-narrow-150.png"); break;
+    }
+    case 243:
+        if (a->step_preview.active || a->page.total!=240 || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->grid.row!=preview_live_grid.row || a->grid.col!=preview_live_grid.col || a->grid.top!=preview_live_grid.top || a->grid.horizontal!=preview_live_grid.horizontal || a->book.dirty!=ribbon_dirty || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988); present_pipeline(a,true,false); a->pipeline_focus_index=1; a->chrome_focus=8; break;
+    case 244:
+        if (!a->step_preview.active) return;
+        if (!a->step_preview.active || a->step_preview.step!=1 || !a->step_preview.source.filter_column || a->step_preview.source.filter_count || a->step_preview.source.sort_column || a->step_preview.page.total<240 || a->step_preview.page.total>310) goto failed;
+        pipeline_edit_step(a,1); break;
+    case 245:
+        if (a->step_preview.active || a->modal!=MODAL_FILTER || a->field!=6 || a->page.cells!=ribbon_cells) goto failed; break;
+    case 246:
+        if (a->modal!=MODAL_NONE || a->step_preview.active || a->page.total!=240 || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->book.dirty!=ribbon_dirty || s->undo_actions_count!=preview_live_history) goto failed;
+        a->chrome_focus=8; a->pipeline_focus_index=0; break;
+    case 247:
+        if (!a->step_preview.active) return;
+        if (!a->step_preview.active || a->step_preview.page.total!=310) goto failed; break;
+    case 248:
+        if (a->step_preview.active || a->modal!=MODAL_NONE || a->page.cells!=ribbon_cells || a->grid.widths!=preview_live_grid.widths || a->grid.zoom!=preview_live_grid.zoom || s->cells.count!=preview_live_cells || a->book.dirty!=ribbon_dirty) goto failed;
+        present_pipeline(a,false,false); break;
+    case 249:
+        puts("PASS: real native historical step preview/Return, bounded source result, independent pointer/ordered keyboard selection, copy, read-only edit guards, cell inspection, finite Select All, 150 percent narrow banner, canvas-only zoom and unchanged live cache/history/dirty state"); break;
+    case 250:
+        if (getenv("DUXCEL_LAYOUT_FROM")) {
+            if (!a->objects[0].page.column_count) { a->selected_object=0; return; }
+            a->reduced_motion=true; a->pipeline=false; a->sidebar_width=228; a->pipeline_width=280;
+            ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; ribbon_dirty=a->book.dirty;
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"357")) { *step=357; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"400")) { *step=400; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"426")) { *step=426; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"458")) { *step=458; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"311")) { *step=311; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"474")) { *step=474; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"500")) { *step=500; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"510")) { *step=510; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"522")) { *step=522; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"540")) { *step=540; return; }
+        }
+        a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->statistics_enabled=true; a->statistics_mask=49;
+        grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=0; a->grid.horizontal=0; break;
+    case 251:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->modal!=MODAL_STATISTICS || !a->statistics_layout.valid || a->statistics_layout.panel.width!=244 || a->statistics_layout.panel.height!=312 || a->statistics.numeric!=4 || strcmp(a->statistics.sum,"-224.62") || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-statistics-popover.png"); request=a->request_id; preview_root_sum=a->statistics.sum; break;
+    case 252:
+        if (a->statistics_mask!=51 || a->statistics_focus!=1 || a->statistics.sum!=preview_root_sum || a->request_id!=request || a->book.dirty!=ribbon_dirty) goto failed; break;
+    case 253:
+        if (!strstr(GetClipboardText(),"Sum\t-224.62") || a->request_id!=request || a->statistics.sum!=preview_root_sum) goto failed; break;
+    case 254:
+        if (a->modal!=MODAL_NONE || a->statistics_mask!=51 || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); open_statistics(a); break;
+    case 255:
+        if (!a->statistics_layout.valid || a->statistics_layout.panel.width!=244*1.5f || a->statistics_layout.panel.x+a->statistics_layout.panel.width>640 || a->statistics_layout.panel.y+a->statistics_layout.panel.height>640 || a->statistics.sum!=preview_root_sum || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-statistics-popover-narrow-150.png"); break;
+    case 256:
+        if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+    case 257:
+        if (!step_preview_start(&a->step_preview,&a->analysis,0,0,a->analysis_revision,&a->grid)) goto failed;
+        step_preview_presentation(&a->step_preview,&a->page,&a->grid,&s->formats,0); schedule_step_preview(a); break;
+    case 258:
+        if (!a->step_preview.active || a->step_preview.page.total!=310 || format_at(&a->step_preview.formats,0,5).number!=FORMAT_ACCOUNTING || a->statistics.sum!=preview_root_sum || a->page.cells!=ribbon_cells) goto failed;
+        grid_select_cell(&a->step_preview.grid,5,5,false); a->step_preview.grid.end_row=8; break;
+    case 259:
+        if (a->step_preview.stats_state!=PREVIEW_STATS_READY) return;
+        if (a->modal!=MODAL_STATISTICS || a->step_preview.statistics.numeric!=4 || strcmp(a->step_preview.statistics.sum,"-224.62") || a->statistics.sum!=preview_root_sum || a->page.cells!=ribbon_cells || a->book.dirty!=ribbon_dirty) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-preview-statistics.png"); request=a->request_id; break;
+    case 260:
+        if (!strstr(GetClipboardText(),"Sum\t-224.62") || a->request_id!=request || a->statistics.sum!=preview_root_sum || !a->step_preview.active) goto failed; break;
+    case 261:
+        if (a->modal!=MODAL_NONE || !a->step_preview.active || a->request_id!=request) goto failed; break;
+    case 262:
+        if (a->step_preview.active || a->modal!=MODAL_NONE || a->statistics.sum!=preview_root_sum || a->page.cells!=ribbon_cells || a->book.dirty!=ribbon_dirty || a->request_id!=request) goto failed; break;
+    case 263:
+        puts("PASS: exact compact native statistics popover, whole-row pointer checkboxes, keyboard Done/copy/cancel, bounded 150 percent layout, real preview selection aggregates, whole-column accounting and preserved current-result statistics/cache/history"); a->statistics_enabled=false; break;
+    case 264:
+        a->ribbon_tab=RIBBON_DATA; present_pipeline(a,true,false); run_action(a,ACTION_GUIDE); request=a->request_id; break;
+    case 265:
+        if (a->modal!=MODAL_GUIDE || !a->guide.layout.valid || a->guide.layout.panel.width!=520 || a->guide.layout.header.height!=36 || a->guide.layout.names[0].x+90>a->guide.layout.descriptions[0].x || a->guide.scroll || a->guide.focus || a->page.cells!=ribbon_cells || a->book.dirty!=ribbon_dirty || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-guide.png"); break;
+    case 266:
+        if (a->guide.focus!=1 || a->guide.scroll || a->modal!=MODAL_GUIDE || a->request_id!=request) goto failed; break;
+    case 267:
+        if (a->modal!=MODAL_NONE || !a->guide_button_focus || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed; break;
+    case 268:
+        if (a->modal!=MODAL_GUIDE || a->guide.focus || a->guide_button_focus || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
+    case 269:
+        if (!a->guide.layout.valid || a->guide.layout.panel.x<0 || a->guide.layout.panel.y<0 || a->guide.layout.panel.x+a->guide.layout.panel.width>640 || a->guide.layout.panel.y+a->guide.layout.panel.height>640 || a->guide.layout.content_height<=a->guide.layout.panel.height/1.5f || a->guide.scroll || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-guide-narrow-150.png"); break;
+    case 270:
+        if (a->guide.focus!=1 || a->guide.scroll<=0 || a->guide.layout.start.y+a->guide.layout.start.height-a->guide.scroll*1.5f>a->guide.layout.clip.y+a->guide.layout.clip.height+.1f || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-guide-narrow-footer-150.png"); break;
+    case 271:
+        if (a->guide.focus || a->guide.scroll>8 || a->request_id!=request) goto failed; break;
+    case 272:
+        if (a->modal!=MODAL_NONE || !a->guide_button_focus || a->request_id!=request || a->book.dirty!=ribbon_dirty) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+    case 273:
+        if (a->guide_button_focus || a->chrome_focus!=2 || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed; break;
+    case 274:
+        present_pipeline(a,false,false); a->chrome_focus=0; break;
+    case 275:
+        puts("PASS: native study guide layout, paired wrapped descriptions, six shortcut rows, cached line ownership, keyboard close/reopen without opening-key leakage, narrow 150 percent scrolling and focus recovery without SQL/cache/dirty changes"); break;
+    case 276:
+        preview_live_grid=a->grid; preview_live_history=s->undo_actions_count; ribbon_dirty=a->book.dirty; request=a->request_id;
+        begin_scale_menu(a,(Vector2){GetScreenWidth()-212*a->ui.scale,GetScreenHeight()}); break;
+    case 277: {
+        UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,4,-1);
+        if (a->modal!=MODAL_INTERFACE_SCALE || a->context_focus!=3 || menu.panel.width!=240 || menu.panel.height!=152 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-interface-scale-menu.png"); break;
+    }
+    case 278:
+        if (a->modal!=MODAL_NONE || a->ui.scale!=1.5f || a->grid.zoom!=preview_live_grid.zoom || a->page.cells!=ribbon_cells || a->request_id!=request || s->undo_actions_count!=preview_live_history) goto failed;
+        SetWindowSize(640,640); begin_scale_menu(a,(Vector2){640-212*1.5f,640}); break;
+    case 279: {
+        UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){640,640},a->ui.scale,4,-1);
+        if (!menu.valid || menu.panel.width!=360 || menu.panel.x<0 || menu.panel.y<0 || menu.panel.x+menu.panel.width>640 || menu.panel.y+menu.panel.height>640) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-interface-scale-menu-narrow-150.png"); break;
+    }
+    case 280:
+        if (a->modal!=MODAL_NONE || a->ui.scale!=1 || a->grid.zoom!=preview_live_grid.zoom || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        SetWindowSize(1440,988); a->ribbon_tab=RIBBON_VIEW; invoke_command(a,ui_ribbon_action_index(RIBBON_VIEW,ACTION_DENSITY)); break;
+    case 281:
+        if (a->modal!=MODAL_DENSITY || a->context_focus || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-row-density-menu.png"); break;
+    case 282:
+        if (a->modal!=MODAL_NONE || a->grid.row_height!=28 || a->request_id!=request || a->grid.zoom!=preview_live_grid.zoom || a->page.cells!=ribbon_cells) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->context_origin=(Vector2){600,600}; run_action(a,ACTION_DENSITY); break;
+    case 283:
+        if (a->modal!=MODAL_DENSITY || a->ui.scale!=1.5f || a->grid.row_height!=28) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-row-density-menu-narrow-150.png"); break;
+    case 284:
+        if (a->modal!=MODAL_NONE || a->grid.row_height!=22 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->grid.row_height=preview_live_grid.row_height; a->ribbon_tab=RIBBON_HOME; a->modal=MODAL_RIBBON; a->ribbon_menu_focus=0; break;
+    case 285:
+        if (a->modal!=MODAL_RIBBON || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-ribbon-display-menu.png"); break;
+    case 286:
+        if (a->modal!=MODAL_NONE || a->ribbon_mode!=1 || a->request_id!=request || a->grid.zoom!=preview_live_grid.zoom) goto failed;
+        a->modal=MODAL_RIBBON; a->ribbon_menu_focus=1; break;
+    case 287:
+        if (a->modal!=MODAL_NONE || a->ribbon_mode!=1 || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
+        begin_scale_menu(a,(Vector2){GetScreenWidth()-212,GetScreenHeight()}); break;
+    case 288:
+        if (a->modal!=MODAL_NONE || a->ui.scale!=1 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        set_ribbon_mode(a,0); a->book.dirty=ribbon_dirty; a->chrome_focus=0; break;
+    case 289:
+        if (a->modal!=MODAL_NONE || a->ui.scale!=1 || a->grid.zoom!=preview_live_grid.zoom || a->page.cells!=ribbon_cells || a->request_id!=request || s->undo_actions_count!=preview_live_history) goto failed;
+        puts("PASS: exact native Interface scale, Row density and Ribbon display anchored menus, checkmarks/separator, ordered keyboard and pointer choices, cancellation/outside queued clicks, 150 percent narrow geometry and independent canvas zoom without SQL/result/history changes"); break;
+    case 290:
+        a->selected_object=-1; a->pivot_focus=1; a->pivot_search_focus=false; a->pivot_field=5; a->field_navigation=0; a->field_reveal_requested=true;
+        a->chrome_focus=0; a->ribbon_focus=false; a->statistics_enabled=false; grid_select_cell(&a->grid,0,0,false); request=a->request_id; break;
+    case 291:
+        if (a->pivot_focus || a->chrome_focus || a->ribbon_focus || a->pivot_search_focus || a->grid.anchor_row!=5 || a->grid.end_row!=8 || a->grid.anchor_col!=5 || a->grid.end_col!=5 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        open_statistics(a); break;
+    case 292:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->modal!=MODAL_STATISTICS || a->statistics.numeric!=4 || strcmp(a->statistics.sum,"-224.62") || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-source-field-to-range-statistics.png"); break;
+    case 293:
+        if (a->modal!=MODAL_NONE || a->grid.anchor_row!=5 || a->grid.end_row!=8 || a->grid.anchor_col!=5 || a->grid.end_col!=5 || a->page.cells!=ribbon_cells) goto failed;
+        puts("PASS: completed source range drag immediately after Fields navigation transfers keyboard focus, preserves the live cache, selects four real Amount cells and calculates the actual filtered sum"); break;
+    case 294:
+        flyout_format=active_format(a); preview_live_history=s->undo_actions_count; ribbon_dirty=a->book.dirty; request=a->request_id;
+        a->ribbon_tab=RIBBON_HOME; a->ribbon_focus=false; open_command_group(a,1,0); break;
+    case 295:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=1 || a->ribbon_popup_focus!=1 || !a->ribbon_flyout.valid || a->ribbon_flyout.panel.width!=280 || a->ribbon_flyout.panel.height!=125 || a->ribbon_flyout.commands[4].width!=53 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-font-group-flyout.png"); break;
+    case 296:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=1 || active_format(a).flags!=(flyout_format.flags^FORMAT_BOLD) || a->request_id!=request || s->undo_actions_count!=preview_live_history+1) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-font-group-bold.png"); break;
+    case 297:
+        if (a->modal!=MODAL_FORMAT || a->format_return_group!=1 || a->format_return_command!=4 || a->request_id!=request) goto failed; break;
+    case 298:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=1 || active_format(a).size!=16 || s->undo_actions_count!=preview_live_history+2 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-font-group-size.png"); break;
+    case 299:
+        if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->ribbon_command!=4 || a->request_id!=request) goto failed;
+        history(a,false); history(a,false);
+        if (active_format(a).size!=flyout_format.size || active_format(a).flags!=flyout_format.flags || s->undo_actions_count!=preview_live_history || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); open_command_group(a,3,0); break;
+    case 300:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=3 || a->ribbon_flyout.panel.width!=420 || a->ribbon_flyout.panel.height!=187.5f || a->ribbon_flyout.panel.x<0 || a->ribbon_flyout.panel.y+a->ribbon_flyout.panel.height>640 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-number-group-narrow-150.png"); break;
+    case 301:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=3 || active_format(a).decimals!=flyout_format.decimals+1 || a->request_id!=request || s->undo_actions_count!=preview_live_history+1) goto failed; break;
+    case 302:
+        if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->request_id!=request) goto failed;
+        history(a,false); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->book.dirty=ribbon_dirty; break;
+    case 303:
+        if (active_format(a).size!=flyout_format.size || active_format(a).flags!=flyout_format.flags || active_format(a).decimals!=flyout_format.decimals || s->undo_actions_count!=preview_live_history || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
+        open_command_group(a,4,0); break;
+    case 304:
+        if (!a->ribbon_flyout.valid || a->ribbon_flyout.panel.width!=280 || a->ribbon_flyout.panel.height!=122 || a->ribbon_flyout.commands[19].x+a->ribbon_flyout.commands[19].width>a->ribbon_flyout.commands[20].x || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-data-group-flyout.png"); close_command_group(a);
+        puts("PASS: exact spatial native ribbon group flyouts, Font/Number selectors and icon tools, disabled-label keyboard skipping, retained formatting toggles, nested size picker returning to its group, pointer input/Undo and bounded 150 percent geometry without source SQL/cache changes"); break;
+    case 305:
+        a->ribbon_focus=false; a->selected_object=-1; a->sidebar=a->fields_visible=true; a->workbook_collapsed=a->fields_collapsed=false;
+        a->sidebar_width=228; a->pivot_field_scroll=0; input_set(&a->pivot_search,""); a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=false;
+        request=a->request_id; preview_live_grid=a->grid; break;
+    case 306:
+        if (a->workspace.context.y!=137 || a->workbook_list.x!=6 || a->workbook_list.y!=166 || a->workbook_list.width!=215 || a->workbook_list.height!=115 || a->field_list.x!=6 || a->field_list.y!=379 || a->field_list.width!=215 || a->field_footer.y!=923 || a->field_footer.height!=43 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-fields-footer.png"); break;
+    case 307:
+        if (a->modal!=MODAL_FIELD_NAV || a->pivot_field!=5 || a->grid.anchor_row!=preview_live_grid.anchor_row || a->grid.end_row!=preview_live_grid.end_row || a->grid.anchor_col!=preview_live_grid.anchor_col || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-field-more-menu.png"); break;
+    case 308:
+        if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); break;
+    case 309:
+        if (!a->workspace.left_overlay || a->field_footer.height || a->field_visible<1 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-fields-narrow-actions-150.png"); break;
+    case 310:
+        close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
+        puts("PASS: measured 29-unit Workbook/Fields headers, 28-unit sheets with one-unit gaps, 26-unit search and 24-unit field rows, wide two-line footer, visible field actions preserving source selection, and recoverable narrow 150 percent navigation without SQL/cache changes"); break;
+    case 311:
+        a->selected_object=0; a->pivot_focus=1; a->pivot_field=0; a->pivot_search_focus=false; a->author_reveal=true;
+        a->dock_scroll[1]=0; a->author_scroll=0; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a);
+        request=a->request_id; author_cells=a->objects[0].page.cells; break;
+    case 312:
+        if (!a->dock_layout.valid || !a->dock_layout.compact || a->dock_layout.content.height<555*1.5f || a->dock_layout.maximum<=0 || a->field_footer.height || a->workbook_list.height!=84*1.5f || a->field_visible<4 || a->request_id!=request || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-scroll-dock-fields-150.png");
+        a->pivot_focus=8; a->mark_role=MARKS_SHAPE; a->author_reveal=true; break;
+    case 313: {
+        Rectangle target=a->author_marks[MARKS_SHAPE],viewport=a->dock_layout.viewport;
+        if (a->dock_scroll[1]<=0 || target.y<viewport.y-.1f || target.y+target.height>viewport.y+viewport.height+.1f || a->request_id!=request || a->ui.scissor_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-scroll-dock-marks-150.png"); break;
+    }
+    case 314:
+        if (fabsf(a->dock_scroll[1]-a->dock_layout.maximum)>.05f || a->request_id!=request) goto failed;
+        a->pivot_focus=5; a->author_reveal=true; break;
+    case 315: {
+        Rectangle target=a->pivot_shelves[PIVOT_FILTERS],viewport=a->dock_layout.viewport;
+        if (target.y<viewport.y-.1f || target.y+target.height>viewport.y+viewport.height+.1f || a->request_id!=request || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-scroll-dock-filters-150.png");
+        a->pivot_focus=1; a->pivot_search_focus=false; a->pivot_field=0; break;
+    }
+    case 316: {
+        Rectangle viewport=a->dock_layout.viewport; float row=a->field_list.y;
+        if (row<viewport.y-.1f || row+24*1.5f>viewport.y+viewport.height+.1f || a->request_id!=request) goto failed; break;
+    }
+    case 317: {
+        Rectangle viewport=a->dock_layout.viewport; float search=a->field_list.y-31*1.5f;
+        if (!a->pivot_search_focus || search<viewport.y-.1f || search+26*1.5f>viewport.y+viewport.height+.1f || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-scroll-dock-search-150.png"); break;
+    }
+    case 318:
+        a->pivot_search_focus=false; close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->pivot_focus=0; break;
+    case 319:
+        if (a->ui.scissor_depth || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        puts("PASS: bounded whole-dock scrolling at 640/150 percent, unclipped three-sheet navigator, minimum Fields and complete Measures/Marks/Filters, actual parent scrollbar drag, keyboard field/search/mark/filter reveal, nested GPU/input clipping ownership and unchanged source/result/query state"); break;
+    case 320:
+        a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=a->ribbon_focus=false;
+        a->statistics_enabled=true; a->statistics_mask=49; grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; statistics_line(a); break;
+    case 321:
+        if (a->statistics_state!=STATS_READY) return;
+        if (!a->status_layout.valid || a->status_layout.zoom.width!=92 || a->status_layout.zoom.height!=19 || a->status_layout.customize.width!=23 || a->status_layout.panel.y!=966 || !strstr(a->statistics_line,"Count: 4") || !strstr(a->statistics_line,"Sum: (224.62)") || !strstr(a->statistics_line,"Avg: (56.16)") || a->status_metric_labels.count!=3 || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-status-numbers.png"); request=a->request_id; preview_root_sum=a->statistics.sum;
+        zoom_canvas(a,1.1f,(Vector2){a->grid.body.x,a->grid.body.y}); break;
+    case 322:
+        if (a->grid.zoom!=1 || a->ui.scale!=1 || a->request_id!=request || a->statistics.sum!=preview_root_sum) goto failed;
+        a->chrome_focus=10; a->status_focus=0; break;
+    case 323:
+        if (a->status_focus!=3 || a->request_id!=request) goto failed; break;
+    case 324:
+        if (a->status_focus!=1 || a->request_id!=request) goto failed;
+        zoom_canvas(a,1.1f,(Vector2){a->grid.body.x,a->grid.body.y}); break;
+    case 325:
+        if (a->status_focus!=4 || fabsf(a->grid.zoom-1.1f)>.001f || a->request_id!=request) goto failed; break;
+    case 326:
+        if (a->grid.zoom!=1 || a->request_id!=request || a->statistics.sum!=preview_root_sum) goto failed; break;
+    case 327:
+        ribbon_dirty=a->book.dirty; a->book.dirty=false; a->status_focus=3; status_activate(a); break;
+    case 328:
+        if (a->modal!=MODAL_NONE || a->ui.scale!=1.5f || a->grid.zoom!=1 || a->book.dirty || a->request_id!=request || a->statistics.sum!=preview_root_sum) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-status-150.png"); break;
+    case 329:
+        ui_set_scale(&a->ui,1); a->book.dirty=ribbon_dirty; a->chrome_focus=0; preview_live_grid=a->grid; status(a,"Selection copied"); break;
+    case 330:
+        if (a->toast_rect.width<=0 || a->toast_rect.height!=35 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-action-toast.png"); break;
+    case 331:
+        if (a->grid.anchor_row!=preview_live_grid.anchor_row || a->grid.end_row!=preview_live_grid.end_row || a->grid.anchor_col!=preview_live_grid.anchor_col || a->grid.end_col!=preview_live_grid.end_col || a->request_id!=request || a->statistics.sum!=preview_root_sum) goto failed;
+        a->message_since=dx_millis()-4000; break;
+    case 332:
+        if (a->toast_rect.width || a->request_id!=request) goto failed; break;
+    case 333: {
+        int state=a->statistics_state; char raw[256],display[512]; a->statistics_state=STATS_WAITING;
+        if (strcmp(statistics_display_value(a,4,raw,display),"Calculating…")) goto failed;
+        a->statistics_state=state; uint64_t filled=a->statistics.filled; a->statistics.filled=10000;
+        if (strcmp(statistics_display_value(a,1,raw,display),"10,000")) goto failed;
+        a->statistics.filled=filled; break;
+    }
+    case 334:
+        if (a->request_id!=request || a->statistics.sum!=preview_root_sum || a->page.cells!=ribbon_cells || a->ui.scissor_depth) goto failed;
+        puts("PASS: measured native status bar with complete 12-unit Count/Sum/Avg labels, actual Accounting display, cached layout, segmented zoom/reset pointer and keyboard focus, separate non-dirty interface scale, transient wrapped toast input ownership, and no stale formatted aggregates while calculating or presentation SQL"); break;
+    case 335:
+        preview_live_grid=a->grid; request=a->request_id; begin_field_menu(a,5,(Vector2){202,521}); break;
+    case 336: {
+        UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,9,3);
+        if (a->modal!=MODAL_FIELD_NAV || !menu.valid || menu.panel.width!=240 || menu.panel.height!=301 || menu.rows[3].y-menu.rows[2].y!=37 || a->grid.anchor_row!=preview_live_grid.anchor_row || a->grid.end_row!=preview_live_grid.end_row || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-field-menu.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
+    }
+    case 337: {
+        UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,9,3);
+        if (!menu.valid || menu.panel.width!=360 || menu.panel.y+menu.panel.height>640 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-field-menu-150.png"); break;
+    }
+    case 338:
+        if (a->modal!=MODAL_NONE || a->request_id!=request || a->grid.anchor_row!=preview_live_grid.anchor_row || a->grid.end_row!=preview_live_grid.end_row) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+    case 339:
+        field_actions_count=s->objects.count; field_detail_count=s->objects.items[0].marks.counts[MARKS_DETAIL]; author_cells=a->objects[0].page.cells;
+        request=a->request_id; begin_field_menu(a,5,(Vector2){202,521}); break;
+    case 340:
+        if (a->modal!=MODAL_NONE || a->selected_object!=0 || s->objects.count!=field_actions_count || s->objects.items[0].marks.counts[MARKS_DETAIL]!=field_detail_count+1 || strcmp(s->objects.items[0].marks.fields[MARKS_DETAIL][field_detail_count].name,"Amount (USD)") || a->objects[0].page.cells!=author_cells || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        history(a,false); break;
+    case 341:
+        if (s->objects.items[0].marks.counts[MARKS_DETAIL]!=field_detail_count || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        a->selected_object=-1; begin_field_menu(a,9,(Vector2){202,521}); break;
+    case 342:
+        if (a->modal!=MODAL_NONE || a->selected_object!=0 || s->objects.count!=field_actions_count) goto failed; break;
+    case 343:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_ROWS]!=3 || strcmp(s->objects.items[0].pivot.fields[PIVOT_ROWS][2].name,"Region") || !strstr(a->objects[0].page.sql,"PIVOT") || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-field-add-rows.png"); history(a,false); break;
+    case 344:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_ROWS]!=2 || a->page.cells!=ribbon_cells) goto failed;
+        begin_field_menu(a,9,(Vector2){202,521}); break;
+    case 345:
+        if (a->modal!=MODAL_NONE || a->selected_object!=0) goto failed; break;
+    case 346:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_COLUMNS]!=4 || strcmp(s->objects.items[0].pivot.fields[PIVOT_COLUMNS][3].name,"Region") || !strstr(a->objects[0].page.sql,"PIVOT") || a->page.cells!=ribbon_cells) goto failed;
+        history(a,false); break;
+    case 347:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_COLUMNS]!=3) goto failed;
+        request=a->request_id; author_cells=a->objects[0].page.cells; field_actions_count=s->undo_actions_count; begin_field_menu(a,5,(Vector2){202,521}); break;
+    case 348:
+        if (a->modal!=MODAL_NONE || s->objects.items[0].pivot.counts[PIVOT_VALUES]!=2 || a->request_id!=request || a->objects[0].page.cells!=author_cells || s->undo_actions_count!=field_actions_count) goto failed;
+        begin_field_menu(a,6,(Vector2){202,521}); break;
+    case 349:
+        if (a->modal!=MODAL_FILTER || a->filter_object!=0 || a->field!=6 || a->filter_pill!=-1 || s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=0) goto failed; break;
+    case 350: {
+        DistinctPage *values=cached_values(a,0); if (!values) return;
+        if (a->modal!=MODAL_FILTER || !values->count || a->page.cells!=ribbon_cells || strcmp(values->values[0].label,"Posted")) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-field-view-filter.png"); close_filter(a); break;
+    }
+    case 351:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_FILTERS]) goto failed;
+        request=a->request_id; begin_field_menu(a,0,(Vector2){202,521}); break;
+    case 352:
+        if (a->modal!=MODAL_NONE || a->selected_object!=-1 || a->grid.selection!=SELECT_COLUMNS || a->grid.col || a->page.cells!=ribbon_cells) goto failed;
+        if (a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return;
+        request=a->request_id;
+        a->pivot_focus=a->chrome_focus=0; field_color_count=s->objects.items[0].marks.counts[MARKS_COLOR]; author_cells=a->objects[0].page.cells;
+        begin_field_menu(a,11,(Vector2){202,521}); break;
+    case 353:
+        if (a->modal!=MODAL_NONE || a->selected_object!=0 || s->objects.items[0].marks.counts[MARKS_COLOR]!=field_color_count+1 || strcmp(s->objects.items[0].marks.fields[MARKS_COLOR][field_color_count].name,"Memo") || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        history(a,false); break;
+    case 354:
+        if (s->objects.items[0].marks.counts[MARKS_COLOR]!=field_color_count || a->request_id!=request || a->objects[0].page.cells!=author_cells || a->page.cells!=ribbon_cells) goto failed;
+        begin_field_menu(a,5,(Vector2){202,521}); break;
+    case 355:
+        if (a->modal!=MODAL_NONE || a->request_id!=request || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth) goto failed; break;
+    case 356:
+        puts("PASS: exact nine-action native field menu at 100/150 percent, pointer/ordered keyboard and outside dismissal, existing-source pivot activation, real Rows/Columns PIVOT queries with Undo, duplicate measure no-op, scoped distinct view filter, Color/Detail presentation bindings, source-column selection and unchanged source cache"); break;
+    case 357:
+        a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=false; grid_select_cell(&a->grid,5,5,false);
+        a->sidebar=a->fields_visible=true; a->pipeline=false; a->reduced_motion=true; a->sidebar_width=228; pane_motion_evidence=0; break;
+    case 358:
+        if (a->left_extent!=228 || a->workspace.canvas.x!=228 || a->dock_layout.content.width!=228) goto failed;
+        request=a->request_id; a->reduced_motion=false; a->sidebar=a->fields_visible=false; break;
+    case 359:
+        if (!(pane_motion_evidence&1) || a->left_extent || a->workspace.canvas.x || a->request_id!=request || a->ui.scissor_depth || a->page.cells!=ribbon_cells) goto failed;
+        a->sidebar=a->fields_visible=true; break;
+    case 360:
+        if (!(pane_motion_evidence&2) || a->left_extent!=228 || a->workspace.canvas.x!=228 || a->request_id!=request || a->dock_layout.content.width!=228) goto failed;
+        a->split_side=true; a->sidebar_width=260; break;
+    case 361:
+        if (a->left_extent!=260 || a->workspace.canvas.x!=260 || a->request_id!=request) goto failed;
+        a->split_side=false; a->sidebar_width=228; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); break;
+    case 362:
+        if (!a->workspace.left_overlay || a->workspace.canvas.x || a->left_extent!=228 || a->dock_layout.content.width!=(a->dock_layout.maximum>0 ? 328.5f : 342) || a->request_id!=request || a->ui.scissor_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-motion-overlay-150.png"); close_workspace(a); break;
+    case 363:
+        if (a->left_extent || a->left_drawer || !a->sidebar || !a->fields_visible || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988); present_pipeline(a,true,false); break;
+    case 364:
+        if (!(pane_motion_evidence&4) || a->pipeline_extent!=280 || a->pipeline_layout.footer.width!=280 || a->request_id!=request || a->ui.scissor_depth) goto failed;
+        present_pipeline(a,false,false); break;
+    case 365:
+        if (!(pane_motion_evidence&8) || a->pipeline_extent || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=false; break;
+    case 366:
+        if (a->left_extent || a->workspace.canvas.x || a->request_id!=request) goto failed;
+        a->sidebar=a->fields_visible=true; break;
+    case 367:
+        if (a->left_extent!=228 || a->workspace.canvas.x!=228 || a->request_id!=request || a->ui.scissor_depth || a->page.cells!=ribbon_cells) goto failed;
+        puts("PASS: finite native left/right pane width motion, stable full-width inner controls with 10/12-unit content translations and nested clipping, intermediate opening/closing frames, immediate resizing, reduced-motion snap and recoverable narrow overlay without source queries"); break;
+    case 368:
+        request=a->request_id; a->diagnostics=true; a->workbook_collapsed=false; a->reduced_motion=true; break;
+    case 369:
+        if (!strstr(a->status_metrics_source,"Frame") || !strstr(a->status_metrics_source,"Cache") || a->request_id!=request || a->workbook_open!=1) goto failed;
+        a->diagnostics=false; a->reduced_motion=false; a->workbook_collapsed=true; break;
+    case 370:
+        if (!(pane_motion_evidence&16) || a->workbook_open || a->workbook_list.height || a->workbook_visible_rows || a->field_list.y!=234 || a->request_id!=request || a->ui.scissor_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-workbook-collapsed.png"); a->workbook_collapsed=false; break;
+    case 371:
+        if (!(pane_motion_evidence&32) || a->workbook_open!=1 || a->field_list.y!=379 || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); break;
+    case 372:
+        if (!a->workspace.left_overlay || a->workbook_open!=1 || a->request_id!=request) goto failed;
+        field_actions_count=a->book.count; workbook_new_target=box(a->workbook_list.x,a->workbook_list.y+a->workbook_list.height+4*a->ui.scale,a->workbook_list.width,26*a->ui.scale);
+        a->workbook_collapsed=true; break;
+    case 373:
+        if (a->book.count!=field_actions_count || a->pending_new_sheet || a->workbook_open || a->fields_collapsed || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        a->workbook_collapsed=false; a->reduced_motion=true; a->pivot_search_focus=false; a->pivot_focus=a->chrome_focus=0;
+        close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+    case 374:
+        if (a->workbook_open!=1 || a->workbook_motion.elapsed || a->field_list.y!=379 || a->request_id!=request) goto failed; break;
+    case 375:
+        if (!a->diagnostics || !strstr(a->status_metrics_source,"Cache") || a->request_id!=request) goto failed; break;
+    case 376:
+        if (a->diagnostics || a->request_id!=request) goto failed;
+        a->reduced_motion=false; a->workbook_collapsed=true; break;
+    case 377:
+        if (!(pane_motion_evidence&64) || a->workbook_collapsed || a->workbook_open!=1 || a->request_id!=request || a->ui.scissor_depth || a->page.cells!=ribbon_cells) goto failed; break;
+    case 378:
+        a->reduced_motion=true;
+        puts("PASS: finite Workbook body collapse/reopen, consistent Fields/parent-scroll geometry, inert clipped content at 150 percent, interrupted transition recovery, reduced-motion snap and restored F12 diagnostics without source queries or cache changes"); break;
+    case 379: {
+        a->selected_object=0; a->ribbon_tab=RIBBON_HOME; a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=false;
+        SheetObject *object=selected_pivot(a); grid_select_cell(&a->grid,object->row,object->col,false);
+        a->grid.end_row=object->row+object->rows-1; a->grid.end_col=object->col+object->columns-1;
+        a->matrix_cells_active=false; a->pivot_reveal_object=true;
+        present_pipeline(a,true,false); a->chrome_focus=0; break;
+    }
+    case 380:
+        if (!object_ready(a,0)) return;
+        if (a->pivot_contents[PIVOT_COLUMNS].x!=329 || a->pivot_contents[PIVOT_ROWS].x!=329 || fabsf(a->pivot_token_widths[PIVOT_ROWS][0]-(ui_measure(&a->ui,"Account",11)+52))>.001f || a->ui.pointer_blocked || a->ui.scissor_depth) goto failed;
+        request=a->request_id; author_cells=a->objects[0].page.cells; smoke_snapshot("tests/results/workspace-layout/native-matched-shelves-100.png");
+        field_actions_count=a->message_revision; begin_field_menu(a,5,(Vector2){202,521}); break;
+    case 381:
+        if (a->modal!=MODAL_FIELD_NAV || !action_available(a,ACTION_COPY) || action_available(a,ACTION_CUT) || action_enabled(a,ACTION_COPY) || !a->ui.pointer_blocked || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-modal-ribbon-paint.png"); break;
+    case 382:
+        if (a->modal!=MODAL_NONE || a->message_revision!=field_actions_count || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        SetWindowSize(1280,820); break;
+    case 383:
+        if (a->workbook_visible_rows!=4 || a->workbook_stride!=21.25f || a->workbook_row_height!=20.25f || a->workbook_list.height!=84 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-matched-1280.png");
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); break;
+    case 384:
+        if (!a->workspace.left_overlay || a->workbook_visible_rows!=4 || a->workbook_stride!=21.25f || a->workbook_row_height!=20.25f || a->pivot_contents[PIVOT_COLUMNS].x!=126 || a->request_id!=request || a->ui.scissor_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-matched-compact-150.png");
+        close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+    case 385:
+        if (a->request_id!=request || a->objects[0].page.cells!=author_cells || a->page.cells!=ribbon_cells || a->ui.pointer_blocked || a->ui.scissor_depth) goto failed; break;
+    case 386:
+        for (int c=0;c<ribbon_counts[a->ribbon_tab];c++) if (ribbon_commands[a->ribbon_tab][c].action==ACTION_TRANSFORM && command_active(a,c)) goto failed;
+        if (a->request_id!=request) goto failed; break;
+    case 387:
+        puts("PASS: actual reference 20.25-unit four-sheet compact navigator, bounded overflow rows, measured 52-unit token anatomy, narrow shelf alignment, correct dashed Add targets, modal ribbon appearance with guarded input/outside dismissal, scaled outlines and unchanged source/result/query identity"); break;
+    case 388:
+        a->reduced_motion=true; preview_to_source(a,5,5); present_pipeline(a,false,false); a->chrome_focus=0;
+        a->sidebar=a->fields_visible=true; a->workbook_collapsed=false; break;
+    case 389:
+        request=a->request_id; a->ui.paint_peak_depth=0; a->reduced_motion=false; a->workbook_collapsed=true; break;
+    case 390:
+        if (!(pane_motion_evidence&128) || a->left_extent || a->ui.paint_peak_depth<2 || !a->ui.paint_bytes || a->ui.paint_bytes>UI_PAINT_TOTAL_BYTES || a->ui.paint_fallbacks || a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer() || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed; break;
+    case 391:
+        a->sidebar=a->fields_visible=true; a->workbook_collapsed=false; break;
+    case 392:
+        if (a->left_extent!=228 || a->left_alpha!=1 || a->workbook_alpha!=1 || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || a->request_id!=request) goto failed;
+        present_pipeline(a,true,false); break;
+    case 393:
+        if (a->pipeline_extent!=280 || a->pipeline_alpha!=1 || a->ui.paint_depth || a->ui.scissor_depth || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-composited-panes-100.png"); break;
+    case 394:
+        present_pipeline(a,false,false); break;
+    case 395:
+        if (a->pipeline_extent || a->pipeline_alpha || a->ui.paint_fallbacks || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); break;
+    case 396:
+        if (!a->workspace.left_overlay || a->left_extent!=228 || a->ui.paint_depth || a->ui.scissor_depth || a->request_id!=request) goto failed;
+        close_workspace(a); break;
+    case 397:
+        if (a->left_extent || a->left_alpha || a->ui.paint_fallbacks || a->request_id!=request) goto failed;
+        show_workspace(a); break;
+    case 398:
+        if (!a->workspace.left_overlay || a->left_extent!=228 || a->left_alpha!=1 || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-composited-overlay-150.png"); paint_allocations=a->ui.paint_allocations; paint_bytes=a->ui.paint_bytes;
+        a->reduced_motion=true; ui_set_scale(&a->ui,1); SetWindowSize(1440,988); close_workspace(a); break;
+    case 399:
+        if (a->ui.paint_allocations!=paint_allocations || a->ui.paint_bytes!=paint_bytes || a->ui.paint_bytes>UI_PAINT_TOTAL_BYTES || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer() || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        puts("PASS: real nested pane/Workbook group-opacity composition, exact ease/120/160 ms relationship, 150 percent Retina overlay recovery, restored framebuffer/clipping/blending, bounded retained color-only targets and no idle allocation or source queries"); break;
+
+    case 400:
+        a->reduced_motion=true; preview_to_source(a,5,5); present_pipeline(a,false,false);
+        a->sidebar=a->fields_visible=true; a->workbook_collapsed=false; a->chrome_focus=0;
+        a->sidebar_width=228; ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+    case 401:
+        request=a->request_id; ribbon_cells=a->page.cells; a->reduced_motion=false;
+        begin_field_menu(a,5,(Vector2){193,461}); break;
+    case 402:
+        if (!(pane_motion_evidence&256) || a->modal!=MODAL_FIELD_NAV || !a->popup_image.layout.valid || a->popup_presence.alpha!=1 || a->popup_presence.offset || a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer()) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-field-composited.png"); break;
+    case 403:
+        if (!(pane_motion_evidence&512) || a->modal!=MODAL_NONE || a->popup_presence.visible || a->popup_image.layout.valid || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed; break;
+    case 404:
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); begin_field_menu(a,5,(Vector2){620,610}); break;
+    case 405:
+        if (a->modal!=MODAL_FIELD_NAV || a->popup_presence.alpha!=1 || !a->popup_image.layout.valid || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || a->ui.paint_bytes>UI_PAINT_TOTAL_BYTES) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-popup-retina-150.png");
+        a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+    case 406:
+        if (a->popup_image.layout.valid || a->popup_presence.visible) goto failed;
+        a->reduced_motion=true; begin_field_menu(a,5,(Vector2){193,461}); break;
+    case 407:
+        if (a->popup_presence.alpha!=1 || a->popup_presence.offset || !a->popup_image.layout.valid || a->ui.paint_depth) goto failed;
+        a->modal=MODAL_NONE; break;
+    case 408:
+        if (a->popup_image.layout.valid || a->popup_presence.visible) goto failed;
+        a->ribbon_tab=0; a->ribbon_layout.valid=false; open_command_group(a,1,0); break;
+    case 409:
+        if (a->modal!=MODAL_COMMANDS || !a->ribbon_flyout.valid || !a->popup_image.layout.valid || a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer()) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-font-composited.png"); close_command_group(a); break;
+    case 410:
+        if (a->modal!=MODAL_NONE || a->popup_presence.visible || a->popup_image.layout.valid || a->ui.paint_fallbacks || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        paint_allocations=a->ui.paint_allocations; paint_bytes=a->ui.paint_bytes; break;
+    case 411:
+        if (a->ui.paint_allocations!=paint_allocations || a->ui.paint_bytes!=paint_bytes || a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer() || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        puts("PASS: native popup 110/120 ms presence, moving pointer geometry, last-complete cached exit after Escape, immediate input release, reduced motion, 150 percent narrow reflow, nested ribbon clipping and bounded idle resources without source queries"); break;
+
+    case 412:
+        a->reduced_motion=false; preview_to_source(a,5,5); a->pivot_focus=0; break;
+    case 413:
+        if (a->author_context_active || a->author_context_progress) goto failed;
+        a->selected_object=0; a->pivot_focus=2; break;
+    case 414:
+        if (!(pane_motion_evidence&1024) || !a->author_context_active || a->author_context_progress!=1 || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || a->ui.paint_bytes>UI_PAINT_TOTAL_BYTES || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-context-composited.png"); preview_to_source(a,5,5); break;
+    case 415:
+        if (a->author_context_active || a->author_context_progress || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        puts("PASS: exact 140 ms contextual identity/shelf group fade and three-unit translation, immediate return to source, dedicated bounded short-wide target and unchanged source result"); break;
+
+    case 416:
+        a->reduced_motion=true; a->selected_object=0;
+        if (!object_ready(a,0)) return;
+        author_cells=a->objects[0].page.cells; ribbon_cells=a->page.cells; draft_history=s->undo_actions_count; draft_revision=s->objects.items[0].revision; draft_dirty=a->book.dirty;
+        begin_field_menu(a,5,(Vector2){202,521}); field_menu_action(a,6); break;
+    case 417:
+        if (!cached_values(a,0)) return;
+        if (a->modal!=MODAL_FILTER || a->filter_pill!=-1 || s->objects.items[0].pivot.counts[PIVOT_FILTERS] || s->objects.items[0].revision!=draft_revision || s->undo_actions_count!=draft_history || a->objects[0].page.cells!=author_cells || a->objects[0].page.total!=30 || a->book.dirty!=draft_dirty || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-view-filter-draft.png"); close_filter(a); break;
+    case 418:
+        if (s->undo_actions_count!=draft_history || a->objects[0].page.cells!=author_cells || a->book.dirty!=draft_dirty || s->objects.items[0].pivot.counts[PIVOT_FILTERS]) goto failed;
+        open_view_filter_field(a,5); apply_filter_definition(a,true);
+        if (s->undo_actions_count!=draft_history || a->objects[0].page.cells!=author_cells || a->book.dirty!=draft_dirty) goto failed;
+        open_view_filter_field(a,5); break;
+    case 419:
+        if (!cached_values(a,0)) return;
+        a->filter_condition_enabled=true; a->filter_op=FILTER_GREATER; input_set(&a->filter_term,"100000"); apply_filter_definition(a,false); break;
+    case 420: {
+        if (!object_ready(a,0)) return;
+        Page *result=&a->objects[0].page; double sum=0;
+        for (size_t i=0;i<result->row_count*result->column_count;i++) if (!result->cells[i].is_null && result->columns[i%result->column_count].numeric) sum+=result->cells[i].number;
+        if (result->total!=1 || fabs(sum-128451)>.001 || !result->sql || !strstr(result->sql,"PIVOT") || s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=1 || s->undo_actions_count!=draft_history+1 || a->page.cells!=ribbon_cells || a->page.total!=240) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-view-filter-applied.png"); open_pivot_filter(a,0); break;
+    }
+    case 421:
+        apply_filter_definition(a,true); break;
+    case 422:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_FILTERS] || a->objects[0].page.total!=30 || a->page.cells!=ribbon_cells) goto failed;
+        a->grid.freeze=2; a->grid.horizontal=0; history(a,false); break;
+    case 423:
+        if (!object_ready(a,0)) return;
+        if (a->selected_object!=0 || s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=1 || a->objects[0].page.total!=1 || a->page.cells!=ribbon_cells) goto failed;
+        history(a,false); break;
+    case 424:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_FILTERS] || a->objects[0].page.total!=30 || a->page.cells!=ribbon_cells || a->page.total!=240) goto failed; break;
+    case 425:
+        if (a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || a->ui.paint_bytes>UI_PAINT_TOTAL_BYTES) goto failed;
+        puts("PASS: real view-filter draft preserves cached matrix/history/dirty state on open/Cancel/Clear; Apply commits one typed predicate and actual PIVOT, Clear removes its field, Undo restores exact one/30-group results, source remains 240 rows and footer label fits native font advances"); break;
+
+    case 426:
+        workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 427:
+        if (!object_ready(a,0)) { a->selected_object=0; return; }
+        a->reduced_motion=true; a->sidebar=a->fields_visible=true; a->workbook_collapsed=false; a->sidebar_width=228; a->pipeline_width=280;
+        a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); present_pipeline(a,true,false);
+        a->selected_object=0; a->grid.freeze=0; a->author_scroll=a->dock_scroll[1]=0; a->pivot_focus=0; break;
+    case 428: {
+        UIMarksLayout *m=&a->author_marks_layout;
+        if (!m->valid || !m->scrollable || m->panel.y!=553 || m->panel.width!=227 || m->panel.height!=245 || m->representation.x!=10 || m->representation.y!=583 || m->representation.width!=198 || m->representation.height!=26 || m->measures[0].y!=633 || m->measures[1].y!=659 || m->targets[0].x!=10 || m->targets[0].y!=688 || m->targets[0].width!=64 || m->filter_heading.y!=787 || m->inherited.y!=839 || fabsf(m->content_height-306.5f)>.01f) goto failed;
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-marks-100.png"); break;
+    }
+    case 429:
+        if (fabsf(a->author_scroll-a->author_marks_layout.maximum)>.01f || a->author_marks_layout.heading.y+a->author_marks_layout.heading.height>=a->author_marks_layout.viewport.y || a->ui.scissor_depth || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-marks-complete-scroll.png"); a->pivot_focus=6; a->chrome_focus=0; a->ribbon_focus=false; a->author_reveal=true; break;
+    case 430:
+        if (a->author_marks_layout.representation.y<a->author_marks_layout.viewport.y-.01f || a->author_marks_layout.representation.y+a->author_marks_layout.representation.height>a->author_marks_layout.viewport.y+a->author_marks_layout.viewport.height+.01f || a->request_id!=request) goto failed; break;
+    case 431:
+        if (a->modal!=MODAL_REPRESENTATION || a->ui.scissor_depth || a->ui.paint_depth || a->request_id!=request) goto failed; break;
+    case 432:
+        if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->author_scroll=0; a->dock_scroll[1]=10000; show_workspace(a); break;
+    case 433:
+        if (!a->workspace.left_overlay || !a->author_marks_layout.valid || fabsf(a->author_marks_layout.content_width-189*1.5f)>.01f || a->author_marks[5].height<=0 || a->author_marks[5].y<a->workspace.left.y || a->author_marks[5].y+a->author_marks[5].height>a->workspace.left.y+a->workspace.left.height+.01f || a->request_id!=request) goto failed;
+        /* A translucent drawer veil must leave the canvas visible. raylib's
+           Fade replaces alpha; passing an already translucent color erased it. */
+        Image frame=LoadImageFromScreen(); Vector2 dpi=GetWindowScaleDPI();
+        Color veil=GetImageColor(frame,(int)((GetScreenWidth()-5)*dpi.x),(int)((a->workspace.context.y+15)*dpi.y)); UnloadImage(frame);
+        if (veil.r<150 || veil.g<150 || veil.b<150) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-marks-overlay-150.png"); a->fields_visible=false; break;
+    case 434:
+        if (a->field_list.height || a->author_panel.height>245*1.5f+.01f || a->request_id!=request) goto failed;
+        a->fields_visible=true; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->author_scroll=a->dock_scroll[1]=0; close_workspace(a); break;
+    case 435:
+        if (a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->request_id!=request || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty || a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer()) goto failed;
+        puts("PASS: exact native Marks section padding/26-unit representation/measure rows/role geometry, true proportional whole-section scrolling, clipped hidden controls, keyboard reveal/open/Escape, 150 percent overlay and hidden-Fields recovery without source queries, cache replacement or document edits"); break;
+
+    case 436:
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; close_workspace(a); a->chrome_focus=0; a->pivot_focus=PIVOT_COLUMNS+2; a->pivot_value=0; a->author_scroll=0; break;
+    case 437: {
+        const UIShelfLayout *cols=&a->axis_shelves[PIVOT_COLUMNS],*rows=&a->axis_shelves[PIVOT_ROWS];
+        if (a->pivot_value!=2 || a->workspace.context.height!=115*1.5f || cols->panel.height!=58*1.5f || rows->panel.height!=30*1.5f || cols->tokens[2].y-cols->tokens[0].y!=28*1.5f || cols->add.y!=cols->tokens[2].y || rows->add.x+rows->add.width>640 || a->workspace.canvas.y!=a->workspace.context.y+a->workspace.context.height || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-wrapped-shelves-150.png"); break;
+    }
+    case 438:
+        if (a->modal!=MODAL_ASSIGN_FIELD || a->pivot_role!=PIVOT_COLUMNS || a->request_id!=request || a->book.dirty!=draft_dirty) goto failed; break;
+    case 439:
+        if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true; a->pivot_focus=PIVOT_COLUMNS+2; a->pivot_value=0; a->pivot_search_focus=false; break;
+    case 440: {
+        UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){1280,820},1,7,3);
+        if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus!=1 || !menu.valid || menu.panel.width!=240 || menu.panel.height!=245 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-axis-menu.png"); break;
+    }
+    case 441:
+        if (a->modal!=MODAL_NONE || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        a->pivot_focus=PIVOT_VALUES+2; a->pivot_value=0; a->chrome_focus=0; a->author_reveal=true; break;
+    case 442: {
+        UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){1280,820},1,4,3);
+        if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus || menu.panel.width!=240 || menu.panel.height!=161 || a->request_id!=request || s->undo_actions_count!=draft_history) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-measure-menu.png"); break;
+    }
+    case 443:
+        if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus!=2 || a->request_id!=request) goto failed; break;
+    case 444:
+        if (a->modal!=MODAL_NONE || s->objects.items[0].pivot.fields[PIVOT_VALUES][0].aggregate!=AGG_AVG || s->undo_actions_count!=draft_history+1) goto failed; break;
+    case 445:
+        if (!object_ready(a,0)) return;
+        if (a->objects[0].page.total!=30 || !strstr(a->objects[0].page.sql,"PIVOT") || !strstr(a->objects[0].page.sql,"AVG(") || a->page.cells!=ribbon_cells) goto failed;
+        history(a,false); break;
+    case 446:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.fields[PIVOT_VALUES][0].aggregate!=AGG_SUM || a->objects[0].page.total!=30 || a->page.cells!=ribbon_cells) goto failed;
+        request=a->request_id; a->pivot_focus=PIVOT_COLUMNS+2; a->pivot_value=0; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; break;
+    case 447:
+        if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus!=1 || a->request_id!=request || a->ui.paint_depth || a->ui.scissor_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-axis-menu-150.png"); break;
+    case 448:
+        if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
+        a->pivot_focus=0; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true; break;
+    case 449:
+        if (a->workspace.context.height!=88 || a->page.cells!=ribbon_cells || a->request_id!=request || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
+        puts("PASS: reference shelf wrap and dynamic preview position, wrapped Add field hit target, exact 240-unit date/measure menus, keyboard opener suppression and disabled COUNT skip, actual AVG DuckDB PIVOT plus Undo, 150 percent clamping and zero presentation queries"); break;
+
+    case 450:
+        request=a->request_id; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty;
+        begin_assign_field(a,PIVOT_COLUMNS,a->axis_shelves[PIVOT_COLUMNS].add); break;
+    case 451: {
+        UIMenuLayout menu=ui_action_menu_layout(a->context_origin,11,240,1,(Vector2){1280,820});
+        if (a->modal!=MODAL_ASSIGN_FIELD || a->pivot_search_focus || a->field_match_count!=12 || a->pivot_field_scroll || menu.panel.width!=240 || menu.panel.height!=348 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-add-menu.png"); break;
+    }
+    case 452:
+        if (a->modal!=MODAL_ASSIGN_FIELD || a->pivot_field!=11 || a->pivot_field_scroll!=1 || a->request_id!=request) goto failed; break;
+    case 453:
+        if (!a->pivot_search_focus || a->modal!=MODAL_ASSIGN_FIELD || a->request_id!=request) goto failed;
+        input_set(&a->pivot_search,"Memo"); break;
+    case 454:
+        if (a->field_match_count!=1 || a->pivot_field!=11 || a->pivot_field_scroll || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-searchable-add-menu.png"); break;
+    case 455:
+        if (a->modal!=MODAL_NONE || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false;
+        begin_assign_field(a,PIVOT_ROWS,a->axis_shelves[PIVOT_ROWS].add); break;
+    case 456:
+        if (a->modal!=MODAL_ASSIGN_FIELD || a->pivot_search_focus || a->field_match_count!=12 || a->ui.paint_depth || a->ui.scissor_depth || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-add-menu-150.png"); break;
+    case 457:
+        if (a->modal!=MODAL_NONE || a->request_id!=request || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true;
+        puts("PASS: compact 240-unit Add field menu, bounded eleven-row viewport with real twelfth field reachable by End, optional slash search, exact filtered labels and 150 percent clamping, Escape/cache/history/dirty recovery without database work"); break;
+
+    case 458:
+        workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 459:
+        a->selected_object=0; if (!object_ready(a,0)) return;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->workbook_collapsed=false; a->sidebar_width=228; a->pipeline_width=280;
+        a->pivot_focus=a->chrome_focus=0; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
+        a->grid.freeze=0; a->analysis_scroll=a->author_scroll=a->dock_scroll[1]=0;
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; author_revision=s->objects.items[0].revision; draft_history=s->undo_actions_count; break;
+    case 460:
+        if (a->modal!=MODAL_VIEW || a->view_menu_chart || a->context_focus || a->request_id!=request || s->objects.items[0].kind!=OBJECT_PIVOT || s->undo_actions_count!=draft_history) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-matrix-actions.png"); break;
+    case 461:
+        if (a->modal!=MODAL_NONE || s->objects.items[0].kind!=OBJECT_CHART || s->objects.items[0].mark!=MARK_BAR || s->objects.items[0].revision!=author_revision || s->undo_actions_count!=draft_history+1 || a->objects[0].page.cells!=author_cells || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed; break;
+    case 462:
+        history(a,false);
+        if (s->objects.items[0].kind!=OBJECT_PIVOT || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed; break;
+    case 463:
+        if (a->modal!=MODAL_VIEW || !a->view_menu_chart || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-chart-actions.png"); break;
+    case 464:
+        if (a->modal!=MODAL_NONE || selected_pivot(a) || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || s->undo_actions_count!=draft_history) goto failed; break;
+    case 465:
+        a->selected_object=0; a->pivot_focus=a->chrome_focus=0; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; break;
+    case 466:
+        a->modal=MODAL_VIEW; a->view_menu_chart=false; a->context_origin=(Vector2){630,630}; a->context_focus=0; a->consume_grid_input=true; break;
+    case 467: {
+        UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){640,640},1.5f,4,3);
+        if (a->modal!=MODAL_VIEW || !menu.valid || menu.panel.x+menu.panel.width>640 || menu.panel.y+menu.panel.height>640 || a->ui.paint_depth || a->ui.scissor_depth || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-view-actions-150.png"); break;
+    }
+    case 468:
+        if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed; break;
+    case 469:
+        if (a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || s->undo_actions_count!=draft_history || a->request_id!=request || a->ui.paint_fallbacks) goto failed;
+        puts("PASS: real matrix/chart ellipsis opens exact four-action view menu, native keyboard conversion/Undo preserves PIVOT result and source, Return to data preserves history/cache, narrow 150 percent bounds and Escape without presentation SQL"); break;
+    case 470:
+        a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; a->format_action=ACTION_TEXT_COLOR; a->format_origin=(Vector2){630,630}; a->format_return_group=a->format_return_command=-1; a->context_focus=0; a->modal=MODAL_FORMAT;
+        flyout_format=active_format(a); draft_history=s->undo_actions_count; break;
+    case 471:
+        if (a->modal!=MODAL_FORMAT || a->context_focus || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-text-color-150.png"); break;
+    case 472:
+        if (a->modal!=MODAL_NONE || active_format(a).color!=3 || s->undo_actions_count!=draft_history+1 || a->request_id!=request) goto failed;
+        history(a,false); break;
+    case 473:
+        if (active_format(a).color!=flyout_format.color || s->undo_actions_count!=draft_history || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer()) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->selected_object=0; a->pipeline=true;
+        puts("PASS: exact four-choice Text color menu, native Red format action and chronological Undo at 150 percent, unchanged actual values/PIVOT/source/cache and no database work"); break;
+
+    case 474:
+        /* This slice isolates presentation from the separately exercised
+           delayed selection-statistics worker after object revisions. */
+        a->statistics_enabled=false; statistics_cancel(a);
+        workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 475:
+        a->selected_object=0; if (!object_ready(a,0)) return;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->workbook_collapsed=false; a->sidebar_width=228; a->pipeline_width=280;
+        a->pivot_focus=a->chrome_focus=0; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        a->grid.freeze=0; a->analysis_scroll=a->author_scroll=a->dock_scroll[1]=0;
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty; break;
+    case 476:
+        if (!a->context_title.valid || a->context_title.icon.x!=239 || a->context_title.icon.y!=141.5f || a->context_title.icon.width!=16 || a->context_title.title.x!=263 || fabsf(a->context_title.source.x-401.2421875f)>.4f || fabsf(a->context_title.browse.x-886.921875f)>.4f || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-context-title.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; close_workspace(a); break;
+    case 477:
+        if (!a->workspace.narrow || a->context_title.icon.x!=58.5f || a->context_title.title.x!=94.5f || a->context_title.source.width || fabsf(a->context_title.browse.x+a->context_title.browse.width-623.5f)>.01f || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-context-title-150.png"); break;
+    case 478:
+        a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true;
+        grid_select_cell(&a->grid,0,0,false); a->grid.horizontal=0; a->modal=MODAL_CONTEXT; a->context_origin=(Vector2){500,400}; a->context_focus=0; break;
+    case 479:
+        if (!source_cell_context(a) || a->modal!=MODAL_CONTEXT || a->request_id!=request || a->page.cells!=ribbon_cells || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-exact-source-context.png"); break;
+    case 480:
+        if (a->modal!=MODAL_NONE || strcmp(GetClipboardText(),"2026-09-14") || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
+        grid_select_cell(&a->grid,5,5,false); a->modal=MODAL_CONTEXT; a->context_focus=2; break;
+    case 481:
+        if (a->modal!=MODAL_NONE || !a->analysis.sort_column || strcmp(a->analysis.sort_column,"Amount (USD)") || !a->analysis.descending) goto failed; break;
+    case 482: {
+        /* Source pages intentionally do not own the PIVOT-only SQL snapshot. */
+        char *sql=analysis_sql(&a->analysis,false); bool sorted=sql && strstr(sql,"DESC"); free(sql);
+        if (a->page.total!=240 || a->page.cells[5].number!=128450 || !sorted) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-source-context-sorted.png"); history(a,false); break;
+    }
+    case 483:
+        if (a->page.total!=240 || !a->analysis.sort_column || strcmp(a->analysis.sort_column,"Transaction ID") || a->analysis.descending || strcmp(a->page.cells[1].text,"TX-0914-1042")) goto failed;
+        a->selected_object=0; break;
+    case 484:
+        if (!object_ready(a,0)) return;
+        if (a->objects[0].page.total!=30) goto failed;
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; a->selected_object=-1;
+        grid_select_cell(&a->grid,5,5,false); a->modal=MODAL_CONTEXT; a->context_focus=3; break;
+    case 485:
+        if (a->modal!=MODAL_FILTER || a->field!=5 || a->filter_object!=-1 || !a->filter_anchor_valid || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-source-context-filter.png"); break;
+    case 486:
+        if (a->modal!=MODAL_NONE || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
+        request=a->request_id; a->modal=MODAL_CONTEXT; a->context_focus=5; break;
+    case 487:
+        if (a->modal!=MODAL_NONE || !a->pipeline_sql || !a->pipeline || a->pipeline_collapsed || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-source-context-sql.png"); a->chrome_focus=0; a->modal=MODAL_CONTEXT; a->context_focus=4; field_actions_count=s->objects.count; break;
+    case 488:
+        if (a->modal!=MODAL_NONE || s->objects.count!=field_actions_count+1 || !selected_pivot(a) || selected_pivot(a)->pivot.counts[PIVOT_VALUES] || a->page.cells!=ribbon_cells) goto failed;
+        { PivotDefinition pivot=pivot_copy(&s->objects.items[0].pivot); if (!set_pivot_definition(a,&pivot)) goto failed; } break;
+    case 489:
+        if (!object_ready(a,(size_t)a->selected_object)) return;
+        if (!a->objects[a->selected_object].page.sql || !strstr(a->objects[a->selected_object].page.sql,"PIVOT")) goto failed;
+        history(a,false); history(a,false); break;
+    case 490:
+        if (s->objects.count!=field_actions_count || a->page.cells!=ribbon_cells) goto failed;
+        a->selected_object=0; { PivotDefinition pivot=pivot_copy(&s->objects.items[0].pivot); pivot_remove(&pivot,PIVOT_VALUES,1); if (!set_pivot_definition(a,&pivot)) goto failed; } break;
+    case 491:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_VALUES]!=1) goto failed;
+        request=a->request_id; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; a->pivot_focus=PIVOT_VALUES+2; a->pivot_value=0; a->author_reveal=true; break;
+    case 492:
+        if (s->objects.items[0].pivot.counts[PIVOT_VALUES]!=1 || s->undo_actions_count!=draft_history || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed; break;
+    case 493:
+        if (s->objects.items[0].pivot.counts[PIVOT_VALUES]!=1 || s->undo_actions_count!=draft_history || a->request_id!=request) goto failed; break;
+    case 494:
+        if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus || a->request_id!=request) goto failed; break;
+    case 495:
+        if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus!=2 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-last-measure-disabled.png"); break;
+    case 496:
+        if (a->modal!=MODAL_NONE || s->undo_actions_count!=draft_history || a->request_id!=request) goto failed;
+        history(a,false); break;
+    case 497:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_VALUES]!=2 || a->objects[0].page.total!=30 || a->page.cells!=ribbon_cells) goto failed; break;
+    case 498:
+        if (a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed; break;
+    case 499:
+        puts("PASS: exact wide/narrow authoring title, real source-cell six-action context menu, Copy/sort/Undo/filter/SQL/Create analysis with actual PIVOT, independent source cache and disabled last-measure close/Delete/menu removal with keyboard skip"); break;
+
+    case 500:
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 501:
+        a->selected_object=0; if (!object_ready(a,0)) return;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->workbook_collapsed=false; a->sidebar_width=228; a->pipeline_width=280;
+        a->pivot_focus=a->chrome_focus=0; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        a->grid.freeze=0; a->analysis_scroll=a->author_scroll=a->dock_scroll[1]=0; a->source_preview.top=0; a->source_preview.fraction=0;
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty; break;
+    case 502:
+        if (!a->authoring_layout.scrollable || a->authoring_layout.content_width!=763 || a->source_preview.rect.width!=763 || a->authoring_layout.matrix.x+a->authoring_layout.matrix.width!=979 || a->source_preview.vtrack.x+a->source_preview.vtrack.width>a->workspace.canvas.x+a->workspace.canvas.width-9 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-canvas-scrollbar-lanes.png"); break;
+    case 503:
+        if (fabsf(a->analysis_scroll-(a->authoring_layout.height-a->workspace.canvas.height))>.02f || a->source_preview.top || a->source_preview.fraction || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-analysis-scrollbar-bottom.png"); a->analysis_scroll=0; break;
+    case 504:
+        if (a->analysis_scroll || a->source_preview.top || a->request_id!=request) goto failed; break;
+    case 505:
+        if ((!a->source_preview.top && !a->source_preview.fraction) || a->analysis_scroll || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-preview-scrollbar-independent.png"); break;
+    case 506:
+        if (a->modal!=MODAL_VIEW || a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth) goto failed; break;
+    case 507:
+        if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; a->analysis_scroll=0; break;
+    case 508:
+        if (fabsf(a->authoring_layout.preview.x+a->authoring_layout.preview.width-(a->workspace.canvas.x+a->workspace.canvas.width-13.5f))>.01f || fabsf(a->authoring_layout.matrix.x+a->authoring_layout.matrix.width-(a->workspace.canvas.x+a->workspace.canvas.width-31.5f))>.01f || a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-canvas-scrollbar-lanes-150.png"); break;
+    case 509:
+        if (a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->request_id!=request || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true;
+        puts("PASS: exact nine-unit authoring scroll lane and content width, independent source-preview/parent scrollbar gestures, same-frame parent content arrangement, view-menu hit geometry, 150 percent recovery and unchanged result/source/cache/history without database work"); break;
+
+    case 510:
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 511:
+        if (!object_ready(a,0)) return;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->sidebar_width=228; a->pipeline_width=280; a->workbook_collapsed=false;
+        a->pivot_focus=a->chrome_focus=0; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        a->selected_object=-1; grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=3; a->grid.fraction=.25; a->grid.horizontal=273.75f;
+        remember_source_location(a); a->selected_object=0; a->pivot_reveal_object=false; a->analysis_scroll=0;
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty; break;
+    case 512:
+        if (selected_pivot(a) || a->grid.row!=5 || a->grid.col!=5 || a->grid.anchor_row!=5 || a->grid.end_row!=8 || a->grid.top!=3 || a->grid.fraction!=.25 || a->grid.horizontal!=273.75f || a->request_id!=request) goto failed; break;
+    case 513:
+        if (!a->cell_context.valid || a->cell_context.address.x!=228 || a->cell_context.address.width!=88 || a->cell_context.value.x!=350 || a->cell_context.value.width!=581 || a->cell_context.value.y!=139.5f || a->cell_context.type.x!=940 || a->cell_context.type.width!=52) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-source-context-restored.png");
+        a->selected_object=0; a->source_preview.top=0; a->source_preview.fraction=0; a->source_preview.horizontal=0; a->analysis_scroll=0; break;
+    case 514:
+        if (selected_pivot(a) || a->grid.row!=2 || a->grid.col!=1 || a->grid.anchor_row!=2 || a->grid.end_row!=2 || a->request_id!=request) goto failed; break;
+    case 515:
+        grid_select_cell(&a->grid,0,0,false); a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0; break;
+    case 516:
+        if (a->cell_context.value.width!=581 || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-source-context-date.png");
+        grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=3; a->grid.fraction=.25; a->grid.horizontal=273.75f; remember_source_location(a);
+        a->selected_object=0; a->pivot_reveal_object=false; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; break;
+    case 517:
+        if (selected_pivot(a) || a->grid.row!=5 || a->grid.end_row!=8 || a->grid.col!=5 || a->grid.top!=3 || a->grid.fraction!=.25 || a->grid.horizontal!=273.75f || a->request_id!=request) goto failed; break;
+    case 518:
+        if (a->cell_context.address.x!=54 || a->cell_context.address.width!=93 || a->cell_context.value.x!=186 || a->cell_context.value.width!=442 || a->cell_context.type.width || a->grid.zoom!=1) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-source-context-150.png"); break;
+    case 519:
+        /* A changed source must not restore row positions from its old result. */
+        a->source_locations[0].revision^=UINT64_C(1); a->selected_object=0; browse_source(a);
+        if (a->grid.row || a->grid.col || selected_pivot(a)) goto failed; break;
+    case 520:
+        if (a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->request_id!=request || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true; break;
+    case 521:
+        puts("PASS: exact source value strip at 100/150 percent, Browse restores the source range and fractional viewport without owned-pointer copies, preview clicks select the clicked source cell, stale source bookmarks fall back safely and presentation preserves source/PIVOT/history without SQL"); break;
+
+    case 522:
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 523:
+        if (!object_ready(a,0)) return;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=true; a->sidebar_width=228; a->pipeline=false; a->pivot_focus=a->chrome_focus=0;
+        set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->selected_object=-1;
+        if (!cells_set(&s->cells,300,40,"Menu test note",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS); a->book.dirty=true;
+        grid_select_cell(&a->grid,300,40,false); a->context_origin=(Vector2){600,440}; a->context_focus=a->context_scroll=0; a->modal=MODAL_CONTEXT;
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; break;
+    case 524:
+        if (a->modal!=MODAL_MOVE_RANGE || a->request_id!=request || s->undo_actions_count!=draft_history) goto failed; break;
+    case 525:
+        if (a->modal!=MODAL_NONE) goto failed;
+        grid_select_cell(&a->grid,300,40,false); a->grid.selection=SELECT_COLUMNS; a->context_focus=a->context_scroll=0; a->modal=MODAL_CONTEXT; break;
+    case 526:
+        if (a->modal!=MODAL_NONE || strcmp(cells_get(&s->cells,300,41),"Menu test note") || *cells_get(&s->cells,300,40) || s->undo_actions_count!=draft_history+1 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        history(a,false); break;
+    case 527:
+        if (strcmp(cells_get(&s->cells,300,40),"Menu test note") || *cells_get(&s->cells,300,41) || s->undo_actions_count!=draft_history || a->request_id!=request) goto failed;
+        grid_select_cell(&a->grid,300,40,false); a->grid.selection=SELECT_ROWS; a->context_focus=a->context_scroll=0; a->modal=MODAL_CONTEXT; break;
+    case 528:
+        if (a->modal!=MODAL_NONE || strcmp(cells_get(&s->cells,301,40),"Menu test note") || *cells_get(&s->cells,300,40) || a->request_id!=request || s->undo_actions_count!=draft_history+1) goto failed;
+        history(a,false); break;
+    case 529:
+        if (strcmp(cells_get(&s->cells,300,40),"Menu test note") || s->undo_actions_count!=draft_history || a->request_id!=request) goto failed;
+        grid_select_cell(&a->grid,0,0,false); a->grid.selection=SELECT_ROWS; a->context_focus=a->context_scroll=0; a->modal=MODAL_CONTEXT; break;
+    case 530:
+        if (a->modal!=MODAL_CONTEXT || a->context_focus!=4 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-row-actions-source-protected.png"); break;
+    case 531:
+        if (a->modal!=MODAL_CONTEXT || a->context_focus!=5 || a->request_id!=request || s->undo_actions_count!=draft_history) goto failed; break;
+    case 532:
+        if (a->modal!=MODAL_NONE) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); grid_select_cell(&a->grid,300,40,false); a->context_focus=0; a->modal=MODAL_CONTEXT; a->context_origin=(Vector2){630,630}; break;
+    case 533: {
+        UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){640,640},1.5f,8,2);
+        if (!menu.valid || menu.panel.width!=360 || menu.panel.height!=409.5f || menu.panel.y+menu.panel.height>640 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-range-actions-150.png"); break;
+    }
+    case 534:
+        if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
+        a->selected_object=0; a->context_focus=a->context_scroll=0; a->modal=MODAL_OBJECT; break;
+    case 535: {
+        UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){640,640},1.5f,7);
+        if (!menu.frame.valid || menu.frame.panel.width!=360 || menu.visible!=7 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-object-actions-150.png"); break;
+    }
+    case 536:
+        if (a->modal!=MODAL_MOVE_RANGE || s->undo_actions_count!=draft_history || a->request_id!=request) goto failed; break;
+    case 537:
+        if (a->modal!=MODAL_NONE || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->request_id!=request || s->undo_actions_count!=draft_history || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 538:
+        if (strcmp(cells_get(&s->cells,300,40),"Menu test note") || a->request_id!=request) goto failed;
+        history(a,false); break;
+    case 539:
+        if (*cells_get(&s->cells,300,40) || a->request_id!=request) goto failed;
+        puts("PASS: shared compact native row/column/range/object action menus, actual queued pointer insert with atomic Undo, disabled source-row keyboard skipping, range/object Move then Escape, 150 percent narrow bounds and unchanged source/PIVOT/cache without database work"); break;
+
+    case 540:
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 541:
+        if (!object_ready(a,0)) return;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=true; a->sidebar_width=228; a->pipeline=false; a->workbook_collapsed=false;
+        a->selected_object=0; a->pivot_focus=a->chrome_focus=0; set_ribbon_mode(a,0); a->ribbon_tab=RIBBON_HOME; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->analysis_scroll=0;
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty;
+        begin_marks(a,MARKS_COLOR,(Rectangle){0},false); break;
+    case 542: {
+        UIMenuLayout menu=ui_action_menu_layout(a->context_origin,11,240,1,(Vector2){1280,820});
+        if (a->modal!=MODAL_MARKS || menu.panel.width!=240 || menu.panel.height!=348 || menu.visible!=11 || a->context_focus || a->context_scroll || a->request_id!=request || !a->ui.pointer_blocked) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-marks-exact-field-menu.png"); break;
+    }
+    case 543:
+        if (a->modal!=MODAL_MARKS || a->context_focus!=11 || a->context_scroll!=1 || strcmp(context_fields(a)->columns[11].name,"Memo") || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-marks-extra-field-scroll.png"); break;
+    case 544:
+        if (a->modal!=MODAL_NONE || s->objects.items[0].marks.counts[MARKS_COLOR] || s->undo_actions_count!=draft_history || a->request_id!=request) goto failed;
+        begin_step_menu(a,0,(Vector2){1000,700}); break;
+    case 545:
+        if (a->modal!=MODAL_STEP || a->context_focus || a->request_id!=request || !a->ui.pointer_blocked) goto failed; break;
+    case 546:
+        if (a->modal!=MODAL_STEP || a->context_focus!=4 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-step-actions-disabled.png"); break;
+    case 547:
+        if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
+        begin_sheet_menu(a,0,(Vector2){10,180}); break;
+    case 548:
+        if (a->modal!=MODAL_SHEET || a->sheet_menu_focus || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-sheet-actions-exact.png"); break;
+    case 549:
+        if (a->modal!=MODAL_SHEET || a->sheet_menu_focus!=1 || a->request_id!=request) goto failed; break;
+    case 550:
+        if (a->modal!=MODAL_SHEET || a->sheet_menu_focus!=3 || a->request_id!=request) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->context_origin=(Vector2){630,630}; a->sheet_menu_focus=0; break;
+    case 551:
+        if (a->modal!=MODAL_SHEET || a->request_id!=request) goto failed; break;
+    case 552: {
+        UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){640,640},1.5f,6);
+        if (a->modal!=MODAL_SHEET || a->sheet_menu_focus!=4 || menu.frame.panel.width!=360 || menu.frame.panel.y+menu.frame.panel.height>640 || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-sheet-actions-150.png"); break;
+    }
+    case 553:
+        if (a->modal!=MODAL_NONE || a->book.count!=4 || s->objects.items[0].marks.counts[MARKS_COLOR] || s->undo_actions_count!=draft_history || a->request_id!=request || a->book.dirty!=draft_dirty) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 554:
+        if (a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || a->ui.pointer_blocked || rlGetActiveFramebuffer()) goto failed;
+        puts("PASS: exact headed Marks/step/worksheet menus, eleven-row field viewport with real extra Memo access, restored pointer blocking and enabled appearance during opening, disabled-action keyboard skipping, narrow 150 percent worksheet menu and unchanged document/source/PIVOT without SQL"); break;
+
+    }
+    free(error); (*step)++; return;
+failed: fprintf(stderr,"FAIL: workspace layout smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : "");
+    if (*step>=426) fprintf(stderr,"Marks: panel=(%.2f,%.2f,%.2f,%.2f) content=%.2f width=%.2f offset=%.2f max=%.2f valid=%d focus=%d\n",a->author_marks_layout.panel.x,a->author_marks_layout.panel.y,a->author_marks_layout.panel.width,a->author_marks_layout.panel.height,a->author_marks_layout.content_height,a->author_marks_layout.content_width,a->author_scroll,a->author_marks_layout.maximum,a->author_marks_layout.valid,a->pivot_focus);
+    if (*step>=400) fprintf(stderr,"Popup: modal=%d alpha=%.4f shift=%.4f active=%d visible=%d image=%d slot=%u evidence=%u\n",a->modal,a->popup_presence.alpha,a->popup_presence.offset,a->popup_presence.active,a->popup_presence.visible,a->popup_image.layout.valid,a->popup_image.buffer_index,pane_motion_evidence);
+    if (*step>=311 && *step<=318) fprintf(stderr,"Dock harness: offset=%.3f max=%.3f inner=%.3f innermax=%.3f width=%.3f marksRight=%.3f outerLeft=%.3f\n",a->dock_scroll[1],a->dock_layout.maximum,a->author_scroll,a->author_marks_layout.maximum,a->dock_layout.content.width,a->author_marks_layout.panel.x+a->author_marks_layout.panel.width,a->dock_layout.viewport.x+a->dock_layout.viewport.width-10*a->ui.scale);
+    if (*step>=208) fprintf(stderr,"Totals harness: cells=%d selection=%" PRIu64 ":%" PRIu64 " object=%" PRIu64 ":%" PRIu64 " request=%" PRIu64 "/%" PRIu64 " horizontal=%.2f\n",a->matrix_cells_active,a->grid.anchor_row,a->grid.end_row,s->objects.items[0].row,s->objects.items[0].row+s->objects.items[0].rows-1,a->request_id,request,a->matrix_horizontal);
+    if (*step>=216) fprintf(stderr,"Inspector harness: focus=%d chrome=%d pointer=(%.1f,%.1f) list=(%.1f,%.1f,%.1f,%.1f) rows=%zu scroll=%d grid resizing=%d dragging=%d moving=%d left=%d cached=%d/%d\n",a->pipeline_focus_index,a->chrome_focus,ui_mouse_position().x,ui_mouse_position().y,a->pipeline_layout.list.x,a->pipeline_layout.list.y,a->pipeline_layout.list.width,a->pipeline_layout.list.height,a->pipeline_row_count,a->step_scroll,a->grid.resizing,a->grid.dragging,a->grid.moving,a->left_drawer,a->page.cells==ribbon_cells,a->objects[0].page.cells==author_cells);
+    if (*step>=357) fprintf(stderr,"Motion harness: evidence=%u workbook=%.4f elapsed=%.4f fields_y=%.2f left=%.2f right=%.2f rows=%d stride=%.2f pointer_blocked=%d\n",pane_motion_evidence,a->workbook_open,a->workbook_motion.elapsed,a->field_list.y,a->left_extent,a->pipeline_extent,a->workbook_visible_rows,a->workbook_stride,a->ui.pointer_blocked);
+    if (*step>=388) fprintf(stderr,"Paint harness: depth=%u peak=%u bytes=%zu allocations=%" PRIu64 " fallbacks=%" PRIu64 " framebuffer=%u alpha left=%.3f book=%.3f right=%.3f\n",a->ui.paint_depth,a->ui.paint_peak_depth,a->ui.paint_bytes,a->ui.paint_allocations,a->ui.paint_fallbacks,rlGetActiveFramebuffer(),a->left_alpha,a->workbook_alpha,a->pipeline_alpha);
+    free(error); *step=-1;
+}
+static void navigation_smoke_step(App *a,int *step) {
+    if (*step<0 || *step==13 || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
+    static uint64_t request; static Cell *page; char *error=NULL; Worksheet *s=active_sheet(a);
+    if (a->fetch_failed || a->modal==MODAL_ERROR) goto failed;
+    switch (*step) {
+    case 0:
+        if (a->page.total!=6 || !cells_set(&s->cells,10,5,"Original note",&error) || objects_add(&s->objects,12,5,"Saved pivot",&error)<0) goto failed;
+        grid_set_width(&a->grid,1,188); request=a->request_id; page=a->page.cells;
+        if (!workbook_rename(&a->book,0,"Data İ",&error)) goto failed; break;
+    case 1:
+        if (a->request_id!=request || a->page.cells!=page) goto failed;
+        a->sheet_menu_index=0; a->sheet_action=SHEET_ACTION_DUPLICATE; process_sheet_action(a); break;
+    case 2:
+        if (a->book.count!=2 || a->book.active!=1 || strcmp(s->name,"Data İ (2)") || strcmp(cells_get(&s->cells,10,5),"Original note") || s->objects.count!=1 || fabsf(a->grid.widths[1]-188)>1) goto failed;
+        if (!cells_set(&s->cells,10,5,"Copy note",&error) || !workbook_rename(&a->book,1,"Copy",&error)) goto failed;
+        request=a->request_id; page=a->page.cells; a->sheet_menu_index=1; a->sheet_action=SHEET_ACTION_UP; process_sheet_action(a); break;
+    case 3:
+        if (a->book.active || strcmp(s->name,"Copy") || strcmp(cells_get(&a->book.sheets[1].cells,10,5),"Original note") || a->request_id!=request || a->page.cells!=page) goto failed;
+        a->sheet_menu_index=1; a->sheet_action=SHEET_ACTION_HIDE; process_sheet_action(a);
+        if (!a->book.sheets[1].hidden || workbook_visible_count(&a->book)!=1 || a->request_id!=request || a->page.cells!=page) goto failed;
+        a->modal=MODAL_UNHIDE; a->sheet_menu_focus=a->unhide_scroll=0; a->context_origin=(Vector2){18,180}; break;
+    case 4:
+        smoke_snapshot("tests/results/sheet-navigation/unhide.png"); a->modal=MODAL_NONE; a->sheet_menu_index=1; a->sheet_action=SHEET_ACTION_SHOW; process_sheet_action(a); break;
+    case 5:
+        if (a->book.active!=1 || s->hidden || strcmp(cells_get(&s->cells,10,5),"Original note")) goto failed;
+        request=a->request_id; page=a->page.cells; a->sheet_menu_index=1; a->sheet_action=SHEET_ACTION_UP; process_sheet_action(a); break;
+    case 6:
+        if (a->book.active || strcmp(s->name,"Data İ") || a->request_id!=request || a->page.cells!=page) goto failed;
+        begin_sheet_menu(a,0,(Vector2){18,180}); break;
+    case 7:
+        smoke_snapshot("tests/results/sheet-navigation/context-menu.png"); begin_sheet_rename(a,0); break;
+    case 8:
+        smoke_snapshot("tests/results/sheet-navigation/rename.png"); a->modal=MODAL_NONE;
+        if (!workbook_add(&a->book,"Temporary",&(Analysis){0},&error)) goto failed;
+        /* Hide an inactive blank sheet; the loaded result must remain untouched. */
+        a->book.active=0; a->sheet_menu_index=2; a->sheet_action=SHEET_ACTION_HIDE; process_sheet_action(a);
+        if (a->request_id!=request || a->page.cells!=page || !a->book.sheets[2].hidden) goto failed;
+        remove("tests/generated/navigation.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/navigation.dxls"); break;
+    case 9:
+        if (!workbook_rename(&a->book,0,"Changed after save",&error)) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/navigation.dxls"); break;
+    case 10:
+        if (a->book.count!=3 || a->book.active || strcmp(s->name,"Data İ") || !a->book.sheets[2].hidden || workbook_visible_count(&a->book)!=2 || strcmp(cells_get(&s->cells,10,5),"Original note") || strcmp(cells_get(&a->book.sheets[1].cells,10,5),"Copy note") || s->objects.count!=1 || fabsf(a->grid.widths[1]-188)>1) goto failed;
+        a->selected_object=-1; a->fields_visible=false; a->sidebar=true; a->pipeline=false; a->reduced_motion=true;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); a->ribbon_tab=RIBBON_DATA; set_ribbon_mode(a,0); break;
+    case 11:
+        { bool collapsed=false; for (int g=0;g<a->ribbon_layout.group_count;g++) collapsed|=a->ribbon_layout.states[g]!=UI_RIBBON_EXPANDED;
+        if (!a->ribbon_layout.valid || !collapsed) goto failed; } break;
+    case 12:
+        smoke_snapshot("tests/results/sheet-navigation/ribbon-overflow-150.png");
+        puts("PASS: native sheet rename, independent duplication, reorder without queries, hide/unhide, version 5 visibility save/reopen and narrow ribbon overflow"); break;
+    }
+    free(error); (*step)++; return;
+failed: fprintf(stderr,"FAIL: sheet navigation smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
+}
+static void nyc_smoke_step(App *a,int *step) {
+    if (*step<0 || *step==8 || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
+    static Cell *first; char *error=NULL; ObjectStore *store=&active_sheet(a)->objects;
+    if (a->fetch_failed || a->modal==MODAL_ERROR) goto failed;
+    size_t vendor=a->page.column_count,payment=vendor,fare=vendor,distance=vendor;
+    for (size_t c=0;c<a->page.column_count;c++) {
+        const char *name=a->page.columns[c].name;
+        if (!strcmp(name,"VendorID")) vendor=c;
+        if (!strcmp(name,"payment_type")) payment=c;
+        if (!strcmp(name,"fare_amount")) fare=c;
+        if (!strcmp(name,"trip_distance")) distance=c;
+    }
+    if (vendor==a->page.column_count || payment==a->page.column_count || fare==a->page.column_count || distance==a->page.column_count || a->page.total!=3475226 || a->page.column_count!=20) goto failed;
+    switch (*step) {
+    case 0:
+        grid_select_cell(&a->grid,0,22,false); create_pivot(a);
+        a->pivot_drag_field=(int)vendor; assign_pivot_field(a,PIVOT_ROWS,0);
+        a->pivot_drag_field=(int)payment; assign_pivot_field(a,PIVOT_COLUMNS,0);
+        a->pivot_drag_field=(int)fare; assign_pivot_field(a,PIVOT_VALUES,0); a->pivot_focus=0; break;
+    case 1: {
+        Page *p=&a->objects[0].page; if (!p->column_count) return;
+        if (p->total!=4 || p->column_count!=7 || !p->sql || !strstr(p->sql,"PIVOT")) goto failed;
+        double total=0; for (size_t r=0;r<p->row_count;r++) for (size_t c=1;c<p->column_count;c++) if (!p->cells[r*p->column_count+c].is_null) total+=p->cells[r*p->column_count+c].number;
+        /* Independent DuckDB sum on the pinned public input is 59363125.08000443. */
+        if (fabs(total-59363125.08000443)>.01) goto failed;
+        first=p->cells; grid_select_cell(&a->grid,12,22,false); create_pivot(a);
+        a->pivot_drag_field=(int)vendor; assign_pivot_field(a,PIVOT_ROWS,0);
+        a->pivot_drag_field=(int)distance; assign_pivot_field(a,PIVOT_VALUES,0);
+        PivotDefinition definition=pivot_copy(&store->items[1].pivot); definition.fields[PIVOT_VALUES][0].aggregate=AGG_AVG; set_pivot_definition(a,&definition); a->pivot_focus=0; break;
+    }
+    case 2:
+        if (!a->objects[1].page.column_count) return;
+        if (a->objects[0].page.cells!=first || a->objects[1].page.total!=4 || a->objects[1].page.column_count!=2 ||
+            !manual_range(a,9,22,1,1,&error) || !cells_set(&active_sheet(a)->cells,9,22,"NYC fares by vendor and payment",&error)) goto failed;
+        worksheet_record(active_sheet(a),EDIT_CELLS); grid_select_cell(&a->grid,22,22,false); a->selected_object=1; create_chart(a); a->pivot_focus=0; break;
+    case 3:
+        if (store->count!=3 || store->items[2].kind!=OBJECT_CHART) goto failed;
+        if (!a->objects[2].page.column_count) return;
+        if (a->objects[0].page.cells!=first || a->objects[2].page.total!=4) goto failed;
+        remove("tests/generated/nyc-analytical.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/nyc-analytical.dxls"); break;
+    case 4: workspace_job(a,JOB_LOAD,"tests/generated/nyc-analytical.dxls"); break;
+    case 5:
+        if (store->count!=3 || store->items[0].row || store->items[0].col!=22 || store->items[1].row!=12 || store->items[2].kind!=OBJECT_CHART || strcmp(cells_get(&active_sheet(a)->cells,9,22),"NYC fares by vendor and payment")) goto failed;
+        a->selected_object=0; grid_select_cell(&a->grid,0,22,false); a->pivot_reveal_object=true; a->pivot_focus=0; break;
+    case 6:
+        if (!a->objects[0].page.column_count) return;
+        if (a->objects[0].page.total!=4 || a->objects[0].page.column_count!=7 || !strstr(a->objects[0].page.sql,"PIVOT")) goto failed;
+        a->sidebar=a->fields_visible=true; a->pipeline=false; break;
+    case 7:
+        puts("PASS: public NYC 3,475,226-row source alongside two independent pivots, real two-dimensional PIVOT matching reference fare total, chart, manual note and dxls save/reopen"); break;
+    }
+    free(error); (*step)++; return;
+failed: fprintf(stderr,"FAIL: public NYC application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
+}
+static void statistics_smoke_step(App *a,int *step) {
+    if (*step<0 || *step>=31 || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
+    static uint64_t request; static char *sum; static Cell *result;
+    switch (*step) {
+    case 0:
+        if (a->page.total!=5) goto failed;
+        grid_select_cell(&a->grid,0,2,false); a->grid.end_row=4; break;
+    case 1:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics.numeric!=5 || a->statistics_cells!=5 || strcmp(a->statistics.sum,"145.25") || a->busy) goto failed;
+        request=a->request_id; sum=a->statistics.sum; a->grid.horizontal=100; watch_statistics(a); schedule_statistics(a);
+        if (a->request_id!=request || a->statistics.sum!=sum) goto failed;
+        a->chrome_focus=0; a->pivot_focus=0; a->ribbon_focus=false;
+        cycle_focus(a,false); if (a->chrome_focus!=10) goto failed;
+        status_activate(a); if (a->modal!=MODAL_STATISTICS || a->request_id!=request) goto failed;
+        break;
+    case 2:
+        if (a->statistics_state!=STATS_READY || a->request_id!=request || a->statistics.sum!=sum) goto failed;
+        a->statistics_mask=0; watch_statistics(a); statistics_line(a);
+        if (a->statistics_state!=STATS_READY || *a->statistics_line) goto failed;
+        a->statistics_mask=54; statistics_line(a); a->modal=MODAL_NONE;
+        float zoom=a->grid.zoom; a->status_focus=1; status_activate(a);
+        if (fabsf(a->grid.zoom-(zoom-.1f))>.0001f || a->request_id!=request) goto failed;
+        a->status_focus=2; status_activate(a);
+        if (fabsf(a->grid.zoom-zoom)>.0001f || a->request_id!=request) goto failed;
+        a->chrome_focus=0;
+        set_source_filter(a,"City",FILTER_EQUAL,"İstanbul",false); break;
+    case 3:
+        if (a->page.total!=2) goto failed;
+        grid_select_cell(&a->grid,0,2,false); a->grid.end_row=1; break;
+    case 4:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics.numeric!=2 || strcmp(a->statistics.sum,"19.75")) goto failed;
+        grid_select_cell(&a->grid,0,8,false); create_pivot(a);
+        a->pivot_drag_field=1; assign_pivot_field(a,PIVOT_ROWS,0); a->pivot_drag_field=2; assign_pivot_field(a,PIVOT_VALUES,0); a->pivot_focus=0; break;
+    case 5:
+        if (!a->objects[0].page.column_count) return;
+        grid_select_cell(&a->grid,active_sheet(a)->objects.items[0].row+2,active_sheet(a)->objects.items[0].col,false); a->grid.end_col=a->grid.col+1; a->matrix_cells_active=true; break;
+    case 6:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics_object!=0 || a->statistics.filled!=2 || a->statistics.numeric!=1 || strcmp(a->statistics.sum,"19.75")) goto failed;
+        open_statistics(a); break;
+    case 7: {
+        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/selection-statistics/standard.png"); UnloadImage(image);
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    }
+    case 8: {
+        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/selection-statistics/narrow-150.png"); UnloadImage(image);
+        a->modal=MODAL_NONE; grid_select_cell(&a->grid,100,20,false); a->grid.end_row=101; watch_statistics(a);
+        if (a->statistics_state!=STATS_WAITING || a->statistics_object!=-2 || a->statistics_request) goto failed;
+        break;
+    }
+    case 9:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics_cells!=2 || a->statistics.filled || a->statistics.numeric || a->statistics.sum) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); open_source(a,"",true); break;
+    case 10:
+        if (a->page.total!=1000000) goto failed;
+        grid_select_cell(&a->grid,0,0,false); a->grid.end_row=999999; watch_statistics(a); a->statistics_changed=dx_millis()-181; schedule_statistics(a);
+        if (!a->statistics_request || a->statistics_request!=a->request_id || a->busy) goto failed;
+        grid_select_cell(&a->grid,800000,0,false); a->grid.end_row=800001; a->grid.top=800000; watch_statistics(a);
+        if (a->statistics_request || a->statistics_state!=STATS_WAITING) goto failed;
+        request_page(a,false); break;
+    case 11:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics.numeric!=2 || strcmp(a->statistics.sum,"1600001") || a->statistics_request || !grid_cached(&a->grid,&a->page)) goto failed;
+        request=a->request_id; sum=a->statistics.sum; break;
+    case 12:
+        watch_statistics(a); schedule_statistics(a);
+        if (a->request_id!=request || a->statistics.sum!=sum) goto failed;
+        a->statistics_mask=0; watch_statistics(a);
+        if (a->statistics_state!=STATS_IDLE || a->request_id!=request || *a->statistics_line) goto failed;
+        break;
+    case 13: {
+        char *error=NULL; Worksheet *sheet=active_sheet(a);
+        if (!cells_set(&sheet->cells,100,20,"NULL",&error) || !cells_set(&sheet->cells,101,20,"42",&error)) { free(error); goto failed; }
+        a->statistics_mask=255; grid_select_cell(&a->grid,100,20,false); a->grid.end_row=102; break;
+    }
+    case 14:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics_cells!=3 || a->statistics.filled!=2 || a->statistics.distinct!=2 || a->statistics.numeric || a->statistics.sum) goto failed;
+        open_source(a,"tests/fixtures/transactions.csv",false); break;
+    case 15: {
+        if (a->page.total!=5) goto failed;
+        char *error=NULL; if (!cells_set(&active_sheet(a)->cells,5,2,"NULL",&error)) { free(error); goto failed; }
+        grid_select_cell(&a->grid,0,2,false); a->grid.end_row=6; break;
+    }
+    case 16:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics_cells!=7 || a->statistics.filled!=6 || a->statistics.numeric!=5 || a->statistics.distinct!=6 || strcmp(a->statistics.sum,"145.25")) goto failed;
+        grid_select_cell(&a->grid,0,8,false); create_pivot(a);
+        a->pivot_drag_field=1; assign_pivot_field(a,PIVOT_ROWS,0); a->pivot_drag_field=2; assign_pivot_field(a,PIVOT_VALUES,0); a->pivot_focus=0; break;
+    case 17: {
+        if (!a->objects[0].page.column_count) return;
+        SheetObject *o=&active_sheet(a)->objects.items[0];
+        grid_select_cell(&a->grid,0,2,false); a->grid.end_row=o->row+o->rows; a->grid.end_col=o->col+1; break;
+    }
+    case 18:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics.numeric!=9 || strcmp(a->statistics.sum,"290.5") || a->statistics.filled!=31 || a->statistics.distinct!=25) goto failed;
+        request=a->request_id; sum=a->statistics.sum; open_statistics(a); break;
+    case 19:
+        if (a->request_id!=request || a->statistics.sum!=sum || a->statistics_object!=-2) goto failed;
+        smoke_snapshot("tests/results/selection-statistics/mixed.png");
+        a->modal=MODAL_NONE; grid_select_cell(&a->grid,0,2,false); a->grid.selection=SELECT_COLUMNS; break;
+    case 20:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics_cells!=DX_SHEET_ROWS || a->statistics.filled!=6 || a->statistics.numeric!=5 || strcmp(a->statistics.sum,"145.25")) goto failed;
+        grid_select_cell(&a->grid,100,0,false); a->grid.selection=SELECT_ROWS; break;
+    case 21:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics_cells!=16384 || a->statistics.filled || a->statistics.numeric || a->statistics.sum) goto failed;
+        a->grid.selection=SELECT_ALL; break;
+    case 22:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics_cells!=DX_SHEET_ROWS*16384 || a->statistics.distinct!=30 || a->statistics.filled!=41 || a->statistics.numeric!=14 || strcmp(a->statistics.sum,"305.5")) goto failed;
+        puts("PASS: selection statistics source/filter/pivot/manual/mixed scopes, whole row/column/sheet bounds, NULL versus literal text, typed distinct across scopes, cached idle result, worker cancellation/page priority, status focus/zoom and narrow 150 percent popup");
+        a->modal=MODAL_NONE; a->selected_object=0; result=a->objects[0].page.cells; request=a->request_id;
+        begin_object_name(a); input_set(&a->input,"NULL"); if (!apply_object_name(a) || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
+        break;
+    case 23:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics.distinct!=29 || a->statistics.filled!=41 || a->statistics.numeric!=14 || strcmp(a->statistics.sum,"305.5") || a->objects[0].page.cells!=result) {
+            fprintf(stderr,"Rename statistics distinct=%" PRIu64 " filled=%" PRIu64 " numeric=%" PRIu64 " sum=%s cached=%d title=%s\n",a->statistics.distinct,a->statistics.filled,a->statistics.numeric,a->statistics.sum ? a->statistics.sum : "(missing)",a->objects[0].page.cells==result,active_sheet(a)->objects.items[0].name); goto failed;
+        }
+        history(a,false); break;
+    case 24:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics.distinct!=30 || a->objects[0].page.cells!=result) goto failed;
+        history(a,true); break;
+    case 25:
+        if (a->statistics_state!=STATS_READY) return;
+        if (a->statistics.distinct!=29 || a->statistics.filled!=41 || a->objects[0].page.cells!=result) goto failed;
+        puts("PASS: renamed pivot titles invalidate mixed statistics through undo/redo without replacing the analytical result"); break;
+    case 26: {
+        SheetObject *o=&active_sheet(a)->objects.items[0]; a->selected_object=0; a->matrix_cells_active=false;
+        grid_select_cell(&a->grid,o->row,o->col,false); a->grid.end_row=o->row+o->rows-1; a->grid.end_col=o->col+o->columns-1;
+        request=a->request_id; result=a->objects[0].page.cells; watch_statistics(a); schedule_statistics(a);
+        if (!a->statistics_frame || a->statistics_state!=STATS_IDLE || a->statistics_request || a->request_id!=request || !strstr(a->statistics_line,"Matrix selected")) goto failed;
+        break;
+    }
+    case 27:
+        if (!a->statistics_frame || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
+        open_statistics(a); break;
+    case 28:
+        if (a->modal!=MODAL_STATISTICS || !a->statistics_frame || a->request_id!=request || strcmp(statistics_scope(a),"Matrix frame")) goto failed;
+        smoke_snapshot("tests/results/selection-statistics/matrix-frame.png"); a->modal=MODAL_NONE;
+        { SheetObject *o=&active_sheet(a)->objects.items[0]; grid_select_cell(&a->grid,o->row+2,o->col,false); matrix_key(a,o,&a->objects[0].page,KEY_RIGHT,true); }
+        watch_statistics(a); if (a->statistics_frame || a->statistics_state!=STATS_WAITING) goto failed; break;
+    case 29:
+        if (a->statistics_state!=STATS_READY) return;
+        if (!a->matrix_cells_active || a->statistics_object!=0 || a->statistics.numeric!=1 || fabs(strtod(a->statistics.sum,NULL)-a->objects[0].page.cells[1].number)>.00001 || a->objects[0].page.cells!=result) goto failed;
+        request=a->request_id; break;
+    case 30:
+        watch_statistics(a); schedule_statistics(a); if (a->request_id!=request || a->statistics_frame || a->statistics_state!=STATS_READY) goto failed;
+        puts("PASS: frame selection reports object identity without cell-statistics SQL; actual matrix range selection restores exact cell statistics and keeps idle results cached"); break;
+    }
+    (*step)++; return;
+failed: fprintf(stderr,"FAIL: statistics application at stage %d state %d: %s\n",*step,a->statistics_state,a->statistics_error ? a->statistics_error : a->message); *step=-1;
+}
+static void chart_smoke_step(App *a,int *step) {
+    if (*step<0 || *step>=33 || a->busy || a->io_busy || a->page.count_pending || (a->modal!=MODAL_NONE && a->modal!=MODAL_CHART_SIZE && a->modal!=MODAL_OBJECT_NAME) || !a->page.column_count) return;
+    char *error=NULL; ObjectStore *store=&active_sheet(a)->objects;
+    static Cell *result; static uint64_t request;
+    switch (*step) {
+    case 0:
+        grid_select_cell(&a->grid,0,5,false); create_pivot(a);
+        a->pivot_drag_field=0; assign_pivot_field(a,PIVOT_ROWS,0);
+        a->pivot_drag_field=1; assign_pivot_field(a,PIVOT_COLUMNS,0);
+        a->pivot_drag_field=2; assign_pivot_field(a,PIVOT_VALUES,0); a->pivot_focus=0;
+        if (aggregate_allowed(a,"Group",AGG_SUM) || aggregate_allowed(a,"Group",AGG_AVG) || !aggregate_allowed(a,"Group",AGG_DISTINCT)) goto failed;
+        break;
+    case 1:
+        if (!a->objects[0].page.column_count) return;
+        if (!strstr(a->objects[0].page.sql,"PIVOT")) goto failed;
+        a->selected_object=0; create_chart(a); a->pivot_focus=0; break;
+    case 2:
+        if (!a->objects[1].page.column_count) return;
+        if (a->objects[1].page.total!=5 || a->objects[1].page.column_count!=3 || !a->objects[1].page.cells[2*3+1].is_null) goto failed;
+        result=a->objects[1].page.cells; request=a->request_id; set_chart_mark(a,MARK_LINE);
+        history(a,false);
+        if (store->items[1].mark!=MARK_BAR || a->objects[1].page.cells!=result) goto failed;
+        history(a,true);
+        if (store->items[1].mark!=MARK_LINE || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
+        a->pivot_focus=6; break;
+    case 3: {
+        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/chart-marks/line.png"); UnloadImage(image);
+        set_chart_mark(a,MARK_DOT); break;
+    }
+    case 4: {
+        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/chart-marks/dots.png"); UnloadImage(image);
+        set_chart_mark(a,MARK_BAR); break;
+    }
+    case 5: {
+        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/chart-marks/bar.png"); UnloadImage(image);
+        if (a->objects[1].page.cells!=result || a->request_id!=request || a->busy) goto failed;
+        a->sidebar=a->pipeline=false; a->pivot_role=PIVOT_ROWS; a->pivot_focus=2; cycle_focus(a,false);
+        if (a->pivot_focus!=6) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus!=4) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus!=8) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus!=5) goto failed;
+        cycle_focus(a,false); if (a->pivot_focus || a->chrome_focus || a->ribbon_focus) goto failed;
+        set_chart_mark(a,MARK_DOT); a->pivot_focus=6; ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    }
+    case 6: {
+        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/chart-marks/narrow-150.png"); UnloadImage(image);
+        remove("tests/generated/chart-marks.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/chart-marks.dxls"); break;
+    }
+    case 7: workspace_job(a,JOB_LOAD,"tests/generated/chart-marks.dxls"); break;
+    case 8:
+        if (store->count!=2 || store->items[1].mark!=MARK_DOT) goto failed;
+        if (!a->objects[1].page.column_count) return;
+        a->selected_object=1; result=a->objects[1].page.cells; request=a->request_id; set_chart_mark(a,MARK_LINE);
+        if (a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/chart-marks.dxls"); break;
+    case 9: workspace_job(a,JOB_LOAD,"tests/generated/chart-marks.dxls"); break;
+    case 10:
+        if (store->items[1].mark!=MARK_LINE) goto failed;
+        if (!a->objects[1].page.column_count) return;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->sidebar=true; a->selected_object=1; a->pivot_focus=6; a->pivot_reveal_object=true; break;
+    case 11:
+        request=a->request_id; set_chart_mark(a,MARK_SCATTER);
+        if (store->items[1].mark!=MARK_LINE || a->request_id!=request) goto failed;
+        open_source(a,"tests/fixtures/scatter.csv",false); break;
+    case 12:
+        if (a->page.total!=8) goto failed;
+        grid_select_cell(&a->grid,0,5,false); create_pivot(a);
+        a->pivot_drag_field=0; assign_pivot_field(a,PIVOT_ROWS,0); a->pivot_drag_field=2; assign_pivot_field(a,PIVOT_COLUMNS,0); a->pivot_drag_field=1; assign_pivot_field(a,PIVOT_VALUES,0); a->pivot_focus=0; break;
+    case 13:
+        if (!a->objects[0].page.column_count) return;
+        a->selected_object=0; create_chart(a); a->pivot_focus=0; break;
+    case 14:
+        if (!a->objects[1].page.column_count) return;
+        if (!scatter_available(a,&store->items[1]) || a->objects[1].page.total!=6 || a->objects[1].page.column_count!=3 || !a->objects[1].page.cells[0].is_null) goto failed;
+        result=a->objects[1].page.cells; request=a->request_id; set_chart_mark(a,MARK_SCATTER);
+        history(a,false); if (store->items[1].mark!=MARK_BAR) goto failed;
+        history(a,true); if (store->items[1].mark!=MARK_SCATTER || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
+        a->pivot_focus=6; break;
+    case 15:
+        smoke_snapshot("tests/results/chart-marks/scatter.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 16:
+        smoke_snapshot("tests/results/chart-marks/scatter-narrow-150.png"); set_ribbon_mode(a,3); grid_zoom_at(&a->grid,&a->page,a->ui.scale,.5f,(Vector2){a->grid.body.x,a->grid.body.y});
+        remove("tests/generated/chart-scatter.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/chart-scatter.dxls"); break;
+    case 17: smoke_snapshot("tests/results/chart-marks/scatter-focus-150.png"); workspace_job(a,JOB_LOAD,"tests/generated/chart-scatter.dxls"); break;
+    case 18:
+        if (!a->objects[1].page.column_count) return;
+        a->selected_object=1;
+        if (store->items[1].mark!=MARK_SCATTER || !scatter_available(a,&store->items[1]) || fabsf(a->grid.zoom-.5f)>.001f) goto failed;
+        set_ribbon_mode(a,0); grid_zoom_at(&a->grid,&a->page,a->ui.scale,1,(Vector2){a->grid.body.x,a->grid.body.y}); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pivot_focus=6; a->pivot_reveal_object=true; break;
+    case 19: puts("PASS: shared real PIVOT chart data, Bar/Line/Dots/continuous numeric Scatter, invalid dimensions guarded, NULL pairs omitted, presentation-only cache/history, Marks focus, 100/150 percent and dxls migration/save/reopen"); break;
+    case 20: {
+        a->selected_object=1; result=a->objects[1].page.cells; request=a->request_id; uint64_t revision=store->items[1].revision;
+        begin_chart_size(a); input_set(&a->chart_columns,"NaN");
+        if (apply_chart_size(a) || !a->chart_resize_error || store->items[1].columns!=6) goto failed;
+        input_set(&a->chart_columns,"8"); input_set(&a->input,"14");
+        if (!apply_chart_size(a) || store->items[1].rows!=14 || store->items[1].columns!=8 || store->items[1].revision!=revision) goto failed;
+        history(a,false); if (store->items[1].rows!=12 || store->items[1].columns!=6) goto failed;
+        history(a,true); if (store->items[1].rows!=14 || store->items[1].columns!=8 || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
+        a->selected_object=1; begin_chart_size(a); break;
+    }
+    case 21: smoke_snapshot("tests/results/chart-marks/size-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 22:
+        smoke_snapshot("tests/results/chart-marks/size-150-narrow.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        set_ribbon_mode(a,3); a->selected_object=1; a->pivot_reveal_object=true; grid_zoom_at(&a->grid,&a->page,a->ui.scale,.5f,(Vector2){a->grid.body.x,a->grid.body.y}); break;
+    case 23: {
+        SheetObject *o=&store->items[1]; Rectangle old=object_rect(a,o),next=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,o->row,o->col,16,9);
+        a->consume_grid_input=false; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false;
+        ui_note_pointer_gesture((DxPointerGesture){old.x+old.width-1,old.y+old.height-1,next.x+next.width-1,next.y+next.height-1,0,false}); chart_resize_input(a);
+        if (o->rows!=16 || o->columns!=9 || a->chart_resizing || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
+        history(a,false); if (store->items[1].rows!=14 || store->items[1].columns!=8) goto failed;
+        history(a,true); if (store->items[1].rows!=16 || store->items[1].columns!=9) goto failed;
+        a->selected_object=1; break;
+    }
+    case 24: {
+        SheetObject *o=&store->items[1]; CellStore *cells=&active_sheet(a)->cells;
+        if (!cells_set(cells,o->row+16,o->col+9,"Keep note",&error)) goto failed;
+        worksheet_record(active_sheet(a),EDIT_CELLS); size_t actions=active_sheet(a)->undo_actions_count;
+        if (resize_chart(a,17,10) || o->rows!=16 || o->columns!=9 || !a->chart_resize_error || active_sheet(a)->undo_actions_count!=actions || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/chart-marks/resized.png"); break;
+    }
+    case 25: remove("tests/generated/chart-resized.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/chart-resized.dxls"); break;
+    case 26: workspace_job(a,JOB_LOAD,"tests/generated/chart-resized.dxls"); break;
+    case 27:
+        if (store->count!=2 || store->items[1].rows!=16 || store->items[1].columns!=9 || store->items[1].mark!=MARK_SCATTER) goto failed;
+        if (!a->objects[1].page.column_count) return;
+        a->selected_object=1; puts("PASS: chart corner resize and exact size dialog, invalid/colliding sizes rejected atomically, retained query/cache, shared history, 100/150 percent layouts and dxls save/reopen"); break;
+    case 28: {
+        a->selected_object=1; result=a->objects[1].page.cells; request=a->request_id;
+        begin_object_name(a); input_set(&a->input," "); if (apply_object_name(a) || !a->object_name_error) goto failed;
+        input_set(&a->input,"Pivot 1"); if (apply_object_name(a)) goto failed;
+        input_set(&a->input,"İstanbul analizi"); if (!apply_object_name(a) || strcmp(store->items[1].name,"İstanbul analizi")) goto failed;
+        history(a,false); if (strcmp(store->items[1].name,"Chart 2")) goto failed;
+        history(a,true); if (strcmp(store->items[1].name,"İstanbul analizi") || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
+        a->selected_object=1; begin_object_name(a); break;
+    }
+    case 29: smoke_snapshot("tests/results/chart-marks/name-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 30:
+        smoke_snapshot("tests/results/chart-marks/name-150-narrow.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        remove("tests/generated/chart-named.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/chart-named.dxls"); break;
+    case 31: workspace_job(a,JOB_LOAD,"tests/generated/chart-named.dxls"); break;
+    case 32:
+        if (strcmp(store->items[1].name,"İstanbul analizi") || store->items[1].rows!=16 || store->items[1].columns!=9) goto failed;
+        puts("PASS: pivot/chart names, invalid and duplicate name guards, UTF-8, query-free shared history, dialog layouts and dxls save/reopen"); break;
+    }
+    free(error); (*step)++; return;
+failed: fprintf(stderr,"FAIL: chart marks at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
+}
+static void document_smoke_step(App *a,int *step) {
+    if (*step<0 || *step>=10 || a->io_busy || a->busy) return;
+    char *error=NULL;
+    const char *first="tests/generated/document-first.dxls",*second="tests/generated/document-second.dxls",*invalid="tests/generated/document-invalid.dxls";
+    switch (*step) {
+    case 0:
+        request_document_action(a,DOCUMENT_QUIT,NULL);
+        if (!a->exit_ready) goto failed;
+        a->exit_ready=false; grid_select_cell(&a->grid,0,0,false);
+        input_set(&a->input,"Before"); a->modal=MODAL_CELL;
+        request_document_action(a,DOCUMENT_QUIT,NULL);
+        if (a->exit_ready || a->modal!=MODAL_UNSAVED || !a->book.dirty || strcmp(cells_get(&active_sheet(a)->cells,0,0),"Before")) goto failed;
+        cancel_document_action(a);
+        if (a->document_action!=DOCUMENT_NONE || a->modal!=MODAL_NONE || !a->book.dirty) goto failed;
+        break;
+    case 1:
+        remove(first); remove(second); remove(invalid);
+        workspace_job(a,JOB_SAVE,first); break;
+    case 2:
+        if (a->book.dirty || !a->book.path) goto failed;
+        workspace_job(a,JOB_SAVE,second); break;
+    case 3:
+        if (!cells_set(&active_sheet(a)->cells,0,0,"After",&error)) goto failed;
+        worksheet_record(active_sheet(a),EDIT_CELLS); a->book.dirty=true;
+        request_document_action(a,DOCUMENT_OPEN,first);
+        if (a->modal!=MODAL_UNSAVED || a->io_busy || strcmp(cells_get(&active_sheet(a)->cells,0,0),"After")) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640);
+        break;
+    case 4:
+        for (int i=0;i<3;i++) if (a->document_actions[i].x<0 || a->document_actions[i].x+a->document_actions[i].width>GetScreenWidth() || a->document_actions[i].width<60*a->ui.scale) goto failed;
+        { Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/current-workspace/document-prompt.png"); UnloadImage(image); }
+        cancel_document_action(a);
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        if (a->document_action!=DOCUMENT_NONE || !a->book.dirty || a->io_busy) goto failed;
+        request_document_action(a,DOCUMENT_OPEN,first); save_document_action(a);
+        if (!a->io_busy || !a->document_saving || a->document_action!=DOCUMENT_OPEN) goto failed;
+        break;
+    case 5:
+        if (a->document_action!=DOCUMENT_NONE || a->book.dirty || strcmp(cells_get(&active_sheet(a)->cells,0,0),"Before")) goto failed;
+        workspace_job(a,JOB_LOAD,second); break;
+    case 6: {
+        if (strcmp(cells_get(&active_sheet(a)->cells,0,0),"After")) goto failed;
+        FILE *file=fopen(invalid,"wb"); if (!file) goto failed;
+        if (fputs("not a workbook\n",file)==EOF) { fclose(file); goto failed; } if (fclose(file)) goto failed;
+        free(a->book.path); a->book.path=dx_absolute_path(invalid); a->book.dirty=true;
+        request_document_action(a,DOCUMENT_QUIT,NULL); save_document_action(a);
+        if (!a->io_busy) goto failed; break;
+    }
+    case 7:
+        if (a->exit_ready || !a->book.dirty || a->modal!=MODAL_ERROR || a->document_action!=DOCUMENT_NONE || strcmp(cells_get(&active_sheet(a)->cells,0,0),"After")) goto failed;
+        free(a->book.path); a->book.path=dx_absolute_path(second); a->modal=MODAL_NONE;
+        request_document_action(a,DOCUMENT_OPEN,invalid);
+        if (a->modal!=MODAL_UNSAVED) goto failed;
+        finish_document_action(a); break;
+    case 8:
+        if (a->exit_ready || !a->book.dirty || a->modal!=MODAL_ERROR || a->document_action!=DOCUMENT_NONE || strcmp(cells_get(&active_sheet(a)->cells,0,0),"After")) goto failed;
+        a->modal=MODAL_NONE; input_set(&a->input,"After"); a->book.dirty=false;
+        if (!commit_cell(a) || a->book.dirty) goto failed;
+        a->book.dirty=true; break;
+    case 9:
+        workspace_job(a,JOB_SAVE,second); request_document_action(a,DOCUMENT_QUIT,NULL);
+        if (a->exit_ready || !a->io_busy || a->document_action!=DOCUMENT_QUIT || a->modal==MODAL_UNSAVED) goto failed;
+        break;
+    }
+    free(error); (*step)++; return;
+failed:
+    fprintf(stderr,"FAIL: document guard at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
+}
+static bool object_ready(App *a,size_t index) {
+    ObjectStore *store=&active_sheet(a)->objects;
+    if (index>=store->count) return false;
+    ObjectView *v=&a->objects[index]; SheetObject *o=&store->items[index];
+    return !v->dirty && !v->failed && !v->waiting_count && !v->page.count_pending && v->page.column_count && v->revision==o->revision && v->source_revision==object_source_revision(a,o);
+}
+static void table_smoke_step(App *a,int *step) {
+    if (*step<0 || *step>=73 || a->busy || a->io_busy || a->values_loading) return;
+    if (a->fetch_failed || a->modal==MODAL_ERROR) goto failed;
+    ObjectStore *store=&active_sheet(a)->objects; char *error=NULL;
+    static Cell *other_table,*other_pivot,*moved_table; static uint64_t table_id,idle_request,restore_jobs,restore_counts;
+    switch (*step) {
+    case 0:
+        grid_select_cell(&a->grid,2,1,false);
+        if (!import_table(a,"tests/fixtures/transactions.csv")) goto failed;
+        break;
+    case 1:
+        if (!object_ready(a,0)) return;
+        if (a->analysis.kind!=SOURCE_NONE || a->page.column_count || a->objects[0].page.total!=5 || a->objects[0].page.column_count!=6) goto failed;
+        table_id=store->items[0].id; create_pivot(a);
+        if (store->count!=2 || store->items[1].source_id!=table_id) goto failed;
+        history(a,false); if (store->count!=1) goto failed;
+        history(a,true); if (store->count!=2 || store->items[1].source_id!=table_id) goto failed;
+        { PivotDefinition pivot={0};
+          bool ok=pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_COLUMNS,"Approved",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error);
+          if (!ok) { pivot_free(&pivot); goto failed; } set_pivot_definition(a,&pivot); }
+        break;
+    case 2:
+        if (!object_ready(a,1)) return;
+        if (a->objects[1].page.total!=4 || !a->objects[1].page.sql || !strstr(a->objects[1].page.sql,"PIVOT")) goto failed;
+        a->selected_object=-1; grid_select_cell(&a->grid,14,1,false);
+        if (!import_table(a,"tests/fixtures/chart-series.csv")) goto failed;
+        break;
+    case 3:
+        if (!object_ready(a,2)) return;
+        match_fields(a);
+        if (a->objects[2].page.total!=10 || a->field_match_count!=3 || strcmp(context_fields(a)->columns[0].name,"Group")) goto failed;
+        create_pivot(a);
+        if (store->count!=4 || store->items[3].source_id!=store->items[2].id) goto failed;
+        { PivotDefinition pivot={0};
+          bool ok=pivot_assign(&pivot,PIVOT_ROWS,"Group",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_COLUMNS,"Series",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Value",AGG_SUM,&error);
+          if (!ok) { pivot_free(&pivot); goto failed; } set_pivot_definition(a,&pivot); }
+        break;
+    case 4:
+        if (!object_ready(a,3)) return;
+        if (a->objects[3].page.total!=5 || !strstr(a->objects[3].page.sql,"PIVOT")) goto failed;
+        other_table=a->objects[2].page.cells; other_pivot=a->objects[3].page.cells;
+        a->selected_object=0; a->pivot_reveal_object=true; open_table_filter(a,0,1); break;
+    case 5: {
+        DistinctPage *values=cached_values(a,0); if (!values) return;
+        if (values->total!=4) goto failed;
+        a->filter_op=FILTER_EQUAL; input_set(&a->input,"İstanbul"); apply_filter(a); break;
+    }
+    case 6:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=2 || !a->objects[0].page.columns[1].filtered || a->objects[0].page.columns[0].filtered || a->objects[1].page.total!=1 || a->objects[2].page.cells!=other_table || a->objects[3].page.cells!=other_pivot || a->analysis.filter_column) goto failed;
+        history(a,false); break;
+    case 7:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=5 || a->objects[1].page.total!=4 || a->objects[2].page.cells!=other_table || a->objects[3].page.cells!=other_pivot) goto failed;
+        history(a,true); break;
+    case 8:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=2 || a->objects[1].page.total!=1) goto failed;
+        grid_select_cell(&a->grid,2,1,false); a->grid.end_row=8; a->grid.end_col=12; copy_selection(a); break;
+    case 9: {
+        const char *text=GetClipboardText(); if (!text || !strstr(text,"Table 1") || !strstr(text,"Pivot 2") || !strstr(text,"İstanbul")) goto failed;
+        a->statistics_enabled=true; watch_statistics(a); break;
+    }
+    case 10:
+        if (a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return;
+        if (a->statistics_state!=STATS_READY || a->statistics.cells!=84 || !a->statistics.sum || strcmp(a->statistics.sum,"43.5")) goto failed;
+        a->statistics_enabled=false; a->selected_object=3; create_chart(a);
+        if (store->count!=5 || store->items[4].source_id!=store->items[2].id) goto failed;
+        history(a,false); if (store->count!=4) goto failed;
+        history(a,true); if (store->count!=5 || store->items[4].source_id!=store->items[2].id) goto failed;
+        break;
+    case 11:
+        if (!object_ready(a,4)) return;
+        if (a->objects[4].page.total!=5 || a->objects[2].page.cells!=other_table || a->objects[3].page.cells!=other_pivot) goto failed;
+        smoke_snapshot("tests/results/table-sources/authoring-100.png"); ui_set_scale(&a->ui,1.5f); break;
+    case 12:
+        smoke_snapshot("tests/results/table-sources/authoring-150.png"); ui_set_scale(&a->ui,1);
+        a->selected_object=0; begin_object_name(a); input_set(&a->input,"Şehir gelirleri");
+        if (!apply_object_name(a)) goto failed;
+        break;
+    case 13:
+        if (strcmp(store->items[0].name,"Şehir gelirleri") || !objects_move(store,2,28,1,&active_sheet(a)->cells,source_rows(a),a->page.column_count,&error)) goto failed;
+        worksheet_record(active_sheet(a),EDIT_OBJECTS); history(a,false);
+        if (store->items[2].row!=14 || a->objects[2].page.cells!=other_table) goto failed;
+        history(a,true);
+        if (store->items[2].row!=28 || a->objects[2].page.cells!=other_table) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-tables.dxls"); break;
+    case 14:
+        if (a->book.dirty) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-tables.dxls"); break;
+    case 15:
+        if (a->book.count!=1 || store->count!=5 || store->items[0].source.kind!=SOURCE_CSV || store->items[2].row!=28 || store->items[1].source_id!=store->items[0].id || strcmp(store->items[0].name,"Şehir gelirleri")) goto failed;
+        a->selected_object=1; grid_select_cell(&a->grid,2,store->items[1].col,false); a->pivot_reveal_object=true; break;
+    case 16:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=2 || a->objects[1].page.total!=1) goto failed;
+        a->selected_object=0; grid_select_cell(&a->grid,4,1,false); inspect_value(a);
+        if (a->modal!=MODAL_INSPECT || strcmp(a->inspector_text,"1")) goto failed;
+        a->modal=MODAL_NONE; inspector_free(a); a->pivot_reveal_object=true; open_table_filter(a,0,3); break;
+    case 17: {
+        DistinctPage *values=cached_values(a,0); if (!values) return;
+        if (a->date_level!=0 || a->date_max!=2 || values->total!=1 || strcmp(values->values[0].label,"2026")) goto failed;
+        cancel_values(a); a->modal=MODAL_NONE; a->filter_object=-1;
+        a->selected_object=-1; grid_select_cell(&a->grid,40,20,false);
+        if (!import_table(a,"tests/generated/million.parquet")) goto failed;
+        break;
+    }
+    case 18:
+        if (!object_ready(a,5)) return;
+        if (a->objects[5].page.total!=1000000 || a->objects[5].page.column_count!=3 || store->items[5].rows!=1000002) goto failed;
+        grid_select_cell(&a->grid,42,20,false); a->grid.end_row=541; a->grid.end_col=22;
+        SetClipboardText("pending"); copy_selection(a); break;
+    case 19: {
+        const char *text=GetClipboardText();
+        if (!text || !strstr(text,"0\t0\t0") || !strstr(text,"499\t9\t49.9")) goto failed;
+        grid_select_cell(&a->grid,1000041,20,false); grid_reveal_cell(&a->grid,&a->page,a->ui.scale*a->grid.zoom); break;
+    }
+    case 20:
+        if (!object_ready(a,5) || a->objects[5].page.offset+a->objects[5].page.row_count<1000000) return;
+        smoke_snapshot("tests/results/table-sources/million-last-page.png");
+        if (!cells_set(&active_sheet(a)->cells,42,24,"Growth guard",&error)) goto failed;
+        worksheet_record(active_sheet(a),EDIT_CELLS);
+        { Analysis source=analysis_copy(&store->items[5].source); free(source.path); source.path=dx_absolute_path("tests/generated/odd'name.parquet");
+          bool ok=set_table_source(a,5,&source); analysis_free(&source); if (!ok) goto failed; }
+        break;
+    case 21:
+        if (!a->objects[5].failed) return;
+        if (!a->objects[5].error || !strstr(a->objects[5].error,"manual") || store->items[5].columns!=3 || store->items[5].rows!=1000002) goto failed;
+        history(a,false); grid_select_cell(&a->grid,42,20,false); a->grid.top=40; break;
+    case 22:
+        if (!object_ready(a,5)) return;
+        if (a->objects[5].page.total!=1000000 || strcmp(cells_get(&active_sheet(a)->cells,42,24),"Growth guard")) goto failed;
+        if (objects_remove(store,0)) goto failed; /* A live pivot protects its source. */
+        a->selected_object=0; open_modal(a,MODAL_SORT);
+        if (a->sort_object!=0 || a->sort_editor.count!=6) goto failed;
+        { Analysis order={0}; analysis_sort_set(&order,"Amount",true,false,&error); apply_sort_order(a,&order); analysis_free(&order); }
+        break;
+    case 23:
+        if (!object_ready(a,0)) return;
+        if (fabs(a->objects[0].page.cells[2].number-12.5)>1e-9 || !store->items[0].source.descending || a->analysis.sort_column) goto failed;
+        a->selected_object=0; open_table_filter(a,0,1); set_filter_mode(a,0); break;
+    case 24: {
+        DistinctPage *values=cached_values(a,0); if (!values) return;
+        if (values->total!=4) goto failed; /* Current-column values exclude its own predicate. */
+        apply_values(a,true); break;
+    }
+    case 25:
+        if (!object_ready(a,0)) return;
+        if (a->objects[0].page.total!=5 || a->objects[0].page.columns[1].filtered || store->items[0].source.filter_column || !store->items[0].source.sort_column) goto failed;
+        grid_select_cell(&a->grid,2,store->items[1].col,false); a->selected_object=1; a->pivot_reveal_object=true;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-tables.dxls"); break;
+    case 26:
+        if (a->book.dirty || store->count!=6) goto failed;
+        a->selected_object=1; a->pivot_reveal_object=true; break;
+    case 27:
+        if (!object_ready(a,1)) return;
+        a->selected_object=5; a->pivot_reveal_object=false;
+        grid_select_cell(&a->grid,1000041,20,false); grid_reveal_cell(&a->grid,&a->page,a->ui.scale*a->grid.zoom); break;
+    case 28:
+        if (!object_ready(a,5) || a->objects[5].page.offset+a->objects[5].page.row_count<1000000) return;
+        idle_request=a->request_id; a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=a->grid.offsets[20]; break;
+    case 29:
+        if (a->request_id!=idle_request) goto failed;
+        a->selected_object=1; grid_select_cell(&a->grid,2,store->items[1].col,false); a->pivot_reveal_object=true; break;
+    case 30:
+        if (!object_ready(a,1)) return;
+        a->selected_object=0; grid_select_cell(&a->grid,store->items[0].row,store->items[0].col,false); a->pivot_reveal_object=true; break;
+    case 31: {
+        Rectangle rect=object_rect(a,&store->items[0]); float scale=a->ui.scale*a->grid.zoom;
+        float x=rect.x+rect.width-2*scale,y=rect.y+rect.height*.5f;
+        moved_table=a->objects[0].page.cells; idle_request=a->request_id;
+        /* Replay a complete native down/drag/up that arrives in one poll. */
+        ui_note_pointer_gesture((DxPointerGesture){x,y,x,y+81*scale,0,false}); object_input(a);
+        if (!a->grid.move_requested || ui_has_pointer_gesture()) goto failed;
+        break;
+    }
+    case 32:
+        if (store->items[0].row!=5 || a->objects[0].page.cells!=moved_table || a->request_id!=idle_request) goto failed;
+        history(a,false); if (store->items[0].row!=2 || a->objects[0].page.cells!=moved_table || a->grid.anchor_row!=2 || a->selected_object!=0) goto failed;
+        history(a,true); if (store->items[0].row!=5 || a->objects[0].page.cells!=moved_table || a->grid.anchor_row!=5 || a->selected_object!=0) goto failed;
+        a->selected_object=1; grid_select_cell(&a->grid,2,store->items[1].col,false); a->pivot_reveal_object=true; break;
+    case 33:
+        if (!object_ready(a,1)) return;
+        a->selected_object=-1; grid_select_cell(&a->grid,20,36,false);
+        if (!import_table(a,"tests/generated/fixture.duckdb")) goto failed;
+        break;
+    case 34: {
+        if (!object_ready(a,6)) return;
+        if (a->objects[6].page.relation_count!=2 || !store->items[6].source.table || strcmp(store->items[6].source.table,"a view")) goto failed;
+        uint64_t request=a->request_id; size_t edits=active_sheet(a)->undo_actions_count;
+        a->selected_object=6; begin_table_relation(a);
+        if (a->modal!=MODAL_TABLE_RELATION || !choose_table_relation(a,0) || a->request_id!=request || active_sheet(a)->undo_actions_count!=edits) goto failed;
+        create_pivot(a); if (store->count!=8 || store->items[7].source_id!=store->items[6].id) goto failed;
+        PivotDefinition pivot={0};
+        bool ok=pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_COLUMNS,"Approved",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error);
+        if (!ok) { pivot_free(&pivot); goto failed; } set_pivot_definition(a,&pivot); break;
+    }
+    case 35: {
+        if (!object_ready(a,7)) return;
+        if (a->objects[7].page.total!=4 || !strstr(a->objects[7].page.sql,"PIVOT")) goto failed;
+        other_table=a->objects[2].page.cells; other_pivot=a->objects[3].page.cells;
+        Analysis source=analysis_copy(&store->items[6].source);
+        bool ok=analysis_filter_set(&source,"City",FILTER_EQUAL,"İstanbul",&error) && analysis_sort_set(&source,"Date",true,false,&error) && set_table_source(a,6,&source);
+        analysis_free(&source); if (!ok) goto failed; break;
+    }
+    case 36:
+        if (!object_ready(a,6) || !object_ready(a,7)) return;
+        if (a->objects[6].page.total!=2 || a->objects[7].page.total!=1) goto failed;
+        a->selected_object=6; grid_select_cell(&a->grid,store->items[6].row,store->items[6].col,false); begin_table_relation(a);
+        if (!choose_table_relation(a,1)) goto failed;
+        break;
+    case 37:
+        if (!object_ready(a,6) || !object_ready(a,7)) return;
+        if (a->objects[6].page.total!=5 || a->objects[7].page.total!=4 || strcmp(store->items[6].source.table,"table with spaces") || store->items[6].source.filter_column || store->items[6].source.sort_column || a->objects[2].page.cells!=other_table || a->objects[3].page.cells!=other_pivot) goto failed;
+        history(a,false); break;
+    case 38:
+        if (!object_ready(a,6) || !object_ready(a,7)) return;
+        if (a->objects[6].page.total!=2 || a->objects[7].page.total!=1 || strcmp(store->items[6].source.table,"a view") || !store->items[6].source.filter_column || !store->items[6].source.sort_column) goto failed;
+        history(a,true); break;
+    case 39:
+        if (!object_ready(a,6) || !object_ready(a,7)) return;
+        if (a->objects[6].page.total!=5 || a->objects[7].page.total!=4 || strcmp(store->items[6].source.table,"table with spaces")) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-tables.dxls"); break;
+    case 40:
+        if (a->book.dirty) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-tables.dxls"); break;
+    case 41:
+        if (!object_ready(a,6) || !object_ready(a,7)) return;
+        if (store->count!=8 || strcmp(store->items[6].source.table,"table with spaces") || store->items[7].source_id!=store->items[6].id || a->objects[7].page.total!=4) goto failed;
+        a->selected_object=6; begin_table_relation(a); break;
+    case 42:
+        smoke_snapshot("tests/results/table-sources/relations-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 43: {
+        smoke_snapshot("tests/results/table-sources/relations-150.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        Analysis source=analysis_copy(&store->items[6].source); free(source.table); source.table=dx_strdup("removed table");
+        bool ok=set_table_source(a,6,&source); analysis_free(&source); if (!ok) goto failed; break;
+    }
+    case 44:
+        if (!a->objects[6].failed) return;
+        if (a->objects[6].page.relation_count!=2 || a->objects[6].page.column_count) goto failed;
+        a->selected_object=6; begin_table_relation(a); if (!choose_table_relation(a,0)) goto failed; break;
+    case 45:
+        if (!object_ready(a,6) || !object_ready(a,7)) return;
+        if (a->objects[6].page.total!=5 || a->objects[7].page.total!=4 || strcmp(store->items[6].source.table,"a view")) goto failed;
+        a->selected_object=6; grid_select_cell(&a->grid,store->items[6].row,store->items[6].col,false); a->pivot_reveal_object=true;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-tables.dxls"); break;
+    case 46:
+        if (a->book.dirty) goto failed;
+        grid_select_cell(&a->grid,store->items[6].row+2,store->items[6].col+1,false); idle_request=a->request_id; break;
+    case 47:
+        if (!a->grid.navigation.active || a->grid.navigation.r0!=21 || a->grid.navigation.r1!=26 || a->grid.navigation.c0!=36 || a->grid.navigation.c1!=41) goto failed;
+        grid_handle_input(&a->grid,&a->ui,&a->page,&(GridInput){.key=KEY_DOWN,.separate_keyboard=true,.key_shortcut=true,.dt=.016f});
+        if (a->grid.row!=26 || a->grid.col!=37 || a->request_id!=idle_request) goto failed;
+        grid_handle_input(&a->grid,&a->ui,&a->page,&(GridInput){.key=KEY_UP,.separate_keyboard=true,.key_shortcut=true,.key_shift=true,.dt=.016f});
+        if (a->grid.row!=21 || a->grid.anchor_row!=26 || a->grid.end_row!=21) goto failed;
+        a->selected_object=7; a->pivot_focus=0; grid_select_cell(&a->grid,store->items[7].row+2,store->items[7].col+1,false); a->pivot_reveal_object=true; break;
+    case 48:
+        if (!a->grid.navigation.active || a->grid.navigation.r1!=store->items[7].row+1+a->objects[7].page.total) goto failed;
+        idle_request=a->request_id;
+        grid_handle_input(&a->grid,&a->ui,&a->page,&(GridInput){.key=KEY_RIGHT,.shortcut=true,.dt=.016f});
+        if (a->grid.col!=store->items[7].col+a->objects[7].page.column_count-1 || a->request_id!=idle_request) goto failed;
+        break;
+    case 49:
+        if (a->request_id!=idle_request) goto failed;
+        a->selected_object=5; a->pivot_focus=0; grid_select_cell(&a->grid,40,20,false); a->pivot_reveal_object=true; break;
+    case 50: {
+        if (!object_ready(a,5)) return;
+        uint64_t rows=store->items[5].rows;
+        if (publish_object_extent(a,5,255,&error) || store->items[5].rows!=rows || !error) goto failed;
+        free(error); error=NULL;
+        if (publish_object_extent(a,5,DX_SHEET_ROWS,&error) || store->items[5].rows!=rows || !error) goto failed;
+        free(error); error=NULL;
+        ObjectView *v=&a->objects[5]; v->page.count_pending=true; v->page.total=256; v->count_paused=true; store->items[5].rows=258;
+        grid_select_cell(&a->grid,42,20,false); a->grid.end_row=44; idle_request=a->request_id; break;
+    }
+    case 51: {
+        SetClipboardText("pending count"); copy_selection(a);
+        if (strcmp(GetClipboardText(),"pending count") || a->request_id!=idle_request) goto failed;
+        a->statistics_enabled=true; watch_statistics(a); schedule_statistics(a);
+        if (a->request_id!=idle_request || a->statistics_state!=STATS_WAITING) goto failed;
+        a->statistics_enabled=false; statistics_cancel(a); a->statistics_state=STATS_IDLE; statistics_line(a);
+        Rectangle rect=object_rect(a,&store->items[5]); float s=a->ui.scale*a->grid.zoom;
+        replay_object_gesture(a,5,(DxPointerGesture){rect.x+rect.width-s,rect.y+13*s,rect.x+rect.width-s,rect.y+40*s,0,false});
+        if (a->grid.move_requested || store->items[5].row!=40) goto failed;
+        break;
+    }
+    case 52:
+        if (!cells_set(&active_sheet(a)->cells,1000,20,"Count growth guard",&error)) goto failed;
+        worksheet_record(active_sheet(a),EDIT_CELLS); a->objects[5].waiting_count=table_count_validation(a,5,3);
+        if (!a->objects[5].waiting_count || publish_object_extent(a,5,1000000,&error) || !error || !strstr(error,"manual") || strcmp(cells_get(&active_sheet(a)->cells,1000,20),"Count growth guard") || store->items[5].rows!=258 || a->objects[5].page.total!=256) goto failed;
+        a->objects[5].count_paused=false;
+        break;
+    case 53:
+        if (!a->objects[5].failed) return;
+        if (!a->objects[5].error || !strstr(a->objects[5].error,"manual") || strcmp(cells_get(&active_sheet(a)->cells,1000,20),"Count growth guard")) goto failed;
+        smoke_snapshot("tests/results/table-sources/count-validation.png"); history(a,false);
+        if (*cells_get(&active_sheet(a)->cells,1000,20) || table_count_validation(a,5,3)) goto failed;
+        idle_request=a->request_id;
+        break;
+    case 54: {
+        if (!object_ready(a,5)) return;
+        if (a->request_id!=idle_request || store->items[5].rows!=1000002) goto failed;
+        /* A pivot-creation snapshot may precede the source's completed count. */
+        Cell *cache=a->objects[5].page.cells; uint64_t request=a->request_id;
+        store->items[5].rows=258; a->selected_object=5; create_pivot(a);
+        if (store->count!=9) goto failed;
+        store->items[5].rows=1000002; history(a,false);
+        if (store->count!=8 || store->items[5].rows!=1000002 || a->objects[5].page.cells!=cache || a->request_id!=request) goto failed;
+        a->selected_object=5; a->pivot_focus=0; grid_select_cell(&a->grid,42,20,false);
+        ObjectView *v=&a->objects[5]; v->page.count_pending=true; bool primary_paused=a->count_paused;
+        schedule_table_count(a); if (!object_count_active(a)) goto failed; pause_count(a);
+        if (!v->count_paused || a->count_request_id || a->count_paused!=primary_paused || !v->page.count_pending || !publish_object_extent(a,5,1000000,&error)) goto failed;
+        break;
+    }
+    case 55: {
+        a->objects[5].page.count_pending=true; a->objects[5].page.total=256;
+        schedule_table_count(a); if (!object_count_active(a)) goto failed; uint64_t old=a->request_id;
+        other_table=a->objects[6].page.cells; other_pivot=a->objects[7].page.cells;
+        Analysis source=analysis_copy(&store->items[5].source); bool ok=analysis_filter_set(&source,"category",FILTER_EQUAL,"9",&error) && set_table_source(a,5,&source); analysis_free(&source);
+        if (!ok || a->request_id<=old || a->count_request_id || !a->objects[5].dirty) goto failed;
+        break;
+    }
+    case 56:
+        if (!object_ready(a,5)) return;
+        if (a->objects[5].page.total!=100000 || store->items[5].rows!=100002 || a->objects[6].page.cells!=other_table || a->objects[7].page.cells!=other_pivot) goto failed;
+        history(a,false); break;
+    case 57:
+        if (!object_ready(a,5)) return;
+        if (a->objects[5].page.total!=1000000 || a->objects[5].page.count_pending || a->objects[5].waiting_count || a->objects[5].count_paused) goto failed;
+        grid_select_cell(&a->grid,42,20,false); a->grid.end_row=44; a->grid.end_col=22;
+        idle_request=a->request_id; copy_selection(a);
+        if (a->request_id!=idle_request || !strstr(GetClipboardText(),"0\t0\t0")) goto failed;
+        break;
+    case 58:
+        workspace_job(a,JOB_SAVE,"tests/generated/app-tables.dxls"); break;
+    case 59:
+        if (a->book.dirty) goto failed;
+        a->selected_object=5; a->pivot_focus=0; grid_select_cell(&a->grid,1000041,20,false);
+        a->grid.top=1000020; a->grid.fraction=0; a->grid.horizontal=a->grid.offsets[20]; a->pivot_reveal_object=false;
+        break;
+    case 60:
+        if (!object_ready(a,5) || a->objects[5].page.offset+a->objects[5].page.row_count<1000000) return;
+        if (a->grid.top<999900) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-table-last-view.dxls"); break;
+    case 61:
+        if (a->book.dirty) goto failed;
+        dx_lock(&a->worker.mutex); restore_jobs=a->worker.jobs_started; restore_counts=a->worker.counts_executed; dx_unlock(&a->worker.mutex);
+        workspace_job(a,JOB_LOAD,"tests/generated/app-table-last-view.dxls"); break;
+    case 62: {
+        if (!object_ready(a,5)) return;
+        const Cell *last=copy_cached_cell(&a->objects[5].page,999999,0);
+        dx_lock(&a->worker.mutex); bool work=a->worker.jobs_started==restore_jobs+2 && a->worker.counts_executed==restore_counts; dx_unlock(&a->worker.mutex);
+        if (a->grid.row!=1000041 || a->grid.col!=20 || a->grid.top<999900 || a->objects[5].page.offset<999000 || !last || strcmp(last->text,"999999") || !work) goto failed;
+        break;
+    }
+    case 63:
+        a->selected_object=6; a->pivot_focus=0; grid_select_cell(&a->grid,22,36,false); a->grid.top=20; a->grid.horizontal=a->grid.offsets[36]; a->pivot_reveal_object=true; break;
+    case 64: {
+        if (!object_ready(a,6) || !object_ready(a,7)) return;
+        Cell *cached=a->objects[6].page.cells; idle_request=a->request_id; grid_select_cell(&a->grid,22,35,false); a->selected_object=-1;
+        ui_note_key_modifiers(KEY_RIGHT,0); ui_note_key_modifiers(KEY_RIGHT,0); ui_note_key_modifiers(KEY_DOWN,DX_MOD_SUPER);
+        ui_note_key_modifiers(KEY_UP,DX_MOD_SHIFT); ui_note_key_modifiers(KEY_UP,DX_MOD_SHIFT); ui_note_key_modifiers(KEY_RIGHT,0); replay_canvas_keys(a,true);
+        if (a->grid.row!=24 || a->grid.col!=38 || a->selected_object!=6 || a->grid.anchor_row!=24 || a->grid.end_row!=24 || a->request_id!=idle_request || a->objects[6].page.cells!=cached) goto failed;
+        double start=dx_millis(); for (int i=0;i<64;i++) ui_note_key_modifiers(KEY_DOWN,0); replay_canvas_keys(a,true);
+        printf("Navigation batch: 64 ordered native presses in %.3f ms CPU path; no data query\n",dx_millis()-start);
+        if (a->grid.row!=88 || a->grid.col!=38 || a->selected_object!=-1 || a->request_id!=idle_request || a->objects[6].page.cells!=cached) goto failed;
+        grid_select_cell(&a->grid,22,36,false); a->selected_object=6; a->grid.top=20; a->grid.horizontal=a->grid.offsets[36]; break;
+    }
+    case 65:
+        ui_note_key_modifiers(KEY_RIGHT,0); ui_note_key_modifiers(KEY_DOWN,DX_MOD_ALT); ui_note_key_modifiers(KEY_RIGHT,0); replay_canvas_keys(a,true);
+        if (a->modal!=MODAL_FILTER || a->filter_object!=6 || a->field!=1 || a->grid.row!=22 || a->grid.col!=37 || strcmp(filter_fields(a)->columns[a->field].name,"City")) goto failed;
+        break;
+    case 66: {
+        DistinctPage *values=cached_values(a,0); if (!values) return;
+        if (values->total!=4 || a->objects[6].page.total!=5) goto failed;
+        cancel_values(a); a->modal=MODAL_NONE; a->filter_object=-1; idle_request=a->request_id; break;
+    }
+    case 67: {
+        ui_note_key_modifiers(KEY_DOWN,0); ui_note_key_modifiers(KEY_DOWN,DX_MOD_SHIFT); replay_canvas_keys(a,false);
+        DxKeyModifiers ignored;
+        if (a->grid.row!=22 || a->grid.col!=37 || a->request_id!=idle_request || ui_take_navigation_key(&ignored)) goto failed;
+        grid_select_cell(&a->grid,22,36,false); a->grid.end_row=23; a->grid.end_col=37;
+        ui_note_key_modifiers(KEY_ENTER,DX_MOD_SHIFT); ui_note_key_modifiers(KEY_TAB,DX_MOD_SHIFT); ui_note_key_modifiers(KEY_TAB,0); ui_note_key_modifiers(KEY_KP_ENTER,0); replay_canvas_keys(a,true);
+        if (a->grid.row!=22 || a->grid.col!=36 || a->grid.anchor_row!=22 || a->grid.end_row!=23 || a->grid.anchor_col!=36 || a->grid.end_col!=37 || a->request_id!=idle_request) goto failed;
+        break;
+    }
+    case 68:
+        a->selected_object=-1; a->grid.horizontal=a->grid.offsets[36]+a->grid.widths[36]-8; a->grid.top=20; a->pivot_reveal_object=false; break;
+    case 69:
+        smoke_snapshot("tests/results/table-sources/clipped-header-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 70:
+        smoke_snapshot("tests/results/table-sources/clipped-header-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 71:
+        if (a->objects[6].page.total!=5 || a->objects[7].page.total!=4) goto failed;
+        puts("PASS: ordered repeated navigation and modifier snapshots, per-press object scope, query-free 64-key batch, native-repeat suppression, contextual Alt+Down, modal ownership, range traversal and clipped table headers"); break;
+    case 72:
+        puts("PASS: independent same-sheet CSV/Parquet/DuckDB tables, pinned source relations and visible relation choice, bound real PIVOT/charts, contextual fields, cached filters/date values, source-local sort, copy/statistics, move/history, growth guards, missing-relation recovery, contextual keyboard jumps, deferred counts/cancellation/validation and dxls round trip"); break;
+    }
+    free(error); (*step)++; return;
+failed:
+    fprintf(stderr,"FAIL: table sources at stage %d: %s (%s)\n",*step,a->message ? a->message : "",a->statistics_error ? a->statistics_error : ""); *step=-1;
+}
+static char *font_asset(const char *name) {
+    char *path=dx_printf("%sassets/fonts/%s",GetApplicationDirectory(),name);
+    if (!FileExists(path)) { free(path); path=dx_printf("%s../Resources/assets/fonts/%s",GetApplicationDirectory(),name); }
+    return path;
+}
+static const int icon_preview_sizes[]={16,20,24,32,40,48,64,80,96,128,160,192,256,320,512,1024};
+static void draw_icon_gallery(App *a) {
+    const bool raster=a->icon_preview==2 || a->icon_preview==4,dark=a->icon_preview>=3;
+    Color background=dark ? (Color){25,34,48,255} : (Color){245,247,250,255},foreground=dark ? WHITE : UI_TEXT;
+    Rectangle panel=box(238,146,GetScreenWidth()-246,GetScreenHeight()-178); DrawRectangleRec(panel,background);
+    ui_text(&a->ui,raster ? "Prebuilt application icons" : "Immediate vector geometry",panel.x+20,panel.y+8,16,foreground);
+    const float scales[]={1,1.25f,1.5f,2}; const int sizes[]={16,20,24,32,48,64};
+    float ratio=fmaxf(a->ui.render_scale.x,a->ui.render_scale.y);
+    for (int row=0;row<4;row++) {
+        char label[24]; snprintf(label,sizeof(label),"%.0f%%",scales[row]*100); ui_text(&a->ui,label,panel.x+12,panel.y+42+row*142,11,foreground);
+        for (int col=0;col<6;col++) {
+            float side=sizes[col]*scales[row]; Rectangle r=box(panel.x+83+col*145+(130-side)*.5f,panel.y+58+row*142,side,side);
+            if (!raster) brand_draw(r,ratio);
+            else {
+                int best=0; while (best<15 && icon_preview_sizes[best]<side*ratio) best++;
+                Texture2D texture=a->icon_previews[best]; DrawTexturePro(texture,box(0,0,texture.width,texture.height),r,(Vector2){0},0,WHITE);
+            }
+            snprintf(label,sizeof(label),"%d",sizes[col]); ui_text(&a->ui,label,panel.x+142+col*145,panel.y+42+row*142,10,foreground);
+        }
+    }
+}
+#define QUERY_SMOKE_STAGES 47
+static void query_smoke_step(App *a,int *step) {
+    if (*step<0 || *step>=QUERY_SMOKE_STAGES || a->busy || a->io_busy || a->values_loading || a->query_loading) return;
+    char *error=NULL;
+    if (a->fetch_failed || a->modal==MODAL_ERROR) goto failed;
+    ObjectStore *store=&active_sheet(a)->objects;
+    static Cell *table_cells,*pivot_cells,*other_cells,*primary_cells;
+    static size_t undo_count; static uint64_t idle_request;
+    switch (*step) {
+    case 0:
+        grid_select_cell(&a->grid,2,1,false); if (!import_table(a,"tests/fixtures/transactions.csv")) goto failed; break;
+    case 1:
+        if (!object_ready(a,0)) return;
+        create_pivot(a);
+        { PivotDefinition pivot={0}; bool ok=pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_COLUMNS,"Approved",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error);
+          if (!ok) { pivot_free(&pivot); goto failed; } set_pivot_definition(a,&pivot); } break;
+    case 2:
+        if (!object_ready(a,1)) return;
+        a->selected_object=-1; grid_select_cell(&a->grid,18,1,false); if (!import_table(a,"tests/fixtures/null-text.csv")) goto failed; break;
+    case 3:
+        if (!object_ready(a,2)) return;
+        { Analysis source=analysis_copy(&store->items[0].source); bool ok=analysis_filter_set(&source,"City",FILTER_EQUAL,"İstanbul",&error) && analysis_sort_set(&source,"Amount",true,false,&error) && set_table_source(a,0,&source); analysis_free(&source); if (!ok) goto failed; }
+        a->selected_object=0; break;
+    case 4:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=2 || a->objects[1].page.total!=1) goto failed;
+        table_cells=a->objects[0].page.cells; pivot_cells=a->objects[1].page.cells; other_cells=a->objects[2].page.cells;
+        undo_count=active_sheet(a)->undo_actions_count; idle_request=a->request_id;
+        begin_source_query(a); submit_source_query(a);
+        if (a->modal!=MODAL_NONE || a->request_id!=idle_request || active_sheet(a)->undo_actions_count!=undo_count || !store->items[0].source.filter_column || !store->items[0].source.sort_column || a->objects[0].page.cells!=table_cells) goto failed;
+        begin_source_query(a); input_set(&a->input,"SELECT missing FROM input"); submit_source_query(a); break;
+    case 5:
+        if (!a->query_error) return;
+        if (a->modal!=MODAL_SOURCE_QUERY || a->objects[0].page.cells!=table_cells || a->objects[1].page.cells!=pivot_cells || a->objects[2].page.cells!=other_cells || active_sheet(a)->undo_actions_count!=undo_count || store->items[0].source.query) goto failed;
+        smoke_snapshot("tests/results/source-query/binding-error-100.png");
+        input_set(&a->input,"SELECT ID, City,\n       Amount::DECIMAL(12,2) AS Amount,\n       Date, Approved, Note\nFROM input\nWHERE Approved"); submit_source_query(a); break;
+    case 6:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=3 || a->objects[1].page.total!=2 || !store->items[0].source.query || store->items[0].source.filter_column || store->items[0].source.sort_column || a->objects[2].page.cells!=other_cells || active_sheet(a)->undo_actions_count!=undo_count+1 || !strstr(a->objects[1].page.sql,"PIVOT")) goto failed;
+        history(a,false); break;
+    case 7:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (store->items[0].source.query || !store->items[0].source.filter_column || !store->items[0].source.sort_column || a->objects[0].page.total!=2 || a->objects[2].page.cells!=other_cells) goto failed;
+        history(a,true); break;
+    case 8:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=3 || a->objects[1].page.total!=2) goto failed;
+        a->selected_object=0; start_export(a,"tests/generated/query-export.parquet"); break;
+    case 9:
+        { Database db; Page page={0}; Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/query-export.parquet")};
+          bool opened=database_open(&db,&error),ok=opened && database_fetch_table(&db,&exported,0,-1,&page,&error) && page.total==3 && page.columns[2].number_type.kind==NUM_DECIMAL;
+          page_free(&page); analysis_free(&exported); if (opened) database_close(&db); if (!ok) goto failed; }
+        remove("tests/generated/app-query.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-query.dxls"); break;
+    case 10: workspace_job(a,JOB_LOAD,"tests/generated/app-query.dxls"); break;
+    case 11:
+        if (!object_ready(a,0) || !object_ready(a,1) || !object_ready(a,2)) return;
+        if (!store->items[0].source.query || store->items[1].source_id!=store->items[0].id || a->objects[0].page.total!=3 || a->objects[2].page.total!=6) goto failed;
+        a->selected_object=0; table_cells=a->objects[0].page.cells; pivot_cells=a->objects[1].page.cells; other_cells=a->objects[2].page.cells; undo_count=active_sheet(a)->undo_actions_count;
+        begin_source_query(a); input_set(&a->input,"SELECT * FROM input WHERE false"); submit_source_query(a); cancel_source_validation(a); a->modal=MODAL_NONE; break;
+    case 12:
+        if (a->objects[0].page.cells!=table_cells || a->objects[1].page.cells!=pivot_cells || a->objects[2].page.cells!=other_cells || active_sheet(a)->undo_actions_count!=undo_count) goto failed;
+        begin_source_query(a); input_set(&a->input,"WITH selected AS (\n    SELECT ID, City, Amount, Date, Approved, Note\n    FROM input\n    WHERE Approved\n)\nSELECT *\nFROM selected\nORDER BY City"); a->query_edit_revision=a->input.revision; a->input.select_all=false; a->input.cursor=a->input.anchor=85; break;
+    case 13: smoke_snapshot("tests/results/source-query/editor-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 14: smoke_snapshot("tests/results/source-query/editor-150.png"); cancel_source_validation(a); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 15: a->selected_object=-1; open_source(a,"tests/fixtures/transactions.csv",false); break;
+    case 16:
+        if (a->page_stale || a->page.total!=5) return;
+        primary_cells=a->page.cells; begin_source_query(a); input_set(&a->input,"CREATE TABLE forbidden(i INTEGER)"); submit_source_query(a); break;
+    case 17:
+        if (!a->query_error) return;
+        if (a->page.cells!=primary_cells || a->analysis.query) goto failed;
+        input_set(&a->input,"SELECT *\nFROM input\nWHERE Amount > 20"); submit_source_query(a); break;
+    case 18:
+        if (a->page_stale) return;
+        if (!a->analysis.query || a->page.total!=2) goto failed; history(a,false); break;
+    case 19:
+        if (a->page_stale) return;
+        if (a->analysis.query || a->page.total!=5) goto failed; history(a,true); break;
+    case 20:
+        if (a->page_stale) return;
+        if (!a->analysis.query || a->page.total!=2) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-query.dxls"); break;
+    case 21: workspace_job(a,JOB_LOAD,"tests/generated/app-query.dxls"); break;
+    case 22:
+        if (a->page_stale) return;
+        if (!a->analysis.query || a->page.total!=2 || a->book.count!=2) goto failed;
+        activate_sheet(a,0,true); break;
+    case 23:
+        if (!object_ready(a,0) || !object_ready(a,1) || !object_ready(a,2)) return;
+        if (!store->items[0].source.query || a->objects[0].page.total!=3 || a->objects[1].page.total!=2) goto failed;
+        a->selected_object=0; table_cells=a->objects[0].page.cells; other_cells=a->objects[2].page.cells;
+        begin_source_query(a); idle_request=a->request_id; undo_count=active_sheet(a)->undo_actions_count; submit_source_query(a); break;
+    case 24:
+        if (a->modal!=MODAL_NONE || a->request_id!=idle_request || a->objects[0].page.cells!=table_cells || active_sheet(a)->undo_actions_count!=undo_count) goto failed;
+        begin_source_query(a); input_set(&a->input,""); submit_source_query(a); break;
+    case 25:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (store->items[0].source.query || a->objects[0].page.total!=5 || a->objects[1].page.total!=4 || a->objects[2].page.cells!=other_cells) goto failed;
+        history(a,false); break;
+    case 26:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (!store->items[0].source.query || a->objects[0].page.total!=3) goto failed;
+        puts("PASS: staged read-only source queries, binding/DDL errors preserve pages, cancelled validation, source-local Undo/Redo and real bound PIVOT, independent cache, typed Parquet export, multiline editor at 100/150 percent, primary source and versioned dxls save/reopen"); break;
+    case 27:
+        a->selected_object=-1; a->pivot_focus=0; a->chrome_focus=0; a->ribbon_focus=false; a->pivot_reveal_object=false;
+        grid_select_cell(&a->grid,store->items[1].row,store->items[1].col-1,false); a->grid.horizontal=0; a->grid.top=0;
+        idle_request=a->request_id; pivot_cells=a->objects[1].page.cells;
+        ui_note_key_modifiers(KEY_RIGHT,0); replay_canvas_keys(a,true);
+        if (a->selected_object!=1 || !a->pivot_reveal_object) goto failed;
+        break;
+    case 28: {
+        UIAuthoringLayout layout=a->authoring_layout;
+        if (!layout.valid || !a->preview_valid || layout.matrix.width<=0 || layout.chart.width<=0 ||
+            a->source_preview.data_columns!=a->objects[0].page.column_count || a->selected_object!=1 ||
+            a->objects[1].page.cells!=pivot_cells || a->request_id!=idle_request) goto failed;
+        smoke_snapshot("tests/results/source-query/keyboard-pivot-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    }
+    case 29: {
+        UIAuthoringLayout layout=a->authoring_layout;
+        if (!layout.valid || !layout.stacked || layout.matrix.x<a->workspace.canvas.x-.5f ||
+            layout.matrix.x+layout.matrix.width>a->workspace.canvas.x+a->workspace.canvas.width+.5f ||
+            a->selected_object!=1 || a->objects[1].page.cells!=pivot_cells || a->request_id!=idle_request) goto failed;
+        smoke_snapshot("tests/results/source-query/keyboard-pivot-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    }
+    case 30: puts("PASS: keyboard activation opens source-bound paired authoring, narrow stacked panels at 150 percent, unchanged result/cache and no SQL"); break;
+    case 31:
+        a->selected_object=-1; grid_select_cell(&a->grid,35,1,false);
+        if (!import_table(a,"tests/generated/fixture.duckdb")) goto failed; break;
+    case 32:
+        if (!object_ready(a,3)) return;
+        idle_request=a->request_id; a->selected_object=3; ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640);
+        a->context_origin=(Vector2){1000,620}; a->context_focus=a->context_scroll=0; a->context_drag=false; a->modal=MODAL_OBJECT; break;
+    case 33: {
+        UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,11);
+        if (menu.visible!=9 || a->context_scroll || menu.frame.panel.width!=360 || menu.frame.panel.y+menu.frame.panel.height>GetScreenHeight()-8*a->ui.scale+.01f || a->request_id!=idle_request) goto failed;
+        smoke_snapshot("tests/results/source-query/context-150-top.png"); context_key(a,11,menu.visible,KEY_END,false);
+        if (a->context_focus!=10 || a->context_scroll!=2) goto failed; break;
+    }
+    case 34:
+        if (a->modal!=MODAL_OBJECT || a->context_focus!=10 || a->context_scroll!=2 || a->request_id!=idle_request) goto failed;
+        smoke_snapshot("tests/results/source-query/context-150-end.png"); context_key(a,11,9,KEY_UP,false);
+        if (a->context_focus!=9 || a->context_scroll!=2) goto failed; begin_source_query(a); break;
+    case 35:
+        if (a->modal!=MODAL_SOURCE_QUERY || a->query_object!=3 || a->request_id!=idle_request) goto failed;
+        smoke_snapshot("tests/results/source-query/database-query-150.png"); submit_source_query(a);
+        if (a->modal!=MODAL_NONE || a->request_id!=idle_request || store->items[3].source.query) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        remove("tests/generated/app-source-menu.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-source-menu.dxls"); break;
+    case 36:
+        if (a->book.dirty) goto failed;
+        puts("PASS: bounded 150 percent database table context menu, scrollable last action, End/Up focus reveal and query opening without SQL"); break;
+    case 37: {
+        a->selected_object=1; a->pivot_focus=0; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0);
+        grid_select_cell(&a->grid,store->items[1].row+2,store->items[1].col,false);
+        PivotDefinition pivot={0}; bool ok=pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,&error) && pivot_assign_grain(&pivot,PIVOT_COLUMNS,"Date",AGG_SUM,PIVOT_DATE_MONTH,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_COUNT,&error);
+        if (!ok) { pivot_free(&pivot); goto failed; } if (!set_pivot_definition(a,&pivot)) goto failed; break;
+    }
+    case 38:
+        if (!object_ready(a,1)) return;
+        if (a->objects[1].page.total!=2 || a->objects[1].page.column_count!=3 || !strstr(a->objects[1].page.columns[1].caption,"Jan 2026")) goto failed;
+        a->pivot_drag_role=PIVOT_COLUMNS; a->pivot_drag_index=0; pivot_menu_open(a,(Vector2){a->pivot_tokens[PIVOT_COLUMNS][0].x,a->pivot_tokens[PIVOT_COLUMNS][0].y+24*a->ui.scale}); break;
+    case 39:
+        if (a->modal!=MODAL_PIVOT_FIELD) goto failed;
+        smoke_snapshot("tests/results/source-query/date-grain-menu.png"); break;
+    case 40:
+        if (a->modal!=MODAL_NONE || store->items[1].pivot.fields[PIVOT_COLUMNS][0].grain!=PIVOT_DATE_YEAR) goto failed;
+        if (!object_ready(a,1)) return;
+        if (strcmp(a->objects[1].page.columns[1].categories[0],"2026")) goto failed;
+        history(a,false); break;
+    case 41:
+        if (!object_ready(a,1)) return;
+        if (store->items[1].pivot.fields[PIVOT_COLUMNS][0].grain!=PIVOT_DATE_MONTH) goto failed;
+        history(a,true); break;
+    case 42: {
+        if (!object_ready(a,1)) return;
+        if (store->items[1].pivot.fields[PIVOT_COLUMNS][0].grain!=PIVOT_DATE_YEAR) goto failed;
+        PivotDefinition pivot=pivot_copy(&store->items[1].pivot);
+        if (!pivot_assign_grain(&pivot,PIVOT_COLUMNS,"Date",AGG_SUM,PIVOT_DATE_QUARTER,&error) || !pivot_assign_grain(&pivot,PIVOT_COLUMNS,"Date",AGG_SUM,PIVOT_DATE_MONTH,&error)) { pivot_free(&pivot); goto failed; }
+        if (!set_pivot_definition(a,&pivot)) goto failed; break;
+    }
+    case 43:
+        if (!object_ready(a,1)) return;
+        if (a->objects[1].page.column_count!=3 || a->objects[1].page.columns[1].category_count!=3 || !strstr(a->objects[1].page.sql,"date_trunc('month'") || strcmp(a->objects[1].page.columns[1].categories[1],"Q1")) goto failed;
+        smoke_snapshot("tests/results/source-query/date-grains-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 44:
+        smoke_snapshot("tests/results/source-query/date-grains-150.png"); workspace_job(a,JOB_SAVE,"tests/generated/app-date-grains.dxls"); break;
+    case 45: workspace_job(a,JOB_LOAD,"tests/generated/app-date-grains.dxls"); break;
+    case 46:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (store->items[1].pivot.counts[PIVOT_COLUMNS]!=3 || store->items[1].pivot.fields[PIVOT_COLUMNS][2].grain!=PIVOT_DATE_MONTH || a->objects[1].page.total!=2 || !strstr(a->objects[1].page.sql,"PIVOT")) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        puts("PASS: actual native date-token menu changes Month to Year, Undo/Redo, concurrent Year/Quarter/Month DuckDB PIVOT, typed category headers, source binding and versioned save/reopen at 100/150 percent"); break;
+    }
+    free(error); (*step)++; return;
+failed:
+    fprintf(stderr,"Query smoke failed at stage %d: %s\n",*step,error ? error : a->query_error ? a->query_error : a->message ? a->message : "state mismatch"); free(error); *step=-1;
+}
+static void unique_smoke_step(App *a,int *step) {
+    if (*step<0 || *step>=32 || a->busy || a->io_busy || a->values_loading || a->query_loading) return;
+    char *error=NULL; ObjectStore *store=&active_sheet(a)->objects;
+    static Cell *other_cells; static size_t undo_count; static uint64_t request;
+    if (a->fetch_failed || a->modal==MODAL_ERROR) goto failed;
+    switch (*step) {
+    case 0: grid_select_cell(&a->grid,2,1,false); if (!import_table(a,"tests/fixtures/duplicates.csv")) goto failed; break;
+    case 1:
+        if (!object_ready(a,0)) return;
+        { Analysis source=analysis_copy(&store->items[0].source); bool ok=analysis_query_set(&source,"SELECT City, Amount::DECIMAL(12,2) AS Amount, Value FROM input",&error) && set_table_source(a,0,&source); analysis_free(&source); if (!ok) goto failed; } break;
+    case 2:
+        if (!object_ready(a,0)) return;
+        if (a->objects[0].page.total!=8) goto failed; create_pivot(a);
+        { PivotDefinition pivot={0}; bool ok=pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_COLUMNS,"Value",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error);
+          if (!ok) { pivot_free(&pivot); goto failed; } set_pivot_definition(a,&pivot); } break;
+    case 3:
+        if (!object_ready(a,1)) return;
+        a->selected_object=-1; grid_select_cell(&a->grid,18,1,false); if (!import_table(a,"tests/fixtures/null-text.csv")) goto failed; break;
+    case 4:
+        if (!object_ready(a,2)) return;
+        other_cells=a->objects[2].page.cells; a->selected_object=0;
+        { Analysis source=analysis_copy(&store->items[0].source); bool ok=analysis_filter_set(&source,"City",FILTER_EQUAL,"İstanbul",&error) && analysis_sort_set(&source,"Amount",true,false,&error) && set_table_source(a,0,&source); analysis_free(&source); if (!ok) goto failed; } break;
+    case 5:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=4 || a->objects[1].page.total!=1) goto failed;
+        undo_count=active_sheet(a)->undo_actions_count;
+        if (!set_unique_rows(a,0,true) || !set_unique_rows(a,0,true) || active_sheet(a)->undo_actions_count!=undo_count+1) goto failed; break;
+    case 6:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=2 || a->objects[1].page.total!=1 || a->objects[2].page.cells!=other_cells || !store->items[0].source.filter_column || !store->items[0].source.sort_column || !strstr(a->objects[1].page.sql,"SELECT DISTINCT") || !strstr(a->objects[1].page.sql,"PIVOT")) goto failed;
+        a->pipeline=true; a->sidebar=false; a->chrome_focus=8; a->pipeline_focus_index=1;
+        grid_select_cell(&a->grid,store->items[0].row,store->items[0].col,false); a->selected_object=0; a->pivot_reveal_object=true;
+        if (pipeline_steps(a)!=4) goto failed; pipeline_activate(a,2);
+        if (a->modal!=MODAL_FILTER || a->filter_object!=0) goto failed;
+        clear_values_cache(a); a->modal=MODAL_NONE; break;
+    case 7: smoke_snapshot("tests/results/unique-rows/steps-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 8: {
+        SheetObject *o=&store->items[0]; Rectangle range=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,o->row,o->col,o->rows,o->columns);
+        if (range.x<a->grid.body.x-.5f || range.x+range.width>GetScreenWidth()-a->pipeline_extent*a->ui.scale+.5f || a->objects[2].page.cells!=other_cells) goto failed;
+        smoke_snapshot("tests/results/unique-rows/steps-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); pipeline_activate(a,1); break;
+    }
+    case 9:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (store->items[0].source.unique_rows || a->objects[0].page.total!=4 || active_sheet(a)->undo_actions_count!=undo_count+2 || a->objects[2].page.cells!=other_cells) goto failed;
+        history(a,false); break;
+    case 10:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (!store->items[0].source.unique_rows || a->objects[0].page.total!=2) goto failed; history(a,false); break;
+    case 11:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (store->items[0].source.unique_rows || a->objects[0].page.total!=4) goto failed; history(a,true); break;
+    case 12:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (!store->items[0].source.unique_rows || a->objects[0].page.total!=2 || a->objects[2].page.cells!=other_cells) goto failed;
+        a->selected_object=0; start_export(a,"tests/generated/unique-app.parquet"); break;
+    case 13:
+        { Database db; Page page={0}; Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/unique-app.parquet")};
+          bool opened=database_open(&db,&error),ok=opened && database_fetch_table(&db,&exported,0,-1,&page,&error) && page.total==2 && page.columns[1].number_type.kind==NUM_DECIMAL;
+          page_free(&page); analysis_free(&exported); if (opened) database_close(&db); if (!ok) goto failed; }
+        remove("tests/generated/app-unique.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-unique.dxls"); break;
+    case 14: workspace_job(a,JOB_LOAD,"tests/generated/app-unique.dxls"); break;
+    case 15:
+        if (!object_ready(a,0) || !object_ready(a,1) || !object_ready(a,2)) return;
+        if (!store->items[0].source.unique_rows || a->objects[0].page.total!=2 || a->objects[2].page.total!=6 || store->items[1].source_id!=store->items[0].id) goto failed;
+        a->selected_object=-1; open_source(a,"tests/fixtures/duplicates.csv",false); break;
+    case 16:
+        if (a->page_stale || a->page.total!=8) return;
+        if (!analysis_query_set(&a->analysis,"SELECT City, Amount::DECIMAL(12,2) AS Amount, Value FROM input",&error)) goto failed;
+        change_analysis(a,false); break;
+    case 17:
+        if (a->page_stale || a->page.total!=8) return;
+        if (!set_unique_rows(a,-1,true)) goto failed; break;
+    case 18:
+        if (a->page_stale) return;
+        if (a->page.total!=4 || !a->analysis.unique_rows) goto failed;
+        request=a->request_id; undo_count=active_sheet(a)->undo_actions_count;
+        if (!set_unique_rows(a,-1,true) || a->request_id!=request || active_sheet(a)->undo_actions_count!=undo_count) goto failed;
+        history(a,false); break;
+    case 19:
+        if (a->page_stale) return;
+        if (a->page.total!=8 || a->analysis.unique_rows) goto failed; history(a,true); break;
+    case 20:
+        if (a->page_stale) return;
+        if (a->page.total!=4 || !a->analysis.unique_rows) goto failed; reset_analysis(a); break;
+    case 21:
+        if (a->page_stale) return;
+        if (a->page.total!=8 || a->analysis.unique_rows || !a->analysis.query) goto failed; history(a,false); break;
+    case 22:
+        if (a->page_stale) return;
+        if (a->page.total!=4 || !a->analysis.unique_rows) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-unique.dxls"); break;
+    case 23: workspace_job(a,JOB_LOAD,"tests/generated/app-unique.dxls"); break;
+    case 24:
+        if (a->page_stale) return;
+        if (a->book.count!=2 || a->page.total!=4 || !a->analysis.unique_rows) goto failed;
+        activate_sheet(a,0,true); break;
+    case 25:
+        if (!object_ready(a,0) || !object_ready(a,1) || !object_ready(a,2)) return;
+        a->selected_object=0; other_cells=a->objects[2].page.cells;
+        { Analysis source=analysis_copy(&store->items[0].source); analysis_filters_clear(&source); bool ok=set_table_source(a,0,&source); analysis_free(&source); if (!ok) goto failed; } break;
+    case 26:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=4 || a->objects[1].page.total!=3 || a->objects[2].page.cells!=other_cells) goto failed;
+        a->chrome_focus=0; a->pipeline_focus_index=0; a->step_scroll=0; reset_analysis(a); break;
+    case 27:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=8 || store->items[0].source.unique_rows || !store->items[0].source.query || store->items[0].source.sort_column || a->objects[2].page.cells!=other_cells) goto failed;
+        history(a,false); break;
+    case 28:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=4 || !store->items[0].source.unique_rows || !store->items[0].source.sort_column || a->objects[2].page.cells!=other_cells) goto failed;
+        a->ribbon_tab=RIBBON_DATA; workspace_job(a,JOB_SAVE,"tests/generated/app-unique.dxls"); break;
+    case 29:
+        if (a->book.dirty) goto failed;
+        smoke_snapshot("tests/results/unique-rows/mixed-canvas.png");
+        request=a->request_id; break;
+    case 30:
+        if (request!=a->request_id || a->objects[2].page.cells!=other_cells) goto failed;
+        a->grid.top=100; a->grid.fraction=0; a->pipeline=false; a->pivot_reveal_object=false; break;
+    case 31:
+        if (a->grid.top!=100 || request!=a->request_id || a->objects[2].page.cells!=other_cells) goto failed;
+        a->grid.top=2; a->pivot_reveal_object=true;
+        puts("PASS: structured unique rows on primary and independent sources, preserved filters/sort, adjacent actual PIVOT updates, unrelated cache retention, no-op, step indexing/removal, 100/150 percent uncovered canvas, panel dismissal preserves viewport, Undo/Redo, typed export and dxls save/reopen"); break;
+    }
+    free(error); (*step)++; return;
+failed: fprintf(stderr,"Unique rows smoke failed at stage %d: %s\n",*step,error ? error : a->message ? a->message : "state mismatch"); free(error); *step=-1;
+}
+static void icon_smoke_step(App *a,int *step) {
+    if (*step<0 || *step>=8) return;
+    switch (*step) {
+    case 0:
+        for (int i=0;i<16;i++) if (!a->icon_previews[i].id) { *step=-1; return; }
+        a->icon_preview=1; break;
+    case 1: smoke_snapshot("tests/results/icons/native-vector-light.png"); a->icon_preview=2; break;
+    case 2: smoke_snapshot("tests/results/icons/native-png-light.png"); a->icon_preview=3; break;
+    case 3: smoke_snapshot("tests/results/icons/native-vector-dark.png"); a->icon_preview=4; break;
+    case 4: smoke_snapshot("tests/results/icons/native-png-dark.png"); a->icon_preview=0; open_modal(a,MODAL_SETTINGS); break;
+    case 5: smoke_snapshot("tests/results/icons/settings-100.png"); ui_set_scale(&a->ui,1.5f); break;
+    case 6: smoke_snapshot("tests/results/icons/settings-150.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); break;
+    case 7: puts("PASS: shared vector and prebuilt app icon previews, 100/125/150/200 percent on light/dark, native Settings at 100/150 percent"); break;
+    }
+    (*step)++;
+}
+int app_run(const AppOptions *options) {
+    App a={0}; a.gridlines=true; a.ribbon_command=a.selected_object=a.filter_object=a.sort_object=a.pivot_drag_field=a.pivot_drag_role=-1;
+    workbook_init(&a.book); a.known_total=-1; a.launched_ms=dx_millis(); a.sidebar_width=228; a.pipeline_width=280; a.sidebar=a.fields_visible=true; a.field_highlight=-1;
+    SetConfigFlags(FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
+    bool automated=options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->export_smoke || options->count_smoke || options->clipboard_smoke || options->sort_smoke || options->layout_smoke || options->navigation_smoke || options->nyc_smoke || options->document_smoke || options->chart_smoke || options->statistics_smoke || options->table_smoke || options->icon_smoke || options->query_smoke || options->unique_smoke || options->frames;
+    a.statistics_mask=49; a.statistics_enabled=!automated || options->statistics_smoke; a.statistics_object=-1;
+    InitWindow(1280,820,automated ? "Duxcel — automated test" : "Duxcel");
+    if (!IsWindowReady()) { fprintf(stderr,"Cannot initialize the native window and graphics context.\n"); return 1; }
+    dx_native_setup(GetWindowHandle()); SetWindowMinSize(640,640); SetExitKey(KEY_NULL);
+    if (!brand_install_icon()) TraceLog(LOG_WARNING,"Cannot install the application icon");
+    if (!brand_init()) TraceLog(LOG_WARNING,"Cannot create the application identity display cache");
+    int refresh=GetMonitorRefreshRate(GetCurrentMonitor());
+    /* Keep a bounded fallback when the driver ignores vsync. A one-frame-per-
+       second margin avoids adding a second 60 Hz deadline to the swap wait. */
+    int frame_cap=refresh>=24 && refresh<=240 ? refresh+1 : 61; const char *cap_override=getenv("DUXCEL_FRAME_CAP");
+    if (cap_override) { int cap; char tail; if (sscanf(cap_override,"%d%c",&cap,&tail)==1 && cap>=0 && cap<=240) frame_cap=cap; }
+    SetTargetFPS(frame_cap);
+    printf("Frame pacing cap=%d monitor=%d Hz (vsync requested)\n",frame_cap,refresh);
+    const char *override=getenv("DUXCEL_FONT"),*mono_override=getenv("DUXCEL_MONO_FONT");
+    char *font=override ? dx_strdup(override) : font_asset("IBMPlexSans-Regular.otf");
+    char *medium=font_asset("IBMPlexSans-Medium.otf"),*emphasis=font_asset("IBMPlexSans-SemiBold.otf");
+    char *mono=mono_override ? dx_strdup(mono_override) : font_asset("JetBrainsMono-Regular.ttf");
+    if (!FileExists(font) || !FileExists(medium) || !FileExists(emphasis) || !FileExists(mono) || !ui_init(&a.ui,font,medium,emphasis,mono)) {
+        fprintf(stderr,"Cannot load bundled font family at %s. Keep assets/fonts with the application.\n",font);
+        free(font); free(medium); free(emphasis); free(mono); ui_destroy(&a.ui); brand_shutdown(); CloseWindow(); return 1;
+    }
+    free(font); free(medium); free(emphasis); free(mono); grid_init(&a.grid); grid_init(&a.source_preview); a.grid.row_height=24; a.grid.freeze=!automated; input_set(&a.input,""); input_set(&a.pivot_search,"");
+    if (options->icon_smoke) for (int i=0;i<16;i++) {
+        char *path=dx_printf("%sassets/icons/png/duxcel-%d.png",GetApplicationDirectory(),icon_preview_sizes[i]);
+        if (!FileExists(path)) { free(path); path=dx_printf("%s../Resources/assets/icons/png/duxcel-%d.png",GetApplicationDirectory(),icon_preview_sizes[i]); }
+        a.icon_previews[i]=LoadTexture(path); if (a.icon_previews[i].id) SetTextureFilter(a.icon_previews[i],TEXTURE_FILTER_BILINEAR); free(path);
+    }
+    DxPresentation presentation={0};
+    if (!automated && dx_presentation_load(&presentation)) {
+        a.app_presentation_loaded=true; a.ribbon_mode=presentation.ribbon_mode; a.previous_ribbon_mode=presentation.previous_ribbon_mode;
+        a.sidebar=presentation.workbook; a.fields_visible=presentation.fields; a.pipeline=presentation.transformations; a.pipeline_collapsed=presentation.transformations_collapsed;
+        a.workbook_collapsed=presentation.workbook_collapsed; a.fields_collapsed=false;
+        a.sidebar_width=presentation.sidebar_width; a.pipeline_width=presentation.pipeline_width; a.reduced_motion=presentation.reduced_motion;
+        a.statistics_mask=presentation.statistics_mask; a.grid.freeze=presentation.freeze;
+        ui_set_scale(&a.ui,presentation.interface_scale);
+    }
+    a.app_presentation_loaded=!automated;
+    if (!worker_start(&a.worker)) {
+        fprintf(stderr,"Cannot start the query worker.\n");
+        for (int i=0;i<16;i++) if (a.icon_previews[i].id) UnloadTexture(a.icon_previews[i]);
+        brand_shutdown(); grid_destroy(&a.grid); ui_destroy(&a.ui); input_free(&a.input); input_free(&a.filter_term); input_free(&a.filter_end); input_free(&a.pivot_search); CloseWindow(); return 1;
+    }
+    /* Scissor changes flush raylib's batch. Rotate existing rlgl buffers so
+       the driver need not overwrite vertex data still being read by the GPU. */
+    int render_buffers=8; const char *buffers_override=getenv("DUXCEL_RENDER_BUFFERS");
+    if (buffers_override) { char *end=NULL; long value=strtol(buffers_override,&end,10); if (end && !*end && value>=1 && value<=16) render_buffers=(int)value; }
+    rlRenderBatch render_batch={0};
+    if (render_buffers>1) { render_batch=rlLoadRenderBatch(render_buffers,RL_DEFAULT_BATCH_BUFFER_ELEMENTS); if (render_batch.vertexBuffer && render_batch.draws) rlSetRenderBatchActive(&render_batch); }
+    printf("Render batch buffers=%d elements=%d\n",render_buffers,RL_DEFAULT_BATCH_BUFFER_ELEMENTS);
+    status(&a,"Ready");
+    const char *layout_from=getenv("DUXCEL_LAYOUT_FROM");
+    int layout_target=LAYOUT_SMOKE_STAGES;
+    const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
+    if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>250 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540"));
+    if (focused_layout) { SetWindowSize(1440,988); workspace_job(&a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
+    else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(&a,"",true);
+    else if (options->nyc_smoke) open_source(&a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
+    else if (options->sort_smoke) open_source(&a,"tests/fixtures/sort-keys.csv",false);
+    else if (options->chart_smoke) open_source(&a,"tests/fixtures/chart-series.csv",false);
+    else if (options->statistics_smoke) open_source(&a,"tests/fixtures/transactions.csv",false);
+    else if (options->path) open_source(&a,options->path,false);
+    else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(&a,"tests/fixtures/null-text.csv",false);
+    else { new_sheet(&a); a.book.dirty=false; }
+    int smoke=0,workspace_smoke=0,filter_smoke=0,pivot_smoke=0,export_smoke=0,count_smoke=0,clipboard_smoke=0,sort_smoke=0,layout_smoke=focused_layout ? 250 : 0,navigation_smoke=0,nyc_smoke=0,document_smoke=0,chart_smoke=0,statistics_smoke=0,table_smoke=0,icon_smoke=0,query_smoke=0,unique_smoke=0;
+    bool trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
+    while (!options->frames || a.frames<(unsigned)options->frames) {
+        double frame=dx_millis(); ui_set_canvas_zoom(&a.ui,active_canvas_zoom(&a)); ui_update(&a.ui);
+        DxKeyModifiers modifiers; while (dx_take_key_modifiers(&modifiers)) ui_note_key_modifiers(modifiers.key,modifiers.modifiers);
+        DxPointerGesture gesture; while (dx_take_pointer_gesture(&gesture)) ui_note_pointer_gesture(gesture);
+        if (a.count_deferred && !a.grid.scrollbar && !a.busy && (!a.page_stale || a.waiting_count_page)) { a.count_deferred=false; publish_count(&a,a.deferred_total); }
+        watch_statistics(&a);
+        poll_query(&a);
+        watch_statistics(&a);
+        if (WindowShouldClose() || dx_native_quit_requested()) { dx_native_acknowledge_quit(); request_document_action(&a,DOCUMENT_QUIT,NULL); }
+        continue_document_action(&a);
+        if (a.exit_ready) break;
+        if (IsFileDropped()) {
+            FilePathList files=LoadDroppedFiles(); if (files.count) open_source(&a,files.paths[0],false); UnloadDroppedFiles(files);
+        }
+        a.consume_grid_input=false;
+        if (trace_input) {
+            const int keys[]={KEY_ENTER,KEY_ESCAPE,KEY_F2,KEY_F6,KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT};
+            for (size_t i=0;i<sizeof(keys)/sizeof(*keys);i++) if (ui_pressed(keys[i])) fprintf(stderr,"Canvas key=%d\n",keys[i]);
+        }
+        if (options->layout_smoke && a.frames%24==2) {
+            static unsigned marks_injected=0;
+            int bit=layout_smoke==173 ? 0 : layout_smoke==174 ? 1 : layout_smoke==175 ? 2 : layout_smoke==176 ? 3 : layout_smoke==177 ? 4 : layout_smoke==178 ? 5 : layout_smoke==179 ? 6 : layout_smoke==180 ? 7 : layout_smoke==189 ? 8 : layout_smoke==190 ? 9 : -1;
+            if (bit>=0 && !(marks_injected&(1u<<bit))) {
+                if (bit==7) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+                else if (bit==8) ui_note_key_press(KEY_ESCAPE,0);
+                else if (bit==9) ui_note_key_press(KEY_BACKSPACE,0);
+                else if (bit==2 || bit==5 || bit==6) {
+                    Rectangle from=bit==2 ? a.author_fields : a.pivot_tokens[PIVOT_VALUES][bit==5 ? 1 : 0];
+                    Rectangle to=a.author_marks[bit==2 ? MARKS_COLOR : MARKS_SIZE];
+                    float x0=from.x+35*a.ui.scale,y0=bit==2 ? from.y+(3*24+11)*a.ui.scale : from.y+11*a.ui.scale;
+                    float x1=to.x+to.width*.5f,y1=to.y+to.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x0,y0,x1,y1,0,false});
+                } else {
+                    Rectangle target;
+                    if (bit==0 || bit==3) target=a.author_marks[bit==0 ? MARKS_COLOR : MARKS_LABEL];
+                    else { int count=(int)context_fields(&a)->column_count+(selected_pivot(&a)->marks.counts[a.mark_role] ? 1 : 0); UIMenuLayout menu=ui_action_menu_layout(a.context_origin,count>11 ? 11 : count,240,a.ui.scale,(Vector2){GetScreenWidth(),GetScreenHeight()}); target=box(menu.items.x,menu.items.y+(bit==1 ? 4 : 5)*28*a.ui.scale,menu.items.width,28*a.ui.scale); }
+                    float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                }
+                marks_injected|=1u<<bit;
+            }
+        }
+        if (options->filter_smoke && a.frames%24==2) {
+            static unsigned injected=0; int bit=filter_smoke==34 ? 0 : filter_smoke==35 ? 1 : filter_smoke==37 ? 2 : filter_smoke==41 ? 3 : filter_smoke==52 ? 4 : filter_smoke==62 ? 5 : filter_smoke==64 ? 6 : -1;
+            if (bit>=0 && !(injected&(1u<<bit))) {
+                if (bit==1) { a.filter_condition_index=4; ui_note_key_press(KEY_ENTER,0); }
+                else {
+                    Rectangle target=bit==0 || bit==5 ? a.filter_layout.condition : bit==2 || bit==6 ? a.filter_layout.apply : bit==4 ? a.filter_layout.all : a.filter_layout.cancel;
+                    float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                    if (bit==5) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
+                }
+                injected|=1u<<bit;
+            }
+        }
+        if (options->layout_smoke && (layout_smoke==97 || layout_smoke==99 || layout_smoke==102 || layout_smoke==104)) {
+            static unsigned injected=0;
+            unsigned mask=layout_smoke==97 ? 1 : layout_smoke==99 ? 2 : layout_smoke==102 ? 4 : 8;
+            if (!(injected&mask) && a.frames%24==2) {
+                bool field=layout_smoke==97 || layout_smoke==104;
+                Rectangle from=field ? a.author_fields : layout_smoke==99 ? a.pivot_tokens[PIVOT_ROWS][0] : a.pivot_tokens[PIVOT_COLUMNS][0];
+                Rectangle to=layout_smoke==97 ? a.pivot_shelves[PIVOT_FILTERS] : a.pivot_contents[PIVOT_COLUMNS];
+                float y=from.y+(layout_smoke==97 ? 2*24+11 : 11)*a.ui.scale;
+                float x=layout_smoke==102 ? to.x+to.width-a.ui.scale : to.x+5*a.ui.scale;
+                ui_note_pointer_gesture((DxPointerGesture){from.x+35*a.ui.scale,y,x,to.y+11*a.ui.scale,0,false});
+                injected|=mask;
+            }
+        }
+        if (options->layout_smoke && (layout_smoke==115 || layout_smoke==118) && a.frames%24==2) {
+            static unsigned preview_injected=0; unsigned bit=layout_smoke==115 ? 1 : 2;
+            if (!(preview_injected&bit)) {
+                Grid *grid=&a.source_preview; float scale=a.ui.scale*grid->zoom;
+                float x=layout_smoke==115 ? grid->body.x+(grid->offsets[1]-grid->horizontal)*scale-12*scale : grid->body.x+10*scale;
+                float y=layout_smoke==115 ? grid->rect.y+39*scale : grid->body.y+35*scale;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); preview_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && (layout_smoke==121 || layout_smoke==123) && a.frames%24==2) {
+            static unsigned matrix_injected=0; unsigned bit=layout_smoke==121 ? 1 : 2;
+            if (!(matrix_injected&bit)) {
+                Rectangle panel=a.authoring_layout.matrix; float scale=a.ui.scale;
+                float x=panel.x+12*scale,y=layout_smoke==121 ? panel.y+panel.height-5*scale : panel.y+(31+48+12)*scale;
+                float end=layout_smoke==121 ? panel.x+panel.width*.8f : x+230*scale;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,end,y,0,false}); matrix_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && (layout_smoke==211 || layout_smoke==212) && a.frames%24==2) {
+            static unsigned totals_injected=0; unsigned bit=layout_smoke==211 ? 1 : 2;
+            if (!(totals_injected&bit)) {
+                Rectangle panel=a.authoring_layout.matrix; float scale=a.ui.scale;
+                float x=layout_smoke==211 ? panel.x+50*scale : panel.x+panel.width-30*scale;
+                float y=layout_smoke==211 ? panel.y+panel.height-22*scale : panel.y+(31+48+12)*scale;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); totals_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=218 && layout_smoke<=227) {
+            static unsigned inspector_injected=0; int bit=layout_smoke==218 ? 0 : layout_smoke==219 ? 1 : layout_smoke==220 ? 2 : layout_smoke==223 ? 3 : layout_smoke==224 ? 4 : layout_smoke==225 ? 5 : layout_smoke==226 ? 6 : layout_smoke==227 ? 7 : -1;
+            if (bit>=0 && !(inspector_injected&(1u<<bit))) {
+                if (bit==2 || bit==4) ui_note_key_press(KEY_ESCAPE,0);
+                else if (bit==6) ui_note_key_press(KEY_C,DX_MOD_SUPER);
+                else if (bit==7) { ui_note_key_press(KEY_TAB,0); ui_note_key_press(KEY_ENTER,0); }
+                else {
+                    Rectangle target=bit<=1 ? box(a.pipeline_layout.list.x,a.pipeline_layout.list.y+a.pipeline_layout.row_height*a.ui.scale,a.pipeline_layout.list.width,a.pipeline_layout.row_height*a.ui.scale) : bit==3 ? a.pipeline_layout.edit : a.pipeline_layout.inspect;
+                    float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,bit==1});
+                }
+                inspector_injected|=1u<<bit;
+            }
+        }
+        if (options->layout_smoke && layout_smoke==229 && a.frames%24==2) {
+            static bool narrow_inspector_injected=false;
+            if (!narrow_inspector_injected) { Rectangle list=a.pipeline_layout.list; float x=list.x+list.width*.5f,y=list.y+a.pipeline_layout.row_height*a.ui.scale*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); narrow_inspector_injected=true; }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=233 && layout_smoke<=248) {
+            static unsigned preview_injected=0; unsigned bit=1u<<(layout_smoke-233);
+            if (!(preview_injected&bit)) {
+                bool ready=true;
+                if (layout_smoke==233 || layout_smoke==244 || layout_smoke==247) {
+                    Rectangle target=a.pipeline_layout.preview;
+                    ready=target.width>0 && !a.pipeline_sql && fabsf(a.pipeline_extent-a.pipeline_width)<.1f && fabsf(a.pipeline_layout.title.x-a.workspace.inspector.x-13*a.ui.scale)<.1f;
+                    if (ready) { float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
+                } else if (layout_smoke==234) {
+                    Rectangle target=grid_range_rect(&a.step_preview.grid,a.ui.scale*a.step_preview.grid.zoom,1,0,1,1); float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else if (layout_smoke==235) { ui_note_key_press(KEY_RIGHT,0); ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_RIGHT,DX_MOD_SHIFT); }
+                else if (layout_smoke==236) ui_note_key_press(KEY_C,DX_MOD_SUPER);
+                else if (layout_smoke==237) ui_note_key_press(KEY_F2,0);
+                else if (layout_smoke==238) ui_note_key_press(KEY_F10,DX_MOD_SHIFT);
+                else if (layout_smoke==239 || layout_smoke==246 || layout_smoke==248) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==240) ui_note_key_press(KEY_A,DX_MOD_SUPER);
+                else if (layout_smoke==241) ui_note_key_press(KEY_DELETE,0);
+                else if (layout_smoke==243) {
+                    UIPreviewLayout target=ui_preview_layout((Rectangle){a.step_preview.grid.rect.x,a.step_preview.grid.rect.y-57*a.ui.scale,a.step_preview.grid.rect.width,a.step_preview.grid.rect.height+57*a.ui.scale},a.ui.scale);
+                    float x=target.return_button.x+target.return_button.width*.5f,y=target.return_button.y+target.return_button.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                }
+                if (ready) preview_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=251 && layout_smoke<=262) {
+            static unsigned statistics_injected=0; unsigned bit=1u<<(layout_smoke-251);
+            if (!(statistics_injected&bit)) {
+                if (layout_smoke==251 || layout_smoke==259) ui_note_key_press(KEY_M,DX_MOD_SUPER|DX_MOD_SHIFT);
+                else if (layout_smoke==252) { Rectangle row=a.statistics_layout.rows[1]; float x=row.x+row.width*.5f,y=row.y+row.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
+                else if (layout_smoke==253 || layout_smoke==260) ui_note_key_press(KEY_C,DX_MOD_SUPER);
+                else if (layout_smoke==254) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+                else if (layout_smoke==256 || layout_smoke==261 || layout_smoke==262) ui_note_key_press(KEY_ESCAPE,0);
+                statistics_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=266 && layout_smoke<=273) {
+            static unsigned guide_injected=0; unsigned bit=1u<<(layout_smoke-266);
+            if (!(guide_injected&bit)) {
+                if (layout_smoke==266 || layout_smoke==270) ui_note_key_press(KEY_TAB,0);
+                else if (layout_smoke==267 || layout_smoke==268) ui_note_key_press(KEY_ENTER,0);
+                else if (layout_smoke==271) ui_note_key_press(KEY_TAB,DX_MOD_SHIFT);
+                else if (layout_smoke==272) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==273) ui_note_key_press(KEY_F6,0);
+                guide_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=277 && layout_smoke<=288) {
+            static unsigned choices_injected=0; unsigned bit=1u<<(layout_smoke-277);
+            if (!(choices_injected&bit)) {
+                if (layout_smoke==277) ui_note_key_press(KEY_END,0);
+                else if (layout_smoke==278) ui_note_key_press(KEY_ENTER,0);
+                else if (layout_smoke==282) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+                else if (layout_smoke==286) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
+                else if (layout_smoke==287) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==280 || layout_smoke==284) {
+                    UIChoiceLayout menu=ui_choice_layout(a.context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a.ui.scale,layout_smoke==280 ? 4 : 3,-1);
+                    Rectangle row=menu.rows[layout_smoke==280 ? 1 : 0]; float x=row.x+row.width*.5f,y=row.y+row.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else if (layout_smoke==288) ui_note_pointer_gesture((DxPointerGesture){4,4,4,4,0,false});
+                choices_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==291 || layout_smoke==293)) {
+            static unsigned source_focus_injected=0; unsigned bit=layout_smoke==291 ? 1 : 2;
+            if (!(source_focus_injected&bit)) {
+                if (layout_smoke==291) {
+                    Rectangle first=grid_range_rect(&a.grid,a.ui.scale*a.grid.zoom,5,5,1,1),last=grid_range_rect(&a.grid,a.ui.scale*a.grid.zoom,8,5,1,1);
+                    ui_note_pointer_gesture((DxPointerGesture){first.x+first.width*.5f,first.y+first.height*.5f,last.x+last.width*.5f,last.y+last.height*.5f,0,false});
+                } else ui_note_key_press(KEY_ESCAPE,0);
+                source_focus_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=296 && layout_smoke<=302) {
+            static unsigned flyout_injected=0; unsigned bit=1u<<(layout_smoke-296);
+            if (!(flyout_injected&bit)) {
+                int control=layout_smoke==296 ? 5 : layout_smoke==297 ? 4 : layout_smoke==301 ? 16 : -1;
+                if (control>=0) {
+                    Rectangle r=a.ribbon_flyout.commands[control]; float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else if (layout_smoke==298) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+                else if (layout_smoke==299 || layout_smoke==302) ui_note_key_press(KEY_ESCAPE,0);
+                flyout_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==307 || layout_smoke==308)) {
+            static unsigned field_more_injected=0; unsigned bit=layout_smoke==307 ? 1 : 2;
+            if (!(field_more_injected&bit)) {
+                if (layout_smoke==307) {
+                    Rectangle list=a.field_list; float x=list.x+list.width-9.5f*a.ui.scale,y=list.y+(5*24+12)*a.ui.scale;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else ui_note_key_press(KEY_ESCAPE,0);
+                field_more_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==314 || layout_smoke==316 || layout_smoke==317)) {
+            static unsigned dock_injected=0; unsigned bit=layout_smoke==314 ? 1 : layout_smoke==316 ? 2 : 4;
+            if (!(dock_injected&bit)) {
+                if (layout_smoke==314) {
+                    Rectangle viewport=a.dock_layout.viewport; float x=viewport.x+viewport.width-3*a.ui.scale,y=viewport.y+viewport.height-4*a.ui.scale;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else ui_note_key_press(layout_smoke==316 ? KEY_HOME : KEY_SLASH,0);
+                dock_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=322 && layout_smoke<=331) {
+            static unsigned status_injected=0; unsigned bit=1u<<(layout_smoke-322);
+            if (!(status_injected&bit)) {
+                if (layout_smoke==322 || layout_smoke==331) {
+                    Rectangle r=layout_smoke==322 ? a.status_layout.level : a.toast_rect; float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else if (layout_smoke>=323 && layout_smoke<=325) ui_note_key_press(KEY_TAB,0);
+                else if (layout_smoke==326) ui_note_key_press(KEY_ENTER,0);
+                else if (layout_smoke==328) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+                status_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=338 && layout_smoke<=355) {
+            static unsigned fields_injected=0; unsigned bit=1u<<(layout_smoke-338);
+            if (!(fields_injected&bit)) {
+                int action=layout_smoke==342 ? 3 : layout_smoke==345 ? 4 : layout_smoke==348 ? 5 : layout_smoke==349 ? 6 : layout_smoke==352 ? 2 : layout_smoke==353 ? 7 : -1;
+                if (layout_smoke==338) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==340) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+                else if (layout_smoke==355) ui_note_pointer_gesture((DxPointerGesture){4,4,4,4,0,false});
+                else if (action>=0) {
+                    UIChoiceLayout menu=ui_choice_layout(a.context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a.ui.scale,9,3);
+                    Rectangle row=menu.rows[action]; float x=row.x+row.width*.5f,y=row.y+row.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                }
+                fields_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==373 || layout_smoke==375 || layout_smoke==376)) {
+            static unsigned book_injected=0; unsigned bit=layout_smoke==373 ? 1 : layout_smoke==375 ? 2 : 4;
+            if (!(book_injected&bit)) {
+                if (layout_smoke==373) {
+                    float x=workbook_new_target.x+workbook_new_target.width*.5f,y=workbook_new_target.y+workbook_new_target.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else ui_note_key_press(KEY_F12,0);
+                book_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && layout_smoke==382 && a.frames%24==2) {
+            static bool background_injected=false;
+            if (!background_injected) {
+                Rectangle copy=ribbon_rect(&a,a.ribbon_layout.commands[0]); float x=copy.x+copy.width*.5f,y=copy.y+copy.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); background_injected=true;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2) {
+            static unsigned format_injected=0;
+            int bit=layout_smoke==126 ? 0 : layout_smoke==127 ? 1 : layout_smoke==129 ? 2 : layout_smoke==131 ? 3 : layout_smoke==133 ? 4 : layout_smoke==142 ? 5 : -1;
+            if (bit>=0 && !(format_injected&(1u<<bit))) {
+                if (bit==1) ui_note_key_press(KEY_U,DX_MOD_SUPER);
+                else if (bit==5) ui_note_key_press(KEY_ESCAPE,0);
+                else {
+                    Rectangle target;
+                    if (!bit) target=ribbon_rect(&a,a.ribbon_layout.commands[6]);
+                    else {
+                        int count=bit==2 ? 6 : bit==3 ? 4 : 2,index=bit==2 ? 5 : bit==3 ? 3 : 1;
+                        UIMenuLayout menu=ui_menu_layout(a.format_origin,count+1,28,220,a.ui.scale,(Vector2){GetScreenWidth(),GetScreenHeight()});
+                        target=box(menu.items.x,menu.items.y+(index+1)*28*a.ui.scale,menu.items.width,27*a.ui.scale);
+                        if (bit==3) { UIChoiceLayout colors=ui_choice_layout(a.format_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a.ui.scale,4,-1); target=colors.rows[3]; }
+                    }
+                    float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                }
+                format_injected|=1u<<bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==151 || layout_smoke==152 || layout_smoke==153 || layout_smoke==159 || layout_smoke==161 || layout_smoke==166)) {
+            static unsigned definition_injected=0; unsigned bit=layout_smoke==151 ? 1 : layout_smoke==159 ? 2 : layout_smoke==161 ? 4 : layout_smoke==152 ? 8 : layout_smoke==153 ? 16 : 32;
+            if (!(definition_injected&bit)) {
+                if (bit>=8) { ui_note_key_press(bit==8 ? KEY_DOWN : bit==16 ? KEY_ENTER : KEY_ESCAPE,0); definition_injected|=bit; }
+                else {
+                Grid *preview=&a.source_preview; Rectangle target;
+                if (bit==1) target=a.author_plot;
+                else if (bit==2) target=box(preview->rect.x+preview->rect.width-68*a.ui.scale,preview->rect.y+preview->rect.height-25*a.ui.scale,61*a.ui.scale,23*a.ui.scale);
+                else target=preview->hthumb;
+                float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+                float end=bit==4 ? preview->htrack.x+preview->htrack.width-preview->hthumb.width*.5f : x;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,end,y,0,false}); definition_injected|=bit;
+                }
+            }
+        }
+        if (options->query_smoke && query_smoke==40 && a.frames%24==2) {
+            static bool date_menu_injected=false;
+            if (!date_menu_injected) {
+                UIChoiceLayout menu=ui_choice_layout(a.context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a.ui.scale,7,3);
+                float x=menu.rows[3].x+60*a.ui.scale,y=menu.rows[3].y+14*a.ui.scale;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); date_menu_injected=true;
+            }
+        }
+        if (options->layout_smoke && layout_smoke==403 && a.modal==MODAL_FIELD_NAV) ui_note_key_press(KEY_ESCAPE,0);
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=429 && layout_smoke<=432) {
+            static unsigned marks_geometry_injected=0; unsigned bit=1u<<(layout_smoke-429);
+            if (!(marks_geometry_injected&bit)) {
+                if (layout_smoke==429) {
+                    Rectangle track=a.author_marks_layout.scrollbar; float x=track.x+track.width*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,track.y+5,x,track.y+track.height-5,0,false});
+                } else if (layout_smoke==431) ui_note_key_press(KEY_ENTER,0);
+                else if (layout_smoke==432) ui_note_key_press(KEY_ESCAPE,0);
+                marks_geometry_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=438 && layout_smoke<=448) {
+            static unsigned shelf_menu_injected=0; unsigned bit=1u<<(layout_smoke-438);
+            if (!(shelf_menu_injected&bit)) {
+                if (layout_smoke==438) {
+                    Rectangle add=a.axis_shelves[PIVOT_COLUMNS].add; float x=add.x+add.width*.5f,y=add.y+add.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else if (layout_smoke==439 || layout_smoke==441 || layout_smoke==448) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==440 || layout_smoke==442 || layout_smoke==444 || layout_smoke==447) ui_note_key_press(KEY_ENTER,0);
+                else if (layout_smoke==443) ui_note_key_press(KEY_DOWN,0);
+                shelf_menu_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=452 && layout_smoke<=457) {
+            static unsigned assign_menu_injected=0; unsigned bit=1u<<(layout_smoke-452);
+            if (!(assign_menu_injected&bit)) {
+                if (layout_smoke==452) ui_note_key_press(KEY_END,0);
+                else if (layout_smoke==453) ui_note_key_press(KEY_SLASH,0);
+                else if (layout_smoke==455 || layout_smoke==457) ui_note_key_press(KEY_ESCAPE,0);
+                assign_menu_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke==437) {
+            static bool wrapped_arrow_injected=false;
+            if (!wrapped_arrow_injected) { ui_note_key_press(KEY_DOWN,0); wrapped_arrow_injected=true; }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=460 && layout_smoke<=472) {
+            static unsigned view_menu_injected=0; unsigned bit=1u<<(layout_smoke-460);
+            if (!(view_menu_injected&bit)) {
+                if (layout_smoke==460 || layout_smoke==463) {
+                    Rectangle panel=layout_smoke==460 ? a.authoring_layout.matrix : a.authoring_layout.chart;
+                    float x=panel.x+panel.width-18*a.ui.scale,y=panel.y+15*a.ui.scale;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else if (layout_smoke==461) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
+                else if (layout_smoke==464 || layout_smoke==472) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+                else if (layout_smoke==468) ui_note_key_press(KEY_ESCAPE,0);
+                view_menu_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=480 && layout_smoke<=496) {
+            static unsigned context_menu_injected=0; unsigned bit=1u<<(layout_smoke-480);
+            if (!(context_menu_injected&bit)) {
+                if (layout_smoke==480 || layout_smoke==481 || layout_smoke==485 || layout_smoke==487 || layout_smoke==488 || layout_smoke==494) ui_note_key_press(KEY_ENTER,0);
+                else if (layout_smoke==486 || layout_smoke==496) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==493) ui_note_key_press(KEY_DELETE,0);
+                else if (layout_smoke==495) ui_note_key_press(KEY_END,0);
+                else if (layout_smoke==492) {
+                    Rectangle token=a.pivot_tokens[PIVOT_VALUES][0]; float x=token.x+token.width-10*a.ui.scale,y=token.y+token.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                }
+                context_menu_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=503 && layout_smoke<=507) {
+            static unsigned canvas_scroll_injected=0; unsigned bit=1u<<(layout_smoke-503);
+            if (!(canvas_scroll_injected&bit)) {
+                if (layout_smoke==503) {
+                    Rectangle canvas=a.workspace.canvas; float x=canvas.x+canvas.width-4.5f*a.ui.scale;
+                    ui_note_pointer_gesture((DxPointerGesture){x,canvas.y+5*a.ui.scale,x,canvas.y+canvas.height-5*a.ui.scale,0,false});
+                } else if (layout_smoke==505) {
+                    Rectangle track=a.source_preview.vtrack; float x=track.x+track.width*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,track.y+3*a.ui.scale,x,track.y+track.height-3*a.ui.scale,0,false});
+                } else if (layout_smoke==506) {
+                    Rectangle panel=a.authoring_layout.matrix; float x=panel.x+panel.width-18*a.ui.scale,y=panel.y+15*a.ui.scale;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else if (layout_smoke==507) ui_note_key_press(KEY_ESCAPE,0);
+                canvas_scroll_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && (layout_smoke==512 || layout_smoke==514 || layout_smoke==517)) {
+            static unsigned source_return_injected=0; unsigned bit=layout_smoke==512 ? 1 : layout_smoke==514 ? 2 : 4;
+            if (!(source_return_injected&bit)) {
+                Rectangle target=layout_smoke==514 ? grid_range_rect(&a.source_preview,a.ui.scale*a.grid.zoom,2,1,1,1) : a.context_title.browse;
+                float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); source_return_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=524 && layout_smoke<=537) {
+            static unsigned shared_actions_injected=0; unsigned bit=1u<<(layout_smoke-524);
+            if (!(shared_actions_injected&bit)) {
+                if (layout_smoke==524 || layout_smoke==536) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+                else if (layout_smoke==525 || layout_smoke==532 || layout_smoke==534 || layout_smoke==537) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==531) ui_note_key_press(KEY_UP,0);
+                else if (layout_smoke==526 || layout_smoke==528) {
+                    UIChoiceLayout menu=ui_choice_layout(a.context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a.ui.scale,layout_smoke==526 ? 7 : 6,layout_smoke==526 ? 2 : 3);
+                    Rectangle target=menu.rows[layout_smoke==526 ? 2 : 0]; float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                }
+                shared_actions_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=543 && layout_smoke<=553) {
+            static unsigned author_menus_injected=0; unsigned bit=1u<<(layout_smoke-543);
+            if (!(author_menus_injected&bit)) {
+                if (layout_smoke==543 || layout_smoke==552) ui_note_key_press(KEY_END,0);
+                else if (layout_smoke==544 || layout_smoke==547 || layout_smoke==553) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==546 || layout_smoke==549 || layout_smoke==550) ui_note_key_press(KEY_DOWN,0);
+                author_menus_injected|=bit;
+            }
+        }
+        shortcuts(&a); memset(a.author_marks,0,sizeof(a.author_marks)); double draw_start=dx_millis(); BeginDrawing(); draw_app(&a); if (a.icon_preview) draw_icon_gallery(&a);
+        a.render_ms[a.frames%600]=dx_millis()-draw_start;
+        static int applied_cursor=-1; if (applied_cursor!=a.ui.cursor) { SetMouseCursor(a.ui.cursor); applied_cursor=a.ui.cursor; }
+        dx_native_context(a.modal!=MODAL_NONE,a.pivot_search_focus,selected_pivot(&a)!=NULL,a.key_tips);
+        EndDrawing();
+        if (options->layout_smoke && layout_smoke>=359 && layout_smoke<=365) {
+            unsigned bit=layout_smoke==359 ? 1 : layout_smoke==360 ? 2 : layout_smoke==364 ? 4 : layout_smoke==365 ? 8 : 0;
+            bool middle=bit<4 ? a.left_motion.elapsed>=.05f && a.left_motion.elapsed<.16f && a.left_extent>0 && a.left_extent<a.sidebar_width : a.pipeline_motion.elapsed>=.05f && a.pipeline_motion.elapsed<.16f && a.pipeline_extent>0 && a.pipeline_extent<280;
+            if (bit && middle) {
+                if (!(pane_motion_evidence&bit)) smoke_snapshot(bit==1 ? "tests/results/workspace-layout/native-left-closing-mid.png" : bit==2 ? "tests/results/workspace-layout/native-left-opening-mid.png" : bit==4 ? "tests/results/workspace-layout/native-right-opening-mid.png" : "tests/results/workspace-layout/native-right-closing-mid.png");
+                pane_motion_evidence|=bit;
+            }
+        }
+        if (options->layout_smoke && layout_smoke>=370 && layout_smoke<=377 && a.workbook_motion.elapsed>=.05f && a.workbook_motion.elapsed<.16f && a.workbook_open>0 && a.workbook_open<1) {
+            unsigned bit=layout_smoke==370 ? 16 : layout_smoke==371 ? 32 : 0;
+            if (bit && !(pane_motion_evidence&bit)) smoke_snapshot(bit==16 ? "tests/results/workspace-layout/native-workbook-closing-mid.png" : "tests/results/workspace-layout/native-workbook-opening-mid.png");
+            pane_motion_evidence|=bit;
+            if (layout_smoke==377 && a.workbook_collapsed && a.workbook_motion.elapsed>=.04f) { a.workbook_collapsed=false; pane_motion_evidence|=64; }
+        }
+        if (options->layout_smoke && layout_smoke==390 && a.workbook_motion.elapsed>=.04f && !(pane_motion_evidence&128)) {
+            a.sidebar=a.fields_visible=false; pane_motion_evidence|=128;
+        }
+        if (options->layout_smoke && layout_smoke==402 && a.popup_presence.active && a.popup_presence.alpha>0 && a.popup_presence.alpha<1 && !(pane_motion_evidence&256)) {
+            smoke_snapshot("tests/results/workspace-layout/native-popup-opening-mid.png"); pane_motion_evidence|=256;
+        }
+        if (options->layout_smoke && layout_smoke==403) {
+            if (a.modal==MODAL_NONE && a.popup_presence.visible && a.popup_presence.alpha>0 && a.popup_presence.alpha<1 && !(pane_motion_evidence&512)) {
+                smoke_snapshot("tests/results/workspace-layout/native-popup-closing-mid.png"); pane_motion_evidence|=512;
+            }
+        }
+        if (options->layout_smoke && layout_smoke==414 && a.author_context_progress>0 && a.author_context_progress<1 && !(pane_motion_evidence&1024)) {
+            smoke_snapshot("tests/results/workspace-layout/native-context-opening-mid.png"); pane_motion_evidence|=1024;
+        }
+        process_sheet_action(&a);
+        if (a.pending_new_sheet) { a.pending_new_sheet=false; a.pending_sheet=a.pending_relation=false; new_sheet(&a); }
+        else if (a.pending_sheet) { a.pending_sheet=false; a.pending_relation=false; activate_sheet(&a,a.pending_sheet_index,true); }
+        else if (a.pending_relation) { a.pending_relation=false; if (a.pending_relation_index<a.page.relation_count) select_relation(&a,&a.page.relations[a.pending_relation_index]); }
+        if (!a.step_preview.active && !a.waiting_count_page && !a.page_stale && a.spare.column_count && !grid_cached(&a.grid,&a.page) && grid_cached(&a.grid,&a.spare)) {
+            Page swap=a.page; a.page=a.spare; a.spare=swap;
+        }
+        if (a.last_top!=a.grid.top) { a.last_top=a.grid.top; a.viewport_changed=dx_millis(); }
+        if (!a.step_preview.active && !a.waiting_count_page && !a.page_stale && a.page.column_count && a.modal==MODAL_NONE && !a.io_busy && !a.fetch_failed && !grid_cached(&a.grid,&a.page) &&
+            dx_millis()-a.viewport_changed>=25 &&
+            (!a.busy || (a.pending_kind==JOB_PAGE && (a.grid.top<a.pending_offset || a.grid.top+a.grid.render_rows>a.pending_offset+DX_PAGE_ROWS)))) request_page(&a,false);
+        StepPreview *preview=&a.step_preview;
+        if (preview->active && !preview->loading && preview->spare.column_count && !grid_cached(&preview->grid,&preview->page) && grid_cached(&preview->grid,&preview->spare)) { Page swap=preview->page; preview->page=preview->spare; preview->spare=swap; }
+        watch_statistics(&a); schedule_step_preview(&a); schedule_pivot(&a); schedule_count(&a); schedule_table_count(&a); schedule_statistics(&a);
+        if (options->smoke && a.frames%24==0) smoke_step(&a,&smoke);
+        if (options->workspace_smoke && a.frames%24==0) workspace_smoke_step(&a,&workspace_smoke);
+        if (options->filter_smoke && a.frames%24==0) filter_smoke_step(&a,&filter_smoke);
+        if (options->pivot_smoke && a.frames%24==0) pivot_smoke_step(&a,&pivot_smoke);
+        if (options->export_smoke && a.frames%24==0) export_smoke_step(&a,&export_smoke);
+        if (options->count_smoke && a.frames%24==0) count_smoke_step(&a,&count_smoke);
+        if (options->clipboard_smoke && a.frames%24==0) clipboard_smoke_step(&a,&clipboard_smoke);
+        if (options->sort_smoke && a.frames%24==0) sort_smoke_step(&a,&sort_smoke);
+        if (options->layout_smoke && a.frames%24==0) layout_smoke_step(&a,&layout_smoke);
+        if (options->navigation_smoke && a.frames%24==0) navigation_smoke_step(&a,&navigation_smoke);
+        if (options->nyc_smoke && a.frames%24==0) nyc_smoke_step(&a,&nyc_smoke);
+        if (options->document_smoke && a.frames%24==0) document_smoke_step(&a,&document_smoke);
+        if (options->chart_smoke && a.frames%24==0) chart_smoke_step(&a,&chart_smoke);
+        if (options->statistics_smoke && a.frames%24==0) statistics_smoke_step(&a,&statistics_smoke);
+        if (options->table_smoke && a.frames%24==0) table_smoke_step(&a,&table_smoke);
+        if (options->icon_smoke && a.frames%24==0) icon_smoke_step(&a,&icon_smoke);
+        if (options->unique_smoke && a.frames%24==0) unique_smoke_step(&a,&unique_smoke);
+        if (options->query_smoke && a.frames%24==0) query_smoke_step(&a,&query_smoke);
+        a.last_frame_ms=dx_millis()-frame; a.sum_frame_ms+=a.last_frame_ms;
+        a.frame_samples[a.frames%600]=a.last_frame_ms;
+        if (a.last_frame_ms>a.worst_frame_ms) a.worst_frame_ms=a.last_frame_ms;
+        a.frames++;
+        if (options->layout_smoke && (layout_smoke<0 || layout_smoke==layout_target)) break;
+    }
+    if (options->screenshot) {
+        Image image=LoadImageFromScreen(); ExportImage(image,options->screenshot); UnloadImage(image);
+    }
+    size_t samples=a.frames<600 ? a.frames : 600;
+    qsort(a.frame_samples,samples,sizeof(*a.frame_samples),compare_frame);
+    double p95=samples ? a.frame_samples[(samples-1)*95/100] : 0;
+    qsort(a.render_ms,samples,sizeof(*a.render_ms),compare_frame);
+    printf("Draw submission CPU p95=%.3f ms (excludes swap/pacing)\n",samples ? a.render_ms[(samples-1)*95/100] : 0);
+    printf("Final relation rows=%" PRIu64 " columns=%zu cache offset=%" PRIu64 " top=%" PRIu64 " first_col=%zu\n",
+        a.page.total,a.page.column_count,a.page.offset,a.grid.top,a.grid.first_col);
+    printf("Duxcel frames=%u mean=%.2f ms p95=%.2f ms max=%.2f ms dpi=%.1fx%.1f logical=%dx%d framebuffer=%dx%d smoke=%d\n",
+        a.frames,a.frames ? a.sum_frame_ms/a.frames : 0,p95,a.worst_frame_ms,a.ui.dpi.x,a.ui.dpi.y,
+        GetScreenWidth(),GetScreenHeight(),GetRenderWidth(),GetRenderHeight(),smoke);
+    bool smoke_ok=smoke==6 && !a.busy && !a.fetch_failed && a.page.total==4 && a.page.column_count==2;
+    if (options->filter_smoke && filter_smoke!=66) fprintf(stderr,"Filter smoke unfinished at stage %d: %s\n",filter_smoke,a.message ? a.message : "");
+    if (options->pivot_smoke && pivot_smoke!=45) fprintf(stderr,"Pivot smoke unfinished at stage %d: %s\n",pivot_smoke,a.message ? a.message : "");
+    if (options->export_smoke && export_smoke!=20) fprintf(stderr,"Export smoke unfinished at stage %d: %s\n",export_smoke,a.message ? a.message : "");
+    if (options->count_smoke && count_smoke!=12) fprintf(stderr,"Count smoke unfinished at stage %d: %s\n",count_smoke,a.message ? a.message : "");
+    if (options->clipboard_smoke && clipboard_smoke!=13) fprintf(stderr,"Clipboard smoke unfinished at stage %d: %s\n",clipboard_smoke,a.message ? a.message : "");
+    if (options->sort_smoke && sort_smoke!=12) fprintf(stderr,"Sort smoke unfinished at stage %d: %s\n",sort_smoke,a.message ? a.message : "");
+    if (options->layout_smoke && layout_smoke!=layout_target) fprintf(stderr,"Layout smoke unfinished at stage %d: %s\n",layout_smoke,a.message ? a.message : "");
+    if (options->layout_smoke && layout_smoke>=250 && layout_smoke!=layout_target) fprintf(stderr,"Statistics state=%d error=%s enabled=%d source=%d columns=%zu active=%d\n",a.statistics_state,a.statistics_error ? a.statistics_error : "none",a.statistics_enabled,a.analysis.kind,a.statistics_columns,a.statistics_key.active);
+    if (options->navigation_smoke && navigation_smoke!=13) fprintf(stderr,"Navigation smoke unfinished at stage %d: %s\n",navigation_smoke,a.message ? a.message : "");
+    if (options->nyc_smoke && nyc_smoke!=8) fprintf(stderr,"NYC smoke unfinished at stage %d: %s\n",nyc_smoke,a.message ? a.message : "");
+    if (options->chart_smoke && chart_smoke!=33) fprintf(stderr,"Chart smoke unfinished at stage %d: %s\n",chart_smoke,a.message ? a.message : "");
+    if (options->statistics_smoke && statistics_smoke!=31) fprintf(stderr,"Statistics smoke unfinished at stage %d: %s\n",statistics_smoke,a.statistics_error ? a.statistics_error : a.message);
+    if (options->table_smoke && table_smoke!=73) fprintf(stderr,"Table smoke unfinished at stage %d: %s\n",table_smoke,a.message ? a.message : "");
+    if (options->unique_smoke && unique_smoke!=32) fprintf(stderr,"Unique rows smoke unfinished at stage %d\n",unique_smoke);
+    if (options->query_smoke && query_smoke!=QUERY_SMOKE_STAGES) fprintf(stderr,"Query smoke unfinished at stage %d\n",query_smoke);
+    if (options->icon_smoke && icon_smoke!=8) fprintf(stderr,"Icon smoke unfinished at stage %d\n",icon_smoke);
+    bool document_ok=document_smoke==10 && a.exit_ready && !a.book.dirty && !a.io_busy && a.document_action==DOCUMENT_NONE;
+    if (options->document_smoke) {
+        if (document_ok) puts("PASS: pending cell commit, clean/modified close, cancel, save-then-open, failed save/load preservation, no-op edit and Quit waiting for successful save");
+        else fprintf(stderr,"Document smoke unfinished at stage %d: %s\n",document_smoke,a.message ? a.message : "");
+    }
+    if (!automated) {
+        presentation=(DxPresentation){.ribbon_mode=a.ribbon_mode,.previous_ribbon_mode=a.previous_ribbon_mode,.workbook=a.sidebar,.fields=a.fields_visible,.transformations=a.pipeline,.transformations_collapsed=a.pipeline_collapsed,.workbook_collapsed=a.workbook_collapsed,.fields_collapsed=a.fields_collapsed,.reduced_motion=a.reduced_motion,.sidebar_width=a.sidebar_width,.pipeline_width=a.pipeline_width,.interface_scale=a.ui.requested_scale,.statistics_mask=a.statistics_mask,.freeze=a.grid.freeze};
+        dx_presentation_save(&presentation);
+    }
+    cancel_values(&a); worker_stop(&a.worker); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a.worker.jobs_started,a.worker.sql_executed,a.worker.counts_executed);
+    statistics_free(&a.statistics); free(a.statistics_error);
+    page_free(&a.page); page_free(&a.spare); analysis_free(&a.analysis);
+    workbook_free(&a.book); inspector_free(&a); sort_editor_free(&a.sort_editor);
+    reply_free(a.query_validated); text_editor_free(&a.query_editor); text_lines_free(&a.query_errors); free(a.query_error);
+    clear_value_choices(&a); free(a.value_pending_key); free(a.values_context);
+    for (int i=0;i<4;i++) { distinct_free(&a.value_cache[i]); free(a.value_cache_keys[i]); }
+    for (int i=0;i<5;i++) { free(a.date_starts[i]); free(a.date_ends[i]); }
+    for (int i=0;i<16;i++) if (a.icon_previews[i].id) UnloadTexture(a.icon_previews[i]);
+    brand_shutdown();
+    if (render_batch.vertexBuffer && render_batch.draws) { rlSetRenderBatchActive(NULL); rlUnloadRenderBatch(render_batch); }
+    a.busy=false; step_preview_free(&a.step_preview); ui_guide_free(&a.guide); clear_object_views(&a); grid_destroy(&a.source_preview); grid_destroy(&a.grid); ui_destroy(&a.ui); input_free(&a.input); input_free(&a.filter_term); input_free(&a.filter_end); input_free(&a.pivot_search); input_free(&a.chart_columns); free(a.chart_resize_error); free(a.object_name_error); free(a.range_move_error); free(a.field_matches); text_lines_free(&a.toast_lines); text_lines_free(&a.inspector_sql_lines); free(a.inspector_sql_text); free(a.sql_text); free(a.message); free(a.pipeline_text); free(a.document_path); CloseWindow();
+    return (options->smoke && !smoke_ok) || (options->workspace_smoke && workspace_smoke!=4) || (options->filter_smoke && filter_smoke!=66) || (options->pivot_smoke && pivot_smoke!=45) || (options->export_smoke && export_smoke!=20) || (options->count_smoke && count_smoke!=12) || (options->clipboard_smoke && clipboard_smoke!=13) || (options->sort_smoke && sort_smoke!=12) || (options->layout_smoke && layout_smoke!=layout_target) || (options->navigation_smoke && navigation_smoke!=13) || (options->nyc_smoke && nyc_smoke!=8) || (options->document_smoke && !document_ok) || (options->chart_smoke && chart_smoke!=33) || (options->statistics_smoke && statistics_smoke!=31) || (options->table_smoke && table_smoke!=73) || (options->icon_smoke && icon_smoke!=8) || (options->query_smoke && query_smoke!=QUERY_SMOKE_STAGES) || (options->unique_smoke && unique_smoke!=32) ? 1 : 0;
+}

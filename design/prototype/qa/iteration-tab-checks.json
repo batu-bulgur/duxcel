@@ -1,0 +1,92 @@
+[
+  {
+    "pageFits": true,
+    "tab": "Home",
+    "toolbarFits": true,
+    "width": 1440
+  },
+  {
+    "pageFits": true,
+    "tab": "Insert",
+    "toolbarFits": true,
+    "width": 1440
+  },
+  {
+    "pageFits": true,
+    "tab": "Data",
+    "toolbarFits": true,
+    "width": 1440
+  },
+  {
+    "pageFits": true,
+    "tab": "Analyze",
+    "toolbarFits": true,
+    "width": 1440
+  },
+  {
+    "pageFits": true,
+    "tab": "View",
+    "toolbarFits": true,
+    "width": 1440
+  },
+  {
+    "pageFits": true,
+    "tab": "Home",
+    "toolbarFits": true,
+    "width": 768
+  },
+  {
+    "pageFits": true,
+    "tab": "Insert",
+    "toolbarFits": true,
+    "width": 768
+  },
+  {
+    "pageFits": true,
+    "tab": "Data",
+    "toolbarFits": true,
+    "width": 768
+  },
+  {
+    "pageFits": true,
+    "tab": "Analyze",
+    "toolbarFits": true,
+    "width": 768
+  },
+  {
+    "pageFits": true,
+    "tab": "View",
+    "toolbarFits": true,
+    "width": 768
+  },
+  {
+    "pageFits": true,
+    "tab": "Home",
+    "toolbarFits": true,
+    "width": 416
+  },
+  {
+    "pageFits": true,
+    "tab": "Insert",
+    "toolbarFits": true,
+    "width": 416
+  },
+  {
+    "pageFits": true,
+    "tab": "Data",
+    "toolbarFits": true,
+    "width": 416
+  },
+  {
+    "pageFits": true,
+    "tab": "Analyze",
+    "toolbarFits": true,
+    "width": 416
+  },
+  {
+    "pageFits": true,
+    "tab": "View",
+    "toolbarFits": true,
+    "width": 416
+  }
+]
