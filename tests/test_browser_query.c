@@ -443,7 +443,74 @@ static void test_statistics_helpers(void) {
     matrix_cell(&scalar,0,4,"1"); reject_statistics(&retained_stats,&scalar,6,0); matrix_cell(&scalar,0,4,NULL);
     statistics_free(&retained_stats); page_free(&scalar); page_free(&schema); free(sum_units); free(big_units); free(error);
 }
+static void reject_statistics_request(const Analysis *source,const StatisticsRequest *request) {
+    size_t retained=12345; char *error=NULL;
+    CHECK(!browser_statistics_request_valid(source,request,&retained,&error) && error && *error && retained==12345); free(error);
+}
+static void test_mixed_statistics_helpers(void) {
+    Analysis primary={0},table={.kind=SOURCE_DEMO,.query="SELECT 1::HUGEINT AS n, ''::VARCHAR AS label"};
+    StatisticsRequest *request=dx_alloc(sizeof(*request)); size_t retained=0;
+    request->cells=DX_SHEET_ROWS*UINT64_C(16384);
+    CHECK(browser_statistics_request_valid(&primary,request,&retained,NULL) && retained==sizeof(*request));
+    char *cells=browser_statistics_manual_sql(NULL,0,NULL);
+    CHECK(cells && strstr(cells,"NULL::BIGNUM") && strstr(cells,"WHERE false"));
+    char *sql=browser_statistics_aggregate_sql(cells,&request->cells,NULL);
+    CHECK(sql && strstr(sql,"18014398509481984::UBIGINT") && strstr(sql,"count(DISTINCT (type,text))")); free(sql); free(cells);
+    CHECK(statistics_request_text(request,"",NULL) && statistics_request_text(request,"NULL",NULL) && statistics_request_text(request,"1",NULL) && statistics_request_text(request,"O'Reilly",NULL));
+    CHECK(browser_statistics_request_valid(&primary,request,&retained,NULL) && retained==sizeof(*request)+request->text_capacity*sizeof(char *)+request->text_bytes);
+    cells=browser_statistics_manual_sql(request->texts,request->text_count,NULL);
+    CHECK(cells && strstr(cells,"(''),('NULL'),('1'),('O''Reilly')") && strstr(cells,"false AS numeric") && strstr(cells,"'VARCHAR'::VARCHAR AS type"));
+    request->cells=12; request->count=2;
+    CHECK(source_snapshot_bind(&request->sources,UINT64_MAX,&table,NULL)==1);
+    request->ranges[0]=(StatisticsRange){.source=1,.rows=2,.columns=2};
+    request->ranges[1]=(StatisticsRange){.source=1,.rows=2,.columns=2};
+    CHECK(browser_statistics_request_valid(&primary,request,&retained,NULL));
+    const char *names[]={"n","label"},*types[]={"HUGEINT","VARCHAR"};
+    Page describe=describe_page(2,names,types),schema={0}; CHECK(browser_schema_from_describe(&schema,&describe,NULL)); page_free(&describe);
+    char *range=browser_statistics_cells_sql(table.query,&schema,0,2,0,2,NULL);
+    CHECK(range && strstr(range,"typeof(c0) AS type") && !strstr(range,"AS distinct_values"));
+    CHECK(browser_statistics_append_cells(&cells,range,NULL) && browser_statistics_append_cells(&cells,range,NULL));
+    sql=browser_statistics_aggregate_sql(cells,&request->cells,NULL);
+    CHECK(sql && strstr(sql,"12::UBIGINT") && strstr(sql,"UNION ALL SELECT * FROM (") && strstr(sql,") AS range_cells WHERE present")); free(sql); free(range); free(cells); page_free(&schema);
+    request->ranges[1].is_pivot=true; CHECK(pivot_assign(&request->ranges[1].pivot,PIVOT_VALUES,"n",AGG_SUM,NULL));
+    CHECK(browser_statistics_request_valid(&primary,request,&retained,NULL));
+    request->ranges[1].is_pivot=false; reject_statistics_request(&primary,request); request->ranges[1].is_pivot=true;
+    request->ranges[1].expected_source_stamp=1; reject_statistics_request(&primary,request); request->ranges[1].expected_source_stamp=0;
+    request->ranges[1].source=2; reject_statistics_request(&primary,request); request->ranges[1].source=1;
+    request->ranges[1].pivot.counts[PIVOT_ROWS]=SIZE_MAX; reject_statistics_request(&primary,request); request->ranges[1].pivot.counts[PIVOT_ROWS]=0;
+    request->cells=11; reject_statistics_request(&primary,request); request->cells=12;
+    request->ranges[1].column=255; reject_statistics_request(&primary,request); request->ranges[1].column=0;
+    request->ranges[1].first=DX_SHEET_ROWS; reject_statistics_request(&primary,request); request->ranges[1].first=0;
+    request->ranges[0].source=0; reject_statistics_request(&primary,request); request->ranges[0].source=1;
+    request->sources.ids[0]=0; reject_statistics_request(&primary,request); request->sources.ids[0]=UINT64_MAX;
+    request->sources.ids[1]=UINT64_MAX; request->sources.count=2; reject_statistics_request(&primary,request); request->sources.count=1;
+    request->sources.bytes++; reject_statistics_request(&primary,request); request->sources.bytes--;
+    request->text_bytes++; reject_statistics_request(&primary,request); request->text_bytes--;
+    request->text_count=SIZE_MAX; reject_statistics_request(&primary,request); request->text_count=4;
+    request->text_capacity=SIZE_MAX; reject_statistics_request(&primary,request); request->text_capacity=32;
+    char **texts=request->texts; request->texts=NULL; reject_statistics_request(&primary,request); request->texts=texts;
+    request->count=SIZE_MAX; reject_statistics_request(&primary,request); request->count=2;
+    request->sources.count=SIZE_MAX; reject_statistics_request(&primary,request); request->sources.count=1;
+    request->cells=UINT64_MAX; reject_statistics_request(&primary,request); request->cells=12;
+    request->sources.items[0].kind=SOURCE_DATABASE; reject_statistics_request(&primary,request); request->sources.items[0].kind=SOURCE_DEMO;
+    statistics_request_free(request);
+    request=dx_alloc(sizeof(*request)); request->cells=1;
+    char *large=dx_alloc(600001); memset(large,'\'',600000); CHECK(statistics_request_text(request,large,NULL)); free(large);
+    reject_statistics_request(&primary,request); statistics_request_free(request);
+    request=dx_alloc(sizeof(*request)); request->cells=1;
+    large=dx_alloc(700001); memset(large,'a',700000);
+    Analysis bulky={.kind=SOURCE_DEMO,.filter_column="label",.filter_op=FILTER_EQUAL,.filter_value=large};
+    for (uint64_t id=1;id<=6;id++) CHECK(source_snapshot_bind(&request->sources,id,&bulky,NULL)==id);
+    reject_statistics_request(&primary,request); statistics_request_free(request); free(large);
+    char *error=NULL; cells=dx_strdup("SELECT 1"); char *before=cells;
+    CHECK(!browser_statistics_append_cells(&cells,NULL,&error) && cells==before && error); free(error); error=NULL;
+    large=dx_alloc(DX_BROWSER_SQL_BYTES+1); memset(large,'x',DX_BROWSER_SQL_BYTES);
+    CHECK(!browser_statistics_append_cells(&cells,large,&error) && cells==before && !strcmp(cells,"SELECT 1") && error); free(error); free(large); free(cells);
+    const char *values[]={"18014398509481984","0","0","0",NULL,NULL,NULL,NULL,NULL,NULL,NULL,"false","false"};
+    Page scalar=statistics_scalar(values); SelectionStats stats={0};
+    CHECK(browser_statistics_from_page(&stats,&scalar,DX_SHEET_ROWS*UINT64_C(16384),0,NULL) && stats.cells==DX_SHEET_ROWS*UINT64_C(16384) && !stats.filled && !stats.sum); statistics_free(&stats); page_free(&scalar);
+}
 int main(void) {
-    test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion(); test_column_plans(); test_count_projection(); test_statistics_helpers();
+    test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion(); test_column_plans(); test_count_projection(); test_statistics_helpers(); test_mixed_statistics_helpers();
     printf("PASS: %u browser query checks\n",checks); return 0;
 }

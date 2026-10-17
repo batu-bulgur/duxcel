@@ -432,7 +432,7 @@ done:
     for (size_t r=0;r<DX_PIVOT_FIELDS;r++) free(labels[r]); return ok;
 }
 
-char *browser_statistics_sql(const char *relation,const Page *schema,uint64_t first,uint64_t rows,size_t column,size_t columns,char **error) {
+char *browser_statistics_cells_sql(const char *relation,const Page *schema,uint64_t first,uint64_t rows,size_t column,size_t columns,char **error) {
     if (!relation_valid(relation,error) || !schema_names_valid(schema,error)) return NULL;
     if (!columns || columns>256 || first>DX_SHEET_ROWS || rows>DX_SHEET_ROWS-first || column>=schema->column_count || columns>schema->column_count-column) { fail(error,"Selection statistics support up to 256 described columns inside the worksheet."); return NULL; }
     char *projection=dx_strdup(""),*values=dx_strdup(""),*sql=NULL;
@@ -448,14 +448,43 @@ char *browser_statistics_sql(const char *relation,const Page *schema,uint64_t fi
         free(units); free(value); free(text);
         if (strlen(projection)+strlen(values)>DX_BROWSER_SQL_BYTES) { fail(error,"Selection statistics query exceeds 1 MiB."); goto done; }
     }
-    sql=dx_printf("WITH selected AS MATERIALIZED (SELECT %s FROM (%s) AS source LIMIT %" PRIu64 " OFFSET %" PRIu64 "),cells AS (%s) "
-        "SELECT CAST(count(*) AS VARCHAR) AS cells,CAST(count(*) FILTER (WHERE present) AS VARCHAR) AS filled,CAST(count(*) FILTER (WHERE numeric AND present) AS VARCHAR) AS numeric,CAST(count(DISTINCT (type,text)) FILTER (WHERE present) AS VARCHAR) AS distinct_values,"
-        "CAST(sum(exact) AS VARCHAR) AS sum_exact,CAST(min(exact) AS VARCHAR) AS min_exact,CAST(max(exact) AS VARCHAR) AS max_exact,"
-        "CAST(sum(value) AS VARCHAR) AS sum_float,CAST(avg(value) AS VARCHAR) AS average_float,CAST(min(value) AS VARCHAR) AS min_float,CAST(max(value) AS VARCHAR) AS max_float,"
-        "CAST(coalesce(bool_or(floating AND present),false) AS VARCHAR) AS approximate,CAST(coalesce(bool_or(numeric AND present AND NOT isfinite(value)),false) AS VARCHAR) AS non_finite FROM cells",projection,relation,rows,first,values);
-    sql=bounded_sql(sql,error);
+    sql=bounded_sql(dx_printf("WITH selected AS MATERIALIZED (SELECT %s FROM (%s) AS source LIMIT %" PRIu64 " OFFSET %" PRIu64 ") %s",projection,relation,rows,first,values),error);
 done:
     free(projection); free(values); return sql;
+}
+char *browser_statistics_aggregate_sql(const char *cells,const uint64_t *logical_cells,char **error) {
+    if (!relation_valid(cells,error)) return NULL;
+    if (logical_cells && *logical_cells>DX_SHEET_ROWS*UINT64_C(16384)) { fail(error,"Invalid logical worksheet statistics area."); return NULL; }
+    char *count=logical_cells ? dx_printf("%" PRIu64 "::UBIGINT",*logical_cells) : dx_strdup("count(*)");
+    char *sql=dx_printf("WITH cells AS (%s) SELECT CAST(%s AS VARCHAR) AS cells,CAST(count(*) FILTER (WHERE present) AS VARCHAR) AS filled,CAST(count(*) FILTER (WHERE numeric AND present) AS VARCHAR) AS numeric,CAST(count(DISTINCT (type,text)) FILTER (WHERE present) AS VARCHAR) AS distinct_values,"
+        "CAST(sum(exact) AS VARCHAR) AS sum_exact,CAST(min(exact) AS VARCHAR) AS min_exact,CAST(max(exact) AS VARCHAR) AS max_exact,"
+        "CAST(sum(value) AS VARCHAR) AS sum_float,CAST(avg(value) AS VARCHAR) AS average_float,CAST(min(value) AS VARCHAR) AS min_float,CAST(max(value) AS VARCHAR) AS max_float,"
+        "CAST(coalesce(bool_or(floating AND present),false) AS VARCHAR) AS approximate,CAST(coalesce(bool_or(numeric AND present AND NOT isfinite(value)),false) AS VARCHAR) AS non_finite FROM cells",cells,count);
+    free(count); return bounded_sql(sql,error);
+}
+char *browser_statistics_sql(const char *relation,const Page *schema,uint64_t first,uint64_t rows,size_t column,size_t columns,char **error) {
+    char *cells=browser_statistics_cells_sql(relation,schema,first,rows,column,columns,error);
+    if (!cells) return NULL;
+    char *sql=browser_statistics_aggregate_sql(cells,NULL,error); free(cells); return sql;
+}
+char *browser_statistics_manual_sql(char *const *texts,size_t count,char **error) {
+    if (count>32768 || (count && !texts)) { fail(error,"Invalid mixed statistics labels."); return NULL; }
+    if (!count) return dx_strdup("SELECT false AS present,false AS numeric,NULL::VARCHAR AS type,NULL::VARCHAR AS text,NULL::BIGNUM AS exact,NULL::DOUBLE AS value,false AS floating WHERE false");
+    char *values=dx_strdup(""); size_t size=0;
+    for (size_t i=0;i<count;i++) {
+        size_t length; if (!text_size(texts[i],DX_BROWSER_SQL_BYTES,&length)) { free(values); fail(error,"Invalid mixed statistics label text."); return NULL; }
+        size_t escaped=length; for (size_t j=0;j<length;j++) escaped+=texts[i][j]=='\'';
+        if (escaped>DX_BROWSER_SQL_BYTES-5 || size>DX_BROWSER_SQL_BYTES-escaped-5) { free(values); fail(error,"Selection statistics query exceeds 1 MiB."); return NULL; }
+        char *quoted=dx_quote(texts[i],'\''); dx_append(&values,"%s(%s)",i ? "," : "",quoted); free(quoted); size+=escaped+5;
+    }
+    char *sql=dx_printf("SELECT true AS present,false AS numeric,'VARCHAR'::VARCHAR AS type,v AS text,NULL::BIGNUM AS exact,NULL::DOUBLE AS value,false AS floating FROM (VALUES %s) AS labels(v)",values);
+    free(values); return bounded_sql(sql,error);
+}
+bool browser_statistics_append_cells(char **cells,const char *range,char **error) {
+    if (!cells || !relation_valid(*cells,error) || !relation_valid(range,error)) return false;
+    size_t a=strlen(*cells),b=strlen(range);
+    if (a>DX_BROWSER_SQL_BYTES-64 || b>DX_BROWSER_SQL_BYTES-a-64) return fail(error,"Selection statistics query exceeds 1 MiB.");
+    dx_append(cells," UNION ALL SELECT * FROM (%s) AS range_cells WHERE present",range); return true;
 }
 static bool statistics_uint64(const char *text,uint64_t *out) {
     if (!text || !*text) return false; uint64_t value=0;
@@ -489,9 +518,58 @@ static bool statistics_budget(size_t *used,size_t bytes,char **error) {
     if (bytes>DX_PAGE_WIRE_TEXT_BYTES || *used>DX_PAGE_WIRE_TEXT_BYTES-bytes) return fail(error,"Selection statistics exceed their combined 4 MiB memory limit.");
     *used+=bytes; return true;
 }
+static bool statistics_definition_bytes(const Analysis *source,bool optional,size_t *used,char **error) {
+    if (!source) return fail(error,"Missing mixed statistics source definition.");
+    if (optional && source->kind==SOURCE_NONE) {
+        if (source->path || source->schema || source->table || source->query || source->filter_column || source->filter_value || source->group_column || source->measure_column || source->sort_column || source->filter_count || source->sort_count || source->unique_rows) return fail(error,"Invalid empty mixed statistics source definition.");
+        return true;
+    }
+    char *sql=browser_relation_sql(source,NULL,error); if (!sql) return false; free(sql);
+    return statistics_budget(used,analysis_text_bytes(source),error);
+}
+bool browser_statistics_request_valid(const Analysis *primary,const StatisticsRequest *request,size_t *owned_bytes,char **error) {
+    if (!request || request->count>DX_MAX_OBJECTS+1 || request->sources.count>DX_MAX_OBJECTS || request->text_count>32768 || request->text_capacity>32768 || request->text_count>request->text_capacity || (request->text_capacity && !request->texts) || (!request->text_capacity && request->texts) || request->cells>DX_SHEET_ROWS*UINT64_C(16384) || request->text_count>request->cells) return fail(error,"Invalid mixed statistics snapshot bounds.");
+    size_t used=sizeof(*request),sources=0,texts=0;
+    if (!statistics_budget(&used,request->text_capacity*sizeof(char *),error) || !statistics_definition_bytes(primary,true,&used,error)) return false;
+    for (size_t i=0;i<request->sources.count;i++) {
+        if (!request->sources.ids[i]) return fail(error,"Invalid mixed statistics source identity.");
+        for (size_t j=0;j<i;j++) if (request->sources.ids[i]==request->sources.ids[j]) return fail(error,"Duplicate mixed statistics source identity.");
+        size_t before=used;
+        if (!statistics_definition_bytes(&request->sources.items[i],false,&used,error)) return false;
+        sources+=used-before;
+    }
+    if (request->sources.bytes!=sources) return fail(error,"Mixed statistics source byte accounting changed.");
+    uint64_t area=request->text_count;
+    for (size_t i=0;i<request->count;i++) {
+        const StatisticsRange *range=&request->ranges[i];
+        if (range->source>request->sources.count || !range->columns || range->columns>256 || range->column>=256 || range->columns>256-range->column || range->first>DX_SHEET_ROWS || range->rows>DX_SHEET_ROWS-range->first || range->rows>(request->cells-area)/range->columns) return fail(error,"Invalid mixed statistics range inside the worksheet.");
+        if (range->expected_source_stamp) return fail(error,"Native source stamps cannot be verified by the browser engine.");
+        const Analysis *source=range->source ? &request->sources.items[range->source-1] : primary;
+        bool pivot=false;
+        for (size_t role=0;role<4;role++) {
+            if (range->pivot.counts[role]>DX_PIVOT_FIELDS) return fail(error,"Mixed statistics shelves exceed their bounded field limit.");
+            pivot|=range->pivot.counts[role]!=0;
+        }
+        if (!range->is_pivot && pivot) return fail(error,"A mixed table range cannot contain matrix shelves.");
+        char *sql=browser_relation_sql(source,range->is_pivot ? &range->pivot : NULL,error); if (!sql) return false; free(sql);
+        for (size_t role=0;role<4;role++) for (size_t field=0;field<range->pivot.counts[role];field++) {
+            const PivotField *f=&range->pivot.fields[role][field];
+            if (!statistics_budget(&used,strlen(f->name)+1+(f->value ? strlen(f->value)+1 : 0),error)) return false;
+        }
+        area+=range->rows*range->columns;
+    }
+    for (size_t i=0;i<request->text_count;i++) {
+        size_t length; if (!text_size(request->texts[i],DX_BROWSER_SQL_BYTES,&length)) return fail(error,"Invalid mixed statistics label text.");
+        if (!statistics_budget(&used,length+1,error)) return false; texts+=length+1;
+    }
+    if (request->text_bytes!=texts) return fail(error,"Mixed statistics label byte accounting changed.");
+    char *manual=browser_statistics_manual_sql(request->texts,request->text_count,error); if (!manual) return false;
+    size_t definitions=used; bool valid=statistics_budget(&used,strlen(manual)+1,error); free(manual);
+    if (valid && owned_bytes) *owned_bytes=definitions; return valid;
+}
 bool browser_statistics_from_page(SelectionStats *out,const Page *page,uint64_t max_cells,size_t retained,char **error) {
     static const char *names[]={"cells","filled","numeric","distinct_values","sum_exact","min_exact","max_exact","sum_float","average_float","min_float","max_float","approximate","non_finite"};
-    if (!out || !page || page->column_count!=13 || page->row_count!=1 || page->offset || page->total!=1 || page->count_pending || page->totals || !page->columns || !page->cells || max_cells>DX_SHEET_ROWS*256 || retained>DX_PAGE_WIRE_TEXT_BYTES) return fail(error,"Invalid scalar selection statistics reply.");
+    if (!out || !page || page->column_count!=13 || page->row_count!=1 || page->offset || page->total!=1 || page->count_pending || page->totals || !page->columns || !page->cells || max_cells>DX_SHEET_ROWS*UINT64_C(16384) || retained>DX_PAGE_WIRE_TEXT_BYTES) return fail(error,"Invalid scalar selection statistics reply.");
     for (size_t c=0;c<13;c++) { const Column *col=&page->columns[c]; if (!col->name || strcmp(col->name,names[c]) || !col->type_name || strcmp(col->type_name,"VARCHAR") || col->type!=DUCKDB_TYPE_VARCHAR || !same_number(col->number_type,(NumberType){0}) || col->numeric) return fail(error,"Unexpected selection statistics scalar descriptors."); }
     if (!pivot_page_bytes(page,error) || !statistics_budget(&retained,page->bytes,error) || !statistics_budget(&retained,sizeof(SelectionStats),error)) return false;
     SelectionStats stats={0}; char *exact[3]={0}; double numbers[4]={0}; bool ok=false,moved_exact=false;

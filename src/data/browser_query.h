@@ -56,6 +56,15 @@ bool browser_pivot_plan_complete(Page *page,Page *rows,Page *columns,const Pivot
    arithmetic execute over the full selected interval, never a loaded page.
    The scalar projection has 13 named VARCHAR columns and one exact result row. */
 char *browser_statistics_sql(const char *relation,const Page *schema,uint64_t first,uint64_t rows,size_t column,size_t columns,char **error);
+/* Mixed snapshots use one global aggregate over typed present cells. The
+   scalar's logical area includes sparse NULL cells; no per-owner scalar merge.
+   Validation is pre-SQL, measures actual owned bytes, and preserves out on error.
+   Returned SQL is owned and <=1 MiB; append leaves cells unchanged on failure. */
+char *browser_statistics_cells_sql(const char *relation,const Page *schema,uint64_t first,uint64_t rows,size_t column,size_t columns,char **error);
+char *browser_statistics_aggregate_sql(const char *cells,const uint64_t *logical_cells,char **error);
+char *browser_statistics_manual_sql(char *const *texts,size_t count,char **error);
+bool browser_statistics_append_cells(char **cells,const char *range,char **error);
+bool browser_statistics_request_valid(const Analysis *primary,const StatisticsRequest *request,size_t *owned_bytes,char **error);
 /* Decode atomically, retaining exact sums/min/max and native approximate/NaN/
    overflow meanings. retained_bytes accounts for the operation's other owned
    schema/relation buffers; scalar + retained + new statistics must fit 4 MiB. */
