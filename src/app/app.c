@@ -6507,9 +6507,8 @@ static void draw_app(App *a) {
     }
     if (CheckCollisionPointRec(ui_mouse_position(),save)) { a->ribbon_hover="Save workbook · ⌘S"; a->ribbon_hover_rect=save; }
     float display_width=width<900 ? 26 : 110;
-    Rectangle tabs_bar=box(0,28*s,GetScreenWidth(),28*s);
-    REVIEW_CONTROL(a,"ribbon.tabs","ribbon.inspect_tabs","ribbon/tabs","tablist","Ribbon tabs",tabs_bar,18,true,false,true);
-    REVIEW_CONTROL(a,"ribbon.tabs.background","ribbon.inspect_tabs","ribbon/tabs/background","region","Ribbon tab strip background",tabs_bar,18,true,false,false);
+    REVIEW_CONTROL(a,"ribbon.tabs","ribbon.inspect_tabs","ribbon/tabs","tablist","Ribbon tabs",box(0,28*s,GetScreenWidth(),28*s),18,true,false,true);
+    REVIEW_CONTROL(a,"ribbon.tabs.background","ribbon.inspect_tabs","ribbon/tabs/background","region","Ribbon tab strip background",box(0,28*s,GetScreenWidth(),28*s),18,true,false,false);
     Rectangle display=box(GetScreenWidth()-(display_width+36)*s,30*s,display_width*s,24*s);
     REVIEW_CONTROL(a,"ribbon.display","ribbon.display","ribbon/display","button","Ribbon display",display,20,!a->io_busy,a->modal==MODAL_RIBBON,false);
     if (ui_button(u,display,width<900 ? "" : "Ribbon display",false,!a->io_busy)) { a->ribbon_menu_focus=a->ribbon_mode; a->modal=MODAL_RIBBON; a->consume_grid_input=true; }
