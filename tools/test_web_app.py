@@ -23,8 +23,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200);self.send_header('Content-Type','application/octet-stream');self.send_header('Content-Length',str(len(content)));self.end_headers();self.wfile.write(content)
         else: super().do_GET()
 
-def main():
-    overall=time.monotonic();phases={}
+def parse_options(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--no-build', action='store_true')
     parser.add_argument('--worker-probe', action='store_true')
@@ -33,6 +32,7 @@ def main():
     parser.add_argument('--busy',action='store_true',help='Require real UI input/rendering before the imported source job completes')
     parser.add_argument('--worker-driver',action='store_true')
     parser.add_argument('--review',action='store_true')
+    parser.add_argument('--access-only',action='store_true',help='Focused blank-workbook access keys and File/document flow; requires --review')
     parser.add_argument('--review-outbox',type=Path,help='Private shared outbox for an integrated native/browser review gate')
     parser.add_argument('--review-offline',action='store_true',help='Commit a report offline, reload real IndexedDB, then automatically upload')
     parser.add_argument('--dpr',type=int,choices=(1,2),default=1)
@@ -40,12 +40,19 @@ def main():
     parser.add_argument('--alt-stress',action='store_true',help='Repeat trusted ribbon Alt shortcuts in the owned platform gate')
     parser.add_argument('--platform',action='store_true',help='Real C DPI/pixel pan/zoom gate (review source fixture)')
     parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker file compatibility (test-only, no Save UI claim)')
-    options=parser.parse_args()
+    options=parser.parse_args(argv)
+    if options.access_only:
+        if not options.review:
+            parser.error('--access-only requires --review')
+        if any((options.source,options.filters,options.busy,options.worker_driver,options.worker_probe,
+                options.platform,options.alt_stress,options.persistence,options.review_offline,
+                options.canvas_transform,options.review_outbox)):
+            parser.error('--access-only is a separate blank-workbook gate without source/engine/platform/report-upload options')
     if options.filters and (not options.source or options.source.name!='transactions.csv'):
         parser.error('--filters requires --source tests/fixtures/transactions.csv')
     if options.busy and not options.source:
         parser.error('--busy requires a real --source')
-    if options.review and (options.worker_driver or not options.source or options.source.name!='transactions.csv'):
+    if options.review and not options.access_only and (options.worker_driver or not options.source or options.source.name!='transactions.csv'):
         parser.error('--review requires --source tests/fixtures/transactions.csv and cannot use --worker-driver')
     if options.canvas_transform and not options.review:
         parser.error('--canvas-transform requires --review')
@@ -59,6 +66,11 @@ def main():
         parser.error('--review-outbox requires --review')
     if options.review_offline and not options.review:
         parser.error('--review-offline requires --review')
+    return options
+
+def main():
+    overall=time.monotonic();phases={}
+    options=parse_options()
     if not options.no_build:
         subprocess.run(['python3','tools/build_web.py']+(['--worker-driver'] if options.worker_driver else ['--review'] if options.review else []), cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
         if options.persistence:subprocess.run(['make','build/web-tests/test-persistence','build/web-tests/test-persistence-sanitize'],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
@@ -104,6 +116,7 @@ def main():
             if options.filters: command.append('--filters')
             if options.busy: command.append('--busy')
             if options.review: command.append('--review')
+            if options.access_only: command.append('--access-only')
             if options.review_offline: command.append('--review-offline')
             command.extend(['--dpr',str(options.dpr)])
             if options.canvas_transform:command.append('--canvas-transform')
@@ -127,7 +140,7 @@ def main():
                     if hashlib.sha256(fixture.read_bytes()).hexdigest()!=fixture_hash:raise RuntimeError('Browser/native proof mutated its original fixture')
                     if any(hashlib.sha256(Path(name).read_bytes()).hexdigest()!=digest for name,digest in persistence_hashes.items()):raise RuntimeError('Native proof helper changed during acceptance')
                 except Exception as error:reader_error=str(error)
-            if options.review and process.returncode==0:
+            if options.review and not options.access_only and process.returncode==0:
                 try:
                     from native_review import ReviewStore,default_project
                     report=json.loads((output/'report-manifest.json').read_text());report_id=report['report_id']
@@ -144,6 +157,9 @@ def main():
             record={'status':'passed' if process.returncode==0 and unchanged and artifacts_unchanged and not reader_error else 'failed','source':before,'artifact':manifest,'reader_error':reader_error,'native_persistence_helpers':persistence_hashes,
                     'command':command,'exit_code':process.returncode,'source_unchanged':unchanged,'artifacts_unchanged':artifacts_unchanged,
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
+            record['profile']='access-only' if options.access_only else 'standard'
+            if options.access_only:
+                record['scope']='Shared C access keys and File/document interactions on a blank workbook; no Worker query, clipboard delivery or report-upload acceptance.'
             (output/'summary.json').write_text(json.dumps(record,indent=2)+'\n')
             print(json.dumps({'status':record['status'],'result':str(output),'elapsed_seconds':record['elapsed_seconds']}))
             return 0 if record['status']=='passed' else 1
