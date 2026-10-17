@@ -13,7 +13,7 @@ from test import FileLock, native_lock_path, source_metadata, utc_now
 from native_review import ReviewStore, default_project
 
 ROOT = Path(__file__).resolve().parents[1]
-REVIEW_STAGES = 296  # 284 reporting/value/Settings scopes +12 format selector scopes
+REVIEW_STAGES = 308  # 296 prior scopes +12 Generated SQL scopes; first-open origins checked
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 def run(argv, path, env=None, timeout=180):

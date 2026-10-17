@@ -69,6 +69,8 @@ typedef struct {
 #ifdef DUXCEL_DEV_REVIEW
     DxReviewCapture *review;
     DxReviewDataIdentity inspector_origin;
+    DxReviewDataIdentity sql_origin;
+    bool sql_origin_valid,sql_origin_stale;
     bool inspector_origin_valid,inspector_origin_stale,inspector_origin_truncated;
 #endif
     Texture2D icon_previews[16];
@@ -398,6 +400,8 @@ static void review_matrix_area(App *a,Rectangle rows,Rectangle clip,Rectangle me
 static void review_statistics_row(App *a,int metric,const char *label,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line);
 static void review_inspector_pin(App *a,const Page *page,const SheetObject *object,uint64_t row,size_t column,bool manual);
 static void review_inspector_value(App *a,Rectangle bounds,Rectangle clip,const char *file,int line);
+static void review_sql_pin(App *a,const SheetObject *owner,bool cached);
+static void review_sql_content(App *a,const char *sql,Rectangle bounds,Rectangle clip,int scroll,int lines,int visible,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -426,6 +430,9 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_INSPECTOR_PIN(a,page,object,row,column,manual) review_inspector_pin(a,page,object,row,column,manual)
 #define REVIEW_INSPECTOR_VALUE(a,bounds,clip) review_inspector_value(a,bounds,clip,__FILE__,__LINE__)
 #define REVIEW_INSPECTOR_CLEAR(a) do { (a)->inspector_origin=(DxReviewDataIdentity){0}; (a)->inspector_origin_valid=(a)->inspector_origin_stale=(a)->inspector_origin_truncated=false; } while (0)
+#define REVIEW_SQL_PIN(a,owner,cached) review_sql_pin(a,owner,cached)
+#define REVIEW_SQL_CLEAR(a) do { (a)->sql_origin=(DxReviewDataIdentity){0}; (a)->sql_origin_valid=(a)->sql_origin_stale=false; } while (0)
+#define REVIEW_SQL_CONTENT(a,sql,bounds,clip,scroll,lines,visible) review_sql_content(a,sql,bounds,clip,scroll,lines,visible,__FILE__,__LINE__)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -452,6 +459,9 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_INSPECTOR_PIN(...) ((void)0)
 #define REVIEW_INSPECTOR_VALUE(...) ((void)0)
 #define REVIEW_INSPECTOR_CLEAR(...) ((void)0)
+#define REVIEW_SQL_PIN(...) ((void)0)
+#define REVIEW_SQL_CLEAR(...) ((void)0)
+#define REVIEW_SQL_CONTENT(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -1664,11 +1674,12 @@ static void open_modal(App *a,Modal modal) {
     }
     if (modal==MODAL_CELL) { input_set(&a->input,cells_get(&active_sheet(a)->cells,a->grid.row,a->grid.col)); a->consume_grid_input=true; return; }
     if (modal==MODAL_SQL) {
-        free(a->sql_text); SheetObject *o=selected_object(a);
+        REVIEW_SQL_CLEAR(a); free(a->sql_text); SheetObject *o=selected_object(a);
         if (o && a->objects[a->selected_object].page.sql) a->sql_text=dx_strdup(a->objects[a->selected_object].page.sql);
         else if (o && o->kind==OBJECT_TABLE) a->sql_text=analysis_sql(&o->source,false);
         else if (o && o->pivot.counts[PIVOT_VALUES]) { char *sql=pivot_sql(object_source(a,o),&o->pivot); a->sql_text=dx_printf("-- Template: the worker resolves column domains with explicit IN lists, including NULL.\n%s",sql); free(sql); }
         else a->sql_text=o ? dx_strdup("-- Empty pivot template. Add a field to Values.") : analysis_sql(&a->analysis,false);
+        REVIEW_SQL_PIN(a,o,o && a->objects[a->selected_object].page.sql);
     }
     if (modal==MODAL_GROUP) {
         a->summary_role=0; a->summary_drag=-1; a->summary_scroll=0;
@@ -1958,6 +1969,7 @@ static void draw_sql_content(App *a,const char *sql,int *position,Rectangle r,bo
         if (next) next++;
         line=next; index++;
     }
+    REVIEW_SQL_CONTENT(a,sql,r,r,*position,lines,visible);
 }
 static void draw_sql(App *a,Rectangle r) { draw_sql_content(a,a->sql_text,&a->sql_scroll,r,true); }
 static void wrapped_message(App *a,Rectangle r) {
@@ -5264,6 +5276,10 @@ static void draw_modal(App *a) {
         REVIEW_AUTHOR_PANEL(a,"settings","Settings",panel,box(x+66*s,y+22*s,w-90*s,30*s));
         REVIEW_AUTHOR_ITEM(a,"settings","close","settings.close","button","Close",box(x+w-45*s,y+16*s,28*s,28*s),panel,true,false,false,NULL);
     }
+    if (a->modal==MODAL_SQL) {
+        REVIEW_AUTHOR_PANEL(a,"generated_sql","Generated SQL",panel,box(x+24*s,y+22*s,w-48*s,30*s));
+        REVIEW_AUTHOR_ITEM(a,"generated_sql","close","sql.close","button","Close",box(x+w-45*s,y+16*s,28*s,28*s),panel,true,false,false,NULL);
+    }
     if (ui_button(u,box(x+w-45*s,y+16*s,28*s,28*s),"×",false,true)) { a->modal=MODAL_NONE; return; }
     bool enter=ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER);
     if (a->modal==MODAL_SETTINGS) {
@@ -5300,6 +5316,7 @@ static void draw_modal(App *a) {
     } else if (a->modal==MODAL_SQL) {
         ui_text(u,"Relation definition. Paging adds a bounded LIMIT / OFFSET.",x+24*s,y+60*s,12,UI_MUTED);
         draw_sql(a,box(x+18*s,y+92*s,w-36*s,h-162*s));
+        REVIEW_AUTHOR_ITEM(a,"generated_sql","copy","sql.copy","button","Copy SQL",box(x+24*s,y+h-52*s,112*s,30*s),panel,true,false,false,NULL);
         if (ui_button(u,box(x+24*s,y+h-52*s,112*s,30*s),"Copy SQL",true,true)) {
             SetClipboardText(a->sql_text ? a->sql_text : ""); status(a,"Generated SQL copied.");
         }
@@ -5548,6 +5565,7 @@ static void inspect_source_sql(App *a) {
     a->selected_object=-1; open_modal(a,MODAL_SQL); a->selected_object=selected;
     if (objects_source(&active_sheet(a)->objects,object)) { free(a->sql_text); a->sql_text=analysis_sql(object_source(a,object),false); }
     char *sql=dx_printf("-- Current source result\n%s",a->sql_text ? a->sql_text : ""); free(a->sql_text); a->sql_text=sql;
+    REVIEW_SQL_PIN(a,objects_source(&active_sheet(a)->objects,object),false);
 }
 static void edit_source_query(App *a) {
     int selected=a->selected_object; const SheetObject *table=objects_source(&active_sheet(a)->objects,selected_object(a));
@@ -8904,7 +8922,7 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     case 224:
         if (a->modal!=MODAL_NONE || a->page.total!=240 || a->objects[0].page.cells!=author_cells) goto failed;
-        request=a->request_id; free(a->sql_text); a->sql_text=dx_strdup("Unrelated dialog SQL"); break;
+        request=a->request_id; REVIEW_SQL_CLEAR(a); free(a->sql_text); a->sql_text=dx_strdup("Unrelated dialog SQL"); break;
     case 225:
         if (!a->pipeline_sql || !a->inspector_sql_text || !a->inspector_sql_lines.count || a->inspector_sql_lines.font_size!=12 || a->pipeline_extent!=280 || strcmp(a->sql_text,"Unrelated dialog SQL") || strstr(a->inspector_sql_text,"PIVOT") || a->request_id!=request) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-inspector-sql.png"); break;
@@ -12747,7 +12765,7 @@ int app_finish(AppSession *session) {
     clear_browser_file(a,false); /* worker_stop closed the engine/registrations */
 #endif
     page_free(&a->page); page_free(&a->spare); analysis_free(&a->analysis);
-    workbook_free(&a->book); inspector_free(a); sort_editor_free(&a->sort_editor);
+    workbook_free(&a->book); inspector_free(a); sort_editor_free(&a->sort_editor); REVIEW_SQL_CLEAR(a);
     reply_free(a->query_validated); text_editor_free(&a->query_editor); text_lines_free(&a->query_errors); free(a->query_error);
     clear_value_choices(a); free(a->value_pending_key); free(a->values_context);
     for (int i=0;i<4;i++) { distinct_free(&a->value_cache[i]); free(a->value_cache_keys[i]); }
