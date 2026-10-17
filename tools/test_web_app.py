@@ -33,7 +33,7 @@ def parse_options(argv=None):
     parser.add_argument('--worker-driver',action='store_true')
     parser.add_argument('--review',action='store_true')
     parser.add_argument('--review-error-only',action='store_true',help='Real source execution Error dialog review/cancel and Undo recovery; requires --review and transactions.csv')
-    parser.add_argument('--review-cell-only',action='store_true',help='Real F2 inline draft capture/cancel, UTF-8 selection and commit/Undo at100/150%; requires --review')
+    parser.add_argument('--review-cell-only',action='store_true',help='Real F2 inline draft capture/cancel, UTF-8 selection and commit/Undo at100/150 percent; requires --review')
     parser.add_argument('--review-guide-only',action='store_true',help='Blank-workbook Guide text/keys/actions/scroll review cancellation at wide100 and short150; requires --review')
     parser.add_argument('--access-only',action='store_true',help='Focused blank-workbook access keys and File/document flow; requires --review')
     parser.add_argument('--zoom-only',action='store_true',help='Focused real C grid zoom/header geometry and pointer checks; requires --review, optional transactions.csv')

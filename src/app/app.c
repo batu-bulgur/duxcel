@@ -6980,7 +6980,7 @@ static void draw_app(App *a) {
     bool brand_covered=a->file_menu && (CheckCollisionPointRec(ui_mouse_position(),file_panel) || ui_gesture_starts_in(file_panel));
     u->pointer_blocked=frame_pointer_blocked || a->modal!=MODAL_NONE || brand_covered;
     if (ui_control_input(u,brand,a->modal==MODAL_NONE && !a->io_busy,&brand_hover)) { a->file_menu=!a->file_menu; a->file_menu_focus=a->file_menu_scroll=0; a->file_menu_wheel=0; a->file_menu_drag=false; a->file_menu_frame=a->frames; a->consume_grid_input=true; }
-    u->pointer_blocked=brand_blocked || a->file_menu || a->consume_grid_input;
+    u->pointer_blocked=brand_blocked || a->file_menu;
 #endif
     if (a->keytip_alpha>0 && a->keytip_state.tab==UI_KEYTIPS_ROOT) ui_keytip(u,box(brand.x+brand.width-16*s,brand.y,16*s,16*s),"F",a->keytip_alpha);
     DrawLineV((Vector2){leading+104*s,7*s},(Vector2){leading+104*s,22*s},(Color){185,197,207,255});
@@ -12654,11 +12654,18 @@ bool app_frame(AppSession *session) {
         }
     }
 #endif /* native scenario input */
+#ifdef DUXCEL_BROWSER_HOST
+    bool file_before_shortcuts=a->file_menu;
+#endif
 #ifdef DUXCEL_DEV_REVIEW
     if (review_capture) { review_begin_frame(a); a->consume_grid_input=true; }
     else
 #endif
     shortcuts(a);
+#ifdef DUXCEL_BROWSER_HOST
+    /* File dismissal consumes its frame even when shortcuts close it before paint. */
+    if (file_before_shortcuts && !a->file_menu) a->ui.pointer_blocked=true;
+#endif
     memset(a->author_marks,0,sizeof(a->author_marks)); double draw_start=dx_millis(); BeginDrawing(); draw_app(a); if (a->icon_preview) draw_icon_gallery(a);
 #ifdef DUXCEL_DEV_REVIEW
     if (review_capture) {
