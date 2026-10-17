@@ -3,7 +3,7 @@
 #include <stdio.h>
 #ifdef DUXCEL_DEV_REVIEW
 #include <string.h>
-static void preview_review_record(UIPreviewReviewFrame *frame,UIContext *ui,const char *key,const char *role,const char *text,Rectangle bounds,bool enabled,bool container) {
+static void preview_review_record(UIPreviewReviewFrame *frame,UIContext *ui,const char *key,const char *role,const char *text,Rectangle bounds,bool enabled,bool container,const char *file,int line) {
     if (!frame || !frame->armed) return;
     Rectangle clip=ui->clipping ? ui->clip : (Rectangle){0,0,GetScreenWidth(),GetScreenHeight()};
     Rectangle shown=GetCollisionRec(bounds,clip); if (shown.width<=0 || shown.height<=0) return;
@@ -14,9 +14,10 @@ static void preview_review_record(UIPreviewReviewFrame *frame,UIContext *ui,cons
     target->truncated=text && text[length];
     if (target->truncated) while (length && ((unsigned char)text[length]&0xc0)==0x80) length--;
     if (length) memcpy(target->text,text,length); target->text[length]=0;
+    snprintf(target->source_file,sizeof(target->source_file),"%s",file); target->source_line=(uint32_t)line;
 }
 #define PREVIEW_REVIEW_PARAM ,UIPreviewReviewFrame *review
-#define PREVIEW_RECORD(ui,...) preview_review_record(review,ui,__VA_ARGS__)
+#define PREVIEW_RECORD(ui,...) preview_review_record(review,ui,__VA_ARGS__,__FILE__,__LINE__)
 #else
 #define PREVIEW_REVIEW_PARAM
 #define PREVIEW_RECORD(...) ((void)0)

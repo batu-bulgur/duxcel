@@ -10,7 +10,7 @@ bool ui_preview_draw(UIContext *ui,Grid *grid,const Page *page,Rectangle canvas,
 #ifdef DUXCEL_DEV_REVIEW
 #define UI_PREVIEW_REVIEW_TARGETS 6
 typedef struct {
-    char key[24],role[16],text[1024]; Rectangle bounds,clip;
+    char key[24],role[16],text[1024],source_file[160]; uint32_t source_line; Rectangle bounds,clip;
     bool enabled,container,truncated;
 } UIPreviewReviewTarget;
 typedef struct {
