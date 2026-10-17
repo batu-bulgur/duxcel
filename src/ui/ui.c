@@ -396,6 +396,42 @@ void ui_text_clip_weight(UIContext *u,const char *text,Rectangle r,float size,Co
 void ui_label(UIContext *u,const char *text,Rectangle r,float size,Color color,bool right,UIFontWeight weight) {
     text_clip_weight(u,text,r,size,color,right,weight,0);
 }
+static void keytip_rect(Rectangle r,Rectangle clip,Color color) {
+    Rectangle visible=intersect(r,clip);
+    if (color.a && visible.width>0 && visible.height>0) DrawRectangleRec(visible,color);
+}
+static void keytip_ring(Rectangle r,Rectangle clip,float line,Color color) {
+    line=fminf(line,fminf(r.width,r.height)*.5f);
+    /* Disjoint edges keep the corners from darkening twice during a fade. */
+    keytip_rect((Rectangle){r.x,r.y,r.width,line},clip,color);
+    keytip_rect((Rectangle){r.x,r.y+r.height-line,r.width,line},clip,color);
+    keytip_rect((Rectangle){r.x,r.y+line,line,r.height-2*line},clip,color);
+    keytip_rect((Rectangle){r.x+r.width-line,r.y+line,line,r.height-2*line},clip,color);
+}
+void ui_keytip(UIContext *u,Rectangle r,const char *label,float opacity) {
+    if (!u || !label || !*label || !isfinite(opacity) || opacity<=0 || !isfinite(u->scale) || u->scale<=0 ||
+        !isfinite(r.x)||!isfinite(r.y)||!isfinite(r.width)||!isfinite(r.height)||r.width<=0||r.height<=0) return;
+    opacity=fminf(1,opacity); float s=u->scale;
+    float dx=isfinite(u->render_scale.x) ? fmaxf(1,u->render_scale.x) : 1;
+    float dy=isfinite(u->render_scale.y) ? fmaxf(1,u->render_scale.y) : 1;
+    float right=roundf((r.x+r.width)*dx)/dx,bottom=roundf((r.y+r.height)*dy)/dy;
+    r.x=roundf(r.x*dx)/dx; r.y=roundf(r.y*dy)/dy; r.width=right-r.x; r.height=bottom-r.y;
+    if (!isfinite(r.x)||!isfinite(r.y)||!isfinite(right)||!isfinite(bottom)||r.width<=0||r.height<=0) return;
+    Rectangle outer={r.x-s,r.y,r.width+2*s,r.height+2*s},clip=u->clipping ? u->clip : outer;
+    if (intersect(outer,clip).width<=0 || intersect(outer,clip).height<=0) return;
+    Color fill={250,252,255,(unsigned char)lroundf(255*opacity)};
+    Color border={164,182,200,fill.a},ink={32,57,80,fill.a};
+    keytip_ring(outer,clip,s,(Color){54,79,102,(unsigned char)lroundf(9*opacity)});
+    keytip_ring((Rectangle){r.x,r.y+s,r.width,r.height},clip,s,(Color){54,79,102,(unsigned char)lroundf(18*opacity)});
+    float line=fminf(s,fminf(r.width,r.height)*.5f);
+    keytip_rect((Rectangle){r.x+line,r.y+line,r.width-2*line,r.height-2*line},clip,fill);
+    keytip_ring(r,clip,line,border);
+    float available=r.width-4*s;
+    if (available>0) {
+        float width=fminf(available,ui_measure_weight(u,label,10,UI_MEDIUM));
+        ui_label(u,label,(Rectangle){r.x+(r.width-width)*.5f,r.y,width+.001f*s,r.height},10,ink,false,UI_MEDIUM);
+    }
+}
 double ui_chart_fraction(double value,double lower,double upper) {
     if (!isfinite(value) || !isfinite(lower) || !isfinite(upper) || lower>=upper) return .5;
     if (value<=lower) return 0; if (value>=upper) return 1;

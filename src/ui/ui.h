@@ -98,6 +98,9 @@ float ui_measure_weight(UIContext *ui,const char *text,float size,UIFontWeight w
 void ui_text_clip_weight(UIContext *ui,const char *text,Rectangle box,float size,Color color,bool right,UIFontWeight weight);
 /* Labels with padding supplied by their measured parent layout. */
 void ui_label(UIContext *ui,const char *text,Rectangle box,float size,Color color,bool right,UIFontWeight weight);
+/* Passive keyboard hint: caller supplies scaled logical bounds and shared fade
+   opacity. Clips to the current UI clip; no input, retained state or allocation. */
+void ui_keytip(UIContext *ui,Rectangle bounds,const char *label,float opacity);
 /* Typed database values: NULL and empty text have non-interactive monospace marks. */
 void ui_value(UIContext *ui,const char *text,bool is_null,Rectangle box,float size,Color color,bool right);
 void ui_formatted_value(UIContext *ui,const char *raw,bool is_null,bool numeric,bool floating,double number,
