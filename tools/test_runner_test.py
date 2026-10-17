@@ -306,6 +306,96 @@ class RunnerTests(unittest.TestCase):
             args = constructor.call_args.args[0]
             self.assertEqual((args.tier, args.config, args.jobs), ("records", "sanitize", 1))
 
+    def test_formats_tier_builds_retains_and_runs_only_selected_configs_sequentially(self):
+        for config in ("release", "sanitize", "both"):
+            for no_build in (False, True):
+                with self.subTest(config=config, no_build=no_build), tempfile.TemporaryDirectory() as directory:
+                    root = pathlib.Path(directory); (root / "Makefile").write_text("")
+                    arguments = ["formats", "--config", config] + (["--no-build"] if no_build else [])
+                    instance = runner.Runner(runner.parser().parse_args(arguments), root)
+                    binaries = [runner.test_binary("workbook", build) for build in runner.configurations(config)]
+
+                    def create_binaries(targets):
+                        for binary in targets:
+                            path = root / binary; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(binary)
+
+                    if no_build:
+                        create_binaries(binaries)
+
+                    def completed(name, command, marker=None, **kwargs):
+                        if command[0] == "make":
+                            self.assertEqual(command, ["make", *binaries]); create_binaries(command[1:])
+                        else:
+                            self.assertEqual(marker, "PASS:"); self.assertFalse(kwargs.get("native"))
+                            self.assertEqual(kwargs["completion_pattern"], runner.FORMATS_COMPLETION_PATTERN)
+                            self.assertTrue((root / "tests/generated").is_dir())
+                        return {"name": name, "command": command, "status": "passed"}
+
+                    with mock.patch.object(instance, "command", side_effect=completed) as command, \
+                         mock.patch.object(instance, "headless", side_effect=AssertionError("No broad modules")), \
+                         mock.patch.object(instance, "prepare_native", side_effect=AssertionError("No native preparation")), \
+                         mock.patch.object(runner, "native_lock_path", side_effect=AssertionError("No formats desktop")), \
+                         contextlib.redirect_stdout(io.StringIO()):
+                        self.assertEqual(instance.run(), 0)
+                    expected = ([] if no_build else [["make", *binaries]]) + [["./" + binary, "--formats-only"] for binary in binaries]
+                    self.assertEqual([call.args[1] for call in command.call_args_list], expected)
+                    self.assertEqual(instance.summary["binaries"], runner.fingerprint([root / binary for binary in binaries]))
+                    self.assertEqual(instance.summary["binaries_after"], instance.summary["binaries"])
+                    saved = json.loads((instance.log_dir / "summary.json").read_text())
+                    self.assertEqual(saved["tier"], "formats"); self.assertEqual(saved["status"], "passed")
+                    self.assertEqual(saved["source"]["source_sha256"], runner.source_metadata(root)["source_sha256"])
+                    self.assertTrue((root / "tests/results/.runner.lock").exists())
+                    self.assertFalse((root / "tests/generated/million.parquet").exists())
+
+    def test_formats_no_build_requires_all_selected_binaries_before_any_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            binary = root / "tests/test_workbook"; binary.parent.mkdir(); binary.write_text("existing")
+            instance = runner.Runner(runner.parser().parse_args(["formats", "--config", "both", "--no-build"]), root)
+            with mock.patch.object(instance, "command") as command, self.assertRaisesRegex(RuntimeError, "Missing test binary.*test_workbook-debug"):
+                instance.formats()
+            command.assert_not_called()
+
+    def test_formats_stop_after_failure_or_binary_replacement(self):
+        for overwrite in (False, True):
+            with self.subTest(overwrite=overwrite), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory); (root / "Makefile").write_text("")
+                for config in ("release", "sanitize"):
+                    binary = root / runner.test_binary("workbook", config); binary.parent.mkdir(exist_ok=True); binary.write_text(config)
+                instance = runner.Runner(runner.parser().parse_args(["formats", "--config", "both", "--no-build"]), root)
+
+                def completed(name, command, marker=None, **kwargs):
+                    if overwrite:
+                        (root / "tests/test_workbook-debug").write_text("different build")
+                    return {"name": name, "command": command, "status": "passed" if overwrite else "failed", "error": "Format save assertion failed"}
+
+                with mock.patch.object(instance, "command", side_effect=completed) as command, \
+                     contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(instance.run(), 1)
+                self.assertEqual(command.call_count, 1)
+                self.assertEqual(instance.summary["status"], "failed")
+                self.assertIn("changed" if overwrite else "Format save assertion failed", instance.summary["error"])
+
+    def test_formats_requires_the_focused_completion_summary(self):
+        focused = "PASS: 383 focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n"
+        runner.validate_output(focused, 0, "PASS:", completion_pattern=runner.FORMATS_COMPLETION_PATTERN)
+        for output in ("PASS: 383 workspace checks (whole suite)\n", focused.replace("383", "0"), "PASS: an earlier format assertion\n"):
+            with self.subTest(output=output), self.assertRaisesRegex(RuntimeError, "Missing completion summary"):
+                runner.validate_output(output, 0, "PASS:", completion_pattern=runner.FORMATS_COMPLETION_PATTERN)
+
+    def test_formats_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation(self):
+        extras = (["--modules", "format"], ["--scenario", "icon"], ["--feature", "shelves"],
+                  ["--visible"], ["--require-data"], ["--jobs", "2"])
+        with mock.patch.object(runner, "Runner") as constructor:
+            for extra in extras:
+                with self.subTest(extra=extra), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                    runner.main(["formats", *extra])
+            constructor.assert_not_called()
+            constructor.return_value.run.return_value = 0
+            self.assertEqual(runner.main(["formats", "--config", "both", "--no-build"]), 0)
+            args = constructor.call_args.args[0]
+            self.assertEqual((args.tier, args.config, args.jobs, args.no_build), ("formats", "both", 1, True))
+
     def test_named_native_workflows_keep_order_and_deduplicate_without_full_suite(self):
         args = runner.parser().parse_args(["native", "--scenario", "export", "icon", "export"])
         with tempfile.TemporaryDirectory() as directory:
@@ -340,6 +430,7 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual(runner.main(["--list"]), 0)
             self.assertIn("1108 application stages", output.getvalue())
             self.assertIn("Records: record_sql, record_pages", output.getvalue())
+            self.assertIn("Formats: workbook --formats-only", output.getvalue())
             constructor.assert_not_called()
         for arguments in (["affected"], ["full", "--modules", "grid"], ["native"], ["native", "--scenario", "export", "--modules", "grid"], ["fast", "--scenario", "export"], ["fast", "--jobs", "3"], ["fast", "--timeout", "0"], ["fast", "--feature", "shelves"], ["affected", "--feature", "shelves", "--require-data"]):
             with self.subTest(arguments=arguments), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):

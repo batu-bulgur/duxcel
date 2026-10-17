@@ -23,6 +23,7 @@ FAST_MODULES = (
 )
 RECORD_MODULES = ("record_sql", "record_pages")
 ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES)
+FORMATS_COMPLETION_PATTERN = r"^PASS: [1-9]\d* focused workspace formatting checks \(format round-trip, validation, scoped-save rejection and original-file preservation\)$"
 # These are existing, independently bootstrapped layout checkpoints. The end is
 # exclusive, as in DUXCEL_LAYOUT_TO. Never jump into arbitrary stateful stages.
 LAYOUT_PROFILES = {
@@ -301,6 +302,18 @@ class Runner:
             self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
             ensure_unchanged(self.summary["binaries"])
 
+    def formats(self):
+        """Bounded workspace format/save checks; no core fixtures or desktop."""
+        (self.root / "tests/generated").mkdir(parents=True, exist_ok=True)
+        runs = [(config, test_binary("workbook", config)) for config in configurations(self.args.config)]
+        self.build([binary for _, binary in runs], "build-formats")
+        self.retain_binaries([binary for _, binary in runs])
+        for config, binary in runs:
+            ensure_unchanged(self.summary["binaries"])
+            self.record(self.command(f"formats-{config}", ["./" + binary, "--formats-only"], "PASS:",
+                                     completion_pattern=FORMATS_COMPLETION_PATTERN))
+            ensure_unchanged(self.summary["binaries"])
+
     def prepare_native(self, full=False):
         validate_native_contract(self.root)
         targets = [self.native_binary(), "tests/test_background-native-debug", "design-fixture"]
@@ -407,6 +420,8 @@ class Runner:
                     self.native()
                 elif self.args.tier == "records":
                     self.records()
+                elif self.args.tier == "formats":
+                    self.formats()
                 else:
                     self.full()
                 ensure_unchanged(self.summary["binaries"])
@@ -432,7 +447,7 @@ class Runner:
 
 def parser():
     result = argparse.ArgumentParser(description=__doc__, epilog="Native windows and clipboard checks run serially under a cross-worktree lock. --jobs only overlaps already-built read-only headless tests. No packages are installed.")
-    result.add_argument("tier", nargs="?", choices=("fast", "records", "affected", "native", "full"), default="fast")
+    result.add_argument("tier", nargs="?", choices=("fast", "records", "formats", "affected", "native", "full"), default="fast")
     result.add_argument("--config", choices=("release", "sanitize", "both"), default="both", help="headless build configuration; native uses sanitizer when both (default: both)")
     result.add_argument("--modules", nargs="+", choices=FAST_MODULES, help="read-only headless modules for fast/affected; full always runs all")
     result.add_argument("--feature", choices=tuple(LAYOUT_PROFILES), help="existing independently bootstrapped native slice; required for affected")
@@ -453,6 +468,7 @@ def main(argv=None):
     if args.list:
         print("Read-only modules: " + ", ".join(FAST_MODULES))
         print("Records: " + ", ".join(RECORD_MODULES) + "; sequential native engine checks without GUI or shared fixtures")
+        print("Formats: workbook --formats-only; sequential format/save checks without GUI or core fixture regeneration")
         for name, (start, end, _) in LAYOUT_PROFILES.items():
             print(f"Affected {name}: layout {start}–{end-1} ({end-start} stages)")
         for name, stages, frames, _ in NATIVE:
@@ -461,10 +477,10 @@ def main(argv=None):
         return 0
     if args.tier == "affected" and not args.feature:
         argument_parser.error("affected requires --feature (see --list)")
-    if args.tier in ("full", "records") and args.modules:
+    if args.tier in ("full", "records", "formats") and args.modules:
         argument_parser.error(args.tier + " does not accept --modules")
-    if args.tier == "records" and args.jobs != 1:
-        argument_parser.error("records requires --jobs 1; engine checks run sequentially")
+    if args.tier in ("records", "formats") and args.jobs != 1:
+        argument_parser.error(args.tier + " requires --jobs 1; engine checks run sequentially")
     if args.tier == "native" and (not args.scenario or args.modules):
         argument_parser.error("native requires --scenario and does not accept --modules")
     if args.scenario and args.tier != "native":
