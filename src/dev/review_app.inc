@@ -617,10 +617,11 @@ static bool review_smoke_author_targets(App *a,const char *kind,const char *targ
     DxReviewRegistry *registry=a->review->registry; DxReviewTarget picked; char parent[128],id[128];
     snprintf(parent,sizeof(parent),"author.%s",kind); const DxReviewWidget *menu=dx_review_find(registry,parent);
     if (!menu || !menu->container || !menu->expanded || menu->input_eligible || registry->duplicate_count || registry->invalid_count || registry->overflow_count) return false;
-    snprintf(id,sizeof(id),"%s.background",parent);
-    if (!dx_review_pick(registry,menu->bounds.x+2*a->ui.scale,menu->bounds.y+2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id)) return false;
-    snprintf(id,sizeof(id),"%s.heading",parent); const DxReviewWidget *heading=dx_review_find(registry,id);
     bool compact=!strcmp(kind,"representation") || !strcmp(kind,"plot");
+    snprintf(id,sizeof(id),"%s.background",parent);
+    float margin=(compact ? .5f : 2)*a->ui.scale,x=menu->bounds.x+margin,y=menu->bounds.y+margin;
+    if (!dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id)) { fprintf(stderr,"FAIL: authoring background expected=%s actual=%s point=%.2f,%.2f\n",id,picked.widget.id,x,y); return false; }
+    snprintf(id,sizeof(id),"%s.heading",parent); const DxReviewWidget *heading=dx_review_find(registry,id);
     if (compact ? heading!=NULL : (!heading || heading->input_eligible || !dx_review_pick(registry,heading->bounds.x+heading->bounds.width*.5f,heading->bounds.y+heading->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id))) return false;
     size_t rows=0; const DxReviewWidget *chosen=NULL;
     for (size_t i=0;i<registry->count;i++) {
