@@ -750,6 +750,7 @@ static void review_feedback_target(App *a,DxReviewDataIdentity origin,const char
     snprintf(widget.parent_id,sizeof(widget.parent_id),"%s",parent ? parent : ""); widget.bounds=review_rect(bounds); widget.clip=review_rect(clip); widget.transform.ty=offset;
     int layer=filter ? 103 : !strncmp(id,"toast",5) ? 161 : !strncmp(id,"status",6) ? 62 : !strncmp(id,"cell.readout.",13) ? 18 : !strncmp(id,"preview",7) ? 12 : 44;
     widget.container=!strcmp(role,"group") || !strcmp(role,"listbox") || !strcmp(role,"container"); widget.expanded=widget.container; widget.layer=layer-(widget.container ? 1 : 0);
+    if (filter && widget.container) widget.layer=100; /* Preserve actual value children at101 above their group. */
     widget.enabled=enabled; widget.checked=checked; widget.focused=focused; widget.input_eligible=enabled && !widget.container && strcmp(role,"text") && strcmp(role,"region");
     if (type) dx_review_value_set(&widget.value,type,is_null,text);
     if (type && !strcmp(id,"cell.readout.value")) widget.value.truncated|=a->active_readout.value.truncated;
