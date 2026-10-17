@@ -978,6 +978,7 @@ static void schedule_count(App *a) {
     if (!target->count_pending || (a->page_stale && !a->waiting_count_page) || a->known_total>=0 || a->count_paused || a->count_deferred || a->busy || a->io_busy || a->values_loading || a->modal!=MODAL_NONE || a->fetch_failed ||
         (a->count_request_id && a->count_request_id==a->request_id)) return;
     QueryJob *j=dx_alloc(sizeof(*j)); j->kind=JOB_COUNT; j->id=++a->request_id; j->analysis=analysis_copy(&a->analysis);
+    j->expected_source_stamp=target->records.stamp;
     a->pending_kind=JOB_COUNT; a->pending_object_id=0; a->count_request_id=j->id; a->count_started_ms=dx_millis(); worker_submit(&a->worker,j);
 }
 static bool table_count_validation(App *a,size_t index,size_t columns) {
@@ -1032,6 +1033,7 @@ static void schedule_table_count(App *a) {
         }
         if (o->kind!=OBJECT_TABLE || v->dirty || v->failed || v->count_paused || !v->page.column_count || !v->page.count_pending) continue;
         QueryJob *j=dx_alloc(sizeof(*j)); j->kind=JOB_COUNT; j->id=++a->request_id; j->analysis=analysis_copy(&o->source); j->object_id=o->id; j->revision=o->revision; j->is_table=true;
+        j->expected_source_stamp=v->page.records.stamp;
         a->pending_kind=JOB_COUNT; a->pending_object_id=o->id; a->count_request_id=j->id; worker_submit(&a->worker,j); return;
     }
 }
@@ -1928,6 +1930,7 @@ static void request_values(App *a,uint64_t offset) {
     free(a->value_pending_key); a->value_pending_key=dx_strdup(a->values_context);
     QueryJob *j=dx_alloc(sizeof(*j)); j->id=++a->request_id; j->kind=JOB_DISTINCT;
     j->analysis=analysis_copy(object_source(a,object)); j->column=dx_strdup(fields->columns[a->field].name); j->search=dx_strdup(a->input.text);
+    j->expected_source_stamp=object_fields(a,object)->records.stamp;
     j->date_level=a->date_level; j->offset=offset; j->known_total=a->values_total;
     if (object) { j->pivot=pivot_copy(&object->pivot); j->object_id=object->id; j->is_table=object->kind==OBJECT_TABLE; }
     if (a->date_level>0) { j->date_start=dx_strdup(a->date_starts[a->date_level-1]); j->date_end=dx_strdup(a->date_ends[a->date_level-1]); }
