@@ -1,0 +1,66 @@
+{
+  "status": "passed",
+  "normal_directory": "/Users/h2o/dev/duxcel/build/web/app/b77bd717ebcaf45f4534",
+  "review_directory": "/Users/h2o/dev/duxcel/build/web/review/444347809970e415c0b1",
+  "normal_wasm_sha256": "c2644e364f3c952e0f779d4fd0303d2a5ee459a888c7bef6c27a67d4c49f66e1",
+  "review_wasm_sha256": "0eb7c2aa09cfee6080a239104cad1c215d89a2314b5231646eb73dcccc96e50c",
+  "normal_exports": [
+    "memory",
+    "__wasm_call_ctors",
+    "free",
+    "__indirect_function_table",
+    "dx_browser_query_result",
+    "dx_browser_file_result",
+    "__main_argc_argv",
+    "fflush",
+    "malloc",
+    "emscripten_stack_get_end",
+    "emscripten_stack_get_base",
+    "strerror",
+    "setThrew",
+    "emscripten_stack_init",
+    "emscripten_stack_get_free",
+    "_emscripten_stack_restore",
+    "_emscripten_stack_alloc",
+    "emscripten_stack_get_current"
+  ],
+  "review_exports": [
+    "memory",
+    "__wasm_call_ctors",
+    "free",
+    "__indirect_function_table",
+    "dx_browser_query_result",
+    "dx_browser_file_result",
+    "__main_argc_argv",
+    "malloc",
+    "dx_browser_review_result",
+    "fflush",
+    "emscripten_stack_get_end",
+    "emscripten_stack_get_base",
+    "strerror",
+    "setThrew",
+    "emscripten_stack_init",
+    "emscripten_stack_get_free",
+    "_emscripten_stack_restore",
+    "_emscripten_stack_alloc",
+    "emscripten_stack_get_current"
+  ],
+  "shipping_marker_absence": {
+    "dx_review_": true,
+    "duxcel.native-review": true,
+    "duxcel.browser-review": true,
+    "dxBrowserWorkerTestDone": true,
+    "test_browser_worker.c": true
+  },
+  "native": {
+    "duxcel": {
+      "sha256": "3f0bc07902562fb9dc47bf477cabdaa34f8ff043a29aaa528514503764a88984",
+      "unexpected_symbols": []
+    },
+    "duxcel-debug": {
+      "sha256": "473372966b6ecb1ae050699d03677020d7d7763dbfa931717456ba2edfbb3a30",
+      "unexpected_symbols": []
+    }
+  },
+  "failures": []
+}

@@ -1,0 +1,1 @@
+{"status":"passed","checks":569,"surface":{"width":1280,"height":820,"dpr":2,"canvas":[2560,1640]},"output":"/Users/h2o/dev/duxcel/tests/results/runs/20261017T221338-browser-93935"}

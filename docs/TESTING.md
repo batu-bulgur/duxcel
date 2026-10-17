@@ -230,3 +230,12 @@ python3 tools/test_web_export.py --latest build/web/review/latest.json
 ```
 
 Copy217 passes21.877s with a pre-loader memory clipboard, retained pending/failed/completed IDs, frozen capture/cancel, exact cached TSV and a real600-row uncached kind9 result. No OS clipboard is used. Native364 takes13.939s optimized/16.845s sanitizer, adding actual pending-query text/validation-error ownership. The standalone Parquet proof uses one owned headless official Worker and the immutable artifact's vendor assets;15 harness checks/nine records take6.008s, and private bytes are saved only inside its results directory. It proves virtual-file capability and exact reimport; there is no product controller/download claim. [Retained evidence](validation/checkpoints/2026-10-18-clipboard-query-feedback/).
+
+The contextual workspace and expanded real Source Query feedback gates run separately:
+
+```sh
+python3 tools/test_web_app.py --review --workspace-review-only --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
+python3 tools/test_web_app.py --review --review-query-only --query-apply --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
+```
+
+Build matching review artifacts first. Workspace943 takes24.152s, with13 frozen picks across empty100%/populated150% actual Fields/Rows/Columns/Measures/Filters/Marks, including disabled removal. Native372 takes14.328s optimized/16.565s sanitizer. The expanded Query feedback569 gate takes25.250s, adding a genuine missing-column validation, owned status/error and actual wrapped-line scrolling. It retains source/result ownership and makes no full TextInput-history or physical-input claim. Later export transport is outside these artifact scopes. [Retained evidence](validation/checkpoints/2026-10-18-workspace-review/).
