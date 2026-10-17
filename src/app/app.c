@@ -11014,6 +11014,12 @@ static bool smoke_work_idle(App *a) {
     dx_unlock(&a->worker.mutex);
     return idle;
 }
+static void record_frame(App *a,double started) {
+    a->last_frame_ms=dx_millis()-started; a->sum_frame_ms+=a->last_frame_ms;
+    a->frame_samples[a->frames%600]=a->last_frame_ms;
+    if (a->last_frame_ms>a->worst_frame_ms) a->worst_frame_ms=a->last_frame_ms;
+    a->frames++;
+}
 #ifdef DUXCEL_DEV_REVIEW
 #include "../dev/review_app.inc"
 #endif
@@ -11138,11 +11144,12 @@ int app_run(const AppOptions *options) {
                 while ((command=dx_take_command())!=DX_COMMAND_NONE) review_native_command(&a,command);
                 dx_take_magnification();
                 if (IsFileDropped()) { FilePathList files=LoadDroppedFiles(); UnloadDroppedFiles(files); }
-                BeginDrawing(); bool closed=dx_review_capture_draw(a.review,&a.ui); review_resolve_grid(&a); dx_native_context(true,true,false,false);
+                double draw_start=dx_millis(); BeginDrawing(); bool closed=dx_review_capture_draw(a.review,&a.ui); review_resolve_grid(&a); dx_native_context(true,true,false,false);
                 if (applied_cursor!=a.ui.cursor) { SetMouseCursor(a.ui.cursor); applied_cursor=a.ui.cursor; }
+                a.render_ms[a.frames%600]=dx_millis()-draw_start;
                 EndDrawing();
                 if (closed && a.review->last_report_id[0]) status(&a,a.review->last_report_id);
-                a.frames++; continue;
+                record_frame(&a,frame); continue;
             }
         }
         bool review_capture=a.review && a.review->phase==DX_REPORT_ARMED;
@@ -11652,7 +11659,7 @@ int app_run(const AppOptions *options) {
         dx_native_context(a.modal!=MODAL_NONE,a.pivot_search_focus,selected_pivot(&a)!=NULL,a.key_tips);
         EndDrawing();
 #ifdef DUXCEL_DEV_REVIEW
-        if (review_capture) { a.frames++; continue; }
+        if (review_capture) { record_frame(&a,frame); continue; }
 #endif
         if (options->layout_smoke && layout_smoke>=359 && layout_smoke<=365) {
             unsigned bit=layout_smoke==359 ? 1 : layout_smoke==360 ? 2 : layout_smoke==364 ? 4 : layout_smoke==365 ? 8 : 0;
@@ -11714,10 +11721,7 @@ int app_run(const AppOptions *options) {
         if (options->icon_smoke && a.frames%24==0) icon_smoke_step(&a,&icon_smoke);
         if (options->unique_smoke && a.frames%24==0) unique_smoke_step(&a,&unique_smoke);
         if (options->query_smoke && a.frames%24==0) query_smoke_step(&a,&query_smoke);
-        a.last_frame_ms=dx_millis()-frame; a.sum_frame_ms+=a.last_frame_ms;
-        a.frame_samples[a.frames%600]=a.last_frame_ms;
-        if (a.last_frame_ms>a.worst_frame_ms) a.worst_frame_ms=a.last_frame_ms;
-        a.frames++;
+        record_frame(&a,frame);
         /* A terminal stage runs after drawing. Render its final state once
            before exiting, and never let one enabled scenario end another.
            Document Quit still exits through exit_ready after save publication. */

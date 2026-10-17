@@ -194,8 +194,24 @@ static void review_resolve_grid(App *a) {
     snprintf(w.source_file,sizeof(w.source_file),"%s",__FILE__); w.source_line=__LINE__;
     r->target.widget=w; r->target.bounds=review_rect(clip_rect((Rectangle){w.bounds.x,w.bounds.y,w.bounds.width,w.bounds.height},(Rectangle){w.clip.x,w.clip.y,w.clip.width,w.clip.height}));
 }
+static bool review_grid_gesture(const Grid *g) {
+    return g->dragging || g->moving || g->resizing>=0 || g->scrollbar;
+}
 static bool review_can_capture(App *a) {
-    return a->review && a->review->phase==DX_REPORT_IDLE && !a->grid.dragging && !a->grid.moving && a->grid.resizing<0 && !a->grid.scrollbar && !a->chart_resizing && a->pivot_drag_field<0 && a->pivot_drag_role<0 && !a->matrix_selecting && !(a->modal==MODAL_GROUP && a->summary_drag>=0) && !a->split_side && !a->split_pipeline && !a->steps_drag && !a->workbook_drag && !a->field_drag && !a->values_drag && !a->input.dragging && !a->filter_term.dragging && !a->filter_end.dragging;
+    /* Finish the current gesture before freezing input. Otherwise the release
+       can be consumed by reporting and leave a thumb/selection dragging when
+       the workbook resumes. Check nested surfaces as well as the main grid. */
+    return a->review && a->review->phase==DX_REPORT_IDLE &&
+        !IsMouseButtonDown(MOUSE_BUTTON_LEFT) && !IsMouseButtonDown(MOUSE_BUTTON_RIGHT) && !IsMouseButtonDown(MOUSE_BUTTON_MIDDLE) &&
+        !review_grid_gesture(&a->grid) && !review_grid_gesture(&a->source_preview) &&
+        !(a->step_preview.initialized && review_grid_gesture(&a->step_preview.grid)) &&
+        !a->analysis_vbar.dragging && !a->matrix_hbar.dragging && !a->matrix_vbar.dragging &&
+        !a->dock_scrollbars[0].dragging && !a->dock_scrollbars[1].dragging && !a->author_scrollbar.dragging &&
+        !a->chart_resizing && a->pivot_drag_field<0 && a->pivot_drag_role<0 && !a->matrix_selecting &&
+        !(a->modal==MODAL_GROUP && a->summary_drag>=0) && !a->split_side && !a->split_pipeline &&
+        !a->steps_drag && !a->workbook_drag && !a->field_drag && !a->values_drag && !a->context_drag &&
+        !a->inspector_drag && !a->table_relation_drag && !a->input.dragging && !a->filter_term.dragging &&
+        !a->filter_end.dragging && !a->pivot_search.dragging && !a->chart_columns.dragging && !a->sort_editor.search.dragging;
 }
 
 static void review_native_command(App *a,DxCommand command) {
@@ -231,6 +247,17 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
     switch (t->stage) {
     case 0:
         if (a->busy || a->page.count_pending || a->page.column_count!=3) return;
+        if (!review_can_capture(a)) return;
+        {
+            bool *drags[]={&a->analysis_vbar.dragging,&a->matrix_hbar.dragging,&a->matrix_vbar.dragging,
+                &a->dock_scrollbars[0].dragging,&a->dock_scrollbars[1].dragging,&a->author_scrollbar.dragging,
+                &a->source_preview.dragging,&a->context_drag,&a->inspector_drag,&a->table_relation_drag,
+                &a->pivot_search.dragging,&a->chart_columns.dragging,&a->sort_editor.search.dragging};
+            for (size_t i=0;i<sizeof(drags)/sizeof(*drags);i++) {
+                *drags[i]=true; bool captured=review_can_capture(a); *drags[i]=false;
+                if (captured) goto failed;
+            }
+        }
         grid_select_cell(&a->grid,1,1,false); a->grid.end_row=3; open_modal(a,MODAL_FILTER); break;
     case 1:
         if (a->values_loading || a->values_total<0 || a->popup_presence.offset || a->popup_presence.alpha!=1) return;
@@ -339,6 +366,9 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         ui_note_key_press(KEY_ESCAPE,0); break;
     case 22:
         if (r->phase!=DX_REPORT_IDLE) return;
+        /* History lives in More only below 700 logical units. At the wide
+           fixture size there is no More menu to capture. */
+        SetWindowSize(640,640); a->ribbon_mode=2;
         open_command_group(a,-1,0); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 23:
         if (r->phase!=DX_REPORT_PICK) return;
