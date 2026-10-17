@@ -1296,7 +1296,8 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_CELL_END (REVIEW_GUIDE_END+2*6)
 #define REVIEW_ERROR_END (REVIEW_CELL_END+2*6)
 #define REVIEW_QUERY_FEEDBACK_END (REVIEW_ERROR_END+6)
-#define REVIEW_SMOKE_STAGES (REVIEW_QUERY_FEEDBACK_END+2*4)
+#define REVIEW_WORKSPACE_END (REVIEW_QUERY_FEEDBACK_END+2*4)
+#define REVIEW_SMOKE_STAGES (REVIEW_WORKSPACE_END+6*4)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -1353,6 +1354,12 @@ typedef struct {
     float workspace_author_scroll,workspace_dock_scroll[2]; UIMarksLayout workspace_marks; UIShelfLayout workspace_axes[2];
     UIContextTitleLayout workspace_title; Rectangle workspace_fields,workspace_tokens[4][DX_PIVOT_FIELDS];
     char workspace_mark_labels[DX_MARK_ROLES][512];
+    bool feedback_fixture,feedback_table_added,feedback_transformed,feedback_pivot_added,feedback_started,feedback_end_sent,feedback_hidden,feedback_resume;
+    int feedback_table,feedback_pivot,feedback_item,feedback_scroll,feedback_chrome,feedback_filter_focus;
+    char feedback_path[4096],feedback_backup[4096]; Analysis feedback_source,feedback_preview_source;
+    StepPreview feedback_preview; GridLocation feedback_preview_selection; DistinctPage feedback_values[4]; char *feedback_keys[4],*feedback_context,*feedback_pending,*feedback_message;
+    int64_t feedback_total,feedback_value_focus; uint64_t feedback_value_scroll,feedback_search_revision; bool feedback_loading,feedback_failed,feedback_all;
+    char *feedback_message_pointer; double feedback_message_since; uint64_t feedback_message_revision;
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -1470,6 +1477,9 @@ static void review_smoke_author_release(ReviewSmoke *t) {
     for (size_t i=0;i<64;i++) { free(t->cell_history[i]); t->cell_history[i]=NULL; }
     free(t->error_text); t->error_text=NULL;
     free(t->workspace_matches); t->workspace_matches=NULL;
+    analysis_free(&t->feedback_source); analysis_free(&t->feedback_preview_source);
+    free(t->feedback_context); free(t->feedback_pending); free(t->feedback_message); t->feedback_context=t->feedback_pending=t->feedback_message=NULL;
+    for (size_t i=0;i<4;i++) { free(t->feedback_keys[i]); t->feedback_keys[i]=NULL; }
     free(t->dialog_text); t->dialog_text=NULL; free(t->dialog_chart_text); t->dialog_chart_text=NULL;
     for (size_t i=0;i<DX_MAX_SHEETS;i++) { free(t->sheet_names[i]); t->sheet_names[i]=NULL; }
 }
@@ -3282,10 +3292,198 @@ static int review_smoke_workspace_tick(App *a,ReviewSmoke *t) {
     if (r->phase!=DX_REPORT_IDLE) return 0;
     if (!review_smoke_workspace_same(a,t)) goto failed;
     printf("PASS: native contextual workspace review %s checks actual visible Fields/actions, Rows/Columns, Measures/Filters/Marks ownership/clipping and frozen pick/cancel; retains search/history, source/Pivot/manual/Pages/Stats/jobs without underlying activation\n",item ? "populated150% with disabled sole-measure remove" : "empty100% with field actions");
-    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
+    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); } return 1;
 failed:
     fprintf(stderr,"Review workspace mismatch stage=%d phase=%d item=%d modal=%d report=%d object=%d focus=%d search=%s matches=%zu visible=%d scroll=%d/%.3f dock=%.3f target=%s actual=%s\n",t->stage,phase,item,(int)a->modal,(int)r->phase,a->selected_object,a->pivot_focus,a->pivot_search.text ? a->pivot_search.text : "",a->field_match_count,a->field_visible,a->pivot_field_scroll,a->author_scroll,a->dock_scroll[1],t->author_target,r->target.widget.id);
     for (size_t i=0;i<r->registry->count;i++) { const DxReviewWidget *w=&r->registry->widgets[i]; if (!strncmp(w->id,"pane.fields",11) || !strncmp(w->id,"analysis.shelf.",15) || !strncmp(w->id,"analysis.marks",14)) fprintf(stderr,"Review workspace widget %s parent=%s role=%s enabled=%d checked=%d focus=%d kind=%s owner=%llu source=%llu schema=%llu query=%llu index=%llu/%llu field=%s value=%s rect=%.2f,%.2f,%.2f,%.2f clip=%.2f,%.2f,%.2f,%.2f\n",w->id,w->parent_id,w->role,w->enabled,w->checked,w->focused,w->data.kind,(unsigned long long)w->data.object_id,(unsigned long long)w->data.source_id,(unsigned long long)w->data.schema_generation,(unsigned long long)w->data.query_generation,(unsigned long long)w->data.row,(unsigned long long)w->data.column,w->data.field,w->value.exact_text,w->bounds.x,w->bounds.y,w->bounds.width,w->bounds.height,w->clip.x,w->clip.y,w->clip.width,w->clip.height); } return -1;
+}
+static bool review_smoke_feedback_restore(ReviewSmoke *t) {
+    if (!t->feedback_hidden) return true;
+    if (rename(t->feedback_backup,t->feedback_path)) { fprintf(stderr,"Review feedback fixture restore failed: %s\n",t->feedback_path); return false; }
+    t->feedback_hidden=false; return true;
+}
+static bool review_smoke_feedback_fixture(ReviewSmoke *t) {
+    if (t->feedback_fixture) return true;
+    if (!t->owner_fixture[0] || snprintf(t->feedback_path,sizeof(t->feedback_path),"%s.feedback.csv",t->owner_fixture)>=(int)sizeof(t->feedback_path) ||
+        snprintf(t->feedback_backup,sizeof(t->feedback_backup),"%s.unavailable",t->feedback_path)>=(int)sizeof(t->feedback_backup) || FileExists(t->feedback_path) || FileExists(t->feedback_backup)) return false;
+    FILE *file=fopen(t->feedback_path,"wb"); if (!file) return false;
+    bool ok=fprintf(file,"ID,City,Amount\n")>0;
+    for (int i=0;i<96 && ok;i++) ok=fprintf(file,"%d,City%03d,%d.25\n",i+1,i,i+1)>0;
+    ok=fclose(file)==0 && ok; t->feedback_fixture=ok; return ok;
+}
+static void review_smoke_feedback_remember(App *a,ReviewSmoke *t) {
+    review_smoke_cell_remember(a,t);
+    SheetObject *table=&active_sheet(a)->objects.items[t->feedback_table]; t->feedback_source=analysis_copy(&table->source);
+    t->feedback_scroll=a->step_scroll; t->feedback_chrome=a->chrome_focus; t->feedback_filter_focus=a->filter_focus;
+    t->sql_pane_visible=a->pipeline; t->sql_pane_collapsed=a->pipeline_collapsed; t->sql_pane_mode=a->pipeline_sql; t->sql_pane_focus=a->pipeline_focus_index; t->sql_pane_step=a->pipeline_selected_step;
+    t->sql_pane_pointer=a->inspector_sql_text; t->sql_pane_text=a->inspector_sql_text ? dx_strdup(a->inspector_sql_text) : NULL; t->sql_pane_scroll=a->inspector_sql_scroll; t->sql_pane_lines=a->inspector_sql_lines;
+    if (a->inspector_sql_lines.offsets) { size_t bytes=(a->inspector_sql_lines.count+1)*sizeof(size_t); t->sql_pane_offsets=dx_alloc(bytes); memcpy(t->sql_pane_offsets,a->inspector_sql_lines.offsets,bytes); }
+    t->feedback_preview=a->step_preview; t->feedback_preview_source=analysis_copy(&a->step_preview.source);
+    if (a->step_preview.active) t->feedback_preview_selection=grid_location(&a->step_preview.grid);
+    for (size_t i=0;i<4;i++) { t->feedback_values[i]=a->value_cache[i]; t->feedback_keys[i]=a->value_cache_keys[i] ? dx_strdup(a->value_cache_keys[i]) : NULL; }
+    t->feedback_context=a->values_context ? dx_strdup(a->values_context) : NULL; t->feedback_pending=a->value_pending_key ? dx_strdup(a->value_pending_key) : NULL;
+    t->feedback_total=a->values_total; t->feedback_value_scroll=a->values_scroll; t->feedback_value_focus=a->values_focus; t->feedback_search_revision=a->values_search_revision;
+    t->feedback_loading=a->values_loading; t->feedback_failed=a->values_failed; t->feedback_all=a->values_all;
+    t->feedback_message_pointer=a->message; t->feedback_message=dx_strdup(a->message ? a->message : ""); t->feedback_message_since=a->message_since; t->feedback_message_revision=a->message_revision;
+}
+static bool review_smoke_feedback_worker(App *a,ReviewSmoke *t,bool pending,bool published) {
+    if (!pending) return review_smoke_query_worker(a,t,false);
+    QueryWorker *worker=&a->worker; bool ok;
+    dx_lock(&worker->mutex);
+    ok=worker->latest_id==t->request && worker->jobs_started>=t->query_jobs && worker->jobs_started<=t->query_jobs+1;
+    if (published) ok&=t->query_complete && !worker->pending && !worker->running && !worker->reply && worker->jobs_started==t->query_jobs+1 && worker->db.query_count==t->query_complete_sql && worker->db.count_queries==t->query_complete_counts && worker->db.relation_prepares==t->query_complete_prepares;
+    else {
+        if (worker->pending) ok&=worker->pending->id==t->request && worker->pending->kind==JOB_STEP_PREVIEW && worker->pending->is_preview && analysis_same_result(&worker->pending->analysis,&t->feedback_preview_source);
+        if (worker->running) ok&=worker->active_id==t->request && worker->jobs_started==t->query_jobs+1;
+        if (worker->reply) {
+            QueryReply *reply=worker->reply;
+            ok&=!worker->pending && !worker->running && worker->jobs_started==t->query_jobs+1 && reply->kind==JOB_STEP_PREVIEW && reply->is_preview && reply->id==t->request && !reply->error && reply->page.column_count==3 && reply->page.total==96;
+            if (ok && !t->query_complete) { t->query_complete=true; t->query_reply=reply; t->query_complete_sql=worker->db.query_count; t->query_complete_counts=worker->db.count_queries; t->query_complete_prepares=worker->db.relation_prepares; }
+        }
+        if (t->query_complete) ok&=worker->reply==t->query_reply && !worker->pending && !worker->running && worker->db.query_count==t->query_complete_sql && worker->db.count_queries==t->query_complete_counts && worker->db.relation_prepares==t->query_complete_prepares;
+        else ok&=worker->pending || worker->running;
+    }
+    dx_unlock(&worker->mutex); return ok;
+}
+static bool review_smoke_feedback_same(App *a,ReviewSmoke *t,int item) {
+    Worksheet *sheet=active_sheet(a); GridLocation location=grid_location(&a->grid); const StepPreview *preview=&a->step_preview,*old=&t->feedback_preview;
+    const Analysis *source=&sheet->objects.items[t->feedback_table].source;
+    if (!review_smoke_author_models_same(a,t) || !review_smoke_cell_input_same(&a->input,t) || !review_smoke_cell_content(&sheet->cells,&t->cell_model) ||
+        sheet->cells.cells!=t->cell_borrowed.cells || sheet->cells.capacity!=t->cell_borrowed.capacity || sheet->cells.revision!=t->cell_borrowed.revision || sheet->cells.undo_count!=t->cell_borrowed.undo_count || sheet->cells.redo_count!=t->cell_borrowed.redo_count || sheet->redo_actions_count!=t->cell_worksheet_redo || sheet->objects.next_id!=t->cell_object_next ||
+        !analysis_same_result(source,&t->feedback_source) || !analysis_sorts_equal(source,&t->feedback_source) || a->modal!=t->choice_modal || a->request_id!=t->request || a->page.cells!=t->page || a->book.dirty!=t->dirty || sheet->undo_actions_count!=t->history || sheet->formats.revision!=t->choice_formats || a->ui.scale!=t->choice_scale || a->ribbon_mode!=t->choice_ribbon_mode ||
+        location.row!=t->selection.row || location.col!=t->selection.col || location.end_row!=t->selection.end_row || location.end_col!=t->selection.end_col || a->grid.row_height!=t->choice_row_height ||
+        a->pipeline!=t->sql_pane_visible || a->pipeline_collapsed!=t->sql_pane_collapsed || a->pipeline_sql!=t->sql_pane_mode || a->pipeline_focus_index!=t->sql_pane_focus || a->pipeline_selected_step!=t->sql_pane_step || a->step_scroll!=t->feedback_scroll || a->chrome_focus!=t->feedback_chrome || a->filter_focus!=t->feedback_filter_focus ||
+        a->inspector_sql_text!=t->sql_pane_pointer || !review_smoke_text_same(a->inspector_sql_text,t->sql_pane_text) || a->inspector_sql_scroll!=t->sql_pane_scroll || memcmp(&a->inspector_sql_lines,&t->sql_pane_lines,sizeof(TextLines)) || (t->sql_pane_offsets && memcmp(a->inspector_sql_lines.offsets,t->sql_pane_offsets,(t->sql_pane_lines.count+1)*sizeof(size_t))) ||
+        memcmp(&a->statistics,&t->stats_cache,sizeof(SelectionStats)) || memcmp(&a->statistics_key,&t->stats_key,sizeof(StatsKey)) || a->statistics_state!=t->stats_state || a->statistics_request!=t->stats_request || a->statistics_object!=t->stats_object || a->statistics_frame!=t->stats_frame ||
+        a->message!=t->feedback_message_pointer || strcmp(a->message ? a->message : "",t->feedback_message) || a->message_since!=t->feedback_message_since || a->message_revision!=t->feedback_message_revision ||
+        !review_smoke_text_same(a->values_context,t->feedback_context) || !review_smoke_text_same(a->value_pending_key,t->feedback_pending) || a->values_total!=t->feedback_total || a->values_scroll!=t->feedback_value_scroll || a->values_focus!=t->feedback_value_focus || a->values_search_revision!=t->feedback_search_revision || a->values_loading!=t->feedback_loading || a->values_failed!=t->feedback_failed || a->values_all!=t->feedback_all || a->io_busy || a->busy!=(item==2)) return false;
+    for (size_t i=0;i<4;i++) if (memcmp(&a->value_cache[i],&t->feedback_values[i],sizeof(DistinctPage)) || !review_smoke_text_same(a->value_cache_keys[i],t->feedback_keys[i])) return false;
+    for (size_t i=0;i<sheet->objects.count;i++) {
+        const SheetObject *object=&sheet->objects.items[i]; const Page *page=&a->objects[i].page;
+        if (page->cells!=t->query_views[i].cells || object->id!=t->query_views[i].id || object->revision!=t->query_views[i].revision || object->source_id!=t->query_views[i].source_id || page->total!=t->query_views[i].total || page->row_count!=t->query_views[i].rows || page->column_count!=t->query_views[i].columns) return false;
+    }
+    if (preview->active!=old->active || preview->loading!=old->loading || preview->request!=old->request || preview->source_id!=old->source_id || preview->source_revision!=old->source_revision || preview->step!=old->step || preview->page.cells!=old->page.cells || preview->page.column_count!=old->page.column_count || preview->page.total!=old->page.total || preview->error!=old->error || preview->title!=old->title || !analysis_same_result(&preview->source,&t->feedback_preview_source) || !analysis_sorts_equal(&preview->source,&t->feedback_preview_source)) return false;
+    if (preview->active) { GridLocation selected=grid_location(&preview->grid); if (selected.row!=t->feedback_preview_selection.row || selected.col!=t->feedback_preview_selection.col || selected.end_row!=t->feedback_preview_selection.end_row || selected.end_col!=t->feedback_preview_selection.end_col || preview->grid.top!=old->grid.top || preview->grid.first_col!=old->grid.first_col || preview->grid.zoom!=old->grid.zoom || memcmp(&preview->formats,&old->formats,sizeof(FormatStore))) return false; }
+    return review_smoke_feedback_worker(a,t,item==2,false);
+}
+static bool review_smoke_feedback_targets(App *a,ReviewSmoke *t,int item) {
+    DxReviewRegistry *registry=a->review->registry; const SheetObject *table=&active_sheet(a)->objects.items[t->feedback_table]; char document[128]; review_document_id(a,document);
+    if (registry->duplicate_count || registry->invalid_count || registry->overflow_count || registry->truncated || strcmp(registry->frame.document_id,document)) return false;
+    const char *target=item==0 ? "pane.transformations.preview" : item==1 ? "pane.transformations.copy" : item==2 ? "preview.return" : item==3 ? "filter.values.scrollbar.thumb" : "filter.values.status";
+    const DxReviewWidget *chosen=dx_review_find(registry,target); if (!chosen) return false;
+    snprintf(t->author_target,sizeof(t->author_target),"%s",target);
+    for (size_t i=0;i<registry->count;i++) {
+        const DxReviewWidget *widget=&registry->widgets[i]; const DxReviewDataIdentity *data=&widget->data;
+        bool pipeline=!strncmp(widget->id,"pane.transformations.",21),preview=!strncmp(widget->id,"preview.",8),filter=!strncmp(widget->id,"filter.values",13);
+        if (!pipeline && !preview && !filter && strcmp(widget->id,"status.metrics") && strcmp(widget->id,"status.source_count") && strcmp(widget->id,"toast.content") && strncmp(widget->id,"cell.readout.",13)) continue;
+        if (!data->present || strcmp(data->document_id,document) || !widget->source_file[0] || !widget->source_line) return false;
+        if (pipeline && strcmp(widget->id,"pane.transformations.background") && (data->sheet_id!=a->book.active+1 || data->object_id!=table->id || data->source_id!=table->id || data->query_generation!=table->revision || data->has_cell)) return false;
+        if (preview && (strcmp(data->kind,"step-preview") || data->object_id || data->source_id!=table->id || data->query_generation!=t->request || data->schema_generation!=table->revision || data->has_cell || data->row!=0)) return false;
+        if (filter && (strcmp(data->kind,"filter-domain") || data->object_id!=table->id || data->source_id!=table->id || data->query_generation!=table->revision || data->column!=1 || strcmp(data->field,"City") || data->has_cell)) return false;
+        if (!strcmp(widget->id,"toast.content") && (strcmp(data->kind,"document-notification") || data->sheet_id || data->object_id || data->source_id || data->query_generation || data->schema_generation || data->has_cell)) return false;
+        if (widget->container || !strcmp(widget->role,"text") || !strcmp(widget->role,"region")) { if (widget->input_eligible) return false; }
+    }
+    if (item<2) {
+        const DxReviewWidget *source=dx_review_find(registry,"pane.transformations.source"),*footer=dx_review_find(registry,"status.source_count"),*metrics=dx_review_find(registry,"status.metrics");
+        if (a->selected_object!=t->feedback_pivot || !source || !source->value.present || strcmp(source->value.exact_text,table->name) || !footer || footer->data.object_id || footer->data.source_id || footer->data.query_generation!=a->analysis_revision || strcmp(footer->data.kind,"source-status") || !metrics || strcmp(metrics->data.kind,"statistics-frame") || metrics->data.object_id!=active_sheet(a)->objects.items[t->feedback_pivot].id || metrics->data.source_id!=table->id) return false;
+        if (!item) {
+            size_t count=0; bool child=false;
+            for (size_t i=0;i<registry->count;i++) { const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,"pane.transformations.step.",26)) continue; count++; if (widget->data.row==0) child=review_smoke_sheet_pick(a,widget,"pane.transformations.steps"); }
+            if (count!=3 || !child || !chosen->enabled || !chosen->input_eligible) return false;
+        } else { const DxReviewWidget *sql=dx_review_find(registry,"pane.transformations.sql"); if (!sql || !sql->value.present || sql->value.is_null || strcmp(sql->value.type,"SQL") || strcmp(sql->value.exact_text,t->sql_pane_text) || sql->value.truncated || !chosen->enabled || !chosen->input_eligible || dx_review_find(registry,"pane.transformations.steps")) return false; }
+    } else if (item==2) {
+        const DxReviewWidget *status=dx_review_find(registry,"preview.status"),*readout=dx_review_find(registry,"cell.readout.value");
+        if (!status || !status->value.present || status->value.is_null || strcmp(status->value.exact_text,"Loading step preview…") || !readout || readout->value.present || !a->step_preview.loading || a->step_preview.page.column_count) return false;
+    } else if (item==3) {
+        const DxReviewWidget *track=dx_review_find(registry,"filter.values.scrollbar"); bool child=false;
+        for (size_t i=0;i<registry->count;i++) { const DxReviewWidget *widget=&registry->widgets[i]; if (!strncmp(widget->id,"filter.value.",13)) { DxReviewTarget picked; Rectangle shown=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height}); child=dx_review_pick(registry,shown.x+shown.width*.5f,shown.y+shown.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) && !strcmp(picked.widget.id,widget->id); if (child) break; } }
+        if (!child || !track || chosen->bounds.y<=track->bounds.y || !chosen->input_eligible || strcmp(chosen->parent_id,track->id) || a->values_total!=96 || !a->values_scroll || dx_review_find(registry,"filter.values.status")) return false;
+    } else if (!chosen->value.present || chosen->value.is_null || strcmp(chosen->value.type,"VARCHAR") || chosen->input_eligible || (item==4 ? strcmp(chosen->value.exact_text,"No matching values") || a->values_total!=0 || a->values_failed : strcmp(chosen->value.exact_text,t->feedback_message) || !a->values_failed || (!strstr(chosen->value.exact_text,"feedback.csv") && strcmp(chosen->value.exact_text,"The source changed since its displayed result. Refresh before using its data."))) || dx_review_find(registry,"filter.values.scrollbar")) return false;
+    DxReviewTarget picked; Rectangle shown=GetCollisionRec((Rectangle){chosen->bounds.x,chosen->bounds.y,chosen->bounds.width,chosen->bounds.height},(Rectangle){chosen->clip.x,chosen->clip.y,chosen->clip.width,chosen->clip.height});
+    return dx_review_pick(registry,shown.x+shown.width*.5f,shown.y+shown.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) && !strcmp(picked.widget.id,target);
+}
+static int review_smoke_feedback_tick(App *a,ReviewSmoke *t) {
+    int item=(t->stage-REVIEW_WORKSPACE_END)/4,phase=(t->stage-REVIEW_WORKSPACE_END)%4; DxReviewCapture *r=a->review;
+    if (!phase) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        if (!review_smoke_feedback_fixture(t)) goto failed;
+        if (!t->feedback_table_added) { grid_select_cell(&a->grid,20,8,false); keyboard_object(a); if (!import_table(a,t->feedback_path)) goto failed; t->feedback_table=a->selected_object; t->feedback_table_added=true; return 0; }
+        if (!object_ready(a,(size_t)t->feedback_table)) return 0;
+        if (!t->feedback_transformed) {
+            Analysis source=analysis_copy(&active_sheet(a)->objects.items[t->feedback_table].source); char *error=NULL; source.unique_rows=true; bool ok=analysis_sort_set(&source,"Amount",true,false,&error); free(error);
+            if (ok) ok=set_table_source(a,(size_t)t->feedback_table,&source); analysis_free(&source); if (!ok) goto failed; t->feedback_transformed=true; return 0;
+        }
+        if (!t->feedback_pivot_added) {
+            a->selected_object=t->feedback_table; create_pivot(a); if (!selected_pivot(a)) goto failed; t->feedback_pivot=a->selected_object;
+            PivotDefinition definition={0}; char *error=NULL; bool ok=pivot_assign(&definition,PIVOT_ROWS,"City",AGG_SUM,&error) && pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_SUM,&error); free(error);
+            if (!ok) { pivot_free(&definition); goto failed; } if (!set_pivot_definition(a,&definition)) goto failed; t->feedback_pivot_added=true; return 0;
+        }
+        if (!object_ready(a,(size_t)t->feedback_pivot)) return 0;
+        if (!t->feedback_started || t->feedback_item!=item) {
+            if (a->modal!=MODAL_NONE || a->step_preview.active) goto failed;
+            t->feedback_item=item; t->feedback_started=true; t->feedback_end_sent=false; t->feedback_resume=false;
+            a->selected_object=t->feedback_pivot; SheetObject *pivot=selected_pivot(a); if (!pivot || pivot->source_id!=active_sheet(a)->objects.items[t->feedback_table].id) goto failed;
+            grid_select_cell(&a->grid,pivot->row,pivot->col,false); a->matrix_cells_active=false; a->pivot_focus=0; a->pivot_search_focus=false; a->ribbon_focus=false;
+            /* Browse is the actual controller for returning from the Pivot to
+               its bound Table before opening a historical source preview. */
+            if (item==2) browse_source(a);
+            present_pipeline(a,true,false); a->pipeline_sql=false;
+            ui_set_scale(&a->ui,item==0 ? 1 : 1.5f); SetWindowSize(item==0 ? 1280 : 1920,item==0 ? 900 : 1120);
+            if (item==1) pipeline_show_sql(a);
+            if (item>=3) {
+                open_table_filter(a,(size_t)t->feedback_table,1); if (a->modal!=MODAL_FILTER) goto failed;
+                if (item==4) { input_set(&a->input,"not-present-feedback"); restart_values(a); }
+                if (item==5) { if (rename(t->feedback_path,t->feedback_backup)) goto failed; t->feedback_hidden=true; input_set(&a->input,"City0"); restart_values(a); }
+            }
+            return 0;
+        }
+        if (a->ui.scale!=(item==0 ? 1 : 1.5f) || GetScreenWidth()!=(item==0 ? 1280 : 1920) || GetScreenHeight()!=(item==0 ? 900 : 1120) || fabsf(a->pipeline_extent-a->pipeline_width)>.01f || !a->pipeline_layout.valid || !review_can_capture(a) || a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
+        if (item==1 && (!a->inspector_sql_valid || a->inspector_sql_id!=active_sheet(a)->objects.items[t->feedback_table].id || !a->inspector_sql_lines.offsets)) return 0;
+        if (item>=3) {
+            if (a->modal!=MODAL_FILTER || a->popup_presence.offset || a->popup_presence.alpha!=1 || !a->filter_layout.valid) return 0;
+            if ((item!=5 && a->values_total<0) || (item==5 && !a->values_failed)) return 0;
+            if (item==3 && !t->feedback_end_sent) { a->filter_focus=5; ui_note_key_press(KEY_END,0); t->feedback_end_sent=true; return 0; }
+            if (item==3 && !a->values_scroll) return 0;
+        }
+        uint64_t jobs=0,sql=0,counts=0,prepares=0,latest=0;
+        if (item==2) {
+            const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table); if (!table || !step_preview_start(&a->step_preview,source,0,table->id,table->revision,&a->grid)) goto failed;
+            step_preview_presentation(&a->step_preview,context_fields(a),&a->grid,&active_sheet(a)->formats,table->col); watch_statistics(a);
+            dx_lock(&a->worker.mutex); jobs=a->worker.jobs_started; sql=a->worker.db.query_count; counts=a->worker.db.count_queries; prepares=a->worker.db.relation_prepares; latest=a->worker.latest_id; dx_unlock(&a->worker.mutex);
+            schedule_step_preview(a); if (!a->step_preview.loading || !a->busy || a->pending_kind!=JOB_STEP_PREVIEW) goto failed;
+        }
+        review_smoke_feedback_remember(a,t); t->query_complete=false; t->query_reply=NULL;
+        if (item==2) { t->query_jobs=jobs; t->query_sql=sql; t->query_counts=counts; t->query_prepares=prepares; t->query_latest=latest; }
+        ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==1) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        if (!review_smoke_feedback_same(a,t,item) || !review_smoke_feedback_targets(a,t,item)) goto failed;
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || !review_smoke_feedback_same(a,t,item)) goto failed;
+        if (item==2 && !t->query_complete) return 0;
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (item==2 && t->feedback_resume) {
+        if (a->step_preview.loading || !smoke_work_idle(a)) return 0;
+        if (!a->step_preview.active || a->step_preview.page.total!=96 || a->step_preview.page.column_count!=3 || a->step_preview.request || a->step_preview.error || !review_smoke_feedback_worker(a,t,true,true)) goto failed;
+        end_step_preview(a);
+    } else {
+        if (!review_smoke_feedback_same(a,t,item)) goto failed;
+        if (item==2) { t->feedback_resume=true; return 0; }
+    }
+    if (item>=3) { if (!review_smoke_feedback_restore(t)) goto failed; ui_note_key_press(KEY_ESCAPE,0); }
+    printf("PASS: native feedback closure case=%d actual %s ownership/clipping/value and frozen pick/cancel retain models/manual/history/Pages/input/SQL caches/worker jobs%s\n",item,((const char *const[]){"Table Steps100 with Pivot selected","upstream Table SQL150 with Pivot selected","pending historical preview","scrolled distinct domain","no-match domain","genuine unavailable-file distinct error"})[item],item==2 ? "; exactly one owned preview reply publishes after cancellation" : "");
+    review_smoke_author_release(t); if (item==5) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
+failed:
+    review_smoke_feedback_restore(t);
+    fprintf(stderr,"Review feedback mismatch stage=%d case=%d phase=%d modal=%d report=%d selected=%d table=%d pivot=%d busy=%d/%d values=%lld/%llu loading=%d failed=%d target=%s actual=%s preview=%d/%d/%llu query_complete=%d resume=%d state=%s\n",t->stage,item,phase,(int)a->modal,(int)r->phase,a->selected_object,t->feedback_table,t->feedback_pivot,a->busy,a->io_busy,(long long)a->values_total,(unsigned long long)a->values_scroll,a->values_loading,a->values_failed,t->author_target,r->target.widget.id,a->step_preview.active,a->step_preview.loading,(unsigned long long)a->step_preview.request,t->query_complete,t->feedback_resume,r->frame.state_text);
+    for (size_t i=0;i<r->registry->count;i++) { const DxReviewWidget *widget=&r->registry->widgets[i]; if (strstr(widget->id,"transformations") || strstr(widget->id,"preview.") || strstr(widget->id,"filter.values") || strstr(widget->id,"status.") || strstr(widget->id,"readout.")) fprintf(stderr,"Review feedback widget=%s parent=%s role=%s enabled=%d eligible=%d kind=%s sheet=%llu owner=%llu source=%llu schema=%llu query=%llu index=%llu/%llu field=%s value=%d/%d/%s bounds=%.2f,%.2f,%.2f,%.2f clip=%.2f,%.2f,%.2f,%.2f\n",widget->id,widget->parent_id,widget->role,widget->enabled,widget->input_eligible,widget->data.kind,(unsigned long long)widget->data.sheet_id,(unsigned long long)widget->data.object_id,(unsigned long long)widget->data.source_id,(unsigned long long)widget->data.schema_generation,(unsigned long long)widget->data.query_generation,(unsigned long long)widget->data.row,(unsigned long long)widget->data.column,widget->data.field,widget->value.present,widget->value.is_null,widget->value.exact_text,widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height,widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height); }
+    return -1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
@@ -3317,7 +3515,8 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
             {REVIEW_CELL_END,review_smoke_cell_tick},
             {REVIEW_ERROR_END,review_smoke_error_tick},
             {REVIEW_QUERY_FEEDBACK_END,review_smoke_query_failure_tick},
-            {REVIEW_SMOKE_STAGES,review_smoke_workspace_tick},
+            {REVIEW_WORKSPACE_END,review_smoke_workspace_tick},
+            {REVIEW_SMOKE_STAGES,review_smoke_feedback_tick},
         };
         int progress=-1;
         for (size_t i=0;i<sizeof(handlers)/sizeof(*handlers);i++)
