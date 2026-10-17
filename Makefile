@@ -47,10 +47,25 @@ ICON_OUTPUTS = src/ui/brand_geometry.h src/ui/brand_bitmap.h src/platform/brand_
 
 # Prebuilt derivatives keep ordinary builds on the existing C toolchain. Only a
 # changed canonical vector/generator (or a missing derivative) needs Python 3.
-$(ICON_OUTPUTS): $(ICON_INPUTS)
-	python3 tools/generate_icons.py
+# GNU Make 3.81 has no grouped target syntax. One stamp validates every
+# checked-in derivative before invoking the generator once if repair is needed.
+# A missing output forces that shared check, including when the stamp exists.
+ICON_STAMP = build/icons.stamp
+ifneq ($(strip $(filter-out $(wildcard $(ICON_OUTPUTS)),$(ICON_OUTPUTS))),)
+$(ICON_STAMP): missing-icon-output
+endif
+$(ICON_STAMP): $(ICON_INPUTS)
+	mkdir -p $(@D)
+	python3 tools/generate_icons.py --check || python3 tools/generate_icons.py
+	touch $@
+$(ICON_OUTPUTS): $(ICON_STAMP)
+	@test -f "$@"
+	@touch "$@"
+.PHONY: missing-icon-output
 icons:
 	python3 tools/generate_icons.py
+	mkdir -p build
+	touch $(ICON_STAMP)
 icons-check: $(ICON_OUTPUTS)
 	python3 tools/generate_icons.py --check
 icons-verify: $(ICON_OUTPUTS)
@@ -73,9 +88,6 @@ mac-icon-check: bundle build/check-macos-icon
 endif
 
 all: duxcel
-build/create-design-workbook: $(CORE) tools/create_design_workbook.c $(HEADERS)
-	mkdir -p build
-	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tools/create_design_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 design-fixture: build/create-design-workbook
 	node tools/export_design_fixture.mjs
 	./build/create-design-workbook
@@ -85,10 +97,80 @@ design-large-fixture: build/create-design-workbook
 design-smoke: duxcel-debug design-fixture
 	mkdir -p tests/results/design-definition
 	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug tests/generated/design-definition.dxls --frames 240 --screenshot tests/results/design-definition/authoring.png
-duxcel: $(SRC) $(HEADERS) $(ICON_OUTPUTS)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(SRC) -o $@ $(LDFLAGS) $(LDLIBS)
-duxcel-debug: $(SRC) $(HEADERS) $(ICON_OUTPUTS)
-	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(SRC) -o $@ $(LDFLAGS) $(LDLIBS) $(SANFLAGS)
+# App and fixture-helper compilation are incremental and isolated by exact
+# configuration. Module tests retain their original independent commands below;
+# in particular, renderer stubs must never reuse the application's UI objects.
+APP_SOURCES = $(filter %.c %.m,$(SRC))
+APP_EXTRA_OBJECTS = $(filter %.o,$(SRC))
+APP_RELEASE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
+APP_SANITIZE_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
+DESIGN_SOURCES = $(CORE) tools/create_design_workbook.c
+DESIGN_OBJECTS = $(addprefix build/obj/release/design/,$(addsuffix .o,$(basename $(DESIGN_SOURCES))))
+INCREMENTAL_OBJECTS = $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(DESIGN_OBJECTS)
+APP_RELEASE_FLAGS = $(CPPFLAGS) $(CFLAGS) $(WARN)
+APP_SANITIZE_FLAGS = $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS)
+DESIGN_FLAGS = -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN)
+
+# A no-op signature recipe preserves its timestamp. Changed compiler, includes,
+# defines or options therefore invalidate the appropriate objects, not every
+# other build configuration. Single make invocations remain serialized below.
+define build_signature
+	@set -e; mkdir -p "$(@D)"; trap 'rm -f "$@.tmp"' 0; \
+	printf '%s\n' $(1) > "$@.tmp"; \
+	if ! cmp -s "$@.tmp" "$@"; then mv -f "$@.tmp" "$@"; fi
+endef
+build/obj/release/app/compile.flags: force-build-signature
+	$(call build_signature,$(CC) $(APP_RELEASE_FLAGS) -MMD -MP -c)
+build/obj/sanitize/app/compile.flags: force-build-signature
+	$(call build_signature,$(CC) $(APP_SANITIZE_FLAGS) -MMD -MP -c)
+build/obj/release/design/compile.flags: force-build-signature
+	$(call build_signature,$(CC) $(DESIGN_FLAGS) -MMD -MP -c)
+build/obj/release/app/link.flags: force-build-signature
+	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS) $(LDFLAGS) $(LDLIBS))
+build/obj/sanitize/app/link.flags: force-build-signature
+	$(call build_signature,$(CC) -O1 -g $(WARN) $(SANFLAGS) $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS) $(LDFLAGS) $(LDLIBS) $(SANFLAGS))
+build/obj/release/design/link.flags: force-build-signature
+	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(DESIGN_OBJECTS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+.PHONY: force-build-signature
+
+# Only a successful compiler/linker invocation replaces an accepted artifact.
+# Separate object and dependency temporary files preserve the previous pair on
+# a compilation failure. -MT records the final path, not its temporary sibling.
+define compile_object
+	@mkdir -p "$(@D)"
+	@set -e; trap 'rm -f "$@.new" "$(@:.o=.d).new"' 0; \
+	$(CC) $(1) -MMD -MP -MF "$(@:.o=.d).new" -MT "$@" -c "$<" -o "$@.new"; \
+	mv -f "$(@:.o=.d).new" "$(@:.o=.d)"; mv -f "$@.new" "$@"
+endef
+build/obj/release/app/%.o: %.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS))
+build/obj/release/app/%.o: %.m build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS))
+build/obj/sanitize/app/%.o: %.c build/obj/sanitize/app/compile.flags
+	$(call compile_object,$(APP_SANITIZE_FLAGS))
+build/obj/sanitize/app/%.o: %.m build/obj/sanitize/app/compile.flags
+	$(call compile_object,$(APP_SANITIZE_FLAGS))
+build/obj/release/design/%.o: %.c build/obj/release/design/compile.flags
+	$(call compile_object,$(DESIGN_FLAGS))
+$(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS): | $(ICON_OUTPUTS)
+
+define link_binary
+	@mkdir -p "$(@D)"
+	@set -e; trap 'rm -f "$@.new"' 0; \
+	$(CC) $(1) -o "$@.new" $(2); mv -f "$@.new" "$@"
+endef
+duxcel: $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/release/app/link.flags
+	$(call link_binary,$(CFLAGS) $(WARN) $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS),$(LDFLAGS) $(LDLIBS))
+duxcel-debug: $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/sanitize/app/link.flags
+	$(call link_binary,-O1 -g $(WARN) $(SANFLAGS) $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
+build/create-design-workbook: $(DESIGN_OBJECTS) build/obj/release/design/link.flags
+	$(call link_binary,$(CFLAGS) $(WARN) $(DESIGN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+
+# Losing a sidecar must not silently discard its header tracking. An absent
+# empty-rule dependency forces its object to recreate the compiler's sidecar.
+$(INCREMENTAL_OBJECTS): %.o: %.d
+$(INCREMENTAL_OBJECTS:.o=.d):
+-include $(INCREMENTAL_OBJECTS:.o=.d)
 run: duxcel
 	./duxcel $(ARGS)
 debug: duxcel-debug
@@ -284,6 +366,9 @@ ifeq ($(shell uname -s),Darwin)
 	codesign --force --sign - build/Duxcel.app
 endif
 clean:
+	rm -rf build/obj
+	rm -f $(ICON_STAMP) build/create-design-workbook
+	rm -f duxcel.new duxcel-debug.new build/create-design-workbook.new
 	rm -f tests/test_filterlabel tests/test_filterlabel-debug tests/test_background-native-debug
 	rm -rf tests/test_filterlabel.dSYM tests/test_filterlabel-debug.dSYM tests/test_background-native-debug.dSYM
 	rm -f tests/test_cellreadout tests/test_cellreadout-debug
@@ -319,7 +404,9 @@ test-full:
 	python3 tools/test.py full $(TEST_ARGS)
 test-runner:
 	python3 tools/test_runner_test.py
-.PHONY: test-fast test-affected test-native test-full test-runner
+test-build:
+	python3 tools/test_build.py
+.PHONY: test-fast test-affected test-native test-full test-runner test-build
 
 
 tests/test_popup: src/ui/motion.c src/ui/popup.c tests/test_popup.c $(HEADERS)
