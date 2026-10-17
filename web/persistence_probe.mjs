@@ -168,7 +168,14 @@ export async function runPersistenceProbe(input={}){
             metadata=await readMetadata('native_fixture');return {readOnlyWriteRejected:true,...metadata};
         });
         await step('create-compatible-file-from-native-metadata-ddl',async()=>{
+            // Start from a separately owned valid file. In pinned 1.32.0 an
+            // unregistered generated database cannot be copied through the
+            // official file API; an empty registered buffer fails ATTACH.
+            // Rebuild the metadata below so this tests real typed rewriting,
+            // rather than returning a byte-for-byte copy of the fixture.
+            await adapter.database.registerFileBuffer(EXPORT_FILE,new Uint8Array(fixtureBytes));
             await query(`ATTACH '${EXPORT_FILE}' AS browser_export (STORAGE_VERSION 'v1.0.0')`);
+            await query('DROP SCHEMA browser_export._duxcel_workspace CASCADE');
             await query('CREATE SCHEMA browser_export._duxcel_workspace');
             await query('BEGIN TRANSACTION');
             try{
@@ -190,7 +197,7 @@ export async function runPersistenceProbe(input={}){
             equal(JSON.stringify(copied.sheetNames),JSON.stringify(metadata.sheetNames),'Copied sheet names');
             equal(copied.activeSheet,metadata.activeSheet,'Copied active sheet');equal(copied.userScale,metadata.userScale,'Copied user scale');
             await metadataRowsEqual('browser_export',metadata.tables);
-            return {storageTarget:'v1.0.0',tables:copied.tables.map(({name,rows})=>({name,rows})),sentinels:await sentinels('browser_export')};
+            return {storageTarget:'v1.0.0',base:'owned native file clone; metadata dropped and recreated',tables:copied.tables.map(({name,rows})=>({name,rows})),sentinels:await sentinels('browser_export')};
         });
         await step('checkpoint-quiescent-real-database',async()=>{
             await query('CHECKPOINT browser_export');
