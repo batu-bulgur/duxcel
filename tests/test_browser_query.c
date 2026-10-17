@@ -506,6 +506,8 @@ static void test_mixed_statistics_helpers(void) {
     CHECK(!browser_statistics_append_cells(&cells,NULL,&error) && cells==before && error); free(error); error=NULL;
     large=dx_alloc(DX_BROWSER_SQL_BYTES+1); memset(large,'x',DX_BROWSER_SQL_BYTES);
     CHECK(!browser_statistics_append_cells(&cells,large,&error) && cells==before && !strcmp(cells,"SELECT 1") && error); free(error); free(large); free(cells);
+    char **many=dx_alloc(32768*sizeof(char *)); for (size_t i=0;i<32768;i++) many[i]="O'Reilly";
+    sql=browser_statistics_manual_sql(many,32768,NULL); CHECK(sql && strlen(sql)<DX_BROWSER_SQL_BYTES && strstr(sql,"('O''Reilly'),('O''Reilly')")); free(sql); free(many);
     const char *values[]={"18014398509481984","0","0","0",NULL,NULL,NULL,NULL,NULL,NULL,NULL,"false","false"};
     Page scalar=statistics_scalar(values); SelectionStats stats={0};
     CHECK(browser_statistics_from_page(&stats,&scalar,DX_SHEET_ROWS*UINT64_C(16384),0,NULL) && stats.cells==DX_SHEET_ROWS*UINT64_C(16384) && !stats.filled && !stats.sum); statistics_free(&stats); page_free(&scalar);
