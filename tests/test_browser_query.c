@@ -328,6 +328,8 @@ static void test_column_plans(void) {
     sql=browser_pivot_readout_sql(&source,&p,&plan,false,0,&error);
     CHECK(sql && strstr(sql,"mask=2 AND d1 IS NOT DISTINCT FROM NULL") && strstr(sql,"d1 IS NOT DISTINCT FROM ''") && strstr(sql,"d1 IS NOT DISTINCT FROM 'NULL'") && strstr(sql,"mask=3") && strstr(sql,"AS total_13") && strstr(sql,"CAST(coalesce(max(m1)")); free(sql);
     Page body=planned_fixture(&p,&plan,2); body.offset=256; body.total=600;
+    sql=browser_statistics_sql(plan.sql,&body,256,344,1,plan.count,NULL);
+    CHECK(sql && strstr(sql,"PIVOT (") && strstr(sql,"category_5") && strstr(sql,"__duxcel_pivot_value_11_0") && strstr(sql,"LIMIT 344 OFFSET 256") && !strstr(sql,"_duxcel_matrix_rows") && !strstr(sql,"_duxcel_matrix_columns") && !strstr(sql,"__duxcel_count")); free(sql);
     Page rows=planned_readout(&body,&p,&plan,true),columns=planned_readout(&body,&p,&plan,false);
     matrix_cell(&body,0,1,"15"); matrix_cell(&body,0,3,"30"); matrix_cell(&rows,0,0,"20"); matrix_cell(&rows,0,1,"2"); matrix_cell(&columns,0,12,"25");
     char *row_text=rows.cells[0].text,*footer_text=columns.cells[12].text;
