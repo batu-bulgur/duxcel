@@ -210,6 +210,28 @@ duxcel: $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/release/app/link.f
 	$(call link_binary,$(CFLAGS) $(WARN) $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS),$(LDFLAGS) $(LDLIBS))
 duxcel-debug: $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/sanitize/app/link.flags
 	$(call link_binary,-O1 -g $(WARN) $(SANFLAGS) $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
+# The lifecycle driver uses real application objects, never renderer stubs.
+LIFECYCLE_RELEASE_OBJECTS = $(filter-out build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) build/obj/release/app/tests/test_app_lifecycle.o
+LIFECYCLE_SANITIZE_OBJECTS = $(filter-out build/obj/sanitize/app/src/main.o,$(APP_SANITIZE_OBJECTS)) build/obj/sanitize/app/tests/test_app_lifecycle.o
+LIFECYCLE_NATIVE_OBJECTS =
+ifeq ($(shell uname -s),Darwin)
+LIFECYCLE_RELEASE_OBJECTS += build/obj/release/app/tests/test_app_lifecycle_native.o
+LIFECYCLE_SANITIZE_OBJECTS += build/obj/sanitize/app/tests/test_app_lifecycle_native.o
+LIFECYCLE_NATIVE_OBJECTS += build/obj/release/app/tests/test_app_lifecycle_native.o build/obj/sanitize/app/tests/test_app_lifecycle_native.o
+endif
+INCREMENTAL_OBJECTS += build/obj/release/app/tests/test_app_lifecycle.o build/obj/sanitize/app/tests/test_app_lifecycle.o $(LIFECYCLE_NATIVE_OBJECTS)
+build/obj/release/app/lifecycle-link.flags: force-build-signature
+	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(LIFECYCLE_RELEASE_OBJECTS) $(LDFLAGS) $(LDLIBS))
+build/obj/sanitize/app/lifecycle-link.flags: force-build-signature
+	$(call build_signature,$(CC) -O1 -g $(WARN) $(SANFLAGS) $(LIFECYCLE_SANITIZE_OBJECTS) $(LDFLAGS) $(LDLIBS) $(SANFLAGS))
+build/lifecycle/assets:
+	mkdir -p $(@D)
+	ln -s ../../assets $@
+build/lifecycle/test-app: build/lifecycle/assets $(LIFECYCLE_RELEASE_OBJECTS) build/obj/release/app/lifecycle-link.flags
+	$(call link_binary,$(CFLAGS) $(WARN) $(LIFECYCLE_RELEASE_OBJECTS),$(LDFLAGS) $(LDLIBS))
+build/lifecycle/test-app-sanitize: build/lifecycle/assets $(LIFECYCLE_SANITIZE_OBJECTS) build/obj/sanitize/app/lifecycle-link.flags
+	$(call link_binary,-O1 -g $(WARN) $(SANFLAGS) $(LIFECYCLE_SANITIZE_OBJECTS),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
+
 build/create-design-workbook: $(DESIGN_OBJECTS) build/obj/release/design/link.flags
 	$(call link_binary,$(CFLAGS) $(WARN) $(DESIGN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
 
