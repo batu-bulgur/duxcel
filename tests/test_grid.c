@@ -993,6 +993,7 @@ static void test_overscroll_return(void) {
            recovery. This catches throwing away all but .05s of a frame. */
         one.elastic=packets.elastic=(Vector2){40*sign/scale,24*sign/scale};
         one.spring_velocity=packets.spring_velocity=(Vector2){-100*sign/scale,-60*sign/scale};
+        one.pan_x=one.pan_y=packets.pan_x=packets.pan_y=(GridPanAxis){0};
         grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.dt=.2f});
         for (int n=0;n<24;n++) grid_handle_input(&packets,&u,&page,&(GridInput){.mouse=pointer,.dt=1.f/120});
         CHECK(fabsf((one.elastic.x-packets.elastic.x)*scale)<.001f && fabsf((one.elastic.y-packets.elastic.y)*scale)<.001f);
@@ -1037,11 +1038,88 @@ static void test_overscroll_return(void) {
         CHECK(!g.top && !g.fraction && !g.row && !g.col); grid_destroy(&g);
     }
 }
+static void test_overscroll_gestures(void) {
+    Column columns[12]; for (size_t i=0;i<12;i++) columns[i]=(Column){.name="Field",.type=DUCKDB_TYPE_VARCHAR};
+    Page page={.columns=columns,.column_count=12,.total=500};
+    for (int edge=0;edge<2;edge++) for (int factor=0;factor<2;factor++) {
+        float scale=factor ? 2.5f : 1,sign=edge ? -1.f : 1.f;
+        UIContext u={0}; Grid one,packets; Vector2 pointer=overscroll_setup(&one,&u,&page,scale,edge!=0);
+        overscroll_setup(&packets,&u,&page,scale,edge!=0);
+        uint64_t top=one.top; float horizontal=one.horizontal;
+        /* Native finger-held pulls follow displacement, without a return
+           fighting each later frame. Packetization and empty held frames
+           cannot change the amount of pull. */
+        grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-80*sign,-120*sign},.pan_phase=GRID_PAN_BEGIN,.dt=.05f});
+        for (int n=0;n<6;n++) grid_handle_input(&packets,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-80*sign/6,-20*sign},.pan_phase=n ? GRID_PAN_ACTIVE : GRID_PAN_BEGIN,.dt=1.f/120});
+        CHECK(fabsf((one.elastic.x-packets.elastic.x)*scale)<.001f && fabsf((one.elastic.y-packets.elastic.y)*scale)<.001f);
+        Vector2 held=one.elastic;
+        for (int n=0;n<30;n++) grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pan_phase=GRID_PAN_ACTIVE,.dt=1.f/60});
+        CHECK(one.elastic.x==held.x && one.elastic.y==held.y && !one.spring_velocity.x && !one.spring_velocity.y);
+        /* Momentum may keep scrolling inside a sheet, but must not pull an
+           exposed edge back out after release, even with large late packets. */
+        grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pan_phase=GRID_PAN_RELEASE});
+        float before_x=fabsf(one.elastic.x),before_y=fabsf(one.elastic.y);
+        for (int n=0;n<60;n++) {
+            float dt=n%3==0 ? 1.f/60 : 1.f/120;
+            grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-sign*(n%4 ? 8 : 30),-sign*(n%5 ? 5 : 24)},.pan_phase=GRID_PAN_MOMENTUM,.dt=dt});
+            CHECK(fabsf(one.elastic.x)<=before_x+.00001f && fabsf(one.elastic.y)<=before_y+.00001f);
+            CHECK(one.elastic.x*sign>=0 && one.elastic.y*sign>=0);
+            before_x=fabsf(one.elastic.x); before_y=fabsf(one.elastic.y);
+            if (n==26) CHECK(before_x*scale<.25f && before_y*scale<.25f);
+        }
+        CHECK(!one.elastic.x && !one.elastic.y && !one.spring_velocity.x && !one.spring_velocity.y);
+        CHECK(one.top==top && !one.fraction && one.horizontal==horizontal && one.row==4 && one.col==2);
+        grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-40*sign,-40*sign},.pan_phase=GRID_PAN_BEGIN,.dt=1.f/120});
+        CHECK(one.elastic.x*sign>0 && one.elastic.y*sign>0 && one.pan_x.active && one.pan_y.active);
+        float consume=fmaxf(fabsf(one.elastic.x),fabsf(one.elastic.y))*scale+20;
+        grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={consume*sign,consume*sign},.pan_phase=GRID_PAN_MOMENTUM});
+        CHECK(!one.elastic.x && !one.elastic.y && !one.spring_velocity.x && !one.spring_velocity.y);
+        CHECK(fabsf(one.horizontal-horizontal)>1 && fabs(((double)one.top+one.fraction-top)*24)>1);
+        grid_destroy(&one); grid_destroy(&packets);
+    }
+    /* No portable WheelEvent phase exists. A realistic declining tail and
+       intermittent delivery trigger one return, never sawtooth outward jumps
+       or repeated tiny bounces after rest. Keep X deliberately steady while Y
+       decays to verify independent gesture ownership. */
+    const float periods[]={1.f/60,1.f/120,1.f/90},uneven[]={.008f,.008f,.024f,.004f,.012f}; float returned_at[4]={0};
+    for (int rate=0;rate<4;rate++) {
+        UIContext u={0}; Grid g; Vector2 pointer=overscroll_setup(&g,&u,&page,1,false);
+        float elapsed=0,before=0; bool returning=false; unsigned frame=0;
+        while (elapsed<.6f) {
+            float dt=rate==3 ? uneven[frame++%5] : periods[rate],tail=elapsed<.06f ? 1200 : 1200*expf(-24*(elapsed-.06f));
+            /* Same 30ms delivery gap at every rate. Late coalesced tails
+               cannot restart the released edge. */
+            bool gap=elapsed>=.16f && elapsed<.19f;
+            grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-800*dt,gap ? 0 : -tail*dt},.dt=dt});
+            elapsed+=dt;
+            if (g.pan_y.returning) {
+                if (!returning) { returning=true; returned_at[rate]=elapsed; }
+                else CHECK(g.elastic.y<=before+.00001f);
+            }
+            if (elapsed>.4f) CHECK(fabsf(g.elastic.y)<.25f);
+            CHECK(g.elastic.x>0 && g.pan_x.active && !g.pan_x.returning);
+            CHECK(!g.top && !g.fraction && !g.horizontal && g.row==4 && g.col==2);
+            before=g.elastic.y;
+        }
+        CHECK(returning && !g.elastic.y);
+        CHECK(returned_at[rate]>=.06f && returned_at[rate]<.14f);
+        for (int n=0;n<24;n++) {
+            grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-8,n%2 ? -.1f : .1f},.dt=.01f});
+            CHECK(!g.elastic.y && g.pan_y.returning && !g.pan_y.active);
+        }
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.dt=.15f});
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-40,-40},.dt=.01f});
+        CHECK(g.pan_x.active && g.pan_y.active && !g.pan_x.returning && !g.pan_y.returning && g.elastic.y>0);
+        grid_destroy(&g);
+    }
+    CHECK(fabsf(returned_at[0]-returned_at[1])<=1.f/60+.00001f && fabsf(returned_at[0]-returned_at[2])<=1.f/60+.00001f);
+    CHECK(fabsf(returned_at[0]-returned_at[3])<=.02401f);
+}
 int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--column-benchmark")) return column_benchmark();
     if (argc==2 && !strcmp(argv[1],"--font-benchmark")) return font_benchmark();
-    if (argc==2 && !strcmp(argv[1],"--overscroll")) { test_overscroll_return(); printf("PASS: %u precise overscroll/return checks\n",checks); return 0; }
-    test_overscroll_return();
+    if (argc==2 && !strcmp(argv[1],"--overscroll")) { test_overscroll_return(); test_overscroll_gestures(); printf("PASS: %u precise overscroll/return checks\n",checks); return 0; }
+    test_overscroll_return(); test_overscroll_gestures();
     test_animated_workspace_extent(); test_dock_scroll_and_clips(); test_ribbon_flyouts(); test_workspace_layout(); test_frozen_columns(); test_ribbon_spec(); test_grid_density(); test_bounded_preview(); test_carbon_assets(); test_status_geometry(); test_status_metrics(); test_ribbon_layout(); test_menu_bounds(); test_text_lines(); test_text_editing(); test_text_history(); test_region_navigation(); test_long_range_outlines(); test_addresses(); test_navigation_queue();
     CHECK(ui_chart_fraction(0,-DBL_MAX,DBL_MAX)==.5);
     CHECK(ui_chart_fraction(DBL_MAX,-DBL_MAX,DBL_MAX)==1);

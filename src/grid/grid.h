@@ -15,11 +15,20 @@ typedef struct {
 } GridLocation;
 /* Transient shortcut bounds supplied for the object at the active cell. */
 typedef struct { uint64_t r0,r1; size_t c0,c1; bool active; } GridRegion;
+/* Native trackpads expose gesture phases. Unphased browser/legacy packets use
+   the bounded per-axis fallback, rather than restarting return every frame. */
+typedef enum { GRID_PAN_NONE, GRID_PAN_BEGIN, GRID_PAN_ACTIVE, GRID_PAN_RELEASE, GRID_PAN_MOMENTUM } GridPanPhase;
+typedef struct {
+    float quiet,elapsed,window_time,window_distance,peak_rate;
+    int direction;
+    bool active,returning;
+} GridPanAxis;
 /* Snapshot input separately so regression tests exercise the actual interaction code. */
 typedef struct {
     Vector2 mouse, wheel;
     Vector2 pixel_pan; /* precise layout pixels, positive right/down */
     bool pixel_scroll; /* bypass legacy wheel detents/Shift remapping */
+    GridPanPhase pan_phase;
     bool pressed, released, down, right, shift, shortcut, alt;
     bool separate_keyboard,key_shift,key_shortcut,key_alt;
     int key;
@@ -42,6 +51,7 @@ typedef struct {
     float zoom; /* canvas only; independent of application UI scale */
     float row_height; /* Unscaled row density; independent of canvas zoom. */
     Vector2 elastic,spring_velocity; /* transient canvas units; never saved or used as query offsets */
+    GridPanAxis pan_x,pan_y; /* transient gesture/tail ownership, independent between axes */
     bool elastic_enabled;
     float *widths, *offsets;
     char **column_names; /* Owned source names; unused canvas columns are NULL. */
