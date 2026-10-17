@@ -345,6 +345,7 @@ async function gridZoomHeaders(name,sourceHeader){
  const interfaceRestored=await interfaceScale(1);fixedGeometry(interfaceRestored);
  // Exercise hit testing at an enlarged zoom, rather than accepting geometry alone.
  await click(40,42);const enlargedPoint=await wheelBatch(0,-150,1,wheelOptions);let enlarged=await platformSnapshot();fixedGeometry(enlarged,enlargedPoint);
+ check(starts().length===jobs,'Canvas zoom or Interface scale submitted a database job');
  const [gx,gy]=enlarged.grid_rect.split(',').map(Number),[bodyX,bodyY]=enlarged.body.split(',').map(Number),[cellWidth,rowHeight]=enlarged.grid_cell.split(',').map(Number),ui=Number(enlarged.ui_scale),scale=ui*Number(enlarged.zoom),left=bodyX-Number(enlarged.horizontal)*scale;
  await click(left+cellWidth/2,gy+11*ui);const columnSelected=await platformSnapshot();
  check(columnSelected.grid_selection==='2'&&columnSelected.active.split(',')[1]==='0','Enlarged column header did not select the actual column');
@@ -352,17 +353,21 @@ async function gridZoomHeaders(name,sourceHeader){
  await click(gx+(bodyX-gx)/2,rowY);const rowSelected=await platformSnapshot();
  check(rowSelected.grid_selection==='1'&&Number(rowSelected.active.split(',')[0])===Number(enlarged.top)+2,'Enlarged row gutter did not select its actual row');
  const from=await canvasPoint(left+cellWidth,gy+11*ui),to=await canvasPoint(left+cellWidth+24,gy+11*ui);
+ await evaluate(`(()=>{const state={events:[]};globalThis.duxcelResizePointer=state;state.listener=event=>{const canvas=document.querySelector('canvas');if(event.target!==canvas)return;const r=canvas.getBoundingClientRect();state.events.push({type:event.type,trusted:event.isTrusted,buttons:event.buttons,x:Math.fround((event.pageX-window.scrollX-r.x)*canvas.clientWidth/r.width),y:Math.fround((event.pageY-window.scrollY-r.y)*canvas.clientHeight/r.height)});};for(const type of ['mousedown','mousemove','mouseup'])window.addEventListener(type,state.listener,true);return true;})()`);
  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...from});await send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',clickCount:1});await frames(2);
  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...to,button:'left',buttons:1});await frames(2);
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',clickCount:1});await frames(3);
+ const resizePointer=await evaluate(`(()=>{const state=globalThis.duxcelResizePointer;for(const type of ['mousedown','mousemove','mouseup'])window.removeEventListener(type,state.listener,true);return state.events;})()`),dragStart=resizePointer.find(event=>event.type==='mousedown'),dragEnd=resizePointer.filter(event=>event.type==='mousemove'&&(event.buttons&1)).at(-1);
+ check(dragStart&&dragEnd&&resizePointer.some(event=>event.type==='mouseup')&&resizePointer.every(event=>event.trusted),'Resize drag did not deliver its actual trusted DOM phases');
+ const deliveredResize=dragEnd.x-dragStart.x;check(deliveredResize>20&&deliveredResize<28&&Math.abs(dragEnd.y-dragStart.y)<1,'Resize drag coordinates did not deliver the intended horizontal motion');
  const resized=await platformSnapshot();
- check(near(Number(resized.grid_cell.split(',')[0])-cellWidth,24,.02)&&resized.grid_header===enlarged.grid_header&&resized.grid_gutter===enlarged.grid_gutter,'Zoomed column resize missed its boundary or resized chrome');
+ check(near(Number(resized.grid_cell.split(',')[0])-cellWidth,deliveredResize,.02)&&resized.grid_header===enlarged.grid_header&&resized.grid_gutter===enlarged.grid_gutter,'Zoomed column resize diverged from delivered pointer motion or resized chrome');
  let filter;
  if(sourceHeader){const previous=replies().filter(reply=>reply.kind===4).at(-1)?.id;await click(left+Number(resized.grid_cell.split(',')[0])-12*ui,gy+35*ui);const distinct=await waitDistinct(previous??null);const state=await platformSnapshot();check(state.modal!=='0'&&state.filter_field==='0'&&distinct.distinct_total==='5','Zoomed fixed-height filter arrow did not open first-column real available values');filter={state,distinct};await key('Escape','Escape',27);}
  await wheelBatch(0,150,1,wheelOptions);const final=await platformSnapshot();
  check(near(final.zoom,baseline.zoom,.00001)&&final.ui_scale===baseline.ui_scale&&final.modal==='0','Zoom pointer gate left a modal or changed UI/canvas scale');
- const newJobs=starts().slice(jobs);check(sourceHeader?newJobs.length>0&&newJobs.every(job=>job.kind===4):newJobs.length===0,'Zoom, header selection or resizing unexpectedly queried the database');
- const result={baseline,pixels,samples,interfaceScaled,interfaceRestored,enlarged,columnSelected,rowSelected,resized,filter,final,jobs:newJobs,scope:'Actual shared C capture geometry and GL label bounds, DOM pixel Ctrl-wheel through C zoom, trusted pointer column/row selection and column resizing, real optional Worker distinct values, and keyboard Interface scale. No physical pinch/trackpad or report-upload acceptance.'};
+ const newJobs=starts().slice(jobs);check(sourceHeader?newJobs.some(job=>job.kind===4)&&newJobs.every(job=>job.kind===4||job.kind===10):newJobs.length===0,'Header interactions submitted jobs beyond available values and existing selection statistics');
+ const result={baseline,pixels,samples,interfaceScaled,interfaceRestored,enlarged,columnSelected,rowSelected,resizePointer,deliveredResize,resized,filter,final,jobs:newJobs,scope:'Actual shared C capture geometry and GL label bounds, DOM pixel Ctrl-wheel through C zoom, trusted pointer column/row selection and column resizing, real optional Worker distinct values, and keyboard Interface scale. Zoom/scale submit zero jobs; source selection may request existing browser-unsupported statistics. No physical pinch/trackpad or report-upload acceptance.'};
  await fs.writeFile(path.join(output,'zoom-'+name+'.json'),JSON.stringify(result,null,2));return result;
 }
 async function zoomSource(){
