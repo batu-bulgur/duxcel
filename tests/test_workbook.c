@@ -867,6 +867,8 @@ static void test_extended_format_metadata_guard(void) {
     CHECK(cells_set(&loaded.sheets[0].cells,0,0,"Keep unsaved live value",&error)); worksheet_record(&loaded.sheets[0],EDIT_CELLS); loaded.dirty=true;
     Worksheet *sheets=loaded.sheets; FormatPatch *items=sheets[0].formats.items; char *loaded_path=loaded.path;
     const char *invalid[]={
+        "CREATE TABLE _duxcel_workspace.object_counters(sheet_id INTEGER,high_water UBIGINT)",
+        "CREATE VIEW _duxcel_workspace.object_counters AS SELECT 0 AS sheet_id,0::UBIGINT AS high_water",
         "CREATE TABLE _duxcel_workspace.format_scopes(sheet_id INTEGER,scope_id INTEGER,owner UBIGINT,definition BLOB)",
         "CREATE TABLE _duxcel_workspace.format_scopes AS SELECT 0 AS sheet_id,0 AS scope_id,18446744073709551615::UBIGINT AS owner,'opaque'::BLOB AS definition",
         "CREATE VIEW _duxcel_workspace.format_scopes AS SELECT 0 AS sheet_id WHERE false",
@@ -899,6 +901,74 @@ static void test_extended_format_metadata_guard(void) {
     CHECK(workbook_load(&loaded,path,&error) && format_at(&loaded.sheets[0].formats,1,3).flags==FORMAT_BOLD);
     CHECK(workbook_save(&book,path,&error) && workbook_load(&loaded,path,&error));
     sql_file(path,"SELECT CASE WHEN count(*)=1 AND min(value)='Keep user data' THEN true ELSE error('user data changed') END FROM main.format_scopes; SELECT CASE WHEN count(*)=1 AND min(value)='Keep metadata' THEN true ELSE error('unrelated metadata changed') END FROM _duxcel_workspace.custom_note; SELECT CASE WHEN version=12 THEN true ELSE error('workspace version changed') END FROM _duxcel_workspace.meta");
+    workbook_free(&book); workbook_free(&loaded); free(error);
+}
+static void require_workspace_version(const char *path,int version) {
+    char sql[180]; snprintf(sql,sizeof(sql),"SELECT CASE WHEN version=%d THEN true ELSE error('Unexpected workspace version') END FROM _duxcel_workspace.meta",version); sql_file(path,sql);
+}
+static void test_owner_counter_workspace(void) {
+    Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
+    const char *path="tests/generated/owner-counter-v13.dxls",*ordinary="tests/generated/owner-counter-v12.dxls"; remove(path); remove(ordinary);
+    CHECK(workbook_add(&book,"Durable owners",&blank,&error)); Worksheet *sheet=&book.sheets[0]; const uint64_t base=UINT64_C(9007199254740992);
+    CHECK(cells_set(&sheet->cells,20,0,"NULL",&error) && cells_set(&sheet->cells,21,0,"12345678901234567890.0123456789",&error));
+    CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&sheet->formats,(FormatRange){20,21,0,0},FORMAT_BOLD,bold,&error));
+    sheet->objects.next_id=base; CHECK(objects_add(&sheet->objects,0,8,"Live owner",&error)==0 && objects_add(&sheet->objects,8,8,"Retired owner",&error)==1);
+    CHECK(workbook_save(&book,ordinary,&error)); require_workspace_version(ordinary,12);
+    CHECK(objects_remove(&sheet->objects,1) && sheet->objects.next_id==base+2);
+    CHECK(workbook_save(&book,path,&error)); require_workspace_version(path,13);
+    CHECK(workbook_load(&loaded,path,&error) && loaded.sheets[0].objects.next_id==base+2 && loaded.sheets[0].objects.items[0].id==base+1);
+    CHECK(!strcmp(cells_get(&loaded.sheets[0].cells,20,0),"NULL") && !strcmp(cells_get(&loaded.sheets[0].cells,21,0),"12345678901234567890.0123456789") && format_at(&loaded.sheets[0].formats,20,0).flags==FORMAT_BOLD);
+    CHECK(objects_add(&loaded.sheets[0].objects,8,8,"After reopen",&error)==1 && loaded.sheets[0].objects.items[1].id==base+3);
+    CHECK(objects_history(&loaded.sheets[0].objects,false) && loaded.sheets[0].objects.next_id==base+3 && objects_history(&loaded.sheets[0].objects,true));
+    Workbook *snapshot=workbook_snapshot(&book); CHECK(snapshot->sheets[0].objects.next_id==base+2); CHECK(workbook_duplicate(snapshot,0,&error));
+    remove(path); CHECK(workbook_save(snapshot,path,&error) && workbook_load(&loaded,path,&error) && loaded.count==2 && loaded.sheets[0].objects.next_id==base+2 && loaded.sheets[1].objects.next_id==base+2);
+    CHECK(objects_add(&loaded.sheets[1].objects,8,8,"Duplicate after reopen",&error)==1 && loaded.sheets[1].objects.items[1].id==base+3 && loaded.sheets[0].objects.next_id==base+2); workbook_free(snapshot); free(snapshot);
+    CHECK(objects_remove(&sheet->objects,0) && !sheet->objects.count && sheet->objects.next_id==base+2);
+    remove(path); CHECK(workbook_save(&book,path,&error) && workbook_load(&loaded,path,&error) && !loaded.sheets[0].objects.count && loaded.sheets[0].objects.next_id==base+2);
+    CHECK(objects_add(&loaded.sheets[0].objects,0,8,"Empty-store lifetime",&error)==0 && loaded.sheets[0].objects.items[0].id==base+3);
+    sheet->objects.next_id=UINT64_MAX; CHECK(workbook_save(&book,path,&error) && workbook_load(&loaded,path,&error) && loaded.sheets[0].objects.next_id==UINT64_MAX);
+    CHECK(objects_add(&loaded.sheets[0].objects,0,8,"Exhausted after reopen",&error)<0 && error && !loaded.sheets[0].objects.count); free(error); error=NULL;
+    Workbook fresh; workbook_init(&fresh); CHECK(workbook_add(&fresh,"Fresh overwrite",&blank,&error));
+    CHECK(workbook_save(&fresh,path,&error)); require_workspace_version(path,13); /* Existing v13 never silently downgrades. */
+    remove(ordinary); CHECK(workbook_save(&fresh,ordinary,&error)); require_workspace_version(ordinary,12); /* A fresh lossless save remains v12. */
+    CHECK(objects_add(&fresh.sheets[0].objects,0,8,"Validated live owner",&error)==0); fresh.sheets[0].objects.next_id=0;
+    size_t bytes=0,after_bytes=0; unsigned char *before=workspace_bytes(path,&bytes);
+    CHECK(!workbook_save(&fresh,path,&error) && error && strstr(error,"high-water")); free(error); error=NULL;
+    unsigned char *after=workspace_bytes(path,&after_bytes); CHECK(bytes==after_bytes && !memcmp(before,after,bytes)); free(before); free(after);
+    workbook_free(&fresh); workbook_free(&book); workbook_free(&loaded); free(error);
+}
+static void test_invalid_owner_package(void) {
+    Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
+    const char *path="tests/generated/invalid-owner-package.dxls"; CHECK(workbook_add(&book,"Owner package",&blank,&error));
+    Worksheet *sheet=&book.sheets[0]; CHECK(objects_add(&sheet->objects,0,8,"Live",&error)==0); sheet->objects.next_id=UINT64_C(9007199254740993);
+    CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&sheet->formats,(FormatRange){20,20,0,0},FORMAT_BOLD,bold,&error));
+    remove(path); CHECK(workbook_save(&book,path,&error) && workbook_load(&loaded,path,&error)); CHECK(cells_set(&loaded.sheets[0].cells,30,0,"Keep unsaved value",&error)); worksheet_record(&loaded.sheets[0],EDIT_CELLS); loaded.dirty=true;
+    Worksheet *owned=loaded.sheets; char *owned_path=loaded.path; FormatPatch *formats=owned[0].formats.items;
+    const char *invalid[]={
+        "DROP TABLE _duxcel_workspace.object_counters", "DROP TABLE _duxcel_workspace.format_scopes", "DROP TABLE _duxcel_workspace.format_selectors", "DROP TABLE _duxcel_workspace.format_guards",
+        "DROP TABLE _duxcel_workspace.format_scopes; CREATE VIEW _duxcel_workspace.format_scopes AS SELECT 0::INTEGER AS sheet_id,0::INTEGER AS scope_id,0::UBIGINT AS owner,0::INTEGER AS encoding,''::BLOB AS definition WHERE false",
+        "ALTER TABLE _duxcel_workspace.objects ALTER COLUMN id TYPE VARCHAR", "ALTER TABLE _duxcel_workspace.objects ALTER COLUMN source_id TYPE BIGINT",
+        "ALTER TABLE _duxcel_workspace.meta ADD COLUMN unknown_feature INTEGER", "ALTER TABLE _duxcel_workspace.meta ALTER COLUMN version TYPE BIGINT",
+        "ALTER TABLE _duxcel_workspace.format_scopes ADD COLUMN extra INTEGER", "ALTER TABLE _duxcel_workspace.object_counters ALTER COLUMN high_water TYPE BIGINT",
+        "INSERT INTO _duxcel_workspace.format_scopes VALUES(0,0,0,0,'opaque'::BLOB)", "INSERT INTO _duxcel_workspace.format_guards VALUES(0,0,0,0)", "UPDATE _duxcel_workspace.format_selectors SET kind=1",
+        "CREATE TABLE _duxcel_workspace.duplicate_counters AS SELECT * FROM _duxcel_workspace.object_counters; INSERT INTO _duxcel_workspace.duplicate_counters SELECT * FROM _duxcel_workspace.object_counters; DROP TABLE _duxcel_workspace.object_counters; ALTER TABLE _duxcel_workspace.duplicate_counters RENAME TO object_counters",
+        "CREATE OR REPLACE TABLE _duxcel_workspace.object_counters AS SELECT NULL::INTEGER AS sheet_id,9::UBIGINT AS high_water",
+        "CREATE TABLE _duxcel_workspace.duplicate_selectors AS SELECT * FROM _duxcel_workspace.format_selectors; INSERT INTO _duxcel_workspace.duplicate_selectors SELECT * FROM _duxcel_workspace.format_selectors; DROP TABLE _duxcel_workspace.format_selectors; ALTER TABLE _duxcel_workspace.duplicate_selectors RENAME TO format_selectors",
+        "DELETE FROM _duxcel_workspace.object_counters", "UPDATE _duxcel_workspace.object_counters SET high_water=NULL", "UPDATE _duxcel_workspace.object_counters SET high_water=0", "UPDATE _duxcel_workspace.object_counters SET sheet_id=1",
+        "DELETE FROM _duxcel_workspace.format_selectors", "UPDATE _duxcel_workspace.format_selectors SET position=1", "UPDATE _duxcel_workspace.format_selectors SET kind=NULL", "UPDATE _duxcel_workspace.format_selectors SET sheet_id=1",
+        "UPDATE _duxcel_workspace.meta SET version=12"
+    };
+    for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
+        remove(path); CHECK(workbook_save(&book,path,&error)); sql_file(path,invalid[i]); size_t bytes=0,after_bytes=0; unsigned char *before=workspace_bytes(path,&bytes);
+        CHECK(!workbook_load(&loaded,path,&error) && error && *error); free(error); error=NULL;
+        CHECK(loaded.sheets==owned && loaded.path==owned_path && loaded.dirty && owned[0].formats.items==formats && owned[0].objects.next_id==UINT64_C(9007199254740993) && owned[0].undo_actions_count==1 && !strcmp(cells_get(&owned[0].cells,30,0),"Keep unsaved value"));
+        CHECK(!workbook_save(&book,path,&error) && error && *error); free(error); error=NULL;
+        unsigned char *after=workspace_bytes(path,&after_bytes); CHECK(bytes==after_bytes && !memcmp(before,after,bytes)); free(before); free(after);
+    }
+    remove(path); CHECK(workbook_save(&book,path,&error));
+    const char definition[]="Unsupported live scope"; FormatScopeView scope={1,definition,sizeof(definition)-1}; CHECK(format_apply_scoped(&sheet->formats,(FormatRange){0,0,0,0},FORMAT_BOLD,bold,&scope,1,false,&error));
+    size_t bytes=0,after_bytes=0; unsigned char *before=workspace_bytes(path,&bytes); CHECK(!workbook_save(&book,path,&error) && error && strstr(error,"v12")); free(error); error=NULL;
+    unsigned char *after=workspace_bytes(path,&after_bytes); CHECK(bytes==after_bytes && !memcmp(before,after,bytes)); free(before); free(after);
     workbook_free(&book); workbook_free(&loaded); free(error);
 }
 static void test_combined_filter_workspace(void) {
@@ -953,6 +1023,10 @@ static void test_marks_workspace(void) {
     marks_free(&marks); workbook_free(&book); workbook_free(&loaded); free(error);
 }
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--owners-only")) {
+        test_owner_counter_workspace(); test_invalid_owner_package();
+        printf("PASS: %u focused owner-counter workspace checks (v12 compatibility, v13 retired IDs, strict spatial package and atomic rejection)\n",checks); return 0;
+    }
     if (argc==2 && !strcmp(argv[1],"--formats-only")) {
         test_format_workspace();
         test_scoped_format_save_guard();
@@ -960,7 +1034,8 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
         return 0;
     }
-    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only]\n",argv[0]); return 2; }
+    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only]\n",argv[0]); return 2; }
+    test_owner_counter_workspace(); test_invalid_owner_package();
     test_chart_optional_errors();
     test_marks_workspace();
     test_combined_filter_workspace();
