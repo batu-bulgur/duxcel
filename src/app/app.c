@@ -5206,6 +5206,10 @@ static void draw_modal(App *a) {
     const char *title=a->modal==MODAL_OPEN ? "Open data or workbook" : a->modal==MODAL_SAVE ? "Save workbook" : a->modal==MODAL_RELINK ? "Relink a missing source" : a->modal==MODAL_FILTER ? "Filter a column" : a->modal==MODAL_GROUP ? "Summarize data" : a->modal==MODAL_ERROR ? "Unable to complete the action" : a->modal==MODAL_SETTINGS ? "Settings" : "Generated SQL";
     if (a->modal==MODAL_SETTINGS) brand_draw_cached(box(x+20*s,y+13*s,38*s,38*s));
     ui_text(u,title,x+(a->modal==MODAL_SETTINGS ? 66 : 24)*s,y+22*s,19,UI_TEXT);
+    if (a->modal==MODAL_SETTINGS) {
+        REVIEW_AUTHOR_PANEL(a,"settings","Settings",panel,box(x+66*s,y+22*s,w-90*s,30*s));
+        REVIEW_AUTHOR_ITEM(a,"settings","close","settings.close","button","Close",box(x+w-45*s,y+16*s,28*s,28*s),panel,true,false,false,NULL);
+    }
     if (ui_button(u,box(x+w-45*s,y+16*s,28*s,28*s),"×",false,true)) { a->modal=MODAL_NONE; return; }
     bool enter=ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER);
     if (a->modal==MODAL_SETTINGS) {
@@ -5213,8 +5217,13 @@ static void draw_modal(App *a) {
         const char *labels[]={"Compact 80%","Standard 100%","Large 125%","Large 150%"};
         const float scales[]={.8f,1,1.25f,1.5f}; bool single=w/s<590;
         float button_width=single ? w-48*s : (w-56*s)/2;
-        for (int i=0;i<4;i++) if (ui_button(u,box(x+24*s+(single ? 0 : i%2)*(button_width+8*s),y+(96+(single ? i : i/2)*42)*s,button_width,34*s),labels[i],fabsf(u->scale-scales[i])<.01f,true)) { ui_set_scale(u,scales[i]); }
+        for (int i=0;i<4;i++) {
+            Rectangle button=box(x+24*s+(single ? 0 : i%2)*(button_width+8*s),y+(96+(single ? i : i/2)*42)*s,button_width,34*s);
+            REVIEW_AUTHOR_ITEM(a,"settings",((const char *const[]){"interface.compact","interface.standard","interface.large","interface.extra_large"})[i],"settings.interface_scale","button",labels[i],button,panel,true,fabsf(u->scale-scales[i])<.01f,false,NULL);
+            if (ui_button(u,button,labels[i],fabsf(u->scale-scales[i])<.01f,true)) { ui_set_scale(u,scales[i]); }
+        }
         float motion_y=single ? 274 : 190;
+        REVIEW_AUTHOR_ITEM(a,"settings","reduce_motion","settings.reduce_motion","button",a->reduced_motion ? "Reduce motion: On" : "Reduce motion: Off",box(x+24*s,y+motion_y*s,w-48*s,32*s),panel,true,a->reduced_motion,false,NULL);
         if (ui_button(u,box(x+24*s,y+motion_y*s,w-48*s,32*s),a->reduced_motion ? "Reduce motion: On" : "Reduce motion: Off",a->reduced_motion,true)) { a->reduced_motion=!a->reduced_motion; }
         ui_text_clip(u,"Canvas zoom: Control + scroll, pinch, or the sheet zoom controls.",box(x+18*s,y+h-40*s,w-36*s,24*s),12,UI_MUTED,false);
     } else if (a->modal==MODAL_ERROR) {
