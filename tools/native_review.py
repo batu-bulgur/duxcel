@@ -16,6 +16,7 @@ import re
 import secrets
 import stat
 import struct
+import subprocess
 import sys
 import zlib
 
@@ -41,6 +42,39 @@ def identifier(value):
     if not isinstance(value, str) or not IDENTIFIER.fullmatch(value):
         raise ReviewError("IDs require 1–95 ASCII alphanumeric, underscore or hyphen characters")
     return value
+
+
+def default_project(project_root=None):
+    """Match native build identity across worktrees, including Git-less reading."""
+    root = Path(project_root or Path(__file__).resolve().parents[1]).resolve()
+    try:
+        common = subprocess.check_output(["git", "rev-parse", "--git-common-dir"], cwd=root,
+                                         text=True, stderr=subprocess.DEVNULL, timeout=2).strip()
+        if not common:
+            raise ValueError("Empty Git common directory")
+        identity = (root / common).resolve()
+    except (OSError, subprocess.SubprocessError, ValueError):
+        identity = root
+        try:
+            metadata = root / ".git"
+            if metadata.is_file():
+                with metadata.open("r", encoding="utf-8") as stream:
+                    entry = stream.read(4097)
+                if len(entry) > 4096 or not entry.startswith("gitdir: "):
+                    raise ValueError("Invalid worktree metadata")
+                metadata = (root / entry[8:].strip()).resolve()
+            if metadata.is_dir():
+                identity = metadata.resolve()
+                common_file = identity / "commondir"
+                if common_file.is_file():
+                    with common_file.open("r", encoding="utf-8") as stream:
+                        entry = stream.read(4097)
+                    if not entry.strip() or len(entry) > 4096:
+                        raise ValueError("Invalid common-directory metadata")
+                    identity = (identity / entry.strip()).resolve()
+        except (OSError, UnicodeError, ValueError):
+            identity = root  # standalone copy: explicit --project can select an existing outbox
+    return "duxcel-" + hashlib.sha256(str(identity).encode()).hexdigest()[:16]
 
 
 def default_root(project_id):
@@ -391,7 +425,7 @@ class ReviewStore:
 
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument("--project", default="duxcel", help="exact project_id in the native capture (default: duxcel)")
+    result.add_argument("--project", help="exact captured project_id; defaults to this repository's native build identity")
     result.add_argument("--root", help="project outbox path; otherwise use the platform root/DUXCEL_REVIEW_OUTBOX")
     commands = result.add_subparsers(dest="command", required=True)
     commands.add_parser("list", help="list complete reports and explicit rejections; private staging is ignored")
@@ -411,7 +445,8 @@ def parser():
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
-        store = ReviewStore(args.root or default_root(args.project), args.project)
+        project = args.project or default_project()
+        store = ReviewStore(args.root or default_root(project), project)
         if args.command == "list":
             output = store.list()
         elif args.command == "read":
