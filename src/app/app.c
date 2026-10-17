@@ -5225,7 +5225,7 @@ static void list_scrollbar(App *a,Rectangle r,int count,int visible,int *offset,
     if (review_armed(a) && count>visible) {
         const char *kind=a->modal==MODAL_MARKS ? "marks" : a->modal==MODAL_OBJECT ? "object" : a->modal==MODAL_ASSIGN_FIELD ? "assign_field" : a->modal==MODAL_UNHIDE ? "sheet_unhide" : NULL;
         if (kind) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_AUTHOR_SCROLL(a,kind,track,ui_scrollbar_thumb(track,count,visible,position,false,s),r,state.dragging); }
-        if (offset==&a->sheet_scroll) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_SHEET_SCROLL(a,track,ui_scrollbar_thumb(track,count,visible,position,false,s),GetCollisionRec(r,a->workbook_body_clip),state.dragging); }
+        if (offset==&a->sheet_scroll) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_SHEET_SCROLL(a,track,ui_scrollbar_thumb(track,count,visible,position,false,s),a->ui.clipping ? GetCollisionRec(r,a->ui.clip) : r,state.dragging); }
     }
 #endif
 }
@@ -5273,7 +5273,7 @@ static float draw_workbook_section(App *a,Rectangle r,bool shared) {
         char label[512]; snprintf(label,sizeof(label),"%s%s",sheet ? "" : "↳ ",sheet ? a->book.sheets[index].name : relation->label);
         bool active=sheet ? index==a->book.active : a->analysis.table && !strcmp(a->analysis.table,relation->name) && !strcmp(a->analysis.schema,relation->schema);
         Rectangle row=box(list.x,list.y+j*rows.stride*s,list.width-(count>visible ? 10*s : 0),rows.row_height*s);
-        if (sheet) { REVIEW_SHEET_ROW(a,index,label,row,GetCollisionRec(list,a->workbook_body_clip),enabled,active,a->chrome_focus==2 && (int)position==a->workbook_focus_index); }
+        if (sheet) { REVIEW_SHEET_ROW(a,index,label,row,u->clip,enabled,active,a->chrome_focus==2 && (int)position==a->workbook_focus_index); }
         if (sheet && enabled && CheckCollisionPointRec(ui_mouse_position(),visible_area(u,row)) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { begin_sheet_menu(a,index,ui_mouse_position()); break; }
         bool clicked=ui_list_row(u,row,"",active,passive_control(a,enabled) && (sheet || !a->busy));
         ui_carbon(u,CARBON_TABLE,box(row.x+9*s,row.y+(row.height-17*s)*.5f,17*s,17*s),active ? UI_ACCENT : UI_MUTED);
