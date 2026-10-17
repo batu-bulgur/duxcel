@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runner checks without compiler, fixture writes, native windows or clipboard."""
+"""Runner checks without compiler, shared fixture writes, windows or clipboard."""
 
 import contextlib
 import importlib.util
@@ -37,6 +37,9 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(len({row[0] for row in runner.NATIVE}), 18)
         self.assertNotIn("core", runner.FAST_MODULES)
         self.assertNotIn("workbook", runner.FAST_MODULES)
+        self.assertEqual(runner.RECORD_MODULES, ("record_sql", "record_pages"))
+        self.assertEqual(runner.ENGINE_MODULES[:2], ("core", "workbook"))
+        self.assertTrue(set(runner.RECORD_MODULES).isdisjoint(runner.FAST_MODULES))
         self.assertEqual(runner.configurations("both"), ("release", "sanitize"))
         self.assertEqual(runner.test_binary("grid", "sanitize"), "tests/test_grid-debug")
         runner.validate_native_contract(runner.ROOT)
@@ -205,6 +208,103 @@ class RunnerTests(unittest.TestCase):
                     instance.full()
                 headless.assert_not_called()
 
+    def test_records_tier_builds_retains_and_runs_only_selected_configs_sequentially(self):
+        for config, no_build in (("release", False), ("sanitize", False), ("both", False), ("both", True)):
+            with self.subTest(config=config, no_build=no_build), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory); (root / "Makefile").write_text("")
+                arguments = ["records", "--config", config] + (["--no-build"] if no_build else [])
+                instance = runner.Runner(runner.parser().parse_args(arguments), root)
+                binaries = [runner.test_binary(module, build) for build in runner.configurations(config)
+                            for module in runner.RECORD_MODULES]
+                def create_binaries(targets):
+                    for binary in targets:
+                        path = root / binary; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(binary)
+                if no_build:
+                    create_binaries(binaries)
+                def completed(name, command, marker=None, **kwargs):
+                    if command[0] == "make":
+                        self.assertEqual(command, ["make", *binaries]); create_binaries(command[1:])
+                    else:
+                        self.assertEqual(marker, "PASS:"); self.assertFalse(kwargs.get("native"))
+                    return {"name": name, "command": command, "status": "passed"}
+                with mock.patch.object(instance, "command", side_effect=completed) as command, \
+                     mock.patch.object(runner, "native_lock_path", side_effect=AssertionError("No records desktop")), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(instance.run(), 0)
+                expected = ([] if no_build else [["make", *binaries]]) + [["./" + binary] for binary in binaries]
+                self.assertEqual([call.args[1] for call in command.call_args_list], expected)
+                self.assertEqual(instance.summary["binaries"], runner.fingerprint([root / binary for binary in binaries]))
+                self.assertEqual(instance.summary["binaries_after"], instance.summary["binaries"])
+                saved = json.loads((instance.log_dir / "summary.json").read_text())
+                self.assertEqual(saved["tier"], "records"); self.assertEqual(saved["status"], "passed")
+                self.assertEqual(saved["source"]["source_sha256"], runner.source_metadata(root)["source_sha256"])
+                self.assertTrue((root / "tests/results/.runner.lock").exists())
+
+    def test_records_no_build_requires_all_binaries_before_any_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            binary = root / "tests/test_record_sql"; binary.parent.mkdir(); binary.write_text("existing")
+            args = runner.parser().parse_args(["records", "--config", "release", "--no-build"])
+            instance = runner.Runner(args, root)
+            with mock.patch.object(instance, "command") as command, self.assertRaisesRegex(RuntimeError, "Missing test binary.*test_record_pages"):
+                instance.records()
+            command.assert_not_called()
+
+    def test_records_stop_after_failure_or_binary_replacement(self):
+        for overwrite in (False, True):
+            with self.subTest(overwrite=overwrite), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory); (root / "Makefile").write_text("")
+                for module in runner.RECORD_MODULES:
+                    binary = root / runner.test_binary(module, "release"); binary.parent.mkdir(exist_ok=True); binary.write_text(module)
+                args = runner.parser().parse_args(["records", "--config", "release", "--no-build"])
+                instance = runner.Runner(args, root)
+                def completed(name, command, marker=None, **kwargs):
+                    if overwrite:
+                        (root / "tests/test_record_pages").write_text("different build")
+                    return {"name": name, "command": command, "status": "passed" if overwrite else "failed", "error": "Engine assertion failed"}
+                with mock.patch.object(instance, "command", side_effect=completed) as command, \
+                     contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(instance.run(), 1)
+                self.assertEqual(command.call_count, 1)
+                self.assertEqual(instance.summary["status"], "failed")
+                self.assertIn("changed" if overwrite else "Engine assertion failed", instance.summary["error"])
+
+    def test_full_builds_record_suites_without_interrupting_core_workbook_fixture_order(self):
+        args = runner.parser().parse_args(["full", "--config", "both", "--jobs", "2"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            instance = runner.Runner(args, root)
+            def completed(name, command, marker=None, **kwargs):
+                if command[0] == "make":
+                    for target in command[1:]:
+                        if target.startswith(("tests/", "duxcel")):
+                            path = root / target; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(target)
+                    fixture = root / "tests/generated/design-definition.dxls"
+                    fixture.parent.mkdir(parents=True); fixture.write_text("fixture")
+                return {"name": name, "command": command, "status": "passed"}
+            with mock.patch.object(instance, "command", side_effect=completed) as command, \
+                 mock.patch.object(instance, "headless"), mock.patch.object(instance, "background_check"), \
+                 mock.patch.object(instance, "native_scenarios"), mock.patch.object(runner, "validate_native_contract"), \
+                 mock.patch.object(runner, "native_lock_path", return_value=root / "desktop.lock"):
+                instance.full()
+            engines = [runner.test_binary(module, config) for config in ("release", "sanitize")
+                       for module in ("core", "workbook", "record_sql", "record_pages")]
+            self.assertTrue(set(engines).issubset(command.call_args_list[0].args[1]))
+            self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]], [["./" + binary] for binary in engines])
+
+    def test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation(self):
+        extras = (["--modules", "grid"], ["--scenario", "icon"], ["--feature", "shelves"],
+                  ["--visible"], ["--require-data"], ["--jobs", "2"])
+        with mock.patch.object(runner, "Runner") as constructor:
+            for extra in extras:
+                with self.subTest(extra=extra), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                    runner.main(["records", *extra])
+            constructor.assert_not_called()
+            constructor.return_value.run.return_value = 0
+            self.assertEqual(runner.main(["records", "--config", "sanitize"]), 0)
+            args = constructor.call_args.args[0]
+            self.assertEqual((args.tier, args.config, args.jobs), ("records", "sanitize", 1))
+
     def test_named_native_workflows_keep_order_and_deduplicate_without_full_suite(self):
         args = runner.parser().parse_args(["native", "--scenario", "export", "icon", "export"])
         with tempfile.TemporaryDirectory() as directory:
@@ -238,6 +338,7 @@ class RunnerTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(runner.main(["--list"]), 0)
             self.assertIn("1098 application stages", output.getvalue())
+            self.assertIn("Records: record_sql, record_pages", output.getvalue())
             constructor.assert_not_called()
         for arguments in (["affected"], ["full", "--modules", "grid"], ["native"], ["native", "--scenario", "export", "--modules", "grid"], ["fast", "--scenario", "export"], ["fast", "--jobs", "3"], ["fast", "--timeout", "0"], ["fast", "--feature", "shelves"], ["affected", "--feature", "shelves", "--require-data"]):
             with self.subTest(arguments=arguments), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):

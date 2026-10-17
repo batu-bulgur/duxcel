@@ -21,6 +21,8 @@ FAST_MODULES = (
     "inspector", "stepview", "preview", "statsview", "guideview", "fontmetrics",
     "motion", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
+RECORD_MODULES = ("record_sql", "record_pages")
+ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES)
 # These are existing, independently bootstrapped layout checkpoints. The end is
 # exclusive, as in DUXCEL_LAYOUT_TO. Never jump into arbitrary stateful stages.
 LAYOUT_PROFILES = {
@@ -287,11 +289,22 @@ class Runner:
     def native_binary(self):
         return "duxcel" if self.args.config == "release" else "duxcel-debug"
 
+    def records(self):
+        """Native engine checks with private temporary sources, no desktop."""
+        runs = [(module, config, test_binary(module, config))
+                for config in configurations(self.args.config) for module in RECORD_MODULES]
+        self.build([binary for _, _, binary in runs], "build-records")
+        self.retain_binaries([binary for _, _, binary in runs])
+        for module, config, binary in runs:
+            ensure_unchanged(self.summary["binaries"])
+            self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
+            ensure_unchanged(self.summary["binaries"])
+
     def prepare_native(self, full=False):
         validate_native_contract(self.root)
         targets = [self.native_binary(), "tests/test_background-native-debug", "design-fixture"]
         if full:
-            targets += [test_binary(module, config) for config in configurations(self.args.config) for module in ("core", "workbook")]
+            targets += [test_binary(module, config) for config in configurations(self.args.config) for module in ENGINE_MODULES]
             targets += ["tests/test_paint-native-debug", "icons-check"]
         self.build(targets, "build-integration")
         # Snapshot helpers write to these existing conventional destinations.
@@ -330,8 +343,9 @@ class Runner:
         self.prepare_native(full=True)
         # The workbook suite consumes core's generated fixtures. Each
         # configuration completes both before another can replace their files.
+        # Independent record suites follow that adjacent pair, still serially.
         for config in configurations(self.args.config):
-            for module in ("core", "workbook"):
+            for module in ENGINE_MODULES:
                 binary = test_binary(module, config)
                 self.retain_binaries([binary])
                 self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
@@ -390,6 +404,8 @@ class Runner:
                     self.affected()
                 elif self.args.tier == "native":
                     self.native()
+                elif self.args.tier == "records":
+                    self.records()
                 else:
                     self.full()
                 ensure_unchanged(self.summary["binaries"])
@@ -415,7 +431,7 @@ class Runner:
 
 def parser():
     result = argparse.ArgumentParser(description=__doc__, epilog="Native windows and clipboard checks run serially under a cross-worktree lock. --jobs only overlaps already-built read-only headless tests. No packages are installed.")
-    result.add_argument("tier", nargs="?", choices=("fast", "affected", "native", "full"), default="fast")
+    result.add_argument("tier", nargs="?", choices=("fast", "records", "affected", "native", "full"), default="fast")
     result.add_argument("--config", choices=("release", "sanitize", "both"), default="both", help="headless build configuration; native uses sanitizer when both (default: both)")
     result.add_argument("--modules", nargs="+", choices=FAST_MODULES, help="read-only headless modules for fast/affected; full always runs all")
     result.add_argument("--feature", choices=tuple(LAYOUT_PROFILES), help="existing independently bootstrapped native slice; required for affected")
@@ -435,6 +451,7 @@ def main(argv=None):
     args = argument_parser.parse_args(argv)
     if args.list:
         print("Read-only modules: " + ", ".join(FAST_MODULES))
+        print("Records: " + ", ".join(RECORD_MODULES) + "; sequential native engine checks without GUI or shared fixtures")
         for name, (start, end, _) in LAYOUT_PROFILES.items():
             print(f"Affected {name}: layout {start}–{end-1} ({end-start} stages)")
         for name, stages, frames, _ in NATIVE:
@@ -443,8 +460,10 @@ def main(argv=None):
         return 0
     if args.tier == "affected" and not args.feature:
         argument_parser.error("affected requires --feature (see --list)")
-    if args.tier == "full" and args.modules:
-        argument_parser.error("full does not accept --modules")
+    if args.tier in ("full", "records") and args.modules:
+        argument_parser.error(args.tier + " does not accept --modules")
+    if args.tier == "records" and args.jobs != 1:
+        argument_parser.error("records requires --jobs 1; engine checks run sequentially")
     if args.tier == "native" and (not args.scenario or args.modules):
         argument_parser.error("native requires --scenario and does not accept --modules")
     if args.scenario and args.tier != "native":
@@ -453,7 +472,7 @@ def main(argv=None):
         argument_parser.error("--feature applies only to affected")
     if args.require_data and args.tier not in ("native", "full"):
         argument_parser.error("--require-data applies only to native/full")
-    if args.visible and args.tier == "fast":
+    if args.visible and args.tier not in ("affected", "native", "full"):
         argument_parser.error("--visible applies only to affected/native/full")
     if args.timeout <= 0:
         argument_parser.error("--timeout must be positive")
