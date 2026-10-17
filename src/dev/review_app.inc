@@ -901,7 +901,8 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_INSPECTOR_END (REVIEW_STATS_END+4*6)
 #define REVIEW_SETTINGS_END (REVIEW_INSPECTOR_END+2*6)
 #define REVIEW_FORMAT_END (REVIEW_SETTINGS_END+2*6)
-#define REVIEW_SMOKE_STAGES (REVIEW_FORMAT_END+2*6)
+#define REVIEW_SQL_END (REVIEW_FORMAT_END+2*6)
+#define REVIEW_SMOKE_STAGES (REVIEW_SQL_END+14)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -940,6 +941,7 @@ typedef struct {
     Analysis sql_source; char *sql_text,*sql_pointer,*sql_expected,*sql_pane_text,*sql_pane_pointer; size_t *sql_pane_offsets;
     DxReviewDataIdentity sql_origin; TextLines sql_pane_lines; int sql_owner,sql_scroll,sql_pane_scroll,sql_setup_item,sql_pane_focus,sql_pane_step;
     double sql_wheel; uint64_t sql_revision,sql_owner_id; bool sql_valid,sql_stale,sql_setup_started,sql_pane_visible,sql_pane_collapsed,sql_pane_mode;
+    char owner_fixture[4096],owner_copy[4096];
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -2265,7 +2267,144 @@ static int review_smoke_sql_tick(App *a,ReviewSmoke *t) {
     if (phase==4) { if (!review_smoke_sql_same(a,t)) { review_smoke_sql_diagnostic(a,t,"report cancellation"); return -1; } ui_note_key_press(KEY_ESCAPE,0); return 1; }
     t->choice_modal=MODAL_NONE; if (!review_smoke_sql_same(a,t)) { review_smoke_sql_diagnostic(a,t,"normal SQL close retains owned definition"); return -1; }
     printf("PASS: native Generated SQL review owner=%s while another Pivot stays selected retains owned SQL/pinned origin, independent Transformations SQL, scroll0 and source/models/pages/statistics/jobs; Copy never activated\n",item ? "upstream Table" : "primary");
-    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
+    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); } return 1;
+}
+static bool review_smoke_owner_format(const FormatStore *store,FormatRange range) {
+    if (store->count!=1 || store->scope_count) return false;
+    const FormatPatch *patch=&store->items[0]; CellFormat expected=format_default(); expected.flags=FORMAT_BOLD;
+    return patch->range.r0==range.r0 && patch->range.r1==range.r1 && patch->range.c0==range.c0 && patch->range.c1==range.c1 &&
+        patch->selector==FORMAT_SPATIAL && !patch->guard_count && patch->mask==FORMAT_BOLD && !memcmp(&patch->value,&expected,sizeof(expected));
+}
+static bool review_smoke_owner_model(App *a,size_t count,uint64_t high_water,bool original) {
+    if (a->book.count!=3 || a->analysis.kind!=SOURCE_NONE || a->page.column_count) return false;
+    const Worksheet *live=&a->book.sheets[0],*exhausted=&a->book.sheets[1],*empty=&a->book.sheets[2];
+    const char *names[]={"Owner lifetime","Exhausted owner","Never allocated"};
+    for (size_t i=0;i<3;i++) if (a->book.sheets[i].analysis.kind!=SOURCE_NONE || a->book.sheets[i].hidden || strcmp(a->book.sheets[i].name,names[i])) return false;
+    if (live->objects.count!=count || live->objects.next_id!=high_water || exhausted->objects.count || exhausted->objects.next_id!=UINT64_MAX || empty->objects.count || empty->objects.next_id || exhausted->cells.count || empty->cells.count || exhausted->formats.count || exhausted->formats.scope_count ||
+        live->cells.count!=2 || strcmp(cells_get(&live->cells,20,0),"9007199254740993.1234567890") || strcmp(cells_get(&live->cells,21,0),"NULL") || *cells_get(&live->cells,22,0) ||
+        !review_smoke_owner_format(&live->formats,(FormatRange){20,21,0,0}) || !review_smoke_owner_format(&empty->formats,(FormatRange){0,DX_SHEET_ROWS-1,1,1}) ||
+        format_at(&live->formats,20,0).flags!=FORMAT_BOLD || format_at(&live->formats,21,0).flags!=FORMAT_BOLD || format_at(&live->formats,19,0).flags || format_at(&live->formats,22,0).flags || format_at(&empty->formats,500,1).flags!=FORMAT_BOLD || format_at(&empty->formats,500,0).flags) return false;
+    if (!count) return true;
+    const SheetObject *first=&live->objects.items[0];
+    if (original) {
+        if (count!=1 || first->id!=UINT64_C(9007199254740993) || first->kind!=OBJECT_PIVOT || first->source_id || first->row || first->col!=8 || first->rows!=5 || first->columns!=4) return false;
+        for (size_t role=0;role<4;role++) if (first->pivot.counts[role]) return false;
+        return true;
+    }
+    if (first->id!=UINT64_C(9007199254740995) || first->kind!=OBJECT_TABLE || first->source_id || first->row || first->col!=8 || first->source.kind!=SOURCE_CSV || !first->source.path || strcmp(dx_basename(first->source.path),"transactions.csv")) return false;
+    if (count>1) {
+        const SheetObject *pivot=&live->objects.items[1];
+        if (count!=2 || pivot->kind!=OBJECT_PIVOT || pivot->id!=high_water || pivot->source_id!=first->id) return false;
+        for (size_t role=0;role<4;role++) if (pivot->pivot.counts[role]) return false;
+    }
+    return true;
+}
+static bool review_smoke_owner_table(App *a) {
+    const ObjectView *view=&a->objects[0]; const SheetObject *table=&active_sheet(a)->objects.items[0];
+    return a->book.active==0 && object_ready(a,0) && table->rows==7 && table->columns==6 && view->id==table->id && view->page.offset==0 && view->page.total==5 && view->page.row_count==5 && view->page.column_count==6 &&
+        !strcmp(view->page.columns[1].name,"City") && !view->page.cells[1].is_null && !strcmp(view->page.cells[1].text,"İstanbul");
+}
+static bool review_smoke_owner_target(App *a,ReviewSmoke *t) {
+    const char *parent="author.cell_inspector"; DxReviewRegistry *registry=a->review->registry;
+    const DxReviewWidget *value=dx_review_find(registry,"author.cell_inspector.value"); const DxReviewDataIdentity *origin=&t->inspector_origin; const SheetObject *table=&active_sheet(a)->objects.items[0];
+    char document[128]; review_document_id(a,document);
+    if (!review_smoke_owner_model(a,2,UINT64_C(9007199254740997),false) || !review_smoke_owner_table(a) || !review_smoke_inspector_same(a,t,false) ||
+        !t->inspector_valid || t->inspector_stale || t->inspector_truncated || t->inspector_null || strcmp(t->inspector_text,"İstanbul") || strcmp(t->inspector_type,"VARCHAR") ||
+        !origin->present || !origin->has_cell || strcmp(origin->kind,"inspector-result") || strcmp(origin->document_id,document) || strcmp(origin->document_id,registry->frame.document_id) || origin->sheet_id!=1 || origin->object_id!=UINT64_C(9007199254740995) || origin->source_id!=origin->object_id || origin->query_generation!=table->revision || origin->schema_generation!=a->objects[0].source_revision || origin->row || origin->column!=1 || strcmp(origin->field,"City") ||
+        !value || strcmp(value->role,"region") || value->input_eligible || !review_smoke_sheet_pick(a,value,parent) || !value->value.present || value->value.is_null || value->value.truncated || strcmp(value->value.type,"VARCHAR") || strcmp(value->value.exact_text,t->inspector_text) || registry->duplicate_count || registry->invalid_count || registry->overflow_count || registry->truncated || strstr(a->review->frame.state_text," author_overflow=1")) return false;
+    for (size_t i=0;i<registry->count;i++) if (!strncmp(registry->widgets[i].id,parent,strlen(parent)) && (!review_smoke_inspector_identity(&registry->widgets[i].data,origin) || registry->widgets[i].identity_truncated)) return false;
+    snprintf(t->author_target,sizeof(t->author_target),"%s",value->id); return true;
+}
+static int review_smoke_owner_tick(App *a,ReviewSmoke *t) {
+    const int phase=t->stage-REVIEW_SQL_END; DxReviewCapture *r=a->review;
+    if (a->modal==MODAL_ERROR || a->fetch_failed || (a->book.active==0 && a->book.count==3 && a->book.sheets[0].objects.count && a->objects[0].failed)) goto failed;
+    if (phase<=8) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        switch (phase) {
+        case 0: {
+            const char *fixture=getenv("DUXCEL_REVIEW_OWNER_FIXTURE"); char *absolute=fixture && *fixture ? dx_absolute_path(fixture) : NULL;
+            if (!absolute) { fprintf(stderr,"Owner lifetime review requires private DUXCEL_REVIEW_OWNER_FIXTURE from native create-owners\n"); goto failed; }
+            int length=snprintf(t->owner_fixture,sizeof(t->owner_fixture),"%s",absolute); free(absolute);
+            if (length<0 || (size_t)length>=sizeof(t->owner_fixture)) goto failed;
+            length=snprintf(t->owner_copy,sizeof(t->owner_copy),"%s.native-owner-roundtrip.dxls",t->owner_fixture);
+            if (length<0 || (size_t)length>=sizeof(t->owner_copy) || FileExists(t->owner_copy) || DirectoryExists(t->owner_copy)) { fprintf(stderr,"Owner lifetime review refuses an existing or oversized copy destination\n"); goto failed; }
+            workspace_job(a,JOB_LOAD,t->owner_fixture); if (!a->io_busy || a->pending_kind!=JOB_LOAD) goto failed; return 1;
+        }
+        case 1:
+            if (a->book.active || !a->book.path || strcmp(a->book.path,t->owner_fixture) || !review_smoke_owner_model(a,1,UINT64_C(9007199254740994),true)) goto failed;
+            a->selected_object=0; remove_pivot(a);
+            if (!review_smoke_owner_model(a,0,UINT64_C(9007199254740994),false)) goto failed;
+            grid_select_cell(&a->grid,0,8,false); if (!import_table(a,"tests/fixtures/transactions.csv") || !review_smoke_owner_model(a,1,UINT64_C(9007199254740995),false)) goto failed; return 1;
+        case 2:
+            if (!review_smoke_owner_model(a,1,UINT64_C(9007199254740995),false)) goto failed;
+            if (!object_ready(a,0)) return 0;
+            if (!review_smoke_owner_table(a)) goto failed;
+            a->selected_object=0; create_pivot(a);
+            if (a->selected_object!=1 || !review_smoke_owner_model(a,2,UINT64_C(9007199254740996),false)) goto failed; return 1;
+        case 3:
+            if (!review_smoke_owner_model(a,2,UINT64_C(9007199254740996),false) || !review_smoke_owner_table(a) || a->selected_object!=1) goto failed;
+            remove_pivot(a);
+            if (!review_smoke_owner_model(a,1,UINT64_C(9007199254740996),false)) goto failed;
+            workspace_job(a,JOB_SAVE,t->owner_copy); if (!a->io_busy || a->pending_kind!=JOB_SAVE) goto failed; return 1;
+        case 4:
+            if (!a->book.path || strcmp(a->book.path,t->owner_copy) || a->book.dirty || !FileExists(t->owner_copy) || !review_smoke_owner_model(a,1,UINT64_C(9007199254740996),false)) goto failed;
+            workspace_job(a,JOB_LOAD,t->owner_copy); if (!a->io_busy || a->pending_kind!=JOB_LOAD) goto failed; return 1;
+        case 5:
+            if (a->book.active || !a->book.path || strcmp(a->book.path,t->owner_copy) || a->book.dirty || !review_smoke_owner_model(a,1,UINT64_C(9007199254740996),false)) goto failed;
+            if (!object_ready(a,0)) return 0;
+            if (!review_smoke_owner_table(a)) goto failed;
+            a->selected_object=0; create_pivot(a);
+            if (a->selected_object!=1 || !review_smoke_owner_model(a,2,UINT64_C(9007199254740997),false)) goto failed; return 1;
+        case 6:
+            if (!review_smoke_owner_model(a,2,UINT64_C(9007199254740997),false) || !review_smoke_owner_table(a)) goto failed;
+            activate_sheet(a,1,true); if (a->book.active!=1) goto failed; return 1;
+        case 7: {
+            if (a->book.active!=1 || !review_smoke_owner_model(a,2,UINT64_C(9007199254740997),false)) goto failed;
+            uint64_t request=a->request_id,jobs,queries,counts,prepares; size_t history=active_sheet(a)->undo_actions_count;
+            dx_lock(&a->worker.mutex); jobs=a->worker.jobs_started; queries=a->worker.db.query_count; counts=a->worker.db.count_queries; prepares=a->worker.db.relation_prepares; dx_unlock(&a->worker.mutex);
+            grid_select_cell(&a->grid,0,8,false); bool accepted=import_table(a,"tests/fixtures/transactions.csv");
+            dx_lock(&a->worker.mutex); bool same=jobs==a->worker.jobs_started && queries==a->worker.db.query_count && counts==a->worker.db.count_queries && prepares==a->worker.db.relation_prepares; dx_unlock(&a->worker.mutex);
+            if (accepted || !same || a->request_id!=request || active_sheet(a)->undo_actions_count!=history || !a->message || !strstr(a->message,"exhausted its object IDs") || !review_smoke_owner_model(a,2,UINT64_C(9007199254740997),false)) goto failed;
+            activate_sheet(a,0,true); if (a->book.active) goto failed; return 1;
+        }
+        case 8:
+            if (!review_smoke_owner_model(a,2,UINT64_C(9007199254740997),false)) goto failed;
+            if (!object_ready(a,0)) return 0;
+            if (!review_smoke_owner_table(a)) goto failed;
+            a->selected_object=0; show_workspace(a); a->matrix_cells_active=false; grid_select_cell(&a->grid,2,9,false); watch_statistics(a);
+            /* Finish this selection through the real scheduler before opening
+               the inspector, which pauses statistics scheduling. */
+            if (a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
+            inspect_value(a); if (a->modal!=MODAL_INSPECT) goto failed; return 1;
+        }
+    }
+    if (phase==9) {
+        if (a->modal!=MODAL_INSPECT) goto failed;
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || !review_can_capture(a) || a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
+        review_smoke_inspector_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==10) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        if (!review_smoke_owner_target(a,t)) goto failed;
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==11) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || !review_smoke_inspector_same(a,t,false) || r->target.widget.data.object_id!=UINT64_C(9007199254740995) || r->target.widget.data.source_id!=UINT64_C(9007199254740995)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (phase==12) { if (!review_smoke_inspector_same(a,t,false)) goto failed; ui_note_key_press(KEY_ESCAPE,0); return 1; }
+    t->choice_modal=MODAL_NONE;
+    if (!review_smoke_inspector_same(a,t,true) || !review_smoke_owner_model(a,2,UINT64_C(9007199254740997),false) || !review_smoke_owner_table(a)) goto failed;
+    review_smoke_author_release(t);
+    puts("PASS: native owner lifetime load/delete/import/bind/delete/save/reopen retains retired uint64 IDs above2^53, exact sparse cells/spatial formats, exhausted and never-allocated sheets; exhausted import adds no object/query; reopened Table inspector capture/cancel retains exact owner and Pages without clipboard/panels");
+    printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); return 1;
+failed:
+    fprintf(stderr,"Review owner lifetime mismatch stage=%d phase=%d modal=%d active=%zu sheets=%zu objects=%zu high_water=%llu path=%s message=%s\n",t->stage,phase,(int)a->modal,a->book.active,a->book.count,active_sheet(a) ? active_sheet(a)->objects.count : 0,(unsigned long long)(active_sheet(a) ? active_sheet(a)->objects.next_id : 0),a->book.path ? a->book.path : "",a->message ? a->message : "");
+    for (size_t i=0;i<a->book.count && i<3;i++) { const Worksheet *sheet=&a->book.sheets[i]; fprintf(stderr,"Review owner sheet=%zu kind=%d objects=%zu next=%llu cells=%zu formats=%zu/%zu\n",i,(int)sheet->analysis.kind,sheet->objects.count,(unsigned long long)sheet->objects.next_id,sheet->cells.count,sheet->formats.count,sheet->formats.scope_count); }
+    fprintf(stderr,"Review owner Table cache ready=%d id=%llu revision=%llu source=%llu dirty=%d failed=%d count=%llu/%zu columns=%zu statistics=%d enabled=%d\n",a->book.active==0 && object_ready(a,0),(unsigned long long)a->objects[0].id,(unsigned long long)a->objects[0].revision,(unsigned long long)a->objects[0].source_revision,a->objects[0].dirty,a->objects[0].failed,(unsigned long long)a->objects[0].page.total,a->objects[0].page.row_count,a->objects[0].page.column_count,(int)a->statistics_state,a->statistics_enabled);
+    if (phase>=9) review_smoke_inspector_diagnostic(a,t,"owner lifetime"); return -1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
@@ -2291,7 +2430,8 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
             {REVIEW_INSPECTOR_END,review_smoke_inspector_tick},
             {REVIEW_SETTINGS_END,review_smoke_settings_tick},
             {REVIEW_FORMAT_END,review_smoke_format_tick},
-            {REVIEW_SMOKE_STAGES,review_smoke_sql_tick},
+            {REVIEW_SQL_END,review_smoke_sql_tick},
+            {REVIEW_SMOKE_STAGES,review_smoke_owner_tick},
         };
         int progress=-1;
         for (size_t i=0;i<sizeof(handlers)/sizeof(*handlers);i++)
