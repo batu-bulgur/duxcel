@@ -17,13 +17,16 @@ const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
 const accessOnly=process.argv.includes('--access-only');
 const zoomOnly=process.argv.includes('--zoom-only');
+const reviewControlsOnly=process.argv.includes('--review-controls-only');
 const reviewOffline=process.argv.includes('--review-offline');
 const canvasTransform=process.argv.includes('--canvas-transform');
 const platform=process.argv.includes('--platform');
 const altStress=process.argv.includes('--alt-stress');
 const persistence=process.argv.includes('--persistence');
-if(accessOnly&&(!review||['--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
-if(zoomOnly&&(!review||['--access-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--zoom-only requires --review and excludes access/engine/platform/report-upload options');
+const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
+if(accessOnly&&(!review||['--review-controls-only','--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
+if(zoomOnly&&(!review||['--review-controls-only','--access-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--zoom-only requires --review and excludes access/engine/platform/report-upload options');
+if(reviewControlsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||['--access-only','--zoom-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-controls-only requires --review/transactions.csv and excludes access/zoom/engine/platform/report-upload options');
 await fs.mkdir(output,{recursive:true});
 const profile=await fs.mkdtemp(path.join(os.tmpdir(),'duxcel-browser-'));
 const browser=spawn(process.env.DUXCEL_CHROMIUM??'/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -38,7 +41,7 @@ let platformResult;
 let accessKeyResult;
 let persistenceResult;
 let zoomResult;
-const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
+let reviewControlsResult;
 let stderr='',ws,cdp,activePhase='';const events=[],steps=[];let checks=0;const started=Date.now();
 function check(value,message){checks++;if(!value)throw new Error(message);}
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -108,10 +111,13 @@ async function beginReview(){
 }
 async function platformSnapshot(){
  await beginReview();
+ const state=capturedState();
+ await key('Escape','Escape',27);return state;
+}
+function capturedState(){
  const line=consoleText('Browser review state: ').at(-1);
  check(line,'Missing real C platform state');
- const state=Object.fromEntries([...line.matchAll(/([a-z_]+)=([^ ]+)/g)].map(match=>[match[1],match[2]]));
- await key('Escape','Escape',27);return state;
+ return Object.fromEntries([...line.matchAll(/([a-z_][a-z_0-9]*)=([^ ]+)/g)].map(match=>[match[1],match[2]]));
 }
 async function hintMotion(){
  await pause(180);await frames(3);
@@ -225,6 +231,113 @@ async function pickAndCancel(id,x,y,{moveBar=false,captureName=null}={}){
  check(picked==='Review picked: '+id,'Frozen picker chose covered content instead of '+id+': '+picked);
  if(captureName)await capture(captureName+'-composer');
  await key('Escape','Escape',27);return{id,captured,picked,moved_bar:moveBar};
+}
+// Review instrumentation exposes only the actual armed C frame's bounded
+// authoring geometry. The driver sends real input; it does not call controller
+// functions, build a parallel menu model or serialize a cancelled report.
+function authorState(state,kind){
+ check(state.author_kind===kind&&state.author_parent==='author.'+kind,'Missing authoritative '+kind+' menu capture');
+ check(state.author_overflow==='0','Authoring diagnostics overflowed their bounded visible-row capture');
+ const rect=name=>{const result=state[name]?.split(',').map(Number);check(result?.length===4&&result.every(Number.isFinite)&&result[2]>0&&result[3]>0,'Invalid captured '+name);return result;};
+ const panel=rect('author_panel'),heading=rect('author_heading'),[width,height]=state.logical.split(',').map(Number);
+ check(panel[0]>=0&&panel[1]>=0&&panel[0]+panel[2]<=width+.01&&panel[1]+panel[3]<=height+.01,'Authoring panel escaped the real logical viewport');
+ const count=Number(state.author_count);check(Number.isInteger(count)&&count>0&&count<=16,'Invalid visible authoring count');
+ const rows=Array.from({length:count},(_,index)=>{
+  const bounds=rect('author_row'+index),key=state['author_key'+index],id=state['author_id'+index],flags=state['author_flags'+index]?.split(',').map(Number);
+  check(key&&id===state.author_parent+'.action.'+key&&flags?.length===3&&flags.every(flag=>flag===0||flag===1),'Incomplete or unstable semantic authoring row '+index);
+  check(bounds[0]>=panel[0]-.01&&bounds[1]>=panel[1]-.01&&bounds[0]+bounds[2]<=panel[0]+panel[2]+.01&&bounds[1]+bounds[3]<=panel[1]+panel[3]+.01,'Authoring row escaped its captured panel clip');
+  return{index,key,id,bounds,enabled:!!flags[0],checked:!!flags[1],focused:!!flags[2]};
+ });
+ check(new Set(rows.map(row=>row.id)).size===count&&rows.filter(row=>row.focused).length<=1,'Authoring rows have duplicate identity or focus');
+ return{state,panel,heading,rows};
+}
+const authorOwnedFields=['sheet','modal','active','anchor','extent','grid_selection','top','horizontal','fraction','manual_cells','sheet_count','dirty','request','source_revision','schema','page','spare'];
+function authorRetained(before,after,label){
+ check(authorOwnedFields.every(field=>before[field]===after[field]),label+' changed the underlying modal, cells, selection or published source');
+ check(before.author_kind===after.author_kind&&before.author_count===after.author_count,'Cancelled review lost its owning contextual menu');
+ const count=Number(before.author_count);
+ check(Array.from({length:count},(_,i)=>i).every(i=>before['author_id'+i]===after['author_id'+i]&&before['author_flags'+i]===after['author_flags'+i]),label+' changed contextual identity, enabled state or focus');
+}
+let authorPickerTop=false;
+async function authorPick(kind,choose,name){
+ const jobs=starts().length,captured=await beginReview(),state=capturedState(),menu=authorState(state,kind),target=choose(menu);
+ check(target&&target.id&&target.bounds?.length===4,'Authoring target is unavailable: '+name);
+ const [x,y,w,h]=target.bounds,point={x:x+w/2,y:y+h/2},height=Number(state.logical.split(',')[1]),top=point.y>height/2;
+ if(top!==authorPickerTop){await key(' ','Space',32,' ');authorPickerTop=top;}
+ const after=consoleText('Review picked: ').length;await click(point.x,point.y);const picked=await waitConsole('Review picked: ',after);
+ check(picked==='Review picked: '+target.id,'Frozen authoring picker selected covered content instead of '+target.id+': '+picked);
+ await capture('controls-'+name);await key('Escape','Escape',27);
+ const restored=await platformSnapshot();authorRetained(state,restored,name);
+ check(starts().length===jobs,'Reporting '+name+' submitted a database job');
+ return{captured,target,point,picked,before:state,after:restored};
+}
+async function rightClick(x,y){
+ ({x,y}=await canvasPoint(x,y));
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'right',clickCount:1});await frames();
+ await send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'right',clickCount:1});await frames();
+}
+async function authorNavigation(kind){
+ const states=[];
+ for(const [name,code,virtual,last]of[['End','End',35,true],['Home','Home',36,false]]){
+  await key(name,code,virtual);const state=await platformSnapshot(),menu=authorState(state,kind),available=menu.rows.filter(row=>row.enabled),expected=last?available.at(-1):available[0];
+  check(expected?.focused,'Context '+name+' did not focus its '+(last?'last':'first')+' enabled semantic target');states.push(state);
+ }
+ return states;
+}
+async function reviewControls(){
+ const source=await zoomSource(),results={source,picks:[]};
+ let state=await platformSnapshot();const [bx,by]=state.body.split(',').map(Number),[cw,rh]=state.grid_cell.split(',').map(Number);
+ await rightClick(bx+cw/2,by+rh/2);
+ const sourceMenu=authorState(await platformSnapshot(),'source_context');
+ check(sourceMenu.rows.length===6&&sourceMenu.rows.every(row=>row.enabled),'Real source-cell menu does not expose all six current actions');
+ check(sourceMenu.rows.map(row=>row.key).join(',')==='copy,sort.asc,sort.desc,filter,create_analysis,inspect_sql','Source-cell menu lost its stable action semantics');
+ results.picks.push(await authorPick('source_context',menu=>({id:menu.state.author_parent+'.background',bounds:[menu.panel[0]+1,menu.panel[1]+1,2,2]}),'source-background'));
+ results.picks.push(await authorPick('source_context',menu=>({id:menu.state.author_parent+'.heading',bounds:menu.heading}),'source-heading'));
+ results.picks.push(await authorPick('source_context',menu=>menu.rows.find(row=>row.key==='copy'),'source-copy'));
+ results.picks.push(await authorPick('source_context',menu=>menu.rows.find(row=>row.key==='filter'),'source-filter'));
+ results.sourceNavigation=await authorNavigation('source_context');await key('Escape','Escape',27);
+ state=await platformSnapshot();const [gx]=state.grid_rect.split(',').map(Number);
+ await rightClick((gx+bx)/2,by+rh/2);
+ const sourceRows=authorState(await platformSnapshot(),'context');
+ check(sourceRows.state.grid_selection==='1'&&sourceRows.rows.length===6&&sourceRows.rows.filter(row=>!row.enabled).length>=3,'Imported row menu lost its protected structural/edit states');
+ check(sourceRows.rows.filter(row=>!row.enabled).map(row=>row.key).join(',')==='insert.above,insert.below,delete.row,edit','Imported row protections do not match the registered actions');
+ results.picks.push(await authorPick('context',menu=>menu.rows.find(row=>row.key==='insert.above'&&!row.enabled),'protected-source-row'));
+ results.picks.push(await authorPick('context',menu=>menu.rows.find(row=>row.key==='edit'&&!row.enabled),'protected-source-edit'));
+ results.rowNavigation=await authorNavigation('context');await key('Escape','Escape',27);
+ // F6 is the real focus-region command. Find Fields without relying on dock
+ // dimensions, then open its current field with the real context shortcut.
+ await click(bx+cw/2,by+rh/2);let fields=false;
+ for(let index=0;index<8;index++){await key('F6','F6',117);state=await platformSnapshot();if(state.focus?.split('/')[1]==='1'){fields=true;break;}}
+ check(fields,'Actual focus-region traversal did not reach source Fields');
+ await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));await key('F10','F10',121,'',8);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16));await frames();
+ const fieldsMenu=authorState(await platformSnapshot(),'field');check(fieldsMenu.rows.length===9,'Real field menu did not register its navigation and assignment children');
+ check(fieldsMenu.rows.map(row=>row.key).join(',')==='reveal_column,center_column,select_column,assign.rows,assign.columns,assign.values,assign.filters,assign.color,assign.detail','Field menu lost its stable child semantics');
+ results.picks.push(await authorPick('field',menu=>({id:menu.state.author_parent+'.heading',bounds:menu.heading}),'field-heading'));
+ results.picks.push(await authorPick('field',menu=>menu.rows.find(row=>row.key==='assign.rows'),'field-add-rows'));
+ results.fieldNavigation=await authorNavigation('field');await key('Escape','Escape',27);await key('Escape','Escape',27);
+ // A separately owned sparse sheet lets us verify manual-range targets without
+ // pretending the browser supports native analytical-object queries.
+ await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));await key('F11','F11',122,'',8);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16));
+ await key('7','Digit7',55,'7');await key('Enter','Enter',13);await key('ArrowUp','ArrowUp',38);
+ const manual=await platformSnapshot();check(manual.manual_cells==='1','Real manual entry did not retain the sparse sentinel');
+ const [mx,my]=manual.body.split(',').map(Number),[mw,mh]=manual.grid_cell.split(',').map(Number);await rightClick(mx+mw/2,my+mh/2);
+ const manualMenu=authorState(await platformSnapshot(),'context');check(manualMenu.rows.length===8&&manualMenu.rows.every(row=>row.enabled),'Manual cell menu lost structural/edit/move targets');
+ results.picks.push(await authorPick('context',menu=>menu.rows.find(row=>row.key==='move'),'manual-move'));
+ results.manualNavigation=await authorNavigation('context');await key('Escape','Escape',27);
+ await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('7','Digit7',55);await key('Home','Home',36);for(let i=0;i<3;i++)await key('ArrowDown','ArrowDown',40);await key('Enter','Enter',13);
+ await send('Emulation.setDeviceMetricsOverride',{width:640,height:640,deviceScaleFactor:dpr,mobile:false});await frames(4);
+ const narrow=await platformSnapshot();check(narrow.ui_scale==='1.500000'&&narrow.manual_cells==='1','Narrow review preparation changed manual data or interface scale');
+ const [nx,ny,nw,nh]=narrow.body.split(',').map(Number);await rightClick(nx+nw-24,ny+nh-24);
+ const narrowMenu=authorState(await platformSnapshot(),'context');check(narrowMenu.rows.length===8,'Narrow manual menu lost visible semantic children');
+ results.picks.push(await authorPick('context',menu=>({id:menu.state.author_parent+'.heading',bounds:menu.heading}),'manual-narrow-heading'));
+ results.picks.push(await authorPick('context',menu=>menu.rows.find(row=>row.key==='move'),'manual-narrow-move'));
+ await key('Escape','Escape',27);const final=await platformSnapshot();
+ check(final.manual_cells==='1'&&final.modal==='0','Cancelled contextual review changed sparse data or left a modal open');
+ check(consoleText('Browser review prepared: ').length===0&&(await pendingReports()).length===0,'Cancel-only controls gate staged a report');
+ const queue=await(await fetch(new URL('/__review/queue',url))).json();check(queue.reports.length===0,'Cancel-only controls gate wrote into the persistent queue');
+ results.final=final;results.scope='Actual shared C source/manual contextual actions and Fields children through trusted pointer/F6/context keys, same-frame semantic bounds/flags, covered heading/background and disabled-row picking, navigation, cancel ownership and narrow150% clipping. Real Worker source import; no analytical-object, physical IME or report-upload acceptance.';
+ await fs.writeFile(path.join(output,'review-controls.json'),JSON.stringify(results,null,2));return results;
 }
 // These run after source/filter/report acceptance because Close/Discard must
 // exercise the real document lifecycle and intentionally resets the workbook.
@@ -510,7 +623,9 @@ try{
  check(surface.dpr===dpr,'Browser device pixel ratio mismatch');
  check(surface.canvas[0]===1280*dpr&&surface.canvas[1]===820*dpr,'Framebuffer is not rendered at actual DPR');
  await capture('wide');
- if(accessOnly){
+ if(reviewControlsOnly){
+  reviewControlsResult=await reviewControls();
+ }else if(accessOnly){
   accessKeyResult=await accessKeys();
   reviewResult=await choiceReviewPick();
   check(starts().length===0,'Blank-workbook access-only flow submitted a database job');
@@ -726,7 +841,9 @@ try{
  resources.c_bridge=consoleText('Browser worker metrics: ').map(line=>JSON.parse(line.slice('Browser worker metrics: '.length)));
  resources.scope='Navigation-to-first completed C frame and parent resource timing; main JS heap excludes Worker/GPU/process RSS. C bridge metrics are review-only bounded callback/job observations; decode_ms is C validation/allocation/copy, elapsed_ms includes asynchronous engine/transport scheduling. Worker network bytes are not inferred from parent Resource Timing.';
  await fs.writeFile(path.join(output,'resources.json'),JSON.stringify(resources,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,workerProbe,profile:zoomOnly?'zoom-only':accessOnly?'access-only':'standard',scope:zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,reviewControlsResult,workerProbe,
+  profile:reviewControlsOnly?'review-controls-only':zoomOnly?'zoom-only':accessOnly?'access-only':'standard',
+  scope:reviewControlsOnly?'Shared C source/manual contextual targets and field-menu children, trusted pointer/context-key ownership and cancel retention, narrow150% clipping; no analytical-object or report-upload acceptance.':zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){
