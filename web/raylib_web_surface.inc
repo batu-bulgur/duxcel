@@ -17,6 +17,10 @@ EM_JS(void, dx_web_install_surface, (void), {
     };
 });
 EM_JS(int, dx_web_read_surface, (int *out, int force), {
+    // Some browser/device-emulation transitions change DPR without delivering
+    // resize or resolution-MQL events. One scalar check at the existing frame
+    // boundary is sufficient; geometry is read only when density changes.
+    if (Module.dxSurface.current?.devicePixelRatio!==window.devicePixelRatio) Module.dxSurface.resize();
     const surface=Module.dxSurface?.current;
     if (!surface || (!force && !Module.dxSurfacePending)) return 0;
     Module.dxSurfacePending=false;
