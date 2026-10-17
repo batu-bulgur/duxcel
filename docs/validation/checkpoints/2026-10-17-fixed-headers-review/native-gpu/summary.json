@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "41095d0824dd327fc546efb63e5c49d707209f06",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "87d6a3b0f408955e8d341c016a9bcefdd49130761f6d05702f1ba5e2545b7ca2",
+    "source_files": 240
+  },
+  "binary_sha256": "d7a05ad77efb80c55ebed35b592d9d76d6eca93460c79bea01dbbb49c1c4915a",
+  "elapsed_seconds": 1.882,
+  "exit_code": 0,
+  "checks": 110,
+  "desktop_visibility": "hidden renderer; shared desktop lock"
+}

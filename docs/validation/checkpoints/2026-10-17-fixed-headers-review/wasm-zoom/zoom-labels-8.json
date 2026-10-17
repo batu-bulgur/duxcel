@@ -1,0 +1,115 @@
+{
+  "state": {
+    "sheet": "2",
+    "modal": "0",
+    "ribbon": "0/0",
+    "focus": "0/0/0",
+    "filter_field": "0",
+    "filter_focus": "3",
+    "filter_menu": "0",
+    "search_cursor": "0",
+    "search_anchor": "0",
+    "search_revision": "2",
+    "active": "0,0",
+    "anchor": "0,0",
+    "extent": "0,0",
+    "top": "0",
+    "horizontal": "0.000",
+    "page": "0/0",
+    "spare": "0/0",
+    "source_revision": "3",
+    "schema": "1",
+    "request": "6",
+    "busy": "0",
+    "io_busy": "0",
+    "dirty": "1",
+    "fraction": "0.000000000",
+    "row_height": "24.000000",
+    "elastic": "0.000000,0.000000",
+    "velocity": "0.000000,0.000000",
+    "body": "268.000,189.000,1000.000,597.000",
+    "keytips": "0.000000",
+    "grid_rect": "228.000,165.000,1052.000,633.000",
+    "grid_gutter": "40.000",
+    "grid_header": "24.000",
+    "grid_cell": "96.000,24.000",
+    "source_header": "0",
+    "grid_selection": "0",
+    "keytip_tab": "4",
+    "keytip_prefix": "Z",
+    "file_menu": "0",
+    "active_format_flags": "0",
+    "manual_cells": "0",
+    "sheet_count": "3",
+    "file_focus": "0",
+    "file_scroll": "0",
+    "file_visible": "6",
+    "file_panel": "8.000,28.000,240.000,217.000",
+    "last_command": "39",
+    "ui_heap": "67108864",
+    "ui_allocated": "11086640",
+    "zoom": "1.000000",
+    "ui_scale": "1.000000",
+    "logical": "1280,820",
+    "framebuffer": "2560,1640"
+  },
+  "result": {
+    "ratio": 1.6,
+    "ratioY": 1.6,
+    "labels": {
+      "column": {
+        "width": 5.625,
+        "height": 7.5,
+        "ink": 36,
+        "min": 113,
+        "max": 246,
+        "region": {
+          "x": 306,
+          "y": 166,
+          "w": 20,
+          "h": 22
+        },
+        "pixels": {
+          "x": 694,
+          "y": 363,
+          "w": 32,
+          "h": 36
+        }
+      },
+      "row": {
+        "width": 5,
+        "height": 8.125,
+        "ink": 34,
+        "min": 114,
+        "max": 248,
+        "region": {
+          "x": 230,
+          "y": 241,
+          "w": 36,
+          "h": 16
+        },
+        "pixels": {
+          "x": 572,
+          "y": 483,
+          "w": 58,
+          "h": 26
+        }
+      }
+    },
+    "image": {
+      "width": 2560,
+      "height": 1640
+    },
+    "surface": {
+      "x": 102.390625,
+      "y": 49.1875,
+      "width": 1024,
+      "height": 656,
+      "viewportWidth": 1280,
+      "viewportHeight": 820
+    },
+    "capture": "zoom-labels-8.png",
+    "sha256": "a7fd8a9e0d56db48bc3021af90f633fb4977ba68c8f1874d3799c3181c3ba216",
+    "method": "single CDP compositor screenshot of actual C canvas"
+  }
+}
