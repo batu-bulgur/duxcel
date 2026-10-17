@@ -209,3 +209,15 @@ python3 tools/test_web_app.py --review --review-sql-only --no-build --source tes
 ```
 
 Build the current native persistence helpers and appropriate normal/review Wasm first. Owner mode preserves the unchanged v12 proof and separately checks real v13 counters/20 metadata tables, native release/ASan readback and original-file hashes:17 App checks/nine Worker steps/8.178s. SQL mode passes793 checks/29.147s, including actual source Apply, pinned primary/cached SQL, trusted nonzero scroll/clamps, eight frozen picks and the real pane-to-canvas pointer takeover regression. No Copy activation or saved report occurs. Native322 takes12.948s optimized/14.252s sanitizer; its runner creates a private owner fixture and saved copy per configuration, verifies unchanged original/helper hashes, and retains three reports. `--no-build` now requires the matching persistence helper as well as the review binary. [Evidence and limits](validation/checkpoints/2026-10-18-sql-review-owner-lifetimes/).
+
+The next review/copy checkpoint adds focused browser commands:
+
+```sh
+python3 tools/test_web_app.py --review --review-guide-only --no-build --dpr 2 --canvas-transform
+python3 tools/test_web_app.py --review --review-cell-only --no-build --dpr 2 --canvas-transform
+python3 tools/test_web_app.py --review --review-error-only --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
+python3 tools/test_web_app.py --review --focus-only --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
+python3 tools/test_web_app.py --worker-driver --no-build
+```
+
+Build matching review or Worker-driver artifacts first. Native358 passed13.857s optimized/15.361s ASan+UBSan, with the same three reports/configuration. Separate real browser Guide832/17.225s, Cell142/23.116s, Error1129/33.255s and focus92/15.004s cover owned text, frozen cancellation, normal dismissal and actual commit/Undo or source-error recovery. The139-stage real Worker passes121,724 C checks/8.773s, including exact copy/budget/cancellation recovery; this is backend acceptance, with no clipboard delivery or export claim. These gates never use the OS clipboard or visible file panels. [Evidence and source/binary scopes](validation/checkpoints/2026-10-18-guide-cell-error-copy/).

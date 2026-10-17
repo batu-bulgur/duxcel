@@ -1,0 +1,6009 @@
+{
+  "status": "passed",
+  "checks": 832,
+  "url": "http://127.0.0.1:54551/",
+  "surface": {
+    "width": 1280,
+    "height": 820,
+    "dpr": 2,
+    "canvas": [
+      2560,
+      1640
+    ]
+  },
+  "elapsed_ms": 13966,
+  "steps": [
+    {
+      "key": ".",
+      "time": 1792273723051,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273723051,
+          "completed_ms": 1792273723052
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273723052,
+          "completed_ms": 1792273723077
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273723077,
+          "completed_ms": 1792273723078
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273723078,
+          "completed_ms": 1792273723103
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273723138,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273723138,
+          "completed_ms": 1792273723139
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273723139,
+          "completed_ms": 1792273723171
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273723171,
+          "completed_ms": 1792273723172
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273723172,
+          "completed_ms": 1792273723204
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273723290,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273723290,
+          "completed_ms": 1792273723290
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273723290,
+          "completed_ms": 1792273723326
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273723326,
+          "completed_ms": 1792273723327
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273723327,
+          "completed_ms": 1792273723365
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273723389,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273723389,
+          "completed_ms": 1792273723390
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273723390,
+          "completed_ms": 1792273723421
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273723421,
+          "completed_ms": 1792273723422
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273723422,
+          "completed_ms": 1792273723455
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273723457,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273723457,
+          "completed_ms": 1792273723458
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273723458,
+          "completed_ms": 1792273723491
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273723491,
+          "completed_ms": 1792273723491
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273723491,
+          "completed_ms": 1792273723521
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273723924,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273723924,
+          "completed_ms": 1792273723925
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273723925,
+          "completed_ms": 1792273723954
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273723954,
+          "completed_ms": 1792273723954
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273723954,
+          "completed_ms": 1792273723988
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273723990,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273723990,
+          "completed_ms": 1792273723990
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273723990,
+          "completed_ms": 1792273724032
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273724032,
+          "completed_ms": 1792273724032
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273724032,
+          "completed_ms": 1792273724059
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273724088,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273724088,
+          "completed_ms": 1792273724089
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273724089,
+          "completed_ms": 1792273724122
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273724122,
+          "completed_ms": 1792273724122
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273724122,
+          "completed_ms": 1792273724155
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273724157,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273724157,
+          "completed_ms": 1792273724157
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273724157,
+          "completed_ms": 1792273724192
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273724192,
+          "completed_ms": 1792273724192
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273724192,
+          "completed_ms": 1792273724221
+        }
+      ]
+    },
+    {
+      "key": " ",
+      "time": 1792273724256,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273724256,
+          "completed_ms": 1792273724257
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273724257,
+          "completed_ms": 1792273724287
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273724287,
+          "completed_ms": 1792273724288
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273724288,
+          "completed_ms": 1792273724320
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273724525,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273724525,
+          "completed_ms": 1792273724526
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273724526,
+          "completed_ms": 1792273724555
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273724555,
+          "completed_ms": 1792273724555
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273724555,
+          "completed_ms": 1792273724588
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273724589,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273724589,
+          "completed_ms": 1792273724590
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273724590,
+          "completed_ms": 1792273724628
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273724628,
+          "completed_ms": 1792273724629
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273724629,
+          "completed_ms": 1792273724655
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273724687,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273724687,
+          "completed_ms": 1792273724688
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273724688,
+          "completed_ms": 1792273724721
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273724721,
+          "completed_ms": 1792273724722
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273724722,
+          "completed_ms": 1792273724755
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273724756,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273724756,
+          "completed_ms": 1792273724756
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273724756,
+          "completed_ms": 1792273724793
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273724793,
+          "completed_ms": 1792273724794
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273724794,
+          "completed_ms": 1792273724823
+        }
+      ]
+    },
+    {
+      "key": " ",
+      "time": 1792273724856,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273724856,
+          "completed_ms": 1792273724856
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273724856,
+          "completed_ms": 1792273724888
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273724888,
+          "completed_ms": 1792273724889
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273724889,
+          "completed_ms": 1792273724921
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273725142,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273725142,
+          "completed_ms": 1792273725142
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273725142,
+          "completed_ms": 1792273725172
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273725172,
+          "completed_ms": 1792273725172
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273725172,
+          "completed_ms": 1792273725205
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273725209,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273725209,
+          "completed_ms": 1792273725210
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273725210,
+          "completed_ms": 1792273725241
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273725241,
+          "completed_ms": 1792273725242
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273725242,
+          "completed_ms": 1792273725272
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273725305,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273725305,
+          "completed_ms": 1792273725305
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273725305,
+          "completed_ms": 1792273725338
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273725338,
+          "completed_ms": 1792273725339
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273725339,
+          "completed_ms": 1792273725372
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273725373,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273725373,
+          "completed_ms": 1792273725373
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273725373,
+          "completed_ms": 1792273725409
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273725409,
+          "completed_ms": 1792273725410
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273725410,
+          "completed_ms": 1792273725439
+        }
+      ]
+    },
+    {
+      "key": " ",
+      "time": 1792273725472,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273725472,
+          "completed_ms": 1792273725473
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273725473,
+          "completed_ms": 1792273725504
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273725504,
+          "completed_ms": 1792273725505
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273725505,
+          "completed_ms": 1792273725537
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273725762,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273725762,
+          "completed_ms": 1792273725763
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273725763,
+          "completed_ms": 1792273725788
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273725788,
+          "completed_ms": 1792273725789
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273725789,
+          "completed_ms": 1792273725822
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273725823,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273725823,
+          "completed_ms": 1792273725823
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273725823,
+          "completed_ms": 1792273725860
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273725860,
+          "completed_ms": 1792273725861
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273725861,
+          "completed_ms": 1792273725889
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273725920,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273725920,
+          "completed_ms": 1792273725921
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273725921,
+          "completed_ms": 1792273725955
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273725955,
+          "completed_ms": 1792273725956
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273725956,
+          "completed_ms": 1792273725988
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273725989,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273725989,
+          "completed_ms": 1792273725990
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273725990,
+          "completed_ms": 1792273726025
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273726025,
+          "completed_ms": 1792273726026
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273726026,
+          "completed_ms": 1792273726054
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273726294,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273726294,
+          "completed_ms": 1792273726295
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273726295,
+          "completed_ms": 1792273726321
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273726321,
+          "completed_ms": 1792273726322
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273726322,
+          "completed_ms": 1792273726355
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273726356,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273726356,
+          "completed_ms": 1792273726356
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273726356,
+          "completed_ms": 1792273726397
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273726397,
+          "completed_ms": 1792273726397
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273726397,
+          "completed_ms": 1792273726424
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273726454,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273726454,
+          "completed_ms": 1792273726455
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273726455,
+          "completed_ms": 1792273726487
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273726487,
+          "completed_ms": 1792273726488
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273726488,
+          "completed_ms": 1792273726523
+        }
+      ]
+    },
+    {
+      "key": "Tab",
+      "time": 1792273726523,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273726523,
+          "completed_ms": 1792273726523
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273726523,
+          "completed_ms": 1792273726555
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273726555,
+          "completed_ms": 1792273726555
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273726555,
+          "completed_ms": 1792273726588
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273726589,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273726589,
+          "completed_ms": 1792273726590
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273726590,
+          "completed_ms": 1792273726631
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273726631,
+          "completed_ms": 1792273726632
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273726632,
+          "completed_ms": 1792273726658
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273726686,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273726686,
+          "completed_ms": 1792273726686
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273726686,
+          "completed_ms": 1792273726721
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273726721,
+          "completed_ms": 1792273726722
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273726722,
+          "completed_ms": 1792273726756
+        }
+      ]
+    },
+    {
+      "key": "Enter",
+      "time": 1792273726756,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273726756,
+          "completed_ms": 1792273726757
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273726757,
+          "completed_ms": 1792273726788
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273726788,
+          "completed_ms": 1792273726788
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273726788,
+          "completed_ms": 1792273726821
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273726822,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273726822,
+          "completed_ms": 1792273726822
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273726822,
+          "completed_ms": 1792273726860
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273726860,
+          "completed_ms": 1792273726860
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273726860,
+          "completed_ms": 1792273726887
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273726920,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273726920,
+          "completed_ms": 1792273726921
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273726921,
+          "completed_ms": 1792273726955
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273726955,
+          "completed_ms": 1792273726955
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273726955,
+          "completed_ms": 1792273726988
+        }
+      ]
+    },
+    {
+      "key": "Enter",
+      "time": 1792273726988,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273726989,
+          "completed_ms": 1792273726989
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273726989,
+          "completed_ms": 1792273727022
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727022,
+          "completed_ms": 1792273727023
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727023,
+          "completed_ms": 1792273727056
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273727058,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727058,
+          "completed_ms": 1792273727058
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727058,
+          "completed_ms": 1792273727104
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727104,
+          "completed_ms": 1792273727104
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727104,
+          "completed_ms": 1792273727138
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273727171,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727171,
+          "completed_ms": 1792273727172
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727172,
+          "completed_ms": 1792273727205
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727205,
+          "completed_ms": 1792273727206
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727206,
+          "completed_ms": 1792273727239
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273727239,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727239,
+          "completed_ms": 1792273727239
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727239,
+          "completed_ms": 1792273727271
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727271,
+          "completed_ms": 1792273727272
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727272,
+          "completed_ms": 1792273727303
+        }
+      ]
+    },
+    {
+      "key": "Alt",
+      "time": 1792273727303,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727303,
+          "completed_ms": 1792273727304
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727304,
+          "completed_ms": 1792273727339
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727339,
+          "completed_ms": 1792273727339
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727339,
+          "completed_ms": 1792273727369
+        }
+      ]
+    },
+    {
+      "key": "w",
+      "time": 1792273727369,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727369,
+          "completed_ms": 1792273727370
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727370,
+          "completed_ms": 1792273727406
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727406,
+          "completed_ms": 1792273727407
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727407,
+          "completed_ms": 1792273727438
+        }
+      ]
+    },
+    {
+      "key": "z",
+      "time": 1792273727438,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727438,
+          "completed_ms": 1792273727439
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727439,
+          "completed_ms": 1792273727472
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727472,
+          "completed_ms": 1792273727473
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727473,
+          "completed_ms": 1792273727506
+        }
+      ]
+    },
+    {
+      "key": "7",
+      "time": 1792273727506,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727506,
+          "completed_ms": 1792273727507
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727507,
+          "completed_ms": 1792273727539
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727539,
+          "completed_ms": 1792273727542
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727542,
+          "completed_ms": 1792273727570
+        }
+      ]
+    },
+    {
+      "key": "Home",
+      "time": 1792273727570,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727570,
+          "completed_ms": 1792273727571
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727571,
+          "completed_ms": 1792273727604
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727604,
+          "completed_ms": 1792273727604
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727604,
+          "completed_ms": 1792273727637
+        }
+      ]
+    },
+    {
+      "key": "ArrowDown",
+      "time": 1792273727637,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727637,
+          "completed_ms": 1792273727638
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727638,
+          "completed_ms": 1792273727671
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727671,
+          "completed_ms": 1792273727671
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727671,
+          "completed_ms": 1792273727705
+        }
+      ]
+    },
+    {
+      "key": "ArrowDown",
+      "time": 1792273727705,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727705,
+          "completed_ms": 1792273727706
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727706,
+          "completed_ms": 1792273727737
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727737,
+          "completed_ms": 1792273727738
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727738,
+          "completed_ms": 1792273727771
+        }
+      ]
+    },
+    {
+      "key": "ArrowDown",
+      "time": 1792273727771,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727771,
+          "completed_ms": 1792273727772
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727772,
+          "completed_ms": 1792273727803
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727803,
+          "completed_ms": 1792273727804
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727804,
+          "completed_ms": 1792273727836
+        }
+      ]
+    },
+    {
+      "key": "Enter",
+      "time": 1792273727836,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273727836,
+          "completed_ms": 1792273727836
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273727836,
+          "completed_ms": 1792273727954
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273727954,
+          "completed_ms": 1792273727954
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273727954,
+          "completed_ms": 1792273727985
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273728053,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273728053,
+          "completed_ms": 1792273728053
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273728053,
+          "completed_ms": 1792273728084
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273728084,
+          "completed_ms": 1792273728085
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273728085,
+          "completed_ms": 1792273728118
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273728152,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273728152,
+          "completed_ms": 1792273728153
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273728153,
+          "completed_ms": 1792273728185
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273728185,
+          "completed_ms": 1792273728185
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273728185,
+          "completed_ms": 1792273728218
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273728303,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273728303,
+          "completed_ms": 1792273728303
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273728303,
+          "completed_ms": 1792273728335
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273728335,
+          "completed_ms": 1792273728336
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273728336,
+          "completed_ms": 1792273728367
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273728400,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273728400,
+          "completed_ms": 1792273728401
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273728401,
+          "completed_ms": 1792273728435
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273728435,
+          "completed_ms": 1792273728435
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273728435,
+          "completed_ms": 1792273728468
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273728469,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273728469,
+          "completed_ms": 1792273728470
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273728470,
+          "completed_ms": 1792273728499
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273728499,
+          "completed_ms": 1792273728500
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273728500,
+          "completed_ms": 1792273728534
+        }
+      ]
+    },
+    {
+      "key": " ",
+      "time": 1792273728568,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273728568,
+          "completed_ms": 1792273728569
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273728569,
+          "completed_ms": 1792273728600
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273728600,
+          "completed_ms": 1792273728601
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273728601,
+          "completed_ms": 1792273728634
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273728896,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273728896,
+          "completed_ms": 1792273728897
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273728897,
+          "completed_ms": 1792273728933
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273728933,
+          "completed_ms": 1792273728934
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273728934,
+          "completed_ms": 1792273728966
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273728967,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273728967,
+          "completed_ms": 1792273728968
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273728968,
+          "completed_ms": 1792273728999
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273728999,
+          "completed_ms": 1792273729000
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729000,
+          "completed_ms": 1792273729032
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273729065,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273729065,
+          "completed_ms": 1792273729066
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273729066,
+          "completed_ms": 1792273729099
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273729099,
+          "completed_ms": 1792273729100
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729100,
+          "completed_ms": 1792273729130
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273729132,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273729132,
+          "completed_ms": 1792273729133
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273729133,
+          "completed_ms": 1792273729163
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273729163,
+          "completed_ms": 1792273729164
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729164,
+          "completed_ms": 1792273729198
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273729396,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273729397,
+          "completed_ms": 1792273729397
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273729397,
+          "completed_ms": 1792273729431
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273729431,
+          "completed_ms": 1792273729432
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729432,
+          "completed_ms": 1792273729465
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273729466,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273729466,
+          "completed_ms": 1792273729467
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273729467,
+          "completed_ms": 1792273729496
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273729496,
+          "completed_ms": 1792273729497
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729497,
+          "completed_ms": 1792273729531
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273729565,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273729565,
+          "completed_ms": 1792273729565
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273729565,
+          "completed_ms": 1792273729598
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273729598,
+          "completed_ms": 1792273729599
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729599,
+          "completed_ms": 1792273729631
+        }
+      ]
+    },
+    {
+      "key": "End",
+      "time": 1792273729632,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273729632,
+          "completed_ms": 1792273729633
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273729633,
+          "completed_ms": 1792273729665
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273729665,
+          "completed_ms": 1792273729666
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729666,
+          "completed_ms": 1792273729698
+        }
+      ]
+    },
+    {
+      "key": "Tab",
+      "time": 1792273729698,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273729698,
+          "completed_ms": 1792273729699
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273729699,
+          "completed_ms": 1792273729732
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273729732,
+          "completed_ms": 1792273729732
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729732,
+          "completed_ms": 1792273729765
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273729767,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273729767,
+          "completed_ms": 1792273729767
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273729767,
+          "completed_ms": 1792273729797
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273729797,
+          "completed_ms": 1792273729798
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729798,
+          "completed_ms": 1792273729835
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273729864,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273729864,
+          "completed_ms": 1792273729865
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273729865,
+          "completed_ms": 1792273729897
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273729897,
+          "completed_ms": 1792273729898
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729898,
+          "completed_ms": 1792273729931
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273729932,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273729932,
+          "completed_ms": 1792273729933
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273729933,
+          "completed_ms": 1792273729967
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273729967,
+          "completed_ms": 1792273729968
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273729968,
+          "completed_ms": 1792273729999
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273730291,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273730291,
+          "completed_ms": 1792273730296
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273730296,
+          "completed_ms": 1792273730329
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273730329,
+          "completed_ms": 1792273730330
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273730330,
+          "completed_ms": 1792273730363
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273730364,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273730364,
+          "completed_ms": 1792273730364
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273730364,
+          "completed_ms": 1792273730395
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273730395,
+          "completed_ms": 1792273730396
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273730396,
+          "completed_ms": 1792273730427
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273730461,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273730461,
+          "completed_ms": 1792273730462
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273730462,
+          "completed_ms": 1792273730496
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273730496,
+          "completed_ms": 1792273730497
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273730497,
+          "completed_ms": 1792273730529
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273730531,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273730531,
+          "completed_ms": 1792273730532
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273730532,
+          "completed_ms": 1792273730560
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273730560,
+          "completed_ms": 1792273730560
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273730560,
+          "completed_ms": 1792273730595
+        }
+      ]
+    },
+    {
+      "key": " ",
+      "time": 1792273730630,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273730630,
+          "completed_ms": 1792273730631
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273730631,
+          "completed_ms": 1792273730662
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273730662,
+          "completed_ms": 1792273730663
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273730663,
+          "completed_ms": 1792273730695
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273730893,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273730893,
+          "completed_ms": 1792273730895
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273730895,
+          "completed_ms": 1792273730928
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273730928,
+          "completed_ms": 1792273730929
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273730929,
+          "completed_ms": 1792273730961
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273730962,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273730962,
+          "completed_ms": 1792273730963
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273730963,
+          "completed_ms": 1792273730992
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273730992,
+          "completed_ms": 1792273730992
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273730992,
+          "completed_ms": 1792273731027
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273731061,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273731061,
+          "completed_ms": 1792273731062
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273731062,
+          "completed_ms": 1792273731095
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273731095,
+          "completed_ms": 1792273731095
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273731095,
+          "completed_ms": 1792273731128
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273731130,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273731130,
+          "completed_ms": 1792273731130
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273731130,
+          "completed_ms": 1792273731161
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273731161,
+          "completed_ms": 1792273731161
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273731161,
+          "completed_ms": 1792273731194
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273731423,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273731423,
+          "completed_ms": 1792273731425
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273731425,
+          "completed_ms": 1792273731460
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273731460,
+          "completed_ms": 1792273731461
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273731461,
+          "completed_ms": 1792273731494
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273731495,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273731495,
+          "completed_ms": 1792273731495
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273731495,
+          "completed_ms": 1792273731525
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273731525,
+          "completed_ms": 1792273731526
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273731526,
+          "completed_ms": 1792273731557
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273731591,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273731591,
+          "completed_ms": 1792273731592
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273731592,
+          "completed_ms": 1792273731627
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273731627,
+          "completed_ms": 1792273731627
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273731627,
+          "completed_ms": 1792273731658
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273731661,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273731661,
+          "completed_ms": 1792273731661
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273731661,
+          "completed_ms": 1792273731694
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273731694,
+          "completed_ms": 1792273731694
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273731694,
+          "completed_ms": 1792273731738
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273731908,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273731908,
+          "completed_ms": 1792273731910
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273731910,
+          "completed_ms": 1792273731942
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273731942,
+          "completed_ms": 1792273731943
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273731943,
+          "completed_ms": 1792273731976
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273731977,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273731977,
+          "completed_ms": 1792273731977
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273731977,
+          "completed_ms": 1792273732007
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732007,
+          "completed_ms": 1792273732007
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732007,
+          "completed_ms": 1792273732042
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273732075,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732075,
+          "completed_ms": 1792273732076
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732076,
+          "completed_ms": 1792273732107
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732107,
+          "completed_ms": 1792273732107
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732107,
+          "completed_ms": 1792273732142
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273732143,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732143,
+          "completed_ms": 1792273732146
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732146,
+          "completed_ms": 1792273732175
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732175,
+          "completed_ms": 1792273732176
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732176,
+          "completed_ms": 1792273732208
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273732210,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732210,
+          "completed_ms": 1792273732211
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732211,
+          "completed_ms": 1792273732239
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732239,
+          "completed_ms": 1792273732240
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732240,
+          "completed_ms": 1792273732275
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273732309,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732309,
+          "completed_ms": 1792273732310
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732310,
+          "completed_ms": 1792273732342
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732342,
+          "completed_ms": 1792273732342
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732342,
+          "completed_ms": 1792273732375
+        }
+      ]
+    },
+    {
+      "key": "Enter",
+      "time": 1792273732375,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732375,
+          "completed_ms": 1792273732376
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732376,
+          "completed_ms": 1792273732410
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732410,
+          "completed_ms": 1792273732411
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732411,
+          "completed_ms": 1792273732443
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273732444,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732444,
+          "completed_ms": 1792273732445
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732445,
+          "completed_ms": 1792273732477
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732477,
+          "completed_ms": 1792273732478
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732478,
+          "completed_ms": 1792273732509
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273732541,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732541,
+          "completed_ms": 1792273732542
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732542,
+          "completed_ms": 1792273732575
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732575,
+          "completed_ms": 1792273732575
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732575,
+          "completed_ms": 1792273732608
+        }
+      ]
+    },
+    {
+      "key": "Tab",
+      "time": 1792273732608,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732608,
+          "completed_ms": 1792273732609
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732609,
+          "completed_ms": 1792273732642
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732642,
+          "completed_ms": 1792273732642
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732642,
+          "completed_ms": 1792273732675
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273732677,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732677,
+          "completed_ms": 1792273732677
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732677,
+          "completed_ms": 1792273732711
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732711,
+          "completed_ms": 1792273732711
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732711,
+          "completed_ms": 1792273732741
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273732774,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732774,
+          "completed_ms": 1792273732775
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732775,
+          "completed_ms": 1792273732807
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732807,
+          "completed_ms": 1792273732808
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732808,
+          "completed_ms": 1792273732841
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273732926,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273732926,
+          "completed_ms": 1792273732926
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273732926,
+          "completed_ms": 1792273732957
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273732957,
+          "completed_ms": 1792273732958
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273732958,
+          "completed_ms": 1792273732990
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273733024,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273733024,
+          "completed_ms": 1792273733024
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273733024,
+          "completed_ms": 1792273733057
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273733057,
+          "completed_ms": 1792273733058
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273733058,
+          "completed_ms": 1792273733090
+        }
+      ]
+    },
+    {
+      "key": "Alt",
+      "time": 1792273733090,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273733090,
+          "completed_ms": 1792273733091
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273733091,
+          "completed_ms": 1792273733124
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273733124,
+          "completed_ms": 1792273733124
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273733124,
+          "completed_ms": 1792273733155
+        }
+      ]
+    },
+    {
+      "key": "w",
+      "time": 1792273733155,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273733155,
+          "completed_ms": 1792273733157
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273733157,
+          "completed_ms": 1792273733191
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273733191,
+          "completed_ms": 1792273733192
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273733192,
+          "completed_ms": 1792273733225
+        }
+      ]
+    },
+    {
+      "key": "z",
+      "time": 1792273733225,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273733225,
+          "completed_ms": 1792273733226
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273733226,
+          "completed_ms": 1792273733257
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273733257,
+          "completed_ms": 1792273733258
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273733258,
+          "completed_ms": 1792273733290
+        }
+      ]
+    },
+    {
+      "key": "7",
+      "time": 1792273733290,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273733290,
+          "completed_ms": 1792273733291
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273733291,
+          "completed_ms": 1792273733325
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273733325,
+          "completed_ms": 1792273733326
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273733326,
+          "completed_ms": 1792273733358
+        }
+      ]
+    },
+    {
+      "key": "Home",
+      "time": 1792273733358,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273733358,
+          "completed_ms": 1792273733359
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273733359,
+          "completed_ms": 1792273733389
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273733389,
+          "completed_ms": 1792273733390
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273733390,
+          "completed_ms": 1792273733421
+        }
+      ]
+    },
+    {
+      "key": "ArrowDown",
+      "time": 1792273733421,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273733421,
+          "completed_ms": 1792273733422
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273733422,
+          "completed_ms": 1792273733457
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273733457,
+          "completed_ms": 1792273733457
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273733457,
+          "completed_ms": 1792273733489
+        }
+      ]
+    },
+    {
+      "key": "Enter",
+      "time": 1792273733489,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273733489,
+          "completed_ms": 1792273733490
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273733490,
+          "completed_ms": 1792273733601
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273733601,
+          "completed_ms": 1792273733602
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273733602,
+          "completed_ms": 1792273733622
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792273733940,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273733940,
+          "completed_ms": 1792273733941
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273733941,
+          "completed_ms": 1792273733989
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273733989,
+          "completed_ms": 1792273733990
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273733990,
+          "completed_ms": 1792273734021
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792273734054,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792273734054,
+          "completed_ms": 1792273734055
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792273734055,
+          "completed_ms": 1792273734088
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792273734088,
+          "completed_ms": 1792273734089
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792273734089,
+          "completed_ms": 1792273734122
+        }
+      ]
+    }
+  ],
+  "sourceFile": null,
+  "reviewGuideResult": {
+    "initial": {
+      "sheet": "0",
+      "modal": "0",
+      "ribbon": "0/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "268.000,189.000,1000.000,597.000",
+      "keytips": "0.000000",
+      "grid_rect": "228.000,165.000,1052.000,633.000",
+      "grid_gutter": "40.000",
+      "grid_header": "24.000",
+      "grid_cell": "96.000,24.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "0",
+      "keytip_prefix": "-",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "8.000,28.000,240.000,245.000",
+      "last_command": "-1",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "8955720",
+      "browser_picker": "0,0,0,0,0,0",
+      "stats_state": "0",
+      "stats_request": "0",
+      "stats_object": "-1",
+      "stats_cells": "1",
+      "stats_key": "0,0,0,0,1,0,0",
+      "stats_counts": "0,0,0,0",
+      "stats_flags": "0,0,0,0",
+      "stats_error": "0",
+      "stats_sum_null": "1",
+      "stats_sum_hex": "-",
+      "stats_sum_truncated": "0",
+      "stats_average_null": "1",
+      "stats_average_hex": "-",
+      "stats_average_truncated": "0",
+      "stats_minimum_null": "1",
+      "stats_minimum_hex": "-",
+      "stats_minimum_truncated": "0",
+      "stats_maximum_null": "1",
+      "stats_maximum_hex": "-",
+      "stats_maximum_truncated": "0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "zoom": "1.000000",
+      "ui_scale": "1.000000",
+      "logical": "1280,820",
+      "framebuffer": "2560,1640"
+    },
+    "wide": {
+      "sheet": "0",
+      "modal": "32",
+      "ribbon": "0/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "268.000,189.000,1000.000,597.000",
+      "keytips": "0.000000",
+      "grid_rect": "228.000,165.000,1052.000,633.000",
+      "grid_gutter": "40.000",
+      "grid_header": "24.000",
+      "grid_cell": "96.000,24.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "0",
+      "keytip_prefix": "-",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "8.000,28.000,240.000,245.000",
+      "last_command": "44",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "8974296",
+      "browser_picker": "0,0,0,0,0,0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "author_kind": "guide",
+      "author_parent": "author.guide",
+      "guide_count": "36",
+      "guide_overflow": "0",
+      "guide_scroll": "0.000",
+      "guide_maximum": "0.000",
+      "guide_focus": "0",
+      "guide_kind": "guide-document",
+      "guide_origin": "0,0,0,0,0,0,0,0",
+      "guide_panel_rect": "380.000,134.000,520.000,552.000",
+      "guide_heading_rect": "391.000,135.000,466.000,36.000",
+      "guide_close_rect": "866.000,141.500,23.000,23.000",
+      "guide_text_rect": "399.000,184.000,482.000,18.000",
+      "guide_text_id": "author.guide.intro.line0",
+      "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+      "guide_text_truncated": "0",
+      "guide_key_rect": "756.447,451.000,124.553,14.500",
+      "guide_key_id": "author.guide.shortcut.selection.key.line0",
+      "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+      "guide_key_truncated": "0",
+      "guide_start_rect": "765.000,641.000,116.000,29.000",
+      "zoom": "1.000000",
+      "ui_scale": "1.000000",
+      "logical": "1280,820",
+      "framebuffer": "2560,1640"
+    },
+    "widePicks": [
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-3 frame=58 widgets=88",
+        "target": {
+          "id": "author.guide.intro.line0",
+          "bounds": [
+            399,
+            184,
+            482,
+            18
+          ]
+        },
+        "point": {
+          "x": 639.51171875,
+          "y": 193.515625
+        },
+        "delivery": {
+          "name": "wide-text",
+          "target": {
+            "id": "author.guide.intro.line0",
+            "bounds": [
+              399,
+              184,
+              482,
+              18
+            ]
+          },
+          "surface": {
+            "x": 102.390625,
+            "y": 49.1875,
+            "width": 1024,
+            "height": 656,
+            "logicalWidth": 1280,
+            "logicalHeight": 820
+          },
+          "requested": {
+            "css": {
+              "x": 614,
+              "y": 204
+            },
+            "logical": {
+              "x": 639.51171875,
+              "y": 193.515625
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 614,
+            "y": 204
+          },
+          "mapped": {
+            "x": 639.51171875,
+            "y": 193.515625
+          }
+        },
+        "picked": "Review picked: author.guide.intro.line0",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "0/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "268.000,189.000,1000.000,597.000",
+          "keytips": "0.000000",
+          "grid_rect": "228.000,165.000,1052.000,633.000",
+          "grid_gutter": "40.000",
+          "grid_header": "24.000",
+          "grid_cell": "96.000,24.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "0",
+          "keytip_prefix": "-",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "8.000,28.000,240.000,245.000",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "8974296",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "36",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "0.000",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "380.000,134.000,520.000,552.000",
+          "guide_heading_rect": "391.000,135.000,466.000,36.000",
+          "guide_close_rect": "866.000,141.500,23.000,23.000",
+          "guide_text_rect": "399.000,184.000,482.000,18.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "756.447,451.000,124.553,14.500",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "765.000,641.000,116.000,29.000",
+          "zoom": "1.000000",
+          "ui_scale": "1.000000",
+          "logical": "1280,820",
+          "framebuffer": "2560,1640"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "0/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "268.000,189.000,1000.000,597.000",
+          "keytips": "0.000000",
+          "grid_rect": "228.000,165.000,1052.000,633.000",
+          "grid_gutter": "40.000",
+          "grid_header": "24.000",
+          "grid_cell": "96.000,24.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "0",
+          "keytip_prefix": "-",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "8.000,28.000,240.000,245.000",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "8975328",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "36",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "0.000",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "380.000,134.000,520.000,552.000",
+          "guide_heading_rect": "391.000,135.000,466.000,36.000",
+          "guide_close_rect": "866.000,141.500,23.000,23.000",
+          "guide_text_rect": "399.000,184.000,482.000,18.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "756.447,451.000,124.553,14.500",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "765.000,641.000,116.000,29.000",
+          "zoom": "1.000000",
+          "ui_scale": "1.000000",
+          "logical": "1280,820",
+          "framebuffer": "2560,1640"
+        }
+      },
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-5 frame=98 widgets=88",
+        "target": {
+          "id": "author.guide.shortcut.selection.key.line0",
+          "bounds": [
+            756.447,
+            451,
+            124.553,
+            14.5
+          ]
+        },
+        "point": {
+          "x": 818.26171875,
+          "y": 458.515625
+        },
+        "delivery": {
+          "name": "wide-key",
+          "target": {
+            "id": "author.guide.shortcut.selection.key.line0",
+            "bounds": [
+              756.447,
+              451,
+              124.553,
+              14.5
+            ]
+          },
+          "surface": {
+            "x": 102.390625,
+            "y": 49.1875,
+            "width": 1024,
+            "height": 656,
+            "logicalWidth": 1280,
+            "logicalHeight": 820
+          },
+          "requested": {
+            "css": {
+              "x": 757,
+              "y": 416
+            },
+            "logical": {
+              "x": 818.26171875,
+              "y": 458.515625
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 757,
+            "y": 416
+          },
+          "mapped": {
+            "x": 818.26171875,
+            "y": 458.515625
+          }
+        },
+        "picked": "Review picked: author.guide.shortcut.selection.key.line0",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "0/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "268.000,189.000,1000.000,597.000",
+          "keytips": "0.000000",
+          "grid_rect": "228.000,165.000,1052.000,633.000",
+          "grid_gutter": "40.000",
+          "grid_header": "24.000",
+          "grid_cell": "96.000,24.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "0",
+          "keytip_prefix": "-",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "8.000,28.000,240.000,245.000",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "8975328",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "36",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "0.000",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "380.000,134.000,520.000,552.000",
+          "guide_heading_rect": "391.000,135.000,466.000,36.000",
+          "guide_close_rect": "866.000,141.500,23.000,23.000",
+          "guide_text_rect": "399.000,184.000,482.000,18.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "756.447,451.000,124.553,14.500",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "765.000,641.000,116.000,29.000",
+          "zoom": "1.000000",
+          "ui_scale": "1.000000",
+          "logical": "1280,820",
+          "framebuffer": "2560,1640"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "0/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "268.000,189.000,1000.000,597.000",
+          "keytips": "0.000000",
+          "grid_rect": "228.000,165.000,1052.000,633.000",
+          "grid_gutter": "40.000",
+          "grid_header": "24.000",
+          "grid_cell": "96.000,24.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "0",
+          "keytip_prefix": "-",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "8.000,28.000,240.000,245.000",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "8975328",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "36",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "0.000",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "380.000,134.000,520.000,552.000",
+          "guide_heading_rect": "391.000,135.000,466.000,36.000",
+          "guide_close_rect": "866.000,141.500,23.000,23.000",
+          "guide_text_rect": "399.000,184.000,482.000,18.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "756.447,451.000,124.553,14.500",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "765.000,641.000,116.000,29.000",
+          "zoom": "1.000000",
+          "ui_scale": "1.000000",
+          "logical": "1280,820",
+          "framebuffer": "2560,1640"
+        }
+      },
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-7 frame=134 widgets=88",
+        "target": {
+          "id": "author.guide.action.close",
+          "bounds": [
+            866,
+            141.5,
+            23,
+            23
+          ]
+        },
+        "point": {
+          "x": 877.01171875,
+          "y": 153.515625
+        },
+        "delivery": {
+          "name": "wide-close",
+          "target": {
+            "id": "author.guide.action.close",
+            "bounds": [
+              866,
+              141.5,
+              23,
+              23
+            ]
+          },
+          "surface": {
+            "x": 102.390625,
+            "y": 49.1875,
+            "width": 1024,
+            "height": 656,
+            "logicalWidth": 1280,
+            "logicalHeight": 820
+          },
+          "requested": {
+            "css": {
+              "x": 804,
+              "y": 172
+            },
+            "logical": {
+              "x": 877.01171875,
+              "y": 153.515625
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 804,
+            "y": 172
+          },
+          "mapped": {
+            "x": 877.01171875,
+            "y": 153.515625
+          }
+        },
+        "picked": "Review picked: author.guide.action.close",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "0/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "268.000,189.000,1000.000,597.000",
+          "keytips": "0.000000",
+          "grid_rect": "228.000,165.000,1052.000,633.000",
+          "grid_gutter": "40.000",
+          "grid_header": "24.000",
+          "grid_cell": "96.000,24.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "0",
+          "keytip_prefix": "-",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "8.000,28.000,240.000,245.000",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "8975328",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "36",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "0.000",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "380.000,134.000,520.000,552.000",
+          "guide_heading_rect": "391.000,135.000,466.000,36.000",
+          "guide_close_rect": "866.000,141.500,23.000,23.000",
+          "guide_text_rect": "399.000,184.000,482.000,18.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "756.447,451.000,124.553,14.500",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "765.000,641.000,116.000,29.000",
+          "zoom": "1.000000",
+          "ui_scale": "1.000000",
+          "logical": "1280,820",
+          "framebuffer": "2560,1640"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "0/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "268.000,189.000,1000.000,597.000",
+          "keytips": "0.000000",
+          "grid_rect": "228.000,165.000,1052.000,633.000",
+          "grid_gutter": "40.000",
+          "grid_header": "24.000",
+          "grid_cell": "96.000,24.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "0",
+          "keytip_prefix": "-",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "8.000,28.000,240.000,245.000",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "8975328",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "36",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "0.000",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "380.000,134.000,520.000,552.000",
+          "guide_heading_rect": "391.000,135.000,466.000,36.000",
+          "guide_close_rect": "866.000,141.500,23.000,23.000",
+          "guide_text_rect": "399.000,184.000,482.000,18.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "756.447,451.000,124.553,14.500",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "765.000,641.000,116.000,29.000",
+          "zoom": "1.000000",
+          "ui_scale": "1.000000",
+          "logical": "1280,820",
+          "framebuffer": "2560,1640"
+        }
+      },
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-9 frame=171 widgets=88",
+        "target": {
+          "id": "author.guide.action.start",
+          "bounds": [
+            765,
+            641,
+            116,
+            29
+          ]
+        },
+        "point": {
+          "x": 823.26171875,
+          "y": 656.015625
+        },
+        "delivery": {
+          "name": "wide-start",
+          "target": {
+            "id": "author.guide.action.start",
+            "bounds": [
+              765,
+              641,
+              116,
+              29
+            ]
+          },
+          "surface": {
+            "x": 102.390625,
+            "y": 49.1875,
+            "width": 1024,
+            "height": 656,
+            "logicalWidth": 1280,
+            "logicalHeight": 820
+          },
+          "requested": {
+            "css": {
+              "x": 761,
+              "y": 574
+            },
+            "logical": {
+              "x": 823.26171875,
+              "y": 656.015625
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 761,
+            "y": 574
+          },
+          "mapped": {
+            "x": 823.26171875,
+            "y": 656.015625
+          }
+        },
+        "picked": "Review picked: author.guide.action.start",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "0/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "268.000,189.000,1000.000,597.000",
+          "keytips": "0.000000",
+          "grid_rect": "228.000,165.000,1052.000,633.000",
+          "grid_gutter": "40.000",
+          "grid_header": "24.000",
+          "grid_cell": "96.000,24.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "0",
+          "keytip_prefix": "-",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "8.000,28.000,240.000,245.000",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "8975328",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "36",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "0.000",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "380.000,134.000,520.000,552.000",
+          "guide_heading_rect": "391.000,135.000,466.000,36.000",
+          "guide_close_rect": "866.000,141.500,23.000,23.000",
+          "guide_text_rect": "399.000,184.000,482.000,18.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "756.447,451.000,124.553,14.500",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "765.000,641.000,116.000,29.000",
+          "zoom": "1.000000",
+          "ui_scale": "1.000000",
+          "logical": "1280,820",
+          "framebuffer": "2560,1640"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "0/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "268.000,189.000,1000.000,597.000",
+          "keytips": "0.000000",
+          "grid_rect": "228.000,165.000,1052.000,633.000",
+          "grid_gutter": "40.000",
+          "grid_header": "24.000",
+          "grid_cell": "96.000,24.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "0",
+          "keytip_prefix": "-",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "8.000,28.000,240.000,245.000",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "8975328",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "36",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "0.000",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "380.000,134.000,520.000,552.000",
+          "guide_heading_rect": "391.000,135.000,466.000,36.000",
+          "guide_close_rect": "866.000,141.500,23.000,23.000",
+          "guide_text_rect": "399.000,184.000,482.000,18.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "756.447,451.000,124.553,14.500",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "765.000,641.000,116.000,29.000",
+          "zoom": "1.000000",
+          "ui_scale": "1.000000",
+          "logical": "1280,820",
+          "framebuffer": "2560,1640"
+        }
+      },
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-11 frame=207 widgets=88",
+        "target": {
+          "id": "author.guide.backdrop.background",
+          "bounds": [
+            1,
+            410,
+            2,
+            2
+          ]
+        },
+        "point": {
+          "x": 2.01171875,
+          "y": 411.015625
+        },
+        "delivery": {
+          "name": "wide-backdrop",
+          "target": {
+            "id": "author.guide.backdrop.background",
+            "bounds": [
+              1,
+              410,
+              2,
+              2
+            ]
+          },
+          "surface": {
+            "x": 102.390625,
+            "y": 49.1875,
+            "width": 1024,
+            "height": 656,
+            "logicalWidth": 1280,
+            "logicalHeight": 820
+          },
+          "requested": {
+            "css": {
+              "x": 104,
+              "y": 378
+            },
+            "logical": {
+              "x": 2.01171875,
+              "y": 411.015625
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 104,
+            "y": 378
+          },
+          "mapped": {
+            "x": 2.01171875,
+            "y": 411.015625
+          }
+        },
+        "picked": "Review picked: author.guide.backdrop.background",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "0/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "268.000,189.000,1000.000,597.000",
+          "keytips": "0.000000",
+          "grid_rect": "228.000,165.000,1052.000,633.000",
+          "grid_gutter": "40.000",
+          "grid_header": "24.000",
+          "grid_cell": "96.000,24.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "0",
+          "keytip_prefix": "-",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "8.000,28.000,240.000,245.000",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "8975328",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "36",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "0.000",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "380.000,134.000,520.000,552.000",
+          "guide_heading_rect": "391.000,135.000,466.000,36.000",
+          "guide_close_rect": "866.000,141.500,23.000,23.000",
+          "guide_text_rect": "399.000,184.000,482.000,18.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "756.447,451.000,124.553,14.500",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "765.000,641.000,116.000,29.000",
+          "zoom": "1.000000",
+          "ui_scale": "1.000000",
+          "logical": "1280,820",
+          "framebuffer": "2560,1640"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "0/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "268.000,189.000,1000.000,597.000",
+          "keytips": "0.000000",
+          "grid_rect": "228.000,165.000,1052.000,633.000",
+          "grid_gutter": "40.000",
+          "grid_header": "24.000",
+          "grid_cell": "96.000,24.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "0",
+          "keytip_prefix": "-",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "8.000,28.000,240.000,245.000",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "8975328",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "36",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "0.000",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "380.000,134.000,520.000,552.000",
+          "guide_heading_rect": "391.000,135.000,466.000,36.000",
+          "guide_close_rect": "866.000,141.500,23.000,23.000",
+          "guide_text_rect": "399.000,184.000,482.000,18.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "756.447,451.000,124.553,14.500",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "765.000,641.000,116.000,29.000",
+          "zoom": "1.000000",
+          "ui_scale": "1.000000",
+          "logical": "1280,820",
+          "framebuffer": "2560,1640"
+        }
+      }
+    ],
+    "wideTab": {
+      "sheet": "0",
+      "modal": "32",
+      "ribbon": "0/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "268.000,189.000,1000.000,597.000",
+      "keytips": "0.000000",
+      "grid_rect": "228.000,165.000,1052.000,633.000",
+      "grid_gutter": "40.000",
+      "grid_header": "24.000",
+      "grid_cell": "96.000,24.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "0",
+      "keytip_prefix": "-",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "8.000,28.000,240.000,245.000",
+      "last_command": "44",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "8975328",
+      "browser_picker": "0,0,0,0,0,0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "author_kind": "guide",
+      "author_parent": "author.guide",
+      "guide_count": "36",
+      "guide_overflow": "0",
+      "guide_scroll": "0.000",
+      "guide_maximum": "0.000",
+      "guide_focus": "1",
+      "guide_kind": "guide-document",
+      "guide_origin": "0,0,0,0,0,0,0,0",
+      "guide_panel_rect": "380.000,134.000,520.000,552.000",
+      "guide_heading_rect": "391.000,135.000,466.000,36.000",
+      "guide_close_rect": "866.000,141.500,23.000,23.000",
+      "guide_text_rect": "399.000,184.000,482.000,18.000",
+      "guide_text_id": "author.guide.intro.line0",
+      "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+      "guide_text_truncated": "0",
+      "guide_key_rect": "756.447,451.000,124.553,14.500",
+      "guide_key_id": "author.guide.shortcut.selection.key.line0",
+      "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+      "guide_key_truncated": "0",
+      "guide_start_rect": "765.000,641.000,116.000,29.000",
+      "zoom": "1.000000",
+      "ui_scale": "1.000000",
+      "logical": "1280,820",
+      "framebuffer": "2560,1640"
+    },
+    "wideClosed": {
+      "sheet": "0",
+      "modal": "0",
+      "ribbon": "0/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "268.000,189.000,1000.000,597.000",
+      "keytips": "0.000000",
+      "grid_rect": "228.000,165.000,1052.000,633.000",
+      "grid_gutter": "40.000",
+      "grid_header": "24.000",
+      "grid_cell": "96.000,24.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "0",
+      "keytip_prefix": "-",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "8.000,28.000,240.000,245.000",
+      "last_command": "44",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "8975328",
+      "browser_picker": "0,0,0,0,0,0",
+      "stats_state": "0",
+      "stats_request": "0",
+      "stats_object": "-1",
+      "stats_cells": "1",
+      "stats_key": "0,0,0,0,1,0,0",
+      "stats_counts": "0,0,0,0",
+      "stats_flags": "0,0,0,0",
+      "stats_error": "0",
+      "stats_sum_null": "1",
+      "stats_sum_hex": "-",
+      "stats_sum_truncated": "0",
+      "stats_average_null": "1",
+      "stats_average_hex": "-",
+      "stats_average_truncated": "0",
+      "stats_minimum_null": "1",
+      "stats_minimum_hex": "-",
+      "stats_minimum_truncated": "0",
+      "stats_maximum_null": "1",
+      "stats_maximum_hex": "-",
+      "stats_maximum_truncated": "0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "zoom": "1.000000",
+      "ui_scale": "1.000000",
+      "logical": "1280,820",
+      "framebuffer": "2560,1640"
+    },
+    "reopened": {
+      "sheet": "0",
+      "modal": "32",
+      "ribbon": "0/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "268.000,189.000,1000.000,597.000",
+      "keytips": "0.000000",
+      "grid_rect": "228.000,165.000,1052.000,633.000",
+      "grid_gutter": "40.000",
+      "grid_header": "24.000",
+      "grid_cell": "96.000,24.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "0",
+      "keytip_prefix": "-",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "8.000,28.000,240.000,245.000",
+      "last_command": "44",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "8975328",
+      "browser_picker": "0,0,0,0,0,0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "author_kind": "guide",
+      "author_parent": "author.guide",
+      "guide_count": "36",
+      "guide_overflow": "0",
+      "guide_scroll": "0.000",
+      "guide_maximum": "0.000",
+      "guide_focus": "0",
+      "guide_kind": "guide-document",
+      "guide_origin": "0,0,0,0,0,0,0,0",
+      "guide_panel_rect": "380.000,134.000,520.000,552.000",
+      "guide_heading_rect": "391.000,135.000,466.000,36.000",
+      "guide_close_rect": "866.000,141.500,23.000,23.000",
+      "guide_text_rect": "399.000,184.000,482.000,18.000",
+      "guide_text_id": "author.guide.intro.line0",
+      "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+      "guide_text_truncated": "0",
+      "guide_key_rect": "756.447,451.000,124.553,14.500",
+      "guide_key_id": "author.guide.shortcut.selection.key.line0",
+      "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+      "guide_key_truncated": "0",
+      "guide_start_rect": "765.000,641.000,116.000,29.000",
+      "zoom": "1.000000",
+      "ui_scale": "1.000000",
+      "logical": "1280,820",
+      "framebuffer": "2560,1640"
+    },
+    "narrowBase": {
+      "sheet": "0",
+      "modal": "0",
+      "ribbon": "4/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "60.000,283.500,562.000,305.500",
+      "keytips": "0.000000",
+      "grid_rect": "0.000,247.500,640.000,359.500",
+      "grid_gutter": "60.000",
+      "grid_header": "36.000",
+      "grid_cell": "144.000,36.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "4",
+      "keytip_prefix": "Z",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "12.000,42.000,360.000,367.500",
+      "last_command": "39",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "11099360",
+      "browser_picker": "0,0,0,0,0,0",
+      "stats_state": "0",
+      "stats_request": "0",
+      "stats_object": "-1",
+      "stats_cells": "1",
+      "stats_key": "0,0,0,0,1,0,0",
+      "stats_counts": "0,0,0,0",
+      "stats_flags": "0,0,0,0",
+      "stats_error": "0",
+      "stats_sum_null": "1",
+      "stats_sum_hex": "-",
+      "stats_sum_truncated": "0",
+      "stats_average_null": "1",
+      "stats_average_hex": "-",
+      "stats_average_truncated": "0",
+      "stats_minimum_null": "1",
+      "stats_minimum_hex": "-",
+      "stats_minimum_truncated": "0",
+      "stats_maximum_null": "1",
+      "stats_maximum_hex": "-",
+      "stats_maximum_truncated": "0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "zoom": "1.000000",
+      "ui_scale": "1.500000",
+      "logical": "640,640",
+      "framebuffer": "1280,1280"
+    },
+    "narrow": {
+      "sheet": "0",
+      "modal": "32",
+      "ribbon": "4/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "60.000,283.500,562.000,305.500",
+      "keytips": "0.000000",
+      "grid_rect": "0.000,247.500,640.000,359.500",
+      "grid_gutter": "60.000",
+      "grid_header": "36.000",
+      "grid_cell": "144.000,36.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "4",
+      "keytip_prefix": "Z",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "12.000,42.000,360.000,367.500",
+      "last_command": "44",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "11099368",
+      "browser_picker": "0,0,0,0,0,0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "author_kind": "guide",
+      "author_parent": "author.guide",
+      "guide_count": "27",
+      "guide_overflow": "0",
+      "guide_scroll": "0.000",
+      "guide_maximum": "250.333",
+      "guide_focus": "0",
+      "guide_kind": "guide-document",
+      "guide_origin": "0,0,0,0,0,0,0,0",
+      "guide_panel_rect": "22.500,30.000,595.000,580.000",
+      "guide_heading_rect": "39.000,31.500,514.000,54.000",
+      "guide_close_rect": "566.500,41.250,34.500,34.500",
+      "guide_text_rect": "51.000,105.000,538.000,27.000",
+      "guide_text_id": "author.guide.intro.line0",
+      "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+      "guide_text_truncated": "0",
+      "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+      "guide_thumb_rect": "610.000,34.500,1.500,346.604",
+      "zoom": "1.000000",
+      "ui_scale": "1.500000",
+      "logical": "640,640",
+      "framebuffer": "1280,1280"
+    },
+    "narrowTop": [
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-18 frame=351 widgets=53",
+        "target": {
+          "id": "author.guide.intro.line0",
+          "bounds": [
+            51,
+            105,
+            538,
+            27
+          ]
+        },
+        "point": {
+          "x": 319.765625,
+          "y": 118.26171875
+        },
+        "delivery": {
+          "name": "short-text",
+          "target": {
+            "id": "author.guide.intro.line0",
+            "bounds": [
+              51,
+              105,
+              538,
+              27
+            ]
+          },
+          "surface": {
+            "x": 51.1875,
+            "y": 38.390625,
+            "width": 512,
+            "height": 512,
+            "logicalWidth": 640,
+            "logicalHeight": 640
+          },
+          "requested": {
+            "css": {
+              "x": 307,
+              "y": 133
+            },
+            "logical": {
+              "x": 319.765625,
+              "y": 118.26171875
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 307,
+            "y": 133
+          },
+          "mapped": {
+            "x": 319.765625,
+            "y": 118.26171875
+          }
+        },
+        "picked": "Review picked: author.guide.intro.line0",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099360",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "27",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "250.333",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_heading_rect": "39.000,31.500,514.000,54.000",
+          "guide_close_rect": "566.500,41.250,34.500,34.500",
+          "guide_text_rect": "51.000,105.000,538.000,27.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,34.500,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099368",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "27",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "250.333",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_heading_rect": "39.000,31.500,514.000,54.000",
+          "guide_close_rect": "566.500,41.250,34.500,34.500",
+          "guide_text_rect": "51.000,105.000,538.000,27.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,34.500,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        }
+      },
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-20 frame=391 widgets=53",
+        "target": {
+          "id": "author.guide.action.close",
+          "bounds": [
+            566.5,
+            41.25,
+            34.5,
+            34.5
+          ]
+        },
+        "point": {
+          "x": 583.515625,
+          "y": 58.26171875
+        },
+        "delivery": {
+          "name": "short-close",
+          "target": {
+            "id": "author.guide.action.close",
+            "bounds": [
+              566.5,
+              41.25,
+              34.5,
+              34.5
+            ]
+          },
+          "surface": {
+            "x": 51.1875,
+            "y": 38.390625,
+            "width": 512,
+            "height": 512,
+            "logicalWidth": 640,
+            "logicalHeight": 640
+          },
+          "requested": {
+            "css": {
+              "x": 518,
+              "y": 85
+            },
+            "logical": {
+              "x": 583.515625,
+              "y": 58.26171875
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 518,
+            "y": 85
+          },
+          "mapped": {
+            "x": 583.515625,
+            "y": 58.26171875
+          }
+        },
+        "picked": "Review picked: author.guide.action.close",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099360",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "27",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "250.333",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_heading_rect": "39.000,31.500,514.000,54.000",
+          "guide_close_rect": "566.500,41.250,34.500,34.500",
+          "guide_text_rect": "51.000,105.000,538.000,27.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,34.500,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099368",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "27",
+          "guide_overflow": "0",
+          "guide_scroll": "0.000",
+          "guide_maximum": "250.333",
+          "guide_focus": "0",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_heading_rect": "39.000,31.500,514.000,54.000",
+          "guide_close_rect": "566.500,41.250,34.500,34.500",
+          "guide_text_rect": "51.000,105.000,538.000,27.000",
+          "guide_text_id": "author.guide.intro.line0",
+          "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+          "guide_text_truncated": "0",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,34.500,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        }
+      }
+    ],
+    "bottom": {
+      "sheet": "0",
+      "modal": "32",
+      "ribbon": "4/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "60.000,283.500,562.000,305.500",
+      "keytips": "0.000000",
+      "grid_rect": "0.000,247.500,640.000,359.500",
+      "grid_gutter": "60.000",
+      "grid_header": "36.000",
+      "grid_cell": "144.000,36.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "4",
+      "keytip_prefix": "Z",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "12.000,42.000,360.000,367.500",
+      "last_command": "44",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "11099360",
+      "browser_picker": "0,0,0,0,0,0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "author_kind": "guide",
+      "author_parent": "author.guide",
+      "guide_count": "28",
+      "guide_overflow": "0",
+      "guide_scroll": "250.333",
+      "guide_maximum": "250.333",
+      "guide_focus": "1",
+      "guide_kind": "guide-document",
+      "guide_origin": "0,0,0,0,0,0,0,0",
+      "guide_panel_rect": "22.500,30.000,595.000,580.000",
+      "guide_text_rect": "201.000,31.500,388.000,7.000",
+      "guide_text_id": "author.guide.section.panes.description.line3",
+      "guide_text_hex": "576f726b626f6f6b20616e64204669656c647320626568696e642074686520776f726b737061636520",
+      "guide_text_truncated": "0",
+      "guide_key_rect": "402.171,257.500,186.829,21.750",
+      "guide_key_id": "author.guide.shortcut.selection.key.line0",
+      "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+      "guide_key_truncated": "0",
+      "guide_start_rect": "415.000,542.500,174.000,43.500",
+      "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+      "guide_thumb_rect": "610.000,258.896,1.500,346.604",
+      "zoom": "1.000000",
+      "ui_scale": "1.500000",
+      "logical": "640,640",
+      "framebuffer": "1280,1280"
+    },
+    "narrowBottom": [
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-23 frame=439 widgets=54",
+        "target": {
+          "id": "author.guide.shortcut.selection.key.line0",
+          "bounds": [
+            402.171,
+            257.5,
+            186.829,
+            21.75
+          ]
+        },
+        "point": {
+          "x": 496.015625,
+          "y": 268.26171875
+        },
+        "delivery": {
+          "name": "short-key",
+          "target": {
+            "id": "author.guide.shortcut.selection.key.line0",
+            "bounds": [
+              402.171,
+              257.5,
+              186.829,
+              21.75
+            ]
+          },
+          "surface": {
+            "x": 51.1875,
+            "y": 38.390625,
+            "width": 512,
+            "height": 512,
+            "logicalWidth": 640,
+            "logicalHeight": 640
+          },
+          "requested": {
+            "css": {
+              "x": 448,
+              "y": 253
+            },
+            "logical": {
+              "x": 496.015625,
+              "y": 268.26171875
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 448,
+            "y": 253
+          },
+          "mapped": {
+            "x": 496.015625,
+            "y": 268.26171875
+          }
+        },
+        "picked": "Review picked: author.guide.shortcut.selection.key.line0",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099368",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "28",
+          "guide_overflow": "0",
+          "guide_scroll": "250.333",
+          "guide_maximum": "250.333",
+          "guide_focus": "1",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_text_rect": "201.000,31.500,388.000,7.000",
+          "guide_text_id": "author.guide.section.panes.description.line3",
+          "guide_text_hex": "576f726b626f6f6b20616e64204669656c647320626568696e642074686520776f726b737061636520",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "402.171,257.500,186.829,21.750",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "415.000,542.500,174.000,43.500",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,258.896,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099360",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "28",
+          "guide_overflow": "0",
+          "guide_scroll": "250.333",
+          "guide_maximum": "250.333",
+          "guide_focus": "1",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_text_rect": "201.000,31.500,388.000,7.000",
+          "guide_text_id": "author.guide.section.panes.description.line3",
+          "guide_text_hex": "576f726b626f6f6b20616e64204669656c647320626568696e642074686520776f726b737061636520",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "402.171,257.500,186.829,21.750",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "415.000,542.500,174.000,43.500",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,258.896,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        }
+      },
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-25 frame=475 widgets=54",
+        "target": {
+          "id": "author.guide.action.start",
+          "bounds": [
+            415,
+            542.5,
+            174,
+            43.5
+          ]
+        },
+        "point": {
+          "x": 502.265625,
+          "y": 564.51171875
+        },
+        "delivery": {
+          "name": "short-start",
+          "target": {
+            "id": "author.guide.action.start",
+            "bounds": [
+              415,
+              542.5,
+              174,
+              43.5
+            ]
+          },
+          "surface": {
+            "x": 51.1875,
+            "y": 38.390625,
+            "width": 512,
+            "height": 512,
+            "logicalWidth": 640,
+            "logicalHeight": 640
+          },
+          "requested": {
+            "css": {
+              "x": 453,
+              "y": 490
+            },
+            "logical": {
+              "x": 502.265625,
+              "y": 564.51171875
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 453,
+            "y": 490
+          },
+          "mapped": {
+            "x": 502.265625,
+            "y": 564.51171875
+          }
+        },
+        "picked": "Review picked: author.guide.action.start",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099368",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "28",
+          "guide_overflow": "0",
+          "guide_scroll": "250.333",
+          "guide_maximum": "250.333",
+          "guide_focus": "1",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_text_rect": "201.000,31.500,388.000,7.000",
+          "guide_text_id": "author.guide.section.panes.description.line3",
+          "guide_text_hex": "576f726b626f6f6b20616e64204669656c647320626568696e642074686520776f726b737061636520",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "402.171,257.500,186.829,21.750",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "415.000,542.500,174.000,43.500",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,258.896,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099360",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "28",
+          "guide_overflow": "0",
+          "guide_scroll": "250.333",
+          "guide_maximum": "250.333",
+          "guide_focus": "1",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_text_rect": "201.000,31.500,388.000,7.000",
+          "guide_text_id": "author.guide.section.panes.description.line3",
+          "guide_text_hex": "576f726b626f6f6b20616e64204669656c647320626568696e642074686520776f726b737061636520",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "402.171,257.500,186.829,21.750",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "415.000,542.500,174.000,43.500",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,258.896,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        }
+      },
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-27 frame=511 widgets=54",
+        "target": {
+          "id": "author.guide.scrollbar.thumb",
+          "bounds": [
+            610,
+            258.896,
+            1.5,
+            346.604
+          ]
+        },
+        "point": {
+          "x": 611.015625,
+          "y": 432.01171875
+        },
+        "delivery": {
+          "name": "short-thumb",
+          "target": {
+            "id": "author.guide.scrollbar.thumb",
+            "bounds": [
+              610,
+              258.896,
+              1.5,
+              346.604
+            ]
+          },
+          "surface": {
+            "x": 51.1875,
+            "y": 38.390625,
+            "width": 512,
+            "height": 512,
+            "logicalWidth": 640,
+            "logicalHeight": 640
+          },
+          "requested": {
+            "css": {
+              "x": 540,
+              "y": 384
+            },
+            "logical": {
+              "x": 611.015625,
+              "y": 432.01171875
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 540,
+            "y": 384
+          },
+          "mapped": {
+            "x": 611.015625,
+            "y": 432.01171875
+          }
+        },
+        "picked": "Review picked: author.guide.scrollbar.thumb",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099368",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "28",
+          "guide_overflow": "0",
+          "guide_scroll": "250.333",
+          "guide_maximum": "250.333",
+          "guide_focus": "1",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_text_rect": "201.000,31.500,388.000,7.000",
+          "guide_text_id": "author.guide.section.panes.description.line3",
+          "guide_text_hex": "576f726b626f6f6b20616e64204669656c647320626568696e642074686520776f726b737061636520",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "402.171,257.500,186.829,21.750",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "415.000,542.500,174.000,43.500",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,258.896,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099360",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "28",
+          "guide_overflow": "0",
+          "guide_scroll": "250.333",
+          "guide_maximum": "250.333",
+          "guide_focus": "1",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_text_rect": "201.000,31.500,388.000,7.000",
+          "guide_text_id": "author.guide.section.panes.description.line3",
+          "guide_text_hex": "576f726b626f6f6b20616e64204669656c647320626568696e642074686520776f726b737061636520",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "402.171,257.500,186.829,21.750",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "415.000,542.500,174.000,43.500",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,258.896,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        }
+      },
+      {
+        "captured": "Browser review captured: DXR-S-b3cabb5731a960e29f621ce8c60f9c5f-29 frame=543 widgets=54",
+        "target": {
+          "id": "author.guide.backdrop.background",
+          "bounds": [
+            1,
+            320,
+            2,
+            2
+          ]
+        },
+        "point": {
+          "x": 2.265625,
+          "y": 320.76171875
+        },
+        "delivery": {
+          "name": "short-backdrop",
+          "target": {
+            "id": "author.guide.backdrop.background",
+            "bounds": [
+              1,
+              320,
+              2,
+              2
+            ]
+          },
+          "surface": {
+            "x": 51.1875,
+            "y": 38.390625,
+            "width": 512,
+            "height": 512,
+            "logicalWidth": 640,
+            "logicalHeight": 640
+          },
+          "requested": {
+            "css": {
+              "x": 53,
+              "y": 295
+            },
+            "logical": {
+              "x": 2.265625,
+              "y": 320.76171875
+            }
+          },
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "button": 0,
+            "x": 53,
+            "y": 295
+          },
+          "mapped": {
+            "x": 2.265625,
+            "y": 320.76171875
+          }
+        },
+        "picked": "Review picked: author.guide.backdrop.background",
+        "before": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099368",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "28",
+          "guide_overflow": "0",
+          "guide_scroll": "250.333",
+          "guide_maximum": "250.333",
+          "guide_focus": "1",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_text_rect": "201.000,31.500,388.000,7.000",
+          "guide_text_id": "author.guide.section.panes.description.line3",
+          "guide_text_hex": "576f726b626f6f6b20616e64204669656c647320626568696e642074686520776f726b737061636520",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "402.171,257.500,186.829,21.750",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "415.000,542.500,174.000,43.500",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,258.896,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        },
+        "after": {
+          "sheet": "0",
+          "modal": "32",
+          "ribbon": "4/0",
+          "focus": "0/0/0",
+          "filter_field": "0",
+          "filter_focus": "0",
+          "filter_menu": "0",
+          "search_cursor": "0",
+          "search_anchor": "0",
+          "search_revision": "1",
+          "active": "0,0",
+          "anchor": "0,0",
+          "extent": "0,0",
+          "top": "0",
+          "horizontal": "0.000",
+          "page": "0/0",
+          "spare": "0/0",
+          "source_revision": "1",
+          "schema": "0",
+          "request": "1",
+          "busy": "0",
+          "io_busy": "0",
+          "dirty": "0",
+          "fraction": "0.000000000",
+          "row_height": "24.000000",
+          "elastic": "0.000000,0.000000",
+          "velocity": "0.000000,0.000000",
+          "body": "60.000,283.500,562.000,305.500",
+          "keytips": "0.000000",
+          "grid_rect": "0.000,247.500,640.000,359.500",
+          "grid_gutter": "60.000",
+          "grid_header": "36.000",
+          "grid_cell": "144.000,36.000",
+          "source_header": "0",
+          "grid_selection": "0",
+          "keytip_tab": "4",
+          "keytip_prefix": "Z",
+          "file_menu": "0",
+          "active_format_flags": "0",
+          "manual_cells": "0",
+          "sheet_count": "1",
+          "file_focus": "0",
+          "file_scroll": "0",
+          "file_visible": "7",
+          "file_panel": "12.000,42.000,360.000,367.500",
+          "last_command": "44",
+          "workbook_order": "7ec32ac56cd8da66",
+          "ui_heap": "67108864",
+          "ui_allocated": "11099360",
+          "browser_picker": "0,0,0,0,0,0",
+          "selected_object": "-1",
+          "object_count": "0",
+          "author_kind": "guide",
+          "author_parent": "author.guide",
+          "guide_count": "28",
+          "guide_overflow": "0",
+          "guide_scroll": "250.333",
+          "guide_maximum": "250.333",
+          "guide_focus": "1",
+          "guide_kind": "guide-document",
+          "guide_origin": "0,0,0,0,0,0,0,0",
+          "guide_panel_rect": "22.500,30.000,595.000,580.000",
+          "guide_text_rect": "201.000,31.500,388.000,7.000",
+          "guide_text_id": "author.guide.section.panes.description.line3",
+          "guide_text_hex": "576f726b626f6f6b20616e64204669656c647320626568696e642074686520776f726b737061636520",
+          "guide_text_truncated": "0",
+          "guide_key_rect": "402.171,257.500,186.829,21.750",
+          "guide_key_id": "author.guide.shortcut.selection.key.line0",
+          "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+          "guide_key_truncated": "0",
+          "guide_start_rect": "415.000,542.500,174.000,43.500",
+          "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+          "guide_thumb_rect": "610.000,258.896,1.500,346.604",
+          "zoom": "1.000000",
+          "ui_scale": "1.500000",
+          "logical": "640,640",
+          "framebuffer": "1280,1280"
+        }
+      }
+    ],
+    "escaped": {
+      "sheet": "0",
+      "modal": "0",
+      "ribbon": "4/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "60.000,283.500,562.000,305.500",
+      "keytips": "0.000000",
+      "grid_rect": "0.000,247.500,640.000,359.500",
+      "grid_gutter": "60.000",
+      "grid_header": "36.000",
+      "grid_cell": "144.000,36.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "4",
+      "keytip_prefix": "Z",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "12.000,42.000,360.000,367.500",
+      "last_command": "44",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "11099368",
+      "browser_picker": "0,0,0,0,0,0",
+      "stats_state": "0",
+      "stats_request": "0",
+      "stats_object": "-1",
+      "stats_cells": "1",
+      "stats_key": "0,0,0,0,1,0,0",
+      "stats_counts": "0,0,0,0",
+      "stats_flags": "0,0,0,0",
+      "stats_error": "0",
+      "stats_sum_null": "1",
+      "stats_sum_hex": "-",
+      "stats_sum_truncated": "0",
+      "stats_average_null": "1",
+      "stats_average_hex": "-",
+      "stats_average_truncated": "0",
+      "stats_minimum_null": "1",
+      "stats_minimum_hex": "-",
+      "stats_minimum_truncated": "0",
+      "stats_maximum_null": "1",
+      "stats_maximum_hex": "-",
+      "stats_maximum_truncated": "0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "zoom": "1.000000",
+      "ui_scale": "1.500000",
+      "logical": "640,640",
+      "framebuffer": "1280,1280"
+    },
+    "reset": {
+      "sheet": "0",
+      "modal": "32",
+      "ribbon": "4/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "60.000,283.500,562.000,305.500",
+      "keytips": "0.000000",
+      "grid_rect": "0.000,247.500,640.000,359.500",
+      "grid_gutter": "60.000",
+      "grid_header": "36.000",
+      "grid_cell": "144.000,36.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "4",
+      "keytip_prefix": "Z",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "12.000,42.000,360.000,367.500",
+      "last_command": "44",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "11099360",
+      "browser_picker": "0,0,0,0,0,0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "author_kind": "guide",
+      "author_parent": "author.guide",
+      "guide_count": "27",
+      "guide_overflow": "0",
+      "guide_scroll": "0.000",
+      "guide_maximum": "250.333",
+      "guide_focus": "0",
+      "guide_kind": "guide-document",
+      "guide_origin": "0,0,0,0,0,0,0,0",
+      "guide_panel_rect": "22.500,30.000,595.000,580.000",
+      "guide_heading_rect": "39.000,31.500,514.000,54.000",
+      "guide_close_rect": "566.500,41.250,34.500,34.500",
+      "guide_text_rect": "51.000,105.000,538.000,27.000",
+      "guide_text_id": "author.guide.intro.line0",
+      "guide_text_hex": "4578706c6f72652074686520776f726b73706163652c207472616e736974696f6e732c20616e6420696e746572616374696f6e2064657461696c732e",
+      "guide_text_truncated": "0",
+      "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+      "guide_thumb_rect": "610.000,34.500,1.500,346.604",
+      "zoom": "1.000000",
+      "ui_scale": "1.500000",
+      "logical": "640,640",
+      "framebuffer": "1280,1280"
+    },
+    "start": {
+      "sheet": "0",
+      "modal": "32",
+      "ribbon": "4/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "60.000,283.500,562.000,305.500",
+      "keytips": "0.000000",
+      "grid_rect": "0.000,247.500,640.000,359.500",
+      "grid_gutter": "60.000",
+      "grid_header": "36.000",
+      "grid_cell": "144.000,36.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "4",
+      "keytip_prefix": "Z",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "12.000,42.000,360.000,367.500",
+      "last_command": "44",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "11099368",
+      "browser_picker": "0,0,0,0,0,0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "author_kind": "guide",
+      "author_parent": "author.guide",
+      "guide_count": "29",
+      "guide_overflow": "0",
+      "guide_scroll": "235.333",
+      "guide_maximum": "250.333",
+      "guide_focus": "1",
+      "guide_kind": "guide-document",
+      "guide_origin": "0,0,0,0,0,0,0,0",
+      "guide_panel_rect": "22.500,30.000,595.000,580.000",
+      "guide_text_rect": "201.000,31.500,388.000,4.000",
+      "guide_text_id": "author.guide.section.panes.description.line2",
+      "guide_text_hex": "65697468657220646f636b2062792069747320656467652e204e6172726f772077696e646f7773207475636b20",
+      "guide_text_truncated": "0",
+      "guide_key_rect": "402.171,280.000,186.829,21.750",
+      "guide_key_id": "author.guide.shortcut.selection.key.line0",
+      "guide_key_hex": "4172726f7773202f2053686966742b4172726f7773",
+      "guide_key_truncated": "0",
+      "guide_start_rect": "415.000,565.000,174.000,43.500",
+      "guide_scrollbar_rect": "605.500,34.500,9.000,571.000",
+      "guide_thumb_rect": "610.000,245.450,1.500,346.604",
+      "zoom": "1.000000",
+      "ui_scale": "1.500000",
+      "logical": "640,640",
+      "framebuffer": "1280,1280"
+    },
+    "startClosed": {
+      "sheet": "0",
+      "modal": "0",
+      "ribbon": "4/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "60.000,283.500,562.000,305.500",
+      "keytips": "0.000000",
+      "grid_rect": "0.000,247.500,640.000,359.500",
+      "grid_gutter": "60.000",
+      "grid_header": "36.000",
+      "grid_cell": "144.000,36.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "4",
+      "keytip_prefix": "Z",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "12.000,42.000,360.000,367.500",
+      "last_command": "44",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "11099360",
+      "browser_picker": "0,0,0,0,0,0",
+      "stats_state": "0",
+      "stats_request": "0",
+      "stats_object": "-1",
+      "stats_cells": "1",
+      "stats_key": "0,0,0,0,1,0,0",
+      "stats_counts": "0,0,0,0",
+      "stats_flags": "0,0,0,0",
+      "stats_error": "0",
+      "stats_sum_null": "1",
+      "stats_sum_hex": "-",
+      "stats_sum_truncated": "0",
+      "stats_average_null": "1",
+      "stats_average_hex": "-",
+      "stats_average_truncated": "0",
+      "stats_minimum_null": "1",
+      "stats_minimum_hex": "-",
+      "stats_minimum_truncated": "0",
+      "stats_maximum_null": "1",
+      "stats_maximum_hex": "-",
+      "stats_maximum_truncated": "0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "zoom": "1.000000",
+      "ui_scale": "1.500000",
+      "logical": "640,640",
+      "framebuffer": "1280,1280"
+    },
+    "final": {
+      "sheet": "0",
+      "modal": "0",
+      "ribbon": "4/0",
+      "focus": "0/0/0",
+      "filter_field": "0",
+      "filter_focus": "0",
+      "filter_menu": "0",
+      "search_cursor": "0",
+      "search_anchor": "0",
+      "search_revision": "1",
+      "active": "0,0",
+      "anchor": "0,0",
+      "extent": "0,0",
+      "top": "0",
+      "horizontal": "0.000",
+      "page": "0/0",
+      "spare": "0/0",
+      "source_revision": "1",
+      "schema": "0",
+      "request": "1",
+      "busy": "0",
+      "io_busy": "0",
+      "dirty": "0",
+      "fraction": "0.000000000",
+      "row_height": "24.000000",
+      "elastic": "0.000000,0.000000",
+      "velocity": "0.000000,0.000000",
+      "body": "268.000,189.000,1000.000,597.000",
+      "keytips": "0.000000",
+      "grid_rect": "228.000,165.000,1052.000,633.000",
+      "grid_gutter": "40.000",
+      "grid_header": "24.000",
+      "grid_cell": "96.000,24.000",
+      "source_header": "0",
+      "grid_selection": "0",
+      "keytip_tab": "4",
+      "keytip_prefix": "Z",
+      "file_menu": "0",
+      "active_format_flags": "0",
+      "manual_cells": "0",
+      "sheet_count": "1",
+      "file_focus": "0",
+      "file_scroll": "0",
+      "file_visible": "7",
+      "file_panel": "8.000,28.000,240.000,245.000",
+      "last_command": "39",
+      "workbook_order": "7ec32ac56cd8da66",
+      "ui_heap": "67108864",
+      "ui_allocated": "8975368",
+      "browser_picker": "0,0,0,0,0,0",
+      "stats_state": "0",
+      "stats_request": "0",
+      "stats_object": "-1",
+      "stats_cells": "1",
+      "stats_key": "0,0,0,0,1,0,0",
+      "stats_counts": "0,0,0,0",
+      "stats_flags": "0,0,0,0",
+      "stats_error": "0",
+      "stats_sum_null": "1",
+      "stats_sum_hex": "-",
+      "stats_sum_truncated": "0",
+      "stats_average_null": "1",
+      "stats_average_hex": "-",
+      "stats_average_truncated": "0",
+      "stats_minimum_null": "1",
+      "stats_minimum_hex": "-",
+      "stats_minimum_truncated": "0",
+      "stats_maximum_null": "1",
+      "stats_maximum_hex": "-",
+      "stats_maximum_truncated": "0",
+      "selected_object": "-1",
+      "object_count": "0",
+      "zoom": "1.000000",
+      "ui_scale": "1.000000",
+      "logical": "1280,820",
+      "framebuffer": "2560,1640"
+    },
+    "scope": "Actual blank-workbook Help/Guide at wide100 and640×640/150% interface scale, with real rendered introduction/shortcut values and document-only target identity. Frozen visible text/key/Close/Start/backdrop and scrollbar-thumb picking plus composer cancellation preserve actual geometry/content, nonzero footer scroll, focused Start and workbook ownership. Actual End/Tab, Start Enter/click, Escape, Help-focus reopen/reset, independent canvas zoom, restored scale and bounded idle all produce zero database jobs/replies and no saved reports. No physical gesture or browser Save acceptance."
+  },
+  "workerProbe": false,
+  "profile": "review-guide-only",
+  "scope": "Actual blank-workbook Help/Guide at wide100 and640×640/150% interface scale, with real rendered introduction/shortcut values and document-only target identity. Frozen visible text/key/Close/Start/backdrop and scrollbar-thumb picking plus composer cancellation preserve actual geometry/content, nonzero footer scroll, focused Start and workbook ownership. Actual End/Tab, Start Enter/click, Escape, Help-focus reopen/reset, independent canvas zoom, restored scale and bounded idle all produce zero database jobs/replies and no saved reports. No physical gesture or browser Save acceptance."
+}

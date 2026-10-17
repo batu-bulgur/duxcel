@@ -1,0 +1,453 @@
+[
+  {
+    "name": "wide-text",
+    "target": {
+      "id": "author.guide.intro.line0",
+      "bounds": [
+        399,
+        184,
+        482,
+        18
+      ]
+    },
+    "surface": {
+      "x": 102.390625,
+      "y": 49.1875,
+      "width": 1024,
+      "height": 656,
+      "logicalWidth": 1280,
+      "logicalHeight": 820
+    },
+    "requested": {
+      "css": {
+        "x": 614,
+        "y": 204
+      },
+      "logical": {
+        "x": 639.51171875,
+        "y": 193.515625
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 614,
+      "y": 204
+    },
+    "mapped": {
+      "x": 639.51171875,
+      "y": 193.515625
+    }
+  },
+  {
+    "name": "wide-key",
+    "target": {
+      "id": "author.guide.shortcut.selection.key.line0",
+      "bounds": [
+        756.447,
+        451,
+        124.553,
+        14.5
+      ]
+    },
+    "surface": {
+      "x": 102.390625,
+      "y": 49.1875,
+      "width": 1024,
+      "height": 656,
+      "logicalWidth": 1280,
+      "logicalHeight": 820
+    },
+    "requested": {
+      "css": {
+        "x": 757,
+        "y": 416
+      },
+      "logical": {
+        "x": 818.26171875,
+        "y": 458.515625
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 757,
+      "y": 416
+    },
+    "mapped": {
+      "x": 818.26171875,
+      "y": 458.515625
+    }
+  },
+  {
+    "name": "wide-close",
+    "target": {
+      "id": "author.guide.action.close",
+      "bounds": [
+        866,
+        141.5,
+        23,
+        23
+      ]
+    },
+    "surface": {
+      "x": 102.390625,
+      "y": 49.1875,
+      "width": 1024,
+      "height": 656,
+      "logicalWidth": 1280,
+      "logicalHeight": 820
+    },
+    "requested": {
+      "css": {
+        "x": 804,
+        "y": 172
+      },
+      "logical": {
+        "x": 877.01171875,
+        "y": 153.515625
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 804,
+      "y": 172
+    },
+    "mapped": {
+      "x": 877.01171875,
+      "y": 153.515625
+    }
+  },
+  {
+    "name": "wide-start",
+    "target": {
+      "id": "author.guide.action.start",
+      "bounds": [
+        765,
+        641,
+        116,
+        29
+      ]
+    },
+    "surface": {
+      "x": 102.390625,
+      "y": 49.1875,
+      "width": 1024,
+      "height": 656,
+      "logicalWidth": 1280,
+      "logicalHeight": 820
+    },
+    "requested": {
+      "css": {
+        "x": 761,
+        "y": 574
+      },
+      "logical": {
+        "x": 823.26171875,
+        "y": 656.015625
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 761,
+      "y": 574
+    },
+    "mapped": {
+      "x": 823.26171875,
+      "y": 656.015625
+    }
+  },
+  {
+    "name": "wide-backdrop",
+    "target": {
+      "id": "author.guide.backdrop.background",
+      "bounds": [
+        1,
+        410,
+        2,
+        2
+      ]
+    },
+    "surface": {
+      "x": 102.390625,
+      "y": 49.1875,
+      "width": 1024,
+      "height": 656,
+      "logicalWidth": 1280,
+      "logicalHeight": 820
+    },
+    "requested": {
+      "css": {
+        "x": 104,
+        "y": 378
+      },
+      "logical": {
+        "x": 2.01171875,
+        "y": 411.015625
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 104,
+      "y": 378
+    },
+    "mapped": {
+      "x": 2.01171875,
+      "y": 411.015625
+    }
+  },
+  {
+    "name": "short-text",
+    "target": {
+      "id": "author.guide.intro.line0",
+      "bounds": [
+        51,
+        105,
+        538,
+        27
+      ]
+    },
+    "surface": {
+      "x": 51.1875,
+      "y": 38.390625,
+      "width": 512,
+      "height": 512,
+      "logicalWidth": 640,
+      "logicalHeight": 640
+    },
+    "requested": {
+      "css": {
+        "x": 307,
+        "y": 133
+      },
+      "logical": {
+        "x": 319.765625,
+        "y": 118.26171875
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 307,
+      "y": 133
+    },
+    "mapped": {
+      "x": 319.765625,
+      "y": 118.26171875
+    }
+  },
+  {
+    "name": "short-close",
+    "target": {
+      "id": "author.guide.action.close",
+      "bounds": [
+        566.5,
+        41.25,
+        34.5,
+        34.5
+      ]
+    },
+    "surface": {
+      "x": 51.1875,
+      "y": 38.390625,
+      "width": 512,
+      "height": 512,
+      "logicalWidth": 640,
+      "logicalHeight": 640
+    },
+    "requested": {
+      "css": {
+        "x": 518,
+        "y": 85
+      },
+      "logical": {
+        "x": 583.515625,
+        "y": 58.26171875
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 518,
+      "y": 85
+    },
+    "mapped": {
+      "x": 583.515625,
+      "y": 58.26171875
+    }
+  },
+  {
+    "name": "short-key",
+    "target": {
+      "id": "author.guide.shortcut.selection.key.line0",
+      "bounds": [
+        402.171,
+        257.5,
+        186.829,
+        21.75
+      ]
+    },
+    "surface": {
+      "x": 51.1875,
+      "y": 38.390625,
+      "width": 512,
+      "height": 512,
+      "logicalWidth": 640,
+      "logicalHeight": 640
+    },
+    "requested": {
+      "css": {
+        "x": 448,
+        "y": 253
+      },
+      "logical": {
+        "x": 496.015625,
+        "y": 268.26171875
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 448,
+      "y": 253
+    },
+    "mapped": {
+      "x": 496.015625,
+      "y": 268.26171875
+    }
+  },
+  {
+    "name": "short-start",
+    "target": {
+      "id": "author.guide.action.start",
+      "bounds": [
+        415,
+        542.5,
+        174,
+        43.5
+      ]
+    },
+    "surface": {
+      "x": 51.1875,
+      "y": 38.390625,
+      "width": 512,
+      "height": 512,
+      "logicalWidth": 640,
+      "logicalHeight": 640
+    },
+    "requested": {
+      "css": {
+        "x": 453,
+        "y": 490
+      },
+      "logical": {
+        "x": 502.265625,
+        "y": 564.51171875
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 453,
+      "y": 490
+    },
+    "mapped": {
+      "x": 502.265625,
+      "y": 564.51171875
+    }
+  },
+  {
+    "name": "short-thumb",
+    "target": {
+      "id": "author.guide.scrollbar.thumb",
+      "bounds": [
+        610,
+        258.896,
+        1.5,
+        346.604
+      ]
+    },
+    "surface": {
+      "x": 51.1875,
+      "y": 38.390625,
+      "width": 512,
+      "height": 512,
+      "logicalWidth": 640,
+      "logicalHeight": 640
+    },
+    "requested": {
+      "css": {
+        "x": 540,
+        "y": 384
+      },
+      "logical": {
+        "x": 611.015625,
+        "y": 432.01171875
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 540,
+      "y": 384
+    },
+    "mapped": {
+      "x": 611.015625,
+      "y": 432.01171875
+    }
+  },
+  {
+    "name": "short-backdrop",
+    "target": {
+      "id": "author.guide.backdrop.background",
+      "bounds": [
+        1,
+        320,
+        2,
+        2
+      ]
+    },
+    "surface": {
+      "x": 51.1875,
+      "y": 38.390625,
+      "width": 512,
+      "height": 512,
+      "logicalWidth": 640,
+      "logicalHeight": 640
+    },
+    "requested": {
+      "css": {
+        "x": 53,
+        "y": 295
+      },
+      "logical": {
+        "x": 2.265625,
+        "y": 320.76171875
+      }
+    },
+    "delivered": {
+      "trusted": true,
+      "canvas": true,
+      "button": 0,
+      "x": 53,
+      "y": 295
+    },
+    "mapped": {
+      "x": 2.265625,
+      "y": 320.76171875
+    }
+  }
+]

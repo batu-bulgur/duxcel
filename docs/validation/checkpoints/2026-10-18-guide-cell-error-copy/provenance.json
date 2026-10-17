@@ -1,0 +1,116 @@
+{
+  "evidence": {
+    "native358": {
+      "original_run": "20261017T215732-review-87616",
+      "files": {
+        "background.log": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
+        "release-owner-create.log": "15b3143e1d7d212eee5d53b21da49cf798f0bdc08464a25ff3d9e91d6b601e63",
+        "release.log": "dd7f88fb578e91a204aa2a78472402bfd5480fc1117f3c93bf52a5fbac601f60",
+        "sanitize-owner-create.log": "15b3143e1d7d212eee5d53b21da49cf798f0bdc08464a25ff3d9e91d6b601e63",
+        "sanitize.log": "8df9298f3c93aab8a31737874df603509dbbd575d29d5b94461389a5e677b1a0",
+        "summary.json": "cfb4a223c1dbf4e3de5f67043752656958f56227fd3680d1b9ee336a51811e24"
+      }
+    },
+    "guide832": {
+      "original_run": "20261017T214839-browser-85111",
+      "files": {
+        "browser-process.json": "3ef73266cfa261f1ff8e1fa1bc03a83f943c75e8bf1811329eafefd67b549df4",
+        "cleanup.json": "bfd384ce040e8f9b19779318e68c558d67a4f0e730c8debfb7fbd8ca81d17601",
+        "driver.txt": "3ce526e425e45480616e095ff041579252f6459e9755a7a609b4772396135de3",
+        "guide-pointer-delivery.json": "fd6ef6341871f92d6e6f843dc8aed1256e4dfcf77ab796b114f069a9968b2823",
+        "guide-short-backdrop-composer.png": "03c919b2db40f266701ea19650c6a39219ec64ef05668d9d6d7e64f33dd532c6",
+        "guide-short-close-composer.png": "fdab2db60cfe6ba55e2158237ebe12edaacc957145cd60e41bcb701f985a4642",
+        "guide-short-footer-picker.png": "0d34b5493a0bf3a3dc8b762e113902b2ba227ed3a659dcdc544939eec87869c5",
+        "guide-short-key-composer.png": "27d741e934d6ea959e9a5be98c6e6d5098fefe95f26a9f37af1f6c7b91bb4343",
+        "guide-short-start-composer.png": "9c7900cae9c84172d67b02e72fc8ccb32264bd7c92ea9ef1cefa3626cb4d68ee",
+        "guide-short-text-composer.png": "c0489712f249ec27367a22de6391c160a172f7225135b3c0536d7360b8fa56f2",
+        "guide-short-thumb-composer.png": "da2e4e06a024747a8822a1bfe4315e0395b61ec8f5fe4cc9b781d86f312916d9",
+        "guide-short-top-picker.png": "9ae505b1081abeb60e2f5c50edba3b984495354f1b5454a0dc0b81690aa5d193",
+        "guide-wide-backdrop-composer.png": "1884379da7c304830eb21b148abe37a3fb12675a2dee5506bf4f76e39276a670",
+        "guide-wide-close-composer.png": "81260d2657991ccb3f462e8a6e9a5a4fd88215fa3b3c7a4609f91e3cc8edeb25",
+        "guide-wide-key-composer.png": "653f5adc90b37081b1d945ac59b7bb32f03957959757568a511f63cfeea40c1b",
+        "guide-wide-picker.png": "b872dd39e0fc451a7567ec86270db5aaeabce552ea5ec630d5ad7ea3f5a027b9",
+        "guide-wide-start-composer.png": "ff6bb2979993dd3a5774d7d3799ccfa210a7069b80ff51792aa8d77e273f5d16",
+        "guide-wide-text-composer.png": "ba4a1961b6d17503f00264f52688a555513f0f9ebda51c4145650e6eb5b14c12",
+        "result.json": "05e52d8660daca6902c26314ce0eb4ecb8d72011fe100690d9a7827c3341f1ee",
+        "review-guide.json": "0f8d747982a1c9b5fca554139540203f61dd58c812b9862964973a7c5dd2c925",
+        "summary.json": "42353f14ad356c3895b3ef322683b9324438b2a0511807650974f84b040e8723",
+        "wide.png": "07e367fa9a1c20dc6900d2d44882aa1b4b5dcf91eee766c1488f835f975e3cfe"
+      }
+    },
+    "cell142": {
+      "original_run": "20261017T215912-browser-88550",
+      "files": {
+        "browser-process.json": "9a6daffc6fbd46c9799e652f7005fd06c1a1acdb74a488fae589b678fcae3032",
+        "cell-150-composer.png": "41583791a0a43f88e54ef7d165097f7167bc22a561ab8b68a2e681510223e6e4",
+        "cell-150-picker.png": "3a9b6e335de7db8869cdaa2a46008af50f84938a5063784163962d77510c9ddc",
+        "cell-wide-composer.png": "6b0e97c8a97b7a4b592c13cea38dec961cba9a91d0421b7ddacd43c1c9daa58c",
+        "cell-wide-picker.png": "b19cd10f94c0cbd9273ccf921e1cb60d5c2567a1a2cb62e2cbad565216783dff",
+        "cleanup.json": "4d4852dfd8dfcafd277261ff67937c0ce070415e6b4046dea138f02de0e4d028",
+        "driver.txt": "fae7d8eab5c403436008b983a37eb8f97d6cddd8af35a3ef5cff789cd7ac520f",
+        "result.json": "abc0425194de831b14a4cc0b66ac5dff7394ffbc6d4616032a6d8df2aa93f151",
+        "review-cell.json": "b6bcafdcbec2e6e71602e042049d40b4f5036145850183ea4967bdeba12376a2",
+        "summary.json": "e0c971c56bf2f9033400a7b455da43fc954a644f831ccdb3947618f7a62b0102",
+        "wide.png": "07e367fa9a1c20dc6900d2d44882aa1b4b5dcf91eee766c1488f835f975e3cfe"
+      }
+    },
+    "error1129": {
+      "original_run": "20261017T215953-browser-88649",
+      "files": {
+        "browser-process.json": "4cce384a1935052585db89fa35f0847720ff64c7d2183b020a5fee606427f43a",
+        "cleanup.json": "44d9cf16ed40d70fbcb07dadcc26960f6804d211c60f32d30d50f75abb7b74e3",
+        "controls-error-short150-backdrop.png": "667731f6622b8a9b51137b58e15e0ba196558fa7586135933778853f56c20a8a",
+        "controls-error-short150-content.png": "03abf3eeabd7ccc5a0dfb3899668f3e964bdfec37cc7183e501edcc691ae708d",
+        "controls-error-short150-copy.png": "f99ba3ab2c518fd2cb80fe3a2a6348e18dd0c7283b6ea01b87a4279f73b4856d",
+        "controls-error-short150-footer-close.png": "44abc457abbd7eb145df1c6e9dbc354dd7de3b76de99b1e647a629ab04ee97fb",
+        "controls-error-short150-panel.png": "01507fa20ff39a6130364db5c6b03e962250948427a1255d1528e1221049bf46",
+        "controls-error-short150-picker.png": "ff12192777665b0d4adcc9a35ec54e50db235f9cbc849f8cae6db1d46b20b151",
+        "controls-error-short150-relink-disabled.png": "c858276a918a83fb031f2e01012be6949ea69b3038f0fd718624c8a8b308ced8",
+        "controls-error-short150-title.png": "21ca695668796e469046f0e6ec2af28b36a52031fd525ff95c98343c30a19577",
+        "controls-error-short150-x-close.png": "582692c3bd8f1e322f132c07c86d1375badea57443bd509c794d776c0a3f43f6",
+        "controls-error-wide100-backdrop.png": "f437f8fd806901e15c85864c323820bad49242cd324bd8b619ecfb0b35d5cbb2",
+        "controls-error-wide100-content.png": "a88a6b2770f0a037c88a89fd7c46a5f6431e26114614dfb91cb4d37bc1a925d0",
+        "controls-error-wide100-copy.png": "12353d582e44311b49a3e1c2d3677503527a4355a8d7808ebef7c9f83053ea5b",
+        "controls-error-wide100-footer-close.png": "8829e13a76805439a2bd2891f82548c16f04f05cb045e9d7938fe99c75e4dfed",
+        "controls-error-wide100-panel.png": "80f3f40acc0854cdb81af3c01e5a6ad30c4c4b08e50ac893c95c1db84c6fdd40",
+        "controls-error-wide100-picker.png": "5269be0a2cbd7320b4224ac14a9d344be9082eb470251fe83dc9f87c51ed1322",
+        "controls-error-wide100-relink-disabled.png": "6e330fc93f5f7e580eb0e8863f111f4ba2e5a27512adf37c50003c1b7bbf2a3f",
+        "controls-error-wide100-title.png": "5565090235bdf311c67e850faa0a88b549580c865c48ca91d36b87fd37317caa",
+        "controls-error-wide100-x-close.png": "ca00a80e765f5bf54f53d8c6b0b4befc130d12f15ca2fc0e89d11ed4623457df",
+        "driver.txt": "0d9fdb0c434bb402f7fc9e9218b30251c72b7daec3c3c608e0bb464aa89870d5",
+        "error-short150-recovered.png": "1fb0870be278844e950d9706885851acc2613bb426171bfa32c7ed79c9c0ce75",
+        "error-wide100-recovered.png": "dfcaf1ea36531c91f5c0fb0440c48d2dbfd298da68f678ebe8b29f3b487d32ea",
+        "result.json": "82cf2a9a8d00c827af34e6ca0c47724884093b67dea9495c46d7d4e6be3c87cb",
+        "review-error.json": "02d92d9bab9c03bd48861db9ea539e5809e4d21636e8a6fac924b9df139d8f9c",
+        "summary.json": "3d45dc554585848eb8d4e8a31710b7a0a3c40e3dc97ce2be8442132fcd6aa87a",
+        "wide.png": "07e367fa9a1c20dc6900d2d44882aa1b4b5dcf91eee766c1488f835f975e3cfe"
+      }
+    },
+    "focus92": {
+      "original_run": "20261017T220045-browser-89030",
+      "files": {
+        "browser-process.json": "a4088f9650be95d2b804f1f688342b30d3029b0811b21b30c1a7e248323f3820",
+        "cleanup.json": "a8d250254d3e6c89382eea52333a355a47ba9b931362e025879f203ef16366e7",
+        "driver.txt": "9a5cae28e7abc41aebec794b1ce6f31e5f8e987e9fbe2af920206f39bd692902",
+        "focus-file-dismissed.png": "30f5384a9db3bd64978aaf67b2dc36d17f0878bf83e56b790e18d848cd328994",
+        "focus-file-second-help.png": "3d09eda94f62a1eb0cbaa29bcf1fe8f58d29c281ff9e4d8cd31aa402cee7943e",
+        "focus-pane-help.png": "3d09eda94f62a1eb0cbaa29bcf1fe8f58d29c281ff9e4d8cd31aa402cee7943e",
+        "focus.json": "6d5ad42ad3b1fbc3e297c58f1706659ee161afeafc2af2d12385670cf70d3f82",
+        "result.json": "734a9bdccfb5b1bfd7b99902911a5f93fe9f33a8e030cab5e001ba4a08d36c65",
+        "summary.json": "55e6afb06a2225177a25550b42959edc797df40b749f665c2d52450c542b30b2",
+        "wide.png": "07e367fa9a1c20dc6900d2d44882aa1b4b5dcf91eee766c1488f835f975e3cfe"
+      }
+    },
+    "worker139": {
+      "original_run": "20261017T215852-browser-88190",
+      "files": {
+        "browser-process.json": "bd0390ce5e2a15876963beb6df471578359f434c684bdcf8079c8e88f9e086f3",
+        "cleanup.json": "23ffe5d9ce67370aed77ac0962cc2ad07927fbb19fe4f86e66eef1d9ba541e5c",
+        "driver.txt": "21d4af34953a6ce7f1567f1659a1da3815f256639fad9fc50a2cbf6725456e39",
+        "summary.json": "4b843a5a6b27a6a8123408a04b028831543a14e31b5e21e4587d3d2215d1f2f8",
+        "worker-driver.json": "2f61fc6dd8b8c44cbd804b65868500f1ac855544859edfc5bd4f215c996ef553"
+      }
+    }
+  },
+  "scope": "Separate native358/runtime f230590, Guide832/runtime2929267, Cell/Error/Focus/runtime d78127b, Worker139/runtime f230590; each summary retains actual source, harness and binary hashes. No clipboard delivery/export/workbook UI or full visual parity claim."
+}
