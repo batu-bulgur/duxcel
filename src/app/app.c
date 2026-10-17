@@ -378,6 +378,9 @@ static bool review_armed(App *a);
 static void review_author_item(App *a,const char *kind,const char *key,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,const char *file,int line);
 static void review_author_scroll(App *a,const char *kind,Rectangle track,Rectangle thumb,Rectangle clip,bool dragging,const char *file,int line);
 static void review_author_input(App *a,const char *kind,const char *key,const char *action,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool focused,const TextInput *input,const char *file,int line);
+static void review_sheet_row(App *a,size_t sheet,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *file,int line);
+static void review_sheet_scroll(App *a,Rectangle track,Rectangle thumb,Rectangle clip,bool dragging,const char *file,int line);
+static void review_sheet_choice(App *a,const char *kind,const char *key,const char *action,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,size_t sheet,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -395,6 +398,9 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_AUTHOR_ITEM(a,kind,key,action,role,label,bounds,clip,enabled,checked,focused,field) review_author_item(a,kind,key,action,role,label,bounds,clip,enabled,checked,focused,field,__FILE__,__LINE__)
 #define REVIEW_AUTHOR_SCROLL(a,kind,track,thumb,clip,dragging) review_author_scroll(a,kind,track,thumb,clip,dragging,__FILE__,__LINE__)
 #define REVIEW_AUTHOR_INPUT(a,kind,key,action,label,bounds,clip,enabled,focused,input) review_author_input(a,kind,key,action,label,bounds,clip,enabled,focused,input,__FILE__,__LINE__)
+#define REVIEW_SHEET_ROW(a,sheet,label,bounds,clip,enabled,checked,focused) review_sheet_row(a,sheet,label,bounds,clip,enabled,checked,focused,__FILE__,__LINE__)
+#define REVIEW_SHEET_SCROLL(a,track,thumb,clip,dragging) review_sheet_scroll(a,track,thumb,clip,dragging,__FILE__,__LINE__)
+#define REVIEW_SHEET_CHOICE(a,kind,key,action,label,bounds,clip,enabled,checked,focused,sheet) review_sheet_choice(a,kind,key,action,label,bounds,clip,enabled,checked,focused,sheet,__FILE__,__LINE__)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -410,6 +416,9 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_AUTHOR_ITEM(...) ((void)0)
 #define REVIEW_AUTHOR_SCROLL(...) ((void)0)
 #define REVIEW_AUTHOR_INPUT(...) ((void)0)
+#define REVIEW_SHEET_ROW(...) ((void)0)
+#define REVIEW_SHEET_SCROLL(...) ((void)0)
+#define REVIEW_SHEET_CHOICE(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -4208,7 +4217,7 @@ static void column_action(App *a,ColumnAction action) {
     }
 }
 static void draw_column_width(App *a) {
-    UIContext *u=&a->ui; float s=u->scale,w=450*s,h=210*s,x=(GetScreenWidth()-w)*.5f,y=(GetScreenHeight()-h)*.5f;
+    UIContext *u=&a->ui; float s=u->scale,w=fminf(450*s,GetScreenWidth()-32*s),h=210*s,x=(GetScreenWidth()-w)*.5f,y=(GetScreenHeight()-h)*.5f;
     if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
     if (ui_pressed(KEY_TAB)) a->width_focus=(a->width_focus+(ui_key_shift(KEY_TAB) ? 2 : 1))%3;
     if (!a->width_focus) input_update(&a->input);
@@ -4507,10 +4516,14 @@ static void draw_sheet_modal(App *a) {
     if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->chrome_focus=2; a->consume_grid_input=true; return; }
     if (rename) {
         float w=fminf(520*s,GetScreenWidth()-32*s),h=226*s; Rectangle r=box((GetScreenWidth()-w)/2,(GetScreenHeight()-h)/2,w,h);
+        REVIEW_AUTHOR_PANEL(a,"sheet_rename","Rename worksheet",r,box(r.x+14*s,r.y+12*s,w-28*s,32*s));
         DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,70}); DrawRectangleRec(r,UI_BG); DrawRectangleLinesEx(r,1,UI_BORDER);
         ui_text_clip_weight(u,"Rename worksheet",box(r.x+14*s,r.y+12*s,w-28*s,32*s),17,UI_TEXT,false,UI_SEMIBOLD);
         input_update(&a->input); input_draw(u,&a->input,box(r.x+20*s,r.y+62*s,w-40*s,36*s));
+        REVIEW_AUTHOR_INPUT(a,"sheet_rename","name","workbook.rename_sheet","Worksheet name",box(r.x+20*s,r.y+62*s,w-40*s,36*s),r,true,true,&a->input);
         if (a->sheet_rename_error) ui_text_clip(u,a->message,box(r.x+14*s,r.y+104*s,w-28*s,42*s),11,(Color){160,43,43,255},false);
+        REVIEW_AUTHOR_ITEM(a,"sheet_rename","apply","workbook.rename_sheet","button","Rename",box(r.x+w-130*s,r.y+h-48*s,110*s,30*s),r,true,false,false,NULL);
+        REVIEW_AUTHOR_ITEM(a,"sheet_rename","cancel","dialog.cancel","button","Cancel",box(r.x+w-248*s,r.y+h-48*s,110*s,30*s),r,true,false,false,NULL);
         bool apply=ui_button(u,box(r.x+w-130*s,r.y+h-48*s,110*s,30*s),"Rename",true,true)||ui_pressed(KEY_ENTER);
         bool cancel=ui_button(u,box(r.x+w-248*s,r.y+h-48*s,110*s,30*s),"Cancel",false,true);
         if (apply) {
@@ -4530,6 +4543,7 @@ static void draw_sheet_modal(App *a) {
     popup_capture(a,r);
     if (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),r)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
     ui_choice_frame(u,&menu.frame,unhide ? "Show a hidden worksheet" : a->book.sheets[a->sheet_menu_index].name);
+    REVIEW_AUTHOR_PANEL(a,unhide ? "sheet_unhide" : "sheet_menu",unhide ? "Show a hidden worksheet" : a->book.sheets[a->sheet_menu_index].name,menu.frame.panel,menu.frame.title);
     bool available[DX_MAX_SHEETS]; size_t index=a->sheet_menu_index;
     for (int i=0;i<rows;i++) available[i]=unhide || (i==1 ? a->book.count<DX_MAX_SHEETS : i==2 ? sheet_display_position(&a->book,index)>0 : i==3 ? sheet_display_position(&a->book,index)+1<workbook_visible_count(&a->book) : i==4 ? workbook_visible_count(&a->book)>1 : i==5 ? workbook_visible_count(&a->book)<a->book.count : true);
     if (ui_key(KEY_UP)) a->sheet_menu_focus=(a->sheet_menu_focus+rows-1)%rows;
@@ -4550,6 +4564,8 @@ static void draw_sheet_modal(App *a) {
     if (unhide) list_scrollbar(a,menu.items,rows,visible,&a->unhide_scroll,&a->context_drag,&a->context_grab,true);
     for (int j=0;j<visible;j++) {
         int i=j+a->unhide_scroll; Rectangle row=menu.frame.rows[j]; if (rows>visible) row.width-=9*s;
+        if (unhide) { REVIEW_SHEET_CHOICE(a,"sheet_unhide","show","workbook.show_sheet",a->book.sheets[hidden[i]].name,row,menu.items,available[i],false,i==a->sheet_menu_focus,hidden[i]); }
+        else { REVIEW_AUTHOR_ITEM(a,"sheet_menu",((const char *const[]){"rename","duplicate","move.up","move.down","hide","unhide"})[i],"workbook.sheet_action","menuitem",labels[i],row,menu.items,available[i],false,i==a->sheet_menu_focus,NULL); }
         bool clicked=ui_choice_row(u,row,unhide ? a->book.sheets[hidden[i]].name : labels[i],!unhide && !i ? "F2" : NULL,unhide ? CARBON_TABLE : icons[i],false,i==a->sheet_menu_focus,available[i]);
         if (!clicked && !(!a->consume_grid_input && available[i] && i==a->sheet_menu_focus && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) continue;
         if (unhide) { a->sheet_menu_index=hidden[i]; a->sheet_action=SHEET_ACTION_SHOW; a->modal=MODAL_NONE; }
@@ -5207,8 +5223,9 @@ static void list_scrollbar(App *a,Rectangle r,int count,int visible,int *offset,
     *offset=(int)lroundf(position); *drag=state.dragging; *grab=state.grab;
 #ifdef DUXCEL_DEV_REVIEW
     if (review_armed(a) && count>visible) {
-        const char *kind=a->modal==MODAL_MARKS ? "marks" : a->modal==MODAL_OBJECT ? "object" : a->modal==MODAL_ASSIGN_FIELD ? "assign_field" : NULL;
+        const char *kind=a->modal==MODAL_MARKS ? "marks" : a->modal==MODAL_OBJECT ? "object" : a->modal==MODAL_ASSIGN_FIELD ? "assign_field" : a->modal==MODAL_UNHIDE ? "sheet_unhide" : NULL;
         if (kind) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_AUTHOR_SCROLL(a,kind,track,ui_scrollbar_thumb(track,count,visible,position,false,s),r,state.dragging); }
+        if (offset==&a->sheet_scroll) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_SHEET_SCROLL(a,track,ui_scrollbar_thumb(track,count,visible,position,false,s),GetCollisionRec(r,a->workbook_body_clip),state.dragging); }
     }
 #endif
 }
@@ -5256,6 +5273,7 @@ static float draw_workbook_section(App *a,Rectangle r,bool shared) {
         char label[512]; snprintf(label,sizeof(label),"%s%s",sheet ? "" : "↳ ",sheet ? a->book.sheets[index].name : relation->label);
         bool active=sheet ? index==a->book.active : a->analysis.table && !strcmp(a->analysis.table,relation->name) && !strcmp(a->analysis.schema,relation->schema);
         Rectangle row=box(list.x,list.y+j*rows.stride*s,list.width-(count>visible ? 10*s : 0),rows.row_height*s);
+        if (sheet) { REVIEW_SHEET_ROW(a,index,label,row,GetCollisionRec(list,a->workbook_body_clip),enabled,active,a->chrome_focus==2 && (int)position==a->workbook_focus_index); }
         if (sheet && enabled && CheckCollisionPointRec(ui_mouse_position(),visible_area(u,row)) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { begin_sheet_menu(a,index,ui_mouse_position()); break; }
         bool clicked=ui_list_row(u,row,"",active,passive_control(a,enabled) && (sheet || !a->busy));
         ui_carbon(u,CARBON_TABLE,box(row.x+9*s,row.y+(row.height-17*s)*.5f,17*s,17*s),active ? UI_ACCENT : UI_MUTED);
@@ -5271,7 +5289,7 @@ static float draw_workbook_section(App *a,Rectangle r,bool shared) {
     ui_clear_clip(u); ui_scissor_end(u); list_scrollbar(a,list,count,visible,&a->sheet_scroll,&a->workbook_drag,&a->workbook_grab,enabled);
     Rectangle add=box(r.x+6*s,list.y+list.height+4*s,r.width-12*s,26*s);
     bool blocked=u->pointer_blocked; u->pointer_blocked=blocked || !enabled;
-    REVIEW_CONTROL(a,"pane.workbook.add_sheet","command.new_sheet","workspace/left/workbook","button","New sheet",add,51,!a->io_busy,false,false);
+    REVIEW_CONTROL(a,"pane.workbook.add_sheet","command.new_sheet","workspace/left/workbook","button","New sheet",add,51,enabled && !a->io_busy,false,false);
     bool adding=ui_list_row(u,add,"",false,!a->io_busy);
     ui_carbon(u,CARBON_ADD,box(add.x+9*s,add.y+5*s,16*s,16*s),UI_TEXT);
     ui_label(u,"New sheet",box(add.x+35*s,add.y,add.width-44*s,add.height),12,UI_TEXT,false,UI_REGULAR);
