@@ -5113,11 +5113,13 @@ static void draw_format_menu(App *a) {
     if (CheckCollisionPointRec(mouse,menu.items)) a->context_scroll+=ui_scroll_steps(&a->wheel_select,-GetMouseWheelMoveV().y*3);
     int max=count-menu.visible; if (a->context_scroll<0) a->context_scroll=0; if (a->context_scroll>max) a->context_scroll=max;
     ui_select_menu_frame(u,&menu);
+    REVIEW_AUTHOR_PANEL(a,a->format_action==ACTION_FONT_SIZE ? "font_size" : "number_format",a->format_action==ACTION_FONT_SIZE ? "Font size" : "Number format",menu.panel,((Rectangle){0}));
     for (int row=0;row<menu.visible;row++) {
         int i=row+a->context_scroll;
         char label[32]; bool checked=false; CellFormat next=current; unsigned mask=0;
         if (a->format_action==ACTION_FONT_SIZE) { snprintf(label,sizeof(label),"%d",11+i); next.size=(unsigned char)(11+i); mask=FORMAT_SIZE; checked=current.size==next.size; }
         else { snprintf(label,sizeof(label),"%s",i ? "Number" : "Accounting"); next.number=(unsigned char)(i ? FORMAT_NUMBER : FORMAT_ACCOUNTING); mask=FORMAT_NUMERIC; checked=current.number==next.number || (!i && current.number==FORMAT_GENERAL); }
+        REVIEW_AUTHOR_ITEM(a,a->format_action==ACTION_FONT_SIZE ? "font_size" : "number_format",a->format_action==ACTION_FONT_SIZE ? ((const char *const[]){"size.11","size.12","size.13","size.14","size.15","size.16"})[i] : i ? "number" : "accounting",a->format_action==ACTION_FONT_SIZE ? "format.font_size" : "format.number_format","menuitemradio",label,ui_select_menu_row(&menu,row),menu.panel,true,checked,a->context_focus==i,NULL);
         if (ui_select_menu_option(u,&menu,row,label,a->format_action==ACTION_FONT_SIZE ? UI_SELECT_FONT_SIZE : UI_SELECT_NUMBER_FORMAT,checked,a->context_focus==i,true,!a->consume_grid_input) || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { if (apply_format(a,mask,next)) close_format_menu(a); return; }
     }
 }
