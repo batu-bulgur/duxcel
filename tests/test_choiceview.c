@@ -16,7 +16,7 @@ const Color UI_BORDER={202,210,218,255},UI_ACCENT={40,95,134,255},UI_TINT={228,2
 typedef enum { PAINT_RECT,PAINT_ROUND,PAINT_ROUND_LINE,PAINT_BORDER,PAINT_LABEL,PAINT_ICON,PAINT_FOCUS } PaintKind;
 typedef struct { PaintKind kind; Rectangle rect,clip; Color color; float size; bool clipping; UICarbonIcon icon; UIFontWeight weight; char text[64]; } Paint;
 static struct {
-    UIContext *ui; Paint calls[32]; unsigned count,inputs,begins,ends;
+    UIContext *ui; Paint calls[32]; unsigned count,inputs,begins,ends,feedback_kind;
     bool click,hover,down,scissor,input_enabled; Rectangle input;
 } paint;
 static void reset_paint(UIContext *ui) { memset(&paint,0,sizeof(paint)); paint.ui=ui; paint.scissor=true; }
@@ -34,6 +34,7 @@ void DrawRectangleRoundedLinesEx(Rectangle r,float roundness,int segments,float 
 bool IsMouseButtonDown(int button) { return button==MOUSE_BUTTON_LEFT && paint.down; }
 bool ui_control_input(UIContext *u,Rectangle r,bool enabled,bool *hover) { paint.inputs++; paint.input=r; paint.input_enabled=enabled && !u->pointer_blocked; *hover=paint.input_enabled && paint.hover; return paint.input_enabled && paint.click; }
 bool ui_tool_button(UIContext *u,Rectangle r,const char *label,bool active,bool enabled) { (void)label; (void)active; bool hover=false; return ui_control_input(u,r,enabled,&hover); }
+void ui_feedback_colors(UIContext *u,Rectangle r,unsigned kind,const Color base[3],Color colors[3]) { (void)u; (void)r; (void)base; (void)colors; paint.feedback_kind=kind; }
 float ui_measure(UIContext *u,const char *text,float size) { return (float)strlen(text)*size*u->scale*.5f; }
 void ui_label(UIContext *u,const char *text,Rectangle r,float size,Color color,bool right,UIFontWeight weight) { (void)u; (void)right; Paint *p=record_paint(PAINT_LABEL,r,color,size); p->weight=weight; snprintf(p->text,sizeof(p->text),"%s",text); }
 void ui_carbon(UIContext *u,UICarbonIcon icon,Rectangle r,Color color) { (void)u; record_paint(PAINT_ICON,r,color,0)->icon=icon; }
@@ -146,6 +147,61 @@ static void test_select_bounds_and_clip(void) {
     CHECK(!ui_select_menu_option(&u,&menu,-1,"Contains",UI_SELECT_FILTER_CONDITION,true,true,true,true));
     CHECK(!ui_select_menu_option(&u,&menu,menu.visible,"Contains",UI_SELECT_FILTER_CONDITION,true,true,true,true)); CHECK(!paint.count && !paint.inputs);
 }
+static void test_choice_row_paint(void) {
+    const float scales[]={1,1.5f};
+    for (unsigned i=0;i<sizeof(scales)/sizeof(*scales);i++) {
+        float s=scales[i]; UIContext u={.scale=s}; Rectangle row={10,20,230*s,28*s};
+        reset_paint(&u); CHECK(!ui_choice_row(&u,row,"Open workbook","O",CARBON_FOLDER_OPEN,false,false,true));
+        CHECK(paint.inputs==1 && paint.input_enabled && paint.feedback_kind==8 && !painted(PAINT_RECT) && !painted(PAINT_ROUND) && !painted(PAINT_BORDER));
+        Paint *icon=find_paint(PAINT_ICON),*label=find_paint(PAINT_LABEL);
+        CHECK(icon->icon==CARBON_FOLDER_OPEN && same_color(icon->color,(Color){65,110,138,255}));
+        CHECK(same_rect(icon->rect,(Rectangle){row.x+8.5f*s,row.y+6*s,16*s,16*s}));
+        CHECK(label->size==11.5f && same_color(label->color,(Color){39,63,81,255}) && !strcmp(label->text,"Open workbook"));
+        CHECK(paint.calls[2].kind==PAINT_LABEL && paint.calls[2].size==11 && same_color(paint.calls[2].color,(Color){94,110,124,255}));
+        CHECK(same_rect(paint.calls[2].rect,(Rectangle){row.x+row.width-20.5f*s,row.y,13.5f*s,row.height}));
+        for (unsigned c=0;c<paint.count;c++) CHECK(paint.calls[c].clipping && same_rect(paint.calls[c].clip,row));
+        CHECK(!u.clipping && !u.scissor_depth);
+
+        reset_paint(&u); paint.hover=true; CHECK(!ui_choice_row(&u,row,"Open",NULL,CARBON_COUNT,false,false,true));
+        CHECK(painted(PAINT_ROUND)==1 && !painted(PAINT_BORDER) && same_color(find_paint(PAINT_ROUND)->color,(Color){231,240,246,255}));
+        CHECK(fabsf(find_paint(PAINT_ROUND)->size-4*s/row.height)<.0001f);
+        reset_paint(&u); paint.hover=paint.down=true; CHECK(!ui_choice_row(&u,row,"Open",NULL,CARBON_COUNT,false,false,true));
+        CHECK(same_color(find_paint(PAINT_ROUND)->color,(Color){212,228,238,255}));
+        reset_paint(&u); paint.click=true; CHECK(ui_choice_row(&u,row,"Open",NULL,CARBON_COUNT,false,false,true));
+        CHECK(same_color(find_paint(PAINT_ROUND)->color,(Color){212,228,238,255}));
+        reset_paint(&u); CHECK(!ui_choice_row(&u,row,"Visible","V",CARBON_CLOSE,true,true,true));
+        CHECK(find_paint(PAINT_ICON)->icon==CARBON_CHECKMARK && painted(PAINT_FOCUS)==1 && same_rect(find_paint(PAINT_FOCUS)->clip,row));
+
+        reset_paint(&u); paint.hover=paint.click=paint.down=true; CHECK(!ui_choice_row(&u,row,"Disabled","D",CARBON_CLOSE,false,true,false));
+        CHECK(!paint.input_enabled && !painted(PAINT_ROUND) && !painted(PAINT_RECT) && !painted(PAINT_FOCUS));
+        CHECK(same_color(find_paint(PAINT_LABEL)->color,Fade((Color){39,63,81,255},.4f)));
+        CHECK(same_color(find_paint(PAINT_ICON)->color,Fade((Color){65,110,138,255},.4f)));
+        CHECK(same_color(paint.calls[2].color,Fade((Color){94,110,124,255},.4f)));
+        reset_paint(&u); paint.hover=paint.click=true; CHECK(!ui_choice_row_input(&u,row,"Blocked",NULL,CARBON_CLOSE,false,true,true,false));
+        CHECK(!paint.input_enabled && !u.pointer_blocked && painted(PAINT_FOCUS)==1 && same_color(find_paint(PAINT_LABEL)->color,(Color){39,63,81,255}));
+        u.pointer_blocked=true; reset_paint(&u); CHECK(!ui_choice_row_input(&u,row,"Blocked",NULL,CARBON_COUNT,false,false,true,true)); CHECK(u.pointer_blocked && !paint.input_enabled); u.pointer_blocked=false;
+    }
+}
+static void test_choice_row_bounds_and_clip(void) {
+    UIContext u={.scale=1,.clip={40,22,90,18},.clipping=true}; Rectangle original=u.clip,row={10,20,230,28};
+    reset_paint(&u); paint.hover=true; CHECK(!ui_choice_row(&u,row,"Very long action name","Shortcut",CARBON_CLOSE,false,true,true));
+    CHECK(paint.begins==1 && paint.ends==1 && !u.scissor_depth && u.clipping && same_rect(u.clip,original));
+    for (unsigned i=0;i<paint.count;i++) CHECK(paint.calls[i].clipping && same_rect(paint.calls[i].clip,original));
+    CHECK(same_rect(find_paint(PAINT_FOCUS)->rect,row) && same_rect(find_paint(PAINT_FOCUS)->clip,original));
+    reset_paint(&u); paint.scissor=false; paint.hover=true; CHECK(!ui_choice_row(&u,row,"Open",NULL,CARBON_COUNT,false,true,true));
+    CHECK(paint.begins==1 && !paint.ends && !painted(PAINT_ROUND) && painted(PAINT_RECT)==1 && same_rect(find_paint(PAINT_RECT)->rect,original));
+    CHECK(!u.scissor_depth && same_rect(u.clip,original));
+    u.clip=(Rectangle){-100,-100,20,20}; reset_paint(&u); paint.click=true;
+    CHECK(!ui_choice_row(&u,row,"Invisible",NULL,CARBON_COUNT,false,true,true)); CHECK(!paint.count && !paint.inputs);
+    u.clipping=false;
+    const Rectangle invalid[]={{NAN,0,230,28},{0,INFINITY,230,28},{0,0,INFINITY,28},{0,0,230,NAN},{0,0,0,28},{0,0,230,-1}};
+    for (unsigned i=0;i<sizeof(invalid)/sizeof(*invalid);i++) { reset_paint(&u); CHECK(!ui_choice_row(&u,invalid[i],"Invalid",NULL,CARBON_COUNT,false,true,true)); CHECK(!paint.count && !paint.inputs); }
+    const float scales[]={NAN,INFINITY,-1,0};
+    for (unsigned i=0;i<sizeof(scales)/sizeof(*scales);i++) { u.scale=scales[i]; reset_paint(&u); CHECK(!ui_choice_row(&u,row,"Invalid",NULL,CARBON_COUNT,false,true,true)); CHECK(!paint.count && !paint.inputs); }
+    CHECK(!ui_choice_row(NULL,row,"Invalid",NULL,CARBON_COUNT,false,true,true));
+    CHECK(!ui_choice_row_input(NULL,row,"Invalid",NULL,CARBON_COUNT,false,true,true,true));
+    u.scale=1; reset_paint(&u); CHECK(!ui_choice_row(&u,row,NULL,NULL,CARBON_COUNT,false,false,true)); CHECK(!*find_paint(PAINT_LABEL)->text);
+}
 int main(void) {
     const float scales[]={.8f,1,1.5f,2.5f}; const Vector2 windows[]={{1440,988},{640,640},{1280,820}};
     for (int s=0;s<4;s++) for (int w=0;w<3;w++) for (int count=3;count<=4;count++) for (int sep=-1;sep<count;sep+=count) for (int corner=0;corner<4;corner++) {
@@ -190,6 +246,6 @@ int main(void) {
     CHECK(!ui_choice_list_layout((Vector2){0},(Vector2){1280,820},NAN,11).frame.valid);
     CHECK(!ui_choice_list_layout((Vector2){0},(Vector2){1280,820},1,0).frame.valid);
     CHECK(!ui_choice_list_layout((Vector2){0},(Vector2){1280,100},2,11).frame.valid);
-    test_select_geometry(); test_select_paint(); test_select_bounds_and_clip();
-    printf("PASS: %d choice-menu checks (exact scale/density/ribbon geometry, compact select paints, condition type, ownership guards, clipping and 80/100/150/250 percent)\n",checks); return 0;
+    test_select_geometry(); test_select_paint(); test_select_bounds_and_clip(); test_choice_row_paint(); test_choice_row_bounds_and_clip();
+    printf("PASS: %d choice-menu checks (exact scale/density/ribbon geometry, compact select and action-row paints, condition type, ownership guards, clipping and 80/100/150/250 percent)\n",checks); return 0;
 }

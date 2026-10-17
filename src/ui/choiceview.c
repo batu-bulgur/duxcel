@@ -38,15 +38,39 @@ void ui_choice_frame(UIContext *ui,const UIChoiceLayout *layout,const char *titl
     if (layout->separator.height) DrawRectangleRec(layout->separator,(Color){222,229,235,255});
 }
 bool ui_choice_row(UIContext *ui,Rectangle row,const char *label,const char *shortcut,UICarbonIcon icon,bool checked,bool focus,bool enabled) {
-    float s=ui->scale; bool chosen=ui_tool_button(ui,row,"",false,enabled);
-    Color ink=enabled ? UI_TEXT : Fade(UI_TEXT,.4f);
-    if (checked||icon!=CARBON_COUNT) ui_carbon(ui,checked ? CARBON_CHECKMARK : icon,(Rectangle){row.x+7*s,row.y+6*s,16*s,16*s},ink);
-    float key_width=shortcut ? ui_measure(ui,shortcut,10.5f)+8*s : 0;
-    ui_label(ui,label,(Rectangle){row.x+32*s,row.y,fmaxf(0,row.width-39*s-key_width),row.height},11.5f,ink,false,UI_REGULAR);
-    if (shortcut) ui_label(ui,shortcut,(Rectangle){row.x+row.width-7*s-key_width,row.y,key_width,row.height},10.5f,UI_MUTED,true,UI_REGULAR);
-    if (focus) ui_focus_border(row,row,s); return chosen;
+    if (!ui || !isfinite(ui->scale) || ui->scale<=0 ||
+        !isfinite(row.x) || !isfinite(row.y) || !isfinite(row.width) || !isfinite(row.height) || row.width<=0 || row.height<=0) return false;
+    Rectangle visible=ui->clipping ? GetCollisionRec(row,ui->clip) : row;
+    if (visible.width<=0 || visible.height<=0) return false;
+    float s=ui->scale; bool hover=false,chosen=ui_control_input(ui,row,enabled,&hover);
+    /* ActionMenu rows use their own borderless hover/press treatment, rather
+       than the toolbar button's outline. Keep the shared 90ms feedback ease. */
+    Color ink={39,63,81,255},icon_ink={65,110,138,255},key_ink={94,110,124,255};
+    if (!enabled) { ink=Fade(ink,.4f); icon_ink=Fade(icon_ink,.4f); key_ink=Fade(key_ink,.4f); }
+    Color base[]={{231,240,246,0},{0},ink};
+    bool pressed=chosen || (hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT));
+    Color colors[]={pressed ? (Color){212,228,238,255} : hover ? (Color){231,240,246,255} : base[0],base[1],ink};
+    ui_feedback_colors(ui,row,8,base,colors);
+    if (colors[0].a) {
+        bool partial=visible.x>row.x || visible.y>row.y || visible.width<row.width || visible.height<row.height;
+        bool scissor=partial && ui_scissor_begin(ui,visible);
+        if (!partial || scissor) DrawRectangleRounded(row,fminf(1,4*s/fminf(row.width,row.height)),4,colors[0]);
+        else DrawRectangleRec(visible,colors[0]);
+        if (scissor) ui_scissor_end(ui);
+    }
+    /* A menu may scroll inside a clipped parent. Text, icons and the focus
+       outline must stay inside this row even when its siblings are visible. */
+    Rectangle old_clip=ui->clip; bool old_clipping=ui->clipping;
+    ui->clip=visible; ui->clipping=true;
+    if (checked||icon!=CARBON_COUNT) ui_carbon(ui,checked ? CARBON_CHECKMARK : icon,(Rectangle){row.x+8.5f*s,row.y+(row.height-16*s)*.5f,16*s,16*s},icon_ink);
+    float key_width=shortcut ? ui_measure(ui,shortcut,11)+8*s : 0;
+    ui_label(ui,label ? label : "",(Rectangle){row.x+32*s,row.y,fmaxf(0,row.width-39*s-key_width),row.height},11.5f,colors[2],false,UI_REGULAR);
+    if (shortcut) ui_label(ui,shortcut,(Rectangle){row.x+row.width-7*s-key_width,row.y,key_width,row.height},11,key_ink,true,UI_REGULAR);
+    if (focus && enabled) ui_focus_border(row,visible,s);
+    ui->clip=old_clip; ui->clipping=old_clipping; return chosen;
 }
 bool ui_choice_row_input(UIContext *ui,Rectangle row,const char *label,const char *shortcut,UICarbonIcon icon,bool checked,bool focus,bool available,bool accepts_input) {
+    if (!ui) return false;
     bool blocked=ui->pointer_blocked; ui->pointer_blocked|=!accepts_input;
     bool chosen=ui_choice_row(ui,row,label,shortcut,icon,checked,focus,available);
     ui->pointer_blocked=blocked; return chosen;
