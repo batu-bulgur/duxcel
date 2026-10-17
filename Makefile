@@ -289,6 +289,24 @@ tests/test_record_pages-debug: $(RECORD_PAGE_SRC) tests/test_record_pages.c $(HE
 test-records:
 	python3 tools/test.py records $(TEST_ARGS)
 .PHONY: test-records
+
+# Native source verification prerequisite; not linked into App until its worker
+# request/source-version lifetime is integrated. No database or window needed.
+SOURCE_DIGEST_TEST = src/data/source_digest.c tests/test_source_digest.c
+build/data-tests/test-source-digest: $(SOURCE_DIGEST_TEST) src/data/source_digest.h
+	mkdir -p $(@D)
+	$(CC) -Isrc $(CFLAGS) $(WARN) -Werror $(SOURCE_DIGEST_TEST) -o $@
+build/data-tests/test-source-digest-sanitize: $(SOURCE_DIGEST_TEST) src/data/source_digest.h
+	mkdir -p $(@D)
+	$(CC) -Isrc -O1 -g $(WARN) -Werror $(SANFLAGS) $(SOURCE_DIGEST_TEST) -o $@
+build/data-tests/test-source-digest-unsupported: $(SOURCE_DIGEST_TEST) src/data/source_digest.h
+	mkdir -p $(@D)
+	$(CC) -Isrc $(CFLAGS) $(WARN) -Werror -D__EMSCRIPTEN__ $(SOURCE_DIGEST_TEST) -o $@
+test-source-digest: build/data-tests/test-source-digest build/data-tests/test-source-digest-sanitize build/data-tests/test-source-digest-unsupported
+	./build/data-tests/test-source-digest
+	ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-source-digest-sanitize
+	./build/data-tests/test-source-digest-unsupported
+.PHONY: test-source-digest
 tests/test_workbook: $(CORE) tests/test_workbook.c $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 tests/test_workbook-debug: $(CORE) tests/test_workbook.c $(HEADERS)

@@ -367,7 +367,9 @@ static int compare_frame(const void *left,const void *right) {
     double a=*(const double *)left, b=*(const double *)right; return (a>b)-(a<b);
 }
 static Rectangle box(float x,float y,float w,float h) { return (Rectangle){x,y,w,h}; }
-static float pipeline_target_width(const App *a) { return a->pipeline_collapsed ? 32 : a->pipeline_width; }
+static float pipeline_target_width(const App *a) {
+    return a->pipeline_collapsed ? 32 : a->pipeline_sql ? fmaxf(340,a->pipeline_width) : a->pipeline_width;
+}
 static void present_pipeline(App *a,bool visible,bool collapsed) {
     if (visible) a->left_drawer=false;
     a->pipeline=visible; a->pipeline_collapsed=visible && collapsed;
@@ -9157,13 +9159,13 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->modal!=MODAL_NONE || a->page.total!=240 || a->objects[0].page.cells!=author_cells) goto failed;
         request=a->request_id; REVIEW_SQL_CLEAR(a); free(a->sql_text); a->sql_text=dx_strdup("Unrelated dialog SQL"); break;
     case 225:
-        if (!a->pipeline_sql || !a->inspector_sql_text || !a->inspector_sql_lines.count || a->inspector_sql_lines.font_size!=12 || a->pipeline_extent!=280 || strcmp(a->sql_text,"Unrelated dialog SQL") || strstr(a->inspector_sql_text,"PIVOT") || a->request_id!=request) goto failed;
+        if (!a->pipeline_sql || !a->inspector_sql_text || !a->inspector_sql_lines.count || a->inspector_sql_lines.font_size!=12 || a->pipeline_extent!=340 || a->pipeline_width!=280 || strcmp(a->sql_text,"Unrelated dialog SQL") || strstr(a->inspector_sql_text,"PIVOT") || a->request_id!=request) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-inspector-sql.png"); break;
     case 226:
         if (!a->pipeline_sql || strcmp(GetClipboardText(),a->inspector_sql_text) || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         break;
     case 227:
-        if (a->pipeline_sql || a->pipeline_focus_index!=1 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        if (a->pipeline_sql || a->pipeline_extent!=280 || a->pipeline_width!=280 || a->pipeline_focus_index!=1 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->chrome_focus=8; break;
     case 228:
         if (!a->pipeline_layout.valid || !a->pipeline_layout.compact || a->pipeline_layout.edit.x+a->pipeline_layout.edit.width>GetScreenWidth()+1 || a->pipeline_focus_index<a->step_scroll || a->pipeline_focus_index>=a->step_scroll+a->pipeline_visible_rows || a->request_id!=request) goto failed;

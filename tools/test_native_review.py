@@ -59,7 +59,7 @@ def main():
                     created,_=run([str(helper),'create-owners',str(fixture)],result/f'{config}-owner-create.log',env,30)
                     fixture_hash=sha(fixture)
                     env['DUXCEL_REVIEW_OWNER_FIXTURE']=str(fixture)
-                    record,log=run([str(binary),'tests/fixtures/null-text.csv','--review-smoke','--frames','900'],result/f'{config}.log',env,90)
+                    record,log=run([str(binary),'tests/fixtures/null-text.csv','--review-smoke','--frames','1100'],result/f'{config}.log',env,90)
                     if f'Review smoke completed [0,{REVIEW_STAGES})' not in log or 'Native test window: hidden, unfocused' not in log: raise RuntimeError('Native review did not complete the current stage inventory hidden')
                     if sha(binary)!=binary_hash: raise RuntimeError('Binary changed during native acceptance')
                     saved=Path(str(fixture)+'.native-owner-roundtrip.dxls')
