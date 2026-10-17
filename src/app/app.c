@@ -411,6 +411,10 @@ static void review_cell_editor(App *a,Rectangle bounds,Rectangle clip,const char
 static void review_error_content(App *a,Rectangle bounds,size_t painted_lines,bool clipped,const char *file,int line);
 static void review_query_status(App *a,const char *text,Rectangle bounds,const char *file,int line);
 static void review_query_error(App *a,Rectangle bounds,const char *file,int line);
+static void review_workspace_control(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,int pivot_role,int index,const char *file,int line);
+static void review_workspace_field(App *a,const Column *field,size_t index,Rectangle bounds,Rectangle clip,bool enabled,bool focused,bool more,const char *file,int line);
+static void review_workspace_token(App *a,int role,size_t index,const PivotField *field,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool focused,bool remove,const char *file,int line);
+static void review_workspace_scroll(App *a,const char *part,Rectangle track,Rectangle thumb,Rectangle clip,bool enabled,bool dragging,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -448,6 +452,11 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_ERROR_CONTENT(a,bounds,painted,clipped) review_error_content(a,bounds,painted,clipped,__FILE__,__LINE__)
 #define REVIEW_QUERY_STATUS(a,text,bounds) review_query_status(a,text,bounds,__FILE__,__LINE__)
 #define REVIEW_QUERY_ERROR(a,bounds) review_query_error(a,bounds,__FILE__,__LINE__)
+#define REVIEW_WORKSPACE_CONTROL(a,id,action,role,label,bounds,clip,enabled,checked,focused,field,pivot_role,index) review_workspace_control(a,id,action,role,label,bounds,clip,enabled,checked,focused,field,pivot_role,index,__FILE__,__LINE__)
+#define REVIEW_WORKSPACE_FIELD(a,field,index,bounds,clip,enabled,focused,more) review_workspace_field(a,field,index,bounds,clip,enabled,focused,more,__FILE__,__LINE__)
+#define REVIEW_WORKSPACE_TOKEN(a,role,index,field,label,bounds,clip,enabled,focused,remove) review_workspace_token(a,role,index,field,label,bounds,clip,enabled,focused,remove,__FILE__,__LINE__)
+#define REVIEW_WORKSPACE_SCROLL(a,part,track,thumb,clip,enabled,dragging) review_workspace_scroll(a,part,track,thumb,clip,enabled,dragging,__FILE__,__LINE__)
+#define REVIEW_WORKSPACE_AVAILABLE(a) ((a)->modal==MODAL_NONE && !(a)->io_busy && !(a)->file_menu)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -483,6 +492,10 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_ERROR_CONTENT(...) ((void)0)
 #define REVIEW_QUERY_STATUS(...) ((void)0)
 #define REVIEW_QUERY_ERROR(...) ((void)0)
+#define REVIEW_WORKSPACE_CONTROL(...) ((void)0)
+#define REVIEW_WORKSPACE_FIELD(...) ((void)0)
+#define REVIEW_WORKSPACE_TOKEN(...) ((void)0)
+#define REVIEW_WORKSPACE_SCROLL(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -2958,6 +2971,7 @@ static void draw_pivot_tokens(App *a,int role,Rectangle shelf,Rectangle contents
         Rectangle empty=box(contents.x,contents.y,contents.width,23*s);
         ui_dashed_border(empty,clip,s,3*s,3*s,(Color){189,203,213,255});
         ui_text_clip(u,role==PIVOT_VALUES ? "Drop a measure here" : "Drop a field to filter this view",empty,10.5f,UI_MUTED,false);
+        REVIEW_WORKSPACE_CONTROL(a,role==PIVOT_VALUES ? "analysis.shelf.values.empty" : "analysis.shelf.filters.empty","pivot.inspect_shelf","region",role==PIVOT_VALUES ? "Drop a measure here" : "Drop a field to filter this view",empty,clip,true,false,false,NULL,role,-1);
     }
     for (size_t i=0;i<o->pivot.counts[role];i++) {
         Rectangle token=a->pivot_tokens[role][i];
@@ -2975,6 +2989,8 @@ static void draw_pivot_tokens(App *a,int role,Rectangle shelf,Rectangle contents
         ui_label(u,label,box(token.x+(wrapped ? 20 : 27)*s,token.y,fmaxf(0,token.width-(wrapped ? 25 : 52)*s)+.001f*s,token.height),wrapped ? 10.5f : role==PIVOT_VALUES ? 11.5f : 11,ink,false,UI_REGULAR);
         float close_width=wrapped ? 18 : vertical ? 20 : 18,close_height=wrapped || !vertical ? token.height : 20*s;
         Rectangle remove=box(token.x+token.width-(vertical ? close_width : 19)*s,token.y+(token.height-close_height)/2,close_width*s,close_height);
+        REVIEW_WORKSPACE_TOKEN(a,role,i,&o->pivot.fields[role][i],label,box(token.x,token.y,token.width-(vertical && !wrapped ? 23*s : 0),token.height),clip,REVIEW_WORKSPACE_AVAILABLE(a),a->pivot_focus==role+2 && a->pivot_value==(int)i,false);
+        if (vertical && !wrapped) REVIEW_WORKSPACE_TOKEN(a,role,i,&o->pivot.fields[role][i],"Remove field",remove,clip,REVIEW_WORKSPACE_AVAILABLE(a) && (role!=PIVOT_VALUES || o->pivot.counts[role]>1),false,true);
         bool removing=false;
         if (vertical && !wrapped) removing=ui_icon_button(u,remove,CARBON_CLOSE,false,passive_control(a,enabled) && (role!=PIVOT_VALUES || o->pivot.counts[role]>1));
         if (removing) { ui_clear_clip(u); PivotDefinition copy=pivot_copy(&o->pivot); pivot_remove(&copy,(PivotRole)role,i); set_pivot_definition(a,&copy); return; }
@@ -3018,6 +3034,10 @@ static void draw_pivot_editor(App *a,float y,float bottom,float right) {
     a->context_title=header;
     ui_carbon(u,o->kind==OBJECT_CHART ? CARBON_CHART_BAR : CARBON_TABLE,header.icon,(Color){43,101,125,255});
     ui_label(u,o->name,header.title,12.5f,UI_TEXT,false,UI_MEDIUM);
+    REVIEW_WORKSPACE_CONTROL(a,"analysis.context","pivot.inspect_context","group",o->name,a->workspace.context,a->workspace.context,true,false,false,NULL,-1,-1);
+    REVIEW_WORKSPACE_CONTROL(a,"analysis.context.title","pivot.inspect_context","text",o->name,header.title,title,true,false,false,NULL,-1,-1);
+    REVIEW_WORKSPACE_CONTROL(a,"analysis.context.source","pivot.inspect_context","text",source,header.source,title,true,false,false,NULL,-1,-1);
+    REVIEW_WORKSPACE_CONTROL(a,"analysis.context.browse","pivot.browse_source","button","Browse all data",header.browse,title,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer,false,false,NULL,-1,-1);
     if (header.source.width) ui_label(u,source,header.source,10.5f,(Color){94,110,124,255},false,UI_REGULAR);
     bool hover=false,browsing=ui_control_input(u,header.browse,passive_control(a,enabled),&hover);
     Color base[]={{0,0,0,0},{0,0,0,0},UI_ACCENT},colors[]={hover ? (Color){228,237,244,255} : base[0],base[1],UI_ACCENT};
@@ -3035,6 +3055,9 @@ static void draw_pivot_editor(App *a,float y,float bottom,float right) {
         Rectangle shelf=layout.panel,label=layout.label,contents=layout.fields,add=layout.add;
         shelf.y+=shift; label.y+=shift; contents.y+=shift; add.y+=shift;
         DrawRectangleRec(shelf,(Color){248,250,251,255});
+        REVIEW_WORKSPACE_CONTROL(a,role==PIVOT_ROWS ? "analysis.shelf.rows" : "analysis.shelf.columns","pivot.inspect_shelf","group",role==PIVOT_ROWS ? "Rows" : "Columns",shelf,a->workspace.context,true,false,false,NULL,role,-1);
+        REVIEW_WORKSPACE_CONTROL(a,role==PIVOT_ROWS ? "analysis.shelf.rows.heading" : "analysis.shelf.columns.heading","pivot.inspect_shelf","text",role==PIVOT_ROWS ? "Rows" : "Columns",label,shelf,true,false,false,NULL,role,-1);
+        REVIEW_WORKSPACE_CONTROL(a,role==PIVOT_ROWS ? "analysis.shelf.rows.add" : "analysis.shelf.columns.add","pivot.add_field","button","Add field",add,shelf,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer,false,a->pivot_focus==role+2 && !o->pivot.counts[role],NULL,role,-1);
         if (!row) DrawLineV((Vector2){left,shelf.y+shelf.height-s},(Vector2){right,shelf.y+shelf.height-s},UI_BORDER);
         float label_gap=a->workspace.narrow ? 5 : 8;
         ui_carbon(u,row==0 ? CARBON_COLUMN : CARBON_ROW,box(label.x,label.y+5*s,14*s,14*s),(Color){60,107,133,255});
@@ -3055,6 +3078,8 @@ static void draw_pivot_editor(App *a,float y,float bottom,float right) {
 static Rectangle visible_area(UIContext *ui,Rectangle rectangle) { return ui->pointer_blocked ? (Rectangle){0} : ui->clipping ? GetCollisionRec(rectangle,ui->clip) : rectangle; }
 static void draw_field_search(App *a,Rectangle rectangle,bool enabled) {
     UIContext *u=&a->ui; float scale=u->scale;
+    REVIEW_WORKSPACE_CONTROL(a,"pane.fields.search","pane.search_fields","textbox","Search fields",rectangle,rectangle,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,false,a->pivot_search_focus,NULL,-1,-1);
+    if (a->pivot_search.length) REVIEW_WORKSPACE_CONTROL(a,"pane.fields.clear","pane.clear_field_search","button","Clear search",box(rectangle.x+rectangle.width-24*scale,rectangle.y+2*scale,20*scale,20*scale),rectangle,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,false,false,NULL,-1,-1);
     DrawRectangleRec(rectangle,WHITE); DrawRectangleLinesEx(rectangle,scale,a->pivot_search_focus ? UI_ACCENT : UI_BORDER);
     ui_carbon(u,CARBON_SEARCH,box(rectangle.x+6*scale,rectangle.y+5*scale,16*scale,16*scale),UI_MUTED);
     Rectangle text=box(rectangle.x+21*scale,rectangle.y+scale,rectangle.width-23*scale-(a->pivot_search.length ? 22*scale : 0),rectangle.height-2*scale);
@@ -3065,6 +3090,7 @@ static void draw_field_search(App *a,Rectangle rectangle,bool enabled) {
 }
 static bool draw_field_more(App *a,size_t column,Rectangle row,bool enabled) {
     float s=a->ui.scale; Rectangle target=box(row.x+row.width-19*s,row.y+1.5f*s,19*s,21*s);
+    REVIEW_WORKSPACE_FIELD(a,&context_fields(a)->columns[column],column,target,row,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,a->pivot_focus==1 && a->pivot_field==(int)column,true);
     bool chosen=ui_tool_button(&a->ui,target,"",false,enabled);
     Color color=UI_MUTED; if (!CheckCollisionPointRec(ui_mouse_position(),row) && !(a->pivot_focus==1 && a->pivot_field==(int)column)) color.a=64;
     ui_carbon(&a->ui,CARBON_OVERFLOW_MENU_VERTICAL,box(target.x+1.5f*s,target.y+2.5f*s,16*s,16*s),color);
@@ -3088,7 +3114,9 @@ static void draw_fields_footer(App *a,Rectangle rectangle,bool authoring) {
     UIContext *u=&a->ui; float s=u->scale; a->field_footer=rectangle;
     DrawLineV((Vector2){rectangle.x,rectangle.y},(Vector2){rectangle.x+rectangle.width,rectangle.y},(Color){228,232,236,255});
     ui_label(u,authoring ? "Drag fields to shelves or use field actions" : "Click a field to reveal its column",box(rectangle.x+12*s,rectangle.y+6*s,rectangle.width-24*s,15*s),11,(Color){94,110,124,255},false,UI_REGULAR);
+    REVIEW_WORKSPACE_CONTROL(a,"pane.fields.footer.hint","pane.inspect_fields","text",authoring ? "Drag fields to shelves or use field actions" : "Click a field to reveal its column",box(rectangle.x+12*s,rectangle.y+6*s,rectangle.width-24*s,15*s),rectangle,true,false,false,NULL,-1,-1);
     char count[48]; snprintf(count,sizeof(count),"%zu fields",context_fields(a)->column_count);
+    REVIEW_WORKSPACE_CONTROL(a,"pane.fields.footer.count","pane.inspect_fields","text",count,box(rectangle.x+12*s,rectangle.y+21*s,rectangle.width-24*s,15*s),rectangle,true,false,false,NULL,-1,-1);
     ui_label(u,count,box(rectangle.x+12*s,rectangle.y+21*s,rectangle.width-24*s,15*s),11,(Color){83,107,125,255},false,UI_REGULAR);
 }
 static UIMarksContent author_marks_content(App *a,const SheetObject *object) {
@@ -3119,15 +3147,19 @@ static void draw_author_dock(App *a,Rectangle panel) {
         const SheetObject *source=objects_source(&active_sheet(a)->objects,o);
         const char *scope=source ? source->name : a->analysis.kind!=SOURCE_NONE ? active_sheet(a)->name : "";
         draw_field_title(u,box(panel.x+12*s,y,panel.width-44*s,29*s),scope);
+        REVIEW_WORKSPACE_CONTROL(a,"pane.fields","pane.inspect_fields","group","Fields",fields,fields,true,false,false,NULL,-1,-1);
+        REVIEW_WORKSPACE_CONTROL(a,"pane.fields.heading","pane.inspect_fields","text","Fields",box(panel.x+12*s,y,panel.width-44*s,29*s),fields,true,false,false,NULL,-1,-1);
+        REVIEW_WORKSPACE_CONTROL(a,"pane.fields.close","pane.close_fields","button","Close Fields pane",box(panel.x+panel.width-31*s,y+4*s,21*s,21*s),fields,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,false,false,NULL,-1,-1);
         if (ui_icon_button(u,box(panel.x+panel.width-31*s,y+4*s,21*s,21*s),CARBON_CLOSE,false,passive_control(a,enabled))) { a->fields_visible=false; a->pivot_focus=0; return; }
         Rectangle search=box(panel.x+10*s,y+30*s,panel.width-20*s,26*s);
         if (enabled && ((CheckCollisionPointRec(mouse,visible_area(u,search)) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || ui_gesture_starts_in(visible_area(u,search)))) { a->pivot_search_focus=true; a->pivot_focus=1; }
         if (a->pivot_search_focus && enabled) input_update(&a->pivot_search);
-        REVIEW_CONTROL(a,"pane.fields.search","pane.search_fields","workspace/left/fields","textbox","Search fields",search,51,true,a->pivot_search_focus,false);
+
     draw_field_search(a,search,enabled);
         float footnote=!a->dock_compact && fields.height>=160*s ? 43*s : 0;
         Rectangle list=box(panel.x+6*s,y+61*s,panel.width-12*s,fmaxf(0,fields.height-61*s-footnote));
         a->author_fields=a->field_list=list;
+        REVIEW_WORKSPACE_CONTROL(a,"pane.fields.list","pane.inspect_fields","listbox","Available fields",list,fields,true,false,a->pivot_focus==1,NULL,-1,-1);
         match_fields(a); int count=(int)a->field_match_count,visible=(int)(list.height/(24*s));
         a->field_visible=visible; int max=count-visible; if (max<0) max=0;
         if (enabled && CheckCollisionPointRec(mouse,visible_area(u,list))) a->pivot_field_scroll+=ui_scroll_steps(&a->wheel_field,-GetMouseWheelMoveV().y*3);
@@ -3140,6 +3172,7 @@ static void draw_author_dock(App *a,Rectangle panel) {
             const Column *field=&context_fields(a)->columns[col];
             ui_carbon(u,field_icon(field),box(item.x+6*s,item.y+4*s,16*s,16*s),UI_MUTED);
             ui_label(u,field->name,box(item.x+31*s,item.y,item.width-56*s,item.height),12.5f,UI_TEXT,false,UI_REGULAR);
+            REVIEW_WORKSPACE_FIELD(a,field,col,box(item.x,item.y,item.width-19*s,item.height),list,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,active,false);
             if (draw_field_more(a,col,item,enabled)) break;
             DxPointerGesture gesture;
             if (enabled && ui_take_gesture_from(visible_area(u,item),&gesture)) {
@@ -3181,27 +3214,35 @@ static void draw_author_dock(App *a,Rectangle panel) {
         layout=ui_marks_layout(marks,s,&content,a->author_scroll); a->consume_grid_input=true;
     }
     a->author_marks_layout=layout; a->author_body=layout.viewport; a->author_visible=(int)(marks.height/s); a->author_plot=layout.plot;
+    REVIEW_WORKSPACE_CONTROL(a,"analysis.marks","marks.inspect","group","Marks",marks,marks,true,false,false,NULL,-1,-1);
+    if (layout.scrollable) REVIEW_WORKSPACE_SCROLL(a,"marks",layout.scrollbar,ui_scrollbar_thumb(layout.scrollbar,layout.content_height,marks.height/s,a->author_scroll,false,s),marks,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,a->author_scrollbar.dragging);
     DrawLineV((Vector2){marks.x,marks.y},(Vector2){marks.x+marks.width,marks.y},UI_BORDER);
     ui_scissor_begin(u,layout.viewport);
     ui_label(u,"Marks",box(layout.heading.x+2*s,layout.heading.y,layout.heading.width-4*s,layout.heading.height),12.5f,UI_TEXT,false,UI_MEDIUM);
     ui_carbon(u,CARBON_CHEVRON_UP,box(layout.heading.x+layout.heading.width-14*s,layout.heading.y+8.5f*s,12*s,12*s),UI_MUTED);
     const char *representations[]={"Matrix","Bar chart","Line chart","Dots","Scatter"}; int representation=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
+    REVIEW_WORKSPACE_CONTROL(a,"analysis.marks.heading","marks.inspect","text","Marks",layout.heading,layout.viewport,true,false,false,NULL,-1,-1);
     Rectangle rep=layout.representation;
+    REVIEW_WORKSPACE_CONTROL(a,"analysis.marks.representation","pivot.representation","combobox",representations[representation],rep,layout.viewport,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,false,a->pivot_focus==6,NULL,-1,-1);
     if (ui_select_field(u,rep,representations[representation],UI_SELECT_REPRESENTATION,a->pivot_focus==6,passive_control(a,enabled))) {
         begin_author_select(a,MODAL_REPRESENTATION);
     }
     for (int role=PIVOT_VALUES;role<=PIVOT_FILTERS;role++) {
         Rectangle heading=role==PIVOT_VALUES ? layout.measure_heading : layout.filter_heading;
         Rectangle add=box(heading.x+heading.width-20*s,heading.y+2*s,20*s,20*s);
+        REVIEW_WORKSPACE_CONTROL(a,role==PIVOT_VALUES ? "analysis.shelf.values.heading" : "analysis.shelf.filters.heading","pivot.inspect_shelf","text",role==PIVOT_VALUES ? "Measures" : "View filters",box(heading.x,heading.y,heading.width-24*s,heading.height),layout.viewport,true,false,false,NULL,role,-1);
+        REVIEW_WORKSPACE_CONTROL(a,role==PIVOT_VALUES ? "analysis.shelf.values.add" : "analysis.shelf.filters.add","pivot.add_field","button","Add field",add,layout.viewport,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,false,false,NULL,role,-1);
         ui_label(u,role==PIVOT_VALUES ? "Measures" : "View filters",box(heading.x,heading.y,heading.width-24*s,heading.height),11.5f,UI_TEXT,false,UI_MEDIUM);
         if (ui_icon_button(u,add,CARBON_ADD,false,passive_control(a,enabled))) { ui_scissor_end(u); begin_assign_field(a,(PivotRole)role,add); return; }
         Rectangle contents=role==PIVOT_VALUES ? layout.measure_list : box(layout.filter_heading.x,layout.filter_heading.y+layout.filter_heading.height,layout.filter_heading.width,layout.inherited.y-5*s-layout.filter_heading.y-layout.filter_heading.height);
+        REVIEW_WORKSPACE_CONTROL(a,role==PIVOT_VALUES ? "analysis.shelf.values" : "analysis.shelf.filters","pivot.inspect_shelf","group",role==PIVOT_VALUES ? "Measures" : "View filters",box(heading.x,heading.y,heading.width,contents.y+contents.height-heading.y),layout.viewport,true,false,false,NULL,role,-1);
         draw_pivot_tokens(a,role,GetCollisionRec(contents,layout.viewport),contents,enabled); ui_set_clip(u,layout.viewport);
         if (role!=PIVOT_VALUES) continue;
         if (layout.plot.height) {
             Rectangle plot=layout.plot; ui_label(u,"Plot",box(plot.x,plot.y,25*s,plot.height),11,UI_TEXT,false,UI_REGULAR);
             Rectangle choice=box(plot.x+30*s,plot.y,plot.width-30*s,plot.height); char label[512]; pivot_label(a,label,&o->pivot.fields[PIVOT_VALUES][o->chart_measure],PIVOT_VALUES);
             a->author_plot=GetCollisionRec(choice,layout.viewport);
+            REVIEW_WORKSPACE_CONTROL(a,"analysis.marks.plot","pivot.chart_measure","combobox",label,choice,layout.viewport,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,false,a->pivot_focus==7,o->pivot.fields[PIVOT_VALUES][o->chart_measure].name,PIVOT_VALUES,(int)o->chart_measure);
             if (ui_select_field(u,choice,label,UI_SELECT_PLOT,a->pivot_focus==7,passive_control(a,enabled))) begin_author_select(a,MODAL_CHART_MEASURE);
         }
         const UICarbonIcon icons[]={CARBON_COLOR_PALETTE,CARBON_ARROWS_HORIZONTAL,CARBON_STRING_TEXT,CARBON_DATA_STRUCTURED,CARBON_INFORMATION,CARBON_DATA_VIEW}; measure_mark_labels(a,o);
@@ -3219,13 +3260,16 @@ static void draw_author_dock(App *a,Rectangle panel) {
             const char *name=marks_label((MarkRole)i); float text_width=ui_measure(u,name,10.5f);
             ui_label(u,name,box(target.x+(target.width-text_width)/2,target.y+(assigned ? 20 : 21)*s,text_width+s,16*s),10.5f,colors[2],false,UI_REGULAR);
             if (assigned) ui_label(u,a->mark_labels[i],box(target.x+target.width*.025f,target.y+34*s,target.width*.95f,10*s),9,(Color){36,94,123,255},false,UI_REGULAR);
+            REVIEW_WORKSPACE_CONTROL(a,((const char *const[]){"analysis.marks.target.color","analysis.marks.target.size","analysis.marks.target.label","analysis.marks.target.detail","analysis.marks.target.tooltip","analysis.marks.target.shape"})[i],"marks.assign","button",name,target,layout.viewport,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,assigned,a->pivot_focus==8 && a->mark_role==i,assigned && o->marks.counts[i]==1 ? o->marks.fields[i][0].name : NULL,-1,i);
             if (a->pivot_focus==8 && a->mark_role==i) ui_focus_border(target,layout.viewport,1.5f*s);
             if (click) { ui_scissor_end(u); begin_marks(a,(MarkRole)i,target,false); return; }
             if (assigned && CheckCollisionPointRec(mouse,a->author_marks[i])) { a->ribbon_hover=encoding_reason(a,i); a->ribbon_hover_rect=target; }
         }
     }
     const Analysis *source=object_source(a,o); char inherited[80]; snprintf(inherited,sizeof(inherited),"Source: %zu applied filters",source->filter_column ? source->filter_count+1 : 0);
-    ui_label(u,inherited,layout.inherited,10,UI_MUTED,false,UI_REGULAR); ui_scissor_end(u);
+    ui_label(u,inherited,layout.inherited,10,UI_MUTED,false,UI_REGULAR);
+    REVIEW_WORKSPACE_CONTROL(a,"analysis.marks.inherited","marks.inspect","text",inherited,layout.inherited,layout.viewport,true,false,false,NULL,-1,-1);
+    ui_scissor_end(u);
 }
 
 static void draw_pivot_drag(App *a) {
@@ -5454,6 +5498,7 @@ static void list_scrollbar(App *a,Rectangle r,int count,int visible,int *offset,
         const char *kind=a->modal==MODAL_MARKS ? "marks" : a->modal==MODAL_OBJECT ? "object" : a->modal==MODAL_ASSIGN_FIELD ? "assign_field" : a->modal==MODAL_UNHIDE ? "sheet_unhide" : NULL;
         if (a->modal==MODAL_TABLE_RELATION && offset==&a->table_relation_scroll) kind="source_relation";
         if (kind) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_AUTHOR_SCROLL(a,kind,track,ui_scrollbar_thumb(track,count,visible,position,false,s),r,state.dragging); }
+        if (offset==&a->pivot_field_scroll) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_WORKSPACE_SCROLL(a,"fields",track,ui_scrollbar_thumb(track,count,visible,position,false,s),r,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,state.dragging); }
         if (offset==&a->sheet_scroll) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_SHEET_SCROLL(a,track,ui_scrollbar_thumb(track,count,visible,position,false,s),a->ui.clipping ? GetCollisionRec(r,a->ui.clip) : r,state.dragging); }
     }
 #endif
@@ -5535,7 +5580,9 @@ static void draw_sidebar(App *a,Rectangle r) {
     SheetObject *selected=selected_object(a); const Analysis *source=object_source(a,selected);
     const char *name=selected && selected->kind==OBJECT_TABLE ? selected->name : source->kind!=SOURCE_NONE ? active_sheet(a)->name : "";
     Rectangle heading=box(r.x+12*s,y,r.width-44*s,29*s);
-    REVIEW_CONTROL(a,"pane.fields.close","pane.close_fields","workspace/left/fields","button","Close Fields pane",box(r.x+r.width-31*s,y+4*s,21*s,21*s),51,true,false,false);
+    REVIEW_WORKSPACE_CONTROL(a,"pane.fields","pane.inspect_fields","group","Fields",box(r.x,y,r.width,r.y+r.height-y),r,true,false,false,NULL,-1,-1);
+    REVIEW_WORKSPACE_CONTROL(a,"pane.fields.heading","pane.inspect_fields","text","Fields",heading,r,true,false,false,NULL,-1,-1);
+    REVIEW_WORKSPACE_CONTROL(a,"pane.fields.close","pane.close_fields","button","Close Fields pane",box(r.x+r.width-31*s,y+4*s,21*s,21*s),r,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,false,false,NULL,-1,-1);
     draw_field_title(u,heading,name);
     if (ui_icon_button(u,box(r.x+r.width-31*s,y+4*s,21*s,21*s),CARBON_CLOSE,false,passive_control(a,enabled))) { a->fields_visible=false; a->pivot_focus=0; a->pivot_search_focus=false; return; }
     /* The definition's Fields heading is a label, not a hidden disclosure. */
@@ -5543,10 +5590,11 @@ static void draw_sidebar(App *a,Rectangle r) {
     Rectangle search=box(r.x+10*s,y+30*s,r.width-20*s,26*s);
     if (enabled && ((CheckCollisionPointRec(mouse,visible_area(u,search)) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || ui_gesture_starts_in(visible_area(u,search)))) { a->chrome_focus=0; a->pivot_focus=1; a->pivot_search_focus=true; a->consume_grid_input=true; }
     if (enabled && a->pivot_search_focus) input_update(&a->pivot_search);
-    REVIEW_CONTROL(a,"pane.fields.search","pane.search_fields","workspace/left/fields","textbox","Search fields",search,51,true,a->pivot_search_focus,false);
+
     draw_field_search(a,search,enabled);
     float footnote=!a->dock_compact && r.y+r.height-y>=160*s ? 43*s : 0;
     match_fields(a); Rectangle list=box(r.x+6*s,y+61*s,r.width-12*s,fmaxf(24*s,r.y+r.height-y-61*s-footnote)); a->field_list=list;
+    REVIEW_WORKSPACE_CONTROL(a,"pane.fields.list","pane.inspect_fields","listbox","Available fields",list,r,true,false,a->pivot_focus==1,NULL,-1,-1);
     int visible=(int)(list.height/(24*s)),count=(int)a->field_match_count,max=count-visible; if (max<0) max=0;
     a->field_visible=visible;
     if (enabled && CheckCollisionPointRec(mouse,visible_area(u,list))) a->pivot_field_scroll+=ui_scroll_steps(&a->wheel_field,-GetMouseWheelMoveV().y*3);
@@ -5565,12 +5613,16 @@ static void draw_sidebar(App *a,Rectangle r) {
         const Column *column=&context_fields(a)->columns[c];
         ui_carbon(u,field_icon(column),box(row.x+6*s,row.y+4*s,16*s,16*s),UI_MUTED);
         ui_label(u,column->name,box(row.x+31*s,row.y,row.width-56*s,row.height),12.5f,UI_TEXT,false,UI_REGULAR);
+        REVIEW_WORKSPACE_FIELD(a,column,c,box(row.x,row.y,row.width-19*s,row.height),list,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,active,false);
         if (clicked || (completed && CheckCollisionPointRec((Vector2){gesture.x1,gesture.y1},row))) {
             a->chrome_focus=0; a->pivot_field=(int)c; a->pivot_focus=1; a->pivot_search_focus=false; a->field_navigation=0; a->field_reveal_requested=true; a->consume_grid_input=true;
         }
     }
     ui_clear_clip(u); list_scrollbar(a,list,count,visible,&a->pivot_field_scroll,&a->field_drag,&a->field_grab,enabled);
-    if (!count) ui_text_clip(u,context_fields(a)->column_count ? "No matching fields" : "No fields loaded",list,11,UI_MUTED,false);
+    if (!count) {
+        ui_text_clip(u,context_fields(a)->column_count ? "No matching fields" : "No fields loaded",list,11,UI_MUTED,false);
+        REVIEW_WORKSPACE_CONTROL(a,"pane.fields.empty","pane.inspect_fields","text",context_fields(a)->column_count ? "No matching fields" : "No fields loaded",list,r,true,false,false,NULL,-1,-1);
+    }
     if (footnote) draw_fields_footer(a,box(r.x,r.y+r.height-footnote,r.width,footnote),false);
 }
 static void draw_dock(App *a,Rectangle panel,bool authoring) {
