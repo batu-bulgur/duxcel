@@ -785,15 +785,36 @@ function guideUnderlying(before,after,message){
  const fields=[...authorOwnedFields.filter(name=>name!=='modal'),'selected_object','object_count'];
  check(fields.every(name=>before[name]!==undefined&&after[name]===before[name]),message);
 }
+function reachableGuidePoint(bounds,surface){
+ const [x,y,width,height]=bounds;
+ check(bounds.length===4&&bounds.every(Number.isFinite)&&width>0&&height>0&&['x','y','width','height','logicalWidth','logicalHeight'].every(name=>Number.isFinite(surface[name]))&&surface.width>0&&surface.height>0&&surface.logicalWidth>0&&surface.logicalHeight>0,'Guide pointer requires actual finite canvas/target bounds');
+ const axis=(start,length,origin,painted,logical)=>{const scale=painted/logical,low=origin+start*scale,high=origin+(start+length)*scale,first=Math.ceil(low),last=Math.ceil(high)-1;
+  check(first<=last,'Guide target has no reachable integer browser CSS pixel');const css=Math.max(first,Math.min(last,Math.round((low+high)/2))),value=(css-origin)/scale;
+  check(value>=start&&value<start+length,'Guide CSS pixel mapped outside the captured target');return{css,logical:value};};
+ const horizontal=axis(x,width,surface.x,surface.width,surface.logicalWidth),vertical=axis(y,height,surface.y,surface.height,surface.logicalHeight);
+ return{css:{x:horizontal.css,y:vertical.css},logical:{x:horizontal.logical,y:vertical.logical}};
+}
+const guidePointerDeliveries=[];
 async function guidePick(choose,name,{frozenName=null}={}){
  const jobs=starts().length,captured=await beginReview(),state=capturedState(),guide=guideState(state),target=choose(guide);
- check(target?.id&&target.bounds?.length===4,'Guide target is not actually visible: '+name);const [x,y,w,h]=target.bounds,point={x:x+w/2,y:y+h/2},height=Number(state.logical.split(',')[1]),top=point.y>height/2;
+ check(target?.id&&target.bounds?.length===4,'Guide target is not actually visible: '+name);
+ const surface=await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};})()');[surface.logicalWidth,surface.logicalHeight]=state.logical.split(',').map(Number);
+ // Mouse delivery may quantize fractional client coordinates. Pick a reachable
+ // browser pixel inside the actual clipped target and send CSS integers once;
+ // remapping its inverse through canvasPoint could round back outside a thin
+ // transformed thumb. The C paint bounds and semantic target stay unchanged.
+ const reachable=reachableGuidePoint(target.bounds,surface),point=reachable.logical,height=Number(state.logical.split(',')[1]),top=point.y>height/2;
  if(top!==authorPickerTop){await key(' ','Space',32,' ');authorPickerTop=top;}
- if(frozenName)await capture(frozenName+'-picker');const after=consoleText('Review picked: ').length;await click(point.x,point.y);const picked=await waitConsole('Review picked: ',after);
+ if(frozenName)await capture(frozenName+'-picker');const after=consoleText('Review picked: ').length;
+ await evaluate('globalThis.duxcelGuideMouse=null;window.addEventListener("mousedown",event=>{globalThis.duxcelGuideMouse={trusted:event.isTrusted,canvas:event.target===document.querySelector("canvas"),button:event.button,x:event.clientX,y:event.clientY};},{once:true,capture:true});true');
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',...reachable.css});await send('Input.dispatchMouseEvent',{type:'mousePressed',...reachable.css,button:'left',clickCount:1});await frames();await send('Input.dispatchMouseEvent',{type:'mouseReleased',...reachable.css,button:'left',clickCount:1});await frames();
+ const delivered=await evaluate('globalThis.duxcelGuideMouse'),mapped=delivered?{x:(delivered.x-surface.x)*surface.logicalWidth/surface.width,y:(delivered.y-surface.y)*surface.logicalHeight/surface.height}:null,delivery={name,target,surface,requested:reachable,delivered,mapped};guidePointerDeliveries.push(delivery);await fs.writeFile(path.join(output,'guide-pointer-delivery.json'),JSON.stringify(guidePointerDeliveries,null,2));
+ const [x,y,w,h]=target.bounds;check(delivered?.trusted&&delivered.canvas&&delivered.button===0&&Number.isFinite(mapped?.x)&&Number.isFinite(mapped?.y)&&mapped.x>=x&&mapped.x<x+w&&mapped.y>=y&&mapped.y<y+h,'Delivered Guide pointer missed its actual clipped target; see guide-pointer-delivery.json');
+ const picked=await waitConsole('Review picked: ',after);
  check(picked==='Review picked: '+target.id,'Frozen Guide picker chose covered content instead of '+target.id+': '+picked);await capture('guide-'+name+'-composer');await key('Escape','Escape',27);
  const restored=await platformSnapshot();guideState(restored);guideUnderlying(state,restored,'Guide composer cancellation changed workbook/cell/source ownership');
  check(state.modal===restored.modal&&state.author_kind===restored.author_kind&&Object.keys(state).filter(name=>name.startsWith('guide_')).every(name=>restored[name]===state[name]),'Guide composer cancellation changed visible content, scroll, focus or document origin');
- check(starts().length===jobs,'Guide reporting activated a database operation');return{captured,target,point,picked,before:state,after:restored};
+ check(starts().length===jobs,'Guide reporting activated a database operation');return{captured,target,point,delivery,picked,before:state,after:restored};
 }
 async function browserReviewGuide(){
  const initial=await platformSnapshot();check(initial.modal==='0'&&initial.ui_scale==='1.000000'&&initial.manual_cells==='0'&&initial.object_count==='0'&&starts().length===0,'Guide-only profile requires the actual untouched blank workbook');
