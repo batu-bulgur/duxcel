@@ -12,7 +12,9 @@ static void review_control(App *a,const char *id,const char *action,const char *
     if (!review_armed(a) || bounds.width<=0 || bounds.height<=0) return;
     DxReviewWidget w; dx_review_widget_init(&w,id,action,path,role,label);
     w.bounds=review_rect(bounds); w.clip=a->ui.clipping ? review_rect(a->ui.clip) : (DxReviewRect){0,0,GetScreenWidth(),GetScreenHeight()};
-    w.layer=layer; w.enabled=enabled; w.input_eligible=enabled && a->modal==MODAL_NONE; w.focused=focused;
+    w.layer=layer; w.enabled=enabled; w.input_eligible=enabled && a->modal==MODAL_NONE && strcmp(role,"text") && strcmp(role,"region") && strcmp(role,"banner") && strcmp(role,"tablist"); w.focused=focused;
+    if (!strncmp(id,"chrome.",7) && strcmp(id,"chrome.title_bar") && strcmp(id,"chrome.help")) snprintf(w.parent_id,sizeof(w.parent_id),"chrome.title_bar");
+    if (!strcmp(id,"ribbon.tabs.background")) snprintf(w.parent_id,sizeof(w.parent_id),"ribbon.tabs");
     w.container=container; w.source_line=(uint32_t)line; snprintf(w.source_file,sizeof(w.source_file),"%s",file);
     if (a->popup_capturing) { w.transform.ty=a->popup_presence.offset*a->ui.scale; w.bounds.y+=w.transform.ty; if (a->ui.clipping) w.clip.y+=w.transform.ty; w.layer+=100; }
     DxReviewStatus result=dx_review_add(a->review->registry,&w);
@@ -85,6 +87,17 @@ static void review_ribbon_control(App *a,int command,Rectangle bounds) {
     static const char *const modes[]={"full","compact","icons","focus"};
     snprintf(path,sizeof(path),"ribbon/%s/%s/%s",ui_ribbon_tabs[a->ribbon_tab],modes[a->ribbon_mode],a->popup_capturing ? "flyout" : "commands");
     review_control(a,id,action,path,"button",c->label,bounds,20,command_enabled(a,command),a->ribbon_focus && a->ribbon_command==command,false,__FILE__,__LINE__);
+}
+static void review_ribbon_tab(App *a,int tab,Rectangle bounds) {
+    if (!review_armed(a) || tab<0 || tab>=RIBBON_TABS) return;
+    static const char *const names[]={"home","insert","data","analyze","view","visualization"};
+    char id[64],action[64],path[96];
+    snprintf(id,sizeof(id),"ribbon.tab.%s",names[tab]);
+    snprintf(action,sizeof(action),"ribbon.select.%s",names[tab]);
+    snprintf(path,sizeof(path),"ribbon/tabs/%s",names[tab]);
+    review_control(a,id,action,path,"tab",ui_ribbon_tabs[tab],bounds,20,!a->io_busy,a->ribbon_focus && a->ribbon_command==-1 && a->ribbon_tab==tab,false,__FILE__,__LINE__);
+    DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
+    if (w) { w->checked=a->ribbon_tab==tab; snprintf(w->parent_id,sizeof(w->parent_id),"ribbon.tabs"); }
 }
 static DxReviewWidget *review_filter_item(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,int layer,int focus,bool enabled) {
     DxReviewWidget w; dx_review_widget_init(&w,id,action,"popup/column-filter",role,label);
@@ -229,7 +242,7 @@ static void review_native_command(App *a,DxCommand command) {
 /* Focused native acceptance; never enabled in shipping, uses the same queued
    input/controller routes as other App scenarios and private outbox fixtures. */
 #ifndef DUXCEL_BROWSER_HOST
-#define REVIEW_SMOKE_STAGES 26
+#define REVIEW_SMOKE_STAGES 37
 typedef struct {
     int stage; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; char root[4096];
@@ -237,7 +250,26 @@ typedef struct {
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
     const DxReviewWidget *w=dx_review_find(a->review->registry,id);
-    if (w) review_smoke_click((Rectangle){w->bounds.x,w->bounds.y,w->bounds.width,w->bounds.height});
+    if (w) review_smoke_click(GetCollisionRec((Rectangle){w->bounds.x,w->bounds.y,w->bounds.width,w->bounds.height},(Rectangle){w->clip.x,w->clip.y,w->clip.width,w->clip.height}));
+}
+static bool review_smoke_chrome(App *a) {
+    DxReviewRegistry *registry=a->review->registry;
+    const char *ids[]={"chrome.brand","chrome.document_title","chrome.save","chrome.help","ribbon.display",
+        "ribbon.tab.home","ribbon.tab.insert","ribbon.tab.data","ribbon.tab.analyze","ribbon.tab.view"};
+    if (registry->duplicate_count || registry->invalid_count) return false;
+    for (size_t i=0;i<sizeof(ids)/sizeof(*ids);i++) {
+        const DxReviewWidget *w=dx_review_find(registry,ids[i]); DxReviewTarget picked;
+        if (!w) return false;
+        Rectangle visible=GetCollisionRec((Rectangle){w->bounds.x,w->bounds.y,w->bounds.width,w->bounds.height},(Rectangle){w->clip.x,w->clip.y,w->clip.width,w->clip.height});
+        if (visible.width>0 && visible.height>0 && (!dx_review_pick(registry,visible.x+visible.width*.5f,visible.y+visible.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,ids[i]))) return false;
+    }
+    const DxReviewWidget *home=dx_review_find(registry,"ribbon.tab.home"),*brand=dx_review_find(registry,"chrome.brand");
+    DxReviewTarget picked; float s=a->ui.scale;
+    return home->checked && !brand->input_eligible &&
+        dx_review_pick(registry,2*s,14*s,DX_REVIEW_PICK_CONTROL,&picked) && !strcmp(picked.widget.id,"chrome.title_bar.background") &&
+        dx_review_pick(registry,2*s,14*s,DX_REVIEW_PICK_CONTAINER,&picked) && !strcmp(picked.widget.id,"chrome.title_bar") &&
+        dx_review_pick(registry,2*s,42*s,DX_REVIEW_PICK_CONTROL,&picked) && !strcmp(picked.widget.id,"ribbon.tabs.background") &&
+        dx_review_pick(registry,2*s,42*s,DX_REVIEW_PICK_CONTAINER,&picked) && !strcmp(picked.widget.id,"ribbon.tabs");
 }
 static bool review_smoke_same(App *a,ReviewSmoke *t) {
     GridLocation g=grid_location(&a->grid);
@@ -387,7 +419,54 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         for (unsigned i=0;i<a->frames && i<600;i++)
             if (a->frame_samples[i]<=0 || a->render_ms[i]<=0) goto failed;
         close_command_group(a);
-        printf("PASS: native review filter/selection isolation, typed frozen cell, disabled ribbon/overflow, pane controls, 100/150 percent, capture/write retry, durable reports and queued query reply\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); break;
+        break;
+    }
+    case 26:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->ribbon_mode=0; a->ribbon_tab=RIBBON_HOME;
+        ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 27:
+        if (r->phase!=DX_REPORT_PICK) return;
+        if (!review_smoke_chrome(a)) goto failed;
+        review_smoke_pick(a,"ribbon.tab.home"); break;
+    case 28:
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (strcmp(r->target.widget.id,"ribbon.tab.home") || !r->target.widget.checked || a->ribbon_tab!=RIBBON_HOME) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); break;
+    case 29:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        ui_set_scale(&a->ui,1.5f); SetWindowMinSize(480,640); SetWindowSize(480,640); a->ribbon_tabs_scroll=1000000; a->ribbon_focus=false;
+        ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 30: {
+        if (r->phase!=DX_REPORT_PICK) return;
+        const DxReviewWidget *home=dx_review_find(r->registry,"ribbon.tab.home");
+        if (r->frame.ui_scale!=1.5f || !review_smoke_chrome(a) || a->ribbon_tabs_scroll<=0 || !home || home->bounds.x>=home->clip.x) goto failed;
+        review_smoke_pick(a,"ribbon.display"); break;
+    }
+    case 31:
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (strcmp(r->target.widget.id,"ribbon.display") || a->modal!=MODAL_NONE) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); break;
+    case 32:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 33: {
+        if (r->phase!=DX_REPORT_PICK) return;
+        const DxReviewWidget *brand=dx_review_find(r->registry,"chrome.brand");
+        if (!brand) goto failed;
+        r->pick_index=(int)(brand-r->registry->widgets)-1; ui_note_key_press(KEY_TAB,0); break;
+    }
+    case 34:
+        if (r->phase!=DX_REPORT_PICK || !r->keyboard_pick || strcmp(r->target.widget.id,"chrome.brand")) goto failed;
+        ui_note_key_press(KEY_ENTER,0); break;
+    case 35:
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (strcmp(r->target.widget.id,"chrome.brand") || r->target.widget.input_eligible) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); break;
+    case 36: {
+        if (r->phase!=DX_REPORT_IDLE) return;
+        SetWindowMinSize(640,640); SetWindowSize(1280,820); ui_set_scale(&a->ui,1);
+        printf("PASS: native review filter/selection isolation, typed frozen cell, disabled ribbon/overflow, pane controls, 100/150 percent, capture/write retry, durable reports, queued query reply and title/ribbon pointer/keyboard targets\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); break;
     }
     }
     t->stage++; return;

@@ -220,7 +220,10 @@ bool dx_review_capture_draw(DxReviewCapture *r,UIContext *u) {
                 if (dx_review_pick(r->registry,x,y,r->mode,&candidate) && !strcmp(candidate.widget.id,widget->id)) { r->keyboard_pick=true; r->target=candidate; r->pick_point=(Vector2){x,y}; break; }
             }
         }
-        if (r->target.found && (!r->keyboard_pick || ui_pressed(KEY_ENTER))) { r->phase=DX_REPORT_NOTE; r->focus=0; }
+        if (r->target.found && (!r->keyboard_pick || ui_pressed(KEY_ENTER))) {
+            r->phase=DX_REPORT_NOTE; r->focus=0;
+            printf("Review picked: %s\n",r->target.region ? "region" : r->target.widget.id);
+        }
         return false;
     }
     float width=fminf(510*s,w-24*s),height=fminf(348*s,h-24*s),x=(w-width)*.5f,y=(h-height)*.5f;

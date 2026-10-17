@@ -363,6 +363,7 @@ static void status(App *a,const char *text) { char *owned=dx_strdup(text); free(
 static void review_control(App *a,const char *id,const char *action,const char *path,const char *role,const char *label,Rectangle bounds,int layer,bool enabled,bool focused,bool container,const char *file,int line);
 static void review_filter(App *a);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
+static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
 static const char *review_action_id(UIAction action);
 static void review_grid(App *a);
@@ -373,6 +374,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_CONTROL(a,id,action,path,role,label,bounds,layer,enabled,focused,container) review_control(a,id,action,path,role,label,bounds,layer,enabled,focused,container,__FILE__,__LINE__)
 #define REVIEW_FILTER(a) review_filter(a)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
+#define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
 #define REVIEW_GROUP(a,g,r,o) review_group(a,g,r,o)
 #define REVIEW_ACTION(a,action) REVIEW_EVENT(a,review_action_id(action),action)
@@ -381,6 +383,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_CONTROL(...) ((void)0)
 #define REVIEW_FILTER(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
+#define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
 #define REVIEW_GROUP(...) ((void)0)
 #define REVIEW_ACTION(...) ((void)0)
@@ -6482,25 +6485,37 @@ static void draw_app(App *a) {
     float width=GetScreenWidth()/s; bool authoring=selected_pivot(a)!=NULL;
     int tabs=authoring ? RIBBON_TABS : RIBBON_TABS-1;
     if (a->ribbon_tab>=tabs) a->ribbon_tab=RIBBON_ANALYZE;
-    DrawRectangleRec(box(0,0,GetScreenWidth(),28*s),(Color){233,238,242,255});
-    ui_label(u,"Duxcel",box(12*s,0,54*s,28*s),15,(Color){25,78,112,255},false,UI_SEMIBOLD);
+    Rectangle title_bar=box(0,0,GetScreenWidth(),28*s),brand=box(12*s,0,54*s,28*s);
+    DrawRectangleRec(title_bar,(Color){233,238,242,255});
+    REVIEW_CONTROL(a,"chrome.title_bar","chrome.inspect_title_bar","chrome/title-bar","banner","Title bar",title_bar,18,true,false,true);
+    REVIEW_CONTROL(a,"chrome.title_bar.background","chrome.inspect_title_bar","chrome/title-bar/background","region","Title bar background",title_bar,18,true,false,false);
+    ui_label(u,"Duxcel",brand,15,(Color){25,78,112,255},false,UI_SEMIBOLD);
+    REVIEW_CONTROL(a,"chrome.brand","chrome.inspect_brand","chrome/title-bar/brand","text","Duxcel",brand,20,true,false,false);
     DrawLineV((Vector2){70*s,7*s},(Vector2){70*s,22*s},(Color){185,197,207,255});
     char document[1024]; snprintf(document,sizeof(document),"%s%s",a->book.path ? dx_basename(a->book.path) : "Untitled.dxls",a->book.dirty ? " · Edited" : "");
-    ui_label(u,document,box(82*s,0,GetScreenWidth()-124*s,28*s),12,UI_TEXT,false,UI_REGULAR);
+    Rectangle document_title=box(82*s,0,GetScreenWidth()-124*s,28*s);
+    ui_label(u,document,document_title,12,UI_TEXT,false,UI_REGULAR);
+    REVIEW_CONTROL(a,"chrome.document_title","chrome.inspect_document_title","chrome/title-bar/document","text",document,document_title,20,true,false,false);
     Rectangle save=box(GetScreenWidth()-34*s,2*s,24*s,24*s);
     bool can_save=!a->io_busy && a->book.count;
 #ifdef DUXCEL_BROWSER_HOST
     can_save=false;
 #endif
+    REVIEW_CONTROL(a,"chrome.save","command.save","chrome/title-bar/save","button","Save workbook",save,20,can_save,false,false);
     if (ui_icon_button(u,save,CARBON_SAVE,false,can_save)) {
         a->consume_grid_input=true; if (a->book.path) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE);
     }
     if (CheckCollisionPointRec(ui_mouse_position(),save)) { a->ribbon_hover="Save workbook · ⌘S"; a->ribbon_hover_rect=save; }
     float display_width=width<900 ? 26 : 110;
+    Rectangle tabs_bar=box(0,28*s,GetScreenWidth(),28*s);
+    REVIEW_CONTROL(a,"ribbon.tabs","ribbon.inspect_tabs","ribbon/tabs","tablist","Ribbon tabs",tabs_bar,18,true,false,true);
+    REVIEW_CONTROL(a,"ribbon.tabs.background","ribbon.inspect_tabs","ribbon/tabs/background","region","Ribbon tab strip background",tabs_bar,18,true,false,false);
     Rectangle display=box(GetScreenWidth()-(display_width+36)*s,30*s,display_width*s,24*s);
+    REVIEW_CONTROL(a,"ribbon.display","ribbon.display","ribbon/display","button","Ribbon display",display,20,!a->io_busy,a->modal==MODAL_RIBBON,false);
     if (ui_button(u,display,width<900 ? "" : "Ribbon display",false,!a->io_busy)) { a->ribbon_menu_focus=a->ribbon_mode; a->modal=MODAL_RIBBON; a->consume_grid_input=true; }
     ui_carbon(u,CARBON_CHEVRON_DOWN,box(display.x+display.width-17*s,display.y+6*s,12*s,12*s),UI_MUTED);
     Rectangle help=box(GetScreenWidth()-30*s,30*s,24*s,24*s);
+    REVIEW_CONTROL(a,"chrome.help","command.guide","chrome/help","button","Help",help,20,!a->io_busy,a->guide_button_focus,false);
     if (ui_icon_button(u,help,CARBON_HELP,false,!a->io_busy)) run_action(a,ACTION_GUIDE);
     if (a->guide_button_focus) ui_focus_border(help,help,s);
     Rectangle strip=box(8*s,28*s,fmaxf(0,display.x-14*s),28*s);
@@ -6516,6 +6531,7 @@ static void draw_app(App *a) {
     ui_set_clip(u,strip);
     for (int i=0;i<tabs;i++) {
         Rectangle tab=box(strip.x+(tab_x-a->ribbon_tabs_scroll)*s,28*s,widths[i]*s,28*s);
+        REVIEW_TAB(a,i,tab);
         if (i==a->ribbon_tab) DrawRectangleRec(GetCollisionRec(tab,strip),(Color){251,252,253,255});
         bool clicked=ui_tool_button(u,tab,"",false,chrome_enabled);
         ui_label(u,ui_ribbon_tabs[i],box(tab.x+(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.y,tab.width-2*(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.height),12,i==a->ribbon_tab ? UI_ACCENT : UI_TEXT,false,i==a->ribbon_tab ? UI_MEDIUM : UI_REGULAR);
