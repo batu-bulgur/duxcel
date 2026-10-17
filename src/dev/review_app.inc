@@ -528,6 +528,27 @@ static bool review_author_hex64(char output[129],const char *text) {
     }
     output[2*used]=0; return text[used]!=0;
 }
+static void review_cell_editor(App *a,Rectangle bounds,Rectangle clip,const char *file,int line) {
+    if (!review_armed(a) || a->modal!=MODAL_CELL || bounds.width<=0 || bounds.height<=0) return;
+    Rectangle shown=GetCollisionRec(bounds,clip); if (shown.width<=0 || shown.height<=0) return;
+    const TextInput *input=&a->input; DxReviewWidget widget;
+    dx_review_widget_init(&widget,"author.cell_editor.input","cell.edit_draft","workspace/canvas/cell_editor","textbox","Cell editor");
+    snprintf(widget.parent_id,sizeof(widget.parent_id),"worksheet.cells"); widget.bounds=review_rect(bounds); widget.clip=review_rect(clip); widget.layer=130;
+    widget.enabled=widget.input_eligible=widget.focused=true; widget.data=review_scope(a);
+    snprintf(widget.data.kind,sizeof(widget.data.kind),"manual-cell-draft"); widget.data.object_id=widget.data.source_id=widget.data.schema_generation=0;
+    widget.data.query_generation=active_sheet(a)->cells.revision; widget.data.has_cell=true; widget.data.row=a->grid.row; widget.data.column=a->grid.col; widget.data.field[0]=0;
+    dx_review_value_set(&widget.value,"VARCHAR",false,input->text ? input->text : ""); widget.truncated=widget.value.truncated;
+    snprintf(widget.source_file,sizeof(widget.source_file),"%s",file); widget.source_line=(uint32_t)line;
+    DxReviewStatus result=dx_review_add(a->review->registry,&widget);
+    if (result!=DX_REVIEW_OK) { fprintf(stderr,"Review inline editor registration: %s\n",dx_review_status_text(result)); return; }
+    a->review->registry->truncated|=widget.truncated;
+    size_t undo_bytes=0,redo_bytes=0;
+    for (size_t i=0;i<input->undo_count && i<32;i++) undo_bytes+=input->undo[i].capacity;
+    for (size_t i=0;i<input->redo_count && i<32;i++) redo_bytes+=input->redo[i].capacity;
+    char hex[129],state[1024]; bool truncated=review_author_hex64(hex,input->text);
+    snprintf(state,sizeof(state)," author_kind=cell_editor cell_editor_rect=%.3f,%.3f,%.3f,%.3f cell_editor_cursor=%zu cell_editor_anchor=%zu cell_editor_select_all=%d cell_editor_revision=%llu cell_editor_view_start=%zu cell_editor_bytes=%zu cell_editor_history=%zu,%zu cell_editor_history_bytes=%zu,%zu cell_editor_origin=%llu,0,0,0,%llu,%llu,%llu,1 cell_editor_text_hex=%s cell_editor_text_truncated=%d cell_editor_value_truncated=%d",shown.x,shown.y,shown.width,shown.height,input->cursor,input->anchor,input->select_all,(unsigned long long)input->revision,input->view_start,input->length,input->undo_count,input->redo_count,undo_bytes,redo_bytes,(unsigned long long)widget.data.sheet_id,(unsigned long long)widget.data.query_generation,(unsigned long long)widget.data.row,(unsigned long long)widget.data.column,hex,truncated,widget.value.truncated);
+    review_author_capture_state(a,state);
+}
 static void review_sql_content(App *a,const char *sql,Rectangle bounds,Rectangle clip,int scroll,int lines,int visible,const char *file,int line) {
     if (!review_armed(a)) return;
     DxReviewWidget *widget=review_author_widget(a,"author.generated_sql.content","author.generated_sql","generated_sql","sql.inspect","region","Generated SQL",bounds,clip,131,true,false,false,false,NULL,file,line);
