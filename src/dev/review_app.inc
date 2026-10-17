@@ -13,6 +13,26 @@ static DxReviewDataIdentity review_scope(App *a) {
     snprintf(d.document_id,sizeof(d.document_id),"%s",a->review->frame.document_id);
     return d;
 }
+static uint64_t review_sheet_order(App *a) {
+    uint64_t hash=UINT64_C(14695981039346656037);
+    for (size_t i=0;i<a->book.count && i<DX_MAX_SHEETS;i++) {
+        const unsigned char *name=(const unsigned char *)a->book.sheets[i].name;
+        for (size_t n=0;name && n<4096 && name[n];n++) { hash^=name[n]; hash*=UINT64_C(1099511628211); }
+        hash^=0; hash*=UINT64_C(1099511628211); hash^=a->book.sheets[i].hidden; hash*=UINT64_C(1099511628211);
+    }
+    hash^=a->book.count; return hash*UINT64_C(1099511628211);
+}
+static DxReviewDataIdentity review_sheet_scope(App *a,size_t sheet) {
+    if (sheet>=a->book.count) return (DxReviewDataIdentity){0};
+    DxReviewDataIdentity data=review_scope(a); snprintf(data.kind,sizeof(data.kind),"worksheet-position"); data.sheet_id=sheet+1;
+    data.source_id=data.object_id=data.schema_generation=0; data.field[0]=0;
+    /* Worksheet reorder physically moves the array. This is an owned position
+       scoped to the captured document/order, never a persistent worksheet ID.
+       The bounded digest was computed once at this armed frame's beginning. */
+    const char *order=strstr(a->review->frame.state_text," workbook_order=");
+    data.query_generation=order ? (uint64_t)strtoull(order+16,NULL,16) : review_sheet_order(a);
+    return data;
+}
 static void review_control(App *a,const char *id,const char *action,const char *path,const char *role,const char *label,Rectangle bounds,int layer,bool enabled,bool focused,bool container,const char *file,int line) {
     if (!review_armed(a) || bounds.width<=0 || bounds.height<=0) return;
     DxReviewWidget w; dx_review_widget_init(&w,id,action,path,role,label);
@@ -49,6 +69,7 @@ static void review_begin_frame(App *a) {
         if (command) { const char *value=strrchr(command,'='); if (value) last_command=(int)strtol(value+1,NULL,10); }
     }
     used=strlen(f.state_text); snprintf(f.state_text+used,sizeof(f.state_text)-used," last_command=%d",last_command);
+    used=strlen(f.state_text); snprintf(f.state_text+used,sizeof(f.state_text)-used," workbook_order=%016llx",(unsigned long long)review_sheet_order(a));
 #ifdef DUXCEL_BROWSER_HOST
     used=strlen(f.state_text);
     snprintf(f.state_text+used,sizeof(f.state_text)-used," ui_heap=%zu ui_allocated=%u",emscripten_get_heap_size(),(unsigned)mallinfo().uordblks);
@@ -214,6 +235,9 @@ static const char *review_author_identity(App *a,const char *kind,char parent[12
     SheetObject *object=selected_object(a); const char *field=NULL,*scope=NULL;
     static const char *const roles[]={"rows","columns","values","filters"};
     static const char *const marks[]={"color","size","label","detail","tooltip","shape"};
+    if (!strcmp(kind,"sheet_menu") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"sheet_unhide")) {
+        *data=review_sheet_scope(a,a->sheet_menu_index); snprintf(parent,128,"author.%s",kind); return NULL;
+    }
     *data=review_scope(a);
     if (object) {
         data->object_id=object->id; data->source_id=object->kind==OBJECT_TABLE ? object->id : object->source_id;
@@ -331,6 +355,23 @@ static void review_author_input(App *a,const char *kind,const char *key,const ch
     char id[128]; snprintf(id,sizeof(id),"author.%s.action.%s",kind,key);
     DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
     if (w) { dx_review_value_set(&w->value,"VARCHAR",false,input && input->text ? input->text : ""); w->truncated|=w->value.truncated; a->review->registry->truncated|=w->truncated; }
+}
+static void review_sheet_row(App *a,size_t sheet,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *file,int line) {
+    if (!review_armed(a) || sheet>=a->book.count || bounds.width<=0 || bounds.height<=0 || clip.width<=0 || clip.height<=0) return;
+    char id[128]; snprintf(id,sizeof(id),"pane.workbook.sheet.%zu",sheet+1);
+    DxReviewWidget w; dx_review_widget_init(&w,id,"workbook.activate_sheet","workspace/left/workbook/sheets","tab",label);
+    snprintf(w.parent_id,sizeof(w.parent_id),"pane.workbook"); w.bounds=review_rect(bounds); w.clip=review_rect(clip); w.layer=52;
+    w.enabled=w.input_eligible=enabled; w.checked=checked; w.focused=focused; w.data=review_sheet_scope(a,sheet);
+    snprintf(w.source_file,sizeof(w.source_file),"%s",file); w.source_line=(uint32_t)line;
+    DxReviewStatus result=dx_review_add(a->review->registry,&w);
+    if (result!=DX_REVIEW_OK) fprintf(stderr,"Review worksheet registration %s: %s\n",id,dx_review_status_text(result));
+}
+static void review_sheet_choice(App *a,const char *kind,const char *key,const char *action,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,size_t sheet,const char *file,int line) {
+    if (!review_armed(a) || sheet>=a->book.count) return;
+    char semantic[96],id[128]; snprintf(semantic,sizeof(semantic),"%s.sheet%zu",key,sheet+1);
+    review_author_item(a,kind,semantic,action,"menuitem",label,bounds,clip,enabled,checked,focused,NULL,file,line);
+    snprintf(id,sizeof(id),"author.%s.action.%s",kind,semantic);
+    DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id); if (w) w->data=review_sheet_scope(a,sheet);
 }
 static DxReviewWidget *review_filter_item(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,int layer,int focus,bool enabled) {
     DxReviewWidget w; dx_review_widget_init(&w,id,action,"popup/column-filter",role,label);
