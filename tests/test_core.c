@@ -642,6 +642,66 @@ static void test_worker(void) {
     CHECK(r->id==27 && !r->error && r->object_id==98 && r->revision==11 && r->exported_rows==4); reply_free(r); free(error);
     worker_stop(&w);
 }
+static void guard_fixture(const char *path,const char *text) {
+    FILE *file=fopen(path,"wb"); size_t length=strlen(text); CHECK(file && fwrite(text,1,length,file)==length && !fclose(file));
+}
+static void test_worker_source_guards(void) {
+    char *directory=dx_temp_directory(); CHECK(directory); char *source=dx_printf("%s/source.csv",directory),*other=dx_printf("%s/table.csv",directory),*destination=dx_printf("%s/export.parquet",directory),*error=NULL;
+    guard_fixture(source,"id,value\n1,original\n2,original\n3,original\n"); guard_fixture(other,"id,value\n7,table\n8,table\n"); guard_fixture(destination,"Preserve destination");
+    QueryWorker worker; CHECK(worker_start(&worker)); worker_submit(&worker,job(1,SOURCE_CSV,source)); QueryReply *reply=wait_reply(&worker);
+    CHECK(!reply->error && reply->page.records.stamp && reply->page.records.ids && !strcmp(reply->page.cells[0].text,"1"));
+    uint64_t old_stamp=reply->page.records.stamp; reply_free(reply);
+    guard_fixture(source,"id,value\n100,replacement\n101,replacement\n"); CHECK(dx_file_stamp(source)!=old_stamp);
+    for (unsigned operation=0;operation<4;operation++) {
+        QueryJob *request=job(2+operation,SOURCE_CSV,source); request->expected_source_stamp=old_stamp; request->rows=2; request->cols=1;
+        if (operation==0) request->kind=JOB_COPY;
+        else if (operation==1) request->kind=JOB_STATISTICS;
+        else if (operation==2) { request->kind=JOB_EXPORT; request->path=dx_strdup(destination); }
+        else { request->kind=JOB_STATISTICS; request->statistics=dx_alloc(sizeof(*request->statistics)); request->statistics->count=1; request->statistics->cells=2; request->statistics->ranges[0]=(StatisticsRange){.rows=2,.columns=1,.expected_source_stamp=old_stamp}; }
+        worker_submit(&worker,request); reply=wait_reply(&worker);
+        CHECK(reply->id==2+operation && reply->error && strstr(reply->error,"source changed") && !reply->clipboard && !reply->statistics.sum && !reply->exported_rows); reply_free(reply);
+    }
+    /* The stale owner contributes cached cells only; another owner needs SQL. */
+    QueryJob *request=job(6,SOURCE_CSV,source); request->kind=JOB_RANGE_COPY; request->copy=dx_alloc(sizeof(*request->copy));
+    CHECK(clipboard_init(&request->copy->cells,1,2,&error) && clipboard_set(&request->copy->cells,0,0,"1",&error));
+    Analysis table={.kind=SOURCE_CSV,.path=other}; size_t binding=source_snapshot_bind(&request->copy->sources,9,&table,&error); CHECK(binding==1);
+    request->copy->count=1; request->copy->patches[0]=(CopyPatch){.source=binding,.rows=1,.columns=1,.target_column=1};
+    request->copy->guard_count=2; request->copy->guards[0]=(CopySourceGuard){0,old_stamp}; request->copy->guards[1]=(CopySourceGuard){binding,dx_file_stamp(other)};
+    uint64_t queries=worker.db.query_count; worker_submit(&worker,request); reply=wait_reply(&worker);
+    CHECK(reply->id==6 && reply->error && !reply->clipboard && worker.db.query_count==queries); reply_free(reply);
+    /* Invalid count/index/duplicate/target overflow fail without engine work. */
+    for (unsigned invalid=0;invalid<4;invalid++) {
+        request=job(7+invalid,SOURCE_CSV,source); request->kind=JOB_RANGE_COPY; request->copy=dx_alloc(sizeof(*request->copy)); CHECK(clipboard_init(&request->copy->cells,1,1,&error));
+        request->copy->guard_count=1; request->copy->guards[0]=(CopySourceGuard){0,dx_file_stamp(source)};
+        if (invalid==0) request->copy->guard_count=DX_MAX_OBJECTS+2;
+        else if (invalid==1) request->copy->guards[0].source=1;
+        else if (invalid==2) { request->copy->guard_count=2; request->copy->guards[1]=request->copy->guards[0]; }
+        else { request->copy->count=1; request->copy->patches[0]=(CopyPatch){.rows=1,.columns=1,.target_row=SIZE_MAX}; }
+        queries=worker.db.query_count; worker_submit(&worker,request); reply=wait_reply(&worker);
+        CHECK(reply->id==7+invalid && reply->error && strstr(reply->error,"Invalid clipboard") && !reply->clipboard && worker.db.query_count==queries); reply_free(reply);
+    }
+    request=job(11,SOURCE_CSV,source); request->refresh_source=true; worker_submit(&worker,request); reply=wait_reply(&worker);
+    CHECK(!reply->error && reply->page.records.stamp!=old_stamp && !strcmp(reply->page.cells[0].text,"100")); uint64_t refreshed=reply->page.records.stamp; reply_free(reply);
+    request=job(12,SOURCE_CSV,source); request->kind=JOB_COPY; request->rows=2; request->cols=1; request->expected_source_stamp=refreshed;
+    worker_submit(&worker,request); reply=wait_reply(&worker); CHECK(!reply->error && !strcmp(reply->clipboard,"100\n101")); reply_free(reply);
+    request=job(13,SOURCE_CSV,source); request->kind=JOB_STATISTICS; request->rows=2; request->cols=1; request->expected_source_stamp=refreshed;
+    worker_submit(&worker,request); reply=wait_reply(&worker); CHECK(!reply->error && !strcmp(reply->statistics.sum,"201")); reply_free(reply);
+    request=job(14,SOURCE_CSV,source); request->kind=JOB_RANGE_COPY; request->copy=dx_alloc(sizeof(*request->copy)); CHECK(clipboard_init(&request->copy->cells,1,2,&error) && clipboard_set(&request->copy->cells,0,0,"100",&error));
+    binding=source_snapshot_bind(&request->copy->sources,9,&table,&error); CHECK(binding==1); request->copy->count=1; request->copy->patches[0]=(CopyPatch){.source=binding,.rows=1,.columns=1,.target_column=1};
+    request->copy->guard_count=2; request->copy->guards[0]=(CopySourceGuard){0,refreshed}; request->copy->guards[1]=(CopySourceGuard){binding,dx_file_stamp(other)};
+    worker_submit(&worker,request); reply=wait_reply(&worker); CHECK(!reply->error && !strcmp(reply->clipboard,"100\t7")); reply_free(reply);
+    request=job(15,SOURCE_CSV,source); request->kind=JOB_COPY; request->rows=2; request->cols=1; CHECK(analysis_query_set(&request->analysis,"SELECT * FROM input",&error));
+    worker_submit(&worker,request); reply=wait_reply(&worker); CHECK(!reply->error && !strcmp(reply->clipboard,"100\n101")); reply_free(reply);
+    for (unsigned fresh=0;fresh<2;fresh++) {
+        request=job(16+fresh,SOURCE_CSV,source); request->kind=JOB_PIVOT_COPY; request->rows=64; request->cols=2; request->expected_source_stamp=fresh ? refreshed : old_stamp;
+        CHECK(pivot_assign(&request->pivot,PIVOT_ROWS,"value",AGG_SUM,&error) && pivot_assign(&request->pivot,PIVOT_VALUES,"id",AGG_MAX,&error));
+        worker_submit(&worker,request); reply=wait_reply(&worker);
+        CHECK(fresh ? !reply->error && reply->clipboard && !strcmp(reply->clipboard,"replacement\t101") : reply->error && strstr(reply->error,"source changed") && !reply->clipboard); reply_free(reply);
+    }
+    worker_stop(&worker);
+    char preserved[32]={0}; FILE *file=fopen(destination,"rb"); CHECK(file && fread(preserved,1,sizeof(preserved)-1,file)==20 && fgetc(file)==EOF && !fclose(file) && !strcmp(preserved,"Preserve destination"));
+    remove(source); remove(other); remove(destination); free(source); free(other); free(destination); dx_remove_temp_directory(directory); free(directory); free(error);
+}
 static void test_source_snapshots(void) {
     SourceSnapshot snapshot={0}; char *error=NULL;
     Analysis source={.kind=SOURCE_CSV,.path=dx_strdup("one.csv")}; char *large=dx_alloc(3*1024*1024+1); memset(large,'x',3*1024*1024);
@@ -1215,6 +1275,7 @@ static void test_pivot_totals(Database *db) {
     CHECK(page.bytes<=4*1024*1024); page_free(&page); pivot_free(&pivot); analysis_free(&source); free(error);
 }
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--source-guards-only")) { test_worker_source_guards(); printf("PASS: %u focused worker source-guard checks\n",checks); return 0; }
     if (argc==3 && !strcmp(argv[1],"--unique-large")) return unique_large(argv[2]);
     if (argc==2 && !strcmp(argv[1],"--spill-probe")) return spill_probe();
     if (argc==3 && !strcmp(argv[1],"--page-reuse-latency")) return page_reuse_latency(argv[2]);
@@ -1223,7 +1284,7 @@ int main(int argc,char **argv) {
     if (argc==3 && !strcmp(argv[1],"--benchmark")) return benchmark(argv[2]);
     Database db; char *error=NULL; CHECK(database_open(&db,&error));
     fixtures(&db); test_temporary_storage(&db); test_csv(&db); test_typed_query(&db); test_aggregates(&db); test_database(&db); test_million(&db); test_available_values(&db); test_pivot(&db); test_composable_filters(&db); test_pivot_null_columns(&db); test_pivot_date_grains(&db); test_null_text(&db); test_export(&db); test_pivot_export(&db); test_window_counts(&db); test_numeric_filters(&db); test_combined_filter(&db); test_clipboard(&db); test_sort_order(&db); test_prepared_pages(&db); test_statistics(&db); test_mixed_statistics(&db);
-    test_source_snapshots(); test_table_windows(&db); test_source_query(&db); test_unique_rows(&db); test_pivot_totals(&db); database_close(&db); test_worker(); free(error);
+    test_source_snapshots(); test_table_windows(&db); test_source_query(&db); test_unique_rows(&db); test_pivot_totals(&db); database_close(&db); test_worker(); test_worker_source_guards(); free(error);
     printf("PASS: %u checks (CSV, Parquet, typed values, safe SQL, filters, aggregates, clipboard, database, million-row paging, worker recovery)\n",checks);
     return 0;
 }
