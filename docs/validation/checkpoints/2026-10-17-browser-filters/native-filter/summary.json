@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T14:42:00.123944+00:00",
+  "tier": "native",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": true,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "c521f31b0676c1226991682e0bf28146c2de8634",
+    "status": "M Makefile\n M src/data/worker_browser.inc\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n?? tools/ui-review/",
+    "source_sha256": "53334ee096dcde57770aebdaafbc5ffa1b2d3fc35d62d8bb4abd94b7c0fe4f64",
+    "source_files": 186
+  },
+  "results": [
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T144200-native-57415/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.779
+    },
+    {
+      "name": "native-filter",
+      "command": [
+        "./duxcel-debug",
+        "--filter-smoke",
+        "--frames",
+        "6200",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261017T144200-native-57415/filter.png"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T144200-native-57415/native-filter.txt",
+      "expected_stages": 66,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 32.797
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/duxcel-debug": "9cd1790d47f12f8f3786c34d4a40343ebc4e9823b12f6e5f632ffadc53ebf5bb",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "elapsed_seconds": 34.872,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/duxcel-debug": "9cd1790d47f12f8f3786c34d4a40343ebc4e9823b12f6e5f632ffadc53ebf5bb",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "finished_utc": "2026-10-17T14:42:35.196866+00:00"
+}

@@ -154,7 +154,7 @@ a fresh temporary profile. It never uses a user's browser/profile or activates
 a window. Set `DUXCEL_CHROMIUM` to an existing compatible executable if needed.
 
 This checkpoint contains the real C UI, sparse manual cells and official asynchronous
-DuckDB-Wasm source pages/count/SQL validation/preview. Open imports CSV/TSV/Parquet
+DuckDB-Wasm source pages/count/SQL validation/preview, paged available values and date hierarchy. Open imports CSV/TSV/Parquet
 through the browser file chooser (Ctrl+O in this proof). Save/relink, workbook
 persistence and further analytical operations remain explicitly unavailable. Native production still uses native DuckDB and Cocoa.
 Current evidence is DPR 1; Retina/clipboard/IME/physical input and full browser
@@ -171,4 +171,4 @@ Run `make test-browser-core` for the fast release/sanitizer/transport gate.
 `python3 tools/build_web.py --worker-driver` builds a separate no-window C acceptance
 artifact; `python3 tools/test_web_app.py --no-build --worker-driver` exercises the
 full real-engine bridge. Source UI gates and current limits are in
-[TESTING.md](../docs/TESTING.md) and the [Worker checkpoint](../docs/validation/checkpoints/2026-10-17-browser-worker/).
+[TESTING.md](../docs/TESTING.md) and the [latest filter/active-query checkpoint](../docs/validation/checkpoints/2026-10-17-browser-filters/).

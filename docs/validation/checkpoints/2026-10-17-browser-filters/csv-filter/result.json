@@ -1,0 +1,107 @@
+{
+  "status": "passed",
+  "checks": 24,
+  "url": "http://127.0.0.1:59975/",
+  "surface": {
+    "width": 1280,
+    "height": 820,
+    "dpr": 1,
+    "canvas": [
+      1280,
+      820
+    ]
+  },
+  "elapsed_ms": 8111,
+  "steps": [
+    {
+      "key": "o",
+      "time": 1792248251430
+    },
+    {
+      "key": "Escape",
+      "time": 1792248254944
+    },
+    {
+      "key": "Escape",
+      "time": 1792248255745
+    }
+  ],
+  "sourceFile": "/Users/h2o/dev/duxcel/tests/fixtures/transactions.csv",
+  "sourceResult": {
+    "id": "2",
+    "kind": 0,
+    "rows": 5,
+    "columns": 6,
+    "total": "5",
+    "counted": "0",
+    "pending": 0,
+    "error": 0,
+    "distinct_count": 0,
+    "distinct_total": "0",
+    "selection_to_c_reply_ms": 740
+  },
+  "filterResult": {
+    "cities": {
+      "id": "4",
+      "kind": 4,
+      "rows": 0,
+      "columns": 0,
+      "total": "0",
+      "counted": "0",
+      "pending": 0,
+      "error": 0,
+      "distinct_count": 4,
+      "distinct_total": "4"
+    },
+    "filtered": {
+      "id": "5",
+      "kind": 0,
+      "rows": 1,
+      "columns": 6,
+      "total": "1",
+      "counted": "0",
+      "pending": 0,
+      "error": 0,
+      "distinct_count": 0,
+      "distinct_total": "0"
+    },
+    "years": {
+      "id": "6",
+      "kind": 4,
+      "rows": 0,
+      "columns": 0,
+      "total": "0",
+      "counted": "0",
+      "pending": 0,
+      "error": 0,
+      "distinct_count": 1,
+      "distinct_total": "1"
+    },
+    "months": {
+      "id": "7",
+      "kind": 4,
+      "rows": 0,
+      "columns": 0,
+      "total": "0",
+      "counted": "0",
+      "pending": 0,
+      "error": 0,
+      "distinct_count": 1,
+      "distinct_total": "1"
+    },
+    "days": {
+      "id": "8",
+      "kind": 4,
+      "rows": 0,
+      "columns": 0,
+      "total": "0",
+      "counted": "0",
+      "pending": 0,
+      "error": 0,
+      "distinct_count": 1,
+      "distinct_total": "1"
+    }
+  },
+  "workerProbe": false,
+  "scope": "Shared C99 startup and captured real interactions for visual verification; source imports, value/date filters and Worker probe are explicit optional gates; workbook persistence is not accepted"
+}

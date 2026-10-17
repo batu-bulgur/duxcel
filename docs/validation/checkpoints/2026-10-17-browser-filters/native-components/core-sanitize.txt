@@ -1,0 +1,4 @@
+Generated 1M rows: first 7.55 ms, last page 37.04 ms, page 22369 bytes
+Streamed 1M rows to Parquet: 44.61 ms
+Selection statistics 1M rows: 778.82 ms; exact sum 499999500000
+PASS: 1661 checks (CSV, Parquet, typed values, safe SQL, filters, aggregates, clipboard, database, million-row paging, worker recovery)

@@ -1,0 +1,48 @@
+{
+  "started_utc": "2026-10-17T14:46:36.198361+00:00",
+  "status": "passed",
+  "results": [
+    {
+      "command": [
+        "make",
+        "build/lifecycle/test-app",
+        "build/lifecycle/test-app-sanitize",
+        "tests/test_background-native-debug"
+      ],
+      "elapsed_seconds": 1.075,
+      "log": "tests/results/runs/20261017T144636-lifecycle-59529/build.txt"
+    },
+    {
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "elapsed_seconds": 1.465,
+      "log": "tests/results/runs/20261017T144636-lifecycle-59529/background.txt"
+    },
+    {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/lifecycle/test-app"
+      ],
+      "elapsed_seconds": 1.635,
+      "log": "tests/results/runs/20261017T144636-lifecycle-59529/test-app.txt"
+    },
+    {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/lifecycle/test-app-sanitize"
+      ],
+      "elapsed_seconds": 1.565,
+      "log": "tests/results/runs/20261017T144636-lifecycle-59529/test-app-sanitize.txt"
+    }
+  ],
+  "source": {
+    "commit": "6d613a03d1e54598f9b71e5ec080c34844fe1b43",
+    "status": "M Makefile\n M src/data/worker_browser.inc\n M tools/build_web.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M web/worker_test_host.mjs\n?? tools/ui-review/",
+    "source_sha256": "436bee594f9debd70669f2d0030d21e8279a449fa5bfbd444394cf580f21c72d",
+    "source_files": 186
+  },
+  "binaries": {
+    "build/lifecycle/test-app": "5834da3e9b1c1c2d003993579550907bfde133290e43af1ec4dae380ad9234d7",
+    "build/lifecycle/test-app-sanitize": "06aa451477c7f212e083973d9279a127b13e2ee4e931dce5d06aaec2ddd8119a"
+  },
+  "finished_utc": "2026-10-17T14:46:42.328659+00:00"
+}

@@ -25,8 +25,14 @@ def main():
     parser.add_argument('--no-build', action='store_true')
     parser.add_argument('--worker-probe', action='store_true')
     parser.add_argument('--source',type=Path)
+    parser.add_argument('--filters',action='store_true',help='Exercise the real transactions.csv value and date dropdowns')
+    parser.add_argument('--busy',action='store_true',help='Require real UI input/rendering before the imported source job completes')
     parser.add_argument('--worker-driver',action='store_true')
     options=parser.parse_args()
+    if options.filters and (not options.source or options.source.name!='transactions.csv'):
+        parser.error('--filters requires --source tests/fixtures/transactions.csv')
+    if options.busy and not options.source:
+        parser.error('--busy requires a real --source')
     if not options.no_build:
         subprocess.run(['python3','tools/build_web.py']+(['--worker-driver'] if options.worker_driver else []), cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
     phases['build_seconds']=round(time.monotonic()-overall,3);phase=time.monotonic()
@@ -50,6 +56,8 @@ def main():
             if options.worker_driver:command.append('--worker-driver')
             if options.worker_probe: command.append('--worker-probe')
             if options.source: command.extend(['--source',str(options.source.resolve(strict=True))])
+            if options.filters: command.append('--filters')
+            if options.busy: command.append('--busy')
             process=subprocess.Popen(command,cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
             try:log,_=process.communicate(timeout=100)
             except subprocess.TimeoutExpired:

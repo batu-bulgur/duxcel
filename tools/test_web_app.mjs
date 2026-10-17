@@ -13,7 +13,11 @@ const browser=spawn(process.env.DUXCEL_CHROMIUM??'/Applications/Chromium.app/Con
  ['--headless','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--no-proxy-server','about:blank'],{stdio:['ignore','ignore','pipe']});
 const workerProbe=process.argv.includes('--worker-probe');
 const workerDriver=process.argv.includes('--worker-driver');
+const filters=process.argv.includes('--filters');
+const busy=process.argv.includes('--busy');
 let sourceResult;
+let filterResult;
+let busyResult;
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
 let stderr='',ws,id=0;const waiting=new Map(),events=[],steps=[];let checks=0;const started=Date.now();
 function check(value,message){checks++;if(!value)throw new Error(message);}
@@ -35,13 +39,22 @@ async function click(x,y){
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});await frames();
 }
 function replies(){return events.filter(e=>e.method==='Runtime.consoleAPICalled').flatMap(e=>e.params.args).map(a=>String(a.value??'')).filter(t=>t.startsWith('Browser worker reply: ')).map(t=>JSON.parse(t.slice('Browser worker reply: '.length)));}
+function starts(){return events.filter(e=>e.method==='Runtime.consoleAPICalled').flatMap(e=>e.params.args).map(a=>String(a.value??'')).filter(t=>t.startsWith('Browser worker started: ')).map(t=>JSON.parse(t.slice('Browser worker started: '.length)));}
 async function waitPage(afterId=null){
  for(const deadline=Date.now()+15000;Date.now()<deadline;){
-  const current=replies().filter(r=>r.kind===0&&r.id!==afterId).at(-1);
+  const current=replies().filter(r=>r.kind===0&&(afterId===null||BigInt(r.id)>BigInt(afterId))).at(-1);
   if(current){check(!current.error,'C browser query failed');if(!current.pending)return current;const count=replies().find(r=>r.kind===8&&BigInt(r.id)>BigInt(current.id));if(count){check(!count.error,'C browser count failed');return {...current,total:count.counted};}}
   await pause(20);
  }
  throw new Error('C source page/count did not complete');
+}
+async function waitDistinct(afterId=null){
+ for(const deadline=Date.now()+15000;Date.now()<deadline;){
+  const current=replies().filter(r=>r.kind===4&&(afterId===null||BigInt(r.id)>BigInt(afterId))).at(-1);
+  if(current){check(!current.error,'C available-values query failed');return current;}
+  await pause(20);
+ }
+ throw new Error('C available-values reply did not complete');
 }
 async function capture(name){await fs.writeFile(path.join(output,name+'.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}
 
@@ -62,6 +75,7 @@ try{
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelWorkerResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'worker-driver.json'),JSON.stringify(report??{ok:false,error:'C driver did not complete'},null,2));
   check(report?.ok,'Real C/Worker bridge failed; see worker-driver.json and events.json');
+  check(report.stages===33,'C/Worker acceptance stage inventory changed');
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
   console.log(JSON.stringify({status:'passed',checks,report,output}));
  }else{
@@ -90,8 +104,38 @@ try{
   await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Control',code:'ControlLeft',windowsVirtualKeyCode:17});await frames();
   const document=await send('DOM.getDocument');const input=await send('DOM.querySelector',{nodeId:document.root.nodeId,selector:'#duxcel-file-input'});
   check(input.nodeId,'C Open command did not invoke the browser file chooser');
-  const importStarted=Date.now();await send('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[sourceFile]});const imported=await waitPage();sourceResult={...imported,selection_to_c_reply_ms:Date.now()-importStarted};check(imported.rows>0&&imported.columns>0,'Imported C Page is empty');await frames(4);await capture('imported');
+  const previousJobs=new Set(starts().map(r=>r.id)),importStarted=Date.now();await send('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[sourceFile]});
+  if(busy){
+   let job;
+   for(const deadline=Date.now()+15000;Date.now()<deadline;){job=starts().find(r=>r.kind===0&&!previousJobs.has(r.id));if(job)break;await pause(10);}
+   check(job,'C source job did not start');check(!replies().some(r=>r.id===job.id),'Source job already completed before the active-query UI check');
+   const inputStarted=Date.now();await click(294,42);await capture('busy-view');
+   check(!replies().some(r=>r.id===job.id),'Source job completed before the View frame was captured');
+   busyResult={job,input_to_capture_ms:Date.now()-inputStarted,captured_before_reply:true,scope:'Actual shared C ribbon input/frame while a source query job is pending; not engine-only execution or input latency'};
+   await click(38,42);
+  }
+  const imported=await waitPage();sourceResult={...imported,selection_to_c_reply_ms:Date.now()-importStarted};check(imported.rows>0&&imported.columns>0,'Imported C Page is empty');await frames(4);await capture('imported');
   if(sourceFile.endsWith('/transactions.csv')){check(imported.total==='5'&&imported.columns===6,'CSV import count/schema changed');await click(716,102);const sorted=await waitPage(imported.id);check(sorted.total==='5','Sort changed source count');await frames();await capture('sorted');}
+  if(filters){
+   // Fixed 1280x820, 100% reference state; input goes through the actual C UI.
+   await click(512,200);const cities=await waitDistinct();
+   check(cities.distinct_count===4&&cities.distinct_total==='4','City checklist did not enumerate the four real source values');
+   await frames();await capture('city-values');
+   await click(420,375);await click(440,404);const beforeFilter=replies().filter(r=>r.kind===0).at(-1).id;
+   await click(648,704);const filtered=await waitPage(beforeFilter);
+   check(filtered.total==='1','Selecting Ankara did not filter the real source to one row');
+   await frames();await capture('city-filtered');
+   await click(768,200);const years=await waitDistinct(cities.id);
+   check(years.distinct_count===1&&years.distinct_total==='1','Date years did not retain the City filter');
+   await frames();await capture('date-years');
+   await click(914,431);const months=await waitDistinct(years.id);
+   check(months.distinct_count===1&&months.distinct_total==='1','Year expansion did not enumerate January');
+   await frames();await capture('date-months');
+   await click(914,431);const days=await waitDistinct(months.id);
+   check(days.distinct_count===1&&days.distinct_total==='1','Month expansion did not enumerate the selected source day');
+   await frames();await capture('date-days');await key('Escape','Escape',27);
+   filterResult={cities,filtered,years,months,days};
+  }
   if(sourceFile.endsWith('/yellow_tripdata_2025-01.parquet'))check(imported.total==='3475226'&&imported.columns===20,'Public Parquet source count/schema changed');
  }else{
  for(const digit of '9007199254740993')await key(digit,'Digit'+digit,digit.charCodeAt(0),digit);
@@ -108,7 +152,7 @@ try{
  const lateErrors=events.filter(e=>e.method==='Runtime.exceptionThrown'||e.method==='Log.entryAdded'&&/WebGL: (INVALID|too many)/.test(e.params.entry.text));
  check(!lateErrors.length,'Runtime/rendering error after interactions');
  await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,workerProbe,scope:'Shared C99 startup and captured real interactions for visual verification; source imports and Worker probe are explicit optional gates; workbook persistence is not accepted'},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,workerProbe,scope:'Shared C99 startup and captured real interactions for visual verification; source imports, value/date filters, active-query frames and Worker probe are explicit optional gates; workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){

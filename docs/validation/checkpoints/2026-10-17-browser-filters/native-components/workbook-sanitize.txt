@@ -1,0 +1,1 @@
+PASS: 1683 workspace checks (definitions, view, transactions, versioning, ownership, relative paths, relocation and missing-source recovery)

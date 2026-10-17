@@ -16,7 +16,7 @@ THREAD_LIBS =
 endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-CORE = src/common.c src/platform/platform.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c
+CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c
 SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/app/step_preview.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m
@@ -542,7 +542,7 @@ test-review:
 
 # Browser proof uses the same C renderer/controllers and a separate backend.
 # The compiler/dependencies live only in the ignored project-local web cache.
-WEB_SOURCES = $(filter-out src/data/database.c,$(filter %.c,$(APP_SOURCES))) src/workbook/workbook_browser.c src/data/page_wire.c src/data/browser_query.c
+WEB_SOURCES = $(filter-out src/data/database.c,$(filter %.c,$(APP_SOURCES))) src/workbook/workbook_browser.c src/data/page_wire.c src/data/browser_query.c src/data/distinct_page.c
 web-duckdb-flags:
 	@printf '%s\n' '$(DUCKDB_CFLAGS)'
 web-sources:
@@ -552,7 +552,7 @@ web:
 .PHONY: web web-sources web-duckdb-flags
 
 # No-window C/official-Worker integration driver; no UI or renderer linked.
-WEB_WORKER_SOURCES = $(filter-out src/data/database.c,$(filter %.c,$(CORE))) src/workbook/workbook_browser.c src/data/page_wire.c src/data/browser_query.c tests/test_browser_worker.c
+WEB_WORKER_SOURCES = $(filter-out src/data/database.c,$(filter %.c,$(CORE))) src/workbook/workbook_browser.c src/data/page_wire.c src/data/browser_query.c src/data/distinct_page.c tests/test_browser_worker.c
 web-worker-sources:
 	@printf '%s\n' $(WEB_WORKER_SOURCES)
 .PHONY: web-worker-sources
@@ -561,6 +561,20 @@ web-worker-sources:
 # of either engine or renderer. No desktop or mutable database fixtures.
 BROWSER_QUERY_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/page_wire.c src/data/browser_query.c
 BROWSER_MODEL_TEST_SRC = $(filter-out src/data/database.c src/data/worker.c,$(CORE)) src/workbook/workbook_browser.c tests/test_workbook_model.c
+BROWSER_DISTINCT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/distinct.c
+BROWSER_DISTINCT_PAGE_TEST_SRC = $(BROWSER_DISTINCT_TEST_SRC) src/data/page.c src/data/distinct_page.c
+build/web-tests/test-distinct-query: $(BROWSER_DISTINCT_TEST_SRC) tests/test_distinct_query.c $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O2 -g $(WARN) $(BROWSER_DISTINCT_TEST_SRC) tests/test_distinct_query.c -o $@ -lm
+build/web-tests/test-distinct-query-sanitize: $(BROWSER_DISTINCT_TEST_SRC) tests/test_distinct_query.c $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(BROWSER_DISTINCT_TEST_SRC) tests/test_distinct_query.c -o $@ -lm $(SANFLAGS)
+build/web-tests/test-distinct-page: $(BROWSER_DISTINCT_PAGE_TEST_SRC) tests/test_distinct_page.c $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O2 -g $(WARN) $(BROWSER_DISTINCT_PAGE_TEST_SRC) tests/test_distinct_page.c -o $@ -lm
+build/web-tests/test-distinct-page-sanitize: $(BROWSER_DISTINCT_PAGE_TEST_SRC) tests/test_distinct_page.c $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(BROWSER_DISTINCT_PAGE_TEST_SRC) tests/test_distinct_page.c -o $@ -lm $(SANFLAGS)
 build/web-tests/test-wire: $(BROWSER_QUERY_TEST_SRC) tests/test_page_wire.c $(HEADERS)
 	mkdir -p $(@D)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O2 -g $(WARN) $(BROWSER_QUERY_TEST_SRC) tests/test_page_wire.c -o $@ -lm
@@ -579,13 +593,17 @@ build/web-tests/test-model: $(BROWSER_MODEL_TEST_SRC) $(HEADERS)
 build/web-tests/test-model-sanitize: $(BROWSER_MODEL_TEST_SRC) $(HEADERS)
 	mkdir -p $(@D)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_BROWSER_HOST -O1 -g $(WARN) $(SANFLAGS) $(BROWSER_MODEL_TEST_SRC) -o $@ -lm $(SANFLAGS)
-test-browser-core: build/web-tests/test-wire build/web-tests/test-wire-sanitize build/web-tests/test-query build/web-tests/test-query-sanitize build/web-tests/test-model build/web-tests/test-model-sanitize
+test-browser-core: build/web-tests/test-wire build/web-tests/test-wire-sanitize build/web-tests/test-query build/web-tests/test-query-sanitize build/web-tests/test-model build/web-tests/test-model-sanitize build/web-tests/test-distinct-query build/web-tests/test-distinct-query-sanitize build/web-tests/test-distinct-page build/web-tests/test-distinct-page-sanitize
 	./build/web-tests/test-wire
 	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-wire-sanitize
 	./build/web-tests/test-query
 	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-query-sanitize
 	./build/web-tests/test-model
 	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-model-sanitize
+	./build/web-tests/test-distinct-query
+	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-distinct-query-sanitize
+	./build/web-tests/test-distinct-page
+	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-distinct-page-sanitize
 	node --test web/official_worker.test.mjs web/page_wire.test.mjs web/engine_host.test.mjs web/official_worker_probe.test.mjs
 	python3 tools/package_web_vendor_test.py
 .PHONY: test-browser-core

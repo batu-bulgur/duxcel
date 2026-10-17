@@ -1,0 +1,144 @@
+{
+  "schema": "duxcel.distinct-verification",
+  "base": "b4b772e91c04209b4b25e0e3c486982bcfb922aa",
+  "sql_source_sha256": "58967797471d4fa0b9e625b1fdb453235220e808909179f2b6e17c8427ca80cc",
+  "page_source_sha256": "cd6c179a1daa4d9a4683377d5bc10141649bc9ba46c2d557c4e44cad06a1535c",
+  "sources": {
+    "src/common.c": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4",
+    "src/transforms/analysis.c": "eba4b25669464caa56bf0098d1582e535b57f7994c56e8106a39148782efc938",
+    "src/transforms/number.c": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e",
+    "src/transforms/pivot.c": "a580a1d1719e6ead378996bcb86bbc3bdab8d8c845f37504ddb22b7889946bc2",
+    "src/transforms/distinct.c": "fd6dfb234dccf2ae33becb61faff64710720b06494bba6abf44aba2b166aad7c",
+    "tests/test_distinct_query.c": "eef04c7f4e3bdb7435936df145612340a3e7be22dc7a74c7355939704aa9b6cd",
+    "src/transforms/distinct.h": "74d010da999052333c9f2612a1860944e8fbb0de6656fc306c61cc53b4948a0e",
+    "src/data/database.c": "a0b9b2eabeffe85296e30da384c9f1960b6ed16867b5a8cf4d645c6f09f2051d",
+    "src/data/distinct_page.c": "6e48096c308583b69b11c5a6f3a0b86bc2526a12f467edcd7c3778b5c600e31f",
+    "src/data/distinct_page.h": "7c07799b170ec3f28514720209db5982ef30fd5227ee67796d9f3e54b56200c7",
+    "tests/test_distinct_page.c": "e6b95467d01d39e4d84d372e2e431ebf88cf2c33722c3709608219325ca66756",
+    "src/data/page.c": "12afb9161fd0572f1524f6bb3126785ade7bfe0de83267b3bcc288b4f8e2c830",
+    "src/data/page.h": "9f5eccc16cd46dfcba2950614d8268fe56ce7277ce9777215738cce75469fa76",
+    "src/platform/platform.c": "50e4a3888e7f1ee504948d6c1ebda1ba377d06e65ee9ae15e696f19099b4b31c"
+  },
+  "runs": [
+    {
+      "name": "build-pure-release",
+      "command": [
+        "clang",
+        "-Isrc",
+        "-g",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-O2",
+        "src/common.c",
+        "src/transforms/analysis.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/distinct.c",
+        "tests/test_distinct_query.c",
+        "-o",
+        "build/distinct/test-distinct-query",
+        "-lm"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.86004,
+      "log": "build-pure-release.txt"
+    },
+    {
+      "name": "build-pure-sanitize",
+      "command": [
+        "clang",
+        "-Isrc",
+        "-g",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-O1",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "src/common.c",
+        "src/transforms/analysis.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/distinct.c",
+        "tests/test_distinct_query.c",
+        "-o",
+        "build/distinct/test-distinct-query-sanitize",
+        "-lm",
+        "-fsanitize=address,undefined"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.99392,
+      "log": "build-pure-sanitize.txt"
+    },
+    {
+      "name": "test-distinct-query",
+      "command": [
+        "build/distinct/test-distinct-query"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.35574,
+      "log": "test-distinct-query.txt"
+    },
+    {
+      "name": "test-distinct-query-sanitize",
+      "command": [
+        "build/distinct/test-distinct-query-sanitize"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.465166,
+      "log": "test-distinct-query-sanitize.txt"
+    },
+    {
+      "name": "test-distinct-query-engine",
+      "command": [
+        "build/distinct/test-distinct-query-engine"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.125395,
+      "log": "test-distinct-query-engine.txt"
+    },
+    {
+      "name": "test-distinct-query-engine-sanitize",
+      "command": [
+        "build/distinct/test-distinct-query-engine-sanitize"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.223954,
+      "log": "test-distinct-query-engine-sanitize.txt"
+    },
+    {
+      "name": "test-distinct-page",
+      "command": [
+        "build/distinct/test-distinct-page"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.009939,
+      "log": "test-distinct-page.txt"
+    },
+    {
+      "name": "test-distinct-page-sanitize",
+      "command": [
+        "build/distinct/test-distinct-page-sanitize"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.081282,
+      "log": "test-distinct-page-sanitize.txt"
+    }
+  ],
+  "binaries": {
+    "build/distinct/test-distinct-query": "83045898deb250a3d9203b71b008f7e26c79c79ebdf3d83b50759aa8fa05d70d",
+    "build/distinct/test-distinct-query-sanitize": "d7146ffda4788d6069763b6cd74022a0c95c4c0cb1540b053b8e920977725921",
+    "build/distinct/test-distinct-query-engine": "5aec1ba0782dedc35b97f7c70551f65d29893ba702b62e61fa8ddffc888c1414",
+    "build/distinct/test-distinct-query-engine-sanitize": "70e14532e1af723fc207f75fe60f4ee120c14309c5eca079e6f3c05b0828b625",
+    "build/distinct/test-distinct-page": "0789bfba3f5ce130dffe8dd4fd1a284dd28cd5965716463ed00dfe93964b6ac8",
+    "build/distinct/test-distinct-page-sanitize": "b07ff82733ea4822302af2bdb68f7fad2cc2fc8594ecc108b3142b4016506336",
+    "tests/test_core": "624e49f2309b12d19c2d8e2599ad9c58ed57a0dbc5221112c0addb10fb43c738",
+    "tests/test_core-debug": "9b262e0b7ade70276dbe33d44b6c73dfbd4bba01fd5d66d7869a037ae308fb23",
+    "tests/test_workbook": "711c75d28c471492999e755fcff83b839403adc97b489b44c070c055633f0c26",
+    "tests/test_workbook-debug": "793adb62caea2ad5c044179732c26d46ba7cb8f8b9b14225ca279f34d1fd35ae"
+  },
+  "native_gate": "native-results.json"
+}
