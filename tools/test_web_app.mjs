@@ -306,13 +306,16 @@ async function gridLabelPixels(state){
 }
 async function gridZoomHeaders(name,sourceHeader){
  // An owned fresh browser defaults to Freeze first two source columns. Turn
- // that actual UI option off so both axes exercise an interior zoom anchor.
+ // that actual UI option off so both axes exercise normal sheet hit testing.
  if(sourceHeader){await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('9','Digit9',57);await click(40,42);}
  const baseline=await platformSnapshot(),jobs=starts().length;
  for(const field of ['grid_rect','grid_gutter','grid_header','grid_cell','grid_selection','source_header'])check(baseline[field]!==undefined,'C zoom capture omitted '+field);
  check(baseline.source_header===(sourceHeader?'1':'0')&&baseline.top==='0'&&Number(baseline.horizontal)===0,'Zoom gate requires the fresh expected grid at its origin');
  const pixels=await gridLabelPixels(baseline),samples=[];
- const [bx,by]=baseline.body.split(',').map(Number),[lw,lh]=baseline.logical.split(',').map(Number),anchor={x:bx+1,y:by+1};
+ // Pulling from the header/gutter corner clamps the zoom anchor to A1. An
+ // interior anchor cannot stay fixed while zooming out at the origin: that
+ // would require negative canonical scroll. Pure grid tests cover interiors.
+ const [bx,by]=baseline.body.split(',').map(Number),[lw,lh]=baseline.logical.split(',').map(Number),anchor={x:bx-2,y:by-2};
  const wheelOptions={ctrl:true,x:anchor.x/lw,y:anchor.y/lh};
  function near(a,b,tolerance=.004){return Math.abs(Number(a)-Number(b))<=tolerance;}
  function dataAnchor(state,point){const [x,y,w,h]=state.body.split(',').map(Number),scale=Number(state.ui_scale)*Number(state.zoom),px=Math.max(x,Math.min(point.x,x+w)),py=Math.max(y,Math.min(point.y,y+h));return{x:Number(state.horizontal)+(px-x)/scale,y:Number(state.top)+Number(state.fraction)+(py-y)/(Number(state.row_height)*scale)};}
@@ -322,6 +325,7 @@ async function gridZoomHeaders(name,sourceHeader){
   const actual=state.grid_cell.split(',').map(Number),initial=baseline.grid_cell.split(',').map(Number),factor=Number(state.zoom)/Number(baseline.zoom);
   check(actual.every((value,i)=>near(value,initial[i]*factor,.01)),'Cell width/row height did not follow canvas zoom');
   const a=dataAnchor(baseline,point),b=dataAnchor(state,point);check(near(a.x,b.x,.01)&&near(a.y,b.y,.0001),'Fixed header zoom lost the data under its pointer anchor');
+  check(state.top==='0'&&near(state.horizontal,0)&&near(state.fraction,0,.000001),'Corner zoom moved the canonical A1 origin');
   check(state.active===baseline.active&&state.anchor===baseline.anchor&&state.extent===baseline.extent,'Zoom changed active cell or range selection');
  }
  function fixedLabels(actual){for(const label of ['column','row']){const before=pixels.labels[label],after=actual.labels[label],tolerance=1.25/actual.ratio+.02;check(near(after.width,before.width,tolerance)&&near(after.height,before.height,tolerance),'Sheet zoom resized rendered '+label+' label glyphs');}}
