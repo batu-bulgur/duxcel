@@ -85,7 +85,7 @@ Apple's installed GNU Make 3.81 compares whole-second timestamps. A source/heade
 
 ## Native review development gates
 
-`make test-review-core` runs the pure registry/outbox/responsive-composer geometry tests in optimized and ASan/UBSan configurations, then the reader and build-checker fixture tests. `make test-review` runs the focused 322-stage hidden reporting flow in both review configurations, preceded by the same 477-check desktop-safety probe. Use `TEST_ARGS='--config release'` or `--config sanitize` for a single affected configuration; `--no-build` deliberately reuses known artifacts. The runner serializes the worktree and desktop, uses a private outbox per run/configuration, verifies actual completion and stable source/binary hashes, and checks real image/frame identity plus durable acknowledgment/reply history. It rejects sanitizer diagnostics and partial stage counts.
+`make test-review-core` runs the pure registry/outbox/responsive-composer geometry tests in optimized and ASan/UBSan configurations, then the reader and build-checker fixture tests. `make test-review` runs the focused 396-stage hidden reporting flow in both review configurations, preceded by the same 477-check desktop-safety probe. Use `TEST_ARGS='--config release'` or `--config sanitize` for a single affected configuration; `--no-build` deliberately reuses known artifacts. The runner serializes the worktree and desktop, uses a private outbox per run/configuration, verifies actual completion and stable source/binary hashes, and checks real image/frame identity plus durable acknowledgment/reply history. It rejects sanitizer diagnostics and partial stage counts.
 
 Run linked production exclusion after building all four artifacts:
 
@@ -239,3 +239,12 @@ python3 tools/test_web_app.py --review --review-query-only --query-apply --no-bu
 ```
 
 Build matching review artifacts first. Workspace943 takes24.152s, with13 frozen picks across empty100%/populated150% actual Fields/Rows/Columns/Measures/Filters/Marks, including disabled removal. Native372 takes14.328s optimized/16.565s sanitizer. The expanded Query feedback569 gate takes25.250s, adding a genuine missing-column validation, owned status/error and actual wrapped-line scrolling. It retains source/result ownership and makes no full TextInput-history or physical-input claim. Later export transport is outside these artifact scopes. [Retained evidence](validation/checkpoints/2026-10-18-workspace-review/).
+
+The coherent feedback gate and expanded export backend run separately:
+
+```sh
+python3 tools/test_web_app.py --review --feedback-review-only --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
+python3 tools/test_web_app.py --worker-driver --no-build
+```
+
+Feedback360 takes38.833s, with eleven real controls and genuine6000-value/no-match/conversion-error/Undo flows. Native396 takes16.844s optimized/19.419s sanitizer and holds one real historical-preview reply through frozen cancellation. Backend184 takes11.125s/123,549 C checks; strict per-Worker counters preserve146/325/21 baseline and43/74/0 export jobs/SQL/counts with two sequential Workers. App download and durable saving are separate. [Retained evidence](validation/checkpoints/2026-10-18-workspace-feedback-export-engine/).
