@@ -170,7 +170,8 @@ export async function runPersistenceProbe(input={}){
         await step('create-compatible-file-from-native-metadata-ddl',async()=>{
             // An explicit BUFFER registration keeps the newly created database
             // in the official exportable file registry after DETACH.
-            await adapter.database.registerEmptyFileBuffer(EXPORT_FILE);
+            // registerEmptyFileBuffer is a no-op in pinned package 1.32.0.
+            await adapter.database.registerFileBuffer(EXPORT_FILE,new Uint8Array());
             await query(`ATTACH '${EXPORT_FILE}' AS browser_export (STORAGE_VERSION 'v1.0.0')`);
             await query('CREATE SCHEMA browser_export._duxcel_workspace');
             await query('BEGIN TRANSACTION');
