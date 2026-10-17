@@ -33,7 +33,7 @@ def category(path):
         return "generated-fixture"
     if parts[:2] == ("tests", "results"):
         return "local-test-evidence"
-    if parts[0] == "build" or any(p.endswith(".dSYM") for p in parts):
+    if parts[0] == "build" or "__pycache__" in parts or any(p.endswith(".dSYM") for p in parts):
         return "build-output"
     if name in ("duxcel", "duxcel-debug", "a.out") or (
         parts[0] == "tests" and name.startswith("test_") and path.suffix != ".c"

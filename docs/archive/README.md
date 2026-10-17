@@ -3,6 +3,7 @@
 These documents preserve the pre-Git implementation history and all earlier roadmap requests. Their checkpoints are useful evidence; statements such as “next,” “running,” “pending” and “complete” refer to their original point in time. [Current status](../STATUS.md) and [current roadmap](../ROADMAP.md) take precedence.
 
 - [Original roadmap](ROADMAP-2026-10-17.md)
+- [Original user-supplied brief](INITIAL_BRIEF.md), with later superseding decisions indexed in [requirements](../REQUIREMENTS.md)
 - [Original native UI plan](NATIVE-UI-PLAN-2026-10-17.md)
 - [Native validation narrative](NATIVE-UI-VALIDATION-2026-10-17.md)
 - [Benchmark narrative](BENCHMARKS-2026-10-17.md)

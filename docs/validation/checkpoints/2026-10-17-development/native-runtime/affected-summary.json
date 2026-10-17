@@ -1,0 +1,79 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T11:08:38.735409+00:00",
+  "tier": "affected",
+  "config": "sanitize",
+  "jobs": 2,
+  "no_build": false,
+  "root": "/Users/h2o/.codex/worktrees/native-test-runtime/duxcel",
+  "source": {
+    "commit": "d7b72b5f7390ed7b0feab08b94c57132baa37494",
+    "status": "M src/app/app.c",
+    "source_sha256": "302695b8ea04d435bdf50d47b9cb24d239d1252e0590f34c317077cc8be7d8d4",
+    "source_files": 129
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_choiceview-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/native-test-runtime/duxcel/tests/results/native-runtime/affected-author-menus/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 2.202
+    },
+    {
+      "name": "choiceview-sanitize",
+      "command": [
+        "./tests/test_choiceview-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/native-test-runtime/duxcel/tests/results/native-runtime/affected-author-menus/choiceview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.783
+    },
+    {
+      "name": "build-integration",
+      "command": [
+        "make",
+        "duxcel-debug",
+        "design-fixture"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/native-test-runtime/duxcel/tests/results/native-runtime/affected-author-menus/build-integration.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 2.63
+    },
+    {
+      "name": "layout-author-menus",
+      "command": [
+        "./duxcel-debug",
+        "--layout-smoke",
+        "--frames",
+        "1200",
+        "--screenshot",
+        "/Users/h2o/.codex/worktrees/native-test-runtime/duxcel/tests/results/native-runtime/affected-author-menus/final.png"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/native-test-runtime/duxcel/tests/results/native-runtime/affected-author-menus/layout-author-menus.txt",
+      "expected_stages": 15,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 9.291
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/.codex/worktrees/native-test-runtime/duxcel/tests/test_choiceview-debug": "a8b1e439ca00bdbd2ea110c33ba97ba858bc051a6623a8c2780dbd111b0cdbd3",
+    "/Users/h2o/.codex/worktrees/native-test-runtime/duxcel/duxcel-debug": "e27f6f05f6e4b24d9c132b397bb75923a492bb79f3e1f40085fa7d65d78657e3"
+  },
+  "elapsed_seconds": 15.011,
+  "binaries_after": {
+    "/Users/h2o/.codex/worktrees/native-test-runtime/duxcel/tests/test_choiceview-debug": "a8b1e439ca00bdbd2ea110c33ba97ba858bc051a6623a8c2780dbd111b0cdbd3",
+    "/Users/h2o/.codex/worktrees/native-test-runtime/duxcel/duxcel-debug": "e27f6f05f6e4b24d9c132b397bb75923a492bb79f3e1f40085fa7d65d78657e3"
+  },
+  "finished_utc": "2026-10-17T11:08:53.798264+00:00"
+}

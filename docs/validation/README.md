@@ -23,6 +23,18 @@ The full 555-stage layout workload recorded 13,897 frames, draw-submission CPU p
 
 Earlier matched renderer repeat pairs, dataset timings and limits remain in the [benchmark archive](../archive/BENCHMARKS-2026-10-17.md). Public data includes a 3,475,226-row/20-column NYC Parquet plus full CSV and a checked Parquet round trip. Downloads are reproducible with `tests/download_data.sh` and remain local/ignored. This audit did not redownload them or claim fresh dataset benchmarks.
 
+## Development workflow acceptance
+
+[17 October development evidence](checkpoints/2026-10-17-development/) contains the new runner's all-module and focused JSON manifests, the optional-error component record, and native completion logs/source/binary hashes.
+
+- 10 runner checks passed. All 17 read-only modules ×release/sanitizer passed **74,820 assertions**, 39.734s including a 29.468s rebuild; warm grid/choiceview passed **46,228 assertions in 0.452s** including build checks.
+- Optional-error source `981a8fc`, integrated as `90fc7a6`: 1,683 workbook checks/configuration passed, with no sanitizer diagnostics. The record distinguishes transcribed tool output from retained raw logs.
+- Native termination source `5a6f617`, integrated as `aac49f6`: export20, filter66, query47, document10 and combined export20/icons8 passed in sanitizer builds. A two-frame export negative failed as expected. One subsequent rendered frame and all-enabled/idle guards remain; no scenario assertions, animation durations or 24-frame cadence were removed.
+- Matched export before/after used the same 1,000-frame ceiling: **19.153s/1,000 frames →10.542s/482 frames**. This is one local comparison of avoiding idle frames, not an engine/renderer speedup or a new full-suite benchmark.
+- The affected author-menu runner passed 15 native stages in **15.011s with preparation** in its worktree. The combined main release build passed the same 15-stage profile in **9.659s** with deliberate reuse of freshly built binaries/owned fixtures (`affected-main-summary.json`).
+
+All raw runtime logs/screenshots were copied to local ignored `tests/results/project-audit/native-runtime/` before managed worktrees were archived. Compact logs/manifests are versioned here. No new complete 988-stage pass is claimed; active-origin native expectations remain an identified gap.
+
 ## New records
 
 Use the committed [test workflow](../TESTING.md) for named tiers and result manifests. Record commit, dirty-state/source hash, binary hash, command/profile, expected and observed stages, exit status, duration and log locations. A missing dataset, skipped test, timed-out frame budget or changed binary must remain explicit. Never count a partial run as a full pass.

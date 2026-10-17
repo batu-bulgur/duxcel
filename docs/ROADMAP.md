@@ -7,8 +7,8 @@ Current plan, 17 October 2026. Deliver the exact reference UI in C99/raylib usin
 - [x] Initialize Git, preserve the pre-audit project and classify source versus generated/local files.
 - [x] Consolidate specifications, current plan/status and archived evidence under `docs/`; keep the executable prototype unchanged.
 - [x] Audit independently for implementation quality, test runtime and safe ownership lanes.
-- [ ] Land and measure fast/affected/full test tiers, reproducible result manifests and a shared desktop-test lock.
-- [ ] Reduce completed native scenario idle frames without weakening assertions, animation waits or failure detection.
+- [x] Land and measure fast/affected/full test tiers, reproducible result manifests and a shared desktop-test lock. The warm affected headless gate took 0.452s; full module release/sanitizer checks passed. Native profile/full orchestration has its own scoped validation record.
+- [x] Reduce completed native scenario idle frames without weakening assertions, animation waits or failure detection. Export fell from 19.153s to 10.542s in a matched local comparison; filter/query/document, combined scenarios and insufficient-budget failure passed.
 - [ ] Introduce incremental object/dependency builds and coordinated icon generation, then lift blanket build serialization safely. Keep this a distinct engineering change with cold/warm measurements.
 - [ ] Gradually move embedded native scenarios out of `src/app/app.c` behind a test-build boundary. First preserve exactly the same scenarios; avoid changing feature behavior during extraction.
 

@@ -25,7 +25,7 @@ The browser uses actual locally bundled IBM Plex Sans Regular, Medium, Semibold,
 | A field browser usable without entering pivot/chart editing | Single-click reveal behavior and the detailed focus rules |
 | Thin status bar with configurable selection statistics | A 22-unit default height and the precise statistics definitions |
 | Right-click status customization, including distinct and numeric counts | Default enabled metrics and narrow-window overflow behavior |
-| Transformation history in a dismissible right pane | The pane lifecycle and proposed shortcut assignments |
+| Transformation history in a dismissible right pane | The reference pane lifecycle and shortcut assignments |
 | Full ribbon, compact icons with names, icons only, and focus view | Exact group membership and command overflow order |
 | Two stacked horizontal shelves for Columns and Rows, accepting multiple fields | Shelf wrapping limits and assignment conflict handling |
 | A left authoring area for measures and Marks | How unsupported encodings survive a representation change |

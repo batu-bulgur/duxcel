@@ -1,0 +1,510 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T11:03:41.924979+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 2,
+  "no_build": false,
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "3dd441feb7af04f65d5314b79aff941636b65da7",
+    "status": "",
+    "source_sha256": "8261e970cfc8234843d5279fae8aa751f1275fd73af3ac01f374eeda9decd5a7",
+    "source_files": 130
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_cellreadout",
+        "tests/test_grid",
+        "tests/test_brand",
+        "tests/test_format",
+        "tests/test_chartview",
+        "tests/test_chartencoding",
+        "tests/test_inspector",
+        "tests/test_stepview",
+        "tests/test_preview",
+        "tests/test_statsview",
+        "tests/test_guideview",
+        "tests/test_fontmetrics",
+        "tests/test_motion",
+        "tests/test_choiceview",
+        "tests/test_paintlayer",
+        "tests/test_popup",
+        "tests/test_marksview",
+        "tests/test_cellreadout-debug",
+        "tests/test_grid-debug",
+        "tests/test_brand-debug",
+        "tests/test_format-debug",
+        "tests/test_chartview-debug",
+        "tests/test_chartencoding-debug",
+        "tests/test_inspector-debug",
+        "tests/test_stepview-debug",
+        "tests/test_preview-debug",
+        "tests/test_statsview-debug",
+        "tests/test_guideview-debug",
+        "tests/test_fontmetrics-debug",
+        "tests/test_motion-debug",
+        "tests/test_choiceview-debug",
+        "tests/test_paintlayer-debug",
+        "tests/test_popup-debug",
+        "tests/test_marksview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 29.468
+    },
+    {
+      "name": "cellreadout-release",
+      "command": [
+        "./tests/test_cellreadout"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/cellreadout-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.006
+    },
+    {
+      "name": "grid-release",
+      "command": [
+        "./tests/test_grid"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/grid-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.623
+    },
+    {
+      "name": "brand-release",
+      "command": [
+        "./tests/test_brand"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/brand-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.005
+    },
+    {
+      "name": "format-release",
+      "command": [
+        "./tests/test_format"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/format-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.949
+    },
+    {
+      "name": "chartview-release",
+      "command": [
+        "./tests/test_chartview"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/chartview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.674
+    },
+    {
+      "name": "chartencoding-release",
+      "command": [
+        "./tests/test_chartencoding"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/chartencoding-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.714
+    },
+    {
+      "name": "inspector-release",
+      "command": [
+        "./tests/test_inspector"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/inspector-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.719
+    },
+    {
+      "name": "stepview-release",
+      "command": [
+        "./tests/test_stepview"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/stepview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.72
+    },
+    {
+      "name": "preview-release",
+      "command": [
+        "./tests/test_preview"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/preview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.869
+    },
+    {
+      "name": "statsview-release",
+      "command": [
+        "./tests/test_statsview"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/statsview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.667
+    },
+    {
+      "name": "guideview-release",
+      "command": [
+        "./tests/test_guideview"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/guideview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.617
+    },
+    {
+      "name": "fontmetrics-release",
+      "command": [
+        "./tests/test_fontmetrics"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/fontmetrics-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.726
+    },
+    {
+      "name": "motion-release",
+      "command": [
+        "./tests/test_motion"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/motion-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.008
+    },
+    {
+      "name": "choiceview-release",
+      "command": [
+        "./tests/test_choiceview"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/choiceview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.677
+    },
+    {
+      "name": "paintlayer-release",
+      "command": [
+        "./tests/test_paintlayer"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/paintlayer-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.719
+    },
+    {
+      "name": "popup-release",
+      "command": [
+        "./tests/test_popup"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/popup-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.67
+    },
+    {
+      "name": "marksview-release",
+      "command": [
+        "./tests/test_marksview"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/marksview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.675
+    },
+    {
+      "name": "cellreadout-sanitize",
+      "command": [
+        "./tests/test_cellreadout-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/cellreadout-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.183
+    },
+    {
+      "name": "grid-sanitize",
+      "command": [
+        "./tests/test_grid-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/grid-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.565
+    },
+    {
+      "name": "brand-sanitize",
+      "command": [
+        "./tests/test_brand-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/brand-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.078
+    },
+    {
+      "name": "format-sanitize",
+      "command": [
+        "./tests/test_format-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/format-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.676
+    },
+    {
+      "name": "chartview-sanitize",
+      "command": [
+        "./tests/test_chartview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/chartview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.675
+    },
+    {
+      "name": "chartencoding-sanitize",
+      "command": [
+        "./tests/test_chartencoding-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/chartencoding-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.669
+    },
+    {
+      "name": "inspector-sanitize",
+      "command": [
+        "./tests/test_inspector-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/inspector-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.727
+    },
+    {
+      "name": "stepview-sanitize",
+      "command": [
+        "./tests/test_stepview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/stepview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.677
+    },
+    {
+      "name": "preview-sanitize",
+      "command": [
+        "./tests/test_preview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/preview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.888
+    },
+    {
+      "name": "statsview-sanitize",
+      "command": [
+        "./tests/test_statsview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/statsview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.723
+    },
+    {
+      "name": "guideview-sanitize",
+      "command": [
+        "./tests/test_guideview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/guideview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.504
+    },
+    {
+      "name": "fontmetrics-sanitize",
+      "command": [
+        "./tests/test_fontmetrics-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/fontmetrics-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.725
+    },
+    {
+      "name": "motion-sanitize",
+      "command": [
+        "./tests/test_motion-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/motion-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.078
+    },
+    {
+      "name": "choiceview-sanitize",
+      "command": [
+        "./tests/test_choiceview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/choiceview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.623
+    },
+    {
+      "name": "paintlayer-sanitize",
+      "command": [
+        "./tests/test_paintlayer-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/paintlayer-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.72
+    },
+    {
+      "name": "popup-sanitize",
+      "command": [
+        "./tests/test_popup-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/popup-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.719
+    },
+    {
+      "name": "marksview-sanitize",
+      "command": [
+        "./tests/test_marksview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110341-fast-94686/marksview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.676
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_cellreadout": "78e4aa4fa5937378fc85d9682d6af467bbcf9c47e41296a744c8962e75456ccf",
+    "/Users/h2o/dev/duxcel/tests/test_grid": "f735f162e06e653ff5de3722b89b1563e41b26c92a7b762995e2b7a1390645f2",
+    "/Users/h2o/dev/duxcel/tests/test_brand": "dae37b67650a8b2957c6b87ea19a16b15837b8ad421c0c296ec66fcb38228270",
+    "/Users/h2o/dev/duxcel/tests/test_format": "d739bd16627e6a2d0d22246d133a51737cac112005082a9806e592d006546021",
+    "/Users/h2o/dev/duxcel/tests/test_chartview": "10c5ba383ff3bf12ed0cd9b0dea0b1b24a0b1d575909f6e5552d72f6ed52b4ad",
+    "/Users/h2o/dev/duxcel/tests/test_chartencoding": "08758bdeed73cb0eed4789f58f106d40e103f02f3b5ba1a0fa07448b47a29821",
+    "/Users/h2o/dev/duxcel/tests/test_inspector": "4634c28bffd449d4956a11f2a633391f434d4a9b9b9d705e29f90be947cb6861",
+    "/Users/h2o/dev/duxcel/tests/test_stepview": "258cfa673475e2da4d124cefd318e2535bbb786378f831482c45c7457b879e32",
+    "/Users/h2o/dev/duxcel/tests/test_preview": "27733a6788514ec09c4944d49be52d48c1cc33d88b4a010bdf06698a5ba01532",
+    "/Users/h2o/dev/duxcel/tests/test_statsview": "e691e72929e62049dc1acb5641f397811e285c7d35f3c42a5f9e22e0ee0efe50",
+    "/Users/h2o/dev/duxcel/tests/test_guideview": "ef2cb89618d4c56d848f6e2f40af14817b5f615998606375ffd513b304d4b58f",
+    "/Users/h2o/dev/duxcel/tests/test_fontmetrics": "6acafd99964eb00549f40f36139df81cf22126df49e485650203c3b819f8efdf",
+    "/Users/h2o/dev/duxcel/tests/test_motion": "6c4090cf983b680cf80379e2d47188b023ff83630360e306c0c50f06831d3597",
+    "/Users/h2o/dev/duxcel/tests/test_choiceview": "6b32f291abd141f60b3237261c155e819db416ac9206cae854d1f8f14cc611e0",
+    "/Users/h2o/dev/duxcel/tests/test_paintlayer": "2f1e47601faff73c24afdddb28119e2565d3bd531d938091cc22a7ecca3ca2d2",
+    "/Users/h2o/dev/duxcel/tests/test_popup": "3c072f62394062b7e3f10ddb97daeace7db67c3b930b9029309d272ceaab5fa2",
+    "/Users/h2o/dev/duxcel/tests/test_marksview": "73534231fb3d0985f5258e8ec82b5d9bd7e23add05f3f311b51058c743387480",
+    "/Users/h2o/dev/duxcel/tests/test_cellreadout-debug": "4e9a124ab5aa0d04a0762bbfd81a6fd819b7ddeaa1413b3236f8e5a86e2d7971",
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "ea5fdf3efc91e94c68d507ee875bd97a95614018bbebb7b8ca0053b4e368f615",
+    "/Users/h2o/dev/duxcel/tests/test_brand-debug": "7b9d324caf83a4640a3cb0e5327d08b6b61bc3ac2f9f9c2bc0a3cf88d92de977",
+    "/Users/h2o/dev/duxcel/tests/test_format-debug": "8aaa4d0c845626f7057b7604698b3172c2778aec3f20014088114eaa8769b4cb",
+    "/Users/h2o/dev/duxcel/tests/test_chartview-debug": "0f381f99bae004c8da9ed453dacd3df7d78dbb38c50cac1fdc8bca02137f4127",
+    "/Users/h2o/dev/duxcel/tests/test_chartencoding-debug": "a68e654ae2ebad40a756ea26f2823ba745251990047a1f4a77c9f0bd05915a1d",
+    "/Users/h2o/dev/duxcel/tests/test_inspector-debug": "bab13cd36011b537e1c8a7bf86d8e324e81e06760622d34dadec09585e565edb",
+    "/Users/h2o/dev/duxcel/tests/test_stepview-debug": "b620c595598050c3f0c92c919e8b95975c785b6988bd69ba646a4280c775a1e6",
+    "/Users/h2o/dev/duxcel/tests/test_preview-debug": "0522dbf2ec66a79b42f2aa59659ed675b25f2c27ab3164f98c51d226578702da",
+    "/Users/h2o/dev/duxcel/tests/test_statsview-debug": "f1ed365e4fdf1d651346537222f350caf293d9081e68807f947edfceb7cf34c0",
+    "/Users/h2o/dev/duxcel/tests/test_guideview-debug": "58feffd4c8be74e3f23e8d68724af78402a2749eeb6d5d724323116920f24b6b",
+    "/Users/h2o/dev/duxcel/tests/test_fontmetrics-debug": "c159ebabfd9e2026f1d2990432e0517dd0cb0054793b2fe9fcad0df2f0b154b9",
+    "/Users/h2o/dev/duxcel/tests/test_motion-debug": "96ab60a0d851e3e4dc1d57c04af1402dd49b473ee0523b7ec383b6f66ac32d5d",
+    "/Users/h2o/dev/duxcel/tests/test_choiceview-debug": "27c34ca54cc3feffea919a170a2f6702aad321584f9c187a4f6ccb8b4be7ecc8",
+    "/Users/h2o/dev/duxcel/tests/test_paintlayer-debug": "5a9009a878f4fa710172664f57f3641caf976ac1d53863e853fbf4e00fe546bd",
+    "/Users/h2o/dev/duxcel/tests/test_popup-debug": "682f1edde7af9186ade52794d7587b700937488953858aadb7affd2239752db5",
+    "/Users/h2o/dev/duxcel/tests/test_marksview-debug": "45ce070cf8d8ec1fa3ef4bb5db38865ded26c37ea4c2cec99b8668bee43a81f2"
+  },
+  "elapsed_seconds": 39.734,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_cellreadout": "78e4aa4fa5937378fc85d9682d6af467bbcf9c47e41296a744c8962e75456ccf",
+    "/Users/h2o/dev/duxcel/tests/test_grid": "f735f162e06e653ff5de3722b89b1563e41b26c92a7b762995e2b7a1390645f2",
+    "/Users/h2o/dev/duxcel/tests/test_brand": "dae37b67650a8b2957c6b87ea19a16b15837b8ad421c0c296ec66fcb38228270",
+    "/Users/h2o/dev/duxcel/tests/test_format": "d739bd16627e6a2d0d22246d133a51737cac112005082a9806e592d006546021",
+    "/Users/h2o/dev/duxcel/tests/test_chartview": "10c5ba383ff3bf12ed0cd9b0dea0b1b24a0b1d575909f6e5552d72f6ed52b4ad",
+    "/Users/h2o/dev/duxcel/tests/test_chartencoding": "08758bdeed73cb0eed4789f58f106d40e103f02f3b5ba1a0fa07448b47a29821",
+    "/Users/h2o/dev/duxcel/tests/test_inspector": "4634c28bffd449d4956a11f2a633391f434d4a9b9b9d705e29f90be947cb6861",
+    "/Users/h2o/dev/duxcel/tests/test_stepview": "258cfa673475e2da4d124cefd318e2535bbb786378f831482c45c7457b879e32",
+    "/Users/h2o/dev/duxcel/tests/test_preview": "27733a6788514ec09c4944d49be52d48c1cc33d88b4a010bdf06698a5ba01532",
+    "/Users/h2o/dev/duxcel/tests/test_statsview": "e691e72929e62049dc1acb5641f397811e285c7d35f3c42a5f9e22e0ee0efe50",
+    "/Users/h2o/dev/duxcel/tests/test_guideview": "ef2cb89618d4c56d848f6e2f40af14817b5f615998606375ffd513b304d4b58f",
+    "/Users/h2o/dev/duxcel/tests/test_fontmetrics": "6acafd99964eb00549f40f36139df81cf22126df49e485650203c3b819f8efdf",
+    "/Users/h2o/dev/duxcel/tests/test_motion": "6c4090cf983b680cf80379e2d47188b023ff83630360e306c0c50f06831d3597",
+    "/Users/h2o/dev/duxcel/tests/test_choiceview": "6b32f291abd141f60b3237261c155e819db416ac9206cae854d1f8f14cc611e0",
+    "/Users/h2o/dev/duxcel/tests/test_paintlayer": "2f1e47601faff73c24afdddb28119e2565d3bd531d938091cc22a7ecca3ca2d2",
+    "/Users/h2o/dev/duxcel/tests/test_popup": "3c072f62394062b7e3f10ddb97daeace7db67c3b930b9029309d272ceaab5fa2",
+    "/Users/h2o/dev/duxcel/tests/test_marksview": "73534231fb3d0985f5258e8ec82b5d9bd7e23add05f3f311b51058c743387480",
+    "/Users/h2o/dev/duxcel/tests/test_cellreadout-debug": "4e9a124ab5aa0d04a0762bbfd81a6fd819b7ddeaa1413b3236f8e5a86e2d7971",
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "ea5fdf3efc91e94c68d507ee875bd97a95614018bbebb7b8ca0053b4e368f615",
+    "/Users/h2o/dev/duxcel/tests/test_brand-debug": "7b9d324caf83a4640a3cb0e5327d08b6b61bc3ac2f9f9c2bc0a3cf88d92de977",
+    "/Users/h2o/dev/duxcel/tests/test_format-debug": "8aaa4d0c845626f7057b7604698b3172c2778aec3f20014088114eaa8769b4cb",
+    "/Users/h2o/dev/duxcel/tests/test_chartview-debug": "0f381f99bae004c8da9ed453dacd3df7d78dbb38c50cac1fdc8bca02137f4127",
+    "/Users/h2o/dev/duxcel/tests/test_chartencoding-debug": "a68e654ae2ebad40a756ea26f2823ba745251990047a1f4a77c9f0bd05915a1d",
+    "/Users/h2o/dev/duxcel/tests/test_inspector-debug": "bab13cd36011b537e1c8a7bf86d8e324e81e06760622d34dadec09585e565edb",
+    "/Users/h2o/dev/duxcel/tests/test_stepview-debug": "b620c595598050c3f0c92c919e8b95975c785b6988bd69ba646a4280c775a1e6",
+    "/Users/h2o/dev/duxcel/tests/test_preview-debug": "0522dbf2ec66a79b42f2aa59659ed675b25f2c27ab3164f98c51d226578702da",
+    "/Users/h2o/dev/duxcel/tests/test_statsview-debug": "f1ed365e4fdf1d651346537222f350caf293d9081e68807f947edfceb7cf34c0",
+    "/Users/h2o/dev/duxcel/tests/test_guideview-debug": "58feffd4c8be74e3f23e8d68724af78402a2749eeb6d5d724323116920f24b6b",
+    "/Users/h2o/dev/duxcel/tests/test_fontmetrics-debug": "c159ebabfd9e2026f1d2990432e0517dd0cb0054793b2fe9fcad0df2f0b154b9",
+    "/Users/h2o/dev/duxcel/tests/test_motion-debug": "96ab60a0d851e3e4dc1d57c04af1402dd49b473ee0523b7ec383b6f66ac32d5d",
+    "/Users/h2o/dev/duxcel/tests/test_choiceview-debug": "27c34ca54cc3feffea919a170a2f6702aad321584f9c187a4f6ccb8b4be7ecc8",
+    "/Users/h2o/dev/duxcel/tests/test_paintlayer-debug": "5a9009a878f4fa710172664f57f3641caf976ac1d53863e853fbf4e00fe546bd",
+    "/Users/h2o/dev/duxcel/tests/test_popup-debug": "682f1edde7af9186ade52794d7587b700937488953858aadb7affd2239752db5",
+    "/Users/h2o/dev/duxcel/tests/test_marksview-debug": "45ce070cf8d8ec1fa3ef4bb5db38865ded26c37ea4c2cec99b8668bee43a81f2"
+  },
+  "finished_utc": "2026-10-17T11:04:21.740547+00:00"
+}

@@ -2,6 +2,8 @@
 
 Keep the existing coverage; choose a gate that matches the change. The warm module tests are fast. Compilation and native stage pacing dominate elapsed time. The previous full native checkpoint took about 14m20s, so it is an integration gate rather than the default after every edit.
 
+Measured on the integrated tooling: grid +choiceview, release and ASan/UBSan, **46,228 assertions in 0.452s** including warm build checks. All 17 read-only modules ×both configurations passed **74,820 assertions in 39.734s**, including a 29.468s rebuild. These are local observations, not cold-checkout guarantees.
+
 ```sh
 # Fast headless release + ASan/UBSan (no desktop/clipboard).
 make test-fast
@@ -43,6 +45,10 @@ Every run writes individual logs and `summary.json` under ignored `tests/results
 A per-worktree lock prevents competing fixture/build runners. Native phases also acquire `/tmp/duxcel-native-tests-<uid>.lock`, independent of `TMPDIR`, so different worktrees cannot fight over windows, clipboard or preferences. The lock is nonblocking and explains the current owner. Manual application testing, direct legacy smoke targets, signing and bundles must be coordinated with this same desktop owner; they cannot be made safe merely by using another branch.
 
 Success requires actual completion, exit zero and no sanitizer diagnostics, not merely a screenshot or an early PASS line. Native frame budgets remain failure timeouts. Existing fixed animation/stage waits remain intact. Long native waits are not evidence that pure tests are slow, and reducing assertion counts would not solve the main delay.
+
+Completed native scenarios now stop after all enabled scenarios reach their terminal assertions, a subsequent final frame is drawn, and application/worker/publication state is idle. Document Quit retains its save/exit lifecycle. A matched export check took 19.153s before and 10.542s after with the same 1,000-frame ceiling; the new run needed 482 frames. Filter/query/document, combined export/icons and a two-frame failure budget were checked separately. The integrated release author-menu profile passed in 9.659s. This does not estimate a new whole-suite duration.
+
+Current source still needs active-origin native expectation updates and dedicated acceptance; the older layout case 4 assumes the endpoint becomes active. The full runner correctly exposes such work-in-progress regressions. Its availability does not imply all current source has passed the full suite. Use [STATUS.md](STATUS.md) for the exact accepted revision/scope.
 
 ## Next build improvement
 

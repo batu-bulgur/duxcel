@@ -6,6 +6,7 @@ The latest user instruction establishes the browser interface as the exact desig
 | --- | --- |
 | [STATUS.md](STATUS.md) | One current capability matrix, limitations and evidence scope |
 | [ROADMAP.md](ROADMAP.md) | Ordered delivery work and acceptance criteria |
+| [REQUIREMENTS.md](REQUIREMENTS.md) | Original brief and later user decisions reconciled |
 | [design/DESIGN.md](design/DESIGN.md) | Product/visual requirements |
 | [design/INTERACTIONS.md](design/INTERACTIONS.md) | Detailed behavior, motion, selection and pane rules |
 | [../design/prototype/](../design/prototype/) | Read-only executable reference, source, fonts and browser QA |

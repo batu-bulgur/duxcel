@@ -1,0 +1,90 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T11:04:36.545449+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 2,
+  "no_build": false,
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "3dd441feb7af04f65d5314b79aff941636b65da7",
+    "status": "",
+    "source_sha256": "8261e970cfc8234843d5279fae8aa751f1275fd73af3ac01f374eeda9decd5a7",
+    "source_files": 130
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_grid",
+        "tests/test_choiceview",
+        "tests/test_grid-debug",
+        "tests/test_choiceview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110436-fast-95506/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.128
+    },
+    {
+      "name": "grid-release",
+      "command": [
+        "./tests/test_grid"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110436-fast-95506/grid-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.022
+    },
+    {
+      "name": "choiceview-release",
+      "command": [
+        "./tests/test_choiceview"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110436-fast-95506/choiceview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.012
+    },
+    {
+      "name": "grid-sanitize",
+      "command": [
+        "./tests/test_grid-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110436-fast-95506/grid-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.238
+    },
+    {
+      "name": "choiceview-sanitize",
+      "command": [
+        "./tests/test_choiceview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T110436-fast-95506/choiceview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.18
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_grid": "f735f162e06e653ff5de3722b89b1563e41b26c92a7b762995e2b7a1390645f2",
+    "/Users/h2o/dev/duxcel/tests/test_choiceview": "6b32f291abd141f60b3237261c155e819db416ac9206cae854d1f8f14cc611e0",
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "ea5fdf3efc91e94c68d507ee875bd97a95614018bbebb7b8ca0053b4e368f615",
+    "/Users/h2o/dev/duxcel/tests/test_choiceview-debug": "27c34ca54cc3feffea919a170a2f6702aad321584f9c187a4f6ccb8b4be7ecc8"
+  },
+  "elapsed_seconds": 0.452,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_grid": "f735f162e06e653ff5de3722b89b1563e41b26c92a7b762995e2b7a1390645f2",
+    "/Users/h2o/dev/duxcel/tests/test_choiceview": "6b32f291abd141f60b3237261c155e819db416ac9206cae854d1f8f14cc611e0",
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "ea5fdf3efc91e94c68d507ee875bd97a95614018bbebb7b8ca0053b4e368f615",
+    "/Users/h2o/dev/duxcel/tests/test_choiceview-debug": "27c34ca54cc3feffea919a170a2f6702aad321584f9c187a4f6ccb8b4be7ecc8"
+  },
+  "finished_utc": "2026-10-17T11:04:37.098075+00:00"
+}

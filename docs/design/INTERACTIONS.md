@@ -24,7 +24,7 @@ The current [browser study](http://localhost:4173/) tests interaction feel with 
 
 Pane body and rail lifecycle are separate. Collapse retains a 32-unit entry; Dismiss removes the entire right footprint. The last dismissed pane leaves no rail. Workbook and Fields can each be hidden; when no left section is needed, the left footprint disappears. View and shortcuts recover hidden regions.
 
-At less than 1040 logical units of workspace width, the right inspector overlays the canvas and leaves the left dock in place. This is an experiment threshold, not a final platform policy. At canvas widths of 880 units or less, the matrix and chart stack vertically and retain their own internal scrolling. The source preview height is clamped between 150 and 336 units at 40% of the canvas height. Short left docks retain a usable Fields list and scroll Workbook/Marks deliberately. Long inspectors scroll with a sticky close header.
+At less than 1040 logical units of workspace width, the right inspector overlays the canvas and leaves the left dock in place. Use this reference threshold for the native migration. At canvas widths of 880 units or less, the matrix and chart stack vertically and retain their own internal scrolling. The source preview height is clamped between 150 and 336 units at 40% of the canvas height. Short left docks retain a usable Fields list and scroll Workbook/Marks deliberately. Long inspectors scroll with a sticky close header.
 
 Interface scale offers 80/100/125/150%. Canvas zoom is independent (60–160%) and changes source-grid text, rows, and headers without resizing the ribbon, panes, or status line. At 100% interface scale the status line remains 22 units. Under width pressure whole metrics move out of the line and remain in its customization menu; values never wrap into a second status row.
 
@@ -209,7 +209,7 @@ For matrix content, scope is the selected rendered cells, including selected sub
 - Right-click anywhere on the bar opens the customization menu. A keyboard context-menu action is available when the status region is focused; View > Status bar statistics provides an additional path.
 - Each metric is a checkbox item. Space toggles without closing the menu; Escape returns to the invoking status item. Preferences persist at application level.
 - Count of cells, Filled cells, Numeric count, Distinct count, Sum, Average, Minimum, and Maximum are independently toggleable. No duplicates with vague names such as Count and Count2.
-- Proposed initial visible metrics: Filled cells, Sum, and Average when applicable. An unavailable enabled metric displays an em dash with an accessible reason. Users can disable every selection metric.
+- Default reference visible metrics: Filled cells, Sum, and Average when applicable. An unavailable enabled metric displays an em dash with an accessible reason. Users can disable every selection metric.
 - Calculation states are Idle, Calculating, Exact, Unavailable, Cancelled, and Error. Selection changes invalidate earlier calculations immediately. An old number must never appear to describe the new selection.
 - Large-range work uses the engine/worker and cancellation; the UI remains responsive. Exact distinct counts can remain Calculating longer. An approximate result must be explicitly requested and labelled approximate; no silent sampling.
 - Right-click customization never modifies the worksheet or adds transformation steps. Copy metric value is an explicit menu action with unrounded/full-precision value where meaningful.
