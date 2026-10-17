@@ -10,6 +10,20 @@ export const PERSISTENCE_LIMITS=Object.freeze({fixtureBytes:32*1024*1024,exportB
     metadataTables:32,metadataColumns:512,ddlBytes:1024*1024,timeoutMs:20000});
 const TABLES=Object.freeze(['cells','columns','filters','formats','marks','meta','objects','pivot_fields',
     'preferences','queries','sheets','sorts','source_options','table_filters','table_sorts','table_sources']);
+const OWNER_TABLES=Object.freeze([...TABLES,'object_counters','format_scopes','format_selectors','format_guards'].sort());
+const OWNER_HIGH_WATER=Object.freeze(['9007199254740994','18446744073709551615','0']);
+const OWNER_SHEETS=Object.freeze(['Owner lifetime','Exhausted owner','Never allocated']);
+const OWNER_COLUMNS=Object.freeze({
+    meta:[['version','INTEGER'],['active_sheet','UBIGINT'],['user_scale','DOUBLE']],
+    objects:[['sheet_id','INTEGER'],['id','UBIGINT'],['name','VARCHAR'],['row_id','UBIGINT'],['column_id','INTEGER'],
+        ['height','UBIGINT'],['width','INTEGER'],['kind','INTEGER'],['mark','INTEGER'],['source_id','UBIGINT'],['chart_measure','INTEGER']],
+    formats:[['sheet_id','INTEGER'],['position','INTEGER'],['r0','UBIGINT'],['r1','UBIGINT'],['c0','INTEGER'],['c1','INTEGER'],
+        ['mask','INTEGER'],['flags','INTEGER'],['alignment','INTEGER'],['color','INTEGER'],['font_size','INTEGER'],['numeric_format','INTEGER'],['decimals','INTEGER']],
+    object_counters:[['sheet_id','INTEGER'],['high_water','UBIGINT']],
+    format_scopes:[['sheet_id','INTEGER'],['scope_id','INTEGER'],['owner','UBIGINT'],['encoding','INTEGER'],['definition','BLOB']],
+    format_selectors:[['sheet_id','INTEGER'],['position','INTEGER'],['kind','INTEGER']],
+    format_guards:[['sheet_id','INTEGER'],['position','INTEGER'],['guard_position','INTEGER'],['scope_id','INTEGER']]
+});
 const encoder=new TextEncoder();
 const SENTINELS=Object.freeze({signed_min:'-9223372036854775808',above_js_integer:'9007199254740993',
     max_unsigned:'18446744073709551615',exact_decimal:'9007199254740993.1234567890',
@@ -26,6 +40,10 @@ function ownedBytes(value,label,maximum){
     if(value.byteLength<20||value.byteLength>maximum)throw new TypeError(`${label} must contain 20–${maximum} bytes`);
     return value;
 }
+function metadataTables(mode){
+    if(mode!==undefined&&mode!=='owners')throw new TypeError('Persistence probe mode must be omitted or owners');
+    return mode==='owners'?OWNER_TABLES:TABLES;
+}
 export function inspectDuckDBHeader(value,maximum=PERSISTENCE_LIMITS.fixtureBytes){
     const bytes=ownedBytes(value,'DuckDB file',maximum);
     if(bytes[8]!==68||bytes[9]!==85||bytes[10]!==67||bytes[11]!==75)throw new TypeError('Fixture is not a DuckDB file (DUCK header missing)');
@@ -33,6 +51,7 @@ export function inspectDuckDBHeader(value,maximum=PERSISTENCE_LIMITS.fixtureByte
     return Object.freeze({bytes:bytes.byteLength,storageVersion:view.getBigUint64(12,true).toString()});
 }
 export function persistenceProbeConfig(input={}){
+    metadataTables(input.mode);
     const engine=probeConfig(input),base=new URL(input.baseURL??globalThis.location?.href??import.meta.url);
     const hasBytes=input.fixtureBytes!==undefined,hasURL=input.fixtureURL!==undefined;
     if(hasBytes===hasURL)throw new TypeError('Supply exactly one real native fixtureBytes or fixtureURL');
@@ -44,14 +63,14 @@ export function persistenceProbeConfig(input={}){
         fixtureURL=fixtureURL.href;
     }
     return Object.freeze({moduleURL:engine.moduleURL,workerURL:engine.workerURL,timeoutMs:engine.timeoutMs,
-        fixtureURL,fixtureBytes:hasBytes?input.fixtureBytes:null});
+        fixtureURL,fixtureBytes:hasBytes?input.fixtureBytes:null,...(input.mode==='owners'?{mode:'owners'}:{})});
 }
 
 /** Accept only the known metadata table's engine-derived CREATE TABLE prefix.
  * This is not an SQL sanitizer/importer for arbitrary untrusted databases.
  */
-export function metadataDDL(table,sql){
-    if(!TABLES.includes(table)||typeof sql!=='string'||encoder.encode(sql).length>PERSISTENCE_LIMITS.ddlBytes)
+export function metadataDDL(table,sql,mode){
+    if(!metadataTables(mode).includes(table)||typeof sql!=='string'||encoder.encode(sql).length>PERSISTENCE_LIMITS.ddlBytes)
         throw new TypeError('Invalid native metadata table/DDL');
     const identifier=name=>`(?:${name}|"${name}")`;
     const prefix=new RegExp(`^CREATE TABLE (?:${identifier('native_fixture')}\\.)?${identifier('_duxcel_workspace')}\\.${identifier(table)}\\s*\\(`);
@@ -84,7 +103,9 @@ function smallText(value,label,maximum=4096){check(typeof value==='string'&&enco
 
 export async function runPersistenceProbe(input={}){
     const config=persistenceProbeConfig(input),started=now(),checks=[],sql=[],workers=[],controller=new AbortController();
+    const ownerMode=config.mode==='owners',expectedVersion=ownerMode?13:12,expectedTables=metadataTables(config.mode);
     let adapter,api,fixture,exported,fixtureBytes,engineVersion=null,failed=false;
+    let acceptedOwners;
     async function step(name,action){
         const begin=now();
         try{const details=await bounded(Promise.resolve().then(action),config.timeoutMs);checks.push({name,status:'passed',milliseconds:now()-begin,details});return details;}
@@ -99,10 +120,43 @@ export async function runPersistenceProbe(input={}){
             name:smallText(cell(result,row,'column_name'),'column'),type:smallText(cell(result,row,'data_type'),'SQL type'),
             nullable:smallText(cell(result,row,'is_nullable'),'column nullability',5),position:smallText(cell(result,row,'position'),'column position')}));
     }
+    async function readOwners(catalog,metadata){
+        equal(JSON.stringify(metadata.sheetNames),JSON.stringify(OWNER_SHEETS),'Owner fixture sheet names');
+        equal(metadata.activeSheet,'0','Owner active sheet');equal(metadata.userScale,1,'Owner user scale');
+        for(const [table,expected] of Object.entries(OWNER_COLUMNS)){
+            const shape=metadata.columns.filter(column=>column.table===table).map(column=>[column.name,column.type]);
+            equal(JSON.stringify(shape),JSON.stringify(expected),`Owner package SQL schema: ${table}`);
+        }
+        for(const table of ['format_scopes','format_guards'])
+            equal(metadata.tables.find(value=>value.name===table)?.rows,'0',`Unsupported scoped payload remains absent: ${table}`);
+        const counters=await query(`SELECT sheet_id,high_water::VARCHAR AS high_water,typeof(sheet_id) AS sheet_type,typeof(high_water) AS counter_type FROM ${catalog}._duxcel_workspace.object_counters ORDER BY sheet_id LIMIT 4`);
+        equal(counters.numRows,3,'Owner counter row count');
+        const ownerHighWater=Array.from({length:counters.numRows},(_,row)=>{
+            equal(cell(counters,row,'sheet_id'),row,'Owner counter sheet ID');
+            equal(cell(counters,row,'sheet_type'),'INTEGER','Owner counter sheet SQL type');
+            equal(cell(counters,row,'counter_type'),'UBIGINT','Owner counter SQL type');
+            const value=cell(counters,row,'high_water');equal(value,OWNER_HIGH_WATER[row],'Exact uint64 owner high-water');return value;
+        });
+        const objects=await query(`SELECT sheet_id,id::VARCHAR AS id,name,row_id::VARCHAR AS row_id,column_id,source_id::VARCHAR AS source_id FROM ${catalog}._duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2`);
+        equal(objects.numRows,1,'Live owner row count');
+        for(const [name,expected] of Object.entries({sheet_id:0,id:'9007199254740993',name:'Live owner',row_id:'0',column_id:8,source_id:'0'}))
+            equal(cell(objects,0,name),expected,`Live owner ${name}`);
+        const selectors=await query(`SELECT sheet_id,position,kind FROM ${catalog}._duxcel_workspace.format_selectors ORDER BY sheet_id,position LIMIT 3`);
+        equal(selectors.numRows,2,'Spatial selector row count');
+        const spatialSelectors=Array.from({length:selectors.numRows},(_,row)=>({sheetId:cell(selectors,row,'sheet_id'),position:cell(selectors,row,'position'),kind:cell(selectors,row,'kind')}));
+        equal(JSON.stringify(spatialSelectors),JSON.stringify([{sheetId:0,position:0,kind:0},{sheetId:2,position:0,kind:0}]),'Spatial-only selector metadata');
+        const formats=await query(`SELECT sheet_id,position,r0::VARCHAR AS r0,r1::VARCHAR AS r1,c0,c1,mask,flags FROM ${catalog}._duxcel_workspace.formats ORDER BY sheet_id,position LIMIT 3`);
+        equal(formats.numRows,2,'Spatial format row count');
+        const spatialFormats=Array.from({length:formats.numRows},(_,row)=>Object.fromEntries(['sheet_id','position','r0','r1','c0','c1','mask','flags'].map(name=>[name,cell(formats,row,name)])));
+        equal(JSON.stringify(spatialFormats),JSON.stringify([
+            {sheet_id:0,position:0,r0:'20',r1:'21',c0:0,c1:0,mask:1,flags:1},
+            {sheet_id:2,position:0,r0:'0',r1:'1099511627775',c0:1,c1:1,mask:1,flags:1}]),'Exact spatial format metadata');
+        return {ownerHighWater,ownerObjectIds:[cell(objects,0,'id')],spatialSelectors,spatialFormats};
+    }
     async function readMetadata(catalog){
         check(CATALOGS.has(catalog),'Invalid probe catalog');
         const meta=await query(`SELECT version,active_sheet::VARCHAR AS active_sheet,user_scale,typeof(version) AS version_type,typeof(active_sheet) AS active_type,typeof(user_scale) AS scale_type FROM ${catalog}._duxcel_workspace.meta LIMIT 2`);
-        equal(meta.numRows,1,'Native meta row count');equal(cell(meta,0,'version'),12,'Native workspace version');
+        equal(meta.numRows,1,'Native meta row count');equal(cell(meta,0,'version'),expectedVersion,'Native workspace version');
         equal(cell(meta,0,'version_type'),'INTEGER','Workspace version SQL type');equal(cell(meta,0,'active_type'),'UBIGINT','Active-sheet SQL type');equal(cell(meta,0,'scale_type'),'DOUBLE','User-scale SQL type');
         const active=cell(meta,0,'active_sheet'),scale=cell(meta,0,'user_scale');
         check(typeof active==='string'&&/^(0|[1-9]\d*)$/.test(active),'Invalid active sheet');check(Number.isFinite(scale)&&scale>=.8&&scale<=1.5,'Invalid user scale');
@@ -113,16 +167,18 @@ export async function runPersistenceProbe(input={}){
             return smallText(cell(sheets,row,'name'),'sheet name');
         });
         const tables=await query(`SELECT table_name,sql FROM duckdb_tables() WHERE database_name='${catalog}' AND schema_name='_duxcel_workspace' ORDER BY table_name LIMIT ${PERSISTENCE_LIMITS.metadataTables+1}`);
-        equal(tables.numRows,TABLES.length,'Native v12 metadata table count');
+        equal(tables.numRows,expectedTables.length,`Native v${expectedVersion} metadata table count`);
         let ddlBytes=0;const tableInfo=[];
         for(let row=0;row<tables.numRows;row++){
             const name=cell(tables,row,'table_name'),ddl=smallText(cell(tables,row,'sql'),'table DDL',PERSISTENCE_LIMITS.ddlBytes);
-            equal(name,TABLES[row],'Native metadata table name');ddlBytes+=encoder.encode(ddl).length;check(ddlBytes<=PERSISTENCE_LIMITS.ddlBytes,'Native metadata DDL exceeds 1 MiB');
+            equal(name,expectedTables[row],'Native metadata table name');ddlBytes+=encoder.encode(ddl).length;check(ddlBytes<=PERSISTENCE_LIMITS.ddlBytes,'Native metadata DDL exceeds 1 MiB');
             const count=await query(`SELECT count(*)::VARCHAR AS rows FROM ${catalog}._duxcel_workspace.${quoted(name)}`);
             const rows=smallText(cell(count,0,'rows'),'table row count');check(/^\d+$/.test(rows),'Invalid table row count');
             tableInfo.push({name,sql:ddl,rows});
         }
-        return {version:12,activeSheet:active,userScale:scale,sheetNames:names,tables:tableInfo,columns:await columns(catalog)};
+        const metadata={version:expectedVersion,activeSheet:active,userScale:scale,sheetNames:names,tables:tableInfo,columns:await columns(catalog)};
+        if(ownerMode)Object.assign(metadata,await readOwners(catalog,metadata));
+        return metadata;
     }
     async function sentinels(catalog){
         check(CATALOGS.has(catalog),'Invalid probe catalog');
@@ -158,14 +214,15 @@ export async function runPersistenceProbe(input={}){
             return {engineVersion,moduleURL:config.moduleURL,workerURL:config.workerURL,threads:1};
         });
         let metadata;
-        await step('attach-readonly-real-native-v12',async()=>{
+        await step(ownerMode?'attach-readonly-real-native-v13-owners':'attach-readonly-real-native-v12',async()=>{
             await adapter.database.registerFileBuffer(SOURCE_FILE,new Uint8Array(fixtureBytes));
             await query(`ATTACH '${SOURCE_FILE}' AS native_fixture (READ_ONLY)`);
             let rejected=false;
             try{await query('UPDATE native_fixture._duxcel_workspace.meta SET version=version');}
             catch(error){check(/read.?only|read only/i.test(String(error.message??error)),'Native write failed for an unrelated reason');rejected=true;}
             check(rejected,'Native fixture attachment permitted a write');
-            metadata=await readMetadata('native_fixture');return {readOnlyWriteRejected:true,...metadata};
+            metadata=await readMetadata('native_fixture');if(ownerMode)acceptedOwners=metadata;
+            return {readOnlyWriteRejected:true,...metadata};
         });
         await step('create-compatible-file-from-native-metadata-ddl',async()=>{
             // Start from a separately owned valid file. In pinned 1.32.0 an
@@ -180,7 +237,7 @@ export async function runPersistenceProbe(input={}){
             await query('BEGIN TRANSACTION');
             try{
                 for(const table of metadata.tables){
-                    await query(metadataDDL(table.name,table.sql));
+                    await query(metadataDDL(table.name,table.sql,config.mode));
                     await query(`INSERT INTO browser_export._duxcel_workspace.${quoted(table.name)} SELECT * FROM native_fixture._duxcel_workspace.${quoted(table.name)}`);
                 }
                 await query('CREATE SCHEMA browser_export._duxcel_browser_probe');
@@ -236,5 +293,8 @@ export async function runPersistenceProbe(input={}){
         finally{for(const worker of workers)worker.terminate();}
     }
     return {ok:!failed,engineVersion,fixture,export:exported,checks,sql,milliseconds:now()-started,ownedWorkersCreated:workers.length,
-        scope:'BP0 official Worker/native-v12 file compatibility only: metadata DDL/rows copied from an actual native fixture, exact sentinel types persisted and exported. Native workbook_load readback is a separate harness gate. No shared C save codec/controller, source relink, OPFS recovery or browser Save acceptance.'};
+        ...(ownerMode?{mode:'owners',metadataVersion:acceptedOwners?.version,ownerHighWater:acceptedOwners?.ownerHighWater}:{}),
+        scope:ownerMode?
+            'BP0 official Worker/native owner-only v13 file compatibility: exact uint64 owner lifetimes and spatial metadata are rewritten, exported and reopened; scopes/guards remain empty. Native workbook_load readback is a separate harness gate. No scoped-format activation, shared C save codec/controller, blank file creation, source relink, OPFS recovery or browser Save acceptance.':
+            'BP0 official Worker/native-v12 file compatibility only: metadata DDL/rows copied from an actual native fixture, exact sentinel types persisted and exported. Native workbook_load readback is a separate harness gate. No shared C save codec/controller, source relink, OPFS recovery or browser Save acceptance.'};
 }

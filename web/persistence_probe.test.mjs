@@ -58,3 +58,39 @@ test('missing browser Worker fails explicitly and cleans up without importing/st
     assert.equal(result.checks.at(-1).name,'bounded-owned-worker-cleanup');assert.equal(result.checks.at(-1).status,'passed');
     assert.deepEqual(result.sql,[]);
 });
+test('owner fixture mode is explicit and cannot change the default v12 probe configuration',()=>{
+    const ordinary=persistenceProbeConfig({...base,fixtureBytes:file()});
+    assert.equal(Object.hasOwn(ordinary,'mode'),false);
+    const owners=persistenceProbeConfig({...base,fixtureURL:'native.dxls',mode:'owners'});
+    assert.equal(owners.mode,'owners');assert.ok(Object.isFrozen(owners));
+    assert.equal(owners.fixtureURL,'http://127.0.0.1:8767/acceptance/native.dxls');
+    for(const mode of [null,false,true,'v12','13','Owners',{},[],0])
+        assert.throws(()=>persistenceProbeConfig({...base,fixtureBytes:file(),mode}),TypeError);
+});
+test('v13 owner package DDL is allowed only by explicit owner mode with the same table and catalog bounds',()=>{
+    for(const table of ['object_counters','format_scopes','format_selectors','format_guards']){
+        const columns='(sheet_id INTEGER, PRIMARY KEY(sheet_id));';
+        const ddl=`CREATE TABLE native_fixture._duxcel_workspace.${table}${columns}`;
+        assert.throws(()=>metadataDDL(table,ddl),TypeError);
+        assert.equal(metadataDDL(table,ddl,'owners'),`CREATE TABLE browser_export._duxcel_workspace."${table}" ${columns}`);
+        assert.equal(metadataDDL(table,`CREATE TABLE "native_fixture"."_duxcel_workspace"."${table}"${columns}`,'owners'),
+            `CREATE TABLE browser_export._duxcel_workspace."${table}" ${columns}`);
+        assert.throws(()=>metadataDDL(table,ddl,'v13'),TypeError);
+        assert.throws(()=>metadataDDL(table,ddl.replace('native_fixture.','other.'),'owners'),TypeError);
+        assert.throws(()=>metadataDDL(table,ddl.replace(`.${table}`,'.meta'),'owners'),TypeError);
+        assert.throws(()=>metadataDDL(table,'x'.repeat(PERSISTENCE_LIMITS.ddlBytes+1),'owners'),TypeError);
+    }
+    assert.throws(()=>metadataDDL('not_metadata','CREATE TABLE _duxcel_workspace.not_metadata (id INTEGER);','owners'),TypeError);
+    assert.equal(metadataDDL('meta','CREATE TABLE _duxcel_workspace.meta (version INTEGER);','owners'),
+        'CREATE TABLE browser_export._duxcel_workspace."meta" (version INTEGER);');
+});
+test('owner mode remains inert without a real Worker and never claims accepted metadata on initialization failure',async()=>{
+    assert.equal(typeof globalThis.Worker,'undefined','This pure contract starts no browser Worker');
+    const result=await runPersistenceProbe({...base,fixtureBytes:file(),mode:'owners'});
+    assert.equal(result.mode,'owners');assert.equal(result.ok,false);assert.equal(result.ownedWorkersCreated,0);
+    assert.equal(result.metadataVersion,undefined);assert.equal(result.ownerHighWater,undefined);assert.equal(result.export,undefined);
+    assert.deepEqual(result.sql,[]);
+    assert.ok(result.checks.some(check=>check.name==='initialize-owned-official-worker'&&check.status==='failed'&&/Real browser Worker/.test(check.error.message)));
+    assert.equal(result.checks.at(-1).name,'bounded-owned-worker-cleanup');assert.equal(result.checks.at(-1).status,'passed');
+    assert.match(result.scope,/owner-only v13/);assert.match(result.scope,/No scoped-format activation/);
+});
