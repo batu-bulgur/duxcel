@@ -55,6 +55,74 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "unfinished"):
             runner.validate_output(output + "Filter smoke unfinished at stage 5\n", 0, marker, native=True)
 
+    def test_layout_completion_requires_the_exact_runtime_range(self):
+        marker = "PASS: final assertion"
+        pattern = runner.layout_completion_pattern(638, 665)
+        shutdown = "\nDuxcel frames=120 mean=17.0 ms smoke=0\n"
+        runner.validate_output(marker + "\nLayout smoke completed [638,665)" + shutdown,
+                               0, marker, native=True, completion_pattern=pattern)
+        bad_lines = ("", "Layout smoke completed [638,660)", "Layout smoke completed [637,665)",
+                     "INFO: Layout smoke completed [638,665)", " Layout smoke completed [638,665)",
+                     "Layout smoke completed [638,665) ", "Layout smoke completed [638,665) extra",
+                     "Layout smoke completed [638, 665)", "Layout smoke completed [0638,665)",
+                     "Layout smoke completed [638,665]")
+        for line in bad_lines:
+            with self.subTest(line=line), self.assertRaisesRegex(RuntimeError, "Missing completion summary"):
+                runner.validate_output(marker + "\n" + line + shutdown, 0, marker,
+                                       native=True, completion_pattern=pattern)
+        # A genuine range line still cannot substitute for normal lifecycle
+        # checks or erase a later failed/unfinished assertion.
+        with self.assertRaisesRegex(RuntimeError, "unfinished"):
+            runner.validate_output(marker + "\nLayout smoke completed [638,665)\nLayout smoke unfinished at stage 660" + shutdown,
+                                   0, marker, native=True, completion_pattern=pattern)
+
+    def test_affected_no_build_rejects_legacy_same_pass_and_wrong_range(self):
+        feature = "ribbon-overflow"
+        start, end, marker = runner.LAYOUT_PROFILES[feature]
+        valid = f"Layout smoke completed [{start},{end})\n"
+        for completion in ("", f"Layout smoke completed [{start},{end-5})\n", valid):
+            with self.subTest(completion=completion), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory)
+                (root / "Makefile").write_text("")
+                args = runner.parser().parse_args(["affected", "--feature", feature, "--no-build"])
+                instance = runner.Runner(args, root)
+
+                def child(command, **kwargs):
+                    self.assertIn("--layout-smoke", command)
+                    self.assertEqual(kwargs["env"]["DUXCEL_LAYOUT_FROM"], str(start))
+                    self.assertEqual(kwargs["env"]["DUXCEL_LAYOUT_TO"], str(end))
+                    kwargs["stdout"].write(marker + "\n" + completion + "Duxcel frames=120 mean=17.0 ms smoke=0\n")
+                    return mock.Mock(returncode=0)
+
+                with mock.patch.object(instance, "headless"), mock.patch.object(instance, "prepare_native"), \
+                     mock.patch.object(instance, "background_check"), mock.patch.object(runner, "FileLock"), \
+                     mock.patch.object(runner.subprocess, "run", side_effect=child), contextlib.redirect_stdout(io.StringIO()):
+                    if completion == valid:
+                        instance.affected()
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, "Missing completion summary"):
+                            instance.affected()
+                result = instance.summary["results"][-1]
+                self.assertEqual(result["status"], "passed" if completion == valid else "failed")
+                self.assertEqual(result["completion_pattern"], runner.layout_completion_pattern(start, end))
+
+    def test_full_and_named_layout_require_the_entire_inventory_range(self):
+        args = runner.parser().parse_args(["native", "--scenario", "layout", "icon", "--no-build"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            (root / "Makefile").write_text("")
+            instance = runner.Runner(args, root)
+
+            def completed(name, command, marker=None, **kwargs):
+                return {"name": name, "command": command, "status": "passed", "expected_stages": kwargs["stages"]}
+
+            with mock.patch.object(instance, "command", side_effect=completed) as command:
+                # full() uses this same serial scenario dispatcher.
+                instance.native_scenarios(["layout", "icon"])
+            stages = next(row[1] for row in runner.NATIVE if row[0] == "layout")
+            self.assertEqual(command.call_args_list[0].kwargs["completion_pattern"], runner.layout_completion_pattern(0, stages))
+            self.assertIsNone(command.call_args_list[1].kwargs["completion_pattern"])
+
     def test_base_uses_actual_existing_state_instead_of_invented_pass(self):
         output = "Final relation rows=4 columns=2 cache offset=0\nDuxcel frames=240 mean=17.0 ms smoke=6\n"
         runner.validate_output(output, 0, native=True, base=True)
