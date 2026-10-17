@@ -376,7 +376,15 @@ async function reviewControls(){
  const narrowMenu=authorState(await platformSnapshot(),'context');check(narrowMenu.rows.length===8,'Narrow manual menu lost visible semantic children');
  results.picks.push(await authorPick('context',menu=>({id:menu.state.author_parent+'.heading',bounds:menu.heading}),'manual-narrow-heading',{frozenName:'manual-narrow'}));
  results.picks.push(await authorPick('context',menu=>menu.rows.find(row=>row.key==='move'),'manual-narrow-move'));
- await key('Escape','Escape',27);await reviewUnsavedDialog(results);const final=await platformSnapshot();
+ const widthBefore=await platformSnapshot(),widthJobs=starts().length;await authorActivate('context','width');
+ const narrowWidth=authorState(await platformSnapshot(),'column_width');
+ check(narrowWidth.state.ui_scale==='1.500000'&&narrowWidth.rows.map(row=>row.key).join(',')==='width,apply,cancel','Narrow150% width dialog lost its actual editor/actions');
+ results.picks.push(await authorPick('column_width',menu=>menu.rows.find(row=>row.key==='cancel'),'width-narrow-cancel',{frozenName:'column-width-narrow'}));
+ await key('Escape','Escape',27);const widthCancelled=await platformSnapshot();
+ check(widthCancelled.modal==='0'&&['grid_cell','manual_cells','active','anchor','extent','request','source_revision','schema','page','spare','dirty'].every(field=>widthCancelled[field]===widthBefore[field]),'Narrow width capture or actual Escape changed width, cells, selection or published source');
+ check(starts().length===widthJobs,'Narrow width reporting/cancel submitted a database job');
+ results.dialogs.narrowWidth={before:widthBefore,opened:narrowWidth.state,cancelled:widthCancelled};
+ await reviewUnsavedDialog(results);const final=await platformSnapshot();
  check(final.manual_cells==='1'&&final.modal==='0','Cancelled contextual review changed sparse data or left a modal open');
  check(consoleText('Browser review prepared: ').length===0&&(await pendingReports()).length===0,'Cancel-only controls gate staged a report');
  const queue=await(await fetch(new URL('/__review/queue',url))).json();check(queue.reports.length===0,'Cancel-only controls gate wrote into the persistent queue');
