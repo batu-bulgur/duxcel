@@ -46,7 +46,7 @@ typedef struct {
     uint64_t format_row;
     size_t format_col;
     float horizontal; /* unscaled UI units, independent of monitor DPI/zoom */
-    float gutter; /* unscaled, wide enough for visible row numbers */
+    float gutter; /* Interface units, independent of zoom; reserved for visible row numbers. */
     float digit_width;
     double fraction; /* fractional row for trackpads */
     float zoom; /* canvas only; independent of application UI scale */
@@ -91,6 +91,7 @@ void grid_fit_column(Grid *g,UIContext *ui,const Page *page,size_t column);
 void grid_reveal_column(Grid *g,const Page *page,float scale,size_t column,bool center);
 void grid_reveal_cell(Grid *g,const Page *page,float scale);
 void grid_select_cell(Grid *g, uint64_t row, size_t col, bool extend);
+/* scale is interface scale * g->zoom; header/gutter chrome uses interface scale. */
 void grid_layout(Grid *g, float scale, const Page *page, Rectangle rect);
 void grid_zoom_at(Grid *g, const Page *page, float ui_scale, float zoom, Vector2 pointer);
 void grid_handle_input(Grid *g, UIContext *ui, const Page *page, const GridInput *input);
