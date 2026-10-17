@@ -1,5 +1,8 @@
 #include "ui.h"
 #include <rlgl.h>
+#ifdef DUXCEL_BROWSER_HOST
+#include <GLES2/gl2.h>
+#endif
 #include <math.h>
 #include <string.h>
 static Rectangle paint_intersection(Rectangle a,Rectangle b) {
@@ -32,7 +35,17 @@ static void paint_restore(const UIPaintFrame *frame) {
 }
 static void paint_unload(UIPaintBuffer *buffer) {
     if (buffer->target.texture.id) rlUnloadTexture(buffer->target.texture.id);
-    if (buffer->target.id) rlUnloadFramebuffer(buffer->target.id);
+    if (buffer->target.id) {
+#ifdef DUXCEL_BROWSER_HOST
+        /* These caches own only the color texture released above, with no
+           depth attachment. raylib's generic unload queries an absent depth
+           object's name, which WebGL1 rejects. Delete the known FBO directly
+           without rebinding or introspecting unrelated framebuffer state. */
+        GLuint framebuffer=buffer->target.id; glDeleteFramebuffers(1,&framebuffer);
+#else
+        rlUnloadFramebuffer(buffer->target.id);
+#endif
+    }
     memset(buffer,0,sizeof(*buffer));
 }
 static bool paint_allocate(UIPaintBuffer *buffer,UIPaintLayout layout) {
