@@ -100,7 +100,10 @@ char *pivot_input_sql(const Analysis *source,const PivotDefinition *p) {
     char *base=analysis_sql(&unordered,false),*project=dx_strdup("");
     for (int r=0;r<3;r++) for (size_t i=0;i<p->counts[r];i++) {
         const PivotField *f=&p->fields[r][i]; bool exists=false;
-        for (int rr=0;rr<=r;rr++) for (size_t j=0;j<(rr==r ? i : p->counts[rr]);j++) if (!f->grain && !p->fields[rr][j].grain && !strcmp(f->name,p->fields[rr][j].name)) exists=true;
+        /* COUNT(*) consumes no source field. Unused projected fields become
+           implicit grouping keys in DuckDB PIVOT, particularly date grains. */
+        if (r==PIVOT_VALUES && f->aggregate==AGG_COUNT) continue;
+        for (int rr=0;rr<=r;rr++) for (size_t j=0;j<(rr==r ? i : p->counts[rr]);j++) if (!(rr==PIVOT_VALUES && p->fields[rr][j].aggregate==AGG_COUNT) && !f->grain && !p->fields[rr][j].grain && !strcmp(f->name,p->fields[rr][j].name)) exists=true;
         if (!exists) {
             char *col=dx_quote(f->name,'"'); const char *separator=*project ? "," : "";
             if (f->grain) {
@@ -134,7 +137,7 @@ char *pivot_totals_sql(const Analysis *source,const PivotDefinition *p) {
     }
     for (size_t i=0;i<p->counts[PIVOT_VALUES];i++) {
         const PivotField *field=&p->fields[PIVOT_VALUES][i]; char *quoted=dx_quote(field->name,'"');
-        dx_append(&project,"%s%s AS v%zu",*project ? "," : "",quoted,i); free(quoted);
+        dx_append(&project,"%s%s AS v%zu",*project ? "," : "",field->aggregate==AGG_COUNT ? "1" : quoted,i); free(quoted);
         dx_append(&select,"%s%s(%s",*select ? "," : "",field->aggregate==AGG_DISTINCT ? "COUNT" : aggregate_label(field->aggregate),field->aggregate==AGG_DISTINCT ? "DISTINCT " : "");
         if (field->aggregate==AGG_COUNT) dx_append(&select,"*"); else dx_append(&select,"v%zu",i);
         dx_append(&select,") AS m%zu",i);
@@ -150,17 +153,22 @@ char *pivot_totals_sql(const Analysis *source,const PivotDefinition *p) {
     free(input); free(project); free(select); free(groups); return sql;
 }
 char *pivot_sql_domains(const Analysis *source,const PivotDefinition *p,char *const *domains) {
-    char *input=pivot_input_sql(source,p),*sql=dx_printf("PIVOT (%s)",input); free(input);
+    bool dimensions=p->counts[PIVOT_ROWS] || p->counts[PIVOT_COLUMNS];
+    char *input=pivot_input_sql(source,p),*sql=dimensions ? dx_printf("PIVOT (%s)",input) : dx_strdup("SELECT ");
     if (p->counts[PIVOT_COLUMNS]) {
         dx_append(&sql," ON ");
         for (size_t i=0;i<p->counts[PIVOT_COLUMNS];i++) { char *key=pivot_field_key(p,PIVOT_COLUMNS,i),*col=dx_quote(key,'"'); dx_append(&sql,"%s%s",i ? "," : "",col); if (domains && domains[i]) dx_append(&sql," IN (%s)",domains[i]); free(key); free(col); }
     }
-    dx_append(&sql," USING ");
+    if (dimensions) dx_append(&sql," USING ");
     for (size_t i=0;i<p->counts[PIVOT_VALUES];i++) {
         const PivotField *f=&p->fields[PIVOT_VALUES][i]; char *col=dx_quote(f->name,'"'); char *label=aggregate_measure_label(f->aggregate,f->name),*alias=dx_quote(label,'"');
         dx_append(&sql,"%s%s(%s%s) AS %s",i ? "," : "",f->aggregate==AGG_DISTINCT ? "COUNT" : aggregate_label(f->aggregate),f->aggregate==AGG_DISTINCT ? "DISTINCT " : "",f->aggregate==AGG_COUNT ? "*" : col,alias);
         free(col); free(label); free(alias);
     }
+    /* A scalar aggregate has no dimension to pivot. SELECT preserves its one
+       result row even for empty input and avoids grouping by the input dummy. */
+    if (!dimensions) dx_append(&sql," FROM (%s) pivot_source",input);
+    free(input);
     if (p->counts[PIVOT_ROWS]) {
         dx_append(&sql," GROUP BY ");
         for (size_t i=0;i<p->counts[PIVOT_ROWS];i++) { char *key=pivot_field_key(p,PIVOT_ROWS,i),*col=dx_quote(key,'"'); dx_append(&sql,"%s%s",i ? "," : "",col); free(key); free(col); }
