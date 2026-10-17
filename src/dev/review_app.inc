@@ -459,12 +459,28 @@ static void review_author_input(App *a,const char *kind,const char *key,const ch
     DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
     if (w) { dx_review_value_set(&w->value,"VARCHAR",false,input && input->text ? input->text : ""); w->truncated|=w->value.truncated; a->review->registry->truncated|=w->truncated; }
 }
+static bool review_author_hex64(char output[129],const char *text) {
+    if (!text || !*text) { memcpy(output,"-",2); return false; }
+    static const char hex[]="0123456789abcdef"; size_t used=0;
+    while (text[used] && used<64) {
+        int bytes=0; GetCodepointNext(text+used,&bytes); if (bytes<1) bytes=1;
+        if ((size_t)bytes>64-used) break;
+        for (int i=0;i<bytes;i++) { unsigned char ch=(unsigned char)text[used]; output[2*used]=hex[ch>>4]; output[2*used+1]=hex[ch&15]; used++; }
+    }
+    output[2*used]=0; return text[used]!=0;
+}
 static void review_inspector_value(App *a,Rectangle bounds,Rectangle clip,const char *file,int line) {
     if (!review_armed(a)) return;
     DxReviewWidget *widget=review_author_widget(a,"author.cell_inspector.value","author.cell_inspector","cell_inspector","cell.inspect_value","region","Cell value",bounds,clip,131,true,false,false,false,NULL,file,line);
     if (!widget) return;
     dx_review_value_set(&widget->value,a->inspector_type,a->inspector_null,a->inspector_text);
     widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated;
+    Rectangle visible=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height});
+    char type[129],text[129],field[129],state[1024];
+    bool type_truncated=review_author_hex64(type,a->inspector_type),text_truncated=review_author_hex64(text,a->inspector_text),field_truncated=review_author_hex64(field,a->inspector_origin.field);
+    const DxReviewDataIdentity *origin=&a->inspector_origin;
+    snprintf(state,sizeof(state)," inspector_value_rect=%.3f,%.3f,%.3f,%.3f inspector_type_hex=%s inspector_type_truncated=%d inspector_text_hex=%s inspector_text_truncated=%d inspector_origin=%d,%d,%llu,%llu,%llu,%llu,%llu,%llu,%llu inspector_field_hex=%s inspector_field_truncated=%d",visible.x,visible.y,visible.width,visible.height,type,type_truncated,text,text_truncated,a->inspector_origin_valid,a->inspector_origin_stale,(unsigned long long)origin->sheet_id,(unsigned long long)origin->object_id,(unsigned long long)origin->source_id,(unsigned long long)origin->schema_generation,(unsigned long long)origin->query_generation,(unsigned long long)origin->row,(unsigned long long)origin->column,field,field_truncated);
+    review_author_capture_state(a,state);
 }
 static void review_statistics_row(App *a,int metric,const char *label,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line) {
     if (!review_armed(a) || metric<0 || metric>=8) return;
