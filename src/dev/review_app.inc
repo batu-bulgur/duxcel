@@ -655,13 +655,14 @@ static int review_smoke_author_tick(App *a,ReviewSmoke *t) {
                 return 0;
             }
             a->selected_object=0; SheetObject *object=selected_pivot(a); if (!object) return -1;
+            if (GetScreenWidth()/a->ui.scale<700) show_workspace(a);
             if (item==5) a->modal=MODAL_OBJECT;
             else if (item==6) { a->pivot_drag_field=2; a->modal=MODAL_PIVOT_FIELD; }
             else if (item==7 || item==8) { a->pivot_drag_role=item==7 ? PIVOT_ROWS : PIVOT_VALUES; a->pivot_drag_index=0; a->modal=MODAL_PIVOT_FIELD; }
             else if (item==9) begin_marks(a,MARKS_COLOR,box(620,280,100,20),false);
             else if (item==10) begin_assign_field(a,PIVOT_COLUMNS,box(620,280,100,20));
-            else if (item==11) { a->modal=MODAL_REPRESENTATION; a->context_focus=0; }
-            else if (item==12) { a->modal=MODAL_CHART_MEASURE; a->context_focus=0; }
+            else if (item==11) { a->modal=MODAL_REPRESENTATION; a->context_focus=0; a->pivot_focus=6; a->author_reveal=true; }
+            else if (item==12) { a->modal=MODAL_CHART_MEASURE; a->context_focus=0; a->pivot_focus=7; a->author_reveal=true; }
             else { a->modal=MODAL_VIEW; a->view_menu_chart=false; }
         }
         return 1;
