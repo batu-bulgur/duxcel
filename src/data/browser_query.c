@@ -607,3 +607,75 @@ bool browser_statistics_from_page(SelectionStats *out,const Page *page,uint64_t 
 done:
     for (size_t i=0;i<3;i++) free(exact[i]); statistics_free(&stats); return ok;
 }
+static bool copy_columns_valid(const Page *schema,size_t column,size_t columns,char **error) {
+    if (!schema_names_valid(schema,error)) return false;
+    if (!columns || column>=schema->column_count || columns>schema->column_count-column) return fail(error,"Selection no longer matches the copied relation.");
+    for (size_t i=column;i<column+columns;i++) {
+        const Column *c=&schema->columns[i]; duckdb_type type; NumberType number;
+        if (!page_type_from_sql(c->type_name,&type,&number) || c->type!=type || !same_number(c->number_type,number) || c->numeric!=(number.kind!=NUM_NONE)) return fail(error,"Clipboard SQL type metadata changed.");
+    }
+    return true;
+}
+char *browser_copy_sql(const char *relation,const Page *schema,uint64_t first,size_t rows,size_t column,size_t columns,char **error) {
+    if (!relation_valid(relation,error) || !copy_columns_valid(schema,column,columns,error)) return NULL;
+    if (columns>DX_CLIPBOARD_CELLS || rows>DX_CLIPBOARD_CELLS/columns || first>DX_SHEET_ROWS || rows>DX_SHEET_ROWS-first) { fail(error,"Copy up to 20,000 cells inside the worksheet."); return NULL; }
+    char *sql=dx_strdup("SELECT ");
+    for (size_t i=column;i<column+columns;i++) {
+        char *name=dx_quote(schema->columns[i].name,'"'); dx_append(&sql,"%sCAST(%s AS VARCHAR) AS %s",i==column ? "" : ",",name,name); free(name);
+        if (strlen(sql)>DX_BROWSER_SQL_BYTES) return bounded_sql(sql,error);
+    }
+    dx_append(&sql," FROM (%s) AS _duxcel_copy LIMIT %zu OFFSET %" PRIu64,relation,rows,first);
+    return bounded_sql(sql,error);
+}
+bool browser_copy_schema(Page *out,const Page *schema,size_t column,size_t columns,char **error) {
+    if (!out || !copy_columns_valid(schema,column,columns,error)) return false;
+    Page selected={.column_count=columns}; selected.columns=dx_alloc(columns*sizeof(Column)); selected.bytes=columns*sizeof(Column);
+    for (size_t i=0;i<columns;i++) {
+        const Column *source=&schema->columns[column+i]; Column *c=&selected.columns[i];
+        *c=(Column){.name=dx_strdup(source->name),.type_name=dx_strdup(source->type_name),.type=source->type,.number_type=source->number_type,.numeric=source->numeric};
+        selected.bytes+=strlen(c->name)+strlen(c->type_name)+2;
+    }
+    page_free(out); *out=selected; return true;
+}
+bool browser_copy_owned_bytes(const CellClipboard *copy,size_t *owned,char **error) {
+    if (!copy || !copy->rows || !copy->columns || copy->columns>DX_CLIPBOARD_CELLS || copy->rows>DX_CLIPBOARD_CELLS/copy->columns || !copy->values || copy->capacity>DX_CLIPBOARD_CELLS || copy->rows*copy->columns>copy->capacity) return fail(error,"Invalid clipboard snapshot dimensions.");
+    size_t bytes=0,count=copy->capacity;
+    for (size_t i=0;i<count;i++) if (copy->values[i]) {
+        size_t length;
+        if (!text_size(copy->values[i],DX_CLIPBOARD_BYTES,&length) || length+1>DX_CLIPBOARD_BYTES-bytes) return fail(error,"Clipboard snapshot exceeds 8 MiB.");
+        bytes+=length+1;
+    }
+    if (copy->bytes!=bytes) return fail(error,"Clipboard snapshot byte accounting changed.");
+    if (owned) *owned=copy->capacity*sizeof(char *)+bytes; return true;
+}
+bool browser_copy_apply(CellClipboard *copy,const Page *page,size_t row,size_t column,size_t rows,size_t columns,size_t retained,char **error) {
+    size_t owned;
+    if (!browser_copy_owned_bytes(copy,&owned,error)) return false;
+    if (!page || !rows || !columns || columns>DX_PAGE_WIRE_COLUMNS || row>copy->rows || rows>copy->rows-row || column>copy->columns || columns>copy->columns-column || page->column_count!=columns || page->row_count>rows || !page->columns || (page->row_count && !page->cells) || page->totals || page->records.ids || page->records.source_key || page->records.count || page->records.stamp || page->sql || page->relations || page->relation_count || page->row_count>DX_CLIPBOARD_CELLS/columns) return fail(error,"Invalid complete clipboard patch.");
+    size_t removed=0,added=0,bytes=columns*sizeof(Column)+page->row_count*columns*sizeof(Cell);
+    for (size_t c=0;c<columns;c++) {
+        size_t name,type;
+        if (page->columns[c].caption || page->columns[c].detail || page->columns[c].categories || page->columns[c].category_count ||
+            !text_size(page->columns[c].name,4096,&name) || !text_size(page->columns[c].type_name,128,&type)) return fail(error,"Invalid copied column metadata.");
+        bytes+=name+type+2;
+    }
+    for (size_t r=0;r<rows;r++) for (size_t c=0;c<columns;c++) {
+        const Cell *cell=r<page->row_count ? &page->cells[r*columns+c] : NULL;
+        const char *old=copy->values[(row+r)*copy->columns+column+c]; size_t length=0;
+        if (old) removed+=strlen(old)+1;
+        if (cell && (cell->is_null ? cell->text!=NULL : !text_size(cell->text,DX_PAGE_WIRE_TEXT_BYTES,&length))) return fail(error,"Invalid exact clipboard cell text.");
+        if (cell && !cell->is_null) {
+            if (length+1>DX_CLIPBOARD_BYTES-added) return fail(error,"Clipboard snapshot exceeds 8 MiB.");
+            added+=length+1; bytes+=length+1;
+        }
+    }
+    if (added>DX_CLIPBOARD_BYTES-(copy->bytes-removed)) return fail(error,"Clipboard snapshot exceeds 8 MiB.");
+    size_t next=copy->bytes-removed+added;
+    size_t largest=owned+(next>copy->bytes ? next-copy->bytes : 0);
+    if (page->bytes!=bytes || retained>DX_BROWSER_COPY_RETAINED_BYTES || largest>DX_BROWSER_COPY_RETAINED_BYTES-retained || bytes>DX_BROWSER_COPY_RETAINED_BYTES-retained-largest) return fail(error,"Clipboard staging exceeds its combined 24 MiB C memory limit.");
+    for (size_t r=0;r<rows;r++) for (size_t c=0;c<columns;c++) {
+        const Cell *cell=r<page->row_count ? &page->cells[r*columns+c] : NULL; size_t index=(row+r)*copy->columns+column+c;
+        char *text=cell && !cell->is_null ? dx_strdup(cell->text) : NULL; free(copy->values[index]); copy->values[index]=text;
+    }
+    copy->bytes=next; return true;
+}

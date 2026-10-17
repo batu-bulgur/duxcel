@@ -518,7 +518,47 @@ static void test_mixed_statistics_helpers(void) {
     Page scalar=statistics_scalar(values); SelectionStats stats={0};
     CHECK(browser_statistics_from_page(&stats,&scalar,DX_SHEET_ROWS*UINT64_C(16384),0,NULL) && stats.cells==DX_SHEET_ROWS*UINT64_C(16384) && !stats.filled && !stats.sum); statistics_free(&stats); page_free(&scalar);
 }
+static void test_copy_helpers(void) {
+    const char *names[]={"text","wide","amount"},*types[]={"VARCHAR","BIGINT","DECIMAL(38,10)"};
+    Page describe=describe_page(3,names,types),schema={0},selected={0}; char *error=NULL;
+    CHECK(browser_schema_from_describe(&schema,&describe,&error)); page_free(&describe);
+    const char *relation="SELECT * FROM source ORDER BY wide";
+    char *sql=browser_copy_sql(relation,&schema,100,600,1,2,&error);
+    CHECK(sql && !strcmp(sql,"SELECT CAST(\"wide\" AS VARCHAR) AS \"wide\",CAST(\"amount\" AS VARCHAR) AS \"amount\" FROM (SELECT * FROM source ORDER BY wide) AS _duxcel_copy LIMIT 600 OFFSET 100")); free(sql);
+    sql=browser_copy_sql(relation,&schema,0,20000,0,1,&error); CHECK(sql && strstr(sql,"LIMIT 20000 OFFSET 0")); free(sql);
+    reject_sql(browser_copy_sql(relation,&schema,0,20001,0,1,&error),&error);
+    reject_sql(browser_copy_sql(relation,&schema,DX_SHEET_ROWS,1,0,1,&error),&error);
+    reject_sql(browser_copy_sql(relation,&schema,0,1,2,2,&error),&error);
+    CHECK(browser_copy_schema(&selected,&schema,1,2,&error));
+    CHECK(selected.column_count==2 && selected.columns[0].number_type.kind==NUM_I64 && selected.columns[1].number_type.kind==NUM_DECIMAL && selected.columns[1].number_type.scale==10);
+    CHECK(selected.columns[0].name!=schema.columns[1].name); Page retained_schema=selected;
+    schema.columns[2].number_type.scale=9;
+    CHECK(!browser_copy_schema(&selected,&schema,1,2,&error) && error && !memcmp(&selected,&retained_schema,sizeof(selected))); free(error); error=NULL;
+    schema.columns[2].number_type.scale=10; page_free(&selected);
+    Page page={0}; CHECK(browser_copy_schema(&page,&schema,0,3,&error));
+    page.row_count=2; page.total=102; page.offset=100; page.cells=dx_alloc(6*sizeof(Cell)); page.bytes+=6*sizeof(Cell);
+    const char *values[]={NULL,"","NULL","9007199254740993","1234567890123456789012345678.1234567890","O'Reilly\t\"quoted\"\n"};
+    for (size_t i=0;i<6;i++) { page.cells[i].is_null=values[i]==NULL; if (values[i]) { page.cells[i].text=dx_strdup(values[i]); page.bytes+=strlen(values[i])+1; } }
+    CellClipboard copy={.rows=4,.columns=4,.capacity=16,.values=dx_alloc(16*sizeof(char *))};
+    copy.values[0]=dx_strdup("Keep note"); copy.values[15]=dx_strdup("Replace EOF"); copy.bytes=strlen(copy.values[0])+strlen(copy.values[15])+2;
+    size_t owned=0; CHECK(browser_copy_owned_bytes(&copy,&owned,&error) && owned==16*sizeof(char *)+copy.bytes);
+    size_t before_bytes=copy.bytes; char *before_last=copy.values[15];
+    CHECK(!browser_copy_apply(&copy,&page,1,1,3,3,DX_BROWSER_COPY_RETAINED_BYTES-owned-page.bytes,&error) && error && copy.values[15]==before_last && copy.bytes==before_bytes); free(error); error=NULL;
+    page.bytes++;
+    CHECK(!browser_copy_apply(&copy,&page,1,1,3,3,0,&error) && error && copy.values[15]==before_last && copy.bytes==before_bytes); free(error); error=NULL; page.bytes--;
+    size_t after=strlen(copy.values[0])+1; for (size_t i=0;i<6;i++) if (values[i]) after+=strlen(values[i])+1;
+    CHECK(browser_copy_apply(&copy,&page,1,1,3,3,DX_BROWSER_COPY_RETAINED_BYTES-16*sizeof(char *)-after-page.bytes,&error));
+    CHECK(copy.bytes==after && !strcmp(copy.values[0],"Keep note") && !copy.values[5] && copy.values[6] && !*copy.values[6] && !strcmp(copy.values[7],"NULL"));
+    CHECK(!strcmp(copy.values[9],"9007199254740993") && !strcmp(copy.values[10],values[4]) && !strcmp(copy.values[11],values[5]) && !copy.values[13] && !copy.values[14] && !copy.values[15]);
+    CHECK(copy.values[11]!=page.cells[5].text); page_free(&page); CHECK(!strcmp(copy.values[11],values[5]));
+    CellClipboard malformed=copy; malformed.rows=SIZE_MAX;
+    CHECK(!browser_copy_owned_bytes(&malformed,&owned,&error) && error); free(error); error=NULL;
+    malformed=copy; malformed.capacity=15; CHECK(!browser_copy_owned_bytes(&malformed,&owned,&error) && error); free(error); error=NULL;
+    copy.bytes++; CHECK(!browser_copy_owned_bytes(&copy,&owned,&error) && error); free(error); copy.bytes--;
+    for (size_t i=0;i<copy.capacity;i++) free(copy.values[i]); free(copy.values); page_free(&schema);
+}
 int main(void) {
+    test_copy_helpers();
     test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion(); test_column_plans(); test_count_projection(); test_statistics_helpers(); test_mixed_statistics_helpers();
     printf("PASS: %u browser query checks\n",checks); return 0;
 }

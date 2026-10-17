@@ -1,8 +1,10 @@
 #ifndef DUXCEL_BROWSER_QUERY_H
 #define DUXCEL_BROWSER_QUERY_H
 #include "page.h"
+#include "../workbook/clipboard.h"
 
 #define DX_BROWSER_SQL_BYTES (1024u*1024u)
+#define DX_BROWSER_COPY_RETAINED_BYTES (24u*1024u*1024u)
 
 /* These pure C helpers own returned SQL and schema strings with free(). No
    engine calls or host paths are resolved here. SQL is generated from the real
@@ -73,4 +75,15 @@ bool browser_statistics_request_valid(const Analysis *primary,const StatisticsRe
    overflow meanings. retained_bytes accounts for the operation's other owned
    schema/relation buffers; scalar + retained + new statistics must fit 4 MiB. */
 bool browser_statistics_from_page(SelectionStats *out,const Page *scalar,uint64_t max_cells,size_t retained_bytes,char **error);
+/* One exact selected relation query, never repeated LIMIT/OFFSET paging. Copy
+   transport alone permits <=20,000 rows/cells; canonical text retains SQL types.
+   Schema/output failures preserve their destinations. */
+char *browser_copy_sql(const char *relation,const Page *schema,uint64_t first,size_t rows,size_t column,size_t columns,char **error);
+bool browser_copy_schema(Page *out,const Page *schema,size_t column,size_t columns,char **error);
+bool browser_copy_owned_bytes(const CellClipboard *copy,size_t *owned_bytes,char **error);
+/* A complete patch is staged in an owned clipboard. Short input pads SQL NULL
+   through rows; exact empty strings remain owned strings. retained_bytes is all
+   other C-owned operation data, excluding this clipboard and this Page. Combined
+   retained data <=24 MiB, not an allocator/process peak bound. */
+bool browser_copy_apply(CellClipboard *copy,const Page *page,size_t target_row,size_t target_column,size_t rows,size_t columns,size_t retained_bytes,char **error);
 #endif
