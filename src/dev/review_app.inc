@@ -169,23 +169,24 @@ static void review_choice_menu(App *a,const UIChoiceLayout *layout,const char *t
     snprintf(parent,sizeof(parent),"choice.%s",roots[kind]); snprintf(path,sizeof(path),"popup/%s",roots[kind]);
     Rectangle clip=a->ui.clipping ? GetCollisionRec(layout->panel,a->ui.clip) : layout->panel;
     float offset=a->popup_capturing ? a->popup_presence.offset*a->ui.scale : 0; clip.y+=offset;
+    int layer=a->popup_capturing ? 30 : 130;
     /* The modal itself owns input. Its rows are above any retained parent
        flyout, while File's separate top-level surface keeps its higher layer. */
-    review_control(a,parent,"choice.inspect",path,"menu",title,layout->panel,30,true,false,true,__FILE__,__LINE__);
+    review_control(a,parent,"choice.inspect",path,"menu",title,layout->panel,layer,true,false,true,__FILE__,__LINE__);
     DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,parent);
     if (w) { w->clip=review_rect(clip); w->expanded=true; w->input_eligible=false; }
     snprintf(id,sizeof(id),"%s.background",parent);
-    review_control(a,id,"choice.inspect",path,"region","Menu background",layout->panel,30,true,false,false,__FILE__,__LINE__);
+    review_control(a,id,"choice.inspect",path,"region","Menu background",layout->panel,layer,true,false,false,__FILE__,__LINE__);
     w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
     if (w) { w->clip=review_rect(clip); snprintf(w->parent_id,sizeof(w->parent_id),"%s",parent); }
     snprintf(id,sizeof(id),"%s.heading",parent);
-    review_control(a,id,"choice.inspect",path,"text",title,layout->title,31,true,false,false,__FILE__,__LINE__);
+    review_control(a,id,"choice.inspect",path,"text",title,layout->title,layer+1,true,false,false,__FILE__,__LINE__);
     w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
     if (w) { w->clip=review_rect(clip); snprintf(w->parent_id,sizeof(w->parent_id),"%s",parent); }
     for (int i=0;i<count;i++) {
         if (!options[kind][i]) continue;
         snprintf(id,sizeof(id),"%s.option.%s",parent,options[kind][i]);
-        review_control(a,id,"choice.select",path,"menuitemradio",names[i],layout->rows[i],31,true,i==focus,false,__FILE__,__LINE__);
+        review_control(a,id,"choice.select",path,"menuitemradio",names[i],layout->rows[i],layer+1,true,i==focus,false,__FILE__,__LINE__);
         w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
         if (w) { w->clip=review_rect(clip); snprintf(w->parent_id,sizeof(w->parent_id),"%s",parent); w->checked=i==selected; w->input_eligible=true; }
     }
