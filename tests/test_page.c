@@ -117,6 +117,19 @@ static void test_rejected_request_cleanup(void) {
     request=dx_alloc(sizeof(*request)); request->texts=dx_alloc(sizeof(char *)); request->text_count=SIZE_MAX;
     statistics_request_free(request); CHECK(true); /* Zero capacity owns no text entries. */
 }
+static void test_rejected_source_cleanup(void) {
+    SourceSnapshot snapshot={.count=SIZE_MAX};
+    for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
+        Analysis *source=&snapshot.items[i];
+        source->kind=SOURCE_DEMO; source->path=dx_strdup("Owned rejected source"); source->query=dx_strdup("SELECT 1");
+        source->filter_column=dx_strdup("Primary filter"); source->filter_value=dx_strdup("NULL"); source->sort_column=dx_strdup("Primary sort");
+        source->filter_count=source->sort_count=SIZE_MAX;
+        for (size_t f=0;f<sizeof(source->filters)/sizeof(*source->filters);f++) source->filters[f]=(AnalysisFilter){.column=dx_strdup("Nested owned filter"),.value=dx_strdup("")};
+        for (size_t n=0;n<sizeof(source->sorts)/sizeof(*source->sorts);n++) source->sorts[n]=(AnalysisSort){.column=dx_strdup("Nested owned sort")};
+    }
+    source_snapshot_free(&snapshot); SourceSnapshot zero={0}; CHECK(!memcmp(&snapshot,&zero,sizeof(zero))); source_snapshot_free(&snapshot); CHECK(!memcmp(&snapshot,&zero,sizeof(zero)));
+}
+
 #ifdef DUXCEL_PAGE_ENGINE_TEST
 static void test_native_allocator(void) {
     char *error=NULL; Database database={0}; Page page={0};
@@ -142,7 +155,7 @@ static void test_native_allocator(void) {
 }
 #endif
 int main(void) {
-    test_moved_and_nested_ownership(); test_default_and_partial_pages(); test_distinct_and_statistics(); test_request_ownership(); test_rejected_request_cleanup();
+    test_moved_and_nested_ownership(); test_default_and_partial_pages(); test_distinct_and_statistics(); test_request_ownership(); test_rejected_request_cleanup(); test_rejected_source_cleanup();
 #ifdef DUXCEL_PAGE_ENGINE_TEST
     test_native_allocator();
 #endif
