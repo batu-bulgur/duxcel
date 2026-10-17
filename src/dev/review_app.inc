@@ -536,6 +536,28 @@ static bool review_author_hex64(char output[129],const char *text) {
     }
     output[2*used]=0; return text[used]!=0;
 }
+static void review_query_status(App *a,const char *text,Rectangle bounds,const char *file,int line) {
+    if (!review_armed(a) || a->modal!=MODAL_SOURCE_QUERY) return;
+    Rectangle clip=a->ui.clipping ? a->ui.clip : box(0,0,GetScreenWidth(),GetScreenHeight());
+    DxReviewWidget *widget=review_author_widget(a,"author.source_query.status","author.source_query","source_query","source.query.inspect_feedback","text","Query status",bounds,clip,131,true,false,false,false,NULL,file,line);
+    if (!widget) return;
+    dx_review_value_set(&widget->value,"VARCHAR",false,text ? text : ""); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated;
+    Rectangle shown=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height});
+    char hex[129],state[384]; bool truncated=review_author_hex64(hex,text);
+    snprintf(state,sizeof(state)," query_status_rect=%.3f,%.3f,%.3f,%.3f query_status_loading=%d query_status_hex=%s query_status_truncated=%d query_status_value_truncated=%d",shown.x,shown.y,shown.width,shown.height,a->query_loading,hex,truncated,widget->value.truncated);
+    review_author_capture_state(a,state);
+}
+static void review_query_error(App *a,Rectangle bounds,const char *file,int line) {
+    if (!review_armed(a) || a->modal!=MODAL_SOURCE_QUERY || !a->query_error) return;
+    Rectangle clip=a->ui.clipping ? a->ui.clip : box(0,0,GetScreenWidth(),GetScreenHeight());
+    DxReviewWidget *widget=review_author_widget(a,"author.source_query.validation_error","author.source_query","source_query","source.query.inspect_feedback","region","Query validation error",bounds,clip,131,true,false,false,false,NULL,file,line);
+    if (!widget) return;
+    dx_review_value_set(&widget->value,"VARCHAR",false,a->query_error); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated;
+    Rectangle shown=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height});
+    char hex[129],state[512]; bool truncated=review_author_hex64(hex,a->query_error);
+    snprintf(state,sizeof(state)," query_error_rect=%.3f,%.3f,%.3f,%.3f query_error_bytes=%zu query_error_lines=%zu query_error_scroll=%d query_error_limited=%d query_error_hex=%s query_error_truncated=%d query_error_value_truncated=%d",shown.x,shown.y,shown.width,shown.height,strlen(a->query_error),a->query_errors.count,a->query_error_scroll,a->query_errors.limited,hex,truncated,widget->value.truncated);
+    review_author_capture_state(a,state);
+}
 static void review_cell_editor(App *a,Rectangle bounds,Rectangle clip,const char *file,int line) {
     if (!review_armed(a) || a->modal!=MODAL_CELL || bounds.width<=0 || bounds.height<=0) return;
     Rectangle shown=GetCollisionRec(bounds,clip); if (shown.width<=0 || shown.height<=0) return;
