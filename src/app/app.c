@@ -10367,6 +10367,26 @@ static void icon_smoke_step(App *a,int *step) {
     }
     (*step)++;
 }
+typedef struct { bool enabled; const int *stage; int terminal; } SmokeCompletion;
+static bool smoke_stages_complete(const SmokeCompletion *scenarios,size_t count) {
+    bool enabled=false;
+    for (size_t i=0;i<count;i++) if (scenarios[i].enabled) {
+        enabled=true;
+        if (*scenarios[i].stage!=scenarios[i].terminal) return false;
+    }
+    return enabled;
+}
+static bool smoke_work_idle(App *a) {
+    if (a->busy || a->io_busy || a->values_loading || a->values_selecting || a->query_loading || a->step_preview.loading ||
+        a->count_deferred || a->pending_sheet || a->pending_new_sheet || a->pending_relation || a->sheet_action!=SHEET_ACTION_NONE ||
+        a->document_saving || a->document_action!=DOCUMENT_NONE) return false;
+    /* Cancellation can clear UI busy before the worker releases its job. A
+       published reply must also be polled before a smoke can finish early. */
+    dx_lock(&a->worker.mutex);
+    bool idle=!a->worker.running && !a->worker.pending && !a->worker.reply;
+    dx_unlock(&a->worker.mutex);
+    return idle;
+}
 int app_run(const AppOptions *options) {
     App a={0}; a.gridlines=true; a.ribbon_command=a.selected_object=a.filter_object=a.sort_object=a.pivot_drag_field=a.pivot_drag_role=-1;
     workbook_init(&a.book); a.known_total=-1; a.launched_ms=dx_millis(); a.sidebar_width=228; a.pipeline_width=280; a.sidebar=a.fields_visible=true; a.field_highlight=-1;
@@ -10437,6 +10457,18 @@ int app_run(const AppOptions *options) {
     else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(&a,"tests/fixtures/null-text.csv",false);
     else { new_sheet(&a); a.book.dirty=false; }
     int smoke=0,workspace_smoke=0,filter_smoke=0,pivot_smoke=0,export_smoke=0,count_smoke=0,clipboard_smoke=0,sort_smoke=0,layout_smoke=focused_layout ? 250 : 0,navigation_smoke=0,nyc_smoke=0,document_smoke=0,chart_smoke=0,statistics_smoke=0,table_smoke=0,icon_smoke=0,query_smoke=0,unique_smoke=0;
+    const SmokeCompletion completions[]={
+        {options->smoke,&smoke,6},{options->workspace_smoke,&workspace_smoke,4},
+        {options->filter_smoke,&filter_smoke,66},{options->pivot_smoke,&pivot_smoke,45},
+        {options->export_smoke,&export_smoke,20},{options->count_smoke,&count_smoke,12},
+        {options->clipboard_smoke,&clipboard_smoke,13},{options->sort_smoke,&sort_smoke,12},
+        {options->layout_smoke,&layout_smoke,layout_target},{options->navigation_smoke,&navigation_smoke,13},
+        {options->nyc_smoke,&nyc_smoke,8},{options->document_smoke,&document_smoke,10},
+        {options->chart_smoke,&chart_smoke,33},{options->statistics_smoke,&statistics_smoke,31},
+        {options->table_smoke,&table_smoke,73},{options->icon_smoke,&icon_smoke,8},
+        {options->query_smoke,&query_smoke,QUERY_SMOKE_STAGES},{options->unique_smoke,&unique_smoke,32}
+    };
+    bool smoke_pass_seen=false;
     bool trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     while (!options->frames || a.frames<(unsigned)options->frames) {
         double frame=dx_millis(); ui_set_canvas_zoom(&a.ui,active_canvas_zoom(&a)); ui_update(&a.ui);
@@ -10919,7 +10951,13 @@ int app_run(const AppOptions *options) {
         a.frame_samples[a.frames%600]=a.last_frame_ms;
         if (a.last_frame_ms>a.worst_frame_ms) a.worst_frame_ms=a.last_frame_ms;
         a.frames++;
-        if (options->layout_smoke && (layout_smoke<0 || layout_smoke==layout_target)) break;
+        /* A terminal stage runs after drawing. Render its final state once
+           before exiting, and never let one enabled scenario end another.
+           Document Quit still exits through exit_ready after save publication. */
+        if (options->layout_smoke && layout_smoke<0) break;
+        bool complete=smoke_stages_complete(completions,sizeof(completions)/sizeof(*completions));
+        if (complete && smoke_pass_seen && smoke_work_idle(&a)) break;
+        smoke_pass_seen=complete;
     }
     if (options->screenshot) {
         Image image=LoadImageFromScreen(); ExportImage(image,options->screenshot); UnloadImage(image);
