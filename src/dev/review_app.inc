@@ -741,8 +741,10 @@ static void review_feedback_metadata(App *a,const DxReviewWidget *widget) {
 }
 static void review_feedback_target(App *a,DxReviewDataIdentity origin,const char *id,const char *parent,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *type,bool is_null,const char *text,const char *file,int line) {
     if (!review_armed(a)) return;
+    bool filter=!strncmp(id,"filter.",7);
+    if (filter ? a->modal!=MODAL_FILTER : a->modal!=MODAL_NONE || a->file_menu) return;
     if (a->ui.clipping) clip=GetCollisionRec(clip,a->ui.clip);
-    bool filter=!strncmp(id,"filter.",7); float offset=filter ? a->popup_presence.offset*a->ui.scale : 0;
+    float offset=filter ? a->popup_presence.offset*a->ui.scale : 0;
     bounds.y+=offset; clip.y+=offset;
     Rectangle visible=GetCollisionRec(GetCollisionRec(bounds,clip),box(0,0,GetScreenWidth(),GetScreenHeight())); if (visible.width<=0 || visible.height<=0) return;
     DxReviewWidget widget; dx_review_widget_init(&widget,id,action,"workspace/feedback",role,label); widget.data=origin;
@@ -776,7 +778,7 @@ static void review_feedback_step(App *a,const SheetObject *owner,const UIStep *s
     if (truncated) { DxReviewWidget *widget=(DxReviewWidget *)dx_review_find(a->review->registry,id); if (widget) widget->identity_truncated=widget->truncated=true; a->review->registry->truncated=true; }
 }
 static void review_feedback_preview(App *a,const UIPreviewReviewFrame *frame) {
-    if (!review_armed(a) || !frame || !frame->armed) return;
+    if (!review_armed(a) || !frame || !frame->armed || a->modal!=MODAL_NONE || a->file_menu) return;
     DxReviewDataIdentity origin=review_feedback_origin(a,"preview",NULL); char metadata[256];
     snprintf(metadata,sizeof(metadata)," feedback_preview=%llu,%llu,%llu,%zu,%d,%d feedback_preview_records=%zu,%d",(unsigned long long)a->step_preview.source_id,(unsigned long long)a->step_preview.source_revision,(unsigned long long)a->step_preview.request,a->step_preview.step,a->step_preview.loading,a->step_preview.error!=NULL,frame->count,frame->overflow); review_author_capture_state(a,metadata);
     if (frame->overflow) a->review->registry->truncated=true;
