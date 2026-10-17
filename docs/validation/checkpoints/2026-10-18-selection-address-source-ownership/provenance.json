@@ -272,6 +272,21 @@
       "source": "build/selection-ladder-runner-tests.txt",
       "file": "runner-tests.txt",
       "sha256": "33f579ec3e3040788c527420d88d370bec341bf8a4e5d8d1a556127abd3dcc48"
+    },
+    {
+      "source": "tests/results/runs/20261017T234653-review-23309/release/outbox/DXR-S-1792280815-23322-1/manifest.json",
+      "file": "native-review/reports/DXR-S-1792280815-23322-1/manifest.json",
+      "sha256": "5e59d66c239d7e5da35d139ee2e0610b7a7b60663247fcd6649aeb2726ce9c0a"
+    },
+    {
+      "source": "tests/results/runs/20261017T234653-review-23309/release/outbox/DXR-S-1792280815-23322-17/manifest.json",
+      "file": "native-review/reports/DXR-S-1792280815-23322-17/manifest.json",
+      "sha256": "d1ebd33d486af6d23442b7c0c8c5be4e7415c340da15ac3b063aaa65cfabe6c2"
+    },
+    {
+      "source": "tests/results/runs/20261017T234653-review-23309/release/outbox/DXR-S-1792280815-23322-2/manifest.json",
+      "file": "native-review/reports/DXR-S-1792280815-23322-2/manifest.json",
+      "sha256": "4deb155760db4e4bd47205e7842e029b70d0c55844a4acf9c134566cac974d3a"
     }
   ]
 }
