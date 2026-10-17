@@ -266,10 +266,11 @@ static char *plan_column_name(const PivotDefinition *p,size_t index) {
         if (!collision) return name; free(name);
     }
 }
-bool browser_pivot_plan_build(BrowserPivotPlan *out,const Analysis *source,const PivotDefinition *p,const Page *domains,char **error) {
+bool browser_pivot_plan_build_retained(BrowserPivotPlan *out,const Analysis *source,const PivotDefinition *p,const Page *domains,size_t retained,char **error) {
     if (!out || !domains || !columns_shape(p,error)) return fail(error,"Choose owned pivot domains and a plan output.");
     char *valid=browser_relation_sql(source,p,error); if (!valid) return false; free(valid);
-    size_t counts[DX_PIVOT_FIELDS]={0},product=1,used=0,keys=p->counts[PIVOT_ROWS],measures=p->counts[PIVOT_VALUES];
+    size_t counts[DX_PIVOT_FIELDS]={0},product=1,used=retained,keys=p->counts[PIVOT_ROWS],measures=p->counts[PIVOT_VALUES];
+    if (!pivot_add(&used,0,error)) return false;
     BrowserPivotPlan plan={0}; char *lists[DX_PIVOT_FIELDS]={0}; bool ok=false;
     for (size_t f=0;f<p->counts[PIVOT_COLUMNS];f++) {
         const Page *domain=&domains[f];
@@ -326,6 +327,9 @@ bool browser_pivot_plan_build(BrowserPivotPlan *out,const Analysis *source,const
     browser_pivot_plan_free(out); *out=plan; memset(&plan,0,sizeof(plan)); ok=true;
 done:
     for (size_t f=0;f<DX_PIVOT_FIELDS;f++) free(lists[f]); browser_pivot_plan_free(&plan); return ok;
+}
+bool browser_pivot_plan_build(BrowserPivotPlan *out,const Analysis *source,const PivotDefinition *p,const Page *domains,char **error) {
+    return browser_pivot_plan_build_retained(out,source,p,domains,0,error);
 }
 static bool plan_valid(const BrowserPivotPlan *plan,const PivotDefinition *p,char **error) {
     if (!columns_shape(p,error)) return false;

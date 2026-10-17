@@ -319,6 +319,12 @@ static void test_column_plans(void) {
     char *sql=browser_pivot_domain_sql(&source,&p,0,&error);
     CHECK(sql && strstr(sql,"CAST(_duxcel_domain_value AS VARCHAR) AS category") && strstr(sql,"SELECT DISTINCT \"Category\" AS _duxcel_domain_value") && strstr(sql,"ORDER BY _duxcel_domain_value NULLS FIRST LIMIT 129") && strstr(sql,"O''Reilly.csv")); free(sql);
     CHECK(browser_pivot_plan_build(&plan,&source,&p,domains,&error) && !error && plan.count==12 && !plan.empty_input && plan.bytes<=DX_PAGE_WIRE_TEXT_BYTES);
+    size_t retained=DX_PAGE_WIRE_TEXT_BYTES-domains[0].bytes-plan.bytes;
+    BrowserPivotPlan bounded={0}; CHECK(browser_pivot_plan_build_retained(&bounded,&source,&p,domains,retained,&error) && !error && bounded.bytes==plan.bytes && !strcmp(bounded.sql,plan.sql));
+    BrowserPivotPlan before=bounded; char *owned_sql=bounded.sql,*owned_caption=bounded.headers[0].caption;
+    CHECK(!browser_pivot_plan_build_retained(&bounded,&source,&p,domains,retained+1,&error) && error && strstr(error,"4 MiB"));
+    CHECK(!memcmp(&bounded,&before,sizeof(before)) && bounded.sql==owned_sql && bounded.headers[0].caption==owned_caption && !strcmp(bounded.sql,plan.sql)); free(error); error=NULL;
+    CHECK(!browser_pivot_plan_build_retained(&bounded,&source,&p,domains,SIZE_MAX,&error) && error && !memcmp(&bounded,&before,sizeof(before))); free(error); error=NULL; browser_pivot_plan_free(&bounded);
     CHECK(strstr(plan.sql,"PIVOT (") && strstr(plan.sql,"NULL AS \"category_0\"") && strstr(plan.sql,"'' AS \"category_1\"") && strstr(plan.sql,"'NULL' AS \"category_2\"") && strstr(plan.sql,"'quote_\"''_SUM' AS \"category_5\""));
     CHECK(plan.headers[0].category_count==1 && !plan.headers[0].categories[0] && !strcmp(plan.headers[0].caption,"NULL"));
     CHECK(plan.headers[2].categories[0] && !*plan.headers[2].categories[0] && !*plan.headers[2].caption && !strcmp(plan.headers[4].categories[0],"NULL"));

@@ -331,7 +331,12 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
         if (page.column_count!=1 || page.row_count>128 || count>(128-keys)/(product*measures)) { page_free(&page); browser_publish("Pivot exceeds 128 result columns. Filter the column fields or use fewer measures."); return; }
         q->domains[q->domain_index++]=page;
         if (q->domain_index<pivot->counts[PIVOT_COLUMNS]) { char *sql=browser_pivot_domain_sql(source,pivot,q->domain_index,&error); if (!sql) { browser_publish(error); free(error); return; } browser_execute(sql,BROWSER_PIVOT_DOMAIN); return; }
-        bool valid=browser_pivot_plan_build(&q->plan,source,pivot,q->domains,&error);
+        size_t retained=0; bool valid=true;
+        if (j->kind==JOB_STATISTICS) {
+            valid=browser_statistics_retained(0,&retained,&error);
+            if (valid) for (size_t i=0;i<q->domain_index;i++) retained-=q->domains[i].bytes;
+        }
+        if (valid) valid=browser_pivot_plan_build_retained(&q->plan,source,pivot,q->domains,retained,&error);
         for (size_t i=0;i<DX_PIVOT_FIELDS;i++) page_free(&q->domains[i]);
         if (!valid) { browser_publish(error); free(error); return; }
         free(q->relation); q->relation=dx_strdup(q->plan.sql);
