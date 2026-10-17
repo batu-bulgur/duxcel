@@ -123,11 +123,19 @@ export function createEngineHost(config,createAdapter=createOfficialWorkerAdapte
                         const previous=activeSubmission;epoch++;activeSubmission=null;
                         if(previous)deliver(previous.runtime,previous.cookie,previous.ticket,null,'Query cancelled for source import.');
                         await engine.cancel();if(current!==fileEpoch||closed){setFileStatus(name,'unused');return;}
-                        setFileStatus(name,'registering');await engine.registerFile(name,bytes);setFileStatus(name,'registered');
+                        setFileStatus(name,'registering');
+                        try{await engine.registerFile(name,bytes);}
+                        catch(error){
+                            // Worker registration may fail after adopting bytes.
+                            // Complete best-effort cleanup under the same barrier
+                            // before a waiting query or error callback can run.
+                            await dropFile(engine,name);throw error;
+                        }
+                        setFileStatus(name,'registered');
                         if(current!==fileEpoch){await dropFile(engine,name);return;}
                         if(!closed&&!finish(name,file.name,null))releaseFile(name);
                     });
-                }catch(error){if(name)setFileStatus(name,'failed');finish(null,null,String(error.message??error));}
+                }catch(error){if(name&&!['released','failed'].includes(files.get(name)))setFileStatus(name,'failed');finish(null,null,String(error.message??error));}
                 finally{input.remove();flushDrops();}
             },{once:true});
             input.click();

@@ -433,3 +433,57 @@ test('a file reply OOM releases its registered bytes without exposing a name to 
     assert.deepEqual(target.calls[0].args, [77, 0, 0, 0]);
     assert.deepEqual(adapter.calls.map(call => call[0]), ['cancel', 'register', 'drop']);
 }));
+
+test('partial registration failure cleans adopted bytes before the original error and waiting query publish', { timeout: 2000 }, async () => withDOM(async inputs => {
+    const registering = deferred(), began = deferred(), owned = new Set(), order = []; let failedName;
+    const adapter = engine({ async registerFile(name) {
+        owned.add(name); failedName = name; order.push('register'); began.resolve(); await registering.promise;
+        throw new Error('registration failed after adoption');
+    }, async dropFile(name) { assert.ok(owned.delete(name)); order.push('drop'); },
+    async submit(input) { assert.equal(owned.size, 0); order.push('query'); return reply(input); } });
+    const host = createEngineHost({}, async () => adapter), fileTarget = runtime('file'), target = runtime();
+    const fileReply = fileTarget.reply; fileTarget.reply = (...args) => { order.push('file:error'); fileReply(...args); };
+    const selected = choose(host, fileTarget, inputs); await began.promise;
+    const query = host.submit(target, 1, 21, request('21')); registering.resolve();
+    await Promise.all([selected.completion, query]); await tick();
+    assert.deepEqual(order, ['register', 'drop', 'file:error', 'query']); assert.equal(owned.size, 0);
+    assert.equal(fileTarget.calls[0].error, 'registration failed after adoption'); assert.equal(target.calls[0].error, null);
+    assert.equal(host.releaseFile(failedName), true, 'successful best-effort cleanup remains idempotently released');
+    adapter.registerFile = async name => { assert.notEqual(name, failedName, 'failed names remain burned'); };
+    const next = runtime('file'); await choose(host, next, inputs).completion; assert.equal(next.calls[0].error, null);
+}));
+
+test('failed partial-registration cleanup logs once, preserves the registration error, and waits for close', async () => withDOM(async inputs => {
+    const previous = console.error, errors = []; console.error = (...args) => errors.push(args);
+    try {
+        const owned = new Set(); let failedName, drops = 0;
+        const adapter = engine({ async registerFile(name) { owned.add(name); failedName = name; throw new Error('registration broke'); },
+            async dropFile() { drops++; throw new Error('cleanup broke'); }, async close() { owned.clear(); } });
+        const host = createEngineHost({}, async () => adapter), fileTarget = runtime('file');
+        await choose(host, fileTarget, inputs).completion; await tick();
+        assert.equal(fileTarget.calls[0].error, 'registration broke'); assert.equal(owned.size, 1); assert.equal(drops, 1);
+        assert.equal(errors.length, 1); assert.ok(errors[0][0].includes(failedName)); assert.equal(errors[0][1].message, 'cleanup broke');
+        assert.equal(host.releaseFile(failedName), false);
+        const target = runtime(); await host.submit(target, 1, 22, request('22')); await tick();
+        assert.equal(target.calls[0].error, null); assert.equal(drops, 1); assert.equal(errors.length, 1);
+        await host.cancel(true); assert.equal(owned.size, 0); assert.equal(drops, 1);
+    } finally { console.error = previous; }
+}));
+
+test('a synchronous stale file-delivery guard retires registered bytes through drop or close', async () => {
+    for (const closing of [false, true]) await withDOM(async inputs => {
+        const owned = new Set(), order = []; let registered = false, superseded = false, closed, name;
+        const adapter = engine({ async registerFile(value) { name = value; owned.add(value); registered = true; order.push('register'); },
+            async dropFile(value) { assert.ok(owned.delete(value)); order.push('drop'); }, async close() { owned.clear(); order.push('close'); } });
+        const host = createEngineHost({}, async () => adapter), first = runtime('file'), latest = runtime('file');
+        host.chooseFile(first, 77); const input = inputs.at(-1);
+        input.files = [{ get name() {
+            if (registered && !superseded) { superseded = true; if (closing) closed = host.cancel(true); else host.chooseFile(latest, 88); }
+            return 'guarded.csv';
+        }, size: 3, async arrayBuffer() { return Uint8Array.from([1, 2, 3]).buffer; } }];
+        await input.dispatch('change'); if (closed) await closed; await tick();
+        assert.equal(first.calls.length, 0); assert.equal(owned.size, 0); assert.deepEqual(order, ['register', closing ? 'close' : 'drop']);
+        assert.equal(host.releaseFile(name), !closing);
+        if (!closing) { await inputs.at(-1).dispatch('cancel'); assert.equal(latest.calls[0].name, null); }
+    });
+});
