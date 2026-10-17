@@ -1,0 +1,14 @@
+{
+  "source": {
+    "commit": "c9bc6dc9779e69f0a08a8dfe2e67dacd49db5044",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "f40de52f18a503fa90d98c9e0776604e4a19973e728e694386dba513b30cb6d8",
+    "source_files": 240
+  },
+  "path": "/Users/h2o/dev/duxcel/build/Duxcel.app",
+  "sha256": "46298b5a1df8041702c5ff88f1499b94c924effe351fdddacb5711c592d023ab",
+  "elapsed_seconds": 0.821,
+  "signing": "local ad hoc verified",
+  "launched": false,
+  "scope": "Local native package; installed Homebrew DuckDB/raylib required"
+}

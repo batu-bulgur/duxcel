@@ -1,0 +1,91 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T21:07:39.688474+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "8901181107e74564205b335d1248d46aa739b8be",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "adc76b4684b9b450733b0e99ac09074609566b507c2d7f35407a81a46faed676",
+    "source_files": 240
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_keytips",
+        "tests/test_page",
+        "tests/test_keytips-debug",
+        "tests/test_page-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T210739-fast-70501/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 3.661
+    },
+    {
+      "name": "keytips-release",
+      "command": [
+        "./tests/test_keytips"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T210739-fast-70501/keytips-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.491
+    },
+    {
+      "name": "page-release",
+      "command": [
+        "./tests/test_page"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T210739-fast-70501/page-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.437
+    },
+    {
+      "name": "keytips-sanitize",
+      "command": [
+        "./tests/test_keytips-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T210739-fast-70501/keytips-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.49
+    },
+    {
+      "name": "page-sanitize",
+      "command": [
+        "./tests/test_page-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T210739-fast-70501/page-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.438
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_keytips": "456003c18a2971774bd489ec21ff6f7776412575352d3ad5e794bda44148df4e",
+    "/Users/h2o/dev/duxcel/tests/test_page": "2b4b2dfd07ac3b749c1a576c043caa25d318cce24eeee0d5a2986bfd2b4cfc4e",
+    "/Users/h2o/dev/duxcel/tests/test_keytips-debug": "47630c28ab3fede7a818ab45fe9f3559692aa870f40907de0c20e4cc6b4b9b57",
+    "/Users/h2o/dev/duxcel/tests/test_page-debug": "ce42daccad73707f9ab002a46d4042115c9c0bb9182ff1a708e90fea23d1d2c5"
+  },
+  "elapsed_seconds": 5.625,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_keytips": "456003c18a2971774bd489ec21ff6f7776412575352d3ad5e794bda44148df4e",
+    "/Users/h2o/dev/duxcel/tests/test_page": "2b4b2dfd07ac3b749c1a576c043caa25d318cce24eeee0d5a2986bfd2b4cfc4e",
+    "/Users/h2o/dev/duxcel/tests/test_keytips-debug": "47630c28ab3fede7a818ab45fe9f3559692aa870f40907de0c20e4cc6b4b9b57",
+    "/Users/h2o/dev/duxcel/tests/test_page-debug": "ce42daccad73707f9ab002a46d4042115c9c0bb9182ff1a708e90fea23d1d2c5"
+  },
+  "finished_utc": "2026-10-17T21:07:45.479290+00:00"
+}

@@ -98,6 +98,8 @@ Chronological cell/object/analysis undo and redo are per sheet, limited to 32 ac
 
 Cmd+W closes the Mac workbook surface and leaves Duxcel running. Cmd+Q quits. Use File→New Workbook (Cmd+N), Open or the Dock to reopen a surface. Shift+F11 adds a worksheet. In the browser, Ctrl/Cmd+W keeps its browser meaning; **Alt→F→C** closes the workbook inside the live tab. Modified workbooks offer Cancel/Discard; browser Save is still unavailable and disabled.
 
+**File→Import table…** places a separate read-only source table at the current destination in the same worksheet; Open adds a worksheet instead. **Alt→F→I** is a Duxcel extension. Native import uses the macOS file picker. Browser import accepts CSV/TSV/CSV.gz/Parquet up to256MiB; keep the sheet and destination unchanged while it loads. Moving the destination rejects the pending import. This session can issue1,024 source names; reloading discards its unsaved data. Browser workbook persistence remains unavailable.
+
 File supports Up/Down, Home/End, Tab/Shift+Tab and Enter/Space, skipping unavailable commands. In a short window its command list scrolls with the wheel or thumb, and keyboard navigation reveals the focused command. An outside click dismisses it before other controls receive input.
 
 ## Shortcuts and interaction

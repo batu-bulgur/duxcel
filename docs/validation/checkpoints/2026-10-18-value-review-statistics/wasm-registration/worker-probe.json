@@ -1,0 +1,622 @@
+{
+  "schema": "duxcel.worker-probe",
+  "version": 1,
+  "status": "passed",
+  "engineVersion": "v1.4.3",
+  "milliseconds": 879.1000000238419,
+  "checks": [
+    {
+      "name": "initialize-official-worker",
+      "status": "passed",
+      "milliseconds": 552.8000000119209,
+      "details": {
+        "engineVersion": "v1.4.3",
+        "moduleURL": "http://127.0.0.1:50402/vendor/duckdb/dist/duckdb-eh.wasm",
+        "workerURL": "http://127.0.0.1:50402/vendor/duckdb/dist/duckdb-browser-eh.worker.js"
+      }
+    },
+    {
+      "name": "engine-version-from-library-and-sql",
+      "status": "passed",
+      "milliseconds": 27.69999998807907,
+      "details": {
+        "sql": "v1.4.3",
+        "library": "v1.4.3"
+      }
+    },
+    {
+      "name": "registered-source-names-never-rebind",
+      "status": "passed",
+      "milliseconds": 29.399999976158142,
+      "details": {
+        "original": "probe-source-original.csv",
+        "fresh": "probe-source-fresh.csv",
+        "scope": "Public adapter registrations sharing one database object; raw engine writes and cross-session identity excluded"
+      }
+    },
+    {
+      "name": "exact-arrow-values-and-null-states",
+      "status": "passed",
+      "milliseconds": 4.800000011920929,
+      "details": {
+        "requestId": "9007199254740996",
+        "values": [
+          "-9223372036854775808",
+          "9007199254740993",
+          "18446744073709551615",
+          "9007199254740993.1234567890",
+          "-0.0000000001",
+          null,
+          "",
+          "NULL",
+          "İstanbul 😀"
+        ],
+        "columns": [
+          {
+            "name": "min_bigint",
+            "typeName": "BIGINT",
+            "numberKind": "i64",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Int64",
+            "nullable": true,
+            "sqlTypeProvided": false,
+            "numeric": true
+          },
+          {
+            "name": "above_js_integer",
+            "typeName": "BIGINT",
+            "numberKind": "i64",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Int64",
+            "nullable": true,
+            "sqlTypeProvided": false,
+            "numeric": true
+          },
+          {
+            "name": "max_unsigned",
+            "typeName": "UBIGINT",
+            "numberKind": "u64",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Uint64",
+            "nullable": true,
+            "sqlTypeProvided": false,
+            "numeric": true
+          },
+          {
+            "name": "exact_decimal",
+            "typeName": "DECIMAL(38,10)",
+            "numberKind": "decimal",
+            "precision": 38,
+            "scale": 10,
+            "arrowType": "Decimal[38e+10]",
+            "nullable": true,
+            "sqlTypeProvided": false,
+            "numeric": true
+          },
+          {
+            "name": "negative_decimal",
+            "typeName": "DECIMAL(38,10)",
+            "numberKind": "decimal",
+            "precision": 38,
+            "scale": 10,
+            "arrowType": "Decimal[38e+10]",
+            "nullable": true,
+            "sqlTypeProvided": false,
+            "numeric": true
+          },
+          {
+            "name": "missing",
+            "typeName": "VARCHAR",
+            "numberKind": "none",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Utf8",
+            "nullable": true,
+            "sqlTypeProvided": false,
+            "numeric": false
+          },
+          {
+            "name": "zero_length",
+            "typeName": "VARCHAR",
+            "numberKind": "none",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Utf8",
+            "nullable": true,
+            "sqlTypeProvided": false,
+            "numeric": false
+          },
+          {
+            "name": "literal_null",
+            "typeName": "VARCHAR",
+            "numberKind": "none",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Utf8",
+            "nullable": true,
+            "sqlTypeProvided": false,
+            "numeric": false
+          },
+          {
+            "name": "utf8",
+            "typeName": "VARCHAR",
+            "numberKind": "none",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Utf8",
+            "nullable": true,
+            "sqlTypeProvided": false,
+            "numeric": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "canonical-varchar-retains-original-sql-metadata",
+      "status": "passed",
+      "milliseconds": 2.800000011920929,
+      "details": {
+        "values": [
+          "9007199254740993",
+          "9007199254740993.1234567890",
+          null,
+          "2026-10-17 12:34:56.123456789"
+        ],
+        "columns": [
+          {
+            "name": "exact_integer",
+            "typeName": "BIGINT",
+            "numberKind": "i64",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Utf8",
+            "nullable": true,
+            "sqlTypeProvided": true,
+            "numeric": true
+          },
+          {
+            "name": "exact_decimal",
+            "typeName": "DECIMAL(38,10)",
+            "numberKind": "decimal",
+            "precision": 38,
+            "scale": 10,
+            "arrowType": "Utf8",
+            "nullable": true,
+            "sqlTypeProvided": true,
+            "numeric": true
+          },
+          {
+            "name": "typed_null",
+            "typeName": "DECIMAL(38,10)",
+            "numberKind": "decimal",
+            "precision": 38,
+            "scale": 10,
+            "arrowType": "Utf8",
+            "nullable": true,
+            "sqlTypeProvided": true,
+            "numeric": true
+          },
+          {
+            "name": "timestamp_ns",
+            "typeName": "TIMESTAMP_NS",
+            "numberKind": "none",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Utf8",
+            "nullable": true,
+            "sqlTypeProvided": true,
+            "numeric": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "direct-hugeint-arrow-capability",
+      "status": "unsupported",
+      "milliseconds": 3.300000011920929,
+      "details": {
+        "unsupported": true,
+        "error": {
+          "code": "UNSUPPORTED_TYPE",
+          "message": "Arrow FixedSizeBinary[16] requires a C-built canonical VARCHAR projection"
+        },
+        "alternative": "Engine-produced VARCHAR with explicit HUGEINT metadata is tested next"
+      }
+    },
+    {
+      "name": "canonical-hugeint-exact-range",
+      "status": "passed",
+      "milliseconds": 1,
+      "details": {
+        "values": [
+          "170141183460469231731687303715884105727",
+          "-170141183460469231731687303715884105728"
+        ],
+        "columns": [
+          {
+            "name": "huge_max",
+            "typeName": "HUGEINT",
+            "numberKind": "i128",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Utf8",
+            "nullable": true,
+            "sqlTypeProvided": true,
+            "numeric": true
+          },
+          {
+            "name": "huge_min",
+            "typeName": "HUGEINT",
+            "numberKind": "i128",
+            "precision": 0,
+            "scale": 0,
+            "arrowType": "Utf8",
+            "nullable": true,
+            "sqlTypeProvided": true,
+            "numeric": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "bounded-offset-pages-and-owned-transfer",
+      "status": "passed",
+      "milliseconds": 15.899999976158142,
+      "details": {
+        "pages": [
+          {
+            "offset": "0",
+            "rows": 256,
+            "total": "256",
+            "countPending": true,
+            "first": "9007199254740993",
+            "last": "9007199254741248"
+          },
+          {
+            "offset": "256",
+            "rows": 256,
+            "total": "512",
+            "countPending": true,
+            "first": "9007199254741249",
+            "last": "9007199254741504"
+          },
+          {
+            "offset": "512",
+            "rows": 88,
+            "total": "600",
+            "countPending": false,
+            "first": "9007199254741505",
+            "last": "9007199254741592"
+          }
+        ],
+        "largeOffset": "9007199254740993"
+      }
+    },
+    {
+      "name": "real-sql-error-and-bounded-page-recovery",
+      "status": "passed",
+      "milliseconds": 34,
+      "details": {
+        "binder": {
+          "code": "QUERY_FAILED",
+          "message": "Catalog Error: Table with name __duxcel_worker_probe_missing_table does not exist!\nDid you mean \"pg_prepared_statements\"?\n\nLINE 1: SELECT * FROM __duxcel_worker_probe_missing_table LIMIT 1\n                      ^"
+        },
+        "rowBudget": {
+          "code": "PAGE_LIMIT",
+          "message": "C-built page SQL returned more than its requested bounded rows"
+        }
+      }
+    },
+    {
+      "name": "latest-wins-and-cancellation-cleanup",
+      "status": "passed",
+      "milliseconds": 207.19999998807907,
+      "details": {
+        "latest": [
+          {
+            "requestId": "9007199254741007",
+            "status": "superseded"
+          },
+          {
+            "requestId": "9007199254741008",
+            "status": "superseded"
+          },
+          {
+            "requestId": "9007199254741009",
+            "status": "ok"
+          }
+        ],
+        "cancelled": {
+          "requestId": "9007199254741010",
+          "status": "cancelled"
+        },
+        "cancelRows": 10000000
+      }
+    },
+    {
+      "name": "close-worker-and-connection",
+      "status": "passed",
+      "milliseconds": 0.10000002384185791
+    }
+  ],
+  "capabilities": {
+    "hugeIntArrow": false
+  },
+  "requests": [
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254740993",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT version() AS engine_version LIMIT 1"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254740994",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT marker FROM read_csv('probe-source-original.csv', header=true) LIMIT 1"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254740995",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT marker FROM read_csv('probe-source-fresh.csv', header=true) LIMIT 1"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254740996",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT\n                    '-9223372036854775808'::BIGINT AS min_bigint,\n                    '9007199254740993'::BIGINT AS above_js_integer,\n                    '18446744073709551615'::UBIGINT AS max_unsigned,\n                    '9007199254740993.1234567890'::DECIMAL(38,10) AS exact_decimal,\n                    '-0.0000000001'::DECIMAL(38,10) AS negative_decimal,\n                    NULL::VARCHAR AS missing, ''::VARCHAR AS zero_length,\n                    'NULL'::VARCHAR AS literal_null, 'İstanbul 😀'::VARCHAR AS utf8 LIMIT 1"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254740997",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT CAST('9007199254740993'::BIGINT AS VARCHAR) AS exact_integer,\n                    CAST('9007199254740993.1234567890'::DECIMAL(38,10) AS VARCHAR) AS exact_decimal,\n                    CAST(NULL::DECIMAL(38,10) AS VARCHAR) AS typed_null,\n                    CAST('2026-10-17 12:34:56.123456789'::TIMESTAMP_NS AS VARCHAR) AS timestamp_ns LIMIT 1",
+      "columns": [
+        {
+          "name": "exact_integer",
+          "typeName": "BIGINT",
+          "numberKind": "i64",
+          "precision": 0,
+          "scale": 0
+        },
+        {
+          "name": "exact_decimal",
+          "typeName": "DECIMAL(38,10)",
+          "numberKind": "decimal",
+          "precision": 38,
+          "scale": 10
+        },
+        {
+          "name": "typed_null",
+          "typeName": "DECIMAL(38,10)",
+          "numberKind": "decimal",
+          "precision": 38,
+          "scale": 10
+        },
+        {
+          "name": "timestamp_ns",
+          "typeName": "TIMESTAMP_NS",
+          "numberKind": "none",
+          "precision": 0,
+          "scale": 0
+        }
+      ]
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254740998",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT '170141183460469231731687303715884105727'::HUGEINT AS huge_max,\n                    '-170141183460469231731687303715884105728'::HUGEINT AS huge_min LIMIT 1"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254740999",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT CAST('170141183460469231731687303715884105727'::HUGEINT AS VARCHAR) AS huge_max,\n                    CAST('-170141183460469231731687303715884105728'::HUGEINT AS VARCHAR) AS huge_min LIMIT 1",
+      "columns": [
+        {
+          "name": "huge_max",
+          "typeName": "HUGEINT",
+          "numberKind": "i128"
+        },
+        {
+          "name": "huge_min",
+          "typeName": "HUGEINT",
+          "numberKind": "i128"
+        }
+      ]
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741000",
+      "offset": "0",
+      "rowLimit": 256,
+      "knownTotal": null,
+      "sql": "SELECT i+9007199254740993::BIGINT AS exact_id,\n                        CASE WHEN i%3=0 THEN NULL WHEN i%3=1 THEN '' ELSE 'NULL' END AS text_state\n                        FROM range(600) AS r(i) ORDER BY i LIMIT 256 OFFSET 0"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741001",
+      "offset": "256",
+      "rowLimit": 256,
+      "knownTotal": null,
+      "sql": "SELECT i+9007199254740993::BIGINT AS exact_id,\n                        CASE WHEN i%3=0 THEN NULL WHEN i%3=1 THEN '' ELSE 'NULL' END AS text_state\n                        FROM range(600) AS r(i) ORDER BY i LIMIT 256 OFFSET 256"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741002",
+      "offset": "512",
+      "rowLimit": 256,
+      "knownTotal": null,
+      "sql": "SELECT i+9007199254740993::BIGINT AS exact_id,\n                        CASE WHEN i%3=0 THEN NULL WHEN i%3=1 THEN '' ELSE 'NULL' END AS text_state\n                        FROM range(600) AS r(i) ORDER BY i LIMIT 256 OFFSET 512"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741003",
+      "offset": "9007199254740993",
+      "rowLimit": 1,
+      "knownTotal": "600",
+      "sql": "SELECT i::BIGINT AS exact_id FROM range(600) AS r(i) LIMIT 1 OFFSET 9007199254740993"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741004",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT * FROM __duxcel_worker_probe_missing_table LIMIT 1"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741005",
+      "offset": "0",
+      "rowLimit": 256,
+      "knownTotal": null,
+      "sql": "SELECT i::INTEGER AS value FROM range(257) AS r(i) LIMIT 257"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741006",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT 7::INTEGER AS recovered LIMIT 1"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741007",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT CAST(sum(hash(i)) AS VARCHAR) AS old_result FROM range(10000000) AS r(i) LIMIT 1"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741008",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT 'middle' AS marker LIMIT 1"
+    },
+    {
+      "generation": "9007199254740996",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741009",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT 'newest' AS marker LIMIT 1"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741010",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT CAST(sum(hash(i)) AS VARCHAR) AS old_result FROM range(10000000) AS r(i) LIMIT 1"
+    },
+    {
+      "generation": "9007199254740995",
+      "documentId": "9007199254740997",
+      "sourceId": "18446744073709551613",
+      "objectId": "18446744073709551612",
+      "revision": "9007199254740999",
+      "requestId": "9007199254741011",
+      "offset": "0",
+      "rowLimit": 1,
+      "knownTotal": null,
+      "sql": "SELECT 'after-cancel' AS marker LIMIT 1"
+    }
+  ],
+  "ownedWorkersCreated": 1,
+  "scope": "Real official Worker adapter SQL/type/ownership/lifecycle acceptance; shared C bridge, UI responsiveness, source import and workbook acceptance remain separate."
+}
