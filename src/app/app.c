@@ -372,6 +372,7 @@ static void status(App *a,const char *text) { char *owned=dx_strdup(text); free(
 static void review_control(App *a,const char *id,const char *action,const char *path,const char *role,const char *label,Rectangle bounds,int layer,bool enabled,bool focused,bool container,const char *file,int line);
 static void review_filter(App *a);
 static void review_file_menu(App *a);
+static void review_choice_menu(App *a,const UIChoiceLayout *layout,const char *title,const char *const *names,int count,int selected,int focus);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -384,6 +385,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_CONTROL(a,id,action,path,role,label,bounds,layer,enabled,focused,container) review_control(a,id,action,path,role,label,bounds,layer,enabled,focused,container,__FILE__,__LINE__)
 #define REVIEW_FILTER(a) review_filter(a)
 #define REVIEW_FILE_MENU(a) review_file_menu(a)
+#define REVIEW_CHOICES(a,layout,title,names,count,selected,focus) review_choice_menu(a,layout,title,names,count,selected,focus)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -394,6 +396,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_CONTROL(...) ((void)0)
 #define REVIEW_FILTER(...) ((void)0)
 #define REVIEW_FILE_MENU(...) ((void)0)
+#define REVIEW_CHOICES(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -2508,6 +2511,7 @@ static void draw_pivot_field_popup(App *a) {
     int direction=ui_key(KEY_UP) || (ui_pressed(KEY_TAB)&&ui_key_shift(KEY_TAB)) || ui_pressed(KEY_END) ? -1 : 1;
     for (int i=0;i<count && !allowed[a->context_focus];i++) a->context_focus=(a->context_focus+count+direction)%count;
     ui_choice_frame(u,&layout,title);
+    REVIEW_CHOICES(a,&layout,title,names,count,selected,*focus);
     for (int item=0;item<count;item++) {
         bool chosen=ui_choice_row(u,layout.rows[item],labels[item],NULL,icons[item],checked[item],a->context_focus==item,allowed[item]);
         bool activate=!a->consume_grid_input && a->context_focus==item && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE));
