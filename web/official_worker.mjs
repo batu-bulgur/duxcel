@@ -13,6 +13,8 @@ import { DataType } from 'apache-arrow';
 
 export const LIMITS = Object.freeze({ rows: 256, columns: 256, bytes: 4 * 1024 * 1024,
     copyCells:20000,sqlBytes: 1024 * 1024, fileBytes: 256 * 1024 * 1024, fileNames: 1024 });
+// Bounds transferred output, not COPY's private engine file or process peak.
+export const EXPORT_LIMITS=Object.freeze({bytes:64*1024*1024});
 const MAX_U64 = 18446744073709551615n;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -65,6 +67,28 @@ export function pageRequest(value) {
         check(request.purpose!=='copy'||request.rowLimit*request.columns.length<=LIMITS.copyCells,'INVALID_REQUEST','Copy projection exceeds 20,000 cells');
     }
     return Object.freeze(request);
+}
+export function exportRequest(value) {
+    const request=pageRequest(value);
+    check(value.rowLimit===1 && value.offset==='0' && value.knownTotal==='1' && value.columns===undefined && value.purpose===undefined,
+        'INVALID_EXPORT','Parquet export requires one unsupplied Count column at offset zero');
+    for(const field of ['requestId','documentId'])check(BigInt(request[field])>0n && BigInt(request[field])<=4294967295n,
+        'INVALID_EXPORT','Parquet export cookies and tickets must be nonzero uint32 values');
+    const fileName=`export-${request.documentId}-${request.requestId}.parquet`;
+    check(value.fileName===fileName,'INVALID_EXPORT','Parquet export must use its own private cookie/ticket basename');
+    return Object.freeze({...request,fileName});
+}
+export function inspectParquetExport(bytes,expectedSize=null) {
+    check(bytes instanceof Uint8Array && bytes.buffer instanceof ArrayBuffer,'INVALID_EXPORT','Parquet export requires an owned non-shared byte buffer');
+    try{new Uint8Array(bytes.buffer,bytes.byteOffset,bytes.byteLength);}catch{throw new BridgeError('INVALID_EXPORT','Parquet export bytes are detached');}
+    const size=bytes.byteLength;
+    check(size>=12 && size<=EXPORT_LIMITS.bytes && (expectedSize===null || Number.isSafeInteger(expectedSize) && expectedSize===size),
+        'EXPORT_LIMIT','Parquet export exceeds 64 MiB or disagrees with its exact file size');
+    for(const offset of [0,size-4])check(bytes[offset]===80 && bytes[offset+1]===65 && bytes[offset+2]===82 && bytes[offset+3]===49,
+        'INVALID_EXPORT','Parquet PAR1 header/footer missing');
+    const footerBytes=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength).getUint32(size-8,true);
+    check(footerBytes>0 && footerBytes<=size-12,'INVALID_EXPORT','Parquet footer lies outside the owned file');
+    return {byteLength:size,footerBytes};
 }
 function identity(request) {
     return Object.fromEntries(['requestId', 'generation', 'documentId', 'sourceId', 'objectId', 'revision', 'offset'].map(name => [name, request[name]]));
@@ -204,12 +228,18 @@ export class DuckDBWorkerAdapter {
         this.active = null; this.pending = null; this.draining = null; this.closed = false; this.admin = false; this.latestId = 0n;
     }
     submit(value) {
-        const request = pageRequest(value);
+        return this.#enqueue(pageRequest(value),false);
+    }
+    exportParquet(value) {
+        return this.#enqueue(exportRequest(value),true);
+    }
+    #enqueue(request,exporting) {
         check(!this.closed && !this.admin, 'NOT_AVAILABLE', 'Engine is closed or registering a file');
         check(BigInt(request.requestId) > this.latestId, 'STALE_REQUEST', 'requestId must increase within this adapter');
+        if(exporting)this.#reserveFileName(request.fileName,true);
         this.latestId = BigInt(request.requestId);
         if (this.pending) this.pending.resolve(failure(this.pending.request, 'superseded'));
-        const result = new Promise(resolve => { this.pending = { request, resolve, reason: null, cancel: null }; });
+        const result = new Promise(resolve => { this.pending = { request, resolve, reason: null, cancel: null,exporting,privateOwned:false }; });
         if (this.active) this.interrupt(this.active, 'superseded');
         if (!this.draining) this.draining = this.drain();
         return result;
@@ -224,18 +254,53 @@ export class DuckDBWorkerAdapter {
                 const task = this.active = this.pending; this.pending = null;
                 let reader, reply;
                 try {
+                    if(task.exporting){
+                        const files=await this.database.globFiles(task.request.fileName);
+                        check(Array.isArray(files) && files.length===0,'EXPORT_EXISTS','Private export file already exists; it has been preserved');
+                        check(!task.reason,'SUPERSEDED','Request was superseded');task.privateOwned=true;
+                    }
                     reader = await this.connection.send(task.request.sql, true);
                     check(reader && !task.reason, 'SUPERSEDED', 'Request was superseded');
                     const page = await encodePage(reader, task.request, { obsolete: () => Boolean(task.reason) });
-                    reply = { ...identity(task.request), status: 'ok', page };
+                    if(task.exporting){
+                        check(page.rowCount===1 && page.columnCount===1 && page.columns[0].name==='Count' &&
+                            (page.columns[0].typeName==='BIGINT' && page.columns[0].numberKind==='i64' || page.columns[0].typeName==='UBIGINT' && page.columns[0].numberKind==='u64'),
+                            'INVALID_EXPORT','COPY did not return its one exact integer Count column');
+                        u64(pageCellText(page,0,0),'COPY row count');
+                        // The complete Count reader is quiescent before file
+                        // operations begin; no later task enters this queue yet.
+                        if(reader?.cancel){await reader.cancel();reader=null;}
+                        check(!task.reason,'SUPERSEDED','Request was superseded');
+                        await this.database.flushFiles();check(!task.reason,'SUPERSEDED','Request was superseded');
+                        const infos=await this.database.globFiles(task.request.fileName);
+                        check(Array.isArray(infos) && infos.length===1 && infos[0]?.fileName===task.request.fileName &&
+                            Number.isSafeInteger(infos[0].fileSize) && infos[0].fileSize>=12 && infos[0].fileSize<=EXPORT_LIMITS.bytes,
+                            'EXPORT_LIMIT','Private Parquet file must have one exact known size of at most 64 MiB');
+                        check(!task.reason,'SUPERSEDED','Request was superseded');
+                        const data=await this.database.copyFileToBuffer(task.request.fileName);
+                        check(!task.reason,'SUPERSEDED','Request was superseded');inspectParquetExport(data,infos[0].fileSize);
+                        reply={...identity(task.request),status:'ok',page,data};
+                    } else reply = { ...identity(task.request), status: 'ok', page };
                 } catch (error) {
                     reply = failure(task.request, task.reason ?? 'error', error);
                     if (!task.cancel) this.interrupt(task, task.reason ?? 'error');
                 } finally {
                     if (reader?.cancel) { try { await reader.cancel(); } catch { /* engine cancellation may already have closed the stream */ } }
                     if (task.cancel) await task.cancel; // finish the old cancel before a new send can start
+                    if(task.privateOwned){
+                        try{
+                            const remaining=await this.database.globFiles(task.request.fileName);
+                            check(Array.isArray(remaining),'EXPORT_CLEANUP','Private export cleanup could not inspect its file');
+                            if(remaining.length)await this.database.dropFile(task.request.fileName);
+                            const after=await this.database.globFiles(task.request.fileName);
+                            check(Array.isArray(after) && after.length===0,'EXPORT_CLEANUP','Private export file was not removed');
+                        }catch(error){task.cleanupError=new BridgeError('EXPORT_CLEANUP',`Private Parquet cleanup failed: ${String(error.message??error).slice(0,1800)}`);reply=failure(task.request,'error',task.cleanupError);}
+                        // A cancellation can start while a noninterruptible
+                        // file copy/drop is pending. Drain it before next send.
+                        if(task.cancel)await task.cancel;
+                    }
                 }
-                task.resolve(task.reason && task.reason !== 'error' ? failure(task.request, task.reason) : reply);
+                task.resolve(task.reason && task.reason !== 'error' ? failure(task.request, task.reason,task.cleanupError) : reply);
                 this.active = null;
             }
         } finally { this.draining = null; }

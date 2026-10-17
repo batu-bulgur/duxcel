@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { Table, Int32, Int64, Uint64, Decimal, Utf8, TimestampNanosecond,
     vectorFromArray, makeVector, makeData, RecordBatchReader, tableToIPC } from 'apache-arrow';
 import { LIMITS, pageRequest, decimalText, encodePage, pageCellText, pageTransferables,
-    DuckDBWorkerAdapter, createOfficialWorkerAdapter } from './official_worker.mjs';
+    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport } from './official_worker.mjs';
 
 const request = (id = '1', extra = {}) => pageRequest({ requestId: id, sql: 'C BUILT SQL LIMIT 256', ...extra });
 function words(value, length = 4) {
@@ -320,6 +320,129 @@ test('nonmutating validation and active-query rejections do not consume a fresh 
     await assert.rejects(adapter.registerFile('fresh.csv', new Uint8Array([1])), { code: 'NOT_AVAILABLE' });
     await adapter.cancel(); assert.equal((await query).status, 'cancelled');
     await adapter.registerFile('fresh.csv', new Uint8Array([1])); assert.deepEqual(calls, ['fresh.csv']); await adapter.close();
+});
+
+function exportInput(id='1',change={}){
+    return {requestId:id,documentId:'7',generation:'9007199254740993',sourceId:'0',objectId:'18446744073709551615',revision:'9007199254740995',
+        offset:'0',knownTotal:'1',rowLimit:1,sql:'COPY (C GENERATED SQL) TO PRIVATE PARQUET',fileName:`export-7-${id}.parquet`,...change};
+}
+function parquetBytes(size=32){const bytes=new Uint8Array(size);bytes.set([80,65,82,49]);bytes.set([80,65,82,49],size-4);new DataView(bytes.buffer).setUint32(size-8,8,true);return bytes;}
+function exportFixture({table=new Table({Count:vectorFromArray([600n],new Int64())}),stat,output=parquetBytes(),send,drop,copy}={}){
+    const calls=[],files=new Map();
+    const database={async globFiles(name){calls.push(['glob',name]);return files.has(name)?[{fileName:name,...(stat??{fileSize:files.get(name).length})}]:[];},
+        async flushFiles(){calls.push(['flush']);},async copyFileToBuffer(name){calls.push(['copy',name]);return copy?copy(name):files.get(name).slice();},
+        async dropFile(name){calls.push(['drop',name]);if(drop)await drop(name);files.delete(name);},async registerFileBuffer(name,bytes){files.set(name,bytes.slice());}};
+    const conn=connection({async send(sql){calls.push(['send',sql]);if(sql==='LATEST')return reader(simple());if(sql.startsWith('COPY'))files.set('export-7-1.parquet',output.slice());return send?send(sql):reader(table);},
+        async cancelSent(){calls.push(['cancel']);return true;},async close(){calls.push(['close']);}});
+    return {calls,files,database,adapter:new DuckDBWorkerAdapter({database,connection:conn})};
+}
+test('export request is explicit and cannot enlarge ordinary pages or read arbitrary files',()=>{
+    const value=exportRequest(exportInput());assert.ok(Object.isFrozen(value));assert.equal(value.fileName,'export-7-1.parquet');
+    assert.equal(EXPORT_LIMITS.bytes,64*1024*1024);assert.equal(LIMITS.rows,256);
+    for(const change of [{documentId:'0'},{requestId:'4294967296'},{documentId:'4294967296'},{fileName:'/tmp/a.parquet'},
+        {fileName:'export-7-2.parquet'},{fileName:'import-1-source.parquet'},{offset:'1'},{knownTotal:null},{rowLimit:2},{columns:[]},{columns:null},{purpose:'copy'}])
+        assert.throws(()=>exportRequest(exportInput('1',change)));
+    const bytes=parquetBytes(),storage=new Uint8Array(64);storage.set(bytes,13);
+    assert.deepEqual(inspectParquetExport(storage.subarray(13,45),32),{byteLength:32,footerBytes:8});
+    assert.throws(()=>inspectParquetExport(bytes,33),{code:'EXPORT_LIMIT'});
+    const invalid=bytes.slice();invalid[0]=0;assert.throws(()=>inspectParquetExport(invalid),{code:'INVALID_EXPORT'});
+    const badFooter=bytes.slice();new DataView(badFooter.buffer).setUint32(24,21,true);assert.throws(()=>inspectParquetExport(badFooter),{code:'INVALID_EXPORT'});
+    assert.throws(()=>inspectParquetExport(new Uint8Array(new SharedArrayBuffer(32))),{code:'INVALID_EXPORT'});
+    const detached=bytes.slice();structuredClone(detached,{transfer:[detached.buffer]});assert.throws(()=>inspectParquetExport(detached));
+});
+test('export drains Count before bounded file copy, removes its private file and owns exact output',async()=>{
+    const fixture=exportFixture(),input=exportInput(),before=parquetBytes();
+    const result=await fixture.adapter.exportParquet(input);
+    assert.equal(result.status,'ok');assert.equal(pageCellText(result.page,0,0),'600');assert.deepEqual(result.data,before);
+    for(const field of ['requestId','generation','documentId','sourceId','objectId','revision','offset'])assert.equal(result[field],input[field]);
+    assert.equal(fixture.files.size,0);
+    assert.deepEqual(fixture.calls.map(value=>value[0]),['glob','send','flush','glob','copy','glob','drop','glob']);
+    await assert.rejects(fixture.adapter.registerFile(input.fileName,new Uint8Array([9])),{code:'IMMUTABLE_FILE'});
+    const sibling=new DuckDBWorkerAdapter({database:fixture.database,connection:connection()});
+    assert.throws(()=>sibling.exportParquet(input),{code:'IMMUTABLE_FILE'});await sibling.close();await fixture.adapter.close();
+});
+test('exact large Count and reader shutdown precede every private file operation',async()=>{
+    const stopping=deferred(),began=deferred(),table=new Table({Count:vectorFromArray([9007199254740993n],new Int64())});
+    const fixture=exportFixture({send:async()=>{const value=reader(table);value.cancel=async()=>{began.resolve();await stopping.promise;};return value;}});
+    const pending=fixture.adapter.exportParquet(exportInput());await began.promise;await tick();
+    assert.equal(fixture.calls.some(value=>value[0]==='flush'||value[0]==='copy'),false);
+    stopping.resolve();const result=await pending;assert.equal(result.status,'ok');assert.equal(pageCellText(result.page,0,0),'9007199254740993');
+    assert.equal(fixture.files.size,0);await fixture.adapter.close();
+});
+test('existing private path is preserved and invalid requests never send SQL',async()=>{
+    const fixture=exportFixture(),input=exportInput();fixture.files.set(input.fileName,new Uint8Array([9]));
+    const result=await fixture.adapter.exportParquet(input);assert.equal(result.status,'error');assert.equal(result.error.code,'EXPORT_EXISTS');
+    assert.deepEqual([...fixture.files.get(input.fileName)],[9]);assert.equal(fixture.calls.filter(value=>['send','copy','drop'].includes(value[0])).length,0);
+    const fresh=exportFixture();assert.throws(()=>fresh.adapter.exportParquet(exportInput('1',{fileName:'source.parquet'})));
+    assert.equal(fresh.adapter.latestId,0n);assert.deepEqual(fresh.calls,[]);await fresh.adapter.close();await fixture.adapter.close();
+});
+test('missing/zero/oversized file sizes reject before copy; malformed binary and Count never publish bytes',async()=>{
+    for(const stat of [{},{fileSize:0},{fileSize:NaN},{fileSize:'32'},{fileSize:EXPORT_LIMITS.bytes+1}]){
+        const fixture=exportFixture({stat}),result=await fixture.adapter.exportParquet(exportInput());
+        assert.equal(result.status,'error');assert.equal(result.data,undefined);assert.equal(result.error.code,'EXPORT_LIMIT');
+        assert.equal(fixture.calls.filter(value=>value[0]==='copy').length,0);assert.equal(fixture.files.size,0);await fixture.adapter.close();
+    }
+    for(const output of [new Uint8Array(32),parquetBytes(40)]){
+        const fixture=exportFixture({output,stat:{fileSize:32}}),result=await fixture.adapter.exportParquet(exportInput());
+        assert.equal(result.status,'error');assert.equal(result.data,undefined);assert.equal(fixture.files.size,0);await fixture.adapter.close();
+    }
+    for(const table of [new Table({Other:vectorFromArray([1n],new Int64())}),new Table({Count:vectorFromArray([-1n],new Int64())}),
+        new Table({Count:vectorFromArray([null],new Int64())}),new Table({Count:vectorFromArray([1,2],new Int32())})]){
+        const fixture=exportFixture({table}),result=await fixture.adapter.exportParquet(exportInput());
+        assert.equal(result.status,'error');assert.equal(result.data,undefined);assert.equal(fixture.calls.filter(value=>value[0]==='copy').length,0);
+        assert.equal(fixture.files.size,0);await fixture.adapter.close();
+    }
+});
+test('SQL/flush/copy/drop failures discard all export data and permit a later ordinary query',async()=>{
+    for(const kind of ['send','flush','copy','drop']){
+        const fixture=exportFixture({...(kind==='send'?{send:async()=>{throw new Error('partial COPY failed');}}:{}),
+            ...(kind==='copy'?{copy:async()=>{throw new Error('binary copy failed');}}:{}),...(kind==='drop'?{drop:async()=>{throw new Error('drop failed');}}:{})});
+        if(kind==='flush')fixture.database.flushFiles=async()=>{throw new Error('flush failed');};
+        const result=await fixture.adapter.exportParquet(exportInput());assert.equal(result.status,'error');assert.equal(result.data,undefined);
+        if(kind==='drop')assert.equal(result.error.code,'EXPORT_CLEANUP');else assert.equal(fixture.files.size,0);
+        assert.equal((await fixture.adapter.submit({requestId:'2',sql:'LATEST'})).status,'ok');await fixture.adapter.close();
+    }
+});
+test('superseding export waits through noninterruptible copy and private drop before next SQL',async()=>{
+    const copying=deferred(),copyBegan=deferred(),dropping=deferred(),dropBegan=deferred();
+    const fixture=exportFixture({copy:async()=>{copyBegan.resolve();return copying.promise;},drop:async()=>{dropBegan.resolve();await dropping.promise;}});
+    const original=fixture.adapter.exportParquet(exportInput());await copyBegan.promise;
+    const latest=fixture.adapter.submit({requestId:'2',sql:'LATEST'});await tick();
+    assert.equal(fixture.calls.some(value=>value[0]==='send'&&value[1]==='LATEST'),false);
+    copying.resolve(parquetBytes());await dropBegan.promise;await tick();
+    assert.equal(fixture.calls.some(value=>value[0]==='send'&&value[1]==='LATEST'),false);
+    dropping.resolve();const old=await original;assert.equal(old.status,'superseded');assert.equal(old.data,undefined);
+    assert.equal((await latest).status,'ok');assert.equal(fixture.files.size,0);
+    assert.ok(fixture.calls.findIndex(value=>value[0]==='drop')<fixture.calls.findIndex(value=>value[0]==='send'&&value[1]==='LATEST'));await fixture.adapter.close();
+});
+test('a cancellation begun during private cleanup drains before the next query can enter',async()=>{
+    const dropping=deferred(),dropBegan=deferred(),cancelling=deferred(),cancelBegan=deferred();
+    const fixture=exportFixture({drop:async()=>{dropBegan.resolve();await dropping.promise;}});
+    fixture.adapter.connection.cancelSent=async()=>{cancelBegan.resolve();await cancelling.promise;return true;};
+    const old=fixture.adapter.exportParquet(exportInput());await dropBegan.promise;
+    const latest=fixture.adapter.submit({requestId:'2',sql:'LATEST'});await cancelBegan.promise;dropping.resolve();await tick();
+    assert.equal(fixture.calls.some(value=>value[0]==='send'&&value[1]==='LATEST'),false);
+    cancelling.resolve();assert.equal((await old).status,'superseded');assert.equal((await latest).status,'ok');assert.equal(fixture.files.size,0);await fixture.adapter.close();
+});
+test('cancel and close own export cleanup until completion and never return partial bytes',async()=>{
+    for(const closing of [false,true]){
+        const copying=deferred(),began=deferred(),fixture=exportFixture({copy:async()=>{began.resolve();return copying.promise;}});
+        const pending=fixture.adapter.exportParquet(exportInput());await began.promise;let ended=false;
+        const cancelled=(closing?fixture.adapter.close():fixture.adapter.cancel()).then(()=>{ended=true;});await tick();assert.equal(ended,false);
+        copying.resolve(parquetBytes());await cancelled;const result=await pending;assert.equal(result.status,'cancelled');assert.equal(result.data,undefined);assert.equal(fixture.files.size,0);
+        if(closing)assert.equal(fixture.calls.at(-1)[0],'close');else {assert.equal((await fixture.adapter.submit({requestId:'2',sql:'LATEST'})).status,'ok');await fixture.adapter.close();}
+    }
+});
+test('superseded pending exports burn names without mutating files or growing normal limits',async()=>{
+    const first=deferred(),fixture=exportFixture({send:async()=>first.promise});
+    const active=fixture.adapter.submit({requestId:'1',sql:'WAIT'}),pending=fixture.adapter.exportParquet(exportInput('2'));
+    const latest=fixture.adapter.submit({requestId:'3',sql:'LATEST'});assert.equal((await pending).status,'superseded');first.resolve(reader(simple()));
+    assert.equal((await active).status,'superseded');assert.equal((await latest).status,'ok');
+    await assert.rejects(fixture.adapter.registerFile('export-7-2.parquet',new Uint8Array([1])),{code:'IMMUTABLE_FILE'});
+    assert.equal(fixture.calls.filter(value=>value[0]==='send'&&value[1].startsWith('COPY')).length,0);await fixture.adapter.close();
+    const full=exportFixture();for(let i=0;i<LIMITS.fileNames;i++)await full.adapter.dropFile(`retired-${i}.csv`);
+    const before=full.calls.length;assert.throws(()=>full.adapter.exportParquet(exportInput()),{code:'FILE_REGISTRY_LIMIT'});assert.equal(full.calls.length,before);
+    assert.equal((await full.adapter.submit({requestId:'1',sql:'LATEST'})).status,'ok');await full.adapter.close();
 });
 
 test('official Worker factory uses single-threaded lossless options and owns shutdown/failure cleanup', async () => {
