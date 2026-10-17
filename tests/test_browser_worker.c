@@ -18,6 +18,23 @@ EM_JS(int, observe_host, (void), {
     const submit=host.submit.bind(host);
     host.submit=(runtime,cookie,ticket,request)=>{
         Module['dxBrowserWorkerObserved']={cookie,ticket,generation:request.generation,object:request.objectId,revision:request.revision,offset:request.offset};
+        const hold=Module['dxHoldMatrixReply'];
+        if((hold===1 && request.sql.includes('__duxcel_count')) || (hold===2 && request.sql.includes('_duxcel_matrix_totals'))){
+            Module['dxHoldMatrixReply']=0;
+            const original=runtime;
+            runtime={...original,reply:(...args)=>{
+                const [replyCookie,replyTicket,pointer,size,total,pending,error]=args;
+                const data=pointer?original.heap().slice(pointer,pointer+size):null;
+                const totalText=total?UTF8ToString(total):null,errorText=error?UTF8ToString(error):null;
+                Module['dxHeldMatrixReply']=()=>{
+                    const owned=[];
+                    const bytes=value=>{const pointer=original.allocate(value.byteLength||1);if(!pointer)throw new Error('Test reply allocation failed');owned.push(pointer);original.heap().set(value,pointer);return pointer;};
+                    const string=value=>value===null?0:bytes(new TextEncoder().encode(value+'\0'));
+                    try{original.reply(replyCookie,replyTicket,data?bytes(data):0,size,string(totalText),pending,string(errorText));}
+                    finally{for(const pointer of owned)original.release(pointer);Module['dxHeldMatrixReply']=null;}
+                };
+            }};
+        }
         return submit(runtime,cookie,ticket,request);
     };
     return 1;
@@ -32,6 +49,9 @@ EM_JS(unsigned, observed_cancels, (void), {
     const count=Module['dxTestCancels'];
     return Number.isInteger(count) && count>=0 && count<4294967295 ? count>>>0 : 4294967295;
 })
+EM_JS(void, hold_matrix_reply, (int kind), { Module['dxHoldMatrixReply']=kind; })
+EM_JS(int, matrix_reply_held, (void), { return typeof Module['dxHeldMatrixReply']==='function'; })
+EM_JS(void, release_matrix_reply, (void), { Module['dxHeldMatrixReply'](); })
 EM_JS(void, completed, (int ok,unsigned checks,unsigned stages), {
     Module['dxBrowserWorkerTestDone']={ok:Boolean(ok),checks,stages};
 })
@@ -67,6 +87,11 @@ static const char dates_sql[]=
     "(TIMESTAMP '2025-01-01 00:01:00'),(TIMESTAMP '2025-01-01 01:00:00'),"
     "(TIMESTAMP '2025-01-02 00:00:00'),(TIMESTAMP '2025-02-01 00:00:00'),"
     "(TIMESTAMP '2026-01-01 00:00:00')) t(occurred)";
+static const char matrix_exact_sql[]=
+    "SELECT * FROM (VALUES (NULL::VARCHAR,9007199254740993::BIGINT,10.00::DECIMAL(38,2),1.01::DECIMAL(4,2)),"
+    "(NULL,9007199254740994,20.00,1.01),('',9007199254740993,30.00,1.01),"
+    "('NULL',NULL,NULL,1.01),('excluded',17,999.00,1.00)) t(category,wide,amount,gate)";
+static const char matrix_large_sql[]="SELECT i::BIGINT AS row_id,repeat('x',900000)::VARCHAR AS payload FROM range(4) t(i)";
 static const uint64_t object_id=UINT64_C(18014398509481987),revision_id=UINT64_C(36028797018963971);
 typedef enum {
     WAIT_EXACT,WAIT_PAGE0,WAIT_PAGE256,WAIT_PAGE512,WAIT_COUNT,WAIT_TABLE,
@@ -75,7 +100,10 @@ typedef enum {
     WAIT_DISTINCT_PRIMARY,WAIT_DISTINCT_SECONDARY,WAIT_DISTINCT_DECIMAL_PRIMARY,
     WAIT_DISTINCT_DECIMAL_SECONDARY,WAIT_DECIMAL_PAGE,WAIT_DECIMAL_COUNT,WAIT_DATE_YEAR,WAIT_DATE_MONTH,
     WAIT_DATE_DAY,WAIT_DATE_HOUR,WAIT_DATE_MINUTE,WAIT_DATE_NULL,
-    WAIT_DISTINCT_ERROR,WAIT_DISTINCT_RECOVERY,WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
+    WAIT_DISTINCT_ERROR,WAIT_DISTINCT_RECOVERY,WAIT_MATRIX0,WAIT_MATRIX256,WAIT_MATRIX512,WAIT_MATRIX_EXACT,
+    WAIT_MATRIX_GRAND,WAIT_MATRIX_EMPTY,WAIT_MATRIX_HUGE,WAIT_MATRIX_DATE,WAIT_MATRIX_NO_TOTALS,WAIT_MATRIX_COLUMNS,WAIT_MATRIX_INVALID,WAIT_MATRIX_LARGE,
+    WAIT_MATRIX_RECOVERY,WAIT_MATRIX_CANCEL_COUNT,WAIT_MATRIX_CANCEL_GRAND,WAIT_MATRIX_FINAL,
+    WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
     WAIT_OVERSIZE_ERROR,WAIT_OVERSIZE_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
     QUIET_CANCEL,WAIT_CANCEL_RECOVERY,WAIT_STOP_SCHEMA,RUN_STOP,QUIET_STOP,FINISHED
@@ -148,6 +176,33 @@ static void submit_decimal(JobKind kind,unsigned sql_count) {
     CHECK(job->analysis.filter_number.kind==NUM_NONE); /* The backend must resolve this from the source. */
     job->known_total=-1; job->object_id=object_id; job->revision=revision_id;
     expected_offset=0; expected_preview=false; expected_sql+=sql_count; if (kind==JOB_COUNT) expected_counts++;
+    worker_submit(&worker,job);
+}
+typedef enum { MATRIX_RANGE,MATRIX_EXACT,MATRIX_GRAND,MATRIX_EMPTY,MATRIX_HUGE,MATRIX_DATE,MATRIX_COLUMNS,MATRIX_INVALID,MATRIX_LARGE } MatrixCase;
+static void submit_matrix(MatrixCase kind,uint64_t offset,int64_t total,bool totals,unsigned sql_count) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job));
+    job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=JOB_PIVOT; expected_preview=false;
+    bool exact=kind==MATRIX_EXACT || kind==MATRIX_GRAND || kind==MATRIX_EMPTY || kind==MATRIX_HUGE;
+    const char *source=exact ? matrix_exact_sql : kind==MATRIX_DATE ? dates_sql : kind==MATRIX_LARGE ? matrix_large_sql : range_sql;
+    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(source)}; job->offset=offset; job->known_total=total; job->include_totals=totals;
+    job->object_id=object_id; job->revision=revision_id; expected_offset=totals || total<0 ? 0 : offset;
+    if (exact) {
+        if (kind==MATRIX_EXACT) CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,"category",AGG_SUM,NULL));
+        if (kind==MATRIX_HUGE) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"wide",AGG_SUM,NULL));
+        else {
+            CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"amount",AGG_SUM,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"amount",AGG_AVG,NULL));
+            CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"wide",AGG_MAX,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"wide",AGG_DISTINCT,NULL));
+        }
+        CHECK(pivot_assign(&job->pivot,PIVOT_FILTERS,"gate",AGG_SUM,NULL)); job->pivot.fields[PIVOT_FILTERS][0].filter=FILTER_GREATER; job->pivot.fields[PIVOT_FILTERS][0].value=dx_strdup(kind==MATRIX_EMPTY ? "2.00" : "1.005");
+    } else if (kind==MATRIX_DATE) {
+        CHECK(pivot_assign_grain(&job->pivot,PIVOT_ROWS,"occurred",AGG_SUM,PIVOT_DATE_MONTH,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"occurred",AGG_COUNT,NULL));
+    } else {
+        CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,"row_id",AGG_SUM,NULL));
+        CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,kind==MATRIX_LARGE ? "payload" : "amount",kind==MATRIX_LARGE ? AGG_MIN : AGG_SUM,NULL));
+        if (kind==MATRIX_COLUMNS) CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,"label",AGG_SUM,NULL));
+        if (kind==MATRIX_INVALID) job->pivot.counts[PIVOT_VALUES]=SIZE_MAX;
+    }
+    expected_sql+=sql_count; if (sql_count && total<0) expected_counts++;
     worker_submit(&worker,job);
 }
 static bool poll_received(bool error,bool sent) {
@@ -238,6 +293,17 @@ static void decimal_distinct_values(bool secondary) {
     distinct_value(&reply->distinct.values[0],"B","B",NULL);
     distinct_value(&reply->distinct.values[1],"C","C",NULL);
     decimal_analysis(secondary);
+}
+static void matrix_range_values(uint64_t offset,size_t rows,bool totals) {
+    Page *page=&reply->page; CHECK(page->offset==offset && page->row_count==rows && page->total==600 && !page->count_pending && page->column_count==2);
+    CHECK(page->sql && strstr(page->sql,"PIVOT (") && !strcmp(page->columns[1].caption,"SUM(amount)") && page->columns[1].number_type.kind==NUM_DECIMAL);
+    CHECK(page->bytes<=4*1024*1024 && (page->totals!=NULL)==totals);
+    for (size_t r=0;r<rows;r++) {
+        char id[32],amount[32]; snprintf(id,sizeof(id),"%" PRIu64,offset+r); snprintf(amount,sizeof(amount),"%" PRIu64 ".00",(offset+r)%100);
+        CHECK(!strcmp(page->cells[r*2].text,id) && !strcmp(page->cells[r*2+1].text,amount));
+        if (totals) CHECK(!strcmp(page->totals->rows.cells[r].text,amount) && page->totals->rows.cells[r].text!=page->cells[r*2+1].text);
+    }
+    if (totals) CHECK(!page->totals->has_columns && page->totals->rows.offset==offset && page->totals->rows.total==600 && page->totals->columns.row_count==1 && !strcmp(page->totals->columns.cells[0].text,"29700.00"));
 }
 static void inject_late(void *unused) {
     (void)unused;
@@ -396,6 +462,82 @@ static void tick(void) {
     case WAIT_DISTINCT_RECOVERY:
         if (!received(false)) return;
         validation_reply(); category_values(&reply->distinct,256,44,300); release_reply(); pass("distinct error recovery preserves prior result pages and uses the known total");
+        submit_matrix(MATRIX_RANGE,0,-1,true,4); enter(WAIT_MATRIX0); return;
+    case WAIT_MATRIX0:
+        if (!received(false)) return;
+        matrix_range_values(0,256,true); release_reply(); pass("real Rows/Values PIVOT, exact 600-group count and source-derived grand total");
+        submit_matrix(MATRIX_RANGE,256,600,true,2); enter(WAIT_MATRIX256); return;
+    case WAIT_MATRIX256:
+        if (!received(false)) return;
+        matrix_range_values(256,256,true); release_reply(); pass("matrix second page reuses typed schema and exact count");
+        submit_matrix(MATRIX_RANGE,512,600,true,2); enter(WAIT_MATRIX512); return;
+    case WAIT_MATRIX512:
+        if (!received(false)) return;
+        matrix_range_values(512,88,true); release_reply(); pass("matrix last page preserves independent exact measure totals");
+        submit_matrix(MATRIX_EXACT,0,-1,true,5); enter(WAIT_MATRIX_EXACT); return;
+    case WAIT_MATRIX_EXACT: {
+        if (!received(false)) return;
+        Page *page=&reply->page; CHECK(page->row_count==3 && page->column_count==5 && page->total==3 && !page->count_pending && page->totals && page->bytes<=4*1024*1024);
+        CHECK(page->cells[0].is_null && !page->cells[5].is_null && !*page->cells[5].text && !strcmp(page->cells[10].text,"NULL"));
+        CHECK(!strcmp(page->cells[1].text,"30.00") && !strcmp(page->cells[6].text,"30.00") && page->cells[11].is_null && !strcmp(page->cells[3].text,"9007199254740994") && !strcmp(page->cells[8].text,"9007199254740993"));
+        CHECK(page->columns[1].number_type.kind==NUM_DECIMAL && page->columns[1].number_type.precision==38 && page->columns[1].number_type.scale==2 && page->columns[2].type==DUCKDB_TYPE_DOUBLE);
+        CHECK(strtod(page->cells[2].text,NULL)==15 && strtod(page->cells[7].text,NULL)==30 && page->cells[12].is_null);
+        CHECK(!strcmp(page->cells[4].text,"2") && !strcmp(page->cells[9].text,"1") && !strcmp(page->cells[14].text,"0"));
+        Page *grand=&page->totals->columns; CHECK(grand->column_count==4 && grand->row_count==1 && !strcmp(grand->cells[0].text,"60.00") && strtod(grand->cells[1].text,NULL)==20 && !strcmp(grand->cells[2].text,"9007199254740994") && !strcmp(grand->cells[3].text,"2"));
+        CHECK(page->totals->rows.cells[8].is_null && !strcmp(page->totals->rows.cells[11].text,"0")); release_reply(); pass("matrix typed NULL/empty/literal NULL, DECIMAL, wide BIGINT, exact predicate, AVG and distinct grand semantics");
+        submit_matrix(MATRIX_GRAND,0,-1,true,4); enter(WAIT_MATRIX_GRAND); return;
+    }
+    case WAIT_MATRIX_GRAND:
+        if (!received(false)) return;
+        CHECK(reply->page.row_count==1 && reply->page.column_count==4 && reply->page.total==1 && reply->page.totals && !strcmp(reply->page.cells[0].text,"60.00") && strtod(reply->page.cells[1].text,NULL)==20 && !strcmp(reply->page.cells[2].text,"9007199254740994") && !strcmp(reply->page.cells[3].text,"2"));
+        CHECK(!strcmp(reply->page.totals->columns.cells[0].text,"60.00") && !strcmp(reply->page.totals->columns.cells[3].text,"2")); release_reply(); pass("matrix without Rows returns one real aggregate and source grand row");
+        submit_matrix(MATRIX_EMPTY,0,-1,true,4); enter(WAIT_MATRIX_EMPTY); return;
+    case WAIT_MATRIX_EMPTY:
+        if (!received(false)) return;
+        CHECK(reply->page.row_count==1 && reply->page.column_count==4 && reply->page.cells[0].is_null && reply->page.cells[1].is_null && reply->page.cells[2].is_null && !strcmp(reply->page.cells[3].text,"0"));
+        CHECK(reply->page.totals && reply->page.totals->columns.cells[0].is_null && reply->page.totals->columns.cells[1].is_null && reply->page.totals->columns.cells[2].is_null && !strcmp(reply->page.totals->columns.cells[3].text,"0")); release_reply(); pass("empty filtered matrix aggregate keeps SUM/AVG/MAX NULL and distinct count zero");
+        submit_matrix(MATRIX_HUGE,0,-1,true,4); enter(WAIT_MATRIX_HUGE); return;
+    case WAIT_MATRIX_HUGE:
+        if (!received(false)) return;
+        CHECK(reply->page.row_count==1 && reply->page.column_count==1 && reply->page.columns[0].type==DUCKDB_TYPE_HUGEINT && reply->page.columns[0].number_type.kind==NUM_I128 && !strcmp(reply->page.cells[0].text,"27021597764222980"));
+        CHECK(reply->page.totals && reply->page.totals->columns.columns[0].type==DUCKDB_TYPE_HUGEINT && !strcmp(reply->page.totals->columns.cells[0].text,"27021597764222980")); release_reply(); pass("matrix SUM(BIGINT) keeps an exact typed HUGEINT through body and grand footer");
+        submit_matrix(MATRIX_DATE,0,-1,true,5); enter(WAIT_MATRIX_DATE); return;
+    case WAIT_MATRIX_DATE:
+        if (!received(false)) return;
+        CHECK(reply->page.row_count==5 && reply->page.column_count==2 && reply->page.columns[0].type==DUCKDB_TYPE_DATE && reply->page.columns[0].date_grain==PIVOT_DATE_MONTH && !strcmp(reply->page.columns[0].name,"MONTH(occurred)"));
+        CHECK(reply->page.cells[0].is_null && !strcmp(reply->page.cells[4].text,"2025-01-01") && !strcmp(reply->page.cells[5].text,"5") && reply->page.totals && !strcmp(reply->page.totals->columns.cells[0].text,"9")); release_reply(); pass("matrix Month Rows resolve temporal source types and retain NULL plus COUNT(*) semantics");
+        submit_matrix(MATRIX_RANGE,0,-1,false,3); enter(WAIT_MATRIX_NO_TOTALS); return;
+    case WAIT_MATRIX_NO_TOTALS:
+        if (!received(false)) return;
+        matrix_range_values(0,256,false); release_reply(); pass("matrix include_totals=false retains header metadata without a footer query");
+        submit_matrix(MATRIX_COLUMNS,0,-1,true,0); enter(WAIT_MATRIX_COLUMNS); return;
+    case WAIT_MATRIX_COLUMNS:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"Column-field")); validation_reply(); release_reply(); pass("Column-field matrices fail explicitly before SQL until bounded domains are connected");
+        submit_matrix(MATRIX_INVALID,0,-1,true,0); enter(WAIT_MATRIX_INVALID); return;
+    case WAIT_MATRIX_INVALID:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"bounded field limit")); validation_reply(); release_reply(); pass("malformed owned matrix counts reject before SQL and free within shelf capacity");
+        submit_matrix(MATRIX_LARGE,0,-1,true,4); enter(WAIT_MATRIX_LARGE); return;
+    case WAIT_MATRIX_LARGE:
+        if (!received(true)) return;
+        CHECK(strstr(reply->error,"4 MiB")); validation_reply(); release_reply(); pass("combined matrix and totals memory cap rejects without publishing a partial page");
+        submit_matrix(MATRIX_RANGE,0,600,true,3); enter(WAIT_MATRIX_RECOVERY); return;
+    case WAIT_MATRIX_RECOVERY:
+        if (!received(false)) return;
+        matrix_range_values(0,256,true); release_reply(); pass("matrix recovery after local/schema/memory errors keeps previous owned results intact");
+        hold_matrix_reply(1); submit_matrix(MATRIX_RANGE,0,-1,true,2); enter(WAIT_MATRIX_CANCEL_COUNT); return;
+    case WAIT_MATRIX_CANCEL_COUNT:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        CHECK(worker.running); counters(); worker_cancel(&worker); CHECK(!worker.running); release_matrix_reply(); quiet(); pass("cancel after the real matrix count discards staged data and ignores its delayed callback");
+        hold_matrix_reply(2); submit_matrix(MATRIX_RANGE,256,600,true,2); enter(WAIT_MATRIX_CANCEL_GRAND); return;
+    case WAIT_MATRIX_CANCEL_GRAND:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        CHECK(worker.running); counters(); worker_cancel(&worker); CHECK(!worker.running); release_matrix_reply(); quiet(); pass("cancel after real source grand totals frees staged matrix ownership and ignores delayed totals");
+        submit_matrix(MATRIX_RANGE,512,600,true,2); enter(WAIT_MATRIX_FINAL); return;
+    case WAIT_MATRIX_FINAL:
+        if (!received(false)) return;
+        matrix_range_values(512,88,true); release_reply(); pass("matrix cancellation recovery publishes only a complete current page and footer");
         submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_OVERSIZE_SCHEMA); return;
     case WAIT_OVERSIZE_SCHEMA:
         if (!received(false)) return;
@@ -467,7 +609,7 @@ static void tick(void) {
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
         retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
         page_free(&retained); page_free(&retained); pass("early stop and scheduled stale callbacks are ignored");
-        CHECK(stages==33 && worker.jobs_started==40 && expected_sql==59 && expected_counts==2);
+        CHECK(stages==49 && worker.jobs_started==56 && expected_sql==105 && expected_counts==11);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);

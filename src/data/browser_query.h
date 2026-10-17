@@ -26,9 +26,10 @@ char *browser_pivot_totals_sql(const Analysis *source,const PivotDefinition *piv
 /* Owned total_i SQL descriptors from the validated result schema. Failure
    preserves out. Returned schema is suitable for canonical grand-total SQL. */
 bool browser_pivot_totals_schema(Page *out,const Page *schema,const PivotDefinition *pivot,char **error);
-/* Complete a fresh, undecorated, exact-count pivot result. Grand owns one
+/* Complete a fresh, undecorated, exact-count pivot result. Optional grand owns a
    source-derived aggregate row, with total_i descriptors. On success it moves
-   into page->totals; row totals copy exact result measure cells. Both inputs
-   remain unchanged on failure. Combined owned output is bounded to 4 MiB. */
+   into page->totals; NULL decorates without totals. Row totals copy exact result
+   measure cells. Both inputs remain unchanged on failure. Combined owned output
+   is bounded to 4 MiB. */
 bool browser_pivot_complete(Page *page,Page *grand,const PivotDefinition *pivot,char **error);
 #endif
