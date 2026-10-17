@@ -32,13 +32,13 @@ Acceptance: the user can report an actual native control without activating/dism
 
 ## 2. Shared C UI + official DuckDB-Wasm Worker proof
 
-- [ ] W1: Pin an isolated Emscripten/raylib web toolchain and official DuckDB-Wasm/browser-host dependencies. Build the same C99 UI into Wasm using a browser-scheduled update/draw lifecycle; package the existing fonts/icons. No second JavaScript spreadsheet UI.
+- [x] W1: Pin an isolated Emscripten/raylib web toolchain and official DuckDB-Wasm/browser-host dependencies. Build the same C99 UI into Wasm using a browser-scheduled update/draw lifecycle; package the existing fonts/icons. No second JavaScript spreadsheet UI.
 - [ ] W2: Connect real bounded queries to the official asynchronous DuckDB-Wasm Worker through a thin typed bridge. Preserve C transformation/SQL definitions, request/reply identity, errors/cancellation, ownership and exact values. Start without experimental engine multithreading unless evidence requires it.
 - [ ] W3: Prove real source-file import, exact integer/DECIMAL/NULL/empty/literal text round-trip, paging/sort/filter, and UI responsiveness while a query is active. Validate platform seams rather than emulating Cocoa/absolute paths.
 - [ ] W4: Reuse the C registry/capture schema for browser review. Validate canvas CSS/backing/DPR transforms and review-only exports; shipping Wasm contains no review bridge/assets.
 - [ ] Record startup/download size, memory/copy costs, query/UI timing and supported browser/platform gaps. Establish the browser workbook/persistence adaptation plan before full porting; renderer success is not a completed product.
 
-Preparation is implemented and tested: pinned local SDK/raylib sources, a real C99 Wasm/Node compiler probe and a verified raylib WebGL archive. W1 stays open until the actual shared App runs through a browser-scheduled callback. The persistent frame lifecycle and explicit result ownership seam have passed focused native acceptance. The next changes are the browser-scheduled renderer and explicit backend/workbook adapters. [Evidence and dependency dialect constraint](validation/checkpoints/2026-10-17-web-toolchain/).
+W1 now runs the actual shared App, fonts and icons through a browser-scheduled callback. An owned hidden Chromium session exercised manual exact-text entry, selection, ribbon/display menus and 640-unit narrow layout at DPR 1 without runtime/WebGL errors. Native release/sanitizer lifetime checks passed after the conditional renderer changes. The browser engine/file/workbook adapters are explicitly unavailable in this renderer checkpoint; W2 is active. [Renderer evidence](validation/checkpoints/2026-10-17-shared-browser/) and [toolchain/dialect constraint](validation/checkpoints/2026-10-17-web-toolchain/).
 
 Acceptance: actual shared C UI and a real official Worker query run in the browser; agents can identify a captured C widget; exact types remain intact. This is an approved implementation proof with documented capability limits, not a mock calculation engine or a custom combined DuckDB build experiment.
 

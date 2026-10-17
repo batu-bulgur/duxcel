@@ -82,7 +82,7 @@ bool cells_paste_checked(CellStore *s,uint64_t row,size_t col,const char *tsv,si
         }
         if (!closed || (*p && *p!='\t' && *p!='\r' && *p!='\n')) { fail(error,"Invalid quoted clipboard text."); goto done; }
         field[n]=0;
-        if (input.count==DX_MAX_EDIT_CELLS || r>=DX_SHEET_ROWS || row>=DX_SHEET_ROWS-r || c>=16384 || col>=16384-c) { fail(error,"Paste up to 20,000 cells inside the worksheet."); goto done; }
+        if (input.count==DX_MAX_EDIT_CELLS || (uint64_t)r>=DX_SHEET_ROWS || row>=DX_SHEET_ROWS-r || c>=16384 || col>=16384-c) { fail(error,"Paste up to 20,000 cells inside the worksheet."); goto done; }
         if (input.count==input.capacity) { input.capacity=input.capacity ? input.capacity*2 : 32; input.cells=dx_realloc(input.cells,input.capacity*sizeof(SheetCell)); }
         input.cells[input.count++]=(SheetCell){row+r,col+c,dx_strdup(field)};
         if (c+1>width) width=c+1;

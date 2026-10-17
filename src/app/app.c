@@ -395,7 +395,9 @@ static void begin_table_relation(App *a);
 static void begin_source_query(App *a);
 static void cancel_source_validation(App *a);
 static void list_scrollbar(App *a,Rectangle r,int count,int visible,int *offset,bool *drag,float *grab,bool enabled);
+#ifndef DUXCEL_BROWSER_HOST
 static void smoke_snapshot(const char *path);
+#endif
 static void workspace_job(App *a,JobKind kind,const char *path);
 static void activate_sheet(App *a,size_t index,bool capture);
 static void new_sheet(App *a);
@@ -405,12 +407,16 @@ static void create_chart(App *a);
 static void invalidate_object(App *a,size_t index);
 static bool publish_object_extent(App *a,size_t index,uint64_t total,char **error);
 static void open_pivot_filter(App *a,size_t index);
+#ifndef DUXCEL_BROWSER_HOST
 static bool apply_pivot_filter(App *a,bool values,bool clear);
+#endif
 static const char *encoding_reason(App *a,int role);
 static void open_table_filter(App *a,size_t index,size_t column);
 static SheetObject *selected_pivot(App *a);
 static SheetObject *selected_object(App *a);
+#ifndef DUXCEL_BROWSER_HOST
 static bool object_ready(App *a,size_t index);
+#endif
 static void begin_move_range(App *a,bool whole_object);
 static void address(size_t col,uint64_t row,char out[48]);
 static void inspect_value(App *a);
@@ -1463,6 +1469,11 @@ static void history(App *a,bool redo) {
     if (same) { cache_pipeline(a); if (!a->busy) status(a,"Ready"); } else change_analysis(a,true);
 }
 static void open_modal(App *a,Modal modal) {
+#ifdef DUXCEL_BROWSER_HOST
+    if (modal==MODAL_OPEN || modal==MODAL_SAVE || modal==MODAL_RELINK) {
+        status(a,"Browser file access is not connected yet."); a->consume_grid_input=true; return;
+    }
+#endif
 #ifdef __APPLE__
     if (modal==MODAL_OPEN || modal==MODAL_SAVE || modal==MODAL_RELINK) {
         a->consume_grid_input=true;
@@ -1695,10 +1706,12 @@ static void set_source_filter(App *a,const char *column,FilterOp op,const char *
     remember(a); analysis_free(&a->analysis); a->analysis=next;
     a->modal=MODAL_NONE; change_analysis(a,false);
 }
+#ifndef DUXCEL_BROWSER_HOST
 static void apply_filter(App *a) {
     if (apply_pivot_filter(a,false,false)) return;
     if (a->field<a->page.column_count) set_source_filter(a,a->page.columns[a->field].name,a->filter_op,a->input.text,false);
 }
+#endif
 static void apply_group(App *a) {
     if (a->field>=a->page.column_count || a->measure>=a->page.column_count) return;
     remember(a); free(a->analysis.group_column); free(a->analysis.measure_column); analysis_sorts_clear(&a->analysis);
@@ -1714,6 +1727,7 @@ static void clear_transforms(App *a) {
     free(a->analysis.measure_column); a->analysis.measure_column=NULL;
     analysis_sorts_clear(&a->analysis);
 }
+#ifndef DUXCEL_BROWSER_HOST
 static void reset_analysis(App *a) {
     SheetObject *object=selected_object(a);
     if (object && object->kind==OBJECT_TABLE) {
@@ -1723,6 +1737,7 @@ static void reset_analysis(App *a) {
     }
     remember(a); clear_transforms(a); change_analysis(a,true);
 }
+#endif
 static bool set_unique_rows(App *a,int index,bool unique) {
     if (a->busy || a->io_busy || a->query_loading) return false;
     ObjectStore *store=&active_sheet(a)->objects;
@@ -1967,11 +1982,13 @@ static bool commit_object_filter(App *a,FilterOp op,const char *value,bool clear
     else { status(a,error); free(error); }
     pivot_free(&copy); a->modal=MODAL_NONE; a->filter_object=-1; return true;
 }
+#ifndef DUXCEL_BROWSER_HOST
 static bool apply_pivot_filter(App *a,bool values,bool clear) {
     char *list=values ? analysis_values_json(a->value_choices,a->value_choice_count) : NULL;
     FilterOp op=!values ? a->filter_op : a->date_level<0 ? (a->values_all ? FILTER_NOT_IN : FILTER_IN) : (a->values_all ? FILTER_DATE_NOT_IN : FILTER_DATE_IN);
     bool handled=commit_object_filter(a,op,values ? list : a->input.text,clear || (values && a->values_all && !a->value_choice_count)); free(list); return handled;
 }
+#endif
 static void apply_filter_definition(App *a,bool clear) {
     if (clear) {
         cancel_values(a);
@@ -1996,12 +2013,14 @@ static void apply_filter_definition(App *a,bool clear) {
     if (!commit_object_filter(a,op,payload,clear)) { cancel_values(a); set_source_filter(a,a->page.columns[a->field].name,op,payload,clear); }
     free(list); free(condition); free(payload);
 }
+#ifndef DUXCEL_BROWSER_HOST
 static void apply_values(App *a,bool clear) {
     if (apply_pivot_filter(a,true,clear)) return;
     cancel_values(a); char *value=analysis_values_json(a->value_choices,a->value_choice_count);
     FilterOp op=a->date_level<0 ? (a->values_all ? FILTER_NOT_IN : FILTER_IN) : (a->values_all ? FILTER_DATE_NOT_IN : FILTER_DATE_IN);
     set_source_filter(a,a->page.columns[a->field].name,op,value,clear || (a->values_all && !a->value_choice_count)); free(value);
 }
+#endif
 static int filter_conditions(App *a,FilterOp choices[8]) {
     choices[0]=(FilterOp)-1; int count=1;
     Page *fields=filter_fields(a);
@@ -6397,7 +6416,11 @@ static void draw_app(App *a) {
     char document[1024]; snprintf(document,sizeof(document),"%s%s",a->book.path ? dx_basename(a->book.path) : "Untitled.dxls",a->book.dirty ? " · Edited" : "");
     ui_label(u,document,box(82*s,0,GetScreenWidth()-124*s,28*s),12,UI_TEXT,false,UI_REGULAR);
     Rectangle save=box(GetScreenWidth()-34*s,2*s,24*s,24*s);
-    if (ui_icon_button(u,save,CARBON_SAVE,false,!a->io_busy && a->book.count)) {
+    bool can_save=!a->io_busy && a->book.count;
+#ifdef DUXCEL_BROWSER_HOST
+    can_save=false;
+#endif
+    if (ui_icon_button(u,save,CARBON_SAVE,false,can_save)) {
         a->consume_grid_input=true; if (a->book.path) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE);
     }
     if (CheckCollisionPointRec(ui_mouse_position(),save)) { a->ribbon_hover="Save workbook · ⌘S"; a->ribbon_hover_rect=save; }
@@ -6692,6 +6715,9 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a);
 }
+#define LAYOUT_SMOKE_STAGES 665
+#define QUERY_SMOKE_STAGES 47
+#ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
     if (a->page.count_pending) return;
     if (a->busy || a->modal!=MODAL_NONE || !a->page.column_count) return;
@@ -7422,7 +7448,6 @@ static void sort_smoke_step(App *a,int *step) {
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: sort application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
 }
-#define LAYOUT_SMOKE_STAGES 665
 /* Count the actual focus ink in one modal, excluding document token colors. */
 static unsigned smoke_focus_pixels(Rectangle region) {
     Image frame=LoadImageFromScreen(); Vector2 dpi=GetWindowScaleDPI(); unsigned count=0;
@@ -10628,6 +10653,7 @@ static void table_smoke_step(App *a,int *step) {
 failed:
     fprintf(stderr,"FAIL: table sources at stage %d: %s (%s)\n",*step,a->message ? a->message : "",a->statistics_error ? a->statistics_error : ""); *step=-1;
 }
+#endif /* native scenarios */
 static char *font_asset(const char *name) {
     char *path=dx_printf("%sassets/fonts/%s",GetApplicationDirectory(),name);
     if (!FileExists(path)) { free(path); path=dx_printf("%s../Resources/assets/fonts/%s",GetApplicationDirectory(),name); }
@@ -10654,7 +10680,7 @@ static void draw_icon_gallery(App *a) {
         }
     }
 }
-#define QUERY_SMOKE_STAGES 47
+#ifndef DUXCEL_BROWSER_HOST
 static void query_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=QUERY_SMOKE_STAGES || a->busy || a->io_busy || a->values_loading || a->query_loading) return;
     char *error=NULL;
@@ -11014,6 +11040,16 @@ static bool smoke_work_idle(App *a) {
     dx_unlock(&a->worker.mutex);
     return idle;
 }
+#endif /* native scenarios */
+static bool window_close_requested(void) {
+#ifdef DUXCEL_BROWSER_HOST
+    /* The host owns the callback lifetime. raylib's web WindowShouldClose
+       sleeps through Asyncify; a scheduled frame must never call it. */
+    return false;
+#else
+    return WindowShouldClose();
+#endif
+}
 static void record_frame(App *a,double started) {
     a->last_frame_ms=dx_millis()-started; a->sum_frame_ms+=a->last_frame_ms;
     a->frame_samples[a->frames%600]=a->last_frame_ms;
@@ -11075,6 +11111,9 @@ AppSession *app_start(const AppOptions *options) {
        second margin avoids adding a second 60 Hz deadline to the swap wait. */
     int frame_cap=refresh>=24 && refresh<=240 ? refresh+1 : 61; const char *cap_override=getenv("DUXCEL_FRAME_CAP");
     if (cap_override) { int cap; char tail; if (sscanf(cap_override,"%d%c",&cap,&tail)==1 && cap>=0 && cap<=240) frame_cap=cap; }
+#ifdef DUXCEL_BROWSER_HOST
+    frame_cap=0; /* requestAnimationFrame owns browser pacing; never block it. */
+#endif
     SetTargetFPS(frame_cap);
     printf("Frame pacing cap=%d monitor=%d Hz (vsync requested)\n",frame_cap,refresh);
     const char *override=getenv("DUXCEL_FONT"),*mono_override=getenv("DUXCEL_MONO_FONT");
@@ -11110,6 +11149,11 @@ AppSession *app_start(const AppOptions *options) {
        the driver need not overwrite vertex data still being read by the GPU. */
     int render_buffers=8; const char *buffers_override=getenv("DUXCEL_RENDER_BUFFERS");
     if (buffers_override) { char *end=NULL; long value=strtol(buffers_override,&end,10); if (end && !*end && value>=1 && value<=16) render_buffers=(int)value; }
+#ifdef DUXCEL_BROWSER_HOST
+    /* raylib's default ES2 batch initializes the inactive normal attribute.
+       Loading another batch with its -1 location causes WebGL validation errors. */
+    render_buffers=1;
+#endif
     if (render_buffers>1) { session->render_batch=rlLoadRenderBatch(render_buffers,RL_DEFAULT_BATCH_BUFFER_ELEMENTS); if (session->render_batch.vertexBuffer && session->render_batch.draws) rlSetRenderBatchActive(&session->render_batch); }
     printf("Render batch buffers=%d elements=%d\n",render_buffers,RL_DEFAULT_BATCH_BUFFER_ELEMENTS);
 #ifdef DUXCEL_DEV_REVIEW
@@ -11141,9 +11185,12 @@ AppSession *app_start(const AppOptions *options) {
 bool app_frame(AppSession *session) {
     if (!session || session->finished) return false;
     App *a=&session->app; const AppOptions *options=&session->options;
+#ifndef DUXCEL_BROWSER_HOST
     int layout_target=session->layout_target;
+#endif
     bool trace_input=session->trace_input;
     if (options->frames && a->frames>=(unsigned)options->frames) goto finished;
+#ifndef DUXCEL_BROWSER_HOST
     const SmokeCompletion completions[]={
         {options->smoke,&session->smoke,6},{options->workspace_smoke,&session->workspace_smoke,4},
         {options->filter_smoke,&session->filter_smoke,66},{options->pivot_smoke,&session->pivot_smoke,45},
@@ -11155,6 +11202,7 @@ bool app_frame(AppSession *session) {
         {options->table_smoke,&session->table_smoke,73},{options->icon_smoke,&session->icon_smoke,8},
         {options->query_smoke,&session->query_smoke,QUERY_SMOKE_STAGES},{options->unique_smoke,&session->unique_smoke,32}
     };
+#endif
     double frame=dx_millis(); ui_set_canvas_zoom(&a->ui,active_canvas_zoom(a)); ui_update(&a->ui);
     DxKeyModifiers modifiers; while (dx_take_key_modifiers(&modifiers)) { ui_note_key_modifiers(modifiers.key,modifiers.modifiers); REVIEW_EVENT(a,"key",modifiers.key); }
     DxPointerGesture gesture; while (dx_take_pointer_gesture(&gesture)) { ui_note_pointer_gesture(gesture); REVIEW_EVENT(a,"pointer",gesture.right ? 2 : 1); }
@@ -11167,7 +11215,7 @@ bool app_frame(AppSession *session) {
     if (report_requested && a->review && a->review->phase==DX_REPORT_IDLE) a->review->pending=true;
     if (a->review && a->review->pending && review_can_capture(a)) { a->review->pending=false; dx_review_capture_request(a->review); }
     if (a->review && a->review->phase!=DX_REPORT_IDLE && a->review->phase!=DX_REPORT_ARMED) {
-        if (WindowShouldClose() || dx_native_quit_requested()) { dx_review_capture_cancel(a->review); dx_native_acknowledge_quit(); request_document_action(a,DOCUMENT_QUIT,NULL); }
+        if (window_close_requested() || dx_native_quit_requested()) { dx_review_capture_cancel(a->review); dx_native_acknowledge_quit(); request_document_action(a,DOCUMENT_QUIT,NULL); }
         else {
             DxCommand command;
             while ((command=dx_take_command())!=DX_COMMAND_NONE) review_native_command(a,command);
@@ -11189,7 +11237,7 @@ bool app_frame(AppSession *session) {
     watch_statistics(a);
     poll_query(a);
     watch_statistics(a);
-    if (WindowShouldClose() || dx_native_quit_requested()) { dx_native_acknowledge_quit(); request_document_action(a,DOCUMENT_QUIT,NULL); }
+    if (window_close_requested() || dx_native_quit_requested()) { dx_native_acknowledge_quit(); request_document_action(a,DOCUMENT_QUIT,NULL); }
     continue_document_action(a);
     if (a->exit_ready) goto finished;
     if (IsFileDropped()) {
@@ -11203,6 +11251,7 @@ bool app_frame(AppSession *session) {
         const int keys[]={KEY_ENTER,KEY_ESCAPE,KEY_F2,KEY_F6,KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT};
         for (size_t i=0;i<sizeof(keys)/sizeof(*keys);i++) if (ui_pressed(keys[i])) fprintf(stderr,"Canvas key=%d\n",keys[i]);
     }
+#ifndef DUXCEL_BROWSER_HOST
     if (options->layout_smoke && a->frames%24==2) {
         static unsigned marks_injected=0;
         int bit=session->layout_smoke==173 ? 0 : session->layout_smoke==174 ? 1 : session->layout_smoke==175 ? 2 : session->layout_smoke==176 ? 3 : session->layout_smoke==177 ? 4 : session->layout_smoke==178 ? 5 : session->layout_smoke==179 ? 6 : session->layout_smoke==180 ? 7 : session->layout_smoke==189 ? 8 : session->layout_smoke==190 ? 9 : -1;
@@ -11670,6 +11719,7 @@ bool app_frame(AppSession *session) {
             author_menus_injected|=bit;
         }
     }
+#endif /* native scenario input */
 #ifdef DUXCEL_DEV_REVIEW
     if (review_capture) { review_begin_frame(a); a->consume_grid_input=true; }
     else
@@ -11690,6 +11740,7 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_DEV_REVIEW
     if (review_capture) { record_frame(a,frame); return true; }
 #endif
+#ifndef DUXCEL_BROWSER_HOST
     if (options->layout_smoke && session->layout_smoke>=359 && session->layout_smoke<=365) {
         unsigned bit=session->layout_smoke==359 ? 1 : session->layout_smoke==360 ? 2 : session->layout_smoke==364 ? 4 : session->layout_smoke==365 ? 8 : 0;
         bool middle=bit<4 ? a->left_motion.elapsed>=.05f && a->left_motion.elapsed<.16f && a->left_extent>0 && a->left_extent<a->sidebar_width : a->pipeline_motion.elapsed>=.05f && a->pipeline_motion.elapsed<.16f && a->pipeline_extent>0 && a->pipeline_extent<280;
@@ -11718,6 +11769,7 @@ bool app_frame(AppSession *session) {
     if (options->layout_smoke && session->layout_smoke==414 && a->author_context_progress>0 && a->author_context_progress<1 && !(pane_motion_evidence&1024)) {
         smoke_snapshot("tests/results/workspace-layout/native-context-opening-mid.png"); pane_motion_evidence|=1024;
     }
+#endif /* native scenario evidence */
     process_sheet_action(a);
     if (a->pending_new_sheet) { a->pending_new_sheet=false; a->pending_sheet=a->pending_relation=false; new_sheet(a); }
     else if (a->pending_sheet) { a->pending_sheet=false; a->pending_relation=false; activate_sheet(a,a->pending_sheet_index,true); }
@@ -11732,6 +11784,7 @@ bool app_frame(AppSession *session) {
     StepPreview *preview=&a->step_preview;
     if (preview->active && !preview->loading && preview->spare.column_count && !grid_cached(&preview->grid,&preview->page) && grid_cached(&preview->grid,&preview->spare)) { Page swap=preview->page; preview->page=preview->spare; preview->spare=swap; }
     watch_statistics(a); schedule_step_preview(a); schedule_pivot(a); schedule_count(a); schedule_table_count(a); schedule_statistics(a);
+#ifndef DUXCEL_BROWSER_HOST
     if (options->smoke && a->frames%24==0) smoke_step(a,&session->smoke);
     if (options->workspace_smoke && a->frames%24==0) workspace_smoke_step(a,&session->workspace_smoke);
     if (options->filter_smoke && a->frames%24==0) filter_smoke_step(a,&session->filter_smoke);
@@ -11750,7 +11803,9 @@ bool app_frame(AppSession *session) {
     if (options->icon_smoke && a->frames%24==0) icon_smoke_step(a,&session->icon_smoke);
     if (options->unique_smoke && a->frames%24==0) unique_smoke_step(a,&session->unique_smoke);
     if (options->query_smoke && a->frames%24==0) query_smoke_step(a,&session->query_smoke);
+#endif
     record_frame(a,frame);
+#ifndef DUXCEL_BROWSER_HOST
     /* A terminal stage runs after drawing. Render its final state once
        before exiting, and never let one enabled scenario end another.
        Document Quit still exits through exit_ready after save publication. */
@@ -11758,6 +11813,7 @@ bool app_frame(AppSession *session) {
     bool complete=smoke_stages_complete(completions,sizeof(completions)/sizeof(*completions));
     if (complete && session->smoke_pass_seen && smoke_work_idle(a)) goto finished;
     session->smoke_pass_seen=complete;
+#endif
     return true;
 finished:
     session->finished=true;

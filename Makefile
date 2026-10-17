@@ -539,3 +539,14 @@ test-review-core: build/review/test_registry build/review-sanitize/test_registry
 test-review:
 	python3 tools/test_native_review.py $(TEST_ARGS)
 .PHONY: test-review-core test-review
+
+# Browser proof uses the same C renderer/controllers and a separate backend.
+# The compiler/dependencies live only in the ignored project-local web cache.
+WEB_SOURCES = $(filter-out src/data/database.c,$(filter %.c,$(APP_SOURCES))) src/workbook/workbook_browser.c
+web-duckdb-flags:
+	@printf '%s\n' '$(DUCKDB_CFLAGS)'
+web-sources:
+	@printf '%s\n' $(WEB_SOURCES)
+web:
+	python3 tools/build_web.py
+.PHONY: web web-sources web-duckdb-flags

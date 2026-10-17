@@ -1,0 +1,15 @@
+# Shared C99 browser renderer — 17 October 2026
+
+W1 runs the actual shared App/controller/grid/ribbon/pane code through a browser-scheduled callback. Fonts and icons are the existing assets. This checkpoint is a renderer/interaction proof; the W1 backend returns explicit unavailable errors for queries/files/workbooks. It has no replacement JavaScript spreadsheet or mock engine.
+
+`renderer-build.json` records the immutable artifact's source fingerprint, exact compiler flags, sources, artifact sizes and hashes. `result.json` and `events.json` describe the owned headless Chromium run at 1280×820 and 640×640, DPR 1. The browser profile was temporary and separate from every user browser; the server/test owner held the shared desktop lock. No window was activated. Headless simulated focus and disabled background throttling keep the browser's real animation frames running.
+
+Visual inspection of the preserved frames confirmed readable Plex text, the exact manual text `9007199254740993` in the value bar, selection A1:B2 with its original active cell, View ribbon/display menu and recoverable narrow layout. Runtime checks require initialized shared App, matching canvas sizes and no uncaught exceptions or WebGL invalid operations. Screenshots alone do not accept analytical semantics or full reference parity.
+
+Actual browser execution found and fixed three platform problems: web `WindowShouldClose` invoked an Asyncify sleep from a scheduled callback; an ES2 raylib archive was initially paired with a WebGL2 context; extra batches referenced an inactive normal attribute. The callback owns its lifetime, the host requests WebGL1, and browser rendering uses the default batch. An opaque framebuffer prevents double alpha compositing from fading glyphs. Native pacing/eight retained batches are unchanged.
+
+The incremental final App rebuild took 4.785 s (one C translation unit plus link); cold setup/cache work is not inferred from this sample. The linker retains DWARF and reports limited Binaryen optimization. Artifact bytes are precompression. Rejected earlier artifacts and a wrong-version 404 test are excluded. Native integration evidence is recorded separately after rebuilding these conditional shared-source changes.
+
+Remaining: connect the official Worker to real C requests; browser import/save/relink; DPR/Retina/input/clipboard/context-loss/browser matrix; review exports and persistence. DPR 1 rendering does not close W4 coordinate acceptance or the native exact-UI state matrix.
+
+The reproducible wrapper passed in **13.152 s**, with source and all artifact hashes unchanged. Its first run correctly rejected a changed documentation/status snapshot despite passing interactions; the guard now compares code fingerprints/revision and immutable assets, permitting documentation-only edits. Native release/sanitizer session drivers passed **26 checks each** (1.345/1.574 s), plus the **477-check hidden-window probe** (2.099 s); their rebuild took 30.698 s. These paths do not accept the unimplemented Worker backend.

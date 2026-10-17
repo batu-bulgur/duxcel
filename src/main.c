@@ -2,6 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef DUXCEL_BROWSER_HOST
+#include <emscripten/emscripten.h>
+static void browser_frame(void *context) {
+    AppSession *session=context;
+    if (!app_frame(session)) { emscripten_cancel_main_loop(); app_finish(session); }
+}
+#endif
 int main(int argc, char **argv) {
     AppOptions options = {0};
     for (int i=1;i<argc;i++) {
@@ -38,5 +45,12 @@ int main(int argc, char **argv) {
         } else if (argv[i][0]=='-') { fprintf(stderr,"Unknown option: %s\n",argv[i]); return 1; }
         else options.path=argv[i];
     }
+#ifdef DUXCEL_BROWSER_HOST
+    AppSession *session=app_start(&options);
+    if (!session) return 1;
+    emscripten_set_main_loop_arg(browser_frame,session,0,true);
+    return 0;
+#else
     return app_run(&options);
+#endif
 }

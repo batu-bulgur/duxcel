@@ -1,9 +1,9 @@
 # Web toolchain preparation
 
 This directory pins the tools for compiling Duxcel's existing C99/raylib UI.
-The bootstrap installs a compiler and raylib source. W1 renderer/browser
-acceptance, a browser-scheduled application tick, and the W2 DuckDB-Wasm Worker
-bridge remain unimplemented by this preparation. No alternate JavaScript UI or
+The bootstrap installs a compiler and raylib source. The shared App now runs
+through a browser-scheduled tick, with owned hidden Chromium interaction evidence.
+The W2 DuckDB-Wasm Worker bridge remains pending. No alternate JavaScript UI or
 custom combined DuckDB build is introduced.
 
 From the checkout root:
@@ -135,5 +135,26 @@ raylib's upstream GNU99 setting. Duxcel code continues to use C99. Existing
 upstream audio warnings are retained in `build/web/raylib/build.txt`.
 
 [Compiler/dependency evidence](../docs/validation/checkpoints/2026-10-17-web-toolchain/)
-records timing, sizes and hashes. The actual shared App renderer and official
-DuckDB-Wasm Worker bridge remain pending.
+records timing, sizes and hashes. The shared App renderer is now implemented; the official
+DuckDB-Wasm Worker bridge remains pending.
+
+## Shared App renderer
+
+```sh
+make web
+python3 tools/test_web_app.py --no-build
+```
+
+`make web` publishes immutable, hashed outputs under `build/web/app/<signature>/`
+and records the current directory in `build/web/app/latest.json`. Serve that
+directory with a local HTTP server; opening HTML via `file:` is unsupported.
+The test command acquires the shared desktop lock, serves the exact artifact on
+an ephemeral loopback port, and starts installed Chromium in headless mode with
+a fresh temporary profile. It never uses a user's browser/profile or activates
+a window. Set `DUXCEL_CHROMIUM` to an existing compatible executable if needed.
+
+This checkpoint contains the real C UI and sparse manual cells. Browser engine,
+Open/Save/relink and workbook persistence are explicitly unavailable until their
+adapters are connected. Native production still uses native DuckDB and Cocoa.
+Current evidence is DPR 1; Retina/clipboard/IME/physical input and full browser
+parity are separate gates. See the [renderer checkpoint](../docs/validation/checkpoints/2026-10-17-shared-browser/).

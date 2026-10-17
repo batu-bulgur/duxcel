@@ -9,6 +9,7 @@ void copy_request_free(CopyRequest *request) {
     source_snapshot_free(&request->sources);
     free(request);
 }
+#ifndef DUXCEL_BROWSER_HOST
 static bool copy_complete(Database *db,Analysis *analysis,CopyRequest *copy,char **text,char **error) {
     if (copy->count>DX_MAX_OBJECTS+1 || copy->sources.count>DX_MAX_OBJECTS || copy->sources.bytes>8*1024*1024) { if (error) { free(*error); *error=dx_strdup("Invalid clipboard source snapshot."); } return false; }
     for (size_t i=0;i<copy->count;i++) {
@@ -25,6 +26,7 @@ static bool copy_complete(Database *db,Analysis *analysis,CopyRequest *copy,char
     }
     *text=clipboard_tsv(&copy->cells,error); return *text!=NULL;
 }
+#endif
 static void job_free(QueryJob *j) {
     if (j) { copy_request_free(j->copy); statistics_request_free(j->statistics); analysis_free(&j->analysis); pivot_free(&j->pivot); if (j->workbook) { workbook_free(j->workbook); free(j->workbook); } free(j->path); free(j->column); free(j->search); free(j->date_start); free(j->date_end); free(j); }
 }
@@ -34,6 +36,7 @@ void reply_free(QueryReply *r) {
     if (r->workbook) { workbook_free(r->workbook); free(r->workbook); }
     distinct_free(&r->distinct); statistics_free(&r->statistics); free(r->path); free(r);
 }
+#ifndef DUXCEL_BROWSER_HOST
 static bool obsolete(QueryWorker *w, uint64_t id) {
     dx_lock(&w->mutex); bool stale = w->stop || w->latest_id != id; dx_unlock(&w->mutex); return stale;
 }
@@ -124,3 +127,28 @@ void worker_stop(QueryWorker *w) {
     w->sql_executed=w->db.query_count; w->counts_executed=w->db.count_queries; database_close(&w->db);
     dx_cond_destroy(&w->condition); dx_mutex_destroy(&w->mutex); w->started = false;
 }
+
+#else
+/* W1 renderer-only backend. Every attempted engine action returns an owned,
+   explicit error; it never publishes sample rows or pretends to save data.
+   The official asynchronous Worker transport replaces this boundary in W2. */
+bool worker_start(QueryWorker *w) {
+    memset(w,0,sizeof(*w)); dx_mutex_init(&w->mutex); dx_cond_init(&w->condition);
+    w->started=true; return true;
+}
+void worker_submit(QueryWorker *w,QueryJob *j) {
+    w->latest_id=j->id; reply_free(w->reply);
+    QueryReply *r=dx_alloc(sizeof(*r)); r->id=j->id; r->kind=j->kind;
+    r->object_id=j->object_id; r->revision=j->revision; r->is_preview=j->is_preview;
+    r->analysis=j->analysis; memset(&j->analysis,0,sizeof(j->analysis));
+    r->path=j->path; j->path=NULL;
+    r->error=dx_strdup("The browser query backend is not connected yet.");
+    w->reply=r; job_free(j);
+}
+QueryReply *worker_poll(QueryWorker *w) { QueryReply *r=w->reply; w->reply=NULL; return r; }
+void worker_cancel(QueryWorker *w) { w->latest_id++; reply_free(w->reply); w->reply=NULL; }
+void worker_stop(QueryWorker *w) {
+    if (!w->started) return;
+    worker_cancel(w); dx_cond_destroy(&w->condition); dx_mutex_destroy(&w->mutex); w->started=false;
+}
+#endif
