@@ -4,6 +4,7 @@
 #include "cells.h"
 #include "objects.h"
 #include "format.h"
+#include "source_scope.h"
 #define DX_WORKSPACE_VERSION 13
 #define DX_MAX_SHEETS 64
 #define DX_HISTORY 32
@@ -29,6 +30,7 @@ typedef struct {
     CellStore cells;
     ObjectStore objects;
     FormatStore formats;
+    SourceVersions source_versions; /* Owned immutable bindings/high-water, outside Undo. */
     Analysis undo[DX_HISTORY],redo[DX_HISTORY];
     size_t undo_count,redo_count;
     EditKind undo_actions[DX_HISTORY],redo_actions[DX_HISTORY];
@@ -45,7 +47,8 @@ typedef struct {
 void view_free(SheetView *view);
 void workbook_init(Workbook *book);
 void workbook_free(Workbook *book);
-/* Copies definitions and presentation only; undo stacks and pages are session state. */
+/* Copies definitions, source-version ledger/high-water and presentation only;
+   undo stacks/pages are session state. NULL denotes an invalid source ledger. */
 Workbook *workbook_snapshot(const Workbook *book);
 bool workbook_add(Workbook *book,const char *name,const Analysis *analysis,char **error);
 bool workbook_rename(Workbook *book,size_t index,const char *name,char **error);

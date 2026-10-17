@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 Analysis analysis_copy(const Analysis *a) {
+    /* Includes the worksheet-local source_version; it owns no separate buffer. */
     Analysis b = *a;
 #define COPY(field) b.field = a->field ? dx_strdup(a->field) : NULL
     COPY(path); COPY(schema); COPY(table); COPY(query); COPY(filter_column); COPY(filter_value);

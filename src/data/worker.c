@@ -92,7 +92,7 @@ static bool source_digest_payload_valid(const QueryJob *job,const QueryReply *re
     const Analysis *a=&reply->analysis;
     if (!reply->path || !*reply->path) return false;
     size_t length=0; while (length<=65536 && reply->path[length]) length++;
-    if (length>65536 || a->kind!=SOURCE_NONE || a->path || a->schema || a->table || a->query || a->filter_column || a->filter_value || a->group_column || a->measure_column || a->sort_column ||
+    if (length>65536 || a->kind!=SOURCE_NONE || a->source_version || a->path || a->schema || a->table || a->query || a->filter_column || a->filter_value || a->group_column || a->measure_column || a->sort_column ||
         a->filter_count || a->sort_count || a->unique_rows || a->descending || a->filter_op || a->aggregate || a->filter_number.kind || a->filter_number.precision || a->filter_number.scale ||
         job->workbook || job->copy || job->statistics || job->column || job->search || job->date_start || job->date_end || job->offset || job->rows || job->first_col || job->cols ||
         (job->known_total!=0 && job->known_total!=-1) || job->include_header || job->include_totals || job->is_preview || job->refresh_source || job->is_table || job->date_level) return false;
