@@ -168,10 +168,6 @@ export async function runPersistenceProbe(input={}){
             metadata=await readMetadata('native_fixture');return {readOnlyWriteRejected:true,...metadata};
         });
         await step('create-compatible-file-from-native-metadata-ddl',async()=>{
-            // An explicit BUFFER registration keeps the newly created database
-            // in the official exportable file registry after DETACH.
-            // registerEmptyFileBuffer is a no-op in pinned package 1.32.0.
-            await adapter.database.registerFileBuffer(EXPORT_FILE,new Uint8Array());
             await query(`ATTACH '${EXPORT_FILE}' AS browser_export (STORAGE_VERSION 'v1.0.0')`);
             await query('CREATE SCHEMA browser_export._duxcel_workspace');
             await query('BEGIN TRANSACTION');
@@ -196,17 +192,21 @@ export async function runPersistenceProbe(input={}){
             await metadataRowsEqual('browser_export',metadata.tables);
             return {storageTarget:'v1.0.0',tables:copied.tables.map(({name,rows})=>({name,rows})),sentinels:await sentinels('browser_export')};
         });
-        await step('checkpoint-detach-real-database',async()=>{
-            await query('CHECKPOINT browser_export');await query('DETACH browser_export');
-            return {checkpointed:true,detached:true};
+        await step('checkpoint-quiescent-real-database',async()=>{
+            await query('CHECKPOINT browser_export');
+            return {checkpointed:true,writer:'owned private Worker, no concurrent operations'};
         });
         await step('flush-worker-files',async()=>{await adapter.database.flushFiles();return {flushed:true};});
         await step('export-real-database-buffer',async()=>{
+            // Keep the generated file's final engine handle alive until the
+            // checkpointed, flushed bytes are owned. Pinned 1.32.0 forgets an
+            // unregistered generated file on DETACH; an empty BUFFER is not a
+            // valid database and registerEmptyFileBuffer is a no-op.
             const bytes=new Uint8Array(await adapter.database.copyFileToBuffer(EXPORT_FILE));
             const header=inspectDuckDBHeader(bytes,PERSISTENCE_LIMITS.exportBytes);
             exported={filename:EXPORT_FILE,bytes,byteLength:header.bytes,storageVersion:header.storageVersion,sha256:await digest(bytes)};
-            await adapter.database.dropFile(EXPORT_FILE);
-            return {filename:EXPORT_FILE,bytes:bytes.byteLength,storageVersion:exported.storageVersion,sha256:exported.sha256};
+            await query('DETACH browser_export');await adapter.database.dropFile(EXPORT_FILE);
+            return {filename:EXPORT_FILE,bytes:bytes.byteLength,storageVersion:exported.storageVersion,sha256:exported.sha256,exportedBeforeDetach:true};
         });
         await step('reopen-export-and-check-native-fixture-unchanged',async()=>{
             await adapter.database.registerFileBuffer(REOPEN_FILE,new Uint8Array(exported.bytes));
