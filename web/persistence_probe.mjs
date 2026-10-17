@@ -192,8 +192,12 @@ export async function runPersistenceProbe(input={}){
             await metadataRowsEqual('browser_export',metadata.tables);
             return {storageTarget:'v1.0.0',tables:copied.tables.map(({name,rows})=>({name,rows})),sentinels:await sentinels('browser_export')};
         });
-        await step('checkpoint-detach-export-real-database',async()=>{
-            await query('CHECKPOINT browser_export');await query('DETACH browser_export');await adapter.database.flushFiles();
+        await step('checkpoint-detach-real-database',async()=>{
+            await query('CHECKPOINT browser_export');await query('DETACH browser_export');
+            return {checkpointed:true,detached:true};
+        });
+        await step('flush-worker-files',async()=>{await adapter.database.flushFiles();return {flushed:true};});
+        await step('export-real-database-buffer',async()=>{
             const bytes=new Uint8Array(await adapter.database.copyFileToBuffer(EXPORT_FILE));
             const header=inspectDuckDBHeader(bytes,PERSISTENCE_LIMITS.exportBytes);
             exported={filename:EXPORT_FILE,bytes,byteLength:header.bytes,storageVersion:header.storageVersion,sha256:await digest(bytes)};
