@@ -258,6 +258,18 @@ static bool browser_export_retained(size_t extra,size_t *retained,char **error) 
     if (!browser_export_add(&used,extra,error)) return false;
     *retained=used; return true;
 }
+/* Schema replacement is transactional: the incoming DESCRIBE Page and old
+   cached schema remain live while the new typed metadata is constructed. */
+static bool browser_export_describe_retained(const Page *describe,char **error) {
+    if (describe->column_count!=6 || (describe->row_count && !describe->cells)) return true; /* Schema validator rejects it before allocation. */
+    size_t extra=describe->bytes,retained;
+    if (!browser_export_add(&extra,describe->row_count*sizeof(Column),error)) return false;
+    for (size_t i=0;i<describe->row_count;i++) for (size_t c=0;c<2;c++) {
+        const Cell *cell=&describe->cells[i*6+c];
+        if (!cell->is_null && cell->text && !browser_export_add(&extra,strlen(cell->text)+1,error)) return false;
+    }
+    return browser_export_retained(extra,&retained,error);
+}
 static bool browser_statistics_add_bytes(size_t *used,size_t bytes,char **error) {
     if (bytes>DX_PAGE_WIRE_TEXT_BYTES || *used>DX_PAGE_WIRE_TEXT_BYTES-bytes) { *error=dx_strdup("Selection statistics exceed their combined 4 MiB memory limit."); return false; }
     *used+=bytes; return true;
@@ -465,7 +477,11 @@ static void browser_prepare_query(void) {
         if (!slot) shape.group_column=shape.measure_column=NULL;
         char *relation=browser_relation_sql(&shape,NULL,&error);
         if (!relation) { browser_fail(error); free(error); return; }
-        if ((!browser_type_key[slot] || strcmp(browser_type_key[slot],relation)) && browser_schema_key && !strcmp(browser_schema_key,relation)) browser_copy_type_schema(slot,relation);
+        if ((!browser_type_key[slot] || strcmp(browser_type_key[slot],relation)) && browser_schema_key && !strcmp(browser_schema_key,relation)) {
+            size_t retained;
+            if (j->kind==JOB_EXPORT && !browser_export_retained(browser_schema.bytes+2*(strlen(relation)+1),&retained,&error)) { free(relation); browser_fail(error); free(error); return; }
+            browser_copy_type_schema(slot,relation);
+        }
         if (browser_type_key[slot] && !strcmp(browser_type_key[slot],relation)) {
             free(relation); if (!browser_apply_types(slot,&error)) { browser_fail(error); free(error); return; }
         } else {
@@ -592,10 +608,15 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
             valid=browser_statistics_retained(0,&retained,&error);
             if (valid) for (size_t i=0;i<q->domain_index;i++) retained-=q->domains[i].bytes;
         }
+        /* The planner independently bounds its new owned plan to 4 MiB;
+           reserve that amount while all typed input domains still live. */
+        if (valid && j->kind==JOB_EXPORT) { size_t combined; valid=browser_export_retained(DX_PAGE_WIRE_TEXT_BYTES,&combined,&error); }
         if (valid) valid=browser_pivot_plan_build_retained(&q->plan,source,pivot,q->domains,retained,&error);
         for (size_t i=0;i<DX_PIVOT_FIELDS;i++) page_free(&q->domains[i]);
         if (!valid) { browser_publish(error); free(error); return; }
-        free(q->relation); q->relation=dx_strdup(q->plan.sql);
+        free(q->relation); q->relation=NULL;
+        if (j->kind==JOB_EXPORT) { size_t combined; if (!browser_export_retained(strlen(q->plan.sql)+1,&combined,&error)) { browser_publish(error); free(error); return; } }
+        q->relation=dx_strdup(q->plan.sql);
         if (q->matrix && j->include_totals) {
             q->rows_sql=browser_pivot_readout_sql(source,pivot,&q->plan,true,j->offset,&error);
             if (q->rows_sql) q->columns_sql=browser_pivot_readout_sql(source,pivot,&q->plan,false,0,&error);
@@ -626,6 +647,7 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
         r->page.total=count; r->page.count_pending=false; browser_matrix_ready(); return;
     }
     if (browser_query.stage==BROWSER_TYPE_DESCRIBE) {
+        if (j->kind==JOB_EXPORT && !browser_export_describe_retained(&page,&error)) { page_free(&page); browser_publish(error); free(error); return; }
         unsigned slot=browser_query.type_slot; bool valid=browser_schema_from_describe(&browser_type_schema[slot],&page,&error); page_free(&page);
         if (!valid) { browser_publish(error); free(error); return; }
         free(browser_type_key[slot]); browser_type_key[slot]=browser_query.type_relation; browser_query.type_relation=NULL;
@@ -633,9 +655,12 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
         browser_prepare_query(); return;
     }
     if (browser_query.stage==BROWSER_DESCRIBE || browser_query.stage==BROWSER_VALIDATE) {
+        if (j->kind==JOB_EXPORT && !browser_export_describe_retained(&page,&error)) { page_free(&page); browser_publish(error); free(error); return; }
         bool valid=browser_schema_from_describe(&browser_schema,&page,&error); page_free(&page);
         if (!valid) { browser_publish(error); free(error); return; }
-        free(browser_schema_key); browser_schema_key=dx_strdup(browser_query.relation);
+        free(browser_schema_key); browser_schema_key=NULL;
+        if (j->kind==JOB_EXPORT) { size_t retained; if (!browser_export_retained(strlen(browser_query.relation)+1,&retained,&error)) { browser_publish(error); free(error); return; } }
+        browser_schema_key=dx_strdup(browser_query.relation);
         if (browser_query.stage==BROWSER_VALIDATE) browser_publish(NULL); else browser_fetch_result();
         return;
     }
