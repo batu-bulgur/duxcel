@@ -12,7 +12,7 @@
 import { DataType } from 'apache-arrow';
 
 export const LIMITS = Object.freeze({ rows: 256, columns: 256, bytes: 4 * 1024 * 1024,
-    sqlBytes: 1024 * 1024, fileBytes: 256 * 1024 * 1024 });
+    sqlBytes: 1024 * 1024, fileBytes: 256 * 1024 * 1024, fileNames: 1024 });
 const MAX_U64 = 18446744073709551615n;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -173,6 +173,19 @@ function virtualName(name) {
 }
 
 export class DuckDBWorkerAdapter {
+    // Registration names are session generation identities. Never recycle a
+    // retired/failed name: older C relations may still refer to that basename.
+    // This protects this API's registered buffers, not arbitrary SQL writes,
+    // remote/custom SQL dependencies, or persistent source identity.
+    #fileNames = new Set();
+    #reserveFileName(name, registration) {
+        if (this.#fileNames.has(name)) {
+            check(!registration, 'IMMUTABLE_FILE', 'This source name was already used in this engine session. Import with a fresh virtual name.');
+            return;
+        }
+        check(this.#fileNames.size < LIMITS.fileNames, 'FILE_REGISTRY_LIMIT', 'The engine session has reached its file-name limit. Reload before importing more sources.');
+        this.#fileNames.add(name);
+    }
     constructor({ database, connection, engineVersion = null, dispose = null }) {
         this.database = database; this.connection = connection; this.engineVersion = engineVersion; this.dispose = dispose;
         this.active = null; this.pending = null; this.draining = null; this.closed = false; this.admin = false; this.latestId = 0n;
@@ -223,6 +236,7 @@ export class DuckDBWorkerAdapter {
         virtualName(name);
         check(bytes instanceof Uint8Array && bytes.byteLength <= LIMITS.fileBytes, 'FILE_LIMIT', 'File buffer must be at most 256 MiB');
         check(!this.closed && !this.active && !this.pending && !this.admin, 'NOT_AVAILABLE', 'Await an idle adapter before registering a file');
+        this.#reserveFileName(name, true);
         this.admin = true;
         try {
             const length = bytes.byteLength;
@@ -232,9 +246,11 @@ export class DuckDBWorkerAdapter {
         } finally { this.admin = false; }
     }
     async dropFile(name) {
+        virtualName(name);
         check(!this.closed && !this.active && !this.pending && !this.admin, 'NOT_AVAILABLE', 'Await an idle adapter before dropping a file');
+        this.#reserveFileName(name, false);
         this.admin = true;
-        try { await this.database.dropFile(virtualName(name)); }
+        try { await this.database.dropFile(name); }
         finally { this.admin = false; }
     }
     async close() {

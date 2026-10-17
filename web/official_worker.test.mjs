@@ -185,6 +185,96 @@ test('registration owns its data across caller detachment and blocks competing c
     assert.equal((await adapter.submit({ requestId: '1', sql: 'after registration' })).status, 'ok');
 });
 
+test('a registered name cannot be rebound, including after cleanup or in a later query', async () => {
+    const stored = new Map(), calls = [];
+    const database = {
+        async registerFileBuffer(name, bytes) { calls.push(['register', name]); stored.set(name, bytes.slice()); },
+        async dropFile(name) { calls.push(['drop', name]); stored.delete(name); }
+    };
+    const adapter = new DuckDBWorkerAdapter({ database, connection: connection() });
+    await adapter.registerFile('source.parquet', new Uint8Array([1]));
+    await assert.rejects(adapter.registerFile('source.parquet', new Uint8Array([2])), { code: 'IMMUTABLE_FILE' });
+    assert.deepEqual([...stored.get('source.parquet')], [1]);
+    await adapter.dropFile('source.parquet');
+    assert.equal((await adapter.submit({ requestId: '1', sql: 'C-built unrelated query' })).status, 'ok');
+    await assert.rejects(adapter.registerFile('source.parquet', new Uint8Array([3])), { code: 'IMMUTABLE_FILE' });
+    await adapter.registerFile('fresh-source.parquet', new Uint8Array([3]));
+    assert.deepEqual(calls, [['register', 'source.parquet'], ['drop', 'source.parquet'], ['register', 'fresh-source.parquet']]);
+    assert.deepEqual([...stored.get('fresh-source.parquet')], [3]); await adapter.close();
+});
+
+test('partial registration failure permanently reserves its name before the engine mutates', async () => {
+    const stored = new Map(), calls = [];
+    const database = {
+        async registerFileBuffer(name, bytes) { calls.push(name); stored.set(name, bytes); if (name === 'partial.csv') throw new Error('engine failed after storing bytes'); },
+        async dropFile(name) { stored.delete(name); }
+    };
+    const adapter = new DuckDBWorkerAdapter({ database, connection: connection() });
+    await assert.rejects(adapter.registerFile('partial.csv', new Uint8Array([7])), /after storing/);
+    assert.equal(adapter.admin, false); assert.deepEqual([...stored.get('partial.csv')], [7]);
+    await assert.rejects(adapter.registerFile('partial.csv', new Uint8Array([8])), { code: 'IMMUTABLE_FILE' });
+    await adapter.dropFile('partial.csv'); assert.equal(stored.has('partial.csv'), false);
+    await assert.rejects(adapter.registerFile('partial.csv', new Uint8Array([9])), { code: 'IMMUTABLE_FILE' });
+    await adapter.registerFile('recovery.csv', new Uint8Array([9]));
+    assert.deepEqual(calls, ['partial.csv', 'recovery.csv']); await adapter.close();
+});
+
+test('drop attempts reserve unknown names even on failure and preserve administration exclusion', async () => {
+    const dropping = deferred(), calls = [];
+    const database = {
+        async registerFileBuffer(name) { calls.push(['register', name]); },
+        async dropFile(name) { calls.push(['drop', name]); if (name === 'unknown.csv') await dropping.promise; }
+    };
+    const adapter = new DuckDBWorkerAdapter({ database, connection: connection() });
+    const removal = adapter.dropFile('unknown.csv');
+    assert.equal(adapter.admin, true);
+    assert.throws(() => adapter.submit({ requestId: '1', sql: 'query during drop' }), { code: 'NOT_AVAILABLE' });
+    await assert.rejects(adapter.close(), { code: 'NOT_AVAILABLE' });
+    await assert.rejects(adapter.registerFile('fresh.csv', new Uint8Array([1])), { code: 'NOT_AVAILABLE' });
+    await assert.rejects(adapter.dropFile('later.csv'), { code: 'NOT_AVAILABLE' });
+    dropping.reject(new Error('drop failed after mutation attempt'));
+    await assert.rejects(removal, /drop failed/); assert.equal(adapter.admin, false);
+    await assert.rejects(adapter.registerFile('unknown.csv', new Uint8Array([2])), { code: 'IMMUTABLE_FILE' });
+    await adapter.registerFile('fresh.csv', new Uint8Array([1]));
+    await adapter.registerFile('later.csv', new Uint8Array([2]));
+    assert.deepEqual(calls, [['drop', 'unknown.csv'], ['register', 'fresh.csv'], ['register', 'later.csv']]); await adapter.close();
+});
+
+test('name registry exhaustion fails closed without eviction and still permits cleanup', async () => {
+    let registrations = 0, drops = 0;
+    const database = { async registerFileBuffer() { registrations++; }, async dropFile() { drops++; } };
+    const adapter = new DuckDBWorkerAdapter({ database, connection: connection() });
+    assert.equal(LIMITS.fileNames, 1024); // 1,024 names * <=255 UTF-8 bytes, without recycling.
+    for (let i = 0; i < LIMITS.fileNames; i++) {
+        if (i % 2) await adapter.dropFile(`retired-${i}.csv`);
+        else await adapter.registerFile(`retired-${i}.csv`, new Uint8Array([1]));
+    }
+    await assert.rejects(adapter.registerFile('overflow.csv', new Uint8Array([2])), { code: 'FILE_REGISTRY_LIMIT' });
+    await assert.rejects(adapter.dropFile('overflow-drop.csv'), { code: 'FILE_REGISTRY_LIMIT' });
+    await adapter.dropFile('retired-0.csv');
+    await assert.rejects(adapter.registerFile('retired-0.csv', new Uint8Array([3])), { code: 'IMMUTABLE_FILE' });
+    await assert.rejects(adapter.registerFile('retired-1.csv', new Uint8Array([3])), { code: 'IMMUTABLE_FILE' });
+    assert.equal(registrations, LIMITS.fileNames / 2); assert.equal(drops, LIMITS.fileNames / 2 + 1);
+    assert.equal((await adapter.submit({ requestId: '1', sql: 'queries still work at the file-name limit' })).status, 'ok');
+    await adapter.close();
+    const nextSession = new DuckDBWorkerAdapter({ database, connection: connection() });
+    await nextSession.registerFile('retired-0.csv', new Uint8Array([4])); await nextSession.close();
+});
+
+test('nonmutating validation and active-query rejections do not consume a fresh valid name', async () => {
+    const sending = deferred(), calls = [];
+    const database = { async registerFileBuffer(name) { calls.push(name); } };
+    const adapter = new DuckDBWorkerAdapter({ database, connection: connection({
+        send: () => sending.promise, async cancelSent() { sending.resolve(reader(simple())); return true; }
+    }) });
+    await assert.rejects(adapter.registerFile('fresh.csv', null), { code: 'FILE_LIMIT' });
+    await assert.rejects(adapter.dropFile('../invalid'), { code: 'INVALID_FILE' });
+    const query = adapter.submit({ requestId: '1', sql: 'running C query' });
+    await assert.rejects(adapter.registerFile('fresh.csv', new Uint8Array([1])), { code: 'NOT_AVAILABLE' });
+    await adapter.cancel(); assert.equal((await query).status, 'cancelled');
+    await adapter.registerFile('fresh.csv', new Uint8Array([1])); assert.deepEqual(calls, ['fresh.csv']); await adapter.close();
+});
+
 test('official Worker factory uses single-threaded lossless options and owns shutdown/failure cleanup', async () => {
     const calls = [], conn = connection({ async close() { calls.push('close'); } });
     class FakeWorker { constructor(url) { calls.push(['worker', url]); } terminate() { calls.push('worker-terminate'); } }
