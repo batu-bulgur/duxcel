@@ -52,6 +52,9 @@ static const char categories_sql[]=
     "SELECT CASE i WHEN 0 THEN NULL::VARCHAR WHEN 1 THEN '' WHEN 2 THEN 'NULL' "
     "ELSE 'v-' || lpad((i-3)::VARCHAR,3,'0') END AS category,"
     "CASE WHEN i<150 THEN 'keep' ELSE 'drop' END AS bucket FROM range(300) t(i)";
+static const char decimal_filter_sql[]=
+    "SELECT * FROM (VALUES (1.00::DECIMAL(4,2),'A'),"
+    "(1.01::DECIMAL(4,2),'B'),(1.02::DECIMAL(4,2),'C')) t(amount,label)";
 static const char dates_sql[]=
     "SELECT * FROM (VALUES (NULL::TIMESTAMP),"
     "(TIMESTAMP '2024-12-31 23:59:59.999999'),"
@@ -64,7 +67,8 @@ typedef enum {
     WAIT_EXACT,WAIT_PAGE0,WAIT_PAGE256,WAIT_PAGE512,WAIT_COUNT,WAIT_TABLE,
     WAIT_VALIDATE,WAIT_PREVIEW,WAIT_ERROR,WAIT_RECOVERY,
     WAIT_DISTINCT0,WAIT_DISTINCT128,WAIT_DISTINCT256,WAIT_DISTINCT_SEARCH,
-    WAIT_DISTINCT_PRIMARY,WAIT_DISTINCT_SECONDARY,WAIT_DATE_YEAR,WAIT_DATE_MONTH,
+    WAIT_DISTINCT_PRIMARY,WAIT_DISTINCT_SECONDARY,WAIT_DISTINCT_DECIMAL_PRIMARY,
+    WAIT_DISTINCT_DECIMAL_SECONDARY,WAIT_DATE_YEAR,WAIT_DATE_MONTH,
     WAIT_DATE_DAY,WAIT_DATE_HOUR,WAIT_DATE_MINUTE,WAIT_DATE_NULL,
     WAIT_DISTINCT_ERROR,WAIT_DISTINCT_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
@@ -113,7 +117,12 @@ static void submit_distinct(const char *sql,const char *column,const char *searc
     CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job));
     job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=JOB_DISTINCT;
     job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(sql)};
-    if (filter_order) {
+    if (filter_order>=3) {
+        /* A secondary numeric predicate follows an own-column filter which
+           available-value enumeration must exclude, retaining the amount. */
+        if (filter_order==4) CHECK(analysis_filter_set(&job->analysis,"label",FILTER_EQUAL,"A",NULL));
+        CHECK(analysis_filter_set(&job->analysis,"amount",FILTER_GREATER,"1.005",NULL));
+    } else if (filter_order) {
         const char *first=filter_order==1 ? "category" : "bucket",*second=filter_order==1 ? "bucket" : "category";
         CHECK(analysis_filter_set(&job->analysis,first,FILTER_EQUAL,filter_order==1 ? "v-001" : "keep",NULL));
         CHECK(analysis_filter_set(&job->analysis,second,FILTER_EQUAL,filter_order==1 ? "keep" : "v-001",NULL));
@@ -195,6 +204,20 @@ static void distinct_reply(size_t count,uint64_t total) {
 static void date_value(size_t row,const char *value,const char *label,const char *upper) {
     distinct_value(&reply->distinct.values[row],value,label,upper);
 }
+static void decimal_distinct_values(bool secondary) {
+    distinct_reply(2,2);
+    distinct_value(&reply->distinct.values[0],"B","B",NULL);
+    distinct_value(&reply->distinct.values[1],"C","C",NULL);
+    const Analysis *analysis=&reply->analysis;
+    CHECK(analysis->filter_count==(secondary ? 1u : 0u));
+    CHECK(analysis->filter_column && !strcmp(analysis->filter_column,secondary ? "label" : "amount"));
+    CHECK(analysis->filter_value && !strcmp(analysis->filter_value,secondary ? "A" : "1.005"));
+    if (secondary) CHECK(analysis->filters[0].column && !strcmp(analysis->filters[0].column,"amount") &&
+        analysis->filters[0].value && !strcmp(analysis->filters[0].value,"1.005") && analysis->filters[0].op==FILTER_GREATER);
+    else CHECK(analysis->filter_op==FILTER_GREATER);
+    NumberType number=secondary ? analysis->filters[0].number : analysis->filter_number;
+    CHECK(number.kind==NUM_DECIMAL && number.precision==4 && number.scale==2);
+}
 static void inject_late(void *unused) {
     (void)unused;
     /* Matching old cookie/ticket, deliberately unreadable payload: the ownership
@@ -262,7 +285,7 @@ static void tick(void) {
         if (!received(false)) return;
         distinct_reply(2,2); distinct_value(&reply->distinct.values[0],NULL,"NULL",NULL);
         distinct_value(&reply->distinct.values[1],"NULL","NULL",NULL); release_reply(); pass("distinct NULL search includes typed missing and literal NULL without empty text");
-        submit_distinct(categories_sql,"category","",-1,NULL,NULL,0,-1,1,2); enter(WAIT_DISTINCT_PRIMARY); return;
+        submit_distinct(categories_sql,"category","",-1,NULL,NULL,0,-1,1,3); enter(WAIT_DISTINCT_PRIMARY); return;
     case WAIT_DISTINCT_PRIMARY:
         if (!received(false)) return;
         validation_reply(); category_values(&reply->distinct,0,128,150);
@@ -276,6 +299,14 @@ static void tick(void) {
         CHECK(reply->analysis.filter_count==1 && !strcmp(reply->analysis.filter_column,"bucket") && !strcmp(reply->analysis.filter_value,"keep"));
         CHECK(!strcmp(reply->analysis.filters[0].column,"category") && !strcmp(reply->analysis.filters[0].value,"v-001"));
         release_reply(); pass("available values ignore own secondary filter and retain the primary source filter");
+        submit_distinct(decimal_filter_sql,"label","",-1,NULL,NULL,0,-1,3,3); enter(WAIT_DISTINCT_DECIMAL_PRIMARY); return;
+    case WAIT_DISTINCT_DECIMAL_PRIMARY:
+        if (!received(false)) return;
+        decimal_distinct_values(false); release_reply(); pass("distinct primary DECIMAL comparison preserves 1.01 > 1.005 without rounding the filter");
+        submit_distinct(decimal_filter_sql,"label","",-1,NULL,NULL,0,-1,4,2); enter(WAIT_DISTINCT_DECIMAL_SECONDARY); return;
+    case WAIT_DISTINCT_DECIMAL_SECONDARY:
+        if (!received(false)) return;
+        decimal_distinct_values(true); release_reply(); pass("distinct secondary DECIMAL comparison retains B and C after removing the own-column filter");
         submit_distinct(dates_sql,"occurred","",0,NULL,NULL,0,-1,0,2); enter(WAIT_DATE_YEAR); return;
     case WAIT_DATE_YEAR:
         if (!received(false)) return;
@@ -370,7 +401,7 @@ static void tick(void) {
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
         retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
         page_free(&retained); page_free(&retained); pass("early stop and scheduled stale callbacks are ignored");
-        CHECK(stages==27 && worker.jobs_started==32 && expected_sql==46 && expected_counts==1);
+        CHECK(stages==29 && worker.jobs_started==34 && expected_sql==52 && expected_counts==1);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
