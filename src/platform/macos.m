@@ -71,6 +71,63 @@ static NSMenu *native_edit_menu;
 static bool app_modal,text_input,pivot_context,key_tips;
 static bool trace_input;
 static NSWindow *canvas_window; /* borrowed from GLFW */
+static NSView *canvas_view; /* same borrowed renderer view, in window coordinates */
+static float native_titlebar_height;
+static const NSWindowButton titlebar_button_kinds[]={NSWindowCloseButton,NSWindowMiniaturizeButton,NSWindowZoomButton};
+/* The standard controls remain AppKit-owned. The C bar reserves their actual
+   canvas-space extent instead of assuming a fixed Retina/OS titlebar width. */
+static bool native_fullscreen(void) {
+    return canvas_window && (canvas_window.styleMask&NSWindowStyleMaskFullScreen)!=0;
+}
+static bool native_canvas_point(NSEvent *event,float *x,float *y) {
+    if (!canvas_view || canvas_view.window!=canvas_window || event.window!=canvas_window) return false;
+    NSPoint point=[canvas_view convertPoint:event.locationInWindow fromView:nil];
+    NSRect bounds=canvas_view.bounds;
+    *x=(float)(point.x-NSMinX(bounds));
+    *y=(float)(canvas_view.isFlipped ? point.y-NSMinY(bounds) : NSMaxY(bounds)-point.y);
+    return isfinite(*x) && isfinite(*y);
+}
+float dx_native_titlebar_inset(void) {
+    if (!canvas_window || canvas_view.window!=canvas_window || native_fullscreen() ||
+        !(canvas_window.styleMask&NSWindowStyleMaskTitled)) return 0;
+    CGFloat trailing=0;
+    for (unsigned i=0;i<sizeof(titlebar_button_kinds)/sizeof(*titlebar_button_kinds);i++) {
+        NSButton *button=[canvas_window standardWindowButton:titlebar_button_kinds[i]];
+        if (!button || button.isHiddenOrHasHiddenAncestor || button.window!=canvas_window) continue;
+        NSRect frame=[canvas_view convertRect:button.bounds fromView:button];
+        trailing=fmax(trailing,NSMaxX(frame)-NSMinX(canvas_view.bounds));
+    }
+    return trailing>0 ? (float)ceil(trailing+12) : 0;
+}
+void dx_native_titlebar_height(float height) {
+    native_titlebar_height=isfinite(height) ? fminf(512,fmaxf(0,height)) : 0;
+}
+static bool native_titlebar_button_hit(float x,float y) {
+    NSRect bounds=canvas_view.bounds;
+    NSPoint point=NSMakePoint(x+NSMinX(bounds),canvas_view.isFlipped ? y+NSMinY(bounds) : NSMaxY(bounds)-y);
+    for (unsigned i=0;i<sizeof(titlebar_button_kinds)/sizeof(*titlebar_button_kinds);i++) {
+        NSButton *button=[canvas_window standardWindowButton:titlebar_button_kinds[i]];
+        if (button && !button.isHiddenOrHasHiddenAncestor && button.window==canvas_window &&
+            NSPointInRect(point,[canvas_view convertRect:button.bounds fromView:button])) return true;
+    }
+    return false;
+}
+static bool native_titlebar_drag(NSEvent *event,float x,float y) {
+    if (event.type!=NSEventTypeLeftMouseDown || native_titlebar_height<=0 ||
+        native_panel_active || app_modal || NSApp.modalWindow || canvas_window.attachedSheet ||
+        !canvas_window.isVisible || NSApp.isHidden || canvas_window.isMiniaturized || native_fullscreen()) return false;
+    float leading=dx_native_titlebar_inset();
+    float trailing=fmaxf(40,native_titlebar_height+8);
+    if (x<leading || y<0 || y>=native_titlebar_height ||
+        x>=canvas_view.bounds.size.width-trailing) return false;
+    /* AppKit drives the tracking loop and screen transitions. A consumed down
+       must not create a second C selection/gesture when its up is delivered. */
+    pointer_recording[0]=false;
+    NSOpenGLContext *context=[NSOpenGLContext currentContext];
+    [canvas_window performWindowDragWithEvent:event];
+    [context makeCurrentContext];
+    return true;
+}
 /* Preserve GLFW's delegate for display/input lifecycle messages. Termination
    must also unwind AppKit's nested file-panel loop before C cleanup can run. */
 @interface DuxcelApplicationDelegate : NSProxy <NSApplicationDelegate> {
@@ -160,11 +217,35 @@ void dx_native_setup(void *window) {
     (void)window;
     trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     NSView *canvas=context.view;
-    canvas_window=canvas.window;
+    canvas_window=canvas.window; canvas_view=canvas;
+    native_titlebar_height=0;
+    if (canvas_window && (canvas_window.styleMask&NSWindowStyleMaskTitled)) {
+        /* Full-size content removes the duplicate OS header while retaining
+           native traffic lights, resizing, shadow and fullscreen machinery.
+           Never order/activate/move this or any other application window. */
+        canvas_window.styleMask|=NSWindowStyleMaskFullSizeContentView;
+        canvas_window.titlebarAppearsTransparent=YES;
+        canvas_window.titleVisibility=NSWindowTitleHidden;
+        canvas_window.movableByWindowBackground=NO;
+        if (@available(macOS 11.0,*)) canvas_window.titlebarSeparatorStyle=NSTitlebarSeparatorStyleNone;
+        [canvas_window.contentView layoutSubtreeIfNeeded];
+        [context update];
+    }
     if (!pointer_monitor) pointer_monitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown|NSEventMaskLeftMouseUp|NSEventMaskRightMouseDown|NSEventMaskRightMouseUp handler:^NSEvent *(NSEvent *event) {
         int button=event.type==NSEventTypeRightMouseDown || event.type==NSEventTypeRightMouseUp;
         if (native_panel_active || event.window!=canvas.window) { pointer_recording[button]=false; return event; }
-        float x=event.locationInWindow.x,y=canvas.bounds.size.height-event.locationInWindow.y;
+        float x,y;
+        if (!native_canvas_point(event,&x,&y)) { pointer_recording[button]=false; return event; }
+        /* Buttons live above the GL content in the unified bar, including
+           Focus mode with no C bar. Never synthesize worksheet gestures for
+           their native responder chain, even when the button is disabled. */
+        if (native_titlebar_button_hit(x,y)) {
+            pointer_recording[button]=false; return event;
+        }
+        if (native_titlebar_drag(event,x,y)) return nil;
+        if (y>=0 && y<native_titlebar_height && x<dx_native_titlebar_inset()) {
+            pointer_recording[button]=false; return event;
+        }
         if (event.type==NSEventTypeLeftMouseDown || event.type==NSEventTypeRightMouseDown) {
             NSEventModifierFlags flags=event.modifierFlags;
             unsigned modifiers=(flags&NSEventModifierFlagShift ? DX_MOD_SHIFT : 0) | (flags&NSEventModifierFlagControl ? DX_MOD_CONTROL : 0) | (flags&NSEventModifierFlagOption ? DX_MOD_ALT : 0) | (flags&NSEventModifierFlagCommand ? DX_MOD_SUPER : 0);
@@ -293,7 +374,7 @@ void dx_native_shutdown(void) {
         if (gesture_monitor) [NSEvent removeMonitor:gesture_monitor];
         if (shortcut_monitor) [NSEvent removeMonitor:shortcut_monitor];
         pointer_monitor=gesture_monitor=shortcut_monitor=nil;
-        canvas_window=nil;
+        canvas_window=nil; canvas_view=nil; native_titlebar_height=0;
         pointer_count=pointer_head=command_count=command_head=modifier_count=modifier_head=0;
         pointer_recording[0]=pointer_recording[1]=false; magnification=0;
         app_modal=text_input=pivot_context=key_tips=quit_requested=native_panel_active=false;
