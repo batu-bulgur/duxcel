@@ -653,7 +653,7 @@ try{
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelWorkerResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'worker-driver.json'),JSON.stringify(report??{ok:false,error:'C driver did not complete'},null,2));
   check(report?.ok,'Real C/Worker bridge failed; see worker-driver.json and events.json');
-  check(report.stages===33,'C/Worker acceptance stage inventory changed');
+  check(report.stages===49,'C/Worker acceptance stage inventory changed');
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
   console.log(JSON.stringify({status:'passed',checks,report,output}));
  }else{
