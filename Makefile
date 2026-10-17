@@ -572,6 +572,18 @@ web-sources:
 	@printf '%s\n' $(WEB_SOURCES)
 web:
 	python3 tools/build_web.py
+
+# BP0 uses the existing native codec and official browser Worker. It is an
+# isolated compatibility proof; no browser Save UI or new runtime dependency.
+build/web-tests/test-persistence: $(CORE) tests/test_browser_persistence.c $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_browser_persistence.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+build/web-tests/test-persistence-sanitize: $(CORE) tests/test_browser_persistence.c $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/test_browser_persistence.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+test-browser-persistence:
+	python3 tools/test_web_app.py --persistence
+.PHONY: test-browser-persistence
 WEB_REVIEW_SOURCES = $(WEB_SOURCES) src/dev/review_registry.c src/dev/review_input.c src/dev/review_capture.c src/dev/review_browser.c
 web-review-sources:
 	@printf '%s\n' $(WEB_REVIEW_SOURCES)

@@ -40,7 +40,7 @@ export function persistenceProbeConfig(input={}){
     if(hasBytes)inspectDuckDBHeader(input.fixtureBytes);
     else{
         fixtureURL=new URL(input.fixtureURL,base);
-        if(fixtureURL.origin!==base.origin||fixtureURL.username||fixtureURL.password)throw new TypeError('Native fixture URL must be same-origin HTTP(S)');
+        if(!['http:','https:'].includes(fixtureURL.protocol)||fixtureURL.origin!==base.origin||fixtureURL.username||fixtureURL.password)throw new TypeError('Native fixture URL must be same-origin HTTP(S)');
         fixtureURL=fixtureURL.href;
     }
     return Object.freeze({moduleURL:engine.moduleURL,workerURL:engine.workerURL,timeoutMs:engine.timeoutMs,
@@ -90,7 +90,7 @@ export async function runPersistenceProbe(input={}){
         try{const details=await bounded(Promise.resolve().then(action),config.timeoutMs);checks.push({name,status:'passed',milliseconds:now()-begin,details});return details;}
         catch(error){checks.push({name,status:'failed',milliseconds:now()-begin,error:errorRecord(error)});throw error;}
     }
-    async function query(text){sql.push(text);return adapter.connection.query(text);}
+    async function query(text){check(!controller.signal.aborted,'Persistence probe is closed');sql.push(text);return adapter.connection.query(text);}
     async function columns(catalog){
         check(CATALOGS.has(catalog),'Invalid probe catalog');
         const result=await query(`SELECT table_name,column_name,data_type,is_nullable,column_index::VARCHAR AS position FROM duckdb_columns() WHERE database_name='${catalog}' AND schema_name='_duxcel_workspace' ORDER BY table_name,column_index LIMIT ${PERSISTENCE_LIMITS.metadataColumns+1}`);
@@ -127,10 +127,10 @@ export async function runPersistenceProbe(input={}){
     async function sentinels(catalog){
         check(CATALOGS.has(catalog),'Invalid probe catalog');
         const projection=Object.keys(SENTINELS).map(name=>`CAST(${quoted(name)} AS VARCHAR) AS ${quoted(name)}`).join(',');
-        const values=await query(`SELECT ${projection} FROM ${catalog}._duxcel_probe.sentinels LIMIT 2`);
+        const values=await query(`SELECT ${projection} FROM ${catalog}._duxcel_browser_probe.sentinels LIMIT 2`);
         equal(values.numRows,1,'Sentinel row count');const exact={};
         for(const [name,expected] of Object.entries(SENTINELS)){exact[name]=cell(values,0,name);equal(exact[name],expected,`Exact persisted ${name}`);}
-        const types=await query(`SELECT column_name,data_type FROM duckdb_columns() WHERE database_name='${catalog}' AND schema_name='_duxcel_probe' AND table_name='sentinels' ORDER BY column_index LIMIT 10`);
+        const types=await query(`SELECT column_name,data_type FROM duckdb_columns() WHERE database_name='${catalog}' AND schema_name='_duxcel_browser_probe' AND table_name='sentinels' ORDER BY column_index LIMIT 10`);
         equal(types.numRows,9,'Sentinel column count');const descriptors=Array.from({length:types.numRows},(_,row)=>({name:cell(types,row,'column_name'),type:cell(types,row,'data_type')}));
         equal(descriptors[0].type,'BIGINT','Signed integer type');equal(descriptors[2].type,'UBIGINT','Unsigned integer type');equal(descriptors[3].type,'DECIMAL(38,10)','DECIMAL type');
         return {values:exact,columns:descriptors};
@@ -151,8 +151,9 @@ export async function runPersistenceProbe(input={}){
         await step('initialize-owned-official-worker',async()=>{
             check(typeof globalThis.Worker==='function','Real browser Worker constructor required');
             api=await import('./official_worker.mjs');
-            function OwnedWorker(...args){const worker=new globalThis.Worker(...args);workers.push(worker);return worker;}
+            function OwnedWorker(...args){check(!controller.signal.aborted,'Persistence probe is closed');const worker=new globalThis.Worker(...args);workers.push(worker);return worker;}
             adapter=await api.createOfficialWorkerAdapter({...config,WorkerClass:OwnedWorker});engineVersion=adapter.engineVersion;
+            if(controller.signal.aborted){await bounded(adapter.close(),2000);throw new Error('Persistence probe initialization finished after its deadline');}
             await query("SET autoinstall_known_extensions=false; SET autoload_known_extensions=false; SET memory_limit='128MB'");
             return {engineVersion,moduleURL:config.moduleURL,workerURL:config.workerURL,threads:1};
         });
@@ -175,8 +176,8 @@ export async function runPersistenceProbe(input={}){
                     await query(metadataDDL(table.name,table.sql));
                     await query(`INSERT INTO browser_export._duxcel_workspace.${quoted(table.name)} SELECT * FROM native_fixture._duxcel_workspace.${quoted(table.name)}`);
                 }
-                await query('CREATE SCHEMA browser_export._duxcel_probe');
-                await query(`CREATE TABLE browser_export._duxcel_probe.sentinels AS SELECT
+                await query('CREATE SCHEMA browser_export._duxcel_browser_probe');
+                await query(`CREATE TABLE browser_export._duxcel_browser_probe.sentinels AS SELECT
                     '-9223372036854775808'::BIGINT AS signed_min,'9007199254740993'::BIGINT AS above_js_integer,
                     '18446744073709551615'::UBIGINT AS max_unsigned,'9007199254740993.1234567890'::DECIMAL(38,10) AS exact_decimal,
                     '-0.0000000001'::DECIMAL(38,10) AS negative_decimal,NULL::VARCHAR AS missing,''::VARCHAR AS zero_length,
