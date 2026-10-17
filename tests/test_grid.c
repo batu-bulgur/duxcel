@@ -74,8 +74,112 @@ static void test_active_range_cell(void) {
     event(&g,&ui,&p,(GridInput){.key=KEY_DOWN,.shift=true}); CHECK(g.row==5 && g.col==5 && g.end_row==6 && g.selection==SELECT_ROWS);
     grid_destroy(&g);
 }
+static void test_active_extent_canvas_growth(void) {
+    for (int variant=0;variant<2;variant++) {
+        float scale=variant ? 1.5f : 1;
+        Grid g; grid_init(&g); UIContext ui={.scale=scale}; Page empty={0};
+        grid_schema(&g,&empty,true); grid_layout(&g,scale,&empty,(Rectangle){0,0,900,600});
+        grid_select_cell(&g,22,49,false); grid_select_cell(&g,22,51,true);
+        float active_width=g.widths[49],extent_width=g.widths[51];
+        event(&g,&ui,&empty,(GridInput){.key=KEY_RIGHT,.separate_keyboard=true,.key_shift=true,.key_alt=true});
+        CHECK(g.width_count==52 && g.widths[49]==active_width+12 && g.widths[51]==extent_width);
+        CHECK(g.row==22 && g.col==49 && g.end_col==51);
+        /* The native key snapshot must extend the extent, even if Shift was
+           released before the pointer snapshot for this rendered frame. */
+        event(&g,&ui,&empty,(GridInput){.key=KEY_RIGHT,.separate_keyboard=true,.key_shift=true});
+        CHECK(g.width_count==104 && g.row==22 && g.col==49 && g.anchor_col==49 && g.end_col==52);
+        Rectangle extent=grid_range_rect(&g,scale,22,52,1,1);
+        CHECK(extent.x>=g.body.x-.01f && extent.x+extent.width<=g.body.x+g.body.width+.01f);
+        event(&g,&ui,&empty,(GridInput){.key=KEY_LEFT,.separate_keyboard=true,.key_shift=true});
+        CHECK(g.col==49 && g.end_col==51 && g.width_count==104);
+
+        grid_schema(&g,&empty,true); g.top=20; grid_layout(&g,scale,&empty,(Rectangle){0,0,900,600});
+        g.horizontal=g.offsets[g.width_count]-g.body.width/scale; grid_layout(&g,scale,&empty,g.rect);
+        Rectangle origin=grid_range_rect(&g,scale,22,49,1,1);
+        Vector2 pointer={origin.x+origin.width*.5f,origin.y+origin.height*.5f};
+        event(&g,&ui,&empty,(GridInput){.mouse=pointer,.pressed=true,.down=true});
+        CHECK(g.dragging && g.row==22 && g.col==49);
+        pointer.x=g.body.x+g.body.width+24;
+        for (int frame=0;frame<12;frame++) event(&g,&ui,&empty,(GridInput){.mouse=pointer,.down=true,.dt=.05f});
+        CHECK(g.width_count==104 && g.row==22 && g.col==49 && g.end_col>51 && g.end_row==22);
+        CHECK(g.horizontal>g.offsets[52]-g.body.width/scale);
+        event(&g,&ui,&empty,(GridInput){.mouse=pointer,.released=true});
+        CHECK(!g.dragging && g.col==49 && g.end_col>51);
+        event(&g,&ui,&empty,(GridInput){.key=KEY_TAB,.shift=true});
+        CHECK(g.row==22 && g.col==g.end_col && g.anchor_col==49);
+        size_t previous=g.col;
+        event(&g,&ui,&empty,(GridInput){.key=KEY_RIGHT});
+        CHECK(g.col==previous+1 && g.col==g.end_col && g.anchor_col==g.col && g.row==g.end_row);
+
+        grid_schema(&g,&empty,true); grid_select_cell(&g,22,49,false); grid_select_cell(&g,22,51,true);
+        event(&g,&ui,&empty,(GridInput){.key=KEY_RIGHT,.shift=true,.separate_keyboard=true});
+        CHECK(g.width_count==52 && g.col==50 && g.anchor_col==50 && g.end_col==50);
+        grid_select_cell(&g,22,49,false); grid_select_cell(&g,22,51,true);
+        event(&g,&ui,&empty,(GridInput){.key=KEY_RIGHT,.shift=true,.shortcut=true});
+        CHECK(g.width_count==52 && g.col==49 && !g.end_col);
+        grid_destroy(&g);
+    }
+    /* Embedded result grids retain a finite schema under the same gesture. */
+    Grid g; grid_init(&g); g.bounded=true; UIContext ui={.scale=1};
+    Column columns[2]={{.name="A"},{.name="B"}}; Page p={.columns=columns,.column_count=2,.total=20};
+    grid_schema(&g,&p,true); grid_layout(&g,1,&p,(Rectangle){0,0,250,300});
+    grid_select_cell(&g,1,0,false); grid_select_cell(&g,1,1,true);
+    event(&g,&ui,&p,(GridInput){.key=KEY_RIGHT,.shift=true});
+    CHECK(g.width_count==2 && !g.col && g.end_col==1);
+    grid_reveal_cell(&g,&p,1); Rectangle origin=grid_range_rect(&g,1,1,0,1,1);
+    event(&g,&ui,&p,(GridInput){.mouse={origin.x+20,origin.y+12},.pressed=true,.down=true});
+    for (int frame=0;frame<12;frame++) event(&g,&ui,&p,(GridInput){.mouse={g.body.x+g.body.width+24,origin.y+12},.down=true,.dt=.05f});
+    CHECK(g.width_count==2 && !g.col && g.end_col==1);
+    event(&g,&ui,&p,(GridInput){.released=true}); grid_destroy(&g);
+}
+static void test_active_header_ranges(void) {
+    for (int variant=0;variant<2;variant++) {
+        float scale=variant ? 1.5f : 1;
+        Grid g; grid_init(&g); UIContext ui={.scale=scale}; Column columns[6]={0}; char names[6][8];
+        for (size_t c=0;c<6;c++) { snprintf(names[c],sizeof(names[c]),"F%zu",c); columns[c].name=names[c]; }
+        Page p={.columns=columns,.column_count=6,.total=10000}; grid_schema(&g,&p,true);
+        for (size_t c=0;c<6;c++) grid_set_width(&g,c,64);
+        grid_layout(&g,scale,&p,(Rectangle){0,0,900,600}); grid_select_cell(&g,3,1,false);
+        float y=g.rect.y+10*scale;
+        float x1=grid_column_x(&g,scale,1)+20*scale,x4=grid_column_x(&g,scale,4)+20*scale;
+        grid_replay_gesture(&g,&ui,&p,(DxPointerGesture){x1,y,x4,y,0,false});
+        CHECK(g.selection==SELECT_COLUMNS && g.row==3 && g.col==1 && g.anchor_col==1 && g.end_col==4);
+        float x0=grid_column_x(&g,scale,0)+20*scale;
+        grid_replay_gesture(&g,&ui,&p,(DxPointerGesture){x0,y,x0,y,DX_MOD_SHIFT,false});
+        CHECK(g.selection==SELECT_COLUMNS && g.row==3 && g.col==1 && g.anchor_col==1 && !g.end_col);
+        event(&g,&ui,&p,(GridInput){.key=KEY_RIGHT,.shift=true});
+        CHECK(g.selection==SELECT_COLUMNS && g.col==1 && g.end_col==1);
+        event(&g,&ui,&p,(GridInput){.key=KEY_RIGHT});
+        CHECK(g.selection==SELECT_CELLS && g.row==3 && g.col==2 && g.anchor_col==2 && g.end_col==2);
+
+        grid_select_cell(&g,3,1,false); g.top=0; grid_layout(&g,scale,&p,g.rect);
+        Rectangle row3=grid_range_rect(&g,scale,3,1,1,1),row6=grid_range_rect(&g,scale,6,1,1,1);
+        float gutter=g.rect.x+10*scale;
+        grid_replay_gesture(&g,&ui,&p,(DxPointerGesture){gutter,row3.y+10*scale,gutter,row6.y+10*scale,0,false});
+        CHECK(g.selection==SELECT_ROWS && g.row==3 && g.col==1 && g.anchor_row==3 && g.end_row==6);
+        Rectangle row1=grid_range_rect(&g,scale,1,1,1,1);
+        grid_replay_gesture(&g,&ui,&p,(DxPointerGesture){gutter,row1.y+10*scale,gutter,row1.y+10*scale,DX_MOD_SHIFT,false});
+        CHECK(g.selection==SELECT_ROWS && g.row==3 && g.col==1 && g.anchor_row==3 && g.end_row==1);
+        event(&g,&ui,&p,(GridInput){.key=KEY_DOWN,.shift=true});
+        CHECK(g.row==3 && g.end_row==2 && g.selection==SELECT_ROWS);
+        event(&g,&ui,&p,(GridInput){.key=KEY_UP});
+        CHECK(g.selection==SELECT_CELLS && g.row==2 && g.col==1 && g.anchor_row==2 && g.end_row==2);
+
+        grid_select_cell(&g,3,1,false); grid_reveal_cell(&g,&p,scale); row3=grid_range_rect(&g,scale,3,1,1,1);
+        event(&g,&ui,&p,(GridInput){.mouse={row3.x+10*scale,row3.y+10*scale},.pressed=true,.down=true});
+        for (int frame=0;frame<12;frame++) event(&g,&ui,&p,(GridInput){.mouse={row3.x+10*scale,g.body.y+g.body.height+24},.down=true,.dt=.05f});
+        CHECK(g.row==3 && g.col==1 && g.anchor_row==3 && g.end_row>g.visible_rows && g.top>0);
+        uint64_t end=g.end_row;
+        event(&g,&ui,&p,(GridInput){.released=true});
+        event(&g,&ui,&p,(GridInput){.key=KEY_UP,.shift=true});
+        CHECK(g.row==3 && g.col==1 && g.end_row==end-1 && g.top+g.visible_rows>g.end_row);
+        grid_destroy(&g);
+    }
+}
 static void test_source_context(void) {
     test_active_range_cell();
+    test_active_extent_canvas_growth();
+    test_active_header_ranges();
     UICellContextLayout v=ui_cell_context_layout((Rectangle){228,137,772,28},1280,false,false,43);
     CHECK(v.valid && v.address.x==228 && v.address.y==139.5f && v.address.width==88 && v.address.height==22);
     CHECK(v.address_text.x==237 && v.chevron.x==295 && v.function.x==325 && v.function.y==142.5f);

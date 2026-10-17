@@ -257,7 +257,7 @@ static void navigate(Grid *g,const Page *p,const GridInput *in,float scale) {
         else if (key==KEY_UP) row=row ? row-1 : 0; else row=MIN(row+1,p->total-1);
         break;
     case KEY_LEFT: case KEY_RIGHT:
-        if (in->alt) { if (!g->lock_structure) grid_set_width(g,col,g->widths[col]+(key==KEY_LEFT ? -12 : 12)); return; }
+        if (in->alt) { if (!g->lock_structure) grid_set_width(g,g->col,g->widths[g->col]+(key==KEY_LEFT ? -12 : 12)); return; }
         if (in->shortcut) col=contextual ? (key==KEY_LEFT ? region.c0 : region.c1) : key==KEY_LEFT ? 0 : (data->column_count ? data->column_count-1 : 0);
         else if (key==KEY_LEFT) col=col ? col-1 : 0; else col=MIN(col+1,p->column_count-1);
         break;
@@ -334,6 +334,9 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
     if (g->block_pointer && !g->dragging && !g->moving && g->resizing<0 && !g->scrollbar) {
         masked=*in; masked.mouse=(Vector2){-1000000,-1000000}; masked.wheel=(Vector2){0}; masked.pressed=masked.right=false; in=&masked;
     }
+    GridInput keyboard=*in;
+    if (in->separate_keyboard) { keyboard.shift=in->key_shift; keyboard.shortcut=in->key_shortcut; keyboard.alt=in->key_alt; }
+    if (keyboard.key==KEY_KP_ENTER) keyboard.key=KEY_ENTER;
     if (g->lock_structure) { g->resizing=-1; g->moving=false; g->move_requested=g->context_requested=g->filter_requested=g->fit_requested=false; }
     if (in->key==KEY_ESCAPE) {
         if (g->resizing>=0) grid_set_width(g,(size_t)g->resizing,g->width_start);
@@ -343,7 +346,8 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
     if (g->freeze_blocked && !g->lock_structure && in->pressed && CheckCollisionPointRec(in->mouse,(Rectangle){g->rect.x+g->rect.width-68*cs,g->rect.y+g->rect.height-25*cs,61*cs,23*cs})) {
         g->freeze=false; g->elastic.x=g->spring_velocity.x=0; grid_layout(g,u->scale,p,g->rect); return;
     }
-    if (!g->bounded && g->width_count && ((in->key==KEY_RIGHT && g->col+1==g->width_count) ||
+    size_t key_column=keyboard.shift ? g->end_col : g->col;
+    if (!g->bounded && g->width_count && ((keyboard.key==KEY_RIGHT && !keyboard.alt && !keyboard.shortcut && key_column+1==g->width_count) ||
         ((in->wheel.x<0 || (in->shift && in->wheel.y<0)) && g->horizontal+g->body.width/u->scale>g->offsets[g->width_count]-96))) extend_columns(g);
     Page canvas=*p; canvas.total=canvas_rows(g,p); canvas.column_count=g->width_count;
     const Page *data=p; p=&canvas;
@@ -461,7 +465,10 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
             if (g->selection!=SELECT_COLUMNS && m.y<g->body.y) scroll_to(g,data,(double)g->top-1);
             if (g->selection!=SELECT_COLUMNS && m.y>=g->body.y+g->body.height) scroll_to(g,data,(double)g->top+1);
             if (g->selection!=SELECT_ROWS && m.x<g->body.x) g->horizontal-=16;
-            if (g->selection!=SELECT_ROWS && m.x>=g->body.x+g->body.width) g->horizontal+=16;
+            if (g->selection!=SELECT_ROWS && m.x>=g->body.x+g->body.width) {
+                g->horizontal+=16;
+                if (!g->bounded && g->horizontal+g->body.width/s>g->offsets[g->width_count]-96) extend_columns(g);
+            }
         }
         if (g->selection!=SELECT_COLUMNS) {
             float y=clamp(m.y,g->body.y,g->body.y+g->body.height-1);
@@ -474,9 +481,6 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
         keep_active_in_selection(g);
     }
     if (in->released || !in->down) { g->dragging=false; g->resizing=-1; g->scrollbar=0; g->scroll_rows=0; }
-    GridInput keyboard=*in;
-    if (in->separate_keyboard) { keyboard.shift=in->key_shift; keyboard.shortcut=in->key_shortcut; keyboard.alt=in->key_alt; }
-    if (keyboard.key==KEY_KP_ENTER) keyboard.key=KEY_ENTER;
     navigate(g,data,&keyboard,s); grid_layout(g,s,data,g->rect);
 }
 void grid_replay_gesture(Grid *g,UIContext *u,const Page *p,DxPointerGesture gesture) {
