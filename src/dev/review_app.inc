@@ -1,5 +1,6 @@
 /* Review-only App adapter. Included after the normal controllers so targets
    use their actual geometry/cache, with no database access or retained cells. */
+#include "review_capture_layout.h"
 #ifdef DUXCEL_BROWSER_HOST
 #include <emscripten/heap.h>
 #include <malloc.h>
@@ -335,7 +336,7 @@ static void review_native_command(App *a,DxCommand command) {
 /* Focused native acceptance; never enabled in shipping, uses the same queued
    input/controller routes as other App scenarios and private outbox fixtures. */
 #ifndef DUXCEL_BROWSER_HOST
-#define REVIEW_SMOKE_STAGES 62
+#define REVIEW_SMOKE_STAGES 71
 typedef struct {
     int stage; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -754,7 +755,55 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
     case 61: {
         if (r->phase!=DX_REPORT_IDLE || a->ui.scale!=1) return;
         if (a->modal!=MODAL_NONE || a->ui.scissor_depth || a->ui.paint_depth) goto failed;
-        printf("PASS: native headed choice targets retain checked/focused state, popup clipping and frozen ribbon, UI scale, row density and text color\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); break;
+        printf("PASS: native headed choice targets retain checked/focused state, popup clipping and frozen ribbon, UI scale, row density and text color\n"); break;
+    }
+    case 62:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        SetWindowMinSize(400,180); SetWindowSize(640,200); ui_set_scale(&a->ui,1.5f); break;
+    case 63:
+        if (r->phase!=DX_REPORT_IDLE || a->ui.scale!=1.5f) return;
+        a->file_menu=true; a->file_menu_focus=UI_KEYTIP_FILE_CLOSE; a->file_menu_scroll=4; a->file_menu_frame=a->frames-1;
+        t->request=a->request_id; t->page=a->page.cells; t->selection=grid_location(&a->grid); t->dirty=a->book.dirty; t->history=active_sheet(a)->undo_actions_count;
+        t->file_focus=a->file_menu_focus; t->file_scroll=a->file_menu_scroll;
+        dx_lock(&a->worker.mutex); t->jobs=a->worker.jobs_started; dx_unlock(&a->worker.mutex);
+        ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 64:
+        if (r->phase!=DX_REPORT_PICK) return;
+        if (!review_smoke_file_targets(a,true) || !review_smoke_file_same(a,t)) goto failed;
+        if (!r->toolbar_top) ui_note_key_press(KEY_SPACE,0);
+        review_smoke_pick(a,"file.scrollbar.thumb"); break;
+    case 65: {
+        if (r->phase!=DX_REPORT_NOTE) return;
+        DxReviewCaptureLayout layout=dx_review_capture_layout(GetScreenWidth(),GetScreenHeight(),a->ui.scale,r->toolbar_top);
+        if (strcmp(r->target.widget.id,"file.scrollbar.thumb") || r->frame.ui_scale!=1.5f || !layout.compact || layout.scale>=a->ui.scale || layout.note.height+.01f<37*layout.scale || !review_smoke_file_same(a,t)) goto failed;
+        Rectangle actions[]={layout.cancel,layout.pick,layout.save};
+        for (size_t i=0;i<sizeof(actions)/sizeof(*actions);i++) if (actions[i].x<0 || actions[i].y<0 || actions[i].x+actions[i].width>GetScreenWidth() || actions[i].y+actions[i].height>GetScreenHeight()) goto failed;
+        r->focus=3; review_smoke_click(layout.note); break;
+    }
+    case 66:
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (r->focus!=0 || !review_smoke_file_same(a,t)) goto failed;
+        input_insert(&r->note,"Short native composer.\nNULL, empty text, literal NULL.\nTailx");
+        ui_note_key_press(KEY_BACKSPACE,0); break;
+    case 67: {
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (strcmp(r->note.text,"Short native composer.\nNULL, empty text, literal NULL.\nTail") || r->editor.lines.count<3 || r->editor.scroll<=0 || !r->note.multiline || !review_smoke_file_same(a,t)) goto failed;
+        DxReviewCaptureLayout layout=dx_review_capture_layout(GetScreenWidth(),GetScreenHeight(),a->ui.scale,r->toolbar_top);
+        review_smoke_click(layout.save); break;
+    }
+    case 68:
+        if (r->phase==DX_REPORT_NOTE || r->phase==DX_REPORT_WRITING) return;
+        if (r->phase!=DX_REPORT_SAVED || !r->last_report_id[0] || !review_smoke_file_same(a,t)) goto failed;
+        printf("Review report three: %s capture_ms=%.3f write_ms=%.3f compact_note_lines=%zu\n",r->last_report_id,r->capture_ms,r->write_ms,r->editor.lines.count);
+        ui_note_key_press(KEY_ENTER,0); break;
+    case 69:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        if (!review_smoke_file_same(a,t)) goto failed;
+        a->file_menu=false; ui_set_scale(&a->ui,1); SetWindowMinSize(640,640); SetWindowSize(1280,820); break;
+    case 70: {
+        if (r->phase!=DX_REPORT_IDLE || a->ui.scale!=1) return;
+        if (a->modal!=MODAL_NONE || a->ui.scissor_depth || a->ui.paint_depth || a->file_menu || a->io_busy) goto failed;
+        printf("PASS: short 150 percent review composer has a visible multiline editor, pointer focus, actual Backspace and pointer Save with retained frozen state\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); break;
     }
     }
     t->stage++; return;
