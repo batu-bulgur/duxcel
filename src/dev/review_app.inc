@@ -696,7 +696,11 @@ static void review_guide(App *a,const GuideReviewFrame *frame) {
         if (!widget) continue;
         if (!strcmp(role,"text")) { dx_review_value_set(&widget->value,"VARCHAR",false,target->text); widget->truncated|=widget->value.truncated; }
         widget->truncated|=target->truncated; a->review->registry->truncated|=widget->truncated;
-        if (target->kind==GUIDE_REVIEW_PANEL) review_author_widget(a,"author.guide.background","author.guide","guide","guide.inspect","region","Dialog background",target->bounds,target->clip,130,true,false,false,false,NULL,target->file,target->source_line);
+        if (target->kind==GUIDE_REVIEW_PANEL) {
+            const DxReviewDataIdentity *origin=&widget->data; char identity[256];
+            snprintf(identity,sizeof(identity)," guide_kind=%s guide_origin=%llu,%llu,%llu,%llu,%llu,%d,%llu,%llu",origin->kind,(unsigned long long)origin->sheet_id,(unsigned long long)origin->object_id,(unsigned long long)origin->source_id,(unsigned long long)origin->schema_generation,(unsigned long long)origin->query_generation,origin->has_cell,(unsigned long long)origin->row,(unsigned long long)origin->column); review_author_capture_state(a,identity);
+            review_author_widget(a,"author.guide.background","author.guide","guide","guide.inspect","region","Dialog background",target->bounds,target->clip,130,true,false,false,false,NULL,target->file,target->source_line);
+        }
         if (capture_key) {
             Rectangle visible=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height});
             char geometry[192]; snprintf(geometry,sizeof(geometry)," guide_%s_rect=%.3f,%.3f,%.3f,%.3f",capture_key,visible.x,visible.y,visible.width,visible.height); review_author_capture_state(a,geometry);
@@ -962,7 +966,8 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_SETTINGS_END (REVIEW_INSPECTOR_END+2*6)
 #define REVIEW_FORMAT_END (REVIEW_SETTINGS_END+2*6)
 #define REVIEW_SQL_END (REVIEW_FORMAT_END+2*6)
-#define REVIEW_SMOKE_STAGES (REVIEW_SQL_END+14)
+#define REVIEW_OWNER_END (REVIEW_SQL_END+14)
+#define REVIEW_SMOKE_STAGES (REVIEW_OWNER_END+2*6)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -1002,6 +1007,8 @@ typedef struct {
     DxReviewDataIdentity sql_origin; TextLines sql_pane_lines; int sql_owner,sql_scroll,sql_pane_scroll,sql_setup_item,sql_pane_focus,sql_pane_step;
     double sql_wheel; uint64_t sql_revision,sql_owner_id; bool sql_valid,sql_stale,sql_setup_started,sql_pane_visible,sql_pane_collapsed,sql_pane_mode;
     char owner_fixture[4096],owner_copy[4096];
+    UIGuideLayout guide_layout; TextLines guide_lines[18]; size_t *guide_offsets[18];
+    UIScrollbar guide_scrollbar; float guide_scroll; int guide_focus; bool guide_navigation_sent,guide_button_focus;
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -1112,6 +1119,7 @@ static void review_smoke_author_release(ReviewSmoke *t) {
     format_free(&t->format_copy); /* format_borrowed only observes App ownership. */
     analysis_free(&t->sql_source); free(t->sql_text); free(t->sql_expected); free(t->sql_pane_text); free(t->sql_pane_offsets);
     t->sql_text=t->sql_expected=t->sql_pane_text=NULL; t->sql_pane_offsets=NULL;
+    for (size_t i=0;i<18;i++) { free(t->guide_offsets[i]); t->guide_offsets[i]=NULL; }
     free(t->dialog_text); t->dialog_text=NULL; free(t->dialog_chart_text); t->dialog_chart_text=NULL;
     for (size_t i=0;i<DX_MAX_SHEETS;i++) { free(t->sheet_names[i]); t->sheet_names[i]=NULL; }
 }
@@ -2459,12 +2467,100 @@ static int review_smoke_owner_tick(App *a,ReviewSmoke *t) {
     if (!review_smoke_inspector_same(a,t,true) || !review_smoke_owner_model(a,2,UINT64_C(9007199254740997),false) || !review_smoke_owner_table(a)) goto failed;
     review_smoke_author_release(t);
     puts("PASS: native owner lifetime load/delete/import/bind/delete/save/reopen retains retired uint64 IDs above2^53, exact sparse cells/spatial formats, exhausted and never-allocated sheets; exhausted import adds no object/query; reopened Table inspector capture/cancel retains exact owner and Pages without clipboard/panels");
-    printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); return 1;
+    return 1;
 failed:
     fprintf(stderr,"Review owner lifetime mismatch stage=%d phase=%d modal=%d active=%zu sheets=%zu objects=%zu high_water=%llu path=%s message=%s\n",t->stage,phase,(int)a->modal,a->book.active,a->book.count,active_sheet(a) ? active_sheet(a)->objects.count : 0,(unsigned long long)(active_sheet(a) ? active_sheet(a)->objects.next_id : 0),a->book.path ? a->book.path : "",a->message ? a->message : "");
     for (size_t i=0;i<a->book.count && i<3;i++) { const Worksheet *sheet=&a->book.sheets[i]; fprintf(stderr,"Review owner sheet=%zu kind=%d objects=%zu next=%llu cells=%zu formats=%zu/%zu\n",i,(int)sheet->analysis.kind,sheet->objects.count,(unsigned long long)sheet->objects.next_id,sheet->cells.count,sheet->formats.count,sheet->formats.scope_count); }
     fprintf(stderr,"Review owner Table cache ready=%d id=%llu revision=%llu source=%llu dirty=%d failed=%d count=%llu/%zu columns=%zu statistics=%d enabled=%d\n",a->book.active==0 && object_ready(a,0),(unsigned long long)a->objects[0].id,(unsigned long long)a->objects[0].revision,(unsigned long long)a->objects[0].source_revision,a->objects[0].dirty,a->objects[0].failed,(unsigned long long)a->objects[0].page.total,a->objects[0].page.row_count,a->objects[0].page.column_count,(int)a->statistics_state,a->statistics_enabled);
     if (phase>=9) review_smoke_inspector_diagnostic(a,t,"owner lifetime"); return -1;
+}
+static const TextLines *review_smoke_guide_lines(const UIGuide *guide,size_t index) {
+    return index<5 ? &guide->names[index] : index<10 ? &guide->descriptions[index-5] : index<16 ? &guide->labels[index-10] : index==16 ? &guide->intro : &guide->note;
+}
+static void review_smoke_guide_remember(App *a,ReviewSmoke *t) {
+    review_smoke_stats_remember(a,t); t->guide_layout=a->guide.layout; t->guide_scroll=a->guide.scroll; t->guide_focus=a->guide.focus; t->guide_scrollbar=a->guide.scrollbar; t->guide_button_focus=a->guide_button_focus;
+    for (size_t i=0;i<18;i++) {
+        const TextLines *lines=review_smoke_guide_lines(&a->guide,i); t->guide_lines[i]=*lines;
+        if (lines->offsets) { size_t bytes=(lines->count+1)*sizeof(size_t); t->guide_offsets[i]=dx_alloc(bytes); memcpy(t->guide_offsets[i],lines->offsets,bytes); }
+    }
+}
+static bool review_smoke_guide_rect(Rectangle a,Rectangle b) { return a.x==b.x && a.y==b.y && a.width==b.width && a.height==b.height; }
+static bool review_smoke_guide_same(App *a,ReviewSmoke *t,bool closed) {
+    const UIGuideLayout *layout=&a->guide.layout,*old=&t->guide_layout;
+    if (!review_smoke_stats_same(a,t) || a->guide.scroll!=t->guide_scroll || a->guide.focus!=t->guide_focus || a->guide.scrollbar.dragging!=t->guide_scrollbar.dragging || a->guide.scrollbar.grab!=t->guide_scrollbar.grab || a->guide_button_focus!=(closed ? true : t->guide_button_focus) || layout->valid!=old->valid || layout->content_height!=old->content_height) return false;
+    const Rectangle current[]={layout->panel,layout->clip,layout->header,layout->close,layout->intro,layout->shortcuts,layout->note,layout->start},previous[]={old->panel,old->clip,old->header,old->close,old->intro,old->shortcuts,old->note,old->start};
+    for (size_t i=0;i<sizeof(current)/sizeof(*current);i++) if (!review_smoke_guide_rect(current[i],previous[i])) return false;
+    for (size_t i=0;i<5;i++) if (!review_smoke_guide_rect(layout->names[i],old->names[i]) || !review_smoke_guide_rect(layout->descriptions[i],old->descriptions[i])) return false;
+    for (size_t i=0;i<6;i++) if (!review_smoke_guide_rect(layout->labels[i],old->labels[i]) || !review_smoke_guide_rect(layout->keys[i],old->keys[i])) return false;
+    for (size_t i=0;i<18;i++) {
+        const TextLines *lines=review_smoke_guide_lines(&a->guide,i),*before=&t->guide_lines[i];
+        if (lines->offsets!=before->offsets || lines->count!=before->count || lines->capacity!=before->capacity || lines->width!=before->width || lines->scale!=before->scale || lines->font_size!=before->font_size || lines->raster_size!=before->raster_size || lines->limited!=before->limited || (lines->offsets && memcmp(lines->offsets,t->guide_offsets[i],(lines->count+1)*sizeof(size_t)))) return false;
+    }
+    return true;
+}
+static bool review_smoke_guide_targets(App *a,ReviewSmoke *t,int item) {
+    const GuideReviewFrame *frame=&a->guide.review; DxReviewRegistry *registry=a->review->registry;
+    const DxReviewWidget *panel=dx_review_find(registry,"author.guide"),*close=dx_review_find(registry,"author.guide.action.close"),*start=dx_review_find(registry,"author.guide.action.start"),*track=dx_review_find(registry,"author.guide.scrollbar"),*thumb=dx_review_find(registry,"author.guide.scrollbar.thumb");
+    if (!panel || !panel->container || strcmp(panel->role,"dialog") || panel->input_eligible || frame->overflow || !frame->count || frame->count>GUIDE_REVIEW_TARGETS || registry->duplicate_count || registry->invalid_count || registry->overflow_count || registry->truncated || !strstr(a->review->frame.state_text," guide_overflow=0 ") || !strstr(a->review->frame.state_text," guide_kind=guide-document guide_origin=0,0,0,0,0,0,0,0")) return false;
+    char document[128]; review_document_id(a,document); size_t registered=0,texts=0,shortcuts=0;
+    for (size_t i=0;i<registry->count;i++) {
+        const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,"author.guide",strlen("author.guide"))) continue; registered++;
+        const DxReviewDataIdentity *data=&widget->data;
+        if (!data->present || strcmp(data->kind,"guide-document") || strcmp(data->document_id,document) || strcmp(data->document_id,registry->frame.document_id) || data->sheet_id || data->object_id || data->source_id || data->schema_generation || data->query_generation || data->has_cell || data->row || data->column || data->field[0]) return false;
+    }
+    if (registered!=frame->count+3) return false;
+    for (size_t i=0;i<frame->count;i++) {
+        const GuideReviewTarget *target=&frame->targets[i]; char id[128]; if (!review_guide_id(target,id)) return false;
+        const DxReviewWidget *widget=dx_review_find(registry,id); Rectangle visible=GetCollisionRec(target->bounds,target->clip);
+        if (!widget || target->truncated || visible.width<=0 || visible.height<=0 || widget->bounds.x!=target->bounds.x || widget->bounds.y!=target->bounds.y || widget->bounds.width!=target->bounds.width || widget->bounds.height!=target->bounds.height || widget->clip.x!=target->clip.x || widget->clip.y!=target->clip.y || widget->clip.width!=target->clip.width || widget->clip.height!=target->clip.height || widget->enabled!=target->enabled || widget->focused!=target->focused || !strstr(widget->source_file,"src/ui/guideview.c") || !widget->source_line) return false;
+        if (!strcmp(widget->role,"text")) {
+            texts++; if (widget->input_eligible || !widget->value.present || widget->value.is_null || widget->value.truncated || strcmp(widget->value.type,"VARCHAR") || strcmp(widget->value.exact_text,target->text)) return false;
+        }
+        if (target->kind==GUIDE_REVIEW_KEY) { shortcuts++; if (strncmp(widget->id,"author.guide.shortcut.",strlen("author.guide.shortcut."))) return false; }
+    }
+    if (!texts || !shortcuts || !start || !start->enabled || !start->input_eligible || strcmp(start->action_id,"guide.close") || start->focused!=(item!=0) || !review_smoke_sheet_pick(a,start,"author.guide")) return false;
+    if (item) {
+        if (close || dx_review_find(registry,"author.guide.heading") || !track || !thumb || !track->enabled || !thumb->enabled || !thumb->input_eligible || thumb->focused || frame->scroll<=0 || frame->scroll!=frame->maximum || t->guide_focus!=1 || !review_smoke_sheet_pick(a,thumb,"author.guide")) return false;
+        snprintf(t->author_target,sizeof(t->author_target),"%s",thumb->id);
+    } else {
+        if (!close || !close->enabled || !close->input_eligible || !close->focused || strcmp(close->action_id,"guide.close") || track || thumb || frame->scroll || t->guide_focus || !review_smoke_sheet_pick(a,close,"author.guide") || !dx_review_find(registry,"author.guide.section.grid.name.line0") || !dx_review_find(registry,"author.guide.shortcut.selection.key.line0")) return false;
+        snprintf(t->author_target,sizeof(t->author_target),"%s",close->id);
+    }
+    DxReviewTarget picked; return dx_review_pick(registry,2*a->ui.scale,2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) && !strcmp(picked.widget.id,"author.guide.backdrop.background");
+}
+static int review_smoke_guide_tick(App *a,ReviewSmoke *t) {
+    int item=(t->stage-REVIEW_OWNER_END)/6,phase=(t->stage-REVIEW_OWNER_END)%6; DxReviewCapture *r=a->review;
+    if (!phase) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        a->selected_object=1; if (!selected_pivot(a) || !review_smoke_owner_table(a)) goto failed;
+        ui_set_scale(&a->ui,item ? 1.5f : 1); SetWindowSize(item ? 640 : 1280,item ? 400 : 820); run_action(a,ACTION_GUIDE);
+        t->guide_navigation_sent=false; return a->modal==MODAL_GUIDE ? 1 : -1;
+    }
+    if (phase==1) {
+        if (a->modal!=MODAL_GUIDE) goto failed;
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || !review_can_capture(a) || GetScreenWidth()!=(item ? 640 : 1280) || GetScreenHeight()!=(item ? 400 : 820) || a->ui.scale!=(item ? 1.5f : 1) || !a->guide.layout.valid || !a->guide.intro.offsets || a->guide.intro.scale!=a->ui.scale || a->guide.intro.raster_size!=a->ui.raster_size) return 0;
+        if (item && !t->guide_navigation_sent) { t->guide_navigation_sent=true; ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_TAB,0); return 0; }
+        if (item ? a->guide.scroll<=0 || a->guide.focus!=1 : a->guide.scroll || a->guide.focus) goto failed;
+        review_smoke_guide_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        if (!review_smoke_guide_same(a,t,false) || !review_smoke_guide_targets(a,t,item)) goto failed;
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==3) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || !review_smoke_guide_same(a,t,false)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (phase==4) { if (!review_smoke_guide_same(a,t,false)) goto failed; ui_note_key_press(KEY_ESCAPE,0); return 1; }
+    t->choice_modal=MODAL_NONE; if (!review_smoke_guide_same(a,t,true)) goto failed;
+    printf("PASS: native Guide review %s retains actual visible text/shortcuts, logical buttons, clipping, focus/scroll, all owned line caches, source/Pivot/Pages/statistics/jobs and document-only identity; normal Escape returns Help focus\n",item ? "short150% at real End/Tab footer" : "wide100% at top");
+    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
+failed:
+    fprintf(stderr,"Review Guide mismatch stage=%d phase=%d modal=%d report=%d focus=%d/%d scroll=%.3f/%.3f maximum=%.3f records=%zu overflow=%d target=%s actual=%s retained=%d\n",t->stage,phase,(int)a->modal,(int)r->phase,a->guide.focus,t->guide_focus,a->guide.scroll,t->guide_scroll,a->guide.review.maximum,a->guide.review.count,a->guide.review.overflow,t->author_target,r->target.widget.id,phase>1 && review_smoke_guide_same(a,t,false));
+    for (size_t i=0;i<r->registry->count;i++) { const DxReviewWidget *widget=&r->registry->widgets[i]; if (strncmp(widget->id,"author.guide",strlen("author.guide"))) continue; fprintf(stderr,"Review Guide widget %s role=%s enabled=%d focus=%d kind=%s object=%llu source=%llu value=%s bounds=%.2f,%.2f,%.2f,%.2f clip=%.2f,%.2f,%.2f,%.2f\n",widget->id,widget->role,widget->enabled,widget->focused,widget->data.kind,(unsigned long long)widget->data.object_id,(unsigned long long)widget->data.source_id,widget->value.exact_text,widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height,widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height); } return -1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
@@ -2491,7 +2587,8 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
             {REVIEW_SETTINGS_END,review_smoke_settings_tick},
             {REVIEW_FORMAT_END,review_smoke_format_tick},
             {REVIEW_SQL_END,review_smoke_sql_tick},
-            {REVIEW_SMOKE_STAGES,review_smoke_owner_tick},
+            {REVIEW_OWNER_END,review_smoke_owner_tick},
+            {REVIEW_SMOKE_STAGES,review_smoke_guide_tick},
         };
         int progress=-1;
         for (size_t i=0;i<sizeof(handlers)/sizeof(*handlers);i++)
