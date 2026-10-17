@@ -1,5 +1,5 @@
 /** Browser platform/engine glue. SQL and workbook UI are owned by C99. */
-import {createOfficialWorkerAdapter} from './official_worker.mjs';
+import {createOfficialWorkerAdapter,exportRequest,inspectParquetExport} from './official_worker.mjs';
 import {encodePageWire} from './page_wire.mjs';
 const encoder=new TextEncoder();
 const FILE_LIMIT=1024;
@@ -22,6 +22,20 @@ function deliver(runtime,cookie,ticket,page,error,purpose){
     }catch(error){
         if(!(error instanceof AllocationError))throw error;
         // C owns a static protocol-error fallback; it needs no transport malloc.
+        runtime.reply(cookie,ticket,0,0,0,0,0);
+    }finally{for(const pointer of owned)runtime.release(pointer);}
+}
+function deliverExport(runtime,cookie,ticket,page,data,error){
+    const owned=[];
+    try{
+        if(error){runtime.reply(cookie,ticket,0,0,0,0,cString(runtime,String(error).slice(0,2048),owned));return;}
+        inspectParquetExport(data);
+        const wire=encodePageWire(page),pointer=allocated(runtime,wire,owned),binary=allocated(runtime,data,owned);
+        // The new callback owns no borrowed JS/C-heap views. Only an explicit
+        // acceptance adopts this exact malloc allocation; stale/error frees it.
+        if(runtime.reply(cookie,ticket,pointer,wire.length,binary,data.byteLength,0)===1)owned.splice(owned.indexOf(binary),1);
+    }catch(error){
+        if(!(error instanceof AllocationError))throw error;
         runtime.reply(cookie,ticket,0,0,0,0,0);
     }finally{for(const pointer of owned)runtime.release(pointer);}
 }
@@ -80,6 +94,22 @@ export function createEngineHost(config,createAdapter=createOfficialWorkerAdapte
             }catch(error){if(current===epoch&&!closed)deliver(runtime,cookie,ticket,null,error.message??error);}
             finally{if(activeSubmission===submission)activeSubmission=null;flushDrops();}
         },
+        async exportParquet(runtime,cookie,ticket,input){
+            let current,submission;
+            try{
+                const request=exportRequest(input);
+                if(!Number.isInteger(cookie)||cookie<1||cookie>4294967295||!Number.isInteger(ticket)||ticket<1||ticket>4294967295||
+                    request.documentId!==String(cookie)||request.requestId!==String(ticket))throw new Error('Mismatched browser export cookie/ticket.');
+                current=++epoch;submission={runtime,cookie,ticket,exporting:true};activeSubmission=submission;
+                const engine=await getEngine();await idleAdministration();if(current!==epoch||closed)return;
+                const reply=await engine.exportParquet(request);if(current!==epoch||closed)return;
+                for(const field of ['requestId','generation','documentId','sourceId','objectId','revision','offset'])
+                    if(reply[field]!==request[field])throw new Error('Stale or mismatched browser export identity.');
+                if(reply.status!=='ok')throw new Error(reply.error?.message??`Export ${reply.status}.`);
+                deliverExport(runtime,cookie,ticket,reply.page,reply.data,null);
+            }catch(error){if((current===undefined||current===epoch)&&!closed)deliverExport(runtime,cookie,ticket,null,null,error.message??error);}
+            finally{if(activeSubmission===submission)activeSubmission=null;flushDrops();}
+        },
         cancel(close=false){
             const current=++epoch;activeSubmission=null;if(close){closed=true;fileEpoch++;}
             // Reserve the barrier now, before a same-turn release can enqueue
@@ -121,7 +151,10 @@ export function createEngineHost(config,createAdapter=createOfficialWorkerAdapte
                     await administrate(async()=>{
                         if(current!==fileEpoch||closed){setFileStatus(name,'unused');return;}
                         const previous=activeSubmission;epoch++;activeSubmission=null;
-                        if(previous)deliver(previous.runtime,previous.cookie,previous.ticket,null,'Query cancelled for source import.');
+                        if(previous){
+                            if(previous.exporting)deliverExport(previous.runtime,previous.cookie,previous.ticket,null,null,'Export cancelled for source import.');
+                            else deliver(previous.runtime,previous.cookie,previous.ticket,null,'Query cancelled for source import.');
+                        }
                         await engine.cancel();if(current!==fileEpoch||closed){setFileStatus(name,'unused');return;}
                         setFileStatus(name,'registering');
                         try{await engine.registerFile(name,bytes);}

@@ -20,7 +20,7 @@ function reply(input, overrides = {}) {
             text, offsets: new Uint32Array([0, text.length]), nulls: new Uint8Array([0]),
             total: '18446744073709551615', countPending: true }, ...overrides };
 }
-function runtime(kind = 'query', failAfter = Infinity) {
+function runtime(kind = 'query', failAfter = Infinity,adopt=false) {
     let heap = new Uint8Array(32), next = 8, allocations = 0;
     const live = new Map(), releases = [], calls = [];
     const string = pointer => pointer ? decoder.decode(heap.subarray(pointer, heap.indexOf(0, pointer))) : null;
@@ -43,6 +43,11 @@ function runtime(kind = 'query', failAfter = Infinity) {
                 const [cookie, ticket, wire, size, total, pending, error] = args;
                 calls.push({ args, cookie, ticket, wire: wire ? heap.slice(wire, wire + size) : null,
                     total: string(total), pending, error: string(error) });
+            } else if(kind==='export'){
+                const [cookie,ticket,wire,size,data,bytes,error]=args;
+                calls.push({args,cookie,ticket,wire:wire?heap.slice(wire,wire+size):null,data:data?heap.slice(data,data+bytes):null,
+                    ownedPointer:adopt&&data?data:0,error:string(error)});
+                return adopt&&data?1:0;
             } else {
                 const [session, name, label, error] = args;
                 calls.push({ args, session, name: string(name), label: string(label), error: string(error) });
@@ -54,11 +59,75 @@ function engine(overrides = {}) {
     const calls = [];
     return { calls,
         async submit(input) { calls.push(['submit', input.requestId]); return reply(input); },
+        async exportParquet(input){calls.push(['export',input.requestId]);return exportReply(input);},
         async cancel() { calls.push(['cancel']); },
         async registerFile(name, bytes) { calls.push(['register', name, bytes.slice()]); },
         async dropFile(name) { calls.push(['drop', name]); },
         async close() { calls.push(['close']); }, ...overrides };
 }
+function exportInput(id='1',change={}){return {...request(id),documentId:'7',offset:'0',rowLimit:1,knownTotal:'1',fileName:`export-7-${id}.parquet`,...change};}
+function exportReply(input,overrides={}){
+    const result=reply(input),text=encoder.encode('600'),data=new Uint8Array(32);data.set([80,65,82,49]);data.set([80,65,82,49],28);new DataView(data.buffer).setUint32(24,8,true);
+    return {...result,page:{...result.page,columns:[{name:'Count',typeName:'BIGINT',numberKind:'i64',precision:0,scale:0}],
+        text,offsets:new Uint32Array([0,text.length]),total:'1',countPending:false},data,...overrides};
+}
+test('export transfers exactly one binary heap allocation only after explicit synchronous adoption',async()=>{
+    for(const adopt of [false,true]){
+        const target=runtime('export',Infinity,adopt),adapter=engine(),host=createEngineHost({},async()=>adapter),input=exportInput();
+        const expected=exportReply(input).data;await host.exportParquet(target,7,1,input);
+        assert.equal(target.calls.length,1);assert.equal(target.calls[0].error,null);assert.deepEqual(target.calls[0].data,expected);
+        assert.equal(new DataView(target.calls[0].wire.buffer).getUint32(0,true),0x31505844);
+        assert.equal(target.live.size,adopt?1:0);assert.equal(target.releases.length,adopt?1:2);
+        if(adopt){const pointer=target.calls[0].ownedPointer;assert.deepEqual(target.heap().slice(pointer,pointer+32),expected);target.release(pointer);assert.equal(target.live.size,0);}
+        assert.deepEqual(adapter.calls,[['export','1']]);await host.cancel(true);
+    }
+});
+test('export allocation failure returns a single static error fallback and retains no partial bytes',async()=>{
+    for(const failAfter of [0,1]){
+        const target=runtime('export',failAfter,true),host=createEngineHost({},async()=>engine());await host.exportParquet(target,7,1,exportInput());
+        assert.equal(target.calls.length,1);assert.deepEqual(target.calls[0].args,[7,1,0,0,0,0,0]);assert.equal(target.live.size,0);
+        assert.equal(target.releases.length,failAfter);await host.cancel(true);
+    }
+    const target=runtime('export',0),host=createEngineHost({},async()=>{throw new Error('initialization failed');});
+    await host.exportParquet(target,7,1,exportInput());assert.equal(target.calls.length,1);assert.deepEqual(target.calls[0].args,[7,1,0,0,0,0,0]);assert.equal(target.live.size,0);
+});
+test('invalid export names or cookie/ticket identities fail before engine initialization',async()=>{
+    let factories=0;const host=createEngineHost({},async()=>{factories++;return engine();});
+    for(const [cookie,ticket,input] of [[7,1,exportInput('1',{fileName:'source.parquet'})],[8,1,exportInput()],[7,2,exportInput()],
+        [7,1,exportInput('1',{purpose:'copy'})],[7,1,exportInput('1',{columns:[]})]]){
+        const target=runtime('export');await host.exportParquet(target,cookie,ticket,input);assert.equal(target.calls.length,1);assert.ok(target.calls[0].error);assert.equal(target.live.size,0);
+    }
+    assert.equal(factories,0);await host.cancel(true);
+});
+test('invalid export input cannot supersede an already active ordinary query',async()=>{
+    const pending=deferred(),adapter=engine({submit:()=>pending.promise}),host=createEngineHost({},async()=>adapter),queryTarget=runtime(),badTarget=runtime('export');
+    const query=host.submit(queryTarget,7,1,request('1'));await tick();
+    await host.exportParquet(badTarget,7,2,exportInput('2',{fileName:'wrong.parquet'}));
+    pending.resolve(reply(request('1')));await query;assert.equal(queryTarget.calls.length,1);assert.equal(badTarget.calls.length,1);assert.ok(badTarget.calls[0].error);await host.cancel(true);
+});
+test('mismatched export replies and malformed output reject before binary ownership transfer',async()=>{
+    for(const field of ['requestId','generation','documentId','sourceId','objectId','revision','offset']){
+        const target=runtime('export',Infinity,true),input=exportInput(),adapter=engine({async exportParquet(){return exportReply(input,{[field]:input[field]==='0'?'1':'0'});}});
+        const host=createEngineHost({},async()=>adapter);await host.exportParquet(target,7,1,input);
+        assert.equal(target.calls.length,1);assert.match(target.calls[0].error,/mismatched.*identity/);assert.equal(target.live.size,0);await host.cancel(true);
+    }
+    for(const result of [exportReply(exportInput(),{status:'error',error:{message:'private cleanup failed'}}),exportReply(exportInput(),{data:new Uint8Array(32)}),
+        exportReply(exportInput(),{data:new Uint8Array(new SharedArrayBuffer(32))})]){
+        const target=runtime('export',Infinity,true),host=createEngineHost({},async()=>engine({async exportParquet(){return result;}}));
+        await host.exportParquet(target,7,1,exportInput());assert.equal(target.calls.length,1);assert.ok(target.calls[0].error);assert.equal(target.calls[0].data,null);assert.equal(target.live.size,0);await host.cancel(true);
+    }
+});
+test('superseded, cancelled and closed exports cannot allocate or deliver late binary results',async()=>{
+    for(const action of ['new-query','cancel','close']){
+        const pending=deferred(),adapter=engine({exportParquet:()=>pending.promise}),host=createEngineHost({},async()=>adapter),target=runtime('export',Infinity,true);
+        const waiting=host.exportParquet(target,7,1,exportInput());await tick();
+        if(action==='new-query')await host.submit(runtime(),7,2,request('2'));else await host.cancel(action==='close');
+        pending.resolve(exportReply(exportInput()));await waiting;assert.equal(target.calls.length,0);assert.equal(target.live.size,0);assert.equal(target.releases.length,0);
+        if(action!=='close')await host.cancel(true);
+    }
+    const initialization=deferred(),host=createEngineHost({},()=>initialization.promise),target=runtime('export');
+    const waiting=host.exportParquet(target,7,1,exportInput()),closed=host.cancel(true);initialization.resolve(engine());await Promise.all([waiting,closed]);assert.equal(target.calls.length,0);
+});
 test('host chooses copy wire bounds only from its explicit request purpose',async()=>{
     const adapter=engine({async submit(input){
         const output=reply(input),rows=600;
@@ -172,6 +241,27 @@ test('source import cancels the active C query exactly once before registering',
     assert.equal(queryTarget.calls.length, 1); assert.equal(fileTarget.calls.length, 1);
     assert.deepEqual(adapter.calls.map(call => call[0]), ['cancel', 'register']);
     assert.equal(queryTarget.live.size, 0); assert.equal(fileTarget.live.size, 0);
+}));
+test('source import cancels export with its own callback and waits for actual adapter cleanup',async()=>withDOM(async inputs=>{
+    const pending=deferred(),draining=deferred(),began=deferred();
+    const adapter=engine({exportParquet:()=>pending.promise,async cancel(){this.calls.push(['cancel']);began.resolve();await draining.promise;pending.resolve(exportReply(exportInput(),{status:'cancelled'}));}});
+    const host=createEngineHost({},async()=>adapter),target=runtime('export',Infinity,true),fileTarget=runtime('file');
+    const exporting=host.exportParquet(target,7,1,exportInput());await tick();const selected=choose(host,fileTarget,inputs);await began.promise;
+    assert.equal(target.calls.length,1);assert.equal(target.calls[0].args.length,7);assert.match(target.calls[0].error,/Export cancelled for source import/);
+    assert.equal(target.calls[0].data,null);assert.equal(target.live.size,0);assert.equal(fileTarget.calls.length,0);assert.equal(adapter.calls.some(value=>value[0]==='register'),false);
+    draining.resolve();await Promise.all([exporting,selected.completion]);assert.equal(target.calls.length,1);assert.equal(fileTarget.calls.length,1);
+    assert.deepEqual(adapter.calls.map(value=>value[0]),['cancel','register']);await host.cancel(true);
+}));
+test('deferred source release waits through export acceptance and a synchronous following query',async()=>withDOM(async inputs=>{
+    const exporting=deferred(),querying=deferred(),adapter=engine({exportParquet:()=>exporting.promise,submit:()=>querying.promise});
+    const host=createEngineHost({},async()=>adapter),fileTarget=runtime('file'),target=runtime('export',Infinity,true),next=runtime();
+    await choose(host,fileTarget,inputs).completion;const sourceName=fileTarget.calls[0].name;
+    let nextQuery;const deliver=target.reply;target.reply=(...args)=>{const adopted=deliver(...args);nextQuery=host.submit(next,7,2,request('2'));return adopted;};
+    const pending=host.exportParquet(target,7,1,exportInput());await tick();assert.equal(host.releaseFile(sourceName),true);await tick();
+    assert.equal(adapter.calls.some(value=>value[0]==='drop'),false);exporting.resolve(exportReply(exportInput()));await pending;await tick();
+    assert.equal(target.calls.length,1);assert.equal(adapter.calls.some(value=>value[0]==='drop'),false);assert.equal(next.calls.length,0);
+    querying.resolve(reply(request('2')));await nextQuery;await tick();assert.equal(next.calls.length,1);
+    assert.deepEqual(adapter.calls.filter(value=>value[0]==='drop'),[['drop',sourceName]]);target.release(target.calls[0].ownedPointer);assert.equal(target.live.size,0);await host.cancel(true);
 }));
 
 test('superseded import checks identity after engine initialization and asynchronous cancel', async () => withDOM(async inputs => {
