@@ -789,6 +789,7 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         if (r->phase!=DX_REPORT_NOTE) return;
         if (strcmp(r->note.text,"Short native composer.\nNULL, empty text, literal NULL.\nTail") || r->editor.lines.count<3 || r->editor.scroll<=0 || !r->note.multiline || !review_smoke_file_same(a,t)) goto failed;
         DxReviewCaptureLayout layout=dx_review_capture_layout(GetScreenWidth(),GetScreenHeight(),a->ui.scale,r->toolbar_top);
+        smoke_snapshot("tests/results/native-review/compact-composer-150.png");
         review_smoke_click(layout.save); break;
     }
     case 68:

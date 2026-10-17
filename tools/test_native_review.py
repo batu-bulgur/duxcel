@@ -67,6 +67,7 @@ def main():
                         reread=store.read(report_id)
                         if not reread['lifecycle']['acknowledged'] or reread['lifecycle']['design']!='pending' or sha(outbox/report_id/'manifest.json')!=payload_hash: raise RuntimeError('Lifecycle changed immutable capture/design status')
                         reports.append({'report_id':report_id,'target':m['target']['widget']['id'],'frame_id':m['frame']['frame_id'],'ui_scale':m['frame']['ui_scale'],'image':report['image'],'capture_sha256':payload_hash})
+                    reports.sort(key=lambda report: int(report['frame_id']))
                     if [r['target'] for r in reports]!=['filter.search','filter.condition.option.equal','file.scrollbar.thumb']: raise RuntimeError('Wrong native controls captured')
                     record.update(binary_sha256=binary_hash,build_header_sha256=sha(ROOT/'build'/folder/'review_build_info.h'),completed_stages=71,reports=reports)
                     summary['configs'][config]=record
