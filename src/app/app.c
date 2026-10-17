@@ -404,6 +404,7 @@ static void review_sql_pin(App *a,const SheetObject *owner,bool cached);
 static void review_sql_content(App *a,const char *sql,Rectangle bounds,Rectangle clip,int scroll,int lines,int visible,const char *file,int line);
 static void review_guide(App *a,const GuideReviewFrame *frame);
 static void review_cell_editor(App *a,Rectangle bounds,Rectangle clip,const char *file,int line);
+static void review_error_content(App *a,Rectangle bounds,size_t painted_lines,bool clipped,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -438,6 +439,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_GUIDE_ARM(a) ((a)->guide.review.armed=review_armed(a))
 #define REVIEW_GUIDE(a) review_guide(a,&(a)->guide.review)
 #define REVIEW_CELL_EDITOR(a,bounds,clip) review_cell_editor(a,bounds,clip,__FILE__,__LINE__)
+#define REVIEW_ERROR_CONTENT(a,bounds,painted,clipped) review_error_content(a,bounds,painted,clipped,__FILE__,__LINE__)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -470,6 +472,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_GUIDE_ARM(...) ((void)0)
 #define REVIEW_GUIDE(...) ((void)0)
 #define REVIEW_CELL_EDITOR(...) ((void)0)
+#define REVIEW_ERROR_CONTENT(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -1982,6 +1985,9 @@ static void draw_sql_content(App *a,const char *sql,int *position,Rectangle r,bo
 static void draw_sql(App *a,Rectangle r) { draw_sql_content(a,a->sql_text,&a->sql_scroll,r,true); }
 static void wrapped_message(App *a,Rectangle r) {
     const char *p=a->message; float y=r.y, s=a->ui.scale;
+#ifdef DUXCEL_DEV_REVIEW
+    size_t painted=0;
+#endif
     while (p && *p && y+20*s<r.y+r.height) {
         char line[1024]; size_t n=0;
         while (*p && *p!='\n' && n<sizeof(line)-8) {
@@ -1991,8 +1997,12 @@ static void wrapped_message(App *a,Rectangle r) {
             n+=(size_t)bytes; p+=bytes;
         }
         line[n]=0; ui_text_clip(&a->ui,line,box(r.x,y,r.width,21*s),13,UI_TEXT,false);
+#ifdef DUXCEL_DEV_REVIEW
+        painted++;
+#endif
         y+=22*s; if (*p=='\n') p++;
     }
+    REVIEW_ERROR_CONTENT(a,r,painted,p && *p);
 }
 static void clear_value_choices(App *a) {
     for (size_t i=0;i<a->value_choice_count;i++) free(a->value_choices[i]);
@@ -5291,6 +5301,10 @@ static void draw_modal(App *a) {
         REVIEW_AUTHOR_PANEL(a,"generated_sql","Generated SQL",panel,box(x+24*s,y+22*s,w-48*s,30*s));
         REVIEW_AUTHOR_ITEM(a,"generated_sql","close","sql.close","button","Close",box(x+w-45*s,y+16*s,28*s,28*s),panel,true,false,false,NULL);
     }
+    if (a->modal==MODAL_ERROR) {
+        REVIEW_AUTHOR_PANEL(a,"error",title,panel,box(x+24*s,y+22*s,w-48*s,30*s));
+        REVIEW_AUTHOR_ITEM(a,"error","x_close","error.close","button","Close",box(x+w-45*s,y+16*s,28*s,28*s),panel,true,false,false,NULL);
+    }
     if (ui_button(u,box(x+w-45*s,y+16*s,28*s,28*s),"×",false,true)) { a->modal=MODAL_NONE; return; }
     bool enter=ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER);
     if (a->modal==MODAL_SETTINGS) {
@@ -5309,9 +5323,13 @@ static void draw_modal(App *a) {
         ui_text_clip(u,"Canvas zoom: Control + scroll, pinch, or the sheet zoom controls.",box(x+18*s,y+h-40*s,w-36*s,24*s),12,UI_MUTED,false);
     } else if (a->modal==MODAL_ERROR) {
         wrapped_message(a,box(x+18*s,y+65*s,w-36*s,h-130*s));
+        REVIEW_AUTHOR_ITEM(a,"error","copy_error","error.copy","button","Copy error",box(x+24*s,y+h-52*s,120*s,30*s),panel,true,false,false,NULL);
         if (ui_button(u,box(x+24*s,y+h-52*s,120*s,30*s),"Copy error",false,true)) SetClipboardText(a->message);
-        if (a->analysis.kind!=SOURCE_DEMO && a->analysis.kind!=SOURCE_NONE &&
-            ui_button(u,box(x+158*s,y+h-52*s,135*s,30*s),"Relink source",false,true)) { open_modal(a,MODAL_RELINK); return; }
+        if (a->analysis.kind!=SOURCE_DEMO && a->analysis.kind!=SOURCE_NONE) {
+            REVIEW_AUTHOR_ITEM(a,"error","relink","source.relink","button","Relink source",box(x+158*s,y+h-52*s,135*s,30*s),panel,true,false,false,NULL);
+            if (ui_button(u,box(x+158*s,y+h-52*s,135*s,30*s),"Relink source",false,true)) { open_modal(a,MODAL_RELINK); return; }
+        }
+        REVIEW_AUTHOR_ITEM(a,"error","close","error.close","button","Close",box(x+w-126*s,y+h-52*s,102*s,30*s),panel,true,false,false,NULL);
         if (ui_button(u,box(x+w-126*s,y+h-52*s,102*s,30*s),"Close",true,true) || enter) a->modal=MODAL_NONE;
     } else if (a->modal==MODAL_OPEN || a->modal==MODAL_SAVE || a->modal==MODAL_RELINK) {
         ui_text(u,a->modal==MODAL_SAVE ? "Save definitions and layout; external data stays in its source file." :
