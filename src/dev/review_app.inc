@@ -633,7 +633,7 @@ static bool review_smoke_author_targets(App *a,const char *kind,const char *targ
         if (!dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,w->id) || !dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTAINER,&picked) || strcmp(picked.widget.id,parent)) return false;
         rows++; if ((!target && !chosen) || (target && (strstr(w->id,target) || strstr(w->label,target)))) chosen=w;
     }
-    static const size_t expected[]={6,6,8,9,5,7,4,7,4,6,6,3,1,4};
+    static const size_t expected[]={6,6,8,9,5,7,4,7,4,6,6,3,2,4};
     bool extra_plot=t->stage>=REVIEW_DIALOG_END; size_t item=extra_plot ? 12 : (size_t)(t->stage-71)/5;
     if (item>=sizeof(expected)/sizeof(*expected) || rows!=(extra_plot ? 2 : expected[item]) || !chosen || !strstr(a->review->frame.state_text," author_count=") || strstr(a->review->frame.state_text," author_overflow=1")) return false;
     if (item==7) {
@@ -685,6 +685,11 @@ static int review_smoke_author_tick(App *a,ReviewSmoke *t) {
             else if (item==11) { a->modal=MODAL_REPRESENTATION; a->context_focus=0; a->pivot_focus=6; a->author_reveal=true; }
             else if (item==12) {
                 if (object->kind!=OBJECT_CHART) { if (!set_representation(a,1)) return -1; return 0; }
+                if (object->pivot.counts[PIVOT_VALUES]==1) {
+                    PivotDefinition definition=pivot_copy(&object->pivot); char *error=NULL; bool ok=pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_AVG,&error); free(error);
+                    if (!ok) { pivot_free(&definition); return -1; } if (!set_pivot_definition(a,&definition)) return -1; return 0;
+                }
+                if (object->pivot.counts[PIVOT_VALUES]!=2) return -1;
                 a->modal=MODAL_CHART_MEASURE; a->context_focus=0; a->pivot_focus=7; a->author_reveal=true;
             }
             else { a->modal=MODAL_VIEW; a->view_menu_chart=true; a->context_focus=1; }
