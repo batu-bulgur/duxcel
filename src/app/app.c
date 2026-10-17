@@ -6669,7 +6669,9 @@ static void draw_app(App *a) {
     REVIEW_CONTROL(a,"chrome.brand","chrome.inspect_brand","chrome/title-bar/brand","text","Duxcel",brand,20,true,false,false);
 #ifdef DUXCEL_BROWSER_HOST
     bool brand_hover=false,brand_blocked=u->pointer_blocked;
-    u->pointer_blocked=frame_pointer_blocked || a->modal!=MODAL_NONE;
+    Rectangle file_panel=file_menu_layout(a).frame.panel;
+    bool brand_covered=a->file_menu && (CheckCollisionPointRec(ui_mouse_position(),file_panel) || ui_gesture_starts_in(file_panel));
+    u->pointer_blocked=frame_pointer_blocked || a->modal!=MODAL_NONE || brand_covered;
     if (ui_control_input(u,brand,a->modal==MODAL_NONE && !a->io_busy,&brand_hover)) { a->file_menu=!a->file_menu; a->file_menu_focus=a->file_menu_scroll=0; a->file_menu_wheel=0; a->file_menu_drag=false; a->file_menu_frame=a->frames; a->consume_grid_input=true; }
     u->pointer_blocked=brand_blocked || a->file_menu || a->consume_grid_input;
 #endif

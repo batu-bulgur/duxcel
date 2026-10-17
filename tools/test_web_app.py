@@ -46,7 +46,7 @@ def parse_options(argv=None):
             parser.error('--access-only requires --review')
         if any((options.source,options.filters,options.busy,options.worker_driver,options.worker_probe,
                 options.platform,options.alt_stress,options.persistence,options.review_offline,
-                options.canvas_transform,options.review_outbox)):
+                options.review_outbox)):
             parser.error('--access-only is a separate blank-workbook gate without source/engine/platform/report-upload options')
     if options.filters and (not options.source or options.source.name!='transactions.csv'):
         parser.error('--filters requires --source tests/fixtures/transactions.csv')

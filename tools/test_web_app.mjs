@@ -21,7 +21,7 @@ const canvasTransform=process.argv.includes('--canvas-transform');
 const platform=process.argv.includes('--platform');
 const altStress=process.argv.includes('--alt-stress');
 const persistence=process.argv.includes('--persistence');
-if(accessOnly&&(!review||['--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--canvas-transform'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
+if(accessOnly&&(!review||['--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
 await fs.mkdir(output,{recursive:true});
 const profile=await fs.mkdtemp(path.join(os.tmpdir(),'duxcel-browser-'));
 const browser=spawn(process.env.DUXCEL_CHROMIUM??'/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -250,6 +250,8 @@ async function accessKeys(){
  check(shortFile.file_menu==='1'&&shortFile.file_focus==='4'&&Number(shortFile.file_visible)>0&&Number(shortFile.file_visible)<6&&Number(shortFile.file_scroll)>0,'Short-window File menu lost its rows or failed to reveal the focused command');
  check(fileX>=0&&fileY>=0&&fileX+fileWidth<=1280&&fileY+fileHeight<=180,'Short-window File menu escaped the canvas');
  await capture('file-menu-short');
+ await click(fileX+20,fileY+15);const headingFile=await platformSnapshot();
+ check(headingFile.file_menu==='1'&&headingFile.file_focus===shortFile.file_focus,'Clamped File heading clicked through to the underlying brand anchor');
  await key('Home','Home',36);const homeFile=await platformSnapshot();check(homeFile.file_focus==='0'&&homeFile.file_scroll==='0','File Home did not reveal the first command');
  const filePointer=await canvasPoint(fileX+fileWidth/2,fileY+fileHeight-20);
  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...filePointer});
@@ -280,7 +282,7 @@ async function accessKeys(){
  await key('ArrowRight','ArrowRight',39);await key('Enter','Enter',13);const closed=await platformSnapshot();
  check(closed.modal==='0'&&closed.dirty==='0'&&closed.manual_cells==='0'&&closed.sheet_count==='1','Discard Close did not retain a live blank browser surface');
  check(starts().length===jobs,'Access keys or document close added unexpected database jobs');
- const result={before,seeded,boldBatch,bold,copyBatch,copied,menu,protectedCell,fileNavigation,reverseTab,shortFile,homeFile,scrolledFile,spaceClose,reopenedFile,helpBlocked,tinyFile,outside,closePrompt,cancelled,closed,
+ const result={before,seeded,boldBatch,bold,copyBatch,copied,menu,protectedCell,fileNavigation,reverseTab,shortFile,headingFile,homeFile,scrolledFile,spaceClose,reopenedFile,helpBlocked,tinyFile,outside,closePrompt,cancelled,closed,
   scope:'Trusted CDP sequences, actual C formatting/Copy dispatch, File-menu edit quarantine, disabled-skipping/wrapping navigation, short-window keyboard/wheel scrolling, Space activation, normal held outside click and cancel/discard document lifecycle. This does not accept completed between-frame pointer capture, browser clipboard delivery, Worker queries or report upload.'};
  await fs.writeFile(path.join(output,'access-keys.json'),JSON.stringify(result,null,2));
  return result;
