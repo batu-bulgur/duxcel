@@ -1,5 +1,6 @@
 #include "worker.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 void copy_request_free(CopyRequest *request) {
@@ -65,6 +66,49 @@ static bool obsolete(QueryWorker *w, uint64_t id) {
 static bool job_cancelled(void *context) {
     QueryWorker *w=context; return obsolete(w,w->active_id);
 }
+#ifdef DUXCEL_TEST_SOURCE_DIGEST
+/* Isolated test objects only. No checkpoint module/symbol in shipping builds. */
+extern void dx_test_source_digest_checkpoint(QueryWorker *worker,uint64_t bytes_read);
+#endif
+static bool source_digest_cancelled(void *context,uint64_t bytes_read) {
+    QueryWorker *worker=context;
+#ifdef DUXCEL_TEST_SOURCE_DIGEST
+    dx_test_source_digest_checkpoint(worker,bytes_read);
+#else
+    (void)bytes_read;
+#endif
+    return job_cancelled(worker);
+}
+static bool source_digest_payload_valid(const QueryJob *job,const QueryReply *reply) {
+    const Analysis *a=&reply->analysis;
+    if (!reply->path || !*reply->path) return false;
+    size_t length=0; while (length<=65536 && reply->path[length]) length++;
+    if (length>65536 || a->kind!=SOURCE_NONE || a->path || a->schema || a->table || a->query || a->filter_column || a->filter_value || a->group_column || a->measure_column || a->sort_column ||
+        a->filter_count || a->sort_count || a->unique_rows || a->descending || a->filter_op || a->aggregate || a->filter_number.kind || a->filter_number.precision || a->filter_number.scale ||
+        job->workbook || job->copy || job->statistics || job->column || job->search || job->date_start || job->date_end || job->offset || job->rows || job->first_col || job->cols ||
+        (job->known_total!=0 && job->known_total!=-1) || job->include_header || job->include_totals || job->is_preview || job->refresh_source) return false;
+    for (size_t role=0;role<4;role++) if (job->pivot.counts[role]) return false;
+    return true;
+}
+static void verify_source(QueryWorker *worker,const QueryJob *job,QueryReply *reply) {
+    reply->source_digest_status=SOURCE_DIGEST_ERROR;
+    if (!source_digest_payload_valid(job,reply)) { reply->error=dx_strdup("Source verification requires one bounded file path without analytical payloads."); return; }
+    if (obsolete(worker,job->id)) { reply->source_digest_status=SOURCE_DIGEST_CANCELLED; reply->error=dx_strdup("Source-content verification was cancelled."); return; }
+    if (job->expected_source_stamp && dx_file_stamp(reply->path)!=job->expected_source_stamp) {
+        reply->source_digest_status=SOURCE_DIGEST_CHANGED; reply->error=dx_strdup("The source changed since its displayed result. Refresh before verifying its content."); return;
+    }
+    SourceDigest digest={0}; char error[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
+    reply->source_digest_status=source_digest_file(reply->path,source_digest_cancelled,worker,&digest,error);
+    if (reply->source_digest_status==SOURCE_DIGEST_OK && job->expected_source_stamp &&
+        (digest.observed_stamp!=job->expected_source_stamp || dx_file_stamp(reply->path)!=job->expected_source_stamp)) {
+        reply->source_digest_status=SOURCE_DIGEST_CHANGED; snprintf(error,sizeof(error),"The source changed before its verified content could be published.");
+    }
+    if (reply->source_digest_status==SOURCE_DIGEST_OK && obsolete(worker,job->id)) {
+        reply->source_digest_status=SOURCE_DIGEST_CANCELLED; snprintf(error,sizeof(error),"Source-content verification was cancelled.");
+    }
+    if (reply->source_digest_status==SOURCE_DIGEST_OK) reply->source_digest=digest;
+    else reply->error=dx_strdup(*error ? error : "Source-content verification failed.");
+}
 static void *worker_main(void *ptr) {
     QueryWorker *w = ptr;
     for (;;) {
@@ -76,7 +120,9 @@ static void *worker_main(void *ptr) {
         QueryReply *r = dx_alloc(sizeof(*r)); r->id = j->id; r->kind = j->kind; r->object_id=j->object_id; r->revision=j->revision; r->is_preview=j->is_preview;
         r->analysis=j->analysis; memset(&j->analysis,0,sizeof(j->analysis));
         r->path=j->path; j->path=NULL;
-        if (j->kind==JOB_SAVE) workbook_save(j->workbook,r->path,&r->error);
+        /* File hashing never opens DuckDB or runs source/result SQL. */
+        if (j->kind==JOB_VERIFY_SOURCE) verify_source(w,j,r);
+        else if (j->kind==JOB_SAVE) workbook_save(j->workbook,r->path,&r->error);
         else if (j->kind==JOB_LOAD) {
             r->workbook=dx_alloc(sizeof(*r->workbook)); workbook_init(r->workbook);
             workbook_load(r->workbook,r->path,&r->error);

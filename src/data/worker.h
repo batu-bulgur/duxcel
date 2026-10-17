@@ -1,6 +1,7 @@
 #ifndef DUXCEL_WORKER_H
 #define DUXCEL_WORKER_H
 #include "database.h"
+#include "source_digest.h"
 #include "../platform/platform.h"
 #include "../workbook/workbook.h"
 #include "../workbook/clipboard.h"
@@ -24,7 +25,7 @@ typedef struct {
     size_t guard_count;
 } CopyRequest;
 void copy_request_free(CopyRequest *request);
-typedef enum { JOB_PAGE, JOB_COPY, JOB_SAVE, JOB_LOAD, JOB_DISTINCT, JOB_PIVOT, JOB_PIVOT_COPY, JOB_EXPORT, JOB_COUNT, JOB_RANGE_COPY,JOB_STATISTICS,JOB_VALIDATE_SQL,JOB_STEP_PREVIEW } JobKind;
+typedef enum { JOB_PAGE, JOB_COPY, JOB_SAVE, JOB_LOAD, JOB_DISTINCT, JOB_PIVOT, JOB_PIVOT_COPY, JOB_EXPORT, JOB_COUNT, JOB_RANGE_COPY,JOB_STATISTICS,JOB_VALIDATE_SQL,JOB_STEP_PREVIEW,JOB_VERIFY_SOURCE } JobKind;
 typedef struct {
     uint64_t id;
     JobKind kind;
@@ -34,6 +35,8 @@ typedef struct {
     size_t first_col, cols;
     int64_t known_total;
     Workbook *workbook;
+    /* VERIFY_SOURCE owns one <=65536-byte file path, expected_source_stamp and
+       scalar routing identities only. Zero stamp is unbound; no SQL is run. */
     char *path;
     char *column,*search,*date_start,*date_end;
     int date_level;
@@ -59,6 +62,10 @@ typedef struct {
     unsigned char *export_data;
     size_t export_bytes;
     uint64_t exported_rows,counted_rows;
+    /* Only JOB_VERIFY_SOURCE: scalar ownership, no additional cleanup. The
+       digest is meaningful only on OK without error; other jobs ignore it. */
+    SourceDigest source_digest;
+    SourceDigestStatus source_digest_status;
     uint64_t object_id,revision;
     bool is_preview;
 } QueryReply;

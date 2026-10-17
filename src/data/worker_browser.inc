@@ -742,6 +742,10 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
     r->object_id=j->object_id; r->revision=j->revision; r->is_preview=j->is_preview;
     r->analysis=j->analysis; memset(&j->analysis,0,sizeof(j->analysis)); r->path=j->path; j->path=NULL;
     printf("Browser worker started: {\"id\":\"%" PRIu64 "\",\"kind\":%d}\n",r->id,(int)r->kind);
+    if (j->kind==JOB_VERIFY_SOURCE) {
+        r->source_digest_status=SOURCE_DIGEST_UNSUPPORTED;
+        browser_fail("Source-content verification is unavailable in the browser engine; no native path or verification job was submitted."); return;
+    }
     if (j->refresh_source) browser_clear_schemas();
     q->copying=j->kind==JOB_COPY || j->kind==JOB_PIVOT_COPY || j->kind==JOB_RANGE_COPY;
     q->matrix=j->kind==JOB_PIVOT && !j->is_table;
