@@ -18,8 +18,8 @@ Analysis analysis_copy(const Analysis *a) {
 void analysis_free(Analysis *a) {
     free(a->path); free(a->schema); free(a->table); free(a->query); free(a->filter_column);
     free(a->filter_value); free(a->group_column); free(a->measure_column); free(a->sort_column);
-    for (size_t i=0;i<a->filter_count;i++) { free(a->filters[i].column); free(a->filters[i].value); }
-    for (size_t i=0;i<a->sort_count;i++) free(a->sorts[i].column);
+    for (size_t i=0;i<a->filter_count && i<sizeof(a->filters)/sizeof(*a->filters);i++) { free(a->filters[i].column); free(a->filters[i].value); }
+    for (size_t i=0;i<a->sort_count && i<sizeof(a->sorts)/sizeof(*a->sorts);i++) free(a->sorts[i].column);
     memset(a, 0, sizeof(*a));
 }
 size_t analysis_text_bytes(const Analysis *a) {
