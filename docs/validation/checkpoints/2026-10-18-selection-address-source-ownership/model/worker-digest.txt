@@ -1,0 +1,8 @@
+mkdir -p build/data-tests
+clang -Isrc -I/opt/homebrew/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic -Werror -DDUXCEL_TEST_SOURCE_DIGEST src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c tests/test_worker_source_digest.c -o build/data-tests/test-worker-source-digest -L/opt/homebrew/lib -lduckdb -pthread -lm
+mkdir -p build/data-tests
+clang -Isrc -I/opt/homebrew/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -DDUXCEL_TEST_SOURCE_DIGEST src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c tests/test_worker_source_digest.c -o build/data-tests/test-worker-source-digest-sanitize -L/opt/homebrew/lib -lduckdb -pthread -lm
+./build/data-tests/test-worker-source-digest
+PASS: 1249 worker-source-digest checks; zero SQL and no DuckDB connection
+ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-worker-source-digest-sanitize
+PASS: 1249 worker-source-digest checks; zero SQL and no DuckDB connection

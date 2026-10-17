@@ -1,0 +1,1 @@
+PASS: 43479 formatting checks (exact numeric display, bounded ranges, scoped record membership, precedence, ownership, moves, structural edits, history and whole-sheet selection)
