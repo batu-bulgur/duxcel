@@ -622,7 +622,8 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_DIALOG_END (REVIEW_AUTHOR_END+5*6)
 #define REVIEW_PLOT_END (REVIEW_DIALOG_END+5)
 #define REVIEW_SHEET_END (REVIEW_PLOT_END+4*6)
-#define REVIEW_SMOKE_STAGES (REVIEW_SHEET_END+2*6)
+#define REVIEW_QUERY_END (REVIEW_SHEET_END+2*6)
+#define REVIEW_SMOKE_STAGES (REVIEW_QUERY_END+6)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -642,6 +643,8 @@ typedef struct {
     uint64_t query_jobs,query_sql,query_counts,query_prepares,query_latest,query_complete_sql,query_complete_counts,query_complete_prepares; QueryReply *query_reply;
     TextEditor query_editor;
     struct { Cell *cells; uint64_t id,revision,source_id,total; size_t rows,columns; } query_views[DX_MAX_OBJECTS];
+    bool relation_added; int relation_object,relation_focus,relation_scroll; Analysis relation_source;
+    uint64_t relation_id,relation_revision; Relation *relation_rows; size_t relation_count;
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -744,6 +747,7 @@ static bool review_smoke_pivot_same(const PivotDefinition *left,const PivotDefin
 static void review_smoke_author_release(ReviewSmoke *t) {
     if (t->author_owned) { analysis_free(&t->author_source); pivot_free(&t->author_pivot); marks_free(&t->author_marks); free(t->author_name); t->author_name=NULL; t->author_owned=false; }
     analysis_free(&t->query_source);
+    analysis_free(&t->relation_source);
     free(t->dialog_text); t->dialog_text=NULL; free(t->dialog_chart_text); t->dialog_chart_text=NULL;
     for (size_t i=0;i<DX_MAX_SHEETS;i++) { free(t->sheet_names[i]); t->sheet_names[i]=NULL; }
 }
@@ -1322,7 +1326,97 @@ static int review_smoke_query_tick(App *a,ReviewSmoke *t) {
     if (!review_smoke_query_same(a,t,true)) { review_smoke_query_diagnostic(a,t,"normal editor cancellation"); return -1; }
     printf("PASS: native source-query review owner=%s pending=%d retains SQL/cursor/focus, source and dependent pages; validation jobs=%llu prepares=%llu executed SQL=%llu\n",pending ? "upstream table" : "primary",pending,(unsigned long long)(pending ? 1 : 0),(unsigned long long)(pending ? t->query_complete_prepares-t->query_prepares : 0),(unsigned long long)(pending ? t->query_complete_sql-t->query_sql : 0));
     review_smoke_author_release(t);
-    if (pending) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
+    if (pending) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); } return 1;
+}
+static void review_smoke_relation_remember(App *a,ReviewSmoke *t) {
+    review_smoke_author_remember(a,t); SheetObject *table=&active_sheet(a)->objects.items[a->table_relation_object]; Page *page=&a->objects[a->table_relation_object].page;
+    t->relation_source=analysis_copy(&table->source); t->relation_id=table->id; t->relation_revision=table->revision;
+    t->relation_object=a->table_relation_object; t->relation_focus=a->table_relation_focus; t->relation_scroll=a->table_relation_scroll; t->relation_rows=page->relations; t->relation_count=page->relation_count;
+    t->dialog_text=dx_strdup(a->input.text); t->dialog_cursor=a->input.cursor; t->dialog_anchor=a->input.anchor; t->dialog_revision=a->input.revision;
+    for (size_t i=0;i<active_sheet(a)->objects.count;i++) {
+        SheetObject *object=&active_sheet(a)->objects.items[i]; Page *cached=&a->objects[i].page;
+        t->query_views[i].cells=cached->cells; t->query_views[i].id=object->id; t->query_views[i].revision=object->revision; t->query_views[i].source_id=object->source_id;
+        t->query_views[i].total=cached->total; t->query_views[i].rows=cached->row_count; t->query_views[i].columns=cached->column_count;
+    }
+    t->query_pending=false;
+    dx_lock(&a->worker.mutex); t->query_jobs=a->worker.jobs_started; t->query_sql=a->worker.db.query_count; t->query_counts=a->worker.db.count_queries; t->query_prepares=a->worker.db.relation_prepares; t->query_latest=a->worker.latest_id; dx_unlock(&a->worker.mutex);
+}
+static bool review_smoke_relation_same(App *a,ReviewSmoke *t) {
+    if (!review_smoke_author_same(a,t) || a->table_relation_object!=t->relation_object || a->table_relation_focus!=t->relation_focus || a->table_relation_scroll!=t->relation_scroll || a->table_relation_drag ||
+        strcmp(a->input.text,t->dialog_text) || a->input.cursor!=t->dialog_cursor || a->input.anchor!=t->dialog_anchor || a->input.revision!=t->dialog_revision) return false;
+    SheetObject *table=&active_sheet(a)->objects.items[a->table_relation_object]; Page *page=&a->objects[a->table_relation_object].page;
+    if (table->id!=t->relation_id || table->revision!=t->relation_revision || !analysis_same_result(&table->source,&t->relation_source) || !analysis_sorts_equal(&table->source,&t->relation_source) || page->relations!=t->relation_rows || page->relation_count!=t->relation_count || page->relation_count!=2 ||
+        strcmp(page->relations[0].schema,"main") || strcmp(page->relations[0].name,"a view") || strcmp(page->relations[1].schema,"main") || strcmp(page->relations[1].name,"table with spaces")) return false;
+    for (size_t i=0;i<active_sheet(a)->objects.count;i++) {
+        SheetObject *object=&active_sheet(a)->objects.items[i]; Page *cached=&a->objects[i].page;
+        if (cached->cells!=t->query_views[i].cells || object->id!=t->query_views[i].id || object->revision!=t->query_views[i].revision || object->source_id!=t->query_views[i].source_id || cached->total!=t->query_views[i].total || cached->row_count!=t->query_views[i].rows || cached->column_count!=t->query_views[i].columns) return false;
+    }
+    return review_smoke_query_worker(a,t,false);
+}
+static bool review_smoke_relation_targets(App *a,ReviewSmoke *t) {
+    DxReviewRegistry *registry=a->review->registry; const char *parent="author.source_relation"; const DxReviewWidget *rows[2]={0};
+    const DxReviewWidget *panel=dx_review_find(registry,parent),*cancel=dx_review_find(registry,"author.source_relation.action.cancel");
+    if (!panel || strcmp(panel->role,"dialog") || !panel->container || panel->input_eligible || !cancel || strcmp(cancel->role,"button") || !cancel->enabled || !cancel->input_eligible || cancel->focused || !review_smoke_sheet_pick(a,cancel,parent) || registry->duplicate_count || registry->invalid_count || registry->overflow_count || strstr(a->review->frame.state_text," author_overflow=1")) return false;
+    for (size_t i=0;i<registry->count;i++) {
+        const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,"author.source_relation",22)) continue;
+        const DxReviewDataIdentity *data=&widget->data;
+        if (!data->present || strcmp(data->kind,"source-relation") || data->sheet_id!=a->book.active+1 || data->source_id!=t->relation_id || data->object_id!=t->relation_id || data->query_generation!=t->relation_revision || data->schema_generation || data->field[0] || data->has_cell || data->column) return false;
+        if (strcmp(widget->role,"menuitemradio")) continue;
+        if (data->row>1 || rows[data->row] || !strstr(widget->id,".action.select.s") || !widget->enabled || !widget->input_eligible || widget->checked!=(data->row==0) || widget->focused!=(data->row==1) ||
+            !widget->value.present || widget->value.is_null || widget->value.truncated || strcmp(widget->value.type,"VARCHAR") || strcmp(widget->value.exact_text,data->row ? "\"main\".\"table with spaces\"" : "\"main\".\"a view\"") || !review_smoke_sheet_pick(a,widget,parent)) return false;
+        rows[data->row]=widget;
+    }
+    if (!rows[0] || !rows[1] || !strcmp(rows[0]->id,rows[1]->id) || dx_review_find(registry,"author.source_relation.scrollbar")) return false;
+    const DxReviewWidget *heading=dx_review_find(registry,"author.source_relation.heading"); DxReviewTarget picked;
+    if (!heading || heading->input_eligible || !review_smoke_sheet_pick(a,heading,parent) || !dx_review_pick(registry,2*a->ui.scale,2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,"author.source_relation.backdrop.background")) return false;
+    snprintf(t->author_target,sizeof(t->author_target),"%s",rows[1]->id); return true;
+}
+static void review_smoke_relation_diagnostic(App *a,ReviewSmoke *t,const char *reason) {
+    fprintf(stderr,"Review source-relation mismatch %s stage=%d modal=%d selected=%d expected_selected=%d owner_index=%d/%d focus=%d/%d scroll=%d/%d owner=%llu revision=%llu target=%s actual=%s\n",reason,t->stage,(int)a->modal,a->selected_object,t->author_selected,a->table_relation_object,t->relation_object,a->table_relation_focus,t->relation_focus,a->table_relation_scroll,t->relation_scroll,(unsigned long long)t->relation_id,(unsigned long long)t->relation_revision,t->author_target,a->review->target.widget.id);
+    for (size_t i=0;i<a->review->registry->count;i++) {
+        const DxReviewWidget *widget=&a->review->registry->widgets[i]; if (strncmp(widget->id,"author.source_relation",22)) continue;
+        fprintf(stderr,"Review source-relation widget %s role=%s enabled=%d eligible=%d checked=%d focused=%d kind=%s owner=%llu source=%llu row=%llu schema=%llu query=%llu value=%s bounds=%.2f,%.2f,%.2f,%.2f clip=%.2f,%.2f,%.2f,%.2f\n",widget->id,widget->role,widget->enabled,widget->input_eligible,widget->checked,widget->focused,widget->data.kind,(unsigned long long)widget->data.object_id,(unsigned long long)widget->data.source_id,(unsigned long long)widget->data.row,(unsigned long long)widget->data.schema_generation,(unsigned long long)widget->data.query_generation,widget->value.exact_text,widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height,widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height);
+    }
+}
+static int review_smoke_relation_tick(App *a,ReviewSmoke *t) {
+    int phase=t->stage-REVIEW_QUERY_END; DxReviewCapture *r=a->review;
+    if (!phase) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        if (!t->relation_added) {
+            if (!FileExists("tests/generated/fixture.duckdb")) { fprintf(stderr,"FAIL: relation review requires the core-generated tests/generated/fixture.duckdb\n"); return -1; }
+            a->selected_object=-1; grid_select_cell(&a->grid,60,10,false); if (!import_table(a,"tests/generated/fixture.duckdb")) return -1;
+            t->relation_object=a->selected_object; t->relation_added=true; return 0;
+        }
+        if (!object_ready(a,(size_t)t->relation_object)) return 0;
+        SheetObject *table=&active_sheet(a)->objects.items[t->relation_object]; Page *page=&a->objects[t->relation_object].page;
+        if (table->source.kind!=SOURCE_DATABASE || !table->source.table || strcmp(table->source.table,"a view") || page->relation_count!=2) return -1;
+        a->selected_object=t->relation_object; begin_table_relation(a); if (a->modal!=MODAL_TABLE_RELATION) return -1;
+        a->selected_object=t->query_pivot; if (!selected_pivot(a) || selected_object(a)->id==table->id) return -1;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(760,640); ui_note_key_press(KEY_END,0); return 1;
+    }
+    if (phase==1) {
+        if (a->modal!=MODAL_TABLE_RELATION) return -1;
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || !review_can_capture(a) || a->ui.scale!=1.5f || GetScreenWidth()!=760 || GetScreenHeight()!=640) return 0;
+        if (a->table_relation_focus!=1) { ui_note_key_press(KEY_END,0); return 0; }
+        review_smoke_relation_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        bool same=review_smoke_relation_same(a,t),targets=same && review_smoke_relation_targets(a,t);
+        if (!same || !targets) { review_smoke_relation_diagnostic(a,t,same ? "targets" : "retained state"); return -1; }
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==3) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || r->target.widget.checked || strcmp(r->target.widget.value.exact_text,"\"main\".\"table with spaces\"") || !review_smoke_relation_same(a,t)) { review_smoke_relation_diagnostic(a,t,"actual picker target/state"); return -1; }
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (phase==4) { if (!review_smoke_relation_same(a,t)) { review_smoke_relation_diagnostic(a,t,"report cancellation"); return -1; } ui_note_key_press(KEY_ESCAPE,0); return 1; }
+    t->choice_modal=MODAL_NONE;
+    if (!review_smoke_relation_same(a,t)) { review_smoke_relation_diagnostic(a,t,"normal chooser cancellation"); return -1; }
+    printf("PASS: native source-relation review retains actual table ownership, quoted cached names, source/model/pages and SQL/job counts\n");
+    review_smoke_author_release(t); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); return 1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
@@ -1336,7 +1430,7 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         t->wait_frame=a->frames;
     }
     if (t->stage>=71) {
-        int progress=t->stage>=REVIEW_SHEET_END ? review_smoke_query_tick(a,t) : t->stage>=REVIEW_PLOT_END ? review_smoke_sheet_tick(a,t) : t->stage>=REVIEW_DIALOG_END ? review_smoke_plot_identity_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
+        int progress=t->stage>=REVIEW_QUERY_END ? review_smoke_relation_tick(a,t) : t->stage>=REVIEW_SHEET_END ? review_smoke_query_tick(a,t) : t->stage>=REVIEW_PLOT_END ? review_smoke_sheet_tick(a,t) : t->stage>=REVIEW_DIALOG_END ? review_smoke_plot_identity_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
         if (progress<0) goto failed; if (!progress) return;
         t->stage++; return;
     }
