@@ -31,6 +31,7 @@ let filterResult;
 let busyResult;
 let reviewResult;
 let platformResult;
+let accessKeyResult;
 let persistenceResult;
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
 let stderr='',ws,cdp,activePhase='';const events=[],steps=[];let checks=0;const started=Date.now();
@@ -53,6 +54,29 @@ async function key(key,code,virtual,text='',modifiers=0){
  await phase('frames_after_keyDown',()=>frames());
  await phase('keyUp',()=>send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp',key,code,virtual,{modifiers})));
  await phase('frames_after_keyUp',()=>frames());
+}
+// Pipeline real protocol phases between animation frames. The listener records
+// the frame actually receiving each trusted key; it does not fabricate input,
+// pause the application or assume that quick transport implies one C poll.
+async function fastKeys(sequence){
+ await evaluate(`(()=>{const state={active:true,frame:0,events:[]};globalThis.duxcelFastKeys=state;state.listener=event=>{state.events.push({key:event.key,code:event.code,trusted:event.isTrusted,repeat:event.repeat,frame:state.frame});};window.addEventListener('keydown',state.listener);function tick(){state.frame++;if(state.active)requestAnimationFrame(tick);}requestAnimationFrame(tick);})()`);
+ await frames(1);
+ const entry={key:'fast '+sequence.map(item=>item[0]).join(' '),time:Date.now()};steps.push(entry);
+ try{
+  const pending=[];
+  for(const [name,code,virtual] of sequence){
+   pending.push(send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown',name,code,virtual)));
+   pending.push(send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp',name,code,virtual)));
+  }
+  await Promise.all(pending);await frames(3);
+  const delivered=await evaluate('(()=>{const state=globalThis.duxcelFastKeys;state.active=false;window.removeEventListener("keydown",state.listener);return state.events;})()');
+  entry.delivered=delivered;entry.completed_ms=Date.now();
+  check(delivered.length===sequence.length&&delivered.every((event,i)=>event.trusted&&!event.repeat&&event.code===sequence[i][1]),'Fast sequence did not retain actual trusted key order');
+  check(new Set(delivered.map(event=>event.frame)).size===1,'Fast access-key regression did not land in one animation-frame interval');
+  return delivered;
+ }finally{
+  await evaluate('(()=>{const state=globalThis.duxcelFastKeys;if(state){state.active=false;window.removeEventListener("keydown",state.listener);}return true;})()');
+ }
 }
 async function click(x,y){
  if(canvasTransform){const rect=await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,w:innerWidth,h:innerHeight}})()');x=rect.x+x*rect.width/rect.w;y=rect.y+y*rect.height/rect.h;}
@@ -143,10 +167,12 @@ async function transientPull(baseline){
 // Unlike the single burst above, hold an outward gesture across real C frames,
 // then continue supplying declining momentum after the edge has started home.
 // Sparse tails used to tug it back out or keep it suspended indefinitely.
-async function momentumPull(baseline){
+async function momentumPull(baseline,alternating=false){
  const [bx,by]=baseline.body.split(',').map(Number);
- const tail=[{ms:0,d:10},{ms:17,d:8},{ms:50,d:6},{ms:67,d:4},{ms:117,d:2},{ms:150,d:1},
-  {ms:200,d:.5},{ms:234,d:.25},{ms:284,d:.1},{ms:317,d:.03},{ms:350,d:.01},{ms:400,d:.005}];
+ const tail=[{ms:0,d:10},{ms:17,d:8},{ms:50,d:6},{ms:67,d:4},...(alternating ?
+  [{ms:117,d:.4},{ms:150,d:-.25},{ms:200,d:.3},{ms:234,d:-.15},{ms:284,d:.1},{ms:317,d:-.075},
+   {ms:350,d:.04},{ms:400,d:-.02},{ms:434,d:.01},{ms:467,d:-.005},{ms:500,d:.005}] :
+  [{ms:117,d:2},{ms:150,d:1},{ms:200,d:.5},{ms:234,d:.25},{ms:284,d:.1},{ms:317,d:.03},{ms:350,d:.01},{ms:400,d:.005}])];
  const result=await evaluate(`new Promise(resolve=>{const canvas=document.querySelector('canvas'),rect=canvas.getBoundingClientRect(),gl=canvas.getContext('webgl2')||canvas.getContext('webgl'),ratio=canvas.width/${Number(baseline.logical.split(',')[0])},samples=[],packets=[],tail=${JSON.stringify(tail)},n=Math.ceil(45*ratio),row=new Uint8Array(n*4),col=new Uint8Array(n*4);let began,previous,released,at=0;
   const send=(distance,phase,ms)=>{const event=new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:rect.x+rect.width*.65,clientY:rect.y+rect.height*.65,deltaX:-distance,deltaY:-distance});canvas.dispatchEvent(event);packets.push({ms,distance,phase,claimed:event.defaultPrevented});};
   const band=(data,reverse=false)=>{let length=0;for(let i=0;i<data.length;i+=4){const p=reverse?data.length-4-i:i;if(data[p]!==201||data[p+1]!==211||data[p+2]!==220)break;length++;}return length/ratio;};
@@ -159,7 +185,7 @@ async function momentumPull(baseline){
    else{released??=ms;while(at<tail.length&&ms-released>=tail[at].ms){send(tail[at].d,'tail',ms);at++;}}
    if(released!==undefined&&ms-released>=650)resolve({samples,packets,released,ratio,error:gl.getError()});else requestAnimationFrame(sample);
   }requestAnimationFrame(sample);})`);
- await fs.writeFile(path.join(output,'overscroll-momentum.json'),JSON.stringify(result,null,2));
+ await fs.writeFile(path.join(output,alternating?'overscroll-reversal-tail.json':'overscroll-momentum.json'),JSON.stringify(result,null,2));
  check(result.error===0,'Momentum GPU readback failed');
  check(result.packets.every(packet=>packet.claimed),'A continuous pull/tail packet escaped canvas ownership');
  check(result.packets.filter(packet=>packet.phase==='pull').length>=5&&result.packets.filter(packet=>packet.phase==='tail').length===tail.length,'Continuous pull or gappy momentum sequence was incomplete');
@@ -180,7 +206,43 @@ async function momentumPull(baseline){
  check(returning.filter(sample=>sample.ms-latch>=280).every(sample=>sample.x<.5&&sample.y<.5),'Gappy momentum packets restarted a settled edge');
  const final=await platformSnapshot();
  check(final.top===baseline.top&&final.fraction===baseline.fraction&&final.horizontal===baseline.horizontal&&final.active===baseline.active&&final.extent===baseline.extent,'Continuous pull/tails altered canonical position or selection');
- return {...result,latch,final,scope:'Actual shared-C GL pixels during a multi-frame pull and declining/gappy DOM wheel tail; no review freeze or PNG encoding during timing. Physical trackpad feel remains separate.'};
+ return {...result,latch,final,alternating,scope:'Actual shared-C GL pixels during a multi-frame pull and declining/gappy DOM wheel tail'+(alternating?' with tiny alternating reversals':'')+'; no review freeze or PNG encoding during timing. Physical trackpad feel remains separate.'};
+}
+// These run after source/filter/report acceptance because Close/Discard must
+// exercise the real document lifecycle and intentionally resets the workbook.
+async function accessKeys(){
+ const before=await platformSnapshot(),jobs=starts().length;
+ await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));
+ await key('F11','F11',122,'',8);
+ await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16));await frames(2);
+ await key('7','Digit7',55,'7');await key('Enter','Enter',13);await key('ArrowUp','ArrowUp',38);
+ const seeded=await platformSnapshot();
+ check(Number(seeded.sheet_count)===Number(before.sheet_count)+1&&Number(seeded.manual_cells)===1&&seeded.dirty==='1','Shift F11 and real manual entry did not prepare a dirty sentinel sheet');
+ const boldBatch=await fastKeys([['Alt','AltLeft',18],['h','KeyH',72],['1','Digit1',49]]);await pause(180);
+ const bold=await platformSnapshot();
+ check(Number(bold.active_format_flags)===(Number(seeded.active_format_flags)^1)&&Number(bold.keytips)===0&&bold.modal==='0','Same-frame Alt H 1 did not execute exactly one Bold action');
+ const copyBatch=await fastKeys([['Alt','AltLeft',18],['h','KeyH',72],['c','KeyC',67],['c','KeyC',67]]);await pause(180);
+ const copied=await platformSnapshot();
+ check(copied.last_command==='0'&&bold.last_command==='5'&&Number(copied.keytips)===0&&copied.modal==='0','Same-frame Alt H C C lost its repeated prefix or failed actual Copy dispatch');
+ check(copied.manual_cells===seeded.manual_cells&&copied.active===seeded.active&&copied.extent===seeded.extent,'Copy keytips mutated worksheet cells or selection');
+ await click(40,14);const menu=await platformSnapshot();
+ check(menu.file_menu==='1','Pointer File menu did not open');
+ await key('Delete','Delete',46);const protectedCell=await platformSnapshot();
+ check(protectedCell.file_menu==='1'&&protectedCell.manual_cells===seeded.manual_cells&&protectedCell.active_format_flags===bold.active_format_flags&&protectedCell.modal==='0','Delete leaked through the pointer File menu into worksheet editing');
+ await key('Escape','Escape',27);
+ await key('Alt','AltLeft',18);await key('f','KeyF',70);await key('c','KeyC',67);
+ const closePrompt=await platformSnapshot();
+ check(closePrompt.modal!=='0'&&closePrompt.manual_cells===seeded.manual_cells&&closePrompt.dirty==='1','Alt F C failed to retain the dirty workbook behind its save prompt');
+ await key('Escape','Escape',27);const cancelled=await platformSnapshot();
+ check(cancelled.modal==='0'&&cancelled.manual_cells===seeded.manual_cells&&cancelled.sheet_count===seeded.sheet_count&&cancelled.dirty==='1','Cancel Close lost the existing workbook');
+ await key('Alt','AltLeft',18);await key('f','KeyF',70);await key('c','KeyC',67);
+ await key('ArrowRight','ArrowRight',39);await key('Enter','Enter',13);const closed=await platformSnapshot();
+ check(closed.modal==='0'&&closed.dirty==='0'&&closed.manual_cells==='0'&&closed.sheet_count==='1','Discard Close did not retain a live blank browser surface');
+ check(starts().length===jobs,'Access keys or document close added unexpected database jobs');
+ const result={before,seeded,boldBatch,bold,copyBatch,copied,menu,protectedCell,closePrompt,cancelled,closed,
+  scope:'Trusted CDP sequences, actual C formatting/Copy dispatch, File-menu edit quarantine and cancel/discard document lifecycle. Pinned browser clipboard transport is not implemented and is not accepted by this dispatch test.'};
+ await fs.writeFile(path.join(output,'access-keys.json'),JSON.stringify(result,null,2));
+ return result;
 }
 async function wheelBatch(dx,dy,count=1,options={}){
  const result=await evaluate(`(()=>{const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();let claimed=0;for(let i=0;i<${count};i++){const event=new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:r.x+r.width*${options.x??.65},clientY:r.y+r.height*${options.y??.65},deltaX:${dx},deltaY:${dy},deltaMode:${options.mode??0},ctrlKey:${!!options.ctrl},shiftKey:${!!options.shift}});canvas.dispatchEvent(event);if(event.defaultPrevented)claimed++;}return claimed;})()`);
@@ -325,6 +387,7 @@ try{
    const hints=await hintMotion();
    const overscroll=await transientPull(baseline);
    const momentum=await momentumPull(baseline);
+   const reversalMomentum=await momentumPull(baseline,true);
    const factor=canvasTransform?1/.8:1;
    await wheelBatch(.125,.25,40);
    const panned=await platformSnapshot();
@@ -374,7 +437,7 @@ try{
    // Restore the pan origin before the shared filter/header regression.
    const final=await platformSnapshot();
    await wheelBatch(-Number(final.horizontal)/factor,-vertical(final)*Number(final.row_height)/factor);await frames();
-   platformResult={baseline,hints,overscroll,momentum,panned,reversed,trusted,deliveredWheel,shifted,chrome,sidebar,zoomed,restored,densities,embedded,query_jobs:starts().length-beforeJobs,
+   platformResult={baseline,hints,overscroll,momentum,reversalMomentum,panned,reversed,trusted,deliveredWheel,shifted,chrome,sidebar,zoomed,restored,densities,embedded,query_jobs:starts().length-beforeJobs,
     scope:'Real C grid under fractional DOM wheel bursts, DPI changes and captured GPU frames; physical trackpad/Safari gesture feel remains separate.'};
   }
   if(filters){
@@ -472,6 +535,7 @@ try{
  check(['ArrowUp','ArrowRight','ArrowDown'].every(key=>navigation.some(event=>event.key===key&&event.canvas&&event.default_prevented)),'Shared canvas navigation escaped to browser defaults');
  check(navigation.some(event=>event.key==='ArrowRight'&&event.shift)&&navigation.some(event=>event.key==='ArrowDown'&&event.shift),'Shift navigation did not reach the real canvas');
  }
+ if(platform)accessKeyResult=await accessKeys();
  await click(294,42);await capture('view-ribbon');
  await click(1262,124);await capture('ribbon-display');await key('Escape','Escape',27);
  await send('Emulation.setDeviceMetricsOverride',{width:640,height:640,deviceScaleFactor:dpr,mobile:false});await frames(4);await capture('narrow');
@@ -484,7 +548,7 @@ try{
  resources.c_bridge=consoleText('Browser worker metrics: ').map(line=>JSON.parse(line.slice('Browser worker metrics: '.length)));
  resources.scope='Navigation-to-first completed C frame and parent resource timing; main JS heap excludes Worker/GPU/process RSS. C bridge metrics are review-only bounded callback/job observations; decode_ms is C validation/allocation/copy, elapsed_ms includes asynchronous engine/transport scheduling. Worker network bytes are not inferred from parent Resource Timing.';
  await fs.writeFile(path.join(output,'resources.json'),JSON.stringify(resources,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,persistenceResult,workerProbe,scope:'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,workerProbe,scope:'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){
