@@ -50,6 +50,8 @@ QueryJob *step_preview_job(StepPreview *preview,uint64_t request,bool force) {
 bool step_preview_reply(StepPreview *preview,QueryReply *reply) {
     if (!preview->active || reply->kind!=JOB_STEP_PREVIEW || reply->id!=preview->request) return false;
     preview->loading=false; preview->request=0; free(preview->error); preview->error=reply->error; reply->error=NULL;
+    if (!preview->error && page_records_changed(&preview->page,&reply->page))
+        preview->error=dx_strdup("The source changed between pages. Reopen the preview after refreshing the source.");
     if (!preview->error) {
         bool first=!preview->page.column_count; page_free(&preview->spare); preview->spare=preview->page; preview->page=reply->page; memset(&reply->page,0,sizeof(reply->page));
         analysis_merge_types(&preview->source,&reply->analysis);

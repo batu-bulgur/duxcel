@@ -221,7 +221,7 @@ void grid_fit_column(Grid *g,UIContext *u,const Page *p,size_t c) {
     grid_set_width(g,c,w/u->scale+20);
 }
 static void navigate(Grid *g,const Page *p,const GridInput *in,float scale) {
-    Page canvas=*p; canvas.total=canvas_rows(g,p); canvas.column_count=g->width_count;
+    Page canvas=*p; canvas.total=canvas_rows(g,p); canvas.column_count=g->width_count; canvas.records=(PageRecords){0};
     const Page *data=p; p=&canvas;
     int key=in->key; if (!key || !p->column_count) return;
     if (key==KEY_KB_MENU || (key==KEY_F10 && in->shift)) { if (!g->lock_structure) g->context_requested=true; return; }
@@ -349,7 +349,7 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
     size_t key_column=keyboard.shift ? g->end_col : g->col;
     if (!g->bounded && g->width_count && ((keyboard.key==KEY_RIGHT && !keyboard.alt && !keyboard.shortcut && key_column+1==g->width_count) ||
         ((in->wheel.x<0 || (in->shift && in->wheel.y<0)) && g->horizontal+g->body.width/u->scale>g->offsets[g->width_count]-96))) extend_columns(g);
-    Page canvas=*p; canvas.total=canvas_rows(g,p); canvas.column_count=g->width_count;
+    Page canvas=*p; canvas.total=canvas_rows(g,p); canvas.column_count=g->width_count; canvas.records=(PageRecords){0};
     const Page *data=p; p=&canvas;
     float s=u->scale; Vector2 m=in->mouse; g->clock+=in->dt; g->cursor=MOUSE_CURSOR_DEFAULT; spring(g,in->dt);
     if (in->key) g->elastic=g->spring_velocity=(Vector2){0};

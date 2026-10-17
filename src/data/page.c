@@ -22,7 +22,20 @@ void page_free(Page *p) {
     void (*release)(void *)=p->release_cell_text ? p->release_cell_text : free;
     for (size_t i=0;i<p->column_count*p->row_count;i++) if (p->cells[i].text) release(p->cells[i].text);
     page_relations_free(p->relations,p->relation_count);
-    free(p->columns); free(p->cells); free(p->sql); memset(p, 0, sizeof(*p));
+    free(p->columns); free(p->cells); free(p->sql);
+    free(p->records.ids); free(p->records.source_key); memset(p, 0, sizeof(*p));
+}
+bool page_record_id(const Page *p,uint64_t row,uint64_t *id) {
+    if (!p || !id || !p->records.source_key || !p->records.ids || row<p->offset) return false;
+    uint64_t index=row-p->offset;
+    if (index>=p->row_count || index>=p->records.count || !p->records.ids[index]) return false;
+    *id=p->records.ids[index]; return true;
+}
+bool page_records_changed(const Page *previous,const Page *next) {
+    if (!previous || !next) return false;
+    const PageRecords *a=&previous->records,*b=&next->records;
+    return (a->stamp && b->stamp && a->stamp!=b->stamp) ||
+        (a->source_key && b->source_key && strcmp(a->source_key,b->source_key)!=0);
 }
 void distinct_free(DistinctPage *p) {
     for (size_t i=0;i<p->count;i++) { free(p->values[i].label); free(p->values[i].value); free(p->values[i].upper); free(p->values[i].key); }

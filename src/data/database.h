@@ -11,6 +11,9 @@ typedef struct {
     char *schema_key[2];
     duckdb_prepared_statement page_statement;
     char *page_key;
+    char *page_record_alias,*page_record_scope;
+    size_t page_business_columns;
+    uint64_t page_record_stamp;
     char *pivot_key;
     char *pivot_sql;
     Column *pivot_headers;

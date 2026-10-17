@@ -1,5 +1,6 @@
 #include "database.h"
 #include "../transforms/distinct.h"
+#include "../transforms/record_sql.h"
 #include "../platform/platform.h"
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +8,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <math.h>
+#include <sys/stat.h>
 
 static void fail(char **error, const char *s) { free(*error); *error = dx_strdup(s ? s : "DuckDB query failed"); }
 static void schema_cache_clear(Database *db) {
@@ -19,6 +21,8 @@ static void schema_cache_clear(Database *db) {
 static void page_cache_clear(Database *db) {
     if (db->page_statement) duckdb_destroy_prepare(&db->page_statement);
     free(db->page_key); db->page_key=NULL;
+    free(db->page_record_alias); free(db->page_record_scope);
+    db->page_record_alias=db->page_record_scope=NULL; db->page_business_columns=0; db->page_record_stamp=0;
 }
 static void pivot_cache_clear(Database *db) {
     db->pivot_totals_valid=false;
@@ -38,7 +42,7 @@ bool database_open(Database *db, char **error) {
     if (!db->temp_directory) { duckdb_destroy_config(&config); fail(error,"Cannot create writable temporary storage for queries."); return false; }
     /* Four concurrent hash partitions exhaust this budget on the full NYC
        DISTINCT result. Two threads retain spill headroom without raising RAM. */
-    if (duckdb_set_config(config,"memory_limit","512MB")!=DuckDBSuccess || duckdb_set_config(config,"threads","2")!=DuckDBSuccess || duckdb_set_config(config,"temp_directory",db->temp_directory)!=DuckDBSuccess) {
+    if (duckdb_set_config(config,"memory_limit","512MB")!=DuckDBSuccess || duckdb_set_config(config,"threads","2")!=DuckDBSuccess || duckdb_set_config(config,"preserve_insertion_order","true")!=DuckDBSuccess || duckdb_set_config(config,"temp_directory",db->temp_directory)!=DuckDBSuccess) {
         duckdb_destroy_config(&config); database_close(db); fail(error,"Cannot configure query memory or temporary storage."); return false;
     }
     char *message = NULL;
@@ -304,13 +308,43 @@ static bool resolve_pivot_types(Database *db,Analysis *a,PivotDefinition *pivot,
     }
     return true;
 }
-static bool result_page(duckdb_result *r,Page *p,size_t limit,char **error) {
+/* Only the measured raw single-file Parquet path is connected initially.
+   CSV/demo windows remain an opt-in SQL capability until their cost and source
+   version policy are accepted. Unsupported optional identity never prevents
+   otherwise valid business data from loading. */
+static RecordSQLStatus raw_record_sql(Database *db,Analysis *a,RecordSQL *out,char **error) {
+    if (a->kind!=SOURCE_PARQUET || a->query || a->unique_rows || a->group_column || !a->path) return RECORD_SQL_UNSUPPORTED;
+    struct stat file; if (stat(a->path,&file)!=0 || !S_ISREG(file.st_mode)) return RECORD_SQL_UNSUPPORTED;
+    duckdb_prepared_statement schema=source_schema(db,a,false,error); if (!schema) return RECORD_SQL_INVALID;
+    size_t count=(size_t)duckdb_prepared_statement_column_count(schema);
+    if (!count || count>16384) return RECORD_SQL_UNSUPPORTED;
+    char **names=dx_alloc(count*sizeof(*names));
+    for (size_t i=0;i<count;i++) names[i]=(char *)duckdb_prepared_statement_column_name(schema,i);
+    RecordSQLStatus state=record_sql_build(out,a,(const char *const *)names,count,true,true,error);
+    for (size_t i=0;i<count;i++) duckdb_free(names[i]); free(names);
+    return state;
+}
+static char *positional_relation(Database *db,Analysis *a,char **error) {
+    char *base=analysis_sql(a,true),*optional_error=NULL; RecordSQL records={0};
+    RecordSQLStatus state=raw_record_sql(db,a,&records,&optional_error);
+    if (state==RECORD_SQL_UNSUPPORTED) { free(optional_error); return base; }
+    if (state!=RECORD_SQL_READY) { fail(error,optional_error); free(optional_error); free(base); record_sql_free(&records); return NULL; }
+    /* Projection preserves the inner ordering, including its record-ID tie
+       breaker. Clipboard/statistics/export never see the internal column. */
+    char *id=dx_quote(records.identity_name,'"');
+    char *sql=dx_printf("SELECT * EXCLUDE (%s) FROM (\n%s\n) AS source_positions",id,records.relation);
+    free(id); free(base); free(optional_error); record_sql_free(&records); return sql;
+}
+static bool result_page_visible(duckdb_result *r,Page *p,size_t limit,size_t visible,char **error) {
     /* DuckDB owns the allocator behind duckdb_value_varchar, including empty
        strings. Preserve that release function through Page moves and totals. */
     p->release_cell_text=duckdb_free;
-    p->column_count = (size_t)duckdb_column_count(r); p->row_count = (size_t)duckdb_row_count(r);
-    size_t bytes=p->column_count*sizeof(*p->columns)+p->column_count*p->row_count*sizeof(*p->cells);
-    if (p->column_count>16384 || bytes>limit) { p->column_count=p->row_count=0; fail(error,"Result page is too wide. Select fewer columns in SQL."); return false; }
+    size_t rows=(size_t)duckdb_row_count(r);
+    if (visible>(size_t)duckdb_column_count(r) || visible>16384 || visible>limit/sizeof(*p->columns) ||
+        (visible && rows>(limit-visible*sizeof(*p->columns))/sizeof(*p->cells)/visible)) {
+        fail(error,"Result page is too wide. Select fewer columns in SQL."); return false;
+    }
+    p->column_count=visible; p->row_count=rows;
     p->columns = dx_alloc(p->column_count * sizeof(*p->columns));
     p->cells = dx_alloc(p->column_count * p->row_count * sizeof(*p->cells));
     p->bytes = p->column_count * sizeof(*p->columns) + p->column_count * p->row_count * sizeof(*p->cells);
@@ -339,15 +373,29 @@ static bool result_page(duckdb_result *r,Page *p,size_t limit,char **error) {
     }
     return true;
 }
+static bool result_page(duckdb_result *r,Page *p,size_t limit,char **error) {
+    return result_page_visible(r,p,limit,(size_t)duckdb_column_count(r),error);
+}
 static bool execute_page(Database *db,Analysis *a,uint64_t offset,duckdb_result *result,char **error) {
-    char *base=analysis_sql(a,true),*key=dx_printf("%s\n%" PRIu64,base,dx_file_stamp(a->path));
+    char *base=analysis_sql(a,true); uint64_t stamp=dx_file_stamp(a->path);
+    char *key=dx_printf("%s\n%" PRIu64,base,stamp);
     bool same=db->page_statement && db->page_key && !strcmp(key,db->page_key);
     if (!same) {
-        char *sql=dx_printf("SELECT * FROM (%s) AS page LIMIT $__duxcel_page_limit OFFSET $__duxcel_page_offset",base);
+        RecordSQL records={0}; char *optional_error=NULL;
+        RecordSQLStatus state=raw_record_sql(db,a,&records,&optional_error);
+        if (state==RECORD_SQL_INVALID) { fail(error,optional_error); free(optional_error); free(base); free(key); record_sql_free(&records); return false; }
+        free(optional_error);
+        char *sql=dx_printf("SELECT * FROM (%s) AS page LIMIT $__duxcel_page_limit OFFSET $__duxcel_page_offset",state==RECORD_SQL_READY ? records.relation : base);
         duckdb_prepared_statement stmt=NULL; db->page_prepares++;
         Analysis unbound={0}; bool prepared=prepare_analysis(db,&unbound,sql,&stmt,error); free(sql);
-        if (!prepared) { free(base); free(key); return false; }
+        if (!prepared) { free(base); free(key); record_sql_free(&records); return false; }
+        char *scope=state==RECORD_SQL_READY ? dx_printf("parquet-record-v1\n%s",db->schema_key[0]) : NULL;
         page_cache_clear(db); db->page_statement=stmt; db->page_key=key; key=NULL;
+        if (state==RECORD_SQL_READY) {
+            db->page_record_alias=records.identity_name; records.identity_name=NULL;
+            db->page_business_columns=records.business_columns; db->page_record_scope=scope; db->page_record_stamp=stamp;
+        }
+        record_sql_free(&records);
     }
     free(base); free(key);
     idx_t limit=0,start=0; duckdb_prepared_statement stmt=db->page_statement;
@@ -366,8 +414,28 @@ static bool fetch_window(Database *db,Analysis *a,uint64_t offset,int64_t known_
     duckdb_result r={0};
     bool ok=execute_page(db,a,offset,&r,error);
     if (!ok) return false;
-    if (columns && duckdb_column_count(&r)>columns) { duckdb_destroy_result(&r); fail(error,"Worksheet tables support up to 256 columns. Select fewer fields before importing this table."); return false; }
-    ok=result_page(&r,p,budget,error); if (!ok) { duckdb_destroy_result(&r); return false; }
+    bool records=db->page_record_alias!=NULL;
+    size_t visible=records ? db->page_business_columns : (size_t)duckdb_column_count(&r),rows=(size_t)duckdb_row_count(&r),metadata=0;
+    if (columns && visible>columns) { duckdb_destroy_result(&r); fail(error,"Worksheet tables support up to 256 columns. Select fewer fields before importing this table."); return false; }
+    if (records) {
+        if (duckdb_column_count(&r)!=visible+1 || rows>DX_PAGE_ROWS || duckdb_column_type(&r,visible)!=DUCKDB_TYPE_UBIGINT || strcmp(duckdb_column_name(&r,visible),db->page_record_alias)) {
+            duckdb_destroy_result(&r); fail(error,"Record metadata no longer matches the source projection."); return false;
+        }
+        metadata=rows*sizeof(uint64_t)+strlen(db->page_record_scope)+1;
+        p->records.stamp=db->page_record_stamp;
+    }
+    ok=result_page_visible(&r,p,budget,visible,error); if (!ok) { duckdb_destroy_result(&r); return false; }
+    /* Provenance is optional. A near-limit business page must still open if
+       only its additional record array/scope would exceed the same budget. */
+    if (records && metadata<=budget-p->bytes) {
+        p->records.source_key=dx_strdup(db->page_record_scope); p->records.stamp=db->page_record_stamp;
+        p->records.count=rows; p->records.ids=rows ? dx_alloc(rows*sizeof(*p->records.ids)) : NULL; p->bytes+=metadata;
+        for (size_t row=0;row<rows;row++) {
+            if (duckdb_value_is_null(&r,visible,row) || !(p->records.ids[row]=duckdb_value_uint64(&r,visible,row))) {
+                duckdb_destroy_result(&r); fail(error,"Source record identity must be a non-NULL positive integer."); return false;
+            }
+        }
+    }
     duckdb_destroy_result(&r);
     for (size_t c=0;c<p->column_count;c++) for (size_t i=0;i<a->sort_count+(a->sort_column ? 1 : 0);i++) {
         AnalysisSort sort=analysis_sort_at(a,i);
@@ -379,6 +447,7 @@ static bool fetch_window(Database *db,Analysis *a,uint64_t offset,int64_t known_
         p->count_pending=p->row_count==DX_PAGE_ROWS || (offset>0 && p->row_count==0);
         p->total=p->row_count || !offset ? offset+p->row_count : 0;
     } else if (!database_count(db,a,&p->total,error)) return false;
+    if (records && dx_file_stamp(a->path)!=p->records.stamp) { fail(error,"The source changed during the query. Refresh before using its records."); return false; }
     p->query_ms = dx_millis() - start; return true;
 }
 bool database_fetch(Database *db,Analysis *a,uint64_t offset,int64_t total,Page *p,char **error) { return fetch_window(db,a,offset,total,p,true,16*1024*1024,0,error); }
@@ -671,7 +740,8 @@ static bool copy_query(Database *db,Analysis *a,const char *relation,uint64_t fi
 }
 bool database_copy(Database *db,Analysis *a,uint64_t first,uint64_t rows,size_t col,size_t cols,char **tsv,char **error) {
     if (!source_prepare(db,a,NULL,error) || !resolve_analysis_types(db,a,error)) return false;
-    char *base=analysis_sql(a,true); bool ok=copy_query(db,a,base,first,rows,col,cols,false,NULL,tsv,error); free(base); return ok;
+    char *base=positional_relation(db,a,error); if (!base) return false;
+    bool ok=copy_query(db,a,base,first,rows,col,cols,false,NULL,tsv,error); free(base); return ok;
 }
 /* Representation only: the engine has already summed/compared BIGNUM units at
    scale 38. Insert the decimal point without rounding through a C double. */
@@ -697,7 +767,8 @@ static char *statistics_cells_query(Database *db,Analysis *a,const PivotDefiniti
     if (pivot) { if (!pivot_materialize(db,a,pivot,false,error)) return NULL; }
     else if (!source_prepare(db,a,NULL,error) || !resolve_analysis_types(db,a,error)) return NULL;
     Analysis literal={0}; const Analysis *parameters=pivot ? &literal : a;
-    char *base=pivot ? dx_strdup("SELECT * FROM _duxcel_pivot_result") : analysis_sql(a,true);
+    char *base=pivot ? dx_strdup("SELECT * FROM _duxcel_pivot_result") : positional_relation(db,a,error);
+    if (!base) return NULL;
     duckdb_prepared_statement schema=NULL; char *projection=NULL,*values=NULL,*sql=NULL; bool borrowed=!pivot && a->kind!=SOURCE_NONE;
     if (strlen(base)>4*1024*1024) { fail(error,"Selection query exceeds 4 MiB."); goto done; }
     if (borrowed) schema=source_schema(db,a,true,error);
@@ -780,7 +851,8 @@ bool database_copy_page(Database *db,Analysis *a,const PivotDefinition *pivot,ui
     if (!rows || !cols || cols>DX_COPY_CELLS || rows>DX_COPY_CELLS/cols) { fail(error,"Copy up to 20,000 cells at a time. Select a smaller range."); return false; }
     if (pivot) { if (!pivot_materialize(db,a,pivot,false,error)) return false; }
     else if (!source_prepare(db,a,NULL,error) || !resolve_analysis_types(db,a,error)) return false;
-    char *base=pivot ? dx_strdup("SELECT * FROM _duxcel_pivot_result") : analysis_sql(a,true);
+    char *base=pivot ? dx_strdup("SELECT * FROM _duxcel_pivot_result") : positional_relation(db,a,error);
+    if (!base) return false;
     Analysis literal={0}; duckdb_result result={0};
     bool ok=copy_result(db,pivot ? &literal : a,base,first,rows,col,cols,&result,error); free(base);
     if (ok) { ok=result_page(&result,page,8*1024*1024,error); page->offset=first; page->total=first+page->row_count; }
@@ -879,7 +951,8 @@ static bool export_parquet(Database *db,Analysis *a,const PivotDefinition *pivot
     if (!ok || cancelled(db,error)) { free(base); return false; }
     char *temporary=dx_temp_sibling(path);
     if (!temporary) { free(base); fail(error,"Cannot create the export in that directory. Choose a writable destination."); return false; }
-    if (!base) base=analysis_sql(a,true);
+    if (!base) base=positional_relation(db,a,error);
+    if (!base) { remove(temporary); free(temporary); return false; }
     char *quoted=dx_quote(temporary,'\''),*sql=dx_printf("COPY (%s) TO %s (FORMAT PARQUET)",base,quoted);
     free(base); free(quoted); duckdb_result r={0};
     Analysis literal={0}; ok=execute_analysis(db,pivot ? &literal : a,sql,&r,error); free(sql);

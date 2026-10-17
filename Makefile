@@ -16,7 +16,7 @@ THREAD_LIBS =
 endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c
+CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c
 SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/app/step_preview.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m
@@ -266,15 +266,29 @@ tests/test_grid: src/common.c src/workbook/format.c src/transforms/number.c src/
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm
 tests/test_grid-debug: src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS)
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-PAGE_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c tests/test_page.c
+PAGE_SRC = src/common.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/data/page.c tests/test_page.c
 tests/test_page: $(PAGE_SRC) $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(PAGE_SRC) -o $@ -lm
 tests/test_page-debug: $(PAGE_SRC) $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(PAGE_SRC) -o $@ -lm $(SANFLAGS)
-tests/test_page-engine: $(PAGE_SRC) src/platform/platform.c src/data/database.c $(HEADERS)
-	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -DDUXCEL_PAGE_ENGINE_TEST $(PAGE_SRC) src/platform/platform.c src/data/database.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_page-engine-debug: $(PAGE_SRC) src/platform/platform.c src/data/database.c $(HEADERS)
-	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) -DDUXCEL_PAGE_ENGINE_TEST $(PAGE_SRC) src/platform/platform.c src/data/database.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+PAGE_ENGINE_SRC = $(PAGE_SRC) src/platform/platform.c src/transforms/distinct.c src/data/database.c
+tests/test_page-engine: $(PAGE_ENGINE_SRC) $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -DDUXCEL_PAGE_ENGINE_TEST $(PAGE_ENGINE_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+tests/test_page-engine-debug: $(PAGE_ENGINE_SRC) $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) -DDUXCEL_PAGE_ENGINE_TEST $(PAGE_ENGINE_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+RECORD_SQL_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/record_sql.c
+RECORD_PAGE_SRC = $(RECORD_SQL_SRC) src/platform/platform.c src/transforms/pivot.c src/transforms/distinct.c src/data/page.c src/data/database.c
+tests/test_record_sql: $(RECORD_SQL_SRC) tests/test_record_sql.c $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(RECORD_SQL_SRC) tests/test_record_sql.c -o $@ $(DUCKDB_LIBS) -lm
+tests/test_record_sql-debug: $(RECORD_SQL_SRC) tests/test_record_sql.c $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(RECORD_SQL_SRC) tests/test_record_sql.c -o $@ $(DUCKDB_LIBS) -lm $(SANFLAGS)
+tests/test_record_pages: $(RECORD_PAGE_SRC) tests/test_record_pages.c $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(RECORD_PAGE_SRC) tests/test_record_pages.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+tests/test_record_pages-debug: $(RECORD_PAGE_SRC) tests/test_record_pages.c $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(RECORD_PAGE_SRC) tests/test_record_pages.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+test-records:
+	python3 tools/test.py records $(TEST_ARGS)
+.PHONY: test-records
 tests/test_workbook: $(CORE) tests/test_workbook.c $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 tests/test_workbook-debug: $(CORE) tests/test_workbook.c $(HEADERS)

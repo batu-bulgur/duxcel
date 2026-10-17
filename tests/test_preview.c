@@ -72,6 +72,14 @@ int main(void) {
     CHECK(reply->id==7 && !reply->error && reply->page.total==2); CHECK(step_preview_reply(&preview,reply)); reply_free(reply);
     preview.loading=true; preview.request=8; QueryReply failure={.kind=JOB_STEP_PREVIEW,.id=8,.error=dx_strdup("Test query failure")};
     CHECK(step_preview_reply(&preview,&failure) && !failure.error && preview.error && preview.page.total==2); CHECK(!step_preview_job(&preview,8,true));
+    free(preview.error); preview.error=NULL; preview.loading=true; preview.request=9;
+    preview.page.records.source_key=dx_strdup("reader-v1"); preview.page.records.stamp=11;
+    preview.spare.records.source_key=dx_strdup("reader-v1"); preview.spare.records.stamp=11;
+    Cell *retained_page=preview.page.cells; Page *retained_spare=&preview.spare; char *spare_key=retained_spare->records.source_key;
+    QueryReply changed={.kind=JOB_STEP_PREVIEW,.id=9}; changed.page.records.source_key=dx_strdup("reader-v2"); changed.page.records.stamp=12;
+    CHECK(step_preview_reply(&preview,&changed) && preview.error && strstr(preview.error,"source changed between pages"));
+    CHECK(preview.page.cells==retained_page && preview.page.total==2 && preview.spare.records.source_key==spare_key && changed.page.records.source_key);
+    page_free(&changed.page); CHECK(!step_preview_job(&preview,10,true));
     step_preview_free(&preview); analysis_free(&big); analysis_free(&live); page_free(&original); grid_destroy(&grid); database_close(&db); worker_stop(&worker); free(error);
     printf("PASS: %u historical preview checks (geometry, real worker prefixes/counts/paging, ownership, stale/cancelled replies, widths and unchanged live source)\n",checks); return 0;
 }

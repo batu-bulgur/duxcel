@@ -1335,6 +1335,8 @@ static void poll_query(App *a) {
         ObjectStore *store=&active_sheet(a)->objects;
         for (size_t i=0;i<store->count;i++) if (store->items[i].id==r->object_id && store->items[i].revision==r->revision) {
             SheetObject *o=&store->items[i]; ObjectView *v=&a->objects[i]; char *error=NULL;
+            if (!r->error && !v->dirty && v->source_revision==object_source_revision(a,o) && page_records_changed(&v->page,&r->page))
+                r->error=dx_strdup("The source changed between pages. Refresh the table before continuing.");
             if (o->kind==OBJECT_TABLE && r->page.count_pending && v->page.count_pending && v->page.total>r->page.total) r->page.total=v->page.total;
             size_t columns=o->kind==OBJECT_CHART ? o->columns : r->page.column_count<3 ? 3 : r->page.column_count;
             uint64_t rows=o->kind==OBJECT_CHART ? o->rows : r->page.total+2<5 ? 5 : r->page.total+2;
@@ -1394,6 +1396,8 @@ static void poll_query(App *a) {
         }
         reply_free(r); return;
     }
+    if (!r->error && r->kind==JOB_PAGE && !a->page_stale && page_records_changed(&a->page,&r->page))
+        r->error=dx_strdup("The source changed between pages. Refresh the source before continuing.");
     if (r->error) {
         char *text=dx_printf("Query failed: %s",r->error); status(a,text); free(text); a->fetch_failed=true;
         a->modal=MODAL_ERROR;
@@ -3582,6 +3586,7 @@ static void zoom_canvas(App *a,float zoom,Vector2 pointer) {
     float before=a->grid.zoom;
     if (selected_pivot(a) && a->ribbon_mode!=3 && a->preview_valid) {
         Page preview=*context_fields(a); preview.offset=0; preview.row_count=preview.row_count<12 ? preview.row_count : 12; preview.total=preview.row_count; preview.count_pending=false;
+        preview.records.count=preview.row_count; /* Same borrowed first IDs/cells; display rows restart at zero. */
         Grid *grid=&a->source_preview;
         if (!CheckCollisionPointRec(pointer,grid->rect)) pointer=(Vector2){grid->body.x,grid->body.y};
         grid_zoom_at(grid,&preview,a->ui.scale,zoom,pointer); a->grid.zoom=grid->zoom;
@@ -3679,6 +3684,7 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
     ui_text_clip(u,"Current source result",box(layout.label.x+layout.label.width*.7f,layout.label.y,layout.label.width*.3f-8*s,layout.label.height),10.5f,UI_MUTED,true);
     if (source->column_count && source->cells) {
         Page preview=*source; preview.offset=0; preview.row_count=source->row_count<12 ? source->row_count : 12; preview.total=preview.row_count; preview.count_pending=false;
+        preview.records.count=preview.row_count; /* Borrowed prefix, never passed to page_free. */
         uint64_t id=owner ? owner->id : 0,revision=object_source_revision(a,o);
         Grid *grid=&a->source_preview; grid->bounded=true; grid->source_header=true; grid->hide_selection=true; grid->row_height=a->grid.row_height; grid->zoom=a->grid.zoom; grid->hide_gridlines=!a->gridlines; grid->elastic_enabled=false; grid->freeze=a->grid.freeze;
         if (!a->preview_valid || a->preview_source_id!=id || a->preview_source_revision!=revision || a->preview_generation!=a->analysis_revision || a->preview_sheet!=a->book.active || grid->data_columns!=source->column_count) {
@@ -6768,7 +6774,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a);
 }
-#define LAYOUT_SMOKE_STAGES 665
+#define LAYOUT_SMOKE_STAGES 675
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -7455,6 +7461,12 @@ failed:
 static void smoke_snapshot(const char *path) {
     Image image=LoadImageFromScreen(); ExportImage(image,path); UnloadImage(image);
 }
+static bool smoke_record_fixture(unsigned rows,unsigned first,char **error) {
+    Database db={0}; if (!database_open(&db,error)) return false;
+    char *sql=dx_printf("COPY (SELECT (i+%u)::BIGINT AS Row,i%%3 AS Tie,CASE i%%3 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'NULL' END::VARCHAR AS Value,'9007199254740993.12'::DECIMAL(38,2) AS Amount FROM range(%u) t(i)) TO 'tests/generated/record-page-smoke.parquet' (FORMAT PARQUET)",first,rows);
+    duckdb_result result={0}; bool ok=database_execute(&db,sql,&result,error);
+    duckdb_destroy_result(&result); free(sql); database_close(&db); return ok;
+}
 static void sort_smoke_step(App *a,int *step) {
     if (*step<0 || *step==12 || a->busy || a->io_busy) return;
     char *error=NULL;
@@ -7535,7 +7547,7 @@ static void layout_smoke_step(App *a,int *step) {
     static int select_open_phase,select_edit_phase,select_narrow_phase,representation_phase,plot_phase,narrow_author_phase;
     static size_t select_history;
     static size_t author_select_history;
-    if (a->modal==MODAL_ERROR || a->fetch_failed) goto failed;
+    if ((a->modal==MODAL_ERROR || a->fetch_failed) && *step!=671) goto failed;
     switch (*step) {
     case 0:
         if (a->page.total!=6 || a->page.column_count!=3) goto failed;
@@ -9894,6 +9906,45 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->step_preview.active || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer() || a->request_id!=request) goto failed; break;
     case 664:
         puts("PASS: exact More ribbon commands with hidden-group rows and separator, history-only Icons menu, disabled traversal, real Undo/Redo, pointer toggle, Escape-to-More and keyboard reopen without SQL or cache changes"); break;
+    case 665:
+        if (!smoke_record_fixture(700,0,&error)) goto failed;
+        new_sheet(a); a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
+        a->sidebar=a->fields_visible=a->pipeline=false; a->selected_object=-1;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        open_source(a,"tests/generated/record-page-smoke.parquet",false); break;
+    case 666:
+        if (a->page.total!=700 || a->page.column_count!=4 || a->page.records.count!=a->page.row_count || !a->page.records.source_key || a->page.records.ids[0]!=1 || !a->page.cells[2].is_null || strcmp(a->page.cells[3].text,"9007199254740993.12")) goto failed;
+        ribbon_cells=a->page.cells; a->grid.top=300; request_page(a,false); break;
+    case 667:
+        if (a->spare.cells!=ribbon_cells || a->spare.records.ids[0]!=1 || page_records_changed(&a->page,&a->spare) || a->page.records.ids[0]!=a->page.offset+1 || a->page.offset<100) goto failed;
+        if (!analysis_sort_set(&a->analysis,"Tie",false,false,&error)) goto failed;
+        change_analysis(a,false); break;
+    case 668:
+        if (a->page.total!=700 || a->page.records.ids[0]!=1 || a->page.records.ids[1]!=4 || a->page.column_count!=4) goto failed;
+        if (!analysis_filter_set(&a->analysis,"Row",FILTER_GREATER,"599",&error)) goto failed;
+        change_analysis(a,false); break;
+    case 669:
+        if (a->page.total!=100 || a->page.records.ids[0]!=601 || a->page.records.ids[1]!=604 || strcmp(a->page.cells[0].text,"600")) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-record-filtered.png"); request=a->request_id; break;
+    case 670:
+        if (a->request_id!=request) goto failed;
+        ribbon_cells=a->page.cells; retained_revision=a->page.records.stamp;
+        if (!smoke_record_fixture(10,1000,&error)) goto failed;
+        request_page(a,false); break;
+    case 671:
+        if (a->modal!=MODAL_ERROR || !a->fetch_failed || a->page.cells!=ribbon_cells || a->page.total!=100 || a->page.records.stamp!=retained_revision || !a->message || !strstr(a->message,"source changed between pages")) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-record-source-changed.png");
+        a->modal=MODAL_NONE; a->refresh_plans=true; change_analysis(a,false); break;
+    case 672:
+        if (a->fetch_failed || a->page.total!=10 || a->page.column_count!=4 || a->page.records.ids[0]!=1 || a->page.records.stamp==retained_revision || strcmp(a->page.cells[0].text,"1000")) goto failed;
+        if (!analysis_query_set(&a->analysis,"SELECT * FROM input",&error)) goto failed;
+        change_analysis(a,false); break;
+    case 673:
+        if (a->page.total!=10 || a->page.column_count!=4 || a->page.records.ids || a->page.records.source_key || strcmp(a->page.cells[0].text,"1000")) goto failed;
+        request=a->request_id; smoke_snapshot("tests/results/workspace-layout/native-record-query-fallback.png"); break;
+    case 674:
+        if (a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
+        puts("PASS: native source record pages, deterministic sort/filter IDs, spare ownership, exact DECIMAL/NULL and internal-column exclusion, changed-file rejection and refresh recovery, query fallback and idle cache"); break;
 
     }
     free(error); (*step)++; return;
@@ -9976,6 +10027,9 @@ static void nyc_smoke_step(App *a,int *step) {
         if (!strcmp(name,"trip_distance")) distance=c;
     }
     if (vendor==a->page.column_count || payment==a->page.column_count || fare==a->page.column_count || distance==a->page.column_count || a->page.total!=3475226 || a->page.column_count!=20) goto failed;
+    uint64_t first_record=0,last_record=0;
+    if (!a->page.records.source_key || a->page.records.count!=a->page.row_count || !page_record_id(&a->page,a->page.offset,&first_record) || first_record!=a->page.offset+1 ||
+        !page_record_id(&a->page,a->page.offset+a->page.row_count-1,&last_record) || last_record!=a->page.offset+a->page.row_count) goto failed;
     switch (*step) {
     case 0:
         grid_select_cell(&a->grid,0,22,false); create_pivot(a);
@@ -11327,7 +11381,7 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
     if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
