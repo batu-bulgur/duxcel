@@ -252,7 +252,7 @@ typedef struct {
     size_t values_found_count,values_found_bytes;
     bool values_selecting,value_checks_dirty,value_checks_all,value_checks_mixed,value_checks_override;
     int filter_mode,condition_focus,date_level,date_max,summary_role,summary_drag,summary_scroll;
-    int filter_focus,filter_condition_index;
+    int filter_focus,filter_condition_index,filter_condition_scroll;
     bool filter_condition_enabled,filter_condition_menu;
     TextInput filter_term,filter_end;
     UIFilterLayout filter_layout;
@@ -2186,15 +2186,15 @@ static void draw_filter(App *a) {
     float cy=r.condition.y-7*s;
     DrawLineEx((Vector2){r.title.x,cy},(Vector2){r.title.x+r.title.width,cy},s,(Color){224,231,237,255});
     ui_label(u,"Condition",box(r.title.x+10*s,cy+7*s,65*s,25*s),10.5f,UI_MUTED,false,UI_REGULAR);
-    bool condition_click=ui_popup_button(u,r.condition,"",false,false,allow);
-    ui_label(u,filter_condition_label(a,a->filter_condition_enabled ? a->filter_op : (FilterOp)-1),box(r.condition.x+7*s,r.condition.y,r.condition.width-29*s,r.condition.height),11,UI_TEXT,false,UI_REGULAR);
-    ui_carbon(u,CARBON_CHEVRON_DOWN,box(r.condition.x+r.condition.width-18*s,r.condition.y+7*s,11*s,11*s),UI_MUTED); filter_focus_ring(a,r.condition,6);
+    bool blocked=u->pointer_blocked; if (!allow) u->pointer_blocked=true;
+    bool condition_click=ui_select_field(u,r.condition,filter_condition_label(a,a->filter_condition_enabled ? a->filter_op : (FilterOp)-1),UI_SELECT_FILTER_CONDITION,a->filter_focus==6,!a->values_selecting);
+    u->pointer_blocked=blocked;
     if (condition_click || (allow && a->filter_focus==6 && (enter || space || ui_pressed(KEY_DOWN)))) {
         a->filter_condition_menu=true; a->filter_focus=6; menu_opened=true;
         /* A captured pointer click can be followed by Down/Enter in the same
            event poll. Consume only a key that itself opened the dropdown. */
         opened=!condition_click; enter=space=false;
-        FilterOp choices[8]; int count=filter_conditions(a,choices); a->filter_condition_index=0;
+        FilterOp choices[8]; int count=filter_conditions(a,choices); a->filter_condition_index=a->filter_condition_scroll=0;
         for (int i=0;i<count;i++) if (a->filter_condition_enabled && choices[i]==a->filter_op) a->filter_condition_index=i;
     }
     for (int term=0;term<terms;term++) {
@@ -2212,24 +2212,35 @@ static void draw_filter(App *a) {
     if (ui_popup_button(u,r.apply,"Apply",true,false,allow) || (enter && a->filter_focus>=3) || (space && a->filter_focus==11)) { apply_filter_definition(a,false); return; }
     if (a->filter_condition_menu) {
         FilterOp choices[8]; int count=filter_conditions(a,choices);
-        UIMenuLayout menu=ui_menu_layout((Vector2){r.condition.x,r.condition.y+r.condition.height+2*s},count,27,r.condition.width/s,s,(Vector2){GetScreenWidth(),GetScreenHeight()});
-        if (!opened && ui_key(KEY_DOWN)) a->filter_condition_index=(a->filter_condition_index+1)%count;
-        if (!opened && ui_key(KEY_UP)) a->filter_condition_index=(a->filter_condition_index+count-1)%count;
-        if (!opened && ui_pressed(KEY_HOME)) a->filter_condition_index=0;
-        if (!opened && ui_pressed(KEY_END)) a->filter_condition_index=count-1;
-        if (ui_pressed(KEY_TAB)) { a->filter_condition_menu=false; a->filter_focus=terms ? 7 : 9; return; }
-        DrawRectangleRounded(box(menu.panel.x-3*s,menu.panel.y+2*s,menu.panel.width+6*s,menu.panel.height+3*s),.04f,4,(Color){39,61,79,25});
-        DrawRectangleRec(menu.panel,WHITE); DrawRectangleLinesEx(menu.panel,s,(Color){189,203,215,255});
-        for (int i=0;i<count;i++) {
-            Rectangle item=box(menu.items.x,menu.items.y+i*27*s,menu.items.width,27*s);
-            if (i==a->filter_condition_index) DrawRectangleRec(item,(Color){231,240,246,255});
+        UISelectMenuLayout menu=ui_select_menu_layout((Vector2){r.condition.x,r.condition.y+r.condition.height},(Vector2){GetScreenWidth(),GetScreenHeight()},s,r.condition.width/s,count);
+        if (!menu.valid) { a->filter_condition_menu=false; return; }
+        bool moved=menu_opened;
+        if (!opened && ui_key(KEY_DOWN)) { a->filter_condition_index=(a->filter_condition_index+1)%count; moved=true; }
+        if (!opened && ui_key(KEY_UP)) { a->filter_condition_index=(a->filter_condition_index+count-1)%count; moved=true; }
+        if (!opened && ui_pressed(KEY_HOME)) { a->filter_condition_index=0; moved=true; }
+        if (!opened && ui_pressed(KEY_END)) { a->filter_condition_index=count-1; moved=true; }
+        if (ui_pressed(KEY_TAB) && !ui_key_control(KEY_TAB)) {
+            a->filter_condition_menu=false; a->filter_focus=ui_key_shift(KEY_TAB) ? 5 : terms ? 7 : 9;
+            if (a->filter_focus==5 && a->values_focus<0) a->values_focus=0;
+            return;
+        }
+        if (moved) {
+            if (a->filter_condition_index<a->filter_condition_scroll) a->filter_condition_scroll=a->filter_condition_index;
+            if (a->filter_condition_index>=a->filter_condition_scroll+menu.visible) a->filter_condition_scroll=a->filter_condition_index-menu.visible+1;
+        }
+        if (CheckCollisionPointRec(mouse,menu.items)) a->filter_condition_scroll+=ui_scroll_steps(&a->wheel_select,-GetMouseWheelMoveV().y*3);
+        int max=count-menu.visible; if (a->filter_condition_scroll<0) a->filter_condition_scroll=0; if (a->filter_condition_scroll>max) a->filter_condition_scroll=max;
+        ui_select_menu_frame(u,&menu);
+        int chosen=!opened && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)) ? a->filter_condition_index : -1;
+        for (int row=0;row<menu.visible;row++) {
+            int i=row+a->filter_condition_scroll;
             /* A clamped submenu can overlap its opening control. Its opening
                pointer press belongs only to that control, never to a choice. */
-            bool click=ui_popup_row_input(u,item,"",CARBON_COUNT,true,!menu_opened);
-            ui_label(u,filter_condition_label(a,choices[i]),box(item.x+8*s,item.y,item.width-16*s,item.height),11,UI_TEXT,false,UI_REGULAR);
-            if (click || (!opened && i==a->filter_condition_index && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
-                a->filter_condition_enabled=(int)choices[i]>=0; if (a->filter_condition_enabled) a->filter_op=choices[i]; a->filter_condition_menu=false; a->filter_focus=6; break;
-            }
+            bool selected=a->filter_condition_enabled ? choices[i]==a->filter_op : (int)choices[i]<0;
+            if (ui_select_menu_option(u,&menu,row,filter_condition_label(a,choices[i]),UI_SELECT_FILTER_CONDITION,selected,i==a->filter_condition_index,true,!menu_opened)) chosen=i;
+        }
+        if (chosen>=0 && chosen<count) {
+            a->filter_condition_enabled=(int)choices[chosen]>=0; if (a->filter_condition_enabled) a->filter_op=choices[chosen]; a->filter_condition_menu=false; a->filter_focus=6;
         }
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,menu.panel) && !CheckCollisionPointRec(mouse,r.condition)) { if (CheckCollisionPointRec(mouse,r.panel)) a->filter_condition_menu=false; else close_filter(a); }
     }
@@ -6820,11 +6831,16 @@ static void workspace_smoke_step(App *a,int *step) {
  failed:
     fprintf(stderr,"FAIL: native workspace smoke at stage %d\n",*step); *step=-1;
 }
+static int filter_test_key;
+static DxKeyModifiers filter_test_modifiers;
+static Rectangle filter_test_click;
 static void filter_smoke_step(App *a,int *step) {
     if (a->page.count_pending) return;
     if (*step<0 || *step==66 || a->busy || a->values_loading) return;
     if (a->fetch_failed || a->values_failed) goto failed;
     static uint64_t request;
+    static int date_condition_phase,numeric_condition_phase,narrow_condition_phase;
+    static uint64_t condition_request; static Cell *condition_cells; static size_t condition_history;
     DistinctPage *d=a->modal==MODAL_FILTER ? cached_values(a,0) : NULL;
     switch (*step) {
     case 0:
@@ -6854,6 +6870,21 @@ static void filter_smoke_step(App *a,int *step) {
     case 6:
         if (!d) return;
         if (d->total!=1 || a->date_level!=0) goto failed;
+        if (!date_condition_phase) {
+            condition_request=a->request_id; condition_cells=a->page.cells; condition_history=active_sheet(a)->undo_actions_count;
+            a->filter_focus=6; filter_test_key=KEY_SPACE; date_condition_phase=1; return;
+        }
+        if (a->request_id!=condition_request || a->page.cells!=condition_cells || active_sheet(a)->undo_actions_count!=condition_history) goto failed;
+        if (date_condition_phase==1) {
+            FilterOp choices[8]; int count=filter_conditions(a,choices);
+            if (!a->filter_condition_menu || count!=6 || strcmp(filter_condition_label(a,choices[3]),"After") || strcmp(filter_condition_label(a,choices[4]),"Before")) goto failed;
+            smoke_snapshot("tests/results/filter-keyboard/condition-date.png"); filter_test_key=KEY_END; date_condition_phase=2; return;
+        }
+        if (date_condition_phase==2) {
+            if (!a->filter_condition_menu || a->filter_condition_index!=5) goto failed;
+            filter_test_key=KEY_ESCAPE; date_condition_phase=3; return;
+        }
+        if (a->filter_condition_menu || a->filter_condition_enabled || a->filter_focus!=6) goto failed;
         a->date_starts[0]=dx_strdup(d->values[0].value); a->date_ends[0]=dx_strdup(d->values[0].upper);
         a->date_level=1; restart_values(a); a->values_changed=0; break;
     case 7:
@@ -6948,8 +6979,33 @@ static void filter_smoke_step(App *a,int *step) {
         if (!a->filter_layout.valid || a->filter_layout.panel.width!=288 || a->filter_condition_enabled) goto failed;
         break; /* Queued pointer opens the real condition menu before the next stage. */
     case 34:
-        if (!a->filter_condition_menu || a->filter_focus!=6) goto failed;
-        smoke_snapshot("tests/results/filter-keyboard/compact-condition-menu.png"); break;
+        if (!numeric_condition_phase) {
+            if (!a->filter_condition_menu || a->filter_focus!=6) goto failed;
+            UISelectMenuLayout menu=ui_select_menu_layout((Vector2){a->filter_layout.condition.x,a->filter_layout.condition.y+a->filter_layout.condition.height},(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,a->filter_layout.condition.width/a->ui.scale,5);
+            if (!menu.valid || menu.row_height!=26 || menu.panel.width!=a->filter_layout.condition.width || a->filter_condition_index || a->filter_layout.condition.height!=25) goto failed;
+            condition_request=a->request_id; condition_cells=a->page.cells; condition_history=active_sheet(a)->undo_actions_count;
+            smoke_snapshot("tests/results/filter-keyboard/compact-condition-menu.png");
+            filter_test_key=KEY_TAB; filter_test_modifiers=DX_MOD_SHIFT; numeric_condition_phase=1; return;
+        }
+        if (a->request_id!=condition_request || a->page.cells!=condition_cells || active_sheet(a)->undo_actions_count!=condition_history || a->filter_condition_enabled) goto failed;
+        if (numeric_condition_phase==1) {
+            if (a->filter_condition_menu || a->filter_focus!=5) goto failed;
+            filter_test_key=KEY_TAB; numeric_condition_phase=2; return;
+        }
+        if (numeric_condition_phase==2) {
+            if (a->filter_condition_menu || a->filter_focus!=6) goto failed;
+            filter_test_key=KEY_SPACE; numeric_condition_phase=3; return;
+        }
+        if (numeric_condition_phase==3) {
+            if (!a->filter_condition_menu || a->filter_condition_index) goto failed;
+            filter_test_key=KEY_ESCAPE; numeric_condition_phase=4; return;
+        }
+        if (numeric_condition_phase==4) {
+            if (a->filter_condition_menu || a->filter_focus!=6) goto failed;
+            filter_test_key=KEY_ENTER; numeric_condition_phase=5; return;
+        }
+        if (!a->filter_condition_menu || a->filter_condition_index || a->filter_focus!=6) goto failed;
+        break;
     case 35:
         if (a->filter_condition_menu || !a->filter_condition_enabled || a->filter_op!=FILTER_BETWEEN) goto failed;
         a->values_all=false; clear_value_choices(a); toggle_value(a,dx_strdup("1.37")); toggle_value(a,dx_strdup("2.74")); toggle_value(a,dx_strdup("500.05"));
@@ -6969,7 +7025,18 @@ static void filter_smoke_step(App *a,int *step) {
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
     case 40:
         if (!a->filter_layout.valid || a->filter_layout.panel.x<0 || a->filter_layout.panel.y<0 || a->filter_layout.panel.x+a->filter_layout.panel.width>640 || a->filter_layout.panel.y+a->filter_layout.panel.height>640) goto failed;
-        smoke_snapshot("tests/results/filter-keyboard/compact-between-150-narrow.png"); break;
+        if (!narrow_condition_phase) {
+            condition_request=a->request_id; condition_cells=a->page.cells; condition_history=active_sheet(a)->undo_actions_count;
+            smoke_snapshot("tests/results/filter-keyboard/compact-between-150-narrow.png"); a->filter_focus=6; filter_test_key=KEY_SPACE; narrow_condition_phase=1; return;
+        }
+        if (a->request_id!=condition_request || a->page.cells!=condition_cells || active_sheet(a)->undo_actions_count!=condition_history || strcmp(a->filter_term.text,"1.00") || strcmp(a->filter_end.text,"3.00")) goto failed;
+        if (narrow_condition_phase==1) {
+            UISelectMenuLayout menu=ui_select_menu_layout((Vector2){a->filter_layout.condition.x,a->filter_layout.condition.y+a->filter_layout.condition.height},(Vector2){640,640},1.5f,a->filter_layout.condition.width/1.5f,5);
+            if (!a->filter_condition_menu || a->filter_condition_index!=4 || !menu.valid || menu.row_height!=39 || menu.panel.x<0 || menu.panel.y<0 || menu.panel.x+menu.panel.width>640 || menu.panel.y+menu.panel.height>640) goto failed;
+            smoke_snapshot("tests/results/filter-keyboard/condition-between-150.png"); filter_test_click=ui_select_menu_row(&menu,1); narrow_condition_phase=2; return;
+        }
+        if (a->filter_condition_menu || a->filter_focus!=6 || !a->filter_condition_enabled || a->filter_op!=FILTER_EQUAL) goto failed;
+        break;
     case 41:
         if (a->modal!=MODAL_NONE || a->page.total!=20 || a->analysis.filter_op!=FILTER_COMPOSITE) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1280,820); history(a,false); break;
@@ -11493,6 +11560,13 @@ bool app_frame(AppSession *session) {
                 float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
             }
             marks_injected|=1u<<bit;
+        }
+    }
+    if (options->filter_smoke) {
+        if (filter_test_key) { ui_note_key_press(filter_test_key,filter_test_modifiers); filter_test_key=0; filter_test_modifiers=0; }
+        if (filter_test_click.width>0 && filter_test_click.height>0) {
+            Rectangle target=filter_test_click; filter_test_click=(Rectangle){0}; float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+            ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
         }
     }
     if (options->filter_smoke && a->frames%24==2) {

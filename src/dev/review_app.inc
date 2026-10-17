@@ -139,9 +139,9 @@ static void review_filter(App *a) {
     FILTER_ITEM("filter.apply","filter.apply","button","Apply",r.apply,11,allow);
     if (a->filter_condition_menu) {
         FilterOp choices[8]; int count=filter_conditions(a,choices);
-        UIMenuLayout m=ui_menu_layout((Vector2){r.condition.x,r.condition.y+r.condition.height+2*s},count,27,r.condition.width/s,s,(Vector2){GetScreenWidth(),GetScreenHeight()});
+        UISelectMenuLayout m=ui_select_menu_layout((Vector2){r.condition.x,r.condition.y+r.condition.height},(Vector2){GetScreenWidth(),GetScreenHeight()},s,r.condition.width/s,count);
         review_control(a,"filter.conditions","filter.conditions","popup/column-filter/conditions","menu","Conditions",m.panel,10,true,false,true,__FILE__,__LINE__);
-        for (int i=0;i<count;i++) { char id[64]; snprintf(id,sizeof(id),"filter.condition.option.%s",review_filter_op(choices[i])); DxReviewWidget *w=review_filter_item(a,id,"filter.choose_condition","menuitem",filter_condition_label(a,choices[i]),box(m.items.x,m.items.y+i*27*s,m.items.width,27*s),m.panel,111,-1,true); if (w) { w->focused=i==a->filter_condition_index; snprintf(w->parent_id,sizeof(w->parent_id),"filter.conditions"); } }
+        for (int row=0;row<m.visible;row++) { int i=row+a->filter_condition_scroll; if (i<0 || i>=count) continue; char id[64]; snprintf(id,sizeof(id),"filter.condition.option.%s",review_filter_op(choices[i])); DxReviewWidget *w=review_filter_item(a,id,"filter.choose_condition","menuitem",filter_condition_label(a,choices[i]),ui_select_menu_row(&m,row),m.panel,111,-1,true); if (w) { w->focused=i==a->filter_condition_index; snprintf(w->parent_id,sizeof(w->parent_id),"filter.conditions"); } }
     }
 #undef FILTER_ITEM
 }
