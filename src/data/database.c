@@ -19,20 +19,11 @@ static void page_cache_clear(Database *db) {
     if (db->page_statement) duckdb_destroy_prepare(&db->page_statement);
     free(db->page_key); db->page_key=NULL;
 }
-static void column_free(Column *c) {
-    free(c->name); free(c->type_name); free(c->caption); free(c->detail);
-    for (size_t i=0;i<c->category_count;i++) free(c->categories[i]);
-    free(c->categories);
-}
 static void pivot_cache_clear(Database *db) {
     db->pivot_totals_valid=false;
     free(db->pivot_key); free(db->pivot_sql); db->pivot_key=db->pivot_sql=NULL;
-    for (size_t i=0;i<db->pivot_columns;i++) column_free(&db->pivot_headers[i]);
+    for (size_t i=0;i<db->pivot_columns;i++) page_column_free(&db->pivot_headers[i]);
     free(db->pivot_headers); db->pivot_headers=NULL; db->pivot_columns=0;
-}
-static void relations_free(Relation *relations,size_t count) {
-    for (size_t i=0;i<count;i++) { free(relations[i].schema); free(relations[i].name); free(relations[i].label); }
-    free(relations);
 }
 static bool cancelled(Database *db,char **error) {
     if (!db->cancelled || !db->cancelled(db->cancel_context)) return false;
@@ -63,7 +54,7 @@ void database_close(Database *db) {
     if (db->connection) duckdb_disconnect(&db->connection);
     if (db->db) duckdb_close(&db->db);
     dx_remove_temp_directory(db->temp_directory); free(db->temp_directory);
-    relations_free(db->relations,db->relation_count);
+    page_relations_free(db->relations,db->relation_count);
     free(db->attached_path); pivot_cache_clear(db); memset(db, 0, sizeof(*db));
 }
 bool database_execute(Database *db, const char *sql, duckdb_result *r, char **error) {
@@ -77,7 +68,7 @@ bool database_refresh(Database *db,char **error) {
     if (db->attached_path) {
         duckdb_result result={0}; if (!database_execute(db,"DETACH source_db",&result,error)) return false;
         duckdb_destroy_result(&result); free(db->attached_path); db->attached_path=NULL;
-        relations_free(db->relations,db->relation_count); db->relations=NULL; db->relation_count=0;
+        page_relations_free(db->relations,db->relation_count); db->relations=NULL; db->relation_count=0;
     }
     return true;
 }
@@ -162,7 +153,7 @@ static bool source_prepare(Database *db, Analysis *a, Page *p, char **error) {
         schema_cache_clear(db); page_cache_clear(db); duckdb_result r;
         if (!database_execute(db, "DETACH source_db", &r, error)) return false;
         duckdb_destroy_result(&r); free(db->attached_path); db->attached_path = NULL;
-        relations_free(db->relations,db->relation_count); db->relations=NULL; db->relation_count=0;
+        page_relations_free(db->relations,db->relation_count); db->relations=NULL; db->relation_count=0;
     }
     if (a->kind != SOURCE_DATABASE) return validate_query(db,a,false,error);
     if (!db->attached_path) {
@@ -313,6 +304,9 @@ static bool resolve_pivot_types(Database *db,Analysis *a,PivotDefinition *pivot,
     return true;
 }
 static bool result_page(duckdb_result *r,Page *p,size_t limit,char **error) {
+    /* DuckDB owns the allocator behind duckdb_value_varchar, including empty
+       strings. Preserve that release function through Page moves and totals. */
+    p->release_cell_text=duckdb_free;
     p->column_count = (size_t)duckdb_column_count(r); p->row_count = (size_t)duckdb_row_count(r);
     size_t bytes=p->column_count*sizeof(*p->columns)+p->column_count*p->row_count*sizeof(*p->cells);
     if (p->column_count>16384 || bytes>limit) { p->column_count=p->row_count=0; fail(error,"Result page is too wide. Select fewer columns in SQL."); return false; }
@@ -400,7 +394,7 @@ bool database_count(Database *db,Analysis *a,uint64_t *total,char **error) {
 typedef struct { char *sql; Column *headers; size_t count,bytes; bool empty_input; } PivotPlan;
 typedef struct { char **values,*list; size_t count; } PivotDomain;
 static void pivot_plan_free(PivotPlan *p) {
-    for (size_t i=0;i<p->count;i++) column_free(&p->headers[i]);
+    for (size_t i=0;i<p->count;i++) page_column_free(&p->headers[i]);
     free(p->headers); free(p->sql); memset(p,0,sizeof(*p));
 }
 static bool pivot_plan(Database *db,Analysis *source,const PivotDefinition *definition,PivotPlan *plan,char **error) {
@@ -574,17 +568,6 @@ bool database_pivot_totals(Database *db,Analysis *source,const PivotDefinition *
     if (totals) { page_free(&totals->rows); page_free(&totals->columns); free(totals); }
     return ok;
 }
-void page_free(Page *p) {
-    if (p->totals) { page_free(&p->totals->rows); page_free(&p->totals->columns); free(p->totals); }
-    for (size_t i = 0; i < p->column_count; i++) column_free(&p->columns[i]);
-    for (size_t i = 0; i < p->column_count * p->row_count; i++) duckdb_free(p->cells[i].text);
-    relations_free(p->relations,p->relation_count);
-    free(p->columns); free(p->cells); free(p->sql); memset(p, 0, sizeof(*p));
-}
-void distinct_free(DistinctPage *p) {
-    for (size_t i=0;i<p->count;i++) { free(p->values[i].label); free(p->values[i].value); free(p->values[i].upper); free(p->values[i].key); }
-    free(p->values); memset(p,0,sizeof(*p));
-}
 bool database_pivot_distinct(Database *db,Analysis *a,const PivotDefinition *context,const char *column,const char *search,int level,
     const char *start,const char *end,uint64_t offset,int64_t known_total,DistinctPage *p,char **error) {
     memset(p,0,sizeof(*p)); p->offset=offset;
@@ -709,9 +692,6 @@ bool database_copy(Database *db,Analysis *a,uint64_t first,uint64_t rows,size_t 
     if (!source_prepare(db,a,NULL,error) || !resolve_analysis_types(db,a,error)) return false;
     char *base=analysis_sql(a,true); bool ok=copy_query(db,a,base,first,rows,col,cols,false,NULL,tsv,error); free(base); return ok;
 }
-void statistics_free(SelectionStats *s) {
-    free(s->sum); free(s->average); free(s->minimum); free(s->maximum); memset(s,0,sizeof(*s));
-}
 /* Representation only: the engine has already summed/compared BIGNUM units at
    scale 38. Insert the decimal point without rounding through a C double. */
 static char *statistics_exact(duckdb_result *r,idx_t column) {
@@ -786,34 +766,6 @@ bool database_statistics(Database *db,Analysis *a,const PivotDefinition *pivot,u
     double started=dx_millis(); char *cells=statistics_cells_query(db,a,pivot,first,rows,col,cols,error); if (!cells) return false;
     Analysis literal={0}; bool ok=statistics_aggregate(db,pivot ? &literal : a,cells,stats,error); free(cells);
     if (ok) stats->query_ms=dx_millis()-started; return ok;
-}
-size_t source_snapshot_bind(SourceSnapshot *snapshot,uint64_t id,const Analysis *source,char **error) {
-    if (snapshot->count>DX_MAX_OBJECTS || snapshot->bytes>8*1024*1024 || !id || !source || source->kind<SOURCE_CSV || source->kind>SOURCE_DEMO || !analysis_query_valid(source,error) || !analysis_filters_valid(source,error) || !analysis_sorts_valid(source,error)) { fail(error,"Invalid table source snapshot."); return SIZE_MAX; }
-    for (size_t i=0;i<snapshot->count;i++) if (snapshot->ids[i]==id) {
-        if (analysis_same_result(&snapshot->items[i],source)) return i+1;
-        fail(error,"The table source changed while capturing this selection."); return SIZE_MAX;
-    }
-    size_t bytes=analysis_text_bytes(source);
-    if (snapshot->count>=DX_MAX_OBJECTS || bytes>8*1024*1024-snapshot->bytes) { fail(error,"Selection table sources exceed the 8 MiB snapshot limit."); return SIZE_MAX; }
-    snapshot->items[snapshot->count]=analysis_copy(source); snapshot->ids[snapshot->count]=id; snapshot->bytes+=bytes;
-    return ++snapshot->count;
-}
-void source_snapshot_free(SourceSnapshot *snapshot) {
-    for (size_t i=0;i<snapshot->count && i<DX_MAX_OBJECTS;i++) analysis_free(&snapshot->items[i]); memset(snapshot,0,sizeof(*snapshot));
-}
-void statistics_request_free(StatisticsRequest *request) {
-    if (!request) return;
-    for (size_t i=0;i<request->count && i<DX_MAX_OBJECTS+1;i++) pivot_free(&request->ranges[i].pivot);
-    source_snapshot_free(&request->sources);
-    for (size_t i=0;i<request->text_count;i++) free(request->texts[i]);
-    free(request->texts); free(request);
-}
-bool statistics_request_text(StatisticsRequest *request,const char *text,char **error) {
-    if (!text) return true;
-    size_t bytes=strlen(text)+1;
-    if (request->text_count>=32768 || bytes>8*1024*1024-request->text_bytes) { fail(error,"Selection labels exceed the 8 MiB statistics snapshot limit."); return false; }
-    if (request->text_count==request->text_capacity) { request->text_capacity=request->text_capacity ? request->text_capacity*2 : 32; request->texts=dx_realloc(request->texts,request->text_capacity*sizeof(*request->texts)); }
-    request->texts[request->text_count++]=dx_strdup(text); request->text_bytes+=bytes; return true;
 }
 bool database_statistics_ranges(Database *db,Analysis *a,StatisticsRequest *request,SelectionStats *stats,char **error) {
     double started=dx_millis(); Analysis literal={0}; SelectionStats out={0}; duckdb_result r={0}; bool ok=false;
