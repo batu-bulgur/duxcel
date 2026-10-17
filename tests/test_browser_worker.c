@@ -4,6 +4,7 @@
 #include "data/worker.h"
 #include <emscripten/emscripten.h>
 #include <inttypes.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,7 +20,7 @@ EM_JS(int, observe_host, (void), {
     host.submit=(runtime,cookie,ticket,request)=>{
         Module['dxBrowserWorkerObserved']={cookie,ticket,generation:request.generation,object:request.objectId,revision:request.revision,offset:request.offset};
         const hold=Module['dxHoldMatrixReply'];
-        if((hold===1 && request.sql.includes('__duxcel_count')) || (hold===2 && request.sql.includes('_duxcel_matrix_totals')) || (hold===3 && request.sql.includes('_duxcel_domain_input')) || (hold===4 && request.sql.includes('_duxcel_matrix_rows')) || (hold===5 && request.sql.includes('_duxcel_matrix_columns'))){
+        if((hold===1 && request.sql.includes('__duxcel_count')) || (hold===2 && request.sql.includes('_duxcel_matrix_totals')) || (hold===3 && request.sql.includes('_duxcel_domain_input')) || (hold===4 && request.sql.includes('_duxcel_matrix_rows')) || (hold===5 && request.sql.includes('_duxcel_matrix_columns')) || (hold===6 && request.sql.includes(' AS distinct_values'))){
             Module['dxHoldMatrixReply']=0;
             const original=runtime;
             runtime={...original,reply:(...args)=>{
@@ -104,6 +105,12 @@ static const char columns_wide_sql[]="SELECT * FROM (VALUES (2::DECIMAL(38,2),90
 static const char columns_product_sql[]="SELECT i::BIGINT AS row_id,(i%16)::BIGINT AS c1,(i%8)::BIGINT AS c2,i::BIGINT AS amount FROM range(128) t(i)";
 static const char columns_large_sql[]="SELECT i::BIGINT AS row_id,'A' AS category,repeat('x',900000) AS payload FROM range(4) t(i)";
 static const char columns_sql_limit[]="SELECT repeat('''',600000) AS category,1::BIGINT AS amount";
+static const char statistics_exact_sql[]="SELECT big::HUGEINT AS big,tiny::DECIMAL(38,38) AS tiny,label FROM (VALUES ('170141183460469231731687303715884105727','0.00000000000000000000000000000000000001','NULL'),('170141183460469231731687303715884105727','-0.00000000000000000000000000000000000002',''),(NULL,NULL,NULL)) t(big,tiny,label)";
+static const char statistics_text_sql[]="SELECT * FROM (VALUES (NULL::VARCHAR),(''),('NULL'),(' '),('NULL')) t(label)";
+static const char statistics_filter_sql[]="SELECT * FROM (VALUES (1.00::DECIMAL(4,2),'A'),(1.01::DECIMAL(4,2),'B'),(1.02::DECIMAL(4,2),'C')) t(amount,label) WHERE true";
+static const char statistics_overflow_sql[]="SELECT x::DOUBLE AS value FROM (VALUES ('1e308'),('1e308')) t(x)";
+static const char statistics_nonfinite_sql[]="SELECT x::DOUBLE AS value FROM (VALUES ('nan'),('inf'),('-inf'),(NULL)) t(x)";
+static const char statistics_zero_sql[]="SELECT * FROM (VALUES (-0.0::DOUBLE),(0.0::DOUBLE)) t(value)";
 static const uint64_t object_id=UINT64_C(18014398509481987),revision_id=UINT64_C(36028797018963971);
 typedef enum {
     WAIT_EXACT,WAIT_PAGE0,WAIT_PAGE256,WAIT_PAGE512,WAIT_COUNT,WAIT_TABLE,
@@ -118,6 +125,8 @@ typedef enum {
     WAIT_COLUMNS_EXACT,WAIT_COLUMNS_GRAND,WAIT_COLUMNS_EMPTY,WAIT_COLUMNS_DATE,WAIT_COLUMNS0,WAIT_COLUMNS256,WAIT_COLUMNS512,WAIT_COLUMNS_NO_TOTALS,
     WAIT_COLUMNS_WIDE,WAIT_COLUMNS_BOUND,WAIT_COLUMNS_PRODUCT,WAIT_COLUMNS_SQL_LIMIT,WAIT_COLUMNS_LARGE,WAIT_COLUMNS_CANCEL_DOMAIN,WAIT_COLUMNS_CANCEL_ROWS,WAIT_COLUMNS_CANCEL_FOOTER,WAIT_COLUMNS_FINAL,
     WAIT_MATRIX_COUNT,WAIT_MATRIX_COUNT_EMPTY,
+    WAIT_STATS_RANGE,WAIT_STATS_OFFSET,WAIT_STATS_EXACT,WAIT_STATS_TINY,WAIT_STATS_TEXT,WAIT_STATS_FILTERED,WAIT_STATS_OVERFLOW,WAIT_STATS_NONFINITE,WAIT_STATS_ZERO,WAIT_STATS_EMPTY,
+    WAIT_STATS_OBJECT,WAIT_STATS_PIVOT,WAIT_STATS_MIXED,WAIT_STATS_STAMP,WAIT_STATS_BOUNDS,WAIT_STATS_COLUMN,WAIT_STATS_CANCEL,WAIT_STATS_FINAL,
     WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
     WAIT_OVERSIZE_ERROR,WAIT_OVERSIZE_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
@@ -127,10 +136,12 @@ static QueryWorker worker;
 static QueryReply *reply;
 static Page retained;
 static DistinctPage retained_distinct;
+static SelectionStats retained_statistics;
 static char *retained_rejection;
 static Stage stage;
 static double entered;
 static uint64_t next_id=UINT64_C(9007199254740993),expected_id,expected_offset,expected_sql,expected_counts;
+static uint64_t statistics_object;
 static JobKind expected_kind;
 static bool expected_preview;
 static unsigned checks,stages,stale_cookie,stale_ticket,late_callbacks,rejection_cancels;
@@ -139,7 +150,7 @@ static void retained_values(void);
 static void die(const char *condition,int line) {
     fprintf(stderr,"FAIL browser-worker stage %d line %d: %s\n",(int)stage,line,condition);
     if (reply && reply->error) fprintf(stderr,"Worker error: %s\n",reply->error);
-    reply_free(reply); reply=NULL; page_free(&retained); distinct_free(&retained_distinct); free(retained_rejection); if (worker.started) worker_stop(&worker);
+    reply_free(reply); reply=NULL; page_free(&retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); if (worker.started) worker_stop(&worker);
     completed(0,checks,stages); emscripten_cancel_main_loop(); abort();
 }
 #define CHECK(condition) do { checks++; if (!(condition)) die(#condition,__LINE__); } while (0)
@@ -148,7 +159,7 @@ static void pass(const char *message) { stages++; printf("PASS browser-worker: %
 static void counters(void) { CHECK(worker.sql_executed==expected_sql); CHECK(worker.counts_executed==expected_counts); }
 static void identity(void) {
     char id[24],object[24],revision[24],offset[24];
-    snprintf(id,sizeof(id),"%" PRIu64,expected_id); snprintf(object,sizeof(object),"%" PRIu64,object_id);
+    snprintf(id,sizeof(id),"%" PRIu64,expected_id); snprintf(object,sizeof(object),"%" PRIu64,expected_kind==JOB_STATISTICS ? statistics_object : object_id);
     snprintf(revision,sizeof(revision),"%" PRIu64,revision_id); snprintf(offset,sizeof(offset),"%" PRIu64,expected_offset);
     CHECK(observed_identity(id,object,revision,offset));
 }
@@ -244,9 +255,28 @@ static void submit_columns(ColumnsCase kind,uint64_t offset,int64_t total,bool t
     expected_sql+=sql_count; if (total<0 && kind!=COLUMNS_PRODUCT && kind!=COLUMNS_SQL_LIMIT) expected_counts++;
     worker_submit(&worker,job);
 }
+typedef enum { STAT_RANGE,STAT_OFFSET,STAT_EXACT,STAT_TINY,STAT_TEXT,STAT_FILTERED,STAT_OVERFLOW,STAT_NONFINITE,STAT_ZERO,STAT_EMPTY,STAT_OBJECT,STAT_PIVOT,STAT_MIXED,STAT_STAMP,STAT_BOUNDS,STAT_COLUMN,STAT_FINAL } StatisticsCase;
+static void submit_statistics(StatisticsCase kind,unsigned sql_count) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job)); job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=JOB_STATISTICS; expected_preview=false; expected_offset=0; statistics_object=0;
+    const char *sql=kind==STAT_EXACT || kind==STAT_TINY ? statistics_exact_sql : kind==STAT_TEXT ? statistics_text_sql : kind==STAT_FILTERED ? statistics_filter_sql : kind==STAT_OVERFLOW ? statistics_overflow_sql : kind==STAT_NONFINITE ? statistics_nonfinite_sql : kind>=STAT_ZERO && kind<=STAT_COLUMN ? statistics_zero_sql : range_sql;
+    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(sql)}; job->revision=revision_id; job->rows=600; job->first_col=2; job->cols=1;
+    if (kind==STAT_OFFSET) { job->offset=256; job->rows=400; job->first_col=0; job->cols=3; }
+    if (kind==STAT_EXACT || kind==STAT_TINY) { job->rows=3; job->first_col=kind==STAT_TINY ? 1 : 0; job->cols=kind==STAT_TINY ? 1 : 3; }
+    if (kind>=STAT_TEXT && kind<=STAT_COLUMN) { job->rows=kind==STAT_TEXT ? 5 : kind==STAT_NONFINITE ? 4 : 2; job->first_col=0; }
+    if (kind==STAT_FILTERED) { job->rows=100; CHECK(analysis_filter_set(&job->analysis,"amount",FILTER_GREATER,"1.005",NULL)); }
+    if (kind==STAT_EMPTY) job->rows=0;
+    if (kind==STAT_OBJECT) job->object_id=statistics_object=object_id;
+    if (kind==STAT_PIVOT) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"value",AGG_SUM,NULL));
+    if (kind==STAT_MIXED) { job->statistics=dx_alloc(sizeof(StatisticsRequest)); CHECK(statistics_request_text(job->statistics,"Owned mixed-selection text",NULL)); }
+    if (kind==STAT_STAMP) job->expected_source_stamp=1;
+    if (kind==STAT_BOUNDS) { job->offset=DX_SHEET_ROWS; job->rows=1; }
+    if (kind==STAT_COLUMN) job->first_col=SIZE_MAX;
+    if (kind==STAT_FINAL) { job->offset=10; job->rows=100; }
+    expected_sql+=sql_count; worker_submit(&worker,job);
+}
 static bool poll_received(bool error,bool sent) {
     CHECK(!reply); reply=worker_poll(&worker); if (!reply) return false;
-    CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==object_id && reply->revision==revision_id && reply->is_preview==expected_preview);
+    CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==(expected_kind==JOB_STATISTICS ? statistics_object : object_id) && reply->revision==revision_id && reply->is_preview==expected_preview);
     CHECK((reply->error!=NULL)==error); CHECK(!worker.running); counters(); if (sent) identity(); retained_values(); return true;
 }
 static bool received(bool error) { return poll_received(error,true); }
@@ -307,6 +337,7 @@ static void category_values(const DistinctPage *page,uint64_t offset,size_t rows
     }
 }
 static void retained_values(void) {
+    if (retained_statistics.sum) CHECK(retained_statistics.cells==600 && retained_statistics.numeric==600 && !retained_statistics.approximate && !strcmp(retained_statistics.sum,"29700") && !strcmp(retained_statistics.average,"49.5"));
     if (!retained_distinct.count) return;
     category_values(&retained_distinct,0,128,300); exact_values(&retained);
 }
@@ -355,6 +386,13 @@ static void columns_range_values(uint64_t offset,size_t rows,bool totals) {
         if (totals) CHECK(!strcmp(p->totals->rows.cells[r].text,amount));
     }
     if (totals) { CHECK(p->totals->has_columns && p->totals->rows.offset==offset && p->totals->rows.total==600 && p->totals->columns.column_count==4); for (size_t i=0;i<3;i++) CHECK(!strcmp(p->totals->columns.cells[i].text,"9900.00")); CHECK(!strcmp(p->totals->columns.cells[3].text,"29700.00")); }
+}
+static void statistics_values(uint64_t cells,uint64_t filled,uint64_t numeric,uint64_t distinct) {
+    validation_reply(); SelectionStats *s=&reply->statistics;
+    CHECK(s->cells==cells && s->filled==filled && s->numeric==numeric && s->distinct==distinct && isfinite(s->query_ms) && s->query_ms>=0 && !reply->distinct.values && !reply->clipboard);
+}
+static void statistics_error(void) {
+    validation_reply(); SelectionStats empty={0}; CHECK(!memcmp(&reply->statistics,&empty,sizeof(empty)));
 }
 static void inject_late(void *unused) {
     (void)unused;
@@ -684,6 +722,79 @@ static void tick(void) {
     case WAIT_MATRIX_COUNT_EMPTY:
         if (!received(false)) return;
         CHECK(reply->page.row_count==1 && reply->page.column_count==1 && reply->page.total==1 && !strcmp(reply->page.cells[0].text,"0") && reply->page.totals && !strcmp(reply->page.totals->columns.cells[0].text,"0")); release_reply(); pass("empty global COUNT(*) produces one typed zero row and a source zero footer");
+        submit_statistics(STAT_RANGE,2); enter(WAIT_STATS_RANGE); return;
+    case WAIT_STATS_RANGE:
+        if (!received(false)) return;
+        statistics_values(600,600,600,100); CHECK(!reply->statistics.approximate && !strcmp(reply->statistics.sum,"29700") && !strcmp(reply->statistics.average,"49.5") && !strcmp(reply->statistics.minimum,"0") && !strcmp(reply->statistics.maximum,"99"));
+        retained_statistics=reply->statistics; reply->statistics=(SelectionStats){0}; release_reply(); pass("direct statistics aggregate all 600 selected source rows with an independently owned exact result");
+        submit_statistics(STAT_OFFSET,1); enter(WAIT_STATS_OFFSET); return;
+    case WAIT_STATS_OFFSET:
+        if (!received(false)) return;
+        statistics_values(1032,1032,688,788); CHECK(!reply->statistics.approximate && !strcmp(reply->statistics.sum,"165320") && !strcmp(reply->statistics.minimum,"0") && !strcmp(reply->statistics.maximum,"599")); release_reply(); pass("statistics OFFSET spans beyond the loaded page, clips to source extent and preserves typed distinct counts");
+        submit_statistics(STAT_EXACT,2); enter(WAIT_STATS_EXACT); return;
+    case WAIT_STATS_EXACT:
+        if (!received(false)) return;
+        statistics_values(9,6,4,5); CHECK(!reply->statistics.approximate && !reply->statistics.non_finite && !strcmp(reply->statistics.sum,"340282366920938463463374607431768211453.99999999999999999999999999999999999999") && !strcmp(reply->statistics.maximum,"170141183460469231731687303715884105727")); release_reply(); pass("scale38 BIGNUM statistics preserve sums beyond128 bits and SQL NULL versus empty/literal text");
+        submit_statistics(STAT_TINY,1); enter(WAIT_STATS_TINY); return;
+    case WAIT_STATS_TINY:
+        if (!received(false)) return;
+        statistics_values(3,2,2,2); CHECK(!strcmp(reply->statistics.sum,"-0.00000000000000000000000000000000000001") && !strcmp(reply->statistics.minimum,"-0.00000000000000000000000000000000000002") && !strcmp(reply->statistics.maximum,"0.00000000000000000000000000000000000001")); release_reply(); pass("38-digit fractional statistics use exact text rather than a double round trip");
+        submit_statistics(STAT_TEXT,2); enter(WAIT_STATS_TEXT); return;
+    case WAIT_STATS_TEXT:
+        if (!received(false)) return;
+        statistics_values(5,4,0,3); CHECK(!reply->statistics.sum && !reply->statistics.average && !reply->statistics.minimum && !reply->statistics.approximate); release_reply(); pass("text-only statistics count empty and literal NULL as present independently from SQL NULL");
+        submit_statistics(STAT_FILTERED,3); enter(WAIT_STATS_FILTERED); return;
+    case WAIT_STATS_FILTERED:
+        if (!received(false)) return;
+        statistics_values(2,2,2,2); CHECK(reply->analysis.filter_number.kind==NUM_DECIMAL && reply->analysis.filter_number.scale==2 && !reply->statistics.approximate && !strcmp(reply->statistics.sum,"2.03") && !strcmp(reply->statistics.average,"1.015") && !strcmp(reply->statistics.minimum,"1.01") && !strcmp(reply->statistics.maximum,"1.02")); release_reply(); pass("statistics resolve exact decimal predicates before selecting and aggregating source records");
+        submit_statistics(STAT_OVERFLOW,2); enter(WAIT_STATS_OVERFLOW); return;
+    case WAIT_STATS_OVERFLOW:
+        if (!received(false)) return;
+        statistics_values(2,2,2,1); CHECK(reply->statistics.approximate && !reply->statistics.non_finite && reply->statistics.sum_overflow && reply->statistics.average_overflow && !reply->statistics.sum && !reply->statistics.average && !strcmp(reply->statistics.minimum,"1e+308")); release_reply(); pass("finite-input sum/average overflow has separate flags and retains finite extrema");
+        submit_statistics(STAT_NONFINITE,2); enter(WAIT_STATS_NONFINITE); return;
+    case WAIT_STATS_NONFINITE:
+        if (!received(false)) return;
+        statistics_values(4,3,3,3); CHECK(reply->statistics.approximate && reply->statistics.non_finite && !reply->statistics.sum && !reply->statistics.average && !reply->statistics.minimum && !reply->statistics.maximum && !reply->statistics.sum_overflow); release_reply(); pass("NaN and infinities mark nonfinite input and suppress numeric readouts without overflow spoofing");
+        submit_statistics(STAT_ZERO,2); enter(WAIT_STATS_ZERO); return;
+    case WAIT_STATS_ZERO:
+        if (!received(false)) return;
+        statistics_values(2,2,2,1); CHECK(reply->statistics.approximate && !strcmp(reply->statistics.sum,"0") && !strcmp(reply->statistics.average,"0")); release_reply(); pass("floating negative zero and positive zero share one canonical typed distinct value");
+        submit_statistics(STAT_EMPTY,1); enter(WAIT_STATS_EMPTY); return;
+    case WAIT_STATS_EMPTY:
+        if (!received(false)) return;
+        statistics_values(0,0,0,0); CHECK(!reply->statistics.sum && !reply->statistics.average && !reply->statistics.approximate); release_reply(); pass("empty selections return exact zero counts with NULL aggregates");
+        submit_statistics(STAT_OBJECT,0); enter(WAIT_STATS_OBJECT); return;
+    case WAIT_STATS_OBJECT:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"primary-source")); statistics_error(); release_reply(); pass("object statistics reject before SQL until their bound-result path is implemented");
+        submit_statistics(STAT_PIVOT,0); enter(WAIT_STATS_PIVOT); return;
+    case WAIT_STATS_PIVOT:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"primary-source")); statistics_error(); release_reply(); pass("pivot definitions cannot bypass primary-source statistics restrictions");
+        submit_statistics(STAT_MIXED,0); enter(WAIT_STATS_MIXED); return;
+    case WAIT_STATS_MIXED:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"mixed cells")); statistics_error(); release_reply(); pass("owned mixed-selection snapshots reject and release before any browser SQL");
+        submit_statistics(STAT_STAMP,0); enter(WAIT_STATS_STAMP); return;
+    case WAIT_STATS_STAMP:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"Native source stamps")); statistics_error(); release_reply(); pass("unverifiable native source stamps fail closed before browser statistics SQL");
+        submit_statistics(STAT_BOUNDS,0); enter(WAIT_STATS_BOUNDS); return;
+    case WAIT_STATS_BOUNDS:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"inside the worksheet")); statistics_error(); release_reply(); pass("overflowing worksheet statistics extents reject before SQL");
+        submit_statistics(STAT_COLUMN,0); enter(WAIT_STATS_COLUMN); return;
+    case WAIT_STATS_COLUMN:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"described columns")); statistics_error(); release_reply(); pass("cached-schema field overflow rejects before an aggregate query or output mutation");
+        hold_matrix_reply(6); submit_statistics(STAT_RANGE,2); enter(WAIT_STATS_CANCEL); return;
+    case WAIT_STATS_CANCEL:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        counters(); worker_cancel(&worker); CHECK(!worker.running); release_matrix_reply(); quiet(); retained_values(); pass("cancelled real statistics callbacks cannot publish obsolete scalars or corrupt prior owned results");
+        submit_statistics(STAT_FINAL,1); enter(WAIT_STATS_FINAL); return;
+    case WAIT_STATS_FINAL:
+        if (!received(false)) return;
+        statistics_values(100,100,100,100); CHECK(!reply->statistics.approximate && !strcmp(reply->statistics.sum,"4950") && !strcmp(reply->statistics.average,"49.5")); release_reply(); pass("statistics cancellation recovery reuses schema and publishes only the current full interval");
         submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_OVERSIZE_SCHEMA); return;
     case WAIT_OVERSIZE_SCHEMA:
         if (!received(false)) return;
@@ -754,8 +865,8 @@ static void tick(void) {
         quiet(); if (emscripten_get_now()-entered<150) return;
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
         retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
-        page_free(&retained); page_free(&retained); pass("early stop and scheduled stale callbacks are ignored");
-        CHECK(stages==68 && worker.jobs_started==75 && expected_sql==189 && expected_counts==21);
+        page_free(&retained); page_free(&retained); statistics_free(&retained_statistics); statistics_free(&retained_statistics); pass("early stop and scheduled stale callbacks are ignored");
+        CHECK(stages==86 && worker.jobs_started==93 && expected_sql==210 && expected_counts==21);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
