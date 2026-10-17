@@ -691,6 +691,13 @@ static size_t exported_column(const Page *page,const char *name) {
     for (size_t i=0;i<page->column_count;i++) if (!strcmp(page->columns[i].name,name)) return i;
     CHECK(!"exported column is missing"); return 0;
 }
+static void exported_double_value(const Page *page,size_t row,size_t column,double expected) {
+    const Column *type=&page->columns[column]; const Cell *cell=&page->cells[row*page->column_count+column];
+    CHECK(type->type==DUCKDB_TYPE_DOUBLE && type->number_type.kind==NUM_FLOAT && !cell->is_null && cell->text);
+    char *end=NULL; double value=strtod(cell->text,&end);
+    if (!isfinite(value) || end==cell->text || *end || value!=expected) fprintf(stderr,"Exported DOUBLE row %zu column %s: '%s', expected %.17g\n",row,type->name,cell->text,expected);
+    CHECK(isfinite(value) && end!=cell->text && !*end && value==expected);
+}
 static void export_readback_values(ExportCase kind) {
     Page *page=&reply->page; CHECK(!reply->error && !reply->export_data && !reply->export_bytes && !page->count_pending && page->total==export_row_counts[kind]);
     if (kind==EXPORT_PRIMARY) {
@@ -715,8 +722,10 @@ static void export_readback_values(ExportCase kind) {
         } else {
             size_t missing=exported_column(page,"c=NULL · AVG(v)"),empty=exported_column(page,"c='' · AVG(v)"),literal=exported_column(page,"c='NULL' · AVG(v)");
             size_t upper=exported_column(page,"c='FOO' · AVG(v)"),lower=exported_column(page,"c='foo' · AVG(v) · 2");
-            CHECK(!strcmp(page->cells[missing].text,"10") && !strcmp(page->cells[page->column_count+empty].text,"100") && !strcmp(page->cells[4*page->column_count+literal].text,"200"));
-            CHECK(!strcmp(page->cells[3*page->column_count+upper].text,"7") && !strcmp(page->cells[3*page->column_count+lower].text,"11"));
+            /* AVG remains DOUBLE through Parquet. Its canonical text may be
+               10.0 rather than integer spelling; verify the full typed value. */
+            exported_double_value(page,0,missing,10); exported_double_value(page,1,empty,100); exported_double_value(page,4,literal,200);
+            exported_double_value(page,3,upper,7); exported_double_value(page,3,lower,11);
             CHECK(exported_column(page,"c='quote_\"''_SUM' · AVG(v)")<page->column_count);
         }
     } else if (kind==EXPORT_EMPTY) CHECK(!page->row_count && page->column_count==2 && !strcmp(page->columns[1].name,"AVG(v)"));
