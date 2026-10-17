@@ -32,6 +32,7 @@ build/duxcel-icon.o: packaging/windows/duxcel.rc assets/icons/duxcel.ico
 endif
 endif
 HEADERS = $(shell find src -name '*.h')
+SRC += src/ui/filterlabel.c src/ui/selectview.c
 ICON_INPUTS = assets/icons/duxcel.svg tools/generate_icons.py
 ICON_SIZES = 16 20 24 30 32 36 40 48 60 64 72 80 96 128 160 192 256 320 384 512 640 768 1024
 ICON_MAC_SIZES = 16 32 128 256 512
@@ -174,6 +175,7 @@ paint-smoke: tests/test_paint-native-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_paint-native-debug
 test: tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
+	./tests/test_filterlabel
 	./tests/test_cellreadout
 	./tests/test_core
 	./tests/test_grid
@@ -195,6 +197,7 @@ test: tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook
 	./tests/test_marksview
 test-debug: tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_filterlabel-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_cellreadout-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_core-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_grid-debug
@@ -281,6 +284,8 @@ ifeq ($(shell uname -s),Darwin)
 	codesign --force --sign - build/Duxcel.app
 endif
 clean:
+	rm -f tests/test_filterlabel tests/test_filterlabel-debug tests/test_background-native-debug
+	rm -rf tests/test_filterlabel.dSYM tests/test_filterlabel-debug.dSYM tests/test_background-native-debug.dSYM
 	rm -f tests/test_cellreadout tests/test_cellreadout-debug
 	rm -f tests/test_marksview tests/test_marksview-debug tests/test_popup tests/test_popup-debug tests/test_paintlayer tests/test_paintlayer-debug tests/test_paint-native-debug
 	rm -f tests/test_fontmetrics tests/test_fontmetrics-debug
@@ -305,11 +310,16 @@ test-fast:
 	python3 tools/test.py fast $(TEST_ARGS)
 test-affected:
 	python3 tools/test.py affected --feature $(FEATURE) $(TEST_ARGS)
+test-native:
+	python3 tools/test.py native --scenario $(SCENARIO) $(TEST_ARGS)
+
+tests/test_background-native-debug: tests/test_background_native.m
+	$(CC) $(RAYLIB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $< -o $@ $(RAYLIB_LIBS) -framework AppKit $(SANFLAGS)
 test-full:
 	python3 tools/test.py full $(TEST_ARGS)
 test-runner:
 	python3 tools/test_runner_test.py
-.PHONY: test-fast test-affected test-full test-runner
+.PHONY: test-fast test-affected test-native test-full test-runner
 
 
 tests/test_popup: src/ui/motion.c src/ui/popup.c tests/test_popup.c $(HEADERS)
@@ -330,3 +340,11 @@ tests/test_cellreadout: $(CELLREADOUT_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(CELLREADOUT_SRC) -o $@
 tests/test_cellreadout-debug: $(CELLREADOUT_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CELLREADOUT_SRC) -o $@ $(SANFLAGS)
+
+FILTERLABEL_SRC = src/common.c src/transforms/number.c src/transforms/analysis.c src/ui/filterlabel.c tests/test_filterlabel.c
+tests/test_filterlabel: $(FILTERLABEL_SRC) src/ui/filterlabel.h src/transforms/analysis.h src/transforms/number.h src/common.h
+	$(CC) -Isrc $(CFLAGS) $(WARN) $(FILTERLABEL_SRC) -o $@ -lm
+tests/test_filterlabel-debug: $(FILTERLABEL_SRC) src/ui/filterlabel.h src/transforms/analysis.h src/transforms/number.h src/common.h
+	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(FILTERLABEL_SRC) -o $@ -lm $(SANFLAGS)
+test: tests/test_filterlabel
+test-debug: tests/test_filterlabel-debug

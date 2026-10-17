@@ -6,6 +6,8 @@
 #include "../ui/popup.h"
 #include "../ui/choiceview.h"
 #include "../ui/cellreadout.h"
+#include "../ui/filterlabel.h"
+#include "../ui/selectview.h"
 #include "../ui/flyout.h"
 #include "../ui/dockview.h"
 #include "../ui/marksview.h"
@@ -183,6 +185,9 @@ typedef struct {
     uint64_t pivot_metrics_id,pivot_metrics_revision;
     int pivot_metrics_raster;
     char pivot_metrics_scope[4097];
+    UIFilterLabel filter_labels[DX_PIVOT_FIELDS];
+    uint64_t filter_labels_id,filter_labels_revision,filter_labels_generation,filter_labels_builds;
+    size_t filter_labels_sheet;
     UIWorkspaceLayout workspace;
     bool left_drawer;
     bool dock_compact;
@@ -491,13 +496,15 @@ static void cancel_object_query(App *a) {
 }
 static void clear_object_views(App *a) {
     a->matrix_object=0; a->matrix_cells_active=false;
-    a->pivot_metrics_id=0;
+    a->pivot_metrics_id=a->filter_labels_id=0;
     a->pivot_drop_pending=false;
     cancel_object_query(a);
     for (size_t i=0;i<DX_MAX_OBJECTS;i++) { page_free(&a->objects[i].page); free(a->objects[i].error); a->objects[i]=(ObjectView){.dirty=true}; }
     a->pivot_drag_field=a->pivot_drag_role=-1;
 }
 static void reconcile_object_views(App *a) {
+    /* Undo followed by a new edit can reuse an object revision before paint. */
+    a->pivot_metrics_id=a->filter_labels_id=0;
     a->pivot_drop_pending=false;
     cancel_object_query(a);
     ObjectView previous[DX_MAX_OBJECTS]; memcpy(previous,a->objects,sizeof(previous)); memset(a->objects,0,sizeof(a->objects));
@@ -521,6 +528,8 @@ static void reconcile_object_views(App *a) {
 }
 static void invalidate_object(App *a,size_t index) {
     if (index>=active_sheet(a)->objects.count) return;
+    if (a->filter_labels_id==active_sheet(a)->objects.items[index].id) a->filter_labels_id=0;
+    if (a->pivot_metrics_id==active_sheet(a)->objects.items[index].id) a->pivot_metrics_id=0;
     if (a->active_readout.source==active_sheet(a)->objects.items[index].id) a->active_readout.value.valid=false;
     cancel_object_query(a);
     ObjectView *v=&a->objects[index]; page_free(&v->page); free(v->error); *v=(ObjectView){.dirty=true};
@@ -1898,7 +1907,10 @@ static bool commit_object_filter(App *a,FilterOp op,const char *value,bool clear
     if (clear) pivot_remove(&copy,PIVOT_FILTERS,index);
     else { PivotField *f=&copy.fields[PIVOT_FILTERS][index]; f->number=fields->columns[a->field].number_type; free(f->value); f->filter=op; f->value=dx_strdup(value); }
     uint64_t previous=store->items[target].revision;
-    if (objects_update(store,(size_t)target,&copy,&error)) { if (store->items[target].revision!=previous) { worksheet_record(active_sheet(a),EDIT_OBJECTS); invalidate_object(a,(size_t)target); a->book.dirty=true; } }
+    if (objects_update(store,(size_t)target,&copy,&error)) {
+        if (store->items[target].revision!=previous) { worksheet_record(active_sheet(a),EDIT_OBJECTS); invalidate_object(a,(size_t)target); a->book.dirty=true; }
+        a->pivot_focus=PIVOT_FILTERS+2; a->pivot_value=(int)index; a->author_reveal=true;
+    }
     else { status(a,error); free(error); }
     pivot_free(&copy); a->modal=MODAL_NONE; a->filter_object=-1; return true;
 }
@@ -2511,9 +2523,22 @@ static const char *pivot_scope(App *a) {
     const SheetObject *owner=objects_source(&active_sheet(a)->objects,selected_pivot(a));
     return owner ? owner->name : active_sheet(a)->name;
 }
+static void cache_filter_labels(App *a,const SheetObject *o) {
+    if (!o || (a->filter_labels_id==o->id && a->filter_labels_revision==o->revision && a->filter_labels_generation==a->analysis_revision && a->filter_labels_sheet==a->book.active)) return;
+    for (size_t i=0;i<o->pivot.counts[PIVOT_FILTERS];i++) {
+        const PivotField *f=&o->pivot.fields[PIVOT_FILTERS][i];
+        ui_filter_label_set(&a->filter_labels[i],f->name,f->filter,f->value);
+    }
+    a->filter_labels_id=o->id; a->filter_labels_revision=o->revision;
+    a->filter_labels_generation=a->analysis_revision; a->filter_labels_sheet=a->book.active; a->filter_labels_builds++;
+}
 static void pivot_label(App *a,char label[512],const PivotField *f,int role) {
     if (role==PIVOT_VALUES) snprintf(label,512,"%s(%s)",f->aggregate==AGG_DISTINCT ? "COUNT DISTINCT" : aggregate_label(f->aggregate),f->aggregate==AGG_COUNT ? pivot_scope(a) : f->name);
-    else if (role==PIVOT_FILTERS) snprintf(label,512,"%s%s",f->name,f->filter==FILTER_NOT_IN && f->value && !strcmp(f->value,"[]") ? " · All" : " · Filtered");
+    else if (role==PIVOT_FILTERS) {
+        const SheetObject *o=selected_pivot(a); cache_filter_labels(a,o);
+        for (size_t i=0;o && i<o->pivot.counts[PIVOT_FILTERS];i++) if (f==&o->pivot.fields[PIVOT_FILTERS][i]) { snprintf(label,512,"%s",a->filter_labels[i].text); return; }
+        snprintf(label,512,"%s: condition",f->name);
+    }
     else if (f->grain) { static const char *grains[]={"","YEAR","QUARTER","MONTH"}; snprintf(label,512,"%s(%s)",grains[f->grain],f->name); }
     else snprintf(label,512,"%s",f->name);
 }
@@ -2521,7 +2546,7 @@ static void measure_pivot_tokens(App *a,const SheetObject *o) {
     if (a->pivot_metrics_id==o->id && a->pivot_metrics_revision==o->revision && a->pivot_metrics_scale==a->ui.scale && a->pivot_metrics_raster==a->ui.raster_size && !strcmp(a->pivot_metrics_scope,pivot_scope(a))) return;
     for (int role=0;role<4;role++) for (size_t i=0;i<o->pivot.counts[role];i++) {
         char label[512]; pivot_label(a,label,&o->pivot.fields[role][i],role);
-        a->pivot_token_widths[role][i]=role==PIVOT_FILTERS ? ui_measure(&a->ui,label,10.5f)+40*a->ui.scale : fminf(210*a->ui.scale,ui_measure(&a->ui,label,role==PIVOT_VALUES ? 11.5f : 11)+52*a->ui.scale);
+        a->pivot_token_widths[role][i]=role==PIVOT_FILTERS ? ui_measure(&a->ui,label,10.5f)+25*a->ui.scale : fminf(210*a->ui.scale,ui_measure(&a->ui,label,role==PIVOT_VALUES ? 11.5f : 11)+52*a->ui.scale);
     }
     a->pivot_metrics_id=o->id; a->pivot_metrics_revision=o->revision; a->pivot_metrics_scale=a->ui.scale; a->pivot_metrics_raster=a->ui.raster_size; snprintf(a->pivot_metrics_scope,sizeof(a->pivot_metrics_scope),"%s",pivot_scope(a));
 }
@@ -2582,19 +2607,14 @@ static void draw_pivot_tokens(App *a,int role,Rectangle shelf,Rectangle contents
         Color ink=role==PIVOT_VALUES ? (Color){34,94,88,255} : wrapped ? (Color){39,63,81,255} : (Color){36,86,119,255};
         float icon=wrapped ? 12 : 14;
         ui_carbon(u,role==PIVOT_VALUES ? CARBON_FUNCTION : wrapped ? CARBON_FILTER : CARBON_TABLE,box(token.x+(wrapped ? 5 : 7)*s,token.y+(token.height-icon*s)*.5f,icon*s,icon*s),ink);
-        ui_label(u,label,box(token.x+(wrapped ? 20 : 27)*s,token.y,fmaxf(0,token.width-(wrapped ? 40 : 52)*s)+.001f*s,token.height),wrapped ? 10.5f : role==PIVOT_VALUES ? 11.5f : 11,ink,false,UI_REGULAR);
+        ui_label(u,label,box(token.x+(wrapped ? 20 : 27)*s,token.y,fmaxf(0,token.width-(wrapped ? 25 : 52)*s)+.001f*s,token.height),wrapped ? 10.5f : role==PIVOT_VALUES ? 11.5f : 11,ink,false,UI_REGULAR);
         float close_width=wrapped ? 18 : vertical ? 20 : 18,close_height=wrapped || !vertical ? token.height : 20*s;
         Rectangle remove=box(token.x+token.width-(vertical ? close_width : 19)*s,token.y+(token.height-close_height)/2,close_width*s,close_height);
         bool removing=false;
-        if (vertical) {
-            if (wrapped) {
-                bool remove_hover=false; removing=ui_control_input(u,remove,passive_control(a,enabled),&remove_hover);
-                ui_carbon(u,CARBON_CLOSE,box(remove.x+(remove.width-12*s)/2,remove.y+(remove.height-12*s)/2,12*s,12*s),ink);
-            } else removing=ui_icon_button(u,remove,CARBON_CLOSE,false,passive_control(a,enabled) && (role!=PIVOT_VALUES || o->pivot.counts[role]>1));
-        }
+        if (vertical && !wrapped) removing=ui_icon_button(u,remove,CARBON_CLOSE,false,passive_control(a,enabled) && (role!=PIVOT_VALUES || o->pivot.counts[role]>1));
         if (removing) { ui_clear_clip(u); PivotDefinition copy=pivot_copy(&o->pivot); pivot_remove(&copy,(PivotRole)role,i); set_pivot_definition(a,&copy); return; }
         if (!vertical) ui_carbon(u,CARBON_CHEVRON_DOWN,box(remove.x+3*s,remove.y+5.5f*s,12*s,12*s),UI_MUTED);
-        Rectangle main=GetCollisionRec(box(token.x,token.y,token.width-(vertical ? 23*s : 0),token.height),clip);
+        Rectangle main=GetCollisionRec(box(token.x,token.y,token.width-(vertical && !wrapped ? 23*s : 0),token.height),clip);
         DxPointerGesture gesture;
         if (enabled && ui_take_gesture_from(main,&gesture)) {
             a->pivot_drag_role=role; a->pivot_drag_index=(int)i; a->pivot_drag_field=-1;
@@ -2801,10 +2821,10 @@ static void draw_author_dock(App *a,Rectangle panel) {
     ui_carbon(u,CARBON_CHEVRON_UP,box(layout.heading.x+layout.heading.width-14*s,layout.heading.y+8.5f*s,12*s,12*s),UI_MUTED);
     const char *representations[]={"Matrix","Bar chart","Line chart","Dots","Scatter"}; int representation=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
     Rectangle rep=layout.representation;
-    if (ui_button(u,rep,representations[representation],false,passive_control(a,enabled))) {
+    if (ui_select_field(u,rep,representations[representation],UI_SELECT_REPRESENTATION,a->pivot_focus==6,passive_control(a,enabled))) {
         a->modal=MODAL_REPRESENTATION; a->context_origin=(Vector2){rep.x,rep.y+rep.height}; a->context_focus=representation; a->context_scroll=0; a->consume_grid_input=true;
+        a->pivot_focus=6; a->chrome_focus=0; a->ribbon_focus=a->pivot_search_focus=false;
     }
-    ui_carbon(u,CARBON_CHEVRON_DOWN,box(rep.x+rep.width-18*s,rep.y+6*s,14*s,14*s),UI_MUTED);
     for (int role=PIVOT_VALUES;role<=PIVOT_FILTERS;role++) {
         Rectangle heading=role==PIVOT_VALUES ? layout.measure_heading : layout.filter_heading;
         Rectangle add=box(heading.x+heading.width-20*s,heading.y+2*s,20*s,20*s);
@@ -2817,9 +2837,7 @@ static void draw_author_dock(App *a,Rectangle panel) {
             Rectangle plot=layout.plot; ui_label(u,"Plot",box(plot.x,plot.y,25*s,plot.height),11,UI_TEXT,false,UI_REGULAR);
             Rectangle choice=box(plot.x+30*s,plot.y,plot.width-30*s,plot.height); char label[512]; pivot_label(a,label,&o->pivot.fields[PIVOT_VALUES][o->chart_measure],PIVOT_VALUES);
             a->author_plot=GetCollisionRec(choice,layout.viewport);
-            if (ui_button(u,choice,label,false,passive_control(a,enabled))) { a->modal=MODAL_CHART_MEASURE; a->context_origin=(Vector2){choice.x,choice.y+choice.height}; a->context_focus=o->chart_measure; a->context_scroll=0; a->pivot_focus=7; a->consume_grid_input=true; }
-            ui_carbon(u,CARBON_CHEVRON_DOWN,box(choice.x+choice.width-17*s,choice.y+4*s,14*s,14*s),UI_MUTED);
-            if (a->pivot_focus==7) ui_focus_border(choice,layout.viewport,1.5f*s);
+            if (ui_select_field(u,choice,label,UI_SELECT_PLOT,a->pivot_focus==7,passive_control(a,enabled))) { a->modal=MODAL_CHART_MEASURE; a->context_origin=(Vector2){choice.x,choice.y+choice.height}; a->context_focus=o->chart_measure; a->context_scroll=0; a->pivot_focus=7; a->chrome_focus=0; a->ribbon_focus=a->pivot_search_focus=false; a->consume_grid_input=true; }
         }
         const UICarbonIcon icons[]={CARBON_COLOR_PALETTE,CARBON_ARROWS_HORIZONTAL,CARBON_STRING_TEXT,CARBON_DATA_STRUCTURED,CARBON_INFORMATION,CARBON_DATA_VIEW}; measure_mark_labels(a,o);
         for (int i=0;i<DX_MARK_ROLES;i++) {
@@ -5499,7 +5517,7 @@ static bool pivot_keyboard(App *a) {
             a->author_reveal=true;
         }
         if (count && (role!=PIVOT_VALUES || count>1) && (ui_pressed(KEY_DELETE)||ui_pressed(KEY_BACKSPACE))) { PivotDefinition copy=pivot_copy(&o->pivot); pivot_remove(&copy,(PivotRole)role,(size_t)a->pivot_value); set_pivot_definition(a,&copy); }
-        else if (count && role==PIVOT_FILTERS && ui_pressed(KEY_ENTER)) open_pivot_filter(a,(size_t)a->pivot_value);
+        else if (count && role==PIVOT_FILTERS && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE))) open_pivot_filter(a,(size_t)a->pivot_value);
         else if (count && role!=PIVOT_FILTERS && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE))) {
             a->pivot_drag_role=role; a->pivot_drag_index=a->pivot_value; a->pivot_drag_field=-1;
             Rectangle token=a->pivot_tokens[role][a->pivot_value]; pivot_menu_open(a,(Vector2){token.x,token.y+token.height});
@@ -6034,13 +6052,16 @@ static bool draw_ribbon_control(App *a,int command,Rectangle r,bool enabled) {
     bool decimal=action==ACTION_DECIMAL_LESS || action==ACTION_DECIMAL_MORE;
     bool clicked=false;
     if (selector && a->ribbon_mode!=2) {
-        if (action!=ACTION_FONT) clicked=ui_tool_button(u,r,"",false,available);
-        DrawRectangleRec(r,WHITE); DrawRectangleLinesEx(r,s,UI_BORDER);
-        Rectangle label=box(r.x+8*s,r.y,r.width-(action==ACTION_FONT ? 16 : 26)*s,r.height);
         CellFormat format=active_format(a); char size[16]; snprintf(size,sizeof(size),"%u",format.size);
         const char *text=action==ACTION_FONT_SIZE ? size : action==ACTION_NUMBER_FORMAT ? format.number==FORMAT_NUMBER ? "Number" : "Accounting" : item->label;
-        ui_label(u,text,label,12,available || action==ACTION_FONT ? UI_TEXT : UI_MUTED,false,UI_REGULAR);
-        if (action!=ACTION_FONT) ui_carbon(u,CARBON_CHEVRON_DOWN,box(r.x+r.width-17*s,r.y+(r.height-12*s)/2,12*s,12*s),UI_MUTED);
+        if (action==ACTION_FONT) {
+            DrawRectangleRec(r,WHITE); DrawRectangleLinesEx(r,s,UI_BORDER);
+            ui_label(u,text,box(r.x+8*s,r.y,r.width-16*s,r.height),12,UI_TEXT,false,UI_REGULAR);
+        } else {
+            clicked=ui_select_field(u,r,text,action==ACTION_FONT_SIZE ? UI_SELECT_FONT_SIZE : UI_SELECT_NUMBER_FORMAT,
+                (a->modal==MODAL_FORMAT && a->format_action==action) || (a->ribbon_focus && a->ribbon_command==command),available);
+            if (clicked) { a->ribbon_focus=true; a->ribbon_command=command; a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=false; }
+        }
     } else if (glyph || selector || a->ribbon_mode==2) clicked=ui_icon_button(u,r,item->icon,active,available);
     else if (decimal) {
         clicked=ui_tool_button(u,r,"",false,available);
@@ -6081,7 +6102,9 @@ static void draw_ribbon_commands(App *a,bool enabled) {
             for (int c=group->first;c<group->first+group->count;c++) {
                 Rectangle cr=ribbon_rect(a,a->ribbon_layout.commands[c]); if (cr.width<=0) continue; bool available=enabled && command_enabled(a,c);
                 if (draw_ribbon_control(a,c,cr,available)) { invoke_command(a,c); enabled=false; }
-                if (focus && a->ribbon_command==c) DrawRectangleLinesEx(box(cr.x-s,cr.y-s,cr.width+2*s,cr.height+2*s),1.5f*s,UI_ACCENT);
+                UIAction action=ribbon_commands[a->ribbon_tab][c].action;
+                bool select=a->ribbon_mode!=2 && (action==ACTION_FONT_SIZE || action==ACTION_NUMBER_FORMAT);
+                if (focus && a->ribbon_command==c && !select) DrawRectangleLinesEx(box(cr.x-s,cr.y-s,cr.width+2*s,cr.height+2*s),1.5f*s,UI_ACCENT);
                 if (a->key_tips && c<10) command_badge(a,c,cr);
                 if (a->ribbon_mode==2 && available && CheckCollisionPointRec(ui_mouse_position(),cr)) { a->ribbon_hover=command_label(a,c); a->ribbon_hover_rect=cr; }
             }
@@ -6320,7 +6343,7 @@ static void draw_app(App *a) {
     float context_left=a->workspace.context.x,context_right=GetScreenWidth()-a->pipeline_extent*s;
     DrawRectangleRec(box(context_left,context_y,fmaxf(0,context_right-context_left),28*s),(Color){246,248,250,255});
     DrawLineV((Vector2){context_left,context_y+27*s},(Vector2){context_right,context_y+27*s},UI_BORDER);
-    char cell_name[48]; address(value_grid->col,value_grid->row+(a->analysis.kind!=SOURCE_NONE ? 2 : 1),cell_name);
+    char cell_name[48]; address(value_grid->col,value_grid->row+(a->step_preview.active || a->analysis.kind!=SOURCE_NONE ? 2 : 1),cell_name);
     const UICellReadout *readout=active_value(a);
     const char *value=readout ? readout->text : "Loading…",*type=readout ? readout->type_name : "LOADING";
     bool is_null=readout && readout->is_null;
@@ -7242,7 +7265,7 @@ static void sort_smoke_step(App *a,int *step) {
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: sort application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
 }
-#define LAYOUT_SMOKE_STAGES 596
+#define LAYOUT_SMOKE_STAGES 620
 /* Count the actual focus ink in one modal, excluding document token colors. */
 static unsigned smoke_focus_pixels(Rectangle region) {
     Image frame=LoadImageFromScreen(); Vector2 dpi=GetWindowScaleDPI(); unsigned count=0;
@@ -7259,6 +7282,7 @@ static Rectangle workbook_new_target;
 static void layout_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=LAYOUT_SMOKE_STAGES || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
     static uint64_t request; char *error=NULL; Worksheet *s=active_sheet(a);
+    static uint64_t label_builds;
     static Cell *author_cells; static uint64_t author_revision;
     static Cell *ribbon_cells; static uint64_t ribbon_row,ribbon_top; static size_t ribbon_col; static bool ribbon_dirty,previous_workbook;
     static Grid preview_live_grid; static size_t preview_live_history,preview_live_cells;
@@ -8176,6 +8200,7 @@ static void layout_smoke_step(App *a,int *step) {
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"522")) { *step=522; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"540")) { *step=540; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"555")) { *step=555; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"596")) { *step=596; return; }
         }
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->statistics_enabled=true; a->statistics_mask=49;
         grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=0; a->grid.horizontal=0; break;
@@ -9316,6 +9341,87 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed; break;
     case 595:
         puts("PASS: active-origin queued drag/Shift/Tab/Enter, retained exact value beyond both cached pages, NULL/empty/literal distinctions, bounded UTF-8 readout, refresh/query/filter/preview/table/PIVOT/sheet scope, moved-source bookmark fallback and pointer versus keyboard focus pixels at 100/150 percent"); break;
+
+    case 596:
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 597:
+        if (!object_ready(a,0)) return;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=true; a->pipeline=false; a->workbook_collapsed=false; a->sidebar_width=228;
+        a->selected_object=0; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; set_ribbon_mode(a,0); a->ribbon_tab=RIBBON_HOME;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->analysis_scroll=a->author_scroll=a->dock_scroll[1]=0;
+        ribbon_cells=a->page.cells; open_view_filter_field(a,6); break;
+    case 598:
+        if (a->values_loading) return;
+        if (a->modal!=MODAL_FILTER || a->filter_pill!=-1 || s->objects.items[0].pivot.counts[PIVOT_FILTERS]) goto failed;
+        a->filter_condition_enabled=true; a->filter_op=FILTER_CONTAINS; input_set(&a->filter_term,"Posted"); apply_filter_definition(a,false); break;
+    case 599:
+        if (!object_ready(a,0)) return;
+        cache_filter_labels(a,&s->objects.items[0]);
+        if (a->modal!=MODAL_NONE || strcmp(a->filter_labels[0].text,"Status: Posted") || !a->filter_labels[0].valid || s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=1 || !strstr(a->objects[0].page.sql,"PIVOT") || a->page.cells!=ribbon_cells || a->author_marks_layout.filters[0].width<=0) goto failed;
+        request=a->request_id; author_cells=a->objects[0].page.cells; author_revision=s->objects.items[0].revision; label_builds=a->filter_labels_builds;
+        smoke_snapshot("tests/results/workspace-layout/native-criteria-wide.png"); break;
+    case 600:
+        if (a->values_loading) return;
+        if (a->modal!=MODAL_FILTER || a->filter_pill!=0 || strcmp(a->filter_term.text,"Posted")) goto failed;
+        request=a->request_id; input_set(&a->filter_term,"Pending"); break;
+    case 601:
+        if (a->modal!=MODAL_NONE || strcmp(a->filter_labels[0].text,"Status: Posted") || a->objects[0].page.cells!=author_cells || a->request_id!=request || a->filter_labels_builds!=label_builds) goto failed;
+        history(a,false);
+        /* No paint between Undo and the new edit: this reuses the old revision. */
+        open_view_filter_field(a,6); a->filter_condition_enabled=true; a->filter_op=FILTER_CONTAINS; input_set(&a->filter_term,"Post"); apply_filter_definition(a,false);
+        if (a->filter_labels_id || s->objects.items[0].revision!=author_revision) goto failed; break;
+    case 602:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=1 || strcmp(a->filter_labels[0].text,"Status: Post")) goto failed; break;
+    case 603:
+        if (!object_ready(a,0)) return;
+        cache_filter_labels(a,&s->objects.items[0]);
+        if (strcmp(a->filter_labels[0].text,"Status: Post") || a->page.cells!=ribbon_cells) goto failed;
+        request=a->request_id; author_cells=a->objects[0].page.cells; label_builds=a->filter_labels_builds;
+        a->author_scroll=0; a->pivot_focus=6; a->author_reveal=true; break;
+    case 604:
+        if (a->modal!=MODAL_REPRESENTATION || a->pivot_focus!=6 || !smoke_focus_pixels(a->author_marks_layout.representation) || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-select-representation-focus.png"); break;
+    case 605:
+        if (a->modal!=MODAL_NONE || s->objects.items[0].kind!=OBJECT_CHART || s->objects.items[0].mark!=MARK_BAR || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        a->pivot_focus=7; a->author_reveal=true; break;
+    case 606:
+        if (a->modal!=MODAL_CHART_MEASURE || !smoke_focus_pixels(a->author_plot) || a->request_id!=request) goto failed; break;
+    case 607:
+        if (a->modal!=MODAL_NONE || s->objects.items[0].chart_measure!=1 || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
+        a->selected_object=-1; a->pivot_focus=0; a->ribbon_focus=false; break;
+    case 608:
+        if (a->modal!=MODAL_FORMAT || a->format_action!=ACTION_FONT_SIZE || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-select-font-focus.png"); break;
+    case 609:
+        if (a->modal!=MODAL_NONE || active_format(a).size!=14 || a->request_id!=request) goto failed; break;
+    case 610:
+        if (a->modal!=MODAL_FORMAT || a->format_action!=ACTION_NUMBER_FORMAT || a->request_id!=request) goto failed; break;
+    case 611:
+        if (a->modal!=MODAL_NONE || active_format(a).number!=FORMAT_NUMBER || a->request_id!=request) goto failed;
+        a->selected_object=0; a->pivot_focus=PIVOT_FILTERS+2; a->pivot_value=0; a->author_reveal=true;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->left_drawer=true; break;
+    case 612:
+        if (!a->workspace.narrow || !a->left_drawer || !a->author_marks_layout.valid || a->author_marks_layout.filters[0].width<=0 || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || a->request_id!=request) goto failed;
+        label_builds=a->filter_labels_builds; smoke_snapshot("tests/results/workspace-layout/native-criteria-narrow-150.png"); break;
+    case 613:
+        if (a->filter_labels_builds!=label_builds || a->request_id!=request || strcmp(a->filter_labels[0].text,"Status: Post")) goto failed;
+        a->pivot_focus=6; a->author_reveal=true; break;
+    case 614:
+        if (a->modal!=MODAL_REPRESENTATION || !smoke_focus_pixels(GetCollisionRec(a->author_marks_layout.representation,a->author_marks_layout.viewport)) || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-select-narrow-150.png"); break;
+    case 615:
+        if (a->modal!=MODAL_NONE || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->left_drawer=false; a->pivot_focus=0; a->author_scroll=0; break;
+    case 616:
+        if (a->filter_labels_builds!=label_builds || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer() || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-select-chart-wide.png"); break;
+    case 617:
+        history(a,false); break;
+    case 618:
+        if (a->modal!=MODAL_NONE || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed; break;
+    case 619:
+        puts("PASS: cached actual view-filter criteria, real PIVOT Apply/Cancel/Undo, native representation/Plot/font/number select pointer and keyboard actions, 100/150 percent narrow clipping and idle cache/query retention"); break;
 
     }
     free(error); (*step)++; return;
@@ -10611,11 +10717,17 @@ static bool smoke_work_idle(App *a) {
 int app_run(const AppOptions *options) {
     App a={0}; a.gridlines=true; a.ribbon_command=a.selected_object=a.filter_object=a.sort_object=a.pivot_drag_field=a.pivot_drag_role=-1;
     workbook_init(&a.book); a.known_total=-1; a.launched_ms=dx_millis(); a.sidebar_width=228; a.pipeline_width=280; a.sidebar=a.fields_visible=true; a.field_highlight=-1;
-    SetConfigFlags(FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
     bool automated=options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->export_smoke || options->count_smoke || options->clipboard_smoke || options->sort_smoke || options->layout_smoke || options->navigation_smoke || options->nyc_smoke || options->document_smoke || options->chart_smoke || options->statistics_smoke || options->table_smoke || options->icon_smoke || options->query_smoke || options->unique_smoke || options->frames;
+    const char *visible_test=getenv("DUXCEL_TEST_VISIBLE");
+    bool background_test=automated && !(visible_test && !strcmp(visible_test,"1"));
+    /* Hide before native creation: hiding afterwards still steals focus and
+       can switch Spaces. Hidden windows retain their real GL framebuffer. */
+    SetConfigFlags(FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT |
+        (background_test ? FLAG_WINDOW_HIDDEN | FLAG_WINDOW_UNFOCUSED | FLAG_WINDOW_ALWAYS_RUN : 0));
     a.statistics_mask=49; a.statistics_enabled=!automated || options->statistics_smoke; a.statistics_object=-1;
     InitWindow(1280,820,automated ? "Duxcel — automated test" : "Duxcel");
     if (!IsWindowReady()) { fprintf(stderr,"Cannot initialize the native window and graphics context.\n"); return 1; }
+    printf("Native test window: %s\n",background_test ? "hidden, unfocused" : "visible");
     dx_native_setup(GetWindowHandle()); SetWindowMinSize(640,640); SetExitKey(KEY_NULL);
     if (!brand_install_icon()) TraceLog(LOG_WARNING,"Cannot install the application icon");
     if (!brand_init()) TraceLog(LOG_WARNING,"Cannot create the application identity display cache");
@@ -10667,7 +10779,7 @@ int app_run(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596"));
     if (focused_layout) { SetWindowSize(1440,988); workspace_job(&a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(&a,"",true);
     else if (options->nyc_smoke) open_source(&a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -11101,6 +11213,28 @@ int app_run(const AppOptions *options) {
                     ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
                 } else if (layout_smoke==573) ui_note_key_press(KEY_END,DX_MOD_SUPER|DX_MOD_SHIFT);
                 active_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=600 && layout_smoke<=615) {
+            static unsigned selects_injected=0; unsigned bit=1u<<(layout_smoke-600);
+            if (!(selects_injected&bit)) {
+                Rectangle target={0};
+                if (layout_smoke==600) target=a.pivot_tokens[PIVOT_FILTERS][0];
+                else if (layout_smoke==604 || layout_smoke==614) target=GetCollisionRec(a.author_marks_layout.representation,a.author_marks_layout.viewport);
+                else if (layout_smoke==606) target=a.author_plot;
+                else if (layout_smoke==608 || layout_smoke==610) {
+                    UIAction action=layout_smoke==608 ? ACTION_FONT_SIZE : ACTION_NUMBER_FORMAT;
+                    for (int i=0;i<ribbon_counts[a.ribbon_tab];i++) if (ribbon_commands[a.ribbon_tab][i].action==action) {
+                        Rectangle r=a.ribbon_layout.commands[i]; target=(Rectangle){r.x*a.ui.scale,(56+r.y)*a.ui.scale,r.width*a.ui.scale,r.height*a.ui.scale}; break;
+                    }
+                } else if (layout_smoke==601 || layout_smoke==615) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==605 || layout_smoke==609 || layout_smoke==611) { ui_note_key_press(KEY_DOWN,0); ui_note_key_press(KEY_ENTER,0); }
+                else if (layout_smoke==607) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+                if (target.width>0 && target.height>0) {
+                    float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                }
+                selects_injected|=bit;
             }
         }
         if (options->layout_smoke && a.frames%24==2 && layout_smoke>=524 && layout_smoke<=537) {

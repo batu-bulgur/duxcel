@@ -269,6 +269,9 @@ bool dx_native_set_icon(const unsigned char *icns,size_t length) {
     }
 }
 static NSModalResponse run_panel(NSSavePanel *panel) {
+    /* Background automation must never surface an OS modal or restore its
+       canvas as a key window. Real panel/responder QA is explicitly visible. */
+    if (IsWindowHidden()) { fprintf(stderr,"Native file panel requires visible QA (DUXCEL_TEST_VISIBLE=1).\n"); return NSModalResponseCancel; }
     NSOpenGLContext *context=[NSOpenGLContext currentContext];
     NSWindow *canvas=[context.view.window retain];
     NSResponder *responder=[canvas.firstResponder retain];

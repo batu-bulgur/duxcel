@@ -18,7 +18,7 @@ SPEC.loader.exec_module(runner)
 class RunnerTests(unittest.TestCase):
     def test_inventory(self):
         self.assertEqual(len(runner.NATIVE), 18)
-        self.assertEqual(sum(row[1] for row in runner.NATIVE), 988)
+        self.assertEqual(sum(row[1] for row in runner.NATIVE), 1053)
         self.assertEqual(len({row[0] for row in runner.NATIVE}), 18)
         self.assertNotIn("core", runner.FAST_MODULES)
         self.assertNotIn("workbook", runner.FAST_MODULES)
@@ -31,9 +31,9 @@ class RunnerTests(unittest.TestCase):
         for name, (start, end, marker) in runner.LAYOUT_PROFILES.items():
             with self.subTest(feature=name):
                 self.assertGreater(end, start)
-                self.assertLessEqual(end, 555)
+                self.assertLessEqual(end, 620)
                 self.assertIn(marker, source)
-                if start != 250:
+                if start not in (0, 250):
                     self.assertIn(f'"{start}"', source)
 
     def test_success_requires_terminal_marker(self):
@@ -80,6 +80,22 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 runner.ensure_unchanged(before)
 
+    def test_native_visibility_is_explicit_and_not_inherited(self):
+        for visible in (False, True):
+            with self.subTest(visible=visible), tempfile.TemporaryDirectory() as directory:
+                root=pathlib.Path(directory)
+                (root / "Makefile").write_text("")
+                args=runner.parser().parse_args(["native", "--scenario", "icon"] + (["--visible"] if visible else []))
+                instance=runner.Runner(args,root)
+                def child(command, **kwargs):
+                    self.assertEqual(kwargs["env"]["DUXCEL_TEST_VISIBLE"], "1" if visible else "0")
+                    kwargs["stdout"].write("PASS: final\nDuxcel frames=10 mean=1.0 ms smoke=0\n")
+                    return mock.Mock(returncode=0)
+                with mock.patch.dict(runner.os.environ,{"DUXCEL_TEST_VISIBLE":"1"}), mock.patch.object(runner.subprocess,"run",side_effect=child), contextlib.redirect_stdout(io.StringIO()):
+                    result=instance.command("hidden-native",["test-owned-process"],"PASS: final",native=True)
+                self.assertEqual(result["status"],"passed")
+                self.assertEqual(instance.summary["native_visibility"],"visible" if visible else "hidden")
+
     def test_lock_exclusion_and_release_without_unlink(self):
         with tempfile.TemporaryDirectory() as directory:
             path = pathlib.Path(directory) / "desktop.lock"
@@ -106,13 +122,41 @@ class RunnerTests(unittest.TestCase):
                     instance.full()
                 headless.assert_not_called()
 
+    def test_named_native_workflows_keep_order_and_deduplicate_without_full_suite(self):
+        args = runner.parser().parse_args(["native", "--scenario", "export", "icon", "export"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            (root / "Makefile").write_text("")
+            instance = runner.Runner(args, root)
+            def completed(name, command, marker=None, **kwargs):
+                return {"name": name, "command": command, "status": "passed", "expected_stages": kwargs["stages"]}
+            with mock.patch.object(instance, "command", side_effect=completed) as command:
+                instance.native_scenarios(args.scenario)
+            self.assertEqual(command.call_count, 2)
+            self.assertEqual([r["name"] for r in instance.summary["results"]], ["native-export", "native-icon"])
+            self.assertEqual(sum(r["expected_stages"] for r in instance.summary["results"]), 28)
+            self.assertIn("--export-smoke", command.call_args_list[0].args[1])
+            self.assertIn("--icon-smoke", command.call_args_list[1].args[1])
+
+    def test_native_missing_inputs_fail_before_opening_desktop(self):
+        for extra in (["--scenario", "table", "--no-build"], ["--scenario", "nyc", "--require-data"]):
+            args = runner.parser().parse_args(["native", *extra])
+            with self.subTest(args=extra), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory)
+                (root / "Makefile").write_text("")
+                instance = runner.Runner(args, root)
+                with mock.patch.object(instance, "prepare_native"), mock.patch.object(runner, "FileLock") as desktop:
+                    with self.assertRaisesRegex(RuntimeError, "Missing table fixtures|NYC dataset missing"):
+                        instance.native()
+                    desktop.assert_not_called()
+
     def test_cli_validation_and_inventory_do_not_construct_runner(self):
         with mock.patch.object(runner, "Runner") as constructor:
             with contextlib.redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(runner.main(["--list"]), 0)
-            self.assertIn("988 application stages", output.getvalue())
+            self.assertIn("1053 application stages", output.getvalue())
             constructor.assert_not_called()
-        for arguments in (["affected"], ["full", "--modules", "grid"], ["fast", "--jobs", "3"], ["fast", "--timeout", "0"], ["fast", "--feature", "shelves"], ["affected", "--feature", "shelves", "--require-data"]):
+        for arguments in (["affected"], ["full", "--modules", "grid"], ["native"], ["native", "--scenario", "export", "--modules", "grid"], ["fast", "--scenario", "export"], ["fast", "--jobs", "3"], ["fast", "--timeout", "0"], ["fast", "--feature", "shelves"], ["affected", "--feature", "shelves", "--require-data"]):
             with self.subTest(arguments=arguments), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
                 runner.main(arguments)
 

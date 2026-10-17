@@ -11,7 +11,10 @@ static void expect_color(Color actual,int red,int green,int blue) {
     CHECK(abs(actual.r-red)<=2 && abs(actual.g-green)<=2 && abs(actual.b-blue)<=2);
 }
 int main(void) {
-    SetConfigFlags(FLAG_WINDOW_HIGHDPI|FLAG_VSYNC_HINT); InitWindow(640,640,"Duxcel — native paint validation"); SetTargetFPS(60);
+    const char *visible=getenv("DUXCEL_TEST_VISIBLE"); bool hidden=!(visible && !strcmp(visible,"1"));
+    SetConfigFlags(FLAG_WINDOW_HIGHDPI|FLAG_VSYNC_HINT|(hidden ? FLAG_WINDOW_HIDDEN|FLAG_WINDOW_UNFOCUSED|FLAG_WINDOW_ALWAYS_RUN : 0));
+    InitWindow(640,640,"Duxcel — native paint validation"); SetTargetFPS(60);
+    CHECK(IsWindowReady()); CHECK(!hidden || IsWindowHidden()); CHECK(!hidden || !IsWindowFocused());
     UIContext *ui=calloc(1,sizeof(*ui)); CHECK(ui);
     CHECK(ui_init(ui,"assets/fonts/IBMPlexSans-Regular.otf","assets/fonts/IBMPlexSans-Medium.otf","assets/fonts/IBMPlexSans-SemiBold.otf","assets/fonts/JetBrainsMono-Regular.ttf"));
     const float scales[]={.8f,1,1.5f};

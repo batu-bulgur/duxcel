@@ -17,13 +17,14 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 FAST_MODULES = (
-    "cellreadout", "grid", "brand", "format", "chartview", "chartencoding",
+    "cellreadout", "filterlabel", "grid", "brand", "format", "chartview", "chartencoding",
     "inspector", "stepview", "preview", "statsview", "guideview", "fontmetrics",
     "motion", "choiceview", "paintlayer", "popup", "marksview",
 )
 # These are existing, independently bootstrapped layout checkpoints. The end is
 # exclusive, as in DUXCEL_LAYOUT_TO. Never jump into arbitrary stateful stages.
 LAYOUT_PROFILES = {
+    "selection-start": (0, 45, "PASS: keyboard destination move"),
     "statistics": (250, 266, "PASS: exact compact native statistics popover"),
     "dock": (311, 335, "PASS: measured native status bar"),
     "pane-motion": (357, 400, "PASS: real nested pane/Workbook group-opacity"),
@@ -34,11 +35,13 @@ LAYOUT_PROFILES = {
     "source-controls": (500, 522, "PASS: exact source value strip"),
     "shared-actions": (510, 540, "PASS: shared compact native row/column/range/object action menus"),
     "author-menus": (540, 555, "PASS: exact headed Marks/step/worksheet menus"),
+    "active-cell": (555, 596, "PASS: active-origin queued drag/Shift/Tab/Enter"),
+    "criteria-selects": (596, 620, "PASS: cached actual view-filter criteria"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 555, 18000, "PASS: exact headed Marks/step/worksheet menus"),
+    ("layout", 620, 18000, "PASS: cached actual view-filter criteria"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),
@@ -185,7 +188,7 @@ class Runner:
         self.log_dir = Path(args.log_dir).resolve() if args.log_dir else root / "tests/results/runs" / f"{stamp}-{args.tier}-{os.getpid()}"
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.summary = {"status": "running", "started_utc": utc_now(), "tier": args.tier, "config": args.config,
-                        "jobs": args.jobs, "no_build": args.no_build, "root": str(root), "source": source_metadata(root), "results": [], "binaries": {}}
+                        "jobs": args.jobs, "no_build": args.no_build, "native_visibility": "visible" if getattr(args, "visible", False) else "hidden", "root": str(root), "source": source_metadata(root), "results": [], "binaries": {}}
         self.start = time.monotonic()
 
     def write_summary(self):
@@ -202,8 +205,9 @@ class Runner:
         env["ASAN_OPTIONS"] = (env.get("ASAN_OPTIONS", "") + ":halt_on_error=1").lstrip(":")
         env["UBSAN_OPTIONS"] = (env.get("UBSAN_OPTIONS", "") + ":halt_on_error=1:print_stacktrace=1").lstrip(":")
         # Do not inherit focused-layout/debug/performance overrides into a run.
-        for key in ("DUXCEL_LAYOUT_FROM", "DUXCEL_LAYOUT_TO", "DUXCEL_FRAME_CAP", "DUXCEL_RENDER_BUFFERS", "DUXCEL_FONT", "DUXCEL_MONO_FONT"):
+        for key in ("DUXCEL_LAYOUT_FROM", "DUXCEL_LAYOUT_TO", "DUXCEL_FRAME_CAP", "DUXCEL_RENDER_BUFFERS", "DUXCEL_FONT", "DUXCEL_MONO_FONT", "DUXCEL_TEST_VISIBLE"):
             env.pop(key, None)
+        env["DUXCEL_TEST_VISIBLE"] = "1" if getattr(self.args, "visible", False) else "0"
         env.update(env_extra or {})
         start = time.monotonic()
         result = {"name": name, "command": command, "log": str(log), "expected_stages": stages}
@@ -271,7 +275,7 @@ class Runner:
 
     def prepare_native(self, full=False):
         validate_native_contract(self.root)
-        targets = [self.native_binary(), "design-fixture"]
+        targets = [self.native_binary(), "tests/test_background-native-debug", "design-fixture"]
         if full:
             targets += [test_binary(module, config) for config in configurations(self.args.config) for module in ("core", "workbook")]
             targets += ["tests/test_paint-native-debug", "icons-check"]
@@ -284,7 +288,10 @@ class Runner:
         (self.root / "tests/generated/workspace-new").mkdir(parents=True, exist_ok=True)
         if not (self.root / "tests/generated/design-definition.dxls").is_file():
             raise RuntimeError("Missing canonical design fixture; omit --no-build")
-        self.retain_binaries([self.native_binary()] + (["tests/test_paint-native-debug"] if full else []))
+        self.retain_binaries([self.native_binary(), "tests/test_background-native-debug"] + (["tests/test_paint-native-debug"] if full else []))
+
+    def background_check(self):
+        self.record(self.command("background-sanitize", ["./tests/test_background-native-debug"], "PASS: 477 background native checks"))
 
     def affected(self):
         self.headless(self.args.modules or FAST_MODULES)
@@ -293,6 +300,7 @@ class Runner:
         frames = max(1200, (end - start + 10) * 48)
         with FileLock(native_lock_path(), "Native desktop tests"):
             ensure_unchanged(self.summary["binaries"])
+            self.background_check()
             self.record(self.command("layout-" + self.args.feature,
                                     ["./" + self.native_binary(), "--layout-smoke", "--frames", str(frames),
                                      "--screenshot", str(self.log_dir / "final.png")], marker, native=True,
@@ -314,21 +322,47 @@ class Runner:
                 self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
                 ensure_unchanged(self.summary["binaries"])
         with FileLock(native_lock_path(), "Native desktop tests"):
-            self.record(self.command("gpu-sanitize", ["./tests/test_paint-native-debug"], "PASS: 107 native paint checks"))
-            for name, stages, frames, marker in NATIVE:
-                if name == "nyc" and not data.is_file():
-                    self.summary["results"].append({"name": "native-nyc", "status": "skipped", "expected_stages": stages,
-                                                    "reason": "NYC dataset missing; use --require-data to make this a failure", "path": str(data)})
-                    print("SKIP   native-nyc: dataset missing (8 stages not covered)", flush=True)
-                    self.write_summary()
-                    continue
-                ensure_unchanged(self.summary["binaries"])
-                flag = "--smoke" if name == "base" else f"--{name}-smoke"
-                self.record(self.command("native-" + name,
-                                         ["./" + self.native_binary(), flag, "--frames", str(frames),
-                                          "--screenshot", str(self.log_dir / (name + ".png"))], marker,
-                                         native=True, base=name == "base", stages=stages))
-                ensure_unchanged(self.summary["binaries"])
+            self.background_check()
+            self.record(self.command("gpu-sanitize", ["./tests/test_paint-native-debug"], "PASS: 110 native paint checks"))
+            self.native_scenarios([row[0] for row in NATIVE])
+
+    def native_scenarios(self, names):
+        """Caller owns the desktop lock; keep scenarios and clipboard serial."""
+        data = self.root / "tests/downloads/yellow_tripdata_2025-01.parquet"
+        inventory = {row[0]: row for row in NATIVE}
+        for selected in dict.fromkeys(names):
+            name, stages, frames, marker = inventory[selected]
+            if name == "nyc" and not data.is_file():
+                self.summary["results"].append({"name": "native-nyc", "status": "skipped", "expected_stages": stages,
+                                                "reason": "NYC dataset missing; use --require-data to make this a failure", "path": str(data)})
+                print("SKIP   native-nyc: dataset missing (8 stages not covered)", flush=True)
+                self.write_summary()
+                continue
+            ensure_unchanged(self.summary["binaries"])
+            flag = "--smoke" if name == "base" else f"--{name}-smoke"
+            self.record(self.command("native-" + name,
+                                     ["./" + self.native_binary(), flag, "--frames", str(frames),
+                                      "--screenshot", str(self.log_dir / (name + ".png"))], marker,
+                                     native=True, base=name == "base", stages=stages))
+            ensure_unchanged(self.summary["binaries"])
+
+    def native(self):
+        if self.args.require_data and "nyc" in self.args.scenario and not (self.root / "tests/downloads/yellow_tripdata_2025-01.parquet").is_file():
+            raise RuntimeError("Required NYC dataset missing")
+        self.prepare_native()
+        # Independent table scenarios consume these engine fixtures. Generate
+        # them only when absent, once and under the worktree runner lock.
+        if "table" in self.args.scenario and any(not (self.root / "tests/generated" / name).is_file()
+                                                   for name in ("million.parquet", "odd'name.parquet", "fixture.duckdb")):
+            if self.args.no_build:
+                raise RuntimeError("Missing table fixtures; omit --no-build to generate them")
+            binary = test_binary("core", "release")
+            self.build([binary], "build-table-fixtures")
+            self.retain_binaries([binary])
+            self.record(self.command("prepare-table-fixtures", ["./" + binary], "PASS:"))
+        with FileLock(native_lock_path(), "Native desktop tests"):
+            self.background_check()
+            self.native_scenarios(self.args.scenario)
 
     def run(self):
         print("Logs: " + str(self.log_dir), flush=True)
@@ -338,6 +372,8 @@ class Runner:
                     self.headless(self.args.modules or FAST_MODULES)
                 elif self.args.tier == "affected":
                     self.affected()
+                elif self.args.tier == "native":
+                    self.native()
                 else:
                     self.full()
                 ensure_unchanged(self.summary["binaries"])
@@ -363,13 +399,15 @@ class Runner:
 
 def parser():
     result = argparse.ArgumentParser(description=__doc__, epilog="Native windows and clipboard checks run serially under a cross-worktree lock. --jobs only overlaps already-built read-only headless tests. No packages are installed.")
-    result.add_argument("tier", nargs="?", choices=("fast", "affected", "full"), default="fast")
+    result.add_argument("tier", nargs="?", choices=("fast", "affected", "native", "full"), default="fast")
     result.add_argument("--config", choices=("release", "sanitize", "both"), default="both", help="headless build configuration; native uses sanitizer when both (default: both)")
     result.add_argument("--modules", nargs="+", choices=FAST_MODULES, help="read-only headless modules for fast/affected; full always runs all")
     result.add_argument("--feature", choices=tuple(LAYOUT_PROFILES), help="existing independently bootstrapped native slice; required for affected")
+    result.add_argument("--scenario", nargs="+", choices=tuple(row[0] for row in NATIVE), help="native: run only the named existing workflows, serially")
     result.add_argument("--jobs", type=int, choices=(1, 2), default=1)
     result.add_argument("--no-build", action="store_true", help="use existing binaries/fixtures; hashes are retained, freshness is the caller's responsibility")
-    result.add_argument("--require-data", action="store_true", help="full: fail rather than skip NYC if its downloaded Parquet is absent")
+    result.add_argument("--visible", action="store_true", help="deliberately show/activate native QA windows; default hidden framebuffer rendering")
+    result.add_argument("--require-data", action="store_true", help="native/full: fail rather than skip NYC if its downloaded Parquet is absent")
     result.add_argument("--timeout", type=float, default=300, help="per-command seconds, native minimum900 (default:300)")
     result.add_argument("--log-dir", help="dedicated output directory; default tests/results/runs/<UTC>-<tier>-<pid>")
     result.add_argument("--list", action="store_true", help="print modules, focused profiles and native inventory without building/running")
@@ -385,16 +423,22 @@ def main(argv=None):
             print(f"Affected {name}: layout {start}–{end-1} ({end-start} stages)")
         for name, stages, frames, _ in NATIVE:
             print(f"Full {name}: {stages} stages, {frames} frame timeout")
-        print(f"Full total: {sum(row[1] for row in NATIVE)} application stages +107 GPU checks; NYC8 optional unless --require-data")
+        print(f"Full total: {sum(row[1] for row in NATIVE)} application stages +110 GPU checks; NYC8 optional unless --require-data")
         return 0
     if args.tier == "affected" and not args.feature:
         argument_parser.error("affected requires --feature (see --list)")
     if args.tier == "full" and args.modules:
         argument_parser.error("full does not accept --modules")
+    if args.tier == "native" and (not args.scenario or args.modules):
+        argument_parser.error("native requires --scenario and does not accept --modules")
+    if args.scenario and args.tier != "native":
+        argument_parser.error("--scenario applies only to native")
     if args.feature and args.tier != "affected":
         argument_parser.error("--feature applies only to affected")
-    if args.require_data and args.tier != "full":
-        argument_parser.error("--require-data applies only to full")
+    if args.require_data and args.tier not in ("native", "full"):
+        argument_parser.error("--require-data applies only to native/full")
+    if args.visible and args.tier == "fast":
+        argument_parser.error("--visible applies only to affected/native/full")
     if args.timeout <= 0:
         argument_parser.error("--timeout must be positive")
     return Runner(args).run()
