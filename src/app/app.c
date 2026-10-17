@@ -382,6 +382,7 @@ static void review_sheet_row(App *a,size_t sheet,const char *label,Rectangle bou
 static void review_sheet_scroll(App *a,Rectangle track,Rectangle thumb,Rectangle clip,bool dragging,const char *file,int line);
 static void review_sheet_choice(App *a,const char *kind,const char *key,const char *action,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,size_t sheet,const char *file,int line);
 static void review_relation_choice(App *a,const Relation *relation,size_t index,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line);
+static void review_sort(App *a,const SortReviewFrame *frame);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -403,6 +404,8 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_SHEET_SCROLL(a,track,thumb,clip,dragging) review_sheet_scroll(a,track,thumb,clip,dragging,__FILE__,__LINE__)
 #define REVIEW_SHEET_CHOICE(a,kind,key,action,label,bounds,clip,enabled,checked,focused,sheet) review_sheet_choice(a,kind,key,action,label,bounds,clip,enabled,checked,focused,sheet,__FILE__,__LINE__)
 #define REVIEW_RELATION_CHOICE(a,relation,index,bounds,clip,checked,focused) review_relation_choice(a,relation,index,bounds,clip,checked,focused,__FILE__,__LINE__)
+#define REVIEW_SORT_ARM(a) ((a)->sort_editor.review.armed=review_armed(a))
+#define REVIEW_SORT(a) review_sort(a,&(a)->sort_editor.review)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -422,6 +425,8 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_SHEET_SCROLL(...) ((void)0)
 #define REVIEW_SHEET_CHOICE(...) ((void)0)
 #define REVIEW_RELATION_CHOICE(...) ((void)0)
+#define REVIEW_SORT_ARM(...) ((void)0)
+#define REVIEW_SORT(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -5134,7 +5139,15 @@ static void draw_modal(App *a) {
     if (a->modal==MODAL_RIBBON) { draw_ribbon_menu(a); return; }
     if (a->modal==MODAL_SHEET || a->modal==MODAL_RENAME || a->modal==MODAL_UNHIDE) { draw_sheet_modal(a); return; }
     if (a->modal==MODAL_FIELD_NAV) { draw_field_menu(a); return; }
-    if (a->modal==MODAL_SORT) { Page *page=a->sort_object>=0 ? &a->objects[a->sort_object].page : &a->page; SortResult result=sort_editor_draw(&a->sort_editor,&a->ui,page); if (result==SORT_APPLY) apply_sort_order(a,&a->sort_editor.draft); else if (result==SORT_CANCEL) { a->modal=MODAL_NONE; a->sort_object=-1; } return; }
+    if (a->modal==MODAL_SORT) {
+        Page *page=a->sort_object>=0 ? &a->objects[a->sort_object].page : &a->page;
+        REVIEW_SORT_ARM(a);
+        SortResult result=sort_editor_draw(&a->sort_editor,&a->ui,page);
+        REVIEW_SORT(a);
+        if (result==SORT_APPLY) apply_sort_order(a,&a->sort_editor.draft);
+        else if (result==SORT_CANCEL) { a->modal=MODAL_NONE; a->sort_object=-1; }
+        return;
+    }
     if (a->modal==MODAL_FILTER) { draw_filter(a); return; }
     if (a->modal==MODAL_CELL) { draw_cell_editor(a); return; }
     if (a->modal==MODAL_WIDTH) { draw_column_width(a); return; }
@@ -10689,7 +10702,10 @@ static void statistics_smoke_step(App *a,int *step) {
     case 28:
         if (a->modal!=MODAL_STATISTICS || !a->statistics_frame || a->request_id!=request || strcmp(statistics_scope(a),"Matrix frame")) goto failed;
         smoke_snapshot("tests/results/selection-statistics/matrix-frame.png"); a->modal=MODAL_NONE;
-        { SheetObject *o=&active_sheet(a)->objects.items[0]; grid_select_cell(&a->grid,o->row+2,o->col,false); matrix_key(a,o,&a->objects[0].page,KEY_RIGHT,true); }
+        { SheetObject *o=&active_sheet(a)->objects.items[0]; grid_select_cell(&a->grid,o->row+2,o->col,false);
+          matrix_key(a,o,&a->objects[0].page,KEY_HOME,false);
+          if (!a->matrix_cells_active || a->grid.row!=o->row+2 || a->grid.col!=o->col || a->grid.end_col!=o->col) goto failed;
+          matrix_key(a,o,&a->objects[0].page,KEY_RIGHT,true); }
         watch_statistics(a); if (a->statistics_frame || a->statistics_state!=STATS_WAITING) goto failed; break;
     case 29:
         if (a->statistics_state!=STATS_READY) return;
@@ -12553,7 +12569,10 @@ bool app_frame(AppSession *session) {
     /* A terminal stage runs after drawing. Render its final state once
        before exiting, and never let one enabled scenario end another.
        Document Quit still exits through exit_ready after save publication. */
-    if (options->layout_smoke && session->layout_smoke<0) goto finished;
+    /* An assertion failure is terminal too. Keep normal cleanup/diagnostics,
+       rather than drawing until the entire failure frame budget expires. */
+    for (size_t i=0;i<sizeof(completions)/sizeof(*completions);i++)
+        if (completions[i].enabled && *completions[i].stage<0) goto finished;
     bool complete=smoke_stages_complete(completions,sizeof(completions)/sizeof(*completions));
     if (complete && session->smoke_pass_seen && smoke_work_idle(a)) goto finished;
     session->smoke_pass_seen=complete;

@@ -565,8 +565,31 @@ static void review_filter(App *a) {
     }
 #undef FILTER_ITEM
 }
+static void review_statistics(App *a) {
+    if (!review_armed(a) || a->file_menu || (a->modal!=MODAL_NONE && a->modal!=MODAL_STATISTICS)) return;
+    const StatsKey *key=&a->statistics_key; const SelectionStats *stats=&a->statistics;
+    char state[768];
+    snprintf(state,sizeof(state)," stats_state=%d stats_request=%llu stats_object=%d stats_cells=%llu stats_key=%llu,%llu,%zu,%zu,%llu,%zu,%d stats_counts=%llu,%llu,%llu,%llu stats_flags=%d,%d,%d,%d stats_error=%d",
+        a->statistics_state,(unsigned long long)a->statistics_request,a->statistics_object,(unsigned long long)a->statistics_cells,
+        (unsigned long long)key->r0,(unsigned long long)key->r1,key->c0,key->c1,(unsigned long long)key->source_revision,key->sheet,key->active,
+        (unsigned long long)stats->cells,(unsigned long long)stats->filled,(unsigned long long)stats->numeric,(unsigned long long)stats->distinct,
+        stats->approximate,stats->non_finite,stats->sum_overflow,stats->average_overflow,a->statistics_error!=NULL);
+    review_author_capture_state(a,state);
+    const char *names[]={"sum","average","minimum","maximum"},*values[]={stats->sum,stats->average,stats->minimum,stats->maximum};
+    for (size_t i=0;i<4;i++) {
+        const char *raw=values[i]; char encoded[129]="-"; size_t n=0;
+        if (raw && *raw) {
+            static const char hex[]="0123456789abcdef";
+            for (;n<64 && raw[n];n++) { unsigned char ch=(unsigned char)raw[n]; encoded[2*n]=hex[ch>>4]; encoded[2*n+1]=hex[ch&15]; }
+            encoded[2*n]=0;
+        }
+        snprintf(state,sizeof(state)," stats_%s_null=%d stats_%s_hex=%s stats_%s_truncated=%d",names[i],!raw,names[i],encoded,names[i],raw && raw[n]);
+        review_author_capture_state(a,state);
+    }
+}
 static void review_grid(App *a) {
     if (!review_armed(a)) return;
+    review_statistics(a);
     /* Existing cached analytical state, owned by both captured frames. Layout
        is read after this frame's draw; no SQL, heap work or test controller. */
     Worksheet *sheet=active_sheet(a); SheetObject *object=selected_object(a); ObjectView *view=object ? &a->objects[a->selected_object] : NULL;
