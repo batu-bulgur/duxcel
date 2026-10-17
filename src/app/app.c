@@ -1941,6 +1941,7 @@ static void begin_values(App *a) {
 }
 static void set_filter_mode(App *a,int mode) {
     /* Control-Tab traverses the two regions without replacing either predicate. */
+    a->filter_condition_menu=false;
     a->filter_mode=mode; a->filter_focus=mode ? 6 : 3;
 }
 static void open_pivot_filter(App *a,size_t index) {
@@ -6840,6 +6841,7 @@ static void filter_smoke_step(App *a,int *step) {
     if (a->fetch_failed || a->values_failed) goto failed;
     static uint64_t request;
     static int date_condition_phase,numeric_condition_phase,narrow_condition_phase;
+    static int condition_mode;
     static uint64_t condition_request; static Cell *condition_cells; static size_t condition_history;
     DistinctPage *d=a->modal==MODAL_FILTER ? cached_values(a,0) : NULL;
     switch (*step) {
@@ -6985,6 +6987,7 @@ static void filter_smoke_step(App *a,int *step) {
             if (!menu.valid || menu.row_height!=26 || menu.panel.width!=a->filter_layout.condition.width || a->filter_condition_index || a->filter_layout.condition.height!=25) goto failed;
             condition_request=a->request_id; condition_cells=a->page.cells; condition_history=active_sheet(a)->undo_actions_count;
             smoke_snapshot("tests/results/filter-keyboard/compact-condition-menu.png");
+            condition_mode=a->filter_mode;
             filter_test_key=KEY_TAB; filter_test_modifiers=DX_MOD_SHIFT; numeric_condition_phase=1; return;
         }
         if (a->request_id!=condition_request || a->page.cells!=condition_cells || active_sheet(a)->undo_actions_count!=condition_history || a->filter_condition_enabled) goto failed;
@@ -7003,6 +7006,18 @@ static void filter_smoke_step(App *a,int *step) {
         if (numeric_condition_phase==4) {
             if (a->filter_condition_menu || a->filter_focus!=6) goto failed;
             filter_test_key=KEY_ENTER; numeric_condition_phase=5; return;
+        }
+        if (numeric_condition_phase==5) {
+            if (!a->filter_condition_menu || a->filter_condition_index || a->filter_focus!=6) goto failed;
+            filter_test_key=KEY_TAB; filter_test_modifiers=DX_MOD_CONTROL; numeric_condition_phase=6; return;
+        }
+        if (numeric_condition_phase==6) {
+            if (a->filter_condition_menu || a->filter_mode==condition_mode || a->filter_focus!=(condition_mode ? 3 : 6)) goto failed;
+            filter_test_key=KEY_TAB; filter_test_modifiers=DX_MOD_CONTROL; numeric_condition_phase=7; return;
+        }
+        if (numeric_condition_phase==7) {
+            if (a->filter_condition_menu || a->filter_mode!=condition_mode || a->filter_focus!=(condition_mode ? 6 : 3)) goto failed;
+            a->filter_focus=6; filter_test_key=KEY_SPACE; numeric_condition_phase=8; return;
         }
         if (!a->filter_condition_menu || a->filter_condition_index || a->filter_focus!=6) goto failed;
         break;
