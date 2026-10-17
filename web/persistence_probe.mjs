@@ -168,6 +168,9 @@ export async function runPersistenceProbe(input={}){
             metadata=await readMetadata('native_fixture');return {readOnlyWriteRejected:true,...metadata};
         });
         await step('create-compatible-file-from-native-metadata-ddl',async()=>{
+            // An explicit BUFFER registration keeps the newly created database
+            // in the official exportable file registry after DETACH.
+            await adapter.database.registerEmptyFileBuffer(EXPORT_FILE);
             await query(`ATTACH '${EXPORT_FILE}' AS browser_export (STORAGE_VERSION 'v1.0.0')`);
             await query('CREATE SCHEMA browser_export._duxcel_workspace');
             await query('BEGIN TRANSACTION');
