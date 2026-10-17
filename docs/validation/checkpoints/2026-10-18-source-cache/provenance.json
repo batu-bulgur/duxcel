@@ -1,0 +1,30 @@
+{
+  "source": "266665c7a2d13ea181a8db4d4dadf5382433bc83",
+  "files": [
+    {
+      "source": "tests/results/runs/20261017T235053-affected-24075/summary.json",
+      "file": "summary.json",
+      "sha256": "36fa702a19eaceccf392d6d5e13571d9821b409c0ca96ecf69607509f0820f82"
+    },
+    {
+      "source": "tests/results/runs/20261017T235053-affected-24075/layout-source-cache.txt",
+      "file": "layout-source-cache.txt",
+      "sha256": "0ec6a80d4a2b221913b0c41f0353e6b94a3f8d4a319c272bd28d333eb2d2685d"
+    },
+    {
+      "source": "tests/results/runs/20261017T235053-affected-24075/background-sanitize.txt",
+      "file": "background-sanitize.txt",
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226"
+    },
+    {
+      "source": "tests/results/runs/20261017T235053-affected-24075/selection_ladder-sanitize.txt",
+      "file": "selection_ladder-sanitize.txt",
+      "sha256": "6bb739b1f11a3b6a8bed41d55c474cb29468285358b5a7af5446fefbe1516f0a"
+    },
+    {
+      "source": "tests/results/runs/20261017T235053-affected-24075/final.png",
+      "file": "final.png",
+      "sha256": "8de94085f488f01e394541e0a383078d30dd856372ff8534f98757885fb8f3ef"
+    }
+  ]
+}

@@ -291,3 +291,5 @@ make tests/test_workbook tests/test_workbook-debug
 ```
 
 The browser profile builds its real source/Table/Pivot/manual fixture, uses actual metric checkboxes before a zero-job selection baseline, and tests trusted Control and Meta input. Its stored bounds are zero-based model coordinates; source-header displayed rows have an additional header row. The source-version model mode uses private focused save fixtures, not the full core/workbook data suite. It does not activate record styles or implement v14 persistence.
+
+The `source-cache` affected profile extends that independent selection bootstrap through[687,716),29 stages. Run `python3 tools/test.py affected --feature source-cache --modules selection_ladder --config sanitize`. It verifies successful cache retirement and failed64-sheet-open preservation using actual source results and a valid deep workbook snapshot. [Acceptance](validation/checkpoints/2026-10-18-source-cache/) is hidden and does not operate an OS file panel.
