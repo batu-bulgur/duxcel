@@ -477,15 +477,20 @@ static void review_native_command(App *a,DxCommand command) {
    input/controller routes as other App scenarios and private outbox fixtures. */
 #ifndef DUXCEL_BROWSER_HOST
 #define REVIEW_AUTHOR_CASES 14
-#define REVIEW_SMOKE_STAGES (71+REVIEW_AUTHOR_CASES*5)
+#define REVIEW_AUTHOR_END (71+REVIEW_AUTHOR_CASES*5)
+#define REVIEW_DIALOG_END (REVIEW_AUTHOR_END+5*6)
+#define REVIEW_SMOKE_STAGES (REVIEW_DIALOG_END+5)
 typedef struct {
     int stage; unsigned note_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
     Modal choice_modal; int choice_focus,choice_ribbon_mode; float choice_scale,choice_row_height; uint64_t choice_formats;
     Analysis author_source; PivotDefinition author_pivot; MarkDefinition author_marks; bool author_owned;
     uint64_t author_revision,author_title_revision,author_marks_revision; size_t author_count; int author_selected;
+    uint64_t author_rows; size_t author_columns; ObjectKind author_kind; ChartMark author_mark; char *author_name;
     Cell *author_page; int author_field,author_field_focus,author_drag_field,author_drag_role,author_drag_index,author_mark_role;
     char author_target[128];
+    char *dialog_text,*dialog_chart_text; size_t dialog_cursor,dialog_anchor,dialog_chart_cursor,dialog_chart_anchor;
+    uint64_t dialog_revision,dialog_chart_revision; int dialog_focus; DocumentAction dialog_action;
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -585,13 +590,18 @@ static bool review_smoke_pivot_same(const PivotDefinition *left,const PivotDefin
     }
     return true;
 }
+static void review_smoke_author_release(ReviewSmoke *t) {
+    if (t->author_owned) { analysis_free(&t->author_source); pivot_free(&t->author_pivot); marks_free(&t->author_marks); free(t->author_name); t->author_name=NULL; t->author_owned=false; }
+    free(t->dialog_text); t->dialog_text=NULL; free(t->dialog_chart_text); t->dialog_chart_text=NULL;
+}
 static void review_smoke_author_remember(App *a,ReviewSmoke *t) {
-    review_smoke_choice_remember(a,t);
-    if (t->author_owned) { analysis_free(&t->author_source); pivot_free(&t->author_pivot); marks_free(&t->author_marks); }
+    review_smoke_choice_remember(a,t); review_smoke_author_release(t);
     t->author_owned=true; t->author_source=analysis_copy(&a->analysis);
     SheetObject *object=selected_object(a); t->author_pivot=object ? pivot_copy(&object->pivot) : (PivotDefinition){0}; t->author_marks=object ? marks_copy(&object->marks) : (MarkDefinition){0};
     t->author_selected=a->selected_object; t->author_count=active_sheet(a)->objects.count; t->author_revision=object ? object->revision : 0;
     t->author_title_revision=active_sheet(a)->objects.title_revision; t->author_marks_revision=active_sheet(a)->objects.marks_revision;
+    t->author_rows=object ? object->rows : 0; t->author_columns=object ? object->columns : 0; t->author_kind=object ? object->kind : OBJECT_PIVOT;
+    t->author_mark=object ? object->mark : MARK_BAR; t->author_name=object ? dx_strdup(object->name) : NULL;
     t->author_page=object ? a->objects[a->selected_object].page.cells : NULL;
     t->author_field=a->pivot_field; t->author_field_focus=a->field_menu_focus;
     t->author_drag_field=a->pivot_drag_field; t->author_drag_role=a->pivot_drag_role; t->author_drag_index=a->pivot_drag_index; t->author_mark_role=a->mark_role;
@@ -600,7 +610,7 @@ static bool review_smoke_author_same(App *a,ReviewSmoke *t) {
     SheetObject *object=selected_object(a);
     return review_smoke_choice_same(a,t) && analysis_same_result(&a->analysis,&t->author_source) && analysis_sorts_equal(&a->analysis,&t->author_source) &&
         a->selected_object==t->author_selected && active_sheet(a)->objects.count==t->author_count && active_sheet(a)->objects.title_revision==t->author_title_revision && active_sheet(a)->objects.marks_revision==t->author_marks_revision &&
-        (!object || (object->revision==t->author_revision && a->objects[a->selected_object].page.cells==t->author_page && review_smoke_pivot_same(&object->pivot,&t->author_pivot) && marks_equal(&object->marks,&t->author_marks))) &&
+        (!object || (object->revision==t->author_revision && object->kind==t->author_kind && object->mark==t->author_mark && object->rows==t->author_rows && object->columns==t->author_columns && review_smoke_text_same(object->name,t->author_name) && a->objects[a->selected_object].page.cells==t->author_page && review_smoke_pivot_same(&object->pivot,&t->author_pivot) && marks_equal(&object->marks,&t->author_marks))) &&
         a->pivot_field==t->author_field && a->field_menu_focus==t->author_field_focus && a->pivot_drag_field==t->author_drag_field && a->pivot_drag_role==t->author_drag_role && a->pivot_drag_index==t->author_drag_index && a->mark_role==t->author_mark_role;
 }
 static bool review_smoke_author_targets(App *a,const char *kind,const char *target,ReviewSmoke *t) {
@@ -620,11 +630,11 @@ static bool review_smoke_author_targets(App *a,const char *kind,const char *targ
         if (visible.width<=0 || visible.height<=0) continue;
         float x=visible.x+visible.width*.5f,y=visible.y+visible.height*.5f;
         if (!dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,w->id) || !dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTAINER,&picked) || strcmp(picked.widget.id,parent)) return false;
-        rows++; if ((!target && !chosen) || (target && (strstr(w->id,target) || !strcmp(w->label,target)))) chosen=w;
+        rows++; if ((!target && !chosen) || (target && (strstr(w->id,target) || strstr(w->label,target)))) chosen=w;
     }
     static const size_t expected[]={6,6,8,9,5,7,4,7,4,6,6,3,1,4};
-    size_t item=(size_t)(t->stage-71)/5;
-    if (item>=sizeof(expected)/sizeof(*expected) || rows!=expected[item] || !chosen || !strstr(a->review->frame.state_text," author_count=") || strstr(a->review->frame.state_text," author_overflow=1")) return false;
+    bool extra_plot=t->stage>=REVIEW_DIALOG_END; size_t item=extra_plot ? 12 : (size_t)(t->stage-71)/5;
+    if (item>=sizeof(expected)/sizeof(*expected) || rows!=(extra_plot ? 2 : expected[item]) || !chosen || !strstr(a->review->frame.state_text," author_count=") || strstr(a->review->frame.state_text," author_overflow=1")) return false;
     if (item==7) {
         const DxReviewWidget *earlier=dx_review_find(registry,"author.pivot_field.action.move_earlier"),*later=dx_review_find(registry,"author.pivot_field.action.move_later");
         if (!earlier || !later || earlier->enabled || later->enabled) return false;
@@ -633,7 +643,7 @@ static bool review_smoke_author_targets(App *a,const char *kind,const char *targ
         const DxReviewWidget *sum=dx_review_find(registry,"author.pivot_field.action.aggregate.sum"),*remove=dx_review_find(registry,"author.pivot_field.action.remove");
         if (!sum || !sum->checked || !remove || remove->enabled) return false;
     }
-    if ((item==11 || item==12 || item==13) && !chosen->checked) return false;
+    if (extra_plot ? chosen->checked : ((item==11 || item==12 || item==13) && !chosen->checked)) return false;
     snprintf(t->author_target,sizeof(t->author_target),"%s",chosen->id);
     return true;
 }
@@ -699,11 +709,123 @@ static int review_smoke_author_tick(App *a,ReviewSmoke *t) {
     if (!review_smoke_author_same(a,t)) return -1;
     printf("PASS: native authoring review kind=%s case=%d retains definitions, focus, owned pages, history and query jobs\n",kinds[item],item);
     a->modal=MODAL_NONE; a->pivot_drag_field=a->pivot_drag_role=-1; a->pivot_search_focus=false;
-    if (item==REVIEW_AUTHOR_CASES-1) {
-        analysis_free(&t->author_source); pivot_free(&t->author_pivot); marks_free(&t->author_marks); t->author_owned=false;
-        printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES);
-    }
+    review_smoke_author_release(t);
     return 1;
+}
+static int review_smoke_dialog_focus(App *a,int item) {
+    return item==0 ? a->width_focus : item==1 ? a->range_move_focus : item==2 ? a->object_name_focus : item==3 ? a->chart_size_focus : a->document_focus;
+}
+static void review_smoke_dialog_remember(App *a,ReviewSmoke *t,int item) {
+    review_smoke_author_remember(a,t);
+    t->dialog_text=dx_strdup(a->input.text ? a->input.text : ""); t->dialog_chart_text=dx_strdup(a->chart_columns.text ? a->chart_columns.text : "");
+    t->dialog_cursor=a->input.cursor; t->dialog_anchor=a->input.anchor; t->dialog_revision=a->input.revision;
+    t->dialog_chart_cursor=a->chart_columns.cursor; t->dialog_chart_anchor=a->chart_columns.anchor; t->dialog_chart_revision=a->chart_columns.revision;
+    t->dialog_focus=review_smoke_dialog_focus(a,item); t->dialog_action=a->document_action;
+}
+static bool review_smoke_dialog_same(App *a,ReviewSmoke *t,int item,bool pending) {
+    return review_smoke_author_same(a,t) && !strcmp(a->input.text ? a->input.text : "",t->dialog_text) && !strcmp(a->chart_columns.text ? a->chart_columns.text : "",t->dialog_chart_text) &&
+        a->input.cursor==t->dialog_cursor && a->input.anchor==t->dialog_anchor && a->input.revision==t->dialog_revision &&
+        a->chart_columns.cursor==t->dialog_chart_cursor && a->chart_columns.anchor==t->dialog_chart_anchor && a->chart_columns.revision==t->dialog_chart_revision &&
+        review_smoke_dialog_focus(a,item)==t->dialog_focus && a->document_action==(pending ? t->dialog_action : DOCUMENT_NONE) && !a->window_closed && !a->exit_ready;
+}
+static bool review_smoke_dialog_targets(App *a,ReviewSmoke *t,const char *kind,int item) {
+    DxReviewRegistry *registry=a->review->registry; DxReviewTarget picked; char parent[128],id[128]; snprintf(parent,sizeof(parent),"author.%s",kind);
+    const DxReviewWidget *dialog=dx_review_find(registry,parent);
+    if (!dialog || strcmp(dialog->role,"dialog") || !dialog->container || dialog->input_eligible || registry->duplicate_count || registry->invalid_count || registry->overflow_count) return false;
+    float x=2*a->ui.scale,y=GetScreenHeight()*.5f; snprintf(id,sizeof(id),"%s.backdrop.background",parent);
+    if (!dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id)) return false;
+    snprintf(id,sizeof(id),"%s.backdrop",parent);
+    if (!dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTAINER,&picked) || strcmp(picked.widget.id,id)) return false;
+    snprintf(id,sizeof(id),"%s.heading",parent); const DxReviewWidget *heading=dx_review_find(registry,id);
+    if (!heading || heading->input_eligible || !dx_review_pick(registry,heading->bounds.x+heading->bounds.width*.5f,heading->bounds.y+heading->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id)) return false;
+    size_t rows=0;
+    for (size_t i=0;i<registry->count;i++) {
+        const DxReviewWidget *w=&registry->widgets[i]; if (strcmp(w->parent_id,parent) || !strstr(w->id,".action.")) continue;
+        if (w->input_eligible!=w->enabled || w->layer<=dialog->layer || w->bounds.x<dialog->bounds.x || w->bounds.y<dialog->bounds.y || w->bounds.x+w->bounds.width>dialog->bounds.x+dialog->bounds.width || w->bounds.y+w->bounds.height>dialog->bounds.y+dialog->bounds.height) return false;
+        x=w->bounds.x+w->bounds.width*.5f; y=w->bounds.y+w->bounds.height*.5f;
+        if (!dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,w->id) || !dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTAINER,&picked) || strcmp(picked.widget.id,parent)) return false;
+        if (!strcmp(w->role,"textbox")) {
+            const char *text=item==3 && strstr(w->id,".columns") ? t->dialog_chart_text : t->dialog_text;
+            if (!w->value.present || w->value.is_null || strcmp(w->value.type,"VARCHAR") || strcmp(w->value.exact_text,text) || w->value.truncated) return false;
+        }
+        rows++;
+    }
+    if (rows!=(item==3 ? 4 : 3) || strstr(a->review->frame.state_text," author_overflow=1")) return false;
+    const char *keys[]={"width","destination","name","rows","save"}; snprintf(t->author_target,sizeof(t->author_target),"%s.action.%s",parent,keys[item]);
+    return dx_review_find(registry,t->author_target)!=NULL;
+}
+static int review_smoke_dialog_tick(App *a,ReviewSmoke *t) {
+    static const char *const kinds[]={"column_width","move_range","object_name","chart_size","unsaved"};
+    int item=(t->stage-REVIEW_AUTHOR_END)/6,phase=(t->stage-REVIEW_AUTHOR_END)%6; DxReviewCapture *r=a->review;
+    float scale=item==0 || item==2 ? 1 : 1.5f;
+    if (phase==0) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        a->modal=MODAL_NONE; a->consume_grid_input=true; a->pivot_drag_field=a->pivot_drag_role=-1;
+        ui_set_scale(&a->ui,scale); SetWindowSize(scale==1 ? 1280 : 760,scale==1 ? 820 : 640);
+        if (item==0) { a->selected_object=-1; grid_select_cell(&a->grid,20,8,false); column_action(a,COLUMN_WIDTH); input_set(&a->input,""); }
+        else if (item==1) { a->selected_object=-1; grid_select_cell(&a->grid,20,8,false); begin_move_range(a,false); input_set(&a->input,"AA101"); a->input.cursor=2; a->input.anchor=1; }
+        else if (item==2) { a->selected_object=0; begin_object_name(a); input_set(&a->input,"NULL"); a->input.cursor=4; a->input.anchor=1; }
+        else if (item==3) {
+            a->selected_object=0; if (!set_representation(a,1)) return -1; begin_chart_size(a);
+            input_set(&a->chart_columns,"6"); input_set(&a->input,"12"); a->chart_columns.cursor=1; a->chart_columns.anchor=0; a->input.cursor=2; a->input.anchor=1; a->chart_size_focus=1;
+        } else { a->book.dirty=true; request_document_action(a,DOCUMENT_CLOSE,NULL); a->document_focus=2; }
+        return a->modal==MODAL_NONE ? -1 : 1;
+    }
+    if (phase==1) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || a->ui.scale!=scale || !review_can_capture(a)) return 0;
+        review_smoke_dialog_remember(a,t,item); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        if (!review_smoke_dialog_same(a,t,item,true) || !review_smoke_dialog_targets(a,t,kinds[item],item)) return -1;
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==3) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || !review_smoke_dialog_same(a,t,item,true)) return -1;
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (phase==4) {
+        if (!review_smoke_dialog_same(a,t,item,true)) return -1;
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (a->modal!=MODAL_NONE) return -1;
+    t->choice_modal=MODAL_NONE;
+    if (!review_smoke_dialog_same(a,t,item,false)) return -1;
+    printf("PASS: native dialog review kind=%s ui_scale=%.1f retains draft text/cursor/anchor, modal ownership, models and jobs\n",kinds[item],scale);
+    review_smoke_author_release(t); return 1;
+}
+static int review_smoke_plot_identity_tick(App *a,ReviewSmoke *t) {
+    int phase=t->stage-REVIEW_DIALOG_END; DxReviewCapture *r=a->review;
+    if (phase==0) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        a->selected_object=0; SheetObject *object=selected_pivot(a); if (!object) return -1;
+        if (object->pivot.counts[PIVOT_VALUES]==1) {
+            PivotDefinition definition=pivot_copy(&object->pivot); char *error=NULL; bool ok=pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_AVG,&error); free(error);
+            if (!ok) { pivot_free(&definition); return -1; } if (!set_pivot_definition(a,&definition)) return -1; return 0;
+        }
+        if (object->pivot.counts[PIVOT_VALUES]!=2) return -1;
+        show_workspace(a); a->modal=MODAL_CHART_MEASURE; a->context_focus=a->context_scroll=0; a->pivot_focus=7; a->author_reveal=true; a->consume_grid_input=true; return 1;
+    }
+    if (phase==1) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || a->popup_presence.offset || a->popup_presence.alpha!=1 || !review_can_capture(a)) return 0;
+        review_smoke_author_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        if (!review_smoke_author_same(a,t) || !review_smoke_author_targets(a,"plot","AVG(",t)) return -1;
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==3) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || strcmp(r->target.widget.data.field,"Amount") || r->target.widget.checked || !review_smoke_author_same(a,t)) return -1;
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (!review_smoke_author_same(a,t)) return -1;
+    a->modal=MODAL_NONE; review_smoke_author_release(t);
+    printf("PASS: native Plot distinguishes SUM and AVG of the same raw field with separate semantic IDs and retained checked state\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); return 1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
@@ -712,7 +834,8 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         t->diagnostic_stage=t->stage;
     }
     if (t->stage>=71) {
-        int progress=review_smoke_author_tick(a,t); if (progress<0) goto failed; if (!progress) return;
+        int progress=t->stage>=REVIEW_DIALOG_END ? review_smoke_plot_identity_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
+        if (progress<0) goto failed; if (!progress) return;
         t->stage++; return;
     }
     switch (t->stage) {
@@ -1098,7 +1221,7 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
     }
     t->stage++; return;
 failed:
-    fprintf(stderr,"FAIL: native review stage=%d phase=%d target=%s error=%s\n",t->stage,(int)r->phase,r->target.widget.id,r->error); t->stage=-1;
+    fprintf(stderr,"FAIL: native review stage=%d phase=%d target=%s error=%s\n",t->stage,(int)r->phase,r->target.widget.id,r->error); review_smoke_author_release(t); t->stage=-1;
 }
 #endif
 static void review_group(App *a,int group,Rectangle bounds,bool overflow) {
