@@ -947,7 +947,7 @@ static void test_invalid_owner_package(void) {
     const char *invalid[]={
         "DROP TABLE _duxcel_workspace.object_counters", "DROP TABLE _duxcel_workspace.format_scopes", "DROP TABLE _duxcel_workspace.format_selectors", "DROP TABLE _duxcel_workspace.format_guards",
         "DROP TABLE _duxcel_workspace.format_scopes; CREATE VIEW _duxcel_workspace.format_scopes AS SELECT 0::INTEGER AS sheet_id,0::INTEGER AS scope_id,0::UBIGINT AS owner,0::INTEGER AS encoding,''::BLOB AS definition WHERE false",
-        "ALTER TABLE _duxcel_workspace.objects ALTER COLUMN id TYPE VARCHAR", "ALTER TABLE _duxcel_workspace.objects ALTER COLUMN source_id TYPE BIGINT",
+        "CREATE TABLE _duxcel_workspace.text_object_ids AS SELECT sheet_id,id::VARCHAR AS id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects; DROP TABLE _duxcel_workspace.objects; ALTER TABLE _duxcel_workspace.text_object_ids RENAME TO objects", "ALTER TABLE _duxcel_workspace.objects ALTER COLUMN source_id TYPE BIGINT",
         "ALTER TABLE _duxcel_workspace.meta ADD COLUMN unknown_feature INTEGER", "ALTER TABLE _duxcel_workspace.meta ALTER COLUMN version TYPE BIGINT",
         "ALTER TABLE _duxcel_workspace.format_scopes ADD COLUMN extra INTEGER", "ALTER TABLE _duxcel_workspace.object_counters ALTER COLUMN high_water TYPE BIGINT",
         "INSERT INTO _duxcel_workspace.format_scopes VALUES(0,0,0,0,'opaque'::BLOB)", "INSERT INTO _duxcel_workspace.format_guards VALUES(0,0,0,0)", "UPDATE _duxcel_workspace.format_selectors SET kind=1",
