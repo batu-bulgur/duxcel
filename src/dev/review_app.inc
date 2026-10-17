@@ -7,10 +7,13 @@
 #endif
 static DxReviewRect review_rect(Rectangle r) { return (DxReviewRect){r.x,r.y,r.width,r.height}; }
 static bool review_armed(App *a) { return a->review && a->review->phase==DX_REPORT_ARMED; }
+static void review_document_id(App *a,char output[128]) {
+    snprintf(output,128,"%s-document-%u",a->review->frame.session_id,a->review->document_serial);
+}
 static DxReviewDataIdentity review_scope(App *a) {
     DxReviewDataIdentity d={.present=true,.sheet_id=a->book.active+1,.schema_generation=a->field_schema_generation,.query_generation=a->analysis_revision,.source_id=0};
     snprintf(d.kind,sizeof(d.kind),"query-position");
-    snprintf(d.document_id,sizeof(d.document_id),"%s",a->review->frame.document_id);
+    review_document_id(a,d.document_id);
     return d;
 }
 static uint64_t review_sheet_order(App *a) {
@@ -49,7 +52,7 @@ static void review_begin_frame(App *a) {
     DxReviewFrame f={.frame_id=a->frames+1,.timestamp_ns=(uint64_t)(dx_millis()*1000000.0),.window_width=GetScreenWidth(),.window_height=GetScreenHeight(),.framebuffer_width=GetRenderWidth(),.framebuffer_height=GetRenderHeight(),.ui_scale=a->ui.scale,.grid_zoom=active_canvas_zoom(a)};
     Vector2 dpi=GetWindowScaleDPI(); f.dpi_x=dpi.x; f.dpi_y=dpi.y;
     /* Workbook identity is session-scoped, never a filesystem path or pointer. */
-    snprintf(f.document_id,sizeof(f.document_id),"%s-document-%u",a->review->frame.session_id,a->review->document_serial);
+    review_document_id(a,f.document_id);
     snprintf(f.fonts,sizeof(f.fonts),"%s; IBMPlexSans-Medium.otf; IBMPlexSans-SemiBold.otf; %s",getenv("DUXCEL_FONT") ? getenv("DUXCEL_FONT") : "IBMPlexSans-Regular.otf",getenv("DUXCEL_MONO_FONT") ? getenv("DUXCEL_MONO_FONT") : "JetBrainsMono-Regular.ttf");
     snprintf(f.state_text,sizeof(f.state_text),"sheet=%zu modal=%d ribbon=%d/%d focus=%d/%d/%d filter_field=%zu filter_focus=%d filter_menu=%d search_cursor=%zu search_anchor=%zu search_revision=%llu active=%llu,%zu anchor=%llu,%zu extent=%llu,%zu top=%llu horizontal=%.3f page=%llu/%zu spare=%llu/%zu source_revision=%llu schema=%llu request=%llu busy=%d io_busy=%d dirty=%d",a->book.active,(int)a->modal,a->ribbon_tab,a->ribbon_mode,a->chrome_focus,a->pivot_focus,a->ribbon_focus,a->field,a->filter_focus,a->filter_condition_menu,a->input.cursor,a->input.anchor,(unsigned long long)a->input.revision,(unsigned long long)a->grid.row,a->grid.col,(unsigned long long)a->grid.anchor_row,a->grid.anchor_col,(unsigned long long)a->grid.end_row,a->grid.end_col,(unsigned long long)a->grid.top,a->grid.horizontal,(unsigned long long)a->page.offset,a->page.row_count,(unsigned long long)a->spare.offset,a->spare.row_count,(unsigned long long)a->analysis_revision,(unsigned long long)a->field_schema_generation,(unsigned long long)a->request_id,a->busy,a->io_busy,a->book.dirty);
     size_t used=strlen(f.state_text);
@@ -225,7 +228,7 @@ static uint64_t review_field_hash(const char *text) {
 }
 static bool review_author_dialog(const char *kind) {
     return !strcmp(kind,"column_width") || !strcmp(kind,"move_range") || !strcmp(kind,"object_name") ||
-        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sort") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"cell_inspector") || !strcmp(kind,"settings");
+        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sort") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"cell_inspector") || !strcmp(kind,"settings") || !strcmp(kind,"generated_sql");
 }
 static bool review_author_field(char output[128],const char *field) {
     size_t length=strlen(field);
@@ -265,10 +268,40 @@ static void review_inspector_pin(App *a,const Page *page,const SheetObject *obje
     }
     a->inspector_origin=data; a->inspector_origin_valid=true; a->inspector_origin_stale=stale; a->inspector_origin_truncated=truncated;
 }
+/* SQL is an owned definition/result snapshot. A source inspector may restore
+   a selected Pivot afterwards, so only its producing controller pins origin. */
+static void review_sql_pin(App *a,const SheetObject *owner,bool cached) {
+    a->sql_origin=(DxReviewDataIdentity){0}; a->sql_origin_valid=a->sql_origin_stale=false;
+    if (!a->sql_text) return;
+    DxReviewDataIdentity data=review_scope(a); snprintf(data.kind,sizeof(data.kind),"generated-source-sql");
+    data.source_id=data.object_id=data.schema_generation=0; data.query_generation=a->analysis_revision;
+    data.has_cell=false; data.row=data.column=0; data.field[0]=0; bool stale=false;
+    if (owner) {
+        const ObjectStore *store=&active_sheet(a)->objects; const SheetObject *source=objects_source(store,owner);
+        data.object_id=owner->id; data.source_id=source ? source->id : 0; data.query_generation=owner->revision;
+        if (cached) {
+            snprintf(data.kind,sizeof(data.kind),"generated-result-sql"); stale=true;
+            for (size_t i=0;i<store->count;i++) if (&store->items[i]==owner) {
+                const ObjectView *view=&a->objects[i]; data.query_generation=view->revision; data.schema_generation=view->source_revision;
+                stale=view->dirty || view->failed || view->revision!=owner->revision || view->source_revision!=object_source_revision(a,owner); break;
+            }
+            if (stale) data.source_id=0;
+        } else if (owner->kind!=OBJECT_TABLE) {
+            snprintf(data.kind,sizeof(data.kind),owner->pivot.counts[PIVOT_VALUES] ? "generated-pivot-template-sql" : "generated-empty-pivot-sql");
+            data.schema_generation=object_source_revision(a,owner);
+        }
+    }
+    a->sql_origin=data; a->sql_origin_valid=true; a->sql_origin_stale=stale;
+}
 static const char *review_author_identity(App *a,const char *kind,char parent[128],DxReviewDataIdentity *data,bool *truncated) {
     SheetObject *object=selected_object(a); const char *field=NULL,*scope=NULL;
     static const char *const roles[]={"rows","columns","values","filters"};
     static const char *const marks[]={"color","size","label","detail","tooltip","shape"};
+    if (!strcmp(kind,"generated_sql")) {
+        if (a->sql_origin_valid) *data=a->sql_origin;
+        else { *data=review_scope(a); data->source_id=data->object_id=data->schema_generation=data->query_generation=0; data->has_cell=false; data->row=data->column=0; data->field[0]=0; snprintf(data->kind,sizeof(data->kind),"generated-unknown-sql"); }
+        snprintf(parent,128,"author.%s",kind); return NULL;
+    }
     if (!strcmp(kind,"settings")) {
         /* Application preferences do not target the selected worksheet/data. */
         *data=(DxReviewDataIdentity){0}; snprintf(data->kind,sizeof(data->kind),"app-settings");
@@ -490,6 +523,16 @@ static bool review_author_hex64(char output[129],const char *text) {
         for (int i=0;i<bytes;i++) { unsigned char ch=(unsigned char)text[used]; output[2*used]=hex[ch>>4]; output[2*used+1]=hex[ch&15]; used++; }
     }
     output[2*used]=0; return text[used]!=0;
+}
+static void review_sql_content(App *a,const char *sql,Rectangle bounds,Rectangle clip,int scroll,int lines,int visible,const char *file,int line) {
+    if (!review_armed(a)) return;
+    DxReviewWidget *widget=review_author_widget(a,"author.generated_sql.content","author.generated_sql","generated_sql","sql.inspect","region","Generated SQL",bounds,clip,131,true,false,false,false,NULL,file,line);
+    if (!widget) return;
+    dx_review_value_set(&widget->value,"VARCHAR",false,sql ? sql : ""); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated;
+    Rectangle shown=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height});
+    char text[129],state[640]; bool truncated=review_author_hex64(text,sql); const DxReviewDataIdentity *origin=&a->sql_origin;
+    snprintf(state,sizeof(state)," sql_content_rect=%.3f,%.3f,%.3f,%.3f sql_bytes=%zu sql_scroll=%d sql_lines=%d sql_visible=%d sql_origin_valid=%d sql_origin_stale=%d sql_origin=%llu,%llu,%llu,%llu,%llu sql_text_hex=%s sql_text_truncated=%d sql_value_truncated=%d",shown.x,shown.y,shown.width,shown.height,sql ? strlen(sql) : 0,scroll,lines,visible,a->sql_origin_valid,a->sql_origin_stale,(unsigned long long)origin->sheet_id,(unsigned long long)origin->object_id,(unsigned long long)origin->source_id,(unsigned long long)origin->schema_generation,(unsigned long long)origin->query_generation,text,truncated,widget->value.truncated);
+    review_author_capture_state(a,state);
 }
 static void review_inspector_value(App *a,Rectangle bounds,Rectangle clip,const char *file,int line) {
     if (!review_armed(a)) return;
