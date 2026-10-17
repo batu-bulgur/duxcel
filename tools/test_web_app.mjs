@@ -837,7 +837,9 @@ async function generatedSQLWheel(state,deltaY){
  const [x,y,w,h]=state.sql_content_rect.split(',').map(Number),point=await canvasPoint(x+w/2,y+h/2);
  await evaluate('globalThis.duxcelSQLWheelEvent=null;window.addEventListener("wheel",event=>{globalThis.duxcelSQLWheelEvent={trusted:event.isTrusted,canvas:event.target===document.querySelector("canvas"),deltaY:event.deltaY};},{once:true,capture:true});true');
  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});await send('Input.dispatchMouseEvent',{type:'mouseWheel',...point,deltaX:0,deltaY});await frames(3);
- const delivered=await evaluate('globalThis.duxcelSQLWheelEvent');check(delivered?.trusted&&delivered.canvas&&delivered.deltaY===deltaY,'Generated SQL wheel did not reach the actual canvas through trusted CDP input');
+ const delivered=await evaluate('globalThis.duxcelSQLWheelEvent');
+ await fs.writeFile(path.join(output,'generated-sql-wheel-delivery.json'),JSON.stringify({deltaY,point,delivered},null,2));
+ check(delivered?.trusted&&delivered.canvas&&delivered.deltaY===deltaY,'Generated SQL wheel did not reach the actual canvas through trusted CDP input');
  return{deltaY,point,delivered,state:await platformSnapshot()};
 }
 async function browserGeneratedSQL(foundation){
