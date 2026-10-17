@@ -308,19 +308,20 @@ static bool resolve_pivot_types(Database *db,Analysis *a,PivotDefinition *pivot,
     }
     return true;
 }
-/* Only the measured raw single-file Parquet path is connected initially.
-   CSV/demo windows remain an opt-in SQL capability until their cost and source
-   version policy are accepted. Unsupported optional identity never prevents
-   otherwise valid business data from loading. */
+/* Raw files use their original reader ordinal; the built-in demo has a stable
+   insertion order as well. CSV/demo number before filtering, while Parquet uses
+   its scan metadata to retain predicate pushdown. This is optional session
+   provenance, not a persisted source version or a format binding. */
 static RecordSQLStatus raw_record_sql(Database *db,Analysis *a,RecordSQL *out,char **error) {
-    if (a->kind!=SOURCE_PARQUET || a->query || a->unique_rows || a->group_column || !a->path) return RECORD_SQL_UNSUPPORTED;
-    struct stat file; if (stat(a->path,&file)!=0 || !S_ISREG(file.st_mode)) return RECORD_SQL_UNSUPPORTED;
+    bool file_source=a->kind==SOURCE_PARQUET || a->kind==SOURCE_CSV;
+    if ((!file_source && a->kind!=SOURCE_DEMO) || a->query || a->unique_rows || a->group_column) return RECORD_SQL_UNSUPPORTED;
+    if (file_source) { struct stat file; if (!a->path || strpbrk(a->path,"*?[]") || stat(a->path,&file)!=0 || !S_ISREG(file.st_mode)) return RECORD_SQL_UNSUPPORTED; }
     duckdb_prepared_statement schema=source_schema(db,a,false,error); if (!schema) return RECORD_SQL_INVALID;
     size_t count=(size_t)duckdb_prepared_statement_column_count(schema);
     if (!count || count>16384) return RECORD_SQL_UNSUPPORTED;
     char **names=dx_alloc(count*sizeof(*names));
     for (size_t i=0;i<count;i++) names[i]=(char *)duckdb_prepared_statement_column_name(schema,i);
-    RecordSQLStatus state=record_sql_build(out,a,(const char *const *)names,count,true,true,error);
+    RecordSQLStatus state=record_sql_build(out,a,(const char *const *)names,count,file_source,true,error);
     for (size_t i=0;i<count;i++) duckdb_free(names[i]); free(names);
     return state;
 }
@@ -389,7 +390,8 @@ static bool execute_page(Database *db,Analysis *a,uint64_t offset,duckdb_result 
         duckdb_prepared_statement stmt=NULL; db->page_prepares++;
         Analysis unbound={0}; bool prepared=prepare_analysis(db,&unbound,sql,&stmt,error); free(sql);
         if (!prepared) { free(base); free(key); record_sql_free(&records); return false; }
-        char *scope=state==RECORD_SQL_READY ? dx_printf("parquet-record-v1\n%s",db->schema_key[0]) : NULL;
+        const char *reader=a->kind==SOURCE_PARQUET ? "parquet" : a->kind==SOURCE_CSV ? "csv" : "demo";
+        char *scope=state==RECORD_SQL_READY ? dx_printf("%s-record-v1\n%s",reader,db->schema_key[0]) : NULL;
         page_cache_clear(db); db->page_statement=stmt; db->page_key=key; key=NULL;
         if (state==RECORD_SQL_READY) {
             db->page_record_alias=records.identity_name; records.identity_name=NULL;
