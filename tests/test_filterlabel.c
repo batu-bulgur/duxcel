@@ -92,9 +92,16 @@ static void test_bounds_and_invalid(void) {
         CHECK(!out.value_count && !out.has_null);
     }
     char malformed[]={'X',(char)0xff,(char)0xc0,(char)0x80,0}; ui_filter_label_set(&out,malformed,FILTER_EQUAL,malformed); CHECK(out.valid && utf8(out.text) && strstr(out.text,"�"));
-    size_t limit=4*1024*1024; char *large=dx_alloc(limit+2); memset(large,'x',limit); large[limit]=0;
+    size_t limit=8*1024*1024; char *large=dx_alloc(limit+2); memset(large,'x',limit); large[limit]=0;
     ui_filter_label_set(&out,"Large",FILTER_CONTAINS,large); CHECK(out.valid && out.truncated && utf8(out.text));
-    large[limit]='x'; ui_filter_label_set(&out,"Large",FILTER_CONTAINS,large); CHECK(!out.valid); free(large);
+    large[limit]='x'; ui_filter_label_set(&out,"Large",FILTER_CONTAINS,large); CHECK(!out.valid); large[limit]=0;
+    /* A legitimate view-filter payload can exceed the source-filter limit. */
+    large[5*1024*1024]=0; char *large_key[]={large}; char *large_json=analysis_values_json(large_key,1);
+    CHECK(strlen(large_json)>4*1024*1024 && strlen(large_json)<8*1024*1024);
+    ui_filter_label_set(&out,"Large view",FILTER_IN,large_json); CHECK(out.valid && out.truncated && out.value_count==1 && utf8(out.text));
+    Analysis source={0}; char *error=NULL;
+    CHECK(!analysis_filter_set(&source,"Large source",FILTER_IN,large_json,&error)); CHECK(error && !source.filter_column);
+    analysis_free(&source); free(error); free(large_json); free(large);
     char *keys[4097]; for (size_t i=0;i<4097;i++) keys[i]=i==4095 ? NULL : "x";
     char *json=analysis_values_json(keys,4096); ui_filter_label_set(&out,"Many",FILTER_IN,json); CHECK(out.valid && out.truncated && out.value_count==4096 && out.has_null && utf8(out.text)); free(json);
     json=analysis_values_json(keys,4097); ui_filter_label_set(&out,"Many",FILTER_IN,json); CHECK(!out.valid); free(json);

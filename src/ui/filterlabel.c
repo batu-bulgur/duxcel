@@ -134,9 +134,10 @@ void ui_filter_label_set(UIFilterLabel *out,const char *field,FilterOp op,const 
     UIFilterLabel next={0}; char name[161]={0},criteria[348]={0};
     Label prefix={name,sizeof(name),0,false},body={criteria,sizeof(criteria),0,false};
     text(&prefix,field && *field ? field : "Field"); finish(&prefix);
-    /* Match the persisted per-filter bound before calling shared parsers. */
-    size_t length=0; if (raw) while (length<=4*1024*1024 && raw[length]) length++;
-    next.valid=(unsigned)op<=FILTER_OP_MAX && length<=4*1024*1024;
+    /* Pivot payloads and the shared JSON parser allow 8 MiB. Source filters
+       retain their stricter 4 MiB validation upstream in Analysis. */
+    size_t length=0; if (raw) while (length<=8*1024*1024 && raw[length]) length++;
+    next.valid=(unsigned)op<=FILTER_OP_MAX && length<=8*1024*1024;
     if (next.valid && op==FILTER_COMPOSITE) {
         FilterOp list_op,condition_op; char *list_raw=NULL,*condition_raw=NULL;
         next.valid=analysis_filter_unpack(raw,&list_op,&list_raw,&condition_op,&condition_raw);
