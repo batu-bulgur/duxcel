@@ -610,7 +610,8 @@ static bool review_smoke_author_targets(App *a,const char *kind,const char *targ
     snprintf(id,sizeof(id),"%s.background",parent);
     if (!dx_review_pick(registry,menu->bounds.x+2*a->ui.scale,menu->bounds.y+2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id)) return false;
     snprintf(id,sizeof(id),"%s.heading",parent); const DxReviewWidget *heading=dx_review_find(registry,id);
-    if (!heading || heading->input_eligible || !dx_review_pick(registry,heading->bounds.x+heading->bounds.width*.5f,heading->bounds.y+heading->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id)) return false;
+    bool compact=!strcmp(kind,"representation") || !strcmp(kind,"plot");
+    if (compact ? heading!=NULL : (!heading || heading->input_eligible || !dx_review_pick(registry,heading->bounds.x+heading->bounds.width*.5f,heading->bounds.y+heading->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id))) return false;
     size_t rows=0; const DxReviewWidget *chosen=NULL;
     for (size_t i=0;i<registry->count;i++) {
         const DxReviewWidget *w=&registry->widgets[i]; if (strcmp(w->parent_id,parent) || !strstr(w->id,".action.")) continue;
