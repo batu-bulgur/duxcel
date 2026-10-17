@@ -3445,15 +3445,18 @@ static int review_smoke_feedback_tick(App *a,ReviewSmoke *t) {
             if (item==3 && !t->feedback_end_sent) { a->filter_focus=5; ui_note_key_press(KEY_END,0); t->feedback_end_sent=true; return 0; }
             if (item==3 && !a->values_scroll) return 0;
         }
-        uint64_t jobs=0,sql=0,counts=0,prepares=0,latest=0;
         if (item==2) {
             const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table); if (!table || !step_preview_start(&a->step_preview,source,0,table->id,table->revision,&a->grid)) goto failed;
             step_preview_presentation(&a->step_preview,context_fields(a),&a->grid,&active_sheet(a)->formats,table->col); watch_statistics(a);
-            dx_lock(&a->worker.mutex); jobs=a->worker.jobs_started; sql=a->worker.db.query_count; counts=a->worker.db.count_queries; prepares=a->worker.db.relation_prepares; latest=a->worker.latest_id; dx_unlock(&a->worker.mutex);
-            schedule_step_preview(a); if (!a->step_preview.loading || !a->busy || a->pending_kind!=JOB_STEP_PREVIEW) goto failed;
         }
+        /* Copy cache/model ownership and database counters while the worker is
+           idle. After submission only UI-owned pending fields are observed;
+           the worker's database counters are read again at its owned reply. */
         review_smoke_feedback_remember(a,t); t->query_complete=false; t->query_reply=NULL;
-        if (item==2) { t->query_jobs=jobs; t->query_sql=sql; t->query_counts=counts; t->query_prepares=prepares; t->query_latest=latest; }
+        if (item==2) {
+            schedule_step_preview(a); if (!a->step_preview.loading || !a->busy || a->pending_kind!=JOB_STEP_PREVIEW) goto failed;
+            t->request=a->request_id; t->feedback_preview=a->step_preview;
+        }
         ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
     }
     if (phase==1) {
