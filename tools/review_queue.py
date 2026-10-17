@@ -15,6 +15,7 @@ import shutil
 import sqlite3
 import stat
 import tempfile
+import threading
 import time
 
 import native_review as review
@@ -165,6 +166,10 @@ class ReviewQueue:
     def __init__(self, root, project_id):
         self.store = review.ReviewStore(root, project_id)
         self.root, self.project_id = self.store.root, self.store.project_id
+        self._sync_lock = threading.Lock()
+        # Only bounded file signatures, digest/kind or validation errors are cached;
+        # never retained PNG bytes, manifests or lifecycle snapshots.
+        self._validation_cache = {}
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.root.is_symlink() or not self.root.is_dir():
             raise review.ReviewError("Review queue root must be an ordinary directory")
@@ -235,8 +240,45 @@ class ReviewQueue:
         db.execute("UPDATE reports SET state='pending', updated=?, worker=NULL, token=NULL, lease_until=NULL, error='Lease expired; returned to queue' WHERE state='leased' AND lease_until<=?", (now, now))
         return recovered
 
+    def _signature(self, report_id):
+        """No-follow metadata for immutable evidence and the mutable lifecycle.
+
+        ctime catches content writes followed by restored mtime. A new report
+        directory also invalidates the cache even when filenames/mtime match.
+        Claims always perform full validation independently of this poll cache.
+        """
+        with self.store.bundle(report_id) as bundle:
+            directory = os.fstat(bundle.fd) if bundle.fd is not None else bundle.path.lstat()
+            result = [(directory.st_dev, directory.st_ino)]
+            for name, limit, optional in (("manifest.json", review.JSON_LIMIT, False),
+                                          ("frame.png", review.PNG_LIMIT, False),
+                                          ("browser.json", SIDECAR_LIMIT, True),
+                                          ("lifecycle.json", review.LIFECYCLE_LIMIT, True)):
+                try:
+                    info = os.stat(name, dir_fd=bundle.fd, follow_symlinks=False) if bundle.fd is not None else (bundle.path / name).lstat()
+                except FileNotFoundError:
+                    if not optional:
+                        raise
+                    result.append(None)
+                    continue
+                if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= limit:
+                    raise review.ReviewError("Report file is empty, non-regular or exceeds its byte limit")
+                result.append((info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns))
+            return tuple(result)
+
     def sync(self):
-        """Discover bounded complete bundles; hidden atomic-publish stages are ignored."""
+        """Discover bounded bundles without rereading unchanged images every poll."""
+        with self._sync_lock:
+            return self._sync()
+
+    def _sync(self):
+        # Take known database identities BEFORE scanning directory entries. A
+        # different queue process may publish and insert a report during this scan;
+        # it must not be invalidated merely because it was absent from our snapshot.
+        with self._db() as db:
+            known = {row[0] for row in db.execute("SELECT report_id FROM reports LIMIT ?", (review.REPORT_LIST_LIMIT + 1,))}
+        if len(known) > review.REPORT_LIST_LIMIT:
+            raise review.ReviewError("Review queue scan exceeds 1024 historical reports")
         names, valid, rejected = [], [], []
         with os.scandir(self.root) as entries:
             for entry in entries:
@@ -246,11 +288,36 @@ class ReviewQueue:
                     raise review.ReviewError("Review queue scan exceeds 1024 reports")
                 names.append(entry.name)
         for name in sorted(names):
+            signature = None
             try:
+                signature = self._signature(name)
+                cached = self._validation_cache.get(name)
+                if cached is not None and cached[0] == signature:
+                    _, digest, kind, error = cached
+                    if error is not None:
+                        rejected.append({"report_id": name, "error": error})
+                    else:
+                        valid.append((name, digest, kind))
+                    continue
                 report, digest = self._read(name)
-                valid.append((name, digest, "browser" if "browser" in report else "native"))
+                if self._signature(name) != signature:
+                    raise review.ReviewError("Review evidence changed during validation")
+                kind = "browser" if "browser" in report else "native"
+                self._validation_cache[name] = (signature, digest, kind, None)
+                valid.append((name, digest, kind))
             except (OSError, review.ReviewError) as error:
-                rejected.append({"report_id": name, "error": str(error)})
+                message = str(error).encode("utf-8", errors="replace")[:review.TEXT_LIMIT].decode("utf-8", errors="ignore")
+                rejected.append({"report_id": name, "error": message})
+                self._validation_cache.pop(name, None)
+                if signature is not None:
+                    # A malformed but unchanged completed bundle should not cause
+                    # repeated large reads either. Partial/missing files cost only
+                    # metadata probes, and are retried when publication completes.
+                    with contextlib.suppress(OSError, review.ReviewError):
+                        if self._signature(name) == signature:
+                            self._validation_cache[name] = (signature, None, None, message)
+        present = set(names)
+        self._validation_cache = {name: value for name, value in self._validation_cache.items() if name in present}
         added, now = [], time.time()
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -262,10 +329,8 @@ class ReviewQueue:
                     added.append(name)
                 elif row[0] != digest:
                     rejected.append({"report_id": name, "error": "Published immutable review evidence changed"})
-            present = set(names)
-            for row in db.execute("SELECT report_id FROM reports"):
-                if row[0] not in present:
-                    rejected.append({"report_id": row[0], "error": "Published review evidence is missing"})
+            for name in sorted(known - present):
+                rejected.append({"report_id": name, "error": "Published review evidence is missing"})
             for item in rejected:
                 db.execute("UPDATE reports SET state='invalid', updated=?, worker=NULL,token=NULL,lease_until=NULL,error=? WHERE report_id=?", (now, item["error"][:review.TEXT_LIMIT], item["report_id"]))
             db.commit()

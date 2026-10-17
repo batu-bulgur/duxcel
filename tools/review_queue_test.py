@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Persistent review queue/import tests; no browser, desktop or compiler."""
 import concurrent.futures
+import contextlib
 import hashlib
 import io
 import json
@@ -12,6 +13,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import threading
 import unittest
 from unittest import mock
 import zlib
@@ -363,6 +365,111 @@ class QueueTests(unittest.TestCase):
         with self.assertRaises(review.ReviewError):
             queue.ReviewQueue(self.root, "duxcel")
         self.assertEqual(target.read_bytes(), b"private")
+
+    def test_idle_sync_claim_and_listing_never_reread_unchanged_completed_png(self):
+        self.native()
+        self.queue.sync()
+        held = self.queue.claim("worker")
+        self.queue.finish("DXR-one", held["token"], result="triaged")
+        with mock.patch.object(review, "_png", side_effect=AssertionError("Idle polling reread PNG")):
+            for _ in range(8):
+                self.assertEqual(self.queue.sync()["rejected"], [])
+                self.assertIsNone(self.queue.claim("idle"))
+                self.assertEqual(self.queue.list()["reports"][0]["state"], "completed")
+        self.assertEqual(len(self.queue._validation_cache), 1)
+        self.assertEqual(len(self.queue._validation_cache["DXR-one"]), 4)
+
+    def test_unchanged_invalid_and_partial_reports_do_not_reread_large_files(self):
+        folder = self.native()
+        (folder / "frame.png").write_bytes(b"Malformed image")
+        partial = self.root / "DXR-partial"
+        partial.mkdir()
+        (partial / "manifest.json").write_bytes(files("DXR-partial")["manifest.json"])
+        with mock.patch.object(review, "_png", wraps=review._png) as decode:
+            first = self.queue.sync()
+            self.assertEqual(len(first["rejected"]), 2)
+            self.assertEqual(decode.call_count, 1)
+            for _ in range(8):
+                self.assertEqual(len(self.queue.sync()["rejected"]), 2)
+            self.assertEqual(decode.call_count, 1)
+            (folder / "frame.png").write_bytes(png())
+            (partial / "frame.png").write_bytes(png())
+            self.assertEqual(set(self.queue.sync()["added"]), {"DXR-one", "DXR-partial"})
+            self.assertEqual(decode.call_count, 3)
+
+    def test_cached_discovery_does_not_skip_full_claim_validation(self):
+        self.native()
+        self.queue.sync()
+        with mock.patch.object(review, "_png", wraps=review._png) as decode:
+            claim = self.queue.claim("worker")
+            self.assertEqual(decode.call_count, 1)
+            self.assertEqual(claim["report_id"], "DXR-one")
+
+    def test_lifecycle_signature_change_refreshes_validation_without_changing_evidence(self):
+        self.native()
+        self.queue.sync()
+        self.queue.store.update("DXR-one", "status", "human", design="needs-changes")
+        with mock.patch.object(review, "_png", wraps=review._png) as decode:
+            self.assertEqual(self.queue.sync()["rejected"], [])
+            self.assertEqual(decode.call_count, 1)
+            self.assertEqual(self.queue.sync()["rejected"], [])
+            self.assertEqual(decode.call_count, 1)
+        self.assertEqual(self.queue.claim("worker")["report"]["lifecycle"]["design"], "needs-changes")
+
+    def test_restoring_mtime_after_same_size_tampering_does_not_fool_cache(self):
+        folder = self.native()
+        self.queue.sync()
+        path = folder / "manifest.json"
+        old = path.stat()
+        contents = path.read_bytes()
+        changed = contents.replace(b"Native and browser", b"Mative and browser")
+        self.assertNotEqual(changed, contents)
+        self.assertEqual(len(changed), len(contents))
+        path.write_bytes(changed)
+        os.utime(path, ns=(old.st_atime_ns, old.st_mtime_ns))
+        self.assertNotEqual(path.stat().st_ctime_ns, old.st_ctime_ns)
+        rejected = self.queue.sync()["rejected"]
+        self.assertEqual(rejected[0]["report_id"], "DXR-one")
+        self.assertIn("changed", rejected[0]["error"])
+        self.assertIsNone(self.queue.claim("never"))
+
+    def test_concurrent_publication_during_scan_cannot_invalidate_new_queue_row(self):
+        scanned, published = threading.Event(), threading.Event()
+        original = os.scandir
+        result = []
+
+        @contextlib.contextmanager
+        def delayed_scandir(path):
+            with original(path) as entries:
+                snapshot = list(entries)
+            if threading.current_thread().name == "old-queue-scan":
+                scanned.set()
+                if not published.wait(5):
+                    raise AssertionError("Concurrent publisher did not complete")
+            yield iter(snapshot)
+
+        def old_scan():
+            try:
+                result.append(self.queue.sync())
+            except Exception as error:
+                result.append(error)
+
+        with mock.patch.object(queue.os, "scandir", delayed_scandir):
+            thread = threading.Thread(target=old_scan, name="old-queue-scan")
+            thread.start()
+            try:
+                self.assertTrue(scanned.wait(5))
+                publisher = queue.ReviewQueue(self.root, "duxcel")
+                self.assertFalse(publisher.import_archive(archive())["duplicate"])
+            finally:
+                published.set()
+                thread.join(5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(len(result), 1)
+        self.assertIsInstance(result[0], dict)
+        self.assertEqual(result[0]["rejected"], [])
+        self.assertEqual(self.queue.list()["reports"][0]["state"], "pending")
+        self.assertEqual(self.queue.claim("worker")["report_id"], "DXR-one")
 
     def test_queue_scan_and_consumer_arguments_are_bounded(self):
         self.native()
