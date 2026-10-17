@@ -1,0 +1,183 @@
+{
+  "accepted_native_review_runtime": "71ed8fc",
+  "accepted_primary_statistics_runtime": "71ed8fc",
+  "scope": "Per-gate source/artifact boundaries retained; subsequent analytical-result statistics and Stats dialog review are not accepted here.",
+  "runs": [
+    {
+      "label": "native-release",
+      "directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T204132-review-62153",
+      "source": {
+        "commit": "71ed8fcbe913f6e06700fcb72d3a6926505601f4",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "d5670361cbdf78c47679949e080956d0a8d3dbb19ef74eb8e8346ec54f3d0235",
+        "source_files": 240
+      }
+    },
+    {
+      "label": "native-sanitize",
+      "directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T204239-review-62640",
+      "source": {
+        "commit": "71ed8fcbe913f6e06700fcb72d3a6926505601f4",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "d5670361cbdf78c47679949e080956d0a8d3dbb19ef74eb8e8346ec54f3d0235",
+        "source_files": 240
+      }
+    },
+    {
+      "label": "native-consumers",
+      "directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T204326-native-62733",
+      "source": {
+        "commit": "71ed8fcbe913f6e06700fcb72d3a6926505601f4",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "d5670361cbdf78c47679949e080956d0a8d3dbb19ef74eb8e8346ec54f3d0235",
+        "source_files": 240
+      }
+    },
+    {
+      "label": "native-gpu",
+      "directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T204518-gpu-63331",
+      "source": {
+        "commit": "5f40946c11241d53bb150a806096e7e663bc820b",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "2fe1df42265737631c891bdb810e6532e003b933736d2d438fcf24e595c16d3b",
+        "source_files": 240
+      }
+    },
+    {
+      "label": "wasm-worker",
+      "directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T204116-browser-62014",
+      "source": {
+        "commit": "71ed8fcbe913f6e06700fcb72d3a6926505601f4",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "d5670361cbdf78c47679949e080956d0a8d3dbb19ef74eb8e8346ec54f3d0235",
+        "source_files": 240
+      }
+    },
+    {
+      "label": "wasm-statistics",
+      "directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T204223-browser-62592",
+      "source": {
+        "commit": "71ed8fcbe913f6e06700fcb72d3a6926505601f4",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "d5670361cbdf78c47679949e080956d0a8d3dbb19ef74eb8e8346ec54f3d0235",
+        "source_files": 240
+      }
+    },
+    {
+      "label": "wasm-query",
+      "directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T203042-browser-58418",
+      "source": {
+        "commit": "407c4740d3dfddb01a4d597563b9777f5b8655fc",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "b0f9fa36357bc017a4f9347f5705c51d47548f4b9f5ab992b13b12ceab3c185e",
+        "source_files": 240
+      }
+    },
+    {
+      "label": "wasm-columns",
+      "directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T203111-browser-58727",
+      "source": {
+        "commit": "233bbb31920646b0787effe47c4483f2d844cdbc",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "35ea1dafb4278ee6a30acab3e0e4b15b9a003f6df8d499d3810ab44a94f6e41f",
+        "source_files": 240
+      }
+    },
+    {
+      "label": "wasm-shipping",
+      "directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T204532-browser-63356",
+      "source": {
+        "commit": "5f40946c11241d53bb150a806096e7e663bc820b",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "2fe1df42265737631c891bdb810e6532e003b933736d2d438fcf24e595c16d3b",
+        "source_files": 240
+      }
+    },
+    {
+      "label": "native-count-core",
+      "directory": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203243-records-59725",
+      "source": {
+        "commit": "7d0e56f3f7bbf20620a9b25536f464b3725ba897",
+        "status": "",
+        "source_sha256": "71f6d25b79810b79e16588f537c0d88c213381e36368f2340fe70e7b0eac8c0d",
+        "source_files": 237
+      }
+    },
+    {
+      "label": "count-projection",
+      "directory": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203058-records-58512",
+      "source": {
+        "commit": "e4251ad93a6e7e6f746e7db1eb012ba2757e5b54",
+        "status": "M tests/test_browser_query.c\n M tests/test_browser_worker.c\n M tests/test_core.c",
+        "source_sha256": "71f6d25b79810b79e16588f537c0d88c213381e36368f2340fe70e7b0eac8c0d",
+        "source_files": 237
+      }
+    },
+    {
+      "label": "statistics-helpers",
+      "directory": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203856-records-61356",
+      "source": {
+        "commit": "66b0bc62dc836054983586d033b958e9b5f6c616",
+        "status": "M src/data/worker_browser.inc\n M tests/test_browser_worker.c",
+        "source_sha256": "2c32ad13a00e3c65c00af590637ed4f5930d7344b95da8a38640ce7a29be9aa1",
+        "source_files": 237
+      }
+    }
+  ],
+  "files": {
+    "analysis-columns-matrix-footer.png": "4e476a516c13347b1e385059edc8c639a3e2d7ac49d7e936d888ddb53851a18d",
+    "count-projection/build-count-projection.txt": "770f32d6817cae400235d84843c0176b6548c740fc3c2db6f2c787f774891a36",
+    "count-projection/core-release.txt": "3e694c5c69916714e76f699b9981b16445532d9cb04bfcbafae6b18505232bca",
+    "count-projection/core-sanitize.txt": "b3911c9dc49d0e2c05fda96b38be1d8d86748973d9008d07880b6f288c71a283",
+    "count-projection/emscripten-count-syntax.txt": "7e65c29ef1327da0cafbc4859b017a2334274649fd8ee48cee3ded231b7a694f",
+    "count-projection/query-release.txt": "d6b25b4f28ce4572cbde151c6b38fc3a035e937d9177142fd23151d942b1a145",
+    "count-projection/query-sanitize.txt": "b0cdc730c73186c3a7b6e9a1d52705878eba749ae1229e9ff2e26e35a918847b",
+    "count-projection/summary.json": "efa5667b2a597aeb3d21b2c02b1370a953f198e1ff2ca3b8da41db5a1587bb4c",
+    "current-native-exclusion.json": "742a5ccd991c718816086e8f7628af2641d3400eb33a0b47b06c8aff437c68c0",
+    "native-consumers/background-sanitize.txt": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+    "native-consumers/native-count.txt": "3b3f031282d274c58e892b48e185c25bff3ffeb214758964bc0b8d0ccbb114a1",
+    "native-consumers/native-export.txt": "e79d910d21a52416dd092e447095462f2cf01875195a903513ffdc1905cf7375",
+    "native-consumers/native-query.txt": "1310e3e8ec3806564b0e012ff6fbd36943a2843532c74df8d86d2297a8278806",
+    "native-consumers/native-statistics.txt": "f672c4d5edb617b541fedc6a85a337b7c7276e7940880a6c5215f80fc6d0ad58",
+    "native-consumers/summary.json": "8458840e27ebcf089abe4e6777616c24f4a2bf817c132429447284f41ed18a42",
+    "native-count-core/build-core-integration.txt": "04c18ecd303966f3eaf579cb833449bff9f380c47eda7cd369b79872739400ed",
+    "native-count-core/core-release.txt": "92ef59a2bc171a88781d607725703c6aed12e7044b5ebcabf1b455033847e927",
+    "native-count-core/core-sanitize.txt": "682a5f8609b53b802c7ca04a5bed34de0c84b6195b8423183ea05173f58a502d",
+    "native-count-core/summary.json": "834dc32ff2954eeeb0e00eefaa939d6117966e31e916b996fd993520bb3b32d8",
+    "native-gpu/gpu.txt": "8c8a6f4a2ef34b653fd68685a51ca5a84c4c94a37e763a66cbe639b8b4c6a481",
+    "native-gpu/summary.json": "065ef6f5802e66aec988e69ea47965c6f059e467d98eb1821c296c241d3e9a0a",
+    "native-preview-package.json": "d1027d8403063a5b73e4c6e9756ab482b0cdfa351024429a6ac657e83ee24020",
+    "native-release/background.txt": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
+    "native-release/release.txt": "dbed8902cd8038a8e8e32667209ccb9cb6454c57eca6fcbe012819dddd87b7d7",
+    "native-release/summary.json": "b7bb053b450b70cc9a3df57f9bf8dfd51113753f465ccb6c6800078a06b98b33",
+    "native-sanitize/background.txt": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
+    "native-sanitize/sanitize.txt": "95944a662726c52e9958c83618d67daf043fddb467467e6ce5dee4622c522f6f",
+    "native-sanitize/summary.json": "22397f1bea9e546feaef6fbeb8e14476b0fc4f97e2a6728068df03b3a71e65b9",
+    "statistics-city-filter.png": "58ef1eba3575e346d865eb48b68b070425292416296c14be1e0e6469f09d61a3",
+    "statistics-dialog.png": "6351124bd13110369f2340155f543982bbbcd4ae2d2351d4fe55073886798dc6",
+    "statistics-filtered-selection.png": "20c009efea7a6749b7cace341ab57f0c8fc894f66202edcedc3d3c9fb83c351a",
+    "statistics-helpers/build-statistics-query.txt": "c2e8f253bdaa80cf782dcc5e58ee857ca191e6d8b287fe6751781dfd4d571f5b",
+    "statistics-helpers/emscripten-statistics-syntax.txt": "7e65c29ef1327da0cafbc4859b017a2334274649fd8ee48cee3ded231b7a694f",
+    "statistics-helpers/release.txt": "5afdcdd41450bf6598dd119101d204a39041fa7752bb6f1498469e33dfcdd414",
+    "statistics-helpers/sanitize.txt": "ce81e799b040a56547135bf7c1cbdafff7ae81d7839d6f676deb6e399dd4966f",
+    "statistics-helpers/summary.json": "1df6b6f4f5e370221f99a77957a24f5251e6cfcb9162a88d5c0fdedd2a70863d",
+    "statistics-source-selection.png": "a1e0719b9add45c3a29e6303ae7cf5e2d25367b1361873e511c47b9eb622eec8",
+    "stats-sort-sanitize-exclusion.json": "000fafa7fa113368dac7d5443a6a90446f0c830a12284353b18f4a22a7e5557a",
+    "stats-sort-web-exclusion.json": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a",
+    "wasm-columns/browser.txt": "be2d2235363f2487040bf91df11cc6ef926dec7426abb2a942db90209b31350d",
+    "wasm-columns/driver.txt": "5dc64bbac8a319b7883a15fa714741eb0e109df32a02bf44d93c1d8b8f92a441",
+    "wasm-columns/summary.json": "5ca7c77290cdccf7bc28aa1c21da30e174d499b52fa46172ed78afef555c2f00",
+    "wasm-query/browser.txt": "6b544db9b76590ec796f78c32032ceb306c62ccacc8573c637435d19ffa4c623",
+    "wasm-query/driver.txt": "5224c8d877b9557f5f5bedbbdb28f9a20d2d1def2b598d89b2800af737809137",
+    "wasm-query/summary.json": "1ac3faecf75469c3ab8086f07a2c5dfe20573e117f98f314fdd2ed60fb77fead",
+    "wasm-shipping/browser.txt": "24be33d521be49ce21a462bf252446c66c1ee6aa17a66745f02757c1713e18df",
+    "wasm-shipping/driver.txt": "c4cc90dfdb3ddbd5d433a0fe07db1bfe2fa64a7bdff9bfadf15c3fa4f96c13cb",
+    "wasm-shipping/summary.json": "ae64db9e2bf4614cf3b5fa68a37230300343ec0d808270348208387da172adf8",
+    "wasm-statistics/browser.txt": "a61394239162b6c3524f8f290787a80019440df3c83d93ef0edca20efd395224",
+    "wasm-statistics/driver.txt": "430510b4b634d4ec550fadcc286b8b29ed68740f234dcd83745a02b1688a60ac",
+    "wasm-statistics/summary.json": "21823226faec8b5df546df4410fc9acbd771aa502a0ec33ad8c2731eed9a9341",
+    "wasm-worker/browser.txt": "f9fca784ba9bbee3eb04e3b6696e863269acddcc6ba323e0810b67e67c4850f9",
+    "wasm-worker/driver.txt": "73f393e01d5aa33c6a8bc1ce8ccb24ebd1f70c3b039a114f41c81ea364f2bc2a",
+    "wasm-worker/summary.json": "42e992bd543b3cd1621d2105c4b2085b4193295d712524ada3f900e62780c282"
+  }
+}

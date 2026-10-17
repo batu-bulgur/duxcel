@@ -1,0 +1,3 @@
+Command: ["make", "tests/test_core", "tests/test_core-debug"]
+make: `tests/test_core' is up to date.
+make: `tests/test_core-debug' is up to date.

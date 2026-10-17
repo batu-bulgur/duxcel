@@ -1,0 +1,116 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T20:30:58.153229+00:00",
+  "tier": "records",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel",
+  "source": {
+    "commit": "e4251ad93a6e7e6f746e7db1eb012ba2757e5b54",
+    "status": "M tests/test_browser_query.c\n M tests/test_browser_worker.c\n M tests/test_core.c",
+    "source_sha256": "71f6d25b79810b79e16588f537c0d88c213381e36368f2340fe70e7b0eac8c0d",
+    "source_files": 237
+  },
+  "results": [
+    {
+      "name": "build-count-projection",
+      "command": [
+        "make",
+        "build/web-tests/test-query",
+        "build/web-tests/test-query-sanitize",
+        "tests/test_core",
+        "tests/test_core-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203058-records-58512/build-count-projection.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 12.93
+    },
+    {
+      "name": "query-release",
+      "command": [
+        "./build/web-tests/test-query"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203058-records-58512/query-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.652
+    },
+    {
+      "name": "query-sanitize",
+      "command": [
+        "./build/web-tests/test-query-sanitize"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203058-records-58512/query-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.539
+    },
+    {
+      "name": "core-release",
+      "command": [
+        "./tests/test_core",
+        "--count-projection-only"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203058-records-58512/core-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.66
+    },
+    {
+      "name": "core-sanitize",
+      "command": [
+        "./tests/test_core-debug",
+        "--count-projection-only"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203058-records-58512/core-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.698
+    },
+    {
+      "name": "emscripten-count-syntax",
+      "command": [
+        "/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/bin/python3.13",
+        "/Users/h2o/dev/duxcel/build/web/toolchain/emsdk/upstream/emscripten/emcc.py",
+        "-fsyntax-only",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-DDUXCEL_BROWSER_HOST",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "src/data/worker.c",
+        "tests/test_browser_worker.c"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203058-records-58512/emscripten-count-syntax.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.54
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/build/web-tests/test-query": "6581106e0ec96824de67a82d2feb4269b7ee4e75450fed6d59781404071c3c6d",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/build/web-tests/test-query-sanitize": "a42ca383c5fbf318267251884cdf04fbecd4a277f6e8eade46a75291becbfa9f",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_core": "23e11576fdf9b41867d835071ed509e9c6937a550d01ea8ae7cd30f646e0e170",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_core-debug": "03b62f61dd6e4c8be2d14b3931ea84569bd38705fca8d6d018e1ea1b4f51f9d3"
+  },
+  "scope": "Shared COUNT(*) input/global aggregation correctness: pure browser helpers, focused real native SQL and Emscripten driver syntax; no GUI or browser engine",
+  "elapsed_seconds": 16.198,
+  "binaries_after": {
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/build/web-tests/test-query": "6581106e0ec96824de67a82d2feb4269b7ee4e75450fed6d59781404071c3c6d",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/build/web-tests/test-query-sanitize": "a42ca383c5fbf318267251884cdf04fbecd4a277f6e8eade46a75291becbfa9f",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_core": "23e11576fdf9b41867d835071ed509e9c6937a550d01ea8ae7cd30f646e0e170",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_core-debug": "03b62f61dd6e4c8be2d14b3931ea84569bd38705fca8d6d018e1ea1b4f51f9d3"
+  },
+  "finished_utc": "2026-10-17T20:31:14.440057+00:00"
+}

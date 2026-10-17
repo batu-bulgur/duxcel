@@ -1,0 +1,86 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T20:38:56.126026+00:00",
+  "tier": "records",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel",
+  "source": {
+    "commit": "66b0bc62dc836054983586d033b958e9b5f6c616",
+    "status": "M src/data/worker_browser.inc\n M tests/test_browser_worker.c",
+    "source_sha256": "2c32ad13a00e3c65c00af590637ed4f5930d7344b95da8a38640ce7a29be9aa1",
+    "source_files": 237
+  },
+  "results": [
+    {
+      "name": "build-statistics-query",
+      "command": [
+        "make",
+        "build/web-tests/test-query",
+        "build/web-tests/test-query-sanitize"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203856-records-61356/build-statistics-query.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.259
+    },
+    {
+      "name": "release",
+      "command": [
+        "./build/web-tests/test-query"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203856-records-61356/release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.046
+    },
+    {
+      "name": "sanitize",
+      "command": [
+        "./build/web-tests/test-query-sanitize"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203856-records-61356/sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.245
+    },
+    {
+      "name": "emscripten-statistics-syntax",
+      "command": [
+        "/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/bin/python3.13",
+        "/Users/h2o/dev/duxcel/build/web/toolchain/emsdk/upstream/emscripten/emcc.py",
+        "-fsyntax-only",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-DDUXCEL_BROWSER_HOST",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "src/data/worker.c",
+        "tests/test_browser_worker.c"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T203856-records-61356/emscripten-statistics-syntax.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.431
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/build/web-tests/test-query": "6dbd3672c92d401322dc21648644b9fa934430252d1c2a139ce391c276a960f6",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/build/web-tests/test-query-sanitize": "2aa984335d9fff982780cba23f7af1433233676e6f95428a24240509e46eb58a"
+  },
+  "scope": "Frozen 86-stage statistics driver: pure SQL/scalar ownership release+ASan and installed Emscripten syntax only; official Worker/App owned by integrator",
+  "elapsed_seconds": 1.041,
+  "binaries_after": {
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/build/web-tests/test-query": "6dbd3672c92d401322dc21648644b9fa934430252d1c2a139ce391c276a960f6",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/build/web-tests/test-query-sanitize": "2aa984335d9fff982780cba23f7af1433233676e6f95428a24240509e46eb58a"
+  },
+  "finished_utc": "2026-10-17T20:38:57.254640+00:00"
+}

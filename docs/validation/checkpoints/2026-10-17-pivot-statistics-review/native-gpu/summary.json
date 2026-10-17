@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "5f40946c11241d53bb150a806096e7e663bc820b",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "2fe1df42265737631c891bdb810e6532e003b933736d2d438fcf24e595c16d3b",
+    "source_files": 240
+  },
+  "binary_sha256": "268d454f346d2eb72c453bc3af6b8ed6229ddeb03641052129ec15f064002a72",
+  "elapsed_seconds": 2.696,
+  "checks": 110,
+  "scope": "Existing renderer/GPU binary unchanged by analytical/review App work; hidden before creation, no user activation."
+}

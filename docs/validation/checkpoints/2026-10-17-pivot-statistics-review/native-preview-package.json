@@ -1,0 +1,12 @@
+{
+  "source": {
+    "commit": "d27d0acf62d7ad6deef12b94b49a065aa844609e",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "7eb3f6c76e184c8d08319d553fc05c17b23041274ad33c4a9b93f84fcefd4237",
+    "source_files": 240
+  },
+  "binary_sha256": "4ff54447d1fbafe9a8bba5d1685c32651c04e839c847cc932ff9055b084cf6c6",
+  "app": "/Users/h2o/dev/duxcel/build/previews/d27d0ac/Duxcel.app",
+  "codesign": "ad-hoc verified",
+  "scope": "Local development package; Homebrew runtime libraries remain required. Existing running build/Duxcel.app was not changed or launched."
+}

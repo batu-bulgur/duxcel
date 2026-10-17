@@ -1,0 +1,3 @@
+Command: ["make", "build/web-tests/test-query", "build/web-tests/test-query-sanitize"]
+make: `build/web-tests/test-query' is up to date.
+make: `build/web-tests/test-query-sanitize' is up to date.
