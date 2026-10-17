@@ -532,6 +532,88 @@ static void test_grid_density(void) {
         grid_destroy(&grid);
     }
 }
+static void test_zoom_header_geometry(void) {
+    const float scales[]={.8f,1,1.5f},zooms[]={.5f,.8f,1,1.5f,2.5f};
+    const uint64_t tops[]={0,975,9990,1000000};
+    Column columns[]={{.name="ID"},{.name="City"},{.name="Amount"}};
+    Page source={.columns=columns,.column_count=3,.total=2000000},blank={0};
+    for (size_t i=0;i<3;i++) for (int imported=0;imported<2;imported++) for (size_t t=0;t<4;t++) {
+        float scale=scales[i]; Page *p=imported ? &source : &blank;
+        Grid g; grid_init(&g); grid_schema(&g,p,true); g.row_height=24; g.digit_width=7.25f;
+        Rectangle rect={17*scale,31*scale,1500*scale,620*scale};
+        g.top=tops[t]; grid_layout(&g,scale,p,rect);
+        float gutter=g.body.x-rect.x,header=g.body.y-rect.y;
+        for (size_t z=0;z<5;z++) {
+            float s=scale*zooms[z]; g.zoom=zooms[z]; g.top=tops[t]; g.fraction=.25; g.horizontal=0;
+            grid_layout(&g,s,p,rect); UIContext ui={.scale=s};
+            CHECK(fabsf(g.chrome_scale-scale)<.0001f);
+            CHECK(fabsf(g.body.x-rect.x-gutter)<.0001f && fabsf(g.body.y-rect.y-header)<.0001f);
+            CHECK(fabsf(header-(imported ? 48 : 24)*scale)<.0001f);
+            CHECK(fabsf(g.vtrack.width-12*scale)<.0001f && fabsf(g.htrack.height-12*scale)<.0001f);
+            Rectangle cell=grid_range_rect(&g,s,g.top+1,0,1,1); uint64_t row; size_t col;
+            CHECK(fabsf(cell.width-g.widths[0]*s)<.001f && fabsf(cell.height-24*s)<.001f);
+            CHECK(grid_cell_at(&g,s,(Vector2){cell.x+cell.width*.5f,cell.y+cell.height*.5f},&row,&col) && row==g.top+1 && !col);
+            event(&g,&ui,p,(GridInput){.mouse={rect.x+gutter*.5f,cell.y+cell.height*.5f},.pressed=true});
+            CHECK(g.selection==SELECT_ROWS && g.row==g.top+1);
+            event(&g,&ui,p,(GridInput){.mouse={cell.x+cell.width*.5f,rect.y+11*scale},.pressed=true});
+            CHECK(g.selection==SELECT_COLUMNS && !g.col && !g.filter_requested);
+            /* The source field's lower tier and filter button do not follow
+               the zoomed row height or become an unclickable hidden strip. */
+            if (imported) {
+                event(&g,&ui,p,(GridInput){.mouse={cell.x+cell.width-12*scale,rect.y+35*scale},.pressed=true});
+                CHECK(g.filter_requested && !g.col && g.selection==SELECT_CELLS && !g.dragging);
+                g.filter_requested=false;
+            }
+            float edge=cell.x+cell.width;
+            event(&g,&ui,p,(GridInput){.mouse={edge-4.5f*scale,rect.y+11*scale}});
+            CHECK(g.cursor==MOUSE_CURSOR_RESIZE_EW);
+            event(&g,&ui,p,(GridInput){.mouse={edge-6*scale,rect.y+11*scale}});
+            CHECK(g.cursor!=MOUSE_CURSOR_RESIZE_EW);
+            event(&g,&ui,p,(GridInput){.mouse={edge,rect.y+11*scale},.pressed=true,.down=true});
+            CHECK(g.resizing==0);
+            float width=g.widths[0];
+            event(&g,&ui,p,(GridInput){.mouse={edge+18*scale,rect.y+11*scale},.down=true});
+            CHECK(fabsf(g.widths[0]-width-18/zooms[z])<.001f);
+            event(&g,&ui,p,(GridInput){.key=KEY_ESCAPE}); CHECK(g.widths[0]==width && g.resizing<0);
+            event(&g,&ui,p,(GridInput){.mouse={rect.x+gutter*.5f,rect.y+header*.5f},.pressed=true});
+            CHECK(g.selection==SELECT_ALL);
+        }
+        grid_destroy(&g);
+    }
+    /* A zoom anchor in scrolled content retains both logical coordinates;
+       frozen columns still magnify with data, without changing the chrome. */
+    for (size_t i=0;i<3;i++) for (int frozen=0;frozen<2;frozen++) {
+        float scale=scales[i]; Grid g; grid_init(&g); grid_schema(&g,&source,true);
+        g.top=100; g.fraction=.375; g.horizontal=300; g.freeze=frozen;
+        grid_layout(&g,scale,&source,(Rectangle){20,40,1600*scale,600*scale});
+        Vector2 pointer={g.body.x+(g.frozen_width+340)*scale,g.body.y+120*scale};
+        double row=(double)g.top+g.fraction+(pointer.y-g.body.y)/(27*scale);
+        float col=g.horizontal+(pointer.x-g.body.x)/scale,gutter=g.body.x-g.rect.x,header=g.body.y-g.rect.y;
+        grid_zoom_at(&g,&source,scale,1.75f,pointer);
+        CHECK(fabs((double)g.top+g.fraction+(pointer.y-g.body.y)/(27*scale*g.zoom)-row)<.0001);
+        CHECK(fabsf(g.horizontal+(pointer.x-g.body.x)/(scale*g.zoom)-col)<.001f);
+        CHECK(fabsf(g.body.x-g.rect.x-gutter)<.001f && fabsf(g.body.y-g.rect.y-header)<.001f);
+        if (frozen) CHECK(g.frozen_columns==2 && !g.freeze_blocked && fabsf(grid_column_x(&g,scale*g.zoom,1)-g.body.x-g.widths[0]*scale*g.zoom)<.001f);
+        grid_destroy(&g);
+    }
+}
+static void test_zoom_column_fit(void) {
+    Column columns[]={{.name="Long source heading stays readable when zooming",.type_name="VARCHAR"},{.name="Value",.type_name="VARCHAR"}};
+    Cell cells[]={{.text="7"},{.text="Data width remains proportional to canvas magnification, not UI zoom"}};
+    Page p={.columns=columns,.column_count=2,.total=1,.row_count=1,.cells=cells};
+    const float scales[]={.8f,1,1.5f},zooms[]={.5f,1,2.5f};
+    UIContext ui={.advances_ready=true,.body={.baseSize=20},.small={.baseSize=20},.medium={.baseSize=20}};
+    for (size_t f=0;f<3;f++) ui.em_advance[f][0]=.5f;
+    for (size_t i=0;i<3;i++) for (size_t z=0;z<3;z++) {
+        Grid g; grid_init(&g); g.zoom=zooms[z]; grid_schema(&g,&p,true); ui.scale=scales[i]*g.zoom;
+        float s=ui.scale,header=(strlen(columns[0].name)*6+28)*scales[i];
+        grid_fit_column(&g,&ui,&p,0);
+        CHECK(fabsf(g.widths[0]*s-header)<.001f && ui.scale==s);
+        grid_fit_column(&g,&ui,&p,1);
+        CHECK(fabsf(g.widths[1]-(strlen(cells[1].text)*6.5f+20))<.001f && ui.scale==s);
+        grid_destroy(&g);
+    }
+}
 static void test_bounded_preview(void) {
     Column columns[]={{.name="ID"},{.name="Amount"}}; Page page={.columns=columns,.column_count=2,.total=12};
     Grid grid; grid_init(&grid); grid.bounded=true; grid.row_height=24; grid_schema(&grid,&page,true);
@@ -1227,7 +1309,7 @@ int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--font-benchmark")) return font_benchmark();
     if (argc==2 && !strcmp(argv[1],"--overscroll")) { test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); printf("PASS: %u precise overscroll/return checks\n",checks); return 0; }
     test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); test_keytip_queue();
-    test_animated_workspace_extent(); test_dock_scroll_and_clips(); test_ribbon_flyouts(); test_workspace_layout(); test_frozen_columns(); test_ribbon_spec(); test_grid_density(); test_bounded_preview(); test_carbon_assets(); test_status_geometry(); test_status_metrics(); test_ribbon_layout(); test_menu_bounds(); test_text_lines(); test_text_editing(); test_text_history(); test_region_navigation(); test_long_range_outlines(); test_addresses(); test_navigation_queue();
+    test_animated_workspace_extent(); test_dock_scroll_and_clips(); test_ribbon_flyouts(); test_workspace_layout(); test_frozen_columns(); test_ribbon_spec(); test_grid_density(); test_zoom_header_geometry(); test_zoom_column_fit(); test_bounded_preview(); test_carbon_assets(); test_status_geometry(); test_status_metrics(); test_ribbon_layout(); test_menu_bounds(); test_text_lines(); test_text_editing(); test_text_history(); test_region_navigation(); test_long_range_outlines(); test_addresses(); test_navigation_queue();
     CHECK(ui_chart_fraction(0,-DBL_MAX,DBL_MAX)==.5);
     CHECK(ui_chart_fraction(DBL_MAX,-DBL_MAX,DBL_MAX)==1);
     CHECK(ui_chart_fraction(-DBL_MAX,-DBL_MAX,DBL_MAX)==0);

@@ -13,6 +13,7 @@ static const Color SHEET_EDGE={143,162,179,255};
 /* A subtle boundary cue in CSS/layout points, independent of canvas zoom. */
 static const float STRETCH_LIMIT=32;
 static const float RETURN_RATE=40;
+static const float MIN_ZOOM=.5f;
 static float clamp(float x,float lo,float hi) { return fmaxf(lo,fminf(hi,x)); }
 static uint64_t after(uint64_t row,uint64_t margin) { return row>=DX_SHEET_ROWS-margin ? DX_SHEET_ROWS : row+margin; }
 static uint64_t canvas_rows(const Grid *g,const Page *p) {
@@ -152,11 +153,13 @@ static void scroll_to(Grid *g,const Page *p,double row) {
     row=fmin(max,fmax(0,row)); g->top=(uint64_t)row; g->fraction=row-(double)g->top;
 }
 void grid_layout(Grid *g,float s,const Page *p,Rectangle r) {
-    uint64_t label=after(g->top,(uint64_t)ceilf(r.height/fmaxf(1,row_height(g)*s))+2); unsigned digits=1;
+    g->chrome_scale=s/(g->zoom>0 ? g->zoom : 1);
+    /* Reserve the labels exposed at the smallest supported zoom. Changing
+       canvas magnification alone must not move the row gutter at a digit edge. */
+    uint64_t label=after(g->top,(uint64_t)ceilf(r.height/fmaxf(1,row_height(g)*g->chrome_scale*MIN_ZOOM))+2); unsigned digits=1;
     while (label>=10) { label/=10; digits++; }
     g->gutter=fmaxf(40,16+ceilf((g->digit_width>0 ? g->digit_width : 8)*digits));
-    g->chrome_scale=s/(g->zoom>0 ? g->zoom : 1);
-    g->rect=r; float gutter=g->gutter*s,sb=12*g->chrome_scale,hh=(g->source_header ? 48 : 24)*s;
+    g->rect=r; float gutter=g->gutter*g->chrome_scale,sb=12*g->chrome_scale,hh=(g->source_header ? 48 : 24)*g->chrome_scale;
     g->body=(Rectangle){r.x+gutter,r.y+hh,fmaxf(1,r.width-gutter-sb),fmaxf(1,r.height-hh-sb)};
     g->frozen_columns=g->freeze ? MIN(2,MIN(p->column_count,g->width_count)) : 0;
     g->frozen_width=g->frozen_columns ? g->offsets[g->frozen_columns] : 0;
@@ -202,7 +205,7 @@ void grid_reveal_column(Grid *g,const Page *p,float s,size_t column,bool center)
     g->elastic.x=g->spring_velocity.x=0; g->pan_x=(GridPanAxis){0}; grid_layout(g,s,p,g->rect);
 }
 void grid_zoom_at(Grid *g,const Page *p,float ui_scale,float zoom,Vector2 pointer) {
-    zoom=clamp(zoom,.5f,2.5f);
+    zoom=clamp(zoom,MIN_ZOOM,2.5f);
     float old=ui_scale*g->zoom,next=ui_scale*zoom;
     Vector2 origin=grid_origin(g,old);
     Vector2 anchor={clamp(pointer.x,g->body.x,g->body.x+g->body.width),clamp(pointer.y,g->body.y,g->body.y+g->body.height)};
@@ -212,8 +215,8 @@ void grid_zoom_at(Grid *g,const Page *p,float ui_scale,float zoom,Vector2 pointe
     float col=content_at(g,old,anchor.x);
     clear_elastic(g);
     g->zoom=zoom; grid_layout(g,next,p,g->rect);
-    /* A larger gutter/header can cover the previous body corner. Keep that
-       data anchor at the new body edge instead of scrolling it under chrome. */
+    /* Keep an edge anchor at the body edge if clamping the viewport or its
+       visible row labels changed the body corner. */
     anchor=(Vector2){left_edge ? g->body.x : clamp(pointer.x,g->body.x,g->body.x+g->body.width),top_edge ? g->body.y : clamp(pointer.y,g->body.y,g->body.y+g->body.height)};
     if (!frozen_anchor) g->horizontal=col-(anchor.x-g->body.x)/next;
     scroll_to(g,p,row-(anchor.y-g->body.y)/(row_height(g)*next)); grid_layout(g,next,p,g->rect);
@@ -221,12 +224,17 @@ void grid_zoom_at(Grid *g,const Page *p,float ui_scale,float zoom,Vector2 pointe
 void grid_fit_column(Grid *g,UIContext *u,const Page *p,size_t c) {
     if (c>=g->width_count || u->scale<=0) return;
     if (c>=p->column_count) { grid_set_width(g,c,96); return; }
-    float w=MAX(ui_measure_weight(u,p->columns[c].name,13,UI_MEDIUM),ui_measure(u,p->columns[c].type_name,10));
+    float s=u->scale,cs=s/(g->zoom>0 ? g->zoom : 1);
+    u->scale=cs;
+    /* Source names and their filter button stay at interface scale, whereas
+       cell values and their padding use the magnified canvas scale. */
+    float w=ui_measure_weight(u,p->columns[c].name,12,UI_MEDIUM)+28*cs;
+    u->scale=s;
     for (size_t r=0;r<p->row_count;r++) {
         Cell *cell=&p->cells[r*p->column_count+c];
-        w=fmaxf(w,ui_value_width(u,cell->text,cell->is_null,13,1180*u->scale));
+        w=fmaxf(w,ui_value_width(u,cell->text,cell->is_null,13,1180*s)+20*s);
     }
-    grid_set_width(g,c,w/u->scale+20);
+    grid_set_width(g,c,w/s);
 }
 static void navigate(Grid *g,const Page *p,const GridInput *in,float scale) {
     Page canvas=*p; canvas.total=canvas_rows(g,p); canvas.column_count=g->width_count; canvas.records=(PageRecords){0};
@@ -453,9 +461,9 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
     if (in->key) clear_elastic(g);
     if (!g->lock_structure && g->allow_move && g->selection==SELECT_CELLS && CheckCollisionPointRec(m,g->body)) {
         Rectangle selection=selection_rect(g,s,0,0);
-        bool edge=selection.width>0 && m.x>=selection.x-4*s && m.x<=selection.x+selection.width+4*s &&
-            m.y>=selection.y-4*s && m.y<=selection.y+selection.height+4*s &&
-            (fabsf(m.x-selection.x)<4*s || fabsf(m.x-selection.x-selection.width)<4*s || fabsf(m.y-selection.y)<4*s || fabsf(m.y-selection.y-selection.height)<4*s);
+        bool edge=selection.width>0 && m.x>=selection.x-4*cs && m.x<=selection.x+selection.width+4*cs &&
+            m.y>=selection.y-4*cs && m.y<=selection.y+selection.height+4*cs &&
+            (fabsf(m.x-selection.x)<4*cs || fabsf(m.x-selection.x-selection.width)<4*cs || fabsf(m.y-selection.y)<4*cs || fabsf(m.y-selection.y-selection.height)<4*cs);
         if (edge) {
             g->cursor=MOUSE_CURSOR_RESIZE_ALL;
             if (in->pressed) { g->moving=true; g->move_dr=0; g->move_dc=0; g->move_row=row_at(g,s,m.y); g->move_col=column_at(g,content_at(g,s,m.x)); }
@@ -523,7 +531,7 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
         else { g->resizing=edge; g->drag_start=m.x; g->width_start=g->widths[edge]; g->last_edge=edge; g->last_click=g->clock; }
     }
     if (g->resizing>=0 && in->down) {
-        if (fabsf(m.x-g->drag_start)>3*s) g->last_edge=-1;
+        if (fabsf(m.x-g->drag_start)>3*cs) g->last_edge=-1;
         grid_set_width(g,(size_t)g->resizing,g->width_start+(m.x-g->drag_start)/s); g->cursor=MOUSE_CURSOR_RESIZE_EW;
     }
     bool gutter=m.x>=g->rect.x && m.x<g->body.x && m.y>=g->body.y && m.y<g->body.y+g->body.height;
@@ -542,7 +550,7 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
         }
         if (header && hit<p->column_count) {
             float right=grid_column_x(g,s,hit)+g->widths[hit]*s;
-            if (!g->lock_structure && hit<data->column_count && m.y>g->rect.y+(g->source_header ? 22 : 24)*s && m.x>right-22*cs) {
+            if (!g->lock_structure && hit<data->column_count && m.y>g->rect.y+(g->source_header ? 22 : 24)*cs && m.x>right-22*cs) {
                 grid_select_cell(g,g->row,hit,false); g->filter_requested=true; g->dragging=false; return;
             }
             if (!in->shift || g->selection!=SELECT_COLUMNS) g->col=g->anchor_col=hit;
@@ -704,8 +712,8 @@ static void draw_grid_region(Grid *g,UIContext *u,const Page *p,bool frozen) {
         float left=fmaxf(x,clip.x),right=fminf(x+w,clip.x+clip.width); if (right<=left) continue;
         if (!g->hide_selection && c>=c0 && c<=c1) DrawRectangleRec((Rectangle){left,g->rect.y,right-left,hh},UI_TINT);
         if (c<p->column_count) {
-            DrawRectangleRec((Rectangle){left,g->rect.y+22*s,right-left,26*s},(Color){242,245,247,255});
-            float arrow_x=x+w-12*cs,arrow_y=g->rect.y+35*s;
+            DrawRectangleRec((Rectangle){left,g->rect.y+22*cs,right-left,26*cs},(Color){242,245,247,255});
+            float arrow_x=x+w-12*cs,arrow_y=g->rect.y+35*cs;
             if (arrow_x>clip.x+9*cs && arrow_x<clip.x+clip.width-9*cs) {
                 Rectangle filter={arrow_x-8*cs,arrow_y-9*cs,16*cs,18*cs}; bool hover=CheckCollisionPointRec(GetMousePosition(),filter),filtered=p->columns[c].filtered;
                 if (filtered || hover) { DrawRectangleRec(filter,UI_TINT); DrawRectangleLinesEx(filter,cs,filtered ? UI_ACCENT : UI_BORDER); }
@@ -717,13 +725,13 @@ static void draw_grid_region(Grid *g,UIContext *u,const Page *p,bool frozen) {
     for (size_t c=start;c<end;c++) {
         float x=grid_column_x(g,s,c),w=g->widths[c]*s; if (x>=clip.x+clip.width) break;
         char code[32]; letter(c,code); bool sorted=c<p->column_count && p->columns[c].sort_priority && w>=74*cs;
-        float height=(g->source_header ? 22 : 24)*s,width=ui_measure(u,code,11);
+        float height=(g->source_header ? 22 : 24)*cs,width=ui_measure(u,code,11);
         ui_label(u,code,(Rectangle){x+(w-width)*.5f,g->rect.y,width+1,height},11,UI_MUTED,false,UI_REGULAR);
         if (sorted) { char order[16]; snprintf(order,sizeof(order),"%s%u",p->columns[c].sort_descending ? "↓" : "↑",p->columns[c].sort_priority); ui_text(u,order,x+w-30*cs,g->rect.y+(height-10*cs)*.5f,10,UI_ACCENT); }
     }
     for (size_t c=start;c<MIN(end,p->column_count);c++) {
         float x=grid_column_x(g,s,c),w=g->widths[c]*s; if (x>=clip.x+clip.width) break;
-        ui_text_clip_weight(u,p->columns[c].name,(Rectangle){x+3*cs,g->rect.y+22*s,w-25*cs,26*s},12,UI_TEXT,false,UI_MEDIUM);
+        ui_text_clip_weight(u,p->columns[c].name,(Rectangle){x+3*cs,g->rect.y+22*cs,w-25*cs,26*cs},12,UI_TEXT,false,UI_MEDIUM);
     }
     ui_clear_clip(u); u->scale=s;
 }
@@ -738,25 +746,26 @@ void grid_draw(Grid *g,UIContext *u,const Page *p,bool busy) {
         DrawLineV((Vector2){r.x,bottom},(Vector2){g->body.x,bottom},GRID_LINE);
     }
     draw_grid_region(g,u,p,false); if (g->frozen_columns) draw_grid_region(g,u,p,true);
-    if (g->frozen_columns && g->frozen_width*s<g->body.width) { float boundary=g->body.x+g->frozen_width*s; DrawLineEx((Vector2){boundary,r.y},(Vector2){boundary,g->body.y+g->body.height},s,(Color){155,174,190,255}); }
-    DrawRectangleRec((Rectangle){r.x,g->body.y,g->gutter*s,g->body.height},UI_BG);
-    if (!g->top && y0>g->body.y) DrawRectangleRec((Rectangle){r.x,g->body.y,g->gutter*s,fminf(g->body.height,y0-g->body.y)},CANVAS_BACKING);
+    if (g->frozen_columns && g->frozen_width*s<g->body.width) { float boundary=g->body.x+g->frozen_width*s; DrawLineEx((Vector2){boundary,r.y},(Vector2){boundary,g->body.y+g->body.height},g->chrome_scale,(Color){155,174,190,255}); }
+    float gutter=g->body.x-r.x;
+    DrawRectangleRec((Rectangle){r.x,g->body.y,gutter,g->body.height},UI_BG);
+    if (!g->top && y0>g->body.y) DrawRectangleRec((Rectangle){r.x,g->body.y,gutter,fminf(g->body.height,y0-g->body.y)},CANVAS_BACKING);
     if (!g->hide_selection && g->render_rows && r1>=g->top && r0<g->top+g->render_rows) {
         uint64_t first=MAX(r0,g->top),last=MIN(r1,g->top+g->render_rows-1);
         float top=fmaxf(y0+(float)(first-g->top)*rh,g->body.y),bottom=fminf(y0+(float)(last-g->top+1)*rh,g->body.y+g->body.height);
-        if (bottom>top) DrawRectangleRec((Rectangle){r.x,top,g->gutter*s,bottom-top},UI_TINT);
+        if (bottom>top) DrawRectangleRec((Rectangle){r.x,top,gutter,bottom-top},UI_TINT);
     }
     float cs=g->chrome_scale; u->scale=cs;
-    ui_set_clip(u,(Rectangle){r.x,g->body.y,g->gutter*s,g->body.height});
+    ui_set_clip(u,(Rectangle){r.x,g->body.y,gutter,g->body.height});
     for (unsigned vr=0;vr<g->render_rows;vr++) {
         uint64_t row=g->top+vr; if (row>=DX_SHEET_ROWS) break;
         float y=y0+vr*rh,top=fmaxf(y,g->body.y),bottom=fminf(y+rh,g->body.y+g->body.height); if (bottom<=top) continue;
         char text[32]; snprintf(text,sizeof(text),"%" PRIu64,row+(g->source_header ? 2 : 1));
-        ui_text_clip(u,text,(Rectangle){r.x,y,g->gutter*s,rh},11,UI_MUTED,true);
+        ui_text_clip(u,text,(Rectangle){r.x,y,gutter,rh},11,UI_MUTED,true);
     }
     ui_clear_clip(u);
     if (!g->top && y0>g->body.y && y0<g->body.y+g->body.height)
-        DrawRectangleRec((Rectangle){r.x,y0,g->gutter*s,g->chrome_scale},SHEET_EDGE);
+        DrawRectangleRec((Rectangle){r.x,y0,gutter,g->chrome_scale},SHEET_EDGE);
     DrawLineV((Vector2){g->body.x,r.y},(Vector2){g->body.x,g->body.y+g->body.height},GRID_LINE);
     DrawLineV((Vector2){r.x,g->body.y},(Vector2){g->body.x+g->body.width,g->body.y},(Color){197,208,217,255});
     DrawRectangleRec(g->vtrack,UI_BG); DrawRectangleRec(g->htrack,UI_BG);
