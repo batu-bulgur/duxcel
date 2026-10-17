@@ -257,8 +257,43 @@ test('name registry exhaustion fails closed without eviction and still permits c
     assert.equal(registrations, LIMITS.fileNames / 2); assert.equal(drops, LIMITS.fileNames / 2 + 1);
     assert.equal((await adapter.submit({ requestId: '1', sql: 'queries still work at the file-name limit' })).status, 'ok');
     await adapter.close();
-    const nextSession = new DuckDBWorkerAdapter({ database, connection: connection() });
+    const nextSession = new DuckDBWorkerAdapter({ database: { ...database }, connection: connection() });
     await nextSession.registerFile('retired-0.csv', new Uint8Array([4])); await nextSession.close();
+});
+
+test('reconnected adapters share name reservations by database identity, including failed names', async () => {
+    const stored = new Map(), calls = [], registering = deferred(); let closedConnections = 0;
+    const database = {
+        async registerFileBuffer(name, bytes) {
+            calls.push(['register', name]); stored.set(name, bytes.slice());
+            if (name === 'partial.csv') await registering.promise;
+        },
+        async dropFile(name) { calls.push(['drop', name]); stored.delete(name); }
+    };
+    const first = new DuckDBWorkerAdapter({ database, connection: connection({ async close() { closedConnections++; } }) });
+    const second = new DuckDBWorkerAdapter({ database, connection: connection({ async close() { closedConnections++; } }) });
+    assert.notEqual(first.connection, second.connection);
+    await first.registerFile('source.csv', new Uint8Array([1]));
+    await assert.rejects(second.registerFile('source.csv', new Uint8Array([2])), { code: 'IMMUTABLE_FILE' });
+    assert.deepEqual([...stored.get('source.csv')], [1]);
+    await second.dropFile('source.csv');
+    await assert.rejects(first.registerFile('source.csv', new Uint8Array([3])), { code: 'IMMUTABLE_FILE' });
+    const partial = first.registerFile('partial.csv', new Uint8Array([4]));
+    await assert.rejects(second.registerFile('partial.csv', new Uint8Array([5])), { code: 'IMMUTABLE_FILE' });
+    registering.reject(new Error('partial registration failed'));
+    await assert.rejects(partial, /partial registration failed/);
+    await second.dropFile('partial.csv');
+    await first.close();
+    const reconnected = new DuckDBWorkerAdapter({ database, connection: connection({ async close() { closedConnections++; } }) });
+    await assert.rejects(reconnected.registerFile('source.csv', new Uint8Array([6])), { code: 'IMMUTABLE_FILE' });
+    await assert.rejects(reconnected.registerFile('partial.csv', new Uint8Array([6])), { code: 'IMMUTABLE_FILE' });
+    await reconnected.registerFile('fresh.csv', new Uint8Array([7]));
+    assert.deepEqual(calls, [['register', 'source.csv'], ['drop', 'source.csv'], ['register', 'partial.csv'], ['drop', 'partial.csv'], ['register', 'fresh.csv']]);
+    await second.close(); await reconnected.close(); assert.equal(closedConnections, 3);
+    const independentData = new Map();
+    const independent = new DuckDBWorkerAdapter({ database: { async registerFileBuffer(name, bytes) { independentData.set(name, bytes.slice()); } }, connection: connection() });
+    await independent.registerFile('source.csv', new Uint8Array([8]));
+    assert.deepEqual([...independentData.get('source.csv')], [8]); assert.deepEqual([...stored.get('fresh.csv')], [7]); await independent.close();
 });
 
 test('nonmutating validation and active-query rejections do not consume a fresh valid name', async () => {

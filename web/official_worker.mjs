@@ -17,6 +17,10 @@ const MAX_U64 = 18446744073709551615n;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
 const NUMBER_KINDS = new Set(['none', 'i8', 'i16', 'i32', 'i64', 'i128', 'u8', 'u16', 'u32', 'u64', 'u128', 'decimal', 'float']);
+// Reconnecting through another adapter must not reset this database object's
+// reservation history. A distinct database wrapper/raw engine write remains
+// outside this API guard; this is not a verified registration epoch.
+const fileNameRegistries = new WeakMap();
 
 export class BridgeError extends Error {
     constructor(code, message) { super(message); this.name = 'BridgeError'; this.code = code; }
@@ -177,7 +181,7 @@ export class DuckDBWorkerAdapter {
     // retired/failed name: older C relations may still refer to that basename.
     // This protects this API's registered buffers, not arbitrary SQL writes,
     // remote/custom SQL dependencies, or persistent source identity.
-    #fileNames = new Set();
+    #fileNames;
     #reserveFileName(name, registration) {
         if (this.#fileNames.has(name)) {
             check(!registration, 'IMMUTABLE_FILE', 'This source name was already used in this engine session. Import with a fresh virtual name.');
@@ -188,6 +192,10 @@ export class DuckDBWorkerAdapter {
     }
     constructor({ database, connection, engineVersion = null, dispose = null }) {
         this.database = database; this.connection = connection; this.engineVersion = engineVersion; this.dispose = dispose;
+        if (database && (typeof database === 'object' || typeof database === 'function')) {
+            this.#fileNames = fileNameRegistries.get(database);
+            if (!this.#fileNames) { this.#fileNames = new Set(); fileNameRegistries.set(database, this.#fileNames); }
+        } else this.#fileNames = new Set(); // Query-only test adapters have no database handle.
         this.active = null; this.pending = null; this.draining = null; this.closed = false; this.admin = false; this.latestId = 0n;
     }
     submit(value) {
