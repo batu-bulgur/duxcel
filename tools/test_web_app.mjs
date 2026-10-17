@@ -417,7 +417,7 @@ function analysisObject(state){
 }
 async function waitPivot(afterId=null){
  for(const deadline=Date.now()+15000;Date.now()<deadline;){
-  const reply=replies().filter(value=>value.kind===6&&(afterId===null||BigInt(value.id)>BigInt(afterId))).at(-1);
+  const reply=replies().filter(value=>value.kind===5&&(afterId===null||BigInt(value.id)>BigInt(afterId))).at(-1);
   if(reply){check(!reply.error,'Real browser analytical object failed');return reply;}await pause(20);
  }
  throw new Error('Actual C analytical object did not publish a Worker reply');
@@ -437,7 +437,7 @@ async function browserAnalysis(){
  check(emptyObject.counts.join(',')==='0,0,0,0'&&empty.manual_cells==='1'&&empty.sheet===baseline.sheet&&empty.page===baseline.page,'Empty same-sheet pivot changed source/manual data or started with invented shelf fields');
  await capture('analysis-empty');const rows=await assignAnalysisField('City','rows'),rowsState=await platformSnapshot(),rowsObject=analysisObject(rowsState);
  check(rowsObject.counts.join(',')==='1,0,0,0','Real Rows shelf did not retain City before Values assignment');
- const previous=replies().filter(reply=>reply.kind===6).at(-1)?.id,values=await assignAnalysisField('Amount','values'),reply=await waitPivot(previous??null);await frames(4);
+ const previous=replies().filter(reply=>reply.kind===5).at(-1)?.id,values=await assignAnalysisField('Amount','values'),reply=await waitPivot(previous??null);await frames(4);
  check(reply.rows===4&&reply.columns===2&&reply.total==='4'&&!reply.pending,'Real Rows City/SUM Amount result is not four grouped rows/two columns');
  const published=await platformSnapshot(),model=analysisObject(published);
  check(model.counts.join(',')==='1,0,1,0'&&model.page.join(',')==='0,4,2,4,0,0','App did not publish the complete actual matrix into its selected object cache');
