@@ -85,17 +85,18 @@ async function sha256(crypto,bytes){
     return Array.from(hash,byte=>byte.toString(16).padStart(2,'0')).join('');
 }
 
-/** Dependencies encodePNG/download/geometry/crypto are injectable for pure tests.
+/** Dependencies encodePNG/submit/download/geometry/crypto are injectable for pure tests.
  * encodePNG({rgba,width,height}) receives an owned RGBA copy, returns PNG bytes or
- * Blob. download(blob,filename) requests ONE download; it does not prove durability.
+ * Blob. submit(blob,reportId,{projectId}) returns a durable local or queued receipt.
+ * download(blob,filename) remains an explicit legacy/export mode, not durability.
  * geometry() returns canvasCSS,canvasBacking,devicePixelRatio, optional
  * visualViewport/viewport/userAgent/language as in defaultGeometry above.
  * beginFrame throws synchronously on invalid capture metadata. exportReport copies
  * both buffers before returning its handled Promise; complete is always deferred. */
-export function createReviewHost({canvas,build,crypto=globalThis.crypto,encodePNG=defaultEncodePNG,download,geometry=()=>defaultGeometry(canvas)}={}){
+export function createReviewHost({canvas,build,crypto=globalThis.crypto,encodePNG=defaultEncodePNG,submit,download,geometry=()=>defaultGeometry(canvas)}={}){
     check(canvas&&typeof canvas.addEventListener==='function'&&typeof canvas.removeEventListener==='function','A review canvas is required.');
     check(crypto&&typeof crypto.getRandomValues==='function'&&typeof crypto.subtle?.digest==='function','Review export requires browser cryptography.');
-    check(typeof encodePNG==='function'&&typeof geometry==='function'&&(!download||typeof download==='function'),'Invalid review transport dependencies.');
+    check(typeof encodePNG==='function'&&typeof geometry==='function'&&(!download||typeof download==='function')&&(!submit||typeof submit==='function'),'Invalid review transport dependencies.');
     const buildSnapshot=cloneJSON(build,REVIEW_LIMITS.build,'Build metadata'),binarySHA256=buildSnapshot?.artifacts?.['duxcel.wasm'];
     check(typeof binarySHA256==='string'&&/^[a-f0-9]{64}$/.test(binarySHA256),'Actual review Wasm SHA-256 is unavailable.');
     const random=new Uint8Array(16);crypto.getRandomValues(random);
@@ -133,7 +134,7 @@ export function createReviewHost({canvas,build,crypto=globalThis.crypto,encodePN
             epoch++;frozen={reportId,frameId,logical,browser};return true;
         },
         exportReport({reportId,frameId,json,rgba,width,height,complete}={}){
-            const token=++epoch,started=now();let ownedJSON,ownedRGBA,capture,validation,copyMS;
+            const token=++epoch,started=now();let ownedJSON,ownedRGBA,capture,validation,copyMS,projectId;
             try{
                 check(!disposed,'Review transport is closed.');check(typeof complete==='function','Review completion callback is required.');
                 check(identifier(reportId)&&uint64(frameId)&&frozen&&frozen.reportId===reportId&&frozen.frameId===frameId,'Review export does not match its frozen frame.');
@@ -143,6 +144,7 @@ export function createReviewHost({canvas,build,crypto=globalThis.crypto,encodePN
                 const copyStarted=now();ownedJSON=new Uint8Array(json);ownedRGBA=new Uint8Array(rgba);copyMS=Math.max(0,now()-copyStarted);
                 capture=cloneJSON(frozen,REVIEW_LIMITS.sidecar,'Frozen metadata');
                 const manifest=JSON.parse(textDecoder.decode(ownedJSON));
+                if(submit){projectId=manifest.project_id;check(identifier(projectId),'Review manifest project identity is unavailable.');}
                 check(manifest.schema==='duxcel.native-review'&&manifest.version===1&&manifest.report_id===reportId&&manifest.session_id===sessionId&&manifest.frame?.frame_id===frameId,'Review manifest identity does not match the frozen C frame.');
                 check(manifest.frame.binary_sha256===binarySHA256&&manifest.frame.window?.width===capture.logical.width&&manifest.frame.window?.height===capture.logical.height&&manifest.frame.framebuffer?.width===width&&manifest.frame.framebuffer?.height===height,'Review manifest dimensions or Wasm hash do not match capture metadata.');
             }catch(error){validation=error;}
@@ -154,12 +156,18 @@ export function createReviewHost({canvas,build,crypto=globalThis.crypto,encodePN
                 const png=await pngBytes(encoded,width,height);if(!active(token))return false;
                 const [manifestHash,pngHash]=await Promise.all([sha256(crypto,ownedJSON),sha256(crypto,png)]);if(!active(token))return false;
                 const sidecar={schema:'duxcel.browser-review',version:1,report_id:reportId,session_id:sessionId,frame_id:frameId,binary_sha256:binarySHA256,
-                    logical:capture.logical,...capture.browser,build:buildSnapshot,transport:{kind:'browser-download',durable:false},
-                    timing:{owned_copy_ms:copyMS,export_preparation_ms:Math.max(0,now()-started),scope:'Export invocation through PNG/hash preparation, before archive construction/download; not input latency.'},
+                    logical:capture.logical,...capture.browser,build:buildSnapshot,transport:{kind:submit?'unified-review-queue':'browser-download',durable:false},
+                    timing:{owned_copy_ms:copyMS,export_preparation_ms:Math.max(0,now()-started),scope:'Export invocation through PNG/hash preparation, before archive construction/transport; not input latency.'},
                     files:{'manifest.json':{sha256:manifestHash,bytes:ownedJSON.byteLength},'frame.png':{sha256:pngHash,bytes:png.byteLength,width,height}}};
                 const browser=textEncoder.encode(JSON.stringify(sidecar));check(browser.byteLength<=REVIEW_LIMITS.sidecar,'Browser review metadata exceeds its limit.');
                 if(!active(token))return false;
-                await requestDownload(archive(reportId,[['manifest.json',ownedJSON],['frame.png',png],['browser.json',browser]]),reportId+'.dxreview.tar');
+                const report=archive(reportId,[['manifest.json',ownedJSON],['frame.png',png],['browser.json',browser]]);
+                if(submit){
+                    const receipt=await submit(report,reportId,{projectId});
+                    check(receipt?.report_id===reportId&&receipt.durable===true&&(receipt.queued===true||receipt.queued===false&&receipt.local===true),'Review transport did not confirm durable storage for this report.');
+                    return finish(true,receipt.queued?'Saved to the shared review queue.':'Saved in this browser; awaiting the review service.');
+                }
+                await requestDownload(report,reportId+'.dxreview.tar');
                 return finish(true,'');
             }).catch(error=>finish(false,String(error?.message??error).slice(0,512)));
         },
