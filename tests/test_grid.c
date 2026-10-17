@@ -440,7 +440,8 @@ static void test_ribbon_reference_collapse(void) {
        hidden groups. Wide layouts use their separate history dock instead. */
     for (int mode=0;mode<3;mode++) {
         UIRibbonLayout narrow=ui_ribbon_spec_layout(699,mode,RIBBON_HOME,labels,names);
-        CHECK(narrow.valid && narrow.overflow.width==28 && narrow.overflow.x==665);
+        CHECK(narrow.valid && narrow.overflow.width==28 && narrow.overflow.x==665-(mode==0 ? 0 : 32));
+        if (mode) CHECK(narrow.overflow.x+narrow.overflow.width<=699-32-6);
         UIRibbonLayout wide=ui_ribbon_spec_layout(1440,mode,RIBBON_HOME,labels,names);
         CHECK(wide.valid && !wide.overflow_count && !wide.overflow.width);
     }
@@ -489,7 +490,8 @@ static void test_ribbon_spec(void) {
             Rectangle group=layout.groups[g];
             if (layout.states[g]==UI_RIBBON_OVERFLOW) { CHECK(!group.width); continue; }
             CHECK(group.x>=0 && group.x+group.width<widths[w]-(widths[w]>=700 ? 62 : 0));
-            CHECK(group.x+group.width<widths[w]-(widths[w]>=700 ? 98 : 38));
+            CHECK(group.x+group.width<widths[w]-(widths[w]>=700 ? 98 : 38)-(mode==0 ? 0 : 32));
+            if (mode) CHECK(group.x+group.width<widths[w]-32);
             if (layout.overflow_count) CHECK(group.x+group.width<layout.overflow.x);
             for (int before=0;before<g;before++) if (layout.groups[before].width) CHECK(layout.groups[before].x+layout.groups[before].width<=group.x);
             if (layout.states[g]!=UI_RIBBON_EXPANDED) continue;
@@ -505,6 +507,7 @@ static void test_ribbon_spec(void) {
                 }
             }
         }
+        if (mode && layout.overflow.width) CHECK(layout.overflow.x+layout.overflow.width<=widths[w]-32-6+.001f);
     }
     CHECK(ui_ribbon_action_index(RIBBON_HOME,ACTION_CREATE_VIEW)==21);
     CHECK(ui_ribbon_action_index(RIBBON_DATA,ACTION_FILTER)==3);
@@ -939,9 +942,106 @@ static void test_frozen_columns(void) {
         grid_destroy(&g);
     }
 }
+static Vector2 overscroll_setup(Grid *g,UIContext *u,const Page *page,float scale,bool far_edge) {
+    grid_init(g); g->bounded=true; g->row_height=24; grid_schema(g,page,true);
+    u->scale=scale; grid_layout(g,scale,page,(Rectangle){20,40,900*scale,500*scale});
+    grid_select_cell(g,4,2,false);
+    if (far_edge) {
+        g->top=page->total-g->visible_rows; g->horizontal=g->offsets[g->width_count]-g->body.width/scale;
+        grid_layout(g,scale,page,g->rect);
+    }
+    return (Vector2){g->body.x+g->body.width*.5f,g->body.y+g->body.height*.5f};
+}
+static void test_overscroll_return(void) {
+    Column columns[12]; for (size_t i=0;i<12;i++) columns[i]=(Column){.name="Field",.type=DUCKDB_TYPE_VARCHAR};
+    Page page={.columns=columns,.column_count=12,.total=500};
+    const float scales[]={1,1.5f,2.5f}; Vector2 reference[2]={{0}};
+    for (size_t edge=0;edge<2;edge++) for (size_t factor=0;factor<3;factor++) {
+        float scale=scales[factor],outward=edge ? 1.f : -1.f,sign=-outward;
+        UIContext u={0}; Grid one,packets; Vector2 pointer=overscroll_setup(&one,&u,&page,scale,edge!=0);
+        overscroll_setup(&packets,&u,&page,scale,edge!=0);
+        uint64_t top=one.top; float horizontal=one.horizontal;
+        /* No elapsed time between packets: coalescing an identical physical
+           pull must not change resistance or consume real source positions.
+           Call the controller directly: event() replaces dt=0 with .016. */
+        grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={80*outward,120*outward}});
+        for (int n=0;n<8;n++) grid_handle_input(&packets,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={10*outward,15*outward}});
+        CHECK(fabsf((one.elastic.x-packets.elastic.x)*scale)<.001f && fabsf((one.elastic.y-packets.elastic.y)*scale)<.001f);
+        CHECK(one.elastic.x*sign>0 && one.elastic.y*sign>0);
+        CHECK(fabsf(one.elastic.x*scale)<=64.001f && fabsf(one.elastic.y*scale)<=64.001f);
+        CHECK(one.top==top && !one.fraction && one.horizontal==horizontal && packets.top==top && !packets.fraction && packets.horizontal==horizontal);
+        CHECK(one.row==4 && one.col==2 && packets.row==4 && packets.col==2);
+        if (!factor) reference[edge]=(Vector2){one.elastic.x*scale,one.elastic.y*scale};
+        else CHECK(fabsf(one.elastic.x*scale-reference[edge].x)<.001f && fabsf(one.elastic.y*scale-reference[edge].y)<.001f);
+        grid_handle_input(&packets,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={1000000*outward,1000000*outward}});
+        CHECK(isfinite(packets.elastic.x) && isfinite(packets.elastic.y) && fabsf(packets.elastic.x*scale)<=64.001f && fabsf(packets.elastic.y*scale)<=64.001f);
+        /* Real trackpad momentum includes many subpixel tails. Returning
+           velocity survives each packet and the edge settles promptly rather
+           than restarting a slow return 120 times each second. */
+        for (int n=0;n<36;n++) {
+            float before_x=fabsf(one.elastic.x),before_y=fabsf(one.elastic.y);
+            grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={.01f*outward,.01f*outward},.dt=1.f/120});
+            CHECK(one.elastic.x*sign>=0 && one.elastic.y*sign>=0);
+            CHECK(fabsf(one.elastic.x)<=before_x+.00001f && fabsf(one.elastic.y)<=before_y+.00001f);
+            if (n<8) CHECK(one.spring_velocity.x*sign<0 && one.spring_velocity.y*sign<0);
+        }
+        CHECK(fabsf(one.elastic.x*scale)<.25f && fabsf(one.elastic.y*scale)<.25f);
+        for (int n=0;n<24;n++) grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.dt=1.f/120});
+        CHECK(!one.elastic.x && !one.elastic.y && !one.spring_velocity.x && !one.spring_velocity.y);
+        CHECK(one.top==top && !one.fraction && one.horizontal==horizontal && one.row==4 && one.col==2);
+        /* Equivalent elapsed time, including a slow frame, produces the same
+           recovery. This catches throwing away all but .05s of a frame. */
+        one.elastic=packets.elastic=(Vector2){40*sign/scale,24*sign/scale};
+        one.spring_velocity=packets.spring_velocity=(Vector2){-100*sign/scale,-60*sign/scale};
+        grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.dt=.2f});
+        for (int n=0;n<24;n++) grid_handle_input(&packets,&u,&page,&(GridInput){.mouse=pointer,.dt=1.f/120});
+        CHECK(fabsf((one.elastic.x-packets.elastic.x)*scale)<.001f && fabsf((one.elastic.y-packets.elastic.y)*scale)<.001f);
+        CHECK(fabsf((one.spring_velocity.x-packets.spring_velocity.x)*scale)<.01f && fabsf((one.spring_velocity.y-packets.spring_velocity.y)*scale)<.01f);
+        CHECK(fabsf(one.elastic.x*scale)<1 && fabsf(one.elastic.y*scale)<1);
+        grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.dt=.6f});
+        CHECK(!one.elastic.x && !one.elastic.y && !one.spring_velocity.x && !one.spring_velocity.y);
+        /* Reversal consumes visible stretch first. A strong existing return
+           must not carry a shortened stretch across zero into the other edge. */
+        one.elastic=(Vector2){12*sign/scale,12*sign/scale}; one.spring_velocity=(Vector2){-300*sign/scale,-300*sign/scale};
+        grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={5*sign,5*sign}});
+        CHECK(fabsf(one.elastic.x*scale-7*sign)<.001f && fabsf(one.elastic.y*scale-7*sign)<.001f);
+        CHECK(one.top==top && !one.fraction && one.horizontal==horizontal);
+        float before_x=fabsf(one.elastic.x),before_y=fabsf(one.elastic.y);
+        for (int n=0;n<48;n++) {
+            grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.dt=1.f/120});
+            CHECK(one.elastic.x*sign>=0 && one.elastic.y*sign>=0);
+            CHECK(fabsf(one.elastic.x)<=before_x+.00001f && fabsf(one.elastic.y)<=before_y+.00001f);
+            before_x=fabsf(one.elastic.x); before_y=fabsf(one.elastic.y);
+        }
+        CHECK(!one.elastic.x && !one.elastic.y && one.top==top && !one.fraction && one.horizontal==horizontal);
+        one.elastic=(Vector2){12*sign/scale,12*sign/scale}; one.spring_velocity=(Vector2){-300*sign/scale,-300*sign/scale};
+        grid_handle_input(&one,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={15*sign,15*sign}});
+        CHECK(!one.elastic.x && !one.elastic.y && !one.spring_velocity.x && !one.spring_velocity.y);
+        CHECK(fabs(((double)one.top+one.fraction-top)*24*scale-3*sign)<.001);
+        CHECK(fabsf((one.horizontal-horizontal)*scale-3*sign)<.005f && one.row==4 && one.col==2);
+        grid_destroy(&one); grid_destroy(&packets);
+    }
+    /* An infinite sheet grows before the allocated right edge is reached.
+       A shelf/overlay owning that same wheel cannot allocate sheet columns. */
+    for (size_t factor=0;factor<3;factor++) {
+        float scale=scales[factor]; UIContext u={.scale=scale}; Grid g; grid_init(&g); grid_schema(&g,&page,true);
+        grid_layout(&g,scale,&page,(Rectangle){20,40,900*scale,500*scale});
+        g.horizontal=g.offsets[g.width_count]-g.body.width/scale-10/scale; grid_layout(&g,scale,&page,g.rect);
+        size_t count=g.width_count; float start=g.horizontal; Vector2 pointer={g.body.x+100,g.body.y+100};
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse={-100,-100},.pixel_scroll=true,.pixel_pan={160,0}});
+        CHECK(g.width_count==count && g.horizontal==start && !g.elastic.x);
+        g.block_pointer=true; grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={160,0}});
+        CHECK(g.width_count==count && g.horizontal==start && !g.elastic.x); g.block_pointer=false;
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={160,0}});
+        CHECK(g.width_count>count && fabsf((g.horizontal-start)*scale-160)<.01f && !g.elastic.x);
+        CHECK(!g.top && !g.fraction && !g.row && !g.col); grid_destroy(&g);
+    }
+}
 int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--column-benchmark")) return column_benchmark();
     if (argc==2 && !strcmp(argv[1],"--font-benchmark")) return font_benchmark();
+    if (argc==2 && !strcmp(argv[1],"--overscroll")) { test_overscroll_return(); printf("PASS: %u precise overscroll/return checks\n",checks); return 0; }
+    test_overscroll_return();
     test_animated_workspace_extent(); test_dock_scroll_and_clips(); test_ribbon_flyouts(); test_workspace_layout(); test_frozen_columns(); test_ribbon_spec(); test_grid_density(); test_bounded_preview(); test_carbon_assets(); test_status_geometry(); test_status_metrics(); test_ribbon_layout(); test_menu_bounds(); test_text_lines(); test_text_editing(); test_text_history(); test_region_navigation(); test_long_range_outlines(); test_addresses(); test_navigation_queue();
     CHECK(ui_chart_fraction(0,-DBL_MAX,DBL_MAX)==.5);
     CHECK(ui_chart_fraction(DBL_MAX,-DBL_MAX,DBL_MAX)==1);
