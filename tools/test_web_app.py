@@ -51,7 +51,8 @@ def parse_options(argv=None):
     parser.add_argument('--canvas-transform',action='store_true',help='Exercise review picking through an inset canvas CSS transform')
     parser.add_argument('--alt-stress',action='store_true',help='Repeat trusted ribbon Alt shortcuts in the owned platform gate')
     parser.add_argument('--platform',action='store_true',help='Real C DPI/pixel pan/zoom gate (review source fixture)')
-    parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker file compatibility (test-only, no Save UI claim)')
+    parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker v12 file compatibility (test-only, no Save UI claim)')
+    parser.add_argument('--persistence-owners',action='store_true',help='Separate BP0 v13 owner lifetime/format package rewrite and native readback; no Save UI claim')
     options=parser.parse_args(argv)
     if options.review and options.worker_probe:
         parser.error('--review and --worker-probe use separate artifact/server profiles')
@@ -128,6 +129,8 @@ def parse_options(argv=None):
         parser.error('--platform requires --review')
     if options.alt_stress and not options.platform:
         parser.error('--alt-stress requires --platform')
+    if options.persistence_owners and any((options.persistence,options.worker_probe,options.worker_driver,options.source,options.review,options.filters,options.busy,options.access_only,options.zoom_only,options.review_controls_only,options.analysis_only,options.analysis_columns_only,options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.review_sql_only,options.review_values_only,options.table_statistics_only,options.mixed_statistics_only,options.platform,options.alt_stress,options.canvas_transform,options.query_apply,options.review_outbox,options.review_offline)):
+        parser.error('--persistence-owners is a separate normal-artifact v13 proof without other profiles/source/engine/report options')
     if options.persistence and (options.review or options.worker_driver or options.source):
         parser.error('--persistence is a separate normal-artifact file proof without source/review/worker-driver')
     if options.review_outbox and not options.review:
@@ -139,9 +142,10 @@ def parse_options(argv=None):
 def main():
     overall=time.monotonic();phases={}
     options=parse_options()
+    persistence_mode=options.persistence or options.persistence_owners
     if not options.no_build:
         subprocess.run(['python3','tools/build_web.py']+(['--worker-driver'] if options.worker_driver else ['--review'] if options.review else []), cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
-        if options.persistence:subprocess.run(['make','build/web-tests/test-persistence','build/web-tests/test-persistence-sanitize'],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
+        if persistence_mode:subprocess.run(['make','build/web-tests/test-persistence','build/web-tests/test-persistence-sanitize'],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
     phases['build_seconds']=round(time.monotonic()-overall,3);phase=time.monotonic()
     latest=json.loads((ROOT/('build/web/worker-test/latest.json' if options.worker_driver else 'build/web/review/latest.json' if options.review else 'build/web/app/latest.json')).read_text())
     artifact=Path(latest['directory']); manifest=json.loads((artifact/'build.json').read_text())
@@ -157,11 +161,11 @@ def main():
         persistence_binary=ROOT/'build/web-tests/test-persistence'
         persistence_sanitizer=ROOT/'build/web-tests/test-persistence-sanitize'
         persistence_hashes={}
-        if options.persistence:
+        if persistence_mode:
             for executable in (persistence_binary,persistence_sanitizer):
                 persistence_hashes[str(executable)]=hashlib.sha256(executable.read_bytes()).hexdigest()
             fixture=output/'native-fixture.dxls'
-            created=subprocess.run([str(persistence_binary),'create',str(fixture)],cwd=ROOT,text=True,capture_output=True,check=True,timeout=30)
+            created=subprocess.run([str(persistence_binary),'create-owners' if options.persistence_owners else 'create',str(fixture)],cwd=ROOT,text=True,capture_output=True,check=True,timeout=30)
             (output/'persistence-native-create.txt').write_text(created.stdout+created.stderr)
             fixture_hash=hashlib.sha256(fixture.read_bytes()).hexdigest()
         if options.review:
@@ -172,7 +176,7 @@ def main():
             server=ReviewServer(('127.0.0.1',0),queue,artifact)
         else:
             server=LoopbackServer(('127.0.0.1',0),functools.partial(Handler,directory=str(artifact)))
-            if options.persistence:server.persistence_fixture=fixture
+            if persistence_mode:server.persistence_fixture=fixture
         phases['server_setup_seconds']=round(time.monotonic()-phase,3)
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         begin=time.monotonic()
@@ -203,6 +207,7 @@ def main():
             if options.platform:command.append('--platform')
             if options.alt_stress:command.append('--alt-stress')
             if options.persistence:command.append('--persistence')
+            if options.persistence_owners:command.append('--persistence-owners')
             process=subprocess.Popen(command,cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
             try:log,_=process.communicate(timeout=100)
             except subprocess.TimeoutExpired:
@@ -211,10 +216,10 @@ def main():
                 except subprocess.TimeoutExpired:os.killpg(process.pid,signal.SIGKILL);log,_=process.communicate()
             (output/'driver.txt').write_text(log)
             reader_error=None
-            if options.persistence and process.returncode==0:
+            if persistence_mode and process.returncode==0:
                 try:
                     for executable in (persistence_binary,persistence_sanitizer):
-                        verified=subprocess.run([str(executable),'verify',str(fixture),str(output/'bp0-browser-export.dxls')],cwd=ROOT,text=True,capture_output=True,timeout=30)
+                        verified=subprocess.run([str(executable),'verify-owners' if options.persistence_owners else 'verify',str(fixture),str(output/'bp0-browser-export.dxls')],cwd=ROOT,text=True,capture_output=True,timeout=30)
                         (output/('persistence-native-verify-sanitize.txt' if executable==persistence_sanitizer else 'persistence-native-verify.txt')).write_text(verified.stdout+verified.stderr)
                         if verified.returncode or re.search(r'ERROR: AddressSanitizer|runtime error:',verified.stderr):raise RuntimeError('Native workbook readback failed: '+str(executable))
                     if hashlib.sha256(fixture.read_bytes()).hexdigest()!=fixture_hash:raise RuntimeError('Browser/native proof mutated its original fixture')
@@ -237,7 +242,10 @@ def main():
             record={'status':'passed' if process.returncode==0 and unchanged and artifacts_unchanged and not reader_error else 'failed','source':before,'artifact':manifest,'reader_error':reader_error,'native_persistence_helpers':persistence_hashes,
                     'command':command,'exit_code':process.returncode,'source_unchanged':unchanged,'artifacts_unchanged':artifacts_unchanged,
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
-            record['profile']='review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            record['profile']='persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            if options.persistence_owners:
+                record['scope']='BP0 real native v13 owner-only workbook rewritten/exported/reopened in one official Worker, then native release/ASan verification of exact uint64 object lifetimes, sparse cells and spatial formats. Original fixture/helper hashes stay unchanged; no browser Save/Open codec/controller or OPFS acceptance.'
+                record['persistence_fixture']={'path':str(fixture),'sha256':fixture_hash,'version':13}
             if options.review_sql_only:
                 record['scope']='Actual selected-pivot primary Generated SQL and cached pivot SQL with distinct pinned origins, real multiline source Apply, nonzero SQL wheel/clamp and content/Copy/Close/backdrop picking; cancellation retains source/matrix/manual state with no extra jobs. No Copy activation, clipboard or saved reports.'
             if options.mixed_statistics_only:
