@@ -769,7 +769,7 @@ static void review_feedback_scroll(App *a,DxReviewDataIdentity origin,const char
     DxReviewWidget *widget=(DxReviewWidget *)dx_review_find(a->review->registry,child); if (widget) widget->layer++;
 }
 static void review_feedback_step(App *a,const SheetObject *owner,const UIStep *step,size_t index,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *file,int line) {
-    if (!review_armed(a) || !step || (unsigned)step->kind>UI_STEP_SORT) return;
+    if (!review_armed(a) || a->modal!=MODAL_NONE || a->file_menu || !step || (unsigned)step->kind>UI_STEP_SORT) return;
     static const char *const kinds[]={"source","unique","filter","group","sort"}; char id[128];
     snprintf(id,sizeof(id),"pane.transformations.step.%s.f%016llx.n%zu",kinds[step->kind],(unsigned long long)review_field_hash(step->column),step->index);
     DxReviewDataIdentity origin=review_feedback_origin(a,"pipeline",owner); origin.row=index; origin.column=(uint64_t)step->kind;
