@@ -465,7 +465,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_WORKSPACE_AVAILABLE(a) ((a)->modal==MODAL_NONE && !(a)->io_busy && !(a)->file_menu)
 #define REVIEW_FEEDBACK(a,producer,owner,id,parent,action,role,label,bounds,clip,enabled,checked,focused,type,is_null,text) do { if (review_armed(a)) review_feedback_target(a,review_feedback_origin(a,producer,owner),id,parent,action,role,label,bounds,clip,enabled,checked,focused,type,is_null,text,__FILE__,__LINE__); } while (0)
 #define REVIEW_FEEDBACK_SCROLL(a,producer,owner,id,parent,track,thumb,clip,enabled,dragging) do { if (review_armed(a)) review_feedback_scroll(a,review_feedback_origin(a,producer,owner),id,parent,track,thumb,clip,enabled,dragging,__FILE__,__LINE__); } while (0)
-#define REVIEW_PREVIEW_ARM(a,enabled) do { (a)->review_preview.armed=review_armed(a); (a)->review_preview.return_enabled=(enabled); } while (0)
+#define REVIEW_PREVIEW_ARM(a,enabled) do { (a)->review_preview.armed=review_armed(a) && (a)->modal==MODAL_NONE && !(a)->file_menu; (a)->review_preview.return_enabled=(enabled); } while (0)
 #define REVIEW_PREVIEW(a) review_feedback_preview(a,&(a)->review_preview)
 #define REVIEW_FEEDBACK_STEP(a,owner,step,index,row,clip,enabled,selected,focused) do { if (review_armed(a)) review_feedback_step(a,owner,step,index,row,clip,enabled,selected,focused,__FILE__,__LINE__); } while (0)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
