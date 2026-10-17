@@ -59,7 +59,14 @@ size_t source_snapshot_bind(SourceSnapshot *snapshot,uint64_t id,const Analysis 
     return ++snapshot->count;
 }
 void source_snapshot_free(SourceSnapshot *snapshot) {
-    for (size_t i=0;i<snapshot->count && i<DX_MAX_OBJECTS;i++) analysis_free(&snapshot->items[i]); memset(snapshot,0,sizeof(*snapshot));
+    for (size_t i=0;i<snapshot->count && i<DX_MAX_OBJECTS;i++) {
+        Analysis *source=&snapshot->items[i];
+        size_t filters=sizeof(source->filters)/sizeof(*source->filters),sorts=sizeof(source->sorts)/sizeof(*source->sorts);
+        if (source->filter_count>filters) source->filter_count=filters;
+        if (source->sort_count>sorts) source->sort_count=sorts;
+        analysis_free(source);
+    }
+    memset(snapshot,0,sizeof(*snapshot));
 }
 void statistics_request_free(StatisticsRequest *request) {
     if (!request) return;
