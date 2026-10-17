@@ -9,6 +9,7 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 static const Color GRID_LINE={228,232,236,255};
 static const Color CANVAS_BACKING={201,211,220,255};
+static const Color SHEET_EDGE={143,162,179,255};
 static const float RETURN_RATE=32;
 static float clamp(float x,float lo,float hi) { return fmaxf(lo,fminf(hi,x)); }
 static uint64_t after(uint64_t row,uint64_t margin) { return row>=DX_SHEET_ROWS-margin ? DX_SHEET_ROWS : row+margin; }
@@ -584,9 +585,9 @@ static void draw_grid_region(Grid *g,UIContext *u,const Page *p,bool frozen) {
     }
     float left_edge=grid_column_x(g,s,frozen ? 0 : g->frozen_columns);
     if (left_edge>=viewport.x && left_edge<viewport.x+viewport.width && (g->elastic.x || g->elastic.y))
-        DrawRectangleRec((Rectangle){left_edge,clip.y,g->chrome_scale,clip.height},UI_BORDER);
+        DrawRectangleRec((Rectangle){left_edge,clip.y,g->chrome_scale,clip.height},SHEET_EDGE);
     if (!g->top && y0>=viewport.y && y0<viewport.y+viewport.height && (g->elastic.x || g->elastic.y))
-        DrawRectangleRec((Rectangle){clip.x,y0,clip.width,g->chrome_scale},UI_BORDER);
+        DrawRectangleRec((Rectangle){clip.x,y0,clip.width,g->chrome_scale},SHEET_EDGE);
     ui_set_clip(u,clip);
     for (size_t c=start;c<end;c++) {
         float x=grid_column_x(g,s,c),w=g->widths[c]*s; if (x>=clip.x+clip.width) break;
@@ -615,7 +616,7 @@ static void draw_grid_region(Grid *g,UIContext *u,const Page *p,bool frozen) {
     if (!frozen && left_edge>viewport.x && g->elastic.x>0)
         DrawRectangleRec((Rectangle){viewport.x,g->rect.y,fminf(viewport.width,left_edge-viewport.x),hh},CANVAS_BACKING);
     if (left_edge>viewport.x && left_edge<viewport.x+viewport.width && g->elastic.x)
-        DrawRectangleRec((Rectangle){left_edge,g->rect.y,cs,hh},UI_BORDER);
+        DrawRectangleRec((Rectangle){left_edge,g->rect.y,cs,hh},SHEET_EDGE);
     for (size_t c=start;c<end;c++) {
         float x=grid_column_x(g,s,c),w=g->widths[c]*s; if (x>=clip.x+clip.width) break;
         float left=fmaxf(x,clip.x),right=fminf(x+w,clip.x+clip.width); if (right<=left) continue;
@@ -673,7 +674,7 @@ void grid_draw(Grid *g,UIContext *u,const Page *p,bool busy) {
     }
     ui_clear_clip(u);
     if (!g->top && y0>g->body.y && y0<g->body.y+g->body.height)
-        DrawRectangleRec((Rectangle){r.x,y0,g->gutter*s,g->chrome_scale},UI_BORDER);
+        DrawRectangleRec((Rectangle){r.x,y0,g->gutter*s,g->chrome_scale},SHEET_EDGE);
     DrawLineV((Vector2){g->body.x,r.y},(Vector2){g->body.x,g->body.y+g->body.height},GRID_LINE);
     DrawLineV((Vector2){r.x,g->body.y},(Vector2){g->body.x+g->body.width,g->body.y},(Color){197,208,217,255});
     DrawRectangleRec(g->vtrack,UI_BG); DrawRectangleRec(g->htrack,UI_BG);
