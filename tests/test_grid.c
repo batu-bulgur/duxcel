@@ -968,13 +968,13 @@ static void test_overscroll_return(void) {
         for (int n=0;n<8;n++) grid_handle_input(&packets,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={10*outward,15*outward}});
         CHECK(fabsf((one.elastic.x-packets.elastic.x)*scale)<.001f && fabsf((one.elastic.y-packets.elastic.y)*scale)<.001f);
         CHECK(one.elastic.x*sign>0 && one.elastic.y*sign>0);
-        CHECK(fabsf(one.elastic.x*scale)<=64.001f && fabsf(one.elastic.y*scale)<=64.001f);
+        CHECK(fabsf(one.elastic.x*scale)<=32.001f && fabsf(one.elastic.y*scale)<=32.001f);
         CHECK(one.top==top && !one.fraction && one.horizontal==horizontal && packets.top==top && !packets.fraction && packets.horizontal==horizontal);
         CHECK(one.row==4 && one.col==2 && packets.row==4 && packets.col==2);
         if (!factor) reference[edge]=(Vector2){one.elastic.x*scale,one.elastic.y*scale};
         else CHECK(fabsf(one.elastic.x*scale-reference[edge].x)<.001f && fabsf(one.elastic.y*scale-reference[edge].y)<.001f);
         grid_handle_input(&packets,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={1000000*outward,1000000*outward}});
-        CHECK(isfinite(packets.elastic.x) && isfinite(packets.elastic.y) && fabsf(packets.elastic.x*scale)<=64.001f && fabsf(packets.elastic.y*scale)<=64.001f);
+        CHECK(isfinite(packets.elastic.x) && isfinite(packets.elastic.y) && fabsf(packets.elastic.x*scale)<=32.001f && fabsf(packets.elastic.y*scale)<=32.001f);
         /* Real trackpad momentum includes many subpixel tails. Returning
            velocity survives each packet and the edge settles promptly rather
            than restarting a slow return 120 times each second. */
@@ -1076,6 +1076,28 @@ static void test_overscroll_gestures(void) {
         CHECK(!one.elastic.x && !one.elastic.y && !one.spring_velocity.x && !one.spring_velocity.y);
         CHECK(fabsf(one.horizontal-horizontal)>1 && fabs(((double)one.top+one.fraction-top)*24)>1);
         grid_destroy(&one); grid_destroy(&packets);
+        /* A large single-axis160-point trackpad pull is only a small cue.
+           The untouched axis stays fixed at both boundaries and zooms, and
+           substantial momentum cannot prolong or re-open the cue. */
+        for (int axis=0;axis<2;axis++) {
+            Grid g; pointer=overscroll_setup(&g,&u,&page,scale,edge!=0);
+            uint64_t start_top=g.top; float start_horizontal=g.horizontal;
+            Vector2 pull=axis ? (Vector2){0,-160*sign} : (Vector2){-160*sign,0};
+            grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan=pull,.pan_phase=GRID_PAN_BEGIN,.dt=1.f/120});
+            float cue=(axis ? g.elastic.y : g.elastic.x)*scale;
+            CHECK(fabsf(cue)<=32.001f && fabsf(cue)>=31.999f && cue*sign>0);
+            CHECK(!(axis ? g.elastic.x : g.elastic.y));
+            grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pan_phase=GRID_PAN_RELEASE});
+            for (int n=0;n<24;n++) {
+                pull=axis ? (Vector2){0,-24*sign} : (Vector2){-24*sign,0};
+                grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan=pull,.pan_phase=GRID_PAN_MOMENTUM,.dt=1.f/120});
+                float next=(axis ? g.elastic.y : g.elastic.x)*scale;
+                CHECK(fabsf(next)<=fabsf(cue)+.00001f && next*sign>=0);
+                CHECK(!(axis ? g.elastic.x : g.elastic.y)); cue=next;
+            }
+            CHECK(fabsf(cue)<.25f && g.top==start_top && !g.fraction && g.horizontal==start_horizontal);
+            grid_destroy(&g);
+        }
     }
     /* No portable WheelEvent phase exists. A realistic declining tail and
        intermittent delivery trigger one return, never sawtooth outward jumps

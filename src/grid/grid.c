@@ -10,7 +10,9 @@
 static const Color GRID_LINE={228,232,236,255};
 static const Color CANVAS_BACKING={201,211,220,255};
 static const Color SHEET_EDGE={143,162,179,255};
-static const float RETURN_RATE=32;
+/* A subtle boundary cue in CSS/layout points, independent of canvas zoom. */
+static const float STRETCH_LIMIT=32;
+static const float RETURN_RATE=40;
 static float clamp(float x,float lo,float hi) { return fmaxf(lo,fminf(hi,x)); }
 static uint64_t after(uint64_t row,uint64_t margin) { return row>=DX_SHEET_ROWS-margin ? DX_SHEET_ROWS : row+margin; }
 static uint64_t canvas_rows(const Grid *g,const Page *p) {
@@ -388,7 +390,7 @@ static double wheel_axis(Grid *g,double position,double maximum,double delta,flo
            Limits/resistance are CSS points, independent of canvas zoom. */
         double k=32/scale,raw=*visual*(1+fabs(*visual)/(2*k))+(bounded-wanted)*.45;
         double magnitude=2*fabs(raw)/(sqrt(1+2*fabs(raw)/k)+1);
-        *visual=(float)copysign(fmin(64/scale,magnitude),raw);
+        *visual=(float)copysign(fmin(STRETCH_LIMIT/scale,magnitude),raw);
     } else if (!g->elastic_enabled) *visual=0;
     /* Tiny momentum tails must not restart the spring. Constrain its retained
        velocity after a reversal so return stays monotone on either edge. */
