@@ -80,6 +80,7 @@ bool browser_statistics_from_page(SelectionStats *out,const Page *scalar,uint64_
    Schema/output failures preserve their destinations. */
 char *browser_copy_sql(const char *relation,const Page *schema,uint64_t first,size_t rows,size_t column,size_t columns,char **error);
 bool browser_copy_schema(Page *out,const Page *schema,size_t column,size_t columns,char **error);
+bool browser_copy_pivot_schema_valid(const Page *schema,const PivotDefinition *pivot,const BrowserPivotPlan *plan,char **error);
 bool browser_copy_owned_bytes(const CellClipboard *copy,size_t *owned_bytes,char **error);
 /* A complete patch is staged in an owned clipboard. Short input pads SQL NULL
    through rows; exact empty strings remain owned strings. retained_bytes is all

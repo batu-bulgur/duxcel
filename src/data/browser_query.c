@@ -616,6 +616,9 @@ static bool copy_columns_valid(const Page *schema,size_t column,size_t columns,c
     }
     return true;
 }
+bool browser_copy_pivot_schema_valid(const Page *schema,const PivotDefinition *pivot,const BrowserPivotPlan *plan,char **error) {
+    return plan && plan->sql ? planned_schema_valid(schema,pivot,plan,error) : pivot_schema_valid(schema,pivot,error);
+}
 char *browser_copy_sql(const char *relation,const Page *schema,uint64_t first,size_t rows,size_t column,size_t columns,char **error) {
     if (!relation_valid(relation,error) || !copy_columns_valid(schema,column,columns,error)) return NULL;
     if (columns>DX_CLIPBOARD_CELLS || rows>DX_CLIPBOARD_CELLS/columns || first>DX_SHEET_ROWS || rows>DX_SHEET_ROWS-first) { fail(error,"Copy up to 20,000 cells inside the worksheet."); return NULL; }
@@ -673,9 +676,15 @@ bool browser_copy_apply(CellClipboard *copy,const Page *page,size_t row,size_t c
     size_t next=copy->bytes-removed+added;
     size_t largest=owned+(next>copy->bytes ? next-copy->bytes : 0);
     if (page->bytes!=bytes || retained>DX_BROWSER_COPY_RETAINED_BYTES || largest>DX_BROWSER_COPY_RETAINED_BYTES-retained || bytes>DX_BROWSER_COPY_RETAINED_BYTES-retained-largest) return fail(error,"Clipboard staging exceeds its combined 24 MiB C memory limit.");
+    /* The Page independently owns every incoming string. Release the complete
+       old target first: otherwise a large last slot can coexist with all new
+       earlier slots, exceeding max(old,new) retained-data accounting. */
     for (size_t r=0;r<rows;r++) for (size_t c=0;c<columns;c++) {
-        const Cell *cell=r<page->row_count ? &page->cells[r*columns+c] : NULL; size_t index=(row+r)*copy->columns+column+c;
-        char *text=cell && !cell->is_null ? dx_strdup(cell->text) : NULL; free(copy->values[index]); copy->values[index]=text;
+        size_t index=(row+r)*copy->columns+column+c; free(copy->values[index]); copy->values[index]=NULL;
+    }
+    for (size_t r=0;r<page->row_count;r++) for (size_t c=0;c<columns;c++) {
+        const Cell *cell=&page->cells[r*columns+c];
+        if (!cell->is_null) copy->values[(row+r)*copy->columns+column+c]=dx_strdup(cell->text);
     }
     copy->bytes=next; return true;
 }

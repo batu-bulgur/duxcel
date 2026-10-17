@@ -9,7 +9,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-typedef enum { BROWSER_DESCRIBE, BROWSER_PAGE, BROWSER_COUNT, BROWSER_VALIDATE, BROWSER_DISTINCT_PAGE, BROWSER_DISTINCT_COUNT, BROWSER_TYPE_DESCRIBE,BROWSER_PIVOT_COUNT,BROWSER_PIVOT_TOTALS,BROWSER_PIVOT_DOMAIN,BROWSER_PIVOT_ROWS,BROWSER_PIVOT_COLUMNS,BROWSER_STATISTICS } BrowserStage;
+typedef enum { BROWSER_DESCRIBE, BROWSER_PAGE, BROWSER_COUNT, BROWSER_VALIDATE, BROWSER_DISTINCT_PAGE, BROWSER_DISTINCT_COUNT, BROWSER_TYPE_DESCRIBE,BROWSER_PIVOT_COUNT,BROWSER_PIVOT_TOTALS,BROWSER_PIVOT_DOMAIN,BROWSER_PIVOT_ROWS,BROWSER_PIVOT_COLUMNS,BROWSER_STATISTICS,BROWSER_COPY_PAGE } BrowserStage;
 typedef struct {
     QueryJob *job;
     QueryReply *reply;
@@ -28,6 +28,11 @@ typedef struct {
     Page domains[DX_PIVOT_FIELDS],rows_schema,columns_schema,row_totals;
     size_t domain_index;
     char *rows_sql,*columns_sql;
+    bool copying;
+    size_t copy_index,copy_definitions;
+    CopyPatch direct_copy; /* Scalar geometry only; the job owns its pivot. */
+    CellClipboard copy_cells;
+    Page copy_schema;
     BrowserStage stage;
     unsigned ticket;
     double started;
@@ -46,9 +51,9 @@ static char *browser_schema_key;
 static Page browser_type_schema[2];
 static char *browser_type_key[2];
 static unsigned browser_cookie,browser_sequence;
-EM_JS(void, browser_send, (unsigned cookie,unsigned ticket,const char *sql,const char *generation,const char *object,const char *revision,const char *offset,const char *total,const char *columns,unsigned limit), {
+EM_JS(void, browser_send, (unsigned cookie,unsigned ticket,const char *sql,const char *generation,const char *object,const char *revision,const char *offset,const char *total,const char *columns,unsigned limit,int copying), {
     cookie=cookie>>>0;ticket=ticket>>>0;
-    Module['dxEngine'].submit({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_query_result},cookie,ticket,{requestId:String(ticket),generation:UTF8ToString(generation),documentId:String(cookie),sourceId:'0',objectId:UTF8ToString(object),revision:UTF8ToString(revision),offset:UTF8ToString(offset),knownTotal:total?UTF8ToString(total):null,rowLimit:limit,sql:UTF8ToString(sql),...(columns?{columns:JSON.parse(UTF8ToString(columns))}:{})});
+    Module['dxEngine'].submit({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_query_result},cookie,ticket,{requestId:String(ticket),generation:UTF8ToString(generation),documentId:String(cookie),sourceId:'0',objectId:UTF8ToString(object),revision:UTF8ToString(revision),offset:UTF8ToString(offset),knownTotal:total?UTF8ToString(total):null,rowLimit:limit,sql:UTF8ToString(sql),...(columns?{columns:JSON.parse(UTF8ToString(columns))}:{}),...(copying?{purpose:'copy'}:{})});
 })
 EM_JS(void, browser_cancel, (int close), { Module['dxEngine'].cancel(Boolean(close)); })
 static void browser_discard(void) {
@@ -58,6 +63,7 @@ static void browser_discard(void) {
     for (size_t i=0;i<DX_PIVOT_FIELDS;i++) page_free(&browser_query.domains[i]);
     page_free(&browser_query.rows_schema); page_free(&browser_query.columns_schema); page_free(&browser_query.row_totals);
     free(browser_query.rows_sql); free(browser_query.columns_sql); free(browser_query.statistics_cells);
+    clipboard_free(&browser_query.copy_cells); page_free(&browser_query.copy_schema);
     distinct_query_free(&browser_query.distinct); page_free(&browser_query.distinct_values);
     browser_query=(BrowserQuery){0};
     if (browser_owner) browser_owner->running=false;
@@ -67,6 +73,7 @@ static void browser_publish(const char *error) {
     if (error) { free(r->error); r->error=dx_strdup(error); }
     if (error && browser_query.matrix) page_free(&r->page);
     if (error && r->kind==JOB_STATISTICS) statistics_free(&r->statistics);
+    if (error && browser_query.copying) { free(r->clipboard); r->clipboard=NULL; }
     printf("Browser worker reply: {\"id\":\"%" PRIu64 "\",\"kind\":%d,\"rows\":%zu,\"columns\":%zu,\"total\":\"%" PRIu64 "\",\"counted\":\"%" PRIu64 "\",\"pending\":%d,\"error\":%d,\"distinct_count\":%zu,\"distinct_total\":\"%" PRIu64 "\"}\n",r->id,(int)r->kind,r->page.row_count,r->page.column_count,r->page.total,r->counted_rows,r->page.count_pending,r->error!=NULL,r->distinct.count,r->distinct.total);
 #ifdef DUXCEL_DEV_REVIEW
     printf("Browser worker metrics: {\"id\":\"%" PRIu64 "\",\"elapsed_ms\":%.3f,\"callbacks\":%u,\"wire_bytes\":%" PRIu64 ",\"decoded_page_bytes\":%" PRIu64 ",\"retained_page_bytes\":%zu,\"decode_ms\":%.3f}\n",r->id,dx_millis()-browser_query.started,browser_query.callbacks,browser_query.wire_bytes,browser_query.decoded_bytes,r->page.bytes,browser_query.decode_ms);
@@ -100,8 +107,19 @@ static char *browser_columns_json(const Page *schema) {
     }
     dx_append(&json,"]"); return json;
 }
+static CopyPatch *browser_copy_patch(void) {
+    BrowserQuery *q=&browser_query;
+    return q->job->kind==JOB_RANGE_COPY ? &q->job->copy->patches[q->copy_index] : &q->direct_copy;
+}
+static CellClipboard *browser_copy_cells(void) {
+    return browser_query.job->kind==JOB_RANGE_COPY ? &browser_query.job->copy->cells : &browser_query.copy_cells;
+}
 static Analysis *browser_active_analysis(void) {
     BrowserQuery *q=&browser_query;
+    if (q->copying && q->job->kind==JOB_RANGE_COPY && q->copy_index<q->job->copy->count) {
+        size_t source=q->job->copy->patches[q->copy_index].source;
+        if (source) return &q->job->copy->sources.items[source-1];
+    }
     if (q->mixed && q->statistics_range<q->job->statistics->count) {
         size_t source=q->job->statistics->ranges[q->statistics_range].source;
         if (source) return &q->job->statistics->sources.items[source-1];
@@ -110,8 +128,90 @@ static Analysis *browser_active_analysis(void) {
 }
 static PivotDefinition *browser_context(void) {
     BrowserQuery *q=&browser_query; QueryJob *j=q->job;
+    if (q->copying) {
+        CopyPatch *patch=browser_copy_patch();
+        return patch->is_pivot ? j->kind==JOB_RANGE_COPY ? &patch->pivot : &j->pivot : NULL;
+    }
     if (q->mixed) { StatisticsRange *range=&j->statistics->ranges[q->statistics_range]; return range->is_pivot ? &range->pivot : NULL; }
     return q->analytical || (j->kind==JOB_DISTINCT && j->object_id && !j->is_table) ? &j->pivot : NULL;
+}
+static bool browser_copy_add(size_t *used,size_t bytes,char **error) {
+    if (bytes>DX_BROWSER_COPY_RETAINED_BYTES || *used>DX_BROWSER_COPY_RETAINED_BYTES-bytes) {
+        if (error) { free(*error); *error=dx_strdup("Clipboard staging exceeds its combined 24 MiB C memory limit."); } return false;
+    }
+    *used+=bytes; return true;
+}
+static bool browser_copy_source_valid(const Analysis *source,bool optional,size_t *used,char **error) {
+    if (optional && source->kind==SOURCE_NONE) {
+        if ((source->path && *source->path) || source->schema || source->table || source->query || source->filter_column || source->filter_value || source->group_column || source->measure_column || source->sort_column || source->filter_count || source->sort_count || source->unique_rows) { *error=dx_strdup("Invalid empty clipboard source snapshot."); return false; }
+    } else {
+        char *sql=browser_relation_sql(source,NULL,error); if (!sql) return false; free(sql);
+    }
+    return browser_copy_add(used,analysis_text_bytes(source),error);
+}
+static bool browser_copy_pivot_valid(const Analysis *source,const PivotDefinition *pivot,bool analytical,size_t *used,char **error) {
+    bool fields=false;
+    for (size_t role=0;role<4;role++) { if (pivot->counts[role]>DX_PIVOT_FIELDS) { *error=dx_strdup("Clipboard shelves exceed their bounded field limit."); return false; } fields|=pivot->counts[role]!=0; }
+    if (!analytical && fields) { *error=dx_strdup("A copied table cannot contain matrix shelves."); return false; }
+    if (!analytical) return true;
+    char *sql=browser_relation_sql(source,pivot,error); if (!sql) return false; free(sql);
+    for (size_t role=0;role<4;role++) for (size_t i=0;i<pivot->counts[role];i++) {
+        const PivotField *field=&pivot->fields[role][i];
+        if (!browser_copy_add(used,strlen(field->name)+1+(field->value ? strlen(field->value)+1 : 0),error)) return false;
+    }
+    return true;
+}
+static bool browser_copy_preflight(char **error) {
+    BrowserQuery *q=&browser_query; QueryJob *j=q->job; size_t used=sizeof(*j)+sizeof(*q->reply),owned=0;
+    if (j->expected_source_stamp || j->statistics) { *error=dx_strdup("Native source stamps or statistics snapshots cannot be used for browser copy."); return false; }
+    if (!browser_copy_source_valid(&q->reply->analysis,j->kind==JOB_RANGE_COPY,&used,error)) return false;
+    if (j->kind==JOB_RANGE_COPY) {
+        CopyRequest *copy=j->copy;
+        if (!copy || copy->count>DX_MAX_OBJECTS+1 || copy->guard_count>DX_MAX_OBJECTS+1 || copy->sources.count>DX_MAX_OBJECTS || j->object_id || j->is_table) { *error=dx_strdup("Invalid clipboard source snapshot bounds."); return false; }
+        for (size_t role=0;role<4;role++) if (j->pivot.counts[role]) { *error=dx_strdup("Mixed clipboard shelves belong to their individual patches."); return false; }
+        if (!browser_copy_add(&used,sizeof(*copy),error) || !browser_copy_owned_bytes(&copy->cells,&owned,error)) return false;
+        size_t source_bytes=0;
+        for (size_t i=0;i<copy->sources.count;i++) {
+            if (!copy->sources.ids[i]) { *error=dx_strdup("Invalid clipboard source identity."); return false; }
+            for (size_t k=0;k<i;k++) if (copy->sources.ids[k]==copy->sources.ids[i]) { *error=dx_strdup("Duplicate clipboard source identity."); return false; }
+            size_t before=used;
+            if (!browser_copy_source_valid(&copy->sources.items[i],false,&used,error)) return false;
+            source_bytes+=used-before;
+        }
+        if (copy->sources.bytes!=source_bytes || source_bytes>8u*1024u*1024u) { *error=dx_strdup("Clipboard source byte accounting changed."); return false; }
+        for (size_t i=0;i<copy->guard_count;i++) {
+            const CopySourceGuard *guard=&copy->guards[i];
+            if (guard->source>copy->sources.count || guard->expected_source_stamp) { *error=dx_strdup("Invalid clipboard source guard or unsupported native source stamp."); return false; }
+            for (size_t k=0;k<i;k++) if (copy->guards[k].source==guard->source) { *error=dx_strdup("Duplicate clipboard source guard."); return false; }
+        }
+        for (size_t i=0;i<copy->count;i++) {
+            CopyPatch *patch=&copy->patches[i];
+            if (patch->source>copy->sources.count || !patch->rows || !patch->columns || patch->column>=256 || patch->columns>256-patch->column || patch->first>DX_SHEET_ROWS || patch->rows>DX_SHEET_ROWS-patch->first || patch->target_row>copy->cells.rows || patch->rows>copy->cells.rows-patch->target_row || patch->target_column>copy->cells.columns || patch->columns>copy->cells.columns-patch->target_column) { *error=dx_strdup("Invalid clipboard patch bounds."); return false; }
+            Analysis *source=patch->source ? &copy->sources.items[patch->source-1] : &q->reply->analysis;
+            if (source->kind==SOURCE_NONE) { *error=dx_strdup("A clipboard patch requires a real source."); return false; }
+            if (!browser_copy_pivot_valid(source,&patch->pivot,patch->is_pivot,&used,error)) return false;
+        }
+    } else {
+        bool header=j->kind==JOB_PIVOT_COPY && j->include_header;
+        if (j->copy || (!j->rows && !header) || !j->cols || j->cols>256 || j->first_col>=256 || j->cols>256-j->first_col || j->rows>DX_CLIPBOARD_CELLS/j->cols-(header ? 1u : 0u) || j->offset>DX_SHEET_ROWS || j->rows>DX_SHEET_ROWS-j->offset || (j->kind==JOB_PIVOT_COPY && j->is_table)) { *error=dx_strdup("Copy up to 20,000 cells inside the worksheet."); return false; }
+        if (!browser_copy_pivot_valid(&q->reply->analysis,&j->pivot,j->kind==JOB_PIVOT_COPY,&used,error)) return false;
+        if (!clipboard_init(&q->copy_cells,(size_t)j->rows+(header ? 1u : 0u),j->cols,error)) return false;
+        owned=q->copy_cells.capacity*sizeof(char *);
+        q->direct_copy=(CopyPatch){.is_pivot=j->kind==JOB_PIVOT_COPY,.first=j->offset,.rows=(size_t)j->rows,.column=j->first_col,.columns=j->cols,.target_row=header ? 1u : 0u};
+    }
+    q->copy_definitions=used;
+    return browser_copy_add(&used,owned,error) && browser_copy_add(&used,DX_CLIPBOARD_BYTES+1u,error);
+}
+static bool browser_copy_retained(size_t extra,size_t *retained,char **error) {
+    BrowserQuery *q=&browser_query; size_t used=q->copy_definitions,owned;
+    if (!browser_copy_owned_bytes(browser_copy_cells(),&owned,error) || !browser_copy_add(&used,owned,error)) return false;
+    const char *texts[]={q->relation,q->type_relation,browser_schema_key,browser_type_key[0],browser_type_key[1]};
+    for (size_t i=0;i<sizeof(texts)/sizeof(*texts);i++) if (texts[i] && !browser_copy_add(&used,strlen(texts[i])+1,error)) return false;
+    if (!browser_copy_add(&used,browser_schema.bytes,error) || !browser_copy_add(&used,q->copy_schema.bytes,error) || !browser_copy_add(&used,q->plan.bytes,error)) return false;
+    for (size_t i=0;i<2;i++) if (!browser_copy_add(&used,browser_type_schema[i].bytes,error)) return false;
+    for (size_t i=0;i<DX_PIVOT_FIELDS;i++) if (!browser_copy_add(&used,q->domains[i].bytes,error)) return false;
+    if (!browser_copy_add(&used,extra,error)) return false;
+    *retained=used; return true;
 }
 static bool browser_statistics_add_bytes(size_t *used,size_t bytes,char **error) {
     if (bytes>DX_PAGE_WIRE_TEXT_BYTES || *used>DX_PAGE_WIRE_TEXT_BYTES-bytes) { *error=dx_strdup("Selection statistics exceed their combined 4 MiB memory limit."); return false; }
@@ -143,19 +243,28 @@ static void browser_execute(char *sql,BrowserStage stage) {
         char *error=NULL; size_t retained;
         if (!browser_statistics_retained(strlen(sql)+1,&retained,&error)) { free(sql); browser_fail(error); free(error); return; }
     }
+    if (q->copying) {
+        char *error=NULL; size_t retained,extra=strlen(sql)+1;
+        if (stage==BROWSER_COPY_PAGE) {
+            CopyPatch *patch=browser_copy_patch();
+            extra+=q->copy_schema.bytes+patch->rows*patch->columns*(sizeof(Cell)+1u)+DX_PAGE_WIRE_TEXT_BYTES;
+        }
+        if (!browser_copy_retained(extra,&retained,&error)) { free(sql); browser_fail(error); free(error); return; }
+    }
     q->stage=stage; q->ticket=++browser_sequence;
     char id[24],object[24],revision[24],offset[24],total[24];
     snprintf(id,sizeof(id),"%" PRIu64,j->id); snprintf(object,sizeof(object),"%" PRIu64,j->object_id); snprintf(revision,sizeof(revision),"%" PRIu64,j->revision);
     snprintf(offset,sizeof(offset),"%" PRIu64,(stage==BROWSER_PAGE || stage==BROWSER_DISTINCT_PAGE || stage==BROWSER_PIVOT_ROWS) ? j->offset : 0);
+    if (stage==BROWSER_COPY_PAGE) snprintf(offset,sizeof(offset),"%" PRIu64,browser_copy_patch()->first);
     snprintf(total,sizeof(total),"%" PRIi64,j->known_total);
     bool totals=stage==BROWSER_PIVOT_TOTALS || stage==BROWSER_PIVOT_COLUMNS || stage==BROWSER_STATISTICS; if (totals) snprintf(total,sizeof(total),"1");
     if (stage==BROWSER_PIVOT_ROWS) snprintf(total,sizeof(total),"%" PRIu64,q->reply->page.total);
-    const Page *schema=stage==BROWSER_PAGE ? &browser_schema : stage==BROWSER_PIVOT_TOTALS ? &q->totals_schema : stage==BROWSER_PIVOT_ROWS ? &q->rows_schema : stage==BROWSER_PIVOT_COLUMNS ? &q->columns_schema : NULL;
+    const Page *schema=stage==BROWSER_COPY_PAGE ? &q->copy_schema : stage==BROWSER_PAGE ? &browser_schema : stage==BROWSER_PIVOT_TOTALS ? &q->totals_schema : stage==BROWSER_PIVOT_ROWS ? &q->rows_schema : stage==BROWSER_PIVOT_COLUMNS ? &q->columns_schema : NULL;
     char *columns=schema ? browser_columns_json(schema) : NULL;
     /* Browser counters count submitted SQL; the async host may supersede a
        request before the official engine executes it. */
     browser_owner->sql_executed++; if (stage==BROWSER_COUNT || stage==BROWSER_PIVOT_COUNT) browser_owner->counts_executed++;
-    browser_send(browser_cookie,q->ticket,sql,id,object,revision,offset,totals || stage==BROWSER_PIVOT_ROWS || ((stage==BROWSER_PAGE || stage==BROWSER_DISTINCT_PAGE) && j->known_total>=0) ? total : NULL,columns,totals ? 1 : stage==BROWSER_DISTINCT_PAGE ? DX_DISTINCT_ROWS : stage==BROWSER_PIVOT_DOMAIN ? 129 : DX_PAGE_ROWS);
+    browser_send(browser_cookie,q->ticket,sql,id,object,revision,offset,totals || stage==BROWSER_PIVOT_ROWS || ((stage==BROWSER_PAGE || stage==BROWSER_DISTINCT_PAGE) && j->known_total>=0) ? total : NULL,columns,stage==BROWSER_COPY_PAGE ? (unsigned)browser_copy_patch()->rows : totals ? 1 : stage==BROWSER_DISTINCT_PAGE ? DX_DISTINCT_ROWS : stage==BROWSER_PIVOT_DOMAIN ? 129 : DX_PAGE_ROWS,stage==BROWSER_COPY_PAGE);
     free(sql); free(columns);
 }
 static void browser_fetch_page(void) {
@@ -170,6 +279,53 @@ static void browser_fetch_page(void) {
     browser_execute(sql,BROWSER_PAGE);
 }
 static void browser_prepare_query(void);
+static void browser_copy_release_relation(void) {
+    BrowserQuery *q=&browser_query;
+    free(q->relation); q->relation=NULL; free(q->type_relation); q->type_relation=NULL;
+    browser_pivot_plan_free(&q->plan); for (size_t i=0;i<DX_PIVOT_FIELDS;i++) page_free(&q->domains[i]);
+    page_free(&q->copy_schema); q->domain_index=0; q->resolved_types[0]=q->resolved_types[1]=false;
+}
+static void browser_copy_finish(bool empty) {
+    BrowserQuery *q=&browser_query; char *error=NULL; size_t retained;
+    browser_copy_release_relation();
+    if (!browser_copy_retained(DX_CLIPBOARD_BYTES+1u,&retained,&error)) { browser_fail(error); free(error); return; }
+    char *text=empty ? dx_strdup("") : clipboard_tsv(browser_copy_cells(),&error);
+    if (!text) { browser_fail(error); free(error); return; }
+    q->reply->clipboard=text; browser_publish(NULL);
+}
+static void browser_copy_next_patch(void) {
+    BrowserQuery *q=&browser_query; char *error=NULL;
+    browser_copy_release_relation();
+    if (q->job->kind==JOB_RANGE_COPY && q->copy_index==q->job->copy->count) { browser_copy_finish(false); return; }
+    q->analytical=browser_copy_patch()->is_pivot;
+    q->relation=browser_relation_sql(browser_active_analysis(),browser_context(),&error);
+    if (!q->relation) { browser_fail(error); free(error); return; }
+    browser_prepare_query();
+}
+static void browser_fetch_copy(void) {
+    BrowserQuery *q=&browser_query; QueryJob *j=q->job; CopyPatch *patch=browser_copy_patch(); char *error=NULL;
+    PivotDefinition *pivot=browser_context();
+    if ((pivot && !browser_copy_pivot_schema_valid(&browser_schema,pivot,&q->plan,&error)) ||
+        !browser_copy_schema(&q->copy_schema,&browser_schema,patch->column,patch->columns,&error)) { browser_fail(error); free(error); return; }
+    if (j->kind==JOB_PIVOT_COPY && j->include_header) {
+        size_t keys=pivot->counts[PIVOT_ROWS];
+        for (size_t c=0;c<patch->columns;c++) {
+            size_t index=patch->column+c; char *label;
+            if (index<keys) label=pivot_field_label(&pivot->fields[PIVOT_ROWS][index]);
+            else {
+                size_t measure=(index-keys)%pivot->counts[PIVOT_VALUES];
+                const PivotField *field=&pivot->fields[PIVOT_VALUES][measure]; char *aggregate=aggregate_measure_label(field->aggregate,field->name);
+                label=pivot->counts[PIVOT_COLUMNS] ? dx_printf("%s_%s",q->plan.headers[index-keys].caption,aggregate) : dx_strdup(aggregate); free(aggregate);
+            }
+            bool valid=clipboard_set(browser_copy_cells(),0,c,label,&error); free(label);
+            if (!valid) { browser_fail(error); free(error); return; }
+        }
+    }
+    if (!patch->rows) { browser_copy_finish(false); return; }
+    char *sql=browser_copy_sql(q->relation,&browser_schema,patch->first,patch->rows,patch->column,patch->columns,&error);
+    if (!sql) { browser_fail(error); free(error); return; }
+    browser_execute(sql,BROWSER_COPY_PAGE);
+}
 static void browser_statistics_next_range(void) {
     BrowserQuery *q=&browser_query; StatisticsRequest *request=q->job->statistics; char *error=NULL;
     free(q->relation); q->relation=NULL; free(q->type_relation); q->type_relation=NULL;
@@ -187,6 +343,7 @@ static void browser_statistics_next_range(void) {
 }
 static void browser_fetch_result(void) {
     BrowserQuery *q=&browser_query; QueryJob *j=q->job;
+    if (q->copying) { browser_fetch_copy(); return; }
     if (j->kind!=JOB_STATISTICS) { browser_fetch_page(); return; }
     char *error=NULL,*sql=NULL;
     if (q->mixed) {
@@ -304,16 +461,37 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
     uint64_t total=0; char *error=NULL; Page page={0};
     QueryJob *j=browser_query.job; QueryReply *r=browser_query.reply;
     uint64_t offset=(browser_query.stage==BROWSER_PAGE || browser_query.stage==BROWSER_DISTINCT_PAGE || browser_query.stage==BROWSER_PIVOT_ROWS) ? j->offset : 0;
+    if (browser_query.stage==BROWSER_COPY_PAGE) offset=browser_copy_patch()->first;
     if (!browser_uint64(total_text,&total)) { browser_publish("Invalid browser row count."); return; }
 #ifdef DUXCEL_DEV_REVIEW
     double decode_started=dx_millis();
     browser_query.callbacks++; browser_query.wire_bytes+=size;
 #endif
-    bool decoded=page_from_wire(&page,wire,size,offset,total,pending!=0,&error);
+    bool decoded=browser_query.stage==BROWSER_COPY_PAGE ? page_from_wire_copy(&page,wire,size,offset,total,pending!=0,&error) : page_from_wire(&page,wire,size,offset,total,pending!=0,&error);
 #ifdef DUXCEL_DEV_REVIEW
     browser_query.decode_ms+=dx_millis()-decode_started; browser_query.decoded_bytes+=page.bytes;
 #endif
     if (!decoded) { browser_publish(error); free(error); return; }
+    if (browser_query.copying) {
+        size_t retained;
+        if (!browser_copy_retained(page.bytes,&retained,&error)) { page_free(&page); browser_publish(error); free(error); return; }
+    }
+    if (browser_query.stage==BROWSER_COPY_PAGE) {
+        BrowserQuery *q=&browser_query; CopyPatch *patch=browser_copy_patch(); bool valid=page.column_count==q->copy_schema.column_count;
+        for (size_t c=0;valid && c<page.column_count;c++) {
+            const Column *actual=&page.columns[c],*expected=&q->copy_schema.columns[c];
+            valid=!strcmp(actual->name,expected->name) && !strcmp(actual->type_name,expected->type_name) && actual->type==expected->type && actual->number_type.kind==expected->number_type.kind && actual->number_type.precision==expected->number_type.precision && actual->number_type.scale==expected->number_type.scale;
+        }
+        size_t retained=0,owned=0,actual_rows=page.row_count;
+        if (valid) valid=browser_copy_retained(0,&retained,&error) && browser_copy_owned_bytes(browser_copy_cells(),&owned,&error) &&
+            browser_copy_apply(browser_copy_cells(),&page,patch->target_row,patch->target_column,patch->rows,patch->columns,retained-owned,&error);
+        page_free(&page);
+        if (!valid) { browser_publish(error ? error : "Copied result no longer matches its typed projection."); free(error); return; }
+        if (j->kind==JOB_RANGE_COPY) { q->copy_index++; browser_copy_next_patch(); return; }
+        bool header=j->kind==JOB_PIVOT_COPY && j->include_header;
+        if (actual_rows || header) q->copy_cells.rows=actual_rows+(header ? 1u : 0u);
+        browser_copy_finish(!actual_rows && !header); return;
+    }
     if (browser_query.stage==BROWSER_STATISTICS) {
         BrowserQuery *q=&browser_query; size_t retained=0;
         bool valid=browser_statistics_retained(0,&retained,&error) && browser_statistics_from_page(&r->statistics,&page,q->mixed ? j->statistics->cells : j->rows*j->cols,retained,&error); page_free(&page);
@@ -437,11 +615,17 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
     r->analysis=j->analysis; memset(&j->analysis,0,sizeof(j->analysis)); r->path=j->path; j->path=NULL;
     printf("Browser worker started: {\"id\":\"%" PRIu64 "\",\"kind\":%d}\n",r->id,(int)r->kind);
     if (j->refresh_source) browser_clear_schemas();
+    q->copying=j->kind==JOB_COPY || j->kind==JOB_PIVOT_COPY || j->kind==JOB_RANGE_COPY;
     q->matrix=j->kind==JOB_PIVOT && !j->is_table;
     q->analytical=q->matrix || (j->kind==JOB_STATISTICS && j->object_id && !j->is_table);
     bool invalid_pivot=false;
     for (size_t role=0;role<4;role++) invalid_pivot|=j->pivot.counts[role]>DX_PIVOT_FIELDS;
     if (invalid_pivot) { browser_fail("Matrix shelves exceed their bounded field limit."); return; }
+    if (q->copying) {
+        char *error=NULL;
+        if (!browser_copy_preflight(&error)) { browser_fail(error ? error : "Invalid clipboard source snapshot."); free(error); return; }
+        browser_copy_next_patch(); return;
+    }
     if (j->kind==JOB_STATISTICS) {
         bool pivot=false; for (size_t role=0;role<4;role++) pivot|=j->pivot.counts[role]!=0;
         if (j->statistics) {

@@ -555,7 +555,17 @@ static void test_copy_helpers(void) {
     CHECK(!browser_copy_owned_bytes(&malformed,&owned,&error) && error); free(error); error=NULL;
     malformed=copy; malformed.capacity=15; CHECK(!browser_copy_owned_bytes(&malformed,&owned,&error) && error); free(error); error=NULL;
     copy.bytes++; CHECK(!browser_copy_owned_bytes(&copy,&owned,&error) && error); free(error); copy.bytes--;
-    for (size_t i=0;i<copy.capacity;i++) free(copy.values[i]); free(copy.values); page_free(&schema);
+    for (size_t i=0;i<copy.capacity;i++) free(copy.values[i]); free(copy.values);
+    /* Moving a large last target to the first slot must fit max(old,new),
+       with all incoming text independently retained by the wire Page. */
+    copy=(CellClipboard){.rows=1,.columns=2,.capacity=2,.values=dx_alloc(2*sizeof(char *))};
+    copy.values[1]=dx_alloc(3u*1024u*1024u+1u); memset(copy.values[1],'o',3u*1024u*1024u); copy.bytes=3u*1024u*1024u+1u;
+    page=(Page){0}; CHECK(browser_copy_schema(&page,&schema,0,2,NULL)); page.row_count=1; page.total=1; page.cells=dx_alloc(2*sizeof(Cell)); page.bytes+=2*sizeof(Cell);
+    page.cells[0].text=dx_alloc(copy.bytes); memset(page.cells[0].text,'n',copy.bytes-1); page.cells[1].is_null=true; page.bytes+=copy.bytes;
+    size_t retained=DX_BROWSER_COPY_RETAINED_BYTES-2*sizeof(char *)-copy.bytes-page.bytes;
+    CHECK(browser_copy_apply(&copy,&page,0,0,1,2,retained,NULL));
+    CHECK(!copy.values[1] && strlen(copy.values[0])==3u*1024u*1024u && copy.values[0][0]=='n' && copy.values[0]!=page.cells[0].text);
+    page_free(&page); free(copy.values[0]); free(copy.values); page_free(&schema);
 }
 int main(void) {
     test_copy_helpers();
