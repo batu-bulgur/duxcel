@@ -567,8 +567,115 @@ static void test_copy_helpers(void) {
     CHECK(!copy.values[1] && strlen(copy.values[0])==3u*1024u*1024u && copy.values[0][0]=='n' && copy.values[0]!=page.cells[0].text);
     page_free(&page); free(copy.values[0]); free(copy.values); page_free(&schema);
 }
+static Page export_schema(size_t count,const char *const *names,const char *const *types) {
+    Page describe=describe_page(count,names,types),schema={0};
+    CHECK(browser_schema_from_describe(&schema,&describe,NULL)); page_free(&describe); return schema;
+}
+static void test_export_sql(void) {
+    const char *names[]={"wide","u64","amount","A\"B","missing"},*types[]={"BIGINT","UBIGINT","DECIMAL(38,10)","VARCHAR","VARCHAR"};
+    Page schema=export_schema(5,names,types); char *error=NULL;
+    const char *relation="SELECT 9007199254740993::BIGINT AS wide,'18446744073709551615'::UBIGINT AS u64,'9007199254740993.1234567890'::DECIMAL(38,10) AS amount,'O''Reilly' AS \"A\"\"B\",NULL::VARCHAR AS missing ORDER BY wide";
+    char *sql=browser_export_sql(relation,&schema,NULL,NULL,"export-1-1.parquet",&error),*expected=dx_printf("COPY (%s) TO 'export-1-1.parquet' (FORMAT PARQUET)",relation);
+    CHECK(sql && !error && !strcmp(sql,expected) && !strstr(sql,"AS VARCHAR") && !strstr(sql,"LIMIT 256")); free(sql); free(expected);
+    sql=browser_export_sql(relation,&schema,NULL,NULL,"export-4294967295-4294967295.parquet",&error);
+    CHECK(sql && strstr(sql,"export-4294967295-4294967295.parquet")); free(sql);
+    Analysis source={.kind=SOURCE_CSV,.path=dx_strdup("O'Reilly.csv")};
+    CHECK(analysis_filter_set(&source,"A\"B",FILTER_EQUAL,"NULL",NULL)); CHECK(analysis_sort_set(&source,"wide",true,false,NULL));
+    char *filtered=browser_relation_sql(&source,NULL,NULL); sql=browser_export_sql(filtered,&schema,NULL,NULL,"export-2-3.parquet",&error);
+    CHECK(sql && strstr(sql,"read_csv_auto('O''Reilly.csv'") && strstr(sql,"\"A\"\"B\" = cast_to_type('NULL', \"A\"\"B\")") && strstr(sql,"ORDER BY \"wide\" DESC"));
+    free(filtered); analysis_free(&source); CHECK(strstr(sql,"O''Reilly.csv")); free(sql);
+    const char *invalid_names[]={NULL,"","source.parquet","/export-1-1.parquet","../export-1-1.parquet","export-0-1.parquet","export-1-0.parquet",
+        "export-01-1.parquet","export-1-01.parquet","export--1-1.parquet","export-4294967296-1.parquet","export-1-4294967296.parquet",
+        "export-18446744073709551615-1.parquet","export-1-1.parquet'","export-1-1.parquet;DROP TABLE x","export-1-1.parquet/child","export-1-1.Parquet","export-1-1.parquet\n"};
+    Page before=schema;
+    for (size_t i=0;i<sizeof(invalid_names)/sizeof(*invalid_names);i++) {
+        reject_sql(browser_export_sql(relation,&schema,NULL,NULL,invalid_names[i],&error),&error);
+        CHECK(!memcmp(&schema,&before,sizeof(schema)) && !strcmp(schema.columns[2].type_name,"DECIMAL(38,10)"));
+    }
+    const char *bad_relations[]={NULL,""," \t\n"};
+    for (size_t i=0;i<sizeof(bad_relations)/sizeof(*bad_relations);i++) reject_sql(browser_export_sql(bad_relations[i],&schema,NULL,NULL,"export-1-1.parquet",&error),&error);
+    const size_t overhead=strlen("COPY () TO 'export-1-1.parquet' (FORMAT PARQUET)"),length=DX_BROWSER_SQL_BYTES-overhead;
+    char *large=dx_alloc(DX_BROWSER_SQL_BYTES+2); memset(large,' ',DX_BROWSER_SQL_BYTES+1); memcpy(large,"SELECT 1",8); large[length]=0;
+    sql=browser_export_sql(large,&schema,NULL,NULL,"export-1-1.parquet",&error); CHECK(sql && strlen(sql)==DX_BROWSER_SQL_BYTES); free(sql);
+    large[length]=' '; large[length+1]=0; reject_sql(browser_export_sql(large,&schema,NULL,NULL,"export-1-1.parquet",&error),&error);
+    large[DX_BROWSER_SQL_BYTES+1]=0; reject_sql(browser_export_sql(large,&schema,NULL,NULL,"export-1-1.parquet",&error),&error); free(large);
+    const char *unsafe[]={"HUGEINT","UHUGEINT","STRUCT(a HUGEINT)","HUGEINT[]","INTEGER[]","DECIMAL(38,10)[]","MAP(VARCHAR, BIGINT)","UNION(a INTEGER)","ENUM('a','b')","CustomType"};
+    for (size_t i=0;i<sizeof(unsafe)/sizeof(*unsafe);i++) {
+        const char *one[]={unsafe[i]}; Page rejected=export_schema(1,NULL,one),retained=rejected;
+        reject_sql(browser_export_sql("SELECT * FROM source",&rejected,NULL,NULL,"export-1-1.parquet",&error),&error);
+        CHECK(!memcmp(&rejected,&retained,sizeof(rejected)) && !strcmp(rejected.columns[0].type_name,unsafe[i])); page_free(&rejected);
+    }
+    schema.columns[2].number_type.scale=9; reject_sql(browser_export_sql(relation,&schema,NULL,NULL,"export-1-1.parquet",&error),&error); schema.columns[2].number_type.scale=10;
+    schema.columns[0].numeric=false; reject_sql(browser_export_sql(relation,&schema,NULL,NULL,"export-1-1.parquet",&error),&error); schema.columns[0].numeric=true;
+    char *saved=schema.columns[4].name; schema.columns[4].name="WIDE"; reject_sql(browser_export_sql(relation,&schema,NULL,NULL,"export-1-1.parquet",&error),&error); schema.columns[4].name=saved;
+    Page invalid=schema; invalid.column_count=SIZE_MAX; reject_sql(browser_export_sql(relation,&invalid,NULL,NULL,"export-1-1.parquet",&error),&error);
+    invalid=schema; invalid.columns=NULL; reject_sql(browser_export_sql(relation,&invalid,NULL,NULL,"export-1-1.parquet",&error),&error);
+    CHECK(!browser_export_sql(relation,NULL,NULL,NULL,"export-1-1.parquet",NULL));
+    BrowserPivotPlan stray={.empty_input=true}; reject_sql(browser_export_sql(relation,&schema,NULL,&stray,"export-1-1.parquet",&error),&error);
+    page_free(&schema);
+}
+static void test_export_pivot_sql(void) {
+    Analysis source={.kind=SOURCE_DEMO}; PivotDefinition pivot={0}; char *error=NULL;
+    CHECK(pivot_assign_grain(&pivot,PIVOT_ROWS,"Date",AGG_SUM,PIVOT_DATE_MONTH,NULL));
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_AVG,NULL) && pivot_assign(&pivot,PIVOT_VALUES,"ID",AGG_DISTINCT,NULL));
+    Page schema=matrix_fixture(&pivot,0); char *relation=browser_relation_sql(&source,&pivot,NULL),*key=pivot_field_key(&pivot,PIVOT_ROWS,0);
+    char *sql=browser_export_sql(relation,&schema,&pivot,NULL,"export-1-2.parquet",&error),*row_alias=dx_printf("\"%s\" AS \"%s\"",key,key);
+    CHECK(sql && !error && strstr(sql,row_alias) && strstr(sql,"\"AVG(Amount)\" AS \"AVG(Amount)\"") && strstr(sql,"\"COUNT DISTINCT(ID)\" AS \"COUNT DISTINCT(ID)\"") && !strstr(sql,"AS VARCHAR"));
+    free(row_alias); free(key); free(sql);
+    BrowserPivotPlan stray={.bytes=1}; reject_sql(browser_export_sql(relation,&schema,&pivot,&stray,"export-1-2.parquet",&error),&error);
+    PivotDefinition malformed=pivot; malformed.counts[PIVOT_COLUMNS]=SIZE_MAX;
+    reject_sql(browser_export_sql(relation,&schema,&malformed,NULL,"export-1-2.parquet",&error),&error);
+    free(relation); page_free(&schema); pivot_free(&pivot);
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,NULL)); schema=matrix_fixture(&pivot,0); relation=browser_relation_sql(&source,&pivot,NULL);
+    sql=browser_export_sql(relation,&schema,&pivot,NULL,"export-1-2.parquet",&error);
+    CHECK(sql && strstr(sql,"SUM(\"Amount\")") && !strstr(sql,"PIVOT (") && !strstr(sql,"GROUP BY ()") && strstr(sql,"\"SUM(Amount)\" AS \"SUM(Amount)\""));
+    free(sql); free(relation); page_free(&schema); pivot_free(&pivot);
+    CHECK(pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,NULL)); CHECK(pivot_assign(&pivot,PIVOT_COLUMNS,"Category",AGG_SUM,NULL));
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_AVG,NULL) && pivot_assign(&pivot,PIVOT_VALUES,"ID",AGG_DISTINCT,NULL));
+    const char *categories[]={NULL,"","NULL","FOO","foo","O'Reilly\t\"quoted\"\n"};
+    Page domains[DX_PIVOT_FIELDS]={0}; domains[0]=domain_fixture(6,categories); BrowserPivotPlan plan={0};
+    CHECK(browser_pivot_plan_build(&plan,&source,&pivot,domains,NULL)); schema=planned_fixture(&pivot,&plan,0);
+    sql=browser_export_sql(plan.sql,&schema,&pivot,&plan,"export-9-10.parquet",&error);
+    CHECK(sql && !error && strstr(sql,"PIVOT (") && strstr(sql," ON ") && !strstr(sql,"_duxcel_matrix_totals") && !strstr(sql,"LIMIT 256"));
+    CHECK(strstr(sql,"AS \"Category=NULL · AVG(Amount)\"") && strstr(sql,"AS \"Category='' · AVG(Amount)\"") && strstr(sql,"AS \"Category='NULL' · AVG(Amount)\""));
+    CHECK(strstr(sql,"AS \"Category='FOO' · AVG(Amount)\"") && strstr(sql,"AS \"Category='foo' · AVG(Amount) · 2\"") && strstr(sql,"AS \"Category='foo' · COUNT DISTINCT(ID) · 2\""));
+    CHECK(strstr(sql,"Category='O''Reilly\t\"\"quoted\"\"\n' · AVG(Amount)") && strstr(sql,"\"__duxcel_pivot_value_0_0\" AS") && !strstr(sql,"CAST(\"__duxcel_pivot_value_0_0\" AS VARCHAR)")); free(sql);
+    Page before=schema; char *saved=plan.headers[0].categories[0];
+    plan.headers[0].category_count=SIZE_MAX;
+    reject_sql(browser_export_sql(plan.sql,&schema,&pivot,&plan,"export-9-10.parquet",&error),&error); plan.headers[0].category_count=1;
+    CHECK(!memcmp(&schema,&before,sizeof(schema)) && plan.headers[0].categories[0]==saved);
+    reject_sql(browser_export_sql("SELECT * FROM different",&schema,&pivot,&plan,"export-9-10.parquet",&error),&error);
+    reject_sql(browser_export_sql(plan.sql,&schema,&pivot,NULL,"export-9-10.parquet",&error),&error);
+    size_t old_bytes=plan.bytes; plan.bytes=SIZE_MAX; reject_sql(browser_export_sql(plan.sql,&schema,&pivot,&plan,"export-9-10.parquet",&error),&error); plan.bytes=old_bytes;
+    size_t old_count=plan.count; plan.count=SIZE_MAX; reject_sql(browser_export_sql(plan.sql,&schema,&pivot,&plan,"export-9-10.parquet",&error),&error); plan.count=old_count;
+    /* Header quote expansion shares the final SQL limit; input metadata stays
+       owned and unchanged even when its SQL identifier is too large. */
+    char *large=dx_alloc(600001); memset(large,'"',600000); plan.headers[0].categories[0]=large; plan.bytes+=600001;
+    reject_sql(browser_export_sql(plan.sql,&schema,&pivot,&plan,"export-9-10.parquet",&error),&error);
+    CHECK(plan.headers[0].categories[0]==large && strlen(large)==600000 && !memcmp(&schema,&before,sizeof(schema)));
+    free(large); plan.headers[0].categories[0]=saved; plan.bytes=old_bytes;
+    sql=browser_export_sql(plan.sql,&schema,&pivot,&plan,"export-9-10.parquet",&error);
+    page_free(&schema); browser_pivot_plan_free(&plan); page_free(&domains[0]); pivot_free(&pivot);
+    CHECK(sql && strstr(sql,"Category='' · AVG(Amount)") && strstr(sql,"export-9-10.parquet")); free(sql);
+    /* Empty input exports only the real typed result columns; no phantom NULL
+       category label or synthetic source/grand-total column is introduced. */
+    CHECK(pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,NULL) && pivot_assign(&pivot,PIVOT_COLUMNS,"Category",AGG_SUM,NULL) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_AVG,NULL));
+    domains[0]=domain_fixture(0,NULL); CHECK(browser_pivot_plan_build(&plan,&source,&pivot,domains,NULL) && plan.empty_input);
+    schema=planned_fixture(&pivot,&plan,0); sql=browser_export_sql(plan.sql,&schema,&pivot,&plan,"export-9-11.parquet",&error);
+    CHECK(sql && strstr(sql,"AS \"AVG(Amount)\"") && !strstr(sql,"Category=NULL · AVG(Amount)") && !strstr(sql,"_duxcel_matrix_totals"));
+    free(sql); page_free(&schema); browser_pivot_plan_free(&plan); page_free(&domains[0]); pivot_free(&pivot);
+    /* Raw date categories and independent dimensions use the same native
+       field=value header convention, while the real PIVOT keeps typed grains. */
+    CHECK(pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,NULL) && pivot_assign_grain(&pivot,PIVOT_COLUMNS,"Date",AGG_SUM,PIVOT_DATE_MONTH,NULL) &&
+        pivot_assign(&pivot,PIVOT_COLUMNS,"Approved",AGG_SUM,NULL) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_AVG,NULL));
+    const char *dates[]={"2026-10-01"},*flags[]={NULL,"true"}; domains[0]=domain_fixture(1,dates); domains[1]=domain_fixture(2,flags);
+    CHECK(browser_pivot_plan_build(&plan,&source,&pivot,domains,NULL)); schema=planned_fixture(&pivot,&plan,0);
+    sql=browser_export_sql(plan.sql,&schema,&pivot,&plan,"export-11-12.parquet",&error);
+    CHECK(sql && strstr(sql,"Date='2026-10-01' · Approved=NULL · AVG(Amount)") && strstr(sql,"Date='2026-10-01' · Approved='true' · AVG(Amount)") && strstr(sql,"date_trunc('month'"));
+    free(sql); page_free(&schema); browser_pivot_plan_free(&plan); page_free(&domains[0]); page_free(&domains[1]); pivot_free(&pivot);
+}
 int main(void) {
-    test_copy_helpers();
+    test_copy_helpers(); test_export_sql(); test_export_pivot_sql();
     test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion(); test_column_plans(); test_count_projection(); test_statistics_helpers(); test_mixed_statistics_helpers();
     printf("PASS: %u browser query checks\n",checks); return 0;
 }
