@@ -228,7 +228,7 @@ static uint64_t review_field_hash(const char *text) {
 }
 static bool review_author_dialog(const char *kind) {
     return !strcmp(kind,"column_width") || !strcmp(kind,"move_range") || !strcmp(kind,"object_name") ||
-        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sort") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"cell_inspector") || !strcmp(kind,"settings") || !strcmp(kind,"generated_sql");
+        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sort") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"cell_inspector") || !strcmp(kind,"settings") || !strcmp(kind,"generated_sql") || !strcmp(kind,"guide");
 }
 static bool review_author_field(char output[128],const char *field) {
     size_t length=strlen(field);
@@ -297,6 +297,10 @@ static const char *review_author_identity(App *a,const char *kind,char parent[12
     SheetObject *object=selected_object(a); const char *field=NULL,*scope=NULL;
     static const char *const roles[]={"rows","columns","values","filters"};
     static const char *const marks[]={"color","size","label","detail","tooltip","shape"};
+    if (!strcmp(kind,"guide")) {
+        *data=(DxReviewDataIdentity){.present=true}; review_document_id(a,data->document_id); snprintf(data->kind,sizeof(data->kind),"guide-document");
+        snprintf(parent,128,"author.guide"); return NULL;
+    }
     if (!strcmp(kind,"generated_sql")) {
         if (a->sql_origin_valid) *data=a->sql_origin;
         else { *data=review_scope(a); data->source_id=data->object_id=data->schema_generation=data->query_generation=0; data->has_cell=false; data->row=data->column=0; data->field[0]=0; snprintf(data->kind,sizeof(data->kind),"generated-unknown-sql"); }
@@ -647,6 +651,62 @@ static void review_sort(App *a,const SortReviewFrame *frame) {
         if (capture_key[0]) {
             Rectangle visible=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height}); char geometry[240];
             snprintf(geometry,sizeof(geometry)," sort_%s=%.3f,%.3f,%.3f,%.3f sort_%s_id=%s",capture_key,visible.x,visible.y,visible.width,visible.height,capture_key,widget->id); review_author_capture_state(a,geometry);
+        }
+    }
+}
+static bool review_guide_id(const GuideReviewTarget *target,char id[128]) {
+    switch (target->kind) {
+    case GUIDE_REVIEW_PANEL: snprintf(id,128,"author.guide"); break;
+    case GUIDE_REVIEW_HEADING: snprintf(id,128,"author.guide.heading"); break;
+    case GUIDE_REVIEW_CLOSE: case GUIDE_REVIEW_START: snprintf(id,128,"author.guide.action.%s",target->key); break;
+    case GUIDE_REVIEW_INTRO: case GUIDE_REVIEW_NOTE: snprintf(id,128,"author.guide.%s.line%zu",target->key,target->text_line); break;
+    case GUIDE_REVIEW_NAME: case GUIDE_REVIEW_DESCRIPTION: snprintf(id,128,"author.guide.section.%s.%s.line%zu",target->key,target->kind==GUIDE_REVIEW_NAME ? "name" : "description",target->text_line); break;
+    case GUIDE_REVIEW_SHORTCUTS: snprintf(id,128,"author.guide.shortcuts"); break;
+    case GUIDE_REVIEW_LABEL: case GUIDE_REVIEW_KEY: snprintf(id,128,"author.guide.shortcut.%s.%s.line%zu",target->key,target->kind==GUIDE_REVIEW_LABEL ? "label" : "key",target->text_line); break;
+    case GUIDE_REVIEW_SCROLL: snprintf(id,128,"author.guide.scrollbar"); break;
+    case GUIDE_REVIEW_THUMB: snprintf(id,128,"author.guide.scrollbar.thumb"); break;
+    default: return false;
+    }
+    return true;
+}
+static void review_guide(App *a,const GuideReviewFrame *frame) {
+    if (!review_armed(a) || !frame || !frame->armed) return;
+    bool body_captured=false,key_captured=false;
+    char state[256]; snprintf(state,sizeof(state)," author_kind=guide author_parent=author.guide guide_count=%zu guide_overflow=%d guide_scroll=%.3f guide_maximum=%.3f guide_focus=%d",frame->count,frame->overflow,frame->scroll,frame->maximum,frame->focus); review_author_capture_state(a,state);
+    if (frame->overflow) { a->review->registry->truncated=true; a->review->registry->frame.truncated=true; a->review->frame.truncated=true; }
+    for (size_t i=0;i<frame->count && i<GUIDE_REVIEW_TARGETS;i++) {
+        const GuideReviewTarget *target=&frame->targets[i]; char id[128]; if (!review_guide_id(target,id)) continue;
+        const char *parent="author.guide",*role="text",*action="guide.inspect",*capture_key=NULL; int layer=132;
+        switch (target->kind) {
+        case GUIDE_REVIEW_PANEL: parent=NULL; role="dialog"; layer=130; capture_key="panel"; break;
+        case GUIDE_REVIEW_HEADING: capture_key="heading"; break;
+        case GUIDE_REVIEW_CLOSE: case GUIDE_REVIEW_START: role="button"; action="guide.close"; capture_key=target->key; layer=133; break;
+        case GUIDE_REVIEW_SHORTCUTS: role="group"; layer=131; break;
+        case GUIDE_REVIEW_LABEL: case GUIDE_REVIEW_KEY: parent="author.guide.shortcuts"; break;
+        case GUIDE_REVIEW_SCROLL: role="scrollbar"; action="guide.scroll"; layer=136; capture_key="scrollbar"; break;
+        case GUIDE_REVIEW_THUMB: parent="author.guide.scrollbar"; role="scrollbar"; action="guide.scroll"; layer=137; capture_key="thumb"; break;
+        default: break;
+        }
+        if (target->kind==GUIDE_REVIEW_PANEL) {
+            Rectangle viewport=box(0,0,GetScreenWidth(),GetScreenHeight());
+            review_author_widget(a,"author.guide.backdrop",NULL,"guide","guide.inspect","region","Modal backdrop",viewport,viewport,129,true,false,false,true,NULL,target->file,target->source_line);
+            review_author_widget(a,"author.guide.backdrop.background","author.guide.backdrop","guide","guide.inspect","region","Modal backdrop",viewport,viewport,129,true,false,false,false,NULL,target->file,target->source_line);
+        }
+        DxReviewWidget *widget=review_author_widget(a,id,parent,"guide",action,role,target->text,target->bounds,target->clip,layer,target->enabled,false,target->focused,target->container,NULL,target->file,target->source_line);
+        if (!widget) continue;
+        if (!strcmp(role,"text")) { dx_review_value_set(&widget->value,"VARCHAR",false,target->text); widget->truncated|=widget->value.truncated; }
+        widget->truncated|=target->truncated; a->review->registry->truncated|=widget->truncated;
+        if (target->kind==GUIDE_REVIEW_PANEL) review_author_widget(a,"author.guide.background","author.guide","guide","guide.inspect","region","Dialog background",target->bounds,target->clip,130,true,false,false,false,NULL,target->file,target->source_line);
+        if (capture_key) {
+            Rectangle visible=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height});
+            char geometry[192]; snprintf(geometry,sizeof(geometry)," guide_%s_rect=%.3f,%.3f,%.3f,%.3f",capture_key,visible.x,visible.y,visible.width,visible.height); review_author_capture_state(a,geometry);
+        }
+        bool body=target->kind==GUIDE_REVIEW_INTRO || target->kind==GUIDE_REVIEW_NAME || target->kind==GUIDE_REVIEW_DESCRIPTION || target->kind==GUIDE_REVIEW_NOTE;
+        if ((body && !body_captured) || (target->kind==GUIDE_REVIEW_KEY && !key_captured)) {
+            const char *key=body ? "text" : "key"; char hex[129],metadata[512]; bool truncated=review_author_hex64(hex,target->text);
+            Rectangle visible=GetCollisionRec(target->bounds,target->clip);
+            snprintf(metadata,sizeof(metadata)," guide_%s_rect=%.3f,%.3f,%.3f,%.3f guide_%s_id=%s guide_%s_hex=%s guide_%s_truncated=%d",key,visible.x,visible.y,visible.width,visible.height,key,widget->id,key,hex,key,truncated || target->truncated); review_author_capture_state(a,metadata);
+            if (body) body_captured=true; else key_captured=true;
         }
     }
 }
