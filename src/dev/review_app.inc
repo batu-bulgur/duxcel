@@ -763,6 +763,16 @@ static bool review_smoke_dialog_targets(App *a,ReviewSmoke *t,const char *kind,i
     const char *keys[]={"width","destination","name","rows","save"}; snprintf(t->author_target,sizeof(t->author_target),"%s.action.%s",parent,keys[item]);
     return dx_review_find(registry,t->author_target)!=NULL;
 }
+static bool review_smoke_dialog_settled(App *a,int item) {
+    if (item!=4) return smoke_work_idle(a);
+    /* This real guard intentionally retains a pending Close. Keep every
+       engine/UI ownership condition while allowing that expected request. */
+    if (a->modal!=MODAL_UNSAVED || a->document_action!=DOCUMENT_CLOSE || a->document_saving ||
+        a->busy || a->io_busy || a->values_loading || a->values_selecting || a->query_loading || a->step_preview.loading ||
+        a->count_deferred || a->pending_sheet || a->pending_new_sheet || a->pending_relation || a->sheet_action!=SHEET_ACTION_NONE) return false;
+    dx_lock(&a->worker.mutex); bool idle=!a->worker.running && !a->worker.pending && !a->worker.reply; dx_unlock(&a->worker.mutex);
+    return idle;
+}
 static int review_smoke_dialog_tick(App *a,ReviewSmoke *t) {
     static const char *const kinds[]={"column_width","move_range","object_name","chart_size","unsaved"};
     int item=(t->stage-REVIEW_AUTHOR_END)/6,phase=(t->stage-REVIEW_AUTHOR_END)%6; DxReviewCapture *r=a->review;
@@ -781,7 +791,7 @@ static int review_smoke_dialog_tick(App *a,ReviewSmoke *t) {
         return a->modal==MODAL_NONE ? -1 : 1;
     }
     if (phase==1) {
-        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || a->ui.scale!=scale || !review_can_capture(a)) return 0;
+        if (r->phase!=DX_REPORT_IDLE || !review_smoke_dialog_settled(a,item) || a->ui.scale!=scale || !review_can_capture(a)) return 0;
         review_smoke_dialog_remember(a,t,item); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
     }
     if (phase==2) {
