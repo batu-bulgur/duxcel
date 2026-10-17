@@ -10182,10 +10182,10 @@ static void table_smoke_step(App *a,int *step) {
         Cell *cached=a->objects[6].page.cells; idle_request=a->request_id; grid_select_cell(&a->grid,22,35,false); a->selected_object=-1;
         ui_note_key_modifiers(KEY_RIGHT,0); ui_note_key_modifiers(KEY_RIGHT,0); ui_note_key_modifiers(KEY_DOWN,DX_MOD_SUPER);
         ui_note_key_modifiers(KEY_UP,DX_MOD_SHIFT); ui_note_key_modifiers(KEY_UP,DX_MOD_SHIFT); ui_note_key_modifiers(KEY_RIGHT,0); replay_canvas_keys(a,true);
-        if (a->grid.row!=24 || a->grid.col!=38 || a->selected_object!=6 || a->grid.anchor_row!=24 || a->grid.end_row!=24 || a->request_id!=idle_request || a->objects[6].page.cells!=cached) goto failed;
+        if (a->grid.row!=26 || a->grid.col!=38 || a->selected_object!=6 || a->grid.anchor_row!=26 || a->grid.end_row!=26 || a->request_id!=idle_request || a->objects[6].page.cells!=cached) goto failed;
         double start=dx_millis(); for (int i=0;i<64;i++) ui_note_key_modifiers(KEY_DOWN,0); replay_canvas_keys(a,true);
         printf("Navigation batch: 64 ordered native presses in %.3f ms CPU path; no data query\n",dx_millis()-start);
-        if (a->grid.row!=88 || a->grid.col!=38 || a->selected_object!=-1 || a->request_id!=idle_request || a->objects[6].page.cells!=cached) goto failed;
+        if (a->grid.row!=90 || a->grid.col!=38 || a->selected_object!=-1 || a->request_id!=idle_request || a->objects[6].page.cells!=cached) goto failed;
         grid_select_cell(&a->grid,22,36,false); a->selected_object=6; a->grid.top=20; a->grid.horizontal=a->grid.offsets[36]; break;
     }
     case 65:
