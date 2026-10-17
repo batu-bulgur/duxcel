@@ -65,6 +65,8 @@ typedef struct {
     UIContext ui;
 #ifdef DUXCEL_DEV_REVIEW
     DxReviewCapture *review;
+    DxReviewDataIdentity inspector_origin;
+    bool inspector_origin_valid,inspector_origin_stale,inspector_origin_truncated;
 #endif
     Texture2D icon_previews[16];
     int icon_preview;
@@ -385,6 +387,8 @@ static void review_relation_choice(App *a,const Relation *relation,size_t index,
 static void review_sort(App *a,const SortReviewFrame *frame);
 static void review_matrix_area(App *a,Rectangle rows,Rectangle clip,Rectangle measure);
 static void review_statistics_row(App *a,int metric,const char *label,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line);
+static void review_inspector_pin(App *a,const Page *page,const SheetObject *object,uint64_t row,size_t column,bool manual);
+static void review_inspector_value(App *a,Rectangle bounds,Rectangle clip,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -410,6 +414,9 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_SORT(a) review_sort(a,&(a)->sort_editor.review)
 #define REVIEW_MATRIX_AREA(a,rows,clip,measure) review_matrix_area(a,rows,clip,measure)
 #define REVIEW_STATISTICS_ROW(a,metric,label,bounds,clip,checked,focused) review_statistics_row(a,metric,label,bounds,clip,checked,focused,__FILE__,__LINE__)
+#define REVIEW_INSPECTOR_PIN(a,page,object,row,column,manual) review_inspector_pin(a,page,object,row,column,manual)
+#define REVIEW_INSPECTOR_VALUE(a,bounds,clip) review_inspector_value(a,bounds,clip,__FILE__,__LINE__)
+#define REVIEW_INSPECTOR_CLEAR(a) do { (a)->inspector_origin=(DxReviewDataIdentity){0}; (a)->inspector_origin_valid=(a)->inspector_origin_stale=(a)->inspector_origin_truncated=false; } while (0)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -433,6 +440,9 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_SORT(...) ((void)0)
 #define REVIEW_MATRIX_AREA(...) ((void)0)
 #define REVIEW_STATISTICS_ROW(...) ((void)0)
+#define REVIEW_INSPECTOR_PIN(...) ((void)0)
+#define REVIEW_INSPECTOR_VALUE(...) ((void)0)
+#define REVIEW_INSPECTOR_CLEAR(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -4035,6 +4045,7 @@ static void draw_cell_editor(App *a) {
 static void inspector_free(App *a) {
     free(a->inspector_text); free(a->inspector_type); free(a->inspector_column);
     a->inspector_text=a->inspector_type=a->inspector_column=NULL; text_lines_free(&a->inspector_lines);
+    REVIEW_INSPECTOR_CLEAR(a);
 }
 static void inspect_value(App *a) {
     const char *text=NULL,*type="VARCHAR",*column="Manual cell"; bool null=false;
@@ -4056,6 +4067,7 @@ static void inspect_value(App *a) {
         text=cell->text; null=cell->is_null; type=p->columns[col].type_name; column=p->columns[col].caption ? p->columns[col].caption : p->columns[col].name;
     }
     inspector_free(a); a->inspector_text=dx_strdup(text); a->inspector_type=dx_strdup(type); a->inspector_column=dx_strdup(column);
+    REVIEW_INSPECTOR_PIN(a,p,o,row,col,!a->step_preview.active && !o && manual_cell(a));
     a->inspector_null=null; a->inspector_bytes=strlen(a->inspector_text); a->inspector_scroll=0; a->inspector_drag=false;
     address(g->col,g->row+(a->step_preview.active || a->analysis.kind!=SOURCE_NONE ? 2 : 1),a->inspector_address);
     a->modal=MODAL_INSPECT; a->consume_grid_input=true; a->key_tips=a->ribbon_focus=false;
@@ -4095,6 +4107,7 @@ static void draw_inspector(App *a) {
         if (max) {
             Rectangle track=box(content.x+content.width+10*s,content.y,10*s,content.height); float thumb=fmaxf(24*s,track.height*visible/(float)l->count),travel=track.height-thumb;
             Rectangle handle=box(track.x,track.y+travel*(float)((double)a->inspector_scroll/max),track.width,thumb);
+            REVIEW_AUTHOR_SCROLL(a,"cell_inspector",track,handle,panel,a->inspector_drag);
             DrawRectangleRec(track,UI_BG); DrawRectangleRounded(handle,.5f,4,(Color){161,174,191,255});
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse,track)) { a->inspector_drag=true; a->inspector_grab=CheckCollisionPointRec(mouse,handle) ? mouse.y-handle.y : thumb/2; }
             if (a->inspector_drag && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) a->inspector_scroll=(size_t)(fmaxf(0,fminf(1,(mouse.y-track.y-a->inspector_grab)/fmaxf(1,travel)))*max);
@@ -4103,6 +4116,10 @@ static void draw_inspector(App *a) {
         char progress[160]; snprintf(progress,sizeof(progress),"Line %zu of %zu%s",a->inspector_scroll+1,l->count,l->limited ? " · display limit reached; Copy includes the complete value" : "");
         ui_text_clip(u,progress,box(x+17*s,y+h-66*s,w-34*s,20*s),10,UI_MUTED,false);
     }
+    REVIEW_AUTHOR_PANEL(a,"cell_inspector","Cell value",panel,box(x+24*s,y+20*s,w-48*s,30*s));
+    REVIEW_INSPECTOR_VALUE(a,content,panel);
+    REVIEW_AUTHOR_ITEM(a,"cell_inspector","copy","cell.copy_value","button","Copy value",box(x+24*s,y+h-40*s,132*s,28*s),panel,!a->inspector_null,false,false,NULL);
+    REVIEW_AUTHOR_ITEM(a,"cell_inspector","close","cell.close_inspector","button","Close",box(x+w-112*s,y+h-40*s,88*s,28*s),panel,true,false,false,NULL);
     if (ui_button(u,box(x+24*s,y+h-40*s,132*s,28*s),"Copy value",false,!a->inspector_null) || (ui_key_shortcut(KEY_C) && ui_pressed(KEY_C))) inspector_copy(a);
     if (ui_button(u,box(x+w-112*s,y+h-40*s,88*s,28*s),"Close",true,true)) { a->modal=MODAL_NONE; inspector_free(a); }
 }
