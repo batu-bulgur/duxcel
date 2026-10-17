@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 static unsigned checks;
@@ -119,6 +120,83 @@ static void test_observed_versions(Database *db,const char *dir) {
     CHECK(!page_records_changed(&first,&bare) && !page_records_changed(&first,&hint));
     hint.records.stamp=second.records.stamp; CHECK(page_records_changed(&first,&hint));
     page_free(&first); page_free(&second); CHECK(unlink(path)==0); analysis_free(&source);
+}
+typedef struct { Database *db; const char *path; uint64_t queries; bool changed; } SourceTouch;
+static bool touch_during_query(void *context) {
+    SourceTouch *touch=context;
+    if (!touch->changed && touch->db->query_count>touch->queries) {
+        struct stat file; CHECK(stat(touch->path,&file)==0);
+        struct timeval times[2]={{file.st_atime,0},{file.st_mtime+1,0}};
+        CHECK(utimes(touch->path,times)==0); touch->changed=true;
+    }
+    return false; /* Mutate the private fixture without canceling execution. */
+}
+static void check_destination(const char *path) {
+    char text[32]={0}; FILE *file=fopen(path,"rb"); CHECK(file && fread(text,1,sizeof(text)-1,file)==20 && fgetc(file)==EOF && !fclose(file));
+    CHECK(!strcmp(text,"Existing destination"));
+}
+static void test_bound_consumers(Database *db,const char *dir,SourceKind kind) {
+    char *path=dx_printf("%s/bound.%s",dir,kind==SOURCE_CSV ? "csv" : "parquet"),*output=dx_printf("%s/bound-output.parquet",dir),*error=NULL;
+    if (kind==SOURCE_CSV) write_csv(db,path,"SELECT i::BIGINT AS id,'original' AS value FROM range(700) t(i)");
+    else write_parquet(db,path,"SELECT i::BIGINT AS id,'original' AS value FROM range(700) t(i)");
+    Analysis source={.kind=kind,.path=path}; Page displayed=fetch(db,&source,0),copy={0}; SelectionStats stats={0};
+    uint64_t expected=displayed.records.stamp; CHECK(expected && displayed.records.source_key);
+    CHECK(database_source_matches(&source,expected,&error));
+    CHECK(database_copy_page_bound(db,&source,NULL,0,2,0,1,expected,&copy,&error));
+    CHECK(database_statistics_bound(db,&source,NULL,0,2,0,1,expected,&stats,&error) && !strcmp(stats.sum,"1"));
+    PivotDefinition pivot={0}; SelectionStats pivot_stats={0};
+    CHECK(pivot_assign(&pivot,PIVOT_ROWS,"value",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"id",AGG_MAX,&error));
+    CHECK(database_statistics_bound(db,&source,&pivot,0,64,1,1,expected,&pivot_stats,&error) && !strcmp(pivot_stats.sum,"699"));
+    char *pivot_key=dx_strdup(db->pivot_key);
+    Cell *keep_cells=copy.cells; char *keep_sum=stats.sum,*tsv=dx_strdup("Keep clipboard"),*keep_tsv=tsv;
+    FILE *file=fopen(output,"wb"); CHECK(file && fwrite("Existing destination",1,20,file)==20 && !fclose(file));
+    if (kind==SOURCE_CSV) write_csv(db,path,"SELECT (i+100)::BIGINT AS id,'changed source and extent' AS value FROM range(17) t(i)");
+    else write_parquet(db,path,"SELECT (i+100)::BIGINT AS id,'changed source and extent' AS value FROM range(17) t(i)");
+    CHECK(dx_file_stamp(path)!=expected); uint64_t queries=db->query_count,rows=999;
+    CHECK(!database_copy_bound(db,&source,0,2,0,1,expected,&tsv,&error)); free(error); error=NULL;
+    CHECK(!database_copy_page_bound(db,&source,NULL,0,2,0,1,expected,&copy,&error)); free(error); error=NULL;
+    CHECK(!database_statistics_bound(db,&source,NULL,0,2,0,1,expected,&stats,&error)); free(error); error=NULL;
+    CHECK(!database_export_parquet_bound(db,&source,output,expected,&rows,&error) && !rows); free(error); error=NULL;
+    StatisticsRequest request={.count=1,.cells=2}; request.ranges[0]=(StatisticsRange){.rows=2,.columns=1,.expected_source_stamp=expected};
+    CHECK(!database_statistics_ranges(db,&source,&request,&stats,&error)); free(error); error=NULL;
+    CHECK(db->query_count==queries && copy.cells==keep_cells && stats.sum==keep_sum && tsv==keep_tsv);
+    CHECK(!strcmp(copy.cells[0].text,"0") && !strcmp(stats.sum,"1") && !strcmp(tsv,"Keep clipboard")); check_destination(output);
+    /* Fetching a new raw Page does not explicitly clear the materialized pivot.
+       Its source-stamped cache key must rebuild rather than reuse old values. */
+    Page current=fetch(db,&source,0); CHECK(current.records.stamp!=expected);
+    CHECK(database_statistics_bound(db,&source,&pivot,0,64,1,1,current.records.stamp,&pivot_stats,&error) && !strcmp(pivot_stats.sum,"116") && strcmp(pivot_key,db->pivot_key));
+    free(pivot_key); Page pivot_copy={0};
+    CHECK(database_copy_page_bound(db,&source,&pivot,0,1,0,2,current.records.stamp,&pivot_copy,&error) && !strcmp(pivot_copy.cells[0].text,"changed source and extent") && !strcmp(pivot_copy.cells[1].text,"116"));
+    char *pivot_output=dx_printf("%s/bound-pivot.parquet",dir); CHECK(database_export_pivot_parquet_bound(db,&source,&pivot,pivot_output,current.records.stamp,&rows,&error) && rows==1);
+    Analysis exported={.kind=SOURCE_PARQUET,.path=pivot_output}; Page pivot_export=fetch(db,&exported,0); CHECK(pivot_export.row_count==1 && !strcmp(pivot_export.cells[1].text,"116"));
+    page_free(&pivot_export); CHECK(unlink(pivot_output)==0); analysis_free(&exported); page_free(&pivot_copy); page_free(&current); pivot_free(&pivot); statistics_free(&pivot_stats);
+    CHECK(database_refresh(db,&error)); Page refreshed=fetch(db,&source,0);
+    CHECK(refreshed.records.stamp!=expected && refreshed.row_count==17 && !strcmp(refreshed.cells[0].text,"100")); expected=refreshed.records.stamp;
+    CHECK(database_copy_bound(db,&source,0,2,0,1,expected,&tsv,&error) && !strcmp(tsv,"100\n101")); free(keep_tsv); free(tsv); tsv=keep_tsv=dx_strdup("Keep clipboard");
+    CHECK(database_statistics_bound(db,&source,NULL,0,2,0,1,expected,&stats,&error) && !strcmp(stats.sum,"201")); keep_sum=stats.sum;
+    /* Change the observed version only after an engine execution has begun.
+       Every output remains staged until its final source check succeeds. */
+    for (unsigned operation=0;operation<5;operation++) {
+        expected=dx_file_stamp(path); SourceTouch touch={db,path,db->query_count,false}; db->cancelled=touch_during_query; db->cancel_context=&touch;
+        bool ok=false;
+        if (operation==0) ok=database_copy_bound(db,&source,0,2,0,1,expected,&tsv,&error);
+        else if (operation==1) ok=database_copy_page_bound(db,&source,NULL,0,2,0,1,expected,&copy,&error);
+        else if (operation==2) ok=database_statistics_bound(db,&source,NULL,0,2,0,1,expected,&stats,&error);
+        else if (operation==3) { request.ranges[0].expected_source_stamp=expected; ok=database_statistics_ranges(db,&source,&request,&stats,&error); }
+        else ok=database_export_parquet_bound(db,&source,output,expected,&rows,&error);
+        db->cancelled=NULL; db->cancel_context=NULL;
+        CHECK(!ok && touch.changed && db->query_count>touch.queries && error && strstr(error,"source changed")); free(error); error=NULL;
+        CHECK(copy.cells==keep_cells && stats.sum==keep_sum && tsv==keep_tsv && !strcmp(stats.sum,"201") && !strcmp(tsv,"Keep clipboard")); check_destination(output);
+    }
+    CHECK(database_export_parquet_bound(db,&source,output,dx_file_stamp(path),&rows,&error) && rows==17);
+    exported=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup(output)}; Page raw_export=fetch(db,&exported,0); CHECK(raw_export.column_count==2 && raw_export.row_count==17 && !strcmp(raw_export.cells[0].text,"100")); page_free(&raw_export); analysis_free(&exported);
+    /* Unbound SQL has no raw-record version claim and retains its valid path. */
+    CHECK(analysis_query_set(&source,"SELECT * FROM input",&error)); queries=db->query_count;
+    CHECK(!database_copy_bound(db,&source,0,2,0,1,dx_file_stamp(path),&tsv,&error) && db->query_count==queries); free(error); error=NULL;
+    CHECK(database_copy_bound(db,&source,0,2,0,1,0,&tsv,&error) && !strcmp(tsv,"100\n101")); free(keep_tsv); free(tsv);
+    CHECK(database_source_matches(NULL,0,&error));
+    page_free(&displayed); page_free(&refreshed); page_free(&copy); statistics_free(&stats);
+    CHECK(unlink(output)==0); free(output); CHECK(unlink(path)==0); analysis_free(&source); free(error);
 }
 /* The reference relation numbers the complete raw reader before predicates.
    Its schema/value comparison also checks that the optional ID projection did
@@ -278,6 +356,7 @@ int main(int argc,char **argv) {
     CHECK(analysis_filter_set(&source,"id",FILTER_GREATER,"9223372036854775807",&error));
     check_page(&db,&source,0,"WHERE id>9223372036854775807","ORDER BY \"tie key\" ASC,Money DESC,expected_record ASC");
     test_fallbacks(&db,path,dir); test_optional_budget(&db,dir); test_observed_versions(&db,dir); test_csv_pages(&db,dir); test_demo_pages(&db,dir);
+    test_bound_consumers(&db,dir,SOURCE_PARQUET); test_bound_consumers(&db,dir,SOURCE_CSV);
     CHECK(database_refresh(&db,&error)); CHECK(retained.records.ids[255]==256 && !strcmp(retained.records.source_key,scope));
     Page moved=retained; retained=(Page){0}; database_close(&db); page_free(&retained); page_free(&moved); free(scope);
     CHECK(unlink(path)==0); analysis_free(&source); CHECK(rmdir(dir)==0); free(error);

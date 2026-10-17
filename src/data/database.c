@@ -325,6 +325,15 @@ static RecordSQLStatus raw_record_sql(Database *db,Analysis *a,RecordSQL *out,ch
     for (size_t i=0;i<count;i++) duckdb_free(names[i]); free(names);
     return state;
 }
+bool database_source_matches(const Analysis *a,uint64_t expected,char **error) {
+    if (!expected) return true;
+    struct stat file;
+    if (!a || (a->kind!=SOURCE_PARQUET && a->kind!=SOURCE_CSV) || a->query || a->unique_rows || a->group_column ||
+        !a->path || strpbrk(a->path,"*?[]") || stat(a->path,&file)!=0 || !S_ISREG(file.st_mode) || dx_file_stamp(a->path)!=expected) {
+        fail(error,"The source changed since its displayed result. Refresh before copying, calculating statistics, or exporting."); return false;
+    }
+    return true;
+}
 static char *positional_relation(Database *db,Analysis *a,char **error) {
     char *base=analysis_sql(a,true),*optional_error=NULL; RecordSQL records={0};
     RecordSQLStatus state=raw_record_sql(db,a,&records,&optional_error);
@@ -534,7 +543,7 @@ static bool pivot_materialize(Database *db,Analysis *source,const PivotDefinitio
     bool ok=source_prepare(db,source,NULL,error); if (!ok || !resolve_analysis_types(db,source,error)) return false;
     PivotDefinition typed=*definition; if (!resolve_pivot_types(db,source,&typed,error)) return false; definition=&typed;
     char *base=pivot_sql(source,definition); if (strlen(base)>4*1024*1024) { free(base); fail(error,"Pivot SQL exceeds 4 MiB. Narrow the filter selection."); return false; }
-    char *key=dx_printf("%d:%s\n%s",source->kind,source->path ? source->path : "",base); duckdb_result r={0};
+    char *key=dx_printf("%d:%s\n%" PRIu64 "\n%s",source->kind,source->path ? source->path : "",dx_file_stamp(source->path),base); duckdb_result r={0};
     if (!db->pivot_configured) {
         if (!database_execute(db,"SET pivot_limit=128",&r,error)) { free(base); free(key); return false; }
         duckdb_destroy_result(&r); db->pivot_configured=true;
@@ -741,9 +750,15 @@ static bool copy_query(Database *db,Analysis *a,const char *relation,uint64_t fi
     if (!text) text=dx_alloc(1); text[bytes]=0; *tsv=text; return true;
 }
 bool database_copy(Database *db,Analysis *a,uint64_t first,uint64_t rows,size_t col,size_t cols,char **tsv,char **error) {
+    return database_copy_bound(db,a,first,rows,col,cols,0,tsv,error);
+}
+bool database_copy_bound(Database *db,Analysis *a,uint64_t first,uint64_t rows,size_t col,size_t cols,uint64_t expected,char **tsv,char **error) {
+    if (!database_source_matches(a,expected,error)) return false;
     if (!source_prepare(db,a,NULL,error) || !resolve_analysis_types(db,a,error)) return false;
     char *base=positional_relation(db,a,error); if (!base) return false;
-    bool ok=copy_query(db,a,base,first,rows,col,cols,false,NULL,tsv,error); free(base); return ok;
+    char *out=NULL; bool ok=copy_query(db,a,base,first,rows,col,cols,false,NULL,&out,error); free(base);
+    if (ok) ok=database_source_matches(a,expected,error);
+    if (ok) *tsv=out; else free(out); return ok;
 }
 /* Representation only: the engine has already summed/compared BIGNUM units at
    scale 38. Insert the decimal point without rounding through a C double. */
@@ -817,13 +832,29 @@ done:
     statistics_free(&out); duckdb_destroy_result(&r); free(sql); return ok;
 }
 bool database_statistics(Database *db,Analysis *a,const PivotDefinition *pivot,uint64_t first,uint64_t rows,size_t col,size_t cols,SelectionStats *stats,char **error) {
+    return database_statistics_bound(db,a,pivot,first,rows,col,cols,0,stats,error);
+}
+bool database_statistics_bound(Database *db,Analysis *a,const PivotDefinition *pivot,uint64_t first,uint64_t rows,size_t col,size_t cols,uint64_t expected,SelectionStats *stats,char **error) {
+    if (!database_source_matches(a,expected,error)) return false;
     double started=dx_millis(); char *cells=statistics_cells_query(db,a,pivot,first,rows,col,cols,error); if (!cells) return false;
-    Analysis literal={0}; bool ok=statistics_aggregate(db,pivot ? &literal : a,cells,stats,error); free(cells);
-    if (ok) stats->query_ms=dx_millis()-started; return ok;
+    Analysis literal={0}; SelectionStats out={0}; bool ok=statistics_aggregate(db,pivot ? &literal : a,cells,&out,error); free(cells);
+    if (ok) ok=database_source_matches(a,expected,error);
+    if (ok) { out.query_ms=dx_millis()-started; statistics_free(stats); *stats=out; memset(&out,0,sizeof(out)); }
+    statistics_free(&out); return ok;
+}
+static bool statistics_sources_match(const Analysis *primary,const StatisticsRequest *request,char **error) {
+    for (size_t i=0;i<request->count;i++) {
+        const StatisticsRange *range=&request->ranges[i];
+        if (range->source>request->sources.count) { fail(error,"Missing selection table source."); return false; }
+        const Analysis *source=range->source ? &request->sources.items[range->source-1] : primary;
+        if (!database_source_matches(source,range->expected_source_stamp,error)) return false;
+    }
+    return true;
 }
 bool database_statistics_ranges(Database *db,Analysis *a,StatisticsRequest *request,SelectionStats *stats,char **error) {
     double started=dx_millis(); Analysis literal={0}; SelectionStats out={0}; duckdb_result r={0}; bool ok=false;
     if (!request || request->count>DX_MAX_OBJECTS+1 || request->sources.count>DX_MAX_OBJECTS || request->sources.bytes>8*1024*1024 || request->text_count>32768 || request->text_bytes>8*1024*1024 || request->cells>DX_SHEET_ROWS*16384) { fail(error,"Invalid worksheet statistics snapshot."); return false; }
+    if (!statistics_sources_match(a,request,error)) return false;
     if (cancelled(db,error) || !database_execute(db,"CREATE OR REPLACE TEMP TABLE _duxcel_selection_cells(present BOOLEAN,numeric BOOLEAN,type VARCHAR,text VARCHAR,exact BIGNUM,value DOUBLE,floating BOOLEAN)",&r,error)) return false;
     duckdb_destroy_result(&r);
     for (size_t i=0;i<request->count;i++) {
@@ -840,7 +871,7 @@ bool database_statistics_ranges(Database *db,Analysis *a,StatisticsRequest *requ
         char *sql=dx_printf("INSERT INTO _duxcel_selection_cells SELECT true,false,'VARCHAR',v,NULL::BIGNUM,NULL::DOUBLE,false FROM (VALUES %s) labels(v)",values); free(values);
         bool inserted=execute_analysis(db,&literal,sql,&r,error); free(sql); duckdb_destroy_result(&r); if (!inserted) goto done;
     }
-    if (!statistics_aggregate(db,&literal,"SELECT * FROM _duxcel_selection_cells",&out,error)) goto done;
+    if (!statistics_aggregate(db,&literal,"SELECT * FROM _duxcel_selection_cells",&out,error) || !statistics_sources_match(a,request,error)) goto done;
     out.cells=request->cells; out.query_ms=dx_millis()-started; statistics_free(stats); *stats=out; memset(&out,0,sizeof(out)); ok=true;
 done:
     /* Clear large staging data on success, error and cancellation. A following
@@ -849,7 +880,11 @@ done:
     statistics_free(&out); return ok;
 }
 bool database_copy_page(Database *db,Analysis *a,const PivotDefinition *pivot,uint64_t first,size_t rows,size_t col,size_t cols,Page *page,char **error) {
-    memset(page,0,sizeof(*page));
+    memset(page,0,sizeof(*page)); /* Preserve the legacy fresh-output contract. */
+    return database_copy_page_bound(db,a,pivot,first,rows,col,cols,0,page,error);
+}
+bool database_copy_page_bound(Database *db,Analysis *a,const PivotDefinition *pivot,uint64_t first,size_t rows,size_t col,size_t cols,uint64_t expected,Page *page,char **error) {
+    if (!database_source_matches(a,expected,error)) return false;
     if (!rows || !cols || cols>DX_COPY_CELLS || rows>DX_COPY_CELLS/cols) { fail(error,"Copy up to 20,000 cells at a time. Select a smaller range."); return false; }
     if (pivot) { if (!pivot_materialize(db,a,pivot,false,error)) return false; }
     else if (!source_prepare(db,a,NULL,error) || !resolve_analysis_types(db,a,error)) return false;
@@ -857,8 +892,12 @@ bool database_copy_page(Database *db,Analysis *a,const PivotDefinition *pivot,ui
     if (!base) return false;
     Analysis literal={0}; duckdb_result result={0};
     bool ok=copy_result(db,pivot ? &literal : a,base,first,rows,col,cols,&result,error); free(base);
-    if (ok) { ok=result_page(&result,page,8*1024*1024,error); page->offset=first; page->total=first+page->row_count; }
-    duckdb_destroy_result(&result); return ok;
+    Page out={0};
+    if (ok) { ok=result_page(&result,&out,8*1024*1024,error); out.offset=first; out.total=first+out.row_count; }
+    duckdb_destroy_result(&result);
+    if (ok) ok=database_source_matches(a,expected,error);
+    if (ok) { page_free(page); *page=out; memset(&out,0,sizeof(out)); }
+    page_free(&out); return ok;
 }
 bool database_pivot_copy(Database *db,Analysis *a,const PivotDefinition *definition,uint64_t first,uint64_t rows,size_t col,size_t cols,bool header,char **tsv,char **error) {
     if (!pivot_materialize(db,a,definition,false,error)) return false;
@@ -934,8 +973,9 @@ static char *pivot_export_sql(Database *db,const PivotDefinition *pivot,duckdb_p
     for (size_t i=0;i<count;i++) free(names[i]);
     if (sql) dx_append(&sql," FROM _duxcel_pivot_result"); return sql;
 }
-static bool export_parquet(Database *db,Analysis *a,const PivotDefinition *pivot,const char *path,uint64_t *rows,char **error) {
+static bool export_parquet(Database *db,Analysis *a,const PivotDefinition *pivot,const char *path,uint64_t expected,uint64_t *rows,char **error) {
     if (rows) *rows=0;
+    if (!database_source_matches(a,expected,error)) return false;
     if (a->kind==SOURCE_NONE || !path || !*path) { fail(error,"Choose a data table and a Parquet destination."); return false; }
     if (a->kind!=SOURCE_DEMO && dx_same_file(a->path,path)) { fail(error,"Choose a different destination. The source file cannot be replaced by its export."); return false; }
     duckdb_prepared_statement schema=NULL; bool ok; char *base=NULL;
@@ -960,15 +1000,22 @@ static bool export_parquet(Database *db,Analysis *a,const PivotDefinition *pivot
     Analysis literal={0}; ok=execute_analysis(db,pivot ? &literal : a,sql,&r,error); free(sql);
     uint64_t count=ok && duckdb_row_count(&r) ? duckdb_value_uint64(&r,0,0) : 0; duckdb_destroy_result(&r);
     if (ok) ok=!cancelled(db,error);
+    if (ok) ok=database_source_matches(a,expected,error);
     if (ok && a->kind!=SOURCE_DEMO && dx_same_file(a->path,path)) { fail(error,"The destination now refers to the source file. Choose another destination."); ok=false; }
     if (ok && !dx_replace_file(temporary,path)) { fail(error,"Could not finish the export. The existing destination has been preserved."); ok=false; }
     if (!ok) remove(temporary); else if (rows) *rows=count;
     free(temporary); return ok;
 }
 bool database_export_parquet(Database *db,Analysis *a,const char *path,uint64_t *rows,char **error) {
-    return export_parquet(db,a,NULL,path,rows,error);
+    return database_export_parquet_bound(db,a,path,0,rows,error);
+}
+bool database_export_parquet_bound(Database *db,Analysis *a,const char *path,uint64_t expected,uint64_t *rows,char **error) {
+    return export_parquet(db,a,NULL,path,expected,rows,error);
 }
 bool database_export_pivot_parquet(Database *db,Analysis *a,const PivotDefinition *pivot,const char *path,uint64_t *rows,char **error) {
+    return database_export_pivot_parquet_bound(db,a,pivot,path,0,rows,error);
+}
+bool database_export_pivot_parquet_bound(Database *db,Analysis *a,const PivotDefinition *pivot,const char *path,uint64_t expected,uint64_t *rows,char **error) {
     if (!pivot) { if (rows) *rows=0; fail(error,"Choose a pivot to export."); return false; }
-    return export_parquet(db,a,pivot,path,rows,error);
+    return export_parquet(db,a,pivot,path,expected,rows,error);
 }

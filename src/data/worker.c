@@ -10,13 +10,31 @@ void copy_request_free(CopyRequest *request) {
     free(request);
 }
 #ifndef DUXCEL_BROWSER_HOST
+static bool copy_sources_match(const Analysis *primary,const CopyRequest *copy,char **error) {
+    for (size_t i=0;i<copy->guard_count;i++) {
+        const CopySourceGuard *guard=&copy->guards[i];
+        const Analysis *source=guard->source ? &copy->sources.items[guard->source-1] : primary;
+        if (!database_source_matches(source,guard->expected_source_stamp,error)) return false;
+    }
+    return true;
+}
 static bool copy_complete(Database *db,Analysis *analysis,CopyRequest *copy,char **text,char **error) {
-    if (copy->count>DX_MAX_OBJECTS+1 || copy->sources.count>DX_MAX_OBJECTS || copy->sources.bytes>8*1024*1024) { if (error) { free(*error); *error=dx_strdup("Invalid clipboard source snapshot."); } return false; }
+    if (!copy || copy->count>DX_MAX_OBJECTS+1 || copy->guard_count>DX_MAX_OBJECTS+1 || copy->sources.count>DX_MAX_OBJECTS || copy->sources.bytes>8*1024*1024) goto invalid;
+    for (size_t i=0;i<copy->guard_count;i++) {
+        if (copy->guards[i].source>copy->sources.count) goto invalid;
+        for (size_t previous=0;previous<i;previous++) if (copy->guards[previous].source==copy->guards[i].source) goto invalid;
+    }
+    for (size_t i=0;i<copy->count;i++) {
+        const CopyPatch *patch=&copy->patches[i];
+        if (patch->source>copy->sources.count || patch->target_row>copy->cells.rows || patch->rows>copy->cells.rows-patch->target_row ||
+            patch->target_column>copy->cells.columns || patch->columns>copy->cells.columns-patch->target_column) goto invalid;
+    }
+    if (!copy_sources_match(analysis,copy,error)) return false;
     for (size_t i=0;i<copy->count;i++) {
         CopyPatch *patch=&copy->patches[i]; Page page={0};
-        if (patch->source>copy->sources.count) { if (error) { free(*error); *error=dx_strdup("Missing clipboard table source."); } return false; }
         Analysis *source=patch->source ? &copy->sources.items[patch->source-1] : analysis;
-        bool ok=database_copy_page(db,source,patch->is_pivot ? &patch->pivot : NULL,patch->first,patch->rows,patch->column,patch->columns,&page,error);
+        uint64_t expected=0; for (size_t i=0;i<copy->guard_count;i++) if (copy->guards[i].source==patch->source) expected=copy->guards[i].expected_source_stamp;
+        bool ok=database_copy_page_bound(db,source,patch->is_pivot ? &patch->pivot : NULL,patch->first,patch->rows,patch->column,patch->columns,expected,&page,error);
         if (!ok) { page_free(&page); return false; }
         for (size_t r=0;r<patch->rows && ok;r++) for (size_t c=0;c<patch->columns && ok;c++) {
             Cell *cell=r<page.row_count ? &page.cells[r*page.column_count+c] : NULL;
@@ -24,7 +42,11 @@ static bool copy_complete(Database *db,Analysis *analysis,CopyRequest *copy,char
         }
         page_free(&page); if (!ok) return false;
     }
-    *text=clipboard_tsv(&copy->cells,error); return *text!=NULL;
+    char *out=clipboard_tsv(&copy->cells,error); if (!out) return false;
+    if (!copy_sources_match(analysis,copy,error)) { free(out); return false; }
+    *text=out; return true;
+invalid:
+    if (error) { free(*error); *error=dx_strdup("Invalid clipboard source snapshot."); } return false;
 }
 #endif
 static void job_free(QueryJob *j) {
@@ -78,14 +100,18 @@ static void *worker_main(void *ptr) {
                 if (database_pivot(&w->db,&r->analysis,&j->pivot,j->offset,j->known_total,&r->page,&r->error) && j->include_totals)
                     database_pivot_totals(&w->db,&r->analysis,&j->pivot,&r->page,&r->error);
             }
-            else if (j->kind == JOB_PIVOT_COPY) database_pivot_copy(&w->db,&r->analysis,&j->pivot,j->offset,j->rows,j->first_col,j->cols,j->include_header,&r->clipboard,&r->error);
-            else if (j->kind == JOB_EXPORT && j->object_id && !j->is_table) database_export_pivot_parquet(&w->db,&r->analysis,&j->pivot,r->path,&r->exported_rows,&r->error);
-            else if (j->kind == JOB_EXPORT) database_export_parquet(&w->db,&r->analysis,r->path,&r->exported_rows,&r->error);
+            else if (j->kind == JOB_PIVOT_COPY) {
+                if (database_source_matches(&r->analysis,j->expected_source_stamp,&r->error) &&
+                    database_pivot_copy(&w->db,&r->analysis,&j->pivot,j->offset,j->rows,j->first_col,j->cols,j->include_header,&r->clipboard,&r->error) &&
+                    !database_source_matches(&r->analysis,j->expected_source_stamp,&r->error)) { free(r->clipboard); r->clipboard=NULL; }
+            }
+            else if (j->kind == JOB_EXPORT && j->object_id && !j->is_table) database_export_pivot_parquet_bound(&w->db,&r->analysis,&j->pivot,r->path,j->expected_source_stamp,&r->exported_rows,&r->error);
+            else if (j->kind == JOB_EXPORT) database_export_parquet_bound(&w->db,&r->analysis,r->path,j->expected_source_stamp,&r->exported_rows,&r->error);
             else if (j->kind == JOB_COUNT) database_count(&w->db,&r->analysis,&r->counted_rows,&r->error);
             else if (j->kind == JOB_RANGE_COPY) copy_complete(&w->db,&r->analysis,j->copy,&r->clipboard,&r->error);
             else if (j->kind == JOB_STATISTICS && j->statistics) database_statistics_ranges(&w->db,&r->analysis,j->statistics,&r->statistics,&r->error);
-            else if (j->kind == JOB_STATISTICS) database_statistics(&w->db,&r->analysis,j->object_id && !j->is_table ? &j->pivot : NULL,j->offset,j->rows,j->first_col,j->cols,&r->statistics,&r->error);
-            else database_copy(&w->db, &r->analysis, j->offset, j->rows, j->first_col, j->cols, &r->clipboard, &r->error);
+            else if (j->kind == JOB_STATISTICS) database_statistics_bound(&w->db,&r->analysis,j->object_id && !j->is_table ? &j->pivot : NULL,j->offset,j->rows,j->first_col,j->cols,j->expected_source_stamp,&r->statistics,&r->error);
+            else database_copy_bound(&w->db, &r->analysis, j->offset, j->rows, j->first_col, j->cols,j->expected_source_stamp,&r->clipboard,&r->error);
         }
         }
 finished:
