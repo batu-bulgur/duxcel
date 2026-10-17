@@ -33,6 +33,7 @@ def parse_options(argv=None):
     parser.add_argument('--worker-driver',action='store_true')
     parser.add_argument('--review',action='store_true')
     parser.add_argument('--access-only',action='store_true',help='Focused blank-workbook access keys and File/document flow; requires --review')
+    parser.add_argument('--zoom-only',action='store_true',help='Focused real C grid zoom/header geometry and pointer checks; requires --review, optional transactions.csv')
     parser.add_argument('--review-outbox',type=Path,help='Private shared outbox for an integrated native/browser review gate')
     parser.add_argument('--review-offline',action='store_true',help='Commit a report offline, reload real IndexedDB, then automatically upload')
     parser.add_argument('--dpr',type=int,choices=(1,2),default=1)
@@ -41,6 +42,15 @@ def parse_options(argv=None):
     parser.add_argument('--platform',action='store_true',help='Real C DPI/pixel pan/zoom gate (review source fixture)')
     parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker file compatibility (test-only, no Save UI claim)')
     options=parser.parse_args(argv)
+    if options.zoom_only:
+        if not options.review:
+            parser.error('--zoom-only requires --review')
+        if any((options.access_only,options.filters,options.busy,options.worker_driver,options.worker_probe,
+                options.platform,options.alt_stress,options.persistence,options.review_offline,
+                options.review_outbox)):
+            parser.error('--zoom-only is a separate grid gate without access/engine/platform/report-upload options')
+        if options.source and options.source.name!='transactions.csv':
+            parser.error('--zoom-only source must be tests/fixtures/transactions.csv')
     if options.access_only:
         if not options.review:
             parser.error('--access-only requires --review')
@@ -52,7 +62,7 @@ def parse_options(argv=None):
         parser.error('--filters requires --source tests/fixtures/transactions.csv')
     if options.busy and not options.source:
         parser.error('--busy requires a real --source')
-    if options.review and not options.access_only and (options.worker_driver or not options.source or options.source.name!='transactions.csv'):
+    if options.review and not options.access_only and not options.zoom_only and (options.worker_driver or not options.source or options.source.name!='transactions.csv'):
         parser.error('--review requires --source tests/fixtures/transactions.csv and cannot use --worker-driver')
     if options.canvas_transform and not options.review:
         parser.error('--canvas-transform requires --review')
@@ -117,6 +127,7 @@ def main():
             if options.busy: command.append('--busy')
             if options.review: command.append('--review')
             if options.access_only: command.append('--access-only')
+            if options.zoom_only: command.append('--zoom-only')
             if options.review_offline: command.append('--review-offline')
             command.extend(['--dpr',str(options.dpr)])
             if options.canvas_transform:command.append('--canvas-transform')
@@ -140,7 +151,7 @@ def main():
                     if hashlib.sha256(fixture.read_bytes()).hexdigest()!=fixture_hash:raise RuntimeError('Browser/native proof mutated its original fixture')
                     if any(hashlib.sha256(Path(name).read_bytes()).hexdigest()!=digest for name,digest in persistence_hashes.items()):raise RuntimeError('Native proof helper changed during acceptance')
                 except Exception as error:reader_error=str(error)
-            if options.review and not options.access_only and process.returncode==0:
+            if options.review and not options.access_only and not options.zoom_only and process.returncode==0:
                 try:
                     from native_review import ReviewStore,default_project
                     report=json.loads((output/'report-manifest.json').read_text());report_id=report['report_id']
@@ -157,7 +168,9 @@ def main():
             record={'status':'passed' if process.returncode==0 and unchanged and artifacts_unchanged and not reader_error else 'failed','source':before,'artifact':manifest,'reader_error':reader_error,'native_persistence_helpers':persistence_hashes,
                     'command':command,'exit_code':process.returncode,'source_unchanged':unchanged,'artifacts_unchanged':artifacts_unchanged,
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
-            record['profile']='access-only' if options.access_only else 'standard'
+            record['profile']='zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            if options.zoom_only:
+                record['scope']='Shared C blank/source grid zoom, fixed header geometry and rendered label bounds, pointer selection/resize/filter and independent UI scale; no report upload or physical gesture acceptance.'
             if options.access_only:
                 record['scope']='Shared C access keys and File/document interactions on a blank workbook; no Worker query, clipboard delivery or report-upload acceptance.'
             (output/'summary.json').write_text(json.dumps(record,indent=2)+'\n')

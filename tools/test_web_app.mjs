@@ -16,12 +16,14 @@ const filters=process.argv.includes('--filters');
 const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
 const accessOnly=process.argv.includes('--access-only');
+const zoomOnly=process.argv.includes('--zoom-only');
 const reviewOffline=process.argv.includes('--review-offline');
 const canvasTransform=process.argv.includes('--canvas-transform');
 const platform=process.argv.includes('--platform');
 const altStress=process.argv.includes('--alt-stress');
 const persistence=process.argv.includes('--persistence');
 if(accessOnly&&(!review||['--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
+if(zoomOnly&&(!review||['--access-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--zoom-only requires --review and excludes access/engine/platform/report-upload options');
 await fs.mkdir(output,{recursive:true});
 const profile=await fs.mkdtemp(path.join(os.tmpdir(),'duxcel-browser-'));
 const browser=spawn(process.env.DUXCEL_CHROMIUM??'/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -35,6 +37,7 @@ let reviewResult;
 let platformResult;
 let accessKeyResult;
 let persistenceResult;
+let zoomResult;
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
 let stderr='',ws,cdp,activePhase='';const events=[],steps=[];let checks=0;const started=Date.now();
 function check(value,message){checks++;if(!value)throw new Error(message);}
@@ -291,6 +294,77 @@ async function wheelBatch(dx,dy,count=1,options={}){
  const result=await evaluate(`(()=>{const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();let claimed=0;for(let i=0;i<${count};i++){const event=new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:r.x+r.width*${options.x??.65},clientY:r.y+r.height*${options.y??.65},deltaX:${dx},deltaY:${dy},deltaMode:${options.mode??0},ctrlKey:${!!options.ctrl},shiftKey:${!!options.shift}});canvas.dispatchEvent(event);if(event.defaultPrevented)claimed++;}return claimed;})()`);
  check(result===count,'Canvas wheel default/duplicate ownership failed');await frames(3);
 }
+// Geometry comes from the captured real C frame. Text bounds are measured in
+// the shared C GL framebuffer, independently of the geometry under test.
+async function gridLabelPixels(state){
+ const [rx,ry]=state.grid_rect.split(',').map(Number),[bx,by]=state.body.split(',').map(Number),[cw,rh]=state.grid_cell.split(',').map(Number),ui=Number(state.ui_scale),zoom=Number(state.zoom);
+ const columnCenter=bx-Number(state.horizontal)*ui*zoom+cw/2,rowCenter=by+(2.5-Number(state.fraction))*rh;
+ const regions={column:{x:columnCenter-10*ui,y:ry+ui,w:20*ui,h:(state.source_header==='1'?20:22)*ui},row:{x:rx+2*ui,y:rowCenter-8*ui,w:bx-rx-4*ui,h:16*ui}};
+ const result=await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>{const canvas=document.querySelector('canvas'),gl=canvas.getContext('webgl2')||canvas.getContext('webgl'),ratio=canvas.width/${Number(state.logical.split(',')[0])},regions=${JSON.stringify(regions)},labels={};for(const [name,r]of Object.entries(regions)){const x=Math.floor(r.x*ratio),y=Math.floor(r.y*ratio),w=Math.ceil(r.w*ratio),h=Math.ceil(r.h*ratio),pixels=new Uint8Array(w*h*4);gl.readPixels(x,canvas.height-y-h,w,h,gl.RGBA,gl.UNSIGNED_BYTE,pixels);let left=w,right=-1,top=h,bottom=-1,count=0;for(let j=0;j<h;j++)for(let i=0;i<w;i++){const p=(j*w+i)*4;if(pixels[p]<180&&pixels[p+1]<180&&pixels[p+2]<180){left=Math.min(left,i);right=Math.max(right,i);top=Math.min(top,j);bottom=Math.max(bottom,j);count++;}}labels[name]={width:(right-left+1)/ratio,height:(bottom-top+1)/ratio,ink:count,region:r};}resolve({ratio,labels,error:gl.getError()});}))`);
+ check(result.error===0&&Object.values(result.labels).every(label=>label.ink>0&&label.width>0&&label.height>0),'Header label GPU bounds are missing');
+ return result;
+}
+async function gridZoomHeaders(name,sourceHeader){
+ const baseline=await platformSnapshot(),jobs=starts().length;
+ for(const field of ['grid_rect','grid_gutter','grid_header','grid_cell','grid_selection','source_header'])check(baseline[field]!==undefined,'C zoom capture omitted '+field);
+ check(baseline.source_header===(sourceHeader?'1':'0')&&baseline.top==='0'&&Number(baseline.horizontal)===0,'Zoom gate requires the fresh expected grid at its origin');
+ const pixels=await gridLabelPixels(baseline),samples=[];
+ const [bx,by]=baseline.body.split(',').map(Number),[lw,lh]=baseline.logical.split(',').map(Number),anchor={x:bx+1,y:by+1};
+ const wheelOptions={ctrl:true,x:anchor.x/lw,y:anchor.y/lh};
+ function near(a,b,tolerance=.004){return Math.abs(Number(a)-Number(b))<=tolerance;}
+ function dataAnchor(state){const [x,y]=state.body.split(',').map(Number),scale=Number(state.ui_scale)*Number(state.zoom);return{x:Number(state.horizontal)+(anchor.x-x)/scale,y:Number(state.top)+Number(state.fraction)+(anchor.y-y)/(Number(state.row_height)*scale)};}
+ function fixedGeometry(state){
+  check(near(state.grid_gutter,baseline.grid_gutter)&&near(state.grid_header,baseline.grid_header),'Sheet zoom resized row gutter or column header');
+  check(state.ui_scale===baseline.ui_scale&&state.grid_rect===baseline.grid_rect&&state.body===baseline.body,'Sheet zoom moved UI chrome or changed interface scale');
+  const actual=state.grid_cell.split(',').map(Number),initial=baseline.grid_cell.split(',').map(Number),factor=Number(state.zoom)/Number(baseline.zoom);
+  check(actual.every((value,i)=>near(value,initial[i]*factor,.01)),'Cell width/row height did not follow canvas zoom');
+  const a=dataAnchor(baseline),b=dataAnchor(state);check(near(a.x,b.x,.01)&&near(a.y,b.y,.0001),'Fixed header zoom lost the data under its pointer anchor');
+  check(state.active===baseline.active&&state.anchor===baseline.anchor&&state.extent===baseline.extent,'Zoom changed active cell or range selection');
+ }
+ function fixedLabels(actual){for(const label of ['column','row']){const before=pixels.labels[label],after=actual.labels[label],tolerance=1.25/actual.ratio+.02;check(near(after.width,before.width,tolerance)&&near(after.height,before.height,tolerance),'Sheet zoom resized rendered '+label+' label glyphs');}}
+ for(const [label,delta] of [['in',-150],['back',150],['out',150],['restored',-150]]){
+  await wheelBatch(0,delta,1,wheelOptions);const state=await platformSnapshot();fixedGeometry(state);
+  if(label==='in')check(Number(state.zoom)>Number(baseline.zoom)*1.2,'Zoom-in input did not enlarge the data cells');
+  if(label==='out')check(Number(state.zoom)<Number(baseline.zoom)*.85,'Zoom-out input did not shrink the data cells');
+  if(label==='back'||label==='restored')check(near(state.zoom,baseline.zoom,.00001),'Reciprocal zoom did not restore the sheet');
+  const glyphs=await gridLabelPixels(state);fixedLabels(glyphs);samples.push({label,state,glyphs});
+  if(label==='in'||label==='out')await capture('zoom-'+name+'-'+label);
+ }
+ // A real Interface scale command must still resize header UI independently.
+ async function interfaceScale(index){await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('7','Digit7',55);await key('Home','Home',36);for(let i=0;i<index;i++)await key('ArrowDown','ArrowDown',40);await key('Enter','Enter',13);await frames(4);return platformSnapshot();}
+ const interfaceScaled=await interfaceScale(2);
+ check(near(interfaceScaled.ui_scale,1.25)&&near(interfaceScaled.zoom,baseline.zoom),'Interface scale did not remain independent of canvas zoom');
+ check(near(Number(interfaceScaled.grid_header)/1.25,baseline.grid_header)&&near(Number(interfaceScaled.grid_gutter)/1.25,baseline.grid_gutter,1),'Interface scale failed to resize header chrome');
+ const interfaceRestored=await interfaceScale(1);fixedGeometry(interfaceRestored);
+ // Exercise hit testing at an enlarged zoom, rather than accepting geometry alone.
+ await click(40,42);await wheelBatch(0,-150,1,wheelOptions);let enlarged=await platformSnapshot();fixedGeometry(enlarged);
+ const [gx,gy]=enlarged.grid_rect.split(',').map(Number),[bodyX,bodyY]=enlarged.body.split(',').map(Number),[cellWidth,rowHeight]=enlarged.grid_cell.split(',').map(Number),ui=Number(enlarged.ui_scale),scale=ui*Number(enlarged.zoom),left=bodyX-Number(enlarged.horizontal)*scale;
+ await click(left+cellWidth/2,gy+11*ui);const columnSelected=await platformSnapshot();
+ check(columnSelected.grid_selection==='2'&&columnSelected.active.split(',')[1]==='0','Enlarged column header did not select the actual column');
+ const rowY=bodyY+(2.5-Number(enlarged.fraction))*rowHeight;
+ await click(gx+(bodyX-gx)/2,rowY);const rowSelected=await platformSnapshot();
+ check(rowSelected.grid_selection==='1'&&Number(rowSelected.active.split(',')[0])===Number(enlarged.top)+2,'Enlarged row gutter did not select its actual row');
+ const from=await canvasPoint(left+cellWidth,gy+11*ui),to=await canvasPoint(left+cellWidth+24,gy+11*ui);
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',...from});await send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',clickCount:1});await frames(2);
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',...to,button:'left',buttons:1});await frames(2);
+ await send('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',clickCount:1});await frames(3);
+ const resized=await platformSnapshot();
+ check(near(Number(resized.grid_cell.split(',')[0])-cellWidth,24,.02)&&resized.grid_header===enlarged.grid_header&&resized.grid_gutter===enlarged.grid_gutter,'Zoomed column resize missed its boundary or resized chrome');
+ let filter;
+ if(sourceHeader){const previous=replies().filter(reply=>reply.kind===4).at(-1)?.id;await click(left+Number(resized.grid_cell.split(',')[0])-12*ui,gy+35*ui);const distinct=await waitDistinct(previous??null);const state=await platformSnapshot();check(state.modal!=='0'&&state.filter_field==='0'&&distinct.distinct_total==='5','Zoomed fixed-height filter arrow did not open first-column real available values');filter={state,distinct};await key('Escape','Escape',27);}
+ await wheelBatch(0,150,1,wheelOptions);const final=await platformSnapshot();
+ check(near(final.zoom,baseline.zoom,.00001)&&final.ui_scale===baseline.ui_scale&&final.modal==='0','Zoom pointer gate left a modal or changed UI/canvas scale');
+ const newJobs=starts().slice(jobs);check(sourceHeader?newJobs.length>0&&newJobs.every(job=>job.kind===4):newJobs.length===0,'Zoom, header selection or resizing unexpectedly queried the database');
+ const result={baseline,pixels,samples,interfaceScaled,interfaceRestored,enlarged,columnSelected,rowSelected,resized,filter,final,jobs:newJobs,scope:'Actual shared C capture geometry and GL label bounds, DOM pixel Ctrl-wheel through C zoom, trusted pointer column/row selection and column resizing, real optional Worker distinct values, and keyboard Interface scale. No physical pinch/trackpad or report-upload acceptance.'};
+ await fs.writeFile(path.join(output,'zoom-'+name+'.json'),JSON.stringify(result,null,2));return result;
+}
+async function zoomSource(){
+ await send('Page.setInterceptFileChooserDialog',{enabled:true});
+ await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Control','ControlLeft',17));await key('o','KeyO',79,'',2);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Control','ControlLeft',17));await frames();
+ const document=await send('DOM.getDocument'),input=await send('DOM.querySelector',{nodeId:document.root.nodeId,selector:'#duxcel-file-input'});
+ check(input.nodeId,'C Open did not invoke browser file selection for zoom gate');await send('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[sourceFile]});
+ const imported=await waitPage();check(imported.total==='5'&&imported.columns===6,'Zoom gate requires the real transactions source');await frames(4);return imported;
+}
 async function pendingReports(){
  return evaluate(`(async()=>{const {createIndexedDBReviewStore}=await import('/review_queue.mjs');const store=createIndexedDBReviewStore();try{return(await store.listPending()).map(row=>({report_id:row.reportId,digest:row.digest,bytes:row.blob.size}));}finally{store.close();}})()`);
 }
@@ -391,6 +465,13 @@ try{
  if(accessOnly){
   accessKeyResult=await accessKeys();
   check(starts().length===0,'Blank-workbook access-only flow submitted a database job');
+ }else if(zoomOnly){
+  zoomResult={};
+  if(sourceFile){
+   sourceResult=await zoomSource();zoomResult.source=await gridZoomHeaders('source',true);
+   await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));await key('F11','F11',122,'',8);await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16));await frames(3);
+  }
+  zoomResult.blank=await gridZoomHeaders('blank',false);
  }else{
  if(persistence){
   const result=await evaluate(`(async()=>{const [{runPersistenceProbe},vendor]=await Promise.all([import('./persistence_probe.mjs'),fetch('./vendor.json').then(r=>r.json())]);const report=await runPersistenceProbe({baseURL:location.href,moduleURL:new URL(vendor.worker.moduleURL,location.href).href,workerURL:new URL(vendor.worker.workerURL,location.href).href,fixtureURL:new URL('./native-fixture.dxls',location.href).href});if(report.export){const exported=report.export;const dataURL=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(new Blob([exported.bytes]));});report.export={...exported,bytes:undefined,base64:dataURL.slice(dataURL.indexOf(',')+1)};}return report;})()`,90000);
@@ -596,7 +677,7 @@ try{
  resources.c_bridge=consoleText('Browser worker metrics: ').map(line=>JSON.parse(line.slice('Browser worker metrics: '.length)));
  resources.scope='Navigation-to-first completed C frame and parent resource timing; main JS heap excludes Worker/GPU/process RSS. C bridge metrics are review-only bounded callback/job observations; decode_ms is C validation/allocation/copy, elapsed_ms includes asynchronous engine/transport scheduling. Worker network bytes are not inferred from parent Resource Timing.';
  await fs.writeFile(path.join(output,'resources.json'),JSON.stringify(resources,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,workerProbe,profile:accessOnly?'access-only':'standard',scope:accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,workerProbe,profile:zoomOnly?'zoom-only':accessOnly?'access-only':'standard',scope:zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){
