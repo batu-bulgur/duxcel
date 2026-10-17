@@ -851,6 +851,56 @@ static void test_scoped_format_save_guard(void) {
     CHECK(!workbook_save(&book,path,&error) && error && strstr(error,"v12")); free(error);
     workbook_free(&book); workbook_free(&loaded);
 }
+static unsigned char *workspace_bytes(const char *path,size_t *bytes) {
+    FILE *file=fopen(path,"rb"); CHECK(file && fseek(file,0,SEEK_END)==0); long length=ftell(file);
+    CHECK(length>0 && fseek(file,0,SEEK_SET)==0); *bytes=(size_t)length;
+    unsigned char *data=dx_alloc(*bytes); CHECK(fread(data,1,*bytes,file)==*bytes && fgetc(file)==EOF && !fclose(file)); return data;
+}
+static void test_extended_format_metadata_guard(void) {
+    Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
+    CHECK(workbook_add(&book,"Supported workspace",&blank,&error));
+    CHECK(cells_set(&book.sheets[0].cells,0,0,"Saved value",&error));
+    CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    CHECK(format_apply(&book.sheets[0].formats,(FormatRange){1,2,3,4},FORMAT_BOLD,bold,&error));
+    const char *path="tests/generated/extended-format-metadata.dxls"; remove(path);
+    CHECK(workbook_save(&book,path,&error) && workbook_load(&loaded,path,&error));
+    CHECK(cells_set(&loaded.sheets[0].cells,0,0,"Keep unsaved live value",&error)); worksheet_record(&loaded.sheets[0],EDIT_CELLS); loaded.dirty=true;
+    Worksheet *sheets=loaded.sheets; FormatPatch *items=sheets[0].formats.items; char *loaded_path=loaded.path;
+    const char *invalid[]={
+        "CREATE TABLE _duxcel_workspace.format_scopes(sheet_id INTEGER,scope_id INTEGER,owner UBIGINT,definition BLOB)",
+        "CREATE TABLE _duxcel_workspace.format_scopes AS SELECT 0 AS sheet_id,0 AS scope_id,18446744073709551615::UBIGINT AS owner,'opaque'::BLOB AS definition",
+        "CREATE VIEW _duxcel_workspace.format_scopes AS SELECT 0 AS sheet_id WHERE false",
+        "CREATE TABLE _duxcel_workspace.format_selectors(sheet_id INTEGER,position INTEGER,kind INTEGER)",
+        "CREATE VIEW _duxcel_workspace.format_selectors AS SELECT 0 AS kind",
+        "CREATE TABLE _duxcel_workspace.format_guards(sheet_id INTEGER,position INTEGER,scope_id INTEGER)",
+        "CREATE VIEW _duxcel_workspace.format_guards AS SELECT 0 AS scope_id WHERE false",
+        "ALTER TABLE _duxcel_workspace.formats ADD COLUMN selector INTEGER DEFAULT 1",
+        "ALTER TABLE _duxcel_workspace.formats ADD COLUMN scope_id UBIGINT DEFAULT 9007199254740993",
+        "ALTER TABLE _duxcel_workspace.formats ADD COLUMN guard_ids UBIGINT[] DEFAULT [0]",
+        "ALTER TABLE _duxcel_workspace.formats ADD COLUMN annotation VARCHAR",
+        "ALTER TABLE _duxcel_workspace.formats DROP COLUMN color",
+        "ALTER TABLE _duxcel_workspace.formats RENAME COLUMN color TO unknown_property",
+        "ALTER TABLE _duxcel_workspace.formats ALTER COLUMN r0 TYPE BIGINT"
+    };
+    for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
+        remove(path); CHECK(workbook_save(&book,path,&error)); sql_file(path,invalid[i]);
+        size_t before_bytes=0,after_bytes=0; unsigned char *before=workspace_bytes(path,&before_bytes);
+        CHECK(!workbook_load(&loaded,path,&error) && error && *error); free(error); error=NULL;
+        CHECK(loaded.sheets==sheets && loaded.path==loaded_path && loaded.dirty && loaded.count==1 && loaded.active==0 && loaded.user_scale==1);
+        CHECK(sheets[0].formats.items==items && sheets[0].undo_actions_count==1 && sheets[0].cells.undo_count==1 && format_at(&sheets[0].formats,1,3).flags==FORMAT_BOLD);
+        CHECK(!strcmp(cells_get(&sheets[0].cells,0,0),"Keep unsaved live value"));
+        CHECK(!workbook_save(&book,path,&error) && error && *error); free(error); error=NULL;
+        unsigned char *after=workspace_bytes(path,&after_bytes); CHECK(before_bytes==after_bytes && !memcmp(before,after,before_bytes)); free(before); free(after);
+    }
+    /* User tables and unrelated metadata are not unsupported format payloads.
+       Supported columns may have a different physical order. */
+    remove(path); CHECK(workbook_save(&book,path,&error));
+    sql_file(path,"CREATE TABLE main.format_scopes(value VARCHAR); INSERT INTO main.format_scopes VALUES ('Keep user data'); CREATE TABLE _duxcel_workspace.custom_note(value VARCHAR); INSERT INTO _duxcel_workspace.custom_note VALUES ('Keep metadata'); CREATE TABLE _duxcel_workspace.reordered_formats AS SELECT decimals,numeric_format,font_size,color,alignment,flags,mask,c1,c0,r1,r0,position,sheet_id FROM _duxcel_workspace.formats; DROP TABLE _duxcel_workspace.formats; ALTER TABLE _duxcel_workspace.reordered_formats RENAME TO formats");
+    CHECK(workbook_load(&loaded,path,&error) && format_at(&loaded.sheets[0].formats,1,3).flags==FORMAT_BOLD);
+    CHECK(workbook_save(&book,path,&error) && workbook_load(&loaded,path,&error));
+    sql_file(path,"SELECT CASE WHEN count(*)=1 AND min(value)='Keep user data' THEN true ELSE error('user data changed') END FROM main.format_scopes; SELECT CASE WHEN count(*)=1 AND min(value)='Keep metadata' THEN true ELSE error('unrelated metadata changed') END FROM _duxcel_workspace.custom_note; SELECT CASE WHEN version=12 THEN true ELSE error('workspace version changed') END FROM _duxcel_workspace.meta");
+    workbook_free(&book); workbook_free(&loaded); free(error);
+}
 static void test_combined_filter_workspace(void) {
     Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); char *error=NULL;
     Analysis source={.kind=SOURCE_DEMO,.path=dx_strdup("")}; char *payload=analysis_filter_pack(FILTER_NOT_IN,"[\"Bursa\"]",FILTER_CONTAINS,"stan");
@@ -906,6 +956,7 @@ int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--formats-only")) {
         test_format_workspace();
         test_scoped_format_save_guard();
+        test_extended_format_metadata_guard();
         printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
         return 0;
     }
@@ -916,6 +967,7 @@ int main(int argc,char **argv) {
     test_pivot_grain_workspace();
     test_format_workspace();
     test_scoped_format_save_guard();
+    test_extended_format_metadata_guard();
     test_unique_workspace();
     test_query_workspace();
     test_cells();
