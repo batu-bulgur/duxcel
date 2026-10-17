@@ -596,7 +596,13 @@ static DxReviewWidget *review_workspace_widget(App *a,const char *id,const char 
     snprintf(widget.parent_id,sizeof(widget.parent_id),"%s",parent ? parent : ""); widget.bounds=review_rect(bounds); widget.clip=review_rect(clip); widget.layer=layer;
     widget.container=!strcmp(role,"group") || !strcmp(role,"listbox") || !strcmp(role,"container"); widget.expanded=widget.container;
     widget.enabled=enabled; widget.checked=checked; widget.focused=focused; widget.input_eligible=enabled && !widget.container && strcmp(role,"text") && strcmp(role,"region");
-    widget.data=review_workspace_scope(a,fields); if (field) { widget.identity_truncated=review_author_field(widget.data.field,field); widget.truncated|=widget.identity_truncated; }
+    widget.data=review_workspace_scope(a,fields);
+    if (field && review_author_field(widget.data.field,field)) {
+        /* The complete widget ID and captured source/column occurrence remain
+           intact. Only this optional human-readable descriptor is bounded. */
+        widget.truncated=true; bool stale=strstr(widget.data.kind,"-stale")!=NULL;
+        snprintf(widget.data.kind,sizeof(widget.data.kind),fields ? stale ? "source-fields-stale-truncated" : "source-fields-truncated" : "pivot-authoring-truncated");
+    }
     if (pivot_role>=0) widget.data.column=(uint64_t)pivot_role; if (index>=0) widget.data.row=(uint64_t)index;
     if (!strcmp(role,"text") || !strcmp(role,"combobox")) dx_review_value_set(&widget.value,"VARCHAR",false,label ? label : "");
     if (!strcmp(id,"pane.fields.search")) dx_review_value_set(&widget.value,"VARCHAR",false,a->pivot_search.text ? a->pivot_search.text : "");
@@ -626,7 +632,7 @@ static void review_workspace_field(App *a,const Column *field,size_t index,Recta
     char id[128],parent[128]; snprintf(parent,sizeof(parent),"pane.fields.field.f%016llx",(unsigned long long)review_field_hash(field->name));
     snprintf(id,sizeof(id),"%s%s",parent,more ? ".more" : "");
     DxReviewWidget *widget=review_workspace_widget(a,id,more ? parent : "pane.fields.list",more ? "field.open_actions" : selected_pivot(a) ? "field.select_drag" : "field.reveal","button",more ? "Field actions" : field->name,bounds,clip,enabled,!more && focused,focused,field->name,-1,(int)index,more ? 54 : 53,file,line);
-    if (widget) { bool stale=!strcmp(widget->data.kind,"source-fields-stale"); snprintf(widget->data.kind,sizeof(widget->data.kind),stale ? "available-field-stale" : "available-field"); dx_review_value_set(&widget->value,"VARCHAR",false,field->name); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated; }
+    if (widget) { bool stale=strstr(widget->data.kind,"-stale")!=NULL,cut=strstr(widget->data.kind,"-truncated")!=NULL; snprintf(widget->data.kind,sizeof(widget->data.kind),cut ? stale ? "available-field-stale-truncated" : "available-field-truncated" : stale ? "available-field-stale" : "available-field"); dx_review_value_set(&widget->value,"VARCHAR",false,field->name); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated; }
 }
 static bool review_workspace_token_id(char output[128],int role,const PivotField *field,bool remove) {
     static const char *const aggregates[]={"sum","count","distinct","average","minimum","maximum"},*const grains[]={"exact","year","quarter","month"};
@@ -638,7 +644,7 @@ static void review_workspace_token(App *a,int role,size_t index,const PivotField
     char id[128],parent[128]; if (!review_workspace_token_id(id,role,field,remove)) return;
     if (remove) review_workspace_token_id(parent,role,field,false); else snprintf(parent,sizeof(parent),"analysis.shelf.%s",review_workspace_role(role));
     DxReviewWidget *widget=review_workspace_widget(a,id,parent,remove ? "pivot.remove_field" : "pivot.inspect_field","button",label,bounds,clip,enabled,false,focused,field->name,role,(int)index,(role>=PIVOT_VALUES ? 53 : 23)+(remove ? 1 : 0),file,line);
-    if (widget) { snprintf(widget->data.kind,sizeof(widget->data.kind),"pivot-token"); dx_review_value_set(&widget->value,"VARCHAR",false,label); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated; }
+    if (widget) { bool cut=strstr(widget->data.kind,"-truncated")!=NULL; snprintf(widget->data.kind,sizeof(widget->data.kind),cut ? "pivot-token-truncated" : "pivot-token"); dx_review_value_set(&widget->value,"VARCHAR",false,label); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated; }
 }
 static void review_workspace_scroll(App *a,const char *part,Rectangle track,Rectangle thumb,Rectangle clip,bool enabled,bool dragging,const char *file,int line) {
     if (!review_armed(a)) return;
@@ -748,7 +754,7 @@ static void review_feedback_target(App *a,DxReviewDataIdentity origin,const char
     bounds.y+=offset; clip.y+=offset;
     Rectangle visible=GetCollisionRec(GetCollisionRec(bounds,clip),box(0,0,GetScreenWidth(),GetScreenHeight())); if (visible.width<=0 || visible.height<=0) return;
     DxReviewWidget widget; dx_review_widget_init(&widget,id,action,"workspace/feedback",role,label); widget.data=origin;
-    widget.identity_truncated=strstr(origin.kind,"-truncated")!=NULL; widget.truncated|=widget.identity_truncated;
+    widget.truncated|=strstr(origin.kind,"-truncated")!=NULL;
     snprintf(widget.parent_id,sizeof(widget.parent_id),"%s",parent ? parent : ""); widget.bounds=review_rect(bounds); widget.clip=review_rect(clip); widget.transform.ty=offset;
     int layer=filter ? 103 : !strncmp(id,"toast",5) ? 161 : !strncmp(id,"status",6) ? 62 : !strncmp(id,"cell.readout.",13) ? 18 : !strncmp(id,"preview",7) ? 12 : 44;
     widget.container=!strcmp(role,"group") || !strcmp(role,"listbox") || !strcmp(role,"container"); widget.expanded=widget.container; widget.layer=layer-(widget.container ? 1 : 0);
@@ -775,7 +781,7 @@ static void review_feedback_step(App *a,const SheetObject *owner,const UIStep *s
     DxReviewDataIdentity origin=review_feedback_origin(a,"pipeline",owner); origin.row=index; origin.column=(uint64_t)step->kind;
     bool truncated=step->column && review_author_field(origin.field,step->column);
     review_feedback_target(a,origin,id,"pane.transformations.steps","pipeline.select_step","button",step->title,bounds,clip,enabled,checked,focused,"VARCHAR",false,step->detail,file,line);
-    if (truncated) { DxReviewWidget *widget=(DxReviewWidget *)dx_review_find(a->review->registry,id); if (widget) widget->identity_truncated=widget->truncated=true; a->review->registry->truncated=true; }
+    if (truncated) { DxReviewWidget *widget=(DxReviewWidget *)dx_review_find(a->review->registry,id); if (widget) { widget->truncated=true; snprintf(widget->data.kind,sizeof(widget->data.kind),"transformations-step-truncated"); } a->review->registry->truncated=true; }
 }
 static void review_feedback_preview(App *a,const UIPreviewReviewFrame *frame) {
     if (!review_armed(a) || !frame || !frame->armed || a->modal!=MODAL_NONE || a->file_menu) return;
@@ -1083,7 +1089,7 @@ static void review_filter(App *a) {
     if (!review_armed(a) || a->modal!=MODAL_FILTER || !a->filter_layout.valid) return;
     UIFilterLayout r=a->filter_layout; float s=a->ui.scale; bool allow=!a->filter_condition_menu && !a->values_selecting;
     review_control(a,"filter.panel","filter.inspect","popup/column-filter","dialog","Column filter",r.panel,0,true,false,true,__FILE__,__LINE__);
-    DxReviewWidget *panel=(DxReviewWidget *)dx_review_find(a->review->registry,"filter.panel"); if (panel) panel->data=review_feedback_origin(a,"filter",filter_object(a));
+    DxReviewWidget *panel=(DxReviewWidget *)dx_review_find(a->review->registry,"filter.panel"); if (panel) { panel->data=review_feedback_origin(a,"filter",filter_object(a)); panel->truncated|=strstr(panel->data.kind,"-truncated")!=NULL; a->review->registry->truncated|=panel->truncated; }
 #define FILTER_ITEM(id,action,role,label,rect,focus,enabled) review_filter_item(a,id,action,role,label,rect,r.panel,101,focus,enabled)
     FILTER_ITEM("filter.close","filter.close","button","Close",box(r.title.x+r.title.width-33*s,r.title.y+6.5f*s,23*s,23*s),0,!a->filter_condition_menu);
     FILTER_ITEM("filter.sort.ascending","command.sort_asc","button","Sort ascending",r.sort[0],1,allow && !selected_pivot(a));
@@ -1116,7 +1122,7 @@ static void review_filter(App *a) {
         FilterOp choices[8]; int count=filter_conditions(a,choices);
         UISelectMenuLayout m=ui_select_menu_layout((Vector2){r.condition.x,r.condition.y+r.condition.height},(Vector2){GetScreenWidth(),GetScreenHeight()},s,r.condition.width/s,count);
         review_control(a,"filter.conditions","filter.conditions","popup/column-filter/conditions","menu","Conditions",m.panel,10,true,false,true,__FILE__,__LINE__);
-        DxReviewWidget *conditions=(DxReviewWidget *)dx_review_find(a->review->registry,"filter.conditions"); if (conditions) conditions->data=review_feedback_origin(a,"filter",filter_object(a));
+        DxReviewWidget *conditions=(DxReviewWidget *)dx_review_find(a->review->registry,"filter.conditions"); if (conditions) { conditions->data=review_feedback_origin(a,"filter",filter_object(a)); conditions->truncated|=strstr(conditions->data.kind,"-truncated")!=NULL; a->review->registry->truncated|=conditions->truncated; }
         for (int row=0;row<m.visible;row++) { int i=row+a->filter_condition_scroll; if (i<0 || i>=count) continue; char id[64]; snprintf(id,sizeof(id),"filter.condition.option.%s",review_filter_op(choices[i])); DxReviewWidget *w=review_filter_item(a,id,"filter.choose_condition","menuitem",filter_condition_label(a,choices[i]),ui_select_menu_row(&m,row),m.panel,111,-1,true); if (w) { w->focused=i==a->filter_condition_index; w->checked=a->filter_condition_enabled ? choices[i]==a->filter_op : (int)choices[i]<0; snprintf(w->parent_id,sizeof(w->parent_id),"filter.conditions"); } }
     }
 #undef FILTER_ITEM
