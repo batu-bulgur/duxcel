@@ -48,27 +48,44 @@ static const char long_sql[]=
     "SELECT SUM((i % 97)::HUGEINT) AS slow_total FROM range(500000000) t(i)";
 static const char latest_sql[]="SELECT 'latest wins'::VARCHAR AS result";
 static const char cancel_recovery_sql[]="SELECT 'recovered after cancel'::VARCHAR AS result";
+static const char categories_sql[]=
+    "SELECT CASE i WHEN 0 THEN NULL::VARCHAR WHEN 1 THEN '' WHEN 2 THEN 'NULL' "
+    "ELSE 'v-' || lpad((i-3)::VARCHAR,3,'0') END AS category,"
+    "CASE WHEN i<150 THEN 'keep' ELSE 'drop' END AS bucket FROM range(300) t(i)";
+static const char dates_sql[]=
+    "SELECT * FROM (VALUES (NULL::TIMESTAMP),"
+    "(TIMESTAMP '2024-12-31 23:59:59.999999'),"
+    "(TIMESTAMP '2025-01-01 00:00:00'),(TIMESTAMP '2025-01-01 00:00:59.999999'),"
+    "(TIMESTAMP '2025-01-01 00:01:00'),(TIMESTAMP '2025-01-01 01:00:00'),"
+    "(TIMESTAMP '2025-01-02 00:00:00'),(TIMESTAMP '2025-02-01 00:00:00'),"
+    "(TIMESTAMP '2026-01-01 00:00:00')) t(occurred)";
 static const uint64_t object_id=UINT64_C(18014398509481987),revision_id=UINT64_C(36028797018963971);
 typedef enum {
     WAIT_EXACT,WAIT_PAGE0,WAIT_PAGE256,WAIT_PAGE512,WAIT_COUNT,WAIT_TABLE,
-    WAIT_VALIDATE,WAIT_PREVIEW,WAIT_ERROR,WAIT_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
+    WAIT_VALIDATE,WAIT_PREVIEW,WAIT_ERROR,WAIT_RECOVERY,
+    WAIT_DISTINCT0,WAIT_DISTINCT128,WAIT_DISTINCT256,WAIT_DISTINCT_SEARCH,
+    WAIT_DISTINCT_PRIMARY,WAIT_DISTINCT_SECONDARY,WAIT_DATE_YEAR,WAIT_DATE_MONTH,
+    WAIT_DATE_DAY,WAIT_DATE_HOUR,WAIT_DATE_MINUTE,WAIT_DATE_NULL,
+    WAIT_DISTINCT_ERROR,WAIT_DISTINCT_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
     QUIET_CANCEL,WAIT_CANCEL_RECOVERY,WAIT_STOP_SCHEMA,RUN_STOP,QUIET_STOP,FINISHED
 } Stage;
 static QueryWorker worker;
 static QueryReply *reply;
 static Page retained;
+static DistinctPage retained_distinct;
 static Stage stage;
 static double entered;
 static uint64_t next_id=UINT64_C(9007199254740993),expected_id,expected_offset,expected_sql,expected_counts;
 static JobKind expected_kind;
 static bool expected_preview;
 static unsigned checks,stages,stale_cookie,stale_ticket,late_callbacks;
+static void retained_values(void);
 
 static void die(const char *condition,int line) {
     fprintf(stderr,"FAIL browser-worker stage %d line %d: %s\n",(int)stage,line,condition);
     if (reply && reply->error) fprintf(stderr,"Worker error: %s\n",reply->error);
-    reply_free(reply); reply=NULL; page_free(&retained); if (worker.started) worker_stop(&worker);
+    reply_free(reply); reply=NULL; page_free(&retained); distinct_free(&retained_distinct); if (worker.started) worker_stop(&worker);
     completed(0,checks,stages); emscripten_cancel_main_loop(); abort();
 }
 #define CHECK(condition) do { checks++; if (!(condition)) die(#condition,__LINE__); } while (0)
@@ -91,10 +108,26 @@ static void submit(JobKind kind,const char *sql,uint64_t offset,int64_t total,bo
     expected_sql+=sql_count; if (kind==JOB_COUNT) expected_counts++;
     worker_submit(&worker,job);
 }
+static void submit_distinct(const char *sql,const char *column,const char *search,int level,
+    const char *start,const char *end,uint64_t offset,int64_t total,int filter_order,unsigned sql_count) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job));
+    job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=JOB_DISTINCT;
+    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(sql)};
+    if (filter_order) {
+        const char *first=filter_order==1 ? "category" : "bucket",*second=filter_order==1 ? "bucket" : "category";
+        CHECK(analysis_filter_set(&job->analysis,first,FILTER_EQUAL,filter_order==1 ? "v-001" : "keep",NULL));
+        CHECK(analysis_filter_set(&job->analysis,second,FILTER_EQUAL,filter_order==1 ? "keep" : "v-001",NULL));
+    }
+    job->column=dx_strdup(column); job->search=dx_strdup(search); job->date_level=level;
+    job->date_start=start ? dx_strdup(start) : NULL; job->date_end=end ? dx_strdup(end) : NULL;
+    job->offset=expected_offset=offset; job->known_total=total; job->object_id=object_id; job->revision=revision_id;
+    job->is_table=true; expected_preview=false; expected_sql+=sql_count;
+    worker_submit(&worker,job);
+}
 static bool received(bool error) {
     CHECK(!reply); reply=worker_poll(&worker); if (!reply) return false;
     CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==object_id && reply->revision==revision_id && reply->is_preview==expected_preview);
-    CHECK((reply->error!=NULL)==error); CHECK(!worker.running); counters(); identity(); return true;
+    CHECK((reply->error!=NULL)==error); CHECK(!worker.running); counters(); identity(); retained_values(); return true;
 }
 static void release_reply(void) { reply_free(reply); reply=NULL; }
 static void quiet(void) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply); counters(); }
@@ -130,6 +163,38 @@ static void range_values(const Page *page,uint64_t offset,size_t rows,uint64_t t
 }
 static void validation_reply(void) { CHECK(!reply->page.cells && !reply->page.columns && !reply->page.row_count && !reply->page.column_count); }
 static void short_reply(const char *text) { CHECK(reply->page.row_count==1 && reply->page.column_count==1 && !reply->page.cells[0].is_null && !strcmp(reply->page.cells[0].text,text)); }
+static void distinct_value(const DistinctValue *value,const char *raw,const char *label,const char *upper) {
+    CHECK(value->is_null==(raw==NULL));
+    CHECK(raw ? value->value && !strcmp(value->value,raw) : !value->value);
+    CHECK(value->label && !strcmp(value->label,label));
+    CHECK(upper ? value->upper && !strcmp(value->upper,upper) : !value->upper);
+    if (!raw) CHECK(!value->key);
+    else if (!upper) CHECK(value->key && !strcmp(value->key,raw));
+    else {
+        CHECK(value->key && !strncmp(value->key,raw,strlen(raw)) && value->key[strlen(raw)]=='\t' && !strcmp(value->key+strlen(raw)+1,upper));
+    }
+}
+static void category_values(const DistinctPage *page,uint64_t offset,size_t rows,uint64_t total) {
+    CHECK(page->offset==offset && page->count==rows && page->total==total);
+    CHECK(page->values && page->bytes>=rows*sizeof(*page->values) && page->bytes<=4*1024*1024);
+    for (size_t row=0;row<rows;row++) {
+        uint64_t index=offset+row; char value[24];
+        if (!index) distinct_value(&page->values[row],NULL,"NULL",NULL);
+        else if (index==1) distinct_value(&page->values[row],"","",NULL);
+        else if (index==2) distinct_value(&page->values[row],"NULL","NULL",NULL);
+        else { snprintf(value,sizeof(value),"v-%03" PRIu64,index-3); distinct_value(&page->values[row],value,value,NULL); }
+    }
+}
+static void retained_values(void) {
+    if (!retained_distinct.count) return;
+    category_values(&retained_distinct,0,128,300); exact_values(&retained);
+}
+static void distinct_reply(size_t count,uint64_t total) {
+    validation_reply(); CHECK(reply->distinct.offset==0 && reply->distinct.count==count && reply->distinct.total==total);
+}
+static void date_value(size_t row,const char *value,const char *label,const char *upper) {
+    distinct_value(&reply->distinct.values[row],value,label,upper);
+}
 static void inject_late(void *unused) {
     (void)unused;
     /* Matching old cookie/ticket, deliberately unreadable payload: the ownership
@@ -179,6 +244,89 @@ static void tick(void) {
     case WAIT_RECOVERY:
         if (!received(false)) return;
         range_values(&reply->page,0,256,600,false); release_reply(); pass("error recovery retains the valid described schema");
+        submit_distinct(categories_sql,"category","",-1,NULL,NULL,0,-1,0,2); enter(WAIT_DISTINCT0); return;
+    case WAIT_DISTINCT0:
+        if (!received(false)) return;
+        validation_reply(); category_values(&reply->distinct,0,128,300);
+        retained_distinct=reply->distinct; reply->distinct=(DistinctPage){0}; release_reply(); pass("300 distinct values / SQL NULL, empty and literal NULL remain separate");
+        submit_distinct(categories_sql,"category","",-1,NULL,NULL,128,300,0,1); enter(WAIT_DISTINCT128); return;
+    case WAIT_DISTINCT128:
+        if (!received(false)) return;
+        validation_reply(); category_values(&reply->distinct,128,128,300); release_reply(); pass("distinct second page / known total needs one SQL and no DESCRIBE");
+        submit_distinct(categories_sql,"category","",-1,NULL,NULL,256,300,0,1); enter(WAIT_DISTINCT256); return;
+    case WAIT_DISTINCT256:
+        if (!received(false)) return;
+        validation_reply(); category_values(&reply->distinct,256,44,300); release_reply(); pass("distinct final page / retained first page stays owned");
+        submit_distinct(categories_sql,"category","NULL",-1,NULL,NULL,0,-1,0,2); enter(WAIT_DISTINCT_SEARCH); return;
+    case WAIT_DISTINCT_SEARCH:
+        if (!received(false)) return;
+        distinct_reply(2,2); distinct_value(&reply->distinct.values[0],NULL,"NULL",NULL);
+        distinct_value(&reply->distinct.values[1],"NULL","NULL",NULL); release_reply(); pass("distinct NULL search includes typed missing and literal NULL without empty text");
+        submit_distinct(categories_sql,"category","",-1,NULL,NULL,0,-1,1,2); enter(WAIT_DISTINCT_PRIMARY); return;
+    case WAIT_DISTINCT_PRIMARY:
+        if (!received(false)) return;
+        validation_reply(); category_values(&reply->distinct,0,128,150);
+        CHECK(reply->analysis.filter_count==1 && !strcmp(reply->analysis.filter_column,"category") && !strcmp(reply->analysis.filter_value,"v-001"));
+        CHECK(!strcmp(reply->analysis.filters[0].column,"bucket") && !strcmp(reply->analysis.filters[0].value,"keep"));
+        release_reply(); pass("available values ignore own primary filter and retain the secondary source filter");
+        submit_distinct(categories_sql,"category","",-1,NULL,NULL,0,-1,2,2); enter(WAIT_DISTINCT_SECONDARY); return;
+    case WAIT_DISTINCT_SECONDARY:
+        if (!received(false)) return;
+        validation_reply(); category_values(&reply->distinct,0,128,150);
+        CHECK(reply->analysis.filter_count==1 && !strcmp(reply->analysis.filter_column,"bucket") && !strcmp(reply->analysis.filter_value,"keep"));
+        CHECK(!strcmp(reply->analysis.filters[0].column,"category") && !strcmp(reply->analysis.filters[0].value,"v-001"));
+        release_reply(); pass("available values ignore own secondary filter and retain the primary source filter");
+        submit_distinct(dates_sql,"occurred","",0,NULL,NULL,0,-1,0,2); enter(WAIT_DATE_YEAR); return;
+    case WAIT_DATE_YEAR:
+        if (!received(false)) return;
+        distinct_reply(4,4); date_value(0,NULL,"NULL",NULL);
+        /* Constant year/month/day truncation binds to DATE; DATE + INTERVAL
+           promotes the upper endpoint back to TIMESTAMP. Keep both exact. */
+        date_value(1,"2024-01-01","2024","2025-01-01 00:00:00");
+        date_value(2,"2025-01-01","2025","2026-01-01 00:00:00");
+        date_value(3,"2026-01-01","2026","2027-01-01 00:00:00");
+        release_reply(); pass("date years keep NULL plus complete canonical lower/upper keys");
+        submit_distinct(dates_sql,"occurred","",1,"2025-01-01 00:00:00","2026-01-01 00:00:00",0,-1,0,2); enter(WAIT_DATE_MONTH); return;
+    case WAIT_DATE_MONTH:
+        if (!received(false)) return;
+        distinct_reply(2,2);
+        date_value(0,"2025-01-01","January","2025-02-01 00:00:00");
+        date_value(1,"2025-02-01","February","2025-03-01 00:00:00");
+        release_reply(); pass("date months include the parent's lower bound and exclude its next-year endpoint");
+        submit_distinct(dates_sql,"occurred","",2,"2025-01-01 00:00:00","2025-02-01 00:00:00",0,-1,0,2); enter(WAIT_DATE_DAY); return;
+    case WAIT_DATE_DAY:
+        if (!received(false)) return;
+        distinct_reply(2,2);
+        date_value(0,"2025-01-01","01","2025-01-02 00:00:00");
+        date_value(1,"2025-01-02","02","2025-01-03 00:00:00");
+        release_reply(); pass("date days exclude the next-month endpoint");
+        submit_distinct(dates_sql,"occurred","",3,"2025-01-01 00:00:00","2025-01-02 00:00:00",0,-1,0,2); enter(WAIT_DATE_HOUR); return;
+    case WAIT_DATE_HOUR:
+        if (!received(false)) return;
+        distinct_reply(2,2);
+        date_value(0,"2025-01-01 00:00:00","00:00","2025-01-01 01:00:00");
+        date_value(1,"2025-01-01 01:00:00","01:00","2025-01-01 02:00:00");
+        release_reply(); pass("date hours exclude the next-day endpoint");
+        submit_distinct(dates_sql,"occurred","",4,"2025-01-01 00:00:00","2025-01-01 01:00:00",0,-1,0,2); enter(WAIT_DATE_MINUTE); return;
+    case WAIT_DATE_MINUTE:
+        if (!received(false)) return;
+        distinct_reply(2,2);
+        date_value(0,"2025-01-01 00:00:00","00:00","2025-01-01 00:01:00");
+        date_value(1,"2025-01-01 00:01:00","00:01","2025-01-01 00:02:00");
+        release_reply(); pass("date minutes group fractional seconds and exclude the next-hour endpoint");
+        submit_distinct(dates_sql,"occurred","NULL",4,NULL,NULL,0,-1,0,2); enter(WAIT_DATE_NULL); return;
+    case WAIT_DATE_NULL:
+        if (!received(false)) return;
+        distinct_reply(1,1); date_value(0,NULL,"NULL",NULL); release_reply(); pass("date hierarchy NULL search retains an actual typed NULL key");
+        submit_distinct(categories_sql,"definitely_missing_distinct_column","",-1,NULL,NULL,0,-1,0,1); enter(WAIT_DISTINCT_ERROR); return;
+    case WAIT_DISTINCT_ERROR:
+        if (!received(true)) return;
+        CHECK(strstr(reply->error,"definitely_missing_distinct_column")); validation_reply();
+        CHECK(!reply->distinct.values && !reply->distinct.count); release_reply(); pass("distinct engine error owns no partial page");
+        submit_distinct(categories_sql,"category","",-1,NULL,NULL,256,300,0,1); enter(WAIT_DISTINCT_RECOVERY); return;
+    case WAIT_DISTINCT_RECOVERY:
+        if (!received(false)) return;
+        validation_reply(); category_values(&reply->distinct,256,44,300); release_reply(); pass("distinct error recovery preserves prior result pages and uses the known total");
         submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_SUPERSEDE_SCHEMA); return;
     case WAIT_SUPERSEDE_SCHEMA:
         if (!received(false)) return;
@@ -220,7 +368,9 @@ static void tick(void) {
     case QUIET_STOP:
         quiet(); if (emscripten_get_now()-entered<150) return;
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
-        exact_values(&retained); page_free(&retained); page_free(&retained); pass("early stop and scheduled stale callbacks are ignored");
+        retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
+        page_free(&retained); page_free(&retained); pass("early stop and scheduled stale callbacks are ignored");
+        CHECK(stages==27 && worker.jobs_started==32 && expected_sql==46 && expected_counts==1);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
