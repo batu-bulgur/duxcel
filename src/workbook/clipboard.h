@@ -6,7 +6,9 @@
 #define DX_CLIPBOARD_CELLS 20000
 #define DX_CLIPBOARD_BYTES (8*1024*1024)
 /* NULL pointer = missing value. Owned "" = genuine zero-length text. */
-typedef struct { char **values; size_t rows,columns,bytes; } CellClipboard;
+/* capacity is the number of owned pointer slots, independent of logical shape.
+   Shrinking rows does not relinquish those slots or their cleanup ownership. */
+typedef struct { char **values; size_t rows,columns,bytes,capacity; } CellClipboard;
 bool clipboard_init(CellClipboard *copy,size_t rows,size_t columns,char **error);
 bool clipboard_set(CellClipboard *copy,size_t row,size_t column,const char *value,char **error);
 char *clipboard_tsv(const CellClipboard *copy,char **error);

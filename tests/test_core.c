@@ -530,7 +530,26 @@ static QueryJob *job(uint64_t id,SourceKind kind,const char *path) {
     QueryJob *j=dx_alloc(sizeof(*j)); j->id=id; j->kind=JOB_PAGE; j->analysis.kind=kind;
     j->analysis.path=dx_strdup(path); j->known_total=-1; return j;
 }
+static void test_clipboard_ownership(void) {
+    char *error=NULL; CellClipboard copy={0}; clipboard_free(NULL); clipboard_free(&copy);
+    CHECK(clipboard_init(&copy,2,2,&error) && copy.capacity==4);
+    for (size_t i=0;i<4;i++) CHECK(clipboard_set(&copy,i/2,i%2,i==1 ? "" : "Owned slot",&error));
+    copy.rows=SIZE_MAX; copy.columns=SIZE_MAX;
+    CHECK(!clipboard_set(&copy,0,0,"Cannot index malformed dimensions",&error)); free(error); error=NULL;
+    CHECK(!clipboard_tsv(&copy,&error)); free(error); error=NULL;
+    clipboard_free(&copy); CHECK(!copy.values && !copy.rows && !copy.columns && !copy.bytes && !copy.capacity);
+    CHECK(clipboard_init(&copy,1,4,&error)); CHECK(clipboard_set(&copy,0,3,"Owned beyond narrowed logical shape",&error));
+    copy.columns=1; char *text=clipboard_tsv(&copy,&error); CHECK(text && !*text); free(text); clipboard_free(&copy);
+    CopyRequest *request=dx_alloc(sizeof(*request)); CHECK(clipboard_init(&request->cells,1,3,&error));
+    for (size_t i=0;i<3;i++) CHECK(clipboard_set(&request->cells,0,i,"Nested owned copy text",&error));
+    request->cells.rows=SIZE_MAX; request->cells.columns=0; request->count=SIZE_MAX; request->guard_count=SIZE_MAX;
+    copy_request_free(request);
+    copy=(CellClipboard){.rows=SIZE_MAX,.columns=SIZE_MAX,.capacity=SIZE_MAX};
+    CHECK(!clipboard_set(&copy,0,0,"No backing slots",&error)); free(error); error=NULL;
+    CHECK(!clipboard_tsv(&copy,&error)); free(error); clipboard_free(&copy);
+}
 static void test_clipboard(Database *db) {
+    test_clipboard_ownership();
     CellClipboard copy={0}; char *error=NULL,*text=NULL;
     CellStore manual={0}; ObjectStore objects={0};
     CHECK(cells_set(&manual,1000,5,"Far note",&error)); CHECK(objects_add(&objects,10,8,"Pivot",&error)>=0);
@@ -1334,6 +1353,7 @@ static void test_pivot_totals(Database *db) {
     CHECK(page.bytes<=4*1024*1024); page_free(&page); pivot_free(&pivot); analysis_free(&source); free(error);
 }
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--clipboard-ownership-only")) { test_clipboard_ownership(); printf("PASS: %u focused clipboard ownership checks\n",checks); return 0; }
     if (argc==2 && !strcmp(argv[1],"--source-guards-only")) { test_worker_source_guards(); printf("PASS: %u focused worker source-guard checks\n",checks); return 0; }
     if (argc==2 && !strcmp(argv[1],"--count-projection-only")) { Database db; char *error=NULL; CHECK(database_open(&db,&error)); test_pivot_count_projection(&db); database_close(&db); free(error); printf("PASS: %u focused COUNT projection checks\n",checks); return 0; }
     if (argc==3 && !strcmp(argv[1],"--unique-large")) return unique_large(argv[2]);

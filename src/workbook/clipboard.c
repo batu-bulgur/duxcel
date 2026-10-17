@@ -24,24 +24,29 @@ bool clipboard_bounds(const CellStore *cells,const ObjectStore *objects,uint64_t
     return true;
 }
 void clipboard_free(CellClipboard *copy) {
-    for (size_t i=0;i<copy->rows*copy->columns;i++) free(copy->values[i]);
+    if (!copy) return;
+    for (size_t i=0;copy->values && i<copy->capacity && i<DX_CLIPBOARD_CELLS;i++) free(copy->values[i]);
     free(copy->values); memset(copy,0,sizeof(*copy));
+}
+static bool shape_valid(const CellClipboard *copy) {
+    return copy && copy->values && copy->capacity && copy->capacity<=DX_CLIPBOARD_CELLS && copy->rows && copy->columns &&
+        copy->columns<=DX_CLIPBOARD_CELLS && copy->rows<=DX_CLIPBOARD_CELLS/copy->columns && copy->rows*copy->columns<=copy->capacity;
 }
 bool clipboard_init(CellClipboard *copy,size_t rows,size_t columns,char **error) {
     memset(copy,0,sizeof(*copy));
     if (!rows || !columns || columns>DX_CLIPBOARD_CELLS || rows>DX_CLIPBOARD_CELLS/columns)
         return failed(error,"Copy up to 20,000 cells at a time. Select a smaller range.");
-    copy->rows=rows; copy->columns=columns; copy->values=dx_alloc(rows*columns*sizeof(*copy->values)); return true;
+    copy->rows=rows; copy->columns=columns; copy->capacity=rows*columns; copy->values=dx_alloc(copy->capacity*sizeof(*copy->values)); return true;
 }
 bool clipboard_set(CellClipboard *copy,size_t row,size_t column,const char *value,char **error) {
-    if (row>=copy->rows || column>=copy->columns) return failed(error,"The copied range changed. Select it again.");
+    if (!shape_valid(copy) || row>=copy->rows || column>=copy->columns) return failed(error,"The copied range changed. Select it again.");
     size_t index=row*copy->columns+column,old=copy->values[index] ? strlen(copy->values[index])+1 : 0,next=value ? strlen(value)+1 : 0;
-    if (next>DX_CLIPBOARD_BYTES || copy->bytes-old>DX_CLIPBOARD_BYTES-next)
+    if (old>copy->bytes || next>DX_CLIPBOARD_BYTES || copy->bytes-old>DX_CLIPBOARD_BYTES-next)
         return failed(error,"Clipboard output exceeds 8 MiB. Select a smaller range.");
     char *owned=value ? dx_strdup(value) : NULL; free(copy->values[index]); copy->values[index]=owned; copy->bytes=copy->bytes-old+next; return true;
 }
 char *clipboard_tsv(const CellClipboard *copy,char **error) {
-    if (!copy->rows || !copy->columns) { failed(error,"Select cells to copy."); return NULL; }
+    if (!shape_valid(copy)) { failed(error,"Select a valid owned range to copy."); return NULL; }
     size_t size=copy->rows*copy->columns-1;
     for (size_t i=0;i<copy->rows*copy->columns;i++) {
         const char *s=copy->values[i]; if (!s) continue;
