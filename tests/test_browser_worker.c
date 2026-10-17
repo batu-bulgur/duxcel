@@ -13,7 +13,8 @@
 #endif
 
 extern void dx_browser_query_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,const char *total,int pending,const char *failure);
-EM_JS(int, observe_host, (void), {
+extern int dx_browser_export_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,unsigned char *owned_data,size_t data_size,const char *failure);
+EM_JS(int, observe_query_host, (void), {
     const host=Module['dxEngine'];
     if(!host || typeof host.submit!=='function' || typeof host.cancel!=='function')return 0;
     const submit=host.submit.bind(host);
@@ -38,8 +39,83 @@ EM_JS(int, observe_host, (void), {
         }
         return submit(runtime,cookie,ticket,request);
     };
+
     return 1;
 })
+EM_JS(int, observe_export_host, (void), {
+    const host=Module['dxEngine'];
+    if(typeof host.exportParquet==='function'){
+        const exporting=host.exportParquet.bind(host);
+        host.exportParquet=(runtime,cookie,ticket,request)=>{
+            Module['dxBrowserWorkerObserved']={cookie,ticket,generation:request.generation,object:request.objectId,revision:request.revision,offset:request.offset};
+            const fault=Module['dxExportFault']||0,hold=Module['dxHoldExportReply'];Module['dxExportFault']=0;Module['dxHoldExportReply']=0;
+            if(fault||hold){const original=runtime;runtime={...original,reply:(cookie,ticket,wire,size,data,bytes,error)=>{
+                if(error||!wire||!data)return original.reply(cookie,ticket,wire,size,data,bytes,error);
+                if(hold){
+                    const count=wire?original.heap().slice(wire,wire+size):null,binary=data?original.heap().slice(data,data+bytes):null;
+                    const failure=error?UTF8ToString(error):null;Module['dxHeldExportBytes']=binary?.length||0;
+                    Module['dxHeldExportReply']=()=>{
+                        const owned=[];let binaryPointer=0;
+                        const allocate=value=>{const pointer=original.allocate(value.length||1);if(!pointer)throw new Error('Held export test malloc failed');owned.push(pointer);original.heap().set(value,pointer);return pointer;};
+                        try{const countPointer=count?allocate(count):0;binaryPointer=binary?allocate(binary):0;
+                            const accepted=original.reply(cookie,ticket,countPointer,size,binaryPointer,bytes,failure?allocate(new TextEncoder().encode(failure+'\0')):0);
+                            if(accepted===1)owned.splice(owned.indexOf(binaryPointer),1);return accepted;
+                        }finally{for(const pointer of owned)original.release(pointer);Module['dxHeldExportReply']=null;Module['dxHeldExportBytes']=0;}
+                    };return 0;
+                }
+                // Deliberate transport faults after a real C-built COPY. This
+                // is a DXP1 fixture, not replacement analytical computation.
+                const countWire=(text,isNull=false,type='BIGINT',name='Count')=>{
+                    const enc=new TextEncoder(),parts=[enc.encode(name),enc.encode(type),enc.encode(type==='VARCHAR'?'none':'i64')],value=enc.encode(text);
+                    const out=new Uint8Array(20+20+parts.reduce((n,p)=>n+p.length,0)+8+1+value.length),view=new DataView(out.buffer);let at=0;
+                    const u32=n=>{view.setUint32(at,n,true);at+=4;};for(const n of [0x31505844,1,1,1,value.length,...parts.map(p=>p.length),0,0])u32(n);
+                    for(const part of parts){out.set(part,at);at+=part.length;}u32(0);u32(value.length);out[at++]=isNull?1:0;out.set(value,at);return out;
+                };
+                const owned=[];const allocate=value=>{const pointer=original.allocate(value.length||1);if(!pointer)throw new Error('Fault fixture malloc failed');owned.push(pointer);original.heap().set(value,pointer);return pointer;};
+                try{
+                    if(fault===1)data=0;
+                    else if(fault===2){data=1;bytes=64*1024*1024+1;}
+                    else if(fault===3)original.heap()[data]=0;
+                    else if(fault===4)original.heap().fill(255,data+bytes-8,data+bytes-4);
+                    else if(fault>=5&&fault<=9){const count=fault===5?countWire("",true):fault===6?countWire('-1'):fault===7?countWire('18446744073709551616'):fault===8?countWire('0600'):countWire('600',false,'VARCHAR');wire=allocate(count);size=count.length;}
+                    else if(fault===10)original.heap()[wire]=0;
+                    else if(fault===11)size--;
+                    else if(fault===12){const count=countWire('600',false,'BIGINT','Other');wire=allocate(count);size=count.length;}
+                    else if(fault===13)error=allocate(new TextEncoder().encode('Injected export transport failure\0'));
+                    return original.reply(cookie,ticket,wire,size,data,bytes,error);
+                }finally{for(const pointer of owned)original.release(pointer);}
+            }};}
+            return exporting(runtime,cookie,ticket,request);
+        };
+    }
+    return typeof host.exportParquet==='function'?1:0;
+})
+static int observe_host(void) { return observe_query_host() && observe_export_host(); }
+EM_JS(int, reset_test_engine, (void), {
+    if(typeof Module['dxResetTestEngine']!=='function')return 0;Module['dxExportResetReady']=0;
+    Promise.resolve().then(()=>Module['dxResetTestEngine']()).then(()=>Module['dxExportResetReady']=1,error=>{Module['dxExportResetReady']=-1;console.error(error);});return 1;
+})
+EM_JS(int, export_reset_ready, (void), { return Module['dxExportResetReady']||0; })
+EM_JS(void, export_fault, (int kind), { Module['dxExportFault']=kind; })
+EM_JS(void, hold_export_reply, (void), { Module['dxHoldExportReply']=1; })
+EM_JS(unsigned, held_export_bytes, (void), { return Module['dxHeldExportBytes']||0; })
+EM_JS(int, release_export_reply, (void), { return Module['dxHeldExportReply'](); })
+EM_JS(void, register_export_bytes, (const char *name,const unsigned char *data,size_t size), {
+    const bytes=HEAPU8.slice(data,data+size),file=UTF8ToString(name);Module['dxExportRegisterReady']=0;
+    Promise.resolve().then(()=>Module['dxTestAdapter'].registerFile(file,bytes)).then(()=>Module['dxExportRegisterReady']=1,error=>{Module['dxExportRegisterReady']=-1;console.error(error);});
+})
+EM_JS(void, register_export_source, (const char *text), {
+    const bytes=new TextEncoder().encode(UTF8ToString(text));Module['dxExportSourceOriginal']=bytes.slice();Module['dxExportRegisterReady']=0;
+    Promise.resolve().then(()=>Module['dxTestAdapter'].registerFile('worker-export-source.csv',bytes)).then(()=>Module['dxExportRegisterReady']=1,error=>{Module['dxExportRegisterReady']=-1;console.error(error);});
+})
+EM_JS(int, export_registration_ready, (void), { return Module['dxExportRegisterReady']||0; })
+EM_JS(void, verify_export_source, (void), {
+    Module['dxExportSourceVerified']=0;
+    Promise.resolve().then(()=>Module['dxTestAdapter'].database.copyFileToBuffer('worker-export-source.csv')).then(bytes=>{
+        const original=Module['dxExportSourceOriginal'];Module['dxExportSourceVerified']=bytes.length===original.length&&bytes.every((value,index)=>value===original[index])?1:-1;
+    },error=>{Module['dxExportSourceVerified']=-1;console.error(error);});
+})
+EM_JS(int, export_source_verified, (void), { return Module['dxExportSourceVerified']||0; })
 EM_JS(int, observed_identity, (const char *id,const char *object,const char *revision,const char *offset), {
     const value=Module['dxBrowserWorkerObserved'];
     return Boolean(value && value.generation===UTF8ToString(id) && value.object===UTF8ToString(object) && value.revision===UTF8ToString(revision) && value.offset===UTF8ToString(offset));
@@ -133,7 +209,9 @@ typedef enum {
     WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
     WAIT_OVERSIZE_ERROR,WAIT_OVERSIZE_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
-    QUIET_CANCEL,WAIT_CANCEL_RECOVERY,WAIT_STOP_SCHEMA,RUN_STOP,QUIET_STOP,FINISHED
+    QUIET_CANCEL,WAIT_CANCEL_RECOVERY,WAIT_STOP_SCHEMA,RUN_STOP,QUIET_STOP,
+    WAIT_EXPORT_RESET,WAIT_EXPORT_CASES,WAIT_EXPORT_REGISTER,WAIT_EXPORT_READBACK,WAIT_EXPORT_LAST,WAIT_EXPORT_SOURCE_REGISTER,
+    WAIT_EXPORT_CANCEL,WAIT_EXPORT_STALE,WAIT_EXPORT_RECOVERY,WAIT_EXPORT_SOURCE_VERIFY,QUIET_EXPORT_STOP,FINISHED
 } Stage;
 static QueryWorker worker;
 static QueryReply *reply;
@@ -142,6 +220,10 @@ static DistinctPage retained_distinct;
 static SelectionStats retained_statistics;
 static char *retained_rejection;
 static char *retained_clipboard;
+static unsigned char *retained_export;
+static size_t retained_export_size;
+static uint64_t baseline_jobs,baseline_sql,baseline_counts,export_object,export_revision;
+static unsigned export_late_callbacks;
 static Stage stage;
 static double entered;
 static uint64_t next_id=UINT64_C(9007199254740993),expected_id,expected_offset,expected_sql,expected_counts;
@@ -154,7 +236,7 @@ static void retained_values(void);
 static void die(const char *condition,int line) {
     fprintf(stderr,"FAIL browser-worker stage %d line %d: %s\n",(int)stage,line,condition);
     if (reply && reply->error) fprintf(stderr,"Worker error: %s\n",reply->error);
-    reply_free(reply); reply=NULL; page_free(&retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); free(retained_clipboard); if (worker.started) worker_stop(&worker);
+    reply_free(reply); reply=NULL; page_free(&retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); free(retained_clipboard); free(retained_export); if (worker.started) worker_stop(&worker);
     completed(0,checks,stages); emscripten_cancel_main_loop(); abort();
 }
 #define CHECK(condition) do { checks++; if (!(condition)) die(#condition,__LINE__); } while (0)
@@ -163,8 +245,8 @@ static void pass(const char *message) { stages++; printf("PASS browser-worker: %
 static void counters(void) { CHECK(worker.sql_executed==expected_sql); CHECK(worker.counts_executed==expected_counts); }
 static void identity(void) {
     char id[24],object[24],revision[24],offset[24];
-    snprintf(id,sizeof(id),"%" PRIu64,expected_id); snprintf(object,sizeof(object),"%" PRIu64,expected_kind==JOB_STATISTICS ? statistics_object : expected_kind==JOB_RANGE_COPY ? 0 : object_id);
-    snprintf(revision,sizeof(revision),"%" PRIu64,expected_kind==JOB_STATISTICS ? statistics_revision : expected_kind==JOB_RANGE_COPY ? 0 : revision_id); snprintf(offset,sizeof(offset),"%" PRIu64,expected_offset);
+    snprintf(id,sizeof(id),"%" PRIu64,expected_id); snprintf(object,sizeof(object),"%" PRIu64,expected_kind==JOB_EXPORT ? export_object : expected_kind==JOB_STATISTICS ? statistics_object : expected_kind==JOB_RANGE_COPY ? 0 : object_id);
+    snprintf(revision,sizeof(revision),"%" PRIu64,expected_kind==JOB_EXPORT ? export_revision : expected_kind==JOB_STATISTICS ? statistics_revision : expected_kind==JOB_RANGE_COPY ? 0 : revision_id); snprintf(offset,sizeof(offset),"%" PRIu64,expected_offset);
     CHECK(observed_identity(id,object,revision,offset));
 }
 static void submit(JobKind kind,const char *sql,uint64_t offset,int64_t total,bool preview,unsigned sql_count) {
@@ -441,7 +523,7 @@ static void submit_copy(CopyCase kind) {
 static bool copy_case_error(CopyCase kind) { return kind>=COPY_STAMP && kind<=COPY_SQL_LIMIT; }
 static bool poll_received(bool error,bool sent) {
     CHECK(!reply); reply=worker_poll(&worker); if (!reply) return false;
-    CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==(expected_kind==JOB_STATISTICS ? statistics_object : expected_kind==JOB_RANGE_COPY ? 0 : object_id) && reply->revision==(expected_kind==JOB_STATISTICS ? statistics_revision : expected_kind==JOB_RANGE_COPY ? 0 : revision_id) && reply->is_preview==expected_preview);
+    CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==(expected_kind==JOB_EXPORT ? export_object : expected_kind==JOB_STATISTICS ? statistics_object : expected_kind==JOB_RANGE_COPY ? 0 : object_id) && reply->revision==(expected_kind==JOB_EXPORT ? export_revision : expected_kind==JOB_STATISTICS ? statistics_revision : expected_kind==JOB_RANGE_COPY ? 0 : revision_id) && reply->is_preview==expected_preview);
     CHECK((reply->error!=NULL)==error); CHECK(!worker.running); counters(); if (sent) identity(); retained_values(); return true;
 }
 static bool received(bool error) { return poll_received(error,true); }
@@ -536,6 +618,122 @@ static void copy_values(CopyCase kind) {
         }
         CHECK(!*text);
     }
+}
+typedef enum { EXPORT_PRIMARY,EXPORT_TABLE,EXPORT_ROWS,EXPORT_COLUMNS,EXPORT_EMPTY,EXPORT_GRAND,EXPORT_DATE,
+    EXPORT_STAMP,EXPORT_OWNER,EXPORT_PAYLOAD,EXPORT_PATH,EXPORT_COUNTS,EXPORT_NONE,EXPORT_DATABASE,
+    EXPORT_HUGE,EXPORT_NESTED,EXPORT_DOMAIN,EXPORT_SQL,EXPORT_ENGINE,
+    EXPORT_NULL_DATA,EXPORT_OVERSIZE_DATA,EXPORT_HEADER,EXPORT_FOOTER,EXPORT_NULL_COUNT,EXPORT_NEGATIVE_COUNT,
+    EXPORT_OVERFLOW_COUNT,EXPORT_NONCANONICAL_COUNT,EXPORT_COUNT_TYPE,EXPORT_WIRE,EXPORT_TRUNCATED_WIRE,EXPORT_COUNT_NAME,EXPORT_TRANSPORT,EXPORT_CASES } ExportCase;
+static ExportCase export_case;
+static const unsigned export_sql_counts[EXPORT_CASES]={2,3,2,3,2,2,5,0,0,0,0,0,0,0,1,1,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2};
+static const uint64_t export_row_counts[]={600,4,5,5,0,1,1};
+static const char *export_names[EXPORT_CASES]={"full typed primary Parquet bytes","registered filtered/sorted table Parquet bytes","Rows AVG/distinct native export aliases","real Columns typed-category export aliases",
+    "empty typed Rows export","empty global COUNT export","two date-grain Columns COUNT export","native stamp rejection","missing table owner rejection","unrelated owned payload rejection","OS path rejection","malformed owned shelves cleanup","missing source rejection","native database source rejection",
+    "128-bit precision rejection before COPY","nested unknown type rejection before COPY","bounded column-product rejection before COPY","escaped-domain SQL limit rejection before COPY","engine schema error without partial bytes",
+    "NULL binary rejection","oversized binary rejection before dereference","PAR1 corruption rejection","footer corruption rejection","SQL NULL Count rejection","negative Count rejection","Count overflow rejection","noncanonical Count rejection","nonnumeric Count rejection","malformed Count wire rejection","truncated Count wire rejection","wrong Count name rejection","explicit export transport failure"};
+static const char export_exact_sql[]="SELECT i::BIGINT AS row_id,9007199254740993::BIGINT AS wide,'18446744073709551615'::UBIGINT AS u64,'9007199254740993.1234567890'::DECIMAL(38,10) AS amount,CASE i%3 WHEN 0 THEN NULL::VARCHAR WHEN 1 THEN '' ELSE 'NULL' END AS label,'O''Reilly\t\"quoted\"\nnext' AS special FROM range(600) t(i) ORDER BY i";
+static const char export_csv[]="id,City,Amount\n10,A,1.25\n11,B,2.50\n12,A,3.75\n13,NULL,\n14,,0.00\n";
+static void submit_export(ExportCase kind) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job)); job->kind=expected_kind=JOB_EXPORT; job->id=expected_id=next_id; next_id+=4;
+    job->object_id=export_object=kind==EXPORT_PRIMARY || kind==EXPORT_OWNER ? 0 : object_id;
+    job->revision=export_revision=job->object_id ? revision_id : 0; expected_preview=false; expected_offset=0;
+    bool analytical=kind==EXPORT_ROWS || kind==EXPORT_COLUMNS || kind==EXPORT_EMPTY || kind==EXPORT_GRAND || kind==EXPORT_DATE || kind==EXPORT_DOMAIN || kind==EXPORT_SQL;
+    job->is_table=!analytical && kind!=EXPORT_PRIMARY; job->refresh_source=true; job->path=dx_strdup("Proof export.parquet");
+    const char *source=analytical ? columns_exact_sql : export_exact_sql;
+    if (kind==EXPORT_DATE) source=dates_sql;
+    if (kind==EXPORT_DOMAIN) source=columns_product_sql;
+    if (kind==EXPORT_SQL) source=columns_sql_limit;
+    if (kind==EXPORT_HUGE) source=exact_sql;
+    if (kind==EXPORT_NESTED) source="SELECT {'value':1::HUGEINT} AS nested";
+    if (kind==EXPORT_ENGINE) source="SELECT absent FROM missing_export_table";
+    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=kind==EXPORT_EMPTY || kind==EXPORT_GRAND ? dx_printf("SELECT * FROM (%s) empty_source WHERE false",source) : dx_strdup(source)};
+    if (kind==EXPORT_TABLE) {
+        analysis_free(&job->analysis); job->analysis=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup("worker-export-source.csv"),.query=dx_strdup("SELECT id::BIGINT AS id,City::VARCHAR AS City,Amount::DECIMAL(38,10) AS Amount FROM input")};
+        CHECK(analysis_filter_set(&job->analysis,"id",FILTER_GREATER,"10",NULL) && analysis_sort_set(&job->analysis,"id",true,false,NULL));
+    }
+    if (analytical) {
+        if (kind==EXPORT_DATE) {
+            CHECK(pivot_assign_grain(&job->pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_MONTH,NULL) && pivot_assign_grain(&job->pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_QUARTER,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"occurred",AGG_COUNT,NULL));
+        } else if (kind==EXPORT_DOMAIN) {
+            CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,"row_id",AGG_SUM,NULL) && pivot_assign(&job->pivot,PIVOT_COLUMNS,"c1",AGG_SUM,NULL) && pivot_assign(&job->pivot,PIVOT_COLUMNS,"c2",AGG_SUM,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"amount",AGG_AVG,NULL));
+        } else if (kind==EXPORT_SQL) {
+            CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,"category",AGG_SUM,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"amount",AGG_AVG,NULL));
+        } else if (kind==EXPORT_GRAND) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"id",AGG_COUNT,NULL));
+        else {
+            CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,"r",AGG_SUM,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"v",AGG_AVG,NULL));
+            if (kind!=EXPORT_EMPTY) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"id",AGG_DISTINCT,NULL));
+            if (kind==EXPORT_COLUMNS) CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,"c",AGG_SUM,NULL));
+        }
+    }
+    if (kind==EXPORT_STAMP) job->expected_source_stamp=UINT64_MAX;
+    if (kind==EXPORT_PAYLOAD) job->statistics=dx_alloc(sizeof(StatisticsRequest));
+    if (kind==EXPORT_PATH) { free(job->path); job->path=dx_strdup("/tmp/forbidden.parquet"); }
+    if (kind==EXPORT_COUNTS) { job->pivot.counts[PIVOT_VALUES]=SIZE_MAX; for (size_t i=0;i<DX_PIVOT_FIELDS;i++) { job->pivot.fields[PIVOT_VALUES][i].name=dx_strdup("Owned invalid field"); job->pivot.fields[PIVOT_VALUES][i].value=dx_strdup(""); } }
+    if (kind==EXPORT_NONE || kind==EXPORT_DATABASE) { analysis_free(&job->analysis); job->analysis.kind=kind==EXPORT_NONE ? SOURCE_NONE : SOURCE_DATABASE; }
+    export_fault(kind>=EXPORT_NULL_DATA ? (int)(kind-EXPORT_NULL_DATA+1) : 0);
+    expected_sql+=export_sql_counts[kind]; worker_submit(&worker,job);
+}
+static void export_result_values(ExportCase kind) {
+    validation_reply(); CHECK(!reply->clipboard && !reply->statistics.sum && !reply->distinct.values);
+    if (kind>=EXPORT_STAMP) { CHECK(reply->error && !reply->export_data && !reply->export_bytes && !reply->exported_rows); return; }
+    CHECK(!reply->error && reply->export_data && reply->export_bytes>=12 && reply->export_bytes<=64u*1024u*1024u && reply->exported_rows==export_row_counts[kind]);
+    CHECK(!memcmp(reply->export_data,"PAR1",4) && !memcmp(reply->export_data+reply->export_bytes-4,"PAR1",4));
+    CHECK(reply->path && !strcmp(reply->path,"Proof export.parquet"));
+    if (retained_export) CHECK(reply->export_data!=retained_export);
+}
+static void submit_export_readback(uint64_t offset,unsigned sql_count) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job)); job->kind=expected_kind=JOB_PAGE; job->id=expected_id=next_id; next_id+=4;
+    job->analysis=(Analysis){.kind=SOURCE_PARQUET,.path=dx_printf("worker-export-reopen-%u.parquet",(unsigned)export_case)};
+    job->object_id=object_id; job->revision=revision_id; job->is_table=true; job->offset=expected_offset=offset; job->known_total=(int64_t)export_row_counts[export_case];
+    expected_preview=false; expected_sql+=sql_count; worker_submit(&worker,job);
+}
+static size_t exported_column(const Page *page,const char *name) {
+    for (size_t i=0;i<page->column_count;i++) if (!strcmp(page->columns[i].name,name)) return i;
+    CHECK(!"exported column is missing"); return 0;
+}
+static void export_readback_values(ExportCase kind) {
+    Page *page=&reply->page; CHECK(!reply->error && !reply->export_data && !reply->export_bytes && !page->count_pending && page->total==export_row_counts[kind]);
+    if (kind==EXPORT_PRIMARY) {
+        size_t rows=page->offset==257 ? 256 : 88; CHECK(page->column_count==6 && page->row_count==rows && (page->offset==257 || page->offset==512));
+        CHECK(page->columns[1].type==DUCKDB_TYPE_BIGINT && page->columns[2].type==DUCKDB_TYPE_UBIGINT && !strcmp(page->columns[3].type_name,"DECIMAL(38,10)"));
+        for (size_t r=0;r<rows;r++) {
+            const Cell *cells=&page->cells[r*6]; uint64_t id=page->offset+r; char number[24]; snprintf(number,sizeof(number),"%" PRIu64,id);
+            CHECK(!strcmp(cells[0].text,number) && !strcmp(cells[1].text,"9007199254740993") && !strcmp(cells[2].text,"18446744073709551615") && !strcmp(cells[3].text,"9007199254740993.1234567890"));
+            CHECK(id%3 ? !cells[4].is_null && !strcmp(cells[4].text,id%3==1 ? "" : "NULL") : cells[4].is_null && !cells[4].text);
+            CHECK(!strcmp(cells[5].text,"O'Reilly\t\"quoted\"\nnext"));
+        }
+    } else if (kind==EXPORT_TABLE) {
+        CHECK(page->column_count==3 && page->row_count==4 && !strcmp(page->columns[2].type_name,"DECIMAL(38,10)"));
+        CHECK(!strcmp(page->cells[0].text,"14") && !strcmp(page->cells[2].text,"0.0000000000") && !strcmp(page->cells[3].text,"13") && page->cells[5].is_null);
+        CHECK(!strcmp(page->cells[6].text,"12") && !strcmp(page->cells[8].text,"3.7500000000") && !strcmp(page->cells[9].text,"11") && !strcmp(page->cells[11].text,"2.5000000000"));
+    } else if (kind==EXPORT_ROWS || kind==EXPORT_COLUMNS) {
+        CHECK(page->row_count==5 && page->column_count==(kind==EXPORT_ROWS ? 3u : 19u));
+        CHECK(page->cells[0].is_null && !*page->cells[page->column_count].text && !strcmp(page->cells[4*page->column_count].text,"NULL"));
+        if (kind==EXPORT_ROWS) {
+            CHECK(!strcmp(page->columns[1].name,"AVG(v)") && !strcmp(page->columns[2].name,"COUNT DISTINCT(id)"));
+            CHECK(!strcmp(page->cells[7].text,"4.5") && !strcmp(page->cells[8].text,"2") && !strcmp(page->cells[10].text,"5.5"));
+        } else {
+            size_t missing=exported_column(page,"c=NULL · AVG(v)"),empty=exported_column(page,"c='' · AVG(v)"),literal=exported_column(page,"c='NULL' · AVG(v)");
+            size_t upper=exported_column(page,"c='FOO' · AVG(v)"),lower=exported_column(page,"c='foo' · AVG(v) · 2");
+            CHECK(!strcmp(page->cells[missing].text,"10") && !strcmp(page->cells[page->column_count+empty].text,"100") && !strcmp(page->cells[4*page->column_count+literal].text,"200"));
+            CHECK(!strcmp(page->cells[3*page->column_count+upper].text,"7") && !strcmp(page->cells[3*page->column_count+lower].text,"11"));
+            CHECK(exported_column(page,"c='quote_\"''_SUM' · AVG(v)")<page->column_count);
+        }
+    } else if (kind==EXPORT_EMPTY) CHECK(!page->row_count && page->column_count==2 && !strcmp(page->columns[1].name,"AVG(v)"));
+    else if (kind==EXPORT_GRAND) CHECK(page->row_count==1 && page->column_count==1 && !strcmp(page->columns[0].name,"COUNT(*) [id]") && !strcmp(page->cells[0].text,"0"));
+    else if (kind==EXPORT_DATE) {
+        CHECK(page->row_count==1 && page->column_count==15); uint64_t sum=0;
+        for (size_t c=0;c<15;c++) { CHECK(page->columns[c].type==DUCKDB_TYPE_BIGINT && !page->cells[c].is_null); sum+=strtoull(page->cells[c].text,NULL,10); }
+        CHECK(sum==9 && !strcmp(page->cells[exported_column(page,"occurred='2025-01-01' · occurred='Q1' · COUNT(*) [occurred]")].text,"5"));
+    }
+}
+static void submit_next_export(void) {
+    if (++export_case==EXPORT_TABLE) { register_export_source(export_csv); enter(WAIT_EXPORT_SOURCE_REGISTER); }
+    else if (export_case<EXPORT_CASES) { submit_export(export_case); enter(WAIT_EXPORT_CASES); }
+    else { hold_export_reply(); submit_export(EXPORT_COLUMNS); enter(WAIT_EXPORT_CANCEL); }
+}
+static void inject_late_export(void *unused) {
+    (void)unused; CHECK(!dx_browser_export_result(stale_cookie,stale_ticket,(const void *)(uintptr_t)1,SIZE_MAX,(unsigned char *)(uintptr_t)1,SIZE_MAX,(const char *)(uintptr_t)1)); export_late_callbacks++;
 }
 static void distinct_reply(size_t count,uint64_t total) {
     validation_reply(); CHECK(reply->distinct.offset==0 && reply->distinct.count==count && reply->distinct.total==total);
@@ -1195,7 +1393,71 @@ static void tick(void) {
         page_free(&retained); page_free(&retained); statistics_free(&retained_statistics); statistics_free(&retained_statistics); pass("early stop and scheduled stale callbacks are ignored");
         CHECK(stages==139 && worker.jobs_started==146 && expected_sql==325 && expected_counts==21);
         free(retained_clipboard); retained_clipboard=NULL;
-        enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
+        baseline_jobs=worker.jobs_started; baseline_sql=worker.sql_executed; baseline_counts=worker.counts_executed;
+        CHECK(reset_test_engine()); enter(WAIT_EXPORT_RESET); return;
+    case WAIT_EXPORT_RESET: {
+        int ready=export_reset_ready(); CHECK(ready>=0); if (!ready) return;
+        CHECK(!worker.started && !worker.running && worker_start(&worker) && observe_host());
+        expected_sql=expected_counts=0; export_case=EXPORT_PRIMARY; submit_export(export_case); enter(WAIT_EXPORT_CASES); return;
+    }
+    case WAIT_EXPORT_CASES: {
+        if (!poll_received(export_case>=EXPORT_STAMP,export_sql_counts[export_case]!=0)) return;
+        export_result_values(export_case);
+        if (export_case<EXPORT_STAMP) {
+            char name[64]; snprintf(name,sizeof(name),"worker-export-reopen-%u.parquet",(unsigned)export_case);
+            register_export_bytes(name,reply->export_data,reply->export_bytes);
+            if (export_case==EXPORT_PRIMARY) { retained_export=reply->export_data; retained_export_size=reply->export_bytes; reply->export_data=NULL; reply->export_bytes=0; }
+            release_reply(); pass(export_names[export_case]); enter(WAIT_EXPORT_REGISTER); return;
+        }
+        release_reply(); pass(export_names[export_case]); submit_next_export(); return;
+    }
+    case WAIT_EXPORT_REGISTER: {
+        int ready=export_registration_ready(); CHECK(ready>=0); if (!ready) { quiet(); CHECK(!worker.running); return; }
+        submit_export_readback(export_case==EXPORT_PRIMARY ? 257 : 0,2); enter(WAIT_EXPORT_READBACK); return;
+    }
+    case WAIT_EXPORT_READBACK:
+        if (!received(false)) return;
+        export_readback_values(export_case); release_reply(); pass("real shared-C reimport preserves the exported Parquet schema, complete relation and exact values");
+        if (export_case==EXPORT_PRIMARY) { submit_export_readback(512,1); enter(WAIT_EXPORT_LAST); return; }
+        submit_next_export(); return;
+    case WAIT_EXPORT_LAST:
+        if (!received(false)) return;
+        export_readback_values(EXPORT_PRIMARY); release_reply(); pass("exported source includes the final off-page rows and retains independent original bytes"); submit_next_export(); return;
+    case WAIT_EXPORT_SOURCE_REGISTER: {
+        int ready=export_registration_ready(); CHECK(ready>=0); if (!ready) { quiet(); CHECK(!worker.running); return; }
+        submit_export(export_case); enter(WAIT_EXPORT_CASES); return;
+    }
+    case WAIT_EXPORT_CANCEL:
+        if (!held_export_bytes()) { CHECK(!reply && worker.running); quiet(); return; }
+        CHECK(held_export_bytes()>=12); counters(); stale_cookie=observed_cookie(); stale_ticket=observed_ticket();
+        CHECK(!dx_browser_export_result(stale_cookie+1,stale_ticket,(const void *)(uintptr_t)1,SIZE_MAX,(unsigned char *)(uintptr_t)1,SIZE_MAX,(const char *)(uintptr_t)1));
+        CHECK(!dx_browser_export_result(stale_cookie,stale_ticket+1,(const void *)(uintptr_t)1,SIZE_MAX,(unsigned char *)(uintptr_t)1,SIZE_MAX,(const char *)(uintptr_t)1));
+        dx_browser_query_result(stale_cookie,stale_ticket,(const void *)(uintptr_t)1,SIZE_MAX,(const char *)(uintptr_t)1,1,(const char *)(uintptr_t)1);
+        CHECK(worker.running); quiet(); worker_cancel(&worker); CHECK(!worker.running); CHECK(!release_export_reply()); quiet();
+        CHECK(retained_export_size>=12 && !memcmp(retained_export,"PAR1",4)); pass("cancelled export and wrong cookie/ticket/callback cannot adopt or publish late binary allocations");
+        hold_export_reply(); submit_export(EXPORT_COLUMNS); enter(WAIT_EXPORT_STALE); return;
+    case WAIT_EXPORT_STALE:
+        if (!held_export_bytes()) { CHECK(!reply && worker.running); quiet(); return; }
+        counters(); worker_cancel(&worker); submit(JOB_PAGE,rejection_recovery_sql,0,1,false,2);
+        CHECK(!dx_browser_export_result(observed_cookie(),observed_ticket(),(const void *)(uintptr_t)1,SIZE_MAX,(unsigned char *)(uintptr_t)1,SIZE_MAX,(const char *)(uintptr_t)1));
+        CHECK(!release_export_reply() && worker.running && !worker_poll(&worker)); pass("obsolete export bytes cannot enter a newer non-export stage or replace retained independent data"); enter(WAIT_EXPORT_RECOVERY); return;
+    case WAIT_EXPORT_RECOVERY:
+        if (!received(false)) return;
+        short_reply("recovered after local rejection"); CHECK(!reply->export_data && !reply->export_bytes && retained_export_size>=12 && !memcmp(retained_export,"PAR1",4));
+        release_reply(); pass("binary faults and cancellation recover through ordinary current shared-C queries"); verify_export_source(); enter(WAIT_EXPORT_SOURCE_VERIFY); return;
+    case WAIT_EXPORT_SOURCE_VERIFY: {
+        int verified=export_source_verified(); CHECK(verified>=0); if (!verified) { quiet(); CHECK(!worker.running); return; }
+        CHECK(!memcmp(retained_export,"PAR1",4) && !memcmp(retained_export+retained_export_size-4,"PAR1",4)); pass("registered CSV source bytes remain unchanged after filtered exports, readback and binary failures");
+        stale_cookie=observed_cookie(); stale_ticket=observed_ticket(); worker_stop(&worker); inject_late_export(NULL); emscripten_async_call(inject_late_export,NULL,50); enter(QUIET_EXPORT_STOP); return;
+    }
+    case QUIET_EXPORT_STOP:
+        quiet(); if (emscripten_get_now()-entered<150) return;
+        CHECK(export_late_callbacks==2 && !worker.started && !worker.running && !worker.reply); counters();
+        pass("second sequential Worker teardown rejects scheduled stale binary callbacks and frees owned export state");
+        CHECK(stages==184 && worker.jobs_started==43 && expected_sql==74 && expected_counts==0);
+        free(retained_export); retained_export=NULL; retained_export_size=0;
+        printf("Browser worker workloads: {\"baseline\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 "},\"export\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 "},\"sequential_workers\":2}\n",baseline_jobs,baseline_sql,baseline_counts,worker.jobs_started,worker.sql_executed,worker.counts_executed);
+        enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,baseline_sql+worker.sql_executed,baseline_counts+worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
     }
