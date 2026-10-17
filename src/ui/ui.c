@@ -781,7 +781,10 @@ bool ui_key_shift(int key) { return (modifiers_for(key)&DX_MOD_SHIFT)!=0; }
 bool ui_key_alt(int key) { return (modifiers_for(key)&DX_MOD_ALT)!=0; }
 bool ui_key_control(int key) { return (modifiers_for(key)&DX_MOD_CONTROL)!=0; }
 bool ui_key_shortcut(int key) {
-#ifdef __APPLE__
+#ifdef DUXCEL_BROWSER_HOST
+    /* The same Wasm binary runs on Mac and Control-key browser platforms. */
+    return (modifiers_for(key)&(DX_MOD_CONTROL|DX_MOD_SUPER))!=0;
+#elif defined(__APPLE__)
     return (modifiers_for(key)&DX_MOD_SUPER)!=0;
 #else
     return (modifiers_for(key)&DX_MOD_CONTROL)!=0;

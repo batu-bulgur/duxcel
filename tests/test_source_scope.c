@@ -321,5 +321,5 @@ static void ledger_limits_and_malformed_ownership(void) {
 }
 int main(void) {
     canonical_raw(); canonical_result(); exact_filter_bindings(); invalid_inputs_and_schema(); all_known_types(); adversarial_packets(); packet_budgets_and_ownership(); ledger_lifecycle(); ledger_limits_and_malformed_ownership();
-    printf("PASS source-scope: %u checks\n",checks); return 0;
+    printf("PASS: %u source scope checks\n",checks); return 0;
 }
