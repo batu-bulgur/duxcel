@@ -1107,6 +1107,9 @@ static void save_document_action(App *a) {
 }
 static bool export_ready(App *a) {
     if (a->busy || a->io_busy) return false;
+#ifdef DUXCEL_BROWSER_HOST
+    if (!dx_web_download_ready()) return false;
+#endif
     SheetObject *object=selected_object(a);
     if (!object) return a->analysis.kind!=SOURCE_NONE && a->page.column_count && !a->page_stale && !a->fetch_failed;
     ObjectView *view=&a->objects[a->selected_object];
@@ -1116,8 +1119,13 @@ static bool export_ready(App *a) {
 }
 static char *export_suggestion(App *a) {
     SheetObject *object=selected_object(a);
-    char *name=dx_strdup(object ? object->name : a->analysis.kind==SOURCE_DEMO ? "Data" : dx_basename(a->analysis.path));
+    char *name=dx_strdup(object ? object->name :
+#ifdef DUXCEL_BROWSER_HOST
+        active_sheet(a)->name);
+#else
+        a->analysis.kind==SOURCE_DEMO ? "Data" : dx_basename(a->analysis.path));
     if (!object) { char *dot=strrchr(name,'.'); if (dot) *dot=0; }
+#endif
     for (char *p=name;*p;p++) if ((unsigned char)*p<32 || *p=='/' || *p==':' || *p=='\\') *p='_';
     size_t length=strlen(name); while (length>180) { length=dx_utf8_prev(name,length); name[length]=0; }
     char *suggested=dx_printf("%s-export.parquet",*name ? name : "Data"); free(name); return suggested;
@@ -1145,8 +1153,12 @@ static void start_export(App *a,const char *path) {
 static void export_panel(App *a) {
     if (!export_ready(a)) return;
     char *suggested=export_suggestion(a);
+#ifdef DUXCEL_BROWSER_HOST
+    start_export(a,suggested); free(suggested);
+#else
     char *path=dx_export_parquet_panel(suggested); free(suggested);
     if (path) { start_export(a,path); free(path); }
+#endif
 }
 static void schedule_count(App *a) {
     if (a->step_preview.active) return;
@@ -1558,7 +1570,17 @@ static void poll_query(App *a) {
         if (r->error) { status(a,r->error); a->modal=MODAL_ERROR; }
         else {
             if (!r->object_id && a->page.count_pending) publish_count(a,r->exported_rows);
+#ifdef DUXCEL_BROWSER_HOST
+            char *error=NULL;
+            if (!dx_web_download_parquet(r->export_data,r->export_bytes,r->path ? r->path : "data.parquet",&error)) {
+                char *message=dx_printf("Could not request download: %s",error ? error : "Browser download dispatch failed.");
+                status(a,message); free(message); free(error); a->modal=MODAL_ERROR;
+            } else {
+                char message[512]; snprintf(message,sizeof(message),"Download requested for %" PRIu64 " rows: %s",r->exported_rows,r->path ? r->path : "data.parquet"); status(a,message);
+            }
+#else
             if (!a->fetch_failed) { char *message=dx_printf("Exported %" PRIu64 " rows to %s",r->exported_rows,dx_basename(r->path)); status(a,message); free(message); }
+#endif
         }
         reply_free(r); return;
     }
@@ -6193,6 +6215,7 @@ static void file_action(App *a,UIKeytipFileAction action) {
         if (a->busy || a->io_busy) status(a,"Wait for the current operation before importing a table.");
         else import_table_panel(a);
         break;
+    case UI_KEYTIP_FILE_EXPORT: export_panel(a); break;
     case UI_KEYTIP_FILE_QUIT:
 #ifdef DUXCEL_BROWSER_HOST
         status(a,"Use your browser's Close tab command to leave Duxcel.");
@@ -7034,6 +7057,7 @@ static void draw_toast(App *a) {
 static bool file_action_available(const App *a,int action) {
     if (a->io_busy || action<0 || action>=UI_KEYTIP_FILE_COUNT) return false;
     if (action==UI_KEYTIP_FILE_IMPORT && a->busy) return false;
+    if (action==UI_KEYTIP_FILE_EXPORT) return export_ready(a);
 #ifdef DUXCEL_BROWSER_HOST
     if (action==UI_KEYTIP_FILE_SAVE || action==UI_KEYTIP_FILE_SAVE_AS || action==UI_KEYTIP_FILE_QUIT) return false;
 #endif
@@ -7081,7 +7105,7 @@ static void draw_file_menu(App *a) {
     if (a->file_menu) {
         ui_choice_frame(u,&layout,"File");
         if (maximum) list_scrollbar(a,list.items,UI_KEYTIP_FILE_COUNT,list.visible,&a->file_menu_scroll,&a->file_menu_drag,&a->file_menu_grab,!reveal);
-        const UICarbonIcon icons[]={CARBON_DOCUMENT_BLANK,CARBON_FOLDER_OPEN,CARBON_SAVE,CARBON_SAVE,CARBON_CLOSE,CARBON_TABLE,CARBON_CLOSE};
+        const UICarbonIcon icons[]={CARBON_DOCUMENT_BLANK,CARBON_FOLDER_OPEN,CARBON_SAVE,CARBON_SAVE,CARBON_CLOSE,CARBON_TABLE,CARBON_ARROW_DOWN,CARBON_CLOSE};
         for (int row=0;row<list.visible;row++) {
             int i=row+a->file_menu_scroll; bool available=file_action_available(a,i); Rectangle item=layout.rows[row]; if (maximum) item.width-=9*s;
             bool chosen=ui_choice_row(u,item,ui_keytips_file_name((UIKeytipFileAction)i),NULL,icons[i],false,i==a->file_menu_focus,available);

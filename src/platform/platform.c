@@ -33,6 +33,27 @@ bool dx_web_clipboard_take(DxWebClipboardResult *result) {
     result->success=success!=0;
     return true;
 }
+EM_JS(int, dx_web_download_ready_js, (void), {
+    try { return Module['dxDownload']?.ready()===true ? 1 : 0; }
+    catch { return 0; }
+})
+EM_JS(int, dx_web_download_parquet_js, (const unsigned char *data,unsigned size,const char *name,char *error,unsigned capacity), {
+    try {
+        const result=Module['dxDownload']?.request(HEAPU8.subarray(data,data+size),UTF8ToString(name));
+        if (result?.ok===true) return 1;
+        stringToUTF8(result?.error || 'Browser downloads are unavailable.',error,capacity);
+    } catch { stringToUTF8('Browser download dispatch failed.',error,capacity); }
+    return 0;
+})
+bool dx_web_download_ready(void) { return dx_web_download_ready_js()!=0; }
+bool dx_web_download_parquet(const unsigned char *data,size_t size,const char *name,char **error) {
+    if (error) *error=NULL;
+    char failure[513]={0};
+    if (!data || size<12 || size>64u*1024u*1024u || !name || !*name) snprintf(failure,sizeof(failure),"Invalid bounded Parquet download.");
+    else if (dx_web_download_parquet_js(data,(unsigned)size,name,failure,sizeof(failure))) return true;
+    if (error) *error=dx_strdup(*failure ? failure : "Browser download dispatch failed.");
+    return false;
+}
 #endif
 #ifndef _WIN32
 #include <unistd.h>

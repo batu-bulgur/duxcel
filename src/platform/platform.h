@@ -77,6 +77,11 @@ bool dx_web_pixel_pan(float *x,float *y);
 typedef struct { unsigned id; bool success; char error[513]; } DxWebClipboardResult;
 unsigned dx_web_clipboard_begin(const char *text);
 bool dx_web_clipboard_take(DxWebClipboardResult *result);
+/* One bounded Blob URL owns its byte snapshot through browser dispatch. Ready
+   reflects that resource's availability. Success is a download request, never
+   a durable save; caller owns a returned error string on failure. */
+bool dx_web_download_ready(void);
+bool dx_web_download_parquet(const unsigned char *data,size_t size,const char *name,char **error);
 #endif
 typedef enum { DX_COMMAND_NONE,DX_COMMAND_OPEN,DX_COMMAND_SAVE,DX_COMMAND_SAVE_AS,DX_COMMAND_NEW_SHEET,DX_COMMAND_SETTINGS,
     DX_COMMAND_COPY,DX_COMMAND_PASTE,DX_COMMAND_SELECT_ALL,DX_COMMAND_UNDO,DX_COMMAND_REDO,DX_COMMAND_PIVOT,

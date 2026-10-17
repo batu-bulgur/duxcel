@@ -171,8 +171,8 @@ static void review_file_menu(App *a) {
     if (menu) { menu->expanded=true; menu->input_eligible=false; }
     review_file_item(a,"file.background","file.inspect","region","File menu background",panel,panel,200,true,false,false);
     review_file_item(a,"file.heading","file.inspect","text","File",list.frame.title,panel,201,true,false,false);
-    static const char *const suffix[]={"new","open","save","save_as","close","import","quit"};
-    static const char *const actions[]={"command.new_workbook","command.open","command.save","command.save_as","command.close","command.import_table","command.quit"};
+    static const char *const suffix[]={"new","open","save","save_as","close","import","export","quit"};
+    static const char *const actions[]={"command.new_workbook","command.open","command.save","command.save_as","command.close","command.import_table","command.export","command.quit"};
     bool scrolling=list.visible<UI_KEYTIP_FILE_COUNT;
     for (int row=0;row<list.visible;row++) {
         int action=row+a->file_menu_scroll; if (action<0 || action>=UI_KEYTIP_FILE_COUNT) continue;
@@ -1406,7 +1406,7 @@ static bool review_smoke_file_targets(App *a,bool scrolling) {
     if (menu->bounds.x!=list.frame.panel.x || menu->bounds.y!=list.frame.panel.y || menu->bounds.width!=list.frame.panel.width || menu->bounds.height!=list.frame.panel.height) return false;
     if (!dx_review_pick(registry,menu->bounds.x+2*a->ui.scale,menu->bounds.y+2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,"file.background")) return false;
     if (!dx_review_pick(registry,heading->bounds.x+heading->bounds.width*.5f,heading->bounds.y+heading->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,"file.heading")) return false;
-    static const char *const suffix[]={"new","open","save","save_as","close","import","quit"};
+    static const char *const suffix[]={"new","open","save","save_as","close","import","export","quit"};
     for (int action=0;action<UI_KEYTIP_FILE_COUNT;action++) {
         char id[64]; snprintf(id,sizeof(id),"file.action.%s",suffix[action]);
         const DxReviewWidget *w=dx_review_find(registry,id); bool visible=action>=a->file_menu_scroll && action<a->file_menu_scroll+list.visible;
