@@ -200,6 +200,10 @@ static uint64_t review_field_hash(const char *text) {
     for (const unsigned char *p=(const unsigned char *)(text ? text : "");*p;p++) { hash^=*p; hash*=UINT64_C(1099511628211); }
     return hash;
 }
+static bool review_author_dialog(const char *kind) {
+    return !strcmp(kind,"column_width") || !strcmp(kind,"move_range") || !strcmp(kind,"object_name") ||
+        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"sheet_rename");
+}
 static const char *review_author_identity(App *a,const char *kind,char parent[128],DxReviewDataIdentity *data) {
     SheetObject *object=selected_object(a); const char *field=NULL,*scope=NULL;
     static const char *const roles[]={"rows","columns","values","filters"};
@@ -237,9 +241,10 @@ static const char *review_author_identity(App *a,const char *kind,char parent[12
 static DxReviewWidget *review_author_widget(App *a,const char *id,const char *parent,const char *kind,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,int layer,bool enabled,bool checked,bool focused,bool container,const char *field,const char *file,int line) {
     if (!review_armed(a) || bounds.width<=0 || bounds.height<=0 || clip.width<=0 || clip.height<=0) return NULL;
     DxReviewWidget w; dx_review_widget_init(&w,id,action,"",role,label);
-    snprintf(w.path,sizeof(w.path),"popup/author/%s",kind); snprintf(w.parent_id,sizeof(w.parent_id),"%s",parent ? parent : "");
+    const char *surface=review_author_dialog(kind) ? "dialog" : "popup";
+    snprintf(w.path,sizeof(w.path),"%s/author/%s",surface,kind); snprintf(w.parent_id,sizeof(w.parent_id),"%s",parent ? parent : "");
     char identity[128]; const char *scope=review_author_identity(a,kind,identity,&w.data);
-    if (scope) snprintf(w.path,sizeof(w.path),"popup/author/%s/%s",kind,scope);
+    if (scope) snprintf(w.path,sizeof(w.path),"%s/author/%s/%s",surface,kind,scope);
     if (field) { int n=snprintf(w.data.field,sizeof(w.data.field),"%s",field); if (n<0 || (size_t)n>=sizeof(w.data.field)) w.truncated=true; }
     w.bounds=review_rect(bounds); w.clip=review_rect(clip); w.layer=layer;
     if (a->popup_capturing) { w.transform.ty=a->popup_presence.offset*a->ui.scale; w.bounds.y+=w.transform.ty; w.clip.y+=w.transform.ty; }
@@ -272,8 +277,16 @@ static void review_author_panel(App *a,const char *kind,const char *title,Rectan
     if (!review_armed(a)) return;
     char parent[128],id[128]; DxReviewDataIdentity data; review_author_identity(a,kind,parent,&data);
     Rectangle clip=a->ui.clipping ? GetCollisionRec(panel,a->ui.clip) : panel;
-    review_author_widget(a,parent,NULL,kind,"author.inspect","menu",title,panel,clip,130,true,false,false,true,NULL,file,line);
-    snprintf(id,sizeof(id),"%s.background",parent); review_author_widget(a,id,parent,kind,"author.inspect","region","Menu background",panel,clip,130,true,false,false,false,NULL,file,line);
+    bool dialog=review_author_dialog(kind);
+    if (dialog) {
+        Rectangle viewport=box(0,0,GetScreenWidth(),GetScreenHeight()); char backdrop[128];
+        snprintf(backdrop,sizeof(backdrop),"%s.backdrop",parent);
+        review_author_widget(a,backdrop,NULL,kind,"author.inspect","region","Modal backdrop",viewport,viewport,129,true,false,false,true,NULL,file,line);
+        snprintf(id,sizeof(id),"%s.background",backdrop);
+        review_author_widget(a,id,backdrop,kind,"author.inspect","region","Modal backdrop",viewport,viewport,129,true,false,false,false,NULL,file,line);
+    }
+    review_author_widget(a,parent,NULL,kind,"author.inspect",dialog ? "dialog" : "menu",title,panel,clip,130,true,false,false,true,NULL,file,line);
+    snprintf(id,sizeof(id),"%s.background",parent); review_author_widget(a,id,parent,kind,"author.inspect","region",dialog ? "Dialog background" : "Menu background",panel,clip,130,true,false,false,false,NULL,file,line);
     snprintf(id,sizeof(id),"%s.heading",parent); review_author_widget(a,id,parent,kind,"author.inspect","text",title,heading,clip,131,true,false,false,false,NULL,file,line);
     float offset=a->popup_capturing ? a->popup_presence.offset*a->ui.scale : 0;
     char state[480]; snprintf(state,sizeof(state)," author_kind=%s author_parent=%s author_count=00 author_overflow=0 author_panel=%.3f,%.3f,%.3f,%.3f author_heading=%.3f,%.3f,%.3f,%.3f",kind,parent,panel.x,panel.y+offset,panel.width,panel.height,heading.x,heading.y+offset,heading.width,heading.height);
@@ -302,6 +315,13 @@ static void review_author_scroll(App *a,const char *kind,Rectangle track,Rectang
     review_author_widget(a,track_id,parent,kind,"author.scroll","scrollbar","Menu scroll",track,clip,132,true,false,false,false,NULL,file,line);
     snprintf(id,sizeof(id),"%s.thumb",track_id);
     review_author_widget(a,id,track_id,kind,"author.scroll","scrollbar","Menu scroll thumb",thumb,GetCollisionRec(track,clip),133,true,false,dragging,false,NULL,file,line);
+}
+static void review_author_input(App *a,const char *kind,const char *key,const char *action,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool focused,const TextInput *input,const char *file,int line) {
+    if (!review_armed(a)) return;
+    review_author_item(a,kind,key,action,"textbox",label,bounds,clip,enabled,false,focused,NULL,file,line);
+    char id[128]; snprintf(id,sizeof(id),"author.%s.action.%s",kind,key);
+    DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
+    if (w) dx_review_value_set(&w->value,"VARCHAR",false,input && input->text ? input->text : "");
 }
 static DxReviewWidget *review_filter_item(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,int layer,int focus,bool enabled) {
     DxReviewWidget w; dx_review_widget_init(&w,id,action,"popup/column-filter",role,label);
