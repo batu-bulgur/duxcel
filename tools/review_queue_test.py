@@ -366,6 +366,61 @@ class QueueTests(unittest.TestCase):
             queue.ReviewQueue(self.root, "duxcel")
         self.assertEqual(target.read_bytes(), b"private")
 
+    def test_explicit_retry_recovers_failed_consumer_and_resets_attempts_durably(self):
+        self.native()
+        held = self.queue.claim("worker")
+        self.queue.release("DXR-one", held["token"], error="Authentication failed", retry=False)
+        self.assertIsNone(self.queue.claim("blocked-until-manual-retry"))
+        with mock.patch.object(queue.time, "time", return_value=held["updated"] + 100):
+            retried = self.queue.retry("DXR-one")
+        self.assertEqual((retried["state"], retried["attempt"], retried["result"], retried["message"], retried["error"]),
+                         ("pending", 0, None, "", ""))
+        self.assertGreater(retried["updated"], held["updated"])
+        self.assertNotIn("token", retried)
+        restarted = queue.ReviewQueue(self.root, "duxcel")
+        recovered = restarted.claim("fixed-worker")
+        self.assertEqual(recovered["attempt"], 1)
+        self.assertFalse(recovered["report"]["lifecycle"]["acknowledged"])
+        restarted.finish("DXR-one", recovered["token"], result="triaged")
+        self.assertEqual(restarted.list()["reports"][0]["state"], "completed")
+
+    def test_explicit_retry_cannot_steal_leases_replay_completed_or_reset_pending(self):
+        self.native()
+        self.queue.sync()
+        with self.assertRaises(review.ReviewError):
+            self.queue.retry("DXR-one")
+        held = self.queue.claim("owner")
+        with self.assertRaises(review.ReviewError):
+            self.queue.retry("DXR-one")
+        self.assertEqual(self.queue.renew("DXR-one", held["token"])["worker"], "owner")
+        self.queue.finish("DXR-one", held["token"], result="triaged", message="Retain result")
+        with self.assertRaises(review.ReviewError):
+            self.queue.retry("DXR-one")
+        result = self.queue.list()["reports"][0]
+        self.assertEqual((result["state"], result["result"], result["message"], result["attempt"]),
+                         ("completed", "triaged", "Retain result", 1))
+        with self.assertRaises(review.ReviewError):
+            self.queue.retry("DXR-missing")
+
+    def test_explicit_retry_requires_original_valid_immutable_evidence(self):
+        folder = self.native()
+        held = self.queue.claim("worker")
+        self.queue.release("DXR-one", held["token"], error="Consumer failed", retry=False)
+        original = (folder / "manifest.json").read_bytes()
+        altered = original.replace(b"Native and browser", b"Mative and browser")
+        (folder / "manifest.json").write_bytes(altered)
+        # Retry revalidates directly, even before sync can observe the mutation.
+        with self.assertRaisesRegex(review.ReviewError, "changed"):
+            self.queue.retry("DXR-one")
+        with self.queue._db() as db:
+            row = db.execute("SELECT state,attempt,error FROM reports WHERE report_id='DXR-one'").fetchone()
+            self.assertEqual(tuple(row), ("failed", 1, "Consumer failed"))
+        self.queue.sync()
+        self.assertEqual(self.queue.list()["reports"][0]["state"], "invalid")
+        (folder / "manifest.json").write_bytes(original)
+        with self.assertRaises(review.ReviewError):
+            self.queue.retry("DXR-one")
+
     def test_idle_sync_claim_and_listing_never_reread_unchanged_completed_png(self):
         self.native()
         self.queue.sync()

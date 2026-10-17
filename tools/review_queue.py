@@ -418,6 +418,27 @@ class ReviewQueue:
             db.commit()
             return output
 
+    def retry(self, report_id):
+        """Explicitly recover a failed consumer after its configuration is fixed.
+
+        This cannot replay completed work, clear invalid evidence or steal a live
+        lease. Revalidation happens inside the same writer transaction as reset.
+        """
+        review.identifier(report_id)
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT * FROM reports WHERE report_id=?", (report_id,)).fetchone()
+            if row is None or row["state"] != "failed":
+                raise review.ReviewError("Only a terminal failed report can be retried explicitly")
+            _, digest = self._read(report_id)
+            if digest != row["fingerprint"]:
+                raise review.ReviewError("Published immutable review evidence changed")
+            db.execute("UPDATE reports SET state='pending',attempt=0,updated=?,worker=NULL,token=NULL,lease_until=NULL,result=NULL,message='',error='' WHERE report_id=?", (time.time(), report_id))
+            output = dict(db.execute("SELECT * FROM reports WHERE report_id=?", (report_id,)).fetchone())
+            output.pop("token", None)
+            db.commit()
+            return output
+
     def import_archive(self, data):
         """Validate a bounded plain USTAR browser archive, then atomically publish it.
 
