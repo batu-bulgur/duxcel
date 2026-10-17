@@ -33,7 +33,7 @@ EM_JS(void, host_destroy, (void), {Module['dxReview']?.dispose();})
 EMSCRIPTEN_KEEPALIVE void dx_browser_review_result(unsigned cookie,unsigned ticket,int ok,const char *error) {
     if (!owner || owner->cookie!=cookie || owner->ticket!=ticket || !owner->pending) return;
     owner->pending=false; owner->done=true; owner->ok=ok!=0;
-    snprintf(owner->error,sizeof(owner->error),"%s",error && *error ? error : ok ? "" : "Could not prepare the report download. Your note is retained.");
+    snprintf(owner->error,sizeof(owner->error),"%s",error && *error ? error : ok ? "" : "Could not save the report. Your note is retained.");
 }
 bool dx_review_browser_create(DxReviewBrowser *browser,char *session,size_t session_size,char *binary,size_t binary_size) {
     if (owner || sequence==UINT32_MAX || !host_create(session,session_size,binary,binary_size)) return false;

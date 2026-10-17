@@ -19,7 +19,7 @@ def main():
     headers=sorted((ROOT/'src').rglob('*.h'))+sorted((ROOT/'src').rglob('*.inc'))
     host=[ROOT/'web/index.html',ROOT/'web/host.mjs',ROOT/'web/canvas_input.mjs',ROOT/'web/official_worker.mjs',ROOT/'web/engine_host.mjs',ROOT/'web/page_wire.mjs',ROOT/'assets/icons/png/duxcel-32.png']
     if options.worker_driver:host=[p for p in host if p.name not in ('index.html','host.mjs','canvas_input.mjs')]+[ROOT/'web/worker_test_host.mjs']
-    if options.review:host=[p for p in host if p.name!='host.mjs']+[ROOT/'web/host_review.mjs',ROOT/'web/review_host.mjs']
+    if options.review:host=[p for p in host if p.name!='host.mjs']+[ROOT/'web/host_review.mjs',ROOT/'web/review_host.mjs',ROOT/'web/review_queue.mjs']
     assets=sorted(p for base in ('assets/fonts','assets/ui') for p in (ROOT/base).rglob('*') if p.is_file())
     duckdb_flags=shlex.split(tools.command(['make','--no-print-directory','web-duckdb-flags']))
     external_header=next((Path(flag[2:])/'duckdb.h' for flag in duckdb_flags if flag.startswith('-I') and (Path(flag[2:])/'duckdb.h').is_file()),None)
@@ -96,7 +96,7 @@ def main():
         artifacts.update({name:item['sha256'] for name,item in packaged['files'].items()})
         scope='No-window shared C/official Worker acceptance driver.' if options.worker_driver else 'Shared C99 renderer with browser-scheduled App frames.'
         scope+=' Official asynchronous DuckDB-Wasm Worker backend for bounded source pages/count/SQL validation, paged available values/date hierarchy and asynchronous CSV/Parquet import. Browser PIVOT/totals/statistics/copy/export/workbooks remain explicitly unavailable. Runtime acceptance is separate.'
-        if options.review:scope+=' Review-only C registry/capture/composer and browser download adapter; not durable outbox storage.'
+        if options.review:scope+=' Review-only C registry/capture/composer and durable browser outbox/shared review queue transport; service/agent acceptance is separate.'
         record={'status':'built','signature':key,'source':before,'compiler':state['emcc'],'elapsed_seconds':round(time.monotonic()-begin,3),'sources':sources,'rebuilt_sources':rebuilt,'flags':flags,'link':link,'artifacts':artifacts,'bytes':{p:(stage/p).stat().st_size for p in artifacts},'kind':'worker-driver' if options.worker_driver else 'review' if options.review else 'application','scope':scope}
         for path in stage.glob('*.o'):path.unlink()
         tools.write_json(stage/'build.json',record);stage.rename(destination)

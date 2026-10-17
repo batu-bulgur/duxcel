@@ -227,7 +227,7 @@ bool dx_review_capture_draw(DxReviewCapture *r,UIContext *u) {
     Rectangle panel={x,y,width,height}; DrawRectangle(0,0,(int)w,(int)h,(Color){20,31,46,90});
     DrawRectangleRounded(panel,.025f,4,UI_SURFACE); DrawRectangleLinesEx(panel,s,UI_BORDER);
 #ifdef DUXCEL_BROWSER_HOST
-    const char *saved_title="UI report prepared",*saved_detail="Download requested. Keep the archive to share with an agent.";
+    const char *saved_title="UI issue saved",*saved_detail=r->browser.error[0] ? r->browser.error : "Report export prepared.";
 #else
     const char *saved_title="UI issue saved",*saved_detail="Saved locally; an agent can read and reply later.";
 #endif

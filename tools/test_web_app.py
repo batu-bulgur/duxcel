@@ -29,6 +29,8 @@ def main():
     parser.add_argument('--busy',action='store_true',help='Require real UI input/rendering before the imported source job completes')
     parser.add_argument('--worker-driver',action='store_true')
     parser.add_argument('--review',action='store_true')
+    parser.add_argument('--review-outbox',type=Path,help='Private shared outbox for an integrated native/browser review gate')
+    parser.add_argument('--review-offline',action='store_true',help='Commit a report offline, reload real IndexedDB, then automatically upload')
     parser.add_argument('--dpr',type=int,choices=(1,2),default=1)
     parser.add_argument('--canvas-transform',action='store_true',help='Exercise review picking through an inset canvas CSS transform')
     options=parser.parse_args()
@@ -40,6 +42,10 @@ def main():
         parser.error('--review requires --source tests/fixtures/transactions.csv and cannot use --worker-driver')
     if options.canvas_transform and not options.review:
         parser.error('--canvas-transform requires --review')
+    if options.review_outbox and not options.review:
+        parser.error('--review-outbox requires --review')
+    if options.review_offline and not options.review:
+        parser.error('--review-offline requires --review')
     if not options.no_build:
         subprocess.run(['python3','tools/build_web.py']+(['--worker-driver'] if options.worker_driver else ['--review'] if options.review else []), cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
     phases['build_seconds']=round(time.monotonic()-overall,3);phase=time.monotonic()
@@ -54,7 +60,14 @@ def main():
     output=ROOT/'tests/results/runs'/f'{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%S}-browser-{os.getpid()}'
     output.mkdir(parents=True,exist_ok=True)
     with FileLock(native_lock_path(),'hidden shared C browser acceptance'):
-        server=LoopbackServer(('127.0.0.1',0),functools.partial(Handler,directory=str(artifact)))
+        if options.review:
+            from review_service import ReviewServer
+            from review_queue import ReviewQueue
+            from native_review import default_project
+            queue=ReviewQueue(options.review_outbox or output/'queue-outbox',default_project())
+            server=ReviewServer(('127.0.0.1',0),queue,artifact)
+        else:
+            server=LoopbackServer(('127.0.0.1',0),functools.partial(Handler,directory=str(artifact)))
         phases['server_setup_seconds']=round(time.monotonic()-phase,3)
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         begin=time.monotonic()
@@ -66,6 +79,7 @@ def main():
             if options.filters: command.append('--filters')
             if options.busy: command.append('--busy')
             if options.review: command.append('--review')
+            if options.review_offline: command.append('--review-offline')
             command.extend(['--dpr',str(options.dpr)])
             if options.canvas_transform:command.append('--canvas-transform')
             process=subprocess.Popen(command,cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)

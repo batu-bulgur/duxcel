@@ -57,12 +57,34 @@ python3 tools/native_review.py status REPORT_ID --implementation ready-for-revie
 
 Design acceptance, implementation status and verification status are independent. Reports retain the immutable native image, frame/widget/state metadata and exact build fingerprints. Review code, menu commands and storage/reader bridges are compile-time excluded from `duxcel` and `duxcel-debug`; the review builds use separate preferences and artifacts. The existing `.app` bundles require their own rebuild and do not automatically include this tool.
 
+For automatic pickup, use the single development review service below. It discovers native reports in the same outbox even when they were saved while the service was stopped. Agents acquire exclusive expiring leases; an interrupted agent can be replaced. Delivery after a crash is at least once, so report IDs are the idempotency key. The optional Codex worker performs read-only triage and records durable results in the queue; it does not implement changes or mark design/verification accepted. It uses the existing authenticated CLI with no global configuration edits. One worker runs at a time, with three attempts before a retained terminal failure.
+
 
 ## Browser issue reporting (development build)
 
-`make web-review` builds the shared C interface with its review tools under `build/web/review/<signature>/`; `build/web/review/latest.json` identifies the current directory. Serve that directory as described in [web/README.md](../web/README.md). Command/Ctrl+Shift+. freezes the actual C frame, with the same picker and note composer. Save report requests one `.dxreview.tar` download containing the C manifest, original frame PNG and browser geometry/build metadata. Keep the archive; “download requested” does not guarantee durable storage. Cancel returns to the open filter and selection.
+`make web-review` builds the shared C interface with its review tools under `build/web/review/<signature>/`; `build/web/review/latest.json` identifies the current directory. Start one loopback service:
 
-Extract the generated report folder into a private outbox directory and read it with `python3 tools/native_review.py --root OUTBOX read REPORT_ID`. The same reader identifies C widgets/source locations; browser metadata records actual CSS, backing dimensions and DPR separately. A fresh application/module requires a fresh browser review host. These tools are excluded from the normal browser and native builds.
+```sh
+make review-serve
+# Equivalent: python3 tools/review_service.py serve --agent codex
+# Collection without model calls: python3 tools/review_service.py serve
+```
+
+Open <http://127.0.0.1:8767/>. Command/Ctrl+Shift+. freezes the actual C frame, with the same picker and note composer. **Save report** commits its immutable archive into browser IndexedDB, then submits it to the same persistent queue as native reports. The confirmation distinguishes **Saved to the shared review queue** from **Saved in this browser; awaiting the review service**. Pending browser reports retry automatically on startup, reconnect and bounded backoff. There is no automatic download/manual import step.
+
+Keep that hostname and port stable: browser pending storage is scoped to its origin. Reload preserves pending bytes, but deleting site data or browser eviction can remove reports before server acknowledgment. A shared-queue acknowledgment follows validated, atomic, durable local publication. Stop the service with Ctrl+C; already queued native/browser reports persist. The obsolete mock/Agentation ports are not needed.
+
+```sh
+python3 tools/review_service.py list
+python3 tools/review_service.py read REPORT_ID
+python3 tools/review_service.py retry FAILED_REPORT_ID
+# Another agent can wait for and lease a report without a model worker:
+python3 tools/review_service.py next --worker my-agent --wait 60
+```
+
+The local queue is also readable at <http://127.0.0.1:8767/__review/queue>. Completed rows contain the agent's structured triage in `message`, separate from the human lifecycle. Failures retain evidence and diagnostics; there is no claim that triage fixes a reported defect.
+
+The existing `native_review.py` reader also reads these unified report folders. Browser metadata records actual CSS, backing dimensions and DPR separately. These tools and all automatic transport are excluded from normal browser/native builds. The service binds only to loopback and requires a same-origin upload token; no Agentation, external feedback account, public endpoint or application-embedded model runtime is required.
 
 ## Workbook persistence
 

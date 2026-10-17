@@ -554,6 +554,15 @@ test-review:
 	python3 tools/test_native_review.py $(TEST_ARGS)
 .PHONY: test-review-core test-review
 
+# External development tooling only; neither application links this service.
+review-serve:
+	python3 tools/review_service.py serve --agent codex
+test-review-queue:
+	python3 tools/review_queue_test.py
+	python3 tools/review_service_test.py
+	node --test web/review_host.test.mjs web/review_queue.test.mjs
+.PHONY: review-serve test-review-queue
+
 # Browser proof uses the same C renderer/controllers and a separate backend.
 # The compiler/dependencies live only in the ignored project-local web cache.
 WEB_SOURCES = $(filter-out src/data/database.c,$(filter %.c,$(APP_SOURCES))) src/workbook/workbook_browser.c src/data/page_wire.c src/data/browser_query.c src/data/distinct_page.c

@@ -110,6 +110,8 @@ Core gates are independent release/ASan C ownership/SQL/model checks plus pure J
 
 ## Shared C browser reporting
 
+The unified queue's focused pure gate is `make test-review-queue`. It covers strict atomic browser ingestion, native discovery, duplicate/conflicting IDs, competing leases, crash/restart recovery, bounded consumer failures and same-origin/token isolation. The Codex adapter's unit test uses a clearly identified fixture executable; it is not evidence of real model pickup. Real CLI acceptance is recorded separately with actual captures. No desktop is needed for this pure gate.
+
 Browser input/transport checks can run without a browser:
 
 ```sh
@@ -122,11 +124,12 @@ The real manual gate (`python3 tools/test_web_app.py --no-build`, optionally `--
 make web-review
 python3 tools/test_web_app.py --review --no-build --source tests/fixtures/transactions.csv
 python3 tools/test_web_app.py --review --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
+python3 tools/test_web_app.py --review --review-offline --no-build --source tests/fixtures/transactions.csv
 node --test web/review_host.test.mjs
 python3 tools/test_web_review_build.py --no-build
 ```
 
-Review artifacts live separately under `build/web/review/`. The real C picker/composer exports one archive, whose exact C manifest and PNG are hash-checked and retrieved by the existing reader. The inset-canvas case tests real pointer mapping rather than assuming devicePixelRatio is the framebuffer scale. Browser reports currently capture the wide100% state; narrow rendering, broader reporting states and Retina sharpness remain separate. The build-contract gate checks positive review modules/exports and actual absence from normal Wasm, hosts/assets and native shipping binaries. Rebuild both normal/review targets before using its no-build mode. See [scoped results](validation/checkpoints/2026-10-17-browser-review/).
+Review artifacts live separately under `build/web/review/`. The real C picker/composer stages an immutable archive in actual IndexedDB and submits it to the same-origin private service/queue. The gate reads the actual persisted manifest/PNG/sidecar, checks frame hashes and retrieves the C widget through the existing reader; no download is expected. `--review-offline` blocks only the owned page's review networking, commits a real report, reloads the same owned profile/origin, verifies unchanged pending bytes, then reconnects and requires one shared report and a retired pending archive. `--review-outbox PATH` joins a private native acceptance outbox for an integration gate. The inset-canvas case tests real pointer mapping rather than assuming devicePixelRatio is the framebuffer scale. Browser reports currently capture the wide100% state; narrow rendering, broader reporting states and Retina sharpness remain separate. The build-contract gate checks positive review modules/exports and actual absence from normal Wasm, hosts/assets and native shipping binaries, including the uploader module/routes. Rebuild both normal/review targets before using its no-build mode. Earlier download-adapter evidence remains [historical](validation/checkpoints/2026-10-17-browser-review/).
 
 The `records` tier accepts `--config release|sanitize|both` and `--no-build`; it rejects `--jobs 2` because engine sequences remain serialized. Its warm release/sanitizer gate took1.666s locally. The `record-pages` native profile covers **[665,675)** after the canonical bootstrap: actual Parquet IDs/sort/filter/cache ownership, hidden business schema, detected file replacement, refresh and query fallback. Run `make test-affected FEATURE=record-pages TEST_ARGS='--modules page grid --config sanitize'`. Added stages bring the current layout range to[0,675) and inventory to1,108; older checkpoints retain their original counts. [Evidence and limits](validation/checkpoints/2026-10-17-record-pages/).
 

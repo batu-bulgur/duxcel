@@ -20,11 +20,14 @@ Acceptance: a new checkout has documented build/test commands; a routine widget 
 
 ## 1. Native agentic review build — active priority
 
+Latest follow-up: close the shared native/Wasm feedback loop before further UI refinement. The unused mock/Agentation services are stopped. Keep a single stable loopback Wasm review origin only when needed; automatic agents must remain external development tooling.
+
 - [x] R1: Add isolated optimized and sanitizer review configurations/binaries with an explicit compile-time review feature. Exclude all added review code/data/commands/bridges from shipping outputs and verify that exclusion. Extend the existing incremental signatures; do not overwrite a binary under acceptance.
 - [x] R2: Establish a portable C99 semantic widget registry, stable action/widget/data identities and versioned bounded capture schema. Track actual visible clips, layers, transforms, focus/enabled state and source metadata; resolve grid cells on demand.
 - [x] R3: Integrate the in-app report command, picker, native note composer and same-frame screenshot/state bundle. Consume report input before ordinary dispatch, preserve open menus/selection/focus, retain notes after write failure and preserve worker/page ownership.
 - [x] R4: Supply a durable atomic local outbox plus agent-facing reader/feedback lifecycle. Add an external IPC/MCP adapter where needed; native capture works while the service/agent is absent. Do not embed a web or model runtime in the app.
 - [x] Accept the first complete reporting path on real native frames: open filter/popup, ribbon/overflow, panes and frozen grid; 100/150% scale; keyboard and pointer; worker reply/page eviction; capture failure/retry. Record bounded tracing and optimized overhead, and prove no new idle SQL, queries or per-frame serialization/readback.
+- [ ] R5: Automatically collect native bundles and upload Wasm reports into one durable project queue; survive offline browser reload, service restart, duplicate delivery and agent crashes. Add exclusive expiring agent leases, bounded read-only automatic triage and durable results without changing design/implementation/verification decisions. Accept actual hidden native/browser reports through the consumer and repeat shipping exclusion. No mock/Agentation process is required.
 
 Current integration: the 26-stage optimized/sanitizer native gate passed, including panes, narrow More/disabled history, queued query replies and nested drag deferral. Four actual bundles were validated and consumed by the reader with durable independent lifecycle state; the 477-check hidden-window probe passed. Registry/outbox release+sanitizer and current linked shipping absence passed. The optimized inactive/active/shipping frame-tail and RSS observations are recorded, including a fix for previously unmeasured frozen frames. Additional dialogs and authoring child controls remain partially enumerated; physical IME/gesture acceptance is separate. See [source/binary-scoped evidence](validation/checkpoints/2026-10-17-native-review/).
 
@@ -69,6 +72,11 @@ Keep the implemented N1 ribbon mechanism, N2 workspace composition and N3 author
 Acceptance: every state has a reference, viewport, fixture, native capture, interaction checklist and explicit remaining exception. No unresolved UI mismatch is hidden by claiming an engine test count. The prototype's token-only Marks behavior does **not** require finishing all future analytical semantics before this milestone can close; native controls must honestly describe their supported behavior.
 
 ## 5. Complete browser platform, workbook and delivery adapters
+
+User-reported issues, 17 October: the Wasm UI is blurry and trackpad sheet panning feels wrong. These are open product defects, not covered by a report-transform or engine test.
+
+- [ ] Fix browser text/grid sharpness using real DPR-sized backing/render targets, correct font/raster/clip transforms and independent UI/grid scale. Compare actual captures at DPR1/2 and browser zoom; current backing remains1×.
+- [ ] Fix trackpad canvas panning: preserve fractional two-axis movement, normalize wheel delta modes, separate canvas pan from zoom/pinch and page scrolling, and verify shelf/tab wheel ownership. Use recorded input plus a later physical-trackpad check; hidden synthetic input alone cannot establish feel.
 
 First focused input fix accepted: the thin host now claims unmodified/Shift canvas navigation without blocking GLFW/C input. The old default-leak control fails as expected; two manual flows and transformed actual reporting pass on the same normal Wasm. One owned Chromium crash reached Cocoa menu recursion; broader modified-key/IME/stability coverage remains open. [Evidence](validation/checkpoints/2026-10-17-browser-navigation/).
 

@@ -1,5 +1,13 @@
 # Native agentic review implementation plan
 
+## R5 follow-up — unified automatic queue
+
+The latest request extends the initial reader/outbox into one persistent native/Wasm queue. Native review binaries continue atomically publishing local evidence without a service dependency. The review-only browser host first commits its immutable archive to IndexedDB, then submits it to the same project outbox through one same-origin loopback Wasm service. A local-pending acknowledgment and a durable shared-queue acknowledgment are different user-visible outcomes; neither is design acceptance. Reload retries preserve report IDs and bytes. Browser pending storage is origin-scoped and remains subject to site-data deletion/eviction before the shared service acknowledges it.
+
+An external standard-library queue uses transactional leases, bounded retries and recoverable completion state. A single optional worker invokes the existing Codex CLI read-only, attaches the actual frame and records structured triage, source targets and acceptance checks. Notes and captured text are data, not command authority. Automatic pickup does not imply automatic implementation, design approval or passing verification. No user/global agent configuration is changed. No collector, socket, IndexedDB adapter, model invocation or review asset belongs in production artifacts. Stop the old mock/Agentation services; only the one Wasm review origin is needed.
+
+Acceptance includes concurrent consumers, restart/expired leases, rejected malformed uploads and conflicting IDs, offline→reload→retry in real browser storage, actual hidden native and Wasm captures through the agent, and compiled production absence. Keep the current source/binary/viewport evidence and timings separate from broader UI parity. Browser blur and trackpad panning remain explicit roadmap defects.
+
 Approved 17 October 2026. This document converts the [feasibility analysis](NATIVE_REVIEW_FEASIBILITY.md) into an implementation handoff. [ROADMAP.md](../ROADMAP.md) owns priority/order; [STATUS.md](../STATUS.md) owns capability and evidence claims. Approval is not evidence that a feature is already implemented.
 
 ## Accepted decisions

@@ -1,5 +1,7 @@
 # Pinpoint UI feedback and design changes
 
+Current workflow: native and Wasm review builds use the [unified development queue](../USER_GUIDE.md#browser-issue-reporting-development-build). The user requested that the unused design-reference/Agentation services be shut down; ports4173/4174/4747 are stopped and are not part of the active loop. The sidecar discussion below is historical tooling context, not an instruction to restart it. Actual implementation status is maintained in [STATUS.md](../STATUS.md).
+
 Survey and workflow established 17 October 2026. This is a parallel design-review lane; the production architecture remains C99 + raylib + DuckDB. The current executable reference stays read-only. The review sidecar lives in `tools/ui-review/` and is not a product dependency.
 
 The subsequent [native review and WebAssembly feasibility analysis](NATIVE_REVIEW_FEASIBILITY.md) led to the [approved native review implementation plan](NATIVE_REVIEW_PLAN.md), now the first engineering priority. It captures feedback inside the real C99/raylib application and shares widget identities with the selected Wasm browser UI. The browser engine starts with the official DuckDB-Wasm Worker bridge. These native/browser capabilities are not yet implemented; the running 4174 workflow described below still reviews the JavaScript reference.

@@ -19,6 +19,7 @@ const workerDriver=process.argv.includes('--worker-driver');
 const filters=process.argv.includes('--filters');
 const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
+const reviewOffline=process.argv.includes('--review-offline');
 const canvasTransform=process.argv.includes('--canvas-transform');
 const dprIndex=process.argv.indexOf('--dpr'),dpr=dprIndex<0?1:Number(process.argv[dprIndex+1]);
 let sourceResult;
@@ -57,12 +58,8 @@ function replies(){return events.filter(e=>e.method==='Runtime.consoleAPICalled'
 function starts(){return events.filter(e=>e.method==='Runtime.consoleAPICalled').flatMap(e=>e.params.args).map(a=>String(a.value??'')).filter(t=>t.startsWith('Browser worker started: ')).map(t=>JSON.parse(t.slice('Browser worker started: '.length)));}
 function consoleText(prefix){return events.filter(e=>e.method==='Runtime.consoleAPICalled').flatMap(e=>e.params.args).map(a=>String(a.value??'')).filter(t=>t.startsWith(prefix));}
 async function waitConsole(prefix){for(const deadline=Date.now()+15000;Date.now()<deadline;){const text=consoleText(prefix).at(-1);if(text)return text;await pause(20);}throw new Error('Missing C event: '+prefix);}
-function archiveFiles(bytes){
- const files=new Map();
- for(let offset=0;offset+512<=bytes.length;){const header=bytes.subarray(offset,offset+512);if(header.every(byte=>byte===0))break;
-  const field=(start,length)=>header.subarray(start,start+length).toString('utf8').replace(/\0.*$/s,'');
-  const name=[field(345,155),field(0,100)].filter(Boolean).join('/'),size=parseInt(field(124,12).trim(),8);check(Number.isSafeInteger(size)&&size>=0&&offset+512+size<=bytes.length,'Invalid report archive member');check(!files.has(name),'Duplicate report archive member');files.set(name,bytes.subarray(offset+512,offset+512+size));offset+=512+Math.ceil(size/512)*512;
- }return files;
+async function pendingReports(){
+ return evaluate(`(async()=>{const {createIndexedDBReviewStore}=await import('/review_queue.mjs');const store=createIndexedDBReviewStore();try{return(await store.listPending()).map(row=>({report_id:row.reportId,digest:row.digest,bytes:row.blob.size}));}finally{store.close();}})()`);
 }
 async function waitPage(afterId=null){
  for(const deadline=Date.now()+15000;Date.now()<deadline;){
@@ -129,6 +126,7 @@ try{
  await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:dpr,mobile:false});
  if(review)await send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:output});
+ if(reviewOffline)await send('Page.addScriptToEvaluateOnNewDocument',{source:`globalThis.duxcelReviewOffline=true;const originalFetch=globalThis.fetch.bind(globalThis);globalThis.fetch=(input,...args)=>globalThis.duxcelReviewOffline&&new URL(typeof input==='string'?input:input.url??input,location.href).pathname.startsWith('/__review/')?Promise.reject(new Error('Owned offline review acceptance')):originalFetch(input,...args);`});
  const navigation=await send('Page.navigate',{url});check(!navigation.errorText,'Navigation failed: '+navigation.errorText);
  if(workerDriver){
   let report;
@@ -210,10 +208,34 @@ try{
    await click(530,341);await capture('review-composer');
    for(const character of 'İ filter')await key(character,character===' '?'Space':'KeyI',character.codePointAt(0),character);
    await click(829,554);const prepared=await waitConsole('Browser review prepared: ');
-   let archive;
-   for(const deadline=Date.now()+15000;Date.now()<deadline;){archive=(await fs.readdir(output)).find(name=>name.endsWith('.tar'));if(archive)break;await pause(20);}
-   check(archive,'Browser review did not request a report archive download');
-   const files=archiveFiles(await fs.readFile(path.join(output,archive))),manifestName=[...files.keys()].find(name=>name.endsWith('/manifest.json'));
+   let offlineResult;
+   if(reviewOffline){
+    const pending=await pendingReports();check(pending.length===1&&prepared.includes(pending[0].report_id),'Offline report was not durably committed in real IndexedDB');
+    const listing=await(await fetch(new URL('/__review/queue',url))).json();check(!listing.reports.some(row=>row.report_id===pending[0].report_id),'Offline report incorrectly claimed shared queue entry');
+    await frames();await capture('review-pending');await key('Enter','Enter',13);await frames();
+    check(starts().length===jobsBefore,'Offline reporting scheduled unexpected database jobs');
+    const eventStart=events.length;await send('Page.reload',{ignoreCache:true});
+    let reloaded=false;
+    for(const deadline=Date.now()+15000;Date.now()<deadline;){reloaded=events.slice(eventStart).some(e=>e.method==='Runtime.consoleAPICalled'&&e.params.args.some(a=>String(a.value??'').includes('Render batch buffers=')));if(reloaded)break;await pause(30);}
+    check(reloaded,'Reloaded shared C application did not start');
+    const retained=await pendingReports();check(JSON.stringify(retained)===JSON.stringify(pending),'Reload changed or lost the staged immutable archive');
+    await evaluate('globalThis.duxcelReviewOffline=false;window.dispatchEvent(new Event("online"));true');
+    offlineResult={pending_before_reload:pending,retained_after_reload:retained};
+   }
+   let queued;
+   for(const deadline=Date.now()+15000;Date.now()<deadline;){const listing=await(await fetch(new URL('/__review/queue',url))).json();queued=listing.reports.find(report=>report.report_id&&prepared.includes(report.report_id));if(queued)break;await pause(20);}
+   check(queued,'Browser review did not reach the durable shared queue');
+   if(reviewOffline){
+    check((await pendingReports()).length===0,'Server acknowledgment did not retire the pending browser archive');
+    const listing=await(await fetch(new URL('/__review/queue',url))).json();check(listing.reports.filter(row=>row.report_id===queued.report_id).length===1,'Offline replay duplicated the shared report');
+   }
+   check(!(await fs.readdir(output)).some(name=>name.endsWith('.tar')),'Queue submission unexpectedly downloaded an archive');
+   const files=new Map();
+   for(const name of ['manifest.json','frame.png','browser.json']){
+    const response=await fetch(new URL('/__review/bundle/'+queued.report_id+'/'+name,url));check(response.ok,'Queued report member is unavailable');
+    files.set(queued.report_id+'/'+name,Buffer.from(await response.arrayBuffer()));
+   }
+   const manifestName=[...files.keys()].find(name=>name.endsWith('/manifest.json'));
    check(manifestName&&files.size===3,'Expected one manifest/PNG/browser metadata bundle');const base=manifestName.slice(0,-'manifest.json'.length);
    const manifest=JSON.parse(files.get(manifestName)),metadata=JSON.parse(files.get(base+'browser.json')),png=files.get(base+'frame.png');
    check(manifest.target.widget.id==='filter.search','Browser picker selected the wrong C widget');
@@ -227,9 +249,8 @@ try{
    check(metadata.canvas_backing.width===manifest.frame.framebuffer.width&&metadata.canvas_backing.height===manifest.frame.framebuffer.height,'Browser canvas backing differs from the captured C framebuffer');
    if(canvasTransform)check(Math.abs(metadata.transforms.logical_to_css.scale_x-.8)<.001&&Math.abs(metadata.transforms.logical_to_css.scale_y-.8)<.001&&metadata.transforms.logical_to_css.translate_x>0&&metadata.transforms.logical_to_css.translate_y>0,'Inset canvas transform was not frozen with the C frame');
    await fs.writeFile(path.join(output,'report-manifest.json'),files.get(manifestName));await fs.writeFile(path.join(output,'report-browser.json'),files.get(base+'browser.json'));await fs.writeFile(path.join(output,'report-frame.png'),png);
-   await frames();await capture('review-prepared');await key('Enter','Enter',13);await frames();await capture('review-returned');
-   check(starts().length===jobsBefore,'Reporting scheduled unexpected database jobs');
-   reviewResult={captured,prepared,archive,report_id:manifest.report_id,frame_id:manifest.frame.frame_id,widget:manifest.target.widget.id,framebuffer:manifest.frame.framebuffer,archive_sha256:createHash('sha256').update(await fs.readFile(path.join(output,archive))).digest('hex')};
+   if(!reviewOffline){await frames();await capture('review-prepared');await key('Enter','Enter',13);await frames();await capture('review-returned');check(starts().length===jobsBefore,'Reporting scheduled unexpected database jobs');}
+   reviewResult={captured,prepared,transport:'unified-review-queue',queued,offlineResult,report_id:manifest.report_id,frame_id:manifest.frame.frame_id,widget:manifest.target.widget.id,framebuffer:manifest.frame.framebuffer};
    await key('Escape','Escape',27);
   }
   if(sourceFile.endsWith('/yellow_tripdata_2025-01.parquet'))check(imported.total==='3475226'&&imported.columns===20,'Public Parquet source count/schema changed');

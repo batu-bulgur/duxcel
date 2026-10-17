@@ -174,8 +174,12 @@ full real-engine bridge. Source UI gates and current limits are in
 [TESTING.md](../docs/TESTING.md) and the [latest filter/active-query checkpoint](../docs/validation/checkpoints/2026-10-17-browser-filters/).
 
 `make web-review` produces a separate development artifact under `build/web/review/`.
-It reuses C capture/registry/picking/composition and prepares a single report archive
-download through the review-only browser adapter. Command/Ctrl+Shift+. starts it.
+It reuses C capture/registry/picking/composition and commits report archives to a
+review-only IndexedDB outbox, with automatic upload/retry into the native project's
+persistent review queue. Start `make review-serve`, then open
+<http://127.0.0.1:8767/>. Command/Ctrl+Shift+. starts reporting. The external
+read-only Codex consumer automatically triages reports; `python3 tools/review_service.py serve`
+collects without model calls. Use one stable origin so pending browser reports remain reachable.
 No review host, registry or callback export is packaged with the normal target.
 `tools/test_web_review_build.py` verifies the actual compiled boundary; see
 [browser reporting acceptance](../docs/validation/checkpoints/2026-10-17-browser-review/).

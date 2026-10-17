@@ -31,7 +31,8 @@ export function createIndexedDBReviewStore({indexedDB=globalThis.indexedDB,name=
             request.onblocked=()=>{abandoned=true;reject(new Error('Browser review storage is blocked by another tab.'));};
             request.onsuccess=()=>{
                 if(closed||abandoned){request.result.close();reject(new Error('Browser review storage is closed.'));return;}
-                database=request.result;database.onversionchange=()=>{database.close();database=null;};resolve(database);
+                database=request.result;database.onversionchange=()=>{database.close();database=null;};
+                database.onclose=()=>{if(database===request.result)database=null;};resolve(database);
             };
         }).finally(()=>{opening=null;});
         return opening;

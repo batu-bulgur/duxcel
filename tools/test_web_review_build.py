@@ -30,13 +30,15 @@ def main():
     check('-DDUXCEL_DEV_REVIEW' not in shipping['flags'] and '-DDUXCEL_DEV_REVIEW' in development['flags'],'Review compile configurations overlap')
     check('dxReview' not in (normal/'host.mjs').read_text(),'Shipping loader includes the review bridge')
     check('createReviewHost' in (review/'host.mjs').read_text() and (review/'review_host.mjs').is_file(),'Review platform host is missing')
+    check('review_queue.mjs' in (review/'host.mjs').read_text() and (review/'review_queue.mjs').is_file(),'Review queue transport is missing')
     for directory in (normal,review):
         check("import {installCanvasInput} from './canvas_input.mjs'" in (directory/'host.mjs').read_text() and (directory/'canvas_input.mjs').is_file(),'Canvas input platform policy is missing')
     check((normal/'canvas_input.mjs').read_bytes()==(review/'canvas_input.mjs').read_bytes(),'Normal/review canvas input policies differ')
     forbidden=[b'dx_review_',b'duxcel.native-review',b'duxcel.browser-review',b'dxBrowserWorkerTestDone',b'test_browser_worker.c']
     wasm=(normal/'duxcel.wasm').read_bytes();markers={value.decode():value not in wasm for value in forbidden}
     check(all(markers.values()),'Shipping Wasm contains review/acceptance markers')
-    check(not any((normal/name).exists() for name in ('review_host.mjs','host_review.mjs','worker_test_host.mjs','official_worker_probe.mjs')),'Shipping contains review/acceptance host assets')
+    check(not any((normal/name).exists() for name in ('review_host.mjs','host_review.mjs','review_queue.mjs','worker_test_host.mjs','official_worker_probe.mjs')),'Shipping contains review/acceptance host assets')
+    check('/__review/' not in (normal/'host.mjs').read_text(),'Shipping loader includes review queue routes')
     native={}
     for name in ('duxcel','duxcel-debug'):
         binary=ROOT/name;symbols=subprocess.check_output(['nm','-g',str(binary)],text=True)
