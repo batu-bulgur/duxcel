@@ -78,6 +78,13 @@ async function platformSnapshot(){
  const state=Object.fromEntries([...line.matchAll(/([a-z_]+)=([^ ]+)/g)].map(match=>[match[1],match[2]]));
  await key('Escape','Escape',27);return state;
 }
+// Chromium150/macOS can recurse in Cocoa menu handling for CDP Alt chords.
+// Exercise the same focused canvas -> GLFW -> C path with DOM keyboard events;
+// this proves C interaction/paint, not physical/trusted Alt delivery.
+async function canvasKey(key,code,virtual){
+ await evaluate(`document.querySelector('canvas').dispatchEvent(new KeyboardEvent('keydown',{key:${JSON.stringify(key)},code:${JSON.stringify(code)},keyCode:${virtual},which:${virtual},altKey:${key==='Alt'},bubbles:true,cancelable:true}));true`);await frames(2);
+ await evaluate(`document.querySelector('canvas').dispatchEvent(new KeyboardEvent('keyup',{key:${JSON.stringify(key)},code:${JSON.stringify(code)},keyCode:${virtual},which:${virtual},bubbles:true,cancelable:true}));true`);await frames(2);
+}
 async function hintMotion(){
  await pause(180);await frames(3);
  const restingRed=await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>{const c=document.querySelector('canvas'),g=c.getContext('webgl2')||c.getContext('webgl'),r=c.width/1280,p=new Uint8Array(4);g.readPixels(Math.floor(60*r),c.height-1-Math.floor(28.25*r),1,1,g.RGBA,g.UNSIGNED_BYTE,p);resolve(p[0]);}))`);
@@ -85,7 +92,8 @@ async function hintMotion(){
  for(const name of ['show','hide']){
   await evaluate(`globalThis.duxcelHintSamples=new Promise(resolve=>{const c=document.querySelector('canvas'),gl=c.getContext('webgl2')||c.getContext('webgl'),ratio=c.width/1280,data=new Uint8Array(4),samples=[];let start;function tick(now){start??=now;gl.readPixels(Math.floor(60*ratio),c.height-1-Math.floor(28.25*ratio),1,1,gl.RGBA,gl.UNSIGNED_BYTE,data);samples.push({ms:now-start,rgb:Array.from(data.slice(0,3))});if(now-start>=260)resolve(samples);else requestAnimationFrame(tick);}requestAnimationFrame(tick);});true`);
   const show=name==='show',params=show?{key:'Alt',code:'AltLeft',windowsVirtualKeyCode:18,modifiers:1}:{key:'Escape',code:'Escape',windowsVirtualKeyCode:27,modifiers:0};
-  await send('Input.dispatchKeyEvent',{type:'keyDown',...params});await frames(1);await send('Input.dispatchKeyEvent',{type:'keyUp',...params,modifiers:0});
+  await evaluate(`document.querySelector('canvas').dispatchEvent(new KeyboardEvent('keydown',{key:${JSON.stringify(params.key)},code:${JSON.stringify(params.code)},keyCode:${params.windowsVirtualKeyCode},which:${params.windowsVirtualKeyCode},altKey:${show},bubbles:true,cancelable:true}));true`);await frames(1);
+  await evaluate(`document.querySelector('canvas').dispatchEvent(new KeyboardEvent('keyup',{key:${JSON.stringify(params.key)},code:${JSON.stringify(params.code)},keyCode:${params.windowsVirtualKeyCode},which:${params.windowsVirtualKeyCode},bubbles:true,cancelable:true}));true`);
   const samples=await evaluate('globalThis.duxcelHintSamples');
   results.push({name,samples});await fs.writeFile(path.join(output,'keytip-motion.json'),JSON.stringify(results,null,2));
   check(samples.some(s=>s.rgb[0]>175&&s.rgb[0]<restingRed-3),'Keytips did not visibly fade '+name);
@@ -93,11 +101,11 @@ async function hintMotion(){
   check(show?Math.abs(red-164)<=2:Math.abs(red-restingRed)<=2,'Keytips did not settle '+name);
   if(show)await capture('keytips-light');
  }
- await key('Alt','AltLeft',18);await key('h','KeyH',72);await key('Escape','Escape',27);await pause(160);
+ await canvasKey('Alt','AltLeft',18);await canvasKey('h','KeyH',72);await canvasKey('Escape','Escape',27);await pause(160);
  const dismissed=await platformSnapshot();check(Number(dismissed.keytips)===0,'Alt H Escape left keytips visible');
  const altEvents=await evaluate('globalThis.duxcelTestAltEvents');
  check(altEvents.length>=3&&altEvents.every(e=>e.canvas&&e.prevented),'Focused canvas Alt escaped to browser menu handling');
- return {results,dismissed,altEvents};
+ return {results,dismissed,altEvents,scope:'Focused DOM events through actual GLFW/C and GPU pixels; Chromium150/macOS trusted CDP Alt routing crashed separately and remains unaccepted.'};
 }
 // Sample the shared C GL framebuffer in rAF, without review/hotkeys freezing
 // or clearing the spring. The only full readback is the first stretched PNG.
@@ -222,7 +230,7 @@ try{
  }
  check(ready,'Shared C App did not initialize');await pause(350);
  await evaluate('globalThis.duxcelTestNavigation=[];window.addEventListener("keydown",event=>{if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Home","End","PageUp","PageDown"].includes(event.key))globalThis.duxcelTestNavigation.push({key:event.key,shift:event.shiftKey,default_prevented:event.defaultPrevented,canvas:event.target===document.querySelector("canvas")})});true');
- await evaluate('globalThis.duxcelTestAltEvents=[];window.addEventListener("keydown",e=>{if(e.key==="Alt")globalThis.duxcelTestAltEvents.push({canvas:e.target===document.querySelector("canvas"),prevented:e.defaultPrevented})});true');
+ await evaluate('globalThis.duxcelTestAltEvents=[];window.addEventListener("keydown",e=>{if(e.key==="Alt")globalThis.duxcelTestAltEvents.push({canvas:e.target===document.querySelector("canvas"),prevented:e.defaultPrevented,trusted:e.isTrusted})});true');
  if(canvasTransform){await evaluate('Object.assign(document.querySelector("canvas").style,{position:"absolute",left:"8%",top:"6%",transform:"scale(.8)",transformOrigin:"top left"})');await frames();}
  const errors=events.filter(e=>e.method==='Runtime.exceptionThrown');check(!errors.length,'Uncaught browser exception');
  const glErrors=events.filter(e=>e.method==='Log.entryAdded'&&/WebGL: (INVALID|too many)/.test(e.params.entry.text));
@@ -269,7 +277,7 @@ try{
   const imported=await waitPage();sourceResult={...imported,selection_to_c_reply_ms:Date.now()-importStarted};check(imported.rows>0&&imported.columns>0,'Imported C Page is empty');await frames(4);await capture('imported');
   if(sourceFile.endsWith('/transactions.csv')){check(imported.total==='5'&&imported.columns===6,'CSV import count/schema changed');await click(716,102);const sorted=await waitPage(imported.id);check(sorted.total==='5','Sort changed source count');await frames();await capture('sorted');}
   if(platform){
-   await key('Alt','AltLeft',18);await key('v','KeyV',86);await key('9','Digit9',57);await key('Escape','Escape',27);await click(40,42);
+   await canvasKey('Alt','AltLeft',18);await canvasKey('v','KeyV',86);await canvasKey('9','Digit9',57);await canvasKey('Escape','Escape',27);await click(40,42);
    const baseline=await platformSnapshot(),beforeJobs=starts().length;
    const hints=await hintMotion();
    const overscroll=await transientPull(baseline);
