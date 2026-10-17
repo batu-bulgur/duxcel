@@ -1,0 +1,22 @@
+{
+  "rect": {
+    "x": 241.71875,
+    "y": 61,
+    "width": 48,
+    "height": 26
+  },
+  "value": "13",
+  "options": [
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16"
+  ],
+  "font": "",
+  "padding": "2px 3px",
+  "border": "1px solid rgb(202, 210, 218)",
+  "borderRadius": "2px",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
+}

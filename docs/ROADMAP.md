@@ -48,7 +48,7 @@ Acceptance: actual shared C UI and a real official Worker query run in the brows
 - [x] Accept active-cell/extent retention through pointer drag, Shift navigation, range reversal and Tab/Enter; update legacy native assumptions to the intended behavior.
 - [x] Accept pointer versus keyboard focus against the reference at wide/narrow and 100/150% UI scales.
 - [x] Rebase or invalidate source bookmarks when a table moves.
-- [ ] Fix source-record formatting identity through sorting/filtering/query reindexing; define behavior when a query changes row identity.
+- [ ] Fix source-record formatting identity through sorting/filtering/query reindexing; define behavior when a query changes row identity. The [proposed scoped plan](design/SOURCE_FORMAT_IDENTITY.md) separates wrong-row containment, Page provenance, real record-following and verified persistence; none is completed by writing the plan.
 
 Acceptance: focused real-app regressions with no added idle SQL/allocations, source/PIVOT cache identity preserved and typed NULL/exact values intact. These are discrete fixes, not an invitation to keep polishing without a completion boundary.
 
@@ -59,7 +59,8 @@ Keep the implemented N1 ribbon mechanism, N2 workspace composition and N3 author
 - [x] Replace generic filter-pill labels with bounded cached actual criteria/values.
 - [x] Match reserved collapsed-ribbon geometry, reference group icons/type and Alignment retention; keep ribbon/status live above narrow drawers. The 18-stage `ribbon-collapse` gate through `09ce3de` accepts flyouts, Escape focus and resizing without idle SQL/cache changes.
 - [x] Port the 240-unit More ribbon menu, hidden-group rows/separator, history-only narrow Icons state and real Undo/Redo; preserve More anchors, Escape/reopen and leaving historical preview before history. Require the actual completed native stage range in acceptance.
-- [ ] Finish representation, Plot, size/number dropdowns, wizards and advanced dialogs using measured reference anatomy and real/explicitly disabled actions.
+- [x] Integrate compact Representation/Plot/font/number lists at their actual field widths; unify pointer/keyboard anchors and retain the parent ribbon flyout. The expanded24-stage native select gate passed in optimized/sanitizer builds, with18 adjacent sanitizer ribbon stages and no select-only query/cache changes. [Evidence and unmeasured OS-popup scope](validation/checkpoints/2026-10-17-select-popups/).
+- [ ] Finish remaining dropdown, wizard and advanced-dialog parity using measured reference anatomy and real/explicitly disabled actions. Exact OS select-popup pixels and remaining parent-flyout geometry are not covered by the compact-list integration.
 - [ ] Close remaining inspector/menu/focus differences using fixed reference states rather than another design direction.
 - [ ] Record matching native/browser captures and working pointer/keyboard checks for: browsing; selected matrix with compact shelves/Marks; chart; filters/date hierarchy; Transformations/SQL/history preview; Full/Compact/Icons/Focus ribbon; narrow/short windows and 150% scale.
 

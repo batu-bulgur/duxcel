@@ -12,6 +12,7 @@ The JavaScript prototype remains the frozen design reference. The latest approve
 | [design/FEEDBACK.md](design/FEEDBACK.md) | Pinpoint review tools, local feedback queue and design/native handoff rules |
 | [design/NATIVE_REVIEW_FEASIBILITY.md](design/NATIVE_REVIEW_FEASIBILITY.md) | Proposed native review build, production exclusion and shared Wasm/browser path |
 | [design/NATIVE_REVIEW_PLAN.md](design/NATIVE_REVIEW_PLAN.md) | Approved native feedback priority, selected Wasm architecture and implementation acceptance |
+| [design/SOURCE_FORMAT_IDENTITY.md](design/SOURCE_FORMAT_IDENTITY.md) | Proposed source-record formatting semantics, bounded implementation slices and persistence gates |
 | [../design/prototype/](../design/prototype/) | Read-only executable reference, source, fonts and browser QA |
 | [USER_GUIDE.md](USER_GUIDE.md) | Current controls, keyboard reference, file format and limits |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Source ownership, memory boundaries and parallel lanes |

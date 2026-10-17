@@ -1,0 +1,109 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T15:16:33.979277+00:00",
+  "tier": "affected",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "76c1a4f752795e9c9d0ece3ccb71328dfb83eeff",
+    "status": "M src/app/app.c\n M src/ui/selectview.c\n M src/ui/selectview.h\n?? docs/validation/checkpoints/2026-10-17-select-popups/\n?? tools/ui-review/",
+    "source_sha256": "13e7bdac88733e7dd517e25a642b53cf78c7658ba597bca035b175add2250969",
+    "source_files": 206
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_choiceview-debug",
+        "tests/test_format-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T151633-affected-67514/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.204
+    },
+    {
+      "name": "choiceview-sanitize",
+      "command": [
+        "./tests/test_choiceview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T151633-affected-67514/choiceview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.314
+    },
+    {
+      "name": "format-sanitize",
+      "command": [
+        "./tests/test_format-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T151633-affected-67514/format-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.088
+    },
+    {
+      "name": "build-integration",
+      "command": [
+        "make",
+        "duxcel-debug",
+        "tests/test_background-native-debug",
+        "design-fixture"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T151633-affected-67514/build-integration.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 24.853
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T151633-affected-67514/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.359
+    },
+    {
+      "name": "layout-criteria-selects",
+      "command": [
+        "./duxcel-debug",
+        "--layout-smoke",
+        "--frames",
+        "1632",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261017T151633-affected-67514/final.png"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T151633-affected-67514/layout-criteria-selects.txt",
+      "expected_stages": 24,
+      "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[596,620\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 20.533
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_choiceview-debug": "a3fd3acdb034ecd3a935a97837e2d5d23674031ef95e580235a1da8470e3f129",
+    "/Users/h2o/dev/duxcel/tests/test_format-debug": "1ad53cc03b93b801733f4a895e02cdba9a0fc6c78c986c9140b1186f285e6aba",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "d2822526d0e5fce54461f913721f70c48a982078a5accdfd3f8b484118153821",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "elapsed_seconds": 47.511,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_choiceview-debug": "a3fd3acdb034ecd3a935a97837e2d5d23674031ef95e580235a1da8470e3f129",
+    "/Users/h2o/dev/duxcel/tests/test_format-debug": "1ad53cc03b93b801733f4a895e02cdba9a0fc6c78c986c9140b1186f285e6aba",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "d2822526d0e5fce54461f913721f70c48a982078a5accdfd3f8b484118153821",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "finished_utc": "2026-10-17T15:17:21.583262+00:00"
+}
