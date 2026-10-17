@@ -223,7 +223,7 @@ static uint64_t review_field_hash(const char *text) {
 }
 static bool review_author_dialog(const char *kind) {
     return !strcmp(kind,"column_width") || !strcmp(kind,"move_range") || !strcmp(kind,"object_name") ||
-        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"sheet_rename");
+        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sheet_rename");
 }
 static bool review_author_field(char output[128],const char *field) {
     size_t length=strlen(field);
@@ -244,6 +244,15 @@ static const char *review_author_identity(App *a,const char *kind,char parent[12
         data->has_cell=false; data->row=data->column=0; data->field[0]=0;
         ObjectStore *store=&active_sheet(a)->objects;
         if (a->query_object>=0 && (size_t)a->query_object<store->count && store->items[a->query_object].kind==OBJECT_TABLE) data->source_id=data->object_id=store->items[a->query_object].id;
+        snprintf(parent,128,"author.%s",kind); return NULL;
+    }
+    if (!strcmp(kind,"source_relation")) {
+        *data=review_scope(a); snprintf(data->kind,sizeof(data->kind),"source-relation");
+        data->source_id=data->object_id=data->schema_generation=data->query_generation=0; data->has_cell=false; data->row=data->column=0; data->field[0]=0;
+        ObjectStore *store=&active_sheet(a)->objects;
+        if (a->table_relation_object>=0 && (size_t)a->table_relation_object<store->count && store->items[a->table_relation_object].kind==OBJECT_TABLE) {
+            SheetObject *table=&store->items[a->table_relation_object]; data->source_id=data->object_id=table->id; data->query_generation=table->revision;
+        }
         snprintf(parent,128,"author.%s",kind); return NULL;
     }
     *data=review_scope(a);
@@ -336,6 +345,11 @@ static void review_author_panel(App *a,const char *kind,const char *title,Rectan
         char query[320]; snprintf(query,sizeof(query)," query_object=%d query_source_revision=%llu query_draft_revision=%llu query_focus=%d query_loading=%d query_cursor=%zu query_anchor=%zu query_scroll=%d",a->query_object,(unsigned long long)a->query_source_revision,(unsigned long long)a->input.revision,a->query_focus,a->query_loading,a->input.cursor,a->input.anchor,a->query_editor.scroll);
         review_author_capture_state(a,query);
     }
+    if (!strcmp(kind,"source_relation")) {
+        size_t count=a->table_relation_object>=0 && (size_t)a->table_relation_object<active_sheet(a)->objects.count ? a->objects[a->table_relation_object].page.relation_count : 0;
+        char relation[192]; snprintf(relation,sizeof(relation)," relation_object=%d relation_source_revision=%llu relation_focus=%d relation_scroll=%d relation_count=%zu",a->table_relation_object,(unsigned long long)data.query_generation,a->table_relation_focus,a->table_relation_scroll,count);
+        review_author_capture_state(a,relation);
+    }
 }
 static void review_author_item(App *a,const char *kind,const char *key,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,const char *file,int line) {
     if (!review_armed(a)) return;
@@ -367,6 +381,32 @@ static void review_author_input(App *a,const char *kind,const char *key,const ch
     char id[128]; snprintf(id,sizeof(id),"author.%s.action.%s",kind,key);
     DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
     if (w) { dx_review_value_set(&w->value,"VARCHAR",false,input && input->text ? input->text : ""); w->truncated|=w->value.truncated; a->review->registry->truncated|=w->truncated; }
+}
+static void review_relation_choice(App *a,const Relation *relation,size_t index,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line) {
+    if (!review_armed(a) || !relation || !relation->schema || !relation->name) return;
+    char key[80],id[128]; snprintf(key,sizeof(key),"select.s%016llx.n%016llx",(unsigned long long)review_field_hash(relation->schema),(unsigned long long)review_field_hash(relation->name));
+    review_author_item(a,"source_relation",key,"source.select_relation","menuitemradio",relation->label,bounds,clip,true,checked,focused,NULL,file,line);
+    snprintf(id,sizeof(id),"author.source_relation.action.%s",key); DxReviewWidget *widget=(DxReviewWidget *)dx_review_find(a->review->registry,id);
+    if (!widget) return;
+    /* Own a qualified SQL identifier, with components quoted independently so
+       dots and quotes in a schema/name cannot conflate different relations. */
+    char qualified[sizeof(widget->value.exact_text)]={0}; size_t used=0; bool truncated=false;
+    const char *parts[]={relation->schema,relation->name};
+    for (size_t part=0;part<2 && !truncated;part++) {
+        if (used+3>=sizeof(qualified)) { truncated=true; break; }
+        if (part) qualified[used++]='.'; qualified[used++]='"';
+        for (const char *text=parts[part];*text;) {
+            int bytes=0; GetCodepointNext(text,&bytes); if (bytes<1) bytes=1;
+            size_t need=*text=='"' ? 2 : (size_t)bytes;
+            if (used+need+2>=sizeof(qualified)) { truncated=true; break; }
+            if (*text=='"') { qualified[used++]='"'; qualified[used++]='"'; }
+            else { memcpy(qualified+used,text,(size_t)bytes); used+=(size_t)bytes; }
+            text+=bytes;
+        }
+        if (!truncated) qualified[used++]='"';
+    }
+    qualified[used]=0; dx_review_value_set(&widget->value,"VARCHAR",false,qualified); widget->value.truncated|=truncated;
+    widget->data.row=index; widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated;
 }
 static void review_sheet_row(App *a,size_t sheet,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *file,int line) {
     if (!review_armed(a) || sheet>=a->book.count || bounds.width<=0 || bounds.height<=0 || clip.width<=0 || clip.height<=0) return;
