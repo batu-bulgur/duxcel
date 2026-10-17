@@ -1047,6 +1047,10 @@ static void open_source(App *a,const char *path,bool demo) {
     if (!workbook_add(&a->book,demo ? "Million-row demo" : dx_basename(path),&source,&error)) {
         status(a,error); free(error); free(absolute); return;
     }
+    /* The new sheet has no objects. Retire the previous sheet's owned Pages
+       before submitting its replacement query; a failed add keeps them intact. */
+    memset(a->source_locations,0,sizeof(a->source_locations)); clear_object_views(a);
+    a->active_readout.value.valid=false;
     analysis_free(&a->analysis); a->analysis=source; a->restore_view=false; page_free(&a->page); page_free(&a->spare); a->page_stale=a->waiting_count_page=false;
     a->selected_object=-1; a->filter_object=-1; a->pivot_focus=0; a->pivot_search_focus=false;
     a->reveal_tab=true;
@@ -7514,7 +7518,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 714
+#define LAYOUT_SMOKE_STAGES 716
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -8367,6 +8371,7 @@ static void layout_smoke_step(App *a,int *step) {
     static int select_open_phase,select_edit_phase,select_narrow_phase,representation_phase,plot_phase,narrow_author_phase;
     static size_t select_history;
     static size_t author_select_history;
+    static size_t cache_source_sheet,cache_source_sheets,retired_object_bytes;
     if ((a->modal==MODAL_ERROR || a->fetch_failed) && *step!=671) goto failed;
     switch (*step) {
     case 0:
@@ -10924,6 +10929,60 @@ static void layout_smoke_step(App *a,int *step) {
             s->undo_actions_count!=draft_history || a->book.dirty!=ribbon_dirty || s->cells.count!=2 ||
             a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
         puts("PASS: progressive native Select All body/header/object/used-sheet/canvas, reverse direction and active cell retention, unresolved metadata guards, 150 percent header selection and unchanged cache/history/dirty state"); break;
+
+    case 714: {
+        /* Seed real source bookmarks and exercise a valid, fully owned 64-sheet
+           failed add before the success path. No frames or jobs run in the swap. */
+        grid_select_cell(&a->grid,1,1,false); a->selected_object=-1; remember_source_location(a);
+        grid_select_cell(&a->grid,16,2,false); a->selected_object=0; remember_source_location(a);
+        if (!a->source_locations[0].location.valid || !a->source_locations[1].location.valid ||
+            !a->objects[0].page.cells || !a->objects[1].page.cells || !a->objects[1].page.totals) goto failed;
+        Workbook *padded=workbook_snapshot(&a->book); if (!padded) goto failed;
+        bool filled=true;
+        while (padded->count<DX_MAX_SHEETS) {
+            char name[64]; snprintf(name,sizeof(name),"Capacity %zu",padded->count+1);
+            if (!workbook_add(padded,name,&(Analysis){0},&error)) { filled=false; break; }
+        }
+        if (!filled) { workbook_free(padded); free(padded); goto failed; }
+        padded->active=a->book.active; Workbook original=a->book; a->book=*padded; free(padded);
+        ObjectView views[DX_MAX_OBJECTS]; SourceLocation locations[DX_MAX_OBJECTS+1];
+        memcpy(views,a->objects,sizeof(views)); memcpy(locations,a->source_locations,sizeof(locations));
+        uint64_t revision=a->analysis_revision,previous_request=a->request_id;
+        open_source(a,"tests/fixtures/transactions.csv",false);
+        bool preserved=a->book.count==DX_MAX_SHEETS && a->book.active==original.active &&
+            a->analysis_revision==revision && a->request_id==previous_request &&
+            !memcmp(views,a->objects,sizeof(views)) && !memcmp(locations,a->source_locations,sizeof(locations));
+        Workbook full=a->book; a->book=original; workbook_free(&full);
+        if (!preserved) goto failed;
+        cache_source_sheet=a->book.active; cache_source_sheets=a->book.count; retired_object_bytes=0;
+        for (size_t i=0;i<DX_MAX_OBJECTS;i++) retired_object_bytes+=a->objects[i].page.bytes;
+        if (!retired_object_bytes) goto failed;
+        a->selected_object=1; a->matrix_cells_active=true;
+        open_source(a,"tests/fixtures/transactions.csv",false);
+        if (a->book.count!=cache_source_sheets+1 || active_sheet(a)->objects.count || a->matrix_object ||
+            a->matrix_cells_active || a->pivot_metrics_id || a->filter_labels_id || a->pivot_drop_pending ||
+            a->pivot_drag_field!=-1 || a->pivot_drag_role!=-1 || a->active_readout.value.valid) goto failed;
+        for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
+            const ObjectView *v=&a->objects[i]; const Page *page=&v->page;
+            if (page->columns || page->cells || page->relations || page->sql || page->totals || page->records.ids ||
+                page->records.source_key || page->bytes || page->records.file_identity_valid || v->error ||
+                v->id || v->revision || v->source_revision || v->counted_total || v->count_layout_key ||
+                !v->dirty || v->failed || v->waiting_count || v->count_paused || v->count_resolved) goto failed;
+        }
+        const unsigned char empty_locations[sizeof(a->source_locations)]={0};
+        if (memcmp(a->source_locations,empty_locations,sizeof(empty_locations))) goto failed;
+        break;
+    }
+    case 715: {
+        const Worksheet *previous=&a->book.sheets[cache_source_sheet];
+        if (a->book.count!=cache_source_sheets+1 || a->page.total!=5 || a->page.column_count!=6 ||
+            strcmp(a->page.columns[1].name,"City") || strcmp(a->page.cells[1].text,"İstanbul") ||
+            previous->objects.count!=2 || previous->cells.count!=2 || previous->undo_actions_count!=draft_history ||
+            strcmp(cells_get(&previous->cells,9,7),"Note one") || a->source_locations[1].location.valid) goto failed;
+        for (size_t i=0;i<DX_MAX_OBJECTS;i++) if (a->objects[i].page.cells || a->objects[i].page.bytes) goto failed;
+        printf("PASS: source replacement retires %zu cached object bytes, totals and bookmarks, preserves failed 64-sheet opens and previous worksheet definitions, and publishes the real new source without OS panels\n",retired_object_bytes);
+        break;
+    }
 
     }
     free(error); (*step)++; return;
