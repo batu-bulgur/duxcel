@@ -39,7 +39,7 @@ def main():
     check(all(markers.values()),'Shipping Wasm contains review/acceptance markers')
     check(not any((normal/name).exists() for name in ('review_host.mjs','host_review.mjs','review_queue.mjs','worker_test_host.mjs','official_worker_probe.mjs','persistence_probe.mjs')),'Shipping contains review/acceptance host assets')
     for directory in (normal,review):
-        for name in ('canvas_surface.mjs','canvas_wheel.mjs','browser_platform.mjs'):
+        for name in ('canvas_surface.mjs','canvas_wheel.mjs','browser_platform.mjs','clipboard.mjs'):
             check((directory/name).is_file(),'Browser device adapter asset is missing: '+name)
     check('/__review/' not in (normal/'host.mjs').read_text(),'Shipping loader includes review queue routes')
     native={}

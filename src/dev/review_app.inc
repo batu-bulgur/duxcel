@@ -7,6 +7,7 @@
 #endif
 static DxReviewRect review_rect(Rectangle r) { return (DxReviewRect){r.x,r.y,r.width,r.height}; }
 static bool review_armed(App *a) { return a->review && a->review->phase==DX_REPORT_ARMED; }
+static bool review_author_hex64(char output[129],const char *text);
 static void review_document_id(App *a,char output[128]) {
     snprintf(output,128,"%s-document-%u",a->review->frame.session_id,a->review->document_serial);
 }
@@ -78,6 +79,9 @@ static void review_begin_frame(App *a) {
     snprintf(f.state_text+used,sizeof(f.state_text)-used," ui_heap=%zu ui_allocated=%u",emscripten_get_heap_size(),(unsigned)mallinfo().uordblks);
     used=strlen(f.state_text);
     snprintf(f.state_text+used,sizeof(f.state_text)-used," browser_picker=%u,%d,%llu,%zu,%llu,%zu",a->browser_file_intent,a->browser_file_path!=NULL,(unsigned long long)a->browser_file_revision,a->browser_file_sheet,(unsigned long long)a->browser_file_row,a->browser_file_col);
+    char clipboard_message[129]; bool clipboard_truncated=review_author_hex64(clipboard_message,a->message);
+    used=strlen(f.state_text);
+    snprintf(f.state_text+used,sizeof(f.state_text)-used," clipboard_pending=%u clipboard_completed=%u clipboard_status=%u clipboard_message_hex=%s clipboard_message_truncated=%d",a->browser_clipboard_pending,a->browser_clipboard_completed,a->browser_clipboard_status,clipboard_message,clipboard_truncated);
 #endif
     dx_review_capture_begin(a->review,&f);
 }
@@ -1008,7 +1012,17 @@ static void review_native_command(App *a,DxCommand command) {
     if (command==DX_COMMAND_SELECT_ALL) r->note.select_all=true;
     else if (command==DX_COMMAND_PASTE) { const char *text=GetClipboardText(); if (text && strlen(text)<DX_REVIEW_NOTE_BYTES) input_insert(&r->note,text); }
     else if (command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO) input_history(&r->note,command==DX_COMMAND_REDO);
-    else if (command==DX_COMMAND_COPY) { char *text=input_selection_text(&r->note); if (text) { SetClipboardText(text); free(text); } }
+    else if (command==DX_COMMAND_COPY) {
+        char *text=input_selection_text(&r->note);
+        if (text) {
+#ifdef DUXCEL_BROWSER_HOST
+            dx_web_clipboard_begin(text);
+#else
+            SetClipboardText(text);
+#endif
+            free(text);
+        }
+    }
 }
 
 /* Focused native acceptance; never enabled in shipping, uses the same queued

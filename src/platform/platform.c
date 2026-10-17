@@ -9,6 +9,31 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifdef DUXCEL_BROWSER_HOST
+#include <emscripten/emscripten.h>
+EM_JS(unsigned, dx_web_clipboard_begin_js, (const char *text), {
+    return Module['dxClipboard'] ? Module['dxClipboard'].begin(UTF8ToString(text)) : 0;
+})
+EM_JS(int, dx_web_clipboard_take_js, (unsigned *id,int *success,char *error,unsigned capacity), {
+    const result=Module['dxClipboard']?.take();
+    if (!result) return 0;
+    HEAPU32[id>>2]=result.id;
+    HEAP32[success>>2]=result.ok ? 1 : 0;
+    stringToUTF8(result.error || '',error,capacity);
+    return 1;
+})
+unsigned dx_web_clipboard_begin(const char *text) {
+    return text ? dx_web_clipboard_begin_js(text) : 0;
+}
+bool dx_web_clipboard_take(DxWebClipboardResult *result) {
+    if (!result) return false;
+    int success=0;
+    *result=(DxWebClipboardResult){0};
+    if (!dx_web_clipboard_take_js(&result->id,&success,result->error,sizeof(result->error))) return false;
+    result->success=success!=0;
+    return true;
+}
+#endif
 #ifndef _WIN32
 #include <unistd.h>
 #endif

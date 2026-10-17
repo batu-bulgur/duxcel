@@ -109,6 +109,10 @@ typedef struct {
     uint64_t browser_file_revision,browser_file_row;
     size_t browser_file_sheet,browser_file_col;
     char *browser_file_path,*browser_file_label;
+    unsigned browser_clipboard_pending,browser_clipboard_completed,browser_clipboard_status;
+    uint64_t browser_clipboard_revision;
+    bool browser_clipboard_silent;
+    char browser_clipboard_success[128];
 #endif
     bool io_busy, restore_view;
     DocumentAction document_action;
@@ -485,6 +489,37 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_GROUP(...) ((void)0)
 #define REVIEW_ACTION(...) ((void)0)
 #define REVIEW_EVENT(...) ((void)0)
+#endif
+static void copy_text(App *a,const char *text,const char *success) {
+#ifdef DUXCEL_BROWSER_HOST
+    unsigned id=dx_web_clipboard_begin(text ? text : "");
+    if (!id) { if (success) status(a,"A clipboard write is still pending, or the text exceeds the 8 MiB copy limit."); return; }
+    a->browser_clipboard_pending=id; a->browser_clipboard_status=0;
+    a->browser_clipboard_revision=a->analysis_revision;
+    a->browser_clipboard_silent=success==NULL;
+    snprintf(a->browser_clipboard_success,sizeof(a->browser_clipboard_success),"%s",success ? success : "");
+    if (success) status(a,"Copying to clipboard…");
+#else
+    SetClipboardText(text ? text : "");
+    if (success) status(a,success);
+#endif
+}
+#ifdef DUXCEL_BROWSER_HOST
+static void process_browser_clipboard(App *a) {
+    DxWebClipboardResult result;
+    if (!dx_web_clipboard_take(&result)) return;
+    bool tracked=a->browser_clipboard_pending!=0;
+    if (tracked && result.id!=a->browser_clipboard_pending) return;
+    a->browser_clipboard_pending=0; a->browser_clipboard_completed=result.id;
+    a->browser_clipboard_status=result.success ? 1 : 2;
+    REVIEW_EVENT(a,"clipboard.reply",result.id);
+    if (tracked && (a->browser_clipboard_revision!=a->analysis_revision || a->browser_clipboard_silent)) return;
+    if (result.success) status(a,tracked ? a->browser_clipboard_success : "Text copied.");
+    else {
+        char message[576]; snprintf(message,sizeof(message),"Could not copy: %s",result.error[0] ? result.error : "Clipboard writing is unavailable.");
+        status(a,message);
+    }
+}
 #endif
 static void open_modal(App *a,Modal modal);
 static void draw_command_popup(App *a);
@@ -1445,7 +1480,7 @@ static void poll_query(App *a) {
     a->busy=false;
     if (r->kind==JOB_STEP_PREVIEW) { step_preview_reply(&a->step_preview,r); reply_free(r); return; }
     if (r->is_preview) {
-        if (r->kind==JOB_COPY) { if (r->error) status(a,r->error); else { SetClipboardText(r->clipboard ? r->clipboard : ""); status(a,"Preview selection copied."); } }
+        if (r->kind==JOB_COPY) { if (r->error) status(a,r->error); else { copy_text(a,r->clipboard,"Preview selection copied."); } }
         else if (r->kind==JOB_STATISTICS) step_preview_statistics_reply(&a->step_preview,r);
         reply_free(r); return;
     }
@@ -1499,7 +1534,7 @@ static void poll_query(App *a) {
         reply_free(r); return;
     }
     if (r->kind==JOB_PIVOT_COPY || r->kind==JOB_RANGE_COPY) {
-        if (r->error) status(a,r->error); else { SetClipboardText(r->clipboard ? r->clipboard : ""); status(a,"Selection copied."); }
+        if (r->error) status(a,r->error); else { copy_text(a,r->clipboard,"Selection copied."); }
         reply_free(r); return;
     }
     if (r->kind==JOB_PIVOT) {
@@ -1574,8 +1609,7 @@ static void poll_query(App *a) {
         a->modal=MODAL_ERROR;
         fprintf(stderr,"Duxcel: %s\n",r->error);
     } else if (r->kind==JOB_COPY) {
-        if (r->clipboard) SetClipboardText(r->clipboard);
-        status(a,"Selection copied as spreadsheet TSV.");
+        copy_text(a,r->clipboard,"Selection copied as spreadsheet TSV.");
     } else {
         if (r->page.count_pending && a->known_total>=0) { r->page.count_pending=false; r->page.total=(uint64_t)a->known_total; }
         if (r->page.count_pending) {
@@ -1815,6 +1849,9 @@ static const UICellReadout *active_value(App *a) {
     return a->active_readout.value.valid ? &a->active_readout.value : NULL;
 }
 static void copy_selection(App *a) {
+#ifdef DUXCEL_BROWSER_HOST
+    if (a->browser_clipboard_pending) { status(a,"A clipboard write is still pending."); return; }
+#endif
     if (a->step_preview.active) {
         StepPreview *preview=&a->step_preview; uint64_t r0,r1; size_t c0,c1; grid_bounds(&preview->grid,&r0,&r1,&c0,&c1);
         if (!preview->page.total || r0>=preview->page.total || c0>=preview->page.column_count || preview->loading) { status(a,"Wait for a preview result before copying cells."); return; }
@@ -1881,7 +1918,7 @@ static void copy_selection(App *a) {
     }
     if (!copy->count) {
         char *text=clipboard_tsv(&copy->cells,&error); if (!text) goto failed;
-        SetClipboardText(text); free(text); copy_request_free(copy); status(a,"Selection copied."); return;
+        copy_text(a,text,"Selection copied."); free(text); copy_request_free(copy); return;
     }
     /* Guard cached contributors too: an asynchronous patch must not combine
        values already on screen with another version of the same source. */
@@ -4163,7 +4200,7 @@ static void inspect_value(App *a) {
 }
 static void inspector_copy(App *a) {
     if (a->inspector_null) { status(a,"SQL NULL has no text value to copy."); return; }
-    SetClipboardText(a->inspector_text); status(a,a->inspector_bytes ? "Complete cell value copied." : "Empty text copied (0 bytes).");
+    copy_text(a,a->inspector_text,a->inspector_bytes ? "Complete cell value copied." : "Empty text copied (0 bytes).");
 }
 static void draw_inspector(App *a) {
     UIContext *u=&a->ui; float s=u->scale;
@@ -4833,7 +4870,7 @@ static void copy_statistics(App *a) {
     if (!ready) return;
     char *text=dx_strdup("Selection statistics\n");
     for (int i=0;i<8;i++) { char buffer[256]; dx_append(&text,"%s\t%s%s",statistics_names[i],statistics_value(a,i,buffer),i<7 ? "\n" : ""); }
-    SetClipboardText(text); free(text); status(a,"Selection statistics copied.");
+    copy_text(a,text,"Selection statistics copied."); free(text);
 }
 static void draw_statistics(App *a) {
     UIContext *u=&a->ui; float s=u->scale;
@@ -5346,7 +5383,7 @@ static void draw_modal(App *a) {
         }
         wrapped_message(a,box(x+18*s,y+65*s,w-36*s,h-130*s));
         REVIEW_AUTHOR_ITEM(a,"error","copy_error","error.copy","button","Copy error",copy,panel,true,false,false,NULL);
-        if (ui_button(u,copy,"Copy error",false,true)) SetClipboardText(a->message);
+        if (ui_button(u,copy,"Copy error",false,true)) copy_text(a,a->message,NULL);
         if (has_relink) {
             REVIEW_AUTHOR_ITEM(a,"error","relink","source.relink","button","Relink source",relink,panel,can_relink,false,false,NULL);
             if (ui_button(u,relink,"Relink source",false,can_relink)) { open_modal(a,MODAL_RELINK); return; }
@@ -5369,7 +5406,7 @@ static void draw_modal(App *a) {
         draw_sql(a,box(x+18*s,y+92*s,w-36*s,h-162*s));
         REVIEW_AUTHOR_ITEM(a,"generated_sql","copy","sql.copy","button","Copy SQL",box(x+24*s,y+h-52*s,112*s,30*s),panel,true,false,false,NULL);
         if (ui_button(u,box(x+24*s,y+h-52*s,112*s,30*s),"Copy SQL",true,true)) {
-            SetClipboardText(a->sql_text ? a->sql_text : ""); status(a,"Generated SQL copied.");
+            copy_text(a,a->sql_text,"Generated SQL copied.");
         }
         ui_text(u,"Scroll to inspect · Escape to close",x+155*s,y+h-44*s,12,UI_MUTED);
     } else if (a->modal==MODAL_GROUP) draw_summary(a,x,y,w,h);
@@ -5758,7 +5795,7 @@ static void draw_pipeline(App *a,Rectangle r) {
         text_lines_draw_sized(lines,u,a->inspector_sql_text ? a->inspector_sql_text : "",(size_t)a->inspector_sql_scroll,code,12,20,(Color){49,91,118,255});
         if (maximum) list_scrollbar(a,box(code.x+code.width,code.y,8*scale,code.height),(int)lines->count,visible,&a->inspector_sql_scroll,&a->steps_drag,&a->steps_grab,enabled);
         DrawLineV((Vector2){r.x,layout.footer.y},(Vector2){r.x+r.width,layout.footer.y},(Color){220,228,235,255});
-        if (ui_carbon_command(u,layout.copy,CARBON_COPY,"Copy SQL",false,passive_control(a,header_enabled))) { SetClipboardText(a->inspector_sql_text ? a->inspector_sql_text : ""); status(a,"Source SQL copied."); }
+        if (ui_carbon_command(u,layout.copy,CARBON_COPY,"Copy SQL",false,passive_control(a,header_enabled))) { copy_text(a,a->inspector_sql_text,"Source SQL copied."); }
         if (ui_carbon_command(u,layout.steps,CARBON_DATA_STRUCTURED,"Steps",false,passive_control(a,header_enabled))) { a->pipeline_sql=false; a->pipeline_focus_index=a->pipeline_selected_step; }
         if (a->chrome_focus==8) ui_focus_border(a->pipeline_focus_index ? layout.steps : layout.copy,a->pipeline_focus_index ? layout.steps : layout.copy,1.5f*scale);
         return;
@@ -5911,7 +5948,7 @@ static bool chrome_keyboard(App *a) {
         if (ui_pressed(KEY_END)) a->inspector_sql_scroll=INT_MAX;
         if (ui_pressed(KEY_TAB)) a->pipeline_focus_index=a->pipeline_focus_index ? 0 : 1;
         bool copy=ui_pressed(KEY_C) && ui_key_shortcut(KEY_C),activate=ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE);
-        if (copy || (activate && !a->pipeline_focus_index)) { SetClipboardText(a->inspector_sql_text ? a->inspector_sql_text : ""); status(a,"Source SQL copied."); }
+        if (copy || (activate && !a->pipeline_focus_index)) { copy_text(a,a->inspector_sql_text,"Source SQL copied."); }
         else if (activate) { a->pipeline_sql=false; a->pipeline_focus_index=a->pipeline_selected_step; }
         a->consume_grid_input=true; return true;
     }
@@ -6206,27 +6243,27 @@ static void shortcuts(App *a) {
         TextInput *field=a->modal==MODAL_FILTER && a->filter_focus==7 ? &a->filter_term : a->modal==MODAL_FILTER && a->filter_focus==8 ? &a->filter_end : a->modal==MODAL_ASSIGN_FIELD ? &a->pivot_search : a->modal==MODAL_SORT ? &a->sort_editor.search : a->modal==MODAL_CHART_SIZE && !a->chart_size_focus ? &a->chart_columns : &a->input;
         if (editing && command==DX_COMMAND_SELECT_ALL) field->select_all=true;
         else if (editing && (command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO)) input_history(field,command==DX_COMMAND_REDO);
-        else if (editing && command==DX_COMMAND_COPY) { char *text=input_selection_text(field); if (text) { SetClipboardText(text); free(text); } }
+        else if (editing && command==DX_COMMAND_COPY) { char *text=input_selection_text(field); if (text) { copy_text(a,text,NULL); free(text); } }
         else if (editing && command==DX_COMMAND_PASTE) {
             const char *text=GetClipboardText(); if (text && (a->modal==MODAL_SOURCE_QUERY || !strpbrk(text,"\r\n"))) input_insert(field,text);
         }
         if (editing && command!=DX_COMMAND_NONE) field->native_edit=true;
         if (a->modal==MODAL_INSPECT && command==DX_COMMAND_COPY) inspector_copy(a);
         if (a->modal==MODAL_STATISTICS && command==DX_COMMAND_COPY) copy_statistics(a);
-        if (a->modal==MODAL_SQL && command==DX_COMMAND_COPY) SetClipboardText(a->sql_text ? a->sql_text : "");
+        if (a->modal==MODAL_SQL && command==DX_COMMAND_COPY) copy_text(a,a->sql_text,NULL);
         return;
     }
     if (ui_key_control(KEY_F1) && ui_pressed(KEY_F1)) { a->modal=MODAL_RIBBON; a->ribbon_menu_focus=a->ribbon_mode; a->consume_grid_input=true; return; }
     if (a->ribbon_mode==3 && (native_navigation || ui_pressed(KEY_F6) || ui_pressed(KEY_LEFT_ALT) || ui_pressed(KEY_RIGHT_ALT))) set_ribbon_mode(a,a->previous_ribbon_mode);
     if (a->pivot_search_focus && (command==DX_COMMAND_COPY || command==DX_COMMAND_PASTE || command==DX_COMMAND_SELECT_ALL || command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO)) {
         if (command==DX_COMMAND_SELECT_ALL) a->pivot_search.select_all=true;
-        else if (command==DX_COMMAND_COPY) { char *text=input_selection_text(&a->pivot_search); if (text) { SetClipboardText(text); free(text); } }
+        else if (command==DX_COMMAND_COPY) { char *text=input_selection_text(&a->pivot_search); if (text) { copy_text(a,text,NULL); free(text); } }
         else if (command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO) input_history(&a->pivot_search,command==DX_COMMAND_REDO);
         else { const char *text=GetClipboardText(); if (text && !strpbrk(text,"\r\n")) input_insert(&a->pivot_search,text); }
         a->pivot_search.native_edit=true; a->consume_grid_input=true; return;
     }
     if (command!=DX_COMMAND_NONE) {
-        if (command==DX_COMMAND_COPY && a->pipeline && !a->pipeline_collapsed && a->pipeline_sql && a->chrome_focus==8) { SetClipboardText(a->inspector_sql_text ? a->inspector_sql_text : ""); status(a,"Source SQL copied."); a->consume_grid_input=true; return; }
+        if (command==DX_COMMAND_COPY && a->pipeline && !a->pipeline_collapsed && a->pipeline_sql && a->chrome_focus==8) { copy_text(a,a->inspector_sql_text,"Source SQL copied."); a->consume_grid_input=true; return; }
         a->consume_grid_input=true;
         if (command==DX_COMMAND_OPEN) open_modal(a,MODAL_OPEN);
         else if (command==DX_COMMAND_SAVE_AS || (command==DX_COMMAND_SAVE && !a->book.path)) open_modal(a,MODAL_SAVE);
@@ -12165,6 +12202,7 @@ bool app_frame(AppSession *session) {
     /* Owned chooser replies publish only during ordinary App dispatch, after
        pending worker work; frozen review never mutates the captured workbook. */
     process_browser_file(a);
+    process_browser_clipboard(a);
 #endif
     watch_statistics(a);
     if (window_close_requested() || dx_native_quit_requested()) { DocumentAction action=dx_native_quit_requested() ? DOCUMENT_QUIT : DOCUMENT_CLOSE; dx_native_acknowledge_quit(); request_document_action(a,action,NULL); }

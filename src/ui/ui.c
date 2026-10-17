@@ -934,7 +934,16 @@ static void input_key_at(TextInput *in,int key,unsigned modifiers,double now) {
     in->cursor=next; in->anchor=shift ? anchor : next; in->select_all=false; in->dragging=false; in->edit_kind=0;
 }
 void input_key(TextInput *in,int key,unsigned modifiers) { input_key_at(in,key,modifiers,-1); }
-static void input_copy_selection(TextInput *in) { char *text=input_selection_text(in); if (text) { SetClipboardText(text); free(text); } }
+static void input_copy_selection(TextInput *in) {
+    char *text=input_selection_text(in);
+    if (!text) return;
+#ifdef DUXCEL_BROWSER_HOST
+    dx_web_clipboard_begin(text);
+#else
+    SetClipboardText(text);
+#endif
+    free(text);
+}
 void input_update(TextInput *in) {
 #ifdef DUXCEL_DEV_REVIEW
     if (dx_review_input_blocked()) return;

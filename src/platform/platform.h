@@ -72,6 +72,11 @@ bool dx_input_pixel_pan(DxPanInput *input);
 #ifdef DUXCEL_BROWSER_HOST
 /* Non-consuming per-frame CSS-pixel pan; never monitor/backing pixels. */
 bool dx_web_pixel_pan(float *x,float *y);
+/* One owned asynchronous write. Text is copied before begin returns; consume
+   its terminal acknowledgment only during ordinary application dispatch. */
+typedef struct { unsigned id; bool success; char error[513]; } DxWebClipboardResult;
+unsigned dx_web_clipboard_begin(const char *text);
+bool dx_web_clipboard_take(DxWebClipboardResult *result);
 #endif
 typedef enum { DX_COMMAND_NONE,DX_COMMAND_OPEN,DX_COMMAND_SAVE,DX_COMMAND_SAVE_AS,DX_COMMAND_NEW_SHEET,DX_COMMAND_SETTINGS,
     DX_COMMAND_COPY,DX_COMMAND_PASTE,DX_COMMAND_SELECT_ALL,DX_COMMAND_UNDO,DX_COMMAND_REDO,DX_COMMAND_PIVOT,
