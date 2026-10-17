@@ -79,13 +79,14 @@ async function platformSnapshot(){
  await key('Escape','Escape',27);return state;
 }
 async function hintMotion(){
- const results=[];let restingRed;
+ await pause(180);await frames(3);
+ const restingRed=await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>{const c=document.querySelector('canvas'),g=c.getContext('webgl2')||c.getContext('webgl'),r=c.width/1280,p=new Uint8Array(4);g.readPixels(Math.floor(60*r),c.height-1-Math.floor(28.25*r),1,1,g.RGBA,g.UNSIGNED_BYTE,p);resolve(p[0]);}))`);
+ const results=[];
  for(const name of ['show','hide']){
   await evaluate(`globalThis.duxcelHintSamples=new Promise(resolve=>{const c=document.querySelector('canvas'),gl=c.getContext('webgl2')||c.getContext('webgl'),ratio=c.width/1280,data=new Uint8Array(4),samples=[];let start;function tick(now){start??=now;gl.readPixels(Math.floor(60*ratio),c.height-1-Math.floor(28.25*ratio),1,1,gl.RGBA,gl.UNSIGNED_BYTE,data);samples.push({ms:now-start,rgb:Array.from(data.slice(0,3))});if(now-start>=260)resolve(samples);else requestAnimationFrame(tick);}requestAnimationFrame(tick);});true`);
   const show=name==='show',params=show?{key:'Alt',code:'AltLeft',windowsVirtualKeyCode:18,modifiers:1}:{key:'Escape',code:'Escape',windowsVirtualKeyCode:27,modifiers:0};
   await send('Input.dispatchKeyEvent',{type:'keyDown',...params});await frames(1);await send('Input.dispatchKeyEvent',{type:'keyUp',...params,modifiers:0});
   const samples=await evaluate('globalThis.duxcelHintSamples');
-  if(show)restingRed=samples[0].rgb[0];
   results.push({name,samples});await fs.writeFile(path.join(output,'keytip-motion.json'),JSON.stringify(results,null,2));
   check(samples.some(s=>s.rgb[0]>175&&s.rgb[0]<restingRed-3),'Keytips did not visibly fade '+name);
   const red=samples.at(-1).rgb[0];
