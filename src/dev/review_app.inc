@@ -228,7 +228,7 @@ static uint64_t review_field_hash(const char *text) {
 }
 static bool review_author_dialog(const char *kind) {
     return !strcmp(kind,"column_width") || !strcmp(kind,"move_range") || !strcmp(kind,"object_name") ||
-        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sort") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"cell_inspector") || !strcmp(kind,"settings") || !strcmp(kind,"generated_sql") || !strcmp(kind,"guide");
+        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sort") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"cell_inspector") || !strcmp(kind,"settings") || !strcmp(kind,"generated_sql") || !strcmp(kind,"guide") || !strcmp(kind,"error");
 }
 static bool review_author_field(char output[128],const char *field) {
     size_t length=strlen(field);
@@ -297,6 +297,10 @@ static const char *review_author_identity(App *a,const char *kind,char parent[12
     SheetObject *object=selected_object(a); const char *field=NULL,*scope=NULL;
     static const char *const roles[]={"rows","columns","values","filters"};
     static const char *const marks[]={"color","size","label","detail","tooltip","shape"};
+    if (!strcmp(kind,"error")) {
+        *data=(DxReviewDataIdentity){.present=true}; review_document_id(a,data->document_id); snprintf(data->kind,sizeof(data->kind),"document-error");
+        snprintf(parent,128,"author.error"); return NULL;
+    }
     if (!strcmp(kind,"guide")) {
         *data=(DxReviewDataIdentity){.present=true}; review_document_id(a,data->document_id); snprintf(data->kind,sizeof(data->kind),"guide-document");
         snprintf(parent,128,"author.guide"); return NULL;
@@ -547,6 +551,16 @@ static void review_cell_editor(App *a,Rectangle bounds,Rectangle clip,const char
     for (size_t i=0;i<input->redo_count && i<32;i++) redo_bytes+=input->redo[i].capacity;
     char hex[129],state[1024]; bool truncated=review_author_hex64(hex,input->text);
     snprintf(state,sizeof(state)," author_kind=cell_editor cell_editor_rect=%.3f,%.3f,%.3f,%.3f cell_editor_cursor=%zu cell_editor_anchor=%zu cell_editor_select_all=%d cell_editor_revision=%llu cell_editor_view_start=%zu cell_editor_bytes=%zu cell_editor_history=%zu,%zu cell_editor_history_bytes=%zu,%zu cell_editor_origin=%llu,0,0,0,%llu,%llu,%llu,1 cell_editor_text_hex=%s cell_editor_text_truncated=%d cell_editor_value_truncated=%d",shown.x,shown.y,shown.width,shown.height,input->cursor,input->anchor,input->select_all,(unsigned long long)input->revision,input->view_start,input->length,input->undo_count,input->redo_count,undo_bytes,redo_bytes,(unsigned long long)widget.data.sheet_id,(unsigned long long)widget.data.query_generation,(unsigned long long)widget.data.row,(unsigned long long)widget.data.column,hex,truncated,widget.value.truncated);
+    review_author_capture_state(a,state);
+}
+static void review_error_content(App *a,Rectangle bounds,size_t painted_lines,bool clipped,const char *file,int line) {
+    if (!review_armed(a) || a->modal!=MODAL_ERROR) return;
+    Rectangle clip=a->ui.clipping ? a->ui.clip : box(0,0,GetScreenWidth(),GetScreenHeight());
+    DxReviewWidget *widget=review_author_widget(a,"author.error.content","author.error","error","error.inspect","region","Error message",bounds,clip,131,true,false,false,false,NULL,file,line);
+    if (!widget) return;
+    dx_review_value_set(&widget->value,"VARCHAR",false,a->message ? a->message : ""); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated;
+    Rectangle shown=GetCollisionRec(bounds,clip); char text[129],state[640]; bool truncated=review_author_hex64(text,a->message);
+    snprintf(state,sizeof(state)," error_content_rect=%.3f,%.3f,%.3f,%.3f error_bytes=%zu error_lines=%zu error_clipped=%d error_message_since=%.3f error_request=%llu error_pending_kind=%d error_busy=%d error_io_busy=%d error_text_hex=%s error_text_truncated=%d error_value_truncated=%d",shown.x,shown.y,shown.width,shown.height,a->message ? strlen(a->message) : 0,painted_lines,clipped,a->message_since,(unsigned long long)a->request_id,(int)a->pending_kind,a->busy,a->io_busy,text,truncated,widget->value.truncated);
     review_author_capture_state(a,state);
 }
 static void review_sql_content(App *a,const char *sql,Rectangle bounds,Rectangle clip,int scroll,int lines,int visible,const char *file,int line) {
