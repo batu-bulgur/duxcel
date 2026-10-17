@@ -73,7 +73,7 @@ typedef enum {
     WAIT_VALIDATE,WAIT_PREVIEW,WAIT_ERROR,WAIT_RECOVERY,
     WAIT_DISTINCT0,WAIT_DISTINCT128,WAIT_DISTINCT256,WAIT_DISTINCT_SEARCH,
     WAIT_DISTINCT_PRIMARY,WAIT_DISTINCT_SECONDARY,WAIT_DISTINCT_DECIMAL_PRIMARY,
-    WAIT_DISTINCT_DECIMAL_SECONDARY,WAIT_DATE_YEAR,WAIT_DATE_MONTH,
+    WAIT_DISTINCT_DECIMAL_SECONDARY,WAIT_DECIMAL_PAGE,WAIT_DECIMAL_COUNT,WAIT_DATE_YEAR,WAIT_DATE_MONTH,
     WAIT_DATE_DAY,WAIT_DATE_HOUR,WAIT_DATE_MINUTE,WAIT_DATE_NULL,
     WAIT_DISTINCT_ERROR,WAIT_DISTINCT_RECOVERY,WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
     WAIT_OVERSIZE_ERROR,WAIT_OVERSIZE_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
@@ -138,6 +138,16 @@ static void submit_distinct(const char *sql,const char *column,const char *searc
     job->date_start=start ? dx_strdup(start) : NULL; job->date_end=end ? dx_strdup(end) : NULL;
     job->offset=expected_offset=offset; job->known_total=total; job->object_id=object_id; job->revision=revision_id;
     job->is_table=true; expected_preview=false; expected_sql+=sql_count;
+    worker_submit(&worker,job);
+}
+static void submit_decimal(JobKind kind,unsigned sql_count) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job));
+    job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=kind;
+    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(decimal_filter_sql),.sort_column=dx_strdup("label")};
+    CHECK(analysis_filter_set(&job->analysis,"amount",FILTER_GREATER,"1.005",NULL));
+    CHECK(job->analysis.filter_number.kind==NUM_NONE); /* The backend must resolve this from the source. */
+    job->known_total=-1; job->object_id=object_id; job->revision=revision_id;
+    expected_offset=0; expected_preview=false; expected_sql+=sql_count; if (kind==JOB_COUNT) expected_counts++;
     worker_submit(&worker,job);
 }
 static bool poll_received(bool error,bool sent) {
@@ -212,10 +222,7 @@ static void distinct_reply(size_t count,uint64_t total) {
 static void date_value(size_t row,const char *value,const char *label,const char *upper) {
     distinct_value(&reply->distinct.values[row],value,label,upper);
 }
-static void decimal_distinct_values(bool secondary) {
-    distinct_reply(2,2);
-    distinct_value(&reply->distinct.values[0],"B","B",NULL);
-    distinct_value(&reply->distinct.values[1],"C","C",NULL);
+static void decimal_analysis(bool secondary) {
     const Analysis *analysis=&reply->analysis;
     CHECK(analysis->filter_count==(secondary ? 1u : 0u));
     CHECK(analysis->filter_column && !strcmp(analysis->filter_column,secondary ? "label" : "amount"));
@@ -225,6 +232,12 @@ static void decimal_distinct_values(bool secondary) {
     else CHECK(analysis->filter_op==FILTER_GREATER);
     NumberType number=secondary ? analysis->filters[0].number : analysis->filter_number;
     CHECK(number.kind==NUM_DECIMAL && number.precision==4 && number.scale==2);
+}
+static void decimal_distinct_values(bool secondary) {
+    distinct_reply(2,2);
+    distinct_value(&reply->distinct.values[0],"B","B",NULL);
+    distinct_value(&reply->distinct.values[1],"C","C",NULL);
+    decimal_analysis(secondary);
 }
 static void inject_late(void *unused) {
     (void)unused;
@@ -315,6 +328,23 @@ static void tick(void) {
     case WAIT_DISTINCT_DECIMAL_SECONDARY:
         if (!received(false)) return;
         decimal_distinct_values(true); release_reply(); pass("distinct secondary DECIMAL comparison retains B and C after removing the own-column filter");
+        submit_decimal(JOB_PAGE,2); enter(WAIT_DECIMAL_PAGE); return;
+    case WAIT_DECIMAL_PAGE: {
+        if (!received(false)) return;
+        const Page *page=&reply->page; decimal_analysis(false);
+        CHECK(page->row_count==2 && page->column_count==2 && page->offset==0 && page->total==2 && !page->count_pending && !page->release_cell_text);
+        CHECK(!strcmp(page->columns[0].name,"amount") && !strcmp(page->columns[0].type_name,"DECIMAL(4,2)") && page->columns[0].type==DUCKDB_TYPE_DECIMAL);
+        CHECK(page->columns[0].numeric && page->columns[0].number_type.kind==NUM_DECIMAL && page->columns[0].number_type.precision==4 && page->columns[0].number_type.scale==2);
+        CHECK(!strcmp(page->columns[1].name,"label") && page->columns[1].type==DUCKDB_TYPE_VARCHAR && !page->columns[1].numeric);
+        static const char *values[]={"1.01","B","1.02","C"};
+        for (size_t i=0;i<4;i++) CHECK(!page->cells[i].is_null && page->cells[i].text && !strcmp(page->cells[i].text,values[i]));
+        release_reply(); pass("typed DECIMAL PAGE keeps exact 1.01/B and 1.02/C above the unrounded 1.005 threshold");
+        submit_decimal(JOB_COUNT,1); enter(WAIT_DECIMAL_COUNT); return;
+    }
+    case WAIT_DECIMAL_COUNT:
+        if (!received(false)) return;
+        decimal_analysis(false); validation_reply(); CHECK(reply->counted_rows==2);
+        release_reply(); pass("typed DECIMAL COUNT reuses source metadata and counts both rows above 1.005");
         submit_distinct(dates_sql,"occurred","",0,NULL,NULL,0,-1,0,2); enter(WAIT_DATE_YEAR); return;
     case WAIT_DATE_YEAR:
         if (!received(false)) return;
@@ -437,7 +467,7 @@ static void tick(void) {
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
         retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
         page_free(&retained); page_free(&retained); pass("early stop and scheduled stale callbacks are ignored");
-        CHECK(stages==31 && worker.jobs_started==38 && expected_sql==56 && expected_counts==1);
+        CHECK(stages==33 && worker.jobs_started==40 && expected_sql==59 && expected_counts==2);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
