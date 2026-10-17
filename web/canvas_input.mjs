@@ -3,8 +3,9 @@
 const navigationKeys=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End','PageUp','PageDown']);
 const installations=new WeakMap();
 
-/** Only unmodified and Shift navigation is claimed. Ctrl/Alt/Meta shortcut
- * ownership requires a separate platform audit. Repeated installation shares
+/** Unmodified/Shift navigation and the ribbon's bare Alt key are claimed.
+ * Modified printable input still reaches composition/browser handling.
+ * Repeated installation shares
  * one listener and disposer. Disposing either
  * handle removes that installation; disposal is idempotent, and reinstalling
  * afterward creates a new independent handle. */
@@ -13,6 +14,9 @@ export function installCanvasInput(canvas){
     const installed=installations.get(canvas);if(installed)return installed;
     const keydown=event=>{
         if(event.target!==canvas||canvas.ownerDocument?.activeElement!==canvas||event.isComposing||event.keyCode===229)return;
+        // Alt opens C keytips. Letting the browser also activate its menu can
+        // redispatch the following ribbon letter through Cocoa menu routing.
+        if(event.key==='Alt'&&!event.ctrlKey&&!event.metaKey){if(!event.defaultPrevented)event.preventDefault();return;}
         if(event.ctrlKey||event.altKey||event.metaKey)return;
         if(navigationKeys.has(event.key)&&!event.defaultPrevented)event.preventDefault();
     };

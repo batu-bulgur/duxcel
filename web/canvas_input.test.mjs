@@ -57,6 +57,17 @@ test('an existing default prevention remains intact without duplicate prevention
     const event=dispatch('ArrowUp',{defaultPrevented:true});assert.equal(event.defaultPrevented,true);assert.equal(event.preventions,0);
 });
 
+test('bare Alt belongs to C keytips, with composition and OS chords preserved',()=>{
+    const {canvas,document,dispatch}=setup();installCanvasInput(canvas);
+    assert.equal(dispatch('Alt',{altKey:true}).preventions,1);
+    assert.equal(dispatch('Alt',{shiftKey:true,altKey:true}).preventions,1);
+    for(const modifiers of [{ctrlKey:true},{metaKey:true},{isComposing:true},{keyCode:229}])
+        assert.equal(dispatch('Alt',modifiers).defaultPrevented,false);
+    for(const key of ['AltGraph','å','v'])assert.equal(dispatch(key,{altKey:true}).defaultPrevented,false);
+    assert.equal(dispatch('Alt',{defaultPrevented:true}).preventions,0);
+    document.activeElement={};assert.equal(dispatch('Alt').defaultPrevented,false);
+});
+
 test('repeated installs share one listener; disposal and reinstall cannot remove another installation',()=>{
     const {canvas,listeners,dispatch}=setup();
     const first=installCanvasInput(canvas),second=installCanvasInput(canvas);assert.equal(first,second);assert.equal(listeners.get('keydown').length,1);
