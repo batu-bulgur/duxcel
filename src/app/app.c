@@ -6215,7 +6215,9 @@ static void file_action(App *a,UIKeytipFileAction action) {
         if (a->busy || a->io_busy) status(a,"Wait for the current operation before importing a table.");
         else import_table_panel(a);
         break;
-    case UI_KEYTIP_FILE_EXPORT: export_panel(a); break;
+    case UI_KEYTIP_FILE_EXPORT:
+        if (export_ready(a)) { end_step_preview(a); export_panel(a); }
+        break;
     case UI_KEYTIP_FILE_QUIT:
 #ifdef DUXCEL_BROWSER_HOST
         status(a,"Use your browser's Close tab command to leave Duxcel.");

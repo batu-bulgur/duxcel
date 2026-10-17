@@ -13,7 +13,7 @@ from test import FileLock, native_lock_path, source_metadata, utc_now
 from native_review import ReviewStore, default_project
 
 ROOT = Path(__file__).resolve().parents[1]
-REVIEW_STAGES = 396  # 372 prior scopes +24 pipeline/preview/domain feedback scopes
+REVIEW_STAGES = 400  # 396 prior scopes +4 real long-UTF8 field scopes
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 def run(argv, path, env=None, timeout=180):
