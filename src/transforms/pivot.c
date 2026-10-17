@@ -6,7 +6,7 @@
 static bool fail(char **error,const char *text) { free(*error); *error=dx_strdup(text); return false; }
 static void field_free(PivotField *f) { free(f->name); free(f->value); memset(f,0,sizeof(*f)); }
 void pivot_free(PivotDefinition *p) {
-    for (int r=0;r<4;r++) for (size_t i=0;i<p->counts[r];i++) field_free(&p->fields[r][i]);
+    for (int r=0;r<4;r++) for (size_t i=0;i<p->counts[r] && i<DX_PIVOT_FIELDS;i++) field_free(&p->fields[r][i]);
     memset(p,0,sizeof(*p));
 }
 PivotDefinition pivot_copy(const PivotDefinition *p) {
