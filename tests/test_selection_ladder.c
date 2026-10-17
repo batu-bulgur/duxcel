@@ -94,5 +94,5 @@ static void terminal_and_ties(void) {
 }
 int main(void) {
     progressive(); candidates_and_guards(); terminal_and_ties();
-    printf("PASS selection ladder: %u checks\n",checks); return 0;
+    printf("PASS: %u selection ladder checks\n",checks); return 0;
 }
