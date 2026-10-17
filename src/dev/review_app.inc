@@ -238,6 +238,14 @@ static const char *review_author_identity(App *a,const char *kind,char parent[12
     if (!strcmp(kind,"sheet_menu") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"sheet_unhide")) {
         *data=review_sheet_scope(a,a->sheet_menu_index); snprintf(parent,128,"author.%s",kind); return NULL;
     }
+    if (!strcmp(kind,"source_query")) {
+        *data=review_scope(a); snprintf(data->kind,sizeof(data->kind),"source-query");
+        data->source_id=data->object_id=data->schema_generation=0; data->query_generation=a->query_source_revision;
+        data->has_cell=false; data->row=data->column=0; data->field[0]=0;
+        ObjectStore *store=&active_sheet(a)->objects;
+        if (a->query_object>=0 && (size_t)a->query_object<store->count && store->items[a->query_object].kind==OBJECT_TABLE) data->source_id=data->object_id=store->items[a->query_object].id;
+        snprintf(parent,128,"author.%s",kind); return NULL;
+    }
     *data=review_scope(a);
     if (object) {
         data->object_id=object->id; data->source_id=object->kind==OBJECT_TABLE ? object->id : object->source_id;
@@ -324,6 +332,10 @@ static void review_author_panel(App *a,const char *kind,const char *title,Rectan
     float offset=a->popup_capturing ? a->popup_presence.offset*a->ui.scale : 0;
     char state[480]; snprintf(state,sizeof(state)," author_kind=%s author_parent=%s author_count=00 author_overflow=0 author_panel=%.3f,%.3f,%.3f,%.3f author_heading=%.3f,%.3f,%.3f,%.3f",kind,parent,panel.x,panel.y+offset,panel.width,panel.height,heading.x,heading.y+offset,heading.width,heading.height);
     review_author_capture_state(a,state);
+    if (!strcmp(kind,"source_query")) {
+        char query[320]; snprintf(query,sizeof(query)," query_object=%d query_source_revision=%llu query_draft_revision=%llu query_focus=%d query_loading=%d query_cursor=%zu query_anchor=%zu query_scroll=%d",a->query_object,(unsigned long long)a->query_source_revision,(unsigned long long)a->input.revision,a->query_focus,a->query_loading,a->input.cursor,a->input.anchor,a->query_editor.scroll);
+        review_author_capture_state(a,query);
+    }
 }
 static void review_author_item(App *a,const char *kind,const char *key,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,const char *file,int line) {
     if (!review_armed(a)) return;
