@@ -3972,12 +3972,23 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
             if (horizontal) scrollbar_input|=ui_scrollbar(u,box(body.x,body.y+body.height-8*s,area_width,8*s),total,area_width/s,&a->matrix_horizontal,true,&a->matrix_hbar,enabled);
             if (vertical) scrollbar_input|=ui_scrollbar(u,box(body.x+body.width-8*s,rows.y,8*s,area_height),result->row_count*24,area_height/s,&a->matrix_vertical,false,&a->matrix_vbar,enabled);
             DxPointerGesture footer_gesture;
-            if (totals && enabled && ui_take_left_gesture_from(footer_clip,&footer_gesture)) { matrix_select_frame(a,o); if (!active) set_representation(a,0); }
+            bool footer_click=totals && enabled && (ui_take_left_gesture_from(footer_clip,&footer_gesture) ||
+                (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse,footer_clip)));
+            if (footer_click) { matrix_select_frame(a,o); if (!active) set_representation(a,0); }
         }
         ui_clear_clip(u);
         DxPointerGesture gesture;
-        if (enabled && !scrollbar_input && ui_take_gesture_from(visible,&gesture)) { if (gesture.right) { a->modal=MODAL_OBJECT; a->context_origin=(Vector2){gesture.x1,gesture.y1}; a->context_focus=a->context_scroll=0; } else { if (!active) set_representation(a,which ? 1 : 0); if (gesture.y0<panel.y+30*s) a->matrix_cells_active=false; } a->consume_grid_input=true; }
-        else if (enabled && !scrollbar_input && !active && CheckCollisionPointRec(mouse,visible) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) set_representation(a,which ? 1 : 0);
+        if (enabled && !scrollbar_input && ui_take_gesture_from(visible,&gesture)) { if (gesture.right) { a->modal=MODAL_OBJECT; a->context_origin=(Vector2){gesture.x1,gesture.y1}; a->context_focus=a->context_scroll=0; } else { if (!active) set_representation(a,which ? 1 : 0); if (gesture.y0<panel.y+30*s) matrix_select_frame(a,o); } a->consume_grid_input=true; }
+        else if (enabled && !scrollbar_input && !a->consume_grid_input && a->modal==MODAL_NONE && CheckCollisionPointRec(mouse,visible)) {
+            /* Browser input has ordinary button edges without Cocoa's queued
+               gestures. Share the same frame/title/context transitions. */
+            if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { a->modal=MODAL_OBJECT; a->context_origin=mouse; a->context_focus=a->context_scroll=0; a->consume_grid_input=true; }
+            else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                Rectangle title=GetCollisionRec(box(panel.x,panel.y,panel.width-34*s,30*s),visible);
+                if (!active) set_representation(a,which ? 1 : 0);
+                if (CheckCollisionPointRec(mouse,title)) matrix_select_frame(a,o);
+            }
+        }
     }
     EndScissorMode(); ui_clear_clip(u);
     ui_scrollbar_paint(u,analysis_track,layout.height,logical.height,a->analysis_scroll,false);
