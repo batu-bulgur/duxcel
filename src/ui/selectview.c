@@ -38,3 +38,64 @@ bool ui_select_field(UIContext *u,Rectangle r,const char *label,UISelectStyle st
     if (scissor) ui_scissor_end(u);
     return clicked;
 }
+
+UISelectMenuLayout ui_select_menu_layout(Vector2 anchor,Vector2 window,float scale,float width,int count) {
+    UISelectMenuLayout out={0};
+    if (!isfinite(anchor.x) || !isfinite(anchor.y) || !isfinite(window.x) || !isfinite(window.y) ||
+        !isfinite(scale) || scale<=0 || !isfinite(width) || width<=2 ||
+        window.x<=0 || window.y<=0 || count<1 || count>64) return out;
+    /* Divide in double precision so finite extreme inputs cannot overflow a
+       float ratio or an integer capacity cast before the window bounds apply. */
+    double available_width=(double)window.x/scale-10,available_height=(double)window.y/scale-10;
+    double capacity=floor((available_height-2)/26);
+    if (available_width<=2 || capacity<1) return out;
+    int visible=capacity>=count ? count : (int)capacity;
+    double w=fmin(width,available_width),h=2+26*visible;
+    double x=fmax(5,fmin((double)anchor.x/scale,(double)window.x/scale-w-5));
+    double y=fmax(5,fmin((double)anchor.y/scale,(double)window.y/scale-h-5));
+    out.panel=(Rectangle){(float)(x*scale),(float)(y*scale),(float)(w*scale),(float)(h*scale)};
+    out.row_height=26*scale; out.count=count; out.visible=visible;
+    out.items=(Rectangle){out.panel.x+scale,out.panel.y+scale,out.panel.width-2*scale,visible*out.row_height};
+    out.valid=true; return out;
+}
+Rectangle ui_select_menu_row(const UISelectMenuLayout *layout,int visible_row) {
+    if (!layout || !layout->valid || visible_row<0 || visible_row>=layout->visible ||
+        !isfinite(layout->row_height) || layout->row_height<=0) return (Rectangle){0};
+    Rectangle row=layout->items; row.y+=visible_row*layout->row_height; row.height=layout->row_height;
+    return row;
+}
+static Rectangle select_clip(const UIContext *ui,Rectangle rect) {
+    return ui->clipping ? GetCollisionRec(rect,ui->clip) : rect;
+}
+static void select_fill(const UIContext *ui,Rectangle rect,Color color) {
+    Rectangle visible=select_clip(ui,rect);
+    if (visible.width>0 && visible.height>0) DrawRectangleRec(visible,color);
+}
+void ui_select_menu_frame(UIContext *ui,const UISelectMenuLayout *layout) {
+    if (!ui || !layout || !layout->valid || !isfinite(ui->scale) || ui->scale<=0) return;
+    float s=ui->scale; Rectangle panel=layout->panel;
+    select_fill(ui,(Rectangle){panel.x+s,panel.y+2*s,panel.width,panel.height},(Color){25,42,70,24});
+    select_fill(ui,panel,WHITE); ui_border(panel,select_clip(ui,panel),s,UI_BORDER);
+}
+bool ui_select_menu_option(UIContext *ui,const UISelectMenuLayout *layout,int visible_row,
+    const char *label,bool selected,bool focused,bool enabled,bool allow) {
+    if (!ui || !isfinite(ui->scale) || ui->scale<=0) return false;
+    Rectangle row=ui_select_menu_row(layout,visible_row),visible=select_clip(ui,row);
+    if (visible.width<=0 || visible.height<=0) return false;
+    /* Text/icons have CPU clipping; scope it to this row without adding GPU
+       scissor changes or allowing narrow/clipped menus to overpaint siblings. */
+    Rectangle old_clip=ui->clip; bool old_clipping=ui->clipping;
+    ui->clip=visible; ui->clipping=true;
+    bool hover=false,clicked=ui_control_input(ui,row,enabled && allow,&hover);
+    float s=ui->scale;
+    if (enabled && (hover || focused)) {
+        Color fill=hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? (Color){212,228,238,255} : UI_TINT;
+        DrawRectangleRec(visible,fill);
+    }
+    Color ink=enabled ? UI_TEXT : (Color){153,160,172,255};
+    if (selected) ui_carbon(ui,CARBON_CHECKMARK,(Rectangle){row.x+4*s,row.y+(row.height-12*s)*.5f,12*s,12*s},ink);
+    ui_label(ui,label ? label : "",(Rectangle){row.x+20*s,row.y,fmaxf(0,row.width-24*s),row.height},12,ink,false,UI_REGULAR);
+    if (focused && enabled) ui_focus_border(row,visible,s);
+    ui->clip=old_clip; ui->clipping=old_clipping;
+    return clicked;
+}
