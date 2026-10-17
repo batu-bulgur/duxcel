@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FAST_MODULES = (
     "cellreadout", "filterlabel", "grid", "brand", "format", "chartview", "chartencoding",
     "inspector", "stepview", "preview", "statsview", "guideview", "fontmetrics",
-    "motion", "choiceview", "paintlayer", "popup", "marksview", "page",
+    "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
 RECORD_MODULES = ("record_sql", "record_pages")
 ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES)

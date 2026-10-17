@@ -21,6 +21,11 @@ static float magnification;
 static id gesture_monitor;
 static id shortcut_monitor;
 static id pointer_monitor;
+static id scroll_monitor;
+static DxPanInput pending_pan,frame_pan;
+static DxPanPhase pan_phase;
+static bool pan_begin,pan_direct,frame_pan_valid;
+static double pan_seen;
 static DxPointerGesture pointer_gestures[16],pointer_start[2];
 static unsigned pointer_count,pointer_head;
 static bool pointer_recording[2];
@@ -87,6 +92,37 @@ static bool native_canvas_point(NSEvent *event,float *x,float *y) {
     *y=(float)(canvas_view.isFlipped ? point.y-NSMinY(bounds) : NSMaxY(bounds)-point.y);
     return isfinite(*x) && isfinite(*y);
 }
+static void native_record_pan(NSEvent *event) {
+    if (native_panel_active || event.window!=canvas_window ||
+        (!event.hasPreciseScrollingDeltas && !event.phase && !event.momentumPhase)) return;
+    float x,y; if (!native_canvas_point(event,&x,&y)) return;
+    float dx=-(float)event.scrollingDeltaX,dy=-(float)event.scrollingDeltaY;
+    if (!isfinite(dx) || !isfinite(dy)) return;
+    if ((event.modifierFlags&NSEventModifierFlagShift) && !dx) { dx=dy; dy=0; }
+    pending_pan.x=fmaxf(-1000000,fminf(1000000,pending_pan.x+dx));
+    pending_pan.y=fmaxf(-1000000,fminf(1000000,pending_pan.y+dy));
+    pending_pan.pointer_x=x; pending_pan.pointer_y=y; pending_pan.event=true;
+    pan_seen=[NSProcessInfo processInfo].systemUptime;
+    if (event.momentumPhase) pan_phase=(event.momentumPhase&(NSEventPhaseEnded|NSEventPhaseCancelled)) ? DX_PAN_RELEASE : DX_PAN_MOMENTUM;
+    else if (event.phase&(NSEventPhaseEnded|NSEventPhaseCancelled)) pan_phase=DX_PAN_RELEASE;
+    else if (event.phase&(NSEventPhaseBegan|NSEventPhaseChanged|NSEventPhaseStationary)) {
+        pan_phase=DX_PAN_ACTIVE; pan_begin|=(event.phase&NSEventPhaseBegan)!=0;
+        pan_direct|=dx!=0 || dy!=0;
+    } else pan_phase=DX_PAN_NONE;
+}
+void dx_input_begin_frame(void) {
+    /* A lost End (window/modal switch) must not leave the canvas held forever. */
+    if (pan_phase==DX_PAN_ACTIVE && [NSProcessInfo processInfo].systemUptime-pan_seen>.25) pan_phase=DX_PAN_RELEASE;
+    frame_pan=pending_pan;
+    frame_pan.phase=pan_begin ? DX_PAN_BEGIN : pan_direct ? DX_PAN_ACTIVE : pan_phase;
+    frame_pan_valid=frame_pan.event || frame_pan.phase!=DX_PAN_NONE;
+    pending_pan.x=pending_pan.y=0; pending_pan.event=false; pan_begin=pan_direct=false;
+    if (frame_pan.phase==DX_PAN_RELEASE) pan_phase=DX_PAN_NONE;
+}
+bool dx_input_pixel_pan(DxPanInput *input) {
+    if (input) *input=frame_pan;
+    return frame_pan_valid;
+}
 float dx_native_titlebar_inset(void) {
     if (!canvas_window || canvas_view.window!=canvas_window || native_fullscreen() ||
         !(canvas_window.styleMask&NSWindowStyleMaskTitled)) return 0;
@@ -150,7 +186,7 @@ static bool native_titlebar_drag(NSEvent *event,float x,float y) {
 - (void)dealloc { [previous release]; [super dealloc]; }
 - (id)previousDelegate { return previous; }
 - (BOOL)respondsToSelector:(SEL)selector {
-    return selector==@selector(applicationShouldTerminate:) || [previous respondsToSelector:selector];
+    return selector==@selector(applicationShouldTerminate:) || selector==@selector(applicationShouldHandleReopen:hasVisibleWindows:) || selector==@selector(applicationShouldTerminateAfterLastWindowClosed:) || [previous respondsToSelector:selector];
 }
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)selector { return [previous methodSignatureForSelector:selector]; }
 - (void)forwardInvocation:(NSInvocation *)invocation { [invocation invokeWithTarget:previous]; }
@@ -158,6 +194,10 @@ static bool native_titlebar_drag(NSEvent *event,float x,float y) {
     (void)sender; quit_requested=true;
     if (native_panel_active) { [active_native_panel cancel:nil]; [NSApp abortModal]; }
     return NSTerminateCancel;
+}
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender { (void)sender; return NO; }
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)visible {
+    (void)sender; if (!visible) enqueue_command(DX_COMMAND_NEW_WORKBOOK); return NO;
 }
 @end
 static DuxcelApplicationDelegate *application_delegate;
@@ -217,6 +257,11 @@ void dx_native_context(bool modal,bool editing,bool pivot,bool tips) { app_modal
 static DuxcelMenuActions *actions;
 bool dx_native_quit_requested(void) { return quit_requested; }
 void dx_native_acknowledge_quit(void) { quit_requested=false; }
+void dx_native_window_visible(bool visible) {
+    if (!canvas_window) return;
+    if (visible) { ClearWindowState(FLAG_WINDOW_HIDDEN); [canvas_window makeKeyAndOrderFront:nil]; }
+    else { SetWindowState(FLAG_WINDOW_HIDDEN); [canvas_window orderOut:nil]; }
+}
 DxCommand dx_take_command(void) {
     if (!command_count) return DX_COMMAND_NONE;
     DxCommand value=commands[command_head]; command_head=(command_head+1)%64; command_count--; return value;
@@ -271,6 +316,9 @@ void dx_native_setup(void *window) {
         if (event.window==canvas.window) magnification+=(float)event.magnification;
         return event;
     }];
+    if (!scroll_monitor) scroll_monitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskScrollWheel handler:^NSEvent *(NSEvent *event) {
+        native_record_pan(event); return event; /* other widgets retain GLFW wheel input */
+    }];
     if (!shortcut_monitor) shortcut_monitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
         if (event.window && event.window!=canvas.window) return event;
         if (trace_input) fprintf(stderr,"Native key code=%u characters=%s flags=%lu panel=%d modal=%d\n",event.keyCode,[event.charactersIgnoringModifiers UTF8String],(unsigned long)event.modifierFlags,native_panel_active,app_modal);
@@ -300,7 +348,12 @@ void dx_native_setup(void *window) {
         }
         if (letter=='f' && (flags&NSEventModifierFlagCommand) && (flags&NSEventModifierFlagShift) && !(flags&(NSEventModifierFlagOption|NSEventModifierFlagControl))) { enqueue_command(DX_COMMAND_FOCUS_VIEW); return nil; }
         if (key==NSF6FunctionKey) { enqueue_command(flags&NSEventModifierFlagShift ? DX_COMMAND_FOCUS_PREVIOUS : DX_COMMAND_FOCUS_NEXT); return nil; }
-        if (key_tips && !text_input && !(flags&(NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption)) && key>='0' && key<='9') { enqueue_command(key=='0' ? DX_COMMAND_TIP_0 : (DxCommand)(DX_COMMAND_TIP_1+key-'1')); return nil; }
+        if (!text_input && !(flags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) &&
+            (key_tips || (flags&NSEventModifierFlagOption)) &&
+            ((letter>='a' && letter<='z') || (key>='0' && key<='9'))) {
+            if (!event.isARepeat) enqueue_command((DxCommand)(DX_COMMAND_KEYTIP_BASE+(letter>='a' && letter<='z' ? letter-32 : key)));
+            return nil;
+        }
         if (text_input || !(flags&NSEventModifierFlagOption) || (flags&(NSEventModifierFlagCommand|NSEventModifierFlagControl))) return event;
         key=(unichar)tolower(key<128 ? key : 0);
         DxCommand shortcut=key=='h' ? DX_COMMAND_ALT_H : key=='d' ? DX_COMMAND_ALT_D : key=='v' ? DX_COMMAND_ALT_V :
@@ -324,9 +377,9 @@ void dx_native_setup(void *window) {
         NSApp.delegate=(id<NSApplicationDelegate>)application_delegate;
         NSMenuItem *root=[[NSMenuItem alloc] initWithTitle:@"File" action:nil keyEquivalent:@""];
         NSMenu *file=[[NSMenu alloc] initWithTitle:@"File"];
-        NSArray *titles=@[@"Open…",@"Save",@"Save As…",@"New Sheet",@"Settings…",@"Export Parquet…",@"Import Table…"];
-        NSArray *keys=@[@"o",@"s",@"s",@"n",@",",@"e",@""];
-        const DxCommand commands[]={DX_COMMAND_OPEN,DX_COMMAND_SAVE,DX_COMMAND_SAVE_AS,DX_COMMAND_NEW_SHEET,DX_COMMAND_SETTINGS,DX_COMMAND_EXPORT,DX_COMMAND_IMPORT};
+        NSArray *titles=@[@"Open…",@"Save",@"Save As…",@"New Workbook",@"Settings…",@"Export Parquet…",@"Import Table…",@"Close Window"];
+        NSArray *keys=@[@"o",@"s",@"s",@"n",@",",@"e",@"",@"w"];
+        const DxCommand commands[]={DX_COMMAND_OPEN,DX_COMMAND_SAVE,DX_COMMAND_SAVE_AS,DX_COMMAND_NEW_WORKBOOK,DX_COMMAND_SETTINGS,DX_COMMAND_EXPORT,DX_COMMAND_IMPORT,DX_COMMAND_CLOSE};
         for (NSUInteger i=0;i<titles.count;i++) {
             NSMenuItem *item=[[NSMenuItem alloc] initWithTitle:titles[i] action:@selector(invoke:) keyEquivalent:keys[i]];
             item.target=actions; item.tag=commands[i]; item.keyEquivalentModifierMask=NSEventModifierFlagCommand | (i==2 || i==5 ? NSEventModifierFlagShift : 0);
@@ -382,7 +435,10 @@ void dx_native_shutdown(void) {
         if (pointer_monitor) [NSEvent removeMonitor:pointer_monitor];
         if (gesture_monitor) [NSEvent removeMonitor:gesture_monitor];
         if (shortcut_monitor) [NSEvent removeMonitor:shortcut_monitor];
+        if (scroll_monitor) [NSEvent removeMonitor:scroll_monitor];
         pointer_monitor=gesture_monitor=shortcut_monitor=nil;
+        scroll_monitor=nil; pending_pan=frame_pan=(DxPanInput){0}; pan_phase=DX_PAN_NONE;
+        pan_begin=pan_direct=frame_pan_valid=false; pan_seen=0;
         canvas_window=nil; canvas_view=nil; native_titlebar_height=0;
         pointer_count=pointer_head=command_count=command_head=modifier_count=modifier_head=0;
         pointer_recording[0]=pointer_recording[1]=false; magnification=0;

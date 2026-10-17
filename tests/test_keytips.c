@@ -135,6 +135,6 @@ int main(void) {
     CHECK(ui_keytips_feed(&state,'F',false).kind==UI_KEYTIP_NONE);
     CHECK(!ui_keytips_command_label(&state,RIBBON_HOME,ACTION_FONT));
     CHECK(ui_keytips_escape(&state) && state.tab==UI_KEYTIPS_ROOT);
-    printf("keytips: %d checks passed\n",checks);
+    printf("PASS: sequential Excel keytips and custom extension metadata, %d checks\n",checks);
     return 0;
 }

@@ -16,6 +16,9 @@ typedef struct { unsigned char *data; int size; UIFontMetrics metrics; } UIFontS
 typedef struct {
     float scale, requested_scale,canvas_font_scale;
     double paint_time;
+    float frame_time; /* current elapsed frame, independent of previous pacing */
+    DxPanInput native_pan;
+    bool native_pan_valid;
     Vector2 dpi;
     Font body,small,medium,emphasis,italic,bold_italic,mono; /* bundled faces at display density */
     Texture2D icons; /* Original Carbon artwork, shared 64-pixel atlas. */

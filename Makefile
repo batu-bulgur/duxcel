@@ -17,7 +17,7 @@ endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c
-SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/app/step_preview.c src/app/app.c src/main.c
+SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/app/step_preview.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m
 LDLIBS += -framework AppKit -framework UniformTypeIdentifiers
@@ -262,10 +262,10 @@ tests/test_chartencoding: $(ENCODING_SRC) $(HEADERS)
 	$(CC) -Isrc -Isrc/ui $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(ENCODING_SRC) -o $@ -lm
 tests/test_chartencoding-debug: $(ENCODING_SRC) $(HEADERS)
 	$(CC) -Isrc -Isrc/ui $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(ENCODING_SRC) -o $@ -lm $(SANFLAGS)
-tests/test_grid: src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm
-tests/test_grid-debug: src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS)
-	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+tests/test_grid: src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm
+tests/test_grid-debug: src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS)
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 PAGE_SRC = src/common.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/data/page.c tests/test_page.c
 tests/test_page: $(PAGE_SRC) $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(PAGE_SRC) -o $@ -lm
@@ -347,12 +347,13 @@ tests/test_paint-native-debug: $(PAINT_NATIVE_SRC) $(HEADERS)
 paint-smoke: tests/test_paint-native-debug
 	mkdir -p tests/results/native-authoring
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_paint-native-debug
-test: tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview
+test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
 	./tests/test_filterlabel
 	./tests/test_cellreadout
 	./tests/test_core
 	./tests/test_grid
+	./tests/test_keytips
 	./tests/test_workbook
 	./tests/test_brand
 	./tests/test_format
@@ -369,12 +370,13 @@ test: tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook
 	./tests/test_paintlayer
 	./tests/test_popup
 	./tests/test_marksview
-test-debug: tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug
+test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_filterlabel-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_cellreadout-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_core-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_grid-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_keytips-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_brand-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_format-debug
@@ -648,3 +650,9 @@ test-browser-core: build/web-tests/test-wire build/web-tests/test-wire-sanitize 
 	node --test web/official_worker.test.mjs web/page_wire.test.mjs web/engine_host.test.mjs web/official_worker_probe.test.mjs
 	python3 tools/package_web_vendor_test.py
 .PHONY: test-browser-core
+
+KEYTIPS_SRC = src/ui/keytips.c src/ui/ribbon_spec.c src/ui/ribbon.c tests/test_keytips.c
+tests/test_keytips: $(KEYTIPS_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(KEYTIPS_SRC) -o $@ -lm
+tests/test_keytips-debug: $(KEYTIPS_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(KEYTIPS_SRC) -o $@ -lm $(SANFLAGS)

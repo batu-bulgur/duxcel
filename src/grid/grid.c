@@ -583,13 +583,19 @@ void grid_update(Grid *g,UIContext *u,const Page *p,Rectangle r,bool enabled) {
     g->controls_enabled=enabled && !g->lock_structure && !g->block_pointer;
     grid_layout(g,u->scale,p,r);
     DxPointerGesture gesture;
-    if (!enabled) { g->dragging=false; g->moving=false; g->resizing=-1; g->scrollbar=0; g->scroll_rows=0; g->last_edge=-1; pan_return(&g->pan_x,&g->spring_velocity.x); pan_return(&g->pan_y,&g->spring_velocity.y); spring(g,GetFrameTime()); return; }
+    if (!enabled) { g->dragging=false; g->moving=false; g->resizing=-1; g->scrollbar=0; g->scroll_rows=0; g->last_edge=-1; pan_return(&g->pan_x,&g->spring_velocity.x); pan_return(&g->pan_y,&g->spring_velocity.y); spring(g,u->frame_time); return; }
     GridInput in={.mouse=GetMousePosition(),.wheel=GetMouseWheelMoveV(),.pressed=IsMouseButtonPressed(MOUSE_BUTTON_LEFT),
         .released=IsMouseButtonReleased(MOUSE_BUTTON_LEFT),.down=IsMouseButtonDown(MOUSE_BUTTON_LEFT),
         .right=IsMouseButtonPressed(MOUSE_BUTTON_RIGHT),.shift=ui_shift(),.shortcut=ui_shortcut(),
-        .alt=IsKeyDown(KEY_LEFT_ALT)||IsKeyDown(KEY_RIGHT_ALT),.dt=GetFrameTime()};
+        .alt=IsKeyDown(KEY_LEFT_ALT)||IsKeyDown(KEY_RIGHT_ALT),.dt=u->frame_time};
 #ifdef DUXCEL_BROWSER_HOST
     in.pixel_scroll=dx_web_pixel_pan(&in.pixel_pan.x,&in.pixel_pan.y);
+#else
+    if (u->native_pan_valid) {
+        DxPanInput pan=u->native_pan;
+        in.pixel_scroll=true; in.pixel_pan=(Vector2){pan.x,pan.y}; in.pan_phase=(GridPanPhase)pan.phase;
+        if (pan.event) in.mouse=(Vector2){pan.pointer_x,pan.pointer_y};
+    }
 #endif
     const int navigation[]={KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT,KEY_HOME,KEY_END,KEY_PAGE_UP,KEY_PAGE_DOWN,KEY_TAB,KEY_ENTER,KEY_KP_ENTER};
     if (!ui_navigation_captured()) for (size_t i=0;i<sizeof(navigation)/sizeof(*navigation);i++) if (ui_key(navigation[i])) { in.key=navigation[i]; break; }

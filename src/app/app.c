@@ -22,6 +22,7 @@ EM_JS(void, app_browser_choose_file, (unsigned session), {
 #include <rlgl.h>
 #include "../ui/ribbon.h"
 #include "../ui/ribbon_spec.h"
+#include "../ui/keytips.h"
 #include "../ui/workspace.h"
 #include "../ui/chartview.h"
 #include "../ui/chartencoding.h"
@@ -47,7 +48,7 @@ EM_JS(void, app_browser_choose_file, (unsigned session), {
 typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW } Modal;
 typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
 typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW } SheetAction;
-typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN } DocumentAction;
+typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN,DOCUMENT_CLOSE,DOCUMENT_NEW } DocumentAction;
 enum { RIBBON_MORE_COMMAND=-2, RIBBON_MORE_UNDO=-1, RIBBON_MORE_REDO=-2, RIBBON_MORE_ITEMS=UI_RIBBON_GROUPS+2 };
 typedef struct { uint64_t id,revision,source_revision,counted_total,count_layout_key; Page page; char *error; bool dirty,failed,waiting_count,count_paused,count_resolved; } ObjectView;
 typedef enum { STATS_IDLE,STATS_WAITING,STATS_CALCULATING,STATS_READY,STATS_UNAVAILABLE,STATS_FAILED } StatsState;
@@ -185,6 +186,9 @@ typedef struct {
     int pipeline_selected_step,step_menu_index;
     bool step_menu_opening;
     bool key_tips, ribbon_focus, diagnostics, consume_grid_input;
+    UIKeytips keytip_state;
+    bool file_menu,window_closed,background_test;
+    int file_menu_focus;
     int chrome_focus,status_focus,workbook_focus_index,workbook_visible_rows,pipeline_focus_index,pipeline_visible_rows;
     float workbook_stride,workbook_row_height;
     int ribbon_command;
@@ -414,6 +418,7 @@ static void smoke_snapshot(const char *path);
 static void workspace_job(App *a,JobKind kind,const char *path);
 static void activate_sheet(App *a,size_t index,bool capture);
 static void new_sheet(App *a);
+static void statistics_cancel(App *a);
 static void clear_object_views(App *a);
 static void create_pivot(App *a);
 static void create_chart(App *a);
@@ -852,6 +857,20 @@ static void finish_document_action(App *a) {
     cancel_document_action(a);
     if (action==DOCUMENT_QUIT) a->exit_ready=true;
     else if (action==DOCUMENT_OPEN) workspace_job(a,JOB_LOAD,path);
+    else if (action==DOCUMENT_CLOSE || action==DOCUMENT_NEW) {
+        end_step_preview(a); cancel_values(a); statistics_cancel(a);
+        workbook_free(&a->book); workbook_init(&a->book); new_sheet(a); a->book.dirty=false;
+        a->key_tips=a->ribbon_focus=a->file_menu=false;
+#ifdef DUXCEL_DEV_REVIEW
+        if (a->review) a->review->document_serial++;
+#endif
+#if defined(__APPLE__) && !defined(DUXCEL_BROWSER_HOST)
+        a->window_closed=action==DOCUMENT_CLOSE;
+        if (a->window_closed || !a->background_test) dx_native_window_visible(!a->window_closed);
+#elif !defined(DUXCEL_BROWSER_HOST)
+        if (action==DOCUMENT_CLOSE) a->exit_ready=true;
+#endif
+    }
     free(path);
 }
 static void continue_document_action(App *a) {
@@ -1781,6 +1800,7 @@ static void select_relation(App *a,const Relation *r) {
     a->analysis.schema=schema; a->analysis.table=name; free(a->analysis.query); a->analysis.query=NULL; change_analysis(a,true);
 }
 static void run_action(App *a,UIAction action);
+static bool action_enabled(App *a,UIAction action);
 static void draw_sql_content(App *a,const char *sql,int *position,Rectangle r,bool interactive) {
     UIContext *u=&a->ui; float s=u->scale;
     const char *line=sql ? sql : ""; sql=line; int lines=1;
@@ -4534,7 +4554,7 @@ static void draw_unsaved(App *a) {
     DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleRoundedLinesEx(box(x,y,w,h),.035f,4,1,UI_BORDER);
     ui_text(u,"Save your changes?",x+24*s,y+22*s,20,UI_TEXT);
     ui_text_clip_weight(u,a->book.path ? dx_basename(a->book.path) : "Untitled workbook",box(x+24*s,y+62*s,w-48*s,26*s),13,UI_TEXT,false,UI_MEDIUM);
-    ui_text_clip(u,a->document_action==DOCUMENT_QUIT ? "Save this workbook before closing Duxcel." : "Save this workbook before opening another workbook.",box(x+24*s,y+98*s,w-48*s,26*s),12,UI_MUTED,false);
+    ui_text_clip(u,a->document_action==DOCUMENT_QUIT ? "Save this workbook before quitting Duxcel." : a->document_action==DOCUMENT_CLOSE ? "Save this workbook before closing it." : "Save this workbook before opening another workbook.",box(x+24*s,y+98*s,w-48*s,26*s),12,UI_MUTED,false);
     ui_text_clip(u,"Cells, analysis definitions and layout are included in the dxls file.",box(x+24*s,y+128*s,w-48*s,24*s),11,UI_MUTED,false);
     const char *labels[]={"Save…","Don't Save","Cancel"};
     float button_width=fminf(124*s,(w-64*s)/3),button_start=x+w-24*s-3*button_width-16*s;
@@ -5694,8 +5714,77 @@ static void cycle_sheet(App *a,bool backwards) {
     }
     a->consume_grid_input=true;
 }
+static void file_action(App *a,UIKeytipFileAction action) {
+    a->file_menu=a->key_tips=false; ui_keytips_cancel(&a->keytip_state); a->consume_grid_input=true;
+    switch (action) {
+    case UI_KEYTIP_FILE_NEW: request_document_action(a,DOCUMENT_NEW,NULL); break;
+    case UI_KEYTIP_FILE_OPEN: open_modal(a,MODAL_OPEN); break;
+    case UI_KEYTIP_FILE_SAVE: if (a->book.path) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE); break;
+    case UI_KEYTIP_FILE_SAVE_AS: open_modal(a,MODAL_SAVE); break;
+    case UI_KEYTIP_FILE_CLOSE: request_document_action(a,DOCUMENT_CLOSE,NULL); break;
+    case UI_KEYTIP_FILE_QUIT:
+#ifdef DUXCEL_BROWSER_HOST
+        status(a,"Use your browser's Close tab command to leave Duxcel.");
+#else
+        request_document_action(a,DOCUMENT_QUIT,NULL);
+#endif
+        break;
+    default: break;
+    }
+}
+static bool keytip_input(App *a,DxCommand command) {
+    if (a->modal!=MODAL_NONE || a->io_busy || a->pivot_search_focus) { a->key_tips=false; ui_keytips_cancel(&a->keytip_state); return false; }
+    bool native=command>DX_COMMAND_KEYTIP_BASE && command<=DX_COMMAND_KEYTIP_LAST;
+    if (command!=DX_COMMAND_NONE && !native) { a->key_tips=false; a->file_menu=false; ui_keytips_cancel(&a->keytip_state); return false; }
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !a->file_menu) { a->key_tips=false; ui_keytips_cancel(&a->keytip_state); return false; }
+    if (!a->key_tips) ui_keytips_cancel(&a->keytip_state);
+    if (!native && (ui_pressed(KEY_LEFT_ALT) || ui_pressed(KEY_RIGHT_ALT))) {
+        if (a->key_tips) { a->key_tips=false; a->file_menu=false; ui_keytips_cancel(&a->keytip_state); }
+        else { ui_keytips_begin(&a->keytip_state); a->key_tips=true; }
+    }
+    if (native && !a->key_tips) { ui_keytips_begin(&a->keytip_state); a->key_tips=true; }
+    if (!a->key_tips) return false;
+    a->consume_grid_input=true;
+    if (ui_pressed(KEY_ESCAPE)) {
+        ui_keytips_escape(&a->keytip_state); a->key_tips=a->keytip_state.active;
+        a->file_menu=a->keytip_state.tab==UI_KEYTIPS_FILE && a->key_tips;
+        if (!a->key_tips) { a->ribbon_focus=false; a->ribbon_command=-1; }
+        return true;
+    }
+    int key=native ? command-DX_COMMAND_KEYTIP_BASE : 0;
+    if (!native) for (int k=KEY_ZERO;k<=KEY_Z;k++) if (((k<=KEY_NINE) || k>=KEY_A) && ui_pressed(k) && !ui_key_shortcut(k) && !ui_key_control(k)) { key=k; break; }
+    UIKeytipResult result=ui_keytips_feed(&a->keytip_state,key,false);
+    a->key_tips=a->keytip_state.active;
+    if (result.kind==UI_KEYTIP_TAB) {
+        a->file_menu=result.value==UI_KEYTIPS_FILE;
+        if (!a->file_menu && (result.value!=RIBBON_VISUALIZATION || selected_pivot(a))) {
+            a->ribbon_tab=result.value; a->ribbon_focus=true; a->ribbon_command=-1; a->pivot_focus=a->chrome_focus=0;
+            if (a->ribbon_mode==3) a->ribbon_mode=a->previous_ribbon_mode;
+        }
+    } else if (result.kind==UI_KEYTIP_COMMAND) {
+        a->ribbon_command=ui_ribbon_action_index(a->ribbon_tab,(UIAction)result.value); a->ribbon_focus=true;
+        if (action_enabled(a,(UIAction)result.value)) a->command_activate=true;
+        else status(a,"This command is unavailable in the current selection.");
+    } else if (result.kind==UI_KEYTIP_FILE) file_action(a,(UIKeytipFileAction)result.value);
+    while (GetCharPressed()) { }
+    return true;
+}
 static void shortcuts(App *a) {
     DxCommand command=dx_take_command();
+    if (command==DX_COMMAND_CLOSE
+#ifndef DUXCEL_BROWSER_HOST
+        || (ui_pressed(KEY_W) && ui_key_shortcut(KEY_W))
+#endif
+    ) { request_document_action(a,DOCUMENT_CLOSE,NULL); return; }
+    if (command==DX_COMMAND_NEW_WORKBOOK
+#ifndef DUXCEL_BROWSER_HOST
+        || (ui_pressed(KEY_N) && ui_key_shortcut(KEY_N))
+#endif
+    ) { request_document_action(a,DOCUMENT_NEW,NULL); return; }
+#if !defined(__APPLE__) && !defined(DUXCEL_BROWSER_HOST)
+    if (ui_pressed(KEY_F4) && ui_key_alt(KEY_F4)) { request_document_action(a,DOCUMENT_QUIT,NULL); return; }
+#endif
+    if (keytip_input(a,command)) return;
     if (a->modal==MODAL_NONE && a->guide_button_focus) {
         if (ui_pressed(KEY_F6) || command==DX_COMMAND_FOCUS_NEXT || command==DX_COMMAND_FOCUS_PREVIOUS) {
             a->guide_button_focus=false; a->chrome_focus=0; a->pivot_focus=0; a->ribbon_focus=true;
@@ -5811,41 +5900,22 @@ static void shortcuts(App *a) {
             const SheetObject *owner=objects_source(&active_sheet(a)->objects,selected_object(a));
             set_unique_rows(a,owner ? (int)(owner-active_sheet(a)->objects.items) : -1,!(owner ? owner->source.unique_rows : a->analysis.unique_rows));
         }
-        else if (command>=DX_COMMAND_TIP_1 && command<=DX_COMMAND_TIP_0) {
-            int index=command-DX_COMMAND_TIP_1;
-            if (index<ribbon_counts[a->ribbon_tab]) { a->ribbon_focus=true; a->ribbon_command=index; a->command_activate=true; if (a->ribbon_mode==3) a->ribbon_mode=a->previous_ribbon_mode; a->pivot_focus=0; a->key_tips=false; }
-        }
         else if (command==DX_COMMAND_COPY) copy_selection(a);
         else if (command==DX_COMMAND_PASTE) paste_selection(a);
         else if (command==DX_COMMAND_SELECT_ALL) select_region(a);
         else if (command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO) history(a,command==DX_COMMAND_REDO);
         else if (command==DX_COMMAND_FOCUS_NEXT || command==DX_COMMAND_FOCUS_PREVIOUS) cycle_focus(a,command==DX_COMMAND_FOCUS_PREVIOUS);
         else if (native_navigation) {
-            a->chrome_focus=0;
-            if (selected_pivot(a) && command!=DX_COMMAND_ALT_H && command!=DX_COMMAND_ALT_D) {
+            if (command==DX_COMMAND_ALT_R || command==DX_COMMAND_ALT_C || command==DX_COMMAND_ALT_V || command==DX_COMMAND_ALT_F) {
                 a->pivot_role=command==DX_COMMAND_ALT_R ? PIVOT_ROWS : command==DX_COMMAND_ALT_C ? PIVOT_COLUMNS : command==DX_COMMAND_ALT_V ? PIVOT_VALUES : PIVOT_FILTERS;
                 a->pivot_focus=1; a->ribbon_focus=false; a->key_tips=false;
-            } else { a->ribbon_tab=command==DX_COMMAND_ALT_H ? RIBBON_HOME : command==DX_COMMAND_ALT_D ? RIBBON_DATA : RIBBON_VIEW; a->ribbon_focus=true; a->ribbon_command=-1; a->pivot_focus=0; a->key_tips=true; }
-            a->pivot_search_focus=false;
+            }
         }
         if (!native_navigation) return;
     }
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && ui_mouse_position().y>(a->ribbon_mode==3 ? 0 : 56+ui_ribbon_height(a->ribbon_mode))*a->ui.scale) { a->ribbon_focus=false; a->ribbon_command=-1; a->key_tips=false; }
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { a->key_tips=false; ui_keytips_cancel(&a->keytip_state); }
     if (ui_pressed(KEY_F12)) a->diagnostics=!a->diagnostics;
-    if (!native_navigation && (ui_pressed(KEY_LEFT_ALT) || ui_pressed(KEY_RIGHT_ALT))) a->key_tips=!a->key_tips;
-    if (a->key_tips && ui_pressed(KEY_ESCAPE)) { a->key_tips=a->ribbon_focus=false; a->ribbon_command=-1; a->consume_grid_input=true; return; }
-    bool alt_role=(ui_pressed(KEY_R) && ui_key_alt(KEY_R)) || (ui_pressed(KEY_C) && ui_key_alt(KEY_C)) || (ui_pressed(KEY_V) && ui_key_alt(KEY_V)) || (ui_pressed(KEY_F) && ui_key_alt(KEY_F));
-    if (selected_pivot(a) && !a->ribbon_focus && alt_role) { pivot_keyboard(a); return; }
     const int *counts=ribbon_counts;
-    if (a->key_tips) {
-        const int keys[]={KEY_H,KEY_N,KEY_D,KEY_A,KEY_V,KEY_Z};
-        for (int i=0;i<(selected_pivot(a) ? 6 : 5);i++) if (ui_pressed(keys[i])) { a->ribbon_tab=i; a->ribbon_focus=true; a->ribbon_command=-1; a->pivot_focus=0; a->pivot_search_focus=false; }
-        for (int i=0;i<10 && i<counts[a->ribbon_tab];i++) {
-            int key=i==9 ? KEY_ZERO : KEY_ONE+i;
-            if (!ui_pressed(key) || ui_key_shortcut(key) || ui_key_control(key) || ui_key_alt(key)) continue;
-            a->ribbon_focus=true; a->ribbon_command=i; a->command_activate=true; if (a->ribbon_mode==3) a->ribbon_mode=a->previous_ribbon_mode; a->pivot_focus=0; a->key_tips=false;
-        }
-    }
     if (ui_pressed(KEY_F6)) {
         cycle_focus(a,ui_key_shift(KEY_F6)); return;
     }
@@ -6142,8 +6212,10 @@ static void close_command_group(App *a) {
     a->consume_grid_input=true;
 }
 static void command_badge(App *a,int command,Rectangle r) {
-    float s=a->ui.scale; char text[4]; snprintf(text,sizeof(text),"%d",(command+1)%10);
-    Rectangle b=box(r.x+r.width-17*s,r.y,16*s,16*s);
+    const char *text=ui_keytips_command_label(&a->keytip_state,a->ribbon_tab,ribbon_commands[a->ribbon_tab][command].action);
+    if (!text || !*text) return;
+    float s=a->ui.scale,w=fmaxf(16,8+7*strlen(text))*s;
+    Rectangle b=box(r.x+r.width-w-s,r.y,w,16*s);
     ui_keytip(&a->ui,b,text,a->keytip_alpha);
 }
 static void invoke_more_item(App *a,int item) {
@@ -6334,11 +6406,8 @@ static void draw_ribbon_commands(App *a,bool enabled) {
         if (state==UI_RIBBON_COLLAPSED) {
             if (draw_collapsed_group(a,g,r,passive_control(a,enabled))) { if (a->modal==MODAL_COMMANDS && a->ribbon_popup_group==g) close_command_group(a); else open_command_group(a,g,0); enabled=false; }
             if (focus) ui_focus_border(r,r,2*s);
-            if (a->keytip_alpha>0) {
-                char tips[12]; if (group->count==1) snprintf(tips,sizeof(tips),"%d",(group->first+1)%10);
-                else snprintf(tips,sizeof(tips),"%d–%d",(group->first+1)%10,(group->first+group->count)%10);
-                Rectangle badge=box(r.x+r.width-32*s,r.y,32*s,16*s);
-                ui_keytip(u,badge,tips,a->keytip_alpha);
+            if (a->keytip_alpha>0) for (int c=group->first;c<group->first+group->count;c++) {
+                if (ui_keytips_command_label(&a->keytip_state,a->ribbon_tab,ribbon_commands[a->ribbon_tab][c].action)) { command_badge(a,c,r); break; }
             }
         } else {
             for (int c=group->first;c<group->first+group->count;c++) {
@@ -6347,7 +6416,7 @@ static void draw_ribbon_commands(App *a,bool enabled) {
                 UIAction action=ribbon_commands[a->ribbon_tab][c].action;
                 bool select=a->ribbon_mode!=2 && (action==ACTION_FONT_SIZE || action==ACTION_NUMBER_FORMAT);
                 if (focus && a->ribbon_command==c && !select) ui_focus_border(cr,cr,2*s);
-                if (a->keytip_alpha>0 && c<10) command_badge(a,c,cr);
+                if (a->keytip_alpha>0) command_badge(a,c,cr);
                 if (a->ribbon_mode==2 && available && CheckCollisionPointRec(ui_mouse_position(),cr)) { a->ribbon_hover=command_label(a,c); a->ribbon_hover_rect=cr; }
             }
             Rectangle launcher=ribbon_rect(a,a->ribbon_layout.launchers[g]);
@@ -6472,8 +6541,33 @@ static void draw_toast(App *a) {
     ui_carbon(u,CARBON_INFORMATION,box(panel.x+14*s,panel.y+(height-16*s)*.5f,16*s,16*s),Fade(WHITE,progress));
     text_lines_draw_sized(lines,u,a->message,0,box(panel.x+38*s,panel.y+10*s,fmaxf(0,width-52*s),height-20*s),11.5f,15,Fade(WHITE,progress));
 }
+static void draw_file_menu(App *a) {
+    if (!a->file_menu || a->modal!=MODAL_NONE) return;
+    UIContext *u=&a->ui; float s=u->scale;
+    UIChoiceLayout layout=ui_choice_layout((Vector2){dx_native_titlebar_inset()+8*s,28*s},(Vector2){GetScreenWidth(),GetScreenHeight()},s,UI_KEYTIP_FILE_COUNT,4);
+    bool pointer=u->pointer_blocked; u->pointer_blocked=false;
+    if (!a->key_tips && ui_pressed(KEY_ESCAPE)) { a->file_menu=false; a->consume_grid_input=true; }
+    if (ui_key(KEY_DOWN)) a->file_menu_focus=(a->file_menu_focus+1)%UI_KEYTIP_FILE_COUNT;
+    if (ui_key(KEY_UP)) a->file_menu_focus=(a->file_menu_focus+UI_KEYTIP_FILE_COUNT-1)%UI_KEYTIP_FILE_COUNT;
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),layout.panel)) { a->file_menu=false; a->key_tips=false; a->consume_grid_input=true; }
+    if (a->file_menu) {
+        ui_choice_frame(u,&layout,"File");
+        const UICarbonIcon icons[]={CARBON_DOCUMENT_BLANK,CARBON_FOLDER_OPEN,CARBON_SAVE,CARBON_SAVE,CARBON_CLOSE,CARBON_CLOSE};
+        for (int i=0;i<UI_KEYTIP_FILE_COUNT;i++) {
+            bool available=!a->io_busy;
+#ifdef DUXCEL_BROWSER_HOST
+            if (i==UI_KEYTIP_FILE_SAVE || i==UI_KEYTIP_FILE_SAVE_AS || i==UI_KEYTIP_FILE_QUIT) available=false;
+#endif
+            bool chosen=ui_choice_row(u,layout.rows[i],ui_keytips_file_name((UIKeytipFileAction)i),NULL,icons[i],false,i==a->file_menu_focus,available);
+            const char *hint=ui_keytips_file_label(&a->keytip_state,(UIKeytipFileAction)i);
+            if (a->keytip_alpha>0 && hint) ui_keytip(u,box(layout.rows[i].x+layout.rows[i].width-24*s,layout.rows[i].y+5*s,18*s,16*s),hint,a->keytip_alpha);
+            if (available && (chosen || (i==a->file_menu_focus && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER))))) { file_action(a,(UIKeytipFileAction)i); break; }
+        }
+    }
+    u->pointer_blocked=pointer;
+}
 static void draw_app(App *a) {
-    UIContext *u=&a->ui; float s=u->scale; bool enabled=a->modal==MODAL_NONE && !a->io_busy && !a->left_drawer && !(a->busy && a->pending_kind==JOB_EXPORT);
+    UIContext *u=&a->ui; float s=u->scale; bool enabled=a->modal==MODAL_NONE && !a->file_menu && !a->io_busy && !a->left_drawer && !(a->busy && a->pending_kind==JOB_EXPORT);
     u->paint_time=GetTime(); u->reduced_motion=a->reduced_motion;
     a->keytip_alpha=ui_motion_update_at(&a->keytip_motion,a->key_tips ? 1 : 0,u->paint_time,.14f,a->reduced_motion);
     dx_native_titlebar_height(a->ribbon_mode==3 ? 0 : 28*s);
@@ -6483,7 +6577,7 @@ static void draw_app(App *a) {
     bool toast_press=toast_visible && ((CheckCollisionPointRec(ui_mouse_position(),a->toast_rect) && (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)||IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)||GetMouseWheelMoveV().y)) || ui_gesture_starts_in(a->toast_rect));
     if (toast_press) { DxPointerGesture gesture; while (ui_take_gesture_from(a->toast_rect,&gesture)) { } u->pointer_blocked=true; a->consume_grid_input=true; }
     enabled=enabled && !u->pointer_blocked;
-    bool chrome_enabled=a->modal==MODAL_NONE && !a->io_busy && !(a->busy && a->pending_kind==JOB_EXPORT) && !u->pointer_blocked;
+    bool chrome_enabled=a->modal==MODAL_NONE && !a->file_menu && !a->io_busy && !(a->busy && a->pending_kind==JOB_EXPORT) && !u->pointer_blocked;
     if (a->last_window_width!=GetScreenWidth() || a->last_window_height!=GetScreenHeight() || a->last_interface_scale!=s) {
         a->last_window_width=GetScreenWidth(); a->last_window_height=GetScreenHeight(); a->last_interface_scale=s; a->pivot_reveal_object=true; a->reveal_tab=true;
     }
@@ -6502,6 +6596,10 @@ static void draw_app(App *a) {
     brand_draw_cached(box(brand.x,4*s,20*s,20*s));
     ui_label(u,"Duxcel",box(brand.x+25*s,0,61*s,28*s),15,(Color){25,78,112,255},false,UI_SEMIBOLD);
     REVIEW_CONTROL(a,"chrome.brand","chrome.inspect_brand","chrome/title-bar/brand","text","Duxcel",brand,20,true,false,false);
+#ifdef DUXCEL_BROWSER_HOST
+    if (ui_control_input(u,brand,a->modal==MODAL_NONE && !a->io_busy,NULL)) { a->file_menu=!a->file_menu; a->file_menu_focus=0; a->consume_grid_input=true; }
+#endif
+    if (a->keytip_alpha>0 && a->keytip_state.tab==UI_KEYTIPS_ROOT) ui_keytip(u,box(brand.x+brand.width-16*s,brand.y,16*s,16*s),"F",a->keytip_alpha);
     DrawLineV((Vector2){leading+104*s,7*s},(Vector2){leading+104*s,22*s},(Color){185,197,207,255});
     char document[1024]; snprintf(document,sizeof(document),"%s%s",a->book.path ? dx_basename(a->book.path) : "Untitled.dxls",a->book.dirty ? " · Edited" : "");
     Rectangle document_title=box(leading+116*s,0,fmaxf(0,GetScreenWidth()-leading-158*s),28*s);
@@ -6542,7 +6640,7 @@ static void draw_app(App *a) {
         ui_label(u,ui_ribbon_tabs[i],box(tab.x+(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.y,tab.width-2*(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.height),12,i==a->ribbon_tab ? UI_ACCENT : UI_TEXT,false,i==a->ribbon_tab ? UI_MEDIUM : UI_REGULAR);
         if (clicked) { if (a->modal==MODAL_COMMANDS) a->modal=MODAL_NONE; a->chrome_focus=0; a->ribbon_tab=i; a->ribbon_focus=false; a->ribbon_layout.valid=false; }
         if (a->ribbon_focus && a->ribbon_command==-1 && i==a->ribbon_tab) ui_focus_border(tab,strip,s);
-        if (a->keytip_alpha>0) { const char *tips[]={"H","N","D","A","V","Z"}; Rectangle badge=box(tab.x+tab.width-17*s,tab.y,16*s,16*s); ui_keytip(u,badge,tips[i],a->keytip_alpha); }
+        if (a->keytip_alpha>0 && a->keytip_state.tab==UI_KEYTIPS_ROOT) { Rectangle badge=box(tab.x+tab.width-17*s,tab.y,16*s,16*s); ui_keytip(u,badge,ui_keytips_tab_label(i),a->keytip_alpha); }
         tab_x+=widths[i]+1;
     }
     float target=strip.x/s+selected_x-a->ribbon_tabs_scroll+9,target_width=selected_width-18;
@@ -6810,7 +6908,7 @@ static void draw_app(App *a) {
         float w=ui_measure(u,a->ribbon_hover,12)+20*s; Rectangle tip=box(fminf(a->ribbon_hover_rect.x,GetScreenWidth()-w-6*s),a->ribbon_hover_rect.y+a->ribbon_hover_rect.height+6*s,w,27*s);
         DrawRectangleRec(tip,UI_TEXT); ui_text_clip(u,a->ribbon_hover,tip,12,WHITE,false);
     }
-    draw_modal_presence(a); draw_toast(a);
+    draw_modal_presence(a); draw_toast(a); draw_file_menu(a);
 }
 #define LAYOUT_SMOKE_STAGES 675
 #define QUERY_SMOKE_STAGES 47
@@ -10494,14 +10592,23 @@ static void document_smoke_step(App *a,int *step) {
     const char *first="tests/generated/document-first.dxls",*second="tests/generated/document-second.dxls",*invalid="tests/generated/document-invalid.dxls";
     switch (*step) {
     case 0:
+#ifdef __APPLE__
+        request_document_action(a,DOCUMENT_CLOSE,NULL);
+        if (!a->window_closed || a->exit_ready || !IsWindowHidden() || a->book.count!=1 || a->book.dirty || a->analysis.kind!=SOURCE_NONE) goto failed;
+        request_document_action(a,DOCUMENT_NEW,NULL);
+        if (a->window_closed || a->exit_ready || !IsWindowHidden() || a->book.count!=1 || a->book.dirty) goto failed;
+#endif
         request_document_action(a,DOCUMENT_QUIT,NULL);
         if (!a->exit_ready) goto failed;
         a->exit_ready=false; grid_select_cell(&a->grid,0,0,false);
         input_set(&a->input,"Before"); a->modal=MODAL_CELL;
-        request_document_action(a,DOCUMENT_QUIT,NULL);
+        request_document_action(a,DOCUMENT_CLOSE,NULL);
         if (a->exit_ready || a->modal!=MODAL_UNSAVED || !a->book.dirty || strcmp(cells_get(&active_sheet(a)->cells,0,0),"Before")) goto failed;
         cancel_document_action(a);
         if (a->document_action!=DOCUMENT_NONE || a->modal!=MODAL_NONE || !a->book.dirty) goto failed;
+        request_document_action(a,DOCUMENT_QUIT,NULL);
+        if (a->exit_ready || a->modal!=MODAL_UNSAVED || strcmp(cells_get(&active_sheet(a)->cells,0,0),"Before")) goto failed;
+        cancel_document_action(a);
         break;
     case 1:
         remove(first); remove(second); remove(invalid);
@@ -11378,6 +11485,8 @@ struct AppSession {
     char *path,*screenshot;
     rlRenderBatch render_batch;
     bool automated,trace_input,smoke_pass_seen,finished;
+    double frame_tick;
+    bool frame_tick_valid;
     int layout_start,layout_target,applied_cursor;
     int smoke,workspace_smoke,filter_smoke,pivot_smoke,export_smoke,count_smoke,clipboard_smoke,sort_smoke,layout_smoke,navigation_smoke,nyc_smoke,document_smoke,chart_smoke,statistics_smoke,table_smoke,icon_smoke,query_smoke,unique_smoke;
 #if defined(DUXCEL_DEV_REVIEW) && !defined(DUXCEL_BROWSER_HOST)
@@ -11420,7 +11529,7 @@ AppSession *app_start(const AppOptions *options) {
 #endif
         options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->export_smoke || options->count_smoke || options->clipboard_smoke || options->sort_smoke || options->layout_smoke || options->navigation_smoke || options->nyc_smoke || options->document_smoke || options->chart_smoke || options->statistics_smoke || options->table_smoke || options->icon_smoke || options->query_smoke || options->unique_smoke || options->frames;
     const char *visible_test=getenv("DUXCEL_TEST_VISIBLE");
-    bool background_test=automated && !(visible_test && !strcmp(visible_test,"1"));
+    bool background_test=automated && !(visible_test && !strcmp(visible_test,"1")); a->background_test=background_test;
     /* Hide before native creation: hiding afterwards still steals focus and
        can switch Spaces. Hidden windows retain their real GL framebuffer. */
     SetConfigFlags(FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT |
@@ -11514,6 +11623,10 @@ bool app_frame(AppSession *session) {
 #ifndef DUXCEL_BROWSER_HOST
     int layout_target=session->layout_target;
 #endif
+    double tick=GetTime();
+    a->ui.frame_time=session->frame_tick_valid ? (float)fmax(0,fmin(1,tick-session->frame_tick)) : 0;
+    session->frame_tick=tick; session->frame_tick_valid=true;
+    dx_input_begin_frame(); a->ui.native_pan_valid=dx_input_pixel_pan(&a->ui.native_pan);
     bool trace_input=session->trace_input;
     if (options->frames && a->frames>=(unsigned)options->frames) goto finished;
 #ifndef DUXCEL_BROWSER_HOST
@@ -11532,6 +11645,25 @@ bool app_frame(AppSession *session) {
     double frame=dx_millis(); ui_set_canvas_zoom(&a->ui,active_canvas_zoom(a)); ui_update(&a->ui);
     DxKeyModifiers modifiers; while (dx_take_key_modifiers(&modifiers)) { ui_note_key_modifiers(modifiers.key,modifiers.modifiers); REVIEW_EVENT(a,"key",modifiers.key); }
     DxPointerGesture gesture; while (dx_take_pointer_gesture(&gesture)) { ui_note_pointer_gesture(gesture); REVIEW_EVENT(a,"pointer",gesture.right ? 2 : 1); }
+#if defined(__APPLE__) && !defined(DUXCEL_BROWSER_HOST)
+    if (a->window_closed) {
+        /* Retain the process/menu/context, but no document, painting or query
+           scheduling. Only explicit New/Open/Dock reopen reveals a surface. */
+        poll_query(a);
+        if (dx_native_quit_requested()) { dx_native_acknowledge_quit(); request_document_action(a,DOCUMENT_QUIT,NULL); }
+        DxCommand command;
+        while ((command=dx_take_command())!=DX_COMMAND_NONE) {
+            if (command==DX_COMMAND_NEW_WORKBOOK) request_document_action(a,DOCUMENT_NEW,NULL);
+            else if (command==DX_COMMAND_OPEN) {
+                a->window_closed=false;
+                if (!a->background_test) dx_native_window_visible(true);
+                open_modal(a,MODAL_OPEN);
+            }
+        }
+        if (a->exit_ready) goto finished;
+        if (a->window_closed) { PollInputEvents(); WaitTime(.05); record_frame(a,frame); return true; }
+    }
+#endif
 #ifdef DUXCEL_DEV_REVIEW
 #ifndef DUXCEL_BROWSER_HOST
     if (options->review_smoke) {
@@ -11545,7 +11677,7 @@ bool app_frame(AppSession *session) {
     if (report_requested && a->review && a->review->phase==DX_REPORT_IDLE) a->review->pending=true;
     if (a->review && a->review->pending && review_can_capture(a)) { a->review->pending=false; dx_review_capture_request(a->review); }
     if (a->review && a->review->phase!=DX_REPORT_IDLE && a->review->phase!=DX_REPORT_ARMED) {
-        if (window_close_requested() || dx_native_quit_requested()) { dx_review_capture_cancel(a->review); dx_native_acknowledge_quit(); request_document_action(a,DOCUMENT_QUIT,NULL); }
+        if (window_close_requested() || dx_native_quit_requested()) { dx_review_capture_cancel(a->review); DocumentAction action=dx_native_quit_requested() ? DOCUMENT_QUIT : DOCUMENT_CLOSE; dx_native_acknowledge_quit(); request_document_action(a,action,NULL); }
         else {
             DxCommand command;
             while ((command=dx_take_command())!=DX_COMMAND_NONE) review_native_command(a,command);
@@ -11568,7 +11700,7 @@ bool app_frame(AppSession *session) {
     watch_statistics(a);
     poll_query(a);
     watch_statistics(a);
-    if (window_close_requested() || dx_native_quit_requested()) { dx_native_acknowledge_quit(); request_document_action(a,DOCUMENT_QUIT,NULL); }
+    if (window_close_requested() || dx_native_quit_requested()) { DocumentAction action=dx_native_quit_requested() ? DOCUMENT_QUIT : DOCUMENT_CLOSE; dx_native_acknowledge_quit(); request_document_action(a,action,NULL); }
     continue_document_action(a);
     if (a->exit_ready) goto finished;
     if (IsFileDropped()) {

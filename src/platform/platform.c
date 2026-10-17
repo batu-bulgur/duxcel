@@ -93,11 +93,14 @@ void dx_remove_temp_directory(const char *path) {
 #endif
 }
 #ifndef __APPLE__
+void dx_input_begin_frame(void) { }
+bool dx_input_pixel_pan(DxPanInput *input) { if (input) *input=(DxPanInput){0}; return false; }
 #ifdef DUXCEL_DEV_REVIEW
 bool dx_review_take_native_request(void) { return false; }
 #endif
 bool dx_native_quit_requested(void) { return false; }
 void dx_native_acknowledge_quit(void) { }
+void dx_native_window_visible(bool visible) { (void)visible; }
 bool dx_presentation_load(DxPresentation *presentation) { (void)presentation; return false; }
 void dx_presentation_save(const DxPresentation *presentation) { (void)presentation; }
 char *dx_open_file_panel(void) { return NULL; }
