@@ -20,7 +20,7 @@ EM_JS(int, observe_host, (void), {
     host.submit=(runtime,cookie,ticket,request)=>{
         Module['dxBrowserWorkerObserved']={cookie,ticket,generation:request.generation,object:request.objectId,revision:request.revision,offset:request.offset};
         const hold=Module['dxHoldMatrixReply'];
-        if((hold===1 && request.sql.includes('__duxcel_count')) || (hold===2 && request.sql.includes('_duxcel_matrix_totals')) || (hold===3 && request.sql.includes('_duxcel_domain_input')) || (hold===4 && request.sql.includes('_duxcel_matrix_rows')) || (hold===5 && request.sql.includes('_duxcel_matrix_columns')) || (hold===6 && request.sql.includes(' AS distinct_values'))){
+        if((hold===1 && request.sql.includes('__duxcel_count')) || (hold===2 && request.sql.includes('_duxcel_matrix_totals')) || (hold===3 && request.sql.includes('_duxcel_domain_input')) || (hold===4 && request.sql.includes('_duxcel_matrix_rows')) || (hold===5 && request.sql.includes('_duxcel_matrix_columns')) || (hold===6 && request.sql.includes(' AS distinct_values')) || (hold===7 && request.purpose==='copy' && request.sql.includes(' ON '))){
             Module['dxHoldMatrixReply']=0;
             const original=runtime;
             runtime={...original,reply:(...args)=>{
@@ -129,6 +129,7 @@ typedef enum {
     WAIT_STATS_OBJECT,WAIT_STATS_PIVOT,WAIT_STATS_MIXED,WAIT_STATS_STAMP,WAIT_STATS_BOUNDS,WAIT_STATS_COLUMN,WAIT_STATS_CANCEL,WAIT_STATS_FINAL,
     WAIT_STATS_TABLE,WAIT_STATS_ROWS,WAIT_STATS_ROWS_AVG,WAIT_STATS_COLUMNS_AVG,WAIT_STATS_COLUMNS_SUBSET,WAIT_STATS_COLUMNS_DATE,WAIT_STATS_GRAND,WAIT_STATS_TABLE_BAD,WAIT_STATS_ANALYSIS_CANCEL,WAIT_STATS_ANALYSIS_FINAL,
     WAIT_MIX_BLANK,WAIT_MIX_MANUAL,WAIT_MIX_TEXT,WAIT_MIX_EXACT,WAIT_MIX_OBJECTS,WAIT_MIX_DATE,WAIT_MIX_INVALID,WAIT_MIX_STAMP,WAIT_MIX_PRIMARY_BAD,WAIT_MIX_SOURCE_BAD,WAIT_MIX_BUDGET,WAIT_MIX_SQL,WAIT_MIX_CUMULATIVE,WAIT_MIX_ENGINE,WAIT_MIX_CANCEL_DOMAIN,WAIT_MIX_CANCEL_SCALAR,WAIT_MIX_FINAL,
+    WAIT_COPY_CASES,WAIT_COPY_CANCEL,WAIT_COPY_STALE,WAIT_COPY_RECOVERY,
     WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
     WAIT_OVERSIZE_ERROR,WAIT_OVERSIZE_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
@@ -140,6 +141,7 @@ static Page retained;
 static DistinctPage retained_distinct;
 static SelectionStats retained_statistics;
 static char *retained_rejection;
+static char *retained_clipboard;
 static Stage stage;
 static double entered;
 static uint64_t next_id=UINT64_C(9007199254740993),expected_id,expected_offset,expected_sql,expected_counts;
@@ -152,7 +154,7 @@ static void retained_values(void);
 static void die(const char *condition,int line) {
     fprintf(stderr,"FAIL browser-worker stage %d line %d: %s\n",(int)stage,line,condition);
     if (reply && reply->error) fprintf(stderr,"Worker error: %s\n",reply->error);
-    reply_free(reply); reply=NULL; page_free(&retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); if (worker.started) worker_stop(&worker);
+    reply_free(reply); reply=NULL; page_free(&retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); free(retained_clipboard); if (worker.started) worker_stop(&worker);
     completed(0,checks,stages); emscripten_cancel_main_loop(); abort();
 }
 #define CHECK(condition) do { checks++; if (!(condition)) die(#condition,__LINE__); } while (0)
@@ -161,8 +163,8 @@ static void pass(const char *message) { stages++; printf("PASS browser-worker: %
 static void counters(void) { CHECK(worker.sql_executed==expected_sql); CHECK(worker.counts_executed==expected_counts); }
 static void identity(void) {
     char id[24],object[24],revision[24],offset[24];
-    snprintf(id,sizeof(id),"%" PRIu64,expected_id); snprintf(object,sizeof(object),"%" PRIu64,expected_kind==JOB_STATISTICS ? statistics_object : object_id);
-    snprintf(revision,sizeof(revision),"%" PRIu64,expected_kind==JOB_STATISTICS ? statistics_revision : revision_id); snprintf(offset,sizeof(offset),"%" PRIu64,expected_offset);
+    snprintf(id,sizeof(id),"%" PRIu64,expected_id); snprintf(object,sizeof(object),"%" PRIu64,expected_kind==JOB_STATISTICS ? statistics_object : expected_kind==JOB_RANGE_COPY ? 0 : object_id);
+    snprintf(revision,sizeof(revision),"%" PRIu64,expected_kind==JOB_STATISTICS ? statistics_revision : expected_kind==JOB_RANGE_COPY ? 0 : revision_id); snprintf(offset,sizeof(offset),"%" PRIu64,expected_offset);
     CHECK(observed_identity(id,object,revision,offset));
 }
 static void submit(JobKind kind,const char *sql,uint64_t offset,int64_t total,bool preview,unsigned sql_count) {
@@ -351,9 +353,95 @@ static void submit_mixed(MixedCase kind,unsigned sql_count) {
     }
     expected_sql+=sql_count; worker_submit(&worker,job);
 }
+typedef enum { COPY_EXACT,COPY_SPECIAL,COPY_DEEP,COPY_OFFSET,COPY_RAW_TABLE,COPY_ROWS,COPY_COLUMNS,COPY_HEADER,
+    COPY_MIXED,COPY_EOF,COPY_MANUAL,COPY_STAMP,COPY_INVALID,COPY_DIMENSIONS,COPY_BYTES,COPY_OVERSIZE,
+    COPY_ENGINE,COPY_WIRE_LIMIT,COPY_TSV_LIMIT,COPY_DOMAIN_LIMIT,COPY_SQL_LIMIT,COPY_MAXIMUM,COPY_EMPTY,COPY_CASES } CopyCase;
+static const unsigned copy_sql_counts[COPY_CASES]={2,2,2,2,3,2,3,2,9,2,0,0,0,0,0,0,3,2,0,2,1,2,2};
+static const char *copy_case_names[COPY_CASES]={"exact typed clipboard text","apostrophe, tab, quote, newline and NULL TSV",
+    "one query copies all600 source rows","source EOF trims a direct selection","raw table typed filter/sort identity",
+    "full Rows PIVOT with human headers","full true Columns PIVOT and sparse categories","header-only PIVOT",
+    "mixed primary/table/Rows/Columns plus manual snapshot","range EOF pads cached cells with SQL NULL","manual-only owned snapshot",
+    "native stamps reject before SQL","invalid later patch rejects before first query","malformed dimensions clean owned slots",
+    "source byte accounting rejects before SQL","20,001 cells reject before SQL","later engine error discards earlier staged cells",
+    "oversized transport publishes no clipboard","TSV quote expansion publishes no clipboard","full column product rejects before data",
+    "domain-generated SQL cap discards plans","exact20,000-cell copy envelope","empty direct interval is empty text"};
+static const char copy_exact_text[]="9007199254740993\t18446744073709551615\t1234567890123456789012345678.1234567890\t-170141183460469231731687303715884105728\t170141183460469231731687303715884105727\t2026-10-17 12:34:56.123456789\t\t \t\"\"\tNULL\ttrue\t";
+static const char copy_special_sql[]="SELECT * FROM (VALUES ('O''Reilly'),('a'||chr(9)||'\"quote\"'||chr(10)||'next'),(''),(NULL::VARCHAR)) t(value)";
+static const char copy_columns_sql[]="SELECT * FROM (VALUES ('A','x',1::DECIMAL(38,2)),('A','y',2),('B','x',3)) t(r,c,v)";
+static CopyCase copy_case;
+static size_t copy_source(CopyRequest *request,uint64_t id,const char *sql) {
+    Analysis source={.kind=SOURCE_DEMO,.query=dx_strdup(sql)};
+    size_t index=source_snapshot_bind(&request->sources,id,&source,NULL); analysis_free(&source); CHECK(index!=SIZE_MAX); return index;
+}
+static void submit_copy(CopyCase kind) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job)); job->id=expected_id=next_id; next_id+=4;
+    job->kind=JOB_COPY; job->object_id=object_id; job->revision=revision_id; job->refresh_source=true;
+    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(exact_sql)}; job->rows=1; job->cols=12;
+    expected_offset=0; expected_preview=kind==COPY_EXACT; job->is_preview=expected_preview;
+    if (kind==COPY_SPECIAL) { free(job->analysis.query); job->analysis.query=dx_strdup(copy_special_sql); job->rows=4; job->cols=1; }
+    else if (kind==COPY_DEEP || kind==COPY_OFFSET || kind==COPY_EMPTY) {
+        free(job->analysis.query); job->analysis.query=dx_strdup(range_sql); job->cols=kind==COPY_EMPTY ? 1 : 3;
+        job->rows=kind==COPY_DEEP ? 600 : kind==COPY_OFFSET ? 1000 : 3;
+        job->offset=expected_offset=kind==COPY_DEEP ? 0 : kind==COPY_OFFSET ? 500 : 999;
+    } else if (kind==COPY_RAW_TABLE) {
+        analysis_free(&job->analysis); job->analysis=(Analysis){.kind=SOURCE_DEMO}; job->rows=10; job->cols=1; job->is_table=true;
+        CHECK(analysis_filter_set(&job->analysis,"Transaction ID",FILTER_BETWEEN,"[\"10\",\"12\"]",NULL));
+        CHECK(analysis_sort_set(&job->analysis,"Transaction ID",true,false,NULL));
+    } else if (kind==COPY_ROWS || kind==COPY_COLUMNS || kind==COPY_HEADER || kind==COPY_DOMAIN_LIMIT || kind==COPY_SQL_LIMIT) {
+        job->kind=JOB_PIVOT_COPY; free(job->analysis.query);
+        job->analysis.query=dx_strdup(kind==COPY_ROWS ? range_sql : kind==COPY_DOMAIN_LIMIT ? columns_product_sql : kind==COPY_SQL_LIMIT ? columns_sql_limit : columns_range_sql);
+        job->include_header=kind<=COPY_HEADER; job->rows=kind==COPY_HEADER ? 0 : kind<=COPY_COLUMNS ? 600 : 1;
+        job->cols=kind==COPY_ROWS ? 2 : kind<=COPY_HEADER ? 4 : 1;
+        if (kind!=COPY_SQL_LIMIT) CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,"row_id",AGG_SUM,NULL));
+        if (kind!=COPY_ROWS) CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,kind==COPY_DOMAIN_LIMIT ? "c1" : "category",AGG_SUM,NULL));
+        if (kind==COPY_DOMAIN_LIMIT) CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,"c2",AGG_SUM,NULL));
+        CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"amount",AGG_SUM,NULL));
+        if (kind==COPY_DOMAIN_LIMIT) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"amount",AGG_COUNT,NULL));
+    } else if (kind==COPY_MIXED || kind==COPY_EOF || kind==COPY_MANUAL || kind==COPY_INVALID || kind==COPY_DIMENSIONS || kind==COPY_BYTES || kind==COPY_ENGINE || kind==COPY_TSV_LIMIT) {
+        job->kind=JOB_RANGE_COPY; job->object_id=job->revision=0; job->rows=job->cols=0; analysis_free(&job->analysis);
+        CopyRequest *request=job->copy=dx_alloc(sizeof(*request));
+        CHECK(clipboard_init(&request->cells,kind==COPY_MIXED ? 5 : kind==COPY_EOF ? 4 : kind==COPY_MANUAL ? 2 : 1,kind==COPY_MIXED ? 8 : kind==COPY_MANUAL ? 3 : kind==COPY_TSV_LIMIT ? 1 : 2,NULL));
+        if (kind==COPY_MANUAL) {
+            CHECK(clipboard_set(&request->cells,0,1,"",NULL) && clipboard_set(&request->cells,0,2,"NULL",NULL) && clipboard_set(&request->cells,1,0,"O'Reilly",NULL));
+        } else if (kind==COPY_TSV_LIMIT) {
+            char *quotes=dx_alloc(4u*1024u*1024u+1u); memset(quotes,'"',4u*1024u*1024u); CHECK(clipboard_set(&request->cells,0,0,quotes,NULL)); free(quotes);
+        } else {
+            job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(range_sql)};
+            request->count=1; request->patches[0]=(CopyPatch){.rows=1,.columns=1};
+            if (kind==COPY_MIXED) {
+                CHECK(clipboard_set(&request->cells,0,7,"Before async",NULL));
+                size_t table=copy_source(request,object_id,statistics_text_sql),columns=copy_source(request,object_id+1,copy_columns_sql);
+                request->count=4;
+                request->patches[0]=(CopyPatch){.first=500,.rows=2,.columns=2,.target_row=1};
+                request->patches[1]=(CopyPatch){.source=table,.rows=5,.columns=1,.target_column=3};
+                request->patches[2]=(CopyPatch){.is_pivot=true,.first=598,.rows=2,.columns=2,.target_row=3};
+                CHECK(pivot_assign(&request->patches[2].pivot,PIVOT_ROWS,"row_id",AGG_SUM,NULL) && pivot_assign(&request->patches[2].pivot,PIVOT_VALUES,"amount",AGG_SUM,NULL));
+                request->patches[3]=(CopyPatch){.source=columns,.is_pivot=true,.rows=2,.columns=3,.target_row=3,.target_column=4};
+                CHECK(pivot_assign(&request->patches[3].pivot,PIVOT_ROWS,"r",AGG_SUM,NULL) && pivot_assign(&request->patches[3].pivot,PIVOT_COLUMNS,"c",AGG_SUM,NULL) && pivot_assign(&request->patches[3].pivot,PIVOT_VALUES,"v",AGG_SUM,NULL));
+            } else if (kind==COPY_EOF) {
+                request->patches[0]=(CopyPatch){.first=599,.rows=4,.columns=2}; expected_offset=599;
+                CHECK(clipboard_set(&request->cells,3,1,"Cached value must become NULL",NULL));
+            } else if (kind==COPY_INVALID) {
+                request->count=2; request->patches[1]=(CopyPatch){.source=1,.rows=1,.columns=1,.target_column=1};
+            } else if (kind==COPY_DIMENSIONS) {
+                CHECK(clipboard_set(&request->cells,0,1,"Owned even after malformed dimensions",NULL)); request->cells.rows=SIZE_MAX;
+            } else if (kind==COPY_BYTES) {
+                CHECK(copy_source(request,object_id,range_sql)==1); request->sources.bytes++;
+            } else if (kind==COPY_ENGINE) {
+                size_t source=copy_source(request,object_id,"SELECT absent FROM missing_copy_table");
+                request->count=2; request->patches[1]=(CopyPatch){.source=source,.rows=1,.columns=1,.target_column=1};
+            }
+        }
+    } else if (kind==COPY_STAMP) job->expected_source_stamp=UINT64_MAX;
+    else if (kind==COPY_OVERSIZE) { job->rows=20001; job->cols=1; }
+    else if (kind==COPY_WIRE_LIMIT) { free(job->analysis.query); job->analysis.query=dx_strdup("SELECT repeat('x',1000000)::VARCHAR AS payload FROM range(5)"); job->rows=5; job->cols=1; }
+    else if (kind==COPY_MAXIMUM) { free(job->analysis.query); job->analysis.query=dx_strdup("SELECT i::BIGINT AS copied_id FROM range(20000) t(i) ORDER BY i"); job->rows=20000; job->cols=1; }
+    expected_kind=job->kind; expected_sql+=copy_sql_counts[kind]; worker_submit(&worker,job);
+}
+static bool copy_case_error(CopyCase kind) { return kind>=COPY_STAMP && kind<=COPY_SQL_LIMIT; }
 static bool poll_received(bool error,bool sent) {
     CHECK(!reply); reply=worker_poll(&worker); if (!reply) return false;
-    CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==(expected_kind==JOB_STATISTICS ? statistics_object : object_id) && reply->revision==(expected_kind==JOB_STATISTICS ? statistics_revision : revision_id) && reply->is_preview==expected_preview);
+    CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==(expected_kind==JOB_STATISTICS ? statistics_object : expected_kind==JOB_RANGE_COPY ? 0 : object_id) && reply->revision==(expected_kind==JOB_STATISTICS ? statistics_revision : expected_kind==JOB_RANGE_COPY ? 0 : revision_id) && reply->is_preview==expected_preview);
     CHECK((reply->error!=NULL)==error); CHECK(!worker.running); counters(); if (sent) identity(); retained_values(); return true;
 }
 static bool received(bool error) { return poll_received(error,true); }
@@ -414,9 +502,40 @@ static void category_values(const DistinctPage *page,uint64_t offset,size_t rows
     }
 }
 static void retained_values(void) {
+    if (retained_clipboard) CHECK(!strcmp(retained_clipboard,copy_exact_text));
     if (retained_statistics.sum) CHECK(retained_statistics.cells==600 && retained_statistics.numeric==600 && !retained_statistics.approximate && !strcmp(retained_statistics.sum,"29700") && !strcmp(retained_statistics.average,"49.5"));
     if (!retained_distinct.count) return;
     category_values(&retained_distinct,0,128,300); exact_values(&retained);
+}
+static void copy_values(CopyCase kind) {
+    CHECK(reply->clipboard && !reply->error); validation_reply();
+    CHECK(!reply->page.totals && !reply->statistics.sum && !reply->statistics.cells && !reply->distinct.values);
+    const char *text=reply->clipboard;
+    if (kind==COPY_EXACT) CHECK(!strcmp(text,copy_exact_text));
+    else if (kind==COPY_SPECIAL) CHECK(!strcmp(text,"O'Reilly\n\"a\t\"\"quote\"\"\nnext\"\n\"\"\n"));
+    else if (kind==COPY_RAW_TABLE) CHECK(!strcmp(text,"12\n11\n10") && reply->analysis.filter_number.kind==NUM_I64);
+    else if (kind==COPY_HEADER) CHECK(!strcmp(text,"row_id\t0_SUM(amount)\t1_SUM(amount)\t2_SUM(amount)"));
+    else if (kind==COPY_MIXED) CHECK(!strcmp(text,"\t\t\t\t\t\t\tBefore async\n500\trow-500\t\t\"\"\t\t\t\t\n501\trow-501\t\tNULL\t\t\t\t\n598\t98.00\t\t \tA\t1.00\t2.00\t\n599\t99.00\t\tNULL\tB\t3.00\t\t"));
+    else if (kind==COPY_EOF) CHECK(!strcmp(text,"599\trow-599\n\t\n\t\n\t"));
+    else if (kind==COPY_MANUAL) CHECK(!strcmp(text,"\t\"\"\tNULL\nO'Reilly\t\t"));
+    else if (kind==COPY_EMPTY) CHECK(!*text);
+    else if (kind==COPY_MAXIMUM) {
+        for (uint64_t i=0;i<20000;i++) { char *end=NULL; CHECK(strtoull(text,&end,10)==i && end>text && *end==(i==19999 ? 0 : '\n')); text=end+(i==19999 ? 0 : 1); }
+        CHECK(!*text);
+    } else {
+        bool columns=kind==COPY_COLUMNS,rows=kind==COPY_ROWS; size_t first=kind==COPY_OFFSET ? 500 : 0,last=600;
+        const char *header=columns ? "row_id\t0_SUM(amount)\t1_SUM(amount)\t2_SUM(amount)\n" : rows ? "row_id\tSUM(amount)\n" : "";
+        CHECK(!strncmp(text,header,strlen(header))); text+=strlen(header);
+        for (size_t i=first;i<last;i++) {
+            char line[128],amount[32]; snprintf(amount,sizeof(amount),"%zu.00",i%100);
+            if (columns) { const char *slots[3]={"","",""}; slots[i%3]=amount; snprintf(line,sizeof(line),"%zu\t%s\t%s\t%s",i,slots[0],slots[1],slots[2]); }
+            else if (rows) snprintf(line,sizeof(line),"%zu\t%s",i,amount);
+            else snprintf(line,sizeof(line),"%zu\trow-%zu\t%s",i,i,amount);
+            size_t length=strlen(line); CHECK(!strncmp(text,line,length)); text+=length;
+            CHECK(*text==(i+1==last ? 0 : '\n')); if (*text) text++;
+        }
+        CHECK(!*text);
+    }
 }
 static void distinct_reply(size_t count,uint64_t total) {
     validation_reply(); CHECK(reply->distinct.offset==0 && reply->distinct.count==count && reply->distinct.total==total);
@@ -978,6 +1097,31 @@ static void tick(void) {
     case WAIT_MIX_FINAL:
         if (!received(false)) return;
         statistics_values(20,5,0,4); CHECK(!reply->statistics.sum); release_reply(); pass("mixed cancellation and local/engine errors recover with an independent current scalar");
+        copy_case=COPY_EXACT; submit_copy(copy_case); enter(WAIT_COPY_CASES); return;
+    case WAIT_COPY_CASES: {
+        bool error=copy_case_error(copy_case);
+        if (!poll_received(error,copy_sql_counts[copy_case]!=0)) return;
+        if (error) { CHECK(reply->error && !reply->clipboard); validation_reply(); CHECK(!reply->statistics.sum); }
+        else copy_values(copy_case);
+        if (copy_case==COPY_EXACT) { retained_clipboard=reply->clipboard; reply->clipboard=NULL; }
+        release_reply(); pass(copy_case_names[copy_case]);
+        if (++copy_case<COPY_CASES) { submit_copy(copy_case); return; }
+        hold_matrix_reply(7); submit_copy(COPY_MIXED); enter(WAIT_COPY_CANCEL); return;
+    }
+    case WAIT_COPY_CANCEL:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        counters(); worker_cancel(&worker); CHECK(!worker.running); release_matrix_reply(); quiet(); retained_values();
+        pass("cancel after earlier real copy patches discards every staged cell and the late Columns payload");
+        hold_matrix_reply(7); submit_copy(COPY_MIXED); enter(WAIT_COPY_STALE); return;
+    case WAIT_COPY_STALE:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        counters(); worker_cancel(&worker); CHECK(!worker.running); submit_copy(COPY_EXACT); release_matrix_reply();
+        CHECK(worker.running && !worker_poll(&worker)); retained_values();
+        pass("obsolete copy callbacks cannot publish over a newer owned request or retained clipboard"); enter(WAIT_COPY_RECOVERY); return;
+    case WAIT_COPY_RECOVERY:
+        if (!received(false)) return;
+        copy_values(COPY_EXACT); CHECK(reply->clipboard!=retained_clipboard); release_reply();
+        pass("copy cancellation and late failures recover with one independently owned exact TSV");
         submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_OVERSIZE_SCHEMA); return;
     case WAIT_OVERSIZE_SCHEMA:
         if (!received(false)) return;
@@ -1049,7 +1193,8 @@ static void tick(void) {
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
         retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
         page_free(&retained); page_free(&retained); statistics_free(&retained_statistics); statistics_free(&retained_statistics); pass("early stop and scheduled stale callbacks are ignored");
-        CHECK(stages==113 && worker.jobs_started==120 && expected_sql==264 && expected_counts==21);
+        CHECK(stages==139 && worker.jobs_started==146 && expected_sql==325 && expected_counts==21);
+        free(retained_clipboard); retained_clipboard=NULL;
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
