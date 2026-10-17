@@ -1,0 +1,5 @@
+Command: ["./tests/test_core-debug"]
+Generated 1M rows: first 11.81 ms, last page 57.14 ms, page 24518 bytes
+Streamed 1M rows to Parquet: 50.22 ms
+Selection statistics 1M rows: 901.67 ms; exact sum 499999500000
+PASS: 1697 checks (CSV, Parquet, typed values, safe SQL, filters, aggregates, clipboard, database, million-row paging, worker recovery)

@@ -1,0 +1,2 @@
+Command: ["./tests/test_workbook-debug", "--formats-only"]
+PASS: 605 focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)

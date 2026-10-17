@@ -1,0 +1,214 @@
+{
+  "accepted_runtime_c": "337ddd82f89c7e0d7037b679b5111b391d02906b",
+  "latest_driver_revision": "960e169d17e9976a5c4ef82ee311c6c4e4391b33",
+  "scope": "Per-gate source/binary boundaries retained. Pending source-query/Columns work is not accepted by this checkpoint.",
+  "runs": [
+    {
+      "label": "native-release",
+      "original_directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T201815-review-54340",
+      "source": {
+        "commit": "337ddd82f89c7e0d7037b679b5111b391d02906b",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "d8b9fa7e05991140153595cb457d65004f2d7ab1e1c1d54a2022bdba1bc28c63",
+        "source_files": 240
+      },
+      "status": "passed"
+    },
+    {
+      "label": "native-sanitize",
+      "original_directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T202229-review-55815",
+      "source": {
+        "commit": "960e169d17e9976a5c4ef82ee311c6c4e4391b33",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "253c72bc227129c5f056feda3771fb021a1f5c2011489b13c94eec350b8e728a",
+        "source_files": 240
+      },
+      "status": "passed"
+    },
+    {
+      "label": "wasm-controls",
+      "original_directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T201856-browser-54820",
+      "source": {
+        "commit": "337ddd82f89c7e0d7037b679b5111b391d02906b",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "d8b9fa7e05991140153595cb457d65004f2d7ab1e1c1d54a2022bdba1bc28c63",
+        "source_files": 240
+      },
+      "status": "passed"
+    },
+    {
+      "label": "wasm-analysis",
+      "original_directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T202145-browser-55574",
+      "source": {
+        "commit": "960e169d17e9976a5c4ef82ee311c6c4e4391b33",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "253c72bc227129c5f056feda3771fb021a1f5c2011489b13c94eec350b8e728a",
+        "source_files": 240
+      },
+      "status": "passed"
+    },
+    {
+      "label": "wasm-worker",
+      "original_directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T201539-browser-53866",
+      "source": {
+        "commit": "5df5ba6fdc11b518109d9e7f3d6302f62ac97f6f",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "0b53830551a7617a83b76fafcfaf4917a4124457dde8374527a3be14ea7e5e0e",
+        "source_files": 240
+      },
+      "status": "passed"
+    },
+    {
+      "label": "wasm-shipping",
+      "original_directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T202454-browser-56215",
+      "source": {
+        "commit": "960e169d17e9976a5c4ef82ee311c6c4e4391b33",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "253c72bc227129c5f056feda3771fb021a1f5c2011489b13c94eec350b8e728a",
+        "source_files": 240
+      },
+      "status": "passed"
+    },
+    {
+      "label": "pure-grid",
+      "original_directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T195617-fast-46780",
+      "source": {
+        "commit": "1812ff1351bacf270560125370d4d1c07f490cff",
+        "status": "M docs/REQUIREMENTS.md\n M docs/ROADMAP.md\n M docs/design/SOURCE_FORMAT_IDENTITY.md\n M src/app/app.c\n M src/app/step_preview.c\n M src/data/database.h\n M src/ui/ui.c\n M src/ui/ui.h\n?? tools/ui-review/",
+        "source_sha256": "bc141b0e40677fb53c6945f336845956ed572be4750d14969ddbfbcf65442f10",
+        "source_files": 240
+      },
+      "status": "passed"
+    },
+    {
+      "label": "pure-preview",
+      "original_directory": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T200910-fast-52068",
+      "source": {
+        "commit": "d6e523f10d8a61d17e34b2bc2fd0e5c1fe75cf7c",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "d983f2964d0c88c8c1feaafb234b3c2c5336516bb9fb7f3b525e253707547439",
+        "source_files": 240
+      },
+      "status": "passed"
+    },
+    {
+      "label": "scoped-load",
+      "original_directory": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T194758-formats-44856",
+      "source": {
+        "commit": "6568c423c926b35dd88bd5df4569fe5f9e5a51b8",
+        "status": "M src/workbook/workbook.c\n M tests/test_workbook.c",
+        "source_sha256": "56188d519dec98966c6d45c9c401226273256b57c74776c69fe59cb0ecd0dab7",
+        "source_files": 237
+      },
+      "status": "passed"
+    },
+    {
+      "label": "source-consumers",
+      "original_directory": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T195713-records-47324",
+      "source": {
+        "commit": "069c6848132e92e77c05025d11bcf184538111f3",
+        "status": "M src/data/database.c\n M src/data/worker.c\n M tests/test_core.c\n M tests/test_record_pages.c",
+        "source_sha256": "5e307627224749b1a38ad0c8859070c0848d2c521d92cb42396cf2b6db100950",
+        "source_files": 237
+      },
+      "status": "passed"
+    },
+    {
+      "label": "core-workbook",
+      "original_directory": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T195929-records-48772",
+      "source": {
+        "commit": "c931f235906505d6fbde6c941a1b1b1af0fa7a99",
+        "status": "",
+        "source_sha256": "5e307627224749b1a38ad0c8859070c0848d2c521d92cb42396cf2b6db100950",
+        "source_files": 237
+      },
+      "status": "passed"
+    },
+    {
+      "label": "count-distinct",
+      "original_directory": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T200114-records-49314",
+      "source": {
+        "commit": "c931f235906505d6fbde6c941a1b1b1af0fa7a99",
+        "status": "M src/data/database.c\n M src/data/worker.c\n M tests/test_core.c",
+        "source_sha256": "263c4e0c2f1e7b709b3929775f6ca4ea48d87a3d39e12702f9d6f4a7269304d6",
+        "source_files": 237
+      },
+      "status": "passed"
+    },
+    {
+      "label": "rows-query",
+      "original_directory": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T201253-records-53034",
+      "source": {
+        "commit": "4e729aa73fb53ceb562edca2a570cc7ae1e80511",
+        "status": "M src/data/browser_query.c\n M src/data/browser_query.h\n M src/data/worker_browser.inc\n M tests/test_browser_query.c\n M tests/test_browser_worker.c",
+        "source_sha256": "b920b2b9bca3f587d7b0a8049278b46d13d68331b3bdfbe46b4c068db05df993",
+        "source_files": 237
+      },
+      "status": "passed"
+    }
+  ],
+  "files": {
+    "analysis-empty.png": "1a0d95c571677e98f12d11d4f56fea117c5e141f0dae287a79ca3853d05e5a24",
+    "analysis-matrix-footer.png": "7ec093b243738b3d81650433dcae46c382441debcb40dc941556d3a83c351eba",
+    "analysis-returned-source.png": "7a6320d20985efecddf0d1a5a168db4aab954fb3fa5ce88de9017bce19ff9b3d",
+    "controls-column-width-narrow-picker.png": "e0e71258164724ace0459df4a8b5e76ec0481b5534a95fb04aa1ff2c7bc84e0c",
+    "controls-field-picker.png": "0bd5ecc3be8920acaa762e85ba259407e330f2d20a747c12b133e7cd4279a1f2",
+    "controls-protected-context-picker.png": "b617be5ac119a70e52a08200025cea52542381c694712f0ba348bcd6189f3bb0",
+    "core-workbook/build-engine-integration.txt": "cd877ba760b6d29f66062c246ce405cadc9bb429bffcf419882e14ef32495c70",
+    "core-workbook/core-release.txt": "b261b65954a271e5971866b6c61a5430dea182f36ad644abf304aa11d227c64b",
+    "core-workbook/core-sanitize.txt": "9efcfb1ce1e5268d1d37d0c506b0006e4ba0f3bf1cdb9f5d2aba62ec4695fd7f",
+    "core-workbook/summary.json": "dcaa7e19f6cd1cd42cfe4aef86c186d0064a7541bb02f93b6d11d223c1d273a6",
+    "core-workbook/workbook-release.txt": "3ff3364b16e3ac23a72bd144b8c9de32a918c600c9cc117d516ad8f04100fb97",
+    "core-workbook/workbook-sanitize.txt": "7909bb171a4718e37e9937222607d60f3c68ff47e36582dfe170c4052ee79eed",
+    "count-distinct/build-consumer-core.txt": "8ed53900a84c6e474d5221ed4affd1acecfa4d0d6668ac1af61872624274f1da",
+    "count-distinct/core-release.txt": "a9c9751d22e916e3fbd4fca0db92c4aca73735d09a446ccab3084466861379a5",
+    "count-distinct/core-sanitize.txt": "8b2d2e4b8488f9123d3ef979914065ebf31aa89083085219f7b373c651288b37",
+    "count-distinct/source-guards-release.txt": "a9715754f267fabd2fa1c8eb913b820b4b75f75f0368c2743cdd7e828234f6e4",
+    "count-distinct/source-guards-sanitize.txt": "4e0d036a2c125af18ecbf666276ae2ac922c02b304576de3ee1279e16d2c7ce8",
+    "count-distinct/summary.json": "bb266d4d9a41408afd1fd75d470d1cbd8de6ecc4ab3bfa63ba1c48f1f1e9caad",
+    "native-release/background.txt": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
+    "native-release/build.txt": "a7d00cc566a6dc82b3173b55ceb7265d49fdec81f221a5e586c8764cfd5f0a5e",
+    "native-release/release.txt": "4435438d97a52abe4c461b9a259f6f7ba592fb8894e17bcf0e2802b156072ea6",
+    "native-release/summary.json": "f0ce7be9f08ba6767ecba34f597e707ec499328818dfa14f2313c7f9bd7fb2ba",
+    "native-sanitize/background.txt": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
+    "native-sanitize/sanitize.txt": "c25acda5de5e736f81a29275bbb2b89f416affad83ea715d70d3f12d2f5219d1",
+    "native-sanitize/summary.json": "276fea1d6f091bdff9fbeed4f6d8eb6d4cfa359c6ecafcc185eb3c7f15e77c1e",
+    "pure-grid/grid-release.txt": "5b91fca465710c2521eb231deca19fc3afb7171850b77f4f272491d93b4c16c6",
+    "pure-grid/grid-sanitize.txt": "61cce8406dfefc2f99dd78fb54a0b22e8eb5c5555b8162e3b312f601af42eb8b",
+    "pure-grid/summary.json": "495701d5f3b9c1fb12243e8bf82b36ccd8bf74029b36eda5001baef2b6948a27",
+    "pure-preview/build-headless.txt": "6ca7a01624beb76fc3765efc4683cc43196d4ada65167b8262d6f0304b48a629",
+    "pure-preview/preview-release.txt": "36edce6b2ccb31b9d4be590e0e4cc2e07f22f9f6f5292890ffea4c558c7b3200",
+    "pure-preview/preview-sanitize.txt": "3950cf4e0920ddce9da325510d4411e7ba3bfc13676110683ee1f932d9232edf",
+    "pure-preview/summary.json": "9c6afd8b26d40757594cfea7c34c1486a6dc2668cb8a0ec660a85acac2c25daf",
+    "rows-query/build-matrix-query.txt": "96b0e9fafc0d79103ed161bf848b85fd6f2981cf37ed6a960c77a10abf2764b8",
+    "rows-query/emscripten-matrix-syntax.txt": "7e65c29ef1327da0cafbc4859b017a2334274649fd8ee48cee3ded231b7a694f",
+    "rows-query/release.txt": "88f28fd95205f3d55c1ef187a1a4ba2f18e14513e2b426959bff59f4e3d4c55c",
+    "rows-query/sanitize.txt": "956264762fbb9861082fd37ff9966daa9b9eaa0c36d6c03c01a53daa9c950e9f",
+    "rows-query/summary.json": "c136bde6343cb79e82879047dc473ec2319a31c822c9de3b4464d21669037149",
+    "scoped-load/build-formats.txt": "419c85324fed0560c3d3312c16e4899e9f14bee34e0a2dbd67bfb79fba17e625",
+    "scoped-load/formats-release.txt": "c5a91399883de02d3a376f0c4182fa29a3b78c97df3fcbb6377016ce452a5443",
+    "scoped-load/formats-sanitize.txt": "b72d0b9afa5d4659348a2f2fc8e4a217f179125b2dbb5ce7ba6a4b810f13d20c",
+    "scoped-load/summary.json": "c6182791cd7c919ad518bf663b53945ac595d4319b2e6ccd4bed36fe13b5274c",
+    "source-consumers/build-source-guards.txt": "5e2449d80f13ed792290bfa06ab8c5dcab7c6cb3efdd731d62cc8b377536eca7",
+    "source-consumers/core-release.txt": "513bd3278c4d47b247365f3480585126e92fba8117187146cb4f482ef65cb748",
+    "source-consumers/core-sanitize.txt": "9932ff735e43ab92fe73a1da7d3cd7eacd69cf864d63f8ddf17277ba869f3b30",
+    "source-consumers/record_pages-release.txt": "8c58f7bf4ddd4b6ea503577ff829793f3972becfdcf76f35631746278dae1104",
+    "source-consumers/record_pages-sanitize.txt": "6f4ae02f435f6ae06d3a4bcb854fca5a857af4e269e3887a2e891926843b43b8",
+    "source-consumers/record_sql-release.txt": "e8b8a46a85b5cca8b6af43241637176f2286e78f8a26651c8f16a55b9e5a16a8",
+    "source-consumers/record_sql-sanitize.txt": "7b3dad60dccf90f4cf9ccc76f962460beac1507a0a63cff48858eb15d52567b0",
+    "source-consumers/summary.json": "464b79b4889e7731211789bd92b16fa422dac29c9c76131ba8e90ebee8b9e96f",
+    "wasm-analysis/browser.txt": "b84c702aec59ab484bf4982b949b5410b5d4caf86d0b9987df1db97223a07b5c",
+    "wasm-analysis/driver.txt": "335b63e439d949a71a06472672bb90e0c5e43623e54dff0ce650dca2697a61f9",
+    "wasm-analysis/summary.json": "daa6240be8def1e3a9be740ed2e60b22e085af0d98dac006c8b3a8f7d466216b",
+    "wasm-controls/browser.txt": "895a002b2c822f19fdc49f4aba789e963e6a94230e74ea1946e2c6c356f0a695",
+    "wasm-controls/driver.txt": "ebbd919986ba99c7bebfb831d401d235936fa092267bb5ea000b6ed473d5e366",
+    "wasm-controls/summary.json": "6e5f0abccecc12eae5bb610f3326bd1178ca6c8347188cee1659dafb0d0f3e9e",
+    "wasm-exclusion.json": "669900e264018367b84e643fc2f7cceb644b49eb00b4d00f8a198adc9b2b4b04",
+    "wasm-shipping/browser.txt": "82a4d8f2c0dc0c06081a8d713c9ab62f25ea748c159984f055e60c2a9501a38a",
+    "wasm-shipping/driver.txt": "b56f2a1a4aaccf81e36a7d6120062bf9d721b4112f9968c70f1f01d5c30f7b2f",
+    "wasm-shipping/summary.json": "df6e23f5501a0b705271314d091c33249c9941ece4629285a0eeb09de2a91245",
+    "wasm-worker/browser.txt": "4790844dfa2070b9eeb9a40579ab072904697a29267cac8c8c6f83d750ed5c85",
+    "wasm-worker/driver.txt": "aa51f6501eeb2256b5f517bd94c8cb07b37fd368e49539f184a532590dc0212f",
+    "wasm-worker/summary.json": "7a2efa416bebfdcd51f0785b95aa443001db7a8f26e969cca2618901209b2b45"
+  }
+}

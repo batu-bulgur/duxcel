@@ -4778,6 +4778,7 @@ static void draw_source_query(App *a) {
     bool enter=ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER),apply=(ui_pressed(KEY_ENTER) && ui_key_shortcut(KEY_ENTER)) || (ui_pressed(KEY_KP_ENTER) && ui_key_shortcut(KEY_KP_ENTER));
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
     DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.025f,4,(Color){20,32,45,38}); DrawRectangleRounded(panel,.025f,4,UI_BG); DrawRectangleLinesEx(panel,1,UI_BORDER);
+    REVIEW_AUTHOR_PANEL(a,"source_query","Edit source query",panel,box(x+20*s,y+15*s,w-40*s,30*s));
     ui_text(u,"Edit source query",x+20*s,y+15*s,19,UI_TEXT);
     ui_text_clip(u,"Read the original source as input. Use one SELECT, optionally with WITH.",box(x+13*s,y+47*s,w-26*s,25*s),12,UI_MUTED,false);
     const Analysis *source=query_source(a); const char *name=a->query_object>=0 && source ? active_sheet(a)->objects.items[a->query_object].name : active_sheet(a)->name;
@@ -4785,6 +4786,7 @@ static void draw_source_query(App *a) {
     float error_height=a->query_error ? fminf(132*s,h*.26f) : 0;
     Rectangle editor=box(x+20*s,y+104*s,w-40*s,fmaxf(70*s,h-228*s-error_height));
     if (text_editor_draw(&a->query_editor,&a->input,u,editor,a->query_focus==0)) a->query_focus=0;
+    REVIEW_AUTHOR_INPUT(a,"source_query","sql","source.query","Source SQL",editor,panel,true,a->query_focus==0,&a->input);
     if (a->query_edit_revision!=a->input.revision) {
         cancel_source_validation(a); free(a->query_error); a->query_error=NULL; text_lines_free(&a->query_errors); a->query_edit_revision=a->input.revision;
     }
@@ -4803,6 +4805,7 @@ static void draw_source_query(App *a) {
     for (int i=0;i<3;i++) {
         if (a->query_focus==i+1) ui_border(box(actions[i].x-2*s,actions[i].y-2*s,actions[i].width+4*s,actions[i].height+4*s),panel,1.5f*s,UI_ACCENT);
         bool enabled=i!=2 || !a->query_loading;
+        REVIEW_AUTHOR_ITEM(a,"source_query",((const char *const[]){"original","cancel","apply"})[i],"source.query.action","button",labels[i],actions[i],panel,enabled,false,a->query_focus==i+1,NULL);
         if (ui_button(u,actions[i],labels[i],i==2,enabled) || (enabled && enter && !apply && a->query_focus==i+1)) {
             if (!i) { cancel_source_validation(a); input_set(&a->input,""); a->query_edit_revision=a->input.revision; a->query_focus=0; free(a->query_error); a->query_error=NULL; text_lines_free(&a->query_errors); }
             else if (i==1) { cancel_source_validation(a); a->modal=MODAL_NONE; a->consume_grid_input=true; return; }

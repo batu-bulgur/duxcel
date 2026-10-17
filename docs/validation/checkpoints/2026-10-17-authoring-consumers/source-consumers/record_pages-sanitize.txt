@@ -1,0 +1,2 @@
+Command: ["./tests/test_record_pages-debug"]
+PASS: 81505 native record-page checks

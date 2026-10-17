@@ -97,7 +97,7 @@ def main():
         artifacts={p.name:tools.sha256(p) for p in stage.iterdir() if p.suffix in ('.html','.mjs','.wasm','.data','.png','.json')}
         artifacts.update({name:item['sha256'] for name,item in packaged['files'].items()})
         scope='No-window shared C/official Worker acceptance driver.' if options.worker_driver else 'Shared C99 renderer with browser-scheduled App frames.'
-        scope+=' Official asynchronous DuckDB-Wasm Worker backend for bounded source pages/count/SQL validation, paged available values/date hierarchy and asynchronous CSV/Parquet import. Browser PIVOT/totals/statistics/copy/export/workbooks remain explicitly unavailable. Runtime acceptance is separate.'
+        scope+=' Official asynchronous DuckDB-Wasm Worker backend for bounded source pages/count/SQL validation, paged available values/date hierarchy, asynchronous CSV/Parquet import and Rows/Values matrices with source-derived totals. Columns PIVOT/statistics/copy/export/workbooks remain explicitly unavailable. Runtime acceptance is separate.'
         if options.review:scope+=' Review-only C registry/capture/composer and durable browser outbox/shared review queue transport; service/agent acceptance is separate.'
         record={'status':'built','signature':key,'source':before,'compiler':state['emcc'],'elapsed_seconds':round(time.monotonic()-begin,3),'sources':sources,'rebuilt_sources':rebuilt,'flags':flags,'link':link,'artifacts':artifacts,'bytes':{p:(stage/p).stat().st_size for p in artifacts},'kind':'worker-driver' if options.worker_driver else 'review' if options.review else 'application','scope':scope}
         for path in stage.glob('*.o'):path.unlink()

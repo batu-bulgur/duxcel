@@ -1,0 +1,67 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T19:47:58.837957+00:00",
+  "tier": "formats",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel",
+  "source": {
+    "commit": "6568c423c926b35dd88bd5df4569fe5f9e5a51b8",
+    "status": "M src/workbook/workbook.c\n M tests/test_workbook.c",
+    "source_sha256": "56188d519dec98966c6d45c9c401226273256b57c74776c69fe59cb0ecd0dab7",
+    "source_files": 237
+  },
+  "results": [
+    {
+      "name": "build-formats",
+      "command": [
+        "make",
+        "tests/test_workbook",
+        "tests/test_workbook-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T194758-formats-44856/build-formats.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 8.655
+    },
+    {
+      "name": "formats-release",
+      "command": [
+        "./tests/test_workbook",
+        "--formats-only"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T194758-formats-44856/formats-release.txt",
+      "expected_stages": null,
+      "completion_pattern": "^PASS: [1-9]\\d* focused workspace formatting checks \\(format round-trip, validation, scoped-save rejection and original-file preservation\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 2.209
+    },
+    {
+      "name": "formats-sanitize",
+      "command": [
+        "./tests/test_workbook-debug",
+        "--formats-only"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T194758-formats-44856/formats-sanitize.txt",
+      "expected_stages": null,
+      "completion_pattern": "^PASS: [1-9]\\d* focused workspace formatting checks \\(format round-trip, validation, scoped-save rejection and original-file preservation\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 8.548
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_workbook": "bb8924edcc3971ff1518e1b8e50de775b413223d2a807b7901b8188f5c6b2a1a",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_workbook-debug": "0cdb50a4825705453071c7f266179b7b417f97679b52702a8d92ab3e7f54c8fa"
+  },
+  "elapsed_seconds": 19.501,
+  "binaries_after": {
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_workbook": "bb8924edcc3971ff1518e1b8e50de775b413223d2a807b7901b8188f5c6b2a1a",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_workbook-debug": "0cdb50a4825705453071c7f266179b7b417f97679b52702a8d92ab3e7f54c8fa"
+  },
+  "finished_utc": "2026-10-17T19:48:18.405652+00:00"
+}
