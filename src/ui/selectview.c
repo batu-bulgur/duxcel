@@ -1,13 +1,17 @@
 #include "selectview.h"
 #include <math.h>
 
+static float select_font_size(UISelectStyle style) {
+    return style==UI_SELECT_PLOT ? 10.5f : style==UI_SELECT_FILTER_CONDITION ? 11 : 12;
+}
+
 bool ui_select_field(UIContext *u,Rectangle r,const char *label,UISelectStyle style,bool focused,bool enabled) {
     if (!u || !isfinite(u->scale) || u->scale<=0 ||
         !isfinite(r.x) || !isfinite(r.y) || !isfinite(r.width) || !isfinite(r.height) ||
         r.width<=2*u->scale || r.height<=2*u->scale ||
-        style<UI_SELECT_REPRESENTATION || style>UI_SELECT_NUMBER_FORMAT) return false;
+        style<UI_SELECT_REPRESENTATION || style>UI_SELECT_FILTER_CONDITION) return false;
     float s=u->scale,padding=style==UI_SELECT_FONT_SIZE ? 3 : 7;
-    float size=style==UI_SELECT_PLOT ? 10.5f : 12;
+    float size=select_font_size(style);
     Rectangle visible=u->clipping ? GetCollisionRec(r,u->clip) : r;
     if (visible.width<=0 || visible.height<=0) return false;
     bool hover=false,clicked=ui_control_input(u,r,enabled,&hover);
@@ -79,7 +83,7 @@ void ui_select_menu_frame(UIContext *ui,const UISelectMenuLayout *layout) {
 }
 bool ui_select_menu_option(UIContext *ui,const UISelectMenuLayout *layout,int visible_row,
     const char *label,UISelectStyle style,bool selected,bool focused,bool enabled,bool allow) {
-    if (!ui || !isfinite(ui->scale) || ui->scale<=0 || style<UI_SELECT_REPRESENTATION || style>UI_SELECT_NUMBER_FORMAT) return false;
+    if (!ui || !isfinite(ui->scale) || ui->scale<=0 || style<UI_SELECT_REPRESENTATION || style>UI_SELECT_FILTER_CONDITION) return false;
     Rectangle row=ui_select_menu_row(layout,visible_row),visible=select_clip(ui,row);
     if (visible.width<=0 || visible.height<=0) return false;
     /* Text/icons have CPU clipping; scope it to this row without adding GPU
@@ -94,7 +98,7 @@ bool ui_select_menu_option(UIContext *ui,const UISelectMenuLayout *layout,int vi
     }
     Color ink=enabled ? UI_TEXT : (Color){153,160,172,255};
     if (selected) ui_carbon(ui,CARBON_CHECKMARK,(Rectangle){row.x+4*s,row.y+(row.height-12*s)*.5f,12*s,12*s},ink);
-    ui_label(ui,label ? label : "",(Rectangle){row.x+20*s,row.y,fmaxf(0,row.width-24*s),row.height},style==UI_SELECT_PLOT ? 10.5f : 12,ink,false,UI_REGULAR);
+    ui_label(ui,label ? label : "",(Rectangle){row.x+20*s,row.y,fmaxf(0,row.width-24*s),row.height},select_font_size(style),ink,false,UI_REGULAR);
     if (focused && enabled) ui_focus_border(row,visible,s);
     ui->clip=old_clip; ui->clipping=old_clipping;
     return clicked;

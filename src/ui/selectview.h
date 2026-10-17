@@ -6,13 +6,16 @@ typedef enum {
     UI_SELECT_REPRESENTATION,
     UI_SELECT_PLOT,
     UI_SELECT_FONT_SIZE,
-    UI_SELECT_NUMBER_FORMAT
+    UI_SELECT_NUMBER_FORMAT,
+    UI_SELECT_FILTER_CONDITION
 } UISelectStyle;
 
 /* Closed reference <select> field. Rect is in display coordinates; type and
    padding use UI scale. The caller owns its value, focus and dropdown state.
    Select focus is explicit even after pointer activation, unlike action-menu
-   keyboard rings. This helper only paints and reports activation. */
+   keyboard rings. Filter conditions use 11-unit type and the standard 7-unit
+   padding; the caller supplies their 25-unit field height. This helper only
+   paints and reports activation. */
 bool ui_select_field(UIContext *ui,Rectangle rect,const char *label,UISelectStyle style,bool focused,bool enabled);
 
 typedef struct {
