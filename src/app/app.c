@@ -72,6 +72,7 @@ typedef struct {
     DxReviewDataIdentity sql_origin;
     bool sql_origin_valid,sql_origin_stale;
     bool inspector_origin_valid,inspector_origin_stale,inspector_origin_truncated;
+    UIPreviewReviewFrame review_preview;
 #endif
     Texture2D icon_previews[16];
     int icon_preview;
@@ -415,6 +416,11 @@ static void review_workspace_control(App *a,const char *id,const char *action,co
 static void review_workspace_field(App *a,const Column *field,size_t index,Rectangle bounds,Rectangle clip,bool enabled,bool focused,bool more,const char *file,int line);
 static void review_workspace_token(App *a,int role,size_t index,const PivotField *field,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool focused,bool remove,const char *file,int line);
 static void review_workspace_scroll(App *a,const char *part,Rectangle track,Rectangle thumb,Rectangle clip,bool enabled,bool dragging,const char *file,int line);
+static DxReviewDataIdentity review_feedback_origin(App *a,const char *producer,const SheetObject *actual_owner);
+static void review_feedback_target(App *a,DxReviewDataIdentity origin,const char *id,const char *parent,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *type,bool is_null,const char *exact_text,const char *file,int line);
+static void review_feedback_scroll(App *a,DxReviewDataIdentity origin,const char *id,const char *parent,Rectangle track,Rectangle thumb,Rectangle clip,bool enabled,bool dragging,const char *file,int line);
+static void review_feedback_preview(App *a,const UIPreviewReviewFrame *frame);
+static void review_feedback_step(App *a,const SheetObject *owner,const UIStep *step,size_t index,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -457,6 +463,11 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_WORKSPACE_TOKEN(a,role,index,field,label,bounds,clip,enabled,focused,remove) review_workspace_token(a,role,index,field,label,bounds,clip,enabled,focused,remove,__FILE__,__LINE__)
 #define REVIEW_WORKSPACE_SCROLL(a,part,track,thumb,clip,enabled,dragging) review_workspace_scroll(a,part,track,thumb,clip,enabled,dragging,__FILE__,__LINE__)
 #define REVIEW_WORKSPACE_AVAILABLE(a) ((a)->modal==MODAL_NONE && !(a)->io_busy && !(a)->file_menu)
+#define REVIEW_FEEDBACK(a,producer,owner,id,parent,action,role,label,bounds,clip,enabled,checked,focused,type,is_null,text) do { if (review_armed(a)) review_feedback_target(a,review_feedback_origin(a,producer,owner),id,parent,action,role,label,bounds,clip,enabled,checked,focused,type,is_null,text,__FILE__,__LINE__); } while (0)
+#define REVIEW_FEEDBACK_SCROLL(a,producer,owner,id,parent,track,thumb,clip,enabled,dragging) do { if (review_armed(a)) review_feedback_scroll(a,review_feedback_origin(a,producer,owner),id,parent,track,thumb,clip,enabled,dragging,__FILE__,__LINE__); } while (0)
+#define REVIEW_PREVIEW_ARM(a,enabled) do { (a)->review_preview.armed=review_armed(a); (a)->review_preview.return_enabled=(enabled); } while (0)
+#define REVIEW_PREVIEW(a) review_feedback_preview(a,&(a)->review_preview)
+#define REVIEW_FEEDBACK_STEP(a,owner,step,index,row,clip,enabled,selected,focused) do { if (review_armed(a)) review_feedback_step(a,owner,step,index,row,clip,enabled,selected,focused,__FILE__,__LINE__); } while (0)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -496,6 +507,11 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_WORKSPACE_FIELD(...) ((void)0)
 #define REVIEW_WORKSPACE_TOKEN(...) ((void)0)
 #define REVIEW_WORKSPACE_SCROLL(...) ((void)0)
+#define REVIEW_FEEDBACK(...) ((void)0)
+#define REVIEW_FEEDBACK_SCROLL(...) ((void)0)
+#define REVIEW_PREVIEW_ARM(...) ((void)0)
+#define REVIEW_PREVIEW(...) ((void)0)
+#define REVIEW_FEEDBACK_STEP(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -2402,6 +2418,7 @@ static void draw_filter(App *a) {
     if (reveal && a->values_focus>=0) { uint64_t focus=(uint64_t)a->values_focus; if (focus<a->values_scroll) a->values_scroll=focus; if (focus>=a->values_scroll+visible) a->values_scroll=focus-visible+1; }
     if (allow && CheckCollisionPointRec(mouse,r.list)) { int delta=ui_scroll_steps(&a->wheel_values,-GetMouseWheelMoveV().y*3); if (delta<0) a->values_scroll=a->values_scroll<(uint64_t)-delta ? 0 : a->values_scroll-(uint64_t)-delta; else a->values_scroll+=(uint64_t)delta; }
     uint64_t total=a->values_total<0 ? 0 : (uint64_t)a->values_total,max=total>visible ? total-visible : 0;
+    REVIEW_FEEDBACK(a,"filter",object,"filter.values","filter.panel","filter.inspect_domain","group","Available values",r.list,r.panel,true,false,false,NULL,false,NULL);
     if (a->values_total>=0 && a->values_scroll>max) a->values_scroll=max;
     if (!a->values_selecting && dx_millis()-a->values_changed>=160) request_values(a,a->values_scroll/DX_DISTINCT_ROWS*DX_DISTINCT_ROWS);
     for (unsigned row=0;row<visible && a->values_scroll+row<total;row++) {
@@ -2427,13 +2444,19 @@ static void draw_filter(App *a) {
         Rectangle track=box(r.list.x+r.list.width-8*s,r.list.y+3*s,8*s,r.list.height-8*s); float thumb=fminf(track.height,fmaxf(26*s,track.height*visible/(float)total)),travel=track.height-thumb;
         Rectangle handle=box(track.x,track.y+(max ? (float)((double)a->values_scroll/max)*travel : 0),track.width,thumb);
         DrawRectangleRec(track,UI_BG); DrawRectangleRounded(handle,.4f,3,(Color){173,184,199,255});
+        REVIEW_FEEDBACK_SCROLL(a,"filter",object,"filter.values.scrollbar","filter.values",track,handle,r.list,!a->values_selecting,a->values_drag);
         DxPointerGesture gesture;
         if (allow && ui_take_left_gesture_from(track,&gesture) && travel>0) { float grab=CheckCollisionPointRec((Vector2){gesture.x0,gesture.y0},handle) ? gesture.y0-handle.y : thumb/2; a->values_scroll=(uint64_t)(fminf(1,fmaxf(0,(gesture.y1-track.y-grab)/travel))*max); }
         else if (allow && CheckCollisionPointRec(mouse,track) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { a->values_drag=true; a->values_grab=CheckCollisionPointRec(mouse,handle) ? mouse.y-handle.y : thumb/2; }
         if (allow && a->values_drag && IsMouseButtonDown(MOUSE_BUTTON_LEFT) && travel>0) a->values_scroll=(uint64_t)(fminf(1,fmaxf(0,(mouse.y-track.y-a->values_grab)/travel))*max);
         if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) a->values_drag=false;
     }
-    if (!total) ui_label(u,a->values_failed ? a->message : a->values_total<0 ? "Loading available values…" : "No matching values",box(r.list.x+10*s,r.list.y+12*s,r.list.width-20*s,35*s),11,UI_MUTED,false,UI_REGULAR);
+    if (!total) {
+        const char *message=a->values_failed ? a->message : a->values_total<0 ? "Loading available values…" : "No matching values";
+        Rectangle status_bounds=box(r.list.x+10*s,r.list.y+12*s,r.list.width-20*s,35*s);
+        ui_label(u,message,status_bounds,11,UI_MUTED,false,UI_REGULAR);
+        REVIEW_FEEDBACK(a,"filter",object,"filter.values.status","filter.values","filter.inspect_status","text","Available values status",status_bounds,r.list,true,false,false,"VARCHAR",false,message);
+    }
     float cy=r.condition.y-7*s;
     DrawLineEx((Vector2){r.title.x,cy},(Vector2){r.title.x+r.title.width,cy},s,(Color){224,231,237,255});
     ui_label(u,"Condition",box(r.title.x+10*s,cy+7*s,65*s,25*s),10.5f,UI_MUTED,false,UI_REGULAR);
@@ -5500,6 +5523,10 @@ static void list_scrollbar(App *a,Rectangle r,int count,int visible,int *offset,
         if (kind) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_AUTHOR_SCROLL(a,kind,track,ui_scrollbar_thumb(track,count,visible,position,false,s),r,state.dragging); }
         if (offset==&a->pivot_field_scroll) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_WORKSPACE_SCROLL(a,"fields",track,ui_scrollbar_thumb(track,count,visible,position,false,s),r,REVIEW_WORKSPACE_AVAILABLE(a) && a->left_motion.target>0,state.dragging); }
         if (offset==&a->sheet_scroll) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_SHEET_SCROLL(a,track,ui_scrollbar_thumb(track,count,visible,position,false,s),a->ui.clipping ? GetCollisionRec(r,a->ui.clip) : r,state.dragging); }
+        if (a->modal==MODAL_NONE && (offset==&a->step_scroll || offset==&a->inspector_sql_scroll)) {
+            Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); const SheetObject *owner=objects_source(&active_sheet(a)->objects,selected_object(a));
+            REVIEW_FEEDBACK_SCROLL(a,offset==&a->step_scroll ? "pipeline" : "pipeline_sql",owner,offset==&a->step_scroll ? "pane.transformations.steps.scrollbar" : "pane.transformations.sql.scrollbar","pane.transformations.body",track,ui_scrollbar_thumb(track,count,visible,position,false,s),r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy,state.dragging);
+        }
     }
 #endif
 }
@@ -5816,6 +5843,8 @@ static void draw_pipeline(App *a,Rectangle r) {
     DrawRectangleRec(r,(Color){251,252,253,255}); DrawLineV((Vector2){r.x,r.y},(Vector2){r.x,r.y+r.height},UI_BORDER);
     if (a->pipeline_collapsed) {
         Rectangle expand=box(r.x+3*scale,r.y+5*scale,26*scale,26*scale),dismiss=box(r.x+3*scale,r.y+36*scale,26*scale,26*scale);
+        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.expand","pane.transformations","pipeline.expand","button","Expand Transformations",expand,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer,false,a->chrome_focus==8 && !a->pipeline_focus_index,NULL,false,NULL);
+        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.dismiss","pane.transformations","pipeline.dismiss","button","Dismiss Transformations",dismiss,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer,false,a->chrome_focus==8 && a->pipeline_focus_index,NULL,false,NULL);
         if (ui_icon_button(u,expand,CARBON_DATA_STRUCTURED,false,passive_control(a,header_enabled))) { present_pipeline(a,true,false); return; }
         if (ui_icon_button(u,dismiss,CARBON_CLOSE,false,passive_control(a,header_enabled))) { present_pipeline(a,false,false); return; }
         if (a->chrome_focus==8) DrawRectangleLinesEx(a->pipeline_focus_index ? dismiss : expand,1.5f*scale,UI_ACCENT);
@@ -5824,12 +5853,17 @@ static void draw_pipeline(App *a,Rectangle r) {
         return;
     }
     pipeline_rows_cache(a); UIInspectorLayout layout=ui_inspector_layout(r,scale,a->pipeline_row_count,a->pipeline_sql); a->pipeline_layout=layout; if (!layout.valid) return;
+    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.body","pane.transformations","pipeline.inspect","group",a->pipeline_sql ? "Inspect SQL" : "Transformations",r,r,true,false,false,NULL,false,NULL);
+    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.title","pane.transformations.body","pipeline.inspect","text",a->pipeline_sql ? "Inspect SQL" : "Transformations",layout.title,r,true,false,false,"VARCHAR",false,a->pipeline_sql ? "Inspect SQL" : "Transformations");
+    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.collapse","pane.transformations.body","pipeline.collapse","button","Collapse Transformations",layout.collapse,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer,false,false,NULL,false,NULL);
+    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.dismiss","pane.transformations.body","pipeline.dismiss","button","Dismiss Transformations",layout.dismiss,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer,false,false,NULL,false,NULL);
     ui_label(u,a->pipeline_sql ? "Inspect SQL" : "Transformations",layout.title,13,UI_TEXT,false,UI_SEMIBOLD);
     if (ui_icon_button(u,layout.collapse,CARBON_CHEVRON_RIGHT,false,passive_control(a,header_enabled))) { present_pipeline(a,true,true); return; }
     if (ui_icon_button(u,layout.dismiss,CARBON_CLOSE,false,passive_control(a,header_enabled))) { present_pipeline(a,false,false); return; }
     DrawLineV((Vector2){r.x,r.y+35*scale},(Vector2){r.x+r.width,r.y+35*scale},(Color){220,228,234,255});
     float prefix=ui_measure(u,"Source:",11.5f)+5*scale; ui_label(u,"Source:",layout.source,11.5f,UI_MUTED,false,UI_REGULAR);
     ui_label(u,table ? table->name : active_sheet(a)->name,box(layout.source.x+prefix,layout.source.y,layout.source.width-prefix,layout.source.height),11.5f,(Color){48,79,102,255},false,UI_MEDIUM);
+    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.source","pane.transformations.body","pipeline.inspect_source","text","Source",layout.source,r,true,false,false,"VARCHAR",false,table ? table->name : active_sheet(a)->name);
     DrawLineV((Vector2){r.x,r.y+69*scale},(Vector2){r.x+r.width,r.y+69*scale},(Color){225,231,236,255});
     if (a->pipeline_sql) {
         uint64_t id=table ? table->id : 0,revision=table ? table->revision : a->analysis_revision;
@@ -5845,6 +5879,10 @@ static void draw_pipeline(App *a,Rectangle r) {
         if (enabled && CheckCollisionPointRec(mouse,code)) a->inspector_sql_scroll+=ui_scroll_steps(&a->wheel_sql,-GetMouseWheelMoveV().y*3);
         if (a->inspector_sql_scroll>maximum) a->inspector_sql_scroll=maximum; if (a->inspector_sql_scroll<0) a->inspector_sql_scroll=0;
         text_lines_draw_sized(lines,u,a->inspector_sql_text ? a->inspector_sql_text : "",(size_t)a->inspector_sql_scroll,code,12,20,(Color){49,91,118,255});
+        REVIEW_FEEDBACK(a,"pipeline_sql",table,"pane.transformations.sql","pane.transformations.body","pipeline.inspect_sql","text","Source SQL",code,code,true,false,a->chrome_focus==8,"SQL",false,a->inspector_sql_text);
+        REVIEW_FEEDBACK(a,"pipeline_sql",table,"pane.transformations.sql_description","pane.transformations.body","pipeline.inspect_sql","text","Read-only source result",layout.sql_description,r,true,false,false,"VARCHAR",false,"Read-only source result");
+        REVIEW_FEEDBACK(a,"pipeline_sql",table,"pane.transformations.copy","pane.transformations.body","pipeline.copy_sql","button","Copy SQL",layout.copy,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer,false,a->chrome_focus==8 && !a->pipeline_focus_index,NULL,false,NULL);
+        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.back","pane.transformations.body","pipeline.show_steps","button","Steps",layout.steps,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer,false,a->chrome_focus==8 && a->pipeline_focus_index,NULL,false,NULL);
         if (maximum) list_scrollbar(a,box(code.x+code.width,code.y,8*scale,code.height),(int)lines->count,visible,&a->inspector_sql_scroll,&a->steps_drag,&a->steps_grab,enabled);
         DrawLineV((Vector2){r.x,layout.footer.y},(Vector2){r.x+r.width,layout.footer.y},(Color){220,228,235,255});
         if (ui_carbon_command(u,layout.copy,CARBON_COPY,"Copy SQL",false,passive_control(a,header_enabled))) { copy_text(a,a->inspector_sql_text,"Source SQL copied."); }
@@ -5862,10 +5900,12 @@ static void draw_pipeline(App *a,Rectangle r) {
     }
     if (enabled && CheckCollisionPointRec(mouse,layout.list)) a->step_scroll+=ui_scroll_steps(&a->wheel_steps,-GetMouseWheelMoveV().y*2);
     if (a->step_scroll<0) a->step_scroll=0; if (a->step_scroll>maximum) a->step_scroll=maximum;
+    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.steps","pane.transformations.body","pipeline.inspect_steps","listbox","Source steps",layout.list,r,true,false,a->chrome_focus==8,NULL,false,NULL);
     ui_set_clip(u,layout.list);
     for (int row=0;row<visible+1 && row+a->step_scroll<count;row++) {
         int index=row+a->step_scroll; UIStep *step=&a->pipeline_rows[index]; Rectangle item=box(layout.list.x,layout.list.y+row*layout.row_height*scale,layout.list.width-8*scale,layout.row_height*scale);
         bool selected=index==a->pipeline_focus_index;
+        REVIEW_FEEDBACK_STEP(a,table,step,(size_t)index,item,layout.list,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && !a->grid.dragging && !a->grid.moving && a->grid.resizing<0 && !a->grid.scrollbar,selected,selected && a->chrome_focus==8);
         if (ui_list_row(u,item,"",false,passive_control(a,enabled))) { a->pipeline_focus_index=index; a->chrome_focus=8; a->consume_grid_input=true; selected=true; }
         if (selected) { clipped_fill(item,layout.list,(Color){225,237,246,255}); ui_border(item,layout.list,scale,(Color){201,223,239,255}); clipped_fill(box(item.x,item.y+6*scale,2*scale,item.height-12*scale),layout.list,(Color){44,113,156,255}); }
         else clipped_fill(box(item.x,item.y+item.height-scale,item.width,scale),layout.list,(Color){229,234,240,255});
@@ -5885,6 +5925,10 @@ static void draw_pipeline(App *a,Rectangle r) {
     if (count) {
         UIStep *step=&a->pipeline_rows[a->pipeline_focus_index];
         ui_label(u,step->title,layout.detail_title,11.5f,UI_TEXT,false,UI_MEDIUM);
+        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.detail_title","pane.transformations.body","pipeline.inspect_step","text",step->title,layout.detail_title,r,true,false,false,"VARCHAR",false,step->title);
+        if (layout.description.height) REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.description","pane.transformations.body","pipeline.inspect_step","text","Step detail",layout.description,r,true,false,false,"VARCHAR",false,step->detail);
+        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.edit","pane.transformations.body","pipeline.edit_step","button",step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…",layout.edit,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && pipeline_step_editable(a,step),false,false,NULL,false,NULL);
+        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.preview","pane.transformations.body","pipeline.preview","button","Preview…",layout.preview,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && source->kind!=SOURCE_NONE,false,false,NULL,false,NULL);
         if (layout.description.height) ui_label(u,step->detail,layout.description,11,UI_MUTED,false,UI_REGULAR);
         if (ui_popup_button(u,layout.edit,step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…",false,false,passive_control(a,enabled) && pipeline_step_editable(a,step))) pipeline_edit_step(a,(size_t)a->pipeline_focus_index);
         if (ui_popup_button(u,layout.preview,"Preview…",false,false,passive_control(a,enabled) && !a->busy && source->kind!=SOURCE_NONE)) {
@@ -5897,6 +5941,8 @@ static void draw_pipeline(App *a,Rectangle r) {
     DrawLineV((Vector2){r.x,layout.footer.y},(Vector2){r.x+r.width,layout.footer.y},(Color){225,231,236,255});
     if (ui_carbon_command(u,layout.inspect,CARBON_SQL,"Inspect SQL",false,passive_control(a,enabled) && source->kind!=SOURCE_NONE)) pipeline_show_sql(a);
     if (layout.note.height) ui_label(u,"Current source steps",layout.note,10,UI_MUTED,false,UI_REGULAR);
+    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.inspect","pane.transformations.body","pipeline.show_sql","button","Inspect SQL",layout.inspect,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && source->kind!=SOURCE_NONE,false,false,NULL,false,NULL);
+    if (layout.note.height) REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.note","pane.transformations.body","pipeline.inspect","text","Current source steps",layout.note,r,true,false,false,"VARCHAR",false,"Current source steps");
 }
 static void paste_selection(App *a) {
     const char *text=GetClipboardText(); char *error=NULL; size_t rows=0,columns=0;
@@ -6900,9 +6946,11 @@ static void draw_status(App *a,bool enabled) {
     UIStatusLayout layout=ui_status_layout((Vector2){GetScreenWidth(),GetScreenHeight()},s,widths,ui_measure(u,interface,11)/s); a->status_layout=layout;
     if (!layout.valid) return;
     DrawRectangleRec(layout.panel,(Color){240,244,247,255}); DrawLineV((Vector2){0,layout.panel.y},(Vector2){GetScreenWidth(),layout.panel.y},(Color){203,215,225,255});
+    REVIEW_FEEDBACK(a,"interface",NULL,"status.panel","","status.inspect","group","Worksheet status",layout.panel,layout.panel,true,false,false,NULL,false,NULL);
     for (int i=0;i<3;i++) if (layout.context[i].width) {
         Rectangle entry=layout.context[i]; float left=i ? 11*s : 0;
         ui_label(u,context[i],box(entry.x+left,entry.y,fmaxf(0,entry.width-left-12*s),entry.height),12,ink,false,UI_REGULAR);
+        REVIEW_FEEDBACK(a,i ? "source_footer" : "task",object && object->kind==OBJECT_TABLE ? object : NULL,((const char *const[]){"status.task","status.source_kind","status.source_count"})[i],"status.panel","status.inspect","text",((const char *const[]){"Task status","Source kind","Source row count"})[i],entry,layout.panel,true,false,false,"VARCHAR",false,context[i]);
         DrawLineV((Vector2){entry.x+entry.width-s,layout.panel.y+5*s},(Vector2){entry.x+entry.width-s,layout.panel.y+17*s},(Color){199,212,222,255});
     }
     CellFormat format=preview ? format_at(&a->step_preview.formats,a->step_preview.grid.row,a->step_preview.grid.col) : active_format(a);
@@ -6939,6 +6987,7 @@ static void draw_status(App *a,bool enabled) {
     }
     if (actual) ui_status_metrics_draw(u,&a->status_metric_labels,layout.metrics,ink);
     else ui_label(u,a->status_metrics,box(layout.metrics.x+8*s,layout.metrics.y,fmaxf(0,layout.metrics.width-16*s),layout.metrics.height),12,ink,true,UI_REGULAR);
+    REVIEW_FEEDBACK(a,"metrics",NULL,"status.metrics","status.panel","statistics.inspect","text","Selection metrics",layout.metrics,layout.panel,true,false,false,"VARCHAR",false,a->status_metrics);
     if (enabled && CheckCollisionPointRec(ui_mouse_position(),layout.panel) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) open_statistics(a);
     if (ui_tool_button(u,layout.customize,"",false,passive_control(a,enabled))) open_statistics(a);
     ui_carbon(u,CARBON_OVERFLOW_MENU_HORIZONTAL,box(layout.customize.x+3.5f*s,layout.customize.y+2*s,16*s,16*s),ink);
@@ -6980,6 +7029,7 @@ static void draw_toast(App *a) {
     DrawRectangleRounded(panel,.06f,4,Fade((Color){41,76,101,255},progress)); DrawRectangleRoundedLinesEx(panel,.06f,4,s,Fade((Color){28,60,83,255},progress));
     ui_carbon(u,CARBON_INFORMATION,box(panel.x+14*s,panel.y+(height-16*s)*.5f,16*s,16*s),Fade(WHITE,progress));
     text_lines_draw_sized(lines,u,a->message,0,box(panel.x+38*s,panel.y+10*s,fmaxf(0,width-52*s),height-20*s),11.5f,15,Fade(WHITE,progress));
+    REVIEW_FEEDBACK(a,"toast",NULL,"toast.content","","notification.inspect","text","Notification",panel,panel,true,false,false,"VARCHAR",false,a->message);
 }
 static bool file_action_available(const App *a,int action) {
     if (a->io_busy || action<0 || action>=UI_KEYTIP_FILE_COUNT) return false;
@@ -7213,6 +7263,9 @@ static void draw_app(App *a) {
     { CellFormat format=a->step_preview.active ? format_at(&a->step_preview.formats,value_grid->row,value_grid->col) : active_format(a); format.flags=0; format.align=FORMAT_LEFT; format.specified&=FORMAT_NUMERIC|FORMAT_DECIMALS;
         ui_formatted_value(u,value,is_null,numeric,floating,value_number,value_box,12,numeric && value_number<0 ? (Color){164,51,55,255} : UI_TEXT,format); }
     if (strip.type.width) ui_label(u,type_label,strip.type,10,UI_MUTED,true,UI_REGULAR);
+    REVIEW_FEEDBACK(a,"readout",NULL,"cell.readout.address","","cell.inspect_address","text","Active cell",strip.address_text,strip.address,true,false,false,"VARCHAR",false,cell_name);
+    REVIEW_FEEDBACK(a,"readout",NULL,"cell.readout.value","","cell.inspect_value","text","Active value",value_box,value_box,true,false,false,readout ? readout->type_name : NULL,is_null,value);
+    if (strip.type.width) REVIEW_FEEDBACK(a,"readout",NULL,"cell.readout.type","","cell.inspect_type","text","Active type",strip.type,strip.type,true,false,false,"VARCHAR",false,type_label);
     }
     }
     float tabs_y=GetScreenHeight()-22*s, side=a->workspace.canvas.x;
@@ -7267,7 +7320,15 @@ static void draw_app(App *a) {
         bool over=CheckCollisionPointRec(mouse,gr),control=IsKeyDown(KEY_LEFT_CONTROL)||IsKeyDown(KEY_RIGHT_CONTROL);
         bool zooming=enabled && over && !over_inspector && !a->left_drawer && ((control && wheel.y) || pinch);
         if (zooming) zoom_canvas(a,active_canvas_zoom(a)*expf(pinch+(control ? wheel.y*.08f : 0)),mouse);
-        if (ui_preview_draw(u,&a->step_preview.grid,&a->step_preview.page,box(gr.x,name_y,gr.width,bottom-name_y),a->step_preview.step,a->step_preview.title,enabled && !over_inspector && !a->left_drawer,preview_input && !zooming,a->step_preview.loading,a->step_preview.error)) end_step_preview(a);
+        REVIEW_PREVIEW_ARM(a,a->modal==MODAL_NONE && !a->io_busy && !a->file_menu && !over_inspector && !a->left_drawer);
+        bool preview_close=
+#ifdef DUXCEL_DEV_REVIEW
+            ui_preview_draw_review(u,&a->step_preview.grid,&a->step_preview.page,box(gr.x,name_y,gr.width,bottom-name_y),a->step_preview.step,a->step_preview.title,enabled && !over_inspector && !a->left_drawer,preview_input && !zooming,a->step_preview.loading,a->step_preview.error,&a->review_preview);
+#else
+            ui_preview_draw(u,&a->step_preview.grid,&a->step_preview.page,box(gr.x,name_y,gr.width,bottom-name_y),a->step_preview.step,a->step_preview.title,enabled && !over_inspector && !a->left_drawer,preview_input && !zooming,a->step_preview.loading,a->step_preview.error);
+#endif
+        REVIEW_PREVIEW(a);
+        if (preview_close) end_step_preview(a);
         if (a->step_preview.active && a->step_preview.grid.context_requested) { a->step_preview.grid.context_requested=false; inspect_value(a); }
         if (a->step_preview.active && a->step_preview.grid.filter_requested) {
             a->step_preview.grid.filter_requested=false; size_t field=a->step_preview.grid.col; Page *fields=context_fields(a); size_t match=fields->column_count;
