@@ -7054,7 +7054,7 @@ static void draw_toast(App *a) {
     text_lines_draw_sized(lines,u,a->message,0,box(panel.x+38*s,panel.y+10*s,fmaxf(0,width-52*s),height-20*s),11.5f,15,Fade(WHITE,progress));
     REVIEW_FEEDBACK(a,"toast",NULL,"toast.content","","notification.inspect","text","Notification",panel,panel,true,false,false,"VARCHAR",false,a->message);
 }
-static bool file_action_available(const App *a,int action) {
+static bool file_action_available(App *a,int action) {
     if (a->io_busy || action<0 || action>=UI_KEYTIP_FILE_COUNT) return false;
     if (action==UI_KEYTIP_FILE_IMPORT && a->busy) return false;
     if (action==UI_KEYTIP_FILE_EXPORT) return export_ready(a);
