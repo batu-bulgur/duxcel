@@ -1030,7 +1030,8 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_OWNER_END (REVIEW_SQL_END+14)
 #define REVIEW_GUIDE_END (REVIEW_OWNER_END+2*6)
 #define REVIEW_CELL_END (REVIEW_GUIDE_END+2*6)
-#define REVIEW_SMOKE_STAGES (REVIEW_CELL_END+2*6)
+#define REVIEW_ERROR_END (REVIEW_CELL_END+2*6)
+#define REVIEW_SMOKE_STAGES (REVIEW_ERROR_END+6)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -1049,6 +1050,9 @@ typedef struct {
     Analysis query_source; uint64_t query_source_revision,query_draft_revision,query_edit_revision,query_owner;
     uint64_t query_jobs,query_sql,query_counts,query_prepares,query_latest,query_complete_sql,query_complete_counts,query_complete_prepares; QueryReply *query_reply;
     TextEditor query_editor;
+    char *query_error_text,*query_error_pointer; TextLines query_error_lines; size_t *query_error_offsets,*query_editor_offsets;
+    int query_error_scroll; double query_error_wheel; bool query_failure_started;
+    uint64_t query_failure_jobs,query_failure_sql,query_failure_counts,query_failure_prepares,query_failure_request;
     struct { Cell *cells; uint64_t id,revision,source_id,total; size_t rows,columns; } query_views[DX_MAX_OBJECTS];
     bool relation_added; int relation_object,relation_focus,relation_scroll; Analysis relation_source;
     uint64_t relation_id,relation_revision; Relation *relation_rows; size_t relation_count;
@@ -1180,6 +1184,8 @@ static bool review_smoke_pivot_same(const PivotDefinition *left,const PivotDefin
 static void review_smoke_author_release(ReviewSmoke *t) {
     if (t->author_owned) { analysis_free(&t->author_source); pivot_free(&t->author_pivot); marks_free(&t->author_marks); free(t->author_name); t->author_name=NULL; t->author_owned=false; }
     analysis_free(&t->query_source);
+    free(t->query_error_text); free(t->query_error_offsets); free(t->query_editor_offsets);
+    t->query_error_text=NULL; t->query_error_offsets=t->query_editor_offsets=NULL;
     analysis_free(&t->relation_source);
     analysis_free(&t->sort_source); analysis_free(&t->sort_draft);
     analysis_free(&t->stats_source); free(t->stats_error); t->stats_error=NULL; for (size_t i=0;i<4;i++) { free(t->stats_text[i]); t->stats_text[i]=NULL; }
@@ -1636,18 +1642,25 @@ static int review_smoke_sheet_tick(App *a,ReviewSmoke *t) {
     if (item==3) { ui_set_scale(&a->ui,1); SetWindowMinSize(640,640); SetWindowSize(1280,820); }
     return 1;
 }
-static void review_smoke_query_remember(App *a,ReviewSmoke *t,bool pending) {
-    review_smoke_author_remember(a,t); t->query_source=analysis_copy(query_source(a));
+static void review_smoke_query_state_remember(App *a,ReviewSmoke *t,bool pending) {
+    t->query_source=analysis_copy(query_source(a));
     t->query_object=a->query_object; t->query_focus=a->query_focus; t->query_source_revision=a->query_source_revision;
     t->query_draft_revision=a->query_draft_revision; t->query_edit_revision=a->query_edit_revision; t->query_editor=a->query_editor;
     t->query_owner=a->query_object>=0 ? active_sheet(a)->objects.items[a->query_object].id : 0;
     t->query_pending=pending; t->query_complete=false; t->query_reply=NULL;
     t->dialog_text=dx_strdup(a->input.text); t->dialog_cursor=a->input.cursor; t->dialog_anchor=a->input.anchor; t->dialog_revision=a->input.revision;
+    t->query_error_text=a->query_error ? dx_strdup(a->query_error) : NULL; t->query_error_pointer=a->query_error; t->query_error_lines=a->query_errors;
+    t->query_error_scroll=a->query_error_scroll; t->query_error_wheel=a->query_error_wheel;
+    if (a->query_errors.offsets) { size_t bytes=(a->query_errors.count+1)*sizeof(size_t); t->query_error_offsets=dx_alloc(bytes); memcpy(t->query_error_offsets,a->query_errors.offsets,bytes); }
+    if (a->query_editor.lines.offsets) { size_t bytes=(a->query_editor.lines.count+1)*sizeof(size_t); t->query_editor_offsets=dx_alloc(bytes); memcpy(t->query_editor_offsets,a->query_editor.lines.offsets,bytes); }
     for (size_t i=0;i<active_sheet(a)->objects.count;i++) {
         SheetObject *object=&active_sheet(a)->objects.items[i]; Page *page=&a->objects[i].page;
         t->query_views[i].cells=page->cells; t->query_views[i].id=object->id; t->query_views[i].revision=object->revision; t->query_views[i].source_id=object->source_id;
         t->query_views[i].total=page->total; t->query_views[i].rows=page->row_count; t->query_views[i].columns=page->column_count;
     }
+}
+static void review_smoke_query_remember(App *a,ReviewSmoke *t,bool pending) {
+    review_smoke_author_remember(a,t); review_smoke_query_state_remember(a,t,pending);
 }
 static bool review_smoke_query_worker(App *a,ReviewSmoke *t,bool closed) {
     QueryWorker *worker=&a->worker; bool valid;
@@ -1676,12 +1689,15 @@ static bool review_smoke_query_worker(App *a,ReviewSmoke *t,bool closed) {
 static bool review_smoke_query_same(App *a,ReviewSmoke *t,bool closed) {
     GridLocation location=grid_location(&a->grid); const Analysis *source=query_source(a); TextEditor *editor=&a->query_editor;
     if (a->modal!=(closed ? MODAL_NONE : MODAL_SOURCE_QUERY) || a->selected_object!=t->author_selected || a->query_object!=t->query_object || a->query_focus!=t->query_focus || a->query_source_revision!=t->query_source_revision ||
-        a->query_draft_revision!=t->query_draft_revision || a->query_edit_revision!=t->query_edit_revision || a->query_loading!=(t->query_pending && !closed) || a->busy!=(t->query_pending && !closed) || a->query_validated || a->query_error || a->io_busy ||
+        a->query_draft_revision!=t->query_draft_revision || a->query_edit_revision!=t->query_edit_revision || a->query_loading!=(t->query_pending && !closed) || a->busy!=(t->query_pending && !closed) || a->query_validated || a->query_error!=t->query_error_pointer || !review_smoke_text_same(a->query_error,t->query_error_text) || a->io_busy ||
         a->request_id!=t->request+(closed && t->query_pending ? 1 : 0) || a->page.cells!=t->page || a->book.dirty!=t->dirty || active_sheet(a)->undo_actions_count!=t->history || active_sheet(a)->formats.revision!=t->choice_formats ||
         a->ribbon_mode!=t->choice_ribbon_mode || a->ui.scale!=t->choice_scale || a->grid.row_height!=t->choice_row_height || location.row!=t->selection.row || location.col!=t->selection.col || location.end_row!=t->selection.end_row || location.end_col!=t->selection.end_col ||
         strcmp(a->input.text,t->dialog_text) || a->input.cursor!=t->dialog_cursor || a->input.anchor!=t->dialog_anchor || a->input.revision!=t->dialog_revision ||
         editor->scroll!=t->query_editor.scroll || editor->revision!=t->query_editor.revision || editor->revealed_revision!=t->query_editor.revealed_revision || editor->revealed_cursor!=t->query_editor.revealed_cursor || editor->lines.offsets!=t->query_editor.lines.offsets ||
         !source || !analysis_same_result(source,&t->query_source) || !analysis_sorts_equal(source,&t->query_source) || !review_smoke_author_models_same(a,t)) return false;
+    if (memcmp(&a->query_errors,&t->query_error_lines,sizeof(TextLines)) || a->query_error_scroll!=t->query_error_scroll || a->query_error_wheel!=t->query_error_wheel ||
+        (t->query_error_offsets && memcmp(a->query_errors.offsets,t->query_error_offsets,(a->query_errors.count+1)*sizeof(size_t))) ||
+        (t->query_editor_offsets && (editor->lines.count!=t->query_editor.lines.count || memcmp(editor->lines.offsets,t->query_editor_offsets,(editor->lines.count+1)*sizeof(size_t))))) return false;
     for (size_t i=0;i<active_sheet(a)->objects.count;i++) {
         SheetObject *object=&active_sheet(a)->objects.items[i]; Page *page=&a->objects[i].page;
         if (page->cells!=t->query_views[i].cells || object->id!=t->query_views[i].id || object->revision!=t->query_views[i].revision || object->source_id!=t->query_views[i].source_id || page->total!=t->query_views[i].total || page->row_count!=t->query_views[i].rows || page->column_count!=t->query_views[i].columns) return false;
@@ -1693,10 +1709,11 @@ static bool review_smoke_query_targets(App *a,ReviewSmoke *t) {
     const char *parent="author.source_query",*keys[]={"sql","original","cancel","apply"};
     const DxReviewWidget *panel=dx_review_find(registry,parent),*backdrop=dx_review_find(registry,"author.source_query.backdrop");
     if (!panel || strcmp(panel->role,"dialog") || !panel->container || panel->input_eligible || !backdrop || !backdrop->container || registry->duplicate_count || registry->invalid_count || registry->overflow_count || strstr(a->review->frame.state_text," author_overflow=1")) return false;
+    char document[128]; review_document_id(a,document);
     for (size_t i=0;i<registry->count;i++) {
         const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,"author.source_query",19)) continue;
         const DxReviewDataIdentity *data=&widget->data;
-        if (!data->present || strcmp(data->kind,"source-query") || data->sheet_id!=a->book.active+1 || data->source_id!=t->query_owner || data->object_id!=t->query_owner || data->query_generation!=t->query_source_revision || data->schema_generation || data->field[0] || data->has_cell || data->row || data->column) return false;
+        if (!data->present || strcmp(data->kind,"source-query") || strcmp(data->document_id,document) || strcmp(data->document_id,registry->frame.document_id) || data->sheet_id!=a->book.active+1 || data->source_id!=t->query_owner || data->object_id!=t->query_owner || data->query_generation!=t->query_source_revision || data->schema_generation || data->field[0] || data->has_cell || data->row || data->column) return false;
     }
     for (size_t i=0;i<4;i++) {
         char id[128]; snprintf(id,sizeof(id),"%s.action.%s",parent,keys[i]); const DxReviewWidget *widget=dx_review_find(registry,id);
@@ -1707,6 +1724,10 @@ static bool review_smoke_query_targets(App *a,ReviewSmoke *t) {
     const DxReviewWidget *heading=dx_review_find(registry,"author.source_query.heading"); DxReviewTarget picked;
     if (!heading || heading->input_eligible || !review_smoke_sheet_pick(a,heading,parent) ||
         !dx_review_pick(registry,2*a->ui.scale,2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,"author.source_query.backdrop.background")) return false;
+    const DxReviewWidget *status=dx_review_find(registry,"author.source_query.status"),*error=dx_review_find(registry,"author.source_query.validation_error");
+    const char *expected=t->query_pending ? "Checking the query… Escape cancels; the displayed source stays intact." : "Apply clears source filters, sort and summary in one undoable action.";
+    if (!status || strcmp(status->role,"text") || status->input_eligible || status->focused || !status->enabled || !status->value.present || status->value.is_null || status->value.truncated || strcmp(status->value.type,"VARCHAR") || strcmp(status->value.exact_text,expected) || !review_smoke_sheet_pick(a,status,parent) || !strstr(a->review->frame.state_text,t->query_pending ? " query_status_loading=1" : " query_status_loading=0")) return false;
+    if (t->query_error_text ? !error || strcmp(error->role,"region") || error->input_eligible || error->focused || !error->enabled || !error->value.present || error->value.is_null || error->value.truncated || strcmp(error->value.type,"VARCHAR") || strcmp(error->value.exact_text,t->query_error_text) || !review_smoke_sheet_pick(a,error,parent) : error!=NULL) return false;
     snprintf(t->author_target,sizeof(t->author_target),"%s.action.%s",parent,t->query_pending ? "apply" : "sql"); return true;
 }
 static void review_smoke_query_diagnostic(App *a,ReviewSmoke *t,const char *reason) {
@@ -2823,10 +2844,69 @@ static int review_smoke_error_tick(App *a,ReviewSmoke *t) {
     if (phase==4) { if (!review_smoke_error_same(a,t)) goto failed; ui_note_key_press(item ? KEY_ESCAPE : KEY_ENTER,0); return 1; }
     t->choice_modal=MODAL_NONE; if (!review_smoke_error_same(a,t) || !DirectoryExists(t->error_directory)) goto failed;
     printf("PASS: native Error review after actual failed workspace Save retains owned message/timestamp, source/model/Pages/dirty/history/io/jobs and document-only scope; %s; normal %s preserves error context without clipboard or OS panels\n",item ? "CSV short150% exposes real Relink and clipped text" : "SOURCE_NONE wide has no hidden Relink despite selected Pivot",item ? "Escape" : "Close/Enter");
-    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
+    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); } return 1;
 failed:
     fprintf(stderr,"Review Error mismatch stage=%d phase=%d modal=%d report=%d source=%d sheets=%zu/%zu active=%zu message=%s request=%llu/%llu io=%d busy=%d target=%s actual=%s\n",t->stage,phase,(int)a->modal,(int)r->phase,(int)a->analysis.kind,a->book.count,t->error_sheets,a->book.active,a->message ? a->message : "",(unsigned long long)a->request_id,(unsigned long long)t->error_request,a->io_busy,a->busy,t->author_target,r->target.widget.id);
     fprintf(stderr,"Review Error state %s\n",r->frame.state_text); return -1;
+}
+static const char review_query_invalid_draft[]="SELECT duxcel_missing_review_column,\n       City\nFROM input";
+static bool review_smoke_query_failure_same(App *a,ReviewSmoke *t,bool closed) {
+    return review_smoke_query_same(a,t,closed) && review_smoke_cell_same(a,t) && !memcmp(&a->query_editor,&t->query_editor,sizeof(TextEditor)) &&
+        a->pending_kind==JOB_VALIDATE_SQL && !a->fetch_failed && a->document_action==DOCUMENT_NONE && !a->document_saving;
+}
+static bool review_smoke_query_failure_targets(App *a,ReviewSmoke *t) {
+    if (!review_smoke_query_targets(a,t) || !t->query_error_text || !strstr(t->query_error_text,"duxcel_missing_review_column") || !t->query_error_lines.offsets || t->query_error_lines.count<2 || t->query_error_lines.limited || t->query_error_scroll) return false;
+    const char *state=a->review->frame.state_text,*lines=strstr(state," query_error_lines="),*bytes=strstr(state," query_error_bytes=");
+    if (!lines || strtoull(lines+19,NULL,10)!=t->query_error_lines.count || !bytes || strtoull(bytes+19,NULL,10)!=strlen(t->query_error_text) || !strstr(state," query_error_scroll=0") || !strstr(state," query_error_limited=0") || !strstr(state," query_error_value_truncated=0")) return false;
+    snprintf(t->author_target,sizeof(t->author_target),"author.source_query.validation_error"); return true;
+}
+static int review_smoke_query_failure_tick(App *a,ReviewSmoke *t) {
+    int phase=t->stage-REVIEW_ERROR_END; DxReviewCapture *r=a->review;
+    if (!phase) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        if (!t->query_failure_started) {
+            if (a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
+            if (a->modal!=MODAL_NONE || a->analysis.kind!=SOURCE_CSV || a->page.total!=5 || a->page.column_count!=6 || a->page.count_pending || a->selected_object!=-1) goto failed;
+            edit_source_query(a); if (a->modal!=MODAL_SOURCE_QUERY || a->query_object!=-1) goto failed;
+            input_set(&a->input,review_query_invalid_draft); a->input.select_all=false; a->input.cursor=34; a->input.anchor=7; a->query_edit_revision=a->input.revision;
+            ui_set_scale(&a->ui,1.5f); SetWindowSize(760,640); t->query_failure_started=true; return 0;
+        }
+        if (a->modal!=MODAL_SOURCE_QUERY) goto failed;
+        if (GetScreenWidth()!=760 || GetScreenHeight()!=640 || a->ui.scale!=1.5f || !review_can_capture(a) || a->query_editor.revision!=a->input.revision || a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
+        review_smoke_cell_remember(a,t); t->query_failure_jobs=t->query_jobs; t->query_failure_sql=t->query_sql; t->query_failure_counts=t->query_counts; t->query_failure_prepares=t->query_prepares;
+        submit_source_query(a); t->query_failure_request=a->request_id;
+        if (!a->busy || !a->query_loading || a->pending_kind!=JOB_VALIDATE_SQL || a->query_error || a->query_object!=-1) goto failed; return 1;
+    }
+    if (phase==1) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        if (a->modal!=MODAL_SOURCE_QUERY || !a->query_error || !strstr(a->query_error,"duxcel_missing_review_column") || strlen(a->query_error)>=sizeof(((DxReviewValue *)0)->exact_text) || a->query_validated || a->request_id!=t->query_failure_request ||
+            !review_smoke_cell_pages(a,t) || !review_smoke_author_models_same(a,t) || !review_smoke_cell_content(&active_sheet(a)->cells,&t->cell_model) || a->book.dirty!=t->dirty || active_sheet(a)->undo_actions_count!=t->history || active_sheet(a)->redo_actions_count!=t->cell_worksheet_redo || active_sheet(a)->formats.revision!=t->choice_formats ||
+            strcmp(a->input.text,review_query_invalid_draft) || a->input.cursor!=34 || a->input.anchor!=7 || a->input.revision!=t->cell_input.revision) goto failed;
+        dx_lock(&a->worker.mutex); bool one_validation=a->worker.jobs_started==t->query_failure_jobs+1 && a->worker.latest_id==t->query_failure_request && a->worker.db.relation_prepares==t->query_failure_prepares+1 && a->worker.db.query_count==t->query_failure_sql && a->worker.db.count_queries==t->query_failure_counts; dx_unlock(&a->worker.mutex);
+        if (!one_validation) goto failed;
+        if (!a->query_errors.offsets || !a->query_errors.count || a->query_editor.revision!=a->input.revision || !review_can_capture(a)) return 0;
+        review_smoke_cell_remember(a,t); review_smoke_query_state_remember(a,t,false);
+        if (t->query_owner || t->query_source_revision!=a->analysis_revision) goto failed;
+        ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        if (!review_smoke_query_failure_same(a,t,false) || !review_smoke_query_failure_targets(a,t)) goto failed;
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==3) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || !review_smoke_query_failure_same(a,t,false)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (phase==4) { if (!review_smoke_query_failure_same(a,t,false)) goto failed; ui_note_key_press(KEY_ESCAPE,0); return 1; }
+    t->choice_modal=MODAL_NONE; if (!review_smoke_query_failure_same(a,t,true)) goto failed;
+    printf("PASS: native Source Query missing-column validation produces one real prepare and no executed SQL; actual status/error targets retain owned draft, exact message, line cache/scroll, input histories, source/model/Pages/jobs through capture/pick/cancel and normal Escape\n");
+    review_smoke_author_release(t); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); return 1;
+failed:
+    review_smoke_query_diagnostic(a,t,"missing-column validation feedback");
+    fprintf(stderr,"Review validation feedback phase=%d error=%s lines=%zu scroll=%d limited=%d jobs_base=%llu prepares_base=%llu request=%llu state=%s\n",phase,a->query_error ? a->query_error : "",a->query_errors.count,a->query_error_scroll,a->query_errors.limited,(unsigned long long)t->query_failure_jobs,(unsigned long long)t->query_failure_prepares,(unsigned long long)t->query_failure_request,r->frame.state_text); return -1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
@@ -2856,7 +2936,8 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
             {REVIEW_OWNER_END,review_smoke_owner_tick},
             {REVIEW_GUIDE_END,review_smoke_guide_tick},
             {REVIEW_CELL_END,review_smoke_cell_tick},
-            {REVIEW_SMOKE_STAGES,review_smoke_error_tick},
+            {REVIEW_ERROR_END,review_smoke_error_tick},
+            {REVIEW_SMOKE_STAGES,review_smoke_query_failure_tick},
         };
         int progress=-1;
         for (size_t i=0;i<sizeof(handlers)/sizeof(*handlers);i++)
