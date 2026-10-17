@@ -44,6 +44,9 @@ static float content_at(const Grid *g,float s,float x) {
     return g->frozen_columns && local<g->frozen_width ? local : local+g->horizontal-g->elastic.x;
 }
 static float row_height(const Grid *g) { return g->row_height>=18 && g->row_height<=48 ? g->row_height : 27; }
+static void clear_elastic(Grid *g) {
+    g->elastic=g->spring_velocity=(Vector2){0}; g->pan_x=g->pan_y=(GridPanAxis){0};
+}
 void grid_init(Grid *g) { *g=(Grid){0}; g->zoom=1; g->elastic_enabled=true; g->resizing=g->last_edge=-1; g->zebra=true; }
 GridLocation grid_location(const Grid *g) {
     return (GridLocation){.row=g->row,.anchor_row=g->anchor_row,.end_row=g->end_row,.top=g->top,
@@ -58,7 +61,7 @@ bool grid_restore_location(Grid *g,const GridLocation *v) {
     g->row=v->row; g->anchor_row=v->anchor_row; g->end_row=v->end_row; g->top=v->top;
     g->col=v->col; g->anchor_col=v->anchor_col; g->end_col=v->end_col;
     g->horizontal=v->horizontal; g->fraction=v->fraction; g->selection=v->selection;
-    g->elastic=g->spring_velocity=(Vector2){0}; g->dragging=g->moving=g->context_requested=g->move_requested=false;
+    clear_elastic(g); g->dragging=g->moving=g->context_requested=g->move_requested=false;
     g->resizing=-1; g->scrollbar=0; return true;
 }
 void grid_destroy(Grid *g) {
@@ -179,7 +182,7 @@ void grid_layout(Grid *g,float s,const Page *p,Rectangle r) {
 }
 static void reveal_cell_at(Grid *g,const Page *p,float s,uint64_t row,size_t column) {
     if (column>=g->width_count || !g->visible_rows || s<=0) return;
-    g->elastic=g->spring_velocity=(Vector2){0};
+    clear_elastic(g);
     if ((double)row<(double)g->top+g->fraction) scroll_to(g,p,(double)row);
     if (row>=g->top+g->visible_rows) scroll_to(g,p,(double)(row-g->visible_rows+1));
     if (column<g->frozen_columns || g->freeze_blocked) return;
@@ -194,7 +197,7 @@ void grid_reveal_column(Grid *g,const Page *p,float s,size_t column,bool center)
     float left=g->offsets[column]-g->frozen_width,right=g->offsets[column+1]-g->frozen_width,view=g->body.width/s-g->frozen_width;
     if (center) g->horizontal=fmaxf(0,(left+right-view)*.5f);
     else if (left<g->horizontal || right>g->horizontal+view) g->horizontal=left;
-    g->elastic.x=g->spring_velocity.x=0; grid_layout(g,s,p,g->rect);
+    g->elastic.x=g->spring_velocity.x=0; g->pan_x=(GridPanAxis){0}; grid_layout(g,s,p,g->rect);
 }
 void grid_zoom_at(Grid *g,const Page *p,float ui_scale,float zoom,Vector2 pointer) {
     zoom=clamp(zoom,.5f,2.5f);
@@ -205,7 +208,7 @@ void grid_zoom_at(Grid *g,const Page *p,float ui_scale,float zoom,Vector2 pointe
     double row=(double)g->top+g->fraction+(anchor.y-origin.y)/(row_height(g)*old);
     bool frozen_anchor=g->frozen_columns && anchor.x<g->body.x+g->frozen_width*old;
     float col=content_at(g,old,anchor.x);
-    g->elastic=g->spring_velocity=(Vector2){0};
+    clear_elastic(g);
     g->zoom=zoom; grid_layout(g,next,p,g->rect);
     /* A larger gutter/header can cover the previous body corner. Keep that
        data anchor at the new body edge instead of scrolling it under chrome. */
@@ -323,24 +326,70 @@ static void spring_axis(float *position,float *velocity,float dt) {
     if (*position*before<=0 || (fabsf(*position)<.02f && fabsf(*velocity)<.5f)) *position=*velocity=0;
 }
 static void spring(Grid *g,float dt) {
-    if (!g->elastic_enabled) { g->elastic=g->spring_velocity=(Vector2){0}; return; }
+    if (!g->elastic_enabled) { clear_elastic(g); return; }
     if (g->dragging || g->moving || g->resizing>=0) return;
     if (!isfinite(dt) || dt<=0) return;
-    if (dt>=.5f) { g->elastic=g->spring_velocity=(Vector2){0}; return; }
-    spring_axis(&g->elastic.x,&g->spring_velocity.x,dt); spring_axis(&g->elastic.y,&g->spring_velocity.y,dt);
+    if (dt>=.5f) {
+        if (!g->pan_x.active) g->elastic.x=g->spring_velocity.x=0;
+        if (!g->pan_y.active) g->elastic.y=g->spring_velocity.y=0;
+        return;
+    }
+    if (!g->pan_x.active) spring_axis(&g->elastic.x,&g->spring_velocity.x,dt);
+    if (!g->pan_y.active) spring_axis(&g->elastic.y,&g->spring_velocity.y,dt);
 }
-static double wheel_axis(Grid *g,double position,double maximum,double delta,float scale,float *visual,float *velocity) {
+static void pan_return(GridPanAxis *axis,float *velocity) {
+    if (axis->active) *velocity=0;
+    axis->active=false; axis->returning=true;
+}
+static void pan_axis(GridPanAxis *axis,GridPanPhase phase,float delta,float dt,float visual,float *velocity) {
+    if (!isfinite(dt) || dt<0) dt=0;
+    if (!isfinite(delta)) delta=0;
+    float quiet=axis->quiet; axis->quiet=fminf(1,quiet+dt);
+    if (phase==GRID_PAN_BEGIN) { *axis=(GridPanAxis){.active=true}; *velocity=0; }
+    if (phase==GRID_PAN_RELEASE || phase==GRID_PAN_MOMENTUM) {
+        pan_return(axis,velocity); if (delta) axis->quiet=0; return;
+    }
+    if (phase==GRID_PAN_BEGIN || phase==GRID_PAN_ACTIVE) {
+        axis->active=true; axis->returning=false; if (delta) axis->quiet=0; *velocity=0; return;
+    }
+    /* WheelEvent has no portable finger/momentum phase. Treat coherent input
+       as a pull, then latch the return when its rate drops or packets stop.
+       Residual packets update quiet time but cannot tug a returning edge out
+       again. A new burst after 120ms idle is a fresh gesture. */
+    if (delta && quiet+dt>=.12f) { *axis=(GridPanAxis){0}; *velocity=0; }
+    if (delta) {
+        int direction=delta>0 ? 1 : -1;
+        if (!axis->returning && (!axis->direction || (axis->direction!=direction && !visual))) {
+            *axis=(GridPanAxis){.active=true,.direction=direction}; *velocity=0;
+        }
+        axis->quiet=0;
+        if (axis->returning) return;
+        axis->elapsed+=dt; axis->window_time+=dt; axis->window_distance+=fabsf(delta);
+        float rate=fabsf(delta)/fmaxf(dt,1.f/120);
+        if (!axis->peak_rate) axis->peak_rate=rate;
+        if (visual*delta<0 && fabsf(delta)<=.25f) { pan_return(axis,velocity); return; }
+        if (axis->window_time>=.024f) {
+            rate=axis->window_distance/axis->window_time;
+            if (axis->elapsed>=.024f && rate<axis->peak_rate*.55f) { pan_return(axis,velocity); return; }
+            axis->peak_rate=fmaxf(axis->peak_rate,rate); axis->window_time=axis->window_distance=0;
+        }
+    } else if (axis->active) {
+        axis->elapsed+=dt; axis->window_time+=dt;
+        if (axis->quiet>=.035f) pan_return(axis,velocity);
+    }
+}
+static double wheel_axis(Grid *g,double position,double maximum,double delta,float scale,float *visual,float *velocity,const GridPanAxis *axis) {
     if (!delta || !isfinite(delta)) return position;
     if (*visual*delta>0) { double consume=fmin(fabs(*visual),fabs(delta)); consume=delta<0 ? -consume : consume; *visual-=(float)consume; delta-=consume; }
     double wanted=position+delta,bounded=fmax(0,fmin(maximum,wanted));
-    if (g->elastic_enabled) {
+    if (g->elastic_enabled && !axis->returning) {
         /* Add in the inverse resistance coordinate, so coalescing the same
            movement into one packet cannot change the amount of stretch.
            Limits/resistance are CSS points, independent of canvas zoom. */
         double k=32/scale,raw=*visual*(1+fabs(*visual)/(2*k))+(bounded-wanted)*.45;
         double magnitude=2*fabs(raw)/(sqrt(1+2*fabs(raw)/k)+1);
         *visual=(float)copysign(fmin(64/scale,magnitude),raw);
-    } else *visual=0;
+    } else if (!g->elastic_enabled) *visual=0;
     /* Tiny momentum tails must not restart the spring. Constrain its retained
        velocity after a reversal so return stays monotone on either edge. */
     *velocity=*visual>0 ? clamp(*velocity,-RETURN_RATE*(*visual),0) : *visual<0 ? clamp(*velocity,0,-RETURN_RATE*(*visual)) : 0;
@@ -349,7 +398,7 @@ static double wheel_axis(Grid *g,double position,double maximum,double delta,flo
 void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
     GridInput masked;
     if (g->block_pointer && !g->dragging && !g->moving && g->resizing<0 && !g->scrollbar) {
-        masked=*in; masked.mouse=(Vector2){-1000000,-1000000}; masked.wheel=masked.pixel_pan=(Vector2){0}; masked.pressed=masked.right=false; in=&masked;
+        masked=*in; masked.mouse=(Vector2){-1000000,-1000000}; masked.wheel=masked.pixel_pan=(Vector2){0}; masked.pan_phase=GRID_PAN_NONE; masked.pressed=masked.right=false; in=&masked;
     }
     GridInput keyboard=*in;
     if (in->separate_keyboard) { keyboard.shift=in->key_shift; keyboard.shortcut=in->key_shortcut; keyboard.alt=in->key_alt; }
@@ -361,7 +410,7 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
     }
     float cs=g->chrome_scale;
     if (g->freeze_blocked && !g->lock_structure && in->pressed && CheckCollisionPointRec(in->mouse,(Rectangle){g->rect.x+g->rect.width-68*cs,g->rect.y+g->rect.height-25*cs,61*cs,23*cs})) {
-        g->freeze=false; g->elastic.x=g->spring_velocity.x=0; grid_layout(g,u->scale,p,g->rect); return;
+        g->freeze=false; g->elastic.x=g->spring_velocity.x=0; g->pan_x=(GridPanAxis){0}; grid_layout(g,u->scale,p,g->rect); return;
     }
     size_t key_column=keyboard.shift ? g->end_col : g->col;
     if (!g->bounded && g->width_count && in->pixel_scroll && CheckCollisionPointRec(in->mouse,g->rect) && g->resizing<0 && !g->scrollbar && isfinite(in->pixel_pan.x) && in->pixel_pan.x>0) {
@@ -372,8 +421,16 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
         ((in->wheel.x<0 || (in->shift && in->wheel.y<0)) && g->horizontal+g->body.width/u->scale>g->offsets[g->width_count]-96))) extend_columns(g);
     Page canvas=*p; canvas.total=canvas_rows(g,p); canvas.column_count=g->width_count; canvas.records=(PageRecords){0};
     const Page *data=p; p=&canvas;
-    float s=u->scale; Vector2 m=in->mouse; g->clock+=in->dt; g->cursor=MOUSE_CURSOR_DEFAULT; spring(g,in->dt);
-    if (in->key) g->elastic=g->spring_velocity=(Vector2){0};
+    float s=u->scale; Vector2 m=in->mouse; g->clock+=in->dt; g->cursor=MOUSE_CURSOR_DEFAULT;
+    bool hover=CheckCollisionPointRec(m,g->rect);
+    bool pan=hover && g->resizing<0 && !g->scrollbar;
+    float pan_x=pan ? in->pixel_scroll ? in->pixel_pan.x : -(in->shift ? in->wheel.y : in->wheel.x)*52*s : 0;
+    float pan_y=pan ? in->pixel_scroll ? in->pixel_pan.y : in->shift ? 0 : -in->wheel.y*3*row_height(g)*s : 0;
+    GridPanPhase phase=pan ? in->pan_phase : GRID_PAN_NONE;
+    pan_axis(&g->pan_x,phase,pan_x,in->dt,g->elastic.x,&g->spring_velocity.x);
+    pan_axis(&g->pan_y,phase,pan_y,in->dt,g->elastic.y,&g->spring_velocity.y);
+    spring(g,in->dt);
+    if (in->key) clear_elastic(g);
     if (!g->lock_structure && g->allow_move && g->selection==SELECT_CELLS && CheckCollisionPointRec(m,g->body)) {
         Rectangle selection=selection_rect(g,s,0,0);
         bool edge=selection.width>0 && m.x>=selection.x-4*s && m.x<=selection.x+selection.width+4*s &&
@@ -399,24 +456,23 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
         if (in->released || !in->down) { g->moving=false; g->move_requested=g->move_dr || g->move_dc; }
         grid_layout(g,s,data,g->rect); return;
     }
-    bool hover=CheckCollisionPointRec(m,g->rect);
     if (hover && g->resizing<0 && !g->scrollbar) {
         double maximum=(double)(p->total>g->visible_rows ? p->total-g->visible_rows : 0)*row_height(g);
         if (in->pixel_scroll || !in->shift) {
             double delta=in->pixel_scroll ? in->pixel_pan.y/s : -in->wheel.y*3*row_height(g);
-            double position=wheel_axis(g,((double)g->top+g->fraction)*row_height(g),maximum,delta,s,&g->elastic.y,&g->spring_velocity.y);
+            double position=wheel_axis(g,((double)g->top+g->fraction)*row_height(g),maximum,delta,s,&g->elastic.y,&g->spring_velocity.y,&g->pan_y);
             scroll_to(g,data,position/row_height(g));
         }
         float max_x=g->width_count ? fmaxf(0,g->offsets[g->width_count]-g->body.width/s) : 0;
         double delta=in->pixel_scroll ? in->pixel_pan.x/s : -(in->shift ? in->wheel.y : in->wheel.x)*52;
-        g->horizontal=(float)wheel_axis(g,g->horizontal,max_x,delta,s,&g->elastic.x,&g->spring_velocity.x);
+        g->horizontal=(float)wheel_axis(g,g->horizontal,max_x,delta,s,&g->elastic.x,&g->spring_velocity.x,&g->pan_x);
     }
     /* Hit testing and drawing use the exact same thumb geometry, including grab offset. */
     if (in->pressed && CheckCollisionPointRec(m,g->vtrack)) {
-        g->elastic=g->spring_velocity=(Vector2){0};
+        clear_elastic(g);
         g->scroll_rows=p->total; g->scrollbar=1; g->grab_offset=CheckCollisionPointRec(m,g->vthumb) ? m.y-g->vthumb.y : g->vthumb.height/2;
     } else if (in->pressed && CheckCollisionPointRec(m,g->htrack)) {
-        g->elastic=g->spring_velocity=(Vector2){0};
+        clear_elastic(g);
         g->scroll_rows=p->total; g->scrollbar=2; g->grab_offset=CheckCollisionPointRec(m,g->hthumb) ? m.x-g->hthumb.x : g->hthumb.width/2;
     }
     if (g->scrollbar && in->down) {
@@ -525,7 +581,7 @@ void grid_update(Grid *g,UIContext *u,const Page *p,Rectangle r,bool enabled) {
     g->controls_enabled=enabled && !g->lock_structure && !g->block_pointer;
     grid_layout(g,u->scale,p,r);
     DxPointerGesture gesture;
-    if (!enabled) { g->dragging=false; g->moving=false; g->resizing=-1; g->scrollbar=0; g->scroll_rows=0; g->last_edge=-1; spring(g,GetFrameTime()); return; }
+    if (!enabled) { g->dragging=false; g->moving=false; g->resizing=-1; g->scrollbar=0; g->scroll_rows=0; g->last_edge=-1; pan_return(&g->pan_x,&g->spring_velocity.x); pan_return(&g->pan_y,&g->spring_velocity.y); spring(g,GetFrameTime()); return; }
     GridInput in={.mouse=GetMousePosition(),.wheel=GetMouseWheelMoveV(),.pressed=IsMouseButtonPressed(MOUSE_BUTTON_LEFT),
         .released=IsMouseButtonReleased(MOUSE_BUTTON_LEFT),.down=IsMouseButtonDown(MOUSE_BUTTON_LEFT),
         .right=IsMouseButtonPressed(MOUSE_BUTTON_RIGHT),.shift=ui_shift(),.shortcut=ui_shortcut(),
