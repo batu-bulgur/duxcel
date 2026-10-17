@@ -73,7 +73,7 @@ test('protocol and synchronous send failures retain request metadata and clear p
 
 test('cleanup releases raw modifiers and a timed-out keyDown without replaying input or waiting for frames',async()=>{
     const {socket,cdp,timeout}=setup();
-    const shift=cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Shift',code:'ShiftLeft',windowsVirtualKeyCode:16,modifiers:8});socket.reply(1,{});await shift;
+    const shift=cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'Shift',code:'ShiftLeft',windowsVirtualKeyCode:16,modifiers:8});socket.reply(1,{});await shift;
     const up=cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowUp',code:'ArrowUp',windowsVirtualKeyCode:38,modifiers:8});
     const rejected=assert.rejects(up,/Timed out/);timeout(2,15000);await rejected;
     assert.deepEqual(cdp.heldKeys().map(item=>item.key),['Shift','ArrowUp']);

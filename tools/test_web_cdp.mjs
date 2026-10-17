@@ -40,7 +40,7 @@ export function createCDP(socket,events,{now=Date.now,setTimer=setTimeout,clearT
             const key=params.code??params.key;
             // A timed-out keyDown may already have reached the page. Own it
             // before sending, and retain it until a keyUp is acknowledged.
-            if (method==='Input.dispatchKeyEvent' && params.type==='keyDown' && key) held.set(key,{...params});
+            if (method==='Input.dispatchKeyEvent' && (params.type==='keyDown'||params.type==='rawKeyDown') && key) held.set(key,{...params});
             try { socket.send(JSON.stringify({id,method,params})); }
             catch (error) { settle(id,failure('send',`CDP ${method} send failed: ${error.message}`,metadata)); }
         }).then(value=>{
