@@ -125,6 +125,7 @@ export function createReviewHost({canvas,build,crypto=globalThis.crypto,encodePN
     function cancel(){epoch++;frozen=null;requested=false;}
     return {
         sessionId,binarySHA256,
+        get closed(){return disposed;},
         takeRequest(){const value=requested;requested=false;return value;},
         beginFrame({reportId,frameId,logicalWidth,logicalHeight}={}){
             check(!disposed,'Review transport is closed.');check(identifier(reportId)&&uint64(frameId),'Invalid review report or frame identity.');
