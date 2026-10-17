@@ -15,6 +15,7 @@ const workerDriver=process.argv.includes('--worker-driver');
 const filters=process.argv.includes('--filters');
 const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
+const reviewGuideOnly=process.argv.includes('--review-guide-only');
 const accessOnly=process.argv.includes('--access-only');
 const zoomOnly=process.argv.includes('--zoom-only');
 const reviewControlsOnly=process.argv.includes('--review-controls-only');
@@ -35,6 +36,7 @@ const altStress=process.argv.includes('--alt-stress');
 const persistenceOwners=process.argv.includes('--persistence-owners');
 const persistence=process.argv.includes('--persistence')||persistenceOwners;
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
+if(reviewGuideOnly&&(!review||['--source','--access-only','--zoom-only','--review-controls-only','--analysis-only','--analysis-columns-only','--analysis-statistics-only','--statistics-only','--review-query-only','--review-sql-only','--review-values-only','--table-statistics-only','--mixed-statistics-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--persistence-owners','--query-apply','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--review-guide-only requires --review and excludes source/other profiles/engine/report-upload options');
 if(review&&workerProbe)throw new Error('--review and --worker-probe require separate artifact/server profiles');
 if(accessOnly&&(!review||['--review-sql-only','--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--review-controls-only','--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
 if(zoomOnly&&(!review||['--review-sql-only','--mixed-statistics-only','--table-statistics-only','--review-values-only','--analysis-statistics-only','--statistics-only','--review-query-only','--analysis-only','--analysis-columns-only','--review-controls-only','--access-only','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline'].some(flag=>process.argv.includes(flag))))throw new Error('--zoom-only requires --review and excludes access/engine/platform/report-upload options');
@@ -66,6 +68,7 @@ let queryReviewResult;
 let sqlReviewResult;
 let statisticsResult;
 let reviewValuesResult;
+let reviewGuideResult;
 let stderr='',ws,cdp,activePhase='';const events=[],steps=[];let checks=0;const started=Date.now();
 function check(value,message){checks++;if(!value)throw new Error(message);}
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -761,6 +764,76 @@ function retainedValueReview(pick,prefix){
  const fields=Object.keys(pick.before).filter(name=>name.startsWith(prefix));
  check(fields.length>0&&fields.every(name=>pick.after[name]===pick.before[name]),'Review cancellation changed owned '+prefix+' state/value/origin');
 }
+function guideState(state){
+ check(state.author_kind==='guide'&&state.author_parent==='author.guide'&&state.guide_kind==='guide-document'&&state.guide_origin==='0,0,0,0,0,0,0,0','Guide review fabricated a worksheet/data owner instead of its current document identity');
+ const count=Number(state.guide_count),scroll=Number(state.guide_scroll),maximum=Number(state.guide_maximum),focus=Number(state.guide_focus);
+ check(state.guide_overflow==='0'&&Number.isInteger(count)&&count>0&&count<=64&&Number.isFinite(scroll)&&Number.isFinite(maximum)&&maximum>=0&&scroll>=0&&scroll<=maximum+.02&&[0,1].includes(focus),'Guide capture lost bounded visible targets or actual scroll/focus');
+ const rect=(name,required=false)=>{const raw=state['guide_'+name+'_rect'];if(raw===undefined){check(!required,'Guide omitted visible '+name+' bounds');return null;}const value=raw.split(',').map(Number);check(value.length===4&&value.every(Number.isFinite)&&value[2]>0&&value[3]>0,'Guide emitted invalid clipped '+name+' bounds');return value;};
+ const panel=rect('panel',true),[width,height]=state.logical.split(',').map(Number),bounds={panel};
+ check(panel[0]>=0&&panel[1]>=0&&panel[0]+panel[2]<=width+.01&&panel[1]+panel[3]<=height+.01,'Guide panel escaped the actual viewport');
+ for(const name of ['heading','close','start','scrollbar','thumb','text','key']){const value=rect(name,name==='text');if(!value)continue;check(value[0]>=panel[0]-.01&&value[1]>=panel[1]-.01&&value[0]+value[2]<=panel[0]+panel[2]+.01&&value[1]+value[3]<=panel[1]+panel[3]+.01,'Guide '+name+' target escaped its actual panel clip');bounds[name]=value;}
+ const decode=name=>{const hex=state['guide_'+name+'_hex'],truncated=state['guide_'+name+'_truncated'];check(/^(?:[0-9a-f]{2}){1,64}$/.test(hex??'')&&['0','1'].includes(truncated),'Guide lost its bounded '+name+' text/truncation');const value=Buffer.from(hex,'hex').toString('utf8');check(!value.includes('\ufffd'),'Guide split a captured UTF-8 codepoint');return value;};
+ const text=decode('text'),key=bounds.key?decode('key'):null,textId=state.guide_text_id,keyId=state.guide_key_id;
+ check(/^author\.guide\.(?:(?:intro|note)\.line\d+|section\.(?:grid|fields|panes|scaling|status)\.(?:name|description)\.line\d+|shortcut\.(?:selection|regions|filter|sheets|panes|focus)\.label\.line\d+)$/.test(textId??''),'Guide body line lost its actual semantic identity');
+ const shortcut=keyId?.match(/^author\.guide\.shortcut\.(selection|regions|filter|sheets|panes|focus)\.key\.line0$/),keys={selection:'Arrows / Shift+Arrows',regions:'F6 / Shift+F6',filter:'Alt+↓',sheets:'Ctrl+Tab / Ctrl+Shift+Tab',panes:'⌘/Ctrl+Alt+T / F',focus:'⌘/Ctrl+Shift+F'};
+ if(bounds.key)check(shortcut&&keys[shortcut[1]]===key&&state.guide_key_truncated==='0','Guide shortcut value differs from its actual key/semantic row');
+ else check(['id','hex','truncated'].every(name=>state['guide_key_'+name]===undefined),'Guide fabricated a shortcut key outside the visible clip');
+ if(bounds.thumb)check(bounds.scrollbar&&bounds.thumb[0]>=bounds.scrollbar[0]-.01&&bounds.thumb[1]>=bounds.scrollbar[1]-.01&&bounds.thumb[0]+bounds.thumb[2]<=bounds.scrollbar[0]+bounds.scrollbar[2]+.01&&bounds.thumb[1]+bounds.thumb[3]<=bounds.scrollbar[1]+bounds.scrollbar[3]+.01,'Guide thumb escaped its actual scrollbar track');
+ return{state,count,scroll,maximum,focus,bounds,text,key,textId,keyId};
+}
+function guideUnderlying(before,after,message){
+ const fields=[...authorOwnedFields.filter(name=>name!=='modal'),'selected_object','object_count'];
+ check(fields.every(name=>before[name]!==undefined&&after[name]===before[name]),message);
+}
+async function guidePick(choose,name,{frozenName=null}={}){
+ const jobs=starts().length,captured=await beginReview(),state=capturedState(),guide=guideState(state),target=choose(guide);
+ check(target?.id&&target.bounds?.length===4,'Guide target is not actually visible: '+name);const [x,y,w,h]=target.bounds,point={x:x+w/2,y:y+h/2},height=Number(state.logical.split(',')[1]),top=point.y>height/2;
+ if(top!==authorPickerTop){await key(' ','Space',32,' ');authorPickerTop=top;}
+ if(frozenName)await capture(frozenName+'-picker');const after=consoleText('Review picked: ').length;await click(point.x,point.y);const picked=await waitConsole('Review picked: ',after);
+ check(picked==='Review picked: '+target.id,'Frozen Guide picker chose covered content instead of '+target.id+': '+picked);await capture('guide-'+name+'-composer');await key('Escape','Escape',27);
+ const restored=await platformSnapshot();guideState(restored);guideUnderlying(state,restored,'Guide composer cancellation changed workbook/cell/source ownership');
+ check(state.modal===restored.modal&&state.author_kind===restored.author_kind&&Object.keys(state).filter(name=>name.startsWith('guide_')).every(name=>restored[name]===state[name]),'Guide composer cancellation changed visible content, scroll, focus or document origin');
+ check(starts().length===jobs,'Guide reporting activated a database operation');return{captured,target,point,picked,before:state,after:restored};
+}
+async function browserReviewGuide(){
+ const initial=await platformSnapshot();check(initial.modal==='0'&&initial.ui_scale==='1.000000'&&initial.manual_cells==='0'&&initial.object_count==='0'&&starts().length===0,'Guide-only profile requires the actual untouched blank workbook');
+ async function openHelp(state){const width=Number(state.logical.split(',')[0]),scale=Number(state.ui_scale);await click(width-18*scale,42*scale);return guideState(await platformSnapshot());}
+ const wide=await openHelp(initial);guideUnderlying(initial,wide.state,'Opening Guide changed the blank workbook');
+ check(wide.maximum===0&&wide.scroll===0&&wide.focus===0&&wide.bounds.close&&wide.bounds.start&&wide.bounds.heading&&wide.bounds.key&&!wide.bounds.scrollbar,'Wide100 Guide lost its complete text/actions or invented scrolling');
+ check(wide.textId==='author.guide.intro.line0'&&wide.text==='Explore the workspace, transitions, and interaction details.','Wide Guide did not expose its real introduction');const widePicks=[];
+ for(const [name,choose,frozenName]of[
+  ['wide-text',guide=>({id:guide.textId,bounds:guide.bounds.text}),'guide-wide'],
+  ['wide-key',guide=>({id:guide.keyId,bounds:guide.bounds.key}),null],
+  ['wide-close',guide=>({id:'author.guide.action.close',bounds:guide.bounds.close}),null],
+  ['wide-start',guide=>({id:'author.guide.action.start',bounds:guide.bounds.start}),null],
+  ['wide-backdrop',guide=>({id:'author.guide.backdrop.background',bounds:[1,Number(guide.state.logical.split(',')[1])/2,2,2]}),null]])widePicks.push(await guidePick(choose,name,{frozenName}));
+ await key('Tab','Tab',9);const wideTab=guideState(await platformSnapshot());check(wideTab.focus===1&&wideTab.scroll===0,'Actual wide Guide Tab did not focus Start without scrolling');await key('Enter','Enter',13);const wideClosed=await platformSnapshot();guideUnderlying(initial,wideClosed,'Actual Guide Start dismissal changed the blank workbook');check(wideClosed.modal==='0','Actual focused Start did not dismiss Guide');
+ await key('Enter','Enter',13);const reopened=guideState(await platformSnapshot());check(reopened.scroll===0&&reopened.focus===0,'Guide dismissal did not retain real Help keyboard focus for reopening');await key('Escape','Escape',27);
+ // This is the same actual View→Interface scale command as the existing
+ // narrow controls gate; canvas zoom stays independent.
+ await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('7','Digit7',55);await key('Home','Home',36);for(let index=0;index<3;index++)await key('ArrowDown','ArrowDown',40);await key('Enter','Enter',13);
+ await send('Emulation.setDeviceMetricsOverride',{width:640,height:640,deviceScaleFactor:dpr,mobile:false});await frames(4);const narrowBase=await platformSnapshot();
+ check(narrowBase.ui_scale==='1.500000'&&narrowBase.zoom===initial.zoom&&narrowBase.manual_cells==='0'&&narrowBase.object_count==='0'&&narrowBase.source_revision===initial.source_revision&&narrowBase.request===initial.request,'Short150 setup changed canvas zoom, workbook ownership or query generation');
+ const narrow=await openHelp(narrowBase);guideUnderlying(narrowBase,narrow.state,'Opening short150 Guide changed the blank workbook');check(narrow.maximum>0&&narrow.scroll===0&&narrow.focus===0&&narrow.bounds.close&&narrow.bounds.heading&&narrow.bounds.scrollbar&&narrow.bounds.thumb,'Short150 Guide did not expose its real clipped scrollable header');
+ const narrowTop=[];for(const [name,choose,frozenName]of[
+  ['short-text',guide=>({id:guide.textId,bounds:guide.bounds.text}),'guide-short-top'],
+  ['short-close',guide=>({id:'author.guide.action.close',bounds:guide.bounds.close}),null]])narrowTop.push(await guidePick(choose,name,{frozenName}));
+ await key('End','End',35);await key('Tab','Tab',9);const bottom=guideState(await platformSnapshot());
+ check(bottom.scroll>0&&Math.abs(bottom.scroll-bottom.maximum)<.02&&bottom.focus===1&&bottom.bounds.start&&bottom.bounds.thumb&&bottom.bounds.key&&!bottom.bounds.heading&&!bottom.bounds.close,'Actual End/Tab did not expose Start at the clipped Guide footer with nonzero scroll');const narrowBottom=[];
+ for(const [name,choose,frozenName]of[
+  ['short-key',guide=>({id:guide.keyId,bounds:guide.bounds.key}),'guide-short-footer'],
+  ['short-start',guide=>({id:'author.guide.action.start',bounds:guide.bounds.start}),null],
+  ['short-thumb',guide=>({id:'author.guide.scrollbar.thumb',bounds:guide.bounds.thumb}),null],
+  ['short-backdrop',guide=>({id:'author.guide.backdrop.background',bounds:[1,Number(guide.state.logical.split(',')[1])/2,2,2]}),null]]){const pick=await guidePick(choose,name,{frozenName});check(Number(pick.after.guide_scroll)>0&&pick.after.guide_focus==='1','Guide reporting lost nonzero footer scroll/focus');narrowBottom.push(pick);}
+ await key('Escape','Escape',27);const escaped=await platformSnapshot();guideUnderlying(narrowBase,escaped,'Normal Escape from scrolled Guide changed the blank workbook');check(escaped.modal==='0','Normal Guide Escape left the modal open');
+ await key('Enter','Enter',13);const reset=guideState(await platformSnapshot());check(reset.scroll===0&&reset.focus===0&&reset.maximum===narrow.maximum,'Help focus did not reopen a reset actual short Guide');await key('Tab','Tab',9);const start=guideState(await platformSnapshot());check(start.focus===1&&start.scroll>0&&start.bounds.start,'Actual Tab did not reveal the offscreen Start action');const [sx,sy,sw,sh]=start.bounds.start;await click(sx+sw/2,sy+sh/2);const startClosed=await platformSnapshot();guideUnderlying(narrowBase,startClosed,'Actual visible Start click changed the blank workbook');check(startClosed.modal==='0','Actual visible Start click did not dismiss Guide');
+ await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('7','Digit7',55);await key('Home','Home',36);await key('Enter','Enter',13);await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:dpr,mobile:false});await frames(4);await pause(250);const final=await platformSnapshot();
+ check(final.modal==='0'&&final.ui_scale==='1.000000'&&final.zoom===initial.zoom&&['sheet','manual_cells','sheet_count','dirty','active','anchor','extent','source_revision','schema','page','spare','request','selected_object','object_count'].every(name=>final[name]===initial[name])&&starts().length===0&&replies().length===0,'Guide-only input/capture/idle changed the blank workbook or submitted database work');
+ check(consoleText('Browser review prepared: ').length===0&&(await pendingReports()).length===0,'Cancel-only Guide review staged a saved report');const queue=await(await fetch(new URL('/__review/queue',url))).json();check(queue.reports.length===0,'Guide review wrote into the persistent queue');
+ const result={initial,wide:wide.state,widePicks,wideTab:wideTab.state,wideClosed,reopened:reopened.state,narrowBase,narrow:narrow.state,narrowTop,bottom:bottom.state,narrowBottom,escaped,reset:reset.state,start:start.state,startClosed,final,
+  scope:'Actual blank-workbook Help/Guide at wide100 and640×640/150% interface scale, with real rendered introduction/shortcut values and document-only target identity. Frozen visible text/key/Close/Start/backdrop and scrollbar-thumb picking plus composer cancellation preserve actual geometry/content, nonzero footer scroll, focused Start and workbook ownership. Actual End/Tab, Start Enter/click, Escape, Help-focus reopen/reset, independent canvas zoom, restored scale and bounded idle all produce zero database jobs/replies and no saved reports. No physical gesture or browser Save acceptance.'};
+ await fs.writeFile(path.join(output,'review-guide.json'),JSON.stringify(result,null,2));return result;
+}
 function statisticsReviewMenu(menu,expected){
  const state=menu.state,keys=['cells','filled','numeric','distinct','sum','average','minimum','maximum','done'];
  check(menu.rows.map(row=>row.key).join(',')===keys.join(',')&&menu.rows.every(row=>row.enabled),'Actual Statistics popup lost a metric checkbox or Done action');
@@ -1256,7 +1329,9 @@ try{
  check(surface.dpr===dpr,'Browser device pixel ratio mismatch');
  check(surface.canvas[0]===1280*dpr&&surface.canvas[1]===820*dpr,'Framebuffer is not rendered at actual DPR');
  await capture('wide');
- if(reviewValuesOnly){
+ if(reviewGuideOnly){
+  reviewGuideResult=await browserReviewGuide();
+ }else if(reviewValuesOnly){
   reviewValuesResult=await browserReviewValues();
  }else if(statisticsOnly){
   statisticsResult=await browserStatistics();
@@ -1486,9 +1561,9 @@ try{
  resources.c_bridge=consoleText('Browser worker metrics: ').map(line=>JSON.parse(line.slice('Browser worker metrics: '.length)));
  resources.scope='Navigation-to-first completed C frame and parent resource timing; main JS heap excludes Worker/GPU/process RSS. C bridge metrics are review-only bounded callback/job observations; decode_ms is C validation/allocation/copy, elapsed_ms includes asynchronous engine/transport scheduling. Worker network bytes are not inferred from parent Resource Timing.';
  await fs.writeFile(path.join(output,'resources.json'),JSON.stringify(resources,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,reviewControlsResult,analysisResult,queryReviewResult,statisticsResult,reviewValuesResult,sqlReviewResult,workerProbe,
-  profile:persistenceOwners?'persistence-owners':reviewSQLOnly?'review-sql-only':mixedStatisticsOnly?'mixed-statistics-only':tableStatisticsOnly?'table-statistics-only':reviewValuesOnly?'review-values-only':analysisStatisticsOnly?'analysis-statistics-only':statisticsOnly?'statistics-only':queryApply?'review-query-apply':reviewQueryOnly?'review-query-only':analysisColumnsOnly?'analysis-columns-only':analysisOnly?'analysis-only':reviewControlsOnly?'review-controls-only':zoomOnly?'zoom-only':accessOnly?'access-only':'standard',
-  scope:persistenceOwners?'BP0 official Worker/native v13 owner lifetime file compatibility: typed metadata rewrite/export/reopen and separate native release/ASan readback; no shared C browser Save/Open codec/controller or OPFS acceptance.':reviewSQLOnly?sqlReviewResult.scope:mixedStatisticsOnly?analysisResult.scope:tableStatisticsOnly?analysisResult.scope:reviewValuesOnly?reviewValuesResult.scope:analysisStatisticsOnly?analysisResult.scope:statisticsOnly?statisticsResult.scope:reviewQueryOnly?queryReviewResult.scope:analysisColumnsOnly?analysisResult.scope:analysisOnly?'Shared C same-sheet Rows/Values analysis, real matrix/grand totals and source/manual ownership; no Columns pivot, broad analytics or report upload.':reviewControlsOnly?'Shared C source/manual contextual targets and field-menu children, editable width/Move drafts and guarded Close, trusted input ownership and cancel retention, narrow150% clipping; no analytical-object or report-upload acceptance.':zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,zoomResult,reviewControlsResult,analysisResult,queryReviewResult,statisticsResult,reviewValuesResult,reviewGuideResult,sqlReviewResult,workerProbe,
+  profile:reviewGuideOnly?'review-guide-only':persistenceOwners?'persistence-owners':reviewSQLOnly?'review-sql-only':mixedStatisticsOnly?'mixed-statistics-only':tableStatisticsOnly?'table-statistics-only':reviewValuesOnly?'review-values-only':analysisStatisticsOnly?'analysis-statistics-only':statisticsOnly?'statistics-only':queryApply?'review-query-apply':reviewQueryOnly?'review-query-only':analysisColumnsOnly?'analysis-columns-only':analysisOnly?'analysis-only':reviewControlsOnly?'review-controls-only':zoomOnly?'zoom-only':accessOnly?'access-only':'standard',
+  scope:reviewGuideOnly?reviewGuideResult.scope:persistenceOwners?'BP0 official Worker/native v13 owner lifetime file compatibility: typed metadata rewrite/export/reopen and separate native release/ASan readback; no shared C browser Save/Open codec/controller or OPFS acceptance.':reviewSQLOnly?sqlReviewResult.scope:mixedStatisticsOnly?analysisResult.scope:tableStatisticsOnly?analysisResult.scope:reviewValuesOnly?reviewValuesResult.scope:analysisStatisticsOnly?analysisResult.scope:statisticsOnly?statisticsResult.scope:reviewQueryOnly?queryReviewResult.scope:analysisColumnsOnly?analysisResult.scope:analysisOnly?'Shared C same-sheet Rows/Values analysis, real matrix/grand totals and source/manual ownership; no Columns pivot, broad analytics or report upload.':reviewControlsOnly?'Shared C source/manual contextual targets and field-menu children, editable width/Move drafts and guarded Close, trusted input ownership and cancel retention, narrow150% clipping; no analytical-object or report-upload acceptance.':zoomOnly?'Shared C fixed header geometry/rendered glyphs during blank/source canvas zoom, pointer header selection/resize/filter and independent interface scale; no report upload or physical gesture acceptance.':accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){
