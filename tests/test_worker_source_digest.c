@@ -93,7 +93,7 @@ static void basic_and_payloads(QueryWorker *worker,const char *path,const char *
         QueryJob *job=request(path,unbound ? 0 : dx_file_stamp(path)); uint64_t id=job->id; job->known_total=unbound ? -1 : 0;
         worker_submit(worker,job); QueryReply *reply=wait_reply(worker); success(reply,id,path,true); reply_free(reply); no_sql(worker);
     }
-    for (unsigned kind=0;kind<15;kind++) {
+    for (unsigned kind=0;kind<19;kind++) {
         QueryJob *job=request(kind ? path : NULL,0); uint64_t id=job->id;
         if (kind==1) { free(job->path); job->path=dx_strdup(missing); }
         if (kind==2) { free(job->path); job->path=dx_alloc(65538); memset(job->path,'x',65537); job->path[65537]=0; }
@@ -109,18 +109,45 @@ static void basic_and_payloads(QueryWorker *worker,const char *path,const char *
         if (kind==12) job->refresh_source=true;
         if (kind==13) job->known_total=1;
         if (kind==14) job->analysis.filter_number=(NumberType){NUM_I64,0,0};
+        if (kind==15) job->is_table=true;
+        if (kind==16) job->date_level=1;
+        if (kind==17) {
+            size_t last=sizeof(job->analysis.filters)/sizeof(*job->analysis.filters)-1;
+            job->analysis.filters[0]=(AnalysisFilter){.column=dx_strdup("Owned zero-count first filter"),.value=dx_strdup("")};
+            job->analysis.filters[last]=(AnalysisFilter){.column=dx_strdup("Owned zero-count last filter"),.value=dx_strdup("NULL")};
+            CHECK(!job->analysis.filter_count);
+        }
+        if (kind==18) {
+            size_t last=sizeof(job->analysis.sorts)/sizeof(*job->analysis.sorts)-1;
+            job->analysis.sorts[0]=(AnalysisSort){.column=dx_strdup("Owned zero-count first sort")};
+            job->analysis.sorts[last]=(AnalysisSort){.column=dx_strdup("Owned zero-count last sort"),.descending=true};
+            CHECK(!job->analysis.sort_count);
+        }
         char *owned_path=job->path ? dx_strdup(job->path) : NULL;
         arm(worker,id); worker_submit(worker,job); QueryReply *reply=wait_reply(worker); failed(reply,id,owned_path,SOURCE_DIGEST_ERROR);
-        CHECK(!checkpoint_visits()); reply_free(reply); free(owned_path); no_sql(worker);
+        CHECK(!checkpoint_visits());
+        if (kind==17 || kind==18) {
+            CHECK(!reply->analysis.filter_count && !reply->analysis.sort_count);
+            for (size_t i=0;i<sizeof(reply->analysis.filters)/sizeof(*reply->analysis.filters);i++) CHECK(!reply->analysis.filters[i].column && !reply->analysis.filters[i].value);
+            for (size_t i=0;i<sizeof(reply->analysis.sorts)/sizeof(*reply->analysis.sorts);i++) CHECK(!reply->analysis.sorts[i].column);
+        }
+        reply_free(reply); free(owned_path); no_sql(worker);
     }
+}
+static void abandoned_analysis(QueryJob *job) {
+    size_t filter=sizeof(job->analysis.filters)/sizeof(*job->analysis.filters)-1,sort=sizeof(job->analysis.sorts)/sizeof(*job->analysis.sorts)-1;
+    job->analysis.filters[filter]=(AnalysisFilter){.column=dx_strdup("Owned abandoned filter"),.value=dx_strdup("")};
+    job->analysis.sorts[sort]=(AnalysisSort){.column=dx_strdup("Owned abandoned sort")}; CHECK(!job->analysis.filter_count && !job->analysis.sort_count);
 }
 static void cancellation_and_latest(QueryWorker *worker,const char *large,const char *small,const char *missing) {
     QueryJob *job=request(large,dx_file_stamp(large)); uint64_t id=job->id; arm(worker,id); worker_submit(worker,job); wait_checkpoint();
     /* The helper is blocked on its own test condition, never the UI mutex. */
-    CHECK(!worker_poll(worker)); no_sql(worker); worker_cancel(worker); CHECK(!worker_poll(worker)); release_checkpoint(); wait_idle(worker); CHECK(!worker_poll(worker));
+    CHECK(!worker_poll(worker)); no_sql(worker);
+    QueryJob *pending=request(missing,0); abandoned_analysis(pending); worker_submit(worker,pending);
+    worker_cancel(worker); CHECK(!worker_poll(worker)); release_checkpoint(); wait_idle(worker); CHECK(!worker_poll(worker));
     job=request(small,0); id=job->id; worker_submit(worker,job); QueryReply *reply=wait_reply(worker); success(reply,id,small,false); reply_free(reply); no_sql(worker);
     uint64_t started=jobs_started(worker); job=request(large,0); arm(worker,job->id); worker_submit(worker,job); wait_checkpoint();
-    QueryJob *superseded=request(missing,0),*latest=request(small,dx_file_stamp(small)); id=latest->id;
+    QueryJob *superseded=request(missing,0),*latest=request(small,dx_file_stamp(small)); id=latest->id; abandoned_analysis(superseded);
     worker_submit(worker,superseded); worker_submit(worker,latest); CHECK(!worker_poll(worker)); release_checkpoint();
     reply=wait_reply(worker); success(reply,id,small,false); CHECK(jobs_started(worker)==started+2); reply_free(reply); no_sql(worker);
 }

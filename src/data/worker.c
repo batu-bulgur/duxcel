@@ -10,6 +10,14 @@ void copy_request_free(CopyRequest *request) {
     source_snapshot_free(&request->sources);
     free(request);
 }
+static void source_digest_rejected_analysis(Analysis *analysis) {
+    /* Trusted C jobs transfer ownership of their fixed-slot strings. A rejected
+       verification payload can contain those strings with a zero count; clear
+       every actual slot locally before the usual count-based reply cleanup. */
+    for (size_t i=0;i<sizeof(analysis->filters)/sizeof(*analysis->filters);i++) { free(analysis->filters[i].column); free(analysis->filters[i].value); analysis->filters[i]=(AnalysisFilter){0}; }
+    for (size_t i=0;i<sizeof(analysis->sorts)/sizeof(*analysis->sorts);i++) { free(analysis->sorts[i].column); analysis->sorts[i]=(AnalysisSort){0}; }
+    analysis->filter_count=analysis->sort_count=0;
+}
 #ifndef DUXCEL_BROWSER_HOST
 static bool copy_sources_match(const Analysis *primary,const CopyRequest *copy,char **error) {
     for (size_t i=0;i<copy->guard_count;i++) {
@@ -51,10 +59,11 @@ invalid:
 }
 #endif
 static void job_free(QueryJob *j) {
-    if (j) { copy_request_free(j->copy); statistics_request_free(j->statistics); analysis_free(&j->analysis); pivot_free(&j->pivot); if (j->workbook) { workbook_free(j->workbook); free(j->workbook); } free(j->path); free(j->column); free(j->search); free(j->date_start); free(j->date_end); free(j); }
+    if (j) { if (j->kind==JOB_VERIFY_SOURCE) source_digest_rejected_analysis(&j->analysis); copy_request_free(j->copy); statistics_request_free(j->statistics); analysis_free(&j->analysis); pivot_free(&j->pivot); if (j->workbook) { workbook_free(j->workbook); free(j->workbook); } free(j->path); free(j->column); free(j->search); free(j->date_start); free(j->date_end); free(j); }
 }
 void reply_free(QueryReply *r) {
     if (!r) return;
+    if (r->kind==JOB_VERIFY_SOURCE) source_digest_rejected_analysis(&r->analysis);
     analysis_free(&r->analysis); page_free(&r->page); free(r->error); free(r->clipboard); free(r->export_data);
     if (r->workbook) { workbook_free(r->workbook); free(r->workbook); }
     distinct_free(&r->distinct); statistics_free(&r->statistics); free(r->path); free(r);
@@ -86,13 +95,19 @@ static bool source_digest_payload_valid(const QueryJob *job,const QueryReply *re
     if (length>65536 || a->kind!=SOURCE_NONE || a->path || a->schema || a->table || a->query || a->filter_column || a->filter_value || a->group_column || a->measure_column || a->sort_column ||
         a->filter_count || a->sort_count || a->unique_rows || a->descending || a->filter_op || a->aggregate || a->filter_number.kind || a->filter_number.precision || a->filter_number.scale ||
         job->workbook || job->copy || job->statistics || job->column || job->search || job->date_start || job->date_end || job->offset || job->rows || job->first_col || job->cols ||
-        (job->known_total!=0 && job->known_total!=-1) || job->include_header || job->include_totals || job->is_preview || job->refresh_source) return false;
+        (job->known_total!=0 && job->known_total!=-1) || job->include_header || job->include_totals || job->is_preview || job->refresh_source || job->is_table || job->date_level) return false;
+    for (size_t i=0;i<sizeof(a->filters)/sizeof(*a->filters);i++) {
+        const AnalysisFilter *field=&a->filters[i];
+        if (field->column || field->value || field->op || field->number.kind || field->number.precision || field->number.scale) return false;
+    }
+    for (size_t i=0;i<sizeof(a->sorts)/sizeof(*a->sorts);i++) if (a->sorts[i].column || a->sorts[i].descending) return false;
     for (size_t role=0;role<4;role++) if (job->pivot.counts[role]) return false;
     return true;
 }
+
 static void verify_source(QueryWorker *worker,const QueryJob *job,QueryReply *reply) {
     reply->source_digest_status=SOURCE_DIGEST_ERROR;
-    if (!source_digest_payload_valid(job,reply)) { reply->error=dx_strdup("Source verification requires one bounded file path without analytical payloads."); return; }
+    if (!source_digest_payload_valid(job,reply)) { source_digest_rejected_analysis(&reply->analysis); reply->error=dx_strdup("Source verification requires one bounded file path without analytical payloads."); return; }
     if (obsolete(worker,job->id)) { reply->source_digest_status=SOURCE_DIGEST_CANCELLED; reply->error=dx_strdup("Source-content verification was cancelled."); return; }
     if (job->expected_source_stamp && dx_file_stamp(reply->path)!=job->expected_source_stamp) {
         reply->source_digest_status=SOURCE_DIGEST_CHANGED; reply->error=dx_strdup("The source changed since its displayed result. Refresh before verifying its content."); return;
