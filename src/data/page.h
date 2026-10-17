@@ -47,6 +47,7 @@ typedef struct {
     PivotDefinition pivot;
     size_t source; /* 1-based SourceSnapshot index, or 0 for the primary source */
     uint64_t first,rows;
+    uint64_t expected_source_stamp; /* Session-only; zero preserves unbound sources. */
     size_t column,columns;
 } StatisticsRange;
 typedef struct {

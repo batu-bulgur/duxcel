@@ -30,6 +30,13 @@ bool database_open(Database *db, char **error);
 bool database_refresh(Database *db,char **error); /* worker only; invalidate plans/catalog */
 bool database_validate_relation(Database *db,Analysis *analysis,char **error); /* parse/bind only; no data/count */
 void database_close(Database *db);
+/* Source stamps reject observed in-session file changes, not cross-session identity. */
+bool database_source_matches(const Analysis *source,uint64_t expected_source_stamp,char **error);
+bool database_copy_bound(Database *db,Analysis *source,uint64_t first,uint64_t rows,size_t column,size_t columns,uint64_t expected_source_stamp,char **tsv,char **error);
+bool database_copy_page_bound(Database *db,Analysis *source,const PivotDefinition *pivot,uint64_t first,size_t rows,size_t column,size_t columns,uint64_t expected_source_stamp,Page *page,char **error);
+bool database_statistics_bound(Database *db,Analysis *source,const PivotDefinition *pivot,uint64_t first,uint64_t rows,size_t column,size_t columns,uint64_t expected_source_stamp,SelectionStats *stats,char **error);
+bool database_export_parquet_bound(Database *db,Analysis *source,const char *path,uint64_t expected_source_stamp,uint64_t *rows,char **error);
+bool database_export_pivot_parquet_bound(Database *db,Analysis *source,const PivotDefinition *pivot,const char *path,uint64_t expected_source_stamp,uint64_t *rows,char **error);
 bool database_fetch(Database *db, Analysis *a, uint64_t offset, int64_t known_total, Page *page, char **error);
 bool database_fetch_window(Database *db,Analysis *analysis,uint64_t offset,int64_t known_total,Page *page,char **error);
 bool database_fetch_table(Database *db,Analysis *analysis,uint64_t offset,int64_t known_total,Page *page,char **error);
