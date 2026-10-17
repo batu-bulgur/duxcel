@@ -37,6 +37,7 @@ def main():
     parser.add_argument('--review-offline',action='store_true',help='Commit a report offline, reload real IndexedDB, then automatically upload')
     parser.add_argument('--dpr',type=int,choices=(1,2),default=1)
     parser.add_argument('--canvas-transform',action='store_true',help='Exercise review picking through an inset canvas CSS transform')
+    parser.add_argument('--alt-stress',action='store_true',help='Repeat trusted ribbon Alt shortcuts in the owned platform gate')
     parser.add_argument('--platform',action='store_true',help='Real C DPI/pixel pan/zoom gate (review source fixture)')
     parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker file compatibility (test-only, no Save UI claim)')
     options=parser.parse_args()
@@ -50,6 +51,8 @@ def main():
         parser.error('--canvas-transform requires --review')
     if options.platform and not options.review:
         parser.error('--platform requires --review')
+    if options.alt_stress and not options.platform:
+        parser.error('--alt-stress requires --platform')
     if options.persistence and (options.review or options.worker_driver or options.source):
         parser.error('--persistence is a separate normal-artifact file proof without source/review/worker-driver')
     if options.review_outbox and not options.review:
@@ -105,6 +108,7 @@ def main():
             command.extend(['--dpr',str(options.dpr)])
             if options.canvas_transform:command.append('--canvas-transform')
             if options.platform:command.append('--platform')
+            if options.alt_stress:command.append('--alt-stress')
             if options.persistence:command.append('--persistence')
             process=subprocess.Popen(command,cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
             try:log,_=process.communicate(timeout=100)

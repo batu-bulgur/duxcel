@@ -23,6 +23,7 @@ const review=process.argv.includes('--review');
 const reviewOffline=process.argv.includes('--review-offline');
 const canvasTransform=process.argv.includes('--canvas-transform');
 const platform=process.argv.includes('--platform');
+const altStress=process.argv.includes('--alt-stress');
 const persistence=process.argv.includes('--persistence');
 const dprIndex=process.argv.indexOf('--dpr'),dpr=dprIndex<0?1:Number(process.argv[dprIndex+1]);
 let sourceResult;
@@ -97,9 +98,15 @@ async function hintMotion(){
  }
  await key('Alt','AltLeft',18);await key('h','KeyH',72);await key('Escape','Escape',27);await pause(160);
  const dismissed=await platformSnapshot();check(Number(dismissed.keytips)===0,'Alt H Escape left keytips visible');
+ const cycles=altStress?8:0;
+ for(let cycle=0;cycle<cycles;cycle++){
+  await key('Alt','AltLeft',18);await key('h','KeyH',72);await key('Escape','Escape',27);
+  await key('Alt','AltLeft',18);await key('v','KeyV',86);await key('9','Digit9',57);await key('Escape','Escape',27);
+ }
+ if(cycles){await click(40,42);await pause(160);const state=await platformSnapshot();check(state.active===dismissed.active&&state.extent===dismissed.extent&&Number(state.keytips)===0,'Repeated trusted Alt shortcuts mutated selection or leaked hints');}
  const altEvents=await evaluate('globalThis.duxcelTestAltEvents');
  check(altEvents.length>=3&&altEvents.every(e=>e.canvas&&e.prevented&&e.trusted),'Focused canvas Alt escaped to browser menu handling');
- return {results,dismissed,altEvents,scope:'Trusted CDP key events through focused canvas/GLFW/C, balanced modifiers and no malformed native key codes; actual GPU fade samples.'};
+ return {results,dismissed,altEvents,cycles,scope:'Trusted CDP key events through focused canvas/GLFW/C, balanced modifiers and no malformed native key codes; actual GPU fade samples.'};
 }
 // Sample the shared C GL framebuffer in rAF, without review/hotkeys freezing
 // or clearing the spring. The only full readback is the first stretched PNG.
