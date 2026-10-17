@@ -74,6 +74,14 @@ bool format_apply_scoped(FormatStore *store,FormatRange range,unsigned mask,Cell
 bool format_apply_records(FormatStore *store,const FormatScopeView *scope,
     const uint64_t *record_ids,size_t record_count,const size_t *fields,size_t field_count,
     unsigned mask,CellFormat value,char **error);
+/* Preflight the same edit without touching the live store/history. out must be
+   zero-initialized or own a valid independent snapshot; success replaces it,
+   failure preserves it. The plan owns all inputs and has passed current/history
+   budgets. Commit only while the captured store is unchanged, or free to cancel.
+   A no-op plan commits without creating an independent history entry. */
+bool format_plan_records(const FormatStore *store,const FormatScopeView *scope,
+    const uint64_t *record_ids,size_t record_count,const size_t *fields,size_t field_count,
+    unsigned mask,CellFormat value,FormatSnapshot *out,char **error);
 /* Explicit legacy migration only. Finite spatial patches gain guards and retain
    their manual component; full-column defaults and existing scopes are unchanged. */
 bool format_plan_guard_legacy(const FormatStore *store,const FormatScopeView *scopes,size_t count,FormatSnapshot *out,char **error);
