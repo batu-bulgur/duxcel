@@ -1,0 +1,232 @@
+/* Headless acceptance against the real official browser Worker. The runner
+   supplies Module.dxEngine=createEngineHost(...), exports the worker callback,
+   and polls Module.dxBrowserWorkerTestDone. No renderer/window is created. */
+#include "data/worker.h"
+#include <emscripten/emscripten.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#ifndef DUXCEL_BROWSER_HOST
+#error This driver requires the real DUXCEL_BROWSER_HOST worker backend.
+#endif
+
+extern void dx_browser_query_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,const char *total,int pending,const char *failure);
+EM_JS(int, observe_host, (void), {
+    const host=Module['dxEngine'];
+    if(!host || typeof host.submit!=='function' || typeof host.cancel!=='function')return 0;
+    const submit=host.submit.bind(host);
+    host.submit=(runtime,cookie,ticket,request)=>{
+        Module['dxBrowserWorkerObserved']={cookie,ticket,generation:request.generation,object:request.objectId,revision:request.revision,offset:request.offset};
+        return submit(runtime,cookie,ticket,request);
+    };
+    return 1;
+})
+EM_JS(int, observed_identity, (const char *id,const char *object,const char *revision,const char *offset), {
+    const value=Module['dxBrowserWorkerObserved'];
+    return Boolean(value && value.generation===UTF8ToString(id) && value.object===UTF8ToString(object) && value.revision===UTF8ToString(revision) && value.offset===UTF8ToString(offset));
+})
+EM_JS(unsigned, observed_cookie, (void), { return Module['dxBrowserWorkerObserved'].cookie; })
+EM_JS(unsigned, observed_ticket, (void), { return Module['dxBrowserWorkerObserved'].ticket; })
+EM_JS(void, completed, (int ok,unsigned checks,unsigned stages), {
+    Module['dxBrowserWorkerTestDone']={ok:Boolean(ok),checks,stages};
+})
+
+static const char exact_sql[]=
+    "SELECT 9007199254740993::BIGINT AS wide,"
+    "CAST('18446744073709551615' AS UBIGINT) AS u64,"
+    "CAST('1234567890123456789012345678.1234567890' AS DECIMAL(38,10)) AS amount,"
+    "CAST('-170141183460469231731687303715884105728' AS HUGEINT) AS huge_min,"
+    "CAST('170141183460469231731687303715884105727' AS HUGEINT) AS huge_max,"
+    "CAST('2026-10-17 12:34:56.123456789' AS TIMESTAMP_NS) AS nanosecond,"
+    "NULL::VARCHAR AS missing,' ' AS space,'' AS empty,'NULL' AS literal,"
+    "true AS approved,NULL::BIGINT AS null_number";
+static const char range_sql[]=
+    "SELECT i::BIGINT AS row_id,('row-' || i::VARCHAR)::VARCHAR AS label,"
+    "(i % 100)::DECIMAL(5,2) AS amount FROM range(600) t(i) ORDER BY i";
+static const char long_sql[]=
+    "SELECT SUM((i % 97)::HUGEINT) AS slow_total FROM range(500000000) t(i)";
+static const char latest_sql[]="SELECT 'latest wins'::VARCHAR AS result";
+static const char cancel_recovery_sql[]="SELECT 'recovered after cancel'::VARCHAR AS result";
+static const uint64_t object_id=UINT64_C(18014398509481987),revision_id=UINT64_C(36028797018963971);
+typedef enum {
+    WAIT_EXACT,WAIT_PAGE0,WAIT_PAGE256,WAIT_PAGE512,WAIT_COUNT,WAIT_TABLE,
+    WAIT_VALIDATE,WAIT_PREVIEW,WAIT_ERROR,WAIT_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
+    RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
+    QUIET_CANCEL,WAIT_CANCEL_RECOVERY,WAIT_STOP_SCHEMA,RUN_STOP,QUIET_STOP,FINISHED
+} Stage;
+static QueryWorker worker;
+static QueryReply *reply;
+static Page retained;
+static Stage stage;
+static double entered;
+static uint64_t next_id=UINT64_C(9007199254740993),expected_id,expected_offset,expected_sql,expected_counts;
+static JobKind expected_kind;
+static bool expected_preview;
+static unsigned checks,stages,stale_cookie,stale_ticket,late_callbacks;
+
+static void die(const char *condition,int line) {
+    fprintf(stderr,"FAIL browser-worker stage %d line %d: %s\n",(int)stage,line,condition);
+    if (reply && reply->error) fprintf(stderr,"Worker error: %s\n",reply->error);
+    reply_free(reply); reply=NULL; page_free(&retained); if (worker.started) worker_stop(&worker);
+    completed(0,checks,stages); emscripten_cancel_main_loop(); abort();
+}
+#define CHECK(condition) do { checks++; if (!(condition)) die(#condition,__LINE__); } while (0)
+static void enter(Stage next) { stage=next; entered=emscripten_get_now(); }
+static void pass(const char *message) { stages++; printf("PASS browser-worker: %s\n",message); }
+static void counters(void) { CHECK(worker.sql_executed==expected_sql); CHECK(worker.counts_executed==expected_counts); }
+static void identity(void) {
+    char id[24],object[24],revision[24],offset[24];
+    snprintf(id,sizeof(id),"%" PRIu64,expected_id); snprintf(object,sizeof(object),"%" PRIu64,object_id);
+    snprintf(revision,sizeof(revision),"%" PRIu64,revision_id); snprintf(offset,sizeof(offset),"%" PRIu64,expected_offset);
+    CHECK(observed_identity(id,object,revision,offset));
+}
+static void submit(JobKind kind,const char *sql,uint64_t offset,int64_t total,bool preview,unsigned sql_count) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job));
+    job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=kind;
+    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(sql)};
+    job->offset=offset; job->known_total=total; job->object_id=object_id; job->revision=revision_id;
+    job->is_preview=expected_preview=preview; job->is_table=kind==JOB_PIVOT;
+    expected_offset=kind==JOB_COUNT || kind==JOB_VALIDATE_SQL ? 0 : offset;
+    expected_sql+=sql_count; if (kind==JOB_COUNT) expected_counts++;
+    worker_submit(&worker,job);
+}
+static bool received(bool error) {
+    CHECK(!reply); reply=worker_poll(&worker); if (!reply) return false;
+    CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==object_id && reply->revision==revision_id && reply->is_preview==expected_preview);
+    CHECK((reply->error!=NULL)==error); CHECK(!worker.running); counters(); identity(); return true;
+}
+static void release_reply(void) { reply_free(reply); reply=NULL; }
+static void quiet(void) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply); counters(); }
+static void exact_values(const Page *page) {
+    static const char *names[]={"wide","u64","amount","huge_min","huge_max","nanosecond","missing","space","empty","literal","approved","null_number"};
+    static const char *texts[]={"9007199254740993","18446744073709551615","1234567890123456789012345678.1234567890",
+        "-170141183460469231731687303715884105728","170141183460469231731687303715884105727","2026-10-17 12:34:56.123456789",NULL," ","","NULL","true",NULL};
+    CHECK(page->column_count==12 && page->row_count==1 && page->offset==0 && page->total==1 && !page->count_pending && !page->release_cell_text);
+    for (size_t i=0;i<12;i++) {
+        CHECK(!strcmp(page->columns[i].name,names[i]));
+        CHECK(texts[i] ? !page->cells[i].is_null && page->cells[i].text && !strcmp(page->cells[i].text,texts[i]) : page->cells[i].is_null && !page->cells[i].text);
+    }
+    CHECK(page->columns[0].type==DUCKDB_TYPE_BIGINT && page->columns[0].number_type.kind==NUM_I64 && page->columns[0].numeric);
+    CHECK(page->columns[1].type==DUCKDB_TYPE_UBIGINT && page->columns[1].number_type.kind==NUM_U64 && !strcmp(page->columns[1].type_name,"UBIGINT"));
+    CHECK(page->columns[2].type==DUCKDB_TYPE_DECIMAL && page->columns[2].number_type.kind==NUM_DECIMAL && page->columns[2].number_type.precision==38 && page->columns[2].number_type.scale==10 && !strcmp(page->columns[2].type_name,"DECIMAL(38,10)"));
+    CHECK(page->columns[3].type==DUCKDB_TYPE_HUGEINT && page->columns[4].type==DUCKDB_TYPE_HUGEINT && page->columns[3].number_type.kind==NUM_I128 && page->columns[4].number_type.kind==NUM_I128);
+    CHECK(page->columns[5].type==DUCKDB_TYPE_TIMESTAMP_NS && !page->columns[5].numeric && !strcmp(page->columns[5].type_name,"TIMESTAMP_NS"));
+    CHECK(page->columns[6].type==DUCKDB_TYPE_VARCHAR && !page->columns[6].numeric && page->cells[8].text && !*page->cells[8].text);
+    CHECK(page->columns[10].type==DUCKDB_TYPE_BOOLEAN && !page->columns[10].numeric && page->columns[11].type==DUCKDB_TYPE_BIGINT && page->columns[11].number_type.kind==NUM_I64);
+}
+static void range_values(const Page *page,uint64_t offset,size_t rows,uint64_t total,bool pending) {
+    CHECK(page->column_count==3 && page->row_count==rows && page->offset==offset && page->total==total && page->count_pending==pending);
+    CHECK(!strcmp(page->columns[0].name,"row_id") && page->columns[0].number_type.kind==NUM_I64 && !strcmp(page->columns[0].type_name,"BIGINT"));
+    CHECK(!strcmp(page->columns[1].name,"label") && !page->columns[1].numeric && page->columns[1].type==DUCKDB_TYPE_VARCHAR);
+    CHECK(page->columns[2].number_type.kind==NUM_DECIMAL && page->columns[2].number_type.precision==5 && page->columns[2].number_type.scale==2 && !strcmp(page->columns[2].type_name,"DECIMAL(5,2)"));
+    for (size_t row=0;row<rows;row++) {
+        char id[24],label[32],amount[32]; uint64_t value=offset+row;
+        snprintf(id,sizeof(id),"%" PRIu64,value); snprintf(label,sizeof(label),"row-%" PRIu64,value); snprintf(amount,sizeof(amount),"%" PRIu64 ".00",value%100);
+        const Cell *cells=&page->cells[row*3];
+        CHECK(!cells[0].is_null && !cells[1].is_null && !cells[2].is_null && !strcmp(cells[0].text,id) && !strcmp(cells[1].text,label) && !strcmp(cells[2].text,amount));
+    }
+    exact_values(&retained);
+}
+static void validation_reply(void) { CHECK(!reply->page.cells && !reply->page.columns && !reply->page.row_count && !reply->page.column_count); }
+static void short_reply(const char *text) { CHECK(reply->page.row_count==1 && reply->page.column_count==1 && !reply->page.cells[0].is_null && !strcmp(reply->page.cells[0].text,text)); }
+static void inject_late(void *unused) {
+    (void)unused;
+    /* Matching old cookie/ticket, deliberately unreadable payload: the ownership
+       fence must return before dereferencing callbacks after teardown. */
+    dx_browser_query_result(stale_cookie,stale_ticket,(const void *)(uintptr_t)1,SIZE_MAX,(const char *)(uintptr_t)1,1,(const char *)(uintptr_t)1);
+    late_callbacks++;
+}
+static void tick(void) {
+    CHECK(emscripten_get_now()-entered<15000);
+    switch (stage) {
+    case WAIT_EXACT:
+        if (!received(false)) return;
+        exact_values(&reply->page); retained=reply->page; reply->page=(Page){0}; release_reply(); pass("exact owned values and uint64 identities");
+        submit(JOB_PAGE,range_sql,0,-1,false,2); enter(WAIT_PAGE0); return;
+    case WAIT_PAGE0:
+        if (!received(false)) return;
+        range_values(&reply->page,0,256,256,true); release_reply(); pass("range first page / DESCRIBE then canonical query");
+        submit(JOB_PAGE,range_sql,256,-1,false,1); enter(WAIT_PAGE256); return;
+    case WAIT_PAGE256:
+        if (!received(false)) return;
+        range_values(&reply->page,256,256,512,true); release_reply(); pass("range second page / described schema reused");
+        submit(JOB_PAGE,range_sql,512,-1,false,1); enter(WAIT_PAGE512); return;
+    case WAIT_PAGE512:
+        if (!received(false)) return;
+        range_values(&reply->page,512,88,600,false); release_reply(); pass("range final page / precise lower bound");
+        submit(JOB_COUNT,range_sql,0,-1,false,1); enter(WAIT_COUNT); return;
+    case WAIT_COUNT:
+        if (!received(false)) return;
+        CHECK(reply->counted_rows==600); validation_reply(); release_reply(); pass("real count 600");
+        submit(JOB_PIVOT,range_sql,256,600,false,1); enter(WAIT_TABLE); return;
+    case WAIT_TABLE:
+        if (!received(false)) return;
+        range_values(&reply->page,256,256,600,false); release_reply(); pass("table-scoped page and known count / no redundant DESCRIBE");
+        submit(JOB_VALIDATE_SQL,range_sql,0,-1,false,1); enter(WAIT_VALIDATE); return;
+    case WAIT_VALIDATE:
+        if (!received(false)) return;
+        validation_reply(); release_reply(); pass("real SQL validation / owned empty reply");
+        submit(JOB_STEP_PREVIEW,range_sql,512,600,true,1); enter(WAIT_PREVIEW); return;
+    case WAIT_PREVIEW:
+        if (!received(false)) return;
+        range_values(&reply->page,512,88,600,false); release_reply(); pass("historical preview page and schema reuse");
+        submit(JOB_PAGE,"SELECT definitely_missing_column FROM input",0,-1,false,1); enter(WAIT_ERROR); return;
+    case WAIT_ERROR:
+        if (!received(true)) return;
+        CHECK(strlen(reply->error)>16 && strstr(reply->error,"definitely_missing_column")); validation_reply(); release_reply(); pass("useful real engine SQL error");
+        submit(JOB_PAGE,range_sql,0,600,false,1); enter(WAIT_RECOVERY); return;
+    case WAIT_RECOVERY:
+        if (!received(false)) return;
+        range_values(&reply->page,0,256,600,false); release_reply(); pass("error recovery retains the valid described schema");
+        submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_SUPERSEDE_SCHEMA); return;
+    case WAIT_SUPERSEDE_SCHEMA:
+        if (!received(false)) return;
+        validation_reply(); release_reply(); submit(JOB_PAGE,long_sql,0,1,false,1); enter(RUN_SUPERSEDE); return;
+    case RUN_SUPERSEDE:
+        if (emscripten_get_now()-entered<80) return;
+        quiet(); CHECK(worker.running); identity(); submit(JOB_PAGE,latest_sql,0,1,false,2); enter(WAIT_LATEST); return;
+    case WAIT_LATEST:
+        if (!received(false)) return;
+        short_reply("latest wins"); release_reply(); pass("rapid long/short latest-wins / only current reply"); enter(QUIET_LATEST); return;
+    case QUIET_LATEST:
+        quiet(); if (emscripten_get_now()-entered<150) return;
+        CHECK(!worker.running); exact_values(&retained); submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_CANCEL_SCHEMA); return;
+    case WAIT_CANCEL_SCHEMA:
+        if (!received(false)) return;
+        validation_reply(); release_reply(); submit(JOB_PAGE,long_sql,0,1,false,1); enter(RUN_CANCEL); return;
+    case RUN_CANCEL:
+        if (emscripten_get_now()-entered<80) return;
+        quiet(); CHECK(worker.running); identity();
+        stale_cookie=observed_cookie(); stale_ticket=observed_ticket();
+        dx_browser_query_result(stale_cookie+1,stale_ticket,NULL,0,"0",0,"wrong cookie");
+        dx_browser_query_result(stale_cookie,stale_ticket+1,NULL,0,"0",0,"wrong ticket");
+        CHECK(worker.running); quiet(); worker_cancel(&worker); CHECK(!worker.running && worker.started); enter(QUIET_CANCEL); return;
+    case QUIET_CANCEL:
+        quiet(); if (emscripten_get_now()-entered<100) return;
+        submit(JOB_PAGE,cancel_recovery_sql,0,1,false,2); enter(WAIT_CANCEL_RECOVERY); return;
+    case WAIT_CANCEL_RECOVERY:
+        if (!received(false)) return;
+        short_reply("recovered after cancel"); release_reply(); pass("explicit cancel, cookie/ticket fences and recovery");
+        submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_STOP_SCHEMA); return;
+    case WAIT_STOP_SCHEMA:
+        if (!received(false)) return;
+        validation_reply(); release_reply(); submit(JOB_PAGE,long_sql,0,1,false,1); enter(RUN_STOP); return;
+    case RUN_STOP:
+        if (emscripten_get_now()-entered<80) return;
+        quiet(); CHECK(worker.running); identity(); stale_cookie=observed_cookie(); stale_ticket=observed_ticket();
+        worker_stop(&worker); CHECK(!worker.started && !worker.running && !worker.reply && !worker.pending);
+        inject_late(NULL); emscripten_async_call(inject_late,NULL,50); enter(QUIET_STOP); return;
+    case QUIET_STOP:
+        quiet(); if (emscripten_get_now()-entered<150) return;
+        CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
+        exact_values(&retained); page_free(&retained); page_free(&retained); pass("early stop and scheduled stale callbacks are ignored");
+        enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
+        emscripten_cancel_main_loop(); return;
+    case FINISHED: die("main loop ran after completion",__LINE__);
+    }
+}
+int main(void) {
+    CHECK(observe_host()); CHECK(worker_start(&worker)); submit(JOB_PAGE,exact_sql,0,-1,false,2); enter(WAIT_EXACT);
+    emscripten_set_main_loop(tick,0,1); return 0;
+}
