@@ -1,0 +1,22 @@
+{
+  "command": [
+    "clang",
+    "--analyze",
+    "-Xanalyzer",
+    "-analyzer-output=text",
+    "-std=c99",
+    "-Isrc",
+    "-I/opt/homebrew/include",
+    "-I/opt/homebrew/Cellar/raylib/6.0/include",
+    "-Ibuild/review",
+    "-DDUXCEL_DEV_REVIEW",
+    "-include",
+    "src/dev/review_input.h",
+    "src/dev/review_capture.c",
+    "src/dev/review_registry.c",
+    "src/dev/review_store.c"
+  ],
+  "returncode": 0,
+  "diagnostics": "",
+  "scope": "Clang static analyzer on the three review modules; no runtime GPU/concurrency claim"
+}

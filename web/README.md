@@ -115,3 +115,25 @@ compiler-only install, failed/offline install and independent local status.
 The installed ignored cache can be moved intact into another checkout's
 `build/web/toolchain` while unused; run offline bootstrap there to rewrite its
 absolute configuration before use. The SDK/cache is not a committed artifact.
+
+## Main checkout integration
+
+The owned cache has been relocated into `/Users/h2o/dev/duxcel/build/web/toolchain`,
+and offline bootstrap/status passed after rewriting its absolute configuration.
+The same C99 compiler was also used for an actual Wasm/Node smoke program.
+
+```sh
+python3 tools/build_web_raylib.py
+```
+
+This builds the pinned WebGL ES2 dependency in a private copied source directory
+under `build/web/raylib/`, using one compiler process and the local SDK. The final
+archive is published atomically only after all object formats are verified as
+Wasm. It preserves the SDK's pinned source tree and native application outputs.
+Emscripten's `EM_ASM` macros require GNU mode, so this third-party adapter uses
+raylib's upstream GNU99 setting. Duxcel code continues to use C99. Existing
+upstream audio warnings are retained in `build/web/raylib/build.txt`.
+
+[Compiler/dependency evidence](../docs/validation/checkpoints/2026-10-17-web-toolchain/)
+records timing, sizes and hashes. The actual shared App renderer and official
+DuckDB-Wasm Worker bridge remain pending.
