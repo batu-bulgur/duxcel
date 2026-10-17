@@ -366,3 +366,44 @@ test('default encoder uses a separate OffscreenCanvas and default download relea
         URL.createObjectURL = previous.create; URL.revokeObjectURL = previous.revoke;
     }
 });
+
+test('queue transport replaces downloads and exposes distinct durable local and server acknowledgments', async () => {
+    for (const queued of [false, true]) {
+        const submissions = [], h = harness({ submit: async (blob, id, metadata) => {
+            submissions.push({ blob, id, metadata });
+            return { report_id: id, durable: true, queued, local: !queued };
+        } });
+        h.begin(); const input = h.request({ json: h.manifest({ project_id: 'P-test' }) });
+        assert.equal(await h.host.exportReport(input), true); assert.equal(h.downloads.length, 0); assert.equal(submissions.length, 1);
+        assert.equal(submissions[0].id, reportId); assert.deepEqual(submissions[0].metadata, { projectId: 'P-test' });
+        const files = await parseTar(submissions[0].blob), sidecar = JSON.parse(decoder.decode(files.get(`${reportId}/browser.json`)));
+        assert.deepEqual(files.get(`${reportId}/manifest.json`), input.json);
+        assert.deepEqual(sidecar.transport, { kind: 'unified-review-queue', durable: false }, 'pre-ack archive does not claim server durability');
+        assert.deepEqual(h.completions, [{ ok: true, error: queued ? 'Saved to the shared review queue.' : 'Saved in this browser; awaiting the review service.' }]);
+        h.host.dispose();
+    }
+});
+
+test('queue failures or invalid receipts retain the C frame and note for explicit retry', async () => {
+    for (const receipt of [null, { report_id: 'wrong', durable: true, queued: true }, { report_id: reportId, durable: false, queued: true },
+        { report_id: reportId, durable: true, queued: false }, { report_id: reportId, durable: true, queued: 'true' }]) {
+        let fail = true; const h = harness({ submit: async () => fail ? receipt : { report_id: reportId, durable: true, queued: true } });
+        h.begin(); const json = h.manifest({ project_id: 'P-test' });
+        assert.equal(await h.host.exportReport(h.request({ json })), false); assert.equal(h.completions[0].ok, false); assert.match(h.completions[0].error, /durable/);
+        fail = false; assert.equal(await h.host.exportReport(h.request({ json })), true); assert.equal(h.downloads.length, 0); h.host.dispose();
+    }
+    let fail = true; const h = harness({ submit: async () => { if (fail) throw new Error('Browser storage quota exceeded'); return { report_id: reportId, durable: true, queued: false, local: true }; } });
+    h.begin(); const originalJSON = h.manifest({ project_id: 'P-test' }), original = originalJSON.slice();
+    assert.equal(await h.host.exportReport(h.request({ json: originalJSON })), false); assert.deepEqual(originalJSON, original); assert.match(h.completions[0].error, /quota/);
+    fail = false; assert.equal(await h.host.exportReport(h.request({ json: originalJSON })), true); assert.equal(h.downloads.length, 0); h.host.dispose();
+});
+
+test('queue mode requires the original C project identity and suppresses late completion after close', async () => {
+    const upload = deferred(), submissions = [], h = harness({ submit: (...args) => { submissions.push(args); return upload.promise; } });
+    h.begin(); assert.equal(await h.host.exportReport(h.request()), false); assert.match(h.completions[0].error, /project identity/); assert.equal(submissions.length, 0);
+    const pending = h.host.exportReport(h.request({ json: h.manifest({ project_id: 'P-test' }) }));
+    for (let wait = 0; wait < 20 && submissions.length === 0; wait++) await tick();
+    assert.equal(submissions.length, 1); h.host.dispose(); upload.resolve({ report_id: reportId, durable: true, queued: true });
+    assert.equal(await pending, false); assert.equal(h.completions.length, 1); assert.equal(h.downloads.length, 0);
+    assert.throws(() => harness({ submit: 1 }), /dependencies/);
+});
