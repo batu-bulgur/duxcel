@@ -45,6 +45,7 @@ static bool has_record(const FormatPatch *p,uint64_t id,size_t field) {
     return lo<p->field_count && p->fields[lo]==field;
 }
 static CellFormat resolve(const FormatStore *s,uint64_t row,size_t column,size_t token,size_t record_token,bool record,uint64_t id,size_t field) {
+    if (row>=DX_SHEET_ROWS || column>=DX_FORMAT_FIELDS) return format_default();
     CellFormat result=format_default(); unsigned needed=FORMAT_ALL;
     for (size_t i=s->count;i && needed;i--) {
         const FormatPatch *p=&s->items[i-1]; FormatRange r=p->range;

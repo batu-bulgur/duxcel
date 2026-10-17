@@ -179,6 +179,14 @@ static void record_resolution(void) {
     CHECK(format_owned_bytes(&s,false)==expected && format_owned_bytes(&s,true)==expected);
     CHECK(record_at(&s,4,2,&scope,ids[1],3).flags==FORMAT_BOLD && record_at(&s,900,15,&scope,ids[1],3).color==2);
     CHECK(record_at(&s,4,2,&scope,UINT64_MAX,16383).flags==FORMAT_BOLD);
+    CellFormat last=record_at(&s,DX_SHEET_ROWS-1,DX_FORMAT_FIELDS-1,&scope,UINT64_MAX,16383);
+    CHECK(last.flags==FORMAT_BOLD && last.color==2 && last.specified==(FORMAT_BOLD|FORMAT_COLOR));
+    const uint64_t outside_rows[]={DX_SHEET_ROWS,UINT64_MAX}; const size_t outside_columns[]={DX_FORMAT_FIELDS,SIZE_MAX};
+    for (size_t i=0;i<2;i++) {
+        CellFormat row=record_at(&s,outside_rows[i],2,&scope,UINT64_MAX,16383),column=record_at(&s,4,outside_columns[i],&scope,UINT64_MAX,16383);
+        CHECK(!row.flags && !row.color && row.size==13 && row.decimals==2 && !row.specified);
+        CHECK(!column.flags && !column.color && column.size==13 && column.decimals==2 && !column.specified);
+    }
     /* Same-looking physical rows remain independent when their record IDs differ. */
     CHECK(!record_at(&s,4,2,&scope,2,3).flags && !record_at(&s,5,2,&scope,2,3).flags);
     CHECK(!record_at(&s,4,2,&scope,ids[1],2).flags && !record_at(&s,4,2,&scope,0,3).flags);
@@ -199,6 +207,8 @@ static void record_resolution(void) {
     /* All selectors participate in one mask-wise order, using physical bounds
        for spatial/result patches and original ordinals only for membership. */
     v.color=1; CHECK(format_apply(&s,(FormatRange){0,DX_SHEET_ROWS-1,2,2},FORMAT_COLOR,v,&error));
+    CHECK(!record_at(&s,UINT64_MAX,2,&scope,UINT64_MAX,16383).specified && !format_resolve(&s,UINT64_MAX,2,&scope).specified && !format_at(&s,DX_SHEET_ROWS,2).specified);
+    CHECK(!format_resolve(&s,4,DX_FORMAT_FIELDS,&scope).specified && !format_at(&s,4,SIZE_MAX).specified);
     CHECK(record_at(&s,4,2,&scope,ids[1],3).flags==FORMAT_BOLD && record_at(&s,4,2,&scope,ids[1],3).color==1 && record_at(&s,4,9,&scope,ids[1],3).color==2);
     CHECK(s.items[0].selector==FORMAT_RECORDS && s.items[0].record_count==3);
     v.flags=FORMAT_ITALIC; CHECK(format_apply_scoped(&s,(FormatRange){4,4,2,2},FORMAT_BOLD|FORMAT_ITALIC,v,&scope,1,false,&error));
