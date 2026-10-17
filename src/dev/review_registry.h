@@ -39,7 +39,7 @@ typedef struct {
 typedef struct {
     uint64_t frame_id,timestamp_ns;
     char session_id[96],project_id[96],document_id[128];
-    char source_fingerprint[96],binary_sha256[65],build_flags[256],assets_fingerprint[96];
+    char source_fingerprint[96],binary_sha256[65],build_flags[512],assets_fingerprint[96];
     char fonts[256],state_text[4096],trace_text[16384];
     uint32_t window_width,window_height,framebuffer_width,framebuffer_height;
     float dpi_x,dpi_y,ui_scale,grid_zoom;

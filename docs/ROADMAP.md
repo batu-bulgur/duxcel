@@ -20,11 +20,13 @@ Acceptance: a new checkout has documented build/test commands; a routine widget 
 
 ## 1. Native agentic review build — active priority
 
-- [ ] R1: Add isolated optimized and sanitizer review configurations/binaries with an explicit compile-time review feature. Exclude all added review code/data/commands/bridges from shipping outputs and verify that exclusion. Extend the existing incremental signatures; do not overwrite a binary under acceptance.
+- [x] R1: Add isolated optimized and sanitizer review configurations/binaries with an explicit compile-time review feature. Exclude all added review code/data/commands/bridges from shipping outputs and verify that exclusion. Extend the existing incremental signatures; do not overwrite a binary under acceptance.
 - [ ] R2: Establish a portable C99 semantic widget registry, stable action/widget/data identities and versioned bounded capture schema. Track actual visible clips, layers, transforms, focus/enabled state and source metadata; resolve grid cells on demand.
 - [ ] R3: Integrate the in-app report command, picker, native note composer and same-frame screenshot/state bundle. Consume report input before ordinary dispatch, preserve open menus/selection/focus, retain notes after write failure and preserve worker/page ownership.
-- [ ] R4: Supply a durable atomic local outbox plus agent-facing reader/feedback lifecycle. Add an external IPC/MCP adapter where needed; native capture works while the service/agent is absent. Do not embed a web or model runtime in the app.
+- [x] R4: Supply a durable atomic local outbox plus agent-facing reader/feedback lifecycle. Add an external IPC/MCP adapter where needed; native capture works while the service/agent is absent. Do not embed a web or model runtime in the app.
 - [ ] Accept the complete reporting path on real native frames: open filter/popup, ribbon/overflow, panes and frozen grid; 100/150% scale; keyboard and pointer; worker reply/page eviction; capture failure/retry. Record bounded tracing and optimized overhead, and prove no new idle SQL, queries or per-frame serialization/readback.
+
+Current integration: the earlier optimized 19-stage native flow passed and real bundles were consumed by the external reader; registry/outbox release+sanitizer and linked shipping absence passed. Finish the expanded 26-stage optimized/sanitizer native gate once the graphics session is unlocked, then the scoped coverage/overhead acceptance above. Other dialogs and authoring child controls remain partially enumerated. See [source/binary-scoped evidence](validation/checkpoints/2026-10-17-native-review/).
 
 Acceptance: the user can report an actual native control without activating/dismissing it, receive an issue ID, and an agent can retrieve the correct target, frame/state and tested build. A library/helper or screenshot alone is incomplete. Shipping exclusion is a gate for this milestone; continuous video and general deterministic replay are not.
 

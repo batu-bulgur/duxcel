@@ -92,8 +92,8 @@ def source_metadata(root):
     paths = [root / "Makefile"]
     for directory in ("src", "tests", "tools", "design/prototype/src"):
         paths.extend(path for path in (root / directory).rglob("*")
-                     if path.is_file() and path.suffix in (".c", ".h", ".m", ".py", ".sh", ".mjs", ".js", ".jsx", ".css")
-                     and not {"generated", "results", "downloads"}.intersection(path.relative_to(root).parts))
+                     if path.is_file() and path.suffix in (".c", ".h", ".m", ".inc", ".py", ".sh", ".mjs", ".js", ".jsx", ".css")
+                     and not {"generated", "results", "downloads", "node_modules"}.intersection(path.relative_to(root).parts))
     digest = hashlib.sha256()
     for path in sorted(paths):
         digest.update(str(path.relative_to(root)).encode())

@@ -1,0 +1,10 @@
+{
+  "source_fingerprint": "6638e023d3316d99e6223e3ae279879bdf5a481c86ac6ef2415d6f6218c0b5b9",
+  "native_acceptance": "pending-unlocked-graphics",
+  "binaries": {
+    "duxcel": "5f34d1871a41ad092d04959ebabcc74bcb46102d37ae4ecfbbe82fe20759ecf3",
+    "duxcel-debug": "841ff34d043bb35371ed088106436ebe6a4e4d4a476b25675e62db569cee2d1e",
+    "build/review/duxcel-review": "d74233068990cfcc51e8c52f5d88ff4a77b6e14e2e36867340c19c79de187942",
+    "build/review-sanitize/duxcel-review": "2d627b3c63122abfeba15f61a98727325e7925e386a5e506b4cb89c64c576c47"
+  }
+}

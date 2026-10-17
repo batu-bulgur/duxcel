@@ -496,6 +496,9 @@ void grid_replay_gesture(Grid *g,UIContext *u,const Page *p,DxPointerGesture ges
     in.down=false; in.released=true; grid_handle_input(g,u,p,&in);
 }
 void grid_update(Grid *g,UIContext *u,const Page *p,Rectangle r,bool enabled) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) { grid_layout(g,u->scale,p,r); return; }
+#endif
     g->controls_enabled=enabled && !g->lock_structure && !g->block_pointer;
     grid_layout(g,u->scale,p,r);
     DxPointerGesture gesture;

@@ -11,6 +11,11 @@
    the thread's current context; return ownership to the renderer afterwards. */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#ifdef DUXCEL_DEV_REVIEW
+#define DX_PRESENTATION_KEY @"DuxcelReviewPresentationV1"
+#else
+#define DX_PRESENTATION_KEY @"DuxcelPresentationV1"
+#endif
 
 static float magnification;
 static id gesture_monitor;
@@ -55,6 +60,10 @@ bool dx_take_pointer_gesture(DxPointerGesture *gesture) {
 static void enqueue_command(DxCommand value) {
     if (command_count<64) { commands[(command_head+command_count)%64]=value; command_count++; }
 }
+#ifdef DUXCEL_DEV_REVIEW
+static bool review_request;
+bool dx_review_take_native_request(void) { bool requested=review_request; review_request=false; return requested; }
+#endif
 static bool native_panel_active;
 static NSSavePanel *active_native_panel;
 static bool quit_requested;
@@ -86,7 +95,7 @@ static NSWindow *canvas_window; /* borrowed from GLFW */
 static DuxcelApplicationDelegate *application_delegate;
 bool dx_presentation_load(DxPresentation *out) {
     @autoreleasepool {
-        id stored=[[NSUserDefaults standardUserDefaults] objectForKey:@"DuxcelPresentationV1"];
+        id stored=[[NSUserDefaults standardUserDefaults] objectForKey:DX_PRESENTATION_KEY];
         if (![stored isKindOfClass:[NSDictionary class]]) return false;
         NSDictionary *d=stored;
         NSArray *keys=@[@"ribbon",@"previousRibbon",@"workbook",@"fields",@"transformations",@"workbookCollapsed",@"fieldsCollapsed",@"reduceMotion",@"leftWidth",@"rightWidth",@"interfaceScale"];
@@ -111,7 +120,7 @@ void dx_presentation_save(const DxPresentation *p) {
         NSDictionary *d=@{@"ribbon":@(p->ribbon_mode),@"previousRibbon":@(p->previous_ribbon_mode),@"workbook":@(p->workbook),@"fields":@(p->fields),@"transformations":@(p->transformations),@"workbookCollapsed":@(p->workbook_collapsed),@"fieldsCollapsed":@(p->fields_collapsed),@"reduceMotion":@(p->reduced_motion),@"leftWidth":@(p->sidebar_width),@"rightWidth":@(p->pipeline_width),@"interfaceScale":@(p->interface_scale),@"statisticsMask":@(p->statistics_mask)};
         NSMutableDictionary *stored=[d mutableCopy]; stored[@"transformationsCollapsed"]=@(p->transformations_collapsed);
         stored[@"freeze"]=@(p->freeze);
-        [[NSUserDefaults standardUserDefaults] setObject:stored forKey:@"DuxcelPresentationV1"]; [stored release];
+        [[NSUserDefaults standardUserDefaults] setObject:stored forKey:DX_PRESENTATION_KEY]; [stored release];
     }
 }
 void dx_native_context(bool modal,bool editing,bool pivot,bool tips) { app_modal=modal; text_input=editing; pivot_context=pivot; key_tips=tips; }
@@ -123,6 +132,9 @@ void dx_native_context(bool modal,bool editing,bool pivot,bool tips) { app_modal
 - (void)invoke:(id)sender {
     DxCommand value=(DxCommand)[sender tag];
     if (native_panel_active || (NSApp.keyWindow && NSApp.keyWindow!=canvas_window)) return;
+#ifdef DUXCEL_DEV_REVIEW
+    if (value==DX_COMMAND_REPORT_UI) { review_request=true; return; }
+#endif
     enqueue_command(value);
 }
 - (void)about:(id)sender {
@@ -170,6 +182,14 @@ void dx_native_setup(void *window) {
     if (!shortcut_monitor) shortcut_monitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
         if (event.window && event.window!=canvas.window) return event;
         if (trace_input) fprintf(stderr,"Native key code=%u characters=%s flags=%lu panel=%d modal=%d\n",event.keyCode,[event.charactersIgnoringModifiers UTF8String],(unsigned long)event.modifierFlags,native_panel_active,app_modal);
+#ifdef DUXCEL_DEV_REVIEW
+        NSEventModifierFlags review_flags=event.modifierFlags;
+        if (!native_panel_active && event.keyCode==47 && (review_flags&NSEventModifierFlagShift) &&
+            (review_flags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) && !(review_flags&NSEventModifierFlagOption)) {
+            if (!event.isARepeat) review_request=true;
+            return nil;
+        }
+#endif
         if (!native_panel_active) record_key_modifiers(event);
         /* AppKit can consume Control+Tab before GLFW sees a press. Keep native
            file panels on their responder chain and route canvas tabs once. */
@@ -254,6 +274,14 @@ void dx_native_setup(void *window) {
             item.target=actions; item.tag=data_commands[i]; [data addItem:item]; [item release];
         }
         root.submenu=data; [NSApp.mainMenu insertItem:root atIndex:4]; [data release]; [root release];
+#ifdef DUXCEL_DEV_REVIEW
+        NSMenu *review=[[[NSMenu alloc] initWithTitle:@"Review"] autorelease];
+        NSMenuItem *review_root=[[[NSMenuItem alloc] initWithTitle:@"Review" action:nil keyEquivalent:@""] autorelease];
+        NSMenuItem *report=[[[NSMenuItem alloc] initWithTitle:@"Report UI issue…" action:@selector(invoke:) keyEquivalent:@"."] autorelease];
+        report.target=actions; report.tag=DX_COMMAND_REPORT_UI;
+        report.keyEquivalentModifierMask=NSEventModifierFlagCommand|NSEventModifierFlagShift;
+        [review addItem:report]; review_root.submenu=review; [NSApp.mainMenu addItem:review_root];
+#endif
     }
     [context makeCurrentContext];
 }

@@ -93,6 +93,9 @@ void dx_remove_temp_directory(const char *path) {
 #endif
 }
 #ifndef __APPLE__
+#ifdef DUXCEL_DEV_REVIEW
+bool dx_review_take_native_request(void) { return false; }
+#endif
 bool dx_native_quit_requested(void) { return false; }
 void dx_native_acknowledge_quit(void) { }
 bool dx_presentation_load(DxPresentation *presentation) { (void)presentation; return false; }

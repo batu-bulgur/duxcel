@@ -32,6 +32,32 @@ The status bar is 22 logical units tall. It fits complete 12-unit selection metr
 
 Column-header arrows and Alt+Down open available-value checklists with search, multi-select, typed NULL/empty text, sort, Apply/Clear and a separate visible Conditions list. DuckDB returns 128-row distinct pages; four cached pages are bounded to 4 MiB each. Search has a 160 ms debounce and cancels stale requests. Selection uses up to 4,096 exceptions / 4 MiB rather than a 1,000-value display ceiling. Typed date/time columns expand Year → Month → Day → Hour → Minute, with partial parent selection. Up to 16 simultaneous column filters compose with AND. Distinct lists respect the other active filters. Analysis steps exposes edit, move and remove controls; all definitions persist in dxls.
 
+## Native issue reporting (development build)
+
+```sh
+make review
+./build/review/duxcel-review
+# ASan/UBSan variant: make review-debug
+# ./build/review-sanitize/duxcel-review
+```
+
+Use **Review → Report UI issue…** or **Command+Shift+.** while a filter or menu is open. The app freezes its real frame before showing reporting controls. Click a control (including a disabled button), switch to Containers, or drag a region. Tab/Shift+Tab traverses visible targets; Enter chooses the highlighted target. Space moves the picking toolbar so it does not hide the bottom of the worksheet. Write a note and use **Save report** or Command+Enter. The saved report ID confirms durable local publication. Escape cancels and returns to the existing menu, selection and text focus. Active drags finish before capture begins.
+
+Query execution may finish in the background; result publication pauses while reporting and resumes after closing it. Capture and writing failures offer retry and retain the note. This first integration enumerates column filters/conditions, ribbon commands/groups/More, pane containers and on-demand worksheet cells. Other dialogs and every pane child control are not yet fully enumerated; a region report remains available. Cell positions are scoped to the captured document/source/object/query version, not stable database record IDs. Notes are limited to 4,095 UTF-8 bytes.
+
+Reports need no running agent. The default project outbox is under `~/Library/Application Support/Duxcel/Review/`; its project ID is shared across this repository's worktrees. Set `DUXCEL_REVIEW_OUTBOX` to an absolute path to use a different private outbox. Read and maintain feedback externally:
+
+```sh
+python3 tools/native_review.py list
+python3 tools/native_review.py read REPORT_ID
+python3 tools/native_review.py ack REPORT_ID
+python3 tools/native_review.py reply REPORT_ID --message 'What changed and what to verify'
+python3 tools/native_review.py status REPORT_ID --implementation ready-for-review --verification passed
+```
+
+Design acceptance, implementation status and verification status are independent. Reports retain the immutable native image, frame/widget/state metadata and exact build fingerprints. Review code, menu commands and storage/reader bridges are compile-time excluded from `duxcel` and `duxcel-debug`; the review builds use separate preferences and artifacts. The existing `.app` bundles require their own rebuild and do not automatically include this tool.
+
+
 ## Workbook persistence
 
 The workbook format is **dxls**, default extension **`.dxls`** (case-insensitive input). Legacy `.duxcel` files are accepted. Save As uses the native macOS save panel; subsequent Save writes to the selected location. Cancelling either native panel leaves the workbook intact.

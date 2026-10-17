@@ -120,11 +120,18 @@ static bool focus_key(int key) {
         key==KEY_LEFT_ALT || key==KEY_RIGHT_ALT || (key>=KEY_F1 && key<=KEY_F12);
 }
 bool ui_focus_visible(void) { return keyboard_focus_visible; }
+#ifdef DUXCEL_DEV_REVIEW
+void ui_review_restore_focus(bool keyboard) { keyboard_focus_visible=keyboard; }
+
+#endif
 static void queue_navigation(int key,unsigned modifiers) {
     if (navigation_count<128) { navigation_keys[(navigation_head+navigation_count)%128]=(DxKeyModifiers){key,modifiers&15}; navigation_count++; }
 }
 bool ui_navigation_captured(void) { return native_navigation || navigation_count!=0; }
 bool ui_take_navigation_key(DxKeyModifiers *event) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return false;
+#endif
     if (!event || !navigation_count) return false;
     *event=navigation_keys[navigation_head]; navigation_head=(navigation_head+1)%128; navigation_count--; return true;
 }
@@ -132,15 +139,33 @@ static DxPointerGesture pointer_gestures[16];
 static unsigned pointer_count,pointer_head;
 static uint64_t input_frame;
 static Vector2 pointer_offset;
+#ifdef DUXCEL_DEV_REVIEW
+void ui_review_discard_input(void) {
+    pointer_count=pointer_head=navigation_count=navigation_head=0;
+    memset(queued_presses,0,sizeof(queued_presses));
+    while (GetKeyPressed()) {} while (GetCharPressed()) {}
+}
+#endif
 void ui_pointer_offset(Vector2 offset) { pointer_offset=offset; }
 Vector2 ui_mouse_position(void) { Vector2 p=GetMousePosition(); return (Vector2){p.x-pointer_offset.x,p.y-pointer_offset.y}; }
 void ui_note_pointer_gesture(DxPointerGesture gesture) { keyboard_focus_visible=false; if (pointer_count<16) { pointer_gestures[(pointer_head+pointer_count)%16]=gesture; pointer_count++; } }
-bool ui_has_pointer_gesture(void) { return pointer_count!=0; }
+bool ui_has_pointer_gesture(void) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return false;
+#endif
+    return pointer_count!=0;
+}
 bool ui_take_pointer_gesture(DxPointerGesture *gesture) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return false;
+#endif
     if (!pointer_count) return false;
     *gesture=pointer_gestures[pointer_head]; pointer_head=(pointer_head+1)%16; pointer_count--; return true;
 }
 static bool take_gesture_from(Rectangle area,DxPointerGesture *gesture,bool left_only) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return false;
+#endif
     if (!pointer_count) return false;
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)||IsMouseButtonReleased(MOUSE_BUTTON_LEFT)||IsMouseButtonDown(MOUSE_BUTTON_LEFT)||IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)||IsMouseButtonReleased(MOUSE_BUTTON_RIGHT)||IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) return false;
     for (unsigned i=0;i<pointer_count;i++) {
@@ -156,6 +181,9 @@ static bool take_gesture_from(Rectangle area,DxPointerGesture *gesture,bool left
 }
 bool ui_take_gesture_from(Rectangle area,DxPointerGesture *gesture) { return take_gesture_from(area,gesture,false); }
 bool ui_gesture_starts_in(Rectangle area) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return false;
+#endif
     if (area.width<=0 || area.height<=0) return false;
     for (unsigned i=0;i<pointer_count;i++) { const DxPointerGesture *gesture=&pointer_gestures[(pointer_head+i)%16]; if (CheckCollisionPointRec((Vector2){gesture->x0-pointer_offset.x,gesture->y0-pointer_offset.y},area)) return true; }
     return false;
@@ -440,6 +468,9 @@ void ui_formatted_value(UIContext *u,const char *raw,bool is_null,bool numeric,b
     ui_formatted_value_weight(u,raw,is_null,numeric,floating,number,r,default_size,color,format,UI_REGULAR);
 }
 bool ui_control_input(UIContext *u,Rectangle r,bool enabled,bool *hover) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) { *hover=false; return false; }
+#endif
     enabled=enabled && !u->pointer_blocked;
     *hover=enabled && CheckCollisionPointRec(ui_mouse_position(),r) && (!u->clipping || CheckCollisionPointRec(ui_mouse_position(),u->clip));
     bool completed=enabled && ui_take_click_from(u->clipping ? intersect(r,u->clip) : r);
@@ -660,7 +691,11 @@ bool ui_shortcut(void) {
 #endif
 }
 bool ui_shift(void) { return IsKeyDown(KEY_LEFT_SHIFT)||IsKeyDown(KEY_RIGHT_SHIFT); }
-bool ui_pressed(int key) { return key>0 && key<512 && (queued_presses[key] || IsKeyPressed(key)); }
+bool ui_pressed(int key) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return false;
+#endif
+    return key>0 && key<512 && (queued_presses[key] || IsKeyPressed(key)); }
 bool ui_key(int key) { return ui_pressed(key)||IsKeyPressedRepeat(key); }
 void ui_note_key_modifiers(int key,unsigned modifiers) {
     if (focus_key(key) || (key>0 && key<512 && (modifiers&DX_MOD_ALT))) keyboard_focus_visible=true;
@@ -836,6 +871,9 @@ static void input_key_at(TextInput *in,int key,unsigned modifiers,double now) {
 void input_key(TextInput *in,int key,unsigned modifiers) { input_key_at(in,key,modifiers,-1); }
 static void input_copy_selection(TextInput *in) { char *text=input_selection_text(in); if (text) { SetClipboardText(text); free(text); } }
 void input_update(TextInput *in) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return;
+#endif
     in->active_frame=input_frame;
     bool shortcut=!in->native_edit; in->native_edit=false;
     if (shortcut && ((ui_key_shortcut(KEY_Z) && ui_pressed(KEY_Z)) || (ui_key_shortcut(KEY_Y) && ui_pressed(KEY_Y)))) {
@@ -868,6 +906,10 @@ static size_t input_hit(UIContext *u,const TextInput *in,Rectangle r,Vector2 mou
     return in->length;
 }
 void input_draw_sized(UIContext *u,TextInput *in,Rectangle r,float size,bool frame) {
+#ifdef DUXCEL_DEV_REVIEW
+    TextInput frozen;
+    if (dx_review_input_blocked()) { frozen=*in; if (frozen.active_frame+1==input_frame) frozen.active_frame=input_frame; in=&frozen; }
+#endif
     bool active=in->active_frame==input_frame; Vector2 mouse=ui_mouse_position(); Rectangle visible=u->pointer_blocked ? (Rectangle){0} : u->clipping ? intersect(r,u->clip) : r;
     if (active && CheckCollisionPointRec(mouse,visible)) u->cursor=MOUSE_CURSOR_IBEAM;
     size_t cursor=in->select_all ? in->length : input_boundary(in,in->cursor); in->view_start=input_boundary(in,in->view_start);

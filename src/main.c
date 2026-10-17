@@ -26,8 +26,15 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i],"--icon-smoke")) options.icon_smoke=1;
         else if (!strcmp(argv[i],"--unique-smoke")) options.unique_smoke=1;
         else if (!strcmp(argv[i],"--query-smoke")) options.query_smoke=1;
+#ifdef DUXCEL_DEV_REVIEW
+        else if (!strcmp(argv[i],"--review-smoke")) options.review_smoke=1;
+#endif
         else if (!strcmp(argv[i],"--help")) {
-            puts("Duxcel: ./duxcel [file.csv|file.parquet|file.duckdb|book.dxls] [--demo]\nDevelopment: --frames N --screenshot path.png --smoke --workspace-smoke --filter-smoke --pivot-smoke --export-smoke --count-smoke --clipboard-smoke --sort-smoke --layout-smoke --navigation-smoke --nyc-smoke --document-smoke --chart-smoke --statistics-smoke --table-smoke --icon-smoke --query-smoke --unique-smoke"); return 0;
+            puts("Duxcel: ./duxcel [file.csv|file.parquet|file.duckdb|book.dxls] [--demo]\nDevelopment: --frames N --screenshot path.png --smoke --workspace-smoke --filter-smoke --pivot-smoke --export-smoke --count-smoke --clipboard-smoke --sort-smoke --layout-smoke --navigation-smoke --nyc-smoke --document-smoke --chart-smoke --statistics-smoke --table-smoke --icon-smoke --query-smoke --unique-smoke");
+#ifdef DUXCEL_DEV_REVIEW
+            puts("Native review: Cmd/Ctrl+Shift+. or Review > Report UI issue. --review-smoke tests the isolated reporting workflow.");
+#endif
+            return 0;
         } else if (argv[i][0]=='-') { fprintf(stderr,"Unknown option: %s\n",argv[i]); return 1; }
         else options.path=argv[i];
     }

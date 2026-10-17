@@ -107,6 +107,13 @@ APP_SANITIZE_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(base
 DESIGN_SOURCES = $(CORE) tools/create_design_workbook.c
 DESIGN_OBJECTS = $(addprefix build/obj/release/design/,$(addsuffix .o,$(basename $(DESIGN_SOURCES))))
 INCREMENTAL_OBJECTS = $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(DESIGN_OBJECTS)
+REVIEW_SOURCES = $(APP_SOURCES) src/dev/review_registry.c src/dev/review_store.c src/dev/review_input.c src/dev/review_capture.c
+REVIEW_OBJECTS = $(addprefix build/obj/review/app/,$(addsuffix .o,$(basename $(REVIEW_SOURCES))))
+REVIEW_SANITIZE_OBJECTS = $(addprefix build/obj/review-sanitize/app/,$(addsuffix .o,$(basename $(REVIEW_SOURCES))))
+INCREMENTAL_OBJECTS += $(REVIEW_OBJECTS) $(REVIEW_SANITIZE_OBJECTS)
+REVIEW_CPPFLAGS = $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -include src/dev/review_input.h
+REVIEW_FLAGS = $(REVIEW_CPPFLAGS) -Ibuild/review -O2 -g $(WARN)
+REVIEW_SANITIZE_FLAGS = $(REVIEW_CPPFLAGS) -Ibuild/review-sanitize -O1 -g $(WARN) $(SANFLAGS)
 APP_RELEASE_FLAGS = $(CPPFLAGS) $(CFLAGS) $(WARN)
 APP_SANITIZE_FLAGS = $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS)
 DESIGN_FLAGS = -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN)
@@ -132,6 +139,46 @@ build/obj/sanitize/app/link.flags: force-build-signature
 build/obj/release/design/link.flags: force-build-signature
 	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(DESIGN_OBJECTS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
 .PHONY: force-build-signature
+
+build/obj/review/app/compile.flags: force-build-signature
+	$(call build_signature,$(CC) $(REVIEW_FLAGS) -MMD -MP -c)
+build/obj/review-sanitize/app/compile.flags: force-build-signature
+	$(call build_signature,$(CC) $(REVIEW_SANITIZE_FLAGS) -MMD -MP -c)
+build/obj/review/app/link.flags: force-build-signature
+	$(call build_signature,$(CC) -O2 -g $(WARN) $(REVIEW_OBJECTS) $(LDFLAGS) $(LDLIBS))
+build/obj/review-sanitize/app/link.flags: force-build-signature
+	$(call build_signature,$(CC) -O1 -g $(WARN) $(SANFLAGS) $(REVIEW_SANITIZE_OBJECTS) $(LDFLAGS) $(LDLIBS) $(SANFLAGS))
+build/review/review_build_info.h: force-build-signature
+	python3 tools/review_build_info.py --header $@ --flags '$(REVIEW_FLAGS)'
+build/review-sanitize/review_build_info.h: force-build-signature
+	python3 tools/review_build_info.py --header $@ --flags '$(REVIEW_SANITIZE_FLAGS)'
+$(REVIEW_OBJECTS): | $(ICON_OUTPUTS)
+$(REVIEW_SANITIZE_OBJECTS): | $(ICON_OUTPUTS)
+build/obj/review/app/src/dev/review_capture.o: build/review/review_build_info.h
+build/obj/review-sanitize/app/src/dev/review_capture.o: build/review-sanitize/review_build_info.h
+build/obj/review/app/%.o: %.c build/obj/review/app/compile.flags
+	$(call compile_object,$(REVIEW_FLAGS))
+build/obj/review/app/%.o: %.m build/obj/review/app/compile.flags
+	$(call compile_object,$(REVIEW_FLAGS))
+build/obj/review-sanitize/app/%.o: %.c build/obj/review-sanitize/app/compile.flags
+	$(call compile_object,$(REVIEW_SANITIZE_FLAGS))
+build/obj/review-sanitize/app/%.o: %.m build/obj/review-sanitize/app/compile.flags
+	$(call compile_object,$(REVIEW_SANITIZE_FLAGS))
+review: build/review/duxcel-review
+review-debug: build/review-sanitize/duxcel-review
+build/review/assets:
+	mkdir -p $(@D)
+	ln -s ../../assets $@
+build/review-sanitize/assets:
+	mkdir -p $(@D)
+	ln -s ../../assets $@
+build/review/duxcel-review: build/review/assets $(REVIEW_OBJECTS) build/obj/review/app/link.flags
+	$(call link_binary,-O2 -g $(WARN) $(REVIEW_OBJECTS),$(LDFLAGS) $(LDLIBS))
+	python3 tools/review_build_info.py --binary $@
+build/review-sanitize/duxcel-review: build/review-sanitize/assets $(REVIEW_SANITIZE_OBJECTS) build/obj/review-sanitize/app/link.flags
+	$(call link_binary,-O1 -g $(WARN) $(SANFLAGS) $(REVIEW_SANITIZE_OBJECTS),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
+	python3 tools/review_build_info.py --binary $@
+.PHONY: review review-debug
 
 # Only a successful compiler/linker invocation replaces an accepted artifact.
 # Separate object and dependency temporary files preserve the previous pair on
@@ -435,3 +482,29 @@ tests/test_filterlabel-debug: $(FILTERLABEL_SRC) src/ui/filterlabel.h src/transf
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(FILTERLABEL_SRC) -o $@ -lm $(SANFLAGS)
 test: tests/test_filterlabel
 test-debug: tests/test_filterlabel-debug
+
+# Review helpers compile without renderer/database/platform dependencies.
+REVIEW_REGISTRY_TEST = src/dev/review_registry.c tests/test_review_registry.c
+REVIEW_STORE_TEST = src/dev/review_store.c tests/test_review_store.c
+build/review/test_registry: $(REVIEW_REGISTRY_TEST) src/dev/review_registry.h
+	mkdir -p $(@D)
+	$(CC) -Isrc -O2 -g $(WARN) $(REVIEW_REGISTRY_TEST) -o $@ -lm
+build/review-sanitize/test_registry: $(REVIEW_REGISTRY_TEST) src/dev/review_registry.h
+	mkdir -p $(@D)
+	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(REVIEW_REGISTRY_TEST) -o $@ -lm $(SANFLAGS)
+build/review/test_store: $(REVIEW_STORE_TEST) src/dev/review_store.h
+	mkdir -p $(@D)
+	$(CC) -Isrc -O2 -g $(WARN) $(REVIEW_STORE_TEST) -o $@ $(THREAD_LIBS)
+build/review-sanitize/test_store: $(REVIEW_STORE_TEST) src/dev/review_store.h
+	mkdir -p $(@D)
+	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(REVIEW_STORE_TEST) -o $@ $(THREAD_LIBS) $(SANFLAGS)
+test-review-core: build/review/test_registry build/review-sanitize/test_registry build/review/test_store build/review-sanitize/test_store
+	./build/review/test_registry
+	ASAN_OPTIONS=halt_on_error=1 ./build/review-sanitize/test_registry
+	./build/review/test_store
+	ASAN_OPTIONS=halt_on_error=1 ./build/review-sanitize/test_store
+	python3 tools/native_review_test.py
+	python3 tools/test_review_build.py --self-test
+test-review:
+	python3 tools/test_native_review.py $(TEST_ARGS)
+.PHONY: test-review-core test-review

@@ -22,6 +22,9 @@
 #include "../ui/inspector.h"
 #include "../ui/stepview.h"
 #include "step_preview.h"
+#ifdef DUXCEL_DEV_REVIEW
+#include "../dev/review_capture.h"
+#endif
 #include "../ui/statsview.h"
 #include "../ui/guideview.h"
 #include "../ui/sortview.h"
@@ -52,6 +55,9 @@ typedef struct {
 } ActiveReadout;
 typedef struct {
     UIContext ui;
+#ifdef DUXCEL_DEV_REVIEW
+    DxReviewCapture *review;
+#endif
     Texture2D icon_previews[16];
     int icon_preview;
     QueryWorker worker;
@@ -345,6 +351,33 @@ static void close_workspace(App *a) {
     a->pivot_search_focus=false; a->consume_grid_input=true;
 }
 static void status(App *a,const char *text) { char *owned=dx_strdup(text); free(a->message); a->message=owned; a->message_since=dx_millis(); a->message_revision++; }
+#ifdef DUXCEL_DEV_REVIEW
+static void review_control(App *a,const char *id,const char *action,const char *path,const char *role,const char *label,Rectangle bounds,int layer,bool enabled,bool focused,bool container,const char *file,int line);
+static void review_filter(App *a);
+static void review_ribbon_control(App *a,int command,Rectangle bounds);
+static void review_group(App *a,int group,Rectangle bounds,bool overflow);
+static const char *review_action_id(UIAction action);
+static void review_grid(App *a);
+static void review_begin_frame(App *a);
+static void review_resolve_grid(App *a);
+static bool review_can_capture(App *a);
+static void review_native_command(App *a,DxCommand command);
+#define REVIEW_CONTROL(a,id,action,path,role,label,bounds,layer,enabled,focused,container) review_control(a,id,action,path,role,label,bounds,layer,enabled,focused,container,__FILE__,__LINE__)
+#define REVIEW_FILTER(a) review_filter(a)
+#define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
+#define REVIEW_GRID(a) review_grid(a)
+#define REVIEW_GROUP(a,g,r,o) review_group(a,g,r,o)
+#define REVIEW_ACTION(a,action) REVIEW_EVENT(a,review_action_id(action),action)
+#define REVIEW_EVENT(a,kind,detail) dx_review_capture_event((a)->review,(a)->frames,kind,detail)
+#else
+#define REVIEW_CONTROL(...) ((void)0)
+#define REVIEW_FILTER(...) ((void)0)
+#define REVIEW_RIBBON(...) ((void)0)
+#define REVIEW_GRID(...) ((void)0)
+#define REVIEW_GROUP(...) ((void)0)
+#define REVIEW_ACTION(...) ((void)0)
+#define REVIEW_EVENT(...) ((void)0)
+#endif
 static void open_modal(App *a,Modal modal);
 static void draw_command_popup(App *a);
 static void open_command_group(App *a,int group,int focus);
@@ -1216,6 +1249,7 @@ static void receive_source_validation(App *a,QueryReply *r) {
 }
 static void poll_query(App *a) {
     QueryReply *r=worker_poll(&a->worker); if (!r) return;
+    REVIEW_EVENT(a,"async.reply",r->id);
     if (r->id!=a->request_id) { reply_free(r); return; }
     a->busy=false;
     if (r->kind==JOB_STEP_PREVIEW) { step_preview_reply(&a->step_preview,r); reply_free(r); return; }
@@ -1328,6 +1362,9 @@ static void poll_query(App *a) {
         a->io_busy=false;
         if (r->error) { cancel_document_action(a); status(a,r->error); a->modal=MODAL_ERROR; }
         else if (r->kind==JOB_LOAD) {
+#ifdef DUXCEL_DEV_REVIEW
+            if (a->review) a->review->document_serial++;
+#endif
             workbook_free(&a->book); a->book=*r->workbook; workbook_init(r->workbook);
             if (!a->app_presentation_loaded) { ui_set_scale(&a->ui,a->book.user_scale); a->reduced_motion=a->book.reduced_motion; }
             activate_sheet(a,a->book.active,false);
@@ -1772,6 +1809,9 @@ static void clear_values_cache(App *a) {
     a->values_total=-1; a->value_cache_next=0;
 }
 static void request_values(App *a,uint64_t offset) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return;
+#endif
     DistinctPage *cached=cached_values(a,offset); if (cached) { a->values_total=(int64_t)cached->total; return; }
     Page *fields=filter_fields(a); SheetObject *object=filter_object(a);
     if (a->values_loading || a->values_failed || a->field>=fields->column_count) return;
@@ -1784,6 +1824,9 @@ static void request_values(App *a,uint64_t offset) {
     a->values_loading=true; a->pending_kind=JOB_DISTINCT; worker_submit(&a->worker,j);
 }
 static void restart_values(App *a) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return;
+#endif
     free(a->values_context); a->values_context=values_cache_key(a);
     a->values_search_revision=a->input.revision;
     cancel_values(a); a->value_checks_dirty=true; a->value_checks_override=false; a->values_focus=-2; a->values_scroll=0; a->values_total=-1; a->values_failed=false; a->values_changed=dx_millis();
@@ -1794,6 +1837,9 @@ static void select_found_values(App *a) {
     a->values_found=dx_alloc((size_t)a->values_total*sizeof(char *)); a->values_found_count=a->values_found_bytes=0; a->values_selecting=true;
 }
 static void collect_found_values(App *a) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return;
+#endif
     if (!a->values_selecting) return;
     if (a->values_failed) { cancel_values(a); return; }
     while (a->values_found_count<(size_t)a->values_total) {
@@ -2149,6 +2195,7 @@ static void draw_filter(App *a) {
         }
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,menu.panel) && !CheckCollisionPointRec(mouse,r.condition)) { if (CheckCollisionPointRec(mouse,r.panel)) a->filter_condition_menu=false; else close_filter(a); }
     }
+    REVIEW_FILTER(a);
 }
 
 static void draw_summary(App *a,float x,float y,float w,float h) {
@@ -2765,7 +2812,8 @@ static void draw_author_dock(App *a,Rectangle panel) {
         Rectangle search=box(panel.x+10*s,y+30*s,panel.width-20*s,26*s);
         if (enabled && ((CheckCollisionPointRec(mouse,visible_area(u,search)) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || ui_gesture_starts_in(visible_area(u,search)))) { a->pivot_search_focus=true; a->pivot_focus=1; }
         if (a->pivot_search_focus && enabled) input_update(&a->pivot_search);
-        draw_field_search(a,search,enabled);
+        REVIEW_CONTROL(a,"pane.fields.search","pane.search_fields","workspace/left/fields","textbox","Search fields",search,51,true,a->pivot_search_focus,false);
+    draw_field_search(a,search,enabled);
         float footnote=!a->dock_compact && fields.height>=160*s ? 43*s : 0;
         Rectangle list=box(panel.x+6*s,y+61*s,panel.width-12*s,fmaxf(0,fields.height-61*s-footnote));
         a->author_fields=a->field_list=list;
@@ -2918,6 +2966,9 @@ static void chart_resize_target(App *a,Vector2 mouse) {
     grid_ensure_columns(g,o->col+columns);
 }
 static void chart_resize_input(App *a) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return;
+#endif
     SheetObject *o=selected_pivot(a); UIContext *u=&a->ui;
     if (a->modal!=MODAL_NONE || a->io_busy || !o || o->kind!=OBJECT_CHART || (a->chart_resizing && o->id!=a->chart_resize_id)) { a->chart_resizing=false; return; }
     Grid *g=&a->grid; float s=u->scale*g->zoom; Vector2 mouse=ui_mouse_position();
@@ -4931,6 +4982,8 @@ static float draw_workbook_section(App *a,Rectangle r,bool shared) {
     UIContext *u=&a->ui; float s=u->scale; bool enabled=!u->pointer_blocked && a->modal==MODAL_NONE && !a->io_busy;
     float header=29*s;
     Rectangle title=box(r.x+12*s,r.y,r.width-44*s,header);
+    REVIEW_CONTROL(a,"pane.workbook.toggle","pane.toggle_workbook","workspace/left/workbook","button","Collapse workbook",title,51,true,a->chrome_focus==2,false);
+    REVIEW_CONTROL(a,"pane.workbook.close","pane.close_workbook","workspace/left/workbook","button","Close workbook pane",box(r.x+r.width-31*s,r.y+4*s,21*s,21*s),51,true,false,false);
     ui_label(u,"Workbook",title,12.5f,UI_TEXT,false,UI_MEDIUM);
     ui_carbon(u,a->workbook_collapsed ? CARBON_CHEVRON_DOWN : CARBON_CHEVRON_UP,box(r.x+r.width-53*s,r.y+6*s,14*s,14*s),UI_MUTED);
     if (enabled && (ui_take_click_from(visible_area(u,title)) || (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),visible_area(u,title))))) a->workbook_collapsed=!a->workbook_collapsed;
@@ -4984,6 +5037,7 @@ static float draw_workbook_section(App *a,Rectangle r,bool shared) {
     ui_clear_clip(u); ui_scissor_end(u); list_scrollbar(a,list,count,visible,&a->sheet_scroll,&a->workbook_drag,&a->workbook_grab,enabled);
     Rectangle add=box(r.x+6*s,list.y+list.height+4*s,r.width-12*s,26*s);
     bool blocked=u->pointer_blocked; u->pointer_blocked=blocked || !enabled;
+    REVIEW_CONTROL(a,"pane.workbook.add_sheet","command.new_sheet","workspace/left/workbook","button","New sheet",add,51,!a->io_busy,false,false);
     bool adding=ui_list_row(u,add,"",false,!a->io_busy);
     ui_carbon(u,CARBON_ADD,box(add.x+9*s,add.y+5*s,16*s,16*s),UI_TEXT);
     ui_label(u,"New sheet",box(add.x+35*s,add.y,add.width-44*s,add.height),12,UI_TEXT,false,UI_REGULAR);
@@ -5000,6 +5054,7 @@ static void draw_sidebar(App *a,Rectangle r) {
     SheetObject *selected=selected_object(a); const Analysis *source=object_source(a,selected);
     const char *name=selected && selected->kind==OBJECT_TABLE ? selected->name : source->kind!=SOURCE_NONE ? active_sheet(a)->name : "";
     Rectangle heading=box(r.x+12*s,y,r.width-44*s,29*s);
+    REVIEW_CONTROL(a,"pane.fields.close","pane.close_fields","workspace/left/fields","button","Close Fields pane",box(r.x+r.width-31*s,y+4*s,21*s,21*s),51,true,false,false);
     draw_field_title(u,heading,name);
     if (ui_icon_button(u,box(r.x+r.width-31*s,y+4*s,21*s,21*s),CARBON_CLOSE,false,passive_control(a,enabled))) { a->fields_visible=false; a->pivot_focus=0; a->pivot_search_focus=false; return; }
     /* The definition's Fields heading is a label, not a hidden disclosure. */
@@ -5007,6 +5062,7 @@ static void draw_sidebar(App *a,Rectangle r) {
     Rectangle search=box(r.x+10*s,y+30*s,r.width-20*s,26*s);
     if (enabled && ((CheckCollisionPointRec(mouse,visible_area(u,search)) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || ui_gesture_starts_in(visible_area(u,search)))) { a->chrome_focus=0; a->pivot_focus=1; a->pivot_search_focus=true; a->consume_grid_input=true; }
     if (enabled && a->pivot_search_focus) input_update(&a->pivot_search);
+    REVIEW_CONTROL(a,"pane.fields.search","pane.search_fields","workspace/left/fields","textbox","Search fields",search,51,true,a->pivot_search_focus,false);
     draw_field_search(a,search,enabled);
     float footnote=!a->dock_compact && r.y+r.height-y>=160*s ? 43*s : 0;
     match_fields(a); Rectangle list=box(r.x+6*s,y+61*s,r.width-12*s,fmaxf(24*s,r.y+r.height-y-61*s-footnote)); a->field_list=list;
@@ -5842,6 +5898,7 @@ static bool command_active(App *a,int command) {
     }
 }
 static void run_action(App *a,UIAction action) {
+    REVIEW_ACTION(a,action);
     if (a->step_preview.active && action==ACTION_BROWSE) { end_step_preview(a); return; }
     if (!action_enabled(a,action)) return;
     int format_return=a->ribbon_focus ? a->ribbon_command : -1;
@@ -6066,6 +6123,7 @@ static void draw_command_popup(App *a) {
     a->ribbon_more_menu=menu;
     if (!menu.valid) { close_command_group(a); return; }
     popup_capture(a,menu.panel);
+    REVIEW_CONTROL(a,"ribbon.more.panel","ribbon.more","ribbon/more","menu","More ribbon commands",menu.panel,0,true,false,true);
     if (!a->consume_grid_input) {
         Rectangle p=menu.panel; DxPointerGesture gesture;
         bool outside=IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),p);
@@ -6084,10 +6142,13 @@ static void draw_command_popup(App *a) {
         if (item>=0) { snprintf(label,sizeof(label),"%s commands",ribbon_groups[a->ribbon_tab][item].name); icon=ui_ribbon_group_icon(a->ribbon_tab,item); }
         else { snprintf(label,sizeof(label),"%s analytical change",item==RIBBON_MORE_UNDO ? "Undo" : "Redo"); icon=item==RIBBON_MORE_UNDO ? CARBON_UNDO : CARBON_REDO; }
         bool available=command_popup_enabled(a,item);
+        if (item>=0) { REVIEW_GROUP(a,item,menu.rows[i],true); }
+        else { REVIEW_CONTROL(a,item==RIBBON_MORE_UNDO ? "ribbon.more.undo" : "ribbon.more.redo",item==RIBBON_MORE_UNDO ? "command.undo" : "command.redo","ribbon/more","menuitem",label,menu.rows[i],1,available,a->ribbon_popup_focus==i,false); }
         if (ui_choice_row_input(u,menu.rows[i],label,NULL,icon,false,available && a->ribbon_popup_focus==i,available,!a->consume_grid_input)) { invoke_more_item(a,item); return; }
     }
 }
 static bool draw_ribbon_control(App *a,int command,Rectangle r,bool enabled) {
+    REVIEW_RIBBON(a,command,r);
     UIContext *u=&a->ui; float s=u->scale; const UIRibbonCommand *item=&ribbon_commands[a->ribbon_tab][command];
     bool blocked=u->pointer_blocked; u->pointer_blocked=blocked || !enabled;
     bool available=action_available(a,item->action),active=command_active(a,command);
@@ -6120,6 +6181,7 @@ static bool draw_ribbon_control(App *a,int command,Rectangle r,bool enabled) {
     u->pointer_blocked=blocked; return clicked;
 }
 static bool draw_collapsed_group(App *a,int group,Rectangle r,bool enabled) {
+    REVIEW_GROUP(a,group,r,false);
     UIContext *u=&a->ui; float s=u->scale; bool hover=false;
     bool clicked=ui_control_input(u,r,enabled,&hover),expanded=a->modal==MODAL_COMMANDS && a->ribbon_popup_group==group;
     Color base[]={UI_BG,UI_BG,{52,79,99,255}},colors[]={hover || expanded ? (Color){226,235,242,255} : UI_BG,
@@ -6491,7 +6553,11 @@ static void draw_app(App *a) {
             if (a->pivot_field>=0 && (size_t)a->pivot_field<fields->column_count) for (size_t c=0;c<a->step_preview.page.column_count;c++) if (!strcmp(fields->columns[a->pivot_field].name,a->step_preview.page.columns[c].name)) { grid_reveal_column(&a->step_preview.grid,&a->step_preview.page,s*a->step_preview.grid.zoom,c,a->field_navigation==1); found=true; break; }
             if (!found) status(a,"This field is not present at the previewed step.");
         }
-        Vector2 wheel=GetMouseWheelMoveV(); float pinch=dx_take_magnification();
+        Vector2 wheel=GetMouseWheelMoveV(); float pinch=
+#ifdef DUXCEL_DEV_REVIEW
+            dx_review_input_blocked() ? 0 :
+#endif
+            dx_take_magnification();
         bool over=CheckCollisionPointRec(mouse,gr),control=IsKeyDown(KEY_LEFT_CONTROL)||IsKeyDown(KEY_RIGHT_CONTROL);
         bool zooming=enabled && over && !over_inspector && !a->left_drawer && ((control && wheel.y) || pinch);
         if (zooming) zoom_canvas(a,active_canvas_zoom(a)*expf(pinch+(control ? wheel.y*.08f : 0)),mouse);
@@ -6535,7 +6601,11 @@ static void draw_app(App *a) {
             if (a->workspace.narrow) close_workspace(a);
         }
     }
-    Vector2 wheel=GetMouseWheelMoveV(); float pinch=dx_take_magnification();
+    Vector2 wheel=GetMouseWheelMoveV(); float pinch=
+#ifdef DUXCEL_DEV_REVIEW
+            dx_review_input_blocked() ? 0 :
+#endif
+            dx_take_magnification();
     bool over=CheckCollisionPointRec(mouse,gr),control=IsKeyDown(KEY_LEFT_CONTROL)||IsKeyDown(KEY_RIGHT_CONTROL);
     bool zooming=enabled && over && !over_inspector && !a->left_drawer && ((control && wheel.y) || pinch);
     if (zooming) zoom_canvas(a,active_canvas_zoom(a)*expf(pinch+(control ? wheel.y*.08f : 0)),mouse);
@@ -6603,6 +6673,10 @@ static void draw_app(App *a) {
         draw_left_presence(a,panel,pivot_active,true);
     }
     if (pivot_active) draw_pivot_drag(a);
+    REVIEW_GRID(a);
+    REVIEW_CONTROL(a,"pane.workbook","pane.workbook","workspace/left","container","Workbook and Fields",a->workspace.left,50,true,a->chrome_focus==2,true);
+    REVIEW_CONTROL(a,"pane.transformations","pane.transformations","workspace/right","container","Transformations",a->workspace.inspector,40,true,a->chrome_focus==8,true);
+    REVIEW_CONTROL(a,"ribbon.more","ribbon.more","ribbon/dock","button","More ribbon commands",ribbon_rect(a,a->ribbon_layout.overflow),20,true,a->ribbon_focus && a->ribbon_command==RIBBON_MORE_COMMAND,false);
     draw_status(a,chrome_enabled);
     if (a->grid.filter_requested) {
         a->grid.filter_requested=false;
@@ -10940,10 +11014,17 @@ static bool smoke_work_idle(App *a) {
     dx_unlock(&a->worker.mutex);
     return idle;
 }
+#ifdef DUXCEL_DEV_REVIEW
+#include "../dev/review_app.inc"
+#endif
 int app_run(const AppOptions *options) {
     App a={0}; a.gridlines=true; a.ribbon_command=a.selected_object=a.filter_object=a.sort_object=a.pivot_drag_field=a.pivot_drag_role=-1;
     workbook_init(&a.book); a.known_total=-1; a.launched_ms=dx_millis(); a.sidebar_width=228; a.pipeline_width=280; a.sidebar=a.fields_visible=true; a.field_highlight=-1;
-    bool automated=options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->export_smoke || options->count_smoke || options->clipboard_smoke || options->sort_smoke || options->layout_smoke || options->navigation_smoke || options->nyc_smoke || options->document_smoke || options->chart_smoke || options->statistics_smoke || options->table_smoke || options->icon_smoke || options->query_smoke || options->unique_smoke || options->frames;
+    bool automated=
+#ifdef DUXCEL_DEV_REVIEW
+        options->review_smoke ||
+#endif
+        options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->export_smoke || options->count_smoke || options->clipboard_smoke || options->sort_smoke || options->layout_smoke || options->navigation_smoke || options->nyc_smoke || options->document_smoke || options->chart_smoke || options->statistics_smoke || options->table_smoke || options->icon_smoke || options->query_smoke || options->unique_smoke || options->frames;
     const char *visible_test=getenv("DUXCEL_TEST_VISIBLE");
     bool background_test=automated && !(visible_test && !strcmp(visible_test,"1"));
     /* Hide before native creation: hiding afterwards still steals focus and
@@ -11000,6 +11081,10 @@ int app_run(const AppOptions *options) {
     rlRenderBatch render_batch={0};
     if (render_buffers>1) { render_batch=rlLoadRenderBatch(render_buffers,RL_DEFAULT_BATCH_BUFFER_ELEMENTS); if (render_batch.vertexBuffer && render_batch.draws) rlSetRenderBatchActive(&render_batch); }
     printf("Render batch buffers=%d elements=%d\n",render_buffers,RL_DEFAULT_BATCH_BUFFER_ELEMENTS);
+#ifdef DUXCEL_DEV_REVIEW
+    a.review=dx_review_capture_create();
+    if (!a.review) fprintf(stderr,"Native review initialization failed: out of memory.\n");
+#endif
     status(&a,"Ready");
     const char *layout_from=getenv("DUXCEL_LAYOUT_FROM");
     int layout_target=LAYOUT_SMOKE_STAGES;
@@ -11030,10 +11115,40 @@ int app_run(const AppOptions *options) {
     };
     bool smoke_pass_seen=false;
     bool trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
+    int applied_cursor=-1;
+#ifdef DUXCEL_DEV_REVIEW
+    ReviewSmoke review_smoke={0};
+#endif
     while (!options->frames || a.frames<(unsigned)options->frames) {
         double frame=dx_millis(); ui_set_canvas_zoom(&a.ui,active_canvas_zoom(&a)); ui_update(&a.ui);
-        DxKeyModifiers modifiers; while (dx_take_key_modifiers(&modifiers)) ui_note_key_modifiers(modifiers.key,modifiers.modifiers);
-        DxPointerGesture gesture; while (dx_take_pointer_gesture(&gesture)) ui_note_pointer_gesture(gesture);
+        DxKeyModifiers modifiers; while (dx_take_key_modifiers(&modifiers)) { ui_note_key_modifiers(modifiers.key,modifiers.modifiers); REVIEW_EVENT(&a,"key",modifiers.key); }
+        DxPointerGesture gesture; while (dx_take_pointer_gesture(&gesture)) { ui_note_pointer_gesture(gesture); REVIEW_EVENT(&a,"pointer",gesture.right ? 2 : 1); }
+#ifdef DUXCEL_DEV_REVIEW
+        if (options->review_smoke) {
+            review_smoke_tick(&a,&review_smoke);
+            if (review_smoke.stage<0 || (review_smoke.stage==REVIEW_SMOKE_STAGES && a.review->phase==DX_REPORT_IDLE && smoke_work_idle(&a))) break;
+        }
+        bool report_requested=dx_review_take_native_request() || (ui_pressed(KEY_PERIOD) && ui_key_shift(KEY_PERIOD) && (ui_key_shortcut(KEY_PERIOD) || ui_key_control(KEY_PERIOD)));
+        if (report_requested && a.review && a.review->phase==DX_REPORT_IDLE) a.review->pending=true;
+        if (a.review && a.review->pending && review_can_capture(&a)) { a.review->pending=false; dx_review_capture_request(a.review); }
+        if (a.review && a.review->phase!=DX_REPORT_IDLE && a.review->phase!=DX_REPORT_ARMED) {
+            if (WindowShouldClose() || dx_native_quit_requested()) { dx_review_capture_cancel(a.review); dx_native_acknowledge_quit(); request_document_action(&a,DOCUMENT_QUIT,NULL); }
+            else {
+                DxCommand command;
+                while ((command=dx_take_command())!=DX_COMMAND_NONE) review_native_command(&a,command);
+                dx_take_magnification();
+                if (IsFileDropped()) { FilePathList files=LoadDroppedFiles(); UnloadDroppedFiles(files); }
+                BeginDrawing(); bool closed=dx_review_capture_draw(a.review,&a.ui); review_resolve_grid(&a); dx_native_context(true,true,false,false);
+                if (applied_cursor!=a.ui.cursor) { SetMouseCursor(a.ui.cursor); applied_cursor=a.ui.cursor; }
+                EndDrawing();
+                if (closed && a.review->last_report_id[0]) status(&a,a.review->last_report_id);
+                a.frames++; continue;
+            }
+        }
+        bool review_capture=a.review && a.review->phase==DX_REPORT_ARMED;
+        if (review_capture) { dx_take_magnification(); ui_review_discard_input(); dx_review_input_quarantine(true); }
+        if (!review_capture) {
+#endif
         if (a.count_deferred && !a.grid.scrollbar && !a.busy && (!a.page_stale || a.waiting_count_page)) { a.count_deferred=false; publish_count(&a,a.deferred_total); }
         watch_statistics(&a);
         poll_query(&a);
@@ -11044,6 +11159,9 @@ int app_run(const AppOptions *options) {
         if (IsFileDropped()) {
             FilePathList files=LoadDroppedFiles(); if (files.count) open_source(&a,files.paths[0],false); UnloadDroppedFiles(files);
         }
+#ifdef DUXCEL_DEV_REVIEW
+        }
+#endif
         a.consume_grid_input=false;
         if (trace_input) {
             const int keys[]={KEY_ENTER,KEY_ESCAPE,KEY_F2,KEY_F6,KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT};
@@ -11516,11 +11634,26 @@ int app_run(const AppOptions *options) {
                 author_menus_injected|=bit;
             }
         }
-        shortcuts(&a); memset(a.author_marks,0,sizeof(a.author_marks)); double draw_start=dx_millis(); BeginDrawing(); draw_app(&a); if (a.icon_preview) draw_icon_gallery(&a);
+#ifdef DUXCEL_DEV_REVIEW
+        if (review_capture) { review_begin_frame(&a); a.consume_grid_input=true; }
+        else
+#endif
+        shortcuts(&a);
+        memset(a.author_marks,0,sizeof(a.author_marks)); double draw_start=dx_millis(); BeginDrawing(); draw_app(&a); if (a.icon_preview) draw_icon_gallery(&a);
+#ifdef DUXCEL_DEV_REVIEW
+        if (review_capture) {
+            if (a.ui.paint_depth || a.ui.scissor_depth || rlGetActiveFramebuffer()) { fprintf(stderr,"Native review capture reached an unbalanced render boundary.\n"); dx_review_capture_cancel(a.review); }
+            else dx_review_capture_pixels(a.review);
+            dx_review_input_quarantine(false); ui_review_discard_input();
+        }
+#endif
         a.render_ms[a.frames%600]=dx_millis()-draw_start;
-        static int applied_cursor=-1; if (applied_cursor!=a.ui.cursor) { SetMouseCursor(a.ui.cursor); applied_cursor=a.ui.cursor; }
+        if (applied_cursor!=a.ui.cursor) { SetMouseCursor(a.ui.cursor); applied_cursor=a.ui.cursor; }
         dx_native_context(a.modal!=MODAL_NONE,a.pivot_search_focus,selected_pivot(&a)!=NULL,a.key_tips);
         EndDrawing();
+#ifdef DUXCEL_DEV_REVIEW
+        if (review_capture) { a.frames++; continue; }
+#endif
         if (options->layout_smoke && layout_smoke>=359 && layout_smoke<=365) {
             unsigned bit=layout_smoke==359 ? 1 : layout_smoke==360 ? 2 : layout_smoke==364 ? 4 : layout_smoke==365 ? 8 : 0;
             bool middle=bit<4 ? a.left_motion.elapsed>=.05f && a.left_motion.elapsed<.16f && a.left_extent>0 && a.left_extent<a.sidebar_width : a.pipeline_motion.elapsed>=.05f && a.pipeline_motion.elapsed<.16f && a.pipeline_extent>0 && a.pipeline_extent<280;
@@ -11633,6 +11766,9 @@ int app_run(const AppOptions *options) {
         presentation=(DxPresentation){.ribbon_mode=a.ribbon_mode,.previous_ribbon_mode=a.previous_ribbon_mode,.workbook=a.sidebar,.fields=a.fields_visible,.transformations=a.pipeline,.transformations_collapsed=a.pipeline_collapsed,.workbook_collapsed=a.workbook_collapsed,.fields_collapsed=a.fields_collapsed,.reduced_motion=a.reduced_motion,.sidebar_width=a.sidebar_width,.pipeline_width=a.pipeline_width,.interface_scale=a.ui.requested_scale,.statistics_mask=a.statistics_mask,.freeze=a.grid.freeze};
         dx_presentation_save(&presentation);
     }
+#ifdef DUXCEL_DEV_REVIEW
+    dx_review_capture_destroy(a.review); a.review=NULL;
+#endif
     cancel_values(&a); worker_stop(&a.worker); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a.worker.jobs_started,a.worker.sql_executed,a.worker.counts_executed);
     statistics_free(&a.statistics); free(a.statistics_error);
     page_free(&a.page); page_free(&a.spare); analysis_free(&a.analysis);
@@ -11645,5 +11781,9 @@ int app_run(const AppOptions *options) {
     brand_shutdown();
     if (render_batch.vertexBuffer && render_batch.draws) { rlSetRenderBatchActive(NULL); rlUnloadRenderBatch(render_batch); }
     a.busy=false; step_preview_free(&a.step_preview); ui_guide_free(&a.guide); clear_object_views(&a); grid_destroy(&a.source_preview); grid_destroy(&a.grid); ui_destroy(&a.ui); input_free(&a.input); input_free(&a.filter_term); input_free(&a.filter_end); input_free(&a.pivot_search); input_free(&a.chart_columns); free(a.chart_resize_error); free(a.object_name_error); free(a.range_move_error); free(a.field_matches); text_lines_free(&a.toast_lines); text_lines_free(&a.inspector_sql_lines); free(a.inspector_sql_text); free(a.sql_text); free(a.message); free(a.pipeline_text); free(a.document_path); CloseWindow();
-    return (options->smoke && !smoke_ok) || (options->workspace_smoke && workspace_smoke!=4) || (options->filter_smoke && filter_smoke!=66) || (options->pivot_smoke && pivot_smoke!=45) || (options->export_smoke && export_smoke!=20) || (options->count_smoke && count_smoke!=12) || (options->clipboard_smoke && clipboard_smoke!=13) || (options->sort_smoke && sort_smoke!=12) || (options->layout_smoke && layout_smoke!=layout_target) || (options->navigation_smoke && navigation_smoke!=13) || (options->nyc_smoke && nyc_smoke!=8) || (options->document_smoke && !document_ok) || (options->chart_smoke && chart_smoke!=33) || (options->statistics_smoke && statistics_smoke!=31) || (options->table_smoke && table_smoke!=73) || (options->icon_smoke && icon_smoke!=8) || (options->query_smoke && query_smoke!=QUERY_SMOKE_STAGES) || (options->unique_smoke && unique_smoke!=32) ? 1 : 0;
+    return
+#ifdef DUXCEL_DEV_REVIEW
+        (options->review_smoke && review_smoke.stage!=REVIEW_SMOKE_STAGES) ||
+#endif
+        (options->smoke && !smoke_ok) || (options->workspace_smoke && workspace_smoke!=4) || (options->filter_smoke && filter_smoke!=66) || (options->pivot_smoke && pivot_smoke!=45) || (options->export_smoke && export_smoke!=20) || (options->count_smoke && count_smoke!=12) || (options->clipboard_smoke && clipboard_smoke!=13) || (options->sort_smoke && sort_smoke!=12) || (options->layout_smoke && layout_smoke!=layout_target) || (options->navigation_smoke && navigation_smoke!=13) || (options->nyc_smoke && nyc_smoke!=8) || (options->document_smoke && !document_ok) || (options->chart_smoke && chart_smoke!=33) || (options->statistics_smoke && statistics_smoke!=31) || (options->table_smoke && table_smoke!=73) || (options->icon_smoke && icon_smoke!=8) || (options->query_smoke && query_smoke!=QUERY_SMOKE_STAGES) || (options->unique_smoke && unique_smoke!=32) ? 1 : 0;
 }

@@ -83,6 +83,10 @@ void ui_border(Rectangle rectangle,Rectangle clip,float width,Color color);
 /* Focus is retained for keyboard use; pointer activation does not paint a
    keyboard ring. Selection and editable-input outlines remain independent. */
 bool ui_focus_visible(void);
+#ifdef DUXCEL_DEV_REVIEW
+void ui_review_restore_focus(bool keyboard);
+void ui_review_discard_input(void);
+#endif
 void ui_focus_border(Rectangle rectangle,Rectangle clip,float width);
 void ui_dashed_border(Rectangle rectangle,Rectangle clip,float width,float dash,float gap,Color color);
 typedef struct { Rectangle panel,items; int visible; } UIMenuLayout;

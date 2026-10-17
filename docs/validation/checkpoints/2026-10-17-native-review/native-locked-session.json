@@ -1,0 +1,14 @@
+{
+  "started_utc": "2026-10-17T13:03:36.312274+00:00",
+  "status": "failed",
+  "configs": {},
+  "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual",
+  "source": {
+    "commit": "76a25ef23461ad249f8ec777eed778ba0aa05660",
+    "status": "M Makefile\n M src/app/app.c\n M src/app/app.h\n M src/dev/review_registry.h\n M src/grid/grid.c\n M src/main.c\n M src/platform/macos.m\n M src/platform/platform.c\n M src/platform/platform.h\n M src/ui/ui.c\n M src/ui/ui.h\n M tools/test.py\n?? src/dev/review_app.inc\n?? src/dev/review_capture.c\n?? src/dev/review_capture.h\n?? src/dev/review_input.c\n?? src/dev/review_input.h\n?? tools/review_build_info.py\n?? tools/test_native_review.py\n?? tools/ui-review/",
+    "source_sha256": "9329546a588fc56e7e51e805702bc9f7bda92c5adf5ea1dac4d3767503cbc1c8",
+    "source_files": 156
+  },
+  "error": "./tests/test_background-native-debug failed (1); see /Users/h2o/dev/duxcel/tests/results/runs/20261017T130336-review-30321/background.log",
+  "finished_utc": "2026-10-17T13:03:37.350435+00:00"
+}
