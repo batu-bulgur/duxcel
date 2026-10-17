@@ -8460,6 +8460,7 @@ static void layout_smoke_step(App *a,int *step) {
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"596")) { *step=596; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"620")) { *step=620; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"638")) { *step=638; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"665")) { *step=665; return; }
         }
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->statistics_enabled=true; a->statistics_mask=49;
         grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=0; a->grid.horizontal=0; break;

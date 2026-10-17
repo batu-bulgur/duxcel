@@ -53,6 +53,7 @@ class RunnerTests(unittest.TestCase):
                 self.assertIn(marker, source)
                 if start not in (0, 250):
                     self.assertIn(f'"{start}"', source)
+                    self.assertIn(f'if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"{start}")) {{ *step={start}; return; }}', source)
 
     def test_success_requires_terminal_marker(self):
         with self.assertRaisesRegex(RuntimeError, "Missing completion"):
