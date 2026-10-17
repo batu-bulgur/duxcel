@@ -193,16 +193,16 @@ static bool pivot_page_bytes(const Page *page,char **error) {
     return true;
 }
 bool browser_pivot_complete(Page *page,Page *grand,const PivotDefinition *p,char **error) {
-    if (!page || !grand || page==grand) return fail(error,"Choose separate owned matrix and total pages.");
+    if (!page || page==grand) return fail(error,"Choose separate owned matrix and total pages.");
     if (!pivot_schema_valid(page,p,error)) return false;
     size_t rows=p->counts[PIVOT_ROWS],measures=p->counts[PIVOT_VALUES];
     if (page->totals || page->count_pending || page->row_count>DX_PAGE_ROWS || (page->row_count && !page->cells) ||
         page->offset>UINT64_MAX-page->row_count || (page->row_count && page->offset+page->row_count>page->total) ||
-        grand->row_count!=1 || grand->column_count!=measures || !grand->columns || !grand->cells || grand->offset || grand->total!=1 || grand->count_pending || grand->totals) return fail(error,"Matrix page and source totals have incompatible extents.");
-    if (!pivot_page_bytes(page,error) || !pivot_page_bytes(grand,error)) return false;
+        (grand && (grand->row_count!=1 || grand->column_count!=measures || !grand->columns || !grand->cells || grand->offset || grand->total!=1 || grand->count_pending || grand->totals))) return fail(error,"Matrix page and source totals have incompatible extents.");
+    if (!pivot_page_bytes(page,error) || (grand && !pivot_page_bytes(grand,error))) return false;
     size_t used=page->bytes;
-    if (!pivot_add(&used,grand->bytes,error) || !pivot_add(&used,sizeof(PivotTotals),error)) return false;
-    size_t row_bytes=measures*sizeof(Column)+page->row_count*measures*sizeof(Cell); if (!pivot_add(&used,row_bytes,error)) return false;
+    if (grand && (!pivot_add(&used,grand->bytes,error) || !pivot_add(&used,sizeof(PivotTotals),error))) return false;
+    size_t row_bytes=grand ? measures*sizeof(Column)+page->row_count*measures*sizeof(Cell) : 0; if (!pivot_add(&used,row_bytes,error)) return false;
     char *labels[DX_PIVOT_FIELDS]={0},*captions[DX_PIVOT_FIELDS]={0}; bool ok=false;
     for (size_t c=0;c<rows;c++) if (p->fields[PIVOT_ROWS][c].grain) {
         labels[c]=pivot_field_label(&p->fields[PIVOT_ROWS][c]); size_t old=strlen(page->columns[c].name)+1;
@@ -210,27 +210,29 @@ bool browser_pivot_complete(Page *page,Page *grand,const PivotDefinition *p,char
         if (!pivot_add(&used,strlen(labels[c])+1,error)) goto done;
     }
     for (size_t m=0;m<measures;m++) {
-        const Column *source=&page->columns[rows+m],*total=&grand->columns[m]; char name[32]; snprintf(name,sizeof(name),"total_%zu",m);
-        if (!total->name || strcmp(total->name,name) || !total->type_name || strcmp(total->type_name,source->type_name) || total->type!=source->type || !same_number(total->number_type,source->number_type)) { fail(error,"Source totals no longer match matrix measure types."); goto done; }
+        const Column *source=&page->columns[rows+m],*total=grand ? &grand->columns[m] : NULL; char name[32]; snprintf(name,sizeof(name),"total_%zu",m);
+        if (total && (!total->name || strcmp(total->name,name) || !total->type_name || strcmp(total->type_name,source->type_name) || total->type!=source->type || !same_number(total->number_type,source->number_type) || total->numeric!=source->numeric)) { fail(error,"Source totals no longer match matrix measure types."); goto done; }
         captions[m]=aggregate_measure_label(p->fields[PIVOT_VALUES][m].aggregate,p->fields[PIVOT_VALUES][m].name);
-        size_t extra=strlen(captions[m])+1+strlen(source->type_name)+1+(size_t)snprintf(name,sizeof(name),"m%zu",m)+1;
+        size_t copied=grand ? strlen(source->type_name)+1+(size_t)snprintf(name,sizeof(name),"m%zu",m)+1 : 0;
+        size_t extra=strlen(captions[m])+1+copied;
         if (!pivot_add(&used,extra,error)) goto done; row_bytes+=extra-(strlen(captions[m])+1);
-        for (size_t r=0;r<page->row_count;r++) {
+        for (size_t r=0;grand && r<page->row_count;r++) {
             const Cell *cell=&page->cells[r*page->column_count+rows+m]; size_t length=0;
             if (cell->is_null ? cell->text!=NULL : !text_size(cell->text,DX_PAGE_WIRE_TEXT_BYTES,&length)) { fail(error,"Invalid exact matrix measure text."); goto done; }
             if (!cell->is_null) { if (!pivot_add(&used,length+1,error)) goto done; row_bytes+=length+1; }
         }
     }
-    PivotTotals *totals=dx_alloc(sizeof(*totals)); totals->rows=(Page){.column_count=measures,.row_count=page->row_count,.offset=page->offset,.total=page->total,.bytes=row_bytes};
-    totals->rows.columns=dx_alloc(measures*sizeof(Column)); if (page->row_count) totals->rows.cells=dx_alloc(page->row_count*measures*sizeof(Cell));
+    PivotTotals *totals=grand ? dx_alloc(sizeof(*totals)) : NULL;
+    if (totals) { totals->rows=(Page){.column_count=measures,.row_count=page->row_count,.offset=page->offset,.total=page->total,.bytes=row_bytes};
+        totals->rows.columns=dx_alloc(measures*sizeof(Column)); if (page->row_count) totals->rows.cells=dx_alloc(page->row_count*measures*sizeof(Cell)); }
     for (size_t m=0;m<measures;m++) {
         const Column *source=&page->columns[rows+m];
-        totals->rows.columns[m]=(Column){.name=dx_printf("m%zu",m),.type_name=dx_strdup(source->type_name),.type=source->type,.number_type=source->number_type,.numeric=source->numeric};
-        for (size_t r=0;r<page->row_count;r++) { const Cell *cell=&page->cells[r*page->column_count+rows+m]; totals->rows.cells[r*measures+m]=*cell; totals->rows.cells[r*measures+m].text=cell->is_null ? NULL : dx_strdup(cell->text); }
+        if (totals) { totals->rows.columns[m]=(Column){.name=dx_printf("m%zu",m),.type_name=dx_strdup(source->type_name),.type=source->type,.number_type=source->number_type,.numeric=source->numeric};
+            for (size_t r=0;r<page->row_count;r++) { const Cell *cell=&page->cells[r*page->column_count+rows+m]; totals->rows.cells[r*measures+m]=*cell; totals->rows.cells[r*measures+m].text=cell->is_null ? NULL : dx_strdup(cell->text); } }
         page->columns[rows+m].caption=captions[m]; captions[m]=NULL;
     }
     for (size_t c=0;c<rows;c++) if (labels[c]) { free(page->columns[c].name); page->columns[c].name=labels[c]; labels[c]=NULL; page->columns[c].date_grain=p->fields[PIVOT_ROWS][c].grain; }
-    totals->columns=*grand; memset(grand,0,sizeof(*grand)); page->totals=totals; page->bytes=used; ok=true;
+    if (totals) { totals->columns=*grand; memset(grand,0,sizeof(*grand)); } page->totals=totals; page->bytes=used; ok=true;
 done:
     for (size_t i=0;i<DX_PIVOT_FIELDS;i++) { free(labels[i]); free(captions[i]); } return ok;
 }

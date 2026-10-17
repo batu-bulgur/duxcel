@@ -265,6 +265,22 @@ static void test_matrix_completion(void) {
     sql=browser_pivot_totals_sql(&source,&pivot,&error); CHECK(sql && strstr(sql,"WHERE mask=0 LIMIT 1") && !strstr(sql,"GROUP BY GROUPING SETS")); free(sql);
     page=matrix_fixture(&pivot,1); grand=matrix_grand(&page,&pivot); matrix_cell(&page,0,0,NULL); matrix_cell(&grand,0,0,NULL);
     CHECK(browser_pivot_complete(&page,&grand,&pivot,&error) && page.totals->rows.cells[0].is_null && page.totals->columns.cells[0].is_null); page_free(&page); pivot_free(&pivot); free(error);
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,NULL)); page=matrix_fixture(&pivot,1);
+    CHECK(browser_pivot_complete(&page,NULL,&pivot,NULL) && !page.totals && !strcmp(page.columns[0].caption,"SUM(Amount)")); page_free(&page); pivot_free(&pivot);
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Text",AGG_MIN,NULL)); page=matrix_fixture(&pivot,1); grand=matrix_grand(&page,&pivot);
+    CHECK(browser_pivot_complete(&page,&grand,&pivot,NULL)); size_t remaining=DX_PAGE_WIRE_TEXT_BYTES-page.bytes; page_free(&page);
+    size_t length=1+remaining/2; char *large=dx_alloc(length+1); memset(large,'x',length); large[length]=0;
+    page=matrix_fixture(&pivot,1); grand=matrix_grand(&page,&pivot); matrix_cell(&page,0,0,large); matrix_cell(&grand,0,0,remaining%2 ? "11" : "1");
+    CHECK(browser_pivot_complete(&page,&grand,&pivot,NULL) && page.bytes==DX_PAGE_WIRE_TEXT_BYTES); page_free(&page);
+    page=matrix_fixture(&pivot,1); grand=matrix_grand(&page,&pivot); matrix_cell(&page,0,0,large); matrix_cell(&grand,0,0,remaining%2 ? "111" : "11");
+    reject_matrix(&page,&grand,&pivot); page_free(&page); page_free(&grand); free(large); pivot_free(&pivot);
+    /* A rejected owned job can still contain all eight allocated shelf slots.
+       Destruction must not walk its malformed counts outside those arrays. */
+    for (size_t role=0;role<4;role++) {
+        pivot.counts[role]=role%2 ? SIZE_MAX : DX_PIVOT_FIELDS+1;
+        for (size_t field=0;field<DX_PIVOT_FIELDS;field++) { pivot.fields[role][field].name=dx_strdup("Owned field"); pivot.fields[role][field].value=dx_strdup("Owned filter value"); }
+    }
+    pivot_free(&pivot); PivotDefinition empty={0}; CHECK(!memcmp(&pivot,&empty,sizeof(pivot))); pivot_free(&pivot); CHECK(!memcmp(&pivot,&empty,sizeof(pivot)));
 }
 int main(void) {
     test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion();
