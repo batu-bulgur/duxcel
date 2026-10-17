@@ -128,7 +128,7 @@ static void test_observed_versions(Database *db,const char *dir) {
     CHECK(first.records.ids[255]==256 && second.records.ids[16]==17);
     CHECK(!page_records_changed(NULL,&second) && !page_records_changed(&first,NULL));
     Page bare={0},hint={0}; hint.records.stamp=first.records.stamp;
-    CHECK(!page_records_changed(&first,&bare) && !page_records_changed(&first,&hint));
+    CHECK(!page_records_changed(&first,&bare) && page_records_changed(&first,&hint)==first.records.file_identity_valid);
     hint.records.stamp=second.records.stamp; CHECK(page_records_changed(&first,&hint));
     page_free(&first); page_free(&second); CHECK(unlink(path)==0); analysis_free(&source);
 }
@@ -167,6 +167,19 @@ static void test_exact_file_observation(Database *db,const char *dir,SourceKind 
     uint64_t known_counts=db->count_queries;
     CHECK(database_fetch_table_window(db,&source,512,700,&page,&error) && page.total==700 && !page.count_pending && db->count_queries==known_counts); check_file_identity(&page,path); page_free(&page);
 #if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+    Page displayed=fetch(db,&source,0); uint64_t stable_stamp=displayed.records.stamp;
+    struct stat stable; CHECK(lstat(path,&stable)==0 && chmod(path,(stable.st_mode&0100) ? 0600 : 0700)==0 && dx_file_stamp(path)==stable_stamp);
+    Page changed=fetch(db,&source,256); check_file_identity(&changed,path);
+    CHECK(displayed.records.file_identity_valid && changed.records.file_identity_valid && displayed.records.stamp==changed.records.stamp && !strcmp(displayed.records.source_key,changed.records.source_key));
+    CHECK(page_records_changed(&displayed,&changed) && page_records_changed(&changed,&displayed));
+    Page recovered=fetch(db,&source,512); CHECK(!page_records_changed(&changed,&recovered) && page_records_changed(&displayed,&recovered));
+    CHECK(displayed.records.ids[0]==1 && changed.records.ids[0]==257 && recovered.records.ids[0]==513);
+    Page unavailable=recovered; unavailable.records.file_identity_valid=false;
+    CHECK(page_records_changed(&recovered,&unavailable)); /* Exact observation must not silently disappear. */
+    unavailable.records.ids=NULL; unavailable.records.count=0; unavailable.records.source_key=NULL;
+    CHECK(page_records_changed(&recovered,&unavailable)); /* Near-budget stamp-only provenance also fails closed. */
+    unavailable.records.stamp=0; CHECK(!page_records_changed(&recovered,&unavailable));
+    page_free(&displayed); page_free(&changed); page_free(&recovered); /* unavailable is a borrowed view. */
     for (unsigned phase=0;phase<3;phase++) {
         CHECK(database_refresh(db,&error));
         SourceFileIdentity before,after; CHECK(source_file_identity(path,&before,NULL)==SOURCE_DIGEST_OK);

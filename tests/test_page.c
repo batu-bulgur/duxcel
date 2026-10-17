@@ -76,6 +76,33 @@ static void test_default_and_partial_pages(void) {
     page_free(&page); CHECK(releases_a==5);
     page=(Page){.release_cell_text=release_b}; page_free(&page); CHECK(releases_b==1 && !page.release_cell_text);
 }
+static void test_record_publication_identity(void) {
+    Page previous={0},next={0},bare={.offset=UINT64_MAX,.row_count=DX_PAGE_ROWS,.column_count=16384};
+    previous.records.file_identity_valid=next.records.file_identity_valid=true;
+    memset(&previous.records.file_identity,0xa5,sizeof(SourceFileIdentity)); memset(&next.records.file_identity,0x5a,sizeof(SourceFileIdentity));
+#define IDENTITY_FIELDS(X) X(device) X(inode) X(size) X(links) X(mode) X(uid) X(gid) X(flags) X(generation) X(modified_seconds) X(modified_nanoseconds) X(changed_seconds) X(changed_nanoseconds) X(created_seconds) X(created_nanoseconds)
+#define ZERO_FIELD(field) previous.records.file_identity.field=next.records.file_identity.field=0;
+    IDENTITY_FIELDS(ZERO_FIELD)
+#undef ZERO_FIELD
+    CHECK(!page_records_changed(&previous,&next)); /* Scalar equality, different padding. */
+#define CHANGE_FIELD(field) do { next.records.file_identity.field++; CHECK(page_records_changed(&previous,&next) && page_records_changed(&next,&previous)); next.records.file_identity.field--; } while (0);
+    IDENTITY_FIELDS(CHANGE_FIELD)
+#undef CHANGE_FIELD
+#undef IDENTITY_FIELDS
+    CHECK(!page_records_changed(NULL,&next) && !page_records_changed(&previous,NULL));
+    CHECK(!page_records_changed(&previous,&bare));
+    next.records.file_identity_valid=false;
+    CHECK(!page_records_changed(&previous,&next)); /* No remaining raw provenance. */
+    next.records.stamp=1; CHECK(page_records_changed(&previous,&next)); next.records.stamp=0;
+    next.records.source_key="raw-source"; CHECK(page_records_changed(&previous,&next)); next.records.source_key=NULL;
+    uint64_t id=1; next.records.ids=&id; CHECK(page_records_changed(&previous,&next)); next.records.ids=NULL;
+    next.records.count=1; CHECK(page_records_changed(&previous,&next)); next.records.count=0;
+    previous.records.file_identity_valid=false;
+    previous.records.source_key=next.records.source_key="demo-record-v1"; previous.records.stamp=next.records.stamp=0;
+    CHECK(!page_records_changed(&previous,&next));
+    next.records.file_identity_valid=true; CHECK(!page_records_changed(&previous,&next)); /* Newly available metadata is not a reported change. */
+    next.records.file_identity_valid=false; next.records.source_key="different-reader"; CHECK(page_records_changed(&previous,&next));
+}
 static void test_distinct_and_statistics(void) {
     DistinctPage page={.count=3,.offset=128,.total=1000}; page.values=dx_alloc(page.count*sizeof(*page.values));
     page.values[0]=(DistinctValue){.label=dx_strdup("NULL"),.is_null=true};
@@ -166,7 +193,7 @@ static void test_native_allocator(void) {
 }
 #endif
 int main(void) {
-    test_moved_and_nested_ownership(); test_default_and_partial_pages(); test_distinct_and_statistics(); test_request_ownership(); test_rejected_request_cleanup(); test_rejected_source_cleanup(); test_rejected_analysis_cleanup();
+    test_moved_and_nested_ownership(); test_default_and_partial_pages(); test_record_publication_identity(); test_distinct_and_statistics(); test_request_ownership(); test_rejected_request_cleanup(); test_rejected_source_cleanup(); test_rejected_analysis_cleanup();
 #ifdef DUXCEL_PAGE_ENGINE_TEST
     test_native_allocator();
 #endif

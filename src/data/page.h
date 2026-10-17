@@ -114,7 +114,9 @@ void page_free(Page *page);
    prefix too; no allocation/lookup outside the loaded row array. */
 bool page_record_id(const Page *page,uint64_t row,uint64_t *id);
 /* Detect an observed native-reader version mismatch, including pages whose
-   optional ID array was omitted for budget. False is not proof of a durable
+   optional ID array was omitted for budget. A valid exact identity becoming
+   unavailable on a subsequent raw-provenance Page also invalidates the binding.
+   Bare/manual geometry Pages remain outside this comparison. False is not proof of a durable
    snapshot: legacy/browser/result pages may have no reader provenance. */
 bool page_records_changed(const Page *previous,const Page *next);
 void distinct_free(DistinctPage *page);

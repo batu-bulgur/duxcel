@@ -35,7 +35,9 @@ bool page_record_id(const Page *p,uint64_t row,uint64_t *id) {
 bool page_records_changed(const Page *previous,const Page *next) {
     if (!previous || !next) return false;
     const PageRecords *a=&previous->records,*b=&next->records;
-    return (a->stamp && b->stamp && a->stamp!=b->stamp) ||
+    return (a->file_identity_valid && b->file_identity_valid && !source_file_identity_same(&a->file_identity,&b->file_identity)) ||
+        (a->file_identity_valid && !b->file_identity_valid && (b->stamp || b->source_key || b->ids || b->count)) ||
+        (a->stamp && b->stamp && a->stamp!=b->stamp) ||
         (a->source_key && b->source_key && strcmp(a->source_key,b->source_key)!=0);
 }
 void distinct_free(DistinctPage *p) {
