@@ -8,6 +8,11 @@
 #define DX_PAGE_WIRE_TEXT_BYTES (4u*1024u*1024u)
 #define DX_PAGE_WIRE_BYTES (6u*1024u*1024u)
 
+/* Parse a bounded SQL type from DESCRIBE, retaining no text. Unknown types are
+   VARCHAR/NUM_NONE; canonical DECIMAL(p,s) requires 1<=p<=38 and 0<=s<=p.
+   False preserves both outputs. This parses schema metadata, not cell values. */
+bool page_type_from_sql(const char *name,duckdb_type *type,NumberType *number);
+
 /* DXP1 little-endian u32 header: magic, version, columns, rows, text_bytes.
    Each column has name/type/kind byte lengths, precision, scale, followed by
    those three UTF-8 strings. Then come row-major u32 offsets[cells+1], one
