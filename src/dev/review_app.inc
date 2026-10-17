@@ -900,7 +900,8 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_STATS_END (REVIEW_SORT_END+3*6)
 #define REVIEW_INSPECTOR_END (REVIEW_STATS_END+4*6)
 #define REVIEW_SETTINGS_END (REVIEW_INSPECTOR_END+2*6)
-#define REVIEW_SMOKE_STAGES (REVIEW_SETTINGS_END+2*6)
+#define REVIEW_FORMAT_END (REVIEW_SETTINGS_END+2*6)
+#define REVIEW_SMOKE_STAGES (REVIEW_FORMAT_END+2*6)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -936,6 +937,9 @@ typedef struct {
     UIAction format_action; Vector2 format_origin; float format_width; double format_wheel;
     int format_parent_group,format_parent_command,format_focus,format_scroll,format_popup_group,format_popup_focus,format_setup_item;
     bool format_setup_started,format_parent_closing,format_more_anchor;
+    Analysis sql_source; char *sql_text,*sql_pointer,*sql_expected,*sql_pane_text,*sql_pane_pointer; size_t *sql_pane_offsets;
+    DxReviewDataIdentity sql_origin; TextLines sql_pane_lines; int sql_owner,sql_scroll,sql_pane_scroll,sql_setup_item,sql_pane_focus,sql_pane_step;
+    double sql_wheel; uint64_t sql_revision,sql_owner_id; bool sql_valid,sql_stale,sql_setup_started,sql_pane_visible,sql_pane_collapsed,sql_pane_mode;
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -1044,6 +1048,8 @@ static void review_smoke_author_release(ReviewSmoke *t) {
     analysis_free(&t->inspector_source); free(t->inspector_text); free(t->inspector_type); free(t->inspector_column); free(t->inspector_offsets);
     t->inspector_text=t->inspector_type=t->inspector_column=NULL; t->inspector_offsets=NULL;
     format_free(&t->format_copy); /* format_borrowed only observes App ownership. */
+    analysis_free(&t->sql_source); free(t->sql_text); free(t->sql_expected); free(t->sql_pane_text); free(t->sql_pane_offsets);
+    t->sql_text=t->sql_expected=t->sql_pane_text=NULL; t->sql_pane_offsets=NULL;
     free(t->dialog_text); t->dialog_text=NULL; free(t->dialog_chart_text); t->dialog_chart_text=NULL;
     for (size_t i=0;i<DX_MAX_SHEETS;i++) { free(t->sheet_names[i]); t->sheet_names[i]=NULL; }
 }
@@ -2181,6 +2187,84 @@ static int review_smoke_format_tick(App *a,ReviewSmoke *t) {
     if (item && !t->format_parent_closing) { t->format_parent_closing=true; ui_note_key_press(KEY_ESCAPE,0); return 0; }
     if (item && (!a->ribbon_focus || a->ribbon_command!=(t->format_more_anchor && ribbon_more_available(a) ? RIBBON_MORE_COMMAND : command))) return -1;
     printf("PASS: native compact format review kind=%s retains worksheet range/revision, full format ownership/content/history, source/models/pages/statistics and query jobs%s\n",item ? "number" : "font size",item ? "; actual retained parent flyout restored and closed" : "");
+    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); } return 1;
+}
+static const Analysis *review_smoke_sql_source(App *a,int owner) { return owner<0 ? &a->analysis : &active_sheet(a)->objects.items[owner].source; }
+static void review_smoke_sql_remember(App *a,ReviewSmoke *t,int item) {
+    review_smoke_stats_remember(a,t); t->sql_owner=item ? t->query_table : -1;
+    t->sql_source=analysis_copy(review_smoke_sql_source(a,t->sql_owner));
+    t->sql_owner_id=item ? active_sheet(a)->objects.items[t->sql_owner].id : 0; t->sql_revision=item ? active_sheet(a)->objects.items[t->sql_owner].revision : a->analysis_revision;
+    char *definition=analysis_sql(&t->sql_source,false); t->sql_expected=dx_printf("-- Current source result\n%s",definition); free(definition);
+    t->sql_text=dx_strdup(a->sql_text); t->sql_pointer=a->sql_text; t->sql_scroll=a->sql_scroll; t->sql_wheel=a->wheel_sql; t->sql_origin=a->sql_origin; t->sql_valid=a->sql_origin_valid; t->sql_stale=a->sql_origin_stale;
+    t->sql_pane_text=a->inspector_sql_text ? dx_strdup(a->inspector_sql_text) : NULL; t->sql_pane_pointer=a->inspector_sql_text; t->sql_pane_lines=a->inspector_sql_lines; t->sql_pane_scroll=a->inspector_sql_scroll;
+    if (a->inspector_sql_lines.offsets) { size_t bytes=(a->inspector_sql_lines.count+1)*sizeof(size_t); t->sql_pane_offsets=dx_alloc(bytes); memcpy(t->sql_pane_offsets,a->inspector_sql_lines.offsets,bytes); }
+    t->sql_pane_visible=a->pipeline; t->sql_pane_collapsed=a->pipeline_collapsed; t->sql_pane_mode=a->pipeline_sql; t->sql_pane_focus=a->pipeline_focus_index; t->sql_pane_step=a->pipeline_selected_step;
+}
+static bool review_smoke_sql_same(App *a,ReviewSmoke *t) {
+    const Analysis *source=review_smoke_sql_source(a,t->sql_owner); const TextLines *lines=&a->inspector_sql_lines,*old=&t->sql_pane_lines;
+    return review_smoke_stats_same(a,t) && analysis_same_result(source,&t->sql_source) && analysis_sorts_equal(source,&t->sql_source) &&
+        a->sql_text==t->sql_pointer && review_smoke_text_same(a->sql_text,t->sql_text) && !strcmp(a->sql_text,t->sql_expected) && a->sql_scroll==t->sql_scroll && a->wheel_sql==t->sql_wheel && a->sql_origin_valid==t->sql_valid && a->sql_origin_stale==t->sql_stale && review_smoke_inspector_identity(&a->sql_origin,&t->sql_origin) &&
+        a->inspector_sql_text==t->sql_pane_pointer && review_smoke_text_same(a->inspector_sql_text,t->sql_pane_text) && a->inspector_sql_scroll==t->sql_pane_scroll && a->pipeline==t->sql_pane_visible && a->pipeline_collapsed==t->sql_pane_collapsed && a->pipeline_sql==t->sql_pane_mode && a->pipeline_focus_index==t->sql_pane_focus && a->pipeline_selected_step==t->sql_pane_step &&
+        lines->offsets==old->offsets && lines->count==old->count && lines->capacity==old->capacity && lines->width==old->width && lines->scale==old->scale && lines->font_size==old->font_size && lines->raster_size==old->raster_size && lines->limited==old->limited &&
+        (!lines->offsets || !memcmp(lines->offsets,t->sql_pane_offsets,(lines->count+1)*sizeof(size_t)));
+}
+static bool review_smoke_sql_targets(App *a,ReviewSmoke *t,int item) {
+    DxReviewRegistry *registry=a->review->registry; const char *parent="author.generated_sql";
+    const DxReviewWidget *panel=dx_review_find(registry,parent),*heading=dx_review_find(registry,"author.generated_sql.heading"),*content=dx_review_find(registry,"author.generated_sql.content"),*copy=dx_review_find(registry,"author.generated_sql.action.copy"),*close=dx_review_find(registry,"author.generated_sql.action.close");
+    if (!panel || !panel->container || strcmp(panel->role,"dialog") || panel->input_eligible || !heading || heading->input_eligible || !review_smoke_sheet_pick(a,heading,parent) || !content || strcmp(content->role,"region") || content->input_eligible || !review_smoke_sheet_pick(a,content,parent) ||
+        !copy || !copy->enabled || !copy->input_eligible || copy->checked || copy->focused || !review_smoke_sheet_pick(a,copy,parent) || !close || !close->enabled || !close->input_eligible || close->checked || close->focused || !review_smoke_sheet_pick(a,close,parent) || registry->duplicate_count || registry->invalid_count || registry->overflow_count || registry->truncated || strstr(a->review->frame.state_text," author_overflow=1")) return false;
+    SheetObject *selected=selected_object(a);
+    if (!t->sql_valid || t->sql_stale || !selected || selected->kind!=OBJECT_PIVOT || selected->id==t->sql_owner_id || t->sql_scroll || !t->sql_pane_text || !t->sql_pane_lines.offsets || t->sql_pane_pointer==t->sql_pointer || t->sql_origin.object_id!=t->sql_owner_id || t->sql_origin.source_id!=t->sql_owner_id || t->sql_origin.query_generation!=t->sql_revision || t->sql_origin.schema_generation || strcmp(t->sql_origin.kind,"generated-source-sql") || strcmp(t->sql_origin.document_id,a->review->frame.document_id)) return false;
+    for (size_t i=0;i<registry->count;i++) {
+        const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,parent,strlen(parent))) continue;
+        const DxReviewDataIdentity *data=&widget->data;
+        if (!review_smoke_inspector_identity(data,&t->sql_origin) || !data->present || data->has_cell || data->field[0] || data->row || data->column || data->sheet_id!=a->book.active+1 || strcmp(data->document_id,registry->frame.document_id)) return false;
+    }
+    if (!content->value.present || content->value.is_null || content->value.truncated || strcmp(content->value.type,"VARCHAR") || strcmp(content->value.exact_text,t->sql_text) || dx_review_find(registry,"author.generated_sql.scrollbar") || !strstr(a->review->frame.state_text," sql_scroll=0 ") || !strstr(a->review->frame.state_text," sql_origin_valid=1 sql_origin_stale=0 ") || !strstr(a->review->frame.state_text," sql_text_hex=")) return false;
+    DxReviewTarget picked;
+    if (!dx_review_pick(registry,2*a->ui.scale,2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,"author.generated_sql.backdrop.background")) return false;
+    snprintf(t->author_target,sizeof(t->author_target),"%s",item ? copy->id : content->id); return true;
+}
+static void review_smoke_sql_diagnostic(App *a,ReviewSmoke *t,const char *reason) {
+    fprintf(stderr,"Review Generated SQL mismatch %s stage=%d modal=%d selected=%d/%d owner=%d/%llu revision=%llu origin=%d,%d/%d,%d owner=%llu source=%llu query=%llu document=%s frame_document=%s scroll=%d/%d pane=%d,%d,%d/%d,%d,%d target=%s actual=%s\n",reason,t->stage,(int)a->modal,a->selected_object,t->author_selected,t->sql_owner,(unsigned long long)t->sql_owner_id,(unsigned long long)t->sql_revision,a->sql_origin_valid,a->sql_origin_stale,t->sql_valid,t->sql_stale,(unsigned long long)a->sql_origin.object_id,(unsigned long long)a->sql_origin.source_id,(unsigned long long)a->sql_origin.query_generation,a->sql_origin.document_id,a->review->frame.document_id,a->sql_scroll,t->sql_scroll,a->pipeline,a->pipeline_collapsed,a->pipeline_sql,t->sql_pane_visible,t->sql_pane_collapsed,t->sql_pane_mode,t->author_target,a->review->target.widget.id);
+    for (size_t i=0;i<a->review->registry->count;i++) { const DxReviewWidget *widget=&a->review->registry->widgets[i]; if (strncmp(widget->id,"author.generated_sql",strlen("author.generated_sql"))) continue; fprintf(stderr,"Review Generated SQL widget %s role=%s owner=%llu source=%llu kind=%s value=%d/%d/%s/%zu truncated=%d bounds=%.2f,%.2f,%.2f,%.2f clip=%.2f,%.2f,%.2f,%.2f\n",widget->id,widget->role,(unsigned long long)widget->data.object_id,(unsigned long long)widget->data.source_id,widget->data.kind,widget->value.present,widget->value.is_null,widget->value.type,strlen(widget->value.exact_text),widget->truncated,widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height,widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height); }
+}
+static int review_smoke_sql_tick(App *a,ReviewSmoke *t) {
+    int item=(t->stage-REVIEW_FORMAT_END)/6,phase=(t->stage-REVIEW_FORMAT_END)%6; DxReviewCapture *r=a->review;
+    if (!phase) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        a->selected_object=item ? t->query_pivot : 0;
+        if (!selected_pivot(a) || !object_ready(a,(size_t)a->selected_object)) return 0;
+        if (selected_pivot(a)->kind!=OBJECT_PIVOT) { if (!set_representation(a,0)) return -1; return 0; }
+        if (!t->sql_setup_started || t->sql_setup_item!=item) {
+            t->sql_setup_started=true; t->sql_setup_item=item;
+            ui_set_scale(&a->ui,item ? 1.5f : 1); SetWindowSize(item ? 760 : 1280,item ? 640 : 820); a->pipeline_sql=true; present_pipeline(a,true,false); return 0;
+        }
+        if (GetScreenWidth()!=(item ? 760 : 1280) || GetScreenHeight()!=(item ? 640 : 820) || a->ui.scale!=(item ? 1.5f : 1) || !a->pipeline_layout.valid || !a->inspector_sql_text || !a->inspector_sql_lines.offsets || a->inspector_sql_lines.scale!=a->ui.scale || a->inspector_sql_lines.raster_size!=a->ui.raster_size || a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
+        inspect_source_sql(a); return a->modal==MODAL_SQL ? 1 : -1;
+    }
+    if (phase==1) {
+        if (a->modal!=MODAL_SQL) return -1;
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || !review_can_capture(a)) return 0;
+        review_smoke_sql_remember(a,t,item);
+        if (!review_smoke_sql_same(a,t) || strlen(t->sql_text)>=sizeof(((DxReviewValue *)0)->exact_text) || t->sql_scroll) { review_smoke_sql_diagnostic(a,t,"real source setup"); return -1; }
+        ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        bool same=review_smoke_sql_same(a,t),targets=same && review_smoke_sql_targets(a,t,item);
+        if (!same || !targets) { review_smoke_sql_diagnostic(a,t,same ? "targets" : "retained state"); return -1; }
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==3) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || !review_smoke_sql_same(a,t)) { review_smoke_sql_diagnostic(a,t,"actual picker target/state"); return -1; }
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (phase==4) { if (!review_smoke_sql_same(a,t)) { review_smoke_sql_diagnostic(a,t,"report cancellation"); return -1; } ui_note_key_press(KEY_ESCAPE,0); return 1; }
+    t->choice_modal=MODAL_NONE; if (!review_smoke_sql_same(a,t)) { review_smoke_sql_diagnostic(a,t,"normal SQL close retains owned definition"); return -1; }
+    printf("PASS: native Generated SQL review owner=%s while another Pivot stays selected retains owned SQL/pinned origin, independent Transformations SQL, scroll0 and source/models/pages/statistics/jobs; Copy never activated\n",item ? "upstream Table" : "primary");
     review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
@@ -2195,7 +2279,7 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         t->wait_frame=a->frames;
     }
     if (t->stage>=71) {
-        int progress=t->stage>=REVIEW_SETTINGS_END ? review_smoke_format_tick(a,t) : t->stage>=REVIEW_INSPECTOR_END ? review_smoke_settings_tick(a,t) : t->stage>=REVIEW_STATS_END ? review_smoke_inspector_tick(a,t) : t->stage>=REVIEW_SORT_END ? review_smoke_stats_tick(a,t) : t->stage>=REVIEW_RELATION_END ? review_smoke_sort_tick(a,t) : t->stage>=REVIEW_QUERY_END ? review_smoke_relation_tick(a,t) : t->stage>=REVIEW_SHEET_END ? review_smoke_query_tick(a,t) : t->stage>=REVIEW_PLOT_END ? review_smoke_sheet_tick(a,t) : t->stage>=REVIEW_DIALOG_END ? review_smoke_plot_identity_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
+        int progress=t->stage>=REVIEW_FORMAT_END ? review_smoke_sql_tick(a,t) : t->stage>=REVIEW_SETTINGS_END ? review_smoke_format_tick(a,t) : t->stage>=REVIEW_INSPECTOR_END ? review_smoke_settings_tick(a,t) : t->stage>=REVIEW_STATS_END ? review_smoke_inspector_tick(a,t) : t->stage>=REVIEW_SORT_END ? review_smoke_stats_tick(a,t) : t->stage>=REVIEW_RELATION_END ? review_smoke_sort_tick(a,t) : t->stage>=REVIEW_QUERY_END ? review_smoke_relation_tick(a,t) : t->stage>=REVIEW_SHEET_END ? review_smoke_query_tick(a,t) : t->stage>=REVIEW_PLOT_END ? review_smoke_sheet_tick(a,t) : t->stage>=REVIEW_DIALOG_END ? review_smoke_dialog_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
         if (progress<0) goto failed; if (!progress) return;
         t->stage++; return;
     }
@@ -2223,6 +2307,18 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
             if (!review_can_capture(a)) goto failed;
             a->modal=MODAL_NONE; if (review_can_capture(a)) goto failed;
             a->pivot_drag_role=-1;
+        }
+        {
+            /* These real controllers open before the first reporting frame.
+               Pinned origins must not inherit its still-empty document ID. */
+            char document[128]; snprintf(document,sizeof(document),"%s-document-%u",r->frame.session_id,r->document_serial);
+            if (r->frame.document_id[0]) goto failed;
+            a->selected_object=-1; grid_select_cell(&a->grid,0,1,false); inspect_value(a);
+            if (a->modal!=MODAL_INSPECT || !a->inspector_null || !a->inspector_origin_valid || strcmp(a->inspector_origin.document_id,document)) goto failed;
+            a->modal=MODAL_NONE; inspector_free(a); open_modal(a,MODAL_SQL);
+            if (a->modal!=MODAL_SQL || !a->sql_origin_valid || strcmp(a->sql_origin.document_id,document) || a->sql_origin.object_id || a->sql_origin.source_id || a->sql_origin.query_generation!=a->analysis_revision || r->frame.document_id[0]) goto failed;
+            a->modal=MODAL_NONE;
+            puts("PASS: first-open inspector/Generated SQL pin current document before any captured frame");
         }
         grid_select_cell(&a->grid,1,1,false); a->grid.end_row=3; open_modal(a,MODAL_FILTER); break;
     case 1:
