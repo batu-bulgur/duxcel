@@ -562,7 +562,7 @@ static DxReviewDataIdentity review_workspace_scope(App *a,bool fields) {
     return data;
 }
 static void review_workspace_geometry(App *a,const DxReviewWidget *widget,Rectangle visible) {
-    if (!review_armed(a) || !widget || visible.width<=0 || visible.height<=0) return;
+    if (!review_armed(a) || a->modal!=MODAL_NONE || a->file_menu || !widget || visible.width<=0 || visible.height<=0) return;
     static const struct { const char *id,*part; } targets[]={
         {"pane.fields.search","fields_search"},{"analysis.context.browse","context_browse"},
         {"analysis.shelf.rows.add","rows_add"},{"analysis.shelf.columns.add","columns_add"},
