@@ -985,6 +985,7 @@ static bool review_smoke_sheet_pick(App *a,const DxReviewWidget *widget,const ch
 }
 static bool review_smoke_sheet_targets(App *a,ReviewSmoke *t,int item) {
     DxReviewRegistry *registry=a->review->registry; char id[128];
+    t->author_target[0]=0;
     const char *kind=item==0 ? "sheet_menu" : item==3 ? "sheet_unhide" : "sheet_rename";
     char parent[128]; snprintf(parent,sizeof(parent),"author.%s",kind); const DxReviewWidget *panel=dx_review_find(registry,parent);
     if (!panel || !panel->container || panel->input_eligible || !review_smoke_sheet_data(panel,a->sheet_menu_index,t->sheet_generation) || registry->duplicate_count || registry->invalid_count || registry->overflow_count || strstr(a->review->frame.state_text," author_overflow=1")) return false;
@@ -1020,7 +1021,7 @@ static bool review_smoke_sheet_targets(App *a,ReviewSmoke *t,int item) {
         if (i==count-1) snprintf(t->author_target,sizeof(t->author_target),"%s",row->id);
     }
     const DxReviewWidget *track=dx_review_find(registry,"author.sheet_unhide.scrollbar"),*thumb=dx_review_find(registry,"author.sheet_unhide.scrollbar.thumb");
-    return track && thumb && thumb->bounds.y>track->bounds.y && !strcmp(thumb->parent_id,track->id) && review_smoke_sheet_pick(a,thumb,parent);
+    return t->author_target[0] && track && thumb && thumb->bounds.y>track->bounds.y && !strcmp(thumb->parent_id,track->id) && review_smoke_sheet_pick(a,thumb,parent);
 }
 static void review_smoke_sheet_diagnostic(App *a,ReviewSmoke *t,int item,bool same,bool targets) {
     DxReviewRegistry *registry=a->review->registry;
@@ -1076,6 +1077,16 @@ static int review_smoke_sheet_tick(App *a,ReviewSmoke *t) {
     if (phase==1) {
         if (a->modal==MODAL_NONE) return -1;
         if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || a->ui.scale!=scale || !review_can_capture(a) || (item!=1 && item!=2 && (a->popup_presence.offset || a->popup_presence.alpha!=1)) || a->workbook_open<.999f) return 0;
+        if (item==3) {
+            if (GetScreenWidth()!=640 || GetScreenHeight()!=400) return 0;
+            int count=(int)(a->book.count-workbook_visible_count(&a->book));
+            UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,count);
+            if (!menu.frame.valid) return -1;
+            /* The native resize notification may arrive after the first End
+               gesture. Exercise End again in the actual short viewport so the
+               focused last row is visible before freezing its real control. */
+            if (a->sheet_menu_focus!=count-1 || a->sheet_menu_focus<a->unhide_scroll || a->sheet_menu_focus>=a->unhide_scroll+menu.visible) { ui_note_key_press(KEY_END,0); return 0; }
+        }
         review_smoke_sheet_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
     }
     if (phase==2) {
