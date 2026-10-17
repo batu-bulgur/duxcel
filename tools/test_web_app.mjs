@@ -505,9 +505,19 @@ async function tableImportChooser(source){
  const state=await platformSnapshot();browserPicker(state,{pending:true,row:12,column:1,source});return{node:input.nodeId,file,state};
 }
 async function completeTableChooser(chooser,files){
+ check(Array.isArray(files)&&files.length>0,'Actual chooser file delivery requires a selected file; cancellation is a separate platform-boundary scenario');
  await send('DOM.setFileInputFiles',{nodeId:chooser.node,files});
  for(const deadline=Date.now()+15000;Date.now()<deadline;){if(await evaluate('document.querySelector("#duxcel-file-input")===null')){await frames(4);const events=await evaluate('globalThis.duxcelFileInputEvents');check(events.some(event=>event.trusted&&['change','cancel'].includes(event.type)&&event.files===files.length),'Chooser completion was not delivered through a real trusted file input event');return events;}await pause(20);}
  throw new Error('Actual browser file input did not retire after '+(files.length?'selection':'empty/cancelled selection'));
+}
+async function cancelTableChooser(chooser){
+ // Clearing an initially empty CDP file input emits no browser event. Exercise
+ // the real host listener explicitly; this is synthetic boundary coverage,
+ // separate from trusted file delivery and physical/OS dialog cancellation.
+ check(chooser.node,'Missing actual chooser input for cancellation');
+ await evaluate(`(()=>{const input=document.querySelector('#duxcel-file-input');if(!input)throw new Error('Actual chooser input is unavailable');return input.dispatchEvent(new Event('cancel'));})()`);
+ for(const deadline=Date.now()+15000;Date.now()<deadline;){if(await evaluate('document.querySelector("#duxcel-file-input")===null')){await frames(4);const events=await evaluate('globalThis.duxcelFileInputEvents');check(events.some(event=>event.type==='cancel'&&!event.trusted&&event.files===0),'Synthetic chooser cancellation did not traverse the actual file input listener');return events;}await pause(20);}
+ throw new Error('Actual chooser host did not retire its synthetic cancel event');
 }
 async function tableAnchor(row=12){await sourceHome();await key('ArrowRight','ArrowRight',39);for(let index=0;index<row;index++)await key('ArrowDown','ArrowDown',40);return platformSnapshot();}
 function retainedTableSource(before,after,message,{schema=true}={}){const fields=['sheet','sheet_count','source_revision','page','spare','manual_cells'];if(schema)fields.push('schema');check(fields.every(name=>before[name]===after[name]),message);}
@@ -520,7 +530,7 @@ async function browserTableStatistics(foundation){
  const {published,baseline,sentinel}=foundation;await ribbonAnalysisAction('d');const source=await platformSnapshot();
  check(source.selected_object==='-1'&&source.object_count==='1'&&source.manual_cells===sentinel.manual_cells,'Table gate did not return to the retained primary source/matrix/sparse cells');retainedTableSource(baseline,source,'Existing matrix setup changed its primary source');
  const anchor=await tableAnchor(),jobs=starts().length;check(anchor.active==='12,1'&&anchor.extent==='12,1','Actual Table import destination is not B13');
- const cancelledChooser=await tableImportChooser(anchor),cancelEvents=await completeTableChooser(cancelledChooser,[]),cancelled=await platformSnapshot();browserPicker(cancelled);
+ const cancelledChooser=await tableImportChooser(anchor),cancelEvents=await cancelTableChooser(cancelledChooser),cancelled=await platformSnapshot();browserPicker(cancelled);
  retainedTableSource(anchor,cancelled,'Cancelling Import Table changed its retained source/sparse data');check(cancelled.object_count==='1'&&cancelled.active===anchor.active&&cancelled.anchor===anchor.anchor&&cancelled.extent===anchor.extent&&starts().length===jobs,'Cancelling Import Table created an object, changed selection or submitted SQL');
  const staleChooser=await tableImportChooser(cancelled);await key('ArrowDown','ArrowDown',40);const moved=await platformSnapshot();check(moved.active==='13,1','Trusted navigation did not change the pending Table destination');
  const staleEvents=await completeTableChooser(staleChooser,[sourceFile]),rejected=await platformSnapshot();browserPicker(rejected);retainedTableSource(anchor,rejected,'Rejecting a stale Table destination changed source/sparse data');
@@ -543,8 +553,8 @@ async function browserTableStatistics(foundation){
  await ribbonAnalysisAction('d');await sourceHome();for(let index=0;index<7;index++)await key('ArrowRight','ArrowRight',39);for(let index=0;index<9;index++)await key('ArrowDown','ArrowDown',40);const manual=await platformSnapshot();
  check(manual.active==='9,7'&&manual.manual_cells==='1'&&manual.object_count==='2','Imported Table statistics did not retain the H10 sparse sentinel');retainedTableSource(source,manual,'Returning from Table statistics changed the primary source',{schema:false});check(manual.schema===table.schema,'Returning to sparse/source cells changed the shared schema generation');await capture('table-statistics-retained-manual');check(starts().length===idleJobs,'Revisiting cached matrix/source/manual cells submitted unexpected SQL');
  check(consoleText('Browser review prepared: ').length===0&&(await pendingReports()).length===0,'Table statistics unexpectedly staged a report');const queue=await(await fetch(new URL('/__review/queue',url))).json();check(queue.reports.length===0,'Table statistics wrote into the review queue');
- const result={foundation,source,anchor,cancelledChooser,cancelEvents,cancelled,staleChooser,moved,staleEvents,rejected,chooser,chosenEvents,reply,table,cell,statisticsReply,ready,cache,idle,matrix,manual,
-  scope:'Actual C File Import table/Alt F I and trusted browser chooser cancellation, stale-destination rejection and CSV selection; independent same-sheet OBJECT_TABLE at B13 beside a retained primary source, Rows/Values matrix and H10 sparse value. Real D15:D19 selection publishes object-owned kind10 counts and 145.25/29.05/-4.5/100, with unchanged Table page/revision and no idle/presentation jobs. Database selection, workbook persistence, physical chooser UX and general rejected-file memory recovery remain separate; no saved reports or engine callbacks are used.'};
+ const result={foundation,source,anchor,cancelledChooser,cancelEvents,cancellation_delivery:'synthetic untrusted DOM cancel at actual file input listener; physical/OS cancellation not accepted',cancelled,staleChooser,moved,staleEvents,rejected,chooser,chosenEvents,reply,table,cell,statisticsReply,ready,cache,idle,matrix,manual,
+  scope:'Actual C File Import table/Alt F I, explicitly synthetic DOM cancellation through the actual chooser listener, trusted stale-destination navigation/rejection and CSV selection; independent same-sheet OBJECT_TABLE at B13 beside a retained primary source, Rows/Values matrix and H10 sparse value. Real D15:D19 selection publishes object-owned kind10 counts and 145.25/29.05/-4.5/100, with unchanged Table page/revision and no idle/presentation jobs. Database selection, workbook persistence, physical chooser UX and general rejected-file memory recovery remain separate; no saved reports or engine callbacks are used.'};
  await fs.writeFile(path.join(output,'table-statistics.json'),JSON.stringify(result,null,2));return result;
 }
 function retainedAnalysisCache(before,after,message){
