@@ -10,21 +10,23 @@ import {createCDP} from './test_web_cdp.mjs';
 import {cdpKeyEvent} from './cdp_keyboard.mjs';
 const url=process.argv[2]??'http://127.0.0.1:8767';
 const output=path.resolve(process.argv[3]??'build/web/browser-qa/cdp');
-await fs.mkdir(output,{recursive:true});
-const profile=await fs.mkdtemp(path.join(os.tmpdir(),'duxcel-browser-'));
-const browser=spawn(process.env.DUXCEL_CHROMIUM??'/Applications/Chromium.app/Contents/MacOS/Chromium',
- ['--headless','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--no-proxy-server','about:blank'],{stdio:['ignore','ignore','pipe']});
-await fs.writeFile(path.join(output,'browser-process.json'),JSON.stringify({pid:browser.pid,parent_pid:process.pid,started_ms:Date.now(),headless:true,profile:'owned temporary profile'},null,2));
 const workerProbe=process.argv.includes('--worker-probe');
 const workerDriver=process.argv.includes('--worker-driver');
 const filters=process.argv.includes('--filters');
 const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
+const accessOnly=process.argv.includes('--access-only');
 const reviewOffline=process.argv.includes('--review-offline');
 const canvasTransform=process.argv.includes('--canvas-transform');
 const platform=process.argv.includes('--platform');
 const altStress=process.argv.includes('--alt-stress');
 const persistence=process.argv.includes('--persistence');
+if(accessOnly&&(!review||['--source','--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--review-offline','--canvas-transform'].some(flag=>process.argv.includes(flag))))throw new Error('--access-only requires --review and excludes source/engine/platform/report-upload options');
+await fs.mkdir(output,{recursive:true});
+const profile=await fs.mkdtemp(path.join(os.tmpdir(),'duxcel-browser-'));
+const browser=spawn(process.env.DUXCEL_CHROMIUM??'/Applications/Chromium.app/Contents/MacOS/Chromium',
+ ['--headless','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--no-proxy-server','about:blank'],{stdio:['ignore','ignore','pipe']});
+await fs.writeFile(path.join(output,'browser-process.json'),JSON.stringify({pid:browser.pid,parent_pid:process.pid,started_ms:Date.now(),headless:true,profile:'owned temporary profile'},null,2));
 const dprIndex=process.argv.indexOf('--dpr'),dpr=dprIndex<0?1:Number(process.argv[dprIndex+1]);
 let sourceResult;
 let filterResult;
@@ -229,6 +231,9 @@ async function accessKeys(){
  check(menu.file_menu==='1','Pointer File menu did not open');
  await key('Delete','Delete',46);const protectedCell=await platformSnapshot();
  check(protectedCell.file_menu==='1'&&protectedCell.manual_cells===seeded.manual_cells&&protectedCell.active_format_flags===bold.active_format_flags&&protectedCell.modal==='0','Delete leaked through the pointer File menu into worksheet editing');
+ const [bodyX,bodyY,bodyWidth,bodyHeight]=protectedCell.body.split(',').map(Number);
+ await click(bodyX+Math.min(160,bodyWidth-8),bodyY+Math.min(70,bodyHeight-8));const outside=await platformSnapshot();
+ check(outside.file_menu==='0'&&outside.manual_cells===seeded.manual_cells&&outside.active===protectedCell.active&&outside.extent===protectedCell.extent&&outside.modal==='0','Normal outside click failed to dismiss File or clicked through into worksheet editing/selection');
  await key('Escape','Escape',27);
  await key('Alt','AltLeft',18);await key('f','KeyF',70);await key('c','KeyC',67);
  const closePrompt=await platformSnapshot();
@@ -239,8 +244,8 @@ async function accessKeys(){
  await key('ArrowRight','ArrowRight',39);await key('Enter','Enter',13);const closed=await platformSnapshot();
  check(closed.modal==='0'&&closed.dirty==='0'&&closed.manual_cells==='0'&&closed.sheet_count==='1','Discard Close did not retain a live blank browser surface');
  check(starts().length===jobs,'Access keys or document close added unexpected database jobs');
- const result={before,seeded,boldBatch,bold,copyBatch,copied,menu,protectedCell,closePrompt,cancelled,closed,
-  scope:'Trusted CDP sequences, actual C formatting/Copy dispatch, File-menu edit quarantine and cancel/discard document lifecycle. Pinned browser clipboard transport is not implemented and is not accepted by this dispatch test.'};
+ const result={before,seeded,boldBatch,bold,copyBatch,copied,menu,protectedCell,outside,closePrompt,cancelled,closed,
+  scope:'Trusted CDP sequences, actual C formatting/Copy dispatch, File-menu edit quarantine, normal held outside click and cancel/discard document lifecycle. This does not accept completed between-frame pointer capture, browser clipboard delivery, Worker queries or report upload.'};
  await fs.writeFile(path.join(output,'access-keys.json'),JSON.stringify(result,null,2));
  return result;
 }
@@ -345,6 +350,10 @@ try{
  check(surface.dpr===dpr,'Browser device pixel ratio mismatch');
  check(surface.canvas[0]===1280*dpr&&surface.canvas[1]===820*dpr,'Framebuffer is not rendered at actual DPR');
  await capture('wide');
+ if(accessOnly){
+  accessKeyResult=await accessKeys();
+  check(starts().length===0,'Blank-workbook access-only flow submitted a database job');
+ }else{
  if(persistence){
   const result=await evaluate(`(async()=>{const [{runPersistenceProbe},vendor]=await Promise.all([import('./persistence_probe.mjs'),fetch('./vendor.json').then(r=>r.json())]);const report=await runPersistenceProbe({baseURL:location.href,moduleURL:new URL(vendor.worker.moduleURL,location.href).href,workerURL:new URL(vendor.worker.workerURL,location.href).href,fixtureURL:new URL('./native-fixture.dxls',location.href).href});if(report.export){const exported=report.export;const dataURL=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(new Blob([exported.bytes]));});report.export={...exported,bytes:undefined,base64:dataURL.slice(dataURL.indexOf(',')+1)};}return report;})()`,90000);
   if(result.export?.base64){
@@ -541,6 +550,7 @@ try{
  await send('Emulation.setDeviceMetricsOverride',{width:640,height:640,deviceScaleFactor:dpr,mobile:false});await frames(4);await capture('narrow');
  const narrow=await evaluate('({width:innerWidth,height:innerHeight,canvas:[document.querySelector("canvas").width,document.querySelector("canvas").height]})');
  check(narrow.width===640&&narrow.height===640&&narrow.canvas[0]===640*dpr&&narrow.canvas[1]===640*dpr,'Narrow canvas mismatch');
+ }
  const lateErrors=events.filter(e=>e.method==='Runtime.exceptionThrown'||e.method==='Log.entryAdded'&&/WebGL: (INVALID|too many)/.test(e.params.entry.text));
  check(!lateErrors.length,'Runtime/rendering error after interactions');
  await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
@@ -548,7 +558,7 @@ try{
  resources.c_bridge=consoleText('Browser worker metrics: ').map(line=>JSON.parse(line.slice('Browser worker metrics: '.length)));
  resources.scope='Navigation-to-first completed C frame and parent resource timing; main JS heap excludes Worker/GPU/process RSS. C bridge metrics are review-only bounded callback/job observations; decode_ms is C validation/allocation/copy, elapsed_ms includes asynchronous engine/transport scheduling. Worker network bytes are not inferred from parent Resource Timing.';
  await fs.writeFile(path.join(output,'resources.json'),JSON.stringify(resources,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,workerProbe,scope:'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,accessKeyResult,persistenceResult,workerProbe,profile:accessOnly?'access-only':'standard',scope:accessOnly?'Shared C startup and focused blank-workbook access keys/File/document interactions; no Worker query, clipboard delivery or report-upload acceptance.':'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){
