@@ -33,6 +33,8 @@ void database_close(Database *db);
 /* Source stamps reject observed in-session file changes, not cross-session identity. */
 bool database_source_matches(const Analysis *source,uint64_t expected_source_stamp,char **error);
 bool database_copy_bound(Database *db,Analysis *source,uint64_t first,uint64_t rows,size_t column,size_t columns,uint64_t expected_source_stamp,char **tsv,char **error);
+/* Bound Page output must be zero-initialized or own a valid Page. Failure
+   preserves it; success replaces its owned contents. */
 bool database_copy_page_bound(Database *db,Analysis *source,const PivotDefinition *pivot,uint64_t first,size_t rows,size_t column,size_t columns,uint64_t expected_source_stamp,Page *page,char **error);
 bool database_statistics_bound(Database *db,Analysis *source,const PivotDefinition *pivot,uint64_t first,uint64_t rows,size_t column,size_t columns,uint64_t expected_source_stamp,SelectionStats *stats,char **error);
 bool database_export_parquet_bound(Database *db,Analysis *source,const char *path,uint64_t expected_source_stamp,uint64_t *rows,char **error);

@@ -4,6 +4,8 @@ Current plan, 17 October 2026. Deliver the exact reference UI in C99/raylib usin
 
 Latest priority decision: implement native agentic feedback first, then prove the shared C99/raylib UI in Wasm with the official DuckDB-Wasm Worker bridge. This supersedes the former blanket deferral of browser work. Existing correctness/UI/analytical backlog remains below. Section 0 records the development baseline; its remaining infrastructure items are not prerequisites unless they block these slices. Detailed execution/ownership is in [NATIVE_REVIEW_PLAN.md](design/NATIVE_REVIEW_PLAN.md).
 
+Execution continues through the unchecked work and the requirements traceability index, including later prose/steering requests. A focused acceptance checkpoint is a progress record, not a stopping boundary or a claim that the exact UI port is complete. Independent lanes use owned worktrees; App/shared-interface integration and hidden desktop acceptance stay serialized.
+
 Completion audit, 17 October: checked foundation/proof milestones establish only their stated scope. Remaining review targets, source-version-bound asynchronous consumers and browser analytical operations are explicit unchecked items below. The recent zoom/review checkpoint does not close native UI parity or the browser product milestone. The next active implementation slice is the remaining review target coverage in section 1; infrastructure cleanup can proceed independently when safe.
 
 ## 0. Make development bounded and reproducible

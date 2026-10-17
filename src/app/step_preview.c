@@ -96,6 +96,7 @@ QueryJob *step_preview_statistics_job(StepPreview *preview,uint64_t request) {
     if (!preview->active || preview->loading || preview->stats_state!=PREVIEW_STATS_WAITING || preview->grid.dragging || preview->grid.resizing>=0 || dx_millis()-preview->stats_changed<140) return NULL;
     GridRegion *bounds=&preview->stats_bounds; QueryJob *job=dx_alloc(sizeof(*job));
     job->kind=JOB_STATISTICS; job->is_preview=true; job->id=request; job->analysis=analysis_copy(&preview->source);
+    job->expected_source_stamp=preview->page.records.stamp;
     job->offset=bounds->r0; job->rows=bounds->r1-bounds->r0+1; job->first_col=bounds->c0; job->cols=bounds->c1-bounds->c0+1;
     preview->stats_request=request; preview->stats_state=PREVIEW_STATS_LOADING; return job;
 }

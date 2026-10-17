@@ -373,6 +373,11 @@ static void review_control(App *a,const char *id,const char *action,const char *
 static void review_filter(App *a);
 static void review_file_menu(App *a);
 static void review_choice_menu(App *a,const UIChoiceLayout *layout,const char *title,const char *const *names,int count,int selected,int focus);
+static void review_author_panel(App *a,const char *kind,const char *title,Rectangle panel,Rectangle heading,const char *file,int line);
+static bool review_armed(App *a);
+static void review_author_item(App *a,const char *kind,const char *key,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,const char *file,int line);
+static void review_author_scroll(App *a,const char *kind,Rectangle track,Rectangle thumb,Rectangle clip,bool dragging,const char *file,int line);
+static void review_author_input(App *a,const char *kind,const char *key,const char *action,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool focused,const TextInput *input,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -386,6 +391,10 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_FILTER(a) review_filter(a)
 #define REVIEW_FILE_MENU(a) review_file_menu(a)
 #define REVIEW_CHOICES(a,layout,title,names,count,selected,focus) review_choice_menu(a,layout,title,names,count,selected,focus)
+#define REVIEW_AUTHOR_PANEL(a,kind,title,panel,heading) review_author_panel(a,kind,title,panel,heading,__FILE__,__LINE__)
+#define REVIEW_AUTHOR_ITEM(a,kind,key,action,role,label,bounds,clip,enabled,checked,focused,field) review_author_item(a,kind,key,action,role,label,bounds,clip,enabled,checked,focused,field,__FILE__,__LINE__)
+#define REVIEW_AUTHOR_SCROLL(a,kind,track,thumb,clip,dragging) review_author_scroll(a,kind,track,thumb,clip,dragging,__FILE__,__LINE__)
+#define REVIEW_AUTHOR_INPUT(a,kind,key,action,label,bounds,clip,enabled,focused,input) review_author_input(a,kind,key,action,label,bounds,clip,enabled,focused,input,__FILE__,__LINE__)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -397,6 +406,10 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_FILTER(...) ((void)0)
 #define REVIEW_FILE_MENU(...) ((void)0)
 #define REVIEW_CHOICES(...) ((void)0)
+#define REVIEW_AUTHOR_PANEL(...) ((void)0)
+#define REVIEW_AUTHOR_ITEM(...) ((void)0)
+#define REVIEW_AUTHOR_SCROLL(...) ((void)0)
+#define REVIEW_AUTHOR_INPUT(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -948,6 +961,7 @@ static void start_export(App *a,const char *path) {
     QueryJob *j=dx_alloc(sizeof(*j)); j->id=++a->request_id; j->kind=JOB_EXPORT;
     SheetObject *object=selected_object(a);
     j->analysis=analysis_copy(object_source(a,object)); j->path=dx_strdup(path);
+    j->expected_source_stamp=object_fields(a,object)->records.stamp;
     if (object) { j->object_id=object->id; j->revision=object->revision; j->is_table=object->kind==OBJECT_TABLE; if (!j->is_table) j->pivot=pivot_copy(&object->pivot); }
     a->pending_kind=JOB_EXPORT; a->busy=true; a->modal=MODAL_NONE;
     status(a,"Exporting data to Parquet… Escape cancels."); worker_submit(&a->worker,j);
@@ -1197,7 +1211,7 @@ static StatisticsRequest *statistics_snapshot(App *a,char **error) {
         uint64_t end=a->page.count_pending || key->r1<a->page.total ? key->r1+1 : a->page.total;
         size_t last=key->c1<a->page.column_count ? key->c1+1 : a->page.column_count;
         if (last-key->c0>256) { *error=dx_strdup("Choose up to 256 source data columns for selection statistics."); goto failed; }
-        request->ranges[request->count++]=(StatisticsRange){.first=key->r0,.rows=end-key->r0,.column=key->c0,.columns=last-key->c0};
+        request->ranges[request->count++]=(StatisticsRange){.first=key->r0,.rows=end-key->r0,.column=key->c0,.columns=last-key->c0,.expected_source_stamp=a->page.records.stamp};
     }
     for (size_t i=0;i<sheet->cells.count;i++) {
         SheetCell *cell=&sheet->cells.cells[i];
@@ -1221,7 +1235,7 @@ static StatisticsRequest *statistics_snapshot(App *a,char **error) {
             const SheetObject *source=objects_source(&sheet->objects,o);
             size_t binding=source ? source_snapshot_bind(&request->sources,source->id,&source->source,error) : 0;
             if (binding==SIZE_MAX) goto failed;
-            request->ranges[request->count++]=(StatisticsRange){.source=binding,.is_pivot=o->kind!=OBJECT_TABLE,.pivot=pivot_copy(&o->pivot),.first=start-o->row-2,.rows=end-start,.column=first-o->col,.columns=last-first};
+            request->ranges[request->count++]=(StatisticsRange){.source=binding,.is_pivot=o->kind!=OBJECT_TABLE,.pivot=pivot_copy(&o->pivot),.first=start-o->row-2,.rows=end-start,.column=first-o->col,.columns=last-first,.expected_source_stamp=object_fields(a,o)->records.stamp};
         }
     }
     return request;
@@ -1251,8 +1265,9 @@ static void schedule_statistics(App *a) {
     if (a->statistics_object>=0) {
         SheetObject *o=&active_sheet(a)->objects.items[a->statistics_object];
         j->analysis=analysis_copy(object_source(a,o));
+        j->expected_source_stamp=object_fields(a,o)->records.stamp;
         j->pivot=pivot_copy(&o->pivot); j->object_id=o->id; j->revision=o->revision; j->is_table=o->kind==OBJECT_TABLE;
-    } else if (!snapshot) j->analysis=analysis_copy(&a->analysis);
+    } else if (!snapshot) { j->analysis=analysis_copy(&a->analysis); j->expected_source_stamp=a->page.records.stamp; }
     else for (size_t i=0;i<snapshot->count;i++) if (!snapshot->ranges[i].source) { j->analysis=analysis_copy(&a->analysis); break; }
     a->statistics_request=j->id; a->statistics_state=STATS_CALCULATING; statistics_line(a); worker_submit(&a->worker,j);
 }
@@ -1691,6 +1706,7 @@ static void copy_selection(App *a) {
         if (r1>=preview->page.total) r1=preview->page.total-1; if (c1>=preview->page.column_count) c1=preview->page.column_count-1;
         if (r1-r0+1>DX_COPY_CELLS/(c1-c0+1)) { status(a,"Choose up to 20,000 preview cells to copy."); return; }
         QueryJob *job=dx_alloc(sizeof(*job)); job->id=++a->request_id; job->kind=JOB_COPY; job->is_preview=true; job->analysis=analysis_copy(&preview->source); job->offset=r0; job->rows=r1-r0+1; job->first_col=c0; job->cols=c1-c0+1;
+        job->expected_source_stamp=preview->page.records.stamp;
         a->busy=true; a->pending_kind=JOB_COPY; worker_submit(&a->worker,job); a->consume_grid_input=true; return;
     }
     if (a->busy) return;
@@ -1701,10 +1717,11 @@ static void copy_selection(App *a) {
     if (r1-r0>=DX_CLIPBOARD_CELLS || c1-c0>=DX_CLIPBOARD_CELLS) { status(a,"Copy up to 20,000 cells at a time. Select a smaller range."); return; }
     CopyRequest *copy=dx_alloc(sizeof(*copy)); char *error=NULL;
     if (!clipboard_init(&copy->cells,(size_t)(r1-r0+1),c1-c0+1,&error)) goto failed;
-    bool missing[DX_MAX_OBJECTS+1]={0}; ObjectStore *objects=&active_sheet(a)->objects;
+    bool missing[DX_MAX_OBJECTS+1]={0},contributing[DX_MAX_OBJECTS+1]={0}; ObjectStore *objects=&active_sheet(a)->objects;
     for (size_t row=0;row<copy->cells.rows;row++) for (size_t column=0;column<copy->cells.columns;column++) {
         uint64_t r=r0+row; size_t c=c0+column; const char *value=NULL; char *header=NULL;
         if (a->analysis.kind!=SOURCE_NONE && c<a->page.column_count && (a->page.count_pending || r<a->page.total)) {
+            contributing[0]=true;
             const Cell *cell=copy_cached_cell(&a->page,r,c);
             if (!cell) cell=copy_cached_cell(&a->spare,r,c);
             if (!cell) missing[0]=true; else if (!cell->is_null) value=cell->text;
@@ -1722,6 +1739,7 @@ static void copy_selection(App *a) {
                         if (label->detail) { header=dx_printf("%s_%s",label->caption ? label->caption : label->name,label->detail); value=header; }
                         else value=label->caption ? label->caption : label->name;
                     } else if (r-object->row-2<page->total) {
+                        contributing[index+1]=true;
                         const Cell *cell=copy_cached_cell(page,r-object->row-2,c-object->col);
                         if (!cell) missing[index+1]=true; else if (!cell->is_null) value=cell->text;
                     }
@@ -1750,9 +1768,24 @@ static void copy_selection(App *a) {
         char *text=clipboard_tsv(&copy->cells,&error); if (!text) goto failed;
         SetClipboardText(text); free(text); copy_request_free(copy); status(a,"Selection copied."); return;
     }
+    /* Guard cached contributors too: an asynchronous patch must not combine
+       values already on screen with another version of the same source. */
+    for (size_t i=0;i<=objects->count;i++) if (contributing[i]) {
+        SheetObject *object=i ? &objects->items[i-1] : NULL;
+        uint64_t stamp=object_fields(a,object)->records.stamp;
+        if (!stamp) continue;
+        const SheetObject *source=object ? objects_source(objects,object) : NULL;
+        size_t binding=source ? source_snapshot_bind(&copy->sources,source->id,&source->source,&error) : 0;
+        if (binding==SIZE_MAX) goto failed;
+        size_t guard=0; while (guard<copy->guard_count && copy->guards[guard].source!=binding) guard++;
+        if (guard<copy->guard_count) {
+            if (copy->guards[guard].expected_source_stamp!=stamp) { error=dx_strdup("The selected source versions differ. Refresh before copying."); goto failed; }
+        } else copy->guards[copy->guard_count++]=(CopySourceGuard){binding,stamp};
+    }
     QueryJob *job=dx_alloc(sizeof(*job)); job->id=++a->request_id; job->kind=JOB_RANGE_COPY;
     job->copy=copy;
     for (size_t i=0;i<copy->count;i++) if (!copy->patches[i].source) { job->analysis=analysis_copy(&a->analysis); break; }
+    if (job->analysis.kind==SOURCE_NONE) for (size_t i=0;i<copy->guard_count;i++) if (!copy->guards[i].source) { job->analysis=analysis_copy(&a->analysis); break; }
     a->busy=true; a->pending_kind=JOB_RANGE_COPY; worker_submit(&a->worker,job); return;
 failed:
     status(a,error ? error : "The selection could not be copied."); free(error); copy_request_free(copy);
@@ -2511,7 +2544,12 @@ static void draw_pivot_field_popup(App *a) {
     int direction=ui_key(KEY_UP) || (ui_pressed(KEY_TAB)&&ui_key_shift(KEY_TAB)) || ui_pressed(KEY_END) ? -1 : 1;
     for (int i=0;i<count && !allowed[a->context_focus];i++) a->context_focus=(a->context_focus+count+direction)%count;
     ui_choice_frame(u,&layout,title);
+    REVIEW_AUTHOR_PANEL(a,"pivot_field",title,layout.panel,layout.title);
     for (int item=0;item<count;item++) {
+#ifdef DUXCEL_DEV_REVIEW
+        const char *key=axis ? item==0 ? "move_earlier" : item==1 ? "move_later" : item==2 ? "move_axis" : date && item<count-1 ? ((const char *const[]){"grain.year","grain.quarter","grain.month"})[item-3] : "remove" : measures ? item<3 ? ((const char *const[]){"aggregate.sum","aggregate.count","aggregate.avg"})[item] : "remove" : ((const char *const[]){"assign.rows","assign.columns","assign.values","assign.filters"})[item];
+        REVIEW_AUTHOR_ITEM(a,"pivot_field",key,"pivot.field.action",checked[item] ? "menuitemradio" : "menuitem",labels[item],layout.rows[item],layout.panel,allowed[item],checked[item],a->context_focus==item,field ? field->name : context_fields(a)->columns[a->pivot_drag_field].name);
+#endif
         bool chosen=ui_choice_row(u,layout.rows[item],labels[item],NULL,icons[item],checked[item],a->context_focus==item,allowed[item]);
         bool activate=!a->consume_grid_input && a->context_focus==item && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE));
         if (!allowed[item] || (!chosen&&!activate)) continue;
@@ -2542,6 +2580,7 @@ static void draw_pivot_menu(App *a) {
     popup_capture(a,panel); Vector2 mouse=ui_mouse_position();
     if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,panel))) { a->modal=MODAL_NONE; a->pivot_drag_field=a->pivot_drag_role=-1; a->consume_grid_input=true; return; }
     ui_choice_frame(u,&layout.frame,target ? target->name : "Object actions");
+    REVIEW_AUTHOR_PANEL(a,"object",target ? target->name : "Object actions",layout.frame.panel,layout.frame.title);
     {
         SheetObject *selected=selected_object(a); int count=base_count+1;
         const char *labels[]={"Refresh object","Select object range","Inspect SQL",table ? "Create pivot table" : selected && selected->kind==OBJECT_CHART ? "Chart size…" : "Create chart","Rename…","Delete object","Create chart","Relink table source…","Choose table or view…","Edit source query…","Move object…"};
@@ -2558,6 +2597,10 @@ static void draw_pivot_menu(App *a) {
             const UICarbonIcon icons[]={CARBON_RENEW,CARBON_GRID,CARBON_SQL,CARBON_DATA_VIEW,CARBON_STRING_TEXT,CARBON_TRASH_CAN,CARBON_CHART_BAR,CARBON_FOLDER_OPEN,CARBON_LIST,CARBON_SQL,CARBON_DRAGGABLE};
             UICarbonIcon icon=i==base_count ? CARBON_DRAGGABLE : table && i==base_count-1 ? CARBON_SQL : icons[i];
             if (i==3) icon=table ? CARBON_TABLE : selected && selected->kind==OBJECT_CHART ? CARBON_MAXIMIZE : CARBON_CHART_BAR;
+#ifdef DUXCEL_DEV_REVIEW
+            const char *key=i==base_count ? "move" : table && i==base_count-1 ? "source_query" : i==3 ? table ? "create_pivot" : selected && selected->kind==OBJECT_CHART ? "chart_size" : "create_chart" : ((const char *const[]){"refresh","select_range","inspect_sql","create_chart","rename","delete","create_chart","relink","relation","source_query"})[i];
+            REVIEW_AUTHOR_ITEM(a,"object",key,"object.action","menuitem",labels[i],item,layout.items,true,false,a->context_focus==i,NULL);
+#endif
             if (ui_choice_row(u,item,labels[i],NULL,icon,false,a->context_focus==i,true) || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
             SheetObject *o=selected_object(a); a->modal=MODAL_NONE; if (!o) return;
             if (i==base_count) begin_move_range(a,true);
@@ -4107,6 +4150,7 @@ static void draw_move_range(App *a) {
     UIContext *u=&a->ui; float s=u->scale,w=fminf(520*s,GetScreenWidth()-32*s),h=252*s,x=(GetScreenWidth()-w)*.5f,y=(GetScreenHeight()-h)*.5f;
     if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
     if (ui_pressed(KEY_TAB)) a->range_move_focus=(a->range_move_focus+(ui_key_shift(KEY_TAB) ? 2 : 1))%3;
+    REVIEW_AUTHOR_PANEL(a,"move_range","Move selection",box(x,y,w,h),box(x+24*s,y+20*s,w-48*s,30*s));
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
     DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleLinesEx(box(x,y,w,h),1,UI_BORDER);
     ui_text(u,"Move selection",x+24*s,y+20*s,20,UI_TEXT);
@@ -4116,15 +4160,18 @@ static void draw_move_range(App *a) {
     Rectangle field=box(x+24*s,y+94*s,w-48*s,34*s);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),field)) a->range_move_focus=0;
     if (!a->range_move_focus) input_update(&a->input); input_draw(u,&a->input,field);
+    REVIEW_AUTHOR_INPUT(a,"move_range","destination","range.destination","Destination",field,box(x,y,w,h),true,!a->range_move_focus,&a->input);
     if (a->range_move_error) ui_text_clip(u,a->range_move_error,box(x+16*s,y+138*s,w-32*s,48*s),11,(Color){174,55,53,255},false);
     const char *labels[]={"Move","Cancel"};
     for (int i=0;i<2;i++) {
         Rectangle r=box(x+w-(216-i*104)*s,y+h-48*s,96*s,30*s);
+        REVIEW_AUTHOR_ITEM(a,"move_range",i ? "cancel" : "apply","dialog.action","button",labels[i],r,box(x,y,w,h),true,false,a->range_move_focus==i+1,NULL);
         if (a->range_move_focus==i+1) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
         bool keyboard=(a->range_move_focus==i+1 || (!i && !a->range_move_focus)) && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)|| (a->range_move_focus && ui_pressed(KEY_SPACE)));
         if (ui_button(u,r,labels[i],!i,true) || keyboard) { if (!i) apply_range_move(a); else { a->modal=MODAL_NONE; a->consume_grid_input=true; } return; }
     }
 }
+
 static void column_action(App *a,ColumnAction action) {
     Grid *g=&a->grid; Worksheet *sheet=active_sheet(a); a->consume_grid_input=true;
     if (action==COLUMN_WIDTH) { char text[32]; snprintf(text,sizeof(text),"%.3f",g->widths[g->col]); input_set(&a->input,text); a->width_invalid=false; a->width_focus=0; a->modal=MODAL_WIDTH; return; }
@@ -4162,22 +4209,26 @@ static void draw_column_width(App *a) {
     if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
     if (ui_pressed(KEY_TAB)) a->width_focus=(a->width_focus+(ui_key_shift(KEY_TAB) ? 2 : 1))%3;
     if (!a->width_focus) input_update(&a->input);
+    REVIEW_AUTHOR_PANEL(a,"column_width","Column width",box(x,y,w,h),box(x+24*s,y+20*s,w-48*s,30*s));
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
     DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleLinesEx(box(x,y,w,h),1,UI_BORDER);
     ui_text(u,"Column width",x+24*s,y+20*s,20,UI_TEXT);
     ui_text_clip(u,"Width at 100% canvas zoom · 52–1200",box(x+24*s,y+53*s,w-48*s,24*s),12,UI_MUTED,false);
     Rectangle input=box(x+24*s,y+84*s,w-48*s,32*s); input_draw(u,&a->input,input);
+    REVIEW_AUTHOR_INPUT(a,"column_width","width","column.width","Column width",input,box(x,y,w,h),true,!a->width_focus,&a->input);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),input)) a->width_focus=0;
     if (a->width_invalid) ui_text_clip(u,"Enter a number between 52 and 1200.",box(x+24*s,y+120*s,w-48*s,24*s),12,UI_ACCENT,false);
     const char *labels[]={"Apply","Cancel"};
     for (int i=0;i<2;i++) {
         Rectangle r=box(x+w-(228-i*108)*s,y+h-48*s,96*s,28*s);
+        REVIEW_AUTHOR_ITEM(a,"column_width",i ? "cancel" : "apply","dialog.action","button",labels[i],r,box(x,y,w,h),true,false,a->width_focus==i+1,NULL);
         if (a->width_focus==i+1) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
         if (ui_button(u,r,labels[i],!i,true) || ((a->width_focus==i+1 || (!i && !a->width_focus)) && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)|| (a->width_focus && ui_pressed(KEY_SPACE))))) {
             if (!i) apply_column_width(a); else { a->modal=MODAL_NONE; a->consume_grid_input=true; } return;
         }
     }
 }
+
 static void begin_chart_size(App *a) {
     SheetObject *o=selected_pivot(a); if (!o || o->kind!=OBJECT_CHART) return;
     char text[32]; snprintf(text,sizeof(text),"%zu",o->columns); input_set(&a->chart_columns,text);
@@ -4206,6 +4257,7 @@ static void draw_chart_size(App *a) {
     UIContext *u=&a->ui; float s=u->scale,w=fminf(500*s,GetScreenWidth()-32*s),h=266*s,x=(GetScreenWidth()-w)*.5f,y=(GetScreenHeight()-h)*.5f;
     if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
     if (ui_pressed(KEY_TAB)) a->chart_size_focus=(a->chart_size_focus+(ui_key_shift(KEY_TAB) ? 3 : 1))%4;
+    REVIEW_AUTHOR_PANEL(a,"chart_size","Chart size",box(x,y,w,h),box(x+24*s,y+20*s,w-48*s,30*s));
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
     DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleLinesEx(box(x,y,w,h),1,UI_BORDER);
     ui_text(u,"Chart size",x+24*s,y+20*s,20,UI_TEXT);
@@ -4218,15 +4270,18 @@ static void draw_chart_size(App *a) {
     }
     TextInput *inputs[]={&a->chart_columns,&a->input};
     for (int i=0;i<2;i++) { if (a->chart_size_focus==i) input_update(inputs[i]); input_draw(u,inputs[i],fields[i]); }
+    for (int i=0;i<2;i++) REVIEW_AUTHOR_INPUT(a,"chart_size",i ? "rows" : "columns","chart.size",i ? "Rows" : "Columns",fields[i],box(x,y,w,h),true,a->chart_size_focus==i,inputs[i]);
     if (a->chart_resize_error) ui_text_clip(u,a->chart_resize_error,box(x+16*s,y+155*s,w-32*s,44*s),11,(Color){174,55,53,255},false);
     const char *labels[]={"Apply","Cancel"};
     for (int i=0;i<2;i++) {
         Rectangle r=box(x+w-(216-i*104)*s,y+h-48*s,96*s,30*s);
+        REVIEW_AUTHOR_ITEM(a,"chart_size",i ? "cancel" : "apply","dialog.action","button",labels[i],r,box(x,y,w,h),true,false,a->chart_size_focus==i+2,NULL);
         if (a->chart_size_focus==i+2) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
         bool keyboard=(a->chart_size_focus==i+2 || (!i && a->chart_size_focus<2)) && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)|| (a->chart_size_focus>=2 && ui_pressed(KEY_SPACE)));
         if (ui_button(u,r,labels[i],!i,true) || keyboard) { if (!i) apply_chart_size(a); else { a->modal=MODAL_NONE; a->consume_grid_input=true; } return; }
     }
 }
+
 static void begin_object_name(App *a) {
     SheetObject *o=selected_object(a); if (!o) return;
     input_set(&a->input,o->name); free(a->object_name_error); a->object_name_error=NULL;
@@ -4243,6 +4298,7 @@ static void draw_object_name(App *a) {
     UIContext *u=&a->ui; float s=u->scale,w=fminf(500*s,GetScreenWidth()-32*s),h=224*s,x=(GetScreenWidth()-w)*.5f,y=(GetScreenHeight()-h)*.5f;
     if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
     if (ui_pressed(KEY_TAB)) a->object_name_focus=(a->object_name_focus+(ui_key_shift(KEY_TAB) ? 2 : 1))%3;
+    REVIEW_AUTHOR_PANEL(a,"object_name","Rename object",box(x,y,w,h),box(x+24*s,y+20*s,w-48*s,30*s));
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,65});
     DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38}); DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleLinesEx(box(x,y,w,h),1,UI_BORDER);
     SheetObject *o=selected_object(a); ui_text(u,o && o->kind==OBJECT_TABLE ? "Rename table" : o && o->kind==OBJECT_CHART ? "Rename chart" : "Rename pivot",x+24*s,y+20*s,20,UI_TEXT);
@@ -4250,10 +4306,12 @@ static void draw_object_name(App *a) {
     Rectangle field=box(x+24*s,y+85*s,w-48*s,34*s);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),field)) a->object_name_focus=0;
     if (!a->object_name_focus) input_update(&a->input); input_draw(u,&a->input,field);
+    REVIEW_AUTHOR_INPUT(a,"object_name","name","object.name","Name",field,box(x,y,w,h),true,!a->object_name_focus,&a->input);
     if (a->object_name_error) ui_text_clip(u,a->object_name_error,box(x+16*s,y+125*s,w-32*s,32*s),11,(Color){174,55,53,255},false);
     const char *labels[]={"Apply","Cancel"};
     for (int i=0;i<2;i++) {
         Rectangle r=box(x+w-(216-i*104)*s,y+h-48*s,96*s,30*s);
+        REVIEW_AUTHOR_ITEM(a,"object_name",i ? "cancel" : "apply","dialog.action","button",labels[i],r,box(x,y,w,h),true,false,a->object_name_focus==i+1,NULL);
         if (a->object_name_focus==i+1) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
         bool keyboard=(a->object_name_focus==i+1 || (!i && !a->object_name_focus)) && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)|| (a->object_name_focus && ui_pressed(KEY_SPACE)));
         if (ui_button(u,r,labels[i],!i,true) || keyboard) { if (!i) apply_object_name(a); else { a->modal=MODAL_NONE; a->consume_grid_input=true; } return; }
@@ -4261,6 +4319,7 @@ static void draw_object_name(App *a) {
 }
 /* Ordinary source values use the design's six analytical actions. Header,
    manual-range and object management menus retain their structural commands. */
+
 static bool source_cell_context(App *a) {
     Grid *g=&a->grid; if (g->selection!=SELECT_CELLS) return false;
     SheetObject *table=selected_object(a);
@@ -4283,10 +4342,12 @@ static void draw_source_context(App *a) {
     char location[48],title[512]; address(a->grid.col,a->grid.row+(a->analysis.kind!=SOURCE_NONE ? 2 : 1),location);
     snprintf(title,sizeof(title),"%s · %s",page->columns[column].caption ? page->columns[column].caption : page->columns[column].name,location);
     ui_choice_frame(u,&menu,title);
+    REVIEW_AUTHOR_PANEL(a,"source_context",title,menu.panel,menu.title);
     const char *names[]={"Copy selection","Sort ascending","Sort descending","Filter column…","Create analysis","Inspect SQL"};
     const UICarbonIcon icons[]={CARBON_COPY,CARBON_SORT_ASCENDING,CARBON_SORT_DESCENDING,CARBON_FILTER,CARBON_DATA_VIEW,CARBON_SQL};
     for (int i=0;i<6;i++) {
         bool available=(i!=1 && i!=2 && i!=4) || !a->busy;
+        REVIEW_AUTHOR_ITEM(a,"source_context",((const char *const[]){"copy","sort.asc","sort.desc","filter","create_analysis","inspect_sql"})[i],"source.action","menuitem",names[i],menu.rows[i],menu.panel,available,false,a->context_focus==i,page->columns[column].name);
         bool chosen=ui_choice_row(u,menu.rows[i],names[i],NULL,icons[i],false,a->context_focus==i,available);
         if (available && (chosen || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE))))) {
             a->modal=MODAL_NONE; a->consume_grid_input=true;
@@ -4339,6 +4400,7 @@ static void draw_context(App *a) {
     else if (a->grid.selection==SELECT_COLUMNS) { location[strcspn(location,"0123456789")]=0; snprintf(title,sizeof(title),"Column %s",location); }
     else snprintf(title,sizeof(title),"Cell %s",location);
     ui_choice_frame(u,&menu,title);
+    REVIEW_AUTHOR_PANEL(a,"context",title,menu.panel,menu.title);
     const UICarbonIcon icons[]={CARBON_ARROWS_HORIZONTAL,CARBON_MAXIMIZE,CARBON_ARROW_LEFT,CARBON_ARROW_RIGHT,CARBON_TRASH_CAN,CARBON_STRING_TEXT,CARBON_TRASH_CAN,CARBON_FILTER,CARBON_SORT_ASCENDING,CARBON_SORT_DESCENDING,CARBON_INFORMATION,CARBON_LIST,CARBON_ARROW_UP,CARBON_ARROW_DOWN,CARBON_TRASH_CAN,CARBON_DRAGGABLE};
     for (int i=0;i<count;i++) {
         char text[96]; const char *label=names[actions[i]];
@@ -4347,6 +4409,7 @@ static void draw_context(App *a) {
             else snprintf(text,sizeof(text),"Insert %" PRIu64 " rows %s",row_count,actions[i]==ROW_ABOVE ? "above" : "below");
             label=text;
         }
+        REVIEW_AUTHOR_ITEM(a,"context",((const char *const[]){"width","fit","insert.left","insert.right","delete.column","edit","clear","filter","sort.asc","sort.desc","inspect","sort.multiple","insert.above","insert.below","delete.row","move"})[actions[i]],"worksheet.action","menuitem",label,menu.rows[i],menu.panel,available[i],false,a->context_focus==i,a->grid.col<a->page.column_count ? a->page.columns[a->grid.col].name : NULL);
         if (ui_choice_row(u,menu.rows[i],label,NULL,icons[actions[i]],false,a->context_focus==i,available[i]) || (!a->consume_grid_input && available[i] && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { column_action(a,actions[i]); return; }
     }
 }
@@ -4554,9 +4617,11 @@ static void draw_field_menu(App *a) {
     if (ui_key(KEY_UP)||ui_key(KEY_DOWN)||ui_pressed(KEY_HOME)||ui_pressed(KEY_END)||ui_pressed(KEY_TAB)) a->field_menu_keyboard=true;
     int previous=a->context_focus; a->context_focus=a->field_menu_focus; context_keys(a,9,9); a->field_menu_focus=a->context_focus; a->context_focus=previous;
     ui_choice_frame(u,&layout,context_fields(a)->columns[a->pivot_field].name);
+    REVIEW_AUTHOR_PANEL(a,"field",context_fields(a)->columns[a->pivot_field].name,layout.panel,layout.title);
     const char *names[]={"Reveal column","Center column","Select column","Add to Rows","Add to Columns","Add measure","Filter this view","Add to Color","Add to Detail"};
     const UICarbonIcon icons[]={CARBON_COLUMN,CARBON_TEXT_ALIGN_CENTER,CARBON_COLUMN,CARBON_ROW,CARBON_COLUMN,CARBON_FUNCTION,CARBON_FILTER,CARBON_COLOR_PALETTE,CARBON_DATA_STRUCTURED};
     for (int i=0;i<9;i++) {
+        REVIEW_AUTHOR_ITEM(a,"field",((const char *const[]){"reveal_column","center_column","select_column","assign.rows","assign.columns","assign.values","assign.filters","assign.color","assign.detail"})[i],"field.action","menuitem",names[i],layout.rows[i],layout.panel,true,false,a->field_menu_keyboard && i==a->field_menu_focus,context_fields(a)->columns[a->pivot_field].name);
         bool chosen=ui_choice_row(u,layout.rows[i],names[i],NULL,CARBON_COUNT,false,a->field_menu_keyboard && i==a->field_menu_focus,true);
         ui_carbon(u,icons[i],box(layout.rows[i].x+8.5f*u->scale,layout.rows[i].y+6*u->scale,16*u->scale,16*u->scale),(Color){65,110,138,255});
         if (chosen || (!a->consume_grid_input && i==a->field_menu_focus && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { field_menu_action(a,i); return; }
@@ -4572,6 +4637,7 @@ static void draw_unsaved(App *a) {
 #ifdef DUXCEL_BROWSER_HOST
     if (!a->document_focus) a->document_focus=ui_key(KEY_LEFT) || (ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB)) ? 2 : 1;
 #endif
+    REVIEW_AUTHOR_PANEL(a,"unsaved","Save your changes?",box(x,y,w,h),box(x+24*s,y+22*s,w-48*s,30*s));
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,75});
     DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38});
     DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleRoundedLinesEx(box(x,y,w,h),.035f,4,1,UI_BORDER);
@@ -4587,6 +4653,7 @@ static void draw_unsaved(App *a) {
         if (!i) available=false;
 #endif
         Rectangle r=box(button_start+i*(button_width+8*s),y+h-54*s,button_width,32*s); a->document_actions[i]=r;
+        REVIEW_AUTHOR_ITEM(a,"unsaved",((const char *const[]){"save","discard","cancel"})[i],"document.action","button",labels[i],r,box(x,y,w,h),available,false,a->document_focus==i,NULL);
         if (a->document_focus==i) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
         if (ui_button(u,r,labels[i],i==0,available) || (available && a->document_focus==i && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE)))) {
             if (!i) save_document_action(a); else if (i==1) finish_document_action(a); else cancel_document_action(a);
@@ -4762,10 +4829,12 @@ static void draw_view_menu(App *a) {
     }
     if (ui_pressed(KEY_ESCAPE)||outside) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
     context_keys(a,4,4); ui_choice_frame(u,&menu,a->view_menu_chart ? "Chart view" : "Matrix view");
+    REVIEW_AUTHOR_PANEL(a,"view",a->view_menu_chart ? "Chart view" : "Matrix view",menu.panel,menu.title);
     const char *names[]={"Matrix","Bar chart","Line chart","Return to data"};
     const UICarbonIcon icons[]={CARBON_TABLE,CARBON_CHART_BAR,CARBON_CHART_LINE,CARBON_TABLE};
     int current=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
     for (int i=0;i<4;i++) {
+        REVIEW_AUTHOR_ITEM(a,"view",((const char *const[]){"matrix","bar","line","data"})[i],"view.action","menuitemradio",names[i],menu.rows[i],menu.panel,true,i<3 && i==current,a->context_focus==i,NULL);
         bool chosen=ui_choice_row(u,menu.rows[i],names[i],NULL,icons[i],i<3 && i==current,a->context_focus==i,true);
         if (chosen || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
             a->modal=MODAL_NONE; a->consume_grid_input=true;
@@ -4788,9 +4857,11 @@ static void draw_representation_menu(App *a) {
     if (CheckCollisionPointRec(ui_mouse_position(),menu.items)) a->context_scroll+=ui_scroll_steps(&a->wheel_select,-GetMouseWheelMoveV().y*3);
     int max=3-menu.visible; if (a->context_scroll<0) a->context_scroll=0; if (a->context_scroll>max) a->context_scroll=max;
     ui_select_menu_frame(u,&menu);
+    REVIEW_AUTHOR_PANEL(a,"representation","Representation",menu.panel,((Rectangle){0}));
     const char *names[]={"Matrix","Bar chart","Line chart"}; int current=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
     for (int row=0;row<menu.visible;row++) {
         int i=row+a->context_scroll;
+        REVIEW_AUTHOR_ITEM(a,"representation",((const char *const[]){"matrix","bar","line"})[i],"view.representation","menuitemradio",names[i],ui_select_menu_row(&menu,row),menu.panel,true,i==current,a->context_focus==i,NULL);
         if (ui_select_menu_option(u,&menu,row,names[i],UI_SELECT_REPRESENTATION,i==current,a->context_focus==i,true,!a->consume_grid_input) || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
             if (set_representation(a,i)) { a->modal=MODAL_NONE; a->pivot_focus=6; a->consume_grid_input=true; }
             return;
@@ -4818,10 +4889,12 @@ static void draw_author_popup(App *a) {
     int count=(int)a->field_match_count; UIMenuLayout menu=assign_menu;
     UIChoiceLayout frame={.panel=panel,.title=box(panel.x+14*s,panel.y+5*s,panel.width-28*s,30*s),.valid=true};
     ui_choice_frame(u,&frame,title);
+    REVIEW_AUTHOR_PANEL(a,"assign_field",title,frame.panel,frame.title);
     if (searching) {
         Rectangle search=box(panel.x+8*s,panel.y+35*s,panel.width-16*s,26*s);
         if (CheckCollisionPointRec(mouse,search) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) a->pivot_search_focus=true;
         input_draw(u,&a->pivot_search,search);
+        REVIEW_AUTHOR_INPUT(a,"assign_field","search","field.search","Search fields",search,panel,true,a->pivot_search_focus,&a->pivot_search);
     }
     Rectangle list=menu.items; int visible=menu.visible,pos=0;
     for (int i=0;i<count;i++) if ((int)a->field_matches[i]==a->pivot_field) pos=i;
@@ -4840,6 +4913,7 @@ static void draw_author_popup(App *a) {
     for (int j=0;j<visible && j+a->pivot_field_scroll<count;j++) {
         int index=j+a->pivot_field_scroll; size_t field=a->field_matches[index]; Rectangle item=box(list.x,list.y+j*28*s,list.width-(max ? 8*s : 0),28*s);
         bool active=(int)field==a->pivot_field;
+        REVIEW_AUTHOR_ITEM(a,"assign_field","assign","field.assign","menuitem",context_fields(a)->columns[field].name,item,list,true,false,active,context_fields(a)->columns[field].name);
         if (ui_choice_row(u,item,context_fields(a)->columns[field].name,NULL,field_icon(&context_fields(a)->columns[field]),false,active,true) || (!a->consume_grid_input && active && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)))) {
             ui_scissor_end(u); a->pivot_drag_field=(int)field; a->pivot_drag_role=-1; a->modal=MODAL_NONE;
             a->pivot_search_focus=false; assign_pivot_ui_field(a,(PivotRole)a->pivot_role,DX_PIVOT_FIELDS); a->consume_grid_input=true; return;
@@ -4864,12 +4938,14 @@ static void draw_marks_menu(App *a) {
     char title[64]; snprintf(title,sizeof(title),"Add to %s",marks_label((MarkRole)a->mark_role)); title[7]=(char)tolower((unsigned char)title[7]);
     UIChoiceLayout frame={.panel=menu.panel,.title=box(menu.panel.x+14*s,menu.panel.y+5*s,menu.panel.width-28*s,30*s),.valid=true};
     ui_choice_frame(u,&frame,title);
+    REVIEW_AUTHOR_PANEL(a,"marks",title,frame.panel,frame.title);
     for (int row=0;row<menu.visible;row++) {
         int index=row+a->context_scroll; if (index>=count) break;
         Rectangle item=box(menu.items.x,menu.items.y+row*28*s,menu.items.width-(count>menu.visible ? 9*s : 0),28*s); bool clear=(size_t)index>=fields->column_count;
         const char *name=clear ? "Clear assignments" : fields->columns[index].name;
         MarkField field=clear ? (MarkField){0} : source_mark_field(a,(MarkRole)a->mark_role,(size_t)index);
         UICarbonIcon icon=clear ? CARBON_TRASH_CAN : field.measure ? CARBON_FUNCTION : temporal_column(&fields->columns[index]) ? CARBON_CALENDAR : CARBON_STRING_TEXT;
+        REVIEW_AUTHOR_ITEM(a,"marks",clear ? "clear" : "assign","marks.action","menuitem",name,item,menu.items,true,false,a->context_focus==index,clear ? NULL : fields->columns[index].name);
         bool click=ui_choice_row_input(u,item,name,NULL,icon,false,a->context_focus==index,true,!opening);
         bool enter=ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER),space=ui_pressed(KEY_SPACE);
         if (opening && a->mark_open_key==KEY_ENTER) enter=false;
@@ -4896,8 +4972,14 @@ static void draw_chart_measure_menu(App *a) {
     if (CheckCollisionPointRec(ui_mouse_position(),menu.items)) a->context_scroll+=ui_scroll_steps(&a->wheel_select,-GetMouseWheelMoveV().y*3);
     int max=count-menu.visible; if (a->context_scroll<0) a->context_scroll=0; if (a->context_scroll>max) a->context_scroll=max;
     ui_select_menu_frame(u,&menu);
+    REVIEW_AUTHOR_PANEL(a,"plot","Plot measure",menu.panel,((Rectangle){0}));
     for (int row=0;row<menu.visible;row++) {
         int index=row+a->context_scroll; char label[512]; pivot_label(a,label,&o->pivot.fields[PIVOT_VALUES][index],PIVOT_VALUES);
+#ifdef DUXCEL_DEV_REVIEW
+        char key[48]; const PivotField *measure=&o->pivot.fields[PIVOT_VALUES][index];
+        snprintf(key,sizeof(key),"select.%u.%u",(unsigned)measure->aggregate,(unsigned)measure->grain);
+        REVIEW_AUTHOR_ITEM(a,"plot",key,"view.measure","menuitemradio",label,ui_select_menu_row(&menu,row),menu.panel,true,o->chart_measure==index,a->context_focus==index,measure->name);
+#endif
         if (ui_select_menu_option(u,&menu,row,label,UI_SELECT_PLOT,o->chart_measure==index,a->context_focus==index,true,!a->consume_grid_input) || (!a->consume_grid_input && a->context_focus==index && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
             if (set_chart_measure(a,(size_t)index)) { a->modal=MODAL_NONE; a->pivot_focus=7; a->consume_grid_input=true; }
             return;
@@ -5119,6 +5201,12 @@ static void list_scrollbar(App *a,Rectangle r,int count,int visible,int *offset,
     float s=a->ui.scale,position=(float)*offset; UIScrollbar state={*drag,*grab};
     if (ui_scrollbar(&a->ui,box(r.x+r.width-8*s,r.y,8*s,r.height),count,visible,&position,false,&state,enabled)) a->consume_grid_input=true;
     *offset=(int)lroundf(position); *drag=state.dragging; *grab=state.grab;
+#ifdef DUXCEL_DEV_REVIEW
+    if (review_armed(a) && count>visible) {
+        const char *kind=a->modal==MODAL_MARKS ? "marks" : a->modal==MODAL_OBJECT ? "object" : a->modal==MODAL_ASSIGN_FIELD ? "assign_field" : NULL;
+        if (kind) { Rectangle track=box(r.x+r.width-8*s,r.y,8*s,r.height); REVIEW_AUTHOR_SCROLL(a,kind,track,ui_scrollbar_thumb(track,count,visible,position,false,s),r,state.dragging); }
+    }
+#endif
 }
 static float draw_workbook_section(App *a,Rectangle r,bool shared) {
     UIContext *u=&a->ui; float s=u->scale; bool enabled=!u->pointer_blocked && a->modal==MODAL_NONE && !a->io_busy;
@@ -5403,7 +5491,9 @@ static void draw_step_menu(App *a) {
     int direction=ui_key(KEY_UP) || (ui_pressed(KEY_TAB)&&ui_key_shift(KEY_TAB)) || ui_pressed(KEY_END) ? -1 : 1;
     for (int i=0;i<5 && !available[a->context_focus];i++) a->context_focus=(a->context_focus+5+direction)%5;
     ui_choice_frame(u,&menu,step->title);
+    REVIEW_AUTHOR_PANEL(a,"step",step->title,menu.panel,menu.title);
     for (int action=0;action<5;action++) {
+        REVIEW_AUTHOR_ITEM(a,"step",((const char *const[]){"edit","move_earlier","move_later","remove","inspect_sql"})[action],"step.action","menuitem",labels[action],menu.rows[action],menu.panel,available[action],false,a->context_focus==action,NULL);
         bool clicked=ui_choice_row_input(u,menu.rows[action],labels[action],NULL,icons[action],false,a->context_focus==action,available[action],!opening);
         if (available[action] && (clicked || (!opening && !a->consume_grid_input && a->context_focus==action && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE))))) {
             a->modal=MODAL_NONE; a->chrome_focus=8;

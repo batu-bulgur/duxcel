@@ -702,14 +702,20 @@ bool ui_scrollbar_update(UIContext *u,Rectangle track,float content,float viewpo
     if (!enabled || !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) state->dragging=false;
     return consumed;
 }
-void ui_scrollbar_paint(UIContext *u,Rectangle track,float content,float viewport,float offset,bool horizontal) {
-    if (!isfinite(content)||!isfinite(viewport)||!isfinite(offset)||content<=viewport||viewport<=0||track.width<=0||track.height<=0) return;
+Rectangle ui_scrollbar_thumb(Rectangle track,float content,float viewport,float offset,bool horizontal,float scale) {
+    if (!isfinite(content)||!isfinite(viewport)||!isfinite(offset)||content<=viewport||viewport<=0||track.width<=0||track.height<=0) return (Rectangle){0};
     float maximum=content-viewport,length=horizontal ? track.width : track.height;
-    float size=fminf(length,fmaxf(26*u->scale,length*viewport/content)),travel=length-size;
+    float size=fminf(length,fmaxf(26*scale,length*viewport/content)),travel=length-size;
     offset=fmaxf(0,fminf(maximum,offset));
-    Rectangle thumb=track,visible=u->clipping ? intersect(track,u->clip) : track;
-    if (horizontal) { thumb.x+=travel*offset/maximum; thumb.width=size; thumb.y+=3*u->scale; thumb.height=fmaxf(u->scale,track.height-6*u->scale); }
-    else { thumb.y+=travel*offset/maximum; thumb.height=size; thumb.x+=3*u->scale; thumb.width=fmaxf(u->scale,track.width-6*u->scale); }
+    Rectangle thumb=track;
+    if (horizontal) { thumb.x+=travel*offset/maximum; thumb.width=size; thumb.y+=3*scale; thumb.height=fmaxf(scale,track.height-6*scale); }
+    else { thumb.y+=travel*offset/maximum; thumb.height=size; thumb.x+=3*scale; thumb.width=fmaxf(scale,track.width-6*scale); }
+    return thumb;
+}
+void ui_scrollbar_paint(UIContext *u,Rectangle track,float content,float viewport,float offset,bool horizontal) {
+    Rectangle thumb=ui_scrollbar_thumb(track,content,viewport,offset,horizontal,u->scale);
+    if (thumb.width<=0 || thumb.height<=0) return;
+    Rectangle visible=u->clipping ? intersect(track,u->clip) : track;
     DrawRectangleRec(visible,UI_BG);
     DrawRectangleRec(u->clipping ? intersect(thumb,u->clip) : thumb,(Color){173,184,199,255});
 }

@@ -135,6 +135,8 @@ bool ui_scrollbar(UIContext *ui,Rectangle track,float content,float viewport,flo
 /* Containers can update before arranging children, then paint the thumb once,
    so a drag moves both content and thumb during the same frame. */
 bool ui_scrollbar_update(UIContext *ui,Rectangle track,float content,float viewport,float *offset,bool horizontal,UIScrollbar *state,bool enabled);
+/* Actual painted thumb, before clipping. Empty when no scrolling is possible. */
+Rectangle ui_scrollbar_thumb(Rectangle track,float content,float viewport,float offset,bool horizontal,float scale);
 void ui_scrollbar_paint(UIContext *ui,Rectangle track,float content,float viewport,float offset,bool horizontal);
 /* Dense navigation row: selection/hover surfaces, rather than a raised command. */
 bool ui_list_row(UIContext *ui,Rectangle r,const char *label,bool selected,bool enabled);
