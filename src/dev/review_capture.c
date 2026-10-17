@@ -1,4 +1,5 @@
 #include "review_capture.h"
+#include "review_capture_layout.h"
 #ifndef DUXCEL_BROWSER_HOST
 #include "review_store.h"
 #endif
@@ -175,17 +176,18 @@ static Rectangle fit_image(DxReviewCapture *r) {
 static Vector2 frame_point(DxReviewCapture *r,Rectangle display,Vector2 point) {
     return (Vector2){(point.x-display.x)*r->frame.window_width/display.width,(point.y-display.y)*r->frame.window_height/display.height};
 }
-bool dx_review_capture_draw(DxReviewCapture *r,UIContext *u) {
+static bool capture_draw(DxReviewCapture *r,UIContext *u,const DxReviewCaptureLayout *layout) {
     poll_writer(r); u->pointer_blocked=false; float s=u->scale,w=GetScreenWidth(),h=GetScreenHeight();
     ClearBackground((Color){31,41,52,255}); Rectangle display={0};
     if (r->texture.id) { display=fit_image(r); DrawTexturePro(r->texture,(Rectangle){0,0,r->texture.width,r->texture.height},display,(Vector2){0},0,WHITE); }
     if (r->phase!=DX_REPORT_WRITING && ui_pressed(KEY_ESCAPE)) { dx_review_capture_cancel(r); return true; }
     if (r->phase==DX_REPORT_PICK) {
         if (ui_pressed(KEY_SPACE)) r->toolbar_top=!r->toolbar_top;
-        Rectangle bar={8*s,r->toolbar_top ? 8*s : h-52*s,w-16*s,44*s}; DrawRectangleRec(bar,(Color){238,244,248,255}); DrawRectangleLinesEx(bar,s,UI_BORDER);
-        ui_label(u,"Pick · drag region · Space moves bar",(Rectangle){bar.x+10*s,bar.y,bar.width-250*s,bar.height},12,UI_TEXT,false,UI_MEDIUM);
-        if (ui_button(u,(Rectangle){w-228*s,bar.y+7*s,95*s,30*s},r->mode==DX_REVIEW_PICK_CONTAINER ? "Containers" : "Controls",false,true)) { r->mode=r->mode==DX_REVIEW_PICK_CONTAINER ? DX_REVIEW_PICK_CONTROL : DX_REVIEW_PICK_CONTAINER; r->target=(DxReviewTarget){0}; r->keyboard_pick=false; r->pick_index=-1; }
-        if (ui_button(u,(Rectangle){w-124*s,bar.y+7*s,100*s,30*s},"Cancel",false,true)) { dx_review_capture_cancel(r); return true; }
+        DxReviewCaptureLayout picker=dx_review_capture_layout(w,h,s,r->toolbar_top);
+        Rectangle bar=picker.picker_bar; DrawRectangleRec(bar,(Color){238,244,248,255}); DrawRectangleLinesEx(bar,s,UI_BORDER);
+        ui_label(u,"Pick · drag region · Space moves bar",picker.picker_label,12,UI_TEXT,false,UI_MEDIUM);
+        if (ui_button(u,picker.picker_mode,r->mode==DX_REVIEW_PICK_CONTAINER ? "Containers" : "Controls",false,true)) { r->mode=r->mode==DX_REVIEW_PICK_CONTAINER ? DX_REVIEW_PICK_CONTROL : DX_REVIEW_PICK_CONTAINER; r->target=(DxReviewTarget){0}; r->keyboard_pick=false; r->pick_index=-1; }
+        if (ui_button(u,picker.picker_cancel,"Cancel",false,true)) { dx_review_capture_cancel(r); return true; }
         Vector2 point=frame_point(r,display,GetMousePosition()); DxReviewTarget hover;
         bool hovered=dx_review_pick(r->registry,point.x,point.y,r->mode,&hover);
         if (r->keyboard_pick && r->target.found) { hover=r->target; hovered=true; }
@@ -227,24 +229,23 @@ bool dx_review_capture_draw(DxReviewCapture *r,UIContext *u) {
         }
         return false;
     }
-    float width=fminf(510*s,w-24*s),height=fminf(348*s,h-24*s),x=(w-width)*.5f,y=(h-height)*.5f;
-    Rectangle panel={x,y,width,height}; DrawRectangle(0,0,(int)w,(int)h,(Color){20,31,46,90});
+    Rectangle panel=layout->panel; DrawRectangle(0,0,(int)w,(int)h,(Color){20,31,46,90});
     DrawRectangleRounded(panel,.025f,4,UI_SURFACE); DrawRectangleLinesEx(panel,s,UI_BORDER);
 #ifdef DUXCEL_BROWSER_HOST
     const char *saved_title="UI issue saved",*saved_detail=r->browser.error[0] ? r->browser.error : "Report export prepared.";
 #else
     const char *saved_title="UI issue saved",*saved_detail="Saved locally; an agent can read and reply later.";
 #endif
-    ui_label(u,r->phase==DX_REPORT_SAVED ? saved_title : "Report UI issue",(Rectangle){x+16*s,y+8*s,width-32*s,30*s},16,UI_TEXT,false,UI_MEDIUM);
+    ui_label(u,r->phase==DX_REPORT_SAVED ? saved_title : "Report UI issue",layout->title,layout->compact ? 14 : 16,UI_TEXT,false,UI_MEDIUM);
     const char *target=r->target.region ? "Selected region" : r->target.found ? r->target.widget.id : "Capture unavailable";
-    ui_label(u,target,(Rectangle){x+16*s,y+43*s,width-32*s,26*s},11,UI_MUTED,false,UI_REGULAR);
+    ui_label(u,target,layout->target,layout->compact ? 10 : 11,UI_MUTED,false,UI_REGULAR);
     if (r->phase==DX_REPORT_SAVED) {
-        ui_label(u,r->report_id,(Rectangle){x+16*s,y+92*s,width-32*s,42*s},13,UI_ACCENT,false,UI_MEDIUM);
-        ui_label(u,saved_detail,(Rectangle){x+16*s,y+140*s,width-32*s,40*s},12,UI_TEXT,false,UI_REGULAR);
-        if (ui_button(u,(Rectangle){x+width-116*s,y+height-46*s,100*s,30*s},"Done",true,true) || ui_pressed(KEY_ENTER)) { dx_review_capture_cancel(r); return true; }
+        ui_label(u,r->report_id,layout->saved_id,layout->compact ? 11 : 13,UI_ACCENT,false,UI_MEDIUM);
+        ui_label(u,saved_detail,layout->saved_detail,layout->compact ? 11 : 12,UI_TEXT,false,UI_REGULAR);
+        if (ui_button(u,layout->done,"Done",true,true) || ui_pressed(KEY_ENTER)) { dx_review_capture_cancel(r); return true; }
         return false;
     }
-    Rectangle note={x+16*s,y+78*s,width-32*s,height-163*s}; r->note.multiline=true;
+    Rectangle note=layout->note; r->note.multiline=true;
     if (ui_pressed(KEY_TAB)) r->focus=(r->focus+(ui_key_shift(KEY_TAB) ? 3 : 1))%4;
     if (CheckCollisionPointRec(ui_mouse_position(),note) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) r->focus=0;
     bool editable=r->phase==DX_REPORT_NOTE || r->phase==DX_REPORT_ERROR;
@@ -252,12 +253,20 @@ bool dx_review_capture_draw(DxReviewCapture *r,UIContext *u) {
     bool activated=text_editor_draw(&r->editor,&r->note,u,note,r->focus==0 && editable);
     if (!editable) dx_review_input_quarantine(false);
     if (activated && editable) r->focus=0;
-    ui_label(u,r->note.length>=DX_REVIEW_NOTE_BYTES ? "Note limit: 4095 UTF-8 bytes. Shorten the note to save." : r->error[0] ? r->error : r->phase==DX_REPORT_WRITING ? "Saving image and report…" : "Describe what happened and what you expected. ⌘Enter to save.",(Rectangle){x+16*s,y+height-80*s,width-32*s,29*s},11,r->error[0] ? MAROON : UI_MUTED,false,UI_REGULAR);
+    ui_label(u,r->note.length>=DX_REVIEW_NOTE_BYTES ? "Note limit: 4095 UTF-8 bytes. Shorten the note to save." : r->error[0] ? r->error : r->phase==DX_REPORT_WRITING ? "Saving image and report…" : layout->compact ? "Describe the issue. ⌘Enter to save." : "Describe what happened and what you expected. ⌘Enter to save.",layout->status,11,r->error[0] ? MAROON : UI_MUTED,false,UI_REGULAR);
     bool available=r->phase!=DX_REPORT_WRITING;
-    if (ui_focus_visible() && r->focus>0) { float bx=r->focus==1 ? x+width-116*s : r->focus==2 ? x+108*s : x+16*s; DrawRectangleLinesEx((Rectangle){bx-2*s,y+height-47*s,r->focus==3 ? 88*s : r->focus==2 ? 96*s : 104*s,34*s},s,UI_FOCUS); }
-    if (ui_button(u,(Rectangle){x+16*s,y+height-45*s,84*s,30*s},"Cancel",false,available) || (available && r->focus==3 && ui_pressed(KEY_ENTER) && !ui_key_shortcut(KEY_ENTER))) { dx_review_capture_cancel(r); return true; }
-    if (ui_button(u,(Rectangle){x+108*s,y+height-45*s,92*s,30*s},r->image.data ? "Pick again" : "Retry capture",false,available) || (available && r->focus==2 && ui_pressed(KEY_ENTER) && !ui_key_shortcut(KEY_ENTER))) { r->target=(DxReviewTarget){0}; r->phase=r->image.data ? DX_REPORT_PICK : DX_REPORT_ARMED; }
-    if (ui_button(u,(Rectangle){x+width-116*s,y+height-45*s,100*s,30*s},r->phase==DX_REPORT_ERROR ? "Retry save" : "Save report",true,available && r->image.data && r->target.found && r->note.length>0 && r->note.length<DX_REVIEW_NOTE_BYTES) ||
+    if (ui_focus_visible() && r->focus>0) { Rectangle focus=r->focus==1 ? layout->save : r->focus==2 ? layout->pick : layout->cancel; focus.x-=2*s; focus.y-=2*s; focus.width+=4*s; focus.height+=4*s; DrawRectangleLinesEx(focus,s,UI_FOCUS); }
+    if (ui_button(u,layout->cancel,"Cancel",false,available) || (available && r->focus==3 && ui_pressed(KEY_ENTER) && !ui_key_shortcut(KEY_ENTER))) { dx_review_capture_cancel(r); return true; }
+    if (ui_button(u,layout->pick,r->image.data ? "Pick again" : "Retry capture",false,available) || (available && r->focus==2 && ui_pressed(KEY_ENTER) && !ui_key_shortcut(KEY_ENTER))) { r->target=(DxReviewTarget){0}; r->phase=r->image.data ? DX_REPORT_PICK : DX_REPORT_ARMED; }
+    if (ui_button(u,layout->save,r->phase==DX_REPORT_ERROR ? "Retry save" : "Save report",true,available && r->image.data && r->target.found && r->note.length>0 && r->note.length<DX_REVIEW_NOTE_BYTES) ||
         (available && ui_pressed(KEY_ENTER) && (ui_key_shortcut(KEY_ENTER) || r->focus==1))) dx_review_capture_save(r);
     return false;
+}
+bool dx_review_capture_draw(DxReviewCapture *r,UIContext *u) {
+    float scale=u->scale;
+    DxReviewCaptureLayout layout=dx_review_capture_layout(GetScreenWidth(),GetScreenHeight(),scale,r->toolbar_top);
+    u->scale=layout.scale;
+    bool closed=capture_draw(r,u,&layout);
+    u->scale=scale;
+    return closed;
 }
