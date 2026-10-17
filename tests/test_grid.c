@@ -1150,6 +1150,7 @@ static void test_overscroll_gestures(void) {
         for (int n=0;n<24;n++) {
             grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-8,n%2 ? -.1f : .1f},.dt=.01f});
             CHECK(!g.elastic.y && g.pan_y.returning && !g.pan_y.active);
+            CHECK(!g.top && !g.fraction && !g.horizontal);
         }
         grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.dt=.15f});
         grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-40,-40},.dt=.01f});
@@ -1159,11 +1160,73 @@ static void test_overscroll_gestures(void) {
     CHECK(fabsf(returned_at[0]-returned_at[1])<=1.f/60+.00001f && fabsf(returned_at[0]-returned_at[2])<=1.f/60+.00001f);
     CHECK(fabsf(returned_at[0]-returned_at[3])<=.02401f);
 }
+static void test_boundary_tail_noise(void) {
+    Column columns[12]; for (size_t i=0;i<12;i++) columns[i]=(Column){.name="Field",.type=DUCKDB_TYPE_VARCHAR};
+    Page page={.columns=columns,.column_count=12,.total=500};
+    const float uneven[]={.004f,.012f,.024f,.008f,.016f};
+    for (int native=0;native<2;native++) for (int edge=0;edge<2;edge++) for (int zoom=0;zoom<2;zoom++) for (int rate=0;rate<3;rate++) {
+        float scale=zoom ? 2.5f : 1,sign=edge ? -1.f : 1.f;
+        UIContext u={0}; Grid g; Vector2 pointer=overscroll_setup(&g,&u,&page,scale,edge!=0);
+        uint64_t top=g.top; float horizontal=g.horizontal;
+        GridPanPhase tail=native ? GRID_PAN_MOMENTUM : GRID_PAN_NONE;
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-160*sign,-160*sign},.pan_phase=native ? GRID_PAN_BEGIN : GRID_PAN_NONE,.dt=1.f/120});
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pan_phase=native ? GRID_PAN_RELEASE : GRID_PAN_NONE,.dt=.04f});
+        CHECK(g.pan_x.returning && g.pan_y.returning);
+        float before_x=fabsf(g.elastic.x),before_y=fabsf(g.elastic.y),elapsed=0; unsigned tiny=0;
+        for (int frame=0;frame<90;frame++) {
+            float dt=rate==0 ? 1.f/60 : rate==1 ? 1.f/120 : uneven[frame%5];
+            Vector2 pan={0}; bool gap=frame%17>=7 && frame%17<=10;
+            if (!gap) {
+                if (frame%13==0) pan=(Vector2){-64*sign,-48*sign};
+                else { float noise=tiny++%2 ? -.6f : .6f; pan=(Vector2){noise*sign,-noise*sign}; }
+            }
+            grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan=pan,.pan_phase=tail,.dt=dt});
+            if (frame%13==0) {
+                /* Several large tail packets can be coalesced into one frame;
+                   none may restart the returning paper. */
+                for (int packet=0;packet<3;packet++) grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-24*sign,-32*sign},.pan_phase=tail});
+            }
+            elapsed+=dt;
+            CHECK(g.top==top && !g.fraction && g.horizontal==horizontal);
+            CHECK(fabsf(g.elastic.x)<=before_x+.00001f && fabsf(g.elastic.y)<=before_y+.00001f);
+            CHECK(g.elastic.x*sign>=0 && g.elastic.y*sign>=0);
+            CHECK(g.row==4 && g.col==2 && g.pan_x.returning && g.pan_y.returning);
+            if (elapsed>.25f) CHECK(fabsf(g.elastic.x*scale)<.25f && fabsf(g.elastic.y*scale)<.25f);
+            before_x=fabsf(g.elastic.x); before_y=fabsf(g.elastic.y);
+        }
+        CHECK(!g.elastic.x && !g.elastic.y);
+        /* Deliberate2/3-point reversals remain immediate. Alternating packets
+           that large are intentionally not claimed as distinguishable noise. */
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-.1f*sign,-.1f*sign},.pan_phase=tail});
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={2*sign,3*sign},.pan_phase=tail});
+        CHECK(fabsf((g.horizontal-horizontal)*scale-2*sign)<.005f);
+        CHECK(fabs(((double)g.top+g.fraction-top)*24*scale-3*sign)<.001);
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={.125f*sign,.125f*sign},.pan_phase=tail});
+        CHECK(fabsf((g.horizontal-horizontal)*scale-2.125f*sign)<.005f);
+        CHECK(fabs(((double)g.top+g.fraction-top)*24*scale-3.125f*sign)<.001);
+        /* Pull/release again, then reverse with a coherent subpixel stream.
+           Its total is retained across the one-point boundary hysteresis. */
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-180*sign,-180*sign},.pan_phase=native ? GRID_PAN_BEGIN : GRID_PAN_NONE,.dt=.15f});
+        grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pan_phase=native ? GRID_PAN_RELEASE : GRID_PAN_NONE,.dt=.04f});
+        for (int frame=0;frame<20;frame++) grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-.1f*sign,-.1f*sign},.pan_phase=tail,.dt=.02f});
+        CHECK(!g.elastic.x && !g.elastic.y && g.top==top && !g.fraction && g.horizontal==horizontal);
+        for (int frame=0;frame<12;frame++) {
+            grid_handle_input(&g,&u,&page,&(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={.125f*sign,.125f*sign},.pan_phase=tail,.dt=.008f});
+            if (frame<8) {
+                if (g.top!=top || g.fraction || g.horizontal!=horizontal) fprintf(stderr,"Boundary stream native=%d edge=%d scale=%g rate=%d frame=%d x=%g row=%g returning=%d edge=%d pending=%g\n",native,edge,scale,rate,frame,(g.horizontal-horizontal)*scale,((double)g.top+g.fraction-top)*24*scale,g.pan_x.returning,g.pan_x.return_edge,g.pan_x.reversal);
+                CHECK(g.top==top && !g.fraction && g.horizontal==horizontal);
+            }
+        }
+        CHECK(fabsf((g.horizontal-horizontal)*scale-1.5f*sign)<.005f);
+        CHECK(fabs(((double)g.top+g.fraction-top)*24*scale-1.5f*sign)<.001);
+        grid_destroy(&g);
+    }
+}
 int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--column-benchmark")) return column_benchmark();
     if (argc==2 && !strcmp(argv[1],"--font-benchmark")) return font_benchmark();
-    if (argc==2 && !strcmp(argv[1],"--overscroll")) { test_overscroll_return(); test_overscroll_gestures(); printf("PASS: %u precise overscroll/return checks\n",checks); return 0; }
-    test_overscroll_return(); test_overscroll_gestures(); test_keytip_queue();
+    if (argc==2 && !strcmp(argv[1],"--overscroll")) { test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); printf("PASS: %u precise overscroll/return checks\n",checks); return 0; }
+    test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); test_keytip_queue();
     test_animated_workspace_extent(); test_dock_scroll_and_clips(); test_ribbon_flyouts(); test_workspace_layout(); test_frozen_columns(); test_ribbon_spec(); test_grid_density(); test_bounded_preview(); test_carbon_assets(); test_status_geometry(); test_status_metrics(); test_ribbon_layout(); test_menu_bounds(); test_text_lines(); test_text_editing(); test_text_history(); test_region_navigation(); test_long_range_outlines(); test_addresses(); test_navigation_queue();
     CHECK(ui_chart_fraction(0,-DBL_MAX,DBL_MAX)==.5);
     CHECK(ui_chart_fraction(DBL_MAX,-DBL_MAX,DBL_MAX)==1);

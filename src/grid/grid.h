@@ -20,7 +20,8 @@ typedef struct { uint64_t r0,r1; size_t c0,c1; bool active; } GridRegion;
 typedef enum { GRID_PAN_NONE, GRID_PAN_BEGIN, GRID_PAN_ACTIVE, GRID_PAN_RELEASE, GRID_PAN_MOMENTUM } GridPanPhase;
 typedef struct {
     float quiet,elapsed,window_time,window_distance,peak_rate;
-    int direction;
+    float reversal; /* bounded CSS-point accumulation at a returning boundary */
+    int direction,return_edge; /* +1 near edge, -1 far edge, zero without a boundary */
     bool active,returning;
 } GridPanAxis;
 /* Snapshot input separately so regression tests exercise the actual interaction code. */
