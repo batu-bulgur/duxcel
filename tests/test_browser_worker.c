@@ -28,6 +28,10 @@ EM_JS(int, observed_identity, (const char *id,const char *object,const char *rev
 })
 EM_JS(unsigned, observed_cookie, (void), { return Module['dxBrowserWorkerObserved'].cookie; })
 EM_JS(unsigned, observed_ticket, (void), { return Module['dxBrowserWorkerObserved'].ticket; })
+EM_JS(unsigned, observed_cancels, (void), {
+    const count=Module['dxTestCancels'];
+    return Number.isInteger(count) && count>=0 && count<4294967295 ? count>>>0 : 4294967295;
+})
 EM_JS(void, completed, (int ok,unsigned checks,unsigned stages), {
     Module['dxBrowserWorkerTestDone']={ok:Boolean(ok),checks,stages};
 })
@@ -48,6 +52,7 @@ static const char long_sql[]=
     "SELECT SUM((i % 97)::HUGEINT) AS slow_total FROM range(500000000) t(i)";
 static const char latest_sql[]="SELECT 'latest wins'::VARCHAR AS result";
 static const char cancel_recovery_sql[]="SELECT 'recovered after cancel'::VARCHAR AS result";
+static const char rejection_recovery_sql[]="SELECT 'recovered after local rejection'::VARCHAR AS result";
 static const char categories_sql[]=
     "SELECT CASE i WHEN 0 THEN NULL::VARCHAR WHEN 1 THEN '' WHEN 2 THEN 'NULL' "
     "ELSE 'v-' || lpad((i-3)::VARCHAR,3,'0') END AS category,"
@@ -70,7 +75,8 @@ typedef enum {
     WAIT_DISTINCT_PRIMARY,WAIT_DISTINCT_SECONDARY,WAIT_DISTINCT_DECIMAL_PRIMARY,
     WAIT_DISTINCT_DECIMAL_SECONDARY,WAIT_DATE_YEAR,WAIT_DATE_MONTH,
     WAIT_DATE_DAY,WAIT_DATE_HOUR,WAIT_DATE_MINUTE,WAIT_DATE_NULL,
-    WAIT_DISTINCT_ERROR,WAIT_DISTINCT_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
+    WAIT_DISTINCT_ERROR,WAIT_DISTINCT_RECOVERY,WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
+    WAIT_OVERSIZE_ERROR,WAIT_OVERSIZE_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
     QUIET_CANCEL,WAIT_CANCEL_RECOVERY,WAIT_STOP_SCHEMA,RUN_STOP,QUIET_STOP,FINISHED
 } Stage;
@@ -78,18 +84,19 @@ static QueryWorker worker;
 static QueryReply *reply;
 static Page retained;
 static DistinctPage retained_distinct;
+static char *retained_rejection;
 static Stage stage;
 static double entered;
 static uint64_t next_id=UINT64_C(9007199254740993),expected_id,expected_offset,expected_sql,expected_counts;
 static JobKind expected_kind;
 static bool expected_preview;
-static unsigned checks,stages,stale_cookie,stale_ticket,late_callbacks;
+static unsigned checks,stages,stale_cookie,stale_ticket,late_callbacks,rejection_cancels;
 static void retained_values(void);
 
 static void die(const char *condition,int line) {
     fprintf(stderr,"FAIL browser-worker stage %d line %d: %s\n",(int)stage,line,condition);
     if (reply && reply->error) fprintf(stderr,"Worker error: %s\n",reply->error);
-    reply_free(reply); reply=NULL; page_free(&retained); distinct_free(&retained_distinct); if (worker.started) worker_stop(&worker);
+    reply_free(reply); reply=NULL; page_free(&retained); distinct_free(&retained_distinct); free(retained_rejection); if (worker.started) worker_stop(&worker);
     completed(0,checks,stages); emscripten_cancel_main_loop(); abort();
 }
 #define CHECK(condition) do { checks++; if (!(condition)) die(#condition,__LINE__); } while (0)
@@ -133,11 +140,12 @@ static void submit_distinct(const char *sql,const char *column,const char *searc
     job->is_table=true; expected_preview=false; expected_sql+=sql_count;
     worker_submit(&worker,job);
 }
-static bool received(bool error) {
+static bool poll_received(bool error,bool sent) {
     CHECK(!reply); reply=worker_poll(&worker); if (!reply) return false;
     CHECK(reply->id==expected_id && reply->kind==expected_kind && reply->object_id==object_id && reply->revision==revision_id && reply->is_preview==expected_preview);
-    CHECK((reply->error!=NULL)==error); CHECK(!worker.running); counters(); identity(); retained_values(); return true;
+    CHECK((reply->error!=NULL)==error); CHECK(!worker.running); counters(); if (sent) identity(); retained_values(); return true;
 }
+static bool received(bool error) { return poll_received(error,true); }
 static void release_reply(void) { reply_free(reply); reply=NULL; }
 static void quiet(void) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply); counters(); }
 static void exact_values(const Page *page) {
@@ -358,6 +366,34 @@ static void tick(void) {
     case WAIT_DISTINCT_RECOVERY:
         if (!received(false)) return;
         validation_reply(); category_values(&reply->distinct,256,44,300); release_reply(); pass("distinct error recovery preserves prior result pages and uses the known total");
+        submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_OVERSIZE_SCHEMA); return;
+    case WAIT_OVERSIZE_SCHEMA:
+        if (!received(false)) return;
+        validation_reply(); release_reply(); submit(JOB_PAGE,long_sql,0,1,false,1); enter(RUN_OVERSIZE); return;
+    case RUN_OVERSIZE: {
+        if (emscripten_get_now()-entered<80) return;
+        quiet(); CHECK(worker.running); identity();
+        stale_cookie=observed_cookie(); stale_ticket=observed_ticket(); rejection_cancels=observed_cancels(); CHECK(rejection_cancels<UINT32_MAX);
+        /* SQL escaping doubles each apostrophe: the input search fits its own
+           budget but the generated statement exceeds the 1 MiB SQL limit. */
+        size_t length=600*1024; char *search=dx_alloc(length+1); memset(search,'\'',length); search[length]=0;
+        submit_distinct(categories_sql,"category",search,-1,NULL,NULL,0,0,0,0); free(search);
+        enter(WAIT_OVERSIZE_ERROR); return;
+    }
+    case WAIT_OVERSIZE_ERROR:
+        /* Local rejection sends no SQL: preserve the old host observation,
+           while checking the newly owned C reply's full request identity. */
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"1 MiB")); validation_reply();
+        CHECK(!reply->distinct.values && !reply->distinct.count && !reply->distinct.bytes && !reply->distinct.total);
+        CHECK(observed_cookie()==stale_cookie && observed_ticket()==stale_ticket);
+        CHECK(observed_cancels()==rejection_cancels+1);
+        retained_rejection=reply->error; reply->error=NULL; release_reply(); pass("oversized local SQL rejection cancels the active engine request exactly once");
+        submit(JOB_PAGE,rejection_recovery_sql,0,1,false,2); enter(WAIT_OVERSIZE_RECOVERY); return;
+    case WAIT_OVERSIZE_RECOVERY:
+        if (!received(false)) return;
+        short_reply("recovered after local rejection"); CHECK(retained_rejection && strstr(retained_rejection,"1 MiB"));
+        free(retained_rejection); retained_rejection=NULL; release_reply(); pass("recovery after local rejection preserves the owned error and prior result pages");
         submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_SUPERSEDE_SCHEMA); return;
     case WAIT_SUPERSEDE_SCHEMA:
         if (!received(false)) return;
@@ -401,7 +437,7 @@ static void tick(void) {
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
         retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
         page_free(&retained); page_free(&retained); pass("early stop and scheduled stale callbacks are ignored");
-        CHECK(stages==29 && worker.jobs_started==34 && expected_sql==52 && expected_counts==1);
+        CHECK(stages==31 && worker.jobs_started==38 && expected_sql==56 && expected_counts==1);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
