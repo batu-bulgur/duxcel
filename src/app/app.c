@@ -5717,7 +5717,8 @@ static void shortcuts(App *a) {
         a->pivot_drag_field=a->pivot_drag_role=-1; a->pivot_drop_pending=false; a->consume_grid_input=true; return;
     }
     if (a->modal==MODAL_NONE && a->left_drawer && ui_pressed(KEY_ESCAPE)) { close_workspace(a); return; }
-    if (command==DX_COMMAND_TAB_NEXT || command==DX_COMMAND_TAB_PREVIOUS) {
+    if (command==DX_COMMAND_TAB_NEXT || command==DX_COMMAND_TAB_PREVIOUS ||
+        (a->modal==MODAL_FILTER && command==DX_COMMAND_NONE && ui_key_control(KEY_TAB) && ui_pressed(KEY_TAB))) {
         if (a->modal==MODAL_FILTER) { set_filter_mode(a,!a->filter_mode); a->consume_grid_input=true; }
         else if (a->modal==MODAL_NONE && !a->io_busy && !a->chart_resizing) cycle_sheet(a,command==DX_COMMAND_TAB_PREVIOUS);
         return;
