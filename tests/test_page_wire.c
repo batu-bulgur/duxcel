@@ -274,6 +274,9 @@ static void test_copy_envelope(void) {
     CHECK(page_from_wire_copy(&out,wire.bytes,wire.size,0,20000,false,&error) && !error);
     CHECK(out.row_count==20000 && out.column_count==1 && out.bytes==allocated_bytes(&out));
     CHECK(out.cells[0].is_null && out.cells[1].text && !*out.cells[1].text && !strcmp(out.cells[2].text,"NULL") && !strcmp(out.cells[19999].text,"9007199254740993"));
+    size_t budget=out.bytes; page_free(&out); out=retained_page(); Page unchanged=out; unsigned released=releases;
+    CHECK(!page_from_wire_copy_owned(&out,wire.bytes,wire.size,0,20000,false,budget-1,&error) && error && !memcmp(&out,&unchanged,sizeof(out)) && releases==released); free(error); error=NULL;
+    CHECK(page_from_wire_copy_owned(&out,wire.bytes,wire.size,0,20000,false,budget,&error) && !error && out.bytes==budget && releases==released+1);
     memset(wire.bytes,0,wire.size); free(wire.bytes); CHECK(!strcmp(out.cells[19999].text,"9007199254740993")); page_free(&out);
     wire=encode(descriptor,2,10001,values); out=retained_page(); Page before=out;
     CHECK(!page_from_wire_copy(&out,wire.bytes,wire.size,0,10001,false,&error) && error && !memcmp(&out,&before,sizeof(out)));
@@ -283,6 +286,11 @@ static void test_copy_envelope(void) {
     free(error); error=NULL; set_word(&wire,12,20000); wire.bytes[wire.nulls]=2;
     CHECK(!page_from_wire_copy(&out,wire.bytes,wire.size,0,20000,false,&error) && error && !memcmp(&out,&before,sizeof(out)));
     free(error); free(wire.bytes); free(values); page_free(&out);
+    const char *missing[]={NULL}; wire=encode(descriptor,1,1,missing); out=retained_page(); unchanged=out;
+    budget=sizeof(Column)+sizeof(Cell)+strlen(descriptor[0].name)+strlen(descriptor[0].type)+2;
+    error=NULL; CHECK(!page_from_wire_owned(&out,wire.bytes,wire.size,0,1,false,budget-1,&error) && error && !memcmp(&out,&unchanged,sizeof(out))); free(error); error=NULL;
+    CHECK(page_from_wire_owned(&out,wire.bytes,wire.size,0,1,false,budget,&error) && !error && out.bytes==budget && out.cells[0].is_null);
+    free(wire.bytes); page_free(&out);
 }
 int main(void) {
     test_copy_envelope();

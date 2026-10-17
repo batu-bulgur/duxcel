@@ -164,6 +164,7 @@ static bool browser_copy_pivot_valid(const Analysis *source,const PivotDefinitio
 static bool browser_copy_preflight(char **error) {
     BrowserQuery *q=&browser_query; QueryJob *j=q->job; size_t used=sizeof(*j)+sizeof(*q->reply),owned=0;
     if (j->expected_source_stamp || j->statistics) { *error=dx_strdup("Native source stamps or statistics snapshots cannot be used for browser copy."); return false; }
+    if (j->workbook || q->reply->path || j->column || j->search || j->date_start || j->date_end) { *error=dx_strdup("Clipboard jobs cannot contain unrelated file or query payloads."); return false; }
     if (!browser_copy_source_valid(&q->reply->analysis,j->kind==JOB_RANGE_COPY,&used,error)) return false;
     if (j->kind==JOB_RANGE_COPY) {
         CopyRequest *copy=j->copy;
@@ -467,7 +468,16 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
     double decode_started=dx_millis();
     browser_query.callbacks++; browser_query.wire_bytes+=size;
 #endif
-    bool decoded=browser_query.stage==BROWSER_COPY_PAGE ? page_from_wire_copy(&page,wire,size,offset,total,pending!=0,&error) : page_from_wire(&page,wire,size,offset,total,pending!=0,&error);
+    size_t available=SIZE_MAX;
+    if (browser_query.copying) {
+        size_t retained;
+        if (!browser_copy_retained(0,&retained,&error)) { browser_publish(error); free(error); return; }
+        available=DX_BROWSER_COPY_RETAINED_BYTES-retained;
+    }
+    bool decoded=browser_query.copying ? browser_query.stage==BROWSER_COPY_PAGE ?
+        page_from_wire_copy_owned(&page,wire,size,offset,total,pending!=0,available,&error) :
+        page_from_wire_owned(&page,wire,size,offset,total,pending!=0,available,&error) :
+        page_from_wire(&page,wire,size,offset,total,pending!=0,&error);
 #ifdef DUXCEL_DEV_REVIEW
     browser_query.decode_ms+=dx_millis()-decode_started; browser_query.decoded_bytes+=page.bytes;
 #endif

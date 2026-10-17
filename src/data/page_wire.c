@@ -144,7 +144,7 @@ static bool number_type(Text text,uint32_t precision,uint32_t scale,NumberType *
 static char *copy_text(Text text) {
     char *copy=dx_alloc(text.size+1); memcpy(copy,text.bytes,text.size); return copy;
 }
-static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,bool copy,char **error) {
+static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,bool copy,size_t owned_budget,char **error) {
     if (!out || !bytes || size<20 || size>DX_PAGE_WIRE_BYTES) return fail(error,"Invalid DXP1 page size or destination.");
     Reader reader={bytes,size,0};
     uint32_t magic,version,columns,rows,text_bytes;
@@ -155,6 +155,7 @@ static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,
         (copy && (uint64_t)columns*rows>DX_PAGE_WIRE_COPY_CELLS) || text_bytes>DX_PAGE_WIRE_TEXT_BYTES)
         return fail(error,"DXP1 page exceeds its row, column or text limit.");
     if (rows>UINT64_MAX-offset || (rows && total<offset+rows)) return fail(error,"DXP1 page row count or offset is inconsistent.");
+    size_t owned=(size_t)columns*sizeof(Column)+(size_t)columns*rows*sizeof(Cell);
     WireColumn descriptors[DX_PAGE_WIRE_COLUMNS];
     for (size_t i=0;i<columns;i++) {
         WireColumn *column=&descriptors[i]; uint32_t name_size,type_size,kind_size,precision,scale;
@@ -164,6 +165,7 @@ static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,
             !utf8(column->name) || !utf8(column->type) || !utf8(column->kind) || !number_type(column->kind,precision,scale,&column->number))
             return fail(error,"Invalid DXP1 column metadata.");
         column->sql_type=sql_type(column->type);
+        owned+=column->name.size+column->type.size+2;
     }
     size_t cells=(size_t)columns*rows; Text offsets,nulls,text;
     if (!take(&reader,(cells+1)*4,&offsets) || !take(&reader,cells,&nulls) || !take(&reader,text_bytes,&text) || reader.position!=size)
@@ -174,8 +176,10 @@ static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,
         uint32_t next=u32(offsets.bytes+(i+1)*4);
         if (next<first || next>text_bytes || nulls.bytes[i]>1 || (nulls.bytes[i] && first!=next) || !utf8((Text){text.bytes+first,next-first}))
             return fail(error,"Invalid DXP1 cell offsets, NULL marker or UTF-8 text.");
+        if (!nulls.bytes[i]) owned+=next-first+1;
         first=next;
     }
+    if (owned>owned_budget) return fail(error,"Decoded DXP1 Page exceeds its available C-owned memory budget.");
     /* Nothing is published until the complete wire has been validated and all
        owned strings copied. The incoming bytes may even belong to the old Page. */
     Page page={.column_count=columns,.row_count=rows,.offset=offset,.total=total,.count_pending=count_pending};
@@ -200,8 +204,14 @@ static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,
     page_free(out); *out=page; return true;
 }
 bool page_from_wire(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,char **error) {
-    return decode_page(out,bytes,size,offset,total,count_pending,false,error);
+    return decode_page(out,bytes,size,offset,total,count_pending,false,SIZE_MAX,error);
 }
 bool page_from_wire_copy(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,char **error) {
-    return decode_page(out,bytes,size,offset,total,count_pending,true,error);
+    return decode_page(out,bytes,size,offset,total,count_pending,true,SIZE_MAX,error);
+}
+bool page_from_wire_owned(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,size_t budget,char **error) {
+    return decode_page(out,bytes,size,offset,total,count_pending,false,budget,error);
+}
+bool page_from_wire_copy_owned(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,size_t budget,char **error) {
+    return decode_page(out,bytes,size,offset,total,count_pending,true,budget,error);
 }

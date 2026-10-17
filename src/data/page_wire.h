@@ -32,4 +32,11 @@ bool page_from_wire(Page *out,const void *bytes,size_t size,uint64_t offset,
    into its larger row bound: <=20,000 rows AND cells, same text/wire limits. */
 bool page_from_wire_copy(Page *out,const void *bytes,size_t size,uint64_t offset,
                          uint64_t total,bool count_pending,char **error);
+/* Same fixed row/cell policies. A trusted caller reserves the output's exact
+   C-owned bytes against its other retained data. All wire validation and size
+   accounting finish before any output allocation; failure preserves out. */
+bool page_from_wire_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                          uint64_t total,bool count_pending,size_t owned_budget,char **error);
+bool page_from_wire_copy_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                               uint64_t total,bool count_pending,size_t owned_budget,char **error);
 #endif
