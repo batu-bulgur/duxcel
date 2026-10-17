@@ -266,6 +266,11 @@ tests/test_grid: src/common.c src/workbook/format.c src/transforms/number.c src/
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm
 tests/test_grid-debug: src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS)
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+SOURCE_SCOPE_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/workbook/source_scope.c tests/test_source_scope.c
+tests/test_source_scope: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(SOURCE_SCOPE_TEST_SRC) -o $@ -lm
+tests/test_source_scope-debug: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(SOURCE_SCOPE_TEST_SRC) -o $@ -lm $(SANFLAGS)
 SELECTION_LADDER_SRC = src/grid/selection_ladder.c tests/test_selection_ladder.c
 tests/test_selection_ladder: $(SELECTION_LADDER_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(SELECTION_LADDER_SRC) -o $@

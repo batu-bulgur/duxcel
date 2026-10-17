@@ -17,7 +17,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 FAST_MODULES = (
-    "cellreadout", "filterlabel", "grid", "selection_ladder", "brand", "format", "chartview", "chartencoding",
+    "cellreadout", "filterlabel", "grid", "selection_ladder", "source_scope", "brand", "format", "chartview", "chartencoding",
     "inspector", "stepview", "preview", "statsview", "guideview", "fontmetrics",
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
