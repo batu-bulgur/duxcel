@@ -6832,7 +6832,7 @@ static void workspace_smoke_step(App *a,int *step) {
     fprintf(stderr,"FAIL: native workspace smoke at stage %d\n",*step); *step=-1;
 }
 static int filter_test_key;
-static DxKeyModifiers filter_test_modifiers;
+static unsigned filter_test_modifiers;
 static Rectangle filter_test_click;
 static void filter_smoke_step(App *a,int *step) {
     if (a->page.count_pending) return;
