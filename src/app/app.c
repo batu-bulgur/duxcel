@@ -5737,12 +5737,18 @@ static bool keytip_input(App *a,DxCommand command) {
     bool native=command>DX_COMMAND_KEYTIP_BASE && command<=DX_COMMAND_KEYTIP_LAST;
     if (command!=DX_COMMAND_NONE && !native) { a->key_tips=false; a->file_menu=false; ui_keytips_cancel(&a->keytip_state); return false; }
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !a->file_menu) { a->key_tips=false; ui_keytips_cancel(&a->keytip_state); return false; }
+    /* Access keys cannot steal existing command chords or Alt+arrow grid/pane
+       navigation. Native menus take their separate command channel above. */
+    if (!native) for (int k=KEY_SPACE;k<=KEY_KB_MENU;k++) if (k!=KEY_LEFT_ALT && k!=KEY_RIGHT_ALT && ui_pressed(k) &&
+        (ui_key_shortcut(k) || ui_key_control(k) || (ui_key_alt(k) && (k==KEY_DOWN || k==KEY_UP || k==KEY_LEFT || k==KEY_RIGHT)))) {
+        a->key_tips=false; a->file_menu=false; ui_keytips_cancel(&a->keytip_state); return false;
+    }
     if (!a->key_tips) ui_keytips_cancel(&a->keytip_state);
     if (!native && (ui_pressed(KEY_LEFT_ALT) || ui_pressed(KEY_RIGHT_ALT))) {
         if (a->key_tips) { a->key_tips=false; a->file_menu=false; ui_keytips_cancel(&a->keytip_state); }
-        else { ui_keytips_begin(&a->keytip_state); a->key_tips=true; }
+        else { if (a->ribbon_mode==3) set_ribbon_mode(a,a->previous_ribbon_mode); ui_keytips_begin(&a->keytip_state); a->key_tips=true; }
     }
-    if (native && !a->key_tips) { ui_keytips_begin(&a->keytip_state); a->key_tips=true; }
+    if (native && !a->key_tips) { if (a->ribbon_mode==3) set_ribbon_mode(a,a->previous_ribbon_mode); ui_keytips_begin(&a->keytip_state); a->key_tips=true; }
     if (!a->key_tips) return false;
     a->consume_grid_input=true;
     if (ui_pressed(KEY_ESCAPE)) {
