@@ -728,10 +728,12 @@ static void review_feedback_target(App *a,DxReviewDataIdentity origin,const char
     DxReviewWidget widget; dx_review_widget_init(&widget,id,action,"workspace/feedback",role,label); widget.data=origin;
     widget.identity_truncated=strstr(origin.kind,"-truncated")!=NULL; widget.truncated|=widget.identity_truncated;
     snprintf(widget.parent_id,sizeof(widget.parent_id),"%s",parent ? parent : ""); widget.bounds=review_rect(bounds); widget.clip=review_rect(clip); widget.transform.ty=offset;
-    int layer=filter ? 103 : !strncmp(id,"toast",5) ? 161 : !strncmp(id,"status",6) ? 62 : !strncmp(id,"readout",7) ? 18 : !strncmp(id,"preview",7) ? 12 : 44;
+    int layer=filter ? 103 : !strncmp(id,"toast",5) ? 161 : !strncmp(id,"status",6) ? 62 : !strncmp(id,"cell.readout.",13) ? 18 : !strncmp(id,"preview",7) ? 12 : 44;
     widget.container=!strcmp(role,"group") || !strcmp(role,"listbox") || !strcmp(role,"container"); widget.expanded=widget.container; widget.layer=layer-(widget.container ? 1 : 0);
     widget.enabled=enabled; widget.checked=checked; widget.focused=focused; widget.input_eligible=enabled && !widget.container && strcmp(role,"text") && strcmp(role,"region");
-    if (type) dx_review_value_set(&widget.value,type,is_null,text); widget.truncated|=widget.value.truncated;
+    if (type) dx_review_value_set(&widget.value,type,is_null,text);
+    if (type && !strcmp(id,"cell.readout.value")) widget.value.truncated|=a->active_readout.value.truncated;
+    widget.truncated|=widget.value.truncated;
     snprintf(widget.source_file,sizeof(widget.source_file),"%s",file); widget.source_line=(uint32_t)line;
     DxReviewStatus result=dx_review_add(a->review->registry,&widget);
     if (result!=DX_REVIEW_OK) { fprintf(stderr,"Review feedback registration %s: %s\n",id,dx_review_status_text(result)); return; }
