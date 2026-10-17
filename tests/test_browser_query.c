@@ -391,7 +391,57 @@ static void test_count_projection(void) {
     input=pivot_input_sql(&source,&p); CHECK(strstr(input,"SELECT \"Nullable\" FROM")); free(input);
     sql=pivot_sql(&source,&p); CHECK(strstr(sql,"COUNT(*)") && strstr(sql,"SUM(\"Nullable\")") && !strstr(sql,"PIVOT (")); free(sql); pivot_free(&p);
 }
+static Page statistics_scalar(const char *const *values) {
+    static const char *names[]={"cells","filled","numeric","distinct_values","sum_exact","min_exact","max_exact","sum_float","average_float","min_float","max_float","approximate","non_finite"};
+    const char *types[13]; for (size_t c=0;c<13;c++) types[c]="VARCHAR";
+    Page describe=describe_page(13,names,types),page={0}; CHECK(browser_schema_from_describe(&page,&describe,NULL)); page_free(&describe);
+    page.row_count=page.total=1; page.cells=dx_alloc(13*sizeof(Cell)); page.bytes+=13*sizeof(Cell);
+    for (size_t c=0;c<13;c++) { page.cells[c]=(Cell){.is_null=!values[c],.text=values[c] ? dx_strdup(values[c]) : NULL}; if (values[c]) page.bytes+=strlen(values[c])+1; } return page;
+}
+static void reject_statistics(SelectionStats *out,const Page *page,uint64_t max,size_t retained) {
+    SelectionStats before=*out; char *error=NULL; CHECK(!browser_statistics_from_page(out,page,max,retained,&error) && error && *error); CHECK(!memcmp(out,&before,sizeof(before)) && !strcmp(out->sum,"Keep existing statistics")); free(error);
+}
+static void test_statistics_helpers(void) {
+    const char *names[]={"Whole","Money","Float","Text"},*types[]={"HUGEINT","DECIMAL(38,38)","DOUBLE","VARCHAR"};
+    Page describe=describe_page(4,names,types),schema={0}; CHECK(browser_schema_from_describe(&schema,&describe,NULL)); page_free(&describe);
+    char *error=NULL,*sql=browser_statistics_sql("SELECT * FROM real_source",&schema,256,1000000,0,4,&error);
+    CHECK(sql && !error && strstr(sql,"WITH selected AS MATERIALIZED") && strstr(sql,"LIMIT 1000000 OFFSET 256") && !strstr(sql,"LIMIT 256") && strstr(sql,"repeat('0',38)") && strstr(sql,"repeat('0',0)") && strstr(sql,"AS BIGNUM") && strstr(sql,"count(DISTINCT (type,text))") && strstr(sql,"CASE WHEN c2=0 THEN '0'") && strstr(sql,"AS distinct_values") && strstr(sql,"AS non_finite")); free(sql);
+    sql=browser_statistics_sql("SELECT * FROM source ORDER BY key",&schema,DX_SHEET_ROWS,0,3,1,NULL); CHECK(sql && strstr(sql,"LIMIT 0 OFFSET 1099511627776") && strstr(sql,"NULL::BIGNUM") && strstr(sql,"NULL::DOUBLE")); free(sql);
+    reject_sql(browser_statistics_sql("SELECT 1",&schema,DX_SHEET_ROWS,1,0,1,&error),&error);
+    reject_sql(browser_statistics_sql("SELECT 1",&schema,0,1,SIZE_MAX,1,&error),&error);
+    reject_sql(browser_statistics_sql("SELECT 1",&schema,0,1,0,0,&error),&error);
+    reject_sql(browser_statistics_sql("SELECT 1",&schema,0,1,0,257,&error),&error);
+    NumberType number=schema.columns[1].number_type; schema.columns[1].number_type.scale=39; reject_sql(browser_statistics_sql("SELECT 1",&schema,0,1,1,1,&error),&error); schema.columns[1].number_type=number;
+    char *large=dx_alloc(DX_BROWSER_SQL_BYTES+1); memset(large,'x',DX_BROWSER_SQL_BYTES); reject_sql(browser_statistics_sql(large,&schema,0,1,0,4,&error),&error); free(large);
+    const char *big="170141183460469231731687303715884105727",*sum="340282366920938463463374607431768211454";
+    char *sum_units=dx_printf("%s%038d",sum,0),*big_units=dx_printf("%s%038d",big,0);
+    const char *values[]={"3","2","2","1",sum_units,big_units,big_units,"3.402823669209385e38","1.7014118346046923e38","1.7014118346046923e38","1.7014118346046923e38","false","false"};
+    Page scalar=statistics_scalar(values); SelectionStats stats={0};
+    CHECK(browser_statistics_from_page(&stats,&scalar,3,schema.bytes,NULL) && stats.cells==3 && stats.numeric==2 && stats.distinct==1 && !stats.approximate && !stats.non_finite && !strcmp(stats.sum,sum) && !strcmp(stats.minimum,big) && !strcmp(stats.maximum,big));
+    CHECK(stats.sum!=scalar.cells[4].text && stats.average && !strcmp(stats.average,"1.70141183460469e+38")); statistics_free(&stats); page_free(&scalar);
+    values[4]="-1"; values[5]="-2"; values[6]="1"; values[7]="-1e-38"; values[8]="-5e-39"; values[9]="-2e-38"; values[10]="1e-38";
+    scalar=statistics_scalar(values); CHECK(browser_statistics_from_page(&stats,&scalar,3,0,NULL) && !strcmp(stats.sum,"-0.00000000000000000000000000000000000001") && !strcmp(stats.minimum,"-0.00000000000000000000000000000000000002") && !strcmp(stats.maximum,"0.00000000000000000000000000000000000001")); statistics_free(&stats); page_free(&scalar);
+    values[4]="-0"; values[5]="0"; values[6]="0"; scalar=statistics_scalar(values); CHECK(browser_statistics_from_page(&stats,&scalar,3,0,NULL) && !strcmp(stats.sum,"0")); statistics_free(&stats); page_free(&scalar);
+    values[4]=values[5]=values[6]=NULL; values[7]=values[8]="inf"; values[9]=values[10]="1e308"; values[11]="true";
+    scalar=statistics_scalar(values); CHECK(browser_statistics_from_page(&stats,&scalar,3,0,NULL) && stats.approximate && !stats.non_finite && stats.sum_overflow && stats.average_overflow && !stats.sum && !stats.average && !strcmp(stats.minimum,"1e+308")); statistics_free(&stats); page_free(&scalar);
+    values[7]=values[8]="nan"; values[9]="-inf"; values[10]="inf"; values[12]="true";
+    scalar=statistics_scalar(values); CHECK(browser_statistics_from_page(&stats,&scalar,3,0,NULL) && stats.non_finite && !stats.sum && !stats.average && !stats.minimum && !stats.maximum && !stats.sum_overflow && !stats.average_overflow); statistics_free(&stats); page_free(&scalar);
+    const char *empty[]={"6","5","0","5",NULL,NULL,NULL,NULL,NULL,NULL,NULL,"false","false"};
+    scalar=statistics_scalar(empty); CHECK(browser_statistics_from_page(&stats,&scalar,6,0,NULL) && stats.cells==6 && stats.filled==5 && !stats.numeric && stats.distinct==5 && !stats.sum); statistics_free(&stats);
+    SelectionStats retained_stats={.cells=9,.sum=dx_strdup("Keep existing statistics")};
+    reject_statistics(&retained_stats,&scalar,5,0); reject_statistics(&retained_stats,&scalar,6,DX_PAGE_WIRE_TEXT_BYTES);
+    Page bad=scalar; bad.column_count=SIZE_MAX; reject_statistics(&retained_stats,&bad,6,0);
+    bad=scalar; bad.count_pending=true; reject_statistics(&retained_stats,&bad,6,0);
+    bad=scalar; bad.bytes=SIZE_MAX; reject_statistics(&retained_stats,&bad,6,0);
+    matrix_cell(&scalar,0,0,"18446744073709551616"); reject_statistics(&retained_stats,&scalar,6,0); matrix_cell(&scalar,0,0,"6");
+    matrix_cell(&scalar,0,1,"7"); reject_statistics(&retained_stats,&scalar,6,0); matrix_cell(&scalar,0,1,"5");
+    matrix_cell(&scalar,0,11,"TRUE"); reject_statistics(&retained_stats,&scalar,6,0); matrix_cell(&scalar,0,11,"false");
+    matrix_cell(&scalar,0,4,"1.1"); reject_statistics(&retained_stats,&scalar,6,0); matrix_cell(&scalar,0,4,NULL);
+    matrix_cell(&scalar,0,8,"12broken"); reject_statistics(&retained_stats,&scalar,6,0); matrix_cell(&scalar,0,8,NULL);
+    matrix_cell(&scalar,0,4,"1"); reject_statistics(&retained_stats,&scalar,6,0); matrix_cell(&scalar,0,4,NULL);
+    statistics_free(&retained_stats); page_free(&scalar); page_free(&schema); free(sum_units); free(big_units); free(error);
+}
 int main(void) {
-    test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion(); test_column_plans(); test_count_projection();
+    test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion(); test_column_plans(); test_count_projection(); test_statistics_helpers();
     printf("PASS: %u browser query checks\n",checks); return 0;
 }
