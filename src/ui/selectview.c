@@ -78,8 +78,8 @@ void ui_select_menu_frame(UIContext *ui,const UISelectMenuLayout *layout) {
     select_fill(ui,panel,WHITE); ui_border(panel,select_clip(ui,panel),s,UI_BORDER);
 }
 bool ui_select_menu_option(UIContext *ui,const UISelectMenuLayout *layout,int visible_row,
-    const char *label,bool selected,bool focused,bool enabled,bool allow) {
-    if (!ui || !isfinite(ui->scale) || ui->scale<=0) return false;
+    const char *label,UISelectStyle style,bool selected,bool focused,bool enabled,bool allow) {
+    if (!ui || !isfinite(ui->scale) || ui->scale<=0 || style<UI_SELECT_REPRESENTATION || style>UI_SELECT_NUMBER_FORMAT) return false;
     Rectangle row=ui_select_menu_row(layout,visible_row),visible=select_clip(ui,row);
     if (visible.width<=0 || visible.height<=0) return false;
     /* Text/icons have CPU clipping; scope it to this row without adding GPU
@@ -94,7 +94,7 @@ bool ui_select_menu_option(UIContext *ui,const UISelectMenuLayout *layout,int vi
     }
     Color ink=enabled ? UI_TEXT : (Color){153,160,172,255};
     if (selected) ui_carbon(ui,CARBON_CHECKMARK,(Rectangle){row.x+4*s,row.y+(row.height-12*s)*.5f,12*s,12*s},ink);
-    ui_label(ui,label ? label : "",(Rectangle){row.x+20*s,row.y,fmaxf(0,row.width-24*s),row.height},12,ink,false,UI_REGULAR);
+    ui_label(ui,label ? label : "",(Rectangle){row.x+20*s,row.y,fmaxf(0,row.width-24*s),row.height},style==UI_SELECT_PLOT ? 10.5f : 12,ink,false,UI_REGULAR);
     if (focused && enabled) ui_focus_border(row,visible,s);
     ui->clip=old_clip; ui->clipping=old_clipping;
     return clicked;

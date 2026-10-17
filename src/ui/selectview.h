@@ -33,5 +33,5 @@ void ui_select_menu_frame(UIContext *ui,const UISelectMenuLayout *layout);
    without painting an otherwise available option as disabled. No labels/state
    are retained; selected is the only option which receives a check icon. */
 bool ui_select_menu_option(UIContext *ui,const UISelectMenuLayout *layout,int visible_row,
-    const char *label,bool selected,bool focused,bool enabled,bool allow);
+    const char *label,UISelectStyle style,bool selected,bool focused,bool enabled,bool allow);
 #endif

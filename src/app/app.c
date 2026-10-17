@@ -388,6 +388,7 @@ static void review_native_command(App *a,DxCommand command);
 #endif
 static void open_modal(App *a,Modal modal);
 static void draw_command_popup(App *a);
+static int paint_command_group(App *a,const UIFlyoutLayout *layout,int group,int count,bool allow);
 static void open_command_group(App *a,int group,int focus);
 static bool ribbon_more_available(App *a);
 static void popup_capture(App *a,Rectangle panel);
@@ -2382,6 +2383,20 @@ static void context_keys(App *a,int count,int visible) {
 }
 static void pivot_label(App *a,char label[512],const PivotField *f,int role);
 static const char *pivot_scope(App *a);
+static Rectangle author_select_field(App *a,Modal modal) {
+    if (modal==MODAL_REPRESENTATION) return a->author_marks_layout.representation;
+    Rectangle field=a->author_marks_layout.plot; float inset=30*a->ui.scale;
+    field.x+=inset; field.width=fmaxf(0,field.width-inset); return field;
+}
+static void begin_author_select(App *a,Modal modal) {
+    SheetObject *o=selected_pivot(a); if (!o) return;
+    Rectangle field=author_select_field(a,modal); if (field.width<=0 || field.height<=0) return;
+    a->modal=modal; a->context_origin=(Vector2){field.x,field.y+field.height};
+    int current=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
+    a->context_focus=modal==MODAL_REPRESENTATION ? (current<3 ? current : 0) : o->chart_measure;
+    a->context_scroll=0; a->wheel_select=0; a->pivot_focus=modal==MODAL_REPRESENTATION ? 6 : 7;
+    a->chrome_focus=0; a->ribbon_focus=a->pivot_search_focus=false; a->consume_grid_input=true;
+}
 static void draw_pivot_field_popup(App *a) {
     SheetObject *o=selected_pivot(a); if (!o) { a->modal=MODAL_NONE; return; }
     int role=a->pivot_drag_role,index=a->pivot_drag_index;
@@ -2910,8 +2925,7 @@ static void draw_author_dock(App *a,Rectangle panel) {
     const char *representations[]={"Matrix","Bar chart","Line chart","Dots","Scatter"}; int representation=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
     Rectangle rep=layout.representation;
     if (ui_select_field(u,rep,representations[representation],UI_SELECT_REPRESENTATION,a->pivot_focus==6,passive_control(a,enabled))) {
-        a->modal=MODAL_REPRESENTATION; a->context_origin=(Vector2){rep.x,rep.y+rep.height}; a->context_focus=representation; a->context_scroll=0; a->consume_grid_input=true;
-        a->pivot_focus=6; a->chrome_focus=0; a->ribbon_focus=a->pivot_search_focus=false;
+        begin_author_select(a,MODAL_REPRESENTATION);
     }
     for (int role=PIVOT_VALUES;role<=PIVOT_FILTERS;role++) {
         Rectangle heading=role==PIVOT_VALUES ? layout.measure_heading : layout.filter_heading;
@@ -2925,7 +2939,7 @@ static void draw_author_dock(App *a,Rectangle panel) {
             Rectangle plot=layout.plot; ui_label(u,"Plot",box(plot.x,plot.y,25*s,plot.height),11,UI_TEXT,false,UI_REGULAR);
             Rectangle choice=box(plot.x+30*s,plot.y,plot.width-30*s,plot.height); char label[512]; pivot_label(a,label,&o->pivot.fields[PIVOT_VALUES][o->chart_measure],PIVOT_VALUES);
             a->author_plot=GetCollisionRec(choice,layout.viewport);
-            if (ui_select_field(u,choice,label,UI_SELECT_PLOT,a->pivot_focus==7,passive_control(a,enabled))) { a->modal=MODAL_CHART_MEASURE; a->context_origin=(Vector2){choice.x,choice.y+choice.height}; a->context_focus=o->chart_measure; a->context_scroll=0; a->pivot_focus=7; a->chrome_focus=0; a->ribbon_focus=a->pivot_search_focus=false; a->consume_grid_input=true; }
+            if (ui_select_field(u,choice,label,UI_SELECT_PLOT,a->pivot_focus==7,passive_control(a,enabled))) begin_author_select(a,MODAL_CHART_MEASURE);
         }
         const UICarbonIcon icons[]={CARBON_COLOR_PALETTE,CARBON_ARROWS_HORIZONTAL,CARBON_STRING_TEXT,CARBON_DATA_STRUCTURED,CARBON_INFORMATION,CARBON_DATA_VIEW}; measure_mark_labels(a,o);
         for (int i=0;i<DX_MARK_ROLES;i++) {
@@ -4686,14 +4700,34 @@ static void draw_view_menu(App *a) {
         }
     }
 }
+static void draw_representation_menu(App *a) {
+    SheetObject *o=selected_pivot(a); if (!o) { a->modal=MODAL_NONE; return; }
+    UIContext *u=&a->ui; Rectangle field=author_select_field(a,MODAL_REPRESENTATION);
+    a->context_origin=(Vector2){field.x,field.y+field.height};
+    UISelectMenuLayout menu=ui_select_menu_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},u->scale,field.width/u->scale,3);
+    if (!menu.valid) { a->modal=MODAL_NONE; return; }
+    popup_capture(a,menu.panel);
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),menu.panel))) {
+        a->modal=MODAL_NONE; a->pivot_focus=6; a->consume_grid_input=true; return;
+    }
+    context_keys(a,3,menu.visible);
+    if (CheckCollisionPointRec(ui_mouse_position(),menu.items)) a->context_scroll+=ui_scroll_steps(&a->wheel_select,-GetMouseWheelMoveV().y*3);
+    int max=3-menu.visible; if (a->context_scroll<0) a->context_scroll=0; if (a->context_scroll>max) a->context_scroll=max;
+    ui_select_menu_frame(u,&menu);
+    const char *names[]={"Matrix","Bar chart","Line chart"}; int current=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
+    for (int row=0;row<menu.visible;row++) {
+        int i=row+a->context_scroll;
+        if (ui_select_menu_option(u,&menu,row,names[i],UI_SELECT_REPRESENTATION,i==current,a->context_focus==i,true,!a->consume_grid_input) || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
+            if (set_representation(a,i)) { a->modal=MODAL_NONE; a->pivot_focus=6; a->consume_grid_input=true; }
+            return;
+        }
+    }
+}
 static void draw_author_popup(App *a) {
+    if (a->modal==MODAL_REPRESENTATION) { draw_representation_menu(a); return; }
     if (!selected_pivot(a)) { a->modal=MODAL_NONE; return; }
-    UIContext *u=&a->ui; float s=u->scale; bool assigning=a->modal==MODAL_ASSIGN_FIELD,searching=false; UIMenuLayout assign_menu={0};
-    float width=fminf(280*s,GetScreenWidth()-16*s),height=assigning ? fminf(360*s,GetScreenHeight()-16*s) : 99*s;
-    float x=fmaxf(8*s,fminf(a->context_origin.x,GetScreenWidth()-width-8*s));
-    float y=fmaxf(8*s,fminf(a->context_origin.y,GetScreenHeight()-height-8*s));
-    Rectangle panel=box(x,y,width,height);
-    if (assigning) {
+    UIContext *u=&a->ui; float s=u->scale; bool searching=false; UIMenuLayout assign_menu={0}; Rectangle panel;
+    {
         if (ui_pressed(KEY_SLASH) || (ui_pressed(KEY_F)&&ui_key_shortcut(KEY_F))) { a->pivot_search_focus=true; a->consume_grid_input=true; }
         if (a->pivot_search_focus && !a->consume_grid_input) input_update(&a->pivot_search);
         searching=a->pivot_search_focus || a->pivot_search.length || context_fields(a)->column_count>32;
@@ -4704,23 +4738,7 @@ static void draw_author_popup(App *a) {
     }
     popup_capture(a,panel); Vector2 mouse=ui_mouse_position();
     if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,panel))) {
-        a->modal=MODAL_NONE; a->pivot_search_focus=false; a->pivot_focus=assigning ? a->pivot_role+2 : 6; a->consume_grid_input=true; return;
-    }
-    if (!assigning) {
-        DrawRectangleRec(box(x+3*s,y+4*s,width,height),(Color){20,32,50,35}); DrawRectangleRec(panel,WHITE); DrawRectangleLinesEx(panel,s,UI_BORDER);
-        const char *names[]={"Matrix","Bar chart","Line chart"};
-        if (a->context_focus>2) a->context_focus=2;
-        context_keys(a,3,3); SheetObject *o=selected_pivot(a); int current=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0;
-        for (int i=0;i<3;i++) {
-            Rectangle item=box(x+6*s,y+(6+i*29)*s,width-12*s,26*s); bool allowed=true;
-            if (a->context_focus==i) ui_focus_border(item,panel,2*s);
-            UICarbonIcon icons[]={CARBON_TABLE,CARBON_CHART_BAR,CARBON_CHART_LINE};
-            if (ui_menu_item(u,item,names[i],icons[i],i==current,allowed) || (allowed && !a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)))) {
-                if (set_representation(a,i)) { a->modal=MODAL_NONE; a->pivot_focus=6; a->consume_grid_input=true; }
-                return;
-            }
-        }
-        return;
+        a->modal=MODAL_NONE; a->pivot_search_focus=false; a->pivot_focus=a->pivot_role+2; a->consume_grid_input=true; return;
     }
     const char *roles[]={"rows","columns","measures","view filters"}; char title[64]; snprintf(title,sizeof(title),"Add to %s",roles[a->pivot_role]);
     int count=(int)a->field_match_count; UIMenuLayout menu=assign_menu;
@@ -4791,21 +4809,22 @@ static void draw_marks_menu(App *a) {
     list_scrollbar(a,menu.items,count,menu.visible,&a->context_scroll,&a->context_drag,&a->context_grab,true);
 }
 static void draw_chart_measure_menu(App *a) {
-    SheetObject *o=selected_pivot(a); if (!o || !o->pivot.counts[PIVOT_VALUES]) { a->modal=MODAL_NONE; return; }
-    UIContext *u=&a->ui; float s=u->scale; int count=(int)o->pivot.counts[PIVOT_VALUES];
-    UIMenuLayout menu=ui_menu_layout(a->context_origin,count,28,244,s,(Vector2){GetScreenWidth(),GetScreenHeight()});
+    SheetObject *o=selected_pivot(a); if (!o || !o->pivot.counts[PIVOT_VALUES] || o->pivot.counts[PIVOT_VALUES]>DX_PIVOT_FIELDS) { a->modal=MODAL_NONE; return; }
+    UIContext *u=&a->ui; int count=(int)o->pivot.counts[PIVOT_VALUES]; Rectangle field=author_select_field(a,MODAL_CHART_MEASURE);
+    a->context_origin=(Vector2){field.x,field.y+field.height};
+    UISelectMenuLayout menu=ui_select_menu_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},u->scale,field.width/u->scale,count);
+    if (!menu.valid) { a->modal=MODAL_NONE; return; }
     popup_capture(a,menu.panel);
     if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),menu.panel))) {
         a->modal=MODAL_NONE; a->pivot_focus=7; a->author_reveal=true; a->consume_grid_input=true; return;
     }
     context_keys(a,count,menu.visible);
-    DrawRectangleRec(box(menu.panel.x+3*s,menu.panel.y+4*s,menu.panel.width,menu.panel.height),(Color){20,32,50,35});
-    DrawRectangleRec(menu.panel,WHITE); ui_border(menu.panel,menu.panel,s,UI_BORDER);
+    if (CheckCollisionPointRec(ui_mouse_position(),menu.items)) a->context_scroll+=ui_scroll_steps(&a->wheel_select,-GetMouseWheelMoveV().y*3);
+    int max=count-menu.visible; if (a->context_scroll<0) a->context_scroll=0; if (a->context_scroll>max) a->context_scroll=max;
+    ui_select_menu_frame(u,&menu);
     for (int row=0;row<menu.visible;row++) {
         int index=row+a->context_scroll; char label[512]; pivot_label(a,label,&o->pivot.fields[PIVOT_VALUES][index],PIVOT_VALUES);
-        Rectangle item=box(menu.panel.x+6*s,menu.panel.y+(6+row*28)*s,menu.panel.width-12*s,25*s);
-        if (a->context_focus==index) ui_focus_border(item,menu.panel,2*s);
-        if (ui_menu_item(u,item,label,CARBON_FUNCTION,o->chart_measure==index,true) || (!a->consume_grid_input && a->context_focus==index && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
+        if (ui_select_menu_option(u,&menu,row,label,UI_SELECT_PLOT,o->chart_measure==index,a->context_focus==index,true,!a->consume_grid_input) || (!a->consume_grid_input && a->context_focus==index && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
             if (set_chart_measure(a,(size_t)index)) { a->modal=MODAL_NONE; a->pivot_focus=7; a->consume_grid_input=true; }
             return;
         }
@@ -4830,10 +4849,27 @@ static void close_format_menu(App *a) {
         a->modal=MODAL_COMMANDS; a->ribbon_focus=false;
     } else if (a->format_return_command>=0) { a->ribbon_focus=true; a->ribbon_command=a->format_return_command; a->ribbon_reveal_command=true; }
 }
+static void capture_format_popup(App *a,Rectangle child) {
+    int group=a->format_return_group;
+    bool parent=group>=0 && group<ribbon_group_counts[a->ribbon_tab] && a->ribbon_flyout.valid;
+    Rectangle bounds=child;
+    if (parent) {
+        Rectangle p=a->ribbon_flyout.panel;
+        float x=fminf(child.x,p.x),y=fminf(child.y,p.y);
+        bounds=box(x,y,fmaxf(child.x+child.width,p.x+p.width)-x,fmaxf(child.y+child.height,p.y+p.height)-y);
+    }
+    popup_capture(a,bounds);
+    /* Keep the actual opener visible, but give only the child menu input. The
+       single capture owns their union, so a child cannot be clipped by the
+       parent's smaller render target. */
+    if (parent) paint_command_group(a,&a->ribbon_flyout,group,ribbon_groups[a->ribbon_tab][group].count,false);
+}
 static void draw_format_menu(App *a) {
     UIContext *u=&a->ui; float s=u->scale; CellFormat current=active_format(a);
     if (a->format_action==ACTION_TEXT_COLOR) {
         const char *names[]={"Automatic","Blue","Teal","Red"};
+        UIChoiceLayout menu=ui_choice_layout(a->format_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},s,4,-1);
+        capture_format_popup(a,menu.panel);
         int result=draw_choices(a,"Text color",names,4,-1,-1,&a->context_focus,a->format_origin);
         if (result>=0) { current.color=(unsigned char)result; if (apply_format(a,FORMAT_COLOR,current)) close_format_menu(a); }
         else if (result==-2) close_format_menu(a);
@@ -4842,7 +4878,7 @@ static void draw_format_menu(App *a) {
     int count=a->format_action==ACTION_FONT_SIZE ? 6 : 2;
     UISelectMenuLayout menu=ui_select_menu_layout(a->format_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},s,a->format_width,count);
     if (!menu.valid) { close_format_menu(a); return; }
-    popup_capture(a,menu.panel);
+    capture_format_popup(a,menu.panel);
     Vector2 mouse=ui_mouse_position();
     if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(mouse,menu.panel))) { close_format_menu(a); return; }
     context_keys(a,count,menu.visible);
@@ -4854,7 +4890,7 @@ static void draw_format_menu(App *a) {
         char label[32]; bool checked=false; CellFormat next=current; unsigned mask=0;
         if (a->format_action==ACTION_FONT_SIZE) { snprintf(label,sizeof(label),"%d",11+i); next.size=(unsigned char)(11+i); mask=FORMAT_SIZE; checked=current.size==next.size; }
         else { snprintf(label,sizeof(label),"%s",i ? "Number" : "Accounting"); next.number=(unsigned char)(i ? FORMAT_NUMBER : FORMAT_ACCOUNTING); mask=FORMAT_NUMERIC; checked=current.number==next.number || (!i && current.number==FORMAT_GENERAL); }
-        if (ui_select_menu_option(u,&menu,row,label,checked,a->context_focus==i,true,!a->consume_grid_input) || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { if (apply_format(a,mask,next)) close_format_menu(a); return; }
+        if (ui_select_menu_option(u,&menu,row,label,a->format_action==ACTION_FONT_SIZE ? UI_SELECT_FONT_SIZE : UI_SELECT_NUMBER_FORMAT,checked,a->context_focus==i,true,!a->consume_grid_input) || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { if (apply_format(a,mask,next)) close_format_menu(a); return; }
     }
 }
 static void begin_scale_menu(App *a,Vector2 origin) {
@@ -5582,8 +5618,7 @@ static bool pivot_keyboard(App *a) {
         }
     } else if (o && a->pivot_focus==6) {
         if (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)) {
-            a->modal=MODAL_REPRESENTATION; a->context_origin=(Vector2){a->author_body.x,a->author_body.y};
-            a->context_focus=o->kind==OBJECT_CHART ? 1+(int)o->mark : 0; a->context_scroll=0; a->consume_grid_input=true;
+            begin_author_select(a,MODAL_REPRESENTATION);
         } else if (o->kind==OBJECT_CHART) {
             if (ui_key(KEY_LEFT) && o->mark>MARK_BAR) set_chart_mark(a,(ChartMark)(o->mark-1));
             if (ui_key(KEY_RIGHT) && o->mark<MARK_SCATTER) set_chart_mark(a,(ChartMark)(o->mark+1));
@@ -5596,8 +5631,7 @@ static bool pivot_keyboard(App *a) {
         if (ui_pressed(KEY_DELETE)||ui_pressed(KEY_BACKSPACE)) { MarkDefinition copy=marks_copy(&o->marks); while (copy.counts[a->mark_role]) marks_remove(&copy,(MarkRole)a->mark_role,copy.counts[a->mark_role]-1); set_marks(a,&copy); marks_free(&copy); }
     } else if (o && a->pivot_focus==7) {
         if (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)) {
-            a->modal=MODAL_CHART_MEASURE; a->context_origin=(Vector2){a->author_plot.x,a->author_plot.y+a->author_plot.height};
-            a->context_focus=o->chart_measure; a->context_scroll=0; a->consume_grid_input=true;
+            begin_author_select(a,MODAL_CHART_MEASURE);
         }
     } else if (o && a->pivot_focus>=2 && a->pivot_focus<=5) {
         int role=a->pivot_focus-2; size_t count=o->pivot.counts[role];
@@ -6109,6 +6143,22 @@ static void command_popup_key(App *a,int key,bool shift) {
     }
 }
 static bool draw_ribbon_control(App *a,int command,Rectangle r,bool enabled);
+static int paint_command_group(App *a,const UIFlyoutLayout *layout,int group,int count,bool allow) {
+    UIContext *u=&a->ui; float s=u->scale;
+    UIChoiceLayout frame={.panel=layout->panel,.valid=true}; ui_choice_frame(u,&frame,NULL);
+    ui_label(u,ribbon_groups[a->ribbon_tab][group].name,layout->title,12.5f,UI_TEXT,false,UI_MEDIUM);
+    DrawLineV((Vector2){layout->panel.x,layout->panel.y+37*s},(Vector2){layout->panel.x+layout->panel.width,layout->panel.y+37*s},(Color){220,228,234,255});
+    if (ui_icon_button(u,layout->close,CARBON_CLOSE,false,allow)) return -2;
+    ui_scissor_begin(u,layout->body);
+    int first=ribbon_groups[a->ribbon_tab][group].first,chosen=-1;
+    for (int c=first;c<first+count;c++) {
+        int mode=a->ribbon_mode; a->ribbon_mode=0;
+        bool clicked=draw_ribbon_control(a,c,layout->commands[c],allow); a->ribbon_mode=mode;
+        if (command_enabled(a,c) && c-first==a->ribbon_popup_focus) ui_focus_border(layout->commands[c],layout->body,s);
+        if (clicked) chosen=c;
+    }
+    ui_scissor_end(u); return chosen;
+}
 static void draw_command_popup(App *a) {
     update_ribbon_layout(a); UIContext *u=&a->ui; float s=u->scale;
     int group=a->ribbon_popup_group,indices[RIBBON_MORE_ITEMS],count=command_popup_count(a,indices);
@@ -6135,20 +6185,9 @@ static void draw_command_popup(App *a) {
         if (!a->consume_grid_input) for (size_t k=0;k<sizeof(keys)/sizeof(*keys);k++) if (ui_key(keys[k])) {
             command_popup_key(a,keys[k],ui_key_shift(keys[k])); if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=group) return;
         }
-        UIChoiceLayout frame={.panel=layout.panel,.valid=true}; ui_choice_frame(u,&frame,NULL);
-        ui_label(u,ribbon_groups[a->ribbon_tab][group].name,layout.title,12.5f,UI_TEXT,false,UI_MEDIUM);
-        DrawLineV((Vector2){layout.panel.x,layout.panel.y+37*s},(Vector2){layout.panel.x+layout.panel.width,layout.panel.y+37*s},(Color){220,228,234,255});
-        if (ui_icon_button(u,layout.close,CARBON_CLOSE,false,!a->consume_grid_input)) { close_command_group(a); return; }
-        ui_scissor_begin(u,layout.body);
-        int first=ribbon_groups[a->ribbon_tab][group].first,chosen=-1;
-        for (int c=first;c<first+count;c++) {
-            int mode=a->ribbon_mode; a->ribbon_mode=0;
-            bool clicked=draw_ribbon_control(a,c,layout.commands[c],!a->consume_grid_input); a->ribbon_mode=mode;
-            if (command_enabled(a,c) && c-first==a->ribbon_popup_focus) ui_focus_border(layout.commands[c],layout.body,s);
-            if (clicked) chosen=c;
-        }
-        ui_scissor_end(u);
-        if (chosen>=0) { a->ribbon_popup_focus=chosen-first; invoke_command(a,chosen); }
+        int chosen=paint_command_group(a,&layout,group,count,!a->consume_grid_input);
+        if (chosen==-2) close_command_group(a);
+        else if (chosen>=0) { a->ribbon_popup_focus=chosen-ribbon_groups[a->ribbon_tab][group].first; invoke_command(a,chosen); }
         return;
     }
     int separator=GetScreenWidth()/s<700 && a->ribbon_layout.overflow_count ? a->ribbon_layout.overflow_count : -1;
@@ -7493,8 +7532,9 @@ static void layout_smoke_step(App *a,int *step) {
     static size_t paint_bytes;
     static size_t draft_history; static uint64_t draft_revision; static bool draft_dirty;
     static UICellReadout retained; static uint64_t retained_revision;
-    static int select_open_phase,select_edit_phase,select_narrow_phase;
+    static int select_open_phase,select_edit_phase,select_narrow_phase,representation_phase,plot_phase,narrow_author_phase;
     static size_t select_history;
+    static size_t author_select_history;
     if (a->modal==MODAL_ERROR || a->fetch_failed) goto failed;
     switch (*step) {
     case 0:
@@ -9557,6 +9597,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->selected_object=0; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; set_ribbon_mode(a,0); a->ribbon_tab=RIBBON_HOME;
         ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->analysis_scroll=a->author_scroll=a->dock_scroll[1]=0;
         select_open_phase=select_edit_phase=select_narrow_phase=0;
+        representation_phase=plot_phase=narrow_author_phase=0;
         ribbon_cells=a->page.cells; open_view_filter_field(a,6); break;
     case 598:
         if (a->values_loading) return;
@@ -9587,14 +9628,41 @@ static void layout_smoke_step(App *a,int *step) {
         if (strcmp(a->filter_labels[0].text,"Status: Post") || a->page.cells!=ribbon_cells) goto failed;
         request=a->request_id; author_cells=a->objects[0].page.cells; label_builds=a->filter_labels_builds;
         a->author_scroll=0; a->pivot_focus=6; a->author_reveal=true; break;
-    case 604:
+    case 604: {
+        if (a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        if (representation_phase==1) {
+            if (a->modal!=MODAL_NONE || a->pivot_focus!=6 || s->objects.items[0].kind!=OBJECT_PIVOT || s->undo_actions_count!=author_select_history) goto failed;
+            layout_select_key=KEY_ENTER; representation_phase=2; return;
+        }
         if (a->modal!=MODAL_REPRESENTATION || a->pivot_focus!=6 || !smoke_focus_pixels(a->author_marks_layout.representation) || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-select-representation-focus.png"); break;
+        Rectangle field=author_select_field(a,MODAL_REPRESENTATION);
+        if (fabsf(a->context_origin.x-field.x)>.01f || fabsf(a->context_origin.y-field.y-field.height)>.01f) goto failed;
+        if (!representation_phase) {
+            author_select_history=s->undo_actions_count; smoke_snapshot("tests/results/workspace-layout/native-select-representation-focus.png");
+            layout_select_key=KEY_ESCAPE; representation_phase=1; return;
+        }
+        if (s->undo_actions_count!=author_select_history) goto failed;
+        break;
+    }
     case 605:
         if (a->modal!=MODAL_NONE || s->objects.items[0].kind!=OBJECT_CHART || s->objects.items[0].mark!=MARK_BAR || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
         a->pivot_focus=7; a->author_reveal=true; break;
-    case 606:
-        if (a->modal!=MODAL_CHART_MEASURE || !smoke_focus_pixels(a->author_plot) || a->request_id!=request) goto failed; break;
+    case 606: {
+        if (a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        if (plot_phase==1) {
+            if (a->modal!=MODAL_NONE || a->pivot_focus!=7 || s->objects.items[0].chart_measure || s->undo_actions_count!=author_select_history) goto failed;
+            layout_select_key=KEY_SPACE; plot_phase=2; return;
+        }
+        if (a->modal!=MODAL_CHART_MEASURE || !smoke_focus_pixels(a->author_plot)) goto failed;
+        Rectangle field=author_select_field(a,MODAL_CHART_MEASURE);
+        if (fabsf(a->context_origin.x-field.x)>.01f || fabsf(a->context_origin.y-field.y-field.height)>.01f) goto failed;
+        if (!plot_phase) {
+            author_select_history=s->undo_actions_count; smoke_snapshot("tests/results/workspace-layout/native-select-plot.png");
+            layout_select_key=KEY_ESCAPE; plot_phase=1; return;
+        }
+        if (s->undo_actions_count!=author_select_history || a->context_focus) goto failed;
+        break;
+    }
     case 607:
         if (a->modal!=MODAL_NONE || s->objects.items[0].chart_measure!=1 || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
         a->selected_object=-1; a->pivot_focus=0; a->ribbon_focus=false; select_history=s->undo_actions_count; break;
@@ -9650,6 +9718,7 @@ static void layout_smoke_step(App *a,int *step) {
         }
         if (select_narrow_phase==2) {
             if (a->modal!=MODAL_FORMAT || a->format_action!=ACTION_FONT_SIZE || a->context_focus!=3 || a->format_return_group!=1 || fabsf(a->format_width-a->ribbon_flyout.commands[4].width/a->ui.scale)>.01f) goto failed;
+            if (!smoke_focus_pixels(a->ribbon_flyout.commands[4])) goto failed;
             smoke_snapshot("tests/results/workspace-layout/native-select-font-narrow-150.png"); layout_select_key=KEY_ESCAPE; select_narrow_phase=3; return;
         }
         if (select_narrow_phase==3) {
@@ -9665,7 +9734,18 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->modal!=MODAL_REPRESENTATION || !smoke_focus_pixels(GetCollisionRec(a->author_marks_layout.representation,a->author_marks_layout.viewport)) || a->request_id!=request) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-select-narrow-150.png"); break;
     case 615:
-        if (a->modal!=MODAL_NONE || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        if (a->request_id!=request || a->objects[0].page.cells!=author_cells || a->page.cells!=ribbon_cells || s->undo_actions_count!=select_history+2 || s->objects.items[0].chart_measure!=1) goto failed;
+        if (!narrow_author_phase) {
+            if (a->modal!=MODAL_NONE) goto failed;
+            a->pivot_focus=7; a->author_reveal=true; layout_select_key=KEY_ENTER; narrow_author_phase=1; return;
+        }
+        if (narrow_author_phase==1) {
+            if (a->modal!=MODAL_CHART_MEASURE || a->context_focus!=1 || a->author_plot.height<=0) goto failed;
+            Rectangle field=author_select_field(a,MODAL_CHART_MEASURE);
+            if (fabsf(a->context_origin.x-field.x)>.01f || fabsf(a->context_origin.y-field.y-field.height)>.01f) goto failed;
+            smoke_snapshot("tests/results/workspace-layout/native-select-plot-narrow-150.png"); layout_select_key=KEY_ESCAPE; narrow_author_phase=2; return;
+        }
+        if (a->modal!=MODAL_NONE || a->pivot_focus!=7) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->left_drawer=false; a->pivot_focus=0; a->author_scroll=0; break;
     case 616:
         if (a->filter_labels_builds!=label_builds || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer() || a->request_id!=request) goto failed;
