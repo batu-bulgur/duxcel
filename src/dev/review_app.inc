@@ -540,6 +540,75 @@ static bool review_author_hex64(char output[129],const char *text) {
     }
     output[2*used]=0; return text[used]!=0;
 }
+static const char *review_workspace_role(int role) {
+    static const char *const roles[]={"rows","columns","values","filters"}; return (unsigned)role<4 ? roles[role] : "context";
+}
+static DxReviewDataIdentity review_workspace_scope(App *a,bool fields) {
+    DxReviewDataIdentity data=review_scope(a); const SheetObject *object=selected_object(a),*source=objects_source(&active_sheet(a)->objects,object);
+    data.has_cell=false; data.row=data.column=0; data.field[0]=0;
+    data.source_id=source ? source->id : 0; data.object_id=fields ? data.source_id : object ? object->id : 0;
+    data.schema_generation=fields ? a->field_schema_generation : object ? object_source_revision(a,object) : a->analysis_revision;
+    data.query_generation=fields ? source ? source->revision : a->analysis_revision : object ? object->revision : a->analysis_revision;
+    snprintf(data.kind,sizeof(data.kind),fields ? "source-fields" : "pivot-authoring"); return data;
+}
+static DxReviewWidget *review_workspace_widget(App *a,const char *id,const char *parent,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,int pivot_role,int index,int layer,const char *file,int line) {
+    if (!review_armed(a)) return NULL;
+    Rectangle visible=GetCollisionRec(GetCollisionRec(bounds,clip),box(0,0,GetScreenWidth(),GetScreenHeight()));
+    if (visible.width<=0 || visible.height<=0) return NULL;
+    bool fields=!strncmp(id,"pane.fields",11); DxReviewWidget widget;
+    dx_review_widget_init(&widget,id,action,fields ? "workspace/left/fields" : "workspace/analysis/authoring",role,label);
+    snprintf(widget.parent_id,sizeof(widget.parent_id),"%s",parent ? parent : ""); widget.bounds=review_rect(bounds); widget.clip=review_rect(clip); widget.layer=layer;
+    widget.container=!strcmp(role,"group") || !strcmp(role,"listbox") || !strcmp(role,"container"); widget.expanded=widget.container;
+    widget.enabled=enabled; widget.checked=checked; widget.focused=focused; widget.input_eligible=enabled && !widget.container && strcmp(role,"text") && strcmp(role,"region");
+    widget.data=review_workspace_scope(a,fields); if (field) { widget.identity_truncated=review_author_field(widget.data.field,field); widget.truncated|=widget.identity_truncated; }
+    if (pivot_role>=0) widget.data.column=(uint64_t)pivot_role; if (index>=0) widget.data.row=(uint64_t)index;
+    if (!strcmp(role,"text") || !strcmp(role,"combobox")) dx_review_value_set(&widget.value,"VARCHAR",false,label ? label : "");
+    if (!strcmp(id,"pane.fields.search")) dx_review_value_set(&widget.value,"VARCHAR",false,a->pivot_search.text ? a->pivot_search.text : "");
+    snprintf(widget.source_file,sizeof(widget.source_file),"%s",file); widget.source_line=(uint32_t)line; widget.truncated|=widget.value.truncated;
+    DxReviewStatus status=dx_review_add(a->review->registry,&widget);
+    if (status!=DX_REVIEW_OK) { fprintf(stderr,"Review workspace registration %s: %s\n",id,dx_review_status_text(status)); return NULL; }
+    a->review->registry->truncated|=widget.truncated; return (DxReviewWidget *)dx_review_find(a->review->registry,id);
+}
+static void review_workspace_control(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,int pivot_role,int index,const char *file,int line) {
+    if (!review_armed(a)) return;
+    char parent[128]; int layer=!strncmp(id,"pane.fields",11) || !strncmp(id,"analysis.marks",14) || !strncmp(id,"analysis.shelf.values",21) || !strncmp(id,"analysis.shelf.filters",22) ? 52 : 22;
+    if (!strcmp(id,"pane.fields") || !strcmp(id,"analysis.marks")) snprintf(parent,sizeof(parent),"pane.workbook");
+    else if (!strcmp(id,"analysis.context")) parent[0]=0;
+    else if (!strncmp(id,"pane.fields",11)) snprintf(parent,sizeof(parent),"pane.fields");
+    else if (!strncmp(id,"analysis.shelf.",15)) {
+        snprintf(parent,sizeof(parent),"%s",id); char *end=strchr(parent+15,'.');
+        if (end) *end=0; else snprintf(parent,sizeof(parent),"%s",pivot_role>=PIVOT_VALUES ? "analysis.marks" : "analysis.context");
+    } else snprintf(parent,sizeof(parent),"%s",!strncmp(id,"analysis.marks",14) ? "analysis.marks" : "analysis.context");
+    DxReviewWidget *widget=review_workspace_widget(a,id,parent,action,role,label,bounds,clip,enabled,checked,focused,field,pivot_role,index,layer,file,line);
+    if (widget && !strncmp(id,"analysis.marks.target.",22) && checked && (unsigned)index<DX_MARK_ROLES) {
+        dx_review_value_set(&widget->value,"VARCHAR",false,a->mark_labels[index]); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated;
+    }
+}
+static void review_workspace_field(App *a,const Column *field,size_t index,Rectangle bounds,Rectangle clip,bool enabled,bool focused,bool more,const char *file,int line) {
+    if (!review_armed(a) || !field || !field->name) return;
+    char id[128],parent[128]; snprintf(parent,sizeof(parent),"pane.fields.field.f%016llx",(unsigned long long)review_field_hash(field->name));
+    snprintf(id,sizeof(id),"%s%s",parent,more ? ".more" : "");
+    DxReviewWidget *widget=review_workspace_widget(a,id,more ? parent : "pane.fields.list",more ? "field.open_actions" : selected_pivot(a) ? "field.select_drag" : "field.reveal","button",more ? "Field actions" : field->name,bounds,clip,enabled,!more && focused,focused,field->name,-1,(int)index,more ? 54 : 53,file,line);
+    if (widget) { snprintf(widget->data.kind,sizeof(widget->data.kind),"available-field"); dx_review_value_set(&widget->value,"VARCHAR",false,field->name); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated; }
+}
+static bool review_workspace_token_id(char output[128],int role,const PivotField *field,bool remove) {
+    static const char *const aggregates[]={"sum","count","distinct","average","minimum","maximum"},*const grains[]={"exact","year","quarter","month"};
+    if ((unsigned)role>=4 || !field || !field->name || (unsigned)field->aggregate>=6 || (unsigned)field->grain>=4) return false;
+    snprintf(output,128,"analysis.shelf.%s.token.f%016llx.%s.%s%s",review_workspace_role(role),(unsigned long long)review_field_hash(field->name),aggregates[field->aggregate],grains[field->grain],remove ? ".remove" : ""); return true;
+}
+static void review_workspace_token(App *a,int role,size_t index,const PivotField *field,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool focused,bool remove,const char *file,int line) {
+    if (!review_armed(a)) return;
+    char id[128],parent[128]; if (!review_workspace_token_id(id,role,field,remove)) return;
+    if (remove) review_workspace_token_id(parent,role,field,false); else snprintf(parent,sizeof(parent),"analysis.shelf.%s",review_workspace_role(role));
+    DxReviewWidget *widget=review_workspace_widget(a,id,parent,remove ? "pivot.remove_field" : "pivot.inspect_field","button",label,bounds,clip,enabled,false,focused,field->name,role,(int)index,(role>=PIVOT_VALUES ? 53 : 23)+(remove ? 1 : 0),file,line);
+    if (widget) { snprintf(widget->data.kind,sizeof(widget->data.kind),"pivot-token"); dx_review_value_set(&widget->value,"VARCHAR",false,label); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated; }
+}
+static void review_workspace_scroll(App *a,const char *part,Rectangle track,Rectangle thumb,Rectangle clip,bool enabled,bool dragging,const char *file,int line) {
+    if (!review_armed(a)) return;
+    const char *parent=!strcmp(part,"fields") ? "pane.fields" : "analysis.marks"; char id[128],thumb_id[128]; snprintf(id,sizeof(id),"%s.scrollbar",parent); snprintf(thumb_id,sizeof(thumb_id),"%s.thumb",id);
+    review_workspace_widget(a,id,parent,"workspace.scroll","scrollbar","Scroll authoring controls",track,clip,enabled,false,false,NULL,-1,-1,55,file,line);
+    review_workspace_widget(a,thumb_id,id,"workspace.scroll","scrollbar","Scroll authoring controls",thumb,GetCollisionRec(track,clip),enabled,false,dragging,NULL,-1,-1,56,file,line);
+}
 static void review_query_status(App *a,const char *text,Rectangle bounds,const char *file,int line) {
     if (!review_armed(a) || a->modal!=MODAL_SOURCE_QUERY) return;
     Rectangle clip=a->ui.clipping ? a->ui.clip : box(0,0,GetScreenWidth(),GetScreenHeight());
