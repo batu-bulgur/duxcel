@@ -9,7 +9,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-typedef enum { BROWSER_DESCRIBE, BROWSER_PAGE, BROWSER_COUNT, BROWSER_VALIDATE, BROWSER_DISTINCT_PAGE, BROWSER_DISTINCT_COUNT, BROWSER_TYPE_DESCRIBE,BROWSER_PIVOT_COUNT,BROWSER_PIVOT_TOTALS } BrowserStage;
+typedef enum { BROWSER_DESCRIBE, BROWSER_PAGE, BROWSER_COUNT, BROWSER_VALIDATE, BROWSER_DISTINCT_PAGE, BROWSER_DISTINCT_COUNT, BROWSER_TYPE_DESCRIBE,BROWSER_PIVOT_COUNT,BROWSER_PIVOT_TOTALS,BROWSER_PIVOT_DOMAIN,BROWSER_PIVOT_ROWS,BROWSER_PIVOT_COLUMNS } BrowserStage;
 typedef struct {
     QueryJob *job;
     QueryReply *reply;
@@ -22,6 +22,10 @@ typedef struct {
     bool matrix;
     Page totals_schema;
     char *totals_sql;
+    BrowserPivotPlan plan;
+    Page domains[DX_PIVOT_FIELDS],rows_schema,columns_schema,row_totals;
+    size_t domain_index;
+    char *rows_sql,*columns_sql;
     BrowserStage stage;
     unsigned ticket;
     double started;
@@ -48,6 +52,10 @@ EM_JS(void, browser_cancel, (int close), { Module['dxEngine'].cancel(Boolean(clo
 static void browser_discard(void) {
     job_free(browser_query.job); reply_free(browser_query.reply); free(browser_query.relation); free(browser_query.type_relation);
     page_free(&browser_query.totals_schema); free(browser_query.totals_sql);
+    browser_pivot_plan_free(&browser_query.plan);
+    for (size_t i=0;i<DX_PIVOT_FIELDS;i++) page_free(&browser_query.domains[i]);
+    page_free(&browser_query.rows_schema); page_free(&browser_query.columns_schema); page_free(&browser_query.row_totals);
+    free(browser_query.rows_sql); free(browser_query.columns_sql);
     distinct_query_free(&browser_query.distinct); page_free(&browser_query.distinct_values);
     browser_query=(BrowserQuery){0};
     if (browser_owner) browser_owner->running=false;
@@ -97,20 +105,24 @@ static void browser_execute(char *sql,BrowserStage stage) {
     q->stage=stage; q->ticket=++browser_sequence;
     char id[24],object[24],revision[24],offset[24],total[24];
     snprintf(id,sizeof(id),"%" PRIu64,j->id); snprintf(object,sizeof(object),"%" PRIu64,j->object_id); snprintf(revision,sizeof(revision),"%" PRIu64,j->revision);
-    snprintf(offset,sizeof(offset),"%" PRIu64,(stage==BROWSER_PAGE || stage==BROWSER_DISTINCT_PAGE) ? j->offset : 0);
+    snprintf(offset,sizeof(offset),"%" PRIu64,(stage==BROWSER_PAGE || stage==BROWSER_DISTINCT_PAGE || stage==BROWSER_PIVOT_ROWS) ? j->offset : 0);
     snprintf(total,sizeof(total),"%" PRIi64,j->known_total);
-    bool totals=stage==BROWSER_PIVOT_TOTALS; if (totals) snprintf(total,sizeof(total),"1");
-    char *columns=stage==BROWSER_PAGE || totals ? browser_columns_json(totals ? &q->totals_schema : &browser_schema) : NULL;
+    bool totals=stage==BROWSER_PIVOT_TOTALS || stage==BROWSER_PIVOT_COLUMNS; if (totals) snprintf(total,sizeof(total),"1");
+    if (stage==BROWSER_PIVOT_ROWS) snprintf(total,sizeof(total),"%" PRIu64,q->reply->page.total);
+    const Page *schema=stage==BROWSER_PAGE ? &browser_schema : stage==BROWSER_PIVOT_TOTALS ? &q->totals_schema : stage==BROWSER_PIVOT_ROWS ? &q->rows_schema : stage==BROWSER_PIVOT_COLUMNS ? &q->columns_schema : NULL;
+    char *columns=schema ? browser_columns_json(schema) : NULL;
     /* Browser counters count submitted SQL; the async host may supersede a
        request before the official engine executes it. */
     browser_owner->sql_executed++; if (stage==BROWSER_COUNT || stage==BROWSER_PIVOT_COUNT) browser_owner->counts_executed++;
-    browser_send(browser_cookie,q->ticket,sql,id,object,revision,offset,totals || ((stage==BROWSER_PAGE || stage==BROWSER_DISTINCT_PAGE) && j->known_total>=0) ? total : NULL,columns,totals ? 1 : stage==BROWSER_DISTINCT_PAGE ? DX_DISTINCT_ROWS : DX_PAGE_ROWS);
+    browser_send(browser_cookie,q->ticket,sql,id,object,revision,offset,totals || stage==BROWSER_PIVOT_ROWS || ((stage==BROWSER_PAGE || stage==BROWSER_DISTINCT_PAGE) && j->known_total>=0) ? total : NULL,columns,totals ? 1 : stage==BROWSER_DISTINCT_PAGE ? DX_DISTINCT_ROWS : stage==BROWSER_PIVOT_DOMAIN ? 129 : DX_PAGE_ROWS);
     free(sql); free(columns);
 }
 static void browser_fetch_page(void) {
     if (browser_query.matrix && browser_query.job->include_totals) {
         char *error=NULL;
-        if (!browser_pivot_totals_schema(&browser_query.totals_schema,&browser_schema,&browser_query.job->pivot,&error)) { browser_fail(error); free(error); return; }
+        BrowserQuery *q=&browser_query;
+        bool valid=q->plan.sql ? browser_pivot_readout_schema(&q->rows_schema,&browser_schema,&q->job->pivot,&q->plan,true,&error) && browser_pivot_readout_schema(&q->columns_schema,&browser_schema,&q->job->pivot,&q->plan,false,&error) : browser_pivot_totals_schema(&q->totals_schema,&browser_schema,&q->job->pivot,&error);
+        if (!valid) { browser_fail(error); free(error); return; }
     }
     char *error=NULL,*sql=browser_page_sql(browser_query.relation,&browser_schema,browser_query.job->offset,&error);
     if (error) { browser_fail(error); free(error); return; }
@@ -183,7 +195,12 @@ static void browser_prepare_query(void) {
     }
     if (needed[0] || (q->matrix && needed[1])) {
         free(q->relation); q->relation=browser_relation_sql(a,q->matrix ? pivot : NULL,&error); if (!q->relation) { browser_fail(error); free(error); return; }
-        if (q->matrix) { free(q->totals_sql); q->totals_sql=browser_pivot_totals_sql(a,pivot,&error); if (!q->totals_sql) { browser_fail(error); free(error); return; } }
+        if (q->matrix && !pivot->counts[PIVOT_COLUMNS]) { free(q->totals_sql); q->totals_sql=browser_pivot_totals_sql(a,pivot,&error); if (!q->totals_sql) { browser_fail(error); free(error); return; } }
+    }
+    if (q->matrix && pivot->counts[PIVOT_COLUMNS]) {
+        char *sql=browser_pivot_domain_sql(a,pivot,q->domain_index,&error);
+        if (!sql) { browser_fail(error); free(error); return; }
+        browser_execute(sql,BROWSER_PIVOT_DOMAIN); return;
     }
     if (j->kind==JOB_COUNT) {
         char *sql=browser_count_sql(q->relation,&error);
@@ -202,6 +219,11 @@ static bool browser_uint64(const char *text,uint64_t *value) {
 }
 static void browser_matrix_ready(void) {
     BrowserQuery *q=&browser_query; char *error=NULL;
+    if (q->plan.sql) {
+        if (q->job->include_totals) { browser_execute(dx_strdup(q->rows_sql),BROWSER_PIVOT_ROWS); return; }
+        if (!browser_pivot_plan_complete(&q->reply->page,NULL,NULL,&q->job->pivot,&q->plan,&error)) { browser_publish(error); free(error); return; }
+        q->reply->page.query_ms=dx_millis()-q->started; browser_publish(NULL); return;
+    }
     if (q->job->include_totals) { browser_execute(dx_strdup(q->totals_sql),BROWSER_PIVOT_TOTALS); return; }
     if (!browser_pivot_complete(&q->reply->page,NULL,&q->job->pivot,&error)) { browser_publish(error); free(error); return; }
     q->reply->page.query_ms=dx_millis()-q->started; browser_publish(NULL);
@@ -211,7 +233,7 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
     if (failure && *failure) { browser_publish(failure); return; }
     uint64_t total=0; char *error=NULL; Page page={0};
     QueryJob *j=browser_query.job; QueryReply *r=browser_query.reply;
-    uint64_t offset=(browser_query.stage==BROWSER_PAGE || browser_query.stage==BROWSER_DISTINCT_PAGE) ? j->offset : 0;
+    uint64_t offset=(browser_query.stage==BROWSER_PAGE || browser_query.stage==BROWSER_DISTINCT_PAGE || browser_query.stage==BROWSER_PIVOT_ROWS) ? j->offset : 0;
     if (!browser_uint64(total_text,&total)) { browser_publish("Invalid browser row count."); return; }
 #ifdef DUXCEL_DEV_REVIEW
     double decode_started=dx_millis();
@@ -222,6 +244,36 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
     browser_query.decode_ms+=dx_millis()-decode_started; browser_query.decoded_bytes+=page.bytes;
 #endif
     if (!decoded) { browser_publish(error); free(error); return; }
+    if (browser_query.stage==BROWSER_PIVOT_DOMAIN) {
+        BrowserQuery *q=&browser_query; size_t keys=j->pivot.counts[PIVOT_ROWS],measures=j->pivot.counts[PIVOT_VALUES],product=1,used=page.bytes;
+        if (used>DX_PAGE_WIRE_TEXT_BYTES) { page_free(&page); browser_publish("Pivot column domains exceed 4 MiB."); return; }
+        for (size_t i=0;i<q->domain_index;i++) { size_t count=q->domains[i].row_count; product*=count ? count : 1; if (q->domains[i].bytes>DX_PAGE_WIRE_TEXT_BYTES-used) { page_free(&page); browser_publish("Pivot column domains exceed 4 MiB."); return; } used+=q->domains[i].bytes; }
+        size_t count=page.row_count ? page.row_count : 1;
+        if (page.column_count!=1 || page.row_count>128 || count>(128-keys)/(product*measures)) { page_free(&page); browser_publish("Pivot exceeds 128 result columns. Filter the column fields or use fewer measures."); return; }
+        q->domains[q->domain_index++]=page;
+        if (q->domain_index<j->pivot.counts[PIVOT_COLUMNS]) { char *sql=browser_pivot_domain_sql(&r->analysis,&j->pivot,q->domain_index,&error); if (!sql) { browser_publish(error); free(error); return; } browser_execute(sql,BROWSER_PIVOT_DOMAIN); return; }
+        bool valid=browser_pivot_plan_build(&q->plan,&r->analysis,&j->pivot,q->domains,&error);
+        for (size_t i=0;i<DX_PIVOT_FIELDS;i++) page_free(&q->domains[i]);
+        if (!valid) { browser_publish(error); free(error); return; }
+        free(q->relation); q->relation=dx_strdup(q->plan.sql);
+        if (j->include_totals) {
+            q->rows_sql=browser_pivot_readout_sql(&r->analysis,&j->pivot,&q->plan,true,j->offset,&error);
+            if (q->rows_sql) q->columns_sql=browser_pivot_readout_sql(&r->analysis,&j->pivot,&q->plan,false,0,&error);
+            if (!q->rows_sql || !q->columns_sql) { browser_publish(error); free(error); return; }
+        }
+        if (browser_schema_key && !strcmp(browser_schema_key,q->relation)) browser_fetch_page();
+        else { char *sql=browser_describe_sql(q->relation,&error); if (!sql) { browser_publish(error); free(error); return; } browser_execute(sql,BROWSER_DESCRIBE); }
+        return;
+    }
+    if (browser_query.stage==BROWSER_PIVOT_ROWS) {
+        BrowserQuery *q=&browser_query; size_t used=r->page.bytes;
+        if (page.bytes>DX_PAGE_WIRE_TEXT_BYTES-used) { page_free(&page); browser_publish("Pivot page and source row totals exceed 4 MiB."); return; }
+        q->row_totals=page; browser_execute(dx_strdup(q->columns_sql),BROWSER_PIVOT_COLUMNS); return;
+    }
+    if (browser_query.stage==BROWSER_PIVOT_COLUMNS) {
+        BrowserQuery *q=&browser_query; bool valid=browser_pivot_plan_complete(&r->page,&q->row_totals,&page,&j->pivot,&q->plan,&error); page_free(&page);
+        if (valid) r->page.query_ms=dx_millis()-q->started; browser_publish(valid ? NULL : error); free(error); return;
+    }
     if (browser_query.stage==BROWSER_PIVOT_TOTALS) {
         bool valid=browser_pivot_complete(&r->page,&page,&j->pivot,&error); page_free(&page);
         if (valid) r->page.query_ms=dx_millis()-browser_query.started;
@@ -316,7 +368,11 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
         }
         browser_prepare_query(); return;
     }
-    if (q->matrix) { q->totals_sql=browser_pivot_totals_sql(&r->analysis,&j->pivot,&error); if (!q->totals_sql) { browser_fail(error); free(error); return; } }
+    if (q->matrix) {
+        char *valid=j->pivot.counts[PIVOT_COLUMNS] ? browser_pivot_domain_sql(&r->analysis,&j->pivot,0,&error) : browser_pivot_totals_sql(&r->analysis,&j->pivot,&error);
+        if (!valid) { browser_fail(error); free(error); return; }
+        if (j->pivot.counts[PIVOT_COLUMNS]) free(valid); else q->totals_sql=valid;
+    }
     q->relation=browser_relation_sql(&r->analysis,q->matrix ? &j->pivot : NULL,&error);
     if (!q->relation) { browser_fail(error); free(error); return; }
     browser_prepare_query();
