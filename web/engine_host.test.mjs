@@ -59,6 +59,20 @@ function engine(overrides = {}) {
         async dropFile(name) { calls.push(['drop', name]); },
         async close() { calls.push(['close']); }, ...overrides };
 }
+test('host chooses copy wire bounds only from its explicit request purpose',async()=>{
+    const adapter=engine({async submit(input){
+        const output=reply(input),rows=600;
+        output.page={...output.page,rowCount:rows,text:new Uint8Array(),offsets:new Uint32Array(rows+1),nulls:new Uint8Array(rows).fill(1)};
+        return output;
+    }});
+    const host=createEngineHost({},async()=>adapter),copied=runtime(),ordinary=runtime();
+    await host.submit(copied,1,1,{...request('1'),purpose:'copy',rowLimit:600});
+    assert.equal(copied.calls.length,1);assert.equal(copied.calls[0].error,null);
+    assert.equal(new DataView(copied.calls[0].wire.buffer).getUint32(12,true),600);assert.equal(copied.live.size,0);
+    await host.submit(ordinary,1,2,request('2'));
+    assert.match(ordinary.calls[0].error,/row count/);assert.equal(ordinary.live.size,0);
+    await host.cancel(true);
+});
 async function withDOM(run) {
     const previous = globalThis.document, inputs = [];
     globalThis.document = {

@@ -13,11 +13,11 @@ function cString(runtime,text,owned){
     const bytes=encoder.encode(text),terminated=new Uint8Array(bytes.length+1);terminated.set(bytes);
     return allocated(runtime,terminated,owned);
 }
-function deliver(runtime,cookie,ticket,page,error){
+function deliver(runtime,cookie,ticket,page,error,purpose){
     const owned=[];
     try{
         if(error){runtime.reply(cookie,ticket,0,0,0,0,cString(runtime,String(error).slice(0,2048),owned));return;}
-        const wire=encodePageWire(page),pointer=allocated(runtime,wire,owned),total=cString(runtime,page.total,owned);
+        const wire=encodePageWire(page,{purpose}),pointer=allocated(runtime,wire,owned),total=cString(runtime,page.total,owned);
         runtime.reply(cookie,ticket,pointer,wire.length,total,page.countPending?1:0,0);
     }catch(error){
         if(!(error instanceof AllocationError))throw error;
@@ -76,7 +76,7 @@ export function createEngineHost(config,createAdapter=createOfficialWorkerAdapte
                 for(const field of ['requestId','generation','documentId','sourceId','objectId','revision','offset'])
                     if(reply[field]!==request[field])throw new Error('Stale or mismatched browser query identity.');
                 if(reply.status!=='ok')throw new Error(reply.error?.message??`Query ${reply.status}.`);
-                deliver(runtime,cookie,ticket,reply.page);
+                deliver(runtime,cookie,ticket,reply.page,null,request.purpose);
             }catch(error){if(current===epoch&&!closed)deliver(runtime,cookie,ticket,null,error.message??error);}
             finally{if(activeSubmission===submission)activeSubmission=null;flushDrops();}
         },

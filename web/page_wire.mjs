@@ -3,6 +3,7 @@
  * Caller buffers remain owned and attached; only the returned buffer may transfer.
  */
 const MAX_ROWS = 256, MAX_COLUMNS = 256;
+const MAX_COPY_CELLS=20000;
 const MAX_TEXT = 4 * 1024 * 1024, MAX_WIRE = 6 * 1024 * 1024;
 const NUMBER_KINDS = new Set(['none', 'i8', 'i16', 'i32', 'i64', 'i128',
     'u8', 'u16', 'u32', 'u64', 'u128', 'decimal', 'float']);
@@ -66,13 +67,15 @@ function cellText(text, start, end) {
  * All dimensions/metadata/buffers are validated before allocating the output.
  * Exact text bytes are authoritative and are never parsed as JavaScript numbers.
  */
-export function encodePageWire(page) {
+export function encodePageWire(page,{purpose}={}) {
+    check(purpose===undefined||purpose==='copy','unknown transport purpose');
     check(page && typeof page === 'object' && page.schema === 'duxcel.page' && page.version === 1,
         'expected duxcel.page version 1');
     const columns = count(page.columnCount, MAX_COLUMNS, 'column count');
-    const rows = count(page.rowCount, MAX_ROWS, 'row count');
+    const rows = count(page.rowCount, purpose==='copy'?MAX_COPY_CELLS:MAX_ROWS, 'row count');
     check(Array.isArray(page.columns) && page.columns.length === columns, 'column descriptors disagree with column count');
     const cells = columns * rows;
+    check(purpose!=='copy'||cells<=MAX_COPY_CELLS,'copy exceeds 20,000 cells');
     const text = buffer(page.text, Uint8Array, 'text');
     const offsets = buffer(page.offsets, Uint32Array, 'offsets');
     const nulls = buffer(page.nulls, Uint8Array, 'NULL mask');

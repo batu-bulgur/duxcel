@@ -33,6 +33,16 @@ function inspect(wire) {
         values: nulls.map((isNull, index) => isNull ? null : decoder.decode(text.subarray(offsets[index], offsets[index + 1]))) };
 }
 function rejects(value, message) { assert.throws(() => encodePageWire(value), { name: 'TypeError', message }); }
+test('copy transport purpose alone permits a bounded 20,000-cell envelope without changing normal pages',()=>{
+    const values=Array.from({length:20000},(_,i)=>[null,'','NULL','9007199254740993'][i%4]);
+    const input=page(values);
+    assert.throws(()=>encodePageWire(input),/row count/);
+    assert.deepEqual(inspect(encodePageWire(input,{purpose:'copy'})).values,values);
+    assert.throws(()=>encodePageWire(page([...values,'x']),{purpose:'copy'}),/row count/);
+    assert.throws(()=>encodePageWire(page([...values,'x','y'],[column(),column({name:'w'})]),{purpose:'copy'}),/20,000 cells/);
+    for(const purpose of [null,false,'page','Copy',{},1])assert.throws(()=>encodePageWire(page(),{purpose}),/unknown transport purpose/);
+    assert.throws(()=>encodePageWire(page(['x'.repeat(4*1024*1024+1)]),{purpose:'copy'}),/4 MiB/);
+});
 
 test('DXP1 little-endian golden bytes retain SQL NULL, empty text and literal NULL', () => {
     const wire = encodePageWire(page());

@@ -18,6 +18,18 @@ function reader(table) {
         async *[Symbol.asyncIterator]() { yield* table.batches; }, async cancel() { this.cancelled++; } };
 }
 const simple = () => new Table({ value: vectorFromArray([1, 2], new Int32()) });
+test('copy-only row envelopes keep ordinary page bounds and enforce 20,000 actual cells',async()=>{
+    const table=new Table({value:vectorFromArray(Array.from({length:20000},(_,i)=>i),new Int32())});
+    const copied=request('1',{purpose:'copy',rowLimit:20000});
+    assert.equal(copied.purpose,'copy');
+    const output=await encodePage(reader(table),copied);assert.equal(output.rowCount,20000);assert.equal(pageCellText(output,19999,0),'19999');
+    assert.throws(()=>request('2',{rowLimit:257}),{code:'INVALID_REQUEST'});
+    assert.throws(()=>request('2',{purpose:'copy',rowLimit:20001}),{code:'INVALID_REQUEST'});
+    for(const purpose of [null,false,'page','Copy',{},1])assert.throws(()=>request('2',{purpose}),{code:'INVALID_REQUEST'});
+    assert.throws(()=>request('2',{purpose:'copy',rowLimit:10001,columns:[{name:'a',typeName:'INTEGER'},{name:'b',typeName:'INTEGER'}]}),{code:'INVALID_REQUEST'});
+    const wide=new Table({a:vectorFromArray(Array(10001).fill(1),new Int32()),b:vectorFromArray(Array(10001).fill(2),new Int32())});
+    await assert.rejects(encodePage(reader(wide),request('3',{purpose:'copy',rowLimit:10001})),{code:'PAGE_LIMIT'});
+});
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function connection(extra = {}) {

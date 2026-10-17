@@ -144,14 +144,15 @@ static bool number_type(Text text,uint32_t precision,uint32_t scale,NumberType *
 static char *copy_text(Text text) {
     char *copy=dx_alloc(text.size+1); memcpy(copy,text.bytes,text.size); return copy;
 }
-bool page_from_wire(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,char **error) {
+static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,bool copy,char **error) {
     if (!out || !bytes || size<20 || size>DX_PAGE_WIRE_BYTES) return fail(error,"Invalid DXP1 page size or destination.");
     Reader reader={bytes,size,0};
     uint32_t magic,version,columns,rows,text_bytes;
     if (!word(&reader,&magic) || !word(&reader,&version) || !word(&reader,&columns) ||
         !word(&reader,&rows) || !word(&reader,&text_bytes) || magic!=DX_PAGE_WIRE_MAGIC || version!=DX_PAGE_WIRE_VERSION)
         return fail(error,"Unsupported DXP1 page header.");
-    if (columns>DX_PAGE_WIRE_COLUMNS || rows>DX_PAGE_ROWS || text_bytes>DX_PAGE_WIRE_TEXT_BYTES)
+    if (columns>DX_PAGE_WIRE_COLUMNS || rows>(copy ? DX_PAGE_WIRE_COPY_CELLS : DX_PAGE_ROWS) ||
+        (copy && (uint64_t)columns*rows>DX_PAGE_WIRE_COPY_CELLS) || text_bytes>DX_PAGE_WIRE_TEXT_BYTES)
         return fail(error,"DXP1 page exceeds its row, column or text limit.");
     if (rows>UINT64_MAX-offset || (rows && total<offset+rows)) return fail(error,"DXP1 page row count or offset is inconsistent.");
     WireColumn descriptors[DX_PAGE_WIRE_COLUMNS];
@@ -197,4 +198,10 @@ bool page_from_wire(Page *out,const void *bytes,size_t size,uint64_t offset,uint
         first=next;
     }
     page_free(out); *out=page; return true;
+}
+bool page_from_wire(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,char **error) {
+    return decode_page(out,bytes,size,offset,total,count_pending,false,error);
+}
+bool page_from_wire_copy(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,char **error) {
+    return decode_page(out,bytes,size,offset,total,count_pending,true,error);
 }

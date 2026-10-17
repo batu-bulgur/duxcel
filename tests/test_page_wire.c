@@ -265,7 +265,27 @@ static void test_limits_and_empty_pages(void) {
     CHECK(strlen(page.columns[0].name)==4096 && strlen(page.columns[0].type_name)==128 && page.columns[0].type==DUCKDB_TYPE_VARCHAR);
     page_free(&page); free(names.bytes);
 }
+static void test_copy_envelope(void) {
+    const Descriptor descriptor[]={ {"v","VARCHAR","none",0,0},{"w","VARCHAR","none",0,0} };
+    const char **values=dx_alloc(20002*sizeof(*values));
+    for (size_t i=0;i<20002;i++) values[i]=i%4==0 ? NULL : i%4==1 ? "" : i%4==2 ? "NULL" : "9007199254740993";
+    Wire wire=encode(descriptor,1,20000,values); Page out=retained_page(); char *error=NULL;
+    reject(&out,wire.bytes,wire.size,0,20000,false);
+    CHECK(page_from_wire_copy(&out,wire.bytes,wire.size,0,20000,false,&error) && !error);
+    CHECK(out.row_count==20000 && out.column_count==1 && out.bytes==allocated_bytes(&out));
+    CHECK(out.cells[0].is_null && out.cells[1].text && !*out.cells[1].text && !strcmp(out.cells[2].text,"NULL") && !strcmp(out.cells[19999].text,"9007199254740993"));
+    memset(wire.bytes,0,wire.size); free(wire.bytes); CHECK(!strcmp(out.cells[19999].text,"9007199254740993")); page_free(&out);
+    wire=encode(descriptor,2,10001,values); out=retained_page(); Page before=out;
+    CHECK(!page_from_wire_copy(&out,wire.bytes,wire.size,0,10001,false,&error) && error && !memcmp(&out,&before,sizeof(out)));
+    free(error); error=NULL; free(wire.bytes);
+    wire=encode(descriptor,1,20000,values); set_word(&wire,12,20001);
+    CHECK(!page_from_wire_copy(&out,wire.bytes,wire.size,0,20001,false,&error) && error && !memcmp(&out,&before,sizeof(out)));
+    free(error); error=NULL; set_word(&wire,12,20000); wire.bytes[wire.nulls]=2;
+    CHECK(!page_from_wire_copy(&out,wire.bytes,wire.size,0,20000,false,&error) && error && !memcmp(&out,&before,sizeof(out)));
+    free(error); free(wire.bytes); free(values); page_free(&out);
+}
 int main(void) {
+    test_copy_envelope();
     test_exact_owned_values(); test_row_major_and_replacement(); test_record_lookup_bounds(); test_descriptor_types(); test_bad_headers_and_lengths(); test_bad_metadata(); test_strict_utf8(); test_limits_and_empty_pages();
     printf("PASS: %u page wire checks\n",checks); return 0;
 }

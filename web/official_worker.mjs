@@ -12,7 +12,7 @@
 import { DataType } from 'apache-arrow';
 
 export const LIMITS = Object.freeze({ rows: 256, columns: 256, bytes: 4 * 1024 * 1024,
-    sqlBytes: 1024 * 1024, fileBytes: 256 * 1024 * 1024, fileNames: 1024 });
+    copyCells:20000,sqlBytes: 1024 * 1024, fileBytes: 256 * 1024 * 1024, fileNames: 1024 });
 const MAX_U64 = 18446744073709551615n;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -53,12 +53,16 @@ export function pageRequest(value) {
     check(request.requestId !== '0', 'INVALID_REQUEST', 'requestId must be nonzero and increase within an adapter');
     request.sql = boundedText(value.sql, LIMITS.sqlBytes, 'C-built SQL');
     check(request.sql.trim() && !request.sql.includes('\0'), 'INVALID_REQUEST', 'Nonempty SQL without embedded NUL required');
+    check(value.purpose===undefined||value.purpose==='copy','INVALID_REQUEST','Unknown query purpose');
+    if(value.purpose==='copy')request.purpose='copy';
     request.rowLimit = value.rowLimit ?? LIMITS.rows;
-    check(Number.isInteger(request.rowLimit) && request.rowLimit > 0 && request.rowLimit <= LIMITS.rows, 'INVALID_REQUEST', 'Page row limit must be 1–256');
+    const maxRows=request.purpose==='copy'?LIMITS.copyCells:LIMITS.rows;
+    check(Number.isInteger(request.rowLimit) && request.rowLimit > 0 && request.rowLimit <= maxRows, 'INVALID_REQUEST', `Page row limit must be 1–${maxRows}`);
     request.knownTotal = value.knownTotal == null ? null : u64(value.knownTotal, 'knownTotal');
     if (value.columns != null) {
         check(Array.isArray(value.columns) && value.columns.length <= LIMITS.columns, 'INVALID_REQUEST', 'Too many requested columns');
         request.columns = Object.freeze(value.columns.map(descriptor));
+        check(request.purpose!=='copy'||request.rowLimit*request.columns.length<=LIMITS.copyCells,'INVALID_REQUEST','Copy projection exceeds 20,000 cells');
     }
     return Object.freeze(request);
 }
@@ -133,6 +137,7 @@ export async function encodePage(reader, request, { obsolete = () => false } = {
     for await (const batch of reader) {
         check(!obsolete(), 'SUPERSEDED', 'Request was superseded');
         check(batch.numCols === fields.length && rows + batch.numRows <= request.rowLimit, 'PAGE_LIMIT', 'C-built page SQL returned more than its requested bounded rows');
+        check(request.purpose!=='copy'||fields.length*(rows+batch.numRows)<=LIMITS.copyCells,'PAGE_LIMIT','Copy result exceeds 20,000 cells');
         for (let row = 0; row < batch.numRows; row++) for (let column = 0; column < fields.length; column++) {
             const vector = batch.getChildAt(column), value = vector.get(row);
             const isNull = value === null;

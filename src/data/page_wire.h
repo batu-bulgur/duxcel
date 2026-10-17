@@ -7,6 +7,7 @@
 #define DX_PAGE_WIRE_COLUMNS 256
 #define DX_PAGE_WIRE_TEXT_BYTES (4u*1024u*1024u)
 #define DX_PAGE_WIRE_BYTES (6u*1024u*1024u)
+#define DX_PAGE_WIRE_COPY_CELLS 20000u
 
 /* Parse a bounded SQL type from DESCRIBE, retaining no text. Unknown types are
    VARCHAR/NUM_NONE; canonical DECIMAL(p,s) requires 1<=p<=38 and 0<=s<=p.
@@ -27,4 +28,8 @@ bool page_type_from_sql(const char *name,duckdb_type *type,NumberType *number);
    fit within its exact count or observed lower bound. */
 bool page_from_wire(Page *out,const void *bytes,size_t size,uint64_t offset,
                     uint64_t total,bool count_pending,char **error);
+/* Only an active copy operation may select this decoder. The wire cannot opt
+   into its larger row bound: <=20,000 rows AND cells, same text/wire limits. */
+bool page_from_wire_copy(Page *out,const void *bytes,size_t size,uint64_t offset,
+                         uint64_t total,bool count_pending,char **error);
 #endif
