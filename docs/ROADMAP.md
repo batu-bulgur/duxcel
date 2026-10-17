@@ -59,6 +59,8 @@ Acceptance: focused real-app regressions with no added idle SQL/allocations, sou
 
 ## 4. Finish native UI parity and refine through native feedback
 
+Current user-directed refinements: unify the macOS traffic lights, logo, app name and document into one title strip; place ribbon display at its lower-right edge in Full/Compact/Icons modes; use light fading Alt keytips with reliable Escape dismissal. Preserve native window behavior and separate canvas/UI scale. Shared canvas overscroll must return quickly without momentum-tail sticking or packet-dependent resistance, expose a darker backing, and retain the displaced first-row/first-column boundaries. Hidden real-frame acceptance is required; physical trackpad/Space gestures remain separate QA.
+
 Keep the implemented N1 ribbon mechanism, N2 workspace composition and N3 authoring core. Their completion never implied final visual sign-off. N4 shared controls and N5 integrated parity remain open.
 
 - [x] Replace generic filter-pill labels with bounded cached actual criteria/values.

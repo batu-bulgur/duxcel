@@ -147,7 +147,8 @@ typedef struct {
     Rectangle ribbon_hover_rect;
     float ribbon_indicator,ribbon_tabs_scroll,ribbon_indicator_width;
     UIMotion ribbon_indicator_motion,ribbon_width_motion,pipeline_motion,left_motion,left_alpha_motion,workbook_motion,pipeline_alpha_motion,workbook_alpha_motion;
-    UIMotion author_context_motion;
+    UIMotion author_context_motion,keytip_motion;
+    float keytip_alpha;
     bool author_context_active;
     float author_context_progress;
     UIPopupPresence popup_presence;
@@ -4345,10 +4346,15 @@ static int draw_choices(App *a,const char *title,const char *const *names,int co
     }
     return -1;
 }
+static Rectangle ribbon_display_bounds(App *a) {
+    float s=a->ui.scale,height=ui_ribbon_height(a->ribbon_mode);
+    float button=a->ribbon_mode==0 ? 18 : 24;
+    return box(GetScreenWidth()-30*s,(56+height-button-3)*s,24*s,button*s);
+}
 static void draw_ribbon_menu(App *a) {
     const char *names[]={"Full ribbon","Compact · icons and names","Icons only","Focus view"};
-    float s=a->ui.scale,width=GetScreenWidth()/s<900 ? 26 : 110;
-    int result=draw_choices(a,"Ribbon display",names,4,a->ribbon_mode,3,&a->ribbon_menu_focus,(Vector2){GetScreenWidth()-(width+36)*s,58*s});
+    Rectangle anchor=ribbon_display_bounds(a);
+    int result=draw_choices(a,"Ribbon display",names,4,a->ribbon_mode,3,&a->ribbon_menu_focus,(Vector2){anchor.x,anchor.y+anchor.height});
     if (result>=0) set_ribbon_mode(a,result);
     if (result!=-1) a->modal=MODAL_NONE;
 }
@@ -5827,6 +5833,7 @@ static void shortcuts(App *a) {
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && ui_mouse_position().y>(a->ribbon_mode==3 ? 0 : 56+ui_ribbon_height(a->ribbon_mode))*a->ui.scale) { a->ribbon_focus=false; a->ribbon_command=-1; a->key_tips=false; }
     if (ui_pressed(KEY_F12)) a->diagnostics=!a->diagnostics;
     if (!native_navigation && (ui_pressed(KEY_LEFT_ALT) || ui_pressed(KEY_RIGHT_ALT))) a->key_tips=!a->key_tips;
+    if (a->key_tips && ui_pressed(KEY_ESCAPE)) { a->key_tips=a->ribbon_focus=false; a->ribbon_command=-1; a->consume_grid_input=true; return; }
     bool alt_role=(ui_pressed(KEY_R) && ui_key_alt(KEY_R)) || (ui_pressed(KEY_C) && ui_key_alt(KEY_C)) || (ui_pressed(KEY_V) && ui_key_alt(KEY_V)) || (ui_pressed(KEY_F) && ui_key_alt(KEY_F));
     if (selected_pivot(a) && !a->ribbon_focus && alt_role) { pivot_keyboard(a); return; }
     const int *counts=ribbon_counts;
@@ -6136,8 +6143,8 @@ static void close_command_group(App *a) {
 }
 static void command_badge(App *a,int command,Rectangle r) {
     float s=a->ui.scale; char text[4]; snprintf(text,sizeof(text),"%d",(command+1)%10);
-    Rectangle b=box(r.x+r.width-17*s,r.y,16*s,16*s); DrawRectangleRec(b,UI_TEXT);
-    ui_text(&a->ui,text,b.x+(b.width-ui_measure(&a->ui,text,10))/2,b.y+3*s,10,WHITE);
+    Rectangle b=box(r.x+r.width-17*s,r.y,16*s,16*s);
+    ui_keytip(&a->ui,b,text,a->keytip_alpha);
 }
 static void invoke_more_item(App *a,int item) {
     if (!command_popup_enabled(a,item)) return;
@@ -6327,11 +6334,11 @@ static void draw_ribbon_commands(App *a,bool enabled) {
         if (state==UI_RIBBON_COLLAPSED) {
             if (draw_collapsed_group(a,g,r,passive_control(a,enabled))) { if (a->modal==MODAL_COMMANDS && a->ribbon_popup_group==g) close_command_group(a); else open_command_group(a,g,0); enabled=false; }
             if (focus) ui_focus_border(r,r,2*s);
-            if (a->key_tips) {
+            if (a->keytip_alpha>0) {
                 char tips[12]; if (group->count==1) snprintf(tips,sizeof(tips),"%d",(group->first+1)%10);
                 else snprintf(tips,sizeof(tips),"%d–%d",(group->first+1)%10,(group->first+group->count)%10);
-                Rectangle badge=box(r.x+r.width-32*s,r.y,32*s,16*s); DrawRectangleRec(badge,UI_TEXT);
-                ui_text(u,tips,badge.x+(badge.width-ui_measure(u,tips,10))/2,badge.y+3*s,10,WHITE);
+                Rectangle badge=box(r.x+r.width-32*s,r.y,32*s,16*s);
+                ui_keytip(u,badge,tips,a->keytip_alpha);
             }
         } else {
             for (int c=group->first;c<group->first+group->count;c++) {
@@ -6340,7 +6347,7 @@ static void draw_ribbon_commands(App *a,bool enabled) {
                 UIAction action=ribbon_commands[a->ribbon_tab][c].action;
                 bool select=a->ribbon_mode!=2 && (action==ACTION_FONT_SIZE || action==ACTION_NUMBER_FORMAT);
                 if (focus && a->ribbon_command==c && !select) ui_focus_border(cr,cr,2*s);
-                if (a->key_tips && c<10) command_badge(a,c,cr);
+                if (a->keytip_alpha>0 && c<10) command_badge(a,c,cr);
                 if (a->ribbon_mode==2 && available && CheckCollisionPointRec(ui_mouse_position(),cr)) { a->ribbon_hover=command_label(a,c); a->ribbon_hover_rect=cr; }
             }
             Rectangle launcher=ribbon_rect(a,a->ribbon_layout.launchers[g]);
@@ -6355,9 +6362,9 @@ static void draw_ribbon_commands(App *a,bool enabled) {
         DrawLineV((Vector2){divider,61*s},(Vector2){divider,(56+a->ribbon_layout.height-(collapsed ? 3 : 5))*s},(Color){216,224,230,255});
     }
     if (GetScreenWidth()/s>=700) {
-        Worksheet *sheet=active_sheet(a); float y=(56+(a->ribbon_mode==0 ? 25 : 4))*s;
-        if (ui_icon_button(u,box(GetScreenWidth()-62*s,y,27*s,27*s),CARBON_UNDO,false,passive_control(a,enabled) && sheet && sheet->undo_actions_count)) history(a,false);
-        if (ui_icon_button(u,box(GetScreenWidth()-34*s,y,27*s,27*s),CARBON_REDO,false,passive_control(a,enabled) && sheet && sheet->redo_actions_count)) history(a,true);
+        Worksheet *sheet=active_sheet(a); float y=(56+(a->ribbon_mode==0 ? 25 : 4))*s,shift=(a->ribbon_mode==0 ? 0 : 32)*s;
+        if (ui_icon_button(u,box(GetScreenWidth()-62*s-shift,y,27*s,27*s),CARBON_UNDO,false,passive_control(a,enabled) && sheet && sheet->undo_actions_count)) history(a,false);
+        if (ui_icon_button(u,box(GetScreenWidth()-34*s-shift,y,27*s,27*s),CARBON_REDO,false,passive_control(a,enabled) && sheet && sheet->redo_actions_count)) history(a,true);
     }
     if (ribbon_more_available(a)) {
         Rectangle more=ribbon_rect(a,a->ribbon_layout.overflow);
@@ -6468,6 +6475,8 @@ static void draw_toast(App *a) {
 static void draw_app(App *a) {
     UIContext *u=&a->ui; float s=u->scale; bool enabled=a->modal==MODAL_NONE && !a->io_busy && !a->left_drawer && !(a->busy && a->pending_kind==JOB_EXPORT);
     u->paint_time=GetTime(); u->reduced_motion=a->reduced_motion;
+    a->keytip_alpha=ui_motion_update_at(&a->keytip_motion,a->key_tips ? 1 : 0,u->paint_time,.14f,a->reduced_motion);
+    dx_native_titlebar_height(a->ribbon_mode==3 ? 0 : 28*s);
     /* Modality blocks input without repainting valid chrome as unavailable. */
     u->pointer_blocked=u->pointer_blocked || a->modal!=MODAL_NONE;
     bool toast_visible=a->toast_rect.width>0 && a->modal==MODAL_NONE && !a->left_drawer && !a->busy && !a->io_busy && dx_millis()-a->message_since<3200;
@@ -6485,15 +6494,17 @@ static void draw_app(App *a) {
     float width=GetScreenWidth()/s; bool authoring=selected_pivot(a)!=NULL;
     int tabs=authoring ? RIBBON_TABS : RIBBON_TABS-1;
     if (a->ribbon_tab>=tabs) a->ribbon_tab=RIBBON_ANALYZE;
-    Rectangle title_bar=box(0,0,GetScreenWidth(),28*s),brand=box(12*s,0,54*s,28*s);
+    float leading=dx_native_titlebar_inset();
+    Rectangle title_bar=box(0,0,GetScreenWidth(),28*s),brand=box(leading+10*s,0,86*s,28*s);
     DrawRectangleRec(title_bar,(Color){233,238,242,255});
     REVIEW_CONTROL(a,"chrome.title_bar","chrome.inspect_title_bar","chrome/title-bar","banner","Title bar",title_bar,18,true,false,true);
     REVIEW_CONTROL(a,"chrome.title_bar.background","chrome.inspect_title_bar","chrome/title-bar/background","region","Title bar background",title_bar,18,true,false,false);
-    ui_label(u,"Duxcel",brand,15,(Color){25,78,112,255},false,UI_SEMIBOLD);
+    brand_draw_cached(box(brand.x,4*s,20*s,20*s));
+    ui_label(u,"Duxcel",box(brand.x+25*s,0,61*s,28*s),15,(Color){25,78,112,255},false,UI_SEMIBOLD);
     REVIEW_CONTROL(a,"chrome.brand","chrome.inspect_brand","chrome/title-bar/brand","text","Duxcel",brand,20,true,false,false);
-    DrawLineV((Vector2){70*s,7*s},(Vector2){70*s,22*s},(Color){185,197,207,255});
+    DrawLineV((Vector2){leading+104*s,7*s},(Vector2){leading+104*s,22*s},(Color){185,197,207,255});
     char document[1024]; snprintf(document,sizeof(document),"%s%s",a->book.path ? dx_basename(a->book.path) : "Untitled.dxls",a->book.dirty ? " · Edited" : "");
-    Rectangle document_title=box(82*s,0,GetScreenWidth()-124*s,28*s);
+    Rectangle document_title=box(leading+116*s,0,fmaxf(0,GetScreenWidth()-leading-158*s),28*s);
     ui_label(u,document,document_title,12,UI_TEXT,false,UI_REGULAR);
     REVIEW_CONTROL(a,"chrome.document_title","chrome.inspect_document_title","chrome/title-bar/document","text",document,document_title,20,true,false,false);
     Rectangle save=box(GetScreenWidth()-34*s,2*s,24*s,24*s);
@@ -6506,18 +6517,13 @@ static void draw_app(App *a) {
         a->consume_grid_input=true; if (a->book.path) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE);
     }
     if (CheckCollisionPointRec(ui_mouse_position(),save)) { a->ribbon_hover="Save workbook · ⌘S"; a->ribbon_hover_rect=save; }
-    float display_width=width<900 ? 26 : 110;
     REVIEW_CONTROL(a,"ribbon.tabs","ribbon.inspect_tabs","ribbon/tabs","tablist","Ribbon tabs",box(0,28*s,GetScreenWidth(),28*s),18,true,false,true);
     REVIEW_CONTROL(a,"ribbon.tabs.background","ribbon.inspect_tabs","ribbon/tabs/background","region","Ribbon tab strip background",box(0,28*s,GetScreenWidth(),28*s),18,true,false,false);
-    Rectangle display=box(GetScreenWidth()-(display_width+36)*s,30*s,display_width*s,24*s);
-    REVIEW_CONTROL(a,"ribbon.display","ribbon.display","ribbon/display","button","Ribbon display",display,20,!a->io_busy,a->modal==MODAL_RIBBON,false);
-    if (ui_button(u,display,width<900 ? "" : "Ribbon display",false,!a->io_busy)) { a->ribbon_menu_focus=a->ribbon_mode; a->modal=MODAL_RIBBON; a->consume_grid_input=true; }
-    ui_carbon(u,CARBON_CHEVRON_DOWN,box(display.x+display.width-17*s,display.y+6*s,12*s,12*s),UI_MUTED);
     Rectangle help=box(GetScreenWidth()-30*s,30*s,24*s,24*s);
     REVIEW_CONTROL(a,"chrome.help","command.guide","chrome/help","button","Help",help,20,!a->io_busy,a->guide_button_focus,false);
     if (ui_icon_button(u,help,CARBON_HELP,false,!a->io_busy)) run_action(a,ACTION_GUIDE);
     if (a->guide_button_focus) ui_focus_border(help,help,s);
-    Rectangle strip=box(8*s,28*s,fmaxf(0,display.x-14*s),28*s);
+    Rectangle strip=box(8*s,28*s,fmaxf(0,help.x-14*s),28*s);
     float tab_x=0,selected_x=0,selected_width=0,total=0;
     float widths[RIBBON_TABS];
     for (int i=0;i<tabs;i++) { widths[i]=fmaxf(ui_measure(u,ui_ribbon_tabs[i],12),ui_measure_weight(u,ui_ribbon_tabs[i],12,UI_MEDIUM))/s+2+(width>=1400 ? 34 : width>=900 ? 28 : 20); if (i==a->ribbon_tab) { selected_x=total; selected_width=widths[i]; } total+=widths[i]+1; }
@@ -6536,7 +6542,7 @@ static void draw_app(App *a) {
         ui_label(u,ui_ribbon_tabs[i],box(tab.x+(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.y,tab.width-2*(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.height),12,i==a->ribbon_tab ? UI_ACCENT : UI_TEXT,false,i==a->ribbon_tab ? UI_MEDIUM : UI_REGULAR);
         if (clicked) { if (a->modal==MODAL_COMMANDS) a->modal=MODAL_NONE; a->chrome_focus=0; a->ribbon_tab=i; a->ribbon_focus=false; a->ribbon_layout.valid=false; }
         if (a->ribbon_focus && a->ribbon_command==-1 && i==a->ribbon_tab) ui_focus_border(tab,strip,s);
-        if (a->key_tips) { const char *tips[]={"H","N","D","A","V","Z"}; Rectangle badge=box(tab.x+tab.width-17*s,tab.y,16*s,16*s); DrawRectangleRec(GetCollisionRec(badge,strip),UI_TEXT); ui_text_clip(u,tips[i],badge,10,WHITE,false); }
+        if (a->keytip_alpha>0) { const char *tips[]={"H","N","D","A","V","Z"}; Rectangle badge=box(tab.x+tab.width-17*s,tab.y,16*s,16*s); ui_keytip(u,badge,tips[i],a->keytip_alpha); }
         tab_x+=widths[i]+1;
     }
     float target=strip.x/s+selected_x-a->ribbon_tabs_scroll+9,target_width=selected_width-18;
@@ -6545,6 +6551,10 @@ static void draw_app(App *a) {
     DrawRectangleRec(GetCollisionRec(box(a->ribbon_indicator,54*s,a->ribbon_indicator_width,2*s),strip),UI_ACCENT);
     ui_clear_clip(u); DrawLine(0,(int)(56*s),GetScreenWidth(),(int)(56*s),UI_BORDER);
     draw_ribbon_commands(a,chrome_enabled);
+    Rectangle display=ribbon_display_bounds(a);
+    REVIEW_CONTROL(a,"ribbon.display","ribbon.display","ribbon/display","button","Ribbon display",display,20,!a->io_busy,a->modal==MODAL_RIBBON,false);
+    if (ui_icon_button(u,display,CARBON_CHEVRON_DOWN,a->modal==MODAL_RIBBON,!a->io_busy)) { a->ribbon_menu_focus=a->ribbon_mode; a->modal=MODAL_RIBBON; a->consume_grid_input=true; }
+    if (CheckCollisionPointRec(ui_mouse_position(),display)) { a->ribbon_hover="Ribbon display"; a->ribbon_hover_rect=display; }
     }
     Worksheet *sheet=active_sheet(a);
     bool pivot_active=selected_pivot(a)!=NULL && a->ribbon_mode!=3 && !a->grid.moving && !a->grid.dragging && a->grid.resizing<0;
@@ -11541,6 +11551,7 @@ bool app_frame(AppSession *session) {
             while ((command=dx_take_command())!=DX_COMMAND_NONE) review_native_command(a,command);
             dx_take_magnification();
             if (IsFileDropped()) { FilePathList files=LoadDroppedFiles(); UnloadDroppedFiles(files); }
+            dx_native_titlebar_height(0);
             double draw_start=dx_millis(); BeginDrawing(); bool closed=dx_review_capture_draw(a->review,&a->ui); review_resolve_grid(a); dx_native_context(true,true,false,false);
             if (session->applied_cursor!=a->ui.cursor) { SetMouseCursor(a->ui.cursor); session->applied_cursor=a->ui.cursor; }
             a->render_ms[a->frames%600]=dx_millis()-draw_start;
@@ -12065,6 +12076,7 @@ bool app_frame(AppSession *session) {
         if (a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer()) { fprintf(stderr,"Native review capture reached an unbalanced render boundary.\n"); dx_review_capture_cancel(a->review); }
         else dx_review_capture_pixels(a->review);
         dx_review_input_quarantine(false); ui_review_discard_input();
+        dx_native_titlebar_height(0);
     }
 #endif
     a->render_ms[a->frames%600]=dx_millis()-draw_start;

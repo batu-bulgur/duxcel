@@ -51,6 +51,8 @@ static void check_background(NSWindow *window) {
     CHECK(!frontmost || frontmost.processIdentifier!=getpid());
 }
 static void check_close(double actual,double expected,double tolerance) {
+    if (!isfinite(actual) || fabs(actual-expected)>tolerance)
+        fprintf(stderr,"Native titlebar geometry: actual=%.3f expected=%.3f tolerance=%.3f\n",actual,expected,tolerance);
     CHECK(isfinite(actual) && fabs(actual-expected)<=tolerance);
 }
 static NSRect canvas_rect(NSView *canvas,NSRect rect,NSView *source) {
@@ -91,7 +93,10 @@ static void check_geometry(NSWindow *window,float scale,float title_height) {
         CHECK(NSMaxX(rect)<=bounds.size.width && NSMaxY(rect)<=bounds.size.height);
         CHECK(rect.origin.x>previous_right); previous_right=(float)NSMaxX(rect);
         if (i) check_close(NSMidY(rect),center,1); else center=(float)NSMidY(rect);
-        if (title_height>0) CHECK(NSMaxY(rect)<=title_height+1);
+        if (title_height>0) {
+            CHECK(NSMaxY(rect)<=title_height+1);
+            check_close(NSMidY(rect),title_height*.5,.5);
+        }
         right=fmaxf(right,(float)NSMaxX(rect));
         printf("Native titlebar control: scale=%.2f kind=%lu x=%.2f y=%.2f width=%.2f height=%.2f center_delta=%.2f\n",
             scale,(unsigned long)kinds[i],rect.origin.x,rect.origin.y,rect.size.width,rect.size.height,
@@ -168,14 +173,19 @@ int main(int argc,char **argv) {
         NSWindow *window=(NSWindow *)GetWindowHandle();
         CHECK(window!=nil); check_background(window);
         NSRect original_frame=window.frame;
+        CGFloat original_canvas_height=[NSOpenGLContext currentContext].view.bounds.size.height;
         CHECK(dx_native_titlebar_inset()==0);
         dx_native_setup(GetWindowHandle()); native_attached=true;
         check_background(window);
         check_close(window.frame.origin.x,original_frame.origin.x,.5);
         check_close(window.frame.origin.y,original_frame.origin.y,.5);
         check_close(window.frame.size.width,original_frame.size.width,.5);
-        check_close(window.frame.size.height,original_frame.size.height,.5);
+        /* AppKit removes the old non-client title height when changing this
+           style. Keep the renderer's content size and window origin; do not
+           restore that redundant height by resizing the user's window. */
+        check_close(window.frame.size.height,original_canvas_height,.5);
         phase(window,1,"native-titlebar-100");
+        phase(window,.8f,"native-titlebar-80");
         phase(window,1.5f,"native-titlebar-150");
         SetWindowSize(800,480); phase(window,1.5f,"native-titlebar-resized-150");
         CHECK(GetScreenWidth()==800 && GetScreenHeight()==480);

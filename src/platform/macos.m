@@ -101,6 +101,23 @@ float dx_native_titlebar_inset(void) {
 }
 void dx_native_titlebar_height(float height) {
     native_titlebar_height=isfinite(height) ? fminf(512,fmaxf(0,height)) : 0;
+    if (!canvas_view || native_titlebar_height<=0 || native_fullscreen()) return;
+    /* Keep AppKit-owned controls centered in the same logical bar at each UI
+       scale. Frame conversion also handles a native relayout after resize. */
+    NSRect bounds=canvas_view.bounds;
+    for (unsigned i=0;i<sizeof(titlebar_button_kinds)/sizeof(*titlebar_button_kinds);i++) {
+        NSButton *button=[canvas_window standardWindowButton:titlebar_button_kinds[i]];
+        if (!button || !button.superview || button.isHiddenOrHasHiddenAncestor) continue;
+        NSRect rect=[canvas_view convertRect:button.bounds fromView:button];
+        NSPoint current=NSMakePoint(NSMidX(rect),NSMidY(rect)),target=current;
+        target.y=canvas_view.isFlipped ? NSMinY(bounds)+height*.5 : NSMaxY(bounds)-height*.5;
+        current=[button.superview convertPoint:current fromView:canvas_view];
+        target=[button.superview convertPoint:target fromView:canvas_view];
+        if (fabs(target.y-current.y)>.25) {
+            NSPoint origin=button.frame.origin; origin.y+=target.y-current.y;
+            [button setFrameOrigin:origin];
+        }
+    }
 }
 static bool native_titlebar_button_hit(float x,float y) {
     NSRect bounds=canvas_view.bounds;
@@ -117,13 +134,20 @@ static bool native_titlebar_drag(NSEvent *event,float x,float y) {
         native_panel_active || app_modal || NSApp.modalWindow || canvas_window.attachedSheet ||
         !canvas_window.isVisible || NSApp.isHidden || canvas_window.isMiniaturized || native_fullscreen()) return false;
     float leading=dx_native_titlebar_inset();
-    float trailing=fmaxf(40,native_titlebar_height+8);
+    float trailing=fmaxf(40,native_titlebar_height*1.3f);
     if (x<leading || y<0 || y>=native_titlebar_height ||
         x>=canvas_view.bounds.size.width-trailing) return false;
     /* AppKit drives the tracking loop and screen transitions. A consumed down
        must not create a second C selection/gesture when its up is delivered. */
     pointer_recording[0]=false;
     NSOpenGLContext *context=[NSOpenGLContext currentContext];
+    if (event.clickCount==2) {
+        NSString *action=[NSUserDefaults.standardUserDefaults stringForKey:@"AppleActionOnDoubleClick"];
+        if ([action isEqualToString:@"Minimize"]) [canvas_window performMiniaturize:nil];
+        else if (![action isEqualToString:@"None"]) [canvas_window performZoom:nil];
+        [context makeCurrentContext];
+        return true;
+    }
     [canvas_window performWindowDragWithEvent:event];
     [context makeCurrentContext];
     return true;

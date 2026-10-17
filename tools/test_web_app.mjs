@@ -78,6 +78,55 @@ async function platformSnapshot(){
  const state=Object.fromEntries([...line.matchAll(/([a-z_]+)=([^ ]+)/g)].map(match=>[match[1],match[2]]));
  await key('Escape','Escape',27);return state;
 }
+async function hintMotion(){
+ const results=[];let restingRed;
+ for(const name of ['show','hide']){
+  await evaluate(`globalThis.duxcelHintSamples=new Promise(resolve=>{const c=document.querySelector('canvas'),gl=c.getContext('webgl2')||c.getContext('webgl'),ratio=c.width/1280,data=new Uint8Array(4),samples=[];let start;function tick(now){start??=now;gl.readPixels(Math.floor(60*ratio),c.height-1-Math.floor(28.25*ratio),1,1,gl.RGBA,gl.UNSIGNED_BYTE,data);samples.push({ms:now-start,rgb:Array.from(data.slice(0,3))});if(now-start>=260)resolve(samples);else requestAnimationFrame(tick);}requestAnimationFrame(tick);});true`);
+  const show=name==='show',params=show?{key:'Alt',code:'AltLeft',windowsVirtualKeyCode:18,modifiers:1}:{key:'Escape',code:'Escape',windowsVirtualKeyCode:27,modifiers:0};
+  await send('Input.dispatchKeyEvent',{type:'keyDown',...params});await frames(1);await send('Input.dispatchKeyEvent',{type:'keyUp',...params,modifiers:0});
+  const samples=await evaluate('globalThis.duxcelHintSamples');
+  if(show)restingRed=samples[0].rgb[0];
+  results.push({name,samples});await fs.writeFile(path.join(output,'keytip-motion.json'),JSON.stringify(results,null,2));
+  check(samples.some(s=>s.rgb[0]>175&&s.rgb[0]<restingRed-3),'Keytips did not visibly fade '+name);
+  const red=samples.at(-1).rgb[0];
+  check(show?Math.abs(red-164)<=2:Math.abs(red-restingRed)<=2,'Keytips did not settle '+name);
+  if(show)await capture('keytips-light');
+ }
+ await key('Alt','AltLeft',18);await key('h','KeyH',72);await key('Escape','Escape',27);await pause(160);
+ const dismissed=await platformSnapshot();check(Number(dismissed.keytips)===0,'Alt H Escape left keytips visible');
+ return {results,dismissed};
+}
+// Sample the shared C GL framebuffer in rAF, without review/hotkeys freezing
+// or clearing the spring. The only full readback is the first stretched PNG.
+async function transientPull(baseline){
+ const [bx,by]=baseline.body.split(',').map(Number);
+ const result=await evaluate(`new Promise(resolve=>{const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect(),gl=canvas.getContext('webgl2')||canvas.getContext('webgl'),ratio=canvas.width/${Number(baseline.logical.split(',')[0])},samples=[];let began,previous,frame;
+  const read=(x,y,w,h)=>{const data=new Uint8Array(w*h*4);gl.readPixels(x,canvas.height-y-h,w,h,gl.RGBA,gl.UNSIGNED_BYTE,data);return data;};
+  const band=(data,reverse=false)=>{let n=0;for(let i=0;i<data.length;i+=4){const p=reverse?data.length-4-i:i;if(data[p]!==201||data[p+1]!==211||data[p+2]!==220)break;n++;}return n/ratio;};
+  canvas.dispatchEvent(new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:r.x+r.width*.65,clientY:r.y+r.height*.65,deltaX:-160,deltaY:-160}));
+  function sample(now){began??=now;const n=Math.ceil(85*ratio),x=Math.round((${bx}+1)*ratio),y=Math.round((${by}+1)*ratio),row=read(x,Math.round((${by}+91)*ratio),n,1),col=read(Math.round((${bx}+101)*ratio),y,1,n),ex=band(row),ey=band(col,true);samples.push({ms:now-began,x:ex,y:ey,gap:previous?now-previous:0,first:Array.from(row.slice(0,4)),vertical:Array.from(col.slice(-4))});previous=now;
+   if(!frame&&ex>8&&ey>8){const at=(a,offset)=>Array.from(a.slice(offset*4,offset*4+3));frame={left:at(row,Math.round(ex*ratio)),top:at(col,n-1-Math.round(ey*ratio)),paper:at(row,Math.min(n-1,Math.round(ex*ratio)+8))};}
+   if(now-began>=360)resolve({samples,frame,error:gl.getError()});else requestAnimationFrame(sample);
+  }requestAnimationFrame(sample);})`);
+ await fs.writeFile(path.join(output,'overscroll-samples.json'),JSON.stringify(result,null,2));
+ check(result.error===0,'Overscroll GPU readback failed');
+ check(result.frame,'Trackpad pull did not visibly stretch both axes');
+
+ const {left,top,paper}=result.frame;
+ check(left[0]<paper[0]-12&&top[0]<paper[0]-12,'Displaced A/row1 boundaries are missing');
+ const samples=result.samples,initial=samples.find(s=>s.x>8&&s.y>8),returned=samples.find(s=>s.ms>=280&&s.ms<=340);
+ check(returned&&returned.x<.5&&returned.y<.5,'Canvas did not rubber-band back within 300ms');
+ const active=samples.filter(s=>s.ms>=initial.ms);
+ check(active.every((s,i)=>!i||s.x<=active[i-1].x+1&&s.y<=active[i-1].y+1),'Rubber-band return jitters outward');
+ // A separate pull supplies a peak PNG after the timing sample is complete:
+ // synchronous PNG encoding must not perturb the return-time measurement.
+ const png=await evaluate(`new Promise(resolve=>{const c=document.querySelector('canvas'),r=c.getBoundingClientRect();c.dispatchEvent(new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:r.x+r.width*.65,clientY:r.y+r.height*.65,deltaX:-160,deltaY:-160}));requestAnimationFrame(()=>resolve(c.toDataURL('image/png')));})`);
+ await fs.writeFile(path.join(output,'overscroll-stretched.png'),Buffer.from(png.split(',')[1],'base64'));await pause(400);
+ const final=await platformSnapshot();
+ check(final.top===baseline.top&&final.horizontal===baseline.horizontal&&final.active===baseline.active,'Rubber-band return altered canonical position/selection');
+
+ return {...result,final,scope:'Real C GPU frame samples over360ms, dark backing, displaced boundaries and monotone return; physical trackpad packet timing remains manual QA.'};
+}
 async function wheelBatch(dx,dy,count=1,options={}){
  const result=await evaluate(`(()=>{const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();let claimed=0;for(let i=0;i<${count};i++){const event=new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:r.x+r.width*${options.x??.65},clientY:r.y+r.height*${options.y??.65},deltaX:${dx},deltaY:${dy},deltaMode:${options.mode??0},ctrlKey:${!!options.ctrl},shiftKey:${!!options.shift}});canvas.dispatchEvent(event);if(event.defaultPrevented)claimed++;}return claimed;})()`);
  check(result===count,'Canvas wheel default/duplicate ownership failed');await frames(3);
@@ -215,7 +264,10 @@ try{
   const imported=await waitPage();sourceResult={...imported,selection_to_c_reply_ms:Date.now()-importStarted};check(imported.rows>0&&imported.columns>0,'Imported C Page is empty');await frames(4);await capture('imported');
   if(sourceFile.endsWith('/transactions.csv')){check(imported.total==='5'&&imported.columns===6,'CSV import count/schema changed');await click(716,102);const sorted=await waitPage(imported.id);check(sorted.total==='5','Sort changed source count');await frames();await capture('sorted');}
   if(platform){
+   await key('Alt','AltLeft',18);await key('v','KeyV',86);await key('9','Digit9',57);await key('Escape','Escape',27);await click(40,42);
    const baseline=await platformSnapshot(),beforeJobs=starts().length;
+   const hints=await hintMotion();
+   const overscroll=await transientPull(baseline);
    const factor=canvasTransform?1/.8:1;
    await wheelBatch(.125,.25,40);
    const panned=await platformSnapshot();
@@ -265,7 +317,7 @@ try{
    // Restore the pan origin before the shared filter/header regression.
    const final=await platformSnapshot();
    await wheelBatch(-Number(final.horizontal)/factor,-vertical(final)*Number(final.row_height)/factor);await frames();
-   platformResult={baseline,panned,reversed,trusted,deliveredWheel,shifted,chrome,sidebar,zoomed,restored,densities,embedded,query_jobs:starts().length-beforeJobs,
+   platformResult={baseline,hints,overscroll,panned,reversed,trusted,deliveredWheel,shifted,chrome,sidebar,zoomed,restored,densities,embedded,query_jobs:starts().length-beforeJobs,
     scope:'Real C grid under fractional DOM wheel bursts, DPI changes and captured GPU frames; physical trackpad/Safari gesture feel remains separate.'};
   }
   if(filters){
@@ -293,7 +345,7 @@ try{
    let captured=await beginReview();const chromePicks=[];
    for(const [id,x,y] of [['chrome.brand',40,14],['chrome.document_title',180,14],['chrome.save',1258,14],
     ['ribbon.tab.home',40,42],['ribbon.tab.insert',110,42],['ribbon.tab.data',165,42],['ribbon.tab.analyze',228,42],['ribbon.tab.view',285,42],
-    ['ribbon.display',1170,42],['chrome.help',1262,42],['chrome.title_bar.background',2,14],['ribbon.tabs.background',2,42]]){
+    ['ribbon.display',1262,124],['chrome.help',1262,42],['chrome.title_bar.background',2,14],['ribbon.tabs.background',2,42]]){
     const after=consoleText('Review picked: ').length;await click(x,y);const picked=await waitConsole('Review picked: ',after);
     check(picked==='Review picked: '+id,'Chrome picker selected the wrong target: '+picked+' expected '+id);chromePicks.push(id);
     if(id==='ribbon.tab.home')await capture('review-chrome-home');
@@ -364,7 +416,7 @@ try{
  check(navigation.some(event=>event.key==='ArrowRight'&&event.shift)&&navigation.some(event=>event.key==='ArrowDown'&&event.shift),'Shift navigation did not reach the real canvas');
  }
  await click(294,42);await capture('view-ribbon');
- await click(1174,42);await capture('ribbon-display');await key('Escape','Escape',27);
+ await click(1262,124);await capture('ribbon-display');await key('Escape','Escape',27);
  await send('Emulation.setDeviceMetricsOverride',{width:640,height:640,deviceScaleFactor:dpr,mobile:false});await frames(4);await capture('narrow');
  const narrow=await evaluate('({width:innerWidth,height:innerHeight,canvas:[document.querySelector("canvas").width,document.querySelector("canvas").height]})');
  check(narrow.width===640&&narrow.height===640&&narrow.canvas[0]===640*dpr&&narrow.canvas[1]===640*dpr,'Narrow canvas mismatch');

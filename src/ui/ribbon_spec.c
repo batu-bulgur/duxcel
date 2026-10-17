@@ -63,7 +63,7 @@ UIRibbonLayout ui_ribbon_spec_layout(float width,int mode,int tab,const float la
     expanded[4]=cells[20].x+clear+18;
     /* The action dock already includes overflow. Reserve it once, including
        on wide windows before any group actually needs the overflow button. */
-    float reserve=width>=700 ? 98 : 38;
+    float reserve=(width>=700 ? 98 : 38)+(mode==0 ? 0 : 32);
     if (tab==RIBBON_HOME && (mode==1 || mode==2)) {
         UIRibbonGroup groups[UI_RIBBON_GROUPS]; float measures[UI_RIBBON_COMMANDS]={0},sizes[UI_RIBBON_GROUPS]={0};
         Rectangle targets[UI_RIBBON_COMMANDS]={0}; int mapping[UI_RIBBON_COMMANDS],count=0;
@@ -82,10 +82,12 @@ UIRibbonLayout ui_ribbon_spec_layout(float width,int mode,int tab,const float la
         Rectangle remapped[UI_RIBBON_COMMANDS]={0};
         for (int c=0;c<count;c++) remapped[mapping[c]]=result.commands[c];
         for (int c=0;c<UI_RIBBON_COMMANDS;c++) result.commands[c]=remapped[c];
+        if (width<700 && !result.overflow_count) result.overflow=(Rectangle){width-reserve+4,mode==1 ? 4 : 2,28,28};
         return result;
     }
     UIRibbonLayout result=ui_ribbon_layout_docked(width,mode,ribbon_groups[tab],ribbon_group_counts[tab],labels,names,
         tab==RIBBON_HOME ? expanded : NULL,tab==RIBBON_HOME ? cells : NULL,reserve);
+    if (width<700 && !result.overflow_count) result.overflow=(Rectangle){width-reserve+4,mode==0 ? 27 : mode==1 ? 4 : 2,28,28};
     return result;
 }
 bool ui_ribbon_command_visible(int tab,int mode,int command) {

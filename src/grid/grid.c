@@ -8,6 +8,8 @@
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 static const Color GRID_LINE={228,232,236,255};
+static const Color CANVAS_BACKING={201,211,220,255};
+static const float RETURN_RATE=32;
 static float clamp(float x,float lo,float hi) { return fmaxf(lo,fminf(hi,x)); }
 static uint64_t after(uint64_t row,uint64_t margin) { return row>=DX_SHEET_ROWS-margin ? DX_SHEET_ROWS : row+margin; }
 static uint64_t canvas_rows(const Grid *g,const Page *p) {
@@ -313,21 +315,35 @@ static Rectangle selection_rect(const Grid *g,float s,int64_t dr,int dc) {
     return grid_range_outline(g,s,(uint64_t)((int64_t)r0+dr),c0,r1-r0+1,c1-c0+1,g->body);
 }
 static void spring_axis(float *position,float *velocity,float dt) {
-    float decay=expf(-16*dt),step=(*velocity+16*(*position))*dt;
-    *position=(*position+step)*decay; *velocity=(*velocity-16*step)*decay;
-    if (fabsf(*position)<.02f && fabsf(*velocity)<.05f) *position=*velocity=0;
+    float before=*position,decay=expf(-RETURN_RATE*dt),step=(*velocity+RETURN_RATE*before)*dt;
+    *position=(before+step)*decay; *velocity=(*velocity-RETURN_RATE*step)*decay;
+    /* Input can shorten a stretched edge while it is already returning. Do
+       not let the retained inward velocity launch it through the resting edge. */
+    if (*position*before<=0 || (fabsf(*position)<.02f && fabsf(*velocity)<.5f)) *position=*velocity=0;
 }
 static void spring(Grid *g,float dt) {
     if (!g->elastic_enabled) { g->elastic=g->spring_velocity=(Vector2){0}; return; }
     if (g->dragging || g->moving || g->resizing>=0) return;
-    dt=clamp(dt,0,.05f); spring_axis(&g->elastic.x,&g->spring_velocity.x,dt); spring_axis(&g->elastic.y,&g->spring_velocity.y,dt);
+    if (!isfinite(dt) || dt<=0) return;
+    if (dt>=.5f) { g->elastic=g->spring_velocity=(Vector2){0}; return; }
+    spring_axis(&g->elastic.x,&g->spring_velocity.x,dt); spring_axis(&g->elastic.y,&g->spring_velocity.y,dt);
 }
-static double wheel_axis(Grid *g,double position,double maximum,double delta,float *visual,float *velocity) {
-    if (!delta) return position;
+static double wheel_axis(Grid *g,double position,double maximum,double delta,float scale,float *visual,float *velocity) {
+    if (!delta || !isfinite(delta)) return position;
     if (*visual*delta>0) { double consume=fmin(fabs(*visual),fabs(delta)); consume=delta<0 ? -consume : consume; *visual-=(float)consume; delta-=consume; }
     double wanted=position+delta,bounded=fmax(0,fmin(maximum,wanted));
-    if (g->elastic_enabled) *visual=clamp(*visual+(float)(bounded-wanted)*.35f/(1+fabsf(*visual)/32),-64,64);
-    *velocity=0; return bounded;
+    if (g->elastic_enabled) {
+        /* Add in the inverse resistance coordinate, so coalescing the same
+           movement into one packet cannot change the amount of stretch.
+           Limits/resistance are CSS points, independent of canvas zoom. */
+        double k=32/scale,raw=*visual*(1+fabs(*visual)/(2*k))+(bounded-wanted)*.45;
+        double magnitude=2*fabs(raw)/(sqrt(1+2*fabs(raw)/k)+1);
+        *visual=(float)copysign(fmin(64/scale,magnitude),raw);
+    } else *visual=0;
+    /* Tiny momentum tails must not restart the spring. Constrain its retained
+       velocity after a reversal so return stays monotone on either edge. */
+    *velocity=*visual>0 ? clamp(*velocity,-RETURN_RATE*(*visual),0) : *visual<0 ? clamp(*velocity,0,-RETURN_RATE*(*visual)) : 0;
+    return bounded;
 }
 void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
     GridInput masked;
@@ -347,6 +363,10 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
         g->freeze=false; g->elastic.x=g->spring_velocity.x=0; grid_layout(g,u->scale,p,g->rect); return;
     }
     size_t key_column=keyboard.shift ? g->end_col : g->col;
+    if (!g->bounded && g->width_count && in->pixel_scroll && CheckCollisionPointRec(in->mouse,g->rect) && g->resizing<0 && !g->scrollbar && isfinite(in->pixel_pan.x) && in->pixel_pan.x>0) {
+        double needed=g->horizontal+in->pixel_pan.x/u->scale+g->body.width/u->scale+96;
+        while (g->width_count<16384 && needed>g->offsets[g->width_count]) extend_columns(g);
+    }
     if (!g->bounded && g->width_count && ((keyboard.key==KEY_RIGHT && !keyboard.alt && !keyboard.shortcut && key_column+1==g->width_count) ||
         ((in->wheel.x<0 || (in->shift && in->wheel.y<0)) && g->horizontal+g->body.width/u->scale>g->offsets[g->width_count]-96))) extend_columns(g);
     Page canvas=*p; canvas.total=canvas_rows(g,p); canvas.column_count=g->width_count; canvas.records=(PageRecords){0};
@@ -383,12 +403,12 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
         double maximum=(double)(p->total>g->visible_rows ? p->total-g->visible_rows : 0)*row_height(g);
         if (in->pixel_scroll || !in->shift) {
             double delta=in->pixel_scroll ? in->pixel_pan.y/s : -in->wheel.y*3*row_height(g);
-            double position=wheel_axis(g,((double)g->top+g->fraction)*row_height(g),maximum,delta,&g->elastic.y,&g->spring_velocity.y);
+            double position=wheel_axis(g,((double)g->top+g->fraction)*row_height(g),maximum,delta,s,&g->elastic.y,&g->spring_velocity.y);
             scroll_to(g,data,position/row_height(g));
         }
         float max_x=g->width_count ? fmaxf(0,g->offsets[g->width_count]-g->body.width/s) : 0;
         double delta=in->pixel_scroll ? in->pixel_pan.x/s : -(in->shift ? in->wheel.y : in->wheel.x)*52;
-        g->horizontal=(float)wheel_axis(g,g->horizontal,max_x,delta,&g->elastic.x,&g->spring_velocity.x);
+        g->horizontal=(float)wheel_axis(g,g->horizontal,max_x,delta,s,&g->elastic.x,&g->spring_velocity.x);
     }
     /* Hit testing and drawing use the exact same thumb geometry, including grab offset. */
     if (in->pressed && CheckCollisionPointRec(m,g->vtrack)) {
@@ -527,10 +547,22 @@ static void letter(size_t c,char *out) {
     do { c--; temp[n++]=(char)('A'+c%26); c/=26; } while (c && n<sizeof(temp)-1);
     for (size_t i=0;i<n;i++) out[i]=temp[n-i-1]; out[n]=0;
 }
+static Rectangle sheet_clip(const Grid *g,const Page *p,float s,Rectangle viewport,bool frozen) {
+    if (!g->elastic.x && !g->elastic.y) return viewport;
+    size_t first=frozen ? 0 : g->frozen_columns,end=frozen ? g->frozen_columns : g->width_count;
+    double left=grid_column_x(g,s,first),right=left+(g->offsets[end]-g->offsets[first])*s;
+    double top=g->body.y+(g->elastic.y-((double)g->top+g->fraction)*row_height(g))*s;
+    double bottom=g->body.y+(g->elastic.y+((double)(canvas_rows(g,p)-g->top)-g->fraction)*row_height(g))*s;
+    left=fmax(viewport.x,left); right=fmin(viewport.x+viewport.width,right);
+    top=fmax(viewport.y,top); bottom=fmin(viewport.y+viewport.height,bottom);
+    return (Rectangle){(float)left,(float)top,(float)fmax(0,right-left),(float)fmax(0,bottom-top)};
+}
 static void draw_grid_region(Grid *g,UIContext *u,const Page *p,bool frozen) {
     float s=u->scale,rh=row_height(g)*s,hh=g->body.y-g->rect.y;
     size_t start=frozen ? 0 : g->first_col,end=frozen ? g->frozen_columns : g->width_count;
-    Rectangle clip=grid_column_clip(g,s,frozen ? 0 : g->frozen_columns); if (clip.width<=0) return;
+    Rectangle viewport=grid_column_clip(g,s,frozen ? 0 : g->frozen_columns);
+    Rectangle clip=sheet_clip(g,p,s,viewport,frozen); if (clip.width<=0 || clip.height<=0) return;
+    if (g->elastic.x || g->elastic.y) DrawRectangleRec(clip,WHITE);
     Vector2 origin=grid_origin(g,s); float y0=origin.y-(float)g->fraction*rh;
     uint64_t r0,r1; size_t c0,c1; grid_bounds(g,&r0,&r1,&c0,&c1);
     /* Selection endpoints are calculated in each plane before clipping. This
@@ -550,6 +582,11 @@ static void draw_grid_region(Grid *g,UIContext *u,const Page *p,bool frozen) {
         if (x>=clip.x+clip.width) break;
         if (!g->hide_gridlines && right>clip.x) DrawRectangleRec((Rectangle){right-g->chrome_scale,clip.y,g->chrome_scale,clip.height},GRID_LINE);
     }
+    float left_edge=grid_column_x(g,s,frozen ? 0 : g->frozen_columns);
+    if (left_edge>=viewport.x && left_edge<viewport.x+viewport.width && (g->elastic.x || g->elastic.y))
+        DrawRectangleRec((Rectangle){left_edge,clip.y,g->chrome_scale,clip.height},UI_BORDER);
+    if (!g->top && y0>=viewport.y && y0<viewport.y+viewport.height && (g->elastic.x || g->elastic.y))
+        DrawRectangleRec((Rectangle){clip.x,y0,clip.width,g->chrome_scale},UI_BORDER);
     ui_set_clip(u,clip);
     for (size_t c=start;c<end;c++) {
         float x=grid_column_x(g,s,c),w=g->widths[c]*s; if (x>=clip.x+clip.width) break;
@@ -574,7 +611,11 @@ static void draw_grid_region(Grid *g,UIContext *u,const Page *p,bool frozen) {
         if (g->allow_move && corner.x<clip.x+clip.width && corner.y<clip.y+clip.height && CheckCollisionPointRec(corner,clip)) DrawRectangleRec(GetCollisionRec((Rectangle){corner.x-handle,corner.y-handle,2*handle,2*handle},clip),UI_ACCENT);
     }
     float cs=g->chrome_scale; u->scale=cs;
-    Rectangle header={clip.x,g->rect.y,clip.width,hh}; ui_set_clip(u,header);
+    Rectangle header={viewport.x,g->rect.y,viewport.width,hh}; ui_set_clip(u,header);
+    if (!frozen && left_edge>viewport.x && g->elastic.x>0)
+        DrawRectangleRec((Rectangle){viewport.x,g->rect.y,fminf(viewport.width,left_edge-viewport.x),hh},CANVAS_BACKING);
+    if (left_edge>viewport.x && left_edge<viewport.x+viewport.width && g->elastic.x)
+        DrawRectangleRec((Rectangle){left_edge,g->rect.y,cs,hh},UI_BORDER);
     for (size_t c=start;c<end;c++) {
         float x=grid_column_x(g,s,c),w=g->widths[c]*s; if (x>=clip.x+clip.width) break;
         float left=fmaxf(x,clip.x),right=fminf(x+w,clip.x+clip.width); if (right<=left) continue;
@@ -605,6 +646,7 @@ static void draw_grid_region(Grid *g,UIContext *u,const Page *p,bool frozen) {
 }
 void grid_draw(Grid *g,UIContext *u,const Page *p,bool busy) {
     Rectangle r=g->rect; float s=u->scale,rh=row_height(g)*s,hh=g->body.y-r.y; DrawRectangleRec(r,WHITE);
+    if (g->elastic.x || g->elastic.y) DrawRectangleRec(g->body,CANVAS_BACKING);
     uint64_t r0,r1; size_t c0,c1; grid_bounds(g,&r0,&r1,&c0,&c1); (void)c0; (void)c1;
     Vector2 origin=grid_origin(g,s); float y0=origin.y-(float)g->fraction*rh;
     DrawRectangleRec((Rectangle){r.x,r.y,r.width-12*g->chrome_scale,hh},(Color){242,245,247,255});
@@ -615,6 +657,7 @@ void grid_draw(Grid *g,UIContext *u,const Page *p,bool busy) {
     draw_grid_region(g,u,p,false); if (g->frozen_columns) draw_grid_region(g,u,p,true);
     if (g->frozen_columns && g->frozen_width*s<g->body.width) { float boundary=g->body.x+g->frozen_width*s; DrawLineEx((Vector2){boundary,r.y},(Vector2){boundary,g->body.y+g->body.height},s,(Color){155,174,190,255}); }
     DrawRectangleRec((Rectangle){r.x,g->body.y,g->gutter*s,g->body.height},UI_BG);
+    if (!g->top && y0>g->body.y) DrawRectangleRec((Rectangle){r.x,g->body.y,g->gutter*s,fminf(g->body.height,y0-g->body.y)},CANVAS_BACKING);
     if (!g->hide_selection && g->render_rows && r1>=g->top && r0<g->top+g->render_rows) {
         uint64_t first=MAX(r0,g->top),last=MIN(r1,g->top+g->render_rows-1);
         float top=fmaxf(y0+(float)(first-g->top)*rh,g->body.y),bottom=fminf(y0+(float)(last-g->top+1)*rh,g->body.y+g->body.height);
@@ -629,6 +672,8 @@ void grid_draw(Grid *g,UIContext *u,const Page *p,bool busy) {
         ui_text_clip(u,text,(Rectangle){r.x,y,g->gutter*s,rh},11,UI_MUTED,true);
     }
     ui_clear_clip(u);
+    if (!g->top && y0>g->body.y && y0<g->body.y+g->body.height)
+        DrawRectangleRec((Rectangle){r.x,y0,g->gutter*s,g->chrome_scale},UI_BORDER);
     DrawLineV((Vector2){g->body.x,r.y},(Vector2){g->body.x,g->body.y+g->body.height},GRID_LINE);
     DrawLineV((Vector2){r.x,g->body.y},(Vector2){g->body.x+g->body.width,g->body.y},(Color){197,208,217,255});
     DrawRectangleRec(g->vtrack,UI_BG); DrawRectangleRec(g->htrack,UI_BG);
