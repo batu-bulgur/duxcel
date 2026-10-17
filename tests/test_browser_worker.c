@@ -19,7 +19,7 @@ EM_JS(int, observe_host, (void), {
     host.submit=(runtime,cookie,ticket,request)=>{
         Module['dxBrowserWorkerObserved']={cookie,ticket,generation:request.generation,object:request.objectId,revision:request.revision,offset:request.offset};
         const hold=Module['dxHoldMatrixReply'];
-        if((hold===1 && request.sql.includes('__duxcel_count')) || (hold===2 && request.sql.includes('_duxcel_matrix_totals'))){
+        if((hold===1 && request.sql.includes('__duxcel_count')) || (hold===2 && request.sql.includes('_duxcel_matrix_totals')) || (hold===3 && request.sql.includes('_duxcel_domain_input')) || (hold===4 && request.sql.includes('_duxcel_matrix_rows')) || (hold===5 && request.sql.includes('_duxcel_matrix_columns'))){
             Module['dxHoldMatrixReply']=0;
             const original=runtime;
             runtime={...original,reply:(...args)=>{
@@ -92,6 +92,18 @@ static const char matrix_exact_sql[]=
     "(NULL,9007199254740994,20.00,1.01),('',9007199254740993,30.00,1.01),"
     "('NULL',NULL,NULL,1.01),('excluded',17,999.00,1.00)) t(category,wide,amount,gate)";
 static const char matrix_large_sql[]="SELECT i::BIGINT AS row_id,repeat('x',900000)::VARCHAR AS payload FROM range(4) t(i)";
+static const char columns_exact_sql[]=
+    "SELECT * FROM (VALUES (NULL::VARCHAR,NULL::VARCHAR,10::DECIMAL(38,2),9007199254740993::BIGINT),"
+    "('A','x',1,9007199254740993),('A','x',3,9007199254740994),('A','y',9,9007199254740993),('A','y',NULL,NULL),"
+    "('B','x',2,9007199254740993),('B','y',2,9007199254740993),('B','z',NULL,NULL),"
+    "('','',100,9007199254740993),('NULL','NULL',200,9007199254740995),"
+    "('A','quote_\"''_SUM',5,9007199254740994),('B','FOO',7,9007199254740993),('B','foo',11,9007199254740993)) t(r,c,v,id)";
+static const char columns_range_sql[]="SELECT i::BIGINT AS row_id,(i%3)::INTEGER AS category,(i%100)::DECIMAL(5,2) AS amount FROM range(600) t(i)";
+static const char columns_bound_sql[]="SELECT i::BIGINT AS Category,i::DECIMAL(5,2) AS amount FROM range(128) t(i)";
+static const char columns_wide_sql[]="SELECT * FROM (VALUES (2::DECIMAL(38,2),9007199254740993::BIGINT),(10,9007199254740994),(9007199254740993,9007199254740993),(9007199254740994,9007199254740994)) t(Category,amount)";
+static const char columns_product_sql[]="SELECT i::BIGINT AS row_id,(i%16)::BIGINT AS c1,(i%8)::BIGINT AS c2,i::BIGINT AS amount FROM range(128) t(i)";
+static const char columns_large_sql[]="SELECT i::BIGINT AS row_id,'A' AS category,repeat('x',900000) AS payload FROM range(4) t(i)";
+static const char columns_sql_limit[]="SELECT repeat('''',600000) AS category,1::BIGINT AS amount";
 static const uint64_t object_id=UINT64_C(18014398509481987),revision_id=UINT64_C(36028797018963971);
 typedef enum {
     WAIT_EXACT,WAIT_PAGE0,WAIT_PAGE256,WAIT_PAGE512,WAIT_COUNT,WAIT_TABLE,
@@ -103,6 +115,8 @@ typedef enum {
     WAIT_DISTINCT_ERROR,WAIT_DISTINCT_RECOVERY,WAIT_MATRIX0,WAIT_MATRIX256,WAIT_MATRIX512,WAIT_MATRIX_EXACT,
     WAIT_MATRIX_GRAND,WAIT_MATRIX_EMPTY,WAIT_MATRIX_HUGE,WAIT_MATRIX_DATE,WAIT_MATRIX_NO_TOTALS,WAIT_MATRIX_COLUMNS,WAIT_MATRIX_INVALID,WAIT_MATRIX_LARGE,
     WAIT_MATRIX_RECOVERY,WAIT_MATRIX_CANCEL_COUNT,WAIT_MATRIX_CANCEL_GRAND,WAIT_MATRIX_FINAL,
+    WAIT_COLUMNS_EXACT,WAIT_COLUMNS_GRAND,WAIT_COLUMNS_EMPTY,WAIT_COLUMNS_DATE,WAIT_COLUMNS0,WAIT_COLUMNS256,WAIT_COLUMNS512,WAIT_COLUMNS_NO_TOTALS,
+    WAIT_COLUMNS_WIDE,WAIT_COLUMNS_BOUND,WAIT_COLUMNS_PRODUCT,WAIT_COLUMNS_SQL_LIMIT,WAIT_COLUMNS_LARGE,WAIT_COLUMNS_CANCEL_DOMAIN,WAIT_COLUMNS_CANCEL_ROWS,WAIT_COLUMNS_CANCEL_FOOTER,WAIT_COLUMNS_FINAL,
     WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
     WAIT_OVERSIZE_ERROR,WAIT_OVERSIZE_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
@@ -202,7 +216,30 @@ static void submit_matrix(MatrixCase kind,uint64_t offset,int64_t total,bool tot
         if (kind==MATRIX_COLUMNS) CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,"label",AGG_SUM,NULL));
         if (kind==MATRIX_INVALID) job->pivot.counts[PIVOT_VALUES]=SIZE_MAX;
     }
-    expected_sql+=sql_count; if (sql_count && total<0) expected_counts++;
+    expected_sql+=sql_count; if (sql_count && total<0 && kind!=MATRIX_COLUMNS) expected_counts++;
+    worker_submit(&worker,job);
+}
+typedef enum { COLUMNS_EXACT,COLUMNS_GRAND,COLUMNS_EMPTY,COLUMNS_DATE,COLUMNS_RANGE,COLUMNS_WIDE,COLUMNS_BOUND,COLUMNS_PRODUCT,COLUMNS_SQL_LIMIT,COLUMNS_LARGE } ColumnsCase;
+static void submit_columns(ColumnsCase kind,uint64_t offset,int64_t total,bool totals,unsigned sql_count) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job)); job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=JOB_PIVOT; expected_preview=false;
+    const char *source=kind<=COLUMNS_EMPTY ? columns_exact_sql : kind==COLUMNS_DATE ? dates_sql : kind==COLUMNS_WIDE ? columns_wide_sql : kind==COLUMNS_BOUND ? columns_bound_sql : kind==COLUMNS_PRODUCT ? columns_product_sql : kind==COLUMNS_SQL_LIMIT ? columns_sql_limit : kind==COLUMNS_LARGE ? columns_large_sql : columns_range_sql;
+    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=kind==COLUMNS_EMPTY ? dx_printf("SELECT * FROM (%s) empty_source WHERE false",source) : dx_strdup(source)};
+    job->offset=offset; job->known_total=total; job->include_totals=totals; job->object_id=object_id; job->revision=revision_id; expected_offset=totals || total<0 ? 0 : offset;
+    if (kind<=COLUMNS_EMPTY) {
+        if (kind!=COLUMNS_GRAND) CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,"r",AGG_SUM,NULL));
+        CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,"c",AGG_SUM,NULL));
+        CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"v",AGG_SUM,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"v",AGG_AVG,NULL));
+        CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"id",AGG_DISTINCT,NULL) && pivot_assign(&job->pivot,PIVOT_VALUES,"id",AGG_MAX,NULL));
+    } else if (kind==COLUMNS_DATE) {
+        CHECK(pivot_assign_grain(&job->pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_MONTH,NULL) && pivot_assign_grain(&job->pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_QUARTER,NULL));
+        CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"occurred",AGG_COUNT,NULL));
+    } else {
+        if (kind==COLUMNS_RANGE || kind==COLUMNS_PRODUCT || kind==COLUMNS_LARGE) CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,"row_id",AGG_SUM,NULL));
+        CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,kind==COLUMNS_BOUND || kind==COLUMNS_WIDE ? "Category" : kind==COLUMNS_PRODUCT ? "c1" : "category",AGG_SUM,NULL));
+        if (kind==COLUMNS_PRODUCT) CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,"c2",AGG_SUM,NULL));
+        CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,kind==COLUMNS_LARGE ? "payload" : "amount",kind==COLUMNS_LARGE ? AGG_MIN : AGG_SUM,NULL));
+    }
+    expected_sql+=sql_count; if (total<0 && kind!=COLUMNS_PRODUCT && kind!=COLUMNS_SQL_LIMIT) expected_counts++;
     worker_submit(&worker,job);
 }
 static bool poll_received(bool error,bool sent) {
@@ -304,6 +341,18 @@ static void matrix_range_values(uint64_t offset,size_t rows,bool totals) {
         if (totals) CHECK(!strcmp(page->totals->rows.cells[r].text,amount) && page->totals->rows.cells[r].text!=page->cells[r*2+1].text);
     }
     if (totals) CHECK(!page->totals->has_columns && page->totals->rows.offset==offset && page->totals->rows.total==600 && page->totals->columns.row_count==1 && !strcmp(page->totals->columns.cells[0].text,"29700.00"));
+}
+static void columns_range_values(uint64_t offset,size_t rows,bool totals) {
+    Page *p=&reply->page; CHECK(p->row_count==rows && p->column_count==4 && p->offset==offset && p->total==600 && !p->count_pending && p->sql && strstr(p->sql,"PIVOT (") && strstr(p->sql," ON ") && strstr(p->sql," IN (") && p->bytes<=4*1024*1024);
+    CHECK((p->totals!=NULL)==totals);
+    for (size_t c=0;c<3;c++) { char category[16]; snprintf(category,sizeof(category),"%zu",c); CHECK(p->columns[c+1].category_count==1 && !strcmp(p->columns[c+1].categories[0],category) && !strcmp(p->columns[c+1].caption,category)); }
+    for (size_t r=0;r<rows;r++) {
+        char key[32],amount[32]; snprintf(key,sizeof(key),"%" PRIu64,offset+r); snprintf(amount,sizeof(amount),"%" PRIu64 ".00",(offset+r)%100);
+        CHECK(!strcmp(p->cells[r*4].text,key));
+        for (size_t c=0;c<3;c++) CHECK(c==(offset+r)%3 ? !p->cells[r*4+c+1].is_null && !strcmp(p->cells[r*4+c+1].text,amount) : p->cells[r*4+c+1].is_null && !p->cells[r*4+c+1].text);
+        if (totals) CHECK(!strcmp(p->totals->rows.cells[r].text,amount));
+    }
+    if (totals) { CHECK(p->totals->has_columns && p->totals->rows.offset==offset && p->totals->rows.total==600 && p->totals->columns.column_count==4); for (size_t i=0;i<3;i++) CHECK(!strcmp(p->totals->columns.cells[i].text,"9900.00")); CHECK(!strcmp(p->totals->columns.cells[3].text,"29700.00")); }
 }
 static void inject_late(void *unused) {
     (void)unused;
@@ -510,10 +559,10 @@ static void tick(void) {
     case WAIT_MATRIX_NO_TOTALS:
         if (!received(false)) return;
         matrix_range_values(0,256,false); release_reply(); pass("matrix include_totals=false retains header metadata without a footer query");
-        submit_matrix(MATRIX_COLUMNS,0,-1,true,0); enter(WAIT_MATRIX_COLUMNS); return;
+        submit_matrix(MATRIX_COLUMNS,0,-1,true,1); enter(WAIT_MATRIX_COLUMNS); return;
     case WAIT_MATRIX_COLUMNS:
-        if (!poll_received(true,false)) return;
-        CHECK(strstr(reply->error,"Column-field")); validation_reply(); release_reply(); pass("Column-field matrices fail explicitly before SQL until bounded domains are connected");
+        if (!received(true)) return;
+        CHECK(strstr(reply->error,"128 result columns")); validation_reply(); release_reply(); pass("the 129th typed column category rejects before result DESCRIBE or data SQL");
         submit_matrix(MATRIX_INVALID,0,-1,true,0); enter(WAIT_MATRIX_INVALID); return;
     case WAIT_MATRIX_INVALID:
         if (!poll_received(true,false)) return;
@@ -538,6 +587,93 @@ static void tick(void) {
     case WAIT_MATRIX_FINAL:
         if (!received(false)) return;
         matrix_range_values(512,88,true); release_reply(); pass("matrix cancellation recovery publishes only a complete current page and footer");
+        submit_columns(COLUMNS_EXACT,0,-1,true,6); enter(WAIT_COLUMNS_EXACT); return;
+    case WAIT_COLUMNS_EXACT: {
+        if (!received(false)) return;
+        Page *p=&reply->page; CHECK(p->row_count==5 && p->column_count==37 && p->total==5 && p->totals && p->totals->has_columns && p->totals->rows.column_count==4 && p->totals->columns.column_count==40);
+        CHECK(p->cells[0].is_null && !*p->cells[37].text && !strcmp(p->cells[74].text,"A") && !strcmp(p->cells[111].text,"B") && !strcmp(p->cells[148].text,"NULL"));
+        CHECK(!p->columns[1].categories[0] && p->columns[5].categories[0] && !*p->columns[5].categories[0] && !strcmp(p->columns[13].categories[0],"NULL"));
+        CHECK(!strcmp(p->columns[9].categories[0],"FOO") && !strcmp(p->columns[17].categories[0],"foo") && !strcmp(p->columns[21].categories[0],"quote_\"'_SUM") && !strcmp(p->columns[22].detail,"AVG(v)"));
+        CHECK(!strcmp(p->cells[74+25].text,"4.00") && strtod(p->cells[74+26].text,NULL)==2 && !strcmp(p->cells[74+27].text,"2") && !strcmp(p->cells[74+28].text,"9007199254740994"));
+        CHECK(p->columns[25].number_type.kind==NUM_DECIMAL && p->columns[25].number_type.scale==2 && p->columns[28].type==DUCKDB_TYPE_BIGINT);
+        Page *r=&p->totals->rows,*c=&p->totals->columns;
+        CHECK(!strcmp(r->cells[8].text,"18.00") && strtod(r->cells[9].text,NULL)==4.5 && !strcmp(r->cells[10].text,"2") && !strcmp(r->cells[12].text,"22.00") && strtod(r->cells[13].text,NULL)==5.5);
+        CHECK(!strcmp(c->cells[24].text,"6.00") && strtod(c->cells[25].text,NULL)==2 && !strcmp(c->cells[26].text,"2") && !strcmp(c->cells[36].text,"350.00") && strtod(c->cells[37].text,NULL)>31.81 && strtod(c->cells[37].text,NULL)<31.82 && !strcmp(c->cells[38].text,"3") && !strcmp(c->cells[39].text,"9007199254740995"));
+        CHECK(p->sql && strstr(p->sql,"PIVOT (") && strstr(p->sql,"NULL AS \"category_0\"") && strstr(p->sql,"'quote_\"''_SUM' AS \"category_5\"") && p->bytes<=4*1024*1024);
+        release_reply(); pass("real Columns PIVOT preserves typed NULL/empty/literal/case/quote categories, DECIMAL/wide integers and raw AVG/distinct totals");
+        submit_columns(COLUMNS_GRAND,0,-1,true,6); enter(WAIT_COLUMNS_GRAND); return;
+    }
+    case WAIT_COLUMNS_GRAND:
+        if (!received(false)) return;
+        CHECK(reply->page.row_count==1 && reply->page.column_count==36 && reply->page.total==1 && reply->page.totals && !strcmp(reply->page.totals->rows.cells[0].text,"350.00") && !strcmp(reply->page.totals->rows.cells[2].text,"3") && !strcmp(reply->page.totals->columns.cells[36].text,"350.00")); release_reply(); pass("Columns without Rows uses one real PIVOT row and independent source grand measures");
+        submit_columns(COLUMNS_EMPTY,0,-1,true,6); enter(WAIT_COLUMNS_EMPTY); return;
+    case WAIT_COLUMNS_EMPTY:
+        if (!received(false)) return;
+        CHECK(!reply->page.row_count && reply->page.column_count==5 && !reply->page.total && reply->page.totals && !reply->page.totals->has_columns && !reply->page.columns[1].category_count && !strcmp(reply->page.columns[1].caption,"SUM(v)") && reply->page.totals->columns.column_count==4 && reply->page.totals->columns.cells[0].is_null && !strcmp(reply->page.totals->columns.cells[2].text,"0")); release_reply(); pass("empty Columns domains use explicit NULL ordinals and preserve empty source aggregate semantics");
+        submit_columns(COLUMNS_DATE,0,-1,true,7); enter(WAIT_COLUMNS_DATE); return;
+    case WAIT_COLUMNS_DATE:
+        if (!received(false)) return;
+        CHECK(reply->page.row_count==1 && reply->page.column_count==15 && reply->page.totals && reply->page.totals->columns.column_count==16);
+        CHECK(reply->page.columns[7].category_count==2 && reply->page.columns[7].category_grains[0]==PIVOT_DATE_MONTH && reply->page.columns[7].category_grains[1]==PIVOT_DATE_QUARTER && !strcmp(reply->page.columns[7].categories[0],"2025-01-01") && !strcmp(reply->page.columns[7].categories[1],"Q1") && !strcmp(reply->page.cells[7].text,"5") && !strcmp(reply->page.totals->columns.cells[15].text,"9")); release_reply(); pass("two date-grain Columns use Cartesian ordinal metadata and real COUNT(*) categories");
+        submit_columns(COLUMNS_RANGE,0,-1,true,6); enter(WAIT_COLUMNS0); return;
+    case WAIT_COLUMNS0:
+        if (!received(false)) return;
+        columns_range_values(0,256,true); release_reply(); pass("600-row Columns PIVOT pages and source row/category/grand readouts publish atomically");
+        submit_columns(COLUMNS_RANGE,256,600,true,4); enter(WAIT_COLUMNS256); return;
+    case WAIT_COLUMNS256:
+        if (!received(false)) return;
+        columns_range_values(256,256,true); release_reply(); pass("Columns second page has no redundant count or DESCRIBE");
+        submit_columns(COLUMNS_RANGE,512,600,true,4); enter(WAIT_COLUMNS512); return;
+    case WAIT_COLUMNS512:
+        if (!received(false)) return;
+        columns_range_values(512,88,true); release_reply(); pass("Columns final interval retains correctly aligned source row totals");
+        submit_columns(COLUMNS_RANGE,256,600,false,2); enter(WAIT_COLUMNS_NO_TOTALS); return;
+    case WAIT_COLUMNS_NO_TOTALS:
+        if (!received(false)) return;
+        columns_range_values(256,256,false); release_reply(); pass("Columns without totals retains typed headers and issues no readout SQL");
+        submit_columns(COLUMNS_WIDE,0,-1,true,6); enter(WAIT_COLUMNS_WIDE); return;
+    case WAIT_COLUMNS_WIDE: {
+        if (!received(false)) return;
+        const char *keys[]={"2.00","10.00","9007199254740993.00","9007199254740994.00"},*values[]={"9007199254740993","9007199254740994","9007199254740993","9007199254740994"};
+        CHECK(reply->page.row_count==1 && reply->page.column_count==4 && reply->page.totals);
+        for (size_t c=0;c<4;c++) CHECK(!strcmp(reply->page.columns[c].categories[0],keys[c]) && !strcmp(reply->page.cells[c].text,values[c]) && reply->page.columns[c].type==DUCKDB_TYPE_HUGEINT);
+        CHECK(!strcmp(reply->page.totals->rows.cells[0].text,"36028797018963974") && !strcmp(reply->page.totals->columns.cells[4].text,"36028797018963974"));
+        release_reply(); pass("DECIMAL ON values above 2^53 retain exact typed domains and SUM(BIGINT) remains HUGEINT");
+        submit_columns(COLUMNS_BOUND,0,-1,true,6); enter(WAIT_COLUMNS_BOUND); return;
+    }
+    case WAIT_COLUMNS_BOUND:
+        if (!received(false)) return;
+        CHECK(reply->page.column_count==128 && reply->page.row_count==1 && reply->page.totals && reply->page.totals->columns.column_count==129 && !strcmp(reply->page.totals->columns.cells[128].text,"8128.00"));
+        for (size_t c=0;c<128;c++) { char key[32],amount[32]; snprintf(key,sizeof(key),"%zu",c); snprintf(amount,sizeof(amount),"%zu.00",c); CHECK(reply->page.columns[c].category_count==1 && !strcmp(reply->page.columns[c].categories[0],key) && !strcmp(reply->page.cells[c].text,amount)); }
+        release_reply(); pass("exactly 128 numeric categories preserve typed ordering and ordinal aliases beyond category_9");
+        submit_columns(COLUMNS_PRODUCT,0,-1,true,2); enter(WAIT_COLUMNS_PRODUCT); return;
+    case WAIT_COLUMNS_PRODUCT:
+        if (!received(true)) return;
+        CHECK(strstr(reply->error,"128 result columns")); validation_reply(); release_reply(); pass("multi-field Cartesian product rejects before result or readout SQL");
+        submit_columns(COLUMNS_SQL_LIMIT,0,-1,true,1); enter(WAIT_COLUMNS_SQL_LIMIT); return;
+    case WAIT_COLUMNS_SQL_LIMIT:
+        if (!received(true)) return;
+        CHECK(strstr(reply->error,"1 MiB")); validation_reply(); release_reply(); pass("escaped domain SQL cap rejects before any data page is staged");
+        submit_columns(COLUMNS_LARGE,0,-1,true,5); enter(WAIT_COLUMNS_LARGE); return;
+    case WAIT_COLUMNS_LARGE:
+        if (!received(true)) return;
+        CHECK(strstr(reply->error,"4 MiB")); validation_reply(); release_reply(); pass("combined Columns page and source row readouts reject without partial publication");
+        hold_matrix_reply(3); submit_columns(COLUMNS_RANGE,0,600,true,1); enter(WAIT_COLUMNS_CANCEL_DOMAIN); return;
+    case WAIT_COLUMNS_CANCEL_DOMAIN:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        counters(); worker_cancel(&worker); CHECK(!worker.running); release_matrix_reply(); quiet(); pass("cancelled real domain callback cannot resurrect its plan or publish a page");
+        hold_matrix_reply(4); submit_columns(COLUMNS_RANGE,256,600,true,4); enter(WAIT_COLUMNS_CANCEL_ROWS); return;
+    case WAIT_COLUMNS_CANCEL_ROWS:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        counters(); worker_cancel(&worker); CHECK(!worker.running); release_matrix_reply(); quiet(); pass("cancel during source row readouts discards the staged Columns page");
+        hold_matrix_reply(5); submit_columns(COLUMNS_RANGE,512,600,true,4); enter(WAIT_COLUMNS_CANCEL_FOOTER); return;
+    case WAIT_COLUMNS_CANCEL_FOOTER:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        counters(); worker_cancel(&worker); CHECK(!worker.running); release_matrix_reply(); quiet(); pass("cancel after category/grand engine output frees staged row readouts and rejects the late footer");
+        submit_columns(COLUMNS_RANGE,512,600,true,4); enter(WAIT_COLUMNS_FINAL); return;
+    case WAIT_COLUMNS_FINAL:
+        if (!received(false)) return;
+        columns_range_values(512,88,true); release_reply(); pass("Columns cancellation/memory-error recovery publishes only the current fully owned result");
         submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_OVERSIZE_SCHEMA); return;
     case WAIT_OVERSIZE_SCHEMA:
         if (!received(false)) return;
@@ -609,7 +745,7 @@ static void tick(void) {
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
         retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
         page_free(&retained); page_free(&retained); pass("early stop and scheduled stale callbacks are ignored");
-        CHECK(stages==49 && worker.jobs_started==56 && expected_sql==105 && expected_counts==11);
+        CHECK(stages==66 && worker.jobs_started==73 && expected_sql==180 && expected_counts==19);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
