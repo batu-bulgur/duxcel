@@ -37,12 +37,12 @@ LAYOUT_PROFILES = {
     "author-menus": (540, 555, "PASS: exact headed Marks/step/worksheet menus"),
     "active-cell": (555, 596, "PASS: active-origin queued drag/Shift/Tab/Enter"),
     "criteria-selects": (596, 620, "PASS: cached actual view-filter criteria"),
-    "ribbon-collapse": (620, 636, "PASS: exact reserved collapsed ribbon"),
+    "ribbon-collapse": (620, 638, "PASS: exact reserved collapsed ribbon"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 636, 18000, "PASS: exact reserved collapsed ribbon"),
+    ("layout", 638, 18000, "PASS: exact reserved collapsed ribbon"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),

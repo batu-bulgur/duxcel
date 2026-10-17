@@ -6358,10 +6358,10 @@ static void draw_app(App *a) {
     float top=a->workspace.canvas.y;
     memset(a->pivot_shelves,0,sizeof(a->pivot_shelves)); a->author_marks_layout=(UIMarksLayout){0}; a->field_list=a->field_footer=(Rectangle){0};
     if (a->workspace.left_overlay && a->modal==MODAL_NONE) {
-        Rectangle outside=box(a->workspace.left.width,name_y,GetScreenWidth()-a->workspace.left.width,GetScreenHeight()-name_y);
-        Rectangle above=box(0,0,GetScreenWidth(),name_y); DxPointerGesture gesture;
-        if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),a->workspace.left)) ||
-            ui_take_left_gesture_from(outside,&gesture) || ui_take_left_gesture_from(above,&gesture)) close_workspace(a);
+        Rectangle outside=box(a->workspace.left.width,a->workspace.left.y,GetScreenWidth()-a->workspace.left.width,a->workspace.left.height);
+        DxPointerGesture gesture;
+        if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),outside)) ||
+            ui_take_left_gesture_from(outside,&gesture)) close_workspace(a);
     }
     if (!pivot_active) {
     float context_y=name_y+(a->step_preview.active ? 29*s : 0);
@@ -7291,7 +7291,7 @@ static void sort_smoke_step(App *a,int *step) {
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: sort application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
 }
-#define LAYOUT_SMOKE_STAGES 636
+#define LAYOUT_SMOKE_STAGES 638
 /* Count the actual focus ink in one modal, excluding document token colors. */
 static unsigned smoke_focus_pixels(Rectangle region) {
     Image frame=LoadImageFromScreen(); Vector2 dpi=GetWindowScaleDPI(); unsigned count=0;
@@ -9493,10 +9493,17 @@ static void layout_smoke_step(App *a,int *step) {
     case 633:
         if (a->ribbon_mode || !a->ribbon_layout.valid || a->request_id!=request) goto failed;
         for (int g=0;g<6;g++) if (a->ribbon_layout.groups[g].width && a->ribbon_layout.groups[g].x+a->ribbon_layout.groups[g].width>=GetScreenWidth()/a->ui.scale-38) goto failed;
-        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+        show_workspace(a); break;
     case 634:
-        if (a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed; break;
+        if (a->modal!=MODAL_INTERFACE_SCALE || !a->left_drawer || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-overlay-status-scale.png"); break;
     case 635:
+        if (a->modal!=MODAL_NONE || !a->left_drawer || a->request_id!=request) goto failed; break;
+    case 636:
+        if (!a->left_drawer || a->request_id!=request) goto failed;
+        close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 637:
+        if (a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
         puts("PASS: exact reserved collapsed ribbon with Alignment retained, reference group icons and typography, live chrome above narrow overlay, pointer flyouts/Escape focus and Full/Compact/Icons/Focus resizing without SQL or cache changes"); break;
 
     }
@@ -11291,11 +11298,15 @@ int app_run(const AppOptions *options) {
                 active_injected|=bit;
             }
         }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=624 && layout_smoke<=627) {
+        if (options->layout_smoke && a.frames%24==2 && ((layout_smoke>=624 && layout_smoke<=627) || (layout_smoke>=634 && layout_smoke<=636))) {
             static unsigned collapsed_injected=0; unsigned bit=1u<<(layout_smoke-624);
             if (!(collapsed_injected&bit)) {
                 if (layout_smoke==624 || layout_smoke==626) {
                     Rectangle r=ribbon_rect(&a,a.ribbon_layout.groups[layout_smoke==624 ? 1 : 4]);
+                    float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
+                    ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+                } else if (layout_smoke==634 || layout_smoke==636) {
+                    Rectangle r=layout_smoke==634 ? a.status_layout.scale : (Rectangle){300,4,40,20};
                     float x=r.x+r.width*.5f,y=r.y+r.height*.5f;
                     ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
                 } else ui_note_key_press(KEY_ESCAPE,0);
