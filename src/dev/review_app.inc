@@ -73,6 +73,8 @@ static void review_begin_frame(App *a) {
 #ifdef DUXCEL_BROWSER_HOST
     used=strlen(f.state_text);
     snprintf(f.state_text+used,sizeof(f.state_text)-used," ui_heap=%zu ui_allocated=%u",emscripten_get_heap_size(),(unsigned)mallinfo().uordblks);
+    used=strlen(f.state_text);
+    snprintf(f.state_text+used,sizeof(f.state_text)-used," browser_picker=%u,%d,%llu,%zu,%llu,%zu",a->browser_file_intent,a->browser_file_path!=NULL,(unsigned long long)a->browser_file_revision,a->browser_file_sheet,(unsigned long long)a->browser_file_row,a->browser_file_col);
 #endif
     dx_review_capture_begin(a->review,&f);
 }
@@ -162,8 +164,8 @@ static void review_file_menu(App *a) {
     if (menu) { menu->expanded=true; menu->input_eligible=false; }
     review_file_item(a,"file.background","file.inspect","region","File menu background",panel,panel,200,true,false,false);
     review_file_item(a,"file.heading","file.inspect","text","File",list.frame.title,panel,201,true,false,false);
-    static const char *const suffix[]={"new","open","save","save_as","close","quit"};
-    static const char *const actions[]={"command.new_workbook","command.open","command.save","command.save_as","command.close","command.quit"};
+    static const char *const suffix[]={"new","open","save","save_as","close","import","quit"};
+    static const char *const actions[]={"command.new_workbook","command.open","command.save","command.save_as","command.close","command.import_table","command.quit"};
     bool scrolling=list.visible<UI_KEYTIP_FILE_COUNT;
     for (int row=0;row<list.visible;row++) {
         int action=row+a->file_menu_scroll; if (action<0 || action>=UI_KEYTIP_FILE_COUNT) continue;
@@ -934,7 +936,7 @@ static bool review_smoke_file_targets(App *a,bool scrolling) {
     if (menu->bounds.x!=list.frame.panel.x || menu->bounds.y!=list.frame.panel.y || menu->bounds.width!=list.frame.panel.width || menu->bounds.height!=list.frame.panel.height) return false;
     if (!dx_review_pick(registry,menu->bounds.x+2*a->ui.scale,menu->bounds.y+2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,"file.background")) return false;
     if (!dx_review_pick(registry,heading->bounds.x+heading->bounds.width*.5f,heading->bounds.y+heading->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,"file.heading")) return false;
-    static const char *const suffix[]={"new","open","save","save_as","close","quit"};
+    static const char *const suffix[]={"new","open","save","save_as","close","import","quit"};
     for (int action=0;action<UI_KEYTIP_FILE_COUNT;action++) {
         char id[64]; snprintf(id,sizeof(id),"file.action.%s",suffix[action]);
         const DxReviewWidget *w=dx_review_find(registry,id); bool visible=action>=a->file_menu_scroll && action<a->file_menu_scroll+list.visible;

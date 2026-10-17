@@ -111,10 +111,13 @@ int main(void) {
     CHECK(!ui_keytips_command_custom(RIBBON_DATA,ACTION_SORT_ASC));
     CHECK(ui_keytips_command_custom(RIBBON_ANALYZE,ACTION_MATRIX));
     CHECK(ui_keytips_command_custom(RIBBON_VIEW,ACTION_FIELDS));
+    const char *const file_keys[]={"N","O","S","A","C","I","X"};
+    CHECK(UI_KEYTIP_FILE_COUNT==sizeof(file_keys)/sizeof(*file_keys));
     for (int action=0;action<UI_KEYTIP_FILE_COUNT;action++) {
         ui_keytips_begin(&state); sequence(&state,"f");
         const char *keys=ui_keytips_file_label(&state,(UIKeytipFileAction)action);
         CHECK(keys && *keys && ui_keytips_file_name((UIKeytipFileAction)action));
+        CHECK(!strcmp(keys,file_keys[action]));
         UIKeytipResult result=sequence(&state,keys);
         CHECK(result.kind==UI_KEYTIP_FILE && result.value==action && !state.active);
     }

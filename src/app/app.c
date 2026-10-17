@@ -18,6 +18,9 @@ static unsigned browser_app_id;
 EM_JS(void, app_browser_choose_file, (unsigned session), {
     Module['dxEngine'].chooseFile({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_file_result},session);
 })
+EM_JS(void, app_browser_release_file, (const char *path), {
+    Module['dxEngine'].releaseFile(UTF8ToString(path));
+})
 #endif
 #include <rlgl.h>
 #include "../ui/ribbon.h"
@@ -99,6 +102,12 @@ typedef struct {
     uint64_t matrix_object;
     Analysis analysis;
     Workbook book;
+#ifdef DUXCEL_BROWSER_HOST
+    unsigned browser_file_intent; /* 0 none, 1 new source sheet, 2 same-sheet Table */
+    uint64_t browser_file_revision,browser_file_row;
+    size_t browser_file_sheet,browser_file_col;
+    char *browser_file_path,*browser_file_label;
+#endif
     bool io_busy, restore_view;
     DocumentAction document_action;
     char *document_path;
@@ -696,7 +705,12 @@ static bool choose_table_relation(App *a,size_t relation) {
 }
 static bool import_table(App *a,const char *path) {
     if (a->io_busy || a->busy || !active_sheet(a)) return false;
-    SourceKind kind=source_kind(path); char *absolute=workbook_is_path(path) ? NULL : dx_absolute_path(path);
+    SourceKind kind=source_kind(path); char *absolute=workbook_is_path(path) ? NULL :
+#ifdef DUXCEL_BROWSER_HOST
+        dx_strdup(path);
+#else
+        dx_absolute_path(path);
+#endif
     if (kind==SOURCE_NONE || !absolute) { free(absolute); status(a,"Choose an existing CSV, Parquet or DuckDB data file."); return false; }
     Worksheet *sheet=active_sheet(a); char *error=NULL;
     if (!objects_fits(&sheet->objects,-1,a->grid.row,a->grid.col,5,4,&sheet->cells,source_rows(a),a->page.column_count,&error)) { status(a,error); free(error); free(absolute); return false; }
@@ -706,9 +720,47 @@ static bool import_table(App *a,const char *path) {
     worksheet_record(sheet,EDIT_OBJECTS); a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
     invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Loading table at the selected range…"); return true;
 }
+#ifdef DUXCEL_BROWSER_HOST
+static void clear_browser_file(App *a,bool release) {
+    if (release && a->browser_file_path) app_browser_release_file(a->browser_file_path);
+    free(a->browser_file_path); free(a->browser_file_label);
+    a->browser_file_path=a->browser_file_label=NULL; a->browser_file_intent=0;
+}
+static void choose_browser_file(App *a,bool table) {
+    clear_browser_file(a,true);
+    a->browser_file_intent=table ? 2 : 1; a->browser_file_revision=a->analysis_revision;
+    a->browser_file_sheet=a->book.active; a->browser_file_row=a->grid.row; a->browser_file_col=a->grid.col;
+    /* New chooser/session tokens reject even an older delayed completion. */
+    if (!++browser_app_id) ++browser_app_id;
+    a->consume_grid_input=true; app_browser_choose_file(browser_app_id);
+}
+static void process_browser_file(App *a) {
+    if (!a->browser_file_path) return;
+    bool table=a->browser_file_intent==2;
+    if (!a->browser_file_intent || a->analysis_revision!=a->browser_file_revision || a->book.active!=a->browser_file_sheet ||
+        (table && (a->grid.row!=a->browser_file_row || a->grid.col!=a->browser_file_col))) {
+        clear_browser_file(a,true); status(a,"The import destination changed. Choose the file again at its destination."); return;
+    }
+    if (a->busy || a->io_busy || a->modal!=MODAL_NONE || a->file_menu) return;
+    if (table) {
+        bool accepted=import_table(a,a->browser_file_path);
+        clear_browser_file(a,!accepted);
+    } else {
+        open_source(a,a->browser_file_path,false);
+        Worksheet *sheet=active_sheet(a);
+        bool accepted=a->analysis.path && !strcmp(a->analysis.path,a->browser_file_path);
+        if (accepted && sheet && a->browser_file_label && *a->browser_file_label) { free(sheet->name); sheet->name=dx_strdup(a->browser_file_label); }
+        clear_browser_file(a,!accepted);
+    }
+}
+#endif
 static void import_table_panel(App *a) {
+#ifdef DUXCEL_BROWSER_HOST
+    choose_browser_file(a,true);
+#else
     a->consume_grid_input=true; char *path=dx_open_table_panel(false);
     if (path) { import_table(a,path); free(path); }
+#endif
 }
 static void create_pivot(App *a) {
     if (!context_fields(a)->column_count || a->io_busy) return;
@@ -1580,7 +1632,7 @@ static void history(App *a,bool redo) {
 }
 static void open_modal(App *a,Modal modal) {
 #ifdef DUXCEL_BROWSER_HOST
-    if (modal==MODAL_OPEN) { a->consume_grid_input=true; app_browser_choose_file(browser_app_id); return; }
+    if (modal==MODAL_OPEN) { choose_browser_file(a,false); return; }
     if (modal==MODAL_SAVE || modal==MODAL_RELINK) {
         status(a,"Browser workbook save/relink is not connected yet."); a->consume_grid_input=true; return;
     }
@@ -5933,6 +5985,7 @@ static void file_action(App *a,UIKeytipFileAction action) {
     case UI_KEYTIP_FILE_SAVE: if (a->book.path) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE); break;
     case UI_KEYTIP_FILE_SAVE_AS: open_modal(a,MODAL_SAVE); break;
     case UI_KEYTIP_FILE_CLOSE: request_document_action(a,DOCUMENT_CLOSE,NULL); break;
+    case UI_KEYTIP_FILE_IMPORT: import_table_panel(a); break;
     case UI_KEYTIP_FILE_QUIT:
 #ifdef DUXCEL_BROWSER_HOST
         status(a,"Use your browser's Close tab command to leave Duxcel.");
@@ -6769,6 +6822,7 @@ static void draw_toast(App *a) {
 }
 static bool file_action_available(const App *a,int action) {
     if (a->io_busy || action<0 || action>=UI_KEYTIP_FILE_COUNT) return false;
+    if (action==UI_KEYTIP_FILE_IMPORT && a->busy) return false;
 #ifdef DUXCEL_BROWSER_HOST
     if (action==UI_KEYTIP_FILE_SAVE || action==UI_KEYTIP_FILE_SAVE_AS || action==UI_KEYTIP_FILE_QUIT) return false;
 #endif
@@ -6816,7 +6870,7 @@ static void draw_file_menu(App *a) {
     if (a->file_menu) {
         ui_choice_frame(u,&layout,"File");
         if (maximum) list_scrollbar(a,list.items,UI_KEYTIP_FILE_COUNT,list.visible,&a->file_menu_scroll,&a->file_menu_drag,&a->file_menu_grab,!reveal);
-        const UICarbonIcon icons[]={CARBON_DOCUMENT_BLANK,CARBON_FOLDER_OPEN,CARBON_SAVE,CARBON_SAVE,CARBON_CLOSE,CARBON_CLOSE};
+        const UICarbonIcon icons[]={CARBON_DOCUMENT_BLANK,CARBON_FOLDER_OPEN,CARBON_SAVE,CARBON_SAVE,CARBON_CLOSE,CARBON_TABLE,CARBON_CLOSE};
         for (int row=0;row<list.visible;row++) {
             int i=row+a->file_menu_scroll; bool available=file_action_available(a,i); Rectangle item=layout.rows[row]; if (maximum) item.width-=9*s;
             bool chosen=ui_choice_row(u,item,ui_keytips_file_name((UIKeytipFileAction)i),NULL,icons[i],false,i==a->file_menu_focus,available);
@@ -11829,12 +11883,11 @@ static AppSession *active_session; /* raylib owns one process-wide window/contex
 EMSCRIPTEN_KEEPALIVE void dx_browser_file_result(unsigned session,const char *path,const char *label,const char *error) {
     if (!active_session || active_session->finished || session!=browser_app_id) return;
     App *a=&active_session->app;
-    if (error && *error) status(a,error);
-    else if (path && *path) {
-        open_source(a,path,false);
-        Worksheet *sheet=active_sheet(a);
-        if (sheet && label && *label && !strcmp(a->analysis.path ? a->analysis.path : "",path)) { free(sheet->name); sheet->name=dx_strdup(label); }
-    }
+    if (error && *error) { clear_browser_file(a,true); status(a,error); }
+    else if (a->browser_file_intent && path && *path) {
+        free(a->browser_file_path); free(a->browser_file_label);
+        a->browser_file_path=dx_strdup(path); a->browser_file_label=dx_strdup(label);
+    } else clear_browser_file(a,true);
 }
 #endif
 static void app_session_free(AppSession *session) {
@@ -12030,6 +12083,11 @@ bool app_frame(AppSession *session) {
     if (a->count_deferred && !a->grid.scrollbar && !a->busy && (!a->page_stale || a->waiting_count_page)) { a->count_deferred=false; publish_count(a,a->deferred_total); }
     watch_statistics(a);
     poll_query(a);
+#ifdef DUXCEL_BROWSER_HOST
+    /* Owned chooser replies publish only during ordinary App dispatch, after
+       pending worker work; frozen review never mutates the captured workbook. */
+    process_browser_file(a);
+#endif
     watch_statistics(a);
     if (window_close_requested() || dx_native_quit_requested()) { DocumentAction action=dx_native_quit_requested() ? DOCUMENT_QUIT : DOCUMENT_CLOSE; dx_native_acknowledge_quit(); request_document_action(a,action,NULL); }
     continue_document_action(a);
@@ -12682,6 +12740,9 @@ int app_finish(AppSession *session) {
 #endif
     cancel_values(a); worker_stop(&a->worker); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a->worker.jobs_started,a->worker.sql_executed,a->worker.counts_executed);
     statistics_free(&a->statistics); free(a->statistics_error);
+#ifdef DUXCEL_BROWSER_HOST
+    clear_browser_file(a,false); /* worker_stop closed the engine/registrations */
+#endif
     page_free(&a->page); page_free(&a->spare); analysis_free(&a->analysis);
     workbook_free(&a->book); inspector_free(a); sort_editor_free(&a->sort_editor);
     reply_free(a->query_validated); text_editor_free(&a->query_editor); text_lines_free(&a->query_errors); free(a->query_error);
