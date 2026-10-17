@@ -1,6 +1,7 @@
 #include "app.h"
 #include "../data/worker.h"
 #include "../grid/grid.h"
+#include "../grid/selection_ladder.h"
 #include "../ui/ui.h"
 #include "../ui/motion.h"
 #include "../ui/popup.h"
@@ -5980,16 +5981,49 @@ static void paste_selection(App *a) {
     a->consume_grid_input=true;
 }
 static void select_region(App *a) {
-    if (a->page.count_pending && a->grid.col<a->page.column_count && !selected_pivot(a)) { status(a,"Counting the table rows. Select a range now, or retry Select All when the count finishes."); a->consume_grid_input=true; return; }
     Worksheet *sheet=active_sheet(a); Grid *g=&a->grid;
-    SheetRange region=objects_region(&sheet->objects,&sheet->cells,a->page.total,a->page.column_count,g->row,g->col,false);
-    SheetRange used=objects_region(&sheet->objects,&sheet->cells,a->page.total,a->page.column_count,g->row,g->col,true);
-    bool current=g->selection==SELECT_CELLS && g->anchor_row==region.r0 && g->end_row==region.r1 && g->anchor_col==region.c0 && g->end_col==region.c1;
-    bool full=g->selection==SELECT_CELLS && g->anchor_row==used.r0 && g->end_row==used.r1 && g->anchor_col==used.c0 && g->end_col==used.c1;
-    if (full || g->selection==SELECT_ALL) g->selection=SELECT_ALL;
-    else {
-        if (current) region=used;
-        g->selection=SELECT_CELLS; g->anchor_row=region.r0; g->end_row=region.r1; g->anchor_col=region.c0; g->end_col=region.c1;
+    if (!sheet) return;
+    GridRegion candidates[5]; size_t count=0;
+    ObjectStore *store=&sheet->objects; int hit=objects_hit(store,g->row,g->col);
+    bool primary_ready=!a->page_stale && !a->fetch_failed && !a->page.count_pending;
+    if (hit>=0) {
+        const SheetObject *o=&store->items[hit]; const ObjectView *v=&a->objects[hit];
+        const Page *page=&v->page;
+        bool ready=o->kind!=OBJECT_CHART && !v->dirty && !v->failed && !v->waiting_count &&
+            !page->count_pending && v->id==o->id && v->revision==o->revision &&
+            v->source_revision==object_source_revision(a,o) && page->column_count && page->total &&
+            o->rows>2 && page->total<=o->rows-2 && page->column_count<=o->columns;
+        if (ready) {
+            candidates[count++]=(GridRegion){o->row+2,o->row+1+page->total,o->col,o->col+page->column_count-1,true};
+            candidates[count++]=(GridRegion){o->row+1,o->row+1+page->total,o->col,o->col+page->column_count-1,true};
+        }
+        candidates[count++]=(GridRegion){o->row,o->row+o->rows-1,o->col,o->col+o->columns-1,true};
+    } else if (primary_ready && a->page.total && a->page.column_count &&
+        g->row<a->page.total && g->col<a->page.column_count) {
+        /* Primary headers are chrome, not worksheet cells. */
+        candidates[count++]=(GridRegion){0,a->page.total-1,0,a->page.column_count-1,true};
+    } else if (*cells_get(&sheet->cells,g->row,g->col)) {
+        SheetRange region; cells_region(&sheet->cells,g->row,g->col,&region.r0,&region.r1,&region.c0,&region.c1,false);
+        candidates[count++]=(GridRegion){region.r0,region.r1,region.c0,region.c1,true};
+    }
+    /* A provisional primary count cannot define the complete used rectangle.
+       Never issue a COUNT (or scan a dense canvas) for a selection command. */
+    if (primary_ready || a->analysis.kind==SOURCE_NONE) {
+        SheetRange used=objects_region(store,&sheet->cells,a->page.total,a->page.column_count,g->row,g->col,true);
+        candidates[count++]=(GridRegion){used.r0,used.r1,used.c0,used.c1,true};
+    }
+    grid_select_next_region(g,candidates,count);
+    if (hit>=0) {
+        const SheetObject *o=&store->items[hit]; uint64_t r0,r1; size_t c0,c1; grid_bounds(g,&r0,&r1,&c0,&c1);
+        bool within=g->selection==SELECT_CELLS && r0>=o->row && r1<o->row+o->rows && c0>=o->col && c1<o->col+o->columns;
+        if (within && o->kind==OBJECT_PIVOT)
+            a->matrix_cells_active=!(r0==o->row && r1==o->row+o->rows-1 && c0==o->col && c1==o->col+o->columns-1);
+        if (!within) {
+            /* Browse restores a source bookmark. Keep these newly chosen bounds
+               instead when the selection grows beyond an analytical object. */
+            a->selected_object=-1; a->matrix_cells_active=false; a->pivot_reveal_object=false;
+            a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=a->ribbon_focus=false;
+        }
     }
     a->consume_grid_input=true;
 }
@@ -7487,7 +7521,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 687
+#define LAYOUT_SMOKE_STAGES 714
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -8318,6 +8352,10 @@ static bool smoke_grid_chrome(const Grid *g,float scale) {
     return fabsf(g->body.x-g->rect.x-g->gutter*scale)<.02f &&
         fabsf(g->body.y-g->rect.y-(g->source_header ? 48 : 24)*scale)<.02f &&
         fabsf(g->chrome_scale-scale)<.001f;
+}
+static bool smoke_selected(App *a,uint64_t row,size_t column,uint64_t r0,uint64_t r1,size_t c0,size_t c1) {
+    uint64_t first,last; size_t left,right; grid_bounds(&a->grid,&first,&last,&left,&right);
+    return a->grid.row==row && a->grid.col==column && a->grid.selection==SELECT_CELLS && first==r0 && last==r1 && left==c0 && right==c1;
 }
 static void layout_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=LAYOUT_SMOKE_STAGES || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
@@ -10789,6 +10827,109 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->step_preview.active || !smoke_grid_chrome(&a->grid,1) || a->grid.zoom!=1 || a->request_id!=request) goto failed;
         puts("PASS: fixed native sheet header chrome across canvas zoom and UI scale, source/history previews, real fit dispatch and retained pages/history without zoom queries"); break;
 
+    case 687:
+        a->statistics_enabled=false; statistics_cancel(a); end_step_preview(a);
+        if (s->objects.count || !a->analysis.path || strcmp(dx_basename(a->analysis.path),"null-text.csv"))
+            open_source(a,"tests/fixtures/null-text.csv",false);
+        break;
+    case 688:
+        if (a->page.total!=6 || a->page.column_count!=3 || s->objects.count) goto failed;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=false;
+        a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false;
+        a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0; a->grid.freeze=false;
+        set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
+        grid_select_cell(&a->grid,12,1,false); if (!import_table(a,"tests/fixtures/null-text.csv")) goto failed; break;
+    case 689: {
+        if (!object_ready(a,0)) return;
+        a->selected_object=-1; grid_select_cell(&a->grid,0,8,false); create_pivot(a);
+        if (s->objects.count!=2) goto failed;
+        PivotDefinition definition={0};
+        bool valid=pivot_assign(&definition,PIVOT_ROWS,"ID",AGG_SUM,&error) &&
+            pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_SUM,&error) &&
+            objects_update(&s->objects,1,&definition,&error);
+        pivot_free(&definition); if (!valid) goto failed;
+        worksheet_record(s,EDIT_OBJECTS); invalidate_object(a,1); break;
+    }
+    case 690:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (a->objects[0].page.total!=6 || a->objects[1].page.total!=6 || a->objects[1].page.column_count!=2 ||
+            s->objects.items[0].rows!=8 || s->objects.items[1].rows!=8 || s->objects.items[1].columns!=3) goto failed;
+        if (!cells_set(&s->cells,9,7,"Note one",&error) || !cells_set(&s->cells,10,7,"Note two",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS); a->book.dirty=true;
+        a->selected_object=1; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false;
+        a->pivot_reveal_object=false; a->matrix_cells_active=true; grid_select_cell(&a->grid,3,9,false);
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[1].page.cells;
+        draft_history=s->undo_actions_count; ribbon_dirty=a->book.dirty; break;
+    case 691:
+        if (!smoke_selected(a,3,9,2,7,8,9) || !a->matrix_cells_active) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-select-all-pivot-body.png"); break;
+    case 692:
+        if (!smoke_selected(a,3,9,1,7,8,9) || !a->matrix_cells_active) goto failed; break;
+    case 693:
+        if (!smoke_selected(a,3,9,0,7,8,10) || a->matrix_cells_active) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-select-all-pivot-frame.png"); break;
+    case 694:
+        if (!smoke_selected(a,3,9,0,19,0,10) || a->selected_object!=-1 || selected_pivot(a)) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-select-all-used-sheet.png"); break;
+    case 695:
+        if (a->grid.selection!=SELECT_ALL || a->grid.row!=3 || a->grid.col!=9) goto failed; break;
+    case 696:
+        if (a->grid.selection!=SELECT_ALL || a->grid.row!=3 || a->grid.col!=9) goto failed;
+        grid_select_cell(&a->grid,17,3,false); grid_select_cell(&a->grid,16,2,true); a->selected_object=0; break;
+    case 697:
+        if (!smoke_selected(a,17,3,14,19,1,3) || a->grid.anchor_row!=19 || a->grid.anchor_col!=3 || a->grid.end_row!=14 || a->grid.end_col!=1) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-select-all-table-reverse.png"); break;
+    case 698:
+        if (!smoke_selected(a,17,3,13,19,1,3) || a->grid.anchor_row!=19 || a->grid.end_col!=1) goto failed; break;
+    case 699:
+        if (!smoke_selected(a,17,3,12,19,1,3) || a->grid.anchor_row!=19 || a->grid.end_col!=1) goto failed; break;
+    case 700:
+        if (!smoke_selected(a,17,3,0,19,0,10) || a->grid.anchor_row!=19 || a->grid.end_col!=0 || a->selected_object!=-1) goto failed;
+        grid_select_cell(&a->grid,40,20,false); break;
+    case 701:
+        if (a->grid.selection!=SELECT_ALL || a->grid.row!=40 || a->grid.col!=20) goto failed;
+        grid_select_cell(&a->grid,1,1,false); break;
+    case 702:
+        if (!smoke_selected(a,1,1,0,5,0,2)) goto failed; break;
+    case 703:
+        if (!smoke_selected(a,1,1,0,19,0,10)) goto failed;
+        a->grid.selection=SELECT_ROWS; break;
+    case 704:
+        if (a->grid.selection!=SELECT_ALL || a->grid.row!=1 || a->grid.col!=1) goto failed; break;
+    case 705: {
+        if (a->grid.selection!=SELECT_ALL) goto failed;
+        /* Metadata-only transient states exercise the real controller without
+           changing live query/cache ownership or requesting a background count. */
+        grid_select_cell(&a->grid,1,1,false); a->page.count_pending=true; select_region(a); a->page.count_pending=false;
+        if (a->grid.selection!=SELECT_ALL) goto failed;
+        grid_select_cell(&a->grid,16,2,false); a->selected_object=0; a->objects[0].dirty=true;
+        select_region(a); a->objects[0].dirty=false;
+        if (!smoke_selected(a,16,2,12,19,1,3)) goto failed;
+        grid_select_cell(&a->grid,9,7,false); a->selected_object=-1; break;
+    }
+    case 706:
+        if (a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[1].page.cells!=author_cells) goto failed; break;
+    case 707:
+        if (!smoke_selected(a,9,7,9,10,7,7)) goto failed; break;
+    case 708:
+        if (!smoke_selected(a,9,7,0,19,0,10)) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,720);
+        grid_select_cell(&a->grid,13,2,false); a->selected_object=0; break;
+    case 709:
+        if (a->ui.scale!=1.5f) goto failed; break;
+    case 710:
+        if (!smoke_selected(a,13,2,13,19,1,3)) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-select-all-table-header-150.png"); break;
+    case 711:
+        if (!smoke_selected(a,13,2,12,19,1,3)) goto failed; break;
+    case 712:
+        if (!smoke_selected(a,13,2,0,19,0,10) || a->selected_object!=-1) goto failed; break;
+    case 713:
+        if (a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[1].page.cells!=author_cells ||
+            s->undo_actions_count!=draft_history || a->book.dirty!=ribbon_dirty || s->cells.count!=2 ||
+            a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
+        puts("PASS: progressive native Select All body/header/object/used-sheet/canvas, reverse direction and active cell retention, unresolved metadata guards, 150 percent header selection and unchanged cache/history/dirty state"); break;
+
     }
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: workspace layout smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : "");
@@ -12240,9 +12381,10 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
-    if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
+    if (focused_layout && layout_start==687) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
+    else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
     else if (options->nyc_smoke) open_source(a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
     else if (options->sort_smoke) open_source(a,"tests/fixtures/sort-keys.csv",false);
@@ -12251,7 +12393,7 @@ AppSession *app_start(const AppOptions *options) {
     else if (options->path) open_source(a,options->path,false);
     else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(a,"tests/fixtures/null-text.csv",false);
     else { new_sheet(a); a->book.dirty=false; }
-    session->layout_smoke=focused_layout ? 250 : 0;
+    session->layout_smoke=focused_layout ? (layout_start==687 ? 687 : 250) : 0;
     session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     session->applied_cursor=-1;
     session->automated=automated; session->layout_start=layout_start; session->layout_target=layout_target;
@@ -12453,6 +12595,15 @@ bool app_frame(AppSession *session) {
             }
             inspector_injected|=1u<<bit;
         }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=691 && session->layout_smoke<=712) {
+        static unsigned selection_ladder_injected=0;
+        unsigned bit=1u<<(session->layout_smoke-691);
+        bool press=(session->layout_smoke>=691 && session->layout_smoke<=695) ||
+            (session->layout_smoke>=697 && session->layout_smoke<=705) ||
+            session->layout_smoke==707 || session->layout_smoke==708 ||
+            (session->layout_smoke>=710 && session->layout_smoke<=712);
+        if (press && !(selection_ladder_injected&bit)) { ui_note_key_press(KEY_A,DX_MOD_SUPER); selection_ladder_injected|=bit; }
     }
     if (options->layout_smoke && session->layout_smoke==229 && a->frames%24==2) {
         static bool narrow_inspector_injected=false;

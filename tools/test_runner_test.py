@@ -33,7 +33,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_inventory(self):
         self.assertEqual(len(runner.NATIVE), 18)
-        self.assertEqual(sum(row[1] for row in runner.NATIVE), 1120)
+        self.assertEqual(sum(row[1] for row in runner.NATIVE), 1147)
         self.assertEqual(len({row[0] for row in runner.NATIVE}), 18)
         self.assertNotIn("core", runner.FAST_MODULES)
         self.assertNotIn("workbook", runner.FAST_MODULES)
@@ -49,9 +49,12 @@ class RunnerTests(unittest.TestCase):
         for name, (start, end, marker) in runner.LAYOUT_PROFILES.items():
             with self.subTest(feature=name):
                 self.assertGreater(end, start)
-                self.assertLessEqual(end, 687)
+                self.assertLessEqual(end, 714)
                 self.assertIn(marker, source)
-                if start not in (0, 250):
+                if start == 687:
+                    self.assertIn('if (focused_layout && layout_start==687)', source)
+                    self.assertIn('session->layout_smoke=focused_layout ? (layout_start==687 ? 687 : 250) : 0;', source)
+                elif start not in (0, 250):
                     self.assertIn(f'"{start}"', source)
                     self.assertIn(f'if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"{start}")) {{ *step={start}; return; }}', source)
 
@@ -428,7 +431,7 @@ class RunnerTests(unittest.TestCase):
         with mock.patch.object(runner, "Runner") as constructor:
             with contextlib.redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(runner.main(["--list"]), 0)
-            self.assertIn("1120 application stages", output.getvalue())
+            self.assertIn("1147 application stages", output.getvalue())
             self.assertIn("Records: record_sql, record_pages", output.getvalue())
             self.assertIn("Formats: workbook --formats-only", output.getvalue())
             constructor.assert_not_called()

@@ -17,7 +17,7 @@ endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c
-SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/app/step_preview.c src/app/app.c src/main.c
+SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m
 LDLIBS += -framework AppKit -framework UniformTypeIdentifiers
@@ -266,7 +266,12 @@ tests/test_grid: src/common.c src/workbook/format.c src/transforms/number.c src/
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm
 tests/test_grid-debug: src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS)
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/common.c src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-PAGE_SRC = src/common.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/data/page.c tests/test_page.c
+SELECTION_LADDER_SRC = src/grid/selection_ladder.c tests/test_selection_ladder.c
+tests/test_selection_ladder: $(SELECTION_LADDER_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(SELECTION_LADDER_SRC) -o $@
+tests/test_selection_ladder-debug: $(SELECTION_LADDER_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(SELECTION_LADDER_SRC) -o $@ $(SANFLAGS)
+PAGE_SRC = src/common.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c tests/test_page.c
 tests/test_page: $(PAGE_SRC) $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(PAGE_SRC) -o $@ -lm
 tests/test_page-debug: $(PAGE_SRC) $(HEADERS)
@@ -277,7 +282,7 @@ tests/test_page-engine: $(PAGE_ENGINE_SRC) $(HEADERS)
 tests/test_page-engine-debug: $(PAGE_ENGINE_SRC) $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) -DDUXCEL_PAGE_ENGINE_TEST $(PAGE_ENGINE_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 RECORD_SQL_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/record_sql.c
-RECORD_PAGE_SRC = $(RECORD_SQL_SRC) src/platform/platform.c src/transforms/pivot.c src/transforms/distinct.c src/data/page.c src/data/database.c
+RECORD_PAGE_SRC = $(RECORD_SQL_SRC) src/platform/platform.c src/transforms/pivot.c src/transforms/distinct.c src/data/page.c src/data/source_digest.c src/data/database.c
 tests/test_record_sql: $(RECORD_SQL_SRC) tests/test_record_sql.c $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(RECORD_SQL_SRC) tests/test_record_sql.c -o $@ $(DUCKDB_LIBS) -lm
 tests/test_record_sql-debug: $(RECORD_SQL_SRC) tests/test_record_sql.c $(HEADERS)
@@ -453,7 +458,7 @@ sort-smoke: duxcel-debug
 	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --sort-smoke --frames 720 --screenshot /tmp/duxcel-sort-smoke.png
 layout-smoke: duxcel-debug design-fixture
 	mkdir -p tests/generated tests/results/workspace-layout
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --layout-smoke --frames 18000 --screenshot /tmp/duxcel-layout-smoke.png
+	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --layout-smoke --frames 20000 --screenshot /tmp/duxcel-layout-smoke.png
 navigation-smoke: duxcel-debug
 	mkdir -p tests/generated tests/results/sheet-navigation
 	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --navigation-smoke --frames 720 --screenshot /tmp/duxcel-navigation-smoke.png
@@ -639,10 +644,10 @@ web-worker-sources:
 
 # The browser protocol and workbook model compile with C99/ASan independently
 # of either engine or renderer. No desktop or mutable database fixtures.
-BROWSER_QUERY_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/page_wire.c src/data/browser_query.c
+BROWSER_QUERY_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c src/data/page_wire.c src/data/browser_query.c
 BROWSER_MODEL_TEST_SRC = $(filter-out src/data/database.c src/data/worker.c,$(CORE)) src/workbook/workbook_browser.c tests/test_workbook_model.c
 BROWSER_DISTINCT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/distinct.c
-BROWSER_DISTINCT_PAGE_TEST_SRC = $(BROWSER_DISTINCT_TEST_SRC) src/data/page.c src/data/distinct_page.c
+BROWSER_DISTINCT_PAGE_TEST_SRC = $(BROWSER_DISTINCT_TEST_SRC) src/data/page.c src/data/source_digest.c src/data/distinct_page.c
 build/web-tests/test-distinct-query: $(BROWSER_DISTINCT_TEST_SRC) tests/test_distinct_query.c $(HEADERS)
 	mkdir -p $(@D)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O2 -g $(WARN) $(BROWSER_DISTINCT_TEST_SRC) tests/test_distinct_query.c -o $@ -lm

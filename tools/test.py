@@ -17,7 +17,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 FAST_MODULES = (
-    "cellreadout", "filterlabel", "grid", "brand", "format", "chartview", "chartencoding",
+    "cellreadout", "filterlabel", "grid", "selection_ladder", "brand", "format", "chartview", "chartencoding",
     "inspector", "stepview", "preview", "statsview", "guideview", "fontmetrics",
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
@@ -45,11 +45,12 @@ LAYOUT_PROFILES = {
     "ribbon-overflow": (638, 665, "PASS: exact More ribbon commands"),
     "record-pages": (665, 675, "PASS: native source record pages"),
     "zoom-headers": (675, 687, "PASS: fixed native sheet header chrome"),
+    "selection-ladder": (687, 714, "PASS: progressive native Select All"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 687, 18000, "PASS: fixed native sheet header chrome"),
+    ("layout", 714, 20000, "PASS: progressive native Select All"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),
