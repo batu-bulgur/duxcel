@@ -383,6 +383,7 @@ static void review_sheet_scroll(App *a,Rectangle track,Rectangle thumb,Rectangle
 static void review_sheet_choice(App *a,const char *kind,const char *key,const char *action,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,size_t sheet,const char *file,int line);
 static void review_relation_choice(App *a,const Relation *relation,size_t index,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line);
 static void review_sort(App *a,const SortReviewFrame *frame);
+static void review_matrix_area(App *a,Rectangle rows,Rectangle clip,Rectangle measure);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -406,6 +407,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_RELATION_CHOICE(a,relation,index,bounds,clip,checked,focused) review_relation_choice(a,relation,index,bounds,clip,checked,focused,__FILE__,__LINE__)
 #define REVIEW_SORT_ARM(a) ((a)->sort_editor.review.armed=review_armed(a))
 #define REVIEW_SORT(a) review_sort(a,&(a)->sort_editor.review)
+#define REVIEW_MATRIX_AREA(a,rows,clip,measure) review_matrix_area(a,rows,clip,measure)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -427,6 +429,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_RELATION_CHOICE(...) ((void)0)
 #define REVIEW_SORT_ARM(...) ((void)0)
 #define REVIEW_SORT(...) ((void)0)
+#define REVIEW_MATRIX_AREA(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -3881,6 +3884,7 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
             a->matrix_row=(int)(a->matrix_vertical/24); float fraction=(a->matrix_vertical-a->matrix_row*24)*s;
             int visible_rows=(int)ceilf((area_height+fraction)/row_height);
             a->matrix_horizontal=fmaxf(0,fminf(fmaxf(0,total-area_width/s),a->matrix_horizontal));
+            REVIEW_MATRIX_AREA(a,rows,clip,box(body.x+ui_matrix_column_left(dims,dims)*s-a->matrix_horizontal*s,rows.y-fraction,ui_matrix_column_width(dims,dims)*s,row_height));
             DxPointerGesture selection;
             if (enabled && ui_take_left_gesture_from(clip,&selection)) {
                 if (!a->matrix_selecting) matrix_select_at(a,o,result,rows,(Vector2){selection.x0,selection.y0},(selection.modifiers&DX_MOD_SHIFT)!=0);

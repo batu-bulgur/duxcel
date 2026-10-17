@@ -565,6 +565,12 @@ static void review_filter(App *a) {
     }
 #undef FILTER_ITEM
 }
+static void review_matrix_area(App *a,Rectangle rows,Rectangle clip,Rectangle measure) {
+    if (!review_armed(a)) return;
+    Rectangle visible=GetCollisionRec(rows,clip),cell=GetCollisionRec(measure,clip);
+    char state[320]; snprintf(state,sizeof(state)," matrix_data_rect=%.3f,%.3f,%.3f,%.3f matrix_first_measure_rect=%.3f,%.3f,%.3f,%.3f matrix_data_row=%d",visible.x,visible.y,visible.width,visible.height,cell.x,cell.y,cell.width,cell.height,a->matrix_row);
+    review_author_capture_state(a,state);
+}
 static void review_statistics(App *a) {
     if (!review_armed(a) || a->file_menu || (a->modal!=MODAL_NONE && a->modal!=MODAL_STATISTICS)) return;
     const StatsKey *key=&a->statistics_key; const SelectionStats *stats=&a->statistics;
@@ -614,6 +620,7 @@ static void review_grid(App *a) {
         totals ? totals->rows.row_count : 0,totals ? totals->columns.row_count : 0,
         totals ? totals->rows.row_count : 0,totals ? totals->rows.column_count : 0,totals ? totals->columns.row_count : 0,totals ? totals->columns.column_count : 0,totals && totals->has_columns,grand_null,grand,grand_truncated);
     review_author_capture_state(a,state);
+    if (object) { snprintf(state,sizeof(state)," object_revision=%llu",(unsigned long long)object->revision); review_author_capture_state(a,state); }
     if (object && view && object->pivot.counts[PIVOT_COLUMNS]) for (size_t c=0;c<2;c++) {
         size_t at=object->pivot.counts[PIVOT_ROWS]+c; const Column *column=at<view->page.column_count ? &view->page.columns[at] : NULL;
         bool present=column && column->category_count && column->categories;
