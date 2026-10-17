@@ -31,6 +31,7 @@ def main():
     args=parser.parse_args()
     result=ROOT/'tests/results/runs'/f'{time.strftime("%Y%m%dT%H%M%S",time.gmtime())}-review-{os.getpid()}'
     result.mkdir(parents=True)
+    (ROOT/'tests/results/native-review').mkdir(parents=True,exist_ok=True)
     summary={'started_utc':utc_now(),'status':'failed','configs':{},'scope':'hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual'}
     try:
         with FileLock(ROOT/'tests/results/.runner.lock','worktree tests'):
@@ -60,6 +61,7 @@ def main():
                     for item in listing['reports']:
                         report_id=item['report_id']; report=store.read(report_id); m=report['manifest']
                         if m['frame']['binary_sha256']!=binary_hash or m['target']['frame_id']!=m['frame']['frame_id']: raise RuntimeError('Image/target/build provenance mismatch')
+                        if m['target']['widget']['id']=='file.scrollbar.thumb' and (m['note']!='Short native composer.\nNULL, empty text, literal NULL.\nTail' or m['frame']['ui_scale']!=1.5): raise RuntimeError('Short composer lost edited note or captured scale')
                         payload_hash=sha(outbox/report_id/'manifest.json')
                         store.update(report_id,'ack','native-test','Retrieved real native frame')
                         store.update(report_id,'reply','native-test','Target, scale and binary verified; design acceptance remains pending')

@@ -338,7 +338,7 @@ static void review_native_command(App *a,DxCommand command) {
 #ifndef DUXCEL_BROWSER_HOST
 #define REVIEW_SMOKE_STAGES 71
 typedef struct {
-    int stage; uint64_t request,jobs; GridLocation selection; Cell *page;
+    int stage; unsigned note_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
     Modal choice_modal; int choice_focus,choice_ribbon_mode; float choice_scale,choice_row_height; uint64_t choice_formats;
 } ReviewSmoke;
@@ -789,6 +789,9 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         if (r->phase!=DX_REPORT_NOTE) return;
         if (strcmp(r->note.text,"Short native composer.\nNULL, empty text, literal NULL.\nTail") || r->editor.lines.count<3 || r->editor.scroll<=0 || !r->note.multiline || !review_smoke_file_same(a,t)) goto failed;
         DxReviewCaptureLayout layout=dx_review_capture_layout(GetScreenWidth(),GetScreenHeight(),a->ui.scale,r->toolbar_top);
+        /* Both hidden swap buffers must contain the edited note before readback. */
+        if (!t->note_frame) { t->note_frame=a->frames; return; }
+        if (a->frames-t->note_frame<2) return;
         smoke_snapshot("tests/results/native-review/compact-composer-150.png");
         review_smoke_click(layout.save); break;
     }
