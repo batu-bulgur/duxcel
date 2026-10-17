@@ -96,12 +96,12 @@ async function hintMotion(){
   check(show?Math.abs(red-164)<=2:Math.abs(red-restingRed)<=2,'Keytips did not settle '+name);
   if(show)await capture('keytips-light');
  }
- await key('Alt','AltLeft',18);await key('h','KeyH',72);await key('Escape','Escape',27);await pause(160);
- const dismissed=await platformSnapshot();check(Number(dismissed.keytips)===0,'Alt H Escape left keytips visible');
+ await key('Alt','AltLeft',18);await key('h','KeyH',72);await key('Escape','Escape',27);await key('Escape','Escape',27);await pause(160);
+ const dismissed=await platformSnapshot();check(Number(dismissed.keytips)===0,'Alt H Escape Escape left keytips visible');
  const cycles=altStress?8:0;
  for(let cycle=0;cycle<cycles;cycle++){
-  await key('Alt','AltLeft',18);await key('h','KeyH',72);await key('Escape','Escape',27);
-  await key('Alt','AltLeft',18);await key('v','KeyV',86);await key('9','Digit9',57);await key('Escape','Escape',27);
+  await key('Alt','AltLeft',18);await key('h','KeyH',72);await key('Escape','Escape',27);await key('Escape','Escape',27);
+  await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('9','Digit9',57);await key('Escape','Escape',27);
  }
  if(cycles){await click(40,42);await pause(160);const state=await platformSnapshot();check(state.active===dismissed.active&&state.extent===dismissed.extent&&Number(state.keytips)===0,'Repeated trusted Alt shortcuts mutated selection or leaked hints');}
  const altEvents=await evaluate('globalThis.duxcelTestAltEvents');
@@ -139,6 +139,48 @@ async function transientPull(baseline){
  check(final.top===baseline.top&&final.horizontal===baseline.horizontal&&final.active===baseline.active,'Rubber-band return altered canonical position/selection');
 
  return {...result,final,scope:'Real C GPU frame samples over360ms, dark backing, displaced boundaries and monotone return; physical trackpad packet timing remains manual QA.'};
+}
+// Unlike the single burst above, hold an outward gesture across real C frames,
+// then continue supplying declining momentum after the edge has started home.
+// Sparse tails used to tug it back out or keep it suspended indefinitely.
+async function momentumPull(baseline){
+ const [bx,by]=baseline.body.split(',').map(Number);
+ const tail=[{ms:0,d:10},{ms:17,d:8},{ms:50,d:6},{ms:67,d:4},{ms:117,d:2},{ms:150,d:1},
+  {ms:200,d:.5},{ms:234,d:.25},{ms:284,d:.1},{ms:317,d:.03},{ms:350,d:.01},{ms:400,d:.005}];
+ const result=await evaluate(`new Promise(resolve=>{const canvas=document.querySelector('canvas'),rect=canvas.getBoundingClientRect(),gl=canvas.getContext('webgl2')||canvas.getContext('webgl'),ratio=canvas.width/${Number(baseline.logical.split(',')[0])},samples=[],packets=[],tail=${JSON.stringify(tail)},n=Math.ceil(45*ratio),row=new Uint8Array(n*4),col=new Uint8Array(n*4);let began,previous,released,at=0;
+  const send=(distance,phase,ms)=>{const event=new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:rect.x+rect.width*.65,clientY:rect.y+rect.height*.65,deltaX:-distance,deltaY:-distance});canvas.dispatchEvent(event);packets.push({ms,distance,phase,claimed:event.defaultPrevented});};
+  const band=(data,reverse=false)=>{let length=0;for(let i=0;i<data.length;i+=4){const p=reverse?data.length-4-i:i;if(data[p]!==201||data[p+1]!==211||data[p+2]!==220)break;length++;}return length/ratio;};
+  send(14,'pull',0);
+  function sample(now){began??=now;const ms=now-began,dt=previous===undefined?1000/60:now-previous;previous=now;
+   gl.readPixels(Math.round((${bx}+1)*ratio),canvas.height-1-Math.round((${by}+91)*ratio),n,1,gl.RGBA,gl.UNSIGNED_BYTE,row);
+   gl.readPixels(Math.round((${bx}+201)*ratio),canvas.height-Math.round((${by}+1)*ratio)-n,1,n,gl.RGBA,gl.UNSIGNED_BYTE,col);
+   samples.push({ms,x:band(row),y:band(col,true),gap:dt,phase:released===undefined?'pull':'tail'});
+   if(ms<160) send(14*dt/(1000/60),'pull',ms);
+   else{released??=ms;while(at<tail.length&&ms-released>=tail[at].ms){send(tail[at].d,'tail',ms);at++;}}
+   if(released!==undefined&&ms-released>=650)resolve({samples,packets,released,ratio,error:gl.getError()});else requestAnimationFrame(sample);
+  }requestAnimationFrame(sample);})`);
+ await fs.writeFile(path.join(output,'overscroll-momentum.json'),JSON.stringify(result,null,2));
+ check(result.error===0,'Momentum GPU readback failed');
+ check(result.packets.every(packet=>packet.claimed),'A continuous pull/tail packet escaped canvas ownership');
+ check(result.packets.filter(packet=>packet.phase==='pull').length>=5&&result.packets.filter(packet=>packet.phase==='tail').length===tail.length,'Continuous pull or gappy momentum sequence was incomplete');
+ const pull=result.samples.filter(sample=>sample.phase==='pull'),peak={x:Math.max(...pull.map(sample=>sample.x)),y:Math.max(...pull.map(sample=>sample.y))};
+ const tolerance=1/result.ratio+.001;
+ check(peak.x>24&&peak.y>24,'Continuous finger pull did not hold a visible edge cue');
+ check(result.samples.every(sample=>sample.x<=32+tolerance&&sample.y<=32+tolerance),'Canvas overscroll exceeded the 32-point cap');
+ check(pull.every((sample,i)=>!i||sample.x>=pull[i-1].x-tolerance&&sample.y>=pull[i-1].y-tolerance),'Canvas fought the continuous pull with inward jitter');
+ const held=pull.filter(sample=>sample.ms>=120);
+ check(held.length>=2&&held.every(sample=>sample.x>=peak.x-tolerance&&sample.y>=peak.y-tolerance),'Canvas did not hold its saturated cue while the finger kept pulling');
+ const latched=result.samples.findIndex(sample=>sample.ms>=result.released&&sample.x<peak.x-1&&sample.y<peak.y-1);
+ check(latched>=0,'Declining/gappy momentum never released the stretched canvas');
+ const returning=result.samples.slice(latched),latch=returning[0].ms;
+ check(latch-result.released<=110,'Canvas stayed suspended too long after the pull rate declined');
+ check(returning.every((sample,i)=>!i||sample.x<=returning[i-1].x+tolerance&&sample.y<=returning[i-1].y+tolerance),'Late momentum re-extended or jittered the returning canvas');
+ const settled=returning.find(sample=>sample.ms-latch>=230&&sample.ms-latch<=280);
+ check(settled&&settled.x<.5&&settled.y<.5,'Canvas did not settle within about 250ms of momentum return latch');
+ check(returning.filter(sample=>sample.ms-latch>=280).every(sample=>sample.x<.5&&sample.y<.5),'Gappy momentum packets restarted a settled edge');
+ const final=await platformSnapshot();
+ check(final.top===baseline.top&&final.fraction===baseline.fraction&&final.horizontal===baseline.horizontal&&final.active===baseline.active&&final.extent===baseline.extent,'Continuous pull/tails altered canonical position or selection');
+ return {...result,latch,final,scope:'Actual shared-C GL pixels during a multi-frame pull and declining/gappy DOM wheel tail; no review freeze or PNG encoding during timing. Physical trackpad feel remains separate.'};
 }
 async function wheelBatch(dx,dy,count=1,options={}){
  const result=await evaluate(`(()=>{const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();let claimed=0;for(let i=0;i<${count};i++){const event=new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:r.x+r.width*${options.x??.65},clientY:r.y+r.height*${options.y??.65},deltaX:${dx},deltaY:${dy},deltaMode:${options.mode??0},ctrlKey:${!!options.ctrl},shiftKey:${!!options.shift}});canvas.dispatchEvent(event);if(event.defaultPrevented)claimed++;}return claimed;})()`);
@@ -278,10 +320,11 @@ try{
   const imported=await waitPage();sourceResult={...imported,selection_to_c_reply_ms:Date.now()-importStarted};check(imported.rows>0&&imported.columns>0,'Imported C Page is empty');await frames(4);await capture('imported');
   if(sourceFile.endsWith('/transactions.csv')){check(imported.total==='5'&&imported.columns===6,'CSV import count/schema changed');await click(716,102);const sorted=await waitPage(imported.id);check(sorted.total==='5','Sort changed source count');await frames();await capture('sorted');}
   if(platform){
-   await key('Alt','AltLeft',18);await key('v','KeyV',86);await key('9','Digit9',57);await key('Escape','Escape',27);await click(40,42);
+   await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('9','Digit9',57);await key('Escape','Escape',27);await click(40,42);
    const baseline=await platformSnapshot(),beforeJobs=starts().length;
    const hints=await hintMotion();
    const overscroll=await transientPull(baseline);
+   const momentum=await momentumPull(baseline);
    const factor=canvasTransform?1/.8:1;
    await wheelBatch(.125,.25,40);
    const panned=await platformSnapshot();
@@ -331,7 +374,7 @@ try{
    // Restore the pan origin before the shared filter/header regression.
    const final=await platformSnapshot();
    await wheelBatch(-Number(final.horizontal)/factor,-vertical(final)*Number(final.row_height)/factor);await frames();
-   platformResult={baseline,hints,overscroll,panned,reversed,trusted,deliveredWheel,shifted,chrome,sidebar,zoomed,restored,densities,embedded,query_jobs:starts().length-beforeJobs,
+   platformResult={baseline,hints,overscroll,momentum,panned,reversed,trusted,deliveredWheel,shifted,chrome,sidebar,zoomed,restored,densities,embedded,query_jobs:starts().length-beforeJobs,
     scope:'Real C grid under fractional DOM wheel bursts, DPI changes and captured GPU frames; physical trackpad/Safari gesture feel remains separate.'};
   }
   if(filters){
