@@ -298,6 +298,19 @@ clean:
 .PHONY: all run debug run-debug test test-debug spill-test unique-large-test smoke workspace-smoke filter-smoke pivot-smoke export-smoke count-smoke clipboard-smoke sort-smoke layout-smoke navigation-smoke startup-smoke nyc-smoke document-smoke chart-smoke statistics-smoke table-smoke icon-smoke query-smoke unique-smoke mac-icon-check bundle clean icons icons-check icons-verify paint-smoke
 .NOTPARALLEL:
 
+# Short edit loop, a named native slice, or the recorded full integration tier.
+# Builds stay serialized by the existing rules; TEST_ARGS may set --jobs 2 for
+# independent already-built headless checks. See python3 tools/test.py --list.
+test-fast:
+	python3 tools/test.py fast $(TEST_ARGS)
+test-affected:
+	python3 tools/test.py affected --feature $(FEATURE) $(TEST_ARGS)
+test-full:
+	python3 tools/test.py full $(TEST_ARGS)
+test-runner:
+	python3 tools/test_runner_test.py
+.PHONY: test-fast test-affected test-full test-runner
+
 
 tests/test_popup: src/ui/motion.c src/ui/popup.c tests/test_popup.c $(HEADERS)
 	$(CC) -Isrc $(CFLAGS) $(WARN) src/ui/motion.c src/ui/popup.c tests/test_popup.c -o $@ -lm
