@@ -264,6 +264,26 @@ static const char *review_author_identity(App *a,const char *kind,char parent[12
         }
         snprintf(parent,128,"author.%s",kind); return NULL;
     }
+    if (!strcmp(kind,"statistics")) {
+        *data=review_scope(a); data->schema_generation=0; data->has_cell=false; data->field[0]=0;
+        const Page *page=&a->page; bool one_column=a->statistics_columns==1;
+        if (a->step_preview.active) {
+            StepPreview *preview=&a->step_preview; snprintf(data->kind,sizeof(data->kind),"step-statistics");
+            data->source_id=preview->source_id; data->schema_generation=preview->source_revision; data->query_generation=preview->request;
+            data->row=preview->stats_bounds.r0; data->column=preview->stats_bounds.c0; one_column=preview->stats_bounds.c0==preview->stats_bounds.c1; page=&preview->page;
+        } else {
+            snprintf(data->kind,sizeof(data->kind),a->statistics_frame ? "statistics-frame" : a->statistics_object==-2 ? "statistics-mixed" : "statistics-range");
+            data->row=a->statistics_first; data->column=a->statistics_column; data->query_generation=a->statistics_key.source_revision;
+            ObjectStore *store=&active_sheet(a)->objects;
+            if (a->statistics_object>=0 && (size_t)a->statistics_object<store->count) {
+                SheetObject *owner=&store->items[a->statistics_object]; data->object_id=owner->id; data->source_id=owner->kind==OBJECT_TABLE ? owner->id : owner->source_id;
+                data->query_generation=owner->revision; data->schema_generation=owner->kind==OBJECT_TABLE ? 0 : object_source_revision(a,owner); page=&a->objects[a->statistics_object].page;
+            }
+            if (a->statistics_frame || a->statistics_object==-2) { uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1); data->row=r0; data->column=c0; one_column=false; }
+        }
+        if (one_column && data->column<page->column_count && review_author_field(data->field,page->columns[data->column].name) && truncated) *truncated=true;
+        snprintf(parent,128,"author.%s",kind); return NULL;
+    }
     *data=review_scope(a);
     if (object) {
         data->object_id=object->id; data->source_id=object->kind==OBJECT_TABLE ? object->id : object->source_id;
@@ -359,6 +379,11 @@ static void review_author_panel(App *a,const char *kind,const char *title,Rectan
         char relation[192]; snprintf(relation,sizeof(relation)," relation_object=%d relation_source_revision=%llu relation_focus=%d relation_scroll=%d relation_count=%zu",a->table_relation_object,(unsigned long long)data.query_generation,a->table_relation_focus,a->table_relation_scroll,count);
         review_author_capture_state(a,relation);
     }
+    if (!strcmp(kind,"statistics")) {
+        uint64_t r0,r1; size_t c0,c1; Grid *grid=a->step_preview.active ? &a->step_preview.grid : &a->grid; grid_bounds(grid,&r0,&r1,&c0,&c1);
+        char stats[384]; snprintf(stats,sizeof(stats)," stats_menu_mask=%u stats_menu_focus=%d stats_menu_frame=%d stats_menu_enabled=%d stats_menu_preview=%d stats_menu_range=%llu,%llu,%zu,%zu stats_menu_object=%d",a->statistics_mask,a->statistics_focus,a->statistics_frame,a->statistics_enabled,a->step_preview.active,(unsigned long long)r0,(unsigned long long)r1,c0,c1,a->statistics_object);
+        review_author_capture_state(a,stats);
+    }
 }
 static void review_author_item(App *a,const char *kind,const char *key,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,const char *file,int line) {
     if (!review_armed(a)) return;
@@ -390,6 +415,24 @@ static void review_author_input(App *a,const char *kind,const char *key,const ch
     char id[128]; snprintf(id,sizeof(id),"author.%s.action.%s",kind,key);
     DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
     if (w) { dx_review_value_set(&w->value,"VARCHAR",false,input && input->text ? input->text : ""); w->truncated|=w->value.truncated; a->review->registry->truncated|=w->truncated; }
+}
+static void review_statistics_row(App *a,int metric,const char *label,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line) {
+    if (!review_armed(a) || metric<0 || metric>=8) return;
+    static const char *const keys[]={"cells","filled","numeric","distinct","sum","average","minimum","maximum"};
+    review_author_item(a,"statistics",keys[metric],"statistics.toggle_metric","checkbox",label,bounds,clip,true,checked,focused,NULL,file,line);
+    char id[128]; snprintf(id,sizeof(id),"author.statistics.action.%s",keys[metric]); DxReviewWidget *widget=(DxReviewWidget *)dx_review_find(a->review->registry,id);
+    bool ready=a->step_preview.active ? a->step_preview.stats_state==PREVIEW_STATS_READY : !a->statistics_frame && a->statistics_state==STATS_READY;
+    if (!widget || !ready) return;
+    const SelectionStats *stats=a->step_preview.active ? &a->step_preview.statistics : &a->statistics;
+    if (metric<4) {
+        uint64_t cells=a->step_preview.active ? a->step_preview.stats_bounds.active ? (a->step_preview.stats_bounds.r1-a->step_preview.stats_bounds.r0+1)*(a->step_preview.stats_bounds.c1-a->step_preview.stats_bounds.c0+1) : 0 : a->statistics_cells;
+        uint64_t count=metric==0 ? cells : metric==1 ? stats->filled : metric==2 ? stats->numeric : stats->distinct; char exact[32]; snprintf(exact,sizeof(exact),"%llu",(unsigned long long)count);
+        dx_review_value_set(&widget->value,"UBIGINT",false,exact);
+    } else if (!stats->non_finite && !(metric==4 && stats->sum_overflow) && !(metric==5 && stats->average_overflow)) {
+        const char *raw=metric==4 ? stats->sum : metric==5 ? stats->average : metric==6 ? stats->minimum : stats->maximum;
+        dx_review_value_set(&widget->value,stats->approximate || metric==5 ? "DOUBLE" : "exact-numeric",!raw,raw);
+    }
+    widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated;
 }
 static void review_relation_choice(App *a,const Relation *relation,size_t index,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line) {
     if (!review_armed(a) || !relation || !relation->schema || !relation->name) return;
