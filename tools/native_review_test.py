@@ -2,6 +2,7 @@
 """Native outbox reader/lifecycle tests; no app, engine, daemon or desktop."""
 import concurrent.futures
 import copy
+import hashlib
 import importlib.util
 import json
 import os
@@ -68,6 +69,26 @@ class ReviewTests(unittest.TestCase):
         for value in ("", "../project", "x/y", "x\\y", "é", "a" * 96):
             with self.subTest(project=value), self.assertRaises(review.ReviewError):
                 review.default_root(value)
+
+    def test_default_project_matches_native_common_directory_and_gitless_worktrees(self):
+        common = self.root / "shared.git"
+        common.mkdir()
+        expected = "duxcel-" + hashlib.sha256(str(common.resolve()).encode()).hexdigest()[:16]
+        with mock.patch.object(review.subprocess, "check_output", return_value="shared.git\n"):
+            self.assertEqual(review.default_project(self.root), expected)
+        (self.root / ".git").mkdir()
+        expected_main = "duxcel-" + hashlib.sha256(str((self.root / ".git").resolve()).encode()).hexdigest()[:16]
+        with mock.patch.object(review.subprocess, "check_output", side_effect=FileNotFoundError("git unavailable")):
+            self.assertEqual(review.default_project(self.root), expected_main)
+            (self.root / ".git").rmdir()
+            worktree = common / "worktrees" / "other"
+            worktree.mkdir(parents=True)
+            (worktree / "commondir").write_text("../..\n")
+            (self.root / ".git").write_text("gitdir: shared.git/worktrees/other\n")
+            self.assertEqual(review.default_project(self.root), expected)
+            (self.root / ".git").unlink()
+            expected_standalone = "duxcel-" + hashlib.sha256(str(self.root.resolve()).encode()).hexdigest()[:16]
+            self.assertEqual(review.default_project(self.root), expected_standalone)
 
     def test_complete_report_preserves_native_types_and_exact_values(self):
         self.payload["future_extension"] = {"enabled": True}
@@ -190,7 +211,7 @@ class ReviewTests(unittest.TestCase):
         state = self.store.read("DXR-one")["lifecycle"]
         self.assertEqual(state["revision"], 12)
         self.assertEqual({item["message"] for item in state["history"]}, {f"reply-{i}" for i in range(12)})
-        base = [sys.executable, str(Path(review.__file__)), "--root", str(self.root), "reply", "DXR-one", "--message"]
+        base = [sys.executable, str(Path(review.__file__)), "--project", "duxcel", "--root", str(self.root), "reply", "DXR-one", "--message"]
         processes = [subprocess.Popen(base + [f"process-{i}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for i in range(4)]
         for process in processes:
             output, error = process.communicate(timeout=10)
@@ -243,6 +264,18 @@ class ReviewTests(unittest.TestCase):
         result = subprocess.run(base + ["read", "../outside"], text=True, capture_output=True)
         self.assertEqual(result.returncode, 2)
         self.assertIn("error", json.loads(result.stderr))
+
+    def test_cli_default_project_finds_the_matching_native_outbox(self):
+        project = review.default_project()
+        self.payload["project_id"] = self.payload["frame"]["project_id"] = project
+        self.write()
+        environment = dict(os.environ, DUXCEL_REVIEW_OUTBOX=str(self.root))
+        result = subprocess.run([sys.executable, str(Path(review.__file__)), "list"], env=environment,
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        listing = json.loads(result.stdout)
+        self.assertEqual(listing["project_id"], project)
+        self.assertEqual([item["report_id"] for item in listing["reports"]], ["DXR-one"])
 
 
 if __name__ == "__main__":
