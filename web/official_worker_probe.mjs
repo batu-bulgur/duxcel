@@ -95,6 +95,34 @@ export async function runWorkerProbe(input = {}) {
                 equalProbeValue(version.replace(/^v/, ''), adapter.engineVersion.replace(/^v/, ''), 'SQL/library engine version');
                 return { sql: version, library: adapter.engineVersion };
             });
+            await step('registered-source-names-never-rebind', async () => {
+                const original = 'probe-source-original.csv', fresh = 'probe-source-fresh.csv';
+                const bytes = marker => new TextEncoder().encode(`marker\n${marker}\n`);
+                const rejected = async (owner, name) => {
+                    try { await owner.registerFile(name, bytes('replacement')); }
+                    catch (error) { equalProbeValue(error.code, 'IMMUTABLE_FILE', 'Source replacement rejected before mutation'); return; }
+                    throw new Error('A reserved source name was rebound');
+                };
+                await adapter.registerFile(original, bytes('original'));
+                await rejected(adapter, original);
+                const retained = await query(`SELECT marker FROM read_csv('${original}', header=true) LIMIT 1`);
+                equalProbeValue(api.pageCellText(retained.page, 0, 0), 'original', 'Existing source bytes retained');
+                // A fresh connection to the same official database must retain
+                // the reservation history, including after the file is dropped.
+                const sibling = new api.DuckDBWorkerAdapter({ database: adapter.database,
+                    connection: await adapter.database.connect() });
+                try {
+                    await rejected(sibling, original);
+                    await adapter.dropFile(original);
+                    await rejected(adapter, original);
+                    await rejected(sibling, original);
+                    await sibling.registerFile(fresh, bytes('fresh'));
+                } finally { await sibling.close(); }
+                const imported = await query(`SELECT marker FROM read_csv('${fresh}', header=true) LIMIT 1`);
+                equalProbeValue(api.pageCellText(imported.page, 0, 0), 'fresh', 'Fresh-name import works after rejected replacement');
+                await adapter.dropFile(fresh);
+                return { original, fresh, scope: 'Public adapter registrations sharing one database object; raw engine writes and cross-session identity excluded' };
+            });
             await step('exact-arrow-values-and-null-states', async () => {
                 const { page, request: value } = await query(`SELECT
                     '-9223372036854775808'::BIGINT AS min_bigint,
