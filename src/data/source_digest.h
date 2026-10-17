@@ -26,6 +26,14 @@ typedef enum {
    including before EOF/final publication. Return true to cancel. Never retain
    helper-owned state; bytes_read is progress, not a successful result. */
 typedef bool (*SourceDigestCancel)(void *context,uint64_t bytes_read);
+/* Bounded stat-only capture: no descriptor, content read, hash or allocation.
+   Same final-symlink/nonregular policy as source_digest_file. out is preserved
+   on failure; unsupported platforms perform no I/O. This is a point observation,
+   not a content digest or transactional snapshot. */
+SourceDigestStatus source_file_identity(const char *path,SourceFileIdentity *out,
+    char error[DX_SOURCE_DIGEST_ERROR_BYTES]);
+/* Compare every named field explicitly; struct padding is not identity. */
+bool source_file_identity_same(const SourceFileIdentity *a,const SourceFileIdentity *b);
 /* Synchronous, intended for an existing worker thread, never a paint callback.
    One fixed 64 KiB buffer and SDK SHA256 state; no helper-owned heap allocation
    or FD escapes. out is preserved on every failure. Optional error points to at least

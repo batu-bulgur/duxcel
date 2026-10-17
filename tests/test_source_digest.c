@@ -13,6 +13,19 @@
 #endif
 static unsigned checks;
 #define CHECK(condition) do { checks++; if (!(condition)) { fprintf(stderr,"FAIL source digest:%d: %s\n",__LINE__,#condition); exit(1); } } while (0)
+static void identity_comparison(void) {
+    SourceFileIdentity a,b; memset(&a,0xa5,sizeof(a)); memset(&b,0x5a,sizeof(b));
+#define IDENTITY_FIELDS(X) X(device) X(inode) X(size) X(links) X(mode) X(uid) X(gid) X(flags) X(generation) X(modified_seconds) X(modified_nanoseconds) X(changed_seconds) X(changed_nanoseconds) X(created_seconds) X(created_nanoseconds)
+#define ZERO_FIELD(field) a.field=b.field=0;
+    IDENTITY_FIELDS(ZERO_FIELD)
+#undef ZERO_FIELD
+    CHECK(source_file_identity_same(&a,&b)); /* Deliberately different padding. */
+#define CHANGE_FIELD(field) do { SourceFileIdentity changed=a; changed.field++; CHECK(!source_file_identity_same(&a,&changed)); CHECK(!source_file_identity_same(&changed,&a)); } while (0);
+    IDENTITY_FIELDS(CHANGE_FIELD)
+#undef CHANGE_FIELD
+#undef IDENTITY_FIELDS
+    CHECK(!source_file_identity_same(NULL,&a) && !source_file_identity_same(&a,NULL) && !source_file_identity_same(NULL,NULL));
+}
 #if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
 static void write_bytes(const char *path,const void *bytes,size_t length) {
     int fd=open(path,O_WRONLY|O_CREAT|O_TRUNC,0600); CHECK(fd>=0);
@@ -36,6 +49,7 @@ static SourceDigest verify(const char *path,const char *expected,uint64_t size) 
     CHECK(result.identity.mode==(uint32_t)file.st_mode && result.identity.uid==file.st_uid && result.identity.gid==file.st_gid && result.identity.flags==file.st_flags && result.identity.generation==file.st_gen);
     CHECK(result.identity.modified_seconds==file.st_mtimespec.tv_sec && result.identity.modified_nanoseconds==(uint32_t)file.st_mtimespec.tv_nsec && result.identity.changed_seconds==file.st_ctimespec.tv_sec && result.identity.changed_nanoseconds==(uint32_t)file.st_ctimespec.tv_nsec);
     CHECK(result.identity.created_seconds==file.st_birthtimespec.tv_sec && result.identity.created_nanoseconds==(uint32_t)file.st_birthtimespec.tv_nsec);
+    SourceFileIdentity captured; CHECK(source_file_identity(path,&captured,error)==SOURCE_DIGEST_OK && !error[0]); CHECK(source_file_identity_same(&captured,&result.identity));
     uint64_t stamp=(uint64_t)file.st_size ^ (uint64_t)file.st_mtime*UINT64_C(1099511628211) ^ (uint64_t)file.st_ino ^ (uint64_t)file.st_mtimespec.tv_nsec*UINT64_C(1469598103934665603);
     CHECK(result.observed_stamp==stamp); return result;
 }
@@ -47,6 +61,13 @@ static void rejected(const char *path,SourceDigestCancel cancel,void *context,So
     CHECK(!memcmp(&result,&before,sizeof(result)) && diagnostic.prefix==(char)0xa5 && diagnostic.suffix==(char)0xa5);
     CHECK(diagnostic.error[0] && memchr(diagnostic.error,0,sizeof(diagnostic.error)));
 }
+static void identity_rejected(const char *path) {
+    SourceFileIdentity result,before; memset(&result,0xa5,sizeof(result)); memcpy(&before,&result,sizeof(before));
+    struct { char prefix,error[DX_SOURCE_DIGEST_ERROR_BYTES],suffix; } diagnostic; memset(&diagnostic,0xa5,sizeof(diagnostic));
+    CHECK(source_file_identity(path,&result,diagnostic.error)==SOURCE_DIGEST_ERROR);
+    CHECK(!memcmp(&result,&before,sizeof(result)) && diagnostic.prefix==(char)0xa5 && diagnostic.suffix==(char)0xa5);
+    CHECK(*diagnostic.error && memchr(diagnostic.error,0,sizeof(diagnostic.error)));
+}
 static void basic_tests(const char *directory) {
     char path[1024],alias[1024],nested[1200],missing[1024];
     snprintf(path,sizeof(path),"%s/source.bin",directory); snprintf(alias,sizeof(alias),"%s/alias",directory); snprintf(missing,sizeof(missing),"%s/missing",directory);
@@ -57,12 +78,18 @@ static void basic_tests(const char *directory) {
     FILE *unchanged=fopen(path,"rb"); unsigned char readback[sizeof(binary)+1]; CHECK(unchanged && fread(readback,1,sizeof(readback),unchanged)==sizeof(binary) && !memcmp(readback,binary,sizeof(binary)) && fclose(unchanged)==0);
     SourceDigest retained=verify(path,"4a6bdd7400b1756ac981153ad2ce6187101c316c2a5b7d4f87fef953e5237aac",sizeof(binary));
     SourceDigest second; CHECK(source_digest_file(path,NULL,NULL,&second,NULL)==SOURCE_DIGEST_OK && !memcmp(retained.sha256,second.sha256,DX_SOURCE_DIGEST_BYTES));
-    if (geteuid()!=0) { CHECK(chmod(path,0000)==0); rejected(path,NULL,NULL,SOURCE_DIGEST_ERROR); CHECK(chmod(path,0600)==0); verify(path,"4a6bdd7400b1756ac981153ad2ce6187101c316c2a5b7d4f87fef953e5237aac",sizeof(binary)); }
+    if (geteuid()!=0) {
+        CHECK(chmod(path,0000)==0); rejected(path,NULL,NULL,SOURCE_DIGEST_ERROR);
+        SourceFileIdentity unreadable; CHECK(source_file_identity(path,&unreadable,NULL)==SOURCE_DIGEST_OK && !(unreadable.mode&0777)); /* Stat only; no content permission required. */
+        CHECK(chmod(path,0600)==0); verify(path,"4a6bdd7400b1756ac981153ad2ce6187101c316c2a5b7d4f87fef953e5237aac",sizeof(binary));
+    }
     rejected(NULL,NULL,NULL,SOURCE_DIGEST_ERROR); rejected("",NULL,NULL,SOURCE_DIGEST_ERROR); rejected(missing,NULL,NULL,SOURCE_DIGEST_ERROR); rejected(directory,NULL,NULL,SOURCE_DIGEST_ERROR);
+    identity_rejected(NULL); identity_rejected(""); identity_rejected(missing); identity_rejected(directory);
     char error[DX_SOURCE_DIGEST_ERROR_BYTES]; CHECK(source_digest_file(path,NULL,NULL,NULL,error)==SOURCE_DIGEST_ERROR && *error);
-    CHECK(symlink(path,alias)==0); rejected(alias,NULL,NULL,SOURCE_DIGEST_ERROR); CHECK(unlink(alias)==0);
-    CHECK(symlink(missing,alias)==0); rejected(alias,NULL,NULL,SOURCE_DIGEST_ERROR); CHECK(unlink(alias)==0);
-    CHECK(mkfifo(alias,0600)==0); rejected(alias,NULL,NULL,SOURCE_DIGEST_ERROR); CHECK(unlink(alias)==0);
+    CHECK(source_file_identity(path,NULL,error)==SOURCE_DIGEST_ERROR && *error);
+    CHECK(symlink(path,alias)==0); rejected(alias,NULL,NULL,SOURCE_DIGEST_ERROR); identity_rejected(alias); CHECK(unlink(alias)==0);
+    CHECK(symlink(missing,alias)==0); rejected(alias,NULL,NULL,SOURCE_DIGEST_ERROR); identity_rejected(alias); CHECK(unlink(alias)==0);
+    CHECK(mkfifo(alias,0600)==0); rejected(alias,NULL,NULL,SOURCE_DIGEST_ERROR); identity_rejected(alias); CHECK(unlink(alias)==0);
     CHECK(link(path,alias)==0); SourceDigest linked=verify(alias,"4a6bdd7400b1756ac981153ad2ce6187101c316c2a5b7d4f87fef953e5237aac",sizeof(binary)); CHECK(linked.identity.inode==retained.identity.inode && linked.identity.links==2); CHECK(unlink(alias)==0);
     CHECK(symlink(directory,alias)==0); snprintf(nested,sizeof(nested),"%s/source.bin",alias); verify(nested,"4a6bdd7400b1756ac981153ad2ce6187101c316c2a5b7d4f87fef953e5237aac",sizeof(binary)); CHECK(unlink(alias)==0);
     CHECK(unlink(path)==0); CHECK(retained.bytes==sizeof(binary) && retained.sha256[0]==0x4a); /* No result borrows a path or FD. */
@@ -110,15 +137,20 @@ static void mutation_tests(const char *directory) {
     }
 }
 int main(void) {
+    identity_comparison();
     char directory[]="/tmp/duxcel-source-digest-XXXXXX"; CHECK(mkdtemp(directory)!=NULL);
     basic_tests(directory); mutation_tests(directory); CHECK(rmdir(directory)==0);
     printf("PASS source-digest: %u checks\n",checks); return 0;
 }
 #else
 int main(void) {
+    identity_comparison();
     SourceDigest result,before; memset(&result,0xa5,sizeof(result)); memcpy(&before,&result,sizeof(result)); char error[DX_SOURCE_DIGEST_ERROR_BYTES];
     CHECK(source_digest_file("must-not-be-opened",NULL,NULL,&result,error)==SOURCE_DIGEST_UNSUPPORTED);
     CHECK(*error && !memcmp(&result,&before,sizeof(result)));
+    SourceFileIdentity captured,prior; memset(&captured,0xa5,sizeof(captured)); memcpy(&prior,&captured,sizeof(prior));
+    CHECK(source_file_identity("must-not-be-opened",&captured,error)==SOURCE_DIGEST_UNSUPPORTED);
+    CHECK(*error && !memcmp(&captured,&prior,sizeof(captured)));
     printf("PASS source-digest unsupported: %u checks\n",checks); return 0;
 }
 #endif

@@ -16,6 +16,10 @@ static SourceDigestStatus failure(SourceDigestStatus status,char *error,const ch
     if (error) snprintf(error,DX_SOURCE_DIGEST_ERROR_BYTES,"%s",message);
     return status;
 }
+bool source_file_identity_same(const SourceFileIdentity *a,const SourceFileIdentity *b) {
+    return a && b && a->device==b->device && a->inode==b->inode && a->size==b->size && a->links==b->links && a->mode==b->mode && a->uid==b->uid && a->gid==b->gid && a->flags==b->flags && a->generation==b->generation &&
+        a->modified_seconds==b->modified_seconds && a->modified_nanoseconds==b->modified_nanoseconds && a->changed_seconds==b->changed_seconds && a->changed_nanoseconds==b->changed_nanoseconds && a->created_seconds==b->created_seconds && a->created_nanoseconds==b->created_nanoseconds;
+}
 #if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
 static SourceDigestStatus io_failure(char *error,const char *operation,int saved_errno) {
     if (error) snprintf(error,DX_SOURCE_DIGEST_ERROR_BYTES,"Could not %s source file: %s",operation,strerror(saved_errno));
@@ -30,13 +34,24 @@ static SourceFileIdentity identity(const struct stat *file) {
         .created_seconds=(int64_t)file->st_birthtimespec.tv_sec,.created_nanoseconds=(uint32_t)file->st_birthtimespec.tv_nsec
     };
 }
-static bool same_identity(SourceFileIdentity a,SourceFileIdentity b) {
-    return a.device==b.device && a.inode==b.inode && a.size==b.size && a.links==b.links && a.mode==b.mode && a.uid==b.uid && a.gid==b.gid && a.flags==b.flags && a.generation==b.generation &&
-        a.modified_seconds==b.modified_seconds && a.modified_nanoseconds==b.modified_nanoseconds && a.changed_seconds==b.changed_seconds && a.changed_nanoseconds==b.changed_nanoseconds && a.created_seconds==b.created_seconds && a.created_nanoseconds==b.created_nanoseconds;
-}
 static bool regular_identity(const struct stat *file,SourceFileIdentity expected) {
-    return S_ISREG(file->st_mode) && file->st_size>=0 && same_identity(identity(file),expected);
+    SourceFileIdentity current=identity(file);
+    return S_ISREG(file->st_mode) && file->st_size>=0 && source_file_identity_same(&current,&expected);
 }
+#endif
+SourceDigestStatus source_file_identity(const char *path,SourceFileIdentity *out,char error[DX_SOURCE_DIGEST_ERROR_BYTES]) {
+    if (error) error[0]=0;
+    if (!path || !*path || !out) return failure(SOURCE_DIGEST_ERROR,error,"Choose a source path and an owned file identity result.");
+#if !defined(__APPLE__) || defined(__EMSCRIPTEN__)
+    return failure(SOURCE_DIGEST_UNSUPPORTED,error,"Source-file identity requires the native macOS SDK; this platform is unsupported.");
+#else
+    struct stat file;
+    if (lstat(path,&file)!=0) return io_failure(error,"inspect",errno);
+    if (!S_ISREG(file.st_mode) || file.st_size<0) return failure(SOURCE_DIGEST_ERROR,error,"Source-file identity requires a regular file; final symlinks are unsupported.");
+    *out=identity(&file); return SOURCE_DIGEST_OK;
+#endif
+}
+#if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
 /* CommonCrypto's streaming SHA256 ABI is supplied by the existing macOS SDK.
    Keep the local legacy-API deprecation suppression away from other modules. */
 #pragma clang diagnostic push
