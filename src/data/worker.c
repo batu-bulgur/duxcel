@@ -92,7 +92,13 @@ static void *worker_main(void *ptr) {
         if (!r->error && !obsolete(w, j->id)) {
             if (j->refresh_source && !database_refresh(&w->db,&r->error)) goto finished;
             if (j->kind == JOB_VALIDATE_SQL) database_validate_relation(&w->db,&r->analysis,&r->error);
-            else if (j->kind == JOB_DISTINCT) database_pivot_distinct(&w->db,&r->analysis,j->object_id && !j->is_table ? &j->pivot : NULL,j->column,j->search,j->date_level,j->date_start,j->date_end,j->offset,j->known_total,&r->distinct,&r->error);
+            else if (j->kind == JOB_DISTINCT) {
+                DistinctPage values={0};
+                if (database_source_matches(&r->analysis,j->expected_source_stamp,&r->error) &&
+                    database_pivot_distinct(&w->db,&r->analysis,j->object_id && !j->is_table ? &j->pivot : NULL,j->column,j->search,j->date_level,j->date_start,j->date_end,j->offset,j->known_total,&values,&r->error) &&
+                    database_source_matches(&r->analysis,j->expected_source_stamp,&r->error)) { r->distinct=values; memset(&values,0,sizeof(values)); }
+                distinct_free(&values);
+            }
             else if (j->kind == JOB_PAGE) database_fetch_window(&w->db, &r->analysis, j->offset, j->known_total, &r->page, &r->error);
             else if (j->kind == JOB_STEP_PREVIEW) database_fetch_table(&w->db,&r->analysis,j->offset,j->known_total,&r->page,&r->error);
             else if (j->kind == JOB_PIVOT && j->is_table) database_fetch_table_window(&w->db,&r->analysis,j->offset,j->known_total,&r->page,&r->error);
@@ -107,7 +113,11 @@ static void *worker_main(void *ptr) {
             }
             else if (j->kind == JOB_EXPORT && j->object_id && !j->is_table) database_export_pivot_parquet_bound(&w->db,&r->analysis,&j->pivot,r->path,j->expected_source_stamp,&r->exported_rows,&r->error);
             else if (j->kind == JOB_EXPORT) database_export_parquet_bound(&w->db,&r->analysis,r->path,j->expected_source_stamp,&r->exported_rows,&r->error);
-            else if (j->kind == JOB_COUNT) database_count(&w->db,&r->analysis,&r->counted_rows,&r->error);
+            else if (j->kind == JOB_COUNT) {
+                uint64_t total=0;
+                if (database_source_matches(&r->analysis,j->expected_source_stamp,&r->error) && database_count(&w->db,&r->analysis,&total,&r->error) &&
+                    database_source_matches(&r->analysis,j->expected_source_stamp,&r->error)) r->counted_rows=total;
+            }
             else if (j->kind == JOB_RANGE_COPY) copy_complete(&w->db,&r->analysis,j->copy,&r->clipboard,&r->error);
             else if (j->kind == JOB_STATISTICS && j->statistics) database_statistics_ranges(&w->db,&r->analysis,j->statistics,&r->statistics,&r->error);
             else if (j->kind == JOB_STATISTICS) database_statistics_bound(&w->db,&r->analysis,j->object_id && !j->is_table ? &j->pivot : NULL,j->offset,j->rows,j->first_col,j->cols,j->expected_source_stamp,&r->statistics,&r->error);

@@ -330,7 +330,7 @@ bool database_source_matches(const Analysis *a,uint64_t expected,char **error) {
     struct stat file;
     if (!a || (a->kind!=SOURCE_PARQUET && a->kind!=SOURCE_CSV) || a->query || a->unique_rows || a->group_column ||
         !a->path || strpbrk(a->path,"*?[]") || stat(a->path,&file)!=0 || !S_ISREG(file.st_mode) || dx_file_stamp(a->path)!=expected) {
-        fail(error,"The source changed since its displayed result. Refresh before copying, calculating statistics, or exporting."); return false;
+        fail(error,"The source changed since its displayed result. Refresh before using its data."); return false;
     }
     return true;
 }
