@@ -381,7 +381,8 @@ static void review_author_panel(App *a,const char *kind,const char *title,Rectan
     }
     if (!strcmp(kind,"statistics")) {
         uint64_t r0,r1; size_t c0,c1; Grid *grid=a->step_preview.active ? &a->step_preview.grid : &a->grid; grid_bounds(grid,&r0,&r1,&c0,&c1);
-        char stats[384]; snprintf(stats,sizeof(stats)," stats_menu_mask=%u stats_menu_focus=%d stats_menu_frame=%d stats_menu_enabled=%d stats_menu_preview=%d stats_menu_range=%llu,%llu,%zu,%zu stats_menu_object=%d",a->statistics_mask,a->statistics_focus,a->statistics_frame,a->statistics_enabled,a->step_preview.active,(unsigned long long)r0,(unsigned long long)r1,c0,c1,a->statistics_object);
+        const SelectionStats *cached=a->step_preview.active ? &a->step_preview.statistics : &a->statistics;
+        char stats[512]; snprintf(stats,sizeof(stats)," stats_menu_mask=%u stats_menu_focus=%d stats_menu_frame=%d stats_menu_enabled=%d stats_menu_preview=%d stats_menu_range=%llu,%llu,%zu,%zu stats_menu_object=%d stats_menu_state=%d stats_menu_flags=%d,%d,%d,%d",a->statistics_mask,a->statistics_focus,!a->step_preview.active && a->statistics_frame,a->statistics_enabled,a->step_preview.active,(unsigned long long)r0,(unsigned long long)r1,c0,c1,a->statistics_object,a->step_preview.active ? (int)a->step_preview.stats_state : (int)a->statistics_state,cached->approximate,cached->non_finite,cached->sum_overflow,cached->average_overflow);
         review_author_capture_state(a,stats);
     }
 }
@@ -765,7 +766,8 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_SHEET_END (REVIEW_PLOT_END+4*6)
 #define REVIEW_QUERY_END (REVIEW_SHEET_END+2*6)
 #define REVIEW_RELATION_END (REVIEW_QUERY_END+6)
-#define REVIEW_SMOKE_STAGES (REVIEW_RELATION_END+2*6)
+#define REVIEW_SORT_END (REVIEW_RELATION_END+2*6)
+#define REVIEW_SMOKE_STAGES (REVIEW_SORT_END+2*6)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -789,6 +791,8 @@ typedef struct {
     uint64_t relation_id,relation_revision; Relation *relation_rows; size_t relation_count;
     Analysis sort_source,sort_draft; int sort_object,sort_focus,sort_level,sort_field_scroll,sort_order_scroll;
     size_t sort_choice,sort_count,*sort_matches; uint64_t sort_owner,sort_revision,sort_search_revision; char sort_city_up[128];
+    SelectionStats stats_cache; StatsKey stats_key; StatsState stats_state; Analysis stats_source; char *stats_text[4],*stats_error;
+    uint64_t stats_request,stats_cells,stats_first,stats_rows; size_t stats_column,stats_columns; unsigned stats_mask; bool stats_enabled,stats_frame; int stats_object,stats_focus;
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -893,6 +897,7 @@ static void review_smoke_author_release(ReviewSmoke *t) {
     analysis_free(&t->query_source);
     analysis_free(&t->relation_source);
     analysis_free(&t->sort_source); analysis_free(&t->sort_draft);
+    analysis_free(&t->stats_source); free(t->stats_error); t->stats_error=NULL; for (size_t i=0;i<4;i++) { free(t->stats_text[i]); t->stats_text[i]=NULL; }
     free(t->dialog_text); t->dialog_text=NULL; free(t->dialog_chart_text); t->dialog_chart_text=NULL;
     for (size_t i=0;i<DX_MAX_SHEETS;i++) { free(t->sheet_names[i]); t->sheet_names[i]=NULL; }
 }
@@ -1670,6 +1675,101 @@ static int review_smoke_sort_tick(App *a,ReviewSmoke *t) {
     if (phase==4) { if (!review_smoke_sort_same(a,t,false)) { review_smoke_sort_diagnostic(a,t,"report cancellation"); return -1; } ui_note_key_press(KEY_ESCAPE,0); return 1; }
     t->choice_modal=MODAL_NONE; if (!review_smoke_sort_same(a,t,true)) { review_smoke_sort_diagnostic(a,t,"normal editor cancellation"); return -1; }
     printf("PASS: native multi-sort review owner=%s ui_scale=%.1f retains draft order, search selection, stable field priorities, source/pages and query jobs\n",item ? "upstream table" : "primary",item ? 1.5 : 1.0);
+    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); } return 1;
+}
+static const Analysis *review_smoke_stats_source(App *a,int index) { return index>=0 ? object_source(a,&active_sheet(a)->objects.items[index]) : &a->analysis; }
+static void review_smoke_stats_remember(App *a,ReviewSmoke *t) {
+    review_smoke_author_remember(a,t); t->stats_source=analysis_copy(review_smoke_stats_source(a,a->statistics_object)); t->stats_cache=a->statistics; t->stats_key=a->statistics_key;
+    t->stats_state=a->statistics_state; t->stats_request=a->statistics_request; t->stats_cells=a->statistics_cells; t->stats_first=a->statistics_first; t->stats_rows=a->statistics_rows; t->stats_column=a->statistics_column; t->stats_columns=a->statistics_columns;
+    t->stats_mask=a->statistics_mask; t->stats_enabled=a->statistics_enabled; t->stats_frame=a->statistics_frame; t->stats_object=a->statistics_object; t->stats_focus=a->statistics_focus; t->stats_error=a->statistics_error ? dx_strdup(a->statistics_error) : NULL;
+    const char *texts[]={a->statistics.sum,a->statistics.average,a->statistics.minimum,a->statistics.maximum}; for (size_t i=0;i<4;i++) t->stats_text[i]=texts[i] ? dx_strdup(texts[i]) : NULL;
+    for (size_t i=0;i<active_sheet(a)->objects.count;i++) {
+        SheetObject *object=&active_sheet(a)->objects.items[i]; Page *page=&a->objects[i].page;
+        t->query_views[i].cells=page->cells; t->query_views[i].id=object->id; t->query_views[i].revision=object->revision; t->query_views[i].source_id=object->source_id;
+        t->query_views[i].total=page->total; t->query_views[i].rows=page->row_count; t->query_views[i].columns=page->column_count;
+    }
+    t->query_pending=false;
+    dx_lock(&a->worker.mutex); t->query_jobs=a->worker.jobs_started; t->query_sql=a->worker.db.query_count; t->query_counts=a->worker.db.count_queries; t->query_prepares=a->worker.db.relation_prepares; t->query_latest=a->worker.latest_id; dx_unlock(&a->worker.mutex);
+}
+static bool review_smoke_stats_same(App *a,ReviewSmoke *t) {
+    const SelectionStats *cache=&a->statistics,*previous=&t->stats_cache; const StatsKey *key=&a->statistics_key,*old=&t->stats_key;
+    if (!review_smoke_author_same(a,t) || !analysis_same_result(review_smoke_stats_source(a,t->stats_object),&t->stats_source) || !analysis_sorts_equal(review_smoke_stats_source(a,t->stats_object),&t->stats_source) ||
+        a->statistics_state!=t->stats_state || a->statistics_request!=t->stats_request || a->statistics_cells!=t->stats_cells || a->statistics_first!=t->stats_first || a->statistics_rows!=t->stats_rows || a->statistics_column!=t->stats_column || a->statistics_columns!=t->stats_columns ||
+        a->statistics_mask!=t->stats_mask || a->statistics_enabled!=t->stats_enabled || a->statistics_frame!=t->stats_frame || a->statistics_object!=t->stats_object || a->statistics_focus!=t->stats_focus || !review_smoke_text_same(a->statistics_error,t->stats_error) ||
+        key->r0!=old->r0 || key->r1!=old->r1 || key->c0!=old->c0 || key->c1!=old->c1 || key->source_revision!=old->source_revision || key->cell_revision!=old->cell_revision || key->objects!=old->objects || key->total!=old->total || key->sheet!=old->sheet || key->columns!=old->columns || key->count_pending!=old->count_pending || key->active!=old->active ||
+        cache->cells!=previous->cells || cache->filled!=previous->filled || cache->numeric!=previous->numeric || cache->distinct!=previous->distinct || cache->approximate!=previous->approximate || cache->non_finite!=previous->non_finite || cache->sum_overflow!=previous->sum_overflow || cache->average_overflow!=previous->average_overflow || cache->query_ms!=previous->query_ms ||
+        cache->sum!=previous->sum || cache->average!=previous->average || cache->minimum!=previous->minimum || cache->maximum!=previous->maximum) return false;
+    const char *texts[]={cache->sum,cache->average,cache->minimum,cache->maximum}; for (size_t i=0;i<4;i++) if (!review_smoke_text_same(texts[i],t->stats_text[i])) return false;
+    for (size_t i=0;i<active_sheet(a)->objects.count;i++) {
+        SheetObject *object=&active_sheet(a)->objects.items[i]; Page *page=&a->objects[i].page;
+        if (page->cells!=t->query_views[i].cells || object->id!=t->query_views[i].id || object->revision!=t->query_views[i].revision || object->source_id!=t->query_views[i].source_id || page->total!=t->query_views[i].total || page->row_count!=t->query_views[i].rows || page->column_count!=t->query_views[i].columns) return false;
+    }
+    return review_smoke_query_worker(a,t,false);
+}
+static bool review_smoke_stats_targets(App *a,ReviewSmoke *t,int item) {
+    DxReviewRegistry *registry=a->review->registry; const char *parent="author.statistics"; const DxReviewWidget *panel=dx_review_find(registry,parent),*done=dx_review_find(registry,"author.statistics.action.done");
+    SheetObject *owner=&active_sheet(a)->objects.items[t->stats_object]; uint64_t source=owner->kind==OBJECT_TABLE ? owner->id : owner->source_id,schema=owner->kind==OBJECT_TABLE ? 0 : object_source_revision(a,owner);
+    if (!panel || !panel->container || panel->input_eligible || !done || !done->enabled || !done->input_eligible || done->focused || !review_smoke_sheet_pick(a,done,parent) || registry->duplicate_count || registry->invalid_count || registry->overflow_count || strstr(a->review->frame.state_text," author_overflow=1")) return false;
+    size_t rows=0;
+    for (size_t i=0;i<registry->count;i++) {
+        const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,"author.statistics",17)) continue;
+        const DxReviewDataIdentity *data=&widget->data;
+        if (!data->present || strcmp(data->kind,item ? "statistics-frame" : "statistics-range") || data->sheet_id!=a->book.active+1 || data->object_id!=owner->id || data->source_id!=source || data->query_generation!=owner->revision || data->schema_generation!=schema || data->has_cell || strcmp(data->field,item ? "" : "Amount") || data->row!=(item ? owner->row : 0) || data->column!=(item ? owner->col : 2)) return false;
+        if (!strcmp(widget->role,"checkbox")) rows++;
+    }
+    if (rows!=8) return false;
+    const char *keys[]={"cells","filled","numeric","distinct","sum","average","minimum","maximum"};
+    const char *exact[]={"5","5","5","5","145.25","29.05","-4.5","100"};
+    for (size_t i=0;i<8;i++) {
+        char id[128]; snprintf(id,sizeof(id),"%s.action.%s",parent,keys[i]); const DxReviewWidget *widget=dx_review_find(registry,id);
+        if (!widget || strcmp(widget->role,"checkbox") || !widget->enabled || !widget->input_eligible || widget->checked!=((t->stats_mask&(1u<<i))!=0) || widget->focused!=(i==(size_t)t->stats_focus) || !review_smoke_sheet_pick(a,widget,parent)) return false;
+        if (item ? widget->value.present : !widget->value.present || widget->value.is_null || strcmp(widget->value.type,i<4 ? "UBIGINT" : i==5 ? "DOUBLE" : "exact-numeric") || strcmp(widget->value.exact_text,exact[i])) return false;
+    }
+    snprintf(t->author_target,sizeof(t->author_target),"author.statistics.action.sum"); return true;
+}
+static void review_smoke_stats_diagnostic(App *a,ReviewSmoke *t,const char *reason) {
+    fprintf(stderr,"Review statistics mismatch %s stage=%d modal=%d state=%d/%d object=%d/%d frame=%d/%d mask=%u/%u focus=%d/%d request=%llu/%llu cells=%llu/%llu target=%s actual=%s flags=%d,%d,%d,%d\n",reason,t->stage,(int)a->modal,(int)a->statistics_state,(int)t->stats_state,a->statistics_object,t->stats_object,a->statistics_frame,t->stats_frame,a->statistics_mask,t->stats_mask,a->statistics_focus,t->stats_focus,(unsigned long long)a->statistics_request,(unsigned long long)t->stats_request,(unsigned long long)a->statistics_cells,(unsigned long long)t->stats_cells,t->author_target,a->review->target.widget.id,a->statistics.approximate,a->statistics.non_finite,a->statistics.sum_overflow,a->statistics.average_overflow);
+    for (size_t i=0;i<a->review->registry->count;i++) {
+        const DxReviewWidget *widget=&a->review->registry->widgets[i]; if (strncmp(widget->id,"author.statistics",17)) continue;
+        fprintf(stderr,"Review statistics widget %s role=%s enabled=%d checked=%d focus=%d kind=%s owner=%llu source=%llu row=%llu column=%llu field=%s value=%d/%d/%s/%s\n",widget->id,widget->role,widget->enabled,widget->checked,widget->focused,widget->data.kind,(unsigned long long)widget->data.object_id,(unsigned long long)widget->data.source_id,(unsigned long long)widget->data.row,(unsigned long long)widget->data.column,widget->data.field,widget->value.present,widget->value.is_null,widget->value.type,widget->value.exact_text);
+    }
+}
+static int review_smoke_stats_tick(App *a,ReviewSmoke *t) {
+    int item=(t->stage-REVIEW_SORT_END)/6,phase=(t->stage-REVIEW_SORT_END)%6; DxReviewCapture *r=a->review;
+    if (!phase) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        a->statistics_enabled=true; a->statistics_mask=item ? 0xaa : 0x55; a->selected_object=item ? t->query_pivot : t->relation_object;
+        if (!object_ready(a,(size_t)a->selected_object)) return 0;
+        SheetObject *object=selected_object(a); a->matrix_cells_active=false;
+        if (item) { if (object->kind!=OBJECT_PIVOT) return -1; grid_select_cell(&a->grid,object->row,object->col,false); a->grid.end_row=object->row+object->rows-1; a->grid.end_col=object->col+object->columns-1; }
+        else { if (object->kind!=OBJECT_TABLE || a->objects[a->selected_object].page.columns[2].number_type.kind!=NUM_DECIMAL) return -1; grid_select_cell(&a->grid,object->row+2,object->col+2,false); a->grid.end_row=object->row+6; }
+        ui_set_scale(&a->ui,item ? 1.5f : 1); SetWindowSize(item ? 760 : 1280,item ? 640 : 820); show_workspace(a); open_statistics(a); a->statistics_focus=4; return 1;
+    }
+    if (phase==1) {
+        if (a->modal!=MODAL_STATISTICS) return -1;
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || !review_can_capture(a) || a->popup_presence.alpha!=1 || a->popup_presence.offset || a->ui.scale!=(item ? 1.5f : 1) || GetScreenWidth()!=(item ? 760 : 1280) || GetScreenHeight()!=(item ? 640 : 820)) return 0;
+        if (item) { if (!a->statistics_frame || a->statistics_state!=STATS_IDLE || a->statistics_request || strcmp(statistics_scope(a),"Matrix frame")) return -1; }
+        else {
+            if (a->statistics_state!=STATS_READY) return 0;
+            if (a->statistics_object!=t->relation_object || a->statistics_cells!=5 || a->statistics.numeric!=5 || a->statistics.approximate || !a->statistics.sum || strcmp(a->statistics.sum,"145.25")) return -1;
+        }
+        review_smoke_stats_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        bool same=review_smoke_stats_same(a,t),targets=same && review_smoke_stats_targets(a,t,item);
+        if (!same || !targets) { review_smoke_stats_diagnostic(a,t,same ? "targets" : "retained state"); return -1; }
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==3) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || r->target.widget.checked!=(item==0) || !review_smoke_stats_same(a,t)) { review_smoke_stats_diagnostic(a,t,"actual picker target/state"); return -1; }
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (phase==4) { if (!review_smoke_stats_same(a,t)) { review_smoke_stats_diagnostic(a,t,"report cancellation"); return -1; } ui_note_key_press(KEY_ESCAPE,0); return 1; }
+    t->choice_modal=MODAL_NONE; if (!review_smoke_stats_same(a,t)) { review_smoke_stats_diagnostic(a,t,"normal statistics cancellation"); return -1; }
+    printf("PASS: native statistics review scope=%s retains checklist/focus, exact cached values/flags, source/model/pages and query jobs\n",item ? "matrix frame" : "DECIMAL source range");
     review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
@@ -1684,7 +1784,7 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         t->wait_frame=a->frames;
     }
     if (t->stage>=71) {
-        int progress=t->stage>=REVIEW_RELATION_END ? review_smoke_sort_tick(a,t) : t->stage>=REVIEW_QUERY_END ? review_smoke_relation_tick(a,t) : t->stage>=REVIEW_SHEET_END ? review_smoke_query_tick(a,t) : t->stage>=REVIEW_PLOT_END ? review_smoke_sheet_tick(a,t) : t->stage>=REVIEW_DIALOG_END ? review_smoke_plot_identity_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
+        int progress=t->stage>=REVIEW_SORT_END ? review_smoke_stats_tick(a,t) : t->stage>=REVIEW_RELATION_END ? review_smoke_sort_tick(a,t) : t->stage>=REVIEW_QUERY_END ? review_smoke_relation_tick(a,t) : t->stage>=REVIEW_SHEET_END ? review_smoke_query_tick(a,t) : t->stage>=REVIEW_PLOT_END ? review_smoke_sheet_tick(a,t) : t->stage>=REVIEW_DIALOG_END ? review_smoke_plot_identity_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
         if (progress<0) goto failed; if (!progress) return;
         t->stage++; return;
     }
