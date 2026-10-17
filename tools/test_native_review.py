@@ -51,11 +51,11 @@ def main():
                     env=os.environ.copy(); env.pop('DUXCEL_TEST_VISIBLE',None)
                     env['DUXCEL_REVIEW_OUTBOX']=str(outbox); env['ASAN_OPTIONS']='halt_on_error=1'
                     record,log=run([str(binary),'tests/fixtures/null-text.csv','--review-smoke','--frames','900'],result/f'{config}.log',env,90)
-                    if 'Review smoke completed [0,62)' not in log or 'Native test window: hidden, unfocused' not in log: raise RuntimeError('Native review did not complete the current stage inventory hidden')
+                    if 'Review smoke completed [0,71)' not in log or 'Native test window: hidden, unfocused' not in log: raise RuntimeError('Native review did not complete the current stage inventory hidden')
                     if sha(binary)!=binary_hash: raise RuntimeError('Binary changed during native acceptance')
                     store=ReviewStore(outbox,default_project())
                     listing=store.list()
-                    if listing['rejected'] or len(listing['reports'])!=2: raise RuntimeError('Expected exactly two valid native reports')
+                    if listing['rejected'] or len(listing['reports'])!=3: raise RuntimeError('Expected exactly three valid native reports')
                     reports=[]
                     for item in listing['reports']:
                         report_id=item['report_id']; report=store.read(report_id); m=report['manifest']
@@ -67,8 +67,8 @@ def main():
                         reread=store.read(report_id)
                         if not reread['lifecycle']['acknowledged'] or reread['lifecycle']['design']!='pending' or sha(outbox/report_id/'manifest.json')!=payload_hash: raise RuntimeError('Lifecycle changed immutable capture/design status')
                         reports.append({'report_id':report_id,'target':m['target']['widget']['id'],'frame_id':m['frame']['frame_id'],'ui_scale':m['frame']['ui_scale'],'image':report['image'],'capture_sha256':payload_hash})
-                    if [r['target'] for r in reports]!=['filter.search','filter.condition.option.equal']: raise RuntimeError('Wrong native controls captured')
-                    record.update(binary_sha256=binary_hash,build_header_sha256=sha(ROOT/'build'/folder/'review_build_info.h'),completed_stages=62,reports=reports)
+                    if [r['target'] for r in reports]!=['filter.search','filter.condition.option.equal','file.scrollbar.thumb']: raise RuntimeError('Wrong native controls captured')
+                    record.update(binary_sha256=binary_hash,build_header_sha256=sha(ROOT/'build'/folder/'review_build_info.h'),completed_stages=71,reports=reports)
                     summary['configs'][config]=record
             if source_metadata(ROOT)!=before: raise RuntimeError('Source changed during acceptance')
             summary['status']='passed'

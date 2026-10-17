@@ -533,6 +533,12 @@ test-debug: tests/test_filterlabel-debug
 # Review helpers compile without renderer/database/platform dependencies.
 REVIEW_REGISTRY_TEST = src/dev/review_registry.c tests/test_review_registry.c
 REVIEW_STORE_TEST = src/dev/review_store.c tests/test_review_store.c
+build/review/test_capture_layout: tests/test_review_capture.c src/dev/review_capture_layout.h
+	mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) -O2 -g $(WARN) tests/test_review_capture.c -o $@ -lm
+build/review-sanitize/test_capture_layout: tests/test_review_capture.c src/dev/review_capture_layout.h
+	mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) tests/test_review_capture.c -o $@ -lm $(SANFLAGS)
 build/review/test_registry: $(REVIEW_REGISTRY_TEST) src/dev/review_registry.h
 	mkdir -p $(@D)
 	$(CC) -Isrc -O2 -g $(WARN) $(REVIEW_REGISTRY_TEST) -o $@ -lm
@@ -545,11 +551,13 @@ build/review/test_store: $(REVIEW_STORE_TEST) src/dev/review_store.h
 build/review-sanitize/test_store: $(REVIEW_STORE_TEST) src/dev/review_store.h
 	mkdir -p $(@D)
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(REVIEW_STORE_TEST) -o $@ $(THREAD_LIBS) $(SANFLAGS)
-test-review-core: build/review/test_registry build/review-sanitize/test_registry build/review/test_store build/review-sanitize/test_store
+test-review-core: build/review/test_registry build/review-sanitize/test_registry build/review/test_store build/review-sanitize/test_store build/review/test_capture_layout build/review-sanitize/test_capture_layout
 	./build/review/test_registry
 	ASAN_OPTIONS=halt_on_error=1 ./build/review-sanitize/test_registry
 	./build/review/test_store
 	ASAN_OPTIONS=halt_on_error=1 ./build/review-sanitize/test_store
+	./build/review/test_capture_layout
+	ASAN_OPTIONS=halt_on_error=1 ./build/review-sanitize/test_capture_layout
 	python3 tools/native_review_test.py
 	python3 tools/test_review_build.py --self-test
 test-review:
