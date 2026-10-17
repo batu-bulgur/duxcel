@@ -259,9 +259,9 @@ static bool review_smoke_chrome(App *a) {
     if (registry->duplicate_count || registry->invalid_count) return false;
     for (size_t i=0;i<sizeof(ids)/sizeof(*ids);i++) {
         const DxReviewWidget *w=dx_review_find(registry,ids[i]); DxReviewTarget picked;
-        if (!w) return false;
+        if (!w) { fprintf(stderr,"FAIL: missing review chrome target %s\n",ids[i]); return false; }
         Rectangle visible=GetCollisionRec((Rectangle){w->bounds.x,w->bounds.y,w->bounds.width,w->bounds.height},(Rectangle){w->clip.x,w->clip.y,w->clip.width,w->clip.height});
-        if (visible.width>0 && visible.height>0 && (!dx_review_pick(registry,visible.x+visible.width*.5f,visible.y+visible.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,ids[i]))) return false;
+        if (visible.width>0 && visible.height>0 && (!dx_review_pick(registry,visible.x+visible.width*.5f,visible.y+visible.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,ids[i]))) { fprintf(stderr,"FAIL: review chrome target %s picked %s at %.2f,%.2f\n",ids[i],picked.widget.id,visible.x+visible.width*.5f,visible.y+visible.height*.5f); return false; }
     }
     const DxReviewWidget *home=dx_review_find(registry,"ribbon.tab.home"),*brand=dx_review_find(registry,"chrome.brand");
     DxReviewTarget picked; float s=a->ui.scale;
@@ -435,12 +435,12 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         ui_note_key_press(KEY_ESCAPE,0); break;
     case 29:
         if (r->phase!=DX_REPORT_IDLE) return;
-        ui_set_scale(&a->ui,1.5f); SetWindowMinSize(480,640); SetWindowSize(480,640); a->ribbon_tabs_scroll=1000000; a->ribbon_focus=false;
+        ui_set_scale(&a->ui,1.5f); SetWindowMinSize(400,640); SetWindowSize(400,640); a->ribbon_tabs_scroll=1000000; a->ribbon_focus=false;
         ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 30: {
         if (r->phase!=DX_REPORT_PICK) return;
         const DxReviewWidget *home=dx_review_find(r->registry,"ribbon.tab.home");
-        if (r->frame.ui_scale!=1.5f || !review_smoke_chrome(a) || a->ribbon_tabs_scroll<=0 || !home || home->bounds.x>=home->clip.x) goto failed;
+        if (r->frame.ui_scale!=1.5f || !review_smoke_chrome(a) || a->ribbon_tabs_scroll<=0 || !home || home->bounds.x>=home->clip.x) { fprintf(stderr,"FAIL: review tab clipping scale=%.2f scroll=%.2f home=%.2f clip=%.2f\n",r->frame.ui_scale,a->ribbon_tabs_scroll,home ? home->bounds.x : 0,home ? home->clip.x : 0); goto failed; }
         review_smoke_pick(a,"ribbon.display"); break;
     }
     case 31:
