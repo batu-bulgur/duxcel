@@ -1,3 +1,5 @@
+> Historical checkpoint record, archived 17 October 2026. Current status: [../STATUS.md](../STATUS.md). Earlier “running,” “next,” and completion wording describes its original checkpoint.
+
 # Duxcel validation — 17 October 2026
 
 ## Exact native UI migration — 17 October 2026, in progress
@@ -12,7 +14,7 @@ The following sections retain earlier evidence at their recorded checkpoints.
 
 ## Native interaction-study migration checkpoint
 
-The UI work now follows the existing interaction study through [NATIVE_UI_PLAN.md](design/NATIVE_UI_PLAN.md), with [slice-specific validation and remaining differences](design/NATIVE_UI_VALIDATION.md). Production stays C99/raylib/DuckDB, using the existing bundled fonts and dependency set.
+The UI work now follows the existing interaction study through [NATIVE_UI_PLAN.md](NATIVE-UI-PLAN-2026-10-17.md), with [slice-specific validation and remaining differences](NATIVE-UI-VALIDATION-2026-10-17.md). Production stays C99/raylib/DuckDB, using the existing bundled fonts and dependency set.
 
 N1 replaces hard-coded scrolling ribbon positions with cached, font-measured group layout, priority collapse and named overflow. Complete flyouts and normal/keytip/keyboard activation use shared real command handlers. The implemented portion of N2 includes denser navigation, retained versus dismissed inspector state and a 22-unit status line that fits complete metrics. Width, scale, label and raster changes invalidate measurements; stationary rendering adds no heap allocation or database requests for these widgets.
 

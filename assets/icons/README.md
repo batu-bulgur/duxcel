@@ -1,6 +1,6 @@
 # Application identity
 
-`duxcel.svg` is the canonical vector reconstruction of the **upper symbol only** in the user-approved `output/logo-concepts-2026-10-16/05-modular-grid-duck.png`. It preserves the rounded white head, modular white neck/body, blue/green spreadsheet cells and yellow bill. The wordmark and presentation background are excluded. All artwork is paths, rectangles and a circle with solid fills and a transparent surround.
+`duxcel.svg` is the canonical vector reconstruction of the **upper symbol only** in the user-approved `docs/design/identity/explorations/05-modular-grid-duck.png`. It preserves the rounded white head, modular white neck/body, blue/green spreadsheet cells and yellow bill. The wordmark and presentation background are excluded. All artwork is paths, rectangles and a circle with solid fills and a transparent surround.
 
 `tools/generate_icons.py` uses only Python 3's standard library. It flattens the controlled SVG subset, triangulates each contour, derives C geometry and rasterizes the same outlines offline. It does not embed or trace the reference bitmap. `data-optical` attributes preserve grid and neck gaps at small physical sizes; the generated C transform applies the same spacing rules. The SVG remains the sole geometry/color source.
 

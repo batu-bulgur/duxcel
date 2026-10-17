@@ -15,3 +15,5 @@ node_modules/
 *.o
 *.d
 *.log
+__pycache__/
+*.py[cod]

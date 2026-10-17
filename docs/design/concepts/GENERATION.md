@@ -47,4 +47,4 @@ Show one 22-unit status bar with Ready, Synthetic data, result count, enabled st
 
 ## Interpretation
 
-The generation briefs express intent. The resulting images still contain discrepancies listed in [VALIDATION.md](../VALIDATION.md). Exact typography, status height, cell values, numbering, and aggregates must be checked in a real prototype rather than treated as demonstrated by the generated pixels.
+The generation briefs express intent. The resulting images still contain discrepancies listed in [VALIDATION.md](../PROTOTYPE_VALIDATION.md). Exact typography, status height, cell values, numbering, and aggregates must be checked in a real prototype rather than treated as demonstrated by the generated pixels.
