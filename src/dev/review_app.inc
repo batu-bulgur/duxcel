@@ -34,6 +34,9 @@ static void review_begin_frame(App *a) {
     size_t used=strlen(f.state_text);
     snprintf(f.state_text+used,sizeof(f.state_text)-used," fraction=%.9f row_height=%.6f elastic=%.6f,%.6f velocity=%.6f,%.6f body=%.3f,%.3f,%.3f,%.3f keytips=%.6f",a->grid.fraction,a->grid.row_height>=18 ? a->grid.row_height : 27,a->grid.elastic.x,a->grid.elastic.y,a->grid.spring_velocity.x,a->grid.spring_velocity.y,a->grid.body.x,a->grid.body.y,a->grid.body.width,a->grid.body.height,a->keytip_alpha);
     used=strlen(f.state_text);
+    float cell_scale=a->ui.scale*a->grid.zoom;
+    snprintf(f.state_text+used,sizeof(f.state_text)-used," grid_rect=%.3f,%.3f,%.3f,%.3f grid_gutter=%.3f grid_header=%.3f grid_cell=%.3f,%.3f source_header=%d",a->grid.rect.x,a->grid.rect.y,a->grid.rect.width,a->grid.rect.height,a->grid.body.x-a->grid.rect.x,a->grid.body.y-a->grid.rect.y,a->grid.width_count ? a->grid.widths[0]*cell_scale : 0,(a->grid.row_height>=18 ? a->grid.row_height : 27)*cell_scale,a->grid.source_header);
+    used=strlen(f.state_text);
     Worksheet *sheet=active_sheet(a); CellFormat format=active_format(a);
     snprintf(f.state_text+used,sizeof(f.state_text)-used," keytip_tab=%d keytip_prefix=%s file_menu=%d active_format_flags=%u manual_cells=%zu sheet_count=%zu",a->keytip_state.tab,a->keytip_state.prefix[0] ? a->keytip_state.prefix : "-",a->file_menu,format.flags,sheet ? sheet->cells.count : 0,a->book.count);
     UIChoiceListLayout file=file_menu_layout(a); used=strlen(f.state_text);
@@ -120,6 +123,41 @@ static void review_ribbon_tab(App *a,int tab,Rectangle bounds) {
     review_control(a,id,action,path,"tab",ui_ribbon_tabs[tab],bounds,20,!a->io_busy,a->ribbon_focus && a->ribbon_command==-1 && a->ribbon_tab==tab,false,__FILE__,__LINE__);
     DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
     if (w) { w->checked=a->ribbon_tab==tab; snprintf(w->parent_id,sizeof(w->parent_id),"ribbon.tabs"); }
+}
+static DxReviewWidget *review_file_item(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,int layer,bool enabled,bool focused,bool container) {
+    review_control(a,id,action,"file/menu",role,label,bounds,layer,enabled,focused,container,__FILE__,__LINE__);
+    DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
+    if (w) { w->clip=review_rect(clip); if (strcmp(id,"file.menu")) snprintf(w->parent_id,sizeof(w->parent_id),"file.menu"); }
+    return w;
+}
+static void review_file_menu(App *a) {
+    if (!review_armed(a) || !a->file_menu || a->modal!=MODAL_NONE) return;
+    UIChoiceListLayout list=file_menu_layout(a); if (!list.frame.valid) return;
+    Rectangle panel=list.frame.panel; float s=a->ui.scale;
+    /* A top-level container blocks covered chrome even in the panel's blank
+       margins. Disabled rows stay pickable without becoming input eligible. */
+    DxReviewWidget *menu=review_file_item(a,"file.menu","file.inspect","menu","File",panel,panel,200,true,false,true);
+    if (menu) { menu->expanded=true; menu->input_eligible=false; }
+    review_file_item(a,"file.background","file.inspect","region","File menu background",panel,panel,200,true,false,false);
+    review_file_item(a,"file.heading","file.inspect","text","File",list.frame.title,panel,201,true,false,false);
+    static const char *const suffix[]={"new","open","save","save_as","close","quit"};
+    static const char *const actions[]={"command.new_workbook","command.open","command.save","command.save_as","command.close","command.quit"};
+    bool scrolling=list.visible<UI_KEYTIP_FILE_COUNT;
+    for (int row=0;row<list.visible;row++) {
+        int action=row+a->file_menu_scroll; if (action<0 || action>=UI_KEYTIP_FILE_COUNT) continue;
+        Rectangle item=list.frame.rows[row]; if (scrolling) item.width-=9*s;
+        char id[64]; snprintf(id,sizeof(id),"file.action.%s",suffix[action]);
+        review_file_item(a,id,actions[action],"menuitem",ui_keytips_file_name((UIKeytipFileAction)action),item,GetCollisionRec(list.items,panel),201,file_action_available(a,action),a->file_menu_focus==action,false);
+    }
+    if (scrolling) {
+        Rectangle track=box(list.items.x+list.items.width-8*s,list.items.y,8*s,list.items.height);
+        float size=fminf(track.height,fmaxf(26*s,track.height*list.visible/UI_KEYTIP_FILE_COUNT));
+        float offset=fmaxf(0,fminf(UI_KEYTIP_FILE_COUNT-list.visible,a->file_menu_scroll));
+        Rectangle thumb=box(track.x+3*s,track.y+(track.height-size)*offset/(UI_KEYTIP_FILE_COUNT-list.visible),fmaxf(s,track.width-6*s),size);
+        review_file_item(a,"file.scrollbar","file.scroll","scrollbar","File menu scroll",track,panel,202,true,false,false);
+        DxReviewWidget *w=review_file_item(a,"file.scrollbar.thumb","file.scroll","scrollbar","File menu scroll thumb",thumb,track,203,true,a->file_menu_drag,false);
+        if (w) snprintf(w->parent_id,sizeof(w->parent_id),"file.scrollbar");
+    }
 }
 static DxReviewWidget *review_filter_item(App *a,const char *id,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,int layer,int focus,bool enabled) {
     DxReviewWidget w; dx_review_widget_init(&w,id,action,"popup/column-filter",role,label);
@@ -265,10 +303,10 @@ static void review_native_command(App *a,DxCommand command) {
 /* Focused native acceptance; never enabled in shipping, uses the same queued
    input/controller routes as other App scenarios and private outbox fixtures. */
 #ifndef DUXCEL_BROWSER_HOST
-#define REVIEW_SMOKE_STAGES 37
+#define REVIEW_SMOKE_STAGES 47
 typedef struct {
     int stage; uint64_t request,jobs; GridLocation selection; Cell *page;
-    size_t cursor,anchor,history; bool dirty; char root[4096];
+    size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll; char root[4096];
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -297,6 +335,35 @@ static bool review_smoke_chrome(App *a) {
 static bool review_smoke_same(App *a,ReviewSmoke *t) {
     GridLocation g=grid_location(&a->grid);
     return a->modal==MODAL_FILTER && a->filter_focus==3 && a->input.cursor==t->cursor && a->input.anchor==t->anchor && a->request_id==t->request && a->page.cells==t->page && a->book.dirty==t->dirty && active_sheet(a)->undo_actions_count==t->history && g.row==t->selection.row && g.col==t->selection.col && g.end_row==t->selection.end_row && g.end_col==t->selection.end_col;
+}
+static bool review_smoke_file_same(App *a,ReviewSmoke *t) {
+    GridLocation g=grid_location(&a->grid);
+    dx_lock(&a->worker.mutex); bool jobs=a->worker.jobs_started==t->jobs; dx_unlock(&a->worker.mutex);
+    return a->file_menu && a->modal==MODAL_NONE && a->file_menu_focus==t->file_focus && a->file_menu_scroll==t->file_scroll &&
+        a->request_id==t->request && a->page.cells==t->page && a->book.dirty==t->dirty && active_sheet(a)->undo_actions_count==t->history && jobs &&
+        g.row==t->selection.row && g.col==t->selection.col && g.end_row==t->selection.end_row && g.end_col==t->selection.end_col;
+}
+static bool review_smoke_file_targets(App *a,bool scrolling) {
+    DxReviewRegistry *registry=a->review->registry; UIChoiceListLayout list=file_menu_layout(a); DxReviewTarget picked;
+    const DxReviewWidget *menu=dx_review_find(registry,"file.menu"),*heading=dx_review_find(registry,"file.heading");
+    if (!menu || !heading || !list.frame.valid || registry->duplicate_count || registry->invalid_count || !menu->container || !menu->expanded || menu->input_eligible || heading->input_eligible) return false;
+    if (menu->bounds.x!=list.frame.panel.x || menu->bounds.y!=list.frame.panel.y || menu->bounds.width!=list.frame.panel.width || menu->bounds.height!=list.frame.panel.height) return false;
+    if (!dx_review_pick(registry,menu->bounds.x+2*a->ui.scale,menu->bounds.y+2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,"file.background")) return false;
+    if (!dx_review_pick(registry,heading->bounds.x+heading->bounds.width*.5f,heading->bounds.y+heading->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,"file.heading")) return false;
+    static const char *const suffix[]={"new","open","save","save_as","close","quit"};
+    for (int action=0;action<UI_KEYTIP_FILE_COUNT;action++) {
+        char id[64]; snprintf(id,sizeof(id),"file.action.%s",suffix[action]);
+        const DxReviewWidget *w=dx_review_find(registry,id); bool visible=action>=a->file_menu_scroll && action<a->file_menu_scroll+list.visible;
+        if (!visible) { if (w) return false; continue; }
+        if (!w || strcmp(w->parent_id,"file.menu") || w->enabled!=file_action_available(a,action) || w->input_eligible!=w->enabled || w->focused!=(a->file_menu_focus==action)) return false;
+        float x=w->bounds.x+w->bounds.width*.5f,y=w->bounds.y+w->bounds.height*.5f;
+        if (!dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id) || !dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTAINER,&picked) || strcmp(picked.widget.id,"file.menu")) return false;
+    }
+    const DxReviewWidget *track=dx_review_find(registry,"file.scrollbar"),*thumb=dx_review_find(registry,"file.scrollbar.thumb");
+    if (!scrolling) return !track && !thumb;
+    if (!track || !thumb || strcmp(thumb->parent_id,"file.scrollbar") || track->bounds.width!=8*a->ui.scale || thumb->bounds.y<=track->bounds.y) return false;
+    return dx_review_pick(registry,thumb->bounds.x+thumb->bounds.width*.5f,thumb->bounds.y+thumb->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) && !strcmp(picked.widget.id,"file.scrollbar.thumb") &&
+        dx_review_pick(registry,track->bounds.x+a->ui.scale,track->bounds.y+a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) && !strcmp(picked.widget.id,"file.scrollbar");
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
@@ -492,10 +559,56 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         if (r->phase!=DX_REPORT_NOTE) return;
         if (strcmp(r->target.widget.id,"chrome.brand") || r->target.widget.input_eligible) goto failed;
         ui_note_key_press(KEY_ESCAPE,0); break;
-    case 36: {
+    case 36:
         if (r->phase!=DX_REPORT_IDLE) return;
         SetWindowMinSize(640,640); SetWindowSize(1280,820); ui_set_scale(&a->ui,1);
-        printf("PASS: native review filter/selection isolation, typed frozen cell, disabled ribbon/overflow, pane controls, 100/150 percent, capture/write retry, durable reports, queued query reply and title/ribbon pointer/keyboard targets\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); break;
+        break;
+    case 37:
+        if (a->ui.scale!=1 || r->phase!=DX_REPORT_IDLE) return;
+        a->file_menu=true; a->file_menu_focus=UI_KEYTIP_FILE_SAVE; a->file_menu_scroll=0; a->file_menu_frame=a->frames; a->io_busy=true;
+        t->request=a->request_id; t->page=a->page.cells; t->selection=grid_location(&a->grid); t->dirty=a->book.dirty; t->history=active_sheet(a)->undo_actions_count;
+        t->file_focus=a->file_menu_focus; t->file_scroll=a->file_menu_scroll;
+        dx_lock(&a->worker.mutex); t->jobs=a->worker.jobs_started; dx_unlock(&a->worker.mutex);
+        ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 38:
+        if (r->phase!=DX_REPORT_PICK) return;
+        if (!review_smoke_file_targets(a,false) || !review_smoke_file_same(a,t)) goto failed;
+        review_smoke_pick(a,"file.action.save"); break;
+    case 39:
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (strcmp(r->target.widget.id,"file.action.save") || r->target.widget.enabled || r->target.widget.input_eligible || !r->target.widget.focused || !review_smoke_file_same(a,t)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); break;
+    case 40:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        if (!review_smoke_file_same(a,t)) goto failed;
+        a->io_busy=false; ui_set_scale(&a->ui,1.5f); SetWindowMinSize(400,180); SetWindowSize(640,200); break;
+    case 41:
+        if (a->ui.scale!=1.5f || r->phase!=DX_REPORT_IDLE) return;
+        {
+            UIChoiceListLayout list=file_menu_layout(a); if (!list.frame.valid || list.visible!=2) goto failed;
+            a->file_menu_scroll=UI_KEYTIP_FILE_COUNT-list.visible; a->file_menu_focus=UI_KEYTIP_FILE_CLOSE; a->file_menu_frame=a->frames-1;
+            t->file_focus=a->file_menu_focus; t->file_scroll=a->file_menu_scroll;
+        }
+        ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 42:
+        if (r->phase!=DX_REPORT_PICK) return;
+        if (r->frame.ui_scale!=1.5f || !review_smoke_file_targets(a,true) || !review_smoke_file_same(a,t)) goto failed;
+        review_smoke_pick(a,"file.scrollbar.thumb"); break;
+    case 43:
+        if (r->phase!=DX_REPORT_NOTE) return;
+        if (strcmp(r->target.widget.id,"file.scrollbar.thumb") || !review_smoke_file_same(a,t)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); break;
+    case 44:
+        if (r->phase!=DX_REPORT_IDLE) return;
+        if (!review_smoke_file_same(a,t)) goto failed;
+        a->file_menu=a->key_tips=a->ribbon_focus=false; ui_keytips_cancel(&a->keytip_state);
+        ui_set_scale(&a->ui,1); SetWindowMinSize(640,640); SetWindowSize(1280,820); break;
+    case 45:
+        if (r->phase!=DX_REPORT_IDLE || a->ui.scale!=1) return;
+        if (a->file_menu || a->io_busy || a->file_menu_drag) goto failed;
+        break;
+    case 46: {
+        printf("PASS: native review filter/selection isolation, typed frozen cell, disabled ribbon/overflow, pane controls, 100/150 percent, capture/write retry, durable reports, queued query reply, title/ribbon pointer/keyboard targets and bounded File menu targets\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); break;
     }
     }
     t->stage++; return;
