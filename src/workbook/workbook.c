@@ -294,6 +294,24 @@ static bool metadata_types(duckdb_connection c,const char *sql,const duckdb_type
     if (!ok) error_set(error,"Workbook metadata has incompatible column types. Save to a new .dxls file.");
     return ok;
 }
+/* v1--12 cannot preserve scoped selectors. Refuse reserved extension metadata,
+   including empty tables/views and extra format columns, before a save can
+   replace supported rows or a load can silently turn guards into rectangles. */
+static bool format_metadata_supported(duckdb_connection c,char **error) {
+    duckdb_result r={0}; bool ok=false;
+    if (duckdb_query(c,"SELECT count(*) FROM information_schema.tables WHERE table_schema='_duxcel_workspace' AND table_name IN ('format_scopes','format_selectors','format_guards')",&r)!=DuckDBSuccess) goto sql_error;
+    bool scoped=duckdb_value_uint64(&r,0,0)!=0; duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
+    if (scoped) goto unsupported;
+    if (duckdb_query(c,"SELECT count(*) FROM information_schema.columns WHERE table_schema='_duxcel_workspace' AND table_name='formats'",&r)!=DuckDBSuccess) goto sql_error;
+    uint64_t columns=duckdb_value_uint64(&r,0,0); duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
+    if (!columns) return true; /* Older workspaces need no formats table. */
+    if (columns!=13) goto unsupported;
+    const duckdb_type types[]={DUCKDB_TYPE_INTEGER,DUCKDB_TYPE_INTEGER,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_INTEGER,DUCKDB_TYPE_INTEGER,DUCKDB_TYPE_INTEGER,DUCKDB_TYPE_INTEGER,DUCKDB_TYPE_INTEGER,DUCKDB_TYPE_INTEGER,DUCKDB_TYPE_INTEGER,DUCKDB_TYPE_INTEGER,DUCKDB_TYPE_INTEGER};
+    ok=metadata_types(c,"SELECT sheet_id,position,r0,r1,c0,c1,mask,flags,alignment,color,font_size,numeric_format,decimals FROM _duxcel_workspace.formats LIMIT 0",types,13,error); goto done;
+unsupported: error_set(error,"Scoped or extended cell formatting metadata requires a newer workspace format; this workbook cannot be loaded or overwritten by workspace v12."); goto done;
+sql_error: error_set(error,duckdb_result_error(&r));
+done: duckdb_destroy_result(&r); return ok;
+}
 static bool save_table_sources(duckdb_connection c,const Workbook *b,const char *target,char **error) {
     if (!exec(c,"CREATE TABLE IF NOT EXISTS _duxcel_workspace.table_sources(sheet_id INTEGER,object_id UBIGINT,kind INTEGER,path VARCHAR,source_schema VARCHAR,source_table VARCHAR,filter_column VARCHAR,filter_value VARCHAR,filter_op INTEGER,group_column VARCHAR,measure_column VARCHAR,aggregate INTEGER,sort_column VARCHAR,descending BOOLEAN,PRIMARY KEY(sheet_id,object_id));"
         "CREATE TABLE IF NOT EXISTS _duxcel_workspace.table_filters(sheet_id INTEGER,object_id UBIGINT,position INTEGER,name VARCHAR,op INTEGER,value VARCHAR,PRIMARY KEY(sheet_id,object_id,position));"
@@ -503,7 +521,8 @@ static bool version(duckdb_connection c,bool existing,char **error) {
     }
     int v=duckdb_value_int32(&r,0,0);
     bool ok=duckdb_row_count(&r)==1 && v>=1 && v<=DX_WORKSPACE_VERSION;
-    duckdb_destroy_result(&r); if (!ok) error_set(error,"Unsupported or invalid Duxcel workspace version."); return ok;
+    duckdb_destroy_result(&r); if (!ok) error_set(error,"Unsupported or invalid Duxcel workspace version.");
+    return ok && format_metadata_supported(c,error);
 }
 bool workbook_save(const Workbook *b,const char *path,char **error) {
     if (!b->count || b->count>DX_MAX_SHEETS || b->active>=b->count) { error_set(error,"No valid worksheet to save."); return false; }
