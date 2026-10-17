@@ -171,6 +171,7 @@ test('subarray offsets, Blob PNG encoder output and longest allowed report ID re
 
 test('shortcut capture consumes only a focused canvas chord before GLFW and queues one request', () => {
     const h = harness(); assert.deepEqual(h.changes, [['add', 'keydown', true]]);
+    assert.equal(h.host.closed, false); assert.throws(() => { h.host.closed = true; }, TypeError); assert.equal(h.host.closed, false);
     for (const change of [{ ctrlKey: false, metaKey: false }, { shiftKey: false }, { altKey: true }, { isComposing: true }, { code: 'Comma', key: ',' }, { target: {} }]) {
         const event = h.key(change); assert.equal(event.prevented, 0); assert.equal(event.stopped, 0); assert.equal(h.host.takeRequest(), false);
     }
@@ -184,7 +185,8 @@ test('shortcut capture consumes only a focused canvas chord before GLFW and queu
     h.key(); h.key(); assert.equal(h.host.takeRequest(), true); assert.equal(h.host.takeRequest(), false);
     assert.equal(h.geometries(), 0); assert.equal(h.encoded.length, 0); assert.equal(h.downloads.length, 0);
     h.key(); h.host.cancel(); assert.equal(h.host.takeRequest(), false);
-    h.host.dispose(); h.host.dispose(); assert.deepEqual(h.changes, [['add', 'keydown', true], ['remove', 'keydown', true]]);
+    h.host.dispose(); assert.equal(h.host.closed, true); h.host.dispose(); assert.equal(h.host.closed, true);
+    assert.deepEqual(h.changes, [['add', 'keydown', true], ['remove', 'keydown', true]]);
     assert.equal(h.listeners.size, 0); assert.equal(h.key().prevented, 0); assert.equal(h.host.takeRequest(), false);
 });
 
