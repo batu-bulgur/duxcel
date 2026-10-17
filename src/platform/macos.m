@@ -1,5 +1,6 @@
 #import <AppKit/AppKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#include <IOKit/hidsystem/IOLLEvent.h>
 #include "platform.h"
 #include "../common.h"
 #include <ctype.h>
@@ -35,6 +36,13 @@ static DxKeyModifiers modifier_events[128];
 static unsigned modifier_head,modifier_count;
 static void record_key_modifiers(NSEvent *event) {
     int key=0;
+    if (event.type==NSEventTypeFlagsChanged) {
+        /* Capture the opener in the same ordered native stream as letters.
+           A quick Option-down/up/H can all precede one rendered frame. */
+        NSUInteger mask=event.keyCode==58 ? NX_DEVICELALTKEYMASK : event.keyCode==61 ? NX_DEVICERALTKEYMASK : 0;
+        if (!mask || !(event.modifierFlags&mask)) return;
+        key=event.keyCode==58 ? KEY_LEFT_ALT : KEY_RIGHT_ALT;
+    } else {
     switch (event.keyCode) {
     case 126: key=KEY_UP; break; case 125: key=KEY_DOWN; break;
     case 123: key=KEY_LEFT; break; case 124: key=KEY_RIGHT; break;
@@ -49,10 +57,11 @@ static void record_key_modifiers(NSEvent *event) {
         break;
     }
     }
+    }
     if (!key || modifier_count==128) return;
     NSEventModifierFlags flags=event.modifierFlags;
     unsigned modifiers=(flags&NSEventModifierFlagShift ? DX_MOD_SHIFT : 0) | (flags&NSEventModifierFlagControl ? DX_MOD_CONTROL : 0) | (flags&NSEventModifierFlagOption ? DX_MOD_ALT : 0) | (flags&NSEventModifierFlagCommand ? DX_MOD_SUPER : 0);
-    modifier_events[(modifier_head+modifier_count)%128]=(DxKeyModifiers){key,modifiers,event.isARepeat}; modifier_count++;
+    modifier_events[(modifier_head+modifier_count)%128]=(DxKeyModifiers){key,modifiers,event.type==NSEventTypeKeyDown && event.isARepeat}; modifier_count++;
 }
 bool dx_take_key_modifiers(DxKeyModifiers *event) {
     if (!modifier_count) return false;
@@ -319,8 +328,9 @@ void dx_native_setup(void *window) {
     if (!scroll_monitor) scroll_monitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskScrollWheel handler:^NSEvent *(NSEvent *event) {
         native_record_pan(event); return event; /* other widgets retain GLFW wheel input */
     }];
-    if (!shortcut_monitor) shortcut_monitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
+    if (!shortcut_monitor) shortcut_monitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown|NSEventMaskFlagsChanged handler:^NSEvent *(NSEvent *event) {
         if (event.window && event.window!=canvas.window) return event;
+        if (event.type==NSEventTypeFlagsChanged) { if (!native_panel_active) record_key_modifiers(event); return event; }
         if (trace_input) fprintf(stderr,"Native key code=%u characters=%s flags=%lu panel=%d modal=%d\n",event.keyCode,[event.charactersIgnoringModifiers UTF8String],(unsigned long)event.modifierFlags,native_panel_active,app_modal);
 #ifdef DUXCEL_DEV_REVIEW
         NSEventModifierFlags review_flags=event.modifierFlags;

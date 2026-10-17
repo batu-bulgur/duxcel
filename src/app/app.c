@@ -189,6 +189,7 @@ typedef struct {
     UIKeytips keytip_state;
     bool file_menu,window_closed,background_test;
     int file_menu_focus;
+    unsigned file_menu_frame;
     int chrome_focus,status_focus,workbook_focus_index,workbook_visible_rows,pipeline_focus_index,pipeline_visible_rows;
     float workbook_stride,workbook_row_height;
     int ribbon_command;
@@ -876,7 +877,12 @@ static void finish_document_action(App *a) {
 static void continue_document_action(App *a) {
     if (a->document_action==DOCUMENT_NONE || a->io_busy || a->modal==MODAL_UNSAVED) return;
     a->document_saving=false;
-    if (a->book.dirty) { a->modal=MODAL_UNSAVED; a->document_focus=0; a->consume_grid_input=true; }
+    if (a->book.dirty) {
+        a->modal=MODAL_UNSAVED; a->document_focus=0; a->consume_grid_input=true;
+#ifdef DUXCEL_BROWSER_HOST
+        a->document_focus=2; /* Cancel; browser Save is not implemented. */
+#endif
+    }
     else finish_document_action(a);
 }
 static void request_document_action(App *a,DocumentAction action,const char *path) {
@@ -4549,6 +4555,9 @@ static void draw_unsaved(App *a) {
     if (ui_pressed(KEY_TAB)) a->document_focus=(a->document_focus+(ui_key_shift(KEY_TAB) ? 2 : 1))%3;
     if (ui_key(KEY_LEFT)) a->document_focus=(a->document_focus+2)%3;
     if (ui_key(KEY_RIGHT)) a->document_focus=(a->document_focus+1)%3;
+#ifdef DUXCEL_BROWSER_HOST
+    if (!a->document_focus) a->document_focus=ui_key(KEY_LEFT) || (ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB)) ? 2 : 1;
+#endif
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,75});
     DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38});
     DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleRoundedLinesEx(box(x,y,w,h),.035f,4,1,UI_BORDER);
@@ -4559,9 +4568,13 @@ static void draw_unsaved(App *a) {
     const char *labels[]={"Save…","Don't Save","Cancel"};
     float button_width=fminf(124*s,(w-64*s)/3),button_start=x+w-24*s-3*button_width-16*s;
     for (int i=0;i<3;i++) {
+        bool available=true;
+#ifdef DUXCEL_BROWSER_HOST
+        if (!i) available=false;
+#endif
         Rectangle r=box(button_start+i*(button_width+8*s),y+h-54*s,button_width,32*s); a->document_actions[i]=r;
         if (a->document_focus==i) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
-        if (ui_button(u,r,labels[i],i==0,true) || (a->document_focus==i && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE)))) {
+        if (ui_button(u,r,labels[i],i==0,available) || (available && a->document_focus==i && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE)))) {
             if (!i) save_document_action(a); else if (i==1) finish_document_action(a); else cancel_document_action(a);
             return;
         }
@@ -5748,7 +5761,7 @@ static bool keytip_input(App *a,DxCommand command) {
         bool alt=(press.modifiers&DX_MOD_ALT)!=0;
         if (modified || (alt && (key==KEY_DOWN || key==KEY_UP || key==KEY_LEFT || key==KEY_RIGHT))) {
             if (a->file_menu) continue;
-            a->key_tips=false; ui_keytips_cancel(&a->keytip_state); a->consume_grid_input=false; return false;
+            a->key_tips=a->ribbon_focus=false; a->ribbon_command=-1; ui_keytips_cancel(&a->keytip_state); a->consume_grid_input=false; return false;
         }
         if (key==KEY_LEFT_ALT || key==KEY_RIGHT_ALT) {
             owned=true;
@@ -5772,7 +5785,7 @@ static bool keytip_input(App *a,DxCommand command) {
         UIKeytipResult result=ui_keytips_feed(&a->keytip_state,key,false);
         a->key_tips=a->keytip_state.active;
         if (result.kind==UI_KEYTIP_TAB) {
-            a->file_menu=result.value==UI_KEYTIPS_FILE; a->file_menu_focus=0;
+            a->file_menu=result.value==UI_KEYTIPS_FILE; a->file_menu_focus=0; a->file_menu_frame=a->frames;
             if (!a->file_menu) { a->ribbon_tab=result.value; a->ribbon_focus=true; a->ribbon_command=-1; a->pivot_focus=a->chrome_focus=0; }
         } else if (result.kind==UI_KEYTIP_COMMAND) {
             a->ribbon_command=ui_ribbon_action_index(a->ribbon_tab,(UIAction)result.value); a->ribbon_focus=true;
@@ -6564,7 +6577,7 @@ static void draw_file_menu(App *a) {
     if (!a->key_tips && ui_pressed(KEY_ESCAPE)) { a->file_menu=false; a->consume_grid_input=true; }
     if (ui_key(KEY_DOWN)) a->file_menu_focus=(a->file_menu_focus+1)%UI_KEYTIP_FILE_COUNT;
     if (ui_key(KEY_UP)) a->file_menu_focus=(a->file_menu_focus+UI_KEYTIP_FILE_COUNT-1)%UI_KEYTIP_FILE_COUNT;
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),layout.panel)) { a->file_menu=false; a->key_tips=false; a->consume_grid_input=true; }
+    if (a->file_menu_frame!=a->frames && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),layout.panel)) { a->file_menu=false; a->key_tips=false; a->consume_grid_input=true; }
     if (a->file_menu) {
         ui_choice_frame(u,&layout,"File");
         const UICarbonIcon icons[]={CARBON_DOCUMENT_BLANK,CARBON_FOLDER_OPEN,CARBON_SAVE,CARBON_SAVE,CARBON_CLOSE,CARBON_CLOSE};
@@ -6613,7 +6626,7 @@ static void draw_app(App *a) {
     REVIEW_CONTROL(a,"chrome.brand","chrome.inspect_brand","chrome/title-bar/brand","text","Duxcel",brand,20,true,false,false);
 #ifdef DUXCEL_BROWSER_HOST
     bool brand_hover=false;
-    if (ui_control_input(u,brand,a->modal==MODAL_NONE && !a->io_busy,&brand_hover)) { a->file_menu=!a->file_menu; a->file_menu_focus=0; a->consume_grid_input=true; }
+    if (ui_control_input(u,brand,a->modal==MODAL_NONE && !a->io_busy,&brand_hover)) { a->file_menu=!a->file_menu; a->file_menu_focus=0; a->file_menu_frame=a->frames; a->consume_grid_input=true; }
 #endif
     if (a->keytip_alpha>0 && a->keytip_state.tab==UI_KEYTIPS_ROOT) ui_keytip(u,box(brand.x+brand.width-16*s,brand.y,16*s,16*s),"F",a->keytip_alpha);
     DrawLineV((Vector2){leading+104*s,7*s},(Vector2){leading+104*s,22*s},(Color){185,197,207,255});

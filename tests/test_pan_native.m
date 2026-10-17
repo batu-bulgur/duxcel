@@ -116,6 +116,25 @@ int main(void) {
         CHECK(IsWindowReady()); SetExitKey(KEY_NULL);
         NSWindow *window=(NSWindow *)GetWindowHandle(); CHECK(window!=nil); hidden(window);
         dx_native_setup(GetWindowHandle()); attached=true; CHECK(canvas_window==window && canvas_view.window==window); hidden(window);
+        /* Released Option followed by H inside one poll retains its opener;
+           no native event is posted, and release must not toggle tips twice. */
+        record_key_modifiers([NSEvent keyEventWithType:NSEventTypeFlagsChanged location:NSZeroPoint modifierFlags:NSEventModifierFlagOption|NX_DEVICELALTKEYMASK timestamp:0 windowNumber:window.windowNumber context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:58]);
+        record_key_modifiers([NSEvent keyEventWithType:NSEventTypeFlagsChanged location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:window.windowNumber context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:58]);
+        record_key_modifiers([NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:window.windowNumber context:nil characters:@"h" charactersIgnoringModifiers:@"h" isARepeat:NO keyCode:4]);
+        DxKeyModifiers key;
+        CHECK(dx_take_key_modifiers(&key) && key.key==KEY_LEFT_ALT && key.modifiers==DX_MOD_ALT && !key.repeat);
+        CHECK(dx_take_key_modifiers(&key) && key.key==KEY_H && !key.modifiers && !key.repeat);
+        CHECK(!dx_take_key_modifiers(&key));
+        CHECK(![(id<NSApplicationDelegate>)NSApp.delegate applicationShouldTerminateAfterLastWindowClosed:NSApp]);
+        CHECK(![(id<NSApplicationDelegate>)NSApp.delegate applicationShouldHandleReopen:NSApp hasVisibleWindows:NO]);
+        CHECK(dx_take_command()==DX_COMMAND_NEW_WORKBOOK && dx_take_command()==DX_COMMAND_NONE); hidden(window);
+        CHECK([(id<NSApplicationDelegate>)NSApp.delegate applicationShouldTerminate:NSApp]==NSTerminateCancel);
+        CHECK(dx_native_quit_requested()); dx_native_acknowledge_quit(); CHECK(!dx_native_quit_requested()); hidden(window);
+        NSMenuItem *close=nil;
+        for (NSMenuItem *root in NSApp.mainMenu.itemArray) for (NSMenuItem *item in root.submenu.itemArray)
+            if (item.target==actions && item.tag==DX_COMMAND_CLOSE) close=item;
+        CHECK(close && [close.keyEquivalent isEqualToString:@"w"] && close.keyEquivalentModifierMask==NSEventModifierFlagCommand);
+        [actions invoke:close]; CHECK(dx_take_command()==DX_COMMAND_CLOSE && !dx_native_quit_requested()); hidden(window);
         other_window=[[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,20,20) styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:YES];
         other_window.releasedWhenClosed=YES; hidden(window); idle();
 
