@@ -85,7 +85,7 @@ Apple's installed GNU Make 3.81 compares whole-second timestamps. A source/heade
 
 ## Native review development gates
 
-`make test-review-core` runs the pure registry/outbox/responsive-composer geometry tests in optimized and ASan/UBSan configurations, then the reader and build-checker fixture tests. `make test-review` runs the focused 296-stage hidden reporting flow in both review configurations, preceded by the same 477-check desktop-safety probe. Use `TEST_ARGS='--config release'` or `--config sanitize` for a single affected configuration; `--no-build` deliberately reuses known artifacts. The runner serializes the worktree and desktop, uses a private outbox per run/configuration, verifies actual completion and stable source/binary hashes, and checks real image/frame identity plus durable acknowledgment/reply history. It rejects sanitizer diagnostics and partial stage counts.
+`make test-review-core` runs the pure registry/outbox/responsive-composer geometry tests in optimized and ASan/UBSan configurations, then the reader and build-checker fixture tests. `make test-review` runs the focused 322-stage hidden reporting flow in both review configurations, preceded by the same 477-check desktop-safety probe. Use `TEST_ARGS='--config release'` or `--config sanitize` for a single affected configuration; `--no-build` deliberately reuses known artifacts. The runner serializes the worktree and desktop, uses a private outbox per run/configuration, verifies actual completion and stable source/binary hashes, and checks real image/frame identity plus durable acknowledgment/reply history. It rejects sanitizer diagnostics and partial stage counts.
 
 Run linked production exclusion after building all four artifacts:
 
@@ -175,7 +175,7 @@ python3 tools/test_web_app.py --review --review-controls-only --no-build --sourc
 python3 tools/test_web_app.py --review --analysis-only --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
 ```
 
-The current accepted native runner covers296 stages, including query/relation/multi-sort, Statistics, typed Cell Inspector, Settings and compact format selectors. New Generated SQL scenarios require their own acceptance. Review-controls-only exercises 17 actual source/field/manual/protected-source/dialog targets without uploading reports; it also applies width/Move through the real controller. Analysis-only creates a same-sheet empty object, assigns Rows City/SUM Amount through actual C menus, waits for the real Worker/footer, then checks source/sparse-cell retention and idle jobs. Latest accepted checks/timings and limitations are [retained separately](validation/checkpoints/2026-10-17-authoring-consumers/). A SQL helper passing is not actual App acceptance; Rows/Values acceptance does not establish Columns PIVOT or broader browser analytics. Do not overlap test runners even when one is headless: worktree and desktop locks deliberately reject contention. Build-only work can use a separate compiler slot.
+The current accepted native runner covers322 stages, including query/relation/multi-sort, Statistics, typed Cell Inspector, Settings and compact format selectors. Generated SQL and actual private owner-lifetime save/reopen now have separate acceptance; Guide scenarios are subsequent work. Review-controls-only exercises 17 actual source/field/manual/protected-source/dialog targets without uploading reports; it also applies width/Move through the real controller. Analysis-only creates a same-sheet empty object, assigns Rows City/SUM Amount through actual C menus, waits for the real Worker/footer, then checks source/sparse-cell retention and idle jobs. Latest accepted checks/timings and limitations are [retained separately](validation/checkpoints/2026-10-17-authoring-consumers/). A SQL helper passing is not actual App acceptance; Rows/Values acceptance does not establish Columns PIVOT or broader browser analytics. Do not overlap test runners even when one is headless: worktree and desktop locks deliberately reject contention. Build-only work can use a separate compiler slot.
 
 
 The broader analytical checkpoint adds focused actual-browser gates:
@@ -199,3 +199,13 @@ python3 tools/test_web_app.py --review --mixed-statistics-only --no-build --sour
 ```
 
 The value gate passes875 checks/20.180s; analytical-result statistics261/17.745s; Table import/statistics213/20.934s. The Table profile preserves the source, an existing matrix and a manual value, rejects a moved destination, and separates synthetic DOM cancellation from trusted file delivery. It never claims physical chooser cancellation. The current113-stage official Worker passes79,988 C checks/8.101s, including global mixed/manual semantics; actual mixed App acceptance passes306 checks/31.812s. Native296 takes11.566s optimized/12.718s ASan+UBSan. [Retained evidence and exact artifact scopes](validation/checkpoints/2026-10-18-value-review-statistics/).
+
+
+The owner-lifetime/SQL checkpoint adds two separate focused commands:
+
+```sh
+python3 tools/test_web_app.py --persistence-owners --no-build --dpr 2
+python3 tools/test_web_app.py --review --review-sql-only --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
+```
+
+Build the current native persistence helpers and appropriate normal/review Wasm first. Owner mode preserves the unchanged v12 proof and separately checks real v13 counters/20 metadata tables, native release/ASan readback and original-file hashes:17 App checks/nine Worker steps/8.178s. SQL mode passes793 checks/29.147s, including actual source Apply, pinned primary/cached SQL, trusted nonzero scroll/clamps, eight frozen picks and the real pane-to-canvas pointer takeover regression. No Copy activation or saved report occurs. Native322 takes12.948s optimized/14.252s sanitizer; its runner creates a private owner fixture and saved copy per configuration, verifies unchanged original/helper hashes, and retains three reports. `--no-build` now requires the matching persistence helper as well as the review binary. [Evidence and limits](validation/checkpoints/2026-10-18-sql-review-owner-lifetimes/).

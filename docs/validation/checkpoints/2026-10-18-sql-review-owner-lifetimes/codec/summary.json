@@ -1,0 +1,92 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T21:26:55.690331+00:00",
+  "tier": "records",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel",
+  "source": {
+    "commit": "1f62acf4149e0ac11e5bf563bd3d65ed18cf3b96",
+    "status": "",
+    "source_sha256": "5ec84730c3e448e80c2a6415006ca74698d4fc0811c7672f2bebdc21aae253bb",
+    "source_files": 237
+  },
+  "results": [
+    {
+      "name": "owner-v13-core-workbook-build",
+      "command": [
+        "make",
+        "tests/test_core",
+        "tests/test_core-debug",
+        "tests/test_workbook",
+        "tests/test_workbook-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/owner-v13-core-workbook-build.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 9.957
+    },
+    {
+      "name": "owner-v13-full-core-release",
+      "command": [
+        "./tests/test_core"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/owner-v13-full-core-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 3.18
+    },
+    {
+      "name": "owner-v13-full-workbook-release",
+      "command": [
+        "./tests/test_workbook"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/owner-v13-full-workbook-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 10.876
+    },
+    {
+      "name": "owner-v13-full-core-sanitizer",
+      "command": [
+        "./tests/test_core-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/owner-v13-full-core-sanitizer.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 8.234
+    },
+    {
+      "name": "owner-v13-full-workbook-sanitizer",
+      "command": [
+        "./tests/test_workbook-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/owner-v13-full-workbook-sanitizer.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 67.736
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_core": "96a156c123689393bf9f95cfca89d75d9df59add8541477b3e4416a4f03fbbce",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_core-debug": "ab46261f018f0067382d0bda7e664d30dcf9109052b81abac614f533ed73767f",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_workbook": "72fd2556308839b85098329ee08417ec84595c602eaa9963f5eb338944b1cbfa",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_workbook-debug": "18caeb6ffad408bd0e03e8e1a7cffed0c0908a4908e6faff34108345effff15b"
+  },
+  "scope": "Owner-only v13 integration boundary: full native core before workbook for each release/ASan config, serial private mutable fixtures; no GUI/clipboard/Filepanels/browser",
+  "elapsed_seconds": 100.141,
+  "binaries_after": {
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_core": "96a156c123689393bf9f95cfca89d75d9df59add8541477b3e4416a4f03fbbce",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_core-debug": "ab46261f018f0067382d0bda7e664d30dcf9109052b81abac614f533ed73767f",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_workbook": "72fd2556308839b85098329ee08417ec84595c602eaa9963f5eb338944b1cbfa",
+    "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/test_workbook-debug": "18caeb6ffad408bd0e03e8e1a7cffed0c0908a4908e6faff34108345effff15b"
+  },
+  "finished_utc": "2026-10-17T21:28:35.926323+00:00"
+}

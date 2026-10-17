@@ -1,0 +1,145 @@
+{
+  "scope": "Native322 real controller/renderer owner lifetime and Generated SQL acceptance; actual transformed DPR2 browser SQL793; separate owner-only v13 BP0 Worker rewrite/native readback. No broad parity or browser Save/Open claim.",
+  "files": {
+    "codec/owner-v13-core-workbook-build.txt": {
+      "sha256": "1d26e9b188ceca31088011346a6171fb6f58144306fa09e6f902fa2bd62b0f5c",
+      "bytes": 1342,
+      "original": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/owner-v13-core-workbook-build.txt"
+    },
+    "codec/owner-v13-full-core-release.txt": {
+      "sha256": "a199cbb4b12e58bcb59eab22a8b9770c68072d7ed038c751409ed452269256cf",
+      "bytes": 340,
+      "original": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/owner-v13-full-core-release.txt"
+    },
+    "codec/owner-v13-full-core-sanitizer.txt": {
+      "sha256": "f8877420c5abf2d321d620dc7d99990870a4a8f4be4874ad5ea0fb7096dd0c53",
+      "bytes": 347,
+      "original": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/owner-v13-full-core-sanitizer.txt"
+    },
+    "codec/owner-v13-full-workbook-release.txt": {
+      "sha256": "9f077d87db2f107ef74042b10809d67d156ac4dd81f87e6b6ee152d57baf6d91",
+      "bytes": 176,
+      "original": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/owner-v13-full-workbook-release.txt"
+    },
+    "codec/owner-v13-full-workbook-sanitizer.txt": {
+      "sha256": "c5f3ccd72087ddeaf06db40be0ddc2fd93f6d9e11fd27c5f543072591ec01178",
+      "bytes": 182,
+      "original": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/owner-v13-full-workbook-sanitizer.txt"
+    },
+    "codec/summary.json": {
+      "sha256": "b241ef2f00b68f5ed6f2eceeba7a5231e83a09dd8d96e10b584bdb7d0ab03cae",
+      "bytes": 4076,
+      "original": "/Users/h2o/.codex/worktrees/duxcel-scope-persistence/duxcel/tests/results/runs/20261017T212655-records-77218/summary.json"
+    },
+    "native/background.txt": {
+      "sha256": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
+      "bytes": 2468,
+      "original": "tests/results/runs/20261017T213533-review-79909/background.log"
+    },
+    "native/release-owner-create.txt": {
+      "sha256": "15b3143e1d7d212eee5d53b21da49cf798f0bdc08464a25ff3d9e91d6b601e63",
+      "bytes": 132,
+      "original": "tests/results/runs/20261017T213533-review-79909/release-owner-create.log"
+    },
+    "native/release.txt": {
+      "sha256": "32d963beeea9bb9760a81513d0ffdce667e0cb6b2df4f727c04b9254804b5005",
+      "bytes": 125593,
+      "original": "tests/results/runs/20261017T213533-review-79909/release.log"
+    },
+    "native/sanitize-owner-create.txt": {
+      "sha256": "15b3143e1d7d212eee5d53b21da49cf798f0bdc08464a25ff3d9e91d6b601e63",
+      "bytes": 132,
+      "original": "tests/results/runs/20261017T213533-review-79909/sanitize-owner-create.log"
+    },
+    "native/sanitize.txt": {
+      "sha256": "0b7ab3204c52f1c0e825f0a5e509a41cb6923f81e9b6d919e498d9bfb33ce0c0",
+      "bytes": 125664,
+      "original": "tests/results/runs/20261017T213533-review-79909/sanitize.log"
+    },
+    "native/summary.json": {
+      "sha256": "9034f685f6b128d9dec36819be41ac878b2d8d8cdc6dd03bb66c96f721e1def8",
+      "bytes": 7408,
+      "original": "tests/results/runs/20261017T213533-review-79909/summary.json"
+    },
+    "owners-probe-contracts.txt": {
+      "sha256": "4a615371a3fae18e75b443f0c9d0ce3eca6a87e4f344a2f3689fe91f984c7a53",
+      "bytes": 1176,
+      "original": "build/owners-probe-contracts.txt"
+    },
+    "wasm-owners/driver.txt": {
+      "sha256": "28b07a3dcc978e70ab907a176722ef2e0a67b4b56781520b4a0f558bd4bd85f1",
+      "bytes": 181,
+      "original": "tests/results/runs/20261017T213443-browser-79635/driver.txt"
+    },
+    "wasm-owners/persistence-native-create.txt": {
+      "sha256": "15b3143e1d7d212eee5d53b21da49cf798f0bdc08464a25ff3d9e91d6b601e63",
+      "bytes": 132,
+      "original": "tests/results/runs/20261017T213443-browser-79635/persistence-native-create.txt"
+    },
+    "wasm-owners/persistence-native-verify-sanitize.txt": {
+      "sha256": "08d7af7cab419aefd0f21dc51a4a8e9b5b3d7d48b855d7328d17c9b93b5640f9",
+      "bytes": 139,
+      "original": "tests/results/runs/20261017T213443-browser-79635/persistence-native-verify-sanitize.txt"
+    },
+    "wasm-owners/persistence-native-verify.txt": {
+      "sha256": "08d7af7cab419aefd0f21dc51a4a8e9b5b3d7d48b855d7328d17c9b93b5640f9",
+      "bytes": 139,
+      "original": "tests/results/runs/20261017T213443-browser-79635/persistence-native-verify.txt"
+    },
+    "wasm-owners/persistence-owners.json": {
+      "sha256": "0108c7380a89d219505fc36b450f05a2e48c7bcec24d66a6e6aa0c831c819d46",
+      "bytes": 1402,
+      "original": "tests/results/runs/20261017T213443-browser-79635/persistence-owners.json"
+    },
+    "wasm-owners/persistence-probe.json": {
+      "sha256": "f98c9562ac91d1f17b5e5c07404c3501043839135c49fe43f599423777a8029f",
+      "bytes": 72593,
+      "original": "tests/results/runs/20261017T213443-browser-79635/persistence-probe.json"
+    },
+    "wasm-owners/summary.json": {
+      "sha256": "fd0d4cc0452be451eec5f6c16d9c7b8949d7e1556f7b87a1d2b23d54214609f6",
+      "bytes": 37203,
+      "original": "tests/results/runs/20261017T213443-browser-79635/summary.json"
+    },
+    "wasm-sql/controls-generated-sql-cached-picker.png": {
+      "sha256": "28d30d0f590b4df77922489cecf09881a4cbdcc185542eb6f2a90e770cf5d1aa",
+      "bytes": 308670,
+      "original": "tests/results/runs/20261017T213818-browser-81117/controls-generated-sql-cached-picker.png"
+    },
+    "wasm-sql/controls-generated-sql-primary-picker.png": {
+      "sha256": "e3d64afd8b50e6a960bb3fd95158cf7dad8bd9bc88c83a045346afa08d698deb",
+      "bytes": 277384,
+      "original": "tests/results/runs/20261017T213818-browser-81117/controls-generated-sql-primary-picker.png"
+    },
+    "wasm-sql/driver.txt": {
+      "sha256": "e43654a14dcf0d4a3a79284a57f727a5022890e38bbc4707e3849fd5ee81e3ef",
+      "bytes": 182,
+      "original": "tests/results/runs/20261017T213818-browser-81117/driver.txt"
+    },
+    "wasm-sql/generated-sql-cached-pivot.png": {
+      "sha256": "1153954af2f7295e7ca310d9bddcc6aea0d927657ffbacb823905c235cebe2c8",
+      "bytes": 313210,
+      "original": "tests/results/runs/20261017T213818-browser-81117/generated-sql-cached-pivot.png"
+    },
+    "wasm-sql/generated-sql-primary-scrolled.png": {
+      "sha256": "65328b151b3980188bb817bcdbf6ad35976d15bf7e2f0089a7af5e138906617f",
+      "bytes": 281832,
+      "original": "tests/results/runs/20261017T213818-browser-81117/generated-sql-primary-scrolled.png"
+    },
+    "wasm-sql/generated-sql-wheel-delivery.json": {
+      "sha256": "13887fc9ec35ae66620dd8794ca2d154df0d96c545581a9cb046371b5742df5f",
+      "bytes": 172,
+      "original": "tests/results/runs/20261017T213818-browser-81117/generated-sql-wheel-delivery.json"
+    },
+    "wasm-sql/review-sql.json": {
+      "sha256": "43aba668751bc3a96e8e394cf97d6d7f9077873d431e570938d8394e1bb1503d",
+      "bytes": 112180,
+      "original": "tests/results/runs/20261017T213818-browser-81117/review-sql.json"
+    },
+    "wasm-sql/summary.json": {
+      "sha256": "d979f80830f1f29878365b100961086c3b2bfc560c273eade906b204557eaa6f",
+      "bytes": 35997,
+      "original": "tests/results/runs/20261017T213818-browser-81117/summary.json"
+    }
+  }
+}

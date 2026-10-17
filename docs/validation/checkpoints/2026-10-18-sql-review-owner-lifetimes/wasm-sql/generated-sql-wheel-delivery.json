@@ -1,0 +1,12 @@
+{
+  "deltaY": -100000,
+  "point": {
+    "x": 691.1875,
+    "y": 463.26563747884774
+  },
+  "delivered": {
+    "trusted": true,
+    "canvas": true,
+    "deltaY": -50000
+  }
+}

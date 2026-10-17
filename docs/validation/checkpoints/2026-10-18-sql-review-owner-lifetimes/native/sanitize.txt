@@ -1,0 +1,1614 @@
+INFO: Initializing raylib 6.0
+INFO: Platform backend: DESKTOP (GLFW)
+INFO: Supported raylib modules:
+INFO:     > rcore:..... loaded (mandatory)
+INFO:     > rlgl:...... loaded (mandatory)
+INFO:     > rshapes:... loaded (optional)
+INFO:     > rtextures:. loaded (optional)
+INFO:     > rtext:..... loaded (optional)
+INFO:     > rmodels:... loaded (optional)
+INFO:     > raudio:.... loaded (optional)
+INFO: DISPLAY: Trying to enable VSYNC
+INFO: DISPLAY: Device initialized successfully (HighDPI)
+INFO:     > Display size: 1680 x 1050
+INFO:     > Screen size:  1280 x 820
+INFO:     > Render size:  2560 x 1640
+INFO:     > Viewport offsets: 0, 0
+INFO: GLAD: OpenGL extensions loaded successfully
+INFO: GL: Supported extensions count: 43
+INFO: GL: OpenGL device information:
+INFO:     > Vendor:   Apple
+INFO:     > Renderer: Apple M1
+INFO:     > Version:  4.1 Metal - 90.5
+INFO:     > GLSL:     4.10
+INFO: GL: VAO extension detected, VAO functions loaded successfully
+INFO: GL: NPOT textures extension detected, full NPOT textures supported
+INFO: GL: DXT compressed textures supported
+INFO: PLATFORM: DESKTOP (GLFW - Cocoa): Initialized successfully
+INFO: TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 1] Default texture loaded successfully
+INFO: SHADER: [ID 1] Vertex shader compiled successfully
+INFO: SHADER: [ID 2] Fragment shader compiled successfully
+INFO: SHADER: [ID 3] Program shader loaded successfully
+INFO: SHADER: [ID 3] Default shader loaded successfully
+INFO: RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+INFO: RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+INFO: RLGL: Default OpenGL state initialized successfully
+INFO: TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Default font loaded successfully (224 glyphs)
+INFO: SYSTEM: Working Directory: /Users/h2o/dev/duxcel
+Native test window: hidden, unfocused
+INFO: IMAGE: Data loaded successfully (512x512 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 3] Texture loaded successfully (512x512 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 3] Mipmaps generated automatically, total: 10
+INFO: TIMER: Target time per frame: 16.393 milliseconds
+Frame pacing cap=61 monitor=60 Hz (vsync requested)
+INFO: FILEIO: [/Users/h2o/dev/duxcel/build/review-sanitize/assets/ui/carbon-atlas.png] File loaded successfully
+INFO: IMAGE: Data loaded successfully (512x640 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 4] Texture loaded successfully (512x640 | R8G8B8A8 | 1 mipmaps)
+INFO: FILEIO: [/Users/h2o/dev/duxcel/build/review-sanitize/assets/fonts/IBMPlexSans-Regular.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/build/review-sanitize/assets/fonts/IBMPlexSans-Medium.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/build/review-sanitize/assets/fonts/IBMPlexSans-SemiBold.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/build/review-sanitize/assets/fonts/IBMPlexSans-Italic.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/build/review-sanitize/assets/fonts/IBMPlexSans-SemiBoldItalic.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/build/review-sanitize/assets/fonts/JetBrainsMono-Regular.ttf] File loaded successfully
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 5] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 6] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 7] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 11] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+INFO: RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+Render batch buffers=8 elements=8192
+First visible rows: 364.50 ms; cache: 6 rows, 1023 bytes
+PASS: first-open inspector/Generated SQL pin current document before any captured frame
+INFO: TEXTURE: [ID 12] Texture loaded successfully (640x1728 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=1 phase=0 file=0/0/0 ui_scale=1.00 window=1280x820 target=
+INFO: TEXTURE: [ID 13] Texture loaded successfully (640x1728 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=2 phase=2 file=0/0/0 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=3 phase=3 file=0/0/0 ui_scale=1.00 window=1280x820 target=filter.search
+Review smoke stage=4 phase=4 file=0/0/0 ui_scale=1.00 window=1280x820 target=filter.search
+Review captured frame=12 widgets=65 pixels=2560x1640 capture_ms=19.371
+Review picked: filter.search
+Native review saved: /Users/h2o/dev/duxcel/tests/results/runs/20261017T213533-review-79909/sanitize/outbox/DXR-S-1792272948-80023-1
+Review report one: DXR-S-1792272948-80023-1 capture_ms=19.371 write_ms=359.552
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+UNSUPPORTED (log once): POSSIBLE ISSUE: unit 0 GLD_TEXTURE_INDEX_2D is unloadable and bound to sampler type (Float) - using zero texture because texture unloadable
+Review smoke stage=5 phase=0 file=0/0/0 ui_scale=1.00 window=1280x820 target=filter.search
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 5] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 6] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+Review smoke stage=6 phase=6 file=0/0/0 ui_scale=1.50 window=760x640 target=
+Review smoke stage=7 phase=1 file=0/0/0 ui_scale=1.50 window=760x640 target=
+INFO: FBO: [ID 1] Unloaded framebuffer from VRAM (GPU)
+INFO: TEXTURE: [ID 5] Texture loaded successfully (960x1728 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 6] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=8 phase=3 file=0/0/0 ui_scale=1.50 window=760x640 target=filter.condition.option.equal
+Review smoke stage=9 phase=4 file=0/0/0 ui_scale=1.50 window=760x640 target=filter.condition.option.equal
+Review smoke stage=10 phase=4 file=0/0/0 ui_scale=1.50 window=760x640 target=filter.condition.option.equal
+Review picked: filter.condition.option.equal
+Native review saved: /Users/h2o/dev/duxcel/tests/results/runs/20261017T213533-review-79909/sanitize/outbox/DXR-S-1792272948-80023-2
+Review report two: DXR-S-1792272948-80023-2 capture_ms=9.951 write_ms=137.008
+INFO: TEXTURE: [ID 6] Unloaded texture data from VRAM (GPU)
+Review smoke stage=11 phase=0 file=0/0/0 ui_scale=1.50 window=760x640 target=filter.condition.option.equal
+INFO: TEXTURE: [ID 6] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 7] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 21] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=12 phase=2 file=0/0/0 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=13 phase=3 file=0/0/0 ui_scale=1.00 window=1280x820 target=worksheet.cell.0.2.1.1
+Review picked: worksheet.cells
+INFO: TEXTURE: [ID 6] Unloaded texture data from VRAM (GPU)
+Review smoke stage=14 phase=0 file=0/0/0 ui_scale=1.00 window=1280x820 target=worksheet.cell.0.2.1.1
+INFO: TEXTURE: [ID 6] Texture loaded successfully (512x1344 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=15 phase=2 file=0/0/0 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=16 phase=3 file=0/0/0 ui_scale=1.00 window=1280x820 target=ribbon.0.command.font
+Review picked: ribbon.0.command.font
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=17 phase=0 file=0/0/0 ui_scale=1.00 window=1280x820 target=ribbon.0.command.font
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=18 phase=2 file=0/0/0 ui_scale=1.00 window=1280x820 target=
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=19 phase=0 file=0/0/0 ui_scale=1.00 window=1280x820 target=
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=20 phase=2 file=0/0/0 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=21 phase=3 file=0/0/0 ui_scale=1.00 window=1280x820 target=pane.fields.close
+Review picked: pane.fields.close
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=22 phase=0 file=0/0/0 ui_scale=1.00 window=1280x820 target=pane.fields.close
+INFO: TEXTURE: [ID 14] Texture loaded successfully (1280x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=23 phase=2 file=0/0/0 ui_scale=1.00 window=640x640 target=
+Review smoke stage=24 phase=3 file=0/0/0 ui_scale=1.00 window=640x640 target=ribbon.more.undo
+Review picked: ribbon.more.undo
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=25 phase=0 file=0/0/0 ui_scale=1.00 window=640x640 target=ribbon.more.undo
+Review smoke stage=26 phase=0 file=0/0/0 ui_scale=1.00 window=640x640 target=ribbon.more.undo
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=27 phase=2 file=0/0/0 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=28 phase=3 file=0/0/0 ui_scale=1.00 window=1280x820 target=ribbon.tab.home
+Review picked: ribbon.tab.home
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=29 phase=0 file=0/0/0 ui_scale=1.00 window=1280x820 target=ribbon.tab.home
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 7] Texture loaded successfully (800x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=30 phase=2 file=0/0/0 ui_scale=1.50 window=400x640 target=
+Review smoke stage=31 phase=3 file=0/0/0 ui_scale=1.50 window=400x640 target=ribbon.display
+Review picked: ribbon.display
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+Review smoke stage=32 phase=0 file=0/0/0 ui_scale=1.50 window=400x640 target=ribbon.display
+INFO: FBO: [ID 3] Unloaded framebuffer from VRAM (GPU)
+INFO: TEXTURE: [ID 6] Texture loaded successfully (704x1344 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 7] Texture loaded successfully (800x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=33 phase=2 file=0/0/0 ui_scale=1.50 window=400x640 target=
+Review smoke stage=34 phase=2 file=0/0/0 ui_scale=1.50 window=400x640 target=chrome.brand
+Review smoke stage=35 phase=3 file=0/0/0 ui_scale=1.50 window=400x640 target=chrome.brand
+Review picked: chrome.brand
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+Review smoke stage=36 phase=0 file=0/0/0 ui_scale=1.50 window=400x640 target=chrome.brand
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 7] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 21] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=37 phase=0 file=0/0/0 ui_scale=1.00 window=1280x820 target=chrome.brand
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=38 phase=2 file=1/2/0 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=39 phase=3 file=1/2/0 ui_scale=1.00 window=1280x820 target=file.action.save
+Review picked: file.action.save
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=40 phase=0 file=1/2/0 ui_scale=1.00 window=1280x820 target=file.action.save
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+Review smoke stage=41 phase=0 file=1/2/0 ui_scale=1.50 window=640x200 target=file.action.save
+INFO: TEXTURE: [ID 7] Texture loaded successfully (1280x400 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=42 phase=2 file=1/4/5 ui_scale=1.50 window=640x200 target=
+Review smoke stage=43 phase=3 file=1/4/5 ui_scale=1.50 window=640x200 target=file.scrollbar.thumb
+Review picked: file.scrollbar.thumb
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+Review smoke stage=44 phase=0 file=1/4/5 ui_scale=1.50 window=640x200 target=file.scrollbar.thumb
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 7] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 21] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=45 phase=0 file=0/4/5 ui_scale=1.00 window=1280x820 target=file.scrollbar.thumb
+Review smoke stage=46 phase=0 file=0/4/5 ui_scale=1.00 window=1280x820 target=file.scrollbar.thumb
+Review smoke stage=47 phase=0 file=0/4/5 ui_scale=1.00 window=1280x820 target=file.scrollbar.thumb
+PASS: native review filter/selection isolation, typed frozen cell, disabled ribbon/overflow, pane controls, 100/150 percent, capture/write retry, durable reports, queued query reply, title/ribbon pointer/keyboard targets and bounded File menu targets
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=48 phase=2 file=0/4/5 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=49 phase=3 file=0/4/5 ui_scale=1.00 window=1280x820 target=choice.ribbon_display.option.full
+Review picked: choice.ribbon_display.option.full
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=50 phase=0 file=0/4/5 ui_scale=1.00 window=1280x820 target=choice.ribbon_display.option.full
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+Review smoke stage=51 phase=0 file=0/4/5 ui_scale=1.50 window=760x640 target=choice.ribbon_display.option.full
+INFO: FBO: [ID 2] Unloaded framebuffer from VRAM (GPU)
+INFO: TEXTURE: [ID 7] Texture loaded successfully (832x1728 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=52 phase=2 file=0/4/5 ui_scale=1.50 window=760x640 target=
+Review smoke stage=53 phase=3 file=0/4/5 ui_scale=1.50 window=760x640 target=choice.interface_scale.option.extra_large
+Review picked: choice.interface_scale.option.extra_large
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+Review smoke stage=54 phase=0 file=0/4/5 ui_scale=1.50 window=760x640 target=choice.interface_scale.option.extra_large
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=55 phase=2 file=0/4/5 ui_scale=1.50 window=760x640 target=
+Review smoke stage=56 phase=3 file=0/4/5 ui_scale=1.50 window=760x640 target=choice.row_density.option.default
+Review picked: choice.row_density.option.default
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+Review smoke stage=57 phase=0 file=0/4/5 ui_scale=1.50 window=760x640 target=choice.row_density.option.default
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=58 phase=2 file=0/4/5 ui_scale=1.50 window=760x640 target=
+Review smoke stage=59 phase=3 file=0/4/5 ui_scale=1.50 window=760x640 target=choice.text_color.option.red
+Review picked: choice.text_color.option.red
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+Review smoke stage=60 phase=0 file=0/4/5 ui_scale=1.50 window=760x640 target=choice.text_color.option.red
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 21] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=61 phase=0 file=0/4/5 ui_scale=1.00 window=1280x820 target=choice.text_color.option.red
+Review smoke stage=62 phase=0 file=0/4/5 ui_scale=1.00 window=1280x820 target=choice.text_color.option.red
+PASS: native headed choice targets retain checked/focused state, popup clipping and frozen ribbon, UI scale, row density and text color
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+Review smoke stage=63 phase=0 file=0/4/5 ui_scale=1.50 window=640x200 target=choice.text_color.option.red
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1280x400 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=64 phase=2 file=1/4/4 ui_scale=1.50 window=640x200 target=
+Review smoke stage=65 phase=3 file=1/4/4 ui_scale=1.50 window=640x200 target=file.scrollbar.thumb
+Review smoke stage=66 phase=3 file=1/4/4 ui_scale=1.50 window=640x200 target=file.scrollbar.thumb
+Review smoke stage=67 phase=3 file=1/4/4 ui_scale=1.50 window=640x200 target=file.scrollbar.thumb
+Review picked: file.scrollbar.thumb
+INFO: FILEIO: [tests/results/native-review/compact-composer-150.png] File saved successfully
+INFO: FILEIO: [tests/results/native-review/compact-composer-150.png] Image exported successfully
+Review smoke stage=68 phase=4 file=1/4/4 ui_scale=1.50 window=640x200 target=file.scrollbar.thumb
+Native review saved: /Users/h2o/dev/duxcel/tests/results/runs/20261017T213533-review-79909/sanitize/outbox/DXR-S-1792272948-80023-17
+Review report three: DXR-S-1792272948-80023-17 capture_ms=3.363 write_ms=50.985 compact_note_lines=3
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+Review smoke stage=69 phase=0 file=1/4/4 ui_scale=1.50 window=640x200 target=file.scrollbar.thumb
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 21] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=70 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=file.scrollbar.thumb
+Review smoke stage=71 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=file.scrollbar.thumb
+Review smoke stage=72 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=file.scrollbar.thumb
+PASS: short 150 percent review composer has a visible multiline editor, pointer focus, actual Backspace and pointer Save with retained frozen state
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=73 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=74 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_context.action.copy
+Review picked: author.source_context.action.copy
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=75 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_context.action.copy
+Review smoke stage=76 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_context.action.copy
+Review smoke stage=77 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_context.action.copy
+PASS: native authoring review kind=source_context case=0 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=78 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=79 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.context.action.edit
+Review picked: author.context.action.edit
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=80 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.context.action.edit
+Review smoke stage=81 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.context.action.edit
+Review smoke stage=82 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.context.action.edit
+PASS: native authoring review kind=context case=1 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=83 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=84 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.context.action.width
+Review picked: author.context.action.width
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=85 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.context.action.width
+Review smoke stage=86 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.context.action.width
+PASS: native authoring review kind=context case=2 retains definitions, focus, owned pages, history and query jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+Review smoke stage=87 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.context.action.width
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=88 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=89 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.field.action.reveal_column
+Review picked: author.field.action.reveal_column
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+Review smoke stage=90 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.field.action.reveal_column
+Review smoke stage=91 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.field.action.reveal_column
+Review smoke stage=92 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.field.action.reveal_column
+PASS: native authoring review kind=field case=3 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=93 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=94 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.step.action.edit
+Review picked: author.step.action.edit
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+Review smoke stage=95 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.step.action.edit
+Review smoke stage=96 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.step.action.edit
+PASS: native authoring review kind=step case=4 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1536x320 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=97 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.step.action.edit
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=98 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=99 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.object.action.refresh
+Review picked: author.object.action.refresh
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=100 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.object.action.refresh
+Review smoke stage=101 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.object.action.refresh
+Review smoke stage=102 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.object.action.refresh
+PASS: native authoring review kind=object case=5 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=103 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=104 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.assign.rows
+Review picked: author.pivot_field.action.assign.rows
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=105 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.assign.rows
+Review smoke stage=106 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.assign.rows
+Review smoke stage=107 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.assign.rows
+PASS: native authoring review kind=pivot_field case=6 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=108 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=109 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.grain.year
+Review picked: author.pivot_field.action.grain.year
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=110 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.grain.year
+Review smoke stage=111 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.grain.year
+Review smoke stage=112 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.grain.year
+PASS: native authoring review kind=pivot_field case=7 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=113 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=114 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.aggregate.sum
+Review picked: author.pivot_field.action.aggregate.sum
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=115 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.aggregate.sum
+Review smoke stage=116 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.aggregate.sum
+Review smoke stage=117 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.pivot_field.action.aggregate.sum
+PASS: native authoring review kind=pivot_field case=8 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=118 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=119 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.marks.action.assign.f09240e07b5b8d640
+Review picked: author.marks.action.assign.f09240e07b5b8d640
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=120 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.marks.action.assign.f09240e07b5b8d640
+Review smoke stage=121 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.marks.action.assign.f09240e07b5b8d640
+Review smoke stage=122 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.marks.action.assign.f09240e07b5b8d640
+PASS: native authoring review kind=marks case=9 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=123 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=124 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.assign_field.action.assign.f09240e07b5b8d640
+Review picked: author.assign_field.action.assign.f09240e07b5b8d640
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=125 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.assign_field.action.assign.f09240e07b5b8d640
+Review smoke stage=126 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.assign_field.action.assign.f09240e07b5b8d640
+Review smoke stage=127 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.assign_field.action.assign.f09240e07b5b8d640
+PASS: native authoring review kind=assign_field case=10 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=128 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=129 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.representation.action.matrix
+Review picked: author.representation.action.matrix
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=130 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.representation.action.matrix
+Review smoke stage=131 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.representation.action.matrix
+Review smoke stage=132 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.representation.action.matrix
+PASS: native authoring review kind=representation case=11 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=133 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=134 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.plot.action.select.sum.exact.fba98a7152d80b949
+Review picked: author.plot.action.select.sum.exact.fba98a7152d80b949
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=135 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.plot.action.select.sum.exact.fba98a7152d80b949
+Review smoke stage=136 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.plot.action.select.sum.exact.fba98a7152d80b949
+Review smoke stage=137 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.plot.action.select.sum.exact.fba98a7152d80b949
+PASS: native authoring review kind=plot case=12 retains definitions, focus, owned pages, history and query jobs
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=138 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=139 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.view.action.bar
+Review picked: author.view.action.bar
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=140 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.view.action.bar
+Review smoke stage=141 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.view.action.bar
+PASS: native authoring review kind=view case=13 retains definitions, focus, owned pages, history and query jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=142 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.view.action.bar
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=143 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=144 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.column_width.action.width
+Review picked: author.column_width.action.width
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=145 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.column_width.action.width
+Review smoke stage=146 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.column_width.action.width
+Review smoke stage=147 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.column_width.action.width
+PASS: native dialog review kind=column_width ui_scale=1.0 retains draft text/cursor/anchor, modal ownership, models and jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+Review smoke stage=148 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.column_width.action.width
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=149 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=150 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.move_range.action.destination
+Review picked: author.move_range.action.destination
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=151 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.move_range.action.destination
+Review smoke stage=152 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.move_range.action.destination
+Review smoke stage=153 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.move_range.action.destination
+PASS: native dialog review kind=move_range ui_scale=1.5 retains draft text/cursor/anchor, modal ownership, models and jobs
+INFO: FBO: [ID 4] Unloaded framebuffer from VRAM (GPU)
+INFO: TEXTURE: [ID 8] Texture loaded successfully (2560x320 | R8G8B8A8 | 1 mipmaps)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=154 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.move_range.action.destination
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=155 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=156 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.object_name.action.name
+Review picked: author.object_name.action.name
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=157 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.object_name.action.name
+Review smoke stage=158 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.object_name.action.name
+Review smoke stage=159 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.object_name.action.name
+PASS: native dialog review kind=object_name ui_scale=1.0 retains draft text/cursor/anchor, modal ownership, models and jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+Review smoke stage=160 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.object_name.action.name
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=161 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=162 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.chart_size.action.rows
+Review picked: author.chart_size.action.rows
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=163 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.chart_size.action.rows
+Review smoke stage=164 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.chart_size.action.rows
+Review smoke stage=165 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.chart_size.action.rows
+Review smoke stage=166 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.chart_size.action.rows
+PASS: native dialog review kind=chart_size ui_scale=1.5 retains draft text/cursor/anchor, modal ownership, models and jobs
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=167 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=168 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.unsaved.action.save
+Review picked: author.unsaved.action.save
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=169 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.unsaved.action.save
+Review smoke stage=170 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.unsaved.action.save
+Review smoke stage=171 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.unsaved.action.save
+Review smoke stage=172 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.unsaved.action.save
+PASS: native dialog review kind=unsaved ui_scale=1.5 retains draft text/cursor/anchor, modal ownership, models and jobs
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=173 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=174 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.plot.action.select.avg.exact.fba98a7152d80b949
+Review picked: author.plot.action.select.avg.exact.fba98a7152d80b949
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=175 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.plot.action.select.avg.exact.fba98a7152d80b949
+Review smoke stage=176 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.plot.action.select.avg.exact.fba98a7152d80b949
+PASS: native Plot distinguishes SUM and AVG of the same raw field with separate semantic IDs and retained checked state
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=177 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.plot.action.select.avg.exact.fba98a7152d80b949
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=178 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=179 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_menu.action.move.up
+Review picked: author.sheet_menu.action.move.up
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=180 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_menu.action.move.up
+Review smoke stage=181 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_menu.action.move.up
+Review smoke stage=182 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_menu.action.move.up
+Review smoke stage=183 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_menu.action.move.up
+PASS: native worksheet review case=0 retains captured position/order, names, hidden state, draft/selection and pages/jobs
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=184 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=185 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_rename.action.name
+Review picked: author.sheet_rename.action.name
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=186 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_rename.action.name
+Review smoke stage=187 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_rename.action.name
+Review smoke stage=188 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_rename.action.name
+Review smoke stage=189 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_rename.action.name
+PASS: native worksheet review case=1 retains captured position/order, names, hidden state, draft/selection and pages/jobs
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=190 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=191 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_rename.action.name
+Review picked: author.sheet_rename.action.name
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=192 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_rename.action.name
+Review smoke stage=193 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_rename.action.name
+Review smoke stage=194 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_rename.action.name
+PASS: native worksheet review case=2 retains captured position/order, names, hidden state, draft/selection and pages/jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+Review smoke stage=195 phase=0 file=0/4/4 ui_scale=1.50 window=640x400 target=author.sheet_rename.action.name
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1280x800 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=196 phase=2 file=0/4/4 ui_scale=1.50 window=640x400 target=
+Review worksheet pointer queued stage=196 target=author.sheet_unhide.action.show.sheet18 bounds=278.50,312.00,331.50,42.00 clip=278.50,60.00,345.00,294.00 queued_point=444.25,333.00 window=640x400 render=1280x800 frame=640x400 framebuffer=1280x800 image=1280x800 texture=1280x800 display=0.00,0.00,640.00,400.00 mapped=444.25,333.00 bar=12.00,12.00,616.00,108.00 top=1 mode=1 phase=2 pending=1 blocked=0 mouse=0/0/0,0/0/0 direct=author.sheet_unhide.action.show.sheet18 transformed=author.sheet_unhide.action.show.sheet18 actual=<none> keyboard=0 dragging=0
+Review smoke stage=197 phase=3 file=0/4/4 ui_scale=1.50 window=640x400 target=author.sheet_unhide.action.show.sheet18
+Review picked: author.sheet_unhide.action.show.sheet18
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=198 phase=0 file=0/4/4 ui_scale=1.50 window=640x400 target=author.sheet_unhide.action.show.sheet18
+Review smoke stage=199 phase=0 file=0/4/4 ui_scale=1.50 window=640x400 target=author.sheet_unhide.action.show.sheet18
+PASS: native worksheet review case=3 retains captured position/order, names, hidden state, draft/selection and pages/jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=200 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_unhide.action.show.sheet18
+Review smoke stage=201 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sheet_unhide.action.show.sheet18
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=202 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=203 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_query.action.sql
+Review picked: author.source_query.action.sql
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=204 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_query.action.sql
+Review smoke stage=205 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_query.action.sql
+Review smoke stage=206 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_query.action.sql
+PASS: native source-query review owner=primary pending=0 retains SQL/cursor/focus, source and dependent pages; validation jobs=0 prepares=0 executed SQL=0
+Table 2 viewport: 5 rows, 1796 bytes, 7.70 ms query; count complete
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+Review smoke stage=207 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.source_query.action.sql
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=208 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=209 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.source_query.action.apply
+Review picked: author.source_query.action.apply
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=210 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.source_query.action.apply
+Review smoke stage=211 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.source_query.action.apply
+PASS: native source-query review owner=upstream table pending=1 retains SQL/cursor/focus, source and dependent pages; validation jobs=1 prepares=1 executed SQL=0
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=212 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_query.action.apply
+Table 4 viewport: 5 rows, 51635 bytes, 14.15 ms query; count complete
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+Review smoke stage=213 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.source_query.action.apply
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=214 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=215 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.source_relation.action.select.s1f5962a2ce9803c8.n0610a04a7f6a1534
+Review picked: author.source_relation.action.select.s1f5962a2ce9803c8.n0610a04a7f6a1534
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=216 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.source_relation.action.select.s1f5962a2ce9803c8.n0610a04a7f6a1534
+Review smoke stage=217 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.source_relation.action.select.s1f5962a2ce9803c8.n0610a04a7f6a1534
+PASS: native source-relation review retains actual table ownership, quoted cached names, source/model/pages and SQL/job counts
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=218 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_relation.action.select.s1f5962a2ce9803c8.n0610a04a7f6a1534
+Review smoke stage=219 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.source_relation.action.select.s1f5962a2ce9803c8.n0610a04a7f6a1534
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=220 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=221 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sort.priority.f2468b69d10791c82.move_up
+Review picked: author.sort.priority.f2468b69d10791c82.move_up
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=222 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sort.priority.f2468b69d10791c82.move_up
+Review smoke stage=223 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sort.priority.f2468b69d10791c82.move_up
+Review smoke stage=224 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sort.priority.f2468b69d10791c82.move_up
+PASS: native multi-sort review owner=primary ui_scale=1.0 retains draft order, search selection, stable field priorities, source/pages and query jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+Review smoke stage=225 phase=0 file=0/4/4 ui_scale=1.50 window=760x820 target=author.sort.priority.f2468b69d10791c82.move_up
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=226 phase=2 file=0/4/4 ui_scale=1.50 window=760x820 target=
+Review smoke stage=227 phase=3 file=0/4/4 ui_scale=1.50 window=760x820 target=author.sort.priority.fba98a7152d80b949.descending
+Review picked: author.sort.priority.fba98a7152d80b949.descending
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=228 phase=0 file=0/4/4 ui_scale=1.50 window=760x820 target=author.sort.priority.fba98a7152d80b949.descending
+Review smoke stage=229 phase=0 file=0/4/4 ui_scale=1.50 window=760x820 target=author.sort.priority.fba98a7152d80b949.descending
+PASS: native multi-sort review owner=upstream table ui_scale=1.5 retains draft order, search selection, stable field priorities, source/pages and query jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=230 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sort.priority.fba98a7152d80b949.descending
+Review smoke stage=231 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.sort.priority.fba98a7152d80b949.descending
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=232 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=233 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+Review picked: author.statistics.action.sum
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=234 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+Review smoke stage=235 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+Review smoke stage=236 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+PASS: native statistics review scope=DECIMAL source range retains checklist/focus, exact cached values/flags, source/model/pages and query jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+Review smoke stage=237 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.statistics.action.sum
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=238 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=239 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.statistics.action.sum
+Review picked: author.statistics.action.sum
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=240 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.statistics.action.sum
+Review smoke stage=241 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.statistics.action.sum
+PASS: native statistics review scope=matrix frame retains checklist/focus, exact cached values/flags, source/model/pages and query jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=242 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+Review smoke stage=243 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=244 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=245 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+Review picked: author.statistics.action.sum
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=246 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+Review smoke stage=247 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+Review smoke stage=248 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+Review smoke stage=249 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.statistics.action.sum
+PASS: native statistics review scope=primary range with Chart selected retains checklist/focus, exact cached values/flags, source/model/pages and query jobs
+Table 5 viewport: 6 rows, 1023 bytes, 25.12 ms query; count complete
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=250 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=251 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.action.copy
+Review picked: author.cell_inspector.action.copy
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=252 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.action.copy
+Review smoke stage=253 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.action.copy
+Review smoke stage=254 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.action.copy
+Review smoke stage=255 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.action.copy
+PASS: native cell-inspector review value=SQL NULL retains owned full text/type, pinned cell origin, layout/scroll, statistics, source/models/pages and query jobs; Copy never activated
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=256 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=257 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+Review picked: author.cell_inspector.value
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=258 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+Review smoke stage=259 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+Review smoke stage=260 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+Review smoke stage=261 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+PASS: native cell-inspector review value=empty VARCHAR retains owned full text/type, pinned cell origin, layout/scroll, statistics, source/models/pages and query jobs; Copy never activated
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=262 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=263 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+Review picked: author.cell_inspector.value
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=264 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+Review smoke stage=265 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+Review smoke stage=266 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+PASS: native cell-inspector review value=literal NULL retains owned full text/type, pinned cell origin, layout/scroll, statistics, source/models/pages and query jobs; Copy never activated
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+Review smoke stage=267 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.cell_inspector.value
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=268 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=269 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.cell_inspector.scrollbar.thumb
+Review picked: author.cell_inspector.scrollbar.thumb
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=270 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.cell_inspector.scrollbar.thumb
+Review smoke stage=271 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.cell_inspector.scrollbar.thumb
+PASS: native cell-inspector review value=50000-byte VARCHAR retains owned full text/type, pinned cell origin, layout/scroll, statistics, source/models/pages and query jobs; Copy never activated
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=272 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.scrollbar.thumb
+Review smoke stage=273 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.scrollbar.thumb
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=274 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=275 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.settings.action.interface.standard
+Review picked: author.settings.action.interface.standard
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=276 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.settings.action.interface.standard
+Review smoke stage=277 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.settings.action.interface.standard
+Review smoke stage=278 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.settings.action.interface.standard
+PASS: native Settings review layout=wide two columns at100% retains actual/requested UI scale, reduced motion, source/models/pages/statistics and query jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+Review smoke stage=279 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.settings.action.interface.standard
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=280 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=281 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.settings.action.reduce_motion
+Review picked: author.settings.action.reduce_motion
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=282 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.settings.action.reduce_motion
+Review smoke stage=283 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.settings.action.reduce_motion
+PASS: native Settings review layout=narrow single column at150% retains actual/requested UI scale, reduced motion, source/models/pages/statistics and query jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=284 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.settings.action.reduce_motion
+Review smoke stage=285 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.settings.action.reduce_motion
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=286 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=287 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.font_size.action.size.13
+Review picked: author.font_size.action.size.13
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=288 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.font_size.action.size.13
+Review smoke stage=289 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.font_size.action.size.13
+Review smoke stage=290 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.font_size.action.size.13
+PASS: native compact format review kind=font size retains worksheet range/revision, full format ownership/content/history, source/models/pages/statistics and query jobs
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+INFO: FBO: [ID 2] Unloaded framebuffer from VRAM (GPU)
+INFO: TEXTURE: [ID 7] Texture loaded successfully (960x1728 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=291 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.font_size.action.size.13
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=292 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=293 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.number_format.action.number
+Review picked: author.number_format.action.number
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=294 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.number_format.action.number
+Review smoke stage=295 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.number_format.action.number
+PASS: native compact format review kind=number retains worksheet range/revision, full format ownership/content/history, source/models/pages/statistics and query jobs; actual retained parent flyout restored and closed
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=296 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.number_format.action.number
+Review smoke stage=297 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.number_format.action.number
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=298 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=299 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.content
+Review picked: author.generated_sql.content
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=300 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.content
+Review smoke stage=301 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.content
+Review smoke stage=302 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.content
+PASS: native Generated SQL review owner=primary while another Pivot stays selected retains owned SQL/pinned origin, independent Transformations SQL, scroll0 and source/models/pages/statistics/jobs; Copy never activated
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 20] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+Review smoke stage=303 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.generated_sql.content
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1520x1280 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=304 phase=2 file=0/4/4 ui_scale=1.50 window=760x640 target=
+Review smoke stage=305 phase=3 file=0/4/4 ui_scale=1.50 window=760x640 target=author.generated_sql.action.copy
+Review picked: author.generated_sql.action.copy
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+Review smoke stage=306 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.generated_sql.action.copy
+Review smoke stage=307 phase=0 file=0/4/4 ui_scale=1.50 window=760x640 target=author.generated_sql.action.copy
+PASS: native Generated SQL review owner=upstream Table while another Pivot stays selected retains owned SQL/pinned origin, independent Transformations SQL, scroll0 and source/models/pages/statistics/jobs; Copy never activated
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 13] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 21] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+Review smoke stage=308 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.action.copy
+Review smoke stage=309 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.action.copy
+Review smoke stage=310 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.action.copy
+Review smoke stage=311 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.action.copy
+Review smoke stage=312 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.action.copy
+Review smoke stage=313 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.action.copy
+Review smoke stage=314 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.action.copy
+Review smoke stage=315 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.action.copy
+Review smoke stage=316 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.action.copy
+Review smoke stage=317 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.generated_sql.action.copy
+Table 9007199254740995 viewport: 5 rows, 1796 bytes, 67.81 ms query; count complete
+Table 9007199254740995 viewport: 5 rows, 1796 bytes, 16.03 ms query; count complete
+Table 9007199254740995 viewport: 5 rows, 1796 bytes, 11.99 ms query; count complete
+INFO: TEXTURE: [ID 14] Texture loaded successfully (2560x1640 | R8G8B8A8 | 1 mipmaps)
+Review smoke stage=318 phase=2 file=0/4/4 ui_scale=1.00 window=1280x820 target=
+Review smoke stage=319 phase=3 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+Review picked: author.cell_inspector.value
+INFO: TEXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+Review smoke stage=320 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+Review smoke stage=321 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=author.cell_inspector.value
+PASS: native owner lifetime load/delete/import/bind/delete/save/reopen retains retired uint64 IDs above2^53, exact sparse cells/spatial formats, exhausted and never-allocated sheets; exhausted import adds no object/query; reopened Table inspector capture/cancel retains exact owner and Pages without clipboard/panels
+Review smoke completed [0,322)
+Draw submission CPU p95=13.895 ms (excludes swap/pacing)
+Final relation rows=0 columns=0 cache offset=0 top=0 first_col=12
+Duxcel frames=672 mean=19.91 ms p95=43.08 ms max=100.31 ms dpi=2.0x2.0 logical=1280x820 framebuffer=2560x1640 smoke=0
+Worker jobs=23 SQL executions=48 count queries=4
+INFO: TEXTURE: [ID 3] Unloaded texture data from VRAM (GPU)
+INFO: FBO: [ID 3] Unloaded framebuffer from VRAM (GPU)
+INFO: FBO: [ID 1] Unloaded framebuffer from VRAM (GPU)
+INFO: FBO: [ID 2] Unloaded framebuffer from VRAM (GPU)
+INFO: FBO: [ID 4] Unloaded framebuffer from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 12] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 13] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 4] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+INFO: SHADER: [ID 3] Default shader unloaded successfully
+INFO: TEXTURE: [ID 1] Default texture unloaded successfully
+INFO: Window closed successfully
