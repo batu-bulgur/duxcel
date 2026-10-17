@@ -33,6 +33,7 @@ def main():
     parser.add_argument('--review-offline',action='store_true',help='Commit a report offline, reload real IndexedDB, then automatically upload')
     parser.add_argument('--dpr',type=int,choices=(1,2),default=1)
     parser.add_argument('--canvas-transform',action='store_true',help='Exercise review picking through an inset canvas CSS transform')
+    parser.add_argument('--platform',action='store_true',help='Real C DPI/pixel pan/zoom gate (review source fixture)')
     options=parser.parse_args()
     if options.filters and (not options.source or options.source.name!='transactions.csv'):
         parser.error('--filters requires --source tests/fixtures/transactions.csv')
@@ -42,6 +43,8 @@ def main():
         parser.error('--review requires --source tests/fixtures/transactions.csv and cannot use --worker-driver')
     if options.canvas_transform and not options.review:
         parser.error('--canvas-transform requires --review')
+    if options.platform and not options.review:
+        parser.error('--platform requires --review')
     if options.review_outbox and not options.review:
         parser.error('--review-outbox requires --review')
     if options.review_offline and not options.review:
@@ -82,6 +85,7 @@ def main():
             if options.review_offline: command.append('--review-offline')
             command.extend(['--dpr',str(options.dpr)])
             if options.canvas_transform:command.append('--canvas-transform')
+            if options.platform:command.append('--platform')
             process=subprocess.Popen(command,cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
             try:log,_=process.communicate(timeout=100)
             except subprocess.TimeoutExpired:

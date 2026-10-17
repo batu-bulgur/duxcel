@@ -18,6 +18,8 @@ typedef struct { uint64_t r0,r1; size_t c0,c1; bool active; } GridRegion;
 /* Snapshot input separately so regression tests exercise the actual interaction code. */
 typedef struct {
     Vector2 mouse, wheel;
+    Vector2 pixel_pan; /* precise layout pixels, positive right/down */
+    bool pixel_scroll; /* bypass legacy wheel detents/Shift remapping */
     bool pressed, released, down, right, shift, shortcut, alt;
     bool separate_keyboard,key_shift,key_shortcut,key_alt;
     int key;

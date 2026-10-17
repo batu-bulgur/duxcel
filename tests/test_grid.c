@@ -1069,6 +1069,23 @@ int main(int argc,char **argv) {
     g.top=100; CHECK(!grid_cached(&g,&unknown)); g.top=0;
     for (int i=0;i<40;i++) event(&g,&u,&p,(GridInput){.mouse={400,300},.wheel={0,-.01f}});
     CHECK(g.top==1 && fabs(g.fraction-.2)<.00001);
+    /* Preserve pixel tails, both axes and equal screen-space speed at zoom. */
+    uint64_t pan_active_row=g.row; size_t pan_active_col=g.col;
+    for (int scale=1;scale<=3;scale++) {
+        g.top=10; g.fraction=0; g.horizontal=100; u.scale=(float)scale;
+        grid_layout(&g,u.scale,&p,rect);
+        Vector2 pointer={g.body.x+50,g.body.y+50};
+        for (int i=0;i<40;i++) event(&g,&u,&p,(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={.125f,.25f},.wheel={99,99},.shift=true});
+        CHECK(fabs(((double)g.top+g.fraction-10)*(g.row_height>=18 ? g.row_height : 27)*scale-10)<.00001);
+        CHECK(fabs((g.horizontal-100)*scale-5)<.001);
+        CHECK(g.row==pan_active_row && g.col==pan_active_col);
+        g.block_pointer=true;
+        event(&g,&u,&p,(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={100,100}});
+        CHECK(fabs((g.horizontal-100)*scale-5)<.001); g.block_pointer=false;
+        for (int i=0;i<40;i++) event(&g,&u,&p,(GridInput){.mouse=pointer,.pixel_scroll=true,.pixel_pan={-.125f,-.25f}});
+        CHECK(fabs((double)g.top+g.fraction-10)<.00001 && fabs(g.horizontal-100)<.001);
+    }
+    u.scale=1; g.top=1; g.fraction=.2; g.horizontal=0; grid_layout(&g,1,&p,rect);
     grid_select_cell(&g,3,1,false);
     event(&g,&u,&p,(GridInput){.key=KEY_RIGHT,.shift=true}); event(&g,&u,&p,(GridInput){.key=KEY_DOWN,.shift=true});
     uint64_t r0,r1; size_t c0,c1; grid_bounds(&g,&r0,&r1,&c0,&c1);

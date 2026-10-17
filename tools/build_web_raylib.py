@@ -9,6 +9,7 @@ import tempfile
 import time
 
 import web_toolchain as tools
+import web_raylib_adapter as adapter
 from test import FileLock
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -19,7 +20,8 @@ def main():
     tools.require(state['ready'],'Run tools/web_toolchain.py bootstrap first')
     folder=ROOT/'build/web/raylib'; folder.mkdir(parents=True,exist_ok=True)
     tools.require(not folder.is_symlink(),'Web build directory must be owned by this checkout')
-    stamp={'source':lock['raylib']['commit'],'toolchain':lock_hash,'flags':'PLATFORM_WEB GRAPHICS_API_OPENGL_ES2 RELEASE STATIC upstream-gnu99','schema':1}
+    stamp={'source':lock['raylib']['commit'],'toolchain':lock_hash,'flags':'PLATFORM_WEB GRAPHICS_API_OPENGL_ES2 RELEASE STATIC upstream-gnu99','schema':2,
+           'adapter':{str(p.relative_to(ROOT)):tools.sha256(p) for p in adapter.INPUTS}}
     with FileLock(folder/'.build.lock','raylib web build'):
         source=folder/'src'; source_stamp=source/'.duxcel-build.json'
         if source.exists():
@@ -28,6 +30,7 @@ def main():
                 shutil.rmtree(source)
         if not source.exists():
             shutil.copytree(sdk/'raylib/src',source)
+            adapter.apply(source)
             source_stamp.write_text(json.dumps(stamp,indent=2)+'\n')
         output=folder/'staging'; output.mkdir(exist_ok=True)
         env=tools.environment(sdk,state)

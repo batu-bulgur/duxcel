@@ -58,6 +58,10 @@ typedef struct {
 bool dx_presentation_load(DxPresentation *presentation);
 void dx_presentation_save(const DxPresentation *presentation);
 float dx_take_magnification(void);
+#ifdef DUXCEL_BROWSER_HOST
+/* Non-consuming per-frame CSS-pixel pan; never monitor/backing pixels. */
+bool dx_web_pixel_pan(float *x,float *y);
+#endif
 typedef enum { DX_COMMAND_NONE,DX_COMMAND_OPEN,DX_COMMAND_SAVE,DX_COMMAND_SAVE_AS,DX_COMMAND_NEW_SHEET,DX_COMMAND_SETTINGS,
     DX_COMMAND_COPY,DX_COMMAND_PASTE,DX_COMMAND_SELECT_ALL,DX_COMMAND_UNDO,DX_COMMAND_REDO,DX_COMMAND_PIVOT,
     DX_COMMAND_FOCUS_NEXT,DX_COMMAND_FOCUS_PREVIOUS,DX_COMMAND_ALT_H,DX_COMMAND_ALT_D,DX_COMMAND_ALT_V,DX_COMMAND_ALT_R,DX_COMMAND_ALT_C,DX_COMMAND_ALT_F,DX_COMMAND_INSPECT,DX_COMMAND_EXPORT,DX_COMMAND_STATISTICS,DX_COMMAND_CONTEXT,

@@ -4,9 +4,18 @@
 #include <string.h>
 #ifdef DUXCEL_BROWSER_HOST
 #include <emscripten/emscripten.h>
+/* Implemented by the version-pinned web raylib platform adapter. */
+void dx_web_begin_frame(void);
+EM_JS(void, browser_first_frame, (void), {
+    if (!Module.dxFirstFrame) { Module.dxFirstFrame=true; performance.mark('duxcel:first-frame'); }
+});
 static void browser_frame(void *context) {
+    static bool rendered;
     AppSession *session=context;
-    if (!app_frame(session)) { emscripten_cancel_main_loop(); app_finish(session); }
+    dx_web_begin_frame();
+    bool running=app_frame(session);
+    if (!rendered) { browser_first_frame(); rendered=true; }
+    if (!running) { emscripten_cancel_main_loop(); app_finish(session); }
 }
 #endif
 int main(int argc, char **argv) {

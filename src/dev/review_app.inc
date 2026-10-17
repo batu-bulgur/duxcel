@@ -1,5 +1,9 @@
 /* Review-only App adapter. Included after the normal controllers so targets
    use their actual geometry/cache, with no database access or retained cells. */
+#ifdef DUXCEL_BROWSER_HOST
+#include <emscripten/heap.h>
+#include <malloc.h>
+#endif
 static DxReviewRect review_rect(Rectangle r) { return (DxReviewRect){r.x,r.y,r.width,r.height}; }
 static bool review_armed(App *a) { return a->review && a->review->phase==DX_REPORT_ARMED; }
 static DxReviewDataIdentity review_scope(App *a) {
@@ -27,6 +31,12 @@ static void review_begin_frame(App *a) {
     snprintf(f.document_id,sizeof(f.document_id),"%s-document-%u",a->review->frame.session_id,a->review->document_serial);
     snprintf(f.fonts,sizeof(f.fonts),"%s; IBMPlexSans-Medium.otf; IBMPlexSans-SemiBold.otf; %s",getenv("DUXCEL_FONT") ? getenv("DUXCEL_FONT") : "IBMPlexSans-Regular.otf",getenv("DUXCEL_MONO_FONT") ? getenv("DUXCEL_MONO_FONT") : "JetBrainsMono-Regular.ttf");
     snprintf(f.state_text,sizeof(f.state_text),"sheet=%zu modal=%d ribbon=%d/%d focus=%d/%d/%d filter_field=%zu filter_focus=%d filter_menu=%d search_cursor=%zu search_anchor=%zu search_revision=%llu active=%llu,%zu anchor=%llu,%zu extent=%llu,%zu top=%llu horizontal=%.3f page=%llu/%zu spare=%llu/%zu source_revision=%llu schema=%llu request=%llu busy=%d io_busy=%d dirty=%d",a->book.active,(int)a->modal,a->ribbon_tab,a->ribbon_mode,a->chrome_focus,a->pivot_focus,a->ribbon_focus,a->field,a->filter_focus,a->filter_condition_menu,a->input.cursor,a->input.anchor,(unsigned long long)a->input.revision,(unsigned long long)a->grid.row,a->grid.col,(unsigned long long)a->grid.anchor_row,a->grid.anchor_col,(unsigned long long)a->grid.end_row,a->grid.end_col,(unsigned long long)a->grid.top,a->grid.horizontal,(unsigned long long)a->page.offset,a->page.row_count,(unsigned long long)a->spare.offset,a->spare.row_count,(unsigned long long)a->analysis_revision,(unsigned long long)a->field_schema_generation,(unsigned long long)a->request_id,a->busy,a->io_busy,a->book.dirty);
+    size_t used=strlen(f.state_text);
+    snprintf(f.state_text+used,sizeof(f.state_text)-used," fraction=%.9f row_height=%.6f",a->grid.fraction,a->grid.row_height>=18 ? a->grid.row_height : 27);
+#ifdef DUXCEL_BROWSER_HOST
+    used=strlen(f.state_text);
+    snprintf(f.state_text+used,sizeof(f.state_text)-used," ui_heap=%zu ui_allocated=%u",emscripten_get_heap_size(),(unsigned)mallinfo().uordblks);
+#endif
     dx_review_capture_begin(a->review,&f);
 }
 static const char *review_action_id(UIAction action) {

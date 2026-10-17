@@ -97,6 +97,7 @@ bool dx_review_capture_pixels(DxReviewCapture *r) {
     r->error[0]=0; r->phase=DX_REPORT_PICK; r->capture_ms=dx_millis()-begin;
 #ifdef DUXCEL_BROWSER_HOST
     printf("Browser review captured: %s frame=%llu widgets=%zu\n",r->report_id,(unsigned long long)r->frame.frame_id,r->registry->count);
+    printf("Browser review state: %s zoom=%.6f ui_scale=%.6f logical=%d,%d framebuffer=%d,%d\n",r->frame.state_text,r->frame.grid_zoom,r->frame.ui_scale,r->frame.window_width,r->frame.window_height,r->frame.framebuffer_width,r->frame.framebuffer_height);
 #endif
     return true;
 }

@@ -4,6 +4,7 @@ import argparse,hashlib,json,os,shutil,subprocess,tempfile,time,shlex
 from pathlib import Path
 import web_toolchain as tools
 import package_web_vendor as vendor
+import web_raylib_adapter as adapter
 from test import FileLock,source_metadata
 ROOT=Path(__file__).resolve().parents[1]
 def main():
@@ -14,10 +15,11 @@ def main():
     library=ROOT/'build/web/raylib/libraylib.web.a'; lib_manifest=library.with_name('build.json')
     tools.require(library.is_file() and lib_manifest.is_file(),'Run tools/build_web_raylib.py first')
     lib=json.loads(lib_manifest.read_text());tools.require(tools.sha256(library)==lib['library_sha256'],'raylib web archive changed')
+    tools.require(lib.get('adapter')=={str(p.relative_to(ROOT)):tools.sha256(p) for p in adapter.INPUTS},'Rebuild the current browser platform adapter with tools/build_web_raylib.py')
     sources=tools.command(['make','--no-print-directory','web-worker-sources' if options.worker_driver else 'web-review-sources' if options.review else 'web-sources']).splitlines()
     tools.require(sources and all((ROOT/p).is_file() for p in sources),'Invalid shared web source inventory')
     headers=sorted((ROOT/'src').rglob('*.h'))+sorted((ROOT/'src').rglob('*.inc'))
-    host=[ROOT/'web/index.html',ROOT/'web/host.mjs',ROOT/'web/canvas_input.mjs',ROOT/'web/official_worker.mjs',ROOT/'web/engine_host.mjs',ROOT/'web/page_wire.mjs',ROOT/'assets/icons/png/duxcel-32.png']
+    host=[ROOT/'web/index.html',ROOT/'web/host.mjs',ROOT/'web/canvas_input.mjs',ROOT/'web/canvas_surface.mjs',ROOT/'web/canvas_wheel.mjs',ROOT/'web/browser_platform.mjs',ROOT/'web/official_worker.mjs',ROOT/'web/engine_host.mjs',ROOT/'web/page_wire.mjs',ROOT/'assets/icons/png/duxcel-32.png']
     if options.worker_driver:host=[p for p in host if p.name not in ('index.html','host.mjs','canvas_input.mjs')]+[ROOT/'web/worker_test_host.mjs']
     if options.review:host=[p for p in host if p.name!='host.mjs']+[ROOT/'web/host_review.mjs',ROOT/'web/review_host.mjs',ROOT/'web/review_queue.mjs']
     assets=sorted(p for base in ('assets/fonts','assets/ui') for p in (ROOT/base).rglob('*') if p.is_file())

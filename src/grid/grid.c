@@ -332,7 +332,7 @@ static double wheel_axis(Grid *g,double position,double maximum,double delta,flo
 void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
     GridInput masked;
     if (g->block_pointer && !g->dragging && !g->moving && g->resizing<0 && !g->scrollbar) {
-        masked=*in; masked.mouse=(Vector2){-1000000,-1000000}; masked.wheel=(Vector2){0}; masked.pressed=masked.right=false; in=&masked;
+        masked=*in; masked.mouse=(Vector2){-1000000,-1000000}; masked.wheel=masked.pixel_pan=(Vector2){0}; masked.pressed=masked.right=false; in=&masked;
     }
     GridInput keyboard=*in;
     if (in->separate_keyboard) { keyboard.shift=in->key_shift; keyboard.shortcut=in->key_shortcut; keyboard.alt=in->key_alt; }
@@ -381,12 +381,14 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
     bool hover=CheckCollisionPointRec(m,g->rect);
     if (hover && g->resizing<0 && !g->scrollbar) {
         double maximum=(double)(p->total>g->visible_rows ? p->total-g->visible_rows : 0)*row_height(g);
-        if (!in->shift) {
-            double position=wheel_axis(g,((double)g->top+g->fraction)*row_height(g),maximum,-in->wheel.y*3*row_height(g),&g->elastic.y,&g->spring_velocity.y);
+        if (in->pixel_scroll || !in->shift) {
+            double delta=in->pixel_scroll ? in->pixel_pan.y/s : -in->wheel.y*3*row_height(g);
+            double position=wheel_axis(g,((double)g->top+g->fraction)*row_height(g),maximum,delta,&g->elastic.y,&g->spring_velocity.y);
             scroll_to(g,data,position/row_height(g));
         }
         float max_x=g->width_count ? fmaxf(0,g->offsets[g->width_count]-g->body.width/s) : 0;
-        g->horizontal=(float)wheel_axis(g,g->horizontal,max_x,-(in->shift ? in->wheel.y : in->wheel.x)*52,&g->elastic.x,&g->spring_velocity.x);
+        double delta=in->pixel_scroll ? in->pixel_pan.x/s : -(in->shift ? in->wheel.y : in->wheel.x)*52;
+        g->horizontal=(float)wheel_axis(g,g->horizontal,max_x,delta,&g->elastic.x,&g->spring_velocity.x);
     }
     /* Hit testing and drawing use the exact same thumb geometry, including grab offset. */
     if (in->pressed && CheckCollisionPointRec(m,g->vtrack)) {
@@ -507,6 +509,9 @@ void grid_update(Grid *g,UIContext *u,const Page *p,Rectangle r,bool enabled) {
         .released=IsMouseButtonReleased(MOUSE_BUTTON_LEFT),.down=IsMouseButtonDown(MOUSE_BUTTON_LEFT),
         .right=IsMouseButtonPressed(MOUSE_BUTTON_RIGHT),.shift=ui_shift(),.shortcut=ui_shortcut(),
         .alt=IsKeyDown(KEY_LEFT_ALT)||IsKeyDown(KEY_RIGHT_ALT),.dt=GetFrameTime()};
+#ifdef DUXCEL_BROWSER_HOST
+    in.pixel_scroll=dx_web_pixel_pan(&in.pixel_pan.x,&in.pixel_pan.y);
+#endif
     const int navigation[]={KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT,KEY_HOME,KEY_END,KEY_PAGE_UP,KEY_PAGE_DOWN,KEY_TAB,KEY_ENTER,KEY_KP_ENTER};
     if (!ui_navigation_captured()) for (size_t i=0;i<sizeof(navigation)/sizeof(*navigation);i++) if (ui_key(navigation[i])) { in.key=navigation[i]; break; }
     const int commands[]={KEY_A,KEY_SPACE,KEY_KB_MENU,KEY_F10,KEY_ESCAPE};

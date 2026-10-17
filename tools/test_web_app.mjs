@@ -21,11 +21,13 @@ const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
 const reviewOffline=process.argv.includes('--review-offline');
 const canvasTransform=process.argv.includes('--canvas-transform');
+const platform=process.argv.includes('--platform');
 const dprIndex=process.argv.indexOf('--dpr'),dpr=dprIndex<0?1:Number(process.argv[dprIndex+1]);
 let sourceResult;
 let filterResult;
 let busyResult;
 let reviewResult;
+let platformResult;
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
 let stderr='',ws,cdp,activePhase='';const events=[],steps=[];let checks=0;const started=Date.now();
 function check(value,message){checks++;if(!value)throw new Error(message);}
@@ -66,6 +68,17 @@ async function beginReview(){
  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Shift',code:'ShiftLeft',windowsVirtualKeyCode:16,modifiers:2});
  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Control',code:'ControlLeft',windowsVirtualKeyCode:17});
  const captured=await waitConsole('Browser review captured: ',after);await frames();return captured;
+}
+async function platformSnapshot(){
+ await beginReview();
+ const line=consoleText('Browser review state: ').at(-1);
+ check(line,'Missing real C platform state');
+ const state=Object.fromEntries([...line.matchAll(/([a-z_]+)=([^ ]+)/g)].map(match=>[match[1],match[2]]));
+ await key('Escape','Escape',27);return state;
+}
+async function wheelBatch(dx,dy,count=1,options={}){
+ const result=await evaluate(`(()=>{const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();let claimed=0;for(let i=0;i<${count};i++){const event=new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:r.x+r.width*${options.x??.65},clientY:r.y+r.height*${options.y??.65},deltaX:${dx},deltaY:${dy},deltaMode:${options.mode??0},ctrlKey:${!!options.ctrl},shiftKey:${!!options.shift}});canvas.dispatchEvent(event);if(event.defaultPrevented)claimed++;}return claimed;})()`);
+ check(result===count,'Canvas wheel default/duplicate ownership failed');await frames(3);
 }
 async function pendingReports(){
  return evaluate(`(async()=>{const {createIndexedDBReviewStore}=await import('/review_queue.mjs');const store=createIndexedDBReviewStore();try{return(await store.listPending()).map(row=>({report_id:row.reportId,digest:row.digest,bytes:row.blob.size}));}finally{store.close();}})()`);
@@ -154,13 +167,14 @@ try{
  }
  check(ready,'Shared C App did not initialize');await pause(350);
  await evaluate('globalThis.duxcelTestNavigation=[];window.addEventListener("keydown",event=>{if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Home","End","PageUp","PageDown"].includes(event.key))globalThis.duxcelTestNavigation.push({key:event.key,shift:event.shiftKey,default_prevented:event.defaultPrevented,canvas:event.target===document.querySelector("canvas")})});true');
- if(canvasTransform){await evaluate('Object.assign(document.querySelector("canvas").style,{position:"absolute",left:"8%",top:"6%",width:"80%",height:"80%"})');await frames();}
+ if(canvasTransform){await evaluate('Object.assign(document.querySelector("canvas").style,{position:"absolute",left:"8%",top:"6%",transform:"scale(.8)",transformOrigin:"top left"})');await frames();}
  const errors=events.filter(e=>e.method==='Runtime.exceptionThrown');check(!errors.length,'Uncaught browser exception');
  const glErrors=events.filter(e=>e.method==='Log.entryAdded'&&/WebGL: (INVALID|too many)/.test(e.params.entry.text));
  check(!glErrors.length,'WebGL reported invalid rendering operations');
  const surface=await evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,canvas:[document.querySelector("canvas").width,document.querySelector("canvas").height]})');
  check(surface.width===1280&&surface.height===820,'Viewport mismatch');
  check(surface.dpr===dpr,'Browser device pixel ratio mismatch');
+ check(surface.canvas[0]===1280*dpr&&surface.canvas[1]===820*dpr,'Framebuffer is not rendered at actual DPR');
  await capture('wide');
  if(workerProbe){
   const probe=await evaluate(`import('./official_worker_probe.mjs').then(module=>fetch('./vendor.json').then(response=>response.json()).then(vendor=>module.runWorkerProbe({baseURL:location.href,...vendor.worker})))`,65000);
@@ -186,6 +200,57 @@ try{
   }
   const imported=await waitPage();sourceResult={...imported,selection_to_c_reply_ms:Date.now()-importStarted};check(imported.rows>0&&imported.columns>0,'Imported C Page is empty');await frames(4);await capture('imported');
   if(sourceFile.endsWith('/transactions.csv')){check(imported.total==='5'&&imported.columns===6,'CSV import count/schema changed');await click(716,102);const sorted=await waitPage(imported.id);check(sorted.total==='5','Sort changed source count');await frames();await capture('sorted');}
+  if(platform){
+   const baseline=await platformSnapshot(),beforeJobs=starts().length;
+   const factor=canvasTransform?1/.8:1;
+   await wheelBatch(.125,.25,40);
+   const panned=await platformSnapshot();
+   const vertical=state=>Number(state.top)+Number(state.fraction);
+   check(Math.abs(Number(panned.horizontal)-Number(baseline.horizontal)-5*factor)<.002,'Fractional horizontal pan was lost/quantized/reversed');
+   check(Math.abs((vertical(panned)-vertical(baseline))*Number(baseline.row_height)-10*factor)<.002,'Fractional vertical tails were lost/quantized');
+   check(panned.active===baseline.active&&panned.extent===baseline.extent,'Panning moved selection');
+   await wheelBatch(-.125,-.25,40);const reversed=await platformSnapshot();
+   check(Math.abs(vertical(reversed)-vertical(baseline))<.00001&&Math.abs(Number(reversed.horizontal)-Number(baseline.horizontal))<.002,'Reverse pan did not return to origin');
+   // A real browser-generated wheel also enters the same C pixel route.
+   const rect=await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return{x:r.x+r.width*.65,y:r.y+r.height*.65}})()');
+   await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:rect.x,y:rect.y,deltaX:.5,deltaY:.25});await frames(3);
+   const trusted=await platformSnapshot();
+   check(Math.abs(Number(trusted.horizontal)-Number(reversed.horizontal)-.5*factor)<.002&&Math.abs((vertical(trusted)-vertical(reversed))*Number(baseline.row_height)-.25*factor)<.002,'Browser wheel delivery diverges from DOM pixel input');
+   await wheelBatch(-.5,-.25);
+   await wheelBatch(0,.5,4,{shift:true});const shifted=await platformSnapshot();
+   check(Math.abs(Number(shifted.horizontal)-Number(reversed.horizontal)-2*factor)<.002&&vertical(shifted)===vertical(reversed),'Shift wheel ownership/axis mismatch');
+   await wheelBatch(0,-.5,4,{shift:true});
+   await wheelBatch(.5,.75,4,{y:.05});const chrome=await platformSnapshot();
+   check(Math.abs(vertical(chrome)-vertical(baseline))<.00001&&Math.abs(Number(chrome.horizontal)-Number(baseline.horizontal))<.002,'Ribbon wheel leaked into worksheet');
+   await wheelBatch(.5,.75,4,{x:.05});const sidebar=await platformSnapshot();
+   check(Math.abs(vertical(sidebar)-vertical(baseline))<.00001&&Math.abs(Number(sidebar.horizontal)-Number(baseline.horizontal))<.002,'Sidebar wheel leaked into worksheet');
+   await wheelBatch(0,-20,1,{ctrl:true});const zoomed=await platformSnapshot();
+   check(Number(zoomed.zoom)>Number(baseline.zoom)&&zoomed.ui_scale===baseline.ui_scale,'Pinch did not zoom canvas independently');
+   await wheelBatch(0,20,1,{ctrl:true});const restored=await platformSnapshot();
+   check(Math.abs(Number(restored.zoom)-Number(baseline.zoom))<.00001,'Reciprocal pinch did not restore canvas zoom');
+   const densities=[];
+   for(const ratio of [1.25,2,1]){
+    await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:ratio,mobile:false});await pause(300);await frames(5);
+    const state=await platformSnapshot();densities.push({ratio,state});
+    check(state.logical==='1280,820'&&state.framebuffer===`${Math.floor(1280*ratio)},${Math.floor(820*ratio)}`,'DPR change did not synchronize logical/framebuffer dimensions');
+    check(state.ui_scale===baseline.ui_scale&&state.zoom===restored.zoom&&state.active===baseline.active,'DPR change altered UI/grid scale or cell selection');
+    await capture('density-'+ratio);
+   }
+   // CSS embedding is independent of the browser viewport. GLFW must preserve
+   // the host's explicit sizing through a subsequent DPR notification.
+   await evaluate('Object.assign(document.querySelector("canvas").style,{width:"75%",height:"80%"})');await frames(5);
+   await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:2,mobile:false});await pause(300);await frames(5);
+   const embedded=await platformSnapshot();
+   check(embedded.logical==='960,656'&&embedded.framebuffer==='1920,1312','CSS-sized embedded surface was overwritten by GLFW/DPR');
+   check(await evaluate('document.querySelector("canvas").style.width==="75%"&&document.querySelector("canvas").style.height==="80%"'),'GLFW removed host canvas CSS dimensions');
+   await evaluate('const s=document.querySelector("canvas").style;s.removeProperty("width");s.removeProperty("height");true');
+   await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:dpr,mobile:false});await frames(5);
+   // Restore the pan origin before the shared filter/header regression.
+   const final=await platformSnapshot();
+   await wheelBatch(-Number(final.horizontal)/factor,-vertical(final)*Number(final.row_height)/factor);await frames();
+   platformResult={baseline,panned,reversed,trusted,shifted,chrome,sidebar,zoomed,restored,densities,embedded,query_jobs:starts().length-beforeJobs,
+    scope:'Real C grid under fractional DOM wheel bursts, DPI changes and captured GPU frames; physical trackpad/Safari gesture feel remains separate.'};
+  }
   if(filters){
    // Fixed 1280x820, 100% reference state; input goes through the actual C UI.
    await click(512,200);const cities=await waitDistinct();
@@ -285,11 +350,13 @@ try{
  await click(1174,42);await capture('ribbon-display');await key('Escape','Escape',27);
  await send('Emulation.setDeviceMetricsOverride',{width:640,height:640,deviceScaleFactor:dpr,mobile:false});await frames(4);await capture('narrow');
  const narrow=await evaluate('({width:innerWidth,height:innerHeight,canvas:[document.querySelector("canvas").width,document.querySelector("canvas").height]})');
- check(narrow.width===640&&narrow.height===640&&narrow.canvas[0]===640&&narrow.canvas[1]===640,'Narrow canvas mismatch');
+ check(narrow.width===640&&narrow.height===640&&narrow.canvas[0]===640*dpr&&narrow.canvas[1]===640*dpr,'Narrow canvas mismatch');
  const lateErrors=events.filter(e=>e.method==='Runtime.exceptionThrown'||e.method==='Log.entryAdded'&&/WebGL: (INVALID|too many)/.test(e.params.entry.text));
  check(!lateErrors.length,'Runtime/rendering error after interactions');
  await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,workerProbe,scope:'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; workbook persistence is not accepted'},null,2));
+ const resources=await evaluate('({first_frame:performance.getEntriesByName("duxcel:first-frame").map(e=>({start_ms:e.startTime})),resources:performance.getEntriesByType("resource").map(e=>({name:e.name,start_ms:e.startTime,duration_ms:e.duration,transfer_bytes:e.transferSize,encoded_bytes:e.encodedBodySize,decoded_bytes:e.decodedBodySize})),main_js_heap:performance.memory?{used:performance.memory.usedJSHeapSize,total:performance.memory.totalJSHeapSize,limit:performance.memory.jsHeapSizeLimit}:null})');
+ await fs.writeFile(path.join(output,'resources.json'),JSON.stringify(resources,null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,platformResult,workerProbe,scope:'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){
