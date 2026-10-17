@@ -128,6 +128,7 @@ typedef enum {
     WAIT_STATS_RANGE,WAIT_STATS_OFFSET,WAIT_STATS_EXACT,WAIT_STATS_TINY,WAIT_STATS_TEXT,WAIT_STATS_FILTERED,WAIT_STATS_OVERFLOW,WAIT_STATS_NONFINITE,WAIT_STATS_ZERO,WAIT_STATS_EMPTY,
     WAIT_STATS_OBJECT,WAIT_STATS_PIVOT,WAIT_STATS_MIXED,WAIT_STATS_STAMP,WAIT_STATS_BOUNDS,WAIT_STATS_COLUMN,WAIT_STATS_CANCEL,WAIT_STATS_FINAL,
     WAIT_STATS_TABLE,WAIT_STATS_ROWS,WAIT_STATS_ROWS_AVG,WAIT_STATS_COLUMNS_AVG,WAIT_STATS_COLUMNS_SUBSET,WAIT_STATS_COLUMNS_DATE,WAIT_STATS_GRAND,WAIT_STATS_TABLE_BAD,WAIT_STATS_ANALYSIS_CANCEL,WAIT_STATS_ANALYSIS_FINAL,
+    WAIT_MIX_BLANK,WAIT_MIX_MANUAL,WAIT_MIX_TEXT,WAIT_MIX_EXACT,WAIT_MIX_OBJECTS,WAIT_MIX_DATE,WAIT_MIX_INVALID,WAIT_MIX_STAMP,WAIT_MIX_PRIMARY_BAD,WAIT_MIX_SOURCE_BAD,WAIT_MIX_BUDGET,WAIT_MIX_SQL,WAIT_MIX_CUMULATIVE,WAIT_MIX_ENGINE,WAIT_MIX_CANCEL_DOMAIN,WAIT_MIX_CANCEL_SCALAR,WAIT_MIX_FINAL,
     WAIT_OVERSIZE_SCHEMA,RUN_OVERSIZE,
     WAIT_OVERSIZE_ERROR,WAIT_OVERSIZE_RECOVERY,WAIT_SUPERSEDE_SCHEMA,
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
@@ -287,6 +288,66 @@ static void submit_statistics(StatisticsCase kind,unsigned sql_count) {
             if (kind==STAT_COLUMNS_SUBSET || kind==STAT_COLUMNS_NEW_REVISION) { job->offset=2; job->rows=2; }
             if (kind==STAT_COLUMNS_NEW_REVISION) job->revision=statistics_revision=revision_id+4;
         }
+    }
+    expected_sql+=sql_count; worker_submit(&worker,job);
+}
+typedef enum { MIX_BLANK,MIX_MANUAL,MIX_TEXT,MIX_EXACT,MIX_OBJECTS,MIX_DATE,MIX_INVALID,MIX_STAMP,MIX_PRIMARY_BAD,MIX_SOURCE_BAD,MIX_BUDGET,MIX_SQL,MIX_CUMULATIVE,MIX_ENGINE } MixedCase;
+static size_t mixed_source(StatisticsRequest *request,uint64_t id,const char *sql) {
+    Analysis source={.kind=SOURCE_DEMO,.query=(char *)sql}; size_t index=source_snapshot_bind(&request->sources,id,&source,NULL); CHECK(index!=SIZE_MAX); return index;
+}
+static void submit_mixed(MixedCase kind,unsigned sql_count) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job)); job->id=expected_id=next_id; next_id+=4; job->kind=expected_kind=JOB_STATISTICS; expected_preview=false; expected_offset=0; statistics_object=0; job->revision=statistics_revision=revision_id;
+    StatisticsRequest *request=job->statistics=dx_alloc(sizeof(*request)); request->cells=20;
+    if (kind==MIX_BLANK) request->cells=DX_SHEET_ROWS*UINT64_C(16384);
+    else if (kind==MIX_MANUAL) {
+        CHECK(statistics_request_text(request,"",NULL) && statistics_request_text(request,"NULL",NULL) && statistics_request_text(request,"1",NULL) && statistics_request_text(request,"NULL",NULL) && statistics_request_text(request,"O'Reilly",NULL));
+    } else if (kind==MIX_TEXT || kind==MIX_EXACT) {
+        const char *sql=kind==MIX_TEXT ? statistics_text_sql : statistics_exact_sql;
+        job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(sql)}; CHECK(mixed_source(request,object_id,sql)==1);
+        request->count=2;
+        request->ranges[0]=(StatisticsRange){.rows=kind==MIX_TEXT ? 5 : 3,.columns=kind==MIX_TEXT ? 1 : 3};
+        request->ranges[1]=(StatisticsRange){.source=1,.rows=kind==MIX_TEXT ? 5 : 2,.columns=kind==MIX_TEXT ? 1 : 2};
+        CHECK(statistics_request_text(request,"",NULL) && statistics_request_text(request,"NULL",NULL) && statistics_request_text(request,"1",NULL));
+    } else if (kind==MIX_OBJECTS) {
+        job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(range_sql)}; CHECK(mixed_source(request,object_id,columns_exact_sql)==1);
+        request->cells=700; request->count=4;
+        request->ranges[0]=(StatisticsRange){.rows=600,.column=2,.columns=1};
+        request->ranges[1]=(StatisticsRange){.source=1,.rows=13,.column=2,.columns=1};
+        for (size_t i=2;i<4;i++) {
+            StatisticsRange *range=&request->ranges[i]; *range=(StatisticsRange){.is_pivot=true,.source=1,.rows=5,.column=1,.columns=i==3 ? 9 : 1};
+            CHECK(pivot_assign(&range->pivot,PIVOT_ROWS,"r",AGG_SUM,NULL) && pivot_assign(&range->pivot,PIVOT_VALUES,"v",AGG_AVG,NULL));
+            if (i==3) CHECK(pivot_assign(&range->pivot,PIVOT_COLUMNS,"c",AGG_SUM,NULL));
+        }
+    } else if (kind==MIX_DATE) {
+        job->refresh_source=true; request->cells=32; request->count=2; CHECK(mixed_source(request,object_id,dates_sql)==1);
+        Analysis filtered={.kind=SOURCE_DEMO,.query=(char *)statistics_filter_sql}; CHECK(analysis_filter_set(&filtered,"amount",FILTER_GREATER,"1.005",NULL));
+        CHECK(source_snapshot_bind(&request->sources,object_id+4,&filtered,NULL)==2); free(filtered.filter_column); free(filtered.filter_value);
+        StatisticsRange *range=&request->ranges[0]; *range=(StatisticsRange){.is_pivot=true,.source=1,.rows=1,.columns=15};
+        CHECK(pivot_assign_grain(&range->pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_MONTH,NULL) && pivot_assign_grain(&range->pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_QUARTER,NULL) && pivot_assign(&range->pivot,PIVOT_VALUES,"occurred",AGG_COUNT,NULL));
+        request->ranges[1]=(StatisticsRange){.source=2,.rows=2,.columns=1};
+        CHECK(statistics_request_text(request,"",NULL) && statistics_request_text(request,"NULL",NULL));
+    } else if (kind==MIX_INVALID || kind==MIX_STAMP) {
+        job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(range_sql)}; request->count=2;
+        request->ranges[0]=(StatisticsRange){.rows=1,.columns=1}; request->ranges[1]=(StatisticsRange){.rows=1,.columns=1,.source=kind==MIX_INVALID ? 1 : 0,.expected_source_stamp=kind==MIX_STAMP ? 1 : 0};
+    } else if (kind==MIX_PRIMARY_BAD || kind==MIX_SOURCE_BAD) {
+        Analysis *source=&job->analysis;
+        if (kind==MIX_SOURCE_BAD) { request->sources.count=1; request->sources.ids[0]=object_id; source=&request->sources.items[0]; }
+        *source=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup("SELECT 1"),.filter_count=SIZE_MAX,.sort_count=SIZE_MAX};
+        for (size_t i=0;i<sizeof(source->filters)/sizeof(*source->filters);i++) source->filters[i]=(AnalysisFilter){.column=dx_strdup("Owned invalid filter"),.value=dx_strdup("")};
+        for (size_t i=0;i<sizeof(source->sorts)/sizeof(*source->sorts);i++) source->sorts[i]=(AnalysisSort){.column=dx_strdup("Owned invalid sort")};
+    } else if (kind==MIX_BUDGET) {
+        char *value=dx_alloc(700001); memset(value,'a',700000);
+        Analysis source={.kind=SOURCE_DEMO,.filter_column="label",.filter_op=FILTER_EQUAL,.filter_value=value};
+        for (uint64_t i=1;i<=6;i++) CHECK(source_snapshot_bind(&request->sources,i,&source,NULL)==i); free(value);
+    } else if (kind==MIX_SQL) {
+        char *value=dx_alloc(600001); memset(value,'\'',600000); CHECK(statistics_request_text(request,value,NULL)); free(value);
+    } else if (kind==MIX_CUMULATIVE) {
+        char *value=dx_alloc(60001); memset(value,'a',60000);
+        job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_printf("SELECT '%s'::VARCHAR AS value",value)}; free(value);
+        request->count=20; for (size_t i=0;i<request->count;i++) request->ranges[i]=(StatisticsRange){.rows=1,.columns=1};
+    } else if (kind==MIX_ENGINE) {
+        job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(range_sql)}; CHECK(mixed_source(request,object_id,"SELECT absent FROM missing_mixed_table")==1);
+        request->count=2; request->ranges[0]=(StatisticsRange){.rows=1,.columns=1}; request->ranges[1]=(StatisticsRange){.source=1,.rows=1,.columns=1};
     }
     expected_sql+=sql_count; worker_submit(&worker,job);
 }
@@ -790,7 +851,7 @@ static void tick(void) {
         submit_statistics(STAT_MIXED,0); enter(WAIT_STATS_MIXED); return;
     case WAIT_STATS_MIXED:
         if (!poll_received(true,false)) return;
-        CHECK(strstr(reply->error,"Mixed cells")); statistics_error(); release_reply(); pass("owned mixed-selection snapshots reject and release before any browser SQL");
+        CHECK(strstr(reply->error,"snapshot bounds")); statistics_error(); release_reply(); pass("malformed owned mixed-selection snapshots reject and release before any browser SQL");
         submit_statistics(STAT_STAMP,0); enter(WAIT_STATS_STAMP); return;
     case WAIT_STATS_STAMP:
         if (!poll_received(true,false)) return;
@@ -850,6 +911,73 @@ static void tick(void) {
     case WAIT_STATS_ANALYSIS_FINAL:
         if (!received(false)) return;
         statistics_values(18,7,7,5); CHECK(reply->revision==revision_id+4 && !strcmp(reply->statistics.sum,"38")); release_reply(); pass("analytical statistics recovery publishes the current object revision with independently owned results");
+        submit_mixed(MIX_BLANK,1); enter(WAIT_MIX_BLANK); return;
+    case WAIT_MIX_BLANK:
+        if (!received(false)) return;
+        statistics_values(DX_SHEET_ROWS*UINT64_C(16384),0,0,0); CHECK(!reply->statistics.sum && !reply->statistics.average); release_reply(); pass("blank-only statistics preserve the exact full worksheet logical area without enumerating sparse NULL cells");
+        submit_mixed(MIX_MANUAL,1); enter(WAIT_MIX_MANUAL); return;
+    case WAIT_MIX_MANUAL:
+        if (!received(false)) return;
+        statistics_values(20,5,0,4); CHECK(!reply->statistics.sum && !reply->statistics.approximate); release_reply(); pass("manual-only labels keep empty, literal NULL and numeric-looking VARCHAR distinct from sparse missing cells");
+        submit_mixed(MIX_TEXT,2); enter(WAIT_MIX_TEXT); return;
+    case WAIT_MIX_TEXT:
+        if (!received(false)) return;
+        statistics_values(20,11,0,4); CHECK(!reply->statistics.sum); release_reply(); pass("one global typed DISTINCT deduplicates equal text across primary, table and manual owners");
+        submit_mixed(MIX_EXACT,2); enter(WAIT_MIX_EXACT); return;
+    case WAIT_MIX_EXACT:
+        if (!received(false)) return;
+        statistics_values(20,13,8,6); CHECK(!reply->statistics.approximate && !strcmp(reply->statistics.sum,"680564733841876926926749214863536422907.99999999999999999999999999999999999998") && !strcmp(reply->statistics.minimum,"-0.00000000000000000000000000000000000002") && !strcmp(reply->statistics.maximum,"170141183460469231731687303715884105727")); release_reply(); pass("mixed HUGEINT and scale38 DECIMAL stay exact and deduplicate typed values across owners");
+        submit_mixed(MIX_OBJECTS,6); enter(WAIT_MIX_OBJECTS); return;
+    case WAIT_MIX_OBJECTS:
+        if (!received(false)) return;
+        statistics_values(700,626,626,120); CHECK(reply->statistics.approximate && !strcmp(reply->statistics.sum,"30718") && !strcmp(reply->statistics.minimum,"0") && !strcmp(reply->statistics.maximum,"200") && strtod(reply->statistics.average,NULL)>49.07 && strtod(reply->statistics.average,NULL)<49.08); release_reply(); pass("mixed full600-row source, table, Rows and actual Columns PIVOT cells share one global numeric aggregate");
+        submit_mixed(MIX_DATE,7); enter(WAIT_MIX_DATE); return;
+    case WAIT_MIX_DATE:
+        if (!received(false)) return;
+        statistics_values(32,19,17,7); CHECK(!reply->statistics.approximate && !strcmp(reply->statistics.sum,"11.03") && !strcmp(reply->statistics.minimum,"0") && !strcmp(reply->statistics.maximum,"5")); release_reply(); pass("mixed date-grain COUNT intersections and exact filtered table cells retain their independent typed schemas");
+        submit_mixed(MIX_INVALID,0); enter(WAIT_MIX_INVALID); return;
+    case WAIT_MIX_INVALID:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"range inside the worksheet")); statistics_error(); release_reply(); pass("an invalid later source reference rejects the whole snapshot before even its first range SQL");
+        submit_mixed(MIX_STAMP,0); enter(WAIT_MIX_STAMP); return;
+    case WAIT_MIX_STAMP:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"Native source stamps")); statistics_error(); release_reply(); pass("unverifiable range source stamps fail before mixed browser SQL");
+        submit_mixed(MIX_PRIMARY_BAD,0); enter(WAIT_MIX_PRIMARY_BAD); return;
+    case WAIT_MIX_PRIMARY_BAD:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"Invalid browser source definition")); statistics_error(); release_reply(); pass("owned primary Analysis with malformed nested counts rejects and cleans every allocated fixed-array slot");
+        submit_mixed(MIX_SOURCE_BAD,0); enter(WAIT_MIX_SOURCE_BAD); return;
+    case WAIT_MIX_SOURCE_BAD:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"Invalid browser source definition")); statistics_error(); release_reply(); pass("owned source snapshots with malformed nested counts reject without SQL or unsafe cleanup");
+        submit_mixed(MIX_BUDGET,0); enter(WAIT_MIX_BUDGET); return;
+    case WAIT_MIX_BUDGET:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"4 MiB")); statistics_error(); release_reply(); pass("actual owned source-definition bytes reject oversized mixed snapshots before SQL");
+        submit_mixed(MIX_SQL,0); enter(WAIT_MIX_SQL); return;
+    case WAIT_MIX_SQL:
+        if (!poll_received(true,false)) return;
+        CHECK(strstr(reply->error,"1 MiB")); statistics_error(); release_reply(); pass("escaped manual-label SQL respects the1MiB cap before an engine query");
+        submit_mixed(MIX_CUMULATIVE,1); enter(WAIT_MIX_CUMULATIVE); return;
+    case WAIT_MIX_CUMULATIVE:
+        if (!received(true)) return;
+        CHECK(strstr(reply->error,"1 MiB")); statistics_error(); release_reply(); pass("cumulative typed range SQL rejects atomically after schema planning without publishing partial statistics");
+        submit_mixed(MIX_ENGINE,2); enter(WAIT_MIX_ENGINE); return;
+    case WAIT_MIX_ENGINE:
+        if (!received(true)) return;
+        CHECK(strstr(reply->error,"missing_mixed_table")); statistics_error(); release_reply(); pass("a later range engine error discards all earlier staged cell SQL and emits no partial aggregate");
+        hold_matrix_reply(3); submit_mixed(MIX_OBJECTS,3); enter(WAIT_MIX_CANCEL_DOMAIN); return;
+    case WAIT_MIX_CANCEL_DOMAIN:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        counters(); worker_cancel(&worker); CHECK(!worker.running); release_matrix_reply(); quiet(); retained_values(); pass("cancelled mixed Columns domain callbacks cannot publish or retain staged earlier ranges");
+        hold_matrix_reply(6); submit_mixed(MIX_OBJECTS,6); enter(WAIT_MIX_CANCEL_SCALAR); return;
+    case WAIT_MIX_CANCEL_SCALAR:
+        if (!matrix_reply_held()) { CHECK(!reply); reply=worker_poll(&worker); CHECK(!reply && worker.running); return; }
+        counters(); worker_cancel(&worker); CHECK(!worker.running); submit_mixed(MIX_MANUAL,1); release_matrix_reply(); CHECK(worker.running && !worker_poll(&worker)); pass("a late mixed aggregate callback is ignored while a newer owned snapshot is active"); enter(WAIT_MIX_FINAL); return;
+    case WAIT_MIX_FINAL:
+        if (!received(false)) return;
+        statistics_values(20,5,0,4); CHECK(!reply->statistics.sum); release_reply(); pass("mixed cancellation and local/engine errors recover with an independent current scalar");
         submit(JOB_VALIDATE_SQL,long_sql,0,-1,false,1); enter(WAIT_OVERSIZE_SCHEMA); return;
     case WAIT_OVERSIZE_SCHEMA:
         if (!received(false)) return;
@@ -921,7 +1049,7 @@ static void tick(void) {
         CHECK(late_callbacks==2 && !worker.started && !worker.running && !worker.reply); worker_stop(&worker);
         retained_values(); exact_values(&retained); distinct_free(&retained_distinct); distinct_free(&retained_distinct);
         page_free(&retained); page_free(&retained); statistics_free(&retained_statistics); statistics_free(&retained_statistics); pass("early stop and scheduled stale callbacks are ignored");
-        CHECK(stages==96 && worker.jobs_started==103 && expected_sql==232 && expected_counts==21);
+        CHECK(stages==113 && worker.jobs_started==120 && expected_sql==264 && expected_counts==21);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,worker.sql_executed,worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);

@@ -470,15 +470,23 @@ char *browser_statistics_sql(const char *relation,const Page *schema,uint64_t fi
 char *browser_statistics_manual_sql(char *const *texts,size_t count,char **error) {
     if (count>32768 || (count && !texts)) { fail(error,"Invalid mixed statistics labels."); return NULL; }
     if (!count) return dx_strdup("SELECT false AS present,false AS numeric,NULL::VARCHAR AS type,NULL::VARCHAR AS text,NULL::BIGNUM AS exact,NULL::DOUBLE AS value,false AS floating WHERE false");
-    char *values=dx_strdup(""); size_t size=0;
+    static const char prefix[]="SELECT true AS present,false AS numeric,'VARCHAR'::VARCHAR AS type,v AS text,NULL::BIGNUM AS exact,NULL::DOUBLE AS value,false AS floating FROM (VALUES ",suffix[]=") AS labels(v)";
+    size_t size=sizeof(prefix)-1+sizeof(suffix)-1;
     for (size_t i=0;i<count;i++) {
-        size_t length; if (!text_size(texts[i],DX_BROWSER_SQL_BYTES,&length)) { free(values); fail(error,"Invalid mixed statistics label text."); return NULL; }
+        size_t length; if (!text_size(texts[i],DX_BROWSER_SQL_BYTES,&length)) { fail(error,"Invalid mixed statistics label text."); return NULL; }
         size_t escaped=length; for (size_t j=0;j<length;j++) escaped+=texts[i][j]=='\'';
-        if (escaped>DX_BROWSER_SQL_BYTES-5 || size>DX_BROWSER_SQL_BYTES-escaped-5) { free(values); fail(error,"Selection statistics query exceeds 1 MiB."); return NULL; }
-        char *quoted=dx_quote(texts[i],'\''); dx_append(&values,"%s(%s)",i ? "," : "",quoted); free(quoted); size+=escaped+5;
+        size_t extra=escaped+4+(i!=0);
+        if (extra>DX_BROWSER_SQL_BYTES || size>DX_BROWSER_SQL_BYTES-extra) { fail(error,"Selection statistics query exceeds 1 MiB."); return NULL; } size+=extra;
     }
-    char *sql=dx_printf("SELECT true AS present,false AS numeric,'VARCHAR'::VARCHAR AS type,v AS text,NULL::BIGNUM AS exact,NULL::DOUBLE AS value,false AS floating FROM (VALUES %s) AS labels(v)",values);
-    free(values); return bounded_sql(sql,error);
+    /* One bounded allocation avoids one allocation and repeated SQL scans per
+       label when a sparse selection contains thousands of manual cells. */
+    char *sql=dx_alloc(size+1),*at=sql; memcpy(at,prefix,sizeof(prefix)-1); at+=sizeof(prefix)-1;
+    for (size_t i=0;i<count;i++) {
+        if (i) *at++=','; *at++='('; *at++='\'';
+        for (const char *text=texts[i];*text;text++) { *at++=*text; if (*text=='\'') *at++='\''; }
+        *at++='\''; *at++=')';
+    }
+    memcpy(at,suffix,sizeof(suffix)); return sql;
 }
 bool browser_statistics_append_cells(char **cells,const char *range,char **error) {
     if (!cells || !relation_valid(*cells,error) || !relation_valid(range,error)) return false;
