@@ -646,6 +646,125 @@ static void review_workspace_scroll(App *a,const char *part,Rectangle track,Rect
     review_workspace_widget(a,id,parent,"workspace.scroll","scrollbar","Scroll authoring controls",track,clip,enabled,false,false,NULL,-1,-1,55,file,line);
     review_workspace_widget(a,thumb_id,id,"workspace.scroll","scrollbar","Scroll authoring controls",thumb,GetCollisionRec(track,clip),enabled,false,dragging,NULL,-1,-1,56,file,line);
 }
+static DxReviewDataIdentity review_feedback_origin(App *a,const char *producer,const SheetObject *owner) {
+    DxReviewDataIdentity data={0}; if (!review_armed(a)) return data;
+    data.present=true; review_document_id(a,data.document_id); snprintf(data.kind,sizeof(data.kind),"document-feedback");
+    if (!strcmp(producer,"task") || !strcmp(producer,"toast")) { snprintf(data.kind,sizeof(data.kind),!strcmp(producer,"toast") ? "document-notification" : "document-task"); return data; }
+    data.sheet_id=a->book.active+1;
+    if (!strcmp(producer,"interface")) { snprintf(data.kind,sizeof(data.kind),"canvas-presentation"); return data; }
+    if (!strcmp(producer,"pipeline_sql")) {
+        snprintf(data.kind,sizeof(data.kind),a->inspector_sql_valid ? "transformations-sql" : "transformations-sql-stale");
+        data.sheet_id=a->inspector_sql_sheet+1; data.source_id=data.object_id=a->inspector_sql_id; data.query_generation=a->inspector_sql_revision; return data;
+    }
+    if (!strcmp(producer,"preview") || (!strcmp(producer,"source_footer") && a->step_preview.active) || (!strcmp(producer,"metrics") && a->step_preview.active)) {
+        const StepPreview *preview=&a->step_preview; data.source_id=preview->source_id; data.schema_generation=preview->source_revision; data.query_generation=preview->request; data.row=preview->step;
+        snprintf(data.kind,sizeof(data.kind),!strcmp(producer,"metrics") ? "preview-statistics" : !strcmp(producer,"source_footer") ? "preview-source-status" : "step-preview");
+        if (!strcmp(producer,"metrics")) { data.row=preview->stats_bounds.r0; data.column=preview->stats_bounds.c0; } return data;
+    }
+    if (!strcmp(producer,"metrics")) {
+        const StatsKey *key=&a->statistics_key; data.sheet_id=key->sheet+1; data.query_generation=key->source_revision; data.row=key->r0; data.column=key->c0;
+        snprintf(data.kind,sizeof(data.kind),a->statistics_frame ? "statistics-frame" : a->statistics_object==-2 ? "statistics-mixed" : "selection-statistics");
+        ObjectStore *store=&active_sheet(a)->objects;
+        if (a->statistics_object>=0 && (size_t)a->statistics_object<store->count) {
+            const SheetObject *object=&store->items[a->statistics_object]; data.object_id=object->id; data.source_id=object->kind==OBJECT_TABLE ? object->id : object->source_id;
+            if (a->statistics_frame) { data.sheet_id=a->book.active+1; data.query_generation=object->revision; data.schema_generation=object_source_revision(a,object); data.row=data.column=0; }
+        }
+        if (a->diagnostics) { data=(DxReviewDataIdentity){.present=true}; review_document_id(a,data.document_id); snprintf(data.kind,sizeof(data.kind),"document-diagnostics"); } return data;
+    }
+    if (!strcmp(producer,"readout")) {
+        const ActiveReadout *key=&a->active_readout; data.sheet_id=key->sheet+1; data.has_cell=true; data.row=key->row; data.column=key->column;
+        snprintf(data.kind,sizeof(data.kind),key->value.valid ? "active-value" : "active-value-loading");
+        if (key->preview) { data.source_id=key->source; data.schema_generation=key->revision; data.query_generation=a->step_preview.request; return data; }
+        if (key->manual) { data.query_generation=key->manual; snprintf(data.kind,sizeof(data.kind),"manual-readout"); return data; }
+        data.query_generation=key->revision;
+        if (key->kind) {
+            data.object_id=key->source; data.schema_generation=key->revision; data.query_generation=key->object_revision; bool found=false;
+            ObjectStore *store=&active_sheet(a)->objects;
+            for (size_t i=0;i<store->count;i++) if (store->items[i].id==key->source) {
+                const SheetObject *object=&store->items[i]; const ObjectView *view=&a->objects[i];
+                found=object->revision==key->object_revision && object_source_revision(a,object)==key->revision && object->row==key->origin_row && object->col==key->origin_column;
+                if (found) data.source_id=object->kind==OBJECT_TABLE ? object->id : object->source_id;
+                if (view->dirty || view->failed || view->revision!=key->object_revision || view->source_revision!=key->revision) found=false;
+                break;
+            }
+            if (!found && key->value.valid) snprintf(data.kind,sizeof(data.kind),"active-value-stale");
+        } else if (a->page_stale && key->value.valid) snprintf(data.kind,sizeof(data.kind),"active-value-stale");
+        return data;
+    }
+    data.source_id=owner ? owner->kind==OBJECT_TABLE ? owner->id : owner->source_id : 0; data.object_id=owner ? owner->id : 0;
+    data.query_generation=owner ? owner->revision : a->analysis_revision;
+    if (!strcmp(producer,"filter")) {
+        snprintf(data.kind,sizeof(data.kind),"filter-domain"); data.schema_generation=object_source_revision(a,owner); data.column=a->field;
+        const Page *fields=filter_fields(a); if (a->field<fields->column_count && review_author_field(data.field,fields->columns[a->field].name)) snprintf(data.kind,sizeof(data.kind),"filter-domain-truncated"); return data;
+    }
+    if (!strcmp(producer,"source_footer")) {
+        snprintf(data.kind,sizeof(data.kind),"source-status");
+        if (owner && owner->kind==OBJECT_TABLE) { const ObjectView *view=&a->objects[(size_t)(owner-active_sheet(a)->objects.items)]; data.query_generation=view->revision; if (view->dirty || view->failed || view->waiting_count || view->revision!=owner->revision) snprintf(data.kind,sizeof(data.kind),"source-status-stale"); }
+        else if (a->page_stale) { data.query_generation=0; snprintf(data.kind,sizeof(data.kind),"source-status-stale"); }
+    } else snprintf(data.kind,sizeof(data.kind),"transformations-source");
+    return data;
+}
+static void review_feedback_metadata(App *a,const DxReviewWidget *widget) {
+    if (!review_armed(a) || !widget) return;
+    char state[512]; const char *id=widget->id;
+    if (!strcmp(id,"pane.transformations.sql") && a->modal==MODAL_NONE) {
+        snprintf(state,sizeof(state)," feedback_sql_cache=%llu,%llu,%zu,%llu,%llu feedback_sql_layout=%d,%zu,%d",(unsigned long long)a->inspector_sql_id,(unsigned long long)a->inspector_sql_revision,a->inspector_sql_sheet,(unsigned long long)a->inspector_sql_generation,(unsigned long long)a->inspector_sql_steps_key,a->inspector_sql_scroll,a->inspector_sql_lines.count,a->inspector_sql_lines.limited); review_author_capture_state(a,state);
+    } else if (!strcmp(id,"status.metrics") && a->modal==MODAL_NONE && !a->file_menu) {
+        const StatsKey *key=&a->statistics_key;
+        snprintf(state,sizeof(state)," feedback_stats_key=%llu,%llu,%zu,%zu,%llu,%llu,%llu,%llu,%zu,%zu,%d,%d feedback_stats_state=%d,%d,%d,%llu",(unsigned long long)key->r0,(unsigned long long)key->r1,key->c0,key->c1,(unsigned long long)key->source_revision,(unsigned long long)key->cell_revision,(unsigned long long)key->objects,(unsigned long long)key->total,key->sheet,key->columns,key->count_pending,key->active,a->statistics_state,a->statistics_object,a->statistics_frame,(unsigned long long)a->statistics_request); review_author_capture_state(a,state);
+    } else if (!strcmp(id,"filter.values.status")) {
+        char context[129],pending[129]; bool context_cut=review_author_hex64(context,a->values_context),pending_cut=review_author_hex64(pending,a->value_pending_key);
+        snprintf(state,sizeof(state)," feedback_filter=%llu,%d,%lld,%d,%d feedback_filter_context_hex=%s feedback_filter_pending_hex=%s feedback_filter_truncated=%d,%d",(unsigned long long)a->values_search_revision,a->date_level,(long long)a->values_total,a->values_loading,a->values_failed,context,pending,context_cut,pending_cut); review_author_capture_state(a,state);
+    } else if (!strcmp(id,"toast.content")) {
+        snprintf(state,sizeof(state)," feedback_toast=%llu,%.3f,%zu,%d",(unsigned long long)a->message_revision,a->message_since,a->toast_lines.count,a->toast_lines.limited); review_author_capture_state(a,state);
+    }
+}
+static void review_feedback_target(App *a,DxReviewDataIdentity origin,const char *id,const char *parent,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *type,bool is_null,const char *text,const char *file,int line) {
+    if (!review_armed(a)) return;
+    if (a->ui.clipping) clip=GetCollisionRec(clip,a->ui.clip);
+    bool filter=!strncmp(id,"filter.",7); float offset=filter ? a->popup_presence.offset*a->ui.scale : 0;
+    bounds.y+=offset; clip.y+=offset;
+    Rectangle visible=GetCollisionRec(GetCollisionRec(bounds,clip),box(0,0,GetScreenWidth(),GetScreenHeight())); if (visible.width<=0 || visible.height<=0) return;
+    DxReviewWidget widget; dx_review_widget_init(&widget,id,action,"workspace/feedback",role,label); widget.data=origin;
+    widget.identity_truncated=strstr(origin.kind,"-truncated")!=NULL; widget.truncated|=widget.identity_truncated;
+    snprintf(widget.parent_id,sizeof(widget.parent_id),"%s",parent ? parent : ""); widget.bounds=review_rect(bounds); widget.clip=review_rect(clip); widget.transform.ty=offset;
+    int layer=filter ? 103 : !strncmp(id,"toast",5) ? 161 : !strncmp(id,"status",6) ? 62 : !strncmp(id,"readout",7) ? 18 : !strncmp(id,"preview",7) ? 12 : 44;
+    widget.container=!strcmp(role,"group") || !strcmp(role,"listbox") || !strcmp(role,"container"); widget.expanded=widget.container; widget.layer=layer-(widget.container ? 1 : 0);
+    widget.enabled=enabled; widget.checked=checked; widget.focused=focused; widget.input_eligible=enabled && !widget.container && strcmp(role,"text") && strcmp(role,"region");
+    if (type) dx_review_value_set(&widget.value,type,is_null,text); widget.truncated|=widget.value.truncated;
+    snprintf(widget.source_file,sizeof(widget.source_file),"%s",file); widget.source_line=(uint32_t)line;
+    DxReviewStatus result=dx_review_add(a->review->registry,&widget);
+    if (result!=DX_REVIEW_OK) { fprintf(stderr,"Review feedback registration %s: %s\n",id,dx_review_status_text(result)); return; }
+    a->review->registry->truncated|=widget.truncated; review_feedback_metadata(a,&widget);
+}
+static void review_feedback_scroll(App *a,DxReviewDataIdentity origin,const char *id,const char *parent,Rectangle track,Rectangle thumb,Rectangle clip,bool enabled,bool dragging,const char *file,int line) {
+    if (!review_armed(a)) return;
+    review_feedback_target(a,origin,id,parent,"feedback.scroll","scrollbar","Scroll feedback content",track,clip,enabled,false,false,NULL,false,NULL,file,line);
+    char child[128]; snprintf(child,sizeof(child),"%s.thumb",id); review_feedback_target(a,origin,child,id,"feedback.scroll","scrollbar","Scroll feedback content",thumb,GetCollisionRec(track,clip),enabled,false,dragging,NULL,false,NULL,file,line);
+    DxReviewWidget *widget=(DxReviewWidget *)dx_review_find(a->review->registry,child); if (widget) widget->layer++;
+}
+static void review_feedback_step(App *a,const SheetObject *owner,const UIStep *step,size_t index,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *file,int line) {
+    if (!review_armed(a) || !step || (unsigned)step->kind>UI_STEP_SORT) return;
+    static const char *const kinds[]={"source","unique","filter","group","sort"}; char id[128];
+    snprintf(id,sizeof(id),"pane.transformations.step.%s.f%016llx.n%zu",kinds[step->kind],(unsigned long long)review_field_hash(step->column),step->index);
+    DxReviewDataIdentity origin=review_feedback_origin(a,"pipeline",owner); origin.row=index; origin.column=(uint64_t)step->kind;
+    bool truncated=step->column && review_author_field(origin.field,step->column);
+    review_feedback_target(a,origin,id,"pane.transformations.steps","pipeline.select_step","button",step->title,bounds,clip,enabled,checked,focused,"VARCHAR",false,step->detail,file,line);
+    if (truncated) { DxReviewWidget *widget=(DxReviewWidget *)dx_review_find(a->review->registry,id); if (widget) widget->identity_truncated=widget->truncated=true; a->review->registry->truncated=true; }
+}
+static void review_feedback_preview(App *a,const UIPreviewReviewFrame *frame) {
+    if (!review_armed(a) || !frame || !frame->armed) return;
+    DxReviewDataIdentity origin=review_feedback_origin(a,"preview",NULL); char metadata[256];
+    snprintf(metadata,sizeof(metadata)," feedback_preview=%llu,%llu,%llu,%zu,%d,%d feedback_preview_records=%zu,%d",(unsigned long long)a->step_preview.source_id,(unsigned long long)a->step_preview.source_revision,(unsigned long long)a->step_preview.request,a->step_preview.step,a->step_preview.loading,a->step_preview.error!=NULL,frame->count,frame->overflow); review_author_capture_state(a,metadata);
+    if (frame->overflow) a->review->registry->truncated=true;
+    for (size_t i=0;i<frame->count;i++) {
+        const UIPreviewReviewTarget *target=&frame->targets[i]; char id[128]; snprintf(id,sizeof(id),"preview.%s",target->key);
+        const char *parent=!strcmp(target->key,"panel") ? "" : !strcmp(target->key,"banner") || !strcmp(target->key,"status") ? "preview.panel" : "preview.banner";
+        const char *label=!strcmp(target->key,"status") ? "Preview status" : !strcmp(target->key,"title") ? "Historical step title" : target->text;
+        review_feedback_target(a,origin,id,parent,!strcmp(target->key,"return") ? "preview.return" : "preview.inspect",target->role,label,target->bounds,target->clip,target->enabled,false,false,!strcmp(target->role,"text") ? "VARCHAR" : NULL,false,target->text,target->source_file,(int)target->source_line);
+        DxReviewWidget *widget=(DxReviewWidget *)dx_review_find(a->review->registry,id); if (widget) { widget->truncated|=target->truncated; widget->value.truncated|=target->truncated; a->review->registry->truncated|=widget->truncated; }
+    }
+}
 static void review_query_status(App *a,const char *text,Rectangle bounds,const char *file,int line) {
     if (!review_armed(a) || a->modal!=MODAL_SOURCE_QUERY) return;
     Rectangle clip=a->ui.clipping ? a->ui.clip : box(0,0,GetScreenWidth(),GetScreenHeight());
