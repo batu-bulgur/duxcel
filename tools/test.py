@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FAST_MODULES = (
     "cellreadout", "filterlabel", "grid", "brand", "format", "chartview", "chartencoding",
     "inspector", "stepview", "preview", "statsview", "guideview", "fontmetrics",
-    "motion", "choiceview", "paintlayer", "popup", "marksview",
+    "motion", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
 # These are existing, independently bootstrapped layout checkpoints. The end is
 # exclusive, as in DUXCEL_LAYOUT_TO. Never jump into arbitrary stateful stages.

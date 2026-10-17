@@ -381,6 +381,10 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
     case 25: {
         if (r->phase!=DX_REPORT_IDLE) return;
         if (a->modal!=MODAL_COMMANDS || !a->fields_visible) goto failed;
+        /* Frozen/capture frames must contribute real samples, not zeros in
+           the denominator of frame-tail and mean measurements. */
+        for (unsigned i=0;i<a->frames && i<600;i++)
+            if (a->frame_samples[i]<=0 || a->render_ms[i]<=0) goto failed;
         close_command_group(a);
         printf("PASS: native review filter/selection isolation, typed frozen cell, disabled ribbon/overflow, pane controls, 100/150 percent, capture/write retry, durable reports and queued query reply\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); break;
     }

@@ -1,0 +1,50 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T13:52:09.680595+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 1,
+  "no_build": true,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "0e5150fcec43d5b40a22d56d23b2713641e8a31e",
+    "status": "M Makefile\n M src/dev/review_app.inc\n M tools/test.py\n?? tools/ui-review/",
+    "source_sha256": "7f2d43e41c592a641f95636dfc1a4dbf515d9ee41bc01eca39c4818892746e1b",
+    "source_files": 165
+  },
+  "results": [
+    {
+      "name": "page-release",
+      "command": [
+        "./tests/test_page"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T135209-fast-43839/page-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.404
+    },
+    {
+      "name": "page-sanitize",
+      "command": [
+        "./tests/test_page-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T135209-fast-43839/page-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.558
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_page": "8735cf9047c0bf6062cd4d412dd0d06d715088dc6a40940f7d8961cdcd6e7df8",
+    "/Users/h2o/dev/duxcel/tests/test_page-debug": "33d1a686491e88781dcf6c26c3c7f96629987dad3d14b0442f5c4535ef5fec1d"
+  },
+  "elapsed_seconds": 1.113,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_page": "8735cf9047c0bf6062cd4d412dd0d06d715088dc6a40940f7d8961cdcd6e7df8",
+    "/Users/h2o/dev/duxcel/tests/test_page-debug": "33d1a686491e88781dcf6c26c3c7f96629987dad3d14b0442f5c4535ef5fec1d"
+  },
+  "finished_utc": "2026-10-17T13:52:10.926695+00:00"
+}
