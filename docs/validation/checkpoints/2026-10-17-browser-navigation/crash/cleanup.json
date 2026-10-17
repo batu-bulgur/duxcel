@@ -1,0 +1,10 @@
+{
+  "held_keys": [
+    {
+      "key": "ArrowUp",
+      "code": "ArrowUp",
+      "status": "failed",
+      "error": "Error: CDP WebSocket error"
+    }
+  ]
+}

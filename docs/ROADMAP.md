@@ -68,6 +68,8 @@ Acceptance: every state has a reference, viewport, fixture, native capture, inte
 
 ## 5. Complete browser platform, workbook and delivery adapters
 
+First focused input fix accepted: the thin host now claims unmodified/Shift canvas navigation without blocking GLFW/C input. The old default-leak control fails as expected; two manual flows and transformed actual reporting pass on the same normal Wasm. One owned Chromium crash reached Cocoa menu recursion; broader modified-key/IME/stability coverage remains open. [Evidence](validation/checkpoints/2026-10-17-browser-navigation/).
+
 - [ ] Finish asynchronous file import/export/relinking and `.dxls` persistence/migration behavior using the selected Worker backend; account for existing direct DuckDB C API use in workbook persistence.
 - [ ] Accept browser input/composition/focus/clipboard, GPU/render-target/clip behavior, context loss and DPI/zoom across the target browser matrix. Keep Linux/Windows portability at platform boundaries without claiming unperformed OS validation.
 - [ ] Validate OPFS recovery, quota/failure handling and explicit portable workbook export. Pin compatible engine/worker/extensions and deployment headers/assets; add engine multithreading only with measured need and compatible hosting.

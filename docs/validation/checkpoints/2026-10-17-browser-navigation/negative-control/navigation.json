@@ -1,0 +1,20 @@
+[
+  {
+    "key": "ArrowUp",
+    "shift": false,
+    "default_prevented": false,
+    "canvas": true
+  },
+  {
+    "key": "ArrowRight",
+    "shift": true,
+    "default_prevented": false,
+    "canvas": true
+  },
+  {
+    "key": "ArrowDown",
+    "shift": true,
+    "default_prevented": false,
+    "canvas": true
+  }
+]

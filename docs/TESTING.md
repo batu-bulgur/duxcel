@@ -106,6 +106,14 @@ Core gates are independent release/ASan C ownership/SQL/model checks plus pure J
 
 ## Shared C browser reporting
 
+Browser input/transport checks can run without a browser:
+
+```sh
+node --test web/canvas_input.test.mjs tools/test_web_cdp.test.mjs
+```
+
+The real manual gate (`python3 tools/test_web_app.py --no-build`, optionally `--worker-probe`) retains every keyDown/frame/keyUp phase and checks navigation default ownership on the actual focused canvas. Failures retain pending requests, bounded visibility/debugger/screenshot diagnostics and explicit diagnostic failures; `browser-process.json` and `cleanup.json` record the owned child and held keys. Disconnect is an immediate failure, not a retry. The normal/review host guard preserves printable input and modifier/composition boundaries; broader keyboard ownership remains separate. See [failure/control/guarded evidence](validation/checkpoints/2026-10-17-browser-navigation/).
+
 ```sh
 make web-review
 python3 tools/test_web_app.py --review --no-build --source tests/fixtures/transactions.csv

@@ -1,0 +1,54 @@
+{
+  "failure": {
+    "kind": "disconnected",
+    "error": "CDP WebSocket error",
+    "time": 1792250579025,
+    "request": null,
+    "pending": [
+      {
+        "id": 84,
+        "method": "Runtime.evaluate",
+        "started_ms": 1792250578776,
+        "timeout_ms": 15000,
+        "context": "ArrowUp frames_after_keyDown"
+      }
+    ]
+  },
+  "pending": [],
+  "held_keys": [
+    {
+      "type": "keyDown",
+      "key": "ArrowUp",
+      "code": "ArrowUp",
+      "windowsVirtualKeyCode": 38,
+      "nativeVirtualKeyCode": 38,
+      "text": "",
+      "unmodifiedText": "",
+      "modifiers": 0
+    }
+  ],
+  "visibility_focus": {
+    "status": "failed",
+    "started_ms": 1792250579025,
+    "elapsed_ms": 0,
+    "error": "Error: CDP WebSocket error"
+  },
+  "debugger_pause": {
+    "status": "failed",
+    "started_ms": 1792250579025,
+    "elapsed_ms": 1,
+    "error": "Error: CDP WebSocket error"
+  },
+  "debugger_resume": {
+    "status": "failed",
+    "started_ms": 1792250579026,
+    "elapsed_ms": 0,
+    "error": "Error: CDP WebSocket error"
+  },
+  "screenshot": {
+    "status": "failed",
+    "started_ms": 1792250579026,
+    "elapsed_ms": 1,
+    "error": "Error: CDP WebSocket error"
+  }
+}
