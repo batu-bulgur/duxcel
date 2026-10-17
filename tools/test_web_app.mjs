@@ -212,11 +212,14 @@ try{
    await wheelBatch(-.125,-.25,40);const reversed=await platformSnapshot();
    check(Math.abs(vertical(reversed)-vertical(baseline))<.00001&&Math.abs(Number(reversed.horizontal)-Number(baseline.horizontal))<.002,'Reverse pan did not return to origin');
    // A real browser-generated wheel also enters the same C pixel route.
+   await evaluate('window.addEventListener("wheel",event=>{globalThis.duxcelTestLastWheel={dx:event.deltaX,dy:event.deltaY,mode:event.deltaMode,trusted:event.isTrusted}},{capture:true,once:true});true');
    const rect=await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return{x:r.x+r.width*.65,y:r.y+r.height*.65}})()');
    await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:rect.x,y:rect.y,deltaX:.5,deltaY:.25});await frames(3);
+   const deliveredWheel=await evaluate('globalThis.duxcelTestLastWheel');
+   check(deliveredWheel?.trusted&&deliveredWheel.mode===0,'CDP did not generate a real pixel wheel event');
    const trusted=await platformSnapshot();
-   check(Math.abs(Number(trusted.horizontal)-Number(reversed.horizontal)-.5*factor)<.002&&Math.abs((vertical(trusted)-vertical(reversed))*Number(baseline.row_height)-.25*factor)<.002,'Browser wheel delivery diverges from DOM pixel input');
-   await wheelBatch(-.5,-.25);
+   check(Math.abs(Number(trusted.horizontal)-Number(reversed.horizontal)-deliveredWheel.dx*factor)<.002&&Math.abs((vertical(trusted)-vertical(reversed))*Number(baseline.row_height)-deliveredWheel.dy*factor)<.002,'Browser wheel delivery diverges from DOM pixel input');
+   await wheelBatch(-deliveredWheel.dx,-deliveredWheel.dy);
    await wheelBatch(0,.5,4,{shift:true});const shifted=await platformSnapshot();
    check(Math.abs(Number(shifted.horizontal)-Number(reversed.horizontal)-2*factor)<.002&&vertical(shifted)===vertical(reversed),'Shift wheel ownership/axis mismatch');
    await wheelBatch(0,-.5,4,{shift:true});
@@ -248,7 +251,7 @@ try{
    // Restore the pan origin before the shared filter/header regression.
    const final=await platformSnapshot();
    await wheelBatch(-Number(final.horizontal)/factor,-vertical(final)*Number(final.row_height)/factor);await frames();
-   platformResult={baseline,panned,reversed,trusted,shifted,chrome,sidebar,zoomed,restored,densities,embedded,query_jobs:starts().length-beforeJobs,
+   platformResult={baseline,panned,reversed,trusted,deliveredWheel,shifted,chrome,sidebar,zoomed,restored,densities,embedded,query_jobs:starts().length-beforeJobs,
     scope:'Real C grid under fractional DOM wheel bursts, DPI changes and captured GPU frames; physical trackpad/Safari gesture feel remains separate.'};
   }
   if(filters){
