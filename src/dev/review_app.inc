@@ -767,7 +767,7 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_QUERY_END (REVIEW_SHEET_END+2*6)
 #define REVIEW_RELATION_END (REVIEW_QUERY_END+6)
 #define REVIEW_SORT_END (REVIEW_RELATION_END+2*6)
-#define REVIEW_SMOKE_STAGES (REVIEW_SORT_END+2*6)
+#define REVIEW_SMOKE_STAGES (REVIEW_SORT_END+3*6)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -1708,13 +1708,14 @@ static bool review_smoke_stats_same(App *a,ReviewSmoke *t) {
 }
 static bool review_smoke_stats_targets(App *a,ReviewSmoke *t,int item) {
     DxReviewRegistry *registry=a->review->registry; const char *parent="author.statistics"; const DxReviewWidget *panel=dx_review_find(registry,parent),*done=dx_review_find(registry,"author.statistics.action.done");
-    SheetObject *owner=&active_sheet(a)->objects.items[t->stats_object]; uint64_t source=owner->kind==OBJECT_TABLE ? owner->id : owner->source_id,schema=owner->kind==OBJECT_TABLE ? 0 : object_source_revision(a,owner);
+    bool frame=item==1; SheetObject *owner=t->stats_object>=0 ? &active_sheet(a)->objects.items[t->stats_object] : NULL;
+    uint64_t object=owner ? owner->id : 0,source=owner ? owner->kind==OBJECT_TABLE ? owner->id : owner->source_id : 0,schema=owner && owner->kind!=OBJECT_TABLE ? object_source_revision(a,owner) : 0,revision=owner ? owner->revision : t->stats_key.source_revision;
     if (!panel || !panel->container || panel->input_eligible || !done || !done->enabled || !done->input_eligible || done->focused || !review_smoke_sheet_pick(a,done,parent) || registry->duplicate_count || registry->invalid_count || registry->overflow_count || strstr(a->review->frame.state_text," author_overflow=1")) return false;
     size_t rows=0;
     for (size_t i=0;i<registry->count;i++) {
         const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,"author.statistics",17)) continue;
         const DxReviewDataIdentity *data=&widget->data;
-        if (!data->present || strcmp(data->kind,item ? "statistics-frame" : "statistics-range") || data->sheet_id!=a->book.active+1 || data->object_id!=owner->id || data->source_id!=source || data->query_generation!=owner->revision || data->schema_generation!=schema || data->has_cell || strcmp(data->field,item ? "" : "Amount") || data->row!=(item ? owner->row : 0) || data->column!=(item ? owner->col : 2)) return false;
+        if (!data->present || strcmp(data->kind,frame ? "statistics-frame" : "statistics-range") || data->sheet_id!=a->book.active+1 || data->object_id!=object || data->source_id!=source || data->query_generation!=revision || data->schema_generation!=schema || data->has_cell || strcmp(data->field,frame ? "" : "Amount") || data->row!=(frame ? owner->row : 0) || data->column!=(frame ? owner->col : 2)) return false;
         if (!strcmp(widget->role,"checkbox")) rows++;
     }
     if (rows!=8) return false;
@@ -1723,7 +1724,7 @@ static bool review_smoke_stats_targets(App *a,ReviewSmoke *t,int item) {
     for (size_t i=0;i<8;i++) {
         char id[128]; snprintf(id,sizeof(id),"%s.action.%s",parent,keys[i]); const DxReviewWidget *widget=dx_review_find(registry,id);
         if (!widget || strcmp(widget->role,"checkbox") || !widget->enabled || !widget->input_eligible || widget->checked!=((t->stats_mask&(1u<<i))!=0) || widget->focused!=(i==(size_t)t->stats_focus) || !review_smoke_sheet_pick(a,widget,parent)) return false;
-        if (item ? widget->value.present : !widget->value.present || widget->value.is_null || strcmp(widget->value.type,i<4 ? "UBIGINT" : i==5 ? "DOUBLE" : "exact-numeric") || strcmp(widget->value.exact_text,exact[i])) return false;
+        if (frame ? widget->value.present : !widget->value.present || widget->value.is_null || strcmp(widget->value.type,i<4 ? "UBIGINT" : i==5 || item==2 ? "DOUBLE" : "exact-numeric") || strcmp(widget->value.exact_text,exact[i])) return false;
     }
     snprintf(t->author_target,sizeof(t->author_target),"author.statistics.action.sum"); return true;
 }
@@ -1735,23 +1736,24 @@ static void review_smoke_stats_diagnostic(App *a,ReviewSmoke *t,const char *reas
     }
 }
 static int review_smoke_stats_tick(App *a,ReviewSmoke *t) {
-    int item=(t->stage-REVIEW_SORT_END)/6,phase=(t->stage-REVIEW_SORT_END)%6; DxReviewCapture *r=a->review;
+    int item=(t->stage-REVIEW_SORT_END)/6,phase=(t->stage-REVIEW_SORT_END)%6; bool frame=item==1; DxReviewCapture *r=a->review;
     if (!phase) {
         if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
-        a->statistics_enabled=true; a->statistics_mask=item ? 0xaa : 0x55; a->selected_object=item ? t->query_pivot : t->relation_object;
+        a->statistics_enabled=true; a->statistics_mask=frame ? 0xaa : 0x55; a->selected_object=frame ? t->query_pivot : item==2 ? 0 : t->relation_object;
         if (!object_ready(a,(size_t)a->selected_object)) return 0;
         SheetObject *object=selected_object(a); a->matrix_cells_active=false;
-        if (item) { if (object->kind!=OBJECT_PIVOT) return -1; grid_select_cell(&a->grid,object->row,object->col,false); a->grid.end_row=object->row+object->rows-1; a->grid.end_col=object->col+object->columns-1; }
-        else { if (object->kind!=OBJECT_TABLE || a->objects[a->selected_object].page.columns[2].number_type.kind!=NUM_DECIMAL) return -1; grid_select_cell(&a->grid,object->row+2,object->col+2,false); a->grid.end_row=object->row+6; }
-        ui_set_scale(&a->ui,item ? 1.5f : 1); SetWindowSize(item ? 760 : 1280,item ? 640 : 820); show_workspace(a); open_statistics(a); a->statistics_focus=4; return 1;
+        if (frame) { if (object->kind!=OBJECT_PIVOT) return -1; grid_select_cell(&a->grid,object->row,object->col,false); a->grid.end_row=object->row+object->rows-1; a->grid.end_col=object->col+object->columns-1; }
+        else if (item==2) { if (!selected_pivot(a) || a->page.column_count!=6) return -1; grid_select_cell(&a->grid,0,2,false); a->grid.end_row=4; if (authoring_frame_selected(a)) return -1; }
+        else { if (object->kind!=OBJECT_TABLE || a->objects[a->selected_object].page.column_count<3 || a->objects[a->selected_object].page.columns[2].number_type.kind!=NUM_DECIMAL) return -1; grid_select_cell(&a->grid,object->row+2,object->col+2,false); a->grid.end_row=object->row+6; }
+        ui_set_scale(&a->ui,frame ? 1.5f : 1); SetWindowSize(frame ? 760 : 1280,frame ? 640 : 820); show_workspace(a); open_statistics(a); a->statistics_focus=4; return 1;
     }
     if (phase==1) {
         if (a->modal!=MODAL_STATISTICS) return -1;
-        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || !review_can_capture(a) || a->popup_presence.alpha!=1 || a->popup_presence.offset || a->ui.scale!=(item ? 1.5f : 1) || GetScreenWidth()!=(item ? 760 : 1280) || GetScreenHeight()!=(item ? 640 : 820)) return 0;
-        if (item) { if (!a->statistics_frame || a->statistics_state!=STATS_IDLE || a->statistics_request || strcmp(statistics_scope(a),"Matrix frame")) return -1; }
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || !review_can_capture(a) || a->popup_presence.alpha!=1 || a->popup_presence.offset || a->ui.scale!=(frame ? 1.5f : 1) || GetScreenWidth()!=(frame ? 760 : 1280) || GetScreenHeight()!=(frame ? 640 : 820)) return 0;
+        if (frame) { if (!a->statistics_frame || a->statistics_state!=STATS_IDLE || a->statistics_request || strcmp(statistics_scope(a),"Matrix frame")) return -1; }
         else {
             if (a->statistics_state!=STATS_READY) return 0;
-            if (a->statistics_object!=t->relation_object || a->statistics_cells!=5 || a->statistics.numeric!=5 || a->statistics.approximate || !a->statistics.sum || strcmp(a->statistics.sum,"145.25")) return -1;
+            if (a->statistics_frame || a->statistics_object!=(item==2 ? -1 : t->relation_object) || a->statistics_cells!=5 || a->statistics.numeric!=5 || a->statistics.approximate!=(item==2) || !a->statistics.sum || strcmp(a->statistics.sum,"145.25") || (item==2 && !selected_pivot(a))) return -1;
         }
         review_smoke_stats_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
     }
@@ -1763,14 +1765,14 @@ static int review_smoke_stats_tick(App *a,ReviewSmoke *t) {
     }
     if (phase==3) {
         if (r->phase!=DX_REPORT_NOTE) return 0;
-        if (strcmp(r->target.widget.id,t->author_target) || r->target.widget.checked!=(item==0) || !review_smoke_stats_same(a,t)) { review_smoke_stats_diagnostic(a,t,"actual picker target/state"); return -1; }
+        if (strcmp(r->target.widget.id,t->author_target) || r->target.widget.checked!=!frame || !review_smoke_stats_same(a,t)) { review_smoke_stats_diagnostic(a,t,"actual picker target/state"); return -1; }
         ui_note_key_press(KEY_ESCAPE,0); return 1;
     }
     if (r->phase!=DX_REPORT_IDLE) return 0;
     if (phase==4) { if (!review_smoke_stats_same(a,t)) { review_smoke_stats_diagnostic(a,t,"report cancellation"); return -1; } ui_note_key_press(KEY_ESCAPE,0); return 1; }
     t->choice_modal=MODAL_NONE; if (!review_smoke_stats_same(a,t)) { review_smoke_stats_diagnostic(a,t,"normal statistics cancellation"); return -1; }
-    printf("PASS: native statistics review scope=%s retains checklist/focus, exact cached values/flags, source/model/pages and query jobs\n",item ? "matrix frame" : "DECIMAL source range");
-    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
+    printf("PASS: native statistics review scope=%s retains checklist/focus, exact cached values/flags, source/model/pages and query jobs\n",frame ? "matrix frame" : item==2 ? "primary range with Chart selected" : "DECIMAL source range");
+    review_smoke_author_release(t); if (frame) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); } if (item==2) printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); return 1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
