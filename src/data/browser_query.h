@@ -20,4 +20,15 @@ bool browser_schema_from_describe(Page *out,const Page *describe,char **error);
    numbers/temporal text. The original typed schema accompanies its wire reply.
    The full fixed 256-row interval must fit uint64_t. All SQL is <=1 MiB. */
 char *browser_page_sql(const char *relation,const Page *schema,uint64_t offset,char **error);
+/* First matrix slice: Rows/Values/Filters, including row date grains. Columns
+   require a later bounded typed-domain adapter and fail explicitly here. */
+char *browser_pivot_totals_sql(const Analysis *source,const PivotDefinition *pivot,char **error);
+/* Owned total_i SQL descriptors from the validated result schema. Failure
+   preserves out. Returned schema is suitable for canonical grand-total SQL. */
+bool browser_pivot_totals_schema(Page *out,const Page *schema,const PivotDefinition *pivot,char **error);
+/* Complete a fresh, undecorated, exact-count pivot result. Grand owns one
+   source-derived aggregate row, with total_i descriptors. On success it moves
+   into page->totals; row totals copy exact result measure cells. Both inputs
+   remain unchanged on failure. Combined owned output is bounded to 4 MiB. */
+bool browser_pivot_complete(Page *page,Page *grand,const PivotDefinition *pivot,char **error);
 #endif

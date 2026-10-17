@@ -201,7 +201,72 @@ static void test_page_and_count_sql(void) {
     reject_sql(browser_page_sql("SELECT * FROM input",&schema,0,&error),&error);
     page_free(&schema); page_free(&describe);
 }
+static Page matrix_fixture(const PivotDefinition *pivot,size_t count) {
+    size_t rows=pivot->counts[PIVOT_ROWS],measures=pivot->counts[PIVOT_VALUES];
+    char *names[2*DX_PIVOT_FIELDS]={0}; const char *types[2*DX_PIVOT_FIELDS]={0};
+    for (size_t c=0;c<rows;c++) { names[c]=pivot_field_key(pivot,PIVOT_ROWS,c); types[c]=pivot->fields[PIVOT_ROWS][c].grain ? "DATE" : "VARCHAR"; }
+    for (size_t m=0;m<measures;m++) { const PivotField *field=&pivot->fields[PIVOT_VALUES][m]; names[rows+m]=aggregate_measure_label(field->aggregate,field->name); types[rows+m]=field->aggregate==AGG_AVG ? "DOUBLE" : field->aggregate==AGG_DISTINCT || field->aggregate==AGG_COUNT ? "BIGINT" : !strcmp(field->name,"Text") ? "VARCHAR" : "DECIMAL(38,2)"; }
+    Page describe=describe_page(rows+measures,(const char *const *)names,types),page={0}; CHECK(browser_schema_from_describe(&page,&describe,NULL)); page_free(&describe);
+    for (size_t c=0;c<rows+measures;c++) free(names[c]);
+    page.row_count=count; page.total=count; page.cells=dx_alloc(count*page.column_count*sizeof(Cell)); page.bytes+=count*page.column_count*sizeof(Cell);
+    for (size_t i=0;i<count*page.column_count;i++) { page.cells[i].text=dx_strdup("1"); page.bytes+=2; }
+    return page;
+}
+static void matrix_cell(Page *page,size_t row,size_t col,const char *text) {
+    Cell *cell=&page->cells[row*page->column_count+col]; if (cell->text) page->bytes-=strlen(cell->text)+1; free(cell->text);
+    *cell=(Cell){.is_null=!text,.text=text ? dx_strdup(text) : NULL}; if (text) page->bytes+=strlen(text)+1;
+}
+static Page matrix_grand(const Page *page,const PivotDefinition *pivot) {
+    Page grand={0}; CHECK(browser_pivot_totals_schema(&grand,page,pivot,NULL)); grand.row_count=grand.total=1;
+    grand.cells=dx_alloc(grand.column_count*sizeof(Cell)); grand.bytes+=grand.column_count*sizeof(Cell);
+    for (size_t i=0;i<grand.column_count;i++) { grand.cells[i].text=dx_strdup("1"); grand.bytes+=2; } return grand;
+}
+static void reject_matrix(Page *page,Page *grand,const PivotDefinition *pivot) {
+    Page before=*page,total_before=*grand; char *error=NULL;
+    CHECK(!browser_pivot_complete(page,grand,pivot,&error) && error && *error);
+    CHECK(!memcmp(page,&before,sizeof(before)) && !memcmp(grand,&total_before,sizeof(total_before))); free(error);
+}
+static void test_matrix_completion(void) {
+    Analysis source={.kind=SOURCE_CSV,.path=dx_strdup("O'Reilly.csv")}; PivotDefinition pivot={0}; char *error=NULL;
+    CHECK(pivot_assign_grain(&pivot,PIVOT_ROWS,"Date",AGG_SUM,PIVOT_DATE_MONTH,&error));
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_AVG,&error));
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"ID",AGG_DISTINCT,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Text",AGG_MIN,&error));
+    char *sql=browser_pivot_totals_sql(&source,&pivot,&error);
+    CHECK(sql && strstr(sql,"GROUP BY GROUPING SETS") && strstr(sql,"WHERE mask=1 LIMIT 1") && strstr(sql,"COUNT(DISTINCT v2)") && strstr(sql,"CAST(m0 AS VARCHAR) AS total_0") && strstr(sql,"O''Reilly.csv")); free(sql);
+    Page page=matrix_fixture(&pivot,2); page.offset=256; page.total=600; page.sql=dx_strdup("SELECT * FROM a_real_pivot"); page.bytes+=strlen(page.sql)+1;
+    matrix_cell(&page,0,0,"2025-01-01"); matrix_cell(&page,1,0,NULL);
+    matrix_cell(&page,0,1,"1234567890123456789012345678.12"); matrix_cell(&page,1,1,NULL);
+    matrix_cell(&page,0,2,"1.5"); matrix_cell(&page,1,2,NULL); matrix_cell(&page,0,3,"9007199254740993"); matrix_cell(&page,1,3,"0"); matrix_cell(&page,0,4,""); matrix_cell(&page,1,4,"NULL");
+    Page grand=matrix_grand(&page,&pivot); matrix_cell(&grand,0,0,"1234567890123456789012345678.12"); matrix_cell(&grand,0,1,"1.1"); matrix_cell(&grand,0,2,"9007199254740994"); matrix_cell(&grand,0,3,"");
+    char *grand_text=grand.cells[1].text,*original=page.cells[1].text; size_t original_bytes=page.bytes;
+    CHECK(browser_pivot_complete(&page,&grand,&pivot,&error) && !error && !grand.cells && !grand.columns && !grand.bytes);
+    CHECK(page.totals && !page.totals->has_columns && page.totals->rows.row_count==2 && page.totals->rows.column_count==4 && page.totals->rows.offset==256 && page.totals->rows.total==600);
+    CHECK(page.totals->rows.cells[0].text!=original && !strcmp(page.totals->rows.cells[0].text,original) && page.totals->rows.cells[4].is_null && !page.totals->rows.cells[4].text);
+    CHECK(!strcmp(page.totals->rows.cells[2].text,"9007199254740993") && !*page.totals->rows.cells[3].text && !strcmp(page.totals->rows.cells[7].text,"NULL"));
+    CHECK(page.totals->columns.cells[1].text==grand_text && !strcmp(grand_text,"1.1") && !strcmp(page.totals->columns.cells[2].text,"9007199254740994"));
+    CHECK(page.columns[0].date_grain==PIVOT_DATE_MONTH && !strcmp(page.columns[0].name,"MONTH(Date)") && !strcmp(page.columns[1].caption,"SUM(Amount)"));
+    CHECK(page.bytes>original_bytes && page.bytes<=DX_PAGE_WIRE_TEXT_BYTES); page_free(&page); page_free(&grand);
+    page=matrix_fixture(&pivot,1); grand=matrix_grand(&page,&pivot);
+    Page malformed=grand; malformed.total=2; reject_matrix(&page,&malformed,&pivot);
+    malformed=grand; malformed.row_count=0; reject_matrix(&page,&malformed,&pivot);
+    malformed=page; malformed.count_pending=true; reject_matrix(&malformed,&grand,&pivot);
+    malformed=page; malformed.bytes=SIZE_MAX; reject_matrix(&malformed,&grand,&pivot);
+    malformed=page; malformed.bytes=0; reject_matrix(&malformed,&grand,&pivot);
+    malformed=page; malformed.bytes=DX_PAGE_WIRE_TEXT_BYTES-1; reject_matrix(&malformed,&grand,&pivot);
+    char *name=grand.columns[0].name; grand.columns[0].name="wrong"; reject_matrix(&page,&grand,&pivot); grand.columns[0].name=name;
+    NumberType number=grand.columns[0].number_type; grand.columns[0].number_type=(NumberType){NUM_FLOAT,0,0}; reject_matrix(&page,&grand,&pivot); grand.columns[0].number_type=number;
+    PivotDefinition invalid=pivot; invalid.counts[PIVOT_VALUES]=SIZE_MAX; reject_matrix(&page,&grand,&invalid);
+    invalid=pivot; invalid.counts[PIVOT_COLUMNS]=1; reject_matrix(&page,&grand,&invalid); reject_sql(browser_pivot_totals_sql(&source,&invalid,&error),&error);
+    Page schema=retained(),before=schema; CHECK(!browser_pivot_totals_schema(&schema,&page,&invalid,&error) && error && !memcmp(&schema,&before,sizeof(before))); free(error); error=NULL; page_free(&schema);
+    page_free(&page); page_free(&grand); pivot_free(&pivot); analysis_free(&source);
+    /* An aggregate without Rows still has one typed row and one source grand
+       row. NULL measures are retained rather than changed to numeric zero. */
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error)); source.kind=SOURCE_DEMO;
+    sql=browser_pivot_totals_sql(&source,&pivot,&error); CHECK(sql && strstr(sql,"WHERE mask=0 LIMIT 1") && !strstr(sql,"GROUP BY GROUPING SETS")); free(sql);
+    page=matrix_fixture(&pivot,1); grand=matrix_grand(&page,&pivot); matrix_cell(&page,0,0,NULL); matrix_cell(&grand,0,0,NULL);
+    CHECK(browser_pivot_complete(&page,&grand,&pivot,&error) && page.totals->rows.cells[0].is_null && page.totals->columns.cells[0].is_null); page_free(&page); pivot_free(&pivot); free(error);
+}
 int main(void) {
-    test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql();
+    test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion();
     printf("PASS: %u browser query checks\n",checks); return 0;
 }
