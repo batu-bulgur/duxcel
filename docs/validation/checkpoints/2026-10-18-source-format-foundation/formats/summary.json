@@ -1,0 +1,67 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T23:19:44.149872+00:00",
+  "tier": "formats",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "8c9e2d254b734c8e102403bfb245d6ed56e117ae",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "29a2dada67e1d8354d5d08315ad6cf23972837c0d4a20e9951913165c310517a",
+    "source_files": 252
+  },
+  "results": [
+    {
+      "name": "build-formats",
+      "command": [
+        "make",
+        "tests/test_workbook",
+        "tests/test_workbook-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T231944-formats-12344/build-formats.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 8.473
+    },
+    {
+      "name": "formats-release",
+      "command": [
+        "./tests/test_workbook",
+        "--formats-only"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T231944-formats-12344/formats-release.txt",
+      "expected_stages": null,
+      "completion_pattern": "^PASS: [1-9]\\d* focused workspace formatting checks \\(format round-trip, validation, scoped-save rejection and original-file preservation\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 2.139
+    },
+    {
+      "name": "formats-sanitize",
+      "command": [
+        "./tests/test_workbook-debug",
+        "--formats-only"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T231944-formats-12344/formats-sanitize.txt",
+      "expected_stages": null,
+      "completion_pattern": "^PASS: [1-9]\\d* focused workspace formatting checks \\(format round-trip, validation, scoped-save rejection and original-file preservation\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 8.763
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_workbook": "7a90f48efc57ab0f2c94f80421b2fb3f3f4face3b386a2d5e15cc2150e611aa2",
+    "/Users/h2o/dev/duxcel/tests/test_workbook-debug": "61b05ac5b17e8700e06373f5cf6d8c4b490b59b7c8df91d3eedbc538dc09164c"
+  },
+  "elapsed_seconds": 19.516,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_workbook": "7a90f48efc57ab0f2c94f80421b2fb3f3f4face3b386a2d5e15cc2150e611aa2",
+    "/Users/h2o/dev/duxcel/tests/test_workbook-debug": "61b05ac5b17e8700e06373f5cf6d8c4b490b59b7c8df91d3eedbc538dc09164c"
+  },
+  "finished_utc": "2026-10-17T23:20:03.730886+00:00"
+}

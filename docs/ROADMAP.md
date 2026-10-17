@@ -64,6 +64,7 @@ Acceptance: actual shared C UI and a real official Worker query run in the brows
 
 - [x] Finish bounded active-value snapshot integration, including source/sheet/query invalidation and off-page ownership. Do not query merely to repaint the value bar.
 - [x] Accept active-cell/extent retention through pointer drag, Shift navigation, range reversal and Tab/Enter; update legacy native assumptions to the intended behavior.
+- [x] Accept isolated source-format prerequisites: owned record selectors share newest-mask precedence with exact-result guards and spatial defaults, bounded history/ownership and unsafe mixed-move rejection; native asynchronous fixed-buffer SHA256 verification runs before opening DuckDB. Actual browser verification is explicitly unsupported without disturbing cached query state. These are model/worker prerequisites, not live formatting. [Evidence](validation/checkpoints/2026-10-18-source-format-foundation/).
 - [ ] Finish repeated Command/Control+A expansion through every supported containing table-like region before the whole sheet. Current code selects local region → global used rectangle → sheet; intermediate containing levels are not accepted. Define a deterministic region ladder and verify native/browser selection retention without SQL or dense canvas enumeration.
 - [x] Accept pointer versus keyboard focus against the reference at wide/narrow and 100/150% UI scales.
 - [x] Rebase or invalidate source bookmarks when a table moves.

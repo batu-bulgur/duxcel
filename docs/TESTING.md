@@ -262,3 +262,16 @@ make test-source-digest
 ```
 
 `--no-build` requires an already-built matching review artifact. The cancellation profile uses a real 600,000-row query and fails if the export completes before trusted Escape; no delay/held reply manufactures that pending state. The digest target verifies only the isolated fixed-buffer helper and explicit unsupported branch, with no database/window or source-style activation.
+
+## Source-format prerequisite gates
+
+The [8c9e2d2 foundation](validation/checkpoints/2026-10-18-source-format-foundation/) retains exact source/binary provenance for the owned record-selector model, native async verifier, unchanged workbook-format codec boundary, actual browser unsupported/recovery Worker and hidden native baseline. Use these focused checks while their App producer remains disabled:
+
+```sh
+python3 tools/test.py fast --modules format --config both
+make test-worker-source-digest
+python3 tools/test.py formats --config both
+python3 tools/test_web_app.py --worker-driver --no-build
+```
+
+The source-digest worker checkpoint macro is defined only by its isolated test target. It must remain absent from shipping/review native and Wasm artifacts. The browser driver now requires three sequential workload inventories and 187 terminal stages; it does not claim browser filesystem hashing. No source-style persistence or renderer activation is implied.

@@ -1,0 +1,11 @@
+# Source formatting prerequisites, 18 October 2026
+
+Source and harness `8c9e2d2`; exact source fingerprint, per-binary hashes and original run paths are retained in the summaries/provenance. These are prerequisite gates, **not App activation or persistent record-following styles**. The accepted user-facing bundle/origin remains the earlier `402a03d` UI.
+
+- Owned record selectors and the common result/raw-token precedence resolver pass focused optimized/sanitizer format checks. Fixed physical worksheet bounds, deep history copies, exact scopes, budgets and atomic rejection of unsafe mixed moves are covered.
+- Native asynchronous SHA256 verification passes 1,242 worker checks in each configuration, without opening a database connection. The isolated test checkpoint is only defined in these test objects. The fixed-buffer helper separately passed its earlier 4,429 checks/configuration and two unsupported checks.
+- The existing workbook-format regression passes optimized/sanitizer: lossless v12/owner-only v13 and scoped-save rejection remain intact. No new codec or live format producer is enabled.
+- The actual official browser Worker passes 123,712 checks/187 stages in 12.305 s. Its first two workload phases retain their existing 139/184-stage semantics. The third uses one real warmed source, rejects native source verification explicitly without a digest/SQL/host submission/schema refresh, then recovers through the cached source in one SQL submission. Three Workers run sequentially; C SQL counters represent submissions, not an assertion about engine-internal execution.
+- Hidden native sanitizer baseline passes six application stages in 3.967 s, plus the 477-check background policy gate in 1.819 s; total 5.928 s. No foreground app launch or user tab refresh.
+
+The combined format/worker/workbook gate took 32.736 s including builds. Canonical typed source-version packets, verified persistence, legacy migration, aggregate budgets and App/grid consumers remain required. Neither a file stamp nor an isolated digest proves an earlier displayed Page; exact Page-to-digest identity is the next publication prerequisite. No linked production/review absence claim is inherited from the older build for these new changes.
