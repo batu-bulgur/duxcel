@@ -10,7 +10,8 @@ Current plan, 17 October 2026. Deliver the exact reference UI in C99/raylib usin
 - [x] Land and measure fast/affected/full test tiers, reproducible result manifests and a shared desktop-test lock. The warm affected headless gate took 0.452s; full module release/sanitizer checks passed. Native profile/full orchestration has its own scoped validation record.
 - [x] Reduce completed native scenario idle frames without weakening assertions, animation waits or failure detection. Export fell from 19.153s to 10.542s in a matched local comparison; filter/query/document, combined scenarios and insufficient-budget failure passed.
 - [x] Create automated native/GPU windows hidden and unfocused before creation; verify real framebuffer captures after resize and keep visible OS QA explicit. Hidden native gates and the 477-check Cocoa probe passed.
-- [ ] Introduce incremental object/dependency builds and coordinated icon generation, then lift blanket build serialization safely. Keep this a distinct engineering change with cold/warm measurements.
+- [x] Introduce per-file application release/sanitizer and isolated fixture-helper objects/dependencies, atomic artifacts and coordinated icon generation. Build contract and cold/warm/widget measurements are recorded; module tests keep their existing independent commands.
+- [ ] Lift blanket build serialization only after configuration/fixture ownership is demonstrably safe; preserve mutable-suite and desktop ordering. Extend incremental compilation to module tests without sharing renderer stubs or incompatible flags.
 - [ ] Gradually move embedded native scenarios out of `src/app/app.c` behind a test-build boundary. First preserve exactly the same scenarios; avoid changing feature behavior during extraction.
 
 Acceptance: a new checkout has documented build/test commands; a routine widget edit has a small credible gate; full regression is explicit, reproducible and associated with the tested binary. Two independent branches can integrate cleanly.
@@ -30,6 +31,8 @@ Acceptance: focused real-app regressions with no added idle SQL/allocations, sou
 Keep the implemented N1 ribbon mechanism, N2 workspace composition and N3 authoring core. Their completion never implied final visual sign-off. N4 shared controls and N5 integrated parity remain open.
 
 - [x] Replace generic filter-pill labels with bounded cached actual criteria/values.
+- [x] Match reserved collapsed-ribbon geometry, reference group icons/type and Alignment retention; keep ribbon/status live above narrow drawers. The 18-stage `ribbon-collapse` gate through `09ce3de` accepts flyouts, Escape focus and resizing without idle SQL/cache changes.
+- [x] Port the 240-unit More ribbon menu, hidden-group rows/separator, history-only narrow Icons state and real Undo/Redo; preserve More anchors, Escape/reopen and leaving historical preview before history. Require the actual completed native stage range in acceptance.
 - [ ] Finish representation, Plot, size/number dropdowns, wizards and advanced dialogs using measured reference anatomy and real/explicitly disabled actions.
 - [ ] Close remaining inspector/menu/focus differences using fixed reference states rather than another design direction.
 - [ ] Record matching native/browser captures and working pointer/keyboard checks for: browsing; selected matrix with compact shelves/Marks; chart; filters/date hierarchy; Transformations/SQL/history preview; Full/Compact/Icons/Focus ribbon; narrow/short windows and 150% scale.

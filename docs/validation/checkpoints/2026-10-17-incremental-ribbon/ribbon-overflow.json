@@ -1,0 +1,96 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T12:11:45.445594+00:00",
+  "tier": "affected",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "ff70638b34c8e1153f5cbea9b0204fd371c6fe44",
+    "status": "M AGENTS.md\n M docs/README.md\nMM docs/ROADMAP.md\nM  docs/STATUS.md\nM  docs/TESTING.md\nA  docs/validation/checkpoints/2026-10-17-incremental-ribbon/README.md\nA  docs/validation/checkpoints/2026-10-17-incremental-ribbon/incremental-build.json\nA  docs/validation/checkpoints/2026-10-17-incremental-ribbon/ribbon-collapse.json\nA  docs/validation/checkpoints/2026-10-17-incremental-ribbon/ribbon-compile.flags\nA  docs/validation/checkpoints/2026-10-17-incremental-ribbon/ribbon-evidence.txt\nA  docs/validation/checkpoints/2026-10-17-incremental-ribbon/ribbon-grid.json\nA  docs/validation/checkpoints/2026-10-17-incremental-ribbon/root-build-contract.json\n?? docs/design/FEEDBACK.md\n?? docs/design/NATIVE_REVIEW_FEASIBILITY.md\n?? tools/ui-review/",
+    "source_sha256": "dd9f34ad772796c39cbf70166eb3bff957dc9baab9ccf99c9c19df4956597603",
+    "source_files": 1490
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_grid-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T121145-affected-19585/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.181
+    },
+    {
+      "name": "grid-sanitize",
+      "command": [
+        "./tests/test_grid-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T121145-affected-19585/grid-sanitize.txt",
+      "expected_stages": null,
+      "completion_pattern": "^\\d+ grid checks$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.292
+    },
+    {
+      "name": "build-integration",
+      "command": [
+        "make",
+        "duxcel-debug",
+        "tests/test_background-native-debug",
+        "design-fixture"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T121145-affected-19585/build-integration.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.731
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T121145-affected-19585/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.073
+    },
+    {
+      "name": "layout-ribbon-overflow",
+      "command": [
+        "./duxcel-debug",
+        "--layout-smoke",
+        "--frames",
+        "1776",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261017T121145-affected-19585/final.png"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T121145-affected-19585/layout-ribbon-overflow.txt",
+      "expected_stages": 27,
+      "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[638,665\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 13.789
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "8ff35e6f28c94dd02e4c7dc81137902f640651e75a040fda015b78c175d26325",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "27c04b9279d3576aeddf82e0b628fcc2e9fc2b6b4c17e587e046f6884147fb64",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "elapsed_seconds": 16.52,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "8ff35e6f28c94dd02e4c7dc81137902f640651e75a040fda015b78c175d26325",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "27c04b9279d3576aeddf82e0b628fcc2e9fc2b6b4c17e587e046f6884147fb64",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "finished_utc": "2026-10-17T12:12:02.399039+00:00"
+}
