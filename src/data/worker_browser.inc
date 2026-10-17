@@ -9,7 +9,8 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-typedef enum { BROWSER_DESCRIBE, BROWSER_PAGE, BROWSER_COUNT, BROWSER_VALIDATE, BROWSER_DISTINCT_PAGE, BROWSER_DISTINCT_COUNT, BROWSER_TYPE_DESCRIBE,BROWSER_PIVOT_COUNT,BROWSER_PIVOT_TOTALS,BROWSER_PIVOT_DOMAIN,BROWSER_PIVOT_ROWS,BROWSER_PIVOT_COLUMNS,BROWSER_STATISTICS,BROWSER_COPY_PAGE } BrowserStage;
+#define BROWSER_EXPORT_BYTES (64u*1024u*1024u)
+typedef enum { BROWSER_DESCRIBE, BROWSER_PAGE, BROWSER_COUNT, BROWSER_VALIDATE, BROWSER_DISTINCT_PAGE, BROWSER_DISTINCT_COUNT, BROWSER_TYPE_DESCRIBE,BROWSER_PIVOT_COUNT,BROWSER_PIVOT_TOTALS,BROWSER_PIVOT_DOMAIN,BROWSER_PIVOT_ROWS,BROWSER_PIVOT_COLUMNS,BROWSER_STATISTICS,BROWSER_COPY_PAGE,BROWSER_EXPORT } BrowserStage;
 typedef struct {
     QueryJob *job;
     QueryReply *reply;
@@ -33,6 +34,7 @@ typedef struct {
     CopyPatch direct_copy; /* Scalar geometry only; the job owns its pivot. */
     CellClipboard copy_cells;
     Page copy_schema;
+    size_t export_definitions;
     BrowserStage stage;
     unsigned ticket;
     double started;
@@ -55,6 +57,10 @@ EM_JS(void, browser_send, (unsigned cookie,unsigned ticket,const char *sql,const
     cookie=cookie>>>0;ticket=ticket>>>0;
     Module['dxEngine'].submit({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_query_result},cookie,ticket,{requestId:String(ticket),generation:UTF8ToString(generation),documentId:String(cookie),sourceId:'0',objectId:UTF8ToString(object),revision:UTF8ToString(revision),offset:UTF8ToString(offset),knownTotal:total?UTF8ToString(total):null,rowLimit:limit,sql:UTF8ToString(sql),...(columns?{columns:JSON.parse(UTF8ToString(columns))}:{}),...(copying?{purpose:'copy'}:{})});
 })
+EM_JS(void, browser_export_send, (unsigned cookie,unsigned ticket,const char *sql,const char *name,const char *generation,const char *object,const char *revision), {
+    cookie=cookie>>>0;ticket=ticket>>>0;
+    Module['dxEngine'].exportParquet({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_export_result},cookie,ticket,{requestId:String(ticket),generation:UTF8ToString(generation),documentId:String(cookie),sourceId:'0',objectId:UTF8ToString(object),revision:UTF8ToString(revision),offset:'0',knownTotal:'1',rowLimit:1,sql:UTF8ToString(sql),fileName:UTF8ToString(name)});
+})
 EM_JS(void, browser_cancel, (int close), { Module['dxEngine'].cancel(Boolean(close)); })
 static void browser_discard(void) {
     job_free(browser_query.job); reply_free(browser_query.reply); free(browser_query.relation); free(browser_query.type_relation);
@@ -74,6 +80,7 @@ static void browser_publish(const char *error) {
     if (error && browser_query.matrix) page_free(&r->page);
     if (error && r->kind==JOB_STATISTICS) statistics_free(&r->statistics);
     if (error && browser_query.copying) { free(r->clipboard); r->clipboard=NULL; }
+    if (error && r->kind==JOB_EXPORT) { free(r->export_data); r->export_data=NULL; r->export_bytes=0; r->exported_rows=0; }
     printf("Browser worker reply: {\"id\":\"%" PRIu64 "\",\"kind\":%d,\"rows\":%zu,\"columns\":%zu,\"total\":\"%" PRIu64 "\",\"counted\":\"%" PRIu64 "\",\"pending\":%d,\"error\":%d,\"distinct_count\":%zu,\"distinct_total\":\"%" PRIu64 "\"}\n",r->id,(int)r->kind,r->page.row_count,r->page.column_count,r->page.total,r->counted_rows,r->page.count_pending,r->error!=NULL,r->distinct.count,r->distinct.total);
 #ifdef DUXCEL_DEV_REVIEW
     printf("Browser worker metrics: {\"id\":\"%" PRIu64 "\",\"elapsed_ms\":%.3f,\"callbacks\":%u,\"wire_bytes\":%" PRIu64 ",\"decoded_page_bytes\":%" PRIu64 ",\"retained_page_bytes\":%zu,\"decode_ms\":%.3f}\n",r->id,dx_millis()-browser_query.started,browser_query.callbacks,browser_query.wire_bytes,browser_query.decoded_bytes,r->page.bytes,browser_query.decode_ms);
@@ -214,6 +221,43 @@ static bool browser_copy_retained(size_t extra,size_t *retained,char **error) {
     if (!browser_copy_add(&used,extra,error)) return false;
     *retained=used; return true;
 }
+/* Nonbinary definitions/plans share the existing 24 MiB retained-data policy.
+   A separate <=64 MiB malloc allocation is adopted only after final validation;
+   Worker/host transport and allocator/process peaks are separate. */
+static bool browser_export_add(size_t *used,size_t bytes,char **error) {
+    if (bytes>DX_BROWSER_COPY_RETAINED_BYTES || *used>DX_BROWSER_COPY_RETAINED_BYTES-bytes) { *error=dx_strdup("Parquet export definitions exceed their combined 24 MiB C memory limit."); return false; }
+    *used+=bytes; return true;
+}
+static bool browser_export_preflight(char **error) {
+    BrowserQuery *q=&browser_query; QueryJob *j=q->job; size_t used=sizeof(*j)+sizeof(*q->reply)+sizeof(*q);
+    if (j->expected_source_stamp) { *error=dx_strdup("Native source stamps cannot be verified by browser Parquet export."); return false; }
+    if (j->workbook || j->copy || j->statistics || j->column || j->search || j->date_start || j->date_end || j->offset || j->rows || j->first_col || j->cols || j->include_header || j->include_totals || j->is_preview) { *error=dx_strdup("Parquet export requires one complete source or analytical result without unrelated payloads."); return false; }
+    if (j->is_table && !j->object_id) { *error=dx_strdup("A table export requires its object identity."); return false; }
+    if (q->reply->path) {
+        const char *name=q->reply->path; size_t length=0;
+        while (length<=255 && name[length] && (unsigned char)name[length]>=32 && (unsigned char)name[length]!=127 && name[length]!='/' && name[length]!='\\') length++;
+        if (!length || length>255 || name[length] || !strcmp(name,".") || !strcmp(name,"..")) { *error=dx_strdup("Browser Parquet export accepts a suggested basename, never an OS path."); return false; }
+        if (!browser_export_add(&used,length+1,error)) return false;
+    }
+    char *valid=browser_relation_sql(&q->reply->analysis,q->analytical ? &j->pivot : NULL,error); if (!valid) return false; free(valid);
+    if (!browser_export_add(&used,analysis_text_bytes(&q->reply->analysis),error)) return false;
+    for (size_t role=0;role<4;role++) for (size_t i=0;i<j->pivot.counts[role];i++) {
+        if (!q->analytical) { *error=dx_strdup("A direct Parquet export cannot contain analytical shelves."); return false; }
+        const PivotField *field=&j->pivot.fields[role][i];
+        if (!browser_export_add(&used,strlen(field->name)+1+(field->value ? strlen(field->value)+1 : 0),error)) return false;
+    }
+    q->export_definitions=used; return true;
+}
+static bool browser_export_retained(size_t extra,size_t *retained,char **error) {
+    BrowserQuery *q=&browser_query; size_t used=q->export_definitions;
+    const char *texts[]={q->relation,q->type_relation,browser_schema_key,browser_type_key[0],browser_type_key[1]};
+    for (size_t i=0;i<sizeof(texts)/sizeof(*texts);i++) if (texts[i] && !browser_export_add(&used,strlen(texts[i])+1,error)) return false;
+    if (!browser_export_add(&used,browser_schema.bytes,error) || !browser_export_add(&used,q->plan.bytes,error)) return false;
+    for (size_t i=0;i<2;i++) if (!browser_export_add(&used,browser_type_schema[i].bytes,error)) return false;
+    for (size_t i=0;i<DX_PIVOT_FIELDS;i++) if (!browser_export_add(&used,q->domains[i].bytes,error)) return false;
+    if (!browser_export_add(&used,extra,error)) return false;
+    *retained=used; return true;
+}
 static bool browser_statistics_add_bytes(size_t *used,size_t bytes,char **error) {
     if (bytes>DX_PAGE_WIRE_TEXT_BYTES || *used>DX_PAGE_WIRE_TEXT_BYTES-bytes) { *error=dx_strdup("Selection statistics exceed their combined 4 MiB memory limit."); return false; }
     *used+=bytes; return true;
@@ -251,6 +295,10 @@ static void browser_execute(char *sql,BrowserStage stage) {
             extra+=q->copy_schema.bytes+patch->rows*patch->columns*(sizeof(Cell)+1u)+DX_PAGE_WIRE_TEXT_BYTES;
         }
         if (!browser_copy_retained(extra,&retained,&error)) { free(sql); browser_fail(error); free(error); return; }
+    }
+    if (j->kind==JOB_EXPORT) {
+        char *error=NULL; size_t retained;
+        if (!browser_export_retained(strlen(sql)+1,&retained,&error)) { free(sql); browser_fail(error); free(error); return; }
     }
     q->stage=stage; q->ticket=++browser_sequence;
     char id[24],object[24],revision[24],offset[24],total[24];
@@ -345,6 +393,16 @@ static void browser_statistics_next_range(void) {
 static void browser_fetch_result(void) {
     BrowserQuery *q=&browser_query; QueryJob *j=q->job;
     if (q->copying) { browser_fetch_copy(); return; }
+    if (j->kind==JOB_EXPORT) {
+        if (browser_sequence==UINT32_MAX) { browser_fail("Browser request limit reached. Reopen the page."); return; }
+        char name[64],generation[24],object[24],revision[24],*error=NULL; size_t retained;
+        snprintf(name,sizeof(name),"export-%u-%u.parquet",browser_cookie,browser_sequence+1);
+        char *sql=browser_export_sql(q->relation,&browser_schema,q->analytical ? &j->pivot : NULL,&q->plan,name,&error);
+        if (!sql || !browser_export_retained(strlen(sql)+1,&retained,&error)) { free(sql); browser_fail(error); free(error); return; }
+        q->stage=BROWSER_EXPORT; q->ticket=++browser_sequence; browser_owner->sql_executed++;
+        snprintf(generation,sizeof(generation),"%" PRIu64,j->id); snprintf(object,sizeof(object),"%" PRIu64,j->object_id); snprintf(revision,sizeof(revision),"%" PRIu64,j->revision);
+        browser_export_send(browser_cookie,q->ticket,sql,name,generation,object,revision); free(sql); return;
+    }
     if (j->kind!=JOB_STATISTICS) { browser_fetch_page(); return; }
     char *error=NULL,*sql=NULL;
     if (q->mixed) {
@@ -458,6 +516,7 @@ static void browser_matrix_ready(void) {
 }
 EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,const char *total_text,int pending,const char *failure) {
     if (!browser_owner || !browser_query.job || cookie!=browser_cookie || ticket!=browser_query.ticket) return;
+    if (browser_query.stage==BROWSER_EXPORT) return; /* Only the binary callback owns this phase. */
     if (failure && *failure) { browser_publish(failure); return; }
     uint64_t total=0; char *error=NULL; Page page={0};
     QueryJob *j=browser_query.job; QueryReply *r=browser_query.reply;
@@ -474,10 +533,15 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
         if (!browser_copy_retained(0,&retained,&error)) { browser_publish(error); free(error); return; }
         available=DX_BROWSER_COPY_RETAINED_BYTES-retained;
     }
+    if (j->kind==JOB_EXPORT) {
+        size_t retained;
+        if (!browser_export_retained(0,&retained,&error)) { browser_publish(error); free(error); return; }
+        available=DX_BROWSER_COPY_RETAINED_BYTES-retained;
+    }
     bool decoded=browser_query.copying ? browser_query.stage==BROWSER_COPY_PAGE ?
         page_from_wire_copy_owned(&page,wire,size,offset,total,pending!=0,available,&error) :
         page_from_wire_owned(&page,wire,size,offset,total,pending!=0,available,&error) :
-        page_from_wire(&page,wire,size,offset,total,pending!=0,&error);
+        j->kind==JOB_EXPORT ? page_from_wire_owned(&page,wire,size,offset,total,pending!=0,available,&error) : page_from_wire(&page,wire,size,offset,total,pending!=0,&error);
 #ifdef DUXCEL_DEV_REVIEW
     browser_query.decode_ms+=dx_millis()-decode_started; browser_query.decoded_bytes+=page.bytes;
 #endif
@@ -485,6 +549,10 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
     if (browser_query.copying) {
         size_t retained;
         if (!browser_copy_retained(page.bytes,&retained,&error)) { page_free(&page); browser_publish(error); free(error); return; }
+    }
+    if (j->kind==JOB_EXPORT) {
+        size_t retained;
+        if (!browser_export_retained(page.bytes,&retained,&error)) { page_free(&page); browser_publish(error); free(error); return; }
     }
     if (browser_query.stage==BROWSER_COPY_PAGE) {
         BrowserQuery *q=&browser_query; CopyPatch *patch=browser_copy_patch(); bool valid=page.column_count==q->copy_schema.column_count;
@@ -611,6 +679,31 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
     r->page=page;
     browser_publish(NULL);
 }
+EMSCRIPTEN_KEEPALIVE int dx_browser_export_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,unsigned char *owned_data,size_t data_size,const char *failure) {
+    BrowserQuery *q=&browser_query;
+    if (!browser_owner || !q->job || !q->reply || q->job->kind!=JOB_EXPORT || q->stage!=BROWSER_EXPORT || cookie!=browser_cookie || ticket!=q->ticket) return 0;
+    if (failure && *failure) { browser_publish(failure); return 0; }
+    if (!owned_data || data_size<12 || data_size>BROWSER_EXPORT_BYTES) { browser_publish("Invalid bounded Parquet export bytes."); return 0; }
+    uint32_t footer=0; for (unsigned i=0;i<4;i++) footer|=(uint32_t)owned_data[data_size-8+i]<<(i*8);
+    if (memcmp(owned_data,"PAR1",4) || memcmp(owned_data+data_size-4,"PAR1",4) || !footer || footer>data_size-12) { browser_publish("Invalid Parquet export header/footer."); return 0; }
+    char *error=NULL; size_t retained; Page count={0};
+    if (!browser_export_retained(0,&retained,&error) || !page_from_wire_owned(&count,wire,size,0,1,false,DX_BROWSER_COPY_RETAINED_BYTES-retained,&error)) { browser_publish(error); free(error); return 0; }
+    uint64_t rows=0; bool valid=count.row_count==1 && count.column_count==1 && count.cells && !count.cells[0].is_null && count.cells[0].text &&
+        !strcmp(count.columns[0].name,"Count") && count.columns[0].numeric &&
+        ((count.columns[0].type==DUCKDB_TYPE_BIGINT && !strcmp(count.columns[0].type_name,"BIGINT") && count.columns[0].number_type.kind==NUM_I64) ||
+         (count.columns[0].type==DUCKDB_TYPE_UBIGINT && !strcmp(count.columns[0].type_name,"UBIGINT") && count.columns[0].number_type.kind==NUM_U64)) &&
+        !(count.cells[0].text[0]=='0' && count.cells[0].text[1]) && browser_uint64(count.cells[0].text,&rows) &&
+        (count.columns[0].type!=DUCKDB_TYPE_BIGINT || rows<=INT64_MAX);
+#ifdef DUXCEL_DEV_REVIEW
+    q->callbacks++; q->wire_bytes+=size+data_size; q->decoded_bytes+=count.bytes;
+#endif
+    page_free(&count);
+    if (!valid) { browser_publish("Invalid exact COPY row count."); return 0; }
+    /* No failure path after adoption: the host releases its temporary Count
+       wire, while poll/reply_free now owns this one UI-heap malloc allocation. */
+    q->reply->export_data=owned_data; q->reply->export_bytes=data_size; q->reply->exported_rows=rows;
+    browser_publish(NULL); return 1;
+}
 bool worker_start(QueryWorker *w) {
     if (browser_owner || browser_cookie==UINT32_MAX) return false;
     memset(w,0,sizeof(*w)); dx_mutex_init(&w->mutex); dx_cond_init(&w->condition);
@@ -627,10 +720,14 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
     if (j->refresh_source) browser_clear_schemas();
     q->copying=j->kind==JOB_COPY || j->kind==JOB_PIVOT_COPY || j->kind==JOB_RANGE_COPY;
     q->matrix=j->kind==JOB_PIVOT && !j->is_table;
-    q->analytical=q->matrix || (j->kind==JOB_STATISTICS && j->object_id && !j->is_table);
+    q->analytical=q->matrix || ((j->kind==JOB_STATISTICS || j->kind==JOB_EXPORT) && j->object_id && !j->is_table);
     bool invalid_pivot=false;
     for (size_t role=0;role<4;role++) invalid_pivot|=j->pivot.counts[role]>DX_PIVOT_FIELDS;
     if (invalid_pivot) { browser_fail("Matrix shelves exceed their bounded field limit."); return; }
+    if (j->kind==JOB_EXPORT) {
+        char *error=NULL;
+        if (!browser_export_preflight(&error)) { browser_fail(error ? error : "Invalid Parquet export snapshot."); free(error); return; }
+    }
     if (q->copying) {
         char *error=NULL;
         if (!browser_copy_preflight(&error)) { browser_fail(error ? error : "Invalid clipboard source snapshot."); free(error); return; }
@@ -650,7 +747,7 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
         if (j->expected_source_stamp) { browser_fail("Native source stamps cannot be verified by the browser engine."); return; }
         if (!j->cols || j->cols>256 || j->offset>DX_SHEET_ROWS || j->rows>DX_SHEET_ROWS-j->offset) { browser_fail("Selection statistics support up to 256 columns inside the worksheet."); return; }
     }
-    if (j->kind!=JOB_DISTINCT && j->kind!=JOB_PAGE && j->kind!=JOB_COUNT && j->kind!=JOB_VALIDATE_SQL && j->kind!=JOB_STEP_PREVIEW && j->kind!=JOB_PIVOT && j->kind!=JOB_STATISTICS) {
+    if (j->kind!=JOB_DISTINCT && j->kind!=JOB_PAGE && j->kind!=JOB_COUNT && j->kind!=JOB_VALIDATE_SQL && j->kind!=JOB_STEP_PREVIEW && j->kind!=JOB_PIVOT && j->kind!=JOB_STATISTICS && j->kind!=JOB_EXPORT) {
         browser_fail("This analytical operation is not connected to the browser engine yet."); return;
     }
     char *error=NULL;
