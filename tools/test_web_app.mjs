@@ -1593,7 +1593,13 @@ try{
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelWorkerResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'worker-driver.json'),JSON.stringify(report??{ok:false,error:'C driver did not complete'},null,2));
   check(report?.ok,'Real C/Worker bridge failed; see worker-driver.json and events.json');
-  check(report.stages===139,'C/Worker acceptance stage inventory changed');
+  check(report.stages===184,'C/Worker acceptance stage inventory changed');
+  const workloadLines=events.filter(event=>event.method==='Runtime.consoleAPICalled').flatMap(event=>event.params.args.map(arg=>String(arg.value??''))).filter(line=>line.startsWith('Browser worker workloads: '));
+  check(workloadLines.length===1,'C/Worker did not report one actual sequential workload inventory');
+  const workloads=JSON.parse(workloadLines[0].slice('Browser worker workloads: '.length));
+  check(workloads.sequential_workers===2&&workloads.baseline?.jobs===146&&workloads.baseline?.sql===325&&workloads.baseline?.counts===21,'Original139-stage Worker workload changed');
+  check(workloads.export?.jobs===43&&workloads.export?.sql===74&&workloads.export?.counts===0,'Export Worker workload changed');
+  await fs.writeFile(path.join(output,'worker-workloads.json'),JSON.stringify(workloads,null,2));
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
   console.log(JSON.stringify({status:'passed',checks,report,output}));
  }else{

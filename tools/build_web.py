@@ -32,10 +32,10 @@ def main():
         flags+=['-DDUXCEL_DEV_REVIEW','-include','src/dev/review_input.h','-Ibuild/web/review-info']
         review_header=ROOT/'build/web/review-info/review_build_info.h'
         tools.command(['python3','tools/review_build_info.py','--header',str(review_header),'--flags',' '.join(flags)])
-    link=['-sUSE_GLFW=3','-sALLOW_MEMORY_GROWTH=1','-sINITIAL_MEMORY=67108864','-sMAXIMUM_MEMORY=1073741824','-sSTACK_SIZE=2097152','-sASSERTIONS=1','-sMODULARIZE=1','-sEXPORT_ES6=1','-sEXPORT_NAME=createDuxcel','-sENVIRONMENT=web','-sEXIT_RUNTIME=0','-sMAX_WEBGL_VERSION=1',"-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_query_result','_dx_browser_file_result']",'--preload-file','assets/fonts@/assets/fonts','--preload-file','assets/ui@/assets/ui']
+    link=['-sUSE_GLFW=3','-sALLOW_MEMORY_GROWTH=1','-sINITIAL_MEMORY=67108864','-sMAXIMUM_MEMORY=1073741824','-sSTACK_SIZE=2097152','-sASSERTIONS=1','-sMODULARIZE=1','-sEXPORT_ES6=1','-sEXPORT_NAME=createDuxcel','-sENVIRONMENT=web','-sEXIT_RUNTIME=0','-sMAX_WEBGL_VERSION=1',"-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_query_result','_dx_browser_export_result','_dx_browser_file_result']",'--preload-file','assets/fonts@/assets/fonts','--preload-file','assets/ui@/assets/ui']
     if options.worker_driver:
         link=[value for value in link if value not in ('-sUSE_GLFW=3','-sMAX_WEBGL_VERSION=1','--preload-file','assets/fonts@/assets/fonts','assets/ui@/assets/ui') and not value.startswith('-sEXPORTED_FUNCTIONS=')]
-        link.append("-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_query_result']")
+        link.append("-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_query_result','_dx_browser_export_result']")
         assets=[]
     if options.review:
         link=[value.replace("'_dx_browser_file_result']","'_dx_browser_file_result','_dx_browser_review_result']") for value in link]
