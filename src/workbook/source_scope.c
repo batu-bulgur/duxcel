@@ -220,9 +220,9 @@ static bool schema_valid(const Page *schema,size_t *bytes,char **error) {
     for (size_t i=1;i<schema->column_count;i++) if (!names_compare(names+i-1,names+i)) return fail(error,"Ambiguous original source field names cannot bind record styles.");
     *bytes=total; return true;
 }
-static size_t field_ordinal(const SourceScopeInfo *info,const char *name) {
+static size_t field_ordinal(const SourceScopeInfo *info,const char *name,SourceScopeField *out) {
     Read r={info->fields,info->field_bytes,0,true};
-    for (size_t i=0;i<info->field_count;i++) { SourceScopeField field; if (!field_read(&r,i,&field)) return SIZE_MAX; if (same_name(name,field.name)) return i; }
+    for (size_t i=0;i<info->field_count;i++) { SourceScopeField field; if (!field_read(&r,i,&field)) return SIZE_MAX; if (same_name(name,field.name)) { if (out) *out=field; return i; } }
     return SIZE_MAX;
 }
 static int filters_compare(const void *a,const void *b) {
@@ -234,13 +234,15 @@ static bool transforms(const SourceScopeInfo *info,const Analysis *a,Parsed *out
     Parsed next={0}; next.filter_count=a->filter_count+(a->filter_column ? 1 : 0); next.sort_count=a->sort_count+(a->sort_column ? 1 : 0);
     for (size_t i=0;i<next.filter_count;i++) {
         const char *name=i ? a->filters[i-1].column : a->filter_column,*value=i ? a->filters[i-1].value : a->filter_value;
-        FilterOp op=i ? a->filters[i-1].op : a->filter_op; size_t ordinal=field_ordinal(info,name);
+        NumberType number=i ? a->filters[i-1].number : a->filter_number; SourceScopeField field;
+        FilterOp op=i ? a->filters[i-1].op : a->filter_op; size_t ordinal=field_ordinal(info,name,&field);
         if (ordinal==SIZE_MAX) return fail(error,"Source filter is not an original schema field.");
+        if (number.kind!=field.number.kind || number.precision!=field.number.precision || number.scale!=field.number.scale) return fail(error,"Source filter numeric binding is unresolved or differs from its exact schema field.");
         next.filters[i]=(Filter){(uint32_t)ordinal,(uint32_t)op,value,value ? strlen(value) : 0};
     }
     qsort(next.filters,next.filter_count,sizeof(*next.filters),filters_compare);
     for (size_t i=0;i<next.sort_count;i++) {
-        AnalysisSort sort=analysis_sort_at(a,i); size_t ordinal=field_ordinal(info,sort.column);
+        AnalysisSort sort=analysis_sort_at(a,i); size_t ordinal=field_ordinal(info,sort.column,NULL);
         if (ordinal==SIZE_MAX) return fail(error,"Source sort is not an original schema field.");
         next.sorts[i]=(Sort){(uint32_t)ordinal,sort.descending};
     }

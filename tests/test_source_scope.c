@@ -83,15 +83,15 @@ static void canonical_raw(void) {
 }
 static void canonical_result(void) {
     Column cols[5]; Page page=schema(cols); SourcePacket packet=raw(17,23,&page); Analysis a=source(); char *error=NULL;
-    a.filter_column="Amount"; a.filter_op=FILTER_GREATER; a.filter_value="9007199254740993.1250";
+    a.filter_column="Amount"; a.filter_op=FILTER_GREATER; a.filter_value="9007199254740993.1250"; a.filter_number=(NumberType){NUM_DECIMAL,38,4};
     a.filters[0]=(AnalysisFilter){"CITY","O'Reilly\t\"quoted\"\n",FILTER_EQUAL,{0}}; a.filter_count=1;
     a.sort_column="City"; a.sorts[0]=(AnalysisSort){"Amount",true}; a.sort_count=1;
     SourcePacket first=result(&packet,&a),other={0}; SourceScopeInfo info;
     CHECK(source_scope_validate(first.data,first.bytes,&info,&error) && info.kind==SOURCE_SCOPE_RESULT && info.owner==17 && info.version==23 && info.raw_bytes==packet.bytes && !memcmp(info.raw,packet.data,packet.bytes));
-    Analysis b=a; b.filter_column="city"; b.filter_value=a.filters[0].value; b.filter_op=FILTER_EQUAL;
+    Analysis b=a; b.filter_column="city"; b.filter_value=a.filters[0].value; b.filter_op=FILTER_EQUAL; b.filter_number=(NumberType){0};
     b.filters[0]=(AnalysisFilter){"AMOUNT",a.filter_value,FILTER_GREATER,{NUM_DECIMAL,38,4}};
     b.sort_column="CITY"; b.sorts[0].column="amount";
-    CHECK(source_scope_result_build(&packet,&b,&other,&error) && equal(first,other)); /* Filter order, case and derived numbers normalize. */
+    CHECK(source_scope_result_build(&packet,&b,&other,&error) && equal(first,other)); /* Filter order and case normalize after exact type validation. */
     b.descending=true; CHECK(source_scope_result_build(&packet,&b,&other,&error) && !equal(first,other)); b=a;
     b.sort_column="Amount"; b.descending=true; b.sorts[0]=(AnalysisSort){"City",false};
     CHECK(source_scope_result_build(&packet,&b,&other,&error) && !equal(first,other));
@@ -111,6 +111,41 @@ static void canonical_result(void) {
     char value[]="mutable"; b=(Analysis){.kind=SOURCE_CSV,.path=a.path,.filter_column="City",.filter_op=FILTER_EQUAL,.filter_value=value};
     CHECK(source_scope_result_build(&packet,&b,&other,&error)); SourcePacket saved=duplicate(other); value[0]='X'; CHECK(equal(other,saved));
     SourcePacket *all[]={&packet,&first,&other,&null_value,&empty_value,&literal_value,&alias,&saved}; for (size_t i=0;i<sizeof(all)/sizeof(*all);i++) source_packet_free(all[i]);
+}
+static void reject_filter_binding(const Analysis *a,const Page *page,const SourcePacket *packet,const SourceVersions *ledger) {
+    SourceDigest d=digest(); reject_raw(1,a,page,&d,"v1.5.6"); reject_result(packet,a); char *error=NULL;
+    size_t bytes=ledger->bytes; unsigned char *proof=ledger->items[0].raw.data;
+    CHECK(!source_versions_scope_matches(ledger,0,1,a,packet->data,packet->bytes,&error)); clear_error(&error);
+    CHECK(ledger->bytes==bytes && ledger->high_water==1 && ledger->items[0].raw.data==proof && equal(ledger->items[0].raw,*packet));
+}
+static void exact_filter_bindings(void) {
+    Column cols[5]; Page page=schema(cols); Analysis a=source(); SourcePacket packet=raw(0,1,&page),other={0}; SourceDigest d=digest(); char *error=NULL;
+    SourceVersions empty={0},ledger={0}; SourceVersion entry={.version=1,.kind=SOURCE_CSV,.path=a.path,.raw=packet};
+    CHECK(source_versions_plan(&empty,&entry,true,&ledger,&error));
+    a.filter_column="Amount"; a.filter_op=FILTER_GREATER; a.filter_value="9007199254740993.1250"; a.filter_number=(NumberType){NUM_DECIMAL,38,4};
+    a.filters[0]=(AnalysisFilter){"Id","9007199254740993",FILTER_EQUAL,{NUM_I64,0,0}}; a.filter_count=1;
+    CHECK(source_scope_raw_build(0,1,&a,&page,&d,"v1.5.6",&other,&error) && equal(packet,other));
+    SourcePacket output=result(&packet,&a); CHECK(source_versions_scope_matches(&ledger,0,1,&a,output.data,output.bytes,&error));
+    const NumberType decimal_bad[]={ {0},{NUM_I64,0,0},{NUM_FLOAT,0,0},{NUM_DECIMAL,37,4},{NUM_DECIMAL,38,3},{NUM_DECIMAL,38,39},{NUM_DECIMAL,0,0} };
+    for (size_t i=0;i<sizeof(decimal_bad)/sizeof(*decimal_bad);i++) { Analysis bad=a; bad.filter_number=decimal_bad[i]; reject_filter_binding(&bad,&page,&packet,&ledger); }
+    const NumberType integer_bad[]={ {0},{NUM_I32,0,0},{NUM_I64,1,0},{NUM_I64,0,1},{NUM_DECIMAL,38,0} };
+    for (size_t i=0;i<sizeof(integer_bad)/sizeof(*integer_bad);i++) { Analysis bad=a; bad.filters[0].number=integer_bad[i]; reject_filter_binding(&bad,&page,&packet,&ledger); }
+    /* The primary and secondary paths must enforce the same schema contract. */
+    a.filter_column="City"; a.filter_value="NULL"; a.filter_op=FILTER_EQUAL; a.filter_number=(NumberType){0};
+    a.filters[0]=(AnalysisFilter){"Amount","-4.50",FILTER_LESS,{NUM_DECIMAL,38,4}};
+    CHECK(source_scope_result_build(&packet,&a,&other,&error));
+    for (size_t i=0;i<sizeof(decimal_bad)/sizeof(*decimal_bad);i++) { Analysis bad=a; bad.filters[0].number=decimal_bad[i]; reject_filter_binding(&bad,&page,&packet,&ledger); }
+    const NumberType nonnumeric_bad[]={ {NUM_I64,0,0},{NUM_NONE,1,0},{NUM_NONE,0,1},{NUM_FLOAT,0,0} };
+    for (size_t i=0;i<sizeof(nonnumeric_bad)/sizeof(*nonnumeric_bad);i++) { Analysis bad=a; bad.filter_number=nonnumeric_bad[i]; reject_filter_binding(&bad,&page,&packet,&ledger); }
+    a.filter_column="Id"; a.filter_value="9223372036854775807"; a.filter_number=(NumberType){NUM_I64,0,0};
+    a.filters[0]=(AnalysisFilter){"When","2026-10-18",FILTER_EQUAL,{0}};
+    CHECK(source_scope_result_build(&packet,&a,&other,&error));
+    for (size_t i=0;i<sizeof(integer_bad)/sizeof(*integer_bad);i++) { Analysis bad=a; bad.filter_number=integer_bad[i]; reject_filter_binding(&bad,&page,&packet,&ledger); }
+    for (size_t i=0;i<sizeof(nonnumeric_bad)/sizeof(*nonnumeric_bad);i++) { Analysis bad=a; bad.filters[0].number=nonnumeric_bad[i]; reject_filter_binding(&bad,&page,&packet,&ledger); }
+    a.filter_count=0; a.filters[0]=(AnalysisFilter){0}; a.filter_op=FILTER_NULL; a.filter_value=NULL;
+    CHECK(source_scope_result_build(&packet,&a,&other,&error));
+    a.filter_number=(NumberType){0}; reject_filter_binding(&a,&page,&packet,&ledger); /* Even unused numeric bindings must be resolved for proof construction. */
+    source_packet_free(&packet); source_packet_free(&other); source_packet_free(&output); source_versions_free(&ledger);
 }
 static void invalid_inputs_and_schema(void) {
     Column cols[5]; Page page=schema(cols); Analysis a=source(); SourceDigest d=digest(); SourcePacket packet=raw(0,1,&page); char *error=NULL;
@@ -167,7 +202,7 @@ static void adversarial_packets(void) {
     SourceScopeInfo info; char *error=NULL; CHECK(source_scope_validate(packet.data,packet.bytes,&info,&error)); size_t field=(size_t)(info.fields-packet.data);
     bad_byte(packet,field,1); bad_byte(packet,field+4,255); bad_byte(packet,field+6,1); bad_byte(packet,field+8,0); bad_byte(packet,field+12,0xc0); bad_byte(packet,field+14,1);
     SourcePacket extra={dx_alloc(packet.bytes+1),packet.bytes+1}; memcpy(extra.data,packet.data,packet.bytes); extra.data[packet.bytes]=0; le(extra.data+8,extra.bytes,4); rejected(extra.data,extra.bytes); source_packet_free(&extra);
-    Analysis a=source(); a.filter_column="City"; a.filter_op=FILTER_EQUAL; a.filter_value="NULL"; a.filters[0]=(AnalysisFilter){"Amount","-4.50",FILTER_GREATER,{0}}; a.filter_count=1;
+    Analysis a=source(); a.filter_column="City"; a.filter_op=FILTER_EQUAL; a.filter_value="NULL"; a.filters[0]=(AnalysisFilter){"Amount","-4.50",FILTER_GREATER,{NUM_DECIMAL,38,4}}; a.filter_count=1;
     a.sort_column="Id"; a.sorts[0]=(AnalysisSort){"Amount",true}; a.sort_count=1;
     SourcePacket output=result(&packet,&a); for (size_t i=0;i<output.bytes;i++) rejected(output.data,i);
     bad_byte(output,16,1); bad_byte(output,24,2); bad_byte(output,7,2); bad_byte(output,36+6,2);
@@ -285,6 +320,6 @@ static void ledger_limits_and_malformed_ownership(void) {
     source_versions_free(&live); source_versions_free(&out); sized_schema_free(&page);
 }
 int main(void) {
-    canonical_raw(); canonical_result(); invalid_inputs_and_schema(); all_known_types(); adversarial_packets(); packet_budgets_and_ownership(); ledger_lifecycle(); ledger_limits_and_malformed_ownership();
+    canonical_raw(); canonical_result(); exact_filter_bindings(); invalid_inputs_and_schema(); all_known_types(); adversarial_packets(); packet_budgets_and_ownership(); ledger_lifecycle(); ledger_limits_and_malformed_ownership();
     printf("PASS source-scope: %u checks\n",checks); return 0;
 }

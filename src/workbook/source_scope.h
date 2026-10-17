@@ -40,6 +40,10 @@ typedef struct {
    Result encoding adds canonical original-field filters and ordered sorts; it
    does not infer lineage or accept arbitrary SQL. Explicit NULL/empty/literal
    filter values remain distinct. Engine/reader compatibility is exact.
+   Every active filter must carry its exact schema-resolved NumberType (including
+   precision/scale); nonnumeric fields require canonical zero. Derived bindings
+   are validated, never serialized independently. Unresolved numeric filters
+   fail closed, including in raw_build even though raw identity omits filters.
    out is zero-initialized or owned; every failure preserves it. */
 bool source_scope_raw_build(uint64_t owner,uint64_t version,const Analysis *source,
     const Page *schema,const SourceDigest *verified,const char *engine_version,
