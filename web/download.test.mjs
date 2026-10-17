@@ -34,11 +34,11 @@ test('real Blob snapshots the exact borrowed subview before heap mutation or det
     owner.dispose();assert.deepEqual(f.cancelled,[0]);assert.deepEqual(f.revoked,['memory:download-1']);assert.ok(Object.isFrozen(owner));
 });
 test('one retained URL stays busy until its grace timer releases it; retries and stale timers keep ownership separate',()=>{
-    const f=fixture();assert.equal(f.owner.request(parquet(),'one.parquet').ok,true);
+    const f=fixture();assert.equal(f.owner.ready(),true);assert.equal(f.owner.ready(),true);assert.equal(f.owner.request(parquet(),'one.parquet').ok,true);assert.equal(f.owner.ready(),false);
     const first=[...f.timers.values()][0].callback;failed(f.owner.request(parquet(),'two.parquet'));
-    assert.equal(f.created.length,1);f.fire(0);assert.deepEqual(f.revoked,['memory:download-1']);assert.deepEqual(f.cancelled,[]);
-    assert.equal(f.owner.request(parquet(),'two.parquet').ok,true);first();assert.equal(f.revoked.length,1);assert.equal(f.timers.size,1);
-    f.owner.dispose();f.owner.dispose();assert.deepEqual(f.cancelled,[1]);assert.deepEqual(f.revoked,['memory:download-1','memory:download-2']);
+    assert.equal(f.created.length,1);f.fire(0);assert.equal(f.owner.ready(),true);assert.deepEqual(f.revoked,['memory:download-1']);assert.deepEqual(f.cancelled,[]);
+    assert.equal(f.owner.request(parquet(),'two.parquet').ok,true);assert.equal(f.owner.ready(),false);first();assert.equal(f.owner.ready(),false);assert.equal(f.revoked.length,1);assert.equal(f.timers.size,1);
+    f.owner.dispose();f.owner.dispose();assert.equal(f.owner.ready(),false);assert.deepEqual(f.cancelled,[1]);assert.deepEqual(f.revoked,['memory:download-1','memory:download-2']);
     first();failed(f.owner.request(parquet(),'disposed.parquet'));assert.equal(f.created.length,2);
 });
 test('Parquet bytes enforce exact bounds, bounded footer and ordinary attached nonshared Uint8Array views',()=>{
@@ -48,7 +48,7 @@ test('Parquet bytes enforce exact bounds, bounded footer and ordinary attached n
     const detached=parquet();structuredClone(detached.buffer,{transfer:[detached.buffer]});invalid.push(detached);
     if(typeof SharedArrayBuffer!=='undefined'){const shared=new Uint8Array(new SharedArrayBuffer(20));shared.set(parquet());invalid.push(shared);}
     invalid.push(new Proxy(parquet(),{}));
-    for(const value of invalid)failed(f.owner.request(value,'invalid.parquet'));
+    for(const value of invalid){failed(f.owner.request(value,'invalid.parquet'));assert.equal(f.owner.ready(),true);}
     assert.equal(f.created.length,0);assert.equal(f.blobs.length,0);
     const boundary=parquet(64*1024*1024);new DataView(boundary.buffer).setUint32(boundary.length-8,1,true);
     let length=0;const bounded=fixture({createBlob(view){length=view.byteLength;return new Blob([]);}});
@@ -69,7 +69,7 @@ test('unavailable or throwing factories, URL creation, dispatch and timers fail 
     for(const failure of ['createBlob','createURL','dispatch','schedule']){
         let failing=true;const errors=[],f=fixture();const original=f.functions[failure];
         const owner=createBrowserDownload({...f.functions,[failure](...args){if(failing){errors.push(failure);throw new Error(`${failure} rejected`);}return original(...args);}});
-        const result=owner.request(parquet(),'first.parquet');failed(result);assert.equal(result.error,`${failure} rejected`);
+        assert.equal(owner.ready(),true);const result=owner.request(parquet(),'first.parquet');failed(result);assert.equal(owner.ready(),true);assert.equal(result.error,`${failure} rejected`);
         assert.equal(f.timers.size,0);assert.equal(f.revoked.length,failure==='dispatch'||failure==='schedule'?1:0);
         failing=false;assert.equal(owner.request(parquet(),'retry.parquet').ok,true);owner.dispose();assert.deepEqual(errors,[failure]);
     }
@@ -79,9 +79,9 @@ test('unavailable or throwing factories, URL creation, dispatch and timers fail 
 });
 test('cleanup exceptions retain failed URL ownership, block a second URL and permit explicit cleanup retry',()=>{
     let attempts=0;const f=fixture({revokeURL(url){assert.equal(url,'memory:download-1');if(++attempts<3)throw new Error('Temporary cleanup failure');}});
-    assert.equal(f.owner.request(parquet(),'one.parquet').ok,true);f.fire();assert.equal(attempts,1);
+    assert.equal(f.owner.ready(),true);assert.equal(f.owner.request(parquet(),'one.parquet').ok,true);assert.equal(f.owner.ready(),false);f.fire();assert.equal(f.owner.ready(),false);assert.equal(attempts,1);
     failed(f.owner.request(parquet(),'must-stay-busy.parquet'));assert.equal(f.created.length,1);
-    f.owner.dispose();assert.equal(attempts,2);f.owner.dispose();assert.equal(attempts,3);f.owner.dispose();assert.equal(attempts,3);
+    f.owner.dispose();assert.equal(f.owner.ready(),false);assert.equal(attempts,2);f.owner.dispose();assert.equal(f.owner.ready(),false);assert.equal(attempts,3);f.owner.dispose();assert.equal(attempts,3);
     let cancelled=0;const c=fixture({cancel(){cancelled++;throw new Error('cancel failed');}});
     assert.equal(c.owner.request(parquet(),'cancel.parquet').ok,true);const late=[...c.timers.values()][0].callback;
     c.owner.dispose();assert.equal(cancelled,1);assert.deepEqual(c.revoked,['memory:download-1']);late();assert.equal(c.revoked.length,1);
@@ -107,5 +107,5 @@ test('hostile diagnostics are bounded scalar UTF8 and configuration never invoke
     const errors=['🦆'.repeat(1000),'\ud800\0'+ 'é'.repeat(1000),{get message(){throw new Error('Unsafe getter');}},{message:'',name:'Denied'},Symbol('denied'),null];
     for(const error of errors){const f=fixture({dispatch(){throw error;}}),result=f.owner.request(parquet(),'errors.parquet');failed(result);assert.equal(decoder.decode(encoder.encode(result.error)),result.error);assert.equal(result.error.includes('\0'),false);assert.equal(f.revoked.length,1);f.owner.dispose();}
     for(const name of ['createBlob','createURL','revokeURL','dispatch','schedule','cancel'])for(const value of [0,false,{},'function'])assert.throws(()=>createBrowserDownload({[name]:value}),TypeError);
-    const inert=createBrowserDownload();assert.ok(Object.isFrozen(inert));inert.dispose();
+    const inert=createBrowserDownload();assert.ok(Object.isFrozen(inert));assert.equal(inert.ready(),true);inert.dispose();assert.equal(inert.ready(),false);
 });

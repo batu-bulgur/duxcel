@@ -121,6 +121,7 @@ export function createBrowserDownload({createBlob=defaultBlob,createURL=defaultU
             current(operation);return outcome(true);
         }catch(error){release(operation);return outcome(false,diagnostic(error));}
     }
+    function ready(){return !disposed&&!active;}
     function dispose(){disposed=true;if(active)release(active);}
-    return Object.freeze({request,dispose});
+    return Object.freeze({request,ready,dispose});
 }
