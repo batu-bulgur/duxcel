@@ -48,7 +48,8 @@ Acceptance: actual shared C UI and a real official Worker query run in the brows
 - [x] Accept active-cell/extent retention through pointer drag, Shift navigation, range reversal and Tab/Enter; update legacy native assumptions to the intended behavior.
 - [x] Accept pointer versus keyboard focus against the reference at wide/narrow and 100/150% UI scales.
 - [x] Rebase or invalidate source bookmarks when a table moves.
-- [ ] Fix source-record formatting identity through sorting/filtering/query reindexing; define behavior when a query changes row identity. The [proposed scoped plan](design/SOURCE_FORMAT_IDENTITY.md) separates wrong-row containment, Page provenance, real record-following and verified persistence; none is completed by writing the plan.
+- [x] S1 Parquet foundation: carry bounded single-file raw Parquet record IDs through native Pages, retain business-only schema/grain, share deterministic positional ordering and reject observed changed-file pages. Real native10-stage and existing81-stage table/NYC gates, release/sanitizer engine/ownership checks and integrated paging measurements passed. [Evidence](validation/checkpoints/2026-10-17-record-pages/). CSV/demo IDs and source-version-bound async consumers remain open.
+- [ ] Fix source-record formatting identity through sorting/filtering/query reindexing; define behavior when a query changes row identity. The [proposed scoped plan](design/SOURCE_FORMAT_IDENTITY.md) separates wrong-row containment, Page provenance, real record-following and verified persistence; the Parquet Page foundation is accepted separately, while the formatting feature remains incomplete.
 
 Acceptance: focused real-app regressions with no added idle SQL/allocations, source/PIVOT cache identity preserved and typed NULL/exact values intact. These are discrete fixes, not an invitation to keep polishing without a completion boundary.
 

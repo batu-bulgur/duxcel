@@ -1,0 +1,320 @@
+Command: ["./duxcel-debug", "--table-smoke", "--frames", "3400", "--screenshot", "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/table.png"]
+INFO: Initializing raylib 6.0
+INFO: Platform backend: DESKTOP (GLFW)
+INFO: Supported raylib modules:
+INFO:     > rcore:..... loaded (mandatory)
+INFO:     > rlgl:...... loaded (mandatory)
+INFO:     > rshapes:... loaded (optional)
+INFO:     > rtextures:. loaded (optional)
+INFO:     > rtext:..... loaded (optional)
+INFO:     > rmodels:... loaded (optional)
+INFO:     > raudio:.... loaded (optional)
+INFO: DISPLAY: Trying to enable VSYNC
+INFO: DISPLAY: Device initialized successfully (HighDPI)
+INFO:     > Display size: 1680 x 1050
+INFO:     > Screen size:  1280 x 820
+INFO:     > Render size:  2560 x 1640
+INFO:     > Viewport offsets: 0, 0
+INFO: GLAD: OpenGL extensions loaded successfully
+INFO: GL: Supported extensions count: 43
+INFO: GL: OpenGL device information:
+INFO:     > Vendor:   Apple
+INFO:     > Renderer: Apple M1
+INFO:     > Version:  4.1 Metal - 90.5
+INFO:     > GLSL:     4.10
+INFO: GL: VAO extension detected, VAO functions loaded successfully
+INFO: GL: NPOT textures extension detected, full NPOT textures supported
+INFO: GL: DXT compressed textures supported
+INFO: PLATFORM: DESKTOP (GLFW - Cocoa): Initialized successfully
+INFO: TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 1] Default texture loaded successfully
+INFO: SHADER: [ID 1] Vertex shader compiled successfully
+INFO: SHADER: [ID 2] Fragment shader compiled successfully
+INFO: SHADER: [ID 3] Program shader loaded successfully
+INFO: SHADER: [ID 3] Default shader loaded successfully
+INFO: RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+INFO: RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+INFO: RLGL: Default OpenGL state initialized successfully
+INFO: TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Default font loaded successfully (224 glyphs)
+INFO: SYSTEM: Working Directory: /Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel
+Native test window: hidden, unfocused
+INFO: IMAGE: Data loaded successfully (512x512 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 3] Texture loaded successfully (512x512 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 3] Mipmaps generated automatically, total: 10
+INFO: TIMER: Target time per frame: 16.393 milliseconds
+Frame pacing cap=61 monitor=60 Hz (vsync requested)
+INFO: FILEIO: [/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/assets/ui/carbon-atlas.png] File loaded successfully
+INFO: IMAGE: Data loaded successfully (512x640 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 4] Texture loaded successfully (512x640 | R8G8B8A8 | 1 mipmaps)
+INFO: FILEIO: [/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/assets/fonts/IBMPlexSans-Regular.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/assets/fonts/IBMPlexSans-Medium.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/assets/fonts/IBMPlexSans-SemiBold.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/assets/fonts/IBMPlexSans-Italic.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/assets/fonts/IBMPlexSans-SemiBoldItalic.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/assets/fonts/JetBrainsMono-Regular.ttf] File loaded successfully
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 5] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 6] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 7] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 11] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+INFO: RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+Render batch buffers=8 elements=8192
+Table 1 viewport: 5 rows, 1611 bytes, 23.54 ms query; count complete
+INFO: TEXTURE: [ID 12] Texture loaded successfully (2112x192 | R8G8B8A8 | 1 mipmaps)
+Table 3 viewport: 10 rows, 1179 bytes, 12.15 ms query; count complete
+INFO: TEXTURE: [ID 13] Texture loaded successfully (640x1728 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 14] Texture loaded successfully (640x1728 | R8G8B8A8 | 1 mipmaps)
+Table 1 viewport: 2 rows, 1072 bytes, 19.36 ms query; count complete
+Table 1 viewport: 5 rows, 1611 bytes, 11.53 ms query; count complete
+Table 1 viewport: 2 rows, 1072 bytes, 14.44 ms query; count complete
+INFO: FILEIO: [tests/results/table-sources/authoring-100.png] File saved successfully
+INFO: FILEIO: [tests/results/table-sources/authoring-100.png] Image exported successfully
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 20] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 21] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 5] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 6] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: FILEIO: [tests/results/table-sources/authoring-150.png] File saved successfully
+INFO: FILEIO: [tests/results/table-sources/authoring-150.png] Image exported successfully
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 5] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 6] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 7] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 11] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+Table 1 viewport: 2 rows, 1072 bytes, 7.33 ms query; count complete
+Table 3 viewport: 10 rows, 1179 bytes, 9.46 ms query; count complete
+Table 6 viewport: 256 rows, 23594 bytes, 18.19 ms query; count pending
+Table 6 exact row count: 1000000
+INFO: FILEIO: [tests/results/table-sources/million-last-page.png] File saved successfully
+INFO: FILEIO: [tests/results/table-sources/million-last-page.png] Image exported successfully
+Table 6 viewport: 256 rows, 23594 bytes, 9.48 ms query; count pending
+Table 6 exact row count: 1000000
+Table 1 viewport: 2 rows, 1072 bytes, 32.35 ms query; count complete
+Table 1 viewport: 5 rows, 1611 bytes, 16.09 ms query; count complete
+Table 7 viewport: 5 rows, 51635 bytes, 25.16 ms query; count complete
+Table 7 viewport: 2 rows, 1102 bytes, 5.60 ms query; count complete
+Table 7 viewport: 5 rows, 51635 bytes, 7.55 ms query; count complete
+Table 7 viewport: 2 rows, 1102 bytes, 8.11 ms query; count complete
+Table 7 viewport: 5 rows, 51635 bytes, 4.81 ms query; count complete
+Table 7 viewport: 5 rows, 51635 bytes, 5.85 ms query; count complete
+INFO: FILEIO: [tests/results/table-sources/relations-100.png] File saved successfully
+INFO: FILEIO: [tests/results/table-sources/relations-100.png] Image exported successfully
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 20] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 21] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 5] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 6] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 5] Texture loaded successfully (704x832 | R8G8B8A8 | 1 mipmaps)
+INFO: FILEIO: [tests/results/table-sources/relations-150.png] File saved successfully
+INFO: FILEIO: [tests/results/table-sources/relations-150.png] Image exported successfully
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 6] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 7] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+INFO: FBO: [ID 4] Unloaded framebuffer from VRAM (GPU)
+INFO: TEXTURE: [ID 5] Texture loaded successfully (704x1344 | R8G8B8A8 | 1 mipmaps)
+Table 7 viewport: 5 rows, 51635 bytes, 4.95 ms query; count complete
+Table 6 viewport: 256 rows, 23594 bytes, 24.08 ms query; count pending
+Table 6 exact row count: 1000000
+INFO: FILEIO: [tests/results/table-sources/count-validation.png] File saved successfully
+INFO: FILEIO: [tests/results/table-sources/count-validation.png] Image exported successfully
+Table 6 viewport: 256 rows, 23919 bytes, 9.20 ms query; count pending
+Table 6 exact row count: 100000
+Table 6 viewport: 256 rows, 23594 bytes, 8.94 ms query; count pending
+Table 6 exact row count: 1000000
+Table 6 viewport: 118 rows, 11600 bytes, 9.06 ms query; count complete
+Table 7 viewport: 5 rows, 51635 bytes, 15.45 ms query; count complete
+Navigation batch: 64 ordered native presses in 0.089 ms CPU path; no data query
+INFO: FILEIO: [tests/results/table-sources/clipped-header-100.png] File saved successfully
+INFO: FILEIO: [tests/results/table-sources/clipped-header-100.png] Image exported successfully
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 15] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 16] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (43 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 17] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 18] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 19] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 20] Texture loaded successfully (2048x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (63 pixel size | 417 glyphs)
+INFO: TEXTURE: [ID 21] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (40 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 6] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+INFO: FILEIO: [tests/results/table-sources/clipped-header-150.png] File saved successfully
+INFO: FILEIO: [tests/results/table-sources/clipped-header-150.png] Image exported successfully
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 6] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 7] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 22] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: TEXTURE: [ID 15] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 16] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 17] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 18] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 19] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 20] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 21] Unloaded texture data from VRAM (GPU)
+PASS: ordered repeated navigation and modifier snapshots, per-press object scope, query-free 64-key batch, native-repeat suppression, contextual Alt+Down, modal ownership, range traversal and clipped table headers
+PASS: independent same-sheet CSV/Parquet/DuckDB tables, pinned source relations and visible relation choice, bound real PIVOT/charts, contextual fields, cached filters/date values, source-local sort, copy/statistics, move/history, growth guards, missing-relation recovery, contextual keyboard jumps, deferred counts/cancellation/validation and dxls round trip
+INFO: FILEIO: [/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/table.png] File saved successfully
+INFO: FILEIO: [/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/table.png] Image exported successfully
+Draw submission CPU p95=2.662 ms (excludes swap/pacing)
+Final relation rows=0 columns=0 cache offset=0 top=20 first_col=36
+Duxcel frames=1754 mean=19.09 ms p95=17.96 ms max=351.27 ms dpi=2.0x2.0 logical=1280x820 framebuffer=2560x1640 smoke=0
+Worker jobs=69 SQL executions=181 count queries=25
+INFO: TEXTURE: [ID 3] Unloaded texture data from VRAM (GPU)
+INFO: FBO: [ID 4] Unloaded framebuffer from VRAM (GPU)
+INFO: FBO: [ID 2] Unloaded framebuffer from VRAM (GPU)
+INFO: FBO: [ID 3] Unloaded framebuffer from VRAM (GPU)
+INFO: FBO: [ID 1] Unloaded framebuffer from VRAM (GPU)
+INFO: TEXTURE: [ID 6] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 22] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 4] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+INFO: SHADER: [ID 3] Default shader unloaded successfully
+INFO: TEXTURE: [ID 1] Default texture unloaded successfully
+INFO: Window closed successfully

@@ -1,0 +1,110 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T15:49:04.477384+00:00",
+  "tier": "native",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel",
+  "source": {
+    "commit": "38601b778d0e749fc050660c55222d3206344d8e",
+    "status": "",
+    "source_sha256": "86a0141c8b22dfd9bba5bbc481a724bd1c71ac3101ead0afd327886946f6d1e7",
+    "source_files": 211
+  },
+  "results": [
+    {
+      "name": "build-integration",
+      "command": [
+        "make",
+        "duxcel-debug",
+        "tests/test_background-native-debug",
+        "design-fixture"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/build-integration.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.34
+    },
+    {
+      "name": "build-table-fixtures",
+      "command": [
+        "make",
+        "tests/test_core"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/build-table-fixtures.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.265
+    },
+    {
+      "name": "prepare-table-fixtures",
+      "command": [
+        "./tests/test_core"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/prepare-table-fixtures.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 3.821
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.205
+    },
+    {
+      "name": "native-table",
+      "command": [
+        "./duxcel-debug",
+        "--table-smoke",
+        "--frames",
+        "3400",
+        "--screenshot",
+        "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/table.png"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/native-table.txt",
+      "expected_stages": 73,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 34.347
+    },
+    {
+      "name": "native-nyc",
+      "command": [
+        "./duxcel-debug",
+        "--nyc-smoke",
+        "--frames",
+        "1000",
+        "--screenshot",
+        "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/nyc.png"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/results/runs/20261017T154904-native-78126/native-nyc.txt",
+      "expected_stages": 8,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 6.401
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/duxcel-debug": "aa187237875f6dc023fa01c872968c4845c4648d0e26d23d865c2b9e96184d2a",
+    "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/test_background-native-debug": "270caa764984823091ceac0dfc947b0dd848caddaa0613bedf28bb267d1a5300",
+    "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/test_core": "849a85279977911965c105de36d6bdc5dc6c4a267158a067d6d2f03cc8ad4d57"
+  },
+  "elapsed_seconds": 47.567,
+  "binaries_after": {
+    "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/duxcel-debug": "aa187237875f6dc023fa01c872968c4845c4648d0e26d23d865c2b9e96184d2a",
+    "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/test_background-native-debug": "270caa764984823091ceac0dfc947b0dd848caddaa0613bedf28bb267d1a5300",
+    "/Users/h2o/.codex/worktrees/duxcel-record-pages/duxcel/tests/test_core": "849a85279977911965c105de36d6bdc5dc6c4a267158a067d6d2f03cc8ad4d57"
+  },
+  "finished_utc": "2026-10-17T15:49:52.164219+00:00"
+}

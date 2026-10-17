@@ -1,6 +1,6 @@
 # Source-record formatting identity — proposed implementation plan
 
-Prepared 17 October 2026 against `cbf16b3`. **Proposal only: none of the new model, limits, migration or acceptance below is implemented or accepted by this document.** The [roadmap](../ROADMAP.md) and [status](../STATUS.md) remain the current task and capability records. This plan does not change the frozen UI reference or authorize a new design direction.
+Prepared 17 October 2026 against `cbf16b3`. **The selector, budget and persistence policy below remains a proposal.** The native single-file raw Parquet portion of S1 is now implemented and separately accepted through `38601b7`; [evidence](../validation/checkpoints/2026-10-17-record-pages/) records exact scope. It adds optional owned Page IDs and positional tie ordering, not record-following formatting. CSV/demo App IDs, S0/S2 selectors, asynchronous identity collection and verified persistence remain open. The [roadmap](../ROADMAP.md) and [status](../STATUS.md) remain the current task and capability records. This plan does not change the frozen UI reference or authorize a new design direction.
 
 The intended result is simple: bolding a particular imported transaction follows that transaction when it is sorted, temporarily disappears when that transaction is filtered out, and returns when it becomes visible. It must never silently style another transaction. Missing worksheet cells, SQL NULL, zero-length text and literal `NULL` remain distinct; formatting changes display only, never stored values or calculation types.
 
