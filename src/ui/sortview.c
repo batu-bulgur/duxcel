@@ -5,6 +5,28 @@
 #include <math.h>
 #include <ctype.h>
 static Rectangle rect(float x,float y,float w,float h) { return (Rectangle){x,y,w,h}; }
+#ifdef DUXCEL_DEV_REVIEW
+static bool sort_review_text(char *to,size_t capacity,const char *text) {
+    if (!text) text=""; size_t length=strlen(text),used=length<capacity ? length : capacity-1;
+    while (used && ((unsigned char)text[used]&0xc0)==0x80) used--;
+    memcpy(to,text,used); to[used]=0; return used!=length;
+}
+static void sort_review_record(SortEditor *e,UIContext *u,SortReviewKind kind,const char *label,const char *field,size_t column,size_t priority,Rectangle bounds,bool enabled,bool checked,bool focused,bool container,const char *file,uint32_t line) {
+    if (!e->review.armed) return;
+    if (e->review.count>=SORT_REVIEW_TARGETS) { e->review.overflow=true; return; }
+    SortReviewTarget *target=&e->review.targets[e->review.count++];
+    *target=(SortReviewTarget){.kind=kind,.bounds=bounds,.clip=u->clipping ? u->clip : rect(0,0,GetScreenWidth(),GetScreenHeight()),.column=column,.priority=priority,.enabled=enabled,.checked=checked,.focused=focused,.container=container,.file=file,.line=line};
+    target->truncated=sort_review_text(target->label,sizeof(target->label),label);
+    target->truncated|=sort_review_text(target->field,sizeof(target->field),field);
+    if (field) {
+        target->field_hash=UINT64_C(14695981039346656037);
+        for (const unsigned char *text=(const unsigned char *)field;*text;text++) { target->field_hash^=*text; target->field_hash*=UINT64_C(1099511628211); }
+    }
+}
+#define SORT_REVIEW(e,...) do { if ((e)->review.armed) sort_review_record((e),__VA_ARGS__,__FILE__,__LINE__); } while (0)
+#else
+#define SORT_REVIEW(...) ((void)0)
+#endif
 void sort_editor_free(SortEditor *e) {
     analysis_free(&e->draft); input_free(&e->search); free(e->matches); free(e->error); memset(e,0,sizeof(*e));
 }
@@ -49,6 +71,8 @@ static void scrollbar(SortEditor *e,UIContext *u,int id,int *scroll,Rectangle ar
     Rectangle track=rect(area.x+area.width-11*s,area.y+2*s,9*s,area.height-4*s);
     thumb=fminf(thumb,track.height); float travel=track.height-thumb;
     Rectangle handle=rect(track.x,track.y+travel*(float)*scroll/(count-visible),track.width,thumb);
+    SORT_REVIEW(e,u,id==1 ? SORT_REVIEW_FIELD_SCROLL : SORT_REVIEW_ORDER_SCROLL,"Scroll track",NULL,0,0,track,true,false,false,false);
+    SORT_REVIEW(e,u,id==1 ? SORT_REVIEW_FIELD_THUMB : SORT_REVIEW_ORDER_THUMB,"Scroll thumb",NULL,0,0,handle,true,false,e->dragging==id,false);
     DrawRectangleRec(track,UI_BG); DrawRectangleRounded(handle,.5f,4,(Color){161,174,191,255});
     Vector2 mouse=GetMousePosition();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse,track)) { e->dragging=id; e->grab=CheckCollisionPointRec(mouse,handle) ? mouse.y-handle.y : thumb/2; }
@@ -58,6 +82,9 @@ static void scrollbar(SortEditor *e,UIContext *u,int id,int *scroll,Rectangle ar
     }
 }
 SortResult sort_editor_draw(SortEditor *e,UIContext *u,const Page *page) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (e->review.armed) { e->review.count=0; e->review.overflow=false; }
+#endif
     bool input=!e->just_opened; e->just_opened=false;
     if (input && ui_pressed(KEY_ESCAPE)) return SORT_CANCEL;
     float s=u->scale,w=fminf(880*s,GetScreenWidth()-32*s),h=fminf(620*s,GetScreenHeight()-40*s);
@@ -65,8 +92,12 @@ SortResult sort_editor_draw(SortEditor *e,UIContext *u,const Page *page) {
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,95});
     DrawRectangleRounded(rect(x+3*s,y+5*s,w,h),.025f,4,(Color){20,32,45,28});
     DrawRectangleRounded(rect(x,y,w,h),.025f,4,UI_BG); DrawRectangleLinesEx(rect(x,y,w,h),s,UI_BORDER);
+    SORT_REVIEW(e,u,SORT_REVIEW_PANEL,"Sort data table",NULL,0,0,rect(x,y,w,h),true,false,false,true);
+    SORT_REVIEW(e,u,SORT_REVIEW_HEADING,"Sort data table",NULL,0,0,rect(x+22*s,y+19*s,ui_measure(u,"Sort data table",19),26*s),true,false,false,false);
     ui_text(u,"Sort data table",x+22*s,y+19*s,19,UI_TEXT);
-    if (ui_button(u,rect(x+w-46*s,y+16*s,28*s,28*s),"×",false,true)) return SORT_CANCEL;
+    Rectangle close=rect(x+w-46*s,y+16*s,28*s,28*s);
+    SORT_REVIEW(e,u,SORT_REVIEW_CLOSE,"Close",NULL,0,0,close,true,false,false,false);
+    if (ui_button(u,close,"×",false,true)) return SORT_CANCEL;
     bool wide=w>=720*s; float content=h-134*s;
     Rectangle fields=wide ? rect(x+18*s,y+60*s,w*.34f-24*s,content) : rect(x+18*s,y+60*s,w-36*s,148*s);
     Rectangle orders=wide ? rect(x+w*.34f+8*s,y+60*s,w*.66f-26*s,content) : rect(x+18*s,y+220*s,w-36*s,fmaxf(90*s,content-160*s));
@@ -99,9 +130,13 @@ SortResult sort_editor_draw(SortEditor *e,UIContext *u,const Page *page) {
     wheel_scroll(&e->field_scroll,&e->field_wheel,list,field_visible,(int)e->count); wheel_scroll(&e->order_scroll,&e->order_wheel,priorities,order_visible,(int)levels(e));
     if (e->focus==0) input_draw(u,&e->search,search);
     else { DrawRectangleRec(search,WHITE); DrawRectangleLinesEx(search,s,UI_BORDER); ui_text_clip(u,*e->search.text ? e->search.text : "Search columns",search,12,UI_MUTED,false); }
+    SORT_REVIEW(e,u,SORT_REVIEW_FIELDS,"Columns",NULL,0,0,fields,true,false,e->focus==1,true);
+    SORT_REVIEW(e,u,SORT_REVIEW_PRIORITIES,"Sort priorities",NULL,0,0,priorities,true,false,e->focus==2,true);
+    SORT_REVIEW(e,u,SORT_REVIEW_SEARCH,"Search columns",NULL,0,0,search,true,false,e->focus==0,false);
     DrawRectangleLinesEx(list,s,e->focus==1 ? UI_ACCENT : UI_BORDER);
     for (int row=e->field_scroll;row<(int)e->count && row<e->field_scroll+field_visible;row++) {
         size_t c=e->matches[row]; Rectangle item=rect(list.x+3*s,list.y+(row-e->field_scroll)*30*s+2*s,list.width-18*s,27*s);
+        SORT_REVIEW(e,u,SORT_REVIEW_FIELD,page->columns[c].name,page->columns[c].name,c,0,item,true,e->focus==1 && (int)e->choice==row,e->focus==1 && (int)e->choice==row,false);
         if (ui_button(u,item,page->columns[c].name,e->focus==1 && (int)e->choice==row,true)) { e->choice=(size_t)row; e->focus=1; add_field(e,page->columns[c].name); reveal(&e->order_scroll,e->level,order_visible,(int)levels(e)); }
     }
     if (!e->count) ui_text_clip(u,"No matching columns",list,12,UI_MUTED,false);
@@ -112,20 +147,36 @@ SortResult sort_editor_draw(SortEditor *e,UIContext *u,const Page *page) {
         Rectangle row=rect(priorities.x+3*s,top,priorities.width-18*s,55*s);
         if (e->level==i) DrawRectangleRec(row,UI_TINT);
         char label[4200]; snprintf(label,sizeof(label),"%d. %s",i+1,sort.column);
-        ui_text_clip(u,label,rect(row.x,top,row.width-84*s,23*s),12,UI_TEXT,false);
+        Rectangle title=rect(row.x,top,row.width-84*s,23*s),up=rect(row.x+row.width-81*s,top,24*s,23*s),down=rect(row.x+row.width-54*s,top,24*s,23*s),remove=rect(row.x+row.width-27*s,top,24*s,23*s);
+        Rectangle ascending=rect(row.x+6*s,top+27*s,104*s,24*s),descending=rect(row.x+116*s,top+27*s,108*s,24*s);
+        SORT_REVIEW(e,u,SORT_REVIEW_LEVEL,label,sort.column,0,(size_t)i,row,true,e->level==i,e->focus==2 && e->level==i,true);
+        SORT_REVIEW(e,u,SORT_REVIEW_LEVEL_SELECT,label,sort.column,0,(size_t)i,row,true,e->level==i,e->focus==2 && e->level==i,false);
+        SORT_REVIEW(e,u,SORT_REVIEW_LEVEL_TITLE,label,sort.column,0,(size_t)i,title,true,false,false,false);
+        SORT_REVIEW(e,u,SORT_REVIEW_UP,"Move up",sort.column,0,(size_t)i,up,i>0,false,false,false);
+        SORT_REVIEW(e,u,SORT_REVIEW_DOWN,"Move down",sort.column,0,(size_t)i,down,i+1<(int)levels(e),false,false,false);
+        SORT_REVIEW(e,u,SORT_REVIEW_REMOVE,"Remove",sort.column,0,(size_t)i,remove,true,false,false,false);
+        SORT_REVIEW(e,u,SORT_REVIEW_ASCENDING,"Ascending",sort.column,0,(size_t)i,ascending,true,!sort.descending,false,false);
+        SORT_REVIEW(e,u,SORT_REVIEW_DESCENDING,"Descending",sort.column,0,(size_t)i,descending,true,sort.descending,false,false);
+        ui_text_clip(u,label,title,12,UI_TEXT,false);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(),row)) { e->level=i; e->focus=2; }
-        if (ui_button(u,rect(row.x+row.width-81*s,top,24*s,23*s),"↑",false,i>0)) { analysis_sort_move(&e->draft,(size_t)i,(size_t)i-1); e->level=i-1; break; }
-        if (ui_button(u,rect(row.x+row.width-54*s,top,24*s,23*s),"↓",false,i+1<(int)levels(e))) { analysis_sort_move(&e->draft,(size_t)i,(size_t)i+1); e->level=i+1; break; }
-        if (ui_button(u,rect(row.x+row.width-27*s,top,24*s,23*s),"×",false,true)) { analysis_sort_remove(&e->draft,(size_t)i); break; }
-        if (ui_button(u,rect(row.x+6*s,top+27*s,104*s,24*s),"Ascending",!sort.descending,true)) analysis_sort_set(&e->draft,sort.column,false,true,&e->error);
-        if (ui_button(u,rect(row.x+116*s,top+27*s,108*s,24*s),"Descending",sort.descending,true)) analysis_sort_set(&e->draft,sort.column,true,true,&e->error);
+        if (ui_button(u,up,"↑",false,i>0)) { analysis_sort_move(&e->draft,(size_t)i,(size_t)i-1); e->level=i-1; break; }
+        if (ui_button(u,down,"↓",false,i+1<(int)levels(e))) { analysis_sort_move(&e->draft,(size_t)i,(size_t)i+1); e->level=i+1; break; }
+        if (ui_button(u,remove,"×",false,true)) { analysis_sort_remove(&e->draft,(size_t)i); break; }
+        if (ui_button(u,ascending,"Ascending",!sort.descending,true)) analysis_sort_set(&e->draft,sort.column,false,true,&e->error);
+        if (ui_button(u,descending,"Descending",sort.descending,true)) analysis_sort_set(&e->draft,sort.column,true,true,&e->error);
     }
     scrollbar(e,u,1,&e->field_scroll,list,field_visible,(int)e->count);
     scrollbar(e,u,2,&e->order_scroll,priorities,order_visible,(int)levels(e));
     if (!levels(e)) ui_text_clip(u,"Choose a column to add a sort level.",priorities,12,UI_MUTED,false);
-    ui_text_clip(u,e->error ? e->error : "Tab: search / columns / priorities · Enter: add or apply · Alt+arrows: reorder",rect(x+12*s,y+h-68*s,w-24*s,22*s),10,e->error ? UI_ACCENT : UI_MUTED,false);
-    if (ui_button(u,rect(x+18*s,y+h-42*s,100*s,28*s),"Clear all",false,levels(e)>0)) analysis_sorts_clear(&e->draft);
-    if (ui_button(u,rect(x+w-230*s,y+h-42*s,100*s,28*s),"Cancel",false,true)) return SORT_CANCEL;
-    if (ui_button(u,rect(x+w-118*s,y+h-42*s,100*s,28*s),"Apply sort",true,true) || apply) return SORT_APPLY;
+    const char *status=e->error ? e->error : "Tab: search / columns / priorities · Enter: add or apply · Alt+arrows: reorder";
+    Rectangle hint=rect(x+12*s,y+h-68*s,w-24*s,22*s),clear=rect(x+18*s,y+h-42*s,100*s,28*s),cancel=rect(x+w-230*s,y+h-42*s,100*s,28*s),apply_button=rect(x+w-118*s,y+h-42*s,100*s,28*s);
+    SORT_REVIEW(e,u,SORT_REVIEW_STATUS,status,NULL,0,0,hint,true,false,false,false);
+    SORT_REVIEW(e,u,SORT_REVIEW_CLEAR,"Clear all",NULL,0,0,clear,levels(e)>0,false,false,false);
+    SORT_REVIEW(e,u,SORT_REVIEW_CANCEL,"Cancel",NULL,0,0,cancel,true,false,false,false);
+    SORT_REVIEW(e,u,SORT_REVIEW_APPLY,"Apply sort",NULL,0,0,apply_button,true,false,false,false);
+    ui_text_clip(u,status,hint,10,e->error ? UI_ACCENT : UI_MUTED,false);
+    if (ui_button(u,clear,"Clear all",false,levels(e)>0)) analysis_sorts_clear(&e->draft);
+    if (ui_button(u,cancel,"Cancel",false,true)) return SORT_CANCEL;
+    if (ui_button(u,apply_button,"Apply sort",true,true) || apply) return SORT_APPLY;
     return SORT_EDITING;
 }

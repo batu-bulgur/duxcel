@@ -223,7 +223,7 @@ static uint64_t review_field_hash(const char *text) {
 }
 static bool review_author_dialog(const char *kind) {
     return !strcmp(kind,"column_width") || !strcmp(kind,"move_range") || !strcmp(kind,"object_name") ||
-        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sheet_rename");
+        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sort") || !strcmp(kind,"sheet_rename");
 }
 static bool review_author_field(char output[128],const char *field) {
     size_t length=strlen(field);
@@ -252,6 +252,15 @@ static const char *review_author_identity(App *a,const char *kind,char parent[12
         ObjectStore *store=&active_sheet(a)->objects;
         if (a->table_relation_object>=0 && (size_t)a->table_relation_object<store->count && store->items[a->table_relation_object].kind==OBJECT_TABLE) {
             SheetObject *table=&store->items[a->table_relation_object]; data->source_id=data->object_id=table->id; data->query_generation=table->revision;
+        }
+        snprintf(parent,128,"author.%s",kind); return NULL;
+    }
+    if (!strcmp(kind,"sort")) {
+        *data=review_scope(a); snprintf(data->kind,sizeof(data->kind),"sort-draft");
+        data->source_id=data->object_id=data->schema_generation=0; data->query_generation=a->analysis_revision;
+        data->has_cell=false; data->row=data->column=0; data->field[0]=0; ObjectStore *store=&active_sheet(a)->objects;
+        if (a->sort_object>=0 && (size_t)a->sort_object<store->count && store->items[a->sort_object].kind==OBJECT_TABLE) {
+            SheetObject *table=&store->items[a->sort_object]; data->source_id=data->object_id=table->id; data->query_generation=table->revision;
         }
         snprintf(parent,128,"author.%s",kind); return NULL;
     }
@@ -407,6 +416,65 @@ static void review_relation_choice(App *a,const Relation *relation,size_t index,
     }
     qualified[used]=0; dx_review_value_set(&widget->value,"VARCHAR",false,qualified); widget->value.truncated|=truncated;
     widget->data.row=index; widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated;
+}
+static void review_sort(App *a,const SortReviewFrame *frame) {
+    if (!review_armed(a) || !frame || !frame->armed) return;
+    SortEditor *editor=&a->sort_editor;
+    char scope[128],state[512]; DxReviewDataIdentity identity; review_author_identity(a,"sort",scope,&identity,NULL);
+    snprintf(state,sizeof(state)," author_kind=sort author_parent=author.sort sort_targets=%zu sort_overflow=%d sort_object=%d sort_source_revision=%llu sort_focus=%d sort_choice=%zu sort_level=%d sort_field_scroll=%d sort_order_scroll=%d sort_search_revision=%llu sort_draft_count=%zu",frame->count,frame->overflow,a->sort_object,(unsigned long long)identity.query_generation,editor->focus,editor->choice,editor->level,editor->field_scroll,editor->order_scroll,(unsigned long long)editor->search.revision,editor->draft.sort_count+(editor->draft.sort_column ? 1 : 0));
+    review_author_capture_state(a,state);
+    for (size_t i=0;i<editor->draft.sort_count+(editor->draft.sort_column ? 1 : 0);i++) {
+        AnalysisSort sort=analysis_sort_at(&editor->draft,i); char level[96]; snprintf(level,sizeof(level)," sort_draft%zu=%016llx,%d",i,(unsigned long long)review_field_hash(sort.column),sort.descending); review_author_capture_state(a,level);
+    }
+    if (frame->overflow) { a->review->registry->truncated=true; a->review->registry->frame.truncated=true; a->review->frame.truncated=true; }
+    for (size_t i=0;i<frame->count && i<SORT_REVIEW_TARGETS;i++) {
+        const SortReviewTarget *target=&frame->targets[i]; char id[128],parent[128]="author.sort",key[64]="",capture_key[48]=""; const char *role="button",*action="sort.inspect"; int layer=132;
+        bool priority=target->kind>=SORT_REVIEW_LEVEL && target->kind<=SORT_REVIEW_DESCENDING;
+        if (priority) snprintf(parent,sizeof(parent),"author.sort.priority.f%016llx",(unsigned long long)target->field_hash);
+        switch (target->kind) {
+        case SORT_REVIEW_PANEL: snprintf(id,sizeof(id),"author.sort"); parent[0]=0; role="dialog"; layer=130; break;
+        case SORT_REVIEW_HEADING: snprintf(key,sizeof(key),"heading"); role="text"; layer=131; break;
+        case SORT_REVIEW_FIELDS: snprintf(key,sizeof(key),"fields"); role="group"; layer=131; break;
+        case SORT_REVIEW_PRIORITIES: snprintf(key,sizeof(key),"priorities"); role="group"; layer=131; break;
+        case SORT_REVIEW_SEARCH: snprintf(key,sizeof(key),"search"); snprintf(parent,sizeof(parent),"author.sort.fields"); snprintf(capture_key,sizeof(capture_key),"search"); role="textbox"; action="sort.search_fields"; break;
+        case SORT_REVIEW_FIELD: snprintf(key,sizeof(key),"field.c%zu.f%016llx",target->column+1,(unsigned long long)target->field_hash); snprintf(parent,sizeof(parent),"author.sort.fields"); action="sort.add_field"; if (!target->column) snprintf(capture_key,sizeof(capture_key),"field0"); break;
+        case SORT_REVIEW_LEVEL: snprintf(id,sizeof(id),"%s",parent); snprintf(parent,sizeof(parent),"author.sort.priorities"); role="group"; break;
+        case SORT_REVIEW_LEVEL_SELECT: snprintf(key,sizeof(key),"select"); action="sort.select_priority"; layer=133; break;
+        case SORT_REVIEW_LEVEL_TITLE: snprintf(key,sizeof(key),"heading"); role="text"; layer=134; break;
+        case SORT_REVIEW_UP: snprintf(key,sizeof(key),"move_up"); action="sort.move_up"; layer=135; if (target->priority<2) snprintf(capture_key,sizeof(capture_key),"up%zu",target->priority); break;
+        case SORT_REVIEW_DOWN: snprintf(key,sizeof(key),"move_down"); action="sort.move_down"; layer=135; break;
+        case SORT_REVIEW_REMOVE: snprintf(key,sizeof(key),"remove"); action="sort.remove_level"; layer=135; break;
+        case SORT_REVIEW_ASCENDING: snprintf(key,sizeof(key),"ascending"); action="sort.ascending"; layer=135; break;
+        case SORT_REVIEW_DESCENDING: snprintf(key,sizeof(key),"descending"); action="sort.descending"; layer=135; if (target->priority<2) snprintf(capture_key,sizeof(capture_key),"descending%zu",target->priority); break;
+        case SORT_REVIEW_FIELD_SCROLL: snprintf(key,sizeof(key),"scrollbar"); snprintf(parent,sizeof(parent),"author.sort.fields"); action="sort.scroll_fields"; role="scrollbar"; layer=136; break;
+        case SORT_REVIEW_FIELD_THUMB: snprintf(key,sizeof(key),"thumb"); snprintf(parent,sizeof(parent),"author.sort.fields.scrollbar"); action="sort.scroll_fields"; role="scrollbar"; layer=137; break;
+        case SORT_REVIEW_ORDER_SCROLL: snprintf(key,sizeof(key),"scrollbar"); snprintf(parent,sizeof(parent),"author.sort.priorities"); action="sort.scroll_priorities"; role="scrollbar"; layer=136; break;
+        case SORT_REVIEW_ORDER_THUMB: snprintf(key,sizeof(key),"thumb"); snprintf(parent,sizeof(parent),"author.sort.priorities.scrollbar"); action="sort.scroll_priorities"; role="scrollbar"; layer=137; break;
+        case SORT_REVIEW_STATUS: snprintf(key,sizeof(key),"status"); role="text"; break;
+        case SORT_REVIEW_CLOSE: snprintf(key,sizeof(key),"close"); action="dialog.cancel"; break;
+        case SORT_REVIEW_CLEAR: snprintf(key,sizeof(key),"clear"); action="sort.clear_levels"; break;
+        case SORT_REVIEW_CANCEL: snprintf(key,sizeof(key),"cancel"); snprintf(capture_key,sizeof(capture_key),"cancel"); action="dialog.cancel"; break;
+        case SORT_REVIEW_APPLY: snprintf(key,sizeof(key),"apply"); snprintf(capture_key,sizeof(capture_key),"apply"); action="sort.apply"; break;
+        default: continue;
+        }
+        if (target->kind==SORT_REVIEW_PANEL) {
+            Rectangle viewport=box(0,0,GetScreenWidth(),GetScreenHeight());
+            review_author_widget(a,"author.sort.backdrop",NULL,"sort","sort.inspect","region","Modal backdrop",viewport,viewport,129,true,false,false,true,NULL,target->file,target->line);
+            review_author_widget(a,"author.sort.backdrop.background","author.sort.backdrop","sort","sort.inspect","region","Modal backdrop",viewport,viewport,129,true,false,false,false,NULL,target->file,target->line);
+        }
+        if (key[0]) snprintf(id,sizeof(id),"%s.%s",parent,key);
+        DxReviewWidget *widget=review_author_widget(a,id,parent,"sort",action,role,target->label,target->bounds,target->clip,layer,target->enabled,target->checked,target->focused,target->container,target->field[0] ? target->field : NULL,target->file,target->line);
+        if (!widget) continue;
+        if (priority) widget->data.row=target->priority;
+        if (target->kind==SORT_REVIEW_FIELD) widget->data.column=target->column;
+        widget->truncated|=target->truncated; a->review->registry->truncated|=widget->truncated;
+        if (target->kind==SORT_REVIEW_SEARCH) { dx_review_value_set(&widget->value,"VARCHAR",false,editor->search.text ? editor->search.text : ""); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated; }
+        if (target->kind==SORT_REVIEW_PANEL) review_author_widget(a,"author.sort.background","author.sort","sort","sort.inspect","region","Dialog background",target->bounds,target->clip,130,true,false,false,false,NULL,target->file,target->line);
+        if (capture_key[0]) {
+            Rectangle visible=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height}); char geometry[240];
+            snprintf(geometry,sizeof(geometry)," sort_%s=%.3f,%.3f,%.3f,%.3f sort_%s_id=%s",capture_key,visible.x,visible.y,visible.width,visible.height,capture_key,widget->id); review_author_capture_state(a,geometry);
+        }
+    }
 }
 static void review_sheet_row(App *a,size_t sheet,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *file,int line) {
     if (!review_armed(a) || sheet>=a->book.count || bounds.width<=0 || bounds.height<=0 || clip.width<=0 || clip.height<=0) return;
@@ -598,7 +666,7 @@ static bool review_can_capture(App *a) {
         !(a->modal==MODAL_GROUP && a->summary_drag>=0) && !a->split_side && !a->split_pipeline &&
         !a->steps_drag && !a->workbook_drag && !a->field_drag && !a->values_drag && !a->context_drag &&
         !(a->file_menu && a->file_menu_drag) &&
-        !a->inspector_drag && !a->table_relation_drag && !a->input.dragging && !a->filter_term.dragging &&
+        !a->inspector_drag && !a->table_relation_drag && !a->sort_editor.dragging && !a->input.dragging && !a->filter_term.dragging &&
         !a->filter_end.dragging && !a->pivot_search.dragging && !a->chart_columns.dragging && !a->sort_editor.search.dragging;
 }
 
@@ -1447,6 +1515,7 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
                 *drags[i]=true; bool captured=review_can_capture(a); *drags[i]=false;
                 if (captured) goto failed;
             }
+            for (int drag=1;drag<=2;drag++) { a->sort_editor.dragging=drag; bool captured=review_can_capture(a); a->sort_editor.dragging=0; if (captured) goto failed; }
             a->file_menu_drag=true;
             if (!review_can_capture(a)) goto failed; /* A closed menu owns no active gesture. */
             a->file_menu=true; if (review_can_capture(a)) goto failed;
