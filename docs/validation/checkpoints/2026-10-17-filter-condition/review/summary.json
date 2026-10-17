@@ -1,0 +1,65 @@
+{
+  "started_utc": "2026-10-17T15:57:45.409401+00:00",
+  "status": "passed",
+  "configs": {
+    "sanitize": {
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel/build/review-sanitize/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "900"
+      ],
+      "elapsed_seconds": 2.351,
+      "log": "tests/results/runs/20261017T155745-review-82114/sanitize.log",
+      "binary_sha256": "5309337dd1148c44638e1e9334cc4d9af40951838e8601dd61828c8bc9e9759c",
+      "build_header_sha256": "6ff3e7bafa93c214b4c2cd5b38dc4f3017cd0615df0d6e4fb9fd528d516f63a6",
+      "completed_stages": 26,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792252667-82516-1",
+          "target": "filter.search",
+          "frame_id": "13",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 419096,
+            "sha256": "3fa0bf176083e14a4ef173d55bb656cec84faf0dcfb6b157959c05e674aafd66",
+            "path": "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel/tests/results/runs/20261017T155745-review-82114/sanitize/outbox/DXR-S-1792252667-82516-1/frame.png"
+          },
+          "capture_sha256": "3efda968f1991c711a229b55e902e36531fc936e88fcb000dca65a9a734a80f2"
+        },
+        {
+          "report_id": "DXR-S-1792252667-82516-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "36",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 270612,
+            "sha256": "f07edb15e690d3e53b93cf850396eece7f6ff283f024ed38dcec37f349beaf9f",
+            "path": "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel/tests/results/runs/20261017T155745-review-82114/sanitize/outbox/DXR-S-1792252667-82516-2/frame.png"
+          },
+          "capture_sha256": "1dce49b9807f9f17ac0bf98df86d9ad5599f45901b90a526ffd8a9042ec05f70"
+        }
+      ]
+    }
+  },
+  "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual",
+  "source": {
+    "commit": "138cb2c3973b85adc2246b224e85fc2d1954856c",
+    "status": "",
+    "source_sha256": "b486eaa0680bb7c3f24b1e69004fd829e1ec9c814148272bb3f25103fc036fd7",
+    "source_files": 211
+  },
+  "background": {
+    "command": [
+      "./tests/test_background-native-debug"
+    ],
+    "elapsed_seconds": 1.1,
+    "log": "tests/results/runs/20261017T155745-review-82114/background.log"
+  },
+  "finished_utc": "2026-10-17T15:57:49.014116+00:00"
+}

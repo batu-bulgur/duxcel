@@ -1,6 +1,6 @@
 # Current implementation status
 
-Updated 17 October 2026. Native select integration through `8ae75b2`, browser reporting through `4b0a6df`, and earlier acceptance have separate evidence scopes below. The earlier repository audit used `6a3542d`; current feature acceptance is separate from the frozen full checkpoint.
+Updated 17 October 2026. Native control integration through `ed1249e`, browser reporting through `4b0a6df`, and earlier acceptance have separate evidence scopes below. The earlier repository audit used `6a3542d`; current feature acceptance is separate from the frozen full checkpoint.
 
 The **complete exact UI port is unfinished**. The core is real: asynchronous DuckDB queries, bounded source/result pages, native file panels, saved workbooks and same-sheet analytical objects. Geometry and many interactions already have substantial native coverage. Some visible controls and several deeper semantics remain partial.
 
@@ -17,7 +17,7 @@ Latest approved priority, 17 October 2026: native agentic review builds first, f
 | Same-sheet sources and pivots | `src/workbook/objects.c`, `src/transforms/pivot.c`, `src/data/worker.c` | Real DuckDB `PIVOT`; separate source/result identities, placement/history/persistence. No mock computation. |
 | Matrix totals | `src/transforms/pivot.c`, `src/data/database.c` | Source-derived `GROUPING SETS` totals implemented; exact DECIMAL/NULL retained. These readouts are not editable worksheet cells. |
 | Paired matrix/chart and source preview | `src/ui/preview.c`, `chartview.c`, App | Implemented shared cached result, adaptive stacking, scrolling and return to source. Final state-by-state parity open. |
-| Column value/date filters | `src/data/database.c`, transforms and App filter controller | Real paged distinct checklist, search, conditions/Between, five-level date hierarchy, typed NULL and bounded selection. Full filter scenario passed on frozen binary. |
+| Column value/date filters | `src/data/database.c`, transforms and App filter controller | Real paged distinct checklist, search, conditions/Between, five-level date hierarchy, typed NULL and bounded selection. The Condition field/list now uses the shared compact reference select, with reverse Tab, one-level Escape/reopen, retained draft values and region cycling. Its expanded66-stage workflow passes in current optimized/sanitizer builds; review26 and linked shipping absence pass. [Control evidence and remaining OS-popup scope](validation/checkpoints/2026-10-17-filter-condition/). |
 | Marks assignment and rendering | `src/transforms/marks.c`, `src/ui/chartencoding.c` | Bindings persist and selected cached fields drive color/size/shape/hover. Fields must already exist in Rows/Columns/Values; Color row-only, Shape line-only. Arbitrary grain, continuous scales, persistent labels and matrix encodings incomplete. |
 | Chart Other | `src/ui/chartview.c` | Composable aggregates supported; AVG/distinct omitted honestly. Aggregate-aware semantics pending. |
 | Sparse manual cells and structural edits | `src/workbook/cells.c`, `objects.c`; grid/App | Text entry, clipboard, range moves, contextual insert/delete, bounded undo and persistence work. General formulas, typed editing and imported-source overlays pending. |

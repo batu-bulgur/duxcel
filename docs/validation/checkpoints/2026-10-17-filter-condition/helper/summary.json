@@ -1,0 +1,63 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T15:59:38.481568+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "ed1249e4c248096c5afeb8b98d05047356e3db08",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "e8269b2b60ec26405ee8035d693ff40ac98dca78934c49e197473e30a62f0044",
+    "source_files": 214
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_choiceview",
+        "tests/test_choiceview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T155938-fast-82697/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.702
+    },
+    {
+      "name": "choiceview-release",
+      "command": [
+        "./tests/test_choiceview"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T155938-fast-82697/choiceview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.562
+    },
+    {
+      "name": "choiceview-sanitize",
+      "command": [
+        "./tests/test_choiceview-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T155938-fast-82697/choiceview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.505
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_choiceview": "843983f4843ed3d430006f6ce7255ad968d00629ad49f1e4250a9acc80e58ea1",
+    "/Users/h2o/dev/duxcel/tests/test_choiceview-debug": "a384c5305e471756c541276bd2e678bce79d051d8f118f30a6ae83f3ba66ddf2"
+  },
+  "elapsed_seconds": 2.89,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_choiceview": "843983f4843ed3d430006f6ce7255ad968d00629ad49f1e4250a9acc80e58ea1",
+    "/Users/h2o/dev/duxcel/tests/test_choiceview-debug": "a384c5305e471756c541276bd2e678bce79d051d8f118f30a6ae83f3ba66ddf2"
+  },
+  "finished_utc": "2026-10-17T15:59:41.518350+00:00"
+}

@@ -1,0 +1,19 @@
+{
+  "scope": "Existing private Vite6.4.2 frozen-reference build; source files unchanged. No production C data behavior or OS select-popup paint claim.",
+  "inputs": {
+    "design/prototype/src/Analysis.jsx": "8bd302e02abf2925c387ef5093b370f02b2800dc9b6b54df336db90a860221af",
+    "design/prototype/src/App.jsx": "0360109d50ec2d7b01648181ad8978aa31b7692eae8598d78b37cce17e23b5ef",
+    "design/prototype/src/Chrome.jsx": "af68c4a47a0dae0c9327501c181a0611985169477f54df5a0080aa8507764670",
+    "design/prototype/src/Grid.jsx": "504b374c9d50a2ff55a85ead4ffdb285ee5d64e6df99c07c50dc6d61a3b153a7",
+    "design/prototype/src/Ribbon.jsx": "2db922622c441ab2101d114aec6003dc5c7678ee3ec0b2f787c23383532a67f4",
+    "design/prototype/src/Shelves.jsx": "0179805922b36cde5fadb10e0d8085e2de1311f3eba089fcf2ce7887edf350b2",
+    "design/prototype/src/data.js": "7a9ae5fb97a2886dd30c0b5293bb5800026d0bb52be5d219c9267e38f8d43fc8",
+    "design/prototype/src/main.jsx": "832f752c6b6a454a26dbc4f2654f5bd633f2b103516c8c0abac648308c133a7e",
+    "design/prototype/src/styles.css": "b795bea9b987bd2ff5a26413cd798922389feab862ea88f4b8858408f8285bf6",
+    "design/prototype/src/ui.jsx": "975689e091f4bf8d4745d93d4b511146bdce75a2cfb25b74b1c36b13a5a8cb9c",
+    "design/prototype/src/useFieldDrag.js": "0348b22c8e120d4777c72dac802006b7e4059cb4d77308cebd5bc63090c9b696",
+    "build/reference-select/dist/assets/Analysis-raNnGIk7.js": "d517923b2157f4b309367fecf6a09ccc2f18b2013366836842331f3319ccc0a4",
+    "build/reference-select/dist/assets/index-BD-TkyW5.js": "6a177b944e529f346cc593f67fc33fa31c4f09c4caba0afb12f3700da9695e59",
+    "build/reference-select/dist/assets/index-DxB-vpER.css": "d04fff866ee7c198bdaa74d031a3d6b9a849e2f18884c667436a5a455af3ba31"
+  }
+}

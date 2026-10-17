@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T15:57:06.425493+00:00",
+  "tier": "native",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": true,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel",
+  "source": {
+    "commit": "138cb2c3973b85adc2246b224e85fc2d1954856c",
+    "status": "",
+    "source_sha256": "b486eaa0680bb7c3f24b1e69004fd829e1ec9c814148272bb3f25103fc036fd7",
+    "source_files": 211
+  },
+  "results": [
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel/tests/results/runs/20261017T155706-native-82116/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.034
+    },
+    {
+      "name": "native-filter",
+      "command": [
+        "./duxcel-debug",
+        "--filter-smoke",
+        "--frames",
+        "6200",
+        "--screenshot",
+        "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel/tests/results/runs/20261017T155706-native-82116/filter.png"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel/tests/results/runs/20261017T155706-native-82116/native-filter.txt",
+      "expected_stages": 66,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 37.611
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel/duxcel-debug": "8c769aa84f2a0c5622d31b890b82e0df6414e7dc0d229b817d2b312078504a88",
+    "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel/tests/test_background-native-debug": "ac76faf7a5e817cffd880481842346a2c55fbab2c6ebfe6f7d12dced4f280107"
+  },
+  "elapsed_seconds": 38.783,
+  "binaries_after": {
+    "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel/duxcel-debug": "8c769aa84f2a0c5622d31b890b82e0df6414e7dc0d229b817d2b312078504a88",
+    "/Users/h2o/.codex/worktrees/duxcel-filter-ui/duxcel/tests/test_background-native-debug": "ac76faf7a5e817cffd880481842346a2c55fbab2c6ebfe6f7d12dced4f280107"
+  },
+  "finished_utc": "2026-10-17T15:57:45.294452+00:00"
+}
