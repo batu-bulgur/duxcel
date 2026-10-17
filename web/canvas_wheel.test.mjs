@@ -112,6 +112,8 @@ test('inset and CSS-transformed canvases use their actual local layout units',()
     assert.deepEqual(out,{panX:6,panY:20,zoomDelta:0,x:400,y:300,events:1});
     dispatch({deltaX:0,deltaY:5,shiftKey:true});wheel.drain(out);
     assert.equal(out.panX,10);assert.equal(out.panY,0);
+    dispatch({deltaY:.5,deltaMode:2,shiftKey:true});wheel.drain(out);
+    assert.equal(out.panX,400);assert.equal(out.panY,0);
     dispatch({deltaX:1,deltaY:1,deltaMode:2});wheel.drain(out);
     assert.equal(out.panX,800);assert.equal(out.panY,600);
 });
