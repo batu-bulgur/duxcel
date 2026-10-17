@@ -52,4 +52,12 @@ bool browser_pivot_readout_schema(Page *out,const Page *schema,const PivotDefini
 /* Both readouts must be supplied together or both NULL. Success moves readouts
    and owns cloned header metadata. Failure preserves every input. <=4 MiB. */
 bool browser_pivot_plan_complete(Page *page,Page *rows,Page *columns,const PivotDefinition *pivot,const BrowserPivotPlan *plan,char **error);
+/* Direct primary-source selection only. Typed DISTINCT and scale-38 BIGNUM
+   arithmetic execute over the full selected interval, never a loaded page.
+   The scalar projection has 13 named VARCHAR columns and one exact result row. */
+char *browser_statistics_sql(const char *relation,const Page *schema,uint64_t first,uint64_t rows,size_t column,size_t columns,char **error);
+/* Decode atomically, retaining exact sums/min/max and native approximate/NaN/
+   overflow meanings. retained_bytes accounts for the operation's other owned
+   schema/relation buffers; scalar + retained + new statistics must fit 4 MiB. */
+bool browser_statistics_from_page(SelectionStats *out,const Page *scalar,uint64_t max_cells,size_t retained_bytes,char **error);
 #endif

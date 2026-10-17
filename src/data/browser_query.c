@@ -2,6 +2,7 @@
 #include "page_wire.h"
 #include <ctype.h>
 #include <inttypes.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -429,4 +430,90 @@ bool browser_pivot_plan_complete(Page *page,Page *rows,Page *columns,const Pivot
     page->bytes=used; ok=true;
 done:
     for (size_t r=0;r<DX_PIVOT_FIELDS;r++) free(labels[r]); return ok;
+}
+
+char *browser_statistics_sql(const char *relation,const Page *schema,uint64_t first,uint64_t rows,size_t column,size_t columns,char **error) {
+    if (!relation_valid(relation,error) || !schema_names_valid(schema,error)) return NULL;
+    if (!columns || columns>256 || first>DX_SHEET_ROWS || rows>DX_SHEET_ROWS-first || column>=schema->column_count || columns>schema->column_count-column) { fail(error,"Selection statistics support up to 256 described columns inside the worksheet."); return NULL; }
+    char *projection=dx_strdup(""),*values=dx_strdup(""),*sql=NULL;
+    for (size_t i=0;i<columns;i++) {
+        const Column *c=&schema->columns[column+i]; duckdb_type type; NumberType number;
+        if (!page_type_from_sql(c->type_name,&type,&number) || c->type!=type || !same_number(c->number_type,number) || c->numeric!=(number.kind!=NUM_NONE)) { fail(error,"Selection statistics SQL type metadata changed."); goto done; }
+        char *quoted=dx_quote(c->name,'"'); dx_append(&projection,"%s%s AS c%zu",i ? "," : "",quoted,i); free(quoted);
+        bool numeric=number.kind!=NUM_NONE,floating=number.kind==NUM_FLOAT;
+        char *units=numeric && !floating ? dx_printf("CAST(replace(CAST(c%zu AS VARCHAR),'.','') || repeat('0',%u) AS BIGNUM)",i,38-(number.kind==NUM_DECIMAL ? number.scale : 0)) : dx_strdup("NULL::BIGNUM");
+        char *value=numeric ? dx_printf("CAST(c%zu AS DOUBLE)",i) : dx_strdup("NULL::DOUBLE");
+        char *text=floating ? dx_printf("CASE WHEN c%zu=0 THEN '0' ELSE CAST(c%zu AS VARCHAR) END",i,i) : dx_printf("CAST(c%zu AS VARCHAR)",i);
+        dx_append(&values,"%sSELECT c%zu IS NOT NULL AS present,%s AS numeric,typeof(c%zu) AS type,%s AS text,%s AS exact,%s AS value,%s AS floating FROM selected",i ? " UNION ALL " : "",i,numeric ? "true" : "false",i,text,units,value,floating ? "true" : "false");
+        free(units); free(value); free(text);
+        if (strlen(projection)+strlen(values)>DX_BROWSER_SQL_BYTES) { fail(error,"Selection statistics query exceeds 1 MiB."); goto done; }
+    }
+    sql=dx_printf("WITH selected AS MATERIALIZED (SELECT %s FROM (%s) AS source LIMIT %" PRIu64 " OFFSET %" PRIu64 "),cells AS (%s) "
+        "SELECT CAST(count(*) AS VARCHAR) AS cells,CAST(count(*) FILTER (WHERE present) AS VARCHAR) AS filled,CAST(count(*) FILTER (WHERE numeric AND present) AS VARCHAR) AS numeric,CAST(count(DISTINCT (type,text)) FILTER (WHERE present) AS VARCHAR) AS distinct_values,"
+        "CAST(sum(exact) AS VARCHAR) AS sum_exact,CAST(min(exact) AS VARCHAR) AS min_exact,CAST(max(exact) AS VARCHAR) AS max_exact,"
+        "CAST(sum(value) AS VARCHAR) AS sum_float,CAST(avg(value) AS VARCHAR) AS average_float,CAST(min(value) AS VARCHAR) AS min_float,CAST(max(value) AS VARCHAR) AS max_float,"
+        "CAST(coalesce(bool_or(floating AND present),false) AS VARCHAR) AS approximate,CAST(coalesce(bool_or(numeric AND present AND NOT isfinite(value)),false) AS VARCHAR) AS non_finite FROM cells",projection,relation,rows,first,values);
+    sql=bounded_sql(sql,error);
+done:
+    free(projection); free(values); return sql;
+}
+static bool statistics_uint64(const char *text,uint64_t *out) {
+    if (!text || !*text) return false; uint64_t value=0;
+    for (const char *p=text;*p;p++) { if (*p<'0' || *p>'9' || value>(UINT64_MAX-(unsigned)(*p-'0'))/10) return false; value=value*10+(unsigned)(*p-'0'); }
+    *out=value; return true;
+}
+static bool statistics_boolean(const Cell *cell,bool *out) {
+    if (cell->is_null || !cell->text) return false;
+    if (!strcmp(cell->text,"true")) { *out=true; return true; }
+    if (!strcmp(cell->text,"false")) { *out=false; return true; } return false;
+}
+static bool statistics_double(const Cell *cell,double *out) {
+    if (cell->is_null) return true;
+    if (!cell->text || !*cell->text || isspace((unsigned char)*cell->text)) return false;
+    char *end=NULL; double value=strtod(cell->text,&end); if (!end || end==cell->text || *end) return false; *out=value; return true;
+}
+static bool statistics_units(const Cell *cell,char **out) {
+    if (cell->is_null) return true;
+    size_t size; if (!text_size(cell->text,128,&size) || !size) return false;
+    const char *digits=cell->text+(*cell->text=='-'); size_t length=size-(size_t)(digits!=cell->text),sign=digits!=cell->text;
+    if (!length) return false;
+    for (size_t i=0;i<length;i++) if (digits[i]<'0' || digits[i]>'9') return false;
+    char *text=dx_alloc(size+42); size_t at=0,whole=length>38 ? length-38 : 0;
+    if (sign) text[at++]='-';
+    if (whole) { memcpy(text+at,digits,whole); at+=whole; text[at++]='.'; memcpy(text+at,digits+whole,38); at+=38; }
+    else { text[at++]='0'; text[at++]='.'; memset(text+at,'0',38-length); at+=38-length; memcpy(text+at,digits,length); at+=length; }
+    while (at && text[at-1]=='0') at--; if (at && text[at-1]=='.') at--; text[at]=0;
+    if (!strcmp(text,"-0")) { text[0]='0'; text[1]=0; } *out=dx_realloc(text,strlen(text)+1); return true;
+}
+static bool statistics_budget(size_t *used,size_t bytes,char **error) {
+    if (bytes>DX_PAGE_WIRE_TEXT_BYTES || *used>DX_PAGE_WIRE_TEXT_BYTES-bytes) return fail(error,"Selection statistics exceed their combined 4 MiB memory limit.");
+    *used+=bytes; return true;
+}
+bool browser_statistics_from_page(SelectionStats *out,const Page *page,uint64_t max_cells,size_t retained,char **error) {
+    static const char *names[]={"cells","filled","numeric","distinct_values","sum_exact","min_exact","max_exact","sum_float","average_float","min_float","max_float","approximate","non_finite"};
+    if (!out || !page || page->column_count!=13 || page->row_count!=1 || page->offset || page->total!=1 || page->count_pending || page->totals || !page->columns || !page->cells || max_cells>DX_SHEET_ROWS*256 || retained>DX_PAGE_WIRE_TEXT_BYTES) return fail(error,"Invalid scalar selection statistics reply.");
+    for (size_t c=0;c<13;c++) { const Column *col=&page->columns[c]; if (!col->name || strcmp(col->name,names[c]) || !col->type_name || strcmp(col->type_name,"VARCHAR") || col->type!=DUCKDB_TYPE_VARCHAR || !same_number(col->number_type,(NumberType){0}) || col->numeric) return fail(error,"Unexpected selection statistics scalar descriptors."); }
+    if (!pivot_page_bytes(page,error) || !statistics_budget(&retained,page->bytes,error) || !statistics_budget(&retained,sizeof(SelectionStats),error)) return false;
+    SelectionStats stats={0}; char *exact[3]={0}; double numbers[4]={0}; bool ok=false,moved_exact=false;
+    uint64_t *counts[]={&stats.cells,&stats.filled,&stats.numeric,&stats.distinct};
+    for (size_t c=0;c<4;c++) if (page->cells[c].is_null || !statistics_uint64(page->cells[c].text,counts[c])) { fail(error,"Invalid exact selection statistics count."); goto done; }
+    if (stats.cells>max_cells || stats.filled>stats.cells || stats.numeric>stats.filled || stats.distinct>stats.filled || !statistics_boolean(&page->cells[11],&stats.approximate) || !statistics_boolean(&page->cells[12],&stats.non_finite) || (stats.approximate && !stats.numeric) || (stats.non_finite && !stats.approximate)) { fail(error,"Inconsistent selection statistics counts or flags."); goto done; }
+    for (size_t i=0;i<3;i++) if (!statistics_units(&page->cells[4+i],&exact[i])) { fail(error,"Invalid exact scale-38 statistics text."); goto done; }
+    for (size_t i=0;i<3;i++) if (exact[i] && !statistics_budget(&retained,strlen(exact[i])+1,error)) goto done;
+    for (size_t i=0;i<4;i++) if (!statistics_double(&page->cells[7+i],&numbers[i])) { fail(error,"Invalid approximate statistics text."); goto done; }
+    if (!stats.numeric) { for (size_t c=4;c<11;c++) if (!page->cells[c].is_null) { fail(error,"Empty numeric statistics must have NULL aggregates."); goto done; } }
+    else if (!stats.non_finite) {
+        if (page->cells[7].is_null || page->cells[8].is_null || page->cells[9].is_null || page->cells[10].is_null || (!stats.approximate && (page->cells[4].is_null || page->cells[5].is_null || page->cells[6].is_null))) { fail(error,"Present numeric statistics require source aggregates."); goto done; }
+        if (stats.approximate) {
+            if (isfinite(numbers[0])) stats.sum=dx_printf("%.15g",numbers[0]); else stats.sum_overflow=true;
+            if (isfinite(numbers[2])) stats.minimum=dx_printf("%.15g",numbers[2]);
+            if (isfinite(numbers[3])) stats.maximum=dx_printf("%.15g",numbers[3]);
+        } else { stats.sum=exact[0]; stats.minimum=exact[1]; stats.maximum=exact[2]; memset(exact,0,sizeof(exact)); moved_exact=true; }
+        if (isfinite(numbers[1])) stats.average=dx_printf("%.15g",numbers[1]); else stats.average_overflow=true;
+    }
+    char *texts[]={stats.sum,stats.average,stats.minimum,stats.maximum};
+    for (size_t i=0;i<4;i++) if (texts[i] && !(moved_exact && i!=1) && !statistics_budget(&retained,strlen(texts[i])+1,error)) goto done;
+    statistics_free(out); *out=stats; memset(&stats,0,sizeof(stats)); ok=true;
+done:
+    for (size_t i=0;i<3;i++) free(exact[i]); statistics_free(&stats); return ok;
 }
