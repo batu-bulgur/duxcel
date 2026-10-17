@@ -101,23 +101,8 @@ float dx_native_titlebar_inset(void) {
 }
 void dx_native_titlebar_height(float height) {
     native_titlebar_height=isfinite(height) ? fminf(512,fmaxf(0,height)) : 0;
-    if (!canvas_view || native_titlebar_height<=0 || native_fullscreen()) return;
-    /* Keep AppKit-owned controls centered in the same logical bar at each UI
-       scale. Frame conversion also handles a native relayout after resize. */
-    NSRect bounds=canvas_view.bounds;
-    for (unsigned i=0;i<sizeof(titlebar_button_kinds)/sizeof(*titlebar_button_kinds);i++) {
-        NSButton *button=[canvas_window standardWindowButton:titlebar_button_kinds[i]];
-        if (!button || !button.superview || button.isHiddenOrHasHiddenAncestor) continue;
-        NSRect rect=[canvas_view convertRect:button.bounds fromView:button];
-        NSPoint current=NSMakePoint(NSMidX(rect),NSMidY(rect)),target=current;
-        target.y=canvas_view.isFlipped ? NSMinY(bounds)+height*.5 : NSMaxY(bounds)-height*.5;
-        current=[button.superview convertPoint:current fromView:canvas_view];
-        target=[button.superview convertPoint:target fromView:canvas_view];
-        if (fabs(target.y-current.y)>.25) {
-            NSPoint origin=button.frame.origin; origin.y+=target.y-current.y;
-            [button setFrameOrigin:origin];
-        }
-    }
+    /* AppKit owns control geometry and relayout. Repositioning those views here
+       is undone during its next layout and would make traffic lights jitter. */
 }
 static bool native_titlebar_button_hit(float x,float y) {
     NSRect bounds=canvas_view.bounds;

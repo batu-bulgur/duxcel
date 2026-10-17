@@ -27,6 +27,7 @@
 
 static unsigned checks;
 static bool native_attached;
+static float native_control_center;
 static const Color title_color={233,238,242,255};
 static const char *capture_directory;
 
@@ -95,7 +96,8 @@ static void check_geometry(NSWindow *window,float scale,float title_height) {
         if (i) check_close(NSMidY(rect),center,1); else center=(float)NSMidY(rect);
         if (title_height>0) {
             CHECK(NSMaxY(rect)<=title_height+1);
-            check_close(NSMidY(rect),title_height*.5,.5);
+            if (!native_control_center) native_control_center=(float)NSMidY(rect);
+            check_close(NSMidY(rect),native_control_center,.5);
         }
         right=fmaxf(right,(float)NSMaxX(rect));
         printf("Native titlebar control: scale=%.2f kind=%lu x=%.2f y=%.2f width=%.2f height=%.2f center_delta=%.2f\n",
@@ -195,7 +197,7 @@ int main(int argc,char **argv) {
         CloseWindow(); CHECK(!NSApp.isActive);
         NSRunningApplication *frontmost=NSWorkspace.sharedWorkspace.frontmostApplication;
         CHECK(!frontmost || frontmost.processIdentifier!=getpid());
-        printf("PASS: %u native titlebar checks (actual unified content/control geometry,100/150%% andFocus,hidden resize,real before/after-swap pixels,noactivation;nophysical drag/fullscreen claim)\n",checks);
+        printf("PASS: %u native titlebar checks (actual unified content/control geometry,80/100/150%% andFocus,hidden resize,real before/after-swap pixels,noactivation;nophysical drag/fullscreen claim)\n",checks);
         return 0;
     }
 }
