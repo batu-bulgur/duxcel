@@ -151,6 +151,10 @@ void ui_note_key_modifiers(int key,unsigned modifiers); /* DX_MOD_* after ui_upd
 /* Complete captured press, including its modifiers. Input adapters/tests use
    this when a press did not enter raylib's GetKeyPressed queue. */
 void ui_note_key_press(int key,unsigned modifiers);
+/* Ordered access-key presses, separate from navigation and the pressed bitmap.
+   Native events replace GLFW's duplicate stream; repeats never enter it. */
+void ui_note_keytip_press(int key,unsigned modifiers,bool native,bool repeat);
+bool ui_take_keytip_press(DxKeyModifiers *event);
 /* Ordered navigation, bounded to 128 presses per frame. Native capture replaces
    GLFW's shorter queue and generated repeats rather than duplicating them. */
 bool ui_navigation_captured(void);

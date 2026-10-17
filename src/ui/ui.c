@@ -107,6 +107,21 @@ bool ui_init(UIContext *u,const char *font,const char *medium,const char *emphas
 void ui_set_scale(UIContext *u,float scale) { u->requested_scale=fminf(1.5f,fmaxf(.8f,scale)); }
 static bool queued_presses[512];
 static unsigned char key_modifiers[512];
+static DxKeyModifiers keytip_presses[128];
+static unsigned keytip_head,keytip_count;
+static bool native_keytips;
+void ui_note_keytip_press(int key,unsigned modifiers,bool native,bool repeat) {
+    if (native && !native_keytips) { keytip_head=keytip_count=0; native_keytips=true; }
+    if (key<=0 || key>=512 || repeat || (!native && native_keytips) || keytip_count==128) return;
+    keytip_presses[(keytip_head+keytip_count)%128]=(DxKeyModifiers){.key=key,.modifiers=modifiers&15}; keytip_count++;
+}
+bool ui_take_keytip_press(DxKeyModifiers *event) {
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return false;
+#endif
+    if (!event || !keytip_count) return false;
+    *event=keytip_presses[keytip_head]; keytip_head=(keytip_head+1)%128; keytip_count--; return true;
+}
 static DxKeyModifiers navigation_keys[128];
 static unsigned navigation_head,navigation_count;
 static bool native_navigation;
@@ -125,7 +140,7 @@ void ui_review_restore_focus(bool keyboard) { keyboard_focus_visible=keyboard; }
 
 #endif
 static void queue_navigation(int key,unsigned modifiers) {
-    if (navigation_count<128) { navigation_keys[(navigation_head+navigation_count)%128]=(DxKeyModifiers){key,modifiers&15}; navigation_count++; }
+    if (navigation_count<128) { navigation_keys[(navigation_head+navigation_count)%128]=(DxKeyModifiers){.key=key,.modifiers=modifiers&15}; navigation_count++; }
 }
 bool ui_navigation_captured(void) { return native_navigation || navigation_count!=0; }
 bool ui_take_navigation_key(DxKeyModifiers *event) {
@@ -142,6 +157,7 @@ static Vector2 pointer_offset;
 #ifdef DUXCEL_DEV_REVIEW
 void ui_review_discard_input(void) {
     pointer_count=pointer_head=navigation_count=navigation_head=0;
+    keytip_count=keytip_head=0; native_keytips=false;
     memset(queued_presses,0,sizeof(queued_presses));
     while (GetKeyPressed()) {} while (GetCharPressed()) {}
 }
@@ -199,11 +215,17 @@ void ui_update(UIContext *u) {
     input_frame++;
     pointer_count=pointer_head=0;
     navigation_count=navigation_head=0;
+    keytip_count=keytip_head=0; native_keytips=false;
     memset(queued_presses,0,sizeof(queued_presses));
     memset(key_modifiers,0,sizeof(key_modifiers));
     int key; while ((key=GetKeyPressed())!=0) if (key>0 && key<512) {
         if (focus_key(key)) keyboard_focus_visible=true;
         queued_presses[key]=true;
+        unsigned press_modifiers=(ui_key_shift(key) ? DX_MOD_SHIFT : 0) | (ui_key_control(key) ? DX_MOD_CONTROL : 0) | (ui_key_alt(key) ? DX_MOD_ALT : 0);
+#ifdef __APPLE__
+        if (ui_key_shortcut(key)) press_modifiers|=DX_MOD_SUPER;
+#endif
+        ui_note_keytip_press(key,press_modifiers,false,false);
         if (!native_navigation && navigation_key(key)) {
             unsigned modifiers=(ui_key_shift(key) ? DX_MOD_SHIFT : 0) | (ui_key_control(key) ? DX_MOD_CONTROL : 0) | (ui_key_alt(key) ? DX_MOD_ALT : 0);
 #ifdef __APPLE__
@@ -224,6 +246,7 @@ void ui_update(UIContext *u) {
 }
 void ui_destroy(UIContext *u) {
     navigation_count=navigation_head=0; native_navigation=false;
+    keytip_count=keytip_head=0; native_keytips=false;
     ui_paint_destroy(u);
     if (u->fonts_loaded) { release_font(u->body); release_font(u->small); release_font(u->medium); release_font(u->emphasis); release_font(u->italic); release_font(u->bold_italic); }
     if (u->mono_owned) release_font(u->mono);
@@ -742,7 +765,7 @@ void ui_note_key_modifiers(int key,unsigned modifiers) {
     }
 }
 void ui_note_key_press(int key,unsigned modifiers) {
-    if (key>0 && key<512) queued_presses[key]=true; ui_note_key_modifiers(key,modifiers);
+    if (key>0 && key<512) queued_presses[key]=true; ui_note_key_modifiers(key,modifiers); ui_note_keytip_press(key,modifiers,false,false);
 }
 static unsigned modifiers_for(int key) {
     if (key>0 && key<512 && (key_modifiers[key]&128)) return key_modifiers[key]&15;

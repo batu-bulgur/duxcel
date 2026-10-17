@@ -52,7 +52,7 @@ static void record_key_modifiers(NSEvent *event) {
     if (!key || modifier_count==128) return;
     NSEventModifierFlags flags=event.modifierFlags;
     unsigned modifiers=(flags&NSEventModifierFlagShift ? DX_MOD_SHIFT : 0) | (flags&NSEventModifierFlagControl ? DX_MOD_CONTROL : 0) | (flags&NSEventModifierFlagOption ? DX_MOD_ALT : 0) | (flags&NSEventModifierFlagCommand ? DX_MOD_SUPER : 0);
-    modifier_events[(modifier_head+modifier_count)%128]=(DxKeyModifiers){key,modifiers}; modifier_count++;
+    modifier_events[(modifier_head+modifier_count)%128]=(DxKeyModifiers){key,modifiers,event.isARepeat}; modifier_count++;
 }
 bool dx_take_key_modifiers(DxKeyModifiers *event) {
     if (!modifier_count) return false;
@@ -351,7 +351,7 @@ void dx_native_setup(void *window) {
         if (!text_input && !(flags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) &&
             (key_tips || (flags&NSEventModifierFlagOption)) &&
             ((letter>='a' && letter<='z') || (key>='0' && key<='9'))) {
-            if (!event.isARepeat) enqueue_command((DxCommand)(DX_COMMAND_KEYTIP_BASE+(letter>='a' && letter<='z' ? letter-32 : key)));
+            key_tips=true; /* remaining presses in this poll also belong to tips */
             return nil;
         }
         if (text_input || !(flags&NSEventModifierFlagOption) || (flags&(NSEventModifierFlagCommand|NSEventModifierFlagControl))) return event;

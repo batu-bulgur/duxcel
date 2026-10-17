@@ -885,7 +885,7 @@ static void test_addresses(void) {
 }
 static void test_navigation_queue(void) {
     DxKeyModifiers event; while (ui_take_navigation_key(&event)) {}
-    DxKeyModifiers expected[]={{KEY_RIGHT,0},{KEY_RIGHT,DX_MOD_SHIFT},{KEY_DOWN,DX_MOD_SUPER},{KEY_LEFT,DX_MOD_CONTROL},{KEY_ENTER,DX_MOD_SHIFT}};
+    DxKeyModifiers expected[]={{.key=KEY_RIGHT},{.key=KEY_RIGHT,.modifiers=DX_MOD_SHIFT},{.key=KEY_DOWN,.modifiers=DX_MOD_SUPER},{.key=KEY_LEFT,.modifiers=DX_MOD_CONTROL},{.key=KEY_ENTER,.modifiers=DX_MOD_SHIFT}};
     for (size_t i=0;i<sizeof(expected)/sizeof(*expected);i++) ui_note_key_modifiers(expected[i].key,expected[i].modifiers);
     CHECK(ui_navigation_captured() && !ui_take_navigation_key(NULL));
     for (size_t i=0;i<sizeof(expected)/sizeof(*expected);i++) {
@@ -897,6 +897,28 @@ static void test_navigation_queue(void) {
     for (unsigned i=0;i<128;i++) { CHECK(ui_take_navigation_key(&event)); CHECK(event.key==(i%2 ? KEY_LEFT : KEY_RIGHT) && event.modifiers==i%16); }
     CHECK(!ui_take_navigation_key(&event));
     UIContext context={0}; ui_destroy(&context); CHECK(!ui_navigation_captured());
+}
+static void test_keytip_queue(void) {
+    UIContext context={0}; ui_destroy(&context); DxKeyModifiers press;
+    const int keys[]={KEY_LEFT_ALT,KEY_H,KEY_C,KEY_C,KEY_ESCAPE};
+    for (unsigned i=0;i<5;i++) ui_note_keytip_press(keys[i],i ? 0 : DX_MOD_ALT,false,false);
+    CHECK(!ui_take_keytip_press(NULL));
+    for (unsigned i=0;i<5;i++) { CHECK(ui_take_keytip_press(&press)); CHECK(press.key==keys[i]); }
+    CHECK(!ui_take_keytip_press(&press));
+    ui_note_keytip_press(KEY_F,0,false,false); /* duplicate GLFW stream */
+    ui_note_keytip_press(KEY_H,DX_MOD_ALT,true,false);
+    ui_note_keytip_press(KEY_H,DX_MOD_ALT,true,true); /* repeat excluded */
+    ui_note_keytip_press(KEY_C,0,false,false); /* native stream owns this frame */
+    ui_note_keytip_press(KEY_C,DX_MOD_SHIFT,true,false);
+    ui_note_keytip_press(KEY_C,0,true,false);
+    CHECK(ui_take_keytip_press(&press) && press.key==KEY_H && press.modifiers==DX_MOD_ALT);
+    CHECK(ui_take_keytip_press(&press) && press.key==KEY_C && press.modifiers==DX_MOD_SHIFT);
+    CHECK(ui_take_keytip_press(&press) && press.key==KEY_C && !press.modifiers);
+    CHECK(!ui_take_keytip_press(&press));
+    for (unsigned i=0;i<140;i++) ui_note_keytip_press(KEY_A+i%26,i%16,true,false);
+    for (unsigned i=0;i<128;i++) { CHECK(ui_take_keytip_press(&press)); CHECK(press.key==KEY_A+(int)(i%26) && press.modifiers==i%16); }
+    CHECK(!ui_take_keytip_press(&press));
+    ui_note_keytip_press(KEY_J,0,true,false); ui_destroy(&context); CHECK(!ui_take_keytip_press(&press));
 }
 static void test_frozen_columns(void) {
     CHECK(ui_canvas_font_scale(.5f)==1 && ui_canvas_font_scale(1)==1 && ui_canvas_font_scale(NAN)==1);
@@ -1141,7 +1163,7 @@ int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--column-benchmark")) return column_benchmark();
     if (argc==2 && !strcmp(argv[1],"--font-benchmark")) return font_benchmark();
     if (argc==2 && !strcmp(argv[1],"--overscroll")) { test_overscroll_return(); test_overscroll_gestures(); printf("PASS: %u precise overscroll/return checks\n",checks); return 0; }
-    test_overscroll_return(); test_overscroll_gestures();
+    test_overscroll_return(); test_overscroll_gestures(); test_keytip_queue();
     test_animated_workspace_extent(); test_dock_scroll_and_clips(); test_ribbon_flyouts(); test_workspace_layout(); test_frozen_columns(); test_ribbon_spec(); test_grid_density(); test_bounded_preview(); test_carbon_assets(); test_status_geometry(); test_status_metrics(); test_ribbon_layout(); test_menu_bounds(); test_text_lines(); test_text_editing(); test_text_history(); test_region_navigation(); test_long_range_outlines(); test_addresses(); test_navigation_queue();
     CHECK(ui_chart_fraction(0,-DBL_MAX,DBL_MAX)==.5);
     CHECK(ui_chart_fraction(DBL_MAX,-DBL_MAX,DBL_MAX)==1);

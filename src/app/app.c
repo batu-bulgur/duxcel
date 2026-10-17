@@ -5733,53 +5733,62 @@ static void file_action(App *a,UIKeytipFileAction action) {
     }
 }
 static bool keytip_input(App *a,DxCommand command) {
-    if (a->modal!=MODAL_NONE || a->io_busy || a->pivot_search_focus) { a->key_tips=false; ui_keytips_cancel(&a->keytip_state); return false; }
-    bool native=command>DX_COMMAND_KEYTIP_BASE && command<=DX_COMMAND_KEYTIP_LAST;
-    if (command!=DX_COMMAND_NONE && !native) { a->key_tips=false; a->file_menu=false; ui_keytips_cancel(&a->keytip_state); return false; }
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !a->file_menu) { a->key_tips=false; ui_keytips_cancel(&a->keytip_state); return false; }
-    /* Access keys cannot steal existing command chords or Alt+arrow grid/pane
-       navigation. Native menus take their separate command channel above. */
-    if (!native) for (int k=KEY_SPACE;k<=KEY_KB_MENU;k++) if (k!=KEY_LEFT_ALT && k!=KEY_RIGHT_ALT && ui_pressed(k) &&
-        (ui_key_shortcut(k) || ui_key_control(k) || (ui_key_alt(k) && (k==KEY_DOWN || k==KEY_UP || k==KEY_LEFT || k==KEY_RIGHT)))) {
-        a->key_tips=false; a->file_menu=false; ui_keytips_cancel(&a->keytip_state); return false;
+    if (a->modal!=MODAL_NONE || a->io_busy || a->pivot_search_focus || command!=DX_COMMAND_NONE) {
+        a->key_tips=a->file_menu=false; ui_keytips_cancel(&a->keytip_state); return false;
+    }
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !a->file_menu) {
+        a->key_tips=false; ui_keytips_cancel(&a->keytip_state); return false;
     }
     if (!a->key_tips) ui_keytips_cancel(&a->keytip_state);
-    if (!native && (ui_pressed(KEY_LEFT_ALT) || ui_pressed(KEY_RIGHT_ALT))) {
-        if (a->key_tips) { a->key_tips=false; a->file_menu=false; ui_keytips_cancel(&a->keytip_state); }
-        else { if (a->ribbon_mode==3) set_ribbon_mode(a,a->previous_ribbon_mode); ui_keytips_begin(&a->keytip_state); a->key_tips=true; }
-    }
-    if (native && !a->key_tips) { if (a->ribbon_mode==3) set_ribbon_mode(a,a->previous_ribbon_mode); ui_keytips_begin(&a->keytip_state); a->key_tips=true; }
-    if (!a->key_tips) return false;
-    a->consume_grid_input=true;
-    if (ui_pressed(KEY_ESCAPE)) {
-        ui_keytips_escape(&a->keytip_state); a->key_tips=a->keytip_state.active;
-        a->file_menu=a->keytip_state.tab==UI_KEYTIPS_FILE && a->key_tips;
-        if (!a->key_tips) { a->ribbon_focus=false; a->ribbon_command=-1; }
-        return true;
-    }
-    int key=native ? command-DX_COMMAND_KEYTIP_BASE : 0;
-    if (!native) for (int k=KEY_ZERO;k<=KEY_Z;k++) if (((k<=KEY_NINE) || k>=KEY_A) && ui_pressed(k) && !ui_key_shortcut(k) && !ui_key_control(k)) { key=k; break; }
-    UIKeytipResult result=ui_keytips_feed(&a->keytip_state,key,false);
-    a->key_tips=a->keytip_state.active;
-    if (result.kind==UI_KEYTIP_TAB) {
-        a->file_menu=result.value==UI_KEYTIPS_FILE;
-        if (!a->file_menu && (result.value!=RIBBON_VISUALIZATION || selected_pivot(a))) {
-            a->ribbon_tab=result.value; a->ribbon_focus=true; a->ribbon_command=-1; a->pivot_focus=a->chrome_focus=0;
-            if (a->ribbon_mode==3) a->ribbon_mode=a->previous_ribbon_mode;
+    bool owned=a->key_tips || a->file_menu;
+    DxKeyModifiers press;
+    while (ui_take_keytip_press(&press)) {
+        int key=press.key;
+        bool modified=(press.modifiers&(DX_MOD_CONTROL|DX_MOD_SUPER))!=0;
+        bool alt=(press.modifiers&DX_MOD_ALT)!=0;
+        if (modified || (alt && (key==KEY_DOWN || key==KEY_UP || key==KEY_LEFT || key==KEY_RIGHT))) {
+            if (a->file_menu) continue;
+            a->key_tips=false; ui_keytips_cancel(&a->keytip_state); a->consume_grid_input=false; return false;
         }
-    } else if (result.kind==UI_KEYTIP_COMMAND) {
-        a->ribbon_command=ui_ribbon_action_index(a->ribbon_tab,(UIAction)result.value); a->ribbon_focus=true;
-        if (action_enabled(a,(UIAction)result.value)) a->command_activate=true;
-        else status(a,"This command is unavailable in the current selection.");
-    } else if (result.kind==UI_KEYTIP_FILE) file_action(a,(UIKeytipFileAction)result.value);
-    while (GetCharPressed()) { }
-    return true;
+        if (key==KEY_LEFT_ALT || key==KEY_RIGHT_ALT) {
+            owned=true;
+            if (a->key_tips) { a->key_tips=a->file_menu=false; ui_keytips_cancel(&a->keytip_state); }
+            else { if (a->ribbon_mode==3) set_ribbon_mode(a,a->previous_ribbon_mode); ui_keytips_begin(&a->keytip_state); a->key_tips=true; }
+            continue;
+        }
+        if (!a->key_tips && alt && key>=KEY_ZERO && key<=KEY_Z) {
+            if (a->ribbon_mode==3) set_ribbon_mode(a,a->previous_ribbon_mode);
+            ui_keytips_begin(&a->keytip_state); a->key_tips=true;
+        }
+        if (!a->key_tips) continue;
+        owned=true;
+        if (key==KEY_ESCAPE) {
+            ui_keytips_escape(&a->keytip_state); a->key_tips=a->keytip_state.active;
+            a->file_menu=a->keytip_state.tab==UI_KEYTIPS_FILE && a->key_tips;
+            if (!a->key_tips) { a->ribbon_focus=false; a->ribbon_command=-1; }
+            continue;
+        }
+        if (a->keytip_state.tab==UI_KEYTIPS_ROOT && key==KEY_J && !selected_pivot(a)) continue;
+        UIKeytipResult result=ui_keytips_feed(&a->keytip_state,key,false);
+        a->key_tips=a->keytip_state.active;
+        if (result.kind==UI_KEYTIP_TAB) {
+            a->file_menu=result.value==UI_KEYTIPS_FILE; a->file_menu_focus=0;
+            if (!a->file_menu) { a->ribbon_tab=result.value; a->ribbon_focus=true; a->ribbon_command=-1; a->pivot_focus=a->chrome_focus=0; }
+        } else if (result.kind==UI_KEYTIP_COMMAND) {
+            a->ribbon_command=ui_ribbon_action_index(a->ribbon_tab,(UIAction)result.value); a->ribbon_focus=true;
+            if (action_enabled(a,(UIAction)result.value)) a->command_activate=true;
+            else status(a,"This command is unavailable in the current selection.");
+            break;
+        } else if (result.kind==UI_KEYTIP_FILE) { file_action(a,(UIKeytipFileAction)result.value); break; }
+    }
+    if (owned) { a->consume_grid_input=true; while (GetCharPressed()) { } }
+    return owned;
 }
 static void shortcuts(App *a) {
     DxCommand command=dx_take_command();
     if (command==DX_COMMAND_CLOSE
 #ifndef DUXCEL_BROWSER_HOST
-        || (ui_pressed(KEY_W) && ui_key_shortcut(KEY_W))
+        || (ui_pressed(KEY_W) && ui_key_shortcut(KEY_W) && !ui_key_alt(KEY_W) && !ui_key_shift(KEY_W))
 #endif
     ) { request_document_action(a,DOCUMENT_CLOSE,NULL); return; }
     if (command==DX_COMMAND_NEW_WORKBOOK
@@ -5983,7 +5992,7 @@ static void shortcuts(App *a) {
         if (a->book.path && !ui_key_shift(KEY_S)) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE);
         return;
     }
-    if (ui_key_shortcut(KEY_N) && ui_pressed(KEY_N)) { new_sheet(a); return; }
+    if (ui_pressed(KEY_F11) && ui_key_shift(KEY_F11)) { new_sheet(a); return; }
     if (ui_key_shortcut(KEY_C) && ui_pressed(KEY_C)) copy_selection(a);
     if (ui_key_shortcut(KEY_Z) && ui_pressed(KEY_Z)) history(a,ui_key_shift(KEY_Z));
     if (ui_key_shortcut(KEY_Y) && ui_pressed(KEY_Y)) history(a,true);
@@ -6603,7 +6612,8 @@ static void draw_app(App *a) {
     ui_label(u,"Duxcel",box(brand.x+25*s,0,61*s,28*s),15,(Color){25,78,112,255},false,UI_SEMIBOLD);
     REVIEW_CONTROL(a,"chrome.brand","chrome.inspect_brand","chrome/title-bar/brand","text","Duxcel",brand,20,true,false,false);
 #ifdef DUXCEL_BROWSER_HOST
-    if (ui_control_input(u,brand,a->modal==MODAL_NONE && !a->io_busy,NULL)) { a->file_menu=!a->file_menu; a->file_menu_focus=0; a->consume_grid_input=true; }
+    bool brand_hover=false;
+    if (ui_control_input(u,brand,a->modal==MODAL_NONE && !a->io_busy,&brand_hover)) { a->file_menu=!a->file_menu; a->file_menu_focus=0; a->consume_grid_input=true; }
 #endif
     if (a->keytip_alpha>0 && a->keytip_state.tab==UI_KEYTIPS_ROOT) ui_keytip(u,box(brand.x+brand.width-16*s,brand.y,16*s,16*s),"F",a->keytip_alpha);
     DrawLineV((Vector2){leading+104*s,7*s},(Vector2){leading+104*s,22*s},(Color){185,197,207,255});
@@ -11649,7 +11659,7 @@ bool app_frame(AppSession *session) {
     };
 #endif
     double frame=dx_millis(); ui_set_canvas_zoom(&a->ui,active_canvas_zoom(a)); ui_update(&a->ui);
-    DxKeyModifiers modifiers; while (dx_take_key_modifiers(&modifiers)) { ui_note_key_modifiers(modifiers.key,modifiers.modifiers); REVIEW_EVENT(a,"key",modifiers.key); }
+    DxKeyModifiers modifiers; while (dx_take_key_modifiers(&modifiers)) { ui_note_key_modifiers(modifiers.key,modifiers.modifiers); ui_note_keytip_press(modifiers.key,modifiers.modifiers,true,modifiers.repeat); REVIEW_EVENT(a,"key",modifiers.key); }
     DxPointerGesture gesture; while (dx_take_pointer_gesture(&gesture)) { ui_note_pointer_gesture(gesture); REVIEW_EVENT(a,"pointer",gesture.right ? 2 : 1); }
 #if defined(__APPLE__) && !defined(DUXCEL_BROWSER_HOST)
     if (a->window_closed) {

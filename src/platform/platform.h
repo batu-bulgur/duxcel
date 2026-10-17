@@ -81,7 +81,7 @@ typedef enum { DX_COMMAND_NONE,DX_COMMAND_OPEN,DX_COMMAND_SAVE,DX_COMMAND_SAVE_A
 #ifdef DUXCEL_DEV_REVIEW
     ,DX_COMMAND_REPORT_UI
 #endif
-    ,DX_COMMAND_CLOSE,DX_COMMAND_NEW_WORKBOOK,DX_COMMAND_KEYTIP_BASE=256,DX_COMMAND_KEYTIP_LAST=383
+    ,DX_COMMAND_CLOSE,DX_COMMAND_NEW_WORKBOOK
 } DxCommand;
 DxCommand dx_take_command(void);
 #ifdef DUXCEL_DEV_REVIEW
@@ -89,7 +89,7 @@ DxCommand dx_take_command(void);
 bool dx_review_take_native_request(void);
 #endif
 enum { DX_MOD_SHIFT=1,DX_MOD_CONTROL=2,DX_MOD_ALT=4,DX_MOD_SUPER=8 };
-typedef struct { int key; unsigned modifiers; } DxKeyModifiers;
+typedef struct { int key; unsigned modifiers; bool repeat; } DxKeyModifiers;
 /* Captured at native key-down, before a fast chord can release its modifiers. */
 bool dx_take_key_modifiers(DxKeyModifiers *event);
 typedef struct { float x0,y0,x1,y1; unsigned modifiers; bool right; } DxPointerGesture;
