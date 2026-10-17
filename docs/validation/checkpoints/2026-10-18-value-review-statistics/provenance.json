@@ -1,5 +1,5 @@
 {
-  "scope": "Immutable evidence by tested source/artifact; native296 optimized/sanitizer, actual113-stage Worker and875-value/213-Table browser checks. Summaries retain original paths. No full parity or physical input claim.",
+  "scope": "Immutable evidence by tested source/artifact; native296 optimized/sanitizer, actual113-stage Worker and875-value/213-Table/306-mixed browser checks. Summaries retain original paths. No full parity or physical input claim.",
   "files": {
     "inspector-native-package.json": {
       "sha256": "2608b3dd737c7fbc6e95d309eb7066e998c8d05f5570f4d19f347aee82a3e545",
@@ -110,6 +110,31 @@
       "sha256": "0f77a57d2533e0ba984e6bb78e1a48366ec48690a063b188b6a55d3406081e8b",
       "bytes": 36002,
       "original": "tests/results/runs/20261017T205452-browser-66260/summary.json"
+    },
+    "wasm-mixed-statistics/browser.txt": {
+      "sha256": "66ccea0ced156e60917e597b4a4fb30623b503fa48f56a46e5dc960b577e917c",
+      "bytes": 98,
+      "original": "tests/results/runs/20261017T211941-browser-74643/browser.txt"
+    },
+    "wasm-mixed-statistics/driver.txt": {
+      "sha256": "21570526e7209b2a0fc39836a89830e98b027fcce960b4522cc070258e4a0d71",
+      "bytes": 182,
+      "original": "tests/results/runs/20261017T211941-browser-74643/driver.txt"
+    },
+    "wasm-mixed-statistics/mixed-statistics-selection.png": {
+      "sha256": "a10be4e5cd7b2547a53ade1ac354cc48d02bfe17545168a573d53096d83eb3bb",
+      "bytes": 439128,
+      "original": "tests/results/runs/20261017T211941-browser-74643/mixed-statistics-selection.png"
+    },
+    "wasm-mixed-statistics/mixed-statistics.json": {
+      "sha256": "18dbe3b4120dfa26cc3c84671e77c3faa39f6b07c207cc098820e2422049434b",
+      "bytes": 90493,
+      "original": "tests/results/runs/20261017T211941-browser-74643/mixed-statistics.json"
+    },
+    "wasm-mixed-statistics/summary.json": {
+      "sha256": "5d50b20a55f341f3c2222f08c121fd548847aed074878cd6c34469dae3141074",
+      "bytes": 37622,
+      "original": "tests/results/runs/20261017T211941-browser-74643/summary.json"
     },
     "wasm-registration/browser.txt": {
       "sha256": "37e83fe27c3e33dcbbabf5cc83b71d376baa3f4fa4be64e5ea33026361364255",
