@@ -380,8 +380,23 @@ static void pan_axis(GridPanAxis *axis,GridPanPhase phase,float delta,float dt,f
         if (axis->quiet>=.035f) pan_return(axis,velocity);
     }
 }
-static double wheel_axis(Grid *g,double position,double maximum,double delta,float scale,float *visual,float *velocity,const GridPanAxis *axis) {
+static double wheel_axis(Grid *g,double position,double maximum,double delta,float scale,float *visual,float *velocity,GridPanAxis *axis) {
     if (!delta || !isfinite(delta)) return position;
+    if (!axis->return_edge && *visual) axis->return_edge=*visual>0 ? 1 : -1;
+    if (axis->returning && axis->return_edge && (axis->return_edge>0 ? position<=0 : position>=maximum)) {
+        double inward=delta*scale*axis->return_edge;
+        /* A released trackpad can alternate tiny signs at rest. Do not let
+           those packets move the canonical viewport away from and back to A1.
+           Only this real returning boundary has a one-point hysteresis; a
+           coherent reversal retains all its points and crosses immediately
+           once the total exceeds it. In-bounds momentum has no dead zone. */
+        if (inward<=0) axis->reversal=0;
+        else {
+            inward+=axis->reversal;
+            if (inward<=1.000001) { axis->reversal=(float)inward; return position; }
+            delta=inward/scale*axis->return_edge; axis->reversal=0;
+        }
+    }
     if (*visual*delta>0) { double consume=fmin(fabs(*visual),fabs(delta)); consume=delta<0 ? -consume : consume; *visual-=(float)consume; delta-=consume; }
     double wanted=position+delta,bounded=fmax(0,fmin(maximum,wanted));
     if (g->elastic_enabled && !axis->returning) {
@@ -392,6 +407,9 @@ static double wheel_axis(Grid *g,double position,double maximum,double delta,flo
         double magnitude=2*fabs(raw)/(sqrt(1+2*fabs(raw)/k)+1);
         *visual=(float)copysign(fmin(STRETCH_LIMIT/scale,magnitude),raw);
     } else if (!g->elastic_enabled) *visual=0;
+    if (!axis->return_edge && *visual) axis->return_edge=*visual>0 ? 1 : -1;
+    if (axis->returning && wanted!=bounded) axis->return_edge=wanted<0 ? 1 : -1;
+    if (axis->return_edge && (axis->return_edge>0 ? bounded>0 : bounded<maximum)) { axis->return_edge=0; axis->reversal=0; }
     /* Tiny momentum tails must not restart the spring. Constrain its retained
        velocity after a reversal so return stays monotone on either edge. */
     *velocity=*visual>0 ? clamp(*velocity,-RETURN_RATE*(*visual),0) : *visual<0 ? clamp(*velocity,0,-RETURN_RATE*(*visual)) : 0;
