@@ -32,6 +32,7 @@ def parse_options(argv=None):
     parser.add_argument('--busy',action='store_true',help='Require real UI input/rendering before the imported source job completes')
     parser.add_argument('--worker-driver',action='store_true')
     parser.add_argument('--review',action='store_true')
+    parser.add_argument('--review-cell-only',action='store_true',help='Real F2 inline draft capture/cancel, UTF-8 selection and commit/Undo at100/150%; requires --review')
     parser.add_argument('--review-guide-only',action='store_true',help='Blank-workbook Guide text/keys/actions/scroll review cancellation at wide100 and short150; requires --review')
     parser.add_argument('--access-only',action='store_true',help='Focused blank-workbook access keys and File/document flow; requires --review')
     parser.add_argument('--zoom-only',action='store_true',help='Focused real C grid zoom/header geometry and pointer checks; requires --review, optional transactions.csv')
@@ -55,6 +56,9 @@ def parse_options(argv=None):
     parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker v12 file compatibility (test-only, no Save UI claim)')
     parser.add_argument('--persistence-owners',action='store_true',help='Separate BP0 v13 owner lifetime/format package rewrite and native readback; no Save UI claim')
     options=parser.parse_args(argv)
+    if options.review_cell_only:
+        if not options.review or any((options.source,options.review_guide_only,options.access_only,options.zoom_only,options.review_controls_only,options.analysis_only,options.analysis_columns_only,options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.review_sql_only,options.review_values_only,options.table_statistics_only,options.mixed_statistics_only,options.filters,options.busy,options.worker_driver,options.worker_probe,options.platform,options.alt_stress,options.persistence,options.persistence_owners,options.query_apply,options.review_offline,options.review_outbox)):
+            parser.error('--review-cell-only requires --review and excludes source/other profiles/engine/report-upload options')
     if options.review_guide_only:
         if not options.review or any((options.source,options.access_only,options.zoom_only,options.review_controls_only,options.analysis_only,options.analysis_columns_only,options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.review_sql_only,options.review_values_only,options.table_statistics_only,options.mixed_statistics_only,options.filters,options.busy,options.worker_driver,options.worker_probe,options.platform,options.alt_stress,options.persistence,options.persistence_owners,options.query_apply,options.review_offline,options.review_outbox)):
             parser.error('--review-guide-only requires --review and excludes source/other profiles/engine/report-upload options')
@@ -125,7 +129,7 @@ def parse_options(argv=None):
         parser.error('--filters requires --source tests/fixtures/transactions.csv')
     if options.busy and not options.source:
         parser.error('--busy requires a real --source')
-    if options.review and not options.review_guide_only and not options.access_only and not options.zoom_only and not options.review_values_only and (options.worker_driver or not options.source or options.source.name!='transactions.csv'):
+    if options.review and not options.review_cell_only and not options.review_guide_only and not options.access_only and not options.zoom_only and not options.review_values_only and (options.worker_driver or not options.source or options.source.name!='transactions.csv'):
         parser.error('--review requires --source tests/fixtures/transactions.csv and cannot use --worker-driver')
     if options.canvas_transform and not options.review:
         parser.error('--canvas-transform requires --review')
@@ -192,6 +196,7 @@ def main():
             if options.filters: command.append('--filters')
             if options.busy: command.append('--busy')
             if options.review: command.append('--review')
+            if options.review_cell_only: command.append('--review-cell-only')
             if options.review_guide_only: command.append('--review-guide-only')
             if options.access_only: command.append('--access-only')
             if options.zoom_only: command.append('--zoom-only')
@@ -230,7 +235,7 @@ def main():
                     if hashlib.sha256(fixture.read_bytes()).hexdigest()!=fixture_hash:raise RuntimeError('Browser/native proof mutated its original fixture')
                     if any(hashlib.sha256(Path(name).read_bytes()).hexdigest()!=digest for name,digest in persistence_hashes.items()):raise RuntimeError('Native proof helper changed during acceptance')
                 except Exception as error:reader_error=str(error)
-            if options.review and not options.access_only and not options.zoom_only and not options.review_controls_only and not options.analysis_only and not options.analysis_columns_only and not options.review_query_only and not options.statistics_only and not options.analysis_statistics_only and not options.review_values_only and not options.table_statistics_only and not options.mixed_statistics_only and not options.review_sql_only and not options.review_guide_only and process.returncode==0:
+            if options.review and not options.access_only and not options.zoom_only and not options.review_controls_only and not options.analysis_only and not options.analysis_columns_only and not options.review_query_only and not options.statistics_only and not options.analysis_statistics_only and not options.review_values_only and not options.table_statistics_only and not options.mixed_statistics_only and not options.review_sql_only and not options.review_guide_only and not options.review_cell_only and process.returncode==0:
                 try:
                     from native_review import ReviewStore,default_project
                     report=json.loads((output/'report-manifest.json').read_text());report_id=report['report_id']
@@ -247,7 +252,9 @@ def main():
             record={'status':'passed' if process.returncode==0 and unchanged and artifacts_unchanged and not reader_error else 'failed','source':before,'artifact':manifest,'reader_error':reader_error,'native_persistence_helpers':persistence_hashes,
                     'command':command,'exit_code':process.returncode,'source_unchanged':unchanged,'artifacts_unchanged':artifacts_unchanged,
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
-            record['profile']='review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            record['profile']='review-cell-only' if options.review_cell_only else 'review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            if options.review_cell_only:
+                record['scope']='Actual blank-cell F2/trusted UTF-8 and quote editing, partial selection/hscroll and single input picking at100/150%; capture cancellation retains draft/history/model and adds no jobs. Normal Escape preserves sparse NULL; real Enter then Undo restores missing cell. No clipboard, reports or physical typing claim.'
             if options.review_guide_only:
                 record['scope']='Actual blank-workbook Help/Guide, wide100 and short150 text/key/action/scroll/backdrop picking and composer cancellation, retained nonzero scroll/focus/document state and ordinary dismissal; no database jobs, saved reports or physical gesture acceptance.'
             if options.persistence_owners:
