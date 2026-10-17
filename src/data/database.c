@@ -1,4 +1,5 @@
 #include "database.h"
+#include "../transforms/distinct.h"
 #include "../platform/platform.h"
 #include <stdlib.h>
 #include <string.h>
@@ -574,30 +575,10 @@ bool database_pivot_distinct(Database *db,Analysis *a,const PivotDefinition *con
     if (level < -1 || level>4) { fail(error,"Invalid date hierarchy level"); return false; }
     if (!source_prepare(db,a,NULL,error) || !resolve_analysis_types(db,a,error)) return false;
     PivotDefinition typed={0}; if (context) { typed=*context; if (!resolve_pivot_types(db,a,&typed,error)) return false; context=&typed; }
-    Analysis source=*a; if (!context) { source.group_column=NULL; source.measure_column=NULL; } source.sort_column=NULL; source.sort_count=0;
-    if (!context) {
-        if (source.filter_column && !strcmp(source.filter_column,column)) source.filter_column=NULL;
-        source.filter_count=0; for (size_t i=0;i<a->filter_count;i++) if (strcmp(a->filters[i].column,column)) source.filters[source.filter_count++]=a->filters[i];
-    }
-    char *base=analysis_sql(&source,true),*col=dx_quote(column,'"'),*find=dx_quote(search ? search : "",'\'');
-    if (context) for (size_t i=0;i<context->counts[PIVOT_FILTERS];i++) {
-        const PivotField *f=&context->fields[PIVOT_FILTERS][i]; if (!strcmp(f->name,column)) continue;
-        char *condition=analysis_filter_typed(f->name,f->filter,f->value,NULL,f->number),*next=dx_printf("SELECT * FROM (%s) pivot_available WHERE %s",base,condition);
-        free(base); free(condition); base=next;
-    }
-    char *where=dx_printf("contains(COALESCE(CAST(%s AS VARCHAR), 'NULL'), %s)",col,find);
-    if (start && *start && end && *end) {
-        char *lo=dx_quote(start,'\''),*hi=dx_quote(end,'\'');
-        dx_append(&where," AND %s >= cast_to_type(%s,%s) AND %s < cast_to_type(%s,%s)",col,lo,col,col,hi,col); free(lo); free(hi);
-    }
-    const char *units[]={"year","month","day","hour","minute"};
-    const char *formats[]={"%Y","%B","%d","%H:00","%H:%M"};
-    char *value=level<0 ? dx_printf("CAST(%s AS VARCHAR)",col) : dx_printf("CAST(date_trunc('%s',%s) AS VARCHAR)",units[level],col);
-    char *label=level<0 ? dx_strdup(value) : dx_printf("strftime(date_trunc('%s',%s),'%s')",units[level],col,formats[level]);
-    char *upper=level<0 ? dx_strdup("NULL::VARCHAR") : dx_printf("CAST(date_trunc('%s',%s)+INTERVAL '1 %s' AS VARCHAR)",units[level],col,units[level]);
-    char *relation=dx_printf("SELECT DISTINCT %s AS value,%s AS label,%s AS upper_bound FROM (%s) available WHERE %s",value,label,upper,base,where);
-    char *sql=dx_printf("SELECT * FROM (%s) distinct_values ORDER BY value NULLS FIRST LIMIT %d OFFSET %" PRIu64,relation,DX_DISTINCT_ROWS,offset);
-    duckdb_result r={0}; bool ok=execute_analysis(db,&source,sql,&r,error); free(sql);
+    DistinctQuery query={0}; if (!distinct_query_build(&query,a,context,column,search,level,start,end,true,error)) return false;
+    Analysis bindings=*a; if (!query.keep_primary_filter) bindings.filter_column=NULL;
+    char *sql=distinct_page_sql(&query,offset);
+    duckdb_result r={0}; bool ok=execute_analysis(db,&bindings,sql,&r,error); free(sql);
     if (ok) {
         p->count=(size_t)duckdb_row_count(&r); p->bytes=p->count*sizeof(*p->values); p->values=dx_alloc(p->bytes);
         for (size_t i=0;i<p->count;i++) {
@@ -612,12 +593,12 @@ bool database_pivot_distinct(Database *db,Analysis *a,const PivotDefinition *con
         duckdb_destroy_result(&r);
         if (ok && known_total>=0) p->total=(uint64_t)known_total;
         else if (ok) {
-            sql=dx_printf("SELECT count(*) FROM (%s) counted",relation);
-            ok=execute_analysis(db,&source,sql,&r,error); free(sql);
+            sql=distinct_count_sql(&query);
+            ok=execute_analysis(db,&bindings,sql,&r,error); free(sql);
             if (ok) { p->total=duckdb_value_uint64(&r,0,0); duckdb_destroy_result(&r); }
         }
     }
-    free(base); free(col); free(find); free(where); free(value); free(label); free(upper); free(relation);
+    distinct_query_free(&query);
     if (!ok) distinct_free(p); return ok;
 }
 bool database_distinct(Database *db,Analysis *a,const char *column,const char *search,int level,const char *start,const char *end,uint64_t offset,int64_t known_total,DistinctPage *p,char **error) {
