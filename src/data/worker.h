@@ -12,10 +12,16 @@ typedef struct {
     size_t rows,column,columns,target_row,target_column;
 } CopyPatch;
 typedef struct {
+    size_t source; /* Same primary/SourceSnapshot indexing as CopyPatch. */
+    uint64_t expected_source_stamp;
+} CopySourceGuard;
+typedef struct {
     SourceSnapshot sources;
     CellClipboard cells;
     CopyPatch patches[DX_MAX_OBJECTS+1];
     size_t count;
+    CopySourceGuard guards[DX_MAX_OBJECTS+1];
+    size_t guard_count;
 } CopyRequest;
 void copy_request_free(CopyRequest *request);
 typedef enum { JOB_PAGE, JOB_COPY, JOB_SAVE, JOB_LOAD, JOB_DISTINCT, JOB_PIVOT, JOB_PIVOT_COPY, JOB_EXPORT, JOB_COUNT, JOB_RANGE_COPY,JOB_STATISTICS,JOB_VALIDATE_SQL,JOB_STEP_PREVIEW } JobKind;
@@ -24,6 +30,7 @@ typedef struct {
     JobKind kind;
     Analysis analysis;
     uint64_t offset, rows;
+    uint64_t expected_source_stamp; /* Session-only raw source guard; zero is unbound. */
     size_t first_col, cols;
     int64_t known_total;
     Workbook *workbook;
