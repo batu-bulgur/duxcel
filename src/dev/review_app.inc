@@ -549,7 +549,17 @@ static DxReviewDataIdentity review_workspace_scope(App *a,bool fields) {
     data.source_id=source ? source->id : 0; data.object_id=fields ? data.source_id : object ? object->id : 0;
     data.schema_generation=fields ? a->field_schema_generation : object ? object_source_revision(a,object) : a->analysis_revision;
     data.query_generation=fields ? source ? source->revision : a->analysis_revision : object ? object->revision : a->analysis_revision;
-    snprintf(data.kind,sizeof(data.kind),fields ? "source-fields" : "pivot-authoring"); return data;
+    snprintf(data.kind,sizeof(data.kind),fields ? "source-fields" : "pivot-authoring");
+    if (fields) {
+        bool stale=!source && a->page_stale;
+        if (source) {
+            const ObjectView *cached=&a->objects[(size_t)(source-active_sheet(a)->objects.items)];
+            stale=cached->dirty || cached->failed || cached->waiting_count || cached->revision!=source->revision;
+            if (stale) data.query_generation=cached->revision;
+        } else if (stale) data.query_generation=0; /* An old primary Page has no pinned analysis revision. */
+        if (stale) snprintf(data.kind,sizeof(data.kind),"source-fields-stale");
+    }
+    return data;
 }
 static DxReviewWidget *review_workspace_widget(App *a,const char *id,const char *parent,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,int pivot_role,int index,int layer,const char *file,int line) {
     if (!review_armed(a)) return NULL;
@@ -589,7 +599,7 @@ static void review_workspace_field(App *a,const Column *field,size_t index,Recta
     char id[128],parent[128]; snprintf(parent,sizeof(parent),"pane.fields.field.f%016llx",(unsigned long long)review_field_hash(field->name));
     snprintf(id,sizeof(id),"%s%s",parent,more ? ".more" : "");
     DxReviewWidget *widget=review_workspace_widget(a,id,more ? parent : "pane.fields.list",more ? "field.open_actions" : selected_pivot(a) ? "field.select_drag" : "field.reveal","button",more ? "Field actions" : field->name,bounds,clip,enabled,!more && focused,focused,field->name,-1,(int)index,more ? 54 : 53,file,line);
-    if (widget) { snprintf(widget->data.kind,sizeof(widget->data.kind),"available-field"); dx_review_value_set(&widget->value,"VARCHAR",false,field->name); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated; }
+    if (widget) { bool stale=!strcmp(widget->data.kind,"source-fields-stale"); snprintf(widget->data.kind,sizeof(widget->data.kind),stale ? "available-field-stale" : "available-field"); dx_review_value_set(&widget->value,"VARCHAR",false,field->name); widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated; }
 }
 static bool review_workspace_token_id(char output[128],int role,const PivotField *field,bool remove) {
     static const char *const aggregates[]={"sum","count","distinct","average","minimum","maximum"},*const grains[]={"exact","year","quarter","month"};
