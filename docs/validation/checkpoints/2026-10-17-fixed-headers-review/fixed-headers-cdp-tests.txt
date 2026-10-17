@@ -1,0 +1,16 @@
+✔ requests retain identity, phase and timing; replies clear timers and events remain separate (1.961375ms)
+✔ timeout records the expired request and pending snapshot; late response cannot settle another request (0.91975ms)
+✔ WebSocket close promptly rejects every pending request and future sends (0.295042ms)
+✔ WebSocket error promptly rejects every pending request and future sends (0.136208ms)
+✔ closed readyState rejects without silently discarding a request (0.098625ms)
+✔ protocol and synchronous send failures retain request metadata and clear pending timers (0.191833ms)
+✔ cleanup releases raw modifiers and a timed-out keyDown without replaying input or waiting for frames (0.299916ms)
+✔ acknowledged keyUp is not repeated; disconnected cleanup explicitly reports unreleased keys (0.159ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 71.346375

@@ -1,0 +1,67 @@
+{
+  "build_contract": {
+    "scope": "default Make graph across platform branches; no recipes executed",
+    "shipping_sources": 50,
+    "review_sources": 54,
+    "objects": {
+      "release": 50,
+      "sanitize": 50,
+      "review": 54,
+      "review-sanitize": 54
+    }
+  },
+  "binary_absence_checked": true,
+  "shipping": {
+    "path": "/Users/h2o/dev/duxcel/duxcel",
+    "bytes": 1103912,
+    "sha256": "7f52eaa88ebd242a2649ce6c0809acea82cc84ca848028ca6db1aef7d5ad326f",
+    "symbols": [],
+    "markers": [],
+    "review_source_paths": false
+  },
+  "review": {
+    "path": "/Users/h2o/dev/duxcel/build/review/duxcel-review",
+    "bytes": 1212192,
+    "sha256": "b55af650d25fb098b59bfec9fc2e49ca6c22bb00349d596f0ee30161c685b63a",
+    "symbols": [
+      "dx_review_add",
+      "dx_review_begin",
+      "dx_review_capture_begin",
+      "dx_review_capture_cancel",
+      "dx_review_capture_create",
+      "dx_review_capture_destroy",
+      "dx_review_capture_draw",
+      "dx_review_capture_event",
+      "dx_review_capture_layout",
+      "dx_review_capture_pixels",
+      "dx_review_capture_request",
+      "dx_review_capture_save",
+      "dx_review_find",
+      "dx_review_input_blocked",
+      "dx_review_input_quarantine",
+      "dx_review_json",
+      "dx_review_json_alloc",
+      "dx_review_parent",
+      "dx_review_pick",
+      "dx_review_region",
+      "dx_review_seal",
+      "dx_review_status_text",
+      "dx_review_store_default_root",
+      "dx_review_store_write",
+      "dx_review_take_native_request",
+      "dx_review_target_stale",
+      "dx_review_value_set",
+      "dx_review_widget_init",
+      "ui_review_discard_input",
+      "ui_review_restore_focus"
+    ],
+    "markers": [
+      "--review-smoke",
+      "DUXCEL_REVIEW_OUTBOX",
+      "duxcel.native-review",
+      "Report UI issue"
+    ],
+    "review_source_paths": true
+  },
+  "scope": "linked symbols and feature strings; no app execution or native behavior claim"
+}
