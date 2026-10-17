@@ -306,7 +306,7 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_SMOKE_STAGES 47
 typedef struct {
     int stage; uint64_t request,jobs; GridLocation selection; Cell *page;
-    size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll; char root[4096];
+    size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -367,6 +367,10 @@ static bool review_smoke_file_targets(App *a,bool scrolling) {
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
+    if (t->diagnostic_stage!=t->stage) {
+        fprintf(stderr,"Review smoke stage=%d phase=%d file=%d/%d/%d ui_scale=%.2f window=%dx%d target=%s\n",t->stage,(int)r->phase,a->file_menu,a->file_menu_focus,a->file_menu_scroll,a->ui.scale,GetScreenWidth(),GetScreenHeight(),r->target.widget.id);
+        t->diagnostic_stage=t->stage;
+    }
     switch (t->stage) {
     case 0:
         if (a->busy || a->page.count_pending || a->page.column_count!=3) return;
@@ -593,6 +597,9 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
     case 42:
         if (r->phase!=DX_REPORT_PICK) return;
         if (r->frame.ui_scale!=1.5f || !review_smoke_file_targets(a,true) || !review_smoke_file_same(a,t)) goto failed;
+        /* The bottom picker bar covers this short menu's thumb. Move it by
+           the real Space shortcut before picking the exposed frozen target. */
+        if (!r->toolbar_top) ui_note_key_press(KEY_SPACE,0);
         review_smoke_pick(a,"file.scrollbar.thumb"); break;
     case 43:
         if (r->phase!=DX_REPORT_NOTE) return;
