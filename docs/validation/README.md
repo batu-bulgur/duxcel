@@ -37,6 +37,8 @@ All raw runtime logs/screenshots were copied to local ignored `tests/results/pro
 
 ## New records
 
+[Active selection and native controls](checkpoints/2026-10-17-active-controls/) records integration `413b25b`: 183 focused application stages, 110 GPU checks, the 477-check hidden-window probe and an insufficient-budget negative. It explicitly records O0 application sanitizer iteration, exact source/binary hashes, reference captures and the remaining UI/OS-input limits. Automated window creation is hidden by default; visible desktop QA is an explicit opt-in.
+
 Use the committed [test workflow](../TESTING.md) for named tiers and result manifests. Record commit, dirty-state/source hash, binary hash, command/profile, expected and observed stages, exit status, duration and log locations. A missing dataset, skipped test, timed-out frame budget or changed binary must remain explicit. Never count a partial run as a full pass.
 
 Matching-state visual acceptance additionally records viewport, UI scale, canvas zoom, selected source/object, fixture, reference state, native capture and pointer/keyboard result. Engine regression complements this evidence; it does not establish exact interface fidelity. See [the roadmap's parity states](../ROADMAP.md).

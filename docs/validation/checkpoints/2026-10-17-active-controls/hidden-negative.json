@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "expected_exit": "nonzero (insufficient frame budget)",
+  "actual_exit": 1,
+  "seconds": 1.147,
+  "source": {
+    "commit": "413b25b9215e361d804632d7ed07aed61c306ce8",
+    "status": "M AGENTS.md\n M docs/README.md\n M docs/ROADMAP.md\n M docs/STATUS.md\n M docs/TESTING.md\n?? docs/design/FEEDBACK.md\n?? docs/validation/checkpoints/2026-10-17-active-controls/\n?? tools/ui-review/",
+    "source_sha256": "1275a1b8c959fcd1dc3f9a6161372c03c822bdf7491864d10129cf9d61026a8c",
+    "source_files": 1489
+  },
+  "binary_sha256": "62d6fe97247e0172b5d085dcf5425acc1dfa78a04e8055f31cc06eae9a15b815",
+  "optimization": "O0 ASan/UBSan explicit iteration build",
+  "command": [
+    "./duxcel-debug",
+    "--export-smoke",
+    "--frames",
+    "2"
+  ],
+  "log": "tests/results/active-selection/hidden-negative.txt"
+}

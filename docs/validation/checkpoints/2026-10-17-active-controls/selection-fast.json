@@ -1,0 +1,118 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T11:37:45.180477+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 2,
+  "no_build": false,
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "f0c7902578615d2df572832378d626b9852c97f4",
+    "status": "M Makefile\n M docs/README.md\n M docs/ROADMAP.md\n M src/app/app.c\n M tools/test.py\n M tools/test_runner_test.py\n?? docs/design/FEEDBACK.md\n?? tools/ui-review/",
+    "source_sha256": "9c4bafb059898e6ab33cbba57bca70d1287326bdc7b0e870532392952d53b86b",
+    "source_files": 1488
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_filterlabel",
+        "tests/test_cellreadout",
+        "tests/test_grid",
+        "tests/test_filterlabel-debug",
+        "tests/test_cellreadout-debug",
+        "tests/test_grid-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T113745-fast-4156/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 11.135
+    },
+    {
+      "name": "filterlabel-release",
+      "command": [
+        "./tests/test_filterlabel"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T113745-fast-4156/filterlabel-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.022
+    },
+    {
+      "name": "cellreadout-release",
+      "command": [
+        "./tests/test_cellreadout"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T113745-fast-4156/cellreadout-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.666
+    },
+    {
+      "name": "grid-release",
+      "command": [
+        "./tests/test_grid"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T113745-fast-4156/grid-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.093
+    },
+    {
+      "name": "filterlabel-sanitize",
+      "command": [
+        "./tests/test_filterlabel-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T113745-fast-4156/filterlabel-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.397
+    },
+    {
+      "name": "cellreadout-sanitize",
+      "command": [
+        "./tests/test_cellreadout-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T113745-fast-4156/cellreadout-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.399
+    },
+    {
+      "name": "grid-sanitize",
+      "command": [
+        "./tests/test_grid-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T113745-fast-4156/grid-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.839
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_filterlabel": "020d8d5a53089375ed70fe63d879433ceb44a9b65d0fa82b69a32f5bd8ae8a88",
+    "/Users/h2o/dev/duxcel/tests/test_cellreadout": "04b21c6867f81aa22fe02f4d05c98e91dd57b39d1666f1fdd3360f2155680b3a",
+    "/Users/h2o/dev/duxcel/tests/test_grid": "fff34ff9ebaec08bd7ef162fca177f8e20adc6ef10bea30f8dfbb0f8ca7fd278",
+    "/Users/h2o/dev/duxcel/tests/test_filterlabel-debug": "3f1b7d8c9aad8cb252b59972035210a95c3a859a84ab32e62cf9f1b3ca262e86",
+    "/Users/h2o/dev/duxcel/tests/test_cellreadout-debug": "79486ee4ce3002891886e17e2ac709fb40ab508eee329cef085d8476457a1caa",
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "e68bf79e33cb0b42c5800cd3972d5a57678e7b4ad04e414c05462d2e79d59d69"
+  },
+  "elapsed_seconds": 13.476,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_filterlabel": "020d8d5a53089375ed70fe63d879433ceb44a9b65d0fa82b69a32f5bd8ae8a88",
+    "/Users/h2o/dev/duxcel/tests/test_cellreadout": "04b21c6867f81aa22fe02f4d05c98e91dd57b39d1666f1fdd3360f2155680b3a",
+    "/Users/h2o/dev/duxcel/tests/test_grid": "fff34ff9ebaec08bd7ef162fca177f8e20adc6ef10bea30f8dfbb0f8ca7fd278",
+    "/Users/h2o/dev/duxcel/tests/test_filterlabel-debug": "3f1b7d8c9aad8cb252b59972035210a95c3a859a84ab32e62cf9f1b3ca262e86",
+    "/Users/h2o/dev/duxcel/tests/test_cellreadout-debug": "79486ee4ce3002891886e17e2ac709fb40ab508eee329cef085d8476457a1caa",
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "e68bf79e33cb0b42c5800cd3972d5a57678e7b4ad04e414c05462d2e79d59d69"
+  },
+  "finished_utc": "2026-10-17T11:37:59.088974+00:00"
+}

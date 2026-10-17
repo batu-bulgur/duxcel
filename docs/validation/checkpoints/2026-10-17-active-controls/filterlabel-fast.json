@@ -1,0 +1,63 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T11:43:42.371819+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 2,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "413b25b9215e361d804632d7ed07aed61c306ce8",
+    "status": "M AGENTS.md\n M docs/README.md\n M docs/ROADMAP.md\n?? docs/design/FEEDBACK.md\n?? tools/ui-review/",
+    "source_sha256": "1275a1b8c959fcd1dc3f9a6161372c03c822bdf7491864d10129cf9d61026a8c",
+    "source_files": 1489
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_filterlabel",
+        "tests/test_filterlabel-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T114342-fast-6138/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.658
+    },
+    {
+      "name": "filterlabel-release",
+      "command": [
+        "./tests/test_filterlabel"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T114342-fast-6138/filterlabel-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.051
+    },
+    {
+      "name": "filterlabel-sanitize",
+      "command": [
+        "./tests/test_filterlabel-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T114342-fast-6138/filterlabel-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.942
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_filterlabel": "2f997cd1709f37030763d99c6c3b389743a250ac3d570098a6538c5d04892532",
+    "/Users/h2o/dev/duxcel/tests/test_filterlabel-debug": "3e3de476e33d81506b0ad37bb5a35b321b4ad300f12cc3d36d08ffa91a61c054"
+  },
+  "elapsed_seconds": 2.927,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_filterlabel": "2f997cd1709f37030763d99c6c3b389743a250ac3d570098a6538c5d04892532",
+    "/Users/h2o/dev/duxcel/tests/test_filterlabel-debug": "3e3de476e33d81506b0ad37bb5a35b321b4ad300f12cc3d36d08ffa91a61c054"
+  },
+  "finished_utc": "2026-10-17T11:43:45.709494+00:00"
+}

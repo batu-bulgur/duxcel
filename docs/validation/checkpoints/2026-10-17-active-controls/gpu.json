@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T11:45:44.084161+00:00",
+  "tier": "native",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": true,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "413b25b9215e361d804632d7ed07aed61c306ce8",
+    "status": "M AGENTS.md\n M docs/README.md\n M docs/ROADMAP.md\n?? docs/design/FEEDBACK.md\n?? tools/ui-review/",
+    "source_sha256": "1275a1b8c959fcd1dc3f9a6161372c03c822bdf7491864d10129cf9d61026a8c",
+    "source_files": 1489
+  },
+  "results": [
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T114544-native-6296/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.647
+    },
+    {
+      "name": "gpu-sanitize",
+      "command": [
+        "./tests/test_paint-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T114544-native-6296/gpu-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.944
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_paint-native-debug": "f3c31e674aa7c615c98d0bdb863ab61e4df99a163b5e37373f65c1392df8a266"
+  },
+  "elapsed_seconds": 3.595
+}
