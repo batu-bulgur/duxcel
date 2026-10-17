@@ -447,11 +447,16 @@ static void review_native_command(App *a,DxCommand command) {
 /* Focused native acceptance; never enabled in shipping, uses the same queued
    input/controller routes as other App scenarios and private outbox fixtures. */
 #ifndef DUXCEL_BROWSER_HOST
-#define REVIEW_SMOKE_STAGES 71
+#define REVIEW_AUTHOR_CASES 14
+#define REVIEW_SMOKE_STAGES (71+REVIEW_AUTHOR_CASES*5)
 typedef struct {
     int stage; unsigned note_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
     Modal choice_modal; int choice_focus,choice_ribbon_mode; float choice_scale,choice_row_height; uint64_t choice_formats;
+    Analysis author_source; PivotDefinition author_pivot; MarkDefinition author_marks; bool author_owned;
+    uint64_t author_revision,author_title_revision,author_marks_revision; size_t author_count; int author_selected;
+    Cell *author_page; int author_field,author_field_focus,author_drag_field,author_drag_role,author_drag_index,author_mark_role;
+    char author_target[128];
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -540,11 +545,144 @@ static bool review_smoke_choice_targets(App *a,const char *root,const char *cons
     }
     return !dx_review_find(registry,"file.menu");
 }
+static bool review_smoke_text_same(const char *left,const char *right) { return left && right ? !strcmp(left,right) : left==right; }
+static bool review_smoke_pivot_same(const PivotDefinition *left,const PivotDefinition *right) {
+    for (size_t role=0;role<4;role++) {
+        if (left->counts[role]!=right->counts[role]) return false;
+        for (size_t i=0;i<left->counts[role];i++) {
+            const PivotField *x=&left->fields[role][i],*y=&right->fields[role][i];
+            if (!review_smoke_text_same(x->name,y->name) || !review_smoke_text_same(x->value,y->value) || x->aggregate!=y->aggregate || x->grain!=y->grain || x->filter!=y->filter || x->number.kind!=y->number.kind || x->number.precision!=y->number.precision || x->number.scale!=y->number.scale) return false;
+        }
+    }
+    return true;
+}
+static void review_smoke_author_remember(App *a,ReviewSmoke *t) {
+    review_smoke_choice_remember(a,t);
+    if (t->author_owned) { analysis_free(&t->author_source); pivot_free(&t->author_pivot); marks_free(&t->author_marks); }
+    t->author_owned=true; t->author_source=analysis_copy(&a->analysis);
+    SheetObject *object=selected_object(a); t->author_pivot=object ? pivot_copy(&object->pivot) : (PivotDefinition){0}; t->author_marks=object ? marks_copy(&object->marks) : (MarkDefinition){0};
+    t->author_selected=a->selected_object; t->author_count=active_sheet(a)->objects.count; t->author_revision=object ? object->revision : 0;
+    t->author_title_revision=active_sheet(a)->objects.title_revision; t->author_marks_revision=active_sheet(a)->objects.marks_revision;
+    t->author_page=object ? a->objects[a->selected_object].page.cells : NULL;
+    t->author_field=a->pivot_field; t->author_field_focus=a->field_menu_focus;
+    t->author_drag_field=a->pivot_drag_field; t->author_drag_role=a->pivot_drag_role; t->author_drag_index=a->pivot_drag_index; t->author_mark_role=a->mark_role;
+}
+static bool review_smoke_author_same(App *a,ReviewSmoke *t) {
+    SheetObject *object=selected_object(a);
+    return review_smoke_choice_same(a,t) && analysis_same_result(&a->analysis,&t->author_source) && analysis_sorts_equal(&a->analysis,&t->author_source) &&
+        a->selected_object==t->author_selected && active_sheet(a)->objects.count==t->author_count && active_sheet(a)->objects.title_revision==t->author_title_revision && active_sheet(a)->objects.marks_revision==t->author_marks_revision &&
+        (!object || (object->revision==t->author_revision && a->objects[a->selected_object].page.cells==t->author_page && review_smoke_pivot_same(&object->pivot,&t->author_pivot) && marks_equal(&object->marks,&t->author_marks))) &&
+        a->pivot_field==t->author_field && a->field_menu_focus==t->author_field_focus && a->pivot_drag_field==t->author_drag_field && a->pivot_drag_role==t->author_drag_role && a->pivot_drag_index==t->author_drag_index && a->mark_role==t->author_mark_role;
+}
+static bool review_smoke_author_targets(App *a,const char *kind,const char *target,ReviewSmoke *t) {
+    DxReviewRegistry *registry=a->review->registry; DxReviewTarget picked; char parent[128],id[128];
+    snprintf(parent,sizeof(parent),"author.%s",kind); const DxReviewWidget *menu=dx_review_find(registry,parent);
+    if (!menu || !menu->container || !menu->expanded || menu->input_eligible || registry->duplicate_count || registry->invalid_count || registry->overflow_count) return false;
+    snprintf(id,sizeof(id),"%s.background",parent);
+    if (!dx_review_pick(registry,menu->bounds.x+2*a->ui.scale,menu->bounds.y+2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id)) return false;
+    snprintf(id,sizeof(id),"%s.heading",parent); const DxReviewWidget *heading=dx_review_find(registry,id);
+    if (!heading || heading->input_eligible || !dx_review_pick(registry,heading->bounds.x+heading->bounds.width*.5f,heading->bounds.y+heading->bounds.height*.5f,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,id)) return false;
+    size_t rows=0; const DxReviewWidget *chosen=NULL;
+    for (size_t i=0;i<registry->count;i++) {
+        const DxReviewWidget *w=&registry->widgets[i]; if (strcmp(w->parent_id,parent) || !strstr(w->id,".action.")) continue;
+        if (w->input_eligible!=w->enabled || w->layer<=menu->layer || !w->data.present || strcmp(w->data.document_id,menu->data.document_id) || w->data.object_id!=menu->data.object_id || w->data.query_generation!=menu->data.query_generation || w->transform.ty!=menu->transform.ty) return false;
+        Rectangle visible=GetCollisionRec((Rectangle){w->bounds.x,w->bounds.y,w->bounds.width,w->bounds.height},(Rectangle){w->clip.x,w->clip.y,w->clip.width,w->clip.height});
+        if (visible.width<=0 || visible.height<=0) continue;
+        float x=visible.x+visible.width*.5f,y=visible.y+visible.height*.5f;
+        if (!dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,w->id) || !dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTAINER,&picked) || strcmp(picked.widget.id,parent)) return false;
+        rows++; if ((!target && !chosen) || (target && (strstr(w->id,target) || !strcmp(w->label,target)))) chosen=w;
+    }
+    static const size_t expected[]={6,6,8,9,5,7,4,7,4,6,6,3,1,4};
+    size_t item=(size_t)(t->stage-71)/5;
+    if (item>=sizeof(expected)/sizeof(*expected) || rows!=expected[item] || !chosen || !strstr(a->review->frame.state_text," author_count=") || strstr(a->review->frame.state_text," author_overflow=1")) return false;
+    if (item==7) {
+        const DxReviewWidget *earlier=dx_review_find(registry,"author.pivot_field.action.move_earlier"),*later=dx_review_find(registry,"author.pivot_field.action.move_later");
+        if (!earlier || !later || earlier->enabled || later->enabled) return false;
+    }
+    if (item==8) {
+        const DxReviewWidget *sum=dx_review_find(registry,"author.pivot_field.action.aggregate.sum"),*remove=dx_review_find(registry,"author.pivot_field.action.remove");
+        if (!sum || !sum->checked || !remove || remove->enabled) return false;
+    }
+    if ((item==11 || item==12 || item==13) && !chosen->checked) return false;
+    snprintf(t->author_target,sizeof(t->author_target),"%s",chosen->id);
+    return true;
+}
+/* Five stages per case keep captures tied to settled, real controllers while
+   preserving the original report/write-retry inventory above. No reports are
+   created here; each native picker enters and cancels its owned composer. */
+static int review_smoke_author_tick(App *a,ReviewSmoke *t) {
+    static const char *const kinds[]={"source_context","context","context","field","step","object","pivot_field","pivot_field","pivot_field","marks","assign_field","representation","plot","view"};
+    int item=(t->stage-71)/5,phase=(t->stage-71)%5; DxReviewCapture *r=a->review;
+    if (phase==0) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        if (item==0 && (!a->analysis.path || !strstr(a->analysis.path,"transactions.csv"))) { open_source(a,"tests/fixtures/transactions.csv",false); return 0; }
+        if (a->page.column_count!=6) return -1;
+        ui_set_scale(&a->ui,item>=3 ? 1.5f : 1); SetWindowSize(item>=3 ? 760 : 1280,item>=3 ? 640 : 820);
+        a->modal=MODAL_NONE; a->file_menu=false; a->consume_grid_input=true; a->context_focus=a->context_scroll=0; a->context_origin=(Vector2){620,300};
+        a->pivot_drag_field=a->pivot_drag_role=-1;
+        if (item==0) { a->selected_object=-1; grid_select_cell(&a->grid,1,1,false); a->modal=MODAL_CONTEXT; }
+        else if (item==1) { a->selected_object=-1; a->grid.selection=SELECT_ROWS; a->grid.row=a->grid.anchor_row=a->grid.end_row=1; a->modal=MODAL_CONTEXT; }
+        else if (item==2) { a->selected_object=-1; grid_select_cell(&a->grid,20,8,false); a->modal=MODAL_CONTEXT; }
+        else if (item==3) { a->selected_object=-1; begin_field_menu(a,1,a->context_origin); a->field_menu_focus=3; a->field_menu_keyboard=true; }
+        else if (item==4) { a->selected_object=-1; pipeline_rows_cache(a); begin_step_menu(a,0,a->context_origin); }
+        else {
+            if (!active_sheet(a)->objects.count) {
+                grid_select_cell(&a->grid,0,0,false); create_pivot(a); SheetObject *object=selected_pivot(a); if (!object) return -1;
+                PivotDefinition definition={0}; char *error=NULL;
+                bool ok=pivot_assign(&definition,PIVOT_ROWS,"Date",AGG_SUM,&error) && pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_SUM,&error);
+                free(error); if (!ok) { pivot_free(&definition); return -1; }
+                if (!set_pivot_definition(a,&definition)) return -1;
+                return 0;
+            }
+            a->selected_object=0; SheetObject *object=selected_pivot(a); if (!object) return -1;
+            if (item==5) a->modal=MODAL_OBJECT;
+            else if (item==6) { a->pivot_drag_field=2; a->modal=MODAL_PIVOT_FIELD; }
+            else if (item==7 || item==8) { a->pivot_drag_role=item==7 ? PIVOT_ROWS : PIVOT_VALUES; a->pivot_drag_index=0; a->modal=MODAL_PIVOT_FIELD; }
+            else if (item==9) begin_marks(a,MARKS_COLOR,box(620,280,100,20),false);
+            else if (item==10) begin_assign_field(a,PIVOT_COLUMNS,box(620,280,100,20));
+            else if (item==11) { a->modal=MODAL_REPRESENTATION; a->context_focus=0; }
+            else if (item==12) { a->modal=MODAL_CHART_MEASURE; a->context_focus=0; }
+            else { a->modal=MODAL_VIEW; a->view_menu_chart=false; }
+        }
+        return 1;
+    }
+    if (phase==1) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || a->popup_presence.offset || a->popup_presence.alpha!=1 || !review_can_capture(a) || a->ui.scale!=(item>=3 ? 1.5f : 1)) return 0;
+        if (a->modal==MODAL_NONE) return -1;
+        review_smoke_author_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        const char *target=item==1 ? "Edit cell" : item==7 ? ".action.grain.year" : item==8 ? ".action.aggregate.sum" : NULL;
+        if (!review_smoke_author_same(a,t) || !review_smoke_author_targets(a,kinds[item],target,t)) return -1;
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==3) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || !review_smoke_author_same(a,t) || (item==1 && r->target.widget.enabled)) return -1;
+        if (item==3 && strcmp(r->target.widget.data.field,"City")) return -1;
+        if ((item==7 || item==8) && strcmp(r->target.widget.data.field,item==7 ? "Date" : "Amount")) return -1;
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (!review_smoke_author_same(a,t)) return -1;
+    printf("PASS: native authoring review kind=%s case=%d retains definitions, focus, owned pages, history and query jobs\n",kinds[item],item);
+    a->modal=MODAL_NONE; a->pivot_drag_field=a->pivot_drag_role=-1; a->pivot_search_focus=false;
+    if (item==REVIEW_AUTHOR_CASES-1) {
+        analysis_free(&t->author_source); pivot_free(&t->author_pivot); marks_free(&t->author_marks); t->author_owned=false;
+        printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES);
+    }
+    return 1;
+}
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
     if (t->diagnostic_stage!=t->stage) {
         fprintf(stderr,"Review smoke stage=%d phase=%d file=%d/%d/%d ui_scale=%.2f window=%dx%d target=%s\n",t->stage,(int)r->phase,a->file_menu,a->file_menu_focus,a->file_menu_scroll,a->ui.scale,GetScreenWidth(),GetScreenHeight(),r->target.widget.id);
         t->diagnostic_stage=t->stage;
+    }
+    if (t->stage>=71) {
+        int progress=review_smoke_author_tick(a,t); if (progress<0) goto failed; if (!progress) return;
+        t->stage++; return;
     }
     switch (t->stage) {
     case 0:
@@ -924,7 +1062,7 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
     case 70: {
         if (r->phase!=DX_REPORT_IDLE || a->ui.scale!=1) return;
         if (a->modal!=MODAL_NONE || a->ui.scissor_depth || a->ui.paint_depth || a->file_menu || a->io_busy) goto failed;
-        printf("PASS: short 150 percent review composer has a visible multiline editor, pointer focus, actual Backspace and pointer Save with retained frozen state\nReview smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); break;
+        printf("PASS: short 150 percent review composer has a visible multiline editor, pointer focus, actual Backspace and pointer Save with retained frozen state\n"); break;
     }
     }
     t->stage++; return;
