@@ -17,7 +17,7 @@ test('module import is inert; fixture origin, official assets and bounded timeou
 });
 test('configuration rejects ambiguous, remote or unbounded fixture/toolchain input',()=>{
     for(const change of [{},{fixtureBytes:file(),fixtureURL:'native.dxls'},{fixtureURL:'https://elsewhere.invalid/native.dxls'},
-        {fixtureURL:'http://user:pass@127.0.0.1:8767/native.dxls'},{fixtureBytes:new Uint8Array(0)},
+        {fixtureURL:'http://user:pass@127.0.0.1:8767/native.dxls'},{fixtureURL:'blob:http://127.0.0.1:8767/owned-id'},{fixtureBytes:new Uint8Array(0)},
         {fixtureBytes:new Uint8Array(PERSISTENCE_LIMITS.fixtureBytes+1)},
         {fixtureBytes:file(),timeoutMs:120001},{fixtureBytes:file(),moduleURL:'./duckdb-coi.wasm'},
         {fixtureBytes:file(),workerURL:'https://elsewhere.invalid/duckdb-browser-mvp.worker.js'}])

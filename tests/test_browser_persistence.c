@@ -105,6 +105,7 @@ static bool fixture_expected(const Workbook *book) {
     REQUIRE(sheet->objects.count==3 && sheet->objects.items[0].kind==OBJECT_TABLE && sheet->objects.items[1].kind==OBJECT_PIVOT &&
         sheet->objects.items[2].kind==OBJECT_CHART,"Fixture table/pivot/chart definitions missing");
     const SheetObject *table=&sheet->objects.items[0],*pivot=&sheet->objects.items[1],*chart=&sheet->objects.items[2];
+    REQUIRE(table->id==UINT64_C(9007199254740993) && pivot->id==table->id+1 && chart->id==table->id+2,"Metadata object IDs above the JavaScript exact integer limit changed");
     REQUIRE(pivot->source_id==table->id && chart->source_id==table->id && chart->mark==MARK_LINE && chart->chart_measure==1,"Fixture object bindings/chart presentation missing");
     REQUIRE(pivot->pivot.counts[PIVOT_ROWS]==1 && pivot->pivot.counts[PIVOT_COLUMNS]==1 && pivot->pivot.counts[PIVOT_VALUES]==2 &&
         pivot->pivot.counts[PIVOT_FILTERS]==1 && pivot->pivot.fields[PIVOT_COLUMNS][0].grain==PIVOT_DATE_YEAR,"Fixture real PIVOT shelf definitions missing");
@@ -147,6 +148,7 @@ static bool create_fixture(const char *path) {
         pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_COUNT,&error) &&
         pivot_assign(&pivot,PIVOT_FILTERS,"Approved",AGG_SUM,&error),error ? error : "Create PIVOT shelves");
     pivot.fields[PIVOT_FILTERS][0].filter=FILTER_EQUAL; free(pivot.fields[PIVOT_FILTERS][0].value); pivot.fields[PIVOT_FILTERS][0].value=dx_strdup("true");
+    sheet->objects.next_id=UINT64_C(9007199254740992);
     REQUIRE(objects_add_table(&sheet->objects,0,8,"Source table",&source,&error)==0 &&
         objects_add(&sheet->objects,0,14,"Amount by city and year",&error)==1 && objects_update(&sheet->objects,1,&pivot,&error),error ? error : "Create table-bound PIVOT");
     REQUIRE(objects_add_chart(&sheet->objects,8,14,"Amount trends",&pivot,&error)==2 &&

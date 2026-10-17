@@ -205,10 +205,10 @@ export async function runPersistenceProbe(input={}){
         });
         await step('flush-worker-files',async()=>{await adapter.database.flushFiles();return {flushed:true};});
         await step('export-real-database-buffer',async()=>{
-            // Keep the generated file's final engine handle alive until the
-            // checkpointed, flushed bytes are owned. Pinned 1.32.0 forgets an
-            // unregistered generated file on DETACH; an empty BUFFER is not a
-            // valid database and registerEmptyFileBuffer is a no-op.
+            // Own the private, checkpointed/flushed file bytes before closing
+            // its writer. No concurrent engine operation can modify this file.
+            // Unregistered generated files failed the pinned copy API, and an
+            // empty BUFFER is invalid; the valid registered baseline is used.
             const bytes=new Uint8Array(await adapter.database.copyFileToBuffer(EXPORT_FILE));
             const header=inspectDuckDBHeader(bytes,PERSISTENCE_LIMITS.exportBytes);
             exported={filename:EXPORT_FILE,bytes,byteLength:header.bytes,storageVersion:header.storageVersion,sha256:await digest(bytes)};
