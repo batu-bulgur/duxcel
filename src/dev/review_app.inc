@@ -588,6 +588,7 @@ static void review_workspace_geometry(App *a,const DxReviewWidget *widget,Rectan
 }
 static DxReviewWidget *review_workspace_widget(App *a,const char *id,const char *parent,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,int pivot_role,int index,int layer,const char *file,int line) {
     if (!review_armed(a)) return NULL;
+    if (a->ui.clipping) clip=GetCollisionRec(clip,a->ui.clip);
     Rectangle visible=GetCollisionRec(GetCollisionRec(bounds,clip),box(0,0,GetScreenWidth(),GetScreenHeight()));
     if (visible.width<=0 || visible.height<=0) return NULL;
     bool fields=!strncmp(id,"pane.fields",11); DxReviewWidget widget;
