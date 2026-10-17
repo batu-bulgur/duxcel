@@ -1003,7 +1003,8 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_SQL_END (REVIEW_FORMAT_END+2*6)
 #define REVIEW_OWNER_END (REVIEW_SQL_END+14)
 #define REVIEW_GUIDE_END (REVIEW_OWNER_END+2*6)
-#define REVIEW_SMOKE_STAGES (REVIEW_GUIDE_END+2*6)
+#define REVIEW_CELL_END (REVIEW_GUIDE_END+2*6)
+#define REVIEW_SMOKE_STAGES (REVIEW_CELL_END+2*6)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -1048,6 +1049,9 @@ typedef struct {
     TextInput cell_input; char *cell_text,*cell_history[64]; CellStore cell_model,cell_borrowed; SheetCell *cell_pointers;
     size_t cell_worksheet_redo; uint64_t cell_object_next; int cell_setup_item;
     bool cell_setup_started,cell_clicked,cell_f2_sent,cell_inserted,cell_undo_sent;
+    char error_directory[4096],error_book_path[4096]; char *error_text,*error_pointer;
+    double error_since; uint64_t error_status_counter,error_request,error_jobs,error_object_next;
+    size_t error_sheets,error_active; int error_setup_item; bool error_setup_started;
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -1161,6 +1165,7 @@ static void review_smoke_author_release(ReviewSmoke *t) {
     for (size_t i=0;i<18;i++) { free(t->guide_offsets[i]); t->guide_offsets[i]=NULL; }
     free(t->cell_text); t->cell_text=NULL; free(t->cell_pointers); t->cell_pointers=NULL; cells_free(&t->cell_model);
     for (size_t i=0;i<64;i++) { free(t->cell_history[i]); t->cell_history[i]=NULL; }
+    free(t->error_text); t->error_text=NULL;
     free(t->dialog_text); t->dialog_text=NULL; free(t->dialog_chart_text); t->dialog_chart_text=NULL;
     for (size_t i=0;i<DX_MAX_SHEETS;i++) { free(t->sheet_names[i]); t->sheet_names[i]=NULL; }
 }
@@ -2708,12 +2713,94 @@ static int review_smoke_cell_tick(App *a,ReviewSmoke *t) {
         if (!review_smoke_cell_content(cells,&t->cell_model) || cells->revision!=before->revision+2 || cells->undo_count!=before->undo_count || cells->redo_count!=1 || sheet->undo_actions_count!=t->history || sheet->redo_actions_count!=1 || sheet->redo_actions[0]!=EDIT_CELLS) goto failed;
     }
     printf("PASS: native inline cell editor %s uses normal blank-cell click/F2, UTF8 quoted editing primitive and queued navigation; capture/pick/cancel retains draft/selection/hscroll/owned histories/model/Pages/jobs with manual-cell scope; %s\n",item ? "150% select-all" : "100% partial UTF8 selection",item ? "normal Enter creates one cell Undo action; normal Undo restores sparse NULL" : "normal Escape leaves sparse NULL unchanged");
-    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
+    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); } return 1;
 failed:
     fprintf(stderr,"Review inline cell mismatch stage=%d phase=%d modal=%d report=%d grid=%llu,%zu input=%zu cursor=%zu anchor=%zu all=%d view=%zu revision=%llu history=%zu/%zu worksheet=%zu/%zu target=%s actual=%s\n",t->stage,phase,(int)a->modal,(int)r->phase,(unsigned long long)a->grid.row,a->grid.col,a->input.length,a->input.cursor,a->input.anchor,a->input.select_all,a->input.view_start,(unsigned long long)a->input.revision,a->input.undo_count,a->input.redo_count,active_sheet(a)->undo_actions_count,active_sheet(a)->redo_actions_count,t->author_target,r->target.widget.id);
     const DxReviewWidget *widget=dx_review_find(r->registry,"author.cell_editor.input");
     if (widget) fprintf(stderr,"Review inline widget role=%s path=%s kind=%s sheet=%llu owner=%llu source=%llu schema=%llu revision=%llu cell=%llu,%llu value=%d/%d/%s/%s bounds=%.2f,%.2f,%.2f,%.2f clip=%.2f,%.2f,%.2f,%.2f\n",widget->role,widget->path,widget->data.kind,(unsigned long long)widget->data.sheet_id,(unsigned long long)widget->data.object_id,(unsigned long long)widget->data.source_id,(unsigned long long)widget->data.schema_generation,(unsigned long long)widget->data.query_generation,(unsigned long long)widget->data.row,(unsigned long long)widget->data.column,widget->value.present,widget->value.is_null,widget->value.type,widget->value.exact_text,widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height,widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height);
     return -1;
+}
+static bool review_smoke_error_pages(App *a,ReviewSmoke *t) {
+    const ObjectStore *objects=&active_sheet(a)->objects;
+    if (!review_smoke_author_models_same(a,t) || objects->next_id!=t->error_object_next || a->page.cells!=t->page) return false;
+    for (size_t i=0;i<objects->count;i++) {
+        const SheetObject *object=&objects->items[i]; const Page *page=&a->objects[i].page;
+        if (object->id!=t->query_views[i].id || object->revision!=t->query_views[i].revision || object->source_id!=t->query_views[i].source_id || page->cells!=t->query_views[i].cells || page->total!=t->query_views[i].total || page->row_count!=t->query_views[i].rows || page->column_count!=t->query_views[i].columns) return false;
+    }
+    return true;
+}
+static bool review_smoke_error_same(App *a,ReviewSmoke *t) {
+    return review_smoke_stats_same(a,t) && a->message==t->error_pointer && !strcmp(a->message,t->error_text) && a->message_since==t->error_since && a->message_revision==t->error_status_counter &&
+        a->request_id==t->error_request && a->pending_kind==JOB_SAVE && !a->busy && !a->io_busy && !a->fetch_failed && a->document_action==DOCUMENT_NONE && !a->document_saving &&
+        a->book.count==t->error_sheets && a->book.active==t->error_active && a->book.path && !strcmp(a->book.path,t->error_book_path) && active_sheet(a)->objects.next_id==t->error_object_next;
+}
+static bool review_smoke_error_targets(App *a,ReviewSmoke *t,int item) {
+    const char *parent="author.error"; DxReviewRegistry *registry=a->review->registry;
+    const DxReviewWidget *panel=dx_review_find(registry,parent),*heading=dx_review_find(registry,"author.error.heading"),*content=dx_review_find(registry,"author.error.content"),*relink=dx_review_find(registry,"author.error.action.relink");
+    if (!panel || !panel->container || strcmp(panel->role,"dialog") || panel->input_eligible || !heading || heading->input_eligible || !review_smoke_sheet_pick(a,heading,parent) || !content || strcmp(content->role,"region") || content->input_eligible || !review_smoke_sheet_pick(a,content,parent) || !content->value.present || content->value.is_null || content->value.truncated || strcmp(content->value.type,"VARCHAR") || strcmp(content->value.exact_text,t->error_text) || registry->duplicate_count || registry->invalid_count || registry->overflow_count || registry->truncated) return false;
+    char document[128]; review_document_id(a,document);
+    for (size_t i=0;i<registry->count;i++) {
+        const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,parent,strlen(parent))) continue;
+        const DxReviewDataIdentity *data=&widget->data;
+        if (!data->present || strcmp(data->kind,"document-error") || strcmp(data->document_id,document) || strcmp(data->document_id,registry->frame.document_id) || data->sheet_id || data->object_id || data->source_id || data->schema_generation || data->query_generation || data->has_cell || data->row || data->column || data->field[0]) return false;
+    }
+    const char *keys[]={"x_close","copy_error","close"};
+    for (size_t i=0;i<3;i++) { char id[128]; snprintf(id,sizeof(id),"%s.action.%s",parent,keys[i]); const DxReviewWidget *widget=dx_review_find(registry,id); if (!widget || !widget->enabled || !widget->input_eligible || widget->focused || widget->checked || strcmp(widget->role,"button") || !review_smoke_sheet_pick(a,widget,parent)) return false; }
+    if (item ? !relink || !relink->enabled || !relink->input_eligible || !review_smoke_sheet_pick(a,relink,parent) : relink!=NULL) return false;
+    const char *lines=strstr(a->review->frame.state_text," error_lines="),*clipped=strstr(a->review->frame.state_text," error_clipped=");
+    if (!lines || !strtoul(lines+13,NULL,10) || !clipped || (strtol(clipped+15,NULL,10)!=0)!=(item!=0) || !strstr(a->review->frame.state_text," error_message_since=") || !strstr(a->review->frame.state_text," error_value_truncated=0")) return false;
+    DxReviewTarget picked; if (!dx_review_pick(registry,2*a->ui.scale,2*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked) || strcmp(picked.widget.id,"author.error.backdrop.background")) return false;
+    snprintf(t->author_target,sizeof(t->author_target),"%s",item ? relink->id : content->id); return true;
+}
+static int review_smoke_error_tick(App *a,ReviewSmoke *t) {
+    int item=(t->stage-REVIEW_CELL_END)/6,phase=(t->stage-REVIEW_CELL_END)%6; DxReviewCapture *r=a->review;
+    if (!phase) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        if (!t->error_setup_started || t->error_setup_item!=item) {
+            t->error_setup_started=true; t->error_setup_item=item; t->error_sheets=a->book.count+(item ? 1 : 0);
+            ui_set_scale(&a->ui,item ? 1.5f : 1); SetWindowSize(item ? 640 : 1280,item ? 400 : 820);
+            if (item) open_source(a,"tests/fixtures/transactions.csv",false); else a->selected_object=1;
+            return 0;
+        }
+        if (a->modal!=MODAL_NONE || a->book.count!=t->error_sheets) goto failed;
+        if (GetScreenWidth()!=(item ? 640 : 1280) || GetScreenHeight()!=(item ? 400 : 820) || a->ui.scale!=(item ? 1.5f : 1) || a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
+        if (item ? a->analysis.kind!=SOURCE_CSV || a->page.column_count!=6 || a->page.total!=5 || a->page.count_pending : a->analysis.kind!=SOURCE_NONE || !selected_pivot(a)) goto failed;
+        char suffix[129]; memset(suffix,'x',sizeof(suffix)-1); suffix[sizeof(suffix)-1]=0;
+        size_t directory_length=(size_t)(dx_basename(t->owner_fixture)-t->owner_fixture);
+        int length=snprintf(t->error_directory,sizeof(t->error_directory),"%.*snative-review-error-%s%s.dxls",(int)directory_length,t->owner_fixture,item ? "short-" : "wide",item ? suffix : "");
+        if (!directory_length || length<0 || (size_t)length>=sizeof(t->error_directory) || FileExists(t->error_directory) || DirectoryExists(t->error_directory) || MakeDirectory(t->error_directory)!=0 || !DirectoryExists(t->error_directory) || !a->book.path) goto failed;
+        length=snprintf(t->error_book_path,sizeof(t->error_book_path),"%s",a->book.path); if (length<0 || (size_t)length>=sizeof(t->error_book_path)) goto failed;
+        review_smoke_stats_remember(a,t); t->error_active=a->book.active; t->error_object_next=active_sheet(a)->objects.next_id;
+        dx_lock(&a->worker.mutex); t->error_jobs=a->worker.jobs_started; dx_unlock(&a->worker.mutex);
+        workspace_job(a,JOB_SAVE,t->error_directory); t->error_request=a->request_id;
+        if (!a->busy || !a->io_busy || a->pending_kind!=JOB_SAVE) goto failed; return 1;
+    }
+    if (phase==1) {
+        if (a->busy || a->io_busy || !smoke_work_idle(a)) return 0;
+        dx_lock(&a->worker.mutex); bool one_job=a->worker.jobs_started==t->error_jobs+1; dx_unlock(&a->worker.mutex);
+        if (a->modal!=MODAL_ERROR || !one_job || a->request_id!=t->error_request || !a->message || !*a->message || strlen(a->message)>=sizeof(((DxReviewValue *)0)->exact_text) || !a->book.path || strcmp(a->book.path,t->error_book_path) || a->book.dirty!=t->dirty || active_sheet(a)->undo_actions_count!=t->history || !review_smoke_error_pages(a,t) || !DirectoryExists(t->error_directory)) goto failed;
+        if (!review_can_capture(a)) return 0;
+        review_smoke_stats_remember(a,t); t->error_text=dx_strdup(a->message); t->error_pointer=a->message; t->error_since=a->message_since; t->error_status_counter=a->message_revision;
+        ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        if (!review_smoke_error_same(a,t) || !review_smoke_error_targets(a,t,item)) goto failed;
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==3) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || !review_smoke_error_same(a,t)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (phase==4) { if (!review_smoke_error_same(a,t)) goto failed; ui_note_key_press(item ? KEY_ESCAPE : KEY_ENTER,0); return 1; }
+    t->choice_modal=MODAL_NONE; if (!review_smoke_error_same(a,t) || !DirectoryExists(t->error_directory)) goto failed;
+    printf("PASS: native Error review after actual failed workspace Save retains owned message/timestamp, source/model/Pages/dirty/history/io/jobs and document-only scope; %s; normal %s preserves error context without clipboard or OS panels\n",item ? "CSV short150% exposes real Relink and clipped text" : "SOURCE_NONE wide has no hidden Relink despite selected Pivot",item ? "Escape" : "Close/Enter");
+    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
+failed:
+    fprintf(stderr,"Review Error mismatch stage=%d phase=%d modal=%d report=%d source=%d sheets=%zu/%zu active=%zu message=%s request=%llu/%llu io=%d busy=%d target=%s actual=%s\n",t->stage,phase,(int)a->modal,(int)r->phase,(int)a->analysis.kind,a->book.count,t->error_sheets,a->book.active,a->message ? a->message : "",(unsigned long long)a->request_id,(unsigned long long)t->error_request,a->io_busy,a->busy,t->author_target,r->target.widget.id);
+    fprintf(stderr,"Review Error state %s\n",r->frame.state_text); return -1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
@@ -2742,7 +2829,8 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
             {REVIEW_SQL_END,review_smoke_sql_tick},
             {REVIEW_OWNER_END,review_smoke_owner_tick},
             {REVIEW_GUIDE_END,review_smoke_guide_tick},
-            {REVIEW_SMOKE_STAGES,review_smoke_cell_tick},
+            {REVIEW_CELL_END,review_smoke_cell_tick},
+            {REVIEW_SMOKE_STAGES,review_smoke_error_tick},
         };
         int progress=-1;
         for (size_t i=0;i<sizeof(handlers)/sizeof(*handlers);i++)
