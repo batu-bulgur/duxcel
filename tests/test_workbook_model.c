@@ -87,6 +87,43 @@ static void test_unchanged_path_helpers(void) {
     relative=workbook_relative_path(target,source); CHECK(!strcmp(relative,"transactions.csv"));
     free(relative); free(target); free(source); free(expected);
 }
+static void test_object_high_water(void) {
+    ObjectStore store={0},copy={0}; char *error=NULL; const uint64_t base=UINT64_C(9007199254740992);
+    CHECK(objects_valid(&store,&error)); store.next_id=base;
+    CHECK(objects_add(&store,0,0,"First lifetime owner",&error)==0 && store.items[0].id==base+1);
+    CHECK(objects_add(&store,0,8,"Deleted lifetime owner",&error)==1 && store.items[1].id==base+2);
+    CHECK(objects_remove(&store,1) && store.count==1 && store.next_id==base+2);
+    CHECK(objects_history(&store,false) && store.count==2 && store.items[1].id==base+2 && store.next_id==base+2);
+    CHECK(objects_history(&store,true) && store.count==1 && store.next_id==base+2);
+    CHECK(objects_add(&store,0,16,"Later lifetime owner",&error)==1 && store.items[1].id==base+3 && !store.redo_count);
+    CHECK(objects_history(&store,false) && store.count==1 && store.next_id==base+3);
+    CHECK(objects_history(&store,true) && store.count==2 && store.items[1].id==base+3 && store.next_id==base+3);
+    CHECK(objects_history(&store,false) && store.count==1 && store.next_id==base+3);
+    CHECK(objects_add(&store,0,24,"Owner after Undo",&error)==1 && store.items[1].id==base+4 && !store.redo_count);
+    CHECK(objects_valid(&store,&error)); store.next_id=base+1;
+    CHECK(!objects_valid(&store,&error) && error && strstr(error,"high-water")); free(error); error=NULL; store.next_id=base+4;
+    CHECK(objects_remove(&store,1) && store.count==1 && store.next_id==base+4 && objects_valid(&store,&error));
+    objects_copy(&copy,&store);
+    CHECK(copy.next_id==base+4 && copy.count==1 && !copy.undo_count && !copy.redo_count && copy.items[0].name!=store.items[0].name);
+    CHECK(objects_add(&copy,0,8,"Copied lifetime",&error)==1 && copy.items[1].id==base+5 && store.next_id==base+4);
+    objects_copy(&store,&store); CHECK(store.next_id==base+4 && store.count==1 && !store.undo_count && objects_valid(&store,&error));
+    Workbook book; workbook_init(&book); Analysis blank={0}; CHECK(workbook_add(&book,"Owner lifetime",&blank,&error));
+    objects_copy(&book.sheets[0].objects,&store); Workbook *snapshot=workbook_snapshot(&book);
+    CHECK(snapshot->sheets[0].objects.next_id==base+4 && snapshot->sheets[0].objects.items[0].id==base+1 && snapshot->sheets[0].objects.items[0].name!=store.items[0].name);
+    CHECK(workbook_duplicate(&book,0,&error) && book.sheets[0].objects.next_id==base+4 && book.sheets[1].objects.next_id==base+4);
+    CHECK(objects_add(&book.sheets[1].objects,0,8,"Duplicated lifetime",&error)==1 && book.sheets[1].objects.items[1].id==base+5 && book.sheets[0].objects.next_id==base+4 && snapshot->sheets[0].objects.next_id==base+4);
+    workbook_free(snapshot); free(snapshot); workbook_free(&book); objects_free(&store); objects_free(&copy);
+    store.next_id=UINT64_MAX-1;
+    CHECK(objects_add(&store,0,0,"Final lifetime owner",&error)==0 && store.items[0].id==UINT64_MAX && store.next_id==UINT64_MAX && objects_valid(&store,&error));
+    ObjectStore before=store;
+    CHECK(objects_add(&store,0,8,"Cannot wrap",&error)<0 && error && strstr(error,"exhausted") && !memcmp(&before,&store,sizeof(store))); free(error); error=NULL;
+    CHECK(objects_remove(&store,0) && !store.count && store.next_id==UINT64_MAX && objects_valid(&store,&error)); before=store;
+    CHECK(objects_add(&store,0,0,"Cannot reuse deleted maximum",&error)<0 && error && !memcmp(&before,&store,sizeof(store))); free(error); error=NULL;
+    CHECK(objects_history(&store,false) && store.count==1 && store.items[0].id==UINT64_MAX && store.next_id==UINT64_MAX);
+    CHECK(objects_history(&store,true) && !store.count && store.next_id==UINT64_MAX);
+    objects_copy(&copy,&store); CHECK(!copy.count && copy.next_id==UINT64_MAX && objects_valid(&copy,&error)); before=copy;
+    CHECK(objects_add(&copy,0,0,"Copied exhaustion",&error)<0 && error && !memcmp(&before,&copy,sizeof(copy))); free(error); objects_free(&copy); objects_free(&store);
+}
 static void test_unavailable_persistence(Workbook *book) {
     char *error=dx_strdup("Previous error"); book->path=dx_strdup("Owned workbook.dxls");
     Workbook before=*book; Worksheet *sheet=&book->sheets[0]; CellStore cells=sheet->cells; ObjectStore objects=sheet->objects;
@@ -100,7 +137,7 @@ static void test_unavailable_persistence(Workbook *book) {
 }
 int main(void) {
     Workbook book; workbook_init(&book);
-    populate_and_move(&book); test_owned_snapshot_and_sheets(&book); test_unchanged_path_helpers(); test_unavailable_persistence(&book);
+    populate_and_move(&book); test_owned_snapshot_and_sheets(&book); test_unchanged_path_helpers(); test_object_high_water(); test_unavailable_persistence(&book);
     workbook_free(&book); CHECK(!book.sheets && !book.count && book.user_scale==1);
     printf("PASS: %u browser workbook model checks\n",checks); return 0;
 }
