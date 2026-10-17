@@ -39,12 +39,12 @@ LAYOUT_PROFILES = {
     "active-cell": (555, 596, "PASS: active-origin queued drag/Shift/Tab/Enter"),
     "criteria-selects": (596, 620, "PASS: cached actual view-filter criteria"),
     "ribbon-collapse": (620, 638, "PASS: exact reserved collapsed ribbon"),
-    "ribbon-overflow": (638, 660, "PASS: exact More ribbon commands"),
+    "ribbon-overflow": (638, 665, "PASS: exact More ribbon commands"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 660, 18000, "PASS: exact More ribbon commands"),
+    ("layout", 665, 18000, "PASS: exact More ribbon commands"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),
@@ -148,6 +148,13 @@ def test_binary(module, config):
     return f"tests/test_{module}" + ("-debug" if config == "sanitize" else "")
 
 
+def layout_completion_pattern(start, end):
+    # The runtime reports the completed range. A familiar PASS prefix alone
+    # cannot establish that a deliberately reused binary has the current stages.
+    # This stage-contract guard does not prove arbitrary --no-build freshness.
+    return "^" + re.escape(f"Layout smoke completed [{start},{end})") + "$"
+
+
 def validate_output(text, exit_code, marker=None, native=False, base=False, completion_pattern=None):
     if exit_code:
         raise RuntimeError(f"Process exited with status {exit_code}")
@@ -214,6 +221,8 @@ class Runner:
         env.update(env_extra or {})
         start = time.monotonic()
         result = {"name": name, "command": command, "log": str(log), "expected_stages": stages}
+        if completion_pattern:
+            result["completion_pattern"] = completion_pattern
         if native or name.startswith("build-") or name == "gpu-sanitize":
             print(f"RUN    {name}: {log}", flush=True)
         try:
@@ -307,7 +316,8 @@ class Runner:
             self.record(self.command("layout-" + self.args.feature,
                                     ["./" + self.native_binary(), "--layout-smoke", "--frames", str(frames),
                                      "--screenshot", str(self.log_dir / "final.png")], marker, native=True,
-                                    env_extra={"DUXCEL_LAYOUT_FROM": str(start), "DUXCEL_LAYOUT_TO": str(end)}, stages=end-start))
+                                    env_extra={"DUXCEL_LAYOUT_FROM": str(start), "DUXCEL_LAYOUT_TO": str(end)}, stages=end-start,
+                                    completion_pattern=layout_completion_pattern(start, end)))
             ensure_unchanged(self.summary["binaries"])
 
     def full(self):
@@ -346,7 +356,8 @@ class Runner:
             self.record(self.command("native-" + name,
                                      ["./" + self.native_binary(), flag, "--frames", str(frames),
                                       "--screenshot", str(self.log_dir / (name + ".png"))], marker,
-                                     native=True, base=name == "base", stages=stages))
+                                     native=True, base=name == "base", stages=stages,
+                                     completion_pattern=layout_completion_pattern(0, stages) if name == "layout" else None))
             ensure_unchanged(self.summary["binaries"])
 
     def native(self):

@@ -1380,6 +1380,8 @@ static void restore_column_widths(App *a,ColumnEdit edit,bool redo) {
 static void history(App *a,bool redo) {
     Worksheet *s=active_sheet(a); if (!s) return;
     size_t count=redo ? s->redo_actions_count : s->undo_actions_count; if (!count) return;
+    /* Every history entry point, including ribbon menus, returns to live data. */
+    end_step_preview(a);
     EditKind kind=(redo ? s->redo_actions : s->undo_actions)[count-1];
     unsigned effects=worksheet_edit_effects(kind);
     ColumnEdit column=(redo ? s->redo_columns : s->undo_columns)[count-1];
@@ -6024,6 +6026,14 @@ static void draw_command_popup(App *a) {
     Rectangle anchor=a->ribbon_popup_more_anchor ? a->ribbon_layout.overflow : a->ribbon_layout.states[group]==UI_RIBBON_EXPANDED ? a->ribbon_layout.launchers[group] : a->ribbon_layout.groups[group];
     if (anchor.width<=0) anchor=box(GetScreenWidth()/s-38,4,32,28);
     anchor=ribbon_rect(a,anchor);
+    if (!a->consume_grid_input) {
+        DxPointerGesture gesture;
+        if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(ui_mouse_position(),anchor)) || ui_take_left_gesture_from(anchor,&gesture)) {
+            if (group>=0 && a->ribbon_popup_more_anchor) open_command_group(a,-1,0);
+            else close_command_group(a);
+            return;
+        }
+    }
     if (group>=0) {
         float labels[UI_RIBBON_COMMANDS]={0};
         for (int c=0;c<ribbon_counts[a->ribbon_tab];c++) labels[c]=ui_measure(u,command_label(a,c),12)/s;
@@ -7338,7 +7348,7 @@ static void sort_smoke_step(App *a,int *step) {
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: sort application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
 }
-#define LAYOUT_SMOKE_STAGES 660
+#define LAYOUT_SMOKE_STAGES 665
 /* Count the actual focus ink in one modal, excluding document token colors. */
 static unsigned smoke_focus_pixels(Rectangle region) {
     Image frame=LoadImageFromScreen(); Vector2 dpi=GetWindowScaleDPI(); unsigned count=0;
@@ -9609,7 +9619,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 653:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || a->ribbon_popup_focus!=0) goto failed; break;
     case 654:
-        if (a->modal!=MODAL_NONE || a->ribbon_command!=RIBBON_MORE_COMMAND) goto failed; break;
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=0 || !a->ribbon_popup_more_anchor) goto failed; break;
     case 655:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1) goto failed; break;
     case 656:
@@ -9621,6 +9631,22 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-more-wide-return.png"); break;
     case 659:
+        set_ribbon_mode(a,2); ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640);
+        if (!step_preview_start(&a->step_preview,&a->analysis,0,0,a->analysis_revision,&a->grid)) goto failed;
+        schedule_step_preview(a); break;
+    case 660:
+        if (!a->step_preview.active || a->step_preview.loading || !a->step_preview.page.column_count) return;
+        if (a->step_preview.page.total!=310 || s->undo_actions_count!=1 || s->redo_actions_count || strcmp(cells_get(&s->cells,500,40),"More menu history")) goto failed;
+        request=a->request_id; break;
+    case 661:
+        if (!a->step_preview.active || a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || a->ribbon_popup_focus!=0) goto failed; break;
+    case 662:
+        if (a->step_preview.active || a->modal!=MODAL_NONE || a->ribbon_command!=RIBBON_MORE_COMMAND || *cells_get(&s->cells,500,40) || s->undo_actions_count || s->redo_actions_count!=1 || a->request_id!=request) goto failed;
+        if (a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 663:
+        if (a->step_preview.active || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer() || a->request_id!=request) goto failed; break;
+    case 664:
         puts("PASS: exact More ribbon commands with hidden-group rows and separator, history-only Icons menu, disabled traversal, real Undo/Redo, pointer toggle, Escape-to-More and keyboard reopen without SQL or cache changes"); break;
 
     }
@@ -10980,6 +11006,7 @@ int app_run(const AppOptions *options) {
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
     bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638"));
+    int layout_start=focused_layout ? atoi(layout_from) : 0;
     if (focused_layout) { SetWindowSize(1440,988); workspace_job(&a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(&a,"",true);
     else if (options->nyc_smoke) open_source(&a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -11430,15 +11457,15 @@ int app_run(const AppOptions *options) {
                 collapsed_injected|=bit;
             }
         }
-        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=640 && layout_smoke<=656) {
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=640 && layout_smoke<=662) {
             static unsigned more_injected=0; unsigned bit=1u<<(layout_smoke-640);
             if (!(more_injected&bit)) {
                 Rectangle target={0};
-                if (layout_smoke==640 || layout_smoke==650 || layout_smoke==655 || layout_smoke==656) target=ribbon_rect(&a,a.ribbon_layout.overflow);
+                if (layout_smoke==640 || layout_smoke==650 || layout_smoke==655 || layout_smoke==656 || layout_smoke==661) target=ribbon_rect(&a,a.ribbon_layout.overflow);
                 else if (layout_smoke==647 || layout_smoke==648) target=a.ribbon_more_menu.rows[layout_smoke==647 ? 0 : 1];
-                else if (layout_smoke==641 || layout_smoke==643 || layout_smoke==644 || layout_smoke==651) ui_note_key_press(KEY_ENTER,0);
+                else if (layout_smoke==641 || layout_smoke==643 || layout_smoke==644 || layout_smoke==651 || layout_smoke==654 || layout_smoke==662) ui_note_key_press(KEY_ENTER,0);
                 else if (layout_smoke==645 || layout_smoke==653) ui_note_key_press(KEY_SPACE,0);
-                else if (layout_smoke==642 || layout_smoke==652 || layout_smoke==654) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==642 || layout_smoke==652) ui_note_key_press(KEY_ESCAPE,0);
                 else if (layout_smoke==646) ui_note_key_press(KEY_RIGHT,0);
                 if (target.width) { float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
                 more_injected|=bit;
@@ -11587,6 +11614,7 @@ int app_run(const AppOptions *options) {
     if (options->clipboard_smoke && clipboard_smoke!=13) fprintf(stderr,"Clipboard smoke unfinished at stage %d: %s\n",clipboard_smoke,a.message ? a.message : "");
     if (options->sort_smoke && sort_smoke!=12) fprintf(stderr,"Sort smoke unfinished at stage %d: %s\n",sort_smoke,a.message ? a.message : "");
     if (options->layout_smoke && layout_smoke!=layout_target) fprintf(stderr,"Layout smoke unfinished at stage %d: %s\n",layout_smoke,a.message ? a.message : "");
+    if (options->layout_smoke && layout_smoke==layout_target) printf("Layout smoke completed [%d,%d)\n",layout_start,layout_target);
     if (options->layout_smoke && layout_smoke>=250 && layout_smoke!=layout_target) fprintf(stderr,"Statistics state=%d error=%s enabled=%d source=%d columns=%zu active=%d\n",a.statistics_state,a.statistics_error ? a.statistics_error : "none",a.statistics_enabled,a.analysis.kind,a.statistics_columns,a.statistics_key.active);
     if (options->navigation_smoke && navigation_smoke!=13) fprintf(stderr,"Navigation smoke unfinished at stage %d: %s\n",navigation_smoke,a.message ? a.message : "");
     if (options->nyc_smoke && nyc_smoke!=8) fprintf(stderr,"NYC smoke unfinished at stage %d: %s\n",nyc_smoke,a.message ? a.message : "");
