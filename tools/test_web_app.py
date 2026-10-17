@@ -43,7 +43,7 @@ def parse_options(argv=None):
     parser.add_argument('--analysis-only',action='store_true',help='Real C same-sheet Rows/Values matrix and grand totals; requires --review and transactions.csv')
     parser.add_argument('--analysis-columns-only',action='store_true',help='Real C Columns Approved pivot over Rows City/SUM Amount; requires --review and transactions.csv')
     parser.add_argument('--review-sql-only',action='store_true',help='Actual primary/cached Generated SQL origins, scrolling and frozen review cancellation; requires --review and transactions.csv')
-    parser.add_argument('--review-query-only',action='store_true',help='Primary source-query review ownership while a pivot is selected; requires --review and transactions.csv')
+    parser.add_argument('--review-query-only',action='store_true',help='Primary query draft/status/real validation-error review while a pivot is selected; requires --review and transactions.csv')
     parser.add_argument('--mixed-statistics-only',action='store_true',help='Real mixed source/Table/matrix/manual statistics and sparse NULL ranges; requires --review and transactions.csv')
     parser.add_argument('--table-statistics-only',action='store_true',help='Real File Import table, same-sheet Table statistics and retained source/matrix/manual cells; requires --review and transactions.csv')
     parser.add_argument('--review-values-only',action='store_true',help='Actual Statistics/Cell Inspector review ownership and NULL/empty/literal values; requires --review and null-text.csv')
@@ -296,7 +296,7 @@ def main():
             if options.analysis_columns_only:
                 record['scope']='Shared C same-sheet Rows City/Columns Approved/SUM Amount, real official Worker Columns matrix and source-derived footer totals, source/manual retention; no broad analytical or report-upload acceptance.'
             if options.review_query_only:
-                record['scope']='Actual primary source-query editor reached through selected-pivot Transformations, frozen target/draft/owner retention with no report-triggered SQL; '+('explicit real Worker validation and applied source publication.' if options.query_apply else 'actual editor Cancel preserves the displayed source; no Apply/engine-validation acceptance.')
+                record['scope']='Actual primary source-query editor reached through selected-pivot Transformations, frozen target/draft/owner retention with no report-triggered SQL; '+('explicit real Worker validation and applied source publication. ' if options.query_apply else 'actual editor Cancel preserves the displayed source. ')+'One additional real missing-column validation exposes owned status/error feedback and actual TextLines/wheel clamp; frozen picking/cancel and normal Escape retain observed revision/selection/source/model/pages with no extra jobs. Full input-history and pending-reply ownership remain separate native gates.'
             if options.analysis_only:
                 record['scope']='Shared C same-sheet empty pivot, Rows City/SUM Amount assignment, real official Worker matrix/grand totals, return to source and sparse-cell retention; no Columns pivot, broad analytics or report-upload acceptance.'
             if options.review_controls_only:
