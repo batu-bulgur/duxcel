@@ -19,6 +19,7 @@ EM_JS(int, observe_query_host, (void), {
     if(!host || typeof host.submit!=='function' || typeof host.cancel!=='function')return 0;
     const submit=host.submit.bind(host);
     host.submit=(runtime,cookie,ticket,request)=>{
+        Module['dxBrowserHostRequests']=(Module['dxBrowserHostRequests']||0)+1;
         Module['dxBrowserWorkerObserved']={cookie,ticket,generation:request.generation,object:request.objectId,revision:request.revision,offset:request.offset};
         const hold=Module['dxHoldMatrixReply'];
         if((hold===1 && request.sql.includes('__duxcel_count')) || (hold===2 && request.sql.includes('_duxcel_matrix_totals')) || (hold===3 && request.sql.includes('_duxcel_domain_input')) || (hold===4 && request.sql.includes('_duxcel_matrix_rows')) || (hold===5 && request.sql.includes('_duxcel_matrix_columns')) || (hold===6 && request.sql.includes(' AS distinct_values')) || (hold===7 && request.purpose==='copy' && request.sql.includes(' ON '))){
@@ -47,6 +48,7 @@ EM_JS(int, observe_export_host, (void), {
     if(typeof host.exportParquet==='function'){
         const exporting=host.exportParquet.bind(host);
         host.exportParquet=(runtime,cookie,ticket,request)=>{
+            Module['dxBrowserHostRequests']=(Module['dxBrowserHostRequests']||0)+1;
             Module['dxBrowserWorkerObserved']={cookie,ticket,generation:request.generation,object:request.objectId,revision:request.revision,offset:request.offset};
             const fault=Module['dxExportFault']||0,hold=Module['dxHoldExportReply'];Module['dxExportFault']=0;Module['dxHoldExportReply']=0;
             if(fault||hold){const original=runtime;runtime={...original,reply:(cookie,ticket,wire,size,data,bytes,error)=>{
@@ -122,6 +124,16 @@ EM_JS(int, observed_identity, (const char *id,const char *object,const char *rev
 })
 EM_JS(unsigned, observed_cookie, (void), { return Module['dxBrowserWorkerObserved'].cookie; })
 EM_JS(unsigned, observed_ticket, (void), { return Module['dxBrowserWorkerObserved'].ticket; })
+/* Observe actual host API calls, never infer them from C job counters.
+   Superseded requests can be cancelled before engine execution. */
+EM_JS(unsigned, observed_host_requests, (void), { return Module['dxBrowserHostRequests']||0; })
+EM_JS(int, remember_verification_boundary, (void), {
+    const adapter=Module['dxTestAdapter'];if(!adapter||typeof adapter.latestId!=='bigint')return 0;
+    Module['dxVerificationBoundary']={adapter,ticket:adapter.latestId};return 1;
+})
+EM_JS(int, verification_boundary_unchanged, (void), {
+    const before=Module['dxVerificationBoundary'];return Boolean(before&&Module['dxTestAdapter']===before.adapter&&before.adapter.latestId===before.ticket);
+})
 EM_JS(unsigned, observed_cancels, (void), {
     const count=Module['dxTestCancels'];
     return Number.isInteger(count) && count>=0 && count<4294967295 ? count>>>0 : 4294967295;
@@ -211,11 +223,12 @@ typedef enum {
     RUN_SUPERSEDE,WAIT_LATEST,QUIET_LATEST,WAIT_CANCEL_SCHEMA,RUN_CANCEL,
     QUIET_CANCEL,WAIT_CANCEL_RECOVERY,WAIT_STOP_SCHEMA,RUN_STOP,QUIET_STOP,
     WAIT_EXPORT_RESET,WAIT_EXPORT_CASES,WAIT_EXPORT_REGISTER,WAIT_EXPORT_READBACK,WAIT_EXPORT_LAST,WAIT_EXPORT_SOURCE_REGISTER,
-    WAIT_EXPORT_CANCEL,WAIT_EXPORT_STALE,WAIT_EXPORT_RECOVERY,WAIT_EXPORT_SOURCE_VERIFY,QUIET_EXPORT_STOP,FINISHED
+    WAIT_EXPORT_CANCEL,WAIT_EXPORT_STALE,WAIT_EXPORT_RECOVERY,WAIT_EXPORT_SOURCE_VERIFY,QUIET_EXPORT_STOP,
+    WAIT_VERIFY_RESET,WAIT_VERIFY_WARM,WAIT_VERIFY_UNSUPPORTED,WAIT_VERIFY_RECOVERY,QUIET_VERIFY_STOP,FINISHED
 } Stage;
 static QueryWorker worker;
 static QueryReply *reply;
-static Page retained;
+static Page retained,verification_retained;
 static DistinctPage retained_distinct;
 static SelectionStats retained_statistics;
 static char *retained_rejection;
@@ -223,6 +236,8 @@ static char *retained_clipboard;
 static unsigned char *retained_export;
 static size_t retained_export_size;
 static uint64_t baseline_jobs,baseline_sql,baseline_counts,export_object,export_revision;
+static uint64_t export_jobs,export_sql,export_counts;
+static unsigned baseline_host_requests,export_host_requests,verification_host_requests,verification_cancels;
 static unsigned export_late_callbacks;
 static Stage stage;
 static double entered;
@@ -236,7 +251,7 @@ static void retained_values(void);
 static void die(const char *condition,int line) {
     fprintf(stderr,"FAIL browser-worker stage %d line %d: %s\n",(int)stage,line,condition);
     if (reply && reply->error) fprintf(stderr,"Worker error: %s\n",reply->error);
-    reply_free(reply); reply=NULL; page_free(&retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); free(retained_clipboard); free(retained_export); if (worker.started) worker_stop(&worker);
+    reply_free(reply); reply=NULL; page_free(&retained); page_free(&verification_retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); free(retained_clipboard); free(retained_export); if (worker.started) worker_stop(&worker);
     completed(0,checks,stages); emscripten_cancel_main_loop(); abort();
 }
 #define CHECK(condition) do { checks++; if (!(condition)) die(#condition,__LINE__); } while (0)
@@ -743,6 +758,14 @@ static void submit_next_export(void) {
 }
 static void inject_late_export(void *unused) {
     (void)unused; CHECK(!dx_browser_export_result(stale_cookie,stale_ticket,(const void *)(uintptr_t)1,SIZE_MAX,(unsigned char *)(uintptr_t)1,SIZE_MAX,(const char *)(uintptr_t)1)); export_late_callbacks++;
+}
+static void submit_unsupported_verification(void) {
+    CHECK(!reply); QueryJob *job=dx_alloc(sizeof(*job)); job->kind=expected_kind=JOB_VERIFY_SOURCE; job->id=expected_id=next_id; next_id+=4;
+    job->object_id=object_id; job->revision=revision_id; job->path=dx_strdup("must-not-open-native-source.csv"); job->expected_source_stamp=UINT64_MAX;
+    /* Unsupported native verification must reject before even this requested
+       refresh can invalidate the already accepted source schema. */
+    job->refresh_source=true; expected_preview=false; expected_offset=0;
+    verification_host_requests=observed_host_requests(); verification_cancels=observed_cancels(); CHECK(remember_verification_boundary()); worker_submit(&worker,job);
 }
 static void distinct_reply(size_t count,uint64_t total) {
     validation_reply(); CHECK(reply->distinct.offset==0 && reply->distinct.count==count && reply->distinct.total==total);
@@ -1403,6 +1426,7 @@ static void tick(void) {
         CHECK(stages==139 && worker.jobs_started==146 && expected_sql==325 && expected_counts==21);
         free(retained_clipboard); retained_clipboard=NULL;
         baseline_jobs=worker.jobs_started; baseline_sql=worker.sql_executed; baseline_counts=worker.counts_executed;
+        baseline_host_requests=observed_host_requests(); CHECK(baseline_host_requests==baseline_sql);
         CHECK(reset_test_engine()); enter(WAIT_EXPORT_RESET); return;
     case WAIT_EXPORT_RESET: {
         int ready=export_reset_ready(); CHECK(ready>=0); if (!ready) return;
@@ -1465,8 +1489,42 @@ static void tick(void) {
         pass("second sequential Worker teardown rejects scheduled stale binary callbacks and frees owned export state");
         CHECK(stages==184 && worker.jobs_started==43 && expected_sql==74 && expected_counts==0);
         free(retained_export); retained_export=NULL; retained_export_size=0;
-        printf("Browser worker workloads: {\"baseline\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 "},\"export\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 "},\"sequential_workers\":2}\n",baseline_jobs,baseline_sql,baseline_counts,worker.jobs_started,worker.sql_executed,worker.counts_executed);
-        enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,baseline_sql+worker.sql_executed,baseline_counts+worker.counts_executed);
+        export_jobs=worker.jobs_started; export_sql=worker.sql_executed; export_counts=worker.counts_executed;
+        export_host_requests=observed_host_requests()-baseline_host_requests; CHECK(export_host_requests==export_sql);
+        CHECK(reset_test_engine()); enter(WAIT_VERIFY_RESET); return;
+    case WAIT_VERIFY_RESET: {
+        int ready=export_reset_ready(); CHECK(ready>=0); if (!ready) return;
+        CHECK(!worker.started && !worker.running && worker_start(&worker) && observe_host()); expected_sql=expected_counts=0;
+        submit(JOB_PAGE,rejection_recovery_sql,0,1,false,2); enter(WAIT_VERIFY_WARM); return;
+    }
+    case WAIT_VERIFY_WARM:
+        if (!received(false)) return;
+        short_reply("recovered after local rejection"); CHECK(worker.jobs_started==1 && observed_host_requests()==baseline_host_requests+export_host_requests+2);
+        verification_retained=reply->page; reply->page=(Page){0}; release_reply(); pass("third sequential Worker warms one real source schema before unsupported verification");
+        submit_unsupported_verification(); enter(WAIT_VERIFY_UNSUPPORTED); return;
+    case WAIT_VERIFY_UNSUPPORTED: {
+        if (!poll_received(true,false)) return;
+        validation_reply(); SourceDigest empty; memset(&empty,0,sizeof(empty));
+        CHECK(reply->source_digest_status==SOURCE_DIGEST_UNSUPPORTED && !memcmp(&reply->source_digest,&empty,sizeof(empty)) && strlen(reply->error)<DX_SOURCE_DIGEST_ERROR_BYTES && strstr(reply->error,"unavailable"));
+        CHECK(reply->path && !strcmp(reply->path,"must-not-open-native-source.csv") && !reply->clipboard && !reply->export_data && !reply->export_bytes && !reply->statistics.sum && !reply->distinct.values);
+        CHECK(worker.jobs_started==2 && observed_host_requests()==verification_host_requests && verification_boundary_unchanged() && observed_cancels()==verification_cancels+1);
+        CHECK(verification_retained.row_count==1 && !strcmp(verification_retained.cells[0].text,"recovered after local rejection"));
+        release_reply(); pass("native verification is explicitly unsupported in browser C without digest, SQL, host request or schema refresh");
+        submit(JOB_PAGE,rejection_recovery_sql,0,1,false,1); enter(WAIT_VERIFY_RECOVERY); return;
+    }
+    case WAIT_VERIFY_RECOVERY:
+        if (!received(false)) return;
+        short_reply("recovered after local rejection"); CHECK(worker.jobs_started==3 && observed_host_requests()==verification_host_requests+1);
+        CHECK(reply->page.cells!=verification_retained.cells && reply->page.columns!=verification_retained.columns && !strcmp(verification_retained.cells[0].text,"recovered after local rejection"));
+        release_reply(); page_free(&verification_retained); pass("ordinary cached source recovery needs one real SQL after unsupported verification and retains independent data");
+        worker_stop(&worker); enter(QUIET_VERIFY_STOP); return;
+    case QUIET_VERIFY_STOP:
+        quiet(); if (emscripten_get_now()-entered<150) return;
+        CHECK(!worker.started && !worker.running && !worker.reply && stages==187 && worker.jobs_started==3 && expected_sql==3 && expected_counts==0);
+        CHECK(baseline_jobs+export_jobs+worker.jobs_started==192 && baseline_sql+export_sql+worker.sql_executed==402 && baseline_counts+export_counts+worker.counts_executed==21);
+        CHECK(observed_host_requests()==402);
+        printf("Browser worker workloads: {\"baseline\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u},\"export\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u},\"verification\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u,\"rejected_jobs\":1},\"sequential_workers\":3}\n",baseline_jobs,baseline_sql,baseline_counts,baseline_host_requests,export_jobs,export_sql,export_counts,export_host_requests,worker.jobs_started,worker.sql_executed,worker.counts_executed,observed_host_requests()-baseline_host_requests-export_host_requests);
+        enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,baseline_sql+export_sql+worker.sql_executed,baseline_counts+export_counts+worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
     }
