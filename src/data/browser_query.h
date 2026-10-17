@@ -87,4 +87,13 @@ bool browser_copy_owned_bytes(const CellClipboard *copy,size_t *owned_bytes,char
    other C-owned operation data, excluding this clipboard and this Page. Combined
    retained data <=24 MiB, not an allocator/process peak bound. */
 bool browser_copy_apply(CellClipboard *copy,const Page *page,size_t target_row,size_t target_column,size_t rows,size_t columns,size_t retained_bytes,char **error);
+/* Typed full-relation Parquet COPY, never the canonical VARCHAR display/copy
+   projection. A private basename must be export-<nonzero uint32 cookie>-<nonzero
+   uint32 ticket>.parquet. A Columns pivot requires its validated owned plan and
+   the exact plan relation; Rows-only uses no plan. Human aliases match native
+   export, with distinct NULL/empty/literal categories and collision suffixes.
+   Reject 128-bit integers and unknown/nested SQL types before submission. SQL
+   is owned by the caller, <=1 MiB; every input remains unchanged on failure.
+   This helper performs no engine/file/download operation. */
+char *browser_export_sql(const char *relation,const Page *schema,const PivotDefinition *pivot,const BrowserPivotPlan *plan,const char *private_name,char **error);
 #endif

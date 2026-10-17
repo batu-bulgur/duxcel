@@ -640,6 +640,86 @@ bool browser_copy_schema(Page *out,const Page *schema,size_t column,size_t colum
     }
     page_free(out); *out=selected; return true;
 }
+static bool export_name_valid(const char *name,char **error) {
+    if (!text_size(name,64,NULL) || strncmp(name,"export-",7)) return fail(error,"Choose an owned private browser export basename.");
+    const char *at=name+7;
+    for (size_t field=0;field<2;field++) {
+        uint64_t value=0;
+        if (*at<'1' || *at>'9') return fail(error,"Browser export cookies and tickets must be nonzero uint32 values.");
+        while (*at>='0' && *at<='9') {
+            value=value*10+(unsigned)(*at++-'0');
+            if (value>UINT32_MAX) return fail(error,"Browser export cookies and tickets exceed uint32.");
+        }
+        if (!field) { if (*at++!='-') return fail(error,"Choose an owned private browser export basename."); }
+        else if (strcmp(at,".parquet")) return fail(error,"Choose an owned private browser export basename.");
+    }
+    return true;
+}
+static bool export_schema_valid(const Page *schema,char **error) {
+    if (!schema_names_valid(schema,error)) return false;
+    for (size_t i=0;i<schema->column_count;i++) {
+        const Column *c=&schema->columns[i]; duckdb_type type; NumberType number;
+        if (!page_type_from_sql(c->type_name,&type,&number) || c->type!=type || !same_number(c->number_type,number) || c->numeric!=(number.kind!=NUM_NONE)) return fail(error,"Parquet export SQL type metadata changed.");
+        /* Native's logical-type walker rejects 128-bit integers recursively.
+           Browser DESCRIBE retains compound names as canonical display text;
+           never mistake that VARCHAR fallback for a safe typed export. */
+        if (type==DUCKDB_TYPE_HUGEINT || type==DUCKDB_TYPE_UHUGEINT) return fail(error,"Parquet cannot preserve 128-bit integers. Convert explicitly to DECIMAL or VARCHAR before exporting.");
+        if (type==DUCKDB_TYPE_VARCHAR && !same_name(c->type_name,"VARCHAR")) return fail(error,"Nested or unknown SQL types are not supported by browser Parquet export yet. Convert them explicitly before exporting.");
+    }
+    return true;
+}
+static char *export_pivot_relation(const char *relation,const Page *schema,const PivotDefinition *pivot,const BrowserPivotPlan *plan,char **error) {
+    size_t keys=pivot->counts[PIVOT_ROWS]; char *names[128]={0},*sql=dx_strdup("SELECT "); bool ok=true;
+    for (size_t c=0;c<schema->column_count;c++) {
+        char *label;
+        if (c<keys) label=dx_strdup(schema->columns[c].name);
+        else {
+            const Column *header=plan && plan->sql ? &plan->headers[c-keys] : NULL;
+            const PivotField *measure=&pivot->fields[PIVOT_VALUES][(c-keys)%pivot->counts[PIVOT_VALUES]];
+            label=dx_strdup("");
+            for (size_t f=0;header && f<header->category_count;f++) {
+                char *value=header->categories[f] ? dx_quote(header->categories[f],'\'') : dx_strdup("NULL");
+                dx_append(&label,"%s%s=%s",f ? " · " : "",pivot->fields[PIVOT_COLUMNS][f].name,value); free(value);
+                if (!text_size(label,DX_BROWSER_SQL_BYTES,NULL)) break;
+            }
+            char *aggregate=aggregate_measure_label(measure->aggregate,measure->name);
+            dx_append(&label,"%s%s",header && header->category_count ? " · " : "",aggregate); free(aggregate);
+        }
+        if (!text_size(label,DX_BROWSER_SQL_BYTES,NULL)) { free(label); fail(error,"Browser Parquet export headers exceed 1 MiB."); ok=false; break; }
+        char *name=dx_strdup(label);
+        for (size_t suffix=2;;suffix++) {
+            bool duplicate=false; for (size_t prior=0;prior<c;prior++) duplicate|=same_name(names[prior],name);
+            if (!duplicate) break;
+            free(name); name=dx_printf("%s · %zu",label,suffix);
+        }
+        free(label); names[c]=name;
+        char *from=dx_quote(schema->columns[c].name,'"'),*to=dx_quote(name,'"');
+        dx_append(&sql,"%s%s AS %s",c ? "," : "",from,to); free(from); free(to);
+        if (!text_size(sql,DX_BROWSER_SQL_BYTES,NULL)) { fail(error,"Browser Parquet export headers exceed 1 MiB."); ok=false; break; }
+    }
+    if (ok) dx_append(&sql," FROM (%s) AS _duxcel_export",relation);
+    for (size_t c=0;c<128;c++) free(names[c]);
+    if (!ok) { free(sql); return NULL; }
+    return bounded_sql(sql,error);
+}
+char *browser_export_sql(const char *relation,const Page *schema,const PivotDefinition *pivot,const BrowserPivotPlan *plan,const char *private_name,char **error) {
+    if (!export_name_valid(private_name,error) || !relation_valid(relation,error) || !export_schema_valid(schema,error)) return NULL;
+    bool has_plan=plan && (plan->sql || plan->headers || plan->count || plan->bytes || plan->empty_input);
+    if (pivot) {
+        if (!pivot_shape_all(pivot,error)) return NULL;
+        if (pivot->counts[PIVOT_COLUMNS]) {
+            if (!planned_schema_valid(schema,pivot,plan,error)) return NULL;
+            if (strcmp(relation,plan->sql)) { fail(error,"Parquet export relation no longer matches its bounded pivot plan."); return NULL; }
+        } else {
+            if (has_plan) { fail(error,"Rows-only Parquet export cannot use a Columns pivot plan."); return NULL; }
+            if (!pivot_schema_valid(schema,pivot,error)) return NULL;
+        }
+    } else if (has_plan) { fail(error,"A browser pivot export plan needs its analytical definition."); return NULL; }
+    char *base=pivot ? export_pivot_relation(relation,schema,pivot,plan,error) : dx_strdup(relation);
+    if (!base) return NULL;
+    char *name=dx_quote(private_name,'\''),*sql=dx_printf("COPY (%s) TO %s (FORMAT PARQUET)",base,name);
+    free(base); free(name); return bounded_sql(sql,error);
+}
 bool browser_copy_owned_bytes(const CellClipboard *copy,size_t *owned,char **error) {
     if (!copy || !copy->rows || !copy->columns || copy->columns>DX_CLIPBOARD_CELLS || copy->rows>DX_CLIPBOARD_CELLS/copy->columns || !copy->values || copy->capacity>DX_CLIPBOARD_CELLS || copy->rows*copy->columns>copy->capacity) return fail(error,"Invalid clipboard snapshot dimensions.");
     size_t bytes=0,count=copy->capacity;
