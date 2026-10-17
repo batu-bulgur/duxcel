@@ -44,11 +44,12 @@ LAYOUT_PROFILES = {
     "ribbon-collapse": (620, 638, "PASS: exact reserved collapsed ribbon"),
     "ribbon-overflow": (638, 665, "PASS: exact More ribbon commands"),
     "record-pages": (665, 675, "PASS: native source record pages"),
+    "zoom-headers": (675, 687, "PASS: fixed native sheet header chrome"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 675, 18000, "PASS: native source record pages"),
+    ("layout", 687, 18000, "PASS: fixed native sheet header chrome"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),

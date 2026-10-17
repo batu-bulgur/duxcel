@@ -371,6 +371,7 @@ static void status(App *a,const char *text) { char *owned=dx_strdup(text); free(
 #ifdef DUXCEL_DEV_REVIEW
 static void review_control(App *a,const char *id,const char *action,const char *path,const char *role,const char *label,Rectangle bounds,int layer,bool enabled,bool focused,bool container,const char *file,int line);
 static void review_filter(App *a);
+static void review_file_menu(App *a);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -382,6 +383,7 @@ static bool review_can_capture(App *a);
 static void review_native_command(App *a,DxCommand command);
 #define REVIEW_CONTROL(a,id,action,path,role,label,bounds,layer,enabled,focused,container) review_control(a,id,action,path,role,label,bounds,layer,enabled,focused,container,__FILE__,__LINE__)
 #define REVIEW_FILTER(a) review_filter(a)
+#define REVIEW_FILE_MENU(a) review_file_menu(a)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -391,6 +393,7 @@ static void review_native_command(App *a,DxCommand command);
 #else
 #define REVIEW_CONTROL(...) ((void)0)
 #define REVIEW_FILTER(...) ((void)0)
+#define REVIEW_FILE_MENU(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -3757,7 +3760,7 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
         if (grid->cursor!=MOUSE_CURSOR_DEFAULT && enabled && CheckCollisionPointRec(mouse,visible)) u->cursor=grid->cursor;
         grid->controls_enabled=enabled && !a->io_busy;
         grid_draw(grid,u,&preview,false); a->grid.freeze=grid->freeze; u->scale=s;
-        if (grid->fit_requested) { grid->fit_requested=false; size_t c=grid->fit_column; float width=ui_measure(u,source->columns[c].name,13)/s+30; for (size_t r=0;r<preview.row_count;r++) { Cell *cell=&preview.cells[r*preview.column_count+c]; width=fmaxf(width,ui_value_width(u,cell->text,cell->is_null,13,1170*s)/s+18); } grid_set_width(grid,c,width); }
+        if (grid->fit_requested) { grid->fit_requested=false; u->scale=scale; grid_fit_column(grid,u,&preview,grid->fit_column); u->scale=s; }
         if (widths!=grid->width_revision) {
             for (size_t c=0;c<source->column_count;c++) { size_t column=c+(owner ? owner->col : 0); if (column<a->grid.width_count) grid_set_width(&a->grid,column,grid->widths[c]); }
             a->preview_width_revision=a->grid.width_revision; a->book.dirty=true;
@@ -6868,7 +6871,7 @@ static void draw_app(App *a) {
                 a->filter_anchor_valid=true; a->filter_anchor=anchor;
             } else status(a,"Column criteria are available in the current result.");
         }
-        if (a->step_preview.active && a->step_preview.grid.fit_requested) { a->step_preview.grid.fit_requested=false; grid_fit_column(&a->step_preview.grid,u,&a->step_preview.page,a->step_preview.grid.fit_column); }
+        if (a->step_preview.active && a->step_preview.grid.fit_requested) { a->step_preview.grid.fit_requested=false; u->scale=s*a->step_preview.grid.zoom; grid_fit_column(&a->step_preview.grid,u,&a->step_preview.page,a->step_preview.grid.fit_column); u->scale=s; }
     } else {
     if (!a->grid.width_count) grid_schema(&a->grid,&a->page,false);
     a->grid.source_header=a->analysis.kind!=SOURCE_NONE; a->grid.hide_gridlines=!a->gridlines;
@@ -6984,9 +6987,9 @@ static void draw_app(App *a) {
         float w=ui_measure(u,a->ribbon_hover,12)+20*s; Rectangle tip=box(fminf(a->ribbon_hover_rect.x,GetScreenWidth()-w-6*s),a->ribbon_hover_rect.y+a->ribbon_hover_rect.height+6*s,w,27*s);
         DrawRectangleRec(tip,UI_TEXT); ui_text_clip(u,a->ribbon_hover,tip,12,WHITE,false);
     }
-    draw_modal_presence(a); draw_toast(a); draw_file_menu(a);
+    draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 675
+#define LAYOUT_SMOKE_STAGES 687
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -7812,6 +7815,12 @@ static Rectangle workbook_new_target;
    next ui_update, which otherwise clears the prior frame's input snapshot. */
 static int layout_select_key;
 static Rectangle layout_select_click;
+/* Header chrome follows interface scale; data dimensions follow canvas zoom. */
+static bool smoke_grid_chrome(const Grid *g,float scale) {
+    return fabsf(g->body.x-g->rect.x-g->gutter*scale)<.02f &&
+        fabsf(g->body.y-g->rect.y-(g->source_header ? 48 : 24)*scale)<.02f &&
+        fabsf(g->chrome_scale-scale)<.001f;
+}
 static void layout_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=LAYOUT_SMOKE_STAGES || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
     static uint64_t request; char *error=NULL; Worksheet *s=active_sheet(a);
@@ -8743,6 +8752,7 @@ static void layout_smoke_step(App *a,int *step) {
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"620")) { *step=620; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"638")) { *step=638; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"665")) { *step=665; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"675")) { *step=675; return; }
         }
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->statistics_enabled=true; a->statistics_mask=49;
         grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=0; a->grid.horizontal=0; break;
@@ -10230,6 +10240,57 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
         puts("PASS: native source record pages, deterministic sort/filter IDs, spare ownership, exact DECIMAL/NULL and internal-column exclusion, changed-file rejection and refresh recovery, query fallback and idle cache"); break;
 
+    case 675:
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 676:
+        if (!object_ready(a,0)) return;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=false; a->selected_object=-1;
+        a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0; a->grid.freeze=false; grid_select_cell(&a->grid,0,0,false);
+        zoom_canvas(a,1,(Vector2){a->grid.body.x,a->grid.body.y});
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; break;
+    case 677:
+        if (!smoke_grid_chrome(&a->grid,1) || a->grid.zoom!=1 || !a->grid.source_header) goto failed;
+        preview_live_grid=a->grid; smoke_snapshot("tests/results/workspace-layout/native-fixed-headers-100.png");
+        zoom_canvas(a,2,(Vector2){a->grid.body.x,a->grid.body.y}); break;
+    case 678: {
+        Rectangle cell=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,0,0,1,1);
+        if (!smoke_grid_chrome(&a->grid,1) || a->grid.zoom!=2 || a->grid.gutter!=preview_live_grid.gutter || a->grid.body.x!=preview_live_grid.body.x || a->grid.body.y!=preview_live_grid.body.y || fabsf(cell.height-2*a->grid.row_height)>.01f || fabsf(cell.width-2*a->grid.widths[0])>.01f || a->grid.row || a->grid.col || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-fixed-headers-200.png");
+        ui_set_scale(&a->ui,1.5f); zoom_canvas(a,.5f,(Vector2){a->grid.body.x,a->grid.body.y}); break;
+    }
+    case 679:
+        if (!smoke_grid_chrome(&a->grid,1.5f) || a->grid.zoom!=.5f || a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-fixed-headers-ui150-sheet50.png");
+        ui_set_scale(&a->ui,1); zoom_canvas(a,1,(Vector2){a->grid.body.x,a->grid.body.y}); a->sidebar=a->fields_visible=true; a->sidebar_width=228; a->selected_object=0; a->pivot_reveal_object=false; a->analysis_scroll=0; break;
+    case 680:
+        if (!selected_pivot(a) || !a->preview_valid || !smoke_grid_chrome(&a->source_preview,1)) goto failed;
+        preview_live_grid=a->source_preview;
+        zoom_canvas(a,1.6f,(Vector2){a->source_preview.body.x,a->source_preview.body.y}); break;
+    case 681:
+        if (!smoke_grid_chrome(&a->source_preview,1) || fabsf(a->source_preview.zoom-1.6f)>.001f || a->source_preview.gutter!=preview_live_grid.gutter || a->source_preview.body.y!=preview_live_grid.body.y || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-fixed-headers-source-preview.png");
+        a->source_preview.fit_requested=true; a->source_preview.fit_column=0; break;
+    case 682:
+        if (a->source_preview.fit_requested || a->source_preview.widths[0]!=a->grid.widths[0] || a->request_id!=request || !smoke_grid_chrome(&a->source_preview,1)) goto failed;
+        a->selected_object=-1;
+        if (!step_preview_start(&a->step_preview,&a->analysis,0,0,a->analysis_revision,&a->grid)) goto failed;
+        step_preview_presentation(&a->step_preview,&a->page,&a->grid,&s->formats,0); schedule_step_preview(a); break;
+    case 683:
+        if (!a->step_preview.active || a->step_preview.loading) return;
+        request=a->request_id; ui_set_scale(&a->ui,1.5f);
+        zoom_canvas(a,2,(Vector2){a->step_preview.grid.body.x,a->step_preview.grid.body.y}); break;
+    case 684:
+        if (!smoke_grid_chrome(&a->step_preview.grid,1.5f) || a->step_preview.grid.zoom!=2 || fabsf(a->grid.zoom-1.6f)>.001f || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-fixed-headers-history-preview.png");
+        a->step_preview.grid.fit_requested=true; a->step_preview.grid.fit_column=0; break;
+    case 685:
+        if (a->step_preview.grid.fit_requested || !smoke_grid_chrome(&a->step_preview.grid,1.5f) || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || s->undo_actions_count!=draft_history || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
+        end_step_preview(a); ui_set_scale(&a->ui,1); zoom_canvas(a,1,(Vector2){a->grid.body.x,a->grid.body.y}); break;
+    case 686:
+        if (a->step_preview.active || !smoke_grid_chrome(&a->grid,1) || a->grid.zoom!=1 || a->request_id!=request) goto failed;
+        puts("PASS: fixed native sheet header chrome across canvas zoom and UI scale, source/history previews, real fit dispatch and retained pages/history without zoom queries"); break;
+
     }
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: workspace layout smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : "");
@@ -11679,7 +11740,7 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
     if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
