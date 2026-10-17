@@ -93,11 +93,11 @@ export async function runPersistenceProbe(input={}){
     async function query(text){check(!controller.signal.aborted,'Persistence probe is closed');sql.push(text);return adapter.connection.query(text);}
     async function columns(catalog){
         check(CATALOGS.has(catalog),'Invalid probe catalog');
-        const result=await query(`SELECT table_name,column_name,data_type,is_nullable,column_index::VARCHAR AS position FROM duckdb_columns() WHERE database_name='${catalog}' AND schema_name='_duxcel_workspace' ORDER BY table_name,column_index LIMIT ${PERSISTENCE_LIMITS.metadataColumns+1}`);
+        const result=await query(`SELECT table_name,column_name,data_type,is_nullable::VARCHAR AS is_nullable,column_index::VARCHAR AS position FROM duckdb_columns() WHERE database_name='${catalog}' AND schema_name='_duxcel_workspace' ORDER BY table_name,column_index LIMIT ${PERSISTENCE_LIMITS.metadataColumns+1}`);
         check(result.numRows>0&&result.numRows<=PERSISTENCE_LIMITS.metadataColumns,'Native metadata column limit exceeded');
         return Array.from({length:result.numRows},(_,row)=>({table:smallText(cell(result,row,'table_name'),'table'),
             name:smallText(cell(result,row,'column_name'),'column'),type:smallText(cell(result,row,'data_type'),'SQL type'),
-            nullable:cell(result,row,'is_nullable'),position:smallText(cell(result,row,'position'),'column position')}));
+            nullable:smallText(cell(result,row,'is_nullable'),'column nullability',5),position:smallText(cell(result,row,'position'),'column position')}));
     }
     async function readMetadata(catalog){
         check(CATALOGS.has(catalog),'Invalid probe catalog');
