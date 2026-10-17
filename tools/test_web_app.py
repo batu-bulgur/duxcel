@@ -32,6 +32,7 @@ def parse_options(argv=None):
     parser.add_argument('--busy',action='store_true',help='Require real UI input/rendering before the imported source job completes')
     parser.add_argument('--worker-driver',action='store_true')
     parser.add_argument('--review',action='store_true')
+    parser.add_argument('--feedback-review-only',action='store_true',help='Real primary Steps/SQL, historical preview, distinct feedback and readouts; requires --review and transactions.csv')
     parser.add_argument('--workspace-review-only',action='store_true',help='Actual workspace Fields/compact shelves/Marks review with empty and populated same-sheet pivots; requires --review and transactions.csv')
     parser.add_argument('--copy-only',action='store_true',help='Owned memory clipboard acceptance for cached/Worker copies and asynchronous results; requires --review and null-text.csv')
     parser.add_argument('--focus-only',action='store_true',help='Actual pane-focus Help and File outside-click ownership regression; requires --review and transactions.csv')
@@ -60,6 +61,10 @@ def parse_options(argv=None):
     parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker v12 file compatibility (test-only, no Save UI claim)')
     parser.add_argument('--persistence-owners',action='store_true',help='Separate BP0 v13 owner lifetime/format package rewrite and native readback; no Save UI claim')
     options=parser.parse_args(argv)
+    if options.feedback_review_only:
+        other_profiles=sum(bool(value) for name,value in vars(options).items() if name.endswith('_only'))>1
+        if not options.review or not options.source or options.source.name!='transactions.csv' or other_profiles or any((options.filters,options.busy,options.worker_driver,options.worker_probe,options.platform,options.alt_stress,options.persistence,options.persistence_owners,options.query_apply,options.review_offline,options.review_outbox)):
+            parser.error('--feedback-review-only requires --review/transactions.csv and excludes other profiles/engine/report-upload options')
     if options.workspace_review_only:
         other_profiles=sum(bool(value) for name,value in vars(options).items() if name.endswith('_only'))>1
         if not options.review or not options.source or options.source.name!='transactions.csv' or other_profiles or any((options.filters,options.busy,options.worker_driver,options.worker_probe,options.platform,options.alt_stress,options.persistence,options.persistence_owners,options.query_apply,options.review_offline,options.review_outbox)):
@@ -213,6 +218,7 @@ def main():
             if options.filters: command.append('--filters')
             if options.busy: command.append('--busy')
             if options.review: command.append('--review')
+            if options.feedback_review_only: command.append('--feedback-review-only')
             if options.workspace_review_only: command.append('--workspace-review-only')
             if options.copy_only: command.append('--copy-only')
             if options.focus_only: command.append('--focus-only')
@@ -256,7 +262,7 @@ def main():
                     if hashlib.sha256(fixture.read_bytes()).hexdigest()!=fixture_hash:raise RuntimeError('Browser/native proof mutated its original fixture')
                     if any(hashlib.sha256(Path(name).read_bytes()).hexdigest()!=digest for name,digest in persistence_hashes.items()):raise RuntimeError('Native proof helper changed during acceptance')
                 except Exception as error:reader_error=str(error)
-            if options.review and not options.access_only and not options.zoom_only and not options.review_controls_only and not options.analysis_only and not options.analysis_columns_only and not options.review_query_only and not options.statistics_only and not options.analysis_statistics_only and not options.review_values_only and not options.table_statistics_only and not options.mixed_statistics_only and not options.review_sql_only and not options.review_guide_only and not options.review_cell_only and not options.review_error_only and not options.focus_only and not options.copy_only and not options.workspace_review_only and process.returncode==0:
+            if options.review and not options.access_only and not options.zoom_only and not options.review_controls_only and not options.analysis_only and not options.analysis_columns_only and not options.review_query_only and not options.statistics_only and not options.analysis_statistics_only and not options.review_values_only and not options.table_statistics_only and not options.mixed_statistics_only and not options.review_sql_only and not options.review_guide_only and not options.review_cell_only and not options.review_error_only and not options.focus_only and not options.copy_only and not options.workspace_review_only and not options.feedback_review_only and process.returncode==0:
                 try:
                     from native_review import ReviewStore,default_project
                     report=json.loads((output/'report-manifest.json').read_text());report_id=report['report_id']
@@ -273,7 +279,9 @@ def main():
             record={'status':'passed' if process.returncode==0 and unchanged and artifacts_unchanged and not reader_error else 'failed','source':before,'artifact':manifest,'reader_error':reader_error,'native_persistence_helpers':persistence_hashes,
                     'command':command,'exit_code':process.returncode,'source_unchanged':unchanged,'artifacts_unchanged':artifacts_unchanged,
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
-            record['profile']='workspace-review-only' if options.workspace_review_only else 'copy-only' if options.copy_only else 'focus-only' if options.focus_only else 'review-error-only' if options.review_error_only else 'review-cell-only' if options.review_cell_only else 'review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            record['profile']='feedback-review-only' if options.feedback_review_only else 'workspace-review-only' if options.workspace_review_only else 'copy-only' if options.copy_only else 'focus-only' if options.focus_only else 'review-error-only' if options.review_error_only else 'review-cell-only' if options.review_cell_only else 'review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            if options.feedback_review_only:
+                record['scope']='Actual primary Steps/inline SQL, historical preview and passive readouts, plus real distinct scrolling/no-match/later-row conversion error; frozen picking/cancel retains observed source/model/input/request ownership. Genuine pending observations are recorded without fabricated delays; deep held-reply/history proof remains native. No clipboard activation or saved reports.'
             if options.workspace_review_only:
                 record['scope']='Actual shared-C Fields/compact Rows/Columns/Marks/Measures/Filters workspace targets at100/150 percent with empty and real Worker-populated same-sheet pivots; disabled sole-measure removal, exact semantic picking/cancel and retained source/model/pages/input/jobs. No clipboard or saved reports; native registry scope checks remain separate.'
             if options.copy_only:
