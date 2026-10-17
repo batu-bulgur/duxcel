@@ -157,7 +157,8 @@ CellFormat grid_cell_format(const Grid *g,const Page *p,uint64_t row,size_t colu
     uint64_t id=0;
     /* Legacy callers intentionally supply zero tokens. Having native Page IDs
        alone must never opt an existing workbook into source-bound semantics. */
-    if (g->format_record_token && p) page_record_id(p,row,&id);
+    if (g->format_record_token && g->format_record_token<=g->formats->scope_count &&
+        p && column<p->column_count) page_record_id(p,row,&id);
     return format_resolve_record_token(g->formats,g->format_row+row,g->format_col+column,
         g->format_result_token,g->format_record_token,id,column);
 }

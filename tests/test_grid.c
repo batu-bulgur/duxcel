@@ -48,6 +48,7 @@ static void test_grid_page_formats(void) {
     CHECK(!memcmp(&grid,&before,sizeof(grid)) && !memcmp(&page,&page_before,sizeof(page)) && ids[1]==9);
     CHECK(!grid_cell_format(&grid,&page,100,2).color && !grid_cell_format(&grid,&page,102,2).color);
     CHECK(!grid_cell_format(&grid,&page,99,2).color && !grid_cell_format(&grid,&page,103,2).color);
+    page.column_count=2; CHECK(!grid_cell_format(&grid,&page,101,2).color); page.column_count=3;
     page.records.count=1; resolved=grid_cell_format(&grid,&page,101,2);
     CHECK(resolved.flags==FORMAT_ITALIC && !resolved.color); page.records.count=3;
     page.records.source_key=NULL; CHECK(!grid_cell_format(&grid,&page,101,2).color); page.records.source_key="owned reader";
