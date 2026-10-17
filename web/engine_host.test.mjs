@@ -270,3 +270,166 @@ test('OOM falls back without transport malloc and frees partially allocated quer
         assert.equal(fileTarget.live.size, 0); assert.equal(fileTarget.releases.length, failAfter); assert.ok(selected.input.removed);
     }
 }));
+
+test('releaseFile validates host-owned names and deduplicates drops without cancelling an active query', async () => withDOM(async inputs => {
+    const pending = deferred(), adapter = engine({ submit(input) { this.calls.push(['submit', input.requestId]); return pending.promise; } });
+    const host = createEngineHost({}, async () => adapter), fileTarget = runtime('file');
+    for (const name of [null, 1, {}, '', 'source.csv', 'import-0-file.csv', 'import-1-../file.csv', 'import-1-file\0.csv', 'import-99-unknown.csv'])
+        assert.equal(host.releaseFile(name), false);
+    assert.equal(adapter.calls.length, 0);
+    await choose(host, fileTarget, inputs).completion; const name = fileTarget.calls[0].name;
+    const target = runtime(), querying = host.submit(target, 5, 9, request('9')); await tick();
+    assert.equal(host.releaseFile(name), true); assert.equal(host.releaseFile(name), true); await tick();
+    assert.equal(adapter.calls.filter(call => call[0] === 'drop').length, 0);
+    assert.equal(adapter.calls.filter(call => call[0] === 'cancel').length, 1, 'release never cancels the unrelated query');
+    pending.resolve(reply(request('9'))); await querying; await tick();
+    assert.equal(target.calls.length, 1); assert.equal(target.calls[0].error, null);
+    assert.deepEqual(adapter.calls.map(call => call[0]), ['cancel', 'register', 'submit', 'drop']);
+    assert.equal(host.releaseFile(name), true); await tick();
+    assert.equal(adapter.calls.filter(call => call[0] === 'drop').length, 1, 'completed cleanup remains idempotent');
+    const next = runtime('file'); await choose(host, next, inputs).completion;
+    assert.notEqual(next.calls[0].name, name, 'retired registration names are never reused');
+}));
+
+test('a reentrant release and query behind import administration do not wait on each other', { timeout: 2000 }, async () => {
+    for (const earlierWaiting of [false, true]) await withDOM(async inputs => {
+        const registering = deferred(), began = deferred(), order = [];
+        const adapter = engine({ async registerFile() { order.push('register:start'); began.resolve(); await registering.promise; order.push('register:end'); },
+            async submit(input) { order.push('query'); return reply(input); }, async dropFile() { order.push('drop'); } });
+        const host = createEngineHost({}, async () => adapter), fileTarget = runtime('file'), target = runtime(), stale = runtime();
+        const fileReply = fileTarget.reply; let reentrant, waiting;
+        fileTarget.reply = (...args) => {
+            fileReply(...args); assert.equal(host.releaseFile(fileTarget.calls[0].name), true);
+            reentrant = host.submit(target, 1, 2, request('2'));
+        };
+        const selected = choose(host, fileTarget, inputs); await began.promise;
+        if (earlierWaiting) waiting = host.submit(stale, 1, 1, request('1'));
+        registering.resolve(); await selected.completion; await Promise.all([waiting, reentrant]); await tick();
+        assert.deepEqual(order, ['register:start', 'register:end', 'query', 'drop']);
+        assert.equal(stale.calls.length, 0); assert.equal(target.calls.length, 1);
+    });
+});
+
+test('a query arriving during a drop runs before remaining cleanup and never overlaps administration', { timeout: 2000 }, async () => withDOM(async inputs => {
+    const dropping = deferred(), began = deferred(), order = [];
+    const adapter = engine({ async dropFile(name) {
+        order.push(['drop:start', name]);
+        if (!order.some(call => call[0] === 'drop:end')) { began.resolve(); await dropping.promise; }
+        order.push(['drop:end', name]);
+    }, async submit(input) { order.push(['query', input.requestId]); return reply(input); } });
+    const host = createEngineHost({}, async () => adapter), first = runtime('file'), second = runtime('file');
+    await choose(host, first, inputs).completion; await choose(host, second, inputs).completion;
+    assert.equal(host.releaseFile(first.calls[0].name), true); await began.promise;
+    const target = runtime(), query = host.submit(target, 1, 3, request('3'));
+    assert.equal(host.releaseFile(second.calls[0].name), true); await tick();
+    assert.equal(order.length, 1); dropping.resolve(); await query; await tick();
+    assert.deepEqual(order.map(call => call[0]), ['drop:start', 'drop:end', 'query', 'drop:start', 'drop:end']);
+    assert.equal(target.calls.length, 1);
+}));
+
+test('same-turn cancel reserves administration before a release can drop a still-draining file', { timeout: 2000 }, async () => withDOM(async inputs => {
+    const pending = deferred(), cancelling = deferred(), began = deferred(); let running = false;
+    const adapter = engine({ submit(input) { this.calls.push(['submit', input.requestId]); running = true; return pending.promise; },
+        async cancel() { this.calls.push(['cancel']); if (running) { began.resolve(); await cancelling.promise; running = false; pending.resolve(reply(request('5'), { status: 'cancelled' })); } },
+        async dropFile(name) { assert.equal(running, false, 'adapter work has actually drained'); this.calls.push(['drop', name]); } });
+    const host = createEngineHost({}, async () => adapter), fileTarget = runtime('file'), target = runtime();
+    await choose(host, fileTarget, inputs).completion;
+    const query = host.submit(target, 1, 5, request('5')); await tick();
+    const cancelled = host.cancel(); assert.equal(host.releaseFile(fileTarget.calls[0].name), true);
+    await began.promise; await tick(); assert.equal(adapter.calls.filter(call => call[0] === 'drop').length, 0);
+    cancelling.resolve(); await Promise.all([cancelled, query]); await tick();
+    assert.equal(target.calls.length, 0); assert.equal(adapter.calls.filter(call => call[0] === 'cancel').length, 2);
+    assert.equal(adapter.calls.filter(call => call[0] === 'drop').length, 1);
+}));
+
+test('a newer submission still revokes an older cancel while release waits for the latest query', async () => withDOM(async inputs => {
+    const pending = deferred(), adapter = engine({ submit(input) {
+        this.calls.push(['submit', input.requestId]);
+        if (input.requestId === '10') return pending.promise;
+        pending.resolve(reply(request('10'), { status: 'superseded' })); return Promise.resolve(reply(input));
+    } });
+    const host = createEngineHost({}, async () => adapter), fileTarget = runtime('file'), first = runtime(), latest = runtime();
+    await choose(host, fileTarget, inputs).completion;
+    const old = host.submit(first, 1, 10, request('10')); await tick();
+    const cancelled = host.cancel(), current = host.submit(latest, 1, 11, request('11'));
+    assert.equal(host.releaseFile(fileTarget.calls[0].name), true);
+    await Promise.all([old, cancelled, current]); await tick();
+    assert.equal(first.calls.length, 0); assert.equal(latest.calls.length, 1); assert.equal(latest.calls[0].error, null);
+    assert.equal(adapter.calls.filter(call => call[0] === 'cancel').length, 1, 'only the original import cancellation ran');
+    assert.deepEqual(adapter.calls.slice(-3).map(call => call[0]), ['submit', 'submit', 'drop']);
+}));
+
+test('close owns queued registrations until engine cleanup finishes and suppresses later drops', { timeout: 2000 }, async () => withDOM(async inputs => {
+    const pending = deferred(), closing = deferred(), began = deferred(), owned = new Set();
+    const adapter = engine({ async registerFile(name) { owned.add(name); }, submit() { return pending.promise; },
+        async dropFile() { assert.fail('queued files belong to close, not an overlapping drop'); },
+        async close() { began.resolve(); await closing.promise; owned.clear(); pending.resolve(reply(request('6'), { status: 'cancelled' })); } });
+    const host = createEngineHost({}, async () => adapter), first = runtime('file'), second = runtime('file'), target = runtime();
+    await choose(host, first, inputs).completion; await choose(host, second, inputs).completion;
+    const query = host.submit(target, 1, 6, request('6')); await tick();
+    assert.equal(host.releaseFile(first.calls[0].name), true); const closed = host.cancel(true); await began.promise;
+    assert.equal(owned.size, 2); assert.equal(host.releaseFile(second.calls[0].name), false);
+    const count = inputs.length; host.chooseFile(runtime('file'), 3); assert.equal(inputs.length, count);
+    closing.resolve(); await Promise.all([closed, query]); await tick();
+    assert.equal(owned.size, 0); assert.equal(target.calls.length, 0); assert.equal(host.releaseFile(first.calls[0].name), false);
+}));
+
+test('cleanup failure is explicit once, does not retry-spin, and leaves later queries usable', async () => withDOM(async inputs => {
+    const previous = console.error, errors = []; console.error = (...args) => errors.push(args);
+    try {
+        let drops = 0; const adapter = engine({ async dropFile() { drops++; throw new Error('drop failed'); } });
+        const host = createEngineHost({}, async () => adapter), fileTarget = runtime('file');
+        await choose(host, fileTarget, inputs).completion; const name = fileTarget.calls[0].name;
+        assert.equal(host.releaseFile(name), true); assert.equal(host.releaseFile(name), true); await tick();
+        assert.equal(drops, 1); assert.equal(errors.length, 1); assert.match(errors[0][0], new RegExp(name.replaceAll('.', '\\.'))); assert.equal(errors[0][1].message, 'drop failed');
+        assert.equal(host.releaseFile(name), false);
+        const target = runtime(); await host.submit(target, 1, 7, request('7')); await tick();
+        assert.equal(target.calls.length, 1); assert.equal(target.calls[0].error, null); assert.equal(drops, 1);
+        adapter.close = async () => { throw new Error('close failed'); };
+        await host.cancel(true); await tick(); assert.equal(errors.length, 2); assert.equal(errors[1][1].message, 'close failed');
+        assert.equal(host.releaseFile(name), false); assert.equal(drops, 1);
+    } finally { console.error = previous; }
+}));
+
+test('obsolete registration cleanup shares the same terminal status and reports failures', async () => withDOM(async inputs => {
+    const previous = console.error, errors = []; console.error = (...args) => errors.push(args);
+    try {
+        const registering = deferred(), began = deferred(), names = []; let drops = 0;
+        const adapter = engine({ async registerFile(name) { names.push(name); if (names.length === 1) { began.resolve(); await registering.promise; } },
+            async dropFile() { drops++; throw new Error('obsolete drop failed'); } });
+        const host = createEngineHost({}, async () => adapter), first = runtime('file'), second = runtime('file');
+        const before = choose(host, first, inputs); await began.promise;
+        const after = choose(host, second, inputs); registering.resolve(); await Promise.all([before.completion, after.completion]);
+        assert.equal(first.calls.length, 0); assert.equal(second.calls.length, 1); assert.equal(drops, 1); assert.equal(errors.length, 1);
+        assert.equal(host.releaseFile(names[0]), false, 'failed stale cleanup is not retried through releaseFile');
+        await tick(); assert.equal(drops, 1);
+    } finally { console.error = previous; }
+}));
+
+test('1024 issued names and pending drops stay bounded, and retired names never reopen capacity', { timeout: 3000 }, async () => withDOM(async inputs => {
+    const pending = deferred(), names = [], adapter = engine({ submit() { return pending.promise; } });
+    const host = createEngineHost({}, async () => adapter);
+    for (let i = 0; i < 1024; i++) {
+        const target = runtime('file'); await choose(host, target, inputs).completion;
+        assert.equal(target.calls[0].error, null); names.push(target.calls[0].name);
+    }
+    assert.equal(new Set(names).size, 1024);
+    const target = runtime(), query = host.submit(target, 1, 8, request('8')); await tick();
+    for (const name of names) { assert.equal(host.releaseFile(name), true); assert.equal(host.releaseFile(name), true); }
+    await tick(); assert.equal(adapter.calls.filter(call => call[0] === 'drop').length, 0);
+    for (const afterCleanup of [false, true]) {
+        if (afterCleanup) { pending.resolve(reply(request('8'))); await query; await tick(); }
+        const excess = runtime('file'), selected = choose(host, excess, inputs, { arrayBuffer() { assert.fail('name capacity is checked before reading bytes'); } });
+        await selected.completion; assert.match(excess.calls[0].error, /1024 source-name limit/);
+        assert.equal(adapter.calls.filter(call => call[0] === 'register').length, 1024);
+    }
+    const drops = adapter.calls.filter(call => call[0] === 'drop').map(call => call[1]);
+    assert.equal(drops.length, 1024); assert.equal(new Set(drops).size, 1024); assert.equal(target.calls.length, 1);
+}));
+
+test('a file reply OOM releases its registered bytes without exposing a name to C', async () => withDOM(async inputs => {
+    const adapter = engine(), host = createEngineHost({}, async () => adapter), target = runtime('file', 0);
+    await choose(host, target, inputs).completion; await tick();
+    assert.deepEqual(target.calls[0].args, [77, 0, 0, 0]);
+    assert.deepEqual(adapter.calls.map(call => call[0]), ['cancel', 'register', 'drop']);
+}));
