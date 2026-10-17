@@ -9938,6 +9938,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->modal=MODAL_NONE; a->refresh_plans=true; change_analysis(a,false); break;
     case 672:
         if (a->fetch_failed || a->page.total!=10 || a->page.column_count!=4 || a->page.records.ids[0]!=1 || a->page.records.stamp==retained_revision || strcmp(a->page.cells[0].text,"1000")) goto failed;
+        if (!analysis_sort_set(&a->analysis,"Row",false,true,&error)) goto failed;
         if (!analysis_query_set(&a->analysis,"SELECT * FROM input",&error)) goto failed;
         change_analysis(a,false); break;
     case 673:
