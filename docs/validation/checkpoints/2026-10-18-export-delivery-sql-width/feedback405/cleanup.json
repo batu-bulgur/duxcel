@@ -1,0 +1,13 @@
+{
+  "held_keys": [],
+  "browser_before_cleanup": {
+    "pid": 9462,
+    "exit_code": null,
+    "signal": null
+  },
+  "browser_after_cleanup": {
+    "pid": 9462,
+    "exit_code": 0,
+    "signal": null
+  }
+}

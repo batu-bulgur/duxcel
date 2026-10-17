@@ -1,0 +1,102 @@
+{
+  "runtime_and_harness": "402a03da17f25b9735ce1273f5906e1563dab4b8",
+  "source_sha256": "72b6a9d59d378317f53c116222a59cb417b03e0132d8c31d0f734823c0e7343e",
+  "runs": {
+    "native400": {
+      "run": "tests/results/runs/20261017T230518-review-9062",
+      "summary_sha256": "6172950d245fe995f56829937660cda06dc1e6039e7a551b3daf1229f9b6a5c0"
+    },
+    "feedback405": {
+      "run": "tests/results/runs/20261017T230609-browser-9453",
+      "summary_sha256": "0168de72df53a208c4d9aa3baa8e0506a3aaef74635ab6545301612ed53af155",
+      "original_events_sha256": "4e669c1fd614b26df5a9eed349645e959399c9e79cb64860072d47d32953a88b"
+    },
+    "export570": {
+      "run": "tests/results/runs/20261017T230752-browser-9723",
+      "summary_sha256": "6c5085168d22056810e1d6cc095e033add6ac5a968ca4b57f0272eb06f0b5247",
+      "original_events_sha256": "7cd5aced9bae609e677adc1c4991da31e41213a48a4221971b00e309694129cb"
+    },
+    "cancel118": {
+      "run": "tests/results/runs/20261017T230433-browser-8849",
+      "summary_sha256": "e3a852c302ef567bb35cd721c0671c0635005100cff4c456538193799c7138e5",
+      "original_events_sha256": "0345737add3da5fd8218a3a6b3b262e269980ac45cd7ad94bbdd8ca8b1a5d52c"
+    },
+    "native-export20": {
+      "run": "tests/results/runs/20261017T230847-native-9920",
+      "summary_sha256": "704f07a63b172ba118b8eacb69a51a2d726119d2bcb12f403bb5c2fc82129726"
+    }
+  },
+  "digest_scope": "Isolated helper only; no App/worker/style activation in this revision. Source implementation9a66733, focused root targetdbcb7a5; exact current file hashes below.",
+  "digest_source_sha256": {
+    "src/data/source_digest.c": "b245f224a56a2d2e5a317312b8ba4ba73d2e2b9a3d19d97cefb5c3a70cf2a4ed",
+    "src/data/source_digest.h": "3934257d11a02f994c474c793e5caadf4e7ae400e8b3c42c62e91803c232aa02",
+    "tests/test_source_digest.c": "50fa4061b0a545322e10cef74674b8506647d69945ebc02b31abcebe71a2c067"
+  },
+  "service": {
+    "url": "http://127.0.0.1:8767/",
+    "artifact": "build/web/review/e591325c1583a8bf7f11",
+    "queue_unchanged": true,
+    "user_tab_refreshed": false
+  },
+  "files_sha256": {
+    "cancel118/browser-process.json": "19893474636513d851a80bd53c6e8756e5980babca5b88b362afd7d02ad4d123",
+    "cancel118/cleanup.json": "8dd5f5bc9ad8571b21c9fef09a6ef68ebd69e37a6cf4f8faf5dfcf1798ff345b",
+    "cancel118/downloads/null-text.csv-export.parquet": "fd97351258bc092d57ee2cfcbd6c7b4165f17460bdf2557730b8b951cd92889d",
+    "cancel118/driver.txt": "5189173f7691d24fbec15d2a484ba7e406a7f89001a202d9947c17c645255283",
+    "cancel118/export-cancelled.png": "2cf1c811b697fcdf984209d039d5f07566190e14910c587eab66a86051909ba7",
+    "cancel118/resources.json": "2875a946e6ba239a9315680bb6a7763126cc9c52911fe4ce75cca3c8ae660c99",
+    "cancel118/result.json": "2d230b8cd844e881a51302f7569926ab0aefcf6b9c954d13209729984e2e509e",
+    "cancel118/summary.json": "e3a852c302ef567bb35cd721c0671c0635005100cff4c456538193799c7138e5",
+    "cancel118/worker-events.json": "bf420b975f9c57ee384dc5deba4b6b62f4a4bfb535fe41b9ff5a3ff3f38fe387",
+    "digest/pure.log": "f61eb83a1826a0246aec994bd0689ecbacea2585c4ee86d8371ea25034d5f666",
+    "export570/browser-process.json": "3c7dac1cbf619e94d357fc6499b420ec3608cb49a0cd6ab5931af14e779e74da",
+    "export570/cleanup.json": "d164e161d1d38403e0652e3020573d178816d01db7399f70a53f239215a52b77",
+    "export570/downloads/null-text.csv-export.parquet": "4660ca62ad62aa283616d1c6274629fa90c84d2907d15d17cef94d2b581dda7e",
+    "export570/driver.txt": "e418a9e6392bd02d9d9c730e74a78e5d9f192f59e8743da0481ca187b697011e",
+    "export570/export-dispatch-error.png": "a1362c38c2f79440142f33c9e36ea212963eb0aef785b854aca2611e1f30d089",
+    "export570/export-inspector-exact-decimal.png": "59e00c30b37bd8287a61869880f3020b3e17477c8a5888018553fdc417f2a683",
+    "export570/export-requested.png": "143149a1df0488853cd55cf52f4bc6fa52e2a1d1f7bac78e0e9c987984ccb579",
+    "export570/resources.json": "cecc7e2b4566ec0dc437865d5a44fcabe21b4850084303d56c3c79e349e2b910",
+    "export570/result.json": "37cbf3f850f06230d7ddef1fa57834c6c381e8709a1cc46c31cb75754414d815",
+    "export570/retained-exports/null-text.csv-export.parquet": "4660ca62ad62aa283616d1c6274629fa90c84d2907d15d17cef94d2b581dda7e",
+    "export570/summary.json": "6c5085168d22056810e1d6cc095e033add6ac5a968ca4b57f0272eb06f0b5247",
+    "export570/worker-events.json": "7b749e72d2b0342fcbf8b0005cb9328ed7cf710c154390cf45b61dfa74e3e91e",
+    "feedback405/browser-process.json": "434ca7b81acd89bd7e0f706e6f3e0cf821bfeb1ff52d8cd3d5232bef7cdf619f",
+    "feedback405/cleanup.json": "1ad64ff6608c0bd666992d01cce8c0a8373acae6e6c8d41752949e7a6d88d13b",
+    "feedback405/driver.txt": "87d1a4e06b021f784ef519ab37b8d5677de285077839d686452c130194c1d5a4",
+    "feedback405/feedback-inline-pipeline_sql-picker.png": "b4ecd1f9a5d822fc17f718e7e30df3d58b0aeb3c67caed40bec80980ef70a411",
+    "feedback405/feedback-inline-sql-width-150.png": "c752775ab7173d4ae56e5dd20b3ad7fce756345a03522cf6db0631a054b0a1c0",
+    "feedback405/resources.json": "3e2c41e59b528a63cadbcee9ce315efff10a499dc94b6ed67f003c39bc1f8e1f",
+    "feedback405/result.json": "4a6202a02d43182c15552df9027d3494d985efd7737a4883a60f94a9954900e7",
+    "feedback405/summary.json": "0168de72df53a208c4d9aa3baa8e0506a3aaef74635ab6545301612ed53af155",
+    "feedback405/worker-events.json": "25ed6b1e1c7b9dc20dc15b2b44547210b1c0c5731fe03165a74a1e81cc0cafc8",
+    "native-export20/background-sanitize.txt": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+    "native-export20/export.png": "09dee90c2982889537e69ba04dd87d1226940dd95e2e5c6e46165b29ac1fa20e",
+    "native-export20/native-export.txt": "b725686128980b866b4c70c72e16bbf7e902a676f44654ca77674385c030d7e7",
+    "native-export20/summary.json": "704f07a63b172ba118b8eacb69a51a2d726119d2bcb12f403bb5c2fc82129726",
+    "native400/background.log": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
+    "native400/release/DXR-S-1792278321-9089-1/frame.png": "6b04b6963f74eb49eb06f3b9b29e62c40c5c56d969654457eacab9e6a5dc375c",
+    "native400/release/DXR-S-1792278321-9089-1/manifest.json": "1295414943136008cc06fae5d7bf84a59311f07be456e2695c5f343312f1857a",
+    "native400/release/DXR-S-1792278321-9089-17/frame.png": "ac7435d67ee78f938d1cf3cffc43d007620fe05feac9659897dff1df3a0d516e",
+    "native400/release/DXR-S-1792278321-9089-17/manifest.json": "fe5d173a8885cba10e93259758176bdcc861307268e2c6a19c68b4ea2ffb0404",
+    "native400/release/DXR-S-1792278321-9089-2/frame.png": "82a2549142a2173a66a671eb2c6004c41a8bd4a0ce19218cab9e36fe62cc5f3f",
+    "native400/release/DXR-S-1792278321-9089-2/manifest.json": "156af35c9f0f3a8468fc530bdff9f030b8e2d5110bcbf8d88255538f5ad02e74",
+    "native400/release.log": "38c1000acf24cd12c80868e3f1664e2eb5a5d23778da239680bc0c11609c0e41",
+    "native400/sanitize/DXR-S-1792278339-9323-1/frame.png": "6b04b6963f74eb49eb06f3b9b29e62c40c5c56d969654457eacab9e6a5dc375c",
+    "native400/sanitize/DXR-S-1792278339-9323-1/manifest.json": "abc2ba59c2e2b21b50bbf15a6be2ec4f61c91694957fd31a2f93026ef1d5815a",
+    "native400/sanitize/DXR-S-1792278339-9323-17/frame.png": "c3e40dea23f66d277b967c0d26f8c46747334bf2b8332b9eb9658777605a24cd",
+    "native400/sanitize/DXR-S-1792278339-9323-17/manifest.json": "23fce08712b1dea1fff17d3298324b9dd79a47a04380f2bf526ab5822ed621fb",
+    "native400/sanitize/DXR-S-1792278339-9323-2/frame.png": "c2646103c11133d297ab9735f29550dbb074673e71f6e4f37a4fd02b84def335",
+    "native400/sanitize/DXR-S-1792278339-9323-2/manifest.json": "6e064d363cd10837b8e108797a5cf9cea01a5f41a85c779c923063f8ec3259ba",
+    "native400/sanitize.log": "b13ae2d436d9acbb42b9b1ac3bfd825ccb08fb1197268ace8c8a2a82a00001be",
+    "native400/summary.json": "6172950d245fe995f56829937660cda06dc1e6039e7a551b3daf1229f9b6a5c0",
+    "production/app-build.json": "3f1abe25c9445325f3328635e3e2fac8059ef23192313799ffc118ff5837541c",
+    "production/browser.json": "9f2aeff6d5a97168ccc07aed67867a31fbfb69180a93236d39ce204c650b0ac9",
+    "production/native-sanitize.json": "2de7a804dccb1c6e26939de59ad9e657c42890dbc7f7759e61655ea7c85eff0c",
+    "production/native.json": "ea7eeb551b09c4eb49e0ed880cdee43e9475d2b72e1d106bed3403a1fc969638",
+    "production/package-sections.json": "d67e25bdab7ddaea08c5d4141824c345950610f77a9c5639d206bfb7bedbcde5",
+    "production/package.json": "b1c06da9bd10f5d4ef58cc78b9d2b9c640d2bcdfafdfe81fb5cdb8eeaf322bfb",
+    "production/package.log": "f72622f1885ce31c8b5860d3e511a455838e08b6c216a768a0f0e526380bd858",
+    "production/review-build.json": "05a3831faf685c6593c938b28df9db936e32db15d6f89872eeffba563ead8b19"
+  }
+}

@@ -85,7 +85,7 @@ Apple's installed GNU Make 3.81 compares whole-second timestamps. A source/heade
 
 ## Native review development gates
 
-`make test-review-core` runs the pure registry/outbox/responsive-composer geometry tests in optimized and ASan/UBSan configurations, then the reader and build-checker fixture tests. `make test-review` runs the focused 396-stage hidden reporting flow in both review configurations, preceded by the same 477-check desktop-safety probe. Use `TEST_ARGS='--config release'` or `--config sanitize` for a single affected configuration; `--no-build` deliberately reuses known artifacts. The runner serializes the worktree and desktop, uses a private outbox per run/configuration, verifies actual completion and stable source/binary hashes, and checks real image/frame identity plus durable acknowledgment/reply history. It rejects sanitizer diagnostics and partial stage counts.
+`make test-review-core` runs the pure registry/outbox/responsive-composer geometry tests in optimized and ASan/UBSan configurations, then the reader and build-checker fixture tests. `make test-review` runs the focused 400-stage hidden reporting flow in both review configurations, preceded by the same 477-check desktop-safety probe. Use `TEST_ARGS='--config release'` or `--config sanitize` for a single affected configuration; `--no-build` deliberately reuses known artifacts. The runner serializes the worktree and desktop, uses a private outbox per run/configuration, verifies actual completion and stable source/binary hashes, and checks real image/frame identity plus durable acknowledgment/reply history. It rejects sanitizer diagnostics and partial stage counts.
 
 Run linked production exclusion after building all four artifacts:
 
@@ -248,3 +248,17 @@ python3 tools/test_web_app.py --worker-driver --no-build
 ```
 
 Feedback360 takes38.833s, with eleven real controls and genuine6000-value/no-match/conversion-error/Undo flows. Native396 takes16.844s optimized/19.419s sanitizer and holds one real historical-preview reply through frozen cancellation. Backend184 takes11.125s/123,549 C checks; strict per-Worker counters preserve146/325/21 baseline and43/74/0 export jobs/SQL/counts with two sequential Workers. App download and durable saving are separate. [Retained evidence](validation/checkpoints/2026-10-18-workspace-feedback-export-engine/).
+
+## Actual browser export and SQL pane integration
+
+The [402a03d checkpoint](validation/checkpoints/2026-10-18-export-delivery-sql-width/) separates native 400, transformed DPR2 browser feedback 405, actual export/reopen 570, natural pending cancellation 118 and native export 20. The browser gates use private headless downloads and preserve the system clipboard/user tab. Runtime and harness are pinned separately in retained manifests.
+
+```sh
+python3 tools/test_web_app.py --review --feedback-review-only --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform
+python3 tools/test_web_app.py --review --export-only --no-build --source tests/fixtures/null-text.csv --dpr 2 --canvas-transform
+python3 tools/test_web_app.py --review --export-cancel-only --no-build --source tests/fixtures/null-text.csv --dpr 2 --canvas-transform
+node --test web/download.test.mjs
+make test-source-digest
+```
+
+`--no-build` requires an already-built matching review artifact. The cancellation profile uses a real 600,000-row query and fails if the export completes before trusted Escape; no delay/held reply manufactures that pending state. The digest target verifies only the isolated fixed-buffer helper and explicit unsupported branch, with no database/window or source-style activation.
