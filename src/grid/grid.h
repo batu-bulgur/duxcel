@@ -45,6 +45,10 @@ typedef struct {
     const FormatStore *formats; /* Borrowed for this frame; no ownership. */
     uint64_t format_row;
     size_t format_col;
+    /* Borrowed store-local tokens: 0 retains legacy/manual lookup; SIZE_MAX
+       explicitly suspends an imported definition. A publisher must verify the
+       Page/schema/owner before supplying matched tokens. Expire on mutation. */
+    size_t format_result_token,format_record_token;
     float horizontal; /* unscaled UI units, independent of monitor DPI/zoom */
     float gutter; /* Interface units, independent of zoom; reserved for visible row numbers. */
     float digit_width;
@@ -98,6 +102,11 @@ void grid_handle_input(Grid *g, UIContext *ui, const Page *page, const GridInput
 void grid_replay_gesture(Grid *g,UIContext *ui,const Page *page,DxPointerGesture gesture);
 void grid_update(Grid *g, UIContext *ui, const Page *page, Rectangle rect, bool enabled);
 void grid_draw(Grid *g, UIContext *ui, const Page *page, bool busy);
+/* row is in the painted Page's coordinates (including Page.offset). Worksheet
+   offsets affect spatial/result patches only; record IDs come from this exact
+   Page, including a borrowed preview prefix. Raw-token callers must validate
+   that display columns still have their original source-schema order. */
+CellFormat grid_cell_format(const Grid *grid,const Page *page,uint64_t row,size_t column);
 bool grid_cached(const Grid *g, const Page *p);
 void grid_bounds(const Grid *g, uint64_t *r0, uint64_t *r1, size_t *c0, size_t *c1);
 /* Displayed source headers occupy row 1; source data/manual/object cells use

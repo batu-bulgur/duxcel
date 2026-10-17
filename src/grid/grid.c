@@ -151,6 +151,16 @@ void grid_bounds(const Grid *g,uint64_t *r0,uint64_t *r1,size_t *c0,size_t *c1) 
     if (g->selection==SELECT_COLUMNS || g->selection==SELECT_ALL) { *r0=0; *r1=UINT64_MAX; }
     if (g->selection==SELECT_ROWS || g->selection==SELECT_ALL) { *c0=0; *c1=SIZE_MAX; }
 }
+CellFormat grid_cell_format(const Grid *g,const Page *p,uint64_t row,size_t column) {
+    if (!g->formats || g->format_row>=DX_SHEET_ROWS || row>=DX_SHEET_ROWS-g->format_row ||
+        g->format_col>=DX_FORMAT_FIELDS || column>=DX_FORMAT_FIELDS-g->format_col) return format_default();
+    uint64_t id=0;
+    /* Legacy callers intentionally supply zero tokens. Having native Page IDs
+       alone must never opt an existing workbook into source-bound semantics. */
+    if (g->format_record_token && p) page_record_id(p,row,&id);
+    return format_resolve_record_token(g->formats,g->format_row+row,g->format_col+column,
+        g->format_result_token,g->format_record_token,id,column);
+}
 bool grid_cached(const Grid *g,const Page *p) {
     if (!p->column_count || (!p->count_pending && g->top>=p->total) || (!g->frozen_columns && g->first_col>=p->column_count)) return true;
     if (p->count_pending && p->row_count<DX_PAGE_ROWS && g->top>=p->offset) return true;
@@ -698,7 +708,7 @@ static void draw_grid_region(Grid *g,UIContext *u,const Page *p,bool frozen) {
             const Cell *value=row>=p->offset && row<p->offset+p->row_count ? &p->cells[(row-p->offset)*p->column_count+c] : NULL;
             bool null=value && value->is_null; const char *text=value ? value->text : "…";
             bool numeric=p->columns[c].numeric,floating=p->columns[c].type==DUCKDB_TYPE_FLOAT || p->columns[c].type==DUCKDB_TYPE_DOUBLE;
-            CellFormat format=g->formats ? format_at(g->formats,g->format_row+row,g->format_col+c) : format_default();
+            CellFormat format=grid_cell_format(g,p,row,c);
             Color color=numeric && value && !null && value->number<0 ? (Color){164,51,55,255} : UI_TEXT;
             ui_formatted_value(u,text,null,numeric,floating,value ? value->number : 0,(Rectangle){x+3*s,y0+vr*rh,w-4*s,rh},13,color,format);
         }
