@@ -260,13 +260,20 @@ bool format_apply(FormatStore *s,FormatRange range,unsigned mask,CellFormat valu
     FormatSnapshot next=snapshot(s); bool ok=append(&next,(FormatPatch){.range=range,.mask=mask,.value=value},error) && ready(s,&next,error);
     if (!ok) { format_snapshot_free(&next); return false; } format_commit(s,&next); return true;
 }
-bool format_apply_records(FormatStore *s,const FormatScopeView *scope,const uint64_t *records,size_t record_count,const size_t *fields,size_t field_count,unsigned mask,CellFormat value,char **error) {
+bool format_plan_records(const FormatStore *s,const FormatScopeView *scope,const uint64_t *records,size_t record_count,const size_t *fields,size_t field_count,unsigned mask,CellFormat value,FormatSnapshot *out,char **error) {
+    if (!out) return fail(error,"Choose an owned output for the record-format plan.");
     if (!mask || (mask&~FORMAT_ALL) || !value_valid(value) || !membership_valid(records,record_count,fields,field_count)) return fail(error,"Choose a valid format and sorted record/field membership (at most 20,000 records and 16,384 fields).");
     if (!scope_views_valid(scope,1,error)) return false;
     FormatSnapshot next=snapshot(s); size_t ids[DX_FORMAT_GUARDS];
     bool ok=scope_ids(&next,scope,1,ids,error) && append(&next,(FormatPatch){.mask=mask,.value=value,.selector=FORMAT_RECORDS,.guard_ids=ids,.guard_count=1,
         .record_ids=(uint64_t *)records,.record_count=record_count,.fields=(size_t *)fields,.field_count=field_count},error) && ready(s,&next,error);
-    if (!ok) { format_snapshot_free(&next); return false; } format_commit(s,&next); return true;
+    if (!ok) { format_snapshot_free(&next); return false; }
+    format_snapshot_free(out); *out=next; return true;
+}
+bool format_apply_records(FormatStore *s,const FormatScopeView *scope,const uint64_t *records,size_t record_count,const size_t *fields,size_t field_count,unsigned mask,CellFormat value,char **error) {
+    FormatSnapshot next={0};
+    if (!format_plan_records(s,scope,records,record_count,fields,field_count,mask,value,&next,error)) return false;
+    format_commit(s,&next); return true;
 }
 bool format_plan_guard_legacy(const FormatStore *s,const FormatScopeView *views,size_t count,FormatSnapshot *out,char **error) {
     *out=(FormatSnapshot){0}; if (!scope_views_valid(views,count,error)) return false;

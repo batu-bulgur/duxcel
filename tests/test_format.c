@@ -367,8 +367,62 @@ static void record_invalid(void) {
     CHECK(format_valid(&s,&error) && format_history(&s,true) && !record_at(&s,2,4,&scope,2,1).flags);
     format_free(&s); clear_error(&error);
 }
+static void record_edit_plan(void) {
+    FormatStore s={0}; FormatSnapshot plan={0}; CellFormat v=format_default(); char *error=NULL;
+    const char original[]="raw-version=1;schema=(a:BIGINT,b:VARCHAR)";
+    char definition[]="raw-version=2;schema=(a:BIGINT,b:VARCHAR)";
+    FormatScopeView old={17,original,sizeof(original)-1},scope={17,definition,sizeof(definition)-1};
+    uint64_t ids[]={1,UINT64_C(9007199254740993),UINT64_MAX}; size_t fields[]={0,1};
+    v.flags=FORMAT_BOLD; v.color=2; CHECK(format_apply_records(&s,&old,ids,3,fields,2,FORMAT_BOLD|FORMAT_COLOR,v,&error));
+    v.color=1; CHECK(format_apply_records(&s,&old,ids,3,fields,2,FORMAT_COLOR,v,&error) && format_history(&s,false) && s.redo_count==1);
+    unsigned char live[sizeof(s)]; memcpy(live,&s,sizeof(s)); size_t bytes=format_owned_bytes(&s,true);
+    v.color=3; v.size=16;
+    CHECK(format_plan_records(&s,&scope,ids,3,fields,2,FORMAT_COLOR|FORMAT_SIZE,v,&plan,&error));
+    CHECK(!memcmp(live,&s,sizeof(s)) && format_owned_bytes(&s,true)==bytes && record_at(&s,4,2,&old,ids[1],1).color==2 && s.redo_count==1);
+    CHECK(plan.count==2 && plan.scope_count==2 && plan.items!=s.items && plan.scopes!=s.scopes);
+    CHECK(plan.items[1].record_ids!=ids && plan.items[1].fields!=fields && plan.scopes[1].definition!=definition);
+    ids[1]=2; fields[1]=3; definition[0]='X';
+    CHECK(plan.items[1].record_ids[1]==UINT64_C(9007199254740993) && plan.items[1].fields[1]==1 && !memcmp(plan.scopes[1].definition,"raw-version=2;",14));
+    CHECK(!memcmp(live,&s,sizeof(s)) && format_owned_bytes(&s,true)==bytes);
+    ids[1]=UINT64_C(9007199254740993); fields[1]=1; definition[0]='r';
+    unsigned char owned[sizeof(plan)]; memcpy(owned,&plan,sizeof(plan));
+#define BAD_PLAN(scope_,ids_,count_,fields_,field_count_,mask_,value_) do { \
+    CHECK(!format_plan_records(&s,(scope_),(ids_),(count_),(fields_),(field_count_),(mask_),(value_),&plan,&error)); \
+    CHECK(!memcmp(live,&s,sizeof(s)) && format_owned_bytes(&s,true)==bytes && !memcmp(owned,&plan,sizeof(plan)) && plan.items[1].record_ids[1]==UINT64_C(9007199254740993)); clear_error(&error); \
+} while (0)
+    BAD_PLAN(NULL,ids,3,fields,2,FORMAT_COLOR,v);
+    BAD_PLAN(&scope,ids,DX_FORMAT_RECORDS+1,fields,2,FORMAT_COLOR,v);
+    ids[1]=1; BAD_PLAN(&scope,ids,3,fields,2,FORMAT_COLOR,v); ids[1]=UINT64_C(9007199254740993);
+    fields[1]=16384; BAD_PLAN(&scope,ids,3,fields,2,FORMAT_COLOR,v); fields[1]=1;
+    BAD_PLAN(&scope,ids,3,fields,2,0,v);
+    v.size=17; BAD_PLAN(&scope,ids,3,fields,2,FORMAT_SIZE,v); v.size=16;
+    FormatScopeView invalid=scope; invalid.bytes=0; BAD_PLAN(&invalid,ids,3,fields,2,FORMAT_COLOR,v);
+#undef BAD_PLAN
+    CHECK(!format_plan_records(&s,&scope,ids,3,fields,2,FORMAT_COLOR,v,NULL,&error) && !memcmp(live,&s,sizeof(s))); clear_error(&error);
+    /* Replacing an owned plan may borrow that plan's current inputs: the new
+       state must be fully copied before the old output is released. */
+    FormatScopeView borrowed={plan.scopes[1].owner,plan.scopes[1].definition,plan.scopes[1].bytes}; FormatPatch *prior_items=plan.items;
+    CHECK(format_plan_records(&s,&borrowed,plan.items[1].record_ids,3,plan.items[1].fields,2,FORMAT_COLOR|FORMAT_SIZE,v,&plan,&error));
+    CHECK(plan.items!=prior_items && !memcmp(live,&s,sizeof(s)) && plan.items[1].record_ids[2]==UINT64_MAX && plan.items[1].fields[1]==1);
+    format_snapshot_free(&plan); CHECK(!plan.items && !plan.scopes && !memcmp(live,&s,sizeof(s)) && format_owned_bytes(&s,true)==bytes);
+    CHECK(!format_plan_records(&s,&invalid,ids,3,fields,2,FORMAT_COLOR,v,&plan,&error) && !plan.items && !plan.scopes && !plan.count && !plan.scope_count && !memcmp(live,&s,sizeof(s))); clear_error(&error);
+    CHECK(format_plan_records(&s,&scope,ids,3,fields,2,FORMAT_COLOR|FORMAT_SIZE,v,&plan,&error));
+    uint64_t revision=s.revision;
+    CHECK(format_commit(&s,&plan) && !plan.items && !plan.scopes && s.revision==revision+1 && !s.redo_count);
+    CHECK(record_at(&s,4,2,&scope,ids[1],1).color==3 && record_at(&s,4,2,&scope,ids[1],1).size==16 && record_at(&s,4,2,&old,ids[1],1).color==2);
+    CHECK(format_history(&s,false) && s.redo_count==1 && format_scope_token(&s,&scope)==SIZE_MAX);
+    memcpy(live,&s,sizeof(s)); bytes=format_owned_bytes(&s,true); v.color=2;
+    CHECK(format_plan_records(&s,&old,ids,3,fields,2,FORMAT_BOLD|FORMAT_COLOR,v,&plan,&error));
+    CHECK(!memcmp(live,&s,sizeof(s)) && !format_commit(&s,&plan) && !plan.items && !plan.scopes && !memcmp(live,&s,sizeof(s)) && format_owned_bytes(&s,true)==bytes);
+    CHECK(format_history(&s,true) && record_at(&s,4,2,&scope,ids[1],1).color==3 && record_at(&s,4,2,&scope,ids[1],1).size==16 && format_valid(&s,&error));
+    format_free(&s); clear_error(&error);
+}
 static void record_budgets(void) {
-    FormatStore s={0}; CellFormat v=format_default(); char *error=NULL;
+    FormatStore s={0},empty={0}; FormatSnapshot pending={0}; CellFormat v=format_default(); char *error=NULL;
+    const char pending_definition[]="uncommitted"; FormatScopeView pending_scope={99,pending_definition,sizeof(pending_definition)-1};
+    uint64_t pending_id=UINT64_MAX; size_t pending_field=16383;
+    CHECK(format_plan_records(&empty,&pending_scope,&pending_id,1,&pending_field,1,FORMAT_BOLD,v,&pending,&error));
+    unsigned char owned[sizeof(pending)],live[sizeof(s)]; memcpy(owned,&pending,sizeof(pending));
     char *definition=dx_alloc(DX_FORMAT_SCOPE_BYTES); memset(definition,'t',DX_FORMAT_SCOPE_BYTES);
     uint64_t *ids=dx_alloc(DX_FORMAT_RECORDS*sizeof(*ids)); size_t *fields=dx_alloc(DX_FORMAT_FIELDS*sizeof(*fields));
     for (size_t i=0;i<DX_FORMAT_RECORDS;i++) ids[i]=(uint64_t)i+1;
@@ -385,10 +439,14 @@ static void record_budgets(void) {
     CHECK(format_owned_bytes(&s,false)==DX_FORMAT_CURRENT_BYTES && format_valid(&s,&error));
     format_trim_history(&s,false,0);
     uint64_t revision=s.revision; size_t bytes=format_owned_bytes(&s,true);
+    memcpy(live,&s,sizeof(s));
+    CHECK(!format_plan_records(&s,&scopes[3],ids+1,1,fields,1,FORMAT_BOLD,v,&pending,&error) && !memcmp(live,&s,sizeof(s)) && !memcmp(owned,&pending,sizeof(pending)) && format_owned_bytes(&s,true)==bytes); clear_error(&error);
     CHECK(!format_apply_records(&s,&scopes[3],ids+1,1,fields,1,FORMAT_BOLD,v,&error) && s.revision==revision && format_owned_bytes(&s,true)==bytes && s.count==4 && !s.undo_count); clear_error(&error);
     for (size_t i=0;i<31;i++) { v.flags=(unsigned char)(i%2 ? FORMAT_BOLD : 0); CHECK(format_apply_records(&s,&scopes[3],ids,1,fields,1,FORMAT_BOLD,v,&error)); }
     CHECK(s.undo_count==31 && format_owned_bytes(&s,true)==DX_FORMAT_HISTORY_BYTES && format_valid(&s,&error));
     revision=s.revision; bytes=format_owned_bytes(&s,true); v.flags=FORMAT_BOLD;
+    memcpy(live,&s,sizeof(s));
+    CHECK(!format_plan_records(&s,&scopes[3],ids,1,fields,1,FORMAT_BOLD,v,&pending,&error) && !memcmp(live,&s,sizeof(s)) && !memcmp(owned,&pending,sizeof(pending)) && format_owned_bytes(&s,true)==bytes && strstr(error,"history")); clear_error(&error);
     CHECK(!format_apply_records(&s,&scopes[3],ids,1,fields,1,FORMAT_BOLD,v,&error) && s.revision==revision && s.undo_count==31 && format_owned_bytes(&s,true)==bytes && strstr(error,"history")); clear_error(&error);
     CHECK(format_history(&s,false) && s.redo_count==1 && format_owned_bytes(&s,true)==bytes);
     revision=s.revision; size_t undo=s.undo_count;
@@ -397,10 +455,12 @@ static void record_budgets(void) {
     scope.bytes=1; v.flags=FORMAT_BOLD;
     for (size_t i=0;i<DX_FORMAT_PATCHES;i++) CHECK(format_apply_records(&s,&scope,ids+i,1,fields,1,FORMAT_BOLD,v,&error));
     revision=s.revision; bytes=format_owned_bytes(&s,true); undo=s.undo_count;
+    memcpy(live,&s,sizeof(s));
+    CHECK(!format_plan_records(&s,&scope,ids+DX_FORMAT_PATCHES,1,fields,1,FORMAT_BOLD,v,&pending,&error) && !memcmp(live,&s,sizeof(s)) && !memcmp(owned,&pending,sizeof(pending)) && format_owned_bytes(&s,true)==bytes); clear_error(&error);
     CHECK(s.count==DX_FORMAT_PATCHES && !format_apply_records(&s,&scope,ids+DX_FORMAT_PATCHES,1,fields,1,FORMAT_BOLD,v,&error) && s.revision==revision && s.undo_count==undo && format_owned_bytes(&s,true)==bytes); clear_error(&error);
     v.flags=0; CHECK(format_apply_records(&s,&scope,ids,DX_FORMAT_PATCHES,fields,1,FORMAT_BOLD,v,&error) && s.count==1 && format_valid(&s,&error));
     CHECK(!record_at(&s,1,1,&scope,DX_FORMAT_PATCHES,0).flags && format_history(&s,false) && s.count==DX_FORMAT_PATCHES && record_at(&s,1,1,&scope,DX_FORMAT_PATCHES,0).flags==FORMAT_BOLD);
-    CHECK(format_history(&s,true) && s.count==1); format_free(&s); free(ids); free(fields); free(definition); clear_error(&error);
+    CHECK(format_history(&s,true) && s.count==1); format_free(&s); format_snapshot_free(&pending); free(ids); free(fields); free(definition); clear_error(&error);
 }
 static void record_precedence(void) {
     /* The oracle addresses permuted display positions and original fields
@@ -466,6 +526,6 @@ int main(void) {
     CHECK(format_plan_axis(&s,true,DX_SHEET_ROWS-1,1,true,&plan,&error) && !format_commit(&s,&plan));
     format_trim_history(&s,false,3); CHECK(s.undo_count==3); format_free(&s);
     scoped_resolution(); scoped_legacy(); scoped_budgets(); scoped_precedence();
-    record_resolution(); record_planners(); record_dual_scopes(); record_invalid(); record_budgets(); record_precedence();
+    record_resolution(); record_planners(); record_dual_scopes(); record_invalid(); record_edit_plan(); record_budgets(); record_precedence();
     printf("PASS: %u formatting checks (exact numeric display, bounded ranges, scoped record membership, precedence, ownership, moves, structural edits, history and whole-sheet selection)\n",checks); return 0;
 }
