@@ -5322,15 +5322,27 @@ static void draw_modal(App *a) {
         if (ui_button(u,box(x+24*s,y+motion_y*s,w-48*s,32*s),a->reduced_motion ? "Reduce motion: On" : "Reduce motion: Off",a->reduced_motion,true)) { a->reduced_motion=!a->reduced_motion; }
         ui_text_clip(u,"Canvas zoom: Control + scroll, pinch, or the sheet zoom controls.",box(x+18*s,y+h-40*s,w-36*s,24*s),12,UI_MUTED,false);
     } else if (a->modal==MODAL_ERROR) {
-        wrapped_message(a,box(x+18*s,y+65*s,w-36*s,h-130*s));
-        REVIEW_AUTHOR_ITEM(a,"error","copy_error","error.copy","button","Copy error",box(x+24*s,y+h-52*s,120*s,30*s),panel,true,false,false,NULL);
-        if (ui_button(u,box(x+24*s,y+h-52*s,120*s,30*s),"Copy error",false,true)) SetClipboardText(a->message);
-        if (a->analysis.kind!=SOURCE_DEMO && a->analysis.kind!=SOURCE_NONE) {
-            REVIEW_AUTHOR_ITEM(a,"error","relink","source.relink","button","Relink source",box(x+158*s,y+h-52*s,135*s,30*s),panel,true,false,false,NULL);
-            if (ui_button(u,box(x+158*s,y+h-52*s,135*s,30*s),"Relink source",false,true)) { open_modal(a,MODAL_RELINK); return; }
+        bool has_relink=a->analysis.kind!=SOURCE_DEMO && a->analysis.kind!=SOURCE_NONE;
+#ifdef DUXCEL_BROWSER_HOST
+        const bool can_relink=false;
+#else
+        const bool can_relink=true;
+#endif
+        Rectangle copy=box(x+24*s,y+h-52*s,120*s,30*s),relink=box(x+158*s,y+h-52*s,135*s,30*s),close=box(x+w-126*s,y+h-52*s,102*s,30*s);
+        if (has_relink && relink.x+relink.width+10*s>close.x) {
+            float fit=fminf(1,(w-68*s)/(357*s));
+            copy.width=120*s*fit; relink.x=copy.x+copy.width+10*s; relink.width=135*s*fit;
+            close.width=102*s*fit; close.x=x+w-24*s-close.width;
         }
-        REVIEW_AUTHOR_ITEM(a,"error","close","error.close","button","Close",box(x+w-126*s,y+h-52*s,102*s,30*s),panel,true,false,false,NULL);
-        if (ui_button(u,box(x+w-126*s,y+h-52*s,102*s,30*s),"Close",true,true) || enter) a->modal=MODAL_NONE;
+        wrapped_message(a,box(x+18*s,y+65*s,w-36*s,h-130*s));
+        REVIEW_AUTHOR_ITEM(a,"error","copy_error","error.copy","button","Copy error",copy,panel,true,false,false,NULL);
+        if (ui_button(u,copy,"Copy error",false,true)) SetClipboardText(a->message);
+        if (has_relink) {
+            REVIEW_AUTHOR_ITEM(a,"error","relink","source.relink","button","Relink source",relink,panel,can_relink,false,false,NULL);
+            if (ui_button(u,relink,"Relink source",false,can_relink)) { open_modal(a,MODAL_RELINK); return; }
+        }
+        REVIEW_AUTHOR_ITEM(a,"error","close","error.close","button","Close",close,panel,true,false,false,NULL);
+        if (ui_button(u,close,"Close",true,true) || enter) a->modal=MODAL_NONE;
     } else if (a->modal==MODAL_OPEN || a->modal==MODAL_SAVE || a->modal==MODAL_RELINK) {
         ui_text(u,a->modal==MODAL_SAVE ? "Save definitions and layout; external data stays in its source file." :
             a->modal==MODAL_RELINK ? "Choose the source's new location. Analysis steps are preserved." : "CSV, Parquet, DuckDB or dxls (.dxls) workbook · enter a file path",x+24*s,y+62*s,12,UI_MUTED);
