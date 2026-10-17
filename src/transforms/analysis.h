@@ -56,6 +56,11 @@ const char *aggregate_caption(Aggregate agg);
 char *aggregate_measure_label(Aggregate aggregate,const char *field);
 /* Generated SQL owns no renderer state. Execution binds filter_value to $__duxcel_filter when present. */
 char *analysis_sql(const Analysis *a, bool parameters);
+/* Mechanical SQL building blocks; callers validate the model. The metadata
+   option changes only the Parquet reader, not the business transformation path.
+   analysis_wrap_sql takes ownership of owned_source, even without transforms. */
+char *analysis_source_sql(const Analysis *a,bool parquet_row_numbers);
+char *analysis_wrap_sql(const Analysis *a,bool parameters,char *owned_source);
 char *analysis_filter_expression(const char *column,FilterOp op,const char *text,const char *parameter);
 char *analysis_filter_typed(const char *column,FilterOp op,const char *text,const char *parameter,NumberType type);
 char *analysis_page_sql(const Analysis *a, uint64_t offset, uint64_t limit);
