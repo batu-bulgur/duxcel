@@ -13,7 +13,7 @@ from test import FileLock, native_lock_path, source_metadata, utc_now
 from native_review import ReviewStore, default_project
 
 ROOT = Path(__file__).resolve().parents[1]
-REVIEW_STAGES = 308  # 296 prior scopes +12 Generated SQL scopes; first-open origins checked
+REVIEW_STAGES = 322  # 308 prior scopes +14 real owner lifetime/save/reopen scopes
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 def run(argv, path, env=None, timeout=180):
@@ -39,6 +39,7 @@ def main():
             configs=['release','sanitize'] if args.config=='both' else [args.config]
             if not args.no_build:
                 targets=[('review' if c=='release' else 'review-debug') for c in configs]+['tests/test_background-native-debug']
+                targets += ['build/web-tests/test-persistence'+('' if c=='release' else '-sanitize') for c in configs]
                 summary['build'],_=run(['make',*targets],result/'build.log',timeout=300)
             before=source_metadata(ROOT); summary['source']=before
             with FileLock(native_lock_path(),'native review acceptance'):
@@ -52,9 +53,18 @@ def main():
                     outbox=result/config/'outbox'; outbox.parent.mkdir()
                     env=os.environ.copy(); env.pop('DUXCEL_TEST_VISIBLE',None)
                     env['DUXCEL_REVIEW_OUTBOX']=str(outbox); env['ASAN_OPTIONS']='halt_on_error=1'
+                    helper=ROOT/'build/web-tests'/('test-persistence' if config=='release' else 'test-persistence-sanitize')
+                    helper_hash=sha(helper)
+                    fixture=outbox.parent/'native-owner-fixture.dxls'
+                    created,_=run([str(helper),'create-owners',str(fixture)],result/f'{config}-owner-create.log',env,30)
+                    fixture_hash=sha(fixture)
+                    env['DUXCEL_REVIEW_OWNER_FIXTURE']=str(fixture)
                     record,log=run([str(binary),'tests/fixtures/null-text.csv','--review-smoke','--frames','900'],result/f'{config}.log',env,90)
                     if f'Review smoke completed [0,{REVIEW_STAGES})' not in log or 'Native test window: hidden, unfocused' not in log: raise RuntimeError('Native review did not complete the current stage inventory hidden')
                     if sha(binary)!=binary_hash: raise RuntimeError('Binary changed during native acceptance')
+                    saved=Path(str(fixture)+'.native-owner-roundtrip.dxls')
+                    if sha(helper)!=helper_hash or sha(fixture)!=fixture_hash or not saved.is_file(): raise RuntimeError('Owner helper/fixture changed or App save copy was not produced')
+                    record['owner_lifetime']={'fixture_create':created,'fixture_sha256':fixture_hash,'saved_copy_sha256':sha(saved),'helper_sha256':helper_hash,'original_unchanged':True,'scope':'Actual native App load/delete/import/bind/delete/save/reopen, exhausted import and high-ID inspector cancellation; no file-panel delivery claim'}
                     store=ReviewStore(outbox,default_project())
                     listing=store.list()
                     if listing['rejected'] or len(listing['reports'])!=3: raise RuntimeError('Expected exactly three valid native reports')
