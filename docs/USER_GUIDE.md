@@ -58,6 +58,12 @@ python3 tools/native_review.py status REPORT_ID --implementation ready-for-revie
 Design acceptance, implementation status and verification status are independent. Reports retain the immutable native image, frame/widget/state metadata and exact build fingerprints. Review code, menu commands and storage/reader bridges are compile-time excluded from `duxcel` and `duxcel-debug`; the review builds use separate preferences and artifacts. The existing `.app` bundles require their own rebuild and do not automatically include this tool.
 
 
+## Browser issue reporting (development build)
+
+`make web-review` builds the shared C interface with its review tools under `build/web/review/<signature>/`; `build/web/review/latest.json` identifies the current directory. Serve that directory as described in [web/README.md](../web/README.md). Command/Ctrl+Shift+. freezes the actual C frame, with the same picker and note composer. Save report requests one `.dxreview.tar` download containing the C manifest, original frame PNG and browser geometry/build metadata. Keep the archive; “download requested” does not guarantee durable storage. Cancel returns to the open filter and selection.
+
+Extract the generated report folder into a private outbox directory and read it with `python3 tools/native_review.py --root OUTBOX read REPORT_ID`. The same reader identifies C widgets/source locations; browser metadata records actual CSS, backing dimensions and DPR separately. A fresh application/module requires a fresh browser review host. These tools are excluded from the normal browser and native builds.
+
 ## Workbook persistence
 
 The workbook format is **dxls**, default extension **`.dxls`** (case-insensitive input). Legacy `.duxcel` files are accepted. Save As uses the native macOS save panel; subsequent Save writes to the selected location. Cancelling either native panel leaves the workbook intact.

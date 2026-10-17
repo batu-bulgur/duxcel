@@ -1,0 +1,21 @@
+✔ one UTF-8 USTAR archive binds exact C bytes, owned pixels, frozen transforms, build and real hashes (9.774125ms)
+✔ subarray offsets, Blob PNG encoder output and longest allowed report ID retain exact bytes (1.027375ms)
+✔ shortcut capture consumes only a focused canvas chord before GLFW and queues one request (0.512083ms)
+✔ window capture registered before GLFW intercepts only the focused canvas and removes the exact listener (0.281084ms)
+✔ invalid constructor and synchronous capture metadata are rejected without corrupting a prior frame (1.623542ms)
+✔ manifest identity, UTF-8, dimensions, byte bounds and missing capture fail asynchronously once (2.391958ms)
+✔ encoder/hash/download failure reports one useful error and preserves the frame for retry (2.444542ms)
+✔ callback exceptions are contained and never produce a second callback or unhandled rejection (0.404959ms)
+✔ cancellation before work or during encoding suppresses downloads and stale completion (0.466375ms)
+✔ cancel during hashing, new capture, or disposal invalidates late async work without download (2.416917ms)
+✔ latest export wins while earlier encoding is pending, without publishing the old C callback (2.214875ms)
+✔ an already requested download cannot be retracted, but close suppresses its pending C completion (0.50875ms)
+✔ default encoder uses a separate OffscreenCanvas and default download releases Blob URLs (7.77775ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 98.956667

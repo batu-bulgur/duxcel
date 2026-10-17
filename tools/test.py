@@ -90,10 +90,12 @@ def ensure_unchanged(before):
 
 def source_metadata(root):
     paths = [root / "Makefile"]
-    for directory in ("src", "tests", "tools", "design/prototype/src"):
-        paths.extend(path for path in (root / directory).rglob("*")
-                     if path.is_file() and path.suffix in (".c", ".h", ".m", ".inc", ".py", ".sh", ".mjs", ".js", ".jsx", ".css")
-                     and not {"generated", "results", "downloads", "node_modules"}.intersection(path.relative_to(root).parts))
+    for directory in ("src", "tests", "tools", "web", "design/prototype/src"):
+        suffixes={".c", ".h", ".m", ".inc", ".py", ".sh", ".mjs", ".js", ".jsx", ".css"}
+        if directory=="web": suffixes.update((".html", ".json"))
+        for folder,subdirectories,names in os.walk(root / directory):
+            subdirectories[:]=[name for name in subdirectories if name not in {"generated", "results", "downloads", "node_modules"}]
+            paths.extend(Path(folder)/name for name in names if Path(name).suffix in suffixes and (Path(folder)/name).is_file())
     digest = hashlib.sha256()
     for path in sorted(paths):
         digest.update(str(path.relative_to(root)).encode())

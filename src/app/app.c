@@ -11082,7 +11082,7 @@ struct AppSession {
     bool automated,trace_input,smoke_pass_seen,finished;
     int layout_start,layout_target,applied_cursor;
     int smoke,workspace_smoke,filter_smoke,pivot_smoke,export_smoke,count_smoke,clipboard_smoke,sort_smoke,layout_smoke,navigation_smoke,nyc_smoke,document_smoke,chart_smoke,statistics_smoke,table_smoke,icon_smoke,query_smoke,unique_smoke;
-#ifdef DUXCEL_DEV_REVIEW
+#if defined(DUXCEL_DEV_REVIEW) && !defined(DUXCEL_BROWSER_HOST)
     ReviewSmoke review_smoke;
 #endif
 };
@@ -11186,7 +11186,7 @@ AppSession *app_start(const AppOptions *options) {
     printf("Render batch buffers=%d elements=%d\n",render_buffers,RL_DEFAULT_BATCH_BUFFER_ELEMENTS);
 #ifdef DUXCEL_DEV_REVIEW
     a->review=dx_review_capture_create();
-    if (!a->review) fprintf(stderr,"Native review initialization failed: out of memory.\n");
+    if (!a->review) fprintf(stderr,"Review initialization failed.\n");
 #endif
     status(a,"Ready");
     const char *layout_from=getenv("DUXCEL_LAYOUT_FROM");
@@ -11235,11 +11235,15 @@ bool app_frame(AppSession *session) {
     DxKeyModifiers modifiers; while (dx_take_key_modifiers(&modifiers)) { ui_note_key_modifiers(modifiers.key,modifiers.modifiers); REVIEW_EVENT(a,"key",modifiers.key); }
     DxPointerGesture gesture; while (dx_take_pointer_gesture(&gesture)) { ui_note_pointer_gesture(gesture); REVIEW_EVENT(a,"pointer",gesture.right ? 2 : 1); }
 #ifdef DUXCEL_DEV_REVIEW
+#ifndef DUXCEL_BROWSER_HOST
     if (options->review_smoke) {
         review_smoke_tick(a,&session->review_smoke);
         if (session->review_smoke.stage<0 || (session->review_smoke.stage==REVIEW_SMOKE_STAGES && a->review->phase==DX_REPORT_IDLE && smoke_work_idle(a))) goto finished;
     }
     bool report_requested=dx_review_take_native_request() || (ui_pressed(KEY_PERIOD) && ui_key_shift(KEY_PERIOD) && (ui_key_shortcut(KEY_PERIOD) || ui_key_control(KEY_PERIOD)));
+#else
+    bool report_requested=dx_review_browser_take_request();
+#endif
     if (report_requested && a->review && a->review->phase==DX_REPORT_IDLE) a->review->pending=true;
     if (a->review && a->review->pending && review_can_capture(a)) { a->review->pending=false; dx_review_capture_request(a->review); }
     if (a->review && a->review->phase!=DX_REPORT_IDLE && a->review->phase!=DX_REPORT_ARMED) {
@@ -11909,7 +11913,7 @@ int app_finish(AppSession *session) {
     if (session->render_batch.vertexBuffer && session->render_batch.draws) { rlSetRenderBatchActive(NULL); rlUnloadRenderBatch(session->render_batch); }
     a->busy=false; step_preview_free(&a->step_preview); ui_guide_free(&a->guide); clear_object_views(a); grid_destroy(&a->source_preview); grid_destroy(&a->grid); ui_destroy(&a->ui); input_free(&a->input); input_free(&a->filter_term); input_free(&a->filter_end); input_free(&a->pivot_search); input_free(&a->chart_columns); free(a->chart_resize_error); free(a->object_name_error); free(a->range_move_error); free(a->field_matches); text_lines_free(&a->toast_lines); text_lines_free(&a->inspector_sql_lines); free(a->inspector_sql_text); free(a->sql_text); free(a->message); free(a->pipeline_text); free(a->document_path); dx_native_shutdown(); CloseWindow();
     int result=
-#ifdef DUXCEL_DEV_REVIEW
+#if defined(DUXCEL_DEV_REVIEW) && !defined(DUXCEL_BROWSER_HOST)
         (options->review_smoke && session->review_smoke.stage!=REVIEW_SMOKE_STAGES) ||
 #endif
         (options->smoke && !smoke_ok) || (options->workspace_smoke && session->workspace_smoke!=4) || (options->filter_smoke && session->filter_smoke!=66) || (options->pivot_smoke && session->pivot_smoke!=45) || (options->export_smoke && session->export_smoke!=20) || (options->count_smoke && session->count_smoke!=12) || (options->clipboard_smoke && session->clipboard_smoke!=13) || (options->sort_smoke && session->sort_smoke!=12) || (options->layout_smoke && session->layout_smoke!=layout_target) || (options->navigation_smoke && session->navigation_smoke!=13) || (options->nyc_smoke && session->nyc_smoke!=8) || (options->document_smoke && !document_ok) || (options->chart_smoke && session->chart_smoke!=33) || (options->statistics_smoke && session->statistics_smoke!=31) || (options->table_smoke && session->table_smoke!=73) || (options->icon_smoke && session->icon_smoke!=8) || (options->query_smoke && session->query_smoke!=QUERY_SMOKE_STAGES) || (options->unique_smoke && session->unique_smoke!=32) ? 1 : 0;

@@ -1,0 +1,119 @@
+{
+  "started_utc": "2026-10-17T15:00:24.172155+00:00",
+  "status": "passed",
+  "configs": {
+    "release": {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/review/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "900"
+      ],
+      "elapsed_seconds": 2.283,
+      "log": "tests/results/runs/20261017T150024-review-63865/release.log",
+      "binary_sha256": "d9dabc3ba7b7a89f2f011f38a7289f81e66180464266c23a21c035c9b24d50f5",
+      "build_header_sha256": "c52e26dd32e85e1b95398564d3fec31bfaf65f811b0fab3b4f5e43c37f742a7b",
+      "completed_stages": 26,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792249229-64038-1",
+          "target": "filter.search",
+          "frame_id": "15",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 419095,
+            "sha256": "df85ed18500323c28836029f55f5443aa68f78c84345078de41541b5f0507d6c",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T150024-review-63865/release/outbox/DXR-S-1792249229-64038-1/frame.png"
+          },
+          "capture_sha256": "d69bd0552431c15aa3b742d8049eaa89603c75934800ce398d7d7b78b3fa60f0"
+        },
+        {
+          "report_id": "DXR-S-1792249229-64038-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "36",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 271650,
+            "sha256": "e61add7d3cbebe9bf02e49196673fa27aa228922b62ff3aeaa10e2fd5d536169",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T150024-review-63865/release/outbox/DXR-S-1792249229-64038-2/frame.png"
+          },
+          "capture_sha256": "e193fbccdc2f8f448a9c95ff1193299e1c521c5b8e4d82660255c451496b68b1"
+        }
+      ]
+    },
+    "sanitize": {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/review-sanitize/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "900"
+      ],
+      "elapsed_seconds": 2.492,
+      "log": "tests/results/runs/20261017T150024-review-63865/sanitize.log",
+      "binary_sha256": "05e8eaea3500739a29fbd069e8ba8cac31fad6baaaa65051b413f4c08e3ae469",
+      "build_header_sha256": "cd1f7dbb32f073a7457ee7d5246c2b99d59023820fede06dec732cef40a5f509",
+      "completed_stages": 26,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792249231-64061-1",
+          "target": "filter.search",
+          "frame_id": "12",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 419095,
+            "sha256": "df85ed18500323c28836029f55f5443aa68f78c84345078de41541b5f0507d6c",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T150024-review-63865/sanitize/outbox/DXR-S-1792249231-64061-1/frame.png"
+          },
+          "capture_sha256": "433e3653bdd6dd229a0758fffa595c37da213948543cc65c2f0668c7f99b60a0"
+        },
+        {
+          "report_id": "DXR-S-1792249231-64061-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "33",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 271650,
+            "sha256": "015f2b194f7df3c483763ca193d75f8d534079f7848cb170c64b0754ab4d48f2",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T150024-review-63865/sanitize/outbox/DXR-S-1792249231-64061-2/frame.png"
+          },
+          "capture_sha256": "2c843a6a8c91fc374e35ec2d765b7e4ac3b0960e1f62ae23d533138f03e4675f"
+        }
+      ]
+    }
+  },
+  "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual",
+  "build": {
+    "command": [
+      "make",
+      "review",
+      "review-debug",
+      "tests/test_background-native-debug"
+    ],
+    "elapsed_seconds": 1.92,
+    "log": "tests/results/runs/20261017T150024-review-63865/build.log"
+  },
+  "source": {
+    "commit": "2883c687e95e46aeceb15b946d580062e7491257",
+    "status": "M Makefile\n M src/app/app.c\n M src/dev/review_app.inc\n M src/dev/review_capture.c\n M src/dev/review_capture.h\n M tools/build_web.py\n M tools/test.py\n M tools/test_runner_test.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n?? src/dev/review_browser.c\n?? src/dev/review_browser.h\n?? tools/test_web_review_build.py\n?? tools/ui-review/\n?? web/host_review.mjs",
+    "source_sha256": "408cc069b58c72a61ab1d5ed61b30c4f7028421c90d93c13f7379b72a9ca80ad",
+    "source_files": 206
+  },
+  "background": {
+    "command": [
+      "./tests/test_background-native-debug"
+    ],
+    "elapsed_seconds": 1.937,
+    "log": "tests/results/runs/20261017T150024-review-63865/background.log"
+  },
+  "finished_utc": "2026-10-17T15:00:33.092947+00:00"
+}

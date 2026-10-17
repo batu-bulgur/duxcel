@@ -16,6 +16,21 @@ SPEC.loader.exec_module(runner)
 
 
 class RunnerTests(unittest.TestCase):
+    def test_web_runtime_inputs_are_fingerprinted_without_generated_dependencies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory);(root/'Makefile').write_text('test:\n')
+            web=root/'web';web.mkdir();runtime=web/'host.mjs';runtime.write_text('first')
+            (web/'package-lock.json').write_text('{}')
+            ignored=web/'node_modules';ignored.mkdir();dependency=ignored/'large.js';dependency.write_text('first')
+            first=runner.source_metadata(root)
+            dependency.write_text('changed generated dependency')
+            self.assertEqual(first['source_sha256'],runner.source_metadata(root)['source_sha256'])
+            runtime.write_text('changed runtime')
+            second=runner.source_metadata(root)
+            self.assertNotEqual(first['source_sha256'],second['source_sha256'])
+            (web/'package-lock.json').write_text('{"changed":true}')
+            self.assertNotEqual(second['source_sha256'],runner.source_metadata(root)['source_sha256'])
+
     def test_inventory(self):
         self.assertEqual(len(runner.NATIVE), 18)
         self.assertEqual(sum(row[1] for row in runner.NATIVE), 1098)

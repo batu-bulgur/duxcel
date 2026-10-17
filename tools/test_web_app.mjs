@@ -5,6 +5,7 @@ import {spawn} from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import {createHash} from 'node:crypto';
 const url=process.argv[2]??'http://127.0.0.1:8767';
 const output=path.resolve(process.argv[3]??'build/web/browser-qa/cdp');
 await fs.mkdir(output,{recursive:true});
@@ -15,9 +16,13 @@ const workerProbe=process.argv.includes('--worker-probe');
 const workerDriver=process.argv.includes('--worker-driver');
 const filters=process.argv.includes('--filters');
 const busy=process.argv.includes('--busy');
+const review=process.argv.includes('--review');
+const canvasTransform=process.argv.includes('--canvas-transform');
+const dprIndex=process.argv.indexOf('--dpr'),dpr=dprIndex<0?1:Number(process.argv[dprIndex+1]);
 let sourceResult;
 let filterResult;
 let busyResult;
+let reviewResult;
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
 let stderr='',ws,id=0;const waiting=new Map(),events=[],steps=[];let checks=0;const started=Date.now();
 function check(value,message){checks++;if(!value)throw new Error(message);}
@@ -34,12 +39,22 @@ async function key(key,code,virtual,text='',modifiers=0){
  await send('Input.dispatchKeyEvent',{type:'keyUp',key,code,windowsVirtualKeyCode:virtual,nativeVirtualKeyCode:virtual,modifiers});await frames();
 }
 async function click(x,y){
+ if(canvasTransform){const rect=await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,w:innerWidth,h:innerHeight}})()');x=rect.x+x*rect.width/rect.w;y=rect.y+y*rect.height/rect.h;}
  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});
  await send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});await frames();
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});await frames();
 }
 function replies(){return events.filter(e=>e.method==='Runtime.consoleAPICalled').flatMap(e=>e.params.args).map(a=>String(a.value??'')).filter(t=>t.startsWith('Browser worker reply: ')).map(t=>JSON.parse(t.slice('Browser worker reply: '.length)));}
 function starts(){return events.filter(e=>e.method==='Runtime.consoleAPICalled').flatMap(e=>e.params.args).map(a=>String(a.value??'')).filter(t=>t.startsWith('Browser worker started: ')).map(t=>JSON.parse(t.slice('Browser worker started: '.length)));}
+function consoleText(prefix){return events.filter(e=>e.method==='Runtime.consoleAPICalled').flatMap(e=>e.params.args).map(a=>String(a.value??'')).filter(t=>t.startsWith(prefix));}
+async function waitConsole(prefix){for(const deadline=Date.now()+15000;Date.now()<deadline;){const text=consoleText(prefix).at(-1);if(text)return text;await pause(20);}throw new Error('Missing C event: '+prefix);}
+function archiveFiles(bytes){
+ const files=new Map();
+ for(let offset=0;offset+512<=bytes.length;){const header=bytes.subarray(offset,offset+512);if(header.every(byte=>byte===0))break;
+  const field=(start,length)=>header.subarray(start,start+length).toString('utf8').replace(/\0.*$/s,'');
+  const name=[field(345,155),field(0,100)].filter(Boolean).join('/'),size=parseInt(field(124,12).trim(),8);check(Number.isSafeInteger(size)&&size>=0&&offset+512+size<=bytes.length,'Invalid report archive member');check(!files.has(name),'Duplicate report archive member');files.set(name,bytes.subarray(offset+512,offset+512+size));offset+=512+Math.ceil(size/512)*512;
+ }return files;
+}
 async function waitPage(afterId=null){
  for(const deadline=Date.now()+15000;Date.now()<deadline;){
   const current=replies().filter(r=>r.kind===0&&(afterId===null||BigInt(r.id)>BigInt(afterId))).at(-1);
@@ -68,7 +83,8 @@ try{
  ws.addEventListener('message',event=>{const message=JSON.parse(event.data);if(message.id){const request=waiting.get(message.id);waiting.delete(message.id);if(request)message.error?request.reject(new Error(JSON.stringify(message.error))):request.resolve(message.result);}else events.push(message);});
  await send('Runtime.enable');await send('Debugger.enable');await send('Page.enable');await send('Log.enable');await send('Network.enable');
  await send('Emulation.setFocusEmulationEnabled',{enabled:true});
- await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:1,mobile:false});
+ await send('Emulation.setDeviceMetricsOverride',{width:1280,height:820,deviceScaleFactor:dpr,mobile:false});
+ if(review)await send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:output});
  const navigation=await send('Page.navigate',{url});check(!navigation.errorText,'Navigation failed: '+navigation.errorText);
  if(workerDriver){
   let report;
@@ -86,11 +102,13 @@ try{
   if(ready)break;await pause(100);
  }
  check(ready,'Shared C App did not initialize');await pause(350);
+ if(canvasTransform){await evaluate('Object.assign(document.querySelector("canvas").style,{position:"absolute",left:"8%",top:"6%",width:"80%",height:"80%"})');await frames();}
  const errors=events.filter(e=>e.method==='Runtime.exceptionThrown');check(!errors.length,'Uncaught browser exception');
  const glErrors=events.filter(e=>e.method==='Log.entryAdded'&&/WebGL: (INVALID|too many)/.test(e.params.entry.text));
  check(!glErrors.length,'WebGL reported invalid rendering operations');
  const surface=await evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,canvas:[document.querySelector("canvas").width,document.querySelector("canvas").height]})');
  check(surface.width===1280&&surface.height===820,'Viewport mismatch');
+ check(surface.dpr===dpr,'Browser device pixel ratio mismatch');
  await capture('wide');
  if(workerProbe){
   const probe=await evaluate(`import('./official_worker_probe.mjs').then(module=>fetch('./vendor.json').then(response=>response.json()).then(vendor=>module.runWorkerProbe({baseURL:location.href,...vendor.worker})))`,65000);
@@ -136,6 +154,39 @@ try{
    await frames();await capture('date-days');await key('Escape','Escape',27);
    filterResult={cities,filtered,years,months,days};
   }
+  if(review){
+   await click(512,200);await waitDistinct();await frames();await capture('review-before');const jobsBefore=starts().length;
+   await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Control',code:'ControlLeft',windowsVirtualKeyCode:17,modifiers:2});
+   await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Shift',code:'ShiftLeft',windowsVirtualKeyCode:16,modifiers:10});
+   await key('.','Period',190,'',10);
+   await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Shift',code:'ShiftLeft',windowsVirtualKeyCode:16,modifiers:2});
+   await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Control',code:'ControlLeft',windowsVirtualKeyCode:17});
+   const captured=await waitConsole('Browser review captured: ');await frames();await capture('review-picker');
+   await click(530,341);await capture('review-composer');
+   for(const character of 'İ filter')await key(character,character===' '?'Space':'KeyI',character.codePointAt(0),character);
+   await click(829,554);const prepared=await waitConsole('Browser review prepared: ');
+   let archive;
+   for(const deadline=Date.now()+15000;Date.now()<deadline;){archive=(await fs.readdir(output)).find(name=>name.endsWith('.tar'));if(archive)break;await pause(20);}
+   check(archive,'Browser review did not request a report archive download');
+   const files=archiveFiles(await fs.readFile(path.join(output,archive))),manifestName=[...files.keys()].find(name=>name.endsWith('/manifest.json'));
+   check(manifestName&&files.size===3,'Expected one manifest/PNG/browser metadata bundle');const base=manifestName.slice(0,-'manifest.json'.length);
+   const manifest=JSON.parse(files.get(manifestName)),metadata=JSON.parse(files.get(base+'browser.json')),png=files.get(base+'frame.png');
+   check(manifest.target.widget.id==='filter.search','Browser picker selected the wrong C widget');
+   check(manifest.note==='İ filter','UTF-8 composer note did not round-trip');
+   check(manifest.frame.window.width===1280&&manifest.frame.window.height===820,'Review logical window dimensions mismatch');
+   check(png&&png.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),'Review image is not PNG');
+   check(png.readUInt32BE(16)===manifest.frame.framebuffer.width&&png.readUInt32BE(20)===manifest.frame.framebuffer.height,'Captured PNG/framebuffer dimensions mismatch');
+   check(metadata.report_id===manifest.report_id&&metadata.frame_id===manifest.frame.frame_id,'Browser sidecar references a different C frame');
+   check(metadata.binary_sha256===manifest.frame.binary_sha256&&metadata.device_pixel_ratio===dpr,'Browser capture build/DPR mismatch');
+   check(metadata.files['manifest.json'].sha256===createHash('sha256').update(files.get(manifestName)).digest('hex')&&metadata.files['frame.png'].sha256===createHash('sha256').update(png).digest('hex'),'Exported manifest/PNG hash binding mismatch');
+   check(metadata.canvas_backing.width===manifest.frame.framebuffer.width&&metadata.canvas_backing.height===manifest.frame.framebuffer.height,'Browser canvas backing differs from the captured C framebuffer');
+   if(canvasTransform)check(Math.abs(metadata.transforms.logical_to_css.scale_x-.8)<.001&&Math.abs(metadata.transforms.logical_to_css.scale_y-.8)<.001&&metadata.transforms.logical_to_css.translate_x>0&&metadata.transforms.logical_to_css.translate_y>0,'Inset canvas transform was not frozen with the C frame');
+   await fs.writeFile(path.join(output,'report-manifest.json'),files.get(manifestName));await fs.writeFile(path.join(output,'report-browser.json'),files.get(base+'browser.json'));await fs.writeFile(path.join(output,'report-frame.png'),png);
+   await frames();await capture('review-prepared');await key('Enter','Enter',13);await frames();await capture('review-returned');
+   check(starts().length===jobsBefore,'Reporting scheduled unexpected database jobs');
+   reviewResult={captured,prepared,archive,report_id:manifest.report_id,frame_id:manifest.frame.frame_id,widget:manifest.target.widget.id,framebuffer:manifest.frame.framebuffer,archive_sha256:createHash('sha256').update(await fs.readFile(path.join(output,archive))).digest('hex')};
+   await key('Escape','Escape',27);
+  }
   if(sourceFile.endsWith('/yellow_tripdata_2025-01.parquet'))check(imported.total==='3475226'&&imported.columns===20,'Public Parquet source count/schema changed');
  }else{
  for(const digit of '9007199254740993')await key(digit,'Digit'+digit,digit.charCodeAt(0),digit);
@@ -146,13 +197,13 @@ try{
  }
  await click(294,42);await capture('view-ribbon');
  await click(1174,42);await capture('ribbon-display');await key('Escape','Escape',27);
- await send('Emulation.setDeviceMetricsOverride',{width:640,height:640,deviceScaleFactor:1,mobile:false});await frames(4);await capture('narrow');
+ await send('Emulation.setDeviceMetricsOverride',{width:640,height:640,deviceScaleFactor:dpr,mobile:false});await frames(4);await capture('narrow');
  const narrow=await evaluate('({width:innerWidth,height:innerHeight,canvas:[document.querySelector("canvas").width,document.querySelector("canvas").height]})');
  check(narrow.width===640&&narrow.height===640&&narrow.canvas[0]===640&&narrow.canvas[1]===640,'Narrow canvas mismatch');
  const lateErrors=events.filter(e=>e.method==='Runtime.exceptionThrown'||e.method==='Log.entryAdded'&&/WebGL: (INVALID|too many)/.test(e.params.entry.text));
  check(!lateErrors.length,'Runtime/rendering error after interactions');
  await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
- await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,workerProbe,scope:'Shared C99 startup and captured real interactions for visual verification; source imports, value/date filters, active-query frames and Worker probe are explicit optional gates; workbook persistence is not accepted'},null,2));
+ await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',checks,url,surface,elapsed_ms:Date.now()-started,steps,sourceFile,sourceResult,filterResult,busyResult,reviewResult,workerProbe,scope:'Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; workbook persistence is not accepted'},null,2));
  console.log(JSON.stringify({status:'passed',checks,surface,output}));
  }
 }catch(error){

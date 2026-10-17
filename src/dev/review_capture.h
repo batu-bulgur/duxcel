@@ -3,6 +3,9 @@
 #include "review_registry.h"
 #include "../ui/ui.h"
 #include "../ui/textview.h"
+#ifdef DUXCEL_BROWSER_HOST
+#include "review_browser.h"
+#endif
 /* Native renderer/composer adapter. Core records remain platform-independent. */
 typedef enum { DX_REPORT_IDLE,DX_REPORT_ARMED,DX_REPORT_PICK,DX_REPORT_NOTE,DX_REPORT_WRITING,DX_REPORT_SAVED,DX_REPORT_ERROR } DxReportPhase;
 typedef struct {
@@ -20,6 +23,9 @@ typedef struct {
     bool previous_keyboard_focus,writer_started,writer_done,writer_ok;
     DxThread writer;
     DxMutex mutex;
+#ifdef DUXCEL_BROWSER_HOST
+    DxReviewBrowser browser;
+#endif
     char *json;
     char root[4096],report_id[96],last_report_id[96],error[512],writer_error[512];
     char trace[DX_REVIEW_EVENTS][96];

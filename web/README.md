@@ -172,3 +172,10 @@ Run `make test-browser-core` for the fast release/sanitizer/transport gate.
 artifact; `python3 tools/test_web_app.py --no-build --worker-driver` exercises the
 full real-engine bridge. Source UI gates and current limits are in
 [TESTING.md](../docs/TESTING.md) and the [latest filter/active-query checkpoint](../docs/validation/checkpoints/2026-10-17-browser-filters/).
+
+`make web-review` produces a separate development artifact under `build/web/review/`.
+It reuses C capture/registry/picking/composition and prepares a single report archive
+download through the review-only browser adapter. Command/Ctrl+Shift+. starts it.
+No review host, registry or callback export is packaged with the normal target.
+`tools/test_web_review_build.py` verifies the actual compiled boundary; see
+[browser reporting acceptance](../docs/validation/checkpoints/2026-10-17-browser-review/).

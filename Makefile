@@ -549,6 +549,12 @@ web-sources:
 	@printf '%s\n' $(WEB_SOURCES)
 web:
 	python3 tools/build_web.py
+WEB_REVIEW_SOURCES = $(WEB_SOURCES) src/dev/review_registry.c src/dev/review_input.c src/dev/review_capture.c src/dev/review_browser.c
+web-review-sources:
+	@printf '%s\n' $(WEB_REVIEW_SOURCES)
+web-review:
+	python3 tools/build_web.py --review
+.PHONY: web-review web-review-sources
 .PHONY: web web-sources web-duckdb-flags
 
 # No-window C/official-Worker integration driver; no UI or renderer linked.

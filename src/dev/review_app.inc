@@ -228,6 +228,7 @@ static void review_native_command(App *a,DxCommand command) {
 
 /* Focused native acceptance; never enabled in shipping, uses the same queued
    input/controller routes as other App scenarios and private outbox fixtures. */
+#ifndef DUXCEL_BROWSER_HOST
 #define REVIEW_SMOKE_STAGES 26
 typedef struct {
     int stage; uint64_t request,jobs; GridLocation selection; Cell *page;
@@ -393,6 +394,7 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
 failed:
     fprintf(stderr,"FAIL: native review stage=%d phase=%d target=%s error=%s\n",t->stage,(int)r->phase,r->target.widget.id,r->error); t->stage=-1;
 }
+#endif
 static void review_group(App *a,int group,Rectangle bounds,bool overflow) {
     if (!review_armed(a) || group<0 || group>=ribbon_group_counts[a->ribbon_tab]) return;
     static const char *const tabs[]={"home","insert","data","analyze","view","visualization"};

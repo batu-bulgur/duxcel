@@ -1,5 +1,7 @@
 #include "review_capture.h"
+#ifndef DUXCEL_BROWSER_HOST
 #include "review_store.h"
+#endif
 #include "review_input.h"
 #include "review_build_info.h"
 #include <rlgl.h>
@@ -8,12 +10,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#ifndef DUXCEL_BROWSER_HOST
 #ifdef _WIN32
 #include <process.h>
 #define REVIEW_PID _getpid
 #else
 #include <unistd.h>
 #define REVIEW_PID getpid
+#endif
 #endif
 static void copy_text(char *out,size_t cap,const char *text) { snprintf(out,cap,"%s",text ? text : ""); }
 static void release_pixels(DxReviewCapture *r) {
@@ -25,15 +29,21 @@ DxReviewCapture *dx_review_capture_create(void) {
     DxReviewCapture *r=calloc(1,sizeof(*r)); if (!r) return NULL;
     r->registry=calloc(1,sizeof(*r->registry)); if (!r->registry) { free(r); return NULL; }
     dx_mutex_init(&r->mutex);
+#ifdef DUXCEL_BROWSER_HOST
+    if (!dx_review_browser_create(&r->browser,r->frame.session_id,sizeof(r->frame.session_id),r->frame.binary_sha256,sizeof(r->frame.binary_sha256))) { dx_mutex_destroy(&r->mutex); free(r->registry); free(r); return NULL; }
+#else
     snprintf(r->frame.session_id,sizeof(r->frame.session_id),"S-%llu-%ld",(unsigned long long)time(NULL),(long)REVIEW_PID());
+#endif
     copy_text(r->frame.project_id,sizeof(r->frame.project_id),DX_REVIEW_BUILD_PROJECT);
     copy_text(r->frame.source_fingerprint,sizeof(r->frame.source_fingerprint),DX_REVIEW_BUILD_SOURCE);
     copy_text(r->frame.assets_fingerprint,sizeof(r->frame.assets_fingerprint),DX_REVIEW_BUILD_ASSETS);
     copy_text(r->frame.build_flags,sizeof(r->frame.build_flags),DX_REVIEW_BUILD_FLAGS);
+#ifndef DUXCEL_BROWSER_HOST
     char path[4096]; snprintf(path,sizeof(path),"%sduxcel-review.sha256",GetApplicationDirectory());
     FILE *f=fopen(path,"rb");
     if (f) { char hash[66]={0}; if (fread(hash,1,65,f)==65 && hash[64]=='\n') { hash[64]=0; copy_text(r->frame.binary_sha256,sizeof(r->frame.binary_sha256),hash); } fclose(f); }
     dx_review_store_default_root(r->frame.project_id,r->root,sizeof(r->root),r->error,sizeof(r->error));
+#endif
     return r;
 }
 void dx_review_capture_event(DxReviewCapture *r,uint64_t frame,const char *kind,uint64_t detail) {
@@ -67,6 +77,9 @@ void dx_review_capture_begin(DxReviewCapture *r,const DxReviewFrame *state) {
     frame.trace_text[used]=0; r->frame=frame;
     DxReviewStatus status=dx_review_begin(r->registry,&frame,true);
     if (status!=DX_REVIEW_OK) { copy_text(r->error,sizeof(r->error),dx_review_status_text(status)); r->phase=DX_REPORT_ERROR; }
+#ifdef DUXCEL_BROWSER_HOST
+    else if (!dx_review_browser_begin(&r->browser,&frame,r->report_id)) { copy_text(r->error,sizeof(r->error),r->browser.error); r->phase=DX_REPORT_ERROR; }
+#endif
 }
 bool dx_review_capture_pixels(DxReviewCapture *r) {
     if (r->phase!=DX_REPORT_ARMED) return false;
@@ -81,8 +94,13 @@ bool dx_review_capture_pixels(DxReviewCapture *r) {
     r->texture=LoadTextureFromImage(r->image);
     if (!r->texture.id) { release_pixels(r); copy_text(r->error,sizeof(r->error),"Cannot display the captured frame. Retry or cancel."); r->phase=DX_REPORT_ERROR; return false; }
     SetTextureFilter(r->texture,TEXTURE_FILTER_BILINEAR);
-    r->error[0]=0; r->phase=DX_REPORT_PICK; r->capture_ms=dx_millis()-begin; return true;
+    r->error[0]=0; r->phase=DX_REPORT_PICK; r->capture_ms=dx_millis()-begin;
+#ifdef DUXCEL_BROWSER_HOST
+    printf("Browser review captured: %s frame=%llu widgets=%zu\n",r->report_id,(unsigned long long)r->frame.frame_id,r->registry->count);
+#endif
+    return true;
 }
+#ifndef DUXCEL_BROWSER_HOST
 static void *write_report(void *context) {
     DxReviewCapture *r=context; int bytes=0;
     unsigned char *png=ExportImageToMemory(r->image,".png",&bytes); char error[512]={0};
@@ -92,18 +110,34 @@ static void *write_report(void *context) {
     dx_lock(&r->mutex); r->writer_ok=ok; copy_text(r->writer_error,sizeof(r->writer_error),error); r->writer_done=true; dx_unlock(&r->mutex);
     return NULL;
 }
+#endif
 bool dx_review_capture_save(DxReviewCapture *r) {
     if (!r || r->writer_started || !r->image.data || !r->target.found || !r->note.length || r->note.length>=DX_REVIEW_NOTE_BYTES) return false;
+#ifndef DUXCEL_BROWSER_HOST
     if (!dx_review_store_default_root(r->frame.project_id,r->root,sizeof(r->root),r->error,sizeof(r->error))) { r->phase=DX_REPORT_ERROR; return false; }
+#endif
     DxReviewStatus status; size_t length=0;
     free(r->json); r->json=dx_review_json_alloc(r->registry,&r->target,r->report_id,r->note.text,&length,&status);
     if (!r->json) { copy_text(r->error,sizeof(r->error),dx_review_status_text(status)); r->phase=DX_REPORT_ERROR; return false; }
     r->writer_done=r->writer_ok=false; r->writer_error[0]=0; r->writer_begin=dx_millis();
+#ifdef DUXCEL_BROWSER_HOST
+    if (r->image.format!=PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 || !dx_review_browser_save(&r->browser,r->report_id,r->frame.frame_id,r->json,length,r->image.data,r->image.width,r->image.height)) {
+        copy_text(r->error,sizeof(r->error),r->browser.error[0] ? r->browser.error : "Unsupported captured pixel format."); r->phase=DX_REPORT_ERROR; return false;
+    }
+#else
     r->writer_started=dx_thread_start(&r->writer,write_report,r);
     if (!r->writer_started) { copy_text(r->error,sizeof(r->error),"Cannot start the report writer. Your note is retained."); r->phase=DX_REPORT_ERROR; return false; }
+#endif
     r->phase=DX_REPORT_WRITING; return true;
 }
 static void poll_writer(DxReviewCapture *r) {
+#ifdef DUXCEL_BROWSER_HOST
+    if (!r->browser.done) return;
+    r->browser.done=false; bool ok=r->browser.ok;
+    r->write_ms=dx_millis()-r->writer_begin;
+    r->phase=ok ? DX_REPORT_SAVED : DX_REPORT_ERROR; copy_text(r->error,sizeof(r->error),r->browser.error);
+    if (ok) { copy_text(r->last_report_id,sizeof(r->last_report_id),r->report_id); printf("Browser review prepared: %s\n",r->report_id); }
+#else
     if (!r->writer_started) return;
     dx_lock(&r->mutex); bool done=r->writer_done,ok=r->writer_ok;
     char error[512]; copy_text(error,sizeof(error),r->writer_error); dx_unlock(&r->mutex);
@@ -111,16 +145,25 @@ static void poll_writer(DxReviewCapture *r) {
     dx_thread_join(r->writer); r->writer_started=false; r->write_ms=dx_millis()-r->writer_begin;
     r->phase=ok ? DX_REPORT_SAVED : DX_REPORT_ERROR; copy_text(r->error,sizeof(r->error),error);
     if (ok) { copy_text(r->last_report_id,sizeof(r->last_report_id),r->report_id); printf("Native review saved: %s/%s\n",r->root,r->report_id); }
+#endif
 }
 void dx_review_capture_cancel(DxReviewCapture *r) {
     if (!r) return;
+#ifdef DUXCEL_BROWSER_HOST
+    dx_review_browser_cancel(&r->browser);
+#else
     if (r->writer_started) { dx_thread_join(r->writer); r->writer_started=false; }
+#endif
     release_pixels(r); free(r->json); r->json=NULL; r->phase=DX_REPORT_IDLE; r->pending=false;
     dx_review_input_quarantine(false); ui_review_discard_input(); ui_review_restore_focus(r->previous_keyboard_focus);
 }
 void dx_review_capture_destroy(DxReviewCapture *r) {
     if (!r) return;
-    dx_review_capture_cancel(r); input_free(&r->note); text_editor_free(&r->editor); free(r->registry); dx_mutex_destroy(&r->mutex); free(r);
+    dx_review_capture_cancel(r);
+#ifdef DUXCEL_BROWSER_HOST
+    dx_review_browser_destroy(&r->browser);
+#endif
+    input_free(&r->note); text_editor_free(&r->editor); free(r->registry); dx_mutex_destroy(&r->mutex); free(r);
 }
 static Rectangle fit_image(DxReviewCapture *r) {
     float x=0,y=0,w=GetScreenWidth(),h=GetScreenHeight(),aspect=(float)r->image.width/r->image.height;
@@ -183,12 +226,17 @@ bool dx_review_capture_draw(DxReviewCapture *r,UIContext *u) {
     float width=fminf(510*s,w-24*s),height=fminf(348*s,h-24*s),x=(w-width)*.5f,y=(h-height)*.5f;
     Rectangle panel={x,y,width,height}; DrawRectangle(0,0,(int)w,(int)h,(Color){20,31,46,90});
     DrawRectangleRounded(panel,.025f,4,UI_SURFACE); DrawRectangleLinesEx(panel,s,UI_BORDER);
-    ui_label(u,r->phase==DX_REPORT_SAVED ? "UI issue saved" : "Report UI issue",(Rectangle){x+16*s,y+8*s,width-32*s,30*s},16,UI_TEXT,false,UI_MEDIUM);
+#ifdef DUXCEL_BROWSER_HOST
+    const char *saved_title="UI report prepared",*saved_detail="Download requested. Keep the archive to share with an agent.";
+#else
+    const char *saved_title="UI issue saved",*saved_detail="Saved locally; an agent can read and reply later.";
+#endif
+    ui_label(u,r->phase==DX_REPORT_SAVED ? saved_title : "Report UI issue",(Rectangle){x+16*s,y+8*s,width-32*s,30*s},16,UI_TEXT,false,UI_MEDIUM);
     const char *target=r->target.region ? "Selected region" : r->target.found ? r->target.widget.id : "Capture unavailable";
     ui_label(u,target,(Rectangle){x+16*s,y+43*s,width-32*s,26*s},11,UI_MUTED,false,UI_REGULAR);
     if (r->phase==DX_REPORT_SAVED) {
         ui_label(u,r->report_id,(Rectangle){x+16*s,y+92*s,width-32*s,42*s},13,UI_ACCENT,false,UI_MEDIUM);
-        ui_label(u,"Saved locally; an agent can read and reply later.",(Rectangle){x+16*s,y+140*s,width-32*s,40*s},12,UI_TEXT,false,UI_REGULAR);
+        ui_label(u,saved_detail,(Rectangle){x+16*s,y+140*s,width-32*s,40*s},12,UI_TEXT,false,UI_REGULAR);
         if (ui_button(u,(Rectangle){x+width-116*s,y+height-46*s,100*s,30*s},"Done",true,true) || ui_pressed(KEY_ENTER)) { dx_review_capture_cancel(r); return true; }
         return false;
     }

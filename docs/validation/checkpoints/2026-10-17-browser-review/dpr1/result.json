@@ -1,0 +1,98 @@
+{
+  "status": "passed",
+  "checks": 34,
+  "url": "http://127.0.0.1:60938/",
+  "surface": {
+    "width": 1280,
+    "height": 820,
+    "dpr": 1,
+    "canvas": [
+      1280,
+      820
+    ]
+  },
+  "elapsed_ms": 9395,
+  "steps": [
+    {
+      "key": "o",
+      "time": 1792248905841
+    },
+    {
+      "key": ".",
+      "time": 1792248907309
+    },
+    {
+      "key": "İ",
+      "time": 1792248907688
+    },
+    {
+      "key": " ",
+      "time": 1792248907824
+    },
+    {
+      "key": "f",
+      "time": 1792248907891
+    },
+    {
+      "key": "i",
+      "time": 1792248907957
+    },
+    {
+      "key": "l",
+      "time": 1792248908024
+    },
+    {
+      "key": "t",
+      "time": 1792248908091
+    },
+    {
+      "key": "e",
+      "time": 1792248908158
+    },
+    {
+      "key": "r",
+      "time": 1792248908291
+    },
+    {
+      "key": "Enter",
+      "time": 1792248908645
+    },
+    {
+      "key": "Escape",
+      "time": 1792248909077
+    },
+    {
+      "key": "Escape",
+      "time": 1792248909534
+    }
+  ],
+  "sourceFile": "/Users/h2o/dev/duxcel/tests/fixtures/transactions.csv",
+  "sourceResult": {
+    "id": "2",
+    "kind": 0,
+    "rows": 5,
+    "columns": 6,
+    "total": "5",
+    "counted": "0",
+    "pending": 0,
+    "error": 0,
+    "distinct_count": 0,
+    "distinct_total": "0",
+    "selection_to_c_reply_ms": 717
+  },
+  "reviewResult": {
+    "captured": "Browser review captured: DXR-S-e6aabe8a7865a3398a6215a6e4fd8bd3-1 frame=120 widgets=48",
+    "prepared": "Browser review prepared: DXR-S-e6aabe8a7865a3398a6215a6e4fd8bd3-1",
+    "archive": "DXR-S-e6aabe8a7865a3398a6215a6e4fd8bd3-1.dxreview.tar",
+    "report_id": "DXR-S-e6aabe8a7865a3398a6215a6e4fd8bd3-1",
+    "frame_id": "120",
+    "widget": "filter.search",
+    "framebuffer": {
+      "width": 1280,
+      "height": 820
+    },
+    "archive_sha256": "65e66796dcc24cebd20f355bcd1379f0042351b46f96b8b0f38866813a8d2d00"
+  },
+  "workerProbe": false,
+  "scope": "Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; workbook persistence is not accepted"
+}
