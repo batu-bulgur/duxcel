@@ -272,6 +272,12 @@ static const char *review_author_identity(App *a,const char *kind,char parent[12
         *data=(DxReviewDataIdentity){0}; snprintf(data->kind,sizeof(data->kind),"app-settings");
         snprintf(parent,128,"author.%s",kind); return NULL;
     }
+    if (!strcmp(kind,"font_size") || !strcmp(kind,"number_format")) {
+        *data=review_scope(a); snprintf(data->kind,sizeof(data->kind),"worksheet-format");
+        data->source_id=data->object_id=data->schema_generation=0; data->query_generation=active_sheet(a)->formats.revision;
+        uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1); data->row=r0; data->column=c0; data->has_cell=true; data->field[0]=0;
+        snprintf(parent,128,"author.%s",kind); return NULL;
+    }
     if (!strcmp(kind,"cell_inspector")) {
         if (a->inspector_origin_valid) *data=a->inspector_origin;
         else { *data=review_scope(a); data->source_id=data->object_id=data->schema_generation=data->query_generation=0; data->has_cell=false; data->row=data->column=0; data->field[0]=0; snprintf(data->kind,sizeof(data->kind),"inspector-unknown"); }
@@ -435,6 +441,11 @@ static void review_author_panel(App *a,const char *kind,const char *title,Rectan
     if (!strcmp(kind,"settings")) {
         char settings[160]; snprintf(settings,sizeof(settings)," settings_scale=%.3f settings_requested_scale=%.3f settings_reduced_motion=%d",a->ui.scale,a->ui.requested_scale,a->reduced_motion);
         review_author_capture_state(a,settings);
+    }
+    if (!strcmp(kind,"font_size") || !strcmp(kind,"number_format")) {
+        uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1); CellFormat current=active_format(a);
+        char format[512]; snprintf(format,sizeof(format)," format_range=%llu,%llu,%zu,%zu format_revision=%llu format_value=%u,%u,%u,%u,%u,%u format_parent=%d,%d format_focus=%d format_scroll=%d format_origin=%.3f,%.3f format_width=%.3f",(unsigned long long)r0,(unsigned long long)r1,c0,c1,(unsigned long long)active_sheet(a)->formats.revision,current.flags,current.align,current.color,current.size,current.number,current.decimals,a->format_return_group,a->format_return_command,a->context_focus,a->context_scroll,a->format_origin.x,a->format_origin.y,a->format_width);
+        review_author_capture_state(a,format);
     }
 }
 static void review_author_item(App *a,const char *kind,const char *key,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,const char *file,int line) {
@@ -843,7 +854,8 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_SORT_END (REVIEW_RELATION_END+2*6)
 #define REVIEW_STATS_END (REVIEW_SORT_END+3*6)
 #define REVIEW_INSPECTOR_END (REVIEW_STATS_END+4*6)
-#define REVIEW_SMOKE_STAGES (REVIEW_INSPECTOR_END+2*6)
+#define REVIEW_SETTINGS_END (REVIEW_INSPECTOR_END+2*6)
+#define REVIEW_SMOKE_STAGES (REVIEW_SETTINGS_END+2*6)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -875,6 +887,10 @@ typedef struct {
     DxReviewDataIdentity inspector_origin; bool inspector_null,inspector_drag,inspector_valid,inspector_stale,inspector_truncated;
     float inspector_grab; double inspector_layout_ms;
     float settings_requested_scale; bool settings_reduced_motion;
+    FormatStore format_copy,format_borrowed; CellFormat format_value; UIFlyoutLayout format_flyout;
+    UIAction format_action; Vector2 format_origin; float format_width; double format_wheel;
+    int format_parent_group,format_parent_command,format_focus,format_scroll,format_popup_group,format_popup_focus,format_setup_item;
+    bool format_setup_started,format_parent_closing,format_more_anchor;
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -982,6 +998,7 @@ static void review_smoke_author_release(ReviewSmoke *t) {
     analysis_free(&t->stats_source); free(t->stats_error); t->stats_error=NULL; for (size_t i=0;i<4;i++) { free(t->stats_text[i]); t->stats_text[i]=NULL; }
     analysis_free(&t->inspector_source); free(t->inspector_text); free(t->inspector_type); free(t->inspector_column); free(t->inspector_offsets);
     t->inspector_text=t->inspector_type=t->inspector_column=NULL; t->inspector_offsets=NULL;
+    format_free(&t->format_copy); /* format_borrowed only observes App ownership. */
     free(t->dialog_text); t->dialog_text=NULL; free(t->dialog_chart_text); t->dialog_chart_text=NULL;
     for (size_t i=0;i<DX_MAX_SHEETS;i++) { free(t->sheet_names[i]); t->sheet_names[i]=NULL; }
 }
@@ -2016,6 +2033,109 @@ static int review_smoke_settings_tick(App *a,ReviewSmoke *t) {
     if (phase==4) { if (!review_smoke_settings_same(a,t)) { review_smoke_settings_diagnostic(a,t,"report cancellation"); return -1; } ui_note_key_press(KEY_ESCAPE,0); return 1; }
     t->choice_modal=MODAL_NONE; if (!review_smoke_settings_same(a,t)) { review_smoke_settings_diagnostic(a,t,"normal settings cancellation"); return -1; }
     printf("PASS: native Settings review layout=%s retains actual/requested UI scale, reduced motion, source/models/pages/statistics and query jobs\n",item ? "narrow single column at150%" : "wide two columns at100%");
+    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); } return 1;
+}
+static bool review_smoke_format_values(const FormatStore *live,const FormatStore *copy) {
+    if (live->count!=copy->count || live->scope_count!=copy->scope_count || live->revision!=copy->revision) return false;
+    for (size_t i=0;i<live->count;i++) {
+        const FormatPatch *a=&live->items[i],*b=&copy->items[i];
+        if (a->range.r0!=b->range.r0 || a->range.r1!=b->range.r1 || a->range.c0!=b->range.c0 || a->range.c1!=b->range.c1 || a->mask!=b->mask || memcmp(&a->value,&b->value,sizeof(a->value)) || a->selector!=b->selector || a->guard_count!=b->guard_count || (a->guard_count && memcmp(a->guard_ids,b->guard_ids,a->guard_count*sizeof(size_t)))) return false;
+    }
+    for (size_t i=0;i<live->scope_count;i++) if (live->scopes[i].owner!=copy->scopes[i].owner || live->scopes[i].bytes!=copy->scopes[i].bytes || memcmp(live->scopes[i].definition,copy->scopes[i].definition,live->scopes[i].bytes)) return false;
+    return true;
+}
+static void review_smoke_format_remember(App *a,ReviewSmoke *t) {
+    review_smoke_stats_remember(a,t); t->format_borrowed=active_sheet(a)->formats; format_copy(&t->format_copy,&active_sheet(a)->formats); t->format_value=active_format(a);
+    t->format_flyout=a->ribbon_flyout; t->format_action=a->format_action; t->format_origin=a->format_origin; t->format_width=a->format_width; t->format_wheel=a->wheel_select;
+    t->format_parent_group=a->format_return_group; t->format_parent_command=a->format_return_command; t->format_focus=a->context_focus; t->format_scroll=a->context_scroll;
+    t->format_popup_group=a->ribbon_popup_group; t->format_popup_focus=a->ribbon_popup_focus; t->format_more_anchor=a->ribbon_popup_more_anchor;
+}
+static bool review_smoke_format_same(App *a,ReviewSmoke *t) {
+    CellFormat value=active_format(a);
+    return review_smoke_stats_same(a,t) && !memcmp(&active_sheet(a)->formats,&t->format_borrowed,sizeof(t->format_borrowed)) && review_smoke_format_values(&active_sheet(a)->formats,&t->format_copy) && !memcmp(&value,&t->format_value,sizeof(value)) &&
+        a->format_action==t->format_action && a->format_origin.x==t->format_origin.x && a->format_origin.y==t->format_origin.y && a->format_width==t->format_width && a->wheel_select==t->format_wheel &&
+        a->format_return_group==t->format_parent_group && a->format_return_command==t->format_parent_command && a->context_focus==t->format_focus && a->context_scroll==t->format_scroll &&
+        (t->format_parent_group<0 || (a->ribbon_popup_group==t->format_popup_group && a->ribbon_popup_focus==t->format_popup_focus && a->ribbon_popup_more_anchor==t->format_more_anchor && !memcmp(&a->ribbon_flyout,&t->format_flyout,sizeof(t->format_flyout))));
+}
+static bool review_smoke_format_targets(App *a,ReviewSmoke *t,int item) {
+    DxReviewRegistry *registry=a->review->registry; char parent[128],id[128]; snprintf(parent,sizeof(parent),"author.%s",item ? "number_format" : "font_size");
+    const DxReviewWidget *panel=dx_review_find(registry,parent); snprintf(id,sizeof(id),"%s.heading",parent);
+    if (!panel || !panel->container || panel->input_eligible || dx_review_find(registry,id) || registry->duplicate_count || registry->invalid_count || registry->overflow_count || registry->truncated || strstr(a->review->frame.state_text," author_overflow=1")) return false;
+    uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1); size_t rows=0,checks=0,focused=0;
+    for (size_t i=0;i<registry->count;i++) {
+        const DxReviewWidget *widget=&registry->widgets[i]; if (strncmp(widget->id,parent,strlen(parent))) continue;
+        const DxReviewDataIdentity *data=&widget->data;
+        if (!data->present || strcmp(data->kind,"worksheet-format") || data->sheet_id!=a->book.active+1 || data->object_id || data->source_id || data->schema_generation || data->query_generation!=t->format_borrowed.revision || !data->has_cell || data->row!=r0 || data->column!=c0 || data->field[0]) return false;
+        if (!strstr(widget->id,".action.")) continue;
+        char key[32],label[32]; if (item) { snprintf(key,sizeof(key),"%s",rows ? "number" : "accounting"); snprintf(label,sizeof(label),"%s",rows ? "Number" : "Accounting"); }
+        else { snprintf(key,sizeof(key),"size.%zu",11+rows); snprintf(label,sizeof(label),"%zu",11+rows); }
+        snprintf(id,sizeof(id),"%s.action.%s",parent,key); bool checked=item ? (rows ? t->format_value.number==FORMAT_NUMBER : t->format_value.number!=FORMAT_NUMBER) : t->format_value.size==11+rows;
+        if (strcmp(widget->id,id) || strcmp(widget->label,label) || strcmp(widget->role,"menuitemradio") || !widget->enabled || !widget->input_eligible || widget->checked!=checked || widget->focused!=(rows==(size_t)t->format_focus) || !review_smoke_sheet_pick(a,widget,parent)) return false;
+        rows++; checks+=widget->checked; focused+=widget->focused;
+    }
+    DxReviewTarget picked;
+    if (rows!=(item ? 2 : 6) || checks!=1 || focused!=1 || !dx_review_pick(registry,panel->bounds.x+.5f*a->ui.scale,panel->bounds.y+.5f*a->ui.scale,DX_REVIEW_PICK_CONTROL,&picked)) return false;
+    snprintf(id,sizeof(id),"%s.background",parent); if (strcmp(picked.widget.id,id) || fabsf(panel->bounds.width-a->format_width*a->ui.scale)>.01f) return false;
+    if (item) {
+        char opener[128]; snprintf(opener,sizeof(opener),"ribbon.0.flyout.%s",review_action_id(ACTION_NUMBER_FORMAT)+8);
+        const DxReviewWidget *anchor=dx_review_find(registry,opener); Rectangle expected=t->format_flyout.commands[t->format_parent_command];
+        if (!anchor || anchor->bounds.x!=expected.x || anchor->bounds.y!=expected.y || anchor->bounds.width!=expected.width || anchor->bounds.height!=expected.height || t->format_parent_group<0 || !t->format_flyout.valid) return false;
+    }
+    snprintf(t->author_target,sizeof(t->author_target),"%s.action.%s",parent,item ? "number" : "size.13"); return true;
+}
+static void review_smoke_format_diagnostic(App *a,ReviewSmoke *t,const char *reason) {
+    fprintf(stderr,"Review format mismatch %s stage=%d modal=%d action=%d/%d parent=%d,%d/%d,%d focus=%d/%d scroll=%d/%d width=%.3f/%.3f revision=%llu/%llu target=%s actual=%s\n",reason,t->stage,(int)a->modal,(int)a->format_action,(int)t->format_action,a->format_return_group,a->format_return_command,t->format_parent_group,t->format_parent_command,a->context_focus,t->format_focus,a->context_scroll,t->format_scroll,a->format_width,t->format_width,(unsigned long long)active_sheet(a)->formats.revision,(unsigned long long)t->format_borrowed.revision,t->author_target,a->review->target.widget.id);
+    for (size_t i=0;i<a->review->registry->count;i++) { const DxReviewWidget *widget=&a->review->registry->widgets[i]; if (strncmp(widget->id,"author.font_size",strlen("author.font_size")) && strncmp(widget->id,"author.number_format",strlen("author.number_format"))) continue; fprintf(stderr,"Review format widget %s parent=%s role=%s enabled=%d checked=%d focus=%d kind=%s owner=%llu source=%llu row=%llu column=%llu generation=%llu bounds=%.2f,%.2f,%.2f,%.2f clip=%.2f,%.2f,%.2f,%.2f\n",widget->id,widget->parent_id,widget->role,widget->enabled,widget->checked,widget->focused,widget->data.kind,(unsigned long long)widget->data.object_id,(unsigned long long)widget->data.source_id,(unsigned long long)widget->data.row,(unsigned long long)widget->data.column,(unsigned long long)widget->data.query_generation,widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height,widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height); }
+}
+static int review_smoke_format_tick(App *a,ReviewSmoke *t) {
+    int item=(t->stage-REVIEW_SETTINGS_END)/6,phase=(t->stage-REVIEW_SETTINGS_END)%6; DxReviewCapture *r=a->review;
+    UIAction action=item ? ACTION_NUMBER_FORMAT : ACTION_FONT_SIZE; int command=-1;
+    for (int i=0;i<ribbon_counts[RIBBON_HOME];i++) if (ribbon_commands[RIBBON_HOME][i].action==action) command=i;
+    if (command<0) return -1;
+    if (!phase) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        if (!t->format_setup_started || t->format_setup_item!=item) {
+            t->format_setup_started=true; t->format_setup_item=item; t->format_parent_closing=false;
+            ui_set_scale(&a->ui,item ? 1.5f : 1); SetWindowSize(item ? 760 : 1280,item ? 640 : 820); a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); a->ribbon_focus=false;
+            a->selected_object=0; a->matrix_cells_active=false; grid_select_cell(&a->grid,120,24,false); a->grid.end_row=121; a->grid.end_col=26; return 0;
+        }
+        if (GetScreenWidth()!=(item ? 760 : 1280) || GetScreenHeight()!=(item ? 640 : 820) || a->ui.scale!=(item ? 1.5f : 1)) return 0;
+        /* Let the real range watcher finish before a popup intentionally
+           suspends statistics scheduling; cancellation must add no job. */
+        if (a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
+        update_ribbon_layout(a);
+        if (item) {
+            int group=ui_ribbon_group_for(ribbon_groups[RIBBON_HOME],ribbon_group_counts[RIBBON_HOME],command);
+            if (group<0) return -1;
+            if (a->modal==MODAL_NONE) { open_command_group(a,group,command-ribbon_groups[RIBBON_HOME][group].first); return 0; }
+            if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=group) return -1;
+            Rectangle opener=a->ribbon_flyout.commands[command]; if (!a->ribbon_flyout.valid || opener.width<=0 || opener.height<=0) return 0;
+        } else if (a->ribbon_layout.commands[command].width<=0) return -1;
+        invoke_command(a,command); return a->modal==MODAL_FORMAT && a->format_action==action ? 1 : -1;
+    }
+    if (phase==1) {
+        if (a->modal!=MODAL_FORMAT || a->format_action!=action) return -1;
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a) || !review_can_capture(a) || a->popup_presence.alpha!=1 || a->popup_presence.offset) return 0;
+        review_smoke_format_remember(a,t); ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        bool same=review_smoke_format_same(a,t),targets=same && review_smoke_format_targets(a,t,item);
+        if (!same || !targets) { review_smoke_format_diagnostic(a,t,same ? "targets" : "retained state"); return -1; }
+        r->toolbar_top=false; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==3) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || r->target.widget.checked!=(item==0) || !review_smoke_format_same(a,t)) { review_smoke_format_diagnostic(a,t,"actual picker target/state"); return -1; }
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (phase==4) { if (!review_smoke_format_same(a,t)) { review_smoke_format_diagnostic(a,t,"report cancellation"); return -1; } ui_note_key_press(KEY_ESCAPE,0); return 1; }
+    t->choice_modal=item && !t->format_parent_closing ? MODAL_COMMANDS : MODAL_NONE;
+    if (!review_smoke_format_same(a,t)) { review_smoke_format_diagnostic(a,t,"normal child/parent cancellation"); return -1; }
+    if (item && !t->format_parent_closing) { t->format_parent_closing=true; ui_note_key_press(KEY_ESCAPE,0); return 0; }
+    if (item && (!a->ribbon_focus || a->ribbon_command!=(t->format_more_anchor && ribbon_more_available(a) ? RIBBON_MORE_COMMAND : command))) return -1;
+    printf("PASS: native compact format review kind=%s retains worksheet range/revision, full format ownership/content/history, source/models/pages/statistics and query jobs%s\n",item ? "number" : "font size",item ? "; actual retained parent flyout restored and closed" : "");
     review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
@@ -2030,7 +2150,7 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         t->wait_frame=a->frames;
     }
     if (t->stage>=71) {
-        int progress=t->stage>=REVIEW_INSPECTOR_END ? review_smoke_settings_tick(a,t) : t->stage>=REVIEW_STATS_END ? review_smoke_inspector_tick(a,t) : t->stage>=REVIEW_SORT_END ? review_smoke_stats_tick(a,t) : t->stage>=REVIEW_RELATION_END ? review_smoke_sort_tick(a,t) : t->stage>=REVIEW_QUERY_END ? review_smoke_relation_tick(a,t) : t->stage>=REVIEW_SHEET_END ? review_smoke_query_tick(a,t) : t->stage>=REVIEW_PLOT_END ? review_smoke_sheet_tick(a,t) : t->stage>=REVIEW_DIALOG_END ? review_smoke_plot_identity_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
+        int progress=t->stage>=REVIEW_SETTINGS_END ? review_smoke_format_tick(a,t) : t->stage>=REVIEW_INSPECTOR_END ? review_smoke_settings_tick(a,t) : t->stage>=REVIEW_STATS_END ? review_smoke_inspector_tick(a,t) : t->stage>=REVIEW_SORT_END ? review_smoke_stats_tick(a,t) : t->stage>=REVIEW_RELATION_END ? review_smoke_sort_tick(a,t) : t->stage>=REVIEW_QUERY_END ? review_smoke_relation_tick(a,t) : t->stage>=REVIEW_SHEET_END ? review_smoke_query_tick(a,t) : t->stage>=REVIEW_PLOT_END ? review_smoke_sheet_tick(a,t) : t->stage>=REVIEW_DIALOG_END ? review_smoke_plot_identity_tick(a,t) : t->stage>=REVIEW_AUTHOR_END ? review_smoke_dialog_tick(a,t) : review_smoke_author_tick(a,t);
         if (progress<0) goto failed; if (!progress) return;
         t->stage++; return;
     }
