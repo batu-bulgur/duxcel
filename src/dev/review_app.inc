@@ -223,7 +223,7 @@ static uint64_t review_field_hash(const char *text) {
 }
 static bool review_author_dialog(const char *kind) {
     return !strcmp(kind,"column_width") || !strcmp(kind,"move_range") || !strcmp(kind,"object_name") ||
-        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sort") || !strcmp(kind,"sheet_rename");
+        !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sort") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"cell_inspector");
 }
 static bool review_author_field(char output[128],const char *field) {
     size_t length=strlen(field);
@@ -231,10 +231,48 @@ static bool review_author_field(char output[128],const char *field) {
     size_t end=124; while (end && ((unsigned char)field[end]&0xc0)==0x80) end--;
     memcpy(output,field,end); memcpy(output+end,"…",4); return true;
 }
+/* Called only after inspect_value has resolved and copied its actual value.
+   The origin outlives Page publication/eviction just as inspector_text does. */
+static void review_inspector_pin(App *a,const Page *page,const SheetObject *object,uint64_t row,size_t column,bool manual) {
+    DxReviewDataIdentity data=review_scope(a);
+    data.source_id=data.object_id=data.schema_generation=data.query_generation=0;
+    data.has_cell=true; data.row=row; data.column=column; data.field[0]=0;
+    bool stale=false,truncated=false;
+    if (manual) {
+        snprintf(data.kind,sizeof(data.kind),"inspector-manual"); data.query_generation=active_sheet(a)->cells.revision;
+    } else {
+        snprintf(data.kind,sizeof(data.kind),"inspector-source");
+        if (page && column<page->column_count) truncated=review_author_field(data.field,page->columns[column].name);
+        if (a->step_preview.active) {
+            snprintf(data.kind,sizeof(data.kind),"inspector-preview"); stale=a->step_preview.loading;
+            data.source_id=a->step_preview.source_id;
+            if (!stale) data.query_generation=a->step_preview.source_revision;
+        } else if (object) {
+            snprintf(data.kind,sizeof(data.kind),"inspector-result"); data.object_id=object->id;
+            ObjectStore *store=&active_sheet(a)->objects;
+            for (size_t i=0;i<store->count;i++) if (&store->items[i]==object) {
+                const ObjectView *view=&a->objects[i];
+                data.query_generation=view->revision; data.schema_generation=view->source_revision;
+                stale=view->dirty || view->failed || view->revision!=object->revision || view->source_revision!=object_source_revision(a,object);
+                /* Cached revisions cannot recover an old upstream binding.
+                   Do not relabel its owned value with the new source ID. */
+                if (!stale) data.source_id=object->kind==OBJECT_TABLE ? object->id : object->source_id;
+                break;
+            }
+        } else { stale=a->page_stale; if (!stale) data.query_generation=a->analysis_revision; }
+    }
+    a->inspector_origin=data; a->inspector_origin_valid=true; a->inspector_origin_stale=stale; a->inspector_origin_truncated=truncated;
+}
 static const char *review_author_identity(App *a,const char *kind,char parent[128],DxReviewDataIdentity *data,bool *truncated) {
     SheetObject *object=selected_object(a); const char *field=NULL,*scope=NULL;
     static const char *const roles[]={"rows","columns","values","filters"};
     static const char *const marks[]={"color","size","label","detail","tooltip","shape"};
+    if (!strcmp(kind,"cell_inspector")) {
+        if (a->inspector_origin_valid) *data=a->inspector_origin;
+        else { *data=review_scope(a); data->source_id=data->object_id=data->schema_generation=data->query_generation=0; data->has_cell=false; data->row=data->column=0; data->field[0]=0; snprintf(data->kind,sizeof(data->kind),"inspector-unknown"); }
+        if (truncated) *truncated|=a->inspector_origin_truncated;
+        snprintf(parent,128,"author.%s",kind); return NULL;
+    }
     if (!strcmp(kind,"sheet_menu") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"sheet_unhide")) {
         *data=review_sheet_scope(a,a->sheet_menu_index); snprintf(parent,128,"author.%s",kind); return NULL;
     }
@@ -385,6 +423,10 @@ static void review_author_panel(App *a,const char *kind,const char *title,Rectan
         char stats[512]; snprintf(stats,sizeof(stats)," stats_menu_mask=%u stats_menu_focus=%d stats_menu_frame=%d stats_menu_enabled=%d stats_menu_preview=%d stats_menu_range=%llu,%llu,%zu,%zu stats_menu_object=%d stats_menu_state=%d stats_menu_flags=%d,%d,%d,%d",a->statistics_mask,a->statistics_focus,!a->step_preview.active && a->statistics_frame,a->statistics_enabled,a->step_preview.active,(unsigned long long)r0,(unsigned long long)r1,c0,c1,a->statistics_object,a->step_preview.active ? (int)a->step_preview.stats_state : (int)a->statistics_state,cached->approximate,cached->non_finite,cached->sum_overflow,cached->average_overflow);
         review_author_capture_state(a,stats);
     }
+    if (!strcmp(kind,"cell_inspector")) {
+        char inspector[320]; snprintf(inspector,sizeof(inspector)," inspector_bytes=%zu inspector_null=%d inspector_scroll=%zu inspector_lines=%zu inspector_limited=%d inspector_origin_valid=%d inspector_origin_stale=%d inspector_origin_truncated=%d inspector_value_truncated=%d",a->inspector_bytes,a->inspector_null,a->inspector_scroll,a->inspector_lines.count,a->inspector_lines.limited,a->inspector_origin_valid,a->inspector_origin_stale,a->inspector_origin_truncated,a->inspector_bytes>=sizeof(((DxReviewValue *)0)->exact_text));
+        review_author_capture_state(a,inspector);
+    }
 }
 static void review_author_item(App *a,const char *kind,const char *key,const char *action,const char *role,const char *label,Rectangle bounds,Rectangle clip,bool enabled,bool checked,bool focused,const char *field,const char *file,int line) {
     if (!review_armed(a)) return;
@@ -416,6 +458,13 @@ static void review_author_input(App *a,const char *kind,const char *key,const ch
     char id[128]; snprintf(id,sizeof(id),"author.%s.action.%s",kind,key);
     DxReviewWidget *w=(DxReviewWidget *)dx_review_find(a->review->registry,id);
     if (w) { dx_review_value_set(&w->value,"VARCHAR",false,input && input->text ? input->text : ""); w->truncated|=w->value.truncated; a->review->registry->truncated|=w->truncated; }
+}
+static void review_inspector_value(App *a,Rectangle bounds,Rectangle clip,const char *file,int line) {
+    if (!review_armed(a)) return;
+    DxReviewWidget *widget=review_author_widget(a,"author.cell_inspector.value","author.cell_inspector","cell_inspector","cell.inspect_value","region","Cell value",bounds,clip,131,true,false,false,false,NULL,file,line);
+    if (!widget) return;
+    dx_review_value_set(&widget->value,a->inspector_type,a->inspector_null,a->inspector_text);
+    widget->truncated|=widget->value.truncated; a->review->registry->truncated|=widget->truncated;
 }
 static void review_statistics_row(App *a,int metric,const char *label,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line) {
     if (!review_armed(a) || metric<0 || metric>=8) return;
