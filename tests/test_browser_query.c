@@ -282,7 +282,99 @@ static void test_matrix_completion(void) {
     }
     pivot_free(&pivot); PivotDefinition empty={0}; CHECK(!memcmp(&pivot,&empty,sizeof(pivot))); pivot_free(&pivot); CHECK(!memcmp(&pivot,&empty,sizeof(pivot)));
 }
+static Page domain_fixture(size_t count,const char *const *values) {
+    const char *names[]={"category"},*types[]={"VARCHAR"}; Page describe=describe_page(1,names,types),page={0};
+    CHECK(browser_schema_from_describe(&page,&describe,NULL)); page_free(&describe);
+    page.row_count=page.total=count; if (count) page.cells=dx_alloc(count*sizeof(Cell)); page.bytes+=count*sizeof(Cell);
+    for (size_t i=0;i<count;i++) { char value[32]; snprintf(value,sizeof(value),"v%03zu",i); const char *text=values ? values[i] : value; page.cells[i]=(Cell){.is_null=!text,.text=text ? dx_strdup(text) : NULL}; if (text) page.bytes+=strlen(text)+1; }
+    return page;
+}
+static Page planned_fixture(const PivotDefinition *p,const BrowserPivotPlan *plan,size_t rows) {
+    const char *names[128]={0},*types[128]={0}; char *keys[DX_PIVOT_FIELDS]={0}; size_t count=p->counts[PIVOT_ROWS]+plan->count;
+    for (size_t i=0;i<p->counts[PIVOT_ROWS];i++) { keys[i]=pivot_field_key(p,PIVOT_ROWS,i); names[i]=keys[i]; types[i]="VARCHAR"; }
+    for (size_t c=0;c<plan->count;c++) { names[p->counts[PIVOT_ROWS]+c]=plan->headers[c].name; const PivotField *m=&p->fields[PIVOT_VALUES][c%p->counts[PIVOT_VALUES]]; types[p->counts[PIVOT_ROWS]+c]=m->aggregate==AGG_AVG ? "DOUBLE" : m->aggregate==AGG_DISTINCT || m->aggregate==AGG_COUNT ? "BIGINT" : !strcmp(m->name,"Text") ? "VARCHAR" : "DECIMAL(38,2)"; }
+    Page describe=describe_page(count,names,types),page={0}; CHECK(browser_schema_from_describe(&page,&describe,NULL)); page_free(&describe);
+    for (size_t i=0;i<DX_PIVOT_FIELDS;i++) free(keys[i]);
+    page.row_count=page.total=rows; if (rows) page.cells=dx_alloc(rows*count*sizeof(Cell)); page.bytes+=rows*count*sizeof(Cell);
+    for (size_t i=0;i<rows*count;i++) { page.cells[i].text=dx_strdup("1"); page.bytes+=2; } return page;
+}
+static Page planned_readout(const Page *body,const PivotDefinition *p,const BrowserPivotPlan *plan,bool rows) {
+    Page page={0}; CHECK(browser_pivot_readout_schema(&page,body,p,plan,rows,NULL)); page.row_count=rows ? body->row_count : 1; page.total=rows ? body->total : 1; page.offset=rows ? body->offset : 0;
+    if (page.row_count) page.cells=dx_alloc(page.row_count*page.column_count*sizeof(Cell)); page.bytes+=page.row_count*page.column_count*sizeof(Cell);
+    for (size_t i=0;i<page.row_count*page.column_count;i++) { page.cells[i].text=dx_strdup("1"); page.bytes+=2; } return page;
+}
+static void reject_plan(BrowserPivotPlan *out,const Analysis *source,const PivotDefinition *p,const Page *domains) {
+    BrowserPivotPlan before=*out; char *error=NULL; CHECK(!browser_pivot_plan_build(out,source,p,domains,&error) && error && *error); CHECK(!memcmp(out,&before,sizeof(before))); free(error);
+}
+static void reject_planned_page(Page *body,Page *rows,Page *columns,const PivotDefinition *p,const BrowserPivotPlan *plan) {
+    Page b=*body,r=rows ? *rows : (Page){0},c=columns ? *columns : (Page){0}; char *error=NULL;
+    CHECK(!browser_pivot_plan_complete(body,rows,columns,p,plan,&error) && error && *error);
+    CHECK(!memcmp(body,&b,sizeof(b)) && (!rows || !memcmp(rows,&r,sizeof(r))) && (!columns || !memcmp(columns,&c,sizeof(c)))); free(error);
+}
+static void test_column_plans(void) {
+    Analysis source={.kind=SOURCE_CSV,.path=dx_strdup("O'Reilly.csv")}; PivotDefinition p={0}; BrowserPivotPlan plan={0}; Page domains[DX_PIVOT_FIELDS]={0}; char *error=NULL;
+    CHECK(pivot_assign(&p,PIVOT_ROWS,"City",AGG_SUM,NULL)); CHECK(pivot_assign(&p,PIVOT_COLUMNS,"Category",AGG_SUM,NULL));
+    CHECK(pivot_assign(&p,PIVOT_VALUES,"Amount",AGG_AVG,NULL) && pivot_assign(&p,PIVOT_VALUES,"ID",AGG_DISTINCT,NULL));
+    const char *categories[]={NULL,"","NULL","FOO","foo","quote_\"'_SUM"}; domains[0]=domain_fixture(6,categories);
+    char *sql=browser_pivot_domain_sql(&source,&p,0,&error);
+    CHECK(sql && strstr(sql,"CAST(_duxcel_domain_value AS VARCHAR) AS category") && strstr(sql,"SELECT DISTINCT \"Category\" AS _duxcel_domain_value") && strstr(sql,"ORDER BY _duxcel_domain_value NULLS FIRST LIMIT 129") && strstr(sql,"O''Reilly.csv")); free(sql);
+    CHECK(browser_pivot_plan_build(&plan,&source,&p,domains,&error) && !error && plan.count==12 && !plan.empty_input && plan.bytes<=DX_PAGE_WIRE_TEXT_BYTES);
+    CHECK(strstr(plan.sql,"PIVOT (") && strstr(plan.sql,"NULL AS \"category_0\"") && strstr(plan.sql,"'' AS \"category_1\"") && strstr(plan.sql,"'NULL' AS \"category_2\"") && strstr(plan.sql,"'quote_\"''_SUM' AS \"category_5\""));
+    CHECK(plan.headers[0].category_count==1 && !plan.headers[0].categories[0] && !strcmp(plan.headers[0].caption,"NULL"));
+    CHECK(plan.headers[2].categories[0] && !*plan.headers[2].categories[0] && !*plan.headers[2].caption && !strcmp(plan.headers[4].categories[0],"NULL"));
+    CHECK(!strcmp(plan.headers[8].categories[0],"foo") && !strcmp(plan.headers[11].detail,"COUNT DISTINCT(ID)") && strstr(plan.sql,"__duxcel_pivot_value_11_0"));
+    sql=browser_pivot_readout_sql(&source,&p,&plan,true,256,&error);
+    CHECK(sql && strstr(sql,"GROUP BY GROUPING SETS") && strstr(sql,"WHERE mask=1 ORDER BY d0 NULLS FIRST LIMIT 256 OFFSET 256") && strstr(sql,"COUNT(DISTINCT v1)")); free(sql);
+    sql=browser_pivot_readout_sql(&source,&p,&plan,false,0,&error);
+    CHECK(sql && strstr(sql,"mask=2 AND d1 IS NOT DISTINCT FROM NULL") && strstr(sql,"d1 IS NOT DISTINCT FROM ''") && strstr(sql,"d1 IS NOT DISTINCT FROM 'NULL'") && strstr(sql,"mask=3") && strstr(sql,"AS total_13") && strstr(sql,"CAST(coalesce(max(m1)")); free(sql);
+    Page body=planned_fixture(&p,&plan,2); body.offset=256; body.total=600;
+    Page rows=planned_readout(&body,&p,&plan,true),columns=planned_readout(&body,&p,&plan,false);
+    matrix_cell(&body,0,1,"15"); matrix_cell(&body,0,3,"30"); matrix_cell(&rows,0,0,"20"); matrix_cell(&rows,0,1,"2"); matrix_cell(&columns,0,12,"25");
+    char *row_text=rows.cells[0].text,*footer_text=columns.cells[12].text;
+    CHECK(browser_pivot_plan_complete(&body,&rows,&columns,&p,&plan,&error) && !rows.cells && !columns.cells);
+    CHECK(body.totals && body.totals->has_columns && body.totals->rows.cells[0].text==row_text && !strcmp(row_text,"20") && body.totals->columns.cells[12].text==footer_text && !strcmp(footer_text,"25"));
+    CHECK(!body.columns[1].categories[0] && body.columns[3].categories[0] && !*body.columns[3].categories[0] && body.columns[5].categories[0] && !strcmp(body.columns[5].categories[0],"NULL"));
+    CHECK(body.columns[3].categories[0]!=plan.headers[2].categories[0] && body.bytes<=DX_PAGE_WIRE_TEXT_BYTES); page_free(&body);
+    body=planned_fixture(&p,&plan,1); rows=planned_readout(&body,&p,&plan,true); columns=planned_readout(&body,&p,&plan,false);
+    Page invalid=rows; invalid.total=5; reject_planned_page(&body,&invalid,&columns,&p,&plan);
+    invalid=columns; invalid.column_count--; reject_planned_page(&body,&rows,&invalid,&p,&plan);
+    invalid=body; invalid.count_pending=true; reject_planned_page(&invalid,&rows,&columns,&p,&plan);
+    invalid=body; invalid.bytes=DX_PAGE_WIRE_TEXT_BYTES-1; reject_planned_page(&invalid,&rows,&columns,&p,&plan);
+    reject_planned_page(&body,&rows,NULL,&p,&plan);
+    char *saved=columns.columns[0].type_name; columns.columns[0].type_name="VARCHAR"; reject_planned_page(&body,&rows,&columns,&p,&plan); columns.columns[0].type_name=saved;
+    CHECK(browser_pivot_plan_complete(&body,NULL,NULL,&p,&plan,NULL) && !body.totals && body.columns[1].category_count==1); page_free(&body); page_free(&rows); page_free(&columns);
+    Page malformed=domains[0]; malformed.row_count=129; reject_plan(&plan,&source,&p,&malformed);
+    malformed=domains[0]; malformed.bytes=0; reject_plan(&plan,&source,&p,&malformed);
+    matrix_cell(&domains[0],4,0,"FOO"); reject_plan(&plan,&source,&p,domains); matrix_cell(&domains[0],4,0,"foo");
+    PivotDefinition invalid_p=p; invalid_p.counts[PIVOT_COLUMNS]=SIZE_MAX; reject_plan(&plan,&source,&invalid_p,domains);
+    reject_sql(browser_pivot_domain_sql(&source,&p,SIZE_MAX,&error),&error); reject_sql(browser_pivot_readout_sql(&source,&p,&plan,true,UINT64_MAX-255,&error),&error);
+    page_free(&domains[0]); browser_pivot_plan_free(&plan); pivot_free(&p);
+    CHECK(pivot_assign(&p,PIVOT_ROWS,"City",AGG_SUM,NULL) && pivot_assign_grain(&p,PIVOT_COLUMNS,"Date",AGG_SUM,PIVOT_DATE_MONTH,NULL) && pivot_assign(&p,PIVOT_COLUMNS,"Category",AGG_SUM,NULL) && pivot_assign(&p,PIVOT_VALUES,"Amount",AGG_SUM,NULL));
+    const char *dates[]={NULL,"2026-01-01"},*labels[]={"","NULL"}; domains[0]=domain_fixture(2,dates); domains[1]=domain_fixture(2,labels);
+    CHECK(browser_pivot_plan_build(&plan,&source,&p,domains,NULL) && plan.count==4 && plan.headers[2].category_count==2 && plan.headers[2].category_grains[0]==PIVOT_DATE_MONTH && !strcmp(plan.headers[2].caption,"Jan 2026 · ") && !strcmp(plan.headers[3].categories[1],"NULL"));
+    sql=browser_pivot_domain_sql(&source,&p,0,NULL); CHECK(sql && strstr(sql,"date_trunc('month'") && strstr(sql,"__duxcel_date_1_0_0")); free(sql);
+    sql=browser_pivot_readout_sql(&source,&p,&plan,false,0,NULL); CHECK(sql && strstr(sql,"mask=4") && strstr(sql,"mask=7") && strstr(sql,"d1 IS NOT DISTINCT FROM '2026-01-01' AND d2 IS NOT DISTINCT FROM ''")); free(sql);
+    page_free(&domains[0]); page_free(&domains[1]); browser_pivot_plan_free(&plan); pivot_free(&p);
+    CHECK(pivot_assign(&p,PIVOT_COLUMNS,"Category",AGG_SUM,NULL) && pivot_assign(&p,PIVOT_VALUES,"Amount",AGG_SUM,NULL));
+    domains[0]=domain_fixture(128,NULL); CHECK(browser_pivot_plan_build(&plan,&source,&p,domains,NULL) && plan.count==128); page_free(&domains[0]);
+    domains[0]=domain_fixture(129,NULL); reject_plan(&plan,&source,&p,domains); page_free(&domains[0]);
+    CHECK(pivot_assign(&p,PIVOT_ROWS,"City",AGG_SUM,NULL)); domains[0]=domain_fixture(128,NULL); reject_plan(&plan,&source,&p,domains); page_free(&domains[0]);
+    domains[0]=domain_fixture(127,NULL); CHECK(browser_pivot_plan_build(&plan,&source,&p,domains,NULL) && plan.count==127); page_free(&domains[0]);
+    CHECK(pivot_assign(&p,PIVOT_COLUMNS,"Second",AGG_SUM,NULL)); domains[0]=domain_fixture(16,NULL); domains[1]=domain_fixture(8,NULL); reject_plan(&plan,&source,&p,domains); page_free(&domains[0]); page_free(&domains[1]); browser_pivot_plan_free(&plan); pivot_free(&p);
+    CHECK(pivot_assign(&p,PIVOT_ROWS,"__DUXCEL_PIVOT_VALUE_0_0",AGG_SUM,NULL) && pivot_assign(&p,PIVOT_COLUMNS,"Category",AGG_SUM,NULL) && pivot_assign(&p,PIVOT_VALUES,"Text",AGG_MIN,NULL));
+    domains[0]=domain_fixture(0,NULL); CHECK(browser_pivot_plan_build(&plan,&source,&p,domains,NULL) && plan.empty_input && plan.count==1 && !plan.headers[0].category_count && !strcmp(plan.headers[0].caption,"MIN(Text)") && !strcmp(plan.headers[0].name,"__duxcel_pivot_value_0_1"));
+    body=planned_fixture(&p,&plan,0); rows=planned_readout(&body,&p,&plan,true); columns=planned_readout(&body,&p,&plan,false); matrix_cell(&columns,0,0,NULL);
+    CHECK(browser_pivot_plan_complete(&body,&rows,&columns,&p,&plan,NULL) && !body.row_count && !body.totals->has_columns && body.totals->columns.cells[0].is_null); page_free(&body); page_free(&domains[0]); browser_pivot_plan_free(&plan);
+    const char *one[]={"x"}; domains[0]=domain_fixture(1,one); CHECK(browser_pivot_plan_build(&plan,&source,&p,domains,NULL));
+    body=planned_fixture(&p,&plan,1); rows=planned_readout(&body,&p,&plan,true); columns=planned_readout(&body,&p,&plan,false); CHECK(browser_pivot_plan_complete(&body,&rows,&columns,&p,&plan,NULL)); size_t extra=DX_PAGE_WIRE_TEXT_BYTES-body.bytes; page_free(&body);
+    char *large=dx_alloc(extra+3); memset(large,'x',extra+2); large[extra+1]=0;
+    body=planned_fixture(&p,&plan,1); rows=planned_readout(&body,&p,&plan,true); columns=planned_readout(&body,&p,&plan,false); matrix_cell(&body,0,1,large);
+    CHECK(browser_pivot_plan_complete(&body,&rows,&columns,&p,&plan,NULL) && body.bytes==DX_PAGE_WIRE_TEXT_BYTES); page_free(&body);
+    large[extra+1]='x'; large[extra+2]=0; body=planned_fixture(&p,&plan,1); rows=planned_readout(&body,&p,&plan,true); columns=planned_readout(&body,&p,&plan,false); matrix_cell(&body,0,1,large);
+    reject_planned_page(&body,&rows,&columns,&p,&plan); page_free(&body); page_free(&rows); page_free(&columns); free(large);
+    page_free(&domains[0]); browser_pivot_plan_free(&plan); browser_pivot_plan_free(&plan); pivot_free(&p); analysis_free(&source); free(error);
+}
 int main(void) {
-    test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion();
+    test_relation_sql(); test_invalid_sources(); test_sql_type_parser(); test_describe_conversion(); test_bad_describe(); test_page_and_count_sql(); test_matrix_completion(); test_column_plans();
     printf("PASS: %u browser query checks\n",checks); return 0;
 }

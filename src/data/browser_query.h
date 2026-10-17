@@ -32,4 +32,24 @@ bool browser_pivot_totals_schema(Page *out,const Page *schema,const PivotDefinit
    measure cells. Both inputs remain unchanged on failure. Combined owned output
    is bounded to 4 MiB. */
 bool browser_pivot_complete(Page *page,Page *grand,const PivotDefinition *pivot,char **error);
+
+/* Columns use bounded, typed SQL DISTINCT domains before canonical text is
+   transported. A plan owns its real PIVOT relation and ordinal header metadata;
+   it owns no engine handles or borrowed domain pages. Zero initialize/free it. */
+typedef struct {
+    char *sql;
+    Column *headers;
+    size_t count,bytes;
+    bool empty_input;
+} BrowserPivotPlan;
+char *browser_pivot_domain_sql(const Analysis *source,const PivotDefinition *pivot,size_t field,char **error);
+bool browser_pivot_plan_build(BrowserPivotPlan *out,const Analysis *source,const PivotDefinition *pivot,const Page *domains,char **error);
+void browser_pivot_plan_free(BrowserPivotPlan *plan);
+/* Source GROUPING SETS readouts: rows=true is the matching result-page interval;
+   false is one row of category/measure totals followed by overall measures. */
+char *browser_pivot_readout_sql(const Analysis *source,const PivotDefinition *pivot,const BrowserPivotPlan *plan,bool rows,uint64_t offset,char **error);
+bool browser_pivot_readout_schema(Page *out,const Page *schema,const PivotDefinition *pivot,const BrowserPivotPlan *plan,bool rows,char **error);
+/* Both readouts must be supplied together or both NULL. Success moves readouts
+   and owns cloned header metadata. Failure preserves every input. <=4 MiB. */
+bool browser_pivot_plan_complete(Page *page,Page *rows,Page *columns,const PivotDefinition *pivot,const BrowserPivotPlan *plan,char **error);
 #endif
