@@ -1001,6 +1001,21 @@ static bool review_smoke_sheet_targets(App *a,ReviewSmoke *t,int item) {
     const DxReviewWidget *track=dx_review_find(registry,"author.sheet_unhide.scrollbar"),*thumb=dx_review_find(registry,"author.sheet_unhide.scrollbar.thumb");
     return track && thumb && thumb->bounds.y>track->bounds.y && !strcmp(thumb->parent_id,track->id) && review_smoke_sheet_pick(a,thumb,parent);
 }
+static void review_smoke_sheet_diagnostic(App *a,ReviewSmoke *t,int item,bool same,bool targets) {
+    DxReviewRegistry *registry=a->review->registry;
+    fprintf(stderr,"Review worksheet mismatch case=%d same=%d targets=%d modal=%d/%d active=%zu/%zu count=%zu/%zu index=%zu/%zu focus=%d/%d scroll=%d/%d unhide=%d/%d expected_order=%016llx actual_order=%016llx duplicates=%zu invalid=%zu overflow=%zu\n",item,same,targets,(int)a->modal,(int)t->choice_modal,a->book.active,t->sheet_active,a->book.count,t->sheet_count,a->sheet_menu_index,t->sheet_index,a->sheet_menu_focus,t->sheet_focus,a->sheet_scroll,t->sheet_scroll,a->unhide_scroll,t->sheet_unhide_scroll,(unsigned long long)t->sheet_generation,(unsigned long long)review_sheet_order(a),registry->duplicate_count,registry->invalid_count,registry->overflow_count);
+    fprintf(stderr,"Review worksheet capture state: %s\n",a->review->frame.state_text);
+    size_t shown=0;
+    for (size_t i=0;i<registry->count && shown<80;i++) {
+        const DxReviewWidget *w=&registry->widgets[i];
+        if (strncmp(w->id,"author.sheet_",13) && strncmp(w->id,"pane.workbook",13)) continue;
+        Rectangle visible=GetCollisionRec((Rectangle){w->bounds.x,w->bounds.y,w->bounds.width,w->bounds.height},(Rectangle){w->clip.x,w->clip.y,w->clip.width,w->clip.height});
+        DxReviewTarget control={0},container={0}; float x=visible.x+visible.width*.5f,y=visible.y+visible.height*.5f;
+        dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTROL,&control); dx_review_pick(registry,x,y,DX_REVIEW_PICK_CONTAINER,&container);
+        fprintf(stderr,"Review worksheet widget id=%s parent=%s role=%s label=%s enabled=%d eligible=%d checked=%d focus=%d container=%d layer=%d kind=%s sheet=%llu source=%llu object=%llu field=%s schema=%llu order=%016llx bounds=%.2f,%.2f,%.2f,%.2f clip=%.2f,%.2f,%.2f,%.2f picked=%s owner=%s\n",w->id,w->parent_id,w->role,w->label,w->enabled,w->input_eligible,w->checked,w->focused,w->container,w->layer,w->data.kind,(unsigned long long)w->data.sheet_id,(unsigned long long)w->data.source_id,(unsigned long long)w->data.object_id,w->data.field,(unsigned long long)w->data.schema_generation,(unsigned long long)w->data.query_generation,w->bounds.x,w->bounds.y,w->bounds.width,w->bounds.height,w->clip.x,w->clip.y,w->clip.width,w->clip.height,control.found ? control.widget.id : "<none>",container.found ? container.widget.id : "<none>");
+        shown++;
+    }
+}
 static int review_smoke_sheet_tick(App *a,ReviewSmoke *t) {
     int item=(t->stage-REVIEW_PLOT_END)/6,phase=(t->stage-REVIEW_PLOT_END)%6; DxReviewCapture *r=a->review; float scale=item==3 ? 1.5f : 1;
     if (phase==0) {
@@ -1024,7 +1039,8 @@ static int review_smoke_sheet_tick(App *a,ReviewSmoke *t) {
     }
     if (phase==2) {
         if (r->phase!=DX_REPORT_PICK) return 0;
-        if (!review_smoke_sheet_same(a,t) || !review_smoke_sheet_targets(a,t,item)) return -1;
+        bool same=review_smoke_sheet_same(a,t),targets=same && review_smoke_sheet_targets(a,t,item);
+        if (!same || !targets) { review_smoke_sheet_diagnostic(a,t,item,same,targets); return -1; }
         r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
     }
     if (phase==3) {
