@@ -50,7 +50,9 @@ static Page retained_page(void) {
     Page page={.column_count=1,.row_count=1,.offset=17,.total=300,.bytes=999,.count_pending=true,.query_ms=12,.release_cell_text=release};
     page.columns=dx_alloc(sizeof(*page.columns)); page.cells=dx_alloc(sizeof(*page.cells));
     page.columns[0]=(Column){.name=dx_strdup("Keep"),.type_name=dx_strdup("VARCHAR"),.type=DUCKDB_TYPE_VARCHAR};
-    page.cells[0].text=dx_strdup("Retained NULL literal"); page.sql=dx_strdup("Existing SQL"); return page;
+    page.cells[0].text=dx_strdup("Retained NULL literal"); page.sql=dx_strdup("Existing SQL");
+    page.records=(PageRecords){.ids=dx_alloc(sizeof(uint64_t)),.source_key=dx_strdup("retained raw reader"),.count=1,.stamp=UINT64_MAX};
+    page.records.ids[0]=UINT64_C(9007199254740993); return page;
 }
 static void reject(Page *page,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool pending) {
     Page before=*page; unsigned released=releases; char *error=dx_strdup("Previous error");
@@ -58,6 +60,8 @@ static void reject(Page *page,const void *bytes,size_t size,uint64_t offset,uint
     CHECK(error && *error && strcmp(error,"Previous error"));
     CHECK(!memcmp(page,&before,sizeof(before)) && releases==released);
     CHECK(!strcmp(page->cells[0].text,"Retained NULL literal") && !strcmp(page->columns[0].name,"Keep"));
+    CHECK(page->records.count==1 && page->records.stamp==UINT64_MAX && !strcmp(page->records.source_key,"retained raw reader"));
+    uint64_t id=0; CHECK(page_record_id(page,17,&id) && id==UINT64_C(9007199254740993));
     free(error);
 }
 static size_t allocated_bytes(const Page *page) {
@@ -79,6 +83,8 @@ static void test_exact_owned_values(void) {
     unsigned released=releases; char *error=NULL;
     CHECK(page_from_wire(&page,wire.bytes,wire.size,UINT64_C(9007199254740993),UINT64_C(9007199254742000),true,&error));
     CHECK(!error && releases==released+1 && !page.release_cell_text && !page.sql && !page.relations && !page.totals);
+    CHECK(!page.records.ids && !page.records.source_key && !page.records.count && !page.records.stamp);
+    uint64_t id=71; CHECK(!page_record_id(&page,UINT64_C(9007199254740993),&id) && id==71);
     CHECK(page.offset==UINT64_C(9007199254740993) && page.total==UINT64_C(9007199254742000) && page.count_pending);
     CHECK(page.column_count==count && page.row_count==1 && page.bytes==allocated_bytes(&page));
     memset(wire.bytes,'x',wire.size); free(wire.bytes); /* No pointers into the source transport survive. */
@@ -112,6 +118,30 @@ static void test_row_major_and_replacement(void) {
     CHECK(page_from_wire(&page,wire.bytes,wire.size,256,259,false,NULL));
     CHECK(releases==released+1 && !strcmp(page.cells[3].text,"9007199254740993"));
     page_free(&page); page_free(&page);
+    /* Provenance owns C allocations independently of the cell-text allocator.
+       The incoming transport may itself live in that old owned allocation. */
+    wire=encode(columns,3,3,values); page=retained_page(); free(page.records.ids); page.records.ids=(uint64_t *)wire.bytes;
+    released=releases;
+    CHECK(page_from_wire(&page,wire.bytes,wire.size,256,259,false,NULL));
+    CHECK(releases==released+1 && !page.records.ids && !page.records.source_key && !page.records.count && !page.records.stamp);
+    CHECK(!strcmp(page.cells[3].text,"9007199254740993")); page_free(&page); page_free(&page);
+}
+static void test_record_lookup_bounds(void) {
+    Page page=retained_page(); uint64_t id=71;
+    CHECK(!page_record_id(NULL,17,&id) && id==71); CHECK(!page_record_id(&page,17,NULL));
+    CHECK(!page_record_id(&page,16,&id) && id==71); CHECK(!page_record_id(&page,18,&id) && id==71);
+    Page view=page; view.row_count=0; CHECK(!page_record_id(&view,17,&id) && id==71);
+    view=page; view.records.count=0; CHECK(!page_record_id(&view,17,&id) && id==71);
+    view=page; view.records.ids=NULL; CHECK(!page_record_id(&view,17,&id) && id==71);
+    view=page; view.records.source_key=NULL; CHECK(!page_record_id(&view,17,&id) && id==71);
+    page.records.ids[0]=0; CHECK(!page_record_id(&page,17,&id) && id==71); page.records.ids[0]=UINT64_MAX;
+    /* A bounded borrow can rebase display rows; total is not its loaded extent. */
+    view=page; view.offset=UINT64_MAX; view.total=0;
+    CHECK(page_record_id(&view,UINT64_MAX,&id) && id==UINT64_MAX);
+    CHECK(!page_record_id(&view,UINT64_MAX-1,&id) && id==UINT64_MAX);
+    page_free(&page);
+    CHECK(!page.records.ids && !page.records.source_key && !page.records.count && !page.records.stamp);
+    CHECK(!page_record_id(&page,17,&id) && id==UINT64_MAX); page_free(&page);
 }
 static void test_descriptor_types(void) {
     static const struct { Descriptor column; duckdb_type type; NumberKind number; } cases[]={
@@ -210,9 +240,11 @@ static void test_strict_utf8(void) {
     CHECK(!strcmp(page.cells[0].text,valid[0])); page_free(&page); free(wire.bytes);
 }
 static void test_limits_and_empty_pages(void) {
-    Wire empty=encode(NULL,0,0,NULL); Page page={0};
+    Wire empty=encode(NULL,0,0,NULL); Page page=retained_page(); unsigned released=releases;
     CHECK(page_from_wire(&page,empty.bytes,empty.size,UINT64_MAX,0,true,NULL));
     CHECK(!page.columns && !page.cells && !page.bytes && page.offset==UINT64_MAX && !page.total && page.count_pending);
+    CHECK(releases==released+1 && !page.records.ids && !page.records.source_key && !page.records.count && !page.records.stamp);
+    uint64_t id=71; CHECK(!page_record_id(&page,UINT64_MAX,&id) && id==71);
     CHECK(page_from_wire(&page,empty.bytes,empty.size,UINT64_MAX,UINT64_MAX,false,NULL));
     page_free(&page); free(empty.bytes);
     Descriptor columns[256]; for (size_t i=0;i<256;i++) columns[i]=(Descriptor){"a","VARCHAR","none",0,0};
@@ -234,6 +266,6 @@ static void test_limits_and_empty_pages(void) {
     page_free(&page); free(names.bytes);
 }
 int main(void) {
-    test_exact_owned_values(); test_row_major_and_replacement(); test_descriptor_types(); test_bad_headers_and_lengths(); test_bad_metadata(); test_strict_utf8(); test_limits_and_empty_pages();
+    test_exact_owned_values(); test_row_major_and_replacement(); test_record_lookup_bounds(); test_descriptor_types(); test_bad_headers_and_lengths(); test_bad_metadata(); test_strict_utf8(); test_limits_and_empty_pages();
     printf("PASS: %u page wire checks\n",checks); return 0;
 }
