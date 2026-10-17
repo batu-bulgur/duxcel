@@ -462,10 +462,12 @@ static void review_grid(App *a) {
     /* Existing cached analytical state, owned by both captured frames. Layout
        is read after this frame's draw; no SQL, heap work or test controller. */
     Worksheet *sheet=active_sheet(a); SheetObject *object=selected_object(a); ObjectView *view=object ? &a->objects[a->selected_object] : NULL;
-    char state[1024],grand[129]="-"; bool grand_null=true,grand_truncated=false;
+    char state[1536],grand[129]="-"; bool grand_null=true,grand_truncated=false;
     PivotTotals *totals=view ? view->page.totals : NULL;
     if (totals && totals->columns.row_count && totals->columns.column_count && totals->columns.cells) {
-        const Cell *cell=&totals->columns.cells[0]; grand_null=cell->is_null;
+        size_t measures=object ? object->pivot.counts[PIVOT_VALUES] : 0;
+        size_t at=totals->has_columns && measures && totals->columns.column_count>=measures ? totals->columns.column_count-measures : 0;
+        const Cell *cell=&totals->columns.cells[at]; grand_null=cell->is_null;
         if (!cell->is_null && cell->text && *cell->text) {
             static const char hex[]="0123456789abcdef"; size_t n=0;
             for (;n<64 && cell->text[n];n++) { unsigned char ch=(unsigned char)cell->text[n]; grand[2*n]=hex[ch>>4]; grand[2*n+1]=hex[ch&15]; }
@@ -473,13 +475,25 @@ static void review_grid(App *a) {
         }
     }
     if (!object) snprintf(state,sizeof(state)," selected_object=-1 object_count=%zu",sheet ? sheet->objects.count : 0);
-    else snprintf(state,sizeof(state)," selected_object=%d object_count=%zu object=%llu,%u,%llu,%zu,%llu,%zu object_page=%llu,%zu,%zu,%llu,%d,%d pivot_counts=%zu,%zu,%zu,%zu matrix_rect=%.3f,%.3f,%.3f,%.3f preview_rect=%.3f,%.3f,%.3f,%.3f totals_count=%zu,%zu object_grand0_null=%d object_grand0_hex=%s object_grand0_truncated=%d",
+    else snprintf(state,sizeof(state)," selected_object=%d object_count=%zu object=%llu,%u,%llu,%zu,%llu,%zu object_page=%llu,%zu,%zu,%llu,%d,%d pivot_counts=%zu,%zu,%zu,%zu matrix_rect=%.3f,%.3f,%.3f,%.3f preview_rect=%.3f,%.3f,%.3f,%.3f totals_count=%zu,%zu totals_shape=%zu,%zu,%zu,%zu,%d object_grand0_null=%d object_grand0_hex=%s object_grand0_truncated=%d",
         object ? a->selected_object : -1,sheet ? sheet->objects.count : 0,(unsigned long long)(object ? object->id : 0),object ? (unsigned)object->kind : 0,(unsigned long long)(object ? object->row : 0),object ? object->col : 0,(unsigned long long)(object ? object->rows : 0),object ? object->columns : 0,
         (unsigned long long)(view ? view->page.offset : 0),view ? view->page.row_count : 0,view ? view->page.column_count : 0,(unsigned long long)(view ? view->page.total : 0),view && view->dirty,view && view->failed,
         object ? object->pivot.counts[PIVOT_ROWS] : 0,object ? object->pivot.counts[PIVOT_COLUMNS] : 0,object ? object->pivot.counts[PIVOT_VALUES] : 0,object ? object->pivot.counts[PIVOT_FILTERS] : 0,
         a->authoring_layout.matrix.x,a->authoring_layout.matrix.y,a->authoring_layout.matrix.width,a->authoring_layout.matrix.height,a->authoring_layout.preview.x,a->authoring_layout.preview.y,a->authoring_layout.preview.width,a->authoring_layout.preview.height,
-        totals ? totals->rows.row_count : 0,totals ? totals->columns.row_count : 0,grand_null,grand,grand_truncated);
+        totals ? totals->rows.row_count : 0,totals ? totals->columns.row_count : 0,
+        totals ? totals->rows.row_count : 0,totals ? totals->rows.column_count : 0,totals ? totals->columns.row_count : 0,totals ? totals->columns.column_count : 0,totals && totals->has_columns,grand_null,grand,grand_truncated);
     review_author_capture_state(a,state);
+    if (object && view && object->pivot.counts[PIVOT_COLUMNS]) for (size_t c=0;c<2;c++) {
+        size_t at=object->pivot.counts[PIVOT_ROWS]+c; const Column *column=at<view->page.column_count ? &view->page.columns[at] : NULL;
+        bool present=column && column->category_count && column->categories;
+        const char *raw=present ? column->categories[0] : NULL; char encoded[129]="-"; size_t n=0;
+        if (raw && *raw) {
+            static const char hex[]="0123456789abcdef";
+            for (;n<64 && raw[n];n++) { unsigned char ch=(unsigned char)raw[n]; encoded[2*n]=hex[ch>>4]; encoded[2*n+1]=hex[ch&15]; } encoded[2*n]=0;
+        }
+        snprintf(state,sizeof(state)," object_category%zu_present=%d object_category%zu_null=%d object_category%zu_hex=%s object_category%zu_truncated=%d",c,present,c,!raw,c,encoded,c,raw && raw[n]);
+        review_author_capture_state(a,state);
+    }
     if (selected_pivot(a) && !a->step_preview.active && a->ribbon_mode!=3) {
         /* Authoring results have different coordinates/grain from worksheet
            cells. Expose the actual visible surfaces, never invented cell values. */
