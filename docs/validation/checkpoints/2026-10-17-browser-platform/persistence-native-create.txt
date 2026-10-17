@@ -1,0 +1,1 @@
+PASS browser-persistence create: native v12, 2 sheets, 9 sparse cells, 2 formats, 3 objects; 40 checks

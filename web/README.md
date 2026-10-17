@@ -157,8 +157,9 @@ This checkpoint contains the real C UI, sparse manual cells and official asynchr
 DuckDB-Wasm source pages/count/SQL validation/preview, paged available values and date hierarchy. Open imports CSV/TSV/Parquet
 through the browser file chooser (Ctrl+O in this proof). Save/relink, workbook
 persistence and further analytical operations remain explicitly unavailable. Native production still uses native DuckDB and Cocoa.
-Current evidence is DPR 1; Retina/clipboard/IME/physical input and full browser
-parity are separate gates. See the [renderer checkpoint](../docs/validation/checkpoints/2026-10-17-shared-browser/).
+Current platform acceptance covers actual DPR1/1.25/2 backing, density-sized fonts,
+CSS embedding and precise two-axis pan. Physical gestures, clipboard/IME, other
+browsers and full parity remain separate gates; see [platform evidence](../docs/validation/checkpoints/2026-10-17-browser-platform/). See the [renderer checkpoint](../docs/validation/checkpoints/2026-10-17-shared-browser/).
 
 The local browser packages are installed with `npm ci --ignore-scripts --no-audit --no-fund`
 in `web/`, using the committed lock. The packager copies only same-origin runtime

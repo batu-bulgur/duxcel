@@ -1,0 +1,1383 @@
+{
+  "status": "passed",
+  "checks": 13,
+  "url": "http://127.0.0.1:52380/",
+  "surface": {
+    "width": 1280,
+    "height": 820,
+    "dpr": 1,
+    "canvas": [
+      1280,
+      820
+    ]
+  },
+  "elapsed_ms": 3451,
+  "steps": [
+    {
+      "key": "Escape",
+      "time": 1792256553440,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792256553440,
+          "completed_ms": 1792256553443
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792256553443,
+          "completed_ms": 1792256553596
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792256553596,
+          "completed_ms": 1792256553597
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792256553597,
+          "completed_ms": 1792256553628
+        }
+      ]
+    }
+  ],
+  "sourceFile": null,
+  "persistenceResult": {
+    "ok": true,
+    "engineVersion": "v1.4.3",
+    "fixture": {
+      "bytes": 8400896,
+      "storageVersion": "64",
+      "sha256": "6bc3cd2c3937f43279166d936c455448d753b4092662de6070d0a298c53890f5"
+    },
+    "export": {
+      "filename": "bp0-browser-export.dxls",
+      "byteLength": 17051648,
+      "storageVersion": "64",
+      "sha256": "ab5ff5afd2c9941aa49fdaf7d4b2a57c61a129bd86d88b5655fbaa034450cff5"
+    },
+    "checks": [
+      {
+        "name": "bounded-native-file-input",
+        "status": "passed",
+        "milliseconds": 46.60000002384186,
+        "details": {
+          "bytes": 8400896,
+          "storageVersion": "64",
+          "sha256": "6bc3cd2c3937f43279166d936c455448d753b4092662de6070d0a298c53890f5"
+        }
+      },
+      {
+        "name": "initialize-owned-official-worker",
+        "status": "passed",
+        "milliseconds": 510.2999999523163,
+        "details": {
+          "engineVersion": "v1.4.3",
+          "moduleURL": "http://127.0.0.1:52380/vendor/duckdb/dist/duckdb-eh.wasm",
+          "workerURL": "http://127.0.0.1:52380/vendor/duckdb/dist/duckdb-browser-eh.worker.js",
+          "threads": 1
+        }
+      },
+      {
+        "name": "attach-readonly-real-native-v12",
+        "status": "passed",
+        "milliseconds": 95.70000004768372,
+        "details": {
+          "readOnlyWriteRejected": true,
+          "version": 12,
+          "activeSheet": "1",
+          "userScale": 1.25,
+          "sheetNames": [
+            "Browser round trip",
+            "Notes · UTF-8"
+          ],
+          "tables": [
+            {
+              "name": "cells",
+              "sql": "CREATE TABLE _duxcel_workspace.cells(sheet_id INTEGER, row_id UBIGINT, column_id INTEGER, \"text\" VARCHAR, PRIMARY KEY(sheet_id, row_id, column_id));",
+              "rows": "9"
+            },
+            {
+              "name": "columns",
+              "sql": "CREATE TABLE _duxcel_workspace.\"columns\"(sheet_id INTEGER, column_id INTEGER, \"name\" VARCHAR, width DOUBLE, PRIMARY KEY(sheet_id, column_id));",
+              "rows": "3"
+            },
+            {
+              "name": "filters",
+              "sql": "CREATE TABLE _duxcel_workspace.filters(sheet_id INTEGER, \"position\" INTEGER, \"name\" VARCHAR, op INTEGER, \"value\" VARCHAR, PRIMARY KEY(sheet_id, \"position\"));",
+              "rows": "1"
+            },
+            {
+              "name": "formats",
+              "sql": "CREATE TABLE _duxcel_workspace.formats(sheet_id INTEGER, \"position\" INTEGER, r0 UBIGINT, r1 UBIGINT, c0 INTEGER, c1 INTEGER, mask INTEGER, flags INTEGER, alignment INTEGER, color INTEGER, font_size INTEGER, numeric_format INTEGER, decimals INTEGER, PRIMARY KEY(sheet_id, \"position\"));",
+              "rows": "2"
+            },
+            {
+              "name": "marks",
+              "sql": "CREATE TABLE _duxcel_workspace.marks(sheet_id INTEGER, object_id UBIGINT, \"role\" INTEGER, \"position\" INTEGER, \"name\" VARCHAR, is_measure BOOLEAN, \"aggregate\" INTEGER, grain INTEGER, PRIMARY KEY(sheet_id, object_id, \"role\", \"position\"));",
+              "rows": "2"
+            },
+            {
+              "name": "meta",
+              "sql": "CREATE TABLE _duxcel_workspace.meta(\"version\" INTEGER, active_sheet UBIGINT, user_scale DOUBLE);",
+              "rows": "1"
+            },
+            {
+              "name": "objects",
+              "sql": "CREATE TABLE _duxcel_workspace.objects(sheet_id INTEGER, id UBIGINT, \"name\" VARCHAR, row_id UBIGINT, column_id INTEGER, height UBIGINT, width INTEGER, kind INTEGER DEFAULT(0), mark INTEGER DEFAULT(0), source_id UBIGINT DEFAULT(0), chart_measure INTEGER DEFAULT(0), PRIMARY KEY(sheet_id, id));",
+              "rows": "3"
+            },
+            {
+              "name": "pivot_fields",
+              "sql": "CREATE TABLE _duxcel_workspace.pivot_fields(sheet_id INTEGER, object_id UBIGINT, \"role\" INTEGER, \"position\" INTEGER, \"name\" VARCHAR, \"aggregate\" INTEGER, filter_op INTEGER, \"value\" VARCHAR, grain INTEGER DEFAULT(0), PRIMARY KEY(sheet_id, object_id, \"role\", \"position\"));",
+              "rows": "10"
+            },
+            {
+              "name": "preferences",
+              "sql": "CREATE TABLE _duxcel_workspace.preferences(\"name\" VARCHAR PRIMARY KEY, \"value\" BOOLEAN);",
+              "rows": "1"
+            },
+            {
+              "name": "queries",
+              "sql": "CREATE TABLE _duxcel_workspace.queries(sheet_id INTEGER, object_id UBIGINT, query VARCHAR, PRIMARY KEY(sheet_id, object_id));",
+              "rows": "2"
+            },
+            {
+              "name": "sheets",
+              "sql": "CREATE TABLE _duxcel_workspace.sheets(id INTEGER PRIMARY KEY, \"name\" VARCHAR, kind INTEGER, path VARCHAR, source_schema VARCHAR, source_table VARCHAR, filter_column VARCHAR, filter_value VARCHAR, filter_op INTEGER, group_column VARCHAR, measure_column VARCHAR, \"aggregate\" INTEGER, sort_column VARCHAR, descending BOOLEAN, active_row UBIGINT, active_col UBIGINT, anchor_row UBIGINT, anchor_col UBIGINT, end_row UBIGINT, end_col UBIGINT, top_row UBIGINT, horizontal DOUBLE, fraction DOUBLE, selection INTEGER, canvas_zoom DOUBLE DEFAULT(1));",
+              "rows": "2"
+            },
+            {
+              "name": "sorts",
+              "sql": "CREATE TABLE _duxcel_workspace.sorts(sheet_id INTEGER, \"position\" INTEGER, \"name\" VARCHAR, descending BOOLEAN, PRIMARY KEY(sheet_id, \"position\"));",
+              "rows": "1"
+            },
+            {
+              "name": "source_options",
+              "sql": "CREATE TABLE _duxcel_workspace.source_options(sheet_id INTEGER, object_id UBIGINT, unique_rows BOOLEAN, PRIMARY KEY(sheet_id, object_id));",
+              "rows": "2"
+            },
+            {
+              "name": "table_filters",
+              "sql": "CREATE TABLE _duxcel_workspace.table_filters(sheet_id INTEGER, object_id UBIGINT, \"position\" INTEGER, \"name\" VARCHAR, op INTEGER, \"value\" VARCHAR, PRIMARY KEY(sheet_id, object_id, \"position\"));",
+              "rows": "1"
+            },
+            {
+              "name": "table_sorts",
+              "sql": "CREATE TABLE _duxcel_workspace.table_sorts(sheet_id INTEGER, object_id UBIGINT, \"position\" INTEGER, \"name\" VARCHAR, descending BOOLEAN, PRIMARY KEY(sheet_id, object_id, \"position\"));",
+              "rows": "1"
+            },
+            {
+              "name": "table_sources",
+              "sql": "CREATE TABLE _duxcel_workspace.table_sources(sheet_id INTEGER, object_id UBIGINT, kind INTEGER, path VARCHAR, source_schema VARCHAR, source_table VARCHAR, filter_column VARCHAR, filter_value VARCHAR, filter_op INTEGER, group_column VARCHAR, measure_column VARCHAR, \"aggregate\" INTEGER, sort_column VARCHAR, descending BOOLEAN, PRIMARY KEY(sheet_id, object_id));",
+              "rows": "1"
+            }
+          ],
+          "columns": [
+            {
+              "table": "cells",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "cells",
+              "name": "row_id",
+              "type": "UBIGINT",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "cells",
+              "name": "column_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "3"
+            },
+            {
+              "table": "cells",
+              "name": "text",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "4"
+            },
+            {
+              "table": "columns",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "columns",
+              "name": "column_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "columns",
+              "name": "name",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "3"
+            },
+            {
+              "table": "columns",
+              "name": "width",
+              "type": "DOUBLE",
+              "nullable": "true",
+              "position": "4"
+            },
+            {
+              "table": "filters",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "filters",
+              "name": "position",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "filters",
+              "name": "name",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "3"
+            },
+            {
+              "table": "filters",
+              "name": "op",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "4"
+            },
+            {
+              "table": "filters",
+              "name": "value",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "5"
+            },
+            {
+              "table": "formats",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "formats",
+              "name": "position",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "formats",
+              "name": "r0",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "3"
+            },
+            {
+              "table": "formats",
+              "name": "r1",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "4"
+            },
+            {
+              "table": "formats",
+              "name": "c0",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "5"
+            },
+            {
+              "table": "formats",
+              "name": "c1",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "6"
+            },
+            {
+              "table": "formats",
+              "name": "mask",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "7"
+            },
+            {
+              "table": "formats",
+              "name": "flags",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "8"
+            },
+            {
+              "table": "formats",
+              "name": "alignment",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "9"
+            },
+            {
+              "table": "formats",
+              "name": "color",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "10"
+            },
+            {
+              "table": "formats",
+              "name": "font_size",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "11"
+            },
+            {
+              "table": "formats",
+              "name": "numeric_format",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "12"
+            },
+            {
+              "table": "formats",
+              "name": "decimals",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "13"
+            },
+            {
+              "table": "marks",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "marks",
+              "name": "object_id",
+              "type": "UBIGINT",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "marks",
+              "name": "role",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "3"
+            },
+            {
+              "table": "marks",
+              "name": "position",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "4"
+            },
+            {
+              "table": "marks",
+              "name": "name",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "5"
+            },
+            {
+              "table": "marks",
+              "name": "is_measure",
+              "type": "BOOLEAN",
+              "nullable": "true",
+              "position": "6"
+            },
+            {
+              "table": "marks",
+              "name": "aggregate",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "7"
+            },
+            {
+              "table": "marks",
+              "name": "grain",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "8"
+            },
+            {
+              "table": "meta",
+              "name": "version",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "1"
+            },
+            {
+              "table": "meta",
+              "name": "active_sheet",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "2"
+            },
+            {
+              "table": "meta",
+              "name": "user_scale",
+              "type": "DOUBLE",
+              "nullable": "true",
+              "position": "3"
+            },
+            {
+              "table": "objects",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "objects",
+              "name": "id",
+              "type": "UBIGINT",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "objects",
+              "name": "name",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "3"
+            },
+            {
+              "table": "objects",
+              "name": "row_id",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "4"
+            },
+            {
+              "table": "objects",
+              "name": "column_id",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "5"
+            },
+            {
+              "table": "objects",
+              "name": "height",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "6"
+            },
+            {
+              "table": "objects",
+              "name": "width",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "7"
+            },
+            {
+              "table": "objects",
+              "name": "kind",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "8"
+            },
+            {
+              "table": "objects",
+              "name": "mark",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "9"
+            },
+            {
+              "table": "objects",
+              "name": "source_id",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "10"
+            },
+            {
+              "table": "objects",
+              "name": "chart_measure",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "11"
+            },
+            {
+              "table": "pivot_fields",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "pivot_fields",
+              "name": "object_id",
+              "type": "UBIGINT",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "pivot_fields",
+              "name": "role",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "3"
+            },
+            {
+              "table": "pivot_fields",
+              "name": "position",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "4"
+            },
+            {
+              "table": "pivot_fields",
+              "name": "name",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "5"
+            },
+            {
+              "table": "pivot_fields",
+              "name": "aggregate",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "6"
+            },
+            {
+              "table": "pivot_fields",
+              "name": "filter_op",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "7"
+            },
+            {
+              "table": "pivot_fields",
+              "name": "value",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "8"
+            },
+            {
+              "table": "pivot_fields",
+              "name": "grain",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "9"
+            },
+            {
+              "table": "preferences",
+              "name": "name",
+              "type": "VARCHAR",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "preferences",
+              "name": "value",
+              "type": "BOOLEAN",
+              "nullable": "true",
+              "position": "2"
+            },
+            {
+              "table": "queries",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "queries",
+              "name": "object_id",
+              "type": "UBIGINT",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "queries",
+              "name": "query",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "3"
+            },
+            {
+              "table": "sheets",
+              "name": "id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "sheets",
+              "name": "name",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "2"
+            },
+            {
+              "table": "sheets",
+              "name": "kind",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "3"
+            },
+            {
+              "table": "sheets",
+              "name": "path",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "4"
+            },
+            {
+              "table": "sheets",
+              "name": "source_schema",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "5"
+            },
+            {
+              "table": "sheets",
+              "name": "source_table",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "6"
+            },
+            {
+              "table": "sheets",
+              "name": "filter_column",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "7"
+            },
+            {
+              "table": "sheets",
+              "name": "filter_value",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "8"
+            },
+            {
+              "table": "sheets",
+              "name": "filter_op",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "9"
+            },
+            {
+              "table": "sheets",
+              "name": "group_column",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "10"
+            },
+            {
+              "table": "sheets",
+              "name": "measure_column",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "11"
+            },
+            {
+              "table": "sheets",
+              "name": "aggregate",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "12"
+            },
+            {
+              "table": "sheets",
+              "name": "sort_column",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "13"
+            },
+            {
+              "table": "sheets",
+              "name": "descending",
+              "type": "BOOLEAN",
+              "nullable": "true",
+              "position": "14"
+            },
+            {
+              "table": "sheets",
+              "name": "active_row",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "15"
+            },
+            {
+              "table": "sheets",
+              "name": "active_col",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "16"
+            },
+            {
+              "table": "sheets",
+              "name": "anchor_row",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "17"
+            },
+            {
+              "table": "sheets",
+              "name": "anchor_col",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "18"
+            },
+            {
+              "table": "sheets",
+              "name": "end_row",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "19"
+            },
+            {
+              "table": "sheets",
+              "name": "end_col",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "20"
+            },
+            {
+              "table": "sheets",
+              "name": "top_row",
+              "type": "UBIGINT",
+              "nullable": "true",
+              "position": "21"
+            },
+            {
+              "table": "sheets",
+              "name": "horizontal",
+              "type": "DOUBLE",
+              "nullable": "true",
+              "position": "22"
+            },
+            {
+              "table": "sheets",
+              "name": "fraction",
+              "type": "DOUBLE",
+              "nullable": "true",
+              "position": "23"
+            },
+            {
+              "table": "sheets",
+              "name": "selection",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "24"
+            },
+            {
+              "table": "sheets",
+              "name": "canvas_zoom",
+              "type": "DOUBLE",
+              "nullable": "true",
+              "position": "25"
+            },
+            {
+              "table": "sorts",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "sorts",
+              "name": "position",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "sorts",
+              "name": "name",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "3"
+            },
+            {
+              "table": "sorts",
+              "name": "descending",
+              "type": "BOOLEAN",
+              "nullable": "true",
+              "position": "4"
+            },
+            {
+              "table": "source_options",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "source_options",
+              "name": "object_id",
+              "type": "UBIGINT",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "source_options",
+              "name": "unique_rows",
+              "type": "BOOLEAN",
+              "nullable": "true",
+              "position": "3"
+            },
+            {
+              "table": "table_filters",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "table_filters",
+              "name": "object_id",
+              "type": "UBIGINT",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "table_filters",
+              "name": "position",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "3"
+            },
+            {
+              "table": "table_filters",
+              "name": "name",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "4"
+            },
+            {
+              "table": "table_filters",
+              "name": "op",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "5"
+            },
+            {
+              "table": "table_filters",
+              "name": "value",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "6"
+            },
+            {
+              "table": "table_sorts",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "table_sorts",
+              "name": "object_id",
+              "type": "UBIGINT",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "table_sorts",
+              "name": "position",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "3"
+            },
+            {
+              "table": "table_sorts",
+              "name": "name",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "4"
+            },
+            {
+              "table": "table_sorts",
+              "name": "descending",
+              "type": "BOOLEAN",
+              "nullable": "true",
+              "position": "5"
+            },
+            {
+              "table": "table_sources",
+              "name": "sheet_id",
+              "type": "INTEGER",
+              "nullable": "false",
+              "position": "1"
+            },
+            {
+              "table": "table_sources",
+              "name": "object_id",
+              "type": "UBIGINT",
+              "nullable": "false",
+              "position": "2"
+            },
+            {
+              "table": "table_sources",
+              "name": "kind",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "3"
+            },
+            {
+              "table": "table_sources",
+              "name": "path",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "4"
+            },
+            {
+              "table": "table_sources",
+              "name": "source_schema",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "5"
+            },
+            {
+              "table": "table_sources",
+              "name": "source_table",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "6"
+            },
+            {
+              "table": "table_sources",
+              "name": "filter_column",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "7"
+            },
+            {
+              "table": "table_sources",
+              "name": "filter_value",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "8"
+            },
+            {
+              "table": "table_sources",
+              "name": "filter_op",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "9"
+            },
+            {
+              "table": "table_sources",
+              "name": "group_column",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "10"
+            },
+            {
+              "table": "table_sources",
+              "name": "measure_column",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "11"
+            },
+            {
+              "table": "table_sources",
+              "name": "aggregate",
+              "type": "INTEGER",
+              "nullable": "true",
+              "position": "12"
+            },
+            {
+              "table": "table_sources",
+              "name": "sort_column",
+              "type": "VARCHAR",
+              "nullable": "true",
+              "position": "13"
+            },
+            {
+              "table": "table_sources",
+              "name": "descending",
+              "type": "BOOLEAN",
+              "nullable": "true",
+              "position": "14"
+            }
+          ]
+        }
+      },
+      {
+        "name": "create-compatible-file-from-native-metadata-ddl",
+        "status": "passed",
+        "milliseconds": 146.39999997615814,
+        "details": {
+          "storageTarget": "v1.0.0",
+          "base": "owned native file clone; metadata dropped and recreated",
+          "tables": [
+            {
+              "name": "cells",
+              "rows": "9"
+            },
+            {
+              "name": "columns",
+              "rows": "3"
+            },
+            {
+              "name": "filters",
+              "rows": "1"
+            },
+            {
+              "name": "formats",
+              "rows": "2"
+            },
+            {
+              "name": "marks",
+              "rows": "2"
+            },
+            {
+              "name": "meta",
+              "rows": "1"
+            },
+            {
+              "name": "objects",
+              "rows": "3"
+            },
+            {
+              "name": "pivot_fields",
+              "rows": "10"
+            },
+            {
+              "name": "preferences",
+              "rows": "1"
+            },
+            {
+              "name": "queries",
+              "rows": "2"
+            },
+            {
+              "name": "sheets",
+              "rows": "2"
+            },
+            {
+              "name": "sorts",
+              "rows": "1"
+            },
+            {
+              "name": "source_options",
+              "rows": "2"
+            },
+            {
+              "name": "table_filters",
+              "rows": "1"
+            },
+            {
+              "name": "table_sorts",
+              "rows": "1"
+            },
+            {
+              "name": "table_sources",
+              "rows": "1"
+            }
+          ],
+          "sentinels": {
+            "values": {
+              "signed_min": "-9223372036854775808",
+              "above_js_integer": "9007199254740993",
+              "max_unsigned": "18446744073709551615",
+              "exact_decimal": "9007199254740993.1234567890",
+              "negative_decimal": "-0.0000000001",
+              "missing": null,
+              "zero_length": "",
+              "literal_null": "NULL",
+              "utf8": "İstanbul 😀"
+            },
+            "columns": [
+              {
+                "name": "signed_min",
+                "type": "BIGINT"
+              },
+              {
+                "name": "above_js_integer",
+                "type": "BIGINT"
+              },
+              {
+                "name": "max_unsigned",
+                "type": "UBIGINT"
+              },
+              {
+                "name": "exact_decimal",
+                "type": "DECIMAL(38,10)"
+              },
+              {
+                "name": "negative_decimal",
+                "type": "DECIMAL(38,10)"
+              },
+              {
+                "name": "missing",
+                "type": "VARCHAR"
+              },
+              {
+                "name": "zero_length",
+                "type": "VARCHAR"
+              },
+              {
+                "name": "literal_null",
+                "type": "VARCHAR"
+              },
+              {
+                "name": "utf8",
+                "type": "VARCHAR"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "checkpoint-quiescent-real-database",
+        "status": "passed",
+        "milliseconds": 40,
+        "details": {
+          "checkpointed": true,
+          "writer": "owned private Worker, no concurrent operations"
+        }
+      },
+      {
+        "name": "flush-worker-files",
+        "status": "passed",
+        "milliseconds": 0.30000001192092896,
+        "details": {
+          "flushed": true
+        }
+      },
+      {
+        "name": "export-real-database-buffer",
+        "status": "passed",
+        "milliseconds": 47.80000001192093,
+        "details": {
+          "filename": "bp0-browser-export.dxls",
+          "bytes": 17051648,
+          "storageVersion": "64",
+          "sha256": "ab5ff5afd2c9941aa49fdaf7d4b2a57c61a129bd86d88b5655fbaa034450cff5",
+          "exportedBeforeDetach": true
+        }
+      },
+      {
+        "name": "reopen-export-and-check-native-fixture-unchanged",
+        "status": "passed",
+        "milliseconds": 98.39999997615814,
+        "details": {
+          "readOnlyNativeUnchanged": true,
+          "sentinels": {
+            "values": {
+              "signed_min": "-9223372036854775808",
+              "above_js_integer": "9007199254740993",
+              "max_unsigned": "18446744073709551615",
+              "exact_decimal": "9007199254740993.1234567890",
+              "negative_decimal": "-0.0000000001",
+              "missing": null,
+              "zero_length": "",
+              "literal_null": "NULL",
+              "utf8": "İstanbul 😀"
+            },
+            "columns": [
+              {
+                "name": "signed_min",
+                "type": "BIGINT"
+              },
+              {
+                "name": "above_js_integer",
+                "type": "BIGINT"
+              },
+              {
+                "name": "max_unsigned",
+                "type": "UBIGINT"
+              },
+              {
+                "name": "exact_decimal",
+                "type": "DECIMAL(38,10)"
+              },
+              {
+                "name": "negative_decimal",
+                "type": "DECIMAL(38,10)"
+              },
+              {
+                "name": "missing",
+                "type": "VARCHAR"
+              },
+              {
+                "name": "zero_length",
+                "type": "VARCHAR"
+              },
+              {
+                "name": "literal_null",
+                "type": "VARCHAR"
+              },
+              {
+                "name": "utf8",
+                "type": "VARCHAR"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "bounded-owned-worker-cleanup",
+        "status": "passed",
+        "milliseconds": 0.30000001192092896
+      }
+    ],
+    "sql": [
+      "SET autoinstall_known_extensions=false; SET autoload_known_extensions=false; SET memory_limit='128MB'",
+      "ATTACH 'bp0-native-fixture.dxls' AS native_fixture (READ_ONLY)",
+      "UPDATE native_fixture._duxcel_workspace.meta SET version=version",
+      "SELECT version,active_sheet::VARCHAR AS active_sheet,user_scale,typeof(version) AS version_type,typeof(active_sheet) AS active_type,typeof(user_scale) AS scale_type FROM native_fixture._duxcel_workspace.meta LIMIT 2",
+      "SELECT id,name,typeof(id) AS id_type,typeof(name) AS name_type FROM native_fixture._duxcel_workspace.sheets ORDER BY id LIMIT 65",
+      "SELECT table_name,sql FROM duckdb_tables() WHERE database_name='native_fixture' AND schema_name='_duxcel_workspace' ORDER BY table_name LIMIT 33",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"cells\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"columns\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"filters\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"formats\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"marks\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"meta\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"objects\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"pivot_fields\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"preferences\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"queries\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"sheets\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"sorts\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"source_options\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"table_filters\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"table_sorts\"",
+      "SELECT count(*)::VARCHAR AS rows FROM native_fixture._duxcel_workspace.\"table_sources\"",
+      "SELECT table_name,column_name,data_type,is_nullable::VARCHAR AS is_nullable,column_index::VARCHAR AS position FROM duckdb_columns() WHERE database_name='native_fixture' AND schema_name='_duxcel_workspace' ORDER BY table_name,column_index LIMIT 513",
+      "ATTACH 'bp0-browser-export.dxls' AS browser_export (STORAGE_VERSION 'v1.0.0')",
+      "DROP SCHEMA browser_export._duxcel_workspace CASCADE",
+      "CREATE SCHEMA browser_export._duxcel_workspace",
+      "BEGIN TRANSACTION",
+      "CREATE TABLE browser_export._duxcel_workspace.\"cells\" (sheet_id INTEGER, row_id UBIGINT, column_id INTEGER, \"text\" VARCHAR, PRIMARY KEY(sheet_id, row_id, column_id));",
+      "INSERT INTO browser_export._duxcel_workspace.\"cells\" SELECT * FROM native_fixture._duxcel_workspace.\"cells\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"columns\" (sheet_id INTEGER, column_id INTEGER, \"name\" VARCHAR, width DOUBLE, PRIMARY KEY(sheet_id, column_id));",
+      "INSERT INTO browser_export._duxcel_workspace.\"columns\" SELECT * FROM native_fixture._duxcel_workspace.\"columns\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"filters\" (sheet_id INTEGER, \"position\" INTEGER, \"name\" VARCHAR, op INTEGER, \"value\" VARCHAR, PRIMARY KEY(sheet_id, \"position\"));",
+      "INSERT INTO browser_export._duxcel_workspace.\"filters\" SELECT * FROM native_fixture._duxcel_workspace.\"filters\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"formats\" (sheet_id INTEGER, \"position\" INTEGER, r0 UBIGINT, r1 UBIGINT, c0 INTEGER, c1 INTEGER, mask INTEGER, flags INTEGER, alignment INTEGER, color INTEGER, font_size INTEGER, numeric_format INTEGER, decimals INTEGER, PRIMARY KEY(sheet_id, \"position\"));",
+      "INSERT INTO browser_export._duxcel_workspace.\"formats\" SELECT * FROM native_fixture._duxcel_workspace.\"formats\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"marks\" (sheet_id INTEGER, object_id UBIGINT, \"role\" INTEGER, \"position\" INTEGER, \"name\" VARCHAR, is_measure BOOLEAN, \"aggregate\" INTEGER, grain INTEGER, PRIMARY KEY(sheet_id, object_id, \"role\", \"position\"));",
+      "INSERT INTO browser_export._duxcel_workspace.\"marks\" SELECT * FROM native_fixture._duxcel_workspace.\"marks\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"meta\" (\"version\" INTEGER, active_sheet UBIGINT, user_scale DOUBLE);",
+      "INSERT INTO browser_export._duxcel_workspace.\"meta\" SELECT * FROM native_fixture._duxcel_workspace.\"meta\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"objects\" (sheet_id INTEGER, id UBIGINT, \"name\" VARCHAR, row_id UBIGINT, column_id INTEGER, height UBIGINT, width INTEGER, kind INTEGER DEFAULT(0), mark INTEGER DEFAULT(0), source_id UBIGINT DEFAULT(0), chart_measure INTEGER DEFAULT(0), PRIMARY KEY(sheet_id, id));",
+      "INSERT INTO browser_export._duxcel_workspace.\"objects\" SELECT * FROM native_fixture._duxcel_workspace.\"objects\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"pivot_fields\" (sheet_id INTEGER, object_id UBIGINT, \"role\" INTEGER, \"position\" INTEGER, \"name\" VARCHAR, \"aggregate\" INTEGER, filter_op INTEGER, \"value\" VARCHAR, grain INTEGER DEFAULT(0), PRIMARY KEY(sheet_id, object_id, \"role\", \"position\"));",
+      "INSERT INTO browser_export._duxcel_workspace.\"pivot_fields\" SELECT * FROM native_fixture._duxcel_workspace.\"pivot_fields\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"preferences\" (\"name\" VARCHAR PRIMARY KEY, \"value\" BOOLEAN);",
+      "INSERT INTO browser_export._duxcel_workspace.\"preferences\" SELECT * FROM native_fixture._duxcel_workspace.\"preferences\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"queries\" (sheet_id INTEGER, object_id UBIGINT, query VARCHAR, PRIMARY KEY(sheet_id, object_id));",
+      "INSERT INTO browser_export._duxcel_workspace.\"queries\" SELECT * FROM native_fixture._duxcel_workspace.\"queries\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"sheets\" (id INTEGER PRIMARY KEY, \"name\" VARCHAR, kind INTEGER, path VARCHAR, source_schema VARCHAR, source_table VARCHAR, filter_column VARCHAR, filter_value VARCHAR, filter_op INTEGER, group_column VARCHAR, measure_column VARCHAR, \"aggregate\" INTEGER, sort_column VARCHAR, descending BOOLEAN, active_row UBIGINT, active_col UBIGINT, anchor_row UBIGINT, anchor_col UBIGINT, end_row UBIGINT, end_col UBIGINT, top_row UBIGINT, horizontal DOUBLE, fraction DOUBLE, selection INTEGER, canvas_zoom DOUBLE DEFAULT(1));",
+      "INSERT INTO browser_export._duxcel_workspace.\"sheets\" SELECT * FROM native_fixture._duxcel_workspace.\"sheets\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"sorts\" (sheet_id INTEGER, \"position\" INTEGER, \"name\" VARCHAR, descending BOOLEAN, PRIMARY KEY(sheet_id, \"position\"));",
+      "INSERT INTO browser_export._duxcel_workspace.\"sorts\" SELECT * FROM native_fixture._duxcel_workspace.\"sorts\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"source_options\" (sheet_id INTEGER, object_id UBIGINT, unique_rows BOOLEAN, PRIMARY KEY(sheet_id, object_id));",
+      "INSERT INTO browser_export._duxcel_workspace.\"source_options\" SELECT * FROM native_fixture._duxcel_workspace.\"source_options\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"table_filters\" (sheet_id INTEGER, object_id UBIGINT, \"position\" INTEGER, \"name\" VARCHAR, op INTEGER, \"value\" VARCHAR, PRIMARY KEY(sheet_id, object_id, \"position\"));",
+      "INSERT INTO browser_export._duxcel_workspace.\"table_filters\" SELECT * FROM native_fixture._duxcel_workspace.\"table_filters\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"table_sorts\" (sheet_id INTEGER, object_id UBIGINT, \"position\" INTEGER, \"name\" VARCHAR, descending BOOLEAN, PRIMARY KEY(sheet_id, object_id, \"position\"));",
+      "INSERT INTO browser_export._duxcel_workspace.\"table_sorts\" SELECT * FROM native_fixture._duxcel_workspace.\"table_sorts\"",
+      "CREATE TABLE browser_export._duxcel_workspace.\"table_sources\" (sheet_id INTEGER, object_id UBIGINT, kind INTEGER, path VARCHAR, source_schema VARCHAR, source_table VARCHAR, filter_column VARCHAR, filter_value VARCHAR, filter_op INTEGER, group_column VARCHAR, measure_column VARCHAR, \"aggregate\" INTEGER, sort_column VARCHAR, descending BOOLEAN, PRIMARY KEY(sheet_id, object_id));",
+      "INSERT INTO browser_export._duxcel_workspace.\"table_sources\" SELECT * FROM native_fixture._duxcel_workspace.\"table_sources\"",
+      "CREATE SCHEMA browser_export._duxcel_browser_probe",
+      "CREATE TABLE browser_export._duxcel_browser_probe.sentinels AS SELECT\n                    '-9223372036854775808'::BIGINT AS signed_min,'9007199254740993'::BIGINT AS above_js_integer,\n                    '18446744073709551615'::UBIGINT AS max_unsigned,'9007199254740993.1234567890'::DECIMAL(38,10) AS exact_decimal,\n                    '-0.0000000001'::DECIMAL(38,10) AS negative_decimal,NULL::VARCHAR AS missing,''::VARCHAR AS zero_length,\n                    'NULL'::VARCHAR AS literal_null,'İstanbul 😀'::VARCHAR AS utf8",
+      "COMMIT",
+      "SELECT version,active_sheet::VARCHAR AS active_sheet,user_scale,typeof(version) AS version_type,typeof(active_sheet) AS active_type,typeof(user_scale) AS scale_type FROM browser_export._duxcel_workspace.meta LIMIT 2",
+      "SELECT id,name,typeof(id) AS id_type,typeof(name) AS name_type FROM browser_export._duxcel_workspace.sheets ORDER BY id LIMIT 65",
+      "SELECT table_name,sql FROM duckdb_tables() WHERE database_name='browser_export' AND schema_name='_duxcel_workspace' ORDER BY table_name LIMIT 33",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"cells\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"columns\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"filters\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"formats\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"marks\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"meta\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"objects\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"pivot_fields\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"preferences\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"queries\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"sheets\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"sorts\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"source_options\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"table_filters\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"table_sorts\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_export._duxcel_workspace.\"table_sources\"",
+      "SELECT table_name,column_name,data_type,is_nullable::VARCHAR AS is_nullable,column_index::VARCHAR AS position FROM duckdb_columns() WHERE database_name='browser_export' AND schema_name='_duxcel_workspace' ORDER BY table_name,column_index LIMIT 513",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"cells\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"cells\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"cells\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"cells\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"columns\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"columns\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"columns\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"columns\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"filters\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"filters\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"filters\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"filters\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"formats\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"formats\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"formats\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"formats\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"marks\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"marks\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"marks\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"marks\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"meta\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"meta\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"meta\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"meta\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"objects\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"objects\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"objects\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"objects\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"pivot_fields\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"pivot_fields\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"pivot_fields\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"pivot_fields\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"preferences\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"preferences\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"preferences\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"preferences\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"queries\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"queries\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"queries\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"queries\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"sheets\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"sheets\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"sheets\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"sheets\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"sorts\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"sorts\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"sorts\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"sorts\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"source_options\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"source_options\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"source_options\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"source_options\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"table_filters\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"table_filters\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"table_filters\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"table_filters\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"table_sorts\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"table_sorts\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"table_sorts\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"table_sorts\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"table_sources\" EXCEPT ALL SELECT * FROM browser_export._duxcel_workspace.\"table_sources\") UNION ALL (SELECT * FROM browser_export._duxcel_workspace.\"table_sources\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"table_sources\"))",
+      "SELECT CAST(\"signed_min\" AS VARCHAR) AS \"signed_min\",CAST(\"above_js_integer\" AS VARCHAR) AS \"above_js_integer\",CAST(\"max_unsigned\" AS VARCHAR) AS \"max_unsigned\",CAST(\"exact_decimal\" AS VARCHAR) AS \"exact_decimal\",CAST(\"negative_decimal\" AS VARCHAR) AS \"negative_decimal\",CAST(\"missing\" AS VARCHAR) AS \"missing\",CAST(\"zero_length\" AS VARCHAR) AS \"zero_length\",CAST(\"literal_null\" AS VARCHAR) AS \"literal_null\",CAST(\"utf8\" AS VARCHAR) AS \"utf8\" FROM browser_export._duxcel_browser_probe.sentinels LIMIT 2",
+      "SELECT column_name,data_type FROM duckdb_columns() WHERE database_name='browser_export' AND schema_name='_duxcel_browser_probe' AND table_name='sentinels' ORDER BY column_index LIMIT 10",
+      "CHECKPOINT browser_export",
+      "DETACH browser_export",
+      "ATTACH 'bp0-browser-reopen.dxls' AS browser_reopen (READ_ONLY)",
+      "SELECT version,active_sheet::VARCHAR AS active_sheet,user_scale,typeof(version) AS version_type,typeof(active_sheet) AS active_type,typeof(user_scale) AS scale_type FROM browser_reopen._duxcel_workspace.meta LIMIT 2",
+      "SELECT id,name,typeof(id) AS id_type,typeof(name) AS name_type FROM browser_reopen._duxcel_workspace.sheets ORDER BY id LIMIT 65",
+      "SELECT table_name,sql FROM duckdb_tables() WHERE database_name='browser_reopen' AND schema_name='_duxcel_workspace' ORDER BY table_name LIMIT 33",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"cells\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"columns\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"filters\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"formats\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"marks\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"meta\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"objects\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"pivot_fields\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"preferences\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"queries\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"sheets\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"sorts\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"source_options\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"table_filters\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"table_sorts\"",
+      "SELECT count(*)::VARCHAR AS rows FROM browser_reopen._duxcel_workspace.\"table_sources\"",
+      "SELECT table_name,column_name,data_type,is_nullable::VARCHAR AS is_nullable,column_index::VARCHAR AS position FROM duckdb_columns() WHERE database_name='browser_reopen' AND schema_name='_duxcel_workspace' ORDER BY table_name,column_index LIMIT 513",
+      "SELECT CAST(\"signed_min\" AS VARCHAR) AS \"signed_min\",CAST(\"above_js_integer\" AS VARCHAR) AS \"above_js_integer\",CAST(\"max_unsigned\" AS VARCHAR) AS \"max_unsigned\",CAST(\"exact_decimal\" AS VARCHAR) AS \"exact_decimal\",CAST(\"negative_decimal\" AS VARCHAR) AS \"negative_decimal\",CAST(\"missing\" AS VARCHAR) AS \"missing\",CAST(\"zero_length\" AS VARCHAR) AS \"zero_length\",CAST(\"literal_null\" AS VARCHAR) AS \"literal_null\",CAST(\"utf8\" AS VARCHAR) AS \"utf8\" FROM browser_reopen._duxcel_browser_probe.sentinels LIMIT 2",
+      "SELECT column_name,data_type FROM duckdb_columns() WHERE database_name='browser_reopen' AND schema_name='_duxcel_browser_probe' AND table_name='sentinels' ORDER BY column_index LIMIT 10",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"cells\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"cells\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"cells\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"cells\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"columns\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"columns\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"columns\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"columns\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"filters\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"filters\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"filters\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"filters\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"formats\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"formats\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"formats\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"formats\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"marks\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"marks\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"marks\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"marks\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"meta\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"meta\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"meta\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"meta\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"objects\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"objects\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"objects\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"objects\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"pivot_fields\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"pivot_fields\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"pivot_fields\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"pivot_fields\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"preferences\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"preferences\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"preferences\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"preferences\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"queries\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"queries\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"queries\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"queries\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"sheets\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"sheets\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"sheets\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"sheets\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"sorts\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"sorts\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"sorts\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"sorts\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"source_options\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"source_options\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"source_options\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"source_options\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"table_filters\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"table_filters\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"table_filters\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"table_filters\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"table_sorts\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"table_sorts\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"table_sorts\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"table_sorts\"))",
+      "SELECT count(*)::VARCHAR AS differences FROM ((SELECT * FROM native_fixture._duxcel_workspace.\"table_sources\" EXCEPT ALL SELECT * FROM browser_reopen._duxcel_workspace.\"table_sources\") UNION ALL (SELECT * FROM browser_reopen._duxcel_workspace.\"table_sources\" EXCEPT ALL SELECT * FROM native_fixture._duxcel_workspace.\"table_sources\"))",
+      "DETACH browser_reopen",
+      "DETACH native_fixture"
+    ],
+    "milliseconds": 986.3000000119209,
+    "ownedWorkersCreated": 1,
+    "scope": "BP0 official Worker/native-v12 file compatibility only: metadata DDL/rows copied from an actual native fixture, exact sentinel types persisted and exported. Native workbook_load readback is a separate harness gate. No shared C save codec/controller, source relink, OPFS recovery or browser Save acceptance."
+  },
+  "workerProbe": false,
+  "scope": "Shared C99 startup and captured real interactions for visual verification; source imports, filters, active-query frames and review exports are explicit optional gates; BP0 is file compatibility only, browser workbook persistence is not accepted"
+}

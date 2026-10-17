@@ -1,0 +1,65 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T16:48:51.727749+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "fd8701a7992765a1582358afdcbca7c140486cbc",
+    "status": "M src/dev/review_app.inc\n M src/dev/review_capture.c\n M src/grid/grid.c\n M src/grid/grid.h\n M src/main.c\n M src/platform/platform.c\n M src/platform/platform.h\n M tests/test_grid.c\n M tools/build_web.py\n M tools/build_web_raylib.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M web/host.mjs\n M web/host_review.mjs\n?? tools/ui-review/\n?? tools/web_raylib_adapter.py\n?? web/browser_platform.mjs\n?? web/raylib_web_surface.inc",
+    "source_sha256": "c91e03f2a63995f9a71804e2313b96ba1fdc753f364f465dcbcc58da8b4a4f2c",
+    "source_files": 228
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_grid",
+        "tests/test_grid-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T164851-fast-94384/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 8.585
+    },
+    {
+      "name": "grid-release",
+      "command": [
+        "./tests/test_grid"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T164851-fast-94384/grid-release.txt",
+      "expected_stages": null,
+      "completion_pattern": "^\\d+ grid checks$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.739
+    },
+    {
+      "name": "grid-sanitize",
+      "command": [
+        "./tests/test_grid-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T164851-fast-94384/grid-sanitize.txt",
+      "expected_stages": null,
+      "completion_pattern": "^\\d+ grid checks$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.542
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_grid": "a73bb0b648ece3abfcaa8e4a93de741314c8ff88081376c84dcf5623bd4db610",
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "cac6bc1fe3e59158995b3010b33c59daeb692adbe000e7b9272978d15173b08c"
+  },
+  "elapsed_seconds": 9.938,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_grid": "a73bb0b648ece3abfcaa8e4a93de741314c8ff88081376c84dcf5623bd4db610",
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "cac6bc1fe3e59158995b3010b33c59daeb692adbe000e7b9272978d15173b08c"
+  },
+  "finished_utc": "2026-10-17T16:49:01.788738+00:00"
+}

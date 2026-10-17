@@ -1,0 +1,29 @@
+{
+  "source": "dbc56a87da87d973a9c5baa4e7438a9d20121d28",
+  "toolchain": "62872bc6072b219c674c7e4beba1b71d7b2f11ca5780ef0f2f940949e4e819ec",
+  "flags": "PLATFORM_WEB GRAPHICS_API_OPENGL_ES2 RELEASE STATIC upstream-gnu99",
+  "schema": 2,
+  "adapter": {
+    "tools/web_raylib_adapter.py": "b7d01ffeb4115477fdc46af09777dcd9bf7b9d53da99129a2bc5487b97e2a581",
+    "web/raylib_web_surface.inc": "f7e3c7765d1619f533d0460c18f13071de5c35de194efeaf0eaaac9da807c762"
+  },
+  "command": [
+    "make",
+    "-C",
+    "/Users/h2o/dev/duxcel/build/web/raylib/src",
+    "-j1",
+    "PLATFORM=PLATFORM_WEB",
+    "GRAPHICS=GRAPHICS_API_OPENGL_ES2",
+    "RAYLIB_LIBTYPE=STATIC",
+    "RAYLIB_BUILD_MODE=RELEASE",
+    "CC=/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/bin/python3.13 /Users/h2o/dev/duxcel/build/web/toolchain/emsdk/upstream/emscripten/emcc.py",
+    "AR=/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/bin/python3.13 /Users/h2o/dev/duxcel/build/web/toolchain/emsdk/upstream/emscripten/emar.py",
+    "RAYLIB_RELEASE_PATH=/Users/h2o/dev/duxcel/build/web/raylib/staging"
+  ],
+  "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+  "elapsed_seconds": 7.092,
+  "objects": 6,
+  "library_sha256": "6a571120cf7d8e7f6e8eb045a5e401b2a8dc544402e995d92d17903bede9b259",
+  "library_bytes": 1360788,
+  "scope": "pinned raylib WebGL dependency (upstream GNU99) only; no shared App renderer/browser/Worker acceptance"
+}
