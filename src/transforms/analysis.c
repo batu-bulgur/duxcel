@@ -240,7 +240,7 @@ char *analysis_filter_typed(const char *column,FilterOp op,const char *text,cons
     else condition=dx_printf("%s %s cast_to_type(%s, %s)",col,op==FILTER_GREATER ? ">" : op==FILTER_LESS ? "<" : "=",value,col);
     free(col); free(value); return condition;
 }
-char *analysis_sql(const Analysis *a, bool parameters) {
+char *analysis_source_sql(const Analysis *a,bool parquet_row_numbers) {
     char *sql = NULL;
     if (a->kind == SOURCE_DEMO) {
         sql = dx_strdup("SELECT i::BIGINT AS \"Transaction ID\",\n"
@@ -257,9 +257,12 @@ char *analysis_sql(const Analysis *a, bool parameters) {
         free(schema); free(table);
     } else {
         char *path = dx_quote(a->path ? a->path : "", '\'');
-        sql = dx_printf("SELECT * FROM %s(%s%s)", a->kind == SOURCE_PARQUET ? "read_parquet" : "read_csv_auto", path, a->kind == SOURCE_PARQUET ? "" : ",allow_quoted_nulls=false");
+        sql = dx_printf("SELECT * FROM %s(%s%s)", a->kind == SOURCE_PARQUET ? "read_parquet" : "read_csv_auto", path, a->kind == SOURCE_PARQUET ? parquet_row_numbers ? ",file_row_number=true" : "" : ",allow_quoted_nulls=false");
         free(path);
     }
+    return sql;
+}
+char *analysis_wrap_sql(const Analysis *a,bool parameters,char *sql) {
     if (a->query) {
         char *next=dx_printf("WITH input AS (\n%s\n)\nSELECT * FROM (\n%s\n) AS source_query",sql,a->query);
         free(sql); sql=next;
@@ -296,6 +299,9 @@ char *analysis_sql(const Analysis *a, bool parameters) {
         }
     }
     return sql;
+}
+char *analysis_sql(const Analysis *a,bool parameters) {
+    return analysis_wrap_sql(a,parameters,analysis_source_sql(a,false));
 }
 char *analysis_values_json(char *const *values,size_t count) {
     size_t bytes=3;
