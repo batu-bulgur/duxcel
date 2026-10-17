@@ -5985,7 +5985,10 @@ static void file_action(App *a,UIKeytipFileAction action) {
     case UI_KEYTIP_FILE_SAVE: if (a->book.path) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE); break;
     case UI_KEYTIP_FILE_SAVE_AS: open_modal(a,MODAL_SAVE); break;
     case UI_KEYTIP_FILE_CLOSE: request_document_action(a,DOCUMENT_CLOSE,NULL); break;
-    case UI_KEYTIP_FILE_IMPORT: import_table_panel(a); break;
+    case UI_KEYTIP_FILE_IMPORT:
+        if (a->busy || a->io_busy) status(a,"Wait for the current operation before importing a table.");
+        else import_table_panel(a);
+        break;
     case UI_KEYTIP_FILE_QUIT:
 #ifdef DUXCEL_BROWSER_HOST
         status(a,"Use your browser's Close tab command to leave Duxcel.");
