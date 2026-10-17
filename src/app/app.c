@@ -403,6 +403,7 @@ static void review_inspector_value(App *a,Rectangle bounds,Rectangle clip,const 
 static void review_sql_pin(App *a,const SheetObject *owner,bool cached);
 static void review_sql_content(App *a,const char *sql,Rectangle bounds,Rectangle clip,int scroll,int lines,int visible,const char *file,int line);
 static void review_guide(App *a,const GuideReviewFrame *frame);
+static void review_cell_editor(App *a,Rectangle bounds,Rectangle clip,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -436,6 +437,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_SQL_CONTENT(a,sql,bounds,clip,scroll,lines,visible) review_sql_content(a,sql,bounds,clip,scroll,lines,visible,__FILE__,__LINE__)
 #define REVIEW_GUIDE_ARM(a) ((a)->guide.review.armed=review_armed(a))
 #define REVIEW_GUIDE(a) review_guide(a,&(a)->guide.review)
+#define REVIEW_CELL_EDITOR(a,bounds,clip) review_cell_editor(a,bounds,clip,__FILE__,__LINE__)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -467,6 +469,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_SQL_CONTENT(...) ((void)0)
 #define REVIEW_GUIDE_ARM(...) ((void)0)
 #define REVIEW_GUIDE(...) ((void)0)
+#define REVIEW_CELL_EDITOR(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -4104,6 +4107,7 @@ static void draw_cell_editor(App *a) {
     Rectangle field=grid_range_rect(g,s,g->row,g->col,1,1); field.width=fmaxf(160*s,field.width);
     if (field.x+field.width>g->body.x+g->body.width) field.width=g->body.x+g->body.width-field.x;
     u->scale=s; input_update(&a->input); input_draw(u,&a->input,field); u->scale=scale;
+    REVIEW_CELL_EDITOR(a,field,g->body);
     if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; return; }
     bool enter=ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER),tab=ui_pressed(KEY_TAB);
     if (enter || tab || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),field))) {
