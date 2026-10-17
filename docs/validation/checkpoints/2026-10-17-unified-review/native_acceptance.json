@@ -1,0 +1,109 @@
+{
+  "started_utc": "2026-10-17T16:22:29.759357+00:00",
+  "status": "passed",
+  "configs": {
+    "release": {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/review/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "900"
+      ],
+      "elapsed_seconds": 2.067,
+      "log": "tests/results/runs/20261017T162229-review-88253/release.log",
+      "binary_sha256": "79be0ec5c0ad319f4b2a9fa08c75499cedeb52dcd3fe03eb38265022a07b527d",
+      "build_header_sha256": "87ae3eea534bb1ed16ed2f71b7d341fbdd1040994062a5134603f62841e95a09",
+      "completed_stages": 26,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792254151-88329-1",
+          "target": "filter.search",
+          "frame_id": "15",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 419096,
+            "sha256": "3fa0bf176083e14a4ef173d55bb656cec84faf0dcfb6b157959c05e674aafd66",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T162229-review-88253/release/outbox/DXR-S-1792254151-88329-1/frame.png"
+          },
+          "capture_sha256": "b2bef99fd90dd517afe7c64fe199fc6aa038d6153b7d9ec86f1507a10f675d9e"
+        },
+        {
+          "report_id": "DXR-S-1792254151-88329-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "37",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 270612,
+            "sha256": "acf264b3506b2239c59e5e759d10fd20d1b75485b42106cf99dbb7e8ee3bbe10",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T162229-review-88253/release/outbox/DXR-S-1792254151-88329-2/frame.png"
+          },
+          "capture_sha256": "26f2c1da3c66422380c4b63b8268e4245b5c2c94abff6afa00ae79aabd8624c0"
+        }
+      ]
+    },
+    "sanitize": {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/review-sanitize/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "900"
+      ],
+      "elapsed_seconds": 2.123,
+      "log": "tests/results/runs/20261017T162229-review-88253/sanitize.log",
+      "binary_sha256": "7ec1ac5abab5579a7d352b86b3b222455c389c4379888e159d1eae4b41cab55b",
+      "build_header_sha256": "0ad873e363b9b60a52ae380611bcc8f4951bbc25411236340615a303bdb7c82e",
+      "completed_stages": 26,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792254154-88493-1",
+          "target": "filter.search",
+          "frame_id": "12",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 419096,
+            "sha256": "3fa0bf176083e14a4ef173d55bb656cec84faf0dcfb6b157959c05e674aafd66",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T162229-review-88253/sanitize/outbox/DXR-S-1792254154-88493-1/frame.png"
+          },
+          "capture_sha256": "fec1515112dc782e472a60b6e955ee2769805c8dd00e80ee70e5661354dd8520"
+        },
+        {
+          "report_id": "DXR-S-1792254154-88493-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "34",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 270612,
+            "sha256": "4156feb4d9b9f55c4959c755fc684bae0709e1ef336042f9d481f938792be684",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T162229-review-88253/sanitize/outbox/DXR-S-1792254154-88493-2/frame.png"
+          },
+          "capture_sha256": "2c6af57a3459e16b653b07b0b78c3de7a3ffc944ac970a70b231a189398e918e"
+        }
+      ]
+    }
+  },
+  "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual",
+  "source": {
+    "commit": "5cd61fc1cc7dc692add8adb5a42ef55bbf342692",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "f030ad791cb41396afde777e03c21d4ddde05fef9407cfdaf3646e793be67759",
+    "source_files": 221
+  },
+  "background": {
+    "command": [
+      "./tests/test_background-native-debug"
+    ],
+    "elapsed_seconds": 1.372,
+    "log": "tests/results/runs/20261017T162229-review-88253/background.log"
+  },
+  "finished_utc": "2026-10-17T16:22:35.566100+00:00"
+}

@@ -1,0 +1,50 @@
+python3 tools/review_queue_test.py
+............................
+----------------------------------------------------------------------
+Ran 28 tests in 0.551s
+
+OK
+python3 tools/review_service_test.py
+........
+----------------------------------------------------------------------
+Ran 8 tests in 5.126s
+
+OK
+node --test web/review_host.test.mjs web/review_queue.test.mjs
+✔ one UTF-8 USTAR archive binds exact C bytes, owned pixels, frozen transforms, build and real hashes (10.929458ms)
+✔ subarray offsets, Blob PNG encoder output and longest allowed report ID retain exact bytes (1.545ms)
+✔ shortcut capture consumes only a focused canvas chord before GLFW and queues one request (0.5535ms)
+✔ window capture registered before GLFW intercepts only the focused canvas and removes the exact listener (0.330584ms)
+✔ invalid constructor and synchronous capture metadata are rejected without corrupting a prior frame (1.740542ms)
+✔ manifest identity, UTF-8, dimensions, byte bounds and missing capture fail asynchronously once (2.530417ms)
+✔ encoder/hash/download failure reports one useful error and preserves the frame for retry (2.565833ms)
+✔ callback exceptions are contained and never produce a second callback or unhandled rejection (0.406584ms)
+✔ cancellation before work or during encoding suppresses downloads and stale completion (0.545792ms)
+✔ cancel during hashing, new capture, or disposal invalidates late async work without download (0.902583ms)
+✔ latest export wins while earlier encoding is pending, without publishing the old C callback (1.16125ms)
+✔ an already requested download cannot be retracted, but close suppresses its pending C completion (3.704375ms)
+✔ default encoder uses a separate OffscreenCanvas and default download releases Blob URLs (2.253792ms)
+✔ queue transport replaces downloads and exposes distinct durable local and server acknowledgments (1.496959ms)
+✔ queue failures or invalid receipts retain the C frame and note for explicit retry (2.902208ms)
+✔ queue mode requires the original C project identity and suppresses late completion after close (0.636541ms)
+✔ service ACK follows the persistent commit and uses bounded same-origin authenticated requests (27.731125ms)
+✔ offline commit is truthful local pending; startup after reload uploads the exact original archive (2.120375ms)
+✔ a retry or second tab cannot overwrite an immutable staged archive or duplicate a queued report (1.37275ms)
+✔ concurrent submissions share one flush and one first-writer archive (0.923125ms)
+✔ online event retries local reports and disposal removes the listener and timers (1.087375ms)
+✔ retry backoff is bounded and resets after a successful upload (1.007583ms)
+✔ wrong report, non-durable, unqueued, malformed, oversized and rejected ACKs stay pending (2.505875ms)
+✔ wrong project or malformed service configuration never sends a report or token (0.805541ms)
+✔ storage quota or transaction failure does not claim saved and does not attempt a network request (0.383167ms)
+✔ lost local receipt after server success retries exact bytes idempotently (0.586708ms)
+✔ invalid identifiers, oversized archive and another project cannot alter staged data (0.504458ms)
+✔ idle startup needs no service request and invalid stores/origins fail explicitly (0.336167ms)
+✔ a hung service is aborted after a bounded deadline while the local report remains owned (0.398625ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 113.397709
