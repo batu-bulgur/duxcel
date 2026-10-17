@@ -34,6 +34,7 @@ def parse_options(argv=None):
     parser.add_argument('--review',action='store_true')
     parser.add_argument('--feedback-review-only',action='store_true',help='Real primary Steps/SQL, historical preview, distinct feedback and readouts; requires --review and transactions.csv')
     parser.add_argument('--workspace-review-only',action='store_true',help='Actual workspace Fields/compact shelves/Marks review with empty and populated same-sheet pivots; requires --review and transactions.csv')
+    parser.add_argument('--source-cache-only',action='store_true',help='Actual Open consumer-cache reset, original-sheet republication and 64-sheet rejected-open retention; requires --review and null-text.csv')
     parser.add_argument('--selection-only',action='store_true',help='Real primary/Table/Pivot/manual containing-range selection with retained active cell/cache/history; requires --review and null-text.csv')
     parser.add_argument('--export-cancel-only',action='store_true',help='Real600000-row pending export Escape, retained owners, Undo and small download recovery; requires --review and null-text.csv')
     parser.add_argument('--export-only',action='store_true',help='Actual App Parquet download, honest dispatch failure/recovery and typed reopen in a private folder; requires --review and null-text.csv')
@@ -64,10 +65,11 @@ def parse_options(argv=None):
     parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker v12 file compatibility (test-only, no Save UI claim)')
     parser.add_argument('--persistence-owners',action='store_true',help='Separate BP0 v13 owner lifetime/format package rewrite and native readback; no Save UI claim')
     options=parser.parse_args(argv)
-    if options.selection_only:
+    if options.selection_only or options.source_cache_only:
+        profile='--source-cache-only' if options.source_cache_only else '--selection-only'
         other_profiles=sum(bool(value) for name,value in vars(options).items() if name.endswith('_only'))>1
         if not options.review or not options.source or options.source.name!='null-text.csv' or other_profiles or any((options.filters,options.busy,options.worker_driver,options.worker_probe,options.platform,options.alt_stress,options.persistence,options.persistence_owners,options.query_apply,options.review_offline,options.review_outbox)):
-            parser.error('--selection-only requires --review/null-text.csv and excludes other profiles/engine/report-upload options')
+            parser.error(profile+' requires --review/null-text.csv and excludes other profiles/engine/report-upload options')
     if options.export_only or options.export_cancel_only:
         profile='--export-cancel-only' if options.export_cancel_only else '--export-only'
         other_profiles=sum(bool(value) for name,value in vars(options).items() if name.endswith('_only'))>1
@@ -163,7 +165,7 @@ def parse_options(argv=None):
         parser.error('--filters requires --source tests/fixtures/transactions.csv')
     if options.busy and not options.source:
         parser.error('--busy requires a real --source')
-    if options.review and not options.selection_only and not options.export_only and not options.export_cancel_only and not options.copy_only and not options.review_cell_only and not options.review_guide_only and not options.access_only and not options.zoom_only and not options.review_values_only and (options.worker_driver or not options.source or options.source.name!='transactions.csv'):
+    if options.review and not options.source_cache_only and not options.selection_only and not options.export_only and not options.export_cancel_only and not options.copy_only and not options.review_cell_only and not options.review_guide_only and not options.access_only and not options.zoom_only and not options.review_values_only and (options.worker_driver or not options.source or options.source.name!='transactions.csv'):
         parser.error('--review requires --source tests/fixtures/transactions.csv and cannot use --worker-driver')
     if options.canvas_transform and not options.review:
         parser.error('--canvas-transform requires --review')
@@ -235,6 +237,7 @@ def main():
             if options.export_only: command.append('--export-only')
             if options.export_cancel_only: command.append('--export-cancel-only')
             if options.selection_only: command.append('--selection-only')
+            if options.source_cache_only: command.append('--source-cache-only')
             if options.copy_only: command.append('--copy-only')
             if options.focus_only: command.append('--focus-only')
             if options.review_error_only: command.append('--review-error-only')
@@ -277,7 +280,7 @@ def main():
                     if hashlib.sha256(fixture.read_bytes()).hexdigest()!=fixture_hash:raise RuntimeError('Browser/native proof mutated its original fixture')
                     if any(hashlib.sha256(Path(name).read_bytes()).hexdigest()!=digest for name,digest in persistence_hashes.items()):raise RuntimeError('Native proof helper changed during acceptance')
                 except Exception as error:reader_error=str(error)
-            if options.review and not options.access_only and not options.zoom_only and not options.review_controls_only and not options.analysis_only and not options.analysis_columns_only and not options.review_query_only and not options.statistics_only and not options.analysis_statistics_only and not options.review_values_only and not options.table_statistics_only and not options.mixed_statistics_only and not options.review_sql_only and not options.review_guide_only and not options.review_cell_only and not options.review_error_only and not options.focus_only and not options.copy_only and not options.workspace_review_only and not options.feedback_review_only and not options.export_only and not options.export_cancel_only and not options.selection_only and process.returncode==0:
+            if options.review and not options.access_only and not options.zoom_only and not options.review_controls_only and not options.analysis_only and not options.analysis_columns_only and not options.review_query_only and not options.statistics_only and not options.analysis_statistics_only and not options.review_values_only and not options.table_statistics_only and not options.mixed_statistics_only and not options.review_sql_only and not options.review_guide_only and not options.review_cell_only and not options.review_error_only and not options.focus_only and not options.copy_only and not options.workspace_review_only and not options.feedback_review_only and not options.export_only and not options.export_cancel_only and not options.selection_only and not options.source_cache_only and process.returncode==0:
                 try:
                     from native_review import ReviewStore,default_project
                     report=json.loads((output/'report-manifest.json').read_text());report_id=report['report_id']
@@ -294,7 +297,9 @@ def main():
             record={'status':'passed' if process.returncode==0 and unchanged and artifacts_unchanged and not reader_error else 'failed','source':before,'artifact':manifest,'reader_error':reader_error,'native_persistence_helpers':persistence_hashes,
                     'command':command,'exit_code':process.returncode,'source_unchanged':unchanged,'artifacts_unchanged':artifacts_unchanged,
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
-            record['profile']='selection-only' if options.selection_only else 'export-cancel-only' if options.export_cancel_only else 'export-only' if options.export_only else 'feedback-review-only' if options.feedback_review_only else 'workspace-review-only' if options.workspace_review_only else 'copy-only' if options.copy_only else 'focus-only' if options.focus_only else 'review-error-only' if options.review_error_only else 'review-cell-only' if options.review_cell_only else 'review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            record['profile']='source-cache-only' if options.source_cache_only else 'selection-only' if options.selection_only else 'export-cancel-only' if options.export_cancel_only else 'export-only' if options.export_only else 'feedback-review-only' if options.feedback_review_only else 'workspace-review-only' if options.workspace_review_only else 'copy-only' if options.copy_only else 'focus-only' if options.focus_only else 'review-error-only' if options.review_error_only else 'review-cell-only' if options.review_cell_only else 'review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            if options.source_cache_only:
+                record['scope']='Actual successful source Open clears observable matrix/owner state and publishes real new values; returning to the original sheet republishes its unchanged Table/Pivot/manual definitions. Real ShiftF11 fills64 sheets and another valid source Open is rejected without changing the active cached source/model/history/request. Native source-cache coverage owns exact allocation/bookmark retirement; browser checks consumer state only. No new review fields, fake callbacks, clipboard or saved reports.'
             if options.selection_only:
                 record['scope']='Actual C primary/Table/Pivot/manual containing ranges through trusted Ctrl/Cmd+A, preserved active cell and reversed directions, real header/frame/used/canvas transitions, unchanged source/pages/history/dirty and zero selection-only jobs. Setup uses real File import and Rows/Values controls; metrics disabled through actual checkboxes. No clipboard, reports, dense enumeration or synthetic selection bridge.'
             if options.export_cancel_only:
