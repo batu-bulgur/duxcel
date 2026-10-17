@@ -902,7 +902,14 @@ static void test_marks_workspace(void) {
     CHECK(workbook_save(&book,path,&error)); sql_file(path,"DROP TABLE _duxcel_workspace.marks; UPDATE _duxcel_workspace.meta SET version=11"); CHECK(workbook_load(&loaded,path,&error)); CHECK(!loaded.sheets[0].objects.items[0].marks.counts[MARKS_COLOR]);
     marks_free(&marks); workbook_free(&book); workbook_free(&loaded); free(error);
 }
-int main(void) {
+int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--formats-only")) {
+        test_format_workspace();
+        test_scoped_format_save_guard();
+        printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
+        return 0;
+    }
+    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only]\n",argv[0]); return 2; }
     test_chart_optional_errors();
     test_marks_workspace();
     test_combined_filter_workspace();
