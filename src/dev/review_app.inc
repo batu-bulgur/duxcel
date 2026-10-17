@@ -265,7 +265,7 @@ static const char *review_author_identity(App *a,const char *kind,char parent[12
         snprintf(parent,128,"author.%s",kind); return NULL;
     }
     if (!strcmp(kind,"statistics")) {
-        *data=review_scope(a); data->schema_generation=0; data->has_cell=false; data->field[0]=0;
+        *data=review_scope(a); data->source_id=data->object_id=data->query_generation=data->schema_generation=0; data->has_cell=false; data->field[0]=0;
         const Page *page=&a->page; bool one_column=a->statistics_columns==1;
         if (a->step_preview.active) {
             StepPreview *preview=&a->step_preview; snprintf(data->kind,sizeof(data->kind),"step-statistics");

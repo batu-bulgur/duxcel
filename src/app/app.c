@@ -384,6 +384,7 @@ static void review_sheet_choice(App *a,const char *kind,const char *key,const ch
 static void review_relation_choice(App *a,const Relation *relation,size_t index,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line);
 static void review_sort(App *a,const SortReviewFrame *frame);
 static void review_matrix_area(App *a,Rectangle rows,Rectangle clip,Rectangle measure);
+static void review_statistics_row(App *a,int metric,const char *label,Rectangle bounds,Rectangle clip,bool checked,bool focused,const char *file,int line);
 static void review_ribbon_control(App *a,int command,Rectangle bounds);
 static void review_ribbon_tab(App *a,int tab,Rectangle bounds);
 static void review_group(App *a,int group,Rectangle bounds,bool overflow);
@@ -408,6 +409,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_SORT_ARM(a) ((a)->sort_editor.review.armed=review_armed(a))
 #define REVIEW_SORT(a) review_sort(a,&(a)->sort_editor.review)
 #define REVIEW_MATRIX_AREA(a,rows,clip,measure) review_matrix_area(a,rows,clip,measure)
+#define REVIEW_STATISTICS_ROW(a,metric,label,bounds,clip,checked,focused) review_statistics_row(a,metric,label,bounds,clip,checked,focused,__FILE__,__LINE__)
 #define REVIEW_RIBBON(a,c,r) review_ribbon_control(a,c,r)
 #define REVIEW_TAB(a,t,r) review_ribbon_tab(a,t,r)
 #define REVIEW_GRID(a) review_grid(a)
@@ -430,6 +432,7 @@ static void review_native_command(App *a,DxCommand command);
 #define REVIEW_SORT_ARM(...) ((void)0)
 #define REVIEW_SORT(...) ((void)0)
 #define REVIEW_MATRIX_AREA(...) ((void)0)
+#define REVIEW_STATISTICS_ROW(...) ((void)0)
 #define REVIEW_RIBBON(...) ((void)0)
 #define REVIEW_TAB(...) ((void)0)
 #define REVIEW_GRID(...) ((void)0)
@@ -4727,12 +4730,15 @@ static void draw_statistics(App *a) {
     if (ui_key(KEY_DOWN)) a->statistics_focus=(a->statistics_focus+1)%9;
     if (ui_pressed(KEY_HOME)) a->statistics_focus=0; if (ui_pressed(KEY_END)) a->statistics_focus=8;
     ui_stats_surface(u,&layout,statistics_scope(a));
+    REVIEW_AUTHOR_PANEL(a,"statistics","Selection statistics",layout.panel,layout.title);
     const char *labels[]={"Count of cells","Filled cells","Numeric count","Distinct count","Sum","Average","Minimum","Maximum"};
     for (int i=0;i<8;i++) {
         char buffer[256],display[512]; bool checked=(a->statistics_mask&(1u<<i))!=0;
         const char *value=statistics_display_value(a,i,buffer,display);
+        REVIEW_STATISTICS_ROW(a,i,labels[i],layout.rows[i],layout.panel,checked,a->statistics_focus==i);
         if (ui_stats_row(u,layout.rows[i],labels[i],value,checked,a->statistics_focus==i,pointer) || (a->statistics_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { a->statistics_focus=i; a->statistics_mask^=1u<<i; statistics_line(a); }
     }
+    REVIEW_AUTHOR_ITEM(a,"statistics","done","statistics.close","button","Done",layout.done,layout.panel,true,false,a->statistics_focus==8,NULL);
     bool close=ui_tool_button(u,layout.done,"",false,pointer) || (a->statistics_focus==8 && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)));
     float label=ui_measure(u,"Done",11); ui_label(u,"Done",box(layout.done.x+layout.done.width-10*s-label,layout.done.y,label,layout.done.height),11,UI_ACCENT,false,UI_REGULAR);
     if (a->statistics_focus==8) ui_focus_border(layout.done,layout.done,s);
