@@ -1,0 +1,95 @@
+{
+  "commit": "b92d0c6225156c632133ce887c7ad9ec0297a3f1",
+  "status": "",
+  "source_sha256": "5e68969986c3c10dc87bb72fa6869cb213e7096c27a9477ed0f015697866c8e1",
+  "tests": [
+    {
+      "config": "release",
+      "binary": "tests/test_workbook",
+      "binary_sha256": "53c30ff62aa29d2090e099972f0a016fb776ba9c2106fbcfb450e06b085b8e64",
+      "args": [
+        "--formats-only"
+      ],
+      "elapsed_seconds": 0.885276792,
+      "exit_code": 0,
+      "stdout": "PASS: 383 focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",
+      "stderr": ""
+    },
+    {
+      "config": "release",
+      "args": [
+        "--unknown"
+      ],
+      "elapsed_seconds": 0.0142270000000001,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "Usage: ./tests/test_workbook [--formats-only]\n"
+    },
+    {
+      "config": "release",
+      "args": [
+        "--formats-only",
+        "--extra"
+      ],
+      "elapsed_seconds": 0.01448279100000005,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "Usage: ./tests/test_workbook [--formats-only]\n"
+    },
+    {
+      "config": "release",
+      "args": [
+        "--formats-only",
+        "--formats-only"
+      ],
+      "elapsed_seconds": 0.014222583999999872,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "Usage: ./tests/test_workbook [--formats-only]\n"
+    },
+    {
+      "config": "sanitize",
+      "binary": "tests/test_workbook-debug",
+      "binary_sha256": "604dbb422bf71d892fe824712e2dedb30df64d3881e48f4235e7bc74298ff5b5",
+      "args": [
+        "--formats-only"
+      ],
+      "elapsed_seconds": 4.490340666,
+      "exit_code": 0,
+      "stdout": "PASS: 383 focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",
+      "stderr": ""
+    },
+    {
+      "config": "sanitize",
+      "args": [
+        "--unknown"
+      ],
+      "elapsed_seconds": 0.09857091699999998,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "Usage: ./tests/test_workbook-debug [--formats-only]\n"
+    },
+    {
+      "config": "sanitize",
+      "args": [
+        "--formats-only",
+        "--extra"
+      ],
+      "elapsed_seconds": 0.07258175000000033,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "Usage: ./tests/test_workbook-debug [--formats-only]\n"
+    },
+    {
+      "config": "sanitize",
+      "args": [
+        "--formats-only",
+        "--formats-only"
+      ],
+      "elapsed_seconds": 0.07635129099999993,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "Usage: ./tests/test_workbook-debug [--formats-only]\n"
+    }
+  ]
+}

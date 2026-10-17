@@ -1,0 +1,29 @@
+{
+  "commit": "00c67f82d8f14aec4f8a921ec74f279f03a8fdc9",
+  "status": "",
+  "sources": {
+    "src/workbook/format.c": "565695d2d426b8d363366d544a7db4f94fe67b703827a56a9aca4945759bf118",
+    "src/workbook/format.h": "b3d78bfdbe38fe6d0040eaa0aa5df0b5179e305a81ab98268360f26bfba0e530",
+    "tests/test_format.c": "4a9ca77f3daf1a3c1a7ae23a85f3cdfc329a7d0acc924558e75cdb68cd715f82"
+  },
+  "tests": [
+    {
+      "configuration": "release",
+      "binary": "tests/test_format",
+      "sha256": "80dc75f892235797541967109057a6c3d58957a971fc37b60d70cca3b6c5a775",
+      "elapsed_seconds": 0.022566832999999994,
+      "exit_code": 0,
+      "stdout": "PASS: 27128 formatting checks (exact numeric display, bounded ranges, scoped containment, precedence, ownership, moves, structural edits, history and whole-sheet selection)\n",
+      "stderr": ""
+    },
+    {
+      "configuration": "sanitize",
+      "binary": "tests/test_format-debug",
+      "sha256": "2ea680a6370b8bbe0bb8a7f793f7f69c112c149de316a47e3b835bfea56da5b3",
+      "elapsed_seconds": 0.286992833,
+      "exit_code": 0,
+      "stdout": "PASS: 27128 formatting checks (exact numeric display, bounded ranges, scoped containment, precedence, ownership, moves, structural edits, history and whole-sheet selection)\n",
+      "stderr": ""
+    }
+  ]
+}

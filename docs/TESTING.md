@@ -12,6 +12,9 @@ make test-fast
 make test-records
 make test-fast TEST_ARGS='--modules grid choiceview --jobs 2'
 
+# Scoped format model and existing workbook-format Save/Open checks, no GUI.
+python3 tools/test.py formats --config both
+
 # Headless checks plus one independently initialized native feature slice.
 make test-affected FEATURE=shelves TEST_ARGS='--modules grid marksview --jobs 2'
 
@@ -29,12 +32,15 @@ make test-build
 
 `--config release`, `sanitize` or `both` selects headless configurations. With `both`, the native phase uses the sanitizer binary. `--jobs 2` overlaps only independent **already-built read-only module tests**. Builds stay serialized under the existing Make rules; the runner does not enable unsafe parallel asset generation. `--no-build` is for deliberate reuse of known binaries/fixtures, with freshness the caller's responsibility.
 
+The `formats` tier runs the existing workbook formatting suites with `--formats-only`, creates its fixture directory and preserves the worktree lock plus source/binary manifests. It needs no core fixture regeneration or desktop lock, and rejects parallel engine execution and unrelated options. Both383-check configurations took5.013s warm (`--no-build`), compared with41.326s for the full sanitizer workbook workload. Full core-before-workbook ordering is unchanged. [Acceptance and separate workload scopes](validation/checkpoints/2026-10-17-menu-scope-groundwork/).
+
 ## Tiers and ownership
 
 | Tier | What runs | Appropriate use |
 | --- | --- | --- |
-| `fast` | 19 headless modules, or named affected modules; release/sanitizers | Widget, geometry, formatting, motion and presentation edits |
+| `fast` | Headless modules, or named affected modules; release/sanitizers | Widget, geometry, formatting, motion and presentation edits |
 | `records` | Raw-record SQL and integrated native Page tests, sequential per configuration | Record provenance, positional consumers and engine ownership; no desktop or shared fixtures |
+| `formats` | Existing workbook formatting/save checks only, sequential per configuration | Format ownership and persistence boundaries; no desktop or unrelated core fixtures |
 | `affected` | Selected headless modules, canonical design fixture, named native layout slice | A visible control or interaction change |
 | `native` | Named existing complete application workflows, with only their required fixtures | A table/filter/document regression without unrelated scenarios |
 | `full` | All headless modules; core then workbook for each configuration; GPU probe; 18 native workflows | Coherent integration/release boundary; shared lifetime/renderer changes |
@@ -144,6 +150,6 @@ The focused chrome/motion follow-up adds a direct hidden platform helper in `tes
 
 The current input/lifecycle gate uses trusted CDP keys throughout: `python3 tools/test_web_app.py --review --no-build --source tests/fixtures/transactions.csv --dpr 2 --canvas-transform --platform --filters --alt-stress`. It retains every protocol phase, records actual same-frame H1/HCC delivery, tests File-menu Delete isolation and cancel/discard Close, and samples real C GPU pixels during sustained pulls, decaying/gappy and alternating tiny tails. The old Windows-to-macOS native virtual-key driver bug is fixed; DOM bypass results in the earlier checkpoint remain historical. `node --test tools/cdp_keyboard.test.mjs tools/test_web_cdp.test.mjs` covers protocol fields and held-key cleanup.
 
-For access-key/File-only edits, use `python3 tools/test_web_app.py --review --no-build --access-only --dpr 2` after building review Wasm. This separate blank-workbook profile passed 35 checks in 9.689 s: trusted same-frame H1/HCC, menu edit isolation, outside-click dismissal and guarded Close/Cancel/Discard, with zero database jobs. It rejects source/engine/platform/report-upload options and does not replace those acceptance gates. The native document profile additionally covers a completed outside click captured between frames.
+For access-key/File-only edits, use `python3 tools/test_web_app.py --review --no-build --access-only --dpr 2` after building review Wasm. This separate blank-workbook profile now passes66 checks in14.001s with optional `--canvas-transform`: trusted same-frame H1/HCC, disabled-skipping Home/End/Tab/wrapping, short-window wheel scrolling and Space activation, covered-anchor/chrome isolation, outside-click dismissal and guarded Close/Cancel/Discard, with zero database jobs. It rejects source/engine/platform-query/report-upload options and does not replace those acceptance gates. The native document profile additionally covers a completed outside click captured between frames.
 
 `tests/test_pan_native.m` documents the hidden native adapter test/build: exact logical points and gesture phases, non-consuming frame snapshots, modifier transitions, Close/New/Quit menu/delegate semantics and shutdown, plus actual UIContext→grid input/rendering with bundled fonts, GL backing/edge pixels and current elapsed-time recovery. The 1,037-check sanitizer run took 1.473 s without posting OS input. Run under the desktop lock. The grid's focused `--overscroll` gate now has13,695 checks/configuration; the complete grid gate has 34,783, including ordered access-key input. These remain synthetic acceptance; actual hardware gesture feel, Space behavior, held-Alt/browser menus and IME are separate. [Current evidence](validation/checkpoints/2026-10-17-input-lifecycle/).

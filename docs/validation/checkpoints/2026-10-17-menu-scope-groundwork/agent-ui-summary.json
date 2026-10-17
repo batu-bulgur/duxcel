@@ -1,0 +1,63 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-17T18:52:06.889026+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/.codex/worktrees/duxcel-ui-parity-next/duxcel",
+  "source": {
+    "commit": "9051d4dfeab7d0503c122ae668acc98e4305ff79",
+    "status": "M src/ui/choiceview.c\n M tests/test_choiceview.c",
+    "source_sha256": "5dabbd5968cac9601db6701755d2fc83e967090f4c2a3b9af0eaa23dff481519",
+    "source_files": 235
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_choiceview",
+        "tests/test_choiceview-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-ui-parity-next/duxcel/tests/results/runs/20261017T185206-fast-25859/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 3.06
+    },
+    {
+      "name": "choiceview-release",
+      "command": [
+        "./tests/test_choiceview"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-ui-parity-next/duxcel/tests/results/runs/20261017T185206-fast-25859/choiceview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.781
+    },
+    {
+      "name": "choiceview-sanitize",
+      "command": [
+        "./tests/test_choiceview-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-ui-parity-next/duxcel/tests/results/runs/20261017T185206-fast-25859/choiceview-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.656
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/.codex/worktrees/duxcel-ui-parity-next/duxcel/tests/test_choiceview": "93a64e916e70ffb236da235f5990893c8944f074d42f8916f7298f9f35dc4a44",
+    "/Users/h2o/.codex/worktrees/duxcel-ui-parity-next/duxcel/tests/test_choiceview-debug": "5d8f06d5eee86fa1fbab671d40e28b0341f122109037fca96a6eff256ff49130"
+  },
+  "elapsed_seconds": 4.602,
+  "binaries_after": {
+    "/Users/h2o/.codex/worktrees/duxcel-ui-parity-next/duxcel/tests/test_choiceview": "93a64e916e70ffb236da235f5990893c8944f074d42f8916f7298f9f35dc4a44",
+    "/Users/h2o/.codex/worktrees/duxcel-ui-parity-next/duxcel/tests/test_choiceview-debug": "5d8f06d5eee86fa1fbab671d40e28b0341f122109037fca96a6eff256ff49130"
+  },
+  "finished_utc": "2026-10-17T18:52:11.569530+00:00"
+}
