@@ -291,8 +291,8 @@ async function accessKeys(){
  return result;
 }
 async function wheelBatch(dx,dy,count=1,options={}){
- const result=await evaluate(`(()=>{const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();let claimed=0;for(let i=0;i<${count};i++){const event=new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:r.x+r.width*${options.x??.65},clientY:r.y+r.height*${options.y??.65},deltaX:${dx},deltaY:${dy},deltaMode:${options.mode??0},ctrlKey:${!!options.ctrl},shiftKey:${!!options.shift}});canvas.dispatchEvent(event);if(event.defaultPrevented)claimed++;}return claimed;})()`);
- check(result===count,'Canvas wheel default/duplicate ownership failed');await frames(3);
+ const result=await evaluate(`(()=>{const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();let claimed=0,point;for(let i=0;i<${count};i++){const event=new WheelEvent('wheel',{bubbles:true,cancelable:true,clientX:r.x+r.width*${options.x??.65},clientY:r.y+r.height*${options.y??.65},deltaX:${dx},deltaY:${dy},deltaMode:${options.mode??0},ctrlKey:${!!options.ctrl},shiftKey:${!!options.shift}});canvas.dispatchEvent(event);if(event.defaultPrevented)claimed++;point={x:Math.fround((event.clientX-r.x)*canvas.clientWidth/r.width),y:Math.fround((event.clientY-r.y)*canvas.clientHeight/r.height)};}return{claimed,point};})()`);
+ check(result.claimed===count,'Canvas wheel default/duplicate ownership failed');await frames(3);return result.point;
 }
 // Geometry comes from the captured real C frame. Text bounds are measured in
 // the shared C GL framebuffer, independently of the geometry under test.
@@ -305,6 +305,9 @@ async function gridLabelPixels(state){
  return result;
 }
 async function gridZoomHeaders(name,sourceHeader){
+ // An owned fresh browser defaults to Freeze first two source columns. Turn
+ // that actual UI option off so both axes exercise an interior zoom anchor.
+ if(sourceHeader){await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('9','Digit9',57);await click(40,42);}
  const baseline=await platformSnapshot(),jobs=starts().length;
  for(const field of ['grid_rect','grid_gutter','grid_header','grid_cell','grid_selection','source_header'])check(baseline[field]!==undefined,'C zoom capture omitted '+field);
  check(baseline.source_header===(sourceHeader?'1':'0')&&baseline.top==='0'&&Number(baseline.horizontal)===0,'Zoom gate requires the fresh expected grid at its origin');
@@ -312,22 +315,22 @@ async function gridZoomHeaders(name,sourceHeader){
  const [bx,by]=baseline.body.split(',').map(Number),[lw,lh]=baseline.logical.split(',').map(Number),anchor={x:bx+1,y:by+1};
  const wheelOptions={ctrl:true,x:anchor.x/lw,y:anchor.y/lh};
  function near(a,b,tolerance=.004){return Math.abs(Number(a)-Number(b))<=tolerance;}
- function dataAnchor(state){const [x,y]=state.body.split(',').map(Number),scale=Number(state.ui_scale)*Number(state.zoom);return{x:Number(state.horizontal)+(anchor.x-x)/scale,y:Number(state.top)+Number(state.fraction)+(anchor.y-y)/(Number(state.row_height)*scale)};}
- function fixedGeometry(state){
+ function dataAnchor(state,point){const [x,y,w,h]=state.body.split(',').map(Number),scale=Number(state.ui_scale)*Number(state.zoom),px=Math.max(x,Math.min(point.x,x+w)),py=Math.max(y,Math.min(point.y,y+h));return{x:Number(state.horizontal)+(px-x)/scale,y:Number(state.top)+Number(state.fraction)+(py-y)/(Number(state.row_height)*scale)};}
+ function fixedGeometry(state,point=anchor){
   check(near(state.grid_gutter,baseline.grid_gutter)&&near(state.grid_header,baseline.grid_header),'Sheet zoom resized row gutter or column header');
   check(state.ui_scale===baseline.ui_scale&&state.grid_rect===baseline.grid_rect&&state.body===baseline.body,'Sheet zoom moved UI chrome or changed interface scale');
   const actual=state.grid_cell.split(',').map(Number),initial=baseline.grid_cell.split(',').map(Number),factor=Number(state.zoom)/Number(baseline.zoom);
   check(actual.every((value,i)=>near(value,initial[i]*factor,.01)),'Cell width/row height did not follow canvas zoom');
-  const a=dataAnchor(baseline),b=dataAnchor(state);check(near(a.x,b.x,.01)&&near(a.y,b.y,.0001),'Fixed header zoom lost the data under its pointer anchor');
+  const a=dataAnchor(baseline,point),b=dataAnchor(state,point);check(near(a.x,b.x,.01)&&near(a.y,b.y,.0001),'Fixed header zoom lost the data under its pointer anchor');
   check(state.active===baseline.active&&state.anchor===baseline.anchor&&state.extent===baseline.extent,'Zoom changed active cell or range selection');
  }
  function fixedLabels(actual){for(const label of ['column','row']){const before=pixels.labels[label],after=actual.labels[label],tolerance=1.25/actual.ratio+.02;check(near(after.width,before.width,tolerance)&&near(after.height,before.height,tolerance),'Sheet zoom resized rendered '+label+' label glyphs');}}
  for(const [label,delta] of [['in',-150],['back',150],['out',150],['restored',-150]]){
-  await wheelBatch(0,delta,1,wheelOptions);const state=await platformSnapshot();fixedGeometry(state);
+  const point=await wheelBatch(0,delta,1,wheelOptions);const state=await platformSnapshot();fixedGeometry(state,point);
   if(label==='in')check(Number(state.zoom)>Number(baseline.zoom)*1.2,'Zoom-in input did not enlarge the data cells');
   if(label==='out')check(Number(state.zoom)<Number(baseline.zoom)*.85,'Zoom-out input did not shrink the data cells');
   if(label==='back'||label==='restored')check(near(state.zoom,baseline.zoom,.00001),'Reciprocal zoom did not restore the sheet');
-  const glyphs=await gridLabelPixels(state);fixedLabels(glyphs);samples.push({label,state,glyphs});
+  const glyphs=await gridLabelPixels(state);fixedLabels(glyphs);samples.push({label,point,state,glyphs});
   if(label==='in'||label==='out')await capture('zoom-'+name+'-'+label);
  }
  // A real Interface scale command must still resize header UI independently.
@@ -337,7 +340,7 @@ async function gridZoomHeaders(name,sourceHeader){
  check(near(Number(interfaceScaled.grid_header)/1.25,baseline.grid_header)&&near(Number(interfaceScaled.grid_gutter)/1.25,baseline.grid_gutter,1),'Interface scale failed to resize header chrome');
  const interfaceRestored=await interfaceScale(1);fixedGeometry(interfaceRestored);
  // Exercise hit testing at an enlarged zoom, rather than accepting geometry alone.
- await click(40,42);await wheelBatch(0,-150,1,wheelOptions);let enlarged=await platformSnapshot();fixedGeometry(enlarged);
+ await click(40,42);const enlargedPoint=await wheelBatch(0,-150,1,wheelOptions);let enlarged=await platformSnapshot();fixedGeometry(enlarged,enlargedPoint);
  const [gx,gy]=enlarged.grid_rect.split(',').map(Number),[bodyX,bodyY]=enlarged.body.split(',').map(Number),[cellWidth,rowHeight]=enlarged.grid_cell.split(',').map(Number),ui=Number(enlarged.ui_scale),scale=ui*Number(enlarged.zoom),left=bodyX-Number(enlarged.horizontal)*scale;
  await click(left+cellWidth/2,gy+11*ui);const columnSelected=await platformSnapshot();
  check(columnSelected.grid_selection==='2'&&columnSelected.active.split(',')[1]==='0','Enlarged column header did not select the actual column');
