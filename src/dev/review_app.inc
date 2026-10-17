@@ -1114,7 +1114,8 @@ static void review_native_command(App *a,DxCommand command) {
 #define REVIEW_GUIDE_END (REVIEW_OWNER_END+2*6)
 #define REVIEW_CELL_END (REVIEW_GUIDE_END+2*6)
 #define REVIEW_ERROR_END (REVIEW_CELL_END+2*6)
-#define REVIEW_SMOKE_STAGES (REVIEW_ERROR_END+6)
+#define REVIEW_QUERY_FEEDBACK_END (REVIEW_ERROR_END+6)
+#define REVIEW_SMOKE_STAGES (REVIEW_QUERY_FEEDBACK_END+2*4)
 typedef struct {
     int stage; unsigned note_frame,wait_frame; uint64_t request,jobs; GridLocation selection; Cell *page;
     size_t cursor,anchor,history; bool dirty; int file_focus,file_scroll,diagnostic_stage; char root[4096];
@@ -1165,6 +1166,12 @@ typedef struct {
     char error_directory[4096],error_book_path[4096]; char *error_text,*error_pointer;
     double error_since; uint64_t error_status_counter,error_request,error_jobs,error_object_next;
     size_t error_sheets,error_active; int error_setup_item; bool error_setup_started;
+    bool workspace_started,workspace_search_focus; int workspace_setup_item,workspace_object,workspace_focus,workspace_role,workspace_value,workspace_field_scroll;
+    size_t *workspace_matches,*workspace_match_pointer,workspace_match_count,workspace_match_capacity,workspace_schema_count;
+    uint64_t workspace_source_id,workspace_source_revision,workspace_match_generation,workspace_search_revision;
+    float workspace_author_scroll,workspace_dock_scroll[2]; UIMarksLayout workspace_marks; UIShelfLayout workspace_axes[2];
+    UIContextTitleLayout workspace_title; Rectangle workspace_fields,workspace_tokens[4][DX_PIVOT_FIELDS];
+    char workspace_mark_labels[DX_MARK_ROLES][512];
 } ReviewSmoke;
 static void review_smoke_click(Rectangle b) { float x=b.x+b.width*.5f,y=b.y+b.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
 static void review_smoke_pick(App *a,const char *id) {
@@ -1281,6 +1288,7 @@ static void review_smoke_author_release(ReviewSmoke *t) {
     free(t->cell_text); t->cell_text=NULL; free(t->cell_pointers); t->cell_pointers=NULL; cells_free(&t->cell_model);
     for (size_t i=0;i<64;i++) { free(t->cell_history[i]); t->cell_history[i]=NULL; }
     free(t->error_text); t->error_text=NULL;
+    free(t->workspace_matches); t->workspace_matches=NULL;
     free(t->dialog_text); t->dialog_text=NULL; free(t->dialog_chart_text); t->dialog_chart_text=NULL;
     for (size_t i=0;i<DX_MAX_SHEETS;i++) { free(t->sheet_names[i]); t->sheet_names[i]=NULL; }
 }
@@ -2986,10 +2994,117 @@ static int review_smoke_query_failure_tick(App *a,ReviewSmoke *t) {
     if (phase==4) { if (!review_smoke_query_failure_same(a,t,false)) goto failed; ui_note_key_press(KEY_ESCAPE,0); return 1; }
     t->choice_modal=MODAL_NONE; if (!review_smoke_query_failure_same(a,t,true)) goto failed;
     printf("PASS: native Source Query missing-column validation produces one real prepare and no executed SQL; actual status/error targets retain owned draft, exact message, line cache/scroll, input histories, source/model/Pages/jobs through capture/pick/cancel and normal Escape\n");
-    review_smoke_author_release(t); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); return 1;
+    review_smoke_author_release(t); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); return 1;
 failed:
     review_smoke_query_diagnostic(a,t,"missing-column validation feedback");
     fprintf(stderr,"Review validation feedback phase=%d error=%s lines=%zu scroll=%d limited=%d jobs_base=%llu prepares_base=%llu request=%llu state=%s\n",phase,a->query_error ? a->query_error : "",a->query_errors.count,a->query_error_scroll,a->query_errors.limited,(unsigned long long)t->query_failure_jobs,(unsigned long long)t->query_failure_prepares,(unsigned long long)t->query_failure_request,r->frame.state_text); return -1;
+}
+static void review_smoke_workspace_remember(App *a,ReviewSmoke *t) {
+    review_smoke_stats_remember(a,t); t->cell_input=a->pivot_search; t->cell_text=dx_strdup(a->pivot_search.text);
+    for (size_t stack=0;stack<2;stack++) {
+        const TextInputState *states=stack ? a->pivot_search.redo : a->pivot_search.undo; size_t count=stack ? a->pivot_search.redo_count : a->pivot_search.undo_count;
+        for (size_t i=0;i<count;i++) t->cell_history[32*stack+i]=dx_strdup(states[i].text);
+    }
+    const Worksheet *sheet=active_sheet(a); t->cell_borrowed=sheet->cells; cells_copy(&t->cell_model,&sheet->cells);
+    t->cell_worksheet_redo=sheet->redo_actions_count; t->cell_object_next=sheet->objects.next_id;
+    t->workspace_match_pointer=a->field_matches; t->workspace_match_count=a->field_match_count; t->workspace_match_capacity=a->field_match_capacity; t->workspace_schema_count=a->field_schema_count;
+    if (a->field_match_count) { size_t bytes=a->field_match_count*sizeof(size_t); t->workspace_matches=dx_alloc(bytes); memcpy(t->workspace_matches,a->field_matches,bytes); }
+    t->workspace_source_id=a->field_source_id; t->workspace_source_revision=a->field_source_revision; t->workspace_match_generation=a->field_match_generation; t->workspace_search_revision=a->field_search_revision;
+    t->workspace_search_focus=a->pivot_search_focus; t->workspace_focus=a->pivot_focus; t->workspace_role=a->pivot_role; t->workspace_value=a->pivot_value; t->workspace_field_scroll=a->pivot_field_scroll;
+    t->workspace_author_scroll=a->author_scroll; memcpy(t->workspace_dock_scroll,a->dock_scroll,sizeof(t->workspace_dock_scroll)); t->workspace_marks=a->author_marks_layout;
+    t->workspace_title=a->context_title; t->workspace_fields=a->field_list; memcpy(t->workspace_axes,a->axis_shelves,sizeof(t->workspace_axes)); memcpy(t->workspace_tokens,a->pivot_tokens,sizeof(t->workspace_tokens)); memcpy(t->workspace_mark_labels,a->mark_labels,sizeof(t->workspace_mark_labels));
+}
+static bool review_smoke_workspace_same(App *a,ReviewSmoke *t) {
+    const Worksheet *sheet=active_sheet(a); const CellStore *cells=&sheet->cells,*old=&t->cell_borrowed;
+    return review_smoke_stats_same(a,t) && review_smoke_cell_input_same(&a->pivot_search,t) && review_smoke_cell_content(cells,&t->cell_model) && cells->cells==old->cells && cells->capacity==old->capacity && cells->revision==old->revision && cells->undo_count==old->undo_count && cells->redo_count==old->redo_count && sheet->redo_actions_count==t->cell_worksheet_redo && sheet->objects.next_id==t->cell_object_next &&
+        a->field_matches_valid && a->field_matches==t->workspace_match_pointer && a->field_match_count==t->workspace_match_count && a->field_match_capacity==t->workspace_match_capacity && a->field_schema_count==t->workspace_schema_count && (!a->field_match_count || !memcmp(a->field_matches,t->workspace_matches,a->field_match_count*sizeof(size_t))) &&
+        a->field_source_id==t->workspace_source_id && a->field_source_revision==t->workspace_source_revision && a->field_match_generation==t->workspace_match_generation && a->field_search_revision==t->workspace_search_revision &&
+        a->pivot_search_focus==t->workspace_search_focus && a->pivot_focus==t->workspace_focus && a->pivot_role==t->workspace_role && a->pivot_value==t->workspace_value && a->pivot_field_scroll==t->workspace_field_scroll && a->author_scroll==t->workspace_author_scroll && !memcmp(a->dock_scroll,t->workspace_dock_scroll,sizeof(t->workspace_dock_scroll)) &&
+        !memcmp(&a->author_marks_layout,&t->workspace_marks,sizeof(t->workspace_marks)) && !memcmp(&a->context_title,&t->workspace_title,sizeof(t->workspace_title)) && review_smoke_guide_rect(a->field_list,t->workspace_fields) && !memcmp(a->axis_shelves,t->workspace_axes,sizeof(t->workspace_axes)) && !memcmp(a->pivot_tokens,t->workspace_tokens,sizeof(t->workspace_tokens)) && !memcmp(a->mark_labels,t->workspace_mark_labels,sizeof(t->workspace_mark_labels));
+}
+static bool review_smoke_workspace_targets(App *a,ReviewSmoke *t,int item) {
+    DxReviewRegistry *registry=a->review->registry; SheetObject *pivot=selected_pivot(a); if (!pivot || registry->duplicate_count || registry->invalid_count || registry->overflow_count || registry->truncated) return false;
+    char document[128]; review_document_id(a,document); size_t fields=0,tokens=0;
+    const SheetObject *source=objects_source(&active_sheet(a)->objects,pivot); uint64_t source_id=source ? source->id : 0,source_revision=source ? source->revision : a->analysis_revision;
+    for (size_t i=0;i<registry->count;i++) {
+        const DxReviewWidget *widget=&registry->widgets[i]; bool field=!strncmp(widget->id,"pane.fields",11),author=!strncmp(widget->id,"analysis.context",16) || !strncmp(widget->id,"analysis.shelf.",15) || !strncmp(widget->id,"analysis.marks",14); if (!field && !author) continue;
+        const DxReviewDataIdentity *data=&widget->data; Rectangle shown=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height});
+        if (!data->present || strcmp(data->document_id,document) || strcmp(data->document_id,registry->frame.document_id) || data->sheet_id!=a->book.active+1 || data->has_cell || data->source_id!=source_id || data->object_id!=(field ? source_id : pivot->id) || data->schema_generation!=(field ? a->field_schema_generation : source_revision) || data->query_generation!=(field ? source_revision : pivot->revision) || shown.width<=0 || shown.height<=0 || !strstr(widget->source_file,"src/app/app.c") || !widget->source_line) return false;
+        if (widget->container || !strcmp(widget->role,"text") || !strcmp(widget->role,"region")) { if (widget->input_eligible) return false; }
+        if (!strncmp(widget->id,"pane.fields.field.",18) && !strstr(widget->id,".more")) fields++;
+        if (strstr(widget->id,".token.") && !strstr(widget->id,".remove")) tokens++;
+    }
+    const char *required[]={"pane.fields","pane.fields.heading","pane.fields.close","pane.fields.search","pane.fields.list","analysis.context","analysis.context.title","analysis.context.browse","analysis.shelf.rows","analysis.shelf.rows.add","analysis.shelf.columns","analysis.shelf.columns.add","analysis.marks","analysis.marks.representation","analysis.shelf.values","analysis.shelf.values.add"};
+    for (size_t i=0;i<sizeof(required)/sizeof(*required);i++) if (!dx_review_find(registry,required[i])) { fprintf(stderr,"Review workspace missing %s\n",required[i]); return false; }
+    const DxReviewWidget *search=dx_review_find(registry,"pane.fields.search"),*representation=dx_review_find(registry,"analysis.marks.representation");
+    if (!search->value.present || search->value.is_null || strcmp(search->value.type,"VARCHAR") || strcmp(search->value.exact_text,t->cell_text) || !representation->enabled || !representation->input_eligible || strcmp(representation->role,"combobox") || !representation->value.present || strcmp(representation->value.exact_text,"Matrix") || dx_review_find(registry,"analysis.marks.plot")) return false;
+    Page *available=context_fields(a); size_t expected_fields=0;
+    for (size_t i=0;i<available->column_count;i++) {
+        char id[128],more[128]; snprintf(id,sizeof(id),"pane.fields.field.f%016llx",(unsigned long long)review_field_hash(available->columns[i].name)); snprintf(more,sizeof(more),"%s.more",id);
+        const DxReviewWidget *row=dx_review_find(registry,id),*button=dx_review_find(registry,more); bool matched=false;
+        for (size_t j=(size_t)a->pivot_field_scroll;j<a->field_match_count && j<(size_t)(a->pivot_field_scroll+a->field_visible);j++) if (a->field_matches[j]==i) matched=true;
+        if (!matched) { if (row || button) return false; continue; }
+        if (!row && !button) continue; expected_fields++;
+        bool focused=a->pivot_focus==1 && a->pivot_field==(int)i;
+        if (!row || !button || strcmp(row->data.kind,"available-field") || strcmp(row->data.field,available->columns[i].name) || row->data.row!=i || row->data.column || !row->enabled || !row->input_eligible || row->focused!=focused || row->checked!=focused || !row->value.present || row->value.is_null || strcmp(row->value.exact_text,available->columns[i].name) || strcmp(button->parent_id,id) || !button->enabled || !button->input_eligible || button->checked || !review_smoke_sheet_pick(a,button,"pane.fields.list")) return false;
+        if (!t->author_target[0]) snprintf(t->author_target,sizeof(t->author_target),"%s",more);
+    }
+    if (!fields || fields!=expected_fields || fields>(size_t)a->field_visible || (!!dx_review_find(registry,"pane.fields.clear"))!=(item!=0)) return false;
+    size_t expected_tokens=0;
+    for (int role=0;role<4;role++) for (size_t i=0;i<pivot->pivot.counts[role];i++) {
+        char id[128],remove_id[128]; const PivotField *field=&pivot->pivot.fields[role][i]; if (!review_workspace_token_id(id,role,field,false) || !review_workspace_token_id(remove_id,role,field,true)) return false;
+        const DxReviewWidget *token=dx_review_find(registry,id),*remove=dx_review_find(registry,remove_id); if (!token) { if (remove) return false; continue; } expected_tokens++;
+        if (strcmp(token->data.kind,"pivot-token") || strcmp(token->data.field,field->name) || token->data.row!=i || token->data.column!=(uint64_t)role || !token->enabled || !token->input_eligible || !token->value.present || token->value.is_null || strcmp(token->value.type,"VARCHAR")) return false;
+        if (role==PIVOT_VALUES) {
+            if (!remove || remove->enabled || remove->input_eligible || strcmp(remove->parent_id,id) || !review_smoke_sheet_pick(a,remove,"analysis.shelf.values")) return false;
+            if (item) snprintf(t->author_target,sizeof(t->author_target),"%s",remove_id);
+        } else if (remove) return false;
+    }
+    if (tokens!=expected_tokens || (!item && tokens) || (item && tokens<3)) return false;
+    const DxReviewWidget *color=dx_review_find(registry,"analysis.marks.target.color");
+    if (!color || !color->enabled || !color->input_eligible || color->checked!=(item!=0) || (item ? !color->value.present || color->value.is_null || strcmp(color->value.exact_text,"City") : color->value.present)) return false;
+    return t->author_target[0]!=0;
+}
+static int review_smoke_workspace_tick(App *a,ReviewSmoke *t) {
+    int item=(t->stage-REVIEW_QUERY_FEEDBACK_END)/4,phase=(t->stage-REVIEW_QUERY_FEEDBACK_END)%4; DxReviewCapture *r=a->review;
+    if (!phase) {
+        if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
+        if (!t->workspace_started || t->workspace_setup_item!=item) {
+            if (a->modal!=MODAL_NONE || a->analysis.kind!=SOURCE_CSV || a->page.total!=5 || a->page.column_count!=6) goto failed;
+            run_action(a,ACTION_RESET_LAYOUT);
+            if (!item) { grid_select_cell(&a->grid,0,8,false); keyboard_object(a); create_pivot(a); if (!selected_pivot(a)) goto failed; t->workspace_object=a->selected_object; }
+            else {
+                if (a->selected_object!=t->workspace_object || !selected_pivot(a)) goto failed;
+                PivotDefinition definition={0}; char *error=NULL; bool ok=pivot_assign(&definition,PIVOT_ROWS,"City",AGG_SUM,&error) && pivot_assign(&definition,PIVOT_COLUMNS,"Approved",AGG_SUM,&error) && pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_SUM,&error) && pivot_assign(&definition,PIVOT_FILTERS,"Note",AGG_SUM,&error); free(error);
+                if (!ok) { pivot_free(&definition); goto failed; } if (!set_pivot_definition(a,&definition)) goto failed;
+                MarkField color={.name="City"}; if (!assign_mark_field(a,MARKS_COLOR,&color)) goto failed;
+            }
+            input_set(&a->pivot_search,""); if (item) { input_insert(&a->pivot_search,"i"); a->pivot_search.select_all=false; a->pivot_search.cursor=1; a->pivot_search.anchor=0; }
+            a->pivot_focus=6; a->author_reveal=true;
+            ui_set_scale(&a->ui,item ? 1.5f : 1); SetWindowSize(1280,item ? 1000 : 820);
+            t->workspace_started=true; t->workspace_setup_item=item; return 0;
+        }
+        if (!selected_pivot(a) || a->modal!=MODAL_NONE) goto failed;
+        if ((item && !object_ready(a,(size_t)t->workspace_object)) || GetScreenWidth()!=1280 || GetScreenHeight()!=(item ? 1000 : 820) || a->ui.scale!=(item ? 1.5f : 1) || a->author_context_progress!=1 || fabsf(a->left_extent-a->sidebar_width)>.01f || !a->author_marks_layout.valid || !a->fields_visible || a->field_visible<1 || a->field_search_revision!=a->pivot_search.revision || !review_can_capture(a) || a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING) return 0;
+        review_smoke_workspace_remember(a,t); t->author_target[0]=0; ui_note_key_press(KEY_PERIOD,DX_MOD_SUPER|DX_MOD_SHIFT); return 1;
+    }
+    if (phase==1) {
+        if (r->phase!=DX_REPORT_PICK) return 0;
+        if (!review_smoke_workspace_same(a,t) || !review_smoke_workspace_targets(a,t,item)) goto failed;
+        r->toolbar_top=true; review_smoke_pick(a,t->author_target); return 1;
+    }
+    if (phase==2) {
+        if (r->phase!=DX_REPORT_NOTE) return 0;
+        if (strcmp(r->target.widget.id,t->author_target) || !review_smoke_workspace_same(a,t) || (item && r->target.widget.enabled)) goto failed;
+        ui_note_key_press(KEY_ESCAPE,0); return 1;
+    }
+    if (r->phase!=DX_REPORT_IDLE) return 0;
+    if (!review_smoke_workspace_same(a,t)) goto failed;
+    printf("PASS: native contextual workspace review %s checks actual visible Fields/actions, Rows/Columns, Measures/Filters/Marks ownership/clipping and frozen pick/cancel; retains search/history, source/Pivot/manual/Pages/Stats/jobs without underlying activation\n",item ? "populated150% with disabled sole-measure remove" : "empty100% with field actions");
+    review_smoke_author_release(t); if (item) { ui_set_scale(&a->ui,1); SetWindowSize(1280,820); printf("Review smoke completed [0,%d)\n",REVIEW_SMOKE_STAGES); } return 1;
+failed:
+    fprintf(stderr,"Review workspace mismatch stage=%d phase=%d item=%d modal=%d report=%d object=%d focus=%d search=%s matches=%zu visible=%d scroll=%d/%.3f dock=%.3f target=%s actual=%s\n",t->stage,phase,item,(int)a->modal,(int)r->phase,a->selected_object,a->pivot_focus,a->pivot_search.text ? a->pivot_search.text : "",a->field_match_count,a->field_visible,a->pivot_field_scroll,a->author_scroll,a->dock_scroll[1],t->author_target,r->target.widget.id);
+    for (size_t i=0;i<r->registry->count;i++) { const DxReviewWidget *w=&r->registry->widgets[i]; if (!strncmp(w->id,"pane.fields",11) || !strncmp(w->id,"analysis.shelf.",15) || !strncmp(w->id,"analysis.marks",14)) fprintf(stderr,"Review workspace widget %s parent=%s role=%s enabled=%d checked=%d focus=%d kind=%s owner=%llu source=%llu schema=%llu query=%llu index=%llu/%llu field=%s value=%s rect=%.2f,%.2f,%.2f,%.2f clip=%.2f,%.2f,%.2f,%.2f\n",w->id,w->parent_id,w->role,w->enabled,w->checked,w->focused,w->data.kind,(unsigned long long)w->data.object_id,(unsigned long long)w->data.source_id,(unsigned long long)w->data.schema_generation,(unsigned long long)w->data.query_generation,(unsigned long long)w->data.row,(unsigned long long)w->data.column,w->data.field,w->value.exact_text,w->bounds.x,w->bounds.y,w->bounds.width,w->bounds.height,w->clip.x,w->clip.y,w->clip.width,w->clip.height); } return -1;
 }
 static void review_smoke_tick(App *a,ReviewSmoke *t) {
     DxReviewCapture *r=a->review; if (!r || t->stage<0 || t->stage>=REVIEW_SMOKE_STAGES) return;
@@ -3020,7 +3135,8 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
             {REVIEW_GUIDE_END,review_smoke_guide_tick},
             {REVIEW_CELL_END,review_smoke_cell_tick},
             {REVIEW_ERROR_END,review_smoke_error_tick},
-            {REVIEW_SMOKE_STAGES,review_smoke_query_failure_tick},
+            {REVIEW_QUERY_FEEDBACK_END,review_smoke_query_failure_tick},
+            {REVIEW_SMOKE_STAGES,review_smoke_workspace_tick},
         };
         int progress=-1;
         for (size_t i=0;i<sizeof(handlers)/sizeof(*handlers);i++)
