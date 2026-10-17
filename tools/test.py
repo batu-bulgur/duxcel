@@ -25,6 +25,7 @@ FAST_MODULES = (
 # exclusive, as in DUXCEL_LAYOUT_TO. Never jump into arbitrary stateful stages.
 LAYOUT_PROFILES = {
     "selection-start": (0, 45, "PASS: keyboard destination move"),
+    "ribbon": (0, 64, "PASS: measured native ribbon"),
     "statistics": (250, 266, "PASS: exact compact native statistics popover"),
     "dock": (311, 335, "PASS: measured native status bar"),
     "pane-motion": (357, 400, "PASS: real nested pane/Workbook group-opacity"),
@@ -38,11 +39,12 @@ LAYOUT_PROFILES = {
     "active-cell": (555, 596, "PASS: active-origin queued drag/Shift/Tab/Enter"),
     "criteria-selects": (596, 620, "PASS: cached actual view-filter criteria"),
     "ribbon-collapse": (620, 638, "PASS: exact reserved collapsed ribbon"),
+    "ribbon-overflow": (638, 660, "PASS: exact More ribbon commands"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 638, 18000, "PASS: exact reserved collapsed ribbon"),
+    ("layout", 660, 18000, "PASS: exact More ribbon commands"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),

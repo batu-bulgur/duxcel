@@ -38,6 +38,7 @@ typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, M
 typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
 typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW } SheetAction;
 typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN } DocumentAction;
+enum { RIBBON_MORE_COMMAND=-2, RIBBON_MORE_UNDO=-1, RIBBON_MORE_REDO=-2, RIBBON_MORE_ITEMS=UI_RIBBON_GROUPS+2 };
 typedef struct { uint64_t id,revision,source_revision,counted_total,count_layout_key; Page page; char *error; bool dirty,failed,waiting_count,count_paused,count_resolved; } ObjectView;
 typedef enum { STATS_IDLE,STATS_WAITING,STATS_CALCULATING,STATS_READY,STATS_UNAVAILABLE,STATS_FAILED } StatsState;
 typedef struct { uint64_t r0,r1,source_revision,cell_revision,objects,total; size_t c0,c1,sheet,columns; bool count_pending,active; } StatsKey;
@@ -148,9 +149,11 @@ typedef struct {
     int format_return_command;
     int format_return_group;
     UIFlyoutLayout ribbon_flyout;
+    UIChoiceLayout ribbon_more_menu;
     float ribbon_layout_width,ribbon_layout_scale;
     int ribbon_layout_tab,ribbon_layout_mode,ribbon_layout_variant,ribbon_layout_raster;
     int ribbon_popup_group,ribbon_popup_focus;
+    bool ribbon_popup_more_anchor;
     bool pipeline_sql,gridlines;
     bool inspector_sql_valid;
     uint64_t inspector_sql_id,inspector_sql_revision,inspector_sql_generation;
@@ -344,6 +347,8 @@ static void close_workspace(App *a) {
 static void status(App *a,const char *text) { char *owned=dx_strdup(text); free(a->message); a->message=owned; a->message_since=dx_millis(); a->message_revision++; }
 static void open_modal(App *a,Modal modal);
 static void draw_command_popup(App *a);
+static void open_command_group(App *a,int group,int focus);
+static bool ribbon_more_available(App *a);
 static void popup_capture(App *a,Rectangle panel);
 static bool popup_modal(Modal modal);
 static bool passive_control(App *a,bool enabled) { return enabled || (popup_modal(a->modal) && !a->io_busy); }
@@ -4186,6 +4191,7 @@ static void draw_context(App *a) {
 }
 
 static void set_ribbon_mode(App *a,int mode) {
+    if (a->modal==MODAL_COMMANDS) a->modal=MODAL_NONE;
     if (mode<0 || mode>3) return;
     if (mode==3 && a->ribbon_mode!=3) a->previous_ribbon_mode=a->ribbon_mode;
     a->ribbon_mode=mode; a->ribbon_focus=false; a->ribbon_command=-1; a->key_tips=false;
@@ -5698,14 +5704,18 @@ static void shortcuts(App *a) {
     if (a->ribbon_focus) {
         int previous_command=a->ribbon_command;
         a->consume_grid_input=true;
-        if (a->ribbon_command<0) {
+        if (a->ribbon_command==RIBBON_MORE_COMMAND) {
+            if (ui_key(KEY_LEFT) || (ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB))) a->ribbon_command=counts[a->ribbon_tab]-1;
+            if (ui_key(KEY_RIGHT) || ui_pressed(KEY_UP) || (ui_pressed(KEY_TAB) && !ui_key_shift(KEY_TAB))) a->ribbon_command=-1;
+            if (ui_pressed(KEY_DOWN)||ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)) open_command_group(a,-1,0);
+        } else if (a->ribbon_command<0) {
             if (ui_key(KEY_LEFT)) a->ribbon_tab=(a->ribbon_tab+(selected_pivot(a) ? 5 : 4))%(selected_pivot(a) ? 6 : 5);
             if (ui_key(KEY_RIGHT)) a->ribbon_tab=(a->ribbon_tab+1)%(selected_pivot(a) ? 6 : 5);
             if (ui_pressed(KEY_DOWN)||ui_pressed(KEY_TAB)||ui_pressed(KEY_ENTER)) { a->ribbon_command=ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB) ? counts[a->ribbon_tab]-1 : 0; if (a->ribbon_mode==3) a->ribbon_mode=a->previous_ribbon_mode; }
         } else {
             int count=counts[a->ribbon_tab];
             if (ui_key(KEY_LEFT) || (ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB))) a->ribbon_command=(a->ribbon_command+count-1)%count;
-            if (ui_key(KEY_RIGHT) || (ui_pressed(KEY_TAB) && !ui_key_shift(KEY_TAB))) a->ribbon_command=(a->ribbon_command+1)%count;
+            if (ui_key(KEY_RIGHT) || (ui_pressed(KEY_TAB) && !ui_key_shift(KEY_TAB))) a->ribbon_command=a->ribbon_command==count-1 && ribbon_more_available(a) ? RIBBON_MORE_COMMAND : (a->ribbon_command+1)%count;
             if (ui_pressed(KEY_UP)) a->ribbon_command=-1;
             if (ui_pressed(KEY_ENTER)||ui_pressed(KEY_SPACE)) a->command_activate=true;
         }
@@ -5932,22 +5942,48 @@ static void update_ribbon_layout(App *a) {
     a->ribbon_layout=ui_ribbon_spec_layout(width,a->ribbon_mode,a->ribbon_tab,commands,groups);
     a->ribbon_layout_width=width; a->ribbon_layout_scale=s; a->ribbon_layout_tab=a->ribbon_tab; a->ribbon_layout_mode=a->ribbon_mode; a->ribbon_layout_variant=variant;
     a->ribbon_layout_raster=a->ui.raster_size;
+    if (a->ribbon_command==RIBBON_MORE_COMMAND && !ribbon_more_available(a)) a->ribbon_command=-1;
+}
+static bool ribbon_more_available(App *a) {
+    return a->ribbon_mode!=3 && a->ribbon_layout.valid && (a->ribbon_layout.overflow_count || GetScreenWidth()/a->ui.scale<700);
 }
 static Rectangle ribbon_rect(App *a,Rectangle r) {
     float s=a->ui.scale; return box(r.x*s,(r.y+56)*s,r.width*s,r.height*s);
 }
+static int command_popup_count(App *a,int indices[RIBBON_MORE_ITEMS]) {
+    if (a->ribbon_popup_group>=0) return a->ribbon_popup_group<a->ribbon_layout.group_count ? ribbon_groups[a->ribbon_tab][a->ribbon_popup_group].count : 0;
+    int count=0;
+    for (int g=0;g<a->ribbon_layout.group_count;g++) if (a->ribbon_layout.states[g]==UI_RIBBON_OVERFLOW) indices[count++]=g;
+    if (GetScreenWidth()/a->ui.scale<700) { indices[count++]=RIBBON_MORE_UNDO; indices[count++]=RIBBON_MORE_REDO; }
+    return count;
+}
+static bool command_popup_enabled(App *a,int item) {
+    if (item>=0) return true;
+    Worksheet *sheet=active_sheet(a);
+    return sheet && (item==RIBBON_MORE_UNDO ? sheet->undo_actions_count : sheet->redo_actions_count);
+}
 static void open_command_group(App *a,int group,int focus) {
+    update_ribbon_layout(a);
     if (group>=0 && group<ribbon_group_counts[a->ribbon_tab]) {
         const UIRibbonGroup *spec=&ribbon_groups[a->ribbon_tab][group];
+        if (focus<0 || focus>=spec->count) focus=0;
         for (int i=0;i<spec->count && !command_enabled(a,spec->first+focus);i++) focus=(focus+1)%spec->count;
     }
+    a->ribbon_popup_more_anchor=group<0 || a->ribbon_layout.states[group]==UI_RIBBON_OVERFLOW;
     a->ribbon_popup_group=group; a->ribbon_popup_focus=focus; a->modal=MODAL_COMMANDS;
+    if (group<0) {
+        int items[RIBBON_MORE_ITEMS],count=command_popup_count(a,items);
+        if (focus<0 || focus>=count) focus=0;
+        for (int i=0;i<count && !command_popup_enabled(a,items[focus]);i++) focus=(focus+1)%count;
+        a->ribbon_popup_focus=focus;
+    }
     a->ribbon_focus=a->pivot_search_focus=false; a->pivot_focus=a->chrome_focus=0; a->key_tips=false; a->consume_grid_input=true;
 }
 static void close_command_group(App *a) {
     int group=a->ribbon_popup_group;
     a->modal=MODAL_NONE; a->ribbon_focus=true;
-    a->ribbon_command=group>=0 ? ribbon_groups[a->ribbon_tab][group].first+a->ribbon_popup_focus : -1;
+    a->ribbon_command=a->ribbon_popup_more_anchor && ribbon_more_available(a) ? RIBBON_MORE_COMMAND :
+        group>=0 ? ribbon_groups[a->ribbon_tab][group].first+a->ribbon_popup_focus : -1;
     a->consume_grid_input=true;
 }
 static void command_badge(App *a,int command,Rectangle r) {
@@ -5955,38 +5991,37 @@ static void command_badge(App *a,int command,Rectangle r) {
     Rectangle b=box(r.x+r.width-17*s,r.y,16*s,16*s); DrawRectangleRec(b,UI_TEXT);
     ui_text(&a->ui,text,b.x+(b.width-ui_measure(&a->ui,text,10))/2,b.y+3*s,10,WHITE);
 }
-static int command_popup_count(App *a,int indices[UI_RIBBON_GROUPS]) {
-    if (a->ribbon_popup_group>=0) return a->ribbon_popup_group<a->ribbon_layout.group_count ? ribbon_groups[a->ribbon_tab][a->ribbon_popup_group].count : 0;
-    int count=0;
-    for (int g=0;g<a->ribbon_layout.group_count;g++) if (a->ribbon_layout.states[g]==UI_RIBBON_OVERFLOW) indices[count++]=g;
-    return count;
+static void invoke_more_item(App *a,int item) {
+    if (!command_popup_enabled(a,item)) return;
+    if (item>=0) open_command_group(a,item,0);
+    else { close_command_group(a); history(a,item==RIBBON_MORE_REDO); }
 }
 static void command_popup_key(App *a,int key,bool shift) {
-    int indices[UI_RIBBON_GROUPS],count=command_popup_count(a,indices); if (!count) return;
+    int indices[RIBBON_MORE_ITEMS],count=command_popup_count(a,indices); if (!count) return;
     int *focus=&a->ribbon_popup_focus;
     if (key==KEY_DOWN || (key==KEY_TAB && !shift)) *focus=(*focus+1)%count;
     if (key==KEY_UP || (key==KEY_TAB && shift)) *focus=(*focus+count-1)%count;
     if (key==KEY_HOME) *focus=0;
     if (key==KEY_END) *focus=count-1;
     if (*focus<0 || *focus>=count) *focus=0;
+    int direction=key==KEY_UP || (key==KEY_TAB && shift) || key==KEY_END ? -1 : 1;
     if (a->ribbon_popup_group>=0) {
         int first=ribbon_groups[a->ribbon_tab][a->ribbon_popup_group].first;
-        int direction=key==KEY_UP || (key==KEY_TAB && shift) || key==KEY_END ? -1 : 1;
         for (int i=0;i<count && !command_enabled(a,first+*focus);i++) *focus=(*focus+count+direction)%count;
-    }
+    } else for (int i=0;i<count && !command_popup_enabled(a,indices[*focus]);i++) *focus=(*focus+count+direction)%count;
     if (key==KEY_ESCAPE) { close_command_group(a); return; }
     if (key==KEY_LEFT && a->ribbon_popup_group>=0 && a->ribbon_layout.states[a->ribbon_popup_group]==UI_RIBBON_OVERFLOW) { open_command_group(a,-1,0); return; }
-    if (key==KEY_ENTER || key==KEY_KP_ENTER || key==KEY_SPACE || (key==KEY_RIGHT && a->ribbon_popup_group<0)) {
-        if (a->ribbon_popup_group<0) open_command_group(a,indices[*focus],0);
+    if (key==KEY_ENTER || key==KEY_KP_ENTER || key==KEY_SPACE || (key==KEY_RIGHT && a->ribbon_popup_group<0 && indices[*focus]>=0)) {
+        if (a->ribbon_popup_group<0) invoke_more_item(a,indices[*focus]);
         else invoke_command(a,ribbon_groups[a->ribbon_tab][a->ribbon_popup_group].first+*focus);
     }
 }
 static bool draw_ribbon_control(App *a,int command,Rectangle r,bool enabled);
 static void draw_command_popup(App *a) {
     update_ribbon_layout(a); UIContext *u=&a->ui; float s=u->scale;
-    int group=a->ribbon_popup_group,indices[UI_RIBBON_GROUPS],count=command_popup_count(a,indices);
-    if (!count || a->ribbon_mode==3) { close_command_group(a); return; }
-    Rectangle anchor=group<0 || a->ribbon_layout.states[group]==UI_RIBBON_OVERFLOW ? a->ribbon_layout.overflow : a->ribbon_layout.states[group]==UI_RIBBON_EXPANDED ? a->ribbon_layout.launchers[group] : a->ribbon_layout.groups[group];
+    int group=a->ribbon_popup_group,indices[RIBBON_MORE_ITEMS],count=command_popup_count(a,indices);
+    if (!count || a->ribbon_mode==3 || (a->ribbon_popup_more_anchor && !ribbon_more_available(a))) { close_command_group(a); return; }
+    Rectangle anchor=a->ribbon_popup_more_anchor ? a->ribbon_layout.overflow : a->ribbon_layout.states[group]==UI_RIBBON_EXPANDED ? a->ribbon_layout.launchers[group] : a->ribbon_layout.groups[group];
     if (anchor.width<=0) anchor=box(GetScreenWidth()/s-38,4,32,28);
     anchor=ribbon_rect(a,anchor);
     if (group>=0) {
@@ -6016,30 +6051,30 @@ static void draw_command_popup(App *a) {
         if (chosen>=0) { a->ribbon_popup_focus=chosen-first; invoke_command(a,chosen); }
         return;
     }
-    float width=fminf(286*s,GetScreenWidth()-16*s),height=(40+count*34)*s;
-    Rectangle panel=box(fminf(anchor.x,GetScreenWidth()-width-8*s),fminf(anchor.y+anchor.height+4*s,GetScreenHeight()-height-8*s),width,height);
-    popup_capture(a,panel);
-    if (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),panel)) { close_command_group(a); return; }
-    const int keys[]={KEY_ESCAPE,KEY_DOWN,KEY_UP,KEY_TAB,KEY_HOME,KEY_END,KEY_LEFT,KEY_RIGHT,KEY_ENTER,KEY_KP_ENTER,KEY_SPACE};
-    for (size_t k=0;k<sizeof(keys)/sizeof(*keys);k++) if (ui_key(keys[k])) {
-        command_popup_key(a,keys[k],ui_key_shift(keys[k]));
-        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=group) return;
-    }
-    DrawRectangleRec(box(panel.x+2*s,panel.y+4*s,width,height),(Color){25,42,70,24});
-    DrawRectangleRec(panel,WHITE); DrawRectangleLinesEx(panel,s,UI_BORDER);
-    ui_text_clip_weight(u,group<0 ? "More commands" : ribbon_groups[a->ribbon_tab][group].name,box(panel.x+4*s,panel.y+4*s,width-39*s,26*s),12,UI_TEXT,false,UI_SEMIBOLD);
-    if (ui_button(u,box(panel.x+width-30*s,panel.y+5*s,24*s,24*s),"×",false,true)) { close_command_group(a); return; }
-    for (int i=0;i<count;i++) {
-        Rectangle row=box(panel.x+8*s,panel.y+(35+i*34)*s,width-16*s,28*s);
-        bool focused=a->ribbon_popup_focus==i;
-        if (group<0) {
-            int g=indices[i];
-            if (ui_carbon_command(u,row,ui_ribbon_group_icon(a->ribbon_tab,g),ribbon_groups[a->ribbon_tab][g].name,false,true)) { open_command_group(a,g,0); return; }
-        } else {
-            int c=ribbon_groups[a->ribbon_tab][group].first+i; bool available=command_enabled(a,c);
-            if (ui_carbon_command(u,row,ribbon_commands[a->ribbon_tab][c].icon,command_label(a,c),command_active(a,c),available)) { invoke_command(a,c); return; }
+    int separator=GetScreenWidth()/s<700 && a->ribbon_layout.overflow_count ? a->ribbon_layout.overflow_count : -1;
+    UIChoiceLayout menu=ui_choice_layout((Vector2){anchor.x,anchor.y+anchor.height+4},(Vector2){GetScreenWidth(),GetScreenHeight()},s,count,separator);
+    a->ribbon_more_menu=menu;
+    if (!menu.valid) { close_command_group(a); return; }
+    popup_capture(a,menu.panel);
+    if (!a->consume_grid_input) {
+        Rectangle p=menu.panel; DxPointerGesture gesture;
+        bool outside=IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),p);
+        Rectangle regions[]={{0,0,GetScreenWidth(),p.y},{0,p.y+p.height,GetScreenWidth(),fmaxf(0,GetScreenHeight()-p.y-p.height)},{0,p.y,p.x,p.height},{p.x+p.width,p.y,fmaxf(0,GetScreenWidth()-p.x-p.width),p.height}};
+        for (int i=0;i<4;i++) outside|=ui_take_left_gesture_from(regions[i],&gesture);
+        if (outside) { close_command_group(a); return; }
+        const int keys[]={KEY_ESCAPE,KEY_DOWN,KEY_UP,KEY_TAB,KEY_HOME,KEY_END,KEY_LEFT,KEY_RIGHT,KEY_ENTER,KEY_KP_ENTER,KEY_SPACE};
+        for (size_t k=0;k<sizeof(keys)/sizeof(*keys);k++) if (ui_key(keys[k])) {
+            command_popup_key(a,keys[k],ui_key_shift(keys[k]));
+            if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=group) return;
         }
-        if (focused) DrawRectangleLinesEx(box(row.x-s,row.y-s,row.width+2*s,row.height+2*s),1.5f*s,UI_ACCENT);
+    }
+    ui_choice_frame(u,&menu,"More ribbon commands");
+    for (int i=0;i<count;i++) {
+        int item=indices[i]; char label[96]; UICarbonIcon icon;
+        if (item>=0) { snprintf(label,sizeof(label),"%s commands",ribbon_groups[a->ribbon_tab][item].name); icon=ui_ribbon_group_icon(a->ribbon_tab,item); }
+        else { snprintf(label,sizeof(label),"%s analytical change",item==RIBBON_MORE_UNDO ? "Undo" : "Redo"); icon=item==RIBBON_MORE_UNDO ? CARBON_UNDO : CARBON_REDO; }
+        bool available=command_popup_enabled(a,item);
+        if (ui_choice_row_input(u,menu.rows[i],label,NULL,icon,false,available && a->ribbon_popup_focus==i,available,!a->consume_grid_input)) { invoke_more_item(a,item); return; }
     }
 }
 static bool draw_ribbon_control(App *a,int command,Rectangle r,bool enabled) {
@@ -6093,9 +6128,21 @@ static bool draw_collapsed_group(App *a,int group,Rectangle r,bool enabled) {
     } else {
         float left=r.x+(a->ribbon_mode==2 ? 6 : 7)*s;
         ui_carbon(u,icon,box(left,r.y+(r.height-16*s)*.5f,16*s,16*s),colors[2]);
-        if (a->ribbon_mode!=2) ui_label(u,ribbon_groups[a->ribbon_tab][group].name,box(left+22*s,r.y,r.width-50*s,r.height),12,colors[2],false,UI_REGULAR);
+        if (a->ribbon_mode!=2) ui_label(u,ribbon_groups[a->ribbon_tab][group].name,box(left+21*s,r.y,r.width-50*s,r.height),12,colors[2],false,UI_REGULAR);
         ui_carbon(u,CARBON_CHEVRON_DOWN,box(r.x+r.width-(a->ribbon_mode==2 ? 16 : 17)*s,r.y+(r.height-10*s)*.5f,10*s,10*s),colors[2]);
     }
+    return clicked;
+}
+static bool draw_ribbon_more(App *a,Rectangle r,bool enabled) {
+    UIContext *u=&a->ui; float s=u->scale; bool hover=false;
+    bool clicked=ui_control_input(u,r,enabled,&hover),pressed=clicked || (hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT));
+    Color base[]={{251,252,253,255},{202,212,221,255},UI_TEXT};
+    Color colors[]={pressed ? (Color){212,228,238,255} : hover ? (Color){228,234,240,255} : base[0],hover ? (Color){197,208,218,255} : base[1],base[2]};
+    ui_feedback_colors(u,r,21,base,colors);
+    float corner=4*s/fminf(r.width,r.height);
+    DrawRectangleRounded(r,corner,4,colors[0]); DrawRectangleRoundedLinesEx(r,corner,4,s,colors[1]);
+    float shift=hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? .5f*s : 0;
+    ui_carbon(u,CARBON_OVERFLOW_MENU_HORIZONTAL,box(r.x+(r.width-16*s)*.5f,r.y+(r.height-16*s)*.5f+shift,16*s,16*s),colors[2]);
     return clicked;
 }
 static void draw_ribbon_commands(App *a,bool enabled) {
@@ -6112,7 +6159,7 @@ static void draw_ribbon_commands(App *a,bool enabled) {
         const UIRibbonGroup *group=&ribbon_groups[a->ribbon_tab][g]; Rectangle r=ribbon_rect(a,a->ribbon_layout.groups[g]);
         bool focus=a->ribbon_focus && a->ribbon_command>=group->first && a->ribbon_command<group->first+group->count;
         if (state==UI_RIBBON_COLLAPSED) {
-            if (draw_collapsed_group(a,g,r,passive_control(a,enabled))) { open_command_group(a,g,0); enabled=false; }
+            if (draw_collapsed_group(a,g,r,passive_control(a,enabled))) { if (a->modal==MODAL_COMMANDS && a->ribbon_popup_group==g) close_command_group(a); else open_command_group(a,g,0); enabled=false; }
             if (focus) ui_focus_border(r,r,2*s);
             if (a->key_tips) {
                 char tips[12]; if (group->count==1) snprintf(tips,sizeof(tips),"%d",(group->first+1)%10);
@@ -6146,10 +6193,10 @@ static void draw_ribbon_commands(App *a,bool enabled) {
         if (ui_icon_button(u,box(GetScreenWidth()-62*s,y,27*s,27*s),CARBON_UNDO,false,passive_control(a,enabled) && sheet && sheet->undo_actions_count)) history(a,false);
         if (ui_icon_button(u,box(GetScreenWidth()-34*s,y,27*s,27*s),CARBON_REDO,false,passive_control(a,enabled) && sheet && sheet->redo_actions_count)) history(a,true);
     }
-    if (a->ribbon_layout.overflow_count) {
+    if (ribbon_more_available(a)) {
         Rectangle more=ribbon_rect(a,a->ribbon_layout.overflow);
-        if (ui_button(u,more,"",false,passive_control(a,enabled))) open_command_group(a,-1,0);
-        ui_carbon(u,CARBON_OVERFLOW_MENU_HORIZONTAL,box(more.x+(more.width-16*s)*.5f,more.y+(more.height-16*s)*.5f,16*s,16*s),UI_TEXT);
+        if (draw_ribbon_more(a,more,passive_control(a,enabled))) { if (a->modal==MODAL_COMMANDS && a->ribbon_popup_group<0) close_command_group(a); else open_command_group(a,-1,0); }
+        if (a->ribbon_focus && a->ribbon_command==RIBBON_MORE_COMMAND) ui_focus_border(more,more,2*s);
         if (a->ribbon_focus && a->ribbon_command>=0) {
             int g=ui_ribbon_group_for(ribbon_groups[a->ribbon_tab],ribbon_group_counts[a->ribbon_tab],a->ribbon_command);
             if (g>=0 && a->ribbon_layout.states[g]==UI_RIBBON_OVERFLOW) ui_focus_border(more,more,2*s);
@@ -6305,8 +6352,8 @@ static void draw_app(App *a) {
         if (i==a->ribbon_tab) DrawRectangleRec(GetCollisionRec(tab,strip),(Color){251,252,253,255});
         bool clicked=ui_tool_button(u,tab,"",false,chrome_enabled);
         ui_label(u,ui_ribbon_tabs[i],box(tab.x+(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.y,tab.width-2*(width>=1400 ? 17 : width>=900 ? 14 : 10)*s,tab.height),12,i==a->ribbon_tab ? UI_ACCENT : UI_TEXT,false,i==a->ribbon_tab ? UI_MEDIUM : UI_REGULAR);
-        if (clicked) { a->chrome_focus=0; a->ribbon_tab=i; a->ribbon_focus=false; a->ribbon_layout.valid=false; }
-        if (a->ribbon_focus && a->ribbon_command<0 && i==a->ribbon_tab) ui_focus_border(tab,strip,s);
+        if (clicked) { if (a->modal==MODAL_COMMANDS) a->modal=MODAL_NONE; a->chrome_focus=0; a->ribbon_tab=i; a->ribbon_focus=false; a->ribbon_layout.valid=false; }
+        if (a->ribbon_focus && a->ribbon_command==-1 && i==a->ribbon_tab) ui_focus_border(tab,strip,s);
         if (a->key_tips) { const char *tips[]={"H","N","D","A","V","Z"}; Rectangle badge=box(tab.x+tab.width-17*s,tab.y,16*s,16*s); DrawRectangleRec(GetCollisionRec(badge,strip),UI_TEXT); ui_text_clip(u,tips[i],badge,10,WHITE,false); }
         tab_x+=widths[i]+1;
     }
@@ -7291,7 +7338,7 @@ static void sort_smoke_step(App *a,int *step) {
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: sort application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
 }
-#define LAYOUT_SMOKE_STAGES 638
+#define LAYOUT_SMOKE_STAGES 660
 /* Count the actual focus ink in one modal, excluding document token colors. */
 static unsigned smoke_focus_pixels(Rectangle region) {
     Image frame=LoadImageFromScreen(); Vector2 dpi=GetWindowScaleDPI(); unsigned count=0;
@@ -7580,11 +7627,14 @@ static void layout_smoke_step(App *a,int *step) {
         if (!a->ribbon_layout.valid || !a->ribbon_layout.overflow_count) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-ribbon-compact-150.png"); open_command_group(a,-1,0); break;
     case 50: {
-        int indices[UI_RIBBON_GROUPS],count=command_popup_count(a,indices);
-        if (count!=a->ribbon_layout.overflow_count || !count) goto failed;
-        command_popup_key(a,KEY_END,false); if (a->ribbon_popup_focus!=count-1) goto failed;
+        int indices[RIBBON_MORE_ITEMS],count=command_popup_count(a,indices);
+        int hidden=a->ribbon_layout.overflow_count;
+        if (!hidden || count!=hidden+2 || indices[hidden]!=RIBBON_MORE_UNDO || indices[hidden+1]!=RIBBON_MORE_REDO) goto failed;
+        command_popup_key(a,KEY_HOME,false);
+        for (int i=1;i<hidden;i++) command_popup_key(a,KEY_DOWN,false);
+        if (a->ribbon_popup_focus!=hidden-1) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-ribbon-overflow-150.png");
-        command_popup_key(a,KEY_RIGHT,false); if (a->ribbon_popup_group!=indices[count-1]) goto failed; break;
+        command_popup_key(a,KEY_RIGHT,false); if (a->ribbon_popup_group!=indices[hidden-1]) goto failed; break;
     }
     case 51:
         smoke_snapshot("tests/results/workspace-layout/native-overflow-group-150.png");
@@ -7592,8 +7642,8 @@ static void layout_smoke_step(App *a,int *step) {
         command_popup_key(a,KEY_ENTER,false); if (a->ribbon_popup_group<0) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1600,900); break;
     case 52:
-        if (a->modal!=MODAL_COMMANDS || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-flyout-resized.png"); command_popup_key(a,KEY_ESCAPE,false); set_ribbon_mode(a,2); break;
+        if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->ribbon_command<0 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-flyout-resized.png"); set_ribbon_mode(a,2); break;
     case 53:
         if (a->ribbon_layout.overflow_count || a->ribbon_mode!=2) goto failed;
         for (int c=0;c<ribbon_counts[a->ribbon_tab];c++) if (ui_ribbon_command_visible(a->ribbon_tab,a->ribbon_mode,c) && a->ribbon_layout.commands[c].width<27) goto failed;
@@ -8228,6 +8278,7 @@ static void layout_smoke_step(App *a,int *step) {
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"555")) { *step=555; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"596")) { *step=596; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"620")) { *step=620; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"638")) { *step=638; return; }
         }
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->statistics_enabled=true; a->statistics_mask=49;
         grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=0; a->grid.horizontal=0; break;
@@ -9505,6 +9556,72 @@ static void layout_smoke_step(App *a,int *step) {
     case 637:
         if (a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
         puts("PASS: exact reserved collapsed ribbon with Alignment retained, reference group icons and typography, live chrome above narrow overlay, pointer flyouts/Escape focus and Full/Compact/Icons/Focus resizing without SQL or cache changes"); break;
+
+    case 638:
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 639:
+        if (!object_ready(a,0)) return;
+        if (s->undo_actions_count || s->redo_actions_count || *cells_get(&s->cells,500,40)) goto failed;
+        a->reduced_motion=true; a->selected_object=0; a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=false; a->left_drawer=false;
+        set_ribbon_mode(a,2); a->ribbon_tab=RIBBON_HOME; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640);
+        request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; ribbon_dirty=a->book.dirty; break;
+    case 640: {
+        int items[RIBBON_MORE_ITEMS];
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || a->ribbon_layout.overflow_count || command_popup_count(a,items)!=2 || items[0]!=RIBBON_MORE_UNDO || items[1]!=RIBBON_MORE_REDO || !a->ribbon_more_menu.valid || a->ribbon_more_menu.count!=2 || a->ribbon_more_menu.panel.width!=360 || a->ribbon_more_menu.separator.height || smoke_focus_pixels(a->ribbon_more_menu.panel)) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-more-history-disabled-150.png"); break;
+    }
+    case 641:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || s->undo_actions_count || s->redo_actions_count || a->book.dirty!=ribbon_dirty) goto failed;
+        { const int keys[]={KEY_HOME,KEY_END,KEY_DOWN,KEY_UP,KEY_TAB}; for (size_t i=0;i<sizeof(keys)/sizeof(*keys);i++) command_popup_key(a,keys[i],false); }
+        if (a->ribbon_popup_focus!=0 || a->modal!=MODAL_COMMANDS) goto failed; break;
+    case 642:
+        if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->ribbon_command!=RIBBON_MORE_COMMAND || !smoke_focus_pixels(ribbon_rect(a,a->ribbon_layout.overflow))) goto failed;
+        if (!cells_set(&s->cells,500,40,"More menu history",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS); a->book.dirty=true; break;
+    case 643:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || a->ribbon_popup_focus!=0 || !s->undo_actions_count || s->redo_actions_count) goto failed; break;
+    case 644:
+        if (a->modal!=MODAL_NONE || a->ribbon_command!=RIBBON_MORE_COMMAND || *cells_get(&s->cells,500,40) || s->undo_actions_count || s->redo_actions_count!=1) goto failed; break;
+    case 645:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || a->ribbon_popup_focus!=1) goto failed;
+        command_popup_key(a,KEY_HOME,false); if (a->ribbon_popup_focus!=1) goto failed;
+        command_popup_key(a,KEY_END,false); if (a->ribbon_popup_focus!=1) goto failed;
+        command_popup_key(a,KEY_UP,false); if (a->ribbon_popup_focus!=1) goto failed;
+        command_popup_key(a,KEY_TAB,true); if (a->ribbon_popup_focus!=1) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-more-history-redo-focus-150.png"); break;
+    case 646:
+    case 647:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || a->ribbon_popup_focus!=1 || *cells_get(&s->cells,500,40) || s->undo_actions_count || s->redo_actions_count!=1) goto failed; break;
+    case 648:
+        if (a->modal!=MODAL_NONE || a->ribbon_command!=RIBBON_MORE_COMMAND || !*cells_get(&s->cells,500,40) || strcmp(cells_get(&s->cells,500,40),"More menu history") || s->undo_actions_count!=1 || s->redo_actions_count) goto failed;
+        set_ribbon_mode(a,0); break;
+    case 649:
+        if (a->ribbon_layout.overflow_count!=1 || a->ribbon_layout.states[0]!=UI_RIBBON_OVERFLOW) goto failed; break;
+    case 650: {
+        int items[RIBBON_MORE_ITEMS]; UIChoiceLayout m=a->ribbon_more_menu;
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || command_popup_count(a,items)!=3 || items[0]!=0 || items[1]!=RIBBON_MORE_UNDO || items[2]!=RIBBON_MORE_REDO || !m.valid || m.count!=3 || m.panel.width!=360 || m.separator.height!=1.5f || smoke_focus_pixels(m.panel)) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-more-groups-history-150.png"); break;
+    }
+    case 651:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=0 || !a->ribbon_popup_more_anchor || !a->ribbon_flyout.valid) goto failed; break;
+    case 652:
+        if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->ribbon_command!=RIBBON_MORE_COMMAND || !smoke_focus_pixels(ribbon_rect(a,a->ribbon_layout.overflow))) goto failed; break;
+    case 653:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || a->ribbon_popup_focus!=0) goto failed; break;
+    case 654:
+        if (a->modal!=MODAL_NONE || a->ribbon_command!=RIBBON_MORE_COMMAND) goto failed; break;
+    case 655:
+        if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1) goto failed; break;
+    case 656:
+        if (a->modal!=MODAL_NONE || a->ribbon_command!=RIBBON_MORE_COMMAND) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 657:
+        if (ribbon_more_available(a) || a->ribbon_layout.overflow.width || a->ribbon_command!=-1) goto failed; break;
+    case 658:
+        if (a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-more-wide-return.png"); break;
+    case 659:
+        puts("PASS: exact More ribbon commands with hidden-group rows and separator, history-only Icons menu, disabled traversal, real Undo/Redo, pointer toggle, Escape-to-More and keyboard reopen without SQL or cache changes"); break;
 
     }
     free(error); (*step)++; return;
@@ -10862,7 +10979,7 @@ int app_run(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638"));
     if (focused_layout) { SetWindowSize(1440,988); workspace_job(&a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(&a,"",true);
     else if (options->nyc_smoke) open_source(&a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -11311,6 +11428,20 @@ int app_run(const AppOptions *options) {
                     ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
                 } else ui_note_key_press(KEY_ESCAPE,0);
                 collapsed_injected|=bit;
+            }
+        }
+        if (options->layout_smoke && a.frames%24==2 && layout_smoke>=640 && layout_smoke<=656) {
+            static unsigned more_injected=0; unsigned bit=1u<<(layout_smoke-640);
+            if (!(more_injected&bit)) {
+                Rectangle target={0};
+                if (layout_smoke==640 || layout_smoke==650 || layout_smoke==655 || layout_smoke==656) target=ribbon_rect(&a,a.ribbon_layout.overflow);
+                else if (layout_smoke==647 || layout_smoke==648) target=a.ribbon_more_menu.rows[layout_smoke==647 ? 0 : 1];
+                else if (layout_smoke==641 || layout_smoke==643 || layout_smoke==644 || layout_smoke==651) ui_note_key_press(KEY_ENTER,0);
+                else if (layout_smoke==645 || layout_smoke==653) ui_note_key_press(KEY_SPACE,0);
+                else if (layout_smoke==642 || layout_smoke==652 || layout_smoke==654) ui_note_key_press(KEY_ESCAPE,0);
+                else if (layout_smoke==646) ui_note_key_press(KEY_RIGHT,0);
+                if (target.width) { float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
+                more_injected|=bit;
             }
         }
         if (options->layout_smoke && a.frames%24==2 && layout_smoke>=600 && layout_smoke<=615) {

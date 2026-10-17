@@ -436,6 +436,16 @@ static void test_ribbon_reference_collapse(void) {
     }
     UIRibbonLayout all=ui_ribbon_spec_layout(448,0,RIBBON_HOME,labels,names);
     CHECK(all.valid && !all.overflow_count); for (int g=0;g<6;g++) CHECK(all.states[g]==UI_RIBBON_COLLAPSED);
+    /* History is reachable from More below 700, including Icons with no
+       hidden groups. Wide layouts use their separate history dock instead. */
+    for (int mode=0;mode<3;mode++) {
+        UIRibbonLayout narrow=ui_ribbon_spec_layout(699,mode,RIBBON_HOME,labels,names);
+        CHECK(narrow.valid && narrow.overflow.width==28 && narrow.overflow.x==665);
+        UIRibbonLayout wide=ui_ribbon_spec_layout(1440,mode,RIBBON_HOME,labels,names);
+        CHECK(wide.valid && !wide.overflow_count && !wide.overflow.width);
+    }
+    UIRibbonLayout icons_layout=ui_ribbon_spec_layout(640/1.5f,2,RIBBON_HOME,labels,names);
+    CHECK(icons_layout.valid && !icons_layout.overflow_count && icons_layout.overflow.width==28);
     UIRibbonLayout edge=ui_ribbon_spec_layout(447.99f,0,RIBBON_HOME,labels,names);
     CHECK(edge.valid && edge.overflow_count==1 && edge.states[0]==UI_RIBBON_OVERFLOW && edge.states[2]==UI_RIBBON_COLLAPSED);
     edge=ui_ribbon_spec_layout(376,0,RIBBON_HOME,labels,names); CHECK(edge.valid && edge.overflow_count==1);
