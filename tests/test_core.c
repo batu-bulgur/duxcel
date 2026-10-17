@@ -1260,6 +1260,34 @@ done:
     page_free(&page); analysis_free(&source); database_close(&db); free(error); return ok ? 0 : 1;
 }
 static bool totals_cancelled(void *context) { return *(bool *)context; }
+static void test_pivot_count_projection(Database *db) {
+    Analysis source={.kind=SOURCE_DEMO,.query=dx_strdup("SELECT * FROM (VALUES (NULL::BIGINT),(1),(3)) t(Nullable)")}; PivotDefinition pivot={0}; Page page={0}; char *error=NULL;
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Nullable",AGG_COUNT,&error));
+    CHECK(database_pivot(db,&source,&pivot,0,-1,&page,&error));
+    CHECK(page.row_count==1 && page.column_count==1 && page.total==1 && !strcmp(page.cells[0].text,"3") && page.columns[0].type==DUCKDB_TYPE_BIGINT && page.sql && !strstr(page.sql,"PIVOT ("));
+    CHECK(database_pivot_totals(db,&source,&pivot,&page,&error) && !strcmp(page.totals->columns.cells[0].text,"3")); page_free(&page);
+    /* A preceding COUNT(*) must not hide the projection a later SUM needs. */
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Nullable",AGG_SUM,&error));
+    CHECK(database_pivot(db,&source,&pivot,0,-1,&page,&error) && page.row_count==1 && page.column_count==2 && !strcmp(page.cells[0].text,"3") && !strcmp(page.cells[1].text,"4"));
+    CHECK(database_pivot_totals(db,&source,&pivot,&page,&error) && !strcmp(page.totals->columns.cells[0].text,"3") && !strcmp(page.totals->columns.cells[1].text,"4")); page_free(&page);
+    CHECK(analysis_filter_set(&source,"Nullable",FILTER_GREATER,"999",&error));
+    CHECK(database_pivot(db,&source,&pivot,0,-1,&page,&error) && page.row_count==1 && page.column_count==2 && page.total==1 && !strcmp(page.cells[0].text,"0") && page.cells[1].is_null);
+    CHECK(database_pivot_totals(db,&source,&pivot,&page,&error) && !strcmp(page.totals->columns.cells[0].text,"0") && page.totals->columns.cells[1].is_null); page_free(&page); pivot_free(&pivot); analysis_free(&source);
+    source=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup("SELECT * FROM (VALUES (NULL::TIMESTAMP),(TIMESTAMP '2025-01-01'),(TIMESTAMP '2025-01-02'),(TIMESTAMP '2025-04-01')) t(occurred)")};
+    CHECK(pivot_assign_grain(&pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_MONTH,&error));
+    CHECK(pivot_assign_grain(&pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_QUARTER,&error));
+    CHECK(pivot_assign(&pivot,PIVOT_VALUES,"occurred",AGG_COUNT,&error));
+    CHECK(database_pivot(db,&source,&pivot,0,-1,&page,&error) && page.row_count==1 && page.column_count==9 && page.total==1 && page.sql && strstr(page.sql,"PIVOT (") && strstr(page.sql," ON "));
+    bool january=false,missing=false;
+    for (size_t c=0;c<page.column_count;c++) {
+        const Column *header=&page.columns[c]; CHECK(header->category_count==2 && header->category_grains[0]==PIVOT_DATE_MONTH && header->category_grains[1]==PIVOT_DATE_QUARTER);
+        if (!header->categories[0] && !header->categories[1]) { CHECK(!strcmp(page.cells[c].text,"1")); missing=true; }
+        if (header->categories[0] && !strcmp(header->categories[0],"2025-01-01") && header->categories[1] && !strcmp(header->categories[1],"Q1")) { CHECK(!strcmp(page.cells[c].text,"2")); january=true; }
+    }
+    CHECK(january && missing);
+    CHECK(database_pivot_totals(db,&source,&pivot,&page,&error) && page.totals->columns.column_count==10 && !strcmp(page.totals->rows.cells[0].text,"4") && !strcmp(page.totals->columns.cells[9].text,"4"));
+    page_free(&page); pivot_free(&pivot); analysis_free(&source); free(error);
+}
 static void test_pivot_totals(Database *db) {
     execute(db,"COPY (SELECT * FROM (VALUES (NULL::VARCHAR,NULL::VARCHAR,10::DECIMAL(38,2)),('A','x',1),('A','x',3),('A','y',9),('A','y',NULL),('B','x',2),('B','y',2),('B','z',NULL),('','',100),('NULL','NULL',200)) t(r,c,v)) TO 'tests/generated/pivot-totals.parquet' (FORMAT PARQUET)");
     Analysis source={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/pivot-totals.parquet")}; PivotDefinition pivot={0}; Page page={0}; char *error=NULL;
@@ -1307,6 +1335,7 @@ static void test_pivot_totals(Database *db) {
 }
 int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--source-guards-only")) { test_worker_source_guards(); printf("PASS: %u focused worker source-guard checks\n",checks); return 0; }
+    if (argc==2 && !strcmp(argv[1],"--count-projection-only")) { Database db; char *error=NULL; CHECK(database_open(&db,&error)); test_pivot_count_projection(&db); database_close(&db); free(error); printf("PASS: %u focused COUNT projection checks\n",checks); return 0; }
     if (argc==3 && !strcmp(argv[1],"--unique-large")) return unique_large(argv[2]);
     if (argc==2 && !strcmp(argv[1],"--spill-probe")) return spill_probe();
     if (argc==3 && !strcmp(argv[1],"--page-reuse-latency")) return page_reuse_latency(argv[2]);
@@ -1315,7 +1344,7 @@ int main(int argc,char **argv) {
     if (argc==3 && !strcmp(argv[1],"--benchmark")) return benchmark(argv[2]);
     Database db; char *error=NULL; CHECK(database_open(&db,&error));
     fixtures(&db); test_temporary_storage(&db); test_csv(&db); test_typed_query(&db); test_aggregates(&db); test_database(&db); test_million(&db); test_available_values(&db); test_pivot(&db); test_composable_filters(&db); test_pivot_null_columns(&db); test_pivot_date_grains(&db); test_null_text(&db); test_export(&db); test_pivot_export(&db); test_window_counts(&db); test_numeric_filters(&db); test_combined_filter(&db); test_clipboard(&db); test_sort_order(&db); test_prepared_pages(&db); test_statistics(&db); test_mixed_statistics(&db);
-    test_source_snapshots(); test_table_windows(&db); test_source_query(&db); test_unique_rows(&db); test_pivot_totals(&db); database_close(&db); test_worker(); test_worker_source_guards(); free(error);
+    test_source_snapshots(); test_table_windows(&db); test_source_query(&db); test_unique_rows(&db); test_pivot_totals(&db); test_pivot_count_projection(&db); database_close(&db); test_worker(); test_worker_source_guards(); free(error);
     printf("PASS: %u checks (CSV, Parquet, typed values, safe SQL, filters, aggregates, clipboard, database, million-row paging, worker recovery)\n",checks);
     return 0;
 }
