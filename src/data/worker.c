@@ -54,7 +54,7 @@ static void job_free(QueryJob *j) {
 }
 void reply_free(QueryReply *r) {
     if (!r) return;
-    analysis_free(&r->analysis); page_free(&r->page); free(r->error); free(r->clipboard);
+    analysis_free(&r->analysis); page_free(&r->page); free(r->error); free(r->clipboard); free(r->export_data);
     if (r->workbook) { workbook_free(r->workbook); free(r->workbook); }
     distinct_free(&r->distinct); statistics_free(&r->statistics); free(r->path); free(r);
 }

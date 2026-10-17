@@ -54,6 +54,10 @@ typedef struct {
     char *path;
     DistinctPage distinct;
     SelectionStats statistics;
+    /* Browser export moves one malloc-owned binary allocation into the reply.
+       Native file exports leave it NULL. poll transfers it; reply_free owns it. */
+    unsigned char *export_data;
+    size_t export_bytes;
     uint64_t exported_rows,counted_rows;
     uint64_t object_id,revision;
     bool is_preview;
