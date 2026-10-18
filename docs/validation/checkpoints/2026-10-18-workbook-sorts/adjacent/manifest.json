@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "de6e15e06031618759587cee74aeed715a9ae0f9",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "5811863df9cd338d9fdfbeac61bf2d9e67a571dee3e45f07203555f6289b2f0b",
+    "source_files": 294
+  },
+  "source_unchanged": true,
+  "elapsed_seconds": 76.838,
+  "steps": [
+    {
+      "name": "header",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build"
+      ],
+      "exit_code": 0,
+      "seconds": 8.303,
+      "log_sha256": "62e4b135546d522c100617768c5fafd7a6478d767ed663fbdf3e4994ca02057d"
+    },
+    {
+      "name": "worker247",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--worker-driver"
+      ],
+      "exit_code": 0,
+      "seconds": 24.753,
+      "log_sha256": "a3cfb9be6d470242368dcab093312458a20f291d06ada6884291b30f1b1c1057"
+    },
+    {
+      "name": "shipping",
+      "command": [
+        "python3",
+        "tools/test_web_review_build.py"
+      ],
+      "exit_code": 0,
+      "seconds": 29.919,
+      "log_sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a"
+    },
+    {
+      "name": "app-columns",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--review",
+        "--analysis-columns-only",
+        "--source",
+        "tests/fixtures/transactions.csv",
+        "--dpr",
+        "2",
+        "--canvas-transform",
+        "--no-build"
+      ],
+      "exit_code": 0,
+      "seconds": 13.786,
+      "log_sha256": "9a88bf31a5c5468b76fd7a6d5df68c6ba0e21e96a8c0cffa4326c8e1a3ba0c22"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "scope": "supplementary read-only CLI assertion setup failure; no C source/binary issue",
+  "reason": "DuckDB CLI emits UBIGINT active_sheet as canonical JSON string, not a JSON number. Correct expectation from1/63 to strings; preserve exact type.",
+  "observed": {
+    "active": "1"
+  },
+  "owned_failed_directory_cleaned": "headers-release-g3_z7lzt"
+}

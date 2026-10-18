@@ -1,0 +1,30 @@
+{
+  "schema": "duxcel.workbook-sorts-wire-pure",
+  "version": 1,
+  "scope": "Actual C wire decoder and Arrow/adapter module tests; no DuckDB engine, browser, GPU or Workbook publication",
+  "base": "5e5529d",
+  "implementation": "d1efe52",
+  "checks": {
+    "release": 2220,
+    "sanitize": 2220,
+    "javascript_tests": 55
+  },
+  "javascript_duration_ms": 224.85975,
+  "sha256": {
+    "tests/test_page_wire.c": "154df0f1ca5f4349572c2de6d88e7b0b8340b42053bfc70d5fc393eb88abfe06",
+    "web/official_worker.test.mjs": "85a7f8141be145501895325e9ab7a149f018fab0a6ae76523923c962a20d1ff7",
+    "web/page_wire.test.mjs": "7c10ea57a95077abdec7c06896a35f7775cf008afd1b9c857e95ad60e86cb2fb",
+    "src/data/page_wire.c": "3cbc05ced80ea0568a51e5eadaf838f59a769d44671ee50586496f08924e56c8",
+    "src/data/page_wire.h": "e18e456174938a1578c1240e37684a177ddda7d86f3de33628110c27f7c2ed2c",
+    "web/page_wire.mjs": "dbda0154875f6deb002659ef94eabd559e0aeee02f976b2e230ccc9a53cac5da",
+    "web/official_worker.mjs": "df2cf035b05f57132912cfb9782b8043f33d5b798d56f77c2dc068bbf499a0fc",
+    "build/web-tests/test-wire": "4e1635bead56543d305bec162ed5862ba5e682da85a351e0c76c322ff68f466b",
+    "build/web-tests/test-wire-sanitize": "a03818b394853750b4040bf704aff4f185ec0770978782d8a13575a91aca3353"
+  },
+  "logs": {
+    "compile.txt": "994fdba9a3a6a40bfebb806d4214000c4ca6b12cf4d7231ddeb3ac7eba8a3be1",
+    "sanitize.txt": "cb7c504e3d25b1b846694b59f4785961dbc5b0407a899c1a5d61f597da90af8f",
+    "javascript.txt": "54dc42f19c3ef00270b30d83dc5ab9d42caec6619efdb9a75d4e601156347095",
+    "release.txt": "cb7c504e3d25b1b846694b59f4785961dbc5b0407a899c1a5d61f597da90af8f"
+  }
+}
