@@ -11870,12 +11870,17 @@ static void layout_smoke_step(App *a,int *step) {
         set_source_filter(a,"Label",FILTER_EQUAL,"NULL",false); break;
     case 806: {
         if (a->page.total!=120 || source_format_owner_result_token(a,0)!=SIZE_MAX || !smoke_exact_result_formats(a,1,true)) goto failed;
+        for (size_t row=0;row<a->page.row_count;row++) {
+            const Cell *label=&a->page.cells[row*a->page.column_count+2];
+            if (label->is_null || strcmp(label->text,"NULL")) goto failed;
+        }
         FormatScopeView result={0,a->source_format_proof.result.data,a->source_format_proof.result.bytes}; CellFormat value=format_default(); value.flags=FORMAT_UNDERLINE;
         if (!format_apply_scoped(&s->formats,(FormatRange){0,2,4,4},FORMAT_UNDERLINE,value,&result,1,false,&error)) goto failed;
         worksheet_record(s,EDIT_FORMAT); break;
     }
     case 807:
         if (source_format_owner_result_token(a,0)==SIZE_MAX || !smoke_exact_result_formats(a,2,true)) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/source-result-filtered.png");
         run_action(a,ACTION_CLEAR_FILTERS); break;
     case 808:
         if (a->page.total!=600 || !smoke_exact_result_formats(a,0,true)) goto failed;
