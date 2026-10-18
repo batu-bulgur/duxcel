@@ -385,6 +385,10 @@ class Runner:
                 self.retain_binaries([binary])
                 self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
                 ensure_unchanged(self.summary["binaries"])
+                if module=="workbook_codec_native":
+                    self.record(self.command(f"{module}-sorts-{config}", ["./" + binary,"--sorts-only"],
+                                             completion_pattern=r"^PASS: native optional sorts \d+ checks;"))
+                    ensure_unchanged(self.summary["binaries"])
         with FileLock(native_lock_path(), "Native desktop tests"):
             self.background_check()
             self.record(self.command("gpu-sanitize", ["./tests/test_paint-native-debug"], "PASS: 110 native paint checks"))

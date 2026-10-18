@@ -295,7 +295,11 @@ class RunnerTests(unittest.TestCase):
             engines = [runner.test_binary(module, config) for config in ("release", "sanitize")
                        for module in ("core", "workbook", "record_sql", "record_pages", "workbook_codec_native")]
             self.assertTrue(set(engines).issubset(command.call_args_list[0].args[1]))
-            self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]], [["./" + binary] for binary in engines])
+            expected=[]
+            for binary in engines:
+                expected.append(["./"+binary])
+                if 'test_workbook_codec_native' in binary:expected.append(["./"+binary,"--sorts-only"])
+            self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]],expected)
 
     def test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation(self):
         extras = (["--modules", "grid"], ["--scenario", "icon"], ["--feature", "shelves"],
