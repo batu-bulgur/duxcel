@@ -1179,6 +1179,7 @@ static void continue_document_action(App *a) {
 }
 static void request_document_action(App *a,DocumentAction action,const char *path) {
     if (a->document_action==DOCUMENT_QUIT && action!=DOCUMENT_QUIT) return;
+    SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by the document command.");
     if (a->modal==MODAL_CELL && !commit_cell(a)) return;
     char *owned=path ? dx_strdup(path) : NULL;
     free(a->document_path); a->document_path=owned; a->document_action=action;
@@ -11396,20 +11397,20 @@ static void layout_smoke_step(App *a,int *step) {
         smoke_snapshot("tests/results/workspace-layout/source-record-format-returned.png");
         draft_history=s->undo_actions_count; draft_revision=s->formats.revision;
         grid_select_cell(&a->grid,10,4,false);
-        { CellFormat value=active_format(a); value.color=5; if (!apply_format(a,FORMAT_COLOR,value)) goto failed; }
+        { CellFormat value=active_format(a); value.color=2; if (!apply_format(a,FORMAT_COLOR,value)) goto failed; }
         cancel_active_query(a);
         if (a->busy || a->source_format.active || s->formats.revision!=draft_revision ||
             s->undo_actions_count!=draft_history || s->source_versions.high_water!=1) goto failed;
         break;
     case 746:
         if (s->formats.revision!=draft_revision || s->undo_actions_count!=draft_history || !smoke_source_record_formats(a,true)) goto failed;
-        { CellFormat value=active_format(a); value.color=5; if (!apply_format(a,FORMAT_COLOR,value)) goto failed; }
+        { CellFormat value=active_format(a); value.color=2; if (!apply_format(a,FORMAT_COLOR,value)) goto failed; }
         a->grid.top=400; a->grid.fraction=0; request_page(a,false); break;
     case 747:
         if (a->source_format.active || s->formats.revision!=draft_revision || s->undo_actions_count!=draft_history ||
             s->source_versions.high_water!=1 || !smoke_source_record_formats(a,true) || !a->page.offset) goto failed;
         grid_select_cell(&a->grid,a->page.offset+4,4,false);
-        { CellFormat value=active_format(a); value.color=5; if (!apply_format(a,FORMAT_COLOR,value)) goto failed;
+        { CellFormat value=active_format(a); value.color=2; if (!apply_format(a,FORMAT_COLOR,value)) goto failed;
           value.align=FORMAT_CENTER;
           if (!format_apply(&s->formats,(FormatRange){0,DX_SHEET_ROWS-1,4,4},FORMAT_ALIGN,value,&error)) goto failed;
           worksheet_record(s,EDIT_FORMAT); a->book.dirty=true; }
