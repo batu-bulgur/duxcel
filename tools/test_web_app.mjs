@@ -2858,6 +2858,7 @@ try{
   check(otherLines.length===1,'C/Worker did not report one optional Other workload inventory');
   const other=JSON.parse(otherLines[0].slice('Browser Other workloads: '.length));
   check(other.jobs===24&&other.sql===88&&other.counts===0&&other.stages===26&&other.native_stamp_rejections===1&&other.source_drop_rejections===1,'Optional Other work, guard rejection or cancellation workload changed');
+  check(other.pending_start_releases===1&&Number.isInteger(other.pending_checks)&&other.pending_checks>0,'Other cancellation never observed a deterministically pending multi-stage workload');
   check(other.sequential_workers===5&&other.total_jobs===249&&other.total_sql===529&&other.total_counts===21&&report.stages===221+other.stages,'Other work did not preserve the original221-stage workload');
   await fs.writeFile(path.join(output,'other-workloads.json'),JSON.stringify(other,null,2));
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));

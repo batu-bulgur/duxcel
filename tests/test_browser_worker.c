@@ -54,6 +54,10 @@ EM_JS(int, observe_query_host, (void), {
                 };
             }};
         }
+        if(Module['dxOtherStartBarrier']===1){
+            Module['dxOtherStartBarrier']=2;
+            return new Promise(resolve=>Module['dxOtherStartRelease']=resolve).then(()=>submit(runtime,cookie,ticket,request));
+        }
         return submit(runtime,cookie,ticket,request);
     };
 
@@ -180,6 +184,16 @@ EM_JS(unsigned, observed_cancels, (void), {
 EM_JS(void, hold_matrix_reply, (int kind), { Module['dxHoldMatrixReply']=kind;if(kind===8)Module['dxOtherQueries']=0; })
 EM_JS(int, matrix_reply_held, (void), { return typeof Module['dxHeldMatrixReply']==='function'; })
 EM_JS(void, release_matrix_reply, (void), { Module['dxHeldMatrixReply'](); })
+EM_JS(int, arm_other_start_barrier, (void), {
+    if(Module['dxOtherStartBarrier']||Module['dxOtherStartRelease'])return 0;
+    Module['dxOtherStartBarrier']=1;return 1;
+})
+EM_JS(int, other_start_barrier_pending, (void), { return Module['dxOtherStartBarrier']===2; })
+EM_JS(int, release_other_start_barrier, (void), {
+    const release=Module['dxOtherStartRelease'];
+    if(Module['dxOtherStartBarrier']!==2||typeof release!=='function')return 0;
+    Module['dxOtherStartBarrier']=0;Module['dxOtherStartRelease']=null;release();return 1;
+})
 EM_JS(void, completed, (int ok,unsigned checks,unsigned stages), {
     Module['dxBrowserWorkerTestDone']={ok:Boolean(ok),checks,stages};
 })
@@ -707,6 +721,8 @@ typedef enum { OTHER_WEIGHTED,OTHER_CACHED,OTHER_VARIANTS,OTHER_COLUMNS,OTHER_DA
 static OtherCase other_case;
 static const unsigned other_sql_counts[OTHER_CASES]={5,3,6,7,8,5,3,3,4,4,6,2,1,0,0,0,4,0,3};
 static unsigned other_stamp_host_requests;
+static uint64_t other_cancel_sql_start;
+static unsigned other_pending_checks,other_start_releases;
 static const char other_weighted_sql[]="SELECT * FROM (VALUES ('A',100,100,'a'),('B',90,100,'b'),('C',80,100,'c'),('D',2,0,'x'),('E',1,10,'x'),('E',1,10,'y'),('E',1,10,'z')) t(r,rank,v,customer)";
 static const char other_columns_sql[]="SELECT r,c,rank,v,customer FROM (VALUES ('A',100,100,'a'),('B',90,100,'b'),('C',80,100,'c'),(NULL,1,NULL,NULL),('',1,NULL,''),('NULL',1,NULL,'NULL'),('O''İ',1,NULL,'')) t(r,rank,v,customer) CROSS JOIN (VALUES (NULL::VARCHAR),(''),('NULL'),('q''\"İ')) categories(c)";
 static const char other_date_sql[]="SELECT make_date(2020+i::INTEGER,1,1) AS occurred,10-i AS rank,(10-i)::DECIMAL(38,4) AS v FROM range(5) t(i)";
@@ -1927,11 +1943,25 @@ static void tick(void) {
         if (other_case==OTHER_WEIGHTED) { other_retained=reply->page; reply->page=(Page){0}; }
         release_reply(); pass("opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits");
         if (++other_case==OTHER_CASES) {
+            other_cancel_sql_start=worker.sql_executed;CHECK(arm_other_start_barrier());
             hold_matrix_reply(8); submit_other(OTHER_VARIANTS); enter(WAIT_OTHER_CANCEL); return;
         }
         submit_other(other_case); enter(WAIT_OTHER_CASES); return;
     case WAIT_OTHER_CANCEL:
-        if (!matrix_reply_held()) { CHECK(worker.running); quiet(); return; }
+        if (!matrix_reply_held()) {
+            CHECK(worker.running && !reply);reply=worker_poll(&worker);CHECK(!reply);
+            /* A multi-stage job has only submitted part of its final SQL
+               workload here. Require bounded progress until the actual second
+               variant reply is held, then retain the exact counters below. */
+            CHECK(worker.sql_executed>=other_cancel_sql_start && worker.sql_executed<=expected_sql);
+            CHECK(worker.counts_executed==expected_counts);other_pending_checks++;
+            if (other_start_barrier_pending()) {
+                CHECK(!other_start_releases && worker.sql_executed>other_cancel_sql_start && worker.sql_executed<expected_sql);
+                CHECK(release_other_start_barrier());other_start_releases++;
+            }
+            return;
+        }
+        CHECK(other_pending_checks && other_start_releases==1);
         counters(); CHECK(worker.running && !worker_poll(&worker)); other_weighted_values(&other_retained);
         stale_cookie=observed_cookie(); stale_ticket=observed_ticket(); worker_cancel(&worker); release_matrix_reply(); quiet();
         CHECK(!worker.running && !worker.reply); other_weighted_values(&other_retained);
@@ -1982,7 +2012,7 @@ static void tick(void) {
         pass("fifth Worker teardown frees staged/readout caches and retained independent Pages without late publication");
         CHECK(stages==247 && baseline_jobs+export_jobs+verification_jobs+binding_jobs+worker.jobs_started==249);
         CHECK(baseline_sql+export_sql+verification_sql+binding_sql+worker.sql_executed==529 && observed_host_requests()==529);
-        printf("Browser Other workloads: {\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"stages\":26,\"native_stamp_rejections\":1,\"source_drop_rejections\":1,\"sequential_workers\":5,\"total_jobs\":249,\"total_sql\":529,\"total_counts\":21}\n",worker.jobs_started,worker.sql_executed,worker.counts_executed);
+        printf("Browser Other workloads: {\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"stages\":26,\"native_stamp_rejections\":1,\"source_drop_rejections\":1,\"pending_start_releases\":%u,\"pending_checks\":%u,\"sequential_workers\":5,\"total_jobs\":249,\"total_sql\":529,\"total_counts\":21}\n",worker.jobs_started,worker.sql_executed,worker.counts_executed,other_start_releases,other_pending_checks);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,baseline_sql+export_sql+verification_sql+binding_sql+worker.sql_executed,baseline_counts+export_counts+verification_counts+binding_counts+worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
