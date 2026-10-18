@@ -412,9 +412,9 @@ test-workbook-codec-read: tests/test_workbook_codec_read tests/test_workbook_cod
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_read-debug
 .PHONY: test-workbook-codec-read
 WORKBOOK_CODEC_NATIVE_TEST = $(CORE) src/workbook/workbook_codec_read.c tests/test_workbook_codec_native.c
-tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc tests/test_workbook_codec_grid_native.inc $(HEADERS)
+tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc tests/test_workbook_codec_grid_native.inc tests/test_workbook_codec_counters_native.inc $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc tests/test_workbook_codec_grid_native.inc $(HEADERS)
+tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc tests/test_workbook_codec_grid_native.inc tests/test_workbook_codec_counters_native.inc $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 test-workbook-codec-native: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
 	./tests/test_workbook_codec_native
@@ -993,3 +993,10 @@ test-workbook-codec-grid: tests/test_workbook_codec_native tests/test_workbook_c
 	./tests/test_workbook_codec_native --grid-only
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --grid-only
 .PHONY: test-browser-codec-grid test-workbook-codec-grid
+
+test-browser-codec-counters:
+	python3 tools/test_web_app.py --codec-read-driver --codec-counters
+test-workbook-codec-counters: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
+	./tests/test_workbook_codec_native --counters-only
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --counters-only
+.PHONY: test-browser-codec-counters test-workbook-codec-counters
