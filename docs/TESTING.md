@@ -492,7 +492,7 @@ python3 tools/test.py fast --modules workbook_codec_read --config both
 
 Root `6599c23` passes1,391 checks/config in3.756s total. It produces only an opaque owned meta/sheets Header, never a partial Workbook or product Open action. Original DOUBLE bounds are checked before narrowing, including tiny negative offsets and adjacent-outside canvas limits. Actual native comparison is accepted separately below; official Worker adapter acceptance has its separate receipts below.
 
-The current accepted pure reader at `8acae02` passes 19,150 checks/configuration, retaining all 13,675 earlier checks plus 5,475 Pivot/Marks checks. Integrated runtime is 10.340 s including build (10.772 s parent). Complete Table and Pivot/Marks definitions have separate native/Worker acceptance below. Keep this fast gate in the edit loop; slower native metadata integration remains separately scoped.
+The current accepted pure reader at `40955c3` passes 20,092 checks/configuration, retaining all 19,150 earlier checks plus 942 primary FILTERS checks. Integrated runtime is 10.965 s including build. Complete Table, Pivot/Marks and primary FILTERS definitions have separate native/Worker acceptance below. Keep this fast gate in the edit loop; slower native metadata integration remains separately scoped.
 
 The budget-query rewrite `554b591` keeps all nine EXISTS predicates, collecting their non-NULL Boolean values with UNION ALL/bool_or. A matched private query probe passes1,009 checks/config and30 cases, with the warm query19.901→1.277ms optimized and72.362→4.771ms O1. The unchanged1,287-check native source-format workload separately passes15.329/93.838s optimized/O1 (124.981s including15.566s build); this is not a controlled whole-suite speed claim. Existing native workspace4 additionally passes at `6599c23` in3.005/3.110s App. The browser-conditioned C model87/config passes at `e142142` in8.821s including7.781s build: native locator helpers are separately compiled without JS bridges; real path assertions remain. [Exact sources, natural target build failures and boundaries](validation/checkpoints/2026-10-18-workbook-budget-query/).
 
@@ -587,3 +587,18 @@ At `66c0de4`, native `--pivot-marks-only` passes 20,702 checks/configuration, 25
 The official Worker passes 132,097 C /690 external checks, four archives, six Headers, 176 requests, eight rejections and one held completed stale callback/recovery in 21.194 s CLI /8.940 s browser. Fresh transport passes 61,274 C checks/configuration and 131 Node groups. Sparse maximum transport results explicitly reserve up to 32 MiB; actual Header/input limits remain 2 MiB/4 MiB, with peak 2,097,214 including deliberate pressure. These are separate logical admissions, not allocator/engine/RSS measurements. Fixed 4 MiB text/6 MiB wire and normal Page256 limits remain.
 
 Four original metadata profiles, fresh normal/review exclusion and Worker247 pass separately on the same frozen source. No source SQL, App publication, browser Save/Open, native GUI, package/service promotion or physical-input acceptance follows. [Exact source, counters, budgets, timings and retained receipts](validation/checkpoints/2026-10-18-workbook-pivot-marks/).
+
+
+For complete primary and secondary FILTERS metadata:
+
+```sh
+python3 tools/test.py fast --modules workbook_codec_read --config both
+make test-workbook-codec-filters
+python3 tools/test_web_app.py --codec-read-driver --codec-filters
+```
+
+At `22efc64`, native `--filters-only` passes 10,666 checks/configuration, 113 cursor metadata executions/118 typed feeds in 2.300/8.394 s optimized/O1. Its exact 49-file/SDK closure matches integrated inputs; ordinary Header controls retain 1,611/21/35 in both configurations. Four immutable native archives include genuine NULL/empty/literal values, 65,537-byte primary/secondary values and a 285-row result fed 256+29. Full-tier ordering checks the FILTERS completion marker after Pivot/Marks. Maximal old native query/options modes were not repeated.
+
+The actual Worker passes 62,785 C /452 external checks, four archives, six Headers, 113 requests, seven rejections and one held completed stale callback/recovery in 21.975 s CLI /8.873 s browser. Original schema, exact query/options/sorts/view composition, late failed-prefix ownership and complete long values remain strict. Native representative admission is 2 MiB; actual Header/input limits remain 2 MiB/4 MiB, with input peak 2,097,214 including deliberate pressure. Full 4 MiB field boundaries have separate pure tests using an explicit 64 MiB caller allowance. Default Header capture remains 64 KiB; only the explicit pre-feed full-primary option widens the value field. These are logical admissions, not allocator/engine/RSS measurements.
+
+Fresh transport retains 63,156 C checks/configuration and 156 Node groups: 131 earlier groups, 11 FILTERS transport groups and 14 memory-backed stream groups. The stream component has no actual engine/C bridge acceptance yet. One coherent adjacent Pivot/Marks/Table/owner mode, fresh normal/review Wasm exclusion and Worker247 pass in 72.083 s; the latter retains 249 jobs/529 SQL/21 counts. Other historical metadata profiles were not all rerun. Columns/cells integration and browser Open/Save remain pending. [Exact sources, budgets, fixture corrections and receipts](validation/checkpoints/2026-10-18-workbook-primary-filters/).
