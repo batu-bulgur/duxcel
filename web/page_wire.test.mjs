@@ -44,6 +44,33 @@ test('copy transport purpose alone permits a bounded 20,000-cell envelope withou
     assert.throws(()=>encodePageWire(page(['x'.repeat(4*1024*1024+1)]),{purpose:'copy'}),/4 MiB/);
 });
 
+test('trusted workbook-sorts wire envelope permits 449 by four without changing normal or copy policies',()=>{
+    const columns=[column({name:'sheet_id',typeName:'INTEGER',numberKind:'i32'}),column({name:'position',typeName:'INTEGER',numberKind:'i32'}),
+        column({name:'name'}),column({name:'descending',typeName:'BOOLEAN'})];
+    const values=Array.from({length:449},(_,i)=>['63','6',[null,'','NULL','9007199254740993','18446744073709551615','İstanbul 🦆'][i%6],i%2?'true':'false']).flat();
+    const input=page(values,columns),before={text:input.text.slice(),offsets:input.offsets.slice(),nulls:input.nulls.slice()};
+    assert.throws(()=>encodePageWire(input),/row count/);
+    const wire=encodePageWire(input,{purpose:'workbook-sorts'}),output=inspect(wire);
+    assert.equal(output.rows,449);assert.equal(output.columns,4);assert.deepEqual(output.values,values);assert.deepEqual(output.metadata,columns);
+    for(const part of ['text','offsets','nulls'])assert.deepEqual(input[part],before[part]);
+    assert.throws(()=>encodePageWire(page([...values,'0','0','extra','false'],columns),{purpose:'workbook-sorts'}),/row count/);
+    for(const arity of [0,1,3,5])assert.throws(()=>encodePageWire(page(Array(arity).fill(null),Array.from({length:arity},()=>column()),1),{purpose:'workbook-sorts'}),/column/);
+    assert.throws(()=>encodePageWire(page(Array(257*4).fill(null),columns),{purpose:'unknown'}),/unknown transport purpose/);
+    assert.equal(inspect(encodePageWire(page([],columns,0),{purpose:'workbook-sorts'})).rows,0);
+    assert.throws(()=>encodePageWire(page(Array(257*4).fill(null),columns)),/row count/);
+    assert.deepEqual(inspect(encodePageWire(input,{purpose:'copy'})).values,values);
+    const received=structuredClone(wire,{transfer:[wire.buffer]});assert.equal(wire.length,0);assert.deepEqual(inspect(received).values,values);
+});
+test('workbook-sorts wire retains the same text limit and rejects invalid cells atomically',()=>{
+    const columns=Array.from({length:4},(_,i)=>column({name:'c'+i}));
+    const values=['x'.repeat(4*1024*1024-4),null,'','NULL'],input=page(values,columns);
+    assert.deepEqual(inspect(encodePageWire(input,{purpose:'workbook-sorts'})).values,values);
+    assert.throws(()=>encodePageWire(page(['x'.repeat(4*1024*1024-3),null,'','NULL'],columns),{purpose:'workbook-sorts'}),/4 MiB/);
+    const malformed=page(['a\0b',null,'','NULL'],columns),before=malformed.text.slice();
+    assert.throws(()=>encodePageWire(malformed,{purpose:'workbook-sorts'}),/NUL/);assert.deepEqual(malformed.text,before);
+    assert.throws(()=>encodePageWire(page(['x',null,'','NULL'],columns),{purpose:'Workbook-sorts'}),/unknown transport purpose/);
+});
+
 test('DXP1 little-endian golden bytes retain SQL NULL, empty text and literal NULL', () => {
     const wire = encodePageWire(page());
     assert.equal(Buffer.from(wire).toString('hex'), [
