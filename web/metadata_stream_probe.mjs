@@ -59,11 +59,13 @@ export async function runMetadataStreamProbe(adapter,binding,{rows=513,timeoutMs
             eof:0,cancelRequested:0,cancelFulfilled:0,cancelError:null,cancelMethod:false};records.push(record);
         const reader=await original.apply(this,args);record.cancelMethod=typeof reader?.cancel==='function';
         const observed={get schema(){return reader.schema;},[Symbol.asyncIterator](){
-            const iterator=reader[Symbol.asyncIterator]();return {async next(...arguments_) {
+            const iterator=reader[Symbol.asyncIterator](),observedIterator={async next(...arguments_) {
                 record.next++;record.inflight++;record.maxInflight=Math.max(record.maxInflight,record.inflight);
                 try{const item=await iterator.next.apply(iterator,arguments_);if(item.done)record.eof++;else{record.batches++;if(record.batchRows.length<16)record.batchRows.push(item.value.numRows);}return item;}
                 finally{record.inflight--;}
             }};
+            for(const name of ['return','throw'])if(typeof iterator[name]==='function')observedIterator[name]=(...arguments_)=>iterator[name].apply(iterator,arguments_);
+            return observedIterator;
         }};
         if(typeof reader.open==='function')observed.open=(...arguments_)=>{record.open++;return reader.open.apply(reader,arguments_);};
         if(record.cancelMethod)observed.cancel=async(...arguments_)=>{record.cancelRequested++;try{const value=await reader.cancel.apply(reader,arguments_);record.cancelFulfilled++;return value;}catch(error){record.cancelError=errorRecord(error);throw error;}};

@@ -19,7 +19,7 @@ function table(family,rows,change={}) {
 }
 class Reader {
     #source;#first=0;#index=0;#lengths;#change;
-    constructor(source,change={}){this.#source=source;this.#change=change;this.#lengths=change.lengths??[source.numRows];this.calls={open:0,next:0,cancel:0};}
+    constructor(source,change={}){this.#source=source;this.#change=change;this.#lengths=change.lengths??[source.numRows];this.calls={open:0,next:0,cancel:0,returned:0};}
     get schema(){return this.#source.schema;}
     async open(){this.calls.open++;return this;}
     [Symbol.asyncIterator](){return new Iterator(this);}
@@ -28,8 +28,9 @@ class Reader {
         return {done:false,value:count?this.#source.slice(first,first+count).batches[0]:{numCols:this.#source.numCols,numRows:0}};
     }
     async cancel(){this.calls.cancel++;if(this.#change.cleanupError)throw new Error('actual cleanup did not fulfill');}
+    async returned(){this.calls.returned++;return {done:true};}
 }
-class Iterator {#reader;constructor(reader){this.#reader=reader;}next(){return this.#reader.read();}}
+class Iterator {#reader;constructor(reader){this.#reader=reader;}next(){return this.#reader.read();}return(){return this.#reader.returned();}}
 async function harness(change={}) {
     const raw=[],sql=[],db={registrations:0,drops:0,async registerFileBuffer(){this.registrations++;},async dropFile(){this.drops++;}};
     const connection={closed:0,cancels:0,async cancelSent(){this.cancels++;return true;},async close(){this.closed++;},async send(query,stream){
@@ -59,6 +60,7 @@ test('real adapter/probe preserves receiver identity, irregular Arrow observatio
     assert.deepEqual(report.readers[0].batchRows,[1,0,255,257]);assert.deepEqual(report.readers[1].batchRows,[17,256,240]);
     for(const item of report.cases.slice(0,2)){assert.equal(item.rows,513);assert.equal(item.eofAfterCleanup,true);assert.equal(item.firstAckPostedTurn,true);assert.equal(item.finalAckPostedTurn,true);assert.deepEqual(item.shapes.map(c=>[c.firstRow,c.rows,c.end]),[['0',256,false],['256',256,false],['512',1,false],['513',0,true]]);}
     for(const reader of report.readers){assert.equal(reader.open,1);assert.equal(reader.cancelRequested,1);assert.equal(reader.cancelFulfilled,1);assert.equal(reader.maxInflight,1);}
+    assert.deepEqual(h.raw.map(reader=>reader.calls.returned),[0,0,0,1,0,1]);
     assert.equal(report.cases[2].streamStatus,'cancelled');assert.equal(report.cases[2].ends,0);assert.equal(report.cases[3].value,43);assert.equal(report.cases[4].errorCode,'STREAM_CONSUMER');assert.equal(report.cases[5].value,44);
     assert.deepEqual(report.proofs,{exactTypedFamilies:2,strictEofCleanups:2,dataAckPostedTurns:2,finalAckPostedTurns:2,cancelledWithoutEof:true,falseAckWithoutEof:true,ordinaryAfterCancel:43,ordinaryAfterFalseAck:44});
     assert.ok(h.sql.every(query=>!query.includes('read_csv')&&!query.includes('OFFSET')));assert.ok(report.checks>4000);assert.ok(Object.isFrozen(report));await h.adapter.close();
