@@ -56,11 +56,12 @@ LAYOUT_PROFILES = {
     "legacy-format-baseline": (824, 846, "PASS: native legacy format baselines"),
     "manual-format-import": (846, 861, "PASS: native manual format history stays manual"),
     "stats-input": (861, 867, "PASS: native Statistics Enter keypad Enter and Space"),
+    "legacy-format-budget-retry": (867, 882, "PASS: native legacy format budget admission retries"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 867, 24000, "PASS: native Statistics Enter keypad Enter and Space"),
+    ("layout", 882, 24000, "PASS: native legacy format budget admission retries"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),

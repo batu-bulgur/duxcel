@@ -283,7 +283,7 @@ static size_t source_format_page_bytes(const Page *page) {
     if (page->records.source_key && !source_format_add(&bytes,strlen(page->records.source_key)+1)) return SIZE_MAX;
     return bytes;
 }
-static bool source_format_budget(App *a,const WorkbookFormatReplacement *replacement,
+static FormatBudgetStatus source_format_budget_status(App *a,const WorkbookFormatReplacement *replacement,
     size_t adopted,size_t captured_extra,size_t reply_owned,size_t new_jobs,size_t incoming_retained) {
     WorkbookFormatUsage live={0},next={0}; FormatBudget budget;
     FormatBudgetStatus result=workbook_format_usage(&a->book,NULL,0,&live);
@@ -325,6 +325,20 @@ static bool source_format_budget(App *a,const WorkbookFormatReplacement *replace
         !source_format_add(&transient.pending_reserved,new_jobs*DX_WORKER_FORMAT_RESERVED_BYTES))) result=FORMAT_BUDGET_OVERFLOW;
     if (!result) result=workbook_format_preflight(&live,&next,&transient,&budget);
     if (result) status(a,workbook_format_budget_message(result));
+    return result;
+}
+static void source_format_defer_baseline(App *a,FormatBudgetStatus denial) {
+    if (denial!=FORMAT_BUDGET_SHEET && denial!=FORMAT_BUDGET_CURRENT &&
+        denial!=FORMAT_BUDGET_RETAINED && denial!=FORMAT_BUDGET_APP) return;
+    SourceFormatAttempt *attempt=&a->source_format_attempt; Worksheet *sheet=active_sheet(a);
+    if (!attempt->valid || !sheet || !source_format_origin_valid(a)) return;
+    attempt->deferred=denial; attempt->denied_format_revision=sheet->formats.revision;
+    attempt->denied_cell_revision=sheet->cells.revision;
+}
+static bool source_format_budget(App *a,const WorkbookFormatReplacement *replacement,
+    size_t adopted,size_t captured_extra,size_t reply_owned,size_t new_jobs,size_t incoming_retained) {
+    FormatBudgetStatus result=source_format_budget_status(a,replacement,adopted,captured_extra,reply_owned,new_jobs,incoming_retained);
+    if (a->source_format.baseline) source_format_defer_baseline(a,result);
     return result==FORMAT_BUDGET_OK;
 }
 static void source_format_result_page(App *a,const SourceFormatOwner *owner,SourceFormatProof *proof) {
@@ -362,7 +376,8 @@ static void source_format_schema_copy(Page *out,const Page *from,size_t bytes) {
         copy->type=field->type; copy->number_type=field->number_type; copy->numeric=field->numeric;
     }
 }
-static bool source_format_capture(App *a,const SourceFormatOwner *owner,FormatRange range,unsigned mask,CellFormat value,bool restore) {
+static bool source_format_capture_status(App *a,const SourceFormatOwner *owner,FormatRange range,unsigned mask,CellFormat value,bool restore,FormatBudgetStatus *admission) {
+    if (admission) *admission=FORMAT_BUDGET_OK;
     Worksheet *sheet=active_sheet(a); size_t schema_bytes=0,text=analysis_text_bytes(owner->source);
     if (text>SOURCE_FORMAT_CAPTURE_BYTES-sizeof(Analysis) || !source_format_schema_size(owner->page,&schema_bytes) ||
         schema_bytes>SOURCE_FORMAT_CAPTURE_BYTES-sizeof(Analysis)-text) {
@@ -376,7 +391,9 @@ static bool source_format_capture(App *a,const SourceFormatOwner *owner,FormatRa
         }
     }
     if (!source_format_owner_proof(a,owner->id,true)) { status(a,"The source-format owner cache is full."); return false; }
-    if (!source_format_budget(a,NULL,0,extra,0,1,0)) return false;
+    FormatBudgetStatus result=source_format_budget_status(a,NULL,0,extra,0,1,0);
+    if (admission) *admission=result;
+    if (result!=FORMAT_BUDGET_OK) return false;
     SourceFormatIntent *intent=&a->source_format;
     *intent=(SourceFormatIntent){.active=true,.issue=!owner->source->source_version,.restore=restore,.document=a->format_document,
         .analysis_revision=a->analysis_revision,.format_revision=sheet->formats.revision,.cell_revision=sheet->cells.revision,
@@ -385,6 +402,9 @@ static bool source_format_capture(App *a,const SourceFormatOwner *owner,FormatRa
         .origin_column=owner->column,.origin_columns=owner->columns,.object_reserved=reserved,
         .sheet=a->book.active,.bytes=captured,.range=range,.mask=mask,.value=value,.source=analysis_copy(owner->source)};
     source_format_schema_copy(&intent->schema,owner->page,schema_bytes); return true;
+}
+static bool source_format_capture(App *a,const SourceFormatOwner *owner,FormatRange range,unsigned mask,CellFormat value,bool restore) {
+    return source_format_capture_status(a,owner,range,mask,value,restore,NULL);
 }
 static void source_format_verify(App *a) {
     SourceFormatIntent *intent=&a->source_format;
@@ -417,16 +437,22 @@ static void source_format_schedule(App *a) {
         SourceFormatAttempt *attempt=&a->source_format_attempt;
         if (attempt->valid && attempt->document==a->format_document && attempt->sheet==a->book.active &&
             attempt->version==sheet->source_versions.high_water+1 && attempt->stamp==owner.page->records.stamp &&
-            source_file_identity_same(&attempt->identity,&owner.page->records.file_identity)) return;
+            source_file_identity_same(&attempt->identity,&owner.page->records.file_identity) &&
+            (!attempt->deferred || (attempt->denied_format_revision==sheet->formats.revision &&
+                attempt->denied_cell_revision==sheet->cells.revision))) return;
+        /* A real edit can release retained history. Consume that permission
+           before eligibility/proof checks, so other failures stay terminal. */
         *attempt=(SourceFormatAttempt){.identity=owner.page->records.file_identity,.document=a->format_document,
             .sheet=a->book.active,.version=sheet->source_versions.high_water+1,.stamp=owner.page->records.stamp,.valid=true};
+        if (sheet->formats.revision==UINT64_MAX) { status(a,"The exhausted format revision cannot accept a verified legacy baseline."); return; }
         char *error=NULL;
         if (!worksheet_legacy_format_history_eligible(sheet,&error)) { status(a,error); free(error); return; }
-        if (source_format_capture(a,&owner,(FormatRange){0},0,format_default(),true)) {
+        FormatBudgetStatus admission=FORMAT_BUDGET_OK;
+        if (source_format_capture_status(a,&owner,(FormatRange){0},0,format_default(),true,&admission)) {
             a->source_format.baseline=true;
             if (source_format_budget(a,NULL,0,0,0,1,0)) source_format_verify(a);
             else source_format_cancel(a,NULL);
-        }
+        } else source_format_defer_baseline(a,admission);
         return;
     }
     for (size_t i=0;i<=sheet->objects.count;i++) {
