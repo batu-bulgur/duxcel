@@ -492,7 +492,7 @@ python3 tools/test.py fast --modules workbook_codec_read --config both
 
 Root `6599c23` passes1,391 checks/config in3.756s total. It produces only an opaque owned meta/sheets Header, never a partial Workbook or product Open action. Original DOUBLE bounds are checked before narrowing, including tiny negative offsets and adjacent-outside canvas limits. Actual native comparison is accepted separately below; official Worker adapter acceptance has its separate receipts below.
 
-The accepted pure Columns/Cells reader at `d49a720` passes 21,980 checks/configuration in 12.438 s including build, retaining the earlier families. Keep this fast gate in the edit loop; native metadata and actual Worker integration have their own source scopes. [Grid-stream receipts](validation/checkpoints/2026-10-18-workbook-grid-streams/).
+The latest integrated pure reader at `682864e` passes 24,739 checks/configuration in 13.663 s including build, preserving the 23,220 preceding checks. Its source-version counters remain pending native/Worker acceptance. Object counters have separate accepted native/Worker gates below. Keep this fast gate in the edit loop. [Accepted object-counter scopes](validation/checkpoints/2026-10-18-workbook-object-counters/).
 
 The budget-query rewrite `554b591` keeps all nine EXISTS predicates, collecting their non-NULL Boolean values with UNION ALL/bool_or. A matched private query probe passes1,009 checks/config and30 cases, with the warm query19.901→1.277ms optimized and72.362→4.771ms O1. The unchanged1,287-check native source-format workload separately passes15.329/93.838s optimized/O1 (124.981s including15.566s build); this is not a controlled whole-suite speed claim. Existing native workspace4 additionally passes at `6599c23` in3.005/3.110s App. The browser-conditioned C model87/config passes at `e142142` in8.821s including7.781s build: native locator helpers are separately compiled without JS bridges; real path assertions remain. [Exact sources, natural target build failures and boundaries](validation/checkpoints/2026-10-18-workbook-budget-query/).
 
@@ -612,3 +612,13 @@ python3 tools/test_web_app.py --codec-read-driver --codec-grid
 ```
 
 Use the pure cursor gate during edits and these focused native/actual Worker gates at integration. The actual gate reads four immutable native archives through one execution per column/cell family; it checks bounded ACKed chunks, old Header retention, late invalid data, concrete budget denial, strict EOF/cleanup and cancellation/recovery. It opens no app window or user browser tab. The helper's failed-retirement regression is included in `make test-browser-core`. The isolated `python3 tools/test_web_app.py --metadata-stream-probe --no-build` uses matching cached Worker assets without a C App or archive decoder. [Exact source/binary scopes, timings and natural failures](validation/checkpoints/2026-10-18-workbook-grid-streams/).
+
+
+Exact object-counter integration uses these separate focused gates:
+
+```sh
+make test-workbook-codec-counters
+python3 tools/test_web_app.py --codec-read-driver --codec-counters
+```
+
+They cover 64 worksheets, live/retired/exhausted exact IDs, version defaults, original types, failed prefixes, owned output and stale replies. The catalog-derived C test-driver schema fix also has an adjacent actual Grid retention pass. These gates do not complete source-version metadata, Workbook publication or browser Open/Save. [Source-scoped commands, timings and corrected test assumptions](validation/checkpoints/2026-10-18-workbook-object-counters/).
