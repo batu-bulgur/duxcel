@@ -39,4 +39,10 @@ bool page_from_wire_owned(Page *out,const void *bytes,size_t size,uint64_t offse
                           uint64_t total,bool count_pending,size_t owned_budget,char **error);
 bool page_from_wire_copy_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
                                uint64_t total,bool count_pending,size_t owned_budget,char **error);
+/* Only the trusted active secondary-sort metadata cursor selects this policy:
+   exactly four columns, at most449 rows (448 legal rows + one sentinel), offset
+   zero, same text/wire/owned bounds. Ordinary pages retain their256-row bound.
+   Decode once, then feed the shared row cursor in batches of at most256. */
+bool page_from_wire_workbook_sorts_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                                        uint64_t total,bool count_pending,size_t owned_budget,char **error);
 #endif
