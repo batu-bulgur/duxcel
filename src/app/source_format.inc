@@ -1,17 +1,58 @@
-/* Native primary-source formatting controller. App owns this one captured
-   transaction; the worker owns independent jobs/replies. No paint-time I/O. */
+/* Native raw-source formatting controller. App owns one captured transaction;
+   the worker owns independent jobs/replies. No paint-time I/O. */
 #define SOURCE_FORMAT_CAPTURE_BYTES (256u*1024u)
 #define SOURCE_FORMAT_SQL_RESERVE (8u*1024u*1024u)
 #define SOURCE_FORMAT_IO_RESERVE (16u*1024u*1024u)
-
-static const SourceVersion *source_format_version(App *a,uint64_t version) {
+typedef struct {
+    uint64_t id,revision,row,rows;
+    size_t column,columns,index;
+    const Analysis *source;
+    const Page *page;
+    bool ready;
+} SourceFormatOwner;
+static bool source_format_owner(App *a,uint64_t owner,SourceFormatOwner *out) {
+    Worksheet *sheet=active_sheet(a); if (!sheet) return false;
+    if (!owner) {
+        *out=(SourceFormatOwner){.revision=a->analysis_revision,.source=&a->analysis,.page=&a->page,
+            .ready=!a->page_stale && !a->fetch_failed}; return true;
+    }
+    for (size_t i=0;i<sheet->objects.count;i++) {
+        const SheetObject *object=sheet->objects.items+i; if (object->id!=owner || object->kind!=OBJECT_TABLE) continue;
+        const ObjectView *view=a->objects+i;
+        *out=(SourceFormatOwner){.id=owner,.revision=object->revision,.row=object->row,.rows=object->rows,
+            .column=object->col,.columns=object->columns,.index=i,.source=&object->source,.page=&view->page,
+            .ready=view->id==owner && view->revision==object->revision && view->source_revision==object->revision &&
+                !view->dirty && !view->failed && !view->waiting_count}; return true;
+    }
+    return false;
+}
+static SourceFormatTable *source_format_table(App *a,uint64_t owner,bool create) {
+    SourceFormatTable *empty=NULL;
+    for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
+        SourceFormatTable *slot=a->source_format_tables+i;
+        if (slot->owner==owner) return slot;
+        if (!slot->owner && !empty) empty=slot;
+    }
+    if (create && empty) empty->owner=owner;
+    return create ? empty : NULL;
+}
+static SourceFormatProof *source_format_owner_proof(App *a,uint64_t owner,bool create) {
+    if (!owner) return &a->source_format_proof;
+    SourceFormatTable *slot=source_format_table(a,owner,create); return slot ? &slot->proof : NULL;
+}
+static SourceFormatAttempt *source_format_owner_attempt(App *a,uint64_t owner,bool create) {
+    if (!owner) return &a->source_format_attempt;
+    SourceFormatTable *slot=source_format_table(a,owner,create); return slot ? &slot->attempt : NULL;
+}
+static const SourceVersion *source_format_owner_version(App *a,uint64_t owner,uint64_t version) {
     Worksheet *sheet=active_sheet(a); if (!sheet || !version) return NULL;
     for (size_t i=0;i<sheet->source_versions.count;i++) {
         const SourceVersion *entry=sheet->source_versions.items+i;
-        if (!entry->owner && entry->version==version) return entry;
+        if (entry->owner==owner && entry->version==version) return entry;
     }
     return NULL;
 }
+static const SourceVersion *source_format_version(App *a,uint64_t version) { return source_format_owner_version(a,0,version); }
 static void source_format_intent_free(SourceFormatIntent *intent) {
     analysis_free(&intent->source); page_free(&intent->schema);
     source_packet_free(&intent->raw); *intent=(SourceFormatIntent){0};
@@ -24,69 +65,113 @@ static void source_format_cancel(App *a,const char *message) {
 }
 static void source_format_reset(App *a) {
     source_format_cancel(a,NULL); source_packet_free(&a->source_format_proof.raw);
-    a->source_format_proof=(SourceFormatProof){0};
-    a->source_format_attempt=(SourceFormatAttempt){0};
+    a->source_format_proof=(SourceFormatProof){0}; a->source_format_attempt=(SourceFormatAttempt){0};
+    for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
+        source_packet_free(&a->source_format_tables[i].proof.raw); a->source_format_tables[i]=(SourceFormatTable){0};
+    }
     if (a->format_document!=UINT64_MAX) a->format_document++;
 }
 static void source_format_request(App *a) {
-    /* Page navigation may supersede an automatic hash. Retry only after the
-       new Page has settled; terminal proof failures and explicit Escape are
-       retained for the same file observation instead of hashing every frame. */
-    if (a->source_format.active && a->source_format.restore)
-        a->source_format_attempt.valid=false;
+    /* Only a superseded automatic attempt can retry after a new settled Page.
+       Failed proofs and explicit Escape stay terminal for the same observation. */
+    if (a->source_format.active && a->source_format.restore) {
+        SourceFormatAttempt *attempt=source_format_owner_attempt(a,a->source_format.owner,false);
+        if (attempt) attempt->valid=false;
+    }
     source_format_cancel(a,"Source formatting cancelled by a new data request.");
 }
 static bool source_format_fence(App *a) {
-    const SourceFormatIntent *intent=&a->source_format; Worksheet *sheet=active_sheet(a);
-    return intent->active && sheet && intent->document==a->format_document &&
-        intent->sheet==a->book.active && intent->request==a->request_id &&
-        intent->analysis_revision==a->analysis_revision && intent->format_revision==sheet->formats.revision &&
-        intent->cell_revision==sheet->cells.revision && intent->high_water==sheet->source_versions.high_water &&
-        intent->source.source_version==a->analysis.source_version &&
-        analysis_same_result(&intent->source,&a->analysis) && !a->page_stale && !a->fetch_failed && !a->io_busy && !a->step_preview.active;
+    const SourceFormatIntent *intent=&a->source_format; Worksheet *sheet=active_sheet(a); SourceFormatOwner owner;
+    return intent->active && sheet && source_format_owner(a,intent->owner,&owner) && owner.ready &&
+        intent->document==a->format_document && intent->sheet==a->book.active && intent->request==a->request_id &&
+        intent->analysis_revision==a->analysis_revision && intent->owner_revision==owner.revision &&
+        intent->origin_row==owner.row && intent->origin_column==owner.column &&
+        intent->origin_rows==owner.rows && intent->origin_columns==owner.columns &&
+        intent->format_revision==sheet->formats.revision && intent->cell_revision==sheet->cells.revision &&
+        intent->high_water==sheet->source_versions.high_water && intent->source.source_version==owner.source->source_version &&
+        analysis_same_result(&intent->source,owner.source) && !a->io_busy && !a->step_preview.active;
 }
 static void source_format_tick(App *a) {
+    for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
+        SourceFormatTable *slot=a->source_format_tables+i; SourceFormatOwner owner;
+        if (slot->owner && !source_format_owner(a,slot->owner,&owner)) {
+            source_packet_free(&slot->proof.raw); *slot=(SourceFormatTable){0};
+        }
+    }
     if (a->source_format.active && !source_format_fence(a))
-        source_format_cancel(a,"Formatting cancelled because its source, worksheet or formatting changed.");
+        source_format_cancel(a,"Formatting cancelled because its source, worksheet, placement or formatting changed.");
 }
-static void source_format_page(App *a) {
-    SourceFormatProof *proof=&a->source_format_proof; proof->ready=proof->spare_ready=false;
-    if (!proof->raw.data || proof->document!=a->format_document || proof->sheet!=a->book.active ||
-        proof->version!=a->analysis.source_version || a->page_stale || a->fetch_failed) return;
-    const SourceVersion *entry=source_format_version(a,proof->version);
+static void source_format_page_owner(App *a,uint64_t id) {
+    SourceFormatProof *proof=source_format_owner_proof(a,id,false); if (!proof) return;
+    SourceFormatOwner owner; proof->ready=proof->spare_ready=false;
+    if (!source_format_owner(a,id,&owner) || !owner.ready || !proof->raw.data ||
+        proof->document!=a->format_document || proof->sheet!=a->book.active || proof->version!=owner.source->source_version) return;
+    const SourceVersion *entry=source_format_owner_version(a,id,proof->version);
     if (!entry || entry->raw.bytes!=proof->raw.bytes || memcmp(entry->raw.data,proof->raw.data,proof->raw.bytes) ||
-        !source_version_page_verified(entry,0,proof->version,&a->analysis,&a->page,
+        !source_version_page_verified(entry,id,proof->version,owner.source,owner.page,
             SOURCE_DIGEST_OK,&proof->digest,duckdb_library_version(),NULL)) return;
-    proof->analysis_revision=a->analysis_revision; proof->format_revision=UINT64_MAX; proof->ready=true;
-    proof->spare_ready=a->spare.column_count &&
-        source_version_page_verified(entry,0,proof->version,&a->analysis,&a->spare,
+    proof->analysis_revision=owner.revision; proof->format_revision=UINT64_MAX; proof->ready=true;
+    proof->spare_ready=!id && a->spare.column_count &&
+        source_version_page_verified(entry,0,proof->version,owner.source,&a->spare,
             SOURCE_DIGEST_OK,&proof->digest,duckdb_library_version(),NULL);
 }
-static bool source_format_verified(App *a) {
-    SourceFormatProof *proof=&a->source_format_proof;
-    return proof->ready && proof->document==a->format_document && proof->sheet==a->book.active &&
-        proof->version==a->analysis.source_version && proof->analysis_revision==a->analysis_revision &&
-        !a->page_stale && !a->fetch_failed;
+static void source_format_page(App *a) { source_format_page_owner(a,0); }
+static bool source_format_owner_verified(App *a,uint64_t id) {
+    SourceFormatOwner owner; SourceFormatProof *proof=source_format_owner_proof(a,id,false);
+    return proof && proof->ready && source_format_owner(a,id,&owner) && owner.ready &&
+        proof->document==a->format_document && proof->sheet==a->book.active &&
+        proof->version==owner.source->source_version && proof->analysis_revision==owner.revision;
 }
-static size_t source_format_token(App *a) {
+static size_t source_format_owner_token(App *a,uint64_t owner) {
     Worksheet *sheet=active_sheet(a); if (!sheet || !sheet->formats.source_aware) return 0;
-    SourceFormatProof *proof=&a->source_format_proof;
-    if (!source_format_verified(a)) return SIZE_MAX;
+    if (!source_format_owner_verified(a,owner)) return SIZE_MAX;
+    SourceFormatProof *proof=source_format_owner_proof(a,owner,false);
     if (proof->format_revision!=sheet->formats.revision) {
-        proof->token=format_scope_token(&sheet->formats,&(FormatScopeView){0,proof->raw.data,proof->raw.bytes});
+        proof->token=format_scope_token(&sheet->formats,&(FormatScopeView){owner,proof->raw.data,proof->raw.bytes});
         proof->format_revision=sheet->formats.revision;
     }
     return proof->token;
 }
+static size_t source_format_token(App *a) { return source_format_owner_token(a,0); }
 static CellFormat source_format_value(App *a,uint64_t row,size_t column) {
-    Worksheet *sheet=active_sheet(a); size_t token=source_format_token(a); uint64_t record=0;
-    if (token!=SIZE_MAX && token && objects_hit(&sheet->objects,row,column)<0 && column<a->page.column_count) {
-        const Page *page=page_record_id(&a->page,row,&record) ? &a->page :
-            (a->source_format_proof.spare_ready && page_record_id(&a->spare,row,&record)) ? &a->spare : NULL;
-        if (page && column<page->column_count)
-            return format_resolve_record_token(&sheet->formats,row,column,SIZE_MAX,token,record,column);
+    Worksheet *sheet=active_sheet(a); uint64_t record=0,id=0,local_row=row; size_t local_column=column;
+    int hit=objects_hit(&sheet->objects,row,column); const Page *page=&a->page;
+    if (hit>=0) {
+        const SheetObject *object=sheet->objects.items+hit;
+        if (object->kind!=OBJECT_TABLE || row<object->row+2) return format_resolve_token(&sheet->formats,row,column,SIZE_MAX);
+        id=object->id; local_row=row-object->row-2; local_column=column-object->col; page=&a->objects[hit].page;
+    }
+    size_t token=source_format_owner_token(a,id);
+    if (token!=SIZE_MAX && token && local_column<page->column_count) {
+        bool found=page_record_id(page,local_row,&record);
+        if (!found && !id && a->source_format_proof.spare_ready) found=page_record_id(&a->spare,local_row,&record);
+        if (found) return format_resolve_record_token(&sheet->formats,row,column,SIZE_MAX,token,record,local_column);
     }
     return format_resolve_token(&sheet->formats,row,column,SIZE_MAX);
+}
+static void source_format_adjust_source(App *a,uint64_t owner,Analysis *source) {
+    source_format_cancel(a,"Formatting cancelled because a table source changed.");
+    const SourceVersion *entry=source_format_owner_version(a,owner,source->source_version);
+    if (source->source_version && (!entry || entry->kind!=source->kind || !source->path || strcmp(entry->path,source->path))) source->source_version=0;
+}
+static void source_format_refresh_tables(App *a,uint64_t owner) {
+    source_format_cancel(a,"Formatting cancelled by source refresh."); Worksheet *sheet=active_sheet(a); if (!sheet) return;
+    for (size_t i=0;i<sheet->objects.count;i++) {
+        SheetObject *object=sheet->objects.items+i;
+        if (object->kind!=OBJECT_TABLE || (owner && object->id!=owner)) continue;
+        if (object->source.source_version) { object->source.source_version=0; a->book.dirty=true; }
+        SourceFormatProof *proof=source_format_owner_proof(a,object->id,false); if (proof) proof->ready=false;
+    }
+}
+static void source_format_table_navigation(App *a) {
+    const SourceFormatIntent *intent=&a->source_format; SourceFormatOwner owner;
+    if (!intent->active || !intent->owner || selected_pivot(a) || !source_format_owner(a,intent->owner,&owner) || !owner.ready) return;
+    if ((int)owner.index!=a->selected_object && !CheckCollisionRecs(
+        grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,owner.row,owner.column,owner.rows,owner.columns),a->grid.body)) return;
+    uint64_t first=a->grid.top>owner.row+2 ? a->grid.top-owner.row-2 : 0;
+    const Page *page=owner.page;
+    bool cached=first>=page->offset && (first>=page->total || first+a->grid.render_rows<=page->offset+page->row_count || page->offset+page->row_count==page->total);
+    if (!cached) source_format_request(a);
 }
 static bool source_format_broad(const FormatSnapshot *state) {
     /* A retained source-aware snapshot already has explicit imported/manual
@@ -119,25 +204,31 @@ static size_t source_format_page_bytes(const Page *page) {
     return bytes;
 }
 static bool source_format_budget(App *a,const WorkbookFormatReplacement *replacement,
-    size_t adopted,size_t captured_extra,size_t reply_owned,size_t new_jobs,size_t incoming_analysis) {
+    size_t adopted,size_t captured_extra,size_t reply_owned,size_t new_jobs,size_t incoming_retained) {
     WorkbookFormatUsage live={0},next={0}; FormatBudget budget;
     FormatBudgetStatus result=workbook_format_usage(&a->book,NULL,0,&live);
     if (!result) result=workbook_format_usage(&a->book,replacement,replacement ? 1 : 0,&next);
-    if (!result && !source_format_add(&next.retained,incoming_analysis)) result=FORMAT_BUDGET_OVERFLOW;
+    if (!result && !source_format_add(&next.retained,incoming_retained)) result=FORMAT_BUDGET_OVERFLOW;
     WorkerFormatUsage worker=worker_format_usage(&a->worker);
     FormatTransientUsage transient={.adopted_staging=adopted,
-        .other_staging=sizeof(SourceFormatIntent)+sizeof(SourceFormatProof)+sizeof(SourceFormatAttempt),.io_snapshots=SOURCE_FORMAT_IO_RESERVE};
+        .other_staging=sizeof(SourceFormatIntent)+sizeof(SourceFormatProof)+sizeof(SourceFormatAttempt)+sizeof(a->source_format_tables),.io_snapshots=SOURCE_FORMAT_IO_RESERVE};
     /* Keep capacity for two retiring/current save snapshots. SQL construction
        uses the existing bounded raw helper; its separate staging allowance is
        retained for every active/pending operation, including canceled work.
        These are explicit conservative reservations, not measured heap/RSS. */
     size_t jobs=(size_t)worker.active_count+worker.pending_count;
     if (!result && !source_format_add(&jobs,new_jobs)) result=FORMAT_BUDGET_OVERFLOW;
-    size_t extra[]={a->source_format.bytes,a->source_format.raw.bytes,a->source_format_proof.raw.bytes,captured_extra,reply_owned};
+    size_t extra[]={a->source_format.bytes,a->source_format.object_reserved,a->source_format.raw.bytes,a->source_format_proof.raw.bytes,captured_extra,reply_owned};
     for (size_t i=0;!result && i<sizeof(extra)/sizeof(*extra);i++)
         if (!source_format_add(&transient.other_staging,extra[i])) result=FORMAT_BUDGET_OVERFLOW;
+    for (size_t i=0;!result && i<DX_MAX_OBJECTS;i++)
+        if (!source_format_add(&transient.other_staging,a->source_format_tables[i].proof.raw.bytes)) result=FORMAT_BUDGET_OVERFLOW;
     size_t pages=source_format_page_bytes(&a->page),spare=source_format_page_bytes(&a->spare);
     if (!result && (pages==SIZE_MAX || spare==SIZE_MAX || !source_format_add(&pages,spare))) result=FORMAT_BUDGET_OVERFLOW;
+    for (size_t i=0;!result && i<DX_MAX_OBJECTS;i++) {
+        size_t bytes=source_format_page_bytes(&a->objects[i].page);
+        if (bytes==SIZE_MAX || !source_format_add(&pages,bytes)) result=FORMAT_BUDGET_OVERFLOW;
+    }
     transient.page_metadata_owned=pages;
     transient.collector_owned=worker.active_reserved;
     if (!result && (!source_format_add(&transient.collector_owned,worker.pending_reserved) ||
@@ -175,66 +266,82 @@ static void source_format_schema_copy(Page *out,const Page *from,size_t bytes) {
         copy->type=field->type; copy->number_type=field->number_type; copy->numeric=field->numeric;
     }
 }
-static bool source_format_capture(App *a,FormatRange range,unsigned mask,CellFormat value,bool restore) {
-    Worksheet *sheet=active_sheet(a); size_t schema_bytes=0,text=analysis_text_bytes(&a->analysis);
-    if (text>SOURCE_FORMAT_CAPTURE_BYTES-sizeof(Analysis) || !source_format_schema_size(&a->page,&schema_bytes) ||
+static bool source_format_capture(App *a,const SourceFormatOwner *owner,FormatRange range,unsigned mask,CellFormat value,bool restore) {
+    Worksheet *sheet=active_sheet(a); size_t schema_bytes=0,text=analysis_text_bytes(owner->source);
+    if (text>SOURCE_FORMAT_CAPTURE_BYTES-sizeof(Analysis) || !source_format_schema_size(owner->page,&schema_bytes) ||
         schema_bytes>SOURCE_FORMAT_CAPTURE_BYTES-sizeof(Analysis)-text) {
         status(a,"This source definition or schema exceeds the bounded formatting capture. Whole-column defaults remain available."); return false;
     }
-    size_t captured=text+schema_bytes;
-    if (!source_format_budget(a,NULL,0,captured,0,1,0)) return false;
+    size_t captured=text+schema_bytes,reserved=0,extra=captured;
+    if (owner->id && !owner->source->source_version) {
+        reserved=objects_snapshot_owned_bytes(&(ObjectSnapshot){sheet->objects.items,sheet->objects.count});
+        if (reserved==SIZE_MAX || !source_format_add(&extra,reserved)) {
+            status(a,"The table definitions cannot fit a safe source-format snapshot."); return false;
+        }
+    }
+    if (!source_format_owner_proof(a,owner->id,true)) { status(a,"The source-format owner cache is full."); return false; }
+    if (!source_format_budget(a,NULL,0,extra,0,1,0)) return false;
     SourceFormatIntent *intent=&a->source_format;
-    *intent=(SourceFormatIntent){.active=true,.issue=!a->analysis.source_version,.restore=restore,.document=a->format_document,
+    *intent=(SourceFormatIntent){.active=true,.issue=!owner->source->source_version,.restore=restore,.document=a->format_document,
         .analysis_revision=a->analysis_revision,.format_revision=sheet->formats.revision,.cell_revision=sheet->cells.revision,
-        .high_water=sheet->source_versions.high_water,.version=a->analysis.source_version ? a->analysis.source_version : sheet->source_versions.high_water+1,
-        .sheet=a->book.active,.bytes=captured,.range=range,.mask=mask,.value=value,.source=analysis_copy(&a->analysis)};
-    source_format_schema_copy(&intent->schema,&a->page,schema_bytes); return true;
+        .high_water=sheet->source_versions.high_water,.version=owner->source->source_version ? owner->source->source_version : sheet->source_versions.high_water+1,
+        .owner=owner->id,.owner_revision=owner->revision,.origin_row=owner->row,.origin_rows=owner->rows,
+        .origin_column=owner->column,.origin_columns=owner->columns,.object_reserved=reserved,
+        .sheet=a->book.active,.bytes=captured,.range=range,.mask=mask,.value=value,.source=analysis_copy(owner->source)};
+    source_format_schema_copy(&intent->schema,owner->page,schema_bytes); return true;
 }
 static void source_format_verify(App *a) {
     SourceFormatIntent *intent=&a->source_format;
     QueryJob *job=dx_alloc(sizeof(*job)); job->id=++a->request_id; job->kind=JOB_VERIFY_SOURCE;
-    job->path=dx_strdup(intent->source.path); job->expected_source_stamp=intent->schema.records.stamp; job->revision=intent->analysis_revision;
+    job->path=dx_strdup(intent->source.path); job->expected_source_stamp=intent->schema.records.stamp;
+    job->revision=intent->owner_revision; job->object_id=intent->owner;
     intent->stage=job->kind; intent->request=job->id; a->pending_kind=job->kind; a->busy=true;
     worker_submit(&a->worker,job);
     status(a,intent->restore ? "Verifying saved source formatting…" : "Verifying source content before formatting…");
 }
-static bool source_format_raw_ready(App *a) {
-    return !a->fetch_failed && !a->page_stale && !a->page.count_pending && a->page.column_count &&
-        a->page.records.file_identity_valid && a->page.records.stamp && !a->step_preview.active &&
-        (a->analysis.kind==SOURCE_CSV || a->analysis.kind==SOURCE_PARQUET) && a->analysis.path && *a->analysis.path &&
-        !strpbrk(a->analysis.path,"*?[]") && !a->analysis.query && !a->analysis.unique_rows &&
-        !a->analysis.group_column && !a->analysis.measure_column && !a->analysis.schema && !a->analysis.table;
+static bool source_format_raw_ready(App *a,const SourceFormatOwner *owner) {
+    const Analysis *source=owner->source; const Page *page=owner->page;
+    return owner->ready && !page->count_pending && page->column_count && page->records.file_identity_valid &&
+        page->records.stamp && !a->step_preview.active && (source->kind==SOURCE_CSV || source->kind==SOURCE_PARQUET) &&
+        source->path && *source->path && !strpbrk(source->path,"*?[]") && !source->query && !source->unique_rows &&
+        !source->group_column && !source->measure_column && !source->schema && !source->table;
 }
 static void source_format_schedule(App *a) {
     Worksheet *sheet=active_sheet(a);
-    if (!sheet || !sheet->formats.source_aware || !a->analysis.source_version || source_format_verified(a) ||
+    if (!sheet || !sheet->formats.source_aware ||
         a->busy || a->io_busy || a->source_format.active || a->values_loading || a->modal!=MODAL_NONE ||
         a->document_action!=DOCUMENT_NONE || (a->statistics_enabled &&
         (a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING)) ||
-        (a->count_request_id && a->count_request_id==a->request_id) ||
-        !source_format_raw_ready(a) || !grid_cached(&a->grid,&a->page) || dx_millis()-a->viewport_changed<150) return;
-    const SourceVersion *entry=source_format_version(a,a->analysis.source_version);
-    if (!entry || !entry->raw.bytes || entry->kind!=a->analysis.kind || strcmp(entry->path,a->analysis.path) ||
-        a->format_document==UINT64_MAX) return;
-    SourceFormatAttempt *attempt=&a->source_format_attempt;
-    if (attempt->valid && attempt->document==a->format_document && attempt->sheet==a->book.active &&
-        attempt->version==entry->version && attempt->stamp==a->page.records.stamp &&
-        source_file_identity_same(&attempt->identity,&a->page.records.file_identity)) return;
-    *attempt=(SourceFormatAttempt){.identity=a->page.records.file_identity,.document=a->format_document,
-        .version=entry->version,.stamp=a->page.records.stamp,.sheet=a->book.active,.valid=true};
-    if (source_format_capture(a,(FormatRange){0},0,format_default(),true)) source_format_verify(a);
+        (a->count_request_id && a->count_request_id==a->request_id) || dx_millis()-a->viewport_changed<150 || a->format_document==UINT64_MAX) return;
+    for (size_t i=0;i<=sheet->objects.count;i++) {
+        uint64_t id=i ? sheet->objects.items[i-1].id : 0; SourceFormatOwner owner;
+        if (!source_format_owner(a,id,&owner) || !owner.source->source_version || !source_format_raw_ready(a,&owner) || source_format_owner_verified(a,id)) continue;
+        if (!id && !grid_cached(&a->grid,owner.page)) continue;
+        if (id && (int)owner.index!=a->selected_object && !CheckCollisionRecs(
+            grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,owner.row,owner.column,owner.rows,owner.columns),a->grid.body)) continue;
+        const SourceVersion *entry=source_format_owner_version(a,id,owner.source->source_version);
+        if (!entry || !entry->raw.bytes || entry->kind!=owner.source->kind || strcmp(entry->path,owner.source->path)) continue;
+        SourceFormatAttempt *attempt=source_format_owner_attempt(a,id,true); if (!attempt) continue;
+        if (attempt->valid && attempt->document==a->format_document && attempt->sheet==a->book.active &&
+            attempt->version==entry->version && attempt->stamp==owner.page->records.stamp &&
+            source_file_identity_same(&attempt->identity,&owner.page->records.file_identity)) continue;
+        *attempt=(SourceFormatAttempt){.identity=owner.page->records.file_identity,.document=a->format_document,
+            .version=entry->version,.stamp=owner.page->records.stamp,.sheet=a->book.active,.valid=true};
+        if (source_format_capture(a,&owner,(FormatRange){0},0,format_default(),true)) source_format_verify(a);
+        return;
+    }
 }
 static bool source_format_collect(App *a,size_t reply_owned) {
     SourceFormatIntent *intent=&a->source_format; char *error=NULL;
-    SourcePacket raw={0};
-    bool ok=source_scope_raw_build(0,intent->version,&intent->source,&intent->schema,&intent->digest,
+    SourcePacket raw={0}; SourceFormatOwner owner;
+    bool ok=source_format_owner(a,intent->owner,&owner) && source_scope_raw_build(intent->owner,intent->version,&intent->source,&intent->schema,&intent->digest,
         duckdb_library_version(),&raw,&error);
-    SourceVersion candidate={.owner=0,.version=intent->version,.kind=intent->source.kind,.path=intent->source.path,.raw=raw};
-    const SourceVersion *entry=intent->issue ? &candidate : source_format_version(a,intent->version);
+    SourceVersion candidate={.owner=intent->owner,.version=intent->version,.kind=intent->source.kind,.path=intent->source.path,.raw=raw};
+    const SourceVersion *entry=intent->issue ? &candidate : source_format_owner_version(a,intent->owner,intent->version);
     if (ok) ok=entry && entry->raw.bytes==raw.bytes && !memcmp(entry->raw.data,raw.data,raw.bytes) &&
-        source_version_page_verified(entry,0,intent->version,&intent->source,&intent->schema,
+        source_version_page_verified(entry,intent->owner,intent->version,&intent->source,&intent->schema,
             SOURCE_DIGEST_OK,&intent->digest,duckdb_library_version(),NULL) &&
-        source_version_page_verified(entry,0,intent->version,&a->analysis,&a->page,
+        source_version_page_verified(entry,intent->owner,intent->version,owner.source,owner.page,
             SOURCE_DIGEST_OK,&intent->digest,duckdb_library_version(),NULL);
     if (!ok) {
         status(a,error ? error : "The captured source schema or file proof no longer matches. No formatting was applied.");
@@ -247,36 +354,49 @@ static bool source_format_collect(App *a,size_t reply_owned) {
     if (intent->restore) {
         /* Verification publishes only a session proof. Ledger, formats,
            Analysis, history and dirty state retain their saved ownership. */
-        source_packet_free(&a->source_format_proof.raw);
-        a->source_format_proof=(SourceFormatProof){.raw=intent->raw,.digest=intent->digest,
+        uint64_t id=intent->owner; SourceFormatProof *proof=source_format_owner_proof(a,id,false);
+        source_packet_free(&proof->raw);
+        *proof=(SourceFormatProof){.raw=intent->raw,.digest=intent->digest,
             .document=a->format_document,.version=intent->version,.sheet=a->book.active};
-        intent->raw=(SourcePacket){0}; source_format_intent_free(intent); source_format_page(a);
-        status(a,source_format_verified(a) ? "Saved source formatting verified." : "Saved source formatting remains suspended.");
+        intent->raw=(SourcePacket){0}; source_format_intent_free(intent); source_format_page_owner(a,id);
+        status(a,source_format_owner_verified(a,id) ? "Saved source formatting verified." : "Saved source formatting remains suspended.");
         return true;
     }
     QueryJob *job=dx_alloc(sizeof(*job)); job->id=++a->request_id; job->kind=JOB_COLLECT_RECORDS;
     job->analysis=analysis_copy(&intent->source); job->offset=intent->range.r0; job->rows=intent->range.r1-intent->range.r0+1;
     job->expected_source_stamp=intent->digest.observed_stamp; job->expected_file_identity=intent->digest.identity;
-    job->expected_file_identity_valid=true; job->revision=intent->analysis_revision;
+    job->expected_file_identity_valid=true; job->revision=intent->owner_revision;
+    job->object_id=intent->owner; job->is_table=intent->owner!=0;
     intent->stage=JOB_COLLECT_RECORDS; intent->request=job->id; a->pending_kind=job->kind; a->busy=true;
     worker_submit(&a->worker,job); status(a,"Collecting the selected source records…"); return true;
 }
 static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat value,bool *handled) {
     *handled=false; Worksheet *sheet=active_sheet(a);
-    if (!sheet || (!range.r0 && range.r1==DX_SHEET_ROWS-1) || a->analysis.kind==SOURCE_NONE ||
-        (a->page.column_count && range.c0>=a->page.column_count) ||
-        (!a->page.count_pending && a->page.column_count && range.r0>=a->page.total)) return false;
-    *handled=true;
-    if (a->busy || a->io_busy || !source_format_raw_ready(a) || a->grid.selection!=SELECT_CELLS ||
-        range.r1>=a->page.total || range.c1>=a->page.column_count || a->matrix_cells_active) {
-        status(a,"Record formatting needs a ready finite range in one raw native CSV or Parquet source. Whole-column defaults remain available."); return false;
-    }
+    if (!sheet || (!range.r0 && range.r1==DX_SHEET_ROWS-1)) return false;
+    bool primary=a->analysis.kind!=SOURCE_NONE && (!a->page.column_count ||
+        (range.c0<a->page.column_count && (a->page.count_pending || range.r0<a->page.total)));
+    uint64_t id=0; size_t intersections=0;
     for (size_t i=0;i<sheet->objects.count;i++) {
         const SheetObject *object=sheet->objects.items+i;
         if (range.r0<object->row+object->rows && range.r1>=object->row &&
-            range.c0<object->col+object->columns && range.c1>=object->col) {
-            status(a,"Mixed source and object formatting is not available yet. Choose one primary-source range."); return false;
-        }
+            range.c0<object->col+object->columns && range.c1>=object->col) { id=object->id; intersections++; }
+    }
+    if (!primary && !intersections) return false;
+    *handled=true;
+    if (intersections>1 || (primary && intersections)) {
+        status(a,"Mixed source, object or manual formatting is not available yet. Choose one raw source range."); return false;
+    }
+    SourceFormatOwner owner;
+    if (!source_format_owner(a,id,&owner) || a->busy || a->io_busy || !source_format_raw_ready(a,&owner) ||
+        a->grid.selection!=SELECT_CELLS || a->matrix_cells_active ||
+        (id && (range.r0<owner.row+2 || range.c0<owner.column))) {
+        status(a,"Record formatting needs a ready finite range in one raw native CSV or Parquet source. Whole-column defaults remain available."); return false;
+    }
+    if (id) {
+        range.r0-=owner.row+2; range.r1-=owner.row+2; range.c0-=owner.column; range.c1-=owner.column;
+    }
+    if (range.r1>=owner.page->total || range.c1>=owner.page->column_count) {
+        status(a,"Record formatting needs a ready finite range in one raw native CSV or Parquet source. Whole-column defaults remain available."); return false;
     }
     if (range.r1-range.r0+1>DX_RECORD_SELECTION_ROWS) {
         status(a,"Finite source formatting is limited to 20,000 records. Choose a smaller range or whole-column defaults."); return false;
@@ -284,13 +404,13 @@ static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat 
     if (!sheet->formats.source_aware && !source_format_first_safe(&sheet->formats)) {
         status(a,"Existing finite source formats need migration before verified record collection. Whole-column defaults remain available."); return false;
     }
-    if (a->format_document==UINT64_MAX || (!a->analysis.source_version && sheet->source_versions.high_water==UINT64_MAX)) {
+    if (a->format_document==UINT64_MAX || (!owner.source->source_version && sheet->source_versions.high_water==UINT64_MAX)) {
         status(a,"The source-format lifetime counter is exhausted. No formatting was applied."); return false;
     }
-    if (!source_format_capture(a,range,mask,value,false)) return false;
+    if (!source_format_capture(a,&owner,range,mask,value,false)) return false;
     SourceFormatIntent *intent=&a->source_format;
-    if (!intent->issue && source_format_verified(a)) {
-        intent->digest=a->source_format_proof.digest;
+    if (!intent->issue && source_format_owner_verified(a,id)) {
+        intent->digest=source_format_owner_proof(a,id,false)->digest;
         intent->request=a->request_id; return source_format_collect(a,0);
     }
     source_format_verify(a); return true;
@@ -298,7 +418,7 @@ static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat 
 static bool source_format_reply(App *a,QueryReply *reply) {
     if (reply->kind!=JOB_VERIFY_SOURCE && reply->kind!=JOB_COLLECT_RECORDS) return false;
     SourceFormatIntent *intent=&a->source_format;
-    if (!source_format_fence(a) || reply->kind!=intent->stage || reply->revision!=intent->analysis_revision || reply->object_id) {
+    if (!source_format_fence(a) || reply->kind!=intent->stage || reply->revision!=intent->owner_revision || reply->object_id!=intent->owner) {
         source_format_cancel(a,"Formatting cancelled because its captured request changed."); return true;
     }
     if (reply->error) {
@@ -312,10 +432,10 @@ static bool source_format_reply(App *a,QueryReply *reply) {
         intent->digest=reply->source_digest; source_format_collect(a,reply_bytes); return true;
     }
     const RecordSelection *records=&reply->records; char *error=NULL;
-    SourceVersion candidate={.owner=0,.version=intent->version,.kind=intent->source.kind,.path=intent->source.path,.raw=intent->raw};
-    const SourceVersion *verified=intent->issue ? &candidate : source_format_version(a,intent->version);
+    SourceVersion candidate={.owner=intent->owner,.version=intent->version,.kind=intent->source.kind,.path=intent->source.path,.raw=intent->raw};
+    const SourceVersion *verified=intent->issue ? &candidate : source_format_owner_version(a,intent->owner,intent->version);
     if (!verified || reply->analysis.source_version!=intent->source.source_version ||
-        !source_version_page_verified(verified,0,intent->version,&reply->analysis,&intent->schema,
+        !source_version_page_verified(verified,intent->owner,intent->version,&reply->analysis,&intent->schema,
             SOURCE_DIGEST_OK,&intent->digest,duckdb_library_version(),NULL) ||
         records->count!=intent->range.r1-intent->range.r0+1 || records->count>DX_RECORD_SELECTION_ROWS ||
         records->bytes!=records->count*sizeof(uint64_t) || !records->ids ||
@@ -327,16 +447,24 @@ static bool source_format_reply(App *a,QueryReply *reply) {
     for (size_t i=0;i<records->count;i++) if (!records->ids[i] || (i && records->ids[i]<=records->ids[i-1])) {
         source_format_cancel(a,"Collected record identities were invalid. No formatting was applied."); return true;
     }
-    Worksheet *sheet=active_sheet(a); SourceVersions versions={0}; FormatSnapshot plan={0}; Analysis next={0};
+    Worksheet *sheet=active_sheet(a); SourceVersions versions={0}; FormatSnapshot plan={0}; Analysis next={0}; ObjectSnapshot objects={0};
     size_t fields[DX_SOURCE_SCOPE_FIELDS]; size_t count=intent->range.c1-intent->range.c0+1;
     for (size_t c=0;c<count;c++) fields[c]=intent->range.c0+c;
-    SourceVersion entry={.owner=0,.version=intent->version,.kind=intent->source.kind,.path=intent->source.path,.raw=intent->raw};
+    SourceVersion entry={.owner=intent->owner,.version=intent->version,.kind=intent->source.kind,.path=intent->source.path,.raw=intent->raw};
+    /* Unrelated object names/Marks/placements may change while collection is
+       pending. Re-reserve the complete current graph before cloning it. */
+    if (intent->issue && intent->owner) {
+        intent->object_reserved=objects_snapshot_owned_bytes(&(ObjectSnapshot){sheet->objects.items,sheet->objects.count});
+        if (intent->object_reserved==SIZE_MAX) { source_format_cancel(a,"The table definitions changed beyond safe formatting capture."); return true; }
+    }
     bool ok=source_format_budget(a,NULL,0,0,reply_bytes,0,0);
     if (ok && intent->issue) ok=source_versions_plan(&sheet->source_versions,&entry,true,&versions,&error);
-    if (ok) ok=format_plan_records(&sheet->formats,&(FormatScopeView){0,intent->raw.data,intent->raw.bytes},
+    if (ok) ok=format_plan_records(&sheet->formats,&(FormatScopeView){intent->owner,intent->raw.data,intent->raw.bytes},
         records->ids,records->count,fields,count,intent->mask,intent->value,&plan,&error);
     bool changed=false;
-    if (ok && intent->issue) {
+    if (ok && intent->issue && intent->owner) {
+        ok=objects_plan_source_version(&sheet->objects,intent->owner,intent->source.source_version,intent->version,&objects,&changed,&error) && changed;
+    } else if (ok && intent->issue) {
         next=analysis_copy(&intent->source); next.source_version=intent->version;
         ok=worksheet_analysis_preflight(sheet,&a->analysis,&next,&changed,&error) && changed;
     }
@@ -351,26 +479,35 @@ static bool source_format_reply(App *a,QueryReply *reply) {
             .scopes=sheet->formats.scopes,.scope_count=sheet->formats.scope_count,.source_aware=sheet->formats.source_aware};
         FormatStore new_current={.items=plan.items,.count=plan.count,.scopes=plan.scopes,
             .scope_count=plan.scope_count,.source_aware=plan.source_aware};
-        size_t adopted=format_owned_bytes(&new_current,false)+(intent->issue ? versions.bytes+sizeof(next)+analysis_text_bytes(&next) : 0);
-        WorkbookFormatReplacement replacement={a->book.active,&projected,intent->issue ? &versions : NULL};
-        ok=source_format_budget(a,&replacement,adopted,0,reply_bytes,0,
-            intent->issue ? sizeof(Analysis)+analysis_text_bytes(&a->analysis) : 0);
+        size_t adopted=format_owned_bytes(&new_current,false),incoming=0;
+        if (intent->issue) {
+            size_t next_bytes=intent->owner ? objects_snapshot_owned_bytes(&objects) : sizeof(next)+analysis_text_bytes(&next);
+            incoming=intent->owner ? objects_snapshot_owned_bytes(&(ObjectSnapshot){sheet->objects.items,sheet->objects.count}) : sizeof(Analysis)+analysis_text_bytes(&a->analysis);
+            if (next_bytes==SIZE_MAX || incoming==SIZE_MAX || !source_format_add(&adopted,versions.bytes) || !source_format_add(&adopted,next_bytes)) ok=false;
+        }
+        WorkbookFormatReplacement replacement={.sheet=a->book.active,.formats=&projected,.versions=intent->issue ? &versions : NULL};
+        /* The prepared object graph replaces its prior preallocation reserve.
+           Old live objects remain the authority until the single journal commit. */
+        intent->object_reserved=0;
+        if (ok) ok=source_format_budget(a,&replacement,adopted,0,reply_bytes,0,incoming);
     }
     if (!ok) {
         if (error) status(a,error);
-        free(error); source_versions_free(&versions); format_snapshot_free(&plan); analysis_free(&next);
+        free(error); source_versions_free(&versions); format_snapshot_free(&plan); analysis_free(&next); objects_snapshot_free(&objects);
         source_format_cancel(a,NULL); return true;
     }
     if (intent->issue) {
         source_versions_free(&sheet->source_versions); sheet->source_versions=versions; versions=(SourceVersions){0};
-        worksheet_analysis_adopt(sheet,&a->analysis,&next);
+        if (intent->owner) objects_adopt_source_version(&sheet->objects,&objects);
+        else worksheet_analysis_adopt(sheet,&a->analysis,&next);
     }
     bool formatted=format_commit(&sheet->formats,&plan);
-    if (formatted || intent->issue) { worksheet_record(sheet,intent->issue ? EDIT_ANALYSIS_FORMAT : EDIT_FORMAT); a->book.dirty=true; }
-    source_packet_free(&a->source_format_proof.raw);
-    a->source_format_proof=(SourceFormatProof){.raw=intent->raw,.digest=intent->digest,.document=a->format_document,
+    if (formatted || intent->issue) { worksheet_record(sheet,intent->issue ? intent->owner ? EDIT_OBJECTS_FORMAT : EDIT_ANALYSIS_FORMAT : EDIT_FORMAT); a->book.dirty=true; }
+    uint64_t id=intent->owner; SourceFormatProof *proof=source_format_owner_proof(a,id,false);
+    source_packet_free(&proof->raw);
+    *proof=(SourceFormatProof){.raw=intent->raw,.digest=intent->digest,.document=a->format_document,
         .version=intent->version,.sheet=a->book.active};
-    intent->raw=(SourcePacket){0}; source_format_intent_free(intent); source_format_page(a);
+    intent->raw=(SourcePacket){0}; source_format_intent_free(intent); source_format_page_owner(a,id);
     status(a,formatted ? "Formatting applied to the captured source records." : "The captured source records already have this format.");
     return true;
 }

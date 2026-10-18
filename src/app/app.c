@@ -68,8 +68,9 @@ typedef struct {
 #ifndef DUXCEL_BROWSER_HOST
 typedef struct {
     bool active,issue,restore;
-    uint64_t document,request,analysis_revision,format_revision,cell_revision,high_water,version;
-    size_t sheet,bytes;
+    uint64_t document,request,analysis_revision,format_revision,cell_revision,high_water,version,owner,owner_revision;
+    uint64_t origin_row,origin_rows;
+    size_t sheet,bytes,object_reserved,origin_column,origin_columns;
     JobKind stage;
     FormatRange range;
     unsigned mask;
@@ -92,6 +93,7 @@ typedef struct {
     size_t sheet;
     bool valid;
 } SourceFormatAttempt;
+typedef struct { uint64_t owner; SourceFormatProof proof; SourceFormatAttempt attempt; } SourceFormatTable;
 #endif
 typedef struct {
     UIContext ui;
@@ -116,6 +118,7 @@ typedef struct {
     SourceFormatIntent source_format;
     SourceFormatProof source_format_proof;
     SourceFormatAttempt source_format_attempt;
+    SourceFormatTable source_format_tables[DX_MAX_OBJECTS];
     uint64_t format_document;
 #endif
     bool preview_valid;
@@ -646,6 +649,11 @@ static void source_format_page(App *a);
 static void source_format_tick(App *a);
 static void source_format_schedule(App *a);
 static void source_format_request(App *a);
+static void source_format_page_owner(App *a,uint64_t owner);
+static void source_format_adjust_source(App *a,uint64_t owner,Analysis *source);
+static void source_format_refresh_tables(App *a,uint64_t owner);
+static void source_format_table_navigation(App *a);
+static size_t source_format_owner_token(App *a,uint64_t owner);
 static bool source_format_reply(App *a,QueryReply *reply);
 static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat value,bool *handled);
 static size_t source_format_token(App *a);
@@ -656,6 +664,10 @@ static CellFormat source_format_value(App *a,uint64_t row,size_t column);
 #define SOURCE_FORMAT_TICK(a) source_format_tick(a)
 #define SOURCE_FORMAT_SCHEDULE(a) source_format_schedule(a)
 #define SOURCE_FORMAT_REQUEST(a) source_format_request(a)
+#define SOURCE_FORMAT_OBJECT_PAGE(a,owner) source_format_page_owner(a,owner)
+#define SOURCE_FORMAT_ADJUST(a,owner,source) source_format_adjust_source(a,owner,source)
+#define SOURCE_FORMAT_REFRESH(a,owner) source_format_refresh_tables(a,owner)
+#define SOURCE_FORMAT_TABLE_NAVIGATION(a) source_format_table_navigation(a)
 #define SOURCE_FORMAT_PENDING(a) ((a)->source_format.active)
 #else
 #define SOURCE_FORMAT_CANCEL(...) ((void)0)
@@ -664,6 +676,10 @@ static CellFormat source_format_value(App *a,uint64_t row,size_t column);
 #define SOURCE_FORMAT_TICK(...) ((void)0)
 #define SOURCE_FORMAT_SCHEDULE(...) ((void)0)
 #define SOURCE_FORMAT_REQUEST(...) ((void)0)
+#define SOURCE_FORMAT_OBJECT_PAGE(...) ((void)0)
+#define SOURCE_FORMAT_ADJUST(...) ((void)0)
+#define SOURCE_FORMAT_REFRESH(...) ((void)0)
+#define SOURCE_FORMAT_TABLE_NAVIGATION(...) ((void)0)
 #define SOURCE_FORMAT_PENDING(...) false
 #endif
 /* Persisted scopes remain suspended until a verified publication supplies exact
@@ -823,6 +839,7 @@ static void reconcile_object_views(App *a) {
         if (o->kind==OBJECT_CHART || v->dirty || v->failed || v->page.count_pending || !v->page.column_count) continue;
         uint64_t rows=v->page.total+2<5 ? 5 : v->page.total+2; size_t columns=v->page.column_count<3 ? 3 : v->page.column_count;
         if (o->rows!=rows || o->columns!=columns) { char *error=NULL; if (!publish_object_extent(a,i,v->page.total,&error)) { v->failed=true; free(v->error); v->error=error; } }
+        if (o->kind==OBJECT_TABLE) SOURCE_FORMAT_OBJECT_PAGE(a,o->id);
     }
     a->pivot_drag_field=a->pivot_drag_role=-1;
 }
@@ -838,6 +855,8 @@ static void invalidate_object(App *a,size_t index) {
 static bool set_table_source(App *a,size_t index,const Analysis *source) {
     ObjectStore *store=&active_sheet(a)->objects; char *error=NULL;
     if (index>=store->count || store->items[index].kind!=OBJECT_TABLE) return false;
+    Analysis adjusted=*source;
+    SOURCE_FORMAT_ADJUST(a,store->items[index].id,&adjusted); source=&adjusted;
     uint64_t previous=store->items[index].revision;
     const Analysis *old=&store->items[index].source; bool same=analysis_same_result(old,source);
     for (size_t i=0;same && i<old->filter_count+(old->filter_column ? 1 : 0);i++) {
@@ -1055,7 +1074,7 @@ static void change_analysis(App *a,bool schema) {
     const SourceVersion *binding=source_format_version(a,a->analysis.source_version);
     if (a->analysis.source_version && (a->refresh_plans || !binding || binding->kind!=a->analysis.kind ||
         !a->analysis.path || strcmp(binding->path,a->analysis.path))) {
-        a->analysis.source_version=0; SOURCE_FORMAT_RESET(a);
+        a->analysis.source_version=0; a->book.dirty=true; SOURCE_FORMAT_RESET(a);
     }
     a->source_format_proof.ready=false;
 #endif
@@ -1666,7 +1685,7 @@ static void poll_query(App *a) {
                     free(v->error); v->error=r->error ? dx_strdup(r->error) : error; if (r->error) free(error);
                     v->count_paused=true; v->failed=v->waiting_count || !r->error; status(a,v->error);
                     if (!r->error) { v->count_resolved=true; v->counted_total=r->counted_rows; v->count_layout_key=table_layout_key(a); }
-                } else { status(a,"Table ready."); printf("Table %" PRIu64 " exact row count: %" PRIu64 "\n",r->object_id,r->counted_rows); }
+                } else { SOURCE_FORMAT_OBJECT_PAGE(a,r->object_id); status(a,"Table ready."); printf("Table %" PRIu64 " exact row count: %" PRIu64 "\n",r->object_id,r->counted_rows); }
                 break;
             }
             reply_free(r); return;
@@ -1720,6 +1739,7 @@ static void poll_query(App *a) {
                 if (!v->waiting_count) { o->rows=rows; o->columns=columns; grid_ensure_columns(&a->grid,o->col+columns); }
                 status(a,o->kind==OBJECT_TABLE ? v->waiting_count ? "Checking the table's full size before displaying it…" : v->page.count_pending ? "Table visible. Counting rows in the background…" : "Table ready." : "Pivot updated.");
                 if (o->kind==OBJECT_TABLE && schema) a->field_schema_generation++;
+                if (o->kind==OBJECT_TABLE) SOURCE_FORMAT_OBJECT_PAGE(a,o->id);
                 if (whole && !v->waiting_count) { a->grid.end_row=o->row+rows-1; a->grid.end_col=o->col+columns-1; }
                 if (o->kind==OBJECT_TABLE && schema && !v->waiting_count) printf("Table %" PRIu64 " viewport: %zu rows, %zu bytes, %.2f ms query; count %s\n",o->id,v->page.row_count,v->page.bytes,v->page.query_ms,v->page.count_pending ? "pending" : "complete");
             } else {
@@ -2950,6 +2970,7 @@ static void draw_pivot_menu(App *a) {
             else if (table && i==base_count-1) begin_source_query(a);
             else if (i==0) {
                 clear_values_cache(a); a->refresh_plans=true; uint64_t id=o->id;
+                if (o->kind==OBJECT_TABLE) SOURCE_FORMAT_REFRESH(a,id);
                 for (size_t j=0;j<active_sheet(a)->objects.count;j++) if ((int)j==a->selected_object || active_sheet(a)->objects.items[j].source_id==id) invalidate_object(a,j);
             }
             else if (i==1) { a->grid.selection=SELECT_CELLS; a->grid.anchor_row=o->row; a->grid.end_row=o->row+o->rows-1; a->grid.anchor_col=o->col; a->grid.end_col=o->col+o->columns-1; }
@@ -4001,6 +4022,7 @@ static void draw_objects(App *a) {
 static void schedule_pivot(App *a) {
     if (a->step_preview.active) return;
     if (!active_sheet(a)) return;
+    SOURCE_FORMAT_TABLE_NAVIGATION(a);
     if (a->busy || a->io_busy || a->values_loading || a->page_stale || a->fetch_failed || a->modal!=MODAL_NONE || dx_millis()-a->pivot_changed<150) return;
     ObjectStore *store=&active_sheet(a)->objects;
     for (size_t pass=0;pass<store->count;pass++) {
@@ -4170,7 +4192,7 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
         grid->formats=&active_sheet(a)->formats; grid->format_row=owner ? owner->row+2+source->offset : source->offset; grid->format_col=owner ? owner->col : 0;
         grid->format_result_token=grid->format_record_token=imported_format_token(a);
 #ifndef DUXCEL_BROWSER_HOST
-        if (!owner) grid->format_record_token=source_format_token(a);
+        grid->format_record_token=source_format_owner_token(a,owner ? owner->id : 0);
 #endif
         uint64_t widths=grid->width_revision;
         float scale=s*grid->zoom; grid_layout(grid,scale,&preview,layout.preview);
@@ -4893,6 +4915,11 @@ static void process_sheet_action(App *a) {
     if (!ok) { status(a,error); free(error); return; }
 #ifndef DUXCEL_BROWSER_HOST
     if (a->source_format_proof.raw.data) a->source_format_proof.sheet=a->book.active;
+    a->source_format_attempt.sheet=a->book.active;
+    for (size_t i=0;i<DX_MAX_OBJECTS;i++) if (a->source_format_tables[i].owner) {
+        a->source_format_tables[i].proof.sheet=a->book.active;
+        a->source_format_tables[i].attempt.sheet=a->book.active;
+    }
 #endif
     if (action==SHEET_ACTION_DUPLICATE || (action==SHEET_ACTION_HIDE && index==previous)) activate_sheet(a,a->book.active,false);
     else if (action==SHEET_ACTION_SHOW) activate_sheet(a,index,true);
@@ -6690,6 +6717,7 @@ static void shortcuts(App *a) {
         cancel_active_query(a);
     }
     if (ui_pressed(KEY_F5)) {
+        SOURCE_FORMAT_REFRESH(a,0);
         clear_values_cache(a); clear_object_views(a); a->refresh_plans=true;
         if (a->analysis.kind!=SOURCE_NONE) change_analysis(a,false);
     }
@@ -6811,6 +6839,7 @@ static void run_action(App *a,UIAction action) {
     case ACTION_TRANSFORM: { bool show=!a->pipeline || a->pipeline_sql || a->pipeline_collapsed; a->pipeline_sql=false; present_pipeline(a,show,false); break; }
     case ACTION_SQL: { bool show=!a->pipeline || !a->pipeline_sql || a->pipeline_collapsed; a->pipeline_sql=true; present_pipeline(a,show,false); break; }
     case ACTION_REFRESH:
+        SOURCE_FORMAT_REFRESH(a,0);
         clear_values_cache(a); clear_object_views(a); a->refresh_plans=true;
         if (a->analysis.kind!=SOURCE_NONE) change_analysis(a,false); break;
     case ACTION_WORKBOOK: a->sidebar=!a->sidebar; if (a->sidebar && GetScreenWidth()/a->ui.scale<700) show_workspace(a); break;
@@ -7665,7 +7694,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 764
+#define LAYOUT_SMOKE_STAGES 800
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -8514,8 +8543,31 @@ static bool smoke_source_record_formats(App *a,bool color) {
     }
     return true;
 }
+static bool smoke_record_file(const char *path,bool changed,char **error) {
+    Database fixture={0}; duckdb_result result={0}; remove(path);
+    if (!database_open(&fixture,error)) return false;
+    char *quoted=dx_quote(path,'\''),*sql=dx_printf("COPY (SELECT floor(i/2)::BIGINT AS Pair,(floor(i/2)::BIGINT%%7)::INTEGER AS Tie,"
+        "CASE floor(i/2)::BIGINT%%5 WHEN 0 THEN NULL WHEN 1 THEN '' WHEN 2 THEN 'NULL' ELSE 'pair' END::VARCHAR AS Label,"
+        "(9007199254740993+floor(i/2)::BIGINT)::BIGINT AS Exact,(%d+floor(i/2)/8)::DECIMAL(18,4) AS Amount "
+        "FROM range(600) t(i)) TO %s (FORMAT PARQUET)",changed ? 1000 : 0,quoted);
+    free(quoted); bool ok=duckdb_query(fixture.connection,sql,&result)==DuckDBSuccess;
+    if (!ok) { free(*error); *error=dx_strdup(duckdb_result_error(&result)); }
+    free(sql); duckdb_destroy_result(&result); database_close(&fixture); return ok;
+}
+static bool smoke_table_record_formats(App *a,size_t index,bool bold,bool color) {
+    if (!object_ready(a,index)) return false;
+    const SheetObject *object=active_sheet(a)->objects.items+index; const Page *page=&a->objects[index].page;
+    if (bold && source_format_owner_token(a,object->id)==SIZE_MAX) return false;
+    for (size_t i=0;i<page->row_count;i++) {
+        uint64_t local=page->offset+i,id=0; if (!page_record_id(page,local,&id)) return false;
+        CellFormat value=imported_cell_format(a,object->row+2+local,object->col+4);
+        if (!!(value.flags&FORMAT_BOLD)!=(bold && id>=241 && id<=350) || value.color!=(color && id==1 ? 3 : 0) ||
+            imported_cell_format(a,object->row+2+local,object->col+3).flags) return false;
+    }
+    return true;
+}
 static void layout_smoke_step(App *a,int *step) {
-    if (*step<0 || *step>=LAYOUT_SMOKE_STAGES || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
+    if (*step<0 || *step>=LAYOUT_SMOKE_STAGES || a->busy || a->io_busy || a->page.count_pending || (!a->page.column_count && *step<764)) return;
     static uint64_t request; char *error=NULL; Worksheet *s=active_sheet(a);
     static uint64_t label_builds;
     static Cell *author_cells; static uint64_t author_revision;
@@ -11519,6 +11571,224 @@ static void layout_smoke_step(App *a,int *step) {
     case 763:
         puts("PASS: native captured Verify Collect Commit formats original records across page boundaries sort filter eviction and duplicate values, preserves first-binding Undo Redo and no-op redo, rejects canceled superseded stale commands, reactivates verified v14 styles without edits, and suspends same-schema replaced sources without idle retries"); break;
 
+    case 764:
+        if (!smoke_record_file("tests/generated/app-table-record-format.parquet",false,&error)) goto failed;
+        a->document_action=DOCUMENT_NEW; finish_document_action(a);
+        a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
+        a->sidebar=a->fields_visible=a->pipeline=false; a->matrix_cells_active=false;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
+        if (!cells_set(&active_sheet(a)->cells,4,2,"Beside the table",&error)) goto failed;
+        worksheet_record(active_sheet(a),EDIT_CELLS);
+        grid_select_cell(&a->grid,8,7,false);
+        if (!import_table(a,"tests/generated/app-table-record-format.parquet")) goto failed;
+        break;
+    case 765: {
+        if (!object_ready(a,0)) return;
+        SheetObject *table=s->objects.items; Page *page=&a->objects[0].page;
+        if (a->analysis.kind!=SOURCE_NONE || a->page.column_count || s->objects.count!=1 || table->row!=8 || table->col!=7 ||
+            page->total!=600 || page->column_count!=5 || strcmp(page->cells[3].text,"9007199254740993") ||
+            page->columns[4].type!=DUCKDB_TYPE_DECIMAL || !page->cells[2].is_null ||
+            *page->cells[12].text || strcmp(page->cells[22].text,"NULL")) goto failed;
+        author_cells=page->cells; draft_history=s->undo_actions_count;
+        a->selected_object=0; a->book.dirty=false;
+        grid_select_cell(&a->grid,table->row+2+240,table->col+4,false); a->grid.end_row=table->row+2+349;
+        run_action(a,ACTION_BOLD);
+        if (!a->source_format.active || a->source_format.owner!=table->id || a->source_format.range.r0!=240 ||
+            a->source_format.range.r1!=349 || a->source_format.range.c0!=4 || a->pending_kind!=JOB_VERIFY_SOURCE ||
+            table->source.source_version || s->source_versions.high_water || s->formats.count || a->book.dirty) goto failed;
+        grid_select_cell(&a->grid,table->row+2+10,table->col+4,false); break;
+    }
+    case 766: {
+        SheetObject *table=s->objects.items;
+        if (!smoke_table_record_formats(a,0,true,false) || a->objects[0].page.cells!=author_cells ||
+            table->source.source_version!=1 || a->analysis.source_version || s->source_versions.high_water!=1 ||
+            s->source_versions.count!=1 || s->source_versions.items[0].owner!=table->id ||
+            s->undo_actions_count!=draft_history+1 || s->undo_actions[draft_history]!=EDIT_OBJECTS_FORMAT ||
+            s->formats.items[0].record_count!=110 || s->formats.items[0].fields[0]!=4 || active_format(a).flags) goto failed;
+        grid_select_cell(&a->grid,table->row+2,table->col+4,false);
+        CellFormat value=active_format(a); value.color=3; if (!apply_format(a,FORMAT_COLOR,value)) goto failed;
+        grid_select_cell(&a->grid,table->row+3,table->col+4,false); break;
+    }
+    case 767:
+        if (!smoke_table_record_formats(a,0,true,true) || active_format(a).color) goto failed;
+        request=a->request_id;
+        history(a,false); history(a,false);
+        if (s->objects.items[0].source.source_version || s->formats.source_aware || s->source_versions.high_water!=1 ||
+            s->undo_actions_count!=draft_history || a->objects[0].page.cells!=author_cells) goto failed;
+        history(a,true); history(a,true);
+        if (!smoke_table_record_formats(a,0,true,true) || s->objects.items[0].source.source_version!=1 ||
+            a->objects[0].page.cells!=author_cells || a->request_id!=request || s->redo_actions_count) goto failed;
+        break;
+    case 768:
+        a->selected_object=0; grid_select_cell(&a->grid,s->objects.items[0].row+2,s->objects.items[0].col+1,false);
+        run_action(a,ACTION_SORT_DESC); break;
+    case 769:
+        if (!object_ready(a,0)) return;
+        if (!smoke_table_record_formats(a,0,true,true) || a->objects[0].page.total!=600 ||
+            !s->objects.items[0].source.descending) goto failed;
+        run_action(a,ACTION_SORT_ASC); break;
+    case 770: {
+        if (!object_ready(a,0)) return;
+        if (!smoke_table_record_formats(a,0,true,true) || s->objects.items[0].source.descending) goto failed;
+        Analysis next=analysis_copy(&s->objects.items[0].source);
+        bool ok=analysis_filter_set(&next,"Pair",FILTER_LESS,"100",&error);
+        if (ok) analysis_filter_number(&next,"Pair",a->objects[0].page.columns[0].number_type);
+        if (ok) ok=set_table_source(a,0,&next); analysis_free(&next); if (!ok) goto failed;
+        break;
+    }
+    case 771:
+        if (!object_ready(a,0)) return;
+        if (a->objects[0].page.total!=200 || !smoke_table_record_formats(a,0,true,true)) goto failed;
+        run_action(a,ACTION_CLEAR_FILTERS); break;
+    case 772:
+        if (!object_ready(a,0)) return;
+        if (a->objects[0].page.total!=600 || !smoke_table_record_formats(a,0,true,true)) goto failed;
+        page_free(&a->objects[0].page); a->objects[0].dirty=true; break;
+    case 773:
+        if (!object_ready(a,0)) return;
+        if (!smoke_table_record_formats(a,0,true,true)) goto failed;
+        a->grid.top=s->objects.items[0].row+2+400; a->grid.fraction=0; break;
+    case 774:
+        if (!object_ready(a,0) || a->objects[0].page.offset==0) return;
+        if (!smoke_table_record_formats(a,0,true,true)) goto failed;
+        a->grid.top=s->objects.items[0].row+2+120; break;
+    case 775:
+        if (!object_ready(a,0) || a->objects[0].page.offset>120 ||
+            a->objects[0].page.offset+a->objects[0].page.row_count<=150) return;
+        if (!smoke_table_record_formats(a,0,true,true)) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/table-record-format-returned.png");
+        author_cells=a->objects[0].page.cells; request=a->request_id;
+        begin_move_range(a,true); if (a->modal!=MODAL_MOVE_RANGE) goto failed;
+        a->modal=MODAL_NONE; if (!move_selection(a,2,1,false,&error)) goto failed;
+        break;
+    case 776:
+        if (s->objects.items[0].row!=10 || s->objects.items[0].col!=8 || !smoke_table_record_formats(a,0,true,true) ||
+            a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
+        history(a,false); if (s->objects.items[0].row!=8 || s->objects.items[0].col!=7 || !smoke_table_record_formats(a,0,true,true)) goto failed;
+        history(a,true); if (s->objects.items[0].row!=10 || s->objects.items[0].col!=8 ||
+            a->objects[0].page.cells!=author_cells || a->request_id!=request || !smoke_table_record_formats(a,0,true,true)) goto failed;
+        { SheetObject *table=s->objects.items; grid_select_cell(&a->grid,table->row+2+140,table->col+4,false);
+          CellFormat value=active_format(a); value.color=2; if (!apply_format(a,FORMAT_COLOR,value)) goto failed;
+          begin_move_range(a,true); a->modal=MODAL_NONE; if (!move_selection(a,1,0,false,&error)) goto failed; }
+        draft_revision=s->formats.revision; draft_history=s->undo_actions_count; break;
+    case 777:
+        if (a->source_format.active || s->objects.items[0].row!=11 || s->formats.revision!=draft_revision ||
+            s->undo_actions_count!=draft_history || s->source_versions.high_water!=1 || !smoke_table_record_formats(a,0,true,true)) goto failed;
+        { SheetObject *table=s->objects.items; grid_select_cell(&a->grid,table->row+2+140,table->col+4,false);
+          CellFormat value=active_format(a); value.color=2; if (!apply_format(a,FORMAT_COLOR,value)) goto failed; }
+        cancel_active_query(a); break;
+    case 778:
+        if (a->source_format.active || s->formats.revision!=draft_revision || s->undo_actions_count!=draft_history ||
+            !smoke_table_record_formats(a,0,true,true)) goto failed;
+        remove("tests/generated/app-table-record-format.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-table-record-format.dxls"); break;
+    case 779:
+        if (a->book.dirty || !a->book.path) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-table-record-format.dxls"); break;
+    case 780:
+        if (!object_ready(a,0)) return;
+        if (a->analysis.kind!=SOURCE_NONE || a->book.dirty || s->undo_actions_count || s->source_versions.high_water!=1 ||
+            !smoke_table_record_formats(a,0,true,true)) goto failed;
+        request=a->request_id; author_cells=a->objects[0].page.cells; draft_revision=s->formats.revision;
+        if (!set_table_source(a,0,&s->objects.items[0].source)) goto failed;
+        break;
+    case 781:
+        if (!smoke_table_record_formats(a,0,true,true) || a->request_id!=request || a->objects[0].page.cells!=author_cells ||
+            a->book.dirty || s->undo_actions_count || s->formats.revision!=draft_revision) goto failed;
+        grid_select_cell(&a->grid,8,16,false); a->selected_object=-1;
+        if (!import_table(a,"tests/generated/app-table-record-format.parquet")) goto failed;
+        break;
+    case 782:
+        if (!object_ready(a,1)) return;
+        if (s->objects.count!=2 || s->objects.items[0].id==s->objects.items[1].id ||
+            s->objects.items[1].source.source_version || s->source_versions.high_water!=1 ||
+            !smoke_table_record_formats(a,1,false,false) || !smoke_table_record_formats(a,0,true,true)) goto failed;
+        a->selected_object=0; a->pivot_reveal_object=false;
+        grid_select_cell(&a->grid,s->objects.items[0].row+2+140,s->objects.items[0].col+4,false);
+        a->grid.top=s->objects.items[0].row+2+120; a->grid.horizontal=0;
+        break;
+    case 783:
+        if (!object_ready(a,0)) return;
+        source_format_refresh_tables(a,s->objects.items[0].id); a->refresh_plans=true; invalidate_object(a,0);
+        if (s->objects.items[0].source.source_version || s->source_versions.high_water!=1 || source_format_owner_token(a,s->objects.items[0].id)!=SIZE_MAX) goto failed;
+        break;
+    case 784:
+        if (!object_ready(a,0)) return;
+        if (!smoke_table_record_formats(a,0,false,false) || s->source_versions.high_water!=1) goto failed;
+        { SheetObject *table=s->objects.items; grid_select_cell(&a->grid,table->row+2+240,table->col+4,false); a->grid.end_row=table->row+2+349;
+          CellFormat value=active_format(a); value.flags|=FORMAT_BOLD; if (!apply_format(a,FORMAT_BOLD,value)) goto failed; }
+        break;
+    case 785:
+        if (!object_ready(a,0)) return;
+        if (s->objects.items[0].source.source_version!=2 || s->source_versions.high_water!=2 || s->source_versions.count!=2 ||
+            !smoke_table_record_formats(a,0,true,false) || !smoke_table_record_formats(a,1,false,false)) goto failed;
+        a->grid.top=s->objects.items[0].row+2+120; break;
+    case 786:
+        if (!object_ready(a,0) || !a->objects[0].page.offset) return;
+        if (!smoke_table_record_formats(a,0,true,false)) goto failed;
+        a->selected_object=0; create_pivot(a);
+        if (s->objects.count!=3 || s->objects.items[2].source_id!=s->objects.items[0].id) goto failed;
+        { PivotDefinition definition={0}; bool ok=pivot_assign(&definition,PIVOT_ROWS,"Pair",AGG_SUM,&error) &&
+            pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_SUM,&error) && objects_update(&s->objects,2,&definition,&error);
+          pivot_free(&definition); if (!ok) goto failed; worksheet_record(s,EDIT_OBJECTS); invalidate_object(a,2); }
+        a->sidebar=a->fields_visible=true; a->selected_object=2; a->matrix_cells_active=true; break;
+    case 787:
+        if (!object_ready(a,0) || !object_ready(a,2)) return;
+        if (!a->objects[0].page.offset || !a->objects[2].page.totals || a->source_preview.format_record_token==SIZE_MAX ||
+            a->source_preview.format_result_token!=SIZE_MAX || !smoke_table_record_formats(a,0,true,false)) goto failed;
+        { const SheetObject *table=s->objects.items; Page prefix=a->objects[0].page; prefix.offset=0; prefix.row_count=prefix.records.count=12;
+          for (size_t r=0;r<12;r++) { CellFormat preview=grid_cell_format(&a->source_preview,&prefix,r,4);
+            CellFormat body=imported_cell_format(a,table->row+2+a->objects[0].page.offset+r,table->col+4);
+            if (preview.flags!=body.flags || preview.color!=body.color) goto failed; }
+          const SheetObject *pivot=s->objects.items+2;
+          if (imported_cell_format(a,pivot->row+2,pivot->col+1).flags || imported_cell_format(a,pivot->row+2,pivot->col+1).color) goto failed; }
+        smoke_snapshot("tests/results/workspace-layout/table-record-format-preview.png"); break;
+    case 788:
+        a->selected_object=0; a->matrix_cells_active=false; a->sidebar=a->fields_visible=false; a->pivot_reveal_object=false;
+        a->grid.top=s->objects.items[0].row+2+120; a->grid.horizontal=0;
+        grid_select_cell(&a->grid,s->objects.items[0].row+2+140,s->objects.items[0].col+4,false); break;
+    case 789:
+        if (!object_ready(a,0)) return;
+        if (!smoke_table_record_formats(a,0,true,false) || strcmp(cells_get(&s->cells,4,2),"Beside the table")) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-table-record-format.dxls"); break;
+    case 790:
+        if (a->book.dirty) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-table-record-format.dxls"); break;
+    case 791:
+        if (!object_ready(a,0)) return;
+        if (a->book.dirty || s->objects.count!=3 || s->objects.items[0].source.source_version!=2 ||
+            s->objects.items[1].source.source_version || s->undo_actions_count || s->source_versions.high_water!=2 ||
+            !smoke_table_record_formats(a,0,true,false)) goto failed;
+        request=a->request_id; break;
+    case 792:
+        if (a->request_id!=request || a->book.dirty || !smoke_table_record_formats(a,0,true,false)) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/table-record-format-reopened.png"); break;
+    case 793:
+        if (!smoke_record_file("tests/generated/app-table-record-format.parquet",true,&error)) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-table-record-format.dxls"); break;
+    case 794:
+        if (!object_ready(a,0)) return;
+        if (source_format_owner_token(a,s->objects.items[0].id)!=SIZE_MAX || !smoke_table_record_formats(a,0,false,false) ||
+            a->book.dirty || s->undo_actions_count || s->source_versions.high_water!=2 ||
+            s->formats.count!=3 || !a->message || !strstr(a->message,"no longer matches")) goto failed;
+        request=a->request_id; draft_revision=s->formats.revision; break;
+    case 795:
+        if (a->request_id!=request || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision) goto failed;
+        { CellFormat value=active_format(a); value.flags|=FORMAT_BOLD; if (!apply_format(a,FORMAT_BOLD,value)) goto failed; }
+        break;
+    case 796:
+        if (a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision || s->undo_actions_count ||
+            s->source_versions.high_water!=2 || !smoke_table_record_formats(a,0,false,false)) goto failed;
+        request=a->request_id; break;
+    case 797:
+        if (a->request_id!=request || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-table-record-format.dxls"); break;
+    case 798:
+        if (a->book.dirty || s->formats.count!=3 || s->formats.scope_count!=2 || s->source_versions.count!=2 ||
+            strcmp(cells_get(&s->cells,4,2),"Beside the table")) goto failed;
+        break;
+    case 799:
+        puts("PASS: native Table record formatting preserves captured local IDs and fields across sort filter eviction move Undo Redo, isolates same-file owners and raw preview from Pivot results, retains no-op verified proof, and verifies or suspends v14 reopened sources"); break;
+
     }
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: workspace layout smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : "");
@@ -11533,7 +11803,7 @@ failed: fprintf(stderr,"FAIL: workspace layout smoke at stage %d: %s (%s)\n",*st
     free(error); *step=-1;
 }
 static void navigation_smoke_step(App *a,int *step) {
-    if (*step<0 || *step==13 || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
+    if (*step<0 || *step==13 || a->busy || a->io_busy || a->page.count_pending || (!a->page.column_count && *step<764)) return;
     static uint64_t request; static Cell *page; char *error=NULL; Worksheet *s=active_sheet(a);
     if (a->fetch_failed || a->modal==MODAL_ERROR) goto failed;
     switch (*step) {
@@ -11645,7 +11915,7 @@ static void nyc_smoke_step(App *a,int *step) {
 failed: fprintf(stderr,"FAIL: public NYC application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
 }
 static void statistics_smoke_step(App *a,int *step) {
-    if (*step<0 || *step>=31 || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
+    if (*step<0 || *step>=31 || a->busy || a->io_busy || a->page.count_pending || (!a->page.column_count && *step<764)) return;
     static uint64_t request; static char *sum; static Cell *result;
     switch (*step) {
     case 0:
@@ -12972,7 +13242,7 @@ AppSession *app_start(const AppOptions *options) {
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
     bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
-    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
+    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
     else if (options->nyc_smoke) open_source(a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -12982,7 +13252,7 @@ AppSession *app_start(const AppOptions *options) {
     else if (options->path) open_source(a,options->path,false);
     else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(a,"tests/fixtures/null-text.csv",false);
     else { new_sheet(a); a->book.dirty=false; }
-    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 ? layout_start : 250) : 0;
+    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 ? layout_start : 250) : 0;
     session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     session->applied_cursor=-1;
     session->automated=automated; session->layout_start=layout_start; session->layout_target=layout_target;
