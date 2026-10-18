@@ -8706,7 +8706,7 @@ static bool smoke_budget_pressure(App *a,char **error) {
             worksheet_record(s,EDIT_FORMAT);
         }
         for (size_t i=0;i<DX_FORMAT_HISTORY;i++) {
-            CellFormat value=format_default(); value.color=(unsigned char)(2+i%6);
+            CellFormat value=format_default(); value.color=(unsigned char)(2+i%2);
             if (!format_apply(&s->formats,(FormatRange){1000,1000,8,8},FORMAT_COLOR,value,error)) return false;
             worksheet_record(s,EDIT_FORMAT);
         }
