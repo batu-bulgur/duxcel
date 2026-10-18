@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct { char *name,*reference; Analysis analysis; SheetView view; size_t object_offset,object_count,column_capacity; SheetCell *cells; size_t cell_count,cell_capacity,cell_bytes; uint64_t object_high_water; } HeaderSheet;
+typedef struct { char *name,*reference; Analysis analysis; SheetView view; size_t object_offset,object_count,column_capacity; SheetCell *cells; size_t cell_count,cell_capacity,cell_bytes; uint64_t object_high_water,source_version_high_water; } HeaderSheet;
 typedef struct { Analysis analysis; char *reference; } HeaderTableSource;
 typedef struct { size_t sheet; WorkbookCodecObjectView value; char *query; bool unique_rows; HeaderTableSource *source; PivotDefinition *pivot; MarkDefinition *marks; } HeaderObject;
 typedef struct { HeaderObject *owner; void *definition; size_t original[DX_MARK_ROLES]; } DefinitionChange;
@@ -14,7 +14,7 @@ struct WorkbookCodecHeader {
     size_t count,active,bytes;
     uint64_t hidden;
     float user_scale;
-    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready,object_table_present,pivot_marks_ready,filters_ready,columns_ready,cells_ready,object_counters_ready;
+    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready,object_table_present,pivot_marks_ready,filters_ready,columns_ready,cells_ready,object_counters_ready,source_version_counters_ready;
     PivotDefinition empty_pivot;
     MarkDefinition empty_marks;
     HeaderObject *objects;
@@ -56,6 +56,7 @@ static const char preferences_sql[]="SELECT name,value FROM _duxcel_workspace.pr
 static const char preferences14_sql[]="SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') OR name IS NULL OR value IS NULL OR contains(name,chr(0)) ORDER BY name LIMIT 66";
 static const char objects_sql[]="SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049";
 static const char object_counters_sql[]="SELECT sheet_id,high_water FROM _duxcel_workspace.object_counters ORDER BY sheet_id LIMIT 65";
+static const char source_version_counters_sql[]="SELECT sheet_id,high_water FROM _duxcel_workspace.source_version_counters ORDER BY sheet_id LIMIT 65";
 static const char queries_sql[]="SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113";
 static const char source_options_sql[]="SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113";
 static const char table_sources_sql[]="SELECT sheet_id,object_id,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending FROM _duxcel_workspace.table_sources ORDER BY sheet_id,object_id LIMIT 2049";
@@ -77,7 +78,7 @@ static const char marks_sql[]="SELECT sheet_id,object_id,role,position,name,is_m
 #define PIVOT_ROWS_LIMIT (OBJECT_ROWS*4u*DX_PIVOT_FIELDS)
 #define MARK_ROWS_LIMIT (OBJECT_ROWS*DX_MARK_ROLES*DX_MARK_FIELDS)
 static bool request_family(WorkbookCodecFamily family) {
-    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES || family==WORKBOOK_CODEC_OBJECTS || family==WORKBOOK_CODEC_QUERIES || family==WORKBOOK_CODEC_SOURCE_OPTIONS || family==WORKBOOK_CODEC_TABLE_SOURCES || family==WORKBOOK_CODEC_TABLE_FILTERS || family==WORKBOOK_CODEC_TABLE_SORTS || family==WORKBOOK_CODEC_PIVOT_FIELDS || family==WORKBOOK_CODEC_MARKS || family==WORKBOOK_CODEC_FILTERS || family==WORKBOOK_CODEC_COLUMNS || family==WORKBOOK_CODEC_CELLS || family==WORKBOOK_CODEC_OBJECT_COUNTERS;
+    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES || family==WORKBOOK_CODEC_OBJECTS || family==WORKBOOK_CODEC_QUERIES || family==WORKBOOK_CODEC_SOURCE_OPTIONS || family==WORKBOOK_CODEC_TABLE_SOURCES || family==WORKBOOK_CODEC_TABLE_FILTERS || family==WORKBOOK_CODEC_TABLE_SORTS || family==WORKBOOK_CODEC_PIVOT_FIELDS || family==WORKBOOK_CODEC_MARKS || family==WORKBOOK_CODEC_FILTERS || family==WORKBOOK_CODEC_COLUMNS || family==WORKBOOK_CODEC_CELLS || family==WORKBOOK_CODEC_OBJECT_COUNTERS || family==WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS;
 }
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
@@ -237,6 +238,18 @@ bool workbook_codec_read_add_object_counters(WorkbookCodecRead *read,bool presen
     }
     if (!present) return fail(error,read->version==13 ? "The v13 workbook requires object counter metadata." : "The v14 workbook requires object counter metadata.");
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_OBJECT_COUNTERS,object_counters_sql,0,2,2,DX_MAX_SHEETS+1u}; return true;
+}
+bool workbook_codec_read_add_source_version_counters(WorkbookCodecRead *read,bool present,char **error) {
+    if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY ||
+        !read->header->objects_ready || !read->header->object_counters_ready || read->header->source_version_counters_ready)
+        return fail(error,"Source-version counters require complete unclaimed objects and object counters and may be armed once.");
+    if (read->version<14) {
+        if (present) return fail(error,read->version==12 ? "The v12 workbook forbids source-version counter metadata." : "The v13 workbook forbids source-version counter metadata.");
+        for (size_t i=0;i<read->header->count;i++) read->header->sheets[i].source_version_high_water=0;
+        read->header->source_version_counters_ready=true; return true;
+    }
+    if (!present) return fail(error,"The v14 workbook requires source-version counter metadata.");
+    read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,source_version_counters_sql,0,2,2,DX_MAX_SHEETS+1u}; return true;
 }
 bool workbook_codec_read_add_queries(WorkbookCodecRead *read,bool present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY ||
@@ -1039,6 +1052,19 @@ static bool object_counters_feed(WorkbookCodecRead *read,const WorkbookCodecBatc
     if (batch->end) { read->header->object_counters_ready=true; read->request.family=WORKBOOK_CODEC_HEADER_READY; }
     return true;
 }
+static bool source_version_counters_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *batch,char **error) {
+    size_t first=read->request.first_row,count=read->header->count;
+    if (first>count || batch->row_count>count-first || (batch->end && batch->row_count!=count-first))
+        return fail(error,"Source-version counters require exactly one row per worksheet.");
+    /* The source-version and object-ID high-waters are independent domains.
+       Ledger consistency is deferred; validate the whole batch before writes. */
+    for (size_t i=0;i<batch->row_count;i++) if (batch->cells[i*2u].value.i32!=(int32_t)(first+i))
+        return fail(error,"Source-version counter worksheet identity is invalid.");
+    for (size_t i=0;i<batch->row_count;i++) read->header->sheets[first+i].source_version_high_water=batch->cells[i*2u+1u].value.u64;
+    read->request.first_row+=batch->row_count;
+    if (batch->end) { read->header->source_version_counters_ready=true; read->request.family=WORKBOOK_CODEC_HEADER_READY; }
+    return true;
+}
 
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained,char **error) {
@@ -1046,9 +1072,10 @@ WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,Workboo
     if (!read->header || !request_family(read->request.family) || family!=read->request.family || !batch || batch->first_row!=read->request.first_row) {
         fail(error,"Metadata family or batch order does not match its cursor."); return WORKBOOK_CODEC_READ_ERROR;
     }
-    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : family==WORKBOOK_CODEC_OBJECTS ? "objects" : family==WORKBOOK_CODEC_QUERIES ? "queries" : family==WORKBOOK_CODEC_SOURCE_OPTIONS ? "source_options" : family==WORKBOOK_CODEC_TABLE_SOURCES ? "table_sources" : family==WORKBOOK_CODEC_TABLE_FILTERS ? "table_filters" : family==WORKBOOK_CODEC_TABLE_SORTS ? "table_sorts" : family==WORKBOOK_CODEC_PIVOT_FIELDS ? "pivot_fields" : family==WORKBOOK_CODEC_MARKS ? "marks" : family==WORKBOOK_CODEC_FILTERS ? "filters" : family==WORKBOOK_CODEC_COLUMNS ? "columns" : family==WORKBOOK_CODEC_CELLS ? "cells" : family==WORKBOOK_CODEC_OBJECT_COUNTERS ? "object_counters" : "preferences");
+    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : family==WORKBOOK_CODEC_OBJECTS ? "objects" : family==WORKBOOK_CODEC_QUERIES ? "queries" : family==WORKBOOK_CODEC_SOURCE_OPTIONS ? "source_options" : family==WORKBOOK_CODEC_TABLE_SOURCES ? "table_sources" : family==WORKBOOK_CODEC_TABLE_FILTERS ? "table_filters" : family==WORKBOOK_CODEC_TABLE_SORTS ? "table_sorts" : family==WORKBOOK_CODEC_PIVOT_FIELDS ? "pivot_fields" : family==WORKBOOK_CODEC_MARKS ? "marks" : family==WORKBOOK_CODEC_FILTERS ? "filters" : family==WORKBOOK_CODEC_COLUMNS ? "columns" : family==WORKBOOK_CODEC_CELLS ? "cells" : family==WORKBOOK_CODEC_OBJECT_COUNTERS ? "object_counters" : family==WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS ? "source_version_counters" : "preferences");
     if (!shape(batch,table,read->options.full_primary_filters,error)) return WORKBOOK_CODEC_READ_ERROR;
     if (!room(read->bytes,retained,0,read->limit)) { fail(error,"Metadata input exceeds its owned-buffer budget."); return WORKBOOK_CODEC_READ_ERROR; }
+    if (family==WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS) return source_version_counters_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_OBJECT_COUNTERS) return object_counters_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_PREFERENCES) return preferences_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_CELLS) return cells_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
@@ -1106,6 +1133,11 @@ bool workbook_codec_header_object_counters_ready(const WorkbookCodecHeader *head
 bool workbook_codec_header_object_high_water(const WorkbookCodecHeader *header,size_t sheet,uint64_t *out) {
     if (!header || !header->object_counters_ready || sheet>=header->count || !out) return false;
     *out=header->sheets[sheet].object_high_water; return true;
+}
+bool workbook_codec_header_source_version_counters_ready(const WorkbookCodecHeader *header) { return header && header->source_version_counters_ready; }
+bool workbook_codec_header_source_version_high_water(const WorkbookCodecHeader *header,size_t sheet,uint64_t *out) {
+    if (!header || !header->source_version_counters_ready || sheet>=header->count || !out) return false;
+    *out=header->sheets[sheet].source_version_high_water; return true;
 }
 bool workbook_codec_header_queries_ready(const WorkbookCodecHeader *header) { return header && header->queries_ready; }
 bool workbook_codec_header_source_options_ready(const WorkbookCodecHeader *header) { return header && header->source_options_ready; }
