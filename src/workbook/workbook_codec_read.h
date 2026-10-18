@@ -6,14 +6,16 @@
 #define DX_WORKBOOK_CODEC_READ_TEXT 65536u
 /* Component only: this header/cursor cannot open, save or publish a Workbook.
    It accepts well-formed writer12/13/14 metadata, not all historical native
-   coercions. Native production loading and later family defaults are unchanged. */
+   coercions. Native production loading and later family defaults are unchanged.
+   Source ledgers/bindings, formatting and full historical migration remain
+   separate; captured counters alone cannot validate or activate a source. */
 typedef struct WorkbookCodecRead WorkbookCodecRead;
 typedef struct WorkbookCodecHeader WorkbookCodecHeader;
 typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; } WorkbookCodecKey;
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
     WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
     WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS,
-    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS,WORKBOOK_CODEC_OBJECT_COUNTERS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS,WORKBOOK_CODEC_OBJECT_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -129,6 +131,15 @@ bool workbook_codec_read_add_objects(WorkbookCodecRead *read,bool table_present,
    charged by sizeof; even allocation-free feeds admit all retained caller input.
    This preserves allocation state only, not issuance, history or source epochs. */
 bool workbook_codec_read_add_object_counters(WorkbookCodecRead *read,bool table_present,char **error);
+/* Once after complete objects AND object counters, before claim. Versions12/13
+   forbid this table and absent defaults to zero without SQL; v14 requires one
+   exact INTEGER/UBIGINT row per worksheet, ordered contiguously from0. One named
+   result admits64 rows plus a65th sentinel in atomic<=256-row batches, including
+   explicit empty EOF after all data. Fixed Header-owned POD is fully charged;
+   allocation-free feeds still admit all caller-retained input. Any uint64 value
+   including0/MAX is valid independently of object IDs. Ledger bounds, issuance,
+   bindings, formatting and source activation are not validated here. */
+bool workbook_codec_read_add_source_version_counters(WorkbookCodecRead *read,bool table_present,char **error);
 /* Explicit once-only continuation after the descriptor registry completes.
    All supported versions require queries. The trusted C projection preserves
    bytes while mapping SQL NULL, >64KiB, trim-empty and NUL text to required
@@ -226,6 +237,10 @@ bool workbook_codec_header_object_counters_ready(const WorkbookCodecHeader *head
 /* False preserves out for an unarmed/incomplete family, invalid sheet or NULL
    argument. True copies one Header-owned scalar; no ObjectStore is exposed. */
 bool workbook_codec_header_object_high_water(const WorkbookCodecHeader *header,size_t sheet,uint64_t *out);
+bool workbook_codec_header_source_version_counters_ready(const WorkbookCodecHeader *header);
+/* False preserves out for an unarmed/incomplete family, invalid sheet or NULL
+   argument. True copies one Header-owned scalar, not a ledger or issuer. */
+bool workbook_codec_header_source_version_high_water(const WorkbookCodecHeader *header,size_t sheet,uint64_t *out);
 size_t workbook_codec_header_object_count(const WorkbookCodecHeader *header,size_t sheet);
 bool workbook_codec_header_object_at(const WorkbookCodecHeader *header,size_t sheet,size_t index,WorkbookCodecObjectView *out);
 /* Definitions borrow Header-owned bytes. False preserves out for an invalid
