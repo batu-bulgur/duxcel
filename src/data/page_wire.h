@@ -80,4 +80,10 @@ bool page_from_wire_workbook_pivot_fields_owned(Page *out,const void *bytes,size
                                                uint64_t total,bool count_pending,size_t owned_budget,char **error);
 bool page_from_wire_workbook_marks_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
                                         uint64_t total,bool count_pending,size_t owned_budget,char **error);
+/* Active primary secondary-filter cursor only: exactly five columns and at
+   most961 rows (64*15 legal secondary assignments plus one sentinel), offset
+   zero and unchanged text/wire/owned budgets. Semantic validation and optional
+   large primary-value capture belong to the shared workbook reader. */
+bool page_from_wire_workbook_filters_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                                          uint64_t total,bool count_pending,size_t owned_budget,char **error);
 #endif

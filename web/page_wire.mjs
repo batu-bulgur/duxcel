@@ -5,6 +5,7 @@
 const MAX_ROWS = 256, MAX_COLUMNS = 256;
 const MAX_COPY_CELLS=20000;
 const FAMILY_POLICIES=new Map([
+    ['workbook-filters',{rows:961,columns:5}],
     ['workbook-table-sources',{rows:2049,columns:14}],
     ['workbook-table-filters',{rows:30721,columns:6}],
     ['workbook-table-sorts',{rows:14337,columns:5}],

@@ -133,6 +133,19 @@ export function workbookOwnersRequest(value) {
         'INVALID_REQUEST','Workbook owners require three typed columns and one captured archive binding');
     return Object.freeze({...request,purpose:'workbook-owners',rowLimit:rows});
 }
+// Primary secondary filters have a separate fixed domain. Large individual
+// values remain subject to the existing Page byte budget, not just this cap.
+export function workbookFiltersRequest(value) {
+    const purpose=value?.purpose;
+    check(purpose==='workbook-filters','INVALID_REQUEST','Explicit workbook-filters request required');
+    const request=pageRequest({...value,purpose:undefined,rowLimit:1});
+    const rows=value.rowLimit??961;
+    check(Number.isInteger(rows)&&rows>0&&rows<=961&&request.offset==='0'&&request.knownTotal===null,
+        'INVALID_REQUEST','Workbook filters require offset zero, unknown total and at most961 rows');
+    check(request.columns?.length===5&&request.sourceBindings?.length===1,
+        'INVALID_REQUEST','Workbook filters require five typed columns and one captured archive binding');
+    return Object.freeze({...request,purpose,rowLimit:rows});
+}
 // Three fixed Table-definition families, selected by the active C cursor.
 // Their larger row ceilings do not change ordinary pages or byte admission.
 const workbookTablePolicies=new Map([
@@ -257,6 +270,7 @@ export async function encodePage(reader, request, { obsolete = () => false } = {
     check(request.purpose!=='workbook-sorts'||fields.length===4,'PAGE_LIMIT','Workbook sorts require exactly four result columns');
     check(request.purpose!=='workbook-objects'||fields.length===11,'PAGE_LIMIT','Workbook objects require exactly eleven result columns');
     check(request.purpose!=='workbook-owners'||fields.length===3,'PAGE_LIMIT','Workbook owners require exactly three result columns');
+    check(request.purpose!=='workbook-filters'||fields.length===5,'PAGE_LIMIT','Workbook filters require exactly five result columns');
     const metadataPolicy=workbookTablePolicies.get(request.purpose)??workbookPivotMarksPolicies.get(request.purpose);
     check(!metadataPolicy||fields.length===metadataPolicy.columns,'PAGE_LIMIT','Metadata result has the wrong family column count');
     check(!request.columns || request.columns.length === fields.length, 'SCHEMA_CHANGED', 'Result column count disagrees with the C-owned schema');
@@ -270,6 +284,7 @@ export async function encodePage(reader, request, { obsolete = () => false } = {
         check(request.purpose!=='workbook-sorts'||rows+batch.numRows<=449,'PAGE_LIMIT','Workbook sorts exceed449 rows');
         check(request.purpose!=='workbook-objects'||rows+batch.numRows<=2049,'PAGE_LIMIT','Workbook objects exceed2049 rows');
         check(request.purpose!=='workbook-owners'||rows+batch.numRows<=2113,'PAGE_LIMIT','Workbook owners exceed2113 rows');
+        check(request.purpose!=='workbook-filters'||rows+batch.numRows<=961,'PAGE_LIMIT','Workbook filters exceed961 rows');
         check(!metadataPolicy||rows+batch.numRows<=metadataPolicy.rows,'PAGE_LIMIT','Metadata exceeds its family row bound');
         check(request.purpose!=='copy'||fields.length*(rows+batch.numRows)<=LIMITS.copyCells,'PAGE_LIMIT','Copy result exceeds 20,000 cells');
         for (let row = 0; row < batch.numRows; row++) for (let column = 0; column < fields.length; column++) {
@@ -360,6 +375,9 @@ export class DuckDBWorkerAdapter {
     }
     submitWorkbookOwners(value) {
         return this.#enqueue(workbookOwnersRequest(value),false);
+    }
+    submitWorkbookFilters(value) {
+        return this.#enqueue(workbookFiltersRequest(value),false);
     }
     submitWorkbookTables(value) {
         return this.#enqueue(workbookTablesRequest(value),false);

@@ -145,7 +145,7 @@ static char *copy_text(Text text) {
     char *copy=dx_alloc(text.size+1); memcpy(copy,text.bytes,text.size); return copy;
 }
 typedef enum { WIRE_PAGE,WIRE_COPY,WIRE_WORKBOOK_SORTS,WIRE_WORKBOOK_OBJECTS,WIRE_WORKBOOK_OWNERS,
-    WIRE_TABLE_SOURCES,WIRE_TABLE_FILTERS,WIRE_TABLE_SORTS,WIRE_PIVOT_FIELDS,WIRE_MARKS } WirePolicy;
+    WIRE_TABLE_SOURCES,WIRE_TABLE_FILTERS,WIRE_TABLE_SORTS,WIRE_PIVOT_FIELDS,WIRE_MARKS,WIRE_WORKBOOK_FILTERS } WirePolicy;
 static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,WirePolicy policy,size_t owned_budget,char **error) {
     if (!out || !bytes || size<20 || size>DX_PAGE_WIRE_BYTES) return fail(error,"Invalid DXP1 page size or destination.");
     Reader reader={bytes,size,0};
@@ -159,6 +159,7 @@ static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,
     case WIRE_WORKBOOK_SORTS:max_rows=449;exact_columns=4;break;
     case WIRE_WORKBOOK_OBJECTS:max_rows=2049;exact_columns=11;break;
     case WIRE_WORKBOOK_OWNERS:max_rows=2113;exact_columns=3;break;
+    case WIRE_WORKBOOK_FILTERS:max_rows=961;exact_columns=5;break;
     case WIRE_TABLE_SOURCES:max_rows=2049;exact_columns=14;break;
     case WIRE_TABLE_FILTERS:max_rows=30721;exact_columns=6;break;
     case WIRE_TABLE_SORTS:max_rows=14337;exact_columns=5;break;
@@ -254,4 +255,7 @@ bool page_from_wire_workbook_pivot_fields_owned(Page *out,const void *bytes,size
 }
 bool page_from_wire_workbook_marks_owned(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,size_t budget,char **error) {
     return decode_page(out,bytes,size,offset,total,count_pending,WIRE_MARKS,budget,error);
+}
+bool page_from_wire_workbook_filters_owned(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,size_t budget,char **error) {
+    return decode_page(out,bytes,size,offset,total,count_pending,WIRE_WORKBOOK_FILTERS,budget,error);
 }
