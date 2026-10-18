@@ -13,7 +13,7 @@ typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; }
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
     WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
     WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS,
-    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -90,6 +90,18 @@ bool workbook_codec_read_add_filters(WorkbookCodecRead *read,bool table_present,
    Names and view arrays borrow Header ownership; existing name identities
    survive successful array growth. This does not validate full model placement. */
 bool workbook_codec_read_add_columns(WorkbookCodecRead *read,bool table_present,char **error);
+/* Independent once-only complete Header continuation. Absent12/13 defaults
+   ready-empty without a query; v14 requires cells. One named I/U/I/T result
+   admits1280000 rows plus a sentinel, in atomic<=256-row feeds until explicit
+   end. At most20000 records and4MiB text INCLUDING terminators per sheet;
+   row<2^40, column<16384 and text<=65536bytes. Strict(sheet,row,column) ordering
+   rejects duplicates for this known-writer decoder; permissive historical
+   native CTAS duplicates are outside this contract. Actual empty TEXT records
+   stay present, missing coordinates stay absent and no setter normalizes them.
+   Preflight reserves old+new geometric arrays, copied strings/name staging and
+   retained caller bytes BEFORE UTF-8 scans/allocation. No CellStore/history or
+   object placement/full Workbook validation is constructed here. */
+bool workbook_codec_read_add_cells(WorkbookCodecRead *read,bool table_present,char **error);
 /* Independent optional continuation at HEADER_READY before claim, once. The
    adapter checks table presence/schema: absent12/13 defaults motion=false and
    all sheets visible; v14 requires preferences. One C-built named projection
@@ -158,8 +170,8 @@ bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPi
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   filters/sorts/preferences/object descriptors/queries/source options/Table sources/Pivot/Marks/columns).
-   It is not a complete workbook: cells, formats, ledger and allocation counters remain absent.
+   filters/sorts/preferences/object descriptors/queries/source options/Table sources/Pivot/Marks/columns/cells).
+   It is not a complete workbook: formats, ledger, allocation counters and final model validation remain absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
 void workbook_codec_read_free(WorkbookCodecRead *read);
@@ -179,6 +191,12 @@ float workbook_codec_header_user_scale(const WorkbookCodecHeader *header);
 bool workbook_codec_header_sorts_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_filters_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_columns_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_cells_ready(const WorkbookCodecHeader *header);
+typedef struct { const SheetCell *cells; size_t count,text_bytes; } WorkbookCodecCellsView;
+/* Borrowed read-only Header ownership; no histories or fake NULL records. False
+   preserves out for an invalid sheet, incomplete/unarmed family or NULL out.
+   True with count0/cellsNULL means a complete empty sheet, including defaults. */
+bool workbook_codec_header_cells(const WorkbookCodecHeader *header,size_t sheet,WorkbookCodecCellsView *out);
 bool workbook_codec_header_preferences_ready(const WorkbookCodecHeader *header);
 /* Readiness applies only to the complete descriptor registry. Names borrow
    immutable Header storage; never free them or retain them beyond Header free.
