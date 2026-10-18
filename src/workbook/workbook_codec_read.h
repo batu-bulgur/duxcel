@@ -11,7 +11,7 @@ typedef struct WorkbookCodecRead WorkbookCodecRead;
 typedef struct WorkbookCodecHeader WorkbookCodecHeader;
 typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; } WorkbookCodecKey;
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
-    WORKBOOK_CODEC_SORTS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -59,6 +59,15 @@ const WorkbookCodecRequest *workbook_codec_read_request(const WorkbookCodecRead 
    fed in batches<=256. This is a component contract, not Worker transport or
    browser Open support. No SQL or source schema is executed/resolved here. */
 bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool table_present,char **error);
+/* Independent optional continuation at HEADER_READY before claim, once. The
+   adapter checks table presence/schema: absent12/13 defaults motion=false and
+   all sheets visible; v14 requires preferences. One C-built named projection
+   ignores unrelated valid keys and admits invalid unrelated v14 NULL/NUL rows
+   for rejection. Known visibility keys use canonical decimal0..63 only, not
+   historical sscanf coercions. At most65 rows plus a66th overflow sentinel.
+   Whole-batch POD publication owns no input strings; failure preserves state.
+   Completion of this family still does not validate/publish a Workbook. */
+bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool table_present,char **error);
 /* Cells/column descriptors are borrowed for this call, not a DXP1 buffer. The
    existing wire decoder remains the sole wire parser; an adapter supplies exact
    typed atoms. Include all concrete caller-owned input/adapter bytes that
@@ -70,8 +79,8 @@ bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool table_present,ch
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   sorts). It is not a complete workbook: cells, objects, formats, ledger,
-   queries and preferences are absent.
+   sorts/preferences). It is not a complete workbook: cells, objects, formats,
+   ledger and queries are absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
 void workbook_codec_read_free(WorkbookCodecRead *read);
@@ -89,6 +98,11 @@ float workbook_codec_header_user_scale(const WorkbookCodecHeader *header);
 /* True only after an explicitly armed sorts family completed/defaulted; false
    for the original meta/sheets-only Header, including an empty sort_count. */
 bool workbook_codec_header_sorts_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_preferences_ready(const WorkbookCodecHeader *header);
+/* POD defaults are false until preferences is explicitly complete. Invalid
+   Header/sheet arguments return false; check sheet_count to validate identity. */
+bool workbook_codec_header_reduced_motion(const WorkbookCodecHeader *header);
+bool workbook_codec_header_sheet_hidden(const WorkbookCodecHeader *header,size_t sheet);
 const char *workbook_codec_header_name(const WorkbookCodecHeader *header,size_t sheet);
 const char *workbook_codec_header_reference(const WorkbookCodecHeader *header,size_t sheet);
 const Analysis *workbook_codec_header_analysis(const WorkbookCodecHeader *header,size_t sheet);
