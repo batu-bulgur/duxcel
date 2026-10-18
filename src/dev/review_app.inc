@@ -733,6 +733,13 @@ static void review_feedback_metadata(App *a,const DxReviewWidget *widget) {
         const char *key=!strcmp(id,"preview.status") ? "preview_status" : "filter_status";
         snprintf(state,sizeof(state)," feedback_%s_hex=%s feedback_%s_truncated=%d",key,hex,key,cut || widget->value.truncated); review_author_capture_state(a,state);
     }
+#ifdef DUXCEL_BROWSER_HOST
+    if (!strcmp(id,"preview.title")) {
+        char key[129],title[129]; bool key_cut=review_author_hex64(key,a->step_preview.source.path);
+        bool title_cut=review_author_hex64(title,widget->value.present ? widget->value.exact_text : NULL);
+        snprintf(state,sizeof(state)," label_preview_key_hex=%s label_preview_title_hex=%s label_preview_cut=%d,%d",key,title,key_cut,title_cut || widget->value.truncated); review_author_capture_state(a,state);
+    }
+#endif
     if (!strcmp(id,"pane.transformations.sql") && a->modal==MODAL_NONE) {
         snprintf(state,sizeof(state)," feedback_sql_cache=%llu,%llu,%zu,%llu,%llu feedback_sql_layout=%d,%zu,%d",(unsigned long long)a->inspector_sql_id,(unsigned long long)a->inspector_sql_revision,a->inspector_sql_sheet,(unsigned long long)a->inspector_sql_generation,(unsigned long long)a->inspector_sql_steps_key,a->inspector_sql_scroll,a->inspector_sql_lines.count,a->inspector_sql_lines.limited); review_author_capture_state(a,state);
     } else if (!strcmp(id,"status.metrics") && a->modal==MODAL_NONE && !a->file_menu) {
@@ -782,6 +789,18 @@ static void review_feedback_step(App *a,const SheetObject *owner,const UIStep *s
     bool truncated=step->column && review_author_field(origin.field,step->column);
     review_feedback_target(a,origin,id,"pane.transformations.steps","pipeline.select_step","button",step->title,bounds,clip,enabled,checked,focused,"VARCHAR",false,step->detail,file,line);
     if (truncated) { DxReviewWidget *widget=(DxReviewWidget *)dx_review_find(a->review->registry,id); if (widget) { widget->truncated=true; snprintf(widget->data.kind,sizeof(widget->data.kind),"transformations-step-truncated"); } a->review->registry->truncated=true; }
+#ifdef DUXCEL_BROWSER_HOST
+    const DxReviewWidget *widget=dx_review_find(a->review->registry,id);
+    if (step->kind==UI_STEP_SOURCE && widget) {
+        const Analysis *source=owner ? &owner->source : &a->analysis;
+        char key[129],title[129],detail[129],sheet[129],object[129],state[1024];
+        bool key_cut=review_author_hex64(key,source->path),title_cut=review_author_hex64(title,widget->label);
+        bool detail_cut=review_author_hex64(detail,widget->value.present ? widget->value.exact_text : NULL);
+        bool sheet_cut=review_author_hex64(sheet,active_sheet(a)->name),object_cut=review_author_hex64(object,owner ? owner->name : NULL);
+        snprintf(state,sizeof(state)," label_source_owner=%llu label_source_key_hex=%s label_source_title_hex=%s label_source_detail_hex=%s label_source_cut=%d,%d,%d label_sheet_hex=%s label_object_hex=%s label_names_cut=%d,%d",(unsigned long long)(owner ? owner->id : 0),key,title,detail,key_cut,title_cut || widget->truncated,detail_cut || widget->value.truncated,sheet,object,sheet_cut,object_cut);
+        review_author_capture_state(a,state);
+    }
+#endif
 }
 static void review_feedback_preview(App *a,const UIPreviewReviewFrame *frame) {
     if (!review_armed(a) || !frame || !frame->armed || a->modal!=MODAL_NONE || a->file_menu) return;
