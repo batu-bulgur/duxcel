@@ -6232,8 +6232,8 @@ static void draw_pipeline(App *a,Rectangle r) {
     if (enabled && CheckCollisionPointRec(mouse,r) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { a->chrome_focus=8; a->ribbon_focus=false; a->pivot_focus=0; a->pivot_search_focus=false; a->consume_grid_input=true; }
     if (!a->pipeline_collapsed && GetScreenWidth()/scale<1040) DrawRectangleRec(box(r.x-5*scale,r.y,5*scale,r.height),(Color){39,61,79,28});
     DrawRectangleRec(r,a->pipeline_collapsed ? (Color){237,242,246,255} : (Color){251,252,253,255});
-    if (a->pipeline_collapsed) DrawRectangleRec(box(r.x,r.y,1,r.height),(Color){202,210,218,255});
-    else DrawLineV((Vector2){r.x,r.y},(Vector2){r.x,r.y+r.height},UI_BORDER);
+    /* The one-point border belongs inside the pane's clipped paint layer. */
+    DrawRectangleRec(box(r.x,r.y,1,r.height),(Color){202,210,218,255});
     if (a->pipeline_collapsed) {
         /* Center in the reference's content box after its one-point border. */
         Rectangle expand=box(r.x+3*scale+.5f,r.y+5*scale,26*scale,26*scale),dismiss=box(r.x+3*scale+.5f,r.y+36*scale,26*scale,26*scale);
