@@ -6348,8 +6348,6 @@ static void pipeline_activate(App *a,size_t index) {
 static bool chrome_keyboard(App *a) {
     if (!a->chrome_focus) return false;
     if (ui_key_control(KEY_TAB) && ui_pressed(KEY_TAB)) return false;
-    /* Read-only panes keep navigation focus while workbook history stays global. */
-    if ((ui_key_shortcut(KEY_Z) && ui_pressed(KEY_Z)) || (ui_key_shortcut(KEY_Y) && ui_pressed(KEY_Y))) return false;
     if ((a->chrome_focus==2 && !a->sidebar) || (a->chrome_focus==8 && !a->pipeline) || ui_pressed(KEY_ESCAPE)) { a->chrome_focus=0; a->consume_grid_input=true; return true; }
     if (a->chrome_focus==10) {
         const int order[]={0,3,1,4,2}; int index=0; for (int i=0;i<5;i++) if (order[i]==a->status_focus) index=i;
@@ -6582,6 +6580,24 @@ static bool keytip_input(App *a,DxCommand command) {
     if (owned) { a->consume_grid_input=true; while (GetCharPressed()) { } }
     return owned;
 }
+/* Only established application commands bypass read-only pane navigation.
+   Modal/menu ownership is resolved before this classifier is used; editable
+   Fields search then consumes its own history through the same native path. */
+static DxCommand fallback_global_command(const App *a) {
+    if (ui_pressed(KEY_O) && ui_key_shortcut(KEY_O)) return DX_COMMAND_OPEN;
+    if (a->book.count && ui_pressed(KEY_S) && ui_key_shortcut(KEY_S)) return ui_key_shift(KEY_S) ? DX_COMMAND_SAVE_AS : DX_COMMAND_SAVE;
+    if (ui_pressed(KEY_E) && ui_key_shortcut(KEY_E) && ui_key_shift(KEY_E)) return DX_COMMAND_EXPORT;
+    if (ui_pressed(KEY_P) && ui_key_shortcut(KEY_P) && ui_key_alt(KEY_P)) return DX_COMMAND_PIVOT;
+    if (ui_pressed(KEY_I) && ui_key_shortcut(KEY_I) && ui_key_shift(KEY_I)) return DX_COMMAND_INSPECT;
+    if (ui_pressed(KEY_Z) && ui_key_shortcut(KEY_Z)) return ui_key_shift(KEY_Z) ? DX_COMMAND_REDO : DX_COMMAND_UNDO;
+    if (ui_pressed(KEY_Y) && ui_key_shortcut(KEY_Y)) return DX_COMMAND_REDO;
+    const int keys[]={KEY_T,KEY_F,KEY_W,KEY_I};
+    const DxCommand commands[]={DX_COMMAND_TRANSFORM_PANE,DX_COMMAND_FIELDS_PANE,DX_COMMAND_WORKBOOK_PANE,DX_COMMAND_SQL_PANE};
+    for (size_t i=0;i<4;i++) if (ui_pressed(keys[i]) && ui_key_shortcut(keys[i]) && ui_key_alt(keys[i])) return commands[i];
+    if (ui_pressed(KEY_F) && ui_key_shortcut(KEY_F) && ui_key_shift(KEY_F)) return DX_COMMAND_FOCUS_VIEW;
+    if (ui_pressed(KEY_F11) && ui_key_shift(KEY_F11)) return DX_COMMAND_NEW_SHEET;
+    return DX_COMMAND_NONE;
+}
 static void shortcuts(App *a) {
     DxCommand command=dx_take_command();
     if (command==DX_COMMAND_CLOSE
@@ -6677,6 +6693,12 @@ static void shortcuts(App *a) {
         if (a->modal==MODAL_STATISTICS && command==DX_COMMAND_COPY) copy_statistics(a);
         if (a->modal==MODAL_SQL && command==DX_COMMAND_COPY) copy_text(a,a->sql_text,NULL);
         return;
+    }
+    if (command==DX_COMMAND_NONE) command=fallback_global_command(a);
+    if (ui_pressed(KEY_F5)) {
+        SOURCE_FORMAT_REFRESH(a,0); clear_values_cache(a); clear_object_views(a); a->refresh_plans=true;
+        if (a->analysis.kind!=SOURCE_NONE) change_analysis(a,false);
+        a->consume_grid_input=true; return;
     }
     if (ui_key_control(KEY_F1) && ui_pressed(KEY_F1)) { a->modal=MODAL_RIBBON; a->ribbon_menu_focus=a->ribbon_mode; a->consume_grid_input=true; return; }
     if (a->ribbon_mode==3 && (native_navigation || ui_pressed(KEY_F6) || ui_pressed(KEY_LEFT_ALT) || ui_pressed(KEY_RIGHT_ALT))) set_ribbon_mode(a,a->previous_ribbon_mode);
@@ -6777,27 +6799,12 @@ static void shortcuts(App *a) {
             }
         }
     }
-    if (ui_key_shift(KEY_I) && ui_key_shortcut(KEY_I) && ui_pressed(KEY_I)) { inspect_value(a); return; }
     if (ui_key_shortcut(KEY_B) && !ui_key_alt(KEY_B) && !ui_key_shift(KEY_B) && ui_pressed(KEY_B)) { run_action(a,ACTION_BOLD); return; }
     if (ui_key_shortcut(KEY_I) && !ui_key_alt(KEY_I) && !ui_key_shift(KEY_I) && ui_pressed(KEY_I)) { run_action(a,ACTION_ITALIC); return; }
     if (ui_key_shortcut(KEY_U) && !ui_key_alt(KEY_U) && !ui_key_shift(KEY_U) && ui_pressed(KEY_U)) { run_action(a,ACTION_UNDERLINE); return; }
-    if (ui_key_shift(KEY_E) && ui_key_shortcut(KEY_E) && ui_pressed(KEY_E)) { export_panel(a); return; }
-    if (ui_key_alt(KEY_P) && ui_key_shortcut(KEY_P) && ui_pressed(KEY_P)) { create_pivot(a); return; }
     if (ui_key_shortcut(KEY_A) && ui_pressed(KEY_A)) { select_region(a); return; }
     if (ui_key_shortcut(KEY_V) && ui_pressed(KEY_V)) { paste_selection(a); return; }
-    if (ui_key_shortcut(KEY_O) && ui_pressed(KEY_O)) open_modal(a,MODAL_OPEN);
-    if (ui_key_shortcut(KEY_S) && ui_pressed(KEY_S) && a->book.count) {
-        if (a->book.path && !ui_key_shift(KEY_S)) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE);
-        return;
-    }
-    if (ui_pressed(KEY_F11) && ui_key_shift(KEY_F11)) { new_sheet(a); return; }
     if (ui_key_shortcut(KEY_C) && ui_pressed(KEY_C)) copy_selection(a);
-    if (ui_key_shortcut(KEY_Z) && ui_pressed(KEY_Z)) history(a,ui_key_shift(KEY_Z));
-    if (ui_key_shortcut(KEY_Y) && ui_pressed(KEY_Y)) history(a,true);
-    const int pane_keys[]={KEY_T,KEY_F,KEY_W,KEY_I};
-    const UIAction pane_actions[]={ACTION_TRANSFORM,ACTION_FIELDS,ACTION_WORKBOOK,ACTION_SQL};
-    for (size_t i=0;i<4;i++) if (ui_pressed(pane_keys[i]) && ui_key_shortcut(pane_keys[i]) && ui_key_alt(pane_keys[i])) { run_action(a,pane_actions[i]); return; }
-    if (ui_key_shortcut(KEY_F) && ui_key_shift(KEY_F) && ui_pressed(KEY_F)) { run_action(a,ACTION_FOCUS); return; }
     if (ui_key_shortcut(KEY_F) && ui_pressed(KEY_F)) {
         SheetObject *table=selected_object(a);
         if (table && table->kind==OBJECT_TABLE && a->grid.col>=table->col) open_table_filter(a,(size_t)a->selected_object,a->grid.col-table->col);
@@ -6808,11 +6815,6 @@ static void shortcuts(App *a) {
     if (ui_key_shortcut(KEY_ZERO) && ui_pressed(KEY_ZERO)) zoom_canvas(a,1,(Vector2){a->grid.body.x,a->grid.body.y});
     if (ui_pressed(KEY_ESCAPE) && a->busy) {
         cancel_active_query(a);
-    }
-    if (ui_pressed(KEY_F5)) {
-        SOURCE_FORMAT_REFRESH(a,0);
-        clear_values_cache(a); clear_object_views(a); a->refresh_plans=true;
-        if (a->analysis.kind!=SOURCE_NONE) change_analysis(a,false);
     }
 }
 static int command_source_index(App *a) {
