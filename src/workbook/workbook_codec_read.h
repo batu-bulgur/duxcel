@@ -12,7 +12,8 @@ typedef struct WorkbookCodecHeader WorkbookCodecHeader;
 typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; } WorkbookCodecKey;
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
     WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
-    WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS,
+    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -108,6 +109,15 @@ typedef struct { bool sources,filters,sorts; } WorkbookCodecTableSourcePresence;
    candidate validation. Preserved definitions do not authorize source SQL or
    file execution or constitute complete native ObjectStore validation. */
 bool workbook_codec_read_add_table_sources(WorkbookCodecRead *read,WorkbookCodecTableSourcePresence present,char **error);
+typedef struct { bool fields,marks; } WorkbookCodecPivotMarksPresence;
+/* Once after the complete descriptor/query/options/Table chain, before claim.
+   With an objects table (even empty), writer12/13/14 require both families;
+   absent v12 objects defaults empty and ignores these child tables, as native
+   load_objects does. Named9/8-column results admit65536/98304 rows plus one
+   sentinel, in atomic<=256 feeds ordered by sheet/owner/role/position. Actual
+   Table owners cannot contain either family. This validates definitions and
+   presentation arity, not source schema, runtime values or workbook placement. */
+bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPivotMarksPresence present,char **error);
 /* Cells/column descriptors are borrowed for this call, not a DXP1 buffer. The
    existing wire decoder remains the sole wire parser; an adapter supplies exact
    typed atoms. Include all concrete caller-owned input/adapter bytes that
@@ -119,8 +129,8 @@ bool workbook_codec_read_add_table_sources(WorkbookCodecRead *read,WorkbookCodec
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   sorts/preferences/object descriptors/queries/source options/Table sources).
-   It is not a complete workbook: cells, Pivot/Marks, formats and ledger remain absent.
+   sorts/preferences/object descriptors/queries/source options/Table sources/Pivot/Marks).
+   It is not a complete workbook: cells, formats, ledger and allocation counters remain absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
 void workbook_codec_read_free(WorkbookCodecRead *read);
@@ -175,6 +185,12 @@ typedef struct {
    Invalid/incomplete/non-Table owners return false and preserve out. */
 bool workbook_codec_header_table_sources_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_table_source(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,WorkbookCodecTableSourceView *out);
+/* Both getters require the completed chain and a genuine non-Table owner.
+   Empty definitions borrow Header-owned zero structures; invalid arguments
+   preserve out. Every name/value and definition lifetime belongs to Header. */
+bool workbook_codec_header_pivot_marks_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_pivot_definition(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,const PivotDefinition **out);
+bool workbook_codec_header_marks_definition(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,const MarkDefinition **out);
 /* POD defaults are false until preferences is explicitly complete. Invalid
    Header/sheet arguments return false; check sheet_count to validate identity. */
 bool workbook_codec_header_reduced_motion(const WorkbookCodecHeader *header);
