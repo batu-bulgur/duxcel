@@ -4,6 +4,18 @@ import {encodePageWire} from './page_wire.mjs';
 const encoder=new TextEncoder();
 const FILE_LIMIT=1024;
 class AllocationError extends Error {}
+// TextEncoder replaces lone surrogates, while C strings stop at NUL. Reject
+// either before reserving a source name so the original label stays lossless.
+function sourceFilenameLossless(name){
+    if(typeof name!=='string')return false;
+    for(let i=0;i<name.length;i++){
+        const unit=name.charCodeAt(i);if(unit===0)return false;
+        if(unit<0xd800||unit>0xdfff)continue;
+        if(unit>0xdbff||++i>=name.length)return false;
+        const low=name.charCodeAt(i);if(low<0xdc00||low>0xdfff)return false;
+    }
+    return true;
+}
 function allocated(runtime,bytes,owned){
     const pointer=runtime.allocate(bytes.byteLength||1);
     if(!pointer)throw new AllocationError('Not enough UI memory for the query reply.');
@@ -140,6 +152,7 @@ export function createEngineHost(config,createAdapter=createOfficialWorkerAdapte
                 const file=input.files?.[0];if(!file){finish(null,null,null);return;}
                 let name;
                 try{
+                    if(!sourceFilenameLossless(file.name))throw new Error('Use a source filename with valid Unicode and no NUL characters.');
                     if(file.size>256*1024*1024)throw new Error('This browser proof imports files up to 256 MiB.');
                     if(!/\.(parquet|tsv|csv(?:\.gz)?)$/i.test(file.name))throw new Error('Choose a CSV, TSV or Parquet source.');
                     const safe=file.name.replace(/[\\/\x00-\x1f\x7f]/g,'_');
