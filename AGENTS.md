@@ -3,7 +3,7 @@
 ## Current human priority — 18 October 2026
 
 - Repository/worktree cleanup and a clean native delivery are complete. Continue the full roadmap, including persistence internals and tests; they remain essential work even when changes are not visible in the GUI.
-- Address the remaining physical pan/selection bugs alongside persistence correctness in independent bounded lanes where ownership permits. Keep focused sanitizer and integration coverage. Automated callbacks, hidden tests and browser simulations do not establish physical-input parity.
+- Native trackpad jitter/snap-back fixes are implemented and the user reports them resolved on the current Mac/app (18 October 2026). Do not treat missing broader gesture coverage as a known remaining defect or continue speculative pan rewrites. Continue other interaction correctness and persistence work with focused sanitizer/integration coverage; browser/pinch/Space coverage remains separate.
 - Browser workbook Open/Save remains unavailable; complete UI and physical-input parity have not been achieved.
 
 ## Product and source of truth

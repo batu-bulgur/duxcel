@@ -1,6 +1,6 @@
 # Git and parallel development
 
-**Current priority, 18 October 2026:** continue from the clean native delivery with both physical pan/selection fixes and persistence internals. Preserve focused sanitizer/integration coverage; compact evidence retention does not reduce testing scope. Browser Open/Save and complete UI/physical-input parity remain unfinished. Follow the current delivery note in [STATUS.md](STATUS.md), rather than treating an earlier test or service pointer as the latest app.
+**Current priority, 18 October 2026:** continue from the clean native delivery with both remaining interaction correctness and persistence internals. Native pan/snap-back is user-confirmed resolved on the current setup; broader gesture coverage remains separate. Preserve focused sanitizer/integration coverage; compact evidence retention does not reduce testing scope. Browser Open/Save and complete UI/physical-input parity remain unfinished. Follow the current delivery note in [STATUS.md](STATUS.md), rather than treating an earlier test or service pointer as the latest app.
 
 The repository starts locally on `main`. `snapshot/pre-audit-2026-10-17` preserves the initial source/design state; it is not a release. No remote has been configured or anything published. Commits made by the assistant use a command-scoped Codex author identity, leaving the user's global configuration untouched.
 
