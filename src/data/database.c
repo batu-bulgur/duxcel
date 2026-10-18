@@ -325,6 +325,53 @@ static RecordSQLStatus raw_record_sql(Database *db,Analysis *a,RecordSQL *out,ch
     for (size_t i=0;i<count;i++) duckdb_free(names[i]); free(names);
     return state;
 }
+static bool record_selection_matches(const Analysis *source,const SourceFileIdentity *expected,uint64_t stamp,char **error) {
+    SourceFileIdentity current;
+    if (dx_file_stamp(source->path)!=stamp || source_file_identity(source->path,&current,NULL)!=SOURCE_DIGEST_OK || !source_file_identity_same(expected,&current)) {
+        fail(error,"The source no longer matches the selection's exact native file observation. Refresh before collecting its records."); return false;
+    }
+    return true;
+}
+static int record_id_compare(const void *left,const void *right) {
+    uint64_t a=*(const uint64_t *)left,b=*(const uint64_t *)right; return a<b ? -1 : a>b;
+}
+bool database_collect_records(Database *db,Analysis *source,uint64_t first,uint64_t rows,
+    const SourceFileIdentity *expected,uint64_t stamp,RecordSelection *out,char **error) {
+    if (!db || !out || !expected || !stamp || !source || (source->kind!=SOURCE_CSV && source->kind!=SOURCE_PARQUET) || !source->path || !*source->path ||
+        source->query || source->unique_rows || source->group_column || source->measure_column || source->schema || source->table || strpbrk(source->path,"*?[]") ||
+        source->filter_count>=DX_ANALYSIS_FILTERS || source->sort_count>=DX_ANALYSIS_SORTS || !rows || first>=DX_SHEET_ROWS || rows>DX_SHEET_ROWS-first) {
+        fail(error,"Record selection requires one finite raw CSV or Parquet range with a captured native file identity and stamp."); return false;
+    }
+    if (cancelled(db,error) || !record_selection_matches(source,expected,stamp,error)) return false;
+    RecordSQL projection={0}; RecordSelection next={0}; duckdb_result result={0}; char *sql=NULL,*alias=NULL; bool ok=false;
+    if (!resolve_analysis_types(db,source,error)) goto done;
+    RecordSQLStatus state=raw_record_sql(db,source,&projection,error);
+    if (state!=RECORD_SQL_READY) { if (state==RECORD_SQL_UNSUPPORTED) fail(error,"This raw reader cannot provide bounded original record identities. No positional fallback was used."); goto done; }
+    uint64_t limit=rows>DX_RECORD_SELECTION_ROWS ? DX_RECORD_SELECTION_ROWS+1 : rows;
+    alias=dx_quote(projection.identity_name,'"');
+    sql=dx_printf("SELECT %s FROM (\n%s\nLIMIT %" PRIu64 " OFFSET %" PRIu64 "\n) AS selected_records",alias,projection.relation,limit,first);
+    if (!execute_analysis(db,source,sql,&result,error)) goto done;
+    idx_t count=duckdb_row_count(&result);
+    if (duckdb_column_count(&result)!=1 || duckdb_column_type(&result,0)!=DUCKDB_TYPE_UBIGINT) { fail(error,"Record selection did not return its exact identity-only projection."); goto done; }
+    /* Reject the sentinel before allocating any output membership. The pending
+       executor's result itself is bounded to 20,001 one-column scalar rows. */
+    if (count>DX_RECORD_SELECTION_ROWS) { fail(error,"Finite source formatting is limited to 20,000 records. Choose a smaller range or a whole-column format."); goto done; }
+    next.count=(size_t)count; next.bytes=next.count*sizeof(*next.ids); next.ids=next.count ? dx_alloc(next.bytes) : NULL;
+    for (size_t base=0;base<next.count;base+=DX_PAGE_ROWS) {
+        if (cancelled(db,error)) goto done;
+        size_t end=next.count-base<DX_PAGE_ROWS ? next.count : base+DX_PAGE_ROWS;
+        for (size_t i=base;i<end;i++) {
+            if (duckdb_value_is_null(&result,0,i) || !(next.ids[i]=duckdb_value_uint64(&result,0,i))) { fail(error,"Original record identities must be positive, non-NULL UBIGINT values."); goto done; }
+        }
+    }
+    if (cancelled(db,error)) goto done;
+    if (next.count) qsort(next.ids,next.count,sizeof(*next.ids),record_id_compare);
+    for (size_t i=1;i<next.count;i++) if (next.ids[i-1]==next.ids[i]) { fail(error,"The raw reader returned duplicate original record identities."); goto done; }
+    if (!record_selection_matches(source,expected,stamp,error) || cancelled(db,error)) goto done;
+    next.file_identity=*expected; next.stamp=stamp; record_selection_free(out); *out=next; next=(RecordSelection){0}; ok=true;
+done:
+    record_selection_free(&next); duckdb_destroy_result(&result); record_sql_free(&projection); free(sql); free(alias); return ok;
+}
 bool database_source_matches(const Analysis *a,uint64_t expected,char **error) {
     if (!expected) return true;
     struct stat file;

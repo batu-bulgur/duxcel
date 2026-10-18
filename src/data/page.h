@@ -7,6 +7,18 @@
 #define DX_PAGE_ROWS 256
 #define DX_COPY_CELLS 20000
 #define DX_DISTINCT_ROWS 128
+#define DX_RECORD_SELECTION_ROWS 20000u
+/* Owned finite membership, independent of business-value Pages. IDs are sorted,
+   unique, positive original reader ordinals, never worksheet/result offsets.
+   bytes counts the exact malloc-owned vector only. The native observation is
+   session proof for the captured request, not a verified durable source scope. */
+typedef struct {
+    uint64_t *ids;
+    size_t count,bytes;
+    SourceFileIdentity file_identity;
+    uint64_t stamp;
+} RecordSelection;
+void record_selection_free(RecordSelection *selection);
 typedef struct { char *label,*value,*upper,*key; bool is_null; } DistinctValue;
 typedef struct {
     DistinctValue *values;
