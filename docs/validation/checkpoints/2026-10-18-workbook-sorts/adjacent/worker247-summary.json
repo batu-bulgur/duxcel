@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "de6e15e06031618759587cee74aeed715a9ae0f9",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "5811863df9cd338d9fdfbeac61bf2d9e67a571dee3e45f07203555f6289b2f0b",
+    "source_files": 294
+  },
+  "artifact": {
+    "status": "built",
+    "signature": "702b3ff37f14c80395759ac6bd6aefefa10dec28d6ec0b3b80a85d1f4c4482b3",
+    "source": {
+      "commit": "de6e15e06031618759587cee74aeed715a9ae0f9",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "5811863df9cd338d9fdfbeac61bf2d9e67a571dee3e45f07203555f6289b2f0b",
+      "source_files": 294
+    },
+    "kind": "worker-driver",
+    "scope": "No-window shared C/official Worker acceptance driver. Official asynchronous DuckDB-Wasm Worker backend for bounded source pages/count/SQL validation, paged available values/date hierarchy, asynchronous CSV/Parquet source/worksheet-Table import, bounded Rows/Columns/Values PIVOT matrices with source-derived totals and direct or mixed/manual selection statistics. Bounded direct/Pivot/mixed copy and typed Parquet export are integrated with acknowledged clipboard/requested-download adapters. Browser workbook Save/Open and native source-content verification are unavailable. Runtime acceptance is source-scoped and separate.",
+    "selected_artifacts": {
+      "duxcel.wasm": "e429968bdf86030863cc8b1afe3345aab9a3e2a834b4ee4d756a9bafe3ab1cc3",
+      "index.html": "ac83618f620ff797ff8d503fdf8ab6ecd31feb010e52a85f09e6d2578f9df998",
+      "vendor.json": "162d1e956a3c065cd640b2dbc129ec0b860c95c727e7788700447b6228420d92",
+      "page_wire.mjs": "dbda0154875f6deb002659ef94eabd559e0aeee02f976b2e230ccc9a53cac5da",
+      "duxcel.mjs": "b720045b6327fa42f8a3dfcee1d748799d695b415ac8fbf6c2ea4528e85d4ad6",
+      "host.mjs": "de42ce96badb60da1db728893190cea047560c28e7c04c788ea2c645ff15aa0a",
+      "official_worker.mjs": "df2cf035b05f57132912cfb9782b8043f33d5b798d56f77c2dc068bbf499a0fc"
+    },
+    "original_artifacts_count": 183
+  },
+  "reader_error": null,
+  "native_persistence_helpers": {},
+  "command": [
+    "node",
+    "tools/test_web_app.mjs",
+    "http://127.0.0.1:56555/",
+    "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073059-browser-89434",
+    "--worker-driver",
+    "--dpr",
+    "1"
+  ],
+  "exit_code": 0,
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "browser_seconds": 15.844,
+  "elapsed_seconds": 24.466,
+  "setup": {
+    "build_seconds": 8.497,
+    "artifact_validation_seconds": 0.033,
+    "source_metadata_seconds": 0.09,
+    "server_setup_seconds": 0.001
+  },
+  "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+  "profile": "standard"
+}

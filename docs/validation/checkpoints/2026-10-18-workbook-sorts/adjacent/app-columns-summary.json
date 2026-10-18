@@ -1,0 +1,60 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "de6e15e06031618759587cee74aeed715a9ae0f9",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "5811863df9cd338d9fdfbeac61bf2d9e67a571dee3e45f07203555f6289b2f0b",
+    "source_files": 294
+  },
+  "artifact": {
+    "status": "built",
+    "signature": "75d9683306000b2c15df3663e97907b12aaf03f378fe16247735f49d70444d66",
+    "source": {
+      "commit": "de6e15e06031618759587cee74aeed715a9ae0f9",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "5811863df9cd338d9fdfbeac61bf2d9e67a571dee3e45f07203555f6289b2f0b",
+      "source_files": 294
+    },
+    "kind": "review",
+    "scope": "Shared C99 renderer with browser-scheduled App frames. Official asynchronous DuckDB-Wasm Worker backend for bounded source pages/count/SQL validation, paged available values/date hierarchy, asynchronous CSV/Parquet source/worksheet-Table import, bounded Rows/Columns/Values PIVOT matrices with source-derived totals and direct or mixed/manual selection statistics. Bounded direct/Pivot/mixed copy and typed Parquet export are integrated with acknowledged clipboard/requested-download adapters. Browser workbook Save/Open and native source-content verification are unavailable. Runtime acceptance is source-scoped and separate. Review-only C registry/capture/composer and durable browser outbox/shared review queue transport; service/agent acceptance is separate.",
+    "selected_artifacts": {
+      "duxcel.wasm": "499af07a4ba8ec37b83c738ca35ee73ae19a5e60106bfd98fd826d227d840bf1",
+      "index.html": "bed11f27be31b54136ede658d6a88051a43f8473b4efd1dd3c034a258eee4b89",
+      "vendor.json": "162d1e956a3c065cd640b2dbc129ec0b860c95c727e7788700447b6228420d92",
+      "page_wire.mjs": "dbda0154875f6deb002659ef94eabd559e0aeee02f976b2e230ccc9a53cac5da",
+      "duxcel.mjs": "7cc466f85e14043a4daf5c1f4e498d3116312917eee2470af80d24a010fb95fe",
+      "host.mjs": "13ae3dc11fafafbb32c39f929e5bb45528d374d6c25e5638819c6b76e4d66187",
+      "official_worker.mjs": "df2cf035b05f57132912cfb9782b8043f33d5b798d56f77c2dc068bbf499a0fc"
+    },
+    "original_artifacts_count": 187
+  },
+  "reader_error": null,
+  "native_persistence_helpers": {},
+  "command": [
+    "node",
+    "tools/test_web_app.mjs",
+    "http://127.0.0.1:56733/",
+    "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073145-browser-90641",
+    "--source",
+    "/Users/h2o/dev/duxcel/tests/fixtures/transactions.csv",
+    "--review",
+    "--analysis-columns-only",
+    "--dpr",
+    "2",
+    "--canvas-transform"
+  ],
+  "exit_code": 0,
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "browser_seconds": 13.5,
+  "elapsed_seconds": 13.634,
+  "setup": {
+    "build_seconds": 0.0,
+    "artifact_validation_seconds": 0.026,
+    "source_metadata_seconds": 0.08,
+    "server_setup_seconds": 0.027
+  },
+  "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+  "profile": "analysis-columns-only",
+  "scope": "Shared C same-sheet Rows City/Columns Approved/SUM Amount, real official Worker Columns matrix and source-derived footer totals, source/manual retention; no broad analytical or report-upload acceptance."
+}

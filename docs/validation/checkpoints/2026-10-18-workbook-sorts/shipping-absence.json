@@ -1,0 +1,74 @@
+{
+  "status": "passed",
+  "normal_directory": "/Users/h2o/dev/duxcel/build/web/app/32d1a3abd580afa04bb5",
+  "review_directory": "/Users/h2o/dev/duxcel/build/web/review/75d9683306000b2c15df",
+  "normal_wasm_sha256": "603f83ebf84869d58bcebf3c7ebd49650259ea75b92d0e1b74de419b2b49a508",
+  "review_wasm_sha256": "499af07a4ba8ec37b83c738ca35ee73ae19a5e60106bfd98fd826d227d840bf1",
+  "normal_exports": [
+    "memory",
+    "__wasm_call_ctors",
+    "free",
+    "__indirect_function_table",
+    "dx_browser_query_result",
+    "dx_browser_export_result",
+    "dx_browser_file_result",
+    "malloc",
+    "__main_argc_argv",
+    "fflush",
+    "emscripten_stack_get_end",
+    "emscripten_stack_get_base",
+    "strerror",
+    "setThrew",
+    "emscripten_stack_init",
+    "emscripten_stack_get_free",
+    "_emscripten_stack_restore",
+    "_emscripten_stack_alloc",
+    "emscripten_stack_get_current"
+  ],
+  "review_exports": [
+    "memory",
+    "__wasm_call_ctors",
+    "free",
+    "__indirect_function_table",
+    "dx_browser_query_result",
+    "dx_browser_export_result",
+    "dx_browser_file_result",
+    "malloc",
+    "__main_argc_argv",
+    "dx_browser_review_result",
+    "fflush",
+    "emscripten_stack_get_end",
+    "emscripten_stack_get_base",
+    "strerror",
+    "setThrew",
+    "emscripten_stack_init",
+    "emscripten_stack_get_free",
+    "_emscripten_stack_restore",
+    "_emscripten_stack_alloc",
+    "emscripten_stack_get_current"
+  ],
+  "shipping_marker_absence": {
+    "dx_review_": true,
+    "duxcel.native-review": true,
+    "duxcel.browser-review": true,
+    "dxBrowserWorkerTestDone": true,
+    "test_browser_worker.c": true,
+    "dxCodecReadTestDone": true,
+    "test_browser_codec_read.c": true,
+    "test_browser_codec_sorts.inc": true,
+    "dxCodecSortsMode": true,
+    "dx_browser_codec_fixture_result": true,
+    "dx_browser_codec_result": true
+  },
+  "native": {
+    "duxcel": {
+      "sha256": "c9ef27e3807e3302aacd3676131d3571d1a86baff1ddd6ebf396fd6c22792957",
+      "unexpected_symbols": []
+    },
+    "duxcel-debug": {
+      "sha256": "cf01ac1da4d36fedff210913041bf4d1299f10e3e8e0cba05a2c0c2172d8ad48",
+      "unexpected_symbols": []
+    }
+  },
+  "failures": []
+}

@@ -1,0 +1,1 @@
+FAIL workbook header reader:375: !workbook_codec_header_analysis(header,0)->sort_count && workbook_codec_header_analysis(header,1)->sort_count==2

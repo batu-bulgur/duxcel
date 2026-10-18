@@ -1,0 +1,9 @@
+mkdir -p build
+python3 tools/generate_icons.py --check || python3 tools/generate_icons.py
+PASS: canonical vector and 56 derivatives match their hashes
+PASS: 23 sRGB RGBA sizes, transparent surround, ICNS 1x/2x and ICO representations
+touch build/icons.stamp
+mkdir -p build/web-tests
+clang -Isrc -I/opt/homebrew/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c src/data/page_wire.c src/data/browser_query.c tests/test_page_wire.c -o build/web-tests/test-wire -lm
+mkdir -p build/web-tests
+clang -Isrc -I/opt/homebrew/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c src/data/page_wire.c src/data/browser_query.c tests/test_page_wire.c -o build/web-tests/test-wire-sanitize -lm -fsanitize=address,undefined -fno-omit-frame-pointer

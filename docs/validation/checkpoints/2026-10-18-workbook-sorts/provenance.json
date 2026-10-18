@@ -1,0 +1,469 @@
+{
+  "state": "Accepted bounded optional primary-sheet sorts/header continuation; every retained payload will be sealed by hashes.json; no complete Workbook or browser Open/Save",
+  "prepared_utc": "2026-10-18T07:27:50.258982+00:00",
+  "draft_base": "b0417291b7c33ae6df40fa7c19b55b0ffc85a094",
+  "scope": "Explicit opt-in shared-C primary-sheet sort continuation and separate bounded transport; no full Workbook/App/browser Open Save activation",
+  "unmodified_copies": {
+    "integrated/manifest.json": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-components/manifest.json",
+      "bytes": 2255,
+      "sha256": "814e6008b8fae5c1e28fd4f0bb6ca1209637904fd3df748f06984eb40835151c"
+    },
+    "integrated/pure.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-components/pure.txt",
+      "bytes": 420,
+      "sha256": "7bf20253f9c9c6519223248f68442d3a4566f4463d9a5ca3b78296d3cdc7337f"
+    },
+    "integrated/wire-build.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-components/wire-build.txt",
+      "bytes": 777,
+      "sha256": "6f46ae19a6b48fadba051299f525f1ad754364155fdf4f2c156d3e0c00f231ab"
+    },
+    "integrated/wire-release.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-components/wire-release.txt",
+      "bytes": 28,
+      "sha256": "cb7c504e3d25b1b846694b59f4785961dbc5b0407a899c1a5d61f597da90af8f"
+    },
+    "integrated/wire-sanitize.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-components/wire-sanitize.txt",
+      "bytes": 28,
+      "sha256": "cb7c504e3d25b1b846694b59f4785961dbc5b0407a899c1a5d61f597da90af8f"
+    },
+    "integrated/js.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-components/js.txt",
+      "bytes": 5749,
+      "sha256": "766b5db88a498b57bb47be04a124682020a3afdf0f17d4b8c1f0a8fb086fa4ee"
+    },
+    "integrated/harness.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-components/harness.txt",
+      "bytes": 102,
+      "sha256": "bbb17d37f4aff1504bd3c29e594020df481ecca599ce8980549aa53022d8879b"
+    },
+    "integrated/pure-summary.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072329-fast-86286/summary.json",
+      "bytes": 2218,
+      "sha256": "2e2670cc112ef3b9b098ca4166bfc74f84f4dd4bb4e66fa57e1a7fbb1b995eb7"
+    },
+    "integrated/build-headless.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072329-fast-86286/build-headless.txt",
+      "bytes": 719,
+      "sha256": "f40e687aada958646e3833b7019523de1c1746e9c921485292b16303944e2059"
+    },
+    "integrated/workbook_codec_read-release.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072329-fast-86286/workbook_codec_read-release.txt",
+      "bytes": 296,
+      "sha256": "faeffc256db97af6595e2b7164e17296ce3e98cfe8906d9597a7ac06aac6698d"
+    },
+    "integrated/workbook_codec_read-sanitize.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072329-fast-86286/workbook_codec_read-sanitize.txt",
+      "bytes": 302,
+      "sha256": "5ba9dbe1ad04e8bd747f01096a94e9977ea4c102ff0e65434c63e4e66ea41e6d"
+    },
+    "pure/manifest.json": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-reader/manifest.json",
+      "bytes": 10543,
+      "sha256": "7f55c3f2eca8749bc4b59e01e0e0f4eb828d24c29c68d4d461a11316b9555a99"
+    },
+    "pure/release-run.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-reader/release-run.txt",
+      "bytes": 250,
+      "sha256": "162a954a1c34ecd4a0b205e2a8ee13aa83a7910758bfe337dd562f258100929a"
+    },
+    "pure/sanitize-run.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-reader/sanitize-run.txt",
+      "bytes": 250,
+      "sha256": "162a954a1c34ecd4a0b205e2a8ee13aa83a7910758bfe337dd562f258100929a"
+    },
+    "cause/pure-missing-include.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-reader/initial-missing-sdk-include.txt",
+      "bytes": 1388,
+      "sha256": "1ab22f8765899d6592b06645c42f3a0fdb9062e81eb0ab35a3c542781d3e011b"
+    },
+    "cause/pure-output-reset.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-reader/initial-test-owned-output-reset-run.txt",
+      "bytes": 146,
+      "sha256": "70097999ecaa9ff6b665938f30c2038aa6ca987a2083d350a3081765a047ad8c"
+    },
+    "wire/manifest.json": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-workbook-sorts-wire-tests/duxcel/build/workbook-sorts-wire/manifest.json",
+      "bytes": 1650,
+      "sha256": "f59c21da5be53292b8ba8ca7983fe54485400eb6541bd4b86f13e69b5ff9c3ef"
+    },
+    "wire/compile.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-workbook-sorts-wire-tests/duxcel/build/workbook-sorts-wire/compile.txt",
+      "bytes": 1035,
+      "sha256": "994fdba9a3a6a40bfebb806d4214000c4ca6b12cf4d7231ddeb3ac7eba8a3be1"
+    },
+    "wire/sanitize.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-workbook-sorts-wire-tests/duxcel/build/workbook-sorts-wire/sanitize.txt",
+      "bytes": 28,
+      "sha256": "cb7c504e3d25b1b846694b59f4785961dbc5b0407a899c1a5d61f597da90af8f"
+    },
+    "wire/release.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-workbook-sorts-wire-tests/duxcel/build/workbook-sorts-wire/release.txt",
+      "bytes": 28,
+      "sha256": "cb7c504e3d25b1b846694b59f4785961dbc5b0407a899c1a5d61f597da90af8f"
+    },
+    "wire/pinned-arrow-loader.mjs": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-workbook-sorts-wire-tests/duxcel/build/workbook-sorts-wire/pinned-arrow-loader.mjs",
+      "bytes": 283,
+      "sha256": "a33f64ca2d2cc40d11b7b50284140e3487069ff6c0623de6962e1e0244d145d9"
+    },
+    "native-private/manifest.json": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-native/manifest.json",
+      "bytes": 15416,
+      "sha256": "8ea7815af604f7e27ecef59a60e6e00a76bd9fa4130e5c03c482a2f766d290d4"
+    },
+    "native-private/release-default.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-native/release-default.txt",
+      "bytes": 218,
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    "native-private/release-sorts.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-native/release-sorts.txt",
+      "bytes": 303,
+      "sha256": "a10c9db88a22bf211a240a53be5ae2d91784093be51cc9d533c1211214fb8b62"
+    },
+    "native-private/sanitize-default.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-native/sanitize-default.txt",
+      "bytes": 218,
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    "native-private/sanitize-sorts.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-native/sanitize-sorts.txt",
+      "bytes": 303,
+      "sha256": "a10c9db88a22bf211a240a53be5ae2d91784093be51cc9d533c1211214fb8b62"
+    },
+    "cause/native-cli-uint64-string.json": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-native/initial-emitter-cli-uint64-string.json",
+      "bytes": 358,
+      "sha256": "a202e88ba8636573483de9402d2ae47cd6dd0ed651666b24b8c4749c9e48873a"
+    },
+    "cause/native-tmp-alias.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-native/initial-sort-fixture-tmp-alias-release-sorts.txt",
+      "bytes": 297,
+      "sha256": "0a5bcd2d93610cfb19342c094d4310172b7a2db94259168cf2d8211087d56e44"
+    },
+    "worker/driver.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072940-browser-88321/driver.txt",
+      "bytes": 801,
+      "sha256": "de02fd45ef5de44f6107351d9c33193b6309205514e5955aa2c70e47eb5ab208"
+    },
+    "worker/cleanup.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072940-browser-88321/cleanup.json",
+      "bytes": 207,
+      "sha256": "89570d3985ba5937cda54cccd5f360fbe211428cbc36b6443c549432345148a0"
+    },
+    "worker/codec-native-create.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072940-browser-88321/codec-native-create.txt",
+      "bytes": 271,
+      "sha256": "aafc278b1eb2e521b2215fd8013613261d29568ff798b36cc30bf8bb858e17e9"
+    },
+    "worker/codec-fixture-manifest.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072940-browser-88321/codec-fixture-manifest.json",
+      "bytes": 855,
+      "sha256": "e9e42008f612f2f4eecad64faf8de76a2eb12e3c4743c54facf04a04d4bb859c"
+    },
+    "worker/codec-native-provenance.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072940-browser-88321/codec-native-provenance.json",
+      "bytes": 1921,
+      "sha256": "57d4332edbc481d6083c803148feb5d310993ad8f1a3a363e5c4fbfc41172b28"
+    },
+    "harness-unit-five.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-harness-unit-final.txt",
+      "bytes": 103,
+      "sha256": "25679f467d4c842b227fa299b67a0d7a5cb801964ece28e942abf2d27fe7da45"
+    },
+    "runner-unit.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-runner-unit.txt",
+      "bytes": 4981,
+      "sha256": "16cf4119bd99fe6e6361216a1129b020bd1ce70f6e8e045e352a8497255209e1"
+    },
+    "native-root/manifest.json": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-native-root/manifest.json",
+      "bytes": 1888,
+      "sha256": "447de8c0e5abb8614e8db2ec98cf3a034b3e13e231c0d7f5b365d4fcfc2b74be"
+    },
+    "native-root/build.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-native-root/build.txt",
+      "bytes": 760,
+      "sha256": "cc67073064a6c1d68872d948a1bfe735e4ae378ab10298f73bdb3830c7b6d372"
+    },
+    "native-root/release-header.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-native-root/release-header.txt",
+      "bytes": 218,
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    "native-root/release-sorts.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-native-root/release-sorts.txt",
+      "bytes": 303,
+      "sha256": "a10c9db88a22bf211a240a53be5ae2d91784093be51cc9d533c1211214fb8b62"
+    },
+    "native-root/sanitize-header.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-native-root/sanitize-header.txt",
+      "bytes": 218,
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    "native-root/sanitize-sorts.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-native-root/sanitize-sorts.txt",
+      "bytes": 303,
+      "sha256": "a10c9db88a22bf211a240a53be5ae2d91784093be51cc9d533c1211214fb8b62"
+    },
+    "adjacent/manifest.json": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-adjacent/manifest.json",
+      "bytes": 1624,
+      "sha256": "be087468dc41f6d290c35f3f35b8aecf0b90a9f97faa0c7922ed22ce20f839bf"
+    },
+    "adjacent/header.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-adjacent/header.txt",
+      "bytes": 131,
+      "sha256": "62e4b135546d522c100617768c5fafd7a6478d767ed663fbdf3e4994ca02057d"
+    },
+    "adjacent/worker247.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-adjacent/worker247.txt",
+      "bytes": 132,
+      "sha256": "a3cfb9be6d470242368dcab093312458a20f291d06ada6884291b30f1b1c1057"
+    },
+    "adjacent/shipping.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-adjacent/shipping.txt",
+      "bytes": 102,
+      "sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a"
+    },
+    "adjacent/app-columns.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-sorts-adjacent/app-columns.txt",
+      "bytes": 132,
+      "sha256": "9a88bf31a5c5468b76fd7a6d5df68c6ba0e21e96a8c0cffa4326c8e1a3ba0c22"
+    },
+    "shipping-absence.json": {
+      "original_path": "/Users/h2o/dev/duxcel/build/web/review-absence.json",
+      "bytes": 2180,
+      "sha256": "ea1c4b240202ab6a9b04e9ebe83ab8857daa286efd68d47a6813b4c4e32070ec"
+    },
+    "adjacent/header-driver.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073043-browser-89106/driver.txt",
+      "bytes": 633,
+      "sha256": "8fab5544b1149ae00f90cd9618b24ab32e9b7f17f0a9c753d001125451436c04"
+    },
+    "adjacent/header-cleanup.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073043-browser-89106/cleanup.json",
+      "bytes": 207,
+      "sha256": "0740eced20b14c55c359f031621883ca1b0d3f89ba391eb9c971201ce691c64d"
+    },
+    "adjacent/header-codec-native-provenance.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073043-browser-89106/codec-native-provenance.json",
+      "bytes": 3095,
+      "sha256": "4b0e1491908f448fff8324453b9a078d79c857da7f393daf93f211231689bb9f"
+    },
+    "adjacent/worker247-worker-driver.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073059-browser-89434/worker-driver.json",
+      "bytes": 53,
+      "sha256": "cb3711bddfd1bf20dcc3040c6caf37e0e5cfb775e636835d5a9b9ee2ecb88376"
+    },
+    "adjacent/worker247-worker-workloads.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073059-browser-89434/worker-workloads.json",
+      "bytes": 366,
+      "sha256": "69fc58dfa72ecac39ff718a77bff114f0ae4d9eb951033f64451cf910394d2a4"
+    },
+    "adjacent/worker247-binding-workloads.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073059-browser-89434/binding-workloads.json",
+      "bytes": 232,
+      "sha256": "f0ec8bc6c3bdb5da121ce5a3d6892d2485969e91ae66218beb6b3f6e628803e8"
+    },
+    "adjacent/worker247-other-workloads.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073059-browser-89434/other-workloads.json",
+      "bytes": 213,
+      "sha256": "6984e9ea305d6af91ccc3e1daa1b19738d16c4299e1da9a40659fa9b00b4107d"
+    },
+    "adjacent/worker247-driver.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073059-browser-89434/driver.txt",
+      "bytes": 164,
+      "sha256": "26d45c5f60e90bccd036934e2c52171886008bc1ffc042f01d492525c1c13333"
+    },
+    "adjacent/worker247-cleanup.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073059-browser-89434/cleanup.json",
+      "bytes": 207,
+      "sha256": "2a58ca73c8df4caba9f7c288351c26fb7919728c8c28ade9ff0f44d4482b7725"
+    },
+    "adjacent/app-columns-driver.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073145-browser-90641/driver.txt",
+      "bytes": 182,
+      "sha256": "f299bcc3d84b47a67b9778aca679f8844063ac5aeea2237263831fc826afa182"
+    },
+    "adjacent/app-columns-cleanup.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073145-browser-90641/cleanup.json",
+      "bytes": 207,
+      "sha256": "6713eebd36ce2cbeaff98deea9e4963d807026e331a31a2769dcac6da7f30e93"
+    }
+  },
+  "derived_records": {
+    "cause/pure-initial-receipts.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-reader/initial-missing-sdk-include.json",
+          "bytes": 8067,
+          "sha256": "ea43a56c8f5e36ac97887486c362a289371fe6ac83741339c11daf8879a052b2"
+        },
+        {
+          "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-reader/initial-test-owned-output-reset.json",
+          "bytes": 8894,
+          "sha256": "e00bd481a69acf92fbb470fc7f01ccdee32efc2ed59e534d7b44fe2322d97327"
+        }
+      ],
+      "description": "Factored original repeated source-hash map against accepted pure manifest; retained every command/result and differing test source hash. No new execution."
+    },
+    "component-source-comparison.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-reader/manifest.json",
+          "bytes": 10543,
+          "sha256": "7f55c3f2eca8749bc4b59e01e0e0f4eb828d24c29c68d4d461a11316b9555a99"
+        },
+        {
+          "original_path": "/Users/h2o/.codex/worktrees/duxcel-workbook-sorts-wire-tests/duxcel/build/workbook-sorts-wire/manifest.json",
+          "bytes": 1650,
+          "sha256": "f59c21da5be53292b8ba8ca7983fe54485400eb6541bd4b86f13e69b5ff9c3ef"
+        },
+        {
+          "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-native/manifest.json",
+          "bytes": 15416,
+          "sha256": "8ea7815af604f7e27ecef59a60e6e00a76bd9fa4130e5c03c482a2f766d290d4"
+        }
+      ],
+      "description": "git show of exact b041729 tracked files hashed in the isolated worktree and compared to private accepted component manifests. No execution."
+    },
+    "native-private/emitter-sorts.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-native/emitter-results.json",
+          "bytes": 31703,
+          "sha256": "681b538f6413d38fcdd72c44f5a2294cdc6dd7dd228cdaf8c907696afaf6eaa9"
+        }
+      ],
+      "description": "Selects original release/sanitize sort emission/refusal/inspection records. Keeps actual metadata/file hashes/checks, commands and timings; unchanged Header emitter records omitted rather than credited as new execution."
+    },
+    "cause/native-tmp-alias.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-sorts-reader/duxcel/build/bp1-sorts-native/initial-sort-fixture-tmp-alias.json",
+          "bytes": 11580,
+          "sha256": "7b5f8fedbef5b39aa2d486898fc36d9c2db5a1c4310293423e34ff0e2cd1b1c7"
+        }
+      ],
+      "description": "Factors repeated source/toolchain maps against accepted native-private manifest, retaining all results and differing fixture-test source hash. Original running state reflects interrupted writer; explicit exit codes remain authoritative."
+    },
+    "worker/summary.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072940-browser-88321/summary.json",
+          "bytes": 33998,
+          "sha256": "9ce18019239d1939b24b2958fb7b709e91ff611176cedb8270f5ab2f5fa1694f"
+        }
+      ],
+      "description": "Retains every non-map summary field and exact C artifact build/config/source receipt; vendor artifact digest and byte maps reduced to main bridges/driver and selected engine entry points, preserving original map counts and original summary digest."
+    },
+    "worker/c-report.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072940-browser-88321/codec-read-driver.json",
+          "bytes": 41226,
+          "sha256": "39346825a87af61428e8c4bb3a00100bc773bb443ecd4ddf0947d81ba0d48fbb"
+        }
+      ],
+      "description": "All original C report fields except the duplicate full transport object; transport is separately reduced without losing ticket/SQL/binding digests."
+    },
+    "worker/transport.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T072940-browser-88321/codec-read-transport.json",
+          "bytes": 39167,
+          "sha256": "7c0627d8eefee2e4e49cb43a3bc0820025254db961ea9216985642ec84e981ff"
+        }
+      ],
+      "description": "Every49 real query ticket with exact UTF8 length/SHA and original binding fixture indices; identical SQL deduplicated into digest-keyed exact examples. Original49-query receipt hash retained; no callback/event stream copied."
+    },
+    "adjacent/header-summary.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073043-browser-89106/summary.json",
+          "bytes": 34583,
+          "sha256": "0c879049d9662f62ff9f4ef0b0ded0af8a4410be40977ea6209e30fceee916f5"
+        }
+      ],
+      "description": "All outer run facts retained; large duplicate artifact build/vendor maps reduced to exact kind/signature/source and selected executable/glue hashes. No new execution."
+    },
+    "adjacent/header-c-report.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073043-browser-89106/codec-read-driver.json",
+          "bytes": 51556,
+          "sha256": "3e6baa7be8181cc6beac4eabef035c56f85c7813e7a4dee89cf5d5ddcc4622ec"
+        }
+      ],
+      "description": "All original C receipt fields except duplicate complete transport SQL; separately retained source/helper/native fixture provenance and original report digest."
+    },
+    "adjacent/worker247-summary.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073059-browser-89434/summary.json",
+          "bytes": 34915,
+          "sha256": "066a164c352d66fb73b8b7f37b2504746fd43bdd5d2d6b7eb258b65b0e4c1c99"
+        }
+      ],
+      "description": "All outer run facts retained; large duplicate artifact build/vendor maps reduced to exact kind/signature/source and selected executable/glue hashes. No new execution."
+    },
+    "adjacent/app-columns-summary.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073145-browser-90641/summary.json",
+          "bytes": 38371,
+          "sha256": "c9bc69aecbdaa56f7e63c56796e8a9a0d5a0b6f0a9db164c62adfd18e364d118"
+        }
+      ],
+      "description": "All outer run facts retained; large duplicate artifact build/vendor maps reduced to exact kind/signature/source and selected executable/glue hashes. No new execution."
+    },
+    "adjacent/app-columns-readouts.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T073145-browser-90641/analysis-columns.json",
+          "bytes": 33147,
+          "sha256": "3f693ae5c5ff6787019695c89105286f9f76b16480d386bda9c9e38e9ad670cd"
+        }
+      ],
+      "description": "Selected actual result/owner/page/footer/manual/source/history fields at setup/publication/return, real Worker replies, grand/category exact text and measured idle interval. Unrelated paint/widget geometry omitted; no values inferred from screenshots."
+    },
+    "cause/wire-transient-observations.json": {
+      "sources": [],
+      "description": "Explicitly unretained transient fixture diagnostics from the owning test author; no original artifact/hash or observed product failure is claimed."
+    },
+    "shipping-builds.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/build/web/app/32d1a3abd580afa04bb5/build.json",
+          "bytes": 34488,
+          "sha256": "7fda41b28fe06f9f9098c12abf67e3772e5515f9087313be6be8d5da9a2e2598"
+        },
+        {
+          "original_path": "/Users/h2o/dev/duxcel/build/web/review/75d9683306000b2c15df/build.json",
+          "bytes": 35961,
+          "sha256": "92cee5594754afc874ac3b4905d9e6e57c102cf048feba5133d5f322d7bcc73f"
+        }
+      ],
+      "description": "Retains immutable App build kinds/signatures/source/flags/inventory and selected tested binary/loader hashes; duplicate vendor/link maps omitted. No new build/runtime."
+    }
+  },
+  "notes": [
+    "Five-test codec wrapper and32-test runner logs belong to committed de6 integration; b041 four-test component harness remains separate.",
+    "Sorts, root native, original Header/Worker247, transformed App Columns172 and fresh shipping absence are accepted at their exact retained sources.",
+    "No bundle/service promotion: native package remains previously accepted659;8767 PID75024 still serves prior review1082. Later preference-family work is excluded."
+  ],
+  "omitted_duplicate_records": {
+    "wire/javascript.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-workbook-sorts-wire-tests/duxcel/build/workbook-sorts-wire/javascript.txt",
+      "bytes": 5747,
+      "sha256": "54dc42f19c3ef00270b30d83dc5ab9d42caec6619efdb9a75d4e601156347095",
+      "retained_equivalent_test_listing": "integrated/js.txt",
+      "note": "Private exact elapsed remains in wire/manifest.json; per-test durations differ, so logs are not claimed byte-identical. Original private log digest is retained only."
+    }
+  },
+  "finalized_utc": "2026-10-18T07:34:01.780354+00:00"
+}
