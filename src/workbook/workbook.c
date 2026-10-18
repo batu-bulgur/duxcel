@@ -291,6 +291,48 @@ bool worksheet_legacy_format_history_eligible(const Worksheet *s,char **error) {
         return range_fail(error,"Legacy formatting migration found invalid current or retained cell formats.");
     return true;
 }
+static bool manual_object_state_valid(const ObjectSnapshot *state,uint64_t next_id,size_t *logical,char **error) {
+    size_t reserved=0;
+    if (!format_budget_object_bytes(state,logical,&reserved)) return range_fail(error,"Manual formatting eligibility found an invalid owned object state.");
+    for (size_t i=0;i<state->count;i++) if (state->items[i].kind==OBJECT_TABLE)
+        return range_fail(error,"Existing or retained Tables need verified source formatting; their legacy formats cannot become manual-only.");
+    ObjectStore view={.items=state->items,.count=state->count,.next_id=next_id};
+    /* Pivot's existing validator requires a diagnostic location on failure. */
+    char *ignored=NULL; bool valid=objects_valid(&view,error ? error : &ignored); free(ignored); return valid;
+}
+bool worksheet_manual_format_history_eligible(const Worksheet *s,const Analysis *live,char **error) {
+    if (!s || !live) return range_fail(error,"Choose the worksheet and its live Analysis before importing the first Table.");
+    AnalysisOwnership owned={.sheet=s,.live=live};
+    if (!analysis_journal_valid(s,&owned,error)) return false;
+    if (live->kind!=SOURCE_NONE || s->analysis.kind!=SOURCE_NONE)
+        return range_fail(error,"A current data source needs verified formatting; its legacy formats cannot become manual-only.");
+    for (size_t h=0;h<2;h++) {
+        const Analysis *states=h ? s->redo : s->undo; size_t count=h ? s->redo_count : s->undo_count;
+        for (size_t i=0;i<count;i++) if (states[i].kind!=SOURCE_NONE)
+            return range_fail(error,"Retained data-source history needs verified formatting; its legacy formats cannot become manual-only.");
+    }
+    if (s->cells.count>s->cells.capacity || !legacy_cell_shape(s->cells.cells,s->cells.count,s->cells.bytes))
+        return range_fail(error,"Manual formatting eligibility found an invalid editable-cell array shape.");
+    ObjectSnapshot current={s->objects.items,s->objects.count}; size_t logical=0;
+    if (!manual_object_state_valid(&current,s->objects.next_id,&logical,error)) return false;
+    for (size_t h=0;h<2;h++) {
+        const CellSnapshot *cells=h ? s->cells.redo : s->cells.undo; size_t cell_count=h ? s->cells.redo_count : s->cells.undo_count;
+        for (size_t i=0;i<cell_count;i++) if (!legacy_cell_shape(cells[i].cells,cells[i].count,cells[i].bytes))
+            return range_fail(error,"Manual formatting eligibility found an invalid retained editable-cell array shape.");
+        const ObjectSnapshot *states=h ? s->objects.redo : s->objects.undo; size_t count=h ? s->objects.redo_count : s->objects.undo_count,bytes=0;
+        for (size_t i=0;i<count;i++) {
+            if (!manual_object_state_valid(states+i,s->objects.next_id,&logical,error)) return false;
+            if (logical>DX_OBJECT_HISTORY_BYTES-bytes) return range_fail(error,"Manual formatting eligibility exceeds the existing object-history limit.");
+            bytes+=logical;
+        }
+    }
+    if (!format_budget_model_valid(&s->formats)) return range_fail(error,"Manual formatting eligibility found invalid current or retained cell formats.");
+    bool legacy=!s->formats.source_aware;
+    for (size_t i=0;i<s->formats.undo_count;i++) legacy|=!s->formats.undo[i].source_aware;
+    for (size_t i=0;i<s->formats.redo_count;i++) legacy|=!s->formats.redo[i].source_aware;
+    if (legacy && s->formats.revision==UINT64_MAX) return range_fail(error,"Manual formatting awareness cannot advance the exhausted format revision.");
+    return true;
+}
 FormatBudgetStatus workbook_format_usage(const Workbook *book,const WorkbookFormatReplacement *replacements,size_t count,WorkbookFormatUsage *out) {
     if (!book || !out || book->count>DX_MAX_SHEETS || (book->count && !book->sheets) || count>DX_MAX_SHEETS || (count && !replacements)) return FORMAT_BUDGET_INPUT;
     const FormatStore *formats[DX_MAX_SHEETS]={0}; const SourceVersions *versions[DX_MAX_SHEETS]={0}; const ObjectStore *objects[DX_MAX_SHEETS]={0}; bool replaced[DX_MAX_SHEETS]={0};
