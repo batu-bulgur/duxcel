@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "eedc5bb080895d622e9bd85abfa0697673a08697",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "7d93dcf2688f8334b68302376027954a9544958cd4d85deca2584014c7c7e316",
+    "source_files": 270
+  },
+  "native_code_revision": "ca2b2278889c37deb06ee552999af83da0dccc3f",
+  "native_review_source": "eedc5bb080895d622e9bd85abfa0697673a08697",
+  "native_review_binary_source": "ca2b2278889c37deb06ee552999af83da0dccc3f",
+  "native_review_run": "20261018T032933-review-8565",
+  "native_review_scope": "400 stages each optimized/O1 ASan+UBSan; physical native input/pixel parity remain separate",
+  "source_filename_browser_run": "20261018T032832-browser-8440",
+  "source_filename_browser_scope": "1035 actual C UI checks in20 stages, including distinct same-name sources, Command/Control pane history, owned previews and query-free idle",
+  "packaged_without_launch": true,
+  "unsigned_source_sha256": "8958c24a702459e593098297fbdd7d39b0886b0f6b020df8a404a8dd779c1943",
+  "signed_bundle_sha256": "5b7f41f46780b069f94375794f7d8218cfdb8240b0938b2c40bae3b06ada227c",
+  "signature_verified": true,
+  "source_unchanged": true,
+  "seconds": 0.905
+}

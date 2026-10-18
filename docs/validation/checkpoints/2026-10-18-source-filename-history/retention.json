@@ -1,0 +1,104 @@
+{
+  "images/renamed-primary.png": {
+    "original": "tests/results/runs/20261018T032832-browser-8440/source-labels-renamed-primary.png",
+    "bytes": 297002,
+    "sha256": "a8ea92b407303af1aa5c05a9debb0a9c620e76ab7f13c5eff5aa8b0ebe951eba",
+    "copied_unchanged": true
+  },
+  "images/filtered-preview.png": {
+    "original": "tests/results/runs/20261018T032832-browser-8440/source-labels-filtered-preview.png",
+    "bytes": 254551,
+    "sha256": "37d30cab408dc1186be357cf66f7a3c20a0ec825f71605dd6a8a18e8161a53f9",
+    "copied_unchanged": true
+  },
+  "images/renamed-table.png": {
+    "original": "tests/results/runs/20261018T032832-browser-8440/source-labels-renamed-table.png",
+    "bytes": 320647,
+    "sha256": "751f739266cf0f911f2e70b8290b06737142b9419acd750a085008664faf7957",
+    "copied_unchanged": true
+  },
+  "images/query-detail.png": {
+    "original": "tests/results/runs/20261018T032832-browser-8440/source-labels-query-detail.png",
+    "bytes": 317594,
+    "sha256": "f45d71cbf188b229ae6759f67bc635cec89b2a34debb3b10ead9db2967cd3df4",
+    "copied_unchanged": true
+  },
+  "images/history-shortcut-red.png": {
+    "original": "tests/results/runs/20261018T032330-browser-6226/failed.png",
+    "bytes": 284454,
+    "sha256": "39508986dcf8cdafab606608f6cb6d5b3309b8eb4a07621bb8972a2942707829",
+    "copied_unchanged": true
+  },
+  "package.json": {
+    "original": "build/current-ui-package.json",
+    "bytes": 1189,
+    "sha256": "c4df8ba7cf8c9c7dde67752155838c895d879ba755e8f1a26587e44df8d7b1c6",
+    "copied_unchanged": true
+  },
+  "service.json": {
+    "original": "build/current-review-service.json",
+    "bytes": 888,
+    "sha256": "1ee32b46e5af7b6ab7feb4951de5754600374050a1bce2d90dfac3d570b08185",
+    "copied_unchanged": true
+  },
+  "logs/fast-build-headless.txt": {
+    "original": "tests/results/runs/20261018T032306-fast-5895/build-headless.txt",
+    "bytes": 2542,
+    "sha256": "00455512edc37112031df1f96b63888261efec5a7db40c8bc02de1fcf85385bd",
+    "copied_unchanged": true
+  },
+  "logs/fast-preview-release.txt": {
+    "original": "tests/results/runs/20261018T032306-fast-5895/preview-release.txt",
+    "bytes": 187,
+    "sha256": "ee5cb6952f3e0ae0c48ef3cd8cb94285b57ddd3bf69d4eb0ab2472d5d63383a9",
+    "copied_unchanged": true
+  },
+  "logs/fast-preview-sanitize.txt": {
+    "original": "tests/results/runs/20261018T032306-fast-5895/preview-sanitize.txt",
+    "bytes": 193,
+    "sha256": "a1a7672aab9175a35e60eccff23a58ee942177518ef6d74e9c04b938790453d0",
+    "copied_unchanged": true
+  },
+  "logs/fast-stepview-release.txt": {
+    "original": "tests/results/runs/20261018T032306-fast-5895/stepview-release.txt",
+    "bytes": 222,
+    "sha256": "bd60db16205fb1b4b41fe593e9848f946f6c380605850298b936f9eb045f7b4a",
+    "copied_unchanged": true
+  },
+  "logs/fast-stepview-sanitize.txt": {
+    "original": "tests/results/runs/20261018T032306-fast-5895/stepview-sanitize.txt",
+    "bytes": 228,
+    "sha256": "df4bd5dee336dc5eb3cd7111bf66d9e83ee87871e75c55947dc5f8d83a8df640",
+    "copied_unchanged": true
+  },
+  "logs/source-labels-fast.txt": {
+    "original": "build/source-labels-fast.txt",
+    "bytes": 460,
+    "sha256": "9f7af4449a0b6239ce5a0c01b4860d89444626bd2e4d3a42b6a977db971ed808",
+    "copied_unchanged": true
+  },
+  "logs/source-labels-host-node.txt": {
+    "original": "build/source-labels-host-node.txt",
+    "bytes": 3974,
+    "sha256": "becdf8a263ac2bd3fd999fc74e738ea49e062eea15a03721f35eb2cdf6b3646e",
+    "copied_unchanged": true
+  },
+  "logs/source-labels-native-exclusion.txt": {
+    "original": "build/source-labels-native-exclusion.txt",
+    "bytes": 1995,
+    "sha256": "ee1cafe7afff1a80e3cde3935aa8eca8e1418dfac2b6ce9205218fc58f886af2",
+    "copied_unchanged": true
+  },
+  "logs/source-labels-native-sanitize-exclusion.txt": {
+    "original": "build/source-labels-native-sanitize-exclusion.txt",
+    "bytes": 2011,
+    "sha256": "355b296abab6b50ecd51dd1ac5d85c5c3274228dd57f40df19e358ce1dc2a8ad",
+    "copied_unchanged": true
+  },
+  "logs/source-labels-web-exclusion.txt": {
+    "original": "build/source-labels-web-exclusion.txt",
+    "bytes": 102,
+    "sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a",
+    "copied_unchanged": true
+  }
+}
