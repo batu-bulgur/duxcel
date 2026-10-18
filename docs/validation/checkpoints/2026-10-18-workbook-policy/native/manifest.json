@@ -1,0 +1,144 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "efd7adf5daa37f1ed8f386ce7104b366604915af",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "fd119d3d690027a0c934bc19c1efab75c52b3cd714e8a999f34600bbf896254a",
+    "source_files": 286
+  },
+  "results": [
+    {
+      "name": "build",
+      "command": [
+        "make",
+        "tests/test_workbook",
+        "tests/test_workbook-debug"
+      ],
+      "exit_code": 0,
+      "seconds": 16.501,
+      "log": "build/bp1-native/build.log"
+    },
+    {
+      "name": "release-formats",
+      "command": [
+        "./tests/test_workbook",
+        "--formats-only"
+      ],
+      "exit_code": 0,
+      "seconds": 2.546,
+      "log": "build/bp1-native/release-formats.log",
+      "checks": 635
+    },
+    {
+      "name": "release-owners",
+      "command": [
+        "./tests/test_workbook",
+        "--owners-only"
+      ],
+      "exit_code": 0,
+      "seconds": 2.457,
+      "log": "build/bp1-native/release-owners.log",
+      "checks": 393
+    },
+    {
+      "name": "release-source-versions",
+      "command": [
+        "./tests/test_workbook",
+        "--source-versions-only"
+      ],
+      "exit_code": 0,
+      "seconds": 0.78,
+      "log": "build/bp1-native/release-source-versions.log",
+      "checks": 207
+    },
+    {
+      "name": "release-source-formats",
+      "command": [
+        "./tests/test_workbook",
+        "--source-formats-only"
+      ],
+      "exit_code": 0,
+      "seconds": 18.535,
+      "log": "build/bp1-native/release-source-formats.log",
+      "checks": 1287
+    },
+    {
+      "name": "release-guarded-formats",
+      "command": [
+        "./tests/test_workbook",
+        "--guarded-formats-only"
+      ],
+      "exit_code": 0,
+      "seconds": 9.625,
+      "log": "build/bp1-native/release-guarded-formats.log",
+      "checks": 1003
+    },
+    {
+      "name": "sanitize-formats",
+      "command": [
+        "./tests/test_workbook-debug",
+        "--formats-only"
+      ],
+      "exit_code": 0,
+      "seconds": 8.593,
+      "log": "build/bp1-native/sanitize-formats.log",
+      "checks": 635
+    },
+    {
+      "name": "sanitize-owners",
+      "command": [
+        "./tests/test_workbook-debug",
+        "--owners-only"
+      ],
+      "exit_code": 0,
+      "seconds": 10.782,
+      "log": "build/bp1-native/sanitize-owners.log",
+      "checks": 393
+    },
+    {
+      "name": "sanitize-source-versions",
+      "command": [
+        "./tests/test_workbook-debug",
+        "--source-versions-only"
+      ],
+      "exit_code": 0,
+      "seconds": 4.212,
+      "log": "build/bp1-native/sanitize-source-versions.log",
+      "checks": 207
+    },
+    {
+      "name": "sanitize-source-formats",
+      "command": [
+        "./tests/test_workbook-debug",
+        "--source-formats-only"
+      ],
+      "exit_code": 0,
+      "seconds": 119.75,
+      "log": "build/bp1-native/sanitize-source-formats.log",
+      "checks": 1287
+    },
+    {
+      "name": "sanitize-guarded-formats",
+      "command": [
+        "./tests/test_workbook-debug",
+        "--guarded-formats-only"
+      ],
+      "exit_code": 0,
+      "seconds": 60.296,
+      "log": "build/bp1-native/sanitize-guarded-formats.log",
+      "checks": 1003
+    }
+  ],
+  "seconds": 254.364,
+  "core_fixtures_unchanged": true,
+  "fixtures": {
+    "tests/generated/million.parquet": "c02b79c1b7286506b9519ea545bfdf8116ac3d5bb924552a3ea76ef641265d11",
+    "tests/generated/fixture.duckdb": "19b396a69adbf37f35072c71c9fda2509594a40b7e18673548de3c0afd43a31d"
+  },
+  "source_unchanged": true,
+  "binaries": {
+    "tests/test_workbook": "225a5ccb2dbc15bc117fbebcc9ab02aadcc0419a8208d2b6a9f2361d32f955e1",
+    "tests/test_workbook-debug": "7f0d582d0208a78712cc4b3305443763d3e68cbae478fab48a31e2a3f10e27ad"
+  },
+  "scope": "Existing focused native writer/loader subsets in serial, original core fixtures retained; no GUI or full legacy workbook run."
+}

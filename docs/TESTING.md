@@ -470,3 +470,15 @@ python3 tools/test_web_app.py --no-build --review --source tests/fixtures/chart-
 The independent chart profile retains its original33 native stages and appends7 actual source-derived cases (40 total). Optimized/O1 App times are22.071/22.818s,29.832/25.741s including warm build/background. Native DB474/Worker310, planner396 and UI view187/encoding188 checks pass per configuration; they have separate scopes from App40. The `DUXCEL_TEST_CHART_OTHER` malformed-result seam exists only in the two focused database targets and must remain absent from shipping binaries.
 
 The actual DPR2 App profile accepts742 checks in30.040s total, using real menus for a same-sheet H1 Pivot, weighted AVG7.5/distinct3, cached Tooltip AVG7.5, Plot/Marks Undo/Redo, retained G10 sparse data and source/matrix readouts, with zero presentation/idle jobs. It requires review, the exact fixture name and DPR2, and rejects unrelated profiles. Captures establish bounded chart observation; cached Tooltip metadata is not a claim that its hover balloon was visible. No clipboard, saved feedback report or physical input is used. The official Worker247 separately passes125,639 checks in16.590s total: original221 workloads225jobs/441SQL/21counts remain strict, with new Other26/24jobs/88SQL/0counts and source/native-stamp guard receipts retained independently. [Sources, natural fixture-assumption failures, ownership/budget limits and distribution](validation/checkpoints/2026-10-18-chart-other/).
+
+
+## Shared workbook policy foundation
+
+```sh
+python3 tools/test.py fast --modules workbook_codec --config both
+make tests/test_workbook tests/test_workbook-debug
+./tests/test_workbook --owners-only
+ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --owners-only
+```
+
+The pure policy gate has2,274 checks/config,3.455s total at `efd7adf`, without an engine library or desktop. The native integration also uses existing `--formats-only`, `--source-versions-only`, `--source-formats-only` and `--guarded-formats-only`, serialized in both configurations with unchanged core fixtures. Those five subsets pass635/393/207/1,287/1,003 checks/config and take254.364s including16.501s build; O1 source-format119.750s/guarded60.296s expose existing metadata-query planning cost. Preserve these assertions and use the pure gate during edits. No complete legacy regression, browser decoder/Open/Save or App-runtime acceptance follows from this policy extraction. [Receipts and exact source boundaries](validation/checkpoints/2026-10-18-workbook-policy/).

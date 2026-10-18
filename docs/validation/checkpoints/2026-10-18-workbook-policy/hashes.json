@@ -1,0 +1,114 @@
+{
+  "algorithm": "sha256",
+  "scope": "All curated checkpoint files except this seal.",
+  "files": {
+    "README.md": {
+      "sha256": "50cf600f74cad713bac0f5b02b7c3d31a9afa24b60df071053822391736c6921",
+      "bytes": 3314
+    },
+    "browser/build.json": {
+      "sha256": "69e87a27e1775ed7d8525f12160f2146c985c821443eff9c3d3c706498f20fc1",
+      "bytes": 35200
+    },
+    "isolated/extraction-control.json": {
+      "sha256": "3136aa5ef9b646ca0851f4e5d13165bd552cb9af29a0d43e09162b044c2f87d0",
+      "bytes": 838
+    },
+    "isolated/manifest.json": {
+      "sha256": "eca59d02f06d186fc45591e8cd2318e5522c96e625db3667c40dd2f5e62f5951",
+      "bytes": 9696
+    },
+    "isolated/release-build.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "isolated/release-run.txt": {
+      "sha256": "fb577411e566d651c47aef684aac0eb2cb2f7e42f1caa70b9509e95f5217b3e6",
+      "bytes": 126
+    },
+    "isolated/sanitize-build.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "isolated/sanitize-run.txt": {
+      "sha256": "fb577411e566d651c47aef684aac0eb2cb2f7e42f1caa70b9509e95f5217b3e6",
+      "bytes": 126
+    },
+    "isolated/setup-without-sdk-header.txt": {
+      "sha256": "d014dbf933275114b1c388665e2c8f42a7546d042d273ed97278832c572776b4",
+      "bytes": 838
+    },
+    "native/build.log": {
+      "sha256": "b19e847a0ba608ea3106539fae366c37fe1a0f88bcd4758258b6719847da5fc6",
+      "bytes": 1376
+    },
+    "native/manifest.json": {
+      "sha256": "3c7c3d31c792d18d0fc90e4f890a2991440ef42cc50d4d64b8ac163661a1d906",
+      "bytes": 3870
+    },
+    "native/release-formats.log": {
+      "sha256": "bf4a28b0d40ae01a3afd740dfff1ec7eccad28e1e380882aadc033a9624942cb",
+      "bytes": 132
+    },
+    "native/release-guarded-formats.log": {
+      "sha256": "db1c68835e65530b5ceae191a6a2bbe7625899f1e0cece271b2527642ee96a21",
+      "bytes": 155
+    },
+    "native/release-owners.log": {
+      "sha256": "15e3b1c3bf5d9dc5d967c2c6271b8ec5fc0a4464fd2bae806a69605d2bde1d94",
+      "bytes": 131
+    },
+    "native/release-source-formats.log": {
+      "sha256": "c8b3ae60604ff8c33a1b1cd06c1d9109e50e43513db842ae5fd9dde21ee1df25",
+      "bytes": 140
+    },
+    "native/release-source-versions.log": {
+      "sha256": "cc4774517a9aae21bf7574c372abf9d2ba763b6ded85cfedd1e2885f363a0820",
+      "bytes": 147
+    },
+    "native/sanitize-formats.log": {
+      "sha256": "bf4a28b0d40ae01a3afd740dfff1ec7eccad28e1e380882aadc033a9624942cb",
+      "bytes": 132
+    },
+    "native/sanitize-guarded-formats.log": {
+      "sha256": "db1c68835e65530b5ceae191a6a2bbe7625899f1e0cece271b2527642ee96a21",
+      "bytes": 155
+    },
+    "native/sanitize-owners.log": {
+      "sha256": "15e3b1c3bf5d9dc5d967c2c6271b8ec5fc0a4464fd2bae806a69605d2bde1d94",
+      "bytes": 131
+    },
+    "native/sanitize-source-formats.log": {
+      "sha256": "c8b3ae60604ff8c33a1b1cd06c1d9109e50e43513db842ae5fd9dde21ee1df25",
+      "bytes": 140
+    },
+    "native/sanitize-source-versions.log": {
+      "sha256": "cc4774517a9aae21bf7574c372abf9d2ba763b6ded85cfedd1e2885f363a0820",
+      "bytes": 147
+    },
+    "provenance.json": {
+      "sha256": "93dc2aa30ca9428af90092b8793392faa90572f784d3cee7021b1da9f3bea06c",
+      "bytes": 5977
+    },
+    "pure/build-headless.txt": {
+      "sha256": "857dbfe21bfb2b1b73fee7ae0e6b49b90589c5e74b144b4e64877cbb871ac1d4",
+      "bytes": 485
+    },
+    "pure/runner.txt": {
+      "sha256": "22cd2025f8c516fd089ba353551e1f1c16144037b4270e4f918f0db0ce354c83",
+      "bytes": 4981
+    },
+    "pure/summary.json": {
+      "sha256": "217355df108cd7a7b3c37bee1ead0209cc651428c9f1622c5b4f1cca74649f99",
+      "bytes": 2158
+    },
+    "pure/workbook_codec-release.txt": {
+      "sha256": "b099a14997d8311107a625305af4230467190aaf81b266ae6a3c01eb2c6e006d",
+      "bytes": 167
+    },
+    "pure/workbook_codec-sanitize.txt": {
+      "sha256": "32ea5013364586718c8794f891b169e30f8418065d2c7fc35e7290a845ac2560",
+      "bytes": 173
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "scope": "Read-only source equivalence assertions, not engine acceptance",
+  "base": "1082c1f",
+  "checks": {
+    "all_26_descriptor_names_order_columns_types_nullable_identical": true,
+    "sheets_24_column_macro_identical": true,
+    "source_metadata_representation_predicate_body_identical": true,
+    "load_sheet_rows_body_identical": true,
+    "load_sheet_analysis_body_identical": true,
+    "read_workbook_body_identical": true,
+    "source_archive_valid_body_identical": true,
+    "source_model_valid_body_identical": true,
+    "source_target_valid_body_identical": true,
+    "all_native_existing_error_string_values_retained": true
+  },
+  "old_inventory_sha256": "be505bd1eb183770b6e062d2934ac2d6a4c43fea645003f179a14be2725c9550",
+  "new_inventory_sha256": "be505bd1eb183770b6e062d2934ac2d6a4c43fea645003f179a14be2725c9550"
+}

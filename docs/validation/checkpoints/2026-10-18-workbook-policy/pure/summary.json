@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T06:48:42.438846+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "edit": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "efd7adf5daa37f1ed8f386ce7104b366604915af",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "fd119d3d690027a0c934bc19c1efab75c52b3cd714e8a999f34600bbf896254a",
+    "source_files": 286
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_workbook_codec",
+        "tests/test_workbook_codec-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064842-fast-75213/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.832
+    },
+    {
+      "name": "workbook_codec-release",
+      "command": [
+        "./tests/test_workbook_codec"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064842-fast-75213/workbook_codec-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.731
+    },
+    {
+      "name": "workbook_codec-sanitize",
+      "command": [
+        "./tests/test_workbook_codec-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064842-fast-75213/workbook_codec-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.705
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_workbook_codec": "74b1aacb3d4c5a81e2ca17069e9f756ffda69d1d2fcbad94f0c74aae21d89b25",
+    "/Users/h2o/dev/duxcel/tests/test_workbook_codec-debug": "0d73b3c8b83ddd7800cf26f662219fb28f4470174e30b94534b52842ddf674b1"
+  },
+  "elapsed_seconds": 3.455,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_workbook_codec": "74b1aacb3d4c5a81e2ca17069e9f756ffda69d1d2fcbad94f0c74aae21d89b25",
+    "/Users/h2o/dev/duxcel/tests/test_workbook_codec-debug": "0d73b3c8b83ddd7800cf26f662219fb28f4470174e30b94534b52842ddf674b1"
+  },
+  "finished_utc": "2026-10-18T06:48:46.104797+00:00"
+}
