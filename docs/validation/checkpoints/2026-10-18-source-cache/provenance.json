@@ -25,6 +25,56 @@
       "source": "tests/results/runs/20261017T235053-affected-24075/final.png",
       "file": "final.png",
       "sha256": "8de94085f488f01e394541e0a383078d30dd856372ff8534f98757885fb8f3ef"
+    },
+    {
+      "source": "tests/results/runs/20261018T000220-browser-27582/summary.json",
+      "file": "browser/summary.json",
+      "sha256": "06bf02f4ceaa3a6557aa11d79eff535dca6730ad2a8914ba7515f1e8f9157ef9"
+    },
+    {
+      "source": "tests/results/runs/20261018T000220-browser-27582/result.json",
+      "file": "browser/result.json",
+      "sha256": "b6ca6ab1d71123c664fe7db7814b89a0343b5a2958d8aadf7e68ef083815a58a"
+    },
+    {
+      "source": "tests/results/runs/20261018T000220-browser-27582/source-cache.json",
+      "file": "browser/source-cache.json",
+      "sha256": "2595c2d76c51273d91811367f4b610e9a5ea56a4159150a88bab29d620a46ec3"
+    },
+    {
+      "source": "tests/results/runs/20261018T000220-browser-27582/source-cache-new-source.png",
+      "file": "browser/source-cache-new-source.png",
+      "sha256": "04df565ea1ef4ee5c4d327e88f3b41ae67d300935c6838899cdb057e823f2c48"
+    },
+    {
+      "source": "tests/results/runs/20261018T000220-browser-27582/source-cache-capacity-rejected.png",
+      "file": "browser/source-cache-capacity-rejected.png",
+      "sha256": "29cbc78357ad75d83e71c3d70c74351382ae6686541ed72165eb31ee30c1866e"
+    },
+    {
+      "source": "tests/results/runs/20261017T235717-fast-25696/summary.json",
+      "file": "grid-bridge/summary.json",
+      "sha256": "aded69f24952a10ec674009e830001cb331effa20259e6ff47efe8552f5f7a15"
+    },
+    {
+      "source": "tests/results/runs/20261017T235717-fast-25696/grid-release.txt",
+      "file": "grid-bridge/grid-release.txt",
+      "sha256": "18efbbba83231ce810d1097a79aff2bcd1b18c1c5254f1b85728293808b7a748"
+    },
+    {
+      "source": "tests/results/runs/20261017T235717-fast-25696/grid-sanitize.txt",
+      "file": "grid-bridge/grid-sanitize.txt",
+      "sha256": "66e096f8a8f848845dbbd1a211cf9be2d74bb4a715f34ca480ea54ca1da9865a"
+    },
+    {
+      "source": "tests/results/runs/20261017T235754-affected-26007/summary.json",
+      "file": "format-menu/summary.json",
+      "sha256": "4b7fa72c0407afdad4ac3cffa5b74c7c38050622c870f30f648cb0a4146242ee"
+    },
+    {
+      "source": "tests/results/runs/20261017T235754-affected-26007/layout-view-menus.txt",
+      "file": "format-menu/layout-view-menus.txt",
+      "sha256": "95783af40cb5a0ed609719db17dacff3dfaaee9be8ffb72b75e0be75b851a440"
     }
   ]
 }
