@@ -582,6 +582,60 @@ static void test_table_text_bounds(void) {
         reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);free(text);page_free(&out);
     }
 }
+/* BEGIN Pivot/Marks transport tests. Sparse maxima test row envelopes only;
+   required SQL fields and complete analytical definitions belong to the codec. */
+static const struct {const char *name;size_t rows,columns;TableDecode decode;} pivot_marks_policies[]={
+    {"pivot-fields",65537,9,page_from_wire_workbook_pivot_fields_owned},
+    {"marks",98305,8,page_from_wire_workbook_marks_owned}
+};
+static void test_pivot_marks_envelopes(void) {
+    for(size_t p=0;p<sizeof(pivot_marks_policies)/sizeof(*pivot_marks_policies);p++){
+        size_t rows=pivot_marks_policies[p].rows,columns=pivot_marks_policies[p].columns;TableDecode decode=pivot_marks_policies[p].decode;
+        const char **values=dx_alloc(rows*columns*sizeof(*values));memset(values,0,rows*columns*sizeof(*values));
+        const char *first[]={"63","18446744073709551615","true","","NULL","İstanbul 🦆 'quoted'"};
+        memcpy(values,first,sizeof(first));values[(rows-1)*columns]="0";values[(rows-1)*columns+1]="9007199254740993";values[(rows-1)*columns+2]="false";
+        Wire wire=encode(table_columns,(uint32_t)columns,(uint32_t)rows,values);Page out=table_retained();char *error=NULL;
+        size_t owned=table_owned(columns,rows,values);CHECK(owned<=32u*1024u*1024u&&owned>4u*1024u*1024u&&wire.size<=DX_PAGE_WIRE_BYTES);
+        reject_table(decode,&out,&wire,wire.size,0,rows,true,owned-1);
+        const TableDecode old[]={page_from_wire_owned,page_from_wire_copy_owned,page_from_wire_workbook_sorts_owned,page_from_wire_workbook_objects_owned,page_from_wire_workbook_owners_owned,
+            page_from_wire_workbook_table_sources_owned,page_from_wire_workbook_table_filters_owned,page_from_wire_workbook_table_sorts_owned};
+        for(size_t i=0;i<sizeof(old)/sizeof(*old);i++)reject_table(old[i],&out,&wire,wire.size,0,rows,true,SIZE_MAX);
+        reject_table(pivot_marks_policies[1-p].decode,&out,&wire,wire.size,0,rows,true,SIZE_MAX);
+        unsigned released=releases;unsigned char *before=dx_alloc(wire.size);memcpy(before,wire.bytes,wire.size);
+        CHECK(decode(&out,wire.bytes,wire.size,0,rows,true,owned,&error)&&!error&&releases==released+1);
+        CHECK(out.row_count==rows&&out.column_count==columns&&out.total==rows&&out.count_pending&&out.bytes==owned&&out.bytes==allocated_bytes(&out));
+        CHECK(!memcmp(before,wire.bytes,wire.size)&&!out.records.ids&&!out.records.source_key&&!out.records.file_identity_valid&&!out.sql&&!out.totals&&!out.other);free(before);
+        CHECK(out.columns[0].type==DUCKDB_TYPE_INTEGER&&out.columns[0].number_type.kind==NUM_I32&&out.columns[1].type==DUCKDB_TYPE_UBIGINT&&out.columns[1].number_type.kind==NUM_U64&&out.columns[2].type==DUCKDB_TYPE_BOOLEAN);
+        const size_t samples[]={0,1,rows-1};
+        for(size_t r=0;r<sizeof(samples)/sizeof(*samples);r++)for(size_t c=0;c<columns;c++){
+            size_t at=samples[r]*columns+c;CHECK(out.cells[at].is_null==(values[at]==NULL));CHECK(values[at]?out.cells[at].text&&!strcmp(out.cells[at].text,values[at]):!out.cells[at].text);
+        }
+        printf("Pivot/Marks transport %s: %zu rows x %zu columns, %zu exact C-owned bytes, %zu wire bytes (sparse shape,32MiB caller reservation only; no4MiB driver/engine/RSS claim)\n",pivot_marks_policies[p].name,rows,columns,out.bytes,wire.size);
+        memset(wire.bytes,0,wire.size);free(wire.bytes);CHECK(!strcmp(out.cells[(rows-1)*columns+1].text,"9007199254740993")&&!strcmp(out.cells[3].text,"")&&!strcmp(out.cells[4].text,"NULL"));page_free(&out);
+        wire=encode(table_columns,(uint32_t)columns,1,values);out=table_retained();
+        reject_table(decode,&out,&wire,wire.size,0,1,false,0);reject_table(decode,&out,&wire,wire.size,1,2,false,SIZE_MAX);reject_table(decode,&out,&wire,wire.size,0,0,false,SIZE_MAX);
+        reject_table(decode,&out,&wire,DX_PAGE_WIRE_BYTES+1u,0,1,false,SIZE_MAX);reject_table(decode,&out,&wire,wire.size-1,0,1,false,SIZE_MAX);
+        wire.bytes[wire.nulls]=2;reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);wire.bytes[wire.nulls]=0;
+        wire.bytes[wire.text]=0;reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);wire.bytes[wire.text]=0xff;reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);
+        wire=encode(table_columns,(uint32_t)columns,1,values);set_word(&wire,12,(uint32_t)rows+1);reject_table(decode,&out,&wire,wire.size,0,rows+1,true,SIZE_MAX);free(wire.bytes);
+        const size_t bad[]={0,columns-1,columns+1};
+        for(size_t i=0;i<3;i++){wire=encode(table_columns,(uint32_t)bad[i],1,values);reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);}
+        wire=encode(table_columns,(uint32_t)columns,0,NULL);CHECK(decode(&out,wire.bytes,wire.size,0,0,false,SIZE_MAX,&error)&&!error&&!out.row_count&&out.column_count==columns);free(wire.bytes);page_free(&out);
+        wire=encode(table_columns,(uint32_t)columns,1,values);out=table_retained();size_t one=table_owned(columns,1,values);reject_table(decode,&out,&wire,wire.size,0,1,false,one-1);
+        CHECK(decode(&out,wire.bytes,wire.size,0,1,false,one+1,&error)&&!error&&out.bytes==one);free(wire.bytes);page_free(&out);free(values);
+    }
+}
+static void test_pivot_marks_text_bounds(void) {
+    for(size_t p=0;p<sizeof(pivot_marks_policies)/sizeof(*pivot_marks_policies);p++){
+        size_t columns=pivot_marks_policies[p].columns;TableDecode decode=pivot_marks_policies[p].decode;
+        char *text=dx_alloc(DX_PAGE_WIRE_TEXT_BYTES+2u);memset(text,'x',DX_PAGE_WIRE_TEXT_BYTES);text[DX_PAGE_WIRE_TEXT_BYTES]=0;
+        const char *values[9]={0};values[3]=text;Wire wire=encode(table_columns,(uint32_t)columns,1,values);Page out={0};char *error=NULL;
+        CHECK(decode(&out,wire.bytes,wire.size,0,1,false,32u*1024u*1024u,&error)&&!error&&strlen(out.cells[3].text)==DX_PAGE_WIRE_TEXT_BYTES);free(wire.bytes);page_free(&out);
+        text[DX_PAGE_WIRE_TEXT_BYTES]='x';text[DX_PAGE_WIRE_TEXT_BYTES+1u]=0;wire=encode(table_columns,(uint32_t)columns,1,values);out=table_retained();
+        reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);free(text);page_free(&out);
+    }
+}
+/* END Pivot/Marks transport tests. */
 int main(void) {
     test_workbook_owners_envelope();test_workbook_owners_text_bound();
     test_workbook_objects_envelope();test_workbook_objects_text_bound();
@@ -589,5 +643,7 @@ int main(void) {
     test_copy_envelope();
     test_exact_owned_values(); test_row_major_and_replacement(); test_record_lookup_bounds(); test_descriptor_types(); test_bad_headers_and_lengths(); test_bad_metadata(); test_strict_utf8(); test_limits_and_empty_pages();
     unsigned original=checks;CHECK(original==60186);test_table_envelopes();test_table_text_bounds();
-    printf("PASS: %u page wire checks (60186 original retained; %u Table checks)\n",checks,checks-original); return 0;
+    printf("PASS: %u page wire checks (60186 original retained; %u Table checks)\n",checks,checks-original);
+    unsigned previous=checks;CHECK(previous==60863);test_pivot_marks_envelopes();test_pivot_marks_text_bounds();
+    printf("PASS: %u page wire checks (60863 original retained; %u Pivot/Marks checks)\n",checks,checks-previous); return 0;
 }
