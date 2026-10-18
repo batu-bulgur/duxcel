@@ -1,0 +1,54 @@
+{
+  "status": "passed",
+  "runtime_driver_source_revision": "519fa4d5065c3968acb270d20de01d2ee6dca26a",
+  "runtime_harness_source_revision": "ceb53e5033c9a2d552e92fb8a180a10672adc40e",
+  "builds": [
+    {
+      "kind": "app",
+      "artifact": "2628959ad40a01a0f325",
+      "source": {
+        "commit": "ceb53e5033c9a2d552e92fb8a180a10672adc40e",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "6271bed95dbfa65d85b582182c67c43ea3cfabb2cf09cd471d7a19181fec1d8e",
+        "source_files": 326
+      },
+      "elapsed_seconds": 18.431,
+      "command_seconds": 22.722,
+      "rebuilt_sources": [],
+      "object_cache": {
+        "mode": "app",
+        "configuration": "d57cb000cc40768cdbfe4e1573895a82c4cef4af8a0434c9b83f0d49df61ae0c",
+        "directory": "/Users/h2o/dev/duxcel/build/web/objects/app/d57cb000cc40768cdbfe",
+        "scanned_sources": 58,
+        "reused_sources": 58,
+        "elapsed_seconds": 14.691,
+        "input_validation_seconds": 3.414
+      }
+    },
+    {
+      "kind": "review",
+      "artifact": "36dc5fd2f17267bc91a6",
+      "source": {
+        "commit": "ceb53e5033c9a2d552e92fb8a180a10672adc40e",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "6271bed95dbfa65d85b582182c67c43ea3cfabb2cf09cd471d7a19181fec1d8e",
+        "source_files": 326
+      },
+      "elapsed_seconds": 14.637,
+      "command_seconds": 18.076,
+      "rebuilt_sources": [
+        "src/dev/review_capture.c"
+      ],
+      "object_cache": {
+        "mode": "review",
+        "configuration": "e5bfc693ba371e5e86b084a1d686c458dbf6f9b167db79bdc37cb531f2ab5cea",
+        "directory": "/Users/h2o/dev/duxcel/build/web/objects/review/e5bfc693ba371e5e86b0",
+        "scanned_sources": 62,
+        "reused_sources": 61,
+        "elapsed_seconds": 11.454,
+        "input_validation_seconds": 1.615
+      }
+    }
+  ],
+  "scope": "Fresh normal/review build and format-controller production exclusion; no App/GPU runtime, native bundle or service/queue promotion."
+}

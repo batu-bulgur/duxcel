@@ -1,0 +1,340 @@
+{
+  "schema": "duxcel.native-format-row-evidence",
+  "version": 1,
+  "created_utc": "2026-10-18T11:00:37.742595+00:00",
+  "status": "PASS",
+  "tested_commit": "f3f7328a23c689b5db07b7b886067236b73cc4dd",
+  "base_pure_component": "f6a92f2a35104bdac5f63b317bab7fda8c1585cb",
+  "explicit_separate_test_dependencies": [
+    {
+      "root": "96055b3",
+      "local": "26664b4"
+    },
+    {
+      "root": "eaea747",
+      "local": "af2f33c"
+    }
+  ],
+  "owned_files": [
+    "tests/test_workbook_codec_native.c",
+    "tests/test_workbook_codec_format_rows_native.inc"
+  ],
+  "scope": "Native comparison of base format row properties and immutable native archive emission only. No complete FormatStore, selector/scope/state restoration, source activation, Worker integration or App/Open/Save activation claim.",
+  "environment": {
+    "native_engine": "v1.5.6",
+    "compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+    "macos_sdk": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+    "sanitizers": "O1 ASan+UBSan; detect_leaks=0 (macOS runtime limitation)"
+  },
+  "focused": {
+    "release": {
+      "command": [
+        "build/bp1-format-rows-native/test-release",
+        "--format-rows-only"
+      ],
+      "exit": 0,
+      "seconds": 8.809107833
+    },
+    "sanitize": {
+      "command": [
+        "build/bp1-format-rows-native/test-sanitize",
+        "--format-rows-only"
+      ],
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1"
+      },
+      "exit": 0,
+      "seconds": 63.404547458
+    },
+    "checks_each": 280343,
+    "metadata_executions_each": 297,
+    "typed_feeds_each": 411,
+    "first_attempts_passed": true,
+    "prior_broad_native_profiles_rerun": false
+  },
+  "publication": {
+    "release_seconds": 2.3914705,
+    "sanitize_seconds": 13.039079000000001,
+    "release_cap_seconds": 30,
+    "files_each": 4,
+    "inventory_and_each_row_formula_verified": true,
+    "original_INTEGER_UBIGINT_schema_verified": true,
+    "final_file_reversed_physical_format_columns": true,
+    "mode_each": "0444",
+    "archive_bytes_unchanged_by_readonly_inspection": true,
+    "existing_destination_and_missing_source_refusals": true,
+    "late_conflict_preserves_user_inode_and_removes_owned_outputs": true,
+    "record": "publication.json"
+  },
+  "budgets": {
+    "representative_decoder_owned_limit": 2097152,
+    "representative_retained_category": "All owned SDK schema/atoms/text + prior owned Header passed to decoder admission. No new external input/transport proof. Future browser driver keeps separate4MiB input policy.",
+    "boundary_only_decoder_owned_limit": 33554432,
+    "boundary_only": "Native exact1MiB combined ledger/format restored and archive probes require larger owned Header because raw reference and independently resolved locator coexist. This allowance does not change production/browser caps or claim those inputs fit the representative Worker.",
+    "known_native_categories": "FormatPatch current sizeof96 on tested ABI; ledger1024\u00d7sizeof48 plus paths. Exact current1MiB boundary accepted, one extra96-byte format rejected after one accepted row; unavailable locator preserves archive bytes but does not certify final native validity.",
+    "no_absolute_RSS_allocator_engine_peak_claim": true
+  },
+  "failure_scope": {
+    "late_required_NULL_lossless_style_range_mask_order_identity_type_and_per_sheet_512": true,
+    "atomic_prefix_preserved": 256,
+    "max_sheet_overflow_prefix_preserved": 512,
+    "stale_before_borrow_and_concrete_owned_pressure_recovery": true,
+    "prior_claimed_Header_binding_ledger_Table_graphs_unchanged": true,
+    "native_workbook_rejection_preserves_caller": true,
+    "old_file_bytes_unchanged": true,
+    "no_first_attempt_product_or_fixture_failure": true
+  },
+  "source_closure": {
+    "file": "source-closure.json",
+    "sha256": "7fcb5c3de391451107bf0edfc7512d3071f6c325dd9f4993a96cc1b293f696de",
+    "project_inputs": 55,
+    "installed_headers": 1,
+    "semantics": "clang-MM exact project+non-system dependency closure, system SDK headers excluded by compiler policy; header and dylib separately hashed. Root integration equivalence pending."
+  },
+  "preserved_old_definitions": "source-preservation.json",
+  "binaries": [
+    {
+      "name": "test-release",
+      "bytes": 912944,
+      "sha256": "ccad9c227e44f97cca7b9f10b82a8c1791a1063c71d775d93e3b7d8dbc8380d0"
+    },
+    {
+      "name": "test-sanitize",
+      "bytes": 4005584,
+      "sha256": "c3b345ea2331fd143cbdaf10a1f86843f485f25832eb3213d921b9c319d641d6"
+    }
+  ],
+  "payloads": [
+    {
+      "path": "absent-refusal.json",
+      "bytes": 339,
+      "sha256": "79a76d153af715ad6587f6ed9c6a8ea4834a37fe5e72c06af965626d3369b9bc"
+    },
+    {
+      "path": "absent-refusal.log",
+      "bytes": 61,
+      "sha256": "66dd726899bd41c9141ba19aed33cb5fa1565c9e8228b259b7aa4fa6fbbb97fa"
+    },
+    {
+      "path": "absent-source-refusal.json",
+      "bytes": 344,
+      "sha256": "5446c0a4ef85a16613f121d0e837232a00dcf37d0b7de9e4eca7586acaf1b314"
+    },
+    {
+      "path": "absent-source-refusal.log",
+      "bytes": 168,
+      "sha256": "3e5ca596a701c80ff135327d7f580f56a2998df834caee74d58320c4ca260069"
+    },
+    {
+      "path": "check_publication.py",
+      "bytes": 6309,
+      "sha256": "988ff68af0ade98531b142540e7ae67d0de1c0e5c00860477388ef9dbbec9399"
+    },
+    {
+      "path": "file-refusal.json",
+      "bytes": 336,
+      "sha256": "839b67cf2fd537aa9dbaffd035234fabfa940497c0ed4a5f85608ead947ff7d0"
+    },
+    {
+      "path": "file-refusal.log",
+      "bytes": 61,
+      "sha256": "66dd726899bd41c9141ba19aed33cb5fa1565c9e8228b259b7aa4fa6fbbb97fa"
+    },
+    {
+      "path": "file-source-refusal.json",
+      "bytes": 342,
+      "sha256": "dc9a63adbbcee49d0b06fab1d40af7dbc05802a124aa970c662abafe6f8ed702"
+    },
+    {
+      "path": "file-source-refusal.log",
+      "bytes": 166,
+      "sha256": "fd6629b5a7a5962dee784b9c7b2af2a69eb7cee2f0e793aff397959a5377cfbc"
+    },
+    {
+      "path": "late-conflict.log",
+      "bytes": 163,
+      "sha256": "9e5785003f57bd66d40bc4a95482d6ffb95c473207bfba4e5ba1ed2ea02e1cb9"
+    },
+    {
+      "path": "publication.json",
+      "bytes": 6934,
+      "sha256": "4bf195a0286740fcf34403f9f4e65a9cd9e778ca568d2bb9fa881719b7b79916"
+    },
+    {
+      "path": "release-build.json",
+      "bytes": 4313,
+      "sha256": "cc71d6b0d7b6ff4b4d28ad2cf73c37f5b29554afbf18fc86ec13eef22c8618c9"
+    },
+    {
+      "path": "release-build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "release-emission.json",
+      "bytes": 326,
+      "sha256": "940b566e9d2180303d91168dc706b781d0c0d41f3cb6cf93faa8ccd718009b62"
+    },
+    {
+      "path": "release-emission.log",
+      "bytes": 295,
+      "sha256": "bbfe7e301f767e3a55a4f38050a0cc6b9f0e90edacae941182ab805c176fe90d"
+    },
+    {
+      "path": "release-existing-refusal.json",
+      "bytes": 337,
+      "sha256": "376b9cf6cc7abdc54349e3f5cfe25dffb35bc1aff538b2726ca2f4a848a4b73a"
+    },
+    {
+      "path": "release-existing-refusal.log",
+      "bytes": 163,
+      "sha256": "11439395be5828dcce26b4045819d9012749a0eb2d912755fcea3afa8a8b7bcd"
+    },
+    {
+      "path": "release-first.json",
+      "bytes": 136,
+      "sha256": "7fae56a0d10b809f546110b2b187ccc8053fd17bb718316319b145f5984ec23d"
+    },
+    {
+      "path": "release-first.log",
+      "bytes": 381,
+      "sha256": "320ba3a7182ee226e63e6a80ea5d964ecd88c3af2577a1c652658d38f4b10c54"
+    },
+    {
+      "path": "release-metadata-0.json",
+      "bytes": 1556,
+      "sha256": "0830083d75d9ed918f86dece885ff30eb5f7fc714c02ff0137df324f2d97ab95"
+    },
+    {
+      "path": "release-metadata-0.log",
+      "bytes": 283,
+      "sha256": "dbd0bd6520a1dd43f4bcfca69bd5aaec76d36c46063ad46d37bb4a7b856f4fd6"
+    },
+    {
+      "path": "release-metadata-1.json",
+      "bytes": 1558,
+      "sha256": "162c77480148bfeecebe562cd43a94383e9760a39d4a143b9ff834b36c86304e"
+    },
+    {
+      "path": "release-metadata-1.log",
+      "bytes": 283,
+      "sha256": "dbd0bd6520a1dd43f4bcfca69bd5aaec76d36c46063ad46d37bb4a7b856f4fd6"
+    },
+    {
+      "path": "release-metadata-2.json",
+      "bytes": 1766,
+      "sha256": "0603cbc085c593ae9b1a59502e43d3a115abfd37df36614d4067c2ba88c7e6db"
+    },
+    {
+      "path": "release-metadata-2.log",
+      "bytes": 318,
+      "sha256": "3fc10abb74947be3dc47d9727b8eef41a74f6b96f52a2d0526d607e9357be51f"
+    },
+    {
+      "path": "release-metadata-3.json",
+      "bytes": 1780,
+      "sha256": "bfec2f97831029d6892c497a2318b39fdcf22e71f3e5f3c2edb17a9140993ef4"
+    },
+    {
+      "path": "release-metadata-3.log",
+      "bytes": 322,
+      "sha256": "2afc4beaefa5d61d305d3e1c6f1ada2d94026c33f27778b6c148df3349c480a5"
+    },
+    {
+      "path": "sanitize-build.json",
+      "bytes": 4376,
+      "sha256": "8c1ca431701a10acc3d5208e34217ee2f46ea4aaaafd8cd065642040eb227fbb"
+    },
+    {
+      "path": "sanitize-build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "sanitize-emission.json",
+      "bytes": 337,
+      "sha256": "2dd103d3bc452436f5351acacb2f594efd4d86ee99163985489087a098868281"
+    },
+    {
+      "path": "sanitize-emission.log",
+      "bytes": 295,
+      "sha256": "bbfe7e301f767e3a55a4f38050a0cc6b9f0e90edacae941182ab805c176fe90d"
+    },
+    {
+      "path": "sanitize-existing-refusal.json",
+      "bytes": 338,
+      "sha256": "71cefbd0dbdf37f799b0234fb56f03aea307168d215060b5e8beb3bbd4145b95"
+    },
+    {
+      "path": "sanitize-existing-refusal.log",
+      "bytes": 164,
+      "sha256": "380401ec632691f902247412a853a7551d28fbbb5e5d97d76c2811934a16f9ed"
+    },
+    {
+      "path": "sanitize-first.json",
+      "bytes": 255,
+      "sha256": "56815bc513b1e44b35bcd3521d63b374ba5a9f62961d7f300a580e1971e6d90a"
+    },
+    {
+      "path": "sanitize-first.log",
+      "bytes": 381,
+      "sha256": "320ba3a7182ee226e63e6a80ea5d964ecd88c3af2577a1c652658d38f4b10c54"
+    },
+    {
+      "path": "sanitize-metadata-0.json",
+      "bytes": 1557,
+      "sha256": "e9513084363ec70d34b54103b13480fb1286bdcaf32d5ce26b310c5069a72432"
+    },
+    {
+      "path": "sanitize-metadata-0.log",
+      "bytes": 283,
+      "sha256": "dbd0bd6520a1dd43f4bcfca69bd5aaec76d36c46063ad46d37bb4a7b856f4fd6"
+    },
+    {
+      "path": "sanitize-metadata-1.json",
+      "bytes": 1559,
+      "sha256": "de9e721e7c31f97b35b074c232745ae5c3e8092e165f07aa6255d9802ec3f6a0"
+    },
+    {
+      "path": "sanitize-metadata-1.log",
+      "bytes": 283,
+      "sha256": "dbd0bd6520a1dd43f4bcfca69bd5aaec76d36c46063ad46d37bb4a7b856f4fd6"
+    },
+    {
+      "path": "sanitize-metadata-2.json",
+      "bytes": 1767,
+      "sha256": "17db90b22b54f3ec08d95de6cd4e2e19db9c3cc15600d0f284b48665e3290b68"
+    },
+    {
+      "path": "sanitize-metadata-2.log",
+      "bytes": 318,
+      "sha256": "3fc10abb74947be3dc47d9727b8eef41a74f6b96f52a2d0526d607e9357be51f"
+    },
+    {
+      "path": "sanitize-metadata-3.json",
+      "bytes": 1781,
+      "sha256": "1c198aedc957b12eb5b1b5c48e17e0179144a2db494a2c2ae2c91c2fb2d6189f"
+    },
+    {
+      "path": "sanitize-metadata-3.log",
+      "bytes": 322,
+      "sha256": "2afc4beaefa5d61d305d3e1c6f1ada2d94026c33f27778b6c148df3349c480a5"
+    },
+    {
+      "path": "source-closure.json",
+      "bytes": 10425,
+      "sha256": "7fcb5c3de391451107bf0edfc7512d3071f6c325dd9f4993a96cc1b293f696de"
+    },
+    {
+      "path": "source-dependencies.d",
+      "bytes": 7381,
+      "sha256": "7ae40e345e9a6f9eb6a860b4471f115e34468980593f0f1df2695cdf196a680f"
+    },
+    {
+      "path": "source-preservation.json",
+      "bytes": 2574,
+      "sha256": "988bf79b74bd09fcde8deb9e4bc4772169325cdee78a373a491e0992aeb73d86"
+    }
+  ]
+}

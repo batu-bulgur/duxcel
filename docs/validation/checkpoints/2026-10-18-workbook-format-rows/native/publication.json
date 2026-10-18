@@ -1,0 +1,184 @@
+{
+  "release": {
+    "emission": {
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/test-release",
+        "--emit-format-rows-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/fixtures-release"
+      ],
+      "exit": 0,
+      "seconds": 2.3914705
+    },
+    "files": [
+      {
+        "name": "format-rows-v12.dxls",
+        "version": 12,
+        "bytes": 6828032,
+        "sha256": "7467fcf5d2b4d53de4efc594acca727e7173813d093e404ebd9fe5b34252b5dc",
+        "mode": "0444",
+        "metadata": {
+          "sheets": 64,
+          "objects": 56,
+          "queries": 21,
+          "formats": 7,
+          "mismatches": 0,
+          "physical_shape": "sheet_id:INTEGER,position:INTEGER,r0:UBIGINT,r1:UBIGINT,c0:INTEGER,c1:INTEGER,mask:INTEGER,flags:INTEGER,alignment:INTEGER,color:INTEGER,font_size:INTEGER,numeric_format:INTEGER,decimals:INTEGER"
+        }
+      },
+      {
+        "name": "format-rows-v13.dxls",
+        "version": 13,
+        "bytes": 8400896,
+        "sha256": "de58c8a298ee3b05194d1a07d34c50d6e0f8ba67b9f014aedb74c7cf59c1d5e2",
+        "mode": "0444",
+        "metadata": {
+          "sheets": 64,
+          "objects": 56,
+          "queries": 21,
+          "formats": 7,
+          "mismatches": 0,
+          "physical_shape": "sheet_id:INTEGER,position:INTEGER,r0:UBIGINT,r1:UBIGINT,c0:INTEGER,c1:INTEGER,mask:INTEGER,flags:INTEGER,alignment:INTEGER,color:INTEGER,font_size:INTEGER,numeric_format:INTEGER,decimals:INTEGER"
+        }
+      },
+      {
+        "name": "format-rows-v14.dxls",
+        "version": 14,
+        "bytes": 12857344,
+        "sha256": "2a7e40afd79d4718c21a210b3a3ff85ecabcb2ca6778ce47e5394cd6fdb54383",
+        "mode": "0444",
+        "metadata": {
+          "sheets": 64,
+          "objects": 56,
+          "queries": 21,
+          "formats": 7,
+          "mismatches": 0,
+          "physical_shape": "sheet_id:INTEGER,position:INTEGER,r0:UBIGINT,r1:UBIGINT,c0:INTEGER,c1:INTEGER,mask:INTEGER,flags:INTEGER,alignment:INTEGER,color:INTEGER,font_size:INTEGER,numeric_format:INTEGER,decimals:INTEGER",
+          "bindings": 82,
+          "ledger": 8,
+          "aware": 0
+        }
+      },
+      {
+        "name": "format-rows-v14-reordered.dxls",
+        "version": 14,
+        "bytes": 8925184,
+        "sha256": "48862aabcaada6076efdd0abe976a3a838fb59061f942455814a50e35e9f4da8",
+        "mode": "0444",
+        "metadata": {
+          "sheets": 64,
+          "objects": 56,
+          "queries": 21,
+          "formats": 285,
+          "mismatches": 0,
+          "physical_shape": "decimals:INTEGER,numeric_format:INTEGER,font_size:INTEGER,color:INTEGER,alignment:INTEGER,flags:INTEGER,mask:INTEGER,c1:INTEGER,c0:INTEGER,r1:UBIGINT,r0:UBIGINT,position:INTEGER,sheet_id:INTEGER",
+          "bindings": 82,
+          "ledger": 288,
+          "aware": 0
+        }
+      }
+    ],
+    "existing_refusal": {
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/test-release",
+        "--emit-format-rows-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/fixtures-release"
+      ],
+      "exit": 1,
+      "seconds": 0.013347124999999682
+    }
+  },
+  "sanitize": {
+    "emission": {
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/test-sanitize",
+        "--emit-format-rows-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/fixtures-sanitize"
+      ],
+      "exit": 0,
+      "seconds": 13.039079000000001
+    },
+    "files": [
+      {
+        "name": "format-rows-v12.dxls",
+        "version": 12,
+        "bytes": 6828032,
+        "sha256": "fdc2c3d890b6832b146417683d96be7a1225cfb9bb13b2363dbcb68129498403",
+        "mode": "0444",
+        "metadata": {
+          "sheets": 64,
+          "objects": 56,
+          "queries": 21,
+          "formats": 7,
+          "mismatches": 0,
+          "physical_shape": "sheet_id:INTEGER,position:INTEGER,r0:UBIGINT,r1:UBIGINT,c0:INTEGER,c1:INTEGER,mask:INTEGER,flags:INTEGER,alignment:INTEGER,color:INTEGER,font_size:INTEGER,numeric_format:INTEGER,decimals:INTEGER"
+        }
+      },
+      {
+        "name": "format-rows-v13.dxls",
+        "version": 13,
+        "bytes": 8400896,
+        "sha256": "fec7c2ecfe00476b0d0b7c1e7d4346965d32f21875fac6320587e738c4eda70c",
+        "mode": "0444",
+        "metadata": {
+          "sheets": 64,
+          "objects": 56,
+          "queries": 21,
+          "formats": 7,
+          "mismatches": 0,
+          "physical_shape": "sheet_id:INTEGER,position:INTEGER,r0:UBIGINT,r1:UBIGINT,c0:INTEGER,c1:INTEGER,mask:INTEGER,flags:INTEGER,alignment:INTEGER,color:INTEGER,font_size:INTEGER,numeric_format:INTEGER,decimals:INTEGER"
+        }
+      },
+      {
+        "name": "format-rows-v14.dxls",
+        "version": 14,
+        "bytes": 12857344,
+        "sha256": "c23cac008a8f39c6a77348f8c1dd967488e866650084cf44d0b55275aecc7289",
+        "mode": "0444",
+        "metadata": {
+          "sheets": 64,
+          "objects": 56,
+          "queries": 21,
+          "formats": 7,
+          "mismatches": 0,
+          "physical_shape": "sheet_id:INTEGER,position:INTEGER,r0:UBIGINT,r1:UBIGINT,c0:INTEGER,c1:INTEGER,mask:INTEGER,flags:INTEGER,alignment:INTEGER,color:INTEGER,font_size:INTEGER,numeric_format:INTEGER,decimals:INTEGER",
+          "bindings": 82,
+          "ledger": 8,
+          "aware": 0
+        }
+      },
+      {
+        "name": "format-rows-v14-reordered.dxls",
+        "version": 14,
+        "bytes": 8925184,
+        "sha256": "5790cdfdbc813e5cfa4d7837b8f9f532e7ea7fc8331547fd60ae0c07c14edfe8",
+        "mode": "0444",
+        "metadata": {
+          "sheets": 64,
+          "objects": 56,
+          "queries": 21,
+          "formats": 285,
+          "mismatches": 0,
+          "physical_shape": "decimals:INTEGER,numeric_format:INTEGER,font_size:INTEGER,color:INTEGER,alignment:INTEGER,flags:INTEGER,mask:INTEGER,c1:INTEGER,c0:INTEGER,r1:UBIGINT,r0:UBIGINT,position:INTEGER,sheet_id:INTEGER",
+          "bindings": 82,
+          "ledger": 288,
+          "aware": 0
+        }
+      }
+    ],
+    "existing_refusal": {
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/test-sanitize",
+        "--emit-format-rows-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/fixtures-sanitize"
+      ],
+      "exit": 1,
+      "seconds": 0.17628720799999797
+    }
+  },
+  "late_conflict": {
+    "exit": 1,
+    "seconds": 2.0485051249999984,
+    "preserved_sha256": "7e7c906e0a13603d8eaace86f35498b7cd5763b10866c09826f4c243786a8bfc",
+    "owned_outputs_removed": true
+  }
+}

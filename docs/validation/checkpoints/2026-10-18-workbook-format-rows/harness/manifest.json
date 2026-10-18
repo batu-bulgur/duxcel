@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "source_revision_before_integration": "0b900631178231cc8b79fa02f10f9feafca554a9",
+  "rows": [
+    {
+      "name": "codec-guards",
+      "command": [
+        "python3",
+        "tools/test_web_codec_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.837
+    },
+    {
+      "name": "runner",
+      "command": [
+        "python3",
+        "tools/test_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.294
+    },
+    {
+      "name": "driver-syntax",
+      "command": [
+        "node",
+        "--check",
+        "tools/test_web_app.mjs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.058
+    },
+    {
+      "name": "host-syntax",
+      "command": [
+        "node",
+        "--check",
+        "web/codec_test_host.mjs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.039
+    }
+  ]
+}

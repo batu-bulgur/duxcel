@@ -1,0 +1,138 @@
+{
+  "command": [
+    "clang",
+    "-Isrc",
+    "-I/opt/homebrew/include",
+    "-O2",
+    "-g",
+    "-std=c99",
+    "-Wall",
+    "-Wextra",
+    "-Wpedantic",
+    "-Werror",
+    "src/common.c",
+    "src/platform/platform.c",
+    "src/transforms/distinct.c",
+    "src/transforms/analysis.c",
+    "src/transforms/record_sql.c",
+    "src/transforms/number.c",
+    "src/transforms/pivot.c",
+    "src/transforms/chart_other.c",
+    "src/transforms/marks.c",
+    "src/data/database.c",
+    "src/data/page.c",
+    "src/data/source_digest.c",
+    "src/workbook/clipboard.c",
+    "src/workbook/cells.c",
+    "src/workbook/format.c",
+    "src/workbook/source_scope.c",
+    "src/workbook/objects.c",
+    "src/workbook/workbook.c",
+    "src/workbook/workbook_codec.c",
+    "src/data/worker.c",
+    "src/workbook/workbook_codec_read.c",
+    "tests/test_workbook_codec_native.c",
+    "-o",
+    "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/test-release",
+    "-L/opt/homebrew/lib",
+    "-lduckdb",
+    "-pthread",
+    "-lm"
+  ],
+  "exit": 0,
+  "seconds": 5.503771958000001,
+  "sources": [
+    {
+      "path": "src/common.c",
+      "sha256": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4"
+    },
+    {
+      "path": "src/platform/platform.c",
+      "sha256": "743116c0c7fad43cc3f5286e3192ffe8936476c3e48b35f2eac0f7b2a5ae0aa6"
+    },
+    {
+      "path": "src/transforms/distinct.c",
+      "sha256": "fd6dfb234dccf2ae33becb61faff64710720b06494bba6abf44aba2b166aad7c"
+    },
+    {
+      "path": "src/transforms/analysis.c",
+      "sha256": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19"
+    },
+    {
+      "path": "src/transforms/record_sql.c",
+      "sha256": "cc395a8855d63e6ded3c0828bd3ad9d14663259733029bf3d2b04203e8c90f96"
+    },
+    {
+      "path": "src/transforms/number.c",
+      "sha256": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e"
+    },
+    {
+      "path": "src/transforms/pivot.c",
+      "sha256": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d"
+    },
+    {
+      "path": "src/transforms/chart_other.c",
+      "sha256": "fd6e092c95d9313cedb8fac49a8f08de5124b110a81b4c4ee10539a108c9db1d"
+    },
+    {
+      "path": "src/transforms/marks.c",
+      "sha256": "864da129ebccf18bc8cd72db75ae36c8e9d03f3e50db76cd9c385ed7eb22952b"
+    },
+    {
+      "path": "src/data/database.c",
+      "sha256": "5e597a475b639e880f3bb534805cc94825152e8d108e99ea2aa7d3b1ba9edbce"
+    },
+    {
+      "path": "src/data/page.c",
+      "sha256": "20e609ecf1328e8c42589697a5331dfe778a41577ba16be629996117b52d7ef3"
+    },
+    {
+      "path": "src/data/source_digest.c",
+      "sha256": "6bf46cd0827b0b7740350c2342beadfbc5689b890b049646e3b4e99fcd867f14"
+    },
+    {
+      "path": "src/workbook/clipboard.c",
+      "sha256": "2359bb7cf09890ff1ac46d8cd0db4184a3c983c970c200c41ce82992c4fb60bd"
+    },
+    {
+      "path": "src/workbook/cells.c",
+      "sha256": "5c56f3c895b43d07790970bc2c7334e7c598268289fedd1581717d3b7648410c"
+    },
+    {
+      "path": "src/workbook/format.c",
+      "sha256": "cd20649d531bdf6ed33148fa6a9a6cdee5f4d3915d587284d65c62ec0ea766a3"
+    },
+    {
+      "path": "src/workbook/source_scope.c",
+      "sha256": "1177452e699b69b18ad5506c5b73ee96fd0847b706307347822d6288289b80f8"
+    },
+    {
+      "path": "src/workbook/objects.c",
+      "sha256": "11bef814a7eef30fbb9ea3263f7fa38b29dbe2c8a706cde63a774199b5842c07"
+    },
+    {
+      "path": "src/workbook/workbook.c",
+      "sha256": "8f72fe9529b27e460f454040b492ff9cdde69f11ff67f814d587c4dcfd02e790"
+    },
+    {
+      "path": "src/workbook/workbook_codec.c",
+      "sha256": "75519f3222cdecf9fc351e8b5db0928b043a6e5db0ecf04bb3eae097cf173b11"
+    },
+    {
+      "path": "src/data/worker.c",
+      "sha256": "c6ba9b4075c2b5209863619e2b70e81deb8f80abc5f17dbe0612eb2770c6d9d8"
+    },
+    {
+      "path": "src/workbook/workbook_codec_read.c",
+      "sha256": "6087294ceebc430b0edb128a76f2f3d64648fc115c8d37de0fb34ff15d915b9c"
+    },
+    {
+      "path": "tests/test_workbook_codec_native.c",
+      "sha256": "2cc4729ab9600cacb85daa57ba5c02076fab077f8ab3df174cca5c22f8a75e53"
+    },
+    {
+      "path": "tests/test_workbook_codec_format_rows_native.inc",
+      "sha256": "4e3ebd52e0c7906f5081430e00343e44dd69639929833bfd18fc51be2d132923"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schema": "duxcel.codec-fixtures",
+  "version": 1,
+  "files": [
+    {
+      "name": "format-rows-v12.dxls",
+      "version": 12,
+      "layout": 25,
+      "bytes": 6828032,
+      "sha256": "3745f28f01405d9a01b0c2c54a126f5aa562aff2c45e9802e506c29b3cb9f457"
+    },
+    {
+      "name": "format-rows-v13.dxls",
+      "version": 13,
+      "layout": 25,
+      "bytes": 8400896,
+      "sha256": "d81acb6f0611aa678ca583d253934ba9e5e99007ffcb1b852df98a72cac6f65a"
+    },
+    {
+      "name": "format-rows-v14.dxls",
+      "version": 14,
+      "layout": 25,
+      "bytes": 12857344,
+      "sha256": "af4e1c8d10ab7200718449e4745ee35319f72f1e4c2c77ba3e74ea894b1d06c3"
+    },
+    {
+      "name": "format-rows-v14-reordered.dxls",
+      "version": 14,
+      "layout": 25,
+      "bytes": 8925184,
+      "sha256": "61396e7270e84e8e04c2784a1b8d0633c97d42e7ad8cd2ad13acf59992e33258"
+    }
+  ]
+}

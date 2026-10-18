@@ -1,0 +1,13 @@
+{
+  "origin": {
+    "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/result.json",
+    "bytes": 121711,
+    "sha256": "1b4d5ca7c7967d4903114f7d9ced6bb1bd469ae654c621963ac00587de6ffb29"
+  },
+  "extraction": "Result.report removed because same report retained once at report_ref; other result fields preserved, original raw result hash retained.",
+  "status": "passed",
+  "profile": "codec-source-bindings-driver",
+  "checks": 717,
+  "scope": "Partial owned Header with complete current-owner definitions, RAW ledger and deferred source bindings only; no Workbook publication, App Save/Open or engine/RSS peak bound",
+  "report_ref": "codec-read-driver-extract.json"
+}

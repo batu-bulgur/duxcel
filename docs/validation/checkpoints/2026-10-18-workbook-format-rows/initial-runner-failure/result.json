@@ -1,0 +1,46 @@
+{
+  "status": "failed",
+  "checks": 32,
+  "error": "Error: Held actual callback transport/release receipt changed",
+  "url": "http://127.0.0.1:54028/?codec_format_rows=1",
+  "elapsed_ms": 9516,
+  "steps": [],
+  "diagnostics": {
+    "failure": null,
+    "pending": [],
+    "held_keys": [],
+    "visibility_focus": {
+      "status": "passed",
+      "started_ms": 1792321595392,
+      "elapsed_ms": 7,
+      "value": {
+        "visibility": "visible",
+        "hidden": false,
+        "focused": true,
+        "activeElement": {
+          "tag": "BODY",
+          "id": ""
+        },
+        "readyState": "complete"
+      }
+    },
+    "debugger_pause": {
+      "status": "failed",
+      "started_ms": 1792321595399,
+      "elapsed_ms": 305,
+      "error": "Error: Debugger.pause returned without a Debugger.paused stack event"
+    },
+    "debugger_resume": {
+      "status": "failed",
+      "started_ms": 1792321595704,
+      "elapsed_ms": 1,
+      "error": "Error: CDP Debugger.resume: {\"code\":-32000,\"message\":\"Can only perform operation while paused.\"}"
+    },
+    "screenshot": {
+      "status": "passed",
+      "started_ms": 1792321595706,
+      "elapsed_ms": 45,
+      "value": "failed.png"
+    }
+  }
+}

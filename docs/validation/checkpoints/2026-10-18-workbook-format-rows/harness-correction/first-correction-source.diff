@@ -1,0 +1,37 @@
+diff --git a/tools/test_web_codec_runner_test.py b/tools/test_web_codec_runner_test.py
+index cfd5598..0bf8133 100644
+--- a/tools/test_web_codec_runner_test.py
++++ b/tools/test_web_codec_runner_test.py
+@@ -337,7 +337,7 @@ const mutations=[r=>r.queries--,r=>r.callbacks--,r=>r.normalFixtureQueries[1]=24
+  r=>r.analysisVersionsRemainZero=false,r=>r.olderNoBindingQuery=false,r=>r.danglingVersionRejected=false,r=>r.budgetRejected=false,
+  r=>r.maximumCompletedHeaderOwned=2097153,r=>r.peakOwnedInput=4194305,r=>r.staleWireReservationBytes=0,
+  r=>r.staleWireReservationBytes=6291457,r=>r.staleTotalReservationBytes=20,r=>r.transport.stream.acceptedAcks++,
+- r=>r.transport.stream.doneCallbacks--,r=>r.transport.sourceVersionPhysicalChunks--];
++ r=>r.transport.stream.doneCallbacks--,r=>r.transport.sourceVersionPhysicalChunks--,r=>r.transport.held=1,r=>r.transport.released=1];
+ for(const mutate of mutations){const bad=structuredClone(good);mutate(bad);assert.throws(()=>validate(bad,check));}
+ console.log('PASS: binding report guards rejected '+mutations.length+' corrupted receipts');
+ """.replace('FUNCTION',json.dumps(function)).replace('REPORT',json.dumps(report))
+@@ -384,7 +384,7 @@ console.log('PASS: binding report guards rejected '+mutations.length+' corrupted
+             completedBindingResults=11,poisonedBindingResults=11,formatStreams=13,matchedFormatDataCallbacks=22,matchedFormatEofCallbacks=5,formatChunkCallbacks=28,formatAcceptedAcks=20,formatDoneCallbacks=13,completedFormatStreams=5,errorFormatStreams=7,poisonedFormatDataChunks=22,
+             staleChunkCallbacks=1,staleDoneCallbacks=1,heldCallbacks=1,cancelledCallbacks=1,rejectedFeeds=7,rejectedFirstRows=[256,256,256,256,256,512,0],staleWireReservationBytes=10000,staleScalarReservationBytes=42,staleTerminalReservationBytes=2070,
+             maximumCompletedHeaderOwned=200000,headerOwnedLimit=2097152,inputOwnedLimit=4194304,peakOwnedInput=2200000,
+-            transport=dict(sourceVersionPhysicalChunks=32,formatRowPhysicalChunks=28,stream=dict(submissions=24,chunkCallbacks=60,acceptedAcks=52,doneCallbacks=24,held=1,released=1,cancelled=1)))
++            transport=dict(held=0,released=0,sourceVersionPhysicalChunks=32,formatRowPhysicalChunks=28,stream=dict(submissions=24,chunkCallbacks=60,acceptedAcks=52,doneCallbacks=24,held=1,released=1,cancelled=1)))
+         for name in ('requiredNullRejected','invalidMaskRejected','losslessFlagsRejected','rangeRejected','positionRejected','sheetLimitRejected','budgetRejected','heldSecondChunkCancelled','wholeCandidateRetry','freshRecovery','exactRawBytes','independentLocators','deferredBindingsRetained','analysisVersionsRemainZero','exactProperties','maximumCoordinateExact','unmaskedPropertiesRetained'):report[name]=True
+         script="""import assert from 'node:assert/strict';import vm from 'node:vm';
+ const validate=vm.runInNewContext('('+FUNCTION+')'),good=REPORT;
+@@ -398,12 +398,12 @@ const mutations=[r=>r.queries--,r=>r.callbacks--,r=>r.normalFixtureQueries[1]=26
+  r=>r.maximumCompletedHeaderOwned=2097153,r=>r.peakOwnedInput=4194305,r=>r.staleWireReservationBytes=0,
+  r=>r.staleWireReservationBytes=6291457,r=>r.staleScalarReservationBytes=41,r=>r.staleTerminalReservationBytes=2069,
+  r=>r.transport.stream.acceptedAcks++,r=>r.transport.stream.doneCallbacks--,r=>r.transport.formatRowPhysicalChunks--,
+- r=>r.transport.sourceVersionPhysicalChunks--];
++ r=>r.transport.sourceVersionPhysicalChunks--,r=>r.transport.held=1,r=>r.transport.released=1];
+ for(const mutate of mutations){const bad=structuredClone(good);mutate(bad);assert.throws(()=>validate(bad,check));}
+ console.log('PASS: format-row report guards rejected '+mutations.length+' corrupted receipts');
+ """.replace('FUNCTION',json.dumps(function)).replace('REPORT',json.dumps(report))
+         result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
+-        self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 34 corrupted receipts',result.stdout)
++        self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 36 corrupted receipts',result.stdout)
+ 
+     def test_manifest_covers_bytes_and_refuses_unowned_extra_files(self):
+         with tempfile.TemporaryDirectory() as temporary:

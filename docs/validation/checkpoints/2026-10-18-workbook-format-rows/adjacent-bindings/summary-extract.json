@@ -1,0 +1,164 @@
+{
+  "origin": {
+    "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/summary.json",
+    "bytes": 35624,
+    "sha256": "c2e1f62b2fe34aa731f08ad2ddfd9ec5a321c397ffe5aac4837c2c5579bcae16"
+  },
+  "extraction": "Full summary except duplicate artifact/vendor inventory; keeps buildsource/signature/compiler/cache/selected5artifact hashes. Original full summary hash retained.",
+  "status": "passed",
+  "source": {
+    "commit": "ceb53e5033c9a2d552e92fb8a180a10672adc40e",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "6271bed95dbfa65d85b582182c67c43ea3cfabb2cf09cd471d7a19181fec1d8e",
+    "source_files": 326
+  },
+  "reader_error": null,
+  "native_persistence_helpers": {},
+  "command": [
+    "node",
+    "tools/test_web_app.mjs",
+    "http://127.0.0.1:54456/",
+    "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877",
+    "--codec-read-driver",
+    "--codec-source-bindings",
+    "--dpr",
+    "1"
+  ],
+  "exit_code": 0,
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "browser_seconds": 8.467,
+  "elapsed_seconds": 10.649,
+  "setup": {
+    "build_seconds": 0.001,
+    "artifact_validation_seconds": 0.676,
+    "source_metadata_seconds": 0.151,
+    "server_setup_seconds": 1.353
+  },
+  "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+  "profile": "codec-source-bindings-driver",
+  "codec_fixture_manifest": {
+    "schema": "duxcel.codec-fixtures",
+    "version": 1,
+    "files": [
+      {
+        "name": "source-bindings-v12.dxls",
+        "version": 12,
+        "layout": 25,
+        "bytes": 6041600,
+        "sha256": "f521a9359e1be8dcdc798cd03e19b1f5a7b11e83fef1ebd9dbb39e882c0aaebd"
+      },
+      {
+        "name": "source-bindings-v13.dxls",
+        "version": 13,
+        "layout": 25,
+        "bytes": 7352320,
+        "sha256": "bbc0e29797d61d0331bad63d64ff8e01c3381e5efb834e97bc491f9548d10b62"
+      },
+      {
+        "name": "source-bindings-v14.dxls",
+        "version": 14,
+        "layout": 25,
+        "bytes": 11546624,
+        "sha256": "948bcf61c41b6ee6df7f4720c8981a1e4595a2d613ffa89d7c2c2ce419d39ed7"
+      },
+      {
+        "name": "source-bindings-v14-reordered.dxls",
+        "version": 14,
+        "layout": 25,
+        "bytes": 8138752,
+        "sha256": "d52fbbb4815caa05288cf6a58bd86287a618121b708dee5a0fa3cab986ce5d81"
+      }
+    ]
+  },
+  "codec_helper_sha256": "457825bdb169435bf16131d512d24a694509b6f08f44e49f35fbdaaebebbab1d",
+  "scope": "Isolated C partial meta/sheets/complete current-owner definitions/RAW ledger/source-binding Header decoder over four immutable native archives through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.",
+  "artifact": {
+    "status": "built",
+    "signature": "7ea1bdedce558f5e10a75be94923049d501113f094a6201cd3d581c44b1ef57e",
+    "source": {
+      "commit": "519fa4d5065c3968acb270d20de01d2ee6dca26a",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "df13d301a3950c019f0022bc0adf175c6e3f08741e7de32c7a252d05c9494376",
+      "source_files": 326
+    },
+    "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+    "elapsed_seconds": 13.375,
+    "sources": [
+      "src/common.c",
+      "src/transforms/analysis.c",
+      "src/transforms/number.c",
+      "src/transforms/pivot.c",
+      "src/data/page.c",
+      "src/data/source_digest.c",
+      "src/data/page_wire.c",
+      "src/data/browser_query.c",
+      "src/transforms/marks.c",
+      "src/workbook/source_scope.c",
+      "src/workbook/format.c",
+      "src/workbook/workbook_codec.c",
+      "src/workbook/workbook_codec_read.c",
+      "tests/test_browser_codec_read.c"
+    ],
+    "rebuilt_sources": [
+      "src/common.c",
+      "src/transforms/analysis.c",
+      "src/transforms/number.c",
+      "src/transforms/pivot.c",
+      "src/data/page.c",
+      "src/data/source_digest.c",
+      "src/data/page_wire.c",
+      "src/data/browser_query.c",
+      "src/transforms/marks.c",
+      "src/workbook/source_scope.c",
+      "src/workbook/format.c",
+      "src/workbook/workbook_codec.c",
+      "src/workbook/workbook_codec_read.c",
+      "tests/test_browser_codec_read.c"
+    ],
+    "object_cache": {
+      "mode": "codec-read",
+      "configuration": "0bfcf50e6c79f88337a51eb4543108a06677c449d86cc9579a166e5e669be24c",
+      "directory": "/Users/h2o/dev/duxcel/build/web/objects/codec-read/0bfcf50e6c79f88337a5",
+      "scanned_sources": 14,
+      "reused_sources": 0,
+      "elapsed_seconds": 10.969,
+      "input_validation_seconds": 0.208
+    },
+    "flags": [
+      "-O2",
+      "-g",
+      "-std=c99",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-DDUXCEL_BROWSER_HOST",
+      "-DPLATFORM_WEB",
+      "-DGRAPHICS_API_OPENGL_ES2",
+      "-Isrc",
+      "-I/Users/h2o/dev/duxcel/build/web/toolchain/raylib/src",
+      "-I/opt/homebrew/include"
+    ],
+    "link": [
+      "-sALLOW_MEMORY_GROWTH=1",
+      "-sINITIAL_MEMORY=67108864",
+      "-sMAXIMUM_MEMORY=1073741824",
+      "-sSTACK_SIZE=2097152",
+      "-sASSERTIONS=1",
+      "-sMODULARIZE=1",
+      "-sEXPORT_ES6=1",
+      "-sEXPORT_NAME=createDuxcel",
+      "-sENVIRONMENT=web",
+      "-sEXIT_RUNTIME=0",
+      "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_codec_fixture_result','_dx_browser_codec_result','_dx_browser_codec_stream_chunk','_dx_browser_codec_stream_done','_dx_browser_codec_stream_held','_dx_browser_codec_stream_cancelled']"
+    ],
+    "kind": "codec-read-driver",
+    "selected_artifacts": {
+      "duxcel.wasm": "432b7f2eb5d6991db137da91f85dfee6d60a8595e97d16fd652732cb777d14db",
+      "codec_stream_transport.mjs": "44dd075d376817067bba072013055458d307b4a5b49470cb7b177e187cbf88c9",
+      "duxcel.mjs": "5892f903f8931784fe3838ff74fe8f91fe8c99226faaf246692a56c383b45aa8",
+      "host.mjs": "c9248fc1621fe65eec4a5ea5f88203719b093747901c06971d2d4ee50ea8c8b9",
+      "official_worker.mjs": "c293ff05c4cfb82f8f8143ea7e7e3fcbec5e39057cc18f0fbdcf8d9029a9caae"
+    }
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "status": "static-only",
+  "base": "689f0a7c2ccb576a3a9f95ee783da1d67b1885c9",
+  "recorded_at": "2026-10-18T11:04:25.467214+00:00",
+  "ownership": [
+    "tests/test_browser_codec_format_rows.inc"
+  ],
+  "source": {
+    "path": "tests/test_browser_codec_format_rows.inc",
+    "bytes": 69867,
+    "lines": 183,
+    "sha256": "5c29c80cdfd67894dcde03ce9ad16d15d2902cec7fa2cf24e214f283ffd92d97"
+  },
+  "checks": {
+    "delimiters_balanced": true,
+    "all_hooks_declared": true,
+    "old_mutable_mode_state_not_borrowed": true,
+    "actual_allocated_budget_limit_plus_one": true,
+    "qualified_numeric_format_order": true,
+    "strict_old_done_before_stale_chunk_replay": true,
+    "prior_files": {
+      "tests/test_browser_codec_read.c": {
+        "bytes": 49255,
+        "sha256": "48e520e2576e0e197e45b81c030f4441290414d80f84753a131e3cae1a8c9c9a",
+        "byte_identical_to_base": true
+      },
+      "tests/test_browser_codec_grid.inc": {
+        "bytes": 35141,
+        "sha256": "3e7085018c89f7dab4250f07366373008f38d74b1fd4643472ddc08996c8dc07",
+        "byte_identical_to_base": true
+      },
+      "tests/test_browser_codec_source_bindings.inc": {
+        "bytes": 53541,
+        "sha256": "ae93bf3440dc656e4ba2ae6e4d80889aae1473ad0c44ff99773f17ebeda26bc9",
+        "byte_identical_to_base": true
+      },
+      "tests/test_browser_codec_source_versions.inc": {
+        "bytes": 51821,
+        "sha256": "befbdb76e55d37bdb2f0f3d822aaee80bf11693d2d1ed0f0774d895f27669c97",
+        "byte_identical_to_base": true
+      },
+      "src/workbook/workbook_codec_read.c": {
+        "bytes": 125383,
+        "sha256": "6087294ceebc430b0edb128a76f2f3d64648fc115c8d37de0fb34ff15d915b9c",
+        "byte_identical_to_base": true
+      },
+      "src/workbook/workbook_codec_read.h": {
+        "bytes": 28633,
+        "sha256": "4037d165df9d47df5d86e6fc6a063069cb5afbe0d09f2f43311018727204e171",
+        "byte_identical_to_base": true
+      }
+    }
+  },
+  "planned": {
+    "fixtures": 4,
+    "headers": 5,
+    "queries": 207,
+    "normal_queries": [
+      18,
+      20,
+      26,
+      26
+    ],
+    "rejections": 7,
+    "stale": 2,
+    "ordinary_callbacks": 183,
+    "family_executions": {
+      "meta": 13,
+      "sheets": 13,
+      "objects": 13,
+      "queries": 13,
+      "sourceOptions": 13,
+      "tableSources": 13,
+      "tableFilters": 13,
+      "tableSorts": 13,
+      "objectCounters": 12,
+      "sourceCounters": 11,
+      "sourceVersions": 11,
+      "sourceBindings": 11,
+      "formatRows": 13,
+      "describe": 45
+    },
+    "format_stream": {
+      "submissions": 13,
+      "matched_data": 22,
+      "EOF": 5,
+      "chunks": 28,
+      "ACK1": 20,
+      "done": 13,
+      "completed": 5,
+      "errors": 7,
+      "poisoned_data": 22,
+      "stale_chunk": 1,
+      "stale_done": 1,
+      "held": 1,
+      "cancelled": 1
+    },
+    "ledger_stream": {
+      "submissions": 11,
+      "data": 21,
+      "EOF": 11,
+      "chunks": 32,
+      "ACK1": 32,
+      "done": 11
+    },
+    "rejected_first_rows": [
+      256,
+      256,
+      256,
+      256,
+      256,
+      512,
+      0
+    ]
+  },
+  "scope": "Only new test-only C controller authored/static-checked; no C compile, Node, DuckDB/Worker, browser, native App/UI/GUI, source activation, full FormatStore/Workbook or OpenSave acceptance. Common interfaces/integration/runtime belong to root. Runtime report counts remain planned until actual gate."
+}

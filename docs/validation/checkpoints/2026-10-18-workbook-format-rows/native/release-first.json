@@ -1,0 +1,8 @@
+{
+  "command": [
+    "build/bp1-format-rows-native/test-release",
+    "--format-rows-only"
+  ],
+  "exit": 0,
+  "seconds": 8.809107833
+}

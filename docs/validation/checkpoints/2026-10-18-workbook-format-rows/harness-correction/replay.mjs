@@ -1,0 +1,16 @@
+import fs from 'node:fs/promises';
+const source=await fs.readFile('tools/test_web_app.mjs','utf8');
+const run='tests/results/runs/20261018T110623-browser-69293';
+const report=JSON.parse(await fs.readFile(run+'/codec-read-driver.json','utf8'));
+const manifest=JSON.parse(await fs.readFile(run+'/codec-fixture-manifest.json','utf8'));
+const events=JSON.parse(await fs.readFile(run+'/events.json','utf8'));
+const guard=source.slice(source.indexOf('function validateCodecFormatRowsReport'),source.indexOf('\nfunction validateCodecSourceBindingsReport'));
+const start=source.indexOf('  if(codecFormatRows){\n   validateCodecFormatRowsReport(report,check);');
+const end=source.indexOf("  await fs.writeFile(path.join(output,'codec-read-transport.json')",start);
+if(start<0||end<0)throw Error('Missing real post-C guard body');
+const names=['codecSourceBindings','codecSourceVersions','codecSourceCounters','codecCounters','codecGrid','codecFilters','codecPivotMarks','codecTables','codecSourceOptions','codecQueries','codecObjects','codecPreferences','codecSorts'];
+const declarations='const codecFormatRows=true,'+names.map(name=>name+'=false').join(',')+';';
+const check=(condition,message)=>{if(!condition)throw Error(message);};
+const runChecks=new Function('report','fetch','url','events','check','return (async()=>{'+declarations+guard+source.slice(start,end)+'return true;})()');
+await runChecks(report,async()=>({json:async()=>manifest}),'http://127.0.0.1/isolated-replay',events,check);
+console.log('PASS: corrected real post-C format/transport/request guards over retained207-query receipt; no Worker/runtime rerun claim');

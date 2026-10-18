@@ -1,0 +1,18 @@
+{
+  "schema": "duxcel.evidence.sha256",
+  "version": 1,
+  "files": {
+    "manifest.json": {
+      "bytes": 1950,
+      "sha256": "44a359cd6149a113d07f157ddf10e2596f6c83b4a608a377be8b048883f7a508"
+    },
+    "node.txt": {
+      "bytes": 22303,
+      "sha256": "6c9b174492899f2ef519e96e1e6187082b98051fcda6d906190441cd49251777"
+    },
+    "original-prefixes.json": {
+      "bytes": 300,
+      "sha256": "26e3061e0088c98fdbcb760677fbcc5213b59542e5ccf7d661dbff26bba00bcc"
+    }
+  }
+}

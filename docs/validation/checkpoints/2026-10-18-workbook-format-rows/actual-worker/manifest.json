@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "run": "tests/results/runs/20261018T110843-browser-70593",
+  "runtime_source": {
+    "commit": "ceb53e5033c9a2d552e92fb8a180a10672adc40e",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "6271bed95dbfa65d85b582182c67c43ea3cfabb2cf09cd471d7a19181fec1d8e",
+    "source_files": 326
+  },
+  "checks": 364221,
+  "external_checks": 906,
+  "queries": 207,
+  "headers": 5,
+  "rejections": 7,
+  "stale": 2,
+  "elapsed_seconds": 17.03,
+  "browser_seconds": 10.166,
+  "maximum_completed_header_owned": 151862,
+  "peak_owned_input": 2097216,
+  "stale_wire": 2951,
+  "receipts": {
+    "summary.json": "0894fb3f54859e138c8368e0ba14af593916f730c2bddb050cb102b98ad24b09",
+    "result.json": "32ae6cd2aad47369cc239c7b726043f23cd407d25f69432e2d11d9bd5e3e9308",
+    "codec-read-driver.json": "ec66aa5aa10eebafae925eaeef11d3dc2036ba7941002a800e95ae47b802c6b1",
+    "codec-read-transport.json": "1dcf1241d5b980c63932708fcc9592598be14c8cf4e49fb4010e44de847474a1",
+    "codec-native-provenance.json": "c198e6889875d7c6521148f1e992d4edb870b50aa6439d2f272712a4d7a70c07"
+  },
+  "scope": "Isolated C partial meta/sheets/complete current-owner definitions/RAW ledger/bindings/streamed base format properties over four immutable native archives through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.",
+  "artifact_signature": "7ea1bdedce558f5e10a75be94923049d501113f094a6201cd3d581c44b1ef57e",
+  "artifact_build_source": {
+    "commit": "519fa4d5065c3968acb270d20de01d2ee6dca26a",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "df13d301a3950c019f0022bc0adf175c6e3f08741e7de32c7a252d05c9494376",
+    "source_files": 326
+  }
+}

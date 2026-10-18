@@ -1,0 +1,11 @@
+{
+  "command": [
+    "/opt/homebrew/bin/duckdb",
+    "-readonly",
+    "-json",
+    "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/fixtures-release/format-rows-v14-reordered.dxls",
+    "SELECT (SELECT count(*) FROM _duxcel_workspace.sheets) sheets,(SELECT count(*) FROM _duxcel_workspace.objects) objects,(SELECT count(*) FROM _duxcel_workspace.queries) queries,(SELECT count(*) FROM _duxcel_workspace.formats) formats,(SELECT count(*) FROM _duxcel_workspace.formats WHERE r0<>CASE WHEN sheet_id=1 AND position=27 THEN 1099511627775 WHEN position IN (0,1) THEN 0 ELSE 3*position+sheet_id END OR r1<>CASE WHEN sheet_id=1 AND position=27 THEN 1099511627775 WHEN position=0 THEN 1099511627775 WHEN position=1 THEN 0 ELSE 3*position+sheet_id+1 END OR c0<>CASE WHEN sheet_id=1 AND position=27 THEN 16383 WHEN position IN (0,1) THEN 0 ELSE (sheet_id+position)%10 END OR c1<>CASE WHEN sheet_id=1 AND position=27 THEN 16383 WHEN position=0 THEN 16383 WHEN position=1 THEN 0 ELSE (sheet_id+position)%10+2 END OR mask<>CASE WHEN position%2=1 THEN 17 ELSE 255 END OR flags<>(sheet_id+position)%8 OR alignment<>(sheet_id+position)%4 OR color<>(sheet_id+position)%4 OR font_size<>11+(sheet_id+position)%6 OR numeric_format<>(sheet_id+position)%3 OR decimals<>(sheet_id+position)%5) mismatches,(SELECT string_agg(column_name||':'||data_type,',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='_duxcel_workspace' AND table_name='formats') physical_shape,(SELECT count(*) FROM _duxcel_workspace.source_bindings) bindings,(SELECT count(*) FROM _duxcel_workspace.source_versions) ledger,(SELECT count(*) FROM _duxcel_workspace.format_state WHERE source_aware) aware"
+  ],
+  "exit": 0,
+  "seconds": 0.04945854099999991
+}

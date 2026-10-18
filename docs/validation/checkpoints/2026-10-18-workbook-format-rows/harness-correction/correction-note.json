@@ -1,0 +1,5 @@
+{
+  "initial_actual_run": "tests/results/runs/20261018T110623-browser-69293",
+  "actual_failure": "C completed364221checks/207queries; outer runner required1ordinaryheld rather than explicit0ordinary+1streamheld.",
+  "test_edit_correction": "First global replacement also appended2format-only mutations to prior binding test. That old guard correctly failed Missing expected exception; restored old binding test byte-for-byte from519 before continuing. No C/host/fixture/product edits."
+}

@@ -1,0 +1,690 @@
+{
+  "schema": "duxcel.format-rows-checkpoint-provenance",
+  "version": 1,
+  "copies": [
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/manifest.json",
+      "retained": "pure/manifest.json",
+      "bytes": 8137,
+      "sha256": "543316cce5e3d27819a8cb0fea8c639014abda569fa424a07e8bc8ec10d69fb4"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/focused-runs.json",
+      "retained": "pure/focused-runs.json",
+      "bytes": 2261,
+      "sha256": "37a45d9c10ec0a3f2ec36628f467784e788da6879a95777e7548a48762b29557"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/release-build.txt",
+      "retained": "pure/release-build.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/release-run.txt",
+      "retained": "pure/release-run.txt",
+      "bytes": 2417,
+      "sha256": "90869b5e5c4f3f363249d6991046d73d5e3fb9aa5e8cbc7b1b89d27b8f911684"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/sanitize-build.txt",
+      "retained": "pure/sanitize-build.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/sanitize-run.txt",
+      "retained": "pure/sanitize-run.txt",
+      "bytes": 2417,
+      "sha256": "90869b5e5c4f3f363249d6991046d73d5e3fb9aa5e8cbc7b1b89d27b8f911684"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/release-dependencies.d",
+      "retained": "pure/release-dependencies.d",
+      "bytes": 3061,
+      "sha256": "aef02ddbde6549a94442e2d49d87c1ac8524a03bf5badaeb2857f8d34c00aa6d"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/sanitize-dependencies.d",
+      "retained": "pure/sanitize-dependencies.d",
+      "bytes": 3061,
+      "sha256": "aef02ddbde6549a94442e2d49d87c1ac8524a03bf5badaeb2857f8d34c00aa6d"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/release-preprocessor.txt",
+      "retained": "pure/release-preprocessor.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/sanitize-preprocessor.txt",
+      "retained": "pure/sanitize-preprocessor.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/preprocessor-closure.json",
+      "retained": "pure/preprocessor-closure.json",
+      "bytes": 11272,
+      "sha256": "308e2e081de3c053cfd109e61083c27482709858d35cce6ea0e94e8e2c03dcd9"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/original-test-preservation.json",
+      "retained": "pure/original-test-preservation.json",
+      "bytes": 468,
+      "sha256": "6c4d68755ff1558e6a09b035b85bb72db921c0d121cf561bcd2963ac08da0b6b"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/absent-refusal.json",
+      "retained": "native/absent-refusal.json",
+      "bytes": 339,
+      "sha256": "79a76d153af715ad6587f6ed9c6a8ea4834a37fe5e72c06af965626d3369b9bc"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/absent-refusal.log",
+      "retained": "native/absent-refusal.log",
+      "bytes": 61,
+      "sha256": "66dd726899bd41c9141ba19aed33cb5fa1565c9e8228b259b7aa4fa6fbbb97fa"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/absent-source-refusal.json",
+      "retained": "native/absent-source-refusal.json",
+      "bytes": 344,
+      "sha256": "5446c0a4ef85a16613f121d0e837232a00dcf37d0b7de9e4eca7586acaf1b314"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/absent-source-refusal.log",
+      "retained": "native/absent-source-refusal.log",
+      "bytes": 168,
+      "sha256": "3e5ca596a701c80ff135327d7f580f56a2998df834caee74d58320c4ca260069"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/check_publication.py",
+      "retained": "native/check_publication.py",
+      "bytes": 6309,
+      "sha256": "988ff68af0ade98531b142540e7ae67d0de1c0e5c00860477388ef9dbbec9399"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/file-refusal.json",
+      "retained": "native/file-refusal.json",
+      "bytes": 336,
+      "sha256": "839b67cf2fd537aa9dbaffd035234fabfa940497c0ed4a5f85608ead947ff7d0"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/file-refusal.log",
+      "retained": "native/file-refusal.log",
+      "bytes": 61,
+      "sha256": "66dd726899bd41c9141ba19aed33cb5fa1565c9e8228b259b7aa4fa6fbbb97fa"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/file-source-refusal.json",
+      "retained": "native/file-source-refusal.json",
+      "bytes": 342,
+      "sha256": "dc9a63adbbcee49d0b06fab1d40af7dbc05802a124aa970c662abafe6f8ed702"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/file-source-refusal.log",
+      "retained": "native/file-source-refusal.log",
+      "bytes": 166,
+      "sha256": "fd6629b5a7a5962dee784b9c7b2af2a69eb7cee2f0e793aff397959a5377cfbc"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/late-conflict.log",
+      "retained": "native/late-conflict.log",
+      "bytes": 163,
+      "sha256": "9e5785003f57bd66d40bc4a95482d6ffb95c473207bfba4e5ba1ed2ea02e1cb9"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/publication.json",
+      "retained": "native/publication.json",
+      "bytes": 6934,
+      "sha256": "4bf195a0286740fcf34403f9f4e65a9cd9e778ca568d2bb9fa881719b7b79916"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-build.json",
+      "retained": "native/release-build.json",
+      "bytes": 4313,
+      "sha256": "cc71d6b0d7b6ff4b4d28ad2cf73c37f5b29554afbf18fc86ec13eef22c8618c9"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-build.log",
+      "retained": "native/release-build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-emission.json",
+      "retained": "native/release-emission.json",
+      "bytes": 326,
+      "sha256": "940b566e9d2180303d91168dc706b781d0c0d41f3cb6cf93faa8ccd718009b62"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-emission.log",
+      "retained": "native/release-emission.log",
+      "bytes": 295,
+      "sha256": "bbfe7e301f767e3a55a4f38050a0cc6b9f0e90edacae941182ab805c176fe90d"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-existing-refusal.json",
+      "retained": "native/release-existing-refusal.json",
+      "bytes": 337,
+      "sha256": "376b9cf6cc7abdc54349e3f5cfe25dffb35bc1aff538b2726ca2f4a848a4b73a"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-existing-refusal.log",
+      "retained": "native/release-existing-refusal.log",
+      "bytes": 163,
+      "sha256": "11439395be5828dcce26b4045819d9012749a0eb2d912755fcea3afa8a8b7bcd"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-first.json",
+      "retained": "native/release-first.json",
+      "bytes": 136,
+      "sha256": "7fae56a0d10b809f546110b2b187ccc8053fd17bb718316319b145f5984ec23d"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-first.log",
+      "retained": "native/release-first.log",
+      "bytes": 381,
+      "sha256": "320ba3a7182ee226e63e6a80ea5d964ecd88c3af2577a1c652658d38f4b10c54"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-metadata-0.json",
+      "retained": "native/release-metadata-0.json",
+      "bytes": 1556,
+      "sha256": "0830083d75d9ed918f86dece885ff30eb5f7fc714c02ff0137df324f2d97ab95"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-metadata-0.log",
+      "retained": "native/release-metadata-0.log",
+      "bytes": 283,
+      "sha256": "dbd0bd6520a1dd43f4bcfca69bd5aaec76d36c46063ad46d37bb4a7b856f4fd6"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-metadata-1.json",
+      "retained": "native/release-metadata-1.json",
+      "bytes": 1558,
+      "sha256": "162c77480148bfeecebe562cd43a94383e9760a39d4a143b9ff834b36c86304e"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-metadata-1.log",
+      "retained": "native/release-metadata-1.log",
+      "bytes": 283,
+      "sha256": "dbd0bd6520a1dd43f4bcfca69bd5aaec76d36c46063ad46d37bb4a7b856f4fd6"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-metadata-2.json",
+      "retained": "native/release-metadata-2.json",
+      "bytes": 1766,
+      "sha256": "0603cbc085c593ae9b1a59502e43d3a115abfd37df36614d4067c2ba88c7e6db"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-metadata-2.log",
+      "retained": "native/release-metadata-2.log",
+      "bytes": 318,
+      "sha256": "3fc10abb74947be3dc47d9727b8eef41a74f6b96f52a2d0526d607e9357be51f"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-metadata-3.json",
+      "retained": "native/release-metadata-3.json",
+      "bytes": 1780,
+      "sha256": "bfec2f97831029d6892c497a2318b39fdcf22e71f3e5f3c2edb17a9140993ef4"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/release-metadata-3.log",
+      "retained": "native/release-metadata-3.log",
+      "bytes": 322,
+      "sha256": "2afc4beaefa5d61d305d3e1c6f1ada2d94026c33f27778b6c148df3349c480a5"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-build.json",
+      "retained": "native/sanitize-build.json",
+      "bytes": 4376,
+      "sha256": "8c1ca431701a10acc3d5208e34217ee2f46ea4aaaafd8cd065642040eb227fbb"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-build.log",
+      "retained": "native/sanitize-build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-emission.json",
+      "retained": "native/sanitize-emission.json",
+      "bytes": 337,
+      "sha256": "2dd103d3bc452436f5351acacb2f594efd4d86ee99163985489087a098868281"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-emission.log",
+      "retained": "native/sanitize-emission.log",
+      "bytes": 295,
+      "sha256": "bbfe7e301f767e3a55a4f38050a0cc6b9f0e90edacae941182ab805c176fe90d"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-existing-refusal.json",
+      "retained": "native/sanitize-existing-refusal.json",
+      "bytes": 338,
+      "sha256": "71cefbd0dbdf37f799b0234fb56f03aea307168d215060b5e8beb3bbd4145b95"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-existing-refusal.log",
+      "retained": "native/sanitize-existing-refusal.log",
+      "bytes": 164,
+      "sha256": "380401ec632691f902247412a853a7551d28fbbb5e5d97d76c2811934a16f9ed"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-first.json",
+      "retained": "native/sanitize-first.json",
+      "bytes": 255,
+      "sha256": "56815bc513b1e44b35bcd3521d63b374ba5a9f62961d7f300a580e1971e6d90a"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-first.log",
+      "retained": "native/sanitize-first.log",
+      "bytes": 381,
+      "sha256": "320ba3a7182ee226e63e6a80ea5d964ecd88c3af2577a1c652658d38f4b10c54"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-metadata-0.json",
+      "retained": "native/sanitize-metadata-0.json",
+      "bytes": 1557,
+      "sha256": "e9513084363ec70d34b54103b13480fb1286bdcaf32d5ce26b310c5069a72432"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-metadata-0.log",
+      "retained": "native/sanitize-metadata-0.log",
+      "bytes": 283,
+      "sha256": "dbd0bd6520a1dd43f4bcfca69bd5aaec76d36c46063ad46d37bb4a7b856f4fd6"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-metadata-1.json",
+      "retained": "native/sanitize-metadata-1.json",
+      "bytes": 1559,
+      "sha256": "de9e721e7c31f97b35b074c232745ae5c3e8092e165f07aa6255d9802ec3f6a0"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-metadata-1.log",
+      "retained": "native/sanitize-metadata-1.log",
+      "bytes": 283,
+      "sha256": "dbd0bd6520a1dd43f4bcfca69bd5aaec76d36c46063ad46d37bb4a7b856f4fd6"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-metadata-2.json",
+      "retained": "native/sanitize-metadata-2.json",
+      "bytes": 1767,
+      "sha256": "17db90b22b54f3ec08d95de6cd4e2e19db9c3cc15600d0f284b48665e3290b68"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-metadata-2.log",
+      "retained": "native/sanitize-metadata-2.log",
+      "bytes": 318,
+      "sha256": "3fc10abb74947be3dc47d9727b8eef41a74f6b96f52a2d0526d607e9357be51f"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-metadata-3.json",
+      "retained": "native/sanitize-metadata-3.json",
+      "bytes": 1781,
+      "sha256": "1c198aedc957b12eb5b1b5c48e17e0179144a2db494a2c2ae2c91c2fb2d6189f"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/sanitize-metadata-3.log",
+      "retained": "native/sanitize-metadata-3.log",
+      "bytes": 322,
+      "sha256": "2afc4beaefa5d61d305d3e1c6f1ada2d94026c33f27778b6c148df3349c480a5"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/source-closure.json",
+      "retained": "native/source-closure.json",
+      "bytes": 10425,
+      "sha256": "7fcb5c3de391451107bf0edfc7512d3071f6c325dd9f4993a96cc1b293f696de"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/source-dependencies.d",
+      "retained": "native/source-dependencies.d",
+      "bytes": 7381,
+      "sha256": "7ae40e345e9a6f9eb6a860b4471f115e34468980593f0f1df2695cdf196a680f"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/source-preservation.json",
+      "retained": "native/source-preservation.json",
+      "bytes": 2574,
+      "sha256": "988bf79b74bd09fcde8deb9e4bc4772169325cdee78a373a491e0992aeb73d86"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/manifest.json",
+      "retained": "native/manifest.json",
+      "bytes": 11788,
+      "sha256": "75c441153d6142c3d0e86b7e5bf554aa3fea0f8fd6fd449493550b0244637ffa"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/seal.json",
+      "retained": "native/seal.json",
+      "bytes": 7443,
+      "sha256": "e1998bb01b6f4ba9c43e00da05db62fea9649621ecb44f022c8475b22218154b"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-native-integration/root-source-comparison.json",
+      "retained": "native/root-source-comparison.json",
+      "bytes": 9717,
+      "sha256": "51bcb34dfed578fba248d491ab3a2de0d7d7b8c161f30be15c4f0d5337b2730c"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-browser-codec-format-rows/duxcel/build/format-rows-worker-include/manifest.json",
+      "retained": "static-controller/manifest.json",
+      "bytes": 3413,
+      "sha256": "b85399141abaa266083e15066efd705513db165b79b97ea031bbb746b659b99f"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-browser-codec-format-rows/duxcel/build/format-rows-worker-include/SHA256SUMS",
+      "retained": "static-controller/SHA256SUMS",
+      "bytes": 80,
+      "sha256": "2e9dc514d9905303ba22b1850e71a637850985ac87a6ce86af882159abb802c8"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-format-rows-stream/duxcel/build/format-rows-stream/manifest.json",
+      "retained": "node/manifest.json",
+      "bytes": 1950,
+      "sha256": "44a359cd6149a113d07f157ddf10e2596f6c83b4a608a377be8b048883f7a508"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-format-rows-stream/duxcel/build/format-rows-stream/node.txt",
+      "retained": "node/node.txt",
+      "bytes": 22303,
+      "sha256": "6c9b174492899f2ef519e96e1e6187082b98051fcda6d906190441cd49251777"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-format-rows-stream/duxcel/build/format-rows-stream/seal.json",
+      "retained": "node/seal.json",
+      "bytes": 480,
+      "sha256": "69f226d10a32a13ac0fcfd3b55184559096d69b14dbc48085103e8c1a1af9926"
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-format-rows-stream/duxcel/build/format-rows-stream/original-prefixes.json",
+      "retained": "node/original-prefixes.json",
+      "bytes": 300,
+      "sha256": "26e3061e0088c98fdbcb760677fbcc5213b59542e5ccf7d661dbff26bba00bcc"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-root/manifest.json",
+      "retained": "root-pure/manifest.json",
+      "bytes": 2642,
+      "sha256": "ef1c3e9e5c8dea7825c56a289cc778867100cfc9fc81fb476fa51258e1fe7e1c"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T105813-fast-66116/build-headless.txt",
+      "retained": "root-pure/build-headless.txt",
+      "bytes": 961,
+      "sha256": "f96f5ae9bf60c97a1b8cfc0755a0609ca3f419449a64580a0247f3d951e45ad6"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T105813-fast-66116/workbook_codec_read-release.txt",
+      "retained": "root-pure/workbook_codec_read-release.txt",
+      "bytes": 2463,
+      "sha256": "f94404387742d0b9d0861a1b94fff72306e4463bb62cf3a6edf7c4852a2f46b8"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T105813-fast-66116/workbook_codec_read-sanitize.txt",
+      "retained": "root-pure/workbook_codec_read-sanitize.txt",
+      "bytes": 2469,
+      "sha256": "64ebdfd47c8a2994c996461a3ed21b1c0c47bd07e41b668351a55eb381d0811c"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness/manifest.json",
+      "retained": "harness/manifest.json",
+      "bytes": 872,
+      "sha256": "a011baf8c19a58e394846ef95dfc9403ba06fbe34ffac7f510e1b6bc8294d71e"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness/codec-guards.txt",
+      "retained": "harness/codec-guards.txt",
+      "bytes": 123,
+      "sha256": "5957312e4cc62de2b100140067812bff854cef2cdf447ad1a1ef60aaab65993d"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness/runner.txt",
+      "retained": "harness/runner.txt",
+      "bytes": 4981,
+      "sha256": "d0ab6f0f06fa11d4cef50942614e6772f05107f4d999ae8ae03017d5a4655550"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness/driver-syntax.txt",
+      "retained": "harness/driver-syntax.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness/host-syntax.txt",
+      "retained": "harness/host-syntax.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110623-browser-69293/result.json",
+      "retained": "initial-runner-failure/result.json",
+      "bytes": 1212,
+      "sha256": "1d57f9454436733d7f82bb20f3ed0c68335102c7e058c9133e23edbbf25d8cb6"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110623-browser-69293/driver.txt",
+      "retained": "initial-runner-failure/driver.txt",
+      "bytes": 202,
+      "sha256": "fcc8ae9c402fae780fb10c4064d633b1e865f8c8313e681fae3947d74f5b7e7a"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110623-browser-69293/browser.txt",
+      "retained": "initial-runner-failure/browser.txt",
+      "bytes": 98,
+      "sha256": "920bece6535a199a20badae607e7371a64b3b1381e54cc3845f3cbbcb5ed6f81"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness-corrected/correction-note.json",
+      "retained": "harness-correction/correction-note.json",
+      "bytes": 489,
+      "sha256": "ee3b098c4d8607e463fba57008aa0e088bdcd933205a03da694b4675ec86e94c"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness-corrected/first-correction-source.diff",
+      "retained": "harness-correction/first-correction-source.diff",
+      "bytes": 4321,
+      "sha256": "2ceabaca537df88791f7d923a2dee3651d780a1f908ed29e8e6c89bf76d8955f"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness-corrected/manifest.json",
+      "retained": "harness-correction/manifest.json",
+      "bytes": 591,
+      "sha256": "a13f298e3aaf3c377f129f56a8797be45b28339de023a42d7c9d46bb34cd27ba"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness-corrected/codec-guards.txt",
+      "retained": "harness-correction/codec-guards.txt",
+      "bytes": 123,
+      "sha256": "94cdeada78055f8f15dd1ee8844b9f6a01af2a59ee80037c9c92b1a78be0fa41"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness-corrected/driver-syntax.txt",
+      "retained": "harness-correction/driver-syntax.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-harness-corrected/replay.mjs",
+      "retained": "harness-correction/replay.mjs",
+      "bytes": 1628,
+      "sha256": "788206c14ce693eb8c56aafc2006631eaa8e0770e0da04fd13380b9106684bb4"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110843-browser-70593/codec-fixture-manifest.json",
+      "retained": "actual-worker/codec-fixture-manifest.json",
+      "bytes": 880,
+      "sha256": "dbb5671bcc4b3f079202437931aded77a65d625d3c1dc7f6b4d5eff809577ca4"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110843-browser-70593/codec-native-create.txt",
+      "retained": "actual-worker/codec-native-create.txt",
+      "bytes": 295,
+      "sha256": "bbfe7e301f767e3a55a4f38050a0cc6b9f0e90edacae941182ab805c176fe90d"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110843-browser-70593/codec-native-provenance.json",
+      "retained": "actual-worker/codec-native-provenance.json",
+      "bytes": 1971,
+      "sha256": "c198e6889875d7c6521148f1e992d4edb870b50aa6439d2f272712a4d7a70c07"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110843-browser-70593/cleanup.json",
+      "retained": "actual-worker/cleanup.json",
+      "bytes": 207,
+      "sha256": "f2dc2bf300a6282c2e3b466bb4d230de97f9f4841157ca88320b0724bfd6c97e"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110843-browser-70593/driver.txt",
+      "retained": "actual-worker/driver.txt",
+      "bytes": 2558,
+      "sha256": "b0eefefa54f1196a6ed6b5e8f5558d930bdc8a23246d277fbd23370098ea4aed"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110843-browser-70593/browser.txt",
+      "retained": "actual-worker/browser.txt",
+      "bytes": 98,
+      "sha256": "ec09f58aee8f0cddc2c498267a72e8b213e6a59b582e88f08352ece3ef1d1c9d"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110843-browser-70593/codec-read-driver.json",
+      "retained": "actual-worker/codec-read-driver.json",
+      "bytes": 154816,
+      "sha256": "ec66aa5aa10eebafae925eaeef11d3dc2036ba7941002a800e95ae47b802c6b1"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/codec-fixture-manifest.json",
+      "retained": "adjacent-bindings/codec-fixture-manifest.json",
+      "bytes": 896,
+      "sha256": "aedf880dba384b267a50866d98165bb74f0200587ab390484015a216043a9718"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/codec-native-create.txt",
+      "retained": "adjacent-bindings/codec-native-create.txt",
+      "bytes": 311,
+      "sha256": "f007a989439ccd72da5b48e3e78dd76ae1b389794dc767bb4dec869456228cc1"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/codec-native-provenance.json",
+      "retained": "adjacent-bindings/codec-native-provenance.json",
+      "bytes": 2003,
+      "sha256": "7c6802d72bb8b0bd4267ebb404fffdca679f412c9e5ec1a22d293bad12ee1086"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/cleanup.json",
+      "retained": "adjacent-bindings/cleanup.json",
+      "bytes": 207,
+      "sha256": "53d53d58c4e3b99fb9145a80adb5f6b110ffad62901469d6e97fa7214236231a"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/driver.txt",
+      "retained": "adjacent-bindings/driver.txt",
+      "bytes": 1996,
+      "sha256": "fd28a49c5d3bb350a867e08471a2a7a7c32ae05d5a2cbb2903d8b5badb594a2d"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/browser.txt",
+      "retained": "adjacent-bindings/browser.txt",
+      "bytes": 98,
+      "sha256": "2123e05be8428be5135997d725dbf55082bdffd9635a20f935dabe497bad35f9"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-root-worker/manifest.json",
+      "retained": "actual-worker/manifest.json",
+      "bytes": 1773,
+      "sha256": "f56d4a9d695829e33e4530a8423da1b03e9ae463b0cda5b12d95b2e07143bea5"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-adjacent-bindings/manifest.json",
+      "retained": "adjacent-bindings/manifest.json",
+      "bytes": 811,
+      "sha256": "705e16b61a14d116a2fc8dffcfb221287565657a69108e1ad62036f1b1e7a50b"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-shipping/manifest.json",
+      "retained": "shipping/manifest.json",
+      "bytes": 1995,
+      "sha256": "07fda9e7cbbc18fc3fa292ddd9122b6a4056ced1dbf026197a603238d174953f"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-shipping/exclusion.json",
+      "retained": "shipping/exclusion.json",
+      "bytes": 3409,
+      "sha256": "00a98c384b47f797e01ac3ac03c3fef319dd6f133a7ba710183c544368e71cc1"
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-shipping/exclusion.txt",
+      "retained": "shipping/exclusion.txt",
+      "bytes": 102,
+      "sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a"
+    }
+  ],
+  "scope": "Source-scoped pure/native/JS/static/harness/corrected actual/adjacent/shipping receipts. Only base format property rows; no binary/archive/SDK/vendor/events, full FormatStore/Workbook/App publication or OpenSave claim.",
+  "extracts": [
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110623-browser-69293/codec-read-driver.json",
+      "retained": "initial-runner-failure/codec-read-driver-extract.json",
+      "bytes": 154816,
+      "sha256": "295890b5a29e5c6e6509772b6fa2130080287859ca58e554b2636cdb0a039c84",
+      "recipe": "Full report except transport.queries; retains complete C scalars/proofs and all other transport counters. Original full SHA retained."
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110623-browser-69293/summary.json",
+      "retained": "initial-runner-failure/summary-extract.json",
+      "bytes": 35611,
+      "sha256": "d92ccaf9ae8967e9d33fd82011da6366fa8dd38767f7e1747da87add4b7bf953",
+      "recipe": "Full summary except artifact vendor/artifact duplication; selected artifact identity/source/compiler/cache/signature and5 transport/binary hashes retained."
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110843-browser-70593/summary.json",
+      "retained": "actual-worker/summary-extract.json",
+      "bytes": 35611,
+      "sha256": "0894fb3f54859e138c8368e0ba14af593916f730c2bddb050cb102b98ad24b09",
+      "recipe": "Full summary except duplicate artifact/vendor inventory; keeps buildsource/signature/compiler/cache/selected5artifact hashes. Original full summary hash retained."
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110843-browser-70593/result.json",
+      "retained": "actual-worker/result-extract.json",
+      "bytes": 160674,
+      "sha256": "32ae6cd2aad47369cc239c7b726043f23cd407d25f69432e2d11d9bd5e3e9308",
+      "recipe": "Result.report removed because same report retained once at report_ref; other result fields preserved, original raw result hash retained."
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/codec-read-driver.json",
+      "retained": "adjacent-bindings/codec-read-driver-extract.json",
+      "bytes": 116979,
+      "sha256": "ed7daf761c9cd394f0a51c56757bdf6b3a778a65b2fe886db90e3dfd1a3321cb",
+      "recipe": "Full C report and all transport except unchanged prior-profile query list; original raw report hash retained. This is adjacent workload retention, not new format semantics."
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/summary.json",
+      "retained": "adjacent-bindings/summary-extract.json",
+      "bytes": 35624,
+      "sha256": "c2e1f62b2fe34aa731f08ad2ddfd9ec5a321c397ffe5aac4837c2c5579bcae16",
+      "recipe": "Full summary except duplicate artifact/vendor inventory; keeps buildsource/signature/compiler/cache/selected5artifact hashes. Original full summary hash retained."
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T110930-browser-70877/result.json",
+      "retained": "adjacent-bindings/result-extract.json",
+      "bytes": 121711,
+      "sha256": "1b4d5ca7c7967d4903114f7d9ced6bb1bd469ae654c621963ac00587de6ffb29",
+      "recipe": "Result.report removed because same report retained once at report_ref; other result fields preserved, original raw result hash retained."
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-shipping/app-build.json",
+      "retained": "shipping/app-build-extract.json",
+      "bytes": 35018,
+      "sha256": "0523b7a70eca97a64f7cda31b2041d65139f0036e2777adff8fe89323bfc8d7c",
+      "recipe": "Full top-level build response except manifest vendor/artifact duplication; selected artifact hashes retained."
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-format-rows-shipping/review-build.json",
+      "retained": "shipping/review-build-extract.json",
+      "bytes": 35723,
+      "sha256": "06c4b3ca655f93435d78b355b7d8390aa1ece30f9b42a83e0d476f7d21ac34cd",
+      "recipe": "Full top-level build response except manifest vendor/artifact duplication; selected artifact hashes retained."
+    }
+  ]
+}

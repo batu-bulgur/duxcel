@@ -1,0 +1,9 @@
+{
+  "command": [
+    "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/test-sanitize",
+    "--emit-format-rows-fixtures",
+    "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-native/duxcel/build/bp1-format-rows-native/fixtures-sanitize"
+  ],
+  "exit": 1,
+  "seconds": 0.17628720799999797
+}

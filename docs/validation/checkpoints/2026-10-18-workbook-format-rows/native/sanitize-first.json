@@ -1,0 +1,12 @@
+{
+  "command": [
+    "build/bp1-format-rows-native/test-sanitize",
+    "--format-rows-only"
+  ],
+  "environment": {
+    "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+    "UBSAN_OPTIONS": "halt_on_error=1"
+  },
+  "exit": 0,
+  "seconds": 63.404547458
+}

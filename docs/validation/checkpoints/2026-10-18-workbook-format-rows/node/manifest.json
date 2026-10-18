@@ -1,0 +1,52 @@
+{
+  "schema": "duxcel.format-rows-stream-tests",
+  "version": 1,
+  "status": "passed",
+  "command": [
+    "node",
+    "--test",
+    "--test-concurrency=1",
+    "web/official_worker.test.mjs",
+    "web/page_wire.test.mjs",
+    "web/engine_host.test.mjs",
+    "web/metadata_stream.test.mjs",
+    "web/metadata_stream_probe.test.mjs",
+    "web/codec_stream_transport.test.mjs"
+  ],
+  "returncode": 0,
+  "seconds": 4.376862416,
+  "source": {
+    "web/official_worker.mjs": "c293ff05c4cfb82f8f8143ea7e7e3fcbec5e39057cc18f0fbdcf8d9029a9caae",
+    "web/metadata_stream_probe.test.mjs": "310e40bc6cf231a9ee1183951aa6645dfa14f688a6126a0bd74cd084094802cc",
+    "web/codec_stream_transport.test.mjs": "276397c726f97a914e0b529145347200f05e0cc6c9335b6fcc328d3c0b146845"
+  },
+  "original_prefixes": {
+    "web/metadata_stream_probe.test.mjs": {
+      "bytes": 10571,
+      "sha256": "acd4b9b5bf8158dba79d7b25aa14679f4a52b3c300222066c978727890e14c38"
+    },
+    "web/codec_stream_transport.test.mjs": {
+      "bytes": 36109,
+      "sha256": "55c1b06308dc5da348fb85f412bcceda22da532fc64e0f8e9056ced1607f6772"
+    }
+  },
+  "scope": "Memory-only existing adapter/Arrow/Page wire/test callback tests. No official Worker/SQL engine/C ABI/browser/App execution.",
+  "base_revision": "689f0a7c2ccb576a3a9f95ee783da1d67b1885c9",
+  "groups": 205,
+  "old_groups": 193,
+  "new_groups": 12,
+  "node_duration_ms": 4191.410917,
+  "tests_first_pass": true,
+  "policy": {
+    "purpose": "workbook-metadata-stream",
+    "family": "format-rows",
+    "maximum_rows_including_sentinel": 32769,
+    "columns": 13,
+    "batch_rows": 256,
+    "page_bytes": 4194304,
+    "wire_bytes": 6291456,
+    "original_types": "I/I/U/U/Ix9"
+  },
+  "dependencies": "Existing pinned /Users/h2o/dev/duxcel/web/node_modules, temporary private symlink removed after tests; no installs/SDK/engine.",
+  "original_six_query_probe_sha256": "f6aff3275f7a4e24619550944926d4b2a8ad44a8a93ad4bdad7fdb9bc637cf81"
+}

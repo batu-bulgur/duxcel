@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "run": "tests/results/runs/20261018T110930-browser-70877",
+  "runtime_source": {
+    "commit": "ceb53e5033c9a2d552e92fb8a180a10672adc40e",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "6271bed95dbfa65d85b582182c67c43ea3cfabb2cf09cd471d7a19181fec1d8e",
+    "source_files": 326
+  },
+  "artifact_signature": "7ea1bdedce558f5e10a75be94923049d501113f094a6201cd3d581c44b1ef57e",
+  "checks": 174408,
+  "external_checks": 717,
+  "queries": 166,
+  "headers": 5,
+  "elapsed_seconds": 10.649,
+  "browser_seconds": 8.467,
+  "maximum_completed_header_owned": 117046,
+  "scope": "Adjacent prior166query source-binding workflow with original five negatives/ordinary held stale reply and7-column ledger dispatch after13-column format stream integration; no App/UI/wholeWorkbook claim."
+}

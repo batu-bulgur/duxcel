@@ -1,0 +1,88 @@
+[
+  {
+    "config": "release",
+    "build": {
+      "command": [
+        "clang",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-Werror",
+        "-O2",
+        "-g",
+        "src/common.c",
+        "src/transforms/analysis.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/marks.c",
+        "src/data/source_digest.c",
+        "src/workbook/source_scope.c",
+        "src/workbook/format.c",
+        "src/workbook/workbook_codec.c",
+        "src/workbook/workbook_codec_read.c",
+        "tests/test_workbook_codec_read.c",
+        "-lm",
+        "-o",
+        "build/bp1-format-rows-reader/test-release"
+      ],
+      "elapsed": 4.323642541,
+      "returncode": 0
+    },
+    "run": {
+      "command": [
+        "build/bp1-format-rows-reader/test-release"
+      ],
+      "elapsed": 0.7952904580000002,
+      "returncode": 0,
+      "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+      "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+    }
+  },
+  {
+    "config": "sanitize",
+    "build": {
+      "command": [
+        "clang",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-Werror",
+        "-O1",
+        "-g",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "src/common.c",
+        "src/transforms/analysis.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/marks.c",
+        "src/data/source_digest.c",
+        "src/workbook/source_scope.c",
+        "src/workbook/format.c",
+        "src/workbook/workbook_codec.c",
+        "src/workbook/workbook_codec_read.c",
+        "tests/test_workbook_codec_read.c",
+        "-lm",
+        "-o",
+        "build/bp1-format-rows-reader/test-sanitize"
+      ],
+      "elapsed": 10.864631541,
+      "returncode": 0
+    },
+    "run": {
+      "command": [
+        "build/bp1-format-rows-reader/test-sanitize"
+      ],
+      "elapsed": 1.549211917000001,
+      "returncode": 0,
+      "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+      "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+    }
+  }
+]

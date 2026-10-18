@@ -1,0 +1,225 @@
+{
+  "schema": "duxcel.bp1-format-rows-reader",
+  "version": 1,
+  "base": "4e188e7dd80cfff86fda78e8c8d6b9b3fd0b95de",
+  "source_commit": "f6a92f2a35104bdac5f63b317bab7fda8c1585cb",
+  "worktree": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel",
+  "recorded_at": "2026-10-18T10:43:47.698568+00:00",
+  "ownership": [
+    "src/workbook/workbook_codec_read.c",
+    "src/workbook/workbook_codec_read.h",
+    "tests/test_workbook_codec_read.c"
+  ],
+  "result": "PASS",
+  "checks_per_configuration": 48288,
+  "old_checks": 38778,
+  "new_checks": 9510,
+  "configurations": [
+    {
+      "config": "release",
+      "build": {
+        "command": [
+          "clang",
+          "-Isrc",
+          "-I/opt/homebrew/include",
+          "-std=c99",
+          "-Wall",
+          "-Wextra",
+          "-Wpedantic",
+          "-Werror",
+          "-O2",
+          "-g",
+          "src/common.c",
+          "src/transforms/analysis.c",
+          "src/transforms/number.c",
+          "src/transforms/pivot.c",
+          "src/transforms/marks.c",
+          "src/data/source_digest.c",
+          "src/workbook/source_scope.c",
+          "src/workbook/format.c",
+          "src/workbook/workbook_codec.c",
+          "src/workbook/workbook_codec_read.c",
+          "tests/test_workbook_codec_read.c",
+          "-lm",
+          "-o",
+          "build/bp1-format-rows-reader/test-release"
+        ],
+        "elapsed": 4.323642541,
+        "returncode": 0
+      },
+      "run": {
+        "command": [
+          "build/bp1-format-rows-reader/test-release"
+        ],
+        "elapsed": 0.7952904580000002,
+        "returncode": 0,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
+    },
+    {
+      "config": "sanitize",
+      "build": {
+        "command": [
+          "clang",
+          "-Isrc",
+          "-I/opt/homebrew/include",
+          "-std=c99",
+          "-Wall",
+          "-Wextra",
+          "-Wpedantic",
+          "-Werror",
+          "-O1",
+          "-g",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "src/common.c",
+          "src/transforms/analysis.c",
+          "src/transforms/number.c",
+          "src/transforms/pivot.c",
+          "src/transforms/marks.c",
+          "src/data/source_digest.c",
+          "src/workbook/source_scope.c",
+          "src/workbook/format.c",
+          "src/workbook/workbook_codec.c",
+          "src/workbook/workbook_codec_read.c",
+          "tests/test_workbook_codec_read.c",
+          "-lm",
+          "-o",
+          "build/bp1-format-rows-reader/test-sanitize"
+        ],
+        "elapsed": 10.864631541,
+        "returncode": 0
+      },
+      "run": {
+        "command": [
+          "build/bp1-format-rows-reader/test-sanitize"
+        ],
+        "elapsed": 1.549211917000001,
+        "returncode": 0,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
+    }
+  ],
+  "total_build_run_seconds": 17.532776457,
+  "preprocessor_seconds": 0.49008783300000003,
+  "preservation": {
+    "base": "4e188e7dd80cfff86fda78e8c8d6b9b3fd0b95de",
+    "definition_prefix": {
+      "bytes": 312824,
+      "sha256": "394c77117d9c91315dcb543c806792cc3f16f52ebac5366544de2199c233a495",
+      "exact": true
+    },
+    "main_original_statements": {
+      "bytes": 6382,
+      "sha256": "ff62afc47e32a48478f40b65519a6715b28ec20348a08397d067702e42fcf91a",
+      "exact_after_removing_new_extension": true
+    },
+    "original_checks": 38778,
+    "final_checks": 48288,
+    "new_checks": 9510
+  },
+  "source_closure": {
+    "project_files": 25,
+    "external_headers": 1,
+    "identical_between_configurations": true,
+    "system_sdk_excluded_by_clang_MM": true,
+    "no_engine_library": true
+  },
+  "additional_link_source": [
+    "src/workbook/format.c"
+  ],
+  "limits": {
+    "batch": 256,
+    "rows_per_sheet": 512,
+    "rows": 32768,
+    "request_overflow_sentinel": 32769,
+    "known_native_row_reservation": 96,
+    "joint_v14_sheet": 1048576,
+    "joint_v14_workbook": 8388608,
+    "test_default_owned_bytes": 8388608,
+    "full_domain_and_joint_budget_test_owned_bytes": 67108864
+  },
+  "scope": [
+    "One serial pure compiler lane; no engine, native GUI, browser, source SQL or source file execution.",
+    "First optimized and O1 ASan/UBSan gates passed; no failed runtime observed.",
+    "All38778 original definitions and main retained byte-for-byte; only appended base-format tests.",
+    "Lossless scalar capture then shared format_valid through a nonowning one-patch spatial validation view; no copied semantic range/style bounds.",
+    "Header geometric FormatPatch capacity plus old/new array coexistence are charged with actual retained input; separate format_native_bytes category uses max(sizeof(FormatPatch),96 known64-bit).",
+    "V14 logical format rows combine with BOTH previously admitted archive and restored ledger categories at1MiB/sheet and8MiB/workbook. Tests fill8sheets exactly then isolate per-sheet and ninth-sheet global denials. Legacy12/13 have no new aggregate cap.",
+    "POD range/mask/value getters preserve row order/unmasked values and specified0; no incomplete FormatStore exposed.",
+    "No selector, source-aware mode, scopes/guards/membership/history/revision, migration, full formats readiness/model adoption, source activation or OpenSave integration.",
+    "Logical categories are not universal ABI, allocator/RSS/process peaks. LSan disabled on unsupported macOS toolchain; ASan+UBSan halt on errors.",
+    "Private candidate pending bindings actual acceptance. Build, native/Worker/browser adapters, App and docs unchanged."
+  ],
+  "binaries": [
+    {
+      "path": "build/bp1-format-rows-reader/test-release",
+      "bytes": 674896,
+      "sha256": "2610f4772e745dc266d0d1eb40b8eeb02ac28727331de1b2614f7c560b955e09"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/test-sanitize",
+      "bytes": 2574256,
+      "sha256": "4564d692433453679c55b2e753ab0c9f2b397bdc1332d09d5a00df874885b520"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "build/bp1-format-rows-reader/focused-runs.json",
+      "bytes": 2261,
+      "sha256": "37a45d9c10ec0a3f2ec36628f467784e788da6879a95777e7548a48762b29557"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/release-build.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/release-run.txt",
+      "bytes": 2417,
+      "sha256": "90869b5e5c4f3f363249d6991046d73d5e3fb9aa5e8cbc7b1b89d27b8f911684"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/sanitize-build.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/sanitize-run.txt",
+      "bytes": 2417,
+      "sha256": "90869b5e5c4f3f363249d6991046d73d5e3fb9aa5e8cbc7b1b89d27b8f911684"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/release-dependencies.d",
+      "bytes": 3061,
+      "sha256": "aef02ddbde6549a94442e2d49d87c1ac8524a03bf5badaeb2857f8d34c00aa6d"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/sanitize-dependencies.d",
+      "bytes": 3061,
+      "sha256": "aef02ddbde6549a94442e2d49d87c1ac8524a03bf5badaeb2857f8d34c00aa6d"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/release-preprocessor.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/sanitize-preprocessor.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/preprocessor-closure.json",
+      "bytes": 11272,
+      "sha256": "308e2e081de3c053cfd109e61083c27482709858d35cce6ea0e94e8e2c03dcd9"
+    },
+    {
+      "path": "build/bp1-format-rows-reader/original-test-preservation.json",
+      "bytes": 468,
+      "sha256": "6c4d68755ff1558e6a09b035b85bb72db921c0d121cf561bcd2963ac08da0b6b"
+    }
+  ]
+}

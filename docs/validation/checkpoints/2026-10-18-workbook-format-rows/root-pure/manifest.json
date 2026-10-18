@@ -1,0 +1,70 @@
+{
+  "status": "passed",
+  "run": "tests/results/runs/20261018T105813-fast-66116",
+  "source": {
+    "commit": "689f0a7c2ccb576a3a9f95ee783da1d67b1885c9",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "6f7db300c0801d33f674197a7d22852636d85951679a38dff4796e260f8a75ad",
+    "source_files": 324
+  },
+  "checks_per_configuration": 48288,
+  "elapsed_seconds": 24.52,
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_workbook_codec_read",
+        "tests/test_workbook_codec_read-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T105813-fast-66116/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 20.386
+    },
+    {
+      "name": "workbook_codec_read-release",
+      "command": [
+        "./tests/test_workbook_codec_read"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T105813-fast-66116/workbook_codec_read-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.651
+    },
+    {
+      "name": "workbook_codec_read-sanitize",
+      "command": [
+        "./tests/test_workbook_codec_read-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T105813-fast-66116/workbook_codec_read-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 3.153
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_workbook_codec_read": "38fb6e9bfc8207d565b0beadbd080ee6b4f78a69018f437697de138eac0e877c",
+    "/Users/h2o/dev/duxcel/tests/test_workbook_codec_read-debug": "cf03f06f04029462317cf80b9ddae73146e3653744ab8f3c507fe88128952d97"
+  },
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_workbook_codec_read": "38fb6e9bfc8207d565b0beadbd080ee6b4f78a69018f437697de138eac0e877c",
+    "/Users/h2o/dev/duxcel/tests/test_workbook_codec_read-debug": "cf03f06f04029462317cf80b9ddae73146e3653744ab8f3c507fe88128952d97"
+  },
+  "private_closure_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-format-rows-reader/duxcel/build/bp1-format-rows-reader/preprocessor-closure.json",
+  "private_closure_sha256": "308e2e081de3c053cfd109e61083c27482709858d35cce6ea0e94e8e2c03dcd9",
+  "project_input_comparison": [
+    {
+      "config": "release",
+      "project_inputs": 25
+    },
+    {
+      "config": "sanitize",
+      "project_inputs": 25
+    }
+  ],
+  "scope": "Root focused Make/pure integration; exact private preprocessor project input bytes match frozen root source. Native, Worker and complete formats remain separate."
+}
