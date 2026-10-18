@@ -7,7 +7,7 @@
 /* Component only: this header/cursor cannot open, save or publish a Workbook.
    It accepts well-formed writer12/13/14 metadata, not all historical native
    coercions. Native production loading and later family defaults are unchanged.
-   Source bindings, formatting and full historical migration remain
+   Source binding adoption, formatting and full historical migration remain
    separate; captured counters alone cannot validate or activate a source. */
 typedef struct WorkbookCodecRead WorkbookCodecRead;
 typedef struct WorkbookCodecHeader WorkbookCodecHeader;
@@ -15,7 +15,7 @@ typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; }
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
     WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
     WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS,
-    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS,WORKBOOK_CODEC_OBJECT_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSIONS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS,WORKBOOK_CODEC_OBJECT_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSIONS,WORKBOOK_CODEC_SOURCE_BINDINGS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_BLOB } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -164,6 +164,20 @@ bool workbook_codec_read_add_source_version_counters(WorkbookCodecRead *read,boo
    complete batch reserves128KiB RAW scratch before packet validation. No model,
    ledger issuance, binding/path equality, format or source activation is made. */
 bool workbook_codec_read_add_source_versions(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
+/* Once after complete Table definitions (including queries/options) and source
+   ledger/counters, before claim. Absent12/13 defaults every current owner to0
+   without SQL; present12/13 is forbidden and v14 requires complete coverage.
+   One named I/U/U result has at most2112 rows plus a sentinel, fed atomically
+   <=256 at a time: each sheet primary0, then each live Table in owner order.
+   Every owner needs an explicit row, including unbound version0. A nonzero
+   binding must match its ledger entry's owner/kind; pending RAW is permitted.
+   Both nonempty logical locators must compare equal. Either unavailable locator
+   defers that comparison; empty==empty is never proof. No raw-reference spelling,
+   content/schema/engine/file identity or Analysis transform equality is inferred.
+   Fixed Header-owned PODs are separately exposed; Analysis.source_version stays0
+   until a future complete-model adoption. Arming/feeds admit caller-retained
+   bytes even though this continuation allocates no heap or parser scratch. */
+bool workbook_codec_read_add_source_bindings(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
 /* Explicit once-only continuation after the descriptor registry completes.
    All supported versions require queries. The trusted C projection preserves
    bytes while mapping SQL NULL, >64KiB, trim-empty and NUL text to required
@@ -215,9 +229,9 @@ bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPi
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   filters/sorts/preferences/object descriptors/object and source-version counters/ledger views/
+   filters/sorts/preferences/object descriptors/object and source-version counters/ledger and binding views/
    queries/source options/Table sources/Pivot/Marks/columns/cells).
-   It is not a complete workbook: formats, source bindings, historical
+   It is not a complete workbook: formats, final binding adoption, historical
    migration and final model validation remain absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
@@ -279,6 +293,14 @@ typedef struct {
 bool workbook_codec_header_source_versions_ready(const WorkbookCodecHeader *header);
 size_t workbook_codec_header_source_version_count(const WorkbookCodecHeader *header,size_t sheet);
 bool workbook_codec_header_source_version_at(const WorkbookCodecHeader *header,size_t sheet,size_t index,WorkbookCodecSourceVersionView *out);
+typedef struct { uint64_t version; bool locator_matched; } WorkbookCodecSourceBindingView;
+/* POD metadata only, never an active source/format token. Version0 is unbound
+   and locator_matched=false. Nonzero+false retains a comparison deferred by an
+   unavailable locator; true means only equal nonempty logical locators. Neither
+   status verifies a file, RAW schema/content or capability. Getter owners are
+   primary0 or live Tables only; incomplete/invalid/NULL out preserves out. */
+bool workbook_codec_header_source_bindings_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_source_binding(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,WorkbookCodecSourceBindingView *out);
 size_t workbook_codec_header_object_count(const WorkbookCodecHeader *header,size_t sheet);
 bool workbook_codec_header_object_at(const WorkbookCodecHeader *header,size_t sheet,size_t index,WorkbookCodecObjectView *out);
 /* Definitions borrow Header-owned bytes. False preserves out for an invalid
