@@ -11741,24 +11741,25 @@ static void layout_smoke_step(App *a,int *step) {
                 source_format_owner_token(a,s->objects.items[1].id));
             goto failed;
         }
-        a->grid.top=s->objects.items[0].row+2+120; break;
+        a->grid.top=s->objects.items[0].row+2+336; break;
     case 786:
-        if (!object_ready(a,0) || !a->objects[0].page.offset) return;
+        if (!object_ready(a,0) || a->objects[0].page.offset!=240) return;
         if (!smoke_table_record_formats(a,0,true,false)) goto failed;
         a->selected_object=0; create_pivot(a);
         if (s->objects.count!=3 || s->objects.items[2].source_id!=s->objects.items[0].id) goto failed;
         { PivotDefinition definition={0}; bool ok=pivot_assign(&definition,PIVOT_ROWS,"Pair",AGG_SUM,&error) &&
             pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_SUM,&error) && objects_update(&s->objects,2,&definition,&error);
           pivot_free(&definition); if (!ok) goto failed; worksheet_record(s,EDIT_OBJECTS); invalidate_object(a,2); }
-        a->sidebar=a->fields_visible=true; a->selected_object=2; a->matrix_cells_active=true; break;
+        a->sidebar=a->fields_visible=true; a->selected_object=2; a->matrix_cells_active=true;
+        a->pivot_reveal_object=false; break;
     case 787:
         if (!object_ready(a,0) || !object_ready(a,2)) return;
-        if (!a->objects[0].page.offset || !a->objects[2].page.totals || a->source_preview.format_record_token==SIZE_MAX ||
+        if (a->objects[0].page.offset!=240 || !a->objects[2].page.totals || a->source_preview.format_record_token==SIZE_MAX ||
             a->source_preview.format_result_token!=SIZE_MAX || !smoke_table_record_formats(a,0,true,false)) goto failed;
         { const SheetObject *table=s->objects.items; Page prefix=a->objects[0].page; prefix.offset=0; prefix.row_count=prefix.records.count=12;
           for (size_t r=0;r<12;r++) { CellFormat preview=grid_cell_format(&a->source_preview,&prefix,r,4);
             CellFormat body=imported_cell_format(a,table->row+2+a->objects[0].page.offset+r,table->col+4);
-            if (preview.flags!=body.flags || preview.color!=body.color) goto failed; }
+            if (!(preview.flags&FORMAT_BOLD) || preview.flags!=body.flags || preview.color!=body.color) goto failed; }
           const SheetObject *pivot=s->objects.items+2;
           if (imported_cell_format(a,pivot->row+2,pivot->col+1).flags || imported_cell_format(a,pivot->row+2,pivot->col+1).color) goto failed; }
         smoke_snapshot("tests/results/workspace-layout/table-record-format-preview.png"); break;
