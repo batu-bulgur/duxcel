@@ -47,11 +47,12 @@ LAYOUT_PROFILES = {
     "zoom-headers": (675, 687, "PASS: fixed native sheet header chrome"),
     "selection-ladder": (687, 714, "PASS: progressive native Select All"),
     "source-cache": (687, 716, "PASS: source replacement retires"),
+    "source-format": (687, 723, "PASS: native v14 saved source scopes"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 716, 20000, "PASS: source replacement retires"),
+    ("layout", 723, 20000, "PASS: native v14 saved source scopes"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),

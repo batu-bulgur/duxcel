@@ -605,6 +605,22 @@ static bool commit_cell(App *a);
 static void request_document_action(App *a,DocumentAction action,const char *path);
 static void cancel_document_action(App *a);
 static Worksheet *active_sheet(App *a) { return a->book.count ? &a->book.sheets[a->book.active] : NULL; }
+/* Persisted scopes remain suspended until a verified publication supplies exact
+   tokens. Manual cells always use token0; imported cells must never inherit a
+   finite manual/guarded rectangle through that fallback. Legacy stores retain
+   their existing coordinate behavior until an explicit migration is committed. */
+static size_t imported_format_token(App *a) {
+    Worksheet *sheet=active_sheet(a); return sheet && sheet->formats.source_aware ? SIZE_MAX : 0;
+}
+static CellFormat imported_cell_format(App *a,uint64_t row,size_t column) {
+    Worksheet *sheet=active_sheet(a);
+    return sheet ? format_resolve_token(&sheet->formats,row,column,imported_format_token(a)) : format_default();
+}
+static bool imported_cell(App *a,uint64_t row,size_t column) {
+    Worksheet *sheet=active_sheet(a);
+    return sheet && (objects_hit(&sheet->objects,row,column)>=0 ||
+        (a->analysis.kind!=SOURCE_NONE && column<a->page.column_count && (a->page.count_pending || row<a->page.total)));
+}
 static SheetObject *selected_object(App *a) {
     Worksheet *sheet=active_sheet(a);
     return sheet && a->selected_object>=0 && (size_t)a->selected_object<sheet->objects.count ? &sheet->objects.items[a->selected_object] : NULL;
@@ -1011,7 +1027,7 @@ static void activate_sheet(App *a,size_t index,bool capture) {
 }
 static void workspace_job(App *a,JobKind kind,const char *path) {
     if (kind==JOB_SAVE) for (size_t i=0;i<a->book.count;i++) {
-        char *error=NULL; bool ok=format_persistable(&a->book.sheets[i].formats,&error);
+        char *error=NULL; bool ok=format_valid(&a->book.sheets[i].formats,&error);
         if (!ok) { status(a,error); free(error); return; }
     }
     end_step_preview(a);
@@ -3842,7 +3858,7 @@ static void draw_objects_plane(App *a,Grid *g,Rectangle clip) {
                     bool null=!column || (!page->count_pending && r>=page->total); const char *text=null ? NULL : "…"; const Cell *value=NULL;
                     if (!null && r>=page->offset && r-page->offset<page->row_count) { value=&page->cells[(r-page->offset)*page->column_count+c]; null=value->is_null; text=value->text; }
                     bool marker=null || (text && !*text); if ((phase==3)!=marker) continue;
-                    { char display[64]; if (column && column->date_grain && !null && text && *text) { pivot_date_label(column->date_grain,text,display); text=display; } ui_formatted_value(u,text,null,column && column->numeric,value && column && (column->type==DUCKDB_TYPE_FLOAT || column->type==DUCKDB_TYPE_DOUBLE),value ? value->number : 0,cell,13,value || null ? UI_TEXT : UI_MUTED,format_at(&sheet->formats,sheet_row,sheet_col)); }
+                    { char display[64]; if (column && column->date_grain && !null && text && *text) { pivot_date_label(column->date_grain,text,display); text=display; } ui_formatted_value(u,text,null,column && column->numeric,value && column && (column->type==DUCKDB_TYPE_FLOAT || column->type==DUCKDB_TYPE_DOUBLE),value ? value->number : 0,cell,13,value || null ? UI_TEXT : UI_MUTED,imported_cell_format(a,sheet_row,sheet_col)); }
                 }
             }
         }
@@ -3981,7 +3997,7 @@ static void matrix_select_frame(App *a,const SheetObject *o) {
     a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=a->ribbon_focus=false; a->consume_grid_input=true;
 }
 static CellFormat matrix_total_format(App *a,uint64_t row,size_t column) {
-    CellFormat source=format_at(&active_sheet(a)->formats,row,column),out=format_default();
+    CellFormat source=imported_cell_format(a,row,column),out=format_default();
     out.number=source.number; out.decimals=source.decimals; out.specified=source.specified&(FORMAT_NUMERIC|FORMAT_DECIMALS); return out;
 }
 static void matrix_select_at(App *a,const SheetObject *o,const Page *page,Rectangle rows,Vector2 point,bool extend) {
@@ -4050,6 +4066,7 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
             a->preview_width_revision=a->grid.width_revision;
         }
         grid->formats=&active_sheet(a)->formats; grid->format_row=owner ? owner->row+2+source->offset : source->offset; grid->format_col=owner ? owner->col : 0;
+        grid->format_result_token=grid->format_record_token=imported_format_token(a);
         uint64_t widths=grid->width_revision;
         float scale=s*grid->zoom; grid_layout(grid,scale,&preview,layout.preview);
         Rectangle visible=GetCollisionRec(layout.preview,canvas); DxPointerGesture gesture;
@@ -4171,7 +4188,7 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
                             if (!total_column && active && a->matrix_cells_active && a->grid.row==o->row+row+2 && a->grid.col==o->col+c) ui_border(value,clip,2*s,UI_ACCENT);
                         } else if ((pass==2)==(cell->is_null || !*cell->text)) {
                             const char *text=cell->text; char display[64]; if (column->date_grain && !cell->is_null && *text) { pivot_date_label(column->date_grain,text,display); text=display; }
-                            CellFormat format=total_column ? matrix_total_format(a,o->row+row+2,o->col+dims+(c-result->column_count)%measures) : format_at(&active_sheet(a)->formats,o->row+row+2,o->col+c); if (c<dims && format.align==FORMAT_AUTO) format.align=FORMAT_LEFT;
+                            CellFormat format=total_column ? matrix_total_format(a,o->row+row+2,o->col+dims+(c-result->column_count)%measures) : imported_cell_format(a,o->row+row+2,o->col+c); if (c<dims && format.align==FORMAT_AUTO) format.align=FORMAT_LEFT;
                             value.x+=s;
                             ui_formatted_value(u,text,cell->is_null,column->numeric,column->type==DUCKDB_TYPE_FLOAT || column->type==DUCKDB_TYPE_DOUBLE,cell->number,value,11.5f,column->numeric && cell->number<0 ? (Color){164,51,55,255} : UI_TEXT,format);
                         }
@@ -5284,13 +5301,24 @@ static void draw_chart_measure_menu(App *a) {
     }
 }
 static CellFormat active_format(App *a) {
-    Worksheet *sheet=active_sheet(a); return sheet ? format_at(&sheet->formats,a->grid.row,a->grid.col) : format_default();
+    Worksheet *sheet=active_sheet(a);
+    return imported_cell(a,a->grid.row,a->grid.col) ? imported_cell_format(a,a->grid.row,a->grid.col) :
+        sheet ? format_at(&sheet->formats,a->grid.row,a->grid.col) : format_default();
 }
 static bool apply_format(App *a,unsigned mask,CellFormat value) {
     Worksheet *sheet=active_sheet(a); if (!sheet) return false;
     FormatRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1); char *error=NULL; uint64_t revision=sheet->formats.revision;
     if (range.r1>=DX_SHEET_ROWS) range.r1=DX_SHEET_ROWS-1;
     if (range.c1>=16384) range.c1=16383;
+    if (sheet->formats.source_aware && (range.r0 || range.r1!=DX_SHEET_ROWS-1)) {
+        bool imported=a->analysis.kind!=SOURCE_NONE && (!a->page.column_count ||
+            (range.c0<a->page.column_count && (a->page.count_pending || range.r0<a->page.total)));
+        for (size_t i=0;!imported && i<sheet->objects.count;i++) {
+            const SheetObject *o=&sheet->objects.items[i];
+            imported=range.r0<o->row+o->rows && range.r1>=o->row && range.c0<o->col+o->columns && range.c1>=o->col;
+        }
+        if (imported) { status(a,"Source-bound cell formatting needs verified record collection. Whole-column defaults remain available."); return false; }
+    }
     bool ok=format_apply(&sheet->formats,range,mask,value,&error);
     if (ok && revision!=sheet->formats.revision) { worksheet_record(sheet,EDIT_FORMAT); a->book.dirty=true; }
     if (!ok) status(a,error); free(error); return ok;
@@ -7446,6 +7474,7 @@ static void draw_app(App *a) {
     a->grid.block_pointer=over_inspector || a->left_drawer || u->pointer_blocked;
     uint64_t width_revision=a->grid.width_revision; int resizing=a->grid.resizing;
     a->grid.formats=sheet ? &sheet->formats : NULL; a->grid.format_row=0; a->grid.format_col=0;
+    a->grid.format_result_token=a->grid.format_record_token=imported_format_token(a);
     set_grid_navigation(a);
     bool canvas_input=!pivot_active && !zooming && !a->left_drawer && a->modal==MODAL_NONE && !a->chrome_focus && !a->ribbon_focus && !a->pivot_focus && !a->consume_grid_input && !a->split_side && !a->split_pipeline;
     grid_update(&a->grid,u,&a->page,gr,canvas_input);
@@ -7518,7 +7547,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 716
+#define LAYOUT_SMOKE_STAGES 723
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -10983,6 +11012,78 @@ static void layout_smoke_step(App *a,int *step) {
         printf("PASS: source replacement retires %zu cached object bytes, totals and bookmarks, preserves failed 64-sheet opens and previous worksheet definitions, and publishes the real new source without OS panels\n",retired_object_bytes);
         break;
     }
+    case 716: {
+#ifdef DUXCEL_BROWSER_HOST
+        goto failed; /* Native fixture/codec acceptance is a separate profile. */
+#else
+        /* Test-only fixture construction: the real native Page and SDK digest
+           establish exact saved proof. This does not activate an App verifier
+           or claim asynchronous format-command collection. */
+        SourceDigest digest={0}; char proof_error[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
+        SourcePacket raw={0},result={0}; SourceVersions next={0}; uint64_t id=0; size_t field=1;
+        bool ok=source_digest_file(a->analysis.path,NULL,NULL,&digest,proof_error)==SOURCE_DIGEST_OK &&
+            source_scope_raw_build(0,1,&a->analysis,&a->page,&digest,duckdb_library_version(),&raw,&error);
+        SourceVersion entry={.owner=0,.version=1,.kind=a->analysis.kind,.path=a->analysis.path,.raw=raw};
+        if (ok) ok=source_version_page_verified(&entry,0,1,&a->analysis,&a->page,SOURCE_DIGEST_OK,&digest,duckdb_library_version(),proof_error) &&
+            source_versions_plan(&s->source_versions,&entry,true,&next,&error) && page_record_id(&a->page,0,&id) &&
+            source_scope_result_build(&raw,&a->analysis,&result,&error);
+        if (ok) {
+            CellFormat value=format_default(); value.flags=FORMAT_BOLD;
+            ok=format_apply(&s->formats,(FormatRange){0,0,1,1},FORMAT_BOLD,value,&error);
+            value.flags=FORMAT_ITALIC;
+            if (ok) ok=format_apply(&s->formats,(FormatRange){20,20,8,8},FORMAT_ITALIC,value,&error);
+            value.color=3;
+            if (ok) ok=format_apply_records(&s->formats,&(FormatScopeView){0,raw.data,raw.bytes},&id,1,&field,1,FORMAT_COLOR,value,&error);
+            if (ok) ok=format_apply_scoped(&s->formats,(FormatRange){0,0,1,1},FORMAT_ITALIC,value,&(FormatScopeView){0,result.data,result.bytes},1,false,&error);
+        }
+        source_packet_free(&raw); source_packet_free(&result);
+        if (!ok) { source_versions_free(&next); if (!error && *proof_error) error=dx_strdup(proof_error); goto failed; }
+        source_versions_free(&s->source_versions); s->source_versions=next;
+        a->analysis.source_version=s->analysis.source_version=1;
+        if (!cells_set(&s->cells,20,8,"Manual style",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS); a->book.dirty=true;
+        request=a->request_id; ribbon_cells=a->page.cells; grid_select_cell(&a->grid,0,1,false);
+        break;
+#endif
+    }
+    case 717: {
+        uint64_t revision=s->formats.revision; size_t actions=s->undo_actions_count; bool dirty=a->book.dirty;
+        if (!s->formats.source_aware || s->formats.scope_count!=2 || a->grid.format_result_token!=SIZE_MAX || a->grid.format_record_token!=SIZE_MAX ||
+            active_format(a).flags || active_format(a).color || grid_cell_format(&a->grid,&a->page,0,1).flags ||
+            !(format_at(&s->formats,20,8).flags&FORMAT_ITALIC)) goto failed;
+        run_action(a,ACTION_BOLD);
+        if (s->formats.revision!=revision || s->undo_actions_count!=actions || a->book.dirty!=dirty ||
+            !a->message || !strstr(a->message,"verified record collection") || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        a->grid.selection=SELECT_COLUMNS; run_action(a,ACTION_ALIGN_CENTER);
+        if (active_format(a).align!=FORMAT_CENTER || active_format(a).flags || s->undo_actions_count!=actions+1 || !s->formats.source_aware ||
+            a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/source-aware-suspended.png"); break;
+    }
+    case 718:
+        grid_select_cell(&a->grid,20,8,false); run_action(a,ACTION_BOLD);
+        if (active_format(a).flags!=(FORMAT_BOLD|FORMAT_ITALIC) || !s->formats.source_aware) goto failed;
+        history(a,false); if (active_format(a).flags!=FORMAT_ITALIC || !s->formats.source_aware) goto failed;
+        history(a,true); if (active_format(a).flags!=(FORMAT_BOLD|FORMAT_ITALIC) || !s->formats.source_aware || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        break;
+    case 719:
+        remove("tests/generated/app-source-format.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-source-format.dxls"); break;
+    case 720:
+        if (a->book.dirty || !a->book.path || !s->formats.source_aware || !workbook_rename(&a->book,a->book.active,"Changed after scoped save",&error)) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-source-format.dxls"); break;
+    case 721:
+        if (!s->formats.source_aware || s->source_versions.high_water!=1 || s->source_versions.count!=1 ||
+            a->analysis.source_version!=1 || s->analysis.source_version!=1 || s->formats.scope_count!=2 ||
+            strcmp(cells_get(&s->cells,20,8),"Manual style") || format_at(&s->formats,20,8).flags!=(FORMAT_BOLD|FORMAT_ITALIC) ||
+            a->page.total!=5 || a->page.column_count!=6 || strcmp(a->page.cells[1].text,"İstanbul") || a->book.dirty ||
+            !strcmp(s->name,"Changed after scoped save")) goto failed;
+        grid_select_cell(&a->grid,0,1,false);
+        if (active_format(a).flags || active_format(a).color || active_format(a).align!=FORMAT_CENTER ||
+            a->grid.format_result_token!=SIZE_MAX || a->grid.format_record_token!=SIZE_MAX) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/source-aware-reopened.png");
+        workspace_job(a,JOB_SAVE,"tests/generated/app-source-format.dxls"); break;
+    case 722:
+        if (a->book.dirty || !s->formats.source_aware || s->formats.scope_count!=2 || active_format(a).flags || active_format(a).color) goto failed;
+        puts("PASS: native v14 saved source scopes stay suspended across real Save Open and overwrite, imported finite commands reject atomically, manual and whole-column formatting retain Undo Redo and exact source values"); break;
 
     }
     free(error); (*step)++; return;
