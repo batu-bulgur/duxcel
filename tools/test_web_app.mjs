@@ -15,19 +15,22 @@ const workerDriver=process.argv.includes('--worker-driver');
 const codecReadDriver=process.argv.includes('--codec-read-driver');
 const codecSorts=process.argv.includes('--codec-sorts');
 const codecPreferences=process.argv.includes('--codec-preferences');
+const codecObjects=process.argv.includes('--codec-objects');
 if(codecSorts&&!codecReadDriver)throw new Error('--codec-sorts requires --codec-read-driver');
 if(codecPreferences&&!codecReadDriver)throw new Error('--codec-preferences requires --codec-read-driver');
-if(codecPreferences&&codecSorts)throw new Error('Choose one independent codec family gate');
+if(codecObjects&&!codecReadDriver)throw new Error('--codec-objects requires --codec-read-driver');
+if(Number(codecPreferences)+Number(codecSorts)+Number(codecObjects)>1)throw new Error('Choose one independent codec family gate');
 if(codecReadDriver){
  const args=process.argv.slice(4);
  for(let i=0;i<args.length;i++){
-  if(args[i]==='--codec-read-driver'||args[i]==='--codec-sorts'||args[i]==='--codec-preferences')continue;
+  if(args[i]==='--codec-read-driver'||args[i]==='--codec-sorts'||args[i]==='--codec-preferences'||args[i]==='--codec-objects')continue;
   if(args[i]==='--dpr'&&args[++i]==='1')continue;
   throw new Error('--codec-read-driver is an isolated no-window gate with default DPR1');
  }
 }
 if(codecSorts){const target=new URL(url);target.searchParams.set('codec_sorts','1');url=target.href;}
 if(codecPreferences){const target=new URL(url);target.searchParams.set('codec_preferences','1');url=target.href;}
+if(codecObjects){const target=new URL(url);target.searchParams.set('codec_objects','1');url=target.href;}
 const filters=process.argv.includes('--filters');
 const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
@@ -2747,7 +2750,14 @@ try{
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelCodecReadResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'codec-read-driver.json'),JSON.stringify(report??{ok:false,error:'C header driver did not complete'},null,2));
   check(report?.ok,'Real C/Worker header decoding failed; see codec-read-driver.json and events.json');
-  if(codecPreferences){
+  if(codecObjects){
+   check(report.mode==='objects'&&report.fixtures===4&&report.headers===6&&report.queries===58&&report.rejections===9&&report.stale===1,'C object descriptor fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,6,6,6]),'Object archives did not execute each original-schema/canonical family request once');
+   check(report.familyExecutions?.meta===15&&report.familyExecutions?.sheets===15&&report.familyExecutions?.objects===15&&report.familyExecutions?.describe===13,'Observed C object descriptor metadata execution inventory changed');
+   check(report.acceptedFeeds?.rows256===77&&report.rejectedFeeds===7&&report.validSplitGroups===6,'Real2048-row object results did not retain their eight256-row feed boundaries');
+   check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([0,0,1792,1792,1792,2048,0]),'Object descriptor failure changed accepted batch prefixes');
+   check(report.wireRejections===1&&report.schemaRejections===1&&report.requiredNullRejected&&report.duplicateIdRejected&&report.geometryRejected&&report.forwardBindingRejected&&report.overlapRejected&&report.sentinelRejected&&report.budgetRejected&&report.wireNulRejected&&report.originalTypeRejected,'Object descriptor rejection reasons were not observed');
+  }else if(codecPreferences){
    check(report.mode==='preferences'&&report.fixtures===6&&report.headers===6&&report.queries===61&&report.rejections===8&&report.stale===1,'C preference-family fixture/failure/recovery inventory changed');
    check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,6,6,6,6,6]),'Preference archives did not execute each original-schema/canonical family request once');
    check(report.familyExecutions?.meta===14&&report.familyExecutions?.sheets===14&&report.familyExecutions?.preferences===15&&report.familyExecutions?.describe===18,'Observed C preference metadata execution inventory changed');
@@ -2767,7 +2777,7 @@ try{
    check(JSON.stringify(report.u64Sentinels)===JSON.stringify(['9007199254740993','18446744073709551615']),'Exact raw U64 transport proofs changed');
   }
   check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=report.inputOwnedLimit,'C header retained-input admission bound changed');
-  const transport=report.transport,fixtureNames=codecPreferences?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:codecSorts?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
+  const transport=report.transport,fixtureNames=codecObjects?['objects-v12.dxls','objects-v13.dxls','objects-v14.dxls','objects-v14-reordered.dxls']:codecPreferences?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:codecSorts?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
   check(transport?.schema==='duxcel.codec-read-transport'&&transport.version===1&&transport.held===1&&transport.released===1,'Held actual callback transport/release receipt changed');
   check(typeof transport.engineVersion==='string'&&transport.engineVersion.length>0&&transport.engineVersion.length<=256,'Initialized official Worker did not report its engine version');
   check(Array.isArray(transport.fixtures)&&transport.fixtures.length===fixtureNames.length&&Array.isArray(transport.queries)&&transport.queries.length===report.queries,'Official transport fixture/request inventory changed');
@@ -2779,7 +2789,7 @@ try{
    const token=actual.engineEpoch+':'+actual.registrationId;check(!tokens.has(token),'Independent fixtures reused a registration token');tokens.add(token);byName.set(actual.name,{...actual,queries:0});
   }
   check(new Set(transport.fixtures.map(item=>item.engineEpoch)).size===1,'Header proof unexpectedly used more than one engine');
-  let lastTicket=0,v14PreferenceQueries=0;const families={meta:0,sheets:0,describe:0,sorts:0,preferences:0};
+  let lastTicket=0,v14PreferenceQueries=0;const families={meta:0,sheets:0,describe:0,sorts:0,preferences:0,objects:0};
   for(const request of transport.queries){
    check(Number.isSafeInteger(request.ticket)&&request.ticket>lastTicket&&typeof request.sql==='string'&&request.sql.length<=1048576,'Observed request lost ordered ticket/bounded C SQL');lastTicket=request.ticket;
    check(Array.isArray(request.sourceBindings)&&request.sourceBindings.length===1,'Metadata request did not pin one original registration');
@@ -2788,6 +2798,9 @@ try{
    if(request.sql.startsWith('DESCRIBE '))families.describe++;
    else if(codecSorts&&request.sql.includes('_duxcel_workspace.sorts')){
     check(request.purpose==='workbook-sorts'&&request.rowLimit===449&&/LIMIT 449/.test(request.sql),'Sort result did not use its explicit captured449-row policy');families.sorts++;
+   }
+   else if(codecObjects&&request.sql.includes('_duxcel_workspace.objects')){
+    check(request.purpose==='workbook-objects'&&request.rowLimit===2049&&/LIMIT 2049/.test(request.sql),'Object descriptors did not use their explicit captured2049-row policy');families.objects++;
    }
    else if(codecPreferences&&request.sql.includes('_duxcel_workspace.preferences')){
     check(request.purpose===undefined&&request.rowLimit===66&&/LIMIT 66/.test(request.sql),'Preferences did not use the ordinary bounded66-row Page policy');
@@ -2801,11 +2814,11 @@ try{
   }
   check(Object.entries(families).every(([family,count])=>count===(report.familyExecutions[family]??0)),'Host-observed SQL inventory disagrees with C counters');
   if(codecPreferences)check(v14PreferenceQueries===report.v14PredicateQueries,'Transport did not observe every v14 malformed-row predicate');
-  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===(codecPreferences?(i===5?31:6):codecSorts?(i===3?31:6):(i===6?30:4)),'Metadata batching re-executed a fixture query');
+  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===(codecObjects?(i===3?40:6):codecPreferences?(i===5?31:6):codecSorts?(i===3?31:6):(i===6?30:4)),'Metadata batching re-executed a fixture query');
   check(!events.some(event=>event.method==='Runtime.exceptionThrown'),'Uncaught exception in isolated header transport');
   await fs.writeFile(path.join(output,'codec-read-transport.json'),JSON.stringify(transport,null,2));
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
-  await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',profile:codecPreferences?'codec-preferences-driver':codecSorts?'codec-sorts-driver':'codec-read-driver',checks,report,scope:'Partial owned Header'+(codecPreferences?' with reduced-motion/worksheet visibility preferences':codecSorts?' with primary-sheet secondary sorts':'')+' only; no Workbook publication, App Save/Open or engine/RSS peak bound'},null,2));
+  await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',profile:codecObjects?'codec-objects-driver':codecPreferences?'codec-preferences-driver':codecSorts?'codec-sorts-driver':'codec-read-driver',checks,report,scope:'Partial owned Header'+(codecObjects?' with typed object descriptors':codecPreferences?' with reduced-motion/worksheet visibility preferences':codecSorts?' with primary-sheet secondary sorts':'')+' only; no Workbook publication, App Save/Open or engine/RSS peak bound'},null,2));
   console.log(JSON.stringify({status:'passed',checks,report:{...report,transport:undefined},output}));
  }else if(workerDriver){
   let report;

@@ -23,7 +23,13 @@ static const char *sorts_files[]={"sorts-v12.dxls","sorts-v13.dxls","sorts-v14.d
 static const unsigned sorts_versions[]={12,13,14,14};
 static const char *preferences_files[]={"preferences-v12.dxls","preferences-v14-unknown-null.dxls","preferences-v14-unknown-nul.dxls","preferences-v13.dxls","preferences-v14.dxls","preferences-v14-reordered.dxls"};
 static const unsigned preferences_versions[]={12,14,14,13,14,14};
-static bool sorts_mode,sorts_wire,preferences_mode;
+static const char *objects_files[]={"objects-v12.dxls","objects-v13.dxls","objects-v14.dxls","objects-v14-reordered.dxls"};
+static const unsigned objects_versions[]={12,13,14,14};
+static bool sorts_mode,sorts_wire,preferences_mode,objects_mode,objects_wire;
+static void objects_report(bool ok,const char *error);
+static void objects_tick(void);
+static size_t objects_retained(void);
+static bool objects_observe(size_t extra);
 static void preferences_report(bool ok,const char *error);
 static void preferences_tick(void);
 static size_t preferences_retained(void);
@@ -37,7 +43,7 @@ typedef struct {
     WorkbookCodecHeader *header,*prior;
     WorkbookCodecKey prior_key;
     size_t prior_header_bytes;
-    Page page,meta_schema,sheets_schema,sorts_schema,preferences_schema;
+    Page page,meta_schema,sheets_schema,sorts_schema,preferences_schema,objects_schema;
     WorkbookCodecColumn columns[25];
     WorkbookCodecAtom *atoms;
     size_t atom_bytes,wire_bytes,peak_input,pressure_bytes;
@@ -56,10 +62,10 @@ static Driver d;
 EM_JS(void, fixture_start,(unsigned cookie,unsigned ticket,const char *name,const char *attach,const char *detach),{
     Module['dxCodecFixture']({heap:()=>HEAPU8,allocate:_malloc,release:_free,fixture:_dx_browser_codec_fixture_result},cookie,ticket,UTF8ToString(name),UTF8ToString(attach),UTF8ToString(detach));
 })
-EM_JS(void, query_start,(unsigned cookie,unsigned ticket,const char *sql,const char *columns,const char *bindings,unsigned limit,int hold,int workbook_sorts),{
+EM_JS(void, query_start,(unsigned cookie,unsigned ticket,const char *sql,const char *columns,const char *bindings,unsigned limit,int hold,int workbook_policy),{
     const request={requestId:String(ticket),generation:'9007199254740993',documentId:String(cookie),sourceId:'0',objectId:'0',revision:'18446744073709551615',offset:'0',knownTotal:null,rowLimit:limit,sql:UTF8ToString(sql),sourceBindings:JSON.parse(UTF8ToString(bindings))};
     if(columns)request.columns=JSON.parse(UTF8ToString(columns));
-    if(workbook_sorts)request.purpose='workbook-sorts';
+    if(workbook_policy)request.purpose=workbook_policy===2?'workbook-objects':'workbook-sorts';
     Module['dxCodecSubmit']({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_codec_result,string:UTF8ToString,fixture:_dx_browser_codec_fixture_result},cookie,ticket,request,Boolean(hold));
 })
 EM_JS(void, release_held,(void),{Module['dxCodecRelease']();})
@@ -72,13 +78,13 @@ static void report(bool ok,const char *error) {
 }
 static size_t text_bytes(const char *s) { return s ? strlen(s)+1 : 0; }
 static size_t retained(void) {
-    return sizeof(d)+(sorts_mode?sorts_retained():0)+(preferences_mode?preferences_retained():0)+d.page.bytes+d.meta_schema.bytes+d.sheets_schema.bytes+d.sorts_schema.bytes+d.preferences_schema.bytes+d.atom_bytes+d.pressure_bytes+
+    return sizeof(d)+(sorts_mode?sorts_retained():0)+(preferences_mode?preferences_retained():0)+(objects_mode?objects_retained():0)+d.page.bytes+d.meta_schema.bytes+d.sheets_schema.bytes+d.sorts_schema.bytes+d.preferences_schema.bytes+d.objects_schema.bytes+d.atom_bytes+d.pressure_bytes+
         text_bytes(d.sql)+text_bytes(d.descriptors)+text_bytes(d.bindings)+text_bytes(d.error)+workbook_codec_header_owned_bytes(d.header);
 }
 static void stop(const char *message,int line) {
     if(d.done)return;
     fprintf(stderr,"FAIL codec-read:%d fixture=%u phase=%u fault=%u: %s\n",line,d.fixture,d.phase,d.fault,message?message:"unknown");
-    d.failed=true;d.done=true;if(preferences_mode)preferences_report(false,message);else if(sorts_mode)sorts_report(false,message);else report(false,message);
+    d.failed=true;d.done=true;if(objects_mode)objects_report(false,message);else if(preferences_mode)preferences_report(false,message);else if(sorts_mode)sorts_report(false,message);else report(false,message);
     emscripten_cancel_main_loop();
 }
 #define CHECK(test,message) do {d.checks++;if(!(test)){stop((message),__LINE__);return false;}}while(0)
@@ -125,7 +131,7 @@ static bool schema_matches(const Page *schema,const WorkbookCodecTable *table,si
 }
 static bool canonical_schema(Page *out,const WorkbookCodecTable *table) {
     Page next={0};const char *p=table->columns,*types=table->types;
-    next.column_count=!strcmp(table->table,"meta")?3:!strcmp(table->table,"sorts")?4:!strcmp(table->table,"preferences")?2:25;
+    next.column_count=!strcmp(table->table,"meta")?3:!strcmp(table->table,"sorts")?4:!strcmp(table->table,"preferences")?2:!strcmp(table->table,"objects")?11:25;
     next.columns=dx_alloc(next.column_count*sizeof(*next.columns));next.bytes=next.column_count*sizeof(*next.columns);
     for(size_t i=0;i<next.column_count;i++){
         while(*types==' ')types++;size_t n=strcspn(p,",");Column *column=next.columns+i;
@@ -134,7 +140,7 @@ static bool canonical_schema(Page *out,const WorkbookCodecTable *table) {
         column->numeric=column->number_type.kind!=NUM_NONE;next.bytes+=n+1+strlen(column->type_name)+1;
         p+=n;if(*p)p++;types++;
     }
-    if((sorts_mode&&!sorts_observe(next.bytes))||(preferences_mode&&!preferences_observe(next.bytes))){page_free(&next);return false;}
+    if((sorts_mode&&!sorts_observe(next.bytes))||(preferences_mode&&!preferences_observe(next.bytes))||(objects_mode&&!objects_observe(next.bytes))){page_free(&next);return false;}
     page_free(out);*out=next;return true;
 }
 static char *descriptors(const Page *schema) {
@@ -187,7 +193,7 @@ static bool begin_read(void) {
     d.prior=d.header;d.prior_header_bytes=workbook_codec_header_owned_bytes(d.header);
     if(d.header)d.prior_key=*workbook_codec_header_key(d.header);
     d.key=(WorkbookCodecKey){UINT64_C(9007199254740993),UINT64_C(18446744073709551615)-d.fault,UINT64_C(9007199254740995)+d.fixture};
-    CHECK(workbook_codec_read_begin(&d.read,d.key,preferences_mode?preferences_versions[d.fixture]:sorts_mode?sorts_versions[d.fixture]:versions[d.fixture],(WorkbookCodecSheetsLayout)(sorts_mode||preferences_mode?25:layouts[d.fixture]),HEADER_LIMIT,resolver,&d,&d.error),d.error?d.error:"Begin shared header reader");
+    CHECK(workbook_codec_read_begin(&d.read,d.key,objects_mode?objects_versions[d.fixture]:preferences_mode?preferences_versions[d.fixture]:sorts_mode?sorts_versions[d.fixture]:versions[d.fixture],(WorkbookCodecSheetsLayout)(sorts_mode||preferences_mode||objects_mode?25:layouts[d.fixture]),HEADER_LIMIT,resolver,&d,&d.error),d.error?d.error:"Begin shared header reader");
     CHECK(!workbook_codec_read_finish(d.read,&d.header,&d.error),"Incomplete metadata unexpectedly replaced old Header");
     free(d.error);d.error=NULL;return true;
 }
@@ -198,7 +204,8 @@ static bool send_sql(char *owned,const Page *schema,unsigned limit,bool hold) {
     CHECK(d.ticket<UINT_MAX,"Test ticket exhausted");d.ticket++;d.queries++;if(!schema)d.describe_queries++;if(!d.fault)d.normal_queries[d.fixture]++;d.waiting=true;d.ready=false;
     if(sorts_mode)CHECK(sorts_observe(0),"Sorts request buffers exceed C input budget");
     if(preferences_mode)CHECK(preferences_observe(0),"Preferences request buffers exceed C input budget");
-    query_start(d.cookie,d.ticket,d.sql,d.descriptors,d.bindings,limit,hold,sorts_mode&&sorts_wire);return true;
+    if(objects_mode)CHECK(objects_observe(0),"Objects request buffers exceed C input budget");
+    query_start(d.cookie,d.ticket,d.sql,d.descriptors,d.bindings,limit,hold,objects_mode&&objects_wire?2:sorts_mode&&sorts_wire);return true;
 }
 static bool send_family(bool sheets,bool hold) {
     const WorkbookCodecRequest *request=workbook_codec_read_request(d.read);
@@ -366,10 +373,12 @@ static bool tick_body(void) {
 }
 #include "test_browser_codec_sorts.inc"
 #include "test_browser_codec_preferences.inc"
+#include "test_browser_codec_objects.inc"
 static void tick(void) {
     if(d.done)return;
     if(sorts_mode){sorts_tick();return;}
     if(preferences_mode){preferences_tick();return;}
+    if(objects_mode){objects_tick();return;}
     // A held response has completed official execution and left EngineHost's
     // active submission before the fixture event allows its stale replay.
     if(d.phase==6&&d.fault==9&&d.held_ready&&!d.stale_released)d.waiting=false;
@@ -386,7 +395,7 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_codec_fixture_result(unsigned cookie,unsign
     if(!u64(epoch,&epoch_value)||!epoch_value||!u64(registration,&registration_value)||!registration_value||!sha||strlen(sha)!=64||!bytes){stop("Malformed immutable fixture token",__LINE__);return;}
     d.fixtures++;
     memcpy(d.epoch,epoch,strlen(epoch)+1);memcpy(d.registration,registration,strlen(registration)+1);memcpy(d.sha,sha,65);
-    free(d.bindings);d.bindings=dx_printf("[{\"name\":\"%s\",\"engineEpoch\":\"%s\",\"registrationId\":\"%s\"}]",preferences_mode?preferences_files[d.fixture]:sorts_mode?sorts_files[d.fixture]:files[d.fixture],d.epoch,d.registration);
+    free(d.bindings);d.bindings=dx_printf("[{\"name\":\"%s\",\"engineEpoch\":\"%s\",\"registrationId\":\"%s\"}]",objects_mode?objects_files[d.fixture]:preferences_mode?preferences_files[d.fixture]:sorts_mode?sorts_files[d.fixture]:files[d.fixture],d.epoch,d.registration);
 }
 EMSCRIPTEN_KEEPALIVE void dx_browser_codec_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,const char *total,int pending,const char *failure) {
     // Superseded callbacks are ignored before looking at any borrowed buffer,
@@ -395,20 +404,30 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_codec_result(unsigned cookie,unsigned ticke
     if(!d.waiting){stop("Duplicate active codec callback",__LINE__);return;}
     d.callbacks++;d.waiting=false;d.ready=true;
     if(failure){free(d.error);d.error=dx_strdup(failure);return;}
+    if((objects_mode&&objects_wire)||(sorts_mode&&sorts_wire)){
+        const WorkbookCodecRequest *request=workbook_codec_read_request(d.read);
+        WorkbookCodecFamily expected=objects_mode?WORKBOOK_CODEC_OBJECTS:WORKBOOK_CODEC_SORTS;
+        if(!request||request->family!=expected){stop("Trusted metadata wire policy has no matching active cursor",__LINE__);return;}
+    }
     uint64_t count=0;if(!u64(total,&count)){stop("Noncanonical callback total",__LINE__);return;}
     size_t owned=retained()+workbook_codec_read_owned_bytes(d.read);
     if(size>DX_PAGE_WIRE_BYTES||owned>INPUT_LIMIT||size>INPUT_LIMIT-owned){stop("Callback wire/retained ownership exceeds test admission",__LINE__);return;}
     size_t input=owned+size+text_bytes(total);if(input>d.peak_input)d.peak_input=input;
     bool decoded=false;
-    if(input<=INPUT_LIMIT)decoded=sorts_mode&&sorts_wire?
+    if(input<=INPUT_LIMIT)decoded=objects_mode&&objects_wire?
+        page_from_wire_workbook_objects_owned(&d.page,wire,size,0,count,pending!=0,INPUT_LIMIT-input,&d.error):sorts_mode&&sorts_wire?
         page_from_wire_workbook_sorts_owned(&d.page,wire,size,0,count,pending!=0,INPUT_LIMIT-input,&d.error):
         page_from_wire_owned(&d.page,wire,size,0,count,pending!=0,INPUT_LIMIT-input,&d.error);
     if(!decoded){stop(d.error?d.error:"Existing wire decoder rejected metadata",__LINE__);return;}
+    // The incoming wire still coexists with the newly owned Page here. The
+    // decoder's preflight admitted their sum, including any old destination.
+    if(input+d.page.bytes>d.peak_input)d.peak_input=input+d.page.bytes;
 }
 EM_JS(int, codec_sorts_mode,(void),{return Module['dxCodecSortsMode']?1:0;})
 EM_JS(int, codec_preferences_mode,(void),{return Module['dxCodecPreferencesMode']?1:0;})
+EM_JS(int, codec_objects_mode,(void),{return Module['dxCodecObjectsMode']?1:0;})
 int main(void) {
-    sorts_mode=codec_sorts_mode()!=0;preferences_mode=codec_preferences_mode()!=0;d.cookie=40;d.ticket=100;
-    if(sorts_mode&&preferences_mode){stop("Ambiguous codec acceptance modes",__LINE__);return 1;}
+    sorts_mode=codec_sorts_mode()!=0;preferences_mode=codec_preferences_mode()!=0;objects_mode=codec_objects_mode()!=0;d.cookie=40;d.ticket=100;
+    if((unsigned)sorts_mode+(unsigned)preferences_mode+(unsigned)objects_mode>1){stop("Ambiguous codec acceptance modes",__LINE__);return 1;}
     emscripten_set_main_loop(tick,60,0);return 0;
 }
