@@ -28,6 +28,10 @@ class CodecHarnessTests(unittest.TestCase):
         self.assertTrue(harness.parse_options(['--codec-read-driver','--codec-objects','--no-build']).codec_objects)
         self.assertTrue(harness.parse_options(['--codec-read-driver','--codec-queries','--no-build']).codec_queries)
         self.assertTrue(harness.parse_options(['--codec-read-driver','--codec-source-options','--no-build']).codec_source_options)
+        self.assertTrue(harness.parse_options(['--codec-read-driver','--codec-tables','--no-build']).codec_tables)
+        with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(['--codec-tables'])
+        for family in ('--codec-sorts','--codec-preferences','--codec-objects','--codec-queries','--codec-source-options'):
+            with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(['--codec-read-driver','--codec-tables',family])
         with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(['--codec-sorts'])
         with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(['--codec-preferences'])
         with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(['--codec-read-driver','--codec-sorts','--codec-preferences'])
@@ -69,7 +73,7 @@ class CodecHarnessTests(unittest.TestCase):
 
     def test_family_archives_require_the_explicit_family_fixture_set(self):
         with tempfile.TemporaryDirectory() as temporary:
-            for index,inventory in enumerate((harness.CODEC_SORTS_FIXTURES,harness.CODEC_PREFERENCES_FIXTURES,harness.CODEC_OBJECTS_FIXTURES,harness.CODEC_QUERIES_FIXTURES,harness.CODEC_SOURCE_OPTIONS_FIXTURES)):
+            for index,inventory in enumerate((harness.CODEC_SORTS_FIXTURES,harness.CODEC_PREFERENCES_FIXTURES,harness.CODEC_OBJECTS_FIXTURES,harness.CODEC_QUERIES_FIXTURES,harness.CODEC_SOURCE_OPTIONS_FIXTURES,harness.CODEC_TABLES_FIXTURES)):
                 directory=Path(temporary)/str(index);directory.mkdir();emitted=self.fixtures(directory,inventory)
                 manifest=harness.codec_fixture_manifest(directory,emitted,inventory)
                 self.assertEqual({entry['name'] for entry in manifest['files']},set(inventory))
