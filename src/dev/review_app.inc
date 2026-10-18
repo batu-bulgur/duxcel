@@ -439,6 +439,12 @@ static void review_author_capture_state(App *a,const char *text) {
         }
     }
 }
+static void review_shadow_state(App *a) {
+    if (!review_armed(a)) return;
+    const UIShadowLayout *layout=&a->pipeline_shadow_layout;
+    char state[256]; snprintf(state,sizeof(state)," feedback_pipeline_shadow=%d,%d,%llu,%zu,%d,%d,%.6f,%.6f,%.6f",a->pipeline_shadow_ready,a->pipeline_shadow_active,(unsigned long long)a->pipeline_shadow_uploads,a->pipeline_shadow_ready ? layout->bytes : (size_t)0,a->pipeline_shadow_texture.width,a->pipeline_shadow_texture.height,layout->scale,layout->density.x,layout->density.y);
+    review_author_capture_state(a,state);
+}
 static void review_author_capture_count(App *a,int count) {
     DxReviewFrame *frames[]={&a->review->frame,&a->review->registry->frame};
     for (size_t i=0;i<sizeof(frames)/sizeof(*frames);i++) {
