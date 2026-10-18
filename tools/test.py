@@ -58,11 +58,12 @@ LAYOUT_PROFILES = {
     "stats-input": (861, 867, "PASS: native Statistics Enter keypad Enter and Space"),
     "legacy-format-budget-retry": (867, 882, "PASS: native legacy format budget admission retries"),
     "inspector-scroll": (882, 898, "PASS: native independent Steps outer and inner scrolling"),
+    "inspector-sql": (882, 908, "PASS: native SQL inspector keyboard scrolling"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 898, 24000, "PASS: native independent Steps outer and inner scrolling"),
+    ("layout", 908, 24000, "PASS: native SQL inspector keyboard scrolling"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),
