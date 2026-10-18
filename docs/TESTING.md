@@ -632,3 +632,13 @@ python3 tools/test_web_app.py --codec-read-driver --codec-source-counters
 ```
 
 This gate composes descriptors and object counters before source counters, verifies independent ID domains and v14 selection with an empty ledger, and retains exact typed values across failed and stale replies. It does not decode the ledger or prove source identity/activation. [Separate pure/native/Worker sources, bounds and timings](validation/checkpoints/2026-10-18-workbook-source-counters/).
+
+
+The bounded source ledger uses:
+
+```sh
+make test-workbook-codec-source-versions
+python3 tools/test_web_app.py --codec-read-driver --codec-source-versions
+```
+
+The native family uses exact SDK BLOB lengths, with a C-built `encode(source_reference)` projection after original-schema checking because deprecated row VARCHAR extraction truncates embedded NUL. One query feeds bounded owned chunks; earlier vector adapters and ordinary Header controls remain unchanged. The official Worker uses the original seven typed sidecars, physical UTF-8 hex projection and C-owned decoding. Four closed archives cover pending/complete RAW, exact UINT64 values, archived owners and independent unavailable locators. Eight rejections, old-output retention, real held cancellation/stale chunk+done and a complete fresh retry are required; strict report guards also reject33 corrupted receipts. An adjacent original Grid gate retains its four-column stream, and fresh normal/review artifacts exclude both controllers. No App publication, source activation, file verification, browser workbook Open/Save or GUI execution is claimed. [Exact tests, natural adapter/harness failures, source scopes and timings](validation/checkpoints/2026-10-18-workbook-source-ledger/).
