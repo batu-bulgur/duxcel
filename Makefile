@@ -662,7 +662,7 @@ clean:
 	rm -rf tests/test_filterlabel.dSYM tests/test_filterlabel-debug.dSYM tests/test_background-native-debug.dSYM
 	rm -f tests/test_cellreadout tests/test_cellreadout-debug
 	rm -f tests/test_marksview tests/test_marksview-debug tests/test_popup tests/test_popup-debug tests/test_paintlayer tests/test_paintlayer-debug tests/test_paint-native-debug
-	rm -f tests/test_fontmetrics tests/test_ui_font_fallback tests/test_fontmetrics-debug
+	rm -f tests/test_fontmetrics tests/test_fontmetrics-debug tests/test_ui_font_fallback tests/test_ui_font_fallback-debug
 	rm -rf tests/test_fontmetrics.dSYM tests/test_fontmetrics-debug.dSYM tests/test_ui_font_fallback.dSYM tests/test_ui_font_fallback-debug.dSYM
 	rm -f tests/test_guideview tests/test_guideview-debug
 	rm -rf tests/test_guideview.dSYM tests/test_guideview-debug.dSYM
