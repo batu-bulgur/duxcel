@@ -492,7 +492,7 @@ python3 tools/test.py fast --modules workbook_codec_read --config both
 
 Root `6599c23` passes1,391 checks/config in3.756s total. It produces only an opaque owned meta/sheets Header, never a partial Workbook or product Open action. Original DOUBLE bounds are checked before narrowing, including tiny negative offsets and adjacent-outside canvas limits. Actual native comparison is accepted separately below; official Worker adapter acceptance has its separate receipts below.
 
-The latest integrated pure reader at `682864e` passes 24,739 checks/configuration in 13.663 s including build, preserving the 23,220 preceding checks. Its source-version counters remain pending native/Worker acceptance. Object counters have separate accepted native/Worker gates below. Keep this fast gate in the edit loop. [Accepted object-counter scopes](validation/checkpoints/2026-10-18-workbook-object-counters/).
+The latest integrated pure reader at `682864e` passes 24,739 checks/configuration in 13.663 s including build, preserving the 23,220 preceding checks. Source-version and object counters have separate accepted native/Worker gates below. Keep this fast gate in the edit loop. [Accepted source-counter scopes](validation/checkpoints/2026-10-18-workbook-source-counters/).
 
 The budget-query rewrite `554b591` keeps all nine EXISTS predicates, collecting their non-NULL Boolean values with UNION ALL/bool_or. A matched private query probe passes1,009 checks/config and30 cases, with the warm query19.901→1.277ms optimized and72.362→4.771ms O1. The unchanged1,287-check native source-format workload separately passes15.329/93.838s optimized/O1 (124.981s including15.566s build); this is not a controlled whole-suite speed claim. Existing native workspace4 additionally passes at `6599c23` in3.005/3.110s App. The browser-conditioned C model87/config passes at `e142142` in8.821s including7.781s build: native locator helpers are separately compiled without JS bridges; real path assertions remain. [Exact sources, natural target build failures and boundaries](validation/checkpoints/2026-10-18-workbook-budget-query/).
 
@@ -622,3 +622,13 @@ python3 tools/test_web_app.py --codec-read-driver --codec-counters
 ```
 
 They cover 64 worksheets, live/retired/exhausted exact IDs, version defaults, original types, failed prefixes, owned output and stale replies. The catalog-derived C test-driver schema fix also has an adjacent actual Grid retention pass. These gates do not complete source-version metadata, Workbook publication or browser Open/Save. [Source-scoped commands, timings and corrected test assumptions](validation/checkpoints/2026-10-18-workbook-object-counters/).
+
+
+Independent source-version counters use:
+
+```sh
+make test-workbook-codec-source-counters
+python3 tools/test_web_app.py --codec-read-driver --codec-source-counters
+```
+
+This gate composes descriptors and object counters before source counters, verifies independent ID domains and v14 selection with an empty ledger, and retains exact typed values across failed and stale replies. It does not decode the ledger or prove source identity/activation. [Separate pure/native/Worker sources, bounds and timings](validation/checkpoints/2026-10-18-workbook-source-counters/).
