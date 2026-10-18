@@ -8,7 +8,11 @@
    CreateIntegralTable/ComputeIntegralTableWidth and ganesh/GrBlurUtils.cpp
    MakeRectBlur. This is a small scalar implementation, not a Skia dependency.
    The A8 LUT and linear lookup precede RGBA8 premultiplication; blending the
-   authored color directly over the final background loses that layer step. */
+   authored color directly over the final background loses that layer step.
+   GrDefaultGeoProcFactory.cpp declares premultiplied color as half4. We use an
+   explicit binary16 RGB coefficient encoding, retaining byte opacity separately.
+   This is our portable finite-precision encoding choice, not a simulation of
+   Skia's complete shader/interpolation/blending pipeline. */
 #define TABLE_LIMIT 4096
 static int table_width(double sigma) {
     double minimum=2*ceil(6*sigma);
@@ -89,6 +93,19 @@ static double lookup(const uint8_t *table,int width,double sigma,double value) {
 static uint8_t byte_round(double value) {
     return (uint8_t)floor(fmin(255,fmax(0,value))+.5);
 }
+/* Round a normalized nonnegative coefficient to IEEE binary16, nearest with
+   ties to even. C99 math avoids compiler-specific half types or float layouts.
+   Normal values have 11 significant bits; subnormals retain a 2^-24 step. */
+static double unit_binary16(double value) {
+    if (!(value>0)) return 0;
+    if (value>=1) return 1;
+    int exponent=0; frexp(value,&exponent);
+    int step_exponent=exponent-11;
+    if (step_exponent<-24) step_exponent=-24;
+    double units=ldexp(value,-step_exponent),whole=floor(units),fraction=units-whole;
+    if (fraction>.5 || (fraction==.5 && ((unsigned)whole&1))) whole++;
+    return ldexp(whole,step_exponent);
+}
 bool ui_shadow_mask_rgba(const UIShadowLayout *layout,unsigned char *rgba,size_t capacity) {
     UIShadowLayout q;
     if (!rgba || !valid_layout(layout,&q) || capacity<q.bytes) return false;
@@ -96,6 +113,9 @@ bool ui_shadow_mask_rgba(const UIShadowLayout *layout,unsigned char *rgba,size_t
     integral_table(table_x,q.table_width_x); integral_table(table_y,q.table_width_y);
     double sigma_x=7*(double)q.scale*q.density.x,sigma_y=7*(double)q.scale*q.density.y;
     double left=-5*(double)q.scale*q.density.x;
+    const double opacity=33.0/255;
+    const double rgb[]={unit_binary16((39.0/255)*opacity),
+        unit_binary16((61.0/255)*opacity),unit_binary16((79.0/255)*opacity)};
     for (int y=0;y<q.atlas_height;y++) {
         /* Mirror the same canonical corner about the wrapper's bottom edge.
            Its full-height body is exactly1 beyond the table's three-sigma end. */
@@ -104,12 +124,13 @@ bool ui_shadow_mask_rgba(const UIShadowLayout *layout,unsigned char *rgba,size_t
         for (int x=0;x<q.width;x++) {
             double horizontal=lookup(table_x,q.table_width_x,sigma_x,left+3*sigma_x+q.width-x-.5);
             /* Authored .13 at an RGBA8 layer boundary has effective byte33.
-               Preserve separately rounded premultiplied channels; recoloring
-               an A8 alpha afterward changes the final reference pixels. */
-            double alpha=horizontal*vertical*(33.0/255);
+               RGB coefficients pass through binary16 before coverage; alpha
+               keeps the separate byte opacity. Do not reconstruct RGB from
+               the rounded A8 alpha or quantize coverage together with color. */
+            double coverage=horizontal*vertical,alpha=coverage*opacity;
             size_t at=((size_t)y*(size_t)q.width+(size_t)x)*4;
-            rgba[at]=byte_round(39*alpha); rgba[at+1]=byte_round(61*alpha);
-            rgba[at+2]=byte_round(79*alpha); rgba[at+3]=byte_round(255*alpha);
+            rgba[at]=byte_round(255*rgb[0]*coverage); rgba[at+1]=byte_round(255*rgb[1]*coverage);
+            rgba[at+2]=byte_round(255*rgb[2]*coverage); rgba[at+3]=byte_round(255*alpha);
         }
     }
     return true;
