@@ -2326,7 +2326,7 @@ try{
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelWorkerResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'worker-driver.json'),JSON.stringify(report??{ok:false,error:'C driver did not complete'},null,2));
   check(report?.ok,'Real C/Worker bridge failed; see worker-driver.json and events.json');
-  check(report.stages===219,'C/Worker acceptance stage inventory changed');
+  check(report.stages===221,'C/Worker acceptance stage inventory changed');
   const workloadLines=events.filter(event=>event.method==='Runtime.consoleAPICalled').flatMap(event=>event.params.args.map(arg=>String(arg.value??''))).filter(line=>line.startsWith('Browser worker workloads: '));
   check(workloadLines.length===1,'C/Worker did not report one actual sequential workload inventory');
   const workloads=JSON.parse(workloadLines[0].slice('Browser worker workloads: '.length));
@@ -2338,8 +2338,8 @@ try{
   check(bindingLines.length===1,'C/Worker did not report one captured-source workload inventory');
   const bindings=JSON.parse(bindingLines[0].slice('Browser binding workloads: '.length));
   await fs.writeFile(path.join(output,'binding-workloads.json'),JSON.stringify(bindings,null,2));
-  check(bindings.jobs===26&&bindings.sql===33&&bindings.counts===0&&bindings.host_requests===33&&bindings.local_rejections===7&&bindings.host_rejections===4,'Captured-source validation, cache separation or rejection workload changed');
-  check(bindings.sequential_workers===4&&bindings.total_jobs===223&&bindings.total_sql===439&&bindings.total_counts===21,'Captured-source workload did not preserve the original192-stage cumulative work');
+  check(bindings.jobs===28&&bindings.sql===35&&bindings.counts===0&&bindings.host_requests===35&&bindings.local_rejections===7&&bindings.host_rejections===4&&bindings.budget_rejections===1,'Captured-source validation, cache separation or rejection workload changed');
+  check(bindings.sequential_workers===4&&bindings.total_jobs===225&&bindings.total_sql===441&&bindings.total_counts===21,'Captured-source workload did not preserve the original192-stage cumulative work');
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
   console.log(JSON.stringify({status:'passed',checks,report,output}));
  }else{
