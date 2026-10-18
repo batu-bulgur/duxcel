@@ -23,6 +23,9 @@ static size_t pivot_last_owned,pivot_last_first;
 static WorkbookCodecFamily pivot_last_family;
 static unsigned filter_result_rows,filter_batches256,filter_batches29;
 static size_t filter_last_owned,filter_last_first;
+static unsigned grid_result_rows[2],grid_batches256[2],grid_batches29[2];
+static size_t grid_last_owned,grid_last_first;
+static WorkbookCodecFamily grid_last_family;
 #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL native workbook header:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
 static const WorkbookCodecKey key={UINT64_MAX,UINT64_C(9007199254740993),UINT64_C(9007199254740994)};
 static void clear_error(char **error) { CHECK(*error && **error); free(*error); *error=NULL; }
@@ -68,6 +71,9 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
     bool pivot_family=family==WORKBOOK_CODEC_PIVOT_FIELDS || family==WORKBOOK_CODEC_MARKS;
     size_t pivot_index=family==WORKBOOK_CODEC_MARKS ? 1u : 0u;
     if(pivot_family)pivot_result_rows[pivot_index]=pivot_batches[pivot_index]=pivot_batches256[pivot_index]=0;
+    bool grid_family=family==WORKBOOK_CODEC_COLUMNS || family==WORKBOOK_CODEC_CELLS;
+    size_t grid_index=family==WORKBOOK_CODEC_CELLS ? 1u : 0u;
+    if(grid_family)grid_result_rows[grid_index]=grid_batches256[grid_index]=grid_batches29[grid_index]=0;
     if (family==WORKBOOK_CODEC_FILTERS) filter_result_rows=filter_batches256=filter_batches29=0;
     if (family==WORKBOOK_CODEC_PREFERENCES) preference_result_rows=0;
     if (family==WORKBOOK_CODEC_QUERIES) query_result_rows=query_null_rows=query_batches256=query_batches64=0;
@@ -85,6 +91,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
     for (idx_t ci=0;ci<chunks && status==WORKBOOK_CODEC_READ_ACCEPTED;ci++) {
         duckdb_data_chunk chunk=duckdb_result_get_chunk(result,ci); CHECK(chunk && duckdb_data_chunk_get_column_count(chunk)==columns);
         size_t rows=(size_t)duckdb_data_chunk_get_size(chunk); CHECK(rows<=row_limit);
+        if(grid_family)grid_result_rows[grid_index]+=(unsigned)rows;
         if (family==WORKBOOK_CODEC_FILTERS) filter_result_rows+=(unsigned)rows;
         if (family==WORKBOOK_CODEC_PREFERENCES) preference_result_rows+=(unsigned)rows;
         if (family==WORKBOOK_CODEC_QUERIES) query_result_rows+=(unsigned)rows;
@@ -127,6 +134,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
             if (table_family) {table_last_owned=workbook_codec_read_owned_bytes(read);table_last_first=first;table_last_family=family;}
             if(pivot_family){pivot_last_owned=workbook_codec_read_owned_bytes(read);pivot_last_first=first;pivot_last_family=family;}
             if(family==WORKBOOK_CODEC_FILTERS){filter_last_owned=workbook_codec_read_owned_bytes(read);filter_last_first=first;}
+            if(grid_family){grid_last_owned=workbook_codec_read_owned_bytes(read);grid_last_first=first;grid_last_family=family;}
             status=workbook_codec_read_feed(read,key,family,&batch,extra_retained>SIZE_MAX-owned ? SIZE_MAX : owned+extra_retained,error); feeds++;
         }
         for (size_t at=0;at<rows && status==WORKBOOK_CODEC_READ_ACCEPTED;) {
@@ -142,12 +150,14 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
             if (table_family) {table_last_owned=workbook_codec_read_owned_bytes(read);table_last_first=first;table_last_family=family;}
             if(pivot_family){pivot_last_owned=workbook_codec_read_owned_bytes(read);pivot_last_first=first;pivot_last_family=family;}
             if(family==WORKBOOK_CODEC_FILTERS){filter_last_owned=workbook_codec_read_owned_bytes(read);filter_last_first=first;}
+            if(grid_family){grid_last_owned=workbook_codec_read_owned_bytes(read);grid_last_first=first;grid_last_family=family;}
             status=workbook_codec_read_feed(read,key,family,&batch,extra_retained>SIZE_MAX-owned ? SIZE_MAX : owned+extra_retained,error); feeds++;
             if (family==WORKBOOK_CODEC_QUERIES && status==WORKBOOK_CODEC_READ_ACCEPTED) {query_batches256+=take==256;query_batches64+=take==64;}
             if (family==WORKBOOK_CODEC_SOURCE_OPTIONS && status==WORKBOOK_CODEC_READ_ACCEPTED) {option_batches256+=take==256;option_batches64+=take==64;}
             if (table_family && status==WORKBOOK_CODEC_READ_ACCEPTED) {table_batches[table_index]++;table_batches256[table_index]+=take==256;}
             if(pivot_family && status==WORKBOOK_CODEC_READ_ACCEPTED){pivot_batches[pivot_index]++;pivot_batches256[pivot_index]+=take==256;}
             if(family==WORKBOOK_CODEC_FILTERS && status==WORKBOOK_CODEC_READ_ACCEPTED){filter_batches256+=take==256;filter_batches29+=take==29;}
+            if(grid_family && status==WORKBOOK_CODEC_READ_ACCEPTED){grid_batches256[grid_index]+=take==256;grid_batches29[grid_index]+=take==29;}
             if (status==WORKBOOK_CODEC_READ_ACCEPTED) first+=take;
             at+=take;
         }
@@ -159,6 +169,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
         if (table_family) {table_last_owned=workbook_codec_read_owned_bytes(read);table_last_first=first;table_last_family=family;}
         if(pivot_family){pivot_last_owned=workbook_codec_read_owned_bytes(read);pivot_last_first=first;pivot_last_family=family;}
         if(family==WORKBOOK_CODEC_FILTERS){filter_last_owned=workbook_codec_read_owned_bytes(read);filter_last_first=first;}
+        if(grid_family){grid_last_owned=workbook_codec_read_owned_bytes(read);grid_last_first=first;grid_last_family=family;}
         WorkbookCodecBatch batch={schema,columns,NULL,0,first,true}; status=workbook_codec_read_feed(read,key,family,&batch,extra_retained>SIZE_MAX-schema_bytes ? SIZE_MAX : schema_bytes+extra_retained,error); feeds++;
     }
     duckdb_destroy_result(&result); duckdb_destroy_prepare(&statement);
@@ -601,6 +612,7 @@ static int preferences_only(void) {
 #include "test_workbook_codec_tables_native.inc"
 #include "test_workbook_codec_pivot_marks_native.inc"
 #include "test_workbook_codec_filters_native.inc"
+#include "test_workbook_codec_grid_native.inc"
 int main(int argc,char **argv) {
     if (argc==3 && !strcmp(argv[1],"--emit-fixtures")) return emit_fixture_files(argv[2],emit_fixtures,7,fixture,NULL,NULL);
     if (argc==3 && !strcmp(argv[1],"--emit-sorts-fixtures")) return emit_fixture_files(argv[2],emit_sorts_fixtures,4,sorts_fixture,sorts_reorder_sql,NULL);
@@ -619,7 +631,9 @@ int main(int argc,char **argv) {
     if(argc==2&&!strcmp(argv[1],"--pivot-marks-only"))return pivot_marks_only();
     if(argc==3&&!strcmp(argv[1],"--emit-filters-fixtures"))return emit_filters(argv[2]);
     if(argc==2&&!strcmp(argv[1],"--filters-only"))return filters_only();
-    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR]\n",argv[0]); return 2; }
+    if(argc==3&&!strcmp(argv[1],"--emit-grid-fixtures"))return emit_grid(argv[2]);
+    if(argc==2&&!strcmp(argv[1],"--grid-only"))return grid_only();
+    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR | --grid-only | --emit-grid-fixtures DIR]\n",argv[0]); return 2; }
     char directory[]="/tmp/duxcel-codec-native-XXXXXX"; CHECK(mkdtemp(directory));
     char *missing=dx_printf("%s/missing-source.csv",directory); CHECK(access(missing,F_OK)!=0);
     for (unsigned version=12;version<=14;version++) {
