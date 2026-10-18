@@ -11717,13 +11717,15 @@ static void layout_smoke_step(App *a,int *step) {
     case 784:
         if (!object_ready(a,0)) return;
         if (!smoke_table_record_formats(a,0,false,false) || s->source_versions.high_water!=1) goto failed;
-        /* Refresh retains Tie ASC. Capture the selected physical identities,
-           rather than mistaking the sorted row positions for original IDs. */
+        /* Refresh retains Tie ASC. Independently enumerate this fixture's
+           stable (Tie, original ID) order; the selection spans two Pages. */
         memset(smoke_table_bold_records,0,sizeof(smoke_table_bold_records));
-        for (uint64_t row=240;row<=349;row++) {
-            uint64_t id=0;
-            if (!page_record_id(&a->objects[0].page,row,&id) || id>600 || smoke_table_bold_records[id]) goto failed;
-            smoke_table_bold_records[id]=true;
+        { size_t position=0;
+          for (unsigned tie=0;tie<7;tie++) for (uint64_t id=1;id<=600;id++) if (((id-1)/2)%7==tie) {
+              if (position>=240 && position<=349) smoke_table_bold_records[id]=true;
+              position++;
+          }
+          if (position!=600) goto failed;
         }
         { SheetObject *table=s->objects.items; grid_select_cell(&a->grid,table->row+2+240,table->col+4,false); a->grid.end_row=table->row+2+349;
           CellFormat value=active_format(a); value.flags|=FORMAT_BOLD; if (!apply_format(a,FORMAT_BOLD,value)) goto failed; }
