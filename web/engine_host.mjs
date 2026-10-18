@@ -3,6 +3,7 @@ import {createOfficialWorkerAdapter,exportRequest,inspectParquetExport} from './
 import {encodePageWire} from './page_wire.mjs';
 const encoder=new TextEncoder();
 const FILE_LIMIT=1024;
+const MAX_U64=18446744073709551615n;
 class AllocationError extends Error {}
 // TextEncoder replaces lone surrogates, while C strings stop at NUL. Reject
 // either before reserving a source name so the original label stays lossless.
@@ -15,6 +16,13 @@ function sourceFilenameLossless(name){
         const low=name.charCodeAt(i);if(low<0xdc00||low>0xdfff)return false;
     }
     return true;
+}
+function registrationToken(value,name,bytes){
+    const engineEpoch=value?.engineEpoch,registrationId=value?.registrationId;
+    const valid=text=>typeof text==='string'&&/^[1-9][0-9]{0,19}$/.test(text)&&BigInt(text)<=MAX_U64;
+    if(value?.name!==name||value?.bytes!==bytes||!valid(engineEpoch)||!valid(registrationId))
+        throw new Error('The browser engine returned an invalid source registration token.');
+    return {engineEpoch,registrationId};
 }
 function allocated(runtime,bytes,owned){
     const pointer=runtime.allocate(bytes.byteLength||1);
@@ -140,16 +148,22 @@ export function createEngineHost(config,createAdapter=createOfficialWorkerAdapte
             const current=++fileEpoch;
             const input=document.createElement('input');input.type='file';input.id='duxcel-file-input';
             input.accept='.parquet,.csv,.tsv,.csv.gz';input.hidden=true;document.body.append(input);
-            const finish=(name,label,error)=>{
+            const finish=(name,label,token,error)=>{
                 if(current!==fileEpoch||closed){input.remove();return false;}
-                let delivered=true;const owned=[];try{runtime.reply(session,name?cString(runtime,name,owned):0,label?cString(runtime,label,owned):0,error?cString(runtime,error,owned):0);}
-                catch(failure){if(!(failure instanceof AllocationError))throw failure;delivered=false;runtime.reply(session,0,0,0);}
+                let delivered=true;const owned=[];try{
+                    const path=name?cString(runtime,name,owned):0,original=label?cString(runtime,label,owned):0;
+                    const epoch=token?cString(runtime,token.engineEpoch,owned):0,id=token?cString(runtime,token.registrationId,owned):0;
+                    const diagnostic=error?cString(runtime,String(error).slice(0,2048),owned):0;
+                    if(current!==fileEpoch||closed)delivered=false;
+                    else runtime.reply(session,path,original,epoch,id,diagnostic);
+                }
+                catch(failure){if(!(failure instanceof AllocationError))throw failure;delivered=false;if(current===fileEpoch&&!closed)runtime.reply(session,0,0,0,0,0);}
                 finally{for(const pointer of owned)runtime.release(pointer);input.remove();}
                 return delivered;
             };
-            input.addEventListener('cancel',()=>finish(null,null,null),{once:true});
+            input.addEventListener('cancel',()=>finish(null,null,null,null),{once:true});
             input.addEventListener('change',async()=>{
-                const file=input.files?.[0];if(!file){finish(null,null,null);return;}
+                const file=input.files?.[0];if(!file){finish(null,null,null,null);return;}
                 let name;
                 try{
                     if(!sourceFilenameLossless(file.name))throw new Error('Use a source filename with valid Unicode and no NUL characters.');
@@ -170,7 +184,8 @@ export function createEngineHost(config,createAdapter=createOfficialWorkerAdapte
                         }
                         await engine.cancel();if(current!==fileEpoch||closed){setFileStatus(name,'unused');return;}
                         setFileStatus(name,'registering');
-                        try{await engine.registerFile(name,bytes);}
+                        let token;const length=bytes.byteLength;
+                        try{token=registrationToken(await engine.registerFile(name,bytes),name,length);}
                         catch(error){
                             // Worker registration may fail after adopting bytes.
                             // Complete best-effort cleanup under the same barrier
@@ -179,9 +194,9 @@ export function createEngineHost(config,createAdapter=createOfficialWorkerAdapte
                         }
                         setFileStatus(name,'registered');
                         if(current!==fileEpoch){await dropFile(engine,name);return;}
-                        if(!closed&&!finish(name,file.name,null))releaseFile(name);
+                        if(!closed&&!finish(name,file.name,token,null))releaseFile(name);
                     });
-                }catch(error){if(name&&!['released','failed'].includes(files.get(name)))setFileStatus(name,'failed');finish(null,null,String(error.message??error));}
+                }catch(error){if(name&&!['released','failed'].includes(files.get(name)))setFileStatus(name,'failed');finish(null,null,null,String(error.message??error));}
                 finally{input.remove();flushDrops();}
             },{once:true});
             input.click();
