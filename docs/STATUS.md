@@ -9,8 +9,9 @@ The nine-hour audit found useful earlier fixes to pane input/scrolling, fonts, s
 The [cleanup audit](audit/2026-10-18-cleanup.md) records worktree disposition and recovery paths. Historical source-scoped acceptance lives in [validation/checkpoints/](validation/checkpoints/); only the current capability matrix belongs here.
 
 **Web publication, 18 October 2026:** [GitHub Actions](../.github/workflows/web.yml)
-now gates Pages publication on browser-core release/ASan/UBSan, Node adapters,
-toolchain/cache/package contracts, the shared C99 Wasm build and a real browser
+now runs browser-core release/ASan/UBSan, Node adapters and toolchain/cache/package
+contracts independently of publication. Pages requires the shared C99 Wasm build,
+production package verification and a short real browser
 CSV/filter check at the `/duxcel/` project subpath. Local validation passed
 322 Node tests, the browser-core gate and 26 packaged-browser checks in 11.1s;
 the pinned-header Wasm build took 25.8s. The verified shipping payload is about
@@ -19,8 +20,10 @@ destination is <https://batu-bulgur.github.io/duxcel/>; remote Actions/deploymen
 acceptance is separate from these local results. Browser workbook Open/Save
 and complete UI/input parity remain unavailable. See [delivery details](../web/README.md#github-pages-delivery).
 
-**CI scope:** web tests and the Wasm build start independently; Pages waits for
-both web jobs. The web build's macOS runner is only a toolchain host. Native
+**CI scope:** web tests and the Wasm build start independently; Pages waits only
+for the web build/package/browser check, while broader tests continue separately.
+Installed SDK, raylib and verified incremental shipping objects are cached for
+later iterations. The web build's macOS runner is only a toolchain host. Native
 macOS has a separate manual-only workflow, disabled in GitHub while native
 development/testing stays local. No native Windows/Linux CI is configured.
 The paused hosted native gate has not been executed.

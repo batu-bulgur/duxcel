@@ -193,14 +193,21 @@ successful `main` builds publish to <https://batu-bulgur.github.io/duxcel/>.
 Repository Settings → Pages must use **GitHub Actions** as the publishing source.
 Deployment uses GitHub's short-lived Pages token/OIDC, without a stored PAT.
 
-The web test and web build jobs start independently, in parallel. Pages waits
-for both jobs to pass. Neither job depends on a native platform build.
+The web test and web build jobs start independently, in parallel. Pages publishes
+as soon as the web build, package verification and short browser check pass.
+The broader test/sanitizer job reports independently and does not block Pages;
+a failure there can leave the overall workflow red even after publication.
+Neither web job depends on a native platform build.
 The Ubuntu runner runs browser-core release and ASan/UBSan tests, browser adapter
 Node tests, and toolchain/cache/packaging contracts. The macOS arm64 runner uses
 the existing checksum-pinned Emscripten/raylib toolchain, builds the same C99
 shipping UI, and exercises CSV import/filtering in an owned headless Chrome
 session. macOS is its **build host**; the output is the **web/Wasm app**, not a
-native Mac application. Only downloaded SDK archives are cached. npm uses the committed lock
+native Mac application. The installed pinned SDK, raylib build and shipping
+incremental objects are cached. SDK/runtime/adapter changes invalidate their
+cache keys; the object builder still scans and hashes real dependencies before
+reuse. The first run fills these caches; later runs can reuse unchanged work.
+npm uses the committed lock
 and disabled install scripts. CI downloads the checksum-pinned DuckDB v1.4.3 C
 type header; no native DuckDB or raylib installation is needed for this target.
 

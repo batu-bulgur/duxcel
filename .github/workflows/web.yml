@@ -55,17 +55,32 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        id: node
         with:
           node-version: '24.14.0'
           cache: npm
           cache-dependency-path: web/package-lock.json
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        id: python
         with:
           python-version: '3.13'
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Reuse installed web toolchain
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: build/web/toolchain/downloads
-          key: web-sdk-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/toolchain.lock.json') }}
+          path: build/web/toolchain
+          key: web-sdk-installed-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.python.outputs.python-version }}-${{ steps.node.outputs.node-version }}-${{ hashFiles('web/toolchain.lock.json', 'tools/web_toolchain.py') }}
+      - name: Reuse pinned web raylib build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/web/raylib
+          key: web-raylib-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/toolchain.lock.json', 'tools/build_web_raylib.py', 'tools/web_raylib_adapter.py', 'web/raylib_web_surface.inc') }}
+      - name: Restore verified incremental web objects
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/web/objects/app
+          key: web-objects-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/toolchain.lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            web-objects-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/toolchain.lock.json') }}-
       - run: npm ci --prefix web --ignore-scripts --no-audit --no-fund
       - run: python3 tools/prepare_web_ci.py
       - run: python3 tools/web_toolchain.py bootstrap
@@ -91,7 +106,8 @@ jobs:
   deploy:
     name: Publish GitHub Pages
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [test, build]
+    # Fast iteration: broad tests report independently and cannot block Pages.
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

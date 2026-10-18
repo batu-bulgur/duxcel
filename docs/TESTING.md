@@ -101,14 +101,16 @@ These inspect immutable artifact copies for linked review symbols, source paths,
 Web CI is defined in [web.yml](../.github/workflows/web.yml): browser-core
 release/ASan/UBSan, Node adapter and offline toolchain/cache/package checks run
 in parallel with the shipping Wasm build and owned headless CSV/filter acceptance.
-Only Pages publication waits for both web jobs. The macOS runner compiles Wasm;
+Pages waits only for the web build/package/short browser gate. Broader test
+failures remain visible but do not prevent publication, by the user's explicit
+fast-iteration choice. The macOS runner compiles Wasm;
 it does not build the native Mac app.
 The separate [native macOS workflow](../.github/workflows/native-macos.yml) is
 manual-only and disabled in GitHub for now; native testing remains local.
 No native Windows/Linux jobs are configured. The paused native hosted gate is
 not a claimed native CI pass.
 `python3 tools/test_package_web_pages.py` verifies the publication boundary.
-Only successful `main` runs deploy; pull requests cannot deploy. See the
+Only successful web build jobs on `main` deploy; pull requests cannot deploy. See the
 [delivery setup](../web/README.md#github-pages-delivery). This is a scoped web
 gate, not the full native regression or a browser workbook Open/Save claim.
 
