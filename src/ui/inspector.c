@@ -1,31 +1,50 @@
 #include "inspector.h"
 #include <math.h>
-static Rectangle rect(Rectangle panel,float scale,float x,float y,float width,float height) {
-    return (Rectangle){panel.x+x*scale,panel.y+y*scale,fmaxf(0,width)*scale,fmaxf(0,height)*scale};
-}
 static Rectangle intersection(Rectangle a,Rectangle b) {
     float x=fmaxf(a.x,b.x),y=fmaxf(a.y,b.y);
     return (Rectangle){x,y,fmaxf(0,fminf(a.x+a.width,b.x+b.width)-x),fmaxf(0,fminf(a.y+a.height,b.y+b.height)-y)};
+}
+static float caption_width(float advance,float scale) {
+    /* Frozen Plex Sans11 labels use1/64-point layout advances. Keep the
+       observed ceil after scaling; Steps at150% lands between those units. */
+    return (float)(ceil((double)advance*scale*64)/64);
 }
 UIInspectorLayout ui_inspector_layout_scrolled(Rectangle panel,float scale,size_t count,bool sql,float outer,float inner) {
     UIInspectorLayout out={0};
     if (!isfinite(scale) || scale<=0 || !isfinite(panel.x) || !isfinite(panel.y) || !isfinite(panel.width) || !isfinite(panel.height) || !isfinite(outer) || !isfinite(inner)) return out;
     float width=panel.width/scale,height=panel.height/scale;
-    if (!isfinite(width) || !isfinite(height) || width<160 || height<220) return out;
+    if (!isfinite(width) || !isfinite(height) || width<160 || height<(sql ? 35 : 220)) return out;
     out.compact=height<360; out.row_height=55;
     if (sql) {
-        /* Preserve the existing SQL layout; its scrolling remains independent. */
+        /* Frozen SQL flex minimum: header/source do not shrink, description
+           keeps22 units of padding plus its font11 line box, and the footer
+           keeps24 units of padding,27-unit buttons and a one-point border.
+           Only the pre frame shrinks to zero before the aside overflows.
+           Wrapped text and its conditional inner scrollbar remain App-owned. */
         out.row_height=height<300 ? 40 : 55;
-        out.header=rect(panel,scale,0,0,width,35);
-        out.title=rect(panel,scale,13,0,width-75,35);
-        out.collapse=rect(panel,scale,width-56,6,23,23); out.dismiss=rect(panel,scale,width-31,6,23,23);
-        out.collapse.y-=.5f; out.dismiss.y-=.5f;
-        out.source=rect(panel,scale,13,35,width-26,34);
-        out.sql_description=rect(panel,scale,13,69,width-26,32);
-        out.sql_code=rect(panel,scale,14,101,width-28,height-152);
-        out.footer=rect(panel,scale,0,height-51,width,51);
-        out.copy=rect(panel,scale,12,height-39,(width-32)/2,27);
-        out.steps=rect(panel,scale,20+(width-32)/2,height-39,(width-32)/2,27);
+        float line=ceilf(15*scale)-1,description=22*scale+line,footer=51*scale+1;
+        float fixed=69*scale+description+footer;
+        if (!isfinite(fixed) || !isfinite(panel.x+panel.width) || !isfinite(panel.y+panel.height)) return (UIInspectorLayout){0};
+        out.outer_max=fmaxf(0,(fixed-panel.height)/scale); out.outer_scrollable=out.outer_max>0;
+        out.outer_offset=fmaxf(0,fminf(outer,out.outer_max));
+        float lane=out.outer_scrollable ? floorf(9*scale) : 0,content_x=panel.x+1,content_width=panel.width-1-lane;
+        float right=content_x+content_width,shift=out.outer_offset*scale;
+        out.header=(Rectangle){content_x,panel.y,content_width,35*scale};
+        out.body_clip=(Rectangle){content_x,panel.y+35*scale,content_width,fmaxf(0,panel.height-35*scale)};
+        /* title is a row paint slot, not the strong element's glyph box. */
+        out.title=(Rectangle){content_x+13*scale,panel.y,content_width-71*scale,35*scale};
+        out.collapse=(Rectangle){right-56*scale,panel.y+6*scale-.5f,23*scale,23*scale};
+        out.dismiss=(Rectangle){right-31*scale,panel.y+6*scale-.5f,23*scale,23*scale};
+        out.source=(Rectangle){content_x,panel.y+35*scale-shift,content_width,34*scale};
+        float description_y=out.source.y+out.source.height;
+        out.sql_description=(Rectangle){content_x+13*scale,description_y+11*scale,content_width-26*scale,line};
+        out.sql_frame=(Rectangle){content_x,description_y+description,content_width,fmaxf(0,panel.height-fixed)};
+        out.sql_code=(Rectangle){content_x+14*scale,out.sql_frame.y,fmaxf(0,content_width-28*scale),out.sql_frame.height};
+        out.footer=(Rectangle){content_x,out.sql_frame.y+out.sql_frame.height,content_width,footer};
+        float copy_width=37*scale+2+caption_width(47.09375f,scale),steps_width=37*scale+2+caption_width(27.984375f,scale);
+        out.copy=(Rectangle){content_x+12*scale,out.footer.y+1+12*scale,copy_width,27*scale};
+        out.steps=(Rectangle){right-12*scale-steps_width,out.copy.y,steps_width,27*scale};
+        if (out.outer_scrollable) out.outer_scrollbar=(Rectangle){right,panel.y,lane,panel.height};
         out.valid=true; return out;
     }
     /* CSS keeps the list minimum and unshrunk details. Overflow belongs to
