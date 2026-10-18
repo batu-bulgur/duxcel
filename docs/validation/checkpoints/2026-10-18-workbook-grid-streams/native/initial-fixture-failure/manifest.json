@@ -1,0 +1,69 @@
+{
+  "classification": "New test incorrectly treated cells_get missing-coordinate display fallback as NULL. Existing native API returns an empty string for absent coordinates. Corrected test inspects actual owned SheetCell record presence separately from cells_get display text; preserves required present-empty versus absent metadata distinction. No production change or assertion relaxation.",
+  "source_sha256": {
+    "tests/test_workbook_codec_native.c": "2bdfc4494b6eb3c3dfb1074c84ddc9c79c81fc5c1a37c4aedcf1aea09e5eb6ab",
+    "tests/test_workbook_codec_grid_native.inc": "c0f2f51b52aa69bfcb23e6e4807a076071de0a4558c512f94cb19d7d27f5988a",
+    "src/workbook/cells.c": "5c56f3c895b43d07790970bc2c7334e7c598268289fedd1581717d3b7648410c",
+    "src/workbook/cells.h": "2bc452c6d7ce5c176acf5da862530ce7036897c59c5f0da19bd40a65a5be1b19"
+  },
+  "results": [
+    {
+      "stage": "release-build",
+      "command": [
+        "clang",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-Werror",
+        "-O2",
+        "-g",
+        "src/common.c",
+        "src/platform/platform.c",
+        "src/transforms/distinct.c",
+        "src/transforms/analysis.c",
+        "src/transforms/record_sql.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/chart_other.c",
+        "src/transforms/marks.c",
+        "src/data/database.c",
+        "src/data/page.c",
+        "src/data/source_digest.c",
+        "src/workbook/clipboard.c",
+        "src/workbook/cells.c",
+        "src/workbook/format.c",
+        "src/workbook/source_scope.c",
+        "src/workbook/objects.c",
+        "src/workbook/workbook.c",
+        "src/workbook/workbook_codec.c",
+        "src/data/worker.c",
+        "src/workbook/workbook_codec_read.c",
+        "tests/test_workbook_codec_native.c",
+        "-L/opt/homebrew/lib",
+        "-lduckdb",
+        "-pthread",
+        "-lm",
+        "-o",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-grid-native/duxcel/build/bp1-grid-native/native-release"
+      ],
+      "seconds": 4.959484,
+      "exit_code": 0,
+      "log": "build/bp1-grid-native/release-build.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "stage": "release-grid",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-grid-native/duxcel/build/bp1-grid-native/native-release",
+        "--grid-only"
+      ],
+      "seconds": 0.538595,
+      "exit_code": 1,
+      "log": "build/bp1-grid-native/release-grid.txt",
+      "sha256": "92634992cf2e1f9cf0e9fb368cf0dc72d7962af07a676b029973c6cb3a797fcd"
+    }
+  ]
+}

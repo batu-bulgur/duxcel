@@ -1,0 +1,123 @@
+{
+  "status": "passed",
+  "base": "8766c8c",
+  "scope": "Pure Columns continuation only; no Cells/full model/App/native engine/browser",
+  "steps": [
+    {
+      "name": "release-build",
+      "command": [
+        "clang",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-Werror",
+        "-O2",
+        "-g",
+        "src/common.c",
+        "src/transforms/analysis.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/marks.c",
+        "src/workbook/workbook_codec.c",
+        "src/workbook/workbook_codec_read.c",
+        "tests/test_workbook_codec_read.c",
+        "-lm",
+        "-o",
+        "/Users/h2o/.codex/worktrees/duxcel-workbook-columns-reader/duxcel/build/bp1-columns-reader/test-columns-release"
+      ],
+      "elapsed_seconds": 2.925338,
+      "exit_code": 0,
+      "log": "build/bp1-columns-reader/release-build.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "release-run",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-workbook-columns-reader/duxcel/build/bp1-columns-reader/test-columns-release"
+      ],
+      "elapsed_seconds": 0.713269,
+      "exit_code": 0,
+      "log": "build/bp1-columns-reader/release-run.txt",
+      "sha256": "929283c9f1140fbdaf2843fc93a1bf0db223e56f26ed85cc73ac6c48d8e409dd"
+    },
+    {
+      "name": "sanitize-build",
+      "command": [
+        "clang",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-Werror",
+        "-O1",
+        "-g",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "src/common.c",
+        "src/transforms/analysis.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/marks.c",
+        "src/workbook/workbook_codec.c",
+        "src/workbook/workbook_codec_read.c",
+        "tests/test_workbook_codec_read.c",
+        "-lm",
+        "-o",
+        "/Users/h2o/.codex/worktrees/duxcel-workbook-columns-reader/duxcel/build/bp1-columns-reader/test-columns-sanitize"
+      ],
+      "elapsed_seconds": 7.311372,
+      "exit_code": 0,
+      "log": "build/bp1-columns-reader/sanitize-build.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "sanitize-run",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-workbook-columns-reader/duxcel/build/bp1-columns-reader/test-columns-sanitize"
+      ],
+      "elapsed_seconds": 1.31655,
+      "exit_code": 0,
+      "log": "build/bp1-columns-reader/sanitize-run.txt",
+      "sha256": "929283c9f1140fbdaf2843fc93a1bf0db223e56f26ed85cc73ac6c48d8e409dd"
+    }
+  ],
+  "inputs_before": {
+    "src/common.c": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4",
+    "src/transforms/analysis.c": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19",
+    "src/transforms/number.c": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e",
+    "src/transforms/pivot.c": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d",
+    "src/transforms/marks.c": "864da129ebccf18bc8cd72db75ae36c8e9d03f3e50db76cd9c385ed7eb22952b",
+    "src/workbook/workbook_codec.c": "75519f3222cdecf9fc351e8b5db0928b043a6e5db0ecf04bb3eae097cf173b11",
+    "src/workbook/workbook_codec_read.c": "f2acca8618159460964f43391ff2876c0b6e6888042417b621ef0cc0fab2ece9",
+    "src/workbook/workbook_codec_read.h": "9ed4ed91134d62dda2e590d672e3e0cab436a88f0a2884ff2dc87d07bc3b0439",
+    "tests/test_workbook_codec_read.c": "2f39178e5f65da8c8c70d65ade7a16f5fd7f9aaf2710051f4876015b1ccaef9c"
+  },
+  "binaries": {
+    "release": {
+      "bytes": 394792,
+      "sha256": "1f4f33b292676541725f9a9f96218e888536f0a430fe26e7b2e54b72fa2060e4"
+    },
+    "sanitize": {
+      "bytes": 1548552,
+      "sha256": "32f9e3e4160edb1865542fb93b61999965ea2c61cfbc26cb0922cae1cebdbf0d"
+    }
+  },
+  "inputs_after": {
+    "src/common.c": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4",
+    "src/transforms/analysis.c": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19",
+    "src/transforms/number.c": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e",
+    "src/transforms/pivot.c": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d",
+    "src/transforms/marks.c": "864da129ebccf18bc8cd72db75ae36c8e9d03f3e50db76cd9c385ed7eb22952b",
+    "src/workbook/workbook_codec.c": "75519f3222cdecf9fc351e8b5db0928b043a6e5db0ecf04bb3eae097cf173b11",
+    "src/workbook/workbook_codec_read.c": "f2acca8618159460964f43391ff2876c0b6e6888042417b621ef0cc0fab2ece9",
+    "src/workbook/workbook_codec_read.h": "9ed4ed91134d62dda2e590d672e3e0cab436a88f0a2884ff2dc87d07bc3b0439",
+    "tests/test_workbook_codec_read.c": "2f39178e5f65da8c8c70d65ade7a16f5fd7f9aaf2710051f4876015b1ccaef9c"
+  },
+  "inputs_unchanged": true,
+  "total_seconds": 12.278363
+}

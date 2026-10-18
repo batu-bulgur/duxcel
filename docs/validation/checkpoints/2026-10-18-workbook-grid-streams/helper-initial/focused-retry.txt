@@ -1,0 +1,25 @@
+✔ factory and malformed cookie/request/options fail before adapter ticket admission (5.479042ms)
+✔ real adapter columns chunks copy exact data with growth, cleanup before ACK and post-drain done (54.3215ms)
+✔ real adapter cells chunks copy exact data with growth, cleanup before ACK and post-drain done (19.926375ms)
+✔ empty stream still requires one EOF ACK and uint32 MAX cookie/ticket stays exact (7.737667ms)
+✔ only synchronous numeric1 ACKs, including the final EOF, can complete successfully (7.485875ms)
+✔ chunk exceptions (including falsy throws) and release faults retire every temporary allocation (1.763584ms)
+✔ malloc failures clean partial chunk/done buffers and use only a static error completion fallback (3.630542ms)
+✔ completion callback exceptions do not cause duplicate completion or leak its buffers (0.812583ms)
+✔ owned error C string is UTF8-complete, NUL-free and at most2048 bytes (0.861584ms)
+✔ held chunk blocks before any C malloc, then replays once and resumes only after cleanup (16.172625ms)
+✔ cancel drains strict reader cleanup and cancelSent while retaining one late stale replay (8.808333ms)
+✔ external adapter supersession drains before completion and leaves held reply for explicit stale C replay (8.306708ms)
+✔ close discards held JS ownership without C replay and never closes the caller adapter (4.306208ms)
+✔ throwing held notification resolves false and discards the slot before recovery (1.59275ms)
+✔ late revoked archive capture, including failed drop, never receives success and can recover (13.041083ms)
+✔ invalid chunk sequence/u64/geometry/identity and forged success are bounded transport errors (7.959125ms)
+✔ cancel in the completed-adapter/pre-C-done gap cannot publish success (0.754458ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 350.291041

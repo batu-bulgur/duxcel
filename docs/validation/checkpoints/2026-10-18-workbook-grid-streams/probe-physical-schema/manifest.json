@@ -1,0 +1,15 @@
+{
+  "schema": "duxcel.metadata-stream-schema-diagnostic",
+  "revision": "aa3203705758667508af6d7616cedf2a07b62b0e",
+  "command": [
+    "python3",
+    "tools/test_web_app.py",
+    "--metadata-stream-probe",
+    "--no-build"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 6.35499658389017,
+  "log_sha256": "0336f4931538f20057c3a4936c81771f5887345c5ec3107e1bb4478f8070e48d",
+  "source_revision_unchanged": true,
+  "scope": "Original unmodified raw-Boolean SQL and transparent bounded physical Arrow schema observation; expected reproduction, not accepted streaming."
+}
