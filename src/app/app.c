@@ -58,6 +58,10 @@ typedef struct { uint64_t id,revision,source_revision,counted_total,count_layout
 typedef enum { STATS_IDLE,STATS_WAITING,STATS_CALCULATING,STATS_READY,STATS_UNAVAILABLE,STATS_FAILED } StatsState;
 typedef struct { uint64_t r0,r1,source_revision,cell_revision,objects,total; size_t c0,c1,sheet,columns; bool count_pending,active; } StatsKey;
 typedef struct { GridLocation location; uint64_t id,revision,row; size_t column; } SourceLocation;
+#ifdef DUXCEL_BROWSER_HOST
+enum { BROWSER_SOURCE_LABELS=1024 }; /* Same bound as the host's session registrations. */
+typedef struct { char *key,*name; } BrowserSourceLabel;
+#endif
 typedef struct {
     UICellReadout value;
     uint64_t row,source,revision,object_revision,titles,manual,origin_row;
@@ -151,6 +155,8 @@ typedef struct {
     uint64_t browser_file_revision,browser_file_row;
     size_t browser_file_sheet,browser_file_col;
     char *browser_file_path,*browser_file_label;
+    BrowserSourceLabel browser_source_labels[BROWSER_SOURCE_LABELS];
+    size_t browser_source_label_count;
     unsigned browser_clipboard_pending,browser_clipboard_completed,browser_clipboard_status;
     uint64_t browser_clipboard_revision;
     bool browser_clipboard_silent;
@@ -934,6 +940,17 @@ static bool import_table(App *a,const char *path) {
     worksheet_record(sheet,EDIT_OBJECTS); a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
     invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Loading table at the selected range…"); return true;
 }
+/* Presentation names are session-owned; executable Analysis paths never change. */
+static const char *source_display_filename(const App *a,const Analysis *source) {
+    const char *path=source && source->path ? source->path : "source";
+#ifdef DUXCEL_BROWSER_HOST
+    for (size_t i=0;i<a->browser_source_label_count;i++)
+        if (!strcmp(a->browser_source_labels[i].key,path)) return a->browser_source_labels[i].name;
+#else
+    (void)a;
+#endif
+    return dx_basename(path);
+}
 #ifdef DUXCEL_BROWSER_HOST
 static void clear_browser_file(App *a,bool release) {
     if (release && a->browser_file_path) app_browser_release_file(a->browser_file_path);
@@ -956,16 +973,31 @@ static void process_browser_file(App *a) {
         clear_browser_file(a,true); status(a,"The import destination changed. Choose the file again at its destination."); return;
     }
     if (a->busy || a->io_busy || a->modal!=MODAL_NONE || a->file_menu) return;
+    /* Reserve the bounded display entry before changing the destination. The
+       host already validates Unicode before crossing the C-string boundary. */
+    bool known=false;
+    for (size_t i=0;i<a->browser_source_label_count;i++)
+        if (!strcmp(a->browser_source_labels[i].key,a->browser_file_path)) { known=true; break; }
+    if (known || a->browser_source_label_count>=BROWSER_SOURCE_LABELS || strlen(a->browser_file_path)>255 ||
+        !a->browser_file_label || !*a->browser_file_label || strlen(a->browser_file_label)>200) {
+        clear_browser_file(a,!known); status(a,"The browser source name is invalid or this session's source-name limit was reached."); return;
+    }
+    bool accepted;
     if (table) {
-        bool accepted=import_table(a,a->browser_file_path);
-        clear_browser_file(a,!accepted);
+        accepted=import_table(a,a->browser_file_path);
     } else {
         open_source(a,a->browser_file_path,false);
         Worksheet *sheet=active_sheet(a);
-        bool accepted=a->analysis.path && !strcmp(a->analysis.path,a->browser_file_path);
+        accepted=a->analysis.path && !strcmp(a->analysis.path,a->browser_file_path);
         if (accepted && sheet && a->browser_file_label && *a->browser_file_label) { free(sheet->name); sheet->name=dx_strdup(a->browser_file_label); }
-        clear_browser_file(a,!accepted);
     }
+    if (accepted) {
+        /* Move the pending strings, without borrowing callback/Analysis memory.
+           Retain across document/history changes, just like host registrations. */
+        a->browser_source_labels[a->browser_source_label_count++]=(BrowserSourceLabel){a->browser_file_path,a->browser_file_label};
+        a->browser_file_path=a->browser_file_label=NULL; a->pipeline_rows_valid=false;
+    }
+    clear_browser_file(a,!accepted);
 }
 #endif
 static void import_table_panel(App *a) {
@@ -3974,7 +4006,7 @@ static void draw_objects_plane(App *a,Grid *g,Rectangle clip) {
         if (!page->column_count || view->failed || view->waiting_count) {
             const char *hint=view->failed ? "Object needs attention" : view->waiting_count ? "Checking table size…" : o->kind==OBJECT_TABLE ? "Loading table…" : o->pivot.counts[PIVOT_VALUES] ? "Updating pivot…" : "Add fields to the shelves";
             ui_text_clip(u,hint,box(rect.x+6*s,rect.y+35*s,rect.width-12*s,27*s),12,UI_TEXT,false);
-            ui_text_clip(u,view->failed ? view->error : o->kind==OBJECT_TABLE ? dx_basename(o->source.path) : "Rows · Columns · Values · Filters",box(rect.x+6*s,rect.y+67*s,rect.width-12*s,27*s),11,UI_MUTED,false);
+            ui_text_clip(u,view->failed ? view->error : o->kind==OBJECT_TABLE ? source_display_filename(a,&o->source) : "Rows · Columns · Values · Filters",box(rect.x+6*s,rect.y+67*s,rect.width-12*s,27*s),11,UI_MUTED,false);
         } else if (o->kind==OBJECT_CHART) draw_chart(a,o,page,rect,clip,false);
         else {
             uint64_t first=g->top>o->row+2 ? g->top-o->row-2 : 0,last=first+g->render_rows+1; if (last>o->rows-2) last=o->rows-2;
@@ -6009,7 +6041,7 @@ static void pipeline_rows_cache(App *a) {
     for (size_t i=0;i<source->filter_count;i++) { const AnalysisFilter *f=&source->filters[i]; key^=(uintptr_t)f->column; key*=UINT64_C(1099511628211); key^=(uintptr_t)f->value ^ f->op ^ ((uint64_t)f->number.kind<<16) ^ ((uint64_t)f->number.precision<<24) ^ ((uint64_t)f->number.scale<<32); key*=UINT64_C(1099511628211); }
     for (size_t i=0;i<source->sort_count;i++) { key^=(uintptr_t)source->sorts[i].column ^ source->sorts[i].descending; key*=UINT64_C(1099511628211); }
     if (!a->pipeline_rows_valid || a->pipeline_rows_key!=key) {
-        a->pipeline_row_count=ui_source_steps(source,context_fields(a)->column_count,a->pipeline_rows); a->pipeline_rows_key=key; a->pipeline_rows_valid=true;
+        a->pipeline_row_count=ui_source_steps_named(source,context_fields(a)->column_count,source_display_filename(a,source),a->pipeline_rows); a->pipeline_rows_key=key; a->pipeline_rows_valid=true;
     }
 }
 static void pipeline_show_sql(App *a) {
@@ -6188,7 +6220,7 @@ static void draw_pipeline(App *a,Rectangle r) {
         if (ui_popup_button(u,layout.edit,step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…",false,false,passive_control(a,enabled) && pipeline_step_editable(a,step))) pipeline_edit_step(a,(size_t)a->pipeline_focus_index);
         if (ui_popup_button(u,layout.preview,"Preview…",false,false,passive_control(a,enabled) && !a->busy && source->kind!=SOURCE_NONE)) {
             SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by historical preview.");
-            if (step_preview_start(&a->step_preview,source,(size_t)a->pipeline_focus_index,table ? table->id : 0,table ? table->revision : a->analysis_revision,&a->grid)) {
+            if (step_preview_start_named(&a->step_preview,source,(size_t)a->pipeline_focus_index,table ? table->id : 0,table ? table->revision : a->analysis_revision,&a->grid,source_display_filename(a,source))) {
                 step_preview_presentation(&a->step_preview,context_fields(a),&a->grid,&active_sheet(a)->formats,table ? table->col : 0);
                 a->consume_grid_input=true; a->pivot_focus=0; a->ribbon_focus=false; status(a,"Historical step preview · read-only"); schedule_step_preview(a);
             }
@@ -14618,6 +14650,7 @@ int app_finish(AppSession *session) {
     statistics_free(&a->statistics); free(a->statistics_error);
 #ifdef DUXCEL_BROWSER_HOST
     clear_browser_file(a,false); /* worker_stop closed the engine/registrations */
+    for (size_t i=0;i<a->browser_source_label_count;i++) { free(a->browser_source_labels[i].key); free(a->browser_source_labels[i].name); }
 #endif
     page_free(&a->page); page_free(&a->spare); analysis_free(&a->analysis);
     workbook_free(&a->book); inspector_free(a); sort_editor_free(&a->sort_editor); REVIEW_SQL_CLEAR(a);
