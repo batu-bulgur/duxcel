@@ -513,12 +513,12 @@ async function assignAnalysisField(name,role){
  check(target?.enabled,'Actual '+role+' field menu omitted '+name+' with its stable field identity');
  const [x,y,w,h]=target.bounds;await capture('analysis-assign-'+role);await click(x+w/2,y+h/2);return{field:name,role,id};
 }
-function analysisObject(state){
+function analysisObject(state,expectedColumn=8){
  check(state.selected_object==='0'&&state.object_count==='1','Same-sheet analysis did not retain its one selected object');
  const object=state.object?.split(','),page=state.object_page?.split(',').map(Number),counts=state.pivot_counts?.split(',').map(Number);
  check(object?.length===6&&/^[1-9][0-9]*$/.test(object[0])&&object.slice(1).map(Number).every(Number.isFinite),'Missing real C object identity/placement');
  check(page?.length===6&&page.every(Number.isFinite)&&counts?.length===4&&counts.every(Number.isInteger),'Missing real C result/shelf state');
- check(object[1]==='0'&&object[2]==='0'&&object[3]==='8','Empty pivot was not anchored beside the real source at I1');
+ check(object[1]==='0'&&object[2]==='0'&&object[3]===String(expectedColumn),'Empty pivot was not anchored beside the real source at column '+expectedColumn);
  return{object,page,counts};
 }
 async function waitPivot(afterId=null){
@@ -590,7 +590,7 @@ async function browserChartOther(){
  const baseline=await platformSnapshot(),[x,y]=baseline.body.split(',').map(Number),[cw,rh]=baseline.grid_cell.split(',').map(Number);
  check(baseline.object_count==='0'&&baseline.selected_object==='-1'&&baseline.modal==='0'&&baseline.busy==='0','Chart Other source was not the actual idle seven-row CSV');
  await rightClick(x+cw/2,y+rh/2);await authorActivate('source_context','create_analysis');const empty=await platformSnapshot();
- analysisObject(empty);check(empty.pivot_counts==='0,0,0,0'&&empty.sheet===baseline.sheet&&empty.page===baseline.page&&empty.manual_cells==='1','Actual empty I1 Pivot changed source/manual data or invented fields');await capture('chart-other-empty');
+ analysisObject(empty,7);check(empty.pivot_counts==='0,0,0,0'&&empty.sheet===baseline.sheet&&empty.page===baseline.page&&empty.manual_cells==='1','Actual empty H1 Pivot changed source/manual data or invented fields');await capture('chart-other-empty');
  const assignments=[],pivotSteps=[];
  const lastPivot=()=>replies().filter(reply=>reply.kind===5).at(-1)?.id??null;
  async function assigned(name,role,{result=false}={}){
@@ -608,7 +608,7 @@ async function browserChartOther(){
  const aggregate=authorState(await platformSnapshot(),'pivot_field');check(aggregate.rows.find(row=>row.key==='aggregate.sum')?.checked&&aggregate.rows.find(row=>row.key==='aggregate.avg')?.enabled,'Real Value token did not expose its checked SUM and available AVG actions');
  const beforeAverage=lastPivot();await authorActivate('pivot_field','aggregate.avg');const averageReply=await waitPivot(beforeAverage);await frames(4);const averageMatrix=await platformSnapshot();
  const distinctReply=await assigned('Customer','values',{result:true});
- let published=await platformSnapshot();const object=analysisObject(published);
+ let published=await platformSnapshot();const object=analysisObject(published,7);
  check(distinctReply.rows===5&&distinctReply.columns===4&&distinctReply.total==='5'&&!distinctReply.pending&&object.counts.join(',')==='1,1,3,0'&&object.page.join(',')==='0,5,4,5,0,0','Actual authoring did not publish five Groups with Current Bucket and three assigned aggregates');
  check(published.totals_shape==='5,3,1,4,1'&&published.object_category0_present==='1'&&published.object_category0_null==='0'&&published.object_category0_truncated==='0'&&Buffer.from(published.object_category0_hex??'','hex').toString('utf8')==='Current','Actual Columns matrix lost its source category/footer shapes');
  const sourceFields=['sheet','sheet_count','manual_cells','source_revision','schema','page','spare'];
@@ -659,7 +659,7 @@ async function browserChartOther(){
  await selectionPosition(9,7);const revisited=await platformSnapshot();check(revisited.active==='9,7'&&revisited.manual_cells==='1'&&revisited.object_count==='1'&&sourceFields.every(name=>revisited[name]===baseline[name]),'Source return could not revisit its retained H10 sparse cell');await capture('chart-other-returned-source');
  const idleStarted=Date.now();await pause(300);await frames(3);const final=await platformSnapshot();check(starts().length===jobs&&replies().length===requests&&sourceFields.every(name=>final[name]===baseline[name]),'Idle/source/manual chart readouts submitted jobs or changed source ownership');
  check(consoleText('Browser review prepared: ').length===0&&(await pendingReports()).length===0,'Chart Other profile staged a saved report');const queue=await(await fetch(new URL('/__review/queue',url))).json();check(queue.reports.length===0,'Chart Other profile wrote into the persistent queue');
- const result={source,metrics,sentinel,baseline,empty,assignments,pivotSteps,valueFocus,aggregate:aggregate.state,averageReply,averageMatrix,distinctReply,published,representationProof,bar,average,history:{before:historyBefore,undone,redone},distinct,marks:marks.state,marked,unmarked,remarked,matrix,returned,revisited,final,idle:{minimum_milliseconds:300,observed_milliseconds:Date.now()-idleStarted,jobs,replies:requests},scope:'Actual shared C same-sheet empty I1 Pivot and real Rows Group/Columns Bucket/SUM Rank/AVG Value/COUNT DISTINCT Customer authoring, official Worker matrix and source-derived Other. Bar SUM5, keyboard AVG7.5, pointer distinct3 and assigned AVG Tooltip7.5 use owned C typed metadata alongside actual compositor captures; Tooltip observation is the cached encoding readout, not a claim that its hover balloon was visible; Plot and Marks each Undo/Redo one ordinary action. Representation/Plot/Marks/capture/idle and source/manual return submit zero jobs after publication and retain observed source/matrix/result generations. No mocked analytical values, product commands/DOM spreadsheet, clipboard activation, saved reports, persistence, physical input or full visual parity claim.'};await fs.writeFile(path.join(output,'chart-other.json'),JSON.stringify(result,null,2));return result;
+ const result={source,metrics,sentinel,baseline,empty,assignments,pivotSteps,valueFocus,aggregate:aggregate.state,averageReply,averageMatrix,distinctReply,published,representationProof,bar,average,history:{before:historyBefore,undone,redone},distinct,marks:marks.state,marked,unmarked,remarked,matrix,returned,revisited,final,idle:{minimum_milliseconds:300,observed_milliseconds:Date.now()-idleStarted,jobs,replies:requests},scope:'Actual shared C same-sheet empty H1 Pivot and real Rows Group/Columns Bucket/SUM Rank/AVG Value/COUNT DISTINCT Customer authoring, official Worker matrix and source-derived Other. Bar SUM5, keyboard AVG7.5, pointer distinct3 and assigned AVG Tooltip7.5 use owned C typed metadata alongside actual compositor captures; Tooltip observation is the cached encoding readout, not a claim that its hover balloon was visible; Plot and Marks each Undo/Redo one ordinary action. Representation/Plot/Marks/capture/idle and source/manual return submit zero jobs after publication and retain observed source/matrix/result generations. No mocked analytical values, product commands/DOM spreadsheet, clipboard activation, saved reports, persistence, physical input or full visual parity claim.'};await fs.writeFile(path.join(output,'chart-other.json'),JSON.stringify(result,null,2));return result;
 }
 const workspaceControlIds={fields_search:'pane.fields.search',context_browse:'analysis.context.browse',rows_add:'analysis.shelf.rows.add',columns_add:'analysis.shelf.columns.add',representation:'analysis.marks.representation',values_add:'analysis.shelf.values.add',filters_add:'analysis.shelf.filters.add',color:'analysis.marks.target.color'};
 function workspaceState(state,{populated=false}={}){
