@@ -2787,10 +2787,11 @@ try{
   check(report?.schema==='duxcel.metadata-stream-probe'&&report.version===1&&report.ok===true,'Actual metadata streaming probe failed; see metadata-stream-probe.json');
   check(report.sqlExecutions===6&&report.rowsPerSuccessfulFamily===513&&report.plannedSqlRows===2054&&report.postedTurns===6,'Metadata streaming workload or posted-turn ownership changed');
   check(typeof report.engineVersion==='string'&&report.engineVersion.length>0&&report.engineVersion.length<=256,'Initialized stream engine did not report its version');
-  const proofs={exactTypedFamilies:2,strictEofCleanups:2,dataAckPostedTurns:2,finalAckPostedTurns:2,cancelledWithoutEof:true,falseAckWithoutEof:true,ordinaryAfterCancel:43,ordinaryAfterFalseAck:44};
+  const proofs={exactTypedFamilies:2,strictEofCleanups:2,dataAckPostedTurns:2,finalAckPostedTurns:2,cancelledWithoutEof:true,falseAckWithoutEof:true,ordinaryAfterCancel:43,ordinaryAfterFalseAck:44,canonicalBooleanProjection:true};
   check(Object.entries(proofs).every(([key,value])=>report.proofs?.[key]===value),'Metadata stream lost exact values, true ACK, cancellation or real cleanup proof');
   const names=['columns-exact-and-final-ack','cells-exact-and-final-ack','cancel-suspended-ack','ordinary-after-cancel','reject-consumer-ack','ordinary-after-failed-ack'];
   check(report.cases?.length===6&&report.cases.every((item,index)=>item.name===names[index]&&item.status==='passed'),'Metadata streaming case inventory changed');
+  check(report.cases.filter(item=>item.family==='cells').length===3&&report.cases.filter(item=>item.family==='cells').every(item=>item.canonicalBooleanProjection),'Pinned engine Boolean paths lost canonical text/original sidecar proof');
   for(const item of report.cases.slice(0,2)){
    check(item.rows===513&&item.ends===1&&item.callbacks===4&&item.firstAckPostedTurn&&item.finalAckPostedTurn&&item.eofAfterCleanup,'Successful stream did not wait for data/final ACK or reader cleanup');
    check(JSON.stringify(item.shapes.map(x=>[x.sequence,x.firstRow,x.rows,x.end]))===JSON.stringify([[1,'0',256,false],[2,'256',256,false],[3,'512',1,false],[4,'513',0,true]]),'Metadata stream lost dense256 chunks, exact tail or explicit empty EOF');
