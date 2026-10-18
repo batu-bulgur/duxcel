@@ -32,6 +32,7 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 #include "../ui/chartencoding.h"
 #include "../ui/textview.h"
 #include "../ui/inspector.h"
+#include "../ui/shadowview.h"
 #include "../ui/stepview.h"
 #include "step_preview.h"
 #ifdef DUXCEL_DEV_REVIEW
@@ -254,6 +255,10 @@ typedef struct {
     float pipeline_outer_scroll,pipeline_inner_scroll;
     UIScrollbar pipeline_outer_bar,pipeline_inner_bar;
     bool pipeline_reveal;
+    UIShadowLayout pipeline_shadow_layout;
+    Texture2D pipeline_shadow_texture;
+    uint64_t pipeline_shadow_uploads;
+    bool pipeline_shadow_attempted,pipeline_shadow_ready,pipeline_shadow_active;
     int pipeline_selected_step,step_menu_index;
     bool step_menu_opening;
     bool key_tips, ribbon_focus, diagnostics, consume_grid_input;
@@ -485,6 +490,7 @@ static void review_group(App *a,int group,Rectangle bounds,bool overflow);
 static const char *review_action_id(UIAction action);
 static void review_grid(App *a);
 static void review_begin_frame(App *a);
+static void review_shadow_state(App *a);
 static void review_resolve_grid(App *a);
 static bool review_can_capture(App *a);
 static void review_native_command(App *a,DxCommand command);
@@ -6224,13 +6230,47 @@ static void pipeline_scrollbar_paint(UIContext *u,Rectangle track,float content,
     bool hover=enabled && !u->pointer_blocked && CheckCollisionPointRec(ui_mouse_position(),thumb);
     DrawRectangleRounded(thumb,1,4,hover ? (Color){153,172,188,255} : (Color){184,198,209,255});
 }
+static bool pipeline_shadow_same_key(const App *a,const UIShadowLayout *layout) {
+    return a->pipeline_shadow_attempted && a->pipeline_shadow_layout.scale==layout->scale &&
+        a->pipeline_shadow_layout.density.x==layout->density.x && a->pipeline_shadow_layout.density.y==layout->density.y;
+}
+static void draw_pipeline_shadow(App *a,Rectangle wrapper,float opacity) {
+    UIContext *u=&a->ui; UIShadowLayout wanted=ui_shadow_layout(u->scale,u->render_scale);
+    if (!wanted.valid || !isfinite(opacity) || opacity<=0) return;
+    if (!pipeline_shadow_same_key(a,&wanted)) {
+        /* An unsuccessful attempt is latched for this key. Position, height,
+           scroll and pane presence never allocate or upload another atlas. */
+        a->pipeline_shadow_layout=wanted; a->pipeline_shadow_attempted=true; a->pipeline_shadow_ready=false;
+        unsigned char *pixels=malloc(wanted.bytes);
+        if (!pixels) return;
+        bool generated=ui_shadow_mask_rgba(&wanted,pixels,wanted.bytes);
+        Texture2D next=generated ? LoadTextureFromImage((Image){.data=pixels,.width=wanted.atlas_width,.height=wanted.atlas_height,.mipmaps=1,.format=PIXELFORMAT_UNCOMPRESSED_R8G8B8A8}) : (Texture2D){0};
+        free(pixels);
+        if (next.id) {
+            SetTextureFilter(next,TEXTURE_FILTER_POINT); SetTextureWrap(next,TEXTURE_WRAP_CLAMP);
+            if (a->pipeline_shadow_texture.id) UnloadTexture(a->pipeline_shadow_texture);
+            a->pipeline_shadow_texture=next; a->pipeline_shadow_ready=true; a->pipeline_shadow_uploads++;
+        }
+    }
+    if (!a->pipeline_shadow_ready) return;
+    UIShadowPlacement placed=ui_shadow_placement(&a->pipeline_shadow_layout,wrapper);
+    if (!placed.valid) return;
+    unsigned char alpha=(unsigned char)lroundf(fminf(1,opacity)*255);
+    if (!alpha) return;
+    Color tint={alpha,alpha,alpha,alpha};
+    UIShadowSlice slices[]={placed.top,placed.body,placed.bottom};
+    rlSetBlendMode(RL_BLEND_ALPHA_PREMULTIPLY);
+    for (size_t i=0;i<sizeof(slices)/sizeof(*slices);i++)
+        if (slices[i].bounds.height>0) DrawTexturePro(a->pipeline_shadow_texture,slices[i].source,slices[i].bounds,(Vector2){0},0,tint);
+    rlSetBlendMode(u->paint_depth ? RL_BLEND_CUSTOM_SEPARATE : RL_BLEND_ALPHA);
+    a->pipeline_shadow_active=true;
+}
 static void draw_pipeline(App *a,Rectangle r) {
     const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table);
     UIContext *u=&a->ui; float scale=u->scale; Vector2 mouse=ui_mouse_position();
     bool enabled=!u->pointer_blocked && a->pipeline && !a->left_drawer && a->ribbon_mode!=3 && a->modal==MODAL_NONE && !a->io_busy && !a->busy && !a->grid.dragging && !a->grid.moving && a->grid.resizing<0 && !a->grid.scrollbar;
     bool header_enabled=!u->pointer_blocked && a->pipeline && !a->left_drawer && a->modal==MODAL_NONE && !a->io_busy;
     if (enabled && CheckCollisionPointRec(mouse,r) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { a->chrome_focus=8; a->ribbon_focus=false; a->pivot_focus=0; a->pivot_search_focus=false; a->consume_grid_input=true; }
-    if (!a->pipeline_collapsed && GetScreenWidth()/scale<1040) DrawRectangleRec(box(r.x-5*scale,r.y,5*scale,r.height),(Color){39,61,79,28});
     DrawRectangleRec(r,a->pipeline_collapsed ? (Color){237,242,246,255} : (Color){251,252,253,255});
     /* The one-point border belongs inside the pane's clipped paint layer. */
     DrawRectangleRec(box(r.x,r.y,1,r.height),(Color){202,210,218,255});
@@ -7929,8 +7969,13 @@ static void draw_app(App *a) {
         Rectangle contents=inspector;
         contents.x+=12*(1-fminf(1,a->pipeline_extent/fmaxf(1,pipeline_target_width(a))))*s;
         contents.width=pipeline_target_width(a)*s;
-        ui_scissor_begin(u,inspector);
         float progress=fminf(1,a->pipeline_extent/fmaxf(1,pipeline_target_width(a)));
+        if (a->workspace.narrow && a->pipeline && !a->pipeline_collapsed && a->ribbon_mode!=3 &&
+            ui_scissor_begin(u,box(0,name_y,GetScreenWidth(),bottom-name_y))) {
+            Rectangle shadow=inspector; shadow.width=contents.width;
+            draw_pipeline_shadow(a,shadow,a->pipeline_alpha*progress); ui_scissor_end(u);
+        }
+        ui_scissor_begin(u,inspector);
         bool painting=ui_paint_begin(u,inspector,(Vector2){contents.width,inspector.height},a->pipeline_alpha*progress);
         draw_pipeline(a,contents); if (painting) ui_paint_end(u); ui_scissor_end(u);
     }
@@ -8964,7 +9009,8 @@ static bool smoke_table_record_formats(App *a,size_t index,bool bold,bool color)
 static void layout_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=LAYOUT_SMOKE_STAGES || a->busy || a->io_busy || a->page.count_pending || (!a->page.column_count && *step<764)) return;
     static uint64_t request; char *error=NULL; Worksheet *s=active_sheet(a);
-    static uint64_t inspector_jobs,inspector_queries,inspector_revision;
+    static uint64_t inspector_jobs,inspector_queries,inspector_revision,inspector_shadow_uploads;
+    static bool inspector_shadow_reuse;
     static size_t inspector_history;
     static uint64_t label_builds;
     static Cell *author_cells; static uint64_t author_revision;
@@ -12810,9 +12856,17 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; ribbon_cells=a->page.cells; inspector_jobs=a->worker.jobs_started; inspector_queries=a->worker.sql_executed;
         inspector_revision=a->analysis_revision; inspector_history=s->undo_actions_count;
         a->grid.top=a->last_top=0; a->grid.fraction=0; a->grid.horizontal=0; a->viewport_changed=dx_millis()+1000000;
+        UIShadowLayout shadow=ui_shadow_layout(1.5f,a->ui.render_scale);
+        inspector_shadow_uploads=a->pipeline_shadow_uploads;
+        inspector_shadow_reuse=pipeline_shadow_same_key(a,&shadow) && a->pipeline_shadow_ready;
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->chrome_focus=0; break;
     case 884: {
         const UIInspectorLayout *layout=&a->pipeline_layout;
+        UIShadowLayout shadow=ui_shadow_layout(a->ui.scale,a->ui.render_scale);
+        if (!a->pipeline_shadow_active || !a->pipeline_shadow_ready || !shadow.valid ||
+            a->pipeline_shadow_uploads!=inspector_shadow_uploads+(inspector_shadow_reuse ? 0 : 1) ||
+            a->pipeline_shadow_texture.width!=shadow.atlas_width || a->pipeline_shadow_texture.height!=shadow.atlas_height) goto failed;
+        inspector_shadow_uploads=a->pipeline_shadow_uploads;
         if (!layout->outer_scrollable || !layout->inner_scrollable || fabsf(layout->outer_max-103.333336f)>.001f || layout->inner_max!=182 ||
             fabsf(layout->header.y-139)>.001f || fabsf(layout->edit.y-593.5f)>.001f || fabsf(layout->footer.y-658)>.001f || layout->outer_scrollbar.width!=13) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-default.png");
@@ -12857,10 +12911,11 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->modal!=MODAL_NONE || a->pipeline_focus_index!=5 || a->chrome_focus!=8) goto failed;
         present_pipeline(a,true,true); break;
     case 894:
-        if (!a->pipeline_collapsed || a->pipeline_extent!=32 || a->pipeline_outer_scroll || a->pipeline_inner_scroll) goto failed;
+        if (!a->pipeline_collapsed || a->pipeline_extent!=32 || a->pipeline_outer_scroll || a->pipeline_inner_scroll || a->pipeline_shadow_active || a->pipeline_shadow_uploads!=inspector_shadow_uploads) goto failed;
         present_pipeline(a,true,false); break;
     case 895:
         if (a->pipeline_collapsed || a->pipeline_extent!=280 || a->pipeline_focus_index || a->pipeline_outer_scroll || a->pipeline_inner_scroll ||
+            !a->pipeline_shadow_active || a->pipeline_shadow_uploads!=inspector_shadow_uploads ||
             a->request_id!=request || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries || a->analysis_revision!=inspector_revision ||
             s->undo_actions_count!=inspector_history || a->page.cells!=ribbon_cells || a->page.total!=5 || a->grid.top || a->grid.fraction || a->grid.horizontal || a->ui.scissor_depth) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-reopened.png");
@@ -14993,9 +15048,11 @@ bool app_frame(AppSession *session) {
     /* File dismissal consumes its frame even when shortcuts close it before paint. */
     if (file_before_shortcuts && !a->file_menu) a->ui.pointer_blocked=true;
 #endif
+    a->pipeline_shadow_active=false;
     memset(a->author_marks,0,sizeof(a->author_marks)); double draw_start=dx_millis(); BeginDrawing(); draw_app(a); if (a->icon_preview) draw_icon_gallery(a);
 #ifdef DUXCEL_DEV_REVIEW
     if (review_capture) {
+        review_shadow_state(a);
         if (a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer()) { fprintf(stderr,"Native review capture reached an unbalanced render boundary.\n"); dx_review_capture_cancel(a->review); }
         else dx_review_capture_pixels(a->review);
         dx_review_input_quarantine(false); ui_review_discard_input();
@@ -15161,6 +15218,7 @@ int app_finish(AppSession *session) {
     for (int i=0;i<4;i++) { distinct_free(&a->value_cache[i]); free(a->value_cache_keys[i]); }
     for (int i=0;i<5;i++) { free(a->date_starts[i]); free(a->date_ends[i]); }
     for (int i=0;i<16;i++) if (a->icon_previews[i].id) UnloadTexture(a->icon_previews[i]);
+    if (a->pipeline_shadow_texture.id) UnloadTexture(a->pipeline_shadow_texture);
     brand_shutdown();
     if (session->render_batch.vertexBuffer && session->render_batch.draws) { rlSetRenderBatchActive(NULL); rlUnloadRenderBatch(session->render_batch); }
     a->busy=false; step_preview_free(&a->step_preview); ui_guide_free(&a->guide); clear_object_views(a); grid_destroy(&a->source_preview); grid_destroy(&a->grid); ui_destroy(&a->ui); input_free(&a->input); input_free(&a->filter_term); input_free(&a->filter_end); input_free(&a->pivot_search); input_free(&a->chart_columns); free(a->chart_resize_error); free(a->object_name_error); free(a->range_move_error); free(a->field_matches); text_lines_free(&a->toast_lines); text_lines_free(&a->inspector_sql_lines); free(a->inspector_sql_text); free(a->sql_text); free(a->message); free(a->pipeline_text); free(a->document_path); dx_native_shutdown(); CloseWindow();
