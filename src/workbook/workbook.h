@@ -96,9 +96,18 @@ typedef struct { size_t before,after,peak; } FormatBudget;
 /* Pure logical model accounting. Format arrays, scope terminators, memberships
    and all retained format history count; source_versions.bytes counts once,
    including dormant proofs, paths and capacity. Its actual object high-water is
-   validated. Inline Workbook/Worksheet metadata and ordinary data values are not
-   extra owned payload. Replacements are unique existing sheets; NULL components
-   keep live state. Complete borrowed prospective history views are allowed and
+   validated. Retained usage additionally charges sizeof(Analysis)+owned text for
+   each EDIT_ANALYSIS_FORMAT snapshot mapped chronologically on Undo and Redo.
+   Baseline current/ordinary Analysis and other inline model/data values remain
+   excluded. Analysis journal/storage validation is opt-in when either stack has
+   this composite kind; it checks mapping, per-Analysis/per-stack bounds and shared
+   text ownership, without reparsing filter semantics. Current/per-sheet usage
+   remains only formats+ledger, preserving the 1 MiB codec policy.
+   Replacements are unique existing sheets; NULL components keep live state.
+   Format/ledger projections still use the ORIGINAL worksheet Analysis journals;
+   caller must separately project/reserve incoming composite Analysis until its
+   journal adoption (old live retained charge and prepared next owned staging).
+   Complete borrowed prospective format history views are allowed and
    must never be freed as independent owners. No aggregate cap is imposed by
    measurement, so otherwise-valid legacy state can be inspected without change.
    Outputs are unchanged on failure; helpers allocate nothing or do FS/SQL work. */

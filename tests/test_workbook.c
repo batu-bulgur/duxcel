@@ -1594,6 +1594,94 @@ static void test_format_budget_models(void) {
     CHECK(workbook_format_usage(&book,&replacement,1,&again)==FORMAT_BUDGET_OK); sheet->objects.next_id=7; source_versions_free(&versions);
     CHECK(!memcmp(sheet,&prior,sizeof(prior))); workbook_free(&book); free(error);
 }
+static size_t budget_analysis_bytes(const Analysis *analysis) { return sizeof(*analysis)+analysis_text_bytes(analysis); }
+static WorkbookFormatUsage budget_analysis_usage(const Workbook *book,size_t extra) {
+    WorkbookFormatUsage usage={0}; const Worksheet *sheet=book->sheets; Worksheet before=*sheet;
+    CHECK(workbook_format_usage(book,NULL,0,&usage)==FORMAT_BUDGET_OK);
+    CHECK(usage.current==format_owned_bytes(&sheet->formats,false)+sheet->source_versions.bytes);
+    CHECK(usage.retained==format_owned_bytes(&sheet->formats,true)+sheet->source_versions.bytes+extra);
+    CHECK(!memcmp(sheet,&before,sizeof(before))); return usage;
+}
+static void test_format_budget_analysis_journal(void) {
+    Workbook book; workbook_init(&book); Analysis source={.kind=SOURCE_DEMO,.path=dx_strdup("baseline-current-source"),.filter_column=dx_strdup("City"),.filter_op=FILTER_EQUAL}; char *error=NULL;
+    CHECK(workbook_add(&book,"Composite Analysis retained charge",&source,&error)); analysis_free(&source); Worksheet *sheet=book.sheets; Analysis *live=&sheet->analysis;
+    sheet->source_versions.high_water=91; Analysis next=analysis_copy(live); next.filter_value=dx_strdup("ordinary-before-first-binding"); journal_analysis(sheet,live,&next);
+    WorkbookFormatUsage before=budget_analysis_usage(&book,0);
+    /* Before the first composite enters the journal, the producer explicitly
+       projects the old live graph as retained and reserves the prepared next.
+       Each graph switches ownership role once at adoption, without double charge. */
+    next=analysis_copy(live); free(next.filter_value); next.filter_value=dx_strdup(""); next.source_version=1;
+    WorkbookFormatUsage projected=before; projected.retained+=budget_analysis_bytes(live);
+    FormatTransientUsage transient={.adopted_staging=budget_analysis_bytes(&next)}; FormatBudget budget={0};
+    CHECK(workbook_format_preflight(&before,&projected,&transient,&budget)==FORMAT_BUDGET_OK && budget.before==before.retained+budget_analysis_bytes(&next) && budget.after==projected.retained);
+    journal_composite(sheet,live,&next); size_t first=budget_analysis_bytes(sheet->undo+1); budget_analysis_usage(&book,first);
+    CHECK(cells_set(&sheet->cells,7,8,"Interleaved manual value",&error)); worksheet_record(sheet,EDIT_CELLS);
+    CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&sheet->formats,(FormatRange){3,3,6,6},FORMAT_BOLD,bold,&error)); worksheet_record(sheet,EDIT_FORMAT);
+    next=analysis_copy(live); free(next.filter_value); next.filter_value=dx_strdup("ordinary-between-bindings"); journal_analysis(sheet,live,&next);
+    next=analysis_copy(live); free(next.filter_value); next.filter_value=dx_strdup("NULL"); next.source_version=2; journal_composite(sheet,live,&next);
+    CHECK(sheet->undo_actions_count==6 && sheet->undo_count==4 && sheet->undo_actions[1]==EDIT_ANALYSIS_FORMAT && sheet->undo_actions[5]==EDIT_ANALYSIS_FORMAT);
+    size_t second=budget_analysis_bytes(sheet->undo+3); WorkbookFormatUsage complete=budget_analysis_usage(&book,first+second);
+    /* Format/ledger replacements retain the ORIGINAL Analysis journal charge;
+       complete prospective Analysis ownership is an explicit caller adjustment. */
+    FormatStore format_view=sheet->formats; format_view.undo_count=format_view.redo_count=0;
+    SourceVersions versions={.high_water=92}; WorkbookFormatReplacement replacement={.sheet=0,.formats=&format_view,.versions=&versions};
+    WorkbookFormatUsage replaced={0}; CHECK(workbook_format_usage(&book,&replacement,1,&replaced)==FORMAT_BUDGET_OK && replaced.retained==format_owned_bytes(&format_view,true)+first+second);
+    CHECK(sheet->source_versions.high_water==91 && sheet->undo_count==4 && sheet->formats.undo_count);
+    journal_history(sheet,live,false); size_t redo_bound=budget_analysis_bytes(sheet->redo); budget_analysis_usage(&book,first+redo_bound);
+    CHECK(sheet->redo_actions_count==1 && sheet->redo_actions[0]==EDIT_ANALYSIS_FORMAT && !strcmp(sheet->redo[0].filter_value,"NULL"));
+    journal_history(sheet,live,false); budget_analysis_usage(&book,first+redo_bound); /* Ordinary Analysis entry is excluded. */
+    journal_history(sheet,live,false); budget_analysis_usage(&book,first+redo_bound); /* Format-only action has no Analysis slot. */
+    journal_history(sheet,live,false); budget_analysis_usage(&book,first+redo_bound); /* Cell-only action has no Analysis slot. */
+    journal_history(sheet,live,false); CHECK(sheet->redo_count==3 && sheet->redo_actions[4]==EDIT_ANALYSIS_FORMAT && !*sheet->redo[2].filter_value);
+    budget_analysis_usage(&book,redo_bound+budget_analysis_bytes(sheet->redo+2));
+    for (size_t i=0;i<5;i++) journal_history(sheet,live,true);
+    WorkbookFormatUsage restored=budget_analysis_usage(&book,first+second); CHECK(!memcmp(&complete,&restored,sizeof(complete)) && sheet->source_versions.high_water==91);
+    /* An ordinary branch clears the composite redo and its retained Analysis
+       charge through the existing single journal, never through the meter. */
+    journal_history(sheet,live,false); next=analysis_copy(live); free(next.filter_value); next.filter_value=dx_strdup("ordinary branch"); journal_analysis(sheet,live,&next);
+    CHECK(!sheet->redo_count && !sheet->redo_actions_count); budget_analysis_usage(&book,first);
+    workbook_free(&book); free(error);
+}
+static void test_format_budget_analysis_rejection(void) {
+    Workbook book; workbook_init(&book); Analysis source={.kind=SOURCE_DEMO,.path=dx_strdup("independent baseline text"),.filter_column=dx_strdup("City"),.filter_op=FILTER_EQUAL}; char *error=NULL;
+    CHECK(workbook_add(&book,"Composite Analysis validation",&source,&error)); analysis_free(&source); Worksheet *sheet=book.sheets; Analysis *live=&sheet->analysis;
+    Analysis next=analysis_copy(live); next.filter_value=dx_strdup("ordinary first"); journal_analysis(sheet,live,&next);
+    next=analysis_copy(live); next.source_version=1; free(next.filter_value); next.filter_value=dx_strdup(""); journal_composite(sheet,live,&next);
+    next=analysis_copy(live); free(next.filter_value); next.filter_value=dx_strdup("ordinary last"); journal_analysis(sheet,live,&next);
+    CHECK(sheet->undo_count==3 && sheet->undo_actions_count==3); budget_analysis_usage(&book,budget_analysis_bytes(sheet->undo+1));
+    Worksheet before=*sheet; size_t saved_count=sheet->undo_actions_count;
+    sheet->undo_actions_count=DX_HISTORY+1; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->undo_actions_count=saved_count;
+    saved_count=sheet->undo_count; sheet->undo_count=SIZE_MAX; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->undo_count=saved_count;
+    sheet->undo_count--; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->undo_count+=2; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->undo_count--;
+    EditKind saved_action=sheet->undo_actions[0]; sheet->undo_actions[0]=(EditKind)99; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL);
+    sheet->undo_actions[0]=EDIT_FORMAT; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->undo_actions[0]=saved_action;
+    Analysis *bound=sheet->undo+1; char *owned=bound->path;
+    bound->path=sheet->undo[0].path; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL);
+    bound->path=sheet->undo[0].path+1; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL);
+    bound->path=sheet->analysis.path; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL);
+    bound->path=(char *)&bound->source_version; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->path=owned;
+    bound->schema=bound->path; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->schema=NULL;
+    bound->filter_count=SIZE_MAX; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->filter_count=0;
+    bound->sort_count=DX_ANALYSIS_SORTS; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->sort_count=0;
+    bound->filters[0].value=dx_strdup("unused owned nested value"); budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); free(bound->filters[0].value); bound->filters[0].value=NULL;
+    char *large=malloc(DX_ANALYSIS_HISTORY_BYTES+1); CHECK(large); memset(large,'x',DX_ANALYSIS_HISTORY_BYTES); large[DX_ANALYSIS_HISTORY_BYTES]=0;
+    bound->path=large; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->path=owned; free(large);
+    char *ordinary=sheet->undo[0].path,*large_a=malloc(4200001),*large_b=malloc(4200001); CHECK(large_a && large_b); memset(large_a,'a',4200000); large_a[4200000]=0; memset(large_b,'b',4200000); large_b[4200000]=0;
+    sheet->undo[0].path=large_a; bound->path=large_b; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->undo[0].path=ordinary; bound->path=owned; free(large_a); free(large_b);
+    CHECK(!memcmp(sheet,&before,sizeof(before)));
+    journal_history(sheet,live,false); CHECK(sheet->redo_count==1 && sheet->redo_actions[0]==EDIT_ANALYSIS);
+    char *redo_owned=sheet->redo[0].path; sheet->redo[0].path=bound->path; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->redo[0].path=redo_owned;
+    journal_history(sheet,live,false); CHECK(sheet->redo_actions[1]==EDIT_ANALYSIS_FORMAT);
+    saved_count=sheet->redo_count; sheet->redo_count--; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->redo_count=saved_count;
+    saved_count=sheet->redo_actions_count; sheet->redo_actions_count=SIZE_MAX; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->redo_actions_count=saved_count;
+    workbook_free(&book); free(error); error=NULL;
+    /* With no new composite action, ordinary legacy definitions are excluded
+       baseline, including large text. The meter does not retroactively impose
+       the new producer's Analysis contract on these existing models. */
+    workbook_init(&book); source=(Analysis){.kind=SOURCE_DEMO}; CHECK(workbook_add(&book,"Ordinary baseline remains excluded",&source,&error)); sheet=book.sheets;
+    sheet->undo_count=sheet->undo_actions_count=1; sheet->undo_actions[0]=EDIT_ANALYSIS; sheet->undo[0]=(Analysis){.kind=SOURCE_DEMO,.path=malloc(DX_ANALYSIS_HISTORY_BYTES+1)}; CHECK(sheet->undo[0].path);
+    memset(sheet->undo[0].path,'x',DX_ANALYSIS_HISTORY_BYTES); sheet->undo[0].path[DX_ANALYSIS_HISTORY_BYTES]=0; budget_analysis_usage(&book,0); workbook_free(&book); free(error);
+}
 static void test_format_budget_combined_sheet(void) {
     Workbook book; workbook_init(&book); Analysis blank={0}; char *error=NULL; CHECK(workbook_add(&book,"Combined owned limit",&blank,&error));
     Worksheet *sheet=book.sheets; CellFormat value=format_default(); value.flags=FORMAT_BOLD;
@@ -1690,7 +1778,7 @@ static void test_format_budget_legacy_measurement(void) {
 }
 int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--format-budget-only")) {
-        test_format_budget_models(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
+        test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
         printf("PASS: %u focused formatting-accounting checks (dormant ledgers, complete projected histories, explicit staging/reservations, exact caps and atomic failure)\n",checks); return 0;
     }
     if (argc==2 && !strcmp(argv[1],"--journal-only")) {
@@ -1717,7 +1805,7 @@ int main(int argc,char **argv) {
         return 0;
     }
     if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only]\n",argv[0]); return 2; }
-    test_format_budget_models(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
+    test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
     test_analysis_journal_owned(); test_analysis_journal_rejection(); test_analysis_journal_chronology();
     test_source_version_model(); test_source_version_save_guard();
     test_source_format_workspace(); test_invalid_source_format_package(); test_source_format_budget();

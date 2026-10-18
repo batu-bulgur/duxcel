@@ -102,7 +102,7 @@ static bool analysis_text_owned(AnalysisOwnership *owned,const char *text,size_t
         (owned->next && owned_overlap(begin,length,(uintptr_t)owned->next,sizeof(*owned->next)))) return range_fail(error,"Analysis text must own storage separate from its model locations.");
     owned->ranges[owned->count++]=(AnalysisOwnedRange){begin,begin+length}; *bytes+=length; return true;
 }
-static bool analysis_owned_valid(AnalysisOwnership *owned,const Analysis *a,size_t *out,char **error) {
+static bool analysis_owned_storage(AnalysisOwnership *owned,const Analysis *a,size_t *out,char **error) {
     if (a->filter_count>=DX_ANALYSIS_FILTERS || a->sort_count>=DX_ANALYSIS_SORTS || (unsigned)a->kind>SOURCE_DEMO || (unsigned)a->filter_op>FILTER_OP_MAX || (unsigned)a->aggregate>AGG_MAX) return range_fail(error,"Invalid bounded Analysis definition.");
     size_t bytes=sizeof(*a); const char *texts[]={a->path,a->schema,a->table,a->query,a->filter_column,a->filter_value,a->group_column,a->measure_column,a->sort_column};
     for (size_t i=0;i<sizeof(texts)/sizeof(*texts);i++) if (!analysis_text_owned(owned,texts[i],&bytes,error)) return false;
@@ -114,8 +114,10 @@ static bool analysis_owned_valid(AnalysisOwnership *owned,const Analysis *a,size
         if (i>=a->sort_count) { if (a->sorts[i].column) return range_fail(error,"Unused Analysis sorts cannot retain owned text."); }
         else if (!analysis_text_owned(owned,a->sorts[i].column,&bytes,error)) return false;
     }
-    if (!analysis_query_valid(a,error) || !analysis_filters_valid(a,error) || !analysis_sorts_valid(a,error)) return false;
     *out=bytes; return true;
+}
+static bool analysis_owned_valid(AnalysisOwnership *owned,const Analysis *a,size_t *out,char **error) {
+    return analysis_owned_storage(owned,a,out,error) && analysis_query_valid(a,error) && analysis_filters_valid(a,error) && analysis_sorts_valid(a,error);
 }
 static int analysis_range_compare(const void *a,const void *b) {
     const AnalysisOwnedRange *x=a,*y=b; return x->first<y->first ? -1 : x->first>y->first;
@@ -184,6 +186,35 @@ void worksheet_analysis_history_adopt(Worksheet *s,Analysis *live,bool redo) {
 static bool format_budget_add(size_t *value,size_t extra) {
     if (*value>SIZE_MAX-extra) return false; *value+=extra; return true;
 }
+static FormatBudgetStatus format_budget_analysis_history(const Worksheet *sheet,size_t *out) {
+    bool composite=false;
+    for (size_t h=0;h<2;h++) {
+        const EditKind *actions=h ? sheet->redo_actions : sheet->undo_actions; size_t count=h ? sheet->redo_actions_count : sheet->undo_actions_count;
+        for (size_t i=0;i<count && i<DX_HISTORY;i++) composite|=actions[i]==EDIT_ANALYSIS_FORMAT;
+    }
+    /* Ordinary Analysis ownership is baseline data. Only the new composite
+       journal opts into this extra retained charge and ownership validation. */
+    if (!composite) { *out=0; return FORMAT_BUDGET_OK; }
+    if (sheet->undo_count>DX_HISTORY || sheet->redo_count>DX_HISTORY || sheet->undo_actions_count>DX_HISTORY || sheet->redo_actions_count>DX_HISTORY) return FORMAT_BUDGET_MODEL;
+    AnalysisOwnership owned={.sheet=sheet,.live=&sheet->analysis}; size_t charge=0,ignored=0;
+    if (!analysis_owned_storage(&owned,&sheet->analysis,&ignored,NULL)) return FORMAT_BUDGET_MODEL;
+    for (size_t h=0;h<2;h++) {
+        const EditKind *actions=h ? sheet->redo_actions : sheet->undo_actions; size_t count=h ? sheet->redo_actions_count : sheet->undo_actions_count;
+        const Analysis *states=h ? sheet->redo : sheet->undo; size_t available=h ? sheet->redo_count : sheet->undo_count,index=0,bytes=0;
+        for (size_t i=0;i<count;i++) {
+            unsigned effects=worksheet_edit_effects(actions[i]); if (!effects) return FORMAT_BUDGET_MODEL;
+            if (!(effects&1)) continue;
+            if (index>=available) return FORMAT_BUDGET_MODEL;
+            size_t entry=0; if (!analysis_owned_storage(&owned,states+index++,&entry,NULL) || entry>DX_ANALYSIS_HISTORY_BYTES-bytes) return FORMAT_BUDGET_MODEL;
+            bytes+=entry;
+            if (actions[i]==EDIT_ANALYSIS_FORMAT && !format_budget_add(&charge,entry)) return FORMAT_BUDGET_OVERFLOW;
+        }
+        if (index!=available) return FORMAT_BUDGET_MODEL;
+    }
+    qsort(owned.ranges,owned.count,sizeof(*owned.ranges),analysis_range_compare);
+    for (size_t i=1;i<owned.count;i++) if (owned.ranges[i-1].last>owned.ranges[i].first) return FORMAT_BUDGET_MODEL;
+    *out=charge; return FORMAT_BUDGET_OK;
+}
 static bool format_budget_model_valid(const FormatStore *store) {
     if (!format_valid(store,NULL)) return false;
     for (size_t h=0;h<2;h++) {
@@ -208,8 +239,9 @@ FormatBudgetStatus workbook_format_usage(const Workbook *book,const WorkbookForm
     WorkbookFormatUsage usage={.sheet_count=book->count};
     for (size_t i=0;i<book->count;i++) {
         if (!format_budget_model_valid(formats[i]) || !source_versions_valid(versions[i],book->sheets[i].objects.next_id,NULL)) return FORMAT_BUDGET_MODEL;
-        size_t current=format_owned_bytes(formats[i],false),retained=format_owned_bytes(formats[i],true);
-        if (current==SIZE_MAX || retained==SIZE_MAX || !format_budget_add(&current,versions[i]->bytes) || !format_budget_add(&retained,versions[i]->bytes) || !format_budget_add(&usage.current,current) || !format_budget_add(&usage.retained,retained)) return FORMAT_BUDGET_OVERFLOW;
+        size_t current=format_owned_bytes(formats[i],false),retained=format_owned_bytes(formats[i],true),analysis=0;
+        FormatBudgetStatus status=format_budget_analysis_history(book->sheets+i,&analysis); if (status!=FORMAT_BUDGET_OK) return status;
+        if (current==SIZE_MAX || retained==SIZE_MAX || !format_budget_add(&current,versions[i]->bytes) || !format_budget_add(&retained,versions[i]->bytes) || !format_budget_add(&retained,analysis) || !format_budget_add(&usage.current,current) || !format_budget_add(&usage.retained,retained)) return FORMAT_BUDGET_OVERFLOW;
         if (current>usage.max_sheet_current) { usage.max_sheet_current=current; usage.max_sheet=i; }
     }
     *out=usage; return FORMAT_BUDGET_OK;
