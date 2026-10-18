@@ -76,6 +76,15 @@ bool statistics_request_text(StatisticsRequest *request,const char *text,char **
 
 typedef struct { char *schema, *name, *label; } Relation;
 typedef struct PivotTotals PivotTotals;
+#define DX_PAGE_OTHER_VARIANTS DX_PIVOT_FIELDS
+#define DX_PAGE_OTHER_VALUE_COLUMNS 128u
+#define DX_PAGE_OTHER_BYTES (4u*1024u*1024u)
+typedef enum {
+    PAGE_OTHER_NONE=0,PAGE_OTHER_NOT_NEEDED,PAGE_OTHER_READY,
+    PAGE_OTHER_UNSAFE_KEY,PAGE_OTHER_UNSUPPORTED_KEY,PAGE_OTHER_LIMIT,
+    PAGE_OTHER_UNAVAILABLE
+} PageOtherStatus;
+typedef struct PageOther PageOther;
 /* Optional native raw-reader provenance. IDs are one-based original records,
    not result offsets. source_key/stamp identify this session's reader/cache
    snapshot, NOT a verified persistent source version or a format binding.
@@ -111,12 +120,39 @@ typedef struct {
     double query_ms;
     PivotTotals *totals; /* Optional owned matrix readouts; not ordinary result rows. */
     PageRecords records;
+    PageOther *other; /* Optional owned, source-derived chart readouts. */
+    PageOtherStatus other_status; /* Unavailable reasons own no allocation. */
 } Page;
 struct PivotTotals {
     Page rows; /* One aggregate per measure, aligned to the owning page's rows. */
     Page columns; /* One row: category/measure totals, then overall measures. */
     bool has_columns;
 };
+/* READY variants contain every category/measure column, in parent order after
+   Row keys. Fixed unused slots are zero. Parent fingerprints are borrowed only
+   within this ownership graph: moving the parent preserves them, while a
+   shortened/reshaped borrowed prefix cannot reuse its Other readouts. This is
+   containment, not a source/version or immutable-query proof. */
+struct PageOther {
+    Page variants[DX_PAGE_OTHER_VARIANTS];
+    size_t variant_count,keys,measures,value_columns,top_count;
+    size_t measure_variant[DX_PIVOT_FIELDS]; /* SIZE_MAX means unplottable. */
+    size_t rank_measure[DX_PAGE_OTHER_VARIANTS];
+    size_t top_rows[DX_PAGE_OTHER_VARIANTS][3];
+    const Cell *parent_cells;
+    const Column *parent_columns;
+    const char *parent_sql;
+    uint64_t offset,total;
+    size_t loaded_rows,parent_columns_count,bytes;
+};
+/* Inputs are trusted independent owned C graphs, never borrowed prefixes or
+   aliases of the parent/each other. Adoption validates bounded shape, typed
+   ordinal readouts and combined 4 MiB before changing either operand. Success
+   consumes *owned and binds it to the immutable parent; failure preserves both.
+   No definition/source proof or allocator/RSS bound is inferred here. */
+void page_other_free(PageOther *owned);
+bool page_other_adopt(Page *parent,PageOther **owned,char **error);
+const Page *page_other_values(const Page *parent,size_t measure);
 /* Schema/catalog strings and arrays use malloc/free. These helpers also serve
    native engine caches; page_free additionally resets the entire moved value. */
 void page_column_free(Column *column);
