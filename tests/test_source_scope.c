@@ -432,7 +432,97 @@ static void ledger_limits_and_malformed_ownership(void) {
     CHECK(source_versions_copy(&out,&live,&error) && out.bytes==DX_SOURCE_VERSIONS_BYTES);
     source_versions_free(&live); source_versions_free(&out); sized_schema_free(&page);
 }
+static void result_match_check(bool expected,const SourcePacket *result_packet,const SourcePacket *raw_packet,const Analysis *analysis) {
+    SourcePacket result_before={0},raw_before={0}; Analysis before={0};
+    if (result_packet && result_packet->data && result_packet->bytes) result_before=duplicate(*result_packet);
+    if (raw_packet && raw_packet->data && raw_packet->bytes) raw_before=duplicate(*raw_packet);
+    if (analysis) before=*analysis;
+    char error[DX_SOURCE_DIGEST_ERROR_BYTES]="KEEP";
+    const void *data=result_packet ? result_packet->data : NULL; size_t bytes=result_packet ? result_packet->bytes : 0;
+    CHECK(source_scope_result_matches(data,bytes,raw_packet,analysis,error)==expected);
+    if (expected) CHECK(!strcmp(error,"KEEP")); else CHECK(*error && strlen(error)<sizeof(error) && strcmp(error,"KEEP"));
+    CHECK(source_scope_result_matches(data,bytes,raw_packet,analysis,NULL)==expected);
+    if (result_before.data) CHECK(equal(result_before,*result_packet));
+    if (raw_before.data) CHECK(equal(raw_before,*raw_packet));
+    if (analysis) CHECK(!memcmp(analysis,&before,sizeof(before)));
+    source_packet_free(&result_before); source_packet_free(&raw_before);
+}
+static void cached_result_matching(void) {
+    Column cols[5]; Page page=schema(cols); uint64_t owner=UINT64_MAX,version=UINT64_C(9007199254740993);
+    SourcePacket packet=raw(owner,version,&page); Analysis a=source(); a.source_version=version;
+    a.filter_column="Amount"; a.filter_op=FILTER_BETWEEN; a.filter_value="[\"1.0000\",\"9.0000\"]"; a.filter_number=(NumberType){NUM_DECIMAL,38,4};
+    a.filters[0]=(AnalysisFilter){"City","[null,\"\",\"NULL\",\"O'Reilly\"]",FILTER_IN,{0}};
+    a.filters[1]=(AnalysisFilter){"When",NULL,FILTER_NULL,{0}}; a.filter_count=2;
+    a.sort_column="Id"; a.sorts[0]=(AnalysisSort){"Amount",true}; a.sort_count=1;
+    SourcePacket output=result(&packet,&a); result_match_check(true,&output,&packet,&a);
+    Analysis reordered=a; reordered.filter_column="CITY"; reordered.filter_value=a.filters[0].value; reordered.filter_op=FILTER_IN; reordered.filter_number=(NumberType){0};
+    reordered.filters[0]=(AnalysisFilter){"AMOUNT",a.filter_value,FILTER_BETWEEN,a.filter_number}; reordered.sort_column="ID"; reordered.sorts[0].column="amount";
+    result_match_check(true,&output,&packet,&reordered); /* Filter order/case normalize; sort priority does not. */
+    Analysis b=a; b.filter_value="[\"1.0001\",\"9.0000\"]"; result_match_check(false,&output,&packet,&b);
+    b=a; b.filters[1].value=""; result_match_check(false,&output,&packet,&b);
+    b=a; b.descending=true; result_match_check(false,&output,&packet,&b);
+    b=a; b.sort_column="Amount"; b.descending=true; b.sorts[0]=(AnalysisSort){"Id",false}; result_match_check(false,&output,&packet,&b);
+    b=a; b.source_version=0; result_match_check(true,&output,&packet,&b); /* Proposed precommit binding, not issuance proof. */
+    b.source_version=version+1; result_match_check(false,&output,&packet,&b);
+    b=a; b.path="/different/valid.csv"; result_match_check(true,&output,&packet,&b); /* Locator proof remains caller-owned. */
+    b=a; b.kind=SOURCE_PARQUET; result_match_check(false,&output,&packet,&b);
+    b=a; b.query="SELECT * FROM input"; result_match_check(false,&output,&packet,&b);
+    b=a; b.unique_rows=true; result_match_check(false,&output,&packet,&b);
+    b=a; b.group_column="City"; result_match_check(false,&output,&packet,&b);
+    b=a; b.path=NULL; result_match_check(false,&output,&packet,&b);
+    b=a; b.path="/source/*.csv"; result_match_check(false,&output,&packet,&b);
+    b=a; b.filter_count=SIZE_MAX; result_match_check(false,&output,&packet,&b);
+    b=a; b.sort_count=SIZE_MAX; result_match_check(false,&output,&packet,&b);
+    b=a; b.filters[0].column="amount"; result_match_check(false,&output,&packet,&b);
+    b=a; b.sorts[0].column="ID"; result_match_check(false,&output,&packet,&b);
+    b=a; b.sorts[0].column="Missing"; result_match_check(false,&output,&packet,&b);
+    b=a; b.filter_column="Missing"; result_match_check(false,&output,&packet,&b);
+    const NumberType numeric_bad[]={{0},{NUM_FLOAT,0,0},{NUM_DECIMAL,37,4},{NUM_DECIMAL,38,3},{NUM_DECIMAL,38,39}};
+    for (size_t i=0;i<sizeof(numeric_bad)/sizeof(*numeric_bad);i++) { b=a; b.filter_number=numeric_bad[i]; result_match_check(false,&output,&packet,&b); }
+    b=a; b.filters[0].number=(NumberType){NUM_I64,0,0}; result_match_check(false,&output,&packet,&b);
+    b=a; b.filters[1].number=(NumberType){NUM_NONE,1,0}; result_match_check(false,&output,&packet,&b);
+    /* Explicit SQL NULL, empty text and literal NULL remain distinct even when
+       the command uses the same source-version/reused application revision. */
+    const char *values[]={NULL,"","NULL"}; SourcePacket distinct[3];
+    for (size_t i=0;i<3;i++) { b=source(); b.source_version=version; b.filter_column="City"; b.filter_op=FILTER_EQUAL; b.filter_value=(char *)values[i]; distinct[i]=result(&packet,&b); }
+    for (size_t i=0;i<3;i++) for (size_t j=0;j<3;j++) { b=source(); b.filter_column="city"; b.filter_op=FILTER_EQUAL; b.filter_value=(char *)values[j]; result_match_check(i==j,&distinct[i],&packet,&b); }
+    for (size_t i=0;i<3;i++) source_packet_free(&distinct[i]);
+    /* Valid composite/JSON grammar is provided by the existing builder and
+       captured Analysis validator, rather than reparsed by this noalloc seam. */
+    char *error=NULL; char *composite=analysis_filter_pack(FILTER_IN,"[null,\"\",\"NULL\",\"\\uD83D\\uDE00\"]",FILTER_BETWEEN,"[\"A\",\"Z\"]"); CHECK(composite);
+    b=source(); b.filter_column="City"; b.filter_op=FILTER_COMPOSITE; b.filter_value=composite;
+    SourcePacket combined=result(&packet,&b); result_match_check(true,&combined,&packet,&b);
+    char first=composite[0]; composite[0]='!'; result_match_check(false,&combined,&packet,&b); composite[0]=first;
+    SourceScopeInfo info; CHECK(source_scope_validate(output.data,output.bytes,&info,&error));
+    SourcePacket embedded={(unsigned char *)info.raw,info.raw_bytes}; result_match_check(true,&output,&embedded,&a); /* Borrowed alias is read-only. */
+    SourcePacket foreign=raw(owner-1,version,&page); result_match_check(false,&output,&foreign,&a); source_packet_free(&foreign);
+    foreign=raw(owner,version+1,&page); result_match_check(false,&output,&foreign,&a); source_packet_free(&foreign);
+    SourceDigest d=digest(); d.sha256[0]^=1; b=source(); CHECK(source_scope_raw_build(owner,version,&b,&page,&d,"v1.5.6",&foreign,&error));
+    result_match_check(false,&output,&foreign,&a); source_packet_free(&foreign);
+    d=digest(); CHECK(source_scope_raw_build(owner,version,&b,&page,&d,"v1.5.7",&foreign,&error)); result_match_check(false,&output,&foreign,&a); source_packet_free(&foreign);
+    cols[2].number_type.scale=3; cols[2].type_name="DECIMAL(38,3)"; foreign=raw(owner,version,&page);
+    result_match_check(false,&output,&foreign,&a); source_packet_free(&foreign); cols[2].number_type.scale=4; cols[2].type_name="DECIMAL(38,4)";
+    result_match_check(false,&packet,&packet,&a); result_match_check(false,&output,&output,&a); /* RAW is not an eligible guarded RESULT. */
+    result_match_check(false,NULL,&packet,&a); result_match_check(false,&output,NULL,&a); result_match_check(false,&output,&packet,NULL);
+    /* Every truncated boundary is rejected; no caller packet/string is changed. */
+    for (size_t i=0;i<output.bytes;i++) { SourcePacket short_packet={output.data,i}; result_match_check(false,&short_packet,&packet,&a); }
+    for (size_t i=0;i<packet.bytes;i++) { SourcePacket short_packet={packet.data,i}; result_match_check(false,&output,&short_packet,&a); }
+    SourcePacket bad=duplicate(output); const size_t structural[]={0,4,6,7,8,12,16,24,32};
+    for (size_t i=0;i<sizeof(structural)/sizeof(*structural);i++) { size_t at=structural[i]; bad.data[at]^=0x80; result_match_check(false,&bad,&packet,&a); bad.data[at]^=0x80; }
+    size_t filter=36+packet.bytes+4; le(bad.data+filter,DX_SOURCE_SCOPE_FIELDS,4); result_match_check(false,&bad,&packet,&a); source_packet_free(&bad);
+    SourceScopeInfo raw_info; CHECK(source_scope_validate(packet.data,packet.bytes,&raw_info,&error));
+    bad=duplicate(packet); size_t field=(size_t)(raw_info.fields-packet.data);
+    le(bad.data+field+4,UINT16_MAX,2); result_match_check(false,&output,&bad,&a); source_packet_free(&bad);
+    /* A structurally intact but invalid JSON packet is independently invalid.
+       The matcher compares it against valid actual Analysis; it does not certify
+       malformed matching Analysis as a replacement for that precondition. */
+    bad=duplicate(combined); filter=36+packet.bytes+4+12; bad.data[filter]='!';
+    CHECK(!source_scope_validate(bad.data,bad.bytes,&info,&error)); clear_error(&error);
+    b=source(); b.filter_column="City"; b.filter_op=FILTER_COMPOSITE; b.filter_value=composite;
+    result_match_check(false,&bad,&packet,&b); source_packet_free(&bad);
+    source_packet_free(&combined); free(composite); source_packet_free(&output); source_packet_free(&packet);
+}
 int main(void) {
-    canonical_raw(); canonical_result(); exact_filter_bindings(); verified_page_binding(); invalid_inputs_and_schema(); all_known_types(); adversarial_packets(); packet_budgets_and_ownership(); ledger_lifecycle(); ledger_limits_and_malformed_ownership();
+    canonical_raw(); canonical_result(); exact_filter_bindings(); verified_page_binding(); invalid_inputs_and_schema(); all_known_types(); adversarial_packets(); packet_budgets_and_ownership(); ledger_lifecycle(); ledger_limits_and_malformed_ownership(); cached_result_matching();
     printf("PASS: %u source scope checks\n",checks); return 0;
 }

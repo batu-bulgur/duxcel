@@ -54,6 +54,21 @@ bool source_scope_result_build(const SourcePacket *raw,const Analysis *analysis,
 bool source_scope_validate(const void *data,size_t bytes,SourceScopeInfo *out,char **error);
 bool source_scope_field(const void *data,size_t bytes,size_t ordinal,SourceScopeField *out,char **error);
 bool source_scope_schema_matches(const void *data,size_t bytes,const Page *schema,char **error);
+/* Publication-time RESULT cache match, not independent packet/provenance
+   validation or a paint/cell-loop callback. The caller already owns a complete
+   RAW packet verified against the current actual Page and a fully validated
+   captured Analysis (including filter payload grammar). A cached RESULT was
+   built/validated before matching. Checks structural packets, exact embedded
+   RAW owner/version/bytes, original typed fields and canonical filter/sort
+   semantics; filter display order/case is immaterial, sort priority is ordered.
+   Does not reparse filter JSON or certify malformed caller Analysis grammar.
+   Locator/file/engine proof, source issuance and latest request/sheet routing
+   remain caller-owned; packets alone cannot prove them. A nonzero Analysis
+   source_version must match; zero permits a candidate before atomic binding.
+   No allocation, file access, SQL or ledger scan. All inputs/error are preserved
+   on success; failure writes only the optional bounded error buffer. */
+bool source_scope_result_matches(const void *result,size_t bytes,const SourcePacket *verified_raw,
+    const Analysis *current,char error[DX_SOURCE_DIGEST_ERROR_BYTES]);
 void source_packet_free(SourcePacket *packet);
 
 typedef struct {
