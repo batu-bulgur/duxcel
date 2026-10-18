@@ -1,0 +1,7 @@
+Table transport sources: 2049 rows x 14 columns, 911778 exact C-owned bytes, 343250 wire bytes (32MiB caller reservation ceiling; no4MiB input/engine/RSS claim)
+Table transport filters: 30721 rows x 6 columns, 5904278 exact C-owned bytes, 2250569 wire bytes (32MiB caller reservation ceiling; no4MiB input/engine/RSS claim)
+Table transport sorts: 14337 rows x 5 columns, 2304090 exact C-owned bytes, 881950 wire bytes (32MiB caller reservation ceiling; no4MiB input/engine/RSS claim)
+PASS: 60863 page wire checks (60186 original retained; 677 Table checks)
+Pivot/Marks transport pivot-fields: 65537 rows x 9 columns, 14157153 exact C-owned bytes, 2949601 wire bytes (sparse shape,32MiB caller reservation only; no4MiB driver/engine/RSS claim)
+Pivot/Marks transport marks: 98305 rows x 8 columns, 18875602 exact C-owned bytes, 3932599 wire bytes (sparse shape,32MiB caller reservation only; no4MiB driver/engine/RSS claim)
+PASS: 61274 page wire checks (60863 original retained; 411 Pivot/Marks checks)
