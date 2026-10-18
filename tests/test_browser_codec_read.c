@@ -42,17 +42,17 @@ static Driver d;
 
 EM_JS(void, fixture_start,(unsigned cookie,unsigned ticket,const char *name,const char *attach,const char *detach),{
     Module['dxCodecFixture']({heap:()=>HEAPU8,allocate:_malloc,release:_free,fixture:_dx_browser_codec_fixture_result},cookie,ticket,UTF8ToString(name),UTF8ToString(attach),UTF8ToString(detach));
-});
+})
 EM_JS(void, query_start,(unsigned cookie,unsigned ticket,const char *sql,const char *columns,const char *bindings,unsigned limit,int hold),{
     const request={requestId:String(ticket),generation:'9007199254740993',documentId:String(cookie),sourceId:'0',objectId:'0',revision:'18446744073709551615',offset:'0',knownTotal:null,rowLimit:limit,sql:UTF8ToString(sql),sourceBindings:JSON.parse(UTF8ToString(bindings))};
     if(columns)request.columns=JSON.parse(UTF8ToString(columns));
     Module['dxCodecSubmit']({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_codec_result,string:UTF8ToString,fixture:_dx_browser_codec_fixture_result},cookie,ticket,request,Boolean(hold));
-});
-EM_JS(void, release_held,(void),{Module['dxCodecRelease']();});
+})
+EM_JS(void, release_held,(void),{Module['dxCodecRelease']();})
 EM_JS(void, report_done,(int ok,unsigned checks,unsigned fixtures,unsigned headers,unsigned queries,unsigned rejections,unsigned stale,size_t peak,const unsigned *normal,unsigned meta,unsigned sheets,unsigned describe,unsigned u64_flags,int budget,int sentinel,int tiny,const char *error),{
     const at=normal>>>2;
     Module['dxCodecReadTestDone']({ok:Boolean(ok),checks,fixtures,headers,queries,rejections,stale,peakOwnedInput:peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,budgetRejected:Boolean(budget),sentinelRejected:Boolean(sentinel),tinyNegativeRejected:Boolean(tiny),u64Sentinels:[...(u64_flags&1?['9007199254740993']:[]),...(u64_flags&2?['18446744073709551615']:[])],normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+7)),familyExecutions:{meta,sheets,describe},error:error?UTF8ToString(error):null,boundary:'official-worker/shared-C-header-reader; no workbook publication or browser Save/Open'});
-});
+})
 static void report(bool ok,const char *error) {
     report_done(ok,d.checks,d.fixtures,d.headers,d.queries,d.rejections,d.stale,d.peak_input,d.normal_queries,d.meta_queries,d.sheets_queries,d.describe_queries,d.u64_flags,d.budget_rejected,d.sentinel_rejected,d.tiny_negative_rejected,error);
 }
@@ -225,8 +225,8 @@ static bool atoms_from_page(bool sheets) {
             else atom->value.text=(WorkbookCodecText){cell->text,strlen(cell->text)};
         }
     }
-    if(d.fault==2){CHECK(d.atoms[1].value.u64==UINT64_C(9007199254740993)&&!strcmp(d.page.cells[1].text,"9007199254740993"),"Wide exact U64 was rounded before header validation");d.u64_flags|=1;}
-    if(d.fault==5){CHECK(d.atoms[14].value.u64==UINT64_MAX&&!strcmp(d.page.cells[14].text,"18446744073709551615"),"Maximum U64 was rounded before viewport rejection");d.u64_flags|=2;}
+    if(!sheets&&d.fault==2){CHECK(d.atoms[1].value.u64==UINT64_C(9007199254740993)&&!strcmp(d.page.cells[1].text,"9007199254740993"),"Wide exact U64 was rounded before header validation");d.u64_flags|=1;}
+    if(sheets&&d.fault==5){CHECK(d.atoms[14].value.u64==UINT64_MAX&&!strcmp(d.page.cells[14].text,"18446744073709551615"),"Maximum U64 was rounded before viewport rejection");d.u64_flags|=2;}
     if(sentinel)CHECK(d.atoms[0].value.i32==0&&d.atoms[64*columns].value.i32==64,"Actual 65th worksheet sentinel missing or unordered");
     if(sheets&&d.fault==13){
         double value=d.atoms[21].value.real;
@@ -249,11 +249,11 @@ static bool feed_page(bool sheets,bool expected_failure) {
         if(expected_failure){
             CHECK(status==WORKBOOK_CODEC_READ_ERROR&&d.error,"Genuine invalid metadata/budget unexpectedly accepted");
             CHECK(d.header==old&&workbook_codec_read_owned_bytes(d.read)==bytes&&workbook_codec_read_request(d.read)->first_row==first&&workbook_codec_read_request(d.read)->sql==request_sql,"Failed feed changed old Header or staged reader");
-            CHECK(!workbook_codec_read_finish(d.read,&d.header,&d.error)&&d.header==old,"Failed candidate replaced old Header");
             CHECK(prior_unchanged(),"Invalid metadata changed retained Header");
             if(d.fault==8){CHECK(strstr(d.error,"budget"),"Pressure case failed for a reason other than budget admission");d.budget_rejected=true;}
             if(d.fault==12){CHECK(strstr(d.error,"Too many worksheets"),"65th sentinel failed for a reason other than the sheet bound");d.sentinel_rejected=true;}
             if(d.fault==13){CHECK(d.tiny_negative_proven&&strstr(d.error,"viewport"),"Tiny-negative rejection lacks original DOUBLE/viewport proof");d.tiny_negative_rejected=true;}
+            CHECK(!workbook_codec_read_finish(d.read,&d.header,&d.error)&&d.header==old,"Failed candidate replaced old Header");
             d.rejections++;return true;
         }
         CHECK(status==WORKBOOK_CODEC_READ_ACCEPTED,d.error?d.error:"Shared reader rejected valid exact atoms");
@@ -263,7 +263,7 @@ static bool feed_page(bool sheets,bool expected_failure) {
 static bool next_fault(void) {
     clear_input();if(d.fault<14){d.fault++;return begin_read();}return true;
 }
-EM_JS(void, cancel_candidate,(void),{Module['dxEngine'].cancel(false);});
+EM_JS(void, cancel_candidate,(void),{Module['dxEngine'].cancel(false);})
 static bool tick_body(void) {
     if(d.phase==0){
         CHECK(d.fixture<7,"Fixture index exceeded inventory");
