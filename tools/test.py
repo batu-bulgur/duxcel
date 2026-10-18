@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FAST_MODULES = (
     "cellreadout", "filterlabel", "grid", "selection_ladder", "source_scope", "objects", "brand", "format", "chartview", "chartencoding",
     "inspector", "stepview", "preview", "preview_input", "preview_input_browser", "textview", "textview_review", "statsview", "statsview_input", "statsview_input_review",
-    "ui_update_input", "ui_update_input_browser", "ui_update_input_control", "guideview", "guideview_input", "guideview_input_review", "fontmetrics",
+    "ui_update_input", "ui_update_input_browser", "ui_update_input_control", "guideview", "guideview_input", "guideview_input_review", "sortview_input", "sortview_input_review", "fontmetrics",
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
 RECORD_MODULES = ("record_sql", "record_pages")

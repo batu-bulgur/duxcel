@@ -424,6 +424,15 @@ endif
 STATS_INPUT_SRC = src/ui/ui.c src/ui/statsview.c tests/test_statsview_input.c
 UI_UPDATE_INPUT_SRC = src/common.c src/ui/fontmetrics.c src/ui/ui.c tests/test_ui_update_input.c
 GUIDE_INPUT_SRC = src/common.c src/ui/ui.c src/ui/textview.c src/ui/motion.c src/ui/guideview.c tests/test_guideview_input.c
+SORT_INPUT_SRC = src/common.c src/ui/ui.c src/ui/motion.c src/transforms/analysis.c src/ui/sortview.c tests/test_sortview_input.c
+tests/test_sortview_input: $(SORT_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(SORT_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_sortview_input-debug: $(SORT_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(SORT_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+tests/test_sortview_input_review: $(SORT_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -DDUXCEL_REVIEW_INPUT_IMPLEMENTATION -include src/dev/review_input.h $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(SORT_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_sortview_input_review-debug: $(SORT_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -DDUXCEL_REVIEW_INPUT_IMPLEMENTATION -include src/dev/review_input.h -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(SORT_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 tests/test_guideview_input: $(GUIDE_INPUT_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(GUIDE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
 tests/test_guideview_input-debug: $(GUIDE_INPUT_SRC) $(HEADERS)
@@ -491,7 +500,7 @@ tests/test_paint-native-debug: $(PAINT_NATIVE_SRC) $(HEADERS)
 paint-smoke: tests/test_paint-native-debug
 	mkdir -p tests/results/native-authoring
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_paint-native-debug
-test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview tests/test_preview_input tests/test_preview_input_browser tests/test_textview tests/test_textview_review tests/test_statsview_input tests/test_statsview_input_review tests/test_ui_update_input tests/test_ui_update_input_browser tests/test_ui_update_input_control tests/test_guideview_input tests/test_guideview_input_review
+test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview tests/test_preview_input tests/test_preview_input_browser tests/test_textview tests/test_textview_review tests/test_statsview_input tests/test_statsview_input_review tests/test_ui_update_input tests/test_ui_update_input_browser tests/test_ui_update_input_control tests/test_guideview_input tests/test_guideview_input_review tests/test_sortview_input tests/test_sortview_input_review
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
 	./tests/test_filterlabel
 	./tests/test_cellreadout
@@ -525,7 +534,9 @@ test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid 
 	./tests/test_ui_update_input_control
 	./tests/test_guideview_input
 	./tests/test_guideview_input_review
-test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug tests/test_preview_input-debug tests/test_preview_input_browser-debug tests/test_textview-debug tests/test_textview_review-debug tests/test_statsview_input-debug tests/test_statsview_input_review-debug tests/test_ui_update_input-debug tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control-debug tests/test_guideview_input-debug tests/test_guideview_input_review-debug
+	./tests/test_sortview_input
+	./tests/test_sortview_input_review
+test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug tests/test_preview_input-debug tests/test_preview_input_browser-debug tests/test_textview-debug tests/test_textview_review-debug tests/test_statsview_input-debug tests/test_statsview_input_review-debug tests/test_ui_update_input-debug tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control-debug tests/test_guideview_input-debug tests/test_guideview_input_review-debug tests/test_sortview_input-debug tests/test_sortview_input_review-debug
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_filterlabel-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_cellreadout-debug
@@ -559,6 +570,8 @@ test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_cor
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_ui_update_input_control-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_guideview_input-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_guideview_input_review-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_sortview_input-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_sortview_input_review-debug
 spill-test: tests/test_cellreadout tests/test_core tests/test_core-debug
 	./tests/test_core --spill-probe
 	TMPDIR=/ ASAN_OPTIONS=halt_on_error=1 ./tests/test_core-debug --spill-probe
@@ -626,6 +639,8 @@ ifeq ($(shell uname -s),Darwin)
 	codesign --force --sign - build/Duxcel.app
 endif
 clean:
+	rm -f tests/test_sortview_input tests/test_sortview_input-debug tests/test_sortview_input_review tests/test_sortview_input_review-debug
+	rm -rf tests/test_sortview_input.dSYM tests/test_sortview_input-debug.dSYM tests/test_sortview_input_review.dSYM tests/test_sortview_input_review-debug.dSYM
 	rm -f tests/test_guideview_input tests/test_guideview_input-debug tests/test_guideview_input_review tests/test_guideview_input_review-debug
 	rm -rf tests/test_guideview_input.dSYM tests/test_guideview_input-debug.dSYM tests/test_guideview_input_review.dSYM tests/test_guideview_input_review-debug.dSYM
 	rm -f tests/test_statsview_input tests/test_statsview_input-debug tests/test_statsview_input_review tests/test_statsview_input_review-debug tests/test_ui_update_input tests/test_ui_update_input-debug tests/test_ui_update_input_browser tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control tests/test_ui_update_input_control-debug
