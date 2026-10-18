@@ -6137,7 +6137,7 @@ static bool pipeline_step_change(App *a,size_t index,int direction,bool remove) 
         if (same) cache_pipeline(a); else change_analysis(a,schema);
     }
     analysis_free(&copy);
-    if (ok) { a->pipeline_rows_valid=false; a->pipeline_focus_index=(int)index+(remove ? 0 : direction); a->consume_grid_input=true; status(a,remove ? "Step removed." : "Step order updated."); }
+    if (ok) { a->pipeline_rows_valid=false; a->pipeline_focus_index=(int)index+(remove ? 0 : direction); a->pipeline_reveal=true; a->consume_grid_input=true; status(a,remove ? "Step removed." : "Step order updated."); }
     return ok;
 }
 static void begin_step_menu(App *a,size_t index,Vector2 origin) {
@@ -6197,7 +6197,8 @@ static void pipeline_reveal_step(App *a,size_t index) {
     if (!layout->valid || a->pipeline_sql || a->pipeline_collapsed || !s) return;
     float top=7+index*layout->row_height,bottom=top+layout->row_height,visible=layout->list_frame.height/s;
     /* Home retains the list's leading padding as well as the first row. */
-    if (top<a->pipeline_inner_scroll) a->pipeline_inner_scroll=index ? top : 0;
+    if (!index) a->pipeline_inner_scroll=0;
+    else if (top<a->pipeline_inner_scroll) a->pipeline_inner_scroll=top;
     if (bottom>a->pipeline_inner_scroll+visible) a->pipeline_inner_scroll=bottom-visible;
     a->pipeline_inner_scroll=fmaxf(0,fminf(layout->inner_max,a->pipeline_inner_scroll));
     float y=layout->list_frame.y+(top-a->pipeline_inner_scroll)*s,edge=layout->body_clip.y+layout->body_clip.height;
@@ -7958,7 +7959,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 896
+#define LAYOUT_SMOKE_STAGES 898
 static unsigned inspector_pan_evidence;
 static uint64_t inspector_pan_top;
 static double inspector_pan_fraction;
@@ -12840,7 +12841,10 @@ static void layout_smoke_step(App *a,int *step) {
         if (fabsf(a->pipeline_layout.inner_offset-55.1f)>.001f || a->pipeline_outer_scroll || a->ui.scissor_depth) goto failed;
         a->chrome_focus=8; break;
     case 889:
-        if (a->pipeline_focus_index || a->pipeline_inner_scroll || a->pipeline_outer_scroll) goto failed; break;
+        if (a->pipeline_focus_index || a->pipeline_inner_scroll || a->pipeline_outer_scroll) goto failed;
+        a->pipeline_inner_scroll=5; pipeline_reveal_step(a,0); if (a->pipeline_inner_scroll) goto failed;
+        a->pipeline_inner_scroll=7; pipeline_reveal_step(a,0); if (a->pipeline_inner_scroll) goto failed;
+        break;
     case 890:
         if (a->pipeline_focus_index!=5 || a->pipeline_inner_scroll!=182 || a->pipeline_outer_scroll || a->modal!=MODAL_NONE) goto failed;
         a->chrome_focus=0; break;
@@ -12860,7 +12864,22 @@ static void layout_smoke_step(App *a,int *step) {
             a->request_id!=request || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries || a->analysis_revision!=inspector_revision ||
             s->undo_actions_count!=inspector_history || a->page.cells!=ribbon_cells || a->page.total!=5 || a->grid.top || a->grid.fraction || a->grid.horizontal || a->ui.scissor_depth) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-reopened.png");
-        puts("PASS: native independent Steps outer and inner scrolling, sticky header, retained partial row, captured pan ownership, keyboard reveal/context and collapse reset without queries or clipboard"); break;
+        /* A real pointer-context reorder must reveal its new focused row,
+           even when it moves just above the visible inner viewport. */
+        a->pipeline_inner_scroll=117; a->pipeline_focus_index=2;
+        if (!pipeline_step_change(a,2,-1,false)) goto failed; break;
+    case 896:
+        if (a->pipeline_focus_index!=1 || a->pipeline_inner_scroll!=62 || a->pipeline_outer_scroll ||
+            a->page.total!=5 || a->analysis.filter_count!=5 || strcmp(a->analysis.filters[0].column,"City") ||
+            a->analysis_revision!=inspector_revision+1 || s->undo_actions_count!=inspector_history+1 ||
+            a->worker.jobs_started!=inspector_jobs+1 || a->worker.sql_executed!=inspector_queries+1 || a->ui.scissor_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-reordered.png");
+        history(a,false); break;
+    case 897:
+        if (a->page.total!=5 || a->analysis.filter_count!=5 || strcmp(a->analysis.filters[0].column,"ID") ||
+            s->undo_actions_count!=inspector_history || a->worker.jobs_started!=inspector_jobs+2 ||
+            a->worker.sql_executed!=inspector_queries+2 || a->ui.scissor_depth) goto failed;
+        puts("PASS: native independent Steps outer and inner scrolling, sticky header, partial row, captured pan, keyboard/context/collapse without queries, and real reordered-step reveal/Undo without clipboard"); break;
 
     }
     free(error); (*step)++; return;
