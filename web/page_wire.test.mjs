@@ -71,6 +71,45 @@ test('workbook-sorts wire retains the same text limit and rejects invalid cells 
     assert.throws(()=>encodePageWire(page(['x',null,'','NULL'],columns),{purpose:'Workbook-sorts'}),/unknown transport purpose/);
 });
 
+function objectColumns(){
+    const names=['sheet_id','id','name','row_id','column_id','height','width','kind','mark','source_id','chart_measure'];
+    return names.map((name,i)=>column({name,typeName:i===2?'VARCHAR':[1,3,5,9].includes(i)?'UBIGINT':'INTEGER',
+        numberKind:i===2?'none':[1,3,5,9].includes(i)?'u64':'i32'}));
+}
+test('trusted workbook-objects encodes one 2049 by eleven result without relaxing existing purposes',()=>{
+    const columns=objectColumns(),names=[null,'','NULL',"Owner 'İ' 🦆",'9007199254740993','18446744073709551615'];
+    const values=Array.from({length:2049},(_,i)=>['63','18446744073709551615',names[i%names.length],
+        '9007199254740993','16383','12','128','0','0','9007199254740994','0']).flat();
+    const input=page(values,columns),before={text:input.text.slice(),offsets:input.offsets.slice(),nulls:input.nulls.slice()};
+    assert.throws(()=>encodePageWire(input),/row count/);
+    assert.throws(()=>encodePageWire(input,{purpose:'copy'}),/20,000 cells/);
+    assert.throws(()=>encodePageWire(input,{purpose:'workbook-sorts'}),/row count/);
+    const wire=encodePageWire(input,{purpose:'workbook-objects'}),output=inspect(wire);
+    assert.equal(output.rows,2049);assert.equal(output.columns,11);assert.deepEqual(output.metadata,columns);assert.deepEqual(output.values,values);
+    for(const part of ['text','offsets','nulls'])assert.deepEqual(input[part],before[part]);
+    const valid=inspect(encodePageWire(page(values.slice(0,2048*11),columns),{purpose:'workbook-objects'}));assert.equal(valid.rows,2048);
+    assert.throws(()=>encodePageWire(page([...values,...values.slice(0,11)],columns),{purpose:'workbook-objects'}),/row count/);
+    for(const count of [0,10,12])assert.throws(()=>encodePageWire(page(Array(count).fill(null),Array.from({length:count},()=>column()),1),{purpose:'workbook-objects'}),/column/);
+    assert.equal(inspect(encodePageWire(page([],columns,0),{purpose:'workbook-objects'})).rows,0);
+    // An owned transport cannot retain any caller view, including subarrays.
+    input.text.fill(0);input.offsets.fill(0);input.nulls.fill(1);assert.deepEqual(inspect(wire).values,values);
+    const received=structuredClone(wire,{transfer:[wire.buffer]});assert.equal(wire.length,0);assert.deepEqual(inspect(received).values,values);
+});
+test('workbook-objects retains exact text bounds and rejects malformed owned inputs before encoding',()=>{
+    const columns=objectColumns(),values=Array(11).fill(null);values[2]='x'.repeat(4*1024*1024);
+    const input=page(values,columns);assert.deepEqual(inspect(encodePageWire(input,{purpose:'workbook-objects'})).values,values);
+    values[2]+='x';assert.throws(()=>encodePageWire(page(values,columns),{purpose:'workbook-objects'}),/4 MiB/);
+    for(const text of ['a\0b','é🦆']){
+        const values=Array(11).fill(null);values[2]=text;const malformed=page(values,columns),before=malformed.text.slice();
+        if(text.includes('\0'))assert.throws(()=>encodePageWire(malformed,{purpose:'workbook-objects'}),/NUL/);
+        else{malformed.text[0]=0xff;before[0]=0xff;assert.throws(()=>encodePageWire(malformed,{purpose:'workbook-objects'}),/UTF-8/);}
+        assert.deepEqual(malformed.text,before);
+    }
+    const malformed=page(Array(11).fill(null),columns);malformed.nulls[0]=2;
+    assert.throws(()=>encodePageWire(malformed,{purpose:'workbook-objects'}),/NULL/);
+    for(const purpose of ['Workbook-objects','workbook-objects ',{},false])assert.throws(()=>encodePageWire(page([],columns,0),{purpose}),/unknown transport purpose/);
+});
+
 test('DXP1 little-endian golden bytes retain SQL NULL, empty text and literal NULL', () => {
     const wire = encodePageWire(page());
     assert.equal(Buffer.from(wire).toString('hex'), [

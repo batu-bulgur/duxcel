@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { Table, Int32, Int64, Uint64, Decimal, Utf8, TimestampNanosecond,
     vectorFromArray, makeVector, makeData, RecordBatchReader, tableToIPC } from 'apache-arrow';
 import { LIMITS, pageRequest, decimalText, encodePage, pageCellText, pageTransferables,
-    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport,workbookSortsRequest } from './official_worker.mjs';
+    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport,workbookSortsRequest,workbookObjectsRequest } from './official_worker.mjs';
 
 const request = (id = '1', extra = {}) => pageRequest({ requestId: id, sql: 'C BUILT SQL LIMIT 256', ...extra });
 function words(value, length = 4) {
@@ -103,6 +103,104 @@ test('dedicated workbook-sorts admission retains source-token guards without wid
     const recovered=await adapter.submit({requestId:'2',sql:'ordinary recovery',rowLimit:256});
     assert.equal(recovered.status,'ok');assert.equal(recovered.page.rowCount,2);assert.equal(sends,2);
     await adapter.close();
+});
+
+const workbookObjectColumns=[
+    {name:'sheet_id',typeName:'INTEGER',numberKind:'i32'},
+    {name:'id',typeName:'UBIGINT',numberKind:'u64'},
+    {name:'name',typeName:'VARCHAR',numberKind:'none'},
+    {name:'row_id',typeName:'UBIGINT',numberKind:'u64'},
+    {name:'column_id',typeName:'INTEGER',numberKind:'i32'},
+    {name:'height',typeName:'UBIGINT',numberKind:'u64'},
+    {name:'width',typeName:'INTEGER',numberKind:'i32'},
+    {name:'kind',typeName:'INTEGER',numberKind:'i32'},
+    {name:'mark',typeName:'INTEGER',numberKind:'i32'},
+    {name:'source_id',typeName:'UBIGINT',numberKind:'u64'},
+    {name:'chart_measure',typeName:'INTEGER',numberKind:'i32'},
+];
+function workbookObjectInput(id='1',change={}){
+    return {...workbookSortInput(id),purpose:'workbook-objects',rowLimit:2049,
+        sql:'C OWNED CANONICAL OBJECTS PROJECTION LIMIT 2049',columns:workbookObjectColumns.map(column=>({...column})),...change};
+}
+function workbookObjectTable(rows=2049){
+    const names=[null,'','NULL',"Owner 'İ' 🦆",'9007199254740993','18446744073709551615'];
+    return new Table(Object.fromEntries(workbookObjectColumns.map(column=>{
+        const values=Array.from({length:rows},(_,row)=>column.name==='name'?names[row%names.length]:
+            column.name==='id'?18446744073709551615n:column.name==='row_id'?9007199254740993n:
+            column.name==='source_id'?9007199254740994n:column.typeName==='UBIGINT'?12n:row%64);
+        return [column.name,vectorFromArray(values,column.typeName==='VARCHAR'?new Utf8():column.typeName==='UBIGINT'?new Uint64():new Int32())];
+    })));
+}
+test('workbook-objects has an explicit frozen 2049-row eleven-column single-archive request',()=>{
+    const input=workbookObjectInput(),parsed=workbookObjectsRequest(input);
+    assert.equal(parsed.purpose,'workbook-objects');assert.equal(parsed.rowLimit,2049);assert.equal(parsed.offset,'0');assert.equal(parsed.knownTotal,null);
+    assert.ok(Object.isFrozen(parsed));assert.ok(Object.isFrozen(parsed.columns));assert.ok(Object.isFrozen(parsed.columns[0]));assert.ok(Object.isFrozen(parsed.sourceBindings));
+    input.columns[0].name='changed';input.sourceBindings[0].registrationId='2';
+    assert.equal(parsed.columns[0].name,'sheet_id');assert.equal(parsed.sourceBindings[0].registrationId,'1');
+    assert.equal(workbookObjectsRequest(workbookObjectInput('2',{rowLimit:undefined})).rowLimit,2049);
+    assert.throws(()=>pageRequest(workbookObjectInput()),{code:'INVALID_REQUEST'});
+    assert.throws(()=>workbookSortsRequest(workbookObjectInput()),{code:'INVALID_REQUEST'});
+    assert.throws(()=>pageRequest({requestId:'2',sql:'ordinary',rowLimit:257}),{code:'INVALID_REQUEST'});
+    for(const change of [{purpose:undefined},{purpose:'copy'},{purpose:'workbook-sorts'},{purpose:'Workbook-objects'},
+        {purpose:{}},{offset:'1'},{knownTotal:'2049'},{rowLimit:0},{rowLimit:2050},{rowLimit:NaN},{rowLimit:1.5},
+        {columns:undefined},{columns:[]},{columns:workbookObjectColumns.slice(0,10)},
+        {columns:[...workbookObjectColumns,{name:'extra',typeName:'VARCHAR'}]},
+        {sourceBindings:undefined},{sourceBindings:[]},{sourceBindings:[{name:'a.dxls',engineEpoch:'1',registrationId:'1'},{name:'b.dxls',engineEpoch:'1',registrationId:'2'}]},
+        {sourceBindings:[{name:'fixture.dxls',engineEpoch:'0',registrationId:'1'}]}]){
+        assert.throws(()=>workbookObjectsRequest(workbookObjectInput('2',change)),{code:'INVALID_REQUEST'});
+    }
+});
+test('workbook-objects drains one Arrow result with exact typed text and its own fixed envelope',async()=>{
+    const parsed=workbookObjectsRequest(workbookObjectInput()),table=workbookObjectTable();
+    const output=await encodePage(reader(table),parsed);
+    assert.equal(output.rowCount,2049);assert.equal(output.columnCount,11);assert.equal(output.total,'2049');assert.equal(output.countPending,true);
+    assert.deepEqual(Array.from({length:6},(_,row)=>pageCellText(output,row,2)),[null,'','NULL',"Owner 'İ' 🦆",'9007199254740993','18446744073709551615']);
+    for(const row of [0,2048]){
+        assert.equal(pageCellText(output,row,1),'18446744073709551615');assert.equal(pageCellText(output,row,3),'9007199254740993');
+        assert.equal(pageCellText(output,row,9),'9007199254740994');
+    }
+    assert.equal(output.columns[1].typeName,'UBIGINT');assert.equal(output.columns[1].numberKind,'u64');
+    const valid=await encodePage(reader(workbookObjectTable(2048)),parsed);assert.equal(valid.rowCount,2048);assert.equal(valid.countPending,false);
+    await assert.rejects(encodePage(reader(workbookObjectTable(2050)),parsed),{code:'PAGE_LIMIT'});
+    await assert.rejects(encodePage(reader(workbookObjectTable(257)),request()),{code:'PAGE_LIMIT'});
+    await assert.rejects(encodePage(reader(workbookSortTable(450)),workbookSortsRequest(workbookSortInput())),{code:'PAGE_LIMIT'});
+    for(const count of [10,12]){
+        const columns=Array.from({length:count},(_,i)=>['c'+i,vectorFromArray(['x'],new Utf8())]);
+        await assert.rejects(encodePage(reader(new Table(Object.fromEntries(columns))),parsed),{code:'PAGE_LIMIT'});
+    }
+    const huge=Object.fromEntries(workbookObjectColumns.map(column=>[column.name,vectorFromArray([column.name==='name'?'x'.repeat(LIMITS.bytes+1):'0'],new Utf8())]));
+    await assert.rejects(encodePage(reader(new Table(huge)),parsed),{code:'PAGE_LIMIT'});
+});
+test('dedicated object requests retain pre/post captured-registration guards through drop faults and recovery',async()=>{
+    for(const failDrop of [false,true]){
+        const began=deferred(),release=deferred(),owned=reader(workbookObjectTable(1));let sends=0;
+        const database={async registerFileBuffer(){},async dropFile(){if(failDrop)throw new Error('owned drop failed');}};
+        const adapter=new DuckDBWorkerAdapter({database,connection:connection({async send(){sends++;if(sends===1){began.resolve();await release.promise;return owned;}return reader(simple());}})});
+        const sibling=new DuckDBWorkerAdapter({database,connection:connection()});
+        const token=await adapter.registerFile('objects.dxls',new Uint8Array([1]));
+        assert.throws(()=>adapter.submit(workbookObjectInput('1',{sourceBindings:[token]})),{code:'INVALID_REQUEST'});
+        assert.equal(adapter.latestId,0n);assert.equal(sends,0);
+        const pending=adapter.submitWorkbookObjects(workbookObjectInput('1',{sourceBindings:[token]}));await began.promise;
+        if(failDrop)await assert.rejects(sibling.dropFile(token.name),/owned drop failed/);else await sibling.dropFile(token.name);
+        release.resolve();const reply=await pending;
+        assert.equal(reply.status,'error');assert.equal(reply.error.code,'SOURCE_INVALIDATED');assert.equal(reply.page,undefined);assert.equal(owned.cancelled,1);
+        const previous=adapter.latestId;
+        assert.throws(()=>adapter.submitWorkbookObjects(workbookObjectInput('2',{sourceBindings:[token]})),{code:'SOURCE_INVALIDATED'});
+        assert.equal(adapter.latestId,previous);assert.equal(sends,1);
+        const recovered=await adapter.submit({requestId:'2',sql:'ordinary recovery',rowLimit:256});assert.equal(recovered.status,'ok');assert.equal(sends,2);
+        await adapter.close();await sibling.close();
+    }
+});
+test('pending object results retire on supersession before a normal recovery enters the same queue',async()=>{
+    const began=deferred(),release=deferred(),owned=reader(workbookObjectTable(2049));let sends=0;
+    const database={async registerFileBuffer(){},async dropFile(){}};
+    const adapter=new DuckDBWorkerAdapter({database,connection:connection({async send(){sends++;if(sends===1){began.resolve();await release.promise;return owned;}return reader(simple());}})});
+    const token=await adapter.registerFile('objects.dxls',new Uint8Array([1]));
+    const pending=adapter.submitWorkbookObjects(workbookObjectInput('1',{sourceBindings:[token]}));await began.promise;
+    const recovery=adapter.submit({requestId:'2',sql:'ordinary recovery',rowLimit:256});release.resolve();
+    const old=await pending,next=await recovery;
+    assert.equal(old.status,'superseded');assert.equal(old.page,undefined);assert.equal(owned.cancelled,1);
+    assert.equal(next.status,'ok');assert.equal(sends,2);await adapter.close();
 });
 
 test('installed browser dependencies and transitive lock retain approved exact integrity pins', async () => {

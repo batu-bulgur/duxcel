@@ -106,6 +106,19 @@ export function workbookSortsRequest(value) {
         'INVALID_REQUEST','Workbook sorts require four typed columns and one captured archive binding');
     return Object.freeze({...request,purpose:'workbook-sorts',rowLimit:rows});
 }
+// Separate opt-in transport for the eleven-column object registry. The shared
+// C cursor validates its original schema and object semantics; this only bounds
+// one owned result and freezes its explicitly captured archive registration.
+export function workbookObjectsRequest(value) {
+    check(value?.purpose==='workbook-objects','INVALID_REQUEST','Explicit workbook-objects request required');
+    const request=pageRequest({...value,purpose:undefined,rowLimit:1});
+    const rows=value.rowLimit??2049;
+    check(Number.isInteger(rows)&&rows>0&&rows<=2049&&request.offset==='0'&&request.knownTotal===null,
+        'INVALID_REQUEST','Workbook objects require offset zero, unknown total and at most2049 rows');
+    check(request.columns?.length===11&&request.sourceBindings?.length===1,
+        'INVALID_REQUEST','Workbook objects require eleven typed columns and one captured archive binding');
+    return Object.freeze({...request,purpose:'workbook-objects',rowLimit:rows});
+}
 export function exportRequest(value) {
     const request=pageRequest(value);
     check(value.rowLimit===1 && value.offset==='0' && value.knownTotal==='1' && value.columns===undefined && value.purpose===undefined,
@@ -192,6 +205,7 @@ export async function encodePage(reader, request, { obsolete = () => false } = {
     const fields = reader.schema?.fields;
     check(Array.isArray(fields) && fields.length <= LIMITS.columns, 'PAGE_LIMIT', 'Page exceeds 256 columns');
     check(request.purpose!=='workbook-sorts'||fields.length===4,'PAGE_LIMIT','Workbook sorts require exactly four result columns');
+    check(request.purpose!=='workbook-objects'||fields.length===11,'PAGE_LIMIT','Workbook objects require exactly eleven result columns');
     check(!request.columns || request.columns.length === fields.length, 'SCHEMA_CHANGED', 'Result column count disagrees with the C-owned schema');
     const columns = fields.map((field, index) => metadata(field, request.columns?.[index]));
     let bytes = encoder.encode(JSON.stringify(columns)).byteLength, rows = 0;
@@ -201,6 +215,7 @@ export async function encodePage(reader, request, { obsolete = () => false } = {
         check(!obsolete(), 'SUPERSEDED', 'Request was superseded');
         check(batch.numCols === fields.length && rows + batch.numRows <= request.rowLimit, 'PAGE_LIMIT', 'C-built page SQL returned more than its requested bounded rows');
         check(request.purpose!=='workbook-sorts'||rows+batch.numRows<=449,'PAGE_LIMIT','Workbook sorts exceed449 rows');
+        check(request.purpose!=='workbook-objects'||rows+batch.numRows<=2049,'PAGE_LIMIT','Workbook objects exceed2049 rows');
         check(request.purpose!=='copy'||fields.length*(rows+batch.numRows)<=LIMITS.copyCells,'PAGE_LIMIT','Copy result exceeds 20,000 cells');
         for (let row = 0; row < batch.numRows; row++) for (let column = 0; column < fields.length; column++) {
             const vector = batch.getChildAt(column), value = vector.get(row);
@@ -284,6 +299,9 @@ export class DuckDBWorkerAdapter {
     }
     submitWorkbookSorts(value) {
         return this.#enqueue(workbookSortsRequest(value),false);
+    }
+    submitWorkbookObjects(value) {
+        return this.#enqueue(workbookObjectsRequest(value),false);
     }
     exportParquet(value) {
         return this.#enqueue(exportRequest(value),true);
