@@ -11865,12 +11865,9 @@ static void layout_smoke_step(App *a,int *step) {
     case 804:
         if (source_format_owner_result_token(a,0)!=SIZE_MAX || !smoke_exact_result_formats(a,1,true)) goto failed;
         run_action(a,ACTION_SOURCE_ORDER); break;
-    case 805: {
+    case 805:
         if (source_format_owner_result_token(a,0)==SIZE_MAX || !smoke_exact_result_formats(a,0,true)) goto failed;
-        Analysis next=analysis_copy(&a->analysis);
-        if (!analysis_filter_set(&next,"Label",FILTER_EQUAL,"NULL",&error)) { analysis_free(&next); goto failed; }
-        change_analysis(a,next); break;
-    }
+        set_source_filter(a,"Label",FILTER_EQUAL,"NULL",false); break;
     case 806: {
         if (a->page.total!=120 || source_format_owner_result_token(a,0)!=SIZE_MAX || !smoke_exact_result_formats(a,1,true)) goto failed;
         FormatScopeView result={0,a->source_format_proof.result.data,a->source_format_proof.result.bytes}; CellFormat value=format_default(); value.flags=FORMAT_UNDERLINE;
@@ -11922,8 +11919,12 @@ static void layout_smoke_step(App *a,int *step) {
         source_format_page(a);
         if (a->request_id!=request || a->source_format_proof.result.data!=result_cache || s->formats.revision!=draft_revision ||
             a->book.dirty || !smoke_exact_result_formats(a,0,true)) goto failed;
+        grid_select_cell(&a->grid,10,4,false); a->selected_object=-1;
+        { CellFormat value=active_format(a); value.flags|=FORMAT_BOLD; if (!apply_format(a,FORMAT_BOLD,value)) goto failed; }
         break;
     case 816:
+        if (a->request_id!=request+1 || a->source_format_proof.result.data!=result_cache || s->formats.revision!=draft_revision ||
+            a->book.dirty || s->undo_actions_count || !smoke_exact_result_formats(a,0,true)) goto failed;
         if (!smoke_record_file("tests/generated/app-result-format.parquet",true,&error)) goto failed;
         workspace_job(a,JOB_LOAD,"tests/generated/app-result-format.dxls"); break;
     case 817:

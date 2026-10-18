@@ -61,6 +61,14 @@ static void source_format_intent_free(SourceFormatIntent *intent) {
 static void source_format_proof_free(SourceFormatProof *proof) {
     source_packet_free(&proof->raw); source_packet_free(&proof->result); *proof=(SourceFormatProof){0};
 }
+static void source_format_proof_adopt(App *a,SourceFormatProof *proof,SourceFormatIntent *intent) {
+    /* Reuse the owned canonical cache across raw formatting/no-op commands.
+       Publication still matches its complete RAW and actual definition. */
+    SourcePacket result=proof->result; proof->result=(SourcePacket){0}; source_format_proof_free(proof);
+    *proof=(SourceFormatProof){.raw=intent->raw,.result=result,.digest=intent->digest,
+        .document=a->format_document,.version=intent->version,.sheet=a->book.active};
+    intent->raw=(SourcePacket){0};
+}
 static void source_format_cancel(App *a,const char *message) {
     SourceFormatIntent *intent=&a->source_format; if (!intent->active) return;
     if (a->request_id==intent->request) { worker_cancel(&a->worker); a->request_id++; a->busy=false; }
@@ -382,10 +390,8 @@ static bool source_format_collect(App *a,size_t reply_owned) {
         /* Verification publishes only a session proof. Ledger, formats,
            Analysis, history and dirty state retain their saved ownership. */
         uint64_t id=intent->owner; SourceFormatProof *proof=source_format_owner_proof(a,id,false);
-        source_format_proof_free(proof);
-        *proof=(SourceFormatProof){.raw=intent->raw,.digest=intent->digest,
-            .document=a->format_document,.version=intent->version,.sheet=a->book.active};
-        intent->raw=(SourcePacket){0}; source_format_intent_free(intent); source_format_page_owner(a,id);
+        source_format_proof_adopt(a,proof,intent);
+        source_format_intent_free(intent); source_format_page_owner(a,id);
         status(a,source_format_owner_verified(a,id) ? "Saved source formatting verified." : "Saved source formatting remains suspended.");
         return true;
     }
@@ -530,10 +536,8 @@ static bool source_format_reply_apply(App *a,QueryReply *reply) {
     bool formatted=format_commit(&sheet->formats,&plan);
     if (formatted || intent->issue) { worksheet_record(sheet,intent->issue ? intent->owner ? EDIT_OBJECTS_FORMAT : EDIT_ANALYSIS_FORMAT : EDIT_FORMAT); a->book.dirty=true; }
     uint64_t id=intent->owner; SourceFormatProof *proof=source_format_owner_proof(a,id,false);
-    source_format_proof_free(proof);
-    *proof=(SourceFormatProof){.raw=intent->raw,.digest=intent->digest,.document=a->format_document,
-        .version=intent->version,.sheet=a->book.active};
-    intent->raw=(SourcePacket){0}; source_format_intent_free(intent); source_format_page_owner(a,id);
+    source_format_proof_adopt(a,proof,intent);
+    source_format_intent_free(intent); source_format_page_owner(a,id);
     status(a,formatted ? "Formatting applied to the captured source records." : "The captured source records already have this format.");
     return true;
 }
