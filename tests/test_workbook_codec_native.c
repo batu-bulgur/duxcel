@@ -616,6 +616,7 @@ static int preferences_only(void) {
 #include "test_workbook_codec_grid_native.inc"
 #include "test_workbook_codec_counters_native.inc"
 #include "test_workbook_codec_source_counters_native.inc"
+#include "test_workbook_codec_source_versions_native.inc"
 int main(int argc,char **argv) {
     if (argc==3 && !strcmp(argv[1],"--emit-fixtures")) return emit_fixture_files(argv[2],emit_fixtures,7,fixture,NULL,NULL);
     if (argc==3 && !strcmp(argv[1],"--emit-sorts-fixtures")) return emit_fixture_files(argv[2],emit_sorts_fixtures,4,sorts_fixture,sorts_reorder_sql,NULL);
@@ -640,7 +641,9 @@ int main(int argc,char **argv) {
     if(argc==2&&!strcmp(argv[1],"--counters-only"))return counters_only();
     if(argc==3&&!strcmp(argv[1],"--emit-source-counters-fixtures"))return emit_source_counters(argv[2]);
     if(argc==2&&!strcmp(argv[1],"--source-counters-only"))return source_counters_only();
-    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR | --grid-only | --emit-grid-fixtures DIR | --counters-only | --emit-counters-fixtures DIR | --source-counters-only | --emit-source-counters-fixtures DIR]\n",argv[0]); return 2; }
+    if(argc==3&&!strcmp(argv[1],"--emit-source-versions-fixtures"))return emit_source_versions(argv[2]);
+    if(argc==2&&!strcmp(argv[1],"--source-versions-only"))return source_versions_only();
+    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR | --grid-only | --emit-grid-fixtures DIR | --counters-only | --emit-counters-fixtures DIR | --source-counters-only | --emit-source-counters-fixtures DIR | --source-versions-only | --emit-source-versions-fixtures DIR]\n",argv[0]); return 2; }
     char directory[]="/tmp/duxcel-codec-native-XXXXXX"; CHECK(mkdtemp(directory));
     char *missing=dx_printf("%s/missing-source.csv",directory); CHECK(access(missing,F_OK)!=0);
     for (unsigned version=12;version<=14;version++) {
