@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { Table, Int32, Int64, Uint64, Decimal, Utf8, Bool, TimestampNanosecond,
     vectorFromArray, makeVector, makeData, RecordBatchReader, tableToIPC } from 'apache-arrow';
 import { LIMITS, pageRequest, decimalText, encodePage, pageCellText, pageTransferables,
-    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport,workbookSortsRequest,workbookObjectsRequest,workbookOwnersRequest,workbookTablesRequest } from './official_worker.mjs';
+    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport,workbookSortsRequest,workbookObjectsRequest,workbookOwnersRequest,workbookTablesRequest,workbookPivotMarksRequest } from './official_worker.mjs';
 
 const request = (id = '1', extra = {}) => pageRequest({ requestId: id, sql: 'C BUILT SQL LIMIT 256', ...extra });
 function words(value, length = 4) {
@@ -373,6 +373,92 @@ test('Table results publish only under the frozen token and retire on ordinary s
         assert.equal((await canceled).status,'superseded');assert.equal(old.cancelled,1);assert.equal((await recovery).status,'ok');assert.equal(sends,3);await adapter.close();
     }
 });
+
+// BEGIN Pivot/Marks transport tests. Synthetic sidecars, no codec semantics.
+const pivotMarksPolicies=[
+    {purpose:'workbook-pivot-fields',rows:65537,columns:9},
+    {purpose:'workbook-marks',rows:98305,columns:8},
+];
+function pivotMarksInput(policy,id='1',change={}){
+    return tableInput(policy,id,{sql:'C OWNED PIVOT MARKS METADATA PROJECTION',...change});
+}
+function pivotMarksArrow(policy,rows=policy.rows,filled=false){
+    return new Table(Object.fromEntries(tableColumns(policy).map((column,c)=>[column.name,
+        vectorFromArray(Array.from({length:rows},(_,r)=>{
+            if(filled&&c===3)return 'bytes'.repeat(5);
+            if(r!==0&&r!==rows-1)return null;
+            return c===0?r%64:c===1?r?9007199254740993n:18446744073709551615n:c===2?Boolean(r):tableTexts[(r+c)%4];
+        }),c===0?new Int32():c===1?new Uint64():c===2?new Bool():new Utf8())])));
+}
+test('Pivot/Marks requests freeze their separate policies without generic or prototype bypass',()=>{
+    for(const policy of pivotMarksPolicies){
+        const input=pivotMarksInput(policy),parsed=workbookPivotMarksRequest(input);
+        assert.equal(parsed.purpose,policy.purpose);assert.equal(parsed.rowLimit,policy.rows);assert.equal(parsed.offset,'0');assert.equal(parsed.knownTotal,null);
+        assert.ok(Object.isFrozen(parsed)&&Object.isFrozen(parsed.columns)&&Object.isFrozen(parsed.columns[0])&&Object.isFrozen(parsed.sourceBindings[0]));
+        input.columns[0].name='changed';input.sourceBindings[0].registrationId='2';assert.equal(parsed.columns[0].name,'sheet_id');assert.equal(parsed.sourceBindings[0].registrationId,'1');
+        assert.equal(workbookPivotMarksRequest(pivotMarksInput(policy,'2',{rowLimit:undefined})).rowLimit,policy.rows);
+        assert.equal(workbookPivotMarksRequest(pivotMarksInput(policy,'2',{rowLimit:1})).rowLimit,1);
+        const sparse=tableColumns(policy);delete sparse[1];
+        const changes=[{purpose:undefined},{purpose:'copy'},{purpose:'workbook-owners'},{purpose:'__proto__'},{purpose:'constructor'},
+            {purpose:'toString'},{purpose:new String(policy.purpose)},{purpose:{toString(){throw new Error('Must not coerce purpose');}}},
+            {offset:'1'},{offset:'18446744073709551615'},{knownTotal:'0'},{rowLimit:0},{rowLimit:policy.rows+1},{rowLimit:1.5},{rowLimit:NaN},
+            {columns:[]},{columns:Array(policy.columns)},{columns:sparse},{columns:tableColumns(policy).map((x,i)=>i?x:null)},
+            {columns:tableColumns(policy).slice(1)},{columns:[...tableColumns(policy),{name:'extra',typeName:'VARCHAR'}]},
+            {sourceBindings:undefined},{sourceBindings:[]},{sourceBindings:[{name:'fixture.dxls',engineEpoch:'0',registrationId:'1'}]},
+            {sourceBindings:[{name:'a.dxls',engineEpoch:'1',registrationId:'1'},{name:'b.dxls',engineEpoch:'1',registrationId:'2'}]}];
+        for(const change of changes)assert.throws(()=>workbookPivotMarksRequest(pivotMarksInput(policy,'2',change)),{code:'INVALID_REQUEST'});
+        for(const parse of [pageRequest,workbookSortsRequest,workbookObjectsRequest,workbookOwnersRequest,workbookTablesRequest])assert.throws(()=>parse(pivotMarksInput(policy)),{code:'INVALID_REQUEST'});
+        const other=pivotMarksPolicies.find(x=>x!==policy);assert.throws(()=>workbookPivotMarksRequest(pivotMarksInput(policy,'2',{purpose:other.purpose})),{code:'INVALID_REQUEST'});
+        let sends=0;const adapter=new DuckDBWorkerAdapter({connection:connection({send(){sends++;throw new Error('Invalid request sent');}})});
+        assert.throws(()=>adapter.submitWorkbookPivotMarks(pivotMarksInput(policy,'1',{columns:sparse})),{code:'INVALID_REQUEST'});
+        assert.equal(adapter.latestId,0n);assert.equal(sends,0);
+        let reads=0;const getter=pivotMarksInput(policy);Object.defineProperty(getter,'purpose',{enumerable:true,get(){return ++reads===1?policy.purpose:'copy';}});
+        const captured=workbookPivotMarksRequest(getter);assert.equal(captured.purpose,policy.purpose);assert.equal(captured.rowLimit,policy.rows);
+    }
+});
+for(const policy of pivotMarksPolicies)test(`${policy.purpose} sparse maximum fits unchanged Arrow admission while populated maximum fails bytes`,async()=>{
+    const parsed=workbookPivotMarksRequest(pivotMarksInput(policy)),output=await encodePage(reader(pivotMarksArrow(policy)),parsed);
+    assert.equal(output.rowCount,policy.rows);assert.equal(output.columnCount,policy.columns);assert.equal(output.total,String(policy.rows));assert.equal(output.countPending,true);
+    for(const r of [0,1,policy.rows-1])for(const c of [0,1,2,3,policy.columns-1]){
+        const expected=r!==0&&r!==policy.rows-1?null:c===0?String(r%64):c===1?r?'9007199254740993':'18446744073709551615':c===2?String(Boolean(r)):tableTexts[(r+c)%4];
+        assert.equal(pageCellText(output,r,c),expected);
+    }
+    assert.ok(output.text.byteLength+output.offsets.byteLength+output.nulls.byteLength<LIMITS.bytes);
+    const received=structuredClone(output,{transfer:pageTransferables(output)});assert.equal(output.text.byteLength,0);assert.equal(pageCellText(received,policy.rows-1,1),'9007199254740993');
+    await assert.rejects(encodePage(reader(pivotMarksArrow(policy,policy.rows,true)),parsed),{code:'PAGE_LIMIT'});
+    await assert.rejects(encodePage(reader(pivotMarksArrow(policy,policy.rows+1)),parsed),{code:'PAGE_LIMIT'});
+    await assert.rejects(encodePage(reader(new Table({one:vectorFromArray([null],new Utf8())})),parsed),{code:'PAGE_LIMIT'});
+    const small=await encodePage(reader(pivotMarksArrow(policy,3)),parsed);assert.equal(small.countPending,false);
+});
+test('Pivot/Marks frozen tokens reject late revocation and failed drops before ordinary recovery',async()=>{
+    for(const policy of pivotMarksPolicies)for(const failed of [false,true]){
+        const started=deferred(),go=deferred(),owned=reader(pivotMarksArrow(policy,3));let sends=0;
+        const database={async registerFileBuffer(){},async dropFile(){if(failed)throw new Error('PivotMarks drop failed');}};
+        const adapter=new DuckDBWorkerAdapter({database,connection:connection({async send(){sends++;if(sends===1){started.resolve();await go.promise;return owned;}return reader(simple());}})});
+        const sibling=new DuckDBWorkerAdapter({database,connection:connection()}),token=await adapter.registerFile('pivot-marks.dxls',new Uint8Array([1]));
+        const input=pivotMarksInput(policy,'1',{sourceBindings:[{...token}]}),pending=adapter.submitWorkbookPivotMarks(input);input.sourceBindings[0].registrationId='2';await started.promise;
+        if(failed)await assert.rejects(sibling.dropFile(token.name),/PivotMarks drop failed/);else await sibling.dropFile(token.name);
+        go.resolve();const reply=await pending;assert.equal(reply.status,'error');assert.equal(reply.error.code,'SOURCE_INVALIDATED');assert.equal(reply.page,undefined);assert.equal(owned.cancelled,1);
+        const last=adapter.latestId;assert.throws(()=>adapter.submitWorkbookPivotMarks(pivotMarksInput(policy,'2',{sourceBindings:[token]})),{code:'SOURCE_INVALIDATED'});assert.equal(adapter.latestId,last);assert.equal(sends,1);
+        assert.equal((await adapter.submit({requestId:'2',sql:'ordinary recovery',rowLimit:256})).status,'ok');await adapter.close();await sibling.close();
+    }
+});
+test('Pivot/Marks admitted ownership survives input mutation and retires on supersession or close',async()=>{
+    for(const policy of pivotMarksPolicies){
+        const database={async registerFileBuffer(){},async dropFile(){}};
+        const adapter=new DuckDBWorkerAdapter({database,connection:connection({send:async()=>reader(pivotMarksArrow(policy,3))})});
+        const token=await adapter.registerFile('pivot-marks.dxls',new Uint8Array([1]));const input=pivotMarksInput(policy,'1',{sourceBindings:[{...token}]});
+        const pending=adapter.submitWorkbookPivotMarks(input);input.sourceBindings[0].registrationId='2';const reply=await pending;assert.equal(reply.status,'ok');assert.equal(pageCellText(reply.page,0,1),'18446744073709551615');
+        for(const close of [false,true]){
+            const started=deferred(),go=deferred(),owned=reader(pivotMarksArrow(policy,3));adapter.connection.send=async()=>{started.resolve();await go.promise;return owned;};
+            const old=adapter.submitWorkbookPivotMarks(pivotMarksInput(policy,close?'4':'2',{sourceBindings:[token]}));await started.promise;
+            const next=close?adapter.close():(adapter.connection.send=async()=>reader(simple()),adapter.submit({requestId:'3',sql:'ordinary recovery',rowLimit:256}));go.resolve();
+            const stopped=await old;assert.equal(stopped.page,undefined);assert.equal(stopped.status,close?'cancelled':'superseded');assert.equal(owned.cancelled,1);
+            const result=await next;if(!close)assert.equal(result.status,'ok');
+        }
+    }
+});
+// END Pivot/Marks transport tests.
 
 test('installed browser dependencies and transitive lock retain approved exact integrity pins', async () => {
     const lock = JSON.parse(await readFile(new URL('./package-lock.json', import.meta.url)));

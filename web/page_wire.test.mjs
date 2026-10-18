@@ -182,6 +182,46 @@ test('Table wire policies retain exact text admission and reject malformed masks
     }
 });
 
+// BEGIN Pivot/Marks wire tests: no original-schema or owner semantics.
+const pivotMarksWirePolicies=[
+    {purpose:'workbook-pivot-fields',rows:65537,columns:9},
+    {purpose:'workbook-marks',rows:98305,columns:8},
+];
+for(const policy of pivotMarksWirePolicies)test(`${policy.purpose} sparse full wire envelope retains one transferable owned result`,()=>{
+    const columns=tableWireColumns(policy),values=Array(policy.rows*policy.columns).fill(null);
+    const first=['63','18446744073709551615','true','', 'NULL',"İstanbul 🦆 'quoted'"];
+    values.splice(0,first.length,...first);values.splice((policy.rows-1)*policy.columns,3,'0','9007199254740993','false');
+    const input=page(values,columns),before={text:input.text.slice(),offsets:input.offsets.slice(),nulls:input.nulls.slice()};
+    input.purpose=policy.purpose;assert.throws(()=>encodePageWire(input),/row count/);
+    for(const purpose of ['copy','workbook-sorts','workbook-objects','workbook-owners',...tableWirePolicies.map(x=>x.purpose),...pivotMarksWirePolicies.filter(x=>x!==policy).map(x=>x.purpose)])
+        assert.throws(()=>encodePageWire(input,{purpose}),/row count|column|20,000 cells/);
+    const wire=encodePageWire(input,{purpose:policy.purpose});assert.ok(wire.byteLength<=6*1024*1024);
+    for(const part of ['text','offsets','nulls'])assert.deepEqual(input[part],before[part]);
+    assert.throws(()=>encodePageWire(page([...values,...Array(policy.columns).fill(null)],columns),{purpose:policy.purpose}),/row count/);
+    for(const count of [0,policy.columns-1,policy.columns+1])assert.throws(()=>encodePageWire(page(Array(count).fill(null),Array.from({length:count},()=>column()),1),{purpose:policy.purpose}),/column/);
+    input.text.fill(0);input.offsets.fill(0);input.nulls.fill(1);input.columns[0].name='changed';
+    const received=structuredClone(wire,{transfer:[wire.buffer]});assert.equal(wire.byteLength,0);
+    const output=inspect(received);assert.equal(output.rows,policy.rows);assert.equal(output.columns,policy.columns);assert.deepEqual(output.metadata,columns.map((c,i)=>i?c:{...c,name:'sheet_id'}));
+    for(const r of [0,1,policy.rows-1])for(const c of [0,1,2,3,4,5,policy.columns-1])assert.equal(output.values[r*policy.columns+c],values[r*policy.columns+c]);
+    assert.equal(inspect(encodePageWire(page([],tableWireColumns(policy),0),{purpose:policy.purpose})).rows,0);
+});
+test('Pivot/Marks wire keeps text limits and rejects malformed bytes or prototype policy names without mutation',()=>{
+    for(const policy of pivotMarksWirePolicies){
+        const columns=tableWireColumns(policy),values=Array(policy.columns).fill(null);values[3]='x'.repeat(4*1024*1024);
+        const exact=encodePageWire(page(values,columns),{purpose:policy.purpose});assert.equal(new DataView(exact.buffer,exact.byteOffset).getUint32(16,true),4*1024*1024);
+        values[3]+='x';assert.throws(()=>encodePageWire(page(values,columns),{purpose:policy.purpose}),/4 MiB/);
+        for(const value of ['a\0b','İ🦆']){
+            const entries=Array(policy.columns).fill(null);entries[3]=value;const bad=page(entries,columns);
+            if(value.includes('\0')){const before=bad.text.slice();assert.throws(()=>encodePageWire(bad,{purpose:policy.purpose}),/NUL/);assert.deepEqual(bad.text,before);}
+            else{bad.text[0]=0xff;const before=bad.text.slice();assert.throws(()=>encodePageWire(bad,{purpose:policy.purpose}),/UTF-8/);assert.deepEqual(bad.text,before);}
+        }
+        const mask=page(Array(policy.columns).fill(null),columns);mask.nulls[0]=2;assert.throws(()=>encodePageWire(mask,{purpose:policy.purpose}),/NULL/);
+        for(const purpose of ['__proto__','constructor','toString',new String(policy.purpose),Object.create({rows:98305,columns:8})])
+            assert.throws(()=>encodePageWire(page([],columns,0),{purpose}),/unknown transport purpose/);
+    }
+});
+// END Pivot/Marks wire tests.
+
 test('DXP1 little-endian golden bytes retain SQL NULL, empty text and literal NULL', () => {
     const wire = encodePageWire(page());
     assert.equal(Buffer.from(wire).toString('hex'), [
