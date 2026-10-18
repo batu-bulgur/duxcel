@@ -1233,9 +1233,11 @@ async function browserPaneRail(){
    }:null;
    let proof;
    if(!isRetained&&firstCollapse&&headerReference){proof=await expandedHeaderProof('collapse');firstCollapse=false;}
-   else{proof=await feedbackPick('pane_rail_'+action,'pane-rail-'+spec.name+'-'+action,{targetAt:state=>paneRailTarget(state,action,isRetained,spec.narrow),hoverCapture});proofs.push(proof);}
+   else{proof=await feedbackPick('pane_rail_'+action,'pane-rail-'+spec.name+'-'+action,{targetAt:state=>!isRetained&&headerReference?paneRailExpandedTarget(state,action,headerReference):paneRailTarget(state,action,isRetained,spec.narrow),hoverCapture});proofs.push(proof);}
    if(isRetained){const ink=proof.hover.samples.semantic_outline.ink,mode=proof.hover.mapping.mode;await fs.writeFile(path.join(output,'pane-rail-'+spec.name+'-'+action+'-bounds.json'),JSON.stringify(proof,null,2));const matches=mode==='exact'?['left','right','top','bottom'].every(edge=>ink[edge]===ink.expected[edge]):['left','top'].every(edge=>ink[edge]>=ink.coverage.any[edge]&&ink[edge]<=ink.coverage.full[edge])&&['right','bottom'].every(edge=>ink[edge]>=ink.coverage.full[edge]&&ink[edge]<=ink.coverage.any[edge]);check(ink.count>0&&matches,'Frozen '+action+' semantic bounds are not26×26 centered after the one-App-point border at '+mode+' compositor resolution: '+JSON.stringify({spec,ink}));}
-   const live=await platformSnapshot();retained(live,spec.name+' '+action+' proof');const point=paneRailTarget(live,action,isRetained,spec.narrow).point;await click(point.x,point.y);await pause(220);await frames(3);const after=await platformSnapshot();retained(after,spec.name+' '+action);return after;
+   const live=await platformSnapshot();retained(live,spec.name+' '+action+' proof');
+   const target=!isRetained&&headerReference?paneRailExpandedTarget(live,action,headerReference):paneRailTarget(live,action,isRetained,spec.narrow),point=target.point??{x:target.bounds[0]+target.bounds[2]/2,y:target.bounds[1]+target.bounds[3]/2};
+   await click(point.x,point.y);await pause(220);await frames(3);const after=await platformSnapshot();retained(after,spec.name+' '+action);return after;
   }
   const collapsed=await activate('collapse',false);check(Math.abs(reserved(collapsed)-(spec.narrow?0:32*s))<.02,'Retained rail does not reserve exactly32 design units only in the wide layout');if(spec.narrow)check(collapsed.grid_rect===expanded.grid_rect,'Narrow retained rail changed the underlying full-width canvas');
   framesEvidence.push({phase:'retained',state:collapsed,pixels:await paneRailPixels(collapsed,'pane-rail-'+spec.name+'-retained',regions)});
