@@ -712,7 +712,7 @@ static DxReviewDataIdentity review_feedback_origin(App *a,const char *producer,c
 }
 static void review_feedback_metadata(App *a,const DxReviewWidget *widget) {
     if (!review_armed(a) || !widget) return;
-    char state[512]; const char *id=widget->id;
+    char state[1024]; const char *id=widget->id;
     static const struct { const char *id,*key; } geometry[]={
         {"pane.transformations.inspect","pipeline_inspect"},{"pane.transformations.sql","pipeline_sql"},
         {"pane.transformations.copy","pipeline_copy"},{"pane.transformations.back","pipeline_back"},
@@ -722,6 +722,19 @@ static void review_feedback_metadata(App *a,const DxReviewWidget *widget) {
         {"cell.readout.value","readout_value"},{"toast.content","toast"}
     };
     Rectangle shown=GetCollisionRec((Rectangle){widget->bounds.x,widget->bounds.y,widget->bounds.width,widget->bounds.height},(Rectangle){widget->clip.x,widget->clip.y,widget->clip.width,widget->clip.height});
+    if (!strcmp(id,"pane.transformations.body") && !a->pipeline_sql) {
+        const UIInspectorLayout *layout=&a->pipeline_layout;
+        snprintf(state,sizeof(state)," feedback_pipeline_scroll=%.6f,%.6f,%.6f,%.6f,%zu,%d feedback_pipeline_header_box=%.3f,%.3f,%.3f,%.3f feedback_pipeline_viewport_box=%.3f,%.3f,%.3f,%.3f feedback_pipeline_list_box=%.3f,%.3f,%.3f,%.3f feedback_pipeline_edit_box=%.3f,%.3f,%.3f,%.3f feedback_pipeline_footer_box=%.3f,%.3f,%.3f,%.3f feedback_pipeline_outer_track=%.3f,%.3f,%.3f,%.3f feedback_pipeline_inner_track=%.3f,%.3f,%.3f,%.3f",
+            layout->outer_offset,layout->outer_max,layout->inner_offset,layout->inner_max,a->pipeline_row_count,a->pipeline_focus_index,
+            layout->header.x,layout->header.y,layout->header.width,layout->header.height,
+            layout->body_clip.x,layout->body_clip.y,layout->body_clip.width,layout->body_clip.height,
+            layout->list_frame.x,layout->list_frame.y,layout->list_frame.width,layout->list_frame.height,
+            layout->edit.x,layout->edit.y,layout->edit.width,layout->edit.height,
+            layout->footer.x,layout->footer.y,layout->footer.width,layout->footer.height,
+            layout->outer_scrollbar.x,layout->outer_scrollbar.y,layout->outer_scrollbar.width,layout->outer_scrollbar.height,
+            layout->list_scrollbar.x,layout->list_scrollbar.y,layout->list_scrollbar.width,layout->list_scrollbar.height);
+        review_author_capture_state(a,state);
+    }
     if (!strncmp(id,"pane.transformations.step.",26) && !strstr(a->review->frame.state_text," feedback_pipeline_step_rect=")) {
         snprintf(state,sizeof(state)," feedback_pipeline_step_rect=%.3f,%.3f,%.3f,%.3f feedback_pipeline_step_id=%s",shown.x,shown.y,shown.width,shown.height,id); review_author_capture_state(a,state);
     }
