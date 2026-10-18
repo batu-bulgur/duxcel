@@ -397,6 +397,11 @@ static bool browser_describe_retained(const Page *describe,char **error) {
     if (browser_query.job->kind!=JOB_EXPORT && !browser_query.sources_json) return true;
     if (describe->column_count!=6 || (describe->row_count && !describe->cells)) return true;
     size_t extra=describe->bytes;
+    /* Ordinary DESCRIBE duplicates relation into the cache; type DESCRIBE
+       moves its already-owned type_relation instead. Reserve before either
+       old schema/key is retired, including failed export admission. */
+    if (browser_query.stage!=BROWSER_TYPE_DESCRIBE &&
+        !browser_export_add(&extra,strlen(browser_query.relation)+1,error)) return false;
     if (!browser_export_add(&extra,describe->row_count*sizeof(Column),error)) return false;
     for (size_t i=0;i<describe->row_count;i++) for (size_t c=0;c<2;c++) {
         const Cell *cell=&describe->cells[i*6+c];
@@ -775,7 +780,6 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
         bool valid=browser_schema_from_describe(&browser_schema,&page,&error); page_free(&page);
         if (!valid) { browser_publish(error); free(error); return; }
         free(browser_schema_key); browser_schema_key=NULL;
-        if (j->kind==JOB_EXPORT) { size_t retained; if (!browser_export_retained(strlen(browser_query.relation)+1,&retained,&error)) { browser_publish(error); free(error); return; } }
         browser_schema_key=dx_strdup(browser_query.relation);
         browser_sources_cache(&browser_schema_sources);
         if (browser_query.stage==BROWSER_VALIDATE) browser_publish(NULL); else browser_fetch_result();
