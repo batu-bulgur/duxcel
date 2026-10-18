@@ -25,7 +25,8 @@ class Reader {
     [Symbol.asyncIterator](){return new Iterator(this);}
     async read(){
         this.calls.next++;if(this.#index===this.#lengths.length)return {done:true};const count=this.#lengths[this.#index++],first=this.#first;this.#first+=count;
-        return {done:false,value:count?this.#source.slice(first,first+count).batches[0]:{numCols:this.#source.numCols,numRows:0}};
+        const batch=count?this.#source.slice(first,first+count).batches[0]:{numCols:this.#source.numCols,numRows:0};
+        return {done:false,value:this.#change.badColumns?{...batch,numCols:2,numRows:batch.numRows}:batch};
     }
     async cancel(){this.calls.cancel++;if(this.#change.cleanupError)throw new Error('actual cleanup did not fulfill');}
     async returned(){this.calls.returned++;return {done:true};}
@@ -36,7 +37,7 @@ async function harness(change={}) {
     const connection={closed:0,cancels:0,async cancelSent(){this.cancels++;return true;},async close(){this.closed++;},async send(query,stream){
         sql.push(query);assert.equal(stream,true);
         const recovery=query.match(/SELECT (43|44)::INTEGER AS recovered$/);
-        if(recovery){const reader=new Reader(new Table({recovered:vectorFromArray([Number(recovery[1])],new Int32())}));raw.push(reader);return reader;}
+        if(recovery){const reader=new Reader(new Table({recovered:vectorFromArray([Number(recovery[1])],new Int32())}),{badColumns:change.badRecovery});raw.push(reader);return reader;}
         const match=query.match(/metadata-stream-probe:(columns|cells|cancel|false-ack)/),rows=Number(query.match(/range\((\d+)\)/)?.[1]);assert.ok(match&&rows);
         const family=match[1]==='columns'?'columns':'cells',fixture=table(family,rows,change),lengths=rows===513?(family==='columns'?[1,0,255,257]:[17,256,240]):[rows];
         const reader=new Reader(fixture,{lengths,...change});if(change.missingCancel)reader.cancel=undefined;raw.push(reader);return reader;
@@ -60,7 +61,7 @@ test('real adapter/probe preserves receiver identity, irregular Arrow observatio
     assert.deepEqual(report.readers[0].batchRows,[1,0,255,257]);assert.deepEqual(report.readers[1].batchRows,[17,256,240]);
     for(const item of report.cases.slice(0,2)){assert.equal(item.rows,513);assert.equal(item.eofAfterCleanup,true);assert.equal(item.firstAckPostedTurn,true);assert.equal(item.finalAckPostedTurn,true);assert.deepEqual(item.shapes.map(c=>[c.firstRow,c.rows,c.end]),[['0',256,false],['256',256,false],['512',1,false],['513',0,true]]);}
     for(const reader of report.readers){assert.equal(reader.open,1);assert.equal(reader.cancelRequested,1);assert.equal(reader.cancelFulfilled,1);assert.equal(reader.maxInflight,1);}
-    assert.deepEqual(h.raw.map(reader=>reader.calls.returned),[0,0,0,1,0,1]);
+    assert.deepEqual(h.raw.map(reader=>reader.calls.returned),[0,0,0,0,0,0]);
     assert.equal(report.cases[2].streamStatus,'cancelled');assert.equal(report.cases[2].ends,0);assert.equal(report.cases[3].value,43);assert.equal(report.cases[4].errorCode,'STREAM_CONSUMER');assert.equal(report.cases[5].value,44);
     assert.deepEqual(report.proofs,{exactTypedFamilies:2,strictEofCleanups:2,dataAckPostedTurns:2,finalAckPostedTurns:2,cancelledWithoutEof:true,falseAckWithoutEof:true,ordinaryAfterCancel:43,ordinaryAfterFalseAck:44});
     assert.ok(h.sql.every(query=>!query.includes('read_csv')&&!query.includes('OFFSET')));assert.ok(report.checks>4000);assert.ok(Object.isFrozen(report));await h.adapter.close();
@@ -78,6 +79,10 @@ test('first exact long-name mismatch stops atomically, drains, restores observer
     assert.equal(report.ok,false);assert.match(report.error.message,/Exact long name/);assert.equal(report.sqlExecutions,1);assert.equal(report.cases.length,1);assert.equal(report.cleanup.cancelDrained,true);assert.equal(h.connection.send,send);
     assert.equal(h.raw[0].calls.cancel,1);assert.equal(h.db.drops,0);assert.equal(h.connection.closed,0);
     const reply=await h.adapter.submit({requestId:String(h.adapter.latestId+1n),sql:'SELECT 43::INTEGER AS recovered'});assert.equal(reply.status,'ok');await h.adapter.close();
+});
+test('an ordinary for-await validation error forwards iterator.return with its original receiver',async()=>{
+    const h=await harness({badRecovery:true}),send=h.connection.send,report=await runMetadataStreamProbe(h.adapter,h.binding);
+    assert.equal(report.ok,false);assert.equal(report.sqlExecutions,4);assert.equal(report.cases.at(-1).name,'ordinary-after-cancel');assert.equal(h.raw[3].calls.returned,1);assert.equal(h.raw[3].calls.cancel,1);assert.equal(h.connection.send,send);await h.adapter.close();
 });
 test('missing or rejected actual reader.cancel remains a failed probe and poisons later admission',async()=>{
     for(const change of [{missingCancel:true},{cleanupError:true}]){
