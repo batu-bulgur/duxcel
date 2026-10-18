@@ -1,0 +1,8 @@
+{
+  "reason": "New composition fixture selected SOURCE_CSV without the required bounded locator resolver. Original21980checks passed; decoder unchanged; corrected fixture uses blank primary with empty query result.",
+  "sources": {
+    "src/workbook/workbook_codec_read.c": "714b041b4e3bb7161e5110b02178fc9530f6b4931cae4b925851b25e4e0b07db",
+    "src/workbook/workbook_codec_read.h": "deaccde30c05e239df014cbf63ade511d21e59f57618ee555ad60365f917047a",
+    "tests/test_workbook_codec_read.c": "c71f5f5c7f058857b0bd3a3de2acf71e2a068645a62aec11c2cf8908002ca921"
+  }
+}

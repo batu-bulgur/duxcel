@@ -1,0 +1,29 @@
+{
+  "mode": "optimized",
+  "phase": "build",
+  "command": [
+    "clang",
+    "-Isrc",
+    "-I/opt/homebrew/include",
+    "-std=c99",
+    "-Wall",
+    "-Wextra",
+    "-Wpedantic",
+    "-Werror",
+    "-O2",
+    "-g",
+    "src/common.c",
+    "src/transforms/analysis.c",
+    "src/transforms/number.c",
+    "src/transforms/pivot.c",
+    "src/transforms/marks.c",
+    "src/workbook/workbook_codec.c",
+    "src/workbook/workbook_codec_read.c",
+    "tests/test_workbook_codec_read.c",
+    "-lm",
+    "-o",
+    "build/bp1-owner-counters-reader/test-workbook-codec-read"
+  ],
+  "exit_code": 0,
+  "seconds": 3.291001
+}

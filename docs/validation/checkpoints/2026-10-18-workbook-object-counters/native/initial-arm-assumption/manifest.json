@@ -1,0 +1,7 @@
+{
+  "status": "superseded-test-assumption",
+  "reason": "Rejected absent/forbidden optional counter arm preserves HEADER_READY; finish remains legal. Only require pending-finish rejection when counter family armed. Production reader unchanged.",
+  "log_sha256": "2c4a1cb9865810fbcd3fe3835805ffa97c6ff5c07b51542990daf2871c1051c3",
+  "tested_include_sha256": "0c1068776e228309cce17ae6a96f85d557ba0ae8e0b3302ff0f2267cdb67faa1",
+  "run_results_sha256": "2ba51b3a7fb8ed134e990af837c04091ad40e4009f692528bcdd9de7dd5ab197"
+}

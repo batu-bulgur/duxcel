@@ -1,0 +1,7 @@
+{
+  "command": [
+    "build/bp1-owner-counters-reader/test-workbook-codec-read"
+  ],
+  "exit_code": 1,
+  "seconds": 0.8347317080000001
+}

@@ -1,0 +1,47 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "c7dbe351a12ee8f74a7713679d6578dbabdffddc",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "5ec7453603cbb6d0762746c0b7da099e382b9837db1df4ea513051e4aad261cb",
+    "source_files": 316
+  },
+  "command": [
+    "node",
+    "tools/test_web_app.mjs",
+    "http://127.0.0.1:51121/",
+    "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100101-browser-45598",
+    "--codec-read-driver",
+    "--codec-grid",
+    "--dpr",
+    "1"
+  ],
+  "exit_code": 0,
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "browser_seconds": 6.797,
+  "elapsed_seconds": 9.19,
+  "setup": {
+    "build_seconds": 0.001,
+    "artifact_validation_seconds": 1.674,
+    "source_metadata_seconds": 0.198,
+    "server_setup_seconds": 0.521
+  },
+  "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+  "profile": "codec-grid-driver",
+  "codec_helper_sha256": "fdfaae14f2f82a1587bd1c6ece4e765736c3bae0862663ad6cfe14b1070fdf64",
+  "scope": "Isolated C partial meta/sheets/ACKed-streamed column presentation and sparse cells Header decoder over four immutable native archives through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.",
+  "artifact": {
+    "status": "built",
+    "signature": "77c02477e21cbb3b6b55f8cd67eac30dc3a6656aa113e01c7af0040d33983aa4",
+    "source": {
+      "commit": "c7dbe351a12ee8f74a7713679d6578dbabdffddc",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "5ec7453603cbb6d0762746c0b7da099e382b9837db1df4ea513051e4aad261cb",
+      "source_files": 316
+    },
+    "elapsed_seconds": 5.198,
+    "kind": "codec-read-driver",
+    "scope": "No-window C meta/sheets Header decoder with separate opt-in primary secondary-sort, preferences, object-descriptor, primary/Table-query, source-options, coherent Table-source/filter/sort, Pivot/Marks, full primary FILTERS, ACKed column/cell streams and exact object-counter workflows through the official asynchronous DuckDB-Wasm Worker and owned DXP1 Page bridge. Immutable native v12/v13/v14 fixtures; no complete Workbook, App publication, browser Save/Open or remaining-family decoding."
+  }
+}

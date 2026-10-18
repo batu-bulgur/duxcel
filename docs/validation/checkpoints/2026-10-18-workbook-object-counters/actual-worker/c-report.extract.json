@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "mode": "counters",
+  "checks": 45403,
+  "fixtures": 4,
+  "headers": 5,
+  "queries": 54,
+  "rejections": 4,
+  "stale": 1,
+  "peakOwnedInput": 2097216,
+  "maximumCompletedHeaderOwned": 46260,
+  "headerOwnedLimit": 2097152,
+  "inputOwnedLimit": 4194304,
+  "normalFixtureQueries": [
+    6,
+    8,
+    8,
+    8
+  ],
+  "familyExecutions": {
+    "meta": 10,
+    "sheets": 10,
+    "objects": 10,
+    "objectCounters": 9,
+    "describe": 15
+  },
+  "acceptedFeeds": {
+    "objects56": 10,
+    "counters32": 11
+  },
+  "validCounterGroups": 4,
+  "v12Defaults": 1,
+  "poisonedCounterResults": 4,
+  "rejectedFeeds": 4,
+  "rejectedFirstRows": [
+    32,
+    32,
+    32,
+    0
+  ],
+  "lowHighWaterRejected": true,
+  "requiredNullRejected": true,
+  "identityRejected": true,
+  "budgetRejected": true,
+  "stalePreserved": true,
+  "freshRecovery": true,
+  "v12NoCounterQuery": true,
+  "exactRetiredCounter": true,
+  "exactMaximumCounter": true,
+  "staleCallbacks": 1,
+  "staleWireReservationBytes": 1708,
+  "staleTotalReservationBytes": 21,
+  "error": null,
+  "boundary": "official-worker/DXP1/shared-C-meta-sheets-descriptors-object-counters Header; no source SQL, ObjectStore adoption, ID issuance, source-version counters/ledger, Workbook publication or browser Save/Open"
+}

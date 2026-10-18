@@ -1,0 +1,738 @@
+{
+  "schema": "duxcel.checkpoint-provenance",
+  "version": 1,
+  "records": [
+    {
+      "path": "pure-original/manifest.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/manifest.json",
+      "original_bytes": 17404,
+      "original_sha256": "f4692bb52dcee68e0119d8b079127f7c4700bba004acfeb17f246f27ea77d452",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/optimized-build.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/optimized-build.json",
+      "original_bytes": 609,
+      "original_sha256": "e4e4aa7c90a7b9efb4ee9df9644dcea5d70ef5fad091483fdb28d8e13f6dfba1",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/optimized-build.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/optimized-build.log",
+      "original_bytes": 0,
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/optimized-run.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/optimized-run.json",
+      "original_bytes": 171,
+      "original_sha256": "53439ae649afb374f1f2266dfc9a7a6bac3d9d631f6ba958c24d09e3bb724852",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/optimized-run.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/optimized-run.log",
+      "original_bytes": 1191,
+      "original_sha256": "d70efb43200214a863c846f03ebcab3b996f4bde8156be90045af80cf581c32a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/sanitize-build.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/sanitize-build.json",
+      "original_bytes": 820,
+      "original_sha256": "e2e2f2589acc37d09a9a84b826da9fd8f0fc40761c69416f20f69f4efaa90c44",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/sanitize-build.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/sanitize-build.log",
+      "original_bytes": 0,
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/sanitize-run.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/sanitize-run.json",
+      "original_bytes": 319,
+      "original_sha256": "1239b314cb26a9515a7a7492d8cce32aad8b433379db04a33f009c81f6550f98",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/sanitize-run.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/sanitize-run.log",
+      "original_bytes": 1191,
+      "original_sha256": "d70efb43200214a863c846f03ebcab3b996f4bde8156be90045af80cf581c32a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/source-prefix.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/source-prefix.json",
+      "original_bytes": 773,
+      "original_sha256": "790eb17c93b78e8a166a4073b6c20a6b0fc46a700b15ae2799099bd61177790c",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-fixture-failure/optimized-build.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-fixture-failure/optimized-build.json",
+      "original_bytes": 569,
+      "original_sha256": "bc8bdf554b4c3c2de32dd65da28cd2b47d2a78843b4952d77fe739887a43e65f",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-fixture-failure/optimized-build.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-fixture-failure/optimized-build.log",
+      "original_bytes": 0,
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-fixture-failure/optimized-run.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-fixture-failure/optimized-run.json",
+      "original_bytes": 137,
+      "original_sha256": "0c1a4d4ad66919a9d9b097d4f4c48c79bcb0a772ee3e9b0142fc5a69e92e525f",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-fixture-failure/optimized-run.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-fixture-failure/optimized-run.log",
+      "original_bytes": 1106,
+      "original_sha256": "3f7b0a8df4cdc616c8518d09ae73e4e864d6cc7e4645922f7e1c28358c76c93f",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-fixture-failure/source.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-fixture-failure/source.json",
+      "original_bytes": 565,
+      "original_sha256": "b010e1fed5b71df06d549a072193e1ad5f3f3eddf8996b5361d1eca54d485f6c",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-column-oracle-failure/manifest.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-column-oracle-failure/manifest.json",
+      "original_bytes": 2045,
+      "original_sha256": "46cd31917f07f071a6a13a906332b7dd8bffbf5bec3f3156b3a856174aedaec2",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-column-oracle-failure/optimized-build.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-column-oracle-failure/optimized-build.json",
+      "original_bytes": 612,
+      "original_sha256": "0ccaa1fc83a68c10b0b516d4ecfd0ea74fb60634087c6d3a22cfda885eb09fa2",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-column-oracle-failure/optimized-build.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-column-oracle-failure/optimized-build.log",
+      "original_bytes": 0,
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-column-oracle-failure/optimized-run.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-column-oracle-failure/optimized-run.json",
+      "original_bytes": 178,
+      "original_sha256": "5471f6a320fa481ae40695fabbe2dfc12f7f61f35ad676aa9c1f9ef7d865a561",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-column-oracle-failure/optimized-run.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-column-oracle-failure/optimized-run.log",
+      "original_bytes": 1091,
+      "original_sha256": "699da5a8b9815bac5f08cb62b883d672e33abed4cbac1aba8063ce57e2f93d8a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-original/initial-column-oracle-failure/source.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader/initial-column-oracle-failure/source.json",
+      "original_bytes": 278,
+      "original_sha256": "5e719671a4c66a06ac1332afc87d27cac640b46d23a1451ab260482ed5846d59",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-owned-pressure/manifest.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader-owned-pressure/manifest.json",
+      "original_bytes": 14857,
+      "original_sha256": "d8901bff2cacf902addf468c33faa5238854d8fe6a4dde4174172de7965f1ca6",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-owned-pressure/optimized-build.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader-owned-pressure/optimized-build.json",
+      "original_bytes": 627,
+      "original_sha256": "75533e5679a7aed206fd1e2c5a2ef221af565ef1568847dceb045217ba89ca93",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-owned-pressure/optimized-build.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader-owned-pressure/optimized-build.log",
+      "original_bytes": 0,
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-owned-pressure/optimized-run.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader-owned-pressure/optimized-run.json",
+      "original_bytes": 186,
+      "original_sha256": "1d9993983d209eab8d4c5882e2fbee7a0bdcb28a1bf371175298224e0dc00b83",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-owned-pressure/optimized-run.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader-owned-pressure/optimized-run.log",
+      "original_bytes": 1191,
+      "original_sha256": "d70efb43200214a863c846f03ebcab3b996f4bde8156be90045af80cf581c32a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-owned-pressure/sanitize-build.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader-owned-pressure/sanitize-build.json",
+      "original_bytes": 835,
+      "original_sha256": "9b4f2e3277b94c356636a552df267f4c0e383767cc9839ee12e10bac2a51e936",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-owned-pressure/sanitize-build.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader-owned-pressure/sanitize-build.log",
+      "original_bytes": 0,
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-owned-pressure/sanitize-run.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader-owned-pressure/sanitize-run.json",
+      "original_bytes": 334,
+      "original_sha256": "0fb2516aa07775a4df6c33318c5d5d99f3ad7b8648604e4d55fd17dbe902260a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-owned-pressure/sanitize-run.log",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader-owned-pressure/sanitize-run.log",
+      "original_bytes": 1191,
+      "original_sha256": "d70efb43200214a863c846f03ebcab3b996f4bde8156be90045af80cf581c32a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "pure-owned-pressure/source-prefix.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-owner-counters-reader/duxcel/build/bp1-owner-counters-reader-owned-pressure/source-prefix.json",
+      "original_bytes": 407,
+      "original_sha256": "f202db0c2bdb68960cd17c9769c8cfa04dbdf5d6d27230285975cdc9e896e8ce",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "root-pure/manifest.json",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-owner-counters-root/manifest.json",
+      "original_bytes": 1316,
+      "original_sha256": "51413a5ca2591fb626bd986793182ab67f42103180d828aefb7710d203b83166",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "root-pure/summary.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095250-fast-41749/summary.json",
+      "original_bytes": 2317,
+      "original_sha256": "427751714662fd8ed71f29b84f36528e9f2cb90d61c6edb4b131db5154fcb2ae",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "root-pure/build-headless.txt",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095250-fast-41749/build-headless.txt",
+      "original_bytes": 811,
+      "original_sha256": "968af6eb1b89a9a58a73c2d7ece9885977bd6bcc1712718ca968035cab39c20d",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "root-pure/workbook_codec_read-release.txt",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095250-fast-41749/workbook_codec_read-release.txt",
+      "original_bytes": 1237,
+      "original_sha256": "89e51d31131065f344006bfecd3575ea54385d009e5624dea6ee8a154eac617f",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "root-pure/workbook_codec_read-sanitize.txt",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095250-fast-41749/workbook_codec_read-sanitize.txt",
+      "original_bytes": 1243,
+      "original_sha256": "ab918aaf02c16900183c01e78ce216b8128b235fa287d46af6e2ce24dcca8fe9",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/manifest.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/manifest.json",
+      "original_bytes": 5900,
+      "original_sha256": "9df2237bafe4c01cc05cf4a2098044a9c5f14ae4e88eac7d9e92002a61bd2801",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/preprocessor-closure.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/preprocessor-closure.json",
+      "original_bytes": 11214,
+      "original_sha256": "e17dc23b29f7f983a44e95349c8c2ab3de300d3d0382145206bd98356d861dd4",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/root-source-comparison.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/root-source-comparison.json",
+      "original_bytes": 5687,
+      "original_sha256": "671e746e9ac95023261ed19058cf2b7b6c12927d3de24da85192dbf6b233735c",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/emitter-results.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/emitter-results.json",
+      "original_bytes": 28202,
+      "original_sha256": "a4458749871f7b88d10953f135d879c86abe146a0a373375ef29ece1fda4ebbd",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/run-results.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/run-results.json",
+      "original_bytes": 2228,
+      "original_sha256": "8fd3e380f062a86b5d7b860f650431578f3a463d8fe78834fa22d58121c87305",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/unchanged-native-paths.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/unchanged-native-paths.json",
+      "original_bytes": 1168,
+      "original_sha256": "2a56ea915e61fc5c420475061d8a9fa773c9988fd24f389c218d0eb2525ddea7",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/initial-inspection-setup.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/initial-inspection-setup.json",
+      "original_bytes": 419,
+      "original_sha256": "c35fe8e82d50ecfac68f21c6fd7e06585d73aa6af6881c4a4be2d8768f0117d9",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/release-build.txt",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/release-build.txt",
+      "original_bytes": 701,
+      "original_sha256": "08d6665ded89e66c0a6e5b2ed91ac73234d8c21df4421605578d0088017fc38a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/release-default.txt",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/release-default.txt",
+      "original_bytes": 218,
+      "original_sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/release-counters.txt",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/release-counters.txt",
+      "original_bytes": 340,
+      "original_sha256": "21de0211e966140f33861610c6ab2a054c7284664e7c7fbd0c504d08f6cb71a1",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/sanitize-build.txt",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/sanitize-build.txt",
+      "original_bytes": 760,
+      "original_sha256": "cc67073064a6c1d68872d948a1bfe735e4ae378ab10298f73bdb3830c7b6d372",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/sanitize-default.txt",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/sanitize-default.txt",
+      "original_bytes": 218,
+      "original_sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/sanitize-counters.txt",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/sanitize-counters.txt",
+      "original_bytes": 340,
+      "original_sha256": "21de0211e966140f33861610c6ab2a054c7284664e7c7fbd0c504d08f6cb71a1",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/release-dependencies.d",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/release-dependencies.d",
+      "original_bytes": 7157,
+      "original_sha256": "dd8a04dcbb0b503fdac41af0658b1ac495a0e56223cb8312747200aaeac509f2",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/sanitize-dependencies.d",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/sanitize-dependencies.d",
+      "original_bytes": 7157,
+      "original_sha256": "dd8a04dcbb0b503fdac41af0658b1ac495a0e56223cb8312747200aaeac509f2",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/initial-arm-assumption/manifest.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/initial-arm-assumption/manifest.json",
+      "original_bytes": 518,
+      "original_sha256": "f738b67765e6b71fa66ff7048cdafe766ce8b8ec14f52ee217c01c969ad6123c",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/initial-arm-assumption/run-results.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/initial-arm-assumption/run-results.json",
+      "original_bytes": 1045,
+      "original_sha256": "2ba51b3a7fb8ed134e990af837c04091ad40e4009f692528bcdd9de7dd5ab197",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/initial-arm-assumption/release-counters.txt",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/initial-arm-assumption/release-counters.txt",
+      "original_bytes": 74,
+      "original_sha256": "2c4a1cb9865810fbcd3fe3835805ffa97c6ff5c07b51542990daf2871c1051c3",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/initial-arm-assumption/tested-counters.inc.txt",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/initial-arm-assumption/tested-counters.inc.txt",
+      "original_bytes": 16041,
+      "original_sha256": "0c1068776e228309cce17ae6a96f85d557ba0ae8e0b3302ff0f2267cdb67faa1",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "native/root-integration-comparison.json",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-native-integration/root-source-comparison.json",
+      "original_bytes": 5699,
+      "original_sha256": "28b39531095587379bb395c385abb7ad7f3951932c49453386e22814703d2240",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "harness/manifest.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-browser-codec-counters-harness/duxcel/build/counters-harness-mocks/manifest.json",
+      "original_bytes": 1256,
+      "original_sha256": "379df512333f2d97f5ef8921a84f83c76e12fc19933d8421148b6a827032c80e",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "harness/initial-inventory-assumption/manifest.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-browser-codec-counters-harness/duxcel/build/counters-harness-mocks/initial-inventory-assumption/manifest.json",
+      "original_bytes": 344,
+      "original_sha256": "646ca826f2617a23c4dad1dd4686c7407b0143c3ea67198a504ca99193deaeda",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "harness/runner.txt",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-browser-codec-counters-harness/duxcel/build/counters-harness-mocks/runner.txt",
+      "original_bytes": 111,
+      "original_sha256": "e85509db228d29ea206bb31b45cfea3797a899ad32471d6dbca8c8ed628729c7",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "harness/initial-inventory-assumption/runner.txt",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-browser-codec-counters-harness/duxcel/build/counters-harness-mocks/initial-inventory-assumption/runner.txt",
+      "original_bytes": 1047,
+      "original_sha256": "0f0023a87dc52b4eec1d193bc591912b8c0b9edbbdc54574207042d1699aa008",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/manifest.json",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-actual-ec3e44e/manifest.json",
+      "original_bytes": 1859,
+      "original_sha256": "a3ec54a1f44cc5f30d612e62cd10ba2eb72dd465b8c306a2573e1ffaadd3c54c",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/harness.txt",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-actual-ec3e44e/harness.txt",
+      "original_bytes": 111,
+      "original_sha256": "aeac40c9756c5ec827bd904fe2625d03c74e03dc73df68f9a1b7ea537a84851f",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/runner.txt",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-actual-ec3e44e/runner.txt",
+      "original_bytes": 4981,
+      "original_sha256": "2287fc174d404f7104ebece45f791ad80296162e32de4bdb081c129695a99de9",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/cached-exclusion.txt",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-actual-ec3e44e/cached-exclusion.txt",
+      "original_bytes": 102,
+      "original_sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/actual-counters.txt",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-actual-ec3e44e/actual-counters.txt",
+      "original_bytes": 132,
+      "original_sha256": "219c447166b8161ff1f669c599b1d98ebaaf8c8344967e4040ce3f0d6979a8ab",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/result.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095859-browser-43721/result.json",
+      "original_bytes": 1234,
+      "original_sha256": "dd0f6bbbb4117481bd7ba7e2ed9f0b39cd584b65165e9638991a214f0d6b4da6",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/driver.txt",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095859-browser-43721/driver.txt",
+      "original_bytes": 228,
+      "original_sha256": "6ca46ff26243cb82bbc25488035c2196c8f0542432e515288915b92c554e29ce",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/browser.txt",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095859-browser-43721/browser.txt",
+      "original_bytes": 98,
+      "original_sha256": "de11e889e671278d0153671f0fe0e1ef804831a61df0236a56011129908bf2bb",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/cleanup.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095859-browser-43721/cleanup.json",
+      "original_bytes": 207,
+      "original_sha256": "393f72a4615032e4548974bd1d587b2d6e1775734366ae60ed48223c835acb06",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/codec-fixture-manifest.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095859-browser-43721/codec-fixture-manifest.json",
+      "original_bytes": 867,
+      "original_sha256": "b1cd7278523eb748bd2ddec0bd263b59148bec5bf80119f4347a19ca9f60dca5",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/codec-native-create.txt",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095859-browser-43721/codec-native-create.txt",
+      "original_bytes": 283,
+      "original_sha256": "dbb39fc3be0cef52de7ea5b9a5f64e34b2a8e9e5de8f82059f3d5159606aaa21",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/codec-native-provenance.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095859-browser-43721/codec-native-provenance.json",
+      "original_bytes": 1543,
+      "original_sha256": "4be30c2eb4ac53837ebaf33dd02ede567da094c2b262b899fb171e91de53fe2a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "initial-worker/c-report.extract.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095859-browser-43721/codec-read-driver.json",
+      "original_bytes": 10503,
+      "original_sha256": "35908d98d13aba3b14ae426031aef77f935548fd4bd3fa596a5ef35a1f6f945b",
+      "kind": "bounded-json-extract",
+      "retained_keys": [
+        "ok",
+        "mode",
+        "checks",
+        "fixtures",
+        "headers",
+        "queries",
+        "rejections",
+        "stale",
+        "peakOwnedInput",
+        "maximumCompletedHeaderOwned",
+        "headerOwnedLimit",
+        "inputOwnedLimit",
+        "normalFixtureQueries",
+        "familyExecutions",
+        "acceptedFeeds",
+        "validCounterGroups",
+        "v12Defaults",
+        "poisonedCounterResults",
+        "rejectedFeeds",
+        "rejectedFirstRows",
+        "lowHighWaterRejected",
+        "requiredNullRejected",
+        "identityRejected",
+        "budgetRejected",
+        "stalePreserved",
+        "freshRecovery",
+        "v12NoCounterQuery",
+        "exactRetiredCounter",
+        "exactMaximumCounter",
+        "staleCallbacks",
+        "staleWireReservationBytes",
+        "staleTotalReservationBytes",
+        "error",
+        "boundary"
+      ],
+      "note": "Omit duplicated query transport for the pre-counter projection admission failure; original hash retains complete report identity."
+    },
+    {
+      "path": "initial-worker/summary.extract.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095859-browser-43721/summary.json",
+      "original_bytes": 34960,
+      "original_sha256": "cda7feee31849f085da30f2d7a2e22241de80a60a68ad6a6188154cd9318ffcb",
+      "kind": "bounded-json-extract",
+      "note": "Retain timing/setup/source/command and nonvendor driver artifact identities; omit full vendor inventory, duplicate fixture manifest and process telemetry."
+    },
+    {
+      "path": "initial-worker/driver-correction.patch",
+      "original": "git object c7dbe35: tests/test_browser_codec_read.c diff",
+      "original_bytes": 1878,
+      "original_sha256": "2ad931894a7c6fde4fcf2305c2d975067ec6c1a0ae3b4d56075c3a0e580ca006",
+      "kind": "git-patch-witness",
+      "note": "Test-driver schema width and canonical counter projection correction, not production codec/engine."
+    },
+    {
+      "path": "worker-static/manifest.json",
+      "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-worker/duxcel/build/bp1-counters-worker-static/manifest.json",
+      "original_bytes": 1141,
+      "original_sha256": "da2a257deb01230d9e66bf6acb7a77f1b904a3963b0a386b235971694d8ab57b",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/manifest.json",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-actual-c7dbe35/manifest.json",
+      "original_bytes": 1860,
+      "original_sha256": "a43c4db865c2a347759cabb2c6b712acf0908733bb392c7ffb212a6b986897cf",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/harness.txt",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-actual-c7dbe35/harness.txt",
+      "original_bytes": 111,
+      "original_sha256": "52563aa9492c2357a31c4d78a8e488115979d22ef2c9a0013c03ce95202c1016",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/runner.txt",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-actual-c7dbe35/runner.txt",
+      "original_bytes": 4981,
+      "original_sha256": "52065c8a2295ba214870563deccad5872cc23f5ab87cf04ce0c2e5bafad45a06",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/cached-exclusion.txt",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-actual-c7dbe35/cached-exclusion.txt",
+      "original_bytes": 102,
+      "original_sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/actual-counters.txt",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-actual-c7dbe35/actual-counters.txt",
+      "original_bytes": 132,
+      "original_sha256": "8f311400b1c63b56e2a25520ce2dd95d2a5497fbe48d336ecc43994b0f969ffc",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/driver.txt",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100035-browser-44765/driver.txt",
+      "original_bytes": 1170,
+      "original_sha256": "80391ff733ee737c7d4b30a093df3983be7c53aa93e6d3c04be5c0467b90dc2a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/browser.txt",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100035-browser-44765/browser.txt",
+      "original_bytes": 98,
+      "original_sha256": "afba20cec674fd0afb28ae72a28695f1fd578ee1ec32b83aff3df437b8e5ae7c",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/cleanup.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100035-browser-44765/cleanup.json",
+      "original_bytes": 207,
+      "original_sha256": "21982b31b320c69cad8523453ea6cc5229ef4fd4e415abaf5a06e59cff4c1cc9",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/codec-fixture-manifest.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100035-browser-44765/codec-fixture-manifest.json",
+      "original_bytes": 867,
+      "original_sha256": "995c42af68580d212198b2cdbebdf0fc0d66a0f2ccb869a190ecb2f1193f228a",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/codec-native-create.txt",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100035-browser-44765/codec-native-create.txt",
+      "original_bytes": 283,
+      "original_sha256": "dbb39fc3be0cef52de7ea5b9a5f64e34b2a8e9e5de8f82059f3d5159606aaa21",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/codec-native-provenance.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100035-browser-44765/codec-native-provenance.json",
+      "original_bytes": 1945,
+      "original_sha256": "cc35df1687e10a056e204d293b03247ac18bc9647a9661157b9d8c9e5efe0574",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/codec-read-transport.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100035-browser-44765/codec-read-transport.json",
+      "original_bytes": 41337,
+      "original_sha256": "e19480cd47fe910824a8d185556f74c22f35ac17f28493a355425e6bef8cfb26",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "actual-worker/c-report.extract.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100035-browser-44765/codec-read-driver.json",
+      "original_bytes": 44022,
+      "original_sha256": "821b41b2d58df322afec960efd37dec249d5687ac70dd42c5b7ef9ccc258aa6c",
+      "kind": "bounded-json-extract",
+      "note": "Omit transport duplicated in exact codec-read-transport.json; all C terminal fields retained."
+    },
+    {
+      "path": "actual-worker/result.extract.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100035-browser-44765/result.json",
+      "original_bytes": 45776,
+      "original_sha256": "e6a6bdfb62a6f871339e7d32d6e63986b340a2a0a197cd8331499f0ceac9b474",
+      "kind": "bounded-json-extract",
+      "note": "Omit duplicated C report/transport; retain external checks, status, profile and scope."
+    },
+    {
+      "path": "actual-worker/summary.extract.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100035-browser-44765/summary.json",
+      "original_bytes": 34960,
+      "original_sha256": "2d6d7846e8b2695690fc799d0b5051c945de8b0d1ae742003a532b32fdf2bab0",
+      "kind": "bounded-json-extract",
+      "note": "Retain all timing/setup/source/command and nonvendor artifact IDs; omit full vendor inventory, duplicate fixture manifest and process telemetry."
+    },
+    {
+      "path": "worker-static/root-observation.patch",
+      "original": "git diff bffdb10 ec3e44e -- tests/test_browser_codec_counters.inc",
+      "original_bytes": 1642,
+      "original_sha256": "dd933c7a13e3feee7b5e88b58b09b17d89a58a5b4b3d801913b9486f9109d386",
+      "kind": "git-patch-witness",
+      "note": "Root adds immediate observation after expected feed rejection, retaining original diagnostic owned bytes before finish can replace it. No codec change."
+    },
+    {
+      "path": "adjacent-grid/manifest.json",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-adjacent-grid/manifest.json",
+      "original_bytes": 555,
+      "original_sha256": "4acf54a2ef2043a2fa69a2a3c210919d0ecea63e6e29abe4ad5ace020340dc66",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "adjacent-grid/actual-grid.txt",
+      "original": "/Users/h2o/dev/duxcel/build/bp1-counters-adjacent-grid/actual-grid.txt",
+      "original_bytes": 130,
+      "original_sha256": "1f8af8989f5ffeb615ddc4fe982f3862c1e8a40ac16d8def8028b60c0d7f69a0",
+      "kind": "exact-copy"
+    },
+    {
+      "path": "adjacent-grid/c-report.extract.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100101-browser-45598/codec-read-driver.json",
+      "original_bytes": 49750,
+      "original_sha256": "d208590742aef267c7a8613effd58b5a149bab2c5a219313cbee1413e56b7856",
+      "kind": "bounded-json-extract",
+      "note": "All C report fields retained; omit repeated62-request stream transport previously tested by unchanged Grid harness."
+    },
+    {
+      "path": "adjacent-grid/result.extract.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100101-browser-45598/result.json",
+      "original_bytes": 51765,
+      "original_sha256": "7de14b1d2eeb755a5764083889565ff1d4a493e54d01e35f0cd411a91b0eb014",
+      "kind": "bounded-json-extract",
+      "note": "Keep external assertions/status/profile/scope, omit duplicated C report and query transport."
+    },
+    {
+      "path": "adjacent-grid/summary.extract.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100101-browser-45598/summary.json",
+      "original_bytes": 34941,
+      "original_sha256": "db8df0810b1d9856ac9d6f51ae4d96fc2e753ac3ceb2b7641cdb4c6cc5fe8edc",
+      "kind": "bounded-json-extract",
+      "note": "Keep scoped timings/source and cached artifact identity; omit repeated vendor/source inventories and file transport."
+    },
+    {
+      "path": "adjacent-grid/cleanup.json",
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T100101-browser-45598/cleanup.json",
+      "original_bytes": 207,
+      "original_sha256": "25774f6a5e4323c6b94e8923dc85979f2ffcc3007c5125f148f732658cba4022",
+      "kind": "exact-copy"
+    }
+  ]
+}
