@@ -746,6 +746,9 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
         r->source_digest_status=SOURCE_DIGEST_UNSUPPORTED;
         browser_fail("Source-content verification is unavailable in the browser engine; no native path or verification job was submitted."); return;
     }
+    if (j->kind==JOB_COLLECT_RECORDS) {
+        browser_fail("Native record collection is unavailable in the browser engine; no identity query was submitted."); return;
+    }
     if (j->refresh_source) browser_clear_schemas();
     q->copying=j->kind==JOB_COPY || j->kind==JOB_PIVOT_COPY || j->kind==JOB_RANGE_COPY;
     q->matrix=j->kind==JOB_PIVOT && !j->is_table;
