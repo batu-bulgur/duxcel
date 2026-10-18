@@ -781,6 +781,63 @@ static void scope_duplicate_validation(void) {
         free(prior); format_free(&s); clear_error(&error);
     }
 }
+static void disjoint_property_noop(void) {
+    FormatStore s={0}; FormatSnapshot plan={0}; char *error=NULL; CellFormat value=format_default();
+    const char raw_bytes[]="raw-v1",result_bytes[]="result-v1",filtered_bytes[]="result-filtered";
+    FormatScopeView raw={0,raw_bytes,sizeof(raw_bytes)-1},result={0,result_bytes,sizeof(result_bytes)-1},filtered={0,filtered_bytes,sizeof(filtered_bytes)-1};
+    uint64_t id=11; size_t field=4; value.flags=FORMAT_BOLD;
+    CHECK(format_apply_records(&s,&raw,&id,1,&field,1,FORMAT_BOLD,value,&error));
+    value.flags=FORMAT_ITALIC; CHECK(format_apply_scoped(&s,(FormatRange){0,11,4,4},FORMAT_ITALIC,value,&result,1,false,&error));
+    value.color=2; CHECK(format_apply_scoped(&s,(FormatRange){20,700,4,8},FORMAT_COLOR,value,&result,1,true,&error));
+    value.flags=FORMAT_UNDERLINE; CHECK(format_apply_scoped(&s,(FormatRange){0,2,4,4},FORMAT_UNDERLINE,value,&filtered,1,false,&error));
+    value.size=16; CHECK(format_apply(&s,(FormatRange){50,50,9,9},FORMAT_SIZE,value,&error) && format_history(&s,false));
+    CHECK(s.count==4 && s.undo_count==4 && s.redo_count==1 && s.items[0].selector==FORMAT_RECORDS);
+    unsigned char live[sizeof(s)]; memcpy(live,&s,sizeof(s)); size_t bytes=format_owned_bytes(&s,true);
+    value.flags=FORMAT_BOLD;
+    CHECK(format_plan_records(&s,&raw,&id,1,&field,1,FORMAT_BOLD,value,&plan,&error) && !format_commit(&s,&plan));
+    CHECK(!memcmp(live,&s,sizeof(s)) && !plan.items && !plan.scopes && format_owned_bytes(&s,true)==bytes);
+    CHECK(format_apply_records(&s,&raw,&id,1,&field,1,FORMAT_BOLD,value,&error) && !memcmp(live,&s,sizeof(s)));
+    value.flags=FORMAT_ITALIC;
+    CHECK(format_apply_scoped(&s,(FormatRange){0,11,4,4},FORMAT_ITALIC,value,&result,1,false,&error) && !memcmp(live,&s,sizeof(s)));
+    CHECK(format_apply_scoped(&s,(FormatRange){20,700,4,8},FORMAT_COLOR,value,&result,1,true,&error) && !memcmp(live,&s,sizeof(s)));
+    value.flags=FORMAT_UNDERLINE;
+    CHECK(format_apply_scoped(&s,(FormatRange){0,2,4,4},FORMAT_UNDERLINE,value,&filtered,1,false,&error) && !memcmp(live,&s,sizeof(s)));
+    CHECK(format_resolve_record_token(&s,10,4,format_scope_token(&s,&result),format_scope_token(&s,&raw),id,field).flags==(FORMAT_BOLD|FORMAT_ITALIC));
+    CHECK(format_valid(&s,&error)); format_free(&s);
+    /* A newer same-property result/default reset must block the shortcut, even
+       when intervening patches change only unrelated properties. */
+    for (size_t broad=0;broad<2;broad++) {
+        value=format_default(); value.flags=FORMAT_BOLD; CHECK(format_apply_records(&s,&raw,&id,1,&field,1,FORMAT_BOLD,value,&error));
+        value.flags=0;
+        CHECK(broad ? format_apply(&s,(FormatRange){0,DX_SHEET_ROWS-1,4,4},FORMAT_BOLD,value,&error) :
+            format_apply_scoped(&s,(FormatRange){0,20,4,4},FORMAT_BOLD,value,&result,1,false,&error));
+        value.color=3; CHECK(format_apply_scoped(&s,(FormatRange){1,3,4,4},FORMAT_COLOR,value,&result,1,false,&error));
+        size_t result_token=format_scope_token(&s,&result),raw_token=format_scope_token(&s,&raw);
+        CHECK(!format_resolve_record_token(&s,10,4,result_token,raw_token,id,field).flags);
+        uint64_t revision=s.revision; size_t undo=s.undo_count; value.flags=FORMAT_BOLD;
+        CHECK(format_apply_records(&s,&raw,&id,1,&field,1,FORMAT_BOLD,value,&error) && s.revision==revision+1 && s.undo_count==undo+1);
+        CHECK(format_resolve_record_token(&s,10,4,format_scope_token(&s,&result),format_scope_token(&s,&raw),id,field).flags==FORMAT_BOLD);
+        CHECK(format_history(&s,false) && !format_resolve_record_token(&s,10,4,format_scope_token(&s,&result),format_scope_token(&s,&raw),id,field).flags);
+        CHECK(format_history(&s,true) && format_resolve_record_token(&s,10,4,format_scope_token(&s,&result),format_scope_token(&s,&raw),id,field).flags==FORMAT_BOLD);
+        format_free(&s);
+    }
+    /* Any differing membership, exact owner, value or newly requested mask
+       remains a real action. The new shortcut does not reason across owners. */
+    for (size_t variation=0;variation<4;variation++) {
+        value=format_default(); value.flags=FORMAT_BOLD; CHECK(format_apply_records(&s,&raw,&id,1,&field,1,FORMAT_BOLD,value,&error));
+        value.color=2; CHECK(format_apply_scoped(&s,(FormatRange){0,20,4,4},FORMAT_COLOR,value,&result,1,false,&error));
+        uint64_t next_id=variation==0 ? id+1 : id; FormatScopeView next_raw=raw; unsigned mask=FORMAT_BOLD;
+        if (variation==1) next_raw.owner=UINT64_MAX;
+        if (variation==2) value.flags=0;
+        if (variation==3) { mask|=FORMAT_UNDERLINE; value.flags|=FORMAT_UNDERLINE; }
+        uint64_t revision=s.revision; size_t undo=s.undo_count;
+        CHECK(format_apply_records(&s,&next_raw,&next_id,1,&field,1,mask,value,&error) && s.revision==revision+1 && s.undo_count==undo+1);
+        CellFormat actual=record_at(&s,0,4,&next_raw,next_id,field);
+        CHECK(actual.flags==(variation==2 ? 0 : variation==3 ? FORMAT_BOLD|FORMAT_UNDERLINE : FORMAT_BOLD));
+        CHECK(format_valid(&s,&error)); format_free(&s);
+    }
+    clear_error(&error);
+}
 int main(void) {
     display("128450.00",2,true,"128,450.00"); display("-24860",2,true,"(24,860.00)"); display("-24860",0,false,"−24,860");
     display("9.995",2,true,"10.00"); display("-0.00005",4,true,"(0.0001)"); display("0.00000000001",4,false,"0.0000");
@@ -821,5 +878,6 @@ int main(void) {
     record_resolution(); record_planners(); record_dual_scopes(); record_invalid(); record_edit_plan(); record_budgets(); record_precedence();
     guarded_store_baseline(); guarded_store_invalid(); guarded_store_limits();
     scope_duplicate_validation();
+    disjoint_property_noop();
     printf("PASS: %u formatting checks (exact numeric display, bounded ranges, scoped record membership, precedence, ownership, moves, structural edits, history and whole-sheet selection)\n",checks); return 0;
 }

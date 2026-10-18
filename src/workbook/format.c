@@ -223,6 +223,15 @@ static bool covers_selector(FormatPatch a,FormatPatch b) {
     return true;
 }
 static bool append(FormatSnapshot *s,FormatPatch patch,char **error) {
+    /* Later edits of unrelated properties cannot change this exact selector's
+       value. Stop at the first requested property, even on another selector or
+       range: a newer result/default reset may require reasserting the edit. */
+    for (size_t i=s->count;i;i--) if (s->items[i-1].mask&patch.mask) {
+        FormatPatch last=s->items[i-1];
+        if (same_range(last.range,patch.range) && same_selector(last,patch) &&
+            (last.mask&patch.mask)==patch.mask && same_value(last.value,patch.value,patch.mask)) return true;
+        break;
+    }
     if (s->count && same_range(s->items[s->count-1].range,patch.range) && same_selector(s->items[s->count-1],patch)) {
         FormatPatch *last=&s->items[s->count-1]; merge(&last->value,patch.value,patch.mask); last->mask|=patch.mask; return true;
     }
