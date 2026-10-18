@@ -1,0 +1,241 @@
+{
+  "schema": "duxcel.native-objects-root-source-comparison",
+  "version": 1,
+  "root_commit": "57ce1951bab17e779e894f720041af6b96447c86",
+  "native_test_commit": "4378988554f56bd2be69e49efaca4f121237ea5e",
+  "closure_receipt_sha256": "07061a3c4ec695878276e7ab3a4fb29c22a6d15b1bad5480d03dd44b81988f6e",
+  "scope": "Exact native preprocessor closure44files + installed DuckDB header/library. Reuses private native optimized/O1 runtime evidence; not a repeated root native test or global all-header equivalence. Browser-only transport differences are separate.",
+  "files": {
+    "src/common.c": {
+      "expected": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4",
+      "actual": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4",
+      "matches": true
+    },
+    "src/common.h": {
+      "expected": "027d4a52e7bd019dd21f3ddd2f077f464d4554142eceee1edddfbd3d8d7e6100",
+      "actual": "027d4a52e7bd019dd21f3ddd2f077f464d4554142eceee1edddfbd3d8d7e6100",
+      "matches": true
+    },
+    "src/data/database.c": {
+      "expected": "5e597a475b639e880f3bb534805cc94825152e8d108e99ea2aa7d3b1ba9edbce",
+      "actual": "5e597a475b639e880f3bb534805cc94825152e8d108e99ea2aa7d3b1ba9edbce",
+      "matches": true
+    },
+    "src/data/database.h": {
+      "expected": "c4d7ff5a1bfa161a8854ac6acb2e91871dacbbb28358b648c80f4aacbb376e2f",
+      "actual": "c4d7ff5a1bfa161a8854ac6acb2e91871dacbbb28358b648c80f4aacbb376e2f",
+      "matches": true
+    },
+    "src/data/page.c": {
+      "expected": "20e609ecf1328e8c42589697a5331dfe778a41577ba16be629996117b52d7ef3",
+      "actual": "20e609ecf1328e8c42589697a5331dfe778a41577ba16be629996117b52d7ef3",
+      "matches": true
+    },
+    "src/data/page.h": {
+      "expected": "31e0fbb396f33a75b73933442561dcfbeaf36dde7a3287ea135489b6895cfe9f",
+      "actual": "31e0fbb396f33a75b73933442561dcfbeaf36dde7a3287ea135489b6895cfe9f",
+      "matches": true
+    },
+    "src/data/source_digest.c": {
+      "expected": "6bf46cd0827b0b7740350c2342beadfbc5689b890b049646e3b4e99fcd867f14",
+      "actual": "6bf46cd0827b0b7740350c2342beadfbc5689b890b049646e3b4e99fcd867f14",
+      "matches": true
+    },
+    "src/data/source_digest.h": {
+      "expected": "443a4ef6be2ea7dad017c8f1528c503eb414ab9b2bc1e9c585072f6a3ffde8ee",
+      "actual": "443a4ef6be2ea7dad017c8f1528c503eb414ab9b2bc1e9c585072f6a3ffde8ee",
+      "matches": true
+    },
+    "src/data/worker.c": {
+      "expected": "c6ba9b4075c2b5209863619e2b70e81deb8f80abc5f17dbe0612eb2770c6d9d8",
+      "actual": "c6ba9b4075c2b5209863619e2b70e81deb8f80abc5f17dbe0612eb2770c6d9d8",
+      "matches": true
+    },
+    "src/data/worker.h": {
+      "expected": "ff9aa1afb87a693b405aa96b95ee8842af508b58886132c21b045a626d64811d",
+      "actual": "ff9aa1afb87a693b405aa96b95ee8842af508b58886132c21b045a626d64811d",
+      "matches": true
+    },
+    "src/platform/platform.c": {
+      "expected": "743116c0c7fad43cc3f5286e3192ffe8936476c3e48b35f2eac0f7b2a5ae0aa6",
+      "actual": "743116c0c7fad43cc3f5286e3192ffe8936476c3e48b35f2eac0f7b2a5ae0aa6",
+      "matches": true
+    },
+    "src/platform/platform.h": {
+      "expected": "bf535c023c55edc9e60f46c4cac2e284706e480833efaa4afa73a85bd85d9d83",
+      "actual": "bf535c023c55edc9e60f46c4cac2e284706e480833efaa4afa73a85bd85d9d83",
+      "matches": true
+    },
+    "src/transforms/analysis.c": {
+      "expected": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19",
+      "actual": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19",
+      "matches": true
+    },
+    "src/transforms/analysis.h": {
+      "expected": "6d9571f28ea6ee9c42233faae588fedd310ce193db0c2d8dee2b309ac6711166",
+      "actual": "6d9571f28ea6ee9c42233faae588fedd310ce193db0c2d8dee2b309ac6711166",
+      "matches": true
+    },
+    "src/transforms/chart_other.c": {
+      "expected": "fd6e092c95d9313cedb8fac49a8f08de5124b110a81b4c4ee10539a108c9db1d",
+      "actual": "fd6e092c95d9313cedb8fac49a8f08de5124b110a81b4c4ee10539a108c9db1d",
+      "matches": true
+    },
+    "src/transforms/chart_other.h": {
+      "expected": "14b3d02dc8f0736f2b3d9c871e72db647613217526c44c8e3e00e49e22570a63",
+      "actual": "14b3d02dc8f0736f2b3d9c871e72db647613217526c44c8e3e00e49e22570a63",
+      "matches": true
+    },
+    "src/transforms/distinct.c": {
+      "expected": "fd6dfb234dccf2ae33becb61faff64710720b06494bba6abf44aba2b166aad7c",
+      "actual": "fd6dfb234dccf2ae33becb61faff64710720b06494bba6abf44aba2b166aad7c",
+      "matches": true
+    },
+    "src/transforms/distinct.h": {
+      "expected": "74d010da999052333c9f2612a1860944e8fbb0de6656fc306c61cc53b4948a0e",
+      "actual": "74d010da999052333c9f2612a1860944e8fbb0de6656fc306c61cc53b4948a0e",
+      "matches": true
+    },
+    "src/transforms/marks.c": {
+      "expected": "864da129ebccf18bc8cd72db75ae36c8e9d03f3e50db76cd9c385ed7eb22952b",
+      "actual": "864da129ebccf18bc8cd72db75ae36c8e9d03f3e50db76cd9c385ed7eb22952b",
+      "matches": true
+    },
+    "src/transforms/marks.h": {
+      "expected": "649b9cc9491eaf1855b42eb668adc6fe08e0dac2c64869b87900a71ba62305c7",
+      "actual": "649b9cc9491eaf1855b42eb668adc6fe08e0dac2c64869b87900a71ba62305c7",
+      "matches": true
+    },
+    "src/transforms/number.c": {
+      "expected": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e",
+      "actual": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e",
+      "matches": true
+    },
+    "src/transforms/number.h": {
+      "expected": "54360de3c934dfc1c686527c2392db3999630aff9f56d45a2f74598f41a24482",
+      "actual": "54360de3c934dfc1c686527c2392db3999630aff9f56d45a2f74598f41a24482",
+      "matches": true
+    },
+    "src/transforms/pivot.c": {
+      "expected": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d",
+      "actual": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d",
+      "matches": true
+    },
+    "src/transforms/pivot.h": {
+      "expected": "c76fb81248dbf1d1aacd754f6560a432ffd1c93c37378310865f289905e2e49b",
+      "actual": "c76fb81248dbf1d1aacd754f6560a432ffd1c93c37378310865f289905e2e49b",
+      "matches": true
+    },
+    "src/transforms/record_sql.c": {
+      "expected": "cc395a8855d63e6ded3c0828bd3ad9d14663259733029bf3d2b04203e8c90f96",
+      "actual": "cc395a8855d63e6ded3c0828bd3ad9d14663259733029bf3d2b04203e8c90f96",
+      "matches": true
+    },
+    "src/transforms/record_sql.h": {
+      "expected": "35da9c8377a4548ebea5d6455ba37f4c0c85a711df85aa9dc98d97656b7ac57f",
+      "actual": "35da9c8377a4548ebea5d6455ba37f4c0c85a711df85aa9dc98d97656b7ac57f",
+      "matches": true
+    },
+    "src/workbook/cells.c": {
+      "expected": "5c56f3c895b43d07790970bc2c7334e7c598268289fedd1581717d3b7648410c",
+      "actual": "5c56f3c895b43d07790970bc2c7334e7c598268289fedd1581717d3b7648410c",
+      "matches": true
+    },
+    "src/workbook/cells.h": {
+      "expected": "2bc452c6d7ce5c176acf5da862530ce7036897c59c5f0da19bd40a65a5be1b19",
+      "actual": "2bc452c6d7ce5c176acf5da862530ce7036897c59c5f0da19bd40a65a5be1b19",
+      "matches": true
+    },
+    "src/workbook/clipboard.c": {
+      "expected": "2359bb7cf09890ff1ac46d8cd0db4184a3c983c970c200c41ce82992c4fb60bd",
+      "actual": "2359bb7cf09890ff1ac46d8cd0db4184a3c983c970c200c41ce82992c4fb60bd",
+      "matches": true
+    },
+    "src/workbook/clipboard.h": {
+      "expected": "a99858cb0ae6dc62ce14ee665904e7608e15c78854afc052bac52a5a1f52cd3f",
+      "actual": "a99858cb0ae6dc62ce14ee665904e7608e15c78854afc052bac52a5a1f52cd3f",
+      "matches": true
+    },
+    "src/workbook/format.c": {
+      "expected": "cd20649d531bdf6ed33148fa6a9a6cdee5f4d3915d587284d65c62ec0ea766a3",
+      "actual": "cd20649d531bdf6ed33148fa6a9a6cdee5f4d3915d587284d65c62ec0ea766a3",
+      "matches": true
+    },
+    "src/workbook/format.h": {
+      "expected": "5cebb5ff7c78ec4cf2060d39c3fb2df464d0ac92a133fcec08cc35f0f4d945a8",
+      "actual": "5cebb5ff7c78ec4cf2060d39c3fb2df464d0ac92a133fcec08cc35f0f4d945a8",
+      "matches": true
+    },
+    "src/workbook/objects.c": {
+      "expected": "11bef814a7eef30fbb9ea3263f7fa38b29dbe2c8a706cde63a774199b5842c07",
+      "actual": "11bef814a7eef30fbb9ea3263f7fa38b29dbe2c8a706cde63a774199b5842c07",
+      "matches": true
+    },
+    "src/workbook/objects.h": {
+      "expected": "9b95698956335dc1fba02355339a850c62b8254b3918512a4497adac8d7313bd",
+      "actual": "9b95698956335dc1fba02355339a850c62b8254b3918512a4497adac8d7313bd",
+      "matches": true
+    },
+    "src/workbook/source_scope.c": {
+      "expected": "1177452e699b69b18ad5506c5b73ee96fd0847b706307347822d6288289b80f8",
+      "actual": "1177452e699b69b18ad5506c5b73ee96fd0847b706307347822d6288289b80f8",
+      "matches": true
+    },
+    "src/workbook/source_scope.h": {
+      "expected": "c8c97559a1e58868f01348abeb72f1627394929f40bcd4de41a27b7b7faabd3b",
+      "actual": "c8c97559a1e58868f01348abeb72f1627394929f40bcd4de41a27b7b7faabd3b",
+      "matches": true
+    },
+    "src/workbook/workbook.c": {
+      "expected": "a8bf89253c6dbdfff0239903707dd379ca41a83aa7a73753e85c5650510fdfd6",
+      "actual": "a8bf89253c6dbdfff0239903707dd379ca41a83aa7a73753e85c5650510fdfd6",
+      "matches": true
+    },
+    "src/workbook/workbook.h": {
+      "expected": "f47c0b5896ee28d6e3fcecccb72bc6357956fc5583eda65d3be1825794791d79",
+      "actual": "f47c0b5896ee28d6e3fcecccb72bc6357956fc5583eda65d3be1825794791d79",
+      "matches": true
+    },
+    "src/workbook/workbook_codec.c": {
+      "expected": "75519f3222cdecf9fc351e8b5db0928b043a6e5db0ecf04bb3eae097cf173b11",
+      "actual": "75519f3222cdecf9fc351e8b5db0928b043a6e5db0ecf04bb3eae097cf173b11",
+      "matches": true
+    },
+    "src/workbook/workbook_codec.h": {
+      "expected": "7073011199d4b53f3d506174aed33e5a8f03cdb96257caf0837d32e37e99b39e",
+      "actual": "7073011199d4b53f3d506174aed33e5a8f03cdb96257caf0837d32e37e99b39e",
+      "matches": true
+    },
+    "src/workbook/workbook_codec_read.c": {
+      "expected": "c42c7b9e087dd20989e088c23f729efd778e64b27a0fd9dcf17f11164c2bb356",
+      "actual": "c42c7b9e087dd20989e088c23f729efd778e64b27a0fd9dcf17f11164c2bb356",
+      "matches": true
+    },
+    "src/workbook/workbook_codec_read.h": {
+      "expected": "797aa7964f812ec35df233a0050d3aead668f654ba190a743d39c7af804760d0",
+      "actual": "797aa7964f812ec35df233a0050d3aead668f654ba190a743d39c7af804760d0",
+      "matches": true
+    },
+    "tests/test_workbook_codec_native.c": {
+      "expected": "3f63fa1df2b76673e837298f88a788dcd67fdd8a8e008c239ebe74d89edd6442",
+      "actual": "3f63fa1df2b76673e837298f88a788dcd67fdd8a8e008c239ebe74d89edd6442",
+      "matches": true
+    },
+    "tests/test_workbook_codec_objects_native.inc": {
+      "expected": "18ecf374b1e22fda9f6adb1a84ed38ede7a66da4c4a876e99cb8c7558030a99c",
+      "actual": "18ecf374b1e22fda9f6adb1a84ed38ede7a66da4c4a876e99cb8c7558030a99c",
+      "matches": true
+    },
+    "/opt/homebrew/include/duckdb.h": {
+      "expected": "e85f70155b5948c8575e59f66e60d43575cec8b252293534c9e8598eb313a293",
+      "actual": "e85f70155b5948c8575e59f66e60d43575cec8b252293534c9e8598eb313a293",
+      "matches": true
+    },
+    "/opt/homebrew/lib/libduckdb.dylib": {
+      "expected": "b36d22b47c649b266380d02e4d0940e4b7a5c38fe4bf5370b777742386650c8a",
+      "actual": "b36d22b47c649b266380d02e4d0940e4b7a5c38fe4bf5370b777742386650c8a",
+      "matches": true
+    }
+  },
+  "all_match": true
+}

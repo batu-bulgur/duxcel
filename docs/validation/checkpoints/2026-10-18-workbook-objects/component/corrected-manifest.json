@@ -1,0 +1,79 @@
+{
+  "steps": [
+    {
+      "name": "build-release",
+      "command": [
+        "make",
+        "tests/test_workbook_codec_read"
+      ],
+      "seconds": 1.9465047500000001,
+      "exitCode": 0
+    },
+    {
+      "name": "release",
+      "command": [
+        "./tests/test_workbook_codec_read"
+      ],
+      "seconds": 0.36313970799999984,
+      "exitCode": 0
+    },
+    {
+      "name": "build-sanitize",
+      "command": [
+        "make",
+        "tests/test_workbook_codec_read-debug"
+      ],
+      "seconds": 2.98118125,
+      "exitCode": 0
+    },
+    {
+      "name": "sanitize",
+      "command": [
+        "env",
+        "ASAN_OPTIONS=halt_on_error=1",
+        "./tests/test_workbook_codec_read-debug"
+      ],
+      "seconds": 0.4993246669999998,
+      "exitCode": 0
+    }
+  ],
+  "schema": "duxcel.workbook-object-descriptors.required",
+  "version": 1,
+  "testedCommit": "341a24ec784d6715812a0708a423b2d539240ac6",
+  "checksPerConfiguration": 4867,
+  "unchanged": {
+    "header": 1391,
+    "sorts": 1829,
+    "preferences": 708
+  },
+  "objectDescriptorChecks": 939,
+  "scope": "Pure missing-object-package policy correction: absent v12 empty; v13/v14 reject. No native/Worker claim.",
+  "files": {
+    "src/workbook/workbook_codec_read.c": {
+      "bytes": 30833,
+      "sha256": "c42c7b9e087dd20989e088c23f729efd778e64b27a0fd9dcf17f11164c2bb356"
+    },
+    "src/workbook/workbook_codec_read.h": {
+      "bytes": 9566,
+      "sha256": "797aa7964f812ec35df233a0050d3aead668f654ba190a743d39c7af804760d0"
+    },
+    "tests/test_workbook_codec_read.c": {
+      "bytes": 77173,
+      "sha256": "229468786af7cb3fc0a3912f3abb81376fa2d91b04ec8a70d71ea63b051bcf32"
+    },
+    "tests/test_workbook_codec_read": {
+      "bytes": 192504,
+      "sha256": "52be17d6d08211757489578fc42f349f10c2fdb899d871404589608a588fe1d8"
+    },
+    "tests/test_workbook_codec_read-debug": {
+      "bytes": 698768,
+      "sha256": "76e615a93da9183e090e2e0cc7e36def8a8b2ca9eb6a27b25765620667b71bc0"
+    }
+  },
+  "logs": {
+    "release.log": "c858c0635c848b43819a7f912e169c6fa4cf089f598f98bfc51a44536e769d5d",
+    "build-sanitize.log": "210252b3f7f5a3f7f228b29ea375e657d8b85ce1df8adb92a31546650937e0a8",
+    "sanitize.log": "c858c0635c848b43819a7f912e169c6fa4cf089f598f98bfc51a44536e769d5d",
+    "build-release.log": "5ed0365318a428423101769e71933e7c623671e90253856e592736ae00536315"
+  }
+}

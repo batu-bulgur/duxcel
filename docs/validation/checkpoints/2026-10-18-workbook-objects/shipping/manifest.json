@@ -1,0 +1,89 @@
+{
+  "schema": "duxcel.objects-transport-shipping",
+  "version": 1,
+  "revision": "57ce1951bab17e779e894f720041af6b96447c86",
+  "scope": "Focused wire component and fresh normal/review production-exclusion; no GUI/App-runtime or service promotion claim",
+  "steps": [
+    {
+      "name": "wire-build",
+      "command": [
+        "make",
+        "build/web-tests/test-wire",
+        "build/web-tests/test-wire-sanitize"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 5.239286207943223,
+      "log": "build/bp1-objects-shipping/wire-build.txt",
+      "sha256": "6f46ae19a6b48fadba051299f525f1ad754364155fdf4f2c156d3e0c00f231ab"
+    },
+    {
+      "name": "wire-release",
+      "command": [
+        "./build/web-tests/test-wire"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.4592584999045357,
+      "log": "build/bp1-objects-shipping/wire-release.txt",
+      "sha256": "3960896d96fda60d471804e45e9a173d442ed11f5dfbd0e94e298a443f19ae85"
+    },
+    {
+      "name": "wire-sanitize",
+      "command": [
+        "./build/web-tests/test-wire-sanitize"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.6988918749848381,
+      "log": "build/bp1-objects-shipping/wire-sanitize.txt",
+      "sha256": "3960896d96fda60d471804e45e9a173d442ed11f5dfbd0e94e298a443f19ae85"
+    },
+    {
+      "name": "node-transport",
+      "command": [
+        "node",
+        "--test",
+        "web/official_worker.test.mjs",
+        "web/page_wire.test.mjs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.44326341594569385,
+      "log": "build/bp1-objects-shipping/node-transport.txt",
+      "sha256": "bf7aef5c83b0384bd7e0a72df5d60ec00a37d112362106a707849f665a9faec0"
+    },
+    {
+      "name": "shipping-exclusion",
+      "command": [
+        "python3",
+        "tools/test_web_review_build.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 34.30687558406498,
+      "log": "build/bp1-objects-shipping/shipping-exclusion.txt",
+      "sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a"
+    },
+    {
+      "name": "harness-unit",
+      "command": [
+        "python3",
+        "tools/test_web_codec_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.6596967920195311,
+      "log": "build/bp1-objects-shipping/harness-unit.txt",
+      "sha256": "2b44eef030a55f040fdd978d6b8284bd41072be5b86094dc4a9234b92f98290e"
+    },
+    {
+      "name": "runner-unit",
+      "command": [
+        "python3",
+        "tools/test_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.0497754169628024,
+      "log": "build/bp1-objects-shipping/runner-unit.txt",
+      "sha256": "4bbf505e5d818c732a7e65af9cc83222debc49366db53571ce0634d01ffb74fe"
+    }
+  ],
+  "status": "passed",
+  "elapsed_seconds": 43.85979620809667,
+  "source_revision_unchanged": true
+}

@@ -1,0 +1,78 @@
+{
+  "status": "passed",
+  "normal_directory": "/Users/h2o/dev/duxcel/build/web/app/f5dab9051c3fcfb463fc",
+  "review_directory": "/Users/h2o/dev/duxcel/build/web/review/0e704f4f3b8015f8fc9b",
+  "normal_wasm_sha256": "c88fe8aa61cb0b011ce4076435e38f2ba9302a53d1801640ff12d3fd1a90ced4",
+  "review_wasm_sha256": "8546afe609f4692922b9d1b42e1ce980649802fb9cfe19bf147fb523be968d6e",
+  "normal_exports": [
+    "memory",
+    "__wasm_call_ctors",
+    "free",
+    "__indirect_function_table",
+    "dx_browser_query_result",
+    "dx_browser_export_result",
+    "dx_browser_file_result",
+    "malloc",
+    "__main_argc_argv",
+    "fflush",
+    "emscripten_stack_get_end",
+    "emscripten_stack_get_base",
+    "strerror",
+    "setThrew",
+    "emscripten_stack_init",
+    "emscripten_stack_get_free",
+    "_emscripten_stack_restore",
+    "_emscripten_stack_alloc",
+    "emscripten_stack_get_current"
+  ],
+  "review_exports": [
+    "memory",
+    "__wasm_call_ctors",
+    "free",
+    "__indirect_function_table",
+    "dx_browser_query_result",
+    "dx_browser_export_result",
+    "dx_browser_file_result",
+    "malloc",
+    "__main_argc_argv",
+    "dx_browser_review_result",
+    "fflush",
+    "emscripten_stack_get_end",
+    "emscripten_stack_get_base",
+    "strerror",
+    "setThrew",
+    "emscripten_stack_init",
+    "emscripten_stack_get_free",
+    "_emscripten_stack_restore",
+    "_emscripten_stack_alloc",
+    "emscripten_stack_get_current"
+  ],
+  "shipping_marker_absence": {
+    "dx_review_": true,
+    "duxcel.native-review": true,
+    "duxcel.browser-review": true,
+    "dxBrowserWorkerTestDone": true,
+    "test_browser_worker.c": true,
+    "dxCodecReadTestDone": true,
+    "test_browser_codec_read.c": true,
+    "test_browser_codec_sorts.inc": true,
+    "dxCodecSortsMode": true,
+    "test_browser_codec_preferences.inc": true,
+    "dxCodecPreferencesMode": true,
+    "test_browser_codec_objects.inc": true,
+    "dxCodecObjectsMode": true,
+    "dx_browser_codec_fixture_result": true,
+    "dx_browser_codec_result": true
+  },
+  "native": {
+    "duxcel": {
+      "sha256": "c9ef27e3807e3302aacd3676131d3571d1a86baff1ddd6ebf396fd6c22792957",
+      "unexpected_symbols": []
+    },
+    "duxcel-debug": {
+      "sha256": "cf01ac1da4d36fedff210913041bf4d1299f10e3e8e0cba05a2c0c2172d8ad48",
+      "unexpected_symbols": []
+    }
+  },
+  "failures": []
+}

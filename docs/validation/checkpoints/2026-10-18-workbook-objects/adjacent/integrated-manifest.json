@@ -1,0 +1,69 @@
+{
+  "schema": "duxcel.objects-integrated-components",
+  "version": 1,
+  "revision": "a8fd5c967970ae92822bf55f0464c2726b57643c",
+  "source_status": " M Makefile\n M tests/test_browser_codec_read.c\n M tools/build_web.py\n M tools/test.py\n M tools/test_runner_test.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M tools/test_web_codec_runner_test.py\n M tools/test_web_review_build.py\n M web/codec_test_host.mjs\n?? tools/ui-review/\n",
+  "scope": "Current root component/legacy codec modes; common acceptance integration still uncommitted. No GUI/shipping refresh. Native emitter is the previously accepted helper for its unchanged7/4/6-file protocols.",
+  "steps": [
+    {
+      "name": "pure",
+      "command": [
+        "python3",
+        "tools/test.py",
+        "fast",
+        "--modules",
+        "workbook_codec_read",
+        "--config",
+        "both"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 5.806497541023418,
+      "log": "build/bp1-objects-components/pure.txt",
+      "sha256": "ce52df1013caf4486f1fb37d57ef7b042e84e826abae20e37223000924bea246"
+    },
+    {
+      "name": "header-worker",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 10.057353332987987,
+      "log": "build/bp1-objects-components/header-worker.txt",
+      "sha256": "9bc883dcc152c06461b269b84d0cf0d3b66620e476d91fbfd82d6996b4ddde0c"
+    },
+    {
+      "name": "sorts-worker",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--codec-sorts",
+        "--no-build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.504330083029345,
+      "log": "build/bp1-objects-components/sorts-worker.txt",
+      "sha256": "b9c99706c48c8d818d2bb5419d8200cb4c34f533d0b226610be55160e9b0622f"
+    },
+    {
+      "name": "preferences-worker",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--codec-preferences",
+        "--no-build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 7.720857582986355,
+      "log": "build/bp1-objects-components/preferences-worker.txt",
+      "sha256": "b64a1911a8eb141fc19000c44b7f7c959e70cbc9f85212fc378011081bb54b33"
+    }
+  ],
+  "status": "passed",
+  "elapsed_seconds": 32.18272891698871,
+  "source_revision_unchanged": true
+}
