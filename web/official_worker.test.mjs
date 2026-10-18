@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { Table, Int32, Int64, Uint64, Decimal, Utf8, Bool, TimestampNanosecond,
     vectorFromArray, makeVector, makeData, RecordBatchReader, tableToIPC } from 'apache-arrow';
 import { LIMITS, pageRequest, decimalText, encodePage, pageCellText, pageTransferables,
-    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport,workbookSortsRequest,workbookObjectsRequest,workbookOwnersRequest } from './official_worker.mjs';
+    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport,workbookSortsRequest,workbookObjectsRequest,workbookOwnersRequest,workbookTablesRequest } from './official_worker.mjs';
 
 const request = (id = '1', extra = {}) => pageRequest({ requestId: id, sql: 'C BUILT SQL LIMIT 256', ...extra });
 function words(value, length = 4) {
@@ -271,6 +271,107 @@ test('pending owner-metadata output is retired on supersession and never contami
     const token=await adapter.registerFile('owners.dxls',new Uint8Array([1]));const pending=adapter.submitWorkbookOwners(workbookOwnerInput('1',{sourceBindings:[token]}));await began.promise;
     const recovery=adapter.submit({requestId:'2',sql:'ordinary recovery',rowLimit:256});release.resolve();
     const old=await pending,next=await recovery;assert.equal(old.status,'superseded');assert.equal(old.page,undefined);assert.equal(owned.cancelled,1);assert.equal(next.status,'ok');assert.equal(sends,2);await adapter.close();
+});
+
+// Deliberately synthetic I/U/B/T descriptors test transport, not the shared
+// codec's separate original Table-family schema/owner/value validation.
+const tablePolicies=[
+    {purpose:'workbook-table-sources',rows:2049,columns:14},
+    {purpose:'workbook-table-filters',rows:30721,columns:6},
+    {purpose:'workbook-table-sorts',rows:14337,columns:5},
+];
+const tableTexts=[null,'','NULL',"İstanbul 🦆 'quoted'"];
+function tableColumns(policy){
+    return Array.from({length:policy.columns},(_,i)=>i===0?{name:'sheet_id',typeName:'INTEGER',numberKind:'i32'}:
+        i===1?{name:'object_id',typeName:'UBIGINT',numberKind:'u64'}:i===2?{name:'enabled',typeName:'BOOLEAN',numberKind:'none'}:
+        {name:'text_'+i,typeName:'VARCHAR',numberKind:'none'});
+}
+function tableInput(policy,id='1',change={}){
+    return {...workbookSortInput(id),purpose:policy.purpose,rowLimit:policy.rows,
+        sql:'C OWNED TABLE FAMILY PROJECTION',columns:tableColumns(policy),...change};
+}
+function tableArrow(policy,rows=policy.rows){
+    return new Table(Object.fromEntries(tableColumns(policy).map((column,i)=>[column.name,
+        vectorFromArray(Array.from({length:rows},(_,r)=>i===0?r%64:i===1?[18446744073709551615n,9007199254740993n][r%2]:
+            i===2?[true,false,null][r%3]:tableTexts[(r+i)%tableTexts.length]),i===0?new Int32():i===1?new Uint64():i===2?new Bool():new Utf8())])));
+}
+test('Table family requests freeze exact bounded contracts and reject sparse descriptors before enqueue',()=>{
+    for(const policy of tablePolicies){
+        const input=tableInput(policy),parsed=workbookTablesRequest(input);
+        assert.equal(parsed.purpose,policy.purpose);assert.equal(parsed.rowLimit,policy.rows);assert.equal(parsed.offset,'0');assert.equal(parsed.knownTotal,null);
+        assert.ok(Object.isFrozen(parsed)&&Object.isFrozen(parsed.columns)&&Object.isFrozen(parsed.columns[0])&&Object.isFrozen(parsed.sourceBindings[0]));
+        input.columns[0].name='changed';input.sourceBindings[0].registrationId='2';assert.equal(parsed.columns[0].name,'sheet_id');assert.equal(parsed.sourceBindings[0].registrationId,'1');
+        assert.equal(workbookTablesRequest(tableInput(policy,'2',{rowLimit:undefined})).rowLimit,policy.rows);
+        assert.equal(workbookTablesRequest(tableInput(policy,'2',{rowLimit:1})).rowLimit,1);
+        const sparse=tableColumns(policy);delete sparse[1];
+        const changes=[{purpose:undefined},{purpose:'copy'},{purpose:'workbook-owners'},{purpose:'__proto__'},{purpose:'constructor'},
+            {purpose:'toString'},{purpose:new String(policy.purpose)},{purpose:{toString(){throw new Error('Must not coerce purpose');}}},
+            {offset:'1'},{offset:'18446744073709551615'},{knownTotal:'0'},{knownTotal:String(policy.rows)},
+            {rowLimit:0},{rowLimit:policy.rows+1},{rowLimit:1.5},{rowLimit:NaN},{columns:undefined},{columns:[]},
+            {columns:tableColumns(policy).slice(1)},{columns:[...tableColumns(policy),{name:'extra',typeName:'VARCHAR'}]},
+            {columns:Array(policy.columns)},{columns:sparse},{columns:tableColumns(policy).map((x,i)=>i?x:null)},
+            {sourceBindings:undefined},{sourceBindings:[]},{sourceBindings:[{name:'fixture.dxls',engineEpoch:'0',registrationId:'1'}]},
+            {sourceBindings:[{name:'a.dxls',engineEpoch:'1',registrationId:'1'},{name:'b.dxls',engineEpoch:'1',registrationId:'2'}]}];
+        for(const change of changes)assert.throws(()=>workbookTablesRequest(tableInput(policy,'2',change)),{code:'INVALID_REQUEST'});
+        for(const parse of [pageRequest,workbookSortsRequest,workbookObjectsRequest,workbookOwnersRequest])assert.throws(()=>parse(tableInput(policy)),{code:'INVALID_REQUEST'});
+        for(const other of tablePolicies.filter(x=>x!==policy))assert.throws(()=>workbookTablesRequest(tableInput(policy,'2',{purpose:other.purpose})),{code:'INVALID_REQUEST'});
+        const adapter=new DuckDBWorkerAdapter({connection:connection({send(){throw new Error('Invalid request must not send');}})});
+        assert.throws(()=>adapter.submitWorkbookTables(tableInput(policy,'1',{columns:sparse})),{code:'INVALID_REQUEST'});assert.equal(adapter.latestId,0n);
+    }
+});
+test('validated Table purpose stays frozen when a caller getter changes during copying',()=>{
+    const policy=tablePolicies[1],input=tableInput(policy);let reads=0;
+    Object.defineProperty(input,'purpose',{enumerable:true,get(){return ++reads===1?policy.purpose:'copy';}});
+    const parsed=workbookTablesRequest(input);assert.equal(parsed.purpose,policy.purpose);
+    assert.equal(parsed.rowLimit,30721);assert.equal(parsed.columns.length,6);assert.ok(Object.isFrozen(parsed));
+});
+for(const policy of tablePolicies)test(`${policy.purpose} consumes one full bounded Arrow result with exact typed sidecars`,async()=>{
+    const parsed=workbookTablesRequest(tableInput(policy)),source=reader(tableArrow(policy));
+    const output=await encodePage(source,parsed);assert.equal(output.rowCount,policy.rows);assert.equal(output.columnCount,policy.columns);
+    assert.equal(output.total,String(policy.rows));assert.equal(output.countPending,true);
+    for(const r of [0,1,2,3,policy.rows-1]){
+        assert.equal(pageCellText(output,r,0),String(r%64));assert.equal(pageCellText(output,r,1),r%2?'9007199254740993':'18446744073709551615');
+        assert.equal(pageCellText(output,r,2),[true,false,null][r%3]===null?null:String(Boolean(r%3===0)));
+        assert.equal(pageCellText(output,r,3),tableTexts[(r+3)%4]);
+    }
+    assert.equal(output.columns[0].numberKind,'i32');assert.equal(output.columns[1].numberKind,'u64');assert.equal(output.columns[2].typeName,'BOOLEAN');
+    const small=await encodePage(reader(tableArrow(policy,1)),parsed);assert.equal(small.countPending,false);
+    await assert.rejects(encodePage(reader(tableArrow(policy,policy.rows+1)),parsed),{code:'PAGE_LIMIT'});
+    const wrong=new Table({one:vectorFromArray(['only one'],new Utf8())});await assert.rejects(encodePage(reader(wrong),parsed),{code:'PAGE_LIMIT'});
+    const huge=new Table(Object.fromEntries(tableColumns(policy).map((c,i)=>[c.name,vectorFromArray([i===3?'x'.repeat(LIMITS.bytes+1):null],new Utf8())])));
+    await assert.rejects(encodePage(reader(huge),parsed),{code:'PAGE_LIMIT'});
+    const saved=pageCellText(output,policy.rows-1,1);const received=structuredClone(output,{transfer:pageTransferables(output)});
+    assert.equal(output.text.byteLength,0);assert.equal(pageCellText(received,policy.rows-1,1),saved);
+});
+test('Table submissions retain frozen token guards on success, revocation and failed drops without ticket leakage',async()=>{
+    for(const policy of tablePolicies)for(const failDrop of [false,true]){
+        const began=deferred(),release=deferred(),owned=reader(tableArrow(policy,3));let sends=0;
+        const database={async registerFileBuffer(){},async dropFile(){if(failDrop)throw new Error('Table drop failed');}};
+        const adapter=new DuckDBWorkerAdapter({database,connection:connection({async send(){sends++;if(sends===1){began.resolve();await release.promise;return owned;}return reader(simple());}})});
+        const sibling=new DuckDBWorkerAdapter({database,connection:connection()});const token=await adapter.registerFile('tables.dxls',new Uint8Array([1]));
+        const input=tableInput(policy,'1',{sourceBindings:[{...token}]});assert.throws(()=>adapter.submit(input),{code:'INVALID_REQUEST'});assert.equal(adapter.latestId,0n);
+        const pending=adapter.submitWorkbookTables(input);input.sourceBindings[0].registrationId='18446744073709551615';await began.promise;
+        if(failDrop)await assert.rejects(sibling.dropFile(token.name),/Table drop failed/);else await sibling.dropFile(token.name);
+        release.resolve();const reply=await pending;assert.equal(reply.status,'error');assert.equal(reply.error.code,'SOURCE_INVALIDATED');assert.equal(reply.page,undefined);assert.equal(owned.cancelled,1);
+        const last=adapter.latestId;assert.throws(()=>adapter.submitWorkbookTables(tableInput(policy,'2',{sourceBindings:[token]})),{code:'SOURCE_INVALIDATED'});assert.equal(adapter.latestId,last);assert.equal(sends,1);
+        const recovered=await adapter.submit({requestId:'2',sql:'ordinary recovery',rowLimit:256});assert.equal(recovered.status,'ok');assert.equal(sends,2);
+        await adapter.close();await sibling.close();
+    }
+});
+test('Table results publish only under the frozen token and retire on ordinary supersession',async()=>{
+    for(const policy of tablePolicies){
+        const began=deferred(),release=deferred(),owned=reader(tableArrow(policy,3));let sends=0;
+        const database={async registerFileBuffer(){},async dropFile(){}};
+        const adapter=new DuckDBWorkerAdapter({database,connection:connection({async send(){sends++;if(sends===1){began.resolve();await release.promise;return owned;}return reader(simple());}})});
+        const token=await adapter.registerFile('tables.dxls',new Uint8Array([1]));const input=tableInput(policy,'1',{sourceBindings:[{...token}]});
+        const pending=adapter.submitWorkbookTables(input);input.sourceBindings[0].registrationId='2';await began.promise;release.resolve();
+        const success=await pending;assert.equal(success.status,'ok');assert.equal(pageCellText(success.page,1,1),'9007199254740993');assert.equal(owned.cancelled,1);
+        const held=deferred(),go=deferred(),old=reader(tableArrow(policy,1));
+        adapter.connection.send=async()=>{sends++;if(sends===2){held.resolve();await go.promise;return old;}return reader(simple());};
+        const canceled=adapter.submitWorkbookTables(tableInput(policy,'2',{sourceBindings:[token]}));await held.promise;
+        const recovery=adapter.submit({requestId:'3',sql:'ordinary recovery',rowLimit:256});go.resolve();
+        assert.equal((await canceled).status,'superseded');assert.equal(old.cancelled,1);assert.equal((await recovery).status,'ok');assert.equal(sends,3);await adapter.close();
+    }
 });
 
 test('installed browser dependencies and transitive lock retain approved exact integrity pins', async () => {
