@@ -642,3 +642,16 @@ python3 tools/test_web_app.py --codec-read-driver --codec-source-versions
 ```
 
 The native family uses exact SDK BLOB lengths, with a C-built `encode(source_reference)` projection after original-schema checking because deprecated row VARCHAR extraction truncates embedded NUL. One query feeds bounded owned chunks; earlier vector adapters and ordinary Header controls remain unchanged. The official Worker uses the original seven typed sidecars, physical UTF-8 hex projection and C-owned decoding. Four closed archives cover pending/complete RAW, exact UINT64 values, archived owners and independent unavailable locators. Eight rejections, old-output retention, real held cancellation/stale chunk+done and a complete fresh retry are required; strict report guards also reject33 corrupted receipts. An adjacent original Grid gate retains its four-column stream, and fresh normal/review artifacts exclude both controllers. No App publication, source activation, file verification, browser workbook Open/Save or GUI execution is claimed. [Exact tests, natural adapter/harness failures, source scopes and timings](validation/checkpoints/2026-10-18-workbook-source-ledger/).
+
+
+### Current-owner source-binding continuation
+
+```sh
+python3 tools/test.py fast --modules workbook_codec_read --config both --jobs 1
+make tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
+./tests/test_workbook_codec_native --source-bindings-only
+./tests/test_workbook_codec_native-debug --source-bindings-only
+python3 tools/test_web_app.py --codec-read-driver --codec-source-bindings
+```
+
+At `383527c`, pure 38,778/configuration, native 186,344/configuration and actual Worker 174,408 C /717 external checks accept complete primary/Table binding slots after definitions and the RAW ledger. The 166-query Worker workload includes five failed/budget feeds, a held stale reply and complete fresh recovery. It preserves pending versions and deferred locators without assigning active Analysis versions. Root pure takes 20.983 s including 18.657 s build; actual Worker takes 19.726 s CLI /9.360 s browser. The prior ledger workload independently passes 176,738 C /460 external in 9.718 s CLI on the same artifact. Fresh normal/review exclusion is separate at tool-only `e7c75be`; no App/Open/Save or GUI runtime is claimed. [Exact sources, native test corrections, retained harness guards and limits](validation/checkpoints/2026-10-18-workbook-source-bindings/).
