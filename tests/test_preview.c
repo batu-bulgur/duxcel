@@ -10,7 +10,56 @@ static QueryReply *wait_reply(QueryWorker *worker) {
     while (dx_millis()<until) { QueryReply *reply=worker_poll(worker); if (reply) return reply; dx_sleep_ms(1); }
     CHECK(!"Preview worker timeout"); return NULL;
 }
-int main(void) {
+static void named_previews(void) {
+    Analysis source={.kind=SOURCE_CSV,.path=dx_strdup("import-1-import-7-O'Brien-İstanbul-表.csv"),.source_version=31};
+    char *error=NULL,*path=source.path; StepPreview preview={0};
+    CHECK(analysis_filter_set(&source,"City",FILTER_EQUAL,"İstanbul",&error));
+    CHECK(analysis_sort_set(&source,"Amount",true,false,&error));
+    char *display=dx_strdup("import-7-O'Brien-İstanbul-表.csv");
+    CHECK(step_preview_start_named(&preview,&source,0,81,17,NULL,display));
+    CHECK(!strcmp(preview.title,"Import import-7-O'Brien-İstanbul-表.csv") && preview.title!=display);
+    CHECK(preview.source.path!=path && !strcmp(preview.source.path,path) && preview.source.source_version==31 && !preview.source.filter_column && !preview.source.sort_column);
+    CHECK(preview.source_id==81 && preview.source_revision==17 && preview.step==0 && preview.active && preview.initialized);
+    memset(display,'x',strlen(display)); free(display);
+    CHECK(!strcmp(preview.title,"Import import-7-O'Brien-İstanbul-表.csv"));
+    QueryJob *job=step_preview_job(&preview,91,false);
+    CHECK(job && job->kind==JOB_STEP_PREVIEW && job->analysis.path!=preview.source.path && !strcmp(job->analysis.path,path) && job->analysis.source_version==31);
+    CHECK(!job->analysis.filter_column && !job->analysis.sort_column && job->is_preview); analysis_free(&job->analysis); free(job);
+    char *title=preview.title,*prefix_path=preview.source.path;
+    CHECK(!step_preview_start_named(&preview,&source,99,81,18,NULL,"different.csv"));
+    CHECK(preview.title==title && preview.source.path==prefix_path && preview.source_revision==17 && preview.request==91 && preview.loading);
+    /* A presentation pointer may borrow text from the preview being replaced. */
+    CHECK(step_preview_start_named(&preview,&source,0,81,18,NULL,preview.title+7));
+    CHECK(!strcmp(preview.title,"Import import-7-O'Brien-İstanbul-表.csv") && !strcmp(preview.source.path,path));
+    CHECK(step_preview_start(&preview,&source,0,81,19,NULL));
+    CHECK(!strcmp(preview.title,"Import import-1-import-7-O'Brien-İstanbul-表.csv"));
+    CHECK(step_preview_start_named(&preview,&source,1,81,20,NULL,"friendly.csv") && !strcmp(preview.title,"Filter City = İstanbul"));
+    CHECK(preview.source.filter_column && !preview.source.sort_column && source.sort_column && source.path==path);
+    source.query=dx_strdup("SELECT * FROM read_csv_auto('import-1-import-7-O''Brien-İstanbul-表.csv')");
+    CHECK(step_preview_start_named(&preview,&source,0,81,21,NULL,"friendly.csv") && !strcmp(preview.title,"Source query"));
+    CHECK(preview.source.query!=source.query && !strcmp(preview.source.query,source.query) && !strcmp(preview.source.path,path));
+    job=step_preview_job(&preview,92,false);
+    CHECK(job && job->analysis.query!=preview.source.query && !strcmp(job->analysis.query,source.query) && !strcmp(job->analysis.path,path)); analysis_free(&job->analysis); free(job);
+    free(source.query); source.query=NULL;
+    char long_name[4096];
+    for (size_t offset=0;offset<4;offset++) {
+        memset(long_name,'x',offset); size_t bytes=offset;
+        while (bytes+4<sizeof(long_name)) { memcpy(long_name+bytes,"🦆",4); bytes+=4; }
+        long_name[bytes]=0;
+        CHECK(step_preview_start_named(&preview,&source,0,81,22,NULL,long_name));
+        size_t expected=7+offset+4*((sizeof(((UIStep *)0)->title)-1-7-offset)/4);
+        CHECK(strlen(preview.title)==expected && !strncmp(preview.title,"Import ",7) && !memcmp(preview.title+7,long_name,expected-7));
+    }
+    Analysis native={.kind=SOURCE_PARQUET,.path=dx_strdup("/native/O'Brien-İstanbul.parquet")};
+    CHECK(step_preview_start_named(&preview,&native,0,0,0,NULL,NULL) && !strcmp(preview.title,"Import O'Brien-İstanbul.parquet"));
+    CHECK(!strcmp(preview.source.path,native.path) && preview.source.path!=native.path);
+    step_preview_free(&preview); CHECK(!preview.title && !preview.source.path && !preview.active);
+    analysis_free(&native); analysis_free(&source); free(error);
+}
+int main(int argc,char **argv) {
+    if (argc>2 || (argc==2 && strcmp(argv[1],"--named-only"))) { fprintf(stderr,"Usage: %s [--named-only]\n",argv[0]); return 2; }
+    named_previews();
+    if (argc==2) { printf("PASS: %u named preview checks (bounded owned UTF-8 titles, borrowed replacement labels, unchanged executable definitions and no Worker submission)\n",checks); return 0; }
     const float scales[]={.8f,1,1.5f,2.5f};
     for (size_t i=0;i<4;i++) for (int width=180;width<=1440;width+=70) {
         Rectangle canvas={23,31,width*scales[i],360*scales[i]}; UIPreviewLayout layout=ui_preview_layout(canvas,scales[i]);

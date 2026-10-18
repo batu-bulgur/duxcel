@@ -30,12 +30,14 @@ static void filter_step(UIStep *step,const char *column,FilterOp op,const char *
         label(step->title,sizeof(step->title),"Filter %s IS %sNULL",column,op==FILTER_NOT_NULL ? "NOT " : "");
     } else if (op!=FILTER_COMPOSITE && op!=FILTER_BETWEEN && op!=FILTER_DATE_IN && op!=FILTER_DATE_NOT_IN) label(step->detail,sizeof(step->detail),"%s · %s",filter_label(op),value ? value : "");
 }
-size_t ui_source_steps(const Analysis *source,size_t fields,UIStep steps[DX_UI_STEPS]) {
+size_t ui_source_steps_named(const Analysis *source,size_t fields,const char *display_filename,UIStep steps[DX_UI_STEPS]) {
     if (!source || source->filter_count>=DX_ANALYSIS_FILTERS || source->sort_count>=DX_ANALYSIS_SORTS || (unsigned)source->kind>SOURCE_DEMO) return 0;
     memset(steps,0,sizeof(*steps)*DX_UI_STEPS); size_t count=1; UIStep *first=&steps[0]; first->kind=UI_STEP_SOURCE;
+    const char *name=display_filename;
+    if (!name && source->kind!=SOURCE_NONE && (source->query || source->kind!=SOURCE_DEMO)) name=dx_basename(source->path ? source->path : "source");
     if (source->kind==SOURCE_NONE) { label(first->title,sizeof(first->title),"Blank worksheet"); label(first->detail,sizeof(first->detail),"Enter cells or open a data file"); }
-    else if (source->query) { label(first->title,sizeof(first->title),"Source query"); label(first->detail,sizeof(first->detail),"SELECT over %s",dx_basename(source->path ? source->path : "source")); }
-    else { label(first->title,sizeof(first->title),"%s %s",source->kind==SOURCE_DATABASE ? "Connect" : "Import",source->kind==SOURCE_DEMO ? "sample data" : dx_basename(source->path ? source->path : "source"));
+    else if (source->query) { label(first->title,sizeof(first->title),"Source query"); label(first->detail,sizeof(first->detail),"SELECT over %s",name); }
+    else { label(first->title,sizeof(first->title),"%s %s",source->kind==SOURCE_DATABASE ? "Connect" : "Import",source->kind==SOURCE_DEMO ? "sample data" : name);
         if (source->kind==SOURCE_DATABASE) label(first->detail,sizeof(first->detail),"%s.%s · %zu fields",source->schema ? source->schema : "main",source->table ? source->table : "Choose table",fields);
         else label(first->detail,sizeof(first->detail),"%s · %zu fields",source->kind==SOURCE_PARQUET ? "Parquet" : source->kind==SOURCE_CSV ? "Delimited text" : "Generated data",fields);
     }
@@ -51,6 +53,9 @@ size_t ui_source_steps(const Analysis *source,size_t fields,UIStep steps[DX_UI_S
         label(step->title,sizeof(step->title),"Sort %s %s",sort.column,sort.descending ? "descending" : "ascending"); label(step->detail,sizeof(step->detail),"%s · NULLs last",sort.descending ? "Descending" : "Ascending");
     }
     return count;
+}
+size_t ui_source_steps(const Analysis *source,size_t fields,UIStep steps[DX_UI_STEPS]) {
+    return ui_source_steps_named(source,fields,NULL,steps);
 }
 bool ui_step_source(const Analysis *source,size_t index,Analysis *out) {
     UIStep steps[DX_UI_STEPS]; size_t count=ui_source_steps(source,0,steps); if (index>=count || !out) return false;
