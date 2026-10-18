@@ -1,0 +1,36 @@
+{
+  "ok": true,
+  "checks": 6294,
+  "fixtures": 7,
+  "headers": 10,
+  "queries": 54,
+  "rejections": 11,
+  "stale": 1,
+  "peakOwnedInput": 2178010,
+  "headerOwnedLimit": 2097152,
+  "inputOwnedLimit": 4194304,
+  "budgetRejected": true,
+  "sentinelRejected": true,
+  "tinyNegativeRejected": true,
+  "u64Sentinels": [
+    "9007199254740993",
+    "18446744073709551615"
+  ],
+  "normalFixtureQueries": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+  ],
+  "familyExecutions": {
+    "meta": 20,
+    "sheets": 19,
+    "describe": 15
+  },
+  "error": null,
+  "boundary": "official-worker/shared-C-header-reader; no workbook publication or browser Save/Open",
+  "observed_engine_version": "v1.4.3"
+}

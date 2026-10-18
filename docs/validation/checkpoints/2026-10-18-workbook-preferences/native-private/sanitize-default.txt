@@ -1,0 +1,1 @@
+PASS: native workbook header 1611 checks; 21 metadata executions/35 typed feeds, v12/v13/v14 and physical reorder/legacy24/native parity; source definitions never executed, partial-header component only; engine v1.5.6
