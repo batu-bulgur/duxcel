@@ -211,4 +211,4 @@ static void retained_arrays_and_inactive_slots(void) {
     free(s.undo[s.undo_count-1].items[0].marks.fields[MARKS_COLOR][7].name); s.undo[s.undo_count-1].items[0].marks.fields[MARKS_COLOR][7].name=NULL;
     objects_free(&s);
 }
-int main(void) { binding_plan(); history_limits(); malformed_and_full_id(); retained_arrays_and_inactive_slots(); printf("objects: %u checks passed\n",checks); return 0; }
+int main(void) { binding_plan(); history_limits(); malformed_and_full_id(); retained_arrays_and_inactive_slots(); printf("PASS: %u focused Table source-version object checks\n",checks); return 0; }
