@@ -41,6 +41,7 @@ size_t ui_font_codepoints(int codes[1024]) {
     for (int c=0x2000;c<=0x206f;c++) codes[n++]=c;
     for (int c=0x2100;c<=0x22ff;c++) codes[n++]=c;
     codes[n++]=0x20ac; codes[n++]=0x20ba; codes[n++]=0x20b9; /* €, ₺, ₹ */
+    codes[n++]=0xfffd; /* Missing glyphs must remain distinct from literal '?'. */
     return n;
 }
 static bool load_fonts(UIContext *u) {
@@ -52,8 +53,17 @@ static bool load_fonts(UIContext *u) {
     Font body=source_font(u,0,body_size,codes,n),small=source_font(u,0,small_size,codes,n);
     Font medium=source_font(u,1,body_size,codes,n),emphasis=source_font(u,2,body_size,codes,n);
     Font italic=source_font(u,3,body_size,codes,n),bold_italic=source_font(u,4,body_size,codes,n);
-    unsigned fallback=GetFontDefault().texture.id;
-    if (!IsFontValid(body) || !IsFontValid(small) || !IsFontValid(medium) || !IsFontValid(emphasis) || !IsFontValid(italic) || !IsFontValid(bold_italic) || body.texture.id==fallback || small.texture.id==fallback || medium.texture.id==fallback || emphasis.texture.id==fallback || italic.texture.id==fallback || bold_italic.texture.id==fallback) {
+    unsigned fallback=GetFontDefault().texture.id; int missing[6];
+    Font faces[]={body,small,medium,emphasis,italic,bold_italic}; bool valid=true;
+    for (int i=0;i<6;i++) {
+        if (!IsFontValid(faces[i]) || faces[i].texture.id==fallback) { valid=false; continue; }
+        missing[i]=GetGlyphIndex(faces[i],0xfffd);
+        /* GetGlyphIndex silently returns '?' when the requested glyph is
+           absent, including with a custom DUXCEL_FONT. Validate the actual
+           atlas before publishing any part of this replacement family. */
+        if (missing[i]<0 || missing[i]>=faces[i].glyphCount || faces[i].glyphs[missing[i]].value!=0xfffd) valid=false;
+    }
+    if (!valid) {
         release_font(body); release_font(small); release_font(medium); release_font(emphasis); release_font(italic); release_font(bold_italic);
         return false;
     }
@@ -73,7 +83,7 @@ static bool load_fonts(UIContext *u) {
     u->shift_glyph=owned ? GetGlyphIndex(mono,0x21e7) : -1; u->shift_advance=ui_font_advance_em(&u->font_sources[5].metrics,0x21e7);
     const char *marks="NUL\" "; for (int i=0;i<5;i++) u->marker_glyphs[i]=GetGlyphIndex(u->mono,marks[i]);
     for (int f=0;f<6;f++) {
-        Font font=f==0 ? body : f==1 ? small : f==2 ? medium : f==3 ? emphasis : f==4 ? italic : bold_italic; u->fallback[f]=GetGlyphIndex(font,'?');
+        Font font=faces[f]; u->fallback[f]=missing[f];
         UIFontMetrics *metrics=&u->font_sources[source_index(f)].metrics; u->em_height[f]=metrics->height_per_em;
         for (int c=0;c<0x2300;c++) u->glyph_index[f][c]=u->fallback[f];
         for (int i=0;i<font.glyphCount;i++) {
