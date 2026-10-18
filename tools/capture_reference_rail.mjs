@@ -124,7 +124,10 @@ async function stepsSnapshot(){
   const content=element.box.content,padding=element.box.padding,border=element.box.border;
   element.contentRight=Math.max(...content.filter((_,i)=>i%2===0));
   const paddingRight=Math.max(...padding.filter((_,i)=>i%2===0)),borderRight=Math.max(...border.filter((_,i)=>i%2===0)),top=Math.min(...padding.filter((_,i)=>i%2===1)),bottom=Math.max(...padding.filter((_,i)=>i%2===1));
-  element.scrollbarBand={contentRight:element.contentRight,paddingRight,borderRight,boxModelRightBand:{x:paddingRight,y:top,width:Math.max(0,borderRight-Number.parseFloat(element.style.borderRightWidth)*anatomy.scale-paddingRight),height:bottom-top},cssAllocation:element.metrics.offsetWidth-element.metrics.clientWidth-Number.parseFloat(element.style.borderLeftWidth)-Number.parseFloat(element.style.borderRightWidth),metricsRounding:'offsetWidth/clientWidth are integer CSSOM values; retain CDP quads rather than claiming exact native track ink from their difference.'};
+  // CDP padding quads include the scrollbar; content quads exclude it.
+  // Add actual CSS padding to the content edge before measuring allocation.
+  const scrollbarLeft=element.contentRight+Number.parseFloat(element.style.paddingRight)*anatomy.scale;
+  element.scrollbarBand={contentRight:element.contentRight,paddingRight,borderRight,boxModelRightBand:{x:scrollbarLeft,y:top,width:Math.max(0,paddingRight-scrollbarLeft),height:bottom-top},cssAllocation:element.metrics.offsetWidth-element.metrics.clientWidth-Number.parseFloat(element.style.borderLeftWidth)-Number.parseFloat(element.style.borderRightWidth),metricsRounding:'offsetWidth/clientWidth are integer CSSOM values; retain CDP quads rather than claiming exact native track ink from their difference.'};
  }
  return{...base,steps:anatomy};
 }
