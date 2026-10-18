@@ -11,7 +11,7 @@ typedef struct WorkbookCodecRead WorkbookCodecRead;
 typedef struct WorkbookCodecHeader WorkbookCodecHeader;
 typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; } WorkbookCodecKey;
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
-    WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES } WorkbookCodecFamily;
+    WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -86,6 +86,14 @@ bool workbook_codec_read_add_objects(WorkbookCodecRead *read,bool table_present,
    requires a non-NONE source; nonzero owners must be exact same-sheet Table
    descriptors. This stores definitions only, never parses or executes SQL. */
 bool workbook_codec_read_add_queries(WorkbookCodecRead *read,bool table_present,char **error);
+/* Independent once-only continuation after complete object descriptors, before
+   claim; may precede or follow queries. All supported versions require this
+   table. One named ordered INTEGER/UBIGINT/BOOLEAN result admits2112 rows plus
+   a2113th sentinel, with whole-batch ownership/budget admission. Primary owner0
+   is valid even on a blank sheet, but only false may be stored for SOURCE_NONE.
+   Nonzero owners must be same-sheet Table descriptors; explicit false rows
+   still count as seen. This does not construct full Table source Analyses. */
+bool workbook_codec_read_add_source_options(WorkbookCodecRead *read,bool table_present,char **error);
 /* Cells/column descriptors are borrowed for this call, not a DXP1 buffer. The
    existing wire decoder remains the sole wire parser; an adapter supplies exact
    typed atoms. Include all concrete caller-owned input/adapter bytes that
@@ -97,7 +105,7 @@ bool workbook_codec_read_add_queries(WorkbookCodecRead *read,bool table_present,
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   sorts/preferences/object descriptors/queries). It is not a complete workbook:
+   sorts/preferences/object descriptors/queries/source options). It is not a complete workbook:
    cells, full object sources/fields, formats and ledger remain absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
@@ -138,6 +146,10 @@ bool workbook_codec_header_object_at(const WorkbookCodecHeader *header,size_t sh
    are private strings, not fake Analyses. */
 bool workbook_codec_header_queries_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_query(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,const char **out);
+/* False preserves out on incomplete/invalid owner. Valid owner slots default
+   false, including a blank sheet's primary slot; no stored row is required. */
+bool workbook_codec_header_source_options_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_unique_rows(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,bool *out);
 /* POD defaults are false until preferences is explicitly complete. Invalid
    Header/sheet arguments return false; check sheet_count to validate identity. */
 bool workbook_codec_header_reduced_motion(const WorkbookCodecHeader *header);
