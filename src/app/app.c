@@ -11764,6 +11764,13 @@ static void layout_smoke_step(App *a,int *step) {
     case 786:
         if (!object_ready(a,0) || a->objects[0].page.offset!=240) return;
         if (!smoke_table_record_formats(a,0,true,false)) goto failed;
+        { const SheetObject *table=s->objects.items; SourceFormatProof *proof=source_format_owner_proof(a,table->id,false);
+          CellFormat value=format_default(); value.flags=FORMAT_ITALIC;
+          if (!proof || !proof->result_ready ||
+              !format_apply_scoped(&s->formats,(FormatRange){table->row+2,700,table->col+4,20},
+                  FORMAT_ITALIC,value,
+                  &(FormatScopeView){table->id,proof->result.data,proof->result.bytes},1,false,&error)) goto failed;
+          worksheet_record(s,EDIT_FORMAT); a->book.dirty=true; }
         a->selected_object=0; create_pivot(a);
         if (s->objects.count!=3 || s->objects.items[2].source_id!=s->objects.items[0].id) goto failed;
         { PivotDefinition definition={0}; bool ok=pivot_assign(&definition,PIVOT_ROWS,"Pair",AGG_SUM,&error) &&
@@ -11774,11 +11781,12 @@ static void layout_smoke_step(App *a,int *step) {
     case 787:
         if (!object_ready(a,0) || !object_ready(a,2)) return;
         if (a->objects[0].page.offset!=240 || !a->objects[2].page.totals || a->source_preview.format_record_token==SIZE_MAX ||
-            a->source_preview.format_result_token!=SIZE_MAX || !smoke_table_record_formats(a,0,true,false)) goto failed;
+            a->source_preview.format_result_token==SIZE_MAX || !smoke_table_record_formats(a,0,true,false) ||
+            !smoke_table_record_formats(a,1,false,false)) goto failed;
         { const SheetObject *table=s->objects.items; Page prefix=a->objects[0].page; prefix.offset=0; prefix.row_count=prefix.records.count=12;
           for (size_t r=0;r<12;r++) { CellFormat preview=grid_cell_format(&a->source_preview,&prefix,r,4);
             CellFormat body=imported_cell_format(a,table->row+2+a->objects[0].page.offset+r,table->col+4);
-            if (!(preview.flags&FORMAT_BOLD) || preview.flags!=body.flags || preview.color!=body.color) goto failed; }
+            if (preview.flags!=(FORMAT_BOLD|FORMAT_ITALIC) || preview.flags!=body.flags || preview.color!=body.color) goto failed; }
           const SheetObject *pivot=s->objects.items+2;
           if (imported_cell_format(a,pivot->row+2,pivot->col+1).flags || imported_cell_format(a,pivot->row+2,pivot->col+1).color) goto failed; }
         smoke_snapshot("tests/results/workspace-layout/table-record-format-preview.png"); break;
@@ -11797,7 +11805,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (!object_ready(a,0)) return;
         if (a->book.dirty || s->objects.count!=3 || s->objects.items[0].source.source_version!=2 ||
             s->objects.items[1].source.source_version || s->undo_actions_count || s->source_versions.high_water!=2 ||
-            !smoke_table_record_formats(a,0,true,false)) goto failed;
+            !smoke_table_record_formats(a,0,true,false) || source_format_owner_result_token(a,s->objects.items[0].id)==SIZE_MAX) goto failed;
         request=a->request_id; break;
     case 792:
         if (a->request_id!=request || a->book.dirty || !smoke_table_record_formats(a,0,true,false)) goto failed;
@@ -11808,8 +11816,10 @@ static void layout_smoke_step(App *a,int *step) {
     case 794:
         if (!object_ready(a,0)) return;
         if (source_format_owner_token(a,s->objects.items[0].id)!=SIZE_MAX || !smoke_table_record_formats(a,0,false,false) ||
+            source_format_owner_result_token(a,s->objects.items[0].id)!=SIZE_MAX ||
+            imported_cell_format(a,s->objects.items[0].row+2,s->objects.items[0].col+4).flags ||
             a->book.dirty || s->undo_actions_count || s->source_versions.high_water!=2 ||
-            s->formats.count!=3 || !a->message || !strstr(a->message,"no longer matches")) goto failed;
+            s->formats.count!=4 || !a->message || !strstr(a->message,"no longer matches")) goto failed;
         request=a->request_id; draft_revision=s->formats.revision; break;
     case 795:
         if (a->request_id!=request || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision) goto failed;
@@ -11823,7 +11833,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->request_id!=request || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision) goto failed;
         workspace_job(a,JOB_SAVE,"tests/generated/app-table-record-format.dxls"); break;
     case 798:
-        if (a->book.dirty || s->formats.count!=3 || s->formats.scope_count!=2 || s->source_versions.count!=2 ||
+        if (a->book.dirty || s->formats.count!=4 || s->formats.scope_count!=3 || s->source_versions.count!=2 ||
             strcmp(cells_get(&s->cells,4,2),"Beside the table")) goto failed;
         break;
     case 799:
