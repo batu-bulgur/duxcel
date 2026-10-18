@@ -548,6 +548,190 @@ static void record_precedence(void) {
     }
     format_free(&s); clear_error(&error);
 }
+static FormatSnapshot baseline_current(const FormatStore *s) {
+    return (FormatSnapshot){.items=s->items,.count=s->count,.scopes=s->scopes,.scope_count=s->scope_count,.source_aware=s->source_aware};
+}
+static FormatStore baseline_view(FormatSnapshot s) {
+    return (FormatStore){.items=s.items,.count=s.count,.scopes=s.scopes,.scope_count=s.scope_count,.source_aware=s.source_aware};
+}
+static void baseline_compare(FormatSnapshot before,FormatSnapshot after,const FormatScopeView *scopes,size_t count) {
+    CHECK(after.source_aware && before.count==after.count);
+    CHECK(!before.count || before.items!=after.items);
+    CHECK(after.scope_count>=before.scope_count && (!before.scope_count || before.scopes!=after.scopes));
+    for (size_t i=0;i<before.scope_count;i++) {
+        CHECK(after.scopes[i].owner==before.scopes[i].owner && after.scopes[i].bytes==before.scopes[i].bytes);
+        CHECK(after.scopes[i].definition!=before.scopes[i].definition && !memcmp(after.scopes[i].definition,before.scopes[i].definition,before.scopes[i].bytes));
+    }
+    for (size_t i=0;i<before.count;i++) {
+        FormatPatch a=before.items[i],b=after.items[i]; bool migrated=!before.source_aware && (a.range.r0 || a.range.r1!=DX_SHEET_ROWS-1);
+        CHECK(!memcmp(&a.range,&b.range,sizeof(a.range)) && a.mask==b.mask && !memcmp(&a.value,&b.value,sizeof(a.value)));
+        CHECK(b.selector==(migrated ? FORMAT_GUARDED : a.selector) && b.guard_count==(migrated ? count : a.guard_count));
+        CHECK(!b.guard_count || b.guard_ids!=a.guard_ids);
+        CHECK(b.record_count==a.record_count && b.field_count==a.field_count);
+        if (a.record_count) CHECK(a.record_ids!=b.record_ids && !memcmp(a.record_ids,b.record_ids,a.record_count*sizeof(uint64_t)));
+        if (a.field_count) CHECK(a.fields!=b.fields && !memcmp(a.fields,b.fields,a.field_count*sizeof(size_t)));
+        if (!migrated && a.guard_count) CHECK(!memcmp(a.guard_ids,b.guard_ids,a.guard_count*sizeof(size_t)));
+    }
+    FormatStore old=baseline_view(before),next=baseline_view(after); CHECK(format_valid(&next,NULL));
+    for (uint64_t row=0;row<8;row++) for (size_t col=0;col<4;col++) {
+        CellFormat manual=format_at(&old,row,col),now=format_at(&next,row,col); CHECK(!memcmp(&manual,&now,sizeof(manual)));
+        for (size_t i=0;i<count;i++) {
+            CellFormat expected=before.source_aware ? format_resolve(&old,row,col,&scopes[i]) : manual;
+            now=format_resolve(&next,row,col,&scopes[i]); CHECK(!memcmp(&expected,&now,sizeof(now)));
+        }
+    }
+}
+static void guarded_store_baseline(void) {
+    /* Sentinel result bytes exercise ownership only. The future App caller must
+       supply complete verified canonical RESULT packets, not these fixtures. */
+    unsigned char definition[]={'r',0,'1'},other[]={'r',0,'2'};
+    FormatScopeView scopes[]={{UINT64_MAX,definition,sizeof(definition)},{0,other,sizeof(other)}};
+    FormatStore s={0},plan={0}; CellFormat v=format_default(); char *error=NULL; bool changed=false;
+    v.color=2; CHECK(format_apply(&s,(FormatRange){0,DX_SHEET_ROWS-1,0,3},FORMAT_COLOR,v,&error));
+    v.flags=FORMAT_BOLD; CHECK(format_apply(&s,(FormatRange){1,6,0,2},FORMAT_BOLD,v,&error));
+    v.flags=FORMAT_ITALIC; CHECK(format_apply(&s,(FormatRange){2,5,1,3},FORMAT_ITALIC,v,&error));
+    v.size=16; CHECK(format_apply_scoped(&s,(FormatRange){1,3,1,2},FORMAT_SIZE,v,&scopes[0],1,false,&error));
+    v.decimals=4; CHECK(format_apply(&s,(FormatRange){3,4,1,1},FORMAT_DECIMALS,v,&error));
+    uint64_t records[]={1,UINT64_MAX}; size_t fields[]={0,16383}; v.flags=FORMAT_UNDERLINE;
+    CHECK(format_apply_records(&s,&scopes[1],records,2,fields,2,FORMAT_UNDERLINE,v,&error));
+    CHECK(format_history(&s,false) && format_history(&s,false) && format_history(&s,false));
+    CHECK(!s.source_aware && s.undo_count==3 && s.redo_count==3 && s.redo[0].source_aware && s.redo[1].source_aware);
+    unsigned char live[sizeof(s)]; memcpy(live,&s,sizeof(s)); size_t bytes=format_owned_bytes(&s,true); uint64_t revision=s.revision;
+    CHECK(format_plan_guard_store(&s,scopes,2,&plan,&changed,&error) && changed);
+    CHECK(!memcmp(live,&s,sizeof(s)) && format_owned_bytes(&s,true)==bytes && plan.revision==revision);
+    CHECK(plan.undo_count==s.undo_count && plan.redo_count==s.redo_count);
+    baseline_compare(baseline_current(&s),baseline_current(&plan),scopes,2);
+    for (size_t i=0;i<s.undo_count;i++) baseline_compare(s.undo[i],plan.undo[i],scopes,2);
+    for (size_t i=0;i<s.redo_count;i++) baseline_compare(s.redo[i],plan.redo[i],scopes,2);
+    CHECK(plan.scopes[0].definition!=plan.undo[2].scopes[0].definition && plan.items[1].guard_ids!=plan.undo[2].items[1].guard_ids);
+    ((unsigned char *)plan.undo[2].scopes[0].definition)[0]='X';
+    CHECK(((unsigned char *)plan.scopes[0].definition)[0]=='r' && !memcmp(live,&s,sizeof(s)));
+    ((unsigned char *)plan.undo[2].scopes[0].definition)[0]='r';
+    /* Existing aware finite-manual state stays manual, and existing record
+       selectors retain their independent memberships and definition bytes. */
+    CHECK(plan.redo[1].items[plan.redo[1].count-1].selector==FORMAT_SPATIAL);
+    CHECK(plan.redo[0].items[plan.redo[0].count-1].selector==FORMAT_RECORDS);
+    definition[2]='X'; CHECK(!memcmp(plan.scopes[0].definition,"r\0" "1",3)); definition[2]='1';
+    format_free(&plan); CHECK(!memcmp(live,&s,sizeof(s)) && format_owned_bytes(&s,true)==bytes);
+    changed=false; CHECK(format_plan_guard_store(&s,scopes,2,&plan,&changed,&error) && changed);
+    FormatPatch *owned=plan.items,*undo=plan.undo[2].items; FormatScope *owned_scopes=plan.scopes;
+    format_adopt_guard_store(&s,&plan);
+    CHECK(s.items==owned && s.scopes==owned_scopes && s.undo[2].items==undo && s.revision==revision+1);
+    CHECK(s.undo_count==3 && s.redo_count==3 && !plan.items && !plan.scopes && !plan.undo_count && !plan.redo_count && !plan.revision);
+    CHECK(format_resolve(&s,2,1,&scopes[0]).flags==(FORMAT_BOLD|FORMAT_ITALIC));
+    FormatScopeView wrong=scopes[0]; wrong.definition=other;
+    CHECK(!format_resolve(&s,2,1,&wrong).flags && format_resolve(&s,2,1,&wrong).color==2);
+    while (s.undo_count) { CHECK(format_history(&s,false) && s.source_aware); }
+    while (s.redo_count) { CHECK(format_history(&s,true) && s.source_aware); }
+    CHECK(s.items[s.count-1].selector==FORMAT_RECORDS && s.items[s.count-1].record_ids[1]==UINT64_MAX);
+    /* No-op never replaces an existing owned plan or clears a live redo, and
+       resets a prior true output so a caller cannot adopt a stale plan. */
+    CHECK(format_history(&s,false)); v.flags=FORMAT_BOLD;
+    CHECK(format_apply(&plan,(FormatRange){0,0,0,0},FORMAT_BOLD,v,&error));
+    unsigned char prior[sizeof(plan)]; memcpy(prior,&plan,sizeof(plan)); memcpy(live,&s,sizeof(s));
+    changed=false; CHECK(format_plan_guard_store(&s,scopes,2,&plan,&changed,&error) && !changed && !memcmp(prior,&plan,sizeof(plan)) && !memcmp(live,&s,sizeof(s)));
+    changed=true; CHECK(format_plan_guard_store(&s,scopes,2,&plan,&changed,&error) && !changed && !memcmp(prior,&plan,sizeof(plan)));
+    s.revision=UINT64_MAX; CHECK(format_plan_guard_store(&s,scopes,2,&plan,&changed,&error) && !changed && !memcmp(prior,&plan,sizeof(plan)));
+    format_free(&s); format_free(&plan);
+    changed=false; CHECK(format_plan_guard_store(&s,scopes,2,&plan,&changed,&error) && changed && plan.source_aware && !plan.count && !plan.scope_count && !plan.undo_count);
+    format_adopt_guard_store(&s,&plan); CHECK(s.source_aware && s.revision==1 && !s.undo_count && !s.redo_count);
+    format_free(&s); clear_error(&error);
+}
+static void guarded_store_invalid(void) {
+    FormatStore s={0},plan={0}; CellFormat v=format_default(); char *error=NULL; bool changed=false;
+    unsigned char bytes[]={'r',0,'1'}; FormatScopeView scope={0,bytes,sizeof(bytes)},bad=scope;
+    v.flags=FORMAT_BOLD; CHECK(format_apply(&s,(FormatRange){1,1,0,0},FORMAT_BOLD,v,&error));
+    CHECK(format_apply(&s,(FormatRange){2,2,0,0},FORMAT_ITALIC,v,&error));
+    CHECK(format_apply(&plan,(FormatRange){4,4,0,0},FORMAT_BOLD,v,&error));
+    unsigned char live[sizeof(s)],owned[sizeof(plan)]; memcpy(live,&s,sizeof(s)); memcpy(owned,&plan,sizeof(plan));
+#define BAD_BASELINE(views_,count_) do { \
+    CHECK(!format_plan_guard_store(&s,(views_),(count_),&plan,&changed,&error)); \
+    CHECK(!changed && !memcmp(owned,&plan,sizeof(plan))); clear_error(&error); \
+} while (0)
+    BAD_BASELINE(NULL,1); BAD_BASELINE(&scope,0); BAD_BASELINE(&scope,DX_FORMAT_GUARDS+1);
+    bad.bytes=0; BAD_BASELINE(&bad,1); bad.bytes=DX_FORMAT_SCOPE_BYTES; BAD_BASELINE(&bad,1);
+    bad=scope; bad.definition=NULL; BAD_BASELINE(&bad,1);
+    FormatScopeView duplicate[]={scope,scope}; BAD_BASELINE(duplicate,2);
+    CHECK(!format_plan_guard_store(NULL,&scope,1,&plan,&changed,&error) && !changed); clear_error(&error);
+    CHECK(!format_plan_guard_store(&s,&scope,1,NULL,&changed,&error) && !changed); clear_error(&error);
+    CHECK(!format_plan_guard_store(&s,&scope,1,&plan,NULL,&error)); clear_error(&error);
+    CHECK(!format_plan_guard_store(&s,&scope,1,&s,&changed,&error) && !changed && !memcmp(live,&s,sizeof(s))); clear_error(&error);
+    s.undo_count=SIZE_MAX; BAD_BASELINE(&scope,1); s.undo_count=2;
+    s.redo_count=DX_FORMAT_HISTORY+1; BAD_BASELINE(&scope,1); s.redo_count=0;
+    s.count=DX_FORMAT_PATCHES+1; BAD_BASELINE(&scope,1); s.count=2;
+    s.undo[1].items[0].mask=0; BAD_BASELINE(&scope,1); s.undo[1].items[0].mask=FORMAT_BOLD;
+    s.undo[1].items[0].selector=FORMAT_RESULT; BAD_BASELINE(&scope,1); s.undo[1].items[0].selector=FORMAT_SPATIAL;
+    s.undo[1].items[0].range.c1=16384; BAD_BASELINE(&scope,1); s.undo[1].items[0].range.c1=0;
+    s.revision=UINT64_MAX; BAD_BASELINE(&scope,1); s.revision=2;
+    CHECK(!memcmp(live,&s,sizeof(s)) && format_valid(&s,&error));
+    /* A bad Redo snapshot must not evade whole-store semantic validation. */
+    CHECK(format_history(&s,false) && s.redo_count==1); s.redo[0].items[0].value.size=0;
+    BAD_BASELINE(&scope,1); s.redo[0].items[0].value.size=13;
+    changed=true; bad=scope; bad.bytes=0;
+    CHECK(!format_plan_guard_store(&s,&bad,1,&plan,&changed,&error) && changed && !memcmp(owned,&plan,sizeof(plan))); clear_error(&error);
+#undef BAD_BASELINE
+    /* Borrowed plan input survives replacement of that same owned output. */
+    changed=false; CHECK(format_plan_guard_store(&s,&scope,1,&plan,&changed,&error) && changed);
+    FormatScopeView borrowed={plan.scopes[0].owner,plan.scopes[0].definition,plan.scopes[0].bytes}; void *prior=plan.scopes[0].definition;
+    changed=false; CHECK(format_plan_guard_store(&s,&borrowed,1,&plan,&changed,&error) && changed && plan.scopes[0].definition!=prior && !memcmp(plan.scopes[0].definition,bytes,sizeof(bytes)));
+    format_free(&plan); format_free(&s); clear_error(&error);
+}
+static FormatSnapshot baseline_sized(size_t target,const FormatScopeView *scopes,size_t count) {
+    FormatSnapshot state={.count=1,.scope_count=count}; state.items=dx_alloc(sizeof(*state.items));
+    state.items[0]=(FormatPatch){.range={2,4,1,2},.mask=FORMAT_BOLD,.value=format_default()}; state.items[0].value.flags=FORMAT_BOLD;
+    state.scopes=dx_alloc(count*sizeof(*state.scopes));
+    for (size_t i=0;i<count;i++) {
+        state.scopes[i]=(FormatScope){scopes[i].owner,dx_alloc(scopes[i].bytes+2),scopes[i].bytes};
+        memcpy(state.scopes[i].definition,scopes[i].definition,scopes[i].bytes);
+        memset((unsigned char *)state.scopes[i].definition+scopes[i].bytes,'r',2);
+    }
+    FormatStore view=baseline_view(state); CHECK(format_owned_bytes(&view,false)==target && format_valid(&view,NULL)); return state;
+}
+static void guarded_store_limits(void) {
+    char *definition=dx_alloc(DX_FORMAT_SCOPE_BYTES); memset(definition,'r',DX_FORMAT_SCOPE_BYTES);
+    FormatScopeView scopes[DX_FORMAT_GUARDS]; FormatStore s={0},plan={0}; char *error=NULL; bool changed=false;
+    /* Exact current-state boundary, including reused scopes and new vectors. */
+    size_t base=DX_FORMAT_CURRENT_BYTES-4*sizeof(size_t),text=base-sizeof(FormatPatch)-4*sizeof(FormatScope)-4;
+    for (size_t i=0;i<4;i++) scopes[i]=(FormatScopeView){i,definition,text/4+(i<text%4)};
+    FormatSnapshot state=baseline_sized(base,scopes,4); s=baseline_view(state);
+    FormatScopeView reversed[]={scopes[3],scopes[2],scopes[1],scopes[0]};
+    CHECK(format_plan_guard_store(&s,reversed,4,&plan,&changed,&error) && changed && format_owned_bytes(&plan,false)==DX_FORMAT_CURRENT_BYTES);
+    CHECK(plan.scope_count==4 && plan.items[0].guard_ids[0]==0 && plan.items[0].guard_ids[3]==3 && plan.scopes[0].owner==0);
+    format_free(&plan); s.scopes[0].bytes++; scopes[0].bytes++;
+    unsigned char live[sizeof(s)]; memcpy(live,&s,sizeof(s)); changed=false;
+    CHECK(!format_plan_guard_store(&s,scopes,4,&plan,&changed,&error) && !changed && !plan.items && !memcmp(live,&s,sizeof(s)) && strstr(error,"1 MiB")); clear_error(&error);
+    format_free(&s);
+    /* Both history stacks remain intact at the exact retained cap. Additional
+       guard storage cannot silently evict any oldest/redo state to make room. */
+    size_t states=2*DX_FORMAT_HISTORY,per=DX_FORMAT_HISTORY_BYTES/states; base=per-2*sizeof(size_t); text=base-sizeof(FormatPatch)-2*sizeof(FormatScope)-2;
+    for (size_t i=0;i<2;i++) scopes[i]=(FormatScopeView){i,definition,text/2+(i<text%2)};
+    state=baseline_sized(base,scopes,2); s=baseline_view(state); s.undo_count=DX_FORMAT_HISTORY; s.redo_count=DX_FORMAT_HISTORY-1;
+    for (size_t i=0;i<s.undo_count;i++) s.undo[i]=baseline_sized(base,scopes,2);
+    for (size_t i=0;i<s.redo_count;i++) s.redo[i]=baseline_sized(base,scopes,2);
+    CHECK(format_valid(&s,&error)); changed=false;
+    CHECK(format_plan_guard_store(&s,scopes,2,&plan,&changed,&error) && changed && format_owned_bytes(&plan,true)==DX_FORMAT_HISTORY_BYTES);
+    CHECK(plan.undo_count==DX_FORMAT_HISTORY && plan.redo_count==DX_FORMAT_HISTORY-1 && plan.undo[0].items!=s.undo[0].items && plan.redo[DX_FORMAT_HISTORY-2].source_aware);
+    format_free(&plan); s.undo[0].scopes[0].bytes++; memcpy(live,&s,sizeof(s)); changed=false;
+    CHECK(format_valid(&s,&error) && !format_plan_guard_store(&s,scopes,2,&plan,&changed,&error) && !changed && !plan.items && !memcmp(live,&s,sizeof(s)) && strstr(error,"history")); clear_error(&error);
+    format_free(&s);
+    /* Maximum patch/owner/history counts; no compaction, lost mask or synthetic
+       history entry is permitted even when many snapshots are empty. */
+    for (size_t i=0;i<DX_FORMAT_GUARDS;i++) scopes[i]=(FormatScopeView){i,definition,1};
+    s.count=DX_FORMAT_PATCHES; s.items=dx_alloc(s.count*sizeof(*s.items)); s.undo_count=s.redo_count=DX_FORMAT_HISTORY;
+    for (size_t i=0;i<s.count;i++) s.items[i]=(FormatPatch){.range={i,i,0,0},.mask=FORMAT_BOLD,.value=format_default()};
+    changed=false; CHECK(format_plan_guard_store(&s,scopes,DX_FORMAT_GUARDS,&plan,&changed,&error) && changed && plan.count==DX_FORMAT_PATCHES && plan.scope_count==DX_FORMAT_GUARDS && plan.undo_count==DX_FORMAT_HISTORY && plan.redo_count==DX_FORMAT_HISTORY);
+    for (size_t i=0;i<plan.count;i++) CHECK(plan.items[i].range.r0==i && plan.items[i].guard_count==DX_FORMAT_GUARDS && plan.items[i].guard_ids[DX_FORMAT_GUARDS-1]==DX_FORMAT_GUARDS-1);
+    for (size_t i=0;i<DX_FORMAT_HISTORY;i++) CHECK(plan.undo[i].source_aware && plan.redo[i].source_aware && !plan.undo[i].count && !plan.redo[i].count);
+    format_free(&plan); format_free(&s);
+    /* Unused legacy scopes are still owned model state. Guarding cannot append
+       beyond the scope count cap even when its byte reservation would fit. */
+    s.count=1; s.items=dx_alloc(sizeof(*s.items)); s.items[0]=(FormatPatch){.range={0,1,0,0},.mask=FORMAT_BOLD,.value=format_default()};
+    s.scope_count=DX_FORMAT_PATCHES*DX_FORMAT_GUARDS; s.scopes=dx_alloc(s.scope_count*sizeof(*s.scopes));
+    for (size_t i=0;i<s.scope_count;i++) s.scopes[i]=(FormatScope){i,dx_strdup("r"),1};
+    scopes[0]=(FormatScopeView){UINT64_MAX,definition,1}; changed=false; memcpy(live,&s,sizeof(s));
+    CHECK(!format_plan_guard_store(&s,scopes,1,&plan,&changed,&error) && !changed && !plan.items && !memcmp(live,&s,sizeof(s)) && strstr(error,"scope limit"));
+    format_free(&s); free(definition); clear_error(&error);
+}
 int main(void) {
     display("128450.00",2,true,"128,450.00"); display("-24860",2,true,"(24,860.00)"); display("-24860",0,false,"−24,860");
     display("9.995",2,true,"10.00"); display("-0.00005",4,true,"(0.0001)"); display("0.00000000001",4,false,"0.0000");
@@ -586,5 +770,6 @@ int main(void) {
     format_trim_history(&s,false,3); CHECK(s.undo_count==3); format_free(&s);
     scoped_resolution(); scoped_legacy(); scoped_budgets(); source_aware_lifetime(); scoped_precedence();
     record_resolution(); record_planners(); record_dual_scopes(); record_invalid(); record_edit_plan(); record_budgets(); record_precedence();
+    guarded_store_baseline(); guarded_store_invalid(); guarded_store_limits();
     printf("PASS: %u formatting checks (exact numeric display, bounded ranges, scoped record membership, precedence, ownership, moves, structural edits, history and whole-sheet selection)\n",checks); return 0;
 }

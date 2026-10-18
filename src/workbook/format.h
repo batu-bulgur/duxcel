@@ -93,6 +93,26 @@ bool format_plan_records(const FormatStore *store,const FormatScopeView *scope,
    their manual component; full-column defaults and existing scopes are unchanged.
    The planned mode becomes source-aware even when no finite patches remain. */
 bool format_plan_guard_legacy(const FormatStore *store,const FormatScopeView *scopes,size_t count,FormatSnapshot *out,char **error);
+/* Whole-store legacy baseline component, not a source-verification/activation
+   API. The caller must validate every supplied scope as a canonical complete
+   RESULT and prove that this same owner/result set is appropriate for EVERY
+   legacy current/Undo/Redo state. No packet type/provenance is inferred here.
+   Legacy states become source-aware: finite spatial rectangles gain exact
+   guards and retain their manual component; broad defaults stay spatial.
+   Already-aware states, including finite manual patches, are copied unchanged.
+   Every state/count/order is retained, without a new action or any pruning.
+   store and out must own independent, nonaliased graphs; out must be zero or
+   valid owned state. On a changed success out is replaced by a deep-owned full
+   store and *changed is set true. An already-aware no-op preserves out and sets
+   *changed=false; failure preserves out and *changed. Inputs may
+   borrow out's data; they are copied before out is released. Plans preserve the
+   captured revision and pass each 1 MiB state / 32 MiB retained-store limit. */
+bool format_plan_guard_store(const FormatStore *store,const FormatScopeView *scopes,size_t count,
+    FormatStore *out,bool *changed,char **error);
+/* Nonallocating adoption of a changed plan, while the captured store is still
+   unchanged. Consumes owned, frees the old graph and advances revision once;
+   does not create/trim/transfer worksheet or format journal actions. */
+void format_adopt_guard_store(FormatStore *store,FormatStore *owned);
 void format_free(FormatStore *store);
 void format_copy(FormatStore *to,const FormatStore *from);
 bool format_history(FormatStore *store,bool redo);
