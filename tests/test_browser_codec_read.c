@@ -179,8 +179,11 @@ static bool schema_matches(const Page *schema,const WorkbookCodecTable *table,si
     return true;
 }
 static bool canonical_schema(Page *out,const WorkbookCodecTable *table) {
+    CHECK(table&&table->columns&&*table->columns&&table->types,"Canonical metadata inventory is empty");
     Page next={0};const char *p=table->columns,*types=table->types;
-    next.column_count=!strcmp(table->table,"meta")||!strcmp(table->table,"queries")||!strcmp(table->table,"source_options")?3:!strcmp(table->table,"sorts")?4:!strcmp(table->table,"preferences")?2:!strcmp(table->table,"objects")?11:!strcmp(table->table,"table_sources")?14:!strcmp(table->table,"table_filters")?6:!strcmp(table->table,"table_sorts")?5:!strcmp(table->table,"pivot_fields")?9:!strcmp(table->table,"marks")?8:!strcmp(table->table,"filters")?5:(!strcmp(table->table,"columns")||!strcmp(table->table,"cells"))?4:25;
+    next.column_count=1;
+    for(const char *name=table->columns;*name;name++)if(*name==',')next.column_count++;
+    CHECK(next.column_count<=sizeof(d.columns)/sizeof(*d.columns),"Canonical metadata inventory exceeds the driver column bound");
     next.columns=dx_alloc(next.column_count*sizeof(*next.columns));next.bytes=next.column_count*sizeof(*next.columns);
     for(size_t i=0;i<next.column_count;i++){
         while(*types==' ')types++;size_t n=strcspn(p,",");Column *column=next.columns+i;
