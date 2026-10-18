@@ -52,4 +52,11 @@ bool page_from_wire_workbook_sorts_owned(Page *out,const void *bytes,size_t size
    object/schema/reference validity is checked by that cursor, not this parser. */
 bool page_from_wire_workbook_objects_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
                                           uint64_t total,bool count_pending,size_t owned_budget,char **error);
+/* Trusted active owner-metadata cursors (queries/source options) only: exactly
+   three columns, <=2113 rows (64*(32+1) plus one sentinel), offset zero, same
+   text/wire/owned admission. C separately validates the original family schema,
+   owner references and values. Decode one result and feed in <=256-row batches;
+   neither the wire nor ordinary source-page requests may select this policy. */
+bool page_from_wire_workbook_owners_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                                         uint64_t total,bool count_pending,size_t owned_budget,char **error);
 #endif

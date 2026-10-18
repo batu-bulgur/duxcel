@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { Table, Int32, Int64, Uint64, Decimal, Utf8, TimestampNanosecond,
+import { Table, Int32, Int64, Uint64, Decimal, Utf8, Bool, TimestampNanosecond,
     vectorFromArray, makeVector, makeData, RecordBatchReader, tableToIPC } from 'apache-arrow';
 import { LIMITS, pageRequest, decimalText, encodePage, pageCellText, pageTransferables,
-    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport,workbookSortsRequest,workbookObjectsRequest } from './official_worker.mjs';
+    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport,workbookSortsRequest,workbookObjectsRequest,workbookOwnersRequest } from './official_worker.mjs';
 
 const request = (id = '1', extra = {}) => pageRequest({ requestId: id, sql: 'C BUILT SQL LIMIT 256', ...extra });
 function words(value, length = 4) {
@@ -201,6 +201,76 @@ test('pending object results retire on supersession before a normal recovery ent
     const old=await pending,next=await recovery;
     assert.equal(old.status,'superseded');assert.equal(old.page,undefined);assert.equal(owned.cancelled,1);
     assert.equal(next.status,'ok');assert.equal(sends,2);await adapter.close();
+});
+
+const workbookOwnerColumns=[{name:'sheet_id',typeName:'INTEGER',numberKind:'i32'},
+    {name:'object_id',typeName:'UBIGINT',numberKind:'u64'},{name:'query',typeName:'VARCHAR',numberKind:'none'}];
+function workbookOwnerInput(id='1',change={}){
+    return {...workbookSortInput(id),purpose:'workbook-owners',rowLimit:2113,
+        sql:'C OWNED CANONICAL OWNER METADATA LIMIT 2113',columns:workbookOwnerColumns.map(column=>({...column})),...change};
+}
+function workbookOwnerTable(rows=2113,options=false){
+    const texts=[null,'','NULL',"SELECT 'İstanbul 🦆', 'apostrophe''s' FROM input;",'9007199254740993','18446744073709551615'];
+    return new Table({sheet_id:vectorFromArray(Array.from({length:rows},(_,i)=>i%64),new Int32()),
+        object_id:vectorFromArray(Array.from({length:rows},(_,i)=>[0n,9007199254740993n,18446744073709551615n][i%3]),new Uint64()),
+        [options?'unique_rows':'query']:vectorFromArray(Array.from({length:rows},(_,i)=>options?[true,false,null][i%3]:texts[i%texts.length]),options?new Bool():new Utf8())});
+}
+test('workbook-owners is a frozen three-column single-archive policy separate from all ordinary purposes',()=>{
+    const input=workbookOwnerInput(),parsed=workbookOwnersRequest(input);
+    assert.equal(parsed.purpose,'workbook-owners');assert.equal(parsed.rowLimit,2113);assert.equal(parsed.offset,'0');assert.equal(parsed.knownTotal,null);
+    assert.ok(Object.isFrozen(parsed));assert.ok(Object.isFrozen(parsed.columns));assert.ok(Object.isFrozen(parsed.columns[0]));assert.ok(Object.isFrozen(parsed.sourceBindings[0]));
+    input.columns[0].name='changed';input.sourceBindings[0].registrationId='2';
+    assert.equal(parsed.columns[0].name,'sheet_id');assert.equal(parsed.sourceBindings[0].registrationId,'1');
+    assert.equal(workbookOwnersRequest(workbookOwnerInput('2',{rowLimit:undefined})).rowLimit,2113);
+    assert.throws(()=>pageRequest(workbookOwnerInput()),{code:'INVALID_REQUEST'});
+    assert.throws(()=>workbookSortsRequest(workbookOwnerInput()),{code:'INVALID_REQUEST'});
+    assert.throws(()=>workbookObjectsRequest(workbookOwnerInput()),{code:'INVALID_REQUEST'});
+    for(const change of [{purpose:undefined},{purpose:'copy'},{purpose:'workbook-sorts'},{purpose:'workbook-objects'},{purpose:'Workbook-owners'},
+        {purpose:{}},{offset:'1'},{knownTotal:'2113'},{rowLimit:0},{rowLimit:2114},{rowLimit:NaN},{rowLimit:1.5},
+        {columns:undefined},{columns:[]},{columns:workbookOwnerColumns.slice(0,2)},
+        {columns:[...workbookOwnerColumns,{name:'extra',typeName:'VARCHAR'}]},
+        {sourceBindings:undefined},{sourceBindings:[]},{sourceBindings:[{name:'a.dxls',engineEpoch:'1',registrationId:'1'},{name:'b.dxls',engineEpoch:'1',registrationId:'2'}]},
+        {sourceBindings:[{name:'fixture.dxls',engineEpoch:'1',registrationId:'0'}]}]){
+        assert.throws(()=>workbookOwnersRequest(workbookOwnerInput('2',change)),{code:'INVALID_REQUEST'});
+    }
+});
+test('owner-metadata Arrow results retain one 2113-row envelope, exact owner IDs and both family value types',async()=>{
+    const parsed=workbookOwnersRequest(workbookOwnerInput()),output=await encodePage(reader(workbookOwnerTable()),parsed);
+    assert.equal(output.rowCount,2113);assert.equal(output.columnCount,3);assert.equal(output.total,'2113');assert.equal(output.countPending,true);
+    assert.deepEqual(Array.from({length:6},(_,row)=>pageCellText(output,row,2)),[null,'','NULL',"SELECT 'İstanbul 🦆', 'apostrophe''s' FROM input;",'9007199254740993','18446744073709551615']);
+    assert.deepEqual(Array.from({length:3},(_,row)=>pageCellText(output,row,1)),['0','9007199254740993','18446744073709551615']);
+    assert.equal(output.columns[1].typeName,'UBIGINT');assert.equal(output.columns[1].numberKind,'u64');
+    for(const rows of [2048,2112]){const value=await encodePage(reader(workbookOwnerTable(rows)),parsed);assert.equal(value.rowCount,rows);assert.equal(value.countPending,false);}
+    await assert.rejects(encodePage(reader(workbookOwnerTable(2114)),parsed),{code:'PAGE_LIMIT'});
+    await assert.rejects(encodePage(reader(workbookOwnerTable(257)),request()),{code:'PAGE_LIMIT'});
+    for(const count of [2,4])await assert.rejects(encodePage(reader(new Table(Object.fromEntries(Array.from({length:count},(_,i)=>['c'+i,vectorFromArray(['x'],new Utf8())])))),parsed),{code:'PAGE_LIMIT'});
+    const options=workbookOwnersRequest(workbookOwnerInput('2',{columns:[workbookOwnerColumns[0],workbookOwnerColumns[1],{name:'unique_rows',typeName:'BOOLEAN',numberKind:'none'}]}));
+    const booleans=await encodePage(reader(workbookOwnerTable(3,true)),options);assert.equal(booleans.columns[2].typeName,'BOOLEAN');
+    assert.deepEqual(Array.from({length:3},(_,row)=>pageCellText(booleans,row,2)),['true','false',null]);
+    const huge=new Table({sheet_id:vectorFromArray([0],new Int32()),object_id:vectorFromArray([0n],new Uint64()),query:vectorFromArray(['x'.repeat(LIMITS.bytes+1)],new Utf8())});
+    await assert.rejects(encodePage(reader(huge),parsed),{code:'PAGE_LIMIT'});
+});
+test('captured owner-metadata registrations reject in-flight revocation and failed drops before ordinary recovery',async()=>{
+    for(const failDrop of [false,true]){
+        const began=deferred(),release=deferred(),owned=reader(workbookOwnerTable(2112));let sends=0;
+        const database={async registerFileBuffer(){},async dropFile(){if(failDrop)throw new Error('owned drop failed');}};
+        const adapter=new DuckDBWorkerAdapter({database,connection:connection({async send(){sends++;if(sends===1){began.resolve();await release.promise;return owned;}return reader(simple());}})});
+        const sibling=new DuckDBWorkerAdapter({database,connection:connection()});const token=await adapter.registerFile('owners.dxls',new Uint8Array([1]));
+        assert.throws(()=>adapter.submit(workbookOwnerInput('1',{sourceBindings:[token]})),{code:'INVALID_REQUEST'});assert.equal(adapter.latestId,0n);assert.equal(sends,0);
+        const pending=adapter.submitWorkbookOwners(workbookOwnerInput('1',{sourceBindings:[token]}));await began.promise;
+        if(failDrop)await assert.rejects(sibling.dropFile(token.name),/owned drop failed/);else await sibling.dropFile(token.name);
+        release.resolve();const reply=await pending;assert.equal(reply.status,'error');assert.equal(reply.error.code,'SOURCE_INVALIDATED');assert.equal(reply.page,undefined);assert.equal(owned.cancelled,1);
+        const previous=adapter.latestId;assert.throws(()=>adapter.submitWorkbookOwners(workbookOwnerInput('2',{sourceBindings:[token]})),{code:'SOURCE_INVALIDATED'});assert.equal(adapter.latestId,previous);assert.equal(sends,1);
+        const recovered=await adapter.submit({requestId:'2',sql:'ordinary recovery',rowLimit:256});assert.equal(recovered.status,'ok');assert.equal(sends,2);await adapter.close();await sibling.close();
+    }
+});
+test('pending owner-metadata output is retired on supersession and never contaminates ordinary recovery',async()=>{
+    const began=deferred(),release=deferred(),owned=reader(workbookOwnerTable());let sends=0;
+    const database={async registerFileBuffer(){},async dropFile(){}};
+    const adapter=new DuckDBWorkerAdapter({database,connection:connection({async send(){sends++;if(sends===1){began.resolve();await release.promise;return owned;}return reader(simple());}})});
+    const token=await adapter.registerFile('owners.dxls',new Uint8Array([1]));const pending=adapter.submitWorkbookOwners(workbookOwnerInput('1',{sourceBindings:[token]}));await began.promise;
+    const recovery=adapter.submit({requestId:'2',sql:'ordinary recovery',rowLimit:256});release.resolve();
+    const old=await pending,next=await recovery;assert.equal(old.status,'superseded');assert.equal(old.page,undefined);assert.equal(owned.cancelled,1);assert.equal(next.status,'ok');assert.equal(sends,2);await adapter.close();
 });
 
 test('installed browser dependencies and transitive lock retain approved exact integrity pins', async () => {
