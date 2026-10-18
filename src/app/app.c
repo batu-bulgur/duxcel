@@ -6178,8 +6178,16 @@ static void pipeline_scroll_delta(App *a,const UIInspectorLayout *layout,Rectang
     if (!isfinite(delta) || !delta || !CheckCollisionPointRec(pointer,panel)) return;
     if (layout->inner_scrollable && CheckCollisionPointRec(pointer,GetCollisionRec(layout->list_frame,layout->body_clip))) {
         float before=a->pipeline_inner_scroll;
-        a->pipeline_inner_scroll=fmaxf(0,fminf(layout->inner_max,before+delta));
-        delta-=a->pipeline_inner_scroll-before;
+        float room=delta>0 ? layout->inner_max-before : -before;
+        if ((delta>0 && delta>room) || (delta<0 && delta<room)) {
+            a->pipeline_inner_scroll=delta>0 ? layout->inner_max : 0;
+            delta-=room;
+        } else {
+            a->pipeline_inner_scroll=before+delta;
+            /* An unclamped packet is fully consumed. Subtracting rounded
+               positions creates a false residual that moves the outer pane. */
+            delta=0;
+        }
     }
     if (layout->outer_scrollable)
         a->pipeline_outer_scroll=fmaxf(0,fminf(layout->outer_max,a->pipeline_outer_scroll+delta));
@@ -12856,6 +12864,7 @@ static void layout_smoke_step(App *a,int *step) {
     }
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: workspace layout smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : "");
+    if (*step>=882) fprintf(stderr,"Steps scrolling: outer=%.9f/%.9f inner=%.9f/%.9f pan=%u\n",a->pipeline_outer_scroll,a->pipeline_layout.outer_max,a->pipeline_inner_scroll,a->pipeline_layout.inner_max,inspector_pan_evidence);
     if (*step>=426) fprintf(stderr,"Marks: panel=(%.2f,%.2f,%.2f,%.2f) content=%.2f width=%.2f offset=%.2f max=%.2f valid=%d focus=%d\n",a->author_marks_layout.panel.x,a->author_marks_layout.panel.y,a->author_marks_layout.panel.width,a->author_marks_layout.panel.height,a->author_marks_layout.content_height,a->author_marks_layout.content_width,a->author_scroll,a->author_marks_layout.maximum,a->author_marks_layout.valid,a->pivot_focus);
     if (*step>=400) fprintf(stderr,"Popup: modal=%d alpha=%.4f shift=%.4f active=%d visible=%d image=%d slot=%u evidence=%u\n",a->modal,a->popup_presence.alpha,a->popup_presence.offset,a->popup_presence.active,a->popup_presence.visible,a->popup_image.layout.valid,a->popup_image.buffer_index,pane_motion_evidence);
     if (*step>=311 && *step<=318) fprintf(stderr,"Dock harness: offset=%.3f max=%.3f inner=%.3f innermax=%.3f width=%.3f marksRight=%.3f outerLeft=%.3f\n",a->dock_scroll[1],a->dock_layout.maximum,a->author_scroll,a->author_marks_layout.maximum,a->dock_layout.content.width,a->author_marks_layout.panel.x+a->author_marks_layout.panel.width,a->dock_layout.viewport.x+a->dock_layout.viewport.width-10*a->ui.scale);
