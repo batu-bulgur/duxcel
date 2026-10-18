@@ -59,4 +59,15 @@ bool page_from_wire_workbook_objects_owned(Page *out,const void *bytes,size_t si
    neither the wire nor ordinary source-page requests may select this policy. */
 bool page_from_wire_workbook_owners_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
                                          uint64_t total,bool count_pending,size_t owned_budget,char **error);
+/* Active Table-definition cursors only: exact14/6/5 columns and fixed native
+   family ceilings2049/30721/14337 including one sentinel. Offset zero, unchanged
+   4MiB text/6MiB wire and explicit caller-owned budget. The codec checks original
+   types, owners/positions/values and feeds <=256 rows from this one result.
+   Ordinary source pages, copy and other metadata policies remain unchanged. */
+bool page_from_wire_workbook_table_sources_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                                                uint64_t total,bool count_pending,size_t owned_budget,char **error);
+bool page_from_wire_workbook_table_filters_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                                                uint64_t total,bool count_pending,size_t owned_budget,char **error);
+bool page_from_wire_workbook_table_sorts_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                                              uint64_t total,bool count_pending,size_t owned_budget,char **error);
 #endif
