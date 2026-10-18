@@ -11109,6 +11109,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (active_format(a).flags || active_format(a).color || a->grid.format_result_token!=SIZE_MAX ||
             imported_cell_format(a,a->grid.row,a->grid.col).flags || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
         smoke_snapshot("tests/results/workspace-layout/source-aware-table.png");
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
         a->selected_object=1; a->sidebar=a->fields_visible=true; a->matrix_cells_active=true;
         grid_select_cell(&a->grid,s->objects.items[1].row+2,s->objects.items[1].col+1,false); a->pivot_reveal_object=true; break;
     case 725:
@@ -11116,6 +11117,7 @@ static void layout_smoke_step(App *a,int *step) {
             a->source_preview.format_result_token!=SIZE_MAX || a->source_preview.format_record_token!=SIZE_MAX ||
             grid_cell_format(&a->source_preview,&a->page,0,1).flags || grid_cell_format(&a->source_preview,&a->page,0,1).color ||
             matrix_total_format(a,a->grid.row,a->grid.col).number!=FORMAT_ACCOUNTING || matrix_total_format(a,a->grid.row,a->grid.col).flags ||
+            a->authoring_layout.matrix.y+110*a->ui.scale>=a->grid.rect.y+a->grid.rect.height ||
             a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
         smoke_snapshot("tests/results/workspace-layout/source-aware-pivot.png"); break;
     case 726:
