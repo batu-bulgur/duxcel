@@ -15,7 +15,7 @@ typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; }
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
     WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
     WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS,
-    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS,WORKBOOK_CODEC_OBJECT_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSIONS,WORKBOOK_CODEC_SOURCE_BINDINGS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS,WORKBOOK_CODEC_OBJECT_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSIONS,WORKBOOK_CODEC_SOURCE_BINDINGS,WORKBOOK_CODEC_FORMAT_ROWS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_BLOB } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -24,6 +24,8 @@ typedef struct { const unsigned char *data; size_t bytes; } WorkbookCodecBlob;
 #define DX_WORKBOOK_CODEC_SOURCE_VERSION_BYTES (sizeof(SourceVersion)>48u ? sizeof(SourceVersion) : 48u)
 /* Large RAW name-sorting stack category. Ordinary fixed C frames are separate. */
 #define DX_WORKBOOK_CODEC_RAW_SCRATCH_BYTES (128u*1024u)
+/* Logical native64-bit row category, separate from actual Header capacity. */
+#define DX_WORKBOOK_CODEC_FORMAT_PATCH_BYTES (sizeof(FormatPatch)>96u ? sizeof(FormatPatch) : 96u)
 typedef struct {
     WorkbookCodecAtomKind kind;
     union { int32_t i32; uint64_t u64; double real; bool boolean; WorkbookCodecText text; WorkbookCodecBlob blob; } value;
@@ -178,6 +180,21 @@ bool workbook_codec_read_add_source_versions(WorkbookCodecRead *read,bool table_
    until a future complete-model adoption. Arming/feeds admit caller-retained
    bytes even though this continuation allocates no heap or parser scratch. */
 bool workbook_codec_read_add_source_bindings(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
+/* Base format properties only, once at complete unclaimed Header. Formats are
+   mandatory for writer12/13/14; v14 additionally requires complete ledger and
+   binding views. One named13-column ordered result admits32768 rows plus one
+   sentinel, <=512 per sheet, in atomic<=256 batches. Positions start0 and stay
+   contiguous within each sheet; sheets without patches need no rows. Lossless
+   scalar capture and shared format_valid validate range/mask/style properties.
+   No selector, source-aware mode, scope, guards, membership, history/revision,
+   migration, renderer or complete-format readiness is inferred/exposed.
+   Actual Header geometric capacity and old/new array coexistence are metered
+   with all retained caller input. Separately named logical format_native_bytes
+   uses max(sizeof(FormatPatch),96known64-bit) per row. V14 adds that category to
+   BOTH existing ledger archive/restored1MiB-sheet/8MiB-workbook reservations;
+   v12/13 do not acquire the new aggregate cap. These are logical categories,
+   not universal ABI, allocator/RSS or complete-model validity guarantees. */
+bool workbook_codec_read_add_format_rows(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
 /* Explicit once-only continuation after the descriptor registry completes.
    All supported versions require queries. The trusted C projection preserves
    bytes while mapping SQL NULL, >64KiB, trim-empty and NUL text to required
@@ -229,7 +246,7 @@ bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPi
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   filters/sorts/preferences/object descriptors/object and source-version counters/ledger and binding views/
+   filters/sorts/preferences/object descriptors/object and source-version counters/ledger and binding views/base format-row properties/
    queries/source options/Table sources/Pivot/Marks/columns/cells).
    It is not a complete workbook: formats, final binding adoption, historical
    migration and final model validation remain absent.
@@ -299,6 +316,13 @@ typedef struct { uint64_t version; bool locator_matched; } WorkbookCodecSourceBi
    unavailable locator; true means only equal nonempty logical locators. Neither
    status verifies a file, RAW schema/content or capability. Getter owners are
    primary0 or live Tables only; incomplete/invalid/NULL out preserves out. */
+typedef struct { FormatRange range; unsigned mask; CellFormat value; } WorkbookCodecFormatRowView;
+/* POD property copies only; specified is0. No incomplete FormatStore escapes.
+   Row order and all stored properties (including unmasked values) are preserved.
+   Count is0 when unready/invalid; row_at false preserves out. */
+bool workbook_codec_header_format_rows_ready(const WorkbookCodecHeader *header);
+size_t workbook_codec_header_format_row_count(const WorkbookCodecHeader *header,size_t sheet);
+bool workbook_codec_header_format_row_at(const WorkbookCodecHeader *header,size_t sheet,size_t index,WorkbookCodecFormatRowView *out);
 bool workbook_codec_header_source_bindings_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_source_binding(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,WorkbookCodecSourceBindingView *out);
 size_t workbook_codec_header_object_count(const WorkbookCodecHeader *header,size_t sheet);
