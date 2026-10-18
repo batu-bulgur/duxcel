@@ -85,7 +85,7 @@ typedef struct {
     SourceDigest digest;
     uint64_t document,version,analysis_revision,format_revision;
     size_t sheet,token,result_token;
-    bool ready,spare_ready,result_ready;
+    bool ready,spare_ready,result_ready,tokens_ready;
 } SourceFormatProof;
 typedef struct {
     SourceFileIdentity identity;
@@ -11981,14 +11981,26 @@ static void layout_smoke_step(App *a,int *step) {
         if (!cells_set(&s->cells,700,8,"Manual beside source",&error)) goto failed;
         worksheet_record(s,EDIT_CELLS); a->book.dirty=true; break;
     }
-    case 803:
+    case 803: {
         if (!smoke_exact_result_formats(a,0,true) || active_format(a).flags!=(FORMAT_BOLD|FORMAT_ITALIC) ||
             source_format_owner_result_token(a,0)==SIZE_MAX) goto failed;
         result_cache=a->source_format_proof.result.data; request=a->request_id;
         source_format_page(a); source_format_page(a);
         if (a->source_format_proof.result.data!=result_cache || a->request_id!=request) goto failed;
+        /* MAX is a valid terminal revision, not an invalid-cache sentinel.
+           Poison only lookup slots; retain the actual owned, verified proof
+           and require Page republication to recompute both scoped tokens. */
+        uint64_t saved_revision=s->formats.revision;
+        size_t raw_token=source_format_token(a),result_token=source_format_owner_result_token(a,0);
+        if (!raw_token || raw_token==SIZE_MAX || !result_token || result_token==SIZE_MAX) goto failed;
+        s->formats.revision=UINT64_MAX; a->source_format_proof.token=a->source_format_proof.result_token=0;
+        source_format_page(a);
+        if (source_format_token(a)!=raw_token || source_format_owner_result_token(a,0)!=result_token || !smoke_exact_result_formats(a,0,true)) goto failed;
+        s->formats.revision=saved_revision; source_format_page(a);
+        if (a->source_format_proof.result.data!=result_cache || a->request_id!=request || !smoke_exact_result_formats(a,0,true)) goto failed;
         smoke_snapshot("tests/results/workspace-layout/source-result-verified.png");
         grid_select_cell(&a->grid,0,1,false); run_action(a,ACTION_SORT_DESC); break;
+    }
     case 804:
         if (source_format_owner_result_token(a,0)!=SIZE_MAX || !smoke_exact_result_formats(a,1,true)) goto failed;
         run_action(a,ACTION_SOURCE_ORDER); break;

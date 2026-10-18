@@ -139,14 +139,14 @@ static void source_format_tick(App *a) {
 }
 static void source_format_page_owner(App *a,uint64_t id) {
     SourceFormatProof *proof=source_format_owner_proof(a,id,false); if (!proof) return;
-    SourceFormatOwner owner; proof->ready=proof->spare_ready=proof->result_ready=false;
+    SourceFormatOwner owner; proof->ready=proof->spare_ready=proof->result_ready=proof->tokens_ready=false;
     if (!source_format_owner(a,id,&owner) || !owner.ready || !proof->raw.data ||
         proof->document!=a->format_document || proof->sheet!=a->book.active || proof->version!=owner.source->source_version) return;
     const SourceVersion *entry=source_format_owner_version(a,id,proof->version);
     if (!entry || entry->raw.bytes!=proof->raw.bytes || memcmp(entry->raw.data,proof->raw.data,proof->raw.bytes) ||
         !source_version_page_verified(entry,id,proof->version,owner.source,owner.page,
             SOURCE_DIGEST_OK,&proof->digest,duckdb_library_version(),NULL)) return;
-    proof->analysis_revision=owner.revision; proof->format_revision=UINT64_MAX; proof->ready=true;
+    proof->analysis_revision=owner.revision; proof->ready=true;
     proof->spare_ready=!id && a->spare.column_count &&
         source_version_page_verified(entry,0,proof->version,owner.source,&a->spare,
             SOURCE_DIGEST_OK,&proof->digest,duckdb_library_version(),NULL);
@@ -169,10 +169,10 @@ static size_t source_format_owner_token(App *a,uint64_t owner) {
     Worksheet *sheet=active_sheet(a); if (!sheet || !sheet->formats.source_aware) return SIZE_MAX;
     if (!source_format_owner_verified(a,owner)) return SIZE_MAX;
     SourceFormatProof *proof=source_format_owner_proof(a,owner,false);
-    if (proof->format_revision!=sheet->formats.revision) {
+    if (!proof->tokens_ready || proof->format_revision!=sheet->formats.revision) {
         proof->token=format_scope_token(&sheet->formats,&(FormatScopeView){owner,proof->raw.data,proof->raw.bytes});
         proof->result_token=proof->result_ready ? format_scope_token(&sheet->formats,&(FormatScopeView){owner,proof->result.data,proof->result.bytes}) : SIZE_MAX;
-        proof->format_revision=sheet->formats.revision;
+        proof->format_revision=sheet->formats.revision; proof->tokens_ready=true;
     }
     return proof->token;
 }
