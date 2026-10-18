@@ -1,0 +1,6 @@
+Error: Trusted main canvas navigation selected the wrong C origin/extent: {"active":"1,0","anchor":"1,0","extent":"1,0"}
+    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:101:56)
+    at selected (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:933:94)
+    at feedbackNavigation (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:939:96)
+    at async browserFeedbackReview (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:954:486)
+    at async file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:1912:24

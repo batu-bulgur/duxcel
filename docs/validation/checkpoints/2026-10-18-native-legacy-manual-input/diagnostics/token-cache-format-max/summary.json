@@ -1,0 +1,100 @@
+{
+  "status": "failed",
+  "started_utc": "2026-10-18T02:32:16.200561+00:00",
+  "tier": "affected",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": false,
+  "edit": true,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "0b8cdbcf807bfa5cb382515ffaa679b3b6317a14",
+    "status": "M src/app/app.c\n?? tools/ui-review/",
+    "source_sha256": "892c7ab9cb804ab496c62c30b071e941c77f285483c9363eb7664fbd8d956ba8",
+    "source_files": 267
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_source_scope-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T023216-affected-89443/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.54
+    },
+    {
+      "name": "source_scope-sanitize",
+      "command": [
+        "./tests/test_source_scope-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T023216-affected-89443/source_scope-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.21
+    },
+    {
+      "name": "build-integration",
+      "command": [
+        "make",
+        "build/edit-sanitize/duxcel",
+        "tests/test_background-native-debug",
+        "design-fixture"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T023216-affected-89443/build-integration.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 7.725
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T023216-affected-89443/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.887
+    },
+    {
+      "name": "layout-source-result-format",
+      "command": [
+        "./build/edit-sanitize/duxcel",
+        "--layout-smoke",
+        "--frames",
+        "1632",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T023216-affected-89443/final.png"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T023216-affected-89443/layout-source-result-format.txt",
+      "expected_stages": 24,
+      "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[800,824\\)$",
+      "exit_code": 1,
+      "status": "failed",
+      "error": "Process exited with status 1",
+      "seconds": 3.234
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "fb6436f85acf4414f03b65831d3af84fa79a7575fcef81c3a0f3f30df8494b70",
+    "/Users/h2o/dev/duxcel/build/edit-sanitize/duxcel": "d6c634075ad32212be2a2cc21a2c2e9d7bea5dbb62808ee91ba114e5c284f086",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "app_config": "edit-sanitize",
+  "app_optimization": "-O0",
+  "elapsed_seconds": 12.649,
+  "error": "Process exited with status 1",
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "fb6436f85acf4414f03b65831d3af84fa79a7575fcef81c3a0f3f30df8494b70",
+    "/Users/h2o/dev/duxcel/build/edit-sanitize/duxcel": "d6c634075ad32212be2a2cc21a2c2e9d7bea5dbb62808ee91ba114e5c284f086",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "finished_utc": "2026-10-18T02:32:28.983115+00:00"
+}

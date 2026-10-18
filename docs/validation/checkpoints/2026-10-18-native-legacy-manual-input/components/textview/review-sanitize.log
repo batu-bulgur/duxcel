@@ -1,0 +1,1 @@
+PASS: 2140 text-editor checks (actual module; blocked press/wheel/drag/thumb, enabled UTF8 gestures, clipped selection/caret and parent restoration; no GPU/OS)
