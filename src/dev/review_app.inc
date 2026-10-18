@@ -449,6 +449,12 @@ static void review_sql_inspector_state(App *a) {
     if (!review_armed(a) || !a->pipeline || a->pipeline_collapsed || !a->pipeline_sql || !a->workspace.valid || a->ribbon_mode==3 || !a->pipeline_layout.valid) return;
     const UIInspectorLayout *layout=&a->pipeline_layout;
     char state[512];
+    /* The owned cache survives a zero-height code viewport. Emit it once
+       after paint, retaining the visible widget's modal/File-menu gate. */
+    if (a->modal==MODAL_NONE && !a->file_menu) {
+        snprintf(state,sizeof(state)," feedback_sql_cache=%llu,%llu,%zu,%llu,%llu feedback_sql_layout=%.6f,%zu,%d",(unsigned long long)a->inspector_sql_id,(unsigned long long)a->inspector_sql_revision,a->inspector_sql_sheet,(unsigned long long)a->inspector_sql_generation,(unsigned long long)a->inspector_sql_steps_key,a->inspector_sql_scroll,a->inspector_sql_lines.count,a->inspector_sql_lines.limited);
+        review_author_capture_state(a,state);
+    }
     snprintf(state,sizeof(state)," feedback_sql_scroll=%.6f,%.6f,%.6f,%.6f,%zu,%d,%d",a->inspector_sql_scroll,layout->inner_max,layout->outer_offset,layout->outer_max,a->inspector_sql_lines.count,a->inspector_sql_lines.limited,layout->inner_scrollable);
     review_author_capture_state(a,state);
     const struct { const char *name; Rectangle bounds; } rectangles[]={
@@ -775,9 +781,7 @@ static void review_feedback_metadata(App *a,const DxReviewWidget *widget) {
         snprintf(state,sizeof(state)," label_preview_key_hex=%s label_preview_title_hex=%s label_preview_cut=%d,%d",key,title,key_cut,title_cut || widget->value.truncated); review_author_capture_state(a,state);
     }
 #endif
-    if (!strcmp(id,"pane.transformations.sql") && a->modal==MODAL_NONE) {
-        snprintf(state,sizeof(state)," feedback_sql_cache=%llu,%llu,%zu,%llu,%llu feedback_sql_layout=%.6f,%zu,%d",(unsigned long long)a->inspector_sql_id,(unsigned long long)a->inspector_sql_revision,a->inspector_sql_sheet,(unsigned long long)a->inspector_sql_generation,(unsigned long long)a->inspector_sql_steps_key,a->inspector_sql_scroll,a->inspector_sql_lines.count,a->inspector_sql_lines.limited); review_author_capture_state(a,state);
-    } else if (!strcmp(id,"status.metrics") && a->modal==MODAL_NONE && !a->file_menu) {
+    if (!strcmp(id,"status.metrics") && a->modal==MODAL_NONE && !a->file_menu) {
         const StatsKey *key=&a->statistics_key;
         snprintf(state,sizeof(state)," feedback_stats_key=%llu,%llu,%zu,%zu,%llu,%llu,%llu,%llu,%zu,%zu,%d,%d feedback_stats_state=%d,%d,%d,%llu",(unsigned long long)key->r0,(unsigned long long)key->r1,key->c0,key->c1,(unsigned long long)key->source_revision,(unsigned long long)key->cell_revision,(unsigned long long)key->objects,(unsigned long long)key->total,key->sheet,key->columns,key->count_pending,key->active,a->statistics_state,a->statistics_object,a->statistics_frame,(unsigned long long)a->statistics_request); review_author_capture_state(a,state);
     } else if (!strcmp(id,"filter.values.status")) {
