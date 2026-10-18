@@ -703,18 +703,19 @@ static void copy_values(CopyCase kind) {
     }
 }
 typedef enum { OTHER_WEIGHTED,OTHER_CACHED,OTHER_VARIANTS,OTHER_COLUMNS,OTHER_DATE,OTHER_OFFSET,OTHER_SMALL,OTHER_ADDITIVE,
-    OTHER_LIMIT,OTHER_COMPLEX,OTHER_UNKNOWN_COLUMN,OTHER_NUL_ROW,OTHER_NUL_COLUMN,OTHER_INVALID_FLAG,OTHER_TABLE_FLAG,OTHER_UNBOUND,OTHER_NO_TOTALS,OTHER_CASES } OtherCase;
+    OTHER_LIMIT,OTHER_COMPLEX,OTHER_UNKNOWN_COLUMN,OTHER_NUL_ROW,OTHER_NUL_COLUMN,OTHER_INVALID_FLAG,OTHER_TABLE_FLAG,OTHER_UNBOUND,OTHER_NO_TOTALS,OTHER_NATIVE_STAMP,OTHER_STAMP_RECOVERY,OTHER_CASES } OtherCase;
 static OtherCase other_case;
-static const unsigned other_sql_counts[OTHER_CASES]={5,3,6,7,8,5,3,3,4,4,6,2,1,0,0,0,4};
+static const unsigned other_sql_counts[OTHER_CASES]={5,3,6,7,8,5,3,3,4,4,6,2,1,0,0,0,4,0,3};
+static unsigned other_stamp_host_requests;
 static const char other_weighted_sql[]="SELECT * FROM (VALUES ('A',100,100,'a'),('B',90,100,'b'),('C',80,100,'c'),('D',2,0,'x'),('E',1,10,'x'),('E',1,10,'y'),('E',1,10,'z')) t(r,rank,v,customer)";
 static const char other_columns_sql[]="SELECT r,c,rank,v,customer FROM (VALUES ('A',100,100,'a'),('B',90,100,'b'),('C',80,100,'c'),(NULL,1,NULL,NULL),('',1,NULL,''),('NULL',1,NULL,'NULL'),('O''İ',1,NULL,'')) t(r,rank,v,customer) CROSS JOIN (VALUES (NULL::VARCHAR),(''),('NULL'),('q''\"İ')) categories(c)";
 static const char other_date_sql[]="SELECT make_date(2020+i::INTEGER,1,1) AS occurred,10-i AS rank,(10-i)::DECIMAL(38,4) AS v FROM range(5) t(i)";
 static const char other_offset_sql[]="SELECT i AS r,1000000-i AS rank,i::DOUBLE AS v,CASE WHEN i<300 THEN 'outside' ELSE 'loaded-'||(i%3)::VARCHAR END AS customer FROM range(600) t(i)";
-static bool other_case_error(OtherCase kind) { return kind>=OTHER_NUL_ROW && kind<=OTHER_UNBOUND; }
+static bool other_case_error(OtherCase kind) { return (kind>=OTHER_NUL_ROW && kind<=OTHER_UNBOUND) || kind==OTHER_NATIVE_STAMP; }
 static QueryJob *other_job(OtherCase kind) {
     QueryJob *job=dx_alloc(sizeof(*job)); job->kind=expected_kind=JOB_PIVOT; job->include_chart_other=true;
     job->id=expected_id=next_id; next_id+=4; job->object_id=object_id; job->revision=revision_id;
-    job->known_total=5; job->include_totals=kind!=OTHER_NO_TOTALS; job->refresh_source=kind!=OTHER_CACHED;
+    job->known_total=5; job->include_totals=kind!=OTHER_NO_TOTALS; job->refresh_source=kind!=OTHER_CACHED && kind!=OTHER_STAMP_RECOVERY;
     expected_preview=false; expected_offset=0;
     const char *sql=other_weighted_sql;
     if (kind==OTHER_COLUMNS) { sql=other_columns_sql; job->known_total=7; }
@@ -735,14 +736,19 @@ static QueryJob *other_job(OtherCase kind) {
     } else if (kind==OTHER_COLUMNS || kind==OTHER_UNKNOWN_COLUMN || kind==OTHER_NUL_COLUMN) CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,"c",AGG_SUM,NULL));
     if (kind!=OTHER_VARIANTS) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"rank",AGG_SUM,NULL));
     if (kind!=OTHER_ADDITIVE) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"v",AGG_AVG,NULL));
-    if (kind==OTHER_WEIGHTED || kind==OTHER_CACHED || kind==OTHER_VARIANTS || kind==OTHER_COLUMNS || kind==OTHER_OFFSET || kind==OTHER_NO_TOTALS)
+    if (kind==OTHER_WEIGHTED || kind==OTHER_CACHED || kind==OTHER_VARIANTS || kind==OTHER_COLUMNS || kind==OTHER_OFFSET || kind==OTHER_NO_TOTALS || kind==OTHER_NATIVE_STAMP || kind==OTHER_STAMP_RECOVERY)
         CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"customer",AGG_DISTINCT,NULL));
     if (kind==OTHER_INVALID_FLAG) job->kind=expected_kind=JOB_PAGE;
     if (kind==OTHER_TABLE_FLAG) job->is_table=true;
+    if (kind==OTHER_NATIVE_STAMP) job->expected_source_stamp=UINT64_MAX;
     if (kind==OTHER_UNBOUND) { analysis_free(&job->analysis); job->analysis=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup("missing-Other-binding.csv")}; }
     return job;
 }
-static void submit_other(OtherCase kind) { CHECK(!reply); QueryJob *job=other_job(kind); expected_sql+=other_sql_counts[kind]; worker_submit(&worker,job); }
+static void submit_other(OtherCase kind) {
+    CHECK(!reply); QueryJob *job=other_job(kind);
+    if (kind==OTHER_NATIVE_STAMP) { CHECK(remember_verification_boundary()); other_stamp_host_requests=observed_host_requests(); }
+    expected_sql+=other_sql_counts[kind]; worker_submit(&worker,job);
+}
 static void other_number(const Page *page,size_t column,double number) {
     CHECK(page && column<page->column_count && !page->cells[column].is_null && fabs(page->cells[column].number-number)<1e-9);
 }
@@ -756,6 +762,10 @@ static void other_values(OtherCase kind) {
     Page *page=&reply->page;
     if (other_case_error(kind)) {
         CHECK(reply->error && !page->cells && !page->columns && !page->other && !page->other_status);
+        if (kind==OTHER_NATIVE_STAMP) {
+            CHECK(strstr(reply->error,"Native source stamps") && verification_boundary_unchanged());
+            CHECK(observed_host_requests()==other_stamp_host_requests);
+        }
         return;
     }
     CHECK(!reply->error && !page->count_pending && page->sql && (page->totals!=NULL)==(kind!=OTHER_NO_TOTALS));
@@ -763,7 +773,7 @@ static void other_values(OtherCase kind) {
     if (kind==OTHER_LIMIT) { CHECK(page->other_status==PAGE_OTHER_LIMIT && !page->other && page->row_count==4); return; }
     if (kind==OTHER_COMPLEX) { CHECK(page->other_status==PAGE_OTHER_UNSUPPORTED_KEY && !page->other && !strcmp(page->columns[0].type_name,"BIGINT[]")); return; }
     if (kind==OTHER_UNKNOWN_COLUMN) { CHECK(page->other_status==PAGE_OTHER_UNSUPPORTED_KEY && !page->other && page->column_count==5 && page->columns[0].type==DUCKDB_TYPE_BIGINT); return; }
-    if (kind==OTHER_WEIGHTED || kind==OTHER_CACHED || kind==OTHER_NO_TOTALS) other_weighted_values(page);
+    if (kind==OTHER_WEIGHTED || kind==OTHER_CACHED || kind==OTHER_NO_TOTALS || kind==OTHER_STAMP_RECOVERY) other_weighted_values(page);
     else if (kind==OTHER_VARIANTS) {
         CHECK(page->other_status==PAGE_OTHER_READY && page->other && page->other->variant_count==2 && page->other->rank_measure[0]==0 && page->other->rank_measure[1]==1);
         const Page *average=page_other_values(page,0),*distinct=page_other_values(page,1); CHECK(average && distinct && average!=distinct);
@@ -1967,12 +1977,12 @@ static void tick(void) {
     case QUIET_OTHER_STOP:
         quiet(); if (emscripten_get_now()-entered<150) return;
         CHECK(late_callbacks==6 && !worker.started && !worker.running && !worker.reply);
-        CHECK(worker.jobs_started==22 && expected_sql==85 && expected_counts==0);
+        CHECK(worker.jobs_started==24 && expected_sql==88 && expected_counts==0);
         other_weighted_values(&other_retained); other_weighted_values(&other_bound_retained); page_free(&other_retained); page_free(&other_bound_retained);
         pass("fifth Worker teardown frees staged/readout caches and retained independent Pages without late publication");
-        CHECK(stages==245 && baseline_jobs+export_jobs+verification_jobs+binding_jobs+worker.jobs_started==247);
-        CHECK(baseline_sql+export_sql+verification_sql+binding_sql+worker.sql_executed==526 && observed_host_requests()==526);
-        printf("Browser Other workloads: {\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"stages\":24,\"source_drop_rejections\":1,\"sequential_workers\":5,\"total_jobs\":247,\"total_sql\":526,\"total_counts\":21}\n",worker.jobs_started,worker.sql_executed,worker.counts_executed);
+        CHECK(stages==247 && baseline_jobs+export_jobs+verification_jobs+binding_jobs+worker.jobs_started==249);
+        CHECK(baseline_sql+export_sql+verification_sql+binding_sql+worker.sql_executed==529 && observed_host_requests()==529);
+        printf("Browser Other workloads: {\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"stages\":26,\"native_stamp_rejections\":1,\"source_drop_rejections\":1,\"sequential_workers\":5,\"total_jobs\":249,\"total_sql\":529,\"total_counts\":21}\n",worker.jobs_started,worker.sql_executed,worker.counts_executed);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,baseline_sql+export_sql+verification_sql+binding_sql+worker.sql_executed,baseline_counts+export_counts+verification_counts+binding_counts+worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
