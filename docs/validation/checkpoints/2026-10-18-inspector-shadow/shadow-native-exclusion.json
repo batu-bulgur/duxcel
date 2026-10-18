@@ -1,0 +1,69 @@
+{
+  "build_contract": {
+    "scope": "default Make graph across platform branches; no recipes executed",
+    "shipping_sources": 54,
+    "review_sources": 58,
+    "objects": {
+      "release": 54,
+      "sanitize": 54,
+      "review": 58,
+      "review-sanitize": 58
+    }
+  },
+  "binary_absence_checked": true,
+  "shipping": {
+    "path": "/Users/h2o/dev/duxcel/duxcel",
+    "bytes": 1326136,
+    "sha256": "84d5a8c772a87fc076398d465401030bd5ab830cff838f8aca4d8c51eed8981a",
+    "symbols": [],
+    "markers": [],
+    "test_markers": [],
+    "review_source_paths": false
+  },
+  "review": {
+    "path": "/Users/h2o/dev/duxcel/build/review/duxcel-review",
+    "bytes": 1678880,
+    "sha256": "e11507baa0980ee62b4fa6b7ac14797ec6e327b6f351a90d4bf9539b71da0ecd",
+    "symbols": [
+      "dx_review_add",
+      "dx_review_begin",
+      "dx_review_capture_begin",
+      "dx_review_capture_cancel",
+      "dx_review_capture_create",
+      "dx_review_capture_destroy",
+      "dx_review_capture_draw",
+      "dx_review_capture_event",
+      "dx_review_capture_layout",
+      "dx_review_capture_pixels",
+      "dx_review_capture_request",
+      "dx_review_capture_save",
+      "dx_review_find",
+      "dx_review_input_blocked",
+      "dx_review_input_quarantine",
+      "dx_review_json",
+      "dx_review_json_alloc",
+      "dx_review_parent",
+      "dx_review_pick",
+      "dx_review_region",
+      "dx_review_seal",
+      "dx_review_status_text",
+      "dx_review_store_default_root",
+      "dx_review_store_write",
+      "dx_review_take_native_request",
+      "dx_review_target_stale",
+      "dx_review_value_set",
+      "dx_review_widget_init",
+      "ui_review_discard_input",
+      "ui_review_restore_focus"
+    ],
+    "markers": [
+      "--review-smoke",
+      "DUXCEL_REVIEW_OUTBOX",
+      "duxcel.native-review",
+      "Report UI issue"
+    ],
+    "test_markers": [],
+    "review_source_paths": true
+  },
+  "scope": "linked symbols and feature strings; no app execution or native behavior claim"
+}

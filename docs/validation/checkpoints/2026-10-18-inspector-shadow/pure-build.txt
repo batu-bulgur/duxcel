@@ -1,0 +1,3 @@
+Command: ["make", "tests/test_shadowview", "tests/test_shadowview-debug"]
+clang -Isrc -I/opt/homebrew/include -I/opt/homebrew/Cellar/raylib/6.0/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic src/ui/shadowview.c tests/test_shadowview.c -o tests/test_shadowview -lm
+clang -Isrc -I/opt/homebrew/include -I/opt/homebrew/Cellar/raylib/6.0/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer src/ui/shadowview.c tests/test_shadowview.c -o tests/test_shadowview-debug -lm -fsanitize=address,undefined -fno-omit-frame-pointer

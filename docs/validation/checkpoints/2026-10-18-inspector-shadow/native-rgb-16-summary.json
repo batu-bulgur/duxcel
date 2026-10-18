@@ -1,0 +1,84 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T05:17:34.545977+00:00",
+  "tier": "affected",
+  "config": "release",
+  "jobs": 1,
+  "no_build": true,
+  "edit": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel",
+  "source": {
+    "commit": "2b0d50cea72b2af9c28c658caf6dbfad96d29b5d",
+    "status": "",
+    "source_sha256": "e4e1ca919bb130dd8fab3fb1b78ff6ff7cd92720070ae7a7807926dff9f6382f",
+    "source_files": 273
+  },
+  "results": [
+    {
+      "name": "inspector-release",
+      "command": [
+        "./tests/test_inspector"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/results/runs/20261018T051734-affected-45931/inspector-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.006
+    },
+    {
+      "name": "shadowview-release",
+      "command": [
+        "./tests/test_shadowview"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/results/runs/20261018T051734-affected-45931/shadowview-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.012
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/results/runs/20261018T051734-affected-45931/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.223
+    },
+    {
+      "name": "layout-inspector-scroll",
+      "command": [
+        "./duxcel",
+        "--layout-smoke",
+        "--frames",
+        "1248",
+        "--screenshot",
+        "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/results/runs/20261018T051734-affected-45931/final.png"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/results/runs/20261018T051734-affected-45931/layout-inspector-scroll.txt",
+      "expected_stages": 16,
+      "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[882,898\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 8.32
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/test_inspector": "f0ae53c9e254af8d2eb255aae5fe58b660bc513da7d5375a3889e28be1f80558",
+    "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/test_shadowview": "544525cd5a482664c673cde09cd55b79a95ce170c1a7bb9b5fa333216e2bfbb1",
+    "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/duxcel": "26de358b0f156c9c2080b312362dbdefe3f1e4456abf75580ad62539797e8214",
+    "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/test_background-native-debug": "20ea5db9104d76cfb972556cb0261276bcfa2693445ee10e4442336825f74f20"
+  },
+  "app_config": "release",
+  "elapsed_seconds": 9.677,
+  "binaries_after": {
+    "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/test_inspector": "f0ae53c9e254af8d2eb255aae5fe58b660bc513da7d5375a3889e28be1f80558",
+    "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/test_shadowview": "544525cd5a482664c673cde09cd55b79a95ce170c1a7bb9b5fa333216e2bfbb1",
+    "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/duxcel": "26de358b0f156c9c2080b312362dbdefe3f1e4456abf75580ad62539797e8214",
+    "/Users/h2o/.codex/worktrees/duxcel-steps-outer-scroll/duxcel/tests/test_background-native-debug": "20ea5db9104d76cfb972556cb0261276bcfa2693445ee10e4442336825f74f20"
+  },
+  "finished_utc": "2026-10-18T05:17:44.346096+00:00"
+}
