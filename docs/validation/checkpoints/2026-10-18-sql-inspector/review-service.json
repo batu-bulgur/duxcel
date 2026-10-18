@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "url": "http://127.0.0.1:8767/",
+  "pid": 59743,
+  "artifact": "/Users/h2o/dev/duxcel/build/web/review/5d4dfb7f3121c1f9dc87",
+  "source": {
+    "commit": "f2546550a0ba587f67e0b800a972af0532a2794a",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "c34abb3040168d0b77fb201ffdd580c75bda62e92fb655dbddff595ef1414ebb",
+    "source_files": 278
+  },
+  "wrapper_source": {
+    "commit": "5d5fa282303468c61357fdcbe053ca09af5e71b6",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "bdd2492f58e801df5875f0a86ed882c8ae31422324770177bdeeb9b56423194c",
+    "source_files": 278
+  },
+  "signature": "5d4dfb7f3121c1f9dc877796ea98b6a530022608618cdaaf623f3f0488f7e5c1",
+  "queue_project": "duxcel-c368c516acb3d456",
+  "queue_report_count_before": 0,
+  "queue_report_count_after": 0,
+  "queue_report_ids_retained": true,
+  "agent": "codex",
+  "browser_reloaded": false,
+  "native_launched": false,
+  "accepted_browser_runs": [
+    "20261018T055417-browser-58575",
+    "20261018T055858-browser-59551"
+  ],
+  "scope": "Exact bounded SQL inspector geometry and canonical fractional inner/outer scrolling; real thumb Home/End, mount/cache lifetimes, complete caption visuals; persistent queue retained, no new report-delivery acceptance",
+  "seconds": 0.687
+}

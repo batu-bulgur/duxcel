@@ -1,0 +1,109 @@
+{
+  "scope": "Bounded original failure identities; no softened assertion or pixel tolerance. Candidate captions remain separate.",
+  "runs": [
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-inspector-sql-browser/duxcel/tests/results/runs/20261018T053310-browser-50010",
+      "classification": "actual old-product intrinsic Copy control geometry",
+      "status": "failed",
+      "source": {
+        "commit": "1775f60b9ebf3c0482a4f0585f3afe4483de2642",
+        "status": "",
+        "source_sha256": "422da84ee916c9603cccced70f221230e0ed497086d35f13c213cdb0d805b57f",
+        "source_files": 273
+      },
+      "product_source": {
+        "commit": "d67c2b934493644e22a4c58a9d4055581ae576c8",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "3b2aa17c40841e16689620fc3810266ee2a1a516b1911ad9e48f800687ef3dca",
+        "source_files": 276
+      },
+      "artifact_signature": "05be1534206e4b0b8207dc3a894a781ae7e3ee421b67ef3989589968af81c9af",
+      "artifact_wasm_sha256": "51f76d1184e0d89d11a046258d366a0e1209cd2df25886fce291b060ca815519",
+      "checks_before_failure": 421,
+      "driver_seconds": 19.038,
+      "browser_seconds": 21.478,
+      "total_seconds": 21.734,
+      "error": "Error: Actual SQL Copy control differs from the frozen intrinsic footer geometry",
+      "source_unchanged": true,
+      "artifacts_unchanged": true
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T053401-browser-50128",
+      "classification": "actual scaled-workspace geometry precision witness; not a visible pixel-jitter claim",
+      "status": "failed",
+      "source": {
+        "commit": "b50ece207286ca31cb6b098faa95a4fb0737b356",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "47cd1551a13b2196e2b11c51b9806f3cc00ab738fecbed7fba3f927fd9476cd4",
+        "source_files": 276
+      },
+      "product_source": {
+        "commit": "e3ad8d97525ae244aff8e631154138498f536d88",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "59dc96210f79a787070b6bb286c42e0d7766c6cdca5f04618d45b063715c1224",
+        "source_files": 276
+      },
+      "artifact_signature": "b500457529d871fae8f062f0defaa2ead74d5c78a805ec08aa72e154752bf4e2",
+      "artifact_wasm_sha256": "cebb114ea8edd33c914df8c2e5883eed49c9531b3fb2832014ddb538a0667dcf",
+      "checks_before_failure": 1210,
+      "driver_seconds": 40.917,
+      "browser_seconds": 43.408,
+      "total_seconds": 43.7,
+      "error": "Error: Actual SQL narrow-150/sql-default header differs from frozen DOM: {\"actual\":[130.999985,139,509,52.5],\"expected\":[131,139,509,52.5]}",
+      "source_unchanged": true,
+      "artifacts_unchanged": true
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T053834-browser-52254",
+      "classification": "review observability:owned SQL cache metadata omitted when code viewport has zero height",
+      "status": "failed",
+      "source": {
+        "commit": "51df4a8584fdfad2faf7dc69f0ea5506c5f93bd9",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "04c6fa993ad492f5e55b9dd71131e04df2e617688381b0237910b34a62e3c9af",
+        "source_files": 276
+      },
+      "product_source": {
+        "commit": "51df4a8584fdfad2faf7dc69f0ea5506c5f93bd9",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "04c6fa993ad492f5e55b9dd71131e04df2e617688381b0237910b34a62e3c9af",
+        "source_files": 276
+      },
+      "artifact_signature": "31abb97b178dba0d8cefb2f957d8a0dce3af4027a5af2ac12b21c39448d99277",
+      "artifact_wasm_sha256": "e46703facf19ca4fd3fd63d2947294f017b2edb15128da5956d66628d64124f8",
+      "checks_before_failure": 1518,
+      "driver_seconds": 48.498,
+      "browser_seconds": 50.975,
+      "total_seconds": 51.276,
+      "error": "Error: narrow-short-150 fresh SQL changed its actual primary SQL cache identity",
+      "source_unchanged": true,
+      "artifacts_unchanged": true
+    },
+    {
+      "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054130-browser-54319",
+      "classification": "actual canonical scroll-range drift from re-forming range as(content-viewport)",
+      "status": "failed",
+      "source": {
+        "commit": "7df13bb4f23e318526c30227b17b415797d1f81c",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "3cb64d55f289ebebad5f843a02b1afc0552520f8fa6a6b8ca8ab44d59a055166",
+        "source_files": 276
+      },
+      "product_source": {
+        "commit": "7df13bb4f23e318526c30227b17b415797d1f81c",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "3cb64d55f289ebebad5f843a02b1afc0552520f8fa6a6b8ca8ab44d59a055166",
+        "source_files": 276
+      },
+      "artifact_signature": "dd8ac349ec7a38ad26fb9eebad8c4e6dba6c7d2da612fe4c38db1abe0c8d806f",
+      "artifact_wasm_sha256": "f028009ccec661d749054b3588212764089db8bacfec6456cd661e424c7a9047",
+      "checks_before_failure": 1582,
+      "driver_seconds": 50.816,
+      "browser_seconds": 53.262,
+      "total_seconds": 53.54,
+      "error": "Error: Actual SQL outer boundary differs from frozen fractional extent",
+      "source_unchanged": true,
+      "artifacts_unchanged": true
+    }
+  ]
+}

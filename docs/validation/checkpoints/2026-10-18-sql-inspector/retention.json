@@ -1,0 +1,334 @@
+{
+  "status": "accepted bounded SQL inspector; remaining physical/full parity and corner scopes explicit",
+  "methods": [
+    {
+      "file": "browser-untransformed-summary.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/summary.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/result.json"
+      ]
+    },
+    {
+      "file": "browser-untransformed-measurements.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/inspector-sql.json"
+      ]
+    },
+    {
+      "file": "browser-untransformed-driver.txt",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/driver.txt"
+      ]
+    },
+    {
+      "file": "inspector-sql-wide-100-first.png",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/inspector-sql-wide-100-first.png"
+      ]
+    },
+    {
+      "file": "inspector-sql-narrow-150-first.png",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/inspector-sql-narrow-150-first.png"
+      ]
+    },
+    {
+      "file": "inspector-sql-narrow-150-scrolled-code-picker.png",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/inspector-sql-narrow-150-scrolled-code-picker.png"
+      ]
+    },
+    {
+      "file": "inspector-sql-narrow-short-150-first.png",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/inspector-sql-narrow-short-150-first.png"
+      ]
+    },
+    {
+      "file": "native-review-release-excerpt.txt",
+      "method": "selected startup/new-quarantine/closure/completion log lines",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054907-review-56371/release.log"
+      ]
+    },
+    {
+      "file": "native-review-sanitize-excerpt.txt",
+      "method": "selected startup/new-quarantine/closure/completion log lines",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054907-review-56371/sanitize.log"
+      ]
+    },
+    {
+      "file": "native-review-summary.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054907-review-56371/summary.json"
+      ]
+    },
+    {
+      "file": "native-affected-sanitize-summary.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055646-affected-58982/summary.json"
+      ]
+    },
+    {
+      "file": "pure-inspector-release-sanitize-run.txt",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054957-affected-56687/inspector-release.txt"
+      ]
+    },
+    {
+      "file": "pure-inspector-sanitize-sanitize-run.txt",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054957-affected-56687/inspector-sanitize.txt"
+      ]
+    },
+    {
+      "file": "native-sql-sanitize-excerpt.txt",
+      "method": "selected strict completion and focused behavior lines",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055646-affected-58982/layout-inspector-sql.txt"
+      ]
+    },
+    {
+      "file": "native-affected-release-summary.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055630-affected-58983/summary.json"
+      ]
+    },
+    {
+      "file": "pure-inspector-release-release-run.txt",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055026-affected-56819/inspector-release.txt"
+      ]
+    },
+    {
+      "file": "native-sql-release-excerpt.txt",
+      "method": "selected strict completion and focused behavior lines",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055630-affected-58983/layout-inspector-sql.txt"
+      ]
+    },
+    {
+      "file": "native-quarantine-natural-red-excerpt.txt",
+      "method": "exact selected failure lines",
+      "originals": [
+        "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T054312-review-54923/sanitize.log"
+      ]
+    },
+    {
+      "file": "native-quarantine-natural-red.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T054312-review-54923/summary.json",
+        "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T054312-review-54923/sanitize.log"
+      ]
+    },
+    {
+      "file": "browser-natural-failures.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/.codex/worktrees/duxcel-inspector-sql-browser/duxcel/tests/results/runs/20261018T053310-browser-50010/summary.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T053401-browser-50128/summary.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T053834-browser-52254/summary.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054130-browser-54319/summary.json",
+        "/Users/h2o/.codex/worktrees/duxcel-inspector-sql-browser/duxcel/tests/results/runs/20261018T053310-browser-50010/result.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T053401-browser-50128/result.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T053834-browser-52254/result.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054130-browser-54319/result.json"
+      ]
+    },
+    {
+      "file": "native-production-exclusion.json",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/sql-final-native-exclusion.json"
+      ]
+    },
+    {
+      "file": "native-sanitize-production-exclusion.json",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/sql-final-native-sanitize-exclusion.json"
+      ]
+    },
+    {
+      "file": "originals.json",
+      "method": "original path/size/SHA256 inventory",
+      "originals": []
+    },
+    {
+      "file": "pure-fresh-summary.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055321-fast-58005/summary.json"
+      ]
+    },
+    {
+      "file": "pure-fresh-inspector-release.txt",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055321-fast-58005/inspector-release.txt"
+      ]
+    },
+    {
+      "file": "pure-fresh-inspector-sanitize.txt",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055321-fast-58005/inspector-sanitize.txt"
+      ]
+    },
+    {
+      "file": "caption-cpu-manifest.json",
+      "method": "exact byte copy",
+      "originals": [
+        "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-sql-caption-uavp4u9y/manifest.json"
+      ]
+    },
+    {
+      "file": "caption-cpu-metrics.txt",
+      "method": "exact byte copy",
+      "originals": [
+        "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-sql-caption-uavp4u9y/metrics.txt"
+      ]
+    },
+    {
+      "file": "caption-cpu-proof.c",
+      "method": "exact byte copy",
+      "originals": [
+        "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-sql-caption-uavp4u9y/caption.c"
+      ]
+    },
+    {
+      "file": "browser-untransformed-initial-summary.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054439-browser-55802/summary.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054439-browser-55802/result.json"
+      ]
+    },
+    {
+      "file": "wasm-production-exclusion.json",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/sql-final-web-exclusion.json"
+      ]
+    },
+    {
+      "file": "native-affected-initial-release-summary.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055026-affected-56819/summary.json"
+      ]
+    },
+    {
+      "file": "native-affected-initial-sanitize-summary.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054957-affected-56687/summary.json"
+      ]
+    },
+    {
+      "file": "current-ui-package.json",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/sql-ui-package.json"
+      ]
+    },
+    {
+      "file": "native-package.txt",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/sql-ui-package.txt"
+      ]
+    },
+    {
+      "file": "browser-transformed-summary.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055858-browser-59551/summary.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055858-browser-59551/result.json"
+      ]
+    },
+    {
+      "file": "browser-transformed-measurements.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055858-browser-59551/inspector-sql.json"
+      ]
+    },
+    {
+      "file": "browser-wheel-transport.json",
+      "method": "bounded JSON extraction",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055858-browser-59551/inspector-sql-wheel-1.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055530-browser-58825/summary.json",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055530-browser-58825/result.json"
+      ]
+    },
+    {
+      "file": "browser-wheel-transport-source.txt",
+      "method": "exact selected lines1381–1385 and1400–1405 of runner5d5fa28",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tools/test_web_app.mjs"
+      ]
+    },
+    {
+      "file": "browser-transformed-driver.txt",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055858-browser-59551/driver.txt"
+      ]
+    },
+    {
+      "file": "review-service.json",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/sql-review-service.json"
+      ]
+    },
+    {
+      "file": "review-service-retention.json",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/sql-review-service-retention.json"
+      ]
+    },
+    {
+      "file": "review-service-ports.txt",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/sql-review-service-ports.txt"
+      ]
+    },
+    {
+      "file": "current-ui-package-postvalidation.json",
+      "method": "exact byte copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/current-ui-package.json"
+      ]
+    }
+  ],
+  "excluded": [
+    "databases",
+    "source datasets",
+    "full Worker event streams",
+    "complete clipboard/SQL payloads",
+    "report images/sidecars/outboxes",
+    "credentials/authentication state"
+  ],
+  "reference_provider": "../2026-10-18-sql-inspector-reference/provider.json",
+  "source_scope": "Final productf254655; untransformed runnerd36525d/transformed runner5d5fa28; review400 remains2bbf0d6. Earlier and negative runs retain individual scopes."
+}

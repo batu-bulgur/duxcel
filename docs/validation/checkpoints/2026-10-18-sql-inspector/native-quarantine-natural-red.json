@@ -1,0 +1,46 @@
+{
+  "original": "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T054312-review-54923",
+  "status": "failed",
+  "source": {
+    "commit": "071151c5c98b123148e08a963fae9b2a332d3319",
+    "status": "",
+    "source_sha256": "acef36d6beaa04916405a1f964278f1cfb74c7ba2e1c0ab06fd70beab3b12673",
+    "source_files": 273
+  },
+  "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual",
+  "assertion": "stage372 case0, actual Steps outer offset3 versus retained0 at PICK; old App has no pixel-pan quarantine guard",
+  "log_excerpt": "native-quarantine-natural-red-excerpt.txt",
+  "classification": "actual old-product input quarantine defect",
+  "earlier_fixture_failures": [
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T053938-review-52908",
+      "status": "failed",
+      "source": {
+        "commit": "421d7d013f5b02028dcc7ba3d6efd59c2ddd1bdf",
+        "status": "",
+        "source_sha256": "376cd5edb6c8f5ee89dc02a76152ec2e1a86b66121b118d30ac9d3312adfab8e",
+        "source_files": 273
+      },
+      "classification": "missing core-generated fixture",
+      "witness": [
+        "FAIL: relation review requires the core-generated tests/generated/fixture.duckdb",
+        "FAIL: native review stage=212 phase=0 target=author.source_query.action.apply error="
+      ]
+    },
+    {
+      "original": "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T054045-review-53470",
+      "status": "failed",
+      "source": {
+        "commit": "421d7d013f5b02028dcc7ba3d6efd59c2ddd1bdf",
+        "status": "",
+        "source_sha256": "376cd5edb6c8f5ee89dc02a76152ec2e1a86b66121b118d30ac9d3312adfab8e",
+        "source_files": 273
+      },
+      "classification": "test dispatch stall during PICK",
+      "witness": [
+        "Review smoke waiting stage=372 phase=2 modal=0 object=0 ui_scale=1.50 busy=0/0 idle=1 capture=0 popup=0.000/-3.000 plot=45.00,0.00,0.00,0.00 request=38",
+        "Review smoke waiting stage=372 phase=2 modal=0 object=0 ui_scale=1.50 busy=0/0 idle=1 capture=0 popup=0.000/-3.000 plot=45.00,0.00,0.00,0.00 request=38"
+      ]
+    }
+  ]
+}

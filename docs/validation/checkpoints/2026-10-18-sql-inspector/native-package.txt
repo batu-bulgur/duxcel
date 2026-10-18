@@ -1,0 +1,8 @@
+mkdir -p build/Duxcel.app/Contents/MacOS build/Duxcel.app/Contents/Resources
+cp duxcel build/Duxcel.app/Contents/MacOS/duxcel.new
+mv build/Duxcel.app/Contents/MacOS/duxcel.new build/Duxcel.app/Contents/MacOS/duxcel
+cp -R assets build/Duxcel.app/Contents/Resources/
+cp packaging/Info.plist build/Duxcel.app/Contents/
+cp assets/icons/duxcel.icns build/Duxcel.app/Contents/Resources/
+codesign --force --sign - build/Duxcel.app
+build/Duxcel.app: replacing existing signature
