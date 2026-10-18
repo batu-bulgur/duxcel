@@ -979,7 +979,12 @@ static const char *source_display_filename(const App *a,const Analysis *source) 
 }
 #ifdef DUXCEL_BROWSER_HOST
 static void clear_browser_file(App *a,bool release) {
-    if (release && a->browser_file_path) app_browser_release_file(a->browser_file_path);
+    if (release && a->browser_file_path) {
+        bool accepted=false;
+        for (size_t i=0;i<a->browser_source_label_count;i++)
+            if (!strcmp(a->browser_source_labels[i].key,a->browser_file_path)) { accepted=true; break; }
+        if (!accepted) app_browser_release_file(a->browser_file_path);
+    }
     free(a->browser_file_path); free(a->browser_file_label);
     a->browser_file_path=a->browser_file_label=NULL; a->browser_file_binding=(BrowserSourceBinding){0}; a->browser_file_intent=0;
 }
@@ -2211,13 +2216,23 @@ static void copy_selection(App *a) {
     }
     /* Guard cached contributors too: an asynchronous patch must not combine
        values already on screen with another version of the same source. */
+#ifdef DUXCEL_BROWSER_HOST
+    bool primary_contributes=false;
+#endif
     for (size_t i=0;i<=objects->count;i++) if (contributing[i]) {
         SheetObject *object=i ? &objects->items[i-1] : NULL;
         uint64_t stamp=object_fields(a,object)->records.stamp;
+#ifndef DUXCEL_BROWSER_HOST
         if (!stamp) continue;
+#endif
         const SheetObject *source=object ? objects_source(objects,object) : NULL;
         size_t binding=source ? source_snapshot_bind(&copy->sources,source->id,&source->source,&error) : 0;
         if (binding==SIZE_MAX) goto failed;
+#ifdef DUXCEL_BROWSER_HOST
+        /* Cached values are contributors even without native Page stamps. */
+        if (!binding) primary_contributes=true;
+        if (!stamp) continue;
+#endif
         size_t guard=0; while (guard<copy->guard_count && copy->guards[guard].source!=binding) guard++;
         if (guard<copy->guard_count) {
             if (copy->guards[guard].expected_source_stamp!=stamp) { error=dx_strdup("The selected source versions differ. Refresh before copying."); goto failed; }
@@ -2227,6 +2242,9 @@ static void copy_selection(App *a) {
     job->copy=copy;
     for (size_t i=0;i<copy->count;i++) if (!copy->patches[i].source) { job->analysis=analysis_copy(&a->analysis); break; }
     if (job->analysis.kind==SOURCE_NONE) for (size_t i=0;i<copy->guard_count;i++) if (!copy->guards[i].source) { job->analysis=analysis_copy(&a->analysis); break; }
+#ifdef DUXCEL_BROWSER_HOST
+    if (primary_contributes && job->analysis.kind==SOURCE_NONE) job->analysis=analysis_copy(&a->analysis);
+#endif
     a->busy=true; a->pending_kind=JOB_RANGE_COPY; app_worker_submit(a,job); return;
 failed:
     status(a,error ? error : "The selection could not be copied."); free(error); copy_request_free(copy);
