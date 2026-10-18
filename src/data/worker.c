@@ -12,7 +12,7 @@ void copy_request_free(CopyRequest *request) {
 }
 static void source_digest_rejected_analysis(Analysis *analysis) {
     /* Trusted C jobs transfer ownership of their fixed-slot strings. A rejected
-       verification payload can contain those strings with a zero count; clear
+       verification/collection payload can contain strings with zero count; clear
        every actual slot locally before the usual count-based reply cleanup. */
     for (size_t i=0;i<sizeof(analysis->filters)/sizeof(*analysis->filters);i++) { free(analysis->filters[i].column); free(analysis->filters[i].value); analysis->filters[i]=(AnalysisFilter){0}; }
     for (size_t i=0;i<sizeof(analysis->sorts)/sizeof(*analysis->sorts);i++) { free(analysis->sorts[i].column); analysis->sorts[i]=(AnalysisSort){0}; }
@@ -59,14 +59,14 @@ invalid:
 }
 #endif
 static void job_free(QueryJob *j) {
-    if (j) { if (j->kind==JOB_VERIFY_SOURCE) source_digest_rejected_analysis(&j->analysis); copy_request_free(j->copy); statistics_request_free(j->statistics); analysis_free(&j->analysis); pivot_free(&j->pivot); if (j->workbook) { workbook_free(j->workbook); free(j->workbook); } free(j->path); free(j->column); free(j->search); free(j->date_start); free(j->date_end); free(j); }
+    if (j) { if (j->kind==JOB_VERIFY_SOURCE || j->kind==JOB_COLLECT_RECORDS) source_digest_rejected_analysis(&j->analysis); copy_request_free(j->copy); statistics_request_free(j->statistics); analysis_free(&j->analysis); pivot_free(&j->pivot); if (j->workbook) { workbook_free(j->workbook); free(j->workbook); } free(j->path); free(j->column); free(j->search); free(j->date_start); free(j->date_end); free(j); }
 }
 void reply_free(QueryReply *r) {
     if (!r) return;
-    if (r->kind==JOB_VERIFY_SOURCE) source_digest_rejected_analysis(&r->analysis);
+    if (r->kind==JOB_VERIFY_SOURCE || r->kind==JOB_COLLECT_RECORDS) source_digest_rejected_analysis(&r->analysis);
     analysis_free(&r->analysis); page_free(&r->page); free(r->error); free(r->clipboard); free(r->export_data);
     if (r->workbook) { workbook_free(r->workbook); free(r->workbook); }
-    distinct_free(&r->distinct); statistics_free(&r->statistics); free(r->path); free(r);
+    distinct_free(&r->distinct); statistics_free(&r->statistics); record_selection_free(&r->records); free(r->path); free(r);
 }
 #ifndef DUXCEL_BROWSER_HOST
 static bool obsolete(QueryWorker *w, uint64_t id) {
@@ -124,6 +124,17 @@ static void verify_source(QueryWorker *worker,const QueryJob *job,QueryReply *re
     if (reply->source_digest_status==SOURCE_DIGEST_OK) reply->source_digest=digest;
     else reply->error=dx_strdup(*error ? error : "Source-content verification failed.");
 }
+static bool record_selection_payload_valid(const QueryJob *job,const QueryReply *reply) {
+    const Analysis *a=&reply->analysis;
+    if (!job->expected_file_identity_valid || !job->expected_source_stamp || !job->rows || job->offset>=DX_SHEET_ROWS || job->rows>DX_SHEET_ROWS-job->offset ||
+        (a->kind!=SOURCE_CSV && a->kind!=SOURCE_PARQUET) || a->query || a->unique_rows || a->schema || a->table || a->group_column || a->measure_column ||
+        a->filter_count>=DX_ANALYSIS_FILTERS || a->sort_count>=DX_ANALYSIS_SORTS || analysis_text_bytes(a)>8*1024*1024 ||
+        job->workbook || job->copy || job->statistics || reply->path || job->column || job->search || job->date_start || job->date_end || job->first_col || job->cols ||
+        (job->known_total!=0 && job->known_total!=-1) || job->include_header || job->include_totals || job->is_preview || job->refresh_source || job->date_level ||
+        (job->object_id ? !job->is_table : job->is_table)) return false;
+    for (size_t role=0;role<4;role++) if (job->pivot.counts[role]) return false;
+    return true;
+}
 static void *worker_main(void *ptr) {
     QueryWorker *w = ptr;
     for (;;) {
@@ -137,6 +148,7 @@ static void *worker_main(void *ptr) {
         r->path=j->path; j->path=NULL;
         /* File hashing never opens DuckDB or runs source/result SQL. */
         if (j->kind==JOB_VERIFY_SOURCE) verify_source(w,j,r);
+        else if (j->kind==JOB_COLLECT_RECORDS && !record_selection_payload_valid(j,r)) r->error=dx_strdup("Record collection requires one bounded raw-source range and its captured native identity without analytical payloads.");
         else if (j->kind==JOB_SAVE) workbook_save(j->workbook,r->path,&r->error);
         else if (j->kind==JOB_LOAD) {
             r->workbook=dx_alloc(sizeof(*r->workbook)); workbook_init(r->workbook);
@@ -153,6 +165,7 @@ static void *worker_main(void *ptr) {
         if (!r->error && !obsolete(w, j->id)) {
             if (j->refresh_source && !database_refresh(&w->db,&r->error)) goto finished;
             if (j->kind == JOB_VALIDATE_SQL) database_validate_relation(&w->db,&r->analysis,&r->error);
+            else if (j->kind==JOB_COLLECT_RECORDS) database_collect_records(&w->db,&r->analysis,j->offset,j->rows,&j->expected_file_identity,j->expected_source_stamp,&r->records,&r->error);
             else if (j->kind == JOB_DISTINCT) {
                 DistinctPage values={0};
                 if (database_source_matches(&r->analysis,j->expected_source_stamp,&r->error) &&
@@ -220,7 +233,7 @@ void worker_stop(QueryWorker *w) {
     dx_lock(&w->mutex); w->stop = true;
     if (w->db.connection) duckdb_interrupt(w->db.connection);
     dx_signal(&w->condition); dx_unlock(&w->mutex);
-    dx_thread_join(w->thread); job_free(w->pending); reply_free(w->reply);
+    dx_thread_join(w->thread); job_free(w->pending); w->pending=NULL; reply_free(w->reply); w->reply=NULL;
     w->sql_executed=w->db.query_count; w->counts_executed=w->db.count_queries; database_close(&w->db);
     dx_cond_destroy(&w->condition); dx_mutex_destroy(&w->mutex); w->started = false;
 }

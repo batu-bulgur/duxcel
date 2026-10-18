@@ -25,13 +25,17 @@ typedef struct {
     size_t guard_count;
 } CopyRequest;
 void copy_request_free(CopyRequest *request);
-typedef enum { JOB_PAGE, JOB_COPY, JOB_SAVE, JOB_LOAD, JOB_DISTINCT, JOB_PIVOT, JOB_PIVOT_COPY, JOB_EXPORT, JOB_COUNT, JOB_RANGE_COPY,JOB_STATISTICS,JOB_VALIDATE_SQL,JOB_STEP_PREVIEW,JOB_VERIFY_SOURCE } JobKind;
+typedef enum { JOB_PAGE, JOB_COPY, JOB_SAVE, JOB_LOAD, JOB_DISTINCT, JOB_PIVOT, JOB_PIVOT_COPY, JOB_EXPORT, JOB_COUNT, JOB_RANGE_COPY,JOB_STATISTICS,JOB_VALIDATE_SQL,JOB_STEP_PREVIEW,JOB_VERIFY_SOURCE,JOB_COLLECT_RECORDS } JobKind;
 typedef struct {
     uint64_t id;
     JobKind kind;
     Analysis analysis;
     uint64_t offset, rows;
     uint64_t expected_source_stamp; /* Session-only raw source guard; zero is unbound. */
+    /* COLLECT_RECORDS requires this captured native Page/file observation and
+       nonzero expected_source_stamp. No ownership beyond the job's POD. */
+    SourceFileIdentity expected_file_identity;
+    bool expected_file_identity_valid;
     size_t first_col, cols;
     int64_t known_total;
     Workbook *workbook;
@@ -57,6 +61,7 @@ typedef struct {
     char *path;
     DistinctPage distinct;
     SelectionStats statistics;
+    RecordSelection records; /* Only COLLECT_RECORDS; reply_free owns its vector. */
     /* Browser export moves one malloc-owned binary allocation into the reply.
        Native file exports leave it NULL. poll transfers it; reply_free owns it. */
     unsigned char *export_data;
