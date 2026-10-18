@@ -4,17 +4,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct { char *name,*reference; Analysis analysis; SheetView view; size_t object_offset,object_count,column_capacity; SheetCell *cells; size_t cell_count,cell_capacity,cell_bytes; uint64_t object_high_water,source_version_high_water; } HeaderSheet;
+typedef struct { uint64_t version,owner; SourceKind kind; char *reference,*locator; SourcePacket raw; } HeaderSourceVersion;
+typedef struct { char *name,*reference; Analysis analysis; SheetView view; size_t object_offset,object_count,column_capacity; SheetCell *cells; size_t cell_count,cell_capacity,cell_bytes; uint64_t object_high_water,source_version_high_water; HeaderSourceVersion *source_versions; size_t source_count,source_capacity,source_archive,source_restored; } HeaderSheet;
 typedef struct { Analysis analysis; char *reference; } HeaderTableSource;
 typedef struct { size_t sheet; WorkbookCodecObjectView value; char *query; bool unique_rows; HeaderTableSource *source; PivotDefinition *pivot; MarkDefinition *marks; } HeaderObject;
 typedef struct { HeaderObject *owner; void *definition; size_t original[DX_MARK_ROLES]; } DefinitionChange;
 struct WorkbookCodecHeader {
     WorkbookCodecKey key;
     unsigned version;
-    size_t count,active,bytes;
+    size_t count,active,bytes,source_archive,source_restored;
     uint64_t hidden;
     float user_scale;
-    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready,object_table_present,pivot_marks_ready,filters_ready,columns_ready,cells_ready,object_counters_ready,source_version_counters_ready;
+    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready,object_table_present,pivot_marks_ready,filters_ready,columns_ready,cells_ready,object_counters_ready,source_version_counters_ready,source_versions_ready;
     PivotDefinition empty_pivot;
     MarkDefinition empty_marks;
     HeaderObject *objects;
@@ -43,7 +44,7 @@ struct WorkbookCodecRead {
     bool preference_motion_seen;
     WorkbookCodecReadOptions options;
     size_t filter_sheet,filter_raw[DX_MAX_SHEETS];
-    size_t columns_sheet,cells_sheet;
+    size_t columns_sheet,cells_sheet,source_versions_sheet;
 };
 static const char meta_sql[]="SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2";
 static const char sheets25_sql[]="SELECT " DX_WORKBOOK_SHEET_COLUMNS ",canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65";
@@ -57,6 +58,7 @@ static const char preferences14_sql[]="SELECT name,value FROM _duxcel_workspace.
 static const char objects_sql[]="SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049";
 static const char object_counters_sql[]="SELECT sheet_id,high_water FROM _duxcel_workspace.object_counters ORDER BY sheet_id LIMIT 65";
 static const char source_version_counters_sql[]="SELECT sheet_id,high_water FROM _duxcel_workspace.source_version_counters ORDER BY sheet_id LIMIT 65";
+static const char source_versions_sql[]="SELECT sheet_id,version,owner,source_kind,source_reference,encoding,definition FROM _duxcel_workspace.source_versions ORDER BY sheet_id,version LIMIT 65537";
 static const char queries_sql[]="SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113";
 static const char source_options_sql[]="SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113";
 static const char table_sources_sql[]="SELECT sheet_id,object_id,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending FROM _duxcel_workspace.table_sources ORDER BY sheet_id,object_id LIMIT 2049";
@@ -71,6 +73,8 @@ static const char marks_sql[]="SELECT sheet_id,object_id,role,position,name,is_m
 #define SORT_ROWS (DX_MAX_SHEETS*(DX_ANALYSIS_SORTS-1u))
 #define OBJECT_ROWS (DX_MAX_SHEETS*DX_MAX_OBJECTS)
 #define QUERY_ROWS (DX_MAX_SHEETS*(DX_MAX_OBJECTS+1u))
+#define SOURCE_VERSION_ROWS (DX_MAX_SHEETS*DX_SOURCE_VERSIONS)
+#define SOURCE_ARCHIVE_BYTES (8u*1024u*1024u)
 #define TABLE_FILTER_ROWS (OBJECT_ROWS*(DX_ANALYSIS_FILTERS-1u))
 #define TABLE_SORT_ROWS (OBJECT_ROWS*(DX_ANALYSIS_SORTS-1u))
 #define TABLE_RAW_BYTES (8u*1024u*1024u)
@@ -78,7 +82,7 @@ static const char marks_sql[]="SELECT sheet_id,object_id,role,position,name,is_m
 #define PIVOT_ROWS_LIMIT (OBJECT_ROWS*4u*DX_PIVOT_FIELDS)
 #define MARK_ROWS_LIMIT (OBJECT_ROWS*DX_MARK_ROLES*DX_MARK_FIELDS)
 static bool request_family(WorkbookCodecFamily family) {
-    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES || family==WORKBOOK_CODEC_OBJECTS || family==WORKBOOK_CODEC_QUERIES || family==WORKBOOK_CODEC_SOURCE_OPTIONS || family==WORKBOOK_CODEC_TABLE_SOURCES || family==WORKBOOK_CODEC_TABLE_FILTERS || family==WORKBOOK_CODEC_TABLE_SORTS || family==WORKBOOK_CODEC_PIVOT_FIELDS || family==WORKBOOK_CODEC_MARKS || family==WORKBOOK_CODEC_FILTERS || family==WORKBOOK_CODEC_COLUMNS || family==WORKBOOK_CODEC_CELLS || family==WORKBOOK_CODEC_OBJECT_COUNTERS || family==WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS;
+    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES || family==WORKBOOK_CODEC_OBJECTS || family==WORKBOOK_CODEC_QUERIES || family==WORKBOOK_CODEC_SOURCE_OPTIONS || family==WORKBOOK_CODEC_TABLE_SOURCES || family==WORKBOOK_CODEC_TABLE_FILTERS || family==WORKBOOK_CODEC_TABLE_SORTS || family==WORKBOOK_CODEC_PIVOT_FIELDS || family==WORKBOOK_CODEC_MARKS || family==WORKBOOK_CODEC_FILTERS || family==WORKBOOK_CODEC_COLUMNS || family==WORKBOOK_CODEC_CELLS || family==WORKBOOK_CODEC_OBJECT_COUNTERS || family==WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS || family==WORKBOOK_CODEC_SOURCE_VERSIONS;
 }
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
@@ -105,7 +109,7 @@ static bool utf8(const char *text,size_t bytes) {
     return true;
 }
 static WorkbookCodecAtomKind kind(char type) {
-    return type=='I' ? WORKBOOK_CODEC_I32 : type=='U' ? WORKBOOK_CODEC_U64 : type=='D' ? WORKBOOK_CODEC_DOUBLE : type=='B' ? WORKBOOK_CODEC_BOOLEAN : WORKBOOK_CODEC_TEXT;
+    return type=='I' ? WORKBOOK_CODEC_I32 : type=='U' ? WORKBOOK_CODEC_U64 : type=='D' ? WORKBOOK_CODEC_DOUBLE : type=='B' ? WORKBOOK_CODEC_BOOLEAN : type=='X' ? WORKBOOK_CODEC_BLOB : WORKBOOK_CODEC_TEXT;
 }
 static bool shape(const WorkbookCodecBatch *batch,const WorkbookCodecTable *table,bool full_primary_filters,char **error) {
     if (!batch || batch->row_count>DX_WORKBOOK_CODEC_READ_ROWS || batch->column_count>DX_WORKBOOK_CODEC_COLUMNS || !batch->columns ||
@@ -132,22 +136,25 @@ static bool shape(const WorkbookCodecBatch *batch,const WorkbookCodecTable *tabl
                 else if (!strcmp(table->table,"table_sorts") || !strcmp(table->table,"marks")) maximum=4096u;
                 else if (!strcmp(table->table,"pivot_fields")) maximum=column==7 ? TABLE_RAW_BYTES : 4096u;
                 else if (!strcmp(table->table,"columns")) maximum=SIZE_MAX-1u;
-                /* Columns and Cells text is scanned only after the complete
+                /* Columns, Cells and ledger references are scanned only after the complete
                    prospective batch passes its owned-budget admission. */
                 if (atom->value.text.bytes>maximum || (!atom->value.text.data && atom->value.text.bytes) ||
-                    (strcmp(table->table,"columns") && strcmp(table->table,"cells") && !utf8(atom->value.text.data,atom->value.text.bytes))) return fail(error,"Metadata text is oversized, contains NUL or is not valid UTF-8.");
-            }
+                    (strcmp(table->table,"columns") && strcmp(table->table,"cells") && strcmp(table->table,"source_versions") && !utf8(atom->value.text.data,atom->value.text.bytes))) return fail(error,"Metadata text is oversized, contains NUL or is not valid UTF-8.");
+            } else if (atom->kind==WORKBOOK_CODEC_BLOB && (atom->value.blob.bytes>=DX_SOURCE_SCOPE_BYTES || (!atom->value.blob.data && atom->value.blob.bytes)))
+                return fail(error,"Metadata BLOB is oversized or has no borrowed binary bytes.");
         }
         types++; p+=n; if (*p) p++;
     }
     return column==batch->column_count || fail(error,"Metadata has trailing projected columns.");
 }
+static void source_version_free(HeaderSourceVersion *entry) { free(entry->reference); free(entry->locator); source_packet_free(&entry->raw); }
 static void sheet_free(HeaderSheet *sheet) {
     free(sheet->name); free(sheet->reference); analysis_free(&sheet->analysis);
     for (size_t i=0;i<sheet->view.column_count;i++) free(sheet->view.columns[i]);
     free(sheet->view.columns); free(sheet->view.widths);
     for (size_t i=0;i<sheet->cell_count;i++) free(sheet->cells[i].text);
-    free(sheet->cells); *sheet=(HeaderSheet){0};
+    free(sheet->cells); for (size_t i=0;i<sheet->source_count;i++) source_version_free(sheet->source_versions+i);
+    free(sheet->source_versions); *sheet=(HeaderSheet){0};
 }
 static void table_source_free(HeaderTableSource *source) {
     if (source) { analysis_free(&source->analysis); free(source->reference); free(source); }
@@ -250,6 +257,16 @@ bool workbook_codec_read_add_source_version_counters(WorkbookCodecRead *read,boo
     }
     if (!present) return fail(error,"The v14 workbook requires source-version counter metadata.");
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,source_version_counters_sql,0,2,2,DX_MAX_SHEETS+1u}; return true;
+}
+bool workbook_codec_read_add_source_versions(WorkbookCodecRead *read,bool present,size_t retained,char **error) {
+    if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || !read->header->objects_ready ||
+        !read->header->object_counters_ready || !read->header->source_version_counters_ready || read->header->source_versions_ready)
+        return fail(error,"Source versions require complete unclaimed objects and both counters and may be armed once.");
+    if (read->version<14 && present) return fail(error,read->version==12 ? "The v12 workbook forbids source-version ledger metadata." : "The v13 workbook forbids source-version ledger metadata.");
+    if (read->version==14 && !present) return fail(error,"The v14 workbook requires source-version ledger metadata.");
+    if (!room(read->bytes,retained,0,read->limit)) return fail(error,"Source-version input exceeds its owned-buffer budget.");
+    if (!present) { read->header->source_versions_ready=true; return true; }
+    read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SOURCE_VERSIONS,source_versions_sql,0,7,7,SOURCE_VERSION_ROWS+1u}; return true;
 }
 bool workbook_codec_read_add_queries(WorkbookCodecRead *read,bool present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY ||
@@ -1066,15 +1083,120 @@ static bool source_version_counters_feed(WorkbookCodecRead *read,const WorkbookC
     return true;
 }
 
+static bool source_size_add(size_t *total,size_t add,size_t limit) {
+    if (*total>limit || add>limit-*total) return false; *total+=add; return true;
+}
+static bool source_versions_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *batch,size_t retained,char **error) {
+    WorkbookCodecHeader *header=read->header;
+    if (read->request.first_row>SOURCE_VERSION_ROWS || batch->row_count>SOURCE_VERSION_ROWS-read->request.first_row)
+        return fail(error,"Too many source-version ledger rows.");
+    size_t counts[DX_MAX_SHEETS],archive[DX_MAX_SHEETS],restored[DX_MAX_SHEETS],capacities[DX_MAX_SHEETS]={0};
+    HeaderSourceVersion *arrays[DX_MAX_SHEETS]={0};
+    for (size_t i=0;i<header->count;i++) { const HeaderSheet *sheet=header->sheets+i; counts[i]=sheet->source_count; archive[i]=sheet->source_archive; restored[i]=sheet->source_restored; }
+    size_t last_sheet=read->source_versions_sheet,strings=0,packets=0,archive_total=header->source_archive,restored_total=header->source_restored;
+    uint64_t last_version=0; bool previous=read->request.first_row!=0,complete=false;
+    if (previous) { const HeaderSheet *sheet=header->sheets+last_sheet; last_version=sheet->source_versions[sheet->source_count-1u].version; }
+    /* This pass reads scalar declarations only. No reference/packet scan,
+       resolver call, copy or heap staging occurs before complete admission. */
+    for (size_t row=0;row<batch->row_count;row++) {
+        const WorkbookCodecAtom *cells=batch->cells+row*7; int32_t sheet=cells[0].value.i32,kind=cells[3].value.i32,encoding=cells[5].value.i32;
+        uint64_t version=cells[1].value.u64,owner=cells[2].value.u64;
+        bool pending=cells[6].kind==WORKBOOK_CODEC_NULL; size_t bytes=pending ? 0 : cells[6].value.blob.bytes,reference=cells[4].value.text.bytes;
+        if (sheet<0 || (size_t)sheet>=header->count || (size_t)sheet<last_sheet || !version || version>header->sheets[sheet].source_version_high_water ||
+            (previous && (size_t)sheet==last_sheet && version<=last_version) || counts[sheet]>=DX_SOURCE_VERSIONS ||
+            owner>header->sheets[sheet].object_high_water || (kind!=SOURCE_CSV && kind!=SOURCE_PARQUET) || !reference ||
+            (pending ? encoding!=0 : encoding!=1 || bytes<32))
+            return fail(error,"Invalid ordered source-version identity, owner, reference or pending encoding.");
+        const HeaderSheet *target=header->sheets+sheet;
+        for (size_t j=0;j<target->object_count;j++) { const WorkbookCodecObjectView *object=&header->objects[target->object_offset+j].value;
+            if (object->id==owner && object->kind!=OBJECT_TABLE) return fail(error,"A source-version owner cannot be a live analytical object."); }
+        size_t raw=DX_WORKBOOK_CODEC_SOURCE_VERSION_BYTES,known=DX_WORKBOOK_CODEC_SOURCE_VERSION_BYTES;
+        if (!source_size_add(&raw,reference+1u,DX_SOURCE_VERSIONS_BYTES) || !source_size_add(&raw,bytes,DX_SOURCE_VERSIONS_BYTES) ||
+            !source_size_add(&known,bytes+1u,DX_SOURCE_VERSIONS_BYTES) ||
+            !source_size_add(archive+sheet,raw,DX_SOURCE_VERSIONS_BYTES) || !source_size_add(restored+sheet,known,DX_SOURCE_VERSIONS_BYTES) ||
+            !source_size_add(&archive_total,raw,SOURCE_ARCHIVE_BYTES) || !source_size_add(&restored_total,known,SOURCE_ARCHIVE_BYTES))
+            return fail(error,"Source-version archive/restored reservation exceeds its sheet/workbook budget.");
+        if (!source_size_add(&strings,reference+1u,SIZE_MAX) || !source_size_add(&packets,bytes,SIZE_MAX)) return fail(error,"Source-version copy size overflows.");
+        counts[sheet]++; last_sheet=(size_t)sheet; last_version=version; previous=true; complete|=!pending;
+    }
+    size_t staged=batch->row_count*sizeof(HeaderSourceVersion),grown=0,retired=0,extra=staged;
+    for (size_t i=0;i<header->count;i++) if (counts[i]>header->sheets[i].source_capacity) {
+        size_t capacity=header->sheets[i].source_capacity ? header->sheets[i].source_capacity : 8u;
+        while (capacity<counts[i]) capacity*=2u;
+        if (capacity>DX_SOURCE_VERSIONS || capacity>SIZE_MAX/sizeof(HeaderSourceVersion)) return fail(error,"Source-version array size overflows.");
+        capacities[i]=capacity; size_t bytes=capacity*sizeof(HeaderSourceVersion);
+        if (!source_size_add(&extra,bytes,SIZE_MAX) || !source_size_add(&grown,bytes,SIZE_MAX)) return fail(error,"Source-version array size overflows.");
+        retired+=header->sheets[i].source_capacity*sizeof(HeaderSourceVersion);
+    }
+    if (!source_size_add(&extra,strings,SIZE_MAX) || !source_size_add(&extra,packets,SIZE_MAX) || !source_size_add(&extra,batch->row_count,SIZE_MAX) ||
+        (complete && !source_size_add(&extra,DX_WORKBOOK_CODEC_RAW_SCRATCH_BYTES,SIZE_MAX)) || !room(read->bytes,retained,extra,read->limit))
+        return fail(error,"Source-version ledger staging exceeds its owned-buffer budget.");
+    /* RAW-only dispatch prevents RESULT validation from entering JSON grammar
+       allocation. The shared packet codec remains the sole binary parser. */
+    for (size_t row=0;row<batch->row_count;row++) {
+        const WorkbookCodecAtom *cells=batch->cells+row*7; WorkbookCodecText reference=cells[4].value.text;
+        if (!utf8(reference.data,reference.bytes)) return fail(error,"Source-version reference contains NUL or invalid UTF-8.");
+        if (cells[6].kind==WORKBOOK_CODEC_NULL) continue;
+        WorkbookCodecBlob blob=cells[6].value.blob; SourceScopeInfo info;
+        if (blob.data[6]!=SOURCE_SCOPE_RAW) return fail(error,"Source-version definition must be a canonical RAW packet.");
+        if (!source_scope_validate(blob.data,blob.bytes,&info,error)) return false;
+        if (info.kind!=SOURCE_SCOPE_RAW || info.owner!=cells[2].value.u64 || info.version!=cells[1].value.u64 || info.source_kind!=(SourceKind)cells[3].value.i32)
+            return fail(error,"Source-version RAW packet differs from its owner, version or source kind.");
+    }
+    HeaderSourceVersion *next=staged ? dx_alloc(staged) : NULL;
+    for (size_t i=0;i<header->count;i++) if (capacities[i]) {
+        arrays[i]=dx_alloc(capacities[i]*sizeof(HeaderSourceVersion));
+        if (header->sheets[i].source_count) memcpy(arrays[i],header->sheets[i].source_versions,header->sheets[i].source_count*sizeof(HeaderSourceVersion));
+    }
+    size_t locator_extra=0;
+    for (size_t row=0;row<batch->row_count;row++) {
+        const WorkbookCodecAtom *cells=batch->cells+row*7; HeaderSourceVersion *entry=next+row; size_t sheet=(size_t)cells[0].value.i32;
+        entry->owner=cells[2].value.u64; entry->version=cells[1].value.u64; entry->kind=(SourceKind)cells[3].value.i32;
+        size_t bytes=cells[4].value.text.bytes; entry->reference=dx_alloc(bytes+1u); memcpy(entry->reference,cells[4].value.text.data,bytes);
+        if (cells[6].kind!=WORKBOOK_CODEC_NULL) { entry->raw.bytes=cells[6].value.blob.bytes; entry->raw.data=dx_alloc(entry->raw.bytes); memcpy(entry->raw.data,cells[6].value.blob.data,entry->raw.bytes); }
+        if (!read->resolve) { entry->locator=dx_strdup(""); continue; }
+        /* All future declared copies, one byte per unresolved locator and RAW
+           scratch remain reserved while each independent callback allocates. */
+        size_t maximum=read->limit-read->bytes-retained-extra-locator_extra+1u;
+        if (maximum>DX_SOURCE_SCOPE_TEXT_BYTES+1u) maximum=DX_SOURCE_SCOPE_TEXT_BYTES+1u;
+        size_t sheet_room=DX_SOURCE_VERSIONS_BYTES-restored[sheet]+1u,archive_room=SOURCE_ARCHIVE_BYTES-restored_total+1u;
+        if (maximum>sheet_room) maximum=sheet_room;
+        if (maximum>archive_room) maximum=archive_room;
+        WorkbookCodecOwnedText resolved={0}; bool ok=read->resolve(read->context,entry->kind,entry->reference,maximum,&resolved);
+        if (!ok || !resolved.data || resolved.bytes>=maximum || resolved.data[resolved.bytes] || !utf8(resolved.data,resolved.bytes) ||
+            (resolved.bytes && strpbrk(resolved.data,"*?[]"))) {
+            free(resolved.data); fail(error,"Source-version resolver returned an invalid bounded owned locator."); goto rejected;
+        }
+        entry->locator=resolved.data;
+        if (!source_size_add(restored+sheet,resolved.bytes,DX_SOURCE_VERSIONS_BYTES) || !source_size_add(&restored_total,resolved.bytes,SOURCE_ARCHIVE_BYTES)) {
+            fail(error,"Source-version restored reservation exceeds its sheet/workbook budget."); goto rejected;
+        }
+        if (!source_size_add(&locator_extra,resolved.bytes,SIZE_MAX)) { fail(error,"Source-version locator size overflows."); goto rejected; }
+    }
+    for (size_t i=0;i<header->count;i++) if (capacities[i]) { free(header->sheets[i].source_versions); header->sheets[i].source_versions=arrays[i]; header->sheets[i].source_capacity=capacities[i]; }
+    for (size_t row=0;row<batch->row_count;row++) { size_t sheet=(size_t)batch->cells[row*7].value.i32; HeaderSheet *target=header->sheets+sheet; target->source_versions[target->source_count++]=next[row]; }
+    free(next);
+    for (size_t i=0;i<header->count;i++) { header->sheets[i].source_archive=archive[i]; header->sheets[i].source_restored=restored[i]; }
+    header->source_archive=archive_total; header->source_restored=restored_total;
+    size_t added=strings+packets+batch->row_count+locator_extra+grown-retired;
+    header->bytes+=added; read->bytes+=added; read->source_versions_sheet=last_sheet; read->request.first_row+=batch->row_count;
+    if (batch->end) { header->source_versions_ready=true; read->request.family=WORKBOOK_CODEC_HEADER_READY; }
+    return true;
+rejected:
+    for (size_t i=0;i<batch->row_count;i++) source_version_free(next+i);
+    free(next); for (size_t i=0;i<header->count;i++) free(arrays[i]); return false;
+}
+
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained,char **error) {
     if (!read || !same_key(read->key,key)) return WORKBOOK_CODEC_READ_STALE;
     if (!read->header || !request_family(read->request.family) || family!=read->request.family || !batch || batch->first_row!=read->request.first_row) {
         fail(error,"Metadata family or batch order does not match its cursor."); return WORKBOOK_CODEC_READ_ERROR;
     }
-    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : family==WORKBOOK_CODEC_OBJECTS ? "objects" : family==WORKBOOK_CODEC_QUERIES ? "queries" : family==WORKBOOK_CODEC_SOURCE_OPTIONS ? "source_options" : family==WORKBOOK_CODEC_TABLE_SOURCES ? "table_sources" : family==WORKBOOK_CODEC_TABLE_FILTERS ? "table_filters" : family==WORKBOOK_CODEC_TABLE_SORTS ? "table_sorts" : family==WORKBOOK_CODEC_PIVOT_FIELDS ? "pivot_fields" : family==WORKBOOK_CODEC_MARKS ? "marks" : family==WORKBOOK_CODEC_FILTERS ? "filters" : family==WORKBOOK_CODEC_COLUMNS ? "columns" : family==WORKBOOK_CODEC_CELLS ? "cells" : family==WORKBOOK_CODEC_OBJECT_COUNTERS ? "object_counters" : family==WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS ? "source_version_counters" : "preferences");
+    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : family==WORKBOOK_CODEC_OBJECTS ? "objects" : family==WORKBOOK_CODEC_QUERIES ? "queries" : family==WORKBOOK_CODEC_SOURCE_OPTIONS ? "source_options" : family==WORKBOOK_CODEC_TABLE_SOURCES ? "table_sources" : family==WORKBOOK_CODEC_TABLE_FILTERS ? "table_filters" : family==WORKBOOK_CODEC_TABLE_SORTS ? "table_sorts" : family==WORKBOOK_CODEC_PIVOT_FIELDS ? "pivot_fields" : family==WORKBOOK_CODEC_MARKS ? "marks" : family==WORKBOOK_CODEC_FILTERS ? "filters" : family==WORKBOOK_CODEC_COLUMNS ? "columns" : family==WORKBOOK_CODEC_CELLS ? "cells" : family==WORKBOOK_CODEC_OBJECT_COUNTERS ? "object_counters" : family==WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS ? "source_version_counters" : family==WORKBOOK_CODEC_SOURCE_VERSIONS ? "source_versions" : "preferences");
     if (!shape(batch,table,read->options.full_primary_filters,error)) return WORKBOOK_CODEC_READ_ERROR;
     if (!room(read->bytes,retained,0,read->limit)) { fail(error,"Metadata input exceeds its owned-buffer budget."); return WORKBOOK_CODEC_READ_ERROR; }
+    if (family==WORKBOOK_CODEC_SOURCE_VERSIONS) return source_versions_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS) return source_version_counters_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_OBJECT_COUNTERS) return object_counters_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_PREFERENCES) return preferences_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
@@ -1138,6 +1260,15 @@ bool workbook_codec_header_source_version_counters_ready(const WorkbookCodecHead
 bool workbook_codec_header_source_version_high_water(const WorkbookCodecHeader *header,size_t sheet,uint64_t *out) {
     if (!header || !header->source_version_counters_ready || sheet>=header->count || !out) return false;
     *out=header->sheets[sheet].source_version_high_water; return true;
+}
+bool workbook_codec_header_source_versions_ready(const WorkbookCodecHeader *header) { return header && header->source_versions_ready; }
+size_t workbook_codec_header_source_version_count(const WorkbookCodecHeader *header,size_t sheet) {
+    return header && header->source_versions_ready && sheet<header->count ? header->sheets[sheet].source_count : 0;
+}
+bool workbook_codec_header_source_version_at(const WorkbookCodecHeader *header,size_t sheet,size_t index,WorkbookCodecSourceVersionView *out) {
+    if (!out || !header || !header->source_versions_ready || sheet>=header->count || index>=header->sheets[sheet].source_count) return false;
+    const HeaderSourceVersion *entry=header->sheets[sheet].source_versions+index;
+    *out=(WorkbookCodecSourceVersionView){entry->version,entry->owner,entry->kind,entry->reference,entry->locator,entry->locator[0]!=0,{entry->raw.data,entry->raw.bytes}}; return true;
 }
 bool workbook_codec_header_queries_ready(const WorkbookCodecHeader *header) { return header && header->queries_ready; }
 bool workbook_codec_header_source_options_ready(const WorkbookCodecHeader *header) { return header && header->source_options_ready; }
