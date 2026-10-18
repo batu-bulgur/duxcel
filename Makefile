@@ -357,6 +357,10 @@ test-analysis-journal: tests/test_workbook tests/test_workbook-debug
 	./tests/test_workbook --journal-only
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --journal-only
 .PHONY: test-analysis-journal
+test-format-budget: tests/test_workbook tests/test_workbook-debug
+	./tests/test_workbook --format-budget-only
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --format-budget-only
+.PHONY: test-format-budget
 tests/test_core: $(CORE) tests/test_core.c $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_core.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 tests/test_core-debug: $(CORE) tests/test_core.c $(HEADERS)
