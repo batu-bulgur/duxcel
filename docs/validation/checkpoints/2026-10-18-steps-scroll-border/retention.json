@@ -1,0 +1,310 @@
+{
+  "status": "accepted source-scoped checkpoint",
+  "files": [
+    {
+      "file": "README.md",
+      "bytes": 10756,
+      "sha256": "9a13debc44d8c5d2c69e470a815cc967c136218c1a6cff7aaefc8300605822a0",
+      "method": "checkpoint narrative"
+    },
+    {
+      "file": "background-sanitize.txt",
+      "bytes": 2518,
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044356-affected-35045/background-sanitize.txt"
+      ]
+    },
+    {
+      "file": "current-review-service.json",
+      "bytes": 1182,
+      "sha256": "b185beafdc79479c71d411af4f13f0d44b6be682c1a39986d3893583ec34c9a3",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/current-review-service.json"
+      ]
+    },
+    {
+      "file": "current-ui-package.json",
+      "bytes": 1275,
+      "sha256": "3d11effad8604b7b90481cf2d99b6b1bd307acbb7f5ccbda6fd77a3d167cd121",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/current-ui-package.json"
+      ]
+    },
+    {
+      "file": "expanded-border-natural-red.json",
+      "bytes": 7235,
+      "sha256": "48eea6ace7e3230469c36815cf4bccbe8ff8989a1c3dfc0659142a17f5cae574",
+      "method": "bounded extraction from identified originals"
+    },
+    {
+      "file": "expanded-border-natural-red.png",
+      "bytes": 329236,
+      "sha256": "8e39c1ed44944889fd62e6bb6fd49eb92013b048377e5d99b83c90b9070c3431",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044449-browser-35258/pane-rail-wide-100-expanded.png"
+      ]
+    },
+    {
+      "file": "inspector-release.txt",
+      "bytes": 185,
+      "sha256": "24021653acdc8ee294ed16aef528823c45f6b9a84a98fc7e7dffe2bb2b3db394",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044830-affected-36799/inspector-release.txt"
+      ]
+    },
+    {
+      "file": "inspector-sanitize.txt",
+      "bytes": 191,
+      "sha256": "0e5b1c68a2cb0a248c9a4419c495dd57a29ce3b6a7546fcc3d255649df01a45a",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044830-affected-36799/inspector-sanitize.txt"
+      ]
+    },
+    {
+      "file": "inspector-scroll-narrow-150-reopened.png",
+      "bytes": 145195,
+      "sha256": "082690b84910be54e59fd0330572cf60f33a195f10e7f0a2bc409802f9fa8a0c",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044547-browser-36156/inspector-scroll-narrow-150-reopened.png"
+      ]
+    },
+    {
+      "file": "inspector-short-partial-row-frozen-bounds.png",
+      "bytes": 138645,
+      "sha256": "3d1698747dad793376fa69cadbc2bae0774b3ed4364bc00944889198a918b906",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044547-browser-36156/inspector-short-partial-row-frozen-bounds.png"
+      ]
+    },
+    {
+      "file": "native-review-release-excerpt.txt",
+      "bytes": 1413,
+      "sha256": "963a678a2231a9b4ae82f44e74bb2cdbade8754dfe63047afde9fdc8a5ea0559",
+      "method": "bounded extraction from identified originals"
+    },
+    {
+      "file": "native-review-sanitize-excerpt.txt",
+      "bytes": 1413,
+      "sha256": "963a678a2231a9b4ae82f44e74bb2cdbade8754dfe63047afde9fdc8a5ea0559",
+      "method": "bounded extraction from identified originals"
+    },
+    {
+      "file": "native-review-summary.json",
+      "bytes": 7411,
+      "sha256": "abac3dcb9741001309a3a1589dde36e23b71590fc76308ff66f1fe3c0b106e5e",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T045508-review-38242/summary.json"
+      ]
+    },
+    {
+      "file": "native-scroll-edit-sanitize-summary.json",
+      "bytes": 2697,
+      "sha256": "f0ef6a5ed312f39f18f8d63742fe4211052edb5ef96efcc696744307aa0c7f4a",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044356-affected-35045/summary.json"
+      ]
+    },
+    {
+      "file": "native-scroll-edit-sanitize.txt",
+      "bytes": 10317,
+      "sha256": "77ee8e991a139ad93a0b35156c6326f97557416667a5392971ed38736442b4a8",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044356-affected-35045/layout-inspector-scroll.txt"
+      ]
+    },
+    {
+      "file": "native-scroll-private-14-summary.json",
+      "bytes": 2400,
+      "sha256": "21c4366db596f134ac72a4a846514832b37c53938cc781dc03dc6e7a5dca5f21",
+      "method": "bounded extraction from identified originals"
+    },
+    {
+      "file": "native-scroll-release-summary.json",
+      "bytes": 2582,
+      "sha256": "a636cd83f1613fccffd9d8a74b6047db3afd5264d4dbc898efa7d0a061b491a6",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044903-affected-37200/summary.json"
+      ]
+    },
+    {
+      "file": "native-scroll-release.txt",
+      "bytes": 10157,
+      "sha256": "85dc3f732f29d250cc177b498758c4365a347394f045fadca820a48bc84487a4",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044903-affected-37200/layout-inspector-scroll.txt"
+      ]
+    },
+    {
+      "file": "native-scroll-sanitize-summary.json",
+      "bytes": 3940,
+      "sha256": "113c30eb3bd4b0ef4567e44d371eed4026ead5a3adc07897511b3d95b25f9abe",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044830-affected-36799/summary.json"
+      ]
+    },
+    {
+      "file": "native-scroll-sanitize.txt",
+      "bytes": 10163,
+      "sha256": "480ba18b9fcc13f732b23f0c4a71c5c6fff42dbda0e48224d760405e1bb1dd50",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044830-affected-36799/layout-inspector-scroll.txt"
+      ]
+    },
+    {
+      "file": "originals.json",
+      "bytes": 11187,
+      "sha256": "a197a27b5104cdbb5d21f2b6f4e72892189367c928c4ece5e06f13c99b2b49be",
+      "method": "bounded extraction from identified originals"
+    },
+    {
+      "file": "rail-browser-transformed-summary.json",
+      "bytes": 324046,
+      "sha256": "1b7bdda3cc91b09a5d0b2008ea3be285b075bd1dcad84ac2d80790021dee4d5f",
+      "method": "bounded extraction from identified originals"
+    },
+    {
+      "file": "rail-browser-untransformed-summary.json",
+      "bytes": 263203,
+      "sha256": "12f0f71125239fed5af93c432ea5fa6f6c6827db5c839eaafae5aa25523fcb2c",
+      "method": "bounded extraction from identified originals"
+    },
+    {
+      "file": "runner-unit.txt",
+      "bytes": 131,
+      "sha256": "9f37f44b71aa3a11b286d09a6e2cde6026ec765d5eb1fa33d498c79e2019f3c3",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/steps-border-runner-unit.txt"
+      ]
+    },
+    {
+      "file": "scroll-browser-transformed-summary.json",
+      "bytes": 15817,
+      "sha256": "61df52e2fe000cb144210fc14cbc5cec8710e11552e2584d07c01e8ababe1e3a",
+      "method": "bounded extraction from identified originals"
+    },
+    {
+      "file": "scroll-browser-untransformed-driver.txt",
+      "bytes": 183,
+      "sha256": "31b4a0a11e15653d02012ae33c90a861ea1b5098ee585292a470376c6254684b",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044547-browser-36156/driver.txt"
+      ]
+    },
+    {
+      "file": "scroll-browser-untransformed-summary.json",
+      "bytes": 2881,
+      "sha256": "a20b33c01db1f3533eb914a8e0a7a775176d1ec3b06a3eec200fc349c761203c",
+      "method": "bounded extraction from identified originals"
+    },
+    {
+      "file": "scroll-measurements.json",
+      "bytes": 92458,
+      "sha256": "9cdf7c8c2ba9e5e925ff24ca97d9d6deb204c54d49143bfb347086ad0dc5ef85",
+      "method": "bounded extraction from identified originals"
+    },
+    {
+      "file": "steps-border-extra-exclusion.json",
+      "bytes": 1586,
+      "sha256": "e48a2c744fb865929c8b4e3ca5b061dd2547529de357a4092cb550c5fc6fb094",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/steps-border-extra-exclusion.json"
+      ]
+    },
+    {
+      "file": "steps-border-native-exclusion.json",
+      "bytes": 1995,
+      "sha256": "1540e23210c6e66e61cfce431204a9dbbc2a6f3eb20b89af3d38d2af4b762c65",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/steps-border-native-exclusion.json"
+      ]
+    },
+    {
+      "file": "steps-border-native-sanitize-exclusion.json",
+      "bytes": 2011,
+      "sha256": "117fed41b0026126c26839e953f0e1eb37d63ae7e1def7fab762a4565dfca2b6",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/steps-border-native-sanitize-exclusion.json"
+      ]
+    },
+    {
+      "file": "steps-border-package.txt",
+      "bytes": 558,
+      "sha256": "8f030ceec51d90df2d7dba7881f2ec68964ad1fba127110e9f0b1ac133daa4bc",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/steps-border-package.txt"
+      ]
+    },
+    {
+      "file": "steps-border-review-retention.json",
+      "bytes": 232,
+      "sha256": "a54b2f5ab0a742488fb11c95bfb7e9d933c50b2f6e1371644a6628284cdee32b",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/steps-border-review-retention.json"
+      ]
+    },
+    {
+      "file": "steps-border-service-ports.txt",
+      "bytes": 157,
+      "sha256": "a573e91189cc636fedc00dc81b568b263e6a08864e765e3c27ce23718781764e",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/steps-border-service-ports.txt"
+      ]
+    },
+    {
+      "file": "steps-border-web-exclusion.json",
+      "bytes": 102,
+      "sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/steps-border-web-exclusion.json"
+      ]
+    },
+    {
+      "file": "web-review-absence-details.json",
+      "bytes": 1954,
+      "sha256": "14f018c39aeb695a491c5e75214a952322f28298d7d7afbc6fa2e6aa5ffc4998",
+      "method": "unchanged copy",
+      "originals": [
+        "/Users/h2o/dev/duxcel/build/web/review-absence.json"
+      ]
+    }
+  ],
+  "external_reference": {
+    "path": "../2026-10-18-session-source-bindings/steps-scroll-reference.json",
+    "sha256": "f265dd239db596d177e96c824db3699d3c1e6a62016f663ab09abaa2fd876f3b",
+    "retained_here": false
+  },
+  "exclusions": [
+    "auth/credentials",
+    "full events and RGBA/excluded-boundary arrays",
+    "databases/fixtures",
+    "clipboard payloads",
+    "report/outbox bundles",
+    "duplicate prior provider"
+  ],
+  "scope": "Bounded read-only evidence curation; no new app/browser execution by this documentation lane. Product43b43d3 and later runner revisions remain separate. No full inventory, physical input, shadow/SQL outer or browser persistence closure."
+}
