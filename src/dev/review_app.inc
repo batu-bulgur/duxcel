@@ -1218,6 +1218,48 @@ static void review_statistics(App *a) {
         review_author_capture_state(a,state);
     }
 }
+static void review_chart_value(App *a,const char *name,bool present,bool is_null,const char *raw) {
+    char encoded[129]="-",state[320]; size_t n=0;
+    if (present && !is_null && raw && *raw) {
+        static const char hex[]="0123456789abcdef";
+        for (;n<64 && raw[n];n++) { unsigned char ch=(unsigned char)raw[n]; encoded[2*n]=hex[ch>>4]; encoded[2*n+1]=hex[ch&15]; }
+        encoded[2*n]=0;
+    }
+    snprintf(state,sizeof(state)," %s_present=%d %s_null=%d %s_hex=%s %s_truncated=%d",name,present,name,is_null,name,encoded,name,present && !is_null && raw && raw[n]);
+    review_author_capture_state(a,state);
+}
+static void review_chart_state(App *a,SheetObject *object,ObjectView *view) {
+    /* Observe this frame's owned Page and painted cache. A retained chart cache
+       can point at a freed child while offscreen: validate the current parent
+       before inspecting any borrowed values. Never rebuild it for a capture. */
+    const Page *page=&view->page,*derived=page_other_values(page,object->chart_measure);
+    uint64_t source=object_source_revision(a,object);
+    bool owner=view->id==object->id && view->revision==object->revision && view->source_revision==source &&
+        !view->dirty && !view->failed && !view->waiting_count && !page->count_pending;
+    Rectangle visible=GetCollisionRec(a->authoring_layout.chart,a->workspace.canvas);
+    bool fresh=owner && selected_pivot(a)==object && !a->step_preview.active && a->ribbon_mode!=3 && object->mark<=MARK_LINE &&
+        visible.width>0 && visible.height>0 && a->chart_cells==page->cells && a->chart_id==object->id &&
+        a->chart_revision==object->revision && a->chart_source_revision==source && a->chart_generation==a->analysis_revision &&
+        a->chart_sheet==a->book.active && a->chart_offset==page->offset && a->chart_measure==object->chart_measure &&
+        a->chart_view.valid && derived && a->chart_view.other_values==derived;
+    const UIChartView *chart=&a->chart_view;
+    bool encoding=fresh && a->chart_encoding_valid && a->chart_marks_revision==active_sheet(a)->objects.marks_revision &&
+        a->chart_encoding_line==(object->mark==MARK_LINE);
+    char state[640];
+    snprintf(state,sizeof(state)," chart_measure=%u chart_series=%zu chart_other=%d chart_other_value=%.17g chart_fresh=%d object_other_status=%d object_other_variants=%zu chart_rect=%.3f,%.3f,%.3f,%.3f chart_tooltip_count=%zu chart_tooltip_active=%d",
+        object->chart_measure,fresh ? chart->series : 0,fresh && chart->other,
+        fresh && chart->series==4 && chart->categories && chart->present[3][0] ? chart->values[3][0] : 0,fresh,
+        page->other_status,page->other ? page->other->variant_count : 0,
+        a->authoring_layout.chart.x,a->authoring_layout.chart.y,a->authoring_layout.chart.width,a->authoring_layout.chart.height,
+        object->marks.counts[MARKS_TOOLTIP],encoding && a->chart_encoding.active[MARKS_TOOLTIP]);
+    review_author_capture_state(a,state);
+    const Cell *plot=owner && derived && derived->row_count==1 && object->chart_measure<derived->column_count ? &derived->cells[object->chart_measure] : NULL;
+    review_chart_value(a,"object_other_plot",plot!=NULL,plot && plot->is_null,plot ? plot->text : NULL);
+    UIEncodingValue tooltip={0};
+    if (encoding && chart->other && chart->series==4 && chart->categories && a->chart_encoding.active[MARKS_TOOLTIP] && a->chart_encoding.counts[MARKS_TOOLTIP])
+        tooltip=ui_encoding_value(page,&object->pivot,chart,a->chart_encoding.bindings[MARKS_TOOLTIP][0],3,0);
+    review_chart_value(a,"chart_tooltip",tooltip.available,tooltip.is_null,tooltip.raw);
+}
 static void review_grid(App *a) {
     if (!review_armed(a)) return;
     review_statistics(a);
@@ -1245,7 +1287,7 @@ static void review_grid(App *a) {
         totals ? totals->rows.row_count : 0,totals ? totals->columns.row_count : 0,
         totals ? totals->rows.row_count : 0,totals ? totals->rows.column_count : 0,totals ? totals->columns.row_count : 0,totals ? totals->columns.column_count : 0,totals && totals->has_columns,grand_null,grand,grand_truncated);
     review_author_capture_state(a,state);
-    if (object) { snprintf(state,sizeof(state)," object_revision=%llu",(unsigned long long)object->revision); review_author_capture_state(a,state); }
+    if (object) { snprintf(state,sizeof(state)," object_revision=%llu",(unsigned long long)object->revision); review_author_capture_state(a,state); review_chart_state(a,object,view); }
     if (object && view && object->pivot.counts[PIVOT_COLUMNS]) for (size_t c=0;c<2;c++) {
         size_t at=object->pivot.counts[PIVOT_ROWS]+c; const Column *column=at<view->page.column_count ? &view->page.columns[at] : NULL;
         bool present=column && column->category_count && column->categories;
