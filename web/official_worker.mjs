@@ -12,7 +12,7 @@
 import { DataType } from 'apache-arrow';
 
 export const LIMITS = Object.freeze({ rows: 256, columns: 256, bytes: 4 * 1024 * 1024,
-    copyCells:20000,sqlBytes: 1024 * 1024, fileBytes: 256 * 1024 * 1024, fileNames: 1024 });
+    copyCells:20000,sqlBytes: 1024 * 1024, fileBytes: 256 * 1024 * 1024, fileNames: 1024, sourceBindings: 33 });
 // Bounds transferred output, not COPY's private engine file or process peak.
 export const EXPORT_LIMITS=Object.freeze({bytes:64*1024*1024});
 const MAX_U64 = 18446744073709551615n;
@@ -20,9 +20,11 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
 const NUMBER_KINDS = new Set(['none', 'i8', 'i16', 'i32', 'i64', 'i128', 'u8', 'u16', 'u32', 'u64', 'u128', 'decimal', 'float']);
 // Reconnecting through another adapter must not reset this database object's
-// reservation history. A distinct database wrapper/raw engine write remains
-// outside this API guard; this is not a verified registration epoch.
+// reservation history or session tokens. These describe only immutable buffers
+// registered through this API: raw engine writes, distinct wrappers around the
+// same underlying database and persistent/content identity remain unsupported.
 const fileNameRegistries = new WeakMap();
+let nextDatabaseEpoch = 1n;
 
 export class BridgeError extends Error {
     constructor(code, message) { super(message); this.name = 'BridgeError'; this.code = code; }
@@ -37,6 +39,26 @@ function u64(value, name) {
     check(typeof value === 'string' && /^(0|[1-9][0-9]{0,19})$/.test(value) && BigInt(value) <= MAX_U64,
         'INVALID_REQUEST', `${name} must be an exact unsigned 64-bit decimal string`);
     return value;
+}
+function sourceBindings(value) {
+    // Explicit caller-owned dependencies only. Parsing these tokens neither
+    // inspects SQL nor certifies that the caller listed every dependency.
+    check(Array.isArray(value) && value.length > 0 && value.length <= LIMITS.sourceBindings,
+        'INVALID_REQUEST', 'Explicit source bindings require 1–33 registered sources');
+    const names = new Set();
+    return Object.freeze(Array.from(value, binding => {
+        check(binding && typeof binding === 'object', 'INVALID_REQUEST', 'Source binding required');
+        const name = virtualName(binding.name);
+        const engineEpoch = u64(binding.engineEpoch, 'Source engine epoch');
+        const registrationId = u64(binding.registrationId, 'Source registration ID');
+        check(engineEpoch !== '0' && registrationId !== '0', 'INVALID_REQUEST', 'Source tokens must be nonzero');
+        check(!names.has(name), 'INVALID_REQUEST', 'Duplicate source binding name'); names.add(name);
+        return Object.freeze({ name, engineEpoch, registrationId });
+    }));
+}
+function newFileNameRegistry() {
+    check(nextDatabaseEpoch <= MAX_U64, 'FILE_REGISTRY_LIMIT', 'Source engine epochs are exhausted. Start a new browser session.');
+    return { epoch: String(nextDatabaseEpoch++), nextId: 1n, names: new Map(), closed: false };
 }
 function descriptor(value) {
     const result = { name: boundedText(value.name, 4096, 'Column name'),
@@ -66,6 +88,9 @@ export function pageRequest(value) {
         request.columns = Object.freeze(value.columns.map(descriptor));
         check(request.purpose!=='copy'||request.rowLimit*request.columns.length<=LIMITS.copyCells,'INVALID_REQUEST','Copy projection exceeds 20,000 cells');
     }
+    // Absence keeps the existing unbound query contract. Explicit malformed
+    // bindings must never silently downgrade to an unbound request.
+    if (value.sourceBindings !== undefined) request.sourceBindings = sourceBindings(value.sourceBindings);
     return Object.freeze(request);
 }
 export function exportRequest(value) {
@@ -210,21 +235,33 @@ export class DuckDBWorkerAdapter {
     // retired/failed name: older C relations may still refer to that basename.
     // This protects this API's registered buffers, not arbitrary SQL writes,
     // remote/custom SQL dependencies, or persistent source identity.
-    #fileNames;
+    #fileRegistry;
     #reserveFileName(name, registration) {
-        if (this.#fileNames.has(name)) {
+        const registry = this.#fileRegistry;
+        check(!registry.closed, 'NOT_AVAILABLE', 'This source engine session has closed');
+        if (registry.names.has(name)) {
             check(!registration, 'IMMUTABLE_FILE', 'This source name was already used in this engine session. Import with a fresh virtual name.');
-            return;
+            return registry.names.get(name);
         }
-        check(this.#fileNames.size < LIMITS.fileNames, 'FILE_REGISTRY_LIMIT', 'The engine session has reached its file-name limit. Start another Duxcel session to import more sources.');
-        this.#fileNames.add(name);
+        check(registry.names.size < LIMITS.fileNames && registry.nextId <= MAX_U64, 'FILE_REGISTRY_LIMIT', 'The engine session has reached its file-name limit. Start another Duxcel session to import more sources.');
+        const entry = { id: String(registry.nextId++), state: 'reserved' };
+        registry.names.set(name, entry); return entry;
+    }
+    #checkSourceBindings(request) {
+        if (!request.sourceBindings) return;
+        const registry = this.#fileRegistry;
+        for (const binding of request.sourceBindings) {
+            const entry = registry.names.get(binding.name);
+            check(!registry.closed && binding.engineEpoch === registry.epoch && entry?.state === 'ready' && entry.id === binding.registrationId,
+                'SOURCE_INVALIDATED', 'A captured browser source registration is unavailable or belongs to another engine session');
+        }
     }
     constructor({ database, connection, engineVersion = null, dispose = null }) {
         this.database = database; this.connection = connection; this.engineVersion = engineVersion; this.dispose = dispose;
         if (database && (typeof database === 'object' || typeof database === 'function')) {
-            this.#fileNames = fileNameRegistries.get(database);
-            if (!this.#fileNames) { this.#fileNames = new Set(); fileNameRegistries.set(database, this.#fileNames); }
-        } else this.#fileNames = new Set(); // Query-only test adapters have no database handle.
+            this.#fileRegistry = fileNameRegistries.get(database);
+            if (!this.#fileRegistry) { this.#fileRegistry = newFileNameRegistry(); fileNameRegistries.set(database, this.#fileRegistry); }
+        } else this.#fileRegistry = newFileNameRegistry(); // Query-only test adapters have no database handle.
         this.active = null; this.pending = null; this.draining = null; this.closed = false; this.admin = false; this.latestId = 0n;
     }
     submit(value) {
@@ -236,6 +273,7 @@ export class DuckDBWorkerAdapter {
     #enqueue(request,exporting) {
         check(!this.closed && !this.admin, 'NOT_AVAILABLE', 'Engine is closed or registering a file');
         check(BigInt(request.requestId) > this.latestId, 'STALE_REQUEST', 'requestId must increase within this adapter');
+        this.#checkSourceBindings(request); // No ticket/output reservation on failed admission.
         if(exporting)this.#reserveFileName(request.fileName,true);
         this.latestId = BigInt(request.requestId);
         if (this.pending) this.pending.resolve(failure(this.pending.request, 'superseded'));
@@ -254,14 +292,17 @@ export class DuckDBWorkerAdapter {
                 const task = this.active = this.pending; this.pending = null;
                 let reader, reply;
                 try {
+                    this.#checkSourceBindings(task.request);
                     if(task.exporting){
                         const files=await this.database.globFiles(task.request.fileName);
                         check(Array.isArray(files) && files.length===0,'EXPORT_EXISTS','Private export file already exists; it has been preserved');
                         check(!task.reason,'SUPERSEDED','Request was superseded');task.privateOwned=true;
                     }
+                    this.#checkSourceBindings(task.request);
                     reader = await this.connection.send(task.request.sql, true);
                     check(reader && !task.reason, 'SUPERSEDED', 'Request was superseded');
                     const page = await encodePage(reader, task.request, { obsolete: () => Boolean(task.reason) });
+                    this.#checkSourceBindings(task.request);
                     if(task.exporting){
                         check(page.rowCount===1 && page.columnCount===1 && page.columns[0].name==='Count' &&
                             (page.columns[0].typeName==='BIGINT' && page.columns[0].numberKind==='i64' || page.columns[0].typeName==='UBIGINT' && page.columns[0].numberKind==='u64'),
@@ -272,11 +313,13 @@ export class DuckDBWorkerAdapter {
                         if(reader?.cancel){await reader.cancel();reader=null;}
                         check(!task.reason,'SUPERSEDED','Request was superseded');
                         await this.database.flushFiles();check(!task.reason,'SUPERSEDED','Request was superseded');
+                        this.#checkSourceBindings(task.request);
                         const infos=await this.database.globFiles(task.request.fileName);
                         check(Array.isArray(infos) && infos.length===1 && infos[0]?.fileName===task.request.fileName &&
                             Number.isSafeInteger(infos[0].fileSize) && infos[0].fileSize>=12 && infos[0].fileSize<=EXPORT_LIMITS.bytes,
                             'EXPORT_LIMIT','Private Parquet file must have one exact known size of at most 64 MiB');
                         check(!task.reason,'SUPERSEDED','Request was superseded');
+                        this.#checkSourceBindings(task.request);
                         const data=await this.database.copyFileToBuffer(task.request.fileName);
                         check(!task.reason,'SUPERSEDED','Request was superseded');inspectParquetExport(data,infos[0].fileSize);
                         reply={...identity(task.request),status:'ok',page,data};
@@ -300,6 +343,13 @@ export class DuckDBWorkerAdapter {
                         if(task.cancel)await task.cancel;
                     }
                 }
+                // Reader cancellation and export cleanup can await sibling
+                // administration. Recheck after every owned cleanup has drained,
+                // immediately before publishing any success/page/binary.
+                if (reply?.status === 'ok' && !task.reason) {
+                    try { this.#checkSourceBindings(task.request); }
+                    catch (error) { reply = failure(task.request, 'error', error); }
+                }
                 task.resolve(task.reason && task.reason !== 'error' ? failure(task.request, task.reason,task.cleanupError) : reply);
                 this.active = null;
             }
@@ -314,19 +364,27 @@ export class DuckDBWorkerAdapter {
         virtualName(name);
         check(bytes instanceof Uint8Array && bytes.byteLength <= LIMITS.fileBytes, 'FILE_LIMIT', 'File buffer must be at most 256 MiB');
         check(!this.closed && !this.active && !this.pending && !this.admin, 'NOT_AVAILABLE', 'Await an idle adapter before registering a file');
-        this.#reserveFileName(name, true);
+        const entry = this.#reserveFileName(name, true); entry.state = 'registering';
         this.admin = true;
         try {
             const length = bytes.byteLength;
             const owned = new Uint8Array(bytes); // never transfer/detach a C heap or caller-owned subarray
             await this.database.registerFileBuffer(name, owned);
-            return { name, bytes: length };
+            // A sibling adapter may have revoked this reservation while the
+            // asynchronous registration was pending; never resurrect it.
+            check(entry.state === 'registering' && !this.#fileRegistry.closed, 'SOURCE_INVALIDATED', 'Source registration was revoked before completion');
+            entry.state = 'ready';
+            // Opaque session scalars, not a content hash or persisted version.
+            return Object.freeze({ name, bytes: length, engineEpoch: this.#fileRegistry.epoch, registrationId: entry.id });
+        } catch (error) {
+            if (entry.state === 'registering') entry.state = 'failed';
+            throw error;
         } finally { this.admin = false; }
     }
     async dropFile(name) {
         virtualName(name);
         check(!this.closed && !this.active && !this.pending && !this.admin, 'NOT_AVAILABLE', 'Await an idle adapter before dropping a file');
-        this.#reserveFileName(name, false);
+        const entry = this.#reserveFileName(name, false); entry.state = 'revoked';
         this.admin = true;
         try { await this.database.dropFile(name); }
         finally { this.admin = false; }
@@ -335,6 +393,9 @@ export class DuckDBWorkerAdapter {
         if (this.closed) return;
         check(!this.admin, 'NOT_AVAILABLE', 'Await file registration before closing');
         this.closed = true;
+        // Only the adapter that owns database disposal closes the shared
+        // registration lifetime. Closing a sibling connection leaves it intact.
+        if (this.dispose) this.#fileRegistry.closed = true;
         await this.cancel();
         try { await this.connection.close(); } finally { if (this.dispose) await this.dispose(); }
     }

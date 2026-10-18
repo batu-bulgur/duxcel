@@ -178,7 +178,9 @@ test('file registration transfers only an owned copy, preserving the caller/Wasm
     const input = new Uint8Array([99, 1, 2, 3, 88]); let stored;
     const database = { async registerFileBuffer(name, data) { assert.equal(name, 'source.parquet'); stored = structuredClone(data, { transfer: [data.buffer] }); } };
     const adapter = new DuckDBWorkerAdapter({ database, connection: connection() });
-    assert.deepEqual(await adapter.registerFile('source.parquet', input.subarray(1, 4)), { name: 'source.parquet', bytes: 3 });
+    const registered = await adapter.registerFile('source.parquet', input.subarray(1, 4));
+    assert.deepEqual(registered, { name: 'source.parquet', bytes: 3, engineEpoch: registered.engineEpoch, registrationId: '1' });
+    assert.match(registered.engineEpoch, /^[1-9][0-9]*$/); assert.ok(Object.isFrozen(registered));
     assert.deepEqual([...stored], [1, 2, 3]); assert.deepEqual([...input], [99, 1, 2, 3, 88]);
     await assert.rejects(adapter.registerFile('../source', input), { code: 'INVALID_FILE' });
 });
@@ -466,4 +468,167 @@ test('official Worker factory uses single-threaded lossless options and owns shu
     class BrokenDatabase extends FakeDatabase { async instantiate() { throw new Error('bad module'); } }
     await assert.rejects(createOfficialWorkerAdapter({ moduleURL: '/bad.wasm', workerURL: '/worker.js', duckdb: { ...duckdb, AsyncDuckDB: BrokenDatabase }, WorkerClass: FakeWorker }), /bad module/);
     assert.equal(calls.at(-1), 'terminate');
+});
+
+const bindingOf = ({ name, engineEpoch, registrationId }) => ({ name, engineEpoch, registrationId });
+const boundRequest = (id, binding, extra = {}) => ({ requestId: id, sql: 'BOUND C SQL', sourceBindings: [bindingOf(binding)], ...extra });
+function sourceFixture(extra = {}) {
+    const files = new Map(), calls = [];
+    const database = {
+        async registerFileBuffer(name, bytes) { calls.push(['register', name]); files.set(name, bytes.slice()); },
+        async dropFile(name) { calls.push(['drop', name]); files.delete(name); }, ...extra
+    };
+    return { database, calls, files, adapter: new DuckDBWorkerAdapter({ database, connection: connection({
+        async send(sql) { calls.push(['send', sql]); return reader(simple()); }
+    }) }) };
+}
+test('optional source bindings own exact bounded tokens and never silently downgrade malformed input', () => {
+    const binding = { name: "O'Brien-İstanbul.csv", engineEpoch: '9007199254740993', registrationId: '18446744073709551615' };
+    const input = boundRequest('1', binding), copied = pageRequest(input);
+    assert.deepEqual(copied.sourceBindings, [binding]);
+    assert.ok(Object.isFrozen(copied.sourceBindings)); assert.ok(Object.isFrozen(copied.sourceBindings[0]));
+    input.sourceBindings[0].name = 'changed.csv'; input.sourceBindings.push(binding);
+    assert.equal(copied.sourceBindings.length, 1); assert.equal(copied.sourceBindings[0].name, binding.name);
+    assert.equal(pageRequest({ requestId: '1', sql: 'UNBOUND' }).sourceBindings, undefined);
+    for (const value of [undefined, null, 0, 1, 1n, '', '0', '01', '-1', '1.0', '18446744073709551616']) {
+        for (const field of ['engineEpoch', 'registrationId'])
+            assert.throws(() => pageRequest(boundRequest('1', { ...binding, [field]: value })), { code: 'INVALID_REQUEST' });
+    }
+    for (const value of [null, false, {}, [], Array(1), [null], [binding, binding], Array(34).fill(binding)])
+        assert.throws(() => pageRequest({ requestId: '1', sql: 'INVALID', sourceBindings: value }));
+    for (const name of ['', '.', '..', '../bad.csv', 'bad\0.csv', 'x'.repeat(256)])
+        assert.throws(() => pageRequest(boundRequest('1', { ...binding, name })));
+    const maximum = Array.from({ length: LIMITS.sourceBindings }, (_, i) => ({ ...binding, name: `source-${i}.csv` }));
+    assert.equal(pageRequest({ requestId: '1', sql: 'BOUND', sourceBindings: maximum }).sourceBindings.length, 33);
+    assert.deepEqual(exportRequest(exportInput('1', { sourceBindings: [binding] })).sourceBindings, [binding]);
+});
+test('registration tokens are stable across shared database connections and distinct across independent databases', async () => {
+    const fixture = sourceFixture(), first = fixture.adapter;
+    const a = await first.registerFile('same.csv', new Uint8Array([1]));
+    const second = new DuckDBWorkerAdapter({ database: fixture.database, connection: connection() });
+    const b = await second.registerFile('second.csv', new Uint8Array([2]));
+    assert.equal(a.engineEpoch, b.engineEpoch); assert.equal(a.registrationId, '1'); assert.equal(b.registrationId, '2');
+    assert.equal((await second.submit(boundRequest('1', a))).status, 'ok');
+    await first.close(); // Closing one connection does not revoke sibling sources.
+    assert.equal((await second.submit(boundRequest('2', a))).status, 'ok');
+    const reconnect = new DuckDBWorkerAdapter({ database: fixture.database, connection: connection() });
+    assert.equal((await reconnect.submit(boundRequest('1', b))).status, 'ok');
+    const independent = sourceFixture(), c = await independent.adapter.registerFile('same.csv', new Uint8Array([9]));
+    assert.notEqual(c.engineEpoch, a.engineEpoch); assert.equal(c.registrationId, '1');
+    assert.throws(() => independent.adapter.submit(boundRequest('1', a)), { code: 'SOURCE_INVALIDATED' });
+    assert.equal(independent.adapter.latestId, 0n); assert.equal(independent.calls.some(call => call[0] === 'send'), false);
+    assert.equal((await independent.adapter.submit(boundRequest('1', c))).status, 'ok');
+    await second.close(); await reconnect.close(); await independent.adapter.close();
+});
+test('a stale bound request does not consume a ticket, cancel active work or reserve an export name', async () => {
+    const fixture = sourceFixture(), token = await fixture.adapter.registerFile('source.csv', new Uint8Array([1]));
+    const waiting = deferred(), began = deferred(); let cancellations = 0;
+    fixture.adapter.connection.send = async () => { began.resolve(); return waiting.promise; };
+    fixture.adapter.connection.cancelSent = async () => { cancellations++; return true; };
+    const active = fixture.adapter.submit(boundRequest('1', token)); await began.promise;
+    const wrong = { ...token, registrationId: '9007199254740993' };
+    assert.throws(() => fixture.adapter.submit(boundRequest('2', wrong)), { code: 'SOURCE_INVALIDATED' });
+    assert.throws(() => fixture.adapter.exportParquet(exportInput('2', { sourceBindings: [bindingOf(wrong)] })), { code: 'SOURCE_INVALIDATED' });
+    assert.equal(fixture.adapter.latestId, 1n); assert.equal(cancellations, 0);
+    waiting.resolve(reader(simple())); assert.equal((await active).status, 'ok');
+    const unused = await fixture.adapter.registerFile('export-7-2.parquet', new Uint8Array([7]));
+    assert.equal(unused.registrationId, '2', 'invalid export never reserved its output name');
+    await fixture.adapter.close();
+});
+test('failed registrations and failed drops burn IDs, revoke immediately and never resurrect a token', async () => {
+    let failDrop = true;
+    const fixture = sourceFixture({
+        async registerFileBuffer(name, bytes) { fixture.files.set(name, bytes.slice()); if (name === 'partial.csv') throw new Error('partial registration'); },
+        async dropFile(name) { if (failDrop) throw new Error('drop fault'); fixture.files.delete(name); }
+    });
+    await assert.rejects(fixture.adapter.registerFile('partial.csv', new Uint8Array([1])), /partial registration/);
+    const good = await fixture.adapter.registerFile('good.csv', new Uint8Array([2])); assert.equal(good.registrationId, '2');
+    const partial = { name: 'partial.csv', engineEpoch: good.engineEpoch, registrationId: '1' };
+    assert.throws(() => fixture.adapter.submit(boundRequest('1', partial)), { code: 'SOURCE_INVALIDATED' });
+    const sibling = new DuckDBWorkerAdapter({ database: fixture.database, connection: connection() });
+    await assert.rejects(sibling.dropFile('good.csv'), /drop fault/);
+    assert.deepEqual([...fixture.files.get('good.csv')], [2], 'drop failure may retain bytes but not their token');
+    assert.throws(() => fixture.adapter.submit(boundRequest('1', good)), { code: 'SOURCE_INVALIDATED' });
+    await assert.rejects(fixture.adapter.registerFile('good.csv', new Uint8Array([3])), { code: 'IMMUTABLE_FILE' });
+    failDrop = false; await sibling.dropFile('good.csv'); await sibling.dropFile('partial.csv');
+    const fresh = await fixture.adapter.registerFile('fresh.csv', new Uint8Array([4])); assert.equal(fresh.registrationId, '3');
+    assert.equal((await fixture.adapter.submit(boundRequest('1', fresh))).status, 'ok');
+    await sibling.close(); await fixture.adapter.close();
+});
+test('a sibling drop during asynchronous registration cannot publish a resurrected ready token', async () => {
+    const registering = deferred(), began = deferred(), fixture = sourceFixture({
+        async registerFileBuffer() { began.resolve(); await registering.promise; }
+    });
+    const sibling = new DuckDBWorkerAdapter({ database: fixture.database, connection: connection() });
+    const pending = fixture.adapter.registerFile('pending.csv', new Uint8Array([1])); await began.promise;
+    await sibling.dropFile('pending.csv'); registering.resolve();
+    await assert.rejects(pending, { code: 'SOURCE_INVALIDATED' });
+    await assert.rejects(sibling.registerFile('pending.csv', new Uint8Array([2])), { code: 'IMMUTABLE_FILE' });
+    const fresh = await sibling.registerFile('fresh.csv', new Uint8Array([2])); assert.equal(fresh.registrationId, '2');
+    assert.throws(() => sibling.submit(boundRequest('1', { name: 'pending.csv', engineEpoch: fresh.engineEpoch, registrationId: '1' })), { code: 'SOURCE_INVALIDATED' });
+    await sibling.close(); await fixture.adapter.close();
+});
+test('all captured sources are rechecked after reader cleanup and a stale contributor discards the whole page', async () => {
+    const fixture = sourceFixture(), a = await fixture.adapter.registerFile('a.csv', new Uint8Array([1]));
+    const b = await fixture.adapter.registerFile('b.csv', new Uint8Array([2]));
+    const cleanup = deferred(), began = deferred();
+    fixture.adapter.connection.send = async () => { const value = reader(simple()); value.cancel = async () => { began.resolve(); await cleanup.promise; }; return value; };
+    const pending = fixture.adapter.submit(boundRequest('1', a, { sourceBindings: [bindingOf(a), bindingOf(b)] })); await began.promise;
+    const sibling = new DuckDBWorkerAdapter({ database: fixture.database, connection: connection() }); await sibling.dropFile('b.csv');
+    cleanup.resolve(); const result = await pending;
+    assert.equal(result.status, 'error'); assert.equal(result.error.code, 'SOURCE_INVALIDATED'); assert.equal(result.page, undefined);
+    fixture.adapter.connection.send = async () => reader(simple());
+    assert.equal((await fixture.adapter.submit(boundRequest('2', a))).status, 'ok', 'unrelated source remains usable');
+    await sibling.close(); await fixture.adapter.close();
+});
+test('a queued source revoked while an old cancellation drains is rejected before its SQL', async () => {
+    const fixture = sourceFixture(), token = await fixture.adapter.registerFile('source.csv', new Uint8Array([1]));
+    const sending = deferred(), cancelling = deferred(), began = deferred();
+    fixture.adapter.connection.send = async sql => { fixture.calls.push(['send', sql]); return sending.promise; };
+    fixture.adapter.connection.cancelSent = async () => { began.resolve(); await cancelling.promise; return true; };
+    const old = fixture.adapter.submit({ requestId: '1', sql: 'OLD' });
+    const next = fixture.adapter.submit(boundRequest('2', token)); await began.promise;
+    const sibling = new DuckDBWorkerAdapter({ database: fixture.database, connection: connection() }); await sibling.dropFile(token.name);
+    sending.resolve(reader(simple())); cancelling.resolve();
+    assert.equal((await old).status, 'superseded'); const result = await next;
+    assert.equal(result.status, 'error'); assert.equal(result.error.code, 'SOURCE_INVALIDATED');
+    assert.deepEqual(fixture.calls.filter(call => call[0] === 'send'), [['send', 'OLD']]);
+    await sibling.close(); await fixture.adapter.close();
+});
+test('bound export rechecks after private cleanup and never publishes bytes for a revoked source', async () => {
+    const dropping = deferred(), began = deferred();
+    const fixture = exportFixture({ drop: async name => { if (name === 'export-7-1.parquet') { began.resolve(); await dropping.promise; } } });
+    const token = await fixture.adapter.registerFile('source.csv', new Uint8Array([1]));
+    const pending = fixture.adapter.exportParquet(exportInput('1', { sourceBindings: [bindingOf(token)] })); await began.promise;
+    const sibling = new DuckDBWorkerAdapter({ database: fixture.database, connection: connection() }); await sibling.dropFile(token.name);
+    dropping.resolve(); const result = await pending;
+    assert.equal(result.status, 'error'); assert.equal(result.error.code, 'SOURCE_INVALIDATED');
+    assert.equal(result.data, undefined); assert.equal(result.page, undefined); assert.equal(fixture.files.size, 0);
+    assert.equal((await fixture.adapter.submit({ requestId: '2', sql: 'LATEST' })).status, 'ok');
+    await sibling.close(); await fixture.adapter.close();
+});
+test('a bound export preserves exact output and unrelated source cleanup does not invalidate it', async () => {
+    const fixture = exportFixture(), token = await fixture.adapter.registerFile('source.csv', new Uint8Array([1]));
+    const other = await fixture.adapter.registerFile('other.csv', new Uint8Array([2]));
+    const sibling = new DuckDBWorkerAdapter({ database: fixture.database, connection: connection() }); await sibling.dropFile(other.name);
+    const input = exportInput('1', { sourceBindings: [bindingOf(token)] });
+    const result = await fixture.adapter.exportParquet(input);
+    assert.equal(result.status, 'ok'); assert.equal(pageCellText(result.page, 0, 0), '600');
+    assert.deepEqual(result.data, parquetBytes());
+    for (const field of ['requestId', 'generation', 'documentId', 'sourceId', 'objectId', 'revision', 'offset']) assert.equal(result[field], input[field]);
+    assert.deepEqual([...fixture.files.keys()], [token.name], 'only the source survives private export cleanup');
+    assert.equal((await fixture.adapter.submit(boundRequest('2', token))).status, 'ok');
+    await sibling.close(); await fixture.adapter.close();
+});
+test('1024 burned reservations never evict active tokens, and a disposal revokes the whole database lifetime', async () => {
+    const fixture = sourceFixture(), token = await fixture.adapter.registerFile('first.csv', new Uint8Array([1]));
+    for (let i = 1; i < LIMITS.fileNames; i++) await fixture.adapter.dropFile(`unused-${i}.csv`);
+    await assert.rejects(fixture.adapter.registerFile('too-many.csv', new Uint8Array([2])), { code: 'FILE_REGISTRY_LIMIT' });
+    assert.equal((await fixture.adapter.submit(boundRequest('1', token))).status, 'ok');
+    const terminated = deferred(), began = deferred();
+    const owner = new DuckDBWorkerAdapter({ database: fixture.database, connection: connection(), dispose: async () => { began.resolve(); await terminated.promise; } });
+    const closing = owner.close(); await began.promise;
+    assert.throws(() => fixture.adapter.submit(boundRequest('2', token)), { code: 'SOURCE_INVALIDATED' });
+    await assert.rejects(fixture.adapter.registerFile('first.csv', new Uint8Array([3])), { code: 'NOT_AVAILABLE' });
+    terminated.resolve(); await closing; await fixture.adapter.close();
 });
