@@ -1,0 +1,53 @@
+{
+  "schema": "duxcel.tables-adjacent",
+  "version": 1,
+  "revision": "8770a291757fc650993492ba7a6222076de62566",
+  "scope": "Original source-options/query/object actual Worker workflows on updated common C driver; integrated corrected native emitter877; no old maximal native mode rerun",
+  "status": "passed",
+  "steps": [
+    {
+      "name": "source-options",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build",
+        "--codec-source-options"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 18.172750750090927,
+      "log": "build/bp1-tables-adjacent/source-options.txt",
+      "sha256": "c94d14b47c30e65730f3ebdd5a04efb359d18d039a90af97046ea2d162395e32"
+    },
+    {
+      "name": "queries",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build",
+        "--codec-queries"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 13.403652291977778,
+      "log": "build/bp1-tables-adjacent/queries.txt",
+      "sha256": "e2746ed6e24545d321ec2f5d0a8b45ff2c7a177a74c7746e0611bb9b4990ac72"
+    },
+    {
+      "name": "objects",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build",
+        "--codec-objects"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.163060792023316,
+      "log": "build/bp1-tables-adjacent/objects.txt",
+      "sha256": "f9158867436b630b514d89ba975a901fced4e87f946710729107239378667bf3"
+    }
+  ],
+  "elapsed_seconds": 39.74176712508779,
+  "source_revision_unchanged": true
+}

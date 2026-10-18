@@ -1,0 +1,27 @@
+✖ Table family requests freeze exact bounded contracts and reject sparse descriptors before enqueue (2.883542ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 150.143083
+
+✖ failing tests:
+
+test at web/official_worker.test.mjs:298:1
+✖ Table family requests freeze exact bounded contracts and reject sparse descriptors before enqueue (2.883542ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-table-transport-tests/duxcel/web/official_worker.test.mjs:315:44)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1397:25)
+      at Test.start (node:internal/test_runner/test:1257:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { code: 'INVALID_REQUEST' },
+    operator: 'throws',
+    diff: 'simple'
+  }

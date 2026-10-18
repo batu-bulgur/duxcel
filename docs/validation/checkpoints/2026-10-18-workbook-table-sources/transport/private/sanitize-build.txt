@@ -1,0 +1,2 @@
+mkdir -p build/web-tests
+clang -Isrc -I/opt/homebrew/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c src/data/page_wire.c src/data/browser_query.c tests/test_page_wire.c -o build/web-tests/test-wire-sanitize -lm -fsanitize=address,undefined -fno-omit-frame-pointer

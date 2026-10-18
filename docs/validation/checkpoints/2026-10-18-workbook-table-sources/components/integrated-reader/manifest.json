@@ -1,0 +1,27 @@
+{
+  "schema": "duxcel.tables-components",
+  "version": 1,
+  "revision": "c531b0e6f5a1313c4b73520ee57200cae52c271d",
+  "scope": "Integrated complete Table definition metadata reader only; transport newtests/native/actualWorker pending",
+  "status": "passed",
+  "steps": [
+    {
+      "name": "pure",
+      "command": [
+        "python3",
+        "tools/test.py",
+        "fast",
+        "--modules",
+        "workbook_codec_read",
+        "--config",
+        "both"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 9.482721249922179,
+      "log": "build/bp1-tables-components/pure.txt",
+      "sha256": "1d618b729e0a86b8c0e3d9b6a84d0f31d31c07177867aa5d2f0fe52255663661"
+    }
+  ],
+  "elapsed_seconds": 9.482721249922179,
+  "source_revision_unchanged": true
+}

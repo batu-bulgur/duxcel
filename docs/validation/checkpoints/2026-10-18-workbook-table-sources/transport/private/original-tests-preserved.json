@@ -1,0 +1,21 @@
+{
+  "base": "f720322727c10c30ecef1119fecca69e709b7487",
+  "scope": "Exact original test text preserved; added Table tests and one import/main entry only. Runtime also checks60186 before new C cases.",
+  "files": [
+    {
+      "path": "web/official_worker.test.mjs",
+      "original_sha256": "784386113a6f513da2173e6c54509e4d0254e2086dec69e2fc12c502ff854b63",
+      "original_test_definitions_byte_exact_after_removing_only_new_block_and_entry": true
+    },
+    {
+      "path": "web/page_wire.test.mjs",
+      "original_sha256": "8e3f2a666db3cf7f8dfbddd977b914d5c8e0481e1ce5f71ff4643b8a7ad238c1",
+      "original_test_definitions_byte_exact_after_removing_only_new_block_and_entry": true
+    },
+    {
+      "path": "tests/test_page_wire.c",
+      "original_sha256": "dcf1637cee93b22c00553b60092b2c01bd693c8a53ceae0c235ebfd760f2b656",
+      "original_test_definitions_byte_exact_after_removing_only_new_block_and_entry": true
+    }
+  ]
+}

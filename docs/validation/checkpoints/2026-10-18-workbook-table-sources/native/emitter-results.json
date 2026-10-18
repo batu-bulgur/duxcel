@@ -1,0 +1,1086 @@
+[
+  {
+    "stage": "release-emit",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-release",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/alias-tables-release-_xt_ziv7"
+    ],
+    "seconds": 0.509439,
+    "exit_code": 0,
+    "stdout": "{\"schema\":\"duxcel.codec-fixtures\",\"version\":1,\"files\":[{\"name\":\"tables-v12.dxls\",\"version\":12,\"layout\":25},{\"name\":\"tables-v13.dxls\",\"version\":13,\"layout\":25},{\"name\":\"tables-v14.dxls\",\"version\":14,\"layout\":25},{\"name\":\"tables-v14-reordered.dxls\",\"version\":14,\"layout\":25}]}\n",
+    "stderr": ""
+  },
+  {
+    "stage": "release-repeat-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-release",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-release-_xt_ziv7"
+    ],
+    "seconds": 0.014662,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-release-_xt_ziv7/tables-v12.dxls\n"
+  },
+  {
+    "stage": "release-source-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-release",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-release-source-ipq2azdh"
+    ],
+    "seconds": 0.013854,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-release-source-ipq2azdh/missing-source.csv\n"
+  },
+  {
+    "stage": "release-file-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-release",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-release-file-2n_ehedn"
+    ],
+    "seconds": 0.016831,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-release-file-2n_ehedn/tables-v12.dxls\n"
+  },
+  {
+    "stage": "release-symlink-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-release",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-release-symlink-zes3h4hd"
+    ],
+    "seconds": 0.025566,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-release-symlink-zes3h4hd/tables-v12.dxls\n"
+  },
+  {
+    "stage": "release-late-conflict",
+    "seconds": 0.108585,
+    "exit_code": 1,
+    "stderr": "cannot publish fixture: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-race-release-90ys0l94/tables-v13.dxls\n",
+    "remaining": [
+      "tables-v13.dxls"
+    ]
+  },
+  {
+    "stage": "release-invalid-args",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-release",
+      "--emit-tables-fixtures"
+    ],
+    "seconds": 0.013992,
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-release [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR]\n"
+  },
+  {
+    "stage": "release-invalid-args",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-release",
+      "--tables-only",
+      "extra"
+    ],
+    "seconds": 0.016986,
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-release [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR]\n"
+  },
+  {
+    "stage": "release-invalid-args",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-release",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/absent-directory"
+    ],
+    "seconds": 0.014304,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture destination must be an existing accessible directory\n"
+  },
+  {
+    "stage": "release-inspection",
+    "directory": "build/bp1-tables-native-null-corrected/tables-release-_xt_ziv7",
+    "protocol": {
+      "schema": "duxcel.codec-fixtures",
+      "version": 1,
+      "files": [
+        {
+          "name": "tables-v12.dxls",
+          "version": 12,
+          "layout": 25
+        },
+        {
+          "name": "tables-v13.dxls",
+          "version": 13,
+          "layout": 25
+        },
+        {
+          "name": "tables-v14.dxls",
+          "version": 14,
+          "layout": 25
+        },
+        {
+          "name": "tables-v14-reordered.dxls",
+          "version": 14,
+          "layout": 25
+        }
+      ]
+    },
+    "files": {
+      "tables-v12.dxls": {
+        "bytes": 3682304,
+        "sha256": "328ce17552c63f5ebd1d3d91726ffb889dcdde483e19cd5f195a5dc5b16262b7"
+      },
+      "tables-v13.dxls": {
+        "bytes": 3944448,
+        "sha256": "4b58c86497ec3138f53eaebd81a40d74cbbb2ef7992fd4816634fd0b6ed5df39"
+      },
+      "tables-v14.dxls": {
+        "bytes": 5779456,
+        "sha256": "cd50f4c15a9d9d1010175d332361e41db51e5de6bf9a21c9fec33c979bea732e"
+      },
+      "tables-v14-reordered.dxls": {
+        "bytes": 8663040,
+        "sha256": "dc42f8f59ea2e301121d10d696694d5dd8ae490b4de8db1b7bf4e70d56ba3e04"
+      }
+    },
+    "inspection": [
+      {
+        "name": "tables-v12.dxls",
+        "seconds": 0.14232,
+        "counts": {
+          "objects": 4,
+          "queries": 5,
+          "options": 2,
+          "sources": 4,
+          "filters": 0,
+          "sorts": 0
+        },
+        "full_exact_field_values_checked": true,
+        "metadata_stdout_sha256": "d2a30e7286a40e3f75daf3e9eb82116512fee9f87eb70fc3c21b4669f507800f",
+        "physical": {
+          "objects": [
+            "sheet_id",
+            "id",
+            "name",
+            "row_id",
+            "column_id",
+            "height",
+            "width",
+            "kind",
+            "mark",
+            "source_id",
+            "chart_measure"
+          ],
+          "queries": [
+            "sheet_id",
+            "object_id",
+            "query"
+          ],
+          "sheets": [
+            "id",
+            "name",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending",
+            "active_row",
+            "active_col",
+            "anchor_row",
+            "anchor_col",
+            "end_row",
+            "end_col",
+            "top_row",
+            "horizontal",
+            "fraction",
+            "selection",
+            "canvas_zoom"
+          ],
+          "source_options": [
+            "sheet_id",
+            "object_id",
+            "unique_rows"
+          ],
+          "table_filters": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "op",
+            "value"
+          ],
+          "table_sorts": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "descending"
+          ],
+          "table_sources": [
+            "sheet_id",
+            "object_id",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending"
+          ]
+        }
+      },
+      {
+        "name": "tables-v13.dxls",
+        "seconds": 0.05178,
+        "counts": {
+          "objects": 4,
+          "queries": 5,
+          "options": 2,
+          "sources": 4,
+          "filters": 0,
+          "sorts": 0
+        },
+        "full_exact_field_values_checked": true,
+        "metadata_stdout_sha256": "9ddf9a76d05fc1a888effb8b03a0bb1836179a0e4d351771b9c356d2d44552a9",
+        "physical": {
+          "objects": [
+            "sheet_id",
+            "id",
+            "name",
+            "row_id",
+            "column_id",
+            "height",
+            "width",
+            "kind",
+            "mark",
+            "source_id",
+            "chart_measure"
+          ],
+          "queries": [
+            "sheet_id",
+            "object_id",
+            "query"
+          ],
+          "sheets": [
+            "id",
+            "name",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending",
+            "active_row",
+            "active_col",
+            "anchor_row",
+            "anchor_col",
+            "end_row",
+            "end_col",
+            "top_row",
+            "horizontal",
+            "fraction",
+            "selection",
+            "canvas_zoom"
+          ],
+          "source_options": [
+            "sheet_id",
+            "object_id",
+            "unique_rows"
+          ],
+          "table_filters": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "op",
+            "value"
+          ],
+          "table_sorts": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "descending"
+          ],
+          "table_sources": [
+            "sheet_id",
+            "object_id",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending"
+          ]
+        }
+      },
+      {
+        "name": "tables-v14.dxls",
+        "seconds": 0.069307,
+        "counts": {
+          "objects": 4,
+          "queries": 5,
+          "options": 2,
+          "sources": 4,
+          "filters": 1,
+          "sorts": 0
+        },
+        "full_exact_field_values_checked": true,
+        "metadata_stdout_sha256": "c7dfce4eda3178bdbb46a5aa532b125881db068cdf303ec15ce0d94575dde9f1",
+        "physical": {
+          "objects": [
+            "sheet_id",
+            "id",
+            "name",
+            "row_id",
+            "column_id",
+            "height",
+            "width",
+            "kind",
+            "mark",
+            "source_id",
+            "chart_measure"
+          ],
+          "queries": [
+            "sheet_id",
+            "object_id",
+            "query"
+          ],
+          "sheets": [
+            "id",
+            "name",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending",
+            "active_row",
+            "active_col",
+            "anchor_row",
+            "anchor_col",
+            "end_row",
+            "end_col",
+            "top_row",
+            "horizontal",
+            "fraction",
+            "selection",
+            "canvas_zoom"
+          ],
+          "source_options": [
+            "sheet_id",
+            "object_id",
+            "unique_rows"
+          ],
+          "table_filters": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "op",
+            "value"
+          ],
+          "table_sorts": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "descending"
+          ],
+          "table_sources": [
+            "sheet_id",
+            "object_id",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending"
+          ]
+        }
+      },
+      {
+        "name": "tables-v14-reordered.dxls",
+        "seconds": 0.053922,
+        "counts": {
+          "objects": 64,
+          "queries": 66,
+          "options": 33,
+          "sources": 64,
+          "filters": 512,
+          "sorts": 448
+        },
+        "full_exact_field_values_checked": true,
+        "metadata_stdout_sha256": "fe90613d1ec969c2a3b85072050b465aa02793e7692e399d80c57860e940bd53",
+        "physical": {
+          "objects": [
+            "chart_measure",
+            "source_id",
+            "mark",
+            "kind",
+            "width",
+            "height",
+            "column_id",
+            "row_id",
+            "name",
+            "id",
+            "sheet_id"
+          ],
+          "queries": [
+            "query",
+            "object_id",
+            "sheet_id"
+          ],
+          "sheets": [
+            "canvas_zoom",
+            "id",
+            "name",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending",
+            "active_row",
+            "active_col",
+            "anchor_row",
+            "anchor_col",
+            "end_row",
+            "end_col",
+            "top_row",
+            "horizontal",
+            "fraction",
+            "selection"
+          ],
+          "source_options": [
+            "unique_rows",
+            "object_id",
+            "sheet_id"
+          ],
+          "table_filters": [
+            "value",
+            "op",
+            "name",
+            "position",
+            "object_id",
+            "sheet_id"
+          ],
+          "table_sorts": [
+            "descending",
+            "name",
+            "position",
+            "object_id",
+            "sheet_id"
+          ],
+          "table_sources": [
+            "descending",
+            "sheet_id",
+            "object_id",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "stage": "sanitize-emit",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-sanitize",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/alias-tables-sanitize-r_4nhkfy"
+    ],
+    "seconds": 2.834608,
+    "exit_code": 0,
+    "stdout": "{\"schema\":\"duxcel.codec-fixtures\",\"version\":1,\"files\":[{\"name\":\"tables-v12.dxls\",\"version\":12,\"layout\":25},{\"name\":\"tables-v13.dxls\",\"version\":13,\"layout\":25},{\"name\":\"tables-v14.dxls\",\"version\":14,\"layout\":25},{\"name\":\"tables-v14-reordered.dxls\",\"version\":14,\"layout\":25}]}\n",
+    "stderr": ""
+  },
+  {
+    "stage": "sanitize-repeat-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-sanitize",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-sanitize-r_4nhkfy"
+    ],
+    "seconds": 0.249204,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-sanitize-r_4nhkfy/tables-v12.dxls\n"
+  },
+  {
+    "stage": "sanitize-source-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-sanitize",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-sanitize-source-01rqlpnu"
+    ],
+    "seconds": 0.079743,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-sanitize-source-01rqlpnu/missing-source.csv\n"
+  },
+  {
+    "stage": "sanitize-file-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-sanitize",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-sanitize-file-1kj44pdp"
+    ],
+    "seconds": 0.082744,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-sanitize-file-1kj44pdp/tables-v12.dxls\n"
+  },
+  {
+    "stage": "sanitize-symlink-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-sanitize",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-sanitize-symlink-9sxnulg9"
+    ],
+    "seconds": 0.07947,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-refuse-sanitize-symlink-9sxnulg9/tables-v12.dxls\n"
+  },
+  {
+    "stage": "sanitize-late-conflict",
+    "seconds": 0.331112,
+    "exit_code": 1,
+    "stderr": "cannot publish fixture: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/tables-race-sanitize-x8pebfzx/tables-v13.dxls\n",
+    "remaining": [
+      "tables-v13.dxls"
+    ]
+  },
+  {
+    "stage": "sanitize-invalid-args",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-sanitize",
+      "--emit-tables-fixtures"
+    ],
+    "seconds": 0.196512,
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-sanitize [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR]\n"
+  },
+  {
+    "stage": "sanitize-invalid-args",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-sanitize",
+      "--tables-only",
+      "extra"
+    ],
+    "seconds": 0.142092,
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-sanitize [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR]\n"
+  },
+  {
+    "stage": "sanitize-invalid-args",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/native-sanitize",
+      "--emit-tables-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-tables-native/duxcel/build/bp1-tables-native-null-corrected/absent-directory"
+    ],
+    "seconds": 0.100741,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture destination must be an existing accessible directory\n"
+  },
+  {
+    "stage": "sanitize-inspection",
+    "directory": "build/bp1-tables-native-null-corrected/tables-sanitize-r_4nhkfy",
+    "protocol": {
+      "schema": "duxcel.codec-fixtures",
+      "version": 1,
+      "files": [
+        {
+          "name": "tables-v12.dxls",
+          "version": 12,
+          "layout": 25
+        },
+        {
+          "name": "tables-v13.dxls",
+          "version": 13,
+          "layout": 25
+        },
+        {
+          "name": "tables-v14.dxls",
+          "version": 14,
+          "layout": 25
+        },
+        {
+          "name": "tables-v14-reordered.dxls",
+          "version": 14,
+          "layout": 25
+        }
+      ]
+    },
+    "files": {
+      "tables-v12.dxls": {
+        "bytes": 3682304,
+        "sha256": "12a1720f7a75526075a06d833befc41049c14ac532cfa8ed6794b804b278e7b1"
+      },
+      "tables-v13.dxls": {
+        "bytes": 3944448,
+        "sha256": "d69576f387d8c115e4d1a4692e5c7dd5e0013a0d418339d396c5dc3f42cd4e41"
+      },
+      "tables-v14.dxls": {
+        "bytes": 5779456,
+        "sha256": "5f55b293e5bdd2a8e008b075b3f72e08252acff49baf2d0c64bfe5463bfc70e0"
+      },
+      "tables-v14-reordered.dxls": {
+        "bytes": 8663040,
+        "sha256": "bbd9c5e25bcafd3478f627533598edf0a8ac89d83ae4655ddd90a457cc260f0d"
+      }
+    },
+    "inspection": [
+      {
+        "name": "tables-v12.dxls",
+        "seconds": 0.156713,
+        "counts": {
+          "objects": 4,
+          "queries": 5,
+          "options": 2,
+          "sources": 4,
+          "filters": 0,
+          "sorts": 0
+        },
+        "full_exact_field_values_checked": true,
+        "metadata_stdout_sha256": "d2a30e7286a40e3f75daf3e9eb82116512fee9f87eb70fc3c21b4669f507800f",
+        "physical": {
+          "objects": [
+            "sheet_id",
+            "id",
+            "name",
+            "row_id",
+            "column_id",
+            "height",
+            "width",
+            "kind",
+            "mark",
+            "source_id",
+            "chart_measure"
+          ],
+          "queries": [
+            "sheet_id",
+            "object_id",
+            "query"
+          ],
+          "sheets": [
+            "id",
+            "name",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending",
+            "active_row",
+            "active_col",
+            "anchor_row",
+            "anchor_col",
+            "end_row",
+            "end_col",
+            "top_row",
+            "horizontal",
+            "fraction",
+            "selection",
+            "canvas_zoom"
+          ],
+          "source_options": [
+            "sheet_id",
+            "object_id",
+            "unique_rows"
+          ],
+          "table_filters": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "op",
+            "value"
+          ],
+          "table_sorts": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "descending"
+          ],
+          "table_sources": [
+            "sheet_id",
+            "object_id",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending"
+          ]
+        }
+      },
+      {
+        "name": "tables-v13.dxls",
+        "seconds": 0.04439,
+        "counts": {
+          "objects": 4,
+          "queries": 5,
+          "options": 2,
+          "sources": 4,
+          "filters": 0,
+          "sorts": 0
+        },
+        "full_exact_field_values_checked": true,
+        "metadata_stdout_sha256": "9ddf9a76d05fc1a888effb8b03a0bb1836179a0e4d351771b9c356d2d44552a9",
+        "physical": {
+          "objects": [
+            "sheet_id",
+            "id",
+            "name",
+            "row_id",
+            "column_id",
+            "height",
+            "width",
+            "kind",
+            "mark",
+            "source_id",
+            "chart_measure"
+          ],
+          "queries": [
+            "sheet_id",
+            "object_id",
+            "query"
+          ],
+          "sheets": [
+            "id",
+            "name",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending",
+            "active_row",
+            "active_col",
+            "anchor_row",
+            "anchor_col",
+            "end_row",
+            "end_col",
+            "top_row",
+            "horizontal",
+            "fraction",
+            "selection",
+            "canvas_zoom"
+          ],
+          "source_options": [
+            "sheet_id",
+            "object_id",
+            "unique_rows"
+          ],
+          "table_filters": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "op",
+            "value"
+          ],
+          "table_sorts": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "descending"
+          ],
+          "table_sources": [
+            "sheet_id",
+            "object_id",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending"
+          ]
+        }
+      },
+      {
+        "name": "tables-v14.dxls",
+        "seconds": 0.040789,
+        "counts": {
+          "objects": 4,
+          "queries": 5,
+          "options": 2,
+          "sources": 4,
+          "filters": 1,
+          "sorts": 0
+        },
+        "full_exact_field_values_checked": true,
+        "metadata_stdout_sha256": "c7dfce4eda3178bdbb46a5aa532b125881db068cdf303ec15ce0d94575dde9f1",
+        "physical": {
+          "objects": [
+            "sheet_id",
+            "id",
+            "name",
+            "row_id",
+            "column_id",
+            "height",
+            "width",
+            "kind",
+            "mark",
+            "source_id",
+            "chart_measure"
+          ],
+          "queries": [
+            "sheet_id",
+            "object_id",
+            "query"
+          ],
+          "sheets": [
+            "id",
+            "name",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending",
+            "active_row",
+            "active_col",
+            "anchor_row",
+            "anchor_col",
+            "end_row",
+            "end_col",
+            "top_row",
+            "horizontal",
+            "fraction",
+            "selection",
+            "canvas_zoom"
+          ],
+          "source_options": [
+            "sheet_id",
+            "object_id",
+            "unique_rows"
+          ],
+          "table_filters": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "op",
+            "value"
+          ],
+          "table_sorts": [
+            "sheet_id",
+            "object_id",
+            "position",
+            "name",
+            "descending"
+          ],
+          "table_sources": [
+            "sheet_id",
+            "object_id",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending"
+          ]
+        }
+      },
+      {
+        "name": "tables-v14-reordered.dxls",
+        "seconds": 0.044244,
+        "counts": {
+          "objects": 64,
+          "queries": 66,
+          "options": 33,
+          "sources": 64,
+          "filters": 512,
+          "sorts": 448
+        },
+        "full_exact_field_values_checked": true,
+        "metadata_stdout_sha256": "fe90613d1ec969c2a3b85072050b465aa02793e7692e399d80c57860e940bd53",
+        "physical": {
+          "objects": [
+            "chart_measure",
+            "source_id",
+            "mark",
+            "kind",
+            "width",
+            "height",
+            "column_id",
+            "row_id",
+            "name",
+            "id",
+            "sheet_id"
+          ],
+          "queries": [
+            "query",
+            "object_id",
+            "sheet_id"
+          ],
+          "sheets": [
+            "canvas_zoom",
+            "id",
+            "name",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column",
+            "descending",
+            "active_row",
+            "active_col",
+            "anchor_row",
+            "anchor_col",
+            "end_row",
+            "end_col",
+            "top_row",
+            "horizontal",
+            "fraction",
+            "selection"
+          ],
+          "source_options": [
+            "unique_rows",
+            "object_id",
+            "sheet_id"
+          ],
+          "table_filters": [
+            "value",
+            "op",
+            "name",
+            "position",
+            "object_id",
+            "sheet_id"
+          ],
+          "table_sorts": [
+            "descending",
+            "name",
+            "position",
+            "object_id",
+            "sheet_id"
+          ],
+          "table_sources": [
+            "descending",
+            "sheet_id",
+            "object_id",
+            "kind",
+            "path",
+            "source_schema",
+            "source_table",
+            "filter_column",
+            "filter_value",
+            "filter_op",
+            "group_column",
+            "measure_column",
+            "aggregate",
+            "sort_column"
+          ]
+        }
+      }
+    ]
+  }
+]

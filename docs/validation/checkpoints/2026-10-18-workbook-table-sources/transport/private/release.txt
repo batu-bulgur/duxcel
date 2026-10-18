@@ -1,0 +1,4 @@
+Table transport sources: 2049 rows x 14 columns, 911778 exact C-owned bytes, 343250 wire bytes (32MiB caller reservation ceiling; no4MiB input/engine/RSS claim)
+Table transport filters: 30721 rows x 6 columns, 5904278 exact C-owned bytes, 2250569 wire bytes (32MiB caller reservation ceiling; no4MiB input/engine/RSS claim)
+Table transport sorts: 14337 rows x 5 columns, 2304090 exact C-owned bytes, 881950 wire bytes (32MiB caller reservation ceiling; no4MiB input/engine/RSS claim)
+PASS: 60863 page wire checks (60186 original retained; 677 Table checks)

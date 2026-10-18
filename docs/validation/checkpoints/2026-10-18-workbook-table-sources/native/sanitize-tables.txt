@@ -1,0 +1,1 @@
+PASS: native Table sources 28602 checks; 193 cursor metadata executions/202 typed feeds; complete sources/filters/sorts, 64 Table/512 filter/448 sort composition, exact queries/flags/raw locators/NULL-empty-literal/65537-byte value, native closed-handle parity and atomic failure/budget/stale/recovery; no source execution or Worker/App Open claim; engine v1.5.6

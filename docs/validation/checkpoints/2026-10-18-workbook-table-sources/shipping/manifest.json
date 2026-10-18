@@ -1,0 +1,34 @@
+{
+  "schema": "duxcel.tables-shipping",
+  "version": 1,
+  "revision": "8770a291757fc650993492ba7a6222076de62566",
+  "scope": "Fresh normal/review Wasm exclusion and original actual Worker247. Native production bundle remains accepteded053e3; no new native/window/UI/physical input/service deployment claim",
+  "status": "passed",
+  "steps": [
+    {
+      "name": "fresh-normal-review-exclusion",
+      "command": [
+        "python3",
+        "tools/test_web_review_build.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 36.33466595795471,
+      "log": "build/bp1-tables-shipping/fresh-normal-review-exclusion.txt",
+      "sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a"
+    },
+    {
+      "name": "official-worker-247",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--worker-driver"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 18.42780175001826,
+      "log": "build/bp1-tables-shipping/official-worker-247.txt",
+      "sha256": "0ed631240d1da10e49b123737abd0519f9d2ac70615d975222e2cbcaedca3d8b"
+    }
+  ],
+  "elapsed_seconds": 54.76373733289074,
+  "source_revision_unchanged": true
+}
