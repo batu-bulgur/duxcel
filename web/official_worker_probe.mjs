@@ -98,30 +98,79 @@ export async function runWorkerProbe(input = {}) {
             await step('registered-source-names-never-rebind', async () => {
                 const original = 'probe-source-original.csv', fresh = 'probe-source-fresh.csv';
                 const bytes = marker => new TextEncoder().encode(`marker\n${marker}\n`);
+                const binding = token => Object.freeze({ name: token.name, engineEpoch: token.engineEpoch, registrationId: token.registrationId });
+                const admissions = [];
+                const rejectBinding = async (owner, token, code, label) => {
+                    const value = request(`SELECT marker FROM read_csv('${original}', header=true) LIMIT 1`, { sourceBindings: [token] });
+                    const latest = owner.latestId, send = owner.connection.send;
+                    const descriptor = Object.getOwnPropertyDescriptor(owner.connection, 'send'); let sends = 0, rejected = false;
+                    // Observe calls to the real connection without replacing SQL,
+                    // engine results or the adapter's actual workload counters.
+                    owner.connection.send = function (...arguments_) { sends++; return send.apply(this, arguments_); };
+                    try {
+                        try { await owner.submit(value); }
+                        catch (error) { equalProbeValue(error.code, code, `${label} rejection`); rejected = true; }
+                        ensure(rejected, `${label} was not rejected at admission (sends=${sends}, latestId=${owner.latestId})`);
+                        equalProbeValue(owner.latestId, latest, `${label} retained latestId`);
+                        equalProbeValue(sends, 0, `${label} submitted no SQL`);
+                        admissions.push({ label, code, requestId: value.requestId, latestId: latest.toString(), sends });
+                    } finally {
+                        if (descriptor) Object.defineProperty(owner.connection, 'send', descriptor);
+                        else delete owner.connection.send;
+                    }
+                };
                 const rejected = async (owner, name) => {
                     try { await owner.registerFile(name, bytes('replacement')); }
                     catch (error) { equalProbeValue(error.code, 'IMMUTABLE_FILE', 'Source replacement rejected before mutation'); return; }
                     throw new Error('A reserved source name was rebound');
                 };
-                await adapter.registerFile(original, bytes('original'));
+                const originalToken = binding(await adapter.registerFile(original, bytes('original')));
                 await rejected(adapter, original);
-                const retained = await query(`SELECT marker FROM read_csv('${original}', header=true) LIMIT 1`);
+                const retained = await query(`SELECT marker FROM read_csv('${original}', header=true) LIMIT 1`, { sourceBindings: [originalToken] });
                 equalProbeValue(api.pageCellText(retained.page, 0, 0), 'original', 'Existing source bytes retained');
+                await rejectBinding(adapter, { ...originalToken, registrationId: '0' }, 'INVALID_REQUEST', 'Zero source token');
+                await rejectBinding(adapter, { ...originalToken, registrationId: '18446744073709551615' }, 'SOURCE_INVALIDATED', 'Unissued source token');
                 // A fresh connection to the same official database must retain
                 // the reservation history, including after the file is dropped.
                 const sibling = new api.DuckDBWorkerAdapter({ database: adapter.database,
                     connection: await adapter.database.connect() });
+                let freshToken;
                 try {
                     await rejected(sibling, original);
-                    await adapter.dropFile(original);
+                    await sibling.dropFile(original);
                     await rejected(adapter, original);
                     await rejected(sibling, original);
-                    await sibling.registerFile(fresh, bytes('fresh'));
+                    await rejectBinding(adapter, originalToken, 'SOURCE_INVALIDATED', 'Sibling drop revoked captured token');
+                    const reconnected = new api.DuckDBWorkerAdapter({ database: adapter.database,
+                        connection: await adapter.database.connect() });
+                    try { await rejectBinding(reconnected, originalToken, 'SOURCE_INVALIDATED', 'Reconnected database retained revocation'); }
+                    finally { await reconnected.close(); }
+                    freshToken = binding(await sibling.registerFile(fresh, bytes('fresh')));
+                    equalProbeValue(freshToken.engineEpoch, originalToken.engineEpoch, 'Shared database source epoch');
+                    ensure(freshToken.registrationId !== originalToken.registrationId, 'A retired source token was reused');
                 } finally { await sibling.close(); }
-                const imported = await query(`SELECT marker FROM read_csv('${fresh}', header=true) LIMIT 1`);
+                const imported = await query(`SELECT marker FROM read_csv('${fresh}', header=true) LIMIT 1`, { sourceBindings: [freshToken] });
                 equalProbeValue(api.pageCellText(imported.page, 0, 0), 'fresh', 'Fresh-name import works after rejected replacement');
                 await adapter.dropFile(fresh);
-                return { original, fresh, scope: 'Public adapter registrations sharing one database object; raw engine writes and cross-session identity excluded' };
+                // Retire the entire first engine before creating another. The
+                // remaining original probe stages use only SELECT/range inputs;
+                // they do not depend on this database or its dropped sources.
+                const engineVersion = adapter.engineVersion;
+                await adapter.close();
+                adapter = await api.createOfficialWorkerAdapter({ ...config, WorkerClass: function (...arguments_) {
+                    const worker = new globalThis.Worker(...arguments_); ownedWorkers.push(worker); return worker;
+                } });
+                equalProbeValue(adapter.engineVersion, engineVersion, 'Sequential database uses the same pinned engine');
+                const nextToken = binding(await adapter.registerFile(original, bytes('new-database')));
+                ensure(nextToken.engineEpoch !== originalToken.engineEpoch, 'A genuinely new database reused the source epoch');
+                equalProbeValue(nextToken.registrationId, originalToken.registrationId, 'Independent database may reuse only its local registration ID');
+                await rejectBinding(adapter, originalToken, 'SOURCE_INVALIDATED', 'Same basename in a new database rejected old epoch');
+                const next = await query(`SELECT marker FROM read_csv('${original}', header=true) LIMIT 1`, { sourceBindings: [nextToken] });
+                equalProbeValue(api.pageCellText(next.page, 0, 0), 'new-database', 'Fresh database accepts only its captured token');
+                await adapter.dropFile(original);
+                equalProbeValue(ownedWorkers.length, 2, 'Exactly two sequential probe-owned Workers');
+                return { original, fresh, originalToken, freshToken, nextToken, admissions, workers: 'Two sequential owned official Workers; no overlap',
+                    scope: 'Standalone adapter probe only; C192 driver unchanged. Explicit immutable registered buffers only; raw engine writes, distinct wrappers and persistent/content identity excluded' };
             });
             await step('exact-arrow-values-and-null-states', async () => {
                 const { page, request: value } = await query(`SELECT
