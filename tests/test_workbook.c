@@ -1377,6 +1377,118 @@ static void source_format_full_ledger(Worksheet *sheet) {
     for (size_t i=0;i<count;i++) versions->items[i]=(SourceVersion){.owner=0,.version=i+1,.kind=SOURCE_CSV,.path=dx_strdup(path)};
     free(path); char *error=NULL; CHECK(source_versions_valid(versions,0,&error)); free(error);
 }
+/* Pure codec proofs use synthetic digests, not verified source activation. */
+static void guarded_format_fixture(Workbook *book,size_t owners) {
+    CHECK(owners && owners<=DX_FORMAT_GUARDS); char *error=NULL; const char *file_path="tests/generated/guarded-format-proof.csv",*data="Id,City,Amount\n1,NULL,1.2500\n";
+    FILE *file=fopen(file_path,"wb"); CHECK(file && fwrite(data,1,strlen(data),file)==strlen(data) && !fclose(file));
+    Analysis source={.kind=SOURCE_CSV,.path=dx_absolute_path(file_path)}; CHECK(source.path && workbook_add(book,"Typed guarded legacy rectangles",&source,&error));
+    Worksheet *sheet=book->sheets; sheet->objects.next_id=UINT64_C(9007199254740992);
+    for (size_t i=1;i<owners;i++) { char name[48]; snprintf(name,sizeof(name),"Guarded owner %zu",i); CHECK(objects_add_table(&sheet->objects,i*6,8,name,&source,&error)==(int)i-1); }
+    SourcePacket results[DX_FORMAT_GUARDS]={0}; FormatScopeView views[DX_FORMAT_GUARDS]={0};
+    const char *values[]={NULL,"","NULL"};
+    for (size_t i=0;i<owners;i++) {
+        Analysis *analysis=i ? &sheet->objects.items[i-1].source : &sheet->analysis; uint64_t owner=i ? sheet->objects.items[i-1].id : 0;
+        CHECK(analysis_filter_set(analysis,"City",FILTER_EQUAL,values[i%3],&error)); source_format_issue(sheet,owner,i+1,analysis,true); analysis->source_version=i+1;
+        CHECK(source_scope_result_build(&sheet->source_versions.items[i].raw,analysis,results+i,&error)); views[owners-i-1]=(FormatScopeView){owner,results[i].data,results[i].bytes};
+    }
+    FormatStore *formats=&sheet->formats; CellFormat value=format_default(); value.flags=FORMAT_ITALIC;
+    CHECK(format_apply(formats,(FormatRange){0,DX_SHEET_ROWS-1,6,6},FORMAT_ITALIC,value,&error)); value.flags=FORMAT_BOLD;
+    CHECK(format_apply(formats,(FormatRange){20,21,5,5},FORMAT_BOLD,value,&error)); value.flags=FORMAT_UNDERLINE;
+    FormatScopeView primary={0,results[0].data,results[0].bytes}; CHECK(format_apply_scoped(formats,(FormatRange){22,22,5,5},FORMAT_UNDERLINE,value,&primary,1,false,&error));
+    FormatScopeView raw={0,sheet->source_versions.items[0].raw.data,sheet->source_versions.items[0].raw.bytes}; uint64_t ids[]={1,UINT64_MAX}; size_t field=2;
+    CHECK(format_apply_records(formats,&raw,ids,2,&field,1,FORMAT_UNDERLINE,value,&error));
+    Analysis alternate=analysis_copy(&sheet->analysis); CHECK(analysis_sort_set(&alternate,"Id",true,false,&error)); SourcePacket exact={0};
+    CHECK(source_scope_result_build(&sheet->source_versions.items[0].raw,&alternate,&exact,&error)); FormatScopeView changed={0,exact.data,exact.bytes};
+    CHECK(format_apply_scoped(formats,(FormatRange){24,24,5,5},FORMAT_UNDERLINE,value,&changed,1,false,&error)); source_packet_free(&exact); analysis_free(&alternate);
+    /* Existing IDs are reused in reverse input-owner order. The current shared
+       planner sorts its stored vectors, and the codec preserves that order. */
+    FormatSnapshot plan={0}; CHECK(format_plan_guard_legacy(formats,views,owners,&plan,&error) && format_commit(formats,&plan));
+    CHECK(formats->count==5 && formats->items[1].selector==FORMAT_GUARDED && formats->items[1].guard_count==owners && format_valid(formats,&error));
+    CHECK(cells_set(&sheet->cells,20,5,"NULL",&error) && cells_set(&sheet->cells,21,5,"12345678901234567890.0123456789",&error));
+    for (size_t i=0;i<owners;i++) source_packet_free(results+i); analysis_free(&source); free(error);
+}
+static void guarded_format_check(const Workbook *book,const Workbook *original,size_t owners) {
+    CHECK(book->count==1 && book->sheets[0].objects.count==owners-1); const Worksheet *sheet=book->sheets,*prior=original->sheets;
+    const FormatStore *formats=&sheet->formats,*old=&prior->formats; CHECK(formats->source_aware && formats->count==5 && formats->scope_count==owners+2 && !formats->undo_count && !formats->redo_count);
+    CHECK(formats->items[1].selector==FORMAT_GUARDED && formats->items[1].guard_count==owners && formats->items[1].guard_ids!=old->items[1].guard_ids);
+    CHECK(!memcmp(formats->items[1].guard_ids,old->items[1].guard_ids,owners*sizeof(size_t)) && !memcmp(&formats->items[1].range,&old->items[1].range,sizeof(FormatRange)));
+    CHECK(format_at(formats,20,5).flags==FORMAT_BOLD && format_at(formats,21,5).flags==FORMAT_BOLD && format_at(formats,20,6).flags==FORMAT_ITALIC);
+    CHECK(!format_at(formats,22,5).flags && !format_resolve_token(formats,20,5,SIZE_MAX).flags); /* Imported tokens remain a separate activation gate. */
+    CHECK(sheet->source_versions.count==owners && sheet->source_versions.high_water==owners);
+    for (size_t i=0;i<formats->scope_count;i++) {
+        CHECK(formats->scopes[i].owner==old->scopes[i].owner && formats->scopes[i].bytes==old->scopes[i].bytes && formats->scopes[i].definition!=old->scopes[i].definition);
+        CHECK(!memcmp(formats->scopes[i].definition,old->scopes[i].definition,formats->scopes[i].bytes));
+    }
+    for (size_t i=0;i<owners;i++) {
+        size_t guard=formats->items[1].guard_ids[i]; SourceScopeInfo info={0}; CHECK(source_scope_validate(formats->scopes[guard].definition,formats->scopes[guard].bytes,&info,NULL) && info.kind==SOURCE_SCOPE_RESULT);
+        CHECK(format_resolve_token(formats,20,5,guard+1).flags==FORMAT_BOLD); /* Explicit pure-model context, never automatic verification. */
+        CHECK(sheet->source_versions.items[i].owner==prior->source_versions.items[i].owner && sheet->source_versions.items[i].version==i+1);
+    }
+    CHECK(!strcmp(cells_get(&sheet->cells,20,5),"NULL") && !strcmp(cells_get(&sheet->cells,21,5),"12345678901234567890.0123456789"));
+}
+static void test_guarded_format_workspace(void) {
+    Workbook book,loaded,plain; workbook_init(&book); workbook_init(&loaded); workbook_init(&plain); Analysis blank={0}; char *error=NULL;
+    const char *path="tests/generated/guarded-format-v14.dxls",*second="tests/generated/guarded-format-copy.dxls"; remove(path); remove(second); guarded_format_fixture(&book,3);
+    CHECK(book.sheets[0].formats.items[1].guard_ids[0]==0 && book.sheets[0].formats.items[1].guard_ids[1]==3 && book.sheets[0].formats.items[1].guard_ids[2]==4);
+    CHECK(workbook_save(&book,path,&error)); require_workspace_version(path,14); CHECK(workbook_load(&loaded,path,&error)); guarded_format_check(&loaded,&book,3);
+    sql_file(path,"SELECT CASE WHEN count(*)=26 THEN true ELSE error('Guarded v14 schema changed') END FROM information_schema.tables WHERE table_schema='_duxcel_workspace'; SELECT CASE WHEN count(*)=3 AND min(guard_position)=0 AND max(guard_position)=2 THEN true ELSE error('Guard vector lost') END FROM _duxcel_workspace.format_guards WHERE position=1");
+    remove("tests/generated/guarded-format-proof.csv"); CHECK(workbook_load(&loaded,path,&error)); guarded_format_check(&loaded,&book,3);
+    CHECK(workbook_save(&loaded,second,&error) && workbook_load(&loaded,second,&error)); guarded_format_check(&loaded,&book,3);
+    /* Current bindings may be unbound/pending/different without erasing valid
+       archived guards; complete ledger proof association is what is persisted. */
+    loaded.sheets[0].analysis.source_version=0; loaded.sheets[0].objects.items[0].source.source_version=0;
+    CHECK(objects_remove(&loaded.sheets[0].objects,1)); CHECK(workbook_save(&loaded,second,&error) && workbook_load(&loaded,second,&error));
+    CHECK(!loaded.sheets[0].analysis.source_version && loaded.sheets[0].objects.count==1 && loaded.sheets[0].formats.items[1].guard_count==3 && loaded.sheets[0].source_versions.count==3);
+    CHECK(workbook_add(&plain,"Plain v14 overwrite",&blank,&error) && workbook_save(&plain,second,&error)); require_workspace_version(second,14);
+    CHECK(workbook_load(&loaded,second,&error) && !loaded.sheets[0].formats.count && !loaded.sheets[0].source_versions.count);
+    workbook_free(&book); guarded_format_fixture(&book,DX_FORMAT_GUARDS); remove(path);
+    CHECK(workbook_save(&book,path,&error) && workbook_load(&loaded,path,&error)); guarded_format_check(&loaded,&book,DX_FORMAT_GUARDS);
+    CHECK(loaded.sheets[0].objects.next_id==UINT64_C(9007199254741024));
+    workbook_free(&book); workbook_free(&loaded); workbook_free(&plain); free(error);
+}
+static void test_guarded_format_rejection(void) {
+    Workbook book,caller,plain; workbook_init(&book); workbook_init(&caller); workbook_init(&plain); Analysis blank={0}; char *error=NULL; guarded_format_fixture(&book,3);
+    const char *path="tests/generated/invalid-guarded-format.dxls"; remove(path); CHECK(workbook_save(&book,path,&error) && workbook_load(&caller,path,&error));
+    CHECK(cells_set(&caller.sheets[0].cells,30,0,"Keep unsaved source state",&error)); worksheet_record(caller.sheets,EDIT_CELLS); caller.dirty=true;
+    CHECK(workbook_add(&plain,"Valid replacement",&blank,&error)); size_t pristine_bytes=0; unsigned char *pristine=workspace_bytes(path,&pristine_bytes);
+    const char *invalid[]={
+        "DELETE FROM _duxcel_workspace.format_guards WHERE position=1",
+        "UPDATE _duxcel_workspace.format_guards SET guard_position=3 WHERE position=1 AND guard_position=2",
+        "UPDATE _duxcel_workspace.format_guards SET scope_id=0 WHERE position=1 AND guard_position=1",
+        "UPDATE _duxcel_workspace.format_guards SET scope_id=2 WHERE position=1 AND guard_position=1", /* Different RESULT, same owner. */
+        "UPDATE _duxcel_workspace.format_guards SET scope_id=1 WHERE position=1 AND guard_position=1", /* Valid RAW is not a RESULT. */
+        "UPDATE _duxcel_workspace.format_guards SET scope_id=CASE guard_position WHEN 1 THEN 4 WHEN 2 THEN 3 ELSE scope_id END WHERE position=1", /* Existing model requires sorted IDs. */
+        "UPDATE _duxcel_workspace.format_guards SET scope_id=512 WHERE position=1 AND guard_position=1",
+        "INSERT INTO _duxcel_workspace.format_guards VALUES(0,0,0,0)",
+        "INSERT INTO _duxcel_workspace.format_guards VALUES(0,2,1,3)", /* RESULT remains exactly one. */
+        "INSERT INTO _duxcel_workspace.format_guards VALUES(0,3,1,3)", /* RECORDS remains exactly one. */
+        "UPDATE _duxcel_workspace.format_scopes SET definition=from_hex('00') WHERE scope_id=3",
+        "UPDATE _duxcel_workspace.format_scopes SET owner=0 WHERE scope_id=3",
+        "UPDATE _duxcel_workspace.source_versions SET encoding=0,definition=NULL WHERE version=2",
+        "UPDATE _duxcel_workspace.source_bindings SET version=0 WHERE version=2; DELETE FROM _duxcel_workspace.source_versions WHERE version=2",
+        "UPDATE _duxcel_workspace.source_versions SET definition=from_hex(substr(hex(definition),1,96)||'5B'||substr(hex(definition),99)) WHERE version=2", /* Different complete typed raw proof. */
+        "DELETE FROM _duxcel_workspace.format_guards WHERE position=1; INSERT INTO _duxcel_workspace.format_guards SELECT 0,1,i::INTEGER,(i%5)::INTEGER FROM range(34)t(i)",
+        "CREATE TABLE _duxcel_workspace.duplicate_guards AS SELECT * FROM _duxcel_workspace.format_guards; INSERT INTO _duxcel_workspace.duplicate_guards SELECT * FROM _duxcel_workspace.format_guards WHERE position=1 AND guard_position=0; DROP TABLE _duxcel_workspace.format_guards; ALTER TABLE _duxcel_workspace.duplicate_guards RENAME TO format_guards"
+    };
+    for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
+        remove(path); FILE *file=fopen(path,"wb"); CHECK(file && fwrite(pristine,1,pristine_bytes,file)==pristine_bytes && !fclose(file)); sql_file(path,invalid[i]); source_format_reject(path,&plain,&caller,invalid[i]);
+    }
+    /* Invalid live guarded models must fail before touching even a legacy
+       destination, not merely rely on rolling back a partially written v14. */
+    remove(path); CHECK(workbook_save(&plain,path,&error)); size_t before_bytes=0,after_bytes=0; unsigned char *before=workspace_bytes(path,&before_bytes);
+    for (size_t i=0;i<5;i++) {
+        Workbook *trial=workbook_snapshot(&book); CHECK(trial); Worksheet *sheet=trial->sheets; FormatPatch *patch=sheet->formats.items+1;
+        if (i==0) { FormatScope *scope=sheet->formats.scopes+3; free(scope->definition); scope->definition=dx_strdup("opaque"); scope->bytes=6; }
+        if (i==1) { SourceVersion *entry=sheet->source_versions.items+1; sheet->source_versions.bytes-=entry->raw.bytes; source_packet_free(&entry->raw); }
+        if (i==2) { source_versions_free(&sheet->source_versions); sheet->analysis.source_version=0; for (size_t j=0;j<sheet->objects.count;j++) sheet->objects.items[j].source.source_version=0; }
+        if (i==3) patch->guard_ids[1]=2;
+        if (i==4) { free(patch->guard_ids); patch->guard_ids=NULL; patch->guard_count=0; }
+        Workbook state=*trial; Worksheet prior=*sheet; CHECK(!workbook_save(trial,path,&error) && error && *error); free(error); error=NULL;
+        CHECK(!memcmp(trial,&state,sizeof(state)) && !memcmp(sheet,&prior,sizeof(prior))); unsigned char *after=workspace_bytes(path,&after_bytes);
+        CHECK(before_bytes==after_bytes && !memcmp(before,after,before_bytes)); free(after); workbook_free(trial); free(trial);
+    }
+    free(before); free(pristine); workbook_free(&book); workbook_free(&caller); workbook_free(&plain); free(error);
+}
 static void test_source_format_budget(void) {
     Workbook book,plain,loaded; workbook_init(&book); workbook_init(&plain); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
     const char *path="tests/generated/source-format-budget.dxls"; remove(path); CHECK(workbook_add(&plain,"Keep ordinary file",&blank,&error)); CHECK(workbook_save(&plain,path,&error));
@@ -1777,6 +1889,10 @@ static void test_format_budget_legacy_measurement(void) {
     workbook_free(&book); free(error);
 }
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--guarded-formats-only")) {
+        test_guarded_format_workspace(); test_guarded_format_rejection(); test_source_format_workspace();
+        printf("PASS: %u focused typed guarded-v14 codec checks (manual rectangles,1..33 exact RESULT owners,archived proofs,deep ownership and transactional rejection)\n",checks); return 0;
+    }
     if (argc==2 && !strcmp(argv[1],"--format-budget-only")) {
         test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
         printf("PASS: %u focused formatting-accounting checks (dormant ledgers, complete projected histories, explicit staging/reservations, exact caps and atomic failure)\n",checks); return 0;
@@ -1804,7 +1920,8 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
         return 0;
     }
-    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only]\n",argv[0]); return 2; }
+    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only|--guarded-formats-only]\n",argv[0]); return 2; }
+    test_guarded_format_workspace(); test_guarded_format_rejection();
     test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
     test_analysis_journal_owned(); test_analysis_journal_rejection(); test_analysis_journal_chronology();
     test_source_version_model(); test_source_version_save_guard();
