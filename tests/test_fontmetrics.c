@@ -18,6 +18,8 @@ int main(void) {
         float digit=ui_font_advance_em(&metrics,'0'); CHECK(digit>0 && digit<1);
         for (unsigned cp='0';cp<='9';cp++) CHECK(fabsf(ui_font_advance_em(&metrics,cp)-digit)<.00001f);
         CHECK(ui_font_glyph(&metrics,'A') && ui_font_glyph(&metrics,0x131) && ui_font_glyph(&metrics,' ') && ui_font_advance_em(&metrics,' ')>0);
+        CHECK(ui_font_glyph(&metrics,0xfffd) && ui_font_glyph(&metrics,0xfffd)!=ui_font_glyph(&metrics,'?') && ui_font_advance_em(&metrics,0xfffd)>0);
+        CHECK(!ui_font_glyph(&metrics,0x8868) && !ui_font_glyph(&metrics,0x1f986)); /* No bundled CJK/emoji fallback. */
         CHECK((ui_font_glyph(&metrics,0x2318)!=0)==(face==5));
         CHECK((ui_font_glyph(&metrics,0x21e7)!=0)==(face==5));
         CHECK(!ui_font_glyph(&metrics,0x110000) && !ui_font_advance_em(&metrics,0x110000));
