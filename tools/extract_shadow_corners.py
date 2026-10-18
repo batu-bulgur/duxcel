@@ -105,7 +105,8 @@ def main():
     metadata = {'run':RUN, 'reference_sha256':REFERENCE, 'manifest_sha256':MANIFEST,
                 'body_header_sha256':BODY, 'inputs':manifest['inputs'], 'cases':[],
                 'selection':'Every white-background pixel in declared corner/seam rectangles, including unchanged foreground; all pixels in immediately outside rows. No foreground-dependent sampling, tolerance or regenerated rendering.',
-                'scope':'Pure reference fixture; no App/GPU, runtime animation, SQL or physical-input acceptance.'}
+                'scope':'Pure reference fixture; no App/GPU, runtime animation, SQL or physical-input acceptance.',
+                'diagnostic':'test_shadowview --reference-corners is an opt-in strict diagnostic, currently red; no full corner closure. The ordinary accepted body gate is unchanged.'}
     for name, hashes in PAIRS.items():
         expanded = next(s for s in reference['states'] if s['case'] == name and s['name'] == 'expanded')
         dismissed = next(s for s in reference['states'] if s['case'] == name and s['name'] == 'dismissed')
@@ -118,6 +119,7 @@ def main():
         x0, right, top, bottom = [round(v*2) for v in (wrapper['x']-26*scale,wrapper['x'],wrapper['y'],wrapper['y']+wrapper['height'])]
         corner = math.ceil(21*scale*2)
         case = {'name':name,'scale':scale,'wrapper':wrapper,'foreground':expanded['capture'],'background':dismissed['capture'],'regions':[]}
+        corners = {}
         for kind, y0, rows in [('top',top,corner),('bottom',bottom-corner,corner),
                                ('top_seam',top+corner-1,2),('bottom_seam',bottom-corner-1,2),
                                ('outside_top',top-1,1),('outside_bottom',bottom,1)]:
@@ -129,6 +131,8 @@ def main():
                         if outside and fg != bg:
                             raise ValueError('Recorded outside row changed at '+str((name,kind,x,y)))
                         entries.append((x,y,fg,bg))
+            if kind in ('top', 'bottom'):
+                corners[kind] = {(x,y):fg for x,y,fg,bg in entries}
             region = {'kind':kind,'rect_device':[x0,y0,right-x0,rows], 'samples':len(entries),
                       'excluded_nonwhite':0 if outside else (right-x0)*rows-len(entries)}
             case['regions'].append(region)
@@ -142,6 +146,18 @@ def main():
                 if outside: rgba += ',{'+','.join(map(str,bg))+'}'
                 lines.append('    {'+str(x)+','+str(y)+','+rgba+'},')
             lines.append('};')
+        compared, unequal = 0, []
+        for (x,y), rgba in corners['top'].items():
+            mirrored_y = bottom - 1 - (y-top)
+            other = corners['bottom'].get((x,mirrored_y))
+            if other is not None:
+                compared += 1
+                if rgba != other:
+                    unequal.append({'top_device':[x,y], 'bottom_device':[x,mirrored_y],
+                                    'top_rgba':rgba, 'bottom_rgba':other})
+        case['white_mirror_check'] = {'comparable_pairs':compared,'unequal_pairs':len(unequal),
+                                     'counterexamples':unequal,
+                                     'scope':'Recorded white foregrounds only, independent of production. A perfectly mirrored atlas cannot satisfy unequal pairs without additional raster-phase semantics.'}
         metadata['cases'].append(case)
     lines.append('#endif')
     outputs = {ROOT/'tests/shadow_corner_reference.h':'\n'.join(lines)+'\n',

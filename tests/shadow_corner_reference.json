@@ -192,7 +192,36 @@
           "samples": 52,
           "excluded_nonwhite": 0
         }
-      ]
+      ],
+      "white_mirror_check": {
+        "comparable_pairs": 1284,
+        "unequal_pairs": 1,
+        "counterexamples": [
+          {
+            "top_device": [
+              696,
+              198
+            ],
+            "bottom_device": [
+              696,
+              1383
+            ],
+            "top_rgba": [
+              252,
+              252,
+              252,
+              255
+            ],
+            "bottom_rgba": [
+              251,
+              251,
+              251,
+              255
+            ]
+          }
+        ],
+        "scope": "Recorded white foregrounds only, independent of production. A perfectly mirrored atlas cannot satisfy unequal pairs without additional raster-phase semantics."
+      }
     },
     {
       "name": "narrow-150",
@@ -280,9 +309,16 @@
           "samples": 78,
           "excluded_nonwhite": 0
         }
-      ]
+      ],
+      "white_mirror_check": {
+        "comparable_pairs": 2948,
+        "unequal_pairs": 0,
+        "counterexamples": [],
+        "scope": "Recorded white foregrounds only, independent of production. A perfectly mirrored atlas cannot satisfy unequal pairs without additional raster-phase semantics."
+      }
     }
   ],
   "selection": "Every white-background pixel in declared corner/seam rectangles, including unchanged foreground; all pixels in immediately outside rows. No foreground-dependent sampling, tolerance or regenerated rendering.",
-  "scope": "Pure reference fixture; no App/GPU, runtime animation, SQL or physical-input acceptance."
+  "scope": "Pure reference fixture; no App/GPU, runtime animation, SQL or physical-input acceptance.",
+  "diagnostic": "test_shadowview --reference-corners is an opt-in strict diagnostic, currently red; no full corner closure. The ordinary accepted body gate is unchanged."
 }
