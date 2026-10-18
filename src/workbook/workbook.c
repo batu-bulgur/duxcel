@@ -31,7 +31,7 @@ static void action_push(EditKind *actions,ColumnEdit *columns,size_t *count,Edit
     if (*count==DX_HISTORY) { memmove(actions,actions+1,(DX_HISTORY-1)*sizeof(*actions)); memmove(columns,columns+1,(DX_HISTORY-1)*sizeof(*columns)); --*count; }
     columns[*count]=column; actions[(*count)++]=kind;
 }
-unsigned worksheet_edit_effects(EditKind kind) { static const unsigned effects[]={1,2,4,6,8,10,12,14}; return (unsigned)kind<sizeof(effects)/sizeof(*effects) ? effects[kind] : 0; }
+unsigned worksheet_edit_effects(EditKind kind) { static const unsigned effects[]={1,2,4,6,8,10,12,14,9}; return (unsigned)kind<sizeof(effects)/sizeof(*effects) ? effects[kind] : 0; }
 static EditKind range_edit(bool cells,bool objects,bool formats) {
     return formats ? cells ? objects ? EDIT_RANGE_FORMAT : EDIT_CELLS_FORMAT : objects ? EDIT_OBJECTS_FORMAT : EDIT_FORMAT : cells ? objects ? EDIT_RANGE : EDIT_CELLS : EDIT_OBJECTS;
 }
@@ -65,6 +65,122 @@ void worksheet_transfer_history(Worksheet *s,bool redo) {
     action_prune(s,false); action_prune(s,true);
 }
 static bool range_fail(char **error,const char *message) { if (error) error_set(error,message); return false; }
+#define ANALYSIS_OWNED_TEXTS (9+2*(DX_ANALYSIS_FILTERS-1)+(DX_ANALYSIS_SORTS-1))
+typedef struct { uintptr_t first,last; } AnalysisOwnedRange;
+typedef struct {
+    const Worksheet *sheet; const Analysis *live,*next;
+    AnalysisOwnedRange ranges[ANALYSIS_OWNED_TEXTS*(2*DX_HISTORY+3)]; size_t count;
+} AnalysisOwnership;
+static bool owned_overlap(uintptr_t a,size_t an,uintptr_t b,size_t bn) {
+    return an && bn && (a<=b ? b-a<an : a-b<bn);
+}
+static bool analysis_location(const Worksheet *s,const Analysis *a,bool live,char **error) {
+    if (!a || (owned_overlap((uintptr_t)s,sizeof(*s),(uintptr_t)a,sizeof(*a)) && (!live || a!=&s->analysis))) return range_fail(error,"Use independent owned Analysis locations outside worksheet history.");
+    /* A table's source belongs to ObjectStore history, not primary Analysis
+       history. Reject known owned object locations without guessing capacities. */
+    const ObjectStore *objects=&s->objects;
+    if (objects->count>DX_MAX_OBJECTS || (objects->count && !objects->items)) return range_fail(error,"Invalid object ownership in Analysis history.");
+    if (owned_overlap((uintptr_t)objects->items,objects->count*sizeof(*objects->items),(uintptr_t)a,sizeof(*a))) return range_fail(error,"A table source cannot be adopted into primary Analysis history.");
+    for (size_t h=0;h<2;h++) {
+        const ObjectSnapshot *states=h ? objects->redo : objects->undo; size_t count=h ? objects->redo_count : objects->undo_count;
+        for (size_t i=0;i<count;i++) {
+            if (states[i].count>DX_MAX_OBJECTS || (states[i].count && !states[i].items)) return range_fail(error,"Invalid historical object ownership.");
+            if (owned_overlap((uintptr_t)states[i].items,states[i].count*sizeof(*states[i].items),(uintptr_t)a,sizeof(*a))) return range_fail(error,"An object history source is not a prepared Analysis.");
+        }
+    }
+    return true;
+}
+static bool analysis_text_owned(AnalysisOwnership *owned,const char *text,size_t *bytes,char **error) {
+    if (!text) return true;
+    size_t room=DX_ANALYSIS_HISTORY_BYTES-*bytes,n=0;
+    while (n<room && text[n]) n++;
+    if (n==room) return range_fail(error,"An Analysis exceeds its 8 MiB owned limit.");
+    size_t length=n+1; uintptr_t begin=(uintptr_t)text;
+    if (begin>UINTPTR_MAX-length || owned->count>=sizeof(owned->ranges)/sizeof(*owned->ranges) ||
+        owned_overlap(begin,length,(uintptr_t)owned->sheet,sizeof(*owned->sheet)) ||
+        owned_overlap(begin,length,(uintptr_t)owned->live,sizeof(*owned->live)) ||
+        (owned->next && owned_overlap(begin,length,(uintptr_t)owned->next,sizeof(*owned->next)))) return range_fail(error,"Analysis text must own storage separate from its model locations.");
+    owned->ranges[owned->count++]=(AnalysisOwnedRange){begin,begin+length}; *bytes+=length; return true;
+}
+static bool analysis_owned_valid(AnalysisOwnership *owned,const Analysis *a,size_t *out,char **error) {
+    if (a->filter_count>=DX_ANALYSIS_FILTERS || a->sort_count>=DX_ANALYSIS_SORTS || (unsigned)a->kind>SOURCE_DEMO || (unsigned)a->filter_op>FILTER_OP_MAX || (unsigned)a->aggregate>AGG_MAX) return range_fail(error,"Invalid bounded Analysis definition.");
+    size_t bytes=sizeof(*a); const char *texts[]={a->path,a->schema,a->table,a->query,a->filter_column,a->filter_value,a->group_column,a->measure_column,a->sort_column};
+    for (size_t i=0;i<sizeof(texts)/sizeof(*texts);i++) if (!analysis_text_owned(owned,texts[i],&bytes,error)) return false;
+    for (size_t i=0;i<DX_ANALYSIS_FILTERS-1;i++) {
+        if (i>=a->filter_count) { if (a->filters[i].column || a->filters[i].value) return range_fail(error,"Unused Analysis filters cannot retain owned text."); }
+        else if (!analysis_text_owned(owned,a->filters[i].column,&bytes,error) || !analysis_text_owned(owned,a->filters[i].value,&bytes,error)) return false;
+    }
+    for (size_t i=0;i<DX_ANALYSIS_SORTS-1;i++) {
+        if (i>=a->sort_count) { if (a->sorts[i].column) return range_fail(error,"Unused Analysis sorts cannot retain owned text."); }
+        else if (!analysis_text_owned(owned,a->sorts[i].column,&bytes,error)) return false;
+    }
+    if (!analysis_query_valid(a,error) || !analysis_filters_valid(a,error) || !analysis_sorts_valid(a,error)) return false;
+    *out=bytes; return true;
+}
+static int analysis_range_compare(const void *a,const void *b) {
+    const AnalysisOwnedRange *x=a,*y=b; return x->first<y->first ? -1 : x->first>y->first;
+}
+static bool analysis_argument_room(const AnalysisOwnership *owned,const Analysis *a,char **error) {
+    for (size_t i=0;i<owned->count;i++) if (owned_overlap((uintptr_t)a,sizeof(*a),owned->ranges[i].first,owned->ranges[i].last-owned->ranges[i].first)) return range_fail(error,"An Analysis argument overlaps retained text ownership.");
+    return true;
+}
+static bool analysis_journal_valid(const Worksheet *s,AnalysisOwnership *owned,char **error) {
+    if (!s || s->undo_count>DX_HISTORY || s->redo_count>DX_HISTORY || s->undo_actions_count>DX_HISTORY || s->redo_actions_count>DX_HISTORY || s->cells.undo_count>DX_HISTORY || s->cells.redo_count>DX_HISTORY || s->objects.undo_count>DX_HISTORY || s->objects.redo_count>DX_HISTORY || s->formats.undo_count>DX_HISTORY || s->formats.redo_count>DX_HISTORY) return range_fail(error,"Invalid bounded worksheet history counts.");
+    if (!analysis_location(s,owned->live,true,error) || (owned->next && (!analysis_location(s,owned->next,false,error) || owned_overlap((uintptr_t)owned->live,sizeof(*owned->live),(uintptr_t)owned->next,sizeof(*owned->next))))) return range_fail(error,"Prepared Analysis and live ownership must be independent.");
+    for (size_t h=0;h<2;h++) {
+        const EditKind *actions=h ? s->redo_actions : s->undo_actions; size_t count=h ? s->redo_actions_count : s->undo_actions_count,required[4]={0};
+        size_t available[]={h ? s->redo_count : s->undo_count,h ? s->cells.redo_count : s->cells.undo_count,h ? s->objects.redo_count : s->objects.undo_count,h ? s->formats.redo_count : s->formats.undo_count};
+        for (size_t i=0;i<count;i++) { unsigned effects=worksheet_edit_effects(actions[i]); if (!effects) return range_fail(error,"Unknown worksheet history action."); for (size_t k=0;k<4;k++) required[k]+=!!(effects&(1u<<k)); }
+        for (size_t k=0;k<4;k++) if (required[k]!=available[k]) return range_fail(error,"Worksheet journal and owned histories are not aligned.");
+        const Analysis *states=h ? s->redo : s->undo; size_t bytes=0;
+        for (size_t i=0;i<available[0];i++) { size_t entry=0; if (!analysis_owned_valid(owned,states+i,&entry,error)) return false; if (entry>DX_ANALYSIS_HISTORY_BYTES-bytes) return range_fail(error,"Analysis history exceeds its 8 MiB owned limit."); bytes+=entry; }
+    }
+    size_t ignored=0;
+    if (owned->live!=&s->analysis && !analysis_owned_valid(owned,&s->analysis,&ignored,error)) return false;
+    if (!analysis_argument_room(owned,owned->live,error) || !analysis_owned_valid(owned,owned->live,&ignored,error)) return false;
+    if (owned->next && (!analysis_argument_room(owned,owned->next,error) || !analysis_owned_valid(owned,owned->next,&ignored,error))) return false;
+    qsort(owned->ranges,owned->count,sizeof(*owned->ranges),analysis_range_compare);
+    for (size_t i=1;i<owned->count;i++) if (owned->ranges[i-1].last>owned->ranges[i].first) return range_fail(error,"Analysis histories and prepared values must not share owned text.");
+    return true;
+}
+static bool analysis_text_same(const char *a,const char *b) { return (!a || !b) ? a==b : !strcmp(a,b); }
+static bool analysis_number_same(NumberType a,NumberType b) { return a.kind==b.kind && a.precision==b.precision && a.scale==b.scale; }
+static bool analysis_owned_same(const Analysis *a,const Analysis *b) {
+    if (a->kind!=b->kind || a->source_version!=b->source_version || a->unique_rows!=b->unique_rows || a->filter_op!=b->filter_op || a->aggregate!=b->aggregate || a->descending!=b->descending || a->filter_count!=b->filter_count || a->sort_count!=b->sort_count || !analysis_number_same(a->filter_number,b->filter_number)) return false;
+    const char *x[]={a->path,a->schema,a->table,a->query,a->filter_column,a->filter_value,a->group_column,a->measure_column,a->sort_column},*y[]={b->path,b->schema,b->table,b->query,b->filter_column,b->filter_value,b->group_column,b->measure_column,b->sort_column};
+    for (size_t i=0;i<sizeof(x)/sizeof(*x);i++) if (!analysis_text_same(x[i],y[i])) return false;
+    for (size_t i=0;i<DX_ANALYSIS_FILTERS-1;i++) if (a->filters[i].op!=b->filters[i].op || !analysis_number_same(a->filters[i].number,b->filters[i].number) || !analysis_text_same(a->filters[i].column,b->filters[i].column) || !analysis_text_same(a->filters[i].value,b->filters[i].value)) return false;
+    for (size_t i=0;i<DX_ANALYSIS_SORTS-1;i++) if (a->sorts[i].descending!=b->sorts[i].descending || !analysis_text_same(a->sorts[i].column,b->sorts[i].column)) return false;
+    return true;
+}
+bool worksheet_analysis_preflight(const Worksheet *s,Analysis *live,Analysis *next,bool *changed,char **error) {
+    AnalysisOwnership owned={.sheet=s,.live=live,.next=next};
+    if (!next) return range_fail(error,"Prepare an independently owned next Analysis.");
+    if (!analysis_journal_valid(s,&owned,error)) return false;
+    if (changed) *changed=!analysis_owned_same(live,next); return true;
+}
+static void analysis_owned_push(Analysis *stack,size_t *count,Analysis *state) {
+    size_t bytes=sizeof(*state)+analysis_text_bytes(state); for (size_t i=0;i<*count;i++) bytes+=sizeof(*stack)+analysis_text_bytes(stack+i);
+    while (*count && (*count==DX_HISTORY || bytes>DX_ANALYSIS_HISTORY_BYTES)) {
+        bytes-=sizeof(*stack)+analysis_text_bytes(stack); analysis_free(stack); memmove(stack,stack+1,(--*count)*sizeof(*stack)); memset(stack+*count,0,sizeof(*stack));
+    }
+    stack[(*count)++]=*state; *state=(Analysis){0};
+}
+void worksheet_analysis_adopt(Worksheet *s,Analysis *live,Analysis *next) {
+    analysis_owned_push(s->undo,&s->undo_count,live);
+    while (s->redo_count) analysis_free(s->redo+--s->redo_count);
+    *live=*next; *next=(Analysis){0};
+}
+bool worksheet_analysis_history_preflight(const Worksheet *s,Analysis *live,bool redo,char **error) {
+    AnalysisOwnership owned={.sheet=s,.live=live};
+    if (!analysis_journal_valid(s,&owned,error)) return false;
+    size_t count=redo ? s->redo_actions_count : s->undo_actions_count; const EditKind *actions=redo ? s->redo_actions : s->undo_actions;
+    return (count && (worksheet_edit_effects(actions[count-1])&1)) || range_fail(error,"The next worksheet action has no Analysis state.");
+}
+void worksheet_analysis_history_adopt(Worksheet *s,Analysis *live,bool redo) {
+    Analysis *from=redo ? s->redo : s->undo,*to=redo ? s->undo : s->redo; size_t *fc=redo ? &s->redo_count : &s->undo_count,*tc=redo ? &s->undo_count : &s->redo_count;
+    Analysis restored=from[--*fc]; from[*fc]=(Analysis){0}; analysis_owned_push(to,tc,live); *live=restored;
+}
 static bool range_overlap(SheetRange a,SheetRange b) { return a.r0<=b.r1 && b.r0<=a.r1 && a.c0<=b.c1 && b.c0<=a.c1; }
 static bool range_contains(SheetRange a,SheetRange b) { return a.r0<=b.r0 && a.r1>=b.r1 && a.c0<=b.c0 && a.c1>=b.c1; }
 static SheetRange object_range(const SheetObject *o) { return (SheetRange){o->row,o->row+o->rows-1,o->col,o->col+o->columns-1}; }
