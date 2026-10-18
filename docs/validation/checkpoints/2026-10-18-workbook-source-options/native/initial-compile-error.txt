@@ -1,0 +1,12 @@
+In file included from tests/test_workbook_codec_native.c:570:
+tests/test_workbook_codec_options_native.inc:156:149: error: use of undeclared identifier 'OBJECT_BASE'; did you mean 'OBJECT_TABLE'?
+  156 |     bool value=true;CHECK(workbook_codec_header_unique_rows(header,0,0,&value)&&!value);value=true;CHECK(workbook_codec_header_unique_rows(header,0,OBJECT_BASE,&value)&&!value);value=true;CHECK(workbook_codec_header_unique_rows(header,63,UINT64_MAX,&value)&&!value);
+      |                                                                                                                                                     ^~~~~~~~~~~
+      |                                                                                                                                                     OBJECT_TABLE
+tests/test_workbook_codec_native.c:18:39: note: expanded from macro 'CHECK'
+   18 | #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL native workbook header:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
+      |                                       ^
+src/workbook/objects.h:8:42: note: 'OBJECT_TABLE' declared here
+    8 | typedef enum { OBJECT_PIVOT,OBJECT_CHART,OBJECT_TABLE } ObjectKind;
+      |                                          ^
+1 error generated.

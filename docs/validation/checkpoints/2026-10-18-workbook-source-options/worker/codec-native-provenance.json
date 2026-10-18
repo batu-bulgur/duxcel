@@ -1,0 +1,70 @@
+{
+  "helper": "tests/test_workbook_codec_native",
+  "helper_sha256": "dea68095968233766d6a91ee1a1c39c0218aedae43db619c7ccb2b54e262e4b7",
+  "fixtures": {
+    "schema": "duxcel.codec-fixtures",
+    "version": 1,
+    "files": [
+      {
+        "name": "options-v12.dxls",
+        "version": 12,
+        "layout": 25,
+        "bytes": 6565888,
+        "sha256": "a394d0f4f04b6828c9807df5754bbf7ecf818bed69df117df488b8771e4d05ed"
+      },
+      {
+        "name": "options-v13.dxls",
+        "version": 13,
+        "layout": 25,
+        "bytes": 7876608,
+        "sha256": "22be172ed971df65c7a30be064e02d393ebe4cf0186b260f8025cc9d7da2c06a"
+      },
+      {
+        "name": "options-v14.dxls",
+        "version": 14,
+        "layout": 25,
+        "bytes": 11022336,
+        "sha256": "26e0e8045b7a7239645a13012ded732d223e87a58dadba6a9c85d515303db2a2"
+      },
+      {
+        "name": "options-v14-reordered.dxls",
+        "version": 14,
+        "layout": 25,
+        "bytes": 11022336,
+        "sha256": "9b2d29798f57d4af49c96562465d49a1746d7a417624ca93513dff7dd13641c8"
+      }
+    ]
+  },
+  "served_archives": [
+    {
+      "name": "options-v12.dxls",
+      "version": 12,
+      "layout": 25,
+      "bytes": 6565888,
+      "sha256": "a394d0f4f04b6828c9807df5754bbf7ecf818bed69df117df488b8771e4d05ed"
+    },
+    {
+      "name": "options-v13.dxls",
+      "version": 13,
+      "layout": 25,
+      "bytes": 7876608,
+      "sha256": "22be172ed971df65c7a30be064e02d393ebe4cf0186b260f8025cc9d7da2c06a"
+    },
+    {
+      "name": "options-v14.dxls",
+      "version": 14,
+      "layout": 25,
+      "bytes": 11022336,
+      "sha256": "26e0e8045b7a7239645a13012ded732d223e87a58dadba6a9c85d515303db2a2"
+    },
+    {
+      "name": "options-v14-reordered.dxls",
+      "version": 14,
+      "layout": 25,
+      "bytes": 11022336,
+      "sha256": "9b2d29798f57d4af49c96562465d49a1746d7a417624ca93513dff7dd13641c8"
+    }
+  ],
+  "unchanged": true,
+  "error": null
+}

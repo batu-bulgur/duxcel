@@ -1,0 +1,28 @@
+{
+  "scope": "Natural strict locator roundtrip failure during actual native queryfixture load/setunique_rows/save factory; no rebind or relaxed expected reference. Snapshot matches diagnostic binary input at failure. Original options compile error was a separate test-scoping fix, not product evidence.",
+  "base": "539c25edff9908cf777520078ebaf1653de15277",
+  "files": {
+    "tests/test_workbook_codec_native.c": {
+      "sha256": "891540edeb7c4b598f938f6bc524f3d6277cb882f26fd137828a5dd5af7e6f4b",
+      "snapshot": "build/bp1-options-native/path-drift-red/test_workbook_codec_native.c"
+    },
+    "tests/test_workbook_codec_options_native.inc": {
+      "sha256": "0e7edbe364523927ef7cad5e2bc04532d03440ce4a23cbe8c353cb0af27a4fe9",
+      "snapshot": "build/bp1-options-native/path-drift-red/test_workbook_codec_options_native.inc"
+    },
+    "src/workbook/workbook.c": {
+      "sha256": "a8bf89253c6dbdfff0239903707dd379ca41a83aa7a73753e85c5650510fdfd6",
+      "snapshot": "build/bp1-options-native/path-drift-red/workbook.c"
+    }
+  },
+  "binary_sha256": "6367264ddafb33cfc97bec64409050539fe71a4fb777f34db1bf65cadbecab45",
+  "run": {
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release",
+      "--source-options-only"
+    ],
+    "seconds": 2.789449,
+    "exit_code": 1
+  },
+  "output_sha256": "dc43e69aac9bcbb055ae5504f4156925aeae5ac672a1a3c8bfcb736bca41e5a9"
+}

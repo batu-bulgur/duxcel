@@ -1,0 +1,44 @@
+commit a304a83285265d8b9ac88c35408b604d4972569f
+Author:     Codex <codex@openai.com>
+AuthorDate: Sun Oct 18 11:24:48 2026 +0300
+Commit:     Codex <codex@openai.com>
+CommitDate: Sun Oct 18 11:24:48 2026 +0300
+
+    Preserve missing source references across workbook save and reopen
+
+diff --git a/src/workbook/workbook.c b/src/workbook/workbook.c
+index 9b9e8e5..612e578 100644
+--- a/src/workbook/workbook.c
++++ b/src/workbook/workbook.c
+@@ -569,0 +570,5 @@ static char *directory(const char *path) {
++static char *directory_join(const char *dir,const char *name) {
++    size_t n=strlen(dir);
++    bool separated=n && (dir[n-1]=='/' || dir[n-1]=='\\');
++    return dx_printf("%s%s%s",dir,separated ? "" : "/",name);
++}
+@@ -574 +579 @@ char *workbook_target_path(const char *path) {
+-    char *out=dx_printf("%s/%s",resolved,dx_basename(path)); free(resolved); return out;
++    char *out=directory_join(resolved,dx_basename(path)); free(resolved); return out;
+@@ -578 +583 @@ char *workbook_source_path(const char *workspace,const char *ref) {
+-    char *dir=directory(workspace); char *out=dx_printf("%s/%s",dir,ref); free(dir);
++    char *dir=directory(workspace); char *out=directory_join(dir,ref); free(dir);
+diff --git a/tests/test_workbook_model.c b/tests/test_workbook_model.c
+index f02bb79..73fa11c 100644
+--- a/tests/test_workbook_model.c
++++ b/tests/test_workbook_model.c
+@@ -88,0 +89,15 @@ static void test_unchanged_path_helpers(void) {
++    const char *workspaces[]={"/virtual/books/book.dxls","/book.dxls"};
++    const char *references[]={"missing-source.csv","nested/missing 'İ'.parquet","../data/missing.csv"};
++    for (size_t i=0;i<2;i++) for (size_t j=0;j<3;j++) {
++        relative=dx_strdup(references[j]);
++        for (unsigned round=0;round<4;round++) {
++            source=workbook_source_path(workspaces[i],relative);
++            expected=dx_printf("%s%s",i ? "/" : "/virtual/books/",references[j]);
++            CHECK(source && !strcmp(source,expected));
++            free(relative);relative=workbook_relative_path(workspaces[i],source);
++            CHECK(!strcmp(relative,references[j]));free(source);free(expected);
++        }
++        free(relative);
++    }
++    target=workbook_target_path("/duxcel-model-target-does-not-exist.dxls");
++    CHECK(target && !strcmp(target,"/duxcel-model-target-does-not-exist.dxls"));free(target);

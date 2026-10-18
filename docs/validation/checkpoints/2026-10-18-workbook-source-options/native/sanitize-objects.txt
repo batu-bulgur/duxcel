@@ -1,0 +1,1 @@
+PASS: native object descriptors 395451 checks; 50 metadata executions/114 typed feeds;2048-row native parity/forward Table owners/reorder/v12default-v13v14required, typed faults/geometry/33-sheet/2049-sentinel/budget/stale/recovery; source definitions never executed; descriptor-only comparison, not full Workbook/Worker/App Open; engine v1.5.6

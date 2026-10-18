@@ -1,0 +1,1 @@
+PASS: native source options 1283860 checks; 93 cursor metadata executions/413 typed feeds, 4 fixture raw-reference validations;2112 BOOLEAN primary/Table owners, retained exact queries/reorder/defaultfalse/duplicatefalse/NULL/type/owner/sentinel rejection, closed-handle ownership/budget/stale/recovery; no source execution or Worker/App Open claim; engine v1.5.6
