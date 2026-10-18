@@ -254,3 +254,62 @@ test('source-version revoked held result cannot succeed and new owned registrati
     h.target.expectedTicket=2;const previous=h.adapter.latestId,sends=h.connection.sends.length;assert.equal((await h.transport.submit(7,2,sourceStreamInput(h.token,2))).status,'error');assert.equal(h.adapter.latestId,previous);assert.equal(h.connection.sends.length,sends);
     const token=await h.adapter.registerFile('new-source.dxls',new Uint8Array([2]));h.connection.send=async()=>sourceStreamReader(sourceStreamTable(1));assert.equal((await h.transport.submit(7,2,sourceStreamInput(token,2))).status,'ok');assert.equal(h.target.live.size,0);await finish(h);await sibling.close();
 });
+
+// Format-row transport witnesses only; C owns range/style/NULL semantics.
+const formatStreamNames=['sheet_id','position','r0','r1','c0','c1','mask','flags','alignment','color','font_size','numeric_format','decimals'];
+function formatStreamColumns(){return formatStreamNames.map((name,c)=>({name,typeName:c===2||c===3?'UBIGINT':'INTEGER',numberKind:c===2||c===3?'u64':'i32'}));}
+function formatStreamInput(token,ticket=1,change={}){return {...input(token,'cells',ticket),family:'format-rows',columns:formatStreamColumns(),...change};}
+function formatStreamTable(rows,{canonical=false}={}){
+    return new Table(Object.fromEntries(formatStreamNames.map((name,c)=>[name,vectorFromArray(Array.from({length:rows},(_,r)=>{
+        const value=canonical&&c===0?[null,'','NULL','0'][r%4]:c===2?(r%2?9007199254740993n:18446744073709551615n):c===3?18446744073709551615n:r*13+c;return canonical&&value!==null?String(value):value;
+    }),canonical?new Utf8():c===2||c===3?new Uint64():new Int32())])));
+}
+function formatStreamReader(source,lengths=[source.numRows],options={}){
+    let first=0,index=0;const batches=lengths.map(count=>{const batch=count?source.slice(first,first+count).batches[0]:{numCols:13,numRows:0};first+=count;return batch;});assert.equal(first,source.numRows);
+    return {schema:source.schema,cancelled:0,reads:0,open(){return this;},[Symbol.asyncIterator](){return {next:async()=>{
+        if(index===batches.length)return {done:true};const batch=batches[index++];return {done:false,value:{numCols:13,numRows:batch.numRows,getChildAt:c=>({get:r=>{this.reads++;return batch.getChildAt(c).get(r);}})}};
+    }};},async cancel(){this.cancelled++;await options.cleanup?.();}};
+}
+test('format-row helper retains all13 original sidecars/exactU64 through7/285 chunks and freed heap borrows',async()=>{
+    for(const rows of [7,285]){
+        const source=formatStreamReader(formatStreamTable(rows),rows===7?[1,0,6]:[17,240,28]),h=await harness(source),request=formatStreamInput(h.token),pending=h.transport.submit(7,1,request);
+        request.columns[2].typeName='DOUBLE';request.sourceBindings[0].registrationId='999';request.sql='not the submitted SQL';
+        assert.equal((await pending).status,'ok');assert.equal(h.connection.sends.length,1);assert.equal(h.connection.sends[0],'C OWNED ORDERED METADATA, NOT REWRITTEN');
+        assert.deepEqual(h.target.chunks.map(c=>[c.first,c.page.rows,c.end]),rows===7?[['0',7,0],['7',0,1]]:[['0',256,0],['256',29,0],['285',0,1]]);
+        const p=h.target.chunks[0].page;assert.equal(p.columns,13);assert.deepEqual(p.metadata.map(c=>[c.typeName,c.numberKind]),formatStreamColumns().map(c=>[c.typeName,c.numberKind]));assert.equal(p.values[2],'18446744073709551615');assert.equal(p.values[15],'9007199254740993');assert.equal(p.values[3],'18446744073709551615');
+        assert.equal(source.reads,rows*13);assert.equal(source.cancelled,1);assert.equal(h.target.live.size,0);assert.equal(h.target.completions[0].rows,String(rows));assert.equal(h.target.completions[0].count,rows===7?2:3);assert.equal(h.target.completions[0].status,0);
+        for(const chunk of h.target.chunks){assert.equal(chunk.page.columns,13);assert.ok(chunk.wire.byteLength<=6*1024*1024);assert.deepEqual(inspect(chunk.wire),chunk.page);}await finish(h);
+    }
+});
+test('format-row helper preserves canonical NULL/empty/literal independently of originalINTEGER metadata',async()=>{
+    const h=await harness(formatStreamReader(formatStreamTable(4,{canonical:true})));assert.equal((await h.transport.submit(7,1,formatStreamInput(h.token))).status,'ok');const p=h.target.chunks[0].page;
+    assert.deepEqual(Array.from({length:4},(_,r)=>p.values[r*13]),[null,'','NULL','0']);assert.equal(p.metadata[0].typeName,'INTEGER');assert.equal(p.metadata[2].numberKind,'u64');assert.equal(p.values[15],'9007199254740993');assert.equal(p.values[3],'18446744073709551615');assert.equal(h.target.live.size,0);await finish(h);
+});
+test('format-row helper admission rejects sparse/wrongarity/crosspolicy without tickets, SQL or Cmalloc',async()=>{
+    const h=await harness(formatStreamReader(formatStreamTable(1))),holes=formatStreamColumns();delete holes[5];
+    for(const change of [{columns:holes},{columns:formatStreamColumns().slice(1)},{columns:[...formatStreamColumns(),formatStreamColumns()[0]]},{family:'columns'},{family:'cells'},{family:'source-versions'},{family:'formats'},{rowLimit:32770},{offset:'1'},{knownTotal:'0'},{purpose:'copy'}]){
+        assert.throws(()=>h.transport.submit(7,1,formatStreamInput(h.token,1,change)),{code:'INVALID_REQUEST'});assert.equal(h.adapter.latestId,0n);assert.equal(h.connection.sends.length,0);assert.equal(h.target.allocations,0);
+    }await finish(h);
+});
+test('format-row held second chunk cancels after256 and retires old done before one stale replay/fresh recovery',async()=>{
+    const entered=deferred(),source=formatStreamReader(formatStreamTable(285)),h=await harness(source,{runtime:{held:entered.resolve}}),pending=h.transport.submit(7,1,formatStreamInput(h.token),{holdSequence:2});await entered.promise;
+    assert.equal(h.target.chunks.length,1);assert.equal(h.target.chunks[0].page.rows,256);assert.equal(source.reads,285*13);assert.equal(h.target.live.size,0);assert.equal(h.transport.hasHeld,true);
+    await h.transport.cancel();assert.equal((await pending).status,'cancelled');assert.equal(source.cancelled,1);assert.equal(h.target.completions.length,1);assert.equal(h.target.completions[0].status,1);assert.equal(h.target.completions[0].count,1);
+    h.target.expectedTicket=2;h.target.accepting=false;assert.equal(h.transport.releaseHeld(),false);assert.equal(h.transport.releaseHeld(),false);assert.equal(h.target.stale,1);assert.equal(h.target.live.size,0);assert.equal(h.target.completions.length,1);assert.equal(source.reads,285*13);
+    h.target.accepting=true;h.connection.send=async()=>formatStreamReader(formatStreamTable(7));assert.equal((await h.transport.submit(7,2,formatStreamInput(h.token,2))).status,'ok');assert.equal(h.target.completions.at(-1).rows,'7');assert.equal(h.target.live.size,0);await finish(h);
+});
+test('format-row final ACK and Cmalloc rejection cannot report success and ordinary recovery stays available',async()=>{
+    for(const options of [{ack:r=>r.end?0:1},{failAfter:1}]){
+        const h=await harness(formatStreamReader(formatStreamTable(7)),{runtime:options});assert.equal((await h.transport.submit(7,1,formatStreamInput(h.token))).status,'error');assert.equal(h.target.completions.length,1);assert.equal(h.target.completions[0].status,2);assert.equal(h.target.live.size,0);
+        // Recovery is an ordinary adapter query; this exhausted/failing mock C
+        // allocator remains owned by the caller and is not silently replaced.
+        h.connection.send=async()=>reader(table(1));assert.equal((await h.adapter.submit({requestId:'2',sql:'ordinary after rejected format transport'})).status,'ok');await finish(h);
+    }
+});
+test('format-row cleanup failure with held ownership poisons all admissions and close discards stale bytes',async()=>{
+    const entered=deferred(),source=formatStreamReader(formatStreamTable(285),[285],{cleanup(){throw new Error('format cleanup failed');}}),h=await harness(source,{runtime:{held:entered.resolve}}),pending=h.transport.submit(7,1,formatStreamInput(h.token),{holdSequence:2});await entered.promise;
+    try{await assert.rejects(h.transport.cancel(),{code:'STREAM_CLEANUP'});assert.equal((await pending).status,'error');assert.equal(h.target.completions.length,1);assert.equal(h.target.completions[0].status,2);assert.equal(h.target.completions[0].count,1);assert.equal(h.target.live.size,0);
+        const last=h.adapter.latestId,sends=h.connection.sends.length;assert.throws(()=>h.adapter.submit({requestId:'2',sql:'must not send after failed cleanup'}),{code:'STREAM_CLEANUP'});assert.equal(h.adapter.latestId,last);assert.equal(h.connection.sends.length,sends);
+        await h.transport.close();assert.equal(h.transport.hasHeld,false);assert.equal(h.transport.releaseHeld(),false);assert.equal(h.target.stale,0);
+    }finally{await h.transport.close();await h.adapter.close();}
+});
