@@ -28,6 +28,7 @@ const codecPreferences=process.argv.includes('--codec-preferences');
 const codecObjects=process.argv.includes('--codec-objects');
 const codecQueries=process.argv.includes('--codec-queries');
 const codecFilters=process.argv.includes('--codec-filters');
+const codecGrid=process.argv.includes('--codec-grid');
 const codecPivotMarks=process.argv.includes('--codec-pivot-marks');
 const codecTables=process.argv.includes('--codec-tables');
 const codecSourceOptions=process.argv.includes('--codec-source-options');
@@ -36,14 +37,15 @@ if(codecPreferences&&!codecReadDriver)throw new Error('--codec-preferences requi
 if(codecObjects&&!codecReadDriver)throw new Error('--codec-objects requires --codec-read-driver');
 if(codecQueries&&!codecReadDriver)throw new Error('--codec-queries requires --codec-read-driver');
 if(codecFilters&&!codecReadDriver)throw new Error('--codec-filters requires --codec-read-driver');
+if(codecGrid&&!codecReadDriver)throw new Error('--codec-grid requires --codec-read-driver');
 if(codecPivotMarks&&!codecReadDriver)throw new Error('--codec-pivot-marks requires --codec-read-driver');
 if(codecTables&&!codecReadDriver)throw new Error('--codec-tables requires --codec-read-driver');
 if(codecSourceOptions&&!codecReadDriver)throw new Error('--codec-source-options requires --codec-read-driver');
-if(Number(codecPreferences)+Number(codecSorts)+Number(codecObjects)+Number(codecQueries)+Number(codecSourceOptions)+Number(codecTables)+Number(codecPivotMarks)+Number(codecFilters)>1)throw new Error('Choose one independent codec family gate');
+if(Number(codecPreferences)+Number(codecSorts)+Number(codecObjects)+Number(codecQueries)+Number(codecSourceOptions)+Number(codecTables)+Number(codecPivotMarks)+Number(codecFilters)+Number(codecGrid)>1)throw new Error('Choose one independent codec family gate');
 if(codecReadDriver){
  const args=process.argv.slice(4);
  for(let i=0;i<args.length;i++){
-  if(args[i]==='--codec-read-driver'||args[i]==='--codec-sorts'||args[i]==='--codec-preferences'||args[i]==='--codec-objects'||args[i]==='--codec-queries'||args[i]==='--codec-source-options'||args[i]==='--codec-tables'||args[i]==='--codec-pivot-marks'||args[i]==='--codec-filters')continue;
+  if(args[i]==='--codec-read-driver'||args[i]==='--codec-sorts'||args[i]==='--codec-preferences'||args[i]==='--codec-objects'||args[i]==='--codec-queries'||args[i]==='--codec-source-options'||args[i]==='--codec-tables'||args[i]==='--codec-pivot-marks'||args[i]==='--codec-filters'||args[i]==='--codec-grid')continue;
   if(args[i]==='--dpr'&&args[++i]==='1')continue;
   throw new Error('--codec-read-driver is an isolated no-window gate with default DPR1');
  }
@@ -56,6 +58,28 @@ if(codecSourceOptions){const target=new URL(url);target.searchParams.set('codec_
 if(codecTables){const target=new URL(url);target.searchParams.set('codec_tables','1');url=target.href;}
 if(codecPivotMarks){const target=new URL(url);target.searchParams.set('codec_pivot_marks','1');url=target.href;}
 if(codecFilters){const target=new URL(url);target.searchParams.set('codec_filters','1');url=target.href;}
+if(codecGrid){const target=new URL(url);target.searchParams.set('codec_grid','1');url=target.href;}
+// Kept pure so runner mock tests can exercise these actual report guards
+// without starting Chromium, a Worker or the application.
+function validateCodecGridReport(report,check) {
+ check(report.mode==='grid'&&report.fixtures===4&&report.headers===6&&report.queries===62&&report.rejections===5&&report.stale===2,'C grid fixture/failure/recovery inventory changed');
+ check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([8,8,8,8]),'Grid archives repeated an original-schema/canonical family query');
+ const families={meta:12,sheets:12,columns:12,cells:10,describe:16};
+ check(Object.entries(families).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed grid execution inventory changed');
+ const feeds={columns256:9,columns29:7,columns7:3,columnsEof:10,cells256:6,cells29:3,cells7:3,cellsEof:6};
+ check(Object.entries(feeds).every(([key,value])=>report.acceptedFeeds?.[key]===value),'Grid stream lost dense bounded data/empty EOF feeds');
+ for(const [key,expected] of Object.entries({matchedDataCallbacks:{columns:21,cells:15},matchedEofCallbacks:{columns:10,cells:6},completedStreams:{columns:10,cells:6},errorStreams:{columns:2,cells:3},poisonedDataChunks:{columns:19,cells:12}}))
+  check(Object.entries(expected).every(([family,value])=>report[key]?.[family]===value),'Grid stream '+key+' changed');
+ const counters={chunkCallbacks:53,acceptedAcks:47,doneCallbacks:22,staleChunkCallbacks:1,staleDoneCallbacks:1,heldCallbacks:1,cancelledCallbacks:1,rejectedFeeds:5,staleScalarReservationBytes:42,staleTerminalReservationBytes:2070};
+ check(Object.entries(counters).every(([key,value])=>report[key]===value),'Grid ACK/terminal/stale callback ownership changed');
+ check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([256,256,256,256,0]),'Grid late failure changed an accepted prefix');
+ for(const proof of ['lateWidthRejected','requiredColumnNameRejected','requiredCellTextRejected','duplicateCellRejected','budgetRejected','heldSecondChunkCancelled','wholeCandidateRetry','freshRecovery','longColumnNameExact','maximumCellTextExact','actualEmptyCellPresent','missingCellAbsent'])
+  check(report[proof]===true,'Missing actual grid proof '+proof);
+ check(report.maximumCompletedHeaderOwned>0&&report.maximumCompletedHeaderOwned<=2097152,'Completed grid Header exceeds admission');
+ check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=4194304,'Grid C retained-input admission changed');
+ const stream={submissions:22,chunkCallbacks:53,acceptedAcks:47,doneCallbacks:22,held:1,released:1,cancelled:1};
+ check(Object.entries(stream).every(([key,value])=>report.transport?.stream?.[key]===value),'Actual stream transport disagrees with C ACK/retirement counters');
+}
 const filters=process.argv.includes('--filters');
 const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
@@ -2809,7 +2833,9 @@ try{
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelCodecReadResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'codec-read-driver.json'),JSON.stringify(report??{ok:false,error:'C header driver did not complete'},null,2));
   check(report?.ok,'Real C/Worker header decoding failed; see codec-read-driver.json and events.json');
-  if(codecFilters){
+  if(codecGrid){
+   validateCodecGridReport(report,check);
+  }else if(codecFilters){
    check(report.mode==='primary-filters'&&report.fixtures===4&&report.headers===6&&report.queries===113&&report.rejections===7&&report.stale===1,'C primary-filter fixture/failure/recovery inventory changed');
    check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([14,14,14,14]),'Primary-filter archives did not execute each original-schema/canonical family once');
    const expected={meta:12,sheets:12,objects:12,queries:12,sourceOptions:12,sorts:12,filters:12,describe:29};
@@ -2889,8 +2915,8 @@ try{
    check(JSON.stringify(report.u64Sentinels)===JSON.stringify(['9007199254740993','18446744073709551615']),'Exact raw U64 transport proofs changed');
   }
   check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=report.inputOwnedLimit,'C header retained-input admission bound changed');
-  const transport=report.transport,fixtureNames=codecFilters?['filters-v12.dxls','filters-v13.dxls','filters-v14.dxls','filters-v14-reordered.dxls']:codecPivotMarks?['pivot-marks-v12.dxls','pivot-marks-v13.dxls','pivot-marks-v14.dxls','pivot-marks-v14-reordered.dxls']:codecTables?['tables-v12.dxls','tables-v13.dxls','tables-v14.dxls','tables-v14-reordered.dxls']:codecSourceOptions?['options-v12.dxls','options-v13.dxls','options-v14.dxls','options-v14-reordered.dxls']:codecQueries?['queries-v12.dxls','queries-v14-blank.dxls','queries-v14-nul.dxls','queries-v13.dxls','queries-v14.dxls','queries-v14-reordered.dxls']:codecObjects?['objects-v12.dxls','objects-v13.dxls','objects-v14.dxls','objects-v14-reordered.dxls']:codecPreferences?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:codecSorts?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
-  check(transport?.schema==='duxcel.codec-read-transport'&&transport.version===1&&transport.held===1&&transport.released===1,'Held actual callback transport/release receipt changed');
+  const transport=report.transport,fixtureNames=codecGrid?['grid-v12.dxls','grid-v13.dxls','grid-v14.dxls','grid-v14-reordered.dxls']:codecFilters?['filters-v12.dxls','filters-v13.dxls','filters-v14.dxls','filters-v14-reordered.dxls']:codecPivotMarks?['pivot-marks-v12.dxls','pivot-marks-v13.dxls','pivot-marks-v14.dxls','pivot-marks-v14-reordered.dxls']:codecTables?['tables-v12.dxls','tables-v13.dxls','tables-v14.dxls','tables-v14-reordered.dxls']:codecSourceOptions?['options-v12.dxls','options-v13.dxls','options-v14.dxls','options-v14-reordered.dxls']:codecQueries?['queries-v12.dxls','queries-v14-blank.dxls','queries-v14-nul.dxls','queries-v13.dxls','queries-v14.dxls','queries-v14-reordered.dxls']:codecObjects?['objects-v12.dxls','objects-v13.dxls','objects-v14.dxls','objects-v14-reordered.dxls']:codecPreferences?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:codecSorts?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
+  check(transport?.schema==='duxcel.codec-read-transport'&&transport.version===1&&transport.held===(codecGrid?0:1)&&transport.released===(codecGrid?0:1),'Held actual callback transport/release receipt changed');
   check(typeof transport.engineVersion==='string'&&transport.engineVersion.length>0&&transport.engineVersion.length<=256,'Initialized official Worker did not report its engine version');
   check(Array.isArray(transport.fixtures)&&transport.fixtures.length===fixtureNames.length&&Array.isArray(transport.queries)&&transport.queries.length===report.queries,'Official transport fixture/request inventory changed');
   const expected=await(await fetch(new URL('/__codec-fixtures/manifest.json',url))).json(),byName=new Map(),tokens=new Set();
@@ -2901,13 +2927,20 @@ try{
    const token=actual.engineEpoch+':'+actual.registrationId;check(!tokens.has(token),'Independent fixtures reused a registration token');tokens.add(token);byName.set(actual.name,{...actual,queries:0});
   }
   check(new Set(transport.fixtures.map(item=>item.engineEpoch)).size===1,'Header proof unexpectedly used more than one engine');
-  let lastTicket=0,v14PreferenceQueries=0;const families={meta:0,sheets:0,describe:0,sorts:0,preferences:0,objects:0,queries:0,sourceOptions:0,tableSources:0,tableFilters:0,tableSorts:0,pivotFields:0,marks:0,filters:0};
+  let lastTicket=0,v14PreferenceQueries=0;const families={meta:0,sheets:0,describe:0,sorts:0,preferences:0,objects:0,queries:0,sourceOptions:0,tableSources:0,tableFilters:0,tableSorts:0,pivotFields:0,marks:0,filters:0,...(codecGrid?{columns:0,cells:0}:{})};
   for(const request of transport.queries){
    check(Number.isSafeInteger(request.ticket)&&request.ticket>lastTicket&&typeof request.sql==='string'&&request.sql.length<=1048576,'Observed request lost ordered ticket/bounded C SQL');lastTicket=request.ticket;
    check(Array.isArray(request.sourceBindings)&&request.sourceBindings.length===1,'Metadata request did not pin one original registration');
    const binding=request.sourceBindings[0],fixture=byName.get(binding.name);
    check(fixture&&binding.engineEpoch===fixture.engineEpoch&&binding.registrationId===fixture.registrationId,'Metadata request changed its captured fixture token');fixture.queries++;
    if(request.sql.startsWith('DESCRIBE '))families.describe++;
+   else if(codecGrid&&(request.sql.includes('_duxcel_workspace.columns')||request.sql.includes('_duxcel_workspace.cells'))){
+    const cells=request.sql.includes('_duxcel_workspace.cells'),family=cells?'cells':'columns',limit=cells?1280001:1048577;
+    const order=cells?'ORDER BY sheet_id,row_id,column_id LIMIT 1280001':'ORDER BY sheet_id,column_id LIMIT 1048577';
+    check(request.purpose==='workbook-metadata-stream'&&request.family===family&&request.rowLimit===limit&&request.sql.includes(order)&&! /\bOFFSET\b/i.test(request.sql),'Grid family lost its single-execution captured stream policy/order or used OFFSET paging');
+    const names=cells?['sheet_id','row_id','column_id','text']:['sheet_id','column_id','name','width'];
+    check(request.sql.startsWith('SELECT '+names.map(name=>'CAST('+name+' AS VARCHAR) AS '+name).join(',')),'Grid stream bypassed the C original-type canonical projection');families[family]++;
+   }
    else if((codecSorts||codecFilters)&&request.sql.includes('_duxcel_workspace.sorts')){
     check(request.purpose==='workbook-sorts'&&request.rowLimit===449&&/LIMIT 449/.test(request.sql),'Sort result did not use its explicit captured449-row policy');families.sorts++;
    }
@@ -2951,11 +2984,11 @@ try{
   }
   check(Object.entries(families).every(([family,count])=>count===(report.familyExecutions[family]??0)),'Host-observed SQL inventory disagrees with C counters');
   if(codecPreferences)check(v14PreferenceQueries===report.v14PredicateQueries,'Transport did not observe every v14 malformed-row predicate');
-  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===(codecFilters?(i===3?71:14):codecPivotMarks?(i===3?116:20):codecTables?(i===3?78:16):codecSourceOptions?(i===3?49:10):codecQueries?(i===5?45:8):codecObjects?(i===3?40:6):codecPreferences?(i===5?31:6):codecSorts?(i===3?31:6):(i===6?30:4)),'Metadata batching re-executed a fixture query');
+  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===(codecGrid?(i===3?38:8):codecFilters?(i===3?71:14):codecPivotMarks?(i===3?116:20):codecTables?(i===3?78:16):codecSourceOptions?(i===3?49:10):codecQueries?(i===5?45:8):codecObjects?(i===3?40:6):codecPreferences?(i===5?31:6):codecSorts?(i===3?31:6):(i===6?30:4)),'Metadata batching re-executed a fixture query');
   check(!events.some(event=>event.method==='Runtime.exceptionThrown'),'Uncaught exception in isolated header transport');
   await fs.writeFile(path.join(output,'codec-read-transport.json'),JSON.stringify(transport,null,2));
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
-  await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',profile:codecFilters?'codec-filters-driver':codecPivotMarks?'codec-pivot-marks-driver':codecTables?'codec-tables-driver':codecSourceOptions?'codec-source-options-driver':codecQueries?'codec-queries-driver':codecObjects?'codec-objects-driver':codecPreferences?'codec-preferences-driver':codecSorts?'codec-sorts-driver':'codec-read-driver',checks,report,scope:'Partial owned Header'+(codecFilters?' with primary filters, raw queries, source options and sorts':codecPivotMarks?' with object descriptors, primary/Table definitions and complete Pivot/Marks metadata':codecTables?' with object descriptors, primary/Table SQL definitions, source options and complete Table sources/filters/sorts':codecSourceOptions?' with object descriptors, primary/Table SQL definitions and source options':codecQueries?' with object descriptors and primary/Table SQL definitions':codecObjects?' with typed object descriptors':codecPreferences?' with reduced-motion/worksheet visibility preferences':codecSorts?' with primary-sheet secondary sorts':'')+' only; no Workbook publication, App Save/Open or engine/RSS peak bound'},null,2));
+  await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',profile:codecGrid?'codec-grid-driver':codecFilters?'codec-filters-driver':codecPivotMarks?'codec-pivot-marks-driver':codecTables?'codec-tables-driver':codecSourceOptions?'codec-source-options-driver':codecQueries?'codec-queries-driver':codecObjects?'codec-objects-driver':codecPreferences?'codec-preferences-driver':codecSorts?'codec-sorts-driver':'codec-read-driver',checks,report,scope:'Partial owned Header'+(codecGrid?' with ACKed column presentation and sparse-cell streams':codecFilters?' with primary filters, raw queries, source options and sorts':codecPivotMarks?' with object descriptors, primary/Table definitions and complete Pivot/Marks metadata':codecTables?' with object descriptors, primary/Table SQL definitions, source options and complete Table sources/filters/sorts':codecSourceOptions?' with object descriptors, primary/Table SQL definitions and source options':codecQueries?' with object descriptors and primary/Table SQL definitions':codecObjects?' with typed object descriptors':codecPreferences?' with reduced-motion/worksheet visibility preferences':codecSorts?' with primary-sheet secondary sorts':'')+' only; no Workbook publication, App Save/Open or engine/RSS peak bound'},null,2));
   console.log(JSON.stringify({status:'passed',checks,report:{...report,transport:undefined},output}));
  }else if(workerDriver){
   let report;
