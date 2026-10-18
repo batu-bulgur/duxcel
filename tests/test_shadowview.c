@@ -97,12 +97,37 @@ static void invalid_inputs(void) {
        origin without overlap; fail closed rather than publish negative body. */
     CHECK(!ui_shadow_placement(&fractional,(Rectangle){0,-32768,280,2*(fractional.corner_rows/fractional.density.y)}).valid);
 }
+static void encoded_samples(void) {
+    /* Independent byte expectations at color/opacity rounding boundaries.
+       The normalized RGB coefficients encode as binary16 0x2511/0x27ed/0x2922
+       (1297*2^-16,2029*2^-16,1314*2^-15), before spatial coverage. Alpha
+       remains coverage*33, including the 150% sample just above 20.5. These
+       samples exercise the public mask, without exporting a test quantizer. */
+    static const struct {
+        float scale,density; int x; unsigned char expected[4];
+    } samples[]={
+        {1,.5f,10,{3,4,5,17}}, /* Exactly half coverage: byte opacity ties up. */
+        {1,2,43,{3,4,6,18}},
+        {1,2,44,{3,5,6,19}}, /* Green crosses its normalized coefficient boundary. */
+        {1,2,45,{3,5,6,20}},
+        {1.5f,2,68,{3,5,6,20}},
+        {1.5f,2,69,{3,5,6,21}}, /* Quantizing alpha with RGB would incorrectly give 20. */
+        {1.5f,2,70,{3,5,7,21}}
+    };
+    for (size_t i=0;i<sizeof samples/sizeof *samples;i++) {
+        UIShadowLayout q=ui_shadow_layout(samples[i].scale,(Vector2){samples[i].density,samples[i].density});
+        CHECK(q.valid && samples[i].x>=0 && samples[i].x<q.width);
+        unsigned char *mask=malloc(q.bytes); CHECK(mask && ui_shadow_mask_rgba(&q,mask,q.bytes));
+        CHECK(!memcmp(mask+pixel(&q,samples[i].x,q.corner_rows),samples[i].expected,4));
+        free(mask);
+    }
+}
 static void reference_pixels(void) {
     const struct { const ShadowReferencePixel *pixels; size_t count; float scale; int left,first; } refs[]={
         {narrow_100,sizeof narrow_100/sizeof *narrow_100,1,720,624},
         {narrow_150,sizeof narrow_150/sizeof *narrow_150,1.5f,440,296}
     };
-    size_t matches=0,differences=0,points=0;
+    size_t points=0;
     for (size_t r=0;r<sizeof refs/sizeof *refs;r++) {
         UIShadowLayout q=ui_shadow_layout(refs[r].scale,(Vector2){2,2}); CHECK(q.valid);
         unsigned char *mask=malloc(q.bytes); CHECK(mask && ui_shadow_mask_rgba(&q,mask,q.bytes));
@@ -112,22 +137,14 @@ static void reference_pixels(void) {
             const ShadowReferencePixel *ref=&refs[r].pixels[i];
             for (int c=0;c<3;c++) composited[c]=(unsigned char)(p[c]+((unsigned)ref->background[c]*(255-p[3])+127)/255);
             composited[3]=255; points++;
-            if (!memcmp(composited,ref->foreground,4)) { matches++; continue; }
-            differences++;
-            /* Preserve the actual disagreement, not a fitted correction or
-               tolerance: source-table double/RGBA8 model has green240 here;
-               the recorded GPU has green241. GPU interpolation/blending at
-               this threshold is a separate integration acceptance requirement. */
-            CHECK(r==0 && i==88 && refs[r].first+(int)i==712);
-            CHECK(!memcmp(composited,(unsigned char[]){239,240,242,255},4));
-            CHECK(!memcmp(ref->foreground,(unsigned char[]){239,241,242,255},4));
+            CHECK(!memcmp(composited,ref->foreground,4));
         }
         free(mask);
     }
-    CHECK(points==240 && matches==239 && differences==1);
-    printf("Reference: %zu/%zu exact source-profile pixels; one explicit GPU rounding disagreement retained (no tolerance).\n",matches,points);
+    CHECK(points==240);
+    printf("Reference: %zu/%zu exact source-profile pixels, without exceptions or tolerance.\n",points,points);
 }
 int main(void) {
-    reference_geometry(); density_masks(); invalid_inputs(); reference_pixels();
+    reference_geometry(); density_masks(); invalid_inputs(); encoded_samples(); reference_pixels();
     printf("PASS: %u pure shadowview checks; no GPU/render/OS parity claim.\n",checks); return 0;
 }
