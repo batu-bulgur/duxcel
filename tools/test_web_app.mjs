@@ -1008,13 +1008,19 @@ function paneRailTarget(state,action,retained,narrow){
  return{part:'pane_rail_'+action,id:'pane.transformations.'+action,point,bounds:[point.x-2*s,point.y-2*s,4*s,4*s]};
 }
 async function paneRailPixels(state,name,regions){
- const surface=await evaluate('(()=>{const c=document.querySelector("canvas"),r=c.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,canvasWidth:c.width,canvasHeight:c.height,viewportWidth:innerWidth,viewportHeight:innerHeight}})()');
+ const surface=await evaluate('(()=>{const c=document.querySelector("canvas"),r=c.getBoundingClientRect(),s=getComputedStyle(c),m=s.transform==="none"?new DOMMatrixReadOnly():new DOMMatrixReadOnly(s.transform),ancestors=[];for(let el=c.parentElement;el;el=el.parentElement){const style=getComputedStyle(el);ancestors.push({tag:el.tagName,transform:style.transform,zoom:style.zoom,insets:[style.marginLeft,style.marginTop,style.marginRight,style.marginBottom,style.paddingLeft,style.paddingTop,style.paddingRight,style.paddingBottom,style.borderLeftWidth,style.borderTopWidth,style.borderRightWidth,style.borderBottomWidth]});}return{x:r.x,y:r.y,width:r.width,height:r.height,canvasWidth:c.width,canvasHeight:c.height,clientWidth:c.clientWidth,clientHeight:c.clientHeight,viewportWidth:innerWidth,viewportHeight:innerHeight,scrollX,scrollY,css:{matrix:{a:m.a,b:m.b,c:m.c,d:m.d,e:m.e,f:m.f,is2D:m.is2D},origin:s.transformOrigin,border:[s.borderLeftWidth,s.borderTopWidth,s.borderRightWidth,s.borderBottomWidth],padding:[s.paddingLeft,s.paddingTop,s.paddingRight,s.paddingBottom],margin:[s.marginLeft,s.marginTop,s.marginRight,s.marginBottom],ancestors}}})()');
+ const matrix=surface.css.matrix,scaled=matrix.a!==1||matrix.d!==1;
+ check(matrix.is2D&&matrix.a>0&&matrix.d>0&&[matrix.b,matrix.c,matrix.e,matrix.f].every(value=>value===0)&&(!scaled||surface.css.origin==='0px 0px')&&[...surface.css.border,...surface.css.padding,...surface.css.margin].every(value=>Number.parseFloat(value)===0)&&surface.css.ancestors.every(parent=>parent.transform==='none'&&Number(parent.zoom)===1&&parent.insets.every(value=>Number.parseFloat(value)===0))&&surface.scrollX===0&&surface.scrollY===0,'Rail paint mapping requires the actual axis-aligned/top-left-origin canvas without insets, ancestor transforms or scrolling');
+ paneRailPixels.browserVersion??=await send('Browser.getVersion');
+ const browserVersion=paneRailPixels.browserVersion,revision='5b586c06e0d27582900f17e2d59c5370d8d6e0bb';
+ check(browserVersion.revision==='@'+revision&&/^Chrome\/150\./.test(browserVersion.product),'Rail snapped-canvas paint mapping must be revalidated for this Chromium revision');
+ const mapping={mode:scaled?'coverage':'exact',browserVersion,sourceRevision:revision,paintOriginCss:{x:Math.round(surface.x),y:Math.round(surface.y)},domOriginCss:{x:surface.x,y:surface.y},basis:'Chrome150 HTMLCanvasPainter records ToPixelSnappedRect(paint_rect); PhysicalRect uses ToRoundedPoint→LayoutUnit.Round before this simple CSS scale. Untransformed is exact; transformed checks full/any pixel coverage, not a universal pure-bilinear sampling phase.',sources:['core/paint/html_canvas_painter.cc','core/layout/geometry/physical_rect.h','platform/geometry/physical_offset.h','platform/geometry/layout_unit.h'].map(file=>'https://raw.githubusercontent.com/chromium/chromium/'+revision+'/third_party/blink/renderer/'+file)};
  const screenshot=await send('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:false}),png=Buffer.from(screenshot.data,'base64');await fs.writeFile(path.join(output,name+'.png'),png);
  // As in gridLabelPixels, decode this single presented compositor frame, not
  //a later read of WebGL's disposable default buffer. Return bounded RGBA only.
  const result=await evaluate(`(async()=>{
   const encoded=atob(${JSON.stringify(screenshot.data)}),bytes=Uint8Array.from(encoded,c=>c.charCodeAt(0)),image=await createImageBitmap(new Blob([bytes],{type:'image/png'})),canvas=new OffscreenCanvas(image.width,image.height),context=canvas.getContext('2d',{willReadFrequently:true});context.drawImage(image,0,0);image.close();
-  const surface=${JSON.stringify(surface)},regions=${JSON.stringify(regions)},logical=${JSON.stringify(state.logical.split(',').map(Number))},dpr=canvas.width/surface.viewportWidth,ratio=dpr*surface.width/logical[0],ratioY=canvas.height/surface.viewportHeight*surface.height/logical[1],tx=surface.x*dpr,ty=surface.y*dpr,sourceX=surface.canvasWidth/logical[0],sourceY=surface.canvasHeight/logical[1],samples={};
+  const surface=${JSON.stringify(surface)},mapping=${JSON.stringify(mapping)},regions=${JSON.stringify(regions)},logical=${JSON.stringify(state.logical.split(',').map(Number))},dpr=canvas.width/surface.viewportWidth,ratio=dpr*surface.width/logical[0],ratioY=canvas.height/surface.viewportHeight*surface.height/logical[1],tx=mapping.paintOriginCss.x*dpr,ty=mapping.paintOriginCss.y*dpr,sourceX=surface.canvasWidth/logical[0],sourceY=surface.canvasHeight/logical[1],samples={};
   for(const[name,r]of Object.entries(regions)){
    const x=Math.floor(tx+r.x*ratio),y=Math.floor(ty+r.y*ratioY),w=Math.ceil(r.w*ratio),h=Math.ceil(r.h*ratioY);if(x<0||y<0||w<=0||h<=0||x+w>canvas.width||y+h>canvas.height||w*h>32768)throw new Error('Rail sample escapes its bounded compositor frame');
    const rgba=context.getImageData(x,y,w,h).data,colors={},bands=r.bands?.map(band=>({...band,eligible:0,mismatches:[],excluded:[]})),ink=r.ink?{rgba:r.ink.rgba,bounds:r.ink.bounds,count:0,left:Infinity,top:Infinity,right:-Infinity,bottom:-Infinity}:null;
@@ -1026,17 +1032,21 @@ async function paneRailPixels(state,name,regions){
    }
    if(ink){
     // A filled source pixel has its center inside the frozen C rectangle.
-    // Pure compositor ink requires both bilinear source neighbors to be ink.
-    // These exact raster envelopes account for CSS embedding; no extra slop.
+    // The exact source-pixel expectation is normative without CSS scaling.
+    // With scaling, retain that prediction only as a diagnostic: Chromium's
+    // canvas layer is pixel-snapped before its compositor filtering phase.
     const [bx,by,bw,bh]=ink.bounds,sx0=Math.ceil(bx*sourceX-.5),sx1=Math.ceil((bx+bw)*sourceX-.5)-1,sy0=Math.ceil(by*sourceY-.5),sy1=Math.ceil((by+bh)*sourceY-.5)-1;
     ink.expected={left:Math.ceil(tx+(sx0+.5)*ratio/sourceX-.5),right:Math.floor(tx+(sx1+.5)*ratio/sourceX-.5),top:Math.ceil(ty+(sy0+.5)*ratioY/sourceY-.5),bottom:Math.floor(ty+(sy1+.5)*ratioY/sourceY-.5)};
+    const painted={left:tx+bx*ratio,right:tx+(bx+bw)*ratio,top:ty+by*ratioY,bottom:ty+(by+bh)*ratioY};
+    ink.coverage={painted,any:{left:Math.floor(painted.left),top:Math.floor(painted.top),right:Math.ceil(painted.right)-1,bottom:Math.ceil(painted.bottom)-1},full:{left:Math.ceil(painted.left),top:Math.ceil(painted.top),right:Math.floor(painted.right)-1,bottom:Math.floor(painted.bottom)-1}};
     ink.excludedBoundary=[];
     const left=tx+bx*ratio-.5*ratio/sourceX,right=tx+(bx+bw)*ratio+.5*ratio/sourceX,top=ty+by*ratioY-.5*ratioY/sourceY,bottom=ty+(by+bh)*ratioY+.5*ratioY/sourceY;
-    for(let j=0;j<h;j++)for(let i=0;i<w;i++){const px=x+i,py=y+j;if(px+1>left&&px<right&&py+1>top&&py<bottom&&(px<ink.expected.left||px>ink.expected.right||py<ink.expected.top||py>ink.expected.bottom))ink.excludedBoundary.push({x:px,y:py,rgba:Array.from(rgba.subarray((j*w+i)*4,(j*w+i)*4+4))});}
+    const interior=mapping.mode==='exact'?ink.expected:ink.coverage.full;
+    for(let j=0;j<h;j++)for(let i=0;i<w;i++){const px=x+i,py=y+j;if(px+1>left&&px<right&&py+1>top&&py<bottom&&(px<interior.left||px>interior.right||py<interior.top||py>interior.bottom))ink.excludedBoundary.push({x:px,y:py,rgba:Array.from(rgba.subarray((j*w+i)*4,(j*w+i)*4+4))});}
    }
    samples[name]={region:r,pixels:{x,y,w,h},colors,rgba_hex:Array.from(rgba,b=>b.toString(16).padStart(2,'0')).join(''),...(bands?{bands}:{}),...(ink?{ink}: {})};
   }
-  return{surface,image:{width:canvas.width,height:canvas.height},ratio,ratioY,samples};
+  return{surface,mapping,image:{width:canvas.width,height:canvas.height},ratio,ratioY,samples};
  })()`);
  for(const sample of Object.values(result.samples)){sample.sha256=createHash('sha256').update(Buffer.from(sample.rgba_hex,'hex')).digest('hex');delete sample.rgba_hex;}
  result.capture=name+'.png';result.sha256=createHash('sha256').update(png).digest('hex');result.method='single CDP compositor PNG of actual C canvas; bounded decoded RGBA regions';return result;
@@ -1065,7 +1075,7 @@ async function browserPaneRail(){
     return paneRailPixels(state,'pane-rail-'+spec.name+'-'+action+'-frozen-bounds',{semantic_outline:{x:railLeft,y:top,w:32*s,h:64*s,ink:{rgba:[121,82,179,255],bounds}}});
    }:null;
    const proof=await feedbackPick('pane_rail_'+action,'pane-rail-'+spec.name+'-'+action,{targetAt:state=>paneRailTarget(state,action,isRetained,spec.narrow),hoverCapture});proofs.push(proof);
-   if(isRetained){const ink=proof.hover.samples.semantic_outline.ink;await fs.writeFile(path.join(output,'pane-rail-'+spec.name+'-'+action+'-bounds.json'),JSON.stringify(proof,null,2));check(ink.count>0&&['left','right','top','bottom'].every(edge=>ink[edge]===ink.expected[edge]),'Frozen '+action+' semantic bounds are not26×26 centered after the one-App-point border: '+JSON.stringify({spec,ink}));}
+   if(isRetained){const ink=proof.hover.samples.semantic_outline.ink,mode=proof.hover.mapping.mode;await fs.writeFile(path.join(output,'pane-rail-'+spec.name+'-'+action+'-bounds.json'),JSON.stringify(proof,null,2));const matches=mode==='exact'?['left','right','top','bottom'].every(edge=>ink[edge]===ink.expected[edge]):['left','top'].every(edge=>ink[edge]>=ink.coverage.any[edge]&&ink[edge]<=ink.coverage.full[edge])&&['right','bottom'].every(edge=>ink[edge]>=ink.coverage.full[edge]&&ink[edge]<=ink.coverage.any[edge]);check(ink.count>0&&matches,'Frozen '+action+' semantic bounds are not26×26 centered after the one-App-point border at '+mode+' compositor resolution: '+JSON.stringify({spec,ink}));}
    const live=await platformSnapshot();retained(live,spec.name+' '+action+' proof');const point=paneRailTarget(live,action,isRetained,spec.narrow).point;await click(point.x,point.y);await pause(220);await frames(3);const after=await platformSnapshot();retained(after,spec.name+' '+action);return after;
   }
   const collapsed=await activate('collapse',false);check(Math.abs(reserved(collapsed)-(spec.narrow?0:32*s))<.02,'Retained rail does not reserve exactly32 design units only in the wide layout');if(spec.narrow)check(collapsed.grid_rect===expanded.grid_rect,'Narrow retained rail changed the underlying full-width canvas');
