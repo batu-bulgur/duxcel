@@ -1,11 +1,10 @@
 # Duxcel interaction rules
 
-Updated 17 October 2026. Operational requirements for the confirmed direction in [DESIGN.md](DESIGN.md). The UI study exercises a subset of these rules. Product rules beyond that subset remain future acceptance criteria; the evidence and limitations are in [VALIDATION.md](PROTOTYPE_VALIDATION.md).
 
 
-## Prototype motion and layout behavior
+## Native motion and layout requirements
 
-The current [browser study](http://localhost:4173/) tests interaction feel with a small synthetic dataset. This section describes implemented UI behavior; later sections describe the broader intended product.
+These are intended behavior contracts for the C UI. Consult current status for acceptance; this document does not establish that every state has been tested.
 
 | Interaction | Current treatment |
 | --- | --- |
@@ -17,18 +16,17 @@ The current [browser study](http://localhost:4173/) tests interaction feel with 
 | Authoring context | Shelves/identity fade and move into place over 140 ms |
 | Field reveal | Header highlight fades over 1.5 seconds; selection is preserved |
 | Drag start | 5-pixel pointer-distance threshold separates clicks from drags; pointer capture maintains the gesture |
-| Drag feedback | Pointer-following labelled preview, valid destination highlighting, insertion marker; animation-frame updates avoid React updates for every pointer move |
+| Drag feedback | Pointer-following labelled preview, valid destination highlighting, insertion marker; frame updates reuse bounded gesture state |
 | Drop/cancel | Apply placement on release; remove feedback; Escape cancels the active drag |
 | Charts | No decorative data animation; example marks appear directly |
-| Reduced motion | CSS removes transition/animation duration and smooth scrolling; no operating-system preference emulation was performed in this pass |
+| Reduced motion | disable decorative transitions and smooth scrolling while retaining direct input tracking |
 
 Pane body and rail lifecycle are separate. Collapse retains a 32-unit entry; Dismiss removes the entire right footprint. The last dismissed pane leaves no rail. Workbook and Fields can each be hidden; when no left section is needed, the left footprint disappears. View and shortcuts recover hidden regions.
 
-At less than 1040 logical units of workspace width, the right inspector overlays the canvas and leaves the left dock in place. Use this reference threshold for the native migration. At canvas widths of 880 units or less, the matrix and chart stack vertically and retain their own internal scrolling. The source preview height is clamped between 150 and 336 units at 40% of the canvas height. Short left docks retain a usable Fields list and scroll Workbook/Marks deliberately. Long inspectors scroll with a sticky close header.
+At less than 1040 logical units of workspace width, the right inspector overlays the canvas and leaves the left dock in place. Treat this as a layout requirement, subject to measured native viewport behavior. At canvas widths of 880 units or less, the matrix and chart stack vertically and retain their own internal scrolling. The source preview height is clamped between 150 and 336 units at 40% of the canvas height. Short left docks retain a usable Fields list and scroll Workbook/Marks deliberately. Long inspectors scroll with a sticky close header.
 
 Interface scale offers 80/100/125/150%. Canvas zoom is independent and changes data-cell text and row/column sizes without resizing the ribbon, panes, status line or header typography. Latest human requirement, 17 October: keep the row-number gutter width and column-header tier heights at interface scale; row-header height follows its data row and column-header width follows its data column. The status step controls use 60–160%; continuous wheel/pinch is clamped to 50–250%. At 100% interface scale the status line remains 22 units. Under width pressure whole metrics move out of the line and remain in its customization menu; values never wrap into a second status row.
 
-The prototype does not implement an engine, arbitrary matrix editing, free object placement, every encoding's full chart semantics, native text rasterization, or native accessibility. New sheet starts an independent example analysis to expose the relevant UI states. SQL and transformation history are explicitly illustrative. These are experiment boundaries, not product behavior to port blindly.
 
 ## Frozen surfaces and adaptive command states
 
@@ -116,9 +114,9 @@ Field navigation cannot trigger an implicit whole-column statistics query. Missi
 
 Show/hide is a layout operation and never deletes steps, fields, or an analysis. No pane requires a permanently present rail. Pane widths and registration preferences persist independently from data transformations.
 
-On narrower windows, keep a 640-unit grid target where feasible. If an explicit pane-open action cannot fit the minimum widths, use a labelled temporary overlay rather than silently hiding the opposite dock. Dismiss returns to the previous layout. Long-term narrow-window policy remains a prototype decision.
+On narrower windows, keep a 640-unit grid target where feasible. If an explicit pane-open action cannot fit the minimum widths, use a labelled temporary overlay rather than silently hiding the opposite dock. Dismiss returns to the previous layout. Refine narrow-window policy against the actual native workflow.
 
-Suggested initial native shortcuts, subject to conflict validation: Primary+Alt+W for Workbook, Primary+Alt+F for Fields, Primary+Alt+T for Transformations, Primary+Alt+I for SQL, and Primary+Shift+F for focus mode. Primary means Command on macOS and Control on Windows/Linux. Browser prototypes may need visible alternative bindings; they must not redefine the native design silently.
+Suggested initial native shortcuts, subject to conflict validation: Primary+Alt+W for Workbook, Primary+Alt+F for Fields, Primary+Alt+T for Transformations, Primary+Alt+I for SQL, and Primary+Shift+F for focus mode. Primary means Command on macOS and Control on Windows/Linux. The browser platform may need visible alternative bindings; they must not redefine the native design silently.
 
 ## Transformation inspector and SQL
 

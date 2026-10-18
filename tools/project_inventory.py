@@ -24,13 +24,11 @@ def category(path):
         return "os-metadata"
     if "node_modules" in parts:
         return "installed-dependency"
-    if parts[:3] == ("design", "prototype", "dist"):
-        return "prototype-build"
-    if parts[:2] == ("tests", "downloads"):
-        return "local-public-dataset"
-    if parts[:2] == ("tests", "generated"):
+    if parts[:2] == ("build", "data"):
+        return "cached-public-dataset"
+    if parts[:3] == ("build", "tests", "generated"):
         return "generated-fixture"
-    if parts[:2] == ("tests", "results"):
+    if parts[:3] == ("build", "tests", "results"):
         return "local-test-evidence"
     if parts[0] == "build" or "__pycache__" in parts or any(p.endswith(".dSYM") for p in parts):
         return "build-output"
@@ -38,10 +36,6 @@ def category(path):
         parts[0] == "tests" and name.startswith("test_") and path.suffix in ("", ".exe")
     ):
         return "build-output"
-    if parts[:2] == ("design", "prototype"):
-        return "canonical-ui-reference"
-    if parts[:2] == ("docs", "archive"):
-        return "project-history"
     if parts[:2] == ("docs", "design"):
         return "design-specification-and-provenance"
     if parts[:2] == ("docs", "validation"):
@@ -66,6 +60,8 @@ def category(path):
         return "runtime-font-and-license"
     if parts[0] == "packaging":
         return "packaging-source-and-derivatives"
+    if parts[0] == ".github":
+        return "ci-configuration"
     if name in ("Makefile", ".gitignore", ".gitattributes"):
         return "build-and-vcs-configuration"
     return "review-unclassified"

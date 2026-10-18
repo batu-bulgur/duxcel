@@ -14,7 +14,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--no-build',action='store_true')
     args=parser.parse_args()
-    output=ROOT/'tests/results/runs'/f'{time.strftime("%Y%m%dT%H%M%S",time.gmtime())}-lifecycle-{os.getpid()}'
+    output=ROOT/'build/tests/results/runs'/f'{time.strftime("%Y%m%dT%H%M%S",time.gmtime())}-lifecycle-{os.getpid()}'
     output.mkdir(parents=True)
     summary={'started_utc':utc_now(),'status':'failed','results':[]}
     def run(argv,name,marker):
@@ -28,15 +28,15 @@ def main():
             raise RuntimeError(f'{name} failed; see {log}')
         summary['results'].append({'command':argv,'elapsed_seconds':round(time.monotonic()-start,3),'log':str(log.relative_to(ROOT))})
     try:
-        with FileLock(ROOT/'tests/results/.runner.lock','worktree lifecycle checks'):
+        with FileLock(ROOT/'build/.test-runner.lock','worktree lifecycle checks'):
             if not args.no_build:
-                run(['make','build/lifecycle/test-app','build/lifecycle/test-app-sanitize','tests/test_background-native-debug'],'build',None)
+                run(['make','build/lifecycle/test-app','build/lifecycle/test-app-sanitize','build/tests/test_background-native-debug'],'build',None)
             before=source_metadata(ROOT); summary['source']=before
             binaries=[ROOT/'build/lifecycle'/name for name in ('test-app','test-app-sanitize')]
             hashes={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in binaries}
             summary['binaries']=hashes
             with FileLock(native_lock_path(),'App lifecycle native checks'):
-                run(['./tests/test_background-native-debug'],'background','PASS: 477 background native checks')
+                run(['./build/tests/test_background-native-debug'],'background','PASS: 477 background native checks')
                 for binary in binaries:
                     run([str(binary)],binary.name,'PASS: 26 App lifecycle checks')
             if source_metadata(ROOT)!=before or any(hashlib.sha256((ROOT/p).read_bytes()).hexdigest()!=h for p,h in hashes.items()):

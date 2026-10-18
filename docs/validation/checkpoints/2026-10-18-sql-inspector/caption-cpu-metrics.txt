@@ -1,4 +1,0 @@
-Copy SQL scale=1.0 actual_unkerned=47.146003723 frozen_slot=47.093750000 overflow=0.052253723 right_padding=8.000000000 extra_available=7.947746277
-Copy SQL scale=1.5 actual_unkerned=70.719001770 frozen_slot=70.640625000 overflow=0.078376770 right_padding=11.500000000 extra_available=11.421623230
-Steps scale=1.0 actual_unkerned=28.027999878 frozen_slot=27.984375000 overflow=0.043624878 right_padding=8.000000000 extra_available=7.956375122
-Steps scale=1.5 actual_unkerned=42.041999817 frozen_slot=41.984375000 overflow=0.057624817 right_padding=11.500000000 extra_available=11.442375183

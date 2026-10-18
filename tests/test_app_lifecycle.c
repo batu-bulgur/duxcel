@@ -15,7 +15,7 @@ int main(void) {
     CHECK(app_start(NULL)==NULL);
     CHECK(!app_frame(NULL));
     CHECK(app_finish(NULL)==1);
-    const char *image_path="tests/results/lifecycle-owned.png";
+    const char *image_path="build/tests/results/lifecycle-owned.png";
     remove(image_path);
     char *path=dx_strdup("tests/fixtures/null-text.csv"),*image=dx_strdup(image_path);
     AppOptions options={.path=path,.screenshot=image,.frames=3};

@@ -378,7 +378,7 @@ def main():
     persistence_mode=options.persistence or options.persistence_owners
     if not options.no_build:
         subprocess.run(['python3','tools/build_web.py']+(['--codec-read-driver'] if options.codec_read_driver else ['--worker-driver'] if options.worker_driver else ['--review'] if options.review else []), cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
-        if options.codec_read_driver:subprocess.run(['make','tests/test_workbook_codec_native'],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
+        if options.codec_read_driver:subprocess.run(['make','build/tests/test_workbook_codec_native'],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
         if persistence_mode:subprocess.run(['make','build/web-tests/test-persistence','build/web-tests/test-persistence-sanitize'],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
     phases['build_seconds']=round(time.monotonic()-overall,3);phase=time.monotonic()
     latest=json.loads((ROOT/('build/web/codec-read-test/latest.json' if options.codec_read_driver else 'build/web/worker-test/latest.json' if options.worker_driver else 'build/web/review/latest.json' if options.review else 'build/web/app/latest.json')).read_text())
@@ -398,13 +398,13 @@ def main():
     phases['artifact_validation_seconds']=round(time.monotonic()-phase,3);phase=time.monotonic()
     before=source_metadata(ROOT)
     phases['source_metadata_seconds']=round(time.monotonic()-phase,3);phase=time.monotonic()
-    output=ROOT/'tests/results/runs'/f'{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%S}-browser-{os.getpid()}'
+    output=ROOT/'build/tests/results/runs'/f'{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%S}-browser-{os.getpid()}'
     output.mkdir(parents=True,exist_ok=True)
     with FileLock(native_lock_path(),'hidden shared C browser acceptance'):
         codec_manifest=None;codec_helper=None;codec_helper_hash=None
         if options.codec_read_driver:
             codec_expected=CODEC_FORMAT_ROWS_FIXTURES if options.codec_format_rows else CODEC_SOURCE_BINDINGS_FIXTURES if options.codec_source_bindings else CODEC_SOURCE_VERSIONS_FIXTURES if options.codec_source_versions else CODEC_SOURCE_COUNTERS_FIXTURES if options.codec_source_counters else CODEC_COUNTERS_FIXTURES if options.codec_counters else CODEC_GRID_FIXTURES if options.codec_grid else CODEC_FILTERS_FIXTURES if options.codec_filters else CODEC_PIVOT_MARKS_FIXTURES if options.codec_pivot_marks else CODEC_TABLES_FIXTURES if options.codec_tables else CODEC_SOURCE_OPTIONS_FIXTURES if options.codec_source_options else CODEC_QUERIES_FIXTURES if options.codec_queries else CODEC_OBJECTS_FIXTURES if options.codec_objects else CODEC_PREFERENCES_FIXTURES if options.codec_preferences else CODEC_SORTS_FIXTURES if options.codec_sorts else CODEC_FIXTURES
-            codec_helper=ROOT/'tests/test_workbook_codec_native'
+            codec_helper=ROOT/'build/tests/test_workbook_codec_native'
             codec_helper_hash=hashlib.sha256(codec_helper.read_bytes()).hexdigest()
             codec_directory=output/'codec-fixtures';codec_directory.mkdir()
             emitted=subprocess.run([str(codec_helper),'--emit-format-rows-fixtures' if options.codec_format_rows else '--emit-source-bindings-fixtures' if options.codec_source_bindings else '--emit-source-versions-fixtures' if options.codec_source_versions else '--emit-source-counters-fixtures' if options.codec_source_counters else '--emit-counters-fixtures' if options.codec_counters else '--emit-grid-fixtures' if options.codec_grid else '--emit-filters-fixtures' if options.codec_filters else '--emit-pivot-marks-fixtures' if options.codec_pivot_marks else '--emit-tables-fixtures' if options.codec_tables else '--emit-source-options-fixtures' if options.codec_source_options else '--emit-queries-fixtures' if options.codec_queries else '--emit-objects-fixtures' if options.codec_objects else '--emit-preferences-fixtures' if options.codec_preferences else '--emit-sorts-fixtures' if options.codec_sorts else '--emit-fixtures',str(codec_directory)],cwd=ROOT,text=True,capture_output=True,timeout=30)

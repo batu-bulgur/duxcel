@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i],"--review-smoke")) options.review_smoke=1;
 #endif
         else if (!strcmp(argv[i],"--help")) {
-            puts("Duxcel: ./duxcel [file.csv|file.parquet|file.duckdb|book.dxls] [--demo]\nDevelopment: --frames N --screenshot path.png --smoke --workspace-smoke --filter-smoke --pivot-smoke --export-smoke --count-smoke --clipboard-smoke --sort-smoke --layout-smoke --navigation-smoke --nyc-smoke --document-smoke --chart-smoke --statistics-smoke --table-smoke --icon-smoke --query-smoke --unique-smoke");
+            puts("Duxcel: ./build/bin/duxcel [file.csv|file.parquet|file.duckdb|book.dxls] [--demo]\nDevelopment: --frames N --screenshot path.png --smoke --workspace-smoke --filter-smoke --pivot-smoke --export-smoke --count-smoke --clipboard-smoke --sort-smoke --layout-smoke --navigation-smoke --nyc-smoke --document-smoke --chart-smoke --statistics-smoke --table-smoke --icon-smoke --query-smoke --unique-smoke");
 #ifdef DUXCEL_DEV_REVIEW
             puts("Native review: Cmd/Ctrl+Shift+. or Review > Report UI issue. --review-smoke tests the isolated reporting workflow.");
 #endif

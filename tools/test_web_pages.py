@@ -31,7 +31,7 @@ def main():
     target.add_argument('--url')
     args = parser.parse_args()
     started = time.monotonic()
-    output = ROOT / 'tests/results/runs' / f'{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%S}-pages'
+    output = ROOT / 'build/tests/results/runs' / f'{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%S}-pages'
     output.mkdir(parents=True, exist_ok=False)
     with FileLock(native_lock_path(), 'headless Pages publication acceptance'), tempfile.TemporaryDirectory(prefix='duxcel-pages-') as temporary:
         server = None

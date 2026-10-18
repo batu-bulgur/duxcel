@@ -98,8 +98,8 @@ static void test_objects(void) {
     region=objects_region(s,cells,5,6,2,2,true); CHECK(region.r0==0 && region.r1==20 && region.c0==0 && region.c1==15);
     Workbook *copy=workbook_snapshot(&b); CHECK(copy->sheets[0].objects.count==2 && !copy->sheets[0].objects.undo_count);
     pivot_remove(&p,PIVOT_ROWS,0); CHECK(objects_update(s,0,&p,&error)); CHECK(copy->sheets[0].objects.items[0].pivot.counts[PIVOT_ROWS]==1);
-    CHECK(workbook_save(copy,"tests/generated/pivot-workspace.dxls",&error));
-    CHECK(workbook_load(&loaded,"tests/generated/pivot-workspace.dxls",&error));
+    CHECK(workbook_save(copy,"build/tests/generated/pivot-workspace.dxls",&error));
+    CHECK(workbook_load(&loaded,"build/tests/generated/pivot-workspace.dxls",&error));
     CHECK(loaded.sheets[0].objects.count==2 && loaded.sheets[0].objects.items[1].col==12);
     CHECK(!strcmp(loaded.sheets[0].objects.items[0].pivot.fields[PIVOT_ROWS][0].name,"City"));
     CHECK(loaded.sheets[0].objects.items[1].pivot.counts[PIVOT_VALUES]==0);
@@ -132,19 +132,19 @@ static void test_objects(void) {
     CHECK(s->items[2].revision==revision && s->items[2].id==identity && s->items[2].mark==MARK_LINE);
     CHECK(analysis_filter_set(&b.sheets[0].analysis,"City",FILTER_EQUAL,"İstanbul",&error));
     CHECK(analysis_filter_set(&b.sheets[0].analysis,"Amount",FILTER_GREATER,"10",&error));
-    CHECK(workbook_save(&b,"tests/generated/chart-workspace.dxls",&error));
-    CHECK(workbook_load(&loaded,"tests/generated/chart-workspace.dxls",&error));
+    CHECK(workbook_save(&b,"build/tests/generated/chart-workspace.dxls",&error));
+    CHECK(workbook_load(&loaded,"build/tests/generated/chart-workspace.dxls",&error));
     CHECK(loaded.sheets[0].objects.count==3 && loaded.sheets[0].objects.items[2].kind==OBJECT_CHART);
     CHECK(loaded.sheets[0].objects.items[2].mark==MARK_LINE);
     CHECK(loaded.sheets[0].analysis.filter_count==1 && !strcmp(loaded.sheets[0].analysis.filters[0].column,"Amount") && !strcmp(loaded.sheets[0].analysis.filters[0].value,"10"));
     CHECK(!strcmp(loaded.sheets[0].objects.items[2].name,"Revenue by city") && loaded.sheets[0].objects.items[2].pivot.counts[PIVOT_VALUES]==1);
     CHECK(objects_remove(s,0) && s->count==2); CHECK(objects_history(s,false) && s->count==3);
-    sql_file("tests/generated/chart-workspace.dxls","UPDATE _duxcel_workspace.objects SET mark=4 WHERE kind=1");
-    CHECK(!workbook_load(&loaded,"tests/generated/chart-workspace.dxls",&error) && loaded.sheets[0].objects.items[2].mark==MARK_LINE); free(error); error=NULL;
-    sql_file("tests/generated/chart-workspace.dxls","UPDATE _duxcel_workspace.objects SET mark=NULL WHERE kind=1");
-    CHECK(!workbook_load(&loaded,"tests/generated/chart-workspace.dxls",&error) && loaded.sheets[0].objects.items[2].mark==MARK_LINE); free(error); error=NULL;
-    sql_file("tests/generated/chart-workspace.dxls","ALTER TABLE _duxcel_workspace.objects DROP COLUMN mark");
-    CHECK(workbook_load(&loaded,"tests/generated/chart-workspace.dxls",&error) && loaded.sheets[0].objects.items[2].mark==MARK_BAR);
+    sql_file("build/tests/generated/chart-workspace.dxls","UPDATE _duxcel_workspace.objects SET mark=4 WHERE kind=1");
+    CHECK(!workbook_load(&loaded,"build/tests/generated/chart-workspace.dxls",&error) && loaded.sheets[0].objects.items[2].mark==MARK_LINE); free(error); error=NULL;
+    sql_file("build/tests/generated/chart-workspace.dxls","UPDATE _duxcel_workspace.objects SET mark=NULL WHERE kind=1");
+    CHECK(!workbook_load(&loaded,"build/tests/generated/chart-workspace.dxls",&error) && loaded.sheets[0].objects.items[2].mark==MARK_LINE); free(error); error=NULL;
+    sql_file("build/tests/generated/chart-workspace.dxls","ALTER TABLE _duxcel_workspace.objects DROP COLUMN mark");
+    CHECK(workbook_load(&loaded,"build/tests/generated/chart-workspace.dxls",&error) && loaded.sheets[0].objects.items[2].mark==MARK_BAR);
     pivot_free(&p); workbook_free(copy); free(copy); workbook_free(&b); workbook_free(&loaded); free(error);
 }
 static void test_chart_measure(void) {
@@ -169,15 +169,15 @@ static void test_chart_measure(void) {
     CHECK(s->items[0].chart_measure==0 && p.fields[PIVOT_VALUES][0].aggregate==AGG_COUNT);
     CHECK(objects_chart_measure(s,0,1,&error)); p.fields[PIVOT_VALUES][1].aggregate=AGG_AVG;
     CHECK(objects_update(s,0,&p,&error) && s->items[0].chart_measure==1);
-    CHECK(workbook_save(&b,"tests/generated/chart-measure.dxls",&error));
-    CHECK(workbook_load(&loaded,"tests/generated/chart-measure.dxls",&error) && loaded.sheets[0].objects.items[0].chart_measure==1);
+    CHECK(workbook_save(&b,"build/tests/generated/chart-measure.dxls",&error));
+    CHECK(workbook_load(&loaded,"build/tests/generated/chart-measure.dxls",&error) && loaded.sheets[0].objects.items[0].chart_measure==1);
     const char *invalid[]={"NULL","-1","8","2"};
     for (size_t i=0;i<4;i++) {
-        char sql[128]; snprintf(sql,sizeof(sql),"UPDATE _duxcel_workspace.objects SET chart_measure=%s",invalid[i]); sql_file("tests/generated/chart-measure.dxls",sql);
-        CHECK(!workbook_load(&loaded,"tests/generated/chart-measure.dxls",&error) && loaded.sheets[0].objects.items[0].chart_measure==1); free(error); error=NULL;
+        char sql[128]; snprintf(sql,sizeof(sql),"UPDATE _duxcel_workspace.objects SET chart_measure=%s",invalid[i]); sql_file("build/tests/generated/chart-measure.dxls",sql);
+        CHECK(!workbook_load(&loaded,"build/tests/generated/chart-measure.dxls",&error) && loaded.sheets[0].objects.items[0].chart_measure==1); free(error); error=NULL;
     }
-    sql_file("tests/generated/chart-measure.dxls","ALTER TABLE _duxcel_workspace.objects DROP COLUMN chart_measure");
-    CHECK(workbook_load(&loaded,"tests/generated/chart-measure.dxls",&error) && !loaded.sheets[0].objects.items[0].chart_measure);
+    sql_file("build/tests/generated/chart-measure.dxls","ALTER TABLE _duxcel_workspace.objects DROP COLUMN chart_measure");
+    CHECK(workbook_load(&loaded,"build/tests/generated/chart-measure.dxls",&error) && !loaded.sheets[0].objects.items[0].chart_measure);
     pivot_remove(&p,PIVOT_VALUES,1); CHECK(objects_update(s,0,&p,&error) && !s->items[0].chart_measure);
     CHECK(objects_valid(s,&error));
     s->items[0].chart_measure=1; CHECK(!objects_valid(s,&error)); free(error); error=NULL; s->items[0].chart_measure=0;
@@ -238,7 +238,7 @@ static void test_range_move(void) {
     CHECK(!strcmp(cells_get(&s->cells,25,10),"NULL is a literal note") && !*cells_get(&s->cells,22,8));
     range_history(s,false); CHECK(s->objects.items[0].row==10 && !strcmp(cells_get(&s->cells,22,8),"NULL is a literal note"));
     range_history(s,true); CHECK(s->objects.items[1].row==28 && !strcmp(cells_get(&s->cells,25,10),"NULL is a literal note"));
-    const char *path="tests/generated/range-move.dxls"; remove(path); CHECK(workbook_save(&b,path,&error)); CHECK(workbook_load(&loaded,path,&error));
+    const char *path="build/tests/generated/range-move.dxls"; remove(path); CHECK(workbook_save(&b,path,&error)); CHECK(workbook_load(&loaded,path,&error));
     CHECK(loaded.sheets[0].objects.items[1].row==28 && loaded.sheets[0].objects.items[1].pivot.counts[PIVOT_ROWS]==1 && !strcmp(cells_get(&loaded.sheets[0].cells,25,10),"NULL is a literal note"));
     CHECK(cells_set(&s->cells,15,17,"Occupied gap",&error)); worksheet_record(s,EDIT_CELLS);
     actions=s->undo_actions_count; CHECK(!worksheet_move_range(s,(SheetRange){13,39,10,15},0,2,6,6,&error)); free(error); error=NULL;
@@ -288,7 +288,7 @@ static void test_worksheet_columns(void) {
     CHECK(worksheet_column(s,2,false,0,&error)); CHECK(s->objects.items[0].col==4 && !strcmp(cells_get(&s->cells,0,4),"Note"));
     range_history(s,false); CHECK(s->objects.items[0].col==5); range_history(s,true); CHECK(s->objects.items[0].col==4);
     CHECK(worksheet_column(s,4,true,0,&error) && s->objects.items[0].col==5); /* At the left edge moves the whole object. */
-    CHECK(workbook_save(&b,"tests/generated/column-shifts.dxls",&error)); CHECK(workbook_load(&loaded,"tests/generated/column-shifts.dxls",&error));
+    CHECK(workbook_save(&b,"build/tests/generated/column-shifts.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/column-shifts.dxls",&error));
     CHECK(loaded.sheets[0].objects.items[0].col==5 && !strcmp(cells_get(&loaded.sheets[0].cells,0,5),"Note"));
     CHECK(cells_set(&s->cells,0,16383,"Edge",&error)); worksheet_record(s,EDIT_CELLS); actions=s->undo_actions_count;
     CHECK(!worksheet_column(s,2,true,0,&error)); free(error); error=NULL;
@@ -326,7 +326,7 @@ static void test_worksheet_rows(void) {
     CHECK(worksheet_row(s,10,true,5,&error) && s->objects.items[0].row==11 && s->undo_actions[s->undo_actions_count-1]==EDIT_OBJECTS);
     actions=s->undo_actions_count; revision=s->cells.revision;
     CHECK(worksheet_row(s,100,true,5,&error) && s->undo_actions_count==actions && s->cells.revision==revision);
-    CHECK(workbook_save(&b,"tests/generated/row-shifts.dxls",&error)); CHECK(workbook_load(&loaded,"tests/generated/row-shifts.dxls",&error));
+    CHECK(workbook_save(&b,"build/tests/generated/row-shifts.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/row-shifts.dxls",&error));
     CHECK(loaded.sheets[0].objects.items[0].row==11 && loaded.sheets[0].objects.items[1].row==31);
     CHECK(cells_set(&s->cells,DX_SHEET_ROWS-1,8,"Edge",&error)); worksheet_record(s,EDIT_CELLS); actions=s->undo_actions_count;
     CHECK(!worksheet_row(s,2,true,0,&error)); free(error); error=NULL;
@@ -360,7 +360,7 @@ static void test_chart_resize(void) {
     CHECK(!objects_resize_chart(&s->objects,0,22,7,&s->cells,5,6,&error)); free(error); error=NULL;
     CHECK(!objects_resize_chart(&s->objects,0,14,7,&s->cells,20,9,&error)); free(error); error=NULL;
     CHECK(s->objects.undo_count==actions && s->objects.items[0].name==name && s->objects.items[0].rows==14 && !strcmp(cells_get(&s->cells,25,15),"Keep me"));
-    CHECK(workbook_save(&b,"tests/generated/chart-size.dxls",&error)); CHECK(workbook_load(&loaded,"tests/generated/chart-size.dxls",&error));
+    CHECK(workbook_save(&b,"build/tests/generated/chart-size.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/chart-size.dxls",&error));
     CHECK(loaded.sheets[0].objects.items[0].rows==14 && loaded.sheets[0].objects.items[0].columns==7 && loaded.sheets[0].objects.items[1].row==30);
     CHECK(objects_move(&s->objects,0,DX_SHEET_ROWS-14,16377,&s->cells,0,0,&error)); worksheet_record(s,EDIT_OBJECTS);
     CHECK(!objects_resize_chart(&s->objects,0,15,7,&s->cells,0,0,&error)); free(error); error=NULL;
@@ -388,7 +388,7 @@ static void test_object_names(void) {
     CHECK(!objects_rename(&s->objects,1,oversized,&error)); free(error); error=NULL;
     CHECK(s->objects.undo_count==actions && s->objects.title_revision==titles && s->objects.items[1].name==name);
     CHECK(objects_rename(&s->objects,1,name+2,&error)); worksheet_record(s,EDIT_OBJECTS); CHECK(!strcmp(s->objects.items[1].name,"stanbul analizi"));
-    CHECK(workbook_save(&b,"tests/generated/object-names.dxls",&error)); CHECK(workbook_load(&loaded,"tests/generated/object-names.dxls",&error));
+    CHECK(workbook_save(&b,"build/tests/generated/object-names.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/object-names.dxls",&error));
     CHECK(!strcmp(loaded.sheets[0].objects.items[1].name,"stanbul analizi") && loaded.sheets[0].objects.items[1].id==id);
     titles=s->objects.title_revision; uint64_t next=s->objects.next_id;
     objects_copy(&s->objects,&s->objects);
@@ -419,7 +419,7 @@ static void test_multiple_rows(void) {
     CHECK(!worksheet_rows(s,8,UINT64_MAX,true,7,&error)); free(error); error=NULL;
     CHECK(s->undo_actions_count==actions && s->cells.cells[0].text==owned && s->objects.items[0].row==20);
     CHECK(worksheet_rows(s,20,3,true,7,&error) && s->objects.items[0].row==23 && s->objects.items[1].row==43);
-    CHECK(workbook_save(&b,"tests/generated/multiple-rows.dxls",&error)); CHECK(workbook_load(&loaded,"tests/generated/multiple-rows.dxls",&error));
+    CHECK(workbook_save(&b,"build/tests/generated/multiple-rows.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/multiple-rows.dxls",&error));
     CHECK(loaded.sheets[0].objects.items[0].row==23 && loaded.sheets[0].objects.items[1].row==43 && !strcmp(cells_get(&loaded.sheets[0].cells,9,8),"C"));
     CHECK(cells_set(&s->cells,DX_SHEET_ROWS-2,8,"Edge",&error)); worksheet_record(s,EDIT_CELLS); actions=s->undo_actions_count;
     CHECK(!worksheet_rows(s,8,3,true,7,&error)); free(error); error=NULL;
@@ -472,7 +472,7 @@ static void test_table_sources(void) {
 }
 static void test_table_resolution(void) {
     ObjectStore store={0}; char *error=NULL;
-    Analysis source={.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/fixture.duckdb")};
+    Analysis source={.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/fixture.duckdb")};
     CHECK(objects_add_table(&store,0,0,"Database table",&source,&error)==0);
     Analysis resolved=analysis_copy(&source); resolved.schema=dx_strdup("main"); resolved.table=dx_strdup("a view");
     size_t edits=store.undo_count; uint64_t revision=store.items[0].revision;
@@ -513,7 +513,7 @@ static void test_table_workspace(void) {
     CHECK(cells_set(&book.sheets[0].cells,10,30,"Keep note",&error));
     CHECK(!workbook_save(&book,source.path,&error) && error && strstr(error,"table source")); free(error); error=NULL;
     CHECK(!workbook_save(&book,other.path,&error) && error && strstr(error,"table source")); free(error); error=NULL;
-    const char *path="tests/generated/table-sources.dxls"; remove(path);
+    const char *path="build/tests/generated/table-sources.dxls"; remove(path);
     CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error));
     ObjectStore *restored=&loaded.sheets[0].objects;
     CHECK(restored->count==4 && restored->items[0].kind==OBJECT_TABLE && restored->items[1].kind==OBJECT_TABLE);
@@ -569,7 +569,7 @@ static void test_sort_workspace(void) {
     Analysis source={.kind=SOURCE_DEMO};
     CHECK(analysis_sort_set(&source,"City",false,true,&error)); CHECK(analysis_sort_set(&source,"Date",true,true,&error)); CHECK(analysis_sort_set(&source,"Transaction ID",false,true,&error));
     CHECK(workbook_add(&book,"Sorted",&source,&error));
-    const char *path="tests/generated/sort-order.dxls"; remove(path);
+    const char *path="build/tests/generated/sort-order.dxls"; remove(path);
     CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error)); CHECK(analysis_sorts_equal(&loaded.sheets[0].analysis,&source));
     sql_file(path,"SELECT CASE WHEN version=12 THEN true ELSE error('wrong version') END FROM _duxcel_workspace.meta");
     Workbook *copy=workbook_snapshot(&book); CHECK(copy->sheets[0].analysis.sorts[0].column!=book.sheets[0].analysis.sorts[0].column);
@@ -596,7 +596,7 @@ static void test_large_canvas(void) {
     CHECK(objects_move(&sheet->objects,0,4000000,12,&sheet->cells,3475226,8,&error));
     CHECK(!objects_move(&sheet->objects,0,DX_SHEET_ROWS-2,12,&sheet->cells,0,0,&error)); free(error); error=NULL;
     sheet->view=(SheetView){.row=4000000,.anchor_row=4000000,.end_row=4000000,.top=3999990,.col=12,.anchor_col=12,.end_col=12};
-    const char *path="tests/generated/large-canvas.dxls"; remove(path); CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error));
+    const char *path="build/tests/generated/large-canvas.dxls"; remove(path); CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error));
     CHECK(loaded.sheets[0].view.top==3999990 && loaded.sheets[0].objects.items[0].row==4000000 && !strcmp(cells_get(&loaded.sheets[0].cells,3475225,8),"Beside the final transaction"));
     sheet->view.top=DX_SHEET_ROWS; CHECK(!workbook_save(&book,path,&error)); free(error); error=NULL;
     CHECK(workbook_load(&loaded,path,&error) && loaded.sheets[0].view.top==3999990);
@@ -632,7 +632,7 @@ static void test_sheet_management(void) {
     CHECK(workbook_hide(&b,0,true,&error)); CHECK(workbook_hide(&b,3,true,&error));
     CHECK(!workbook_hide(&b,2,true,&error)); free(error); error=NULL;
     CHECK(b.active==2 && !b.sheets[2].hidden && workbook_visible_count(&b)==1);
-    const char *path="tests/generated/sheet-management.dxls"; remove(path); CHECK(workbook_save(&b,path,&error));
+    const char *path="build/tests/generated/sheet-management.dxls"; remove(path); CHECK(workbook_save(&b,path,&error));
     CHECK(workbook_load(&loaded,path,&error)); CHECK(loaded.count==4 && loaded.active==2 && workbook_visible_count(&loaded)==1);
     CHECK(!strcmp(loaded.sheets[1].name,"İstanbul workspace") && loaded.sheets[1].hidden);
     CHECK(!strcmp(cells_get(&loaded.sheets[0].cells,8,3),"Original İ") && loaded.sheets[0].objects.count==1);
@@ -658,7 +658,7 @@ static void test_query_workspace(void) {
     CHECK(objects_set_source(&sheet->objects,0,&changed,&error));
     CHECK(objects_history(&sheet->objects,false) && !strcmp(sheet->objects.items[0].source.query,source.query));
     CHECK(objects_history(&sheet->objects,true) && !strcmp(sheet->objects.items[0].source.query,changed.query));
-    const char *path="tests/generated/query-workspace.dxls"; remove(path);
+    const char *path="build/tests/generated/query-workspace.dxls"; remove(path);
     CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error));
     CHECK(!strcmp(loaded.sheets[0].analysis.query,source.query) && !strcmp(loaded.sheets[0].objects.items[0].source.query,changed.query));
     CHECK(loaded.sheets[0].objects.items[1].source_id==sheet->objects.items[0].id && !loaded.sheets[0].objects.items[1].source.query);
@@ -690,7 +690,7 @@ static void test_unique_workspace(void) {
     CHECK(objects_history(&sheet->objects,true) && !sheet->objects.items[0].source.unique_rows);
     CHECK(objects_set_source(&sheet->objects,0,&source,&error));
     Workbook *snapshot=workbook_snapshot(&book); CHECK(snapshot->sheets[0].analysis.unique_rows && snapshot->sheets[0].objects.items[0].source.unique_rows); workbook_free(snapshot); free(snapshot);
-    const char *path="tests/generated/unique-workspace.dxls"; remove(path);
+    const char *path="build/tests/generated/unique-workspace.dxls"; remove(path);
     CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error));
     CHECK(loaded.sheets[0].analysis.unique_rows && loaded.sheets[0].objects.items[0].source.unique_rows && loaded.sheets[0].objects.items[1].source_id==sheet->objects.items[0].id);
     Database db; CHECK(database_open(&db,&error)); Page page={0};
@@ -741,7 +741,7 @@ static void test_pivot_grain_workspace(void) {
     CHECK(store->items[0].revision==revision+1 && store->items[0].pivot.fields[PIVOT_ROWS][0].grain==PIVOT_DATE_MONTH);
     CHECK(objects_history(store,false) && store->items[0].pivot.fields[PIVOT_COLUMNS][2].grain==PIVOT_DATE_MONTH);
     CHECK(objects_history(store,true) && store->items[0].pivot.fields[PIVOT_ROWS][0].grain==PIVOT_DATE_MONTH);
-    CHECK(objects_history(store,false)); const char *path="tests/generated/date-grains.dxls"; remove(path);
+    CHECK(objects_history(store,false)); const char *path="build/tests/generated/date-grains.dxls"; remove(path);
     CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error));
     PivotDefinition *restored=&loaded.sheets[0].objects.items[0].pivot;
     CHECK(restored->counts[PIVOT_COLUMNS]==3 && restored->fields[PIVOT_COLUMNS][0].grain==PIVOT_DATE_YEAR && restored->fields[PIVOT_COLUMNS][1].grain==PIVOT_DATE_QUARTER && restored->fields[PIVOT_COLUMNS][2].grain==PIVOT_DATE_MONTH);
@@ -793,7 +793,7 @@ static void test_format_workspace(void) {
     CHECK(format_apply(&sheet->formats,(FormatRange){0,DX_SHEET_ROWS-1,20,20},FORMAT_ALL,f,&error)); worksheet_record(sheet,EDIT_FORMAT);
     Workbook *snapshot=workbook_snapshot(&book); CHECK(snapshot->sheets[0].formats.items!=sheet->formats.items && !snapshot->sheets[0].formats.undo_count && format_at(&snapshot->sheets[0].formats,DX_SHEET_ROWS-1,20).decimals==4); workbook_free(snapshot); free(snapshot);
     CHECK(workbook_duplicate(&book,0,&error)); sheet=&book.sheets[0]; CHECK(book.sheets[1].formats.count==sheet->formats.count && book.sheets[1].formats.items!=sheet->formats.items);
-    const char *path="tests/generated/cell-formats.dxls"; remove(path); CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error));
+    const char *path="build/tests/generated/cell-formats.dxls"; remove(path); CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error));
     CHECK(format_at(&loaded.sheets[0].formats,14,14).color==2 && format_at(&loaded.sheets[0].formats,DX_SHEET_ROWS-1,20).flags==FORMAT_UNDERLINE && !loaded.sheets[0].formats.undo_count && !strcmp(cells_get(&loaded.sheets[0].cells,14,14),"Original raw text"));
     const char *invalid[]={
         "UPDATE _duxcel_workspace.formats SET flags=256",
@@ -827,7 +827,7 @@ static void test_scoped_format_save_guard(void) {
     Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
     CHECK(workbook_add(&book,"Scoped save guard",&blank,&error)); Worksheet *sheet=&book.sheets[0];
     CHECK(cells_set(&sheet->cells,0,0,"Original file value",&error));
-    const char *path="tests/generated/scoped-save-guard.dxls",*fresh="tests/generated/scoped-save-new.dxls";
+    const char *path="build/tests/generated/scoped-save-guard.dxls",*fresh="build/tests/generated/scoped-save-new.dxls";
     remove(path); remove(fresh); CHECK(workbook_save(&book,path,&error));
     FILE *file=fopen(path,"rb"); CHECK(file && fseek(file,0,SEEK_END)==0); long length=ftell(file); CHECK(length>0 && fseek(file,0,SEEK_SET)==0);
     unsigned char *before=dx_alloc((size_t)length),*after=dx_alloc((size_t)length);
@@ -864,7 +864,7 @@ static void test_extended_format_metadata_guard(void) {
     CHECK(cells_set(&book.sheets[0].cells,0,0,"Saved value",&error));
     CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
     CHECK(format_apply(&book.sheets[0].formats,(FormatRange){1,2,3,4},FORMAT_BOLD,bold,&error));
-    const char *path="tests/generated/extended-format-metadata.dxls"; remove(path);
+    const char *path="build/tests/generated/extended-format-metadata.dxls"; remove(path);
     CHECK(workbook_save(&book,path,&error) && workbook_load(&loaded,path,&error));
     CHECK(cells_set(&loaded.sheets[0].cells,0,0,"Keep unsaved live value",&error)); worksheet_record(&loaded.sheets[0],EDIT_CELLS); loaded.dirty=true;
     Worksheet *sheets=loaded.sheets; FormatPatch *items=sheets[0].formats.items; char *loaded_path=loaded.path;
@@ -910,7 +910,7 @@ static void require_workspace_version(const char *path,int version) {
 }
 static void test_owner_counter_workspace(void) {
     Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
-    const char *path="tests/generated/owner-counter-v13.dxls",*ordinary="tests/generated/owner-counter-v12.dxls"; remove(path); remove(ordinary);
+    const char *path="build/tests/generated/owner-counter-v13.dxls",*ordinary="build/tests/generated/owner-counter-v12.dxls"; remove(path); remove(ordinary);
     CHECK(workbook_add(&book,"Durable owners",&blank,&error)); Worksheet *sheet=&book.sheets[0]; const uint64_t base=UINT64_C(9007199254740992);
     CHECK(cells_set(&sheet->cells,20,0,"NULL",&error) && cells_set(&sheet->cells,21,0,"12345678901234567890.0123456789",&error));
     CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&sheet->formats,(FormatRange){20,21,0,0},FORMAT_BOLD,bold,&error));
@@ -941,7 +941,7 @@ static void test_owner_counter_workspace(void) {
 }
 static void test_invalid_owner_package(void) {
     Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
-    const char *path="tests/generated/invalid-owner-package.dxls"; CHECK(workbook_add(&book,"Owner package",&blank,&error));
+    const char *path="build/tests/generated/invalid-owner-package.dxls"; CHECK(workbook_add(&book,"Owner package",&blank,&error));
     Worksheet *sheet=&book.sheets[0]; CHECK(objects_add(&sheet->objects,0,8,"Live",&error)==0); sheet->objects.next_id=UINT64_C(9007199254740993);
     CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&sheet->formats,(FormatRange){20,20,0,0},FORMAT_BOLD,bold,&error));
     remove(path); CHECK(workbook_save(&book,path,&error) && workbook_load(&loaded,path,&error)); CHECK(cells_set(&loaded.sheets[0].cells,30,0,"Keep unsaved value",&error)); worksheet_record(&loaded.sheets[0],EDIT_CELLS); loaded.dirty=true;
@@ -985,7 +985,7 @@ static void test_combined_filter_workspace(void) {
     CHECK(objects_update(objects,1,&pivot,&error)); CHECK(objects_bind_source(objects,1,objects->items[0].id,&error));
     CHECK(objects_history(objects,false)); CHECK(objects_history(objects,true)); CHECK(!strcmp(objects->items[1].pivot.fields[PIVOT_FILTERS][0].value,payload));
     Workbook *copy=workbook_snapshot(&book); CHECK(copy && copy->sheets[0].analysis.filter_value!=source.filter_value); workbook_free(copy); free(copy);
-    const char *path="tests/generated/combined-filters.dxls"; remove(path);
+    const char *path="build/tests/generated/combined-filters.dxls"; remove(path);
     CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error));
     CHECK(analysis_same_result(&source,&loaded.sheets[0].analysis));
     CHECK(loaded.sheets[0].objects.items[0].source.filter_op==FILTER_COMPOSITE && !strcmp(loaded.sheets[0].objects.items[0].source.filter_value,payload));
@@ -1018,7 +1018,7 @@ static void test_marks_workspace(void) {
     CHECK(objects_history(objects,true) && marks_equal(&objects->items[0].marks,&marks) && objects->items[0].revision==revision);
     CHECK(objects_representation(objects,0,OBJECT_CHART,MARK_LINE,12,6,&book.sheets[0].cells,0,0,&error)); CHECK(marks_equal(&objects->items[0].marks,&marks));
     Workbook *snapshot=workbook_snapshot(&book); CHECK(snapshot && marks_equal(&snapshot->sheets[0].objects.items[0].marks,&marks) && snapshot->sheets[0].objects.items[0].marks.fields[MARKS_COLOR][0].name!=objects->items[0].marks.fields[MARKS_COLOR][0].name); workbook_free(snapshot); free(snapshot);
-    const char *path="tests/generated/marks-workspace.dxls"; remove(path); CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error)); CHECK(marks_equal(&loaded.sheets[0].objects.items[0].marks,&marks));
+    const char *path="build/tests/generated/marks-workspace.dxls"; remove(path); CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error)); CHECK(marks_equal(&loaded.sheets[0].objects.items[0].marks,&marks));
     const char *invalid[]={"UPDATE _duxcel_workspace.marks SET role=6 WHERE role=5", "UPDATE _duxcel_workspace.marks SET position=7 WHERE role=1", "UPDATE _duxcel_workspace.marks SET name=NULL WHERE role=0", "UPDATE _duxcel_workspace.marks SET is_measure=NULL WHERE role=0", "UPDATE _duxcel_workspace.marks SET grain=3 WHERE is_measure", "UPDATE _duxcel_workspace.marks SET object_id=999", "UPDATE _duxcel_workspace.marks SET name='Account' WHERE role=0", "ALTER TABLE _duxcel_workspace.marks ALTER COLUMN is_measure TYPE INTEGER", "DROP TABLE _duxcel_workspace.marks"};
     for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) { CHECK(workbook_save(&book,path,&error)); sql_file(path,invalid[i]); CHECK(!workbook_load(&loaded,path,&error)); CHECK(marks_equal(&loaded.sheets[0].objects.items[0].marks,&marks)); free(error); error=NULL; remove(path); }
     CHECK(workbook_save(&book,path,&error)); sql_file(path,"DROP TABLE _duxcel_workspace.marks; UPDATE _duxcel_workspace.meta SET version=11"); CHECK(workbook_load(&loaded,path,&error)); CHECK(!loaded.sheets[0].objects.items[0].marks.counts[MARKS_COLOR]);
@@ -1103,7 +1103,7 @@ static void test_source_version_save_guard(void) {
     Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={0},table={.kind=SOURCE_CSV,.path="/private/missing-version-source.csv"}; char *error=NULL;
     CHECK(workbook_add(&book,"Legacy remains supported",&blank,&error)); CHECK(cells_set(&book.sheets[0].cells,0,0,"Preserved original file",&error));
     CHECK(objects_add_table(&book.sheets[0].objects,10,10,"Ordinary table",&table,&error)==0);
-    const char *paths[]={"tests/generated/source-version-v12.dxls","tests/generated/source-version-v13.dxls"},*fresh="tests/generated/source-version-rejected.dxls";
+    const char *paths[]={"build/tests/generated/source-version-v12.dxls","build/tests/generated/source-version-v13.dxls"},*fresh="build/tests/generated/source-version-rejected.dxls";
     remove(paths[0]); remove(paths[1]); remove(fresh); CHECK(workbook_save(&book,paths[0],&error));
     book.sheets[0].objects.next_id++; CHECK(workbook_save(&book,paths[1],&error));
     sql_file(paths[0],"SELECT CASE WHEN version=12 THEN true ELSE error('ordinary v12 changed') END FROM _duxcel_workspace.meta");
@@ -1139,7 +1139,7 @@ static void test_source_version_save_guard(void) {
             CHECK(!workbook_save(trial,i<2 ? paths[i] : fresh,&error) && error && strstr(error,"v14")); free(error); error=NULL;
             CHECK(!memcmp(&before,trial,sizeof(before)));
         }
-        CHECK(!workbook_save(trial,"tests/generated/no-source-version-parent/book.dxls",&error) && strstr(error,"v14")); free(error); error=NULL; /* Before target resolution. */
+        CHECK(!workbook_save(trial,"build/tests/generated/no-source-version-parent/book.dxls",&error) && strstr(error,"v14")); free(error); error=NULL; /* Before target resolution. */
         FILE *file=fopen(fresh,"rb"); CHECK(!file);
         for (size_t i=0;i<2;i++) { size_t length; unsigned char *after=source_version_file(paths[i],&length); CHECK(length==lengths[i] && !memcmp(originals[i],after,length)); free(after); }
         workbook_free(trial); free(trial);
@@ -1168,8 +1168,8 @@ static void source_format_issue(Worksheet *sheet,uint64_t owner,uint64_t version
 }
 static void source_format_fixture(Workbook *book) {
     const uint64_t base=UINT64_C(9007199254740992); char *error=NULL;
-    FILE *file=fopen("tests/generated/source-format-proof.csv","wb"); CHECK(file && fwrite("Id,City,Amount\n1,NULL,1.0000\n",1,27,file)==27 && !fclose(file));
-    Analysis source={.kind=SOURCE_CSV,.path=dx_absolute_path("tests/generated/source-format-proof.csv")},blank={0}; CHECK(source.path);
+    FILE *file=fopen("build/tests/generated/source-format-proof.csv","wb"); CHECK(file && fwrite("Id,City,Amount\n1,NULL,1.0000\n",1,27,file)==27 && !fclose(file));
+    Analysis source={.kind=SOURCE_CSV,.path=dx_absolute_path("build/tests/generated/source-format-proof.csv")},blank={0}; CHECK(source.path);
     CHECK(analysis_filter_set(&source,"Amount",FILTER_GREATER,"9007199254740993.1250",&error)); analysis_filter_number(&source,"Amount",(NumberType){NUM_DECIMAL,38,4});
     CHECK(analysis_sort_set(&source,"City",true,false,&error));
     CHECK(workbook_add(book,"Source records",&source,&error)); Worksheet *sheet=book->sheets;
@@ -1223,15 +1223,15 @@ static void source_format_reject(const char *path,const Workbook *replacement,Wo
 }
 static void test_source_format_workspace(void) {
     Workbook book,loaded,plain; workbook_init(&book); workbook_init(&loaded); workbook_init(&plain); char *error=NULL; Analysis blank={0};
-    const char *path="tests/generated/source-format-v14.dxls",*second="tests/generated/source-format-other.dxls"; remove(path); remove(second); source_format_fixture(&book);
+    const char *path="build/tests/generated/source-format-v14.dxls",*second="build/tests/generated/source-format-other.dxls"; remove(path); remove(second); source_format_fixture(&book);
     CHECK(workbook_save(&book,path,&error)); require_workspace_version(path,14); CHECK(workbook_load(&loaded,path,&error)); source_format_check(&loaded,&book);
     sql_file(path,"SELECT CASE WHEN count(*)=26 THEN true ELSE error('v14 package incomplete') END FROM information_schema.tables WHERE table_schema='_duxcel_workspace'; SELECT CASE WHEN count(*)=5 AND sum(CASE WHEN version=0 THEN 1 ELSE 0 END)=3 THEN true ELSE error('bindings are not complete') END FROM _duxcel_workspace.source_bindings");
     CHECK(workbook_save(&loaded,second,&error) && workbook_load(&loaded,second,&error)); source_format_check(&loaded,&book);
-    const char *reordered="tests/generated/source-format-reordered.dxls"; remove(reordered); CHECK(workbook_save(&book,reordered,&error));
+    const char *reordered="build/tests/generated/source-format-reordered.dxls"; remove(reordered); CHECK(workbook_save(&book,reordered,&error));
     sql_file(reordered,"CREATE TABLE _duxcel_workspace.reordered_sheets AS SELECT canvas_zoom,selection,fraction,horizontal,top_row,end_col,end_row,anchor_col,anchor_row,active_col,active_row,descending,sort_column,aggregate,measure_column,group_column,filter_op,filter_value,filter_column,source_table,source_schema,path,kind,name,id FROM _duxcel_workspace.sheets; DROP TABLE _duxcel_workspace.sheets; ALTER TABLE _duxcel_workspace.reordered_sheets RENAME TO sheets; CREATE TABLE _duxcel_workspace.reordered_versions AS SELECT definition,encoding,source_reference,source_kind,owner,version,sheet_id FROM _duxcel_workspace.source_versions; DROP TABLE _duxcel_workspace.source_versions; ALTER TABLE _duxcel_workspace.reordered_versions RENAME TO source_versions");
     CHECK(workbook_load(&loaded,reordered,&error)); source_format_check(&loaded,&book);
     CHECK(workbook_save(&book,reordered,&error) && workbook_load(&loaded,reordered,&error)); source_format_check(&loaded,&book);
-    const char *nullable[]={NULL,"","NULL"}; SourcePacket previous={0}; remove("tests/generated/source-format-null-empty-literal.dxls");
+    const char *nullable[]={NULL,"","NULL"}; SourcePacket previous={0}; remove("build/tests/generated/source-format-null-empty-literal.dxls");
     for (size_t i=0;i<3;i++) {
         Workbook *literal=workbook_snapshot(&book); CHECK(literal); Worksheet *sheet=literal->sheets; analysis_filters_clear(&sheet->analysis);
         CHECK(analysis_filter_set(&sheet->analysis,"City",FILTER_EQUAL,nullable[i],&error));
@@ -1239,7 +1239,7 @@ static void test_source_format_workspace(void) {
         if (i) CHECK(result.bytes!=previous.bytes || memcmp(result.data,previous.data,result.bytes));
         format_free(&sheet->formats); FormatScopeView scope={0,result.data,result.bytes}; CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
         CHECK(format_apply_scoped(&sheet->formats,(FormatRange){0,1,1,1},FORMAT_BOLD,bold,&scope,1,false,&error));
-        const char *literal_path="tests/generated/source-format-null-empty-literal.dxls";
+        const char *literal_path="build/tests/generated/source-format-null-empty-literal.dxls";
         CHECK(workbook_save(literal,literal_path,&error) && workbook_load(&loaded,literal_path,&error));
         const char *value=loaded.sheets[0].analysis.filter_value;
         CHECK(nullable[i] ? value && !strcmp(value,nullable[i]) : value==NULL);
@@ -1248,21 +1248,21 @@ static void test_source_format_workspace(void) {
     }
     source_packet_free(&previous);
     /* A missing source stays an archived locator/proof: opening must not read it. */
-    remove("tests/generated/source-format-proof.csv"); CHECK(workbook_load(&loaded,path,&error)); source_format_check(&loaded,&book);
+    remove("build/tests/generated/source-format-proof.csv"); CHECK(workbook_load(&loaded,path,&error)); source_format_check(&loaded,&book);
     loaded.sheets[0].analysis.source_version=UINT64_C(9007199254740994); CHECK(workbook_save(&loaded,second,&error) && workbook_load(&loaded,second,&error));
     CHECK(loaded.sheets[0].analysis.source_version==UINT64_C(9007199254740994) && !loaded.sheets[0].source_versions.items[1].raw.bytes && loaded.sheets[0].formats.scope_count==2);
     CHECK(!format_at(&loaded.sheets[0].formats,4,1).flags); /* Current pending version cannot activate archived scopes. */
     CHECK(workbook_add(&plain,"Plain overwrite",&blank,&error)); CHECK(workbook_save(&plain,second,&error)); require_workspace_version(second,14); CHECK(workbook_load(&loaded,second,&error) && loaded.count==1 && !loaded.sheets[0].source_versions.count);
     /* A mode-only sheet retains its semantic boundary after all scopes/patches
        are gone. Neither a ledger counter nor active scope count can infer it. */
-    plain.sheets[0].formats.source_aware=true; const char *mode_path="tests/generated/source-format-mode.dxls"; remove(mode_path);
+    plain.sheets[0].formats.source_aware=true; const char *mode_path="build/tests/generated/source-format-mode.dxls"; remove(mode_path);
     CHECK(workbook_save(&plain,mode_path,&error)); require_workspace_version(mode_path,14); CHECK(workbook_load(&loaded,mode_path,&error));
     CHECK(loaded.sheets[0].formats.source_aware && !loaded.sheets[0].formats.count && !loaded.sheets[0].formats.scope_count && !loaded.sheets[0].source_versions.high_water);
     CHECK(!format_persistable(&loaded.sheets[0].formats,&error) && error); free(error); error=NULL;
     plain.sheets[0].formats.source_aware=false; CHECK(workbook_save(&plain,mode_path,&error)); require_workspace_version(mode_path,14); CHECK(workbook_load(&loaded,mode_path,&error) && !loaded.sheets[0].formats.source_aware);
     /* Rebase into a different directory without requiring the source to exist. */
-    CHECK(!mkdir("tests/generated/source-format-subdir",0700) || errno==EEXIST);
-    const char *nested="tests/generated/source-format-subdir/rebased.dxls"; remove(nested); CHECK(workbook_save(&book,nested,&error)); CHECK(workbook_load(&loaded,nested,&error)); source_format_check(&loaded,&book);
+    CHECK(!mkdir("build/tests/generated/source-format-subdir",0700) || errno==EEXIST);
+    const char *nested="build/tests/generated/source-format-subdir/rebased.dxls"; remove(nested); CHECK(workbook_save(&book,nested,&error)); CHECK(workbook_load(&loaded,nested,&error)); source_format_check(&loaded,&book);
     CHECK(strstr(loaded.sheets[0].analysis.path,"../") && !strcmp(loaded.sheets[0].analysis.path,loaded.sheets[0].source_versions.items[0].path));
     Workbook *retired=workbook_snapshot(&book); CHECK(retired && objects_remove(&retired->sheets[1].objects,0));
     remove(second); CHECK(workbook_save(retired,second,&error) && workbook_load(&loaded,second,&error));
@@ -1270,7 +1270,7 @@ static void test_source_format_workspace(void) {
     CHECK(!format_at(&loaded.sheets[1].formats,0,8).flags); workbook_free(retired); free(retired);
     /* Legacy unrelated metadata is still valid for legacy saves, but cannot be
        silently carried into v14's exact supported package. Fail before BEGIN. */
-    const char *upgrade="tests/generated/source-format-upgrade.dxls";
+    const char *upgrade="build/tests/generated/source-format-upgrade.dxls";
     for (unsigned owner_only=0;owner_only<2;owner_only++) {
         remove(upgrade); plain.sheets[0].objects.next_id=owner_only; CHECK(workbook_save(&plain,upgrade,&error)); require_workspace_version(upgrade,12+(int)owner_only);
         sql_file(upgrade,"CREATE TABLE _duxcel_workspace.custom_note(value VARCHAR); INSERT INTO _duxcel_workspace.custom_note VALUES ('Preserve my legacy metadata')");
@@ -1284,7 +1284,7 @@ static void test_source_format_workspace(void) {
 }
 static void test_invalid_source_format_package(void) {
     Workbook book,caller,plain; workbook_init(&book); workbook_init(&caller); workbook_init(&plain); char *error=NULL; Analysis blank={0}; source_format_fixture(&book);
-    CHECK(workbook_add(&plain,"Replacement",&blank,&error)); const char *path="tests/generated/invalid-source-format.dxls"; remove(path);
+    CHECK(workbook_add(&plain,"Replacement",&blank,&error)); const char *path="build/tests/generated/invalid-source-format.dxls"; remove(path);
     CHECK(workbook_save(&book,path,&error) && workbook_load(&caller,path,&error)); CHECK(cells_set(&caller.sheets[0].cells,30,0,"Keep unsaved source state",&error)); worksheet_record(caller.sheets,EDIT_CELLS); caller.dirty=true;
     size_t pristine_bytes=0; unsigned char *pristine=workspace_bytes(path,&pristine_bytes);
     const char *invalid[]={
@@ -1379,7 +1379,7 @@ static void source_format_full_ledger(Worksheet *sheet) {
 }
 /* Pure codec proofs use synthetic digests, not verified source activation. */
 static void guarded_format_fixture(Workbook *book,size_t owners) {
-    CHECK(owners && owners<=DX_FORMAT_GUARDS); char *error=NULL; const char *file_path="tests/generated/guarded-format-proof.csv",*data="Id,City,Amount\n1,NULL,1.2500\n";
+    CHECK(owners && owners<=DX_FORMAT_GUARDS); char *error=NULL; const char *file_path="build/tests/generated/guarded-format-proof.csv",*data="Id,City,Amount\n1,NULL,1.2500\n";
     FILE *file=fopen(file_path,"wb"); CHECK(file && fwrite(data,1,strlen(data),file)==strlen(data) && !fclose(file));
     Analysis source={.kind=SOURCE_CSV,.path=dx_absolute_path(file_path)}; CHECK(source.path && workbook_add(book,"Typed guarded legacy rectangles",&source,&error));
     Worksheet *sheet=book->sheets; sheet->objects.next_id=UINT64_C(9007199254740992);
@@ -1428,11 +1428,11 @@ static void guarded_format_check(const Workbook *book,const Workbook *original,s
 }
 static void test_guarded_format_workspace(void) {
     Workbook book,loaded,plain; workbook_init(&book); workbook_init(&loaded); workbook_init(&plain); Analysis blank={0}; char *error=NULL;
-    const char *path="tests/generated/guarded-format-v14.dxls",*second="tests/generated/guarded-format-copy.dxls"; remove(path); remove(second); guarded_format_fixture(&book,3);
+    const char *path="build/tests/generated/guarded-format-v14.dxls",*second="build/tests/generated/guarded-format-copy.dxls"; remove(path); remove(second); guarded_format_fixture(&book,3);
     CHECK(book.sheets[0].formats.items[1].guard_ids[0]==0 && book.sheets[0].formats.items[1].guard_ids[1]==3 && book.sheets[0].formats.items[1].guard_ids[2]==4);
     CHECK(workbook_save(&book,path,&error)); require_workspace_version(path,14); CHECK(workbook_load(&loaded,path,&error)); guarded_format_check(&loaded,&book,3);
     sql_file(path,"SELECT CASE WHEN count(*)=26 THEN true ELSE error('Guarded v14 schema changed') END FROM information_schema.tables WHERE table_schema='_duxcel_workspace'; SELECT CASE WHEN count(*)=3 AND min(guard_position)=0 AND max(guard_position)=2 THEN true ELSE error('Guard vector lost') END FROM _duxcel_workspace.format_guards WHERE position=1");
-    remove("tests/generated/guarded-format-proof.csv"); CHECK(workbook_load(&loaded,path,&error)); guarded_format_check(&loaded,&book,3);
+    remove("build/tests/generated/guarded-format-proof.csv"); CHECK(workbook_load(&loaded,path,&error)); guarded_format_check(&loaded,&book,3);
     CHECK(workbook_save(&loaded,second,&error) && workbook_load(&loaded,second,&error)); guarded_format_check(&loaded,&book,3);
     /* Current bindings may be unbound/pending/different without erasing valid
        archived guards; complete ledger proof association is what is persisted. */
@@ -1448,7 +1448,7 @@ static void test_guarded_format_workspace(void) {
 }
 static void test_guarded_format_rejection(void) {
     Workbook book,caller,plain; workbook_init(&book); workbook_init(&caller); workbook_init(&plain); Analysis blank={0}; char *error=NULL; guarded_format_fixture(&book,3);
-    const char *path="tests/generated/invalid-guarded-format.dxls"; remove(path); CHECK(workbook_save(&book,path,&error) && workbook_load(&caller,path,&error));
+    const char *path="build/tests/generated/invalid-guarded-format.dxls"; remove(path); CHECK(workbook_save(&book,path,&error) && workbook_load(&caller,path,&error));
     CHECK(cells_set(&caller.sheets[0].cells,30,0,"Keep unsaved source state",&error)); worksheet_record(caller.sheets,EDIT_CELLS); caller.dirty=true;
     CHECK(workbook_add(&plain,"Valid replacement",&blank,&error)); size_t pristine_bytes=0; unsigned char *pristine=workspace_bytes(path,&pristine_bytes);
     const char *invalid[]={
@@ -1491,7 +1491,7 @@ static void test_guarded_format_rejection(void) {
 }
 static void test_source_format_budget(void) {
     Workbook book,plain,loaded; workbook_init(&book); workbook_init(&plain); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
-    const char *path="tests/generated/source-format-budget.dxls"; remove(path); CHECK(workbook_add(&plain,"Keep ordinary file",&blank,&error)); CHECK(workbook_save(&plain,path,&error));
+    const char *path="build/tests/generated/source-format-budget.dxls"; remove(path); CHECK(workbook_add(&plain,"Keep ordinary file",&blank,&error)); CHECK(workbook_save(&plain,path,&error));
     CHECK(workbook_add(&book,"Combined current budget",&blank,&error)); source_format_full_ledger(book.sheets); CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
     CHECK(format_apply(&book.sheets[0].formats,(FormatRange){0,0,0,0},FORMAT_BOLD,bold,&error));
     size_t before_bytes,after_bytes; unsigned char *before=workspace_bytes(path,&before_bytes); CHECK(!workbook_save(&book,path,&error) && error && strstr(error,"owned")); free(error); error=NULL;
@@ -2283,7 +2283,7 @@ int main(int argc,char **argv) {
     *v=(SheetView){.row=3,.col=1,.anchor_row=2,.anchor_col=0,.end_row=3,.end_col=1,.top=2,.horizontal=12.5f,.fraction=.25,.selection=0,.column_count=2};
     v->columns=dx_alloc(2*sizeof(char *)); v->widths=dx_alloc(2*sizeof(float));
     v->columns[0]=dx_strdup("ID"); v->columns[1]=dx_strdup("City"); v->widths[0]=200; v->widths[1]=220; v->canvas_zoom=1.5f;
-    const char *path="tests/generated/workspace.dxls"; remove(path);
+    const char *path="build/tests/generated/workspace.dxls"; remove(path);
     b.reduced_motion=true;
     CHECK(workbook_save(&b,path,&error)); CHECK(workbook_load(&loaded,path,&error)); CHECK(loaded.reduced_motion);
     CHECK(loaded.count==2 && loaded.active==1 && fabsf(loaded.user_scale-1.2f)<.0001f);
@@ -2311,21 +2311,21 @@ int main(int argc,char **argv) {
         "INSERT INTO _duxcel_workspace.columns SELECT * FROM _duxcel_workspace.columns_old;");
     b.sheets[0].view.widths[0]=400; CHECK(!workbook_save(&b,path,&error)); free(error); error=NULL;
     CHECK(workbook_load(&loaded,path,&error)); CHECK(loaded.sheets[0].view.widths[0]==200);
-    const char *unrelated="tests/generated/user-data.duckdb"; remove(unrelated); sql_file(unrelated,"CREATE TABLE important_data AS SELECT 42 AS value");
+    const char *unrelated="build/tests/generated/user-data.duckdb"; remove(unrelated); sql_file(unrelated,"CREATE TABLE important_data AS SELECT 42 AS value");
     CHECK(!workbook_save(&b,unrelated,&error)); CHECK(strstr(error,"not a dxls workbook")!=NULL); free(error); error=NULL;
     sql_file(unrelated,"SELECT CASE WHEN value=42 THEN true ELSE error('data overwritten') END FROM important_data");
     /* Move a workspace and its referenced file together; source resolution must follow it. */
-    sql_file(NULL,"COPY (SELECT * FROM read_csv_auto('tests/fixtures/transactions.csv')) TO 'tests/generated/workspace-old/data.csv' (HEADER)");
-    Workbook portable; workbook_init(&portable); Analysis local={.kind=SOURCE_CSV,.path=dx_absolute_path("tests/generated/workspace-old/data.csv")};
-    CHECK(workbook_add(&portable,"Portable",&local,&error)); remove("tests/generated/workspace-old/book.duxcel");
-    CHECK(workbook_save(&portable,"tests/generated/workspace-old/book.duxcel",&error));
-    remove("tests/generated/workspace-new/book.duxcel"); remove("tests/generated/workspace-new/data.csv");
-    CHECK(rename("tests/generated/workspace-old/book.duxcel","tests/generated/workspace-new/book.duxcel")==0);
-    CHECK(rename("tests/generated/workspace-old/data.csv","tests/generated/workspace-new/data.csv")==0);
-    CHECK(workbook_load(&loaded,"tests/generated/workspace-new/book.duxcel",&error));
-    char *moved=dx_absolute_path("tests/generated/workspace-new/data.csv"); CHECK(!strcmp(loaded.sheets[0].analysis.path,moved)); free(moved);
-    remove("tests/generated/workspace-new/data.csv");
-    CHECK(workbook_load(&loaded,"tests/generated/workspace-new/book.duxcel",&error));
+    sql_file(NULL,"COPY (SELECT * FROM read_csv_auto('tests/fixtures/transactions.csv')) TO 'build/tests/generated/workspace-old/data.csv' (HEADER)");
+    Workbook portable; workbook_init(&portable); Analysis local={.kind=SOURCE_CSV,.path=dx_absolute_path("build/tests/generated/workspace-old/data.csv")};
+    CHECK(workbook_add(&portable,"Portable",&local,&error)); remove("build/tests/generated/workspace-old/book.duxcel");
+    CHECK(workbook_save(&portable,"build/tests/generated/workspace-old/book.duxcel",&error));
+    remove("build/tests/generated/workspace-new/book.duxcel"); remove("build/tests/generated/workspace-new/data.csv");
+    CHECK(rename("build/tests/generated/workspace-old/book.duxcel","build/tests/generated/workspace-new/book.duxcel")==0);
+    CHECK(rename("build/tests/generated/workspace-old/data.csv","build/tests/generated/workspace-new/data.csv")==0);
+    CHECK(workbook_load(&loaded,"build/tests/generated/workspace-new/book.duxcel",&error));
+    char *moved=dx_absolute_path("build/tests/generated/workspace-new/data.csv"); CHECK(!strcmp(loaded.sheets[0].analysis.path,moved)); free(moved);
+    remove("build/tests/generated/workspace-new/data.csv");
+    CHECK(workbook_load(&loaded,"build/tests/generated/workspace-new/book.duxcel",&error));
     Database db; Page p; CHECK(database_open(&db,&error)); CHECK(!database_fetch(&db,&loaded.sheets[0].analysis,0,-1,&p,&error));
     page_free(&p); free(error); error=NULL;
     free(loaded.sheets[0].analysis.path); loaded.sheets[0].analysis.path=dx_strdup(a.path);
@@ -2334,13 +2334,13 @@ int main(int argc,char **argv) {
     CHECK(workbook_add(&empty,"Blank canvas",&blank,&error));
     empty.sheets[0].view=(SheetView){.row=9000,.col=80,.anchor_row=9000,.end_row=9000,.anchor_col=80,.end_col=80,.top=8990,.fraction=.5};
     CHECK(cells_set(&empty.sheets[0].cells,9000,80,"Saved cell İ",&error));
-    remove("tests/generated/blank.duxcel"); CHECK(workbook_save(&empty,"tests/generated/blank.duxcel",&error));
-    CHECK(workbook_load(&loaded,"tests/generated/blank.duxcel",&error));
+    remove("build/tests/generated/blank.duxcel"); CHECK(workbook_save(&empty,"build/tests/generated/blank.duxcel",&error));
+    CHECK(workbook_load(&loaded,"build/tests/generated/blank.duxcel",&error));
     CHECK(loaded.count==1 && loaded.sheets[0].analysis.kind==SOURCE_NONE && loaded.sheets[0].view.row==9000 && loaded.sheets[0].view.col==80);
     CHECK(!strcmp(cells_get(&loaded.sheets[0].cells,9000,80),"Saved cell İ"));
     CHECK(loaded.sheets[0].cells.undo_count==0);
-    empty.user_scale=NAN; CHECK(!workbook_save(&empty,"tests/generated/blank.duxcel",&error)); free(error); error=NULL;
-    CHECK(workbook_load(&loaded,"tests/generated/blank.duxcel",&error)); CHECK(loaded.user_scale==1);
+    empty.user_scale=NAN; CHECK(!workbook_save(&empty,"build/tests/generated/blank.duxcel",&error)); free(error); error=NULL;
+    CHECK(workbook_load(&loaded,"build/tests/generated/blank.duxcel",&error)); CHECK(loaded.user_scale==1);
     workbook_free(&empty);
     for (size_t i=b.count;i<DX_MAX_SHEETS;i++) CHECK(workbook_add(&b,"Sheet",&a,&error));
     CHECK(!workbook_add(&b,"Too many",&a,&error)); CHECK(b.count==DX_MAX_SHEETS); free(error);

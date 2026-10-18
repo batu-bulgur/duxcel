@@ -4,7 +4,7 @@ The bounded source-derived path is integrated in the native and browser
 Workers, the move-owned `PageOther` cache, and the actual shared C App.
 Native40 and actual DPR2 browser742 accept the authoring/Plot/Marks/history
 path; the official DuckDB-Wasm Worker247 separately accepts analytical and
-guard behavior. [Source-scoped acceptance](../validation/checkpoints/2026-10-18-chart-other/).
+guard behavior. Source-scoped acceptance.
 This does not close broader Marks query grain, physical input or full UI parity.
 
 The three largest **loaded** Row tuples use the existing chart ranking: first

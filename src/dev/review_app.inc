@@ -2252,8 +2252,8 @@ static int review_smoke_relation_tick(App *a,ReviewSmoke *t) {
     if (!phase) {
         if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
         if (!t->relation_added) {
-            if (!FileExists("tests/generated/fixture.duckdb")) { fprintf(stderr,"FAIL: relation review requires the core-generated tests/generated/fixture.duckdb\n"); return -1; }
-            a->selected_object=-1; grid_select_cell(&a->grid,60,10,false); if (!import_table(a,"tests/generated/fixture.duckdb")) return -1;
+            if (!FileExists("build/tests/generated/fixture.duckdb")) { fprintf(stderr,"FAIL: relation review requires the core-generated build/tests/generated/fixture.duckdb\n"); return -1; }
+            a->selected_object=-1; grid_select_cell(&a->grid,60,10,false); if (!import_table(a,"build/tests/generated/fixture.duckdb")) return -1;
             t->relation_object=a->selected_object; t->relation_added=true; return 0;
         }
         if (!object_ready(a,(size_t)t->relation_object)) return 0;
@@ -4194,7 +4194,7 @@ static void review_smoke_tick(App *a,ReviewSmoke *t) {
         /* Both hidden swap buffers must contain the edited note before readback. */
         if (!t->note_frame) { t->note_frame=a->frames; return; }
         if (a->frames-t->note_frame<2) return;
-        smoke_snapshot("tests/results/native-review/compact-composer-150.png");
+        smoke_snapshot("build/tests/results/native-review/compact-composer-150.png");
         review_smoke_click(layout.save); break;
     }
     case 68:

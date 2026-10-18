@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -109,12 +110,15 @@ def ensure_unchanged(before):
 
 def source_metadata(root):
     paths = [root / "Makefile"]
-    for directory in ("src", "tests", "tools", "web", "design/prototype/src"):
+    for directory in ("src", "tests", "tools", "web"):
         suffixes={".c", ".h", ".m", ".inc", ".py", ".sh", ".mjs", ".js", ".jsx", ".css"}
         if directory=="web": suffixes.update((".html", ".json"))
         for folder,subdirectories,names in os.walk(root / directory):
             subdirectories[:]=[name for name in subdirectories if name not in {"generated", "results", "downloads", "node_modules"}]
-            paths.extend(Path(folder)/name for name in names if Path(name).suffix in suffixes and (Path(folder)/name).is_file())
+            paths.extend(Path(folder)/name for name in names
+                         if (Path(name).suffix in suffixes or
+                             (Path(folder).is_relative_to(root / "tests/fixtures") and Path(name).suffix in {".csv", ".json"}))
+                         and (Path(folder)/name).is_file())
     digest = hashlib.sha256()
     for path in sorted(paths):
         digest.update(str(path.relative_to(root)).encode())
@@ -161,12 +165,52 @@ def native_lock_path():
     return Path("/tmp") / f"duxcel-native-tests-{os.getuid()}.lock"
 
 
+def clean_outputs(full=False):
+    """Remove disposable outputs while preserving fixtures, work, and lock inodes."""
+    build = ROOT / "build"
+    with FileLock(build / ".test-runner.lock", "Tests in this worktree"), \
+         FileLock(build / ".web-build.lock", "Web builds in this worktree"), \
+         FileLock(native_lock_path(), "Native desktop tests"):
+        def remove(path):
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            elif path.exists() or path.is_symlink():
+                path.unlink()
+        for path in build.iterdir():
+            if path.name in {".test-runner.lock", ".web-build.lock"}:
+                continue
+            if not full and path.name in {"data", "web"}:
+                continue
+            remove(path)
+        if not full and (build / "web").exists():
+            for path in (build / "web").iterdir():
+                if path.name not in {"toolchain", "raylib"}:
+                    remove(path)
+        if full:
+            remove(ROOT / "web/node_modules")
+        for name in ("duxcel", "duxcel-debug", "duxcel.new", "duxcel-debug.new", "a.out", "duxcel.dSYM", "duxcel-debug.dSYM", "tests/generated", "tests/results"):
+            remove(ROOT / name)
+        for path in (ROOT / "tests").glob("test_*"):
+            if path.name.endswith(".dSYM"):
+                remove(path)
+            elif path.is_file() and path.suffix not in {".c", ".h", ".m", ".inc", ".py", ".sh"}:
+                with path.open("rb") as stream:
+                    magic = stream.read(4)
+                if magic in {b"\xcf\xfa\xed\xfe", b"\xce\xfa\xed\xfe", b"\xca\xfe\xba\xbe", b"\x7fELF"}:
+                    remove(path)
+        for folder, directories, names in os.walk(ROOT):
+            directories[:] = [name for name in directories if name not in {".git", "node_modules", "toolchain", "__pycache__"}]
+            if ".DS_Store" in names:
+                remove(Path(folder) / ".DS_Store")
+        print("Cleaned generated outputs; " + ("downloaded dependencies/data removed." if full else "installed web toolchain and public-data cache retained."))
+
+
 def configurations(name):
     return ("release", "sanitize") if name == "both" else (name,)
 
 
 def test_binary(module, config):
-    return f"tests/test_{module}" + ("-debug" if config == "sanitize" else "")
+    return f"build/tests/test_{module}" + ("-debug" if config == "sanitize" else "")
 
 
 def layout_completion_pattern(start, end):
@@ -216,7 +260,7 @@ class Runner:
     def __init__(self, args, root=ROOT):
         self.args, self.root = args, root
         stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S")
-        self.log_dir = Path(args.log_dir).resolve() if args.log_dir else root / "tests/results/runs" / f"{stamp}-{args.tier}-{os.getpid()}"
+        self.log_dir = Path(args.log_dir).resolve() if args.log_dir else root / "build/tests/results/runs" / f"{stamp}-{args.tier}-{os.getpid()}"
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.summary = {"status": "running", "started_utc": utc_now(), "tier": args.tier, "config": args.config,
                         "jobs": args.jobs, "no_build": args.no_build, "edit": args.edit, "native_visibility": "visible" if getattr(args, "visible", False) else "hidden", "root": str(root), "source": source_metadata(root), "results": [], "binaries": {}}
@@ -310,7 +354,7 @@ class Runner:
     def native_binary(self):
         if self.args.edit:
             return "build/edit-sanitize/duxcel"
-        return "duxcel" if self.args.config == "release" else "duxcel-debug"
+        return "build/bin/duxcel" if self.args.config == "release" else "build/bin/duxcel-debug"
 
     def records(self):
         """Native engine checks with private temporary sources, no desktop."""
@@ -325,7 +369,7 @@ class Runner:
 
     def formats(self):
         """Bounded workspace format/save checks; no core fixtures or desktop."""
-        (self.root / "tests/generated").mkdir(parents=True, exist_ok=True)
+        (self.root / "build/tests/generated").mkdir(parents=True, exist_ok=True)
         runs = [(config, test_binary("workbook", config)) for config in configurations(self.args.config)]
         self.build([binary for _, binary in runs], "build-formats")
         self.retain_binaries([binary for _, binary in runs])
@@ -337,23 +381,23 @@ class Runner:
 
     def prepare_native(self, full=False):
         validate_native_contract(self.root)
-        targets = [self.native_binary(), "tests/test_background-native-debug", "design-fixture"]
+        targets = [self.native_binary(), "build/tests/test_background-native-debug", "design-fixture"]
         if full:
             targets += [test_binary(module, config) for config in configurations(self.args.config) for module in ENGINE_MODULES]
-            targets += ["tests/test_paint-native-debug", "icons-check"]
+            targets += ["build/tests/test_paint-native-debug", "icons-check"]
         self.build(targets, "build-integration")
         # Snapshot helpers write to these existing conventional destinations.
         for name in ("workspace-layout", "native-authoring", "filter-keyboard", "multisort", "sheet-navigation",
                      "current-workspace", "chart-marks", "selection-statistics", "table-sources", "icons", "source-query", "unique-rows"):
-            (self.root / "tests/results" / name).mkdir(parents=True, exist_ok=True)
-        (self.root / "tests/generated/workspace-old").mkdir(parents=True, exist_ok=True)
-        (self.root / "tests/generated/workspace-new").mkdir(parents=True, exist_ok=True)
-        if not (self.root / "tests/generated/design-definition.dxls").is_file():
+            (self.root / "build/tests/results" / name).mkdir(parents=True, exist_ok=True)
+        (self.root / "build/tests/generated/workspace-old").mkdir(parents=True, exist_ok=True)
+        (self.root / "build/tests/generated/workspace-new").mkdir(parents=True, exist_ok=True)
+        if not (self.root / "build/tests/generated/design-definition.dxls").is_file():
             raise RuntimeError("Missing canonical design fixture; omit --no-build")
-        self.retain_binaries([self.native_binary(), "tests/test_background-native-debug"] + (["tests/test_paint-native-debug"] if full else []))
+        self.retain_binaries([self.native_binary(), "build/tests/test_background-native-debug"] + (["build/tests/test_paint-native-debug"] if full else []))
 
     def background_check(self):
-        self.record(self.command("background-sanitize", ["./tests/test_background-native-debug"], "PASS: 477 background native checks"))
+        self.record(self.command("background-sanitize", ["./build/tests/test_background-native-debug"], "PASS: 477 background native checks"))
 
     def affected(self):
         self.headless(self.args.modules or FAST_MODULES)
@@ -371,7 +415,7 @@ class Runner:
             ensure_unchanged(self.summary["binaries"])
 
     def full(self):
-        data = self.root / "tests/downloads/yellow_tripdata_2025-01.parquet"
+        data = self.root / "build/data/yellow_tripdata_2025-01.parquet"
         if self.args.require_data and not data.is_file():
             raise RuntimeError("Required NYC dataset missing: " + str(data))
         self.headless(FAST_MODULES)
@@ -430,12 +474,12 @@ class Runner:
                     ensure_unchanged(self.summary["binaries"])
         with FileLock(native_lock_path(), "Native desktop tests"):
             self.background_check()
-            self.record(self.command("gpu-sanitize", ["./tests/test_paint-native-debug"], "PASS: 110 native paint checks"))
+            self.record(self.command("gpu-sanitize", ["./build/tests/test_paint-native-debug"], "PASS: 110 native paint checks"))
             self.native_scenarios([row[0] for row in NATIVE])
 
     def native_scenarios(self, names):
         """Caller owns the desktop lock; keep scenarios and clipboard serial."""
-        data = self.root / "tests/downloads/yellow_tripdata_2025-01.parquet"
+        data = self.root / "build/data/yellow_tripdata_2025-01.parquet"
         inventory = {row[0]: row for row in NATIVE}
         for selected in dict.fromkeys(names):
             name, stages, frames, marker = inventory[selected]
@@ -455,12 +499,12 @@ class Runner:
             ensure_unchanged(self.summary["binaries"])
 
     def native(self):
-        if self.args.require_data and "nyc" in self.args.scenario and not (self.root / "tests/downloads/yellow_tripdata_2025-01.parquet").is_file():
+        if self.args.require_data and "nyc" in self.args.scenario and not (self.root / "build/data/yellow_tripdata_2025-01.parquet").is_file():
             raise RuntimeError("Required NYC dataset missing")
         self.prepare_native()
         # Independent table scenarios consume these engine fixtures. Generate
         # them only when absent, once and under the worktree runner lock.
-        if "table" in self.args.scenario and any(not (self.root / "tests/generated" / name).is_file()
+        if "table" in self.args.scenario and any(not (self.root / "build/tests/generated" / name).is_file()
                                                    for name in ("million.parquet", "odd'name.parquet", "fixture.duckdb")):
             if self.args.no_build:
                 raise RuntimeError("Missing table fixtures; omit --no-build to generate them")
@@ -475,7 +519,7 @@ class Runner:
     def run(self):
         print("Logs: " + str(self.log_dir), flush=True)
         try:
-            with FileLock(self.root / "tests/results/.runner.lock", "Tests in this worktree"):
+            with FileLock(self.root / "build/.test-runner.lock", "Tests in this worktree"):
                 if self.args.tier == "fast":
                     self.headless(self.args.modules or FAST_MODULES)
                 elif self.args.tier == "affected":
@@ -522,7 +566,7 @@ def parser():
     result.add_argument("--visible", action="store_true", help="deliberately show/activate native QA windows; default hidden framebuffer rendering")
     result.add_argument("--require-data", action="store_true", help="native/full: fail rather than skip NYC if its downloaded Parquet is absent")
     result.add_argument("--timeout", type=float, default=300, help="per-command seconds, native minimum900 (default:300)")
-    result.add_argument("--log-dir", help="dedicated output directory; default tests/results/runs/<UTC>-<tier>-<pid>")
+    result.add_argument("--log-dir", help="dedicated output directory; default build/tests/results/runs/<UTC>-<tier>-<pid>")
     result.add_argument("--list", action="store_true", help="print modules, focused profiles and native inventory without building/running")
     return result
 

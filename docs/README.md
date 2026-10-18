@@ -1,31 +1,22 @@
 # Project documentation
 
-**Current priority, 18 October 2026:** continue interaction correctness and workbook persistence from the clean native delivery. Persistence internals and focused sanitizer/integration tests remain essential roadmap work alongside visible fixes; cleanup limits generated-artifact retention, not coverage. Browser workbook Open/Save and complete UI/physical-input parity remain unfinished. [STATUS.md](STATUS.md) identifies the tested delivery.
-
-The JavaScript prototype remains the frozen design reference. The established architecture uses a native agentic review build and a browser proof compiling the same C99/raylib UI to WebAssembly with the official DuckDB-Wasm Worker behind a thin typed bridge. Refine actual application behavior through native evidence and versioned design decisions; the reference's mock calculations, sample counts and design JSON are not production behavior. Native distribution gains no web runtime.
+The native C99 application and explicit written requirements define the product. The retired JavaScript mock, visual explorations and historical checkpoint trees are no longer part of the checkout or agent instructions. Recover historical material from Git at `archive/pre-layout-cleanup-20261018` when investigating an actual regression.
 
 | Document | Purpose |
 | --- | --- |
-| [STATUS.md](STATUS.md) | One current capability matrix, limitations and evidence scope |
-| [ROADMAP.md](ROADMAP.md) | Ordered delivery work and acceptance criteria |
-| [REQUIREMENTS.md](REQUIREMENTS.md) | Original brief and later user decisions reconciled |
-| [design/DESIGN.md](design/DESIGN.md) | Product/visual requirements |
-| [design/INTERACTIONS.md](design/INTERACTIONS.md) | Detailed behavior, motion, selection and pane rules |
-| [design/FEEDBACK.md](design/FEEDBACK.md) | Pinpoint review tools, local feedback queue and design/native handoff rules |
-| [design/NATIVE_REVIEW_FEASIBILITY.md](design/NATIVE_REVIEW_FEASIBILITY.md) | Proposed native review build, production exclusion and shared Wasm/browser path |
-| [design/NATIVE_REVIEW_PLAN.md](design/NATIVE_REVIEW_PLAN.md) | Approved native feedback priority, selected Wasm architecture and implementation acceptance |
-| [design/SOURCE_FORMAT_IDENTITY.md](design/SOURCE_FORMAT_IDENTITY.md) | Proposed source-record formatting semantics, bounded implementation slices and persistence gates |
-| [design/BROWSER_PERSISTENCE.md](design/BROWSER_PERSISTENCE.md) | Shared C workbook/Worker persistence slices, file/handle ownership and pinned API constraints |
-| [../design/prototype/](../design/prototype/) | Read-only executable reference, source, fonts and browser QA |
-| [USER_GUIDE.md](USER_GUIDE.md) | Current controls, keyboard reference, file format and limits |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Source ownership, memory boundaries and parallel lanes |
-| [TESTING.md](TESTING.md) | Short development checks and comprehensive regression |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Git workflow, worktrees and integration discipline |
-| [validation/README.md](validation/README.md) | Versioned acceptance records and performance interpretation |
-| [audit/2026-10-18-cleanup.md](audit/2026-10-18-cleanup.md) | Current worktree audit, cleanup and native delivery |
-| [audit/2026-10-17.md](audit/2026-10-17.md) | Initial repository/implementation audit |
-| [archive/README.md](archive/README.md) | Earlier plans, test narratives and superseded assets |
+| [STATUS.md](STATUS.md) | Current capabilities and real limitations |
+| [ROADMAP.md](ROADMAP.md) | Remaining work and acceptance |
+| [REQUIREMENTS.md](REQUIREMENTS.md) | Product requirements and human decisions |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Module ownership and native/browser boundaries |
+| [REPOSITORY.md](REPOSITORY.md) | Folder inventory, cleanup findings and C migration assessment |
+| [TESTING.md](TESTING.md) | Commands, sanitizer/fixture/desktop ownership and evidence retention |
+| [USER_GUIDE.md](USER_GUIDE.md) | Controls, file format and supported workflows |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Git and integration discipline |
+| [design/DESIGN.md](design/DESIGN.md) | Current UI requirements |
+| [design/INTERACTIONS.md](design/INTERACTIONS.md) | Motion, selection and interaction rules |
+| [design/NATIVE_REVIEW_PLAN.md](design/NATIVE_REVIEW_PLAN.md) | Review architecture and production exclusion |
+| [design/BROWSER_PERSISTENCE.md](design/BROWSER_PERSISTENCE.md) | Shared C/Worker persistence sequence |
+| [design/SOURCE_FORMAT_IDENTITY.md](design/SOURCE_FORMAT_IDENTITY.md) | Record-format identity and persistence gates |
+| [design/CHART_OTHER.md](design/CHART_OTHER.md) | Aggregate-aware chart semantics |
 
-Resolve conflicts in this order: latest human requirements; the rendered prototype for demonstrated UI; explicit product/interaction requirements beyond its scope; current native acceptance matrix; historical records. The prototype's earlier “disposable study / awaiting approval” wording records its creation. It does not revoke the later instruction to implement it exactly. Missing native capabilities need honest disabled states or completed real actions, never pretend calculations.
-
-All paths in code spans are repository-relative unless stated otherwise. Small root/design entry-point files preserve older links; the substantive written specifications and plans live here. macOS is the current execution platform. Linux/Windows remain portability targets without new execution claims; Wasm is an approved subsequent milestone with its own browser verification.
+Resolve conflicts using the latest human instruction, current written requirements, then verified native behavior. Tests record bounded acceptance; they do not override intended product changes. Update one current status and roadmap instead of accumulating duplicate journals.

@@ -8,20 +8,20 @@ Use short branches such as `ui/filter-labels`, `grid/active-readout`, `engine/ch
 
 ```sh
 git status --short
-git worktree add -b ui/filter-labels ../duxcel-filter-labels main
+git worktree add -b ui/filter-labels ../build/bin/duxcel-filter-labels main
 # Work, verify and commit inside that checkout.
 git log --oneline main..ui/filter-labels
 git merge --no-ff ui/filter-labels
 # After integration, remove a clean manual worktree:
-git worktree remove ../duxcel-filter-labels
+git worktree remove ../build/bin/duxcel-filter-labels
 ```
 
 Codex-managed worktrees should be created/archived with the app's worktree tools so their recoverable snapshots and attachment metadata stay intact. The first two independent lanes were exercised for test tooling and an optional-error fix. Source/design audit could run in parallel read-only without a checkout.
 
 Before dispatch, agree on files owned, feature acceptance, base commit and verification scope. Keep at most two active implementation lanes on this Mac. App, shared UI interfaces, Makefile and integration documents have one owner; changes there require coordination. A feature needing the same App section should queue integration, not race another agent's edit. Remove an integrated clean checkout promptly once its commits are reachable through retained refs; keep unfinished or dirty work isolated and recoverable.
 
-Build outputs, mutable test fixtures and logs stay inside each worktree's ignored directories. Do not symlink writable `tests/generated` between them. Large downloaded inputs can be shared read-only. Native windows still share the desktop, clipboard and preferences: serialize their tests using the runner's lock even across branches. Bundle/signing/manual UI acceptance also belongs to that owner.
+Build outputs, mutable test fixtures and logs stay inside each worktree's ignored directories. Do not symlink writable `build/tests/generated` between them. Large downloaded inputs can be shared read-only. Native windows still share the desktop, clipboard and preferences: serialize their tests using the runner's lock even across branches. Bundle/signing/manual UI acceptance also belongs to that owner.
 
-Keep evidence concise and source-scoped: describe the behavior, tested revision/binary and remaining limits. Do not commit a full payload capsule for every metadata slice. Generated databases, binaries, event dumps and repeated machine reports remain ignored. Cleanup preserves checkpoint README history, the four pinned runtime-reference providers and the recoverable Git archive ref `archive/pre-cleanup-20261018`; it does not duplicate those archived payloads into new capsules.
+Keep evidence concise and source-scoped: describe the behavior, tested revision/binary and remaining limits. Do not commit a full payload capsule for every metadata slice. Generated databases, binaries, event dumps and repeated machine reports remain ignored. Historical payloads are recoverable at `archive/pre-layout-cleanup-20261018`. Accepted regression inputs live in `tests/fixtures/ui/`; do not recreate checkpoint trees.
 
 Integrate a reviewed commit, run its affected gate on the combined source, and update current status once. A clean merge does not prove behavior. Full regression belongs at a coherent integration boundary; its results must identify the source and binary tested. Preserve work before cleanup, never force-reset another branch, and never use `git clean -xfd` as routine tidying: ignored data/results may be valuable.

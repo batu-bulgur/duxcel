@@ -100,7 +100,7 @@ jobs:
           name: web-failure-${{ github.run_id }}
           path: |
             build/web/**/build.txt
-            tests/results/runs/
+            build/tests/results/runs/
           retention-days: 7
 
   deploy:

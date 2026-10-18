@@ -1,0 +1,3 @@
+# C99 implementation fragments are included by C translation units.
+*.h linguist-language=C
+*.inc linguist-language=C

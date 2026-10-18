@@ -120,5 +120,7 @@ def main():
         tools.write_json(folder/'latest.json',{'directory':str(destination),'signature':key})
         print(json.dumps(dict(status='built',directory=str(destination),manifest=record),indent=2));return 0
 if __name__=='__main__':
-    try:raise SystemExit(main())
+    try:
+        with FileLock(ROOT/'build/.web-build.lock','Web builds in this worktree'):
+            raise SystemExit(main())
     except (OSError,ValueError,subprocess.SubprocessError) as error:print(str(error));raise SystemExit(1)

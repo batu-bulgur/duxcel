@@ -135,12 +135,12 @@ def check_makefile(text):
     incremental = set(words("INCREMENTAL_OBJECTS"))
     require(all(objects <= incremental for objects in object_sets), "A configuration omits incremental dependency tracking")
     require("-include $(INCREMENTAL_OBJECTS:.o=.d)" in text, "Missing generated dependency inclusion")
-    for target, object_name in (("duxcel", "APP_RELEASE_OBJECTS"), ("duxcel-debug", "APP_SANITIZE_OBJECTS"),
+    for target, object_name in (("build/bin/duxcel", "APP_RELEASE_OBJECTS"), ("build/bin/duxcel-debug", "APP_SANITIZE_OBJECTS"),
                                 ("build/review/duxcel-review", "REVIEW_OBJECTS"),
                                 ("build/review-sanitize/duxcel-review", "REVIEW_SANITIZE_OBJECTS")):
         rule = _rule(text, target)
         require("$(" + object_name + ")" in rule and "$(call link_binary," in rule, "Wrong/nonatomic linked configuration: " + target)
-        if target in ("duxcel", "duxcel-debug"):
+        if target in ("build/bin/duxcel", "build/bin/duxcel-debug"):
             require("REVIEW" not in rule and "src/dev/" not in rule, "Shipping link rule includes review inputs")
     require("review: build/review/duxcel-review" in text and "review-debug: build/review-sanitize/duxcel-review" in text, "Missing separate review entry points")
     return {"scope": "default Make graph across platform branches; no recipes executed",
@@ -204,8 +204,8 @@ class FixtureTests(unittest.TestCase):
         text += "REVIEW_FLAGS = -DDUXCEL_DEV_REVIEW -include src/dev/review_input.h -Ibuild/review\n"
         text += "REVIEW_SANITIZE_FLAGS = -DDUXCEL_DEV_REVIEW -include src/dev/review_input.h -Ibuild/review-sanitize\n"
         text += "INCREMENTAL_OBJECTS = $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(REVIEW_OBJECTS) $(REVIEW_SANITIZE_OBJECTS)\n"
-        configurations = (("APP_RELEASE_OBJECTS", "release", "APP_RELEASE_FLAGS", "APP_SOURCES", "duxcel"),
-                          ("APP_SANITIZE_OBJECTS", "sanitize", "APP_SANITIZE_FLAGS", "APP_SOURCES", "duxcel-debug"),
+        configurations = (("APP_RELEASE_OBJECTS", "release", "APP_RELEASE_FLAGS", "APP_SOURCES", "build/bin/duxcel"),
+                          ("APP_SANITIZE_OBJECTS", "sanitize", "APP_SANITIZE_FLAGS", "APP_SOURCES", "build/bin/duxcel-debug"),
                           ("REVIEW_OBJECTS", "review", "REVIEW_FLAGS", "REVIEW_SOURCES", "build/review/duxcel-review"),
                           ("REVIEW_SANITIZE_OBJECTS", "review-sanitize", "REVIEW_SANITIZE_FLAGS", "REVIEW_SOURCES", "build/review-sanitize/duxcel-review"))
         for name, configuration, flags, sources, target in configurations:
@@ -225,7 +225,7 @@ class FixtureTests(unittest.TestCase):
                     text + "APP_RELEASE_FLAGS += -DDUXCEL_DEV_REVIEW\n",
                     text.replace("REVIEW_FLAGS = -DDUXCEL_DEV_REVIEW", "REVIEW_FLAGS = -DOTHER"),
                     text.replace("REVIEW_OBJECTS = $(addprefix build/obj/review/app/", "REVIEW_OBJECTS = $(addprefix build/obj/release/app/"),
-                    text.replace("duxcel: $(APP_RELEASE_OBJECTS)", "duxcel: $(APP_RELEASE_OBJECTS) $(REVIEW_OBJECTS)"),
+                    text.replace("build/bin/duxcel: $(APP_RELEASE_OBJECTS)", "build/bin/duxcel: $(APP_RELEASE_OBJECTS) $(REVIEW_OBJECTS)"),
                     text.replace("INCREMENTAL_OBJECTS = $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(REVIEW_OBJECTS)", "INCREMENTAL_OBJECTS = $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS)"),
                     text.replace("$(call build_signature,$(REVIEW_FLAGS))", "$(call build_signature,$(APP_RELEASE_FLAGS))")]
         for index, broken in enumerate(failures):
@@ -286,7 +286,7 @@ class FixtureTests(unittest.TestCase):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--shipping", type=Path, default=ROOT / "duxcel")
+    parser.add_argument("--shipping", type=Path, default=ROOT / "build/bin/duxcel")
     parser.add_argument("--review", type=Path, default=ROOT / "build/review/duxcel-review")
     parser.add_argument("--makefile", type=Path, default=ROOT / "Makefile")
     parser.add_argument("--nm", default="nm")

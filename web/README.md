@@ -134,7 +134,7 @@ Emscripten's `EM_ASM` macros require GNU mode, so this third-party adapter uses
 raylib's upstream GNU99 setting. Duxcel code continues to use C99. Existing
 upstream audio warnings are retained in `build/web/raylib/build.txt`.
 
-[Compiler/dependency evidence](../docs/validation/checkpoints/2026-10-17-web-toolchain/)
+Compiler/dependency evidence (historical Git record)
 records timing, sizes and hashes. The shared App renderer is now implemented; the official
 DuckDB-Wasm Worker source bridge and file import are implemented.
 
@@ -159,7 +159,7 @@ through the browser file chooser (Ctrl+O in this proof). Save/relink, workbook
 persistence and further analytical operations remain explicitly unavailable. Native production still uses native DuckDB and Cocoa.
 Current platform acceptance covers actual DPR1/1.25/2 backing, density-sized fonts,
 CSS embedding and precise two-axis pan. Physical gestures, clipboard/IME, other
-browsers and full parity remain separate gates; see [platform evidence](../docs/validation/checkpoints/2026-10-17-browser-platform/). See the [renderer checkpoint](../docs/validation/checkpoints/2026-10-17-shared-browser/).
+browsers and full parity remain separate gates; see platform evidence (historical Git record). See the renderer checkpoint (historical Git record).
 
 The local browser packages are installed with `npm ci --ignore-scripts --no-audit --no-fund`
 in `web/`, using the committed lock. The packager copies only same-origin runtime
@@ -172,7 +172,7 @@ Run `make test-browser-core` for the fast release/sanitizer/transport gate.
 `python3 tools/build_web.py --worker-driver` builds a separate no-window C acceptance
 artifact; `python3 tools/test_web_app.py --no-build --worker-driver` exercises the
 full real-engine bridge. Source UI gates and current limits are in
-[TESTING.md](../docs/TESTING.md) and the [latest filter/active-query checkpoint](../docs/validation/checkpoints/2026-10-17-browser-filters/).
+[TESTING.md](../docs/TESTING.md) and the latest filter/active-query checkpoint (historical Git record).
 
 `make web-review` produces a separate development artifact under `build/web/review/`.
 It reuses C capture/registry/picking/composition and commits report archives to a
@@ -183,7 +183,7 @@ read-only Codex consumer automatically triages reports; `python3 tools/review_se
 collects without model calls. Use one stable origin so pending browser reports remain reachable.
 No review host, registry or callback export is packaged with the normal target.
 `tools/test_web_review_build.py` verifies the actual compiled boundary; see
-[browser reporting acceptance](../docs/validation/checkpoints/2026-10-17-browser-review/).
+browser reporting acceptance (historical Git record).
 
 ## GitHub Pages delivery
 

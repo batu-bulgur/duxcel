@@ -20,6 +20,7 @@ import tarfile
 import tempfile
 import time
 import urllib.request
+from test import FileLock
 
 PROJECT = Path(__file__).resolve().parents[1]
 TOOLS = {name: name + ".py" for name in ("emcc", "em++", "emar", "emranlib", "emmake", "emcmake")}
@@ -304,4 +305,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    with FileLock(PROJECT / 'build/.web-build.lock', 'Web builds in this worktree'):
+        raise SystemExit(main())

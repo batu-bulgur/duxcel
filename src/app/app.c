@@ -8145,10 +8145,10 @@ static void workspace_smoke_step(App *a,int *step) {
         grid_ensure_columns(&a->grid,104); grid_set_width(&a->grid,80,177);
         char *cell_error=NULL; if (!cells_set(&active_sheet(a)->cells,9000,80,"Saved manual cell",&cell_error)) { free(cell_error); goto failed; }
         a->grid.zoom=1.25f; grid_select_cell(&a->grid,9000,80,false); a->grid.top=8990; a->grid.fraction=.5; a->grid.horizontal=7500;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-workspace.dxls");
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-workspace.dxls");
         break;
     case 1:
-        new_sheet(a); workspace_job(a,JOB_LOAD,"tests/generated/app-workspace.dxls"); break;
+        new_sheet(a); workspace_job(a,JOB_LOAD,"build/tests/generated/app-workspace.dxls"); break;
     case 2:
         if (a->book.count!=2 || a->book.active!=1 || a->analysis.kind!=SOURCE_NONE ||
             a->grid.row!=9000 || a->grid.col!=80 || a->grid.widths[80]!=177 || a->grid.zoom!=1.25f || strcmp(cells_get(&active_sheet(a)->cells,9000,80),"Saved manual cell") || fabs(a->grid.fraction-.5)>.00001) goto failed;
@@ -8210,7 +8210,7 @@ static void filter_smoke_step(App *a,int *step) {
         if (date_condition_phase==1) {
             FilterOp choices[8]; int count=filter_conditions(a,choices);
             if (!a->filter_condition_menu || count!=6 || strcmp(filter_condition_label(a,choices[3]),"After") || strcmp(filter_condition_label(a,choices[4]),"Before")) goto failed;
-            smoke_snapshot("tests/results/filter-keyboard/condition-date.png"); filter_test_key=KEY_END; date_condition_phase=2; return;
+            smoke_snapshot("build/tests/results/filter-keyboard/condition-date.png"); filter_test_key=KEY_END; date_condition_phase=2; return;
         }
         if (date_condition_phase==2) {
             if (!a->filter_condition_menu || a->filter_condition_index!=5) goto failed;
@@ -8251,9 +8251,9 @@ static void filter_smoke_step(App *a,int *step) {
         a->field=2; apply_values(a,true); break;
     case 16:
         if (a->analysis.filter_count!=1 || strcmp(a->analysis.filter_column,"Amount") || a->page.columns[2].filtered || !a->page.columns[4].filtered) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-multi-filters.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-multi-filters.dxls"); break;
     case 17: reset_analysis(a); break;
-    case 18: workspace_job(a,JOB_LOAD,"tests/generated/app-multi-filters.dxls"); break;
+    case 18: workspace_job(a,JOB_LOAD,"build/tests/generated/app-multi-filters.dxls"); break;
     case 19:
         if (a->analysis.filter_count!=1 || !analysis_filter_get(&a->analysis,"Amount",NULL,NULL) || !analysis_filter_get(&a->analysis,"Approved",NULL,NULL) || a->page.total>=1000000) goto failed;
         puts("PASS: simultaneous column filters, contextual distinct values, individual clear, header indicators and filter save/reopen"); break;
@@ -8265,9 +8265,9 @@ static void filter_smoke_step(App *a,int *step) {
         a->filter_focus=6; break;
     }
     case 21:
-        smoke_snapshot("tests/results/filter-keyboard/conditions-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+        smoke_snapshot("build/tests/results/filter-keyboard/conditions-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 22:
-        smoke_snapshot("tests/results/filter-keyboard/conditions-150-narrow.png");
+        smoke_snapshot("build/tests/results/filter-keyboard/conditions-150-narrow.png");
         if (a->request_id!=request || a->analysis.filter_count!=1 || !analysis_filter_get(&a->analysis,"Amount",NULL,NULL)) goto failed;
         cancel_values(a); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
         puts("PASS: restored condition/value focus, caret navigation without new query, cancel preserves composed filters and 100/150 percent condition layouts"); break;
@@ -8316,7 +8316,7 @@ static void filter_smoke_step(App *a,int *step) {
             UISelectMenuLayout menu=ui_select_menu_layout((Vector2){a->filter_layout.condition.x,a->filter_layout.condition.y+a->filter_layout.condition.height},(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,a->filter_layout.condition.width/a->ui.scale,5);
             if (!menu.valid || menu.row_height!=26 || menu.panel.width!=a->filter_layout.condition.width || a->filter_condition_index || a->filter_layout.condition.height!=25) goto failed;
             condition_request=a->request_id; condition_cells=a->page.cells; condition_history=active_sheet(a)->undo_actions_count;
-            smoke_snapshot("tests/results/filter-keyboard/compact-condition-menu.png");
+            smoke_snapshot("build/tests/results/filter-keyboard/compact-condition-menu.png");
             condition_mode=a->filter_mode;
             filter_test_key=KEY_TAB; filter_test_modifiers=DX_MOD_SHIFT; numeric_condition_phase=1; return;
         }
@@ -8356,7 +8356,7 @@ static void filter_smoke_step(App *a,int *step) {
         a->values_all=false; clear_value_choices(a); toggle_value(a,dx_strdup("1.37")); toggle_value(a,dx_strdup("2.74")); toggle_value(a,dx_strdup("500.05"));
         input_set(&a->filter_term,"1.00"); input_set(&a->filter_end,"3.00"); break;
     case 36:
-        smoke_snapshot("tests/results/filter-keyboard/compact-combined-between.png"); break;
+        smoke_snapshot("build/tests/results/filter-keyboard/compact-combined-between.png"); break;
     case 37:
         if (a->modal!=MODAL_NONE || a->page.total!=20 || a->analysis.filter_op!=FILTER_COMPOSITE) goto failed;
         a->grid.col=3; open_modal(a,MODAL_FILTER); break;
@@ -8372,13 +8372,13 @@ static void filter_smoke_step(App *a,int *step) {
         if (!a->filter_layout.valid || a->filter_layout.panel.x<0 || a->filter_layout.panel.y<0 || a->filter_layout.panel.x+a->filter_layout.panel.width>640 || a->filter_layout.panel.y+a->filter_layout.panel.height>640) goto failed;
         if (!narrow_condition_phase) {
             condition_request=a->request_id; condition_cells=a->page.cells; condition_history=active_sheet(a)->undo_actions_count;
-            smoke_snapshot("tests/results/filter-keyboard/compact-between-150-narrow.png"); a->filter_focus=6; filter_test_key=KEY_SPACE; narrow_condition_phase=1; return;
+            smoke_snapshot("build/tests/results/filter-keyboard/compact-between-150-narrow.png"); a->filter_focus=6; filter_test_key=KEY_SPACE; narrow_condition_phase=1; return;
         }
         if (a->request_id!=condition_request || a->page.cells!=condition_cells || active_sheet(a)->undo_actions_count!=condition_history || strcmp(a->filter_term.text,"1.00") || strcmp(a->filter_end.text,"3.00")) goto failed;
         if (narrow_condition_phase==1) {
             UISelectMenuLayout menu=ui_select_menu_layout((Vector2){a->filter_layout.condition.x,a->filter_layout.condition.y+a->filter_layout.condition.height},(Vector2){640,640},1.5f,a->filter_layout.condition.width/1.5f,5);
             if (!a->filter_condition_menu || a->filter_condition_index!=4 || !menu.valid || menu.row_height!=39 || menu.panel.x<0 || menu.panel.y<0 || menu.panel.x+menu.panel.width>640 || menu.panel.y+menu.panel.height>640) goto failed;
-            smoke_snapshot("tests/results/filter-keyboard/condition-between-150.png"); filter_test_click=ui_select_menu_row(&menu,1); narrow_condition_phase=2; return;
+            smoke_snapshot("build/tests/results/filter-keyboard/condition-between-150.png"); filter_test_click=ui_select_menu_row(&menu,1); narrow_condition_phase=2; return;
         }
         if (a->filter_condition_menu || a->filter_focus!=6 || !a->filter_condition_enabled || a->filter_op!=FILTER_EQUAL) goto failed;
         break;
@@ -8390,8 +8390,8 @@ static void filter_smoke_step(App *a,int *step) {
         history(a,true); break;
     case 43:
         if (a->page.total!=20 || a->analysis.filter_op!=FILTER_COMPOSITE) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-combined-filter.dxls"); break;
-    case 44: workspace_job(a,JOB_LOAD,"tests/generated/app-combined-filter.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-combined-filter.dxls"); break;
+    case 44: workspace_job(a,JOB_LOAD,"build/tests/generated/app-combined-filter.dxls"); break;
     case 45:
         if (a->page.total!=20 || a->analysis.filter_op!=FILTER_COMPOSITE) goto failed;
         a->grid.col=3; open_modal(a,MODAL_FILTER); break;
@@ -8453,7 +8453,7 @@ static void filter_smoke_step(App *a,int *step) {
         if (a->filter_condition_menu || !a->filter_condition_enabled || a->filter_op!=FILTER_CONTAINS || a->modal!=MODAL_FILTER || a->page.total!=1000000) goto failed;
         apply_filter_definition(a,false);
         if (a->modal!=MODAL_FILTER || a->filter_focus!=7 || a->analysis.filter_column) goto failed;
-        input_set(&a->filter_term,"stanbul"); smoke_snapshot("tests/results/filter-keyboard/fast-text-condition.png"); break;
+        input_set(&a->filter_term,"stanbul"); smoke_snapshot("build/tests/results/filter-keyboard/fast-text-condition.png"); break;
     case 63: break;
     case 64:
         if (a->modal!=MODAL_NONE || a->page.total!=250000 || a->analysis.filter_op!=FILTER_CONTAINS) goto failed;
@@ -8510,12 +8510,12 @@ static void pivot_smoke_step(App *a,int *step) {
     case 7:
         if (!a->objects[1].page.column_count) return;
         if (a->objects[1].page.total!=4 || a->objects[1].page.column_count!=2) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-pivots.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-pivots.dxls"); break;
     case 8: {
         Cell *second=a->objects[1].page.cells; uint64_t id=store->items[1].id;
         a->selected_object=0; remove_pivot(a);
         if (store->count!=1 || a->objects[0].id!=id || a->objects[0].page.cells!=second) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-pivots.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-pivots.dxls"); break;
     }
     case 9:
         if (store->count!=2 || store->items[0].row!=8 || store->items[0].pivot.counts[PIVOT_FILTERS]!=1 || a->page.total!=1000000) goto failed;
@@ -8535,8 +8535,8 @@ static void pivot_smoke_step(App *a,int *step) {
     case 13:
         if (!a->objects[2].page.column_count) return;
         if (a->objects[2].page.cells[1].number>1000 || store->items[1].pivot.fields[PIVOT_VALUES][0].aggregate!=AGG_SUM) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-chart.dxls"); break;
-    case 14: workspace_job(a,JOB_LOAD,"tests/generated/app-chart.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-chart.dxls"); break;
+    case 14: workspace_job(a,JOB_LOAD,"build/tests/generated/app-chart.dxls"); break;
     case 15:
         if (store->count!=3 || store->items[2].kind!=OBJECT_CHART || store->items[2].pivot.fields[PIVOT_VALUES][0].aggregate!=AGG_AVG) goto failed;
         if (!a->objects[2].page.column_count) return;
@@ -8553,8 +8553,8 @@ static void pivot_smoke_step(App *a,int *step) {
         if (strcmp(cells_get(&active_sheet(a)->cells,12,7),"Review note")) goto failed;
         history(a,false); if (strcmp(cells_get(&active_sheet(a)->cells,8,7),"Review note")) goto failed;
         history(a,true); copy_selection(a); if (strcmp(GetClipboardText(),"Review note\nSecond note")) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-chart.dxls"); break;
-    case 19: workspace_job(a,JOB_LOAD,"tests/generated/app-chart.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-chart.dxls"); break;
+    case 19: workspace_job(a,JOB_LOAD,"build/tests/generated/app-chart.dxls"); break;
     case 20:
         if (strcmp(cells_get(&active_sheet(a)->cells,12,7),"Review note") || active_sheet(a)->cells.count!=2 || store->count!=3 || a->page.total!=1000000) goto failed;
         a->selected_object=2; a->pivot_reveal_object=true; a->pivot_focus=0;
@@ -8577,9 +8577,9 @@ static void pivot_smoke_step(App *a,int *step) {
             if (!col->categories[0]) nulls++; else if (!*col->categories[0]) empty++; else if (!strcmp(col->categories[0],"NULL")) literal++;
         }
         if (nulls!=1 || empty!=1 || literal!=1 || !strstr(p->sql,"NULL AS")) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-nulls.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-nulls.dxls"); break;
     }
-    case 25: workspace_job(a,JOB_LOAD,"tests/generated/app-nulls.dxls"); break;
+    case 25: workspace_job(a,JOB_LOAD,"build/tests/generated/app-nulls.dxls"); break;
     case 26:
         if (store->count!=1 || !a->objects[0].page.column_count) return;
         if (a->objects[0].page.column_count!=6 || a->page.total!=6) goto failed;
@@ -8600,7 +8600,7 @@ static void pivot_smoke_step(App *a,int *step) {
         if (!a->objects[0].page.column_count) return;
         if (a->objects[0].page.column_count!=6) goto failed;
         a->grid.zoom=.8f; a->grid.horizontal=0; a->grid.top=0; a->pivot_reveal_object=false; a->pivot_focus=0;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-nulls.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-nulls.dxls"); break;
     case 31:
         puts("PASS: typed NULL, literal NULL, empty text and quote text in CSV, same-sheet real PIVOT categories, NULL-only filter, independent source and save/reopen"); break;
     case 32:
@@ -8613,7 +8613,7 @@ static void pivot_smoke_step(App *a,int *step) {
         a->modal=MODAL_NONE; inspector_free(a); grid_select_cell(&a->grid,3,1,false); inspect_value(a);
         if (a->inspector_null || a->inspector_bytes!=2 || strcmp(a->inspector_text,"\"\"")) goto failed; break;
     case 35:
-        a->modal=MODAL_NONE; inspector_free(a); open_source(a,"tests/generated/odd'name.parquet",false); break;
+        a->modal=MODAL_NONE; inspector_free(a); open_source(a,"build/tests/generated/odd'name.parquet",false); break;
     case 36:
         if (a->page.total!=5) goto failed;
         grid_select_cell(&a->grid,3,5,false); inspect_value(a);
@@ -8657,19 +8657,19 @@ static void export_smoke_step(App *a,int *step) {
     case 0:
         if (a->page.total!=6 || a->page.column_count!=3) return;
         grid_select_cell(&a->grid,0,0,false); sort_column(a,false); break;
-    case 1: start_export(a,"tests/generated/app-export.parquet"); break;
+    case 1: start_export(a,"build/tests/generated/app-export.parquet"); break;
     case 2:
         if (a->page.total!=6 || !a->message || !strstr(a->message,"Exported 6 rows")) goto failed;
-        open_source(a,"tests/generated/app-export.parquet",false); break;
+        open_source(a,"build/tests/generated/app-export.parquet",false); break;
     case 3:
         if (a->page.total!=6 || !a->page.cells[1].is_null || a->page.cells[7].is_null || *a->page.cells[7].text || strcmp(a->page.cells[10].text,"\"\"")) goto failed;
         grid_select_cell(&a->grid,0,1,false); set_source_filter(a,"Value",FILTER_IN,"[null,\"NULL\",\"\"]",false); break;
     case 4:
         if (a->page.total!=3 || a->grid.col!=1) goto failed;
-        start_export(a,"tests/generated/app-export-filtered.parquet"); break;
+        start_export(a,"build/tests/generated/app-export-filtered.parquet"); break;
     case 5:
         if (!a->message || !strstr(a->message,"Exported 3 rows")) goto failed;
-        open_source(a,"tests/generated/app-export-filtered.parquet",false); break;
+        open_source(a,"build/tests/generated/app-export-filtered.parquet",false); break;
     case 6:
         if (a->page.total!=3 || a->page.column_count!=3 || !a->page.cells[1].is_null || a->page.cells[4].is_null || strcmp(a->page.cells[4].text,"NULL") || a->page.cells[7].is_null || *a->page.cells[7].text) goto failed;
         break;
@@ -8692,7 +8692,7 @@ static void export_smoke_step(App *a,int *step) {
         start_export(a,selected_object(a)->source.path);
         if (a->request_id!=request || a->busy) goto failed;
         char *suggested=export_suggestion(a); bool safe=!strcmp(suggested,"Table 1-export.parquet"); free(suggested); if (!safe) goto failed;
-        table_cells=a->objects[0].page.cells; start_export(a,"tests/generated/app-table-export.parquet"); break;
+        table_cells=a->objects[0].page.cells; start_export(a,"build/tests/generated/app-table-export.parquet"); break;
     }
     case 10: {
         if (!a->message || !strstr(a->message,"Exported 2 rows") || a->page.total || a->objects[0].page.cells!=table_cells || a->objects[0].page.total!=2) goto failed;
@@ -8703,24 +8703,24 @@ static void export_smoke_step(App *a,int *step) {
     case 11:
         if (!object_ready(a,1)) return;
         if (!export_ready(a) || a->objects[1].page.total!=1 || !strstr(a->objects[1].page.sql,"PIVOT")) goto failed;
-        pivot_cells=a->objects[1].page.cells; start_export(a,"tests/generated/app-pivot-export.parquet"); break;
+        pivot_cells=a->objects[1].page.cells; start_export(a,"build/tests/generated/app-pivot-export.parquet"); break;
     case 12:
         if (!a->message || !strstr(a->message,"Exported 1 rows") || a->page.total || a->objects[0].page.cells!=table_cells || a->objects[1].page.cells!=pivot_cells) goto failed;
         create_chart(a); break;
     case 13:
         if (!object_ready(a,2)) return;
         if (!export_ready(a) || selected_object(a)->kind!=OBJECT_CHART) goto failed;
-        start_export(a,"tests/generated/app-chart-export.parquet"); break;
+        start_export(a,"build/tests/generated/app-chart-export.parquet"); break;
     case 14:
         if (!a->message || !strstr(a->message,"Exported 1 rows") || a->page.total || a->objects[0].page.cells!=table_cells || a->objects[1].page.cells!=pivot_cells) goto failed;
-        open_source(a,"tests/generated/app-table-export.parquet",false); break;
+        open_source(a,"build/tests/generated/app-table-export.parquet",false); break;
     case 15:
         if (a->page.total!=2 || a->page.column_count!=6 || strcmp(a->page.cells[1].text,"İstanbul") || strcmp(a->page.cells[7].text,"İstanbul")) goto failed;
         break;
-    case 16: open_source(a,"tests/generated/app-pivot-export.parquet",false); break;
+    case 16: open_source(a,"build/tests/generated/app-pivot-export.parquet",false); break;
     case 17:
         if (a->page.total!=1 || a->page.column_count!=2 || strcmp(a->page.cells[0].text,"İstanbul") || a->page.cells[1].number!=19.75) goto failed;
-        open_source(a,"tests/generated/app-chart-export.parquet",false); break;
+        open_source(a,"build/tests/generated/app-chart-export.parquet",false); break;
     case 18:
         if (a->page.total!=1 || a->page.column_count!=2 || strcmp(a->page.cells[0].text,"İstanbul") || a->page.cells[1].number!=19.75) goto failed;
         break;
@@ -8776,8 +8776,8 @@ static void count_smoke_step(App *a,int *step) {
         if (a->page.total!=1000000) goto failed;
         /* Reproduce a saved external source whose growth now overlaps a note. */
         if (!cells_move(&sheet->cells,500,500,8,8,0,-8,&error)) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/count-conflict.dxls"); break;
-    case 8: workspace_job(a,JOB_LOAD,"tests/generated/count-conflict.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/count-conflict.dxls"); break;
+    case 8: workspace_job(a,JOB_LOAD,"build/tests/generated/count-conflict.dxls"); break;
     case 9:
         if (a->modal!=MODAL_ERROR) return;
         if (a->page.column_count || !a->fetch_failed || strcmp(cells_get(&sheet->cells,500,0),"Keep this note")) goto failed;
@@ -8811,7 +8811,7 @@ static void clipboard_smoke_step(App *a,int *step) {
         if (a->objects[0].dirty || !a->objects[0].page.column_count) return;
         grid_select_cell(&a->grid,0,0,false); a->grid.end_row=3; a->grid.end_col=7; copy_selection(a);
         if (a->busy || request!=a->request_id || !strstr(GetClipboardText(),"Side note\tPivot 1\t\t") || !strstr(GetClipboardText(),"2\tNULL\t10\t\t\tID\tSUM(Amount)\t") || !strstr(GetClipboardText(),"3\t\"\"\t10\t\t\t1\t10\t")) goto failed;
-        open_source(a,"tests/generated/million.parquet",false); break;
+        open_source(a,"build/tests/generated/million.parquet",false); break;
     case 2:
         if (!a->page.column_count || a->page.count_pending) return;
         if (!cells_set(&sheet->cells,500,4,"Snapshot note",&error)) goto failed;
@@ -8875,7 +8875,7 @@ static void smoke_snapshot(const char *path) {
 }
 static bool smoke_record_fixture(unsigned rows,unsigned first,char **error) {
     Database db={0}; if (!database_open(&db,error)) return false;
-    char *sql=dx_printf("COPY (SELECT (i+%u)::BIGINT AS Row,i%%3 AS Tie,CASE i%%3 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'NULL' END::VARCHAR AS Value,'9007199254740993.12'::DECIMAL(38,2) AS Amount FROM range(%u) t(i)) TO 'tests/generated/record-page-smoke.parquet' (FORMAT PARQUET)",first,rows);
+    char *sql=dx_printf("COPY (SELECT (i+%u)::BIGINT AS Row,i%%3 AS Tie,CASE i%%3 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'NULL' END::VARCHAR AS Value,'9007199254740993.12'::DECIMAL(38,2) AS Amount FROM range(%u) t(i)) TO 'build/tests/generated/record-page-smoke.parquet' (FORMAT PARQUET)",first,rows);
     duckdb_result result={0}; bool ok=database_execute(&db,sql,&result,error);
     duckdb_destroy_result(&result); free(sql); database_close(&db); return ok;
 }
@@ -8890,10 +8890,10 @@ static void sort_smoke_step(App *a,int *step) {
         open_modal(a,MODAL_SORT);
         if (!analysis_sort_set(&a->sort_editor.draft,"GroupKey",false,true,&error) || !analysis_sort_set(&a->sort_editor.draft,"Amount",true,true,&error) || !analysis_sort_set(&a->sort_editor.draft,"ID",false,true,&error) || a->analysis.sort_column) goto failed;
         ui_set_scale(&a->ui,.8f); break;
-    case 1: smoke_snapshot("tests/results/multisort/sort-80.png"); ui_set_scale(&a->ui,1); break;
-    case 2: smoke_snapshot("tests/results/multisort/sort-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 1: smoke_snapshot("build/tests/results/multisort/sort-80.png"); ui_set_scale(&a->ui,1); break;
+    case 2: smoke_snapshot("build/tests/results/multisort/sort-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 3:
-        smoke_snapshot("tests/results/multisort/sort-150-narrow.png"); apply_sort_order(a,&a->sort_editor.draft); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+        smoke_snapshot("build/tests/results/multisort/sort-150-narrow.png"); apply_sort_order(a,&a->sort_editor.draft); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
     case 4:
         { int expected[]={2,7,5,4,1,3,6}; for (size_t i=0;i<7;i++) if (a->page.cells[i*3].number!=expected[i]) goto failed; }
         if (a->analysis.sort_count!=2 || a->page.columns[1].sort_priority!=1 || !a->page.columns[2].sort_descending) goto failed;
@@ -8903,8 +8903,8 @@ static void sort_smoke_step(App *a,int *step) {
         history(a,true); break;
     case 6:
         if (a->analysis.sort_count!=2 || a->page.cells[0].number!=2) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/sort-application.dxls"); break;
-    case 7: workspace_job(a,JOB_LOAD,"tests/generated/sort-application.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/sort-application.dxls"); break;
+    case 7: workspace_job(a,JOB_LOAD,"build/tests/generated/sort-application.dxls"); break;
     case 8:
         if (!a->page.column_count) return;
         if (a->analysis.sort_count!=2 || a->page.cells[0].number!=2) goto failed;
@@ -9191,25 +9191,25 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->grid.horizontal<=0 || a->grid.row || a->grid.col || a->grid.anchor_row || a->grid.end_row!=2 || a->grid.end_col!=1 || a->request_id!=request) goto failed;
         if (fabsf(a->grid.rect.x-236)>1 || fabsf(a->grid.rect.y-164)>1 || fabsf(a->grid.rect.width-(GetScreenWidth()-536))>1 || fabsf(a->grid.rect.y+a->grid.rect.height-(GetScreenHeight()-22))>1) goto failed;
         break;
-    case 5: smoke_snapshot("tests/results/workspace-layout/full-100.png"); set_ribbon_mode(a,1); break;
+    case 5: smoke_snapshot("build/tests/results/workspace-layout/full-100.png"); set_ribbon_mode(a,1); break;
     case 6:
         if (fabsf(a->grid.rect.y-120)>1 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/compact-100.png"); set_ribbon_mode(a,2); break;
+        smoke_snapshot("build/tests/results/workspace-layout/compact-100.png"); set_ribbon_mode(a,2); break;
     case 7:
         if (fabsf(a->grid.rect.y-116)>1 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/icons-100.png"); set_ribbon_mode(a,3); break;
+        smoke_snapshot("build/tests/results/workspace-layout/icons-100.png"); set_ribbon_mode(a,3); break;
     case 8:
         if (a->grid.rect.x || fabsf(a->grid.rect.y-28)>1 || fabsf(a->grid.rect.width-GetScreenWidth())>1 || a->pipeline_extent || !a->sidebar || !a->fields_visible || !a->pipeline) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/focus-100.png"); set_ribbon_mode(a,a->previous_ribbon_mode); break;
+        smoke_snapshot("build/tests/results/workspace-layout/focus-100.png"); set_ribbon_mode(a,a->previous_ribbon_mode); break;
     case 9:
         if (a->ribbon_mode!=2 || fabsf(a->grid.rect.x-236)>1 || fabsf(a->pipeline_extent-300)>1) goto failed;
         ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 10:
         if (a->grid.rect.x || fabsf(a->grid.rect.width-GetScreenWidth())>1 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/overlay-150-narrow.png"); a->sidebar=a->fields_visible=a->pipeline=false; break;
+        smoke_snapshot("build/tests/results/workspace-layout/overlay-150-narrow.png"); a->sidebar=a->fields_visible=a->pipeline=false; break;
     case 11:
         if (a->grid.rect.x || a->pipeline_extent || fabsf(a->grid.rect.width-GetScreenWidth())>1) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/dismissed-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+        smoke_snapshot("build/tests/results/workspace-layout/dismissed-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
     case 12:
         input_set(&a->pivot_search,"no such field"); match_fields(a); if (a->field_match_count || a->pivot_field!=-1) goto failed;
         { size_t *cached=a->field_matches; match_fields(a); if (a->field_matches!=cached || a->field_match_count) goto failed; }
@@ -9229,11 +9229,11 @@ static void layout_smoke_step(App *a,int *step) {
         if (!a->inspector_null || a->inspector_bytes || a->request_id!=request) goto failed;
         a->modal=MODAL_NONE; inspector_free(a); set_ribbon_mode(a,0); a->sidebar=a->fields_visible=true; a->selected_object=0; a->pivot_reveal_object=true; break;
     case 16:
-        smoke_snapshot("tests/results/workspace-layout/authoring-full-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); show_workspace(a); break;
+        smoke_snapshot("build/tests/results/workspace-layout/authoring-full-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); show_workspace(a); break;
     case 17:
         if (a->grid.rect.width<=0 || a->grid.rect.height<=0 || a->field_visible<1 || a->request_id!=request) goto failed;
         for (int role=0;role<4;role++) for (int other=role+1;other<4;other++) if (CheckCollisionRecs(a->pivot_shelves[role],a->pivot_shelves[other])) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/authoring-full-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+        smoke_snapshot("build/tests/results/workspace-layout/authoring-full-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
     case 18: {
         size_t column=a->grid.col; float width=a->grid.widths[column];
         column_action(a,COLUMN_WIDTH); input_set(&a->input,"NaN");
@@ -9290,9 +9290,9 @@ static void layout_smoke_step(App *a,int *step) {
         a->modal=MODAL_CONTEXT; a->context_focus=a->context_scroll=0; a->context_drag=false; a->context_origin=(Vector2){400,300}; break;
     }
     case 20:
-        smoke_snapshot("tests/results/workspace-layout/row-menu-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+        smoke_snapshot("build/tests/results/workspace-layout/row-menu-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 21: {
-        smoke_snapshot("tests/results/workspace-layout/row-menu-150-narrow.png"); a->modal=MODAL_NONE;
+        smoke_snapshot("build/tests/results/workspace-layout/row-menu-150-narrow.png"); a->modal=MODAL_NONE;
         size_t actions=s->undo_actions_count;
         grid_select_cell(&a->grid,32,20,false); column_action(a,ROW_DELETE);
         if (s->undo_actions_count!=actions || s->objects.items[3].row!=31 || a->request_id!=request) goto failed;
@@ -9303,8 +9303,8 @@ static void layout_smoke_step(App *a,int *step) {
     case 22:
         grid_select_cell(&a->grid,25,22,false); column_action(a,ROW_DELETE);
         if (s->objects.items[3].row!=30 || strcmp(cells_get(&s->cells,29,22),"Row note") || a->request_id!=request) goto failed;
-        remove("tests/generated/layout-rows.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/layout-rows.dxls"); break;
-    case 23: workspace_job(a,JOB_LOAD,"tests/generated/layout-rows.dxls"); break;
+        remove("build/tests/generated/layout-rows.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/layout-rows.dxls"); break;
+    case 23: workspace_job(a,JOB_LOAD,"build/tests/generated/layout-rows.dxls"); break;
     case 24:
         if (s->objects.count!=4 || s->objects.items[3].row!=30 || strcmp(cells_get(&s->cells,29,22),"Row note") || a->page.total!=6) goto failed;
         if (a->grid.widths[0]!=450 || a->grid.widths[1]!=450 || a->grid.widths[2]!=450) goto failed;
@@ -9317,7 +9317,7 @@ static void layout_smoke_step(App *a,int *step) {
         history(a,true); if (s->objects.items[3].row!=33 || strcmp(cells_get(&s->cells,32,22),"Row note")) goto failed;
         a->modal=MODAL_CONTEXT; a->context_focus=a->context_scroll=0; a->context_drag=false; a->context_origin=(Vector2){400,300}; break;
     }
-    case 26: smoke_snapshot("tests/results/workspace-layout/multiple-row-menu.png"); a->modal=MODAL_NONE; break;
+    case 26: smoke_snapshot("build/tests/results/workspace-layout/multiple-row-menu.png"); a->modal=MODAL_NONE; break;
     case 27: {
         column_action(a,ROW_DELETE);
         if (s->objects.items[3].row!=30 || strcmp(cells_get(&s->cells,29,22),"Row note") || a->request_id!=request) goto failed;
@@ -9345,9 +9345,9 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->grid.selection!=SELECT_CELLS || a->grid.col!=1 || a->grid.row!=2 || a->grid.top!=2 || a->grid.fraction || a->request_id!=request) goto failed;
         begin_field_menu(a,2,(Vector2){a->sidebar_width*a->ui.scale,180*a->ui.scale}); break;
     case 33:
-        smoke_snapshot("tests/results/workspace-layout/field-menu-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+        smoke_snapshot("build/tests/results/workspace-layout/field-menu-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 34:
-        smoke_snapshot("tests/results/workspace-layout/field-menu-150-narrow.png");
+        smoke_snapshot("build/tests/results/workspace-layout/field-menu-150-narrow.png");
         if (a->request_id!=request || a->modal!=MODAL_FIELD_NAV || a->pivot_field!=2) goto failed;
         a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
         puts("PASS: field Reveal/Center retain active range and row offset, Select column preserves row, Go to active row reveals offscreen cell, no SQL and 100/150 percent menu layouts"); break;
@@ -9365,9 +9365,9 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     }
     case 36:
-        smoke_snapshot("tests/results/workspace-layout/move-range-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+        smoke_snapshot("build/tests/results/workspace-layout/move-range-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 37: {
-        smoke_snapshot("tests/results/workspace-layout/move-range-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        smoke_snapshot("build/tests/results/workspace-layout/move-range-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
         input_set(&a->input,"$Y$72");
         if (!apply_range_move(a) || strcmp(cells_get(&s->cells,70,24),"Move me") || *cells_get(&s->cells,60,20) || a->grid.anchor_row!=71 || a->grid.end_row!=70 || a->grid.row!=71 || a->grid.col!=25 || a->request_id!=request) goto failed;
         history(a,false); if (strcmp(cells_get(&s->cells,60,20),"Move me") || *cells_get(&s->cells,70,24)) goto failed;
@@ -9398,9 +9398,9 @@ static void layout_smoke_step(App *a,int *step) {
         if (moved.x<body.x-.1f || moved.y<body.y-.1f || moved.x+moved.width>body.x+body.width+.1f || moved.y+moved.height>body.y+body.height+.1f) goto failed;
         size_t actions=s->undo_actions_count; grid_select_cell(&a->grid,0,0,false); a->selected_object=-1; begin_move_range(a,false);
         if (a->modal!=MODAL_NONE || !a->range_move_error || s->undo_actions_count!=actions || a->request_id!=request) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/layout-range-move.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/layout-range-move.dxls"); break;
     }
-    case 42: workspace_job(a,JOB_LOAD,"tests/generated/layout-range-move.dxls"); break;
+    case 42: workspace_job(a,JOB_LOAD,"build/tests/generated/layout-range-move.dxls"); break;
     case 43:
         if (s->objects.count!=4 || s->objects.items[3].row!=50 || s->objects.items[3].col!=32 || strcmp(cells_get(&s->cells,70,24),"Move me") || strcmp(cells_get(&s->cells,40,28),"Row note") || strcmp(cells_get(&s->cells,65,22),"Occupied")) goto failed;
         break;
@@ -9412,10 +9412,10 @@ static void layout_smoke_step(App *a,int *step) {
         ribbon_cells=a->page.cells; ribbon_row=a->grid.row; ribbon_col=a->grid.col; ribbon_top=a->grid.top; ribbon_dirty=a->book.dirty; break;
     case 46:
         if (!a->ribbon_layout.valid || a->ribbon_layout.overflow_count) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-ribbon-full.png"); open_command_group(a,0,0); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-ribbon-full.png"); open_command_group(a,0,0); break;
     case 47:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group || a->ribbon_popup_focus) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-source-flyout.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-source-flyout.png");
         command_popup_key(a,KEY_DOWN,false); if (a->ribbon_popup_focus!=1) goto failed;
         command_popup_key(a,KEY_TAB,false); if (a->ribbon_popup_focus!=0) goto failed; /* Source order is disabled without a sort. */
         command_popup_key(a,KEY_TAB,true); if (a->ribbon_popup_focus!=1) goto failed;
@@ -9425,7 +9425,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->ribbon_focus=false; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,1); ui_set_scale(&a->ui,1.5f); SetWindowMinSize(640,480); SetWindowSize(720,640); break;
     case 49:
         if (!a->ribbon_layout.valid || !a->ribbon_layout.overflow_count) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-ribbon-compact-150.png"); open_command_group(a,-1,0); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-ribbon-compact-150.png"); open_command_group(a,-1,0); break;
     case 50: {
         int indices[RIBBON_MORE_ITEMS],count=command_popup_count(a,indices);
         int hidden=a->ribbon_layout.overflow_count;
@@ -9433,21 +9433,21 @@ static void layout_smoke_step(App *a,int *step) {
         command_popup_key(a,KEY_HOME,false);
         for (int i=1;i<hidden;i++) command_popup_key(a,KEY_DOWN,false);
         if (a->ribbon_popup_focus!=hidden-1) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-ribbon-overflow-150.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-ribbon-overflow-150.png");
         command_popup_key(a,KEY_RIGHT,false); if (a->ribbon_popup_group!=indices[hidden-1]) goto failed; break;
     }
     case 51:
-        smoke_snapshot("tests/results/workspace-layout/native-overflow-group-150.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-overflow-group-150.png");
         command_popup_key(a,KEY_LEFT,false); if (a->ribbon_popup_group!=-1) goto failed;
         command_popup_key(a,KEY_ENTER,false); if (a->ribbon_popup_group<0) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1600,900); break;
     case 52:
         if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->ribbon_command<0 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-flyout-resized.png"); set_ribbon_mode(a,2); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-flyout-resized.png"); set_ribbon_mode(a,2); break;
     case 53:
         if (a->ribbon_layout.overflow_count || a->ribbon_mode!=2) goto failed;
         for (int c=0;c<ribbon_counts[a->ribbon_tab];c++) if (ui_ribbon_command_visible(a->ribbon_tab,a->ribbon_mode,c) && a->ribbon_layout.commands[c].width<27) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-ribbon-icons.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-ribbon-icons.png");
         a->ribbon_tab=RIBBON_VIEW; previous_workbook=a->sidebar; open_command_group(a,0,0); break;
     case 54:
         command_popup_key(a,KEY_ENTER,false);
@@ -9469,7 +9469,7 @@ static void layout_smoke_step(App *a,int *step) {
     }
     case 58:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group<0) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-keyboard-group-150.png"); command_popup_key(a,KEY_ESCAPE,false); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-keyboard-group-150.png"); command_popup_key(a,KEY_ESCAPE,false); break;
     case 59:
         if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->request_id!=request) goto failed;
         set_ribbon_mode(a,3); break;
@@ -9478,7 +9478,7 @@ static void layout_smoke_step(App *a,int *step) {
         set_ribbon_mode(a,a->previous_ribbon_mode); ui_set_scale(&a->ui,.8f); SetWindowSize(1280,820); break;
     case 61:
         if (a->ribbon_mode!=0 || a->ribbon_layout.overflow_count || a->ui.scale!=.8f) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-ribbon-80.png"); ui_set_scale(&a->ui,1); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-ribbon-80.png"); ui_set_scale(&a->ui,1); break;
     case 62:
         if (a->request_id!=request || a->page.cells!=ribbon_cells || a->grid.row!=ribbon_row || a->grid.col!=ribbon_col || a->grid.top!=ribbon_top || a->book.dirty!=ribbon_dirty) goto failed;
         break;
@@ -9489,10 +9489,10 @@ static void layout_smoke_step(App *a,int *step) {
         a->ribbon_focus=false; a->selected_object=-1; present_pipeline(a,true,false); break;
     case 65:
         if (!a->pipeline || a->pipeline_collapsed || fabsf(a->pipeline_extent-a->pipeline_width)>.1f || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-inspector-open.png"); present_pipeline(a,true,true); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-inspector-open.png"); present_pipeline(a,true,true); break;
     case 66:
         if (!a->pipeline || !a->pipeline_collapsed || fabsf(a->pipeline_extent-32)>.1f || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-inspector-retained.png"); pipeline_activate(a,0); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-inspector-retained.png"); pipeline_activate(a,0); break;
     case 67:
         if (!a->pipeline || a->pipeline_collapsed || fabsf(a->pipeline_extent-a->pipeline_width)>.1f) goto failed;
         present_pipeline(a,true,true); break;
@@ -9504,7 +9504,7 @@ static void layout_smoke_step(App *a,int *step) {
         ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 70:
         if (ui_measure(&a->ui,a->status_metrics,12)>a->status_metrics_width+.01f || strstr(a->status_metrics,"…") || strstr(a->status_metrics,"Sum") || fabsf(a->grid.rect.y+a->grid.rect.height-(GetScreenHeight()-22*a->ui.scale))>.1f || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-status-fit-150.png"); a->statistics_line[0]=0; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-status-fit-150.png"); a->statistics_line[0]=0; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
     case 71:
         if (a->grid.row!=ribbon_row || a->grid.col!=ribbon_col || a->grid.top!=ribbon_top || a->book.dirty!=ribbon_dirty || a->request_id!=request) goto failed;
         puts("PASS: dense native Workbook/Fields rows, retained inspector expand/dismiss lifecycle, width recovery, 22-unit status, whole-metric fitting at 150 percent, separate UI scale/canvas zoom and no presentation SQL"); break;
@@ -9516,7 +9516,7 @@ static void layout_smoke_step(App *a,int *step) {
         show_workspace(a); break;
     case 74:
         if (!a->workspace.left_overlay || a->workspace.left.width!=236 || a->grid.rect.x || a->grid.rect.width!=GetScreenWidth() || a->fields_visible || a->page.cells!=ribbon_cells || a->book.dirty!=ribbon_dirty) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-workspace-overlay.png"); close_workspace(a); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-workspace-overlay.png"); close_workspace(a); break;
     case 75:
         if (a->left_drawer || a->workspace.left.width || !a->sidebar || a->fields_visible || a->request_id!=request) goto failed;
         a->fields_visible=true; show_workspace(a); a->pivot_field=2; a->field_reveal_requested=true; break;
@@ -9546,11 +9546,11 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->grid.rect.y!=225 || a->pivot_shelves[PIVOT_COLUMNS].height!=31 || a->pivot_shelves[PIVOT_ROWS].height!=30 ||
             a->pivot_shelves[PIVOT_VALUES].x>=a->grid.rect.x || a->pivot_shelves[PIVOT_FILTERS].x>=a->grid.rect.x || a->field_visible<1) goto failed;
         request=a->request_id; author_cells=a->objects[0].page.cells; author_revision=s->objects.items[0].revision;
-        smoke_snapshot("tests/results/workspace-layout/native-authoring-spatial.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-authoring-spatial.png");
         if (!set_representation(a,1)) goto failed; break;
     case 81:
         if (s->objects.items[0].kind!=OBJECT_CHART || s->objects.items[0].mark!=MARK_BAR || s->objects.items[0].revision!=author_revision || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-authoring-chart.png"); if (!set_representation(a,2)) goto failed; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-authoring-chart.png"); if (!set_representation(a,2)) goto failed; break;
     case 82:
         if (s->objects.items[0].mark!=MARK_LINE || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
         history(a,false); break;
@@ -9565,12 +9565,12 @@ static void layout_smoke_step(App *a,int *step) {
         begin_assign_field(a,PIVOT_VALUES,a->pivot_shelves[PIVOT_VALUES]); input_set(&a->pivot_search,"Amount"); break;
     case 86:
         if (a->modal!=MODAL_ASSIGN_FIELD || a->field_match_count!=1 || a->pivot_field!=2 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-measure-picker.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-measure-picker.png");
         a->modal=MODAL_NONE; a->pivot_search_focus=false; input_set(&a->pivot_search,"");
         a->pivot_drag_role=PIVOT_VALUES; a->pivot_drag_index=0; pivot_menu_open(a,(Vector2){240,360}); break;
     case 87:
         if (a->modal!=MODAL_PIVOT_FIELD || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-measure-menu.png"); a->modal=MODAL_NONE; a->pivot_drag_role=-1;
+        smoke_snapshot("build/tests/results/workspace-layout/native-measure-menu.png"); a->modal=MODAL_NONE; a->pivot_drag_role=-1;
         a->pivot_drag_field=1; assign_pivot_field(a,PIVOT_FILTERS,0); break;
     case 88:
         if (!object_ready(a,0)) return;
@@ -9582,17 +9582,17 @@ static void layout_smoke_step(App *a,int *step) {
         a->pivot_focus=0; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,720); show_workspace(a); break;
     case 90:
         if (!a->workspace.left_overlay || a->grid.rect.x || a->field_visible<1 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-authoring-overlay-150.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-authoring-overlay-150.png");
         a->pivot_focus=5; a->author_reveal=true; break;
     case 91:
         if (a->pivot_shelves[PIVOT_FILTERS].height<=0 || a->pivot_shelves[PIVOT_FILTERS].y<a->author_body.y || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-view-filter-reveal-150.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-view-filter-reveal-150.png");
         close_workspace(a); SetWindowSize(1280,820); ui_set_scale(&a->ui,.8f); break;
     case 92:
         if (a->workspace.narrow || a->left_drawer || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-authoring-80.png"); ui_set_scale(&a->ui,1); a->pivot_focus=0;
-        workspace_job(a,JOB_SAVE,"tests/generated/layout-authoring.dxls"); break;
-    case 93: workspace_job(a,JOB_LOAD,"tests/generated/layout-authoring.dxls"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-authoring-80.png"); ui_set_scale(&a->ui,1); a->pivot_focus=0;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/layout-authoring.dxls"); break;
+    case 93: workspace_job(a,JOB_LOAD,"build/tests/generated/layout-authoring.dxls"); break;
     case 94:
         if (!object_ready(a,0)) return;
         if (s->objects.items[0].kind!=OBJECT_PIVOT || s->objects.items[0].pivot.counts[PIVOT_VALUES]!=1 || s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=1) goto failed;
@@ -9608,14 +9608,14 @@ static void layout_smoke_step(App *a,int *step) {
         close_filter(a); break;
     case 98:
         if (!object_ready(a,0)) return;
-        smoke_snapshot("tests/results/workspace-layout/native-fast-field-drop.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-fast-field-drop.png"); break;
     case 99:
         if (s->objects.items[0].pivot.counts[PIVOT_ROWS] || s->objects.items[0].pivot.counts[PIVOT_COLUMNS]!=2 || strcmp(s->objects.items[0].pivot.fields[PIVOT_COLUMNS][0].name,"ID") || a->pivot_drop_pending) goto failed;
         break;
     case 100:
         if (!object_ready(a,0)) return;
         if (!strstr(a->objects[0].page.sql,"PIVOT")) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-fast-token-drop.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-fast-token-drop.png"); break;
     case 101:
         puts("PASS: complete between-frame field and token gestures defer drop resolution until all native destinations are laid out; field-to-filter opens an unapplied draft and Rows-to-Columns moves update real PIVOT"); break;
     case 102:
@@ -9623,7 +9623,7 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     case 103:
         if (!object_ready(a,0)) return;
-        smoke_snapshot("tests/results/workspace-layout/native-token-reorder.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-token-reorder.png"); break;
     case 104:
         if (s->objects.items[0].pivot.counts[PIVOT_COLUMNS]!=2 || strcmp(s->objects.items[0].pivot.fields[PIVOT_COLUMNS][0].name,"ID") || strcmp(s->objects.items[0].pivot.fields[PIVOT_COLUMNS][1].name,"Value")) goto failed;
         break;
@@ -9640,24 +9640,24 @@ static void layout_smoke_step(App *a,int *step) {
         SetWindowSize(640,720); a->analysis_scroll=10000; break;
     case 109:
         if (!a->authoring_layout.stacked || a->authoring_layout.chart.y+a->authoring_layout.chart.height>a->workspace.canvas.y+a->workspace.canvas.height || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-authoring-stack-640.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); a->analysis_scroll=0; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-authoring-stack-640.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); a->analysis_scroll=0; break;
     case 110:
         if (!a->authoring_layout.stacked || !a->workspace.narrow || a->source_preview.row_height!=a->grid.row_height || a->objects[0].page.cells!=author_cells) goto failed;
         show_workspace(a); a->pivot_focus=5; a->author_reveal=true; break;
     case 111:
         if (!a->workspace.left_overlay || a->pivot_shelves[PIVOT_FILTERS].height<=0 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-dock-150.png"); close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->sidebar_width=228; a->analysis_scroll=0; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-dock-150.png"); close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->sidebar_width=228; a->analysis_scroll=0; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); break;
     case 112:
         if (a->authoring_layout.stacked || fabsf(a->authoring_layout.preview.height-fminf(336,fmaxf(150,(GetScreenHeight()-159)*.4f)))>.01f || a->authoring_layout.matrix.height!=318 || a->workspace.canvas.x!=228 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         break;
     case 113:
-        smoke_snapshot("tests/results/workspace-layout/native-exact-authoring-1440.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-authoring-1440.png"); break;
     case 114:
         if (a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; break;
     case 115:
         if (a->modal!=MODAL_FILTER || a->selected_object!=0 || a->filter_object!=-1 || a->field || !a->filter_anchor_valid || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-preview-column-filter.png"); cancel_values(a); a->modal=MODAL_NONE; request=a->request_id; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-preview-column-filter.png"); cancel_values(a); a->modal=MODAL_NONE; request=a->request_id; break;
     case 116:
         if (a->selected_object!=0 || a->objects[0].page.cells!=author_cells || a->analysis.filter_column) goto failed;
         grid_select_cell(&a->grid,s->objects.items[0].row+2,s->objects.items[0].col,false);
@@ -9679,7 +9679,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->matrix_horizontal<=500 || a->request_id!=request || a->objects[0].page.cells!=author_cells || a->matrix_hbar.dragging) goto failed;
         break;
     case 122:
-        smoke_snapshot("tests/results/workspace-layout/native-matrix-horizontal-scroll.png"); a->matrix_horizontal=0; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-matrix-horizontal-scroll.png"); a->matrix_horizontal=0; break;
     case 123:
         if (a->grid.anchor_row!=s->objects.items[0].row+2 || a->grid.end_row!=s->objects.items[0].row+2 || a->grid.anchor_col!=s->objects.items[0].col || a->grid.end_col!=s->objects.items[0].col+2 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         puts("PASS: complete between-frame matrix scrollbar drags, bounded horizontal scroll, range drag selection mapped to real worksheet cells, preserved query generation and result ownership"); break;
@@ -9693,20 +9693,20 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     case 127:
         if (active_format(a).flags!=(FORMAT_BOLD|FORMAT_ITALIC|FORMAT_UNDERLINE)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-formatted-range.png"); run_action(a,ACTION_FONT_SIZE); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-formatted-range.png"); run_action(a,ACTION_FONT_SIZE); break;
     case 128:
         if (a->modal!=MODAL_FORMAT || a->format_action!=ACTION_FONT_SIZE) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-font-size-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-font-size-menu.png"); break;
     case 129:
         if (a->modal!=MODAL_NONE || active_format(a).size!=16 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         run_action(a,ACTION_ALIGN_CENTER); run_action(a,ACTION_TEXT_COLOR); break;
     case 130:
-        smoke_snapshot("tests/results/workspace-layout/native-text-color-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-text-color-menu.png"); break;
     case 131:
         if (a->modal!=MODAL_NONE || active_format(a).color!=3 || active_format(a).align!=FORMAT_CENTER) goto failed;
         run_action(a,ACTION_NUMBER_FORMAT); break;
     case 132:
-        smoke_snapshot("tests/results/workspace-layout/native-number-format-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-number-format-menu.png"); break;
     case 133:
         if (a->modal!=MODAL_NONE || active_format(a).number!=FORMAT_NUMBER) goto failed;
         run_action(a,ACTION_DECIMAL_LESS); run_action(a,ACTION_DECIMAL_LESS); break;
@@ -9716,13 +9716,13 @@ static void layout_smoke_step(App *a,int *step) {
         grid_select_cell(&a->grid,0,0,false); a->grid.end_row=2; a->grid.end_col=2; run_action(a,ACTION_BOLD); break;
     case 135:
         if (!(format_at(&s->formats,0,1).flags&FORMAT_BOLD) || !a->page.cells[1].is_null || a->page.cells[4].is_null || strcmp(a->page.cells[4].text,"NULL") || *a->page.cells[7].text) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-format-null-literal-empty.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-format-null-literal-empty.png");
         a->selected_object=0; grid_select_cell(&a->grid,s->objects.items[0].row+2,s->objects.items[0].col,false); run_action(a,ACTION_ACCOUNTING); break;
     case 136:
         if (active_format(a).number!=FORMAT_ACCOUNTING || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-formatted-matrix.png"); break;
-    case 137: workspace_job(a,JOB_SAVE,"tests/generated/layout-formats.dxls"); break;
-    case 138: workspace_job(a,JOB_LOAD,"tests/generated/layout-formats.dxls"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-formatted-matrix.png"); break;
+    case 137: workspace_job(a,JOB_SAVE,"build/tests/generated/layout-formats.dxls"); break;
+    case 138: workspace_job(a,JOB_LOAD,"build/tests/generated/layout-formats.dxls"); break;
     case 139:
         if (!object_ready(a,0)) return;
         if (!s->formats.count || s->formats.undo_count || format_at(&s->formats,0,2).size!=16 || format_at(&s->formats,0,2).color!=3 || format_at(&s->formats,0,2).decimals || active_format(a).number!=FORMAT_ACCOUNTING) goto failed;
@@ -9732,7 +9732,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->ribbon_focus=true; a->ribbon_command=4; run_action(a,ACTION_FONT_SIZE); break;
     case 141:
         if (a->modal!=MODAL_FORMAT || active_format(a).size!=16) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-format-menu-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-format-menu-150.png"); break;
     case 142:
         if ((a->modal!=MODAL_NONE && a->modal!=MODAL_COMMANDS) ||
             !(a->ribbon_focus || (a->modal==MODAL_COMMANDS && a->ribbon_popup_group==1 && a->ribbon_popup_focus==1)) ||
@@ -9748,10 +9748,10 @@ static void layout_smoke_step(App *a,int *step) {
     case 145:
         if (format_at(&s->formats,0,2).size!=16 || a->request_id!=request) goto failed;
         a->selected_object=0; a->grid.selection=SELECT_CELLS; grid_select_cell(&a->grid,s->objects.items[0].row+2,s->objects.items[0].col,false); break;
-    case 146: smoke_snapshot("tests/results/workspace-layout/native-format-roundtrip-authoring.png"); break;
+    case 146: smoke_snapshot("build/tests/results/workspace-layout/native-format-roundtrip-authoring.png"); break;
     case 147:
         puts("PASS: real native Bold/Italic/Underline, font-size/color/number menus, center alignment, decimal controls, exact raw values and typed NULL/text/empty preservation, matrix formatting, chronological Undo/Redo, bounded whole-sheet formatting, menu Escape/focus return and version-12 save/reopen at 100/150 percent"); break;
-    case 148: workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+    case 148: workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 149:
         if (!object_ready(a,0)) return;
         if (a->page.total!=240 || a->page.column_count!=12 || a->objects[0].page.total!=30 || a->objects[0].page.column_count!=8 || s->objects.items[0].pivot.counts[PIVOT_VALUES]!=2) goto failed;
@@ -9759,7 +9759,7 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; author_cells=a->objects[0].page.cells; author_revision=s->objects.items[0].revision; break;
     case 150:
         if (!a->chart_view.valid || a->chart_view.categories!=3 || a->chart_view.series!=4 || fabs(a->chart_view.values[0][2]-335281.6)>.001 || a->author_plot.height<=0 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-definition-bars.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-definition-bars.png"); break;
     case 151:
         if (a->modal!=MODAL_CHART_MEASURE) goto failed;
         break;
@@ -9768,14 +9768,14 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     case 153:
         if (a->modal!=MODAL_NONE || s->objects.items[0].chart_measure!=1 || a->chart_view.measure!=1 || a->chart_view.values[0][2]!=9 || a->chart_view.values[3][0]!=61 || a->chart_view.values[3][2]!=64 || a->request_id!=request || a->objects[0].page.cells!=author_cells || s->objects.items[0].revision!=author_revision) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-definition-count.png"); history(a,false); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-definition-count.png"); history(a,false); break;
     case 154:
         if (s->objects.items[0].chart_measure || a->chart_view.measure || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         history(a,true); set_chart_mark(a,MARK_LINE); break;
     case 155:
         if (s->objects.items[0].chart_measure!=1 || s->objects.items[0].mark!=MARK_LINE || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-definition-line-count.png"); workspace_job(a,JOB_SAVE,"tests/generated/design-native-roundtrip.dxls"); break;
-    case 156: workspace_job(a,JOB_LOAD,"tests/generated/design-native-roundtrip.dxls"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-definition-line-count.png"); workspace_job(a,JOB_SAVE,"build/tests/generated/design-native-roundtrip.dxls"); break;
+    case 156: workspace_job(a,JOB_LOAD,"build/tests/generated/design-native-roundtrip.dxls"); break;
     case 157:
         if (!object_ready(a,0)) return;
         if (s->objects.items[0].chart_measure!=1 || s->objects.items[0].mark!=MARK_LINE) goto failed;
@@ -9783,7 +9783,7 @@ static void layout_smoke_step(App *a,int *step) {
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->grid.zoom=1.5f; a->grid.freeze=true; a->author_scroll=0; break;
     case 158:
         if (!a->source_preview.freeze || !a->source_preview.freeze_blocked || a->source_preview.frozen_columns!=2 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-frozen-crowded-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-frozen-crowded-150.png"); break;
     case 159:
         if (a->grid.freeze || a->source_preview.freeze || a->source_preview.freeze_blocked || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         run_action(a,ACTION_FREEZE); a->grid.zoom=1; ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
@@ -9792,19 +9792,19 @@ static void layout_smoke_step(App *a,int *step) {
         ribbon_top=(uint64_t)lroundf(grid_column_x(&a->source_preview,1,1)); break;
     case 161:
         if (a->source_preview.horizontal<=0 || (uint64_t)lroundf(grid_column_x(&a->source_preview,1,1))!=ribbon_top || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-frozen-preview-scrolled.png"); preview_to_source(a,0,1); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-frozen-preview-scrolled.png"); preview_to_source(a,0,1); break;
     case 162:
         if (selected_pivot(a) || !a->grid.freeze || a->grid.col!=1 || a->grid.row || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         a->grid.horizontal=350; grid_layout(&a->grid,1,&a->page,a->grid.rect); grid_reveal_column(&a->grid,&a->page,1,1,true);
         if (a->grid.horizontal!=350) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-frozen-source-scrolled.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-frozen-source-scrolled.png"); break;
     case 163:
         if (a->grid.horizontal!=350 || a->grid.col!=1 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         a->selected_object=0; a->pivot_focus=7; a->author_reveal=true; a->left_drawer=true; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
     case 164:
         if (!a->left_drawer || a->author_plot.height<=0 || a->author_plot.x<0 || a->author_plot.x+a->author_plot.width>GetScreenWidth()+1) goto failed;
         a->modal=MODAL_CHART_MEASURE; a->context_origin=(Vector2){a->author_plot.x,a->author_plot.y+a->author_plot.height}; a->context_focus=1; a->context_scroll=0; break;
-    case 165: smoke_snapshot("tests/results/workspace-layout/native-plot-menu-150.png"); break;
+    case 165: smoke_snapshot("build/tests/results/workspace-layout/native-plot-menu-150.png"); break;
     case 166:
         if (a->modal!=MODAL_NONE || a->pivot_focus!=7 || s->objects.items[0].chart_measure!=1 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); set_chart_measure(a,0); set_chart_mark(a,MARK_BAR); break;
@@ -9813,7 +9813,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->source_preview.horizontal=0; a->analysis_scroll=0; a->pivot_focus=0; set_representation(a,0); break;
     case 168:
         if (s->objects.items[0].kind!=OBJECT_PIVOT || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-definition-matrix.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-definition-matrix.png"); break;
     case 169: history(a,false); break;
     case 170:
         if (s->objects.items[0].kind!=OBJECT_CHART || s->objects.items[0].chart_measure || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
@@ -9828,13 +9828,13 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; author_cells=a->objects[0].page.cells; break;
     case 173:
         if (a->modal!=MODAL_MARKS || a->mark_role!=MARKS_COLOR || !a->author_marks[0].width) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-marks-color-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-marks-color-menu.png"); break;
     case 174:
         if (a->modal!=MODAL_NONE || s->objects.items[0].marks.counts[MARKS_COLOR]!=1 || strcmp(s->objects.items[0].marks.fields[MARKS_COLOR][0].name,"Account") || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         break;
     case 175:
         if (s->objects.items[0].marks.counts[MARKS_COLOR]!=2 || s->objects.items[0].pivot.counts[PIVOT_ROWS]!=2 || s->objects.items[0].pivot.counts[PIVOT_COLUMNS]!=3 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-marks-multiple-color.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-marks-multiple-color.png"); break;
     case 176:
         if (a->modal!=MODAL_MARKS || a->mark_role!=MARKS_LABEL) goto failed;
         break;
@@ -9858,21 +9858,21 @@ static void layout_smoke_step(App *a,int *step) {
         set_representation(a,0); break;
     case 183:
         if (s->objects.items[0].kind!=OBJECT_PIVOT || !s->objects.items[0].marks.counts[MARKS_LABEL] || a->request_id!=request) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/design-native-marks-roundtrip.dxls"); break;
-    case 184: workspace_job(a,JOB_LOAD,"tests/generated/design-native-marks-roundtrip.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/design-native-marks-roundtrip.dxls"); break;
+    case 184: workspace_job(a,JOB_LOAD,"build/tests/generated/design-native-marks-roundtrip.dxls"); break;
     case 185:
         if (!a->objects[0].page.column_count) return;
         if (s->objects.items[0].marks.counts[MARKS_COLOR] || s->objects.items[0].marks.counts[MARKS_LABEL]!=1 || s->objects.items[0].marks.counts[MARKS_SIZE]!=1 || s->objects.items[0].marks.fields[MARKS_SIZE][0].aggregate!=AGG_SUM || a->objects[0].page.total!=30 || a->page.total!=240) goto failed;
         request=a->request_id; author_cells=a->objects[0].page.cells; a->selected_object=0; a->pivot_focus=8; a->mark_role=MARKS_LABEL; a->author_reveal=true;
         break;
     case 186:
-        smoke_snapshot("tests/results/workspace-layout/native-marks-assigned-100.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-marks-assigned-100.png");
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); a->author_reveal=true; break;
     case 187:
         if (!a->left_drawer || !a->author_marks[MARKS_LABEL].width || a->author_marks[MARKS_LABEL].x<0 || a->author_marks[MARKS_LABEL].x+a->author_marks[MARKS_LABEL].width>GetScreenWidth()) goto failed;
         begin_marks(a,MARKS_LABEL,a->author_marks[MARKS_LABEL],false); break;
     case 188:
-        smoke_snapshot("tests/results/workspace-layout/native-marks-menu-150-narrow.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-marks-menu-150-narrow.png"); break;
     case 189:
         if (a->modal!=MODAL_NONE || a->pivot_focus!=8 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->pivot_focus=8; a->mark_role=MARKS_SIZE; a->author_reveal=true; break;
@@ -9896,7 +9896,7 @@ static void layout_smoke_step(App *a,int *step) {
     }
     case 195:
         if (!a->chart_encoding_line || !a->chart_encoding.active[MARKS_SHAPE] || a->chart_encoding.shapes[0][0]==a->chart_encoding.shapes[0][1] || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-encoded-line.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-encoded-line.png"); break;
     case 196: {
         MarkField amount={.name="Amount (USD)",.measure=true,.aggregate=AGG_SUM},currency={.name="Currency"};
         if (!assign_mark_field(a,MARKS_TOOLTIP,&amount) || !assign_mark_field(a,MARKS_TOOLTIP,&currency)) goto failed; break;
@@ -9908,7 +9908,7 @@ static void layout_smoke_step(App *a,int *step) {
     }
     case 198:
         if (a->chart_view.measure!=1 || !a->chart_encoding.active[MARKS_LABEL] || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-encoded-count-line.png"); set_representation(a,1); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-encoded-count-line.png"); set_representation(a,1); break;
     case 199:
         if (a->chart_encoding_line || a->chart_encoding.active[MARKS_SHAPE] || s->objects.items[0].marks.counts[MARKS_SHAPE]!=1 || a->request_id!=request) goto failed;
         break;
@@ -9918,8 +9918,8 @@ static void layout_smoke_step(App *a,int *step) {
     }
     case 201:
         if (!a->chart_encoding.active[MARKS_TOOLTIP] || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/design-native-encoded.dxls"); break;
-    case 202: workspace_job(a,JOB_LOAD,"tests/generated/design-native-encoded.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/design-native-encoded.dxls"); break;
+    case 202: workspace_job(a,JOB_LOAD,"build/tests/generated/design-native-encoded.dxls"); break;
     case 203:
         if (!a->objects[0].page.column_count) return;
         if (s->objects.items[0].chart_measure!=1 || s->objects.items[0].mark!=MARK_BAR || s->objects.items[0].marks.counts[MARKS_SHAPE]!=1 || s->objects.items[0].marks.counts[MARKS_TOOLTIP]!=1 || s->objects.items[0].marks.counts[MARKS_DETAIL]!=1 || a->objects[0].page.total!=30) goto failed;
@@ -9928,7 +9928,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (!a->chart_encoding.active[MARKS_SHAPE] || !a->chart_encoding.active[MARKS_COLOR] || !a->chart_encoding.active[MARKS_SIZE] || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->analysis_scroll=0; break;
     case 205:
-        smoke_snapshot("tests/results/workspace-layout/native-encoded-line-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-encoded-line-150-narrow.png"); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
     case 206: {
         MarkDefinition empty={0}; if (!set_marks(a,&empty)) goto failed; break;
     }
@@ -9943,10 +9943,10 @@ static void layout_smoke_step(App *a,int *step) {
     }
     case 209:
         if (a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-matrix-grand-total.png"); a->matrix_horizontal=10000; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-matrix-grand-total.png"); a->matrix_horizontal=10000; break;
     case 210:
         if (a->matrix_horizontal<=200 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-matrix-total-columns.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-matrix-total-columns.png");
         matrix_key(a,&s->objects.items[0],&a->objects[0].page,KEY_DOWN,false); break;
     case 211:
         if (a->matrix_cells_active || a->grid.anchor_row!=s->objects.items[0].row || a->grid.end_row!=s->objects.items[0].row+s->objects.items[0].rows-1 || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
@@ -9955,9 +9955,9 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->matrix_cells_active || a->request_id!=request) goto failed;
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->analysis_scroll=500; break;
     case 213:
-        smoke_snapshot("tests/results/workspace-layout/native-matrix-totals-narrow-150.png");
-        ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->analysis_scroll=0; workspace_job(a,JOB_SAVE,"tests/generated/design-native-totals.dxls"); break;
-    case 214: workspace_job(a,JOB_LOAD,"tests/generated/design-native-totals.dxls"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-matrix-totals-narrow-150.png");
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->analysis_scroll=0; workspace_job(a,JOB_SAVE,"build/tests/generated/design-native-totals.dxls"); break;
+    case 214: workspace_job(a,JOB_LOAD,"build/tests/generated/design-native-totals.dxls"); break;
     case 215:
         if (!a->objects[0].page.column_count) return;
         if (!a->objects[0].page.totals || strcmp(a->objects[0].page.totals->columns.cells[6].text,"-1288834.30") || a->objects[0].page.total!=30 || a->objects[0].page.column_count!=8) goto failed;
@@ -9969,10 +9969,10 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     case 218:
         if (a->pipeline_focus_index!=1 || a->chrome_focus!=8 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-inspector-steps.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-inspector-steps.png"); break;
     case 219:
         if (a->modal!=MODAL_STEP || a->step_menu_index!=1 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-inspector-step-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-inspector-step-menu.png"); break;
     case 220:
         if (a->modal!=MODAL_NONE || a->chrome_focus!=8 || a->pipeline_focus_index!=1 || a->request_id!=request) goto failed;
         if (!pipeline_step_change(a,1,1,false)) goto failed; break;
@@ -9990,7 +9990,7 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; REVIEW_SQL_CLEAR(a); free(a->sql_text); a->sql_text=dx_strdup("Unrelated dialog SQL"); break;
     case 225:
         if (!a->pipeline_sql || !a->inspector_sql_text || !a->inspector_sql_lines.count || a->inspector_sql_lines.font_size!=12 || a->pipeline_extent!=340 || a->pipeline_width!=280 || strcmp(a->sql_text,"Unrelated dialog SQL") || strstr(a->inspector_sql_text,"PIVOT") || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-inspector-sql.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-inspector-sql.png"); break;
     case 226:
         if (!a->pipeline_sql || strcmp(GetClipboardText(),a->inspector_sql_text) || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         break;
@@ -9999,13 +9999,13 @@ static void layout_smoke_step(App *a,int *step) {
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->chrome_focus=8; break;
     case 228:
         if (!a->pipeline_layout.valid || !a->pipeline_layout.compact || a->pipeline_layout.edit.x+a->pipeline_layout.edit.width>GetScreenWidth()+1 || a->pipeline_focus_index<a->step_scroll || a->pipeline_focus_index>=a->step_scroll+a->pipeline_visible_rows || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-inspector-steps-narrow-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-inspector-steps-narrow-150.png"); break;
     case 229:
         if (a->pipeline_sql || a->chrome_focus!=8 || a->pipeline_focus_index!=1 || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
         pipeline_show_sql(a); break;
     case 230:
         if (!a->pipeline_sql || !a->pipeline_layout.valid || a->pipeline_layout.copy.x+a->pipeline_layout.copy.width>GetScreenWidth()+1 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-inspector-sql-narrow-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); present_pipeline(a,false,false); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-inspector-sql-narrow-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); present_pipeline(a,false,false); break;
     case 231:
         if (a->pipeline || a->pipeline_extent>1 || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || strcmp(a->sql_text,"Unrelated dialog SQL")) goto failed;
         puts("PASS: native study inspector rows/details/source, exact filter labels, step context menu/cancel, query-free filter reorder/Undo, real criteria editing, separately owned wrapped SQL and keyboard copy/Steps, retained source/result cache and 150 percent narrow actions"); break;
@@ -10016,7 +10016,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 233:
         if (!a->step_preview.active) return;
         if (!a->step_preview.active || a->step_preview.loading || a->step_preview.page.total!=310 || a->step_preview.page.column_count!=12 || a->step_preview.source.filter_column || a->page.total!=240 || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-step-preview.png"); request=a->request_id; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-step-preview.png"); request=a->request_id; break;
     case 234:
         if (a->step_preview.grid.row!=1 || a->step_preview.grid.col || a->chrome_focus || a->request_id!=request) goto failed; break;
     case 235:
@@ -10038,7 +10038,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 242: {
         Grid *grid=&a->step_preview.grid; UIPreviewLayout layout=ui_preview_layout(grid->rect,1.5f);
         if (fabsf(grid->zoom-1.2f)>.01f || a->grid.zoom!=preview_live_grid.zoom || !layout.valid || grid->rect.x || grid->rect.x+grid->rect.width>640 || grid->rect.y+grid->rect.height>640-22*1.5f+.1f || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-step-preview-narrow-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-step-preview-narrow-150.png"); break;
     }
     case 243:
         if (a->step_preview.active || a->page.total!=240 || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->grid.row!=preview_live_grid.row || a->grid.col!=preview_live_grid.col || a->grid.top!=preview_live_grid.top || a->grid.horizontal!=preview_live_grid.horizontal || a->book.dirty!=ribbon_dirty || a->request_id!=request) goto failed;
@@ -10087,7 +10087,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 251:
         if (a->statistics_state!=STATS_READY) return;
         if (a->modal!=MODAL_STATISTICS || !a->statistics_layout.valid || a->statistics_layout.panel.width!=244 || a->statistics_layout.panel.height!=312 || a->statistics.numeric!=4 || strcmp(a->statistics.sum,"-224.62") || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-statistics-popover.png"); request=a->request_id; preview_root_sum=a->statistics.sum; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-statistics-popover.png"); request=a->request_id; preview_root_sum=a->statistics.sum; break;
     case 252:
         if (a->statistics_mask!=51 || a->statistics_focus!=1 || a->statistics.sum!=preview_root_sum || a->request_id!=request || a->book.dirty!=ribbon_dirty) goto failed; break;
     case 253:
@@ -10097,7 +10097,7 @@ static void layout_smoke_step(App *a,int *step) {
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); open_statistics(a); break;
     case 255:
         if (!a->statistics_layout.valid || a->statistics_layout.panel.width!=244*1.5f || a->statistics_layout.panel.x+a->statistics_layout.panel.width>640 || a->statistics_layout.panel.y+a->statistics_layout.panel.height>640 || a->statistics.sum!=preview_root_sum || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-statistics-popover-narrow-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-statistics-popover-narrow-150.png"); break;
     case 256:
         if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
@@ -10110,7 +10110,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 259:
         if (a->step_preview.stats_state!=PREVIEW_STATS_READY) return;
         if (a->modal!=MODAL_STATISTICS || a->step_preview.statistics.numeric!=4 || strcmp(a->step_preview.statistics.sum,"-224.62") || a->statistics.sum!=preview_root_sum || a->page.cells!=ribbon_cells || a->book.dirty!=ribbon_dirty) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-preview-statistics.png"); request=a->request_id; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-preview-statistics.png"); request=a->request_id; break;
     case 260:
         if (!strstr(GetClipboardText(),"Sum\t-224.62") || a->request_id!=request || a->statistics.sum!=preview_root_sum || !a->step_preview.active) goto failed; break;
     case 261:
@@ -10123,7 +10123,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->ribbon_tab=RIBBON_DATA; present_pipeline(a,true,false); run_action(a,ACTION_GUIDE); request=a->request_id; break;
     case 265:
         if (a->modal!=MODAL_GUIDE || !a->guide.layout.valid || a->guide.layout.panel.width!=520 || a->guide.layout.header.height!=36 || a->guide.layout.names[0].x+90>a->guide.layout.descriptions[0].x || a->guide.scroll || a->guide.focus || a->page.cells!=ribbon_cells || a->book.dirty!=ribbon_dirty || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-guide.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-guide.png"); break;
     case 266:
         if (a->guide.focus!=1 || a->guide.scroll || a->modal!=MODAL_GUIDE || a->request_id!=request) goto failed; break;
     case 267:
@@ -10133,10 +10133,10 @@ static void layout_smoke_step(App *a,int *step) {
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
     case 269:
         if (!a->guide.layout.valid || a->guide.layout.panel.x<0 || a->guide.layout.panel.y<0 || a->guide.layout.panel.x+a->guide.layout.panel.width>640 || a->guide.layout.panel.y+a->guide.layout.panel.height>640 || a->guide.layout.content_height<=a->guide.layout.panel.height/1.5f || a->guide.scroll || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-guide-narrow-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-guide-narrow-150.png"); break;
     case 270:
         if (a->guide.focus!=1 || a->guide.scroll<=0 || a->guide.layout.start.y+a->guide.layout.start.height-a->guide.scroll*1.5f>a->guide.layout.clip.y+a->guide.layout.clip.height+.1f || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-guide-narrow-footer-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-guide-narrow-footer-150.png"); break;
     case 271:
         if (a->guide.focus || a->guide.scroll>8 || a->request_id!=request) goto failed; break;
     case 272:
@@ -10154,7 +10154,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 277: {
         UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,4,-1);
         if (a->modal!=MODAL_INTERFACE_SCALE || a->context_focus!=3 || menu.panel.width!=240 || menu.panel.height!=152 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-interface-scale-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-interface-scale-menu.png"); break;
     }
     case 278:
         if (a->modal!=MODAL_NONE || a->ui.scale!=1.5f || a->grid.zoom!=preview_live_grid.zoom || a->page.cells!=ribbon_cells || a->request_id!=request || s->undo_actions_count!=preview_live_history) goto failed;
@@ -10162,26 +10162,26 @@ static void layout_smoke_step(App *a,int *step) {
     case 279: {
         UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){640,640},a->ui.scale,4,-1);
         if (!menu.valid || menu.panel.width!=360 || menu.panel.x<0 || menu.panel.y<0 || menu.panel.x+menu.panel.width>640 || menu.panel.y+menu.panel.height>640) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-interface-scale-menu-narrow-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-interface-scale-menu-narrow-150.png"); break;
     }
     case 280:
         if (a->modal!=MODAL_NONE || a->ui.scale!=1 || a->grid.zoom!=preview_live_grid.zoom || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         SetWindowSize(1440,988); a->ribbon_tab=RIBBON_VIEW; invoke_command(a,ui_ribbon_action_index(RIBBON_VIEW,ACTION_DENSITY)); break;
     case 281:
         if (a->modal!=MODAL_DENSITY || a->context_focus || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-row-density-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-row-density-menu.png"); break;
     case 282:
         if (a->modal!=MODAL_NONE || a->grid.row_height!=28 || a->request_id!=request || a->grid.zoom!=preview_live_grid.zoom || a->page.cells!=ribbon_cells) goto failed;
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->context_origin=(Vector2){600,600}; run_action(a,ACTION_DENSITY); break;
     case 283:
         if (a->modal!=MODAL_DENSITY || a->ui.scale!=1.5f || a->grid.row_height!=28) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-row-density-menu-narrow-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-row-density-menu-narrow-150.png"); break;
     case 284:
         if (a->modal!=MODAL_NONE || a->grid.row_height!=22 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->grid.row_height=preview_live_grid.row_height; a->ribbon_tab=RIBBON_HOME; a->modal=MODAL_RIBBON; a->ribbon_menu_focus=0; break;
     case 285:
         if (a->modal!=MODAL_RIBBON || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-ribbon-display-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-ribbon-display-menu.png"); break;
     case 286:
         if (a->modal!=MODAL_NONE || a->ribbon_mode!=1 || a->request_id!=request || a->grid.zoom!=preview_live_grid.zoom) goto failed;
         a->modal=MODAL_RIBBON; a->ribbon_menu_focus=1; break;
@@ -10203,7 +10203,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 292:
         if (a->statistics_state!=STATS_READY) return;
         if (a->modal!=MODAL_STATISTICS || a->statistics.numeric!=4 || strcmp(a->statistics.sum,"-224.62") || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-source-field-to-range-statistics.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-source-field-to-range-statistics.png"); break;
     case 293:
         if (a->modal!=MODAL_NONE || a->grid.anchor_row!=5 || a->grid.end_row!=8 || a->grid.anchor_col!=5 || a->grid.end_col!=5 || a->page.cells!=ribbon_cells) goto failed;
         puts("PASS: completed source range drag immediately after Fields navigation transfers keyboard focus, preserves the live cache, selects four real Amount cells and calculates the actual filtered sum"); break;
@@ -10212,15 +10212,15 @@ static void layout_smoke_step(App *a,int *step) {
         a->ribbon_tab=RIBBON_HOME; a->ribbon_focus=false; open_command_group(a,1,0); break;
     case 295:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=1 || a->ribbon_popup_focus!=1 || !a->ribbon_flyout.valid || a->ribbon_flyout.panel.width!=280 || a->ribbon_flyout.panel.height!=125 || a->ribbon_flyout.commands[4].width!=53 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-font-group-flyout.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-font-group-flyout.png"); break;
     case 296:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=1 || active_format(a).flags!=(flyout_format.flags^FORMAT_BOLD) || a->request_id!=request || s->undo_actions_count!=preview_live_history+1) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-font-group-bold.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-font-group-bold.png"); break;
     case 297:
         if (a->modal!=MODAL_FORMAT || a->format_return_group!=1 || a->format_return_command!=4 || a->request_id!=request) goto failed; break;
     case 298:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=1 || active_format(a).size!=16 || s->undo_actions_count!=preview_live_history+2 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-font-group-size.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-font-group-size.png"); break;
     case 299:
         if (a->modal!=MODAL_NONE || !a->ribbon_focus || a->ribbon_command!=4 || a->request_id!=request) goto failed;
         history(a,false); history(a,false);
@@ -10228,7 +10228,7 @@ static void layout_smoke_step(App *a,int *step) {
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); open_command_group(a,3,0); break;
     case 300:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=3 || a->ribbon_flyout.panel.width!=420 || a->ribbon_flyout.panel.height!=187.5f || a->ribbon_flyout.panel.x<0 || a->ribbon_flyout.panel.y+a->ribbon_flyout.panel.height>640 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-number-group-narrow-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-number-group-narrow-150.png"); break;
     case 301:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=3 || active_format(a).decimals!=flyout_format.decimals+1 || a->request_id!=request || s->undo_actions_count!=preview_live_history+1) goto failed; break;
     case 302:
@@ -10239,7 +10239,7 @@ static void layout_smoke_step(App *a,int *step) {
         open_command_group(a,4,0); break;
     case 304:
         if (!a->ribbon_flyout.valid || a->ribbon_flyout.panel.width!=280 || a->ribbon_flyout.panel.height!=122 || a->ribbon_flyout.commands[19].x+a->ribbon_flyout.commands[19].width>a->ribbon_flyout.commands[20].x || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-data-group-flyout.png"); close_command_group(a);
+        smoke_snapshot("build/tests/results/workspace-layout/native-data-group-flyout.png"); close_command_group(a);
         puts("PASS: exact spatial native ribbon group flyouts, Font/Number selectors and icon tools, disabled-label keyboard skipping, retained formatting toggles, nested size picker returning to its group, pointer input/Undo and bounded 150 percent geometry without source SQL/cache changes"); break;
     case 305:
         a->ribbon_focus=false; a->selected_object=-1; a->sidebar=a->fields_visible=true; a->workbook_collapsed=a->fields_collapsed=false;
@@ -10247,16 +10247,16 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; preview_live_grid=a->grid; break;
     case 306:
         if (a->workspace.context.y!=137 || a->workbook_list.x!=6 || a->workbook_list.y!=166 || a->workbook_list.width!=215 || a->workbook_list.height!=115 || a->field_list.x!=6 || a->field_list.y!=379 || a->field_list.width!=215 || a->field_footer.y!=923 || a->field_footer.height!=43 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-fields-footer.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-fields-footer.png"); break;
     case 307:
         if (a->modal!=MODAL_FIELD_NAV || a->pivot_field!=5 || a->grid.anchor_row!=preview_live_grid.anchor_row || a->grid.end_row!=preview_live_grid.end_row || a->grid.anchor_col!=preview_live_grid.anchor_col || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-field-more-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-field-more-menu.png"); break;
     case 308:
         if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); break;
     case 309:
         if (!a->workspace.left_overlay || a->field_footer.height || a->field_visible<1 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-fields-narrow-actions-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-fields-narrow-actions-150.png"); break;
     case 310:
         close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
         puts("PASS: measured 29-unit Workbook/Fields headers, 28-unit sheets with one-unit gaps, 26-unit search and 24-unit field rows, wide two-line footer, visible field actions preserving source selection, and recoverable narrow 150 percent navigation without SQL/cache changes"); break;
@@ -10266,12 +10266,12 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; author_cells=a->objects[0].page.cells; break;
     case 312:
         if (!a->dock_layout.valid || !a->dock_layout.compact || a->dock_layout.content.height<555*1.5f || a->dock_layout.maximum<=0 || a->field_footer.height || a->workbook_list.height!=84*1.5f || a->field_visible<4 || a->request_id!=request || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-scroll-dock-fields-150.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-scroll-dock-fields-150.png");
         a->pivot_focus=8; a->mark_role=MARKS_SHAPE; a->author_reveal=true; break;
     case 313: {
         Rectangle target=a->author_marks[MARKS_SHAPE],viewport=a->dock_layout.viewport;
         if (a->dock_scroll[1]<=0 || target.y<viewport.y-.1f || target.y+target.height>viewport.y+viewport.height+.1f || a->request_id!=request || a->ui.scissor_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-scroll-dock-marks-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-scroll-dock-marks-150.png"); break;
     }
     case 314:
         if (fabsf(a->dock_scroll[1]-a->dock_layout.maximum)>.05f || a->request_id!=request) goto failed;
@@ -10279,7 +10279,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 315: {
         Rectangle target=a->pivot_shelves[PIVOT_FILTERS],viewport=a->dock_layout.viewport;
         if (target.y<viewport.y-.1f || target.y+target.height>viewport.y+viewport.height+.1f || a->request_id!=request || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-scroll-dock-filters-150.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-scroll-dock-filters-150.png");
         a->pivot_focus=1; a->pivot_search_focus=false; a->pivot_field=0; break;
     }
     case 316: {
@@ -10289,7 +10289,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 317: {
         Rectangle viewport=a->dock_layout.viewport; float search=a->field_list.y-31*1.5f;
         if (!a->pivot_search_focus || search<viewport.y-.1f || search+26*1.5f>viewport.y+viewport.height+.1f || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-scroll-dock-search-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-scroll-dock-search-150.png"); break;
     }
     case 318:
         a->pivot_search_focus=false; close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->pivot_focus=0; break;
@@ -10302,7 +10302,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 321:
         if (a->statistics_state!=STATS_READY) return;
         if (!a->status_layout.valid || a->status_layout.zoom.width!=92 || a->status_layout.zoom.height!=19 || a->status_layout.customize.width!=23 || a->status_layout.panel.y!=966 || !strstr(a->statistics_line,"Count: 4") || !strstr(a->statistics_line,"Sum: (224.62)") || !strstr(a->statistics_line,"Avg: (56.16)") || a->status_metric_labels.count!=3 || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-status-numbers.png"); request=a->request_id; preview_root_sum=a->statistics.sum;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-status-numbers.png"); request=a->request_id; preview_root_sum=a->statistics.sum;
         zoom_canvas(a,1.1f,(Vector2){a->grid.body.x,a->grid.body.y}); break;
     case 322:
         if (a->grid.zoom!=1 || a->ui.scale!=1 || a->request_id!=request || a->statistics.sum!=preview_root_sum) goto failed;
@@ -10320,12 +10320,12 @@ static void layout_smoke_step(App *a,int *step) {
         ribbon_dirty=a->book.dirty; a->book.dirty=false; a->status_focus=3; status_activate(a); break;
     case 328:
         if (a->modal!=MODAL_NONE || a->ui.scale!=1.5f || a->grid.zoom!=1 || a->book.dirty || a->request_id!=request || a->statistics.sum!=preview_root_sum) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-status-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-status-150.png"); break;
     case 329:
         ui_set_scale(&a->ui,1); a->book.dirty=ribbon_dirty; a->chrome_focus=0; preview_live_grid=a->grid; status(a,"Selection copied"); break;
     case 330:
         if (a->toast_rect.width<=0 || a->toast_rect.height!=35 || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-action-toast.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-action-toast.png"); break;
     case 331:
         if (a->grid.anchor_row!=preview_live_grid.anchor_row || a->grid.end_row!=preview_live_grid.end_row || a->grid.anchor_col!=preview_live_grid.anchor_col || a->grid.end_col!=preview_live_grid.end_col || a->request_id!=request || a->statistics.sum!=preview_root_sum) goto failed;
         a->message_since=dx_millis()-4000; break;
@@ -10346,12 +10346,12 @@ static void layout_smoke_step(App *a,int *step) {
     case 336: {
         UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,9,3);
         if (a->modal!=MODAL_FIELD_NAV || !menu.valid || menu.panel.width!=240 || menu.panel.height!=301 || menu.rows[3].y-menu.rows[2].y!=37 || a->grid.anchor_row!=preview_live_grid.anchor_row || a->grid.end_row!=preview_live_grid.end_row || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-field-menu.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-field-menu.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
     }
     case 337: {
         UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,9,3);
         if (!menu.valid || menu.panel.width!=360 || menu.panel.y+menu.panel.height>640 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-field-menu-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-field-menu-150.png"); break;
     }
     case 338:
         if (a->modal!=MODAL_NONE || a->request_id!=request || a->grid.anchor_row!=preview_live_grid.anchor_row || a->grid.end_row!=preview_live_grid.end_row) goto failed;
@@ -10370,7 +10370,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 343:
         if (!object_ready(a,0)) return;
         if (s->objects.items[0].pivot.counts[PIVOT_ROWS]!=3 || strcmp(s->objects.items[0].pivot.fields[PIVOT_ROWS][2].name,"Region") || !strstr(a->objects[0].page.sql,"PIVOT") || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-field-add-rows.png"); history(a,false); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-field-add-rows.png"); history(a,false); break;
     case 344:
         if (!object_ready(a,0)) return;
         if (s->objects.items[0].pivot.counts[PIVOT_ROWS]!=2 || a->page.cells!=ribbon_cells) goto failed;
@@ -10393,7 +10393,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 350: {
         DistinctPage *values=cached_values(a,0); if (!values) return;
         if (a->modal!=MODAL_FILTER || !values->count || a->page.cells!=ribbon_cells || strcmp(values->values[0].label,"Posted")) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-field-view-filter.png"); close_filter(a); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-field-view-filter.png"); close_filter(a); break;
     }
     case 351:
         if (!object_ready(a,0)) return;
@@ -10432,7 +10432,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->split_side=false; a->sidebar_width=228; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); break;
     case 362:
         if (!a->workspace.left_overlay || a->workspace.canvas.x || a->left_extent!=228 || a->dock_layout.content.width!=(a->dock_layout.maximum>0 ? 328.5f : 342) || a->request_id!=request || a->ui.scissor_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-motion-overlay-150.png"); close_workspace(a); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-motion-overlay-150.png"); close_workspace(a); break;
     case 363:
         if (a->left_extent || a->left_drawer || !a->sidebar || !a->fields_visible || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988); present_pipeline(a,true,false); break;
@@ -10455,7 +10455,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->diagnostics=false; a->reduced_motion=false; a->workbook_collapsed=true; break;
     case 370:
         if (!(pane_motion_evidence&16) || a->workbook_open || a->workbook_list.height || a->workbook_visible_rows || a->field_list.y!=234 || a->request_id!=request || a->ui.scissor_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-workbook-collapsed.png"); a->workbook_collapsed=false; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-workbook-collapsed.png"); a->workbook_collapsed=false; break;
     case 371:
         if (!(pane_motion_evidence&32) || a->workbook_open!=1 || a->field_list.y!=379 || a->request_id!=request) goto failed;
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); break;
@@ -10489,21 +10489,21 @@ static void layout_smoke_step(App *a,int *step) {
     case 380:
         if (!object_ready(a,0)) return;
         if (a->pivot_contents[PIVOT_COLUMNS].x!=329 || a->pivot_contents[PIVOT_ROWS].x!=329 || fabsf(a->pivot_token_widths[PIVOT_ROWS][0]-(ui_measure(&a->ui,"Account",11)+52))>.001f || a->ui.pointer_blocked || a->ui.scissor_depth) goto failed;
-        request=a->request_id; author_cells=a->objects[0].page.cells; smoke_snapshot("tests/results/workspace-layout/native-matched-shelves-100.png");
+        request=a->request_id; author_cells=a->objects[0].page.cells; smoke_snapshot("build/tests/results/workspace-layout/native-matched-shelves-100.png");
         field_actions_count=a->message_revision; begin_field_menu(a,5,(Vector2){202,521}); break;
     case 381:
         if (a->modal!=MODAL_FIELD_NAV || !action_available(a,ACTION_COPY) || action_available(a,ACTION_CUT) || action_enabled(a,ACTION_COPY) || !a->ui.pointer_blocked || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-modal-ribbon-paint.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-modal-ribbon-paint.png"); break;
     case 382:
         if (a->modal!=MODAL_NONE || a->message_revision!=field_actions_count || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         SetWindowSize(1280,820); break;
     case 383:
         if (a->workbook_visible_rows!=4 || a->workbook_stride!=21.25f || a->workbook_row_height!=20.25f || a->workbook_list.height!=84 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-matched-1280.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-matched-1280.png");
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); show_workspace(a); break;
     case 384:
         if (!a->workspace.left_overlay || a->workbook_visible_rows!=4 || a->workbook_stride!=21.25f || a->workbook_row_height!=20.25f || a->pivot_contents[PIVOT_COLUMNS].x!=126 || a->request_id!=request || a->ui.scissor_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-matched-compact-150.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-matched-compact-150.png");
         close_workspace(a); ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
     case 385:
         if (a->request_id!=request || a->objects[0].page.cells!=author_cells || a->page.cells!=ribbon_cells || a->ui.pointer_blocked || a->ui.scissor_depth) goto failed; break;
@@ -10526,7 +10526,7 @@ static void layout_smoke_step(App *a,int *step) {
         present_pipeline(a,true,false); break;
     case 393:
         if (a->pipeline_extent!=280 || a->pipeline_alpha!=1 || a->ui.paint_depth || a->ui.scissor_depth || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-composited-panes-100.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-composited-panes-100.png"); break;
     case 394:
         present_pipeline(a,false,false); break;
     case 395:
@@ -10540,7 +10540,7 @@ static void layout_smoke_step(App *a,int *step) {
         show_workspace(a); break;
     case 398:
         if (!a->workspace.left_overlay || a->left_extent!=228 || a->left_alpha!=1 || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-composited-overlay-150.png"); paint_allocations=a->ui.paint_allocations; paint_bytes=a->ui.paint_bytes;
+        smoke_snapshot("build/tests/results/workspace-layout/native-composited-overlay-150.png"); paint_allocations=a->ui.paint_allocations; paint_bytes=a->ui.paint_bytes;
         a->reduced_motion=true; ui_set_scale(&a->ui,1); SetWindowSize(1440,988); close_workspace(a); break;
     case 399:
         if (a->ui.paint_allocations!=paint_allocations || a->ui.paint_bytes!=paint_bytes || a->ui.paint_bytes>UI_PAINT_TOTAL_BYTES || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer() || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
@@ -10555,14 +10555,14 @@ static void layout_smoke_step(App *a,int *step) {
         begin_field_menu(a,5,(Vector2){193,461}); break;
     case 402:
         if (!(pane_motion_evidence&256) || a->modal!=MODAL_FIELD_NAV || !a->popup_image.layout.valid || a->popup_presence.alpha!=1 || a->popup_presence.offset || a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer()) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-field-composited.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-field-composited.png"); break;
     case 403:
         if (!(pane_motion_evidence&512) || a->modal!=MODAL_NONE || a->popup_presence.visible || a->popup_image.layout.valid || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed; break;
     case 404:
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); begin_field_menu(a,5,(Vector2){620,610}); break;
     case 405:
         if (a->modal!=MODAL_FIELD_NAV || a->popup_presence.alpha!=1 || !a->popup_image.layout.valid || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || a->ui.paint_bytes>UI_PAINT_TOTAL_BYTES) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-popup-retina-150.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-popup-retina-150.png");
         a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1440,988); break;
     case 406:
         if (a->popup_image.layout.valid || a->popup_presence.visible) goto failed;
@@ -10575,7 +10575,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->ribbon_tab=0; a->ribbon_layout.valid=false; open_command_group(a,1,0); break;
     case 409:
         if (a->modal!=MODAL_COMMANDS || !a->ribbon_flyout.valid || !a->popup_image.layout.valid || a->ui.paint_depth || a->ui.scissor_depth || rlGetActiveFramebuffer()) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-font-composited.png"); close_command_group(a); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-font-composited.png"); close_command_group(a); break;
     case 410:
         if (a->modal!=MODAL_NONE || a->popup_presence.visible || a->popup_image.layout.valid || a->ui.paint_fallbacks || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         paint_allocations=a->ui.paint_allocations; paint_bytes=a->ui.paint_bytes; break;
@@ -10590,7 +10590,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->selected_object=0; a->pivot_focus=2; break;
     case 414:
         if (!(pane_motion_evidence&1024) || !a->author_context_active || a->author_context_progress!=1 || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || a->ui.paint_bytes>UI_PAINT_TOTAL_BYTES || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-context-composited.png"); preview_to_source(a,5,5); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-context-composited.png"); preview_to_source(a,5,5); break;
     case 415:
         if (a->author_context_active || a->author_context_progress || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         puts("PASS: exact 140 ms contextual identity/shelf group fade and three-unit translation, immediate return to source, dedicated bounded short-wide target and unchanged source result"); break;
@@ -10603,7 +10603,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 417:
         if (!cached_values(a,0)) return;
         if (a->modal!=MODAL_FILTER || a->filter_pill!=-1 || s->objects.items[0].pivot.counts[PIVOT_FILTERS] || s->objects.items[0].revision!=draft_revision || s->undo_actions_count!=draft_history || a->objects[0].page.cells!=author_cells || a->objects[0].page.total!=30 || a->book.dirty!=draft_dirty || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-view-filter-draft.png"); close_filter(a); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-view-filter-draft.png"); close_filter(a); break;
     case 418:
         if (s->undo_actions_count!=draft_history || a->objects[0].page.cells!=author_cells || a->book.dirty!=draft_dirty || s->objects.items[0].pivot.counts[PIVOT_FILTERS]) goto failed;
         open_view_filter_field(a,5); apply_filter_definition(a,true);
@@ -10617,7 +10617,7 @@ static void layout_smoke_step(App *a,int *step) {
         Page *result=&a->objects[0].page; double sum=0;
         for (size_t i=0;i<result->row_count*result->column_count;i++) if (!result->cells[i].is_null && result->columns[i%result->column_count].numeric) sum+=result->cells[i].number;
         if (result->total!=1 || fabs(sum-128451)>.001 || !result->sql || !strstr(result->sql,"PIVOT") || s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=1 || s->undo_actions_count!=draft_history+1 || a->page.cells!=ribbon_cells || a->page.total!=240) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-view-filter-applied.png"); open_pivot_filter(a,0); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-view-filter-applied.png"); open_pivot_filter(a,0); break;
     }
     case 421:
         apply_filter_definition(a,true); break;
@@ -10638,7 +10638,7 @@ static void layout_smoke_step(App *a,int *step) {
 
     case 426:
         shelf_file_phase=0;
-        workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 427:
         if (!object_ready(a,0)) { a->selected_object=0; return; }
         a->reduced_motion=true; a->sidebar=a->fields_visible=true; a->workbook_collapsed=false; a->sidebar_width=228; a->pipeline_width=280;
@@ -10648,11 +10648,11 @@ static void layout_smoke_step(App *a,int *step) {
         UIMarksLayout *m=&a->author_marks_layout;
         if (!m->valid || !m->scrollable || m->panel.y!=553 || m->panel.width!=227 || m->panel.height!=245 || m->representation.x!=10 || m->representation.y!=583 || m->representation.width!=198 || m->representation.height!=26 || m->measures[0].y!=633 || m->measures[1].y!=659 || m->targets[0].x!=10 || m->targets[0].y!=688 || m->targets[0].width!=64 || m->filter_heading.y!=787 || m->inherited.y!=839 || fabsf(m->content_height-306.5f)>.01f) goto failed;
         request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-marks-100.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-marks-100.png"); break;
     }
     case 429:
         if (fabsf(a->author_scroll-a->author_marks_layout.maximum)>.01f || a->author_marks_layout.heading.y+a->author_marks_layout.heading.height>=a->author_marks_layout.viewport.y || a->ui.scissor_depth || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-marks-complete-scroll.png"); a->pivot_focus=6; a->chrome_focus=0; a->ribbon_focus=false; a->author_reveal=true; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-marks-complete-scroll.png"); a->pivot_focus=6; a->chrome_focus=0; a->ribbon_focus=false; a->author_reveal=true; break;
     case 430:
         if (a->author_marks_layout.representation.y<a->author_marks_layout.viewport.y-.01f || a->author_marks_layout.representation.y+a->author_marks_layout.representation.height>a->author_marks_layout.viewport.y+a->author_marks_layout.viewport.height+.01f || a->request_id!=request) goto failed; break;
     case 431:
@@ -10667,7 +10667,7 @@ static void layout_smoke_step(App *a,int *step) {
         Image frame=LoadImageFromScreen(); Vector2 dpi=GetWindowScaleDPI();
         Color veil=GetImageColor(frame,(int)((GetScreenWidth()-5)*dpi.x),(int)((a->workspace.context.y+15)*dpi.y)); UnloadImage(frame);
         if (veil.r<150 || veil.g<150 || veil.b<150) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-marks-overlay-150.png"); a->fields_visible=false; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-marks-overlay-150.png"); a->fields_visible=false; break;
     case 434:
         if (a->field_list.height || a->author_panel.height>245*1.5f+.01f || a->request_id!=request) goto failed;
         a->fields_visible=true; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->author_scroll=a->dock_scroll[1]=0; close_workspace(a); break;
@@ -10680,7 +10680,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 437: {
         const UIShelfLayout *cols=&a->axis_shelves[PIVOT_COLUMNS],*rows=&a->axis_shelves[PIVOT_ROWS];
         if (a->pivot_value!=2 || a->workspace.context.height!=115*1.5f || cols->panel.height!=58*1.5f || rows->panel.height!=30*1.5f || cols->tokens[2].y-cols->tokens[0].y!=28*1.5f || cols->add.y!=cols->tokens[2].y || rows->add.x+rows->add.width>640 || a->workspace.canvas.y!=a->workspace.context.y+a->workspace.context.height || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-wrapped-shelves-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-wrapped-shelves-150.png"); break;
     }
     case 438:
         if (a->modal!=MODAL_ASSIGN_FIELD || a->pivot_role!=PIVOT_COLUMNS || a->request_id!=request || a->book.dirty!=draft_dirty) goto failed; break;
@@ -10690,7 +10690,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 440: {
         UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){1280,820},1,7,3);
         if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus!=1 || !menu.valid || menu.panel.width!=240 || menu.panel.height!=245 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-axis-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-axis-menu.png"); break;
     }
     case 441:
         if (a->modal!=MODAL_NONE || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
@@ -10698,7 +10698,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 442: {
         UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){1280,820},1,4,3);
         if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus || menu.panel.width!=240 || menu.panel.height!=161 || a->request_id!=request || s->undo_actions_count!=draft_history) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-measure-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-measure-menu.png"); break;
     }
     case 443:
         if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus!=2 || a->request_id!=request) goto failed; break;
@@ -10714,7 +10714,7 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; a->pivot_focus=PIVOT_COLUMNS+2; a->pivot_value=0; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; break;
     case 447:
         if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus!=1 || a->request_id!=request || a->ui.paint_depth || a->ui.scissor_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-axis-menu-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-axis-menu-150.png"); break;
     case 448:
         if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
         a->pivot_focus=0; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true; break;
@@ -10728,7 +10728,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 451: {
         UIMenuLayout menu=ui_action_menu_layout(a->context_origin,11,240,1,(Vector2){1280,820});
         if (a->modal!=MODAL_ASSIGN_FIELD || a->pivot_search_focus || a->field_match_count!=12 || a->pivot_field_scroll || menu.panel.width!=240 || menu.panel.height!=348 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-add-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-add-menu.png"); break;
     }
     case 452:
         if (a->modal!=MODAL_ASSIGN_FIELD || a->pivot_field!=11 || a->pivot_field_scroll!=1 || a->request_id!=request) goto failed; break;
@@ -10737,14 +10737,14 @@ static void layout_smoke_step(App *a,int *step) {
         input_set(&a->pivot_search,"Memo"); break;
     case 454:
         if (a->field_match_count!=1 || a->pivot_field!=11 || a->pivot_field_scroll || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-searchable-add-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-searchable-add-menu.png"); break;
     case 455:
         if (a->modal!=MODAL_NONE || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false;
         begin_assign_field(a,PIVOT_ROWS,a->axis_shelves[PIVOT_ROWS].add); break;
     case 456:
         if (a->modal!=MODAL_ASSIGN_FIELD || a->pivot_search_focus || a->field_match_count!=12 || a->ui.paint_depth || a->ui.scissor_depth || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-add-menu-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-add-menu-150.png"); break;
     case 457: {
         if (a->modal!=(shelf_file_phase==4 ? MODAL_PIVOT_FIELD : MODAL_NONE) || a->request_id!=request || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks) goto failed;
         if (!shelf_file_phase) {
@@ -10783,7 +10783,7 @@ static void layout_smoke_step(App *a,int *step) {
     }
 
     case 458:
-        workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 459:
         a->selected_object=0; if (!object_ready(a,0)) return;
         a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->workbook_collapsed=false; a->sidebar_width=228; a->pipeline_width=280;
@@ -10792,7 +10792,7 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; author_revision=s->objects.items[0].revision; draft_history=s->undo_actions_count; break;
     case 460:
         if (a->modal!=MODAL_VIEW || a->view_menu_chart || a->context_focus || a->request_id!=request || s->objects.items[0].kind!=OBJECT_PIVOT || s->undo_actions_count!=draft_history) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-matrix-actions.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-matrix-actions.png"); break;
     case 461:
         if (a->modal!=MODAL_NONE || s->objects.items[0].kind!=OBJECT_CHART || s->objects.items[0].mark!=MARK_BAR || s->objects.items[0].revision!=author_revision || s->undo_actions_count!=draft_history+1 || a->objects[0].page.cells!=author_cells || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed; break;
     case 462:
@@ -10800,7 +10800,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (s->objects.items[0].kind!=OBJECT_PIVOT || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed; break;
     case 463:
         if (a->modal!=MODAL_VIEW || !a->view_menu_chart || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-chart-actions.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-chart-actions.png"); break;
     case 464:
         if (a->modal!=MODAL_NONE || selected_pivot(a) || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || s->undo_actions_count!=draft_history) goto failed; break;
     case 465:
@@ -10810,7 +10810,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 467: {
         UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){640,640},1.5f,4,3);
         if (a->modal!=MODAL_VIEW || !menu.valid || menu.panel.x+menu.panel.width>640 || menu.panel.y+menu.panel.height>640 || a->ui.paint_depth || a->ui.scissor_depth || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-view-actions-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-view-actions-150.png"); break;
     }
     case 468:
         if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed; break;
@@ -10822,7 +10822,7 @@ static void layout_smoke_step(App *a,int *step) {
         flyout_format=active_format(a); draft_history=s->undo_actions_count; break;
     case 471:
         if (a->modal!=MODAL_FORMAT || a->context_focus || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-text-color-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-text-color-150.png"); break;
     case 472:
         if (a->modal!=MODAL_NONE || active_format(a).color!=3 || s->undo_actions_count!=draft_history+1 || a->request_id!=request) goto failed;
         history(a,false); break;
@@ -10835,7 +10835,7 @@ static void layout_smoke_step(App *a,int *step) {
         /* This slice isolates presentation from the separately exercised
            delayed selection-statistics worker after object revisions. */
         a->statistics_enabled=false; statistics_cancel(a);
-        workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 475:
         a->selected_object=0; if (!object_ready(a,0)) return;
         a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->workbook_collapsed=false; a->sidebar_width=228; a->pipeline_width=280;
@@ -10844,16 +10844,16 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty; break;
     case 476:
         if (!a->context_title.valid || a->context_title.icon.x!=239 || a->context_title.icon.y!=141.5f || a->context_title.icon.width!=16 || a->context_title.title.x!=263 || fabsf(a->context_title.source.x-401.2421875f)>.4f || fabsf(a->context_title.browse.x-886.921875f)>.4f || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-context-title.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; close_workspace(a); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-context-title.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; close_workspace(a); break;
     case 477:
         if (!a->workspace.narrow || a->context_title.icon.x!=58.5f || a->context_title.title.x!=94.5f || a->context_title.source.width || fabsf(a->context_title.browse.x+a->context_title.browse.width-623.5f)>.01f || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-context-title-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-context-title-150.png"); break;
     case 478:
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true;
         grid_select_cell(&a->grid,0,0,false); a->grid.horizontal=0; a->modal=MODAL_CONTEXT; a->context_origin=(Vector2){500,400}; a->context_focus=0; break;
     case 479:
         if (!source_cell_context(a) || a->modal!=MODAL_CONTEXT || a->request_id!=request || a->page.cells!=ribbon_cells || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-exact-source-context.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-exact-source-context.png"); break;
     case 480:
         if (a->modal!=MODAL_NONE || strcmp(GetClipboardText(),"2026-09-14") || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
         grid_select_cell(&a->grid,5,5,false); a->modal=MODAL_CONTEXT; a->context_focus=2; break;
@@ -10863,7 +10863,7 @@ static void layout_smoke_step(App *a,int *step) {
         /* Source pages intentionally do not own the PIVOT-only SQL snapshot. */
         char *sql=analysis_sql(&a->analysis,false); bool sorted=sql && strstr(sql,"DESC"); free(sql);
         if (a->page.total!=240 || a->page.cells[5].number!=128450 || !sorted) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-source-context-sorted.png"); history(a,false); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-source-context-sorted.png"); history(a,false); break;
     }
     case 483:
         if (a->page.total!=240 || !a->analysis.sort_column || strcmp(a->analysis.sort_column,"Transaction ID") || a->analysis.descending || strcmp(a->page.cells[1].text,"TX-0914-1042")) goto failed;
@@ -10875,13 +10875,13 @@ static void layout_smoke_step(App *a,int *step) {
         grid_select_cell(&a->grid,5,5,false); a->modal=MODAL_CONTEXT; a->context_focus=3; break;
     case 485:
         if (a->modal!=MODAL_FILTER || a->field!=5 || a->filter_object!=-1 || !a->filter_anchor_valid || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-source-context-filter.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-source-context-filter.png"); break;
     case 486:
         if (a->modal!=MODAL_NONE || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
         request=a->request_id; a->modal=MODAL_CONTEXT; a->context_focus=5; break;
     case 487:
         if (a->modal!=MODAL_NONE || !a->pipeline_sql || !a->pipeline || a->pipeline_collapsed || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-source-context-sql.png"); a->chrome_focus=0; a->modal=MODAL_CONTEXT; a->context_focus=4; field_actions_count=s->objects.count; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-source-context-sql.png"); a->chrome_focus=0; a->modal=MODAL_CONTEXT; a->context_focus=4; field_actions_count=s->objects.count; break;
     case 488:
         if (a->modal!=MODAL_NONE || s->objects.count!=field_actions_count+1 || !selected_pivot(a) || selected_pivot(a)->pivot.counts[PIVOT_VALUES] || a->page.cells!=ribbon_cells) goto failed;
         { PivotDefinition pivot=pivot_copy(&s->objects.items[0].pivot); if (!set_pivot_definition(a,&pivot)) goto failed; } break;
@@ -10904,7 +10904,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus || a->request_id!=request) goto failed; break;
     case 495:
         if (a->modal!=MODAL_PIVOT_FIELD || a->context_focus!=2 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-last-measure-disabled.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-last-measure-disabled.png"); break;
     case 496:
         if (a->modal!=MODAL_NONE || s->undo_actions_count!=draft_history || a->request_id!=request) goto failed;
         history(a,false); break;
@@ -10917,7 +10917,7 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: exact wide/narrow authoring title, real source-cell six-action context menu, Copy/sort/Undo/filter/SQL/Create analysis with actual PIVOT, independent source cache and disabled last-measure close/Delete/menu removal with keyboard skip"); break;
 
     case 500:
-        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 501:
         a->selected_object=0; if (!object_ready(a,0)) return;
         a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->workbook_collapsed=false; a->sidebar_width=228; a->pipeline_width=280;
@@ -10926,15 +10926,15 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty; break;
     case 502:
         if (!a->authoring_layout.scrollable || a->authoring_layout.content_width!=763 || a->source_preview.rect.width!=763 || a->authoring_layout.matrix.x+a->authoring_layout.matrix.width!=979 || a->source_preview.vtrack.x+a->source_preview.vtrack.width>a->workspace.canvas.x+a->workspace.canvas.width-9 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-canvas-scrollbar-lanes.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-canvas-scrollbar-lanes.png"); break;
     case 503:
         if (fabsf(a->analysis_scroll-(a->authoring_layout.height-a->workspace.canvas.height))>.02f || a->source_preview.top || a->source_preview.fraction || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-analysis-scrollbar-bottom.png"); a->analysis_scroll=0; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-analysis-scrollbar-bottom.png"); a->analysis_scroll=0; break;
     case 504:
         if (a->analysis_scroll || a->source_preview.top || a->request_id!=request) goto failed; break;
     case 505:
         if ((!a->source_preview.top && !a->source_preview.fraction) || a->analysis_scroll || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-preview-scrollbar-independent.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-preview-scrollbar-independent.png"); break;
     case 506:
         if (a->modal!=MODAL_VIEW || a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth) goto failed; break;
     case 507:
@@ -10942,14 +10942,14 @@ static void layout_smoke_step(App *a,int *step) {
         ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; a->analysis_scroll=0; break;
     case 508:
         if (fabsf(a->authoring_layout.preview.x+a->authoring_layout.preview.width-(a->workspace.canvas.x+a->workspace.canvas.width-13.5f))>.01f || fabsf(a->authoring_layout.matrix.x+a->authoring_layout.matrix.width-(a->workspace.canvas.x+a->workspace.canvas.width-31.5f))>.01f || a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-canvas-scrollbar-lanes-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-canvas-scrollbar-lanes-150.png"); break;
     case 509:
         if (a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->request_id!=request || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true;
         puts("PASS: exact nine-unit authoring scroll lane and content width, independent source-preview/parent scrollbar gestures, same-frame parent content arrangement, view-menu hit geometry, 150 percent recovery and unchanged result/source/cache/history without database work"); break;
 
     case 510:
-        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 511:
         if (!object_ready(a,0)) return;
         a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->sidebar_width=228; a->pipeline_width=280; a->workbook_collapsed=false;
@@ -10961,7 +10961,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (selected_pivot(a) || a->grid.row!=5 || a->grid.col!=5 || a->grid.anchor_row!=5 || a->grid.end_row!=8 || a->grid.top!=3 || a->grid.fraction!=.25 || a->grid.horizontal!=273.75f || a->request_id!=request) goto failed; break;
     case 513:
         if (!a->cell_context.valid || a->cell_context.address.x!=228 || a->cell_context.address.width!=88 || a->cell_context.value.x!=350 || a->cell_context.value.width!=581 || a->cell_context.value.y!=139.5f || a->cell_context.type.x!=940 || a->cell_context.type.width!=52) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-source-context-restored.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-source-context-restored.png");
         a->selected_object=0; a->source_preview.top=0; a->source_preview.fraction=0; a->source_preview.horizontal=0; a->analysis_scroll=0; break;
     case 514:
         if (selected_pivot(a) || a->grid.row!=2 || a->grid.col!=1 || a->grid.anchor_row!=2 || a->grid.end_row!=2 || a->request_id!=request) goto failed; break;
@@ -10969,14 +10969,14 @@ static void layout_smoke_step(App *a,int *step) {
         grid_select_cell(&a->grid,0,0,false); a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0; break;
     case 516:
         if (a->cell_context.value.width!=581 || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-source-context-date.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-source-context-date.png");
         grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=3; a->grid.fraction=.25; a->grid.horizontal=273.75f; remember_source_location(a);
         a->selected_object=0; a->pivot_reveal_object=false; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->pipeline=false; break;
     case 517:
         if (selected_pivot(a) || a->grid.row!=5 || a->grid.end_row!=8 || a->grid.col!=5 || a->grid.top!=3 || a->grid.fraction!=.25 || a->grid.horizontal!=273.75f || a->request_id!=request) goto failed; break;
     case 518:
         if (a->cell_context.address.x!=54 || a->cell_context.address.width!=93 || a->cell_context.value.x!=186 || a->cell_context.value.width!=442 || a->cell_context.type.width || a->grid.zoom!=1) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-source-context-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-source-context-150.png"); break;
     case 519:
         /* A changed source must not restore row positions from its old result. */
         a->source_locations[0].revision^=UINT64_C(1); a->selected_object=0; browse_source(a);
@@ -10988,7 +10988,7 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: exact source value strip at 100/150 percent, Browse restores the source range and fractional viewport without owned-pointer copies, preview clicks select the clicked source cell, stale source bookmarks fall back safely and presentation preserves source/PIVOT/history without SQL"); break;
 
     case 522:
-        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 523:
         if (!object_ready(a,0)) return;
         a->reduced_motion=true; a->sidebar=a->fields_visible=true; a->sidebar_width=228; a->pipeline=false; a->pivot_focus=a->chrome_focus=0;
@@ -11016,7 +11016,7 @@ static void layout_smoke_step(App *a,int *step) {
         grid_select_cell(&a->grid,0,0,false); a->grid.selection=SELECT_ROWS; a->context_focus=a->context_scroll=0; a->modal=MODAL_CONTEXT; break;
     case 530:
         if (a->modal!=MODAL_CONTEXT || a->context_focus!=4 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-row-actions-source-protected.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-row-actions-source-protected.png"); break;
     case 531:
         if (a->modal!=MODAL_CONTEXT || a->context_focus!=5 || a->request_id!=request || s->undo_actions_count!=draft_history) goto failed; break;
     case 532:
@@ -11025,7 +11025,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 533: {
         UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){640,640},1.5f,8,2);
         if (!menu.valid || menu.panel.width!=360 || menu.panel.height!=409.5f || menu.panel.y+menu.panel.height>640 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-range-actions-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-range-actions-150.png"); break;
     }
     case 534:
         if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
@@ -11033,7 +11033,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 535: {
         UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){640,640},1.5f,7);
         if (!menu.frame.valid || menu.frame.panel.width!=360 || menu.visible!=7 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-object-actions-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-object-actions-150.png"); break;
     }
     case 536:
         if (a->modal!=MODAL_MOVE_RANGE || s->undo_actions_count!=draft_history || a->request_id!=request) goto failed; break;
@@ -11048,7 +11048,7 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: shared compact native row/column/range/object action menus, actual queued pointer insert with atomic Undo, disabled source-row keyboard skipping, range/object Move then Escape, 150 percent narrow bounds and unchanged source/PIVOT/cache without database work"); break;
 
     case 540:
-        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 541:
         if (!object_ready(a,0)) return;
         a->reduced_motion=true; a->sidebar=a->fields_visible=true; a->sidebar_width=228; a->pipeline=false; a->workbook_collapsed=false;
@@ -11058,11 +11058,11 @@ static void layout_smoke_step(App *a,int *step) {
     case 542: {
         UIMenuLayout menu=ui_action_menu_layout(a->context_origin,11,240,1,(Vector2){1280,820});
         if (a->modal!=MODAL_MARKS || menu.panel.width!=240 || menu.panel.height!=348 || menu.visible!=11 || a->context_focus || a->context_scroll || a->request_id!=request || !a->ui.pointer_blocked) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-marks-exact-field-menu.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-marks-exact-field-menu.png"); break;
     }
     case 543:
         if (a->modal!=MODAL_MARKS || a->context_focus!=11 || a->context_scroll!=1 || strcmp(context_fields(a)->columns[11].name,"Memo") || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-marks-extra-field-scroll.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-marks-extra-field-scroll.png"); break;
     case 544:
         if (a->modal!=MODAL_NONE || s->objects.items[0].marks.counts[MARKS_COLOR] || s->undo_actions_count!=draft_history || a->request_id!=request) goto failed;
         begin_step_menu(a,0,(Vector2){1000,700}); break;
@@ -11070,13 +11070,13 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->modal!=MODAL_STEP || a->context_focus || a->request_id!=request || !a->ui.pointer_blocked) goto failed; break;
     case 546:
         if (a->modal!=MODAL_STEP || a->context_focus!=4 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-step-actions-disabled.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-step-actions-disabled.png"); break;
     case 547:
         if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
         begin_sheet_menu(a,0,(Vector2){10,180}); break;
     case 548:
         if (a->modal!=MODAL_SHEET || a->sheet_menu_focus || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-sheet-actions-exact.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-sheet-actions-exact.png"); break;
     case 549:
         if (a->modal!=MODAL_SHEET || a->sheet_menu_focus!=1 || a->request_id!=request) goto failed; break;
     case 550:
@@ -11087,7 +11087,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 552: {
         UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){640,640},1.5f,6);
         if (a->modal!=MODAL_SHEET || a->sheet_menu_focus!=4 || menu.frame.panel.width!=360 || menu.frame.panel.y+menu.frame.panel.height>640 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-sheet-actions-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-sheet-actions-150.png"); break;
     }
     case 553:
         if (a->modal!=MODAL_NONE || a->book.count!=4 || s->objects.items[0].marks.counts[MARKS_COLOR] || s->undo_actions_count!=draft_history || a->request_id!=request || a->book.dirty!=draft_dirty) goto failed;
@@ -11098,7 +11098,7 @@ static void layout_smoke_step(App *a,int *step) {
 
 
     case 555:
-        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 556:
         if (!object_ready(a,0)) return;
         a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=false; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false;
@@ -11109,7 +11109,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->grid.row!=5 || a->grid.col!=5 || a->grid.anchor_row!=5 || a->grid.end_row!=8 || a->grid.end_col!=5 || a->request_id!=request || !a->active_readout.value.valid) goto failed;
         retained=a->active_readout.value;
         if (retained.type!=DUCKDB_TYPE_DECIMAL || strcmp(retained.text,a->page.cells[5*a->page.column_count+5].text)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-active-origin-drag.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-active-origin-drag.png"); break;
     case 558:
         if (a->grid.row!=5 || a->grid.col!=5 || a->grid.end_row!=9 || strcmp(a->active_readout.value.text,retained.text) || a->request_id!=request) goto failed; break;
     case 559:
@@ -11128,12 +11128,12 @@ static void layout_smoke_step(App *a,int *step) {
     case 565: {
         UIMenuLayout menu=ui_action_menu_layout(a->context_origin,11,240,1,(Vector2){1280,820});
         if (a->modal!=MODAL_MARKS || ui_focus_visible() || smoke_focus_pixels(menu.panel) || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-pointer-focus-100.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-pointer-focus-100.png"); break;
     }
     case 566: {
         UIMenuLayout menu=ui_action_menu_layout(a->context_origin,11,240,1,(Vector2){1280,820});
         if (a->modal!=MODAL_MARKS || !ui_focus_visible() || a->context_focus!=1 || smoke_focus_pixels(menu.panel)<50 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-keyboard-focus-100.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-keyboard-focus-100.png"); break;
     }
     case 567:
         if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
@@ -11141,12 +11141,12 @@ static void layout_smoke_step(App *a,int *step) {
     case 568: {
         UIMenuLayout menu=ui_action_menu_layout(a->context_origin,11,240,1.5f,(Vector2){640,640});
         if (a->modal!=MODAL_MARKS || ui_focus_visible() || smoke_focus_pixels(menu.panel) || menu.panel.x<0 || menu.panel.y<0 || menu.panel.x+menu.panel.width>640 || menu.panel.y+menu.panel.height>640 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-pointer-focus-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-pointer-focus-150.png"); break;
     }
     case 569: {
         UIMenuLayout menu=ui_action_menu_layout(a->context_origin,11,240,1.5f,(Vector2){640,640});
         if (a->modal!=MODAL_MARKS || !ui_focus_visible() || a->context_focus!=1 || smoke_focus_pixels(menu.panel)<50 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-keyboard-focus-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-keyboard-focus-150.png"); break;
     }
     case 570:
         if (a->modal!=MODAL_NONE || a->page.cells!=ribbon_cells || a->request_id!=request) goto failed;
@@ -11168,7 +11168,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->grid.top=1900; a->grid.fraction=0; request_page(a,false); break;
     case 574:
         if (copy_cached_cell(&a->page,0,1) || copy_cached_cell(&a->spare,0,1) || !a->active_readout.value.valid || a->active_readout.value.type!=DUCKDB_TYPE_DECIMAL || a->active_readout.value.number!=retained.number || strcmp(a->active_readout.value.text,retained.text)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-active-value-evicted.png"); request=a->request_id; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-active-value-evicted.png"); request=a->request_id; break;
     case 575:
         if (a->request_id!=request || strcmp(a->active_readout.value.text,retained.text)) goto failed;
         request_page(a,true); grid_select_cell(&a->grid,0,1,false);
@@ -11245,7 +11245,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 592:
         if (!object_ready(a,1)) return;
         if (!a->active_readout.value.valid || strcmp(a->active_readout.value.text,"1")) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-pivot-value-scope.png"); activate_sheet(a,0,true); grid_select_cell(&a->grid,0,0,false); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-pivot-value-scope.png"); activate_sheet(a,0,true); grid_select_cell(&a->grid,0,0,false); break;
     case 593:
         grid_select_cell(&a->grid,0,0,false); active_value(a);
         if (a->active_readout.sheet!=0 || a->active_readout.source || a->active_readout.preview || !a->active_readout.value.valid || a->active_readout.value.type!=DUCKDB_TYPE_DATE || strcmp(a->active_readout.value.text,"2026-09-14")) goto failed;
@@ -11256,7 +11256,7 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: active-origin queued drag/Shift/Tab/Enter, retained exact value beyond both cached pages, NULL/empty/literal distinctions, bounded UTF-8 readout, refresh/query/filter/preview/table/PIVOT/sheet scope, moved-source bookmark fallback and pointer versus keyboard focus pixels at 100/150 percent"); break;
 
     case 596:
-        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 597:
         if (!object_ready(a,0)) return;
         a->reduced_motion=true; a->sidebar=a->fields_visible=true; a->pipeline=false; a->workbook_collapsed=false; a->sidebar_width=228;
@@ -11274,7 +11274,7 @@ static void layout_smoke_step(App *a,int *step) {
         cache_filter_labels(a,&s->objects.items[0]);
         if (a->modal!=MODAL_NONE || strcmp(a->filter_labels[0].text,"Status: Posted") || !a->filter_labels[0].valid || s->objects.items[0].pivot.counts[PIVOT_FILTERS]!=1 || !strstr(a->objects[0].page.sql,"PIVOT") || a->page.cells!=ribbon_cells || a->author_marks_layout.filters[0].width<=0) goto failed;
         request=a->request_id; author_cells=a->objects[0].page.cells; author_revision=s->objects.items[0].revision; label_builds=a->filter_labels_builds;
-        smoke_snapshot("tests/results/workspace-layout/native-criteria-wide.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-criteria-wide.png"); break;
     case 600:
         if (a->values_loading) return;
         if (a->modal!=MODAL_FILTER || a->filter_pill!=0 || strcmp(a->filter_term.text,"Posted")) goto failed;
@@ -11304,7 +11304,7 @@ static void layout_smoke_step(App *a,int *step) {
         Rectangle field=author_select_field(a,MODAL_REPRESENTATION);
         if (fabsf(a->context_origin.x-field.x)>.01f || fabsf(a->context_origin.y-field.y-field.height)>.01f) goto failed;
         if (!representation_phase) {
-            author_select_history=s->undo_actions_count; smoke_snapshot("tests/results/workspace-layout/native-select-representation-focus.png");
+            author_select_history=s->undo_actions_count; smoke_snapshot("build/tests/results/workspace-layout/native-select-representation-focus.png");
             layout_select_key=KEY_ESCAPE; representation_phase=1; return;
         }
         if (s->undo_actions_count!=author_select_history) goto failed;
@@ -11323,7 +11323,7 @@ static void layout_smoke_step(App *a,int *step) {
         Rectangle field=author_select_field(a,MODAL_CHART_MEASURE);
         if (fabsf(a->context_origin.x-field.x)>.01f || fabsf(a->context_origin.y-field.y-field.height)>.01f) goto failed;
         if (!plot_phase) {
-            author_select_history=s->undo_actions_count; smoke_snapshot("tests/results/workspace-layout/native-select-plot.png");
+            author_select_history=s->undo_actions_count; smoke_snapshot("build/tests/results/workspace-layout/native-select-plot.png");
             layout_select_key=KEY_ESCAPE; plot_phase=1; return;
         }
         if (s->undo_actions_count!=author_select_history || a->context_focus) goto failed;
@@ -11340,7 +11340,7 @@ static void layout_smoke_step(App *a,int *step) {
         }
         if (a->modal!=MODAL_FORMAT || a->format_action!=ACTION_FONT_SIZE || a->context_focus!=2 || fabsf(a->format_width-48)>.01f) goto failed;
         if (!select_open_phase) {
-            smoke_snapshot("tests/results/workspace-layout/native-select-font-focus.png");
+            smoke_snapshot("build/tests/results/workspace-layout/native-select-font-focus.png");
             layout_select_key=KEY_ESCAPE; select_open_phase=1; return;
         }
         break;
@@ -11364,7 +11364,7 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     case 610:
         if (a->modal!=MODAL_FORMAT || a->format_action!=ACTION_NUMBER_FORMAT || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-select-number.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-select-number.png"); break;
     case 611:
         if (a->modal!=MODAL_NONE || active_format(a).number!=FORMAT_NUMBER || a->request_id!=request) goto failed;
         a->selected_object=0; a->ribbon_focus=false; a->pivot_focus=PIVOT_FILTERS+2; a->pivot_value=0; a->author_reveal=true;
@@ -11373,7 +11373,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (!a->workspace.narrow || !a->left_drawer || !a->author_marks_layout.valid || a->author_marks_layout.filters[0].width<=0 || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || a->request_id!=request) goto failed;
         if (a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || s->undo_actions_count!=select_history+2 || active_format(a).size!=14) goto failed;
         if (!select_narrow_phase) {
-            label_builds=a->filter_labels_builds; smoke_snapshot("tests/results/workspace-layout/native-criteria-narrow-150.png");
+            label_builds=a->filter_labels_builds; smoke_snapshot("build/tests/results/workspace-layout/native-criteria-narrow-150.png");
             layout_select_click=ribbon_rect(a,a->ribbon_layout.groups[1]); select_narrow_phase=1; return;
         }
         if (select_narrow_phase==1) {
@@ -11385,7 +11385,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (select_narrow_phase==2) {
             if (a->modal!=MODAL_FORMAT || a->format_action!=ACTION_FONT_SIZE || a->context_focus!=3 || a->format_return_group!=1 || fabsf(a->format_width-a->ribbon_flyout.commands[4].width/a->ui.scale)>.01f) goto failed;
             if (!smoke_focus_pixels(a->ribbon_flyout.commands[4])) goto failed;
-            smoke_snapshot("tests/results/workspace-layout/native-select-font-narrow-150.png"); layout_select_key=KEY_ESCAPE; select_narrow_phase=3; return;
+            smoke_snapshot("build/tests/results/workspace-layout/native-select-font-narrow-150.png"); layout_select_key=KEY_ESCAPE; select_narrow_phase=3; return;
         }
         if (select_narrow_phase==3) {
             if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=1 || a->ribbon_popup_focus!=1) goto failed;
@@ -11398,7 +11398,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->pivot_focus=6; a->author_reveal=true; break;
     case 614:
         if (a->modal!=MODAL_REPRESENTATION || !smoke_focus_pixels(GetCollisionRec(a->author_marks_layout.representation,a->author_marks_layout.viewport)) || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-select-narrow-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-select-narrow-150.png"); break;
     case 615:
         if (a->request_id!=request || a->objects[0].page.cells!=author_cells || a->page.cells!=ribbon_cells || s->undo_actions_count!=select_history+2 || s->objects.items[0].chart_measure!=1) goto failed;
         if (!narrow_author_phase) {
@@ -11409,13 +11409,13 @@ static void layout_smoke_step(App *a,int *step) {
             if (a->modal!=MODAL_CHART_MEASURE || a->context_focus!=1 || a->author_plot.height<=0) goto failed;
             Rectangle field=author_select_field(a,MODAL_CHART_MEASURE);
             if (fabsf(a->context_origin.x-field.x)>.01f || fabsf(a->context_origin.y-field.y-field.height)>.01f) goto failed;
-            smoke_snapshot("tests/results/workspace-layout/native-select-plot-narrow-150.png"); layout_select_key=KEY_ESCAPE; narrow_author_phase=2; return;
+            smoke_snapshot("build/tests/results/workspace-layout/native-select-plot-narrow-150.png"); layout_select_key=KEY_ESCAPE; narrow_author_phase=2; return;
         }
         if (a->modal!=MODAL_NONE || a->pivot_focus!=7) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->left_drawer=false; a->pivot_focus=0; a->author_scroll=0; break;
     case 616:
         if (a->filter_labels_builds!=label_builds || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer() || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-select-chart-wide.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-select-chart-wide.png"); break;
     case 617:
         history(a,false); break;
     case 618:
@@ -11424,7 +11424,7 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: cached actual view-filter criteria, real PIVOT Apply/Cancel/Undo, native representation/Plot/font/number select pointer and keyboard actions, 100/150 percent narrow clipping and idle cache/query retention"); break;
 
     case 620:
-        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 621:
         if (!object_ready(a,0)) return;
         a->reduced_motion=true; a->sidebar=a->fields_visible=true; a->pipeline=false; a->workbook_collapsed=false; a->sidebar_width=228;
@@ -11437,12 +11437,12 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->ribbon_layout.overflow_count!=1 || a->ribbon_layout.states[0]!=UI_RIBBON_OVERFLOW || !a->left_drawer || a->request_id!=request) goto failed;
         for (int g=1;g<6;g++) if (a->ribbon_layout.states[g]!=UI_RIBBON_COLLAPSED || fabsf(a->ribbon_layout.groups[g].height-62)>.01f || a->ribbon_layout.groups[g].x+a->ribbon_layout.groups[g].width>=a->ribbon_layout.overflow.x) goto failed;
         if (fabsf(a->ribbon_layout.groups[1].x-10)>.01f || fabsf(a->ribbon_layout.groups[1].width-53)>.01f || fabsf(a->ribbon_layout.groups[2].x-72)>.01f) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-collapsed-ribbon-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-collapsed-ribbon-150.png"); break;
     case 624:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=1 || !a->left_drawer || a->pivot_focus || a->pivot_search_focus || a->request_id!=request) goto failed; break;
     case 625:
         if (a->modal!=MODAL_NONE || !a->ribbon_focus || ui_ribbon_group_for(ribbon_groups[RIBBON_HOME],6,a->ribbon_command)!=1 || !smoke_focus_pixels(ribbon_rect(a,a->ribbon_layout.groups[1])) || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-collapsed-ribbon-focus.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-collapsed-ribbon-focus.png"); break;
     case 626:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=4 || !a->left_drawer || a->request_id!=request) goto failed; break;
     case 627:
@@ -11450,26 +11450,26 @@ static void layout_smoke_step(App *a,int *step) {
         set_ribbon_mode(a,1); a->ribbon_focus=false; break;
     case 628:
         if (a->ribbon_mode!=1 || a->ribbon_layout.height!=36 || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-collapsed-compact-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-collapsed-compact-150.png"); break;
     case 629:
         set_ribbon_mode(a,2); a->ribbon_focus=false; break;
     case 630:
         if (a->ribbon_mode!=2 || a->ribbon_layout.height!=32 || a->request_id!=request) goto failed;
         for (int g=0;g<6;g++) if (a->ribbon_layout.groups[g].width && a->ribbon_layout.groups[g].x+a->ribbon_layout.groups[g].width>=GetScreenWidth()/a->ui.scale-38) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-collapsed-icons-150.png"); set_ribbon_mode(a,3); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-collapsed-icons-150.png"); set_ribbon_mode(a,3); break;
     case 631:
         if (a->ribbon_mode!=3 || a->ribbon_layout.height || a->left_drawer || a->request_id!=request) goto failed;
         set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
     case 632:
         if (a->ribbon_mode || !a->ribbon_layout.valid || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-collapsed-wide-return.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-collapsed-wide-return.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 633:
         if (a->ribbon_mode || !a->ribbon_layout.valid || a->request_id!=request) goto failed;
         for (int g=0;g<6;g++) if (a->ribbon_layout.groups[g].width && a->ribbon_layout.groups[g].x+a->ribbon_layout.groups[g].width>=GetScreenWidth()/a->ui.scale-38) goto failed;
         show_workspace(a); break;
     case 634:
         if (a->modal!=MODAL_INTERFACE_SCALE || !a->left_drawer || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-overlay-status-scale.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-overlay-status-scale.png"); break;
     case 635:
         if (a->modal!=MODAL_NONE || !a->left_drawer || a->request_id!=request) goto failed; break;
     case 636:
@@ -11480,7 +11480,7 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: exact reserved collapsed ribbon with Alignment retained, reference group icons and typography, live chrome above narrow overlay, pointer flyouts/Escape focus and Full/Compact/Icons/Focus resizing without SQL or cache changes"); break;
 
     case 638:
-        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 639:
         if (!object_ready(a,0)) return;
         if (s->undo_actions_count || s->redo_actions_count || *cells_get(&s->cells,500,40)) goto failed;
@@ -11490,7 +11490,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 640: {
         int items[RIBBON_MORE_ITEMS];
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || a->ribbon_layout.overflow_count || command_popup_count(a,items)!=2 || items[0]!=RIBBON_MORE_UNDO || items[1]!=RIBBON_MORE_REDO || !a->ribbon_more_menu.valid || a->ribbon_more_menu.count!=2 || a->ribbon_more_menu.panel.width!=360 || a->ribbon_more_menu.separator.height || smoke_focus_pixels(a->ribbon_more_menu.panel)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-more-history-disabled-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-more-history-disabled-150.png"); break;
     }
     case 641:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || s->undo_actions_count || s->redo_actions_count || a->book.dirty!=ribbon_dirty) goto failed;
@@ -11510,7 +11510,7 @@ static void layout_smoke_step(App *a,int *step) {
         command_popup_key(a,KEY_END,false); if (a->ribbon_popup_focus!=1) goto failed;
         command_popup_key(a,KEY_UP,false); if (a->ribbon_popup_focus!=1) goto failed;
         command_popup_key(a,KEY_TAB,true); if (a->ribbon_popup_focus!=1) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-more-history-redo-focus-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-more-history-redo-focus-150.png"); break;
     case 646:
     case 647:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || a->ribbon_popup_focus!=1 || *cells_get(&s->cells,500,40) || s->undo_actions_count || s->redo_actions_count!=1) goto failed; break;
@@ -11522,7 +11522,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 650: {
         int items[RIBBON_MORE_ITEMS]; UIChoiceLayout m=a->ribbon_more_menu;
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=-1 || command_popup_count(a,items)!=3 || items[0]!=0 || items[1]!=RIBBON_MORE_UNDO || items[2]!=RIBBON_MORE_REDO || !m.valid || m.count!=3 || m.panel.width!=360 || m.separator.height!=1.5f || smoke_focus_pixels(m.panel)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-more-groups-history-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-more-groups-history-150.png"); break;
     }
     case 651:
         if (a->modal!=MODAL_COMMANDS || a->ribbon_popup_group!=0 || !a->ribbon_popup_more_anchor || !a->ribbon_flyout.valid) goto failed; break;
@@ -11541,7 +11541,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (ribbon_more_available(a) || a->ribbon_layout.overflow.width || a->ribbon_command!=-1) goto failed; break;
     case 658:
         if (a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-more-wide-return.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-more-wide-return.png"); break;
     case 659:
         set_ribbon_mode(a,2); ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640);
         if (!step_preview_start(&a->step_preview,&a->analysis,0,0,a->analysis_revision,&a->grid)) goto failed;
@@ -11565,7 +11565,7 @@ static void layout_smoke_step(App *a,int *step) {
         new_sheet(a); a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
         a->sidebar=a->fields_visible=a->pipeline=false; a->selected_object=-1;
         ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
-        open_source(a,"tests/generated/record-page-smoke.parquet",false); break;
+        open_source(a,"build/tests/generated/record-page-smoke.parquet",false); break;
     case 666:
         if (a->page.total!=700 || a->page.column_count!=4 || a->page.records.count!=a->page.row_count || !a->page.records.source_key || a->page.records.ids[0]!=1 || !a->page.cells[2].is_null || strcmp(a->page.cells[3].text,"9007199254740993.12")) goto failed;
         ribbon_cells=a->page.cells; a->grid.top=300; request_page(a,false); break;
@@ -11579,7 +11579,7 @@ static void layout_smoke_step(App *a,int *step) {
         change_analysis(a,false); break;
     case 669:
         if (a->page.total!=100 || a->page.records.ids[0]!=601 || a->page.records.ids[1]!=604 || strcmp(a->page.cells[0].text,"600")) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-record-filtered.png"); request=a->request_id; break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-record-filtered.png"); request=a->request_id; break;
     case 670:
         if (a->request_id!=request) goto failed;
         ribbon_cells=a->page.cells; retained_revision=a->page.records.stamp;
@@ -11587,7 +11587,7 @@ static void layout_smoke_step(App *a,int *step) {
         request_page(a,false); break;
     case 671:
         if (a->modal!=MODAL_ERROR || !a->fetch_failed || a->page.cells!=ribbon_cells || a->page.total!=100 || a->page.records.stamp!=retained_revision || !a->message || !strstr(a->message,"source changed between pages")) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-record-source-changed.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-record-source-changed.png");
         a->modal=MODAL_NONE; a->refresh_plans=true; change_analysis(a,false); break;
     case 672:
         if (a->fetch_failed || a->page.total!=10 || a->page.column_count!=4 || a->page.records.ids[0]!=1 || a->page.records.stamp==retained_revision || strcmp(a->page.cells[0].text,"1000")) goto failed;
@@ -11596,13 +11596,13 @@ static void layout_smoke_step(App *a,int *step) {
         change_analysis(a,false); break;
     case 673:
         if (a->page.total!=10 || a->page.column_count!=4 || a->page.records.ids || a->page.records.source_key || strcmp(a->page.cells[0].text,"1000")) goto failed;
-        request=a->request_id; smoke_snapshot("tests/results/workspace-layout/native-record-query-fallback.png"); break;
+        request=a->request_id; smoke_snapshot("build/tests/results/workspace-layout/native-record-query-fallback.png"); break;
     case 674:
         if (a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
         puts("PASS: native source record pages, deterministic sort/filter IDs, spare ownership, exact DECIMAL/NULL and internal-column exclusion, changed-file rejection and refresh recovery, query fallback and idle cache"); break;
 
     case 675:
-        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
+        a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 676:
         if (!object_ready(a,0)) return;
         a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=false; a->selected_object=-1;
@@ -11612,17 +11612,17 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; break;
     case 677:
         if (!smoke_grid_chrome(&a->grid,1) || a->grid.zoom!=1 || !a->grid.source_header) goto failed;
-        preview_live_grid=a->grid; smoke_snapshot("tests/results/workspace-layout/native-fixed-headers-100.png");
+        preview_live_grid=a->grid; smoke_snapshot("build/tests/results/workspace-layout/native-fixed-headers-100.png");
         zoom_canvas(a,2,(Vector2){a->grid.body.x,a->grid.body.y}); break;
     case 678: {
         Rectangle cell=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,0,0,1,1);
         if (!smoke_grid_chrome(&a->grid,1) || a->grid.zoom!=2 || a->grid.gutter!=preview_live_grid.gutter || a->grid.body.x!=preview_live_grid.body.x || a->grid.body.y!=preview_live_grid.body.y || fabsf(cell.height-2*a->grid.row_height)>.01f || fabsf(cell.width-2*a->grid.widths[0])>.01f || a->grid.row || a->grid.col || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-fixed-headers-200.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-fixed-headers-200.png");
         ui_set_scale(&a->ui,1.5f); zoom_canvas(a,.5f,(Vector2){a->grid.body.x,a->grid.body.y}); break;
     }
     case 679:
         if (!smoke_grid_chrome(&a->grid,1.5f) || a->grid.zoom!=.5f || a->request_id!=request || a->ui.scissor_depth || a->ui.paint_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-fixed-headers-ui150-sheet50.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-fixed-headers-ui150-sheet50.png");
         ui_set_scale(&a->ui,1); zoom_canvas(a,1,(Vector2){a->grid.body.x,a->grid.body.y}); a->sidebar=a->fields_visible=true; a->sidebar_width=228; a->selected_object=0; a->pivot_reveal_object=false; a->analysis_scroll=0; break;
     case 680:
         if (!selected_pivot(a) || !a->preview_valid || !smoke_grid_chrome(&a->source_preview,1)) goto failed;
@@ -11630,7 +11630,7 @@ static void layout_smoke_step(App *a,int *step) {
         zoom_canvas(a,1.6f,(Vector2){a->source_preview.body.x,a->source_preview.body.y}); break;
     case 681:
         if (!smoke_grid_chrome(&a->source_preview,1) || fabsf(a->source_preview.zoom-1.6f)>.001f || a->source_preview.gutter!=preview_live_grid.gutter || a->source_preview.body.y!=preview_live_grid.body.y || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-fixed-headers-source-preview.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-fixed-headers-source-preview.png");
         a->source_preview.fit_requested=true; a->source_preview.fit_column=0; break;
     case 682:
         if (a->source_preview.fit_requested || a->source_preview.widths[0]!=a->grid.widths[0] || a->request_id!=request || !smoke_grid_chrome(&a->source_preview,1)) goto failed;
@@ -11643,7 +11643,7 @@ static void layout_smoke_step(App *a,int *step) {
         zoom_canvas(a,2,(Vector2){a->step_preview.grid.body.x,a->step_preview.grid.body.y}); break;
     case 684:
         if (!smoke_grid_chrome(&a->step_preview.grid,1.5f) || a->step_preview.grid.zoom!=2 || fabsf(a->grid.zoom-1.6f)>.001f || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-fixed-headers-history-preview.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-fixed-headers-history-preview.png");
         a->step_preview.grid.fit_requested=true; a->step_preview.grid.fit_column=0; break;
     case 685:
         if (a->step_preview.grid.fit_requested || !smoke_grid_chrome(&a->step_preview.grid,1.5f) || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || s->undo_actions_count!=draft_history || a->ui.scissor_depth || a->ui.paint_depth || a->ui.paint_fallbacks || rlGetActiveFramebuffer()) goto failed;
@@ -11687,15 +11687,15 @@ static void layout_smoke_step(App *a,int *step) {
         draft_history=s->undo_actions_count; ribbon_dirty=a->book.dirty; break;
     case 691:
         if (!smoke_selected(a,3,9,2,7,8,9) || !a->matrix_cells_active) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-select-all-pivot-body.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-select-all-pivot-body.png"); break;
     case 692:
         if (!smoke_selected(a,3,9,1,7,8,9) || !a->matrix_cells_active) goto failed; break;
     case 693:
         if (!smoke_selected(a,3,9,0,7,8,10) || a->matrix_cells_active) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-select-all-pivot-frame.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-select-all-pivot-frame.png"); break;
     case 694:
         if (!smoke_selected(a,3,9,0,19,0,10) || a->selected_object!=-1 || selected_pivot(a)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-select-all-used-sheet.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-select-all-used-sheet.png"); break;
     case 695:
         if (a->grid.selection!=SELECT_ALL || a->grid.row!=3 || a->grid.col!=9) goto failed; break;
     case 696:
@@ -11703,7 +11703,7 @@ static void layout_smoke_step(App *a,int *step) {
         grid_select_cell(&a->grid,17,3,false); grid_select_cell(&a->grid,16,2,true); a->selected_object=0; break;
     case 697:
         if (!smoke_selected(a,17,3,14,19,1,3) || a->grid.anchor_row!=19 || a->grid.anchor_col!=3 || a->grid.end_row!=14 || a->grid.end_col!=1) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-select-all-table-reverse.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-select-all-table-reverse.png"); break;
     case 698:
         if (!smoke_selected(a,17,3,13,19,1,3) || a->grid.anchor_row!=19 || a->grid.end_col!=1) goto failed; break;
     case 699:
@@ -11744,7 +11744,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->ui.scale!=1.5f) goto failed; break;
     case 710:
         if (!smoke_selected(a,13,2,13,19,1,3)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-select-all-table-header-150.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-select-all-table-header-150.png"); break;
     case 711:
         if (!smoke_selected(a,13,2,12,19,1,3)) goto failed; break;
     case 712:
@@ -11857,7 +11857,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->grid.selection=SELECT_COLUMNS; run_action(a,ACTION_ALIGN_CENTER);
         if (active_format(a).align!=FORMAT_CENTER || active_format(a).flags!=FORMAT_ITALIC || s->undo_actions_count!=actions+1 || !s->formats.source_aware ||
             a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/source-aware-suspended.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/source-aware-suspended.png"); break;
     }
     case 718:
         grid_select_cell(&a->grid,20,8,false); run_action(a,ACTION_BOLD);
@@ -11866,10 +11866,10 @@ static void layout_smoke_step(App *a,int *step) {
         history(a,true); if (active_format(a).flags!=(FORMAT_BOLD|FORMAT_ITALIC) || !s->formats.source_aware || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         break;
     case 719:
-        remove("tests/generated/app-source-format.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-source-format.dxls"); break;
+        remove("build/tests/generated/app-source-format.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/app-source-format.dxls"); break;
     case 720:
         if (a->book.dirty || !a->book.path || !s->formats.source_aware || !workbook_rename(&a->book,a->book.active,"Changed after scoped save",&error)) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-source-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-source-format.dxls"); break;
     case 721:
         if (!s->formats.source_aware || s->source_versions.high_water!=1 || s->source_versions.count!=1 ||
             a->analysis.source_version!=1 || s->analysis.source_version!=1 || s->formats.scope_count!=2 ||
@@ -11879,8 +11879,8 @@ static void layout_smoke_step(App *a,int *step) {
         grid_select_cell(&a->grid,0,1,false);
         if (active_format(a).flags!=FORMAT_ITALIC || active_format(a).color!=3 || active_format(a).align!=FORMAT_CENTER ||
             a->grid.format_result_token==SIZE_MAX || a->grid.format_record_token==SIZE_MAX) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/source-aware-reopened.png");
-        workspace_job(a,JOB_SAVE,"tests/generated/app-source-format.dxls"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/source-aware-reopened.png");
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-source-format.dxls"); break;
     case 722:
         if (a->book.dirty || !s->formats.source_aware || s->formats.scope_count!=2 || active_format(a).flags!=FORMAT_ITALIC || active_format(a).color!=3) goto failed;
         puts("PASS: native v14 saved raw record and matching exact-result styles reactivate only after verification across real Save Open and overwrite, mixed finite commands reject atomically, manual and whole-column formatting retain Undo Redo and exact source values");
@@ -11908,7 +11908,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 724:
         if (active_format(a).flags || active_format(a).color || a->grid.format_result_token!=SIZE_MAX ||
             imported_cell_format(a,a->grid.row,a->grid.col).flags || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/source-aware-table.png");
+        smoke_snapshot("build/tests/results/workspace-layout/source-aware-table.png");
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
         a->selected_object=1; a->sidebar=a->fields_visible=true; a->matrix_cells_active=true;
         grid_select_cell(&a->grid,s->objects.items[1].row+2,s->objects.items[1].col+1,false); a->pivot_reveal_object=true; break;
@@ -11919,12 +11919,12 @@ static void layout_smoke_step(App *a,int *step) {
             matrix_total_format(a,a->grid.row,a->grid.col).number!=FORMAT_ACCOUNTING || matrix_total_format(a,a->grid.row,a->grid.col).flags ||
             a->authoring_layout.matrix.y+110*a->ui.scale>=a->grid.rect.y+a->grid.rect.height ||
             a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/source-aware-pivot.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/source-aware-pivot.png"); break;
     case 726:
-        workspace_job(a,JOB_SAVE,"tests/generated/app-source-format.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-source-format.dxls"); break;
     case 727:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-source-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-source-format.dxls"); break;
     case 728:
         for (size_t i=0;i<2;i++) if (!object_ready(a,i)) {
             const SheetObject *o=&s->objects.items[i]; a->selected_object=(int)i;
@@ -11999,12 +11999,12 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: native prepared Analysis and format transaction restores both through one Undo Redo, retains source issuance outside history and cached values, and interleaves ordinary Analysis actions without copying moved ownership"); break;
     case 734: {
         Database fixture={0}; duckdb_result result={0};
-        remove("tests/generated/app-record-format.parquet");
+        remove("build/tests/generated/app-record-format.parquet");
         if (!database_open(&fixture,&error)) goto failed;
         const char *sql="COPY (SELECT floor(i/2)::BIGINT AS Pair,(floor(i/2)::BIGINT%7)::INTEGER AS Tie,"
             "CASE floor(i/2)::BIGINT%5 WHEN 0 THEN NULL WHEN 1 THEN '' WHEN 2 THEN 'NULL' ELSE 'pair' END::VARCHAR AS Label,"
             "(9007199254740993+floor(i/2)::BIGINT)::BIGINT AS Exact,(floor(i/2)/8)::DECIMAL(18,4) AS Amount "
-            "FROM range(600) t(i)) TO 'tests/generated/app-record-format.parquet' (FORMAT PARQUET)";
+            "FROM range(600) t(i)) TO 'build/tests/generated/app-record-format.parquet' (FORMAT PARQUET)";
         bool ok=duckdb_query(fixture.connection,sql,&result)==DuckDBSuccess;
         if (!ok) { free(error); error=dx_strdup(duckdb_result_error(&result)); }
         duckdb_destroy_result(&result); database_close(&fixture); if (!ok) goto failed;
@@ -12012,7 +12012,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->statistics_enabled=false; a->matrix_cells_active=false; a->selected_object=-1;
         a->sidebar=a->fields_visible=a->pipeline=false; a->reduced_motion=true;
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
-        open_source(a,"tests/generated/app-record-format.parquet",false); break;
+        open_source(a,"build/tests/generated/app-record-format.parquet",false); break;
     }
     case 735:
         if (a->page.total!=600 || a->page.column_count!=5 || a->page.columns[4].type!=DUCKDB_TYPE_DECIMAL ||
@@ -12060,7 +12060,7 @@ static void layout_smoke_step(App *a,int *step) {
         sort_field(a,1,true); break;
     case 741:
         if (!smoke_source_record_formats(a,true) || a->page.total!=600) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/source-record-format-descending.png");
+        smoke_snapshot("build/tests/results/workspace-layout/source-record-format-descending.png");
         sort_field(a,1,false); break;
     case 742:
         if (!smoke_source_record_formats(a,true) || a->page.total!=600) goto failed;
@@ -12074,7 +12074,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 745:
         if (a->page.total!=600 || !smoke_source_record_formats(a,true) || a->spare.column_count) goto failed;
         grid_select_cell(&a->grid,0,4,false);
-        smoke_snapshot("tests/results/workspace-layout/source-record-format-returned.png");
+        smoke_snapshot("build/tests/results/workspace-layout/source-record-format-returned.png");
         draft_history=s->undo_actions_count; draft_revision=s->formats.revision;
         grid_select_cell(&a->grid,10,4,false);
         { CellFormat value=active_format(a); value.color=2; if (!apply_format(a,FORMAT_COLOR,value)) goto failed; }
@@ -12098,10 +12098,10 @@ static void layout_smoke_step(App *a,int *step) {
     case 748:
         if (a->source_format.active || s->formats.revision!=draft_revision || s->undo_actions_count!=draft_history ||
             s->source_versions.high_water!=1 || !smoke_source_record_formats(a,true) || active_format(a).align!=FORMAT_CENTER) goto failed;
-        remove("tests/generated/app-live-record-format.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-live-record-format.dxls"); break;
+        remove("build/tests/generated/app-live-record-format.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/app-live-record-format.dxls"); break;
     case 749:
         if (a->book.dirty || !a->book.path || !smoke_source_record_formats(a,true)) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-live-record-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-live-record-format.dxls"); break;
     case 750:
         if (a->book.dirty || !s->formats.source_aware || s->formats.count!=3 || s->formats.scope_count!=1 ||
             s->source_versions.high_water!=1 || s->source_versions.count!=1 || a->analysis.source_version!=1 ||
@@ -12113,7 +12113,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 751:
         if (!smoke_source_record_formats(a,true) || active_format(a).align!=FORMAT_CENTER || a->book.dirty ||
             s->formats.revision!=draft_revision || s->undo_actions_count || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/source-record-format-reopened.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/source-record-format-reopened.png"); break;
     case 752:
         if (s->source_versions.high_water!=1 || s->formats.items[0].selector!=FORMAT_RECORDS ||
             s->formats.items[0].record_count!=110 || s->formats.items[1].record_count!=1 ||
@@ -12142,17 +12142,17 @@ static void layout_smoke_step(App *a,int *step) {
         /* A different file at the identical locator and exact same schema
            must never reactivate saved physical-record styles. */
         Database fixture={0}; duckdb_result result={0};
-        remove("tests/generated/app-record-format-replaced.parquet");
+        remove("build/tests/generated/app-record-format-replaced.parquet");
         if (!database_open(&fixture,&error)) goto failed;
         const char *sql="COPY (SELECT floor(i/2)::BIGINT AS Pair,(floor(i/2)::BIGINT%7)::INTEGER AS Tie,"
             "CASE floor(i/2)::BIGINT%5 WHEN 0 THEN NULL WHEN 1 THEN '' WHEN 2 THEN 'NULL' ELSE 'pair' END::VARCHAR AS Label,"
             "(9007199254740993+floor(i/2)::BIGINT)::BIGINT AS Exact,(1000+floor(i/2)/8)::DECIMAL(18,4) AS Amount "
-            "FROM range(600) t(i)) TO 'tests/generated/app-record-format-replaced.parquet' (FORMAT PARQUET)";
+            "FROM range(600) t(i)) TO 'build/tests/generated/app-record-format-replaced.parquet' (FORMAT PARQUET)";
         bool ok=duckdb_query(fixture.connection,sql,&result)==DuckDBSuccess;
         if (!ok) { free(error); error=dx_strdup(duckdb_result_error(&result)); }
         duckdb_destroy_result(&result); database_close(&fixture);
-        if (!ok || rename("tests/generated/app-record-format-replaced.parquet","tests/generated/app-record-format.parquet")) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-live-record-format.dxls"); break;
+        if (!ok || rename("build/tests/generated/app-record-format-replaced.parquet","build/tests/generated/app-record-format.parquet")) goto failed;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-live-record-format.dxls"); break;
     }
     case 758:
         if (source_format_token(a)!=SIZE_MAX || a->source_format_proof.raw.data || !a->source_format_attempt.valid ||
@@ -12161,7 +12161,7 @@ static void layout_smoke_step(App *a,int *step) {
             active_format(a).flags || active_format(a).color || active_format(a).align!=FORMAT_CENTER ||
             !a->message || !strstr(a->message,"no longer matches")) goto failed;
         request=a->request_id; draft_revision=s->formats.revision; ribbon_cells=a->page.cells;
-        smoke_snapshot("tests/results/workspace-layout/source-record-format-changed.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/source-record-format-changed.png"); break;
     case 759:
         if (a->request_id!=request || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision ||
             s->undo_actions_count || a->page.cells!=ribbon_cells || source_format_token(a)!=SIZE_MAX) goto failed;
@@ -12174,7 +12174,7 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; break;
     case 761:
         if (a->request_id!=request || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-live-record-format.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-live-record-format.dxls"); break;
     case 762:
         if (a->book.dirty || source_format_token(a)!=SIZE_MAX || s->formats.items[0].record_count!=110 ||
             s->formats.items[1].record_ids[0]!=1 || s->formats.items[1].value.color!=3) goto failed;
@@ -12183,7 +12183,7 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: native captured Verify Collect Commit formats original records across page boundaries sort filter eviction and duplicate values, preserves first-binding Undo Redo and no-op redo, rejects canceled superseded stale commands, reactivates verified v14 styles without edits, and suspends same-schema replaced sources without idle retries"); break;
 
     case 764:
-        if (!smoke_record_file("tests/generated/app-table-record-format.parquet",false,&error)) goto failed;
+        if (!smoke_record_file("build/tests/generated/app-table-record-format.parquet",false,&error)) goto failed;
         memset(smoke_table_bold_records,0,sizeof(smoke_table_bold_records));
         for (size_t id=241;id<=350;id++) smoke_table_bold_records[id]=true;
         a->document_action=DOCUMENT_NEW; finish_document_action(a);
@@ -12193,7 +12193,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (!cells_set(&active_sheet(a)->cells,4,2,"Beside the table",&error)) goto failed;
         worksheet_record(active_sheet(a),EDIT_CELLS);
         grid_select_cell(&a->grid,8,7,false);
-        if (!import_table(a,"tests/generated/app-table-record-format.parquet")) goto failed;
+        if (!import_table(a,"build/tests/generated/app-table-record-format.parquet")) goto failed;
         break;
     case 765: {
         if (!object_ready(a,0)) return;
@@ -12273,7 +12273,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (!object_ready(a,0) || a->objects[0].page.offset>120 ||
             a->objects[0].page.offset+a->objects[0].page.row_count<=150) return;
         if (!smoke_table_record_formats(a,0,true,true)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/table-record-format-returned.png");
+        smoke_snapshot("build/tests/results/workspace-layout/table-record-format-returned.png");
         author_cells=a->objects[0].page.cells; request=a->request_id;
         begin_move_range(a,true); if (a->modal!=MODAL_MOVE_RANGE) goto failed;
         a->modal=MODAL_NONE; if (!move_selection(a,2,1,false,&error)) goto failed;
@@ -12297,10 +12297,10 @@ static void layout_smoke_step(App *a,int *step) {
     case 778:
         if (a->source_format.active || s->formats.revision!=draft_revision || s->undo_actions_count!=draft_history ||
             !smoke_table_record_formats(a,0,true,true)) goto failed;
-        remove("tests/generated/app-table-record-format.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-table-record-format.dxls"); break;
+        remove("build/tests/generated/app-table-record-format.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/app-table-record-format.dxls"); break;
     case 779:
         if (a->book.dirty || !a->book.path) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-table-record-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-table-record-format.dxls"); break;
     case 780:
         if (!object_ready(a,0)) return;
         if (a->analysis.kind!=SOURCE_NONE || a->book.dirty || s->undo_actions_count || s->source_versions.high_water!=1 ||
@@ -12312,7 +12312,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (!smoke_table_record_formats(a,0,true,true) || a->request_id!=request || a->objects[0].page.cells!=author_cells ||
             a->book.dirty || s->undo_actions_count || s->formats.revision!=draft_revision) goto failed;
         grid_select_cell(&a->grid,8,16,false); a->selected_object=-1;
-        if (!import_table(a,"tests/generated/app-table-record-format.parquet")) goto failed;
+        if (!import_table(a,"build/tests/generated/app-table-record-format.parquet")) goto failed;
         break;
     case 782:
         if (!object_ready(a,1)) return;
@@ -12384,7 +12384,7 @@ static void layout_smoke_step(App *a,int *step) {
             if (preview.flags!=(FORMAT_BOLD|FORMAT_ITALIC) || preview.flags!=body.flags || preview.color!=body.color) goto failed; }
           const SheetObject *pivot=s->objects.items+2;
           if (imported_cell_format(a,pivot->row+2,pivot->col+1).flags || imported_cell_format(a,pivot->row+2,pivot->col+1).color) goto failed; }
-        smoke_snapshot("tests/results/workspace-layout/table-record-format-preview.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/table-record-format-preview.png"); break;
     case 788:
         a->selected_object=0; a->matrix_cells_active=false; a->sidebar=a->fields_visible=false; a->pivot_reveal_object=false;
         a->grid.top=s->objects.items[0].row+2+120; a->grid.horizontal=0;
@@ -12392,10 +12392,10 @@ static void layout_smoke_step(App *a,int *step) {
     case 789:
         if (!object_ready(a,0)) return;
         if (!smoke_table_record_formats(a,0,true,false) || strcmp(cells_get(&s->cells,4,2),"Beside the table")) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-table-record-format.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-table-record-format.dxls"); break;
     case 790:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-table-record-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-table-record-format.dxls"); break;
     case 791:
         if (!object_ready(a,0)) return;
         if (a->book.dirty || s->objects.count!=3 || s->objects.items[0].source.source_version!=2 ||
@@ -12404,10 +12404,10 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; break;
     case 792:
         if (a->request_id!=request || a->book.dirty || !smoke_table_record_formats(a,0,true,false)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/table-record-format-reopened.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/table-record-format-reopened.png"); break;
     case 793:
-        if (!smoke_record_file("tests/generated/app-table-record-format.parquet",true,&error)) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-table-record-format.dxls"); break;
+        if (!smoke_record_file("build/tests/generated/app-table-record-format.parquet",true,&error)) goto failed;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-table-record-format.dxls"); break;
     case 794:
         if (!object_ready(a,0)) return;
         if (source_format_owner_token(a,s->objects.items[0].id)!=SIZE_MAX || !smoke_table_record_formats(a,0,false,false) ||
@@ -12426,7 +12426,7 @@ static void layout_smoke_step(App *a,int *step) {
         request=a->request_id; break;
     case 797:
         if (a->request_id!=request || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-table-record-format.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-table-record-format.dxls"); break;
     case 798:
         if (a->book.dirty || s->formats.count!=4 || s->formats.scope_count!=3 || s->source_versions.count!=2 ||
             strcmp(cells_get(&s->cells,4,2),"Beside the table")) goto failed;
@@ -12435,13 +12435,13 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: native Table record formatting preserves captured local IDs and fields across sort filter eviction move Undo Redo, isolates same-file owners and raw preview from Pivot results, retains no-op verified proof, and verifies or suspends v14 reopened sources"); break;
 
     case 800:
-        if (!smoke_record_file("tests/generated/app-result-format.parquet",false,&error) ||
-            !smoke_copy_fixture("tests/generated/app-result-format.parquet","tests/generated/app-result-format-original.parquet")) goto failed;
+        if (!smoke_record_file("build/tests/generated/app-result-format.parquet",false,&error) ||
+            !smoke_copy_fixture("build/tests/generated/app-result-format.parquet","build/tests/generated/app-result-format-original.parquet")) goto failed;
         a->document_action=DOCUMENT_NEW; finish_document_action(a);
         a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
         a->sidebar=a->fields_visible=a->pipeline=a->matrix_cells_active=false; a->selected_object=-1;
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
-        open_source(a,"tests/generated/app-result-format.parquet",false); break;
+        open_source(a,"build/tests/generated/app-result-format.parquet",false); break;
     case 801:
         if (a->page.total!=600 || a->page.column_count!=5 || a->page.columns[4].type!=DUCKDB_TYPE_DECIMAL) goto failed;
         grid_select_cell(&a->grid,10,4,false); run_action(a,ACTION_BOLD); break;
@@ -12476,7 +12476,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (source_format_token(a)!=raw_token || source_format_owner_result_token(a,0)!=result_token || !smoke_exact_result_formats(a,0,true)) goto failed;
         s->formats.revision=saved_revision; source_format_page(a);
         if (a->source_format_proof.result.data!=result_cache || a->request_id!=request || !smoke_exact_result_formats(a,0,true)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/source-result-verified.png");
+        smoke_snapshot("build/tests/results/workspace-layout/source-result-verified.png");
         grid_select_cell(&a->grid,0,1,false); run_action(a,ACTION_SORT_DESC); break;
     }
     case 804:
@@ -12497,7 +12497,7 @@ static void layout_smoke_step(App *a,int *step) {
     }
     case 807:
         if (source_format_owner_result_token(a,0)==SIZE_MAX || !smoke_exact_result_formats(a,2,true)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/source-result-filtered.png");
+        smoke_snapshot("build/tests/results/workspace-layout/source-result-filtered.png");
         run_action(a,ACTION_CLEAR_FILTERS); break;
     case 808:
         if (a->page.total!=600 || !smoke_exact_result_formats(a,0,true)) goto failed;
@@ -12521,17 +12521,17 @@ static void layout_smoke_step(App *a,int *step) {
           SheetObject *pivot=s->objects.items;
           CellFormat value=imported_cell_format(a,pivot->row+22,pivot->col+1);
           if (value.flags || value.color) goto failed; }
-        smoke_snapshot("tests/results/workspace-layout/source-result-preview.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/source-result-preview.png"); break;
     case 811:
         a->sidebar=a->fields_visible=a->matrix_cells_active=false; a->selected_object=-1; a->pivot_reveal_object=false;
         a->grid.top=0; a->grid.fraction=0; grid_select_cell(&a->grid,10,4,false); break;
     case 812:
         if (a->page.offset) return;
         if (!smoke_exact_result_formats(a,0,true)) goto failed;
-        remove("tests/generated/app-result-format.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-result-format.dxls"); break;
+        remove("build/tests/generated/app-result-format.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/app-result-format.dxls"); break;
     case 813:
         if (a->book.dirty || !a->book.path) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-result-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-result-format.dxls"); break;
     case 814:
         if (!object_ready(a,0) || !source_format_owner_verified(a,0)) return;
         if (!smoke_exact_result_formats(a,0,true) || a->book.dirty || s->undo_actions_count || s->source_versions.high_water!=1 ||
@@ -12547,8 +12547,8 @@ static void layout_smoke_step(App *a,int *step) {
     case 816:
         if (a->request_id!=request+1 || a->source_format_proof.result.data!=result_cache || s->formats.revision!=draft_revision ||
             a->book.dirty || s->undo_actions_count || !smoke_exact_result_formats(a,0,true)) goto failed;
-        if (!smoke_record_file("tests/generated/app-result-format.parquet",true,&error)) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-result-format.dxls"); break;
+        if (!smoke_record_file("build/tests/generated/app-result-format.parquet",true,&error)) goto failed;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-result-format.dxls"); break;
     case 817:
         if (!a->message || !strstr(a->message,"no longer matches")) return;
         if (source_format_owner_result_token(a,0)!=SIZE_MAX || source_format_owner_token(a,0)!=SIZE_MAX ||
@@ -12562,29 +12562,29 @@ static void layout_smoke_step(App *a,int *step) {
     case 819:
         if (a->source_format.active || a->book.dirty || s->undo_actions_count || s->formats.revision!=draft_revision ||
             !smoke_exact_result_formats(a,-1,false)) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-result-format.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-result-format.dxls"); break;
     case 820:
         if (a->book.dirty || s->formats.count!=4 || s->formats.scope_count!=3 || s->source_versions.count!=1) goto failed;
         break;
     case 821:
-        if (!smoke_copy_fixture("tests/generated/app-result-format-original.parquet","tests/generated/app-result-format.parquet")) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-result-format.dxls"); break;
+        if (!smoke_copy_fixture("build/tests/generated/app-result-format-original.parquet","build/tests/generated/app-result-format.parquet")) goto failed;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-result-format.dxls"); break;
     case 822:
         if (!source_format_owner_verified(a,0) || !object_ready(a,0)) return;
         if (!smoke_exact_result_formats(a,0,true) || a->book.dirty || s->undo_actions_count || s->source_versions.high_water!=1) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/source-result-restored.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/source-result-restored.png"); break;
     case 823:
         puts("PASS: native verified exact-result and guarded styles follow only matching structured definitions, retain physical record styles through sort filter, reuse cached publication, isolate Pivot results and preserve v14 changed-file suspension and exact-byte restoration"); break;
 
     case 824:
-        if (!smoke_record_file("tests/generated/app-legacy-format.parquet",false,&error) ||
-            !smoke_copy_fixture("tests/generated/app-legacy-format.parquet","tests/generated/app-legacy-format-original.parquet") ||
-            !smoke_legacy_format_book("tests/generated/app-legacy-format.dxls","tests/generated/app-legacy-format.parquet",&error) ||
-            !smoke_copy_fixture("tests/generated/app-legacy-format.dxls","tests/generated/app-legacy-format-preserved.dxls")) goto failed;
+        if (!smoke_record_file("build/tests/generated/app-legacy-format.parquet",false,&error) ||
+            !smoke_copy_fixture("build/tests/generated/app-legacy-format.parquet","build/tests/generated/app-legacy-format-original.parquet") ||
+            !smoke_legacy_format_book("build/tests/generated/app-legacy-format.dxls","build/tests/generated/app-legacy-format.parquet",&error) ||
+            !smoke_copy_fixture("build/tests/generated/app-legacy-format.dxls","build/tests/generated/app-legacy-format-preserved.dxls")) goto failed;
         a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
         a->sidebar=a->fields_visible=a->pipeline=a->matrix_cells_active=false; a->selected_object=-1;
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
-        workspace_job(a,JOB_LOAD,"tests/generated/app-legacy-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
     case 825:
         if (!source_format_owner_verified(a,0)) {
             if (a->source_format_attempt.valid && !a->source_format.active) goto failed;
@@ -12595,18 +12595,18 @@ static void layout_smoke_step(App *a,int *step) {
             s->formats.items[0].selector!=FORMAT_SPATIAL || s->formats.items[1].selector!=FORMAT_GUARDED ||
             s->formats.items[2].selector!=FORMAT_GUARDED || !smoke_legacy_result_formats(a,true,false) ||
             strcmp(cells_get(&s->cells,700,0),"Below the source")) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/legacy-format-baseline.png");
-        workspace_job(a,JOB_SAVE,"tests/generated/app-legacy-format-migrated.dxls"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/legacy-format-baseline.png");
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-migrated.dxls"); break;
     case 826:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-legacy-format-migrated.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format-migrated.dxls"); break;
     case 827:
         if (!source_format_owner_verified(a,0)) return;
         if (a->book.dirty || s->undo_actions_count || !smoke_legacy_result_formats(a,true,false)) goto failed;
         /* Test-only idle hold while preparing real history before migration;
            it leaves normal Page/count publication and verification untouched. */
         a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-legacy-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
     case 828: {
         if (!a->source_format_origin.armed || !a->source_format_origin.page_ready || s->formats.source_aware ||
             a->analysis.source_version || !smoke_legacy_result_formats(a,false,false)) goto failed;
@@ -12649,11 +12649,11 @@ static void layout_smoke_step(App *a,int *step) {
         run_action(a,ACTION_SOURCE_ORDER); break;
     case 832:
         if (!smoke_legacy_result_formats(a,true,true)) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-legacy-format-records.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-records.dxls"); break;
     case 833:
         if (a->book.dirty) goto failed;
         a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-legacy-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
     case 834:
         if (!a->source_format_origin.armed || !a->source_format_origin.page_ready || s->formats.source_aware) goto failed;
         a->viewport_changed=dx_millis()-1000; source_format_schedule(a);
@@ -12666,11 +12666,11 @@ static void layout_smoke_step(App *a,int *step) {
     case 835:
         if (a->source_format_attempt.deferred || a->source_format.active || a->request_id!=request || s->formats.source_aware || a->book.dirty || s->source_versions.high_water ||
             s->formats.revision!=draft_revision || !smoke_legacy_result_formats(a,false,false)) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-legacy-format-preserved.dxls");
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-preserved.dxls");
         if (a->io_busy || a->request_id!=request || !a->message || !strstr(a->message,"verified migration") ||
-            !smoke_same_fixture("tests/generated/app-legacy-format.dxls","tests/generated/app-legacy-format-preserved.dxls")) goto failed;
+            !smoke_same_fixture("build/tests/generated/app-legacy-format.dxls","build/tests/generated/app-legacy-format-preserved.dxls")) goto failed;
         a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-legacy-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
     case 836: {
         if (!a->source_format_origin.armed || !a->source_format_origin.page_ready || s->formats.source_aware) goto failed;
         draft_revision=a->analysis_revision; Analysis order={0}; a->sort_object=-1;
@@ -12692,45 +12692,45 @@ static void layout_smoke_step(App *a,int *step) {
     case 839:
         if (a->source_format_attempt.deferred || a->source_format_origin.armed || a->source_format.active || a->request_id!=request || s->formats.source_aware ||
             s->source_versions.high_water || !smoke_legacy_result_formats(a,false,false)) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-legacy-format-preserved.dxls");
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-preserved.dxls");
         if (a->io_busy || a->request_id!=request || !a->book.dirty ||
-            !smoke_same_fixture("tests/generated/app-legacy-format.dxls","tests/generated/app-legacy-format-preserved.dxls")) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/legacy-format-invalid-origin.png");
+            !smoke_same_fixture("build/tests/generated/app-legacy-format.dxls","build/tests/generated/app-legacy-format-preserved.dxls")) goto failed;
+        smoke_snapshot("build/tests/results/workspace-layout/legacy-format-invalid-origin.png");
         a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-legacy-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
     case 840:
         if (!a->source_format_origin.armed || !a->source_format_origin.page_ready || s->formats.source_aware ||
-            !smoke_record_file("tests/generated/app-legacy-format.parquet",true,&error)) goto failed;
+            !smoke_record_file("build/tests/generated/app-legacy-format.parquet",true,&error)) goto failed;
         a->viewport_changed=dx_millis()-1000; source_format_schedule(a);
         if (!a->source_format.active || !a->source_format.baseline) goto failed; break;
     case 841:
         if (a->source_format_attempt.deferred || a->source_format.active || s->formats.source_aware || s->source_versions.high_water || a->book.dirty || s->undo_actions_count ||
             !smoke_legacy_result_formats(a,false,false) || !a->message || !strstr(a->message,"changed")) goto failed;
-        request=a->request_id; workspace_job(a,JOB_SAVE,"tests/generated/app-legacy-format-preserved.dxls");
+        request=a->request_id; workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-preserved.dxls");
         if (a->io_busy || a->request_id!=request ||
-            !smoke_same_fixture("tests/generated/app-legacy-format.dxls","tests/generated/app-legacy-format-preserved.dxls") ||
-            !smoke_copy_fixture("tests/generated/app-legacy-format-original.parquet","tests/generated/app-legacy-format.parquet")) goto failed;
+            !smoke_same_fixture("build/tests/generated/app-legacy-format.dxls","build/tests/generated/app-legacy-format-preserved.dxls") ||
+            !smoke_copy_fixture("build/tests/generated/app-legacy-format-original.parquet","build/tests/generated/app-legacy-format.parquet")) goto failed;
         a->viewport_changed=dx_millis()-1000;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-legacy-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
     case 842:
         if (!source_format_owner_verified(a,0)) {
             if (a->source_format_attempt.valid && !a->source_format.active) goto failed;
             return;
         }
         if (!smoke_legacy_result_formats(a,true,false) || !a->book.dirty || s->source_versions.high_water!=1 || s->undo_actions_count) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-legacy-format-recovered.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-recovered.dxls"); break;
     case 843:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-legacy-format-recovered.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format-recovered.dxls"); break;
     case 844:
         if (!source_format_owner_verified(a,0)) return;
         if (a->book.dirty || !smoke_legacy_result_formats(a,true,false) || s->source_versions.high_water!=1) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/legacy-format-recovered.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/legacy-format-recovered.png"); break;
     case 845:
         puts("PASS: native legacy format baselines preserve Cell Format Undo Redo and verified loaded definitions; pruned sort history cancellation changed files and blocked Save cannot invent source identity"); break;
 
     case 846: {
-        if (!smoke_record_file("tests/generated/app-manual-format-import.parquet",false,&error)) goto failed;
+        if (!smoke_record_file("build/tests/generated/app-manual-format-import.parquet",false,&error)) goto failed;
         a->document_action=DOCUMENT_NEW; finish_document_action(a); s=active_sheet(a);
         a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
         a->sidebar=a->fields_visible=a->pipeline=a->matrix_cells_active=false; a->selected_object=-1;
@@ -12744,7 +12744,7 @@ static void layout_smoke_step(App *a,int *step) {
             !worksheet_manual_format_history_eligible(s,&a->analysis,&error)) goto failed;
         draft_revision=s->formats.revision; draft_history=s->undo_actions_count;
         grid_select_cell(&a->grid,0,0,false);
-        if (!import_table(a,"tests/generated/app-manual-format-import.parquet") || !s->formats.source_aware ||
+        if (!import_table(a,"build/tests/generated/app-manual-format-import.parquet") || !s->formats.source_aware ||
             s->formats.revision!=draft_revision+1 || s->undo_actions_count!=draft_history+1 ||
             s->undo_actions[draft_history]!=EDIT_OBJECTS || s->formats.undo_count!=1 || !s->formats.undo[0].source_aware) goto failed;
         break;
@@ -12760,16 +12760,16 @@ static void layout_smoke_step(App *a,int *step) {
     case 848:
         if (!object_ready(a,0)) return;
         if (imported_cell_format(a,2,4).flags || format_at(&s->formats,2,4).flags!=FORMAT_BOLD) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-manual-format-import.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-manual-format-import.dxls"); break;
     case 849:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-manual-format-import.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-manual-format-import.dxls"); break;
     case 850:
         if (!object_ready(a,0)) return;
         if (a->book.dirty || s->undo_actions_count || !s->formats.source_aware || s->source_versions.high_water ||
             s->objects.items[0].source.source_version || imported_cell_format(a,2,4).flags ||
             format_at(&s->formats,2,4).flags!=FORMAT_BOLD || s->formats.items[0].selector!=FORMAT_SPATIAL) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/manual-format-import-reopened.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/manual-format-import-reopened.png"); break;
     case 851:
         puts("PASS: native manual format history stays manual through first Table import, blank-template removal, normal Object Undo Redo and v14 Save Open without fabricated source bindings"); break;
     case 852:
@@ -12777,17 +12777,17 @@ static void layout_smoke_step(App *a,int *step) {
         a->statistics_enabled=false; statistics_cancel(a); a->selected_object=-1;
         if (s->formats.count || s->formats.source_aware) goto failed;
         grid_select_cell(&a->grid,0,0,false);
-        if (!import_table(a,"tests/generated/app-manual-format-import.parquet") || !s->formats.source_aware || s->source_versions.high_water) goto failed;
+        if (!import_table(a,"build/tests/generated/app-manual-format-import.parquet") || !s->formats.source_aware || s->source_versions.high_water) goto failed;
         break;
     case 853:
         if (!object_ready(a,0)) return;
         grid_select_cell(&a->grid,1000,8,false);
         { CellFormat value=format_default(); value.flags=FORMAT_BOLD; if (!apply_format(a,FORMAT_BOLD,value)) goto failed; }
         if (!s->formats.source_aware || format_at(&s->formats,1000,8).flags!=FORMAT_BOLD || imported_cell_format(a,2,4).flags) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-empty-table-manual.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-empty-table-manual.dxls"); break;
     case 854:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-empty-table-manual.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-empty-table-manual.dxls"); break;
     case 855:
         if (!object_ready(a,0)) return;
         if (a->book.dirty || !s->formats.source_aware || s->source_versions.high_water || s->objects.items[0].source.source_version ||
@@ -12801,29 +12801,29 @@ static void layout_smoke_step(App *a,int *step) {
         grid_select_cell(&a->grid,20,20,false); a->selected_object=-1;
         { CellFormat value=format_default(); value.flags=FORMAT_ITALIC; if (!apply_format(a,FORMAT_ITALIC,value)) goto failed; }
         if (s->formats.source_aware || !source_format_save_ready(a)) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-blank-pivot-manual.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-blank-pivot-manual.dxls"); break;
     case 856:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-blank-pivot-manual.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-blank-pivot-manual.dxls"); break;
     case 857:
         if (a->book.dirty || a->analysis.kind!=SOURCE_NONE || s->objects.count!=1 || s->objects.items[0].kind!=OBJECT_PIVOT ||
             s->formats.source_aware || format_at(&s->formats,20,20).flags!=FORMAT_ITALIC || !source_format_save_ready(a)) goto failed;
         a->document_action=DOCUMENT_NEW; finish_document_action(a);
-        open_source(a,"tests/generated/app-manual-format-import.parquet",false); break;
+        open_source(a,"build/tests/generated/app-manual-format-import.parquet",false); break;
     case 858:
         if (a->page.total!=600 || a->page.column_count!=5 || s->formats.source_aware) goto failed;
         grid_select_cell(&a->grid,1000,8,false); s->formats.revision=UINT64_MAX-1;
         { CellFormat value=format_default(); value.flags=FORMAT_ITALIC; if (!apply_format(a,FORMAT_ITALIC,value)) goto failed; }
         if (!s->formats.source_aware || s->formats.revision!=UINT64_MAX || s->formats.undo_count!=1 || !s->formats.undo[0].source_aware ||
             s->source_versions.high_water || a->analysis.source_version || imported_cell_format(a,0,4).flags || format_at(&s->formats,1000,8).flags!=FORMAT_ITALIC) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-primary-manual-format.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-primary-manual-format.dxls"); break;
     case 859:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-primary-manual-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-primary-manual-format.dxls"); break;
     case 860:
         if (a->page.total!=600 || a->page.column_count!=5 || a->book.dirty || !s->formats.source_aware || s->source_versions.high_water ||
             a->analysis.source_version || imported_cell_format(a,0,4).flags || format_at(&s->formats,1000,8).flags!=FORMAT_ITALIC) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/manual-source-format-reopened.png");
+        smoke_snapshot("build/tests/results/workspace-layout/manual-source-format-reopened.png");
         puts("PASS: native manual format history stays manual for empty first-Table imports, blank Pivot templates and primary sources through actual Save Open, without imported style inheritance or source binding and with exhausted revision safety"); break;
 
     case 861:
@@ -12857,14 +12857,14 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: native Statistics Enter keypad Enter and Space open without toggling a metric, independent Space toggles exactly once, Escape retains the mask and document without clipboard or database work"); break;
 
     case 867:
-        if (!smoke_record_file("tests/generated/app-format-budget.parquet",false,&error) ||
-            !smoke_budget_book("tests/generated/app-format-budget.dxls","tests/generated/app-format-budget.parquet",&error) ||
-            !smoke_copy_fixture("tests/generated/app-format-budget.dxls","tests/generated/app-format-budget-preserved.dxls")) goto failed;
+        if (!smoke_record_file("build/tests/generated/app-format-budget.parquet",false,&error) ||
+            !smoke_budget_book("build/tests/generated/app-format-budget.dxls","build/tests/generated/app-format-budget.parquet",&error) ||
+            !smoke_copy_fixture("build/tests/generated/app-format-budget.dxls","build/tests/generated/app-format-budget-preserved.dxls")) goto failed;
         a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
         a->sidebar=a->fields_visible=a->pipeline=a->matrix_cells_active=false; a->selected_object=-1;
         a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
-        workspace_job(a,JOB_LOAD,"tests/generated/app-format-budget.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget.dxls"); break;
     case 868:
         if (!smoke_budget_pressure(a,&error) || !smoke_budget_snapshot(a,&budget_state)) goto failed;
         source_format_schedule(a);
@@ -12877,9 +12877,9 @@ static void layout_smoke_step(App *a,int *step) {
     case 870: {
         source_format_schedule(a);
         if (!smoke_budget_denied(a,&budget_state) || a->request_id!=budget_state.request) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-format-budget-preserved.dxls");
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-format-budget-preserved.dxls");
         if (a->io_busy || a->request_id!=budget_state.request ||
-            !smoke_same_fixture("tests/generated/app-format-budget.dxls","tests/generated/app-format-budget-preserved.dxls")) goto failed;
+            !smoke_same_fixture("build/tests/generated/app-format-budget.dxls","build/tests/generated/app-format-budget-preserved.dxls")) goto failed;
         grid_select_cell(&a->grid,700,9,false); input_set(&a->input,"Budget released");
         if (!commit_cell(a) || s->cells.revision!=budget_state.cell_revision+1 || s->formats.revision!=budget_state.format_revision ||
             s->redo_actions_count || s->formats.redo_count) goto failed;
@@ -12897,18 +12897,18 @@ static void layout_smoke_step(App *a,int *step) {
         if (*cells_get(&s->cells,700,9) || a->analysis.source_version!=1) goto failed;
         history(a,true); source_format_schedule(a);
         if (strcmp(cells_get(&s->cells,700,9),"Budget released") || a->request_id!=request || !smoke_budget_work(a,&budget_state,2)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/format-budget-cell-retry.png");
-        workspace_job(a,JOB_SAVE,"tests/generated/app-format-budget-cell.dxls"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/format-budget-cell-retry.png");
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-format-budget-cell.dxls"); break;
     case 872:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-format-budget-cell.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget-cell.dxls"); break;
     case 873:
         if (!source_format_owner_verified(a,0)) return;
         if (a->book.dirty || !smoke_legacy_result_formats(a,true,false) || a->analysis.source_version!=1 ||
             s->source_versions.high_water!=1 || s->undo_actions_count || s->redo_actions_count ||
             strcmp(cells_get(&s->cells,700,9),"Budget released") || format_at(&s->formats,1000,8).color!=1) goto failed;
         a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-format-budget.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget.dxls"); break;
     case 874:
         if (!smoke_budget_pressure(a,&error) || !smoke_budget_snapshot(a,&budget_state)) goto failed;
         source_format_schedule(a);
@@ -12936,18 +12936,18 @@ static void layout_smoke_step(App *a,int *step) {
         if (format_at(&s->formats,1000,8).color!=1 || a->analysis.source_version!=1) goto failed;
         history(a,true); source_format_schedule(a);
         if (format_at(&s->formats,1000,8).color!=2 || a->request_id!=request || !smoke_budget_work(a,&budget_state,2)) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/format-budget-format-retry.png");
-        workspace_job(a,JOB_SAVE,"tests/generated/app-format-budget-format.dxls"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/format-budget-format-retry.png");
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-format-budget-format.dxls"); break;
     case 878:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-format-budget-format.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget-format.dxls"); break;
     case 879:
         if (!source_format_owner_verified(a,0)) return;
         if (a->book.dirty || !smoke_legacy_result_formats(a,true,false) || a->analysis.source_version!=1 ||
             s->source_versions.high_water!=1 || s->undo_actions_count || s->redo_actions_count ||
             *cells_get(&s->cells,700,9) || format_at(&s->formats,1000,8).color!=2) goto failed;
         a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-format-budget.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget.dxls"); break;
     case 880:
         if (!source_format_origin_valid(a) || s->formats.source_aware || a->analysis.source_version) goto failed;
         s->formats.revision=UINT64_MAX; a->viewport_changed=dx_millis()-1000;
@@ -12964,9 +12964,9 @@ static void layout_smoke_step(App *a,int *step) {
         if (!a->source_format_attempt.valid || a->source_format_attempt.deferred || a->source_format.active ||
             a->request_id!=budget_state.request || !smoke_budget_work(a,&budget_state,0) ||
             s->formats.revision!=UINT64_MAX || s->formats.source_aware || a->analysis.source_version || s->source_versions.high_water) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-format-budget-preserved.dxls");
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-format-budget-preserved.dxls");
         if (a->io_busy || a->request_id!=budget_state.request ||
-            !smoke_same_fixture("tests/generated/app-format-budget.dxls","tests/generated/app-format-budget-preserved.dxls")) goto failed;
+            !smoke_same_fixture("build/tests/generated/app-format-budget.dxls","build/tests/generated/app-format-budget-preserved.dxls")) goto failed;
         puts("PASS: native legacy format budget admission retries once after real Cell or Format Redo release, preserves proof history and Save reopen, does no idle work and never retries terminal exhausted revisions"); break;
     case 882: {
         char *expected=dx_absolute_path("tests/fixtures/transactions.csv");
@@ -12998,14 +12998,14 @@ static void layout_smoke_step(App *a,int *step) {
         inspector_shadow_uploads=a->pipeline_shadow_uploads;
         if (!layout->outer_scrollable || !layout->inner_scrollable || fabsf(layout->outer_max-103.333336f)>.001f || layout->inner_max!=182 ||
             fabsf(layout->header.y-139)>.001f || fabsf(layout->edit.y-593.5f)>.001f || fabsf(layout->footer.y-658)>.001f || layout->outer_scrollbar.width!=13) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-default.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-steps-scroll-default.png");
         pipeline_scroll_delta(a,layout,a->pipeline_panel,(Vector2){layout->body_clip.x+4,layout->body_clip.y+layout->body_clip.height-4},layout->outer_max); break;
     }
     case 885: {
         const UIInspectorLayout *layout=&a->pipeline_layout;
         if (fabsf(layout->outer_offset-layout->outer_max)>.001f || layout->inner_offset || layout->header.y!=139 || fabsf(layout->footer.y-503)>.001f || fabsf(layout->details.y-333.5f)>.001f || a->ui.scissor_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-outer-end.png");
-        if (!smoke_same_pipeline_header(a,"tests/results/workspace-layout/native-steps-scroll-default.png")) goto failed;
+        smoke_snapshot("build/tests/results/workspace-layout/native-steps-scroll-outer-end.png");
+        if (!smoke_same_pipeline_header(a,"build/tests/results/workspace-layout/native-steps-scroll-default.png")) goto failed;
         a->pipeline_outer_scroll=0;
         UIInspectorLayout origin=ui_inspector_layout_scrolled(a->pipeline_panel,a->ui.scale,6,false,0,0);
         pipeline_scroll_delta(a,&origin,a->pipeline_panel,(Vector2){origin.list.x+30,origin.list.y+30},54.9f); break;
@@ -13018,7 +13018,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (fabsf(a->pipeline_layout.inner_offset-55)>.001f || first!=0 || last<3 || a->pipeline_layout.list_origin.y+82.5f<=a->pipeline_layout.list.y) goto failed;
         Rectangle thumb=pipeline_scrollbar_thumb(a->pipeline_layout.list_scrollbar,337,155,55,1.5f);
         if (thumb.x!=617 || thumb.width!=7) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-row-boundary.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-steps-scroll-row-boundary.png");
         pipeline_scroll_delta(a,&a->pipeline_layout,a->pipeline_panel,(Vector2){a->pipeline_layout.list.x+30,a->pipeline_layout.list.y+30},.1f); break;
     }
     case 888:
@@ -13048,7 +13048,7 @@ static void layout_smoke_step(App *a,int *step) {
             !a->pipeline_shadow_active || a->pipeline_shadow_uploads!=inspector_shadow_uploads ||
             a->request_id!=request || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries || a->analysis_revision!=inspector_revision ||
             s->undo_actions_count!=inspector_history || a->page.cells!=ribbon_cells || a->page.total!=5 || a->grid.top || a->grid.fraction || a->grid.horizontal || a->ui.scissor_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-reopened.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-steps-scroll-reopened.png");
         /* A real pointer-context reorder must reveal its new focused row,
            even when it moves just above the visible inner viewport. */
         a->pipeline_inner_scroll=117; a->pipeline_focus_index=2;
@@ -13058,7 +13058,7 @@ static void layout_smoke_step(App *a,int *step) {
             a->page.total!=5 || a->analysis.filter_count!=4 || !a->analysis.filter_column || strcmp(a->analysis.filter_column,"City") ||
             a->analysis_revision!=inspector_revision || s->undo_actions_count!=inspector_history+1 || a->request_id!=request ||
             a->page.cells!=ribbon_cells || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries || a->ui.scissor_depth) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-reordered.png");
+        smoke_snapshot("build/tests/results/workspace-layout/native-steps-scroll-reordered.png");
         history(a,false); break;
     case 897:
         if (a->page.total!=5 || a->analysis.filter_count!=4 || !a->analysis.filter_column || strcmp(a->analysis.filter_column,"ID") ||
@@ -13081,17 +13081,17 @@ static void layout_smoke_step(App *a,int *step) {
             a->pipeline_panel.x!=130 || a->pipeline_panel.width!=510 || a->pipeline_layout.header.x!=131) goto failed;
         inspector_cached_sql=a->inspector_sql_text; inspector_cached_sql_offsets=a->inspector_sql_lines.offsets;
         if (a->inspector_sql_scroll || strcmp(a->sql_text,"Unrelated SQL dialog")) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-sql-scroll-default.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-sql-scroll-default.png"); break;
     case 901:
         if (!a->pipeline_sql || a->inspector_sql_scroll<=0 || a->chrome_focus!=8) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-sql-scroll-end.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-sql-scroll-end.png"); break;
     case 902:
         if (a->pipeline_sql || a->inspector_sql_text!=inspector_cached_sql) goto failed;
         pipeline_show_sql(a); break;
     case 903:
         if (!a->pipeline_sql || a->inspector_sql_scroll || a->inspector_sql_text!=inspector_cached_sql ||
             a->inspector_sql_lines.offsets!=inspector_cached_sql_offsets) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/native-sql-scroll-reentered.png"); break;
+        smoke_snapshot("build/tests/results/workspace-layout/native-sql-scroll-reentered.png"); break;
     case 904:
         if (!a->pipeline_sql || a->inspector_sql_scroll<=0) goto failed;
         present_pipeline(a,true,true); break;
@@ -13112,7 +13112,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 909:
         if (fabsf(a->inspector_sql_scroll-(*step==908 ? .25f : .35f))>.00001f || a->pipeline_outer_scroll ||
             a->grid.top || a->grid.fraction || a->grid.horizontal || a->pipeline_layout.inner_offset!=a->inspector_sql_scroll) goto failed;
-        if (*step==908) smoke_snapshot("tests/results/workspace-layout/native-sql-scroll-fractional.png"); break;
+        if (*step==908) smoke_snapshot("build/tests/results/workspace-layout/native-sql-scroll-fractional.png"); break;
     case 910:
         if (fabsf(a->inspector_sql_scroll)>.00001f || a->pipeline_outer_scroll || a->grid.top || a->grid.fraction || a->grid.horizontal ||
             a->request_id!=request || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries ||
@@ -13157,7 +13157,7 @@ static void navigation_smoke_step(App *a,int *step) {
         if (!a->book.sheets[1].hidden || workbook_visible_count(&a->book)!=1 || a->request_id!=request || a->page.cells!=page) goto failed;
         a->modal=MODAL_UNHIDE; a->sheet_menu_focus=a->unhide_scroll=0; a->context_origin=(Vector2){18,180}; break;
     case 4:
-        smoke_snapshot("tests/results/sheet-navigation/unhide.png"); a->modal=MODAL_NONE; a->sheet_menu_index=1; a->sheet_action=SHEET_ACTION_SHOW; process_sheet_action(a); break;
+        smoke_snapshot("build/tests/results/sheet-navigation/unhide.png"); a->modal=MODAL_NONE; a->sheet_menu_index=1; a->sheet_action=SHEET_ACTION_SHOW; process_sheet_action(a); break;
     case 5:
         if (a->book.active!=1 || s->hidden || strcmp(cells_get(&s->cells,10,5),"Original note")) goto failed;
         request=a->request_id; page=a->page.cells; a->sheet_menu_index=1; a->sheet_action=SHEET_ACTION_UP; process_sheet_action(a); break;
@@ -13165,17 +13165,17 @@ static void navigation_smoke_step(App *a,int *step) {
         if (a->book.active || strcmp(s->name,"Data İ") || a->request_id!=request || a->page.cells!=page) goto failed;
         begin_sheet_menu(a,0,(Vector2){18,180}); break;
     case 7:
-        smoke_snapshot("tests/results/sheet-navigation/context-menu.png"); begin_sheet_rename(a,0); break;
+        smoke_snapshot("build/tests/results/sheet-navigation/context-menu.png"); begin_sheet_rename(a,0); break;
     case 8:
-        smoke_snapshot("tests/results/sheet-navigation/rename.png"); a->modal=MODAL_NONE;
+        smoke_snapshot("build/tests/results/sheet-navigation/rename.png"); a->modal=MODAL_NONE;
         if (!workbook_add(&a->book,"Temporary",&(Analysis){0},&error)) goto failed;
         /* Hide an inactive blank sheet; the loaded result must remain untouched. */
         a->book.active=0; a->sheet_menu_index=2; a->sheet_action=SHEET_ACTION_HIDE; process_sheet_action(a);
         if (a->request_id!=request || a->page.cells!=page || !a->book.sheets[2].hidden) goto failed;
-        remove("tests/generated/navigation.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/navigation.dxls"); break;
+        remove("build/tests/generated/navigation.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/navigation.dxls"); break;
     case 9:
         if (!workbook_rename(&a->book,0,"Changed after save",&error)) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/navigation.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/navigation.dxls"); break;
     case 10:
         if (a->book.count!=3 || a->book.active || strcmp(s->name,"Data İ") || !a->book.sheets[2].hidden || workbook_visible_count(&a->book)!=2 || strcmp(cells_get(&s->cells,10,5),"Original note") || strcmp(cells_get(&a->book.sheets[1].cells,10,5),"Copy note") || s->objects.count!=1 || fabsf(a->grid.widths[1]-188)>1) goto failed;
         a->selected_object=-1; a->fields_visible=false; a->sidebar=true; a->pipeline=false; a->reduced_motion=true;
@@ -13184,7 +13184,7 @@ static void navigation_smoke_step(App *a,int *step) {
         { bool collapsed=false; for (int g=0;g<a->ribbon_layout.group_count;g++) collapsed|=a->ribbon_layout.states[g]!=UI_RIBBON_EXPANDED;
         if (!a->ribbon_layout.valid || !collapsed) goto failed; } break;
     case 12:
-        smoke_snapshot("tests/results/sheet-navigation/ribbon-overflow-150.png");
+        smoke_snapshot("build/tests/results/sheet-navigation/ribbon-overflow-150.png");
         puts("PASS: native sheet rename, independent duplication, reorder without queries, hide/unhide, version 5 visibility save/reopen and narrow ribbon overflow"); break;
     }
     free(error); (*step)++; return;
@@ -13232,8 +13232,8 @@ static void nyc_smoke_step(App *a,int *step) {
         if (store->count!=3 || store->items[2].kind!=OBJECT_CHART) goto failed;
         if (!a->objects[2].page.column_count) return;
         if (a->objects[0].page.cells!=first || a->objects[2].page.total!=4) goto failed;
-        remove("tests/generated/nyc-analytical.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/nyc-analytical.dxls"); break;
-    case 4: workspace_job(a,JOB_LOAD,"tests/generated/nyc-analytical.dxls"); break;
+        remove("build/tests/generated/nyc-analytical.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/nyc-analytical.dxls"); break;
+    case 4: workspace_job(a,JOB_LOAD,"build/tests/generated/nyc-analytical.dxls"); break;
     case 5:
         if (store->count!=3 || store->items[0].row || store->items[0].col!=22 || store->items[1].row!=12 || store->items[2].kind!=OBJECT_CHART || strcmp(cells_get(&active_sheet(a)->cells,9,22),"NYC fares by vendor and payment")) goto failed;
         a->selected_object=0; grid_select_cell(&a->grid,0,22,false); a->pivot_reveal_object=true; a->pivot_focus=0; break;
@@ -13290,11 +13290,11 @@ static void statistics_smoke_step(App *a,int *step) {
         if (a->statistics_object!=0 || a->statistics.filled!=2 || a->statistics.numeric!=1 || strcmp(a->statistics.sum,"19.75")) goto failed;
         open_statistics(a); break;
     case 7: {
-        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/selection-statistics/standard.png"); UnloadImage(image);
+        Image image=LoadImageFromScreen(); ExportImage(image,"build/tests/results/selection-statistics/standard.png"); UnloadImage(image);
         ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     }
     case 8: {
-        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/selection-statistics/narrow-150.png"); UnloadImage(image);
+        Image image=LoadImageFromScreen(); ExportImage(image,"build/tests/results/selection-statistics/narrow-150.png"); UnloadImage(image);
         a->modal=MODAL_NONE; grid_select_cell(&a->grid,100,20,false); a->grid.end_row=101; watch_statistics(a);
         if (a->statistics_state!=STATS_WAITING || a->statistics_object!=-2 || a->statistics_request) goto failed;
         break;
@@ -13350,7 +13350,7 @@ static void statistics_smoke_step(App *a,int *step) {
         request=a->request_id; sum=a->statistics.sum; open_statistics(a); break;
     case 19:
         if (a->request_id!=request || a->statistics.sum!=sum || a->statistics_object!=-2) goto failed;
-        smoke_snapshot("tests/results/selection-statistics/mixed.png");
+        smoke_snapshot("build/tests/results/selection-statistics/mixed.png");
         a->modal=MODAL_NONE; grid_select_cell(&a->grid,0,2,false); a->grid.selection=SELECT_COLUMNS; break;
     case 20:
         if (a->statistics_state!=STATS_READY) return;
@@ -13393,7 +13393,7 @@ static void statistics_smoke_step(App *a,int *step) {
         open_statistics(a); break;
     case 28:
         if (a->modal!=MODAL_STATISTICS || !a->statistics_frame || a->request_id!=request || strcmp(statistics_scope(a),"Matrix frame")) goto failed;
-        smoke_snapshot("tests/results/selection-statistics/matrix-frame.png"); a->modal=MODAL_NONE;
+        smoke_snapshot("build/tests/results/selection-statistics/matrix-frame.png"); a->modal=MODAL_NONE;
         { SheetObject *o=&active_sheet(a)->objects.items[0]; grid_select_cell(&a->grid,o->row+2,o->col,false);
           matrix_key(a,o,&a->objects[0].page,KEY_HOME,false);
           if (!a->matrix_cells_active || a->grid.row!=o->row+2 || a->grid.col!=o->col || a->grid.end_col!=o->col) goto failed;
@@ -13436,15 +13436,15 @@ static void chart_smoke_step(App *a,int *step) {
         if (store->items[1].mark!=MARK_LINE || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
         a->pivot_focus=6; break;
     case 3: {
-        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/chart-marks/line.png"); UnloadImage(image);
+        Image image=LoadImageFromScreen(); ExportImage(image,"build/tests/results/chart-marks/line.png"); UnloadImage(image);
         set_chart_mark(a,MARK_DOT); break;
     }
     case 4: {
-        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/chart-marks/dots.png"); UnloadImage(image);
+        Image image=LoadImageFromScreen(); ExportImage(image,"build/tests/results/chart-marks/dots.png"); UnloadImage(image);
         set_chart_mark(a,MARK_BAR); break;
     }
     case 5: {
-        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/chart-marks/bar.png"); UnloadImage(image);
+        Image image=LoadImageFromScreen(); ExportImage(image,"build/tests/results/chart-marks/bar.png"); UnloadImage(image);
         if (a->objects[1].page.cells!=result || a->request_id!=request || a->busy) goto failed;
         a->sidebar=a->pipeline=false; a->pivot_role=PIVOT_ROWS; a->pivot_focus=2; cycle_focus(a,false);
         if (a->pivot_focus!=6) goto failed;
@@ -13455,17 +13455,17 @@ static void chart_smoke_step(App *a,int *step) {
         set_chart_mark(a,MARK_DOT); a->pivot_focus=6; ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     }
     case 6: {
-        Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/chart-marks/narrow-150.png"); UnloadImage(image);
-        remove("tests/generated/chart-marks.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/chart-marks.dxls"); break;
+        Image image=LoadImageFromScreen(); ExportImage(image,"build/tests/results/chart-marks/narrow-150.png"); UnloadImage(image);
+        remove("build/tests/generated/chart-marks.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/chart-marks.dxls"); break;
     }
-    case 7: workspace_job(a,JOB_LOAD,"tests/generated/chart-marks.dxls"); break;
+    case 7: workspace_job(a,JOB_LOAD,"build/tests/generated/chart-marks.dxls"); break;
     case 8:
         if (store->count!=2 || store->items[1].mark!=MARK_DOT) goto failed;
         if (!a->objects[1].page.column_count) return;
         a->selected_object=1; result=a->objects[1].page.cells; request=a->request_id; set_chart_mark(a,MARK_LINE);
         if (a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/chart-marks.dxls"); break;
-    case 9: workspace_job(a,JOB_LOAD,"tests/generated/chart-marks.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/chart-marks.dxls"); break;
+    case 9: workspace_job(a,JOB_LOAD,"build/tests/generated/chart-marks.dxls"); break;
     case 10:
         if (store->items[1].mark!=MARK_LINE) goto failed;
         if (!a->objects[1].page.column_count) return;
@@ -13489,11 +13489,11 @@ static void chart_smoke_step(App *a,int *step) {
         history(a,true); if (store->items[1].mark!=MARK_SCATTER || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
         a->pivot_focus=6; break;
     case 15:
-        smoke_snapshot("tests/results/chart-marks/scatter.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+        smoke_snapshot("build/tests/results/chart-marks/scatter.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 16:
-        smoke_snapshot("tests/results/chart-marks/scatter-narrow-150.png"); set_ribbon_mode(a,3); grid_zoom_at(&a->grid,&a->page,a->ui.scale,.5f,(Vector2){a->grid.body.x,a->grid.body.y});
-        remove("tests/generated/chart-scatter.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/chart-scatter.dxls"); break;
-    case 17: smoke_snapshot("tests/results/chart-marks/scatter-focus-150.png"); workspace_job(a,JOB_LOAD,"tests/generated/chart-scatter.dxls"); break;
+        smoke_snapshot("build/tests/results/chart-marks/scatter-narrow-150.png"); set_ribbon_mode(a,3); grid_zoom_at(&a->grid,&a->page,a->ui.scale,.5f,(Vector2){a->grid.body.x,a->grid.body.y});
+        remove("build/tests/generated/chart-scatter.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/chart-scatter.dxls"); break;
+    case 17: smoke_snapshot("build/tests/results/chart-marks/scatter-focus-150.png"); workspace_job(a,JOB_LOAD,"build/tests/generated/chart-scatter.dxls"); break;
     case 18:
         if (!a->objects[1].page.column_count) return;
         a->selected_object=1;
@@ -13510,9 +13510,9 @@ static void chart_smoke_step(App *a,int *step) {
         history(a,true); if (store->items[1].rows!=14 || store->items[1].columns!=8 || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
         a->selected_object=1; begin_chart_size(a); break;
     }
-    case 21: smoke_snapshot("tests/results/chart-marks/size-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 21: smoke_snapshot("build/tests/results/chart-marks/size-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 22:
-        smoke_snapshot("tests/results/chart-marks/size-150-narrow.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        smoke_snapshot("build/tests/results/chart-marks/size-150-narrow.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
         set_ribbon_mode(a,3); a->selected_object=1; a->pivot_reveal_object=true; grid_zoom_at(&a->grid,&a->page,a->ui.scale,.5f,(Vector2){a->grid.body.x,a->grid.body.y}); break;
     case 23: {
         SheetObject *o=&store->items[1]; Rectangle old=object_rect(a,o),next=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,o->row,o->col,16,9);
@@ -13528,10 +13528,10 @@ static void chart_smoke_step(App *a,int *step) {
         if (!cells_set(cells,o->row+16,o->col+9,"Keep note",&error)) goto failed;
         worksheet_record(active_sheet(a),EDIT_CELLS); size_t actions=active_sheet(a)->undo_actions_count;
         if (resize_chart(a,17,10) || o->rows!=16 || o->columns!=9 || !a->chart_resize_error || active_sheet(a)->undo_actions_count!=actions || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/chart-marks/resized.png"); break;
+        smoke_snapshot("build/tests/results/chart-marks/resized.png"); break;
     }
-    case 25: remove("tests/generated/chart-resized.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/chart-resized.dxls"); break;
-    case 26: workspace_job(a,JOB_LOAD,"tests/generated/chart-resized.dxls"); break;
+    case 25: remove("build/tests/generated/chart-resized.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/chart-resized.dxls"); break;
+    case 26: workspace_job(a,JOB_LOAD,"build/tests/generated/chart-resized.dxls"); break;
     case 27:
         if (store->count!=2 || store->items[1].rows!=16 || store->items[1].columns!=9 || store->items[1].mark!=MARK_SCATTER) goto failed;
         if (!a->objects[1].page.column_count) return;
@@ -13545,11 +13545,11 @@ static void chart_smoke_step(App *a,int *step) {
         history(a,true); if (strcmp(store->items[1].name,"İstanbul analizi") || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
         a->selected_object=1; begin_object_name(a); break;
     }
-    case 29: smoke_snapshot("tests/results/chart-marks/name-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 29: smoke_snapshot("build/tests/results/chart-marks/name-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 30:
-        smoke_snapshot("tests/results/chart-marks/name-150-narrow.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
-        remove("tests/generated/chart-named.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/chart-named.dxls"); break;
-    case 31: workspace_job(a,JOB_LOAD,"tests/generated/chart-named.dxls"); break;
+        smoke_snapshot("build/tests/results/chart-marks/name-150-narrow.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        remove("build/tests/generated/chart-named.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/chart-named.dxls"); break;
+    case 31: workspace_job(a,JOB_LOAD,"build/tests/generated/chart-named.dxls"); break;
     case 32:
         if (strcmp(store->items[1].name,"İstanbul analizi") || store->items[1].rows!=16 || store->items[1].columns!=9) goto failed;
         puts("PASS: pivot/chart names, invalid and duplicate name guards, UTF-8, query-free shared history, dialog layouts and dxls save/reopen"); break;
@@ -13585,7 +13585,7 @@ static void chart_smoke_step(App *a,int *step) {
     case 36:
         if (!a->chart_view.valid || !a->chart_view.other_values || a->chart_view.measure!=1 || a->chart_view.series!=4 ||
             a->chart_view.values[3][0]!=7.5 || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
-        smoke_snapshot("tests/results/chart-marks/other-average.png");
+        smoke_snapshot("build/tests/results/chart-marks/other-average.png");
         if (!set_chart_measure(a,2)) goto failed; break;
     case 37: {
         if (!a->chart_view.other_values || a->chart_view.measure!=2 || a->chart_view.values[3][0]!=3 || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
@@ -13596,11 +13596,11 @@ static void chart_smoke_step(App *a,int *step) {
         history(a,true); if (store->items[0].marks.counts[MARKS_TOOLTIP]!=1 || a->objects[0].page.other!=cached || a->objects[0].page.cells!=result || a->request_id!=request) goto failed;
         UIEncodingValue value=ui_encoding_value(&a->objects[0].page,&store->items[0].pivot,&a->chart_view,(UIEncodingBinding){UI_BIND_MEASURE,1},3,0);
         if (!value.available || value.is_null || value.approximate || !value.raw || strcmp(value.raw,"7.5") || a->request_id!=request) goto failed;
-        smoke_snapshot("tests/results/chart-marks/other-distinct.png");
+        smoke_snapshot("build/tests/results/chart-marks/other-distinct.png");
         if (!set_representation(a,0) || a->objects[0].page.cells!=result || a->request_id!=request) goto failed;
-        remove("tests/generated/chart-other.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/chart-other.dxls"); break;
+        remove("build/tests/generated/chart-other.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/chart-other.dxls"); break;
     }
-    case 38: workspace_job(a,JOB_LOAD,"tests/generated/chart-other.dxls"); break;
+    case 38: workspace_job(a,JOB_LOAD,"build/tests/generated/chart-other.dxls"); break;
     case 39: {
         if (store->count!=1 || store->items[0].kind!=OBJECT_PIVOT || store->items[0].chart_measure!=2 || store->items[0].marks.counts[MARKS_TOOLTIP]!=1 || a->page.total!=7) goto failed;
         Page *p=&a->objects[0].page; if (!p->column_count) return;
@@ -13616,7 +13616,7 @@ failed: fprintf(stderr,"FAIL: chart marks at stage %d: %s (%s)\n",*step,error ? 
 static void document_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=10 || a->io_busy || a->busy) return;
     char *error=NULL;
-    const char *first="tests/generated/document-first.dxls",*second="tests/generated/document-second.dxls",*invalid="tests/generated/document-invalid.dxls";
+    const char *first="build/tests/generated/document-first.dxls",*second="build/tests/generated/document-second.dxls",*invalid="build/tests/generated/document-invalid.dxls";
     switch (*step) {
     case 0:
         a->file_menu=a->key_tips=a->ribbon_focus=true; a->file_menu_frame=a->frames-1;
@@ -13655,7 +13655,7 @@ static void document_smoke_step(App *a,int *step) {
         break;
     case 4:
         for (int i=0;i<3;i++) if (a->document_actions[i].x<0 || a->document_actions[i].x+a->document_actions[i].width>GetScreenWidth() || a->document_actions[i].width<60*a->ui.scale) goto failed;
-        { Image image=LoadImageFromScreen(); ExportImage(image,"tests/results/current-workspace/document-prompt.png"); UnloadImage(image); }
+        { Image image=LoadImageFromScreen(); ExportImage(image,"build/tests/results/current-workspace/document-prompt.png"); UnloadImage(image); }
         cancel_document_action(a);
         ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
         if (a->document_action!=DOCUMENT_NONE || !a->book.dirty || a->io_busy) goto failed;
@@ -13773,9 +13773,9 @@ static void table_smoke_step(App *a,int *step) {
     case 11:
         if (!object_ready(a,4)) return;
         if (a->objects[4].page.total!=5 || a->objects[2].page.cells!=other_table || a->objects[3].page.cells!=other_pivot) goto failed;
-        smoke_snapshot("tests/results/table-sources/authoring-100.png"); ui_set_scale(&a->ui,1.5f); break;
+        smoke_snapshot("build/tests/results/table-sources/authoring-100.png"); ui_set_scale(&a->ui,1.5f); break;
     case 12:
-        smoke_snapshot("tests/results/table-sources/authoring-150.png"); ui_set_scale(&a->ui,1);
+        smoke_snapshot("build/tests/results/table-sources/authoring-150.png"); ui_set_scale(&a->ui,1);
         a->selected_object=0; begin_object_name(a); input_set(&a->input,"Şehir gelirleri");
         if (!apply_object_name(a)) goto failed;
         break;
@@ -13785,10 +13785,10 @@ static void table_smoke_step(App *a,int *step) {
         if (store->items[2].row!=14 || a->objects[2].page.cells!=other_table) goto failed;
         history(a,true);
         if (store->items[2].row!=28 || a->objects[2].page.cells!=other_table) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-tables.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-tables.dxls"); break;
     case 14:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-tables.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-tables.dxls"); break;
     case 15:
         if (a->book.count!=1 || store->count!=5 || store->items[0].source.kind!=SOURCE_CSV || store->items[2].row!=28 || store->items[1].source_id!=store->items[0].id || strcmp(store->items[0].name,"Şehir gelirleri")) goto failed;
         a->selected_object=1; grid_select_cell(&a->grid,2,store->items[1].col,false); a->pivot_reveal_object=true; break;
@@ -13803,7 +13803,7 @@ static void table_smoke_step(App *a,int *step) {
         if (a->date_level!=0 || a->date_max!=2 || values->total!=1 || strcmp(values->values[0].label,"2026")) goto failed;
         cancel_values(a); a->modal=MODAL_NONE; a->filter_object=-1;
         a->selected_object=-1; grid_select_cell(&a->grid,40,20,false);
-        if (!import_table(a,"tests/generated/million.parquet")) goto failed;
+        if (!import_table(a,"build/tests/generated/million.parquet")) goto failed;
         break;
     }
     case 18:
@@ -13818,10 +13818,10 @@ static void table_smoke_step(App *a,int *step) {
     }
     case 20:
         if (!object_ready(a,5) || a->objects[5].page.offset+a->objects[5].page.row_count<1000000) return;
-        smoke_snapshot("tests/results/table-sources/million-last-page.png");
+        smoke_snapshot("build/tests/results/table-sources/million-last-page.png");
         if (!cells_set(&active_sheet(a)->cells,42,24,"Growth guard",&error)) goto failed;
         worksheet_record(active_sheet(a),EDIT_CELLS);
-        { Analysis source=analysis_copy(&store->items[5].source); free(source.path); source.path=dx_absolute_path("tests/generated/odd'name.parquet");
+        { Analysis source=analysis_copy(&store->items[5].source); free(source.path); source.path=dx_absolute_path("build/tests/generated/odd'name.parquet");
           bool ok=set_table_source(a,5,&source); analysis_free(&source); if (!ok) goto failed; }
         break;
     case 21:
@@ -13849,7 +13849,7 @@ static void table_smoke_step(App *a,int *step) {
         if (!object_ready(a,0)) return;
         if (a->objects[0].page.total!=5 || a->objects[0].page.columns[1].filtered || store->items[0].source.filter_column || !store->items[0].source.sort_column) goto failed;
         grid_select_cell(&a->grid,2,store->items[1].col,false); a->selected_object=1; a->pivot_reveal_object=true;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-tables.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-tables.dxls"); break;
     case 26:
         if (a->book.dirty || store->count!=6) goto failed;
         a->selected_object=1; a->pivot_reveal_object=true; break;
@@ -13883,7 +13883,7 @@ static void table_smoke_step(App *a,int *step) {
     case 33:
         if (!object_ready(a,1)) return;
         a->selected_object=-1; grid_select_cell(&a->grid,20,36,false);
-        if (!import_table(a,"tests/generated/fixture.duckdb")) goto failed;
+        if (!import_table(a,"build/tests/generated/fixture.duckdb")) goto failed;
         break;
     case 34: {
         if (!object_ready(a,6)) return;
@@ -13921,18 +13921,18 @@ static void table_smoke_step(App *a,int *step) {
     case 39:
         if (!object_ready(a,6) || !object_ready(a,7)) return;
         if (a->objects[6].page.total!=5 || a->objects[7].page.total!=4 || strcmp(store->items[6].source.table,"table with spaces")) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-tables.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-tables.dxls"); break;
     case 40:
         if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"tests/generated/app-tables.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-tables.dxls"); break;
     case 41:
         if (!object_ready(a,6) || !object_ready(a,7)) return;
         if (store->count!=8 || strcmp(store->items[6].source.table,"table with spaces") || store->items[7].source_id!=store->items[6].id || a->objects[7].page.total!=4) goto failed;
         a->selected_object=6; begin_table_relation(a); break;
     case 42:
-        smoke_snapshot("tests/results/table-sources/relations-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+        smoke_snapshot("build/tests/results/table-sources/relations-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 43: {
-        smoke_snapshot("tests/results/table-sources/relations-150.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
+        smoke_snapshot("build/tests/results/table-sources/relations-150.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
         Analysis source=analysis_copy(&store->items[6].source); free(source.table); source.table=dx_strdup("removed table");
         bool ok=set_table_source(a,6,&source); analysis_free(&source); if (!ok) goto failed; break;
     }
@@ -13944,7 +13944,7 @@ static void table_smoke_step(App *a,int *step) {
         if (!object_ready(a,6) || !object_ready(a,7)) return;
         if (a->objects[6].page.total!=5 || a->objects[7].page.total!=4 || strcmp(store->items[6].source.table,"a view")) goto failed;
         a->selected_object=6; grid_select_cell(&a->grid,store->items[6].row,store->items[6].col,false); a->pivot_reveal_object=true;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-tables.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-tables.dxls"); break;
     case 46:
         if (a->book.dirty) goto failed;
         grid_select_cell(&a->grid,store->items[6].row+2,store->items[6].col+1,false); idle_request=a->request_id; break;
@@ -13994,7 +13994,7 @@ static void table_smoke_step(App *a,int *step) {
     case 53:
         if (!a->objects[5].failed) return;
         if (!a->objects[5].error || !strstr(a->objects[5].error,"manual") || strcmp(cells_get(&active_sheet(a)->cells,1000,20),"Count growth guard")) goto failed;
-        smoke_snapshot("tests/results/table-sources/count-validation.png"); history(a,false);
+        smoke_snapshot("build/tests/results/table-sources/count-validation.png"); history(a,false);
         if (*cells_get(&active_sheet(a)->cells,1000,20) || table_count_validation(a,5,3)) goto failed;
         idle_request=a->request_id;
         break;
@@ -14033,7 +14033,7 @@ static void table_smoke_step(App *a,int *step) {
         if (a->request_id!=idle_request || !strstr(GetClipboardText(),"0\t0\t0")) goto failed;
         break;
     case 58:
-        workspace_job(a,JOB_SAVE,"tests/generated/app-tables.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-tables.dxls"); break;
     case 59:
         if (a->book.dirty) goto failed;
         a->selected_object=5; a->pivot_focus=0; grid_select_cell(&a->grid,1000041,20,false);
@@ -14042,11 +14042,11 @@ static void table_smoke_step(App *a,int *step) {
     case 60:
         if (!object_ready(a,5) || a->objects[5].page.offset+a->objects[5].page.row_count<1000000) return;
         if (a->grid.top<999900) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-table-last-view.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-table-last-view.dxls"); break;
     case 61:
         if (a->book.dirty) goto failed;
         dx_lock(&a->worker.mutex); restore_jobs=a->worker.jobs_started; restore_counts=a->worker.counts_executed; dx_unlock(&a->worker.mutex);
-        workspace_job(a,JOB_LOAD,"tests/generated/app-table-last-view.dxls"); break;
+        workspace_job(a,JOB_LOAD,"build/tests/generated/app-table-last-view.dxls"); break;
     case 62: {
         if (!object_ready(a,5)) return;
         const Cell *last=copy_cached_cell(&a->objects[5].page,999999,0);
@@ -14088,9 +14088,9 @@ static void table_smoke_step(App *a,int *step) {
     case 68:
         a->selected_object=-1; a->grid.horizontal=a->grid.offsets[36]+a->grid.widths[36]-8; a->grid.top=20; a->pivot_reveal_object=false; break;
     case 69:
-        smoke_snapshot("tests/results/table-sources/clipped-header-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+        smoke_snapshot("build/tests/results/table-sources/clipped-header-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 70:
-        smoke_snapshot("tests/results/table-sources/clipped-header-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+        smoke_snapshot("build/tests/results/table-sources/clipped-header-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
     case 71:
         if (a->objects[6].page.total!=5 || a->objects[7].page.total!=4) goto failed;
         puts("PASS: ordered repeated navigation and modifier snapshots, per-press object scope, query-free 64-key batch, native-repeat suppression, contextual Alt+Down, modal ownership, range traversal and clipped table headers"); break;
@@ -14162,7 +14162,7 @@ static void query_smoke_step(App *a,int *step) {
     case 5:
         if (!a->query_error) return;
         if (a->modal!=MODAL_SOURCE_QUERY || a->objects[0].page.cells!=table_cells || a->objects[1].page.cells!=pivot_cells || a->objects[2].page.cells!=other_cells || active_sheet(a)->undo_actions_count!=undo_count || store->items[0].source.query) goto failed;
-        smoke_snapshot("tests/results/source-query/binding-error-100.png");
+        smoke_snapshot("build/tests/results/source-query/binding-error-100.png");
         input_set(&a->input,"SELECT ID, City,\n       Amount::DECIMAL(12,2) AS Amount,\n       Date, Approved, Note\nFROM input\nWHERE Approved"); submit_source_query(a); break;
     case 6:
         if (!object_ready(a,0) || !object_ready(a,1)) return;
@@ -14175,13 +14175,13 @@ static void query_smoke_step(App *a,int *step) {
     case 8:
         if (!object_ready(a,0) || !object_ready(a,1)) return;
         if (a->objects[0].page.total!=3 || a->objects[1].page.total!=2) goto failed;
-        a->selected_object=0; start_export(a,"tests/generated/query-export.parquet"); break;
+        a->selected_object=0; start_export(a,"build/tests/generated/query-export.parquet"); break;
     case 9:
-        { Database db; Page page={0}; Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/query-export.parquet")};
+        { Database db; Page page={0}; Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/query-export.parquet")};
           bool opened=database_open(&db,&error),ok=opened && database_fetch_table(&db,&exported,0,-1,&page,&error) && page.total==3 && page.columns[2].number_type.kind==NUM_DECIMAL;
           page_free(&page); analysis_free(&exported); if (opened) database_close(&db); if (!ok) goto failed; }
-        remove("tests/generated/app-query.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-query.dxls"); break;
-    case 10: workspace_job(a,JOB_LOAD,"tests/generated/app-query.dxls"); break;
+        remove("build/tests/generated/app-query.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/app-query.dxls"); break;
+    case 10: workspace_job(a,JOB_LOAD,"build/tests/generated/app-query.dxls"); break;
     case 11:
         if (!object_ready(a,0) || !object_ready(a,1) || !object_ready(a,2)) return;
         if (!store->items[0].source.query || store->items[1].source_id!=store->items[0].id || a->objects[0].page.total!=3 || a->objects[2].page.total!=6) goto failed;
@@ -14190,8 +14190,8 @@ static void query_smoke_step(App *a,int *step) {
     case 12:
         if (a->objects[0].page.cells!=table_cells || a->objects[1].page.cells!=pivot_cells || a->objects[2].page.cells!=other_cells || active_sheet(a)->undo_actions_count!=undo_count) goto failed;
         begin_source_query(a); input_set(&a->input,"WITH selected AS (\n    SELECT ID, City, Amount, Date, Approved, Note\n    FROM input\n    WHERE Approved\n)\nSELECT *\nFROM selected\nORDER BY City"); a->query_edit_revision=a->input.revision; a->input.select_all=false; a->input.cursor=a->input.anchor=85; break;
-    case 13: smoke_snapshot("tests/results/source-query/editor-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
-    case 14: smoke_snapshot("tests/results/source-query/editor-150.png"); cancel_source_validation(a); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    case 13: smoke_snapshot("build/tests/results/source-query/editor-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 14: smoke_snapshot("build/tests/results/source-query/editor-150.png"); cancel_source_validation(a); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
     case 15: a->selected_object=-1; open_source(a,"tests/fixtures/transactions.csv",false); break;
     case 16:
         if (a->page_stale || a->page.total!=5) return;
@@ -14209,8 +14209,8 @@ static void query_smoke_step(App *a,int *step) {
     case 20:
         if (a->page_stale) return;
         if (!a->analysis.query || a->page.total!=2) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-query.dxls"); break;
-    case 21: workspace_job(a,JOB_LOAD,"tests/generated/app-query.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-query.dxls"); break;
+    case 21: workspace_job(a,JOB_LOAD,"build/tests/generated/app-query.dxls"); break;
     case 22:
         if (a->page_stale) return;
         if (!a->analysis.query || a->page.total!=2 || a->book.count!=2) goto failed;
@@ -14243,19 +14243,19 @@ static void query_smoke_step(App *a,int *step) {
         if (!layout.valid || !a->preview_valid || layout.matrix.width<=0 || layout.chart.width<=0 ||
             a->source_preview.data_columns!=a->objects[0].page.column_count || a->selected_object!=1 ||
             a->objects[1].page.cells!=pivot_cells || a->request_id!=idle_request) goto failed;
-        smoke_snapshot("tests/results/source-query/keyboard-pivot-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+        smoke_snapshot("build/tests/results/source-query/keyboard-pivot-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     }
     case 29: {
         UIAuthoringLayout layout=a->authoring_layout;
         if (!layout.valid || !layout.stacked || layout.matrix.x<a->workspace.canvas.x-.5f ||
             layout.matrix.x+layout.matrix.width>a->workspace.canvas.x+a->workspace.canvas.width+.5f ||
             a->selected_object!=1 || a->objects[1].page.cells!=pivot_cells || a->request_id!=idle_request) goto failed;
-        smoke_snapshot("tests/results/source-query/keyboard-pivot-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+        smoke_snapshot("build/tests/results/source-query/keyboard-pivot-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
     }
     case 30: puts("PASS: keyboard activation opens source-bound paired authoring, narrow stacked panels at 150 percent, unchanged result/cache and no SQL"); break;
     case 31:
         a->selected_object=-1; grid_select_cell(&a->grid,35,1,false);
-        if (!import_table(a,"tests/generated/fixture.duckdb")) goto failed; break;
+        if (!import_table(a,"build/tests/generated/fixture.duckdb")) goto failed; break;
     case 32:
         if (!object_ready(a,3)) return;
         idle_request=a->request_id; a->selected_object=3; ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640);
@@ -14263,19 +14263,19 @@ static void query_smoke_step(App *a,int *step) {
     case 33: {
         UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},a->ui.scale,11);
         if (menu.visible!=9 || a->context_scroll || menu.frame.panel.width!=360 || menu.frame.panel.y+menu.frame.panel.height>GetScreenHeight()-8*a->ui.scale+.01f || a->request_id!=idle_request) goto failed;
-        smoke_snapshot("tests/results/source-query/context-150-top.png"); context_key(a,11,menu.visible,KEY_END,false);
+        smoke_snapshot("build/tests/results/source-query/context-150-top.png"); context_key(a,11,menu.visible,KEY_END,false);
         if (a->context_focus!=10 || a->context_scroll!=2) goto failed; break;
     }
     case 34:
         if (a->modal!=MODAL_OBJECT || a->context_focus!=10 || a->context_scroll!=2 || a->request_id!=idle_request) goto failed;
-        smoke_snapshot("tests/results/source-query/context-150-end.png"); context_key(a,11,9,KEY_UP,false);
+        smoke_snapshot("build/tests/results/source-query/context-150-end.png"); context_key(a,11,9,KEY_UP,false);
         if (a->context_focus!=9 || a->context_scroll!=2) goto failed; begin_source_query(a); break;
     case 35:
         if (a->modal!=MODAL_SOURCE_QUERY || a->query_object!=3 || a->request_id!=idle_request) goto failed;
-        smoke_snapshot("tests/results/source-query/database-query-150.png"); submit_source_query(a);
+        smoke_snapshot("build/tests/results/source-query/database-query-150.png"); submit_source_query(a);
         if (a->modal!=MODAL_NONE || a->request_id!=idle_request || store->items[3].source.query) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
-        remove("tests/generated/app-source-menu.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-source-menu.dxls"); break;
+        remove("build/tests/generated/app-source-menu.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/app-source-menu.dxls"); break;
     case 36:
         if (a->book.dirty) goto failed;
         puts("PASS: bounded 150 percent database table context menu, scrollable last action, End/Up focus reveal and query opening without SQL"); break;
@@ -14291,7 +14291,7 @@ static void query_smoke_step(App *a,int *step) {
         a->pivot_drag_role=PIVOT_COLUMNS; a->pivot_drag_index=0; pivot_menu_open(a,(Vector2){a->pivot_tokens[PIVOT_COLUMNS][0].x,a->pivot_tokens[PIVOT_COLUMNS][0].y+24*a->ui.scale}); break;
     case 39:
         if (a->modal!=MODAL_PIVOT_FIELD) goto failed;
-        smoke_snapshot("tests/results/source-query/date-grain-menu.png"); break;
+        smoke_snapshot("build/tests/results/source-query/date-grain-menu.png"); break;
     case 40:
         if (a->modal!=MODAL_NONE || store->items[1].pivot.fields[PIVOT_COLUMNS][0].grain!=PIVOT_DATE_YEAR) goto failed;
         if (!object_ready(a,1)) return;
@@ -14311,10 +14311,10 @@ static void query_smoke_step(App *a,int *step) {
     case 43:
         if (!object_ready(a,1)) return;
         if (a->objects[1].page.column_count!=3 || a->objects[1].page.columns[1].category_count!=3 || !strstr(a->objects[1].page.sql,"date_trunc('month'") || strcmp(a->objects[1].page.columns[1].categories[1],"Q1")) goto failed;
-        smoke_snapshot("tests/results/source-query/date-grains-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+        smoke_snapshot("build/tests/results/source-query/date-grains-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 44:
-        smoke_snapshot("tests/results/source-query/date-grains-150.png"); workspace_job(a,JOB_SAVE,"tests/generated/app-date-grains.dxls"); break;
-    case 45: workspace_job(a,JOB_LOAD,"tests/generated/app-date-grains.dxls"); break;
+        smoke_snapshot("build/tests/results/source-query/date-grains-150.png"); workspace_job(a,JOB_SAVE,"build/tests/generated/app-date-grains.dxls"); break;
+    case 45: workspace_job(a,JOB_LOAD,"build/tests/generated/app-date-grains.dxls"); break;
     case 46:
         if (!object_ready(a,0) || !object_ready(a,1)) return;
         if (store->items[1].pivot.counts[PIVOT_COLUMNS]!=3 || store->items[1].pivot.fields[PIVOT_COLUMNS][2].grain!=PIVOT_DATE_MONTH || a->objects[1].page.total!=2 || !strstr(a->objects[1].page.sql,"PIVOT")) goto failed;
@@ -14360,11 +14360,11 @@ static void unique_smoke_step(App *a,int *step) {
         if (pipeline_steps(a)!=4) goto failed; pipeline_activate(a,2);
         if (a->modal!=MODAL_FILTER || a->filter_object!=0) goto failed;
         clear_values_cache(a); a->modal=MODAL_NONE; break;
-    case 7: smoke_snapshot("tests/results/unique-rows/steps-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
+    case 7: smoke_snapshot("build/tests/results/unique-rows/steps-100.png"); ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); break;
     case 8: {
         SheetObject *o=&store->items[0]; Rectangle range=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,o->row,o->col,o->rows,o->columns);
         if (range.x<a->grid.body.x-.5f || range.x+range.width>GetScreenWidth()-a->pipeline_extent*a->ui.scale+.5f || a->objects[2].page.cells!=other_cells) goto failed;
-        smoke_snapshot("tests/results/unique-rows/steps-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); pipeline_activate(a,1); break;
+        smoke_snapshot("build/tests/results/unique-rows/steps-150.png"); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); pipeline_activate(a,1); break;
     }
     case 9:
         if (!object_ready(a,0) || !object_ready(a,1)) return;
@@ -14379,13 +14379,13 @@ static void unique_smoke_step(App *a,int *step) {
     case 12:
         if (!object_ready(a,0) || !object_ready(a,1)) return;
         if (!store->items[0].source.unique_rows || a->objects[0].page.total!=2 || a->objects[2].page.cells!=other_cells) goto failed;
-        a->selected_object=0; start_export(a,"tests/generated/unique-app.parquet"); break;
+        a->selected_object=0; start_export(a,"build/tests/generated/unique-app.parquet"); break;
     case 13:
-        { Database db; Page page={0}; Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/unique-app.parquet")};
+        { Database db; Page page={0}; Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/unique-app.parquet")};
           bool opened=database_open(&db,&error),ok=opened && database_fetch_table(&db,&exported,0,-1,&page,&error) && page.total==2 && page.columns[1].number_type.kind==NUM_DECIMAL;
           page_free(&page); analysis_free(&exported); if (opened) database_close(&db); if (!ok) goto failed; }
-        remove("tests/generated/app-unique.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-unique.dxls"); break;
-    case 14: workspace_job(a,JOB_LOAD,"tests/generated/app-unique.dxls"); break;
+        remove("build/tests/generated/app-unique.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/app-unique.dxls"); break;
+    case 14: workspace_job(a,JOB_LOAD,"build/tests/generated/app-unique.dxls"); break;
     case 15:
         if (!object_ready(a,0) || !object_ready(a,1) || !object_ready(a,2)) return;
         if (!store->items[0].source.unique_rows || a->objects[0].page.total!=2 || a->objects[2].page.total!=6 || store->items[1].source_id!=store->items[0].id) goto failed;
@@ -14415,8 +14415,8 @@ static void unique_smoke_step(App *a,int *step) {
     case 22:
         if (a->page_stale) return;
         if (a->page.total!=4 || !a->analysis.unique_rows) goto failed;
-        workspace_job(a,JOB_SAVE,"tests/generated/app-unique.dxls"); break;
-    case 23: workspace_job(a,JOB_LOAD,"tests/generated/app-unique.dxls"); break;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/app-unique.dxls"); break;
+    case 23: workspace_job(a,JOB_LOAD,"build/tests/generated/app-unique.dxls"); break;
     case 24:
         if (a->page_stale) return;
         if (a->book.count!=2 || a->page.total!=4 || !a->analysis.unique_rows) goto failed;
@@ -14436,10 +14436,10 @@ static void unique_smoke_step(App *a,int *step) {
     case 28:
         if (!object_ready(a,0) || !object_ready(a,1)) return;
         if (a->objects[0].page.total!=4 || !store->items[0].source.unique_rows || !store->items[0].source.sort_column || a->objects[2].page.cells!=other_cells) goto failed;
-        a->ribbon_tab=RIBBON_DATA; workspace_job(a,JOB_SAVE,"tests/generated/app-unique.dxls"); break;
+        a->ribbon_tab=RIBBON_DATA; workspace_job(a,JOB_SAVE,"build/tests/generated/app-unique.dxls"); break;
     case 29:
         if (a->book.dirty) goto failed;
-        smoke_snapshot("tests/results/unique-rows/mixed-canvas.png");
+        smoke_snapshot("build/tests/results/unique-rows/mixed-canvas.png");
         request=a->request_id; break;
     case 30:
         if (request!=a->request_id || a->objects[2].page.cells!=other_cells) goto failed;
@@ -14458,12 +14458,12 @@ static void icon_smoke_step(App *a,int *step) {
     case 0:
         for (int i=0;i<16;i++) if (!a->icon_previews[i].id) { *step=-1; return; }
         a->icon_preview=1; break;
-    case 1: smoke_snapshot("tests/results/icons/native-vector-light.png"); a->icon_preview=2; break;
-    case 2: smoke_snapshot("tests/results/icons/native-png-light.png"); a->icon_preview=3; break;
-    case 3: smoke_snapshot("tests/results/icons/native-vector-dark.png"); a->icon_preview=4; break;
-    case 4: smoke_snapshot("tests/results/icons/native-png-dark.png"); a->icon_preview=0; open_modal(a,MODAL_SETTINGS); break;
-    case 5: smoke_snapshot("tests/results/icons/settings-100.png"); ui_set_scale(&a->ui,1.5f); break;
-    case 6: smoke_snapshot("tests/results/icons/settings-150.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); break;
+    case 1: smoke_snapshot("build/tests/results/icons/native-vector-light.png"); a->icon_preview=2; break;
+    case 2: smoke_snapshot("build/tests/results/icons/native-png-light.png"); a->icon_preview=3; break;
+    case 3: smoke_snapshot("build/tests/results/icons/native-vector-dark.png"); a->icon_preview=4; break;
+    case 4: smoke_snapshot("build/tests/results/icons/native-png-dark.png"); a->icon_preview=0; open_modal(a,MODAL_SETTINGS); break;
+    case 5: smoke_snapshot("build/tests/results/icons/settings-100.png"); ui_set_scale(&a->ui,1.5f); break;
+    case 6: smoke_snapshot("build/tests/results/icons/settings-150.png"); a->modal=MODAL_NONE; ui_set_scale(&a->ui,1); break;
     case 7: puts("PASS: shared vector and prebuilt app icon previews, 100/125/150/200 percent on light/dark, native Settings at 100/150 percent"); break;
     }
     (*step)++;
@@ -14648,9 +14648,9 @@ AppSession *app_start(const AppOptions *options) {
     bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
     if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882)) { SetWindowSize(1440,988); open_source(a,layout_start==882 ? "tests/fixtures/transactions.csv" : "tests/fixtures/null-text.csv",false); }
-    else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
+    else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
-    else if (options->nyc_smoke) open_source(a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
+    else if (options->nyc_smoke) open_source(a,"build/data/yellow_tripdata_2025-01.parquet",false);
     else if (options->sort_smoke) open_source(a,"tests/fixtures/sort-keys.csv",false);
     else if (options->chart_smoke) open_source(a,"tests/fixtures/chart-series.csv",false);
     else if (options->statistics_smoke) open_source(a,"tests/fixtures/transactions.csv",false);
@@ -15331,13 +15331,13 @@ bool app_frame(AppSession *session) {
         unsigned bit=session->layout_smoke==359 ? 1 : session->layout_smoke==360 ? 2 : session->layout_smoke==364 ? 4 : session->layout_smoke==365 ? 8 : 0;
         bool middle=bit<4 ? a->left_motion.elapsed>=.05f && a->left_motion.elapsed<.16f && a->left_extent>0 && a->left_extent<a->sidebar_width : a->pipeline_motion.elapsed>=.05f && a->pipeline_motion.elapsed<.16f && a->pipeline_extent>0 && a->pipeline_extent<280;
         if (bit && middle) {
-            if (!(pane_motion_evidence&bit)) smoke_snapshot(bit==1 ? "tests/results/workspace-layout/native-left-closing-mid.png" : bit==2 ? "tests/results/workspace-layout/native-left-opening-mid.png" : bit==4 ? "tests/results/workspace-layout/native-right-opening-mid.png" : "tests/results/workspace-layout/native-right-closing-mid.png");
+            if (!(pane_motion_evidence&bit)) smoke_snapshot(bit==1 ? "build/tests/results/workspace-layout/native-left-closing-mid.png" : bit==2 ? "build/tests/results/workspace-layout/native-left-opening-mid.png" : bit==4 ? "build/tests/results/workspace-layout/native-right-opening-mid.png" : "build/tests/results/workspace-layout/native-right-closing-mid.png");
             pane_motion_evidence|=bit;
         }
     }
     if (options->layout_smoke && session->layout_smoke>=370 && session->layout_smoke<=377 && a->workbook_motion.elapsed>=.05f && a->workbook_motion.elapsed<.16f && a->workbook_open>0 && a->workbook_open<1) {
         unsigned bit=session->layout_smoke==370 ? 16 : session->layout_smoke==371 ? 32 : 0;
-        if (bit && !(pane_motion_evidence&bit)) smoke_snapshot(bit==16 ? "tests/results/workspace-layout/native-workbook-closing-mid.png" : "tests/results/workspace-layout/native-workbook-opening-mid.png");
+        if (bit && !(pane_motion_evidence&bit)) smoke_snapshot(bit==16 ? "build/tests/results/workspace-layout/native-workbook-closing-mid.png" : "build/tests/results/workspace-layout/native-workbook-opening-mid.png");
         pane_motion_evidence|=bit;
         if (session->layout_smoke==377 && a->workbook_collapsed && a->workbook_motion.elapsed>=.04f) { a->workbook_collapsed=false; pane_motion_evidence|=64; }
     }
@@ -15345,15 +15345,15 @@ bool app_frame(AppSession *session) {
         a->sidebar=a->fields_visible=false; pane_motion_evidence|=128;
     }
     if (options->layout_smoke && session->layout_smoke==402 && a->popup_presence.active && a->popup_presence.alpha>0 && a->popup_presence.alpha<1 && !(pane_motion_evidence&256)) {
-        smoke_snapshot("tests/results/workspace-layout/native-popup-opening-mid.png"); pane_motion_evidence|=256;
+        smoke_snapshot("build/tests/results/workspace-layout/native-popup-opening-mid.png"); pane_motion_evidence|=256;
     }
     if (options->layout_smoke && session->layout_smoke==403) {
         if (a->modal==MODAL_NONE && a->popup_presence.visible && a->popup_presence.alpha>0 && a->popup_presence.alpha<1 && !(pane_motion_evidence&512)) {
-            smoke_snapshot("tests/results/workspace-layout/native-popup-closing-mid.png"); pane_motion_evidence|=512;
+            smoke_snapshot("build/tests/results/workspace-layout/native-popup-closing-mid.png"); pane_motion_evidence|=512;
         }
     }
     if (options->layout_smoke && session->layout_smoke==414 && a->author_context_progress>0 && a->author_context_progress<1 && !(pane_motion_evidence&1024)) {
-        smoke_snapshot("tests/results/workspace-layout/native-context-opening-mid.png"); pane_motion_evidence|=1024;
+        smoke_snapshot("build/tests/results/workspace-layout/native-context-opening-mid.png"); pane_motion_evidence|=1024;
     }
 #endif /* native scenario evidence */
     process_sheet_action(a);

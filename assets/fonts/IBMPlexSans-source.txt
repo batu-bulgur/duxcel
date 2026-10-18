@@ -1,7 +1,5 @@
 IBM Plex Sans Regular, Medium, and SemiBold, distributed unchanged.
 Source: https://github.com/IBM/plex/tree/master/packages/plex-sans/fonts/complete/otf
-Copied from this workspace's verified docs/design/typography/fonts assets.
-Upstream download URLs and family/style metadata: docs/design/typography/font-provenance.json.
 License: SIL Open Font License 1.1; see IBMPlexSans-OFL.txt.
 SHA-256:
 Regular: 6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c

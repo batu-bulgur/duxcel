@@ -1,21 +1,8 @@
-/duxcel
-/duxcel-debug
-/duxcel.new
-/duxcel-debug.new
-/a.out
-*.dSYM/
-# Compiled tests; keep their C sources.
-/tests/test_*
-!/tests/test_*.c
-!/tests/test_*.m
-!/tests/test_*.h
-!/tests/test_*.inc
-/tests/generated/
-/tests/downloads/
-/tests/results/
+# All build products, cached datasets, generated fixtures and test evidence.
 /build/
+# Installed development dependencies and transient local state.
 node_modules/
-/design/prototype/dist/
+*.dSYM/
 .DS_Store
 *.o
 *.d
@@ -31,3 +18,12 @@ __pycache__/
 *.swp
 /core
 /core.[0-9]*
+# Legacy outputs are removed by make clean; never recreate them here.
+/duxcel
+/duxcel-debug
+/duxcel.new
+/duxcel-debug.new
+/a.out
+/tests/generated/
+/tests/results/
+/tests/downloads/

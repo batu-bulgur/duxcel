@@ -28,7 +28,7 @@ static size_t find_col(const Page *p,const char *name) {
     return p->column_count;
 }
 static void fixtures(Database *db) {
-    remove("tests/generated/fixture.duckdb");
+    remove("build/tests/generated/fixture.duckdb");
     execute(db,"CREATE TABLE fixture AS SELECT * FROM (VALUES "
         "(1, 'İstanbul', 12.50::DECIMAL(12,2), DATE '2026-01-01', true, 'first'),"
         "(2, 'Ankara', 30.00, DATE '2026-01-02', false, NULL),"
@@ -36,11 +36,11 @@ static void fixtures(Database *db) {
         "(4, 'İzmir', 100.00, DATE '2026-01-04', false, repeat('long ',10000)),"
         "(5, 'Bursa', -4.50, DATE '2026-01-05', true, 'last')) "
         "t(\"Transaction ID\", \"City\", \"Amount\", \"Date\", \"Approved\", \"odd ""name\")");
-    execute(db,"COPY fixture TO 'tests/generated/odd''name.parquet' (FORMAT PARQUET)");
-    execute(db,"COPY (SELECT * FROM (VALUES (TIMESTAMP '2026-01-02 03:04:05'), (TIMESTAMP '2026-01-02 03:05:00'), (TIMESTAMP '2026-02-01 04:00:00'), (NULL::TIMESTAMP)) t(Stamp)) TO 'tests/generated/timestamps.parquet' (FORMAT PARQUET)");
+    execute(db,"COPY fixture TO 'build/tests/generated/odd''name.parquet' (FORMAT PARQUET)");
+    execute(db,"COPY (SELECT * FROM (VALUES (TIMESTAMP '2026-01-02 03:04:05'), (TIMESTAMP '2026-01-02 03:05:00'), (TIMESTAMP '2026-02-01 04:00:00'), (NULL::TIMESTAMP)) t(Stamp)) TO 'build/tests/generated/timestamps.parquet' (FORMAT PARQUET)");
     execute(db,"COPY (SELECT i::BIGINT AS ID, (i%10)::INTEGER AS category, (i%1000)/10.0 AS amount "
-        "FROM range(1000000) t(i)) TO 'tests/generated/million.parquet' (FORMAT PARQUET)");
-    execute(db,"ATTACH 'tests/generated/fixture.duckdb' AS fixture_db; "
+        "FROM range(1000000) t(i)) TO 'build/tests/generated/million.parquet' (FORMAT PARQUET)");
+    execute(db,"ATTACH 'build/tests/generated/fixture.duckdb' AS fixture_db; "
         "CREATE TABLE fixture_db.\"table with spaces\" AS SELECT * FROM fixture; "
         "USE fixture_db; CREATE VIEW \"a view\" AS SELECT * FROM \"table with spaces\"; USE memory; DETACH fixture_db");
 }
@@ -52,7 +52,7 @@ static void test_csv(Database *db) {
     CHECK(p.cells[11].is_null); page_free(&p); analysis_free(&a);
 }
 static void test_typed_query(Database *db) {
-    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/odd'name.parquet")};
+    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/odd'name.parquet")};
     Page p=fetch(db,&a,0,-1);
     CHECK(p.total==5); CHECK(p.columns[2].type==DUCKDB_TYPE_DECIMAL); CHECK(!strcmp(p.columns[2].type_name,"DECIMAL(12,2)"));
     CHECK(p.cells[11].is_null); CHECK(strlen(p.cells[23].text)==50000);
@@ -82,7 +82,7 @@ static void test_typed_query(Database *db) {
     analysis_free(&a);
 }
 static void test_aggregates(Database *db) {
-    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/odd'name.parquet"),
+    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/odd'name.parquet"),
         .group_column=dx_strdup("City"),.measure_column=dx_strdup("Amount"),.sort_column=dx_strdup("City")};
     for (int agg=AGG_SUM;agg<=AGG_MAX;agg++) {
         a.aggregate=(Aggregate)agg; Page p=fetch(db,&a,0,-1); CHECK(p.total==4 && p.column_count==2);
@@ -96,7 +96,7 @@ static void test_aggregates(Database *db) {
     analysis_free(&a);
 }
 static void test_database(Database *db) {
-    Analysis a={.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/fixture.duckdb")};
+    Analysis a={.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/fixture.duckdb")};
     Page p=fetch(db,&a,0,-1); CHECK(p.relation_count==2 && p.total==5);
     CHECK(a.table && !strcmp(a.table,"a view")); page_free(&p);
     uint64_t queries=db->query_count,counts=db->count_queries;
@@ -137,7 +137,7 @@ static void test_pivot(Database *db) {
     CHECK(pivot_move(&p,PIVOT_ROWS,1,PIVOT_COLUMNS,0,&error)); CHECK(p.counts[PIVOT_ROWS]==1 && p.counts[PIVOT_COLUMNS]==1);
     PivotDefinition copy=pivot_copy(&p); pivot_remove(&p,PIVOT_VALUES,0); CHECK(copy.counts[PIVOT_VALUES]==2 && p.counts[PIVOT_VALUES]==1);
     pivot_free(&copy); pivot_free(&p); analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/million.parquet")};
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/million.parquet")};
     CHECK(pivot_assign(&p,PIVOT_COLUMNS,"ID",AGG_SUM,&error)); CHECK(pivot_assign(&p,PIVOT_VALUES,"amount",AGG_SUM,&error));
     CHECK(!database_pivot(db,&a,&p,0,-1,&page,&error)); CHECK(error!=NULL); free(error); error=NULL; page_free(&page);
     pivot_remove(&p,PIVOT_COLUMNS,0); CHECK(pivot_assign(&p,PIVOT_ROWS,"category",AGG_SUM,&error));
@@ -189,8 +189,8 @@ static void test_composable_filters(Database *db) {
 }
 static void test_pivot_null_columns(Database *db) {
     char *error=NULL; duckdb_result result={0};
-    CHECK(database_execute(db,"COPY (SELECT city AS \"City\",category AS \"Category\",year AS \"Year\",amount AS \"Amount\",DATE '2026-01-01'+year AS \"Date\" FROM (VALUES (NULL::VARCHAR,'foo',1,10.0),(NULL,NULL,1,20.0),('X','FOO',2,30.0),('X','(blank)',NULL,40.0),('X','quote_\"''_SUM',10,NULL)) t(city,category,year,amount)) TO 'tests/generated/pivot-nulls.parquet' (FORMAT PARQUET)",&result,&error)); duckdb_destroy_result(&result);
-    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/pivot-nulls.parquet")}; PivotDefinition definition={0}; Page page={0};
+    CHECK(database_execute(db,"COPY (SELECT city AS \"City\",category AS \"Category\",year AS \"Year\",amount AS \"Amount\",DATE '2026-01-01'+year AS \"Date\" FROM (VALUES (NULL::VARCHAR,'foo',1,10.0),(NULL,NULL,1,20.0),('X','FOO',2,30.0),('X','(blank)',NULL,40.0),('X','quote_\"''_SUM',10,NULL)) t(city,category,year,amount)) TO 'build/tests/generated/pivot-nulls.parquet' (FORMAT PARQUET)",&result,&error)); duckdb_destroy_result(&result);
+    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/pivot-nulls.parquet")}; PivotDefinition definition={0}; Page page={0};
     CHECK(pivot_assign(&definition,PIVOT_ROWS,"City",AGG_SUM,&error)); CHECK(pivot_assign(&definition,PIVOT_COLUMNS,"Category",AGG_SUM,&error));
     CHECK(pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_SUM,&error)); CHECK(pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_COUNT,&error));
     CHECK(database_pivot(db,&a,&definition,0,-1,&page,&error)); CHECK(page.total==2 && page.column_count==11 && page.cells[0].is_null);
@@ -214,8 +214,8 @@ static void test_pivot_null_columns(Database *db) {
     pivot_free(&definition); analysis_free(&a);
 }
 static void test_pivot_date_grains(Database *db) {
-    execute(db,"COPY (SELECT city AS City,day AS Date,day::TIMESTAMP AS Stamp,amount::DECIMAL(12,2) AS Amount,10 AS __DUXCEL_DATE_1_0_0 FROM (VALUES ('A',DATE '2025-12-31',1),('A',DATE '2026-01-01',2),('A',DATE '2026-01-15',3),('B',DATE '2026-04-01',4),('B',NULL,5)) t(city,day,amount)) TO 'tests/generated/pivot-dates.parquet' (FORMAT PARQUET)");
-    Analysis source={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/pivot-dates.parquet")}; PivotDefinition p={0}; Page page={0}; char *error=NULL;
+    execute(db,"COPY (SELECT city AS City,day AS Date,day::TIMESTAMP AS Stamp,amount::DECIMAL(12,2) AS Amount,10 AS __DUXCEL_DATE_1_0_0 FROM (VALUES ('A',DATE '2025-12-31',1),('A',DATE '2026-01-01',2),('A',DATE '2026-01-15',3),('B',DATE '2026-04-01',4),('B',NULL,5)) t(city,day,amount)) TO 'build/tests/generated/pivot-dates.parquet' (FORMAT PARQUET)");
+    Analysis source={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/pivot-dates.parquet")}; PivotDefinition p={0}; Page page={0}; char *error=NULL;
     CHECK(pivot_assign(&p,PIVOT_ROWS,"City",AGG_SUM,&error));
     CHECK(pivot_assign_grain(&p,PIVOT_COLUMNS,"Date",AGG_SUM,PIVOT_DATE_YEAR,&error));
     CHECK(pivot_assign_grain(&p,PIVOT_COLUMNS,"Date",AGG_SUM,PIVOT_DATE_QUARTER,&error));
@@ -250,16 +250,16 @@ static void test_pivot_date_grains(Database *db) {
     pivot_free(&p); analysis_free(&source);
 }
 static void test_null_text(Database *db) {
-    execute(db,"COPY (SELECT id AS ID,value AS Value,10 AS Amount FROM (VALUES (1,NULL::VARCHAR),(2,'NULL'),(3,''),(4,'\"\"'),(5,'(blank)'),(6,'null')) t(id,value)) TO 'tests/generated/null-text.parquet' (FORMAT PARQUET)");
+    execute(db,"COPY (SELECT id AS ID,value AS Value,10 AS Amount FROM (VALUES (1,NULL::VARCHAR),(2,'NULL'),(3,''),(4,'\"\"'),(5,'(blank)'),(6,'null')) t(id,value)) TO 'build/tests/generated/null-text.parquet' (FORMAT PARQUET)");
     Analysis csv={.kind=SOURCE_CSV,.path=dx_strdup("tests/fixtures/null-text.csv")}; Page imported=fetch(db,&csv,0,-1);
     CHECK(imported.total==6 && imported.cells[1].is_null);
     CHECK(!imported.cells[4].is_null && !strcmp(imported.cells[4].text,"NULL"));
     CHECK(!imported.cells[7].is_null && !*imported.cells[7].text);
     CHECK(!imported.cells[10].is_null && !strcmp(imported.cells[10].text,"\"\"")); page_free(&imported);
-    char *csv_sql=analysis_sql(&csv,false),*convert=dx_printf("COPY (%s) TO 'tests/generated/null-text-csv.parquet' (FORMAT PARQUET)",csv_sql); execute(db,convert); free(convert); free(csv_sql); analysis_free(&csv);
-    Analysis roundtrip={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/null-text-csv.parquet")}; imported=fetch(db,&roundtrip,0,-1);
+    char *csv_sql=analysis_sql(&csv,false),*convert=dx_printf("COPY (%s) TO 'build/tests/generated/null-text-csv.parquet' (FORMAT PARQUET)",csv_sql); execute(db,convert); free(convert); free(csv_sql); analysis_free(&csv);
+    Analysis roundtrip={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/null-text-csv.parquet")}; imported=fetch(db,&roundtrip,0,-1);
     CHECK(imported.cells[1].is_null && !imported.cells[7].is_null && !*imported.cells[7].text && !strcmp(imported.cells[10].text,"\"\"")); page_free(&imported); analysis_free(&roundtrip);
-    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/null-text.parquet")}; Page p=fetch(db,&a,0,-1);
+    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/null-text.parquet")}; Page p=fetch(db,&a,0,-1);
     CHECK(p.total==6 && p.cells[1].is_null && p.cells[1].text==NULL);
     CHECK(!p.cells[4].is_null && !strcmp(p.cells[4].text,"NULL"));
     CHECK(!p.cells[7].is_null && !strcmp(p.cells[7].text,""));
@@ -287,24 +287,24 @@ static void test_export(Database *db) {
     Analysis a={.kind=SOURCE_CSV,.path=dx_strdup("tests/fixtures/null-text.csv")}; char *error=NULL; uint64_t rows=0;
     CHECK(analysis_filter_set(&a,"Value",FILTER_IN,"[null,\"NULL\",\"\"]",&error));
     uint64_t queries=db->query_count,counts=db->count_queries;
-    CHECK(database_export_parquet(db,&a,"tests/generated/export-null.parquet",&rows,&error)); CHECK(rows==3 && db->query_count==queries+1 && db->count_queries==counts);
-    Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/export-null.parquet")}; Page p=fetch(db,&exported,0,-1);
+    CHECK(database_export_parquet(db,&a,"build/tests/generated/export-null.parquet",&rows,&error)); CHECK(rows==3 && db->query_count==queries+1 && db->count_queries==counts);
+    Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/export-null.parquet")}; Page p=fetch(db,&exported,0,-1);
     CHECK(p.total==3 && p.cells[1].is_null && !p.cells[4].is_null && !strcmp(p.cells[4].text,"NULL") && !p.cells[7].is_null && !*p.cells[7].text); page_free(&p);
     CHECK(!database_export_parquet(db,&a,a.path,&rows,&error)); free(error); error=NULL;
 #ifndef _WIN32
-    remove("tests/generated/export-source-link.parquet"); CHECK(link(a.path,"tests/generated/export-source-link.parquet")==0);
-    CHECK(!database_export_parquet(db,&a,"tests/generated/export-source-link.parquet",&rows,&error)); free(error); error=NULL; remove("tests/generated/export-source-link.parquet");
+    remove("build/tests/generated/export-source-link.parquet"); CHECK(link(a.path,"build/tests/generated/export-source-link.parquet")==0);
+    CHECK(!database_export_parquet(db,&a,"build/tests/generated/export-source-link.parquet",&rows,&error)); free(error); error=NULL; remove("build/tests/generated/export-source-link.parquet");
 #endif
     CHECK(analysis_filter_set(&a,"Missing field",FILTER_EQUAL,"x",&error));
-    CHECK(!database_export_parquet(db,&a,"tests/generated/export-null.parquet",&rows,&error)); CHECK(!rows && error); free(error); error=NULL;
+    CHECK(!database_export_parquet(db,&a,"build/tests/generated/export-null.parquet",&rows,&error)); CHECK(!rows && error); free(error); error=NULL;
     analysis_filter_remove(&a,"Missing field"); p=fetch(db,&exported,0,-1); CHECK(p.total==3 && p.cells[1].is_null); page_free(&p);
     unsigned calls=0; db->cancelled=cancel_export; db->cancel_context=&calls;
-    CHECK(!database_export_parquet(db,&a,"tests/generated/export-null.parquet",&rows,&error)); CHECK(!rows && calls>=5); free(error); error=NULL;
+    CHECK(!database_export_parquet(db,&a,"build/tests/generated/export-null.parquet",&rows,&error)); CHECK(!rows && calls>=5); free(error); error=NULL;
     db->cancelled=NULL; db->cancel_context=NULL; p=fetch(db,&exported,0,-1); CHECK(p.total==3 && !*p.cells[7].text); page_free(&p);
-    CHECK(!database_export_parquet(db,&a,"tests/generated/missing-parent/export.parquet",&rows,&error)); free(error); error=NULL;
+    CHECK(!database_export_parquet(db,&a,"build/tests/generated/missing-parent/export.parquet",&rows,&error)); free(error); error=NULL;
     analysis_free(&a); analysis_free(&exported);
-    Analysis million={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/million.parquet")};
-    double start=dx_millis(); CHECK(database_export_parquet(db,&million,"tests/generated/export-million.parquet",&rows,&error)); CHECK(rows==1000000);
+    Analysis million={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/million.parquet")};
+    double start=dx_millis(); CHECK(database_export_parquet(db,&million,"build/tests/generated/export-million.parquet",&rows,&error)); CHECK(rows==1000000);
     printf("Streamed 1M rows to Parquet: %.2f ms\n",dx_millis()-start); analysis_free(&million); free(error);
 }
 static void test_pivot_export(Database *db) {
@@ -316,9 +316,9 @@ static void test_pivot_export(Database *db) {
     CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error));
     CHECK(database_pivot(db,&a,&pivot,0,-1,&page,&error) && page.total==1 && strstr(page.sql,"PIVOT")); page_free(&page);
     uint64_t queries=db->query_count,counts=db->count_queries;
-    CHECK(database_export_pivot_parquet(db,&a,&pivot,"tests/generated/export-pivot.parquet",&rows,&error));
+    CHECK(database_export_pivot_parquet(db,&a,&pivot,"build/tests/generated/export-pivot.parquet",&rows,&error));
     CHECK(rows==1 && db->query_count==queries+1 && db->count_queries==counts);
-    Analysis output={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/export-pivot.parquet")}; page=fetch(db,&output,0,-1);
+    Analysis output={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/export-pivot.parquet")}; page=fetch(db,&output,0,-1);
     CHECK(page.total==1 && page.column_count==2 && !strcmp(page.cells[0].text,"İstanbul") && page.cells[1].number==19.75);
     CHECK(!strcmp(page.columns[0].name,"City") && !strcmp(page.columns[1].name,"Approved='true' · SUM(Amount)")); page_free(&page);
     CHECK(!database_export_pivot_parquet(db,&a,&pivot,a.path,&rows,&error) && !rows); free(error); error=NULL;
@@ -341,9 +341,9 @@ static void test_pivot_export(Database *db) {
     for (size_t i=0;i<sizeof(names)/sizeof(*names);i++) { size_t c=find_col(&page,names[i]); CHECK(c<page.column_count && !page.cells[c].is_null && page.cells[c].number==10); }
     page_free(&page);
     pivot_free(&pivot); analysis_free(&a);
-    remove("tests/generated/export-pivots.duckdb");
-    execute(db,"ATTACH 'tests/generated/export-pivots.duckdb' AS export_fixture; CREATE TABLE export_fixture.series AS SELECT i AS id,(i/100.0)::DECIMAL(18,2) AS amount FROM range(600) t(i); CREATE TABLE export_fixture.big AS SELECT '170141183460469231731687303715884105727'::HUGEINT AS amount; DETACH export_fixture");
-    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/export-pivots.duckdb"),.table=dx_strdup("series")};
+    remove("build/tests/generated/export-pivots.duckdb");
+    execute(db,"ATTACH 'build/tests/generated/export-pivots.duckdb' AS export_fixture; CREATE TABLE export_fixture.series AS SELECT i AS id,(i/100.0)::DECIMAL(18,2) AS amount FROM range(600) t(i); CREATE TABLE export_fixture.big AS SELECT '170141183460469231731687303715884105727'::HUGEINT AS amount; DETACH export_fixture");
+    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/export-pivots.duckdb"),.table=dx_strdup("series")};
     CHECK(pivot_assign(&pivot,PIVOT_ROWS,"id",AGG_SUM,&error)); CHECK(pivot_assign(&pivot,PIVOT_VALUES,"amount",AGG_SUM,&error));
     CHECK(database_pivot(db,&a,&pivot,0,-1,&page,&error) && page.total==600 && page.row_count==256); page_free(&page);
     queries=db->query_count; counts=db->count_queries;
@@ -354,15 +354,15 @@ static void test_pivot_export(Database *db) {
     CHECK(!database_export_pivot_parquet(db,&a,&pivot,output.path,&rows,&error) && !rows && calls>=5); free(error); error=NULL;
     db->cancelled=NULL; db->cancel_context=NULL;
     page=fetch(db,&output,599,-1); CHECK(page.total==600 && !strcmp(page.cells[1].text,"5.99")); page_free(&page);
-    CHECK(!database_export_pivot_parquet(db,&a,&pivot,"tests/generated/missing-parent/export.parquet",&rows,&error)); free(error); error=NULL;
+    CHECK(!database_export_pivot_parquet(db,&a,&pivot,"build/tests/generated/missing-parent/export.parquet",&rows,&error)); free(error); error=NULL;
     free(a.table); a.table=dx_strdup("big"); pivot_free(&pivot); CHECK(pivot_assign(&pivot,PIVOT_VALUES,"amount",AGG_MAX,&error));
     CHECK(!database_export_pivot_parquet(db,&a,&pivot,output.path,&rows,&error) && !rows && error && strstr(error,"128-bit")); free(error); error=NULL;
     page=fetch(db,&output,599,-1); CHECK(page.total==600 && !strcmp(page.cells[1].text,"5.99")); page_free(&page);
-    CHECK(database_export_parquet(db,&output,"tests/generated/export-pivot-recovery.parquet",&rows,&error) && rows==600);
+    CHECK(database_export_parquet(db,&output,"build/tests/generated/export-pivot-recovery.parquet",&rows,&error) && rows==600);
     pivot_free(&pivot); analysis_free(&a); analysis_free(&output); free(error);
 }
 static void test_window_counts(Database *db) {
-    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/million.parquet")}; Page p={0}; char *error=NULL;
+    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/million.parquet")}; Page p={0}; char *error=NULL;
     uint64_t queries=db->query_count,counts=db->count_queries,total=0;
     CHECK(database_fetch_window(db,&a,0,-1,&p,&error)); CHECK(p.count_pending && p.total==DX_PAGE_ROWS && p.row_count==DX_PAGE_ROWS);
     CHECK(db->query_count==queries+1 && db->count_queries==counts); page_free(&p);
@@ -381,8 +381,8 @@ static void numeric_count(Database *db,Analysis *a,const char *column,FilterOp o
     CHECK(page.total==expected); page_free(&page); free(error);
 }
 static void test_numeric_filters(Database *db) {
-    execute(db,"COPY (SELECT tiny::TINYINT AS Tiny,money::DECIMAL(3,1) AS Money FROM (VALUES (-128,-99.9),(-2,-1.2),(-1,-0.1),(0,0.0),(1,0.1),(2,1.2),(127,99.9),(NULL,NULL)) t(tiny,money)) TO 'tests/generated/numeric.parquet' (FORMAT PARQUET)");
-    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/numeric.parquet")};
+    execute(db,"COPY (SELECT tiny::TINYINT AS Tiny,money::DECIMAL(3,1) AS Money FROM (VALUES (-128,-99.9),(-2,-1.2),(-1,-0.1),(0,0.0),(1,0.1),(2,1.2),(127,99.9),(NULL,NULL)) t(tiny,money)) TO 'build/tests/generated/numeric.parquet' (FORMAT PARQUET)");
+    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/numeric.parquet")};
     numeric_count(db,&a,"tiny",FILTER_GREATER,"1000",0); numeric_count(db,&a,"tiny",FILTER_LESS,"1000",7);
     numeric_count(db,&a,"tiny",FILTER_GREATER,"-1000",7); numeric_count(db,&a,"tiny",FILTER_LESS,"-1000",0);
     numeric_count(db,&a,"tiny",FILTER_GREATER,"1.5",2); numeric_count(db,&a,"tiny",FILTER_LESS,"1.5",5); numeric_count(db,&a,"tiny",FILTER_EQUAL,"1.5",0);
@@ -403,7 +403,7 @@ static void test_numeric_filters(Database *db) {
     numeric_count(db,&a,"Money",FILTER_LESS,"1.21",6);
     char *clipboard=NULL,*error=NULL; uint64_t exported_rows=0;
     CHECK(database_copy(db,&a,0,6,1,1,&clipboard,&error)); CHECK(!strcmp(clipboard,"-99.9\n-1.2\n-0.1\n0.0\n0.1\n1.2")); free(clipboard);
-    CHECK(database_export_parquet(db,&a,"tests/generated/numeric-filtered.parquet",&exported_rows,&error)); CHECK(exported_rows==6);
+    CHECK(database_export_parquet(db,&a,"build/tests/generated/numeric-filtered.parquet",&exported_rows,&error)); CHECK(exported_rows==6);
     DistinctPage choices={0}; CHECK(database_distinct(db,&a,"Tiny","",-1,NULL,NULL,0,-1,&choices,&error)); CHECK(choices.total==6); distinct_free(&choices);
     CHECK(analysis_filter_set(&a,"tiny",FILTER_GREATER,"1.5",&error)); Page p=fetch(db,&a,0,-1); CHECK(p.total==1 && a.filter_number.kind==NUM_DECIMAL && a.filters[0].number.kind==NUM_I8); page_free(&p);
     Analysis copy=analysis_copy(&a); CHECK(analysis_filter_move(&a,1,0) && a.filter_number.kind==NUM_I8 && a.filters[0].number.kind==NUM_DECIMAL);
@@ -417,58 +417,58 @@ static void test_numeric_filters(Database *db) {
     DistinctPage d={0}; CHECK(database_pivot_distinct(db,&a,&pivot,"Tiny","",-1,NULL,NULL,0,-1,&d,&error)); CHECK(d.total==6); distinct_free(&d); pivot_free(&pivot);
     CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Money",AGG_COUNT,&error)); CHECK(database_pivot(db,&a,&pivot,0,-1,&p,&error));
     CHECK(p.cells[0].number==8 && !strcmp(p.columns[0].caption,"COUNT(*) [Money]") && strstr(p.sql,"COUNT(*)")); page_free(&p); pivot_free(&pivot); analysis_free(&a);
-    remove("tests/generated/numeric.duckdb");
-    execute(db,"ATTACH 'tests/generated/numeric.duckdb' AS numeric_fixture; CREATE TABLE numeric_fixture.huge AS SELECT value::HUGEINT AS Value FROM (VALUES ('-170141183460469231731687303715884105728'),('-170141183460469231731687303715884105727'),('-1'),('0'),('1'),('170141183460469231731687303715884105726'),('170141183460469231731687303715884105727'),(NULL)) t(value); CREATE TABLE numeric_fixture.unsigned_values AS SELECT value::UHUGEINT AS Value FROM (VALUES ('0'),('1'),('340282366920938463463374607431768211454'),('340282366920938463463374607431768211455'),(NULL)) t(value); CREATE TABLE numeric_fixture.nested AS SELECT {'items':[170141183460469231731687303715884105727::HUGEINT]} AS detail; DETACH numeric_fixture");
-    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/numeric.duckdb"),.table=dx_strdup("huge")};
+    remove("build/tests/generated/numeric.duckdb");
+    execute(db,"ATTACH 'build/tests/generated/numeric.duckdb' AS numeric_fixture; CREATE TABLE numeric_fixture.huge AS SELECT value::HUGEINT AS Value FROM (VALUES ('-170141183460469231731687303715884105728'),('-170141183460469231731687303715884105727'),('-1'),('0'),('1'),('170141183460469231731687303715884105726'),('170141183460469231731687303715884105727'),(NULL)) t(value); CREATE TABLE numeric_fixture.unsigned_values AS SELECT value::UHUGEINT AS Value FROM (VALUES ('0'),('1'),('340282366920938463463374607431768211454'),('340282366920938463463374607431768211455'),(NULL)) t(value); CREATE TABLE numeric_fixture.nested AS SELECT {'items':[170141183460469231731687303715884105727::HUGEINT]} AS detail; DETACH numeric_fixture");
+    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/numeric.duckdb"),.table=dx_strdup("huge")};
     numeric_count(db,&a,"Value",FILTER_EQUAL,"170141183460469231731687303715884105727",1);
-    CHECK(!database_export_parquet(db,&a,"tests/generated/numeric-filtered.parquet",&exported_rows,&error)); CHECK(!exported_rows && error && strstr(error,"128-bit")); free(error); error=NULL;
+    CHECK(!database_export_parquet(db,&a,"build/tests/generated/numeric-filtered.parquet",&exported_rows,&error)); CHECK(!exported_rows && error && strstr(error,"128-bit")); free(error); error=NULL;
     numeric_count(db,&a,"Value",FILTER_LESS,"170141183460469231731687303715884105728",7);
     numeric_count(db,&a,"Value",FILTER_GREATER,"170141183460469231731687303715884105728",0);
     numeric_count(db,&a,"Value",FILTER_GREATER,"-170141183460469231731687303715884105729",7);
     numeric_count(db,&a,"Value",FILTER_GREATER,"170141183460469231731687303715884105726.75",1);
     numeric_count(db,&a,"Value",FILTER_LESS,"170141183460469231731687303715884105726.75",6);
     numeric_count(db,&a,"Value",FILTER_GREATER,"1.5",2); numeric_count(db,&a,"Value",FILTER_LESS,"1.5",5); analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/numeric.duckdb"),.table=dx_strdup("unsigned_values")};
+    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/numeric.duckdb"),.table=dx_strdup("unsigned_values")};
     numeric_count(db,&a,"Value",FILTER_GREATER,"340282366920938463463374607431768211454",1);
     numeric_count(db,&a,"Value",FILTER_LESS,"340282366920938463463374607431768211456",4);
     numeric_count(db,&a,"Value",FILTER_GREATER,"-0.0001",4); numeric_count(db,&a,"Value",FILTER_LESS,"1.5",2); numeric_count(db,&a,"Value",FILTER_EQUAL,"1.5",0); analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/numeric.duckdb"),.table=dx_strdup("nested")};
-    CHECK(!database_export_parquet(db,&a,"tests/generated/numeric-filtered.parquet",&exported_rows,&error)); CHECK(error && strstr(error,"detail")); free(error); error=NULL; analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/numeric-filtered.parquet")}; p=fetch(db,&a,0,-1); CHECK(p.total==6 && p.columns[1].type==DUCKDB_TYPE_DECIMAL); page_free(&p); analysis_free(&a);
-    execute(db,"COPY (SELECT value::DECIMAL(38,38) AS Value FROM (VALUES ('-0.99999999999999999999999999999999999999'),('-0.5'),('0'),('0.00000000000000000000000000000000000001'),('0.5'),('0.99999999999999999999999999999999999999'),(NULL)) t(value)) TO 'tests/generated/numeric-precise.parquet' (FORMAT PARQUET)");
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/numeric-precise.parquet")};
+    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/numeric.duckdb"),.table=dx_strdup("nested")};
+    CHECK(!database_export_parquet(db,&a,"build/tests/generated/numeric-filtered.parquet",&exported_rows,&error)); CHECK(error && strstr(error,"detail")); free(error); error=NULL; analysis_free(&a);
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/numeric-filtered.parquet")}; p=fetch(db,&a,0,-1); CHECK(p.total==6 && p.columns[1].type==DUCKDB_TYPE_DECIMAL); page_free(&p); analysis_free(&a);
+    execute(db,"COPY (SELECT value::DECIMAL(38,38) AS Value FROM (VALUES ('-0.99999999999999999999999999999999999999'),('-0.5'),('0'),('0.00000000000000000000000000000000000001'),('0.5'),('0.99999999999999999999999999999999999999'),(NULL)) t(value)) TO 'build/tests/generated/numeric-precise.parquet' (FORMAT PARQUET)");
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/numeric-precise.parquet")};
     numeric_count(db,&a,"Value",FILTER_LESS,"0.999999999999999999999999999999999999999",6);
     numeric_count(db,&a,"Value",FILTER_EQUAL,"0.999999999999999999999999999999999999999",0);
     numeric_count(db,&a,"Value",FILTER_GREATER,"-0.999999999999999999999999999999999999999",6);
     numeric_count(db,&a,"Value",FILTER_GREATER,"1e-39",3); numeric_count(db,&a,"Value",FILTER_LESS,"1e-39",3); analysis_free(&a);
-    execute(db,"COPY (SELECT value::FLOAT AS Value FROM (VALUES (1.0),(1.00000012),(NULL)) t(value)) TO 'tests/generated/numeric-float.parquet' (FORMAT PARQUET)");
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/numeric-float.parquet")};
+    execute(db,"COPY (SELECT value::FLOAT AS Value FROM (VALUES (1.0),(1.00000012),(NULL)) t(value)) TO 'build/tests/generated/numeric-float.parquet' (FORMAT PARQUET)");
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/numeric-float.parquet")};
     numeric_count(db,&a,"Value",FILTER_LESS,"1.00000001",1); numeric_count(db,&a,"Value",FILTER_GREATER,"1.00000001",1); analysis_free(&a);
     /* Independent wide-decimal reference: compare every predicate around source quanta. */
-    execute(db,"COPY (SELECT (i*7/1000.0)::DECIMAL(6,3) AS Value FROM range(-20,21) t(i) UNION ALL SELECT NULL) TO 'tests/generated/numeric-matrix.parquet' (FORMAT PARQUET)");
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/numeric-matrix.parquet")};
+    execute(db,"COPY (SELECT (i*7/1000.0)::DECIMAL(6,3) AS Value FROM range(-20,21) t(i) UNION ALL SELECT NULL) TO 'build/tests/generated/numeric-matrix.parquet' (FORMAT PARQUET)");
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/numeric-matrix.parquet")};
     for (int threshold=-30;threshold<=30;threshold++) for (int op=FILTER_EQUAL;op<=FILTER_LESS;op++) {
         char value[40]; snprintf(value,sizeof(value),"%.4f",threshold*13/10000.0);
-        char *sql=dx_printf("SELECT count(*) FROM read_parquet('tests/generated/numeric-matrix.parquet') WHERE CAST(Value AS DECIMAL(38,9)) %s CAST('%s' AS DECIMAL(38,9))",op==FILTER_EQUAL ? "=" : op==FILTER_GREATER ? ">" : "<",value);
+        char *sql=dx_printf("SELECT count(*) FROM read_parquet('build/tests/generated/numeric-matrix.parquet') WHERE CAST(Value AS DECIMAL(38,9)) %s CAST('%s' AS DECIMAL(38,9))",op==FILTER_EQUAL ? "=" : op==FILTER_GREATER ? ">" : "<",value);
         duckdb_result result={0}; CHECK(database_execute(db,sql,&result,&error)); free(sql); uint64_t expected=duckdb_value_uint64(&result,0,0); duckdb_destroy_result(&result);
         numeric_count(db,&a,"Value",(FilterOp)op,value,expected);
     }
     analysis_free(&a);
     /* A replaced file must invalidate bound schema even inside one second. */
-    execute(db,"COPY (SELECT 1::TINYINT AS Value) TO 'tests/generated/numeric-replaced.parquet' (FORMAT PARQUET)");
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/numeric-replaced.parquet")};
+    execute(db,"COPY (SELECT 1::TINYINT AS Value) TO 'build/tests/generated/numeric-replaced.parquet' (FORMAT PARQUET)");
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/numeric-replaced.parquet")};
     numeric_count(db,&a,"Value",FILTER_EQUAL,"1.5",0); CHECK(a.filter_number.kind==NUM_I8);
     char *old_key=dx_strdup(db->schema_key[0]);
-    execute(db,"COPY (SELECT '1.5' AS Value) TO 'tests/generated/numeric-replaced.parquet' (FORMAT PARQUET)");
+    execute(db,"COPY (SELECT '1.5' AS Value) TO 'build/tests/generated/numeric-replaced.parquet' (FORMAT PARQUET)");
     numeric_count(db,&a,"Value",FILTER_EQUAL,"1.5",1); CHECK(a.filter_number.kind==NUM_NONE && strcmp(old_key,db->schema_key[0])); free(old_key); analysis_free(&a);
     /* Grouped input and local pivot filters use different source/output shapes. */
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/numeric.parquet"),.group_column=dx_strdup("Tiny"),.measure_column=dx_strdup("Money"),.aggregate=AGG_SUM};
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/numeric.parquet"),.group_column=dx_strdup("Tiny"),.measure_column=dx_strdup("Money"),.aggregate=AGG_SUM};
     CHECK(pivot_assign(&pivot,PIVOT_ROWS,"Tiny",AGG_SUM,&error)); CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Value",AGG_SUM,&error)); CHECK(pivot_assign(&pivot,PIVOT_FILTERS,"Value",AGG_SUM,&error));
     pivot.fields[PIVOT_FILTERS][0].filter=FILTER_LESS; free(pivot.fields[PIVOT_FILTERS][0].value); pivot.fields[PIVOT_FILTERS][0].value=dx_strdup("1.21");
     CHECK(database_pivot(db,&a,&pivot,0,-1,&p,&error)); CHECK(p.total==6); page_free(&p); pivot_free(&pivot); analysis_free(&a); free(error);
 }
 static void test_million(Database *db) {
-    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/million.parquet"),.sort_column=dx_strdup("ID")};
+    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/million.parquet"),.sort_column=dx_strdup("ID")};
     double start=dx_millis(); Page p=fetch(db,&a,0,-1); double first=dx_millis()-start;
     CHECK(p.total==1000000 && p.row_count==DX_PAGE_ROWS); CHECK(p.bytes<100000);
     page_free(&p); start=dx_millis(); p=fetch(db,&a,999744,1000000);
@@ -477,8 +477,8 @@ static void test_million(Database *db) {
     page_free(&p); analysis_free(&a);
 }
 static void test_sort_order(Database *db) {
-    execute(db,"COPY (SELECT * FROM (VALUES (7,'a',2),(2,'a',2),(5,'a',NULL),(4,'b',3),(1,'b',1),(3,NULL,4),(6,NULL,NULL)) t(ID,GroupKey,Amount)) TO 'tests/generated/sort-keys.parquet' (FORMAT PARQUET)");
-    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/sort-keys.parquet")}; char *error=NULL;
+    execute(db,"COPY (SELECT * FROM (VALUES (7,'a',2),(2,'a',2),(5,'a',NULL),(4,'b',3),(1,'b',1),(3,NULL,4),(6,NULL,NULL)) t(ID,GroupKey,Amount)) TO 'build/tests/generated/sort-keys.parquet' (FORMAT PARQUET)");
+    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/sort-keys.parquet")}; char *error=NULL;
     CHECK(analysis_sort_set(&a,"GroupKey",false,true,&error)); CHECK(analysis_sort_set(&a,"Amount",true,true,&error)); CHECK(analysis_sort_set(&a,"ID",false,true,&error)); CHECK(analysis_sorts_valid(&a,&error));
     char *sql=analysis_sql(&a,true); CHECK(strstr(sql,"ORDER BY \"GroupKey\" ASC NULLS LAST, \"Amount\" DESC NULLS LAST, \"ID\" ASC NULLS LAST")); free(sql);
     Page p=fetch(db,&a,0,-1); int expected[]={2,7,5,4,1,3,6}; for (size_t i=0;i<7;i++) CHECK(p.cells[i*3].number==expected[i]);
@@ -492,8 +492,8 @@ static void test_sort_order(Database *db) {
     CHECK(!analysis_sort_move(&a,3,0)); analysis_sort_remove(&a,7); CHECK(a.sort_count==1);
     CHECK(analysis_sort_set(&a,"Amount",false,false,&error)); CHECK(!a.sort_count && !strcmp(a.sort_column,"Amount") && !strcmp(copy.sort_column,"GroupKey"));
     DistinctPage choices={0}; CHECK(database_distinct(db,&copy,"GroupKey","",-1,NULL,NULL,0,-1,&choices,&error)); CHECK(choices.total==3 && choices.values[0].is_null); distinct_free(&choices);
-    uint64_t rows=0; CHECK(database_export_parquet(db,&copy,"tests/generated/sorted-export.parquet",&rows,&error) && rows==7);
-    Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/sorted-export.parquet")}; p=fetch(db,&exported,0,-1); for (size_t i=0;i<7;i++) CHECK(p.cells[i*3].number==expected[i]); page_free(&p); analysis_free(&exported);
+    uint64_t rows=0; CHECK(database_export_parquet(db,&copy,"build/tests/generated/sorted-export.parquet",&rows,&error) && rows==7);
+    Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/sorted-export.parquet")}; p=fetch(db,&exported,0,-1); for (size_t i=0;i<7;i++) CHECK(p.cells[i*3].number==expected[i]); page_free(&p); analysis_free(&exported);
     analysis_free(&a); analysis_free(&copy);
     for (size_t i=0;i<DX_ANALYSIS_SORTS;i++) { char name[8]; snprintf(name,sizeof(name),"field%zu",i); CHECK(analysis_sort_set(&a,name,false,true,&error)); }
     CHECK(!analysis_sort_set(&a,"overflow",false,true,&error)); free(error); error=NULL; CHECK(analysis_sorts_valid(&a,&error));
@@ -501,14 +501,14 @@ static void test_sort_order(Database *db) {
 }
 static bool cancel_page(void *context) { unsigned *calls=context; return ++*calls>=4; }
 static void test_prepared_pages(Database *db) {
-    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/million.parquet"),.sort_column=dx_strdup("ID")}; char *error=NULL;
+    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/million.parquet"),.sort_column=dx_strdup("ID")}; char *error=NULL;
     uint64_t prepares=db->page_prepares; Page page=fetch(db,&a,0,1000000); CHECK(db->page_prepares==prepares+1); page_free(&page);
     page=fetch(db,&a,256,1000000); CHECK(db->page_prepares==prepares+1 && page.offset==256 && !strcmp(page.cells[0].text,"256")); page_free(&page);
     page=fetch(db,&a,900000,1000000); CHECK(db->page_prepares==prepares+1 && !strcmp(page.cells[0].text,"900000")); page_free(&page); analysis_free(&a);
     a=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup("tests/fixtures/transactions.csv")};
     CHECK(analysis_filter_set(&a,"City",FILTER_EQUAL,"İstanbul",&error)); page=fetch(db,&a,0,-1); CHECK(page.total==2); page_free(&page); prepares=db->page_prepares;
     CHECK(analysis_filter_set(&a,"City",FILTER_EQUAL,"Ankara",&error)); page=fetch(db,&a,0,-1); CHECK(db->page_prepares==prepares && page.total==1 && !strcmp(page.cells[0].text,"2")); page_free(&page); analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/timestamps.parquet")};
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/timestamps.parquet")};
     CHECK(analysis_filter_set(&a,"Stamp",FILTER_GREATER,"invalid timestamp",&error)); CHECK(!database_fetch(db,&a,0,-1,&page,&error)); CHECK(error); free(error); error=NULL; page_free(&page); prepares=db->page_prepares;
     CHECK(analysis_filter_set(&a,"Stamp",FILTER_GREATER,"2026-01-02 03:04:06",&error)); page=fetch(db,&a,0,-1); CHECK(db->page_prepares==prepares && page.total==2); page_free(&page); analysis_free(&a);
     a=(Analysis){.kind=SOURCE_DEMO,.sort_column=dx_strdup("Amount")}; page=fetch(db,&a,0,1000000); page_free(&page); prepares=db->page_prepares;
@@ -517,7 +517,7 @@ static void test_prepared_pages(Database *db) {
     db->cancelled=NULL; db->cancel_context=NULL; page=fetch(db,&a,256,1000000); CHECK(page.row_count==256 && db->page_prepares==prepares); page_free(&page);
     CHECK(database_refresh(db,&error)); CHECK(!db->page_statement && !db->schema_statement[0] && !db->schema_statement[1] && !db->pivot_key);
     page=fetch(db,&a,0,1000000); CHECK(db->page_prepares==prepares+1); page_free(&page); analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/fixture.duckdb")}; page=fetch(db,&a,0,-1); CHECK(page.relation_count==2); page_free(&page);
+    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/fixture.duckdb")}; page=fetch(db,&a,0,-1); CHECK(page.relation_count==2); page_free(&page);
     CHECK(database_refresh(db,&error)); CHECK(!db->attached_path && !db->relation_count); page=fetch(db,&a,0,-1); CHECK(page.total==5 && page.relation_count==2); page_free(&page); analysis_free(&a);
     Analysis invalid={.sort_count=DX_ANALYSIS_SORTS}; CHECK(!database_fetch_window(db,&invalid,0,-1,&page,&error)); CHECK(error && strstr(error,"Invalid sort")); free(error); page_free(&page);
 }
@@ -584,14 +584,14 @@ static void test_worker(void) {
     QueryJob *j=job(1,SOURCE_DEMO,""); j->analysis.sort_column=dx_strdup("Amount"); worker_submit(&w,j);
     dx_sleep_ms(2); worker_submit(&w,job(2,SOURCE_CSV,"tests/fixtures/transactions.csv"));
     QueryReply *r=wait_reply(&w); CHECK(r->id==2 && !r->error && r->page.total==5); reply_free(r);
-    worker_submit(&w,job(3,SOURCE_PARQUET,"tests/generated/missing.parquet"));
+    worker_submit(&w,job(3,SOURCE_PARQUET,"build/tests/generated/missing.parquet"));
     r=wait_reply(&w); CHECK(r->error && r->id==3); reply_free(r);
     worker_submit(&w,job(4,SOURCE_DEMO,"")); dx_sleep_ms(1); worker_cancel(&w);
     worker_submit(&w,job(6,SOURCE_CSV,"tests/fixtures/transactions.csv"));
     r=wait_reply(&w); CHECK(r->id==6 && !r->error && r->page.total==5); reply_free(r);
-    worker_submit(&w,job(7,SOURCE_PARQUET,"tests/generated/million.parquet"));
+    worker_submit(&w,job(7,SOURCE_PARQUET,"build/tests/generated/million.parquet"));
     r=wait_reply(&w); CHECK(r->id==7 && !r->error && r->page.count_pending && r->page.total==DX_PAGE_ROWS); reply_free(r);
-    j=job(8,SOURCE_PARQUET,"tests/generated/million.parquet"); j->kind=JOB_COUNT; worker_submit(&w,j);
+    j=job(8,SOURCE_PARQUET,"build/tests/generated/million.parquet"); j->kind=JOB_COUNT; worker_submit(&w,j);
     r=wait_reply(&w); CHECK(r->id==8 && !r->error && r->counted_rows==1000000 && !r->page.column_count); reply_free(r);
     j=job(9,SOURCE_DEMO,""); j->kind=JOB_COUNT; worker_submit(&w,j); worker_submit(&w,job(10,SOURCE_CSV,"tests/fixtures/transactions.csv"));
     r=wait_reply(&w); CHECK(r->id==10 && !r->error && r->page.total==5 && !r->page.count_pending); reply_free(r);
@@ -603,7 +603,7 @@ static void test_worker(void) {
     CHECK(pivot_assign(&j->copy->patches[1].pivot,PIVOT_ROWS,"ID",AGG_SUM,&error)); CHECK(pivot_assign(&j->copy->patches[1].pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error));
     worker_submit(&w,j); r=wait_reply(&w); CHECK(r->id==11 && !r->error && r->clipboard);
     CHECK(strstr(r->clipboard,"Snapshot title\t\t\t\n\t\t1\tAdjacent note\n\tNULL\t2\t\n\t\"\"\t3\t")); reply_free(r);
-    j=job(12,SOURCE_PARQUET,"tests/generated/missing.parquet"); j->kind=JOB_RANGE_COPY; j->copy=dx_alloc(sizeof(*j->copy)); CHECK(clipboard_init(&j->copy->cells,1,1,&error));
+    j=job(12,SOURCE_PARQUET,"build/tests/generated/missing.parquet"); j->kind=JOB_RANGE_COPY; j->copy=dx_alloc(sizeof(*j->copy)); CHECK(clipboard_init(&j->copy->cells,1,1,&error));
     j->copy->patches[0]=(CopyPatch){.rows=1,.columns=1}; j->copy->count=1; worker_submit(&w,j);
     r=wait_reply(&w); CHECK(r->id==12 && r->error && !r->clipboard); reply_free(r); free(error); error=NULL;
     j=job(13,SOURCE_CSV,"tests/fixtures/transactions.csv"); j->kind=JOB_STATISTICS; j->rows=5; j->first_col=2; j->cols=1; worker_submit(&w,j);
@@ -611,7 +611,7 @@ static void test_worker(void) {
     j=job(14,SOURCE_DEMO,""); j->kind=JOB_STATISTICS; j->rows=1000000; j->cols=6; worker_submit(&w,j); dx_sleep_ms(2);
     worker_submit(&w,job(15,SOURCE_CSV,"tests/fixtures/transactions.csv"));
     r=wait_reply(&w); CHECK(r->id==15 && !r->error && r->page.total==5 && !r->statistics.sum); reply_free(r);
-    j=job(16,SOURCE_PARQUET,"tests/generated/missing.parquet"); j->kind=JOB_STATISTICS; j->rows=5; j->cols=1; worker_submit(&w,j);
+    j=job(16,SOURCE_PARQUET,"build/tests/generated/missing.parquet"); j->kind=JOB_STATISTICS; j->rows=5; j->cols=1; worker_submit(&w,j);
     r=wait_reply(&w); CHECK(r->id==16 && r->error && !r->statistics.sum); reply_free(r);
     j=job(17,SOURCE_CSV,"tests/fixtures/transactions.csv"); j->kind=JOB_STATISTICS; j->rows=64; j->first_col=1; j->cols=1; j->object_id=99; j->revision=5;
     CHECK(pivot_assign(&j->pivot,PIVOT_ROWS,"City",AGG_SUM,&error)); CHECK(pivot_assign(&j->pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error)); worker_submit(&w,j);
@@ -620,21 +620,21 @@ static void test_worker(void) {
     j->statistics->cells=10; j->statistics->count=1; j->statistics->ranges[0]=(StatisticsRange){.rows=5,.column=2,.columns=1};
     error=NULL; CHECK(statistics_request_text(j->statistics,"12.5",&error)); worker_submit(&w,j);
     r=wait_reply(&w); CHECK(r->id==18 && !r->error && r->statistics.cells==10 && r->statistics.filled==6 && r->statistics.numeric==5 && r->statistics.distinct==6 && !strcmp(r->statistics.sum,"145.25")); reply_free(r); free(error);
-    error=NULL; j=job(19,SOURCE_PARQUET,"tests/generated/million.parquet"); j->kind=JOB_PIVOT; j->is_table=true; j->object_id=73; j->revision=9; j->offset=999744; j->known_total=1000000;
+    error=NULL; j=job(19,SOURCE_PARQUET,"build/tests/generated/million.parquet"); j->kind=JOB_PIVOT; j->is_table=true; j->object_id=73; j->revision=9; j->offset=999744; j->known_total=1000000;
     worker_submit(&w,j); r=wait_reply(&w);
     CHECK(r->id==19 && !r->error && r->object_id==73 && r->revision==9 && r->page.total==1000000 && !r->page.count_pending && r->page.offset==999744 && r->page.row_count==256 && r->page.bytes<=4*1024*1024); reply_free(r);
     j=job(20,SOURCE_CSV,"tests/fixtures/transactions.csv"); j->kind=JOB_DISTINCT; j->is_table=true; j->object_id=73; j->column=dx_strdup("City"); j->search=dx_strdup("stan"); j->date_level=-1;
     worker_submit(&w,j); r=wait_reply(&w); CHECK(r->id==20 && !r->error && r->distinct.total==1 && !strcmp(r->distinct.values[0].value,"İstanbul")); reply_free(r);
-    j=job(21,SOURCE_PARQUET,"tests/generated/missing.parquet"); j->kind=JOB_RANGE_COPY; j->copy=dx_alloc(sizeof(*j->copy)); CHECK(clipboard_init(&j->copy->cells,2,2,&error));
+    j=job(21,SOURCE_PARQUET,"build/tests/generated/missing.parquet"); j->kind=JOB_RANGE_COPY; j->copy=dx_alloc(sizeof(*j->copy)); CHECK(clipboard_init(&j->copy->cells,2,2,&error));
     j->copy->count=2;
-    Analysis table_csv={.kind=SOURCE_CSV,.path=dx_strdup("tests/fixtures/transactions.csv")},table_parquet={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/null-text.parquet")};
+    Analysis table_csv={.kind=SOURCE_CSV,.path=dx_strdup("tests/fixtures/transactions.csv")},table_parquet={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/null-text.parquet")};
     CHECK(analysis_filter_set(&table_csv,"City",FILTER_EQUAL,"İstanbul",&error));
     size_t csv_source=source_snapshot_bind(&j->copy->sources,1,&table_csv,&error),parquet_source=source_snapshot_bind(&j->copy->sources,2,&table_parquet,&error);
     CHECK(csv_source==1 && parquet_source==2);
     j->copy->patches[0]=(CopyPatch){.source=csv_source,.rows=2,.column=2,.columns=1};
     j->copy->patches[1]=(CopyPatch){.source=parquet_source,.rows=2,.column=1,.columns=1,.target_column=1};
     worker_submit(&w,j); r=wait_reply(&w); CHECK(r->id==21 && !r->error && !strcmp(r->clipboard,"12.5\t\n7.25\tNULL")); reply_free(r);
-    j=job(22,SOURCE_PARQUET,"tests/generated/missing.parquet"); j->kind=JOB_STATISTICS; j->statistics=dx_alloc(sizeof(*j->statistics)); j->statistics->cells=100; j->statistics->count=3;
+    j=job(22,SOURCE_PARQUET,"build/tests/generated/missing.parquet"); j->kind=JOB_STATISTICS; j->statistics=dx_alloc(sizeof(*j->statistics)); j->statistics->cells=100; j->statistics->count=3;
     csv_source=source_snapshot_bind(&j->statistics->sources,1,&table_csv,&error); parquet_source=source_snapshot_bind(&j->statistics->sources,2,&table_parquet,&error);
     CHECK(csv_source==1 && parquet_source==2 && source_snapshot_bind(&j->statistics->sources,1,&table_csv,&error)==csv_source && j->statistics->sources.count==2);
     j->statistics->ranges[0]=(StatisticsRange){.source=csv_source,.rows=5,.column=2,.columns=1};
@@ -645,18 +645,18 @@ static void test_worker(void) {
     CHECK(statistics_request_text(j->statistics,"NULL",&error));
     worker_submit(&w,j); r=wait_reply(&w);
     CHECK(r->id==22 && !r->error && r->statistics.cells==100 && r->statistics.filled==10 && r->statistics.numeric==9 && r->statistics.sum && fabs(strtod(r->statistics.sum,NULL)-99.5)<1e-12); reply_free(r);
-    j=job(23,SOURCE_PARQUET,"tests/generated/null-text.parquet"); j->kind=JOB_STATISTICS; j->is_table=true; j->object_id=73; j->rows=6; j->first_col=2; j->cols=1;
+    j=job(23,SOURCE_PARQUET,"build/tests/generated/null-text.parquet"); j->kind=JOB_STATISTICS; j->is_table=true; j->object_id=73; j->rows=6; j->first_col=2; j->cols=1;
     worker_submit(&w,j); r=wait_reply(&w); CHECK(r->id==23 && !r->error && r->statistics.numeric==6 && !strcmp(r->statistics.sum,"60")); reply_free(r); free(error);
-    j=job(24,SOURCE_PARQUET,"tests/generated/million.parquet"); j->kind=JOB_PIVOT; j->is_table=true; j->object_id=73; j->revision=9;
+    j=job(24,SOURCE_PARQUET,"build/tests/generated/million.parquet"); j->kind=JOB_PIVOT; j->is_table=true; j->object_id=73; j->revision=9;
     worker_submit(&w,j); r=wait_reply(&w);
     CHECK(r->id==24 && !r->error && r->page.count_pending && r->page.total==256 && r->page.row_count==256 && r->page.bytes<=4*1024*1024); reply_free(r);
-    j=job(25,SOURCE_PARQUET,"tests/generated/million.parquet"); j->kind=JOB_COUNT; j->is_table=true; j->object_id=73; j->revision=9;
+    j=job(25,SOURCE_PARQUET,"build/tests/generated/million.parquet"); j->kind=JOB_COUNT; j->is_table=true; j->object_id=73; j->revision=9;
     worker_submit(&w,j); r=wait_reply(&w);
     CHECK(r->id==25 && !r->error && r->object_id==73 && r->revision==9 && r->counted_rows==1000000 && !r->page.column_count); reply_free(r);
-    error=NULL; j=job(26,SOURCE_CSV,"tests/fixtures/transactions.csv"); j->kind=JOB_EXPORT; j->is_table=true; j->object_id=73; j->revision=10; j->path=dx_strdup("tests/generated/worker-table-export.parquet");
+    error=NULL; j=job(26,SOURCE_CSV,"tests/fixtures/transactions.csv"); j->kind=JOB_EXPORT; j->is_table=true; j->object_id=73; j->revision=10; j->path=dx_strdup("build/tests/generated/worker-table-export.parquet");
     CHECK(analysis_filter_set(&j->analysis,"City",FILTER_EQUAL,"İstanbul",&error)); worker_submit(&w,j); r=wait_reply(&w);
-    CHECK(r->id==26 && !r->error && r->object_id==73 && r->revision==10 && r->exported_rows==2 && !strcmp(r->path,"tests/generated/worker-table-export.parquet")); reply_free(r);
-    j=job(27,SOURCE_CSV,"tests/fixtures/transactions.csv"); j->kind=JOB_EXPORT; j->object_id=98; j->revision=11; j->path=dx_strdup("tests/generated/worker-pivot-export.parquet");
+    CHECK(r->id==26 && !r->error && r->object_id==73 && r->revision==10 && r->exported_rows==2 && !strcmp(r->path,"build/tests/generated/worker-table-export.parquet")); reply_free(r);
+    j=job(27,SOURCE_CSV,"tests/fixtures/transactions.csv"); j->kind=JOB_EXPORT; j->object_id=98; j->revision=11; j->path=dx_strdup("build/tests/generated/worker-pivot-export.parquet");
     CHECK(pivot_assign(&j->pivot,PIVOT_ROWS,"City",AGG_SUM,&error)); CHECK(pivot_assign(&j->pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error)); worker_submit(&w,j); r=wait_reply(&w);
     CHECK(r->id==27 && !r->error && r->object_id==98 && r->revision==11 && r->exported_rows==4); reply_free(r); free(error);
     worker_stop(&w);
@@ -770,7 +770,7 @@ static void test_source_snapshots(void) {
     source_snapshot_free(&snapshot); analysis_free(&source); free(error);
 }
 static void test_table_windows(Database *db) {
-    char *error=NULL; Page page={0}; Analysis source={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/million.parquet")};
+    char *error=NULL; Page page={0}; Analysis source={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/million.parquet")};
     CHECK(database_fetch_table(db,&source,999744,-1,&page,&error) && page.total==1000000 && !page.count_pending && page.row_count==256 && page.bytes<=4*1024*1024); page_free(&page);
     uint64_t counts=db->count_queries,queries=db->query_count;
     CHECK(database_fetch_table(db,&source,999999,1000000,&page,&error) && page.row_count==1 && !strcmp(page.cells[0].text,"999999")); page_free(&page);
@@ -783,20 +783,20 @@ static void test_table_windows(Database *db) {
     CHECK(database_fetch_table_window(db,&source,999900,-1,&page,&error) && !page.count_pending && page.row_count==100 && page.total==1000000); page_free(&page);
     CHECK(database_fetch_table_window(db,&source,1001000,-1,&page,&error) && page.count_pending && !page.row_count && !page.total); page_free(&page);
     CHECK(database_fetch_table_window(db,&source,1001000,1000000,&page,&error) && !page.count_pending && !page.row_count && page.total==1000000 && db->count_queries==counts+1); page_free(&page);
-    execute(db,"COPY (SELECT repeat('x',20000) AS value FROM range(256)) TO 'tests/generated/table-budget.parquet' (FORMAT PARQUET)");
-    free(source.path); source.path=dx_strdup("tests/generated/table-budget.parquet");
+    execute(db,"COPY (SELECT repeat('x',20000) AS value FROM range(256)) TO 'build/tests/generated/table-budget.parquet' (FORMAT PARQUET)");
+    free(source.path); source.path=dx_strdup("build/tests/generated/table-budget.parquet");
     CHECK(!database_fetch_table(db,&source,0,-1,&page,&error) && error); page_free(&page); free(error); error=NULL;
-    FILE *wide=fopen("tests/generated/table-wide.csv","wb"); CHECK(wide);
+    FILE *wide=fopen("build/tests/generated/table-wide.csv","wb"); CHECK(wide);
     for (int i=0;i<257;i++) fprintf(wide,"%sField%d",i ? "," : "",i); fputc('\n',wide);
     for (int i=0;i<257;i++) fprintf(wide,"%s%d",i ? "," : "",i); fputc('\n',wide); CHECK(!fclose(wide));
-    analysis_free(&source); source=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup("tests/generated/table-wide.csv")};
+    analysis_free(&source); source=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup("build/tests/generated/table-wide.csv")};
     CHECK(!database_fetch_table(db,&source,0,-1,&page,&error) && error && strstr(error,"256 columns")); page_free(&page); free(error); error=NULL;
-    analysis_free(&source); source=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/million.parquet")};
+    analysis_free(&source); source=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/million.parquet")};
     CHECK(database_fetch_table(db,&source,0,1000000,&page,&error) && page.row_count==256 && !page.count_pending); page_free(&page);
     analysis_free(&source); free(error);
 }
 static void test_available_values(Database *db) {
-    char *error=NULL; Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/odd'name.parquet")}; DistinctPage d;
+    char *error=NULL; Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/odd'name.parquet")}; DistinctPage d;
     CHECK(database_distinct(db,&a,"City","",-1,NULL,NULL,0,-1,&d,&error)); CHECK(d.total==4 && d.count==4); distinct_free(&d);
     CHECK(database_distinct(db,&a,"City","stan",-1,NULL,NULL,0,-1,&d,&error)); CHECK(d.total==1 && !strcmp(d.values[0].value,"İstanbul")); distinct_free(&d);
     char **branches=NULL; size_t branch_count=0; bool mixed=false;
@@ -835,7 +835,7 @@ static void test_available_values(Database *db) {
     p=fetch(db,&a,0,-1); CHECK(p.total==5); page_free(&p); distinct_free(&d);
     CHECK(database_distinct(db,&a,"Date","",2,"2026-01-01","2026-02-01",0,-1,&d,&error)); CHECK(d.total==5); distinct_free(&d);
     analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/timestamps.parquet")};
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/timestamps.parquet")};
     for (int level=0;level<5;level++) {
         CHECK(database_distinct(db,&a,"Stamp","",level,NULL,NULL,0,-1,&d,&error));
         CHECK(d.total==(uint64_t)(level==0 ? 2 : level==4 ? 4 : 3) && d.values[0].is_null);
@@ -848,7 +848,7 @@ static void test_available_values(Database *db) {
         distinct_free(&d);
     }
     analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/million.parquet")};
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/million.parquet")};
     CHECK(database_distinct(db,&a,"ID","",-1,NULL,NULL,0,-1,&d,&error)); CHECK(d.total==1000000 && d.count==128 && d.bytes<20000); distinct_free(&d);
     uint64_t queries=db->query_count;
     CHECK(database_distinct(db,&a,"ID","",-1,NULL,NULL,128,1000000,&d,&error)); CHECK(d.offset==128 && d.count==128 && db->query_count==queries+1); distinct_free(&d);
@@ -951,9 +951,9 @@ static void test_statistics(Database *db) {
     PivotDefinition pivot={0}; CHECK(pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,&error)); CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error));
     CHECK(database_statistics(db,&a,&pivot,0,5,1,1,&stats,&error) && stats.cells==1 && !strcmp(stats.sum,"19.75"));
     pivot_free(&pivot); analysis_free(&a); statistics_free(&stats);
-    remove("tests/generated/statistics.duckdb");
-    execute(db,"ATTACH 'tests/generated/statistics.duckdb' AS stats_fixture; CREATE TABLE stats_fixture.exact_values AS SELECT big::HUGEINT AS big,tiny::DECIMAL(38,38) AS tiny,label FROM (VALUES ('170141183460469231731687303715884105727','0.00000000000000000000000000000000000001','NULL'),('170141183460469231731687303715884105727','-0.00000000000000000000000000000000000002',''),(NULL,NULL,NULL)) t(big,tiny,label); CREATE TABLE stats_fixture.floats AS SELECT x::DOUBLE AS x FROM (VALUES ('1e308'),('1e308')) t(x); CREATE TABLE stats_fixture.nonfinite AS SELECT x::DOUBLE AS x FROM (VALUES ('nan'),('inf'),('-inf'),(NULL)) t(x); DETACH stats_fixture");
-    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/statistics.duckdb"),.table=dx_strdup("exact_values")};
+    remove("build/tests/generated/statistics.duckdb");
+    execute(db,"ATTACH 'build/tests/generated/statistics.duckdb' AS stats_fixture; CREATE TABLE stats_fixture.exact_values AS SELECT big::HUGEINT AS big,tiny::DECIMAL(38,38) AS tiny,label FROM (VALUES ('170141183460469231731687303715884105727','0.00000000000000000000000000000000000001','NULL'),('170141183460469231731687303715884105727','-0.00000000000000000000000000000000000002',''),(NULL,NULL,NULL)) t(big,tiny,label); CREATE TABLE stats_fixture.floats AS SELECT x::DOUBLE AS x FROM (VALUES ('1e308'),('1e308')) t(x); CREATE TABLE stats_fixture.nonfinite AS SELECT x::DOUBLE AS x FROM (VALUES ('nan'),('inf'),('-inf'),(NULL)) t(x); DETACH stats_fixture");
+    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/statistics.duckdb"),.table=dx_strdup("exact_values")};
     CHECK(database_statistics(db,&a,NULL,0,3,0,1,&stats,&error));
     CHECK(!stats.approximate && !stats.non_finite && stats.cells==3 && stats.numeric==2 && stats.distinct==1);
     CHECK(!strcmp(stats.sum,"340282366920938463463374607431768211454") && !strcmp(stats.minimum,"170141183460469231731687303715884105727") && !strcmp(stats.maximum,stats.minimum));
@@ -1021,7 +1021,7 @@ static void test_mixed_statistics(Database *db) {
     CHECK(stats.numeric==4 && stats.filled==10 && stats.distinct==9 && !strcmp(stats.sum,"49.375"));
     statistics_request_free(request); statistics_free(&stats); analysis_free(&a);
     request=dx_alloc(sizeof(*request)); request->cells=9; request->count=1; request->ranges[0]=(StatisticsRange){.rows=3,.columns=3};
-    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/statistics.duckdb"),.table=dx_strdup("exact_values")};
+    a=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/statistics.duckdb"),.table=dx_strdup("exact_values")};
     CHECK(database_statistics_ranges(db,&a,request,&stats,&error));
     CHECK(!stats.approximate && !strcmp(stats.sum,"340282366920938463463374607431768211453.99999999999999999999999999999999999999"));
     request->text_bytes=8*1024*1024; CHECK(!statistics_request_text(request,"overflow",&error)); free(error); error=NULL; request->text_bytes=0;
@@ -1097,7 +1097,7 @@ static void test_temporary_storage(Database *first) {
     CHECK(stat(first->temp_directory,&info)==0);
     /* Independent in-memory engines may attach the same external data file. */
     CHECK(database_open(&second,&error));
-    Analysis source={.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/fixture.duckdb")};
+    Analysis source={.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/fixture.duckdb")};
     Analysis another=analysis_copy(&source);
     Page a=fetch(first,&source,0,-1),b=fetch(&second,&another,0,-1);
     CHECK(a.total==5 && b.total==5 && a.column_count==b.column_count);
@@ -1176,8 +1176,8 @@ static void test_unique_rows(Database *db) {
     source.unique_rows=false;
     CHECK(database_fetch_table(db,&source,0,-1,&page,&error) && page.total==4); page_free(&page);
     source.unique_rows=true; analysis_filters_clear(&source);
-    CHECK(database_export_parquet(db,&source,"tests/generated/unique-rows.parquet",&total,&error) && total==4);
-    Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/unique-rows.parquet")};
+    CHECK(database_export_parquet(db,&source,"build/tests/generated/unique-rows.parquet",&total,&error) && total==4);
+    Analysis exported={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/unique-rows.parquet")};
     CHECK(database_fetch_table(db,&exported,0,-1,&page,&error) && page.total==4 && page.columns[1].number_type.kind==NUM_DECIMAL); page_free(&page); analysis_free(&exported);
     CHECK(database_fetch_table(db,&original,0,-1,&page,&error) && page.total==8); page_free(&page); /* External CSV retains duplicates. */
     analysis_sorts_clear(&source); CHECK(analysis_query_set(&source,"SELECT City FROM input",&error));
@@ -1188,8 +1188,8 @@ static void test_unique_rows(Database *db) {
     CHECK(!database_fetch_table(db,&blank,0,-1,&page,&error)); page_free(&page);
     free(error); error=NULL;
     Analysis relations[]={
-        {.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/odd'name.parquet"),.unique_rows=true},
-        {.kind=SOURCE_DATABASE,.path=dx_strdup("tests/generated/fixture.duckdb"),.table=dx_strdup("table with spaces"),.unique_rows=true}
+        {.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/odd'name.parquet"),.unique_rows=true},
+        {.kind=SOURCE_DATABASE,.path=dx_strdup("build/tests/generated/fixture.duckdb"),.table=dx_strdup("table with spaces"),.unique_rows=true}
     };
     for (size_t i=0;i<sizeof(relations)/sizeof(*relations);i++) {
         CHECK(analysis_query_set(&relations[i],"SELECT City FROM input",&error));
@@ -1230,7 +1230,7 @@ static void test_combined_filter(Database *db) {
     CHECK(!analysis_filter_pack(FILTER_CONTAINS,"[]",FILTER_EQUAL,"x"));
     CHECK(!analysis_filter_pack(FILTER_IN,"[]",FILTER_COMPOSITE,payload));
     CHECK(!analysis_filter_value_valid(FILTER_COMPOSITE,"[\"6\",\"[null]\",\"10\",\"[]\"]"));
-    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/odd'name.parquet")};
+    Analysis a={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/odd'name.parquet")};
     CHECK(analysis_filter_set(&a,"Amount",FILTER_BETWEEN,bounds,&error)); Page page=fetch(db,&a,0,-1); CHECK(page.total==3); page_free(&page);
     CHECK(analysis_filter_set(&a,"Amount",FILTER_COMPOSITE,payload,&error)); page=fetch(db,&a,0,-1); CHECK(page.total==2); page_free(&page);
     Analysis copy=analysis_copy(&a); CHECK(copy.filter_value!=a.filter_value && analysis_same_result(&a,&copy)); analysis_free(&copy);
@@ -1241,7 +1241,7 @@ static void test_combined_filter(Database *db) {
     pivot.fields[PIVOT_FILTERS][0].filter=FILTER_COMPOSITE; free(pivot.fields[PIVOT_FILTERS][0].value); pivot.fields[PIVOT_FILTERS][0].value=dx_strdup(payload);
     CHECK(database_pivot(db,&a,&pivot,0,-1,&page,&error)); CHECK(page.total==2); page_free(&page); pivot_free(&pivot);
     free(payload); analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/numeric.parquet")};
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/numeric.parquet")};
     numeric_count(db,&a,"Tiny",FILTER_BETWEEN,"[\"-1.5\",\"1.5\"]",3);
     numeric_count(db,&a,"Tiny",FILTER_BETWEEN,"[\"-1\",\"1\"]",3);
     numeric_count(db,&a,"Tiny",FILTER_BETWEEN,"[\"-1000\",\"1000\"]",7);
@@ -1251,11 +1251,11 @@ static void test_combined_filter(Database *db) {
     numeric_count(db,&a,"Money",FILTER_BETWEEN,"[\"-0.1\",\"0.1\"]",3);
     payload=analysis_filter_pack(FILTER_NOT_IN,"[\"0.0\"]",FILTER_BETWEEN,"[\"-0.1\",\"0.1\"]");
     numeric_count(db,&a,"Money",FILTER_COMPOSITE,payload,2); free(payload); analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/null-text.parquet")};
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/null-text.parquet")};
     /* Missing values and the literal NULL remain independent under conjunction. */
     payload=analysis_filter_pack(FILTER_IN,"[null,\"NULL\"]",FILTER_NOT_NULL,"");
     CHECK(analysis_filter_set(&a,"Value",FILTER_COMPOSITE,payload,&error)); page=fetch(db,&a,0,-1); CHECK(page.total==1 && !page.cells[1].is_null && !strcmp(page.cells[1].text,"NULL")); page_free(&page); free(payload); analysis_free(&a);
-    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/odd'name.parquet")};
+    a=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/odd'name.parquet")};
     payload=analysis_filter_pack(FILTER_DATE_IN,"[\"2026-01-01\\t2026-02-01\"]",FILTER_BETWEEN,"[\"2026-01-02\",\"2026-01-04\"]");
     CHECK(analysis_filter_set(&a,"Date",FILTER_COMPOSITE,payload,&error)); page=fetch(db,&a,0,-1); CHECK(page.total==3); page_free(&page); free(payload); analysis_free(&a); free(bounds); free(error);
 }
@@ -1308,8 +1308,8 @@ static void test_pivot_count_projection(Database *db) {
     page_free(&page); pivot_free(&pivot); analysis_free(&source); free(error);
 }
 static void test_pivot_totals(Database *db) {
-    execute(db,"COPY (SELECT * FROM (VALUES (NULL::VARCHAR,NULL::VARCHAR,10::DECIMAL(38,2)),('A','x',1),('A','x',3),('A','y',9),('A','y',NULL),('B','x',2),('B','y',2),('B','z',NULL),('','',100),('NULL','NULL',200)) t(r,c,v)) TO 'tests/generated/pivot-totals.parquet' (FORMAT PARQUET)");
-    Analysis source={.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/pivot-totals.parquet")}; PivotDefinition pivot={0}; Page page={0}; char *error=NULL;
+    execute(db,"COPY (SELECT * FROM (VALUES (NULL::VARCHAR,NULL::VARCHAR,10::DECIMAL(38,2)),('A','x',1),('A','x',3),('A','y',9),('A','y',NULL),('B','x',2),('B','y',2),('B','z',NULL),('','',100),('NULL','NULL',200)) t(r,c,v)) TO 'build/tests/generated/pivot-totals.parquet' (FORMAT PARQUET)");
+    Analysis source={.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/pivot-totals.parquet")}; PivotDefinition pivot={0}; Page page={0}; char *error=NULL;
     CHECK(pivot_assign(&pivot,PIVOT_ROWS,"r",AGG_SUM,&error)); CHECK(pivot_assign(&pivot,PIVOT_COLUMNS,"c",AGG_SUM,&error));
     for (int agg=AGG_SUM;agg<=AGG_MAX;agg++) CHECK(pivot_assign(&pivot,PIVOT_VALUES,"v",(Aggregate)agg,&error));
     CHECK(database_pivot(db,&source,&pivot,0,-1,&page,&error)); Cell *original=page.cells;
@@ -1344,8 +1344,8 @@ static void test_pivot_totals(Database *db) {
     CHECK(database_pivot_totals(db,&source,&pivot,&page,&error)); page_free(&page); pivot_free(&pivot); analysis_free(&source);
     /* DuckDB's Parquet writer maps HUGEINT to DOUBLE; use an exact DECIMAL
        source so this fixture tests aggregate precision rather than that loss. */
-    execute(db,"COPY (SELECT i::BIGINT AS r,i%2 AS c,100000000000000000000::DECIMAL(38,0)+i AS v FROM range(600) t(i)) TO 'tests/generated/pivot-totals-large.parquet' (FORMAT PARQUET)");
-    source=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("tests/generated/pivot-totals-large.parquet")};
+    execute(db,"COPY (SELECT i::BIGINT AS r,i%2 AS c,100000000000000000000::DECIMAL(38,0)+i AS v FROM range(600) t(i)) TO 'build/tests/generated/pivot-totals-large.parquet' (FORMAT PARQUET)");
+    source=(Analysis){.kind=SOURCE_PARQUET,.path=dx_strdup("build/tests/generated/pivot-totals-large.parquet")};
     CHECK(pivot_assign(&pivot,PIVOT_ROWS,"r",AGG_SUM,&error)); CHECK(pivot_assign(&pivot,PIVOT_COLUMNS,"c",AGG_SUM,&error)); CHECK(pivot_assign(&pivot,PIVOT_VALUES,"v",AGG_SUM,&error));
     CHECK(database_pivot(db,&source,&pivot,300,-1,&page,&error)); CHECK(database_pivot_totals(db,&source,&pivot,&page,&error));
     CHECK(page.offset==300 && page.row_count==256 && page.total==600 && page.totals->rows.offset==300);

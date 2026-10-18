@@ -1,5 +1,5 @@
 /* Exact RGB(A) samples from hash-verified frozen expanded/dismissed PNGs.
-   Reference: tests/results/runs/20261018T030846-reference-rail-1269/reference.json
+   Reference: build/tests/results/runs/20261018T030846-reference-rail-1269/reference.json
    SHA256 1c8f3a6ff4dc532598a580abe44f369848cd00107a2a93a69e9289071440f876
    CPU extraction profiles.json SHA256 c4a445a9dbe7c1567487c4d275cf9567b59875f758280ceccdf3b60345b008f8
    No regenerated reference rendering, fitted colors or per-channel tolerance. */

@@ -30,20 +30,20 @@ def main():
     parser.add_argument('--config',choices=['release','sanitize','both'],default='both')
     parser.add_argument('--no-build',action='store_true')
     args=parser.parse_args()
-    result=ROOT/'tests/results/runs'/f'{time.strftime("%Y%m%dT%H%M%S",time.gmtime())}-review-{os.getpid()}'
+    result=ROOT/'build/tests/results/runs'/f'{time.strftime("%Y%m%dT%H%M%S",time.gmtime())}-review-{os.getpid()}'
     result.mkdir(parents=True)
-    (ROOT/'tests/results/native-review').mkdir(parents=True,exist_ok=True)
+    (ROOT/'build/tests/results/native-review').mkdir(parents=True,exist_ok=True)
     summary={'started_utc':utc_now(),'status':'failed','configs':{},'scope':'hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual'}
     try:
-        with FileLock(ROOT/'tests/results/.runner.lock','worktree tests'):
+        with FileLock(ROOT/'build/.test-runner.lock','worktree tests'):
             configs=['release','sanitize'] if args.config=='both' else [args.config]
             if not args.no_build:
-                targets=[('review' if c=='release' else 'review-debug') for c in configs]+['tests/test_background-native-debug']
+                targets=[('review' if c=='release' else 'review-debug') for c in configs]+['build/tests/test_background-native-debug']
                 targets += ['build/web-tests/test-persistence'+('' if c=='release' else '-sanitize') for c in configs]
                 summary['build'],_=run(['make',*targets],result/'build.log',timeout=300)
             before=source_metadata(ROOT); summary['source']=before
             with FileLock(native_lock_path(),'native review acceptance'):
-                summary['background'],log=run(['./tests/test_background-native-debug'],result/'background.log')
+                summary['background'],log=run(['./build/tests/test_background-native-debug'],result/'background.log')
                 if 'PASS: 477 background native checks' not in log: raise RuntimeError('Background probe did not finish')
                 for config in configs:
                     folder='review' if config=='release' else 'review-sanitize'

@@ -68,14 +68,17 @@ static void transaction(FILE *file,unsigned i,bool force_usd) {
 }
 static bool create_input(Database *db,const char *prefix,bool large,char **error) {
     char csv[160],parquet[160];
-    snprintf(csv,sizeof(csv),"tests/generated/%s.csv",prefix);
-    snprintf(parquet,sizeof(parquet),"tests/generated/%s.parquet",prefix);
+    snprintf(csv,sizeof(csv),"build/tests/generated/%s.csv",prefix);
+    snprintf(parquet,sizeof(parquet),"build/tests/generated/%s.parquet",prefix);
+    const char *directories[]={"build","build/tests","build/tests/generated"};
+    for (size_t i=0;i<sizeof(directories)/sizeof(directories[0]);i++) {
 #ifdef _WIN32
-    int created=_mkdir("tests/generated");
+        int created=_mkdir(directories[i]);
 #else
-    int created=mkdir("tests/generated",0700);
+        int created=mkdir(directories[i],0700);
 #endif
-    if (created && errno!=EEXIST) { *error=dx_strdup("Cannot create fixture directory."); return false; }
+        if (created && errno!=EEXIST) { *error=dx_strdup("Cannot create fixture directory."); return false; }
+    }
     char *temporary=dx_temp_sibling(csv);
     FILE *file=temporary ? fopen(temporary,"wb") : NULL;
     if (!file) { if (temporary) remove(temporary); free(temporary); *error=dx_strdup("Cannot create transaction fixture."); return false; }
@@ -117,7 +120,7 @@ int main(int argc,char **argv) {
     bool large=argc>1 && !strcmp(argv[1],"--large"); const char *prefix=large ? "design-large" : "design-definition";
     Workbook book; workbook_init(&book); Database db; bool opened=false,ok=false;
     char *error=NULL; Page page={0}; PivotDefinition pivot={0};
-    char input[160],output[160]; snprintf(input,sizeof(input),"tests/generated/%s.parquet",prefix); snprintf(output,sizeof(output),"tests/generated/%s.dxls",prefix);
+    char input[160],output[160]; snprintf(input,sizeof(input),"build/tests/generated/%s.parquet",prefix); snprintf(output,sizeof(output),"build/tests/generated/%s.dxls",prefix);
     Analysis source={.kind=SOURCE_PARQUET};
     opened=database_open(&db,&error);
     if (!opened || !create_input(&db,prefix,large,&error)) goto done;

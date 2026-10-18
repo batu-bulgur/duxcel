@@ -1,5 +1,0 @@
-PASS: native Steps capture quarantines owned 3-unit inspector pan with actual outer room and retains offsets/grid/models/Pages/caches/jobs after cancel
-PASS: native feedback closure case=0 actual Table Steps100 with Pivot selected ownership/clipping/value and frozen pick/cancel retain models/manual/history/Pages/input/SQL caches/worker jobs
-PASS: native SQL capture quarantines owned 3-unit inspector pan with actual outer room and retains offsets/grid/models/Pages/caches/jobs after cancel
-PASS: native feedback closure case=1 actual upstream Table SQL150 with Pivot selected ownership/clipping/value and frozen pick/cancel retain models/manual/history/Pages/input/SQL caches/worker jobs
-Review smoke completed [0,400)

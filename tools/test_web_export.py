@@ -67,7 +67,7 @@ def main():
     vendor = json.loads((artifact/'vendor.json').read_text())
     if vendor['packages']['@duckdb/duckdb-wasm']['version'] != '1.32.0':
         raise RuntimeError('This proof requires the pinned official Worker package 1.32.0')
-    output = ROOT/'tests/results/runs'/f'{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%S}-parquet-export-{os.getpid()}'
+    output = ROOT/'build/tests/results/runs'/f'{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%S}-parquet-export-{os.getpid()}'
     output.mkdir(parents=True, exist_ok=False)
     before = source_metadata(ROOT)
     started = time.monotonic()

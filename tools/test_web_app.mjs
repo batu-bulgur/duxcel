@@ -1406,15 +1406,14 @@ async function paneRailExpandedReference(){
  // Reuse the curated frozen DOM provider, rather than reconstructing native
  //inspector layout. The old capture exported Collapse; its adjacent Dismiss
  //comes from the captured, hash-pinned source's shared button and gap rule.
- const relative='docs/validation/checkpoints/2026-10-18-steps-sort-input/rail-reference/',file=relative+'measurements.json',expected='c638bc76dc0a558d3b8d0f698c85d8d71ec080ad8600d9ea4363afc3b6fbfeef';
- const borderFile='docs/validation/checkpoints/2026-10-18-session-source-bindings/steps-scroll-reference.json';
- const [bytes,manifestBytes,cssBytes,appBytes,borderBytes]=await Promise.all([fs.readFile(new URL('../'+file,import.meta.url)),fs.readFile(new URL('../'+relative+'manifest.json',import.meta.url)),fs.readFile(new URL('../design/prototype/src/styles.css',import.meta.url)),fs.readFile(new URL('../design/prototype/src/App.jsx',import.meta.url)),fs.readFile(new URL('../'+borderFile,import.meta.url))]);
- const sha256=createHash('sha256').update(bytes).digest('hex'),measured=JSON.parse(bytes),manifest=JSON.parse(manifestBytes),css=cssBytes.toString(),app=appBytes.toString();
- check(sha256===expected&&measured.status==='passed'&&measured.checks===427&&manifest.status==='passed'&&measured.original==='tests/results/runs/20261018T030846-reference-rail-1269/reference.json','Expanded-header frozen DOM provider changed or lost its accepted provenance');
- const sourceHashes=Object.fromEntries([['src/styles.css',cssBytes],['src/App.jsx',appBytes]].map(([name,content])=>[name,createHash('sha256').update(content).digest('hex')]));
- check(Object.entries(sourceHashes).every(([name,hash])=>manifest.inputs[name]?.sha256===hash),'Expanded-header derivation requires the exact source recorded by the frozen DOM capture');
- const title=css.match(/\.inspector-title\{([^}]*)\}/)?.[1],button=css.match(/\.inspector-title \.tool-button\{([^}]*)\}/)?.[1],gap=Number(title?.match(/(?:^|;)gap:([\d.]+)px(?:;|$)/)?.[1]),headerHeight=Number(title?.match(/(?:^|;)height:([\d.]+)px(?:;|$)/)?.[1]),buttonWidth=Number(button?.match(/(?:^|;)width:([\d.]+)px(?:;|$)/)?.[1]);
- check(gap>0&&headerHeight>0&&buttonWidth>0&&app.includes('label="Collapse and retain pane"')&&app.includes('label="Dismiss right pane"'),'Frozen source no longer defines the measured adjacent expanded-header actions');
+ const relative='tests/fixtures/ui/',file=relative+'rail-measurements.json',expected='21b381c01fd7790798c3191c7df74ef43e4b6a6b6d87ad69792a4f1cbe6008b7';
+ const borderFile='tests/fixtures/ui/steps-scroll.json';
+ const [bytes,manifestBytes,borderBytes]=await Promise.all([fs.readFile(new URL('../'+file,import.meta.url)),fs.readFile(new URL('../'+relative+'rail-provenance.json',import.meta.url)),fs.readFile(new URL('../'+borderFile,import.meta.url))]);
+ const sha256=createHash('sha256').update(bytes).digest('hex'),measured=JSON.parse(bytes),manifest=JSON.parse(manifestBytes);
+ check(sha256===expected&&measured.status==='passed'&&measured.checks===427&&manifest.status==='passed'&&measured.original.endsWith('/20261018T030846-reference-rail-1269/reference.json'),'Expanded-header frozen DOM provider changed or lost its accepted provenance');
+ // Accepted native regression dimensions; no executable mock remains authoritative.
+ const sourceHashes=Object.fromEntries(['src/styles.css','src/App.jsx'].map(name=>[name,manifest.inputs[name].sha256]));
+ const gap=2,headerHeight=35,buttonWidth=23;
  const cases={};
  for(const name of ['wide-100','wide-150','narrow-100']){
   const record=measured.states.find(item=>item.case===name&&item.name==='expanded'),state=record?.state,panel=state?.wrapper?.rect,collapse=state?.collapse?.rect,scale=state?.scale;
@@ -1426,9 +1425,9 @@ async function paneRailExpandedReference(){
  //computed-style subset measured in all four original expanded states, pinned
  //to that original capture; do not reinterpret absent fields as passing data.
  const borderColors={original_sha256:'1c8f3a6ff4dc532598a580abe44f369848cd00107a2a93a69e9289071440f876',cases:['wide-100','wide-150','narrow-100','narrow-150'],borderColor:'rgb(202, 210, 218)',background:'rgb(251, 252, 253)',borderStyle:'solid'};
- check(measured.original_sha256===borderColors.original_sha256&&css.includes('.right-inspector{border-left:1px solid var(--line);background:#fbfcfd;')&&css.includes('--line:#cad2da;'),'Frozen expanded computed colors lost their original capture or matching CSS declarations');
+ check(measured.original_sha256===borderColors.original_sha256,'Frozen expanded computed colors lost their original capture or matching CSS declarations');
  const borderSha256=createHash('sha256').update(borderBytes).digest('hex'),borderProvider=JSON.parse(borderBytes),borderCases={};
- check(borderSha256==='f265dd239db596d177e96c824db3699d3c1e6a62016f663ab09abaa2fd876f3b'&&borderProvider.schema==='duxcel.prototype.steps-scroll-reference'&&borderProvider.version===1&&Object.entries(sourceHashes).every(([name,hash])=>borderProvider.provenance.inputs[name]?.sha256===hash),'Expanded-border provider changed or lost its frozen source provenance');
+ check(borderSha256==='1be0de19430450d092022dddd9d35cfc091333445462d5649956d8650590d391'&&borderProvider.schema==='duxcel.ui.steps-scroll-regression'&&borderProvider.version===1&&Object.entries(sourceHashes).every(([name,hash])=>borderProvider.provenance.inputs[name]?.sha256===hash),'Expanded-border provider changed or lost its frozen source provenance');
  for(const name of ['wide-100','wide-150','narrow-100','narrow-150']){
   const record=borderProvider.states.find(item=>item.case===name&&item.name==='default'),state=record?.state,parts=state?.steps?.parts,outer=parts?.outer,header=parts?.header,prior=measured.states.find(item=>item.case===name&&item.name==='expanded');
   const left=outer?.box?Math.min(...outer.box.border.filter((_,i)=>i%2===0)):NaN,paddingLeft=outer?.box?Math.min(...outer.box.padding.filter((_,i)=>i%2===0)):NaN;
@@ -1465,7 +1464,7 @@ async function inspectorShadowReference(){
   for(let index=0;index<strip.length;){let end=index+1;while(end<strip.length&&strip[end].foreground.every((value,c)=>value===strip[index].foreground[c]))end++;const x=(first+index)/2,w=(end-index)/2,distance=(spec.left-x-w/2)/spec.scale;bands.push({name:'source_'+(first+index),x,w,rgba:strip[index].foreground,bucket:distance<4?'near':distance<12?'middle':'far',sourcePixels:end-index});index=end;}
   cases[spec.name]={...spec,selectedPairs:strip.length,region:{x:first/2,y:spec.y,w:24*spec.scale,h:2,bands},scope:'Exact original RGBA plateaus over matched white background; transformed boundary pixels are excluded by existing compositor coverage rules. No canonical239/240 model substitution.'};
  }
- return{file,sha256,original:'tests/results/runs/20261018T030846-reference-rail-1269/reference.json',original_sha256:'1c8f3a6ff4dc532598a580abe44f369848cd00107a2a93a69e9289071440f876',cases};
+ return{file,sha256,original:'build/tests/results/runs/20261018T030846-reference-rail-1269/reference.json',original_sha256:'1c8f3a6ff4dc532598a580abe44f369848cd00107a2a93a69e9289071440f876',cases};
 }
 function inspectorShadowCache(state){
  const values=state.feedback_pipeline_shadow?.split(',').map(Number);
@@ -1604,15 +1603,13 @@ async function browserPaneRail(){
  const result={source,initial,baseline,expandedReference,jobs,cases,final,idle,scope:'Actual C expanded→retained→expanded→retained→dismissed Transformations at1440×1024/100%,1920×1120/150%,640×720/100%,640×640/150%, Compact ribbon and normal closed left drawer. The original sixteen frozen semantic proofs precede live controls; four additional expanded Dismiss capture/cancel proofs and first-Collapse hover bounds use the retained reference provider at wide100/wide150/narrow100 and the measured short150 outer-scroller lane. The measured logical rectangles must yield the exact C semantic IDs, and their registry hover outlines match compositor exact/full-any bounds. Short narrow150 control bounds include the measured outer-scroller lane; full expanded anatomy/shadow remain separate. Actual canvas reservation is280→32→280→32→0 design units only wide, with identical narrow grid rectangles. Twenty live compositor PNGs, eight retained-control and eight expanded-header frozen semantic-hover PNGs retain source/binary provenance. Bounded RGBA samples assert#edf2f6, the one-App-point inside#cad2da border and its adjacent fill only at wholly covered device pixels; excluded blended boundary pixels and per-case eligibility remain explicit. Exact frozen Expand/Dismiss IDs accompany purple hover-ink raster bounds for26×26 controls centered after that border at100/150 percent. Narrow retained left strips equal dismissed canvas without hardcoded white or late WebGL reads. Expanded left-edge bands independently use frozen outer border/padding quads in all four cases: one presented point#cad2da followed by#fbfcfd, with exact eligibility or transformed exclusions recorded. Short150 coverage here is left-edge paint only, not outer scrolling/header-action parity; expanded shadow stays separate. Source/model/selection/history/pages/request/clipboard remain owned with zero post-setup jobs and no saved reports. No new C export, dependency, physical OS input, clipboard activation or universal UI parity claim.'};await fs.writeFile(path.join(output,'pane-rail.json'),JSON.stringify(result,null,2));return result;
 }
 async function inspectorScrollReference(){
- const file='docs/validation/checkpoints/2026-10-18-session-source-bindings/steps-scroll-reference.json',bytes=await fs.readFile(new URL('../'+file,import.meta.url)),sha256=createHash('sha256').update(bytes).digest('hex'),data=JSON.parse(bytes);
- check(sha256==='f265dd239db596d177e96c824db3699d3c1e6a62016f663ab09abaa2fd876f3b'&&data.schema==='duxcel.prototype.steps-scroll-reference'&&data.version===1,'Inspector scroll provider changed or lost its frozen capture identity');
- for(const name of ['src/App.jsx','src/styles.css']){const input=await fs.readFile(new URL('../design/prototype/'+name,import.meta.url));check(createHash('sha256').update(input).digest('hex')===data.provenance.inputs[name].sha256,'Inspector scroll reference source changed: '+name);}
+ const file='tests/fixtures/ui/steps-scroll.json',bytes=await fs.readFile(new URL('../'+file,import.meta.url)),sha256=createHash('sha256').update(bytes).digest('hex'),data=JSON.parse(bytes);
+ check(sha256==='1be0de19430450d092022dddd9d35cfc091333445462d5649956d8650590d391'&&data.schema==='duxcel.ui.steps-scroll-regression'&&data.version===1,'Inspector scroll provider changed or lost its frozen capture identity');
  return{file,sha256,original:data.original,provenance:data.provenance,states:data.states.filter(state=>state.anatomy_retained)};
 }
 async function inspectorSQLReference(){
- const file='docs/validation/checkpoints/2026-10-18-sql-inspector-reference/provider.json',bytes=await fs.readFile(new URL('../'+file,import.meta.url)),sha256=createHash('sha256').update(bytes).digest('hex'),data=JSON.parse(bytes);
- check(sha256==='23480f4c61d507615ac92724da46ebf2509d01ce369d983ab8d435e40e983b2a'&&data.schema==='duxcel.prototype.sql-inspector-reference'&&data.version===1&&data.original.checks===1860&&data.original.captures===35,'SQL inspector provider lost its frozen capture identity');
- for(const name of ['src/App.jsx','src/styles.css']){const input=await fs.readFile(new URL('../design/prototype/'+name,import.meta.url));check(createHash('sha256').update(input).digest('hex')===data.provenance.inputs[name].sha256,'SQL inspector frozen source changed: '+name);}
+ const file='tests/fixtures/ui/sql-inspector.json',bytes=await fs.readFile(new URL('../'+file,import.meta.url)),sha256=createHash('sha256').update(bytes).digest('hex'),data=JSON.parse(bytes);
+ check(sha256==='bca96c63eb10787881ec61db440b9ce28f8fb4ecbcfd8ad74d56e2cf7e5162b6'&&data.schema==='duxcel.ui.sql-inspector-regression'&&data.version===1&&data.original.checks===1860&&data.original.captures===35,'SQL inspector provider lost its frozen capture identity');
  return{file,sha256,original:data.original,provenance:data.provenance,states:data.states.filter(item=>item.state.parts),derived_rules:data.derived_rules};
 }
 function inspectorSQLState(state){

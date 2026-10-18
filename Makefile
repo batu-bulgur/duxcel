@@ -70,15 +70,15 @@ icons-check: $(ICON_OUTPUTS)
 	python3 tools/generate_icons.py --check
 icons-verify: $(ICON_OUTPUTS)
 	python3 tools/generate_icons.py --verify
-icon-smoke: duxcel-debug icons-check
-	mkdir -p tests/results/icons
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --icon-smoke --frames 360 --screenshot tests/results/icons/final.png
-unique-smoke: duxcel-debug
-	mkdir -p tests/generated tests/results/unique-rows
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --unique-smoke --frames 1200 --screenshot tests/results/unique-rows/final.png
-query-smoke: duxcel-debug
-	mkdir -p tests/generated tests/results/source-query
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --query-smoke --frames 3600 --screenshot tests/results/source-query/final.png
+icon-smoke: build/bin/duxcel-debug icons-check
+	mkdir -p build/tests/results/icons
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --icon-smoke --frames 360 --screenshot build/tests/results/icons/final.png
+unique-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated build/tests/results/unique-rows
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --unique-smoke --frames 1200 --screenshot build/tests/results/unique-rows/final.png
+query-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated build/tests/results/source-query
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --query-smoke --frames 3600 --screenshot build/tests/results/source-query/final.png
 ifeq ($(shell uname -s),Darwin)
 build/check-macos-icon: tools/check_macos_icon.m
 	mkdir -p build
@@ -87,16 +87,14 @@ mac-icon-check: bundle build/check-macos-icon
 	./build/check-macos-icon build/Duxcel.app
 endif
 
-all: duxcel
+all: build/bin/duxcel
 design-fixture: build/create-design-workbook
-	node tools/export_design_fixture.mjs
 	./build/create-design-workbook
 design-large-fixture: build/create-design-workbook
-	node tools/export_design_fixture.mjs --large
 	./build/create-design-workbook --large
-design-smoke: duxcel-debug design-fixture
-	mkdir -p tests/results/design-definition
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug tests/generated/design-definition.dxls --frames 240 --screenshot tests/results/design-definition/authoring.png
+design-smoke: build/bin/duxcel-debug design-fixture
+	mkdir -p build/tests/results/design-definition
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug build/tests/generated/design-definition.dxls --frames 240 --screenshot build/tests/results/design-definition/authoring.png
 # App and fixture-helper compilation are incremental and isolated by exact
 # configuration. Module tests retain their original independent commands below;
 # in particular, renderer stubs must never reuse the application's UI objects.
@@ -217,9 +215,9 @@ define link_binary
 	@set -e; trap 'rm -f "$@.new"' 0; \
 	$(CC) $(1) -o "$@.new" $(2); mv -f "$@.new" "$@"
 endef
-duxcel: $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/release/app/link.flags
+build/bin/duxcel: build/bin/assets $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/release/app/link.flags
 	$(call link_binary,$(CFLAGS) $(WARN) $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS),$(LDFLAGS) $(LDLIBS))
-duxcel-debug: $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/sanitize/app/link.flags
+build/bin/duxcel-debug: build/bin/assets $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/sanitize/app/link.flags
 	$(call link_binary,-O1 -g $(WARN) $(SANFLAGS) $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
 build/edit-sanitize/assets:
 	mkdir -p $(@D)
@@ -256,94 +254,94 @@ build/create-design-workbook: $(DESIGN_OBJECTS) build/obj/release/design/link.fl
 $(INCREMENTAL_OBJECTS): %.o: %.d
 $(INCREMENTAL_OBJECTS:.o=.d):
 -include $(INCREMENTAL_OBJECTS:.o=.d)
-run: duxcel
-	./duxcel $(ARGS)
-debug: duxcel-debug
-run-debug: duxcel-debug
-	./duxcel-debug $(ARGS)
-tests/test_brand: tests/test_brand.c src/ui/brand_geometry.h
+run: build/bin/duxcel
+	./build/bin/duxcel $(ARGS)
+debug: build/bin/duxcel-debug
+run-debug: build/bin/duxcel-debug
+	./build/bin/duxcel-debug $(ARGS)
+build/tests/test_brand: tests/test_brand.c src/ui/brand_geometry.h | build/tests
 	$(CC) -Isrc $(CFLAGS) $(WARN) tests/test_brand.c -o $@ -lm
-tests/test_brand-debug: tests/test_brand.c src/ui/brand_geometry.h
+build/tests/test_brand-debug: tests/test_brand.c src/ui/brand_geometry.h | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) tests/test_brand.c -o $@ -lm $(SANFLAGS)
-tests/test_format: src/common.c src/workbook/format.c src/transforms/number.c tests/test_format.c $(HEADERS)
+build/tests/test_format: src/common.c src/workbook/format.c src/transforms/number.c tests/test_format.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(CFLAGS) $(WARN) src/common.c src/workbook/format.c src/transforms/number.c tests/test_format.c -o $@ -lm
-tests/test_format-debug: src/common.c src/workbook/format.c src/transforms/number.c tests/test_format.c $(HEADERS)
+build/tests/test_format-debug: src/common.c src/workbook/format.c src/transforms/number.c tests/test_format.c $(HEADERS) | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) src/common.c src/workbook/format.c src/transforms/number.c tests/test_format.c -o $@ -lm $(SANFLAGS)
 CHART_MAPPING_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/data/page.c src/data/source_digest.c
 CHARTVIEW_SRC = $(CHART_MAPPING_SRC) src/ui/chartview.c tests/test_chartview.c
-tests/test_chartview: $(CHARTVIEW_SRC) $(HEADERS)
+build/tests/test_chartview: $(CHARTVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CHARTVIEW_SRC) -o $@ -lm
-tests/test_chartview-debug: $(CHARTVIEW_SRC) $(HEADERS)
+build/tests/test_chartview-debug: $(CHARTVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CHARTVIEW_SRC) -o $@ -lm $(SANFLAGS)
 ENCODING_SRC = $(CHART_MAPPING_SRC) src/transforms/marks.c src/ui/chartview.c src/ui/chartencoding.c tests/test_chartencoding.c
-tests/test_chartencoding: $(ENCODING_SRC) $(HEADERS)
+build/tests/test_chartencoding: $(ENCODING_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc -Isrc/ui $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(ENCODING_SRC) -o $@ -lm
-tests/test_chartencoding-debug: $(ENCODING_SRC) $(HEADERS)
+build/tests/test_chartencoding-debug: $(ENCODING_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc -Isrc/ui $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(ENCODING_SRC) -o $@ -lm $(SANFLAGS)
 GRID_PAGE_SRC = src/transforms/analysis.c src/transforms/record_sql.c src/transforms/pivot.c src/transforms/chart_other.c src/data/page.c src/data/source_digest.c
-tests/test_grid: src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS)
+build/tests/test_grid: src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm
-tests/test_grid-debug: src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS)
+build/tests/test_grid-debug: src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 SOURCE_SCOPE_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/data/source_digest.c src/workbook/source_scope.c tests/test_source_scope.c
 OBJECT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/workbook/cells.c src/workbook/objects.c tests/test_objects.c
-tests/test_objects: $(OBJECT_TEST_SRC) $(HEADERS)
+build/tests/test_objects: $(OBJECT_TEST_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(CFLAGS) $(WARN) -Werror $(OBJECT_TEST_SRC) -o $@ -lm
-tests/test_objects-debug: $(OBJECT_TEST_SRC) $(HEADERS)
+build/tests/test_objects-debug: $(OBJECT_TEST_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) -Werror $(SANFLAGS) $(OBJECT_TEST_SRC) -o $@ -lm $(SANFLAGS)
-tests/test_source_scope: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS)
+build/tests/test_source_scope: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(SOURCE_SCOPE_TEST_SRC) -o $@ -lm
-tests/test_source_scope-debug: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS)
+build/tests/test_source_scope-debug: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(SOURCE_SCOPE_TEST_SRC) -o $@ -lm $(SANFLAGS)
 SELECTION_LADDER_SRC = src/grid/selection_ladder.c tests/test_selection_ladder.c
-tests/test_selection_ladder: $(SELECTION_LADDER_SRC) $(HEADERS)
+build/tests/test_selection_ladder: $(SELECTION_LADDER_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(SELECTION_LADDER_SRC) -o $@
-tests/test_selection_ladder-debug: $(SELECTION_LADDER_SRC) $(HEADERS)
+build/tests/test_selection_ladder-debug: $(SELECTION_LADDER_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(SELECTION_LADDER_SRC) -o $@ $(SANFLAGS)
 PAGE_SRC = src/common.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c tests/test_page.c
-tests/test_page: $(PAGE_SRC) $(HEADERS)
+build/tests/test_page: $(PAGE_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(PAGE_SRC) -o $@ -lm
-tests/test_page-debug: $(PAGE_SRC) $(HEADERS)
+build/tests/test_page-debug: $(PAGE_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(PAGE_SRC) -o $@ -lm $(SANFLAGS)
 PAGE_ENGINE_SRC = $(PAGE_SRC) src/platform/platform.c src/transforms/distinct.c src/transforms/chart_other.c src/data/database.c
-tests/test_page-engine: $(PAGE_ENGINE_SRC) $(HEADERS)
+build/tests/test_page-engine: $(PAGE_ENGINE_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -DDUXCEL_PAGE_ENGINE_TEST $(PAGE_ENGINE_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_page-engine-debug: $(PAGE_ENGINE_SRC) $(HEADERS)
+build/tests/test_page-engine-debug: $(PAGE_ENGINE_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) -DDUXCEL_PAGE_ENGINE_TEST $(PAGE_ENGINE_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 RECORD_SQL_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/record_sql.c
 RECORD_PAGE_SRC = $(RECORD_SQL_SRC) src/platform/platform.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/distinct.c src/data/page.c src/data/source_digest.c src/data/database.c
-tests/test_record_sql: $(RECORD_SQL_SRC) tests/test_record_sql.c $(HEADERS)
+build/tests/test_record_sql: $(RECORD_SQL_SRC) tests/test_record_sql.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(RECORD_SQL_SRC) tests/test_record_sql.c -o $@ $(DUCKDB_LIBS) -lm
-tests/test_record_sql-debug: $(RECORD_SQL_SRC) tests/test_record_sql.c $(HEADERS)
+build/tests/test_record_sql-debug: $(RECORD_SQL_SRC) tests/test_record_sql.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(RECORD_SQL_SRC) tests/test_record_sql.c -o $@ $(DUCKDB_LIBS) -lm $(SANFLAGS)
 CHART_OTHER_SRC = $(RECORD_PAGE_SRC) src/ui/chartview.c tests/test_chart_other.c
-tests/test_chart_other: $(CHART_OTHER_SRC) $(HEADERS)
+build/tests/test_chart_other: $(CHART_OTHER_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_chart_other-debug: $(CHART_OTHER_SRC) $(HEADERS)
+build/tests/test_chart_other-debug: $(CHART_OTHER_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
-test-chart-other: tests/test_chart_other tests/test_chart_other-debug
-	./tests/test_chart_other
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_chart_other-debug
+test-chart-other: build/tests/test_chart_other build/tests/test_chart_other-debug
+	./build/tests/test_chart_other
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_chart_other-debug
 DATABASE_CHART_OTHER_SRC = $(RECORD_PAGE_SRC) tests/test_database_chart_other.c
-tests/test_database_chart_other: $(DATABASE_CHART_OTHER_SRC) $(HEADERS)
+build/tests/test_database_chart_other: $(DATABASE_CHART_OTHER_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_TEST_CHART_OTHER $(CFLAGS) $(WARN) $(DATABASE_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_database_chart_other-debug: $(DATABASE_CHART_OTHER_SRC) $(HEADERS)
+build/tests/test_database_chart_other-debug: $(DATABASE_CHART_OTHER_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_TEST_CHART_OTHER -O1 -g $(WARN) $(SANFLAGS) $(DATABASE_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 WORKER_CHART_OTHER_SRC = $(CORE) src/ui/chartview.c src/ui/chartencoding.c tests/test_worker_chart_other.c
-tests/test_worker_chart_other: $(WORKER_CHART_OTHER_SRC) $(HEADERS)
+build/tests/test_worker_chart_other: $(WORKER_CHART_OTHER_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(WORKER_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_worker_chart_other-debug: $(WORKER_CHART_OTHER_SRC) $(HEADERS)
+build/tests/test_worker_chart_other-debug: $(WORKER_CHART_OTHER_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(WORKER_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
-test-chart-other-native: tests/test_database_chart_other tests/test_database_chart_other-debug tests/test_worker_chart_other tests/test_worker_chart_other-debug
-	./tests/test_database_chart_other
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_database_chart_other-debug
-	./tests/test_worker_chart_other
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_worker_chart_other-debug
+test-chart-other-native: build/tests/test_database_chart_other build/tests/test_database_chart_other-debug build/tests/test_worker_chart_other build/tests/test_worker_chart_other-debug
+	./build/tests/test_database_chart_other
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_database_chart_other-debug
+	./build/tests/test_worker_chart_other
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_worker_chart_other-debug
 .PHONY: test-chart-other-native
 .PHONY: test-chart-other
-tests/test_record_pages: $(RECORD_PAGE_SRC) tests/test_record_pages.c $(HEADERS)
+build/tests/test_record_pages: $(RECORD_PAGE_SRC) tests/test_record_pages.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(RECORD_PAGE_SRC) tests/test_record_pages.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_record_pages-debug: $(RECORD_PAGE_SRC) tests/test_record_pages.c $(HEADERS)
+build/tests/test_record_pages-debug: $(RECORD_PAGE_SRC) tests/test_record_pages.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(RECORD_PAGE_SRC) tests/test_record_pages.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 test-records:
 	python3 tools/test.py records $(TEST_ARGS)
@@ -398,53 +396,53 @@ test-record-selection: build/data-tests/test-record-selection build/data-tests/t
 	ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-worker-record-selection-sanitize
 .PHONY: test-record-selection
 WORKBOOK_CODEC_TEST = src/workbook/workbook_codec.c tests/test_workbook_codec.c
-tests/test_workbook_codec: $(WORKBOOK_CODEC_TEST) $(HEADERS)
+build/tests/test_workbook_codec: $(WORKBOOK_CODEC_TEST) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKBOOK_CODEC_TEST) -o $@
-tests/test_workbook_codec-debug: $(WORKBOOK_CODEC_TEST) $(HEADERS)
+build/tests/test_workbook_codec-debug: $(WORKBOOK_CODEC_TEST) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(WORKBOOK_CODEC_TEST) -o $@
 WORKBOOK_CODEC_READ_TEST = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/source_digest.c src/workbook/source_scope.c src/workbook/format.c src/workbook/workbook_codec.c src/workbook/workbook_codec_read.c tests/test_workbook_codec_read.c
-tests/test_workbook_codec_read: $(WORKBOOK_CODEC_READ_TEST) $(HEADERS)
+build/tests/test_workbook_codec_read: $(WORKBOOK_CODEC_READ_TEST) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKBOOK_CODEC_READ_TEST) -o $@ -lm
-tests/test_workbook_codec_read-debug: $(WORKBOOK_CODEC_READ_TEST) $(HEADERS)
+build/tests/test_workbook_codec_read-debug: $(WORKBOOK_CODEC_READ_TEST) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(WORKBOOK_CODEC_READ_TEST) -o $@ -lm
-test-workbook-codec-read: tests/test_workbook_codec_read tests/test_workbook_codec_read-debug
-	./tests/test_workbook_codec_read
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_read-debug
+test-workbook-codec-read: build/tests/test_workbook_codec_read build/tests/test_workbook_codec_read-debug
+	./build/tests/test_workbook_codec_read
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_read-debug
 .PHONY: test-workbook-codec-read
 WORKBOOK_CODEC_NATIVE_TEST = $(CORE) src/workbook/workbook_codec_read.c tests/test_workbook_codec_native.c
-tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc tests/test_workbook_codec_grid_native.inc tests/test_workbook_codec_counters_native.inc tests/test_workbook_codec_source_counters_native.inc tests/test_workbook_codec_source_versions_native.inc tests/test_workbook_codec_source_bindings_native.inc tests/test_workbook_codec_format_rows_native.inc $(HEADERS)
+build/tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc tests/test_workbook_codec_grid_native.inc tests/test_workbook_codec_counters_native.inc tests/test_workbook_codec_source_counters_native.inc tests/test_workbook_codec_source_versions_native.inc tests/test_workbook_codec_source_bindings_native.inc tests/test_workbook_codec_format_rows_native.inc $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc tests/test_workbook_codec_grid_native.inc tests/test_workbook_codec_counters_native.inc tests/test_workbook_codec_source_counters_native.inc tests/test_workbook_codec_source_versions_native.inc tests/test_workbook_codec_source_bindings_native.inc tests/test_workbook_codec_format_rows_native.inc $(HEADERS)
+build/tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc tests/test_workbook_codec_grid_native.inc tests/test_workbook_codec_counters_native.inc tests/test_workbook_codec_source_counters_native.inc tests/test_workbook_codec_source_versions_native.inc tests/test_workbook_codec_source_bindings_native.inc tests/test_workbook_codec_format_rows_native.inc $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-test-workbook-codec-native: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug
+test-workbook-codec-native: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug
 .PHONY: test-workbook-codec-native
-test-workbook-codec: tests/test_workbook_codec tests/test_workbook_codec-debug
-	./tests/test_workbook_codec
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec-debug
+test-workbook-codec: build/tests/test_workbook_codec build/tests/test_workbook_codec-debug
+	./build/tests/test_workbook_codec
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec-debug
 .PHONY: test-workbook-codec
-tests/test_workbook: $(CORE) tests/test_workbook.c $(HEADERS)
+build/tests/test_workbook: $(CORE) tests/test_workbook.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_workbook-debug: $(CORE) tests/test_workbook.c $(HEADERS)
+build/tests/test_workbook-debug: $(CORE) tests/test_workbook.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
-test-analysis-journal: tests/test_workbook tests/test_workbook-debug
-	./tests/test_workbook --journal-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --journal-only
+test-analysis-journal: build/tests/test_workbook build/tests/test_workbook-debug
+	./build/tests/test_workbook --journal-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook-debug --journal-only
 .PHONY: test-analysis-journal
-test-format-budget: tests/test_workbook tests/test_workbook-debug
-	./tests/test_workbook --format-budget-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --format-budget-only
+test-format-budget: build/tests/test_workbook build/tests/test_workbook-debug
+	./build/tests/test_workbook --format-budget-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook-debug --format-budget-only
 .PHONY: test-format-budget
-tests/test_core: $(CORE) tests/test_core.c $(HEADERS)
+build/tests/test_core: $(CORE) tests/test_core.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_core.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_core-debug: $(CORE) tests/test_core.c $(HEADERS)
+build/tests/test_core-debug: $(CORE) tests/test_core.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/test_core.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 SHADOWVIEW_SRC = src/ui/shadowview.c tests/test_shadowview.c
 # The frozen pixel oracle remains a test fixture; it never enters App sources.
-tests/test_shadowview: $(SHADOWVIEW_SRC) tests/shadow_reference.h tests/shadow_corner_reference.h $(HEADERS)
+build/tests/test_shadowview: $(SHADOWVIEW_SRC) tests/shadow_reference.h tests/shadow_corner_reference.h $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(SHADOWVIEW_SRC) -o $@ -lm
-tests/test_shadowview-debug: $(SHADOWVIEW_SRC) tests/shadow_reference.h tests/shadow_corner_reference.h $(HEADERS)
+build/tests/test_shadowview-debug: $(SHADOWVIEW_SRC) tests/shadow_reference.h tests/shadow_corner_reference.h $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(SHADOWVIEW_SRC) -o $@ -lm $(SANFLAGS)
 INSPECTOR_SRC = src/ui/inspector.c tests/test_inspector.c
 STEPVIEW_SRC = src/common.c src/platform/platform.c src/transforms/number.c src/transforms/analysis.c src/ui/stepview.c tests/test_stepview.c
@@ -454,28 +452,28 @@ GUIDEVIEW_SRC = src/common.c src/transforms/number.c src/workbook/format.c src/u
 FONTMETRICS_SRC = src/ui/fontmetrics.c tests/test_fontmetrics.c
 UI_FONT_FALLBACK_SRC = src/common.c src/ui/fontmetrics.c src/ui/ui.c tests/test_ui_font_fallback.c
 CHOICEVIEW_SRC = src/ui/choiceview.c src/ui/selectview.c tests/test_choiceview.c
-tests/test_choiceview: $(CHOICEVIEW_SRC) $(HEADERS)
+build/tests/test_choiceview: $(CHOICEVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(CHOICEVIEW_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_choiceview-debug: $(CHOICEVIEW_SRC) $(HEADERS)
+build/tests/test_choiceview-debug: $(CHOICEVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CHOICEVIEW_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 # Small actual-module input/paint recorders; never linked into App binaries.
 PREVIEW_INPUT_SRC = src/ui/preview.c tests/test_preview_input.c
 TEXTVIEW_INPUT_SRC = src/common.c src/ui/textview.c tests/test_textview.c
-tests/test_preview_input: $(PREVIEW_INPUT_SRC) $(HEADERS)
+build/tests/test_preview_input: $(PREVIEW_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(PREVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_preview_input-debug: $(PREVIEW_INPUT_SRC) $(HEADERS)
+build/tests/test_preview_input-debug: $(PREVIEW_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(PREVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_preview_input_browser: $(PREVIEW_INPUT_SRC) $(HEADERS)
+build/tests/test_preview_input_browser: $(PREVIEW_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_BROWSER_HOST $(CFLAGS) $(WARN) $(PREVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_preview_input_browser-debug: $(PREVIEW_INPUT_SRC) $(HEADERS)
+build/tests/test_preview_input_browser-debug: $(PREVIEW_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_BROWSER_HOST -O1 -g $(WARN) $(SANFLAGS) $(PREVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_textview: $(TEXTVIEW_INPUT_SRC) $(HEADERS)
+build/tests/test_textview: $(TEXTVIEW_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(TEXTVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_textview-debug: $(TEXTVIEW_INPUT_SRC) $(HEADERS)
+build/tests/test_textview-debug: $(TEXTVIEW_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(TEXTVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_textview_review: $(TEXTVIEW_INPUT_SRC) $(HEADERS)
+build/tests/test_textview_review: $(TEXTVIEW_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW $(CFLAGS) $(WARN) $(TEXTVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_textview_review-debug: $(TEXTVIEW_INPUT_SRC) $(HEADERS)
+build/tests/test_textview_review-debug: $(TEXTVIEW_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -O1 -g $(WARN) $(SANFLAGS) $(TEXTVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 # Actual shared UI input, with section collection only in these test binaries.
 UI_INPUT_LINK = -ffunction-sections -Wl,--gc-sections
@@ -486,220 +484,220 @@ STATS_INPUT_SRC = src/ui/ui.c src/ui/statsview.c tests/test_statsview_input.c
 UI_UPDATE_INPUT_SRC = src/common.c src/ui/fontmetrics.c src/ui/ui.c tests/test_ui_update_input.c
 GUIDE_INPUT_SRC = src/common.c src/ui/ui.c src/ui/textview.c src/ui/motion.c src/ui/guideview.c tests/test_guideview_input.c
 SORT_INPUT_SRC = src/common.c src/ui/ui.c src/ui/motion.c src/transforms/analysis.c src/ui/sortview.c tests/test_sortview_input.c
-tests/test_sortview_input: $(SORT_INPUT_SRC) $(HEADERS)
+build/tests/test_sortview_input: $(SORT_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(SORT_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_sortview_input-debug: $(SORT_INPUT_SRC) $(HEADERS)
+build/tests/test_sortview_input-debug: $(SORT_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(SORT_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_sortview_input_review: $(SORT_INPUT_SRC) $(HEADERS)
+build/tests/test_sortview_input_review: $(SORT_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -DDUXCEL_REVIEW_INPUT_IMPLEMENTATION -include src/dev/review_input.h $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(SORT_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_sortview_input_review-debug: $(SORT_INPUT_SRC) $(HEADERS)
+build/tests/test_sortview_input_review-debug: $(SORT_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -DDUXCEL_REVIEW_INPUT_IMPLEMENTATION -include src/dev/review_input.h -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(SORT_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_guideview_input: $(GUIDE_INPUT_SRC) $(HEADERS)
+build/tests/test_guideview_input: $(GUIDE_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(GUIDE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_guideview_input-debug: $(GUIDE_INPUT_SRC) $(HEADERS)
+build/tests/test_guideview_input-debug: $(GUIDE_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(GUIDE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_guideview_input_review: $(GUIDE_INPUT_SRC) $(HEADERS)
+build/tests/test_guideview_input_review: $(GUIDE_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -DDUXCEL_REVIEW_INPUT_IMPLEMENTATION -include src/dev/review_input.h $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(GUIDE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_guideview_input_review-debug: $(GUIDE_INPUT_SRC) $(HEADERS)
+build/tests/test_guideview_input_review-debug: $(GUIDE_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -DDUXCEL_REVIEW_INPUT_IMPLEMENTATION -include src/dev/review_input.h -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(GUIDE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_statsview_input: $(STATS_INPUT_SRC) $(HEADERS)
+build/tests/test_statsview_input: $(STATS_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(STATS_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_statsview_input-debug: $(STATS_INPUT_SRC) $(HEADERS)
+build/tests/test_statsview_input-debug: $(STATS_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(STATS_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_statsview_input_review: $(STATS_INPUT_SRC) $(HEADERS)
+build/tests/test_statsview_input_review: $(STATS_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -DDUXCEL_REVIEW_INPUT_IMPLEMENTATION -include src/dev/review_input.h $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(STATS_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_statsview_input_review-debug: $(STATS_INPUT_SRC) $(HEADERS)
+build/tests/test_statsview_input_review-debug: $(STATS_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -DDUXCEL_REVIEW_INPUT_IMPLEMENTATION -include src/dev/review_input.h -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(STATS_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_ui_update_input: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+build/tests/test_ui_update_input: $(UI_UPDATE_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_ui_update_input-debug: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+build/tests/test_ui_update_input-debug: $(UI_UPDATE_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_ui_update_input_browser: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+build/tests/test_ui_update_input_browser: $(UI_UPDATE_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_BROWSER_HOST -U__APPLE__ $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_ui_update_input_browser-debug: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+build/tests/test_ui_update_input_browser-debug: $(UI_UPDATE_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -DDUXCEL_BROWSER_HOST -U__APPLE__ -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_ui_update_input_control: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+build/tests/test_ui_update_input_control: $(UI_UPDATE_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -U__APPLE__ $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_ui_update_input_control-debug: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+build/tests/test_ui_update_input_control-debug: $(UI_UPDATE_INPUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -U__APPLE__ -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 MOTION_SRC = src/ui/motion.c tests/test_motion.c
-tests/test_motion: $(MOTION_SRC) src/ui/motion.h
+build/tests/test_motion: $(MOTION_SRC) src/ui/motion.h | build/tests
 	$(CC) -Isrc $(CFLAGS) $(WARN) $(MOTION_SRC) -o $@ -lm
-tests/test_motion-debug: $(MOTION_SRC) src/ui/motion.h
+build/tests/test_motion-debug: $(MOTION_SRC) src/ui/motion.h | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(MOTION_SRC) -o $@ -lm $(SANFLAGS)
-tests/test_ui_font_fallback: $(UI_FONT_FALLBACK_SRC) $(HEADERS)
+build/tests/test_ui_font_fallback: $(UI_FONT_FALLBACK_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(UI_FONT_FALLBACK_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_ui_font_fallback-debug: $(UI_FONT_FALLBACK_SRC) $(HEADERS)
+build/tests/test_ui_font_fallback-debug: $(UI_FONT_FALLBACK_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(UI_FONT_FALLBACK_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_fontmetrics: $(FONTMETRICS_SRC) $(HEADERS)
+build/tests/test_fontmetrics: $(FONTMETRICS_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(CFLAGS) $(WARN) $(FONTMETRICS_SRC) -o $@ -lm
-tests/test_fontmetrics-debug: $(FONTMETRICS_SRC) $(HEADERS)
+build/tests/test_fontmetrics-debug: $(FONTMETRICS_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(FONTMETRICS_SRC) -o $@ -lm $(SANFLAGS)
-tests/test_guideview: $(GUIDEVIEW_SRC) $(HEADERS)
+build/tests/test_guideview: $(GUIDEVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(GUIDEVIEW_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_guideview-debug: $(GUIDEVIEW_SRC) $(HEADERS)
+build/tests/test_guideview-debug: $(GUIDEVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(GUIDEVIEW_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_statsview: $(STATSVIEW_SRC) $(HEADERS)
+build/tests/test_statsview: $(STATSVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(STATSVIEW_SRC) -o $@ $(RAYLIB_LIBS) -lm
-tests/test_statsview-debug: $(STATSVIEW_SRC) $(HEADERS)
+build/tests/test_statsview-debug: $(STATSVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(STATSVIEW_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-tests/test_preview: $(PREVIEW_SRC) $(HEADERS)
+build/tests/test_preview: $(PREVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(PREVIEW_SRC) -o $@ $(LDLIBS)
-tests/test_preview-debug: $(PREVIEW_SRC) $(HEADERS)
+build/tests/test_preview-debug: $(PREVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(PREVIEW_SRC) -o $@ $(LDLIBS) $(SANFLAGS)
-tests/test_inspector: $(INSPECTOR_SRC) $(HEADERS)
+build/tests/test_inspector: $(INSPECTOR_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(INSPECTOR_SRC) -o $@ -lm
-tests/test_inspector-debug: $(INSPECTOR_SRC) $(HEADERS)
+build/tests/test_inspector-debug: $(INSPECTOR_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(INSPECTOR_SRC) -o $@ -lm $(SANFLAGS)
-tests/test_stepview: $(STEPVIEW_SRC) $(HEADERS)
+build/tests/test_stepview: $(STEPVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(CFLAGS) $(WARN) $(STEPVIEW_SRC) -o $@ $(THREAD_LIBS) -lm
-tests/test_stepview-debug: $(STEPVIEW_SRC) $(HEADERS)
+build/tests/test_stepview-debug: $(STEPVIEW_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(STEPVIEW_SRC) -o $@ $(THREAD_LIBS) -lm $(SANFLAGS)
-tests/test_paintlayer: src/ui/paintlayer.c tests/test_paintlayer.c $(HEADERS)
+build/tests/test_paintlayer: src/ui/paintlayer.c tests/test_paintlayer.c $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) src/ui/paintlayer.c tests/test_paintlayer.c -o $@ -lm
-tests/test_paintlayer-debug: src/ui/paintlayer.c tests/test_paintlayer.c $(HEADERS)
+build/tests/test_paintlayer-debug: src/ui/paintlayer.c tests/test_paintlayer.c $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/ui/paintlayer.c tests/test_paintlayer.c -o $@ -lm $(SANFLAGS)
 PAINT_NATIVE_SRC = src/common.c src/transforms/number.c src/workbook/format.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c tests/test_paint_native.c
-tests/test_paint-native-debug: $(PAINT_NATIVE_SRC) $(HEADERS)
+build/tests/test_paint-native-debug: $(PAINT_NATIVE_SRC) $(HEADERS) | build/tests/assets
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(PAINT_NATIVE_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
-paint-smoke: tests/test_paint-native-debug
-	mkdir -p tests/results/native-authoring
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_paint-native-debug
-test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_shadowview tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_ui_font_fallback tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview tests/test_preview_input tests/test_preview_input_browser tests/test_textview tests/test_textview_review tests/test_statsview_input tests/test_statsview_input_review tests/test_ui_update_input tests/test_ui_update_input_browser tests/test_ui_update_input_control tests/test_guideview_input tests/test_guideview_input_review tests/test_sortview_input tests/test_sortview_input_review
-	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
-	./tests/test_filterlabel
-	./tests/test_cellreadout
-	./tests/test_core
-	./tests/test_grid
-	./tests/test_keytips
-	./tests/test_workbook
-	./tests/test_brand
-	./tests/test_format
-	./tests/test_chartview
-	./tests/test_chartencoding
-	./tests/test_shadowview
-	./tests/test_inspector
-	./tests/test_stepview
-	./tests/test_preview
-	./tests/test_statsview
-	./tests/test_guideview
-	./tests/test_fontmetrics
-	./tests/test_ui_font_fallback
-	./tests/test_motion
-	./tests/test_choiceview
-	./tests/test_paintlayer
-	./tests/test_popup
-	./tests/test_marksview
-	./tests/test_preview_input
-	./tests/test_preview_input_browser
-	./tests/test_textview
-	./tests/test_textview_review
-	./tests/test_statsview_input
-	./tests/test_statsview_input_review
-	./tests/test_ui_update_input
-	./tests/test_ui_update_input_browser
-	./tests/test_ui_update_input_control
-	./tests/test_guideview_input
-	./tests/test_guideview_input_review
-	./tests/test_sortview_input
-	./tests/test_sortview_input_review
-test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_shadowview-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_ui_font_fallback-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug tests/test_preview_input-debug tests/test_preview_input_browser-debug tests/test_textview-debug tests/test_textview_review-debug tests/test_statsview_input-debug tests/test_statsview_input_review-debug tests/test_ui_update_input-debug tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control-debug tests/test_guideview_input-debug tests/test_guideview_input_review-debug tests/test_sortview_input-debug tests/test_sortview_input_review-debug
-	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_filterlabel-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_cellreadout-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_core-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_grid-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_keytips-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_brand-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_format-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_chartview-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_chartencoding-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_shadowview-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_inspector-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_stepview-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_preview-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_statsview-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_guideview-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_fontmetrics-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_ui_font_fallback-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_motion-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_choiceview-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_paintlayer-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_popup-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_marksview-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_preview_input-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_preview_input_browser-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_textview-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_textview_review-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_statsview_input-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_statsview_input_review-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_ui_update_input-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_ui_update_input_browser-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_ui_update_input_control-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_guideview_input-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_guideview_input_review-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_sortview_input-debug
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_sortview_input_review-debug
-spill-test: tests/test_cellreadout tests/test_core tests/test_core-debug
-	./tests/test_core --spill-probe
-	TMPDIR=/ ASAN_OPTIONS=halt_on_error=1 ./tests/test_core-debug --spill-probe
-unique-large-test: tests/test_cellreadout tests/test_core tests/test_core-debug
-	test -f tests/downloads/yellow_tripdata_2025-01.parquet
-	./tests/test_core --unique-large tests/downloads/yellow_tripdata_2025-01.parquet
-	TMPDIR=/ ASAN_OPTIONS=halt_on_error=1 ./tests/test_core-debug --unique-large tests/downloads/yellow_tripdata_2025-01.parquet
-smoke: duxcel-debug
-	./duxcel-debug --smoke --frames 240 --screenshot /tmp/duxcel-smoke.png
-workspace-smoke: duxcel-debug
-	mkdir -p tests/generated
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --workspace-smoke --frames 240 --screenshot /tmp/duxcel-workspace-smoke.png
-filter-smoke: duxcel-debug
-	mkdir -p tests/results/filter-keyboard
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --filter-smoke --frames 6200 --screenshot /tmp/duxcel-filter-smoke.png
-pivot-smoke: duxcel-debug
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --pivot-smoke --frames 1560 --screenshot /tmp/duxcel-pivot-smoke.png
-export-smoke: duxcel-debug
-	mkdir -p tests/generated
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --export-smoke --frames 840 --screenshot /tmp/duxcel-export-smoke.png
-count-smoke: duxcel-debug
-	mkdir -p tests/generated
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --count-smoke --frames 720 --screenshot /tmp/duxcel-count-smoke.png
-clipboard-smoke: duxcel-debug
-	mkdir -p tests/generated
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --clipboard-smoke --frames 720 --screenshot /tmp/duxcel-clipboard-smoke.png
-sort-smoke: duxcel-debug
-	mkdir -p tests/generated tests/results/multisort
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --sort-smoke --frames 720 --screenshot /tmp/duxcel-sort-smoke.png
-layout-smoke: duxcel-debug design-fixture
-	mkdir -p tests/generated tests/results/workspace-layout
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --layout-smoke --frames 20000 --screenshot /tmp/duxcel-layout-smoke.png
-navigation-smoke: duxcel-debug
-	mkdir -p tests/generated tests/results/sheet-navigation
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --navigation-smoke --frames 720 --screenshot /tmp/duxcel-navigation-smoke.png
+paint-smoke: build/tests/test_paint-native-debug
+	mkdir -p build/tests/results/native-authoring
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_paint-native-debug
+test: build/tests/test_keytips build/tests/test_cellreadout build/tests/test_core build/tests/test_grid build/tests/test_workbook build/tests/test_brand build/tests/test_format build/tests/test_chartview build/tests/test_chartencoding build/tests/test_shadowview build/tests/test_inspector build/tests/test_stepview build/tests/test_preview build/tests/test_statsview build/tests/test_guideview build/tests/test_fontmetrics build/tests/test_ui_font_fallback build/tests/test_motion build/tests/test_choiceview icons-check build/tests/test_paintlayer build/tests/test_popup build/tests/test_marksview build/tests/test_preview_input build/tests/test_preview_input_browser build/tests/test_textview build/tests/test_textview_review build/tests/test_statsview_input build/tests/test_statsview_input_review build/tests/test_ui_update_input build/tests/test_ui_update_input_browser build/tests/test_ui_update_input_control build/tests/test_guideview_input build/tests/test_guideview_input_review build/tests/test_sortview_input build/tests/test_sortview_input_review
+	mkdir -p build/tests/generated/workspace-old build/tests/generated/workspace-new
+	./build/tests/test_filterlabel
+	./build/tests/test_cellreadout
+	./build/tests/test_core
+	./build/tests/test_grid
+	./build/tests/test_keytips
+	./build/tests/test_workbook
+	./build/tests/test_brand
+	./build/tests/test_format
+	./build/tests/test_chartview
+	./build/tests/test_chartencoding
+	./build/tests/test_shadowview
+	./build/tests/test_inspector
+	./build/tests/test_stepview
+	./build/tests/test_preview
+	./build/tests/test_statsview
+	./build/tests/test_guideview
+	./build/tests/test_fontmetrics
+	./build/tests/test_ui_font_fallback
+	./build/tests/test_motion
+	./build/tests/test_choiceview
+	./build/tests/test_paintlayer
+	./build/tests/test_popup
+	./build/tests/test_marksview
+	./build/tests/test_preview_input
+	./build/tests/test_preview_input_browser
+	./build/tests/test_textview
+	./build/tests/test_textview_review
+	./build/tests/test_statsview_input
+	./build/tests/test_statsview_input_review
+	./build/tests/test_ui_update_input
+	./build/tests/test_ui_update_input_browser
+	./build/tests/test_ui_update_input_control
+	./build/tests/test_guideview_input
+	./build/tests/test_guideview_input_review
+	./build/tests/test_sortview_input
+	./build/tests/test_sortview_input_review
+test-debug: build/tests/test_keytips-debug build/tests/test_cellreadout-debug build/tests/test_core-debug build/tests/test_grid-debug build/tests/test_workbook-debug build/tests/test_brand-debug build/tests/test_format-debug build/tests/test_chartview-debug build/tests/test_chartencoding-debug build/tests/test_shadowview-debug build/tests/test_inspector-debug build/tests/test_stepview-debug build/tests/test_preview-debug build/tests/test_statsview-debug build/tests/test_guideview-debug build/tests/test_fontmetrics-debug build/tests/test_ui_font_fallback-debug build/tests/test_motion-debug build/tests/test_choiceview-debug icons-check build/tests/test_paintlayer-debug build/tests/test_popup-debug build/tests/test_marksview-debug build/tests/test_preview_input-debug build/tests/test_preview_input_browser-debug build/tests/test_textview-debug build/tests/test_textview_review-debug build/tests/test_statsview_input-debug build/tests/test_statsview_input_review-debug build/tests/test_ui_update_input-debug build/tests/test_ui_update_input_browser-debug build/tests/test_ui_update_input_control-debug build/tests/test_guideview_input-debug build/tests/test_guideview_input_review-debug build/tests/test_sortview_input-debug build/tests/test_sortview_input_review-debug
+	mkdir -p build/tests/generated/workspace-old build/tests/generated/workspace-new
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_filterlabel-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_cellreadout-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_core-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_grid-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_keytips-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_brand-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_format-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_chartview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_chartencoding-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_shadowview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_inspector-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_stepview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_preview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_statsview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_guideview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_fontmetrics-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_ui_font_fallback-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_motion-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_choiceview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_paintlayer-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_popup-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_marksview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_preview_input-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_preview_input_browser-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_textview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_textview_review-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_statsview_input-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_statsview_input_review-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_ui_update_input-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_ui_update_input_browser-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_ui_update_input_control-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_guideview_input-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_guideview_input_review-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_sortview_input-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_sortview_input_review-debug
+spill-test: build/tests/test_cellreadout build/tests/test_core build/tests/test_core-debug
+	./build/tests/test_core --spill-probe
+	TMPDIR=/ ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_core-debug --spill-probe
+unique-large-test: build/tests/test_cellreadout build/tests/test_core build/tests/test_core-debug
+	test -f build/data/yellow_tripdata_2025-01.parquet
+	./build/tests/test_core --unique-large build/data/yellow_tripdata_2025-01.parquet
+	TMPDIR=/ ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_core-debug --unique-large build/data/yellow_tripdata_2025-01.parquet
+smoke: build/bin/duxcel-debug
+	./build/bin/duxcel-debug --smoke --frames 240 --screenshot /tmp/duxcel-smoke.png
+workspace-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --workspace-smoke --frames 240 --screenshot /tmp/duxcel-workspace-smoke.png
+filter-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/results/filter-keyboard
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --filter-smoke --frames 6200 --screenshot /tmp/duxcel-filter-smoke.png
+pivot-smoke: build/bin/duxcel-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --pivot-smoke --frames 1560 --screenshot /tmp/duxcel-pivot-smoke.png
+export-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --export-smoke --frames 840 --screenshot /tmp/duxcel-export-smoke.png
+count-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --count-smoke --frames 720 --screenshot /tmp/duxcel-count-smoke.png
+clipboard-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --clipboard-smoke --frames 720 --screenshot /tmp/duxcel-clipboard-smoke.png
+sort-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated build/tests/results/multisort
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --sort-smoke --frames 720 --screenshot /tmp/duxcel-sort-smoke.png
+layout-smoke: build/bin/duxcel-debug design-fixture
+	mkdir -p build/tests/generated build/tests/results/workspace-layout
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --layout-smoke --frames 20000 --screenshot /tmp/duxcel-layout-smoke.png
+navigation-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated build/tests/results/sheet-navigation
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --navigation-smoke --frames 720 --screenshot /tmp/duxcel-navigation-smoke.png
 startup-smoke: navigation-smoke
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug tests/generated/navigation.dxls --frames 180
-	cp tests/fixtures/null-text.csv tests/generated/invalid-workspace.dxls
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug tests/generated/invalid-workspace.dxls --frames 60
-nyc-smoke: duxcel-debug
-	test -f tests/downloads/yellow_tripdata_2025-01.parquet
-	mkdir -p tests/generated tests/results/current-workspace
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --nyc-smoke --frames 720 --screenshot tests/results/current-workspace/nyc-analysis.png
-document-smoke: duxcel-debug
-	mkdir -p tests/generated tests/results/current-workspace
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --document-smoke --frames 480 --screenshot tests/results/current-workspace/document-guard.png
-chart-smoke: duxcel-debug
-	mkdir -p tests/generated tests/results/chart-marks
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --chart-smoke --frames 1080 --screenshot tests/results/chart-marks/final.png
-statistics-smoke: duxcel-debug
-	mkdir -p tests/generated tests/results/selection-statistics
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --statistics-smoke --frames 2500 --screenshot tests/results/selection-statistics/final.png
-table-smoke: duxcel-debug tests/test_core
-	mkdir -p tests/generated tests/results/table-sources
-	if test ! -f tests/generated/million.parquet || test ! -f "tests/generated/odd'name.parquet" || test ! -f tests/generated/fixture.duckdb; then ./tests/test_core; fi
-	ASAN_OPTIONS=halt_on_error=1 ./duxcel-debug --table-smoke --frames 2520 --screenshot tests/results/table-sources/final.png
-bundle: duxcel
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug build/tests/generated/navigation.dxls --frames 180
+	cp tests/fixtures/null-text.csv build/tests/generated/invalid-workspace.dxls
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug build/tests/generated/invalid-workspace.dxls --frames 60
+nyc-smoke: build/bin/duxcel-debug
+	test -f build/data/yellow_tripdata_2025-01.parquet
+	mkdir -p build/tests/generated build/tests/results/current-workspace
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --nyc-smoke --frames 720 --screenshot build/tests/results/current-workspace/nyc-analysis.png
+document-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated build/tests/results/current-workspace
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --document-smoke --frames 480 --screenshot build/tests/results/current-workspace/document-guard.png
+chart-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated build/tests/results/chart-marks
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --chart-smoke --frames 1080 --screenshot build/tests/results/chart-marks/final.png
+statistics-smoke: build/bin/duxcel-debug
+	mkdir -p build/tests/generated build/tests/results/selection-statistics
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --statistics-smoke --frames 2500 --screenshot build/tests/results/selection-statistics/final.png
+table-smoke: build/bin/duxcel-debug build/tests/test_core
+	mkdir -p build/tests/generated build/tests/results/table-sources
+	if test ! -f build/tests/generated/million.parquet || test ! -f "build/tests/generated/odd'name.parquet" || test ! -f build/tests/generated/fixture.duckdb; then ./build/tests/test_core; fi
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --table-smoke --frames 2520 --screenshot build/tests/results/table-sources/final.png
+bundle: build/bin/duxcel
 	mkdir -p build/Duxcel.app/Contents/MacOS build/Duxcel.app/Contents/Resources
-	cp duxcel build/Duxcel.app/Contents/MacOS/duxcel.new
+	cp build/bin/duxcel build/Duxcel.app/Contents/MacOS/duxcel.new
 	mv build/Duxcel.app/Contents/MacOS/duxcel.new build/Duxcel.app/Contents/MacOS/duxcel
 	cp -R assets build/Duxcel.app/Contents/Resources/
 	cp packaging/Info.plist build/Duxcel.app/Contents/
@@ -708,36 +706,9 @@ ifeq ($(shell uname -s),Darwin)
 	codesign --force --sign - build/Duxcel.app
 endif
 clean:
-	rm -f tests/test_shadowview tests/test_shadowview-debug
-	rm -f tests/test_sortview_input tests/test_sortview_input-debug tests/test_sortview_input_review tests/test_sortview_input_review-debug
-	rm -rf tests/test_sortview_input.dSYM tests/test_sortview_input-debug.dSYM tests/test_sortview_input_review.dSYM tests/test_sortview_input_review-debug.dSYM
-	rm -f tests/test_guideview_input tests/test_guideview_input-debug tests/test_guideview_input_review tests/test_guideview_input_review-debug
-	rm -rf tests/test_guideview_input.dSYM tests/test_guideview_input-debug.dSYM tests/test_guideview_input_review.dSYM tests/test_guideview_input_review-debug.dSYM
-	rm -f tests/test_statsview_input tests/test_statsview_input-debug tests/test_statsview_input_review tests/test_statsview_input_review-debug tests/test_ui_update_input tests/test_ui_update_input-debug tests/test_ui_update_input_browser tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control tests/test_ui_update_input_control-debug
-	rm -rf tests/test_statsview_input.dSYM tests/test_statsview_input-debug.dSYM tests/test_statsview_input_review.dSYM tests/test_statsview_input_review-debug.dSYM tests/test_ui_update_input.dSYM tests/test_ui_update_input-debug.dSYM tests/test_ui_update_input_browser.dSYM tests/test_ui_update_input_browser-debug.dSYM tests/test_ui_update_input_control.dSYM tests/test_ui_update_input_control-debug.dSYM
-	rm -rf build/edit-sanitize
-	rm -f tests/test_objects tests/test_objects-debug
-	rm -rf tests/test_objects.dSYM tests/test_objects-debug.dSYM
-	rm -rf build/obj
-	rm -f $(ICON_STAMP) build/create-design-workbook
-	rm -f duxcel.new duxcel-debug.new build/create-design-workbook.new
-	rm -f tests/test_filterlabel tests/test_filterlabel-debug tests/test_background-native-debug
-	rm -rf tests/test_filterlabel.dSYM tests/test_filterlabel-debug.dSYM tests/test_background-native-debug.dSYM
-	rm -f tests/test_cellreadout tests/test_cellreadout-debug
-	rm -f tests/test_marksview tests/test_marksview-debug tests/test_popup tests/test_popup-debug tests/test_paintlayer tests/test_paintlayer-debug tests/test_paint-native-debug
-	rm -f tests/test_fontmetrics tests/test_fontmetrics-debug tests/test_ui_font_fallback tests/test_ui_font_fallback-debug
-	rm -rf tests/test_fontmetrics.dSYM tests/test_fontmetrics-debug.dSYM tests/test_ui_font_fallback.dSYM tests/test_ui_font_fallback-debug.dSYM
-	rm -f tests/test_guideview tests/test_guideview-debug
-	rm -rf tests/test_guideview.dSYM tests/test_guideview-debug.dSYM
-	rm -f tests/test_statsview tests/test_statsview-debug
-	rm -rf tests/test_statsview.dSYM tests/test_statsview-debug.dSYM
-	rm -f tests/test_preview tests/test_preview-debug
-	rm -rf tests/test_preview.dSYM tests/test_preview-debug.dSYM
-	rm -f tests/test_inspector tests/test_inspector-debug tests/test_stepview tests/test_stepview-debug
-	rm -rf tests/test_inspector.dSYM tests/test_inspector-debug.dSYM tests/test_stepview.dSYM tests/test_stepview-debug.dSYM
-	rm -f tests/test_preview_input tests/test_preview_input-debug tests/test_preview_input_browser tests/test_preview_input_browser-debug tests/test_textview tests/test_textview-debug tests/test_textview_review tests/test_textview_review-debug
-	rm -f tests/test_choiceview tests/test_choiceview-debug tests/test_motion tests/test_motion-debug duxcel duxcel-debug tests/test_core tests/test_core-debug tests/test_grid tests/test_grid-debug tests/test_workbook tests/test_workbook-debug tests/test_brand tests/test_brand-debug tests/test_chartencoding tests/test_chartencoding-debug
-	rm -rf duxcel.dSYM duxcel-debug.dSYM tests/test_core.dSYM tests/test_core-debug.dSYM tests/test_grid.dSYM tests/test_grid-debug.dSYM tests/test_workbook.dSYM tests/test_workbook-debug.dSYM tests/test_brand.dSYM tests/test_brand-debug.dSYM tests/test_chartencoding.dSYM tests/test_chartencoding-debug.dSYM
+	python3 -c 'from tools.test import clean_outputs; clean_outputs()'
+distclean:
+	python3 -c 'from tools.test import clean_outputs; clean_outputs(full=True)'
 .PHONY: all run debug run-debug test test-debug spill-test unique-large-test smoke workspace-smoke filter-smoke pivot-smoke export-smoke count-smoke clipboard-smoke sort-smoke layout-smoke navigation-smoke startup-smoke nyc-smoke document-smoke chart-smoke statistics-smoke table-smoke icon-smoke query-smoke unique-smoke mac-icon-check bundle clean icons icons-check icons-verify paint-smoke
 .NOTPARALLEL:
 
@@ -751,7 +722,7 @@ test-affected:
 test-native:
 	python3 tools/test.py native --scenario $(SCENARIO) $(TEST_ARGS)
 
-tests/test_background-native-debug: tests/test_background_native.m
+build/tests/test_background-native-debug: tests/test_background_native.m | build/tests
 	$(CC) $(RAYLIB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $< -o $@ $(RAYLIB_LIBS) -framework AppKit $(SANFLAGS)
 test-full:
 	python3 tools/test.py full $(TEST_ARGS)
@@ -762,32 +733,32 @@ test-build:
 .PHONY: test-fast test-affected test-native test-full test-runner test-build
 
 
-tests/test_popup: src/ui/motion.c src/ui/popup.c tests/test_popup.c $(HEADERS)
+build/tests/test_popup: src/ui/motion.c src/ui/popup.c tests/test_popup.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(CFLAGS) $(WARN) src/ui/motion.c src/ui/popup.c tests/test_popup.c -o $@ -lm
 
-tests/test_popup-debug: src/ui/motion.c src/ui/popup.c tests/test_popup.c $(HEADERS)
+build/tests/test_popup-debug: src/ui/motion.c src/ui/popup.c tests/test_popup.c $(HEADERS) | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) src/ui/motion.c src/ui/popup.c tests/test_popup.c -o $@ -lm $(SANFLAGS)
 
 
-tests/test_marksview: src/ui/marksview.c tests/test_marksview.c $(HEADERS)
+build/tests/test_marksview: src/ui/marksview.c tests/test_marksview.c $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) src/ui/marksview.c tests/test_marksview.c -o $@ -lm
 
-tests/test_marksview-debug: src/ui/marksview.c tests/test_marksview.c $(HEADERS)
+build/tests/test_marksview-debug: src/ui/marksview.c tests/test_marksview.c $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/ui/marksview.c tests/test_marksview.c -o $@ -lm $(SANFLAGS)
 
 CELLREADOUT_SRC = src/ui/cellreadout.c tests/test_cellreadout.c
-tests/test_cellreadout: $(CELLREADOUT_SRC) $(HEADERS)
+build/tests/test_cellreadout: $(CELLREADOUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(CELLREADOUT_SRC) -o $@
-tests/test_cellreadout-debug: $(CELLREADOUT_SRC) $(HEADERS)
+build/tests/test_cellreadout-debug: $(CELLREADOUT_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CELLREADOUT_SRC) -o $@ $(SANFLAGS)
 
 FILTERLABEL_SRC = src/common.c src/transforms/number.c src/transforms/analysis.c src/ui/filterlabel.c tests/test_filterlabel.c
-tests/test_filterlabel: $(FILTERLABEL_SRC) src/ui/filterlabel.h src/transforms/analysis.h src/transforms/number.h src/common.h
+build/tests/test_filterlabel: $(FILTERLABEL_SRC) src/ui/filterlabel.h src/transforms/analysis.h src/transforms/number.h src/common.h | build/tests
 	$(CC) -Isrc $(CFLAGS) $(WARN) $(FILTERLABEL_SRC) -o $@ -lm
-tests/test_filterlabel-debug: $(FILTERLABEL_SRC) src/ui/filterlabel.h src/transforms/analysis.h src/transforms/number.h src/common.h
+build/tests/test_filterlabel-debug: $(FILTERLABEL_SRC) src/ui/filterlabel.h src/transforms/analysis.h src/transforms/number.h src/common.h | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(FILTERLABEL_SRC) -o $@ -lm $(SANFLAGS)
-test: tests/test_filterlabel tests/test_statsview_input tests/test_statsview_input_review tests/test_ui_update_input tests/test_ui_update_input_browser tests/test_ui_update_input_control
-test-debug: tests/test_filterlabel-debug tests/test_statsview_input-debug tests/test_statsview_input_review-debug tests/test_ui_update_input-debug tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control-debug
+test: build/tests/test_filterlabel build/tests/test_statsview_input build/tests/test_statsview_input_review build/tests/test_ui_update_input build/tests/test_ui_update_input_browser build/tests/test_ui_update_input_control
+test-debug: build/tests/test_filterlabel-debug build/tests/test_statsview_input-debug build/tests/test_statsview_input_review-debug build/tests/test_ui_update_input-debug build/tests/test_ui_update_input_browser-debug build/tests/test_ui_update_input_control-debug
 
 # Review helpers compile without renderer/database/platform dependencies.
 REVIEW_REGISTRY_TEST = src/dev/review_registry.c tests/test_review_registry.c
@@ -890,33 +861,33 @@ test-browser-codec-tables:
 	python3 tools/test_web_app.py --codec-read-driver --codec-tables
 test-browser-codec-source-options:
 	python3 tools/test_web_app.py --codec-read-driver --codec-source-options
-test-workbook-codec-sorts: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --sorts-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --sorts-only
-test-workbook-codec-preferences: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --preferences-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --preferences-only
-test-workbook-codec-objects: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --objects-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --objects-only
-test-workbook-codec-queries: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --queries-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --queries-only
+test-workbook-codec-sorts: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --sorts-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --sorts-only
+test-workbook-codec-preferences: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --preferences-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --preferences-only
+test-workbook-codec-objects: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --objects-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --objects-only
+test-workbook-codec-queries: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --queries-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --queries-only
 .PHONY: web-codec-read-sources test-browser-codec-read test-browser-codec-sorts test-workbook-codec-sorts
 .PHONY: test-browser-codec-preferences test-workbook-codec-preferences
 .PHONY: test-browser-codec-objects test-workbook-codec-objects
 .PHONY: test-browser-codec-queries test-workbook-codec-queries
-test-workbook-codec-source-options: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --source-options-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --source-options-only
+test-workbook-codec-source-options: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --source-options-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --source-options-only
 .PHONY: test-browser-codec-source-options test-workbook-codec-source-options
-test-workbook-codec-tables: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --tables-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --tables-only
+test-workbook-codec-tables: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --tables-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --tables-only
 .PHONY: test-browser-codec-tables test-workbook-codec-tables
-test-workbook-codec-pivot-marks: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --pivot-marks-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --pivot-marks-only
+test-workbook-codec-pivot-marks: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --pivot-marks-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --pivot-marks-only
 .PHONY: test-browser-codec-pivot-marks test-workbook-codec-pivot-marks
 BROWSER_MODEL_TEST_SRC = $(filter-out src/platform/platform.c src/data/database.c src/data/worker.c,$(CORE)) src/workbook/workbook_browser.c tests/test_workbook_model.c
 BROWSER_DISTINCT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/distinct.c
@@ -975,57 +946,77 @@ test-browser-core: build/web-tests/test-wire build/web-tests/test-wire-sanitize 
 .PHONY: test-browser-core
 
 KEYTIPS_SRC = src/ui/keytips.c src/ui/ribbon_spec.c src/ui/ribbon.c tests/test_keytips.c
-tests/test_keytips: $(KEYTIPS_SRC) $(HEADERS)
+build/tests/test_keytips: $(KEYTIPS_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(KEYTIPS_SRC) -o $@ -lm
-tests/test_keytips-debug: $(KEYTIPS_SRC) $(HEADERS)
+build/tests/test_keytips-debug: $(KEYTIPS_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(KEYTIPS_SRC) -o $@ -lm $(SANFLAGS)
 
 test-browser-codec-filters:
 	python3 tools/test_web_app.py --codec-read-driver --codec-filters
-test-workbook-codec-filters: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --filters-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --filters-only
+test-workbook-codec-filters: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --filters-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --filters-only
 .PHONY: test-browser-codec-filters test-workbook-codec-filters
 
 test-browser-codec-grid:
 	python3 tools/test_web_app.py --codec-read-driver --codec-grid
-test-workbook-codec-grid: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --grid-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --grid-only
+test-workbook-codec-grid: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --grid-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --grid-only
 .PHONY: test-browser-codec-grid test-workbook-codec-grid
 
 test-browser-codec-counters:
 	python3 tools/test_web_app.py --codec-read-driver --codec-counters
-test-workbook-codec-counters: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --counters-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --counters-only
+test-workbook-codec-counters: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --counters-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --counters-only
 .PHONY: test-browser-codec-counters test-workbook-codec-counters
 
 test-browser-codec-source-counters:
 	python3 tools/test_web_app.py --codec-read-driver --codec-source-counters
-test-workbook-codec-source-counters: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --source-counters-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --source-counters-only
+test-workbook-codec-source-counters: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --source-counters-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --source-counters-only
 .PHONY: test-browser-codec-source-counters test-workbook-codec-source-counters
 
 test-browser-codec-source-versions:
 	python3 tools/test_web_app.py --codec-read-driver --codec-source-versions
-test-workbook-codec-source-versions: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --source-versions-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --source-versions-only
+test-workbook-codec-source-versions: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --source-versions-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --source-versions-only
 .PHONY: test-browser-codec-source-versions test-workbook-codec-source-versions
 
 test-browser-codec-source-bindings:
 	python3 tools/test_web_app.py --codec-read-driver --codec-source-bindings
-test-workbook-codec-source-bindings: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --source-bindings-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --source-bindings-only
+test-workbook-codec-source-bindings: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --source-bindings-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --source-bindings-only
 .PHONY: test-browser-codec-source-bindings test-workbook-codec-source-bindings
 
 
 test-browser-codec-format-rows:
 	python3 tools/test_web_app.py --codec-read-driver --codec-format-rows
-test-workbook-codec-format-rows: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
-	./tests/test_workbook_codec_native --format-rows-only
-	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --format-rows-only
+test-workbook-codec-format-rows: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
+	./build/tests/test_workbook_codec_native --format-rows-only
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --format-rows-only
 .PHONY: test-browser-codec-format-rows test-workbook-codec-format-rows
+
+# Compatibility command names are phony; executable files live only in build/.
+.PHONY: duxcel duxcel-debug distclean
+duxcel: build/bin/duxcel
+duxcel-debug: build/bin/duxcel-debug
+build/bin/assets build/tests/assets:
+	mkdir -p $(@D)
+	ln -s ../../assets $@
+build/tests:
+	mkdir -p $@
+
+# Native fixture acceptance uses the same C/DuckDB path in both configurations.
+build/tests/create-fixture-debug: $(CORE) tools/create_design_workbook.c $(HEADERS) | build/tests
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tools/create_design_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+test-fixture: build/create-design-workbook build/tests/create-fixture-debug
+	./build/create-design-workbook
+	./build/create-design-workbook --large
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/create-fixture-debug
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/create-fixture-debug --large
+.PHONY: test-fixture

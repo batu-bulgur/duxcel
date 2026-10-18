@@ -76,7 +76,7 @@ with pathlib.Path('compiler.lock').open('a') as lock:
             next_timestamp()
             path.write_text(text)
 
-        def build(target="duxcel", options=(), success=True):
+        def build(target="build/bin/duxcel", options=(), success=True):
             if target in previous_options and tuple(options) != previous_options[target]:
                 next_timestamp()
             previous_options[target] = tuple(options)
@@ -89,6 +89,8 @@ with pathlib.Path('compiler.lock').open('a') as lock:
 
         compiled, links = build()
         check(sorted(compiled) == ["src/first.c", "src/main.c"] and links == 1, "cold app compilation")
+        check(not (tree / "duxcel").exists() and not (tree / "duxcel-debug").exists(), "native outputs never occupy the source root")
+        check((tree / "build/bin/assets").resolve() == (tree / "assets").resolve(), "native binaries retain executable-relative runtime assets")
         check(not (tree / "generations.log").exists(), "valid checked-in icons must not regenerate")
         check(build() == ([], 0), "warm app must not invoke the compiler/linker")
         check((tree / "build/obj/release/app/src/first.d").is_file(), "compiler dependency output")
@@ -110,11 +112,11 @@ with pathlib.Path('compiler.lock').open('a') as lock:
         check(len(compiled) == 2 and links == 1, "compile flags must invalidate their objects")
         check(build(options=["CFLAGS=-O0 -g"]) == ([], 0), "unchanged compile flags are a no-op")
         check(build(options=["CFLAGS=-O0 -g", "LDFLAGS=-lm"]) == ([], 1), "link flags must only relink")
-        compiled, links = build("duxcel-debug")
+        compiled, links = build("build/bin/duxcel-debug")
         check(len(compiled) == 2 and links == 1, "independent sanitizer objects")
         check((tree / "build/obj/sanitize/app/src/first.o").is_file(), "sanitizer object path")
         check(build(options=["CFLAGS=-O0 -g", "LDFLAGS=-lm"]) == ([], 0), "sanitizers must not alter release objects")
-        accepted = {name: digest(tree / name) for name in ("duxcel", "duxcel-debug")}
+        accepted = {name: digest(tree / name) for name in ("build/bin/duxcel", "build/bin/duxcel-debug")}
         edit_target = "build/edit-sanitize/duxcel"
         compiled, links = build(edit_target)
         check(sorted(compiled) == ["src/first.c", "src/main.c"] and links == 1, "independent edit sanitizer objects")
@@ -138,19 +140,19 @@ with pathlib.Path('compiler.lock').open('a') as lock:
               "helper must not reuse application objects with different include flags")
         check(build("build/create-design-workbook") == ([], 0), "warm helper build")
 
-        before = digest(tree / "duxcel")
+        before = digest(tree / "build/bin/duxcel")
         first_object = tree / "build/obj/release/app/src/first.o"
         old_object = digest(first_object)
         edit(tree / "src/first.c", "invalid C for a deliberate failure;\n")
         build(options=["CFLAGS=-O0 -g", "LDFLAGS=-lm"], success=False)
-        check(digest(tree / "duxcel") == before and digest(first_object) == old_object,
+        check(digest(tree / "build/bin/duxcel") == before and digest(first_object) == old_object,
               "failed compilation must retain the old binary and object")
         check(not list(tree.rglob("*.new")), "failed compilation temporary files are removed")
         edit(tree / "src/first.c", original)
         build(options=["CFLAGS=-O0 -g", "LDFLAGS=-lm"])
-        before = digest(tree / "duxcel")
+        before = digest(tree / "build/bin/duxcel")
         build(options=["CFLAGS=-O0 -g", "LDFLAGS=-Wl,--duxcel-intentional-build-failure"], success=False)
-        check(digest(tree / "duxcel") == before and not (tree / "duxcel.new").exists(),
+        check(digest(tree / "build/bin/duxcel") == before and not (tree / "build/bin/duxcel.new").exists(),
               "failed linking must retain the accepted binary and remove its temporary output")
 
         for name in ("brand.h", "icon.bin"):
@@ -163,7 +165,7 @@ with pathlib.Path('compiler.lock').open('a') as lock:
         check(compiled == ["src/first.c"] and links == 1, "generated header changes rebuild its actual consumer")
         check(len((tree / "generations.log").read_text().splitlines()) == 2, "canonical change regenerates once")
         check(build(options=["CFLAGS=-O0 -g", "LDFLAGS=-lm"]) == ([], 0), "repaired icon graph returns to a warm no-op")
-        subprocess.run([str(tree / "duxcel")], cwd=tree, check=True)
+        subprocess.run([str(tree / "build/bin/duxcel")], cwd=tree, check=True)
     print(f"PASS: {checks} incremental build checks in {time.monotonic()-started:.3f}s")
 
 

@@ -52,7 +52,7 @@ def main():
         check(not any((directory/name).exists() for name in ('download.test.mjs','clipboard.test.mjs','export_probe.mjs','export_probe.test.mjs')),'Browser artifact includes delivery tests or export acceptance probes')
     check('/__review/' not in (normal/'host.mjs').read_text(),'Shipping loader includes review queue routes')
     native={}
-    for name in ('duxcel','duxcel-debug'):
+    for name in ('build/bin/duxcel','build/bin/duxcel-debug'):
         binary=ROOT/name;symbols=subprocess.check_output(['nm','-g',str(binary)],text=True)
         added=[line for line in symbols.splitlines() if 'dx_review_' in line or 'dx_browser_' in line]
         check(not added,'Native shipping contains a browser/review bridge: '+name)

@@ -1,31 +1,25 @@
 # Duxcel product design
 
-Updated 17 October 2026. **The user explicitly designated the web app interface as the design definition. Implement that exact UI in C99/raylib.** Its rendered layout, typography, spacing, colors, icons, control anatomy and interaction states are the specification, rather than inspiration for a native redesign. The [current roadmap](../ROADMAP.md) and [status matrix](../STATUS.md) track delivery and native validation separately from browser evidence. No web runtime enters the product.
+The current C99/raylib implementation and explicit product requirements define the UI baseline. The former executable web mock is retired. Preserve the native workbook feel and improve supported interactions deliberately; there is no external demo to copy pixel-for-pixel. No web runtime enters the native product.
 
 Duxcel is a native analytical spreadsheet built with **C99, raylib, and DuckDB**. The worksheet remains the working surface. Direct spreadsheet manipulation, reproducible data transformations, and spatial visual-analysis authoring belong in the same workspace.
 
 This specification records the latest product decisions. It supersedes earlier design recommendations about Inter, bottom sheet tabs, minimal-only toolbars, and permanently visible transformation history. Implementation status is recorded in [STATUS.md](../STATUS.md); the behavior described here is a design target, not a claim that it is implemented.
 
-## Current interaction study
+## Native baseline
 
-[Open the running prototype](http://localhost:4173/) · [Prototype scope and controls](../../design/prototype/README.md) · [Browser QA evidence](../../design/prototype/design-qa.md).
-
-The browser study focused on UI behavior: motion, pane relationships, drag and drop, resizing, typography, icon proportions, density, and viewport adaptation. Synthetic transactions, example summaries, charts, SQL, and history illustrate those states. Native implementation now connects that design to the existing real engine and workbook model. The eventual WebAssembly distribution remains an architectural topic for a later stage.
-
-The browser uses actual locally bundled IBM Plex Sans Regular, Medium, Semibold, and matching italics. Match its light appearance and measurements in the native renderer, including responsive states. Earlier tables distinguishing proposed visual measurements are superseded by the user's exact-UI instruction; engine semantics and feasibility still require explicit implementation and validation. Consult the validation record for what was actually tested.
-
-![Browser-rendered interaction study](../../design/prototype/qa/iteration-wide-final.jpg)
+Use the bundled IBM Plex Sans family and JetBrains Mono assets with consistent native measurement/drawing and independent UI/grid/DPI scales. The shared-C Wasm application is a real product target; platform limitations are recorded in status. Written interaction requirements and verified native behavior guide responsive states.
 
 ## Decision status
 
-| Confirmed product direction | Exact reference details / broader behavior |
+| Confirmed product direction | Detailed requirements / broader behavior |
 | --- | --- |
 | IBM Plex Sans replaces Inter as the design typeface | Exact sizes, weights, colors, and pixel measurements below |
 | Vertical workbook navigation on the left | Workbook and Fields as independently collapsible sections of one left dock |
 | A field browser usable without entering pivot/chart editing | Single-click reveal behavior and the detailed focus rules |
 | Thin status bar with configurable selection statistics | A 22-unit default height and the precise statistics definitions |
 | Right-click status customization, including distinct and numeric counts | Default enabled metrics and narrow-window overflow behavior |
-| Transformation history in a dismissible right pane | The reference pane lifecycle and shortcut assignments |
+| Transformation history in a dismissible right pane | The pane lifecycle and shortcut assignments |
 | Full ribbon, compact icons with names, icons only, and focus view | Exact group membership and command overflow order |
 | Two stacked horizontal shelves for Columns and Rows, accepting multiple fields | Shelf wrapping limits and assignment conflict handling |
 | A left authoring area for measures and Marks | How unsupported encodings survive a representation change |
@@ -44,29 +38,11 @@ The user selected elements of the earlier Workbench and Canvas concepts. The rev
 7. **Preserve intent across layout changes.** Opening a pane, changing ribbon density, or resizing the window must preserve selection, active object, and useful viewport position.
 8. **Keep every interaction available from the keyboard.** Dragging, resizing, assignment, ordering, menus, pane access, and dismissal require explicit keyboard alternatives.
 9. **Treat SQL as an inspectable explanation.** The visual definition is primary. SQL inspection is available on demand and identifies its scope and step.
-10. **Validate behavior separately from appearance.** Generated concepts suggest composition. Real fonts, focus, gestures, and viewport behavior need interaction evidence. Engine correctness and query states belong to a separate implementation stage.
-
-## Revised visual concept
-
-### Analysis authoring
-
-![Analysis workspace with full ribbon, vertical workbook navigation, fields, Marks, and stacked shelves](concepts/analysis-workspace-v1.png)
-
-This state shows the full ribbon, a selected matrix, two horizontal shelves, the available fields and authoring controls on the left, and a completely clear right edge. A chart and source table coexist with the matrix on the worksheet.
-
-### Data inspection
-
-![Data inspection with compact ribbon, right transformation inspector, and status customization menu](concepts/data-inspection-v1.png)
-
-This state shows the compact ribbon, an ordinary source selection, Fields outside authoring mode, an explicitly opened transformation inspector, and the status-bar context menu.
-
-Both are generated visual concepts, not executable screens. Their lettering was prompted to resemble IBM Plex Sans but was not typeset using verified font files; it is not typography evidence. The data labels and row geometry in generated images are illustrative. Exact numeric fixtures, state rules, and known render discrepancies are recorded in [validation](PROTOTYPE_VALIDATION.md). The executable reference defines measurements; do not infer them from generated concept pixels.
-
-For the actual typeface, use the [IBM Plex Sans specimen](typography/ibm-plex-sans-specimen.png), rendered from IBM's Regular, Medium, and Semibold files. [Font provenance and checks](typography/README.md) distinguish this specimen from native raylib rendering; delivered native components have their own [validation record](../validation/README.md).
+10. **Validate behavior separately from appearance.** Real fonts, focus, gestures, viewport behavior and analytical correctness require separate evidence.
 
 ## Workspace regions
 
-| Region | Purpose | Visibility |
+| Region | Responsibility | Visibility |
 | --- | --- | --- |
 | Title and workbook identity | Document identity, save state, window controls | Normal modes; platform conventions apply |
 | Ribbon tabs and commands | Discoverable formatting, data, analysis, and view actions | Full, compact, icons-only, or temporarily hidden in focus mode |
@@ -144,7 +120,7 @@ Transformations identifies its bound source or object. Selecting a step shows it
 
 The ribbon display menu names all four modes. Full and compact modes share group order and command identity. Groups overflow by priority into labelled menus; they do not become unreadable. Focus mode saves and restores the previous ribbon and dock layout. Escape restores it when focus is on the worksheet; an inner editor or popup consumes Escape first.
 
-Home covers clipboard, font, alignment, and number formatting. Insert covers new worksheet objects. Data covers source operations, sort, filter, and transformations. Analyze covers shared analytical construction. View covers ribbon modes, panes, freezing, and scale. Contextual commands describe the selected object without inventing a separate builder for every representation. Visible commands in the eventual prototype must work or be clearly disabled with an explanation.
+Home covers clipboard, font, alignment, and number formatting. Insert covers new worksheet objects. Data covers source operations, sort, filter, and transformations. Analyze covers shared analytical construction. View covers ribbon modes, panes, freezing, and scale. Contextual commands describe the selected object without inventing a separate builder for every representation. Visible commands in the application must work or be clearly disabled with an explanation.
 
 ## Responsive command placement
 
@@ -158,7 +134,7 @@ Below 700 logical workspace units, the left sections become an explicitly opened
 
 ## Thin status bar
 
-One line separates workbook/result context from ad hoc selection statistics. The prototype initially shows Count of cells, Sum, and Average for ordinary selections. Filled cells is independently available. All metrics are toggleable from a right-click menu; users can enable Count of cells, Numeric count, Distinct count, Minimum, and Maximum as well.
+One line separates workbook/result context from ad hoc selection statistics. The status bar supports Count of cells, Sum, and Average for ordinary selections. Filled cells is independently available. All metrics are toggleable from a right-click menu; users can enable Count of cells, Numeric count, Distinct count, Minimum, and Maximum as well.
 
 Count, filled count, numeric count, and distinct count are separate quantities. Scope, blanks, types, filtering, large selections, and chart marks are defined in [interactions](INTERACTIONS.md#selection-statistics). Metric preferences are application preferences, not transformation steps. Under width pressure, metrics move into an overflow menu; the bar never becomes a second row.
 
@@ -233,7 +209,6 @@ Validate contrast, physical-pixel alignment, high DPI, 80/100/150% interface sca
 
 ## Next design gate
 
-The user has requested native implementation of this direction. Follow the [current roadmap](../ROADMAP.md), preserving the C99 + raylib + DuckDB architecture and existing real commands. Use the running prototype to resolve visual/interaction details without building a second web implementation. The [interaction rules](INTERACTIONS.md) include the study's motion specification, while [validation](PROTOTYPE_VALIDATION.md) records browser observations. Native screenshots, interaction evidence and remaining differences are recorded separately; completing one component does not imply the entire study has been ported.
 
 ## References
 

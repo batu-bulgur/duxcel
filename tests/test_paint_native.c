@@ -138,7 +138,7 @@ int main(void) {
         DrawRectangleRec(copied,WHITE); ui_label(ui,"Amount 123.45 — NULL",copied,13,UI_TEXT,false,UI_REGULAR); ui_paint_end(ui);
         GlyphFrame glyph_frame; draw_glyph_frame(ui,&glyph_frame);
         rlDrawRenderBatchActive(); Image image=LoadImageFromScreen(); CHECK(IsImageValid(image));
-        char glyph_capture[128]; snprintf(glyph_capture,sizeof(glyph_capture),"tests/results/native-authoring/native-glyph-%03d.png",(int)roundf(s*100));
+        char glyph_capture[128]; snprintf(glyph_capture,sizeof(glyph_capture),"build/tests/results/native-authoring/native-glyph-%03d.png",(int)roundf(s*100));
         ExportImage(image,glyph_capture); /* Preserve exact pixels before a new glyph assertion can fail. */
         check_glyph_frame(image,ui,&glyph_frame);
         /* Raylib RED/BLUE are intentionally not full RGB primaries. */
@@ -155,7 +155,7 @@ int main(void) {
             int difference=abs(a.r-b.r)+abs(a.g-b.g)+abs(a.b-b.b); if (difference>largest) largest=difference;
         }
         CHECK(largest<=6); CHECK(!ui->paint_depth && !ui->scissor_depth && !ui->clipping && ui->paint_bytes<=UI_PAINT_TOTAL_BYTES);
-        if (scale==2) ExportImage(image,"tests/results/native-authoring/native-paint-gpu.png");
+        if (scale==2) ExportImage(image,"build/tests/results/native-authoring/native-paint-gpu.png");
         UnloadImage(image); rlCheckErrors(); EndDrawing();
     }
     /* Keep the last complete popup while an action aborts its next picture. */

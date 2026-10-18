@@ -41,8 +41,25 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(runner.ENGINE_MODULES[:2], ("core", "workbook"))
         self.assertTrue(set(runner.RECORD_MODULES).isdisjoint(runner.FAST_MODULES))
         self.assertEqual(runner.configurations("both"), ("release", "sanitize"))
-        self.assertEqual(runner.test_binary("grid", "sanitize"), "tests/test_grid-debug")
+        self.assertEqual(runner.test_binary("grid", "sanitize"), "build/tests/test_grid-debug")
         runner.validate_native_contract(runner.ROOT)
+
+    def test_authored_fixtures_change_provenance_but_generated_files_do_not(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            fixtures = root / "tests/fixtures/ui"; fixtures.mkdir(parents=True)
+            values = fixtures.parent / "null.csv"; values.write_text('value\nNULL\n')
+            geometry = fixtures / "rail.json"; geometry.write_text('{"width":240}')
+            generated = root / "build/tests/generated/input.csv"; generated.parent.mkdir(parents=True)
+            generated.write_text("old")
+            first = runner.source_metadata(root)["source_sha256"]
+            generated.write_text("new")
+            self.assertEqual(first, runner.source_metadata(root)["source_sha256"])
+            values.write_text('value\n""\n')
+            second = runner.source_metadata(root)["source_sha256"]
+            self.assertNotEqual(first, second)
+            geometry.write_text('{"width":280}')
+            self.assertNotEqual(second, runner.source_metadata(root)["source_sha256"])
 
     def test_focus_ranges_have_supported_bootstraps_and_terminal_assertions(self):
         source = (runner.ROOT / "src/app/app.c").read_text()
@@ -243,12 +260,12 @@ class RunnerTests(unittest.TestCase):
                 saved = json.loads((instance.log_dir / "summary.json").read_text())
                 self.assertEqual(saved["tier"], "records"); self.assertEqual(saved["status"], "passed")
                 self.assertEqual(saved["source"]["source_sha256"], runner.source_metadata(root)["source_sha256"])
-                self.assertTrue((root / "tests/results/.runner.lock").exists())
+                self.assertTrue((root / "build/.test-runner.lock").exists())
 
     def test_records_no_build_requires_all_binaries_before_any_execution(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory); (root / "Makefile").write_text("")
-            binary = root / "tests/test_record_sql"; binary.parent.mkdir(); binary.write_text("existing")
+            binary = root / "build/tests/test_record_sql"; binary.parent.mkdir(parents=True); binary.write_text("existing")
             args = runner.parser().parse_args(["records", "--config", "release", "--no-build"])
             instance = runner.Runner(args, root)
             with mock.patch.object(instance, "command") as command, self.assertRaisesRegex(RuntimeError, "Missing test binary.*test_record_pages"):
@@ -260,12 +277,12 @@ class RunnerTests(unittest.TestCase):
             with self.subTest(overwrite=overwrite), tempfile.TemporaryDirectory() as directory:
                 root = pathlib.Path(directory); (root / "Makefile").write_text("")
                 for module in runner.RECORD_MODULES:
-                    binary = root / runner.test_binary(module, "release"); binary.parent.mkdir(exist_ok=True); binary.write_text(module)
+                    binary = root / runner.test_binary(module, "release"); binary.parent.mkdir(parents=True, exist_ok=True); binary.write_text(module)
                 args = runner.parser().parse_args(["records", "--config", "release", "--no-build"])
                 instance = runner.Runner(args, root)
                 def completed(name, command, marker=None, **kwargs):
                     if overwrite:
-                        (root / "tests/test_record_pages").write_text("different build")
+                        (root / "build/tests/test_record_pages").write_text("different build")
                     return {"name": name, "command": command, "status": "passed" if overwrite else "failed", "error": "Engine assertion failed"}
                 with mock.patch.object(instance, "command", side_effect=completed) as command, \
                      contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
@@ -282,9 +299,9 @@ class RunnerTests(unittest.TestCase):
             def completed(name, command, marker=None, **kwargs):
                 if command[0] == "make":
                     for target in command[1:]:
-                        if target.startswith(("tests/", "duxcel")):
+                        if target.startswith(("build/tests/", "build/bin/duxcel")):
                             path = root / target; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(target)
-                    fixture = root / "tests/generated/design-definition.dxls"
+                    fixture = root / "build/tests/generated/design-definition.dxls"
                     fixture.parent.mkdir(parents=True); fixture.write_text("fixture")
                 return {"name": name, "command": command, "status": "passed"}
             with mock.patch.object(instance, "command", side_effect=completed) as command, \
@@ -350,7 +367,7 @@ class RunnerTests(unittest.TestCase):
                         else:
                             self.assertEqual(marker, "PASS:"); self.assertFalse(kwargs.get("native"))
                             self.assertEqual(kwargs["completion_pattern"], runner.FORMATS_COMPLETION_PATTERN)
-                            self.assertTrue((root / "tests/generated").is_dir())
+                            self.assertTrue((root / "build/tests/generated").is_dir())
                         return {"name": name, "command": command, "status": "passed"}
 
                     with mock.patch.object(instance, "command", side_effect=completed) as command, \
@@ -366,13 +383,13 @@ class RunnerTests(unittest.TestCase):
                     saved = json.loads((instance.log_dir / "summary.json").read_text())
                     self.assertEqual(saved["tier"], "formats"); self.assertEqual(saved["status"], "passed")
                     self.assertEqual(saved["source"]["source_sha256"], runner.source_metadata(root)["source_sha256"])
-                    self.assertTrue((root / "tests/results/.runner.lock").exists())
-                    self.assertFalse((root / "tests/generated/million.parquet").exists())
+                    self.assertTrue((root / "build/.test-runner.lock").exists())
+                    self.assertFalse((root / "build/tests/generated/million.parquet").exists())
 
     def test_formats_no_build_requires_all_selected_binaries_before_any_execution(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory); (root / "Makefile").write_text("")
-            binary = root / "tests/test_workbook"; binary.parent.mkdir(); binary.write_text("existing")
+            binary = root / "build/tests/test_workbook"; binary.parent.mkdir(parents=True); binary.write_text("existing")
             instance = runner.Runner(runner.parser().parse_args(["formats", "--config", "both", "--no-build"]), root)
             with mock.patch.object(instance, "command") as command, self.assertRaisesRegex(RuntimeError, "Missing test binary.*test_workbook-debug"):
                 instance.formats()
@@ -383,12 +400,12 @@ class RunnerTests(unittest.TestCase):
             with self.subTest(overwrite=overwrite), tempfile.TemporaryDirectory() as directory:
                 root = pathlib.Path(directory); (root / "Makefile").write_text("")
                 for config in ("release", "sanitize"):
-                    binary = root / runner.test_binary("workbook", config); binary.parent.mkdir(exist_ok=True); binary.write_text(config)
+                    binary = root / runner.test_binary("workbook", config); binary.parent.mkdir(parents=True, exist_ok=True); binary.write_text(config)
                 instance = runner.Runner(runner.parser().parse_args(["formats", "--config", "both", "--no-build"]), root)
 
                 def completed(name, command, marker=None, **kwargs):
                     if overwrite:
-                        (root / "tests/test_workbook-debug").write_text("different build")
+                        (root / "build/tests/test_workbook-debug").write_text("different build")
                     return {"name": name, "command": command, "status": "passed" if overwrite else "failed", "error": "Format save assertion failed"}
 
                 with mock.patch.object(instance, "command", side_effect=completed) as command, \
@@ -453,7 +470,7 @@ class RunnerTests(unittest.TestCase):
                         self.assertEqual((args.edit, args.config, args.no_build), (True, config, True))
 
     def test_edit_changes_only_the_native_app_target_and_summary(self):
-        for config, binary in (("release", "duxcel"), ("sanitize", "duxcel-debug"), ("both", "duxcel-debug")):
+        for config, binary in (("release", "build/bin/duxcel"), ("sanitize", "build/bin/duxcel-debug"), ("both", "build/bin/duxcel-debug")):
             with self.subTest(config=config), tempfile.TemporaryDirectory() as directory:
                 root = pathlib.Path(directory); (root / "Makefile").write_text("")
                 args = runner.parser().parse_args(["native", "--scenario", "icon", "--config", config])
@@ -464,10 +481,10 @@ class RunnerTests(unittest.TestCase):
                 self.assertNotIn("app_optimization", instance.summary)
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory); (root / "Makefile").write_text("")
-            fixture = root / "tests/generated/design-definition.dxls"; fixture.parent.mkdir(parents=True); fixture.write_bytes(b"fixture")
+            fixture = root / "build/tests/generated/design-definition.dxls"; fixture.parent.mkdir(parents=True); fixture.write_bytes(b"fixture")
             args = runner.parser().parse_args(["native", "--scenario", "icon", "--edit"])
             instance = runner.Runner(args, root)
-            expected = ["build/edit-sanitize/duxcel", "tests/test_background-native-debug", "design-fixture"]
+            expected = ["build/edit-sanitize/duxcel", "build/tests/test_background-native-debug", "design-fixture"]
             def build(targets, name):
                 self.assertEqual((targets, name), (expected, "build-integration"))
                 for binary in targets[:2]:
@@ -483,11 +500,12 @@ class RunnerTests(unittest.TestCase):
         for present, replace in ((False, False), (True, False), (True, True)):
             with self.subTest(present=present, replace=replace), tempfile.TemporaryDirectory() as directory:
                 root = pathlib.Path(directory); (root / "Makefile").write_text("")
-                fixture = root / "tests/generated/design-definition.dxls"; fixture.parent.mkdir(parents=True); fixture.write_bytes(b"fixture")
+                fixture = root / "build/tests/generated/design-definition.dxls"; fixture.parent.mkdir(parents=True); fixture.write_bytes(b"fixture")
                 binary = root / "build/edit-sanitize/duxcel"; binary.parent.mkdir(parents=True)
                 if present: binary.write_text("owned edit binary")
-                (root / "duxcel-debug").write_text("ordinary sanitizer is not an edit fallback")
-                background = root / "tests/test_background-native-debug"; background.write_text("owned background binary")
+                (root / "build/bin").mkdir(parents=True, exist_ok=True)
+                (root / "build/bin/duxcel-debug").write_text("ordinary sanitizer is not an edit fallback")
+                background = root / "build/tests/test_background-native-debug"; background.write_text("owned background binary")
                 args = runner.parser().parse_args(["native", "--scenario", "icon", "--edit", "--no-build"])
                 instance = runner.Runner(args, root)
                 def completed(name, command, marker=None, **kwargs):
@@ -503,7 +521,7 @@ class RunnerTests(unittest.TestCase):
                      mock.patch.object(runner, "native_lock_path", return_value=root / "desktop.lock"), \
                      contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                     self.assertEqual(instance.run(), 0 if present and not replace else 1)
-                self.assertTrue((root / "tests/results/.runner.lock").is_file())
+                self.assertTrue((root / "build/.test-runner.lock").is_file())
                 self.assertEqual((root / "desktop.lock").exists(), present)
                 self.assertEqual(command.call_count, 2 if present else 0)
                 if not present:
@@ -576,6 +594,45 @@ class RunnerTests(unittest.TestCase):
         for arguments in (["affected"], ["full", "--modules", "grid"], ["native"], ["native", "--scenario", "export", "--modules", "grid"], ["fast", "--scenario", "export"], ["fast", "--jobs", "3"], ["fast", "--timeout", "0"], ["fast", "--feature", "shelves"], ["affected", "--feature", "shelves", "--require-data"]):
             with self.subTest(arguments=arguments), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
                 runner.main(arguments)
+
+    def test_clean_removes_outputs_but_preserves_authored_inputs_and_cached_dependencies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            kept = ["tests/fixtures/null.csv", "tests/test_example.c", "build/data/public.parquet", "build/web/toolchain/emcc", "build/web/raylib/libraylib.a"]
+            removed = ["build/bin/duxcel", "build/tests/test_example", "build/tests/generated/book.dxls", "build/tests/results/frame.png", "build/web/app/old/duxcel.wasm", "tests/generated/old.dxls", ".DS_Store"]
+            for name in kept + removed:
+                path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b"owned")
+            with mock.patch.object(runner, "ROOT", root), mock.patch.object(runner, "native_lock_path", return_value=root / "native.lock"):
+                runner.clean_outputs()
+            self.assertTrue(all((root / name).read_bytes() == b"owned" for name in kept))
+            self.assertFalse(any((root / name).exists() for name in removed))
+            self.assertTrue((root / "build/.test-runner.lock").exists())
+
+    def test_clean_refuses_active_test_ownership_before_deleting_anything(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); binary = root / "build/bin/duxcel"
+            binary.parent.mkdir(parents=True); binary.write_bytes(b"accepted")
+            for name in (".test-runner.lock", ".web-build.lock"):
+                with self.subTest(lock=name):
+                    lock = root / "build" / name
+                    with runner.FileLock(lock, "test"), mock.patch.object(runner, "ROOT", root):
+                        inode = lock.stat().st_ino
+                        with self.assertRaises(RuntimeError):
+                            runner.clean_outputs()
+                        self.assertEqual(lock.stat().st_ino, inode)
+                    self.assertEqual(binary.read_bytes(), b"accepted")
+
+    def test_distclean_also_removes_downloaded_caches_but_never_authored_sources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            for name in ["tests/test_example.inc", "build/data/input.parquet", "build/web/toolchain/emcc", "web/node_modules/package/index.js"]:
+                path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text("owned")
+            with mock.patch.object(runner, "ROOT", root), mock.patch.object(runner, "native_lock_path", return_value=root / "native.lock"):
+                runner.clean_outputs(full=True)
+            self.assertEqual((root / "tests/test_example.inc").read_text(), "owned")
+            self.assertFalse((root / "build/data").exists())
+            self.assertFalse((root / "build/web").exists())
+            self.assertFalse((root / "web/node_modules").exists())
 
 
 if __name__ == "__main__":
