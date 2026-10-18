@@ -48,10 +48,13 @@ bool objects_plan_source_version(const ObjectStore *store,uint64_t owner,
    and preserves allocation/query/title/Marks counters. */
 void objects_adopt_source_version(ObjectStore *store,ObjectSnapshot *owned);
 void objects_snapshot_free(ObjectSnapshot *owned);
-/* Owned logical graph: array plus name/Pivot/Analysis/Marks strings, excluding
-   this inline descriptor. Allocation-free; SIZE_MAX for invalid shape/overflow.
-   Requires readable owned strings; does not prove allocation independence or
-   parse/validate SQL and filter payloads. Empty arrays contribute zero bytes. */
+/* Conservative source-binding reservation, not exact allocator measurement:
+   a non-NULL array reserves DX_MAX_OBJECTS* sizeof(SheetObject), including when
+   count is zero, plus every live name/Pivot/Analysis/Marks string. The snapshot
+   has no capacity; ordinary legacy edit/history accounting remains separate.
+   Allocation-free; SIZE_MAX for invalid shape, overflow, or noncanonical owned
+   strings in inactive fixed slots (which cannot be safely cloned). Requires
+   readable strings; does not prove allocation independence or parse payloads. */
 size_t objects_snapshot_owned_bytes(const ObjectSnapshot *state);
 /* Pin a worker-resolved default relation without a new edit or query revision. */
 bool objects_resolve_source(ObjectStore *store,size_t index,const Analysis *resolved,char **error);

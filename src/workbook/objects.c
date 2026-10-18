@@ -36,7 +36,9 @@ static bool add_text_bytes(size_t *bytes,const char *text) {
 }
 size_t objects_snapshot_owned_bytes(const ObjectSnapshot *s) {
     if (!s || s->count>DX_MAX_OBJECTS || (s->count && !s->items)) return SIZE_MAX;
-    size_t n=s->count*sizeof(SheetObject);
+    /* Removal retains the backing allocation and the snapshot has no capacity.
+       Reserve the maximum valid array, even for a non-NULL empty snapshot. */
+    size_t n=s->items ? DX_MAX_OBJECTS*sizeof(SheetObject) : 0;
     for (size_t i=0;i<s->count;i++) {
         const SheetObject *o=&s->items[i]; const Analysis *a=&o->source;
         if (!o->name || !add_text_bytes(&n,o->name) || a->filter_count>=DX_ANALYSIS_FILTERS || a->sort_count>=DX_ANALYSIS_SORTS) return SIZE_MAX;
@@ -44,19 +46,34 @@ size_t objects_snapshot_owned_bytes(const ObjectSnapshot *s) {
         for (size_t j=0;j<sizeof(texts)/sizeof(*texts);j++) if (!add_text_bytes(&n,texts[j])) return SIZE_MAX;
         for (size_t j=0;j<a->filter_count;j++) if (!a->filters[j].column || !add_text_bytes(&n,a->filters[j].column) || !add_text_bytes(&n,a->filters[j].value)) return SIZE_MAX;
         for (size_t j=0;j<a->sort_count;j++) if (!a->sorts[j].column || !add_text_bytes(&n,a->sorts[j].column)) return SIZE_MAX;
+        for (size_t j=a->filter_count;j<DX_ANALYSIS_FILTERS-1;j++) if (a->filters[j].column || a->filters[j].value) return SIZE_MAX;
+        for (size_t j=a->sort_count;j<DX_ANALYSIS_SORTS-1;j++) if (a->sorts[j].column) return SIZE_MAX;
         const PivotDefinition *p=&o->pivot;
         for (int r=0;r<4;r++) {
             if (p->counts[r]>DX_PIVOT_FIELDS) return SIZE_MAX;
             for (size_t j=0;j<p->counts[r];j++) if (!p->fields[r][j].name || !add_text_bytes(&n,p->fields[r][j].name) || !add_text_bytes(&n,p->fields[r][j].value)) return SIZE_MAX;
+            for (size_t j=p->counts[r];j<DX_PIVOT_FIELDS;j++) if (p->fields[r][j].name || p->fields[r][j].value) return SIZE_MAX;
         }
         for (int r=0;r<DX_MARK_ROLES;r++) {
             if (o->marks.counts[r]>DX_MARK_FIELDS) return SIZE_MAX;
             for (size_t j=0;j<o->marks.counts[r];j++) if (!o->marks.fields[r][j].name || !add_text_bytes(&n,o->marks.fields[r][j].name)) return SIZE_MAX;
+            for (size_t j=o->marks.counts[r];j<DX_MARK_FIELDS;j++) if (o->marks.fields[r][j].name) return SIZE_MAX;
         }
     }
     return n;
 }
-static size_t bytes(const ObjectSnapshot *s) { return objects_snapshot_owned_bytes(s); }
+/* Legacy logical accounting remains the policy for ordinary edits/history.
+   The new source-binding reservation above deliberately does not replace it. */
+static size_t bytes(const ObjectSnapshot *s) {
+    size_t n=s->count*sizeof(SheetObject);
+    for (size_t i=0;i<s->count;i++) {
+        n+=strlen(s->items[i].name)+1;
+        const PivotDefinition *p=&s->items[i].pivot;
+        n+=analysis_text_bytes(&s->items[i].source)+marks_text_bytes(&s->items[i].marks);
+        for (int r=0;r<4;r++) for (size_t j=0;j<p->counts[r];j++) n+=strlen(p->fields[r][j].name)+1+(p->fields[r][j].value ? strlen(p->fields[r][j].value)+1 : 0);
+    }
+    return n;
+}
 bool objects_valid(const ObjectStore *s,char **error) {
     if (s->count>DX_MAX_OBJECTS || (s->count && !s->items)) return fail(error,"Too many sheet objects.");
     for (size_t i=0;i<s->count;i++) {
@@ -139,12 +156,14 @@ static bool plan_snapshot_valid(const ObjectSnapshot *state,uint64_t next_id,cha
     return objects_valid(&model,error);
 }
 static bool plan_history_valid(const ObjectSnapshot *states,size_t count,uint64_t next_id,size_t *owned,char **error) {
-    *owned=0;
+    *owned=0; size_t logical=0;
     for (size_t i=0;i<count;i++) {
         if (!plan_snapshot_valid(&states[i],next_id,error)) return false;
         size_t n=objects_snapshot_owned_bytes(&states[i]);
-        if (n>DX_OBJECT_HISTORY_BYTES-*owned) return fail(error,"Sheet object history exceeds 8 MiB.");
-        *owned+=n;
+        if (n>SIZE_MAX-*owned) return fail(error,"Sheet object reservation overflow.");
+        *owned+=n; n=bytes(&states[i]);
+        if (n>DX_OBJECT_HISTORY_BYTES-logical) return fail(error,"Sheet object history exceeds 8 MiB.");
+        logical+=n;
     }
     return true;
 }
@@ -159,7 +178,7 @@ bool objects_plan_source_version(const ObjectStore *s,uint64_t owner,uint64_t ex
     if (index==s->count || s->items[index].kind!=OBJECT_TABLE) return fail(error,"The source table is missing.");
     if (s->items[index].source.source_version!=expected) return fail(error,"The source table binding changed before formatting.");
     if (next==expected) { *changed=false; return true; }
-    if (s->undo_count==32 || objects_snapshot_owned_bytes(&current)>DX_OBJECT_HISTORY_BYTES-undo_bytes)
+    if (s->undo_count==32 || undo_bytes>DX_OBJECT_HISTORY_BYTES || objects_snapshot_owned_bytes(&current)>DX_OBJECT_HISTORY_BYTES-undo_bytes)
         return fail(error,"The source binding cannot fit sheet object history without pruning another action.");
     ObjectSnapshot planned=snapshot(s); planned.items[index].source.source_version=next;
     objects_snapshot_free(out); *out=planned; *changed=true; return true;
