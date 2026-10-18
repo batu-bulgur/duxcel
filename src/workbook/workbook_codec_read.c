@@ -141,7 +141,7 @@ bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool present,ch
 bool workbook_codec_read_add_objects(WorkbookCodecRead *read,bool present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->objects_ready)
         return fail(error,"Object descriptors require a complete unclaimed header and may be armed once.");
-    if (!present && read->version==14) return fail(error,"The v14 workbook requires object descriptors.");
+    if (!present && read->version>=13) return fail(error,read->version==13 ? "The v13 workbook requires object descriptors." : "The v14 workbook requires object descriptors.");
     if (present) read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_OBJECTS,objects_sql,0,11,11,OBJECT_ROWS+1u};
     else read->header->objects_ready=true;
     return true;

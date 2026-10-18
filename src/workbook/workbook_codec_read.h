@@ -69,7 +69,7 @@ bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool table_present,ch
    Completion of this family still does not validate/publish a Workbook. */
 bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool table_present,char **error);
 /* Optional writer12/13/14 descriptor registry, not complete SheetObjects.
-   Absent12/13 defaults empty; v14 requires this table. One named ordered result
+   Absent12 defaults empty; v13/v14 require this table. One named ordered result
    admits2048 descriptors plus a2049th sentinel, in atomic batches<=256, with at
    most32 descriptors per sheet. Source references resolve to same-sheet Table
    descriptors only when the family completes. Tables' source definitions,
