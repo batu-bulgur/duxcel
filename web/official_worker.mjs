@@ -141,7 +141,7 @@ const workbookTablePolicies=new Map([
     ['workbook-table-sorts',{rows:14337,columns:5}],
 ]);
 export function workbookTablesRequest(value) {
-    const policy=workbookTablePolicies.get(value?.purpose);
+    const purpose=value?.purpose,policy=workbookTablePolicies.get(purpose);
     check(policy,'INVALID_REQUEST','Explicit Table metadata family required');
     const request=pageRequest({...value,purpose:undefined,rowLimit:1});
     const rows=value.rowLimit??policy.rows;
@@ -149,7 +149,7 @@ export function workbookTablesRequest(value) {
         'INVALID_REQUEST','Table metadata requires offset zero, unknown total and its fixed family row bound');
     check(request.columns?.length===policy.columns&&request.sourceBindings?.length===1,
         'INVALID_REQUEST','Table metadata requires its exact typed columns and one captured archive binding');
-    return Object.freeze({...request,purpose:value.purpose,rowLimit:rows});
+    return Object.freeze({...request,purpose,rowLimit:rows});
 }
 export function exportRequest(value) {
     const request=pageRequest(value);
