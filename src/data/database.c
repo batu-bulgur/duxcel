@@ -1,4 +1,5 @@
 #include "database.h"
+#include "../transforms/chart_other.h"
 #include "../transforms/distinct.h"
 #include "../transforms/record_sql.h"
 #include "../platform/platform.h"
@@ -25,7 +26,7 @@ static void page_cache_clear(Database *db) {
     db->page_record_alias=db->page_record_scope=NULL; db->page_business_columns=0; db->page_record_stamp=0;
 }
 static void pivot_cache_clear(Database *db) {
-    db->pivot_totals_valid=false;
+    db->pivot_totals_valid=false; db->pivot_other_keys=0;
     free(db->pivot_key); free(db->pivot_sql); db->pivot_key=db->pivot_sql=NULL;
     for (size_t i=0;i<db->pivot_columns;i++) page_column_free(&db->pivot_headers[i]);
     free(db->pivot_headers); db->pivot_headers=NULL; db->pivot_columns=0;
@@ -528,23 +529,29 @@ bool database_count(Database *db,Analysis *a,uint64_t *total,char **error) {
     duckdb_result r={0}; db->count_queries++; ok=execute_analysis(db,a,sql,&r,error); free(sql);
     if (ok) { *total=duckdb_value_uint64(&r,0,0); duckdb_destroy_result(&r); } return ok;
 }
-typedef struct { char *sql; Column *headers; size_t count,bytes; bool empty_input; } PivotPlan;
+enum { PIVOT_KEYS_UNKNOWN=0,PIVOT_KEYS_SAFE,PIVOT_KEYS_UNSAFE };
+typedef struct { char *sql; Column *headers; size_t count,bytes; bool empty_input; unsigned char other_keys; } PivotPlan;
 typedef struct { char **values,*list; size_t count; } PivotDomain;
 static void pivot_plan_free(PivotPlan *p) {
     for (size_t i=0;i<p->count;i++) page_column_free(&p->headers[i]);
     free(p->headers); free(p->sql); memset(p,0,sizeof(*p));
 }
-static bool pivot_plan(Database *db,Analysis *source,const PivotDefinition *definition,PivotPlan *plan,char **error) {
+static bool pivot_plan(Database *db,Analysis *source,const PivotDefinition *definition,PivotPlan *plan,bool prove_keys,char **error) {
+    plan->other_keys=prove_keys ? PIVOT_KEYS_SAFE : PIVOT_KEYS_UNKNOWN;
     PivotDomain domains[DX_PIVOT_FIELDS]={0}; char *lists[DX_PIVOT_FIELDS]={0},*input=pivot_input_sql(source,definition); duckdb_result r={0};
     size_t product=1,keys=definition->counts[PIVOT_ROWS],measures=definition->counts[PIVOT_VALUES],domain_bytes=0; bool ok=false;
     for (size_t field=0;field<definition->counts[PIVOT_COLUMNS];field++) {
         if (cancelled(db,error)) goto done;
         char *key=pivot_field_key(definition,PIVOT_COLUMNS,field),*col=dx_quote(key,'"'); free(key);
-        char *sql=dx_printf("SELECT DISTINCT %s FROM (%s) pivot_domains ORDER BY %s NULLS FIRST LIMIT 129",col,input,col); free(col);
+        char *sql=prove_keys ? dx_printf("SELECT d.key,coalesce(NOT contains(CAST(d.key AS VARCHAR),chr(0)),true) AS safe FROM (SELECT DISTINCT %s AS key FROM (%s) pivot_domains ORDER BY key NULLS FIRST LIMIT 129) d ORDER BY d.key NULLS FIRST",col,input) :
+            dx_printf("SELECT DISTINCT %s FROM (%s) pivot_domains ORDER BY %s NULLS FIRST LIMIT 129",col,input,col); free(col);
         bool queried=database_execute(db,sql,&r,error); free(sql); if (!queried) goto done;
         size_t count=(size_t)duckdb_row_count(&r); if (!count) { count=1; plan->empty_input=true; }
         if (count>(128-keys)/(product*measures)) { fail(error,"Pivot exceeds 128 result columns. Filter the column fields or use fewer measures."); goto done; }
         PivotDomain *d=&domains[field]; d->count=count; d->values=dx_alloc(count*sizeof(char *)); product*=count;
+        if (prove_keys && (duckdb_column_count(&r)!=2 || duckdb_column_type(&r,1)!=DUCKDB_TYPE_BOOLEAN)) plan->other_keys=PIVOT_KEYS_UNSAFE;
+        for (size_t i=0;prove_keys && i<duckdb_row_count(&r);i++)
+            if (duckdb_column_count(&r)!=2 || duckdb_value_is_null(&r,1,i) || !duckdb_value_boolean(&r,1,i)) plan->other_keys=PIVOT_KEYS_UNSAFE;
         for (size_t i=0;i<duckdb_row_count(&r);i++) if (!duckdb_value_is_null(&r,0,i)) {
             char *text=duckdb_value_varchar(&r,0,i); if (!text) { fail(error,"Cannot display a pivot column value."); goto done; }
             size_t bytes=strlen(text)+1; domain_bytes+=bytes;
@@ -593,7 +600,7 @@ static bool pivot_plan(Database *db,Analysis *source,const PivotDefinition *defi
     for (size_t f=0;f<DX_PIVOT_FIELDS;f++) { PivotDomain *d=&domains[f]; for (size_t i=0;i<d->count;i++) free(d->values[i]); free(d->values); free(d->list); }
     if (!ok) pivot_plan_free(plan); return ok;
 }
-static bool pivot_materialize(Database *db,Analysis *source,const PivotDefinition *definition,bool force,char **error) {
+static bool pivot_materialize_proved(Database *db,Analysis *source,const PivotDefinition *definition,bool force,bool prove_keys,char **error) {
     if (!pivot_valid(definition,error)) return false;
     if (!definition->counts[PIVOT_VALUES]) { fail(error,"Add a field to Values to build the pivot."); return false; }
     bool ok=source_prepare(db,source,NULL,error); if (!ok || !resolve_analysis_types(db,source,error)) return false;
@@ -604,25 +611,43 @@ static bool pivot_materialize(Database *db,Analysis *source,const PivotDefinitio
         if (!database_execute(db,"SET pivot_limit=128",&r,error)) { free(base); free(key); return false; }
         duckdb_destroy_result(&r); db->pivot_configured=true;
     }
-    if (force || !db->pivot_key || strcmp(db->pivot_key,key)) {
+    if (force || !db->pivot_key || strcmp(db->pivot_key,key) || (prove_keys && db->pivot_other_keys==PIVOT_KEYS_UNKNOWN)) {
         pivot_cache_clear(db); PivotPlan plan={0};
-        if (!pivot_plan(db,source,definition,&plan,error)) { free(base); free(key); return false; }
+        if (!pivot_plan(db,source,definition,&plan,prove_keys,error)) { free(base); free(key); return false; }
         char *sql=dx_printf("CREATE OR REPLACE TEMP TABLE _duxcel_pivot_result AS %s",plan.sql);
         ok=!cancelled(db,error) && database_execute(db,sql,&r,error); free(sql);
-        if (ok) { duckdb_destroy_result(&r); db->pivot_key=key; key=NULL; db->pivot_sql=plan.sql; db->pivot_headers=plan.headers; db->pivot_columns=plan.count; memset(&plan,0,sizeof(plan)); }
+        if (ok) { duckdb_destroy_result(&r); db->pivot_key=key; key=NULL; db->pivot_sql=plan.sql; db->pivot_headers=plan.headers; db->pivot_columns=plan.count; db->pivot_other_keys=plan.other_keys; memset(&plan,0,sizeof(plan)); }
         pivot_plan_free(&plan);
         if (!ok) { free(base); free(key); return false; }
     }
     free(base); free(key); return !cancelled(db,error);
 }
-bool database_pivot(Database *db,Analysis *source,const PivotDefinition *definition,uint64_t offset,int64_t known_total,Page *p,char **error) {
+static bool pivot_materialize(Database *db,Analysis *source,const PivotDefinition *definition,bool force,char **error) {
+    return pivot_materialize_proved(db,source,definition,force,false,error);
+}
+static bool pivot_page(Database *db,Analysis *source,const PivotDefinition *definition,uint64_t offset,int64_t known_total,Page *p,bool prove_keys,char **error) {
     double start=dx_millis(); memset(p,0,sizeof(*p)); p->offset=offset;
-    if (!pivot_materialize(db,source,definition,known_total<0,error)) return false;
+    if (!pivot_materialize_proved(db,source,definition,known_total<0,prove_keys,error)) return false;
     duckdb_result r={0}; bool ok;
-    char *sql=dx_printf("SELECT * FROM _duxcel_pivot_result LIMIT %d OFFSET %" PRIu64,DX_PAGE_ROWS,offset);
+    char *sql=dx_strdup("SELECT *");
+    if (prove_keys) {
+        dx_append(&sql,",");
+        for (size_t k=0;k<definition->counts[PIVOT_ROWS];k++) {
+            char *key=pivot_field_key(definition,PIVOT_ROWS,k),*quoted=dx_quote(key,'"');
+            dx_append(&sql,"%scoalesce(NOT contains(CAST(%s AS VARCHAR),chr(0)),true)",k ? " AND " : "",quoted); free(key); free(quoted);
+        }
+        if (!definition->counts[PIVOT_ROWS]) dx_append(&sql,"true");
+        dx_append(&sql," AS __dx_other_keys_safe");
+    }
+    dx_append(&sql," FROM _duxcel_pivot_result LIMIT %d OFFSET %" PRIu64,DX_PAGE_ROWS,offset);
     Analysis literal={0}; ok=execute_analysis(db,&literal,sql,&r,error); free(sql); if (!ok) return false;
-    if (duckdb_column_count(&r)>128) { duckdb_destroy_result(&r); fail(error,"Pivot exceeds 128 result columns. Filter the column fields or use fewer measures."); return false; }
-    ok=result_page(&r,p,4*1024*1024,error); duckdb_destroy_result(&r); if (!ok) return false;
+    size_t visible=(size_t)duckdb_column_count(&r)-(prove_keys ? 1u : 0u);
+    if (visible>128) { duckdb_destroy_result(&r); fail(error,"Pivot exceeds 128 result columns. Filter the column fields or use fewer measures."); return false; }
+    bool safe=!prove_keys || (duckdb_column_type(&r,visible)==DUCKDB_TYPE_BOOLEAN && db->pivot_other_keys==PIVOT_KEYS_SAFE);
+    for (size_t row=0;prove_keys && row<duckdb_row_count(&r);row++)
+        if (duckdb_value_is_null(&r,visible,row) || !duckdb_value_boolean(&r,visible,row)) safe=false;
+    ok=result_page_visible(&r,p,4*1024*1024,visible,error); duckdb_destroy_result(&r); if (!ok) return false;
+    if (prove_keys && !safe) p->other_status=PAGE_OTHER_UNSAFE_KEY;
     size_t keys=definition->counts[PIVOT_ROWS];
     if (p->column_count!=keys+db->pivot_columns) { fail(error,"Pivot schema changed. Refresh the pivot."); return false; }
     p->sql=dx_strdup(db->pivot_sql); p->bytes+=strlen(p->sql)+1;
@@ -649,6 +674,9 @@ bool database_pivot(Database *db,Analysis *source,const PivotDefinition *definit
         p->total=duckdb_value_uint64(&r,0,0); duckdb_destroy_result(&r);
     }
     p->query_ms=dx_millis()-start; return !cancelled(db,error);
+}
+bool database_pivot(Database *db,Analysis *source,const PivotDefinition *definition,uint64_t offset,int64_t known_total,Page *p,char **error) {
+    return pivot_page(db,source,definition,offset,known_total,p,false,error);
 }
 bool database_pivot_totals(Database *db,Analysis *source,const PivotDefinition *definition,Page *page,char **error) {
     if (page->totals) return true;
@@ -704,6 +732,152 @@ bool database_pivot_totals(Database *db,Analysis *source,const PivotDefinition *
     duckdb_destroy_result(&result);
     if (totals) { page_free(&totals->rows); page_free(&totals->columns); free(totals); }
     return ok;
+}
+static bool other_scalar_type(duckdb_type type) {
+    switch (type) {
+    case DUCKDB_TYPE_BOOLEAN: case DUCKDB_TYPE_TINYINT: case DUCKDB_TYPE_SMALLINT: case DUCKDB_TYPE_INTEGER:
+    case DUCKDB_TYPE_BIGINT: case DUCKDB_TYPE_UTINYINT: case DUCKDB_TYPE_USMALLINT: case DUCKDB_TYPE_UINTEGER:
+    case DUCKDB_TYPE_UBIGINT: case DUCKDB_TYPE_HUGEINT: case DUCKDB_TYPE_UHUGEINT: case DUCKDB_TYPE_FLOAT:
+    case DUCKDB_TYPE_DOUBLE: case DUCKDB_TYPE_DECIMAL: case DUCKDB_TYPE_VARCHAR: case DUCKDB_TYPE_DATE:
+    case DUCKDB_TYPE_TIME: case DUCKDB_TYPE_TIMESTAMP: case DUCKDB_TYPE_TIMESTAMP_S: case DUCKDB_TYPE_TIMESTAMP_MS:
+    case DUCKDB_TYPE_TIMESTAMP_NS: case DUCKDB_TYPE_TIMESTAMP_TZ: case DUCKDB_TYPE_INTERVAL: case DUCKDB_TYPE_UUID:
+    case DUCKDB_TYPE_ENUM: return true;
+    default: return false;
+    }
+}
+typedef struct { bool observed; SourceFileIdentity identity; uint64_t stamp; } OtherSourceGuard;
+static bool other_source_begin(const Analysis *source,uint64_t expected,OtherSourceGuard *guard,bool *supported,char **error) {
+    bool file=source->kind==SOURCE_CSV || source->kind==SOURCE_PARQUET;
+    *supported=true;
+    if (!file) {
+        if (expected) { fail(error,"The captured source stamp does not match this chart source."); return false; }
+        return true;
+    }
+    char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
+    if (!source->path || strpbrk(source->path,"*?[]") ||
+        source_file_identity(source->path,&guard->identity,detail)!=SOURCE_DIGEST_OK || !(guard->stamp=dx_file_stamp(source->path))) {
+        if (expected) { fail(error,"The chart source is no longer the captured regular file."); return false; }
+        *supported=false; return true;
+    }
+    if (expected && expected!=guard->stamp) { fail(error,"The chart source changed since its displayed result. Refresh the view."); return false; }
+    guard->observed=true; return true;
+}
+static bool other_source_end(Database *db,const Analysis *source,const OtherSourceGuard *guard,char **error) {
+    if (cancelled(db,error)) return false;
+    if (!guard->observed) return true;
+    SourceFileIdentity after={0}; char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
+    if (source_file_identity(source->path,&after,detail)!=SOURCE_DIGEST_OK ||
+        !source_file_identity_same(&guard->identity,&after) || dx_file_stamp(source->path)!=guard->stamp) {
+        fail(error,"The chart source changed while its source-derived readouts were being calculated. Refresh the view."); return false;
+    }
+    return true;
+}
+static bool other_column_types(Database *db,Analysis *source,const PivotDefinition *definition,duckdb_type types[DX_PIVOT_FIELDS],bool *supported,char **error) {
+    *supported=true;
+    if (!definition->counts[PIVOT_COLUMNS]) return true;
+    duckdb_prepared_statement schema=source_schema(db,source,true,error); if (!schema) return false;
+    for (size_t f=0;f<definition->counts[PIVOT_COLUMNS];f++) {
+        bool found=false;
+        for (idx_t c=0;c<duckdb_prepared_statement_column_count(schema);c++) {
+            const char *name=duckdb_prepared_statement_column_name(schema,c);
+            bool match=name && identifier_equal(name,definition->fields[PIVOT_COLUMNS][f].name); duckdb_free((void *)name);
+            if (match) { types[f]=duckdb_prepared_statement_column_type(schema,c); found=true; break; }
+        }
+        if (!found || !other_scalar_type(types[f])) { *supported=false; return true; }
+    }
+    return true;
+}
+static bool other_retained(const Page *page,const PageOther *other,size_t definitions,size_t extra,size_t *used) {
+    size_t bytes=page->bytes;
+    if (bytes>DX_PAGE_OTHER_BYTES || definitions>DX_PAGE_OTHER_BYTES-bytes) return false; bytes+=definitions;
+    if (other) {
+        if (sizeof(*other)>DX_PAGE_OTHER_BYTES-bytes) return false; bytes+=sizeof(*other);
+        for (size_t v=0;v<other->variant_count;v++) {
+            if (other->variants[v].bytes>DX_PAGE_OTHER_BYTES-bytes) return false; bytes+=other->variants[v].bytes;
+        }
+    }
+    if (extra>DX_PAGE_OTHER_BYTES-bytes) return false;
+    *used=bytes+extra; return true;
+}
+static bool other_populate(Database *db,Analysis *source,const PivotDefinition *definition,Page *page,char **error) {
+    if (page->other_status==PAGE_OTHER_UNSAFE_KEY) return true;
+    size_t keys=definition->counts[PIVOT_ROWS],measures=definition->counts[PIVOT_VALUES];
+    if (!keys) { page->other_status=PAGE_OTHER_UNSUPPORTED_KEY; return true; }
+    for (size_t k=0;k<keys;k++) if (!other_scalar_type(page->columns[k].type) ||
+        (page->columns[k].type==DUCKDB_TYPE_VARCHAR && strcmp(page->columns[k].type_name,"VARCHAR"))) {
+        page->other_status=PAGE_OTHER_UNSUPPORTED_KEY; return true;
+    }
+    duckdb_type types[DX_PIVOT_FIELDS]={0}; bool supported=false;
+    if (!other_column_types(db,source,definition,types,&supported,error)) return false;
+    if (!supported) { page->other_status=PAGE_OTHER_UNSUPPORTED_KEY; return true; }
+    PivotDefinition typed=*definition; if (!resolve_pivot_types(db,source,&typed,error)) return false;
+    size_t definitions=analysis_text_bytes(source),used=0;
+    if (definitions>DX_PAGE_OTHER_BYTES) { page->other_status=PAGE_OTHER_LIMIT; return true; }
+    for (size_t role=0;role<4;role++) for (size_t i=0;i<definition->counts[role];i++) {
+        const PivotField *f=&definition->fields[role][i]; size_t n=strlen(f->name)+1+(f->value ? strlen(f->value)+1 : 0);
+        if (n>DX_PAGE_OTHER_BYTES-definitions) { page->other_status=PAGE_OTHER_LIMIT; return true; } definitions+=n;
+    }
+    if (!other_retained(page,NULL,definitions,sizeof(PageOther),&used)) { page->other_status=PAGE_OTHER_LIMIT; return true; }
+    PageOther *other=dx_alloc(sizeof(*other)); other->keys=keys; other->measures=measures;
+    other->value_columns=page->column_count-keys; other->top_count=3;
+    for (size_t m=0;m<DX_PIVOT_FIELDS;m++) other->measure_variant[m]=SIZE_MAX;
+    bool ok=false; char *local_error=NULL;
+    for (size_t m=0;m<measures;m++) {
+        bool numeric=true;
+        for (size_t c=keys+m;c<page->column_count;c+=measures) numeric&=page->columns[c].numeric;
+        if (!numeric) continue;
+        ChartOtherRank rank={0};
+        if (!chart_other_rank(page,&typed,m,&rank,&local_error)) { page->other_status=PAGE_OTHER_UNAVAILABLE; goto done; }
+        size_t variant=0; while (variant<other->variant_count && other->rank_measure[variant]!=rank.rank_measure) variant++;
+        if (variant<other->variant_count) { other->measure_variant[m]=variant; continue; }
+        ChartOtherPlan plan={0};
+        if (!other_retained(page,other,definitions,0,&used) || used>=DX_PAGE_OTHER_BYTES ||
+            !chart_other_plan_retained(source,&typed,page,m,types,typed.counts[PIVOT_COLUMNS],DX_CHART_OTHER_SQL_BYTES,used,DX_PAGE_OTHER_BYTES,&plan,&local_error)) {
+            page->other_status=PAGE_OTHER_LIMIT; chart_other_plan_free(&plan); goto done;
+        }
+        if (!other_retained(page,other,definitions,plan.sql_bytes,&used) || !plan.sql || used>=DX_PAGE_OTHER_BYTES) {
+            page->other_status=PAGE_OTHER_LIMIT; chart_other_plan_free(&plan); goto done;
+        }
+        duckdb_result result={0};
+        if (cancelled(db,error) || !database_execute(db,plan.sql,&result,error)) { chart_other_plan_free(&plan); goto fatal; }
+        Page *values=&other->variants[variant];
+        bool converted=duckdb_row_count(&result)==1 && duckdb_column_count(&result)==other->value_columns;
+        if (converted) converted=result_page(&result,values,DX_PAGE_OTHER_BYTES-used,&local_error);
+        duckdb_destroy_result(&result); chart_other_plan_free(&plan);
+        if (!converted) { page->other_status=PAGE_OTHER_LIMIT; goto done; }
+        values->offset=0; values->total=1;
+        other->rank_measure[variant]=rank.rank_measure;
+        memcpy(other->top_rows[variant],rank.top_rows,sizeof(rank.top_rows));
+        other->variant_count++; other->measure_variant[m]=variant;
+    }
+    if (!other->variant_count) { page->other_status=PAGE_OTHER_UNAVAILABLE; goto done; }
+    if (!page_other_adopt(page,&other,&local_error)) { page->other_status=PAGE_OTHER_LIMIT; goto done; }
+    ok=true;
+ done:
+    page_other_free(other); free(local_error); return true;
+ fatal:
+    page_other_free(other); free(local_error); return ok;
+}
+bool database_pivot_with_other(Database *db,Analysis *source,const PivotDefinition *definition,
+    uint64_t offset,int64_t known_total,bool include_totals,uint64_t expected_source_stamp,Page *out,char **error) {
+    if (!db || !source || !definition || !out) { fail(error,"Chart Other requires an owned output and source definition."); return false; }
+    for (size_t r=0;r<4;r++) if (definition->counts[r]>DX_PIVOT_FIELDS) { fail(error,"Invalid chart shelves."); return false; }
+    bool wanted=false;
+    for (size_t m=0;m<definition->counts[PIVOT_VALUES];m++)
+        wanted|=definition->fields[PIVOT_VALUES][m].aggregate==AGG_AVG || definition->fields[PIVOT_VALUES][m].aggregate==AGG_DISTINCT;
+    double started=dx_millis(); OtherSourceGuard guard={0}; bool supported=false;
+    if (!other_source_begin(source,expected_source_stamp,&guard,&supported,error) || cancelled(db,error)) return false;
+    Page next={0}; bool ok=false;
+    if (!pivot_page(db,source,definition,offset,known_total,&next,wanted && supported,error)) goto done;
+    if (include_totals && !database_pivot_totals(db,source,definition,&next,error)) goto done;
+    if (!wanted || next.row_count<=3) next.other_status=PAGE_OTHER_NOT_NEEDED;
+    else if (!supported) next.other_status=PAGE_OTHER_UNSUPPORTED_KEY;
+    else if (!other_populate(db,source,definition,&next,error)) goto done;
+    if (!other_source_end(db,source,&guard,error)) goto done;
+    next.query_ms=dx_millis()-started;
+    page_free(out); *out=next; next=(Page){0}; ok=true;
+ done:
+    page_free(&next); return ok;
 }
 bool database_pivot_distinct(Database *db,Analysis *a,const PivotDefinition *context,const char *column,const char *search,int level,
     const char *start,const char *end,uint64_t offset,int64_t known_total,DistinctPage *p,char **error) {

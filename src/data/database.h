@@ -20,6 +20,7 @@ typedef struct {
     size_t pivot_columns;
     bool pivot_configured;
     bool pivot_totals_valid;
+    unsigned char pivot_other_keys; /* UNKNOWN/SAFE/UNSAFE, tied to pivot_key. */
     Relation *relations;
     size_t relation_count;
     bool (*cancelled)(void *context);
@@ -65,6 +66,18 @@ bool database_execute(Database *db, const char *sql, duckdb_result *result, char
 bool database_export_parquet(Database *db,Analysis *source,const char *path,uint64_t *rows,char **error);
 bool database_export_pivot_parquet(Database *db,Analysis *source,const PivotDefinition *pivot,const char *path,uint64_t *rows,char **error);
 bool database_pivot(Database *db,Analysis *source,const PivotDefinition *definition,uint64_t offset,int64_t known_total,Page *page,char **error);
+/* Opt-in source-derived chart readouts. Stages a complete matrix, optional
+   totals and <=8 loaded-group ranking variants before replacing an owned out.
+   Local unsafe/unsupported/limit cases retain the valid matrix with an inline
+   status; query/cancellation/observed-file failures preserve out. A zero stamp
+   captures the current eligible CSV/Parquet observation; nonzero must match.
+   Same-query BOOLEAN witnesses gate NUL-free keys. This observes the declared
+   regular source file, not arbitrary SQL dependencies or durable identity.
+   Combined Page+Other+retained plan staging is <=4 MiB; engine/allocator peaks
+   and temporary existing SQL helper construction are separate costs. */
+bool database_pivot_with_other(Database *db,Analysis *source,const PivotDefinition *definition,
+    uint64_t offset,int64_t known_total,bool include_totals,uint64_t expected_source_stamp,
+    Page *out,char **error);
 bool database_pivot_totals(Database *db,Analysis *source,const PivotDefinition *definition,Page *page,char **error);
 bool database_pivot_distinct(Database *db,Analysis *source,const PivotDefinition *context,const char *column,const char *search,int date_level,const char *date_start,const char *date_end,uint64_t offset,int64_t known_total,DistinctPage *page,char **error);
 bool database_pivot_copy(Database *db,Analysis *source,const PivotDefinition *definition,uint64_t first,uint64_t rows,size_t column,size_t columns,bool header,char **tsv,char **error);
