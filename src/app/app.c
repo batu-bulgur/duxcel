@@ -8554,14 +8554,15 @@ static bool smoke_record_file(const char *path,bool changed,char **error) {
     if (!ok) { free(*error); *error=dx_strdup(duckdb_result_error(&result)); }
     free(sql); duckdb_destroy_result(&result); database_close(&fixture); return ok;
 }
+static bool smoke_table_bold_records[601];
 static bool smoke_table_record_formats(App *a,size_t index,bool bold,bool color) {
     if (!object_ready(a,index)) return false;
     const SheetObject *object=active_sheet(a)->objects.items+index; const Page *page=&a->objects[index].page;
     if (bold && source_format_owner_token(a,object->id)==SIZE_MAX) return false;
     for (size_t i=0;i<page->row_count;i++) {
-        uint64_t local=page->offset+i,id=0; if (!page_record_id(page,local,&id)) return false;
+        uint64_t local=page->offset+i,id=0; if (!page_record_id(page,local,&id) || id>600) return false;
         CellFormat value=imported_cell_format(a,object->row+2+local,object->col+4);
-        if (!!(value.flags&FORMAT_BOLD)!=(bold && id>=241 && id<=350) || value.color!=(color && id==1 ? 3 : 0) ||
+        if (!!(value.flags&FORMAT_BOLD)!=(bold && smoke_table_bold_records[id]) || value.color!=(color && id==1 ? 3 : 0) ||
             imported_cell_format(a,object->row+2+local,object->col+3).flags) return false;
     }
     return true;
@@ -11573,6 +11574,8 @@ static void layout_smoke_step(App *a,int *step) {
 
     case 764:
         if (!smoke_record_file("tests/generated/app-table-record-format.parquet",false,&error)) goto failed;
+        memset(smoke_table_bold_records,0,sizeof(smoke_table_bold_records));
+        for (size_t id=241;id<=350;id++) smoke_table_bold_records[id]=true;
         a->document_action=DOCUMENT_NEW; finish_document_action(a);
         a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
         a->sidebar=a->fields_visible=a->pipeline=false; a->matrix_cells_active=false;
@@ -11714,6 +11717,14 @@ static void layout_smoke_step(App *a,int *step) {
     case 784:
         if (!object_ready(a,0)) return;
         if (!smoke_table_record_formats(a,0,false,false) || s->source_versions.high_water!=1) goto failed;
+        /* Refresh retains Tie ASC. Capture the selected physical identities,
+           rather than mistaking the sorted row positions for original IDs. */
+        memset(smoke_table_bold_records,0,sizeof(smoke_table_bold_records));
+        for (uint64_t row=240;row<=349;row++) {
+            uint64_t id=0;
+            if (!page_record_id(&a->objects[0].page,row,&id) || id>600 || smoke_table_bold_records[id]) goto failed;
+            smoke_table_bold_records[id]=true;
+        }
         { SheetObject *table=s->objects.items; grid_select_cell(&a->grid,table->row+2+240,table->col+4,false); a->grid.end_row=table->row+2+349;
           CellFormat value=active_format(a); value.flags|=FORMAT_BOLD; if (!apply_format(a,FORMAT_BOLD,value)) goto failed; }
         break;
