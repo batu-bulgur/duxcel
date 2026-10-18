@@ -232,7 +232,182 @@ static void test_text_boundaries(void) {
     CHECK(analysis && analysis->filter_value && strlen(analysis->filter_value)==DX_WORKBOOK_CODEC_READ_TEXT && analysis->filter_value[DX_WORKBOOK_CODEC_READ_TEXT-1]=='v' && analysis->path && !*analysis->path);
     workbook_codec_read_free(read); workbook_codec_header_free(header); free(name); free(reference); free(value);
 }
+/* Optional family gates are separate from the unchanged base Header checks. */
+static WorkbookCodecRead *sort_header(unsigned version,size_t count,const char *primary,size_t limit) {
+    WorkbookCodecRead *read=begin(version,WORKBOOK_CODEC_SHEETS_25,limit,NULL); meta(read,version,0,0);
+    Fixture *f=dx_alloc(sizeof(*f)); fixture_columns(f,"sheets");
+    for (size_t row=0;row<count;row++) { sheet(f,row,SOURCE_NONE); f->cells[row*25+12]=primary ? t(primary) : (WorkbookCodecAtom){0}; }
+    WorkbookCodecBatch batch={f->columns,25,f->cells,count,0,true}; char *error=NULL;
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SHEETS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+    free(f); return read;
+}
+typedef struct {
+    WorkbookCodecColumn columns[4];
+    WorkbookCodecAtom cells[449*4];
+    char names[449][40];
+} SortFixture;
+static SortFixture *sort_fixture(size_t count) {
+    SortFixture *f=dx_alloc(sizeof(*f));
+    f->columns[0]=(WorkbookCodecColumn){"sheet_id",WORKBOOK_CODEC_I32};
+    f->columns[1]=(WorkbookCodecColumn){"position",WORKBOOK_CODEC_I32};
+    f->columns[2]=(WorkbookCodecColumn){"name",WORKBOOK_CODEC_TEXT};
+    f->columns[3]=(WorkbookCodecColumn){"descending",WORKBOOK_CODEC_BOOLEAN};
+    for (size_t row=0;row<count;row++) {
+        snprintf(f->names[row],sizeof(f->names[row]),"Field 'İ' %zu",row);
+        f->cells[row*4]=i((int32_t)(row/7)); f->cells[row*4+1]=i((int32_t)(row%7));
+        f->cells[row*4+2]=t(f->names[row]); f->cells[row*4+3]=b(row%2!=0);
+    }
+    return f;
+}
+static WorkbookCodecBatch sort_batch(SortFixture *f,size_t first,size_t count,bool end) {
+    return (WorkbookCodecBatch){f->columns,4,f->cells+first*4,count,first,end};
+}
+static void reject_arm(WorkbookCodecRead *read,bool present) {
+    const WorkbookCodecRequest *request=workbook_codec_read_request(read); WorkbookCodecRequest before=request ? *request : (WorkbookCodecRequest){0};
+    size_t bytes=workbook_codec_read_owned_bytes(read); char *error=NULL;
+    CHECK(!workbook_codec_read_add_sorts(read,present,&error) && error && *error && workbook_codec_read_owned_bytes(read)==bytes);
+    CHECK(request ? same_request(before,workbook_codec_read_request(read)) : !workbook_codec_read_request(read)); error_clear(&error);
+}
+static void test_sorts_continuation(void) {
+    CHECK(!workbook_codec_header_sorts_ready(NULL)); reject_arm(NULL,true);
+    WorkbookCodecRead *read=begin(14,WORKBOOK_CODEC_SHEETS_25,LIMIT,NULL); reject_arm(read,true); meta(read,14,0,0); reject_arm(read,true); workbook_codec_read_free(read);
+    char *error=NULL;
+    for (unsigned version=12;version<=14;version++) {
+        read=sort_header(version,2,"city",LIMIT); size_t bytes=workbook_codec_read_owned_bytes(read);
+        if (version==14) reject_arm(read,false);
+        else {
+            CHECK(workbook_codec_read_add_sorts(read,false,&error) && !error && !workbook_codec_read_request(read) && workbook_codec_read_owned_bytes(read)==bytes);
+            reject_arm(read,true); WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error));
+            CHECK(workbook_codec_header_sorts_ready(header) && !workbook_codec_header_analysis(header,0)->sort_count && !strcmp(workbook_codec_header_analysis(header,0)->sort_column,"city"));
+            reject_arm(read,true); workbook_codec_read_free(read); workbook_codec_header_free(header); read=sort_header(version,2,"city",LIMIT);
+        }
+        CHECK(workbook_codec_read_add_sorts(read,true,&error) && !error);
+        const WorkbookCodecRequest *request=workbook_codec_read_request(read);
+        CHECK(request && request->family==WORKBOOK_CODEC_SORTS && request->column_count==4 && request->source_column_count==4 && request->row_limit==449 && !request->first_row);
+        CHECK(!strcmp(request->sql,"SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449") && !strstr(request->sql,"OFFSET"));
+        reject_arm(read,true); WorkbookCodecHeader *header=NULL; CHECK(!workbook_codec_read_finish(read,&header,&error) && !header); error_clear(&error);
+        SortFixture *f=sort_fixture(0); WorkbookCodecBatch batch=sort_batch(f,0,0,true);
+        CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+        CHECK(!workbook_codec_read_request(read)); reject_arm(read,true);
+        CHECK(workbook_codec_read_finish(read,&header,&error) && workbook_codec_header_sorts_ready(header));
+        CHECK(workbook_codec_header_analysis(header,1)->descending && !workbook_codec_header_analysis(header,1)->sort_count);
+        workbook_codec_read_free(read); workbook_codec_header_free(header); free(f);
+    }
+    char *long_name=dx_alloc(4098); memset(long_name,'s',4097); long_name[4097]=0;
+    const char *invalid_primary[]={"",long_name};
+    for (size_t n=0;n<2;n++) {
+        read=sort_header(14,1,invalid_primary[n],LIMIT); reject_arm(read,true);
+        /* Base Header behavior remains unchanged: only arming sort validation
+           rejects these definitions; claiming an unextended Header still works. */
+        WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error));
+        CHECK(!workbook_codec_header_sorts_ready(header) && !strcmp(workbook_codec_header_analysis(header,0)->sort_column,invalid_primary[n]));
+        workbook_codec_read_free(read); workbook_codec_header_free(header);
+    }
+    free(long_name);
+    read=sort_header(13,1,NULL,LIMIT); CHECK(workbook_codec_read_add_sorts(read,false,&error));
+    WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error) && workbook_codec_header_sorts_ready(header));
+    CHECK(!workbook_codec_header_analysis(header,0)->sort_column); workbook_codec_read_free(read); workbook_codec_header_free(header);
+}
+static void test_sorts_invalid_and_atomic(void) {
+    WorkbookCodecRead *read=sort_header(14,2,"city",LIMIT); char *error=NULL; CHECK(workbook_codec_read_add_sorts(read,true,&error));
+    SortFixture *f=sort_fixture(2); WorkbookCodecBatch batch=sort_batch(f,0,1,true);
+    size_t owned=workbook_codec_read_owned_bytes(read); error=dx_strdup("keep"); char *identity=error;
+    for (size_t part=0;part<3;part++) {
+        WorkbookCodecKey stale=key;
+        if (!part) stale.document_epoch--; else if (part==1) stale.operation_ticket--; else stale.snapshot_generation--;
+        CHECK(workbook_codec_read_feed(read,stale,(WorkbookCodecFamily)99,(const WorkbookCodecBatch *)(uintptr_t)1,SIZE_MAX,&error)==WORKBOOK_CODEC_READ_STALE && error==identity && workbook_codec_read_owned_bytes(read)==owned);
+    }
+    free(error); error=NULL;
+    for (size_t col=0;col<4;col++) { WorkbookCodecAtom saved=f->cells[col]; f->cells[col]=(WorkbookCodecAtom){0}; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->cells[col]=saved; }
+    f->cells[0]=i(-1); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->cells[0]=i(2); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->cells[0]=i(0);
+    f->cells[1]=i(-1); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->cells[1]=i(1); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->cells[1]=i(7); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->cells[1]=i(0);
+    WorkbookCodecAtom name=f->cells[2];
+    const char *invalid_names[]={"","CiTy","\xed\xa0\x80","\xc0\x80","\xf4\x90\x80\x80","\x80","\xe2\x82"};
+    for (size_t n=0;n<sizeof(invalid_names)/sizeof(*invalid_names);n++) { f->cells[2]=t(invalid_names[n]); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); }
+    const char nul[]={'a',0,'b'}; f->cells[2]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={nul,sizeof(nul)}}; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f));
+    f->cells[2]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={NULL,1}}; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f));
+    f->cells[2]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={"x",4097}}; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->cells[2]=name;
+    f->columns[3].kind=WORKBOOK_CODEC_TEXT; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->columns[3].kind=WORKBOOK_CODEC_BOOLEAN;
+    f->columns[0].name="Sheet_id"; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->columns[0].name="sheet_id";
+    batch.column_count=3; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); batch.column_count=5; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); batch.column_count=4;
+    batch.cells=NULL; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); batch.cells=f->cells;
+    batch.columns=NULL; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); batch.columns=f->columns;
+    batch.row_count=257; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); batch.row_count=0; batch.end=false; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); batch.row_count=1; batch.end=true;
+    batch.first_row=1; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); batch.first_row=0; reject(read,WORKBOOK_CODEC_SHEETS,&batch,sizeof(*f)); reject(read,WORKBOOK_CODEC_SORTS,&batch,SIZE_MAX);
+    /* A valid first row owns a new name before the second row fails. Retrying
+       the unchanged complete batch proves no prefix escaped into the Header. */
+    batch.row_count=2; f->cells[6]=t("CITY"); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f));
+    f->cells[6]=f->cells[2]; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->cells[6]=t(f->names[1]);
+    f->cells[4]=i(0); f->cells[5]=i(0); f->cells[0]=i(1); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f));
+    f->cells[0]=i(0); f->cells[4]=i(1); f->cells[5]=i(0);
+    strcpy(f->names[1],"NULL"); f->cells[6]=t(f->names[1]);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+    WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error) && workbook_codec_header_sorts_ready(header));
+    const Analysis *a=workbook_codec_header_analysis(header,0),*b=workbook_codec_header_analysis(header,1);
+    CHECK(a->sort_count==1 && b->sort_count==1 && !strcmp(a->sorts[0].column,f->names[0]) && !strcmp(b->sorts[0].column,f->names[1]));
+    CHECK(a->sorts[0].column!=f->names[0] && b->sorts[0].column!=f->names[1]);
+    memset(f->names,'x',sizeof(f->names)); free(f); workbook_codec_read_free(read);
+    CHECK(!strcmp(a->sorts[0].column,"Field 'İ' 0") && !strcmp(b->sorts[0].column,"NULL") && !a->sorts[0].descending && b->sorts[0].descending); workbook_codec_header_free(header);
+    read=sort_header(12,1,NULL,LIMIT); CHECK(workbook_codec_read_add_sorts(read,true,&error)); f=sort_fixture(1); batch=sort_batch(f,0,1,true);
+    reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); batch.row_count=0;
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED); workbook_codec_read_free(read); free(f);
+}
+static void test_sorts_many_and_order(void) {
+    WorkbookCodecRead *read=sort_header(14,64,"city",LIMIT); char *error=NULL; CHECK(workbook_codec_read_add_sorts(read,true,&error));
+    SortFixture *f=sort_fixture(449); WorkbookCodecBatch batch=sort_batch(f,0,256,false);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+    CHECK(workbook_codec_read_request(read)->first_row==256); batch=sort_batch(f,256,193,true); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f));
+    batch.row_count=192; WorkbookCodecAtom old=f->cells[256*4+2]; f->cells[256*4+2]=f->cells[252*4+2]; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->cells[256*4+2]=old;
+    WorkbookCodecAtom sheet_id=f->cells[256*4]; f->cells[256*4]=i(0); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f)); f->cells[256*4]=sheet_id;
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+    WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error) && workbook_codec_header_sorts_ready(header));
+    for (size_t sheet_id=0;sheet_id<64;sheet_id++) {
+        const Analysis *a=workbook_codec_header_analysis(header,sheet_id); CHECK(a->sort_count==7 && analysis_sorts_valid(a,NULL));
+        for (size_t n=0;n<7;n++) CHECK(!strcmp(a->sorts[n].column,f->names[sheet_id*7+n]) && a->sorts[n].descending==((sheet_id*7+n)%2!=0));
+    }
+    free(f); workbook_codec_read_free(read); CHECK(!strcmp(workbook_codec_header_analysis(header,63)->sorts[6].column,"Field 'İ' 447")); workbook_codec_header_free(header); header=NULL;
+    read=sort_header(13,2,"city",LIMIT); CHECK(workbook_codec_read_add_sorts(read,true,&error)); f=sort_fixture(2);
+    f->cells[0]=i(1); batch=sort_batch(f,0,1,false);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+    f->cells[4]=i(0); f->cells[5]=i(0); batch=sort_batch(f,1,1,true); reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f));
+    f->cells[4]=i(1); f->cells[5]=i(1);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+    CHECK(workbook_codec_read_finish(read,&header,&error)); CHECK(!workbook_codec_header_analysis(header,0)->sort_count && workbook_codec_header_analysis(header,1)->sort_count==2);
+    workbook_codec_header_free(header); workbook_codec_read_free(read); free(f);
+    /* Partially accepted family cleanup owns all names even without finish. */
+    read=sort_header(14,64,"city",LIMIT); CHECK(workbook_codec_read_add_sorts(read,true,&error)); f=sort_fixture(256); batch=sort_batch(f,0,256,false);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(f); workbook_codec_read_free(read);
+}
+static bool sorts_fit(size_t limit,size_t retained) {
+    WorkbookCodecRead *read=sort_header(14,1,"city",limit); char *error=NULL; CHECK(workbook_codec_read_add_sorts(read,true,&error));
+    SortFixture *f=sort_fixture(2); char *first=dx_alloc(4097),*second=dx_alloc(4097);
+    memset(first,'a',4096); first[4096]=0; memset(second,'b',4096); second[4096]=0; f->cells[2]=t(first); f->cells[6]=t(second);
+    WorkbookCodecBatch batch=sort_batch(f,0,2,true);
+    bool ok=workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED;
+    free(error); free(first); free(second); free(f); workbook_codec_read_free(read); return ok;
+}
+static void test_sorts_budget_and_limits(void) {
+    WorkbookCodecRead *read=sort_header(14,1,"city",LIMIT); size_t base=workbook_codec_read_owned_bytes(read); workbook_codec_read_free(read);
+    const size_t retained=sizeof(SortFixture)+2*4097u; size_t low=base+retained+4096,high=base+retained+16384;
+    CHECK(!sorts_fit(low,retained) && sorts_fit(high,retained));
+    while (low+1<high) { size_t middle=low+(high-low)/2; if (sorts_fit(middle,retained)) high=middle; else low=middle; }
+    CHECK(sorts_fit(high,retained) && !sorts_fit(high-1,retained));
+    read=sort_header(14,1,"city",high); char *error=NULL; CHECK(workbook_codec_read_add_sorts(read,true,&error));
+    SortFixture *f=sort_fixture(2); char *first=dx_alloc(4097),*second=dx_alloc(4097),*pressure=dx_alloc(1);
+    memset(first,'a',4096); first[4096]=0; memset(second,'b',4096); second[4096]=0; f->cells[2]=t(first); f->cells[6]=t(second);
+    WorkbookCodecBatch batch=sort_batch(f,0,2,true); reject(read,WORKBOOK_CODEC_SORTS,&batch,retained+1); free(pressure);
+    WorkbookCodecRead *prior=sort_header(12,1,NULL,LIMIT); WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(prior,&header,&error)); workbook_codec_read_free(prior);
+    WorkbookCodecHeader *identity=header; size_t old_bytes=workbook_codec_header_owned_bytes(header);
+    CHECK(!workbook_codec_read_finish(read,&header,&error) && header==identity && workbook_codec_header_owned_bytes(header)==old_bytes && !workbook_codec_header_sorts_ready(header)); error_clear(&error);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+    CHECK(workbook_codec_read_finish(read,&header,&error) && workbook_codec_header_sorts_ready(header));
+    const Analysis *a=workbook_codec_header_analysis(header,0); CHECK(a->sort_count==2 && strlen(a->sorts[0].column)==4096 && strlen(a->sorts[1].column)==4096);
+    memset(first,'x',4096); memset(second,'x',4096); free(first); free(second); free(f); workbook_codec_read_free(read);
+    CHECK(a->sorts[0].column[4095]=='a' && a->sorts[1].column[4095]=='b'); workbook_codec_header_free(header);
+}
 int main(void) {
     test_happy(); test_meta_and_order(); test_sheets_invalid(); test_many_and_atomic(); test_budget(); test_text_boundaries();
-    printf("PASS: workbook header reader %u checks (bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures)\n",checks); return 0;
+    unsigned base_checks=checks;
+    test_sorts_continuation(); test_sorts_invalid_and_atomic(); test_sorts_many_and_order(); test_sorts_budget_and_limits();
+    printf("PASS: workbook header reader %u checks (%u unchanged base Header; %u optional sorts; bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures; no Worker sorts or workbook Open support)\n",checks,base_checks,checks-base_checks); return 0;
 }
