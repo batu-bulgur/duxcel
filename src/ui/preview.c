@@ -74,7 +74,9 @@ static bool preview_draw(UIContext *u,Grid *grid,const Page *page,Rectangle canv
         if (!grid_enabled || grid->dragging || grid->resizing>=0 || grid->context_requested || grid->filter_requested || grid->fit_requested) continue;
         GridInput input={.mouse={-1000000,-1000000},.key=event.key,.separate_keyboard=true,
             .key_shift=(event.modifiers&DX_MOD_SHIFT)!=0,.key_alt=(event.modifiers&DX_MOD_ALT)!=0};
-#ifdef __APPLE__
+#ifdef DUXCEL_BROWSER_HOST
+        input.key_shortcut=(event.modifiers&(DX_MOD_CONTROL|DX_MOD_SUPER))!=0;
+#elif defined(__APPLE__)
         input.key_shortcut=(event.modifiers&DX_MOD_SUPER)!=0;
 #else
         input.key_shortcut=(event.modifiers&DX_MOD_CONTROL)!=0;
