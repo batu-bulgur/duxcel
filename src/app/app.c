@@ -7569,7 +7569,9 @@ static void draw_app(App *a) {
     a->pipeline_extent=ui_motion_update_at(&a->pipeline_motion,pane_target,u->paint_time,.16f,a->reduced_motion || a->split_pipeline);
     a->pipeline_alpha=ui_motion_update_at(&a->pipeline_alpha_motion,pane_target>0 ? 1 : 0,u->paint_time,.12f,a->reduced_motion || a->split_pipeline);
     if (a->pipeline_extent>previous_extent && selected_object(a)) a->pivot_reveal_object=true;
-    float name_y=(a->ribbon_mode==3 ? 0 : 57+ui_ribbon_height(a->ribbon_mode))*s;
+    /* The reference's outer chrome border occupies one presented point;
+       scaling it with the ribbon adds half a point at 150% interface scale. */
+    float name_y=a->ribbon_mode==3 ? 0 : (56+ui_ribbon_height(a->ribbon_mode))*s+1;
     if (GetScreenWidth()/s>=700 || a->ribbon_mode==3) a->left_drawer=false;
     bool left_open=a->ribbon_mode!=3 && (pivot_active || a->sidebar || a->fields_visible) && (GetScreenWidth()/s>=700 || a->left_drawer);
     if (left_open) { a->left_render_workbook=a->sidebar; a->left_render_fields=a->fields_visible; }
