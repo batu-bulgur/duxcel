@@ -1,0 +1,321 @@
+{
+  "schema": "duxcel.source-counter-key-source-witness",
+  "version": 1,
+  "scope": "Selected committed codec/test/adapter/harness hashes; missing paths predate new test-only files. Separate actual clang-MM native52 closure remains authoritative for native compiled inputs.",
+  "revisions": {
+    "a3cb8c5aa01e5d8fe1c18f21360c0a1650124aa1": {
+      "src/workbook/workbook_codec_read.c": {
+        "bytes": 98482,
+        "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+      },
+      "src/workbook/workbook_codec_read.h": {
+        "bytes": 21783,
+        "sha256": "0597fae362a55ca1c7558f10ee804caaf3b9cd8bb8a3c962f02b6f7e8c609054"
+      },
+      "tests/test_workbook_codec_read.c": {
+        "bytes": 269321,
+        "sha256": "8e296ed19db4c9bf4228c8e1baca0be8041019e25a0ddef804546370b9ebddfd"
+      },
+      "tests/test_workbook_codec_native.c": {
+        "bytes": 58352,
+        "sha256": "c2dee604f5a5fdc0ff6f3f68d1c58a8ae8d787926557bd36e377f9d6095fce98"
+      },
+      "tests/test_browser_codec_read.c": {
+        "bytes": 42918,
+        "sha256": "46fabc94261c1958ffc24d9136530c0c71c308648d2cc19692fbd1e9f7b70242"
+      },
+      "web/codec_test_host.mjs": {
+        "bytes": 12142,
+        "sha256": "11679ca533bb1aa9a48c82bf999fa66dd44cc325fcfb56bad9362b5c0cd6df3e"
+      },
+      "tools/test_web_app.py": {
+        "bytes": 78029,
+        "sha256": "fb6c7c524d6161ea29ae6a9efbad57418fbaf64deeb689a184d1e79c9bd6c79d"
+      },
+      "tools/test_web_app.mjs": {
+        "bytes": 585016,
+        "sha256": "70e6068e0db8ba3f2bee8a3669d95a91327fd849edbe8be1a70cdd75c0e17508"
+      },
+      "tools/test_web_codec_runner_test.py": {
+        "bytes": 16715,
+        "sha256": "9ada98fab4b86fa0d4b6b19829018650b6ead045e49ee0e062d7fd2e930882f1"
+      },
+      "tools/test.py": {
+        "bytes": 33984,
+        "sha256": "4d5d0ec4f36ae35e3f99747354cd11abe813b4c9f174ead1a16182742da16e84"
+      }
+    },
+    "682864e818b02d18d6301152609e39fa77bd28e0": {
+      "src/workbook/workbook_codec_read.c": {
+        "bytes": 98482,
+        "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+      },
+      "src/workbook/workbook_codec_read.h": {
+        "bytes": 21827,
+        "sha256": "33083103c3ae7dbdd89470ab2e1040510b2375c6137ac0ad5cb94dbcb64f2757"
+      },
+      "tests/test_workbook_codec_read.c": {
+        "bytes": 269321,
+        "sha256": "8e296ed19db4c9bf4228c8e1baca0be8041019e25a0ddef804546370b9ebddfd"
+      },
+      "tests/test_workbook_codec_native.c": {
+        "bytes": 58352,
+        "sha256": "c2dee604f5a5fdc0ff6f3f68d1c58a8ae8d787926557bd36e377f9d6095fce98"
+      },
+      "tests/test_browser_codec_read.c": {
+        "bytes": 43835,
+        "sha256": "90f6d33f3bb7b1579c78cd0658733cf53b953643a75eb629cc1536efb7299ac0"
+      },
+      "web/codec_test_host.mjs": {
+        "bytes": 12390,
+        "sha256": "3735a27e12c630c878aed4e69ac5ac12580db9f16168c111bf4bb5cfa4fbde66"
+      },
+      "tools/test_web_app.py": {
+        "bytes": 78922,
+        "sha256": "80a6aca1a372c9c27e2ffc16adfbf8071eb798197833f2700679e84cc51dd0c0"
+      },
+      "tools/test_web_app.mjs": {
+        "bytes": 588355,
+        "sha256": "28f0d5519a2bde5333b4cb72cdf0f5549ce6492ccb011e0fdf4e2f8a3c2f3881"
+      },
+      "tools/test_web_codec_runner_test.py": {
+        "bytes": 22249,
+        "sha256": "cf003b1e732d2fc484077dbabb67f59892150e798f487100ee6803189a297584"
+      },
+      "tools/test.py": {
+        "bytes": 34269,
+        "sha256": "f96b0d4cbc9dc2cd10744d2e01197605b52e8885211a0ec34b2cd3727bff6e8f"
+      }
+    },
+    "5d275e717c1703eaa2dae04ab4f74520f62ef19c": {
+      "src/workbook/workbook_codec_read.c": {
+        "bytes": 98482,
+        "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+      },
+      "src/workbook/workbook_codec_read.h": {
+        "bytes": 21827,
+        "sha256": "33083103c3ae7dbdd89470ab2e1040510b2375c6137ac0ad5cb94dbcb64f2757"
+      },
+      "tests/test_workbook_codec_read.c": {
+        "bytes": 269321,
+        "sha256": "8e296ed19db4c9bf4228c8e1baca0be8041019e25a0ddef804546370b9ebddfd"
+      },
+      "tests/test_workbook_codec_native.c": {
+        "bytes": 58759,
+        "sha256": "3e2741c800a8cc3484f82eb4eaea5789abb29198e2e9ce89f6bbaa53f54a956b"
+      },
+      "tests/test_workbook_codec_source_counters_native.inc": {
+        "bytes": 16473,
+        "sha256": "780e7923594ec270a86356ef017d7182a273c67f075095adfc48d3695e453e53"
+      },
+      "tests/test_browser_codec_read.c": {
+        "bytes": 43835,
+        "sha256": "90f6d33f3bb7b1579c78cd0658733cf53b953643a75eb629cc1536efb7299ac0"
+      },
+      "web/codec_test_host.mjs": {
+        "bytes": 12390,
+        "sha256": "3735a27e12c630c878aed4e69ac5ac12580db9f16168c111bf4bb5cfa4fbde66"
+      },
+      "tools/test_web_app.py": {
+        "bytes": 78922,
+        "sha256": "80a6aca1a372c9c27e2ffc16adfbf8071eb798197833f2700679e84cc51dd0c0"
+      },
+      "tools/test_web_app.mjs": {
+        "bytes": 588355,
+        "sha256": "28f0d5519a2bde5333b4cb72cdf0f5549ce6492ccb011e0fdf4e2f8a3c2f3881"
+      },
+      "tools/test_web_codec_runner_test.py": {
+        "bytes": 22249,
+        "sha256": "cf003b1e732d2fc484077dbabb67f59892150e798f487100ee6803189a297584"
+      },
+      "tools/test.py": {
+        "bytes": 34269,
+        "sha256": "f96b0d4cbc9dc2cd10744d2e01197605b52e8885211a0ec34b2cd3727bff6e8f"
+      }
+    },
+    "de780b171aa597f208b8d78a497e96be30be7c08": {
+      "src/workbook/workbook_codec_read.c": {
+        "bytes": 98482,
+        "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+      },
+      "src/workbook/workbook_codec_read.h": {
+        "bytes": 21827,
+        "sha256": "33083103c3ae7dbdd89470ab2e1040510b2375c6137ac0ad5cb94dbcb64f2757"
+      },
+      "tests/test_workbook_codec_read.c": {
+        "bytes": 269321,
+        "sha256": "8e296ed19db4c9bf4228c8e1baca0be8041019e25a0ddef804546370b9ebddfd"
+      },
+      "tests/test_workbook_codec_native.c": {
+        "bytes": 58759,
+        "sha256": "3e2741c800a8cc3484f82eb4eaea5789abb29198e2e9ce89f6bbaa53f54a956b"
+      },
+      "tests/test_workbook_codec_source_counters_native.inc": {
+        "bytes": 16473,
+        "sha256": "780e7923594ec270a86356ef017d7182a273c67f075095adfc48d3695e453e53"
+      },
+      "tests/test_browser_codec_read.c": {
+        "bytes": 43835,
+        "sha256": "90f6d33f3bb7b1579c78cd0658733cf53b953643a75eb629cc1536efb7299ac0"
+      },
+      "web/codec_test_host.mjs": {
+        "bytes": 12390,
+        "sha256": "3735a27e12c630c878aed4e69ac5ac12580db9f16168c111bf4bb5cfa4fbde66"
+      },
+      "tools/test_web_app.py": {
+        "bytes": 78922,
+        "sha256": "80a6aca1a372c9c27e2ffc16adfbf8071eb798197833f2700679e84cc51dd0c0"
+      },
+      "tools/test_web_app.mjs": {
+        "bytes": 588355,
+        "sha256": "28f0d5519a2bde5333b4cb72cdf0f5549ce6492ccb011e0fdf4e2f8a3c2f3881"
+      },
+      "tools/test_web_codec_runner_test.py": {
+        "bytes": 22249,
+        "sha256": "cf003b1e732d2fc484077dbabb67f59892150e798f487100ee6803189a297584"
+      },
+      "tools/test.py": {
+        "bytes": 34269,
+        "sha256": "f96b0d4cbc9dc2cd10744d2e01197605b52e8885211a0ec34b2cd3727bff6e8f"
+      }
+    },
+    "72562fd67336267c59774939d74b991ad9b78582": {
+      "src/workbook/workbook_codec_read.c": {
+        "bytes": 98482,
+        "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+      },
+      "src/workbook/workbook_codec_read.h": {
+        "bytes": 21827,
+        "sha256": "33083103c3ae7dbdd89470ab2e1040510b2375c6137ac0ad5cb94dbcb64f2757"
+      },
+      "tests/test_workbook_codec_read.c": {
+        "bytes": 269321,
+        "sha256": "8e296ed19db4c9bf4228c8e1baca0be8041019e25a0ddef804546370b9ebddfd"
+      },
+      "tests/test_workbook_codec_native.c": {
+        "bytes": 58352,
+        "sha256": "c2dee604f5a5fdc0ff6f3f68d1c58a8ae8d787926557bd36e377f9d6095fce98"
+      },
+      "tests/test_browser_codec_read.c": {
+        "bytes": 43835,
+        "sha256": "90f6d33f3bb7b1579c78cd0658733cf53b953643a75eb629cc1536efb7299ac0"
+      },
+      "tests/test_browser_codec_source_counters.inc": {
+        "bytes": 24603,
+        "sha256": "26409492856bb347ce16377bb7482bb5620c9e039c53e255fb9c00b219e31add"
+      },
+      "web/codec_test_host.mjs": {
+        "bytes": 12390,
+        "sha256": "3735a27e12c630c878aed4e69ac5ac12580db9f16168c111bf4bb5cfa4fbde66"
+      },
+      "tools/test_web_app.py": {
+        "bytes": 78922,
+        "sha256": "80a6aca1a372c9c27e2ffc16adfbf8071eb798197833f2700679e84cc51dd0c0"
+      },
+      "tools/test_web_app.mjs": {
+        "bytes": 588355,
+        "sha256": "28f0d5519a2bde5333b4cb72cdf0f5549ce6492ccb011e0fdf4e2f8a3c2f3881"
+      },
+      "tools/test_web_codec_runner_test.py": {
+        "bytes": 22249,
+        "sha256": "cf003b1e732d2fc484077dbabb67f59892150e798f487100ee6803189a297584"
+      },
+      "tools/test.py": {
+        "bytes": 34269,
+        "sha256": "f96b0d4cbc9dc2cd10744d2e01197605b52e8885211a0ec34b2cd3727bff6e8f"
+      }
+    },
+    "5bed02f230468f6a546e7e3987fc8e5da6ed3e63": {
+      "src/workbook/workbook_codec_read.c": {
+        "bytes": 98482,
+        "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+      },
+      "src/workbook/workbook_codec_read.h": {
+        "bytes": 21827,
+        "sha256": "33083103c3ae7dbdd89470ab2e1040510b2375c6137ac0ad5cb94dbcb64f2757"
+      },
+      "tests/test_workbook_codec_read.c": {
+        "bytes": 269321,
+        "sha256": "8e296ed19db4c9bf4228c8e1baca0be8041019e25a0ddef804546370b9ebddfd"
+      },
+      "tests/test_workbook_codec_native.c": {
+        "bytes": 58352,
+        "sha256": "c2dee604f5a5fdc0ff6f3f68d1c58a8ae8d787926557bd36e377f9d6095fce98"
+      },
+      "tests/test_browser_codec_read.c": {
+        "bytes": 43835,
+        "sha256": "90f6d33f3bb7b1579c78cd0658733cf53b953643a75eb629cc1536efb7299ac0"
+      },
+      "web/codec_test_host.mjs": {
+        "bytes": 12390,
+        "sha256": "3735a27e12c630c878aed4e69ac5ac12580db9f16168c111bf4bb5cfa4fbde66"
+      },
+      "tools/test_web_app.py": {
+        "bytes": 79977,
+        "sha256": "551f8418c6455abc68edcc784c4036db4a324453e8e48b674870c6c4b86783cd"
+      },
+      "tools/test_web_app.mjs": {
+        "bytes": 592203,
+        "sha256": "37265e7b5b47c8e07646ecbbdd6b7a9d35119c1c7b2018233f153959992f2183"
+      },
+      "tools/test_web_codec_runner_test.py": {
+        "bytes": 28388,
+        "sha256": "9839cfa8992b0d60ce63c53ca40bfc7f19076dc6bfaeecaf54180c984bfd60e2"
+      },
+      "tools/test.py": {
+        "bytes": 34576,
+        "sha256": "42d69f2fe9e99e1cffc8a01de74ecf05f7b6eafe1893173c22ac779c55cfc25e"
+      }
+    },
+    "3e98de2572c9469cc3154e72e999f4e57e74b8f2": {
+      "src/workbook/workbook_codec_read.c": {
+        "bytes": 98482,
+        "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+      },
+      "src/workbook/workbook_codec_read.h": {
+        "bytes": 21827,
+        "sha256": "33083103c3ae7dbdd89470ab2e1040510b2375c6137ac0ad5cb94dbcb64f2757"
+      },
+      "tests/test_workbook_codec_read.c": {
+        "bytes": 269321,
+        "sha256": "8e296ed19db4c9bf4228c8e1baca0be8041019e25a0ddef804546370b9ebddfd"
+      },
+      "tests/test_workbook_codec_native.c": {
+        "bytes": 58759,
+        "sha256": "3e2741c800a8cc3484f82eb4eaea5789abb29198e2e9ce89f6bbaa53f54a956b"
+      },
+      "tests/test_workbook_codec_source_counters_native.inc": {
+        "bytes": 16473,
+        "sha256": "780e7923594ec270a86356ef017d7182a273c67f075095adfc48d3695e453e53"
+      },
+      "tests/test_browser_codec_read.c": {
+        "bytes": 45189,
+        "sha256": "db2f6176139c3aa8d73fe8de0d3407590aaa14773e2ed4c0e5b4a5548183299e"
+      },
+      "tests/test_browser_codec_source_counters.inc": {
+        "bytes": 24603,
+        "sha256": "26409492856bb347ce16377bb7482bb5620c9e039c53e255fb9c00b219e31add"
+      },
+      "web/codec_test_host.mjs": {
+        "bytes": 12713,
+        "sha256": "200d9dd21109df156e3661ac4695d1f7bde5e0f370a601b668488d01b451f8cb"
+      },
+      "tools/test_web_app.py": {
+        "bytes": 79977,
+        "sha256": "551f8418c6455abc68edcc784c4036db4a324453e8e48b674870c6c4b86783cd"
+      },
+      "tools/test_web_app.mjs": {
+        "bytes": 592203,
+        "sha256": "37265e7b5b47c8e07646ecbbdd6b7a9d35119c1c7b2018233f153959992f2183"
+      },
+      "tools/test_web_codec_runner_test.py": {
+        "bytes": 28388,
+        "sha256": "9839cfa8992b0d60ce63c53ca40bfc7f19076dc6bfaeecaf54180c984bfd60e2"
+      },
+      "tools/test.py": {
+        "bytes": 34576,
+        "sha256": "42d69f2fe9e99e1cffc8a01de74ecf05f7b6eafe1893173c22ac779c55cfc25e"
+      }
+    }
+  }
+}

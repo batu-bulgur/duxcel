@@ -1,0 +1,44 @@
+{
+  "schema": "duxcel.source-counter-evidence-audit",
+  "version": 1,
+  "scope": "Read-only independent checks against retained originals; no runtime rerun. Original Meta/Sheets one-shot OFFSET0 remains unchanged; both counter/descriptor projections are OFFSET-free.",
+  "pure": {
+    "total": 24739,
+    "preserved": 23220,
+    "new": 1519,
+    "first_pass": true
+  },
+  "native": {
+    "source_counters_per_configuration": 44937,
+    "metadata_executions": 79,
+    "typed_feeds": 106,
+    "header_control_per_configuration": 1611,
+    "header_control_executions": 21,
+    "header_control_feeds": 35
+  },
+  "worker": {
+    "C_checks": 49485,
+    "external_checks": 290,
+    "families": {
+      "meta": 10,
+      "sheets": 10,
+      "objects": 10,
+      "objectCounters": 9,
+      "sourceCounters": 8,
+      "describe": 17
+    },
+    "per_fixture_queries": {
+      "source-counters-v12.dxls": 6,
+      "source-counters-v13.dxls": 8,
+      "source-counters-v14.dxls": 10,
+      "source-counters-v14-reordered.dxls": 40
+    },
+    "all_requests_original_binding": true,
+    "no_source_SQL_in_recorded_requests": true,
+    "both_counter_domains_independently_checked": true,
+    "source_v14_only": true,
+    "peak_accounted_C_input": 2097216,
+    "maximum_Header": 46772,
+    "all_first_pass": true
+  }
+}

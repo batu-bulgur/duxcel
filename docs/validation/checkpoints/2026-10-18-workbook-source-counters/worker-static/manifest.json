@@ -1,0 +1,155 @@
+{
+  "schema": "duxcel.source-counter-worker-include-static",
+  "version": 1,
+  "status": "static-reviewed-not-compiled",
+  "base": "682864e818b02d18d6301152609e39fa77bd28e0",
+  "scope": "New include only; root owns common/host/build/CLI and actual runtime. Expected counters below are static derivation, not measured acceptance.",
+  "owned_files": [
+    "tests/test_browser_codec_source_counters.inc"
+  ],
+  "source_inputs": [
+    {
+      "path": "tests/test_browser_codec_source_counters.inc",
+      "bytes": 24603,
+      "sha256": "26409492856bb347ce16377bb7482bb5620c9e039c53e255fb9c00b219e31add"
+    },
+    {
+      "path": "tests/test_browser_codec_counters.inc",
+      "bytes": 29496,
+      "sha256": "1f995b54fe70db2acab93817b13f52b07da0b2bff510c75befc860c475d11b7f"
+    },
+    {
+      "path": "tests/test_browser_codec_read.c",
+      "bytes": 43835,
+      "sha256": "90f6d33f3bb7b1579c78cd0658733cf53b953643a75eb629cc1536efb7299ac0"
+    },
+    {
+      "path": "src/workbook/workbook_codec_read.c",
+      "bytes": 98482,
+      "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+    },
+    {
+      "path": "src/workbook/workbook_codec_read.h",
+      "bytes": 21827,
+      "sha256": "33083103c3ae7dbdd89470ab2e1040510b2375c6137ac0ad5cb94dbcb64f2757"
+    }
+  ],
+  "static_checks": {
+    "C_to_EM_JS_report_argument_counts_equal": 35,
+    "no_trailing_whitespace": true,
+    "retained_helper_state_explicit": true,
+    "no_existing_source_modifications": true,
+    "staged_diff_check": "passed"
+  },
+  "root_seam": {
+    "globals": [
+      "source_counters_mode",
+      "source_counters_files",
+      "source_counters_versions",
+      "d.source_counters_schema"
+    ],
+    "functions": [
+      "source_counters_report(bool,const char*)",
+      "source_counters_tick(void)",
+      "source_counters_retained(void)",
+      "source_counters_observe(size_t)",
+      "source_counters_stale(size_t)"
+    ],
+    "include_after": "test_browser_codec_counters.inc",
+    "root_requirements": [
+      "object_wire() active for source_counters_mode",
+      "source_counters_retained() called once without additionally counting counters_retained() in this mode",
+      "common Header begin and fixture-binding name/version dispatch use source_counters arrays",
+      "schema Page bytes included in retained(); free is owned by newinclude",
+      "stale callback hook before any wire/total/failure pointer borrow"
+    ]
+  },
+  "fixture_contract": {
+    "files": [
+      "source-counters-v12.dxls",
+      "source-counters-v13.dxls",
+      "source-counters-v14.dxls",
+      "source-counters-v14-reordered.dxls"
+    ],
+    "sheet_names": "Counters '\u0130' <sheet>",
+    "sheets": 64,
+    "live_objects": 56,
+    "source_high_water14": [
+      0,
+      1,
+      "9007199254741043",
+      "18446744073709551615"
+    ],
+    "source_high_water12_13": 0,
+    "source_sql": "Never read/executed; query family remains unarmed"
+  },
+  "expected_report": {
+    "mode": "source-counters",
+    "fixtures": 4,
+    "headers": 5,
+    "queries": 64,
+    "rejections": 4,
+    "stale": 1,
+    "callbacks": 63,
+    "normalFixtureQueries": [
+      6,
+      8,
+      10,
+      10
+    ],
+    "transport_queries_by_archive": [
+      6,
+      8,
+      10,
+      40
+    ],
+    "familyExecutions": {
+      "meta": 10,
+      "sheets": 10,
+      "objects": 10,
+      "objectCounters": 9,
+      "sourceCounters": 8,
+      "describe": 17
+    },
+    "acceptedFeeds": {
+      "objects56": 10,
+      "objectCounters32": 18,
+      "sourceCounters32": 9
+    },
+    "validObjectCounterGroups": 9,
+    "validSourceCounterGroups": 3,
+    "objectCounterDefaults": 1,
+    "sourceCounterDefaults": 2,
+    "poisonedObjectCounterResults": 9,
+    "poisonedSourceCounterResults": 3,
+    "rejectedFeeds": 4,
+    "rejectedFirstRows": [
+      32,
+      32,
+      32,
+      0
+    ],
+    "proof_fields_all_true": [
+      "requiredNullRejected",
+      "identityRejected",
+      "missingRowRejected",
+      "budgetRejected",
+      "stalePreserved",
+      "freshRecovery",
+      "olderNoSourceCounterQuery",
+      "exactSourceMaximum",
+      "independentDomains"
+    ],
+    "staleCallbacks": 1,
+    "staleTotalReservationBytes": 21,
+    "staleWireReservationBytes": "positive measured uint",
+    "headerOwnedLimit": 2097152,
+    "inputOwnedLimit": 4194304,
+    "error": null
+  },
+  "boundaries": [
+    "No compilation, executable C ABI, official Worker engine or browser runtime in this receipt",
+    "No source-version ledger/bindings, source activation/issuance, full Workbook or App OpenSave claim"
+  ],
+  "candidate_commit": "72562fd67336267c59774939d74b991ad9b78582"
+}

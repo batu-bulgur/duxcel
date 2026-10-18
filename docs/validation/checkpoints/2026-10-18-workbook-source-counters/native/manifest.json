@@ -1,0 +1,202 @@
+{
+  "schema": "duxcel.native-source-version-counters-evidence",
+  "version": 1,
+  "status": "passed",
+  "tested_commit": "5d275e717c1703eaa2dae04ab4f74520f62ef19c",
+  "base": "c7dbe351a12ee8f74a7713679d6578dbabdffddc",
+  "dependencies": {
+    "pure_source_counters": "a3cb8c5aa01e5d8fe1c18f21360c0a1650124aa1 privatealias5d8f092",
+    "doc_only_boundary": "682864e privatealias3e4c5b9"
+  },
+  "owned_sources": {
+    "tests/test_workbook_codec_native.c": "3e2741c800a8cc3484f82eb4eaea5789abb29198e2e9ce89f6bbaa53f54a956b",
+    "tests/test_workbook_codec_source_counters_native.inc": "780e7923594ec270a86356ef017d7182a273c67f075095adfc48d3695e453e53"
+  },
+  "checks": {
+    "source_counters_per_configuration": 44937,
+    "metadata_executions": 79,
+    "typed_feeds": 106,
+    "header_control_per_configuration": 1611,
+    "header_control_executions": 21,
+    "header_control_feeds": 35
+  },
+  "seconds": {
+    "native_build_and_runs": 35.833326626,
+    "publication_and_inspection": 5.103938,
+    "total": 40.937264626,
+    "preprocessor_separate": 0.985391874
+  },
+  "runs": [
+    {
+      "label": "release-build",
+      "command": [
+        "make",
+        "-W",
+        "tests/test_workbook_codec_native.c",
+        "tests/test_workbook_codec_native"
+      ],
+      "seconds": 6.834047667,
+      "exit_code": 0,
+      "log": "release-build.txt"
+    },
+    {
+      "label": "release-source-counters",
+      "command": [
+        "tests/test_workbook_codec_native",
+        "--source-counters-only"
+      ],
+      "seconds": 2.5989970420000006,
+      "exit_code": 0,
+      "log": "release-source-counters.txt"
+    },
+    {
+      "label": "release-default",
+      "command": [
+        "tests/test_workbook_codec_native"
+      ],
+      "seconds": 0.5676139580000008,
+      "exit_code": 0,
+      "log": "release-default.txt"
+    },
+    {
+      "label": "sanitize-build",
+      "command": [
+        "make",
+        "-W",
+        "tests/test_workbook_codec_native.c",
+        "tests/test_workbook_codec_native-debug"
+      ],
+      "seconds": 11.681251667000002,
+      "exit_code": 0,
+      "log": "sanitize-build.txt",
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
+    },
+    {
+      "label": "sanitize-source-counters",
+      "command": [
+        "tests/test_workbook_codec_native-debug",
+        "--source-counters-only"
+      ],
+      "seconds": 11.293035542,
+      "exit_code": 0,
+      "log": "sanitize-source-counters.txt",
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
+    },
+    {
+      "label": "sanitize-default",
+      "command": [
+        "tests/test_workbook_codec_native-debug"
+      ],
+      "seconds": 2.858380750000002,
+      "exit_code": 0,
+      "log": "sanitize-default.txt",
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
+    }
+  ],
+  "publication_run": {
+    "command": [
+      "python3",
+      "build/bp1-source-counters-native/check-emitters.py"
+    ],
+    "seconds": 5.103938,
+    "exit_code": 0
+  },
+  "emit_seconds": {
+    "release-emit": 0.404504917,
+    "sanitize-emit": 2.582217833
+  },
+  "preprocessor_project_files": 52,
+  "binaries": {
+    "tests/test_workbook_codec_native": "a33e733304dceeb34302c8e15adc1f76a9462db2b0c1045e786886f958491004",
+    "tests/test_workbook_codec_native-debug": "b6ec0ede3af2c1a5c58a454d4aa0edeafa57bd331252a6de389860529e537bec"
+  },
+  "scope": "Known writer12/13/14 native Save/Load source-version high-water parity through the shared partial Header, independent of object high-water, empty durable ledger; ordinary Headercontrol repeated. No stored sourceSQL execution, ledger-bound/reference/packet validation, issuer/adoption, App/browser Open/Save, allocator/RSS/LSan or all-old-native-profile claim.",
+  "failures": "None; optimized/O1/immutablepublication gates passed first run.",
+  "artifact_files": {
+    "check-emitters.py": {
+      "bytes": 9942,
+      "sha256": "f435ce7d2dfaef96a7b366ba77d38d61c831e197691d7c3c1ad696c5238d22f0"
+    },
+    "closure.py": {
+      "bytes": 2026,
+      "sha256": "3afbbd46a75dec0739aedbf3a756fcd4ad816fcc643875ab6325535e890ab3ef"
+    },
+    "emitter-results.json": {
+      "bytes": 30014,
+      "sha256": "4fc02d42d3194193eb83cd26c125cc520167da31e2101c8eea51c2fe21f6e7dd"
+    },
+    "preprocessor-closure.json": {
+      "bytes": 11063,
+      "sha256": "6e661b7ceaafd99e544b68008e07ced9f7b32465d191950998015819f48cd4c2"
+    },
+    "publication-log.txt": {
+      "bytes": 186,
+      "sha256": "d6e9d614db7fb3ecb8ba591fe0a83eb32f3783e8613403f9af91e8c753f2d417"
+    },
+    "publication-run.json": {
+      "bytes": 136,
+      "sha256": "b33f4b2b8ef719de7e72da3983740232bea991670ccba91353123a58a27eec85"
+    },
+    "release-build.txt": {
+      "bytes": 959,
+      "sha256": "f578af126c4dade8c715e4b938968fe45cceb4136925ccebd652e1f6d26559cb"
+    },
+    "release-default.txt": {
+      "bytes": 218,
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    "release-dependencies.d": {
+      "bytes": 7214,
+      "sha256": "15d4f8257ae869c6bd50e17108d0bf83bcc8f02d7ddf482a1eb7a50846e154bd"
+    },
+    "release-dependencies.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "release-runs.json": {
+      "bytes": 692,
+      "sha256": "03bad35f670171a827ca3e556ca6493621344d248fb778b92e23b3c0fe1acde4"
+    },
+    "release-source-counters.txt": {
+      "bytes": 331,
+      "sha256": "0e4bc60a2eccddc783a49f7323717a7545a6ce240534b99ca32ccfdfb1874e63"
+    },
+    "sanitize-build.txt": {
+      "bytes": 760,
+      "sha256": "cc67073064a6c1d68872d948a1bfe735e4ae378ab10298f73bdb3830c7b6d372"
+    },
+    "sanitize-default.txt": {
+      "bytes": 218,
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    "sanitize-dependencies.d": {
+      "bytes": 7214,
+      "sha256": "15d4f8257ae869c6bd50e17108d0bf83bcc8f02d7ddf482a1eb7a50846e154bd"
+    },
+    "sanitize-dependencies.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "sanitize-runs.json": {
+      "bytes": 1148,
+      "sha256": "67e8465d029892b16932536c9f5c3c8c31dc542eae64aebb335fb7aea0822e72"
+    },
+    "sanitize-source-counters.txt": {
+      "bytes": 331,
+      "sha256": "0e4bc60a2eccddc783a49f7323717a7545a6ce240534b99ca32ccfdfb1874e63"
+    },
+    "unchanged-native-paths.json": {
+      "bytes": 758,
+      "sha256": "060c9d6e4641e2f2db8608562709f75d9af79b83a092c71ff3a9b5f2e6da748b"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+commit 682864e818b02d18d6301152609e39fa77bd28e0
+Author:     Codex <codex@openai.com>
+AuthorDate: Sun Oct 18 13:02:53 2026 +0300
+Commit:     Codex <codex@openai.com>
+CommitDate: Sun Oct 18 13:02:53 2026 +0300
+
+    Document the partial Header source-counter boundary
+
+diff --git a/src/workbook/workbook_codec_read.h b/src/workbook/workbook_codec_read.h
+index 94158b8..af49046 100644
+--- a/src/workbook/workbook_codec_read.h
++++ b/src/workbook/workbook_codec_read.h
+@@ -191,9 +191,10 @@ bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPi
+ WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
+     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
+ /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
+-   filters/sorts/preferences/object descriptors/counters/queries/source options/Table sources/Pivot/Marks/columns/cells).
+-   It is not a complete workbook: formats, source-version counters/ledger and
+-   final model validation remain absent.
++   filters/sorts/preferences/object descriptors/object and source-version counters/
++   queries/source options/Table sources/Pivot/Marks/columns/cells).
++   It is not a complete workbook: formats, source ledger/bindings, historical
++   migration and final model validation remain absent.
+    Failure preserves read and independent owned out. */
+ bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
+ void workbook_codec_read_free(WorkbookCodecRead *read);
