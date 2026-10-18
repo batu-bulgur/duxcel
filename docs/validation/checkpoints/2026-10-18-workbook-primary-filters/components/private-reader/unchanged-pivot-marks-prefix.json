@@ -1,7 +1,0 @@
-{
-  "base": "66c0de4f271871093ae9feb4cdd171498918b04c",
-  "scope": "All19150 prior pure assertions/helper definitions are byte-identical; main snapshots that prefix count and appends942 new primary-filter checks. This is a source witness, not separate runtime.",
-  "bytes": 163653,
-  "sha256": "84c47deb1b08aeb3ee86a30ea39db4d6c79cbc61b72d15dc42295ceeb8809a26",
-  "unchanged": true
-}

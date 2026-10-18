@@ -1,1 +1,0 @@
-PASS: native optional sorts 15913 checks; 29 metadata executions/35 typed feeds; four448-row native packages, legacy missing-table default, v14 missing/sentinel rejection, owned prior Header and fault/budget/stale recovery; source definitions never executed; native comparison only, no Worker/App Open claim; engine v1.5.6

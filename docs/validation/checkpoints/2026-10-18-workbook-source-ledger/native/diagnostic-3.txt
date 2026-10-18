@@ -1,5 +1,0 @@
-ledger fault 0
-ledger fault 1
-ledger fault 2
-ledger rejection: status=1 expected_first=256 actual_first=18446744073709551615 owned=161407 before=138842 diagnostic=NULL
-FAIL native workbook header:156: status==WORKBOOK_CODEC_READ_ERROR&&error&&workbook_codec_read_request(r)->first_row==first&&workbook_codec_read_owned_bytes(r)==ledger_last_owned

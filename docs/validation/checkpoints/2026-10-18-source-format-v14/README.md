@@ -1,5 +1,7 @@
 # Dormant source-format archives and common imported-cell containment
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Accepted source `7c451c3`, 18 October 2026. Source digest `355d810b0e1c7c718d69858ccd133b6fd0302e50ed8c54bfd067201d4fbe3199` covers258 source files; unrelated untracked `tools/ui-review/` was left intact. The complete source-record formatting feature remains unfinished.
 
 Native `.dxls` v14 now archives explicit source-aware mode, immutable source-version counters/packets, primary/Table bindings and typed result/record selectors. Its26-table package validates names/types/nullability, exact uint64 values, owner/schema associations, bounded payloads and all ordinary workbook metadata through one connection-based reader. Missing external files remain references and do not trigger hashing/querying during load. Malformed loads leave the caller unchanged; unsupported upgrades/overwrites fail before modifying the destination. Ordinary lossless files remain v12; retired-owner-only files remain v13. Guarded legacy selectors remain unsupported by the codec until migration is integrated.

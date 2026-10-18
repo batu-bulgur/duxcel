@@ -1,1 +1,0 @@
-PASS: workbook codec 2274 checks (immutable inventory, legacy policy boundaries, exact version selection and unchanged model)

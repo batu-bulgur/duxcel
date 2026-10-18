@@ -1,5 +1,7 @@
 # Shared C99 browser renderer — 17 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 W1 runs the actual shared App/controller/grid/ribbon/pane code through a browser-scheduled callback. Fonts and icons are the existing assets. This checkpoint is a renderer/interaction proof; the W1 backend returns explicit unavailable errors for queries/files/workbooks. It has no replacement JavaScript spreadsheet or mock engine.
 
 `renderer-build.json` records the immutable artifact's source fingerprint, exact compiler flags, sources, artifact sizes and hashes. `result.json` and `events.json` describe the owned headless Chromium run at 1280×820 and 640×640, DPR 1. The browser profile was temporary and separate from every user browser; the server/test owner held the shared desktop lock. No window was activated. Headless simulated focus and disabled background throttling keep the browser's real animation frames running.

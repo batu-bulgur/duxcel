@@ -1,2 +1,0 @@
-Command: ["./build/web-tests/test-wire-sanitize"]
-PASS: 1229 page wire checks

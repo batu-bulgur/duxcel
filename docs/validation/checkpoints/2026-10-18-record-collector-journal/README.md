@@ -1,5 +1,7 @@
 # Bounded record collection, composite history and aggregate accounting
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 This checkpoint accepts prerequisites and a prepared native history transaction. It does **not** enable live source-format commands or complete the record-following roadmap feature. The signed bundle and persistent Wasm UI remain the separately accepted7c451c3 artifacts.
 
 `database_collect_records()` executes one bounded identity-only query for a captured native CSV/Parquet interval. It preserves the existing reader's deterministic ordering/filter semantics, checks the exact file identity/stamp before and after, rejects the20,001st sentinel before allocating membership, and returns at most20,000 sorted unique positive original IDs. The reply owns its vector independently of evictable business Pages. Native Worker jobs validate payloads before opening DuckDB, retain latest-wins/cancel ownership and clear freed pending/reply pointers at shutdown. The browser backend explicitly rejects this native identity operation before refresh/schema/SQL work.

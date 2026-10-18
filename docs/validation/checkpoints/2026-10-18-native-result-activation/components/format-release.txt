@@ -1,2 +1,0 @@
-Command: ["./tests/test_format"]
-PASS: 89252 formatting checks (exact numeric display, bounded ranges, scoped record membership, precedence, ownership, moves, structural edits, history and whole-sheet selection)

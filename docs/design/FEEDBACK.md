@@ -2,7 +2,7 @@
 
 Current workflow: native and Wasm review builds use the [unified development queue](../USER_GUIDE.md#browser-issue-reporting-development-build). The user requested that the unused design-reference/Agentation services be shut down; ports4173/4174/4747 are stopped and are not part of the active loop. The sidecar discussion below is historical tooling context, not an instruction to restart it. Actual implementation status is maintained in [STATUS.md](../STATUS.md).
 
-Survey and workflow established 17 October 2026. This is a parallel design-review lane; the production architecture remains C99 + raylib + DuckDB. The current executable reference stays read-only. The review sidecar lives in `tools/ui-review/` and is not a product dependency.
+Survey and workflow established 17 October 2026. This is a parallel design-review lane; the production architecture remains C99 + raylib + DuckDB. The current executable reference stays read-only. The original optional sidecar was retired during the 18 October cleanup. Its source is preserved on `archive/legacy-ui-review-20261018`; it is not a product dependency. The current native/Wasm persistent queue is documented in [NATIVE_REVIEW_PLAN.md](NATIVE_REVIEW_PLAN.md). This document preserves the earlier design workflow.
 
 The subsequent [native review and WebAssembly feasibility analysis](NATIVE_REVIEW_FEASIBILITY.md) led to the [approved native review implementation plan](NATIVE_REVIEW_PLAN.md), now the first engineering priority. It captures feedback inside the real C99/raylib application and shares widget identities with the selected Wasm browser UI. The browser engine starts with the official DuckDB-Wasm Worker bridge. These native/browser capabilities are not yet implemented; the running 4174 workflow described below still reviews the JavaScript reference.
 
@@ -44,7 +44,7 @@ The sidecar saves observable UI state and a bounded action trail. It cannot rest
 5. **Verify separately.** Track design acceptance, mock interaction verification, native visual parity, native pointer/keyboard behavior and analytical semantics independently. For native changes, provide source/binary revision, fixture, viewport/UI scale and focused acceptance evidence. Do not close native work merely because a browser note was addressed.
 6. **Close or retain.** Reply with the decision/evidence. Mark an annotation resolved only when its stated scope is verified; leave a linked native task open if still pending. Dismiss with a reason, preserving history. These are explicit review actions; adding a note does not authorize an automatic source rewrite or background implementation.
 
-The local queue persists while this chat is idle. The agent reads it when asked; it does not continuously watch or wake itself. Any chat in this workspace can use the project-scoped reader documented in [the sidecar README](../../tools/ui-review/README.md). No cross-chat messages, account connection, public publishing or native desktop takeover are part of this setup.
+The local queue persists while this chat is idle. The agent reads it when asked; it does not continuously watch or wake itself. Any chat in this workspace can use the project-scoped reader documented in the archived sidecar README (`git show archive/legacy-ui-review-20261018:tools/ui-review/README.md`). No cross-chat messages, account connection, public publishing or native desktop takeover are part of this setup.
 
 ## Future native review support
 

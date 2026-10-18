@@ -1,5 +1,0 @@
-Command: ["make", "tests/test_core", "tests/test_workbook", "tests/test_core-debug", "tests/test_workbook-debug"]
-make: `tests/test_core' is up to date.
-make: `tests/test_workbook' is up to date.
-make: `tests/test_core-debug' is up to date.
-make: `tests/test_workbook-debug' is up to date.

@@ -1,5 +1,7 @@
 # Native archived exact-result activation
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Runtime source `c5e52b3` accepts verified rendering of existing source-aware exact RESULT and guarded rectangles for native raw CSV/Parquet owners with supported structured filters and sorts. It extends the earlier physical-record formatting workflow. The development CLI is the tested surface; this checkpoint does not update or launch the signed app or persistent browser origin.
 
 This is **archive activation**, with canonical fixtures supplied by the native test harness. It adds no user-facing RESULT-format command and performs no automatic finite legacy/current/history migration. Primary24 exercises both RESULT and GUARDED activation; strengthened Table36 exercises Table RESULT formatting beside an independent same-file Table and a bound DuckDB PIVOT. Pivot outputs do not inherit the upstream raw/result token.

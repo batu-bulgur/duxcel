@@ -1,1 +1,0 @@
-FAIL native workbook header:355: !a->query && !a->source_version && !a->filter_count && !a->unique_rows && !strcmp(a->schema,"") && !strcmp(a->table,"NULL") && !strcmp(b->query,"SELECT * FROM __BP1_SOURCE_MUST_NOT_EXECUTE") && !strcmp(workbook_codec_header_reference(*out,i),"missing-source.csv")

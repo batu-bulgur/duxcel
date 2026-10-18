@@ -1,4 +1,0 @@
-Error: Fields Control+Z was swallowed or changed the wrong history
-    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:113:56)
-    at browserPaneShortcuts (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:885:3)
-    at async file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:2235:23

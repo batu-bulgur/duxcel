@@ -1,5 +1,7 @@
 # Native source-ordinal feasibility measurement
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 17 October 2026, plan branch `ac569a4`, standalone C99 benchmark. **No production code, workspace schema, source-format feature, App, browser or GUI was changed or accepted.** All limits and semantics in [the design plan](../../../design/SOURCE_FORMAT_IDENTITY.md) remain proposed.
 
 On this 3,475,226-row NYC Parquet, a pre-filter `row_number() OVER ()` has a material filtered-query cost. The retained `EXPLAIN` plans put the date predicate above `STREAMING_WINDOW`; baseline and Parquet `file_row_number` retain the predicate inside `READ_PARQUET`. The measured metadata candidate preserved the same original record IDs and business values with much smaller warm overhead. This supports testing that candidate for single-file native Parquet, rather than adopting a universal window on the strength of an unfiltered first page.
@@ -23,7 +25,7 @@ The full-source inspection proved 3,475,226 unique original window ordinals, ran
 
 Measurement-child process high-water RSS was about **41.0–82.0 MiB**; exact byte samples and before/after resident snapshots are in the artifact. RSS includes the library/allocator, the six query runs, validation and final EXPLAIN; it is not engine-only memory or a per-query peak. The full-source distinct-ordinal inspection peaked separately at 228.1 MiB. Lower window RSS does not establish a memory win or explain all of its latency. C string conversions and correctness checks were outside `query_ms`; the separate conversion timer runs two complete digest passes and is not an App Page timing.
 
-The [self-contained JSON record](feasibility.json) includes exact query SQL, settings, all first/warm samples, selected plans, metadata/ID hashes, source/binary/library hashes, compiler command and the exact standalone C/Python source used. The larger raw result pages remain under the recorded ignored worktree build path. To reproduce using the existing installed toolchain and the same input:
+The self-contained JSON record (archived `feasibility.json`) includes exact query SQL, settings, all first/warm samples, selected plans, metadata/ID hashes, source/binary/library hashes, compiler command and the exact standalone C/Python source used. The larger raw result pages remain under the recorded ignored worktree build path. To reproduce using the existing installed toolchain and the same input:
 
 ```sh
 python3 - <<'PY'

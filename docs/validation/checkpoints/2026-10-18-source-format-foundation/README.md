@@ -1,5 +1,7 @@
 # Source formatting prerequisites, 18 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Source and harness `8c9e2d2`; exact source fingerprint, per-binary hashes and original run paths are retained in the summaries/provenance. These are prerequisite gates, **not App activation or persistent record-following styles**. The accepted user-facing bundle/origin remains the earlier `402a03d` UI.
 
 - Owned record selectors and the common result/raw-token precedence resolver pass focused optimized/sanitizer format checks. Fixed physical worksheet bounds, deep history copies, exact scopes, budgets and atomic rejection of unsafe mixed moves are covered.

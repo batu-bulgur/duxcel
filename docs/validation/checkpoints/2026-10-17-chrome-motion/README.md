@@ -1,5 +1,7 @@
 # Unified chrome and canvas motion — 17 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Native code through `3cc8585`, focused browser input policy through `75f104d`, and browser harness through `91f480f`. Each copied manifest retains its actual source/binary identity. Later test-only commits do not change the native program. This is focused acceptance, not a full regression or final exact-prototype sign-off.
 
 ## Implemented behavior
@@ -28,7 +30,7 @@ Native code through `3cc8585`, focused browser input policy through `75f104d`, a
 
 The browser sampled a 49.5-logical-point pull on both axes. It decreased monotonically through 44,34.5,25.5,17.5 and 12 points, fell to 0.5 by 167ms and to the framebuffer baseline by 183ms; it stayed there through 367ms. The measured boundaries were exactly RGB 143/162/179 against white paper and the darker backing. Peak PNG encoding is a separate pull after the timing sampler, so PNG readback does not inflate the measured return. This is a captured synthetic gesture, not a physical trackpad latency benchmark.
 
-Native [base capture](native-base.png) includes a real query in flight. Browser [light keytips](keytips-light.png), [stretched canvas](overscroll-stretched.png) and [ribbon menu](ribbon-display.png) use the actual shared C renderer. The complete state-by-state UI port remains open.
+Native base capture (archived `native-base.png`) includes a real query in flight. Browser light keytips (archived `keytips-light.png`), stretched canvas (archived `overscroll-stretched.png`) and ribbon menu (archived `ribbon-display.png`) use the actual shared C renderer. The complete state-by-state UI port remains open.
 
 ## Browser Alt limitation
 
@@ -38,6 +40,6 @@ The accepted hint checks therefore use explicit DOM keyboard events through the 
 
 ## Artifacts and delivery
 
-`build/Duxcel.app` is rebuilt and its ad-hoc signature verifies. All 25 file-backed Mach-O code/data sections match the tested optimized `./duxcel`; signatures legitimately change the whole-file hash. Bundle signing is not an additional bundle-launch test. [Exact hashes](titlebar-bundle.json).
+`build/Duxcel.app` is rebuilt and its ad-hoc signature verifies. All 25 file-backed Mach-O code/data sections match the tested optimized `./duxcel`; signatures legitimately change the whole-file hash. Bundle signing is not an additional bundle-launch test. Exact hashes (archived `titlebar-bundle.json`).
 
-The single existing Wasm review origin remains `http://127.0.0.1:8767/`, now serving the accepted review artifact with automatic external queue pickup. HTTP Wasm bytes were hashed against its build manifest. The user's existing tab was neither opened nor reloaded. [Served artifact](titlebar-served.json). Mock/Agentation services remain stopped.
+The single existing Wasm review origin remains `http://127.0.0.1:8767/`, now serving the accepted review artifact with automatic external queue pickup. HTTP Wasm bytes were hashed against its build manifest. The user's existing tab was neither opened nor reloaded. Served artifact (archived `titlebar-served.json`). Mock/Agentation services remain stopped.

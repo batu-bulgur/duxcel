@@ -1,5 +1,7 @@
 # Captured primary record styles and verified reopen
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Runtime integration `ba79581` includes `49ef2ce`/`11632a9` captured commands, `b315694` automatic primary restoration and `309fe37`/`ba79581` typed GUARDED codec support. This is a narrow native primary CSV/Parquet feature. The packaged native app and persistent browser origin remain at `7c451c3`; no user window or tab was launched/reloaded.
 
 Actual interaction and analytical semantics: the30-stage native profile [734,764) creates600 private Parquet records, including physically identical pairs, tied sort keys, SQL NULL/empty/literal text, BIGINT above2^53 and exact DECIMAL. A captured110-record selection crosses a256-row cache boundary, then selection moves before completion. Original physical IDs and field ordinals retain the styles through both sort directions, filtering/removal/restoration and both-page eviction. One duplicate is colored independently. First binding plus style is one owned composite action; Undo/Redo retains issued version high-water, and no-op formatting preserves redo/dirty/history. Explicit cancellation, superseded Page work and a changed format revision cannot apply stale styles.

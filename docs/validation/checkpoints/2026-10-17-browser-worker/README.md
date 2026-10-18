@@ -1,5 +1,7 @@
 # Official Worker behind the shared C99 UI — 17 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 The real browser backend now accepts source pages, counts, SQL validation, historical previews and source-table objects. C builds the SQL, describes the original SQL schema, projects canonical VARCHAR text in DuckDB, and decodes bounded DXP1 pages into its own allocator. JavaScript handles official Worker/platform transport. Native production gains no browser runtime.
 
 The official npm package is pinned to **1.32.0**; the running embedded engine reports **v1.4.3**. The accepted artifact uses its official single-threaded **EH** bundle. `official-eh-probe.json` verifies exact BIGINT/UBIGINT/DECIMAL, nanosecond timestamp and canonical HUGEINT text, SQL NULL/empty/literal NULL, paging/transfer, useful errors and latest-wins/cancellation. Direct Arrow HUGEINT is explicitly unsupported; the actual C backend uses engine-produced canonical VARCHAR with original SQL metadata. The earlier MVP probe is retained as rejected bundle evidence: its missing-table error reported `_setThrew is not defined`; EH returns the real Catalog Error and recovers.

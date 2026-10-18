@@ -1,6 +1,0 @@
-mkdir -p build
-python3 tools/generate_icons.py --check || python3 tools/generate_icons.py
-PASS: canonical vector and 56 derivatives match their hashes
-PASS: 23 sRGB RGBA sizes, transparent surround, ICNS 1x/2x and ICO representations
-touch build/icons.stamp
-clang -Isrc -I/opt/homebrew/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic -Werror src/common.c src/transforms/analysis.c src/transforms/number.c src/workbook/workbook_codec.c src/workbook/workbook_codec_read.c tests/test_workbook_codec_read.c -o tests/test_workbook_codec_read -lm

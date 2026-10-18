@@ -1,5 +1,18 @@
 # Validation and measurement
 
+## Retention policy
+
+Keep concise source-scoped acceptance summaries and the frozen inputs consumed by current tests. Generated binaries, databases, screenshots, event streams, caches and repeated machine manifests belong in ignored `build/` or `tests/results/`; remove obsolete outputs after integration. Do not create a full evidence capsule for every metadata component.
+
+On 18 October 2026, 2,987 historical payload files were removed from the working checkout. All checkpoint Markdown histories remain, along with the four measurement providers used by current browser tests. Detailed old payloads remain in Git at `archive/pre-cleanup-20261018`. Restore an individual payload outside the checkout with, for example:
+
+```sh
+git show archive/pre-cleanup-20261018:docs/validation/checkpoints/<checkpoint>/<file> > /tmp/<file>
+```
+
+The records below are historical; their local raw-output paths may have been cleaned. They do not describe a fresh acceptance of current main.
+
+
 Evidence belongs to a particular source and binary, not to the project forever. The initial Git snapshot includes changes made after the accepted pre-Git binary; it must not inherit that binary's native acceptance automatically. [Current feature status](../STATUS.md) records that boundary.
 
 ## Preserved full checkpoint

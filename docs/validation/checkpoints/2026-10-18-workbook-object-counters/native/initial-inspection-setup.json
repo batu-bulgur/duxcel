@@ -1,8 +1,0 @@
-{
-  "scope": "Supplementary external SQL inspection setup only; emitted/native C fixture unchanged.",
-  "failures": [
-    "Initial ignored Python script missing whitespace after else (syntax only; no process ran).",
-    "First read-only DuckDB struct_pack used reserved table as a named alias and received parser error near table; changed alias to relation and query alias to sql_text."
-  ],
-  "source_change": false
-}

@@ -1,5 +1,7 @@
 # Source-opening cache ownership, 18 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Source `266665c`, SHA256 `231704150c8a59940c8a4a91b9cd079f2cd87b1b8b664287cfa7a755e610cc25` (258 files). Hidden native ASan/UBSan acceptance passes29 stages in15.354s;49.213s includes30.304s application rebuild, the170-check pure selection test and477-check hidden-window probe. Source/binary identity and exact completion range are retained in the manifest.
 
 After a successful new source-sheet allocation, App now frees old ObjectView Pages, records, totals and errors, clears their request identities and source bookmarks, and invalidates the active readout. A rejected open preserves these caches/bookmarks. This fixes retention in a bounded32-slot cache, rather than an unbounded leak.

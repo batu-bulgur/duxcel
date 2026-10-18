@@ -1,4 +1,0 @@
-{
-  "reason": "New composition oracle expected empty column name, while existing columns_fixture explicitly writes Column apostrophe/Unicode0:0. Corrected expected bytes; decoder unchanged.",
-  "test_sha256": "e7e11637295fec29a32806b913a717c810903a7d31343a781d25354cb572a297"
-}

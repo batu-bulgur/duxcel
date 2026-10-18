@@ -1,7 +1,0 @@
-{
-  "initial_include_sha256": "e64225e545167af5c5d4963ede8b817e47d326813225125480a713fcdbeaa686",
-  "tested_include_sha256": "651c8a09ed835a12cd9e63ba055911f2ba51602ebb204c1434998cd7459cfe0a",
-  "wrapper_sha256": "c7a9e654d4f884f62bfdb54d5e9f6530cd7b64d4b89c77a201e887aa7db3a2d2",
-  "initial_wrapper_matches_tested": true,
-  "note": "Original failure source is reconstructible from committed tested source plus retained patch. Pressure allocation correction happened before its code executed; the original failure stopped at Sheets. Closure postprocessor typo correction had no C source drift or runtime rerun."
-}

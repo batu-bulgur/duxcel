@@ -1,5 +1,7 @@
 # Authoring review and bound source consumers — 17 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Accepted native review/runtime C is `337ddd8`; sanitizer and the corrected browser analysis harness use `960e169`, whose only change is expecting the actual `JOB_PIVOT=5` enum. Each retained summary has its own source, binary and immutable browser artifact hashes. Source-query review and Columns PIVOT work under development after this boundary are excluded.
 
 Review hooks now cover fourteen authoring/menu families, five editable dialogs and worksheet rows/actions/rename/unhide/scroll. Disabled controls remain selectable for reporting. Full field hashes distinguish identities; Plot measures also include canonical aggregation and date-grain names, so SUM/AVG of one field do not collide. Worksheet positions are explicitly scoped to the captured document/order digest; they are not durable sheet IDs. Review metadata uses the actual paint clip even when a modal blocks underlying input. This fixes previously omitted visible worksheet rows. The pure scrollbar geometry now supplies the same painted thumb to review and rendering. Ordinary shipping frames do not evaluate review-only arguments.
@@ -28,4 +30,4 @@ The source-consumer focused runs made before their branch commit retain dirty so
 
 Failed interim gates remain excluded: initial controller setup assumed the wrong Plot opener, Unsaved idle condition and resize completion; Unhide now waits for its actual settled viewport and queues End again if needed. A browser harness expected enum6 although the real App had correctly completed job5. Test lock contention was a harness scheduling error; locks remain nonblocking and no assertions or animation waits were removed. The full native inventory was not rerun.
 
-[Provenance](provenance.json) hashes the retained accepted manifests, logs and selected captures. Visual states, functioning interactions and analytical semantics remain separate evidence.
+Provenance (archived `provenance.json`) hashes the retained accepted manifests, logs and selected captures. Visual states, functioning interactions and analytical semantics remain separate evidence.

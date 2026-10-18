@@ -1,5 +1,7 @@
 # Shared C browser reporting — 17 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 W4 now uses the same C registry, actual pre-overlay frame capture, picker, note composer and worker-publication fence as native review. `make web-review` produces an isolated Wasm target. Browser glue intercepts its shortcut before GLFW, freezes CSS/backing geometry, copies owned C JSON/RGBA buffers and prepares one `.dxreview.tar` download. It adds no DOM widget tree or alternate spreadsheet UI. Native thread/outbox storage stays native; browser download preparation is explicitly not durable outbox/OPFS storage.
 
 Three real hidden Chromium runs accept **DPR 1, DPR 2 and DPR 2 with an inset/scaled canvas**. Each imports actual CSV data, opens the City filter, requests capture, picks `filter.search`, enters the UTF-8 note `İ filter`, downloads an archive and returns to the unchanged open filter. Reporting submits no database jobs. The existing project-scoped reader retrieves the C target, source location, image and frame/build identity from the exported manifest/PNG. Captures were visually inspected: the exported frame has the original popup and no picker/composer decoration. Actual archive members and PNG dimensions/hashes are checked, not just a transport helper.

@@ -1,2 +1,0 @@
-Command: ["./tests/test_selection_ladder-debug"]
-PASS: 170 selection ladder checks

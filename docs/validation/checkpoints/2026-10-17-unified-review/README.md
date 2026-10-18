@@ -1,5 +1,7 @@
 # Unified native/Wasm automatic feedback — 17 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Accepted implementation source **`5cd61fc`**, source manifest
 `f030ad791cb41396afde777e03c21d4ddde05fef9407cfdaf3646e793be67759`.
 The only preexisting untracked tree was `tools/ui-review/`; it was not staged or
@@ -21,23 +23,23 @@ design/implementation/verification approval.
   and ASan/UBSan reporting flows passed in **2.067s /2.123s**, preceded by the
   **477-check** hidden-window safety probe (**1.372s**). Entire gate **5.807s**.
   The two native reports per configuration retained their original frame/build
-  hashes. [Native source/binary manifest](native_acceptance.json).
+  hashes. Native source/binary manifest (archived `native_acceptance.json`).
 - The real browser **offline→save→reload→reconnect→queue** gate passed
   **39 checks**, **12.653s total**, at DPR2 with an inset80% canvas. The same
   **233,472-byte archive and SHA256** survived actual IndexedDB reload, one shared
   bundle was published, and its pending browser archive retired only after ACK.
   The test blocked only this owned page's review requests. The C app continued to
-  use its real official Worker/source fixture. [Manifest](browser_acceptance.json),
-  [full browser result](browser-offline-result.json), [pending confirmation](browser-pending.png).
+  use its real official Worker/source fixture. Manifest (archived `browser_acceptance.json`),
+  full browser result (archived `browser-offline-result.json`), pending confirmation (archived `browser-pending.png`).
 - The online real browser queue path passed **32 checks**, **10.635s total**,
-  with no archive download. [Result](browser-online-result.json),
-  [shared-queue confirmation](browser-queued.png).
+  with no archive download. Result (archived `browser-online-result.json`),
+  shared-queue confirmation (archived `browser-queued.png`).
 - An already running automatic worker discovered a real browser report and an
   atomically copied original native report, without a per-report chat prompt.
   The installed authenticated Codex CLI attached each actual PNG, inspected the
   target/context and wrote schema-validated triage. Both completed on attempt1.
-  [Results and approximate CLI invocation timings](agent-triage.json),
-  [durable queue/lifecycle assertions](loop-summary.json). A new queue instance
+  Results and approximate CLI invocation timings (archived `agent-triage.json`),
+  durable queue/lifecycle assertions (archived `loop-summary.json`). A new queue instance
   read both outcomes after processing; native lifecycle matched its source copy,
   and browser design/implementation/verification remained pending/not-started/unverified.
   Both synthetic test notes correctly yielded uncertain triage rather than an
@@ -51,13 +53,13 @@ processes, abrupt consumer exit, restart/expiry, intentional-stop requeue,
 failed-consumer recovery, atomic publication, malformed/path/link/project/hash
 rejection, ID conflicts, HTTP origin/token/restart and retained immutable bytes.
 Cached unchanged idle syncs perform zero PNG reads; claims fully revalidate.
-[Output](pure-tests.txt).
+Output (archived `pure-tests.txt`).
 
 Existing registry/store release and ASan/UBSan helpers, reader and build-checker
-fixtures passed in [review-core.txt](review-core.txt). Current normal/review Wasm
+fixtures passed in review-core.txt (archived `review-core.txt`). Current normal/review Wasm
 exports/assets/hosts and both optimized/sanitizer native shipping binaries passed
 linked review absence. The new browser uploader is absent from production.
-[Browser/native shipping artifact hashes](shipping-absence.json).
+Browser/native shipping artifact hashes (archived `shipping-absence.json`).
 
 All actual native windows were hidden/unfocused before creation. Browser runs used
 owned headless Chromium profiles and the shared desktop lock. No user app,

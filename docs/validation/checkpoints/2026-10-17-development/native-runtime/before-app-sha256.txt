@@ -1,1 +1,0 @@
-c47877ef343be9ec8f9b31c588f6ab635aaee6856fdb993db2acd67390b7f1a3  src/app/app.c

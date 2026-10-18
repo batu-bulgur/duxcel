@@ -1,1 +1,0 @@
-PASS browser-persistence verify: native v12 model/definitions retained; BIGINT, UBIGINT, DECIMAL(38,10), SQL NULL, empty text, literal NULL and UTF-8 exact; 118 checks

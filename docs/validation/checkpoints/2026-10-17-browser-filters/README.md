@@ -1,5 +1,7 @@
 # Shared source filters and active-query UI — 17 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 W3 now works through the actual C App and official asynchronous EH Worker. Native and browser available-value jobs share the same C SQL plan: 128-row pages, exact counts, search, exclusion of the edited column's own source filter, other-filter composition and five date levels. Browser replies become bounded, independently owned `DistinctPage` values. Typed SQL NULL, empty text and literal `NULL` remain separate.
 
 The final no-window real-engine driver passes **33 semantic stages /22,816 checks** in this run, with **40 jobs /59 SQL submissions /2 main COUNT submissions**. The whole gate takes **7.250 s**. Polling checks vary with frame scheduling; the stage/job/SQL/count inventory is asserted exactly. This includes 300 distinct categories across 128/128/44 pages, known-total reuse, NULL search, primary/secondary filter scope, year/month/day/hour/minute bounds, error recovery, retained result ownership, active cancellation and stale callbacks after stop. The original 80 ms active-query waits and quiet periods remain intact.

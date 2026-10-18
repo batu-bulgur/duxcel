@@ -1,5 +1,7 @@
 # Browser DPR, precise pan and workbook file foundation
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 17 October 2026. Production stays shared C99/raylib with the official asynchronous DuckDB-Wasm Worker; there is no new UI/runtime dependency or prototype edit.
 
 ## Scope and provenance
@@ -29,7 +31,7 @@ Pinned GLFW quantized tiny vertical wheel input to a full detent while horizonta
 
 The platform test reports **zero query jobs** during pan/zoom/density checks. All pointer selections still reach the intended C targets at DPR2 with the CSS transform. The browser-generated wheel assertion uses the actual trusted DOM delta: headless CDP at DPR2 delivered half its requested protocol delta, so the test records/compares delivered units rather than silently changing product speed. Earlier failed probes/test assumptions remain in ignored run logs; successful manifests above are the accepted boundaries.
 
-Matching blank state: [DPR1](blank-dpr1.png), [DPR2](blank-dpr2.png). [Actual Retina C filter frame](retina-filter-frame.png) retains its full framebuffer resolution rather than the CSS-scaled browser presentation.
+Matching blank state: DPR1 (archived `blank-dpr1.png`), DPR2 (archived `blank-dpr2.png`). Actual Retina C filter frame (archived `retina-filter-frame.png`) retains its full framebuffer resolution rather than the CSS-scaled browser presentation.
 
 All browser runs used a temporary headless Chromium150 profile under the shared desktop lock. Native windows were hidden before creation. Tests never accessed/reloaded the user's open tab, user profile, workbook or app. Temporary servers/profiles were closed; only the owned review origin on127.0.0.1:8767 remains. Old mock/Agentation ports4173/4174/4747/8768 remain closed. The service now serves the accepted review artifact and preserves its existing persistent queue; the user's page updates only on manual reload.
 

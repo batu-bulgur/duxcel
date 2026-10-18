@@ -1,2 +1,0 @@
-Command: ["./tests/test_filterlabel"]
-PASS: 238 filter-label checks (reference values/terms, exact numbers, typed NULL/empty/literal values, hierarchical date bounds, composite predicates, owned UTF-8 prefixes and payload limits)

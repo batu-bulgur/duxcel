@@ -1,2 +1,0 @@
-Command: ["./tests/test_core-debug", "--count-projection-only"]
-PASS: 28 focused COUNT projection checks

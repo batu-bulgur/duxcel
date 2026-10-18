@@ -1,9 +1,0 @@
-{
-  "mode": "optimized",
-  "phase": "run",
-  "command": [
-    "build/bp1-owner-counters-reader-owned-pressure/test-workbook-codec-read"
-  ],
-  "exit_code": 0,
-  "seconds": 0.698671708
-}

@@ -1,6 +1,0 @@
-Command: ["make", "duxcel", "tests/test_background-native-debug", "design-fixture"]
-make: `tests/test_background-native-debug' is up to date.
-node tools/export_design_fixture.mjs
-Design fixture: 310 real rows, 240 filtered, 30 groups
-./build/create-design-workbook
-PASS: canonical 310-row fixture, 240 filtered transactions, 30 native PIVOT groups and saved source-bound authoring workbook

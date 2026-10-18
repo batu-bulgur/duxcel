@@ -1,1 +1,0 @@
-PASS: 287 Guide input checks (actual Guide/shared control/layout modules; completed backdrop presses, translated pointers, blocked/clipped/right ownership and existing Close/Start/Escape/Enter; no GPU/OS)

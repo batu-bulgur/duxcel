@@ -1,5 +1,0 @@
-Error: Navigation changed the disabled metric mask
-    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:101:56)
-    at feedbackNavigation (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:946:35)
-    at async browserFeedbackReview (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:954:486)
-    at async file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:1912:24

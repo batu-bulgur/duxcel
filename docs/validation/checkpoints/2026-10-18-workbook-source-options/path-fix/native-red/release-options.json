@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release",
-    "--source-options-only"
-  ],
-  "seconds": 2.789449,
-  "exit_code": 1
-}

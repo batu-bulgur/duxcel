@@ -1,1 +1,0 @@
-PASS: 635 focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)

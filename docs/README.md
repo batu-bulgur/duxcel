@@ -1,6 +1,8 @@
 # Project documentation
 
-The JavaScript prototype remains the frozen design reference. The latest approved execution priority is a native agentic review build, followed by a browser proof that compiles the same C99/raylib UI to WebAssembly and uses the official DuckDB-Wasm Worker behind a thin typed bridge. Refine actual application behavior through native evidence and versioned design decisions; the reference's mock calculations, sample counts and design JSON are not production behavior. Native distribution gains no web runtime.
+**Current priority, 18 October 2026:** audit/cleanup and deliver a clean native bundle, then reproduce the remaining physical pan/selection bugs in the actual user-launchable app before expanding metadata components. Browser workbook Open/Save is still unavailable; complete UI and physical-input parity are not achieved. [STATUS.md](STATUS.md) distinguishes earlier tested revisions from the next bundle delivery.
+
+The JavaScript prototype remains the frozen design reference. The established architecture uses a native agentic review build and a browser proof compiling the same C99/raylib UI to WebAssembly with the official DuckDB-Wasm Worker behind a thin typed bridge. Refine actual application behavior through native evidence and versioned design decisions; the reference's mock calculations, sample counts and design JSON are not production behavior. Native distribution gains no web runtime.
 
 | Document | Purpose |
 | --- | --- |
@@ -20,7 +22,8 @@ The JavaScript prototype remains the frozen design reference. The latest approve
 | [TESTING.md](TESTING.md) | Short development checks and comprehensive regression |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Git workflow, worktrees and integration discipline |
 | [validation/README.md](validation/README.md) | Versioned acceptance records and performance interpretation |
-| [audit/2026-10-17.md](audit/2026-10-17.md) | Repository/implementation audit and cleanup rationale |
+| [audit/2026-10-18-cleanup.md](audit/2026-10-18-cleanup.md) | Current worktree audit, cleanup and native delivery |
+| [audit/2026-10-17.md](audit/2026-10-17.md) | Initial repository/implementation audit |
 | [archive/README.md](archive/README.md) | Earlier plans, test narratives and superseded assets |
 
 Resolve conflicts in this order: latest human requirements; the rendered prototype for demonstrated UI; explicit product/interaction requirements beyond its scope; current native acceptance matrix; historical records. The prototype's earlier “disposable study / awaiting approval” wording records its creation. It does not revoke the later instruction to implement it exactly. Missing native capabilities need honest disabled states or completed real actions, never pretend calculations.

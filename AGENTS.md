@@ -1,5 +1,11 @@
 # Working on Duxcel
 
+## Current human priority — 18 October 2026
+
+- Stop metadata component expansion. Audit and clean the repository/worktrees, then deliver a clean, user-launchable native bundle with its exact source recorded.
+- Next reproduce the remaining physical pan/selection bugs in that actual app before more metadata work. Automated callbacks, hidden tests and browser simulations do not establish physical-input parity.
+- Browser workbook Open/Save remains unavailable; complete UI and physical-input parity have not been achieved.
+
 ## Product and source of truth
 
 - Product UI and interaction logic remain C99 + raylib, with DuckDB for computation. macOS is the currently validated native platform; retain portable native boundaries for Linux/Windows. Do not add a web runtime to the native app.
@@ -12,7 +18,7 @@
 ## Implementation and parallel work
 
 - Prefer focused changes in existing modules. `docs/ARCHITECTURE.md` maps ownership. Keep one integration owner for `src/app/app.c`, shared UI/platform interfaces, and the build.
-- For independent parallel tasks, use agents in separate Git branches/worktrees with explicit file ownership. Initially allow at most two simultaneous compiler/engine processes on this 8 GB Mac. Read-only review can proceed concurrently.
+- Keep at most two active implementation lanes in separate Git branches/worktrees with explicit file ownership, and at most two simultaneous compiler/engine processes on this 8 GB Mac. Read-only review can proceed concurrently. Remove integrated clean checkouts promptly while keeping their refs; preserve unfinished or dirty work separately.
 - Native GUI, clipboard, file-panel, preferences, signing and bundle tests have a single desktop owner across worktrees. Use the test runner's desktop lock. Do not interact with or terminate a user's running app to perform tests.
 - Do not share writable generated databases between worktrees. Preserve core-before-workbook fixture ordering. Never overwrite an executable while a test suite is using it.
 - Review and integrate small commits; do not use broad refactors to create artificial parallelism. Never force-reset another agent's work. Do not modify global Git identity/configuration.
@@ -24,4 +30,5 @@
 - See `docs/TESTING.md` for runnable tiers, data requirements, serialization, and provenance. Keep sanitizer coverage. Do not remove assertions or shorten animation waits merely to report faster tests.
 - A helper passing tests is not an integrated feature. Report visual parity, working interaction, and analytical semantics separately. Associate evidence with the tested binary/source revision; the pre-Git frozen pass does not cover newer source changes.
 - Update the one current status/roadmap, rather than copying a checkpoint into several files. Record meaningful limitations and elapsed time, not only assertion totals.
+- Keep generated output ignored. Do not commit a full machine-payload capsule for each metadata slice; retain concise source-scoped summaries and only the small evidence needed to explain a concrete result or failure. Preserve historical README records, archive refs and pinned runtime-reference providers during cleanup.
 - Generated icons/brand headers are intentional checked-in derivatives. Do not hand-edit them or use `make -B`; the existing multi-output icon rule is not safe for arbitrary parallel regeneration.

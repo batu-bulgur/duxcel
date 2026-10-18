@@ -1,5 +1,0 @@
-Error: Actual primary-used selected incorrect containing bounds/direction
-    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:99:56)
-    at expand (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:1077:324)
-    at async browserSelection (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:1079:70)
-    at async file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:1828:19

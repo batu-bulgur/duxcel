@@ -1,6 +1,0 @@
-{
-  "status": "passed",
-  "profile": "codec-counters-driver",
-  "checks": 244,
-  "scope": "Partial owned Header with object descriptors and exact allocation counters only; no Workbook publication, App Save/Open or engine/RSS peak bound"
-}

@@ -1,2 +1,0 @@
-object native load /private/tmp/duxcel-codec-objects-tk1on1/absent13.dxls: Incomplete or incompatible workspace owner/format metadata.
-FAIL native workbook header:80: loaded && !error && native.count==64 && native.active==63

@@ -1,1 +1,0 @@
-{"status": "passed", "result": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T085319-browser-21091", "elapsed_seconds": 7.69}

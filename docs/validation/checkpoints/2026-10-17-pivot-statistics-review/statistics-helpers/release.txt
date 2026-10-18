@@ -1,2 +1,0 @@
-Command: ["./build/web-tests/test-query"]
-PASS: 426 browser query checks

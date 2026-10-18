@@ -1,1 +1,0 @@
-{"status":"passed","checks":8,"report":{"ok":true,"checks":123712,"stages":187},"output":"/Users/h2o/dev/duxcel/tests/results/runs/20261017T232029-browser-12553"}

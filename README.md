@@ -19,6 +19,6 @@ The current Mac already has Apple Clang, raylib, DuckDB and pkg-config. No addit
 - [User guide](docs/USER_GUIDE.md) — controls, shortcuts, persistence and limits.
 - [Testing](docs/TESTING.md) — fast edit loop, affected native checks and full regression.
 - [Contributing](docs/CONTRIBUTING.md) — Git branches, worktrees and parallel ownership.
-- [Project audit](docs/audit/2026-10-17.md) — file classification, quality findings and proposed course correction.
+- [Project audit](docs/audit/2026-10-18-cleanup.md) — file classification, quality findings and proposed course correction.
 
 Sources live in `src/`, tests in `tests/`, runtime assets in `assets/`, packaging in `packaging/`, and developer utilities in `tools/`. Generated binaries, datasets, local results and prototype dependencies are ignored. Related earlier design explorations are preserved under `docs/`, with their licenses and provenance.

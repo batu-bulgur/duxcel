@@ -1,5 +1,7 @@
 # Fixed sheet headers and review coverage — 17 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Runtime and focused harness: `41095d0`. The latest human zoom requirement overrides the prototype's earlier scaling of sheet headers. All new production behavior remains C99/raylib; the browser runs the same grid code.
 
 Row-number gutter width, both source-header tier heights and header typography now follow interface scale. Data rows/columns and cell text follow canvas zoom; row-header height and column-header width follow their corresponding cells. Header filtering, resizing, frozen dividers, selection handles and fit calculations use the appropriate units. Source and historical previews now share the actual header/data fit calculation.
@@ -26,4 +28,4 @@ Visual evidence, actual interactions and analytical semantics remain separate: t
 
 Earlier failed runs are not accepted evidence: the initial anchor test ignored default frozen columns and origin clamping; transformed pointer motion delivered 23.75 rather than 24 points; direct WebGL readback could sample a discarded buffer; the actual late WebGL attachment error was fixed. Short-picker tests now move the reporting toolbar using its real Space action. Saved reports are verified in captured-frame order rather than lexicographic IDs (`17` precedes `2`). The compact note screenshot waits for both hidden swap buffers to present.
 
-[Provenance](provenance.json) binds source, immutable browser artifacts, native binaries and retained evidence hashes. The only persistent project origin remains `http://127.0.0.1:8767/`, serving accepted review artifact `33cd6ba6708fccf4417a`; the automatic external queue consumer and existing durable outbox are retained. No user browser was refreshed. Managed-worktree archival was requested through the application and returned queued; physical removal is not claimed.
+Provenance (archived `provenance.json`) binds source, immutable browser artifacts, native binaries and retained evidence hashes. The only persistent project origin remains `http://127.0.0.1:8767/`, serving accepted review artifact `33cd6ba6708fccf4417a`; the automatic external queue consumer and existing durable outbox are retained. No user browser was refreshed. Managed-worktree archival was requested through the application and returned queued; physical removal is not claimed.

@@ -1,6 +1,8 @@
 # Action menus and owned formatting groundwork
 
-17 October 2026. Runtime integration `22e019d` combines reviewed worktree commits for action-menu paint and the format model. `8cb2718` and `5d7fceb` add only focused test entry points. The review-only drag follow-up has its own final acceptance below. [Provenance](provenance.json) records exact artifact hashes and individual source scopes. This is focused integration, not a full regression or complete UI-port sign-off.
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
+17 October 2026. Runtime integration `22e019d` combines reviewed worktree commits for action-menu paint and the format model. `8cb2718` and `5d7fceb` add only focused test entry points. The review-only drag follow-up has its own final acceptance below. Provenance (archived `provenance.json`) records exact artifact hashes and individual source scopes. This is focused integration, not a full regression or complete UI-port sign-off.
 
 ## Visible behavior
 
@@ -8,9 +10,9 @@ The shared C action-menu row now follows the frozen reference `design/prototype/
 
 File uses the same menu anatomy. It preserves the full-height separator when space permits, then uses a bounded scrolling command list in short windows. Up/Down/Tab wrap across available commands; Home/End reveal the first/last available command; Enter/Space activate it. Keyboard navigation owns its frame over wheel/drag input. Background controls are blocked; only an uncovered browser brand anchor can toggle File. An unrenderable tiny menu dismisses instead of remaining an invisible input owner. Reopening clears obsolete scroll/drag state.
 
-Actual shared-C browser acceptance uses trusted keys and wheel input at DPR2 with an inset/resized CSS canvas. It covers disabled Save/SaveAs/Quit skipping, reverse Tab, short-window reveal/wheel scrolling, Space Close/Cancel, a heading overlapping the brand, outside Help/grid clicks, tiny geometry and no extra database jobs. [Short File capture](file-menu-short.png) and [owned state/input evidence](browser-access-keys.json) retain the actual menu. The66-check run took 14.001 s; shipping Wasm12 took 7.075 s. These do not claim physical hardware/OS gesture acceptance or report-upload acceptance.
+Actual shared-C browser acceptance uses trusted keys and wheel input at DPR2 with an inset/resized CSS canvas. It covers disabled Save/SaveAs/Quit skipping, reverse Tab, short-window reveal/wheel scrolling, Space Close/Cancel, a heading overlapping the brand, outside Help/grid clicks, tiny geometry and no extra database jobs. Short File capture (archived `file-menu-short.png`) and owned state/input evidence (archived `browser-access-keys.json`) retain the actual menu. The66-check run took 14.001 s; shipping Wasm12 took 7.075 s. These do not claim physical hardware/OS gesture acceptance or report-upload acceptance.
 
-The hidden native sanitizer authoring profile passed all 15 stages at 100/150%, covering actual Marks/step/worksheet menus, disabled navigation, clipped scrolling and retained source/PIVOT caches with no extra SQL. See [native step actions](native-step-actions-disabled.png) and [worksheet actions at150%](native-sheet-actions-150.png). File is an extension using reference menu anatomy; the prototype does not define a separate File screen. Exact OS select-popup paint and the full inspector/menu state matrix remain unfinished.
+The hidden native sanitizer authoring profile passed all 15 stages at 100/150%, covering actual Marks/step/worksheet menus, disabled navigation, clipped scrolling and retained source/PIVOT caches with no extra SQL. See native step actions (archived `native-step-actions-disabled.png`) and worksheet actions at150% (archived `native-sheet-actions-150.png`). File is an extension using reference menu anatomy; the prototype does not define a separate File screen. Exact OS select-popup paint and the full inspector/menu state matrix remain unfinished.
 
 ## Formatting model and save boundary
 

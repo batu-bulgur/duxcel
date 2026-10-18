@@ -1,5 +1,7 @@
 # Native reporting integration — 17 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 This directory separates the earlier working native flow from the newer integration's headless/build evidence. It is not a full application regression or exact-UI sign-off.
 
 - `first-native-flow/` retains two real PNG/manifest bundles, an actual external-reader acknowledgment/reply. The accompanying `first-native-flow.txt` records the run. The optimized binary passed the earlier **19-stage** workflow at 100% and narrow 150%: open filter/search and condition submenu, native composer, durable save, typed frozen cell, disabled font command, cancellation, forced capture failure, failed outbox/retry, and an owned completed query reply held during reporting. That binary's SHA-256 is `68265793d97c0a05c16a4756048aa11018975f952021ecdf85e85c1739680304`; its native source fingerprint is `c49efbef4b26fd154f2edf5e108ea86f58fc6235ea20a298c6c863475e104a71`.

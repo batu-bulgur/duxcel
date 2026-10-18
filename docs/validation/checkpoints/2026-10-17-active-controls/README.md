@@ -1,5 +1,7 @@
 # Active selection, value retention, reference controls and hidden QA
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Integration source **413b25b**. The manifests retain the dirty-state/source and binary SHA-256 for each run. The native application was deliberately rebuilt with **O0 ASan/UBSan** for iteration; `build-o0.txt` preserves the exact command (7.344s). This is distinct from the default O1 sanitizer target and does not establish optimized input latency. GPU/background helpers use O1 sanitizers. No dependencies or global macOS/Git preferences were changed.
 
 | Accepted scope | Native stages/checks | Runtime (preparation excluded) |

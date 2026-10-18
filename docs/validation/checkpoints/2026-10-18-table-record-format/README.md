@@ -1,5 +1,7 @@
 # Native Table record formatting
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Runtime source `1ffc130` extends the accepted primary-source controller to one embedded raw CSV/Parquet Table per command. The development CLI is current; the signed `build/Duxcel.app` and persistent browser origin8767 remain at `7c451c3`. No user window or tab was launched or reloaded.
 
 The36-stage real native profile [764,800) uses600 private Parquet records, physical duplicate pairs, tied sorts, SQL NULL/empty/literal text and exact BIGINT/DECIMAL values. It verifies captured selections across page boundaries, local Table record/field coordinates at nonzero placement, sorting/filtering/eviction, moves and pending-placement cancellation, Undo/Redo, explicit cancellation, v14 Save/Open and refresh into a new source version. Separate Tables reading the same file do not inherit each other's styles. A no-op source Apply retains the verified Page/proof/history. Changed file content suspends styles without repeated idle verification or mutation.

@@ -1,1 +1,0 @@
-SELECT EXISTS(SELECT 1 FROM _duxcel_workspace.source_versions WHERE source_reference IS NULL OR octet_length(encode(source_reference))>65536 OR contains(source_reference,chr(0)) OR octet_length(definition)>=262144)

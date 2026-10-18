@@ -1,8 +1,0 @@
-{
-  "status": "passed",
-  "source": "6fb338b67e108a60f9d8d2e1b1bd2559841608b4",
-  "package": "/Users/h2o/dev/duxcel/build/Duxcel.app",
-  "binary_sha256": "bcc0ae47867e270885de7e6e642e112cdd8ad7d3cf82bda1857f3b820e9f88d3",
-  "shipping_sha256": "0c3305a3aa23798cf7c257a743ed1859080aa6b5f76f1610a4e4affab8bb5abe",
-  "launched": false
-}

@@ -1,5 +1,7 @@
 # Incremental builds and the narrow ribbon
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Build/collapse acceptance ends at **09ce3de**, followed by separately recorded More-menu integration **ff70638**, 17 October 2026. No fresh full-inventory, whole-interface or physical-input acceptance is claimed.
 
 ## Build acceptance

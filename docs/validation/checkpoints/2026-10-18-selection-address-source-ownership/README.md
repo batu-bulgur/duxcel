@@ -1,5 +1,7 @@
 # Containing selections, addresses and source ownership, 18 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Current integration `9c882ac`, source SHA256 `27cf40268b86ca57026c972e14361fab0cfa5bbaa1d7e8519a4187fe8ef09c28` (258 files). Each retained run pins its own earlier/current source, harness and binaries. This checkpoint combines separately scoped gates; it does not relabel older captures as the current binary or claim complete UI parity.
 
 ## Working interactions

@@ -1,2 +1,0 @@
-Command: ["./tests/test_record_sql"]
-PASS: 48904 raw-record SQL checks (private native v1.5.6; session provenance only)

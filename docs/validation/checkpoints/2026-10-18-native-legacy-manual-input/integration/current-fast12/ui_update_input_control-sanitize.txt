@@ -1,2 +1,0 @@
-Command: ["./tests/test_ui_update_input_control-debug"]
-PASS: 15785 actual ui_update modifier/navigation/keytip checks (portable Control policy; no window, GPU or OS input)

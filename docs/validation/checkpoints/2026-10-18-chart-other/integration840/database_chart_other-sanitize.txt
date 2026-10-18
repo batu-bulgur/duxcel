@@ -1,2 +1,0 @@
-Command: ["./tests/test_database_chart_other-debug"]
-PASS: database chart Other 383 checks; real native weighted/distinct/typed/key-proof/ownership gates

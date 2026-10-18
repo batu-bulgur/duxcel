@@ -1,5 +1,7 @@
 # Web compiler and dependency preparation — 17 October 2026
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 This is W1 preparation, not a running Duxcel browser UI or DuckDB-Wasm bridge.
 
 - The pinned Emscripten 6.0.12 installation was relocated from the owned worktree into `build/web/toolchain`; offline bootstrap rewrote its private absolute configuration and status succeeded without downloads. Existing Python 3.13.15 and Node 26.7.0 were reused. See `bootstrap.json` and `status.json`, with 11 fixture checks in `toolchain-tests.txt`.

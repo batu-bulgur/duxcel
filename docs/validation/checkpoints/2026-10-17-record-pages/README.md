@@ -1,5 +1,7 @@
 # Native raw Parquet Page provenance
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Accepted native/data code through `38601b7`, 17 October 2026. This is the Parquet portion of S1 in the [formatting plan](../../../design/SOURCE_FORMAT_IDENTITY.md). Formatting still uses coordinates; record selectors, captured format intents and verified save/reopen are unfinished.
 
 ## Working behavior and ownership
@@ -14,11 +16,11 @@ Business column indexes/types/text remain unchanged, including 256-column tables
 
 | Gate | Result / elapsed | Evidence |
 | --- | --- | --- |
-| SQL + integrated Page, release and ASan/UBSan |48,904 +31,467 checks each; warm total1.666s|[record gate](records/summary.json)|
-| Native source-record workflow, O1 ASan/UBSan |10 stages,7.078s App /8.860s total;477 background checks|[native summary](native-records/summary.json), [App log](native-records/layout-record-pages.txt)|
-| Existing table + public NYC/PIVOT workflows, same sanitizer binary |73+8 stages,34.347s+6.401s;47.567s including fixture preparation|[summary](table-nyc/summary.json)|
-| All19 read-only modules, both configurations |46.110s including30.500s build|[headless summary](headless/summary.json)|
-| Core→workbook, native allocator and browser wire ownership, both configurations |65.648s; workbook sanitizer41.331s retained|[integration summary](engine-integration/summary.json), [scoped driver](integration_checks.py)|
+| SQL + integrated Page, release and ASan/UBSan |48,904 +31,467 checks each; warm total1.666s|record gate (archived `records/summary.json`)|
+| Native source-record workflow, O1 ASan/UBSan |10 stages,7.078s App /8.860s total;477 background checks|native summary (archived `native-records/summary.json`), App log (archived `native-records/layout-record-pages.txt`)|
+| Existing table + public NYC/PIVOT workflows, same sanitizer binary |73+8 stages,34.347s+6.401s;47.567s including fixture preparation|summary (archived `table-nyc/summary.json`)|
+| All19 read-only modules, both configurations |46.110s including30.500s build|headless summary (archived `headless/summary.json`)|
+| Core→workbook, native allocator and browser wire ownership, both configurations |65.648s; workbook sanitizer41.331s retained|integration summary (archived `engine-integration/summary.json`), scoped driver (archived `integration_checks.py`)|
 
 The Page suite compares exact fields and IDs over offsets0/256/512, duplicate physical records, NULL/empty/literal text, BIGINT beyond2^53 and DECIMAL. It checks cache preparation/query reuse, typed filtering/sort ties, copy/statistics/export ordering, unsupported fallbacks, 256 business fields, empty pages, optional budget fallback, source replacement, moves and retained ownership after engine close. Wire tests preserve populated old records on malformed decode and clear them on valid/zero-row replacement, including a source-buffer alias into an old ID allocation. Preview tests reject changed provenance without consuming the prior pages.
 
@@ -26,7 +28,7 @@ The native test additionally proves the App rejects a replacement while retainin
 
 ## Complete Page-fetch measurement
 
-[Measurement](performance.json) records the binary/source and public file SHA,12 fresh private engine sessions and72 full Page fetches (one first +five warm each). DuckDB1.5.6 uses512MB, two engine threads and insertion-order preservation. The baseline uses an explicit identity source query to keep the ordinary business-only path. Engine-session first fetch is not OS-cache cold; one compiler ran concurrently.
+Measurement (archived `performance.json`) records the binary/source and public file SHA,12 fresh private engine sessions and72 full Page fetches (one first +five warm each). DuckDB1.5.6 uses512MB, two engine threads and insertion-order preservation. The baseline uses an explicit identity source query to keep the ordinary business-only path. Engine-session first fetch is not OS-cache cold; one compiler ran concurrently.
 
 | Case | Business-only warm median | With records | Ratio |
 | --- | ---: | ---: | ---: |
@@ -39,4 +41,4 @@ The native test additionally proves the App rejects a replacement while retainin
 
 Each case reused one prepared page statement for six queries; metadata added2,220bytes/Page in this worktree. The identified filtered first fetch was172.598ms versus24.065ms baseline and is retained, not explained away. Sorted IDs impose an extra deterministic key. These observations include conversion/ownership and worker-side allocations, not rendering/input latency or a universal speedup. No database/filesystem work was added to repaint.
 
-The separate [SQL seam record](sql-seam.json) includes earlier release/sanitizer checks and exact ordinary SQL/allocation compatibility across60 combinations. It is not a second whole-App acceptance claim. Browser input/UI, the complete native exact port and record formatting remain separately scoped.
+The separate SQL seam record (archived `sql-seam.json`) includes earlier release/sanitizer checks and exact ordinary SQL/allocation compatibility across60 combinations. It is not a second whole-App acceptance claim. Browser input/UI, the complete native exact port and record formatting remain separately scoped.

@@ -1,11 +1,15 @@
 /duxcel
 /duxcel-debug
+/duxcel.new
+/duxcel-debug.new
 /a.out
 *.dSYM/
 # Compiled tests; keep their C sources.
 /tests/test_*
 !/tests/test_*.c
 !/tests/test_*.m
+!/tests/test_*.h
+!/tests/test_*.inc
 /tests/generated/
 /tests/downloads/
 /tests/results/
@@ -18,3 +22,12 @@ node_modules/
 *.log
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.cache/
+.tmp/
+.venv/
+*.orig
+*.rej
+*.swp
+/core
+/core.[0-9]*

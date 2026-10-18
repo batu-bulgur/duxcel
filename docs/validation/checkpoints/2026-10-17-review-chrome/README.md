@@ -1,5 +1,7 @@
 # Review selection over title/ribbon chrome
 
+Historical checkpoint. Machine-generated payloads were removed from the current checkout on 18 October 2026; they remain recoverable at Git ref `archive/pre-cleanup-20261018`. Paths and measurements below describe that original run. See the [retention policy](../../README.md).
+
 Implementation **`965efc3`**, accepted on17October2026. The reported screenshot
 showed the title bar and ribbon tabs. Those controls were rendered but absent
 from the semantic review registry. This was a coverage gap, not a CSS/DPR hit-test
@@ -27,11 +29,11 @@ pickable. Added registration and selection diagnostics are review-only.
   enters the real C composer with the exact expected target and cancels back to
   the open filter. The original filter report still reaches the durable queue
   with correct frame/hash/target; report interactions schedule no additional SQL.
-  [Home selected in the C composer](home-selected.png).
+  Home selected in the C composer (archived `home-selected.png`).
 - Fresh normal/review Wasm and both native shipping/review build boundaries pass
   linked absence after all binaries finished building. Native builds emitted no warnings.
 
-[Full source/binary manifests and results](acceptance.json). All native windows
+Full source/binary manifests and results (archived `acceptance.json`). All native windows
 were hidden before creation; the browser used an owned headless profile and the
 shared desktop lock. No user's running app/browser or desktop was controlled.
 
