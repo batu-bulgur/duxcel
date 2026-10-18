@@ -1,0 +1,111 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T01:43:57.634980+00:00",
+  "tier": "affected",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": false,
+  "edit": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "6fbb9abbab14a3959f891e72e1347f59510497af",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "416b080ad68dde15ccdcd595851a8faf9f309efdd9494b81a4ea116d5dded402",
+    "source_files": 262
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_format-debug",
+        "tests/test_source_scope-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.422
+    },
+    {
+      "name": "format-sanitize",
+      "command": [
+        "./tests/test_format-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/format-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.828
+    },
+    {
+      "name": "source_scope-sanitize",
+      "command": [
+        "./tests/test_source_scope-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/source_scope-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.139
+    },
+    {
+      "name": "build-integration",
+      "command": [
+        "make",
+        "duxcel-debug",
+        "tests/test_background-native-debug",
+        "design-fixture"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/build-integration.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 47.811
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.812
+    },
+    {
+      "name": "layout-source-result-format",
+      "command": [
+        "./duxcel-debug",
+        "--layout-smoke",
+        "--frames",
+        "1632",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/final.png"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/layout-source-result-format.txt",
+      "expected_stages": 24,
+      "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[800,824\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 16.134
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_format-debug": "f382fdcf8698182b3fe4aeda56360e04d156ef2a124be3833f00736ad39a94da",
+    "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "e4350c1b42f333245f5eba6229caf0b1bf6887fe11d2a5a5d81a2ee2238f178d",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "f8f5933ca49fd6b83522a6063c8a6c0e742c4df0107b33e3ec8a5f575098d970",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "app_config": "sanitize",
+  "elapsed_seconds": 67.388,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_format-debug": "f382fdcf8698182b3fe4aeda56360e04d156ef2a124be3833f00736ad39a94da",
+    "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "e4350c1b42f333245f5eba6229caf0b1bf6887fe11d2a5a5d81a2ee2238f178d",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "f8f5933ca49fd6b83522a6063c8a6c0e742c4df0107b33e3ec8a5f575098d970",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "finished_utc": "2026-10-18T01:45:05.153286+00:00"
+}

@@ -1,0 +1,629 @@
+{
+  "checkpoint_proposal": "2026-10-18-native-result-activation",
+  "staging_only": false,
+  "source_current": "c5e52b3e34572e3f8ca4a6b9929e5d1d906e96c2",
+  "runs": {
+    "result-sanitize": {
+      "id": "20261018T014357-affected-64863",
+      "status": "passed",
+      "source": {
+        "commit": "6fbb9abbab14a3959f891e72e1347f59510497af",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "416b080ad68dde15ccdcd595851a8faf9f309efdd9494b81a4ea116d5dded402",
+        "source_files": 262
+      },
+      "app_config": "sanitize",
+      "elapsed_seconds": 67.388,
+      "app_seconds": 16.134,
+      "expected_stages": 24,
+      "binaries": {
+        "/Users/h2o/dev/duxcel/tests/test_format-debug": "f382fdcf8698182b3fe4aeda56360e04d156ef2a124be3833f00736ad39a94da",
+        "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "e4350c1b42f333245f5eba6229caf0b1bf6887fe11d2a5a5d81a2ee2238f178d",
+        "/Users/h2o/dev/duxcel/duxcel-debug": "f8f5933ca49fd6b83522a6063c8a6c0e742c4df0107b33e3ec8a5f575098d970",
+        "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+      },
+      "performance_lines": [
+        "Draw submission CPU p95=1.659 ms (excludes swap/pacing)",
+        "Duxcel frames=722 mean=20.00 ms p95=17.88 ms max=497.39 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+        "Layout smoke completed [800,824)",
+        "Worker jobs=32 SQL executions=45 count queries=9"
+      ]
+    },
+    "containment-sanitize": {
+      "id": "20261018T014505-affected-66154",
+      "status": "passed",
+      "source": {
+        "commit": "6fbb9abbab14a3959f891e72e1347f59510497af",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "416b080ad68dde15ccdcd595851a8faf9f309efdd9494b81a4ea116d5dded402",
+        "source_files": 262
+      },
+      "app_config": "sanitize",
+      "elapsed_seconds": 29.79,
+      "app_seconds": 26.308,
+      "expected_stages": 43,
+      "binaries": {
+        "/Users/h2o/dev/duxcel/tests/test_format-debug": "f382fdcf8698182b3fe4aeda56360e04d156ef2a124be3833f00736ad39a94da",
+        "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "e4350c1b42f333245f5eba6229caf0b1bf6887fe11d2a5a5d81a2ee2238f178d",
+        "/Users/h2o/dev/duxcel/duxcel-debug": "f8f5933ca49fd6b83522a6063c8a6c0e742c4df0107b33e3ec8a5f575098d970",
+        "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+      },
+      "performance_lines": [
+        "Draw submission CPU p95=2.071 ms (excludes swap/pacing)",
+        "Duxcel frames=1274 mean=19.96 ms p95=17.88 ms max=445.62 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+        "Layout smoke completed [687,730)",
+        "Worker jobs=18 SQL executions=27 count queries=3"
+      ]
+    },
+    "primary-record-sanitize": {
+      "id": "20261018T014535-affected-66488",
+      "status": "passed",
+      "source": {
+        "commit": "6fbb9abbab14a3959f891e72e1347f59510497af",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "416b080ad68dde15ccdcd595851a8faf9f309efdd9494b81a4ea116d5dded402",
+        "source_files": 262
+      },
+      "app_config": "sanitize",
+      "elapsed_seconds": 22.76,
+      "app_seconds": 18.706,
+      "expected_stages": 30,
+      "binaries": {
+        "/Users/h2o/dev/duxcel/tests/test_format-debug": "f382fdcf8698182b3fe4aeda56360e04d156ef2a124be3833f00736ad39a94da",
+        "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "e4350c1b42f333245f5eba6229caf0b1bf6887fe11d2a5a5d81a2ee2238f178d",
+        "/Users/h2o/dev/duxcel/duxcel-debug": "f8f5933ca49fd6b83522a6063c8a6c0e742c4df0107b33e3ec8a5f575098d970",
+        "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+      },
+      "performance_lines": [
+        "Draw submission CPU p95=0.611 ms (excludes swap/pacing)",
+        "Duxcel frames=914 mean=19.29 ms p95=17.85 ms max=465.59 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+        "Layout smoke completed [734,764)",
+        "Worker jobs=30 SQL executions=19 count queries=5"
+      ]
+    },
+    "table-edit": {
+      "id": "20261018T014947-affected-68747",
+      "status": "passed",
+      "source": {
+        "commit": "6fbb9abbab14a3959f891e72e1347f59510497af",
+        "status": "M src/app/app.c\n?? tools/ui-review/",
+        "source_sha256": "6c2453ecfa3ab741cb13eae38c5bc5cb0be6ce32a7659dd8df8c212132053cd8",
+        "source_files": 262
+      },
+      "app_config": "edit-sanitize",
+      "elapsed_seconds": 35.891,
+      "app_seconds": 23.448,
+      "expected_stages": 36,
+      "binaries": {
+        "/Users/h2o/dev/duxcel/tests/test_format-debug": "f382fdcf8698182b3fe4aeda56360e04d156ef2a124be3833f00736ad39a94da",
+        "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "e4350c1b42f333245f5eba6229caf0b1bf6887fe11d2a5a5d81a2ee2238f178d",
+        "/Users/h2o/dev/duxcel/build/edit-sanitize/duxcel": "d7ec72fa7e8a35062bee68a882cc99ddfd650072bfbaa5542b1124f8ac1c6081",
+        "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+      },
+      "performance_lines": [
+        "Draw submission CPU p95=3.591 ms (excludes swap/pacing)",
+        "Duxcel frames=1154 mean=18.67 ms p95=17.90 ms max=506.82 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+        "Layout smoke completed [764,800)",
+        "Worker jobs=45 SQL executions=37 count queries=11"
+      ]
+    },
+    "result-release": {
+      "id": "20261018T015030-affected-69186",
+      "status": "passed",
+      "source": {
+        "commit": "c5e52b3e34572e3f8ca4a6b9929e5d1d906e96c2",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "6c2453ecfa3ab741cb13eae38c5bc5cb0be6ce32a7659dd8df8c212132053cd8",
+        "source_files": 262
+      },
+      "app_config": "release",
+      "elapsed_seconds": 24.041,
+      "app_seconds": 12.72,
+      "expected_stages": 24,
+      "binaries": {
+        "/Users/h2o/dev/duxcel/tests/test_format": "27f80fccfc59a9d7e6fd73f06277f0bf4114599754337795e6e947665c08f1a8",
+        "/Users/h2o/dev/duxcel/tests/test_source_scope": "4e23c7d9b401912442f0ce42898424032c7ac7c00047e33363f100b122130ff8",
+        "/Users/h2o/dev/duxcel/duxcel": "3377741b636234c0c18861c56e7980fc286bb5603995e762bed2bb0eef4c6925",
+        "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+      },
+      "performance_lines": [
+        "Draw submission CPU p95=1.372 ms (excludes swap/pacing)",
+        "Duxcel frames=578 mean=20.03 ms p95=17.89 ms max=421.15 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+        "Layout smoke completed [800,824)",
+        "Worker jobs=32 SQL executions=45 count queries=9"
+      ]
+    },
+    "table-release": {
+      "id": "20261018T015055-affected-69570",
+      "status": "passed",
+      "source": {
+        "commit": "c5e52b3e34572e3f8ca4a6b9929e5d1d906e96c2",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "6c2453ecfa3ab741cb13eae38c5bc5cb0be6ce32a7659dd8df8c212132053cd8",
+        "source_files": 262
+      },
+      "app_config": "release",
+      "elapsed_seconds": 20.774,
+      "app_seconds": 18.115,
+      "expected_stages": 36,
+      "binaries": {
+        "/Users/h2o/dev/duxcel/tests/test_format": "27f80fccfc59a9d7e6fd73f06277f0bf4114599754337795e6e947665c08f1a8",
+        "/Users/h2o/dev/duxcel/tests/test_source_scope": "4e23c7d9b401912442f0ce42898424032c7ac7c00047e33363f100b122130ff8",
+        "/Users/h2o/dev/duxcel/duxcel": "3377741b636234c0c18861c56e7980fc286bb5603995e762bed2bb0eef4c6925",
+        "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+      },
+      "performance_lines": [
+        "Draw submission CPU p95=1.195 ms (excludes swap/pacing)",
+        "Duxcel frames=938 mean=18.61 ms p95=17.85 ms max=413.96 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+        "Layout smoke completed [764,800)",
+        "Worker jobs=44 SQL executions=37 count queries=11"
+      ]
+    },
+    "table-sanitize": {
+      "id": "20261018T015115-affected-69888",
+      "status": "passed",
+      "source": {
+        "commit": "c5e52b3e34572e3f8ca4a6b9929e5d1d906e96c2",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "6c2453ecfa3ab741cb13eae38c5bc5cb0be6ce32a7659dd8df8c212132053cd8",
+        "source_files": 262
+      },
+      "app_config": "sanitize",
+      "elapsed_seconds": 65.316,
+      "app_seconds": 22.762,
+      "expected_stages": 36,
+      "binaries": {
+        "/Users/h2o/dev/duxcel/tests/test_format-debug": "f382fdcf8698182b3fe4aeda56360e04d156ef2a124be3833f00736ad39a94da",
+        "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "e4350c1b42f333245f5eba6229caf0b1bf6887fe11d2a5a5d81a2ee2238f178d",
+        "/Users/h2o/dev/duxcel/duxcel-debug": "b9e43393ef4bd7ff5fe8afe2bf866cb84a8ddfd6730273ef71ca1421237fa9ef",
+        "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+      },
+      "performance_lines": [
+        "Draw submission CPU p95=1.354 ms (excludes swap/pacing)",
+        "Duxcel frames=1130 mean=18.75 ms p95=17.84 ms max=496.44 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+        "Layout smoke completed [764,800)",
+        "Worker jobs=45 SQL executions=37 count queries=11"
+      ]
+    }
+  },
+  "files": {
+    "result-sanitize/summary.json": {
+      "sha256": "1e872586c0ddcc5c1b31a182246e1021e35e322cfd69a911088bb4a74892ec30",
+      "bytes": 3983,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/summary.json",
+      "origin": "20261018T014357-affected-64863"
+    },
+    "result-sanitize/layout-source-result-format.txt": {
+      "sha256": "795727f067d11b2bef4e4cf887d4b09976df35cf6a178c96ac490d60a333427d",
+      "bytes": 7972,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/layout-source-result-format.txt",
+      "origin": "20261018T014357-affected-64863"
+    },
+    "result-sanitize/build-integration.txt": {
+      "sha256": "ca65d8efa697fc998942c0e5e0a519383fd9f22163383e80069715ca6fd7c4a1",
+      "bytes": 396,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/build-integration.txt",
+      "origin": "20261018T014357-affected-64863"
+    },
+    "result-sanitize/background-sanitize.txt": {
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "bytes": 2518,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/background-sanitize.txt",
+      "origin": "20261018T014357-affected-64863"
+    },
+    "components/format-sanitize.txt": {
+      "sha256": "0347ebdbe191b26425cc0d3285bb805c6ef0be905dfed3b87dbafb4d77bf7525",
+      "bytes": 218,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/format-sanitize.txt",
+      "origin": "20261018T014357-affected-64863"
+    },
+    "components/source_scope-sanitize.txt": {
+      "sha256": "db9feb41cc33ff6fdf14fe3aa3c7a2a417312c95fb9fa8ba2228b126860a29c5",
+      "bytes": 77,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014357-affected-64863/source_scope-sanitize.txt",
+      "origin": "20261018T014357-affected-64863"
+    },
+    "containment-sanitize/summary.json": {
+      "sha256": "0a2dc898eb1d38c2748f45a9424b49e6428555fbb9fd20ec2874f95573eaac1d",
+      "bytes": 3967,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014505-affected-66154/summary.json",
+      "origin": "20261018T014505-affected-66154"
+    },
+    "containment-sanitize/layout-source-format.txt": {
+      "sha256": "bf945d7bf150892a291486a36d0c293f376c7b9ab361704bd712b98411ca24d6",
+      "bytes": 13041,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014505-affected-66154/layout-source-format.txt",
+      "origin": "20261018T014505-affected-66154"
+    },
+    "containment-sanitize/build-integration.txt": {
+      "sha256": "ca65d8efa697fc998942c0e5e0a519383fd9f22163383e80069715ca6fd7c4a1",
+      "bytes": 396,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014505-affected-66154/build-integration.txt",
+      "origin": "20261018T014505-affected-66154"
+    },
+    "containment-sanitize/background-sanitize.txt": {
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "bytes": 2518,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014505-affected-66154/background-sanitize.txt",
+      "origin": "20261018T014505-affected-66154"
+    },
+    "primary-record-sanitize/summary.json": {
+      "sha256": "4e91d93ed525688b8e2d246368316e303ba8a36b30ef875d21adfa333a552706",
+      "bytes": 3981,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014535-affected-66488/summary.json",
+      "origin": "20261018T014535-affected-66488"
+    },
+    "primary-record-sanitize/layout-source-record-format.txt": {
+      "sha256": "5e12099ebff1248975734950c4d9db098f2204d49a8691894cd52c4bbfa256e5",
+      "bytes": 7761,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014535-affected-66488/layout-source-record-format.txt",
+      "origin": "20261018T014535-affected-66488"
+    },
+    "primary-record-sanitize/build-integration.txt": {
+      "sha256": "ca65d8efa697fc998942c0e5e0a519383fd9f22163383e80069715ca6fd7c4a1",
+      "bytes": 396,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014535-affected-66488/build-integration.txt",
+      "origin": "20261018T014535-affected-66488"
+    },
+    "primary-record-sanitize/background-sanitize.txt": {
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "bytes": 2518,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014535-affected-66488/background-sanitize.txt",
+      "origin": "20261018T014535-affected-66488"
+    },
+    "table-edit/summary.json": {
+      "sha256": "e0ad1c6848986cc4accaefe74f0285978d0d6491eefa4d0acfedd54bed82d7e1",
+      "bytes": 4082,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014947-affected-68747/summary.json",
+      "origin": "20261018T014947-affected-68747"
+    },
+    "table-edit/layout-table-record-format.txt": {
+      "sha256": "effbfee31e512113a42cbb953720bbe695eeb153162f23e38fe9889c121f81c1",
+      "bytes": 8458,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014947-affected-68747/layout-table-record-format.txt",
+      "origin": "20261018T014947-affected-68747"
+    },
+    "table-edit/build-integration.txt": {
+      "sha256": "f77966584e689ad0f68a7d2456e9f4f48d90ffc8ab63f743a649aafe57a034d7",
+      "bytes": 410,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014947-affected-68747/build-integration.txt",
+      "origin": "20261018T014947-affected-68747"
+    },
+    "table-edit/background-sanitize.txt": {
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "bytes": 2518,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014947-affected-68747/background-sanitize.txt",
+      "origin": "20261018T014947-affected-68747"
+    },
+    "result-release/summary.json": {
+      "sha256": "55325699c9cb481a13448a181aa3d90b860014c332f45f19afcb94768e851570",
+      "bytes": 3903,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015030-affected-69186/summary.json",
+      "origin": "20261018T015030-affected-69186"
+    },
+    "result-release/layout-source-result-format.txt": {
+      "sha256": "b76e3cb357e5d947773a8bdf847305ea685d13ce8f247eeffd97d324cfbdaba3",
+      "bytes": 7966,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015030-affected-69186/layout-source-result-format.txt",
+      "origin": "20261018T015030-affected-69186"
+    },
+    "result-release/build-integration.txt": {
+      "sha256": "25ce63c4ea1ed74c153db4e18b4f427f9700acaacd615753b09a02884703b8a3",
+      "bytes": 390,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015030-affected-69186/build-integration.txt",
+      "origin": "20261018T015030-affected-69186"
+    },
+    "result-release/background-sanitize.txt": {
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "bytes": 2518,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015030-affected-69186/background-sanitize.txt",
+      "origin": "20261018T015030-affected-69186"
+    },
+    "components/format-release.txt": {
+      "sha256": "d9aa3257c7a9a059df8714f82627f27920d428fe483ffda4ff3911ae68911867",
+      "bytes": 212,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015030-affected-69186/format-release.txt",
+      "origin": "20261018T015030-affected-69186"
+    },
+    "components/source_scope-release.txt": {
+      "sha256": "0f879aaa1ab6b0e5598012cfa235f9db69d8fa2ebf7c1faef629bb2be9694307",
+      "bytes": 71,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015030-affected-69186/source_scope-release.txt",
+      "origin": "20261018T015030-affected-69186"
+    },
+    "images/source-result-verified.png": {
+      "sha256": "5abade9ef4ebfbcfa85f600c96b15f0f400d1ae639a0f165f5058e8f5d8649b9",
+      "bytes": 740867,
+      "source": "/Users/h2o/dev/duxcel/tests/results/workspace-layout/source-result-verified.png",
+      "origin": "20261018T015030-affected-69186"
+    },
+    "images/source-result-filtered.png": {
+      "sha256": "19d9fa56d958d88f1048252bebeb4856f1cf2ca6a46d0c92c8ae3197e7f56259",
+      "bytes": 739247,
+      "source": "/Users/h2o/dev/duxcel/tests/results/workspace-layout/source-result-filtered.png",
+      "origin": "20261018T015030-affected-69186"
+    },
+    "images/source-result-preview.png": {
+      "sha256": "651b14f558a11eb7ab763a96aac9e08562fae7e43ae6fca3bb019ba4ffcda0d4",
+      "bytes": 719848,
+      "source": "/Users/h2o/dev/duxcel/tests/results/workspace-layout/source-result-preview.png",
+      "origin": "20261018T015030-affected-69186"
+    },
+    "images/source-result-restored.png": {
+      "sha256": "d10d712db31df8fa64d2405d45e4ef4d7f26966de60b1fbbdf51253a2daf6823",
+      "bytes": 836097,
+      "source": "/Users/h2o/dev/duxcel/tests/results/workspace-layout/source-result-restored.png",
+      "origin": "20261018T015030-affected-69186"
+    },
+    "table-release/summary.json": {
+      "sha256": "979839c2e20b58b44cd31c4ba739a7851c64603856a29f41d59da5b0179891d7",
+      "bytes": 3902,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015055-affected-69570/summary.json",
+      "origin": "20261018T015055-affected-69570"
+    },
+    "table-release/layout-table-record-format.txt": {
+      "sha256": "41c9cfcf3aebdb8fa4f6d59cda88e4185717a7f06301218af89d0358f7d8e3a0",
+      "bytes": 8294,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015055-affected-69570/layout-table-record-format.txt",
+      "origin": "20261018T015055-affected-69570"
+    },
+    "table-release/build-integration.txt": {
+      "sha256": "25ce63c4ea1ed74c153db4e18b4f427f9700acaacd615753b09a02884703b8a3",
+      "bytes": 390,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015055-affected-69570/build-integration.txt",
+      "origin": "20261018T015055-affected-69570"
+    },
+    "table-release/background-sanitize.txt": {
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "bytes": 2518,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015055-affected-69570/background-sanitize.txt",
+      "origin": "20261018T015055-affected-69570"
+    },
+    "worker192/summary.json": {
+      "sha256": "e27a75e320653d6e1a4ee9be5f1654f0ec4f8e90cab17749ee9a7136a2492fc0",
+      "bytes": 34081,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014835-browser-67919/summary.json",
+      "origin": "20261018T014835-browser-67919"
+    },
+    "worker192/worker-driver.json": {
+      "sha256": "33a2b98f7d7b950f89b8128c0f2761812ab11a802ceb23adf513d76032b31156",
+      "bytes": 53,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014835-browser-67919/worker-driver.json",
+      "origin": "20261018T014835-browser-67919"
+    },
+    "worker192/worker-workloads.json": {
+      "sha256": "69fc58dfa72ecac39ff718a77bff114f0ae4d9eb951033f64451cf910394d2a4",
+      "bytes": 366,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014835-browser-67919/worker-workloads.json",
+      "origin": "20261018T014835-browser-67919"
+    },
+    "worker192/driver.txt": {
+      "sha256": "c1dcec4b2ab32ae5e2f803a412e9a97377085bdb373e85ea1f7b14fb012c1e5f",
+      "bytes": 163,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014835-browser-67919/driver.txt",
+      "origin": "20261018T014835-browser-67919"
+    },
+    "worker192/cleanup.json": {
+      "sha256": "2774cfc4e6b42a19a99b8d92e1287d8685858f7857009db7798a3d1230525347",
+      "bytes": 207,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014835-browser-67919/cleanup.json",
+      "origin": "20261018T014835-browser-67919"
+    },
+    "worker192/accepted-build.json": {
+      "sha256": "0677daa54fcd44e29deb73976cff51386a3a01d080fbdd87aa29f6275543f209",
+      "bytes": 32261,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T014835-browser-67919/summary.json#/artifact",
+      "origin": "lossless extracted accepted build metadata"
+    },
+    "source-inputs.json": {
+      "sha256": "6095f6db49f42de8d25904ae985a56d3640e02a72dfd838ae61c64fc105909b2",
+      "bytes": 2433,
+      "source": "git objects at explicitly named commits",
+      "origin": "immutable authored source hashes"
+    },
+    "images/table-record-format-returned.png": {
+      "sha256": "9f7d45b9d2c6d2506f1c28f740e0c6fec005ef77f703006919635db98f6f3cfa",
+      "bytes": 739521,
+      "source": "/Users/h2o/dev/duxcel/tests/results/workspace-layout/table-record-format-returned.png",
+      "origin": "20261018T015055-affected-69570",
+      "retention_note": "Copied and before/after SHA-checked in the first staging pass only after original mtime was verified within owning completed release run; shared source was overwritten by later O1 run before second manifest pass."
+    },
+    "images/table-record-format-reopened.png": {
+      "sha256": "ced823ab20e94fe0d091ff5fd969144c9afb1a50a25c315f2f32ccaecfb04644",
+      "bytes": 756096,
+      "source": "/Users/h2o/dev/duxcel/tests/results/workspace-layout/table-record-format-reopened.png",
+      "origin": "20261018T015055-affected-69570",
+      "retention_note": "Copied and before/after SHA-checked in the first staging pass only after original mtime was verified within owning completed release run; shared source was overwritten by later O1 run before second manifest pass."
+    },
+    "images/table-record-format-preview.png": {
+      "sha256": "7a986e6742f3c8ab935c1978f921d1173ae38312b503a07221310c13d3b10059",
+      "bytes": 681600,
+      "source": "/Users/h2o/dev/duxcel/tests/results/workspace-layout/table-record-format-preview.png",
+      "origin": "20261018T015055-affected-69570",
+      "retention_note": "Copied and before/after SHA-checked in the first staging pass only after original mtime was verified within owning completed release run; shared source was overwritten by later O1 run before second manifest pass."
+    },
+    "table-sanitize/summary.json": {
+      "sha256": "b2fc479cd40ffa71bd633cad43f91f20afd22db1b26f59a16038fc1aa05e66a6",
+      "bytes": 3980,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/summary.json",
+      "origin": "20261018T015115-affected-69888"
+    },
+    "table-sanitize/layout-table-record-format.txt": {
+      "sha256": "7003f8c37ea752e110c7d2139066e7c858c7d6be245328a4238b2c5fea9b3459",
+      "bytes": 8307,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/layout-table-record-format.txt",
+      "origin": "20261018T015115-affected-69888"
+    },
+    "table-sanitize/build-integration.txt": {
+      "sha256": "ca65d8efa697fc998942c0e5e0a519383fd9f22163383e80069715ca6fd7c4a1",
+      "bytes": 396,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/build-integration.txt",
+      "origin": "20261018T015115-affected-69888"
+    },
+    "table-sanitize/background-sanitize.txt": {
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "bytes": 2518,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/background-sanitize.txt",
+      "origin": "20261018T015115-affected-69888"
+    },
+    "web/app-build.json": {
+      "sha256": "642e906b9a1c8d1f37b7610d874881bf5dd471de8e6aad4b1a9b57464e810347",
+      "bytes": 33506,
+      "source": "/Users/h2o/dev/duxcel/build/web/app/63c4c876aa0bde43a864/build.json",
+      "origin": "63c4c876aa0bde43a8642deb64a1ff41845b9b88332ab9e4e41156966c1467ee"
+    },
+    "web/review-build.json": {
+      "sha256": "8865d4ef7126ac9667a51e3df13ec74db91ab0037d1de96aacd85c5cc7b3c915",
+      "bytes": 34172,
+      "source": "/Users/h2o/dev/duxcel/build/web/review/1235df02020bbce9bbe0/build.json",
+      "origin": "1235df02020bbce9bbe0601e9a6bdb1e9f78b2731deeb550c72dccbaca85b999"
+    },
+    "absence/native-optimized.json": {
+      "sha256": "40de553d79d89ea78b486ca7c6366e45f7f32c5d8c7c319c036e1dd616e9e419",
+      "bytes": 1995,
+      "source": "/Users/h2o/dev/duxcel/build/result-accept-native-absence.txt",
+      "origin": "c5e52b3 static shipping exclusion"
+    },
+    "absence/native-sanitize.json": {
+      "sha256": "e97394f90130916a297a60ed1bc36b789966fe14703a2f657eedc8d739481cf5",
+      "bytes": 2001,
+      "source": "/Users/h2o/dev/duxcel/build/result-accept-sanitize-absence.txt",
+      "origin": "c5e52b3 static shipping exclusion"
+    },
+    "absence/web-check.txt": {
+      "sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a",
+      "bytes": 102,
+      "source": "/Users/h2o/dev/duxcel/build/result-accept-web-absence.txt",
+      "origin": "c5e52b3 static shipping exclusion"
+    },
+    "absence/web.json": {
+      "sha256": "4eb8a0753609c90a5541c8a9397a392d468d63d1ba4551087921a506f716aeb1",
+      "bytes": 1954,
+      "source": "/Users/h2o/dev/duxcel/build/web/review-absence.json",
+      "origin": "c5e52b3 static shipping exclusion"
+    },
+    "review400/summary.json": {
+      "sha256": "a313a7bf062846828743c7d6bcb1e51a7bb6a22c73ba4b5169d5a07f31e94e51",
+      "bytes": 4032,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/summary.json",
+      "origin": "20261018T015236-review-70926"
+    },
+    "review400/release.log": {
+      "sha256": "a830e49beff0279659cb6e93461af16d9f4b76006ba223d4414656f6dcd0c2c2",
+      "bytes": 164189,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/release.log",
+      "origin": "20261018T015236-review-70926"
+    },
+    "review400/background.log": {
+      "sha256": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
+      "bytes": 2468,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/background.log",
+      "origin": "20261018T015236-review-70926"
+    },
+    "review400/report-1/frame.png": {
+      "sha256": "6b04b6963f74eb49eb06f3b9b29e62c40c5c56d969654457eacab9e6a5dc375c",
+      "bytes": 416449,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/release/outbox/DXR-S-1792288358-70932-1/frame.png",
+      "origin": "DXR-S-1792288358-70932-1"
+    },
+    "review400/report-1/manifest.json": {
+      "sha256": "f6af446800156922e7bc3906e8102de576295568d64107406c3063ee49ef3c3e",
+      "bytes": 56183,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/release/outbox/DXR-S-1792288358-70932-1/manifest.json",
+      "origin": "DXR-S-1792288358-70932-1"
+    },
+    "review400/report-1/lifecycle.json": {
+      "sha256": "dbb493a6de358048224f5faa39197b572de29f7f499146e16804a47c4a691276",
+      "bytes": 968,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/release/outbox/DXR-S-1792288358-70932-1/lifecycle.json",
+      "origin": "DXR-S-1792288358-70932-1"
+    },
+    "review400/report-2/frame.png": {
+      "sha256": "2166c4074dbaf8bfd4e2a432758057a8e7eb60f16a4b888da6628a403735f560",
+      "bytes": 267481,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/release/outbox/DXR-S-1792288358-70932-2/frame.png",
+      "origin": "DXR-S-1792288358-70932-2"
+    },
+    "review400/report-2/manifest.json": {
+      "sha256": "0555397f9a9bafed7e3011abef31bc38f3d33edf6be0e00c879263f5f7f51513",
+      "bytes": 52037,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/release/outbox/DXR-S-1792288358-70932-2/manifest.json",
+      "origin": "DXR-S-1792288358-70932-2"
+    },
+    "review400/report-2/lifecycle.json": {
+      "sha256": "1c89f9a7057a01b4c4ff7996c49ac18032238b6ca6a5098b85ff0329bb335ed0",
+      "bytes": 968,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/release/outbox/DXR-S-1792288358-70932-2/lifecycle.json",
+      "origin": "DXR-S-1792288358-70932-2"
+    },
+    "review400/report-3/frame.png": {
+      "sha256": "ac7435d67ee78f938d1cf3cffc43d007620fe05feac9659897dff1df3a0d516e",
+      "bytes": 68530,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/release/outbox/DXR-S-1792288358-70932-17/frame.png",
+      "origin": "DXR-S-1792288358-70932-17"
+    },
+    "review400/report-3/manifest.json": {
+      "sha256": "d326a44ce49a17d7638a48136d40271923cf88a6b22265539f600a8dcdc7d80d",
+      "bytes": 20635,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/release/outbox/DXR-S-1792288358-70932-17/manifest.json",
+      "origin": "DXR-S-1792288358-70932-17"
+    },
+    "review400/report-3/lifecycle.json": {
+      "sha256": "1d724278ed10a43bff5da9cb0d37e12672c72c42d9600df37b0487edbad85873",
+      "bytes": 969,
+      "source": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015236-review-70926/release/outbox/DXR-S-1792288358-70932-17/lifecycle.json",
+      "origin": "DXR-S-1792288358-70932-17"
+    },
+    "README.md": {
+      "sha256": "ac026e9f89df7eec69c6d83105247909f3bcef892e6c19d227302ec54f0ef2e1",
+      "bytes": 5417,
+      "source": "checkpoint draft",
+      "origin": "private staging only, prepared from accepted summaries and source"
+    }
+  },
+  "pending": [],
+  "limits": [
+    "No new user RESULT command",
+    "No automatic finite legacy/current/history migration",
+    "No arbitrary SQL or Pivot result identity",
+    "No browser source verification/identity",
+    "No full native inventory or physical input acceptance"
+  ],
+  "components": {
+    "source_scope_checks_per_config": 13894,
+    "format_checks_per_config": 89252,
+    "scope": "Cached exact RESULT matcher and whole-store guarded-baseline/no-op components; not automatic App migration"
+  },
+  "unretained_mutable_images": [],
+  "worker_scope": {
+    "run": "20261018T014835-browser-67919",
+    "source": {
+      "commit": "6fbb9abbab14a3959f891e72e1347f59510497af",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "416b080ad68dde15ccdcd595851a8faf9f309efdd9494b81a4ea116d5dded402",
+      "source_files": 262
+    },
+    "browser_seconds": 17.835,
+    "elapsed_seconds": 18.071,
+    "checks": 124552,
+    "stages": 192,
+    "signature": "bdafd8e23cc19b9059e9ba8ca779023582bfab1e8db88f267daa826647b9f11b",
+    "scope": "Official engine regression and unsupported native verification rejection; no browser identity acceptance"
+  },
+  "web_scope": "c5e52b3 normal/review same-C Wasm build plus shipping exclusion only; official Worker regression is separately pinned to6fbb9ab.",
+  "review_scope": {
+    "run": "20261018T015236-review-70926",
+    "source": {
+      "commit": "c5e52b3e34572e3f8ca4a6b9929e5d1d906e96c2",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "6c2453ecfa3ab741cb13eae38c5bc5cb0be6ce32a7659dd8df8c212132053cd8",
+      "source_files": 262
+    },
+    "app_seconds": 17.535,
+    "binary_sha256": "db0c890b25aac59cc17ea5d3319b192307b289f212a643897c021a78d634b7dd",
+    "completed_stages": 400,
+    "reports": 3,
+    "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual"
+  },
+  "published_as": "docs/validation/checkpoints/2026-10-18-native-result-activation"
+}

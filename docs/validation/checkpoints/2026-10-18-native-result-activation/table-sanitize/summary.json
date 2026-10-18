@@ -1,0 +1,111 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T01:51:15.960778+00:00",
+  "tier": "affected",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": false,
+  "edit": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "c5e52b3e34572e3f8ca4a6b9929e5d1d906e96c2",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "6c2453ecfa3ab741cb13eae38c5bc5cb0be6ce32a7659dd8df8c212132053cd8",
+    "source_files": 262
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_format-debug",
+        "tests/test_source_scope-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.424
+    },
+    {
+      "name": "format-sanitize",
+      "command": [
+        "./tests/test_format-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/format-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.829
+    },
+    {
+      "name": "source_scope-sanitize",
+      "command": [
+        "./tests/test_source_scope-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/source_scope-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.144
+    },
+    {
+      "name": "build-integration",
+      "command": [
+        "make",
+        "duxcel-debug",
+        "tests/test_background-native-debug",
+        "design-fixture"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/build-integration.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 39.657
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.37
+    },
+    {
+      "name": "layout-table-record-format",
+      "command": [
+        "./duxcel-debug",
+        "--layout-smoke",
+        "--frames",
+        "2208",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/final.png"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015115-affected-69888/layout-table-record-format.txt",
+      "expected_stages": 36,
+      "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[764,800\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 22.762
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_format-debug": "f382fdcf8698182b3fe4aeda56360e04d156ef2a124be3833f00736ad39a94da",
+    "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "e4350c1b42f333245f5eba6229caf0b1bf6887fe11d2a5a5d81a2ee2238f178d",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "b9e43393ef4bd7ff5fe8afe2bf866cb84a8ddfd6730273ef71ca1421237fa9ef",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "app_config": "sanitize",
+  "elapsed_seconds": 65.316,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_format-debug": "f382fdcf8698182b3fe4aeda56360e04d156ef2a124be3833f00736ad39a94da",
+    "/Users/h2o/dev/duxcel/tests/test_source_scope-debug": "e4350c1b42f333245f5eba6229caf0b1bf6887fe11d2a5a5d81a2ee2238f178d",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "b9e43393ef4bd7ff5fe8afe2bf866cb84a8ddfd6730273ef71ca1421237fa9ef",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "finished_utc": "2026-10-18T01:52:21.365796+00:00"
+}

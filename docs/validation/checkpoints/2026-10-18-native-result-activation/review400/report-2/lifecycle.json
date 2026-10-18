@@ -1,0 +1,38 @@
+{
+  "schema": "duxcel.native-review.lifecycle",
+  "version": 1,
+  "report_id": "DXR-S-1792288358-70932-2",
+  "project_id": "duxcel-c368c516acb3d456",
+  "revision": 3,
+  "acknowledged": true,
+  "design": "pending",
+  "implementation": "ready-for-review",
+  "verification": "passed",
+  "history": [
+    {
+      "sequence": 1,
+      "at": "2026-10-18T01:52:55.614878+00:00",
+      "kind": "ack",
+      "actor": "native-test",
+      "message": "Retrieved real native frame"
+    },
+    {
+      "sequence": 2,
+      "at": "2026-10-18T01:52:55.617714+00:00",
+      "kind": "reply",
+      "actor": "native-test",
+      "message": "Target, scale and binary verified; design acceptance remains pending"
+    },
+    {
+      "sequence": 3,
+      "at": "2026-10-18T01:52:55.620420+00:00",
+      "kind": "status",
+      "actor": "native-test",
+      "message": "",
+      "changes": {
+        "implementation": "ready-for-review",
+        "verification": "passed"
+      }
+    }
+  ]
+}

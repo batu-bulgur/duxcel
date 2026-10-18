@@ -1,0 +1,128 @@
+Command: ["./duxcel", "--layout-smoke", "--frames", "2208", "--screenshot", "/Users/h2o/dev/duxcel/tests/results/runs/20261018T015055-affected-69570/final.png"]
+INFO: Initializing raylib 6.0
+INFO: Platform backend: DESKTOP (GLFW)
+INFO: Supported raylib modules:
+INFO:     > rcore:..... loaded (mandatory)
+INFO:     > rlgl:...... loaded (mandatory)
+INFO:     > rshapes:... loaded (optional)
+INFO:     > rtextures:. loaded (optional)
+INFO:     > rtext:..... loaded (optional)
+INFO:     > rmodels:... loaded (optional)
+INFO:     > raudio:.... loaded (optional)
+INFO: DISPLAY: Trying to enable VSYNC
+INFO: DISPLAY: Device initialized successfully (HighDPI)
+INFO:     > Display size: 1680 x 1050
+INFO:     > Screen size:  1280 x 820
+INFO:     > Render size:  2560 x 1640
+INFO:     > Viewport offsets: 0, 0
+INFO: GLAD: OpenGL extensions loaded successfully
+INFO: GL: Supported extensions count: 43
+INFO: GL: OpenGL device information:
+INFO:     > Vendor:   Apple
+INFO:     > Renderer: Apple M1
+INFO:     > Version:  4.1 Metal - 90.5
+INFO:     > GLSL:     4.10
+INFO: GL: VAO extension detected, VAO functions loaded successfully
+INFO: GL: NPOT textures extension detected, full NPOT textures supported
+INFO: GL: DXT compressed textures supported
+INFO: PLATFORM: DESKTOP (GLFW - Cocoa): Initialized successfully
+INFO: TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 1] Default texture loaded successfully
+INFO: SHADER: [ID 1] Vertex shader compiled successfully
+INFO: SHADER: [ID 2] Fragment shader compiled successfully
+INFO: SHADER: [ID 3] Program shader loaded successfully
+INFO: SHADER: [ID 3] Default shader loaded successfully
+INFO: RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+INFO: RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+INFO: RLGL: Default OpenGL state initialized successfully
+INFO: TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Default font loaded successfully (224 glyphs)
+INFO: SYSTEM: Working Directory: /Users/h2o/dev/duxcel
+Native test window: hidden, unfocused
+INFO: IMAGE: Data loaded successfully (512x512 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 3] Texture loaded successfully (512x512 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 3] Mipmaps generated automatically, total: 10
+INFO: TIMER: Target time per frame: 16.393 milliseconds
+Frame pacing cap=61 monitor=60 Hz (vsync requested)
+INFO: FILEIO: [/Users/h2o/dev/duxcel/assets/ui/carbon-atlas.png] File loaded successfully
+INFO: IMAGE: Data loaded successfully (512x640 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 4] Texture loaded successfully (512x640 | R8G8B8A8 | 1 mipmaps)
+INFO: FILEIO: [/Users/h2o/dev/duxcel/assets/fonts/IBMPlexSans-Regular.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/assets/fonts/IBMPlexSans-Medium.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/assets/fonts/IBMPlexSans-SemiBold.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/assets/fonts/IBMPlexSans-Italic.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/assets/fonts/IBMPlexSans-SemiBoldItalic.otf] File loaded successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/assets/fonts/JetBrainsMono-Regular.ttf] File loaded successfully
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 5] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 6] Texture loaded successfully (1024x512 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (29 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 7] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Requested codepoints glyphs found: [417/979]
+INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (42 pixel size | 417 glyphs)
+WARNING: FONT: Updating atlas size to fit all characters
+INFO: TEXTURE: [ID 11] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Data loaded successfully (27 pixel size | 7 glyphs)
+INFO: RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+INFO: RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+Render batch buffers=8 elements=8192
+First visible rows: 253.57 ms; cache: 6 rows, 1023 bytes
+Table 1 viewport: 256 rows, 41867 bytes, 3.54 ms query; count pending
+Table 1 exact row count: 600
+Table 1 viewport: 256 rows, 42101 bytes, 3.97 ms query; count pending
+Table 1 exact row count: 600
+Table 1 viewport: 256 rows, 42083 bytes, 3.41 ms query; count pending
+Table 1 exact row count: 600
+Table 1 viewport: 200 rows, 32791 bytes, 5.85 ms query; count complete
+Table 1 viewport: 256 rows, 42083 bytes, 5.08 ms query; count pending
+Table 1 exact row count: 600
+Table 1 viewport: 256 rows, 42083 bytes, 4.52 ms query; count pending
+Table 1 exact row count: 600
+INFO: FILEIO: [tests/results/workspace-layout/table-record-format-returned.png] File saved successfully
+INFO: FILEIO: [tests/results/workspace-layout/table-record-format-returned.png] Image exported successfully
+Table 1 viewport: 256 rows, 42090 bytes, 3.31 ms query; count pending
+Table 1 exact row count: 600
+Table 2 viewport: 256 rows, 41867 bytes, 4.04 ms query; count pending
+Table 2 exact row count: 600
+Table 1 viewport: 256 rows, 42091 bytes, 3.38 ms query; count pending
+Table 1 exact row count: 600
+INFO: FILEIO: [tests/results/workspace-layout/table-record-format-preview.png] File saved successfully
+INFO: FILEIO: [tests/results/workspace-layout/table-record-format-preview.png] Image exported successfully
+Table 1 viewport: 256 rows, 42091 bytes, 3.73 ms query; count pending
+Table 1 exact row count: 600
+INFO: FILEIO: [tests/results/workspace-layout/table-record-format-reopened.png] File saved successfully
+INFO: FILEIO: [tests/results/workspace-layout/table-record-format-reopened.png] Image exported successfully
+Table 1 viewport: 256 rows, 42673 bytes, 2.84 ms query; count pending
+Table 1 exact row count: 600
+PASS: native Table record formatting preserves captured local IDs and fields across sort filter eviction move Undo Redo, isolates same-file owners and raw preview from Pivot results, retains no-op verified proof, and verifies or suspends v14 reopened sources
+INFO: FILEIO: [/Users/h2o/dev/duxcel/tests/results/runs/20261018T015055-affected-69570/final.png] File saved successfully
+INFO: FILEIO: [/Users/h2o/dev/duxcel/tests/results/runs/20261018T015055-affected-69570/final.png] Image exported successfully
+Draw submission CPU p95=1.195 ms (excludes swap/pacing)
+Final relation rows=0 columns=0 cache offset=0 top=133 first_col=0
+Duxcel frames=938 mean=18.61 ms p95=17.85 ms max=413.96 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0
+Layout smoke completed [764,800)
+Worker jobs=44 SQL executions=37 count queries=11
+INFO: TEXTURE: [ID 3] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 5] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 6] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 7] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 8] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 9] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 10] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 11] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 4] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+INFO: SHADER: [ID 3] Default shader unloaded successfully
+INFO: TEXTURE: [ID 1] Default texture unloaded successfully
+INFO: Window closed successfully
