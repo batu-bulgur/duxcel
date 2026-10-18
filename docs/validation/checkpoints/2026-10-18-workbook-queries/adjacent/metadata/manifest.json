@@ -1,0 +1,66 @@
+{
+  "schema": "duxcel.queries-adjacent",
+  "version": 1,
+  "revision": "87aa37f9a81f9025a0e736e8ef3c193588fe066e",
+  "scope": "Original four isolated metadata Worker workflows using the same compiled query-aware driver and immutable helper; no native GUI or user profile.",
+  "steps": [
+    {
+      "name": "header",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 9.084627042058855,
+      "log": "build/bp1-queries-adjacent/header.txt",
+      "sha256": "e02e943b97a960aaff0a1a95271256a4f4e238f3bc125b14be05d7ea1a5d107f"
+    },
+    {
+      "name": "sorts",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build",
+        "--codec-sorts"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 7.3820657909382135,
+      "log": "build/bp1-queries-adjacent/sorts.txt",
+      "sha256": "b80e34c2b3107ddea67ef4dfe02bcc3008e9f96ee5cafa48b1d24e60197b2643"
+    },
+    {
+      "name": "preferences",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build",
+        "--codec-preferences"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.262512832996435,
+      "log": "build/bp1-queries-adjacent/preferences.txt",
+      "sha256": "e751ce4a7986c70c7839763f447a6b7038dcf393e545b0514697fa6430b6d012"
+    },
+    {
+      "name": "objects",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build",
+        "--codec-objects"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 9.386365792015567,
+      "log": "build/bp1-queries-adjacent/objects.txt",
+      "sha256": "f4a2429bc5fce5ad659f2df2ec49f49009fa7f54a8c85081740939112fc15f79"
+    }
+  ],
+  "elapsed_seconds": 34.11829074996058,
+  "status": "passed",
+  "source_revision_unchanged": true
+}

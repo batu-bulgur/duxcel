@@ -1,0 +1,46 @@
+{
+  "schema": "duxcel.queries-integration",
+  "version": 1,
+  "revision": "87aa37f9a81f9025a0e736e8ef3c193588fe066e",
+  "scope": "Integrated query driver actual native archives and official Worker. Frozen root source. No native window, user tab, full native rerun or product Save/Open.",
+  "steps": [
+    {
+      "name": "harness",
+      "command": [
+        "python3",
+        "tools/test_web_codec_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.6498999579343945,
+      "log": "build/bp1-queries-integration/harness.txt",
+      "sha256": "ec99fb45dc505ec5824f1500700925031835d034d281bd129b2499ed7e96e6d7"
+    },
+    {
+      "name": "runner",
+      "command": [
+        "python3",
+        "tools/test_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.0986263749655336,
+      "log": "build/bp1-queries-integration/runner.txt",
+      "sha256": "a288b30c3cf181ceb517d0d71dd2b4ab38a81311e639e8887959611860a0633e"
+    },
+    {
+      "name": "queries",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--codec-queries"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 21.929415666963905,
+      "log": "build/bp1-queries-integration/queries.txt",
+      "sha256": "965ea9439406bd2e7521f28a6ea32832fc91997217e6b9dc4a3fb3d475e73294"
+    }
+  ],
+  "elapsed_seconds": 24.67868095904123,
+  "status": "passed",
+  "source_revision_unchanged": true
+}

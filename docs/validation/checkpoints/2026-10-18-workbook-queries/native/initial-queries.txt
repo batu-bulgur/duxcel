@@ -1,0 +1,1 @@
+PASS: native source queries 1040537 checks; 82 metadata executions/311 typed feeds;2112 primary/Table definitions, exact bytes/reorder/64KiB, all-version required tables, realNULL/NUL/blank/duplicates/owner/sentinel rejection, owned state/budget/stale/recovery; no source execution or Worker/App Open claim; engine v1.5.6
