@@ -509,3 +509,13 @@ python3 tools/test_web_app.py --codec-read-driver --codec-sorts
 ```
 
 The accepted sort checkpoint at `de6e15e` preserves the original1,391 pure Header checks within3,220 total/config; native `--sorts-only` passes15,913/config, while default1,611/21 metadata executions/35 feeds remains unchanged. Full-tier ordering now runs the optional sort gate after each native Header gate. The actual Worker mode observes77,148 C checks plus190 external checks,49 queries and six complete256+192 result pairs in15.041s including6.580s build/native-helper preparation (6.860s browser). Its six explicit semantic/budget rejections and actual held completed callback retain the previous owned Header; this is not active-query cancellation timing or complete Workbook/Open/Save. Five wrapper boundary tests and32 runner tests pass. Original Worker247, Header6,294, fresh shipping absence and actual transformed Columns172 pass separately. [Exact binaries, counters, elapsed times and limitations](validation/checkpoints/2026-10-18-workbook-sorts/).
+
+For the independent preferences continuation:
+
+```sh
+python3 tools/test.py fast --modules workbook_codec_read --config both
+make test-workbook-codec-preferences
+python3 tools/test_web_app.py --codec-read-driver --codec-preferences
+```
+
+At `871de7f`, preferences passes3,928 pure checks/configuration,11,715 native checks/configuration and39,611 actual Worker checks plus253 external checks. Six immutable native files include real invalid v14 unknown-NULL/NUL rows;61 requests cover65-row results fed32+33, eight rejections and one held completed stale callback/recovery. The normal66-row Page policy suffices; no transport expansion is used. Total15.771s includes6.407s setup/build preparation and7.871s browser, distinct from the C artifact's4.188s build. Native integration takes47.360s including12.722s build and all three modes/configurations; brief Worker build overlap makes these observations unsuitable as a serial speed comparison. Full-tier ordering runs Header, sorts and preferences for each configuration. Same-driver Header6,294 and sorts77,148 remain unchanged; five harness and32 runner checks pass. Missing-table/default/malformed cases have additional pure/native coverage. This component does not implement browser Open/Save or full v14 validation; prior broad App/shipping acceptance keeps its separate `de6e15e` scope. [Exact sources, receipts and limits](validation/checkpoints/2026-10-18-workbook-preferences/).
