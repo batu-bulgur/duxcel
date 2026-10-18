@@ -268,6 +268,11 @@ tests/test_grid: src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transfo
 tests/test_grid-debug: src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS)
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 SOURCE_SCOPE_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/data/source_digest.c src/workbook/source_scope.c tests/test_source_scope.c
+OBJECT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/workbook/cells.c src/workbook/objects.c tests/test_objects.c
+tests/test_objects: $(OBJECT_TEST_SRC) $(HEADERS)
+	$(CC) -Isrc $(CFLAGS) $(WARN) -Werror $(OBJECT_TEST_SRC) -o $@ -lm
+tests/test_objects-debug: $(OBJECT_TEST_SRC) $(HEADERS)
+	$(CC) -Isrc -O1 -g $(WARN) -Werror $(SANFLAGS) $(OBJECT_TEST_SRC) -o $@ -lm $(SANFLAGS)
 tests/test_source_scope: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(SOURCE_SCOPE_TEST_SRC) -o $@ -lm
 tests/test_source_scope-debug: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS)
@@ -528,6 +533,8 @@ ifeq ($(shell uname -s),Darwin)
 	codesign --force --sign - build/Duxcel.app
 endif
 clean:
+	rm -f tests/test_objects tests/test_objects-debug
+	rm -rf tests/test_objects.dSYM tests/test_objects-debug.dSYM
 	rm -rf build/obj
 	rm -f $(ICON_STAMP) build/create-design-workbook
 	rm -f duxcel.new duxcel-debug.new build/create-design-workbook.new
