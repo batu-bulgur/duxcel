@@ -15,13 +15,13 @@ static int glyph_checks;
 typedef struct { Rectangle bounds; int x,y,width,height; } GlyphTile;
 typedef struct {
     Font fonts[7];
-    GlyphTile tiles[6][6];
+    GlyphTile tiles[6][7];
     int clip_left[6],clip_right[6];
-    char text[6][5];
+    char text[7][5];
     uint64_t allocations;
     size_t paint_bytes;
 } GlyphFrame;
-static const char glyph_text[6][5]={"?","\xef\xbf\xbd","\xd8\xa7","\xe8\xa1\xa8","\xf0\x9f\xa6\x86","\xe8\xa1\xa8"};
+static const char glyph_text[7][5]={"?","\xef\xbf\xbd","\xd8\xa7","\xe8\xa1\xa8","\xf0\x9f\xa6\x86","\xe8\xa1\xa8","\xef\xbf\xbd"};
 static Font glyph_face(const UIContext *ui,int face) {
     return face==0 ? ui->body : face==1 ? ui->small : face==2 ? ui->medium : face==3 ? ui->emphasis : face==4 ? ui->italic : ui->bold_italic;
 }
@@ -46,16 +46,16 @@ static void draw_glyph_frame(UIContext *ui,GlyphFrame *frame) {
         int advance=(int)roundf(ui_measure_weight(ui,frame->text[1],size,weight)*dx);
         frame->clip_left[face]=advance/3; frame->clip_right[face]=advance*2/3;
         GLYPH_CHECK(frame->clip_left[face]>0 && frame->clip_right[face]>frame->clip_left[face]);
-        for (int column=0;column<6;column++) {
+        for (int column=0;column<7;column++) {
             GlyphTile *tile=&frame->tiles[face][column];
             tile->x=(int)roundf((20+80*column)*dx); tile->y=(int)roundf((220+28*face)*dy);
             tile->width=(int)roundf(60*dx); tile->height=(int)roundf(28*dy);
             tile->bounds=(Rectangle){tile->x/dx,tile->y/dy,tile->width/dx,tile->height/dy};
             GLYPH_CHECK(advance<tile->width && tile->height>0);
             DrawRectangleRec(tile->bounds,WHITE);
-            if (column==5) ui_set_clip(ui,(Rectangle){(tile->x+frame->clip_left[face])/dx,tile->y/dy,(frame->clip_right[face]-frame->clip_left[face])/dx,tile->height/dy});
+            if (column>=5) ui_set_clip(ui,(Rectangle){(tile->x+frame->clip_left[face])/dx,tile->y/dy,(frame->clip_right[face]-frame->clip_left[face])/dx,tile->height/dy});
             ui_label(ui,frame->text[column],tile->bounds,size,UI_TEXT,false,weight);
-            if (column==5) ui_clear_clip(ui);
+            if (column>=5) ui_clear_clip(ui);
         }
     }
 }
@@ -69,7 +69,7 @@ static void check_glyph_frame(Image image,UIContext *ui,const GlyphFrame *frame)
     }
     for (int face=0;face<6;face++) {
         const GlyphTile *reference=&frame->tiles[face][1];
-        GLYPH_CHECK(reference->x>=0 && reference->y>=0 && reference->y+reference->height<=image.height && frame->tiles[face][5].x+reference->width<=image.width);
+        GLYPH_CHECK(reference->x>=0 && reference->y>=0 && reference->y+reference->height<=image.height && frame->tiles[face][6].x+reference->width<=image.width);
         size_t ink=0,question_difference=0,mismatch[3]={0},clip_mismatch=0,clipped_ink=0,outside_ink=0;
         uint64_t hash=UINT64_C(14695981039346656037),question_hash=hash;
         for (int y=0;y<reference->height;y++) for (int x=0;x<reference->width;x++) {
@@ -81,13 +81,19 @@ static void check_glyph_frame(Image image,UIContext *ui,const GlyphFrame *frame)
                 const GlyphTile *tile=&frame->tiles[face][kind+2];
                 mismatch[kind]+=!exact_color(expected,GetImageColor(image,tile->x+x,tile->y+y));
             }
-            const GlyphTile *clipped=&frame->tiles[face][5]; Color cut=GetImageColor(image,clipped->x+x,clipped->y+y);
+            const GlyphTile *clipped=&frame->tiles[face][5],*clipped_reference=&frame->tiles[face][6];
+            Color cut=GetImageColor(image,clipped->x+x,clipped->y+y),expected_cut=GetImageColor(image,clipped_reference->x+x,clipped_reference->y+y);
             bool inside=x>=frame->clip_left[face] && x<frame->clip_right[face];
-            clip_mismatch+=!exact_color(cut,inside ? expected : WHITE);
-            if (inside) clipped_ink+=!exact_color(cut,WHITE); else outside_ink+=!exact_color(cut,WHITE);
+            /* CPU clipping recomputes the quad and UV endpoints. Compare
+               identically clipped primitives exactly; check both backgrounds
+               independently, without assuming uncut interpolation is bitwise
+               invariant under a changed primitive. */
+            clip_mismatch+=!exact_color(cut,expected_cut);
+            if (inside) clipped_ink+=!exact_color(cut,WHITE);
+            else outside_ink+=!exact_color(cut,WHITE) || !exact_color(expected_cut,WHITE);
         }
         Font font=frame->fonts[face];
-        printf("GPU glyph scale=%.3f density=%.3f,%.3f face=%d texture=%u atlas=%dx%d reference=%d,%d,%d,%d clip_x=%d..%d replacement_hash=%016llx question_hash=%016llx ink=%zu question_diff=%zu bmp_diff=%zu cjk_diff=%zu emoji_diff=%zu clip_diff=%zu clip_ink=%zu outside_ink=%zu\n",ui->scale,ui->render_scale.x,ui->render_scale.y,face,font.texture.id,font.texture.width,font.texture.height,reference->x,reference->y,reference->width,reference->height,frame->clip_left[face],frame->clip_right[face],(unsigned long long)hash,(unsigned long long)question_hash,ink,question_difference,mismatch[0],mismatch[1],mismatch[2],clip_mismatch,clipped_ink,outside_ink);
+        printf("GPU glyph scale=%.3f density=%.3f,%.3f face=%d texture=%u atlas=%dx%d reference=%d,%d,%d,%d clipped_reference=%d,%d clip_x=%d..%d replacement_hash=%016llx question_hash=%016llx ink=%zu question_diff=%zu bmp_diff=%zu cjk_diff=%zu emoji_diff=%zu clip_pair_diff=%zu clip_ink=%zu outside_ink=%zu\n",ui->scale,ui->render_scale.x,ui->render_scale.y,face,font.texture.id,font.texture.width,font.texture.height,reference->x,reference->y,reference->width,reference->height,frame->tiles[face][6].x,frame->tiles[face][6].y,frame->clip_left[face],frame->clip_right[face],(unsigned long long)hash,(unsigned long long)question_hash,ink,question_difference,mismatch[0],mismatch[1],mismatch[2],clip_mismatch,clipped_ink,outside_ink);
         GLYPH_CHECK(ink>0 && question_difference>0 && hash!=question_hash);
         GLYPH_CHECK(!mismatch[0] && !mismatch[1] && !mismatch[2]);
         GLYPH_CHECK(!clip_mismatch && clipped_ink>0 && !outside_ink);
