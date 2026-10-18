@@ -1161,18 +1161,23 @@ async function paneRailExpandedReference(){
   const bounds=rect=>[rect.x,rect.y,rect.width,rect.height],dismiss={...collapse,x:collapse.x+collapse.width+gap*scale};
   cases[name]={viewport:state.viewport,scale,panel:bounds(panel),grid:bounds(state.grid.rect),headerHeight:headerHeight*scale,controls:{collapse:bounds(collapse),dismiss:bounds(dismiss)},capture:record.capture,derivation:{collapse:'measured DOM',dismiss:'measured Collapse width + frozen inspector-title gap; adjacent shared23-unit Button'}};
  }
+ // The curated rail provider omits inspector styles. Retain the bounded
+ //computed-style subset measured in all four original expanded states, pinned
+ //to that original capture; do not reinterpret absent fields as passing data.
+ const borderColors={original_sha256:'1c8f3a6ff4dc532598a580abe44f369848cd00107a2a93a69e9289071440f876',cases:['wide-100','wide-150','narrow-100','narrow-150'],borderColor:'rgb(202, 210, 218)',background:'rgb(251, 252, 253)',borderStyle:'solid'};
+ check(measured.original_sha256===borderColors.original_sha256&&css.includes('.right-inspector{border-left:1px solid var(--line);background:#fbfcfd;')&&css.includes('--line:#cad2da;'),'Frozen expanded computed colors lost their original capture or matching CSS declarations');
  const borderSha256=createHash('sha256').update(borderBytes).digest('hex'),borderProvider=JSON.parse(borderBytes),borderCases={};
  check(borderSha256==='f265dd239db596d177e96c824db3699d3c1e6a62016f663ab09abaa2fd876f3b'&&borderProvider.schema==='duxcel.prototype.steps-scroll-reference'&&borderProvider.version===1&&Object.entries(sourceHashes).every(([name,hash])=>borderProvider.provenance.inputs[name]?.sha256===hash),'Expanded-border provider changed or lost its frozen source provenance');
  for(const name of ['wide-100','wide-150','narrow-100','narrow-150']){
   const record=borderProvider.states.find(item=>item.case===name&&item.name==='default'),state=record?.state,parts=state?.steps?.parts,outer=parts?.outer,header=parts?.header,prior=measured.states.find(item=>item.case===name&&item.name==='expanded');
   const left=outer?.box?Math.min(...outer.box.border.filter((_,i)=>i%2===0)):NaN,paddingLeft=outer?.box?Math.min(...outer.box.padding.filter((_,i)=>i%2===0)):NaN;
-  check(record?.validated&&record.anatomy_retained&&state.steps.rowsTotal===6&&outer.rect.x===left&&paddingLeft-left===1&&Number.parseFloat(outer.style.paddingLeft)===0&&header.rect.x===paddingLeft&&header.rect.y===outer.rect.y&&prior?.state.inspector.borderColor==='rgb(202, 210, 218)'&&prior.state.inspector.background==='rgb(251, 252, 253)','Frozen expanded border lacks its measured one-point inside allocation or actual colors: '+name);
+  check(record?.validated&&record.anatomy_retained&&state.steps.rowsTotal===6&&outer.rect.x===left&&paddingLeft-left===1&&Number.parseFloat(outer.style.paddingLeft)===0&&header.rect.x===paddingLeft&&header.rect.y===outer.rect.y&&prior?.validated&&borderColors.cases.includes(name)&&borderColors.borderStyle==='solid'&&borderColors.borderColor==='rgb(202, 210, 218)'&&borderColors.background==='rgb(251, 252, 253)','Frozen expanded border lacks its measured one-point inside allocation or actual colors: '+name);
   // Use the measured header's empty left edge, away from horizontal lines and
   //title ink. This is panel.x, not the retained rail's viewportRight-32 slot.
   const y=header.rect.y+header.rect.height/4,h=header.rect.height/2;
   borderCases[name]={viewport:state.viewport,scale:state.scale,panel:[outer.rect.x,outer.rect.y,outer.rect.width,outer.rect.height],grid:[prior.state.grid.rect.x,prior.state.grid.rect.y,prior.state.grid.rect.width,prior.state.grid.rect.height],borderQuad:outer.box.border,paddingQuad:outer.box.padding,capture:record.capture,region:{x:left,y,w:3,h,bands:[{name:'expanded_inside_border',x:left,w:paddingLeft-left,rgba:[202,210,218,255]},{name:'expanded_after_border',x:paddingLeft,w:2,rgba:[251,252,253,255]}]},scope:'Measured expanded left-edge paint only; short150 outer scrolling/header-action parity and expanded shadow remain separate.'};
  }
- return{file,sha256,original:measured.original,original_sha256:measured.original_sha256,manifest_sha256:createHash('sha256').update(manifestBytes).digest('hex'),sourceHashes,cases,border:{file:borderFile,sha256:borderSha256,original:borderProvider.original,cases:borderCases},excluded:{'narrow-150':'Short reference has a13-presented-point outer-scroller lane; expanded-header closure is not claimed.'}};
+ return{file,sha256,original:measured.original,original_sha256:measured.original_sha256,manifest_sha256:createHash('sha256').update(manifestBytes).digest('hex'),sourceHashes,cases,border:{file:borderFile,sha256:borderSha256,original:borderProvider.original,computedColors:borderColors,cases:borderCases},excluded:{'narrow-150':'Short reference has a13-presented-point outer-scroller lane; expanded-header closure is not claimed.'}};
 }
 function paneRailExpandedTarget(state,action,reference){
  const [width,height]=state.logical.split(',').map(Number),grid=state.grid_rect.split(',').map(Number),bounds=reference.controls[action];
