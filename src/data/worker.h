@@ -74,6 +74,23 @@ typedef struct {
     uint64_t object_id,revision;
     bool is_preview;
 } QueryReply;
+/* Conservative native format-pipeline reservation categories, not measured
+   allocator/RSS usage or a bound on SQL construction/engine temporary memory.
+   An admitted job owns at most 8 MiB of fixed-slot definition text. Its reserve
+   also covers the maximum output IDs, fixed job/reply structures and digest
+   workspace, plus an error allowance. Diagnostics are NOT truncated to that
+   allowance; actual published ownership below includes the complete error.
+   The caller separately reserves bounded pipeline/SQL staging and counts a
+   polled reply until reply_free. Invalid oversized/nested payloads are not
+   admitted to this cap: their reservation is SIZE_MAX until actual cleanup. */
+#define DX_WORKER_FORMAT_DEFINITION_BYTES (8u*1024u*1024u)
+#define DX_WORKER_FORMAT_RESERVED_BYTES (DX_WORKER_FORMAT_DEFINITION_BYTES + \
+    DX_RECORD_SELECTION_ROWS*sizeof(uint64_t) + DX_SOURCE_DIGEST_BUFFER_BYTES + \
+    sizeof(QueryJob) + sizeof(QueryReply) + DX_SOURCE_DIGEST_ERROR_BYTES)
+typedef struct {
+    size_t active_reserved,pending_reserved,published_owned;
+    unsigned active_count,pending_count,published_count;
+} WorkerFormatUsage;
 /* One worker owns its DuckDB connection. The UI may only call interrupt under mutex.
    Jobs are latest-wins; replies are immutable and ownership transfers to poll(). */
 typedef struct {
@@ -84,6 +101,11 @@ typedef struct {
     uint64_t latest_id, active_id, jobs_started, sql_executed, counts_executed;
     QueryJob *pending;
     QueryReply *reply;
+    /* Protected by mutex. Active ownership outlives running=false while its
+       canceled/obsolete job/reply allocations retire outside the mutex. */
+    JobKind active_kind;
+    size_t active_format_reserved,pending_format_reserved,published_format_owned;
+    bool pending_format_definition_rejected;
     Database db;
 } QueryWorker;
 bool worker_start(QueryWorker *w);
@@ -91,5 +113,14 @@ void worker_submit(QueryWorker *w, QueryJob *job); /* takes job */
 QueryReply *worker_poll(QueryWorker *w); /* transfers reply */
 void worker_cancel(QueryWorker *w);
 void worker_stop(QueryWorker *w);
+/* Main-thread lifecycle contract, like submit/poll: not concurrent with
+   start/stop. Native snapshot is mutex-protected and performs no allocations,
+   text/vector scans, SQL or filesystem access. Cancel does not clear active
+   ownership. Publication may briefly coexist with an active retirement reserve
+   and intentionally overcount. Poll transfers the published charge to caller.
+   SIZE_MAX means accounting cannot admit that invalid/overflowing payload.
+   Browser native-format work is synchronously unsupported and returns zero;
+   this is not a measurement of ordinary browser/error-reply heap allocations. */
+WorkerFormatUsage worker_format_usage(QueryWorker *w);
 void reply_free(QueryReply *reply);
 #endif

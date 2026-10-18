@@ -60,6 +60,19 @@ static void no_sql(QueryWorker *worker) {
     dx_lock(&worker->mutex); bool clean=!worker->db.connection && !worker->db.query_count && !worker->db.count_queries && !worker->sql_executed && !worker->counts_executed; dx_unlock(&worker->mutex);
     CHECK(clean);
 }
+static WorkerFormatUsage wait_format_retired(QueryWorker *worker,unsigned published) {
+    double until=dx_millis()+5000;
+    while (dx_millis()<until) {
+        WorkerFormatUsage usage=worker_format_usage(worker);
+        if (!usage.active_count && !usage.pending_count && usage.published_count==published) return usage;
+        dx_sleep_ms(1);
+    }
+    CHECK(!"format ownership retirement timed out"); return (WorkerFormatUsage){0};
+}
+static void no_format_owned(QueryWorker *worker) {
+    WorkerFormatUsage usage=worker_format_usage(worker);
+    CHECK(!usage.active_count && !usage.pending_count && !usage.published_count && !usage.active_reserved && !usage.pending_reserved && !usage.published_owned);
+}
 static void write_file(const char *path,bool large) {
     FILE *file=fopen(path,"wb"); CHECK(file);
     if (large) { unsigned char block[4096]; memset(block,'a',sizeof(block)); for (size_t offset=0;offset<1000000;) { size_t n=1000000-offset; if (n>sizeof(block)) n=sizeof(block); CHECK(fwrite(block,1,n,file)==n); offset+=n; } }
@@ -141,6 +154,47 @@ static void abandoned_analysis(QueryJob *job) {
     job->analysis.filters[filter]=(AnalysisFilter){.column=dx_strdup("Owned abandoned filter"),.value=dx_strdup("")};
     job->analysis.sorts[sort]=(AnalysisSort){.column=dx_strdup("Owned abandoned sort")}; CHECK(!job->analysis.filter_count && !job->analysis.sort_count);
 }
+static QueryJob *record_request(const char *path) {
+    QueryJob *job=request(NULL,dx_file_stamp(path)); job->kind=JOB_COLLECT_RECORDS;
+    job->analysis=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup(path)}; job->is_table=true; job->rows=1;
+    job->expected_file_identity_valid=true; CHECK(source_file_identity(path,&job->expected_file_identity,NULL)==SOURCE_DIGEST_OK);
+    return job;
+}
+static void reservation_ownership(QueryWorker *worker,const char *large,const char *small) {
+    no_format_owned(NULL); no_format_owned(worker);
+    QueryJob *job=request(large,0); arm(worker,job->id); worker_submit(worker,job); wait_checkpoint();
+    WorkerFormatUsage usage=worker_format_usage(worker);
+    CHECK(usage.active_count==1 && usage.active_reserved==DX_WORKER_FORMAT_RESERVED_BYTES && !usage.pending_count && !usage.published_count);
+    dx_lock(&worker->mutex); CHECK(worker->active_kind==JOB_VERIFY_SOURCE); dx_unlock(&worker->mutex);
+    QueryJob *pending=record_request(small); worker_submit(worker,pending); usage=worker_format_usage(worker);
+    CHECK(usage.active_reserved==DX_WORKER_FORMAT_RESERVED_BYTES && usage.pending_count==1 && usage.pending_reserved==DX_WORKER_FORMAT_RESERVED_BYTES && !usage.published_owned);
+    worker_cancel(worker); usage=worker_format_usage(worker);
+    CHECK(usage.active_count==1 && usage.active_reserved==DX_WORKER_FORMAT_RESERVED_BYTES && !usage.pending_count && !usage.pending_reserved && !usage.published_count);
+    CHECK(!worker_poll(worker)); no_sql(worker); release_checkpoint(); wait_format_retired(worker,0); no_format_owned(worker);
+    job=request(small,0); uint64_t id=job->id; worker_submit(worker,job); usage=wait_format_retired(worker,1);
+    CHECK(usage.published_count==1 && usage.published_owned==sizeof(QueryReply)+strlen(small)+1 && !usage.active_reserved && !usage.pending_reserved);
+    QueryReply *owned=worker_poll(worker); CHECK(owned); success(owned,id,small,false); no_format_owned(worker);
+    CHECK(owned->source_digest.bytes==3 && owned->path && !strcmp(owned->path,small)); reply_free(owned); no_sql(worker);
+
+    /* Zero-count owned slots still consume the definition allowance. Check the
+       exact boundary while a real verifier keeps pending ownership stable. */
+    job=request(large,0); arm(worker,job->id); worker_submit(worker,job); wait_checkpoint();
+    pending=request(small,0); pending->statistics=dx_alloc(sizeof(*pending->statistics)); worker_submit(worker,pending);
+    usage=worker_format_usage(worker); CHECK(usage.active_count==1 && usage.pending_count==1 && usage.pending_reserved==SIZE_MAX);
+    size_t last=DX_ANALYSIS_FILTERS-2;
+    pending=record_request(small); size_t padding=DX_WORKER_FORMAT_DEFINITION_BYTES-strlen(small)-1;
+    pending->analysis.filters[last].value=dx_alloc(padding); memset(pending->analysis.filters[last].value,'z',padding-1); pending->analysis.filters[last].value[padding-1]=0;
+    CHECK(!pending->analysis.filter_count); worker_submit(worker,pending); usage=worker_format_usage(worker);
+    CHECK(usage.active_count==1 && usage.pending_count==1 && usage.pending_reserved==DX_WORKER_FORMAT_RESERVED_BYTES);
+    pending=record_request(small); pending->analysis.filters[last].value=dx_alloc(padding+1); memset(pending->analysis.filters[last].value,'z',padding); pending->analysis.filters[last].value[padding]=0;
+    id=pending->id; worker_submit(worker,pending); usage=worker_format_usage(worker);
+    CHECK(usage.active_reserved==DX_WORKER_FORMAT_RESERVED_BYTES && usage.pending_reserved==SIZE_MAX && usage.pending_count==1 && !usage.published_count);
+    release_checkpoint(); usage=wait_format_retired(worker,1); owned=worker_poll(worker); CHECK(owned);
+    CHECK(owned->id==id && owned->kind==JOB_COLLECT_RECORDS && owned->error && strstr(owned->error,"8 MiB") && !owned->records.ids && !owned->records.count);
+    CHECK(owned->analysis.filters[last].value && strlen(owned->analysis.filters[last].value)==padding);
+    CHECK(usage.published_owned==sizeof(QueryReply)+strlen(small)+1+padding+1+strlen(owned->error)+1);
+    no_format_owned(worker); no_sql(worker); reply_free(owned);
+}
 static void cancellation_and_latest(QueryWorker *worker,const char *large,const char *small,const char *missing) {
     QueryJob *job=request(large,dx_file_stamp(large)); uint64_t id=job->id; arm(worker,id); worker_submit(worker,job); wait_checkpoint();
     /* The helper is blocked on its own test condition, never the UI mutex. */
@@ -169,15 +223,17 @@ static void stop_while_verifying(QueryWorker *worker,const char *path) {
     QueryJob *job=request(path,0); arm(worker,job->id); worker_submit(worker,job); wait_checkpoint();
     DxThread stopper; CHECK(dx_thread_start(&stopper,stop_thread,worker)); double until=dx_millis()+5000; bool stopped=false;
     while (dx_millis()<until) { dx_lock(&worker->mutex); stopped=worker->stop; dx_unlock(&worker->mutex); if (stopped) break; dx_sleep_ms(1); }
-    CHECK(stopped); release_checkpoint(); dx_thread_join(stopper);
+    CHECK(stopped); WorkerFormatUsage usage=worker_format_usage(worker); CHECK(usage.active_count==1 && usage.active_reserved==DX_WORKER_FORMAT_RESERVED_BYTES);
+    release_checkpoint(); dx_thread_join(stopper); no_format_owned(worker);
     CHECK(!worker->started && !worker->running && !worker->pending && !worker->reply && !worker->db.connection && !worker->sql_executed && !worker->counts_executed);
+    CHECK(!worker->active_format_reserved && !worker->pending_format_reserved && !worker->published_format_owned);
 }
 int main(void) {
     CHECK(JOB_PAGE==0 && JOB_STEP_PREVIEW==12 && JOB_VERIFY_SOURCE==13);
     char directory[]="/tmp/duxcel-worker-digest-XXXXXX"; CHECK(mkdtemp(directory));
     char large[1024],small[1024],missing[1024],replacement[1024]; snprintf(large,sizeof(large),"%s/large",directory); snprintf(small,sizeof(small),"%s/small",directory); snprintf(missing,sizeof(missing),"%s/missing",directory); snprintf(replacement,sizeof(replacement),"%s/replacement",directory);
     write_file(large,true); write_file(small,false); dx_mutex_init(&checkpoint.mutex); dx_cond_init(&checkpoint.condition);
-    QueryWorker worker; CHECK(worker_start(&worker)); basic_and_payloads(&worker,large,missing); cancellation_and_latest(&worker,large,small,missing); changed_input(&worker,large,replacement); stop_while_verifying(&worker,large);
+    QueryWorker worker; CHECK(worker_start(&worker)); basic_and_payloads(&worker,large,missing); wait_format_retired(&worker,0); reservation_ownership(&worker,large,small); cancellation_and_latest(&worker,large,small,missing); changed_input(&worker,large,replacement); stop_while_verifying(&worker,large);
     dx_cond_destroy(&checkpoint.condition); dx_mutex_destroy(&checkpoint.mutex); CHECK(unlink(large)==0 && unlink(small)==0 && rmdir(directory)==0);
     printf("PASS: %u worker-source-digest checks; zero SQL and no DuckDB connection\n",checks); return 0;
 }

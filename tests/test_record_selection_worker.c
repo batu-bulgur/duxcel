@@ -30,6 +30,19 @@ static void wait_idle(QueryWorker *worker) {
     }
     CHECK(!"record collection cancellation timeout");
 }
+static WorkerFormatUsage wait_published(QueryWorker *worker) {
+    double deadline=dx_millis()+10000;
+    while (dx_millis()<deadline) {
+        WorkerFormatUsage usage=worker_format_usage(worker);
+        if (!usage.active_count && !usage.pending_count && usage.published_count==1) return usage;
+        dx_sleep_ms(1);
+    }
+    CHECK(!"record collection published ownership timeout"); return (WorkerFormatUsage){0};
+}
+static void uncharged(QueryWorker *worker) {
+    WorkerFormatUsage usage=worker_format_usage(worker);
+    CHECK(!usage.active_count && !usage.pending_count && !usage.published_count && !usage.active_reserved && !usage.pending_reserved && !usage.published_owned);
+}
 static void succeeded(QueryReply *reply,uint64_t id,size_t count,uint64_t first,uint64_t object) {
     CHECK(reply->id==id && reply->kind==JOB_COLLECT_RECORDS && !reply->error && reply->object_id==object && reply->revision==UINT64_C(9007199254740995));
     CHECK(reply->analysis.source_version==UINT64_C(9007199254740993) && reply->records.count==count && reply->records.bytes==count*sizeof(uint64_t));
@@ -56,7 +69,9 @@ int main(void) {
     dx_lock(&worker.mutex); CHECK(!worker.db.connection && !worker.db.query_count); dx_unlock(&worker.mutex);
     job=request(csv,SOURCE_CSV,0,4,77); id=job->id; job->is_table=false; worker_submit(&worker,job); reply=wait_reply(&worker); failed(reply,id); reply_free(reply);
     job=request(csv,SOURCE_CSV,240,350,0); id=job->id; const char *owned_path=job->analysis.path;
-    worker_submit(&worker,job); QueryReply *retained=wait_reply(&worker); succeeded(retained,id,350,241,0); CHECK(retained->analysis.path==owned_path);
+    worker_submit(&worker,job); WorkerFormatUsage usage=wait_published(&worker);
+    CHECK(usage.published_owned==sizeof(QueryReply)+strlen(csv)+1+350*sizeof(uint64_t));
+    QueryReply *retained=worker_poll(&worker); CHECK(retained); uncharged(&worker); succeeded(retained,id,350,241,0); CHECK(retained->analysis.path==owned_path);
     /* A polled vector stays caller-owned across later jobs and worker close. */
     job=request(parquet,SOURCE_PARQUET,5,3,UINT64_C(9007199254740997)); id=job->id;
     worker_submit(&worker,job); reply=wait_reply(&worker); succeeded(reply,id,3,6,UINT64_C(9007199254740997)); reply_free(reply);
@@ -66,6 +81,19 @@ int main(void) {
     CHECK(stat(csv,&file)==0 && chmod(csv,(file.st_mode&0777)^S_IXUSR)==0 && dx_file_stamp(csv)==stamp);
     worker_submit(&worker,job); reply=wait_reply(&worker); failed(reply,id); CHECK(strstr(reply->error,"exact native file")); reply_free(reply);
     job=request(csv,SOURCE_CSV,0,4,0); id=job->id; worker_submit(&worker,job); reply=wait_reply(&worker); succeeded(reply,id,4,1,0); reply_free(reply);
+    /* The reservation's error allowance is not a diagnostic truncation rule.
+       Count the full real conversion error and every owned definition byte. */
+    job=request(csv,SOURCE_CSV,0,4,0); id=job->id;
+    char invalid[1027]; memset(invalid,'x',1024); invalid[1024]='\t'; invalid[1025]='1'; invalid[1026]=0; char *invalid_key=invalid;
+    job->analysis.filter_column=dx_strdup("physical_duplicate"); job->analysis.filter_value=analysis_values_json(&invalid_key,1); job->analysis.filter_op=FILTER_DATE_IN;
+    worker_submit(&worker,job); usage=wait_published(&worker); reply=worker_poll(&worker); CHECK(reply); failed(reply,id);
+    CHECK(strlen(reply->error)>DX_SOURCE_DIGEST_ERROR_BYTES && strstr(reply->error,"Could not convert string"));
+    CHECK(usage.published_owned==sizeof(QueryReply)+strlen(csv)+1+strlen(reply->analysis.filter_column)+1+strlen(reply->analysis.filter_value)+1+strlen(reply->error)+1);
+    uncharged(&worker); reply_free(reply);
+    job=request(csv,SOURCE_CSV,0,20000,0); worker_submit(&worker,job); usage=wait_published(&worker);
+    CHECK(usage.published_owned==sizeof(QueryReply)+strlen(csv)+1+DX_RECORD_SELECTION_ROWS*sizeof(uint64_t));
+    worker_cancel(&worker); uncharged(&worker); CHECK(!worker_poll(&worker));
+    CHECK(retained->records.ids[0]==241 && retained->records.ids[349]==590);
     /* Ordinary scheduling controls cover cancellation of pending/running work,
        superseded requests, and rejection of late publication, without sleeps
        or claiming a deterministic conversion-phase interruption. */
@@ -75,6 +103,8 @@ int main(void) {
     wait_idle(&worker); CHECK(!worker_poll(&worker));
     worker_submit(&worker,request(parquet,SOURCE_PARQUET,0,20000,77)); worker_stop(&worker);
     CHECK(!worker.started && !worker.pending && !worker.reply && !worker.db.connection);
+    CHECK(!worker.active_format_reserved && !worker.pending_format_reserved && !worker.published_format_owned);
+    uncharged(&worker);
     CHECK(retained->records.count==350 && retained->records.ids[0]==241 && retained->records.ids[349]==590); reply_free(retained);
     CHECK(unlink(csv)==0 && unlink(parquet)==0 && rmdir(directory)==0); free(csv); free(parquet);
     printf("PASS: %u owned native worker record-collection checks\n",checks); return 0;
