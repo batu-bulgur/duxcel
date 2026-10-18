@@ -1,0 +1,36 @@
+{
+  "schema": "duxcel.native-source-versions-initial",
+  "status": "failed",
+  "source": {
+    "tests/test_workbook_codec_native.c": "162bccaac137d074b633ada446be5f8525dc62130e8cbcb9a4b4aca3a76ffff7",
+    "tests/test_workbook_codec_source_versions_native.inc": "a9b2b3375da47dea49a69a8fc1e97dacfb09d1232e9894ed17d4129b0f86e737",
+    "src/workbook/workbook_codec_read.c": "b51851fc844a6aa3aa785cbb800b85969bf79fef999f39a4dc6d472f6b270773",
+    "src/workbook/workbook_codec_read.h": "c400767ab439f7a9cbd9ba2fa868938f12569b3efa40e664e4f0477f6c73e977"
+  },
+  "runs": [
+    {
+      "label": "build-release",
+      "command": [
+        "make",
+        "tests/test_workbook_codec_native"
+      ],
+      "status": 0,
+      "seconds": 6.846573875,
+      "log": "build-release.txt"
+    },
+    {
+      "label": "release",
+      "command": [
+        "./tests/test_workbook_codec_native",
+        "--source-versions-only"
+      ],
+      "status": 1,
+      "seconds": 2.2007682499999994,
+      "log": "release.txt"
+    }
+  ],
+  "classification": "new-native-test-adapter-extraction-failure",
+  "cause": "SQL source_reference a+chr(0)+b was truncated to a by deprecated SDK row VARCHAR extraction before codec feed. The supplied valid a TEXT atom was accepted correctly. Native full package rejected the real NUL before this component.",
+  "diagnostic_witness": "../diagnostic-3.txt",
+  "correction": "Test-only prepare ORIGINAL I/U/U/I/T/I/X schema, then execute ONE encoded-reference BLOB wrapper. Read exact SDK blob.size into TEXT atom; retain packet BLOB and preserve SQL NULL; poison/free SDK buffers using duckdb_free."
+}

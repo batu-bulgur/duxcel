@@ -1,0 +1,94 @@
+{
+  "status": "passed",
+  "profile": "codec-grid-driver",
+  "checks": 282,
+  "report": {
+    "ok": true,
+    "mode": "grid",
+    "checks": 79583,
+    "fixtures": 4,
+    "headers": 6,
+    "queries": 62,
+    "rejections": 5,
+    "stale": 2,
+    "peakOwnedInput": 2097214,
+    "maximumCompletedHeaderOwned": 172152,
+    "headerOwnedLimit": 2097152,
+    "inputOwnedLimit": 4194304,
+    "normalFixtureQueries": [
+      8,
+      8,
+      8,
+      8
+    ],
+    "familyExecutions": {
+      "meta": 12,
+      "sheets": 12,
+      "columns": 12,
+      "cells": 10,
+      "describe": 16
+    },
+    "matchedDataCallbacks": {
+      "columns": 21,
+      "cells": 15
+    },
+    "matchedEofCallbacks": {
+      "columns": 10,
+      "cells": 6
+    },
+    "completedStreams": {
+      "columns": 10,
+      "cells": 6
+    },
+    "errorStreams": {
+      "columns": 2,
+      "cells": 3
+    },
+    "poisonedDataChunks": {
+      "columns": 19,
+      "cells": 12
+    },
+    "acceptedFeeds": {
+      "columns256": 9,
+      "columns29": 7,
+      "columns7": 3,
+      "columnsEof": 10,
+      "cells256": 6,
+      "cells29": 3,
+      "cells7": 3,
+      "cellsEof": 6
+    },
+    "chunkCallbacks": 53,
+    "acceptedAcks": 47,
+    "doneCallbacks": 22,
+    "staleChunkCallbacks": 1,
+    "staleDoneCallbacks": 1,
+    "staleScalarReservationBytes": 42,
+    "staleTerminalReservationBytes": 2070,
+    "heldCallbacks": 1,
+    "cancelledCallbacks": 1,
+    "rejectedFeeds": 5,
+    "rejectedFirstRows": [
+      256,
+      256,
+      256,
+      256,
+      0
+    ],
+    "lateWidthRejected": true,
+    "requiredColumnNameRejected": true,
+    "requiredCellTextRejected": true,
+    "duplicateCellRejected": true,
+    "budgetRejected": true,
+    "heldSecondChunkCancelled": true,
+    "wholeCandidateRetry": true,
+    "freshRecovery": true,
+    "longColumnNameExact": true,
+    "maximumCellTextExact": true,
+    "actualEmptyCellPresent": true,
+    "missingCellAbsent": true,
+    "error": null,
+    "boundary": "official-worker/ACKed DXP1 chunks/shared-C-column-and-cell Header; owned sparse metadata only, no source SQL, full Workbook/model placement, browser App Open or Save"
+  },
+  "scope": "Partial owned Header with ACKed column presentation and sparse-cell streams only; no Workbook publication, App Save/Open or engine/RSS peak bound"
+}

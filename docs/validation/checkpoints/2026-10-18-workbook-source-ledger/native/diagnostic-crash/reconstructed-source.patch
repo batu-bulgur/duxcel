@@ -1,0 +1,11 @@
+--- first-failure/test_workbook_codec_source_versions_native.inc
++++ diagnostic-crash/reconstructed-test_workbook_codec_source_versions_native.inc
+@@ -153,7 +153,7 @@
+     CHECK(!workbook_load(&native,path,&error)&&error&&!memcmp(saved,&native,sizeof(native)));clear_error(&error);
+     duckdb_database db=NULL;duckdb_connection c=NULL;open_readonly(path,&db,&c);LedgerStamp old=ledger_stamp(*out);char *target=dx_absolute_path(path);WorkbookCodecRead *r=ledger_begin(c,version,target,old.prior.prior.objects.bytes,limit,resolve);
+     if(version<14||!present){CHECK(!workbook_codec_read_add_source_versions(r,present,old.prior.prior.objects.bytes,&error)&&error&&!workbook_codec_read_request(r));}
+-    else{CHECK(workbook_codec_read_add_source_versions(r,true,old.prior.prior.objects.bytes,&error));ledger_request(r);CHECK(ledger_feed(c,r,NULL,256,old.prior.prior.objects.bytes,&error)==WORKBOOK_CODEC_READ_ERROR&&error&&workbook_codec_read_request(r)->first_row==first&&workbook_codec_read_owned_bytes(r)==ledger_last_owned);ledger_unfinished(r,out);}
++    else{CHECK(workbook_codec_read_add_source_versions(r,true,old.prior.prior.objects.bytes,&error));ledger_request(r);WorkbookCodecReadStatus status=ledger_feed(c,r,NULL,256,old.prior.prior.objects.bytes,&error);if(status!=WORKBOOK_CODEC_READ_ERROR||!error||workbook_codec_read_request(r)->first_row!=first||workbook_codec_read_owned_bytes(r)!=ledger_last_owned)fprintf(stderr,"ledger rejection: status=%d expected_first=%zu actual_first=%zu owned=%zu before=%zu diagnostic=%s\n",status,first,workbook_codec_read_request(r)->first_row,workbook_codec_read_owned_bytes(r),ledger_last_owned,error?error:"NULL");CHECK(status==WORKBOOK_CODEC_READ_ERROR&&error&&workbook_codec_read_request(r)->first_row==first&&workbook_codec_read_owned_bytes(r)==ledger_last_owned);ledger_unfinished(r,out);}
+     clear_error(&error);ledger_kept(*out,old);workbook_codec_read_free(r);duckdb_disconnect(&c);duckdb_close(&db);free(target);workbook_free(&native);
+     FileImage after=file_image(path);CHECK(before.bytes==after.bytes&&!memcmp(before.data,after.data,before.bytes));free(before.data);free(after.data);
+ }

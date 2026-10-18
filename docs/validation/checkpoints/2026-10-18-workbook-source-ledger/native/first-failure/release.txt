@@ -1,0 +1,1 @@
+FAIL native workbook header:156: ledger_feed(c,r,NULL,256,old.prior.prior.objects.bytes,&error)==WORKBOOK_CODEC_READ_ERROR&&error&&workbook_codec_read_request(r)->first_row==first&&workbook_codec_read_owned_bytes(r)==ledger_last_owned

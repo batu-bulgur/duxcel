@@ -1,0 +1,27 @@
+{
+  "schema": "duxcel.source-versions-harness",
+  "version": 1,
+  "source": "f661434 with pending root browser integration diff",
+  "results": [
+    {
+      "command": [
+        "python3",
+        "tools/test_web_codec_runner_test.py"
+      ],
+      "seconds": 1.4659781659720466,
+      "exit_code": 0,
+      "log": "1.txt"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/test_runner_test.py"
+      ],
+      "seconds": 2.1736406249692664,
+      "exit_code": 1,
+      "log": "2.txt"
+    }
+  ],
+  "scope": "Pure harness/report guards/runner ordering and JS syntax only; no Worker/C runtime or GUI",
+  "initial_command_error": "python3 -m unittest tools/test_web_codec_runner_test.py could not resolve top-level test_web_app import; direct script invocation corrected; initialerror not a product failure"
+}

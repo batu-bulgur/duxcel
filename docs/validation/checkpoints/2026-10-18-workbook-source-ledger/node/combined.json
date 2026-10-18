@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "scope": "Pure Node actual adapter/Arrow with mock connection/readers/C exports; no actual DuckDB, browser, executable C ABI or application runtime",
+  "base": "3e98de2572c9469cc3154e72e999f4e57e74b8f2",
+  "command": [
+    "node",
+    "--test",
+    "--test-concurrency=1",
+    "web/codec_stream_transport.test.mjs",
+    "web/metadata_stream.test.mjs",
+    "web/metadata_stream_probe.test.mjs",
+    "web/official_worker.test.mjs",
+    "web/page_wire.test.mjs",
+    "web/engine_host.test.mjs",
+    "web/official_worker_probe.test.mjs"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 4.049466,
+  "source_inputs": {
+    "web/official_worker.mjs": "9bb8197eff654a83059c2c0b0327190ac60dcde623a8366695070a36a733ec07",
+    "web/codec_stream_transport.mjs": "44dd075d376817067bba072013055458d307b4a5b49470cb7b177e187cbf88c9",
+    "web/codec_stream_transport.test.mjs": "55c1b06308dc5da348fb85f412bcceda22da532fc64e0f8e9056ced1607f6772",
+    "web/metadata_stream.test.mjs": "1be6f322cb3cbfccb3c065a66f3eff2b940fd244afdcecb8a92a6d1b81e6a7d9",
+    "web/metadata_stream_probe.test.mjs": "acd4b9b5bf8158dba79d7b25aa14679f4a52b3c300222066c978727890e14c38",
+    "web/official_worker.test.mjs": "f7cb98bbc01844cfcb684f39779a7b28bb1cf102947be8164565874b23c09bb8",
+    "web/page_wire.test.mjs": "bd72b9d89368403c156ecc0d58522badb74c34020f88e8f22b1be14896feff4b",
+    "web/engine_host.test.mjs": "88d086e3859cb51acb6be9515fbcc878fe460820733238422a33cdea94fbb388",
+    "web/official_worker_probe.test.mjs": "41580a5ecb618cb478137c9bc5a8fcffee41d6109332a221da654e47196679da"
+  },
+  "source_unchanged": true,
+  "log": "combined.txt",
+  "log_sha256": "6675b07ef8eeabe8b85b7e7116d061167b66a083cb05db94da32d1d221f2d388"
+}

@@ -1,0 +1,179 @@
+{
+  "schema": "duxcel.native-source-versions-evidence-seal",
+  "version": 1,
+  "scope": "Bounded native component receipts/sources only; no generated archives, binaries or SDK payload copied.",
+  "files": {
+    "build-release.txt": {
+      "bytes": 56,
+      "sha256": "49f9bfd58ab4dc5e6f7ca77bc8622e39770f7af1f7de5ccf02da11e18e24134f"
+    },
+    "build-sanitize.txt": {
+      "bytes": 760,
+      "sha256": "cc67073064a6c1d68872d948a1bfe735e4ae378ab10298f73bdb3830c7b6d372"
+    },
+    "check-emitters.py": {
+      "bytes": 11163,
+      "sha256": "1d3a83bb9b1fd729427d3d6232b2a8a09a74fadcc8c22d0f63bd7f7e63e834c1"
+    },
+    "closure.py": {
+      "bytes": 3470,
+      "sha256": "cd24e0f44f6b6a26b735d086d1acddf684a5b52f73fc1753947fb9b8c72b8d90"
+    },
+    "diagnostic-2.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic-3-build.txt": {
+      "bytes": 701,
+      "sha256": "08d6665ded89e66c0a6e5b2ed91ac73234d8c21df4421605578d0088017fc38a"
+    },
+    "diagnostic-3.json": {
+      "bytes": 347,
+      "sha256": "75c9a06c2d15baf69dc4882b0ddc49834db36d4c71c955de2e75d7c88c8f5547"
+    },
+    "diagnostic-3.txt": {
+      "bytes": 347,
+      "sha256": "618ca111591f5660acc548a4d83c88047df8f9b42b75fb04f5548948a2236976"
+    },
+    "diagnostic-build.txt": {
+      "bytes": 701,
+      "sha256": "08d6665ded89e66c0a6e5b2ed91ac73234d8c21df4421605578d0088017fc38a"
+    },
+    "diagnostic-crash/diagnostic-2.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic-crash/diagnostic-build.txt": {
+      "bytes": 701,
+      "sha256": "08d6665ded89e66c0a6e5b2ed91ac73234d8c21df4421605578d0088017fc38a"
+    },
+    "diagnostic-crash/diagnostic-release.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic-crash/receipt.json": {
+      "bytes": 1017,
+      "sha256": "9417d1a2206da0d1dfa544aa1596944110c44ba4032d8d5c56f8199e75b74450"
+    },
+    "diagnostic-crash/reconstructed-test_workbook_codec_source_versions_native.inc": {
+      "bytes": 31929,
+      "sha256": "ae01e25fe7b7da83d5626e3704efba0ffc282b03426490e6fac480c4baeb67c7"
+    },
+    "diagnostic-release.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "emitter-log.txt": {
+      "bytes": 186,
+      "sha256": "e1981d6f1f4c1e27ff30c40cdfe8461cdaa3ee2aef8a4bf6ffbce06256db5aeb"
+    },
+    "emitter-progress.json": {
+      "bytes": 21016,
+      "sha256": "da427ca3ae5cb91d6ceead28c64c4bd5ee89a12acbedd4cbd5c86d3037d48c74"
+    },
+    "emitter-results.json": {
+      "bytes": 31427,
+      "sha256": "3c646a1f7ed61ed7d376283e4c7066650f694cfcf95876d0adf09e637a07e2a7"
+    },
+    "exact-build.txt": {
+      "bytes": 701,
+      "sha256": "08d6665ded89e66c0a6e5b2ed91ac73234d8c21df4421605578d0088017fc38a"
+    },
+    "exact-manifest.json": {
+      "bytes": 348,
+      "sha256": "8a5dd6ef400ac6e1036041cefceb05f0c87ca1f0e392c73fe2fd373ede50f6c0"
+    },
+    "exact-release.txt": {
+      "bytes": 511,
+      "sha256": "a076d8a03fc38a796425d3532d9fda3ee5517a993b8daebc8c6bfc45adf5a3d2"
+    },
+    "first-failure/build-release.txt": {
+      "bytes": 959,
+      "sha256": "f578af126c4dade8c715e4b938968fe45cceb4136925ccebd652e1f6d26559cb"
+    },
+    "first-failure/initial-manifest.json": {
+      "bytes": 1614,
+      "sha256": "89c2460fc22ed26f740b1fff941cf026643b9854d3be3a65c4e355a3f568164f"
+    },
+    "first-failure/release.txt": {
+      "bytes": 235,
+      "sha256": "fb0987494681049a3af9c14668c40744afb8aec85585d0f846d6b1e58ed6c31a"
+    },
+    "first-failure/test_workbook_codec_native.c": {
+      "bytes": 59074,
+      "sha256": "162bccaac137d074b633ada446be5f8525dc62130e8cbcb9a4b4aca3a76ffff7"
+    },
+    "first-failure/test_workbook_codec_source_versions_native.inc": {
+      "bytes": 31495,
+      "sha256": "a9b2b3375da47dea49a69a8fc1e97dacfb09d1232e9894ed17d4129b0f86e737"
+    },
+    "initial-emitter-inspection/check-emitters.py": {
+      "bytes": 11143,
+      "sha256": "5e84bb5d8cb0df2ed8b2fe55d2bdd29a50f86c72a9ae129ffa7a13cd799e9d72"
+    },
+    "initial-emitter-inspection/emitter-log.txt": {
+      "bytes": 2403,
+      "sha256": "31c9f8e9636e6e2f0859b8d2e8b933f83c67270a93dcaf5380e4efa0dba3dda0"
+    },
+    "initial-emitter-inspection/manifest.json": {
+      "bytes": 442,
+      "sha256": "ec99e6b1925222c73867c5e165ed5bcee2c05e3e10b1b32521f7c15b60cd2963"
+    },
+    "initial-manifest.json": {
+      "bytes": 1013,
+      "sha256": "c53d126ac7448223f77fafd626f291734d036fac95b32c7100358c4bdca4fa87"
+    },
+    "manifest.json": {
+      "bytes": 4847,
+      "sha256": "6679e6ce85e217c1a8ca97dd29b8129ea223d54f743a823805a0bca830bde346"
+    },
+    "preprocessor-closure.json": {
+      "bytes": 11323,
+      "sha256": "c08a020f5d0cfed13a98cf9f0a79f92d5ce149210bdce7731404f8eae7e064d4"
+    },
+    "release-dependencies.d": {
+      "bytes": 7271,
+      "sha256": "926f8c9c980dec25474499cc569f62bde472d6a2642dbe33c850ec4b024c4cdf"
+    },
+    "release-header.txt": {
+      "bytes": 218,
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    "release-source-versions.txt": {
+      "bytes": 511,
+      "sha256": "a076d8a03fc38a796425d3532d9fda3ee5517a993b8daebc8c6bfc45adf5a3d2"
+    },
+    "release.txt": {
+      "bytes": 235,
+      "sha256": "fb0987494681049a3af9c14668c40744afb8aec85585d0f846d6b1e58ed6c31a"
+    },
+    "run_final.py": {
+      "bytes": 2211,
+      "sha256": "617c8850f949595398cd09ddcc09a1af845b44d268bc66e939699587c6ac3607"
+    },
+    "run_initial.py": {
+      "bytes": 1236,
+      "sha256": "430477a9d76d6d760dda69b67003cc8780d98b56fadf5003efa26296f1255556"
+    },
+    "sanitize-dependencies.d": {
+      "bytes": 7271,
+      "sha256": "926f8c9c980dec25474499cc569f62bde472d6a2642dbe33c850ec4b024c4cdf"
+    },
+    "sanitize-header.txt": {
+      "bytes": 218,
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    "sanitize-source-versions.txt": {
+      "bytes": 511,
+      "sha256": "a076d8a03fc38a796425d3532d9fda3ee5517a993b8daebc8c6bfc45adf5a3d2"
+    },
+    "seal.py": {
+      "bytes": 5886,
+      "sha256": "2b1a612a8f8b673ed4a7aa2813eff496e11b548ea429aab76cbdc8c6b5dedf3f"
+    },
+    "unchanged-native-prefix.json": {
+      "bytes": 1431,
+      "sha256": "a90a42e7420581e5b2e5f8bf971e3bdfc6d143427d23fb9a34d4afd8dfc9ad96"
+    }
+  }
+}

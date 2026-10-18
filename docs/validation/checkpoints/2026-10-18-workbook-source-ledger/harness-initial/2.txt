@@ -1,0 +1,56 @@
+test_affected_no_build_rejects_legacy_same_pass_and_wrong_range (__main__.RunnerTests.test_affected_no_build_rejects_legacy_same_pass_and_wrong_range) ... ok
+test_base_uses_actual_existing_state_instead_of_invented_pass (__main__.RunnerTests.test_base_uses_actual_existing_state_instead_of_invented_pass) ... ok
+test_cli_validation_and_inventory_do_not_construct_runner (__main__.RunnerTests.test_cli_validation_and_inventory_do_not_construct_runner) ... ok
+test_edit_affected_preserves_headless_configs_and_exact_native_range (__main__.RunnerTests.test_edit_affected_preserves_headless_configs_and_exact_native_range) ... ok
+test_edit_changes_only_the_native_app_target_and_summary (__main__.RunnerTests.test_edit_changes_only_the_native_app_target_and_summary) ... ok
+test_edit_cli_is_opt_in_and_rejects_other_tiers_or_release_before_runner_creation (__main__.RunnerTests.test_edit_cli_is_opt_in_and_rejects_other_tiers_or_release_before_runner_creation) ... ok
+test_edit_native_visibility_is_still_hidden_and_not_inherited (__main__.RunnerTests.test_edit_native_visibility_is_still_hidden_and_not_inherited) ... ok
+test_edit_no_build_requires_the_exact_binary_and_retains_locks_hashes_and_stages (__main__.RunnerTests.test_edit_no_build_requires_the_exact_binary_and_retains_locks_hashes_and_stages) ... ok
+test_focus_ranges_have_supported_bootstraps_and_terminal_assertions (__main__.RunnerTests.test_focus_ranges_have_supported_bootstraps_and_terminal_assertions) ... ok
+test_formats_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation (__main__.RunnerTests.test_formats_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation) ... ok
+test_formats_no_build_requires_all_selected_binaries_before_any_execution (__main__.RunnerTests.test_formats_no_build_requires_all_selected_binaries_before_any_execution) ... ok
+test_formats_requires_the_focused_completion_summary (__main__.RunnerTests.test_formats_requires_the_focused_completion_summary) ... ok
+test_formats_stop_after_failure_or_binary_replacement (__main__.RunnerTests.test_formats_stop_after_failure_or_binary_replacement) ... ok
+test_formats_tier_builds_retains_and_runs_only_selected_configs_sequentially (__main__.RunnerTests.test_formats_tier_builds_retains_and_runs_only_selected_configs_sequentially) ... ok
+test_full_and_named_layout_require_the_entire_inventory_range (__main__.RunnerTests.test_full_and_named_layout_require_the_entire_inventory_range) ... ok
+test_full_builds_record_suites_without_interrupting_core_workbook_fixture_order (__main__.RunnerTests.test_full_builds_record_suites_without_interrupting_core_workbook_fixture_order) ... FAIL
+test_full_requires_optional_data_before_building (__main__.RunnerTests.test_full_requires_optional_data_before_building) ... ok
+test_inventory (__main__.RunnerTests.test_inventory) ... ok
+test_layout_completion_requires_the_exact_runtime_range (__main__.RunnerTests.test_layout_completion_requires_the_exact_runtime_range) ... ok
+test_lock_exclusion_and_release_without_unlink (__main__.RunnerTests.test_lock_exclusion_and_release_without_unlink) ... ok
+test_named_native_workflows_keep_order_and_deduplicate_without_full_suite (__main__.RunnerTests.test_named_native_workflows_keep_order_and_deduplicate_without_full_suite) ... ok
+test_native_missing_inputs_fail_before_opening_desktop (__main__.RunnerTests.test_native_missing_inputs_fail_before_opening_desktop) ... ok
+test_native_requires_complete_shutdown (__main__.RunnerTests.test_native_requires_complete_shutdown) ... ok
+test_native_visibility_is_explicit_and_not_inherited (__main__.RunnerTests.test_native_visibility_is_explicit_and_not_inherited) ... ok
+test_overwritten_or_removed_binary_fails (__main__.RunnerTests.test_overwritten_or_removed_binary_fails) ... ok
+test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation (__main__.RunnerTests.test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation) ... ok
+test_records_no_build_requires_all_binaries_before_any_execution (__main__.RunnerTests.test_records_no_build_requires_all_binaries_before_any_execution) ... ok
+test_records_stop_after_failure_or_binary_replacement (__main__.RunnerTests.test_records_stop_after_failure_or_binary_replacement) ... ok
+test_records_tier_builds_retains_and_runs_only_selected_configs_sequentially (__main__.RunnerTests.test_records_tier_builds_retains_and_runs_only_selected_configs_sequentially) ... ok
+test_sanitizer_diagnostics_fail_even_with_zero_exit (__main__.RunnerTests.test_sanitizer_diagnostics_fail_even_with_zero_exit) ... ok
+test_success_requires_terminal_marker (__main__.RunnerTests.test_success_requires_terminal_marker) ... ok
+test_web_runtime_inputs_are_fingerprinted_without_generated_dependencies (__main__.RunnerTests.test_web_runtime_inputs_are_fingerprinted_without_generated_dependencies) ... ok
+
+======================================================================
+FAIL: test_full_builds_record_suites_without_interrupting_core_workbook_fixture_order (__main__.RunnerTests.test_full_builds_record_suites_without_interrupting_core_workbook_fixture_order)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/h2o/dev/duxcel/tools/test_runner_test.py", line 313, in test_full_builds_record_suites_without_interrupting_core_workbook_fixture_order
+    self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]],expected)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [['./[812 chars]test_workbook_codec_native', '--source-version[978 chars]ly']] != [['./[812 chars]test_core-debug'], ['./tests/test_workbook-deb[840 chars]ly']]
+
+First differing element 16:
+['./tests/test_workbook_codec_native', '--source-versions-only']
+['./tests/test_core-debug']
+
+First list contains 2 additional elements.
+First extra element 32:
+['./tests/test_workbook_codec_native-debug', '--source-counters-only']
+
+Diff is 2175 characters long. Set self.maxDiff to None to see it.
+
+----------------------------------------------------------------------
+Ran 32 tests in 2.074s
+
+FAILED (failures=1)
