@@ -49,7 +49,7 @@ Focused native profiles currently expose existing valid bootstraps: `statistics`
 
 Core creates generated databases consumed by workbook/native tests. The runner preserves **core → workbook**, then completes that configuration before the next overwrites fixtures. It never parallelizes these mutable suites. Worktrees have separate `tests/generated/`; do not share it via symlink. The preview module's DuckDB connection uses its own private temp directory and reads authored input; it does not mutate those fixture databases.
 
-The maintained native inventory at `e3ad8d9` is **911 layout /1,344 application stages**, plus separate **303 missing-glyph GPU**, **110 original paint** and **477 background-window** checks. NYC's eight stages require `tests/downloads/yellow_tripdata_2025-01.parquet`. `--require-data` fails if it is missing. Without that flag the runner records an explicit skip and reports `passed-with-skips`, never a full1,344-stage pass. Focused earlier Steps acceptance retains its898-stage catalog scope; adding the29-stage SQL profile is not a new full-inventory pass. `tests/download_data.sh` can reproduce the existing public inputs; nothing downloads automatically during ordinary tests.
+The maintained native inventory after the chart Other extension (`b7abbb1`) is **911 layout /1,351 application stages**, plus separate **303 missing-glyph GPU**, **110 original paint** and **477 background-window** checks. NYC's eight stages require `tests/downloads/yellow_tripdata_2025-01.parquet`. `--require-data` fails if it is missing. Without that flag the runner records an explicit skip and reports `passed-with-skips`, never a full1,351-stage pass. The focused chart40 extends its original33 assertions; no fresh full-inventory pass is claimed. Focused earlier Steps acceptance retains its898-stage catalog scope. `tests/download_data.sh` can reproduce the existing public inputs; nothing downloads automatically during ordinary tests.
 
 The full tier does not mean every optional stress/packaging/OS path was exercised. `make spill-test`, `make unique-large-test`, icon regeneration/verification, standalone distribution, physical trackpad/DPI/IME and manual file panels remain separately scoped checks. Run those when their area changes; Windows/Linux validation is deferred.
 
@@ -452,3 +452,21 @@ The later actual-loader gate passes4,964 checks per optimized/O1 configuration a
 Earlier Font602/actual-UI1,715 checks pass per optimized/O1 configuration in10.528s including8.012s build at `7bed3bc`. The actual-UI test uses real bundled CPU glyphs with texture/input/draw stubs. Separate hidden GPU303 plus all original paint110 checks pass at `cca8081`: six primary atlases,80/100/150%, exact RGBA for unsupported/explicit-U+FFFD pairs, literal-question-mark distinction, equally clipped references, white outside backgrounds and retained atlases/paint allocations. Its2.186s GPU/4.221s total includes the477-check background probe. The existing full tier retains that GPU gate and shared desktop lock. Exact GPU evidence does not establish physical DPI/IME or real CJK/emoji glyph coverage.
 
 The later `--pane-shortcuts-only` browser profile accepts540 checks at product `fe6f179`, using trusted Control/Meta history in four read-only focus regions, local Fields search/F2 draft history, memory-only SQL Copy, real F5/Shift+F11 and empty-Pivot Fields toggles. It retains zero-query history windows separately from intentional refresh/new-sheet work. The old5e9 artifact naturally fails Fields Control+Z; this negative is distinct from the controlled budget patch. A separate broad native review400 regression atfe6 passes optimized/O1 in17.709/20.099s; this does not establish physical/native AppKit delivery of the new chords. Native/Wasm production exclusion passes. Package/service refresh is recorded separately from browser behavior and new report delivery. Browser-reserved O/S/W/N, physical input, reports and persistence stay outside the profile. [Source/binary hashes, exact commands, timings and retained images](validation/checkpoints/2026-10-18-format-budget-glyphs/).
+
+
+## Source-derived chart Other gates
+
+```sh
+make test-chart-other
+make test-chart-other-native
+python3 tools/test.py native --scenario chart --config release
+python3 tools/test.py native --scenario chart --config sanitize
+python3 tools/build_web.py --worker-driver
+python3 tools/test_web_app.py --no-build --worker-driver
+python3 tools/build_web.py --review
+python3 tools/test_web_app.py --no-build --review --source tests/fixtures/chart-other.csv --dpr 2 --chart-other-only
+```
+
+The independent chart profile retains its original33 native stages and appends7 actual source-derived cases (40 total). Optimized/O1 App times are22.071/22.818s,29.832/25.741s including warm build/background. Native DB474/Worker310, planner396 and UI view187/encoding188 checks pass per configuration; they have separate scopes from App40. The `DUXCEL_TEST_CHART_OTHER` malformed-result seam exists only in the two focused database targets and must remain absent from shipping binaries.
+
+The actual DPR2 App profile accepts742 checks in30.040s total, using real menus for a same-sheet H1 Pivot, weighted AVG7.5/distinct3, cached Tooltip AVG7.5, Plot/Marks Undo/Redo, retained G10 sparse data and source/matrix readouts, with zero presentation/idle jobs. It requires review, the exact fixture name and DPR2, and rejects unrelated profiles. Captures establish bounded chart observation; cached Tooltip metadata is not a claim that its hover balloon was visible. No clipboard, saved feedback report or physical input is used. The official Worker247 separately passes125,639 checks in16.590s total: original221 workloads225jobs/441SQL/21counts remain strict, with new Other26/24jobs/88SQL/0counts and source/native-stamp guard receipts retained independently. [Sources, natural fixture-assumption failures, ownership/budget limits and distribution](validation/checkpoints/2026-10-18-chart-other/).

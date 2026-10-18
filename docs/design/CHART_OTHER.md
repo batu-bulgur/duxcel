@@ -1,8 +1,11 @@
-# Source-derived chart Other component
+# Source-derived chart Other
 
-`src/transforms/chart_other.*` provides a bounded ranking and SQL-planning
-component. It is not yet connected to App, Worker, Page ownership or rendering.
-The existing chart's AVG/distinct limitation remains until that integration.
+The bounded source-derived path is integrated in the native and browser
+Workers, the move-owned `PageOther` cache, and the actual shared C App.
+Native40 and actual DPR2 browser742 accept the authoring/Plot/Marks/history
+path; the official DuckDB-Wasm Worker247 separately accepts analytical and
+guard behavior. [Source-scoped acceptance](../validation/checkpoints/2026-10-18-chart-other/).
+This does not close broader Marks query grain, physical input or full UI parity.
 
 The three largest **loaded** Row tuples use the existing chart ranking: first
 assigned SUM when present, otherwise the chosen Plot measure, finite scaled
@@ -51,19 +54,45 @@ SQL types that were mapped to the VARCHAR enum remain unsupported.
 Request/source/version freshness, cancellation and reply publication remain
 caller responsibilities; this component does not certify a Page's provenance.
 
-Future integration should keep the result in its owning Pivot job/Page cache,
-with the same latest-request and source fences as the matrix. To retain a
-query-free Plot switch, a SUM ranking can share one variant; without SUM, at
-most eight assigned-measure variants are needed. An optional Other failure
-must preserve the valid matrix/totals and report unavailable state. No query
-should begin from painting or an idle retry. Derived results need no new file
-format field; aggregate, shelf order and Plot choice are already persisted.
+The App opts in only for non-Table Pivot definitions assigning AVG or distinct,
+including Matrix representation so later Plot/representation changes remain
+query-free. SUM ranking shares one readout variant; without SUM the job prepares
+at most eight assigned-measure variants. Each contains one typed row for every
+category/measure, so changing Plot or assigned Tooltip reuses the same immutable
+Page graph. Painting starts no work. Existing composable-only charts retain their
+original local fold. Definitions, Plot and Marks already persist; derived Pages
+are recomputed after native Save/Open rather than serialized.
+
+Native `database_pivot_with_other` stages matrix/totals/readouts atomically. Row
+and Column key completeness is witnessed inside the same SQL execution with
+`contains(CAST(key AS VARCHAR),chr(0))`; it does not infer lengths from truncated
+C strings. Supported native observations are Demo and a regular single CSV or
+Parquet file guarded unchanged before/after the complete fetch. Attached native
+database sources are explicitly unsupported for this optional path until a
+snapshot fence is established. Arbitrary SQL determinism or undeclared external
+contributors are not certified by that file guard.
+
+The browser continuation uses the original known scalar Column types and the
+existing NUL-rejecting canonical wire. Every late type/readout request retains
+the captured registration binding vector. Source revocation, cancellation,
+query/wire errors or malformed output cannot publish a partial matrix. Unsupported
+keys, NUL proofs and explicit local admission limits retain the otherwise valid
+matrix/totals with an unavailable reason; AVG/distinct Other is then omitted
+with an honest caption. A native malformed result is fatal, not a budget fallback.
+
+`PageOther` owns all variants, validates parent allocation/extent fingerprints,
+and moves/frees with the parent. Native and browser admission charge the matrix,
+staged readouts and retained construction buffers against a logical 4 MiB
+category; browser requests additionally honor the existing 1 MiB SQL ceiling and
+charge live wire through continuation planning. These checks do not establish an
+absolute allocator, engine, parser or RSS peak.
 
 The focused real-DuckDB tests are `tests/test_chart_other.c`; they compare
 ranking with the existing chart helper and check weighted AVG, overlapping
 distinct values, missing/empty/literal keys, date grains, exact DECIMAL text,
 filtered sources, nonzero loaded offsets, ownership and bounded failures.
-This is component evidence, not integrated analytical or UI acceptance.
+Those component checks complement the separately accepted native/browser App
+and Worker gates; they do not establish UI parity by themselves.
 `test_chart_other --unproved-nul-counterexample` separately retains the natural
 unsafe-input counterexample (expected 42 versus unproved 1). The owned VARCHAR
 chunk reports three original bytes via `duckdb_string_t_length`; both the Page

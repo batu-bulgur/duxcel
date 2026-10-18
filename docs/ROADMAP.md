@@ -172,7 +172,7 @@ Acceptance: real browser file/workbook and analytical workflows, native/browser 
 
 ## 6. Complete analytical behavior in separate features
 
-- [ ] Aggregate-aware chart Other for AVG/distinct using real source aggregation. In progress: bounded SQL planning and move-owned typed Page readouts; native/browser Worker opt-in, source/key proof, real App use and acceptance remain pending. [Integration boundaries](design/CHART_OTHER.md).
+- [x] Aggregate-aware chart Other for AVG/distinct using real source aggregation over the non-top loaded tuples. Native40 optimized/O1, actual DPR2 browser742 and official Worker247 accept weighted AVG7.5/distinct3, owned typed readouts, query-free Plot/Marks/history and guarded failure/cancellation. Native attached databases and unsupported/unproved keys retain an honest optional fallback; arbitrary SQL provenance and broader Marks grain remain separate. [Boundaries](design/CHART_OTHER.md) and [acceptance](validation/checkpoints/2026-10-18-chart-other/).
 - [ ] Marks query-grain support for fields outside the current result; bounded continuous color, persistent labels, multiple bindings and matrix/legacy behavior.
 - [ ] Typed manual cells/formulas and explicit imported-data overlay model, with clear read-only source boundaries.
 - [ ] Further transforms/joins/table nesting, recovery and distribution work as prioritized from the preserved requirements. Each needs a narrow design/acceptance definition before implementation.
