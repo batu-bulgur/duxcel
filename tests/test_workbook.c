@@ -2098,7 +2098,119 @@ static void test_legacy_format_history(void) {
     while (s->redo_actions_count) { format_model_history(s,true); legacy_history_accept(s); }
     workbook_free(&book); free(error);
 }
+static void manual_history_accept(const Worksheet *sheet,const Analysis *live) {
+    Worksheet before=*sheet; Analysis prior=*live; char *error=dx_strdup("Keep manual diagnostic"),*owned=error;
+    CHECK(worksheet_manual_format_history_eligible(sheet,live,&error) && error==owned && !strcmp(error,"Keep manual diagnostic"));
+    CHECK(!memcmp(sheet,&before,sizeof(before)) && !memcmp(live,&prior,sizeof(prior)));
+    CHECK(worksheet_manual_format_history_eligible(sheet,live,NULL)); free(error);
+}
+static void manual_history_reject(const Worksheet *sheet,const Analysis *live,const char *message) {
+    Worksheet before=*sheet; Analysis prior=*live; char *error=dx_strdup("Replace manual diagnostic");
+    CHECK(!worksheet_manual_format_history_eligible(sheet,live,&error) && error && strstr(error,message));
+    CHECK(!memcmp(sheet,&before,sizeof(before)) && !memcmp(live,&prior,sizeof(prior)));
+    CHECK(!worksheet_manual_format_history_eligible(sheet,live,NULL)); free(error);
+}
+static void test_manual_format_history(void) {
+    Workbook book={0}; Analysis blank={0},live={0}; char *error=NULL; CHECK(workbook_add(&book,"Manual template history",&blank,&error));
+    Worksheet *s=book.sheets; manual_history_accept(s,&live); manual_history_accept(s,&s->analysis);
+    CellFormat value=format_default(); value.flags=FORMAT_BOLD;
+    CHECK(format_apply(&s->formats,(FormatRange){2,9,0,0},FORMAT_BOLD,value,&error)); worksheet_record(s,EDIT_FORMAT);
+    CHECK(cells_set(&s->cells,3,0,"Keep NULL literal",&error)); worksheet_record(s,EDIT_CELLS);
+    CHECK(objects_add(&s->objects,20,6,"Blank pivot",&error)==0); worksheet_record(s,EDIT_OBJECTS);
+    PivotDefinition empty={0}; CHECK(objects_add_chart(&s->objects,40,8,"Blank chart",&empty,&error)==1); worksheet_record(s,EDIT_OBJECTS);
+    Analysis next=analysis_copy(&live); next.descending=true; journal_analysis(s,&live,&next);
+    CHECK(cells_set(&s->cells,4,0,"Range cell",&error)); objects_translate_mask(&s->objects,1,1,0); worksheet_record(s,EDIT_RANGE);
+    value.color=2; CHECK(cells_set(&s->cells,5,0,"Cell-format",&error)); CHECK(format_apply(&s->formats,(FormatRange){5,5,0,0},FORMAT_COLOR,value,&error)); worksheet_record(s,EDIT_CELLS_FORMAT);
+    value.size=16; CHECK(objects_rename(&s->objects,0,"Renamed blank pivot",&error)); CHECK(format_apply(&s->formats,(FormatRange){6,6,0,0},FORMAT_SIZE,value,&error)); worksheet_record(s,EDIT_OBJECTS_FORMAT);
+    value.flags=FORMAT_ITALIC; CHECK(cells_set(&s->cells,7,0,"Range-format",&error)); objects_translate_mask(&s->objects,2,1,0);
+    CHECK(format_apply(&s->formats,(FormatRange){7,7,0,0},FORMAT_ITALIC,value,&error)); worksheet_record(s,EDIT_RANGE_FORMAT);
+    next=analysis_copy(&live); next.aggregate=AGG_COUNT; journal_composite(s,&live,&next);
+    CHECK(s->undo_actions_count==10 && s->undo_count==2 && s->objects.undo_count==5 && s->cells.undo_count==4 && s->formats.undo_count==5);
+    CHECK(s->formats.source_aware && !s->formats.undo[0].source_aware && s->analysis.kind==SOURCE_NONE && live.kind==SOURCE_NONE);
+    manual_history_accept(s,&live);
+    while (s->undo_actions_count) { journal_history(s,&live,false); manual_history_accept(s,&live); }
+    CHECK(!s->objects.count && s->objects.items && !s->cells.count && s->cells.cells && !s->formats.source_aware);
+    while (s->redo_actions_count) { journal_history(s,&live,true); manual_history_accept(s,&live); }
+    CHECK(s->objects.count==2 && !strcmp(s->objects.items[0].name,"Renamed blank pivot") && !strcmp(cells_get(&s->cells,3,0),"Keep NULL literal"));
+    /* A failed prospective first import does not authorize any mode change. */
+    FormatStore before=s->formats; ObjectStore objects=s->objects;
+    CHECK(objects_add_table(&s->objects,0,13,"Invalid first table",&blank,&error)<0 && error); free(error); error=NULL;
+    CHECK(!memcmp(&before,&s->formats,sizeof(before)) && !memcmp(&objects,&s->objects,sizeof(objects))); manual_history_accept(s,&live);
+    /* Exercise all legacy/aware retained modes without reinterpreting them. */
+    s->formats.revision=UINT64_MAX; manual_history_reject(s,&live,"exhausted format revision"); s->formats.revision=19;
+    for (size_t i=0;i<s->formats.undo_count;i++) s->formats.undo[i].source_aware=true;
+    s->formats.revision=UINT64_MAX; manual_history_accept(s,&live); s->formats.revision=19;
+    /* Independent App live and save-cache authorities must both stay blank. */
+    for (int kind=SOURCE_CSV;kind<=SOURCE_DEMO;kind++) {
+        live.kind=(SourceKind)kind; manual_history_reject(s,&live,"current data source"); live.kind=SOURCE_NONE;
+        s->analysis.kind=(SourceKind)kind; manual_history_reject(s,&live,"current data source"); s->analysis.kind=SOURCE_NONE;
+        s->undo[0].kind=(SourceKind)kind; manual_history_reject(s,&live,"Retained data-source history"); s->undo[0].kind=SOURCE_NONE;
+    }
+    /* Validate shallow malformed views without transferring their ownership. */
+    Worksheet invalid=*s;
+    invalid.undo_actions_count=SIZE_MAX; manual_history_reject(&invalid,&live,"bounded worksheet history");
+    invalid=*s; invalid.objects.redo_count=DX_HISTORY+1; manual_history_reject(&invalid,&live,"bounded worksheet history");
+    invalid=*s; invalid.cells.undo_count=0; manual_history_reject(&invalid,&live,"not aligned");
+    invalid=*s; invalid.formats.redo_count=1; manual_history_reject(&invalid,&live,"not aligned");
+    invalid=*s; invalid.undo_actions[0]=(EditKind)99; manual_history_reject(&invalid,&live,"Unknown worksheet history");
+    invalid=*s; invalid.objects.count=DX_MAX_OBJECTS+1; manual_history_reject(&invalid,&live,"independent");
+    invalid=*s; invalid.objects.items=NULL; manual_history_reject(&invalid,&live,"independent");
+    invalid=*s; invalid.objects.undo[1].items=NULL; manual_history_reject(&invalid,&live,"independent");
+    invalid=*s; invalid.cells.capacity=0; manual_history_reject(&invalid,&live,"editable-cell array shape");
+    invalid=*s; invalid.cells.cells=NULL; manual_history_reject(&invalid,&live,"editable-cell array shape");
+    invalid=*s; invalid.cells.bytes=DX_CELL_BYTES+1; manual_history_reject(&invalid,&live,"editable-cell array shape");
+    invalid=*s; invalid.cells.undo[1].count=DX_MAX_EDIT_CELLS+1; manual_history_reject(&invalid,&live,"retained editable-cell array shape");
+    invalid=*s; invalid.cells.undo[1].cells=NULL; manual_history_reject(&invalid,&live,"retained editable-cell array shape");
+    invalid=*s; invalid.formats.count=DX_FORMAT_PATCHES+1; manual_history_reject(&invalid,&live,"invalid current or retained cell formats");
+    unsigned mask=s->formats.undo[1].items[0].mask; s->formats.undo[1].items[0].mask=0;
+    manual_history_reject(s,&live,"invalid current or retained cell formats"); s->formats.undo[1].items[0].mask=mask;
+    SheetObject *pivot=s->objects.items; uint64_t id=pivot->id; pivot->id=s->objects.next_id+1;
+    manual_history_reject(s,&live,"high-water"); pivot->id=id;
+    pivot->source_id=91; manual_history_reject(s,&live,"source table binding"); pivot->source_id=0;
+    pivot->source.kind=SOURCE_DEMO; manual_history_reject(s,&live,"source table binding"); pivot->source.kind=SOURCE_NONE;
+    pivot->pivot.counts[PIVOT_ROWS]=1; pivot->pivot.fields[PIVOT_ROWS][0].name=dx_strdup("");
+    manual_history_reject(s,&live,"Invalid sheet object definition"); pivot_free(&pivot->pivot);
+    pivot->pivot.fields[PIVOT_ROWS][7].name=dx_strdup("Inactive owned field"); manual_history_reject(s,&live,"invalid owned object state"); free(pivot->pivot.fields[PIVOT_ROWS][7].name); pivot->pivot.fields[PIVOT_ROWS][7].name=NULL;
+    /* Each retained blank-primary definition is valid by itself, but the
+       existing per-stack logical bound still applies without reserved slack. */
+    for (size_t i=1;i<=2;i++) {
+        PivotDefinition *p=&s->objects.undo[i].items[0].pivot; CHECK(!p->counts[PIVOT_FILTERS]);
+        char *text=malloc(4200001); CHECK(text); memset(text,'x',4200000); text[4200000]=0;
+        p->counts[PIVOT_FILTERS]=1; p->fields[PIVOT_FILTERS][0]=(PivotField){.name=dx_strdup("City"),.value=text,.filter=FILTER_CONTAINS};
+    }
+    manual_history_reject(s,&live,"existing object-history limit");
+    for (size_t i=1;i<=2;i++) pivot_free(&s->objects.undo[i].items[0].pivot);
+    CHECK(!worksheet_manual_format_history_eligible(NULL,&live,&error) && error && strstr(error,"live Analysis")); free(error); error=NULL;
+    CHECK(!worksheet_manual_format_history_eligible(s,NULL,&error) && error && strstr(error,"live Analysis")); free(error); error=NULL;
+    CHECK(!worksheet_manual_format_history_eligible(s,s->undo,&error) && error && strstr(error,"independent")); free(error); error=NULL;
+    manual_history_accept(s,&live); analysis_free(&live); workbook_free(&book);
+}
+static void test_manual_format_retained_sources(void) {
+    Workbook book={0}; Analysis blank={0},live={0}; char *error=NULL; CHECK(workbook_add(&book,"Prior imported owners",&blank,&error)); Worksheet *s=book.sheets;
+    Analysis source={.kind=SOURCE_CSV,.path=dx_strdup("/private/existing-input.csv")};
+    Analysis next=analysis_copy(&source); journal_analysis(s,&live,&next); next=(Analysis){0}; journal_analysis(s,&live,&next);
+    CHECK(live.kind==SOURCE_NONE && s->undo_count==2 && s->undo[1].kind==SOURCE_CSV); manual_history_reject(s,&live,"Retained data-source history");
+    journal_history(s,&live,false); manual_history_reject(s,&live,"current data source");
+    journal_history(s,&live,false); CHECK(live.kind==SOURCE_NONE && s->redo_count==2 && s->redo[1].kind==SOURCE_CSV); manual_history_reject(s,&live,"Retained data-source history");
+    analysis_free(&live); workbook_free(&book);
+    CHECK(workbook_add(&book,"Removed table history",&blank,&error)); s=book.sheets;
+    CHECK(objects_add(&s->objects,20,0,"Blank template",&error)==0); worksheet_record(s,EDIT_OBJECTS);
+    CHECK(objects_add_table(&s->objects,0,13,"Prior actual table",&source,&error)==1); worksheet_record(s,EDIT_OBJECTS); manual_history_reject(s,&s->analysis,"retained Tables");
+    CHECK(objects_remove(&s->objects,1)); worksheet_record(s,EDIT_OBJECTS);
+    CHECK(objects_rename(&s->objects,0,"Still blank",&error)); worksheet_record(s,EDIT_OBJECTS);
+    CHECK(s->objects.count==1 && s->objects.undo[2].count==2 && s->objects.undo[3].count==1); manual_history_reject(s,&s->analysis,"retained Tables");
+    while (s->undo_actions_count) journal_history(s,&s->analysis,false);
+    CHECK(!s->objects.count && s->objects.redo_count==4); manual_history_reject(s,&s->analysis,"retained Tables");
+    /* Removing all history, rather than just undoing/deleting the Table, is a
+       caller operation: eligibility neither clears it nor infers owner origin. */
+    objects_trim_history(&s->objects,true,0); s->redo_actions_count=0; manual_history_accept(s,&s->analysis);
+    analysis_free(&source); workbook_free(&book); free(error);
+}
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--manual-format-history-only")) {
+        test_manual_format_history(); test_manual_format_retained_sources();
+        printf("PASS: %u focused pre-import manual-format history checks (blank primary/template owners across both aligned journals, retained source rejection, bounded models and unchanged ownership)\n",checks); return 0;
+    }
     if (argc==2 && !strcmp(argv[1],"--legacy-format-history-only")) {
         test_legacy_format_history();
         printf("PASS: %u focused legacy-format history eligibility checks (both aligned Cell/Format journals, retained aware states, bounded shapes, atomic rejection and unchanged ownership)\n",checks); return 0;
@@ -2134,7 +2246,8 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
         return 0;
     }
-    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only|--guarded-formats-only|--legacy-format-history-only]\n",argv[0]); return 2; }
+    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only|--guarded-formats-only|--legacy-format-history-only|--manual-format-history-only]\n",argv[0]); return 2; }
+    test_manual_format_history(); test_manual_format_retained_sources();
     test_legacy_format_history();
     test_guarded_format_workspace(); test_guarded_format_rejection();
     test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_objects(); test_format_budget_object_rejection(); test_format_budget_object_legacy_slack(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
