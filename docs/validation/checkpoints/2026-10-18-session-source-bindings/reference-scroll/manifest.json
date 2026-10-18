@@ -1,0 +1,237 @@
+{
+  "status": "passed",
+  "prototype": "/Users/h2o/dev/duxcel/design/prototype",
+  "inputs": {
+    "index.html": {
+      "sha256": "d67730db8bfef0168778548e75bcf946d6f36491701b2bb5f1c84521a5815a98",
+      "bytes": 363
+    },
+    "package.json": {
+      "sha256": "9500b0d4a7396193eb0c90f3806f99ba85ba67be7af2c756fb3466009d8403cc",
+      "bytes": 482
+    },
+    "package-lock.json": {
+      "sha256": "3dab3dbedaadd9e5715c39f4f0aef154c17c296004cd80c43a3c00c744806dee",
+      "bytes": 75380
+    },
+    "src/Analysis.jsx": {
+      "sha256": "8bd302e02abf2925c387ef5093b370f02b2800dc9b6b54df336db90a860221af",
+      "bytes": 5573
+    },
+    "src/App.jsx": {
+      "sha256": "0360109d50ec2d7b01648181ad8978aa31b7692eae8598d78b37cce17e23b5ef",
+      "bytes": 36719
+    },
+    "src/Chrome.jsx": {
+      "sha256": "af68c4a47a0dae0c9327501c181a0611985169477f54df5a0080aa8507764670",
+      "bytes": 6418
+    },
+    "src/Grid.jsx": {
+      "sha256": "504b374c9d50a2ff55a85ead4ffdb285ee5d64e6df99c07c50dc6d61a3b153a7",
+      "bytes": 11784
+    },
+    "src/Ribbon.jsx": {
+      "sha256": "2db922622c441ab2101d114aec6003dc5c7678ee3ec0b2f787c23383532a67f4",
+      "bytes": 14577
+    },
+    "src/Shelves.jsx": {
+      "sha256": "0179805922b36cde5fadb10e0d8085e2de1311f3eba089fcf2ce7887edf350b2",
+      "bytes": 1929
+    },
+    "src/data.js": {
+      "sha256": "7a9ae5fb97a2886dd30c0b5293bb5800026d0bb52be5d219c9267e38f8d43fc8",
+      "bytes": 9084
+    },
+    "src/main.jsx": {
+      "sha256": "832f752c6b6a454a26dbc4f2654f5bd633f2b103516c8c0abac648308c133a7e",
+      "bytes": 242
+    },
+    "src/styles.css": {
+      "sha256": "b795bea9b987bd2ff5a26413cd798922389feab862ea88f4b8858408f8285bf6",
+      "bytes": 48412
+    },
+    "src/ui.jsx": {
+      "sha256": "975689e091f4bf8d4745d93d4b511146bdce75a2cfb25b74b1c36b13a5a8cb9c",
+      "bytes": 12426
+    },
+    "src/useFieldDrag.js": {
+      "sha256": "0348b22c8e120d4777c72dac802006b7e4059cb4d77308cebd5bc63090c9b696",
+      "bytes": 3260
+    },
+    "dist/client/assets/Analysis-raNnGIk7.js": {
+      "sha256": "d517923b2157f4b309367fecf6a09ccc2f18b2013366836842331f3319ccc0a4",
+      "bytes": 409222
+    },
+    "dist/client/assets/index-BD-TkyW5.js": {
+      "sha256": "6a177b944e529f346cc593f67fc33fa31c4f09c4caba0afb12f3700da9695e59",
+      "bytes": 320087
+    },
+    "dist/client/assets/index-DxB-vpER.css": {
+      "sha256": "d04fff866ee7c198bdaa74d031a3d6b9a849e2f18884c667436a5a455af3ba31",
+      "bytes": 47870
+    },
+    "dist/client/fonts/IBMPlexSans-Italic.otf": {
+      "sha256": "d3cf12b234deda906353d9cb67b27c9ae7243e3ecdc069c6b4114b063dccb1e7",
+      "bytes": 144148
+    },
+    "dist/client/fonts/IBMPlexSans-Medium.otf": {
+      "sha256": "27d25e3e08ea63df7cd1fa535c9c45aa04ba11ca75b8031b2ffb83f247601ad1",
+      "bytes": 143164
+    },
+    "dist/client/fonts/IBMPlexSans-MediumItalic.otf": {
+      "sha256": "82b190d0777d52451c877b355598830a01d9aceec6870febbabf6eb4d4b3605e",
+      "bytes": 150820
+    },
+    "dist/client/fonts/IBMPlexSans-Regular.otf": {
+      "sha256": "6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c",
+      "bytes": 136352
+    },
+    "dist/client/fonts/IBMPlexSans-SemiBold.otf": {
+      "sha256": "1aff1f99f0f415632e71a4b9d43804d093e85b8954489a973f0cf1e2e24b9b04",
+      "bytes": 143460
+    },
+    "dist/client/fonts/IBMPlexSans-SemiBoldItalic.otf": {
+      "sha256": "86ef7da0dc30b089ac098e136016d90d9146b89cfc15188565d83f7e5788e396",
+      "bytes": 149432
+    },
+    "dist/client/fonts/license.txt": {
+      "sha256": "91c25c350d3cac39da2736d74f7ba37ef648f5237a4e330a240615bc8d8c4360",
+      "bytes": 4360
+    },
+    "dist/client/index.html": {
+      "sha256": "8d38655d6744388c82c0f9cb7e8c74c618bebf8d2e2b480efb3e73c7b5658d40",
+      "bytes": 461
+    }
+  },
+  "capture_tools": {
+    "capture_reference_rail.py": "a7dca1de5cd372831b069d2199d67397ce7679e8a35304b6b4bfa930a99bc9b7",
+    "capture_reference_rail.mjs": "dfed788b22d736a2d62aa3ec61556202c9d05d0ec3aeaa8f726473b1599ca1ee",
+    "test_web_cdp.mjs": "22c1764bbaeb9afeaf49a57cbe4116f71b0bed03d4b35c3c29499212b86e166f",
+    "cdp_keyboard.mjs": "2947c1f39b2385cee22467171e4d30a1e28a3a0d1d3a510ff2b257f48ecfaf86",
+    "test.py": "27f95bbf72554670736f402e45bd4c0e74b96e5bcb1110749c059d9f3c3fdc61"
+  },
+  "source_asset_relationship": "Existing prebuilt dist/client and current source hashes are recorded independently. Relevant live DOM/style/layout is asserted; no general rebuild freshness or production-engine claim.",
+  "desktop_visibility": "Owned headless Chromium and temporary profile; no user browser, clipboard or visible window",
+  "profile": "steps-scroll-only",
+  "frozen_reference": {
+    "file": "docs/validation/checkpoints/2026-10-18-steps-sort-input/rail-reference/manifest.json",
+    "sha256": "3a530675ab5935de2d932092eb9e22b648403a3e3862d9dbc9b9b89ac634dc4f",
+    "inputs": {
+      "index.html": {
+        "sha256": "d67730db8bfef0168778548e75bcf946d6f36491701b2bb5f1c84521a5815a98",
+        "bytes": 363
+      },
+      "package.json": {
+        "sha256": "9500b0d4a7396193eb0c90f3806f99ba85ba67be7af2c756fb3466009d8403cc",
+        "bytes": 482
+      },
+      "package-lock.json": {
+        "sha256": "3dab3dbedaadd9e5715c39f4f0aef154c17c296004cd80c43a3c00c744806dee",
+        "bytes": 75380
+      },
+      "src/Analysis.jsx": {
+        "sha256": "8bd302e02abf2925c387ef5093b370f02b2800dc9b6b54df336db90a860221af",
+        "bytes": 5573
+      },
+      "src/App.jsx": {
+        "sha256": "0360109d50ec2d7b01648181ad8978aa31b7692eae8598d78b37cce17e23b5ef",
+        "bytes": 36719
+      },
+      "src/Chrome.jsx": {
+        "sha256": "af68c4a47a0dae0c9327501c181a0611985169477f54df5a0080aa8507764670",
+        "bytes": 6418
+      },
+      "src/Grid.jsx": {
+        "sha256": "504b374c9d50a2ff55a85ead4ffdb285ee5d64e6df99c07c50dc6d61a3b153a7",
+        "bytes": 11784
+      },
+      "src/Ribbon.jsx": {
+        "sha256": "2db922622c441ab2101d114aec6003dc5c7678ee3ec0b2f787c23383532a67f4",
+        "bytes": 14577
+      },
+      "src/Shelves.jsx": {
+        "sha256": "0179805922b36cde5fadb10e0d8085e2de1311f3eba089fcf2ce7887edf350b2",
+        "bytes": 1929
+      },
+      "src/data.js": {
+        "sha256": "7a9ae5fb97a2886dd30c0b5293bb5800026d0bb52be5d219c9267e38f8d43fc8",
+        "bytes": 9084
+      },
+      "src/main.jsx": {
+        "sha256": "832f752c6b6a454a26dbc4f2654f5bd633f2b103516c8c0abac648308c133a7e",
+        "bytes": 242
+      },
+      "src/styles.css": {
+        "sha256": "b795bea9b987bd2ff5a26413cd798922389feab862ea88f4b8858408f8285bf6",
+        "bytes": 48412
+      },
+      "src/ui.jsx": {
+        "sha256": "975689e091f4bf8d4745d93d4b511146bdce75a2cfb25b74b1c36b13a5a8cb9c",
+        "bytes": 12426
+      },
+      "src/useFieldDrag.js": {
+        "sha256": "0348b22c8e120d4777c72dac802006b7e4059cb4d77308cebd5bc63090c9b696",
+        "bytes": 3260
+      },
+      "dist/client/assets/Analysis-raNnGIk7.js": {
+        "sha256": "d517923b2157f4b309367fecf6a09ccc2f18b2013366836842331f3319ccc0a4",
+        "bytes": 409222
+      },
+      "dist/client/assets/index-BD-TkyW5.js": {
+        "sha256": "6a177b944e529f346cc593f67fc33fa31c4f09c4caba0afb12f3700da9695e59",
+        "bytes": 320087
+      },
+      "dist/client/assets/index-DxB-vpER.css": {
+        "sha256": "d04fff866ee7c198bdaa74d031a3d6b9a849e2f18884c667436a5a455af3ba31",
+        "bytes": 47870
+      },
+      "dist/client/fonts/IBMPlexSans-Italic.otf": {
+        "sha256": "d3cf12b234deda906353d9cb67b27c9ae7243e3ecdc069c6b4114b063dccb1e7",
+        "bytes": 144148
+      },
+      "dist/client/fonts/IBMPlexSans-Medium.otf": {
+        "sha256": "27d25e3e08ea63df7cd1fa535c9c45aa04ba11ca75b8031b2ffb83f247601ad1",
+        "bytes": 143164
+      },
+      "dist/client/fonts/IBMPlexSans-MediumItalic.otf": {
+        "sha256": "82b190d0777d52451c877b355598830a01d9aceec6870febbabf6eb4d4b3605e",
+        "bytes": 150820
+      },
+      "dist/client/fonts/IBMPlexSans-Regular.otf": {
+        "sha256": "6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c",
+        "bytes": 136352
+      },
+      "dist/client/fonts/IBMPlexSans-SemiBold.otf": {
+        "sha256": "1aff1f99f0f415632e71a4b9d43804d093e85b8954489a973f0cf1e2e24b9b04",
+        "bytes": 143460
+      },
+      "dist/client/fonts/IBMPlexSans-SemiBoldItalic.otf": {
+        "sha256": "86ef7da0dc30b089ac098e136016d90d9146b89cfc15188565d83f7e5788e396",
+        "bytes": 149432
+      },
+      "dist/client/fonts/license.txt": {
+        "sha256": "91c25c350d3cac39da2736d74f7ba37ef648f5237a4e330a240615bc8d8c4360",
+        "bytes": 4360
+      },
+      "dist/client/index.html": {
+        "sha256": "8d38655d6744388c82c0f9cb7e8c74c618bebf8d2e2b480efb3e73c7b5658d40",
+        "bytes": 461
+      }
+    }
+  },
+  "command": [
+    "node",
+    "/Users/h2o/dev/duxcel/tools/capture_reference_rail.mjs",
+    "/Users/h2o/dev/duxcel/tests/results/runs/20261018T041544-reference-steps-scroll-24743/driver-config.json"
+  ],
+  "driver": {
+    "file": "reference.json",
+    "sha256": "4352769e13709ec40fafbbc20c017b3440bdecf0d3a93b0b6ddb2ec791542cc1",
+    "checks": 471,
+    "captures": 20
+  },
+  "inputs_unchanged": true,
+  "server_closed": true,
+  "elapsed_seconds": 20.355,
+  "capture_tools_unchanged": true
+}

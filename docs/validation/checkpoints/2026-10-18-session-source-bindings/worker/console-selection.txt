@@ -1,0 +1,3 @@
+Browser binding budget fixture: {"definitions":3089505,"relation":61113,"describe":61158,"manual":884223,"pre_submit_headroom_without_caches":98305}
+Browser binding workloads: {"jobs":28,"sql":35,"counts":0,"host_requests":35,"local_rejections":7,"host_rejections":4,"budget_rejections":1,"sequential_workers":4,"total_jobs":225,"total_sql":441,"total_counts":21}
+PASS browser-worker complete: 124982 checks, 221 stages, 441 SQL, 21 counts
