@@ -7547,7 +7547,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 723
+#define LAYOUT_SMOKE_STAGES 730
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -11083,7 +11083,52 @@ static void layout_smoke_step(App *a,int *step) {
         workspace_job(a,JOB_SAVE,"tests/generated/app-source-format.dxls"); break;
     case 722:
         if (a->book.dirty || !s->formats.source_aware || s->formats.scope_count!=2 || active_format(a).flags || active_format(a).color) goto failed;
-        puts("PASS: native v14 saved source scopes stay suspended across real Save Open and overwrite, imported finite commands reject atomically, manual and whole-column formatting retain Undo Redo and exact source values"); break;
+        puts("PASS: native v14 saved source scopes stay suspended across real Save Open and overwrite, imported finite commands reject atomically, manual and whole-column formatting retain Undo Redo and exact source values");
+        activate_sheet(a,cache_source_sheet,true); break;
+    case 723:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (s->objects.count!=2 || s->objects.items[0].kind!=OBJECT_TABLE || s->objects.items[1].kind!=OBJECT_PIVOT || s->formats.scope_count) goto failed;
+        {
+            CellFormat value=format_default(); value.flags=FORMAT_BOLD; value.color=3;
+            const SheetObject *table=&s->objects.items[0],*pivot=&s->objects.items[1];
+            if (!format_apply(&s->formats,(FormatRange){table->row+2,table->row+2,table->col+1,table->col+1},FORMAT_BOLD|FORMAT_COLOR,value,&error) ||
+                !format_apply(&s->formats,(FormatRange){pivot->row+2,pivot->row+2,pivot->col+1,pivot->col+1},FORMAT_BOLD|FORMAT_COLOR,value,&error) ||
+                !format_apply(&s->formats,(FormatRange){0,0,1,1},FORMAT_BOLD|FORMAT_COLOR,value,&error)) goto failed;
+            value.number=FORMAT_ACCOUNTING;
+            if (!format_apply(&s->formats,(FormatRange){0,DX_SHEET_ROWS-1,pivot->col+1,pivot->col+1},FORMAT_NUMERIC,value,&error)) goto failed;
+            /* Test a mode-only archive too: these finite manual rectangles sit
+               beneath real imported owners and must not style their values. */
+            s->formats.source_aware=true; a->book.dirty=true;
+            a->selected_object=0; grid_select_cell(&a->grid,table->row+2,table->col+1,false);
+        }
+        request=a->request_id; author_cells=a->objects[0].page.cells; ribbon_cells=a->page.cells; break;
+    case 724:
+        if (active_format(a).flags || active_format(a).color || a->grid.format_result_token!=SIZE_MAX ||
+            imported_cell_format(a,a->grid.row,a->grid.col).flags || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/source-aware-table.png");
+        a->selected_object=1; a->sidebar=a->fields_visible=true; a->matrix_cells_active=true;
+        grid_select_cell(&a->grid,s->objects.items[1].row+2,s->objects.items[1].col+1,false); break;
+    case 725:
+        if (active_format(a).flags || active_format(a).color || active_format(a).number!=FORMAT_ACCOUNTING ||
+            a->source_preview.format_result_token!=SIZE_MAX || a->source_preview.format_record_token!=SIZE_MAX ||
+            grid_cell_format(&a->source_preview,&a->page,0,1).flags || grid_cell_format(&a->source_preview,&a->page,0,1).color ||
+            matrix_total_format(a,a->grid.row,a->grid.col).number!=FORMAT_ACCOUNTING || matrix_total_format(a,a->grid.row,a->grid.col).flags ||
+            a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/source-aware-pivot.png"); break;
+    case 726:
+        workspace_job(a,JOB_SAVE,"tests/generated/app-source-format.dxls"); break;
+    case 727:
+        if (a->book.dirty) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-source-format.dxls"); break;
+    case 728:
+        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        if (!s->formats.source_aware || s->formats.scope_count || s->source_versions.high_water || a->analysis.source_version ||
+            active_format(a).flags || active_format(a).color || active_format(a).number!=FORMAT_ACCOUNTING ||
+            strcmp(cells_get(&s->cells,9,7),"Note one") || strcmp(cells_get(&s->cells,10,7),"Note two") || a->book.dirty ||
+            a->objects[0].page.total!=6 || a->objects[1].page.total!=6 || !a->objects[1].page.totals) goto failed;
+        break;
+    case 729:
+        puts("PASS: native source-aware primary Table matrix preview readout and totals share suspended imported versus manual formatting, retained mode-only archives and actual v14 Save Open overwrite"); break;
 
     }
     free(error); (*step)++; return;
