@@ -2021,7 +2021,88 @@ static void test_format_budget_legacy_measurement(void) {
     for (size_t i=0;i<sheets;i++) CHECK(book.sheets[i].formats.undo_count==DX_FORMAT_HISTORY && format_persistable(&book.sheets[i].formats,&error));
     workbook_free(&book); free(error);
 }
+static void legacy_history_accept(const Worksheet *sheet) {
+    Worksheet before=*sheet; char *error=dx_strdup("Keep prior diagnostic"),*prior=error;
+    CHECK(worksheet_legacy_format_history_eligible(sheet,&error) && error==prior && !strcmp(error,"Keep prior diagnostic"));
+    CHECK(!memcmp(&before,sheet,sizeof(before))); free(error);
+}
+static void legacy_history_reject(const Worksheet *sheet,const char *message) {
+    Worksheet before=*sheet; char *error=dx_strdup("Replace prior diagnostic");
+    CHECK(!worksheet_legacy_format_history_eligible(sheet,&error) && error && strstr(error,message));
+    CHECK(!memcmp(&before,sheet,sizeof(before)) && !worksheet_legacy_format_history_eligible(sheet,NULL)); free(error);
+}
+static void test_legacy_format_history(void) {
+    Workbook book={0}; char *error=NULL; Analysis blank={0}; CHECK(workbook_add(&book,"Legacy journal",&blank,&error));
+    Worksheet *s=book.sheets; CellFormat value=format_default(); value.flags=FORMAT_BOLD; legacy_history_accept(s);
+    CHECK(cells_set(&s->cells,40,8,"First note",&error)); worksheet_record(s,EDIT_CELLS);
+    CHECK(format_apply(&s->formats,(FormatRange){2,8,1,3},FORMAT_BOLD,value,&error)); worksheet_record(s,EDIT_FORMAT);
+    CHECK(cells_set(&s->cells,41,8,"Second note",&error)); value.color=2;
+    CHECK(format_apply(&s->formats,(FormatRange){40,41,8,8},FORMAT_COLOR,value,&error)); worksheet_record(s,EDIT_CELLS_FORMAT);
+    CHECK(cells_set(&s->cells,42,8,"Third note",&error)); worksheet_record(s,EDIT_CELLS);
+    CHECK(s->undo_actions_count==4 && s->cells.undo_count==3 && s->formats.undo_count==2); legacy_history_accept(s);
+    while (s->undo_actions_count) { format_model_history(s,false); legacy_history_accept(s); }
+    CHECK(!s->cells.count && !s->cells.capacity && s->cells.cells); /* Valid owned empty snapshot. */
+    while (s->redo_actions_count) { format_model_history(s,true); legacy_history_accept(s); }
+    /* Already-aware current/retained state is not reinterpreted. History-only
+       eligibility does not certify the sentinel packet's provenance. */
+    const char packet[]="caller-verified-result"; FormatScopeView scope={0,packet,sizeof(packet)-1}; value.size=16;
+    CHECK(format_apply_scoped(&s->formats,(FormatRange){2,8,1,3},FORMAT_SIZE,value,&scope,1,false,&error)); worksheet_record(s,EDIT_FORMAT);
+    legacy_history_accept(s); format_model_history(s,false); legacy_history_accept(s);
+    CHECK(!s->formats.source_aware && s->formats.redo[0].source_aware && s->undo_actions_count==4 && s->redo_actions_count==1);
+    const EditKind forbidden[]={EDIT_ANALYSIS,EDIT_OBJECTS,EDIT_RANGE,EDIT_OBJECTS_FORMAT,EDIT_RANGE_FORMAT,EDIT_ANALYSIS_FORMAT,(EditKind)99,(EditKind)-1};
+    for (size_t h=0;h<2;h++) for (size_t i=0;i<sizeof(forbidden)/sizeof(*forbidden);i++) {
+        Worksheet invalid=*s; (h ? invalid.redo_actions : invalid.undo_actions)[0]=forbidden[i];
+        legacy_history_reject(&invalid,"only retained Cell and Format");
+    }
+    Worksheet invalid=*s; invalid.undo_count=1; legacy_history_reject(&invalid,"Analysis or object");
+    invalid=*s; invalid.redo_count=SIZE_MAX; legacy_history_reject(&invalid,"Analysis or object");
+    invalid=*s; invalid.objects.undo_count=1; legacy_history_reject(&invalid,"Analysis or object");
+    invalid=*s; invalid.objects.redo_count=SIZE_MAX; legacy_history_reject(&invalid,"Analysis or object");
+    invalid=*s; invalid.undo_actions_count=SIZE_MAX; legacy_history_reject(&invalid,"bounded worksheet history");
+    invalid=*s; invalid.redo_actions_count=DX_HISTORY+1; legacy_history_reject(&invalid,"bounded worksheet history");
+    invalid=*s; invalid.cells.undo_count=DX_HISTORY+1; legacy_history_reject(&invalid,"bounded worksheet history");
+    invalid=*s; invalid.formats.redo_count=SIZE_MAX; legacy_history_reject(&invalid,"bounded worksheet history");
+    invalid=*s; invalid.undo_actions_count=0; legacy_history_reject(&invalid,"aligned Cell and Format");
+    invalid=*s; invalid.redo_actions_count=0; legacy_history_reject(&invalid,"aligned Cell and Format");
+    invalid=*s; invalid.cells.undo_count--; legacy_history_reject(&invalid,"aligned Cell and Format");
+    invalid=*s; invalid.formats.undo_count++; legacy_history_reject(&invalid,"aligned Cell and Format");
+    invalid=*s; invalid.formats.redo_count=0; legacy_history_reject(&invalid,"aligned Cell and Format");
+    invalid=*s; invalid.cells.redo_count=1; legacy_history_reject(&invalid,"aligned Cell and Format");
+    invalid=*s; invalid.cells.count=DX_MAX_EDIT_CELLS+1; legacy_history_reject(&invalid,"editable-cell array shape");
+    invalid=*s; invalid.cells.capacity=0; legacy_history_reject(&invalid,"editable-cell array shape");
+    invalid=*s; invalid.cells.cells=NULL; legacy_history_reject(&invalid,"editable-cell array shape");
+    invalid=*s; invalid.cells.bytes=SIZE_MAX; legacy_history_reject(&invalid,"editable-cell array shape");
+    invalid=*s; invalid.cells.undo[1].count=DX_MAX_EDIT_CELLS+1; legacy_history_reject(&invalid,"retained editable-cell array shape");
+    invalid=*s; invalid.cells.undo[1].cells=NULL; legacy_history_reject(&invalid,"retained editable-cell array shape");
+    invalid=*s; invalid.cells.undo[1].bytes=DX_CELL_BYTES+1; legacy_history_reject(&invalid,"retained editable-cell array shape");
+    invalid=*s; invalid.formats.count=DX_FORMAT_PATCHES+1; legacy_history_reject(&invalid,"invalid current or retained cell formats");
+    invalid=*s; invalid.formats.redo[0].source_aware=false; legacy_history_reject(&invalid,"invalid current or retained cell formats");
+    FormatPatch *patch=s->formats.undo[1].items; CHECK(patch && s->formats.undo[1].count);
+    unsigned mask=patch->mask; patch->mask=0; legacy_history_reject(s,"invalid current or retained cell formats"); patch->mask=mask;
+    CHECK(!worksheet_legacy_format_history_eligible(NULL,&error) && error && strstr(error,"bounded worksheet history")); free(error); error=NULL;
+    legacy_history_accept(s); format_model_history(s,true); legacy_history_accept(s);
+    CHECK(cells_clear(&s->cells,0,DX_SHEET_ROWS-1,0,16383)); worksheet_record(s,EDIT_CELLS); legacy_history_accept(s);
+    CHECK(!s->cells.count && s->cells.cells); format_model_history(s,false); legacy_history_accept(s);
+    format_model_history(s,true); legacy_history_accept(s); workbook_free(&book);
+    /* Existing chronological prefix pruning is not performed by eligibility;
+       after many valid edits both bounded stacks still map exactly. */
+    CHECK(workbook_add(&book,"Bounded journal",&blank,&error)); s=book.sheets;
+    for (size_t i=0;i<80;i++) {
+        if (i%3!=1) { char text[32]; snprintf(text,sizeof(text),"Note %zu",i); CHECK(cells_set(&s->cells,i,9,text,&error)); }
+        if (i%3!=0) { value.flags=i%2 ? FORMAT_BOLD : FORMAT_ITALIC; CHECK(format_apply(&s->formats,(FormatRange){i,i,2,2},FORMAT_BOLD|FORMAT_ITALIC,value,&error)); }
+        worksheet_record(s,i%3==0 ? EDIT_CELLS : i%3==1 ? EDIT_FORMAT : EDIT_CELLS_FORMAT); legacy_history_accept(s);
+    }
+    CHECK(s->undo_actions_count==DX_HISTORY);
+    for (size_t i=0;i<DX_HISTORY/2;i++) { format_model_history(s,false); legacy_history_accept(s); }
+    CHECK(s->undo_actions_count==DX_HISTORY/2 && s->redo_actions_count==DX_HISTORY/2);
+    while (s->redo_actions_count) { format_model_history(s,true); legacy_history_accept(s); }
+    workbook_free(&book); free(error);
+}
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--legacy-format-history-only")) {
+        test_legacy_format_history();
+        printf("PASS: %u focused legacy-format history eligibility checks (both aligned Cell/Format journals, retained aware states, bounded shapes, atomic rejection and unchanged ownership)\n",checks); return 0;
+    }
     if (argc==2 && !strcmp(argv[1],"--guarded-formats-only")) {
         test_guarded_format_workspace(); test_guarded_format_rejection(); test_source_format_workspace();
         printf("PASS: %u focused typed guarded-v14 codec checks (manual rectangles,1..33 exact RESULT owners,archived proofs,deep ownership and transactional rejection)\n",checks); return 0;
@@ -2053,7 +2134,8 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
         return 0;
     }
-    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only|--guarded-formats-only]\n",argv[0]); return 2; }
+    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only|--guarded-formats-only|--legacy-format-history-only]\n",argv[0]); return 2; }
+    test_legacy_format_history();
     test_guarded_format_workspace(); test_guarded_format_rejection();
     test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_objects(); test_format_budget_object_rejection(); test_format_budget_object_legacy_slack(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
     test_analysis_journal_owned(); test_analysis_journal_rejection(); test_analysis_journal_chronology();
