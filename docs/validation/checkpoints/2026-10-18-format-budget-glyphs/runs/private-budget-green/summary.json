@@ -1,0 +1,97 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T03:42:57.269887+00:00",
+  "tier": "affected",
+  "config": "release",
+  "jobs": 1,
+  "no_build": false,
+  "edit": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel",
+  "source": {
+    "commit": "76cd486c0b35793b491351804f4f5faf01f1fb83",
+    "status": "",
+    "source_sha256": "0af4c33246a7a14663cf33837024ec2525877019c899d0cb97357dedf38a673e",
+    "source_files": 267
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_fontmetrics"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/tests/results/runs/20261018T034257-affected-12428/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.479
+    },
+    {
+      "name": "fontmetrics-release",
+      "command": [
+        "./tests/test_fontmetrics"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/tests/results/runs/20261018T034257-affected-12428/fontmetrics-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.006
+    },
+    {
+      "name": "build-integration",
+      "command": [
+        "make",
+        "duxcel",
+        "tests/test_background-native-debug",
+        "design-fixture"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/tests/results/runs/20261018T034257-affected-12428/build-integration.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 6.219
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/tests/results/runs/20261018T034257-affected-12428/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.451
+    },
+    {
+      "name": "layout-legacy-format-budget-retry",
+      "command": [
+        "./duxcel",
+        "--layout-smoke",
+        "--frames",
+        "1200",
+        "--screenshot",
+        "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/tests/results/runs/20261018T034257-affected-12428/final.png"
+      ],
+      "log": "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/tests/results/runs/20261018T034257-affected-12428/layout-legacy-format-budget-retry.txt",
+      "expected_stages": 15,
+      "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[867,882\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 9.501
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/tests/test_fontmetrics": "c9b4ac10c6aa42687dc107621d93547a6e8202351618114bc11ace3152ae8a24",
+    "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/duxcel": "b6ceca44ac9a1a39fc3ebdebd6879f2e7c888418e53f2624a21f0040fdccc757",
+    "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/tests/test_background-native-debug": "85b6b27f509ae9d74341bd3047a7d2d911cd814fd4eb9c4773b95a047e78a7ed"
+  },
+  "app_config": "release",
+  "elapsed_seconds": 17.796,
+  "binaries_after": {
+    "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/tests/test_fontmetrics": "c9b4ac10c6aa42687dc107621d93547a6e8202351618114bc11ace3152ae8a24",
+    "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/duxcel": "b6ceca44ac9a1a39fc3ebdebd6879f2e7c888418e53f2624a21f0040fdccc757",
+    "/Users/h2o/.codex/worktrees/duxcel-source-label-app/duxcel/tests/test_background-native-debug": "85b6b27f509ae9d74341bd3047a7d2d911cd814fd4eb9c4773b95a047e78a7ed"
+  },
+  "finished_utc": "2026-10-18T03:43:15.217808+00:00"
+}

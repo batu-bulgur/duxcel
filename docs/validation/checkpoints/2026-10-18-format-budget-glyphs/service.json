@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "url": "http://127.0.0.1:8767/",
+  "pid": 18379,
+  "artifact": "/Users/h2o/dev/duxcel/build/web/review/414e3ce0d0d6b8bf21fd",
+  "source": {
+    "commit": "fe6f17904ea58ca126c6bd6befe288a78b8bf6e2",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "b774f26b21f7bb095d9bd31ca99d82e64e60ea649991ade1c383d707b1edf515",
+    "source_files": 271
+  },
+  "signature": "414e3ce0d0d6b8bf21fd2026dbc4dfd65b8f5540f23ff2e8b58c7b7518f55e72",
+  "queue_project": "duxcel-c368c516acb3d456",
+  "queue_report_count_before": 0,
+  "queue_report_count_after": 0,
+  "queue_report_ids_retained": true,
+  "agent": "codex",
+  "browser_reloaded": false,
+  "native_launched": false,
+  "accepted_browser_run": "20261018T035148-browser-16433",
+  "scope": "Accepted same-C pane shortcuts/replacement glyph UI, existing durable queue retained; no new report delivery test"
+}
