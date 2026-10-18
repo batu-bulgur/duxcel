@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct { char *name,*reference; Analysis analysis; SheetView view; size_t object_offset,object_count; } HeaderSheet;
+typedef struct { char *name,*reference; Analysis analysis; SheetView view; size_t object_offset,object_count,column_capacity; } HeaderSheet;
 typedef struct { Analysis analysis; char *reference; } HeaderTableSource;
 typedef struct { size_t sheet; WorkbookCodecObjectView value; char *query; bool unique_rows; HeaderTableSource *source; PivotDefinition *pivot; MarkDefinition *marks; } HeaderObject;
 typedef struct { HeaderObject *owner; void *definition; size_t original[DX_MARK_ROLES]; } DefinitionChange;
@@ -14,7 +14,7 @@ struct WorkbookCodecHeader {
     size_t count,active,bytes;
     uint64_t hidden;
     float user_scale;
-    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready,object_table_present,pivot_marks_ready,filters_ready;
+    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready,object_table_present,pivot_marks_ready,filters_ready,columns_ready;
     PivotDefinition empty_pivot;
     MarkDefinition empty_marks;
     HeaderObject *objects;
@@ -43,10 +43,12 @@ struct WorkbookCodecRead {
     bool preference_motion_seen;
     WorkbookCodecReadOptions options;
     size_t filter_sheet,filter_raw[DX_MAX_SHEETS];
+    size_t columns_sheet;
 };
 static const char meta_sql[]="SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2";
 static const char sheets25_sql[]="SELECT " DX_WORKBOOK_SHEET_COLUMNS ",canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65";
 static const char sheets24_sql[]="SELECT " DX_WORKBOOK_SHEET_COLUMNS ",1::DOUBLE AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65";
+static const char columns_sql[]="SELECT sheet_id,column_id,name,width FROM _duxcel_workspace.columns ORDER BY sheet_id,column_id LIMIT 1048577";
 static const char filters_sql[]="SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961";
 static const char sorts_sql[]="SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449";
 static const char preferences_sql[]="SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') ORDER BY name LIMIT 66";
@@ -59,6 +61,8 @@ static const char table_filters_sql[]="SELECT sheet_id,object_id,position,name,o
 static const char table_sorts_sql[]="SELECT sheet_id,object_id,position,name,descending FROM _duxcel_workspace.table_sorts ORDER BY sheet_id,object_id,position LIMIT 14337";
 static const char pivot_fields_sql[]="SELECT sheet_id,object_id,role,position,name,aggregate,filter_op,value,grain FROM _duxcel_workspace.pivot_fields ORDER BY sheet_id,object_id,role,position LIMIT 65537";
 static const char marks_sql[]="SELECT sheet_id,object_id,role,position,name,is_measure,aggregate,grain FROM _duxcel_workspace.marks ORDER BY sheet_id,object_id,role,position LIMIT 98305";
+#define COLUMN_LIMIT 16384u
+#define COLUMN_ROWS (DX_MAX_SHEETS*COLUMN_LIMIT)
 #define FILTER_ROWS (DX_MAX_SHEETS*(DX_ANALYSIS_FILTERS-1u))
 #define SORT_ROWS (DX_MAX_SHEETS*(DX_ANALYSIS_SORTS-1u))
 #define OBJECT_ROWS (DX_MAX_SHEETS*DX_MAX_OBJECTS)
@@ -70,7 +74,7 @@ static const char marks_sql[]="SELECT sheet_id,object_id,role,position,name,is_m
 #define PIVOT_ROWS_LIMIT (OBJECT_ROWS*4u*DX_PIVOT_FIELDS)
 #define MARK_ROWS_LIMIT (OBJECT_ROWS*DX_MARK_ROLES*DX_MARK_FIELDS)
 static bool request_family(WorkbookCodecFamily family) {
-    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES || family==WORKBOOK_CODEC_OBJECTS || family==WORKBOOK_CODEC_QUERIES || family==WORKBOOK_CODEC_SOURCE_OPTIONS || family==WORKBOOK_CODEC_TABLE_SOURCES || family==WORKBOOK_CODEC_TABLE_FILTERS || family==WORKBOOK_CODEC_TABLE_SORTS || family==WORKBOOK_CODEC_PIVOT_FIELDS || family==WORKBOOK_CODEC_MARKS || family==WORKBOOK_CODEC_FILTERS;
+    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES || family==WORKBOOK_CODEC_OBJECTS || family==WORKBOOK_CODEC_QUERIES || family==WORKBOOK_CODEC_SOURCE_OPTIONS || family==WORKBOOK_CODEC_TABLE_SOURCES || family==WORKBOOK_CODEC_TABLE_FILTERS || family==WORKBOOK_CODEC_TABLE_SORTS || family==WORKBOOK_CODEC_PIVOT_FIELDS || family==WORKBOOK_CODEC_MARKS || family==WORKBOOK_CODEC_FILTERS || family==WORKBOOK_CODEC_COLUMNS;
 }
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
@@ -123,8 +127,11 @@ static bool shape(const WorkbookCodecBatch *batch,const WorkbookCodecTable *tabl
                 else if (!strcmp(table->table,"table_filters")) maximum=column==5 ? TABLE_FILTER_BYTES : 4096u;
                 else if (!strcmp(table->table,"table_sorts") || !strcmp(table->table,"marks")) maximum=4096u;
                 else if (!strcmp(table->table,"pivot_fields")) maximum=column==7 ? TABLE_RAW_BYTES : 4096u;
+                else if (!strcmp(table->table,"columns")) maximum=SIZE_MAX-1u;
+                /* Uncapped column names are scanned only after the complete
+                   prospective batch passes its owned-budget admission. */
                 if (atom->value.text.bytes>maximum || (!atom->value.text.data && atom->value.text.bytes) ||
-                    !utf8(atom->value.text.data,atom->value.text.bytes)) return fail(error,"Metadata text is oversized, contains NUL or is not valid UTF-8.");
+                    (strcmp(table->table,"columns") && !utf8(atom->value.text.data,atom->value.text.bytes))) return fail(error,"Metadata text is oversized, contains NUL or is not valid UTF-8.");
             }
         }
         types++; p+=n; if (*p) p++;
@@ -132,7 +139,9 @@ static bool shape(const WorkbookCodecBatch *batch,const WorkbookCodecTable *tabl
     return column==batch->column_count || fail(error,"Metadata has trailing projected columns.");
 }
 static void sheet_free(HeaderSheet *sheet) {
-    free(sheet->name); free(sheet->reference); analysis_free(&sheet->analysis); *sheet=(HeaderSheet){0};
+    free(sheet->name); free(sheet->reference); analysis_free(&sheet->analysis);
+    for (size_t i=0;i<sheet->view.column_count;i++) free(sheet->view.columns[i]);
+    free(sheet->view.columns); free(sheet->view.widths); *sheet=(HeaderSheet){0};
 }
 static void table_source_free(HeaderTableSource *source) {
     if (source) { analysis_free(&source->analysis); free(source->reference); free(source); }
@@ -166,6 +175,12 @@ bool workbook_codec_read_begin(WorkbookCodecRead **out,WorkbookCodecKey key,unsi
 }
 const WorkbookCodecRequest *workbook_codec_read_request(const WorkbookCodecRead *read) {
     return read && request_family(read->request.family) ? &read->request : NULL;
+}
+bool workbook_codec_read_add_columns(WorkbookCodecRead *read,bool present,char **error) {
+    if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->columns_ready)
+        return fail(error,"Column metadata requires a complete unclaimed header and may be armed once.");
+    if (!present) return fail(error,"The workbook requires column metadata.");
+    read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_COLUMNS,columns_sql,0,4,4,COLUMN_ROWS+1u}; return true;
 }
 bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->sorts_ready)
@@ -282,6 +297,75 @@ static bool sheet_row(WorkbookCodecRead *read,const WorkbookCodecAtom *cells,siz
     a->path=resolved.data; *staged+=resolved.bytes+1; return true;
 }
 typedef struct { size_t sheet; AnalysisSort sort; } SortRow;
+static bool columns_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *batch,size_t retained,char **error) {
+    if (read->request.first_row>COLUMN_ROWS || batch->row_count>COLUMN_ROWS-read->request.first_row)
+        return fail(error,"Too many column presentation rows.");
+    /* Fixed64-sheet POD scratch owns no allocations. Only touched sheets may
+       allocate; all new arrays and names coexist with every old array until
+       the complete batch has been validated and admitted. */
+    size_t counts[DX_MAX_SHEETS]={0},capacities[DX_MAX_SHEETS]={0};
+    char **arrays[DX_MAX_SHEETS]={0}; float *widths[DX_MAX_SHEETS]={0};
+    WorkbookCodecHeader *header=read->header; size_t last=read->columns_sheet,string_bytes=0;
+    for (size_t i=0;i<header->count;i++) counts[i]=header->sheets[i].view.column_count;
+    for (size_t row=0;row<batch->row_count;row++) {
+        const WorkbookCodecAtom *cells=batch->cells+row*4;
+        int32_t sheet=cells[0].value.i32,index=cells[1].value.i32; double width=cells[3].value.real;
+        if (sheet<0 || (size_t)sheet>=header->count || (size_t)sheet<last || index<0 ||
+            (size_t)index!=counts[sheet] || counts[sheet]>=COLUMN_LIMIT || !isfinite(width) || width<52 || width>1200)
+            return fail(error,"Invalid ordered column presentation metadata.");
+        size_t bytes=cells[2].value.text.bytes;
+        if (bytes==SIZE_MAX || string_bytes>SIZE_MAX-bytes-1u)
+            return fail(error,"Column name allocation size overflows.");
+        string_bytes+=bytes+1u; counts[sheet]++; last=(size_t)sheet;
+    }
+    size_t stage_bytes=batch->row_count*sizeof(char *),extra=stage_bytes,grown=0,retired=0;
+    if (extra>SIZE_MAX-string_bytes) return fail(error,"Column metadata staging size overflows.");
+    extra+=string_bytes;
+    for (size_t i=0;i<header->count;i++) {
+        size_t old=header->sheets[i].column_capacity;
+        if (counts[i]<=old) continue;
+        size_t capacity=old ? old : 16u;
+        while (capacity<counts[i]) capacity*=2u; /* count<=16384, capped power of two */
+        if (capacity>COLUMN_LIMIT || capacity>SIZE_MAX/(sizeof(char *)+sizeof(float)))
+            return fail(error,"Column array allocation size overflows.");
+        size_t bytes=capacity*(sizeof(char *)+sizeof(float));
+        if (extra>SIZE_MAX-bytes) return fail(error,"Column metadata allocation size overflows.");
+        capacities[i]=capacity; extra+=bytes; grown+=bytes; retired+=old*(sizeof(char *)+sizeof(float));
+    }
+    if (!room(read->bytes,retained,extra,read->limit)) return fail(error,"Column metadata staging exceeds its owned-buffer budget.");
+    for (size_t row=0;row<batch->row_count;row++) {
+        WorkbookCodecText name=batch->cells[row*4+2].value.text;
+        if (!utf8(name.data,name.bytes)) return fail(error,"Column name contains NUL or is not valid UTF-8.");
+    }
+    char **names=stage_bytes ? dx_alloc(stage_bytes) : NULL;
+    for (size_t i=0;i<header->count;i++) if (capacities[i]) {
+        const SheetView *view=&header->sheets[i].view;
+        arrays[i]=dx_alloc(capacities[i]*sizeof(char *)); widths[i]=dx_alloc(capacities[i]*sizeof(float));
+        if (view->column_count) {
+            memcpy(arrays[i],view->columns,view->column_count*sizeof(char *));
+            memcpy(widths[i],view->widths,view->column_count*sizeof(float));
+        }
+    }
+    for (size_t row=0;row<batch->row_count;row++) {
+        WorkbookCodecText text=batch->cells[row*4+2].value.text; names[row]=dx_alloc(text.bytes+1u);
+        if (text.bytes) memcpy(names[row],text.data,text.bytes);
+    }
+    /* All following operations are infallible publication. Old string pointers
+       are moved verbatim; only superseded pointer/float arrays are retired. */
+    for (size_t i=0;i<header->count;i++) if (capacities[i]) {
+        SheetView *view=&header->sheets[i].view;
+        free(view->columns); free(view->widths); view->columns=arrays[i]; view->widths=widths[i];
+        header->sheets[i].column_capacity=capacities[i];
+    }
+    for (size_t row=0;row<batch->row_count;row++) {
+        const WorkbookCodecAtom *cells=batch->cells+row*4; SheetView *view=&header->sheets[cells[0].value.i32].view;
+        size_t index=view->column_count++; view->columns[index]=names[row]; view->widths[index]=(float)cells[3].value.real;
+    }
+    free(names); size_t added=string_bytes+grown-retired;
+    read->bytes+=added; header->bytes+=added; read->columns_sheet=last; read->request.first_row+=batch->row_count;
+    if (batch->end) { header->columns_ready=true; read->request.family=WORKBOOK_CODEC_HEADER_READY; }
+    return true;
+}
 static bool sorts_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *batch,size_t retained,char **error) {
     if (read->request.first_row>SORT_ROWS || batch->row_count>SORT_ROWS-read->request.first_row)
         return fail(error,"Too many secondary sort metadata rows.");
@@ -857,10 +941,11 @@ WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,Workboo
     if (!read->header || !request_family(read->request.family) || family!=read->request.family || !batch || batch->first_row!=read->request.first_row) {
         fail(error,"Metadata family or batch order does not match its cursor."); return WORKBOOK_CODEC_READ_ERROR;
     }
-    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : family==WORKBOOK_CODEC_OBJECTS ? "objects" : family==WORKBOOK_CODEC_QUERIES ? "queries" : family==WORKBOOK_CODEC_SOURCE_OPTIONS ? "source_options" : family==WORKBOOK_CODEC_TABLE_SOURCES ? "table_sources" : family==WORKBOOK_CODEC_TABLE_FILTERS ? "table_filters" : family==WORKBOOK_CODEC_TABLE_SORTS ? "table_sorts" : family==WORKBOOK_CODEC_PIVOT_FIELDS ? "pivot_fields" : family==WORKBOOK_CODEC_MARKS ? "marks" : family==WORKBOOK_CODEC_FILTERS ? "filters" : "preferences");
+    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : family==WORKBOOK_CODEC_OBJECTS ? "objects" : family==WORKBOOK_CODEC_QUERIES ? "queries" : family==WORKBOOK_CODEC_SOURCE_OPTIONS ? "source_options" : family==WORKBOOK_CODEC_TABLE_SOURCES ? "table_sources" : family==WORKBOOK_CODEC_TABLE_FILTERS ? "table_filters" : family==WORKBOOK_CODEC_TABLE_SORTS ? "table_sorts" : family==WORKBOOK_CODEC_PIVOT_FIELDS ? "pivot_fields" : family==WORKBOOK_CODEC_MARKS ? "marks" : family==WORKBOOK_CODEC_FILTERS ? "filters" : family==WORKBOOK_CODEC_COLUMNS ? "columns" : "preferences");
     if (!shape(batch,table,read->options.full_primary_filters,error)) return WORKBOOK_CODEC_READ_ERROR;
     if (!room(read->bytes,retained,0,read->limit)) { fail(error,"Metadata input exceeds its owned-buffer budget."); return WORKBOOK_CODEC_READ_ERROR; }
     if (family==WORKBOOK_CODEC_PREFERENCES) return preferences_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
+    if (family==WORKBOOK_CODEC_COLUMNS) return columns_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_FILTERS) return filters_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_SORTS) return sorts_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_OBJECTS) return objects_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
@@ -975,3 +1060,5 @@ bool workbook_codec_header_marks_definition(const WorkbookCodecHeader *header,si
 }
 
 bool workbook_codec_header_filters_ready(const WorkbookCodecHeader *header) { return header && header->filters_ready; }
+
+bool workbook_codec_header_columns_ready(const WorkbookCodecHeader *header) { return header && header->columns_ready; }

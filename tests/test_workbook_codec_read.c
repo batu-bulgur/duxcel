@@ -1394,6 +1394,181 @@ static void test_primary_filters_parser_and_owned_budgets(void) {
 }
 #undef PRIMARY_FILTER_LIMIT
 
+
+/* Column presentation is independently armed. The original20,092 assertion
+   definitions above remain unchanged, including default/unarmed Header shape. */
+typedef struct { WorkbookCodecColumn columns[4]; WorkbookCodecAtom cells[256*4]; char names[256][48]; } ColumnsFixture;
+static ColumnsFixture *columns_fixture(size_t sheet_id,size_t index,size_t rows) {
+    ColumnsFixture *f=dx_alloc(sizeof(*f));
+    f->columns[0]=(WorkbookCodecColumn){"sheet_id",WORKBOOK_CODEC_I32}; f->columns[1]=(WorkbookCodecColumn){"column_id",WORKBOOK_CODEC_I32};
+    f->columns[2]=(WorkbookCodecColumn){"name",WORKBOOK_CODEC_TEXT}; f->columns[3]=(WorkbookCodecColumn){"width",WORKBOOK_CODEC_DOUBLE};
+    for(size_t row=0;row<rows;row++) {
+        snprintf(f->names[row],sizeof(f->names[row]),"Column 'İ' %zu:%zu",sheet_id,index+row);
+        f->cells[row*4]=i((int32_t)sheet_id); f->cells[row*4+1]=i((int32_t)(index+row));
+        f->cells[row*4+2]=t(f->names[row]); f->cells[row*4+3]=d(52+(double)((index+row)%1000)/8);
+    }
+    return f;
+}
+static WorkbookCodecBatch columns_batch(ColumnsFixture *f,size_t first,size_t rows,bool end) {return (WorkbookCodecBatch){f->columns,4,f->cells,rows,first,end};}
+static void reject_columns_arm(WorkbookCodecRead *read,bool present) {
+    const WorkbookCodecRequest *request=workbook_codec_read_request(read); WorkbookCodecRequest before=request?*request:(WorkbookCodecRequest){0};
+    size_t bytes=workbook_codec_read_owned_bytes(read); char *error=NULL;
+    CHECK(!workbook_codec_read_add_columns(read,present,&error)&&error&&*error&&workbook_codec_read_owned_bytes(read)==bytes);
+    CHECK(request?same_request(before,workbook_codec_read_request(read)):!workbook_codec_read_request(read)); error_clear(&error);
+}
+static void columns_end(WorkbookCodecRead *read,size_t first,size_t retained) {
+    ColumnsFixture *f=columns_fixture(0,0,0); WorkbookCodecBatch batch=columns_batch(f,first,0,true); char *error=NULL;
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f)+retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error); free(f);
+}
+static void test_columns_contract_and_composition(void) {
+    CHECK(WORKBOOK_CODEC_FILTERS==14&&WORKBOOK_CODEC_COLUMNS==15&&!workbook_codec_header_columns_ready(NULL)); reject_columns_arm(NULL,true);
+    CHECK(!workbook_codec_read_add_columns(NULL,true,NULL));
+    WorkbookCodecRead *read=begin(14,WORKBOOK_CODEC_SHEETS_25,LIMIT,NULL); reject_columns_arm(read,true); meta(read,14,0,0); reject_columns_arm(read,true); workbook_codec_read_free(read);
+    char *error=NULL;
+    for(unsigned version=12;version<=14;version++) {
+        read=sort_header(version,2,NULL,LIMIT); reject_columns_arm(read,false); CHECK(!workbook_codec_read_add_columns(read,false,NULL));
+        WorkbookCodecHeader *plain=NULL; CHECK(workbook_codec_read_finish(read,&plain,&error)&&!workbook_codec_header_columns_ready(plain));
+        CHECK(!workbook_codec_header_view(plain,0)->columns&&!workbook_codec_header_view(plain,0)->widths&&!workbook_codec_header_view(plain,0)->column_count);
+        reject_columns_arm(read,true); workbook_codec_read_free(read); workbook_codec_header_free(plain);
+        read=sort_header(version,2,NULL,LIMIT); size_t bytes=workbook_codec_read_owned_bytes(read); CHECK(workbook_codec_read_add_columns(read,true,&error)&&!error);
+        const WorkbookCodecRequest *request=workbook_codec_read_request(read);
+        CHECK(request&&request->family==WORKBOOK_CODEC_COLUMNS&&request->column_count==4&&request->source_column_count==4&&request->row_limit==1048577u&&!request->first_row);
+        CHECK(!strcmp(request->sql,"SELECT sheet_id,column_id,name,width FROM _duxcel_workspace.columns ORDER BY sheet_id,column_id LIMIT 1048577")&&!strstr(request->sql,"OFFSET"));
+        CHECK(workbook_codec_read_owned_bytes(read)==bytes); reject_columns_arm(read,true); reject_columns_arm(read,false);
+        ColumnsFixture *f=columns_fixture(0,0,0); WorkbookCodecBatch batch=columns_batch(f,0,0,false); reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f)); free(f);
+        columns_end(read,0,0); CHECK(workbook_codec_read_owned_bytes(read)==bytes); reject_columns_arm(read,true);
+        WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error)&&workbook_codec_header_columns_ready(header));
+        CHECK(!workbook_codec_header_view(header,0)->column_count&&!workbook_codec_header_view(header,1)->columns&&!workbook_codec_header_view(header,1)->widths);
+        workbook_codec_read_free(read); workbook_codec_header_free(header);
+    }
+    /* Table query/options and genuine definitions coexist unchanged; Columns
+       can precede/follow the other independent complete Header families. */
+    for(unsigned order=0;order<2;order++) {
+        const char *query="SELECT 'NULL', 'İ';  \n";read=definition_header(12,1,2,true,0,LIMIT,query);
+        if(!order){CHECK(workbook_codec_read_add_columns(read,true,&error));columns_end(read,0,0);}
+        CHECK(workbook_codec_read_add_pivot_marks(read,(WorkbookCodecPivotMarksPresence){true,true},&error)); definition_empty(read,false,0); definition_empty(read,true,0);
+        CHECK(workbook_codec_read_add_filters(read,false,0,&error)); CHECK(workbook_codec_read_add_sorts(read,false,&error)); CHECK(workbook_codec_read_add_preferences(read,false,&error));
+        if(order){CHECK(workbook_codec_read_add_columns(read,true,&error));columns_end(read,0,0);}
+        WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error)); workbook_codec_read_free(read);
+        WorkbookCodecTableSourceView source={0}; const char *stored=NULL; bool unique=false; const PivotDefinition *pivot=NULL; const MarkDefinition *marks=NULL;
+        CHECK(workbook_codec_header_columns_ready(header)&&workbook_codec_header_pivot_marks_ready(header)&&workbook_codec_header_filters_ready(header)&&workbook_codec_header_sorts_ready(header)&&workbook_codec_header_preferences_ready(header));
+        CHECK(workbook_codec_header_table_source(header,0,2,&source)&&source.analysis&&source.locator_available&&!strcmp(source.reference,"")&&!strcmp(source.analysis->path,""));
+        CHECK(workbook_codec_header_query(header,0,2,&stored)&&stored==source.analysis->query&&!strcmp(stored,query)); CHECK(workbook_codec_header_unique_rows(header,0,2,&unique)&&unique&&source.analysis->unique_rows);
+        CHECK(workbook_codec_header_pivot_definition(header,0,1,&pivot)&&pivot&&workbook_codec_header_marks_definition(header,0,1,&marks)&&marks&&!pivot->counts[0]&&!marks->counts[0]);
+        workbook_codec_header_free(header);
+    }
+}
+static void test_columns_splits_owned_and_text(void) {
+    WorkbookCodecRead *read=sort_header(14,3,NULL,LIMIT); char *error=NULL; CHECK(workbook_codec_read_add_columns(read,true,&error));
+    const size_t chunks[]={1,255,256}; size_t first=0;
+    for(size_t n=0;n<3;n++) {
+        size_t rows=chunks[n]; ColumnsFixture *f=columns_fixture(0,first,rows);
+        if(!first){f->cells[2]=t("");f->cells[3]=d(52);}
+        if(first==1){f->cells[2]=t("Same");f->cells[6]=t("Same");f->cells[3]=d(1200);f->cells[7]=d(nextafter(52,INFINITY));}
+        WorkbookCodecBatch batch=columns_batch(f,first,rows,false); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
+        first+=rows; CHECK(workbook_codec_read_request(read)->first_row==first&&workbook_codec_read_request(read)->sql);
+        memset(f,0xa5,sizeof(*f)); free(f);
+    }
+    CHECK(first==512); WorkbookCodecHeader *header=NULL; CHECK(!workbook_codec_read_finish(read,&header,&error)&&!header); error_clear(&error);
+    /* Skipping empty sheets is valid; each new sheet still starts at column0. */
+    ColumnsFixture *f=columns_fixture(2,0,1); WorkbookCodecBatch batch=columns_batch(f,first,1,true);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);memset(f,0,sizeof(*f));free(f);
+    CHECK(workbook_codec_read_finish(read,&header,&error)); workbook_codec_read_free(read);
+    const SheetView *v=workbook_codec_header_view(header,0); CHECK(v->column_count==512&&!v->columns[0][0]&&!strcmp(v->columns[1],"Same")&&!strcmp(v->columns[2],"Same")&&v->columns[1]!=v->columns[2]);
+    CHECK(v->widths[0]==52&&v->widths[1]==1200&&v->widths[2]==52&&v->row==DX_SHEET_ROWS-1&&v->col==16383&&v->anchor_row==1&&v->anchor_col==2&&v->end_row==3&&v->end_col==4&&v->top==5&&v->horizontal==120.25f&&v->fraction==.25&&v->selection==2&&v->canvas_zoom==1.5f);
+    CHECK(!strcmp(v->columns[255],"Column 'İ' 0:255")&&!strcmp(v->columns[256],"Column 'İ' 0:256")&&!strcmp(v->columns[511],"Column 'İ' 0:511"));
+    CHECK(!workbook_codec_header_view(header,1)->column_count&&!workbook_codec_header_view(header,1)->columns&&workbook_codec_header_view(header,2)->column_count==1&&!strcmp(workbook_codec_header_view(header,2)->columns[0],"Column 'İ' 2:0"));
+    workbook_codec_header_free(header);
+    /* Native names have no4KiB/64KiB cap. Both long names coexist with the
+       owned caller inputs, then survive poisoning/freeing those inputs. */
+    const size_t lengths[]={65537u,1024u*1024u+17u}; size_t retained=sizeof(*f);char *texts[2];
+    for(size_t n=0;n<2;n++){texts[n]=dx_alloc(lengths[n]+1u);memset(texts[n],n?'b':'a',lengths[n]);texts[n][lengths[n]]=0;retained+=lengths[n]+1u;}
+    read=sort_header(14,1,NULL,LIMIT);CHECK(workbook_codec_read_add_columns(read,true,&error));f=columns_fixture(0,0,3);f->cells[2]=t(texts[0]);f->cells[6]=t(texts[1]);f->cells[10]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={NULL,0}};batch=columns_batch(f,0,3,true);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED);header=NULL;CHECK(workbook_codec_read_finish(read,&header,&error));workbook_codec_read_free(read);memset(f,0,sizeof(*f));free(f);
+    for(size_t n=0;n<2;n++){memset(texts[n],'x',lengths[n]);free(texts[n]);}
+    v=workbook_codec_header_view(header,0);CHECK(v->column_count==3&&!v->columns[2][0]);for(size_t n=0;n<2;n++)CHECK(strlen(v->columns[n])==lengths[n]&&v->columns[n][lengths[n]-1]==(n?'b':'a'));workbook_codec_header_free(header);
+}
+static void test_columns_invalid_atomic_and_stale(void) {
+    WorkbookCodecRead *read=sort_header(14,2,NULL,LIMIT); char *error=NULL; CHECK(workbook_codec_read_add_columns(read,true,&error)); ColumnsFixture *f=columns_fixture(0,0,3);WorkbookCodecBatch batch=columns_batch(f,0,3,false);
+    WorkbookCodecKey stale=key;stale.snapshot_generation--;size_t before=workbook_codec_read_owned_bytes(read);error=dx_strdup("owned old diagnostic");char *saved_error=error;
+    CHECK(workbook_codec_read_feed(read,stale,WORKBOOK_CODEC_COLUMNS,(const WorkbookCodecBatch *)(uintptr_t)1,SIZE_MAX,&error)==WORKBOOK_CODEC_READ_STALE&&error==saved_error&&workbook_codec_read_owned_bytes(read)==before);free(error);error=NULL;
+    for(size_t c=0;c<4;c++) {
+        WorkbookCodecAtom saved=f->cells[8+c];f->cells[8+c]=(WorkbookCodecAtom){0};reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));f->cells[8+c]=saved;
+        f->cells[8+c]=b(true);reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));f->cells[8+c]=saved;
+        WorkbookCodecAtomKind type=f->columns[c].kind;f->columns[c].kind=WORKBOOK_CODEC_U64;reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));f->columns[c].kind=type;
+    }
+    const double invalid[]={NAN,INFINITY,-INFINITY,-1,0,nextafter(52,-INFINITY),nextafter(1200,INFINITY),DBL_MAX};
+    for(size_t n=0;n<sizeof(invalid)/sizeof(*invalid);n++){f->cells[11]=d(invalid[n]);reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));}f->cells[11]=d(52);
+    const char nul[]={'a',0,'b'};f->cells[10]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={nul,sizeof(nul)}};reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));
+    const char *bad[]={"\xc0\x80","\xed\xa0\x80","\xf4\x90\x80\x80","\xe2\x82","\x80"};for(size_t n=0;n<sizeof(bad)/sizeof(*bad);n++){f->cells[10]=t(bad[n]);reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));}
+    /* Overflow is rejected before UTF-8 reads, even with an unusable pointer. */
+    f->cells[10]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={(const char *)(uintptr_t)1,SIZE_MAX}};reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));
+    f->cells[10]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={NULL,1}};reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));f->cells[10]=t("Restored");
+    const int32_t bad_sheets[]={-1,2,INT32_MAX};for(size_t n=0;n<3;n++){f->cells[8]=i(bad_sheets[n]);reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));}f->cells[8]=i(0);
+    const int32_t bad_indices[]={-1,0,1,3,16384,INT32_MAX};for(size_t n=0;n<6;n++){f->cells[9]=i(bad_indices[n]);reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));}f->cells[9]=i(2);
+    f->columns[2].name="wrong";reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));f->columns[2].name="name";batch.column_count=3;reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));batch.column_count=5;reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));batch.column_count=4;
+    batch.row_count=257;reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));batch.row_count=3;batch.first_row=1;reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));batch.first_row=0;
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);memset(f,0,sizeof(*f));free(f);
+    f=columns_fixture(1,0,2);f->cells[4]=i(0);f->cells[5]=i(3);batch=columns_batch(f,3,2,true);reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));f->cells[4]=i(1);f->cells[5]=i(1);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);free(f);WorkbookCodecHeader *header=NULL;CHECK(workbook_codec_read_finish(read,&header,&error));workbook_codec_read_free(read);
+    const SheetView *v=workbook_codec_header_view(header,0);CHECK(v->column_count==3&&!strcmp(v->columns[2],"Restored")&&v->widths[2]==52&&workbook_codec_header_view(header,1)->column_count==2);workbook_codec_header_free(header);
+}
+static void test_columns_capacity_limits_and_eof(void) {
+    WorkbookCodecRead *read=sort_header(14,64,NULL,LIMIT);char *error=NULL;CHECK(workbook_codec_read_add_columns(read,true,&error));size_t first=0;
+    for(size_t index=0;index<16384;index+=256) {
+        ColumnsFixture *f=columns_fixture(0,index,256);WorkbookCodecBatch batch=columns_batch(f,first,256,false);
+        if(index==256){f->cells[255*4+1]=i(511+1);reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));f->cells[255*4+1]=i(511);}
+        CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);first+=256;memset(f,0,sizeof(*f));free(f);
+    }
+    CHECK(first==16384&&workbook_codec_read_request(read)->first_row==first);ColumnsFixture *f=columns_fixture(0,16384,1);WorkbookCodecBatch batch=columns_batch(f,first,1,true);reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));free(f);
+    /* The next sheet starts at0 and can follow the full previous sheet in the
+       same single immutable result. A later backtrack remains invalid. */
+    f=columns_fixture(1,0,256);batch=columns_batch(f,first,256,false);CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);first+=256;free(f);
+    f=columns_fixture(2,0,2);f->cells[4]=i(63);f->cells[5]=i(0);batch=columns_batch(f,first,2,false);CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);first+=2;free(f);
+    f=columns_fixture(1,256,1);batch=columns_batch(f,first,1,true);reject(read,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f));free(f);
+    WorkbookCodecHeader *header=NULL;CHECK(!workbook_codec_read_finish(read,&header,&error)&&!header);error_clear(&error);columns_end(read,first,0);CHECK(workbook_codec_read_finish(read,&header,&error));workbook_codec_read_free(read);
+    CHECK(workbook_codec_header_columns_ready(header)&&workbook_codec_header_view(header,0)->column_count==16384&&workbook_codec_header_view(header,1)->column_count==256&&workbook_codec_header_view(header,2)->column_count==1&&workbook_codec_header_view(header,63)->column_count==1);
+    CHECK(!strcmp(workbook_codec_header_view(header,0)->columns[16383],"Column 'İ' 0:16383")&&!strcmp(workbook_codec_header_view(header,63)->columns[0],"Column 'İ' 2:1")&&!workbook_codec_header_view(header,62)->column_count);workbook_codec_header_free(header);
+}
+static void test_columns_exact_peak_budget_and_retained_output(void) {
+    char *error=NULL;WorkbookCodecRead *old_read=sort_header(12,1,NULL,LIMIT);CHECK(workbook_codec_read_add_columns(old_read,true,&error));ColumnsFixture *f=columns_fixture(0,0,1);WorkbookCodecBatch batch=columns_batch(f,0,1,true);CHECK(workbook_codec_read_feed(old_read,key,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);free(f);
+    WorkbookCodecHeader *old=NULL;CHECK(workbook_codec_read_finish(old_read,&old,&error));workbook_codec_read_free(old_read);WorkbookCodecHeader *identity=old;size_t old_bytes=workbook_codec_header_owned_bytes(old);const SheetView *v=workbook_codec_header_view(old,0);SheetView view=*v;const char *name=v->columns[0];
+    WorkbookCodecRead *read=sort_header(14,1,NULL,LIMIT);CHECK(workbook_codec_read_add_columns(read,true,&error));size_t first=0;
+    const size_t counts[]={1,16,1};size_t capacity=0;
+    for(size_t n=0;n<3;n++) {
+        size_t rows=counts[n];f=columns_fixture(0,first,rows);for(size_t r=0;r<rows;r++)f->cells[r*4+2]=t("n");batch=columns_batch(f,first,rows,false);
+        size_t next=capacity?capacity:16;while(next<first+rows)next*=2;
+        size_t arrays=next>capacity?next*(sizeof(char *)+sizeof(float)):0,retired=next>capacity?capacity*(sizeof(char *)+sizeof(float)):0;
+        size_t added=rows*2+arrays-retired,peak=rows*sizeof(char *)+rows*2+arrays,owned=workbook_codec_read_owned_bytes(read),retained=sizeof(*f)+old_bytes;
+        CHECK(owned+retained+peak<LIMIT);size_t pressure_bytes=LIMIT-owned-retained-peak;unsigned char *pressure=dx_alloc(pressure_bytes+1);
+        reject(read,WORKBOOK_CODEC_COLUMNS,&batch,retained+pressure_bytes+1);CHECK(!workbook_codec_read_finish(read,&old,&error)&&old==identity);error_clear(&error);
+        CHECK(workbook_codec_header_owned_bytes(old)==old_bytes&&workbook_codec_header_view(old,0)==v&&!memcmp(v,&view,sizeof(view))&&v->columns[0]==name&&!strcmp(name,"Column 'İ' 0:0"));
+        CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,retained+pressure_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error&&workbook_codec_read_owned_bytes(read)==owned+added);
+        free(pressure);memset(f,0,sizeof(*f));free(f);first+=rows;capacity=next;
+    }
+    columns_end(read,first,old_bytes);CHECK(workbook_codec_read_finish(read,&old,&error)&&old!=identity&&workbook_codec_header_columns_ready(old));workbook_codec_read_free(read);v=workbook_codec_header_view(old,0);
+    CHECK(v->column_count==18&&v->columns&&v->widths&&!strcmp(v->columns[0],"n")&&!strcmp(v->columns[17],"n")&&v->columns[0]!=v->columns[17]);workbook_codec_header_free(old);
+}
+static void test_columns_name_budget_precedes_content(void) {
+    WorkbookCodecRead *read=sort_header(14,1,NULL,LIMIT);char *error=NULL;CHECK(workbook_codec_read_add_columns(read,true,&error));
+    ColumnsFixture *f=columns_fixture(0,0,1);WorkbookCodecBatch batch=columns_batch(f,0,1,false);size_t bytes=workbook_codec_read_owned_bytes(read);
+    /* This is an ordering guard, NOT a valid borrowed input allocation. The
+       placeholder content is intentionally unreadable and must never be used:
+       its announced name alone cannot fit the explicit8MiB owned limit. It
+       proves no giant UTF-8 scan occurs before that independent size denial. */
+    f->cells[2]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={(const char *)(uintptr_t)1,1024u*1024u*1024u}};
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ERROR&&error&&strstr(error,"budget"));error_clear(&error);
+    CHECK(workbook_codec_read_owned_bytes(read)==bytes&&!workbook_codec_read_request(read)->first_row);
+    /* Real finite borrowed storage under exactly the same admission policy. */
+    const size_t length=1024u*1024u+17u;char *name=dx_alloc(length+1u);memset(name,'z',length);name[length]=0;f->cells[2]=t(name);
+    size_t extra=sizeof(char *)+16u*(sizeof(char *)+sizeof(float))+length+1u,retained=sizeof(*f)+length+1u;
+    CHECK(bytes+retained+extra<LIMIT);size_t pressure_bytes=LIMIT-bytes-retained-extra;unsigned char *pressure=dx_alloc(pressure_bytes+1u);
+    reject(read,WORKBOOK_CODEC_COLUMNS,&batch,retained+pressure_bytes+1u);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&batch,retained+pressure_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);free(pressure);memset(name,'x',length);free(name);free(f);
+    columns_end(read,1,0);WorkbookCodecHeader *header=NULL;CHECK(workbook_codec_read_finish(read,&header,&error));workbook_codec_read_free(read);
+    const SheetView *v=workbook_codec_header_view(header,0);CHECK(v->column_count==1&&strlen(v->columns[0])==length&&v->columns[0][length-1]=='z');workbook_codec_header_free(header);
+}
+/* END independently bounded column presentation tests. */
 int main(void) {
     test_happy(); test_meta_and_order(); test_sheets_invalid(); test_many_and_atomic(); test_budget(); test_text_boundaries();
     unsigned base_checks=checks;
@@ -1412,5 +1587,8 @@ int main(void) {
     test_definitions_contract();test_definitions_atomic_and_validators();test_definitions_full_and_limits();test_definitions_budget_and_query_terms();
     unsigned definitions_checks=checks;
     test_primary_filters_contract();test_primary_filter_capture_options();test_primary_filters_owned_and_invalid();test_primary_filters_full_limits_and_composition();test_primary_filters_parser_and_owned_budgets();
-    printf("PASS: workbook header reader %u checks (%u unchanged base Header; %u original optional sorts, %u combined; %u optional preferences; %u object descriptors, %u prior combined; %u query definitions, %u prior combined; %u source options, %u prior combined; %u Table source-chain checks, %u prior combined; %u Pivot/Marks checks, %u prior combined; %u primary-filter checks; bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures; no full objects or workbook Open support)\n",checks,base_checks,sorts_checks-base_checks,sorts_checks,preferences_checks-sorts_checks,objects_checks-preferences_checks,objects_checks,queries_checks-objects_checks,queries_checks,options_checks-queries_checks,options_checks,tables_checks-options_checks,tables_checks,definitions_checks-tables_checks,definitions_checks,checks-definitions_checks); return 0;
+    printf("PASS: workbook header reader %u checks (%u unchanged base Header; %u original optional sorts, %u combined; %u optional preferences; %u object descriptors, %u prior combined; %u query definitions, %u prior combined; %u source options, %u prior combined; %u Table source-chain checks, %u prior combined; %u Pivot/Marks checks, %u prior combined; %u primary-filter checks; bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures; no full objects or workbook Open support)\n",checks,base_checks,sorts_checks-base_checks,sorts_checks,preferences_checks-sorts_checks,objects_checks-preferences_checks,objects_checks,queries_checks-objects_checks,queries_checks,options_checks-queries_checks,options_checks,tables_checks-options_checks,tables_checks,definitions_checks-tables_checks,definitions_checks,checks-definitions_checks);
+    unsigned prior_columns=checks;CHECK(prior_columns==20092);
+    test_columns_contract_and_composition();test_columns_splits_owned_and_text();test_columns_invalid_atomic_and_stale();test_columns_capacity_limits_and_eof();test_columns_exact_peak_budget_and_retained_output();test_columns_name_budget_precedes_content();
+    printf("PASS: workbook columns reader %u checks (20092 original retained; %u Columns checks; atomic owned geometric arrays, explicit EOF, native width/name bounds; no Cells or full workbook support)\n",checks,checks-prior_columns); return 0;
 }
