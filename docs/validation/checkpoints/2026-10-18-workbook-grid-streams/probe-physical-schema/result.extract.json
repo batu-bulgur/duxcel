@@ -1,0 +1,46 @@
+{
+  "status": "failed",
+  "checks": 4,
+  "error": "Error: Actual metadata streaming probe failed; see metadata-stream-probe.json",
+  "url": "http://127.0.0.1:49565/__metadata-stream-probe.html",
+  "elapsed_ms": 3110,
+  "steps": [],
+  "diagnostics": {
+    "failure": null,
+    "pending": [],
+    "held_keys": [],
+    "visibility_focus": {
+      "status": "passed",
+      "started_ms": 1792316002437,
+      "elapsed_ms": 2,
+      "value": {
+        "visibility": "visible",
+        "hidden": false,
+        "focused": true,
+        "activeElement": {
+          "tag": "BODY",
+          "id": ""
+        },
+        "readyState": "complete"
+      }
+    },
+    "debugger_pause": {
+      "status": "failed",
+      "started_ms": 1792316002439,
+      "elapsed_ms": 303,
+      "error": "Error: Debugger.pause returned without a Debugger.paused stack event"
+    },
+    "debugger_resume": {
+      "status": "failed",
+      "started_ms": 1792316002742,
+      "elapsed_ms": 1,
+      "error": "Error: CDP Debugger.resume: {\"code\":-32000,\"message\":\"Can only perform operation while paused.\"}"
+    },
+    "screenshot": {
+      "status": "passed",
+      "started_ms": 1792316002743,
+      "elapsed_ms": 36,
+      "value": "failed.png"
+    }
+  }
+}

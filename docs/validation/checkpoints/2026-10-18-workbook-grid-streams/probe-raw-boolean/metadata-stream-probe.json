@@ -1,0 +1,125 @@
+{
+  "ok": false,
+  "schema": "duxcel.metadata-stream-probe",
+  "version": 1,
+  "checks": 2252,
+  "milliseconds": 60.39999997615814,
+  "engineVersion": "v1.4.3",
+  "rowsPerSuccessfulFamily": 513,
+  "plannedSqlRows": 2054,
+  "sqlExecutions": 2,
+  "postedTurns": 2,
+  "cases": [
+    {
+      "name": "columns-exact-and-final-ack",
+      "status": "passed",
+      "milliseconds": 52.39999997615814,
+      "family": "columns",
+      "requestId": "1",
+      "rows": 513,
+      "sequence": 4,
+      "callbacks": 4,
+      "ends": 1,
+      "shapes": [
+        {
+          "sequence": 1,
+          "firstRow": "0",
+          "rows": 256,
+          "end": false
+        },
+        {
+          "sequence": 2,
+          "firstRow": "256",
+          "rows": 256,
+          "end": false
+        },
+        {
+          "sequence": 3,
+          "firstRow": "512",
+          "rows": 1,
+          "end": false
+        },
+        {
+          "sequence": 4,
+          "firstRow": "513",
+          "rows": 0,
+          "end": true
+        }
+      ],
+      "maxPageBytes": 78425,
+      "maxWireBytes": 77961,
+      "firstAckPostedTurn": true,
+      "eofAfterCleanup": true,
+      "finalAckPostedTurn": true
+    },
+    {
+      "name": "cells-exact-and-final-ack",
+      "status": "failed",
+      "milliseconds": 7.899999976158142,
+      "error": {
+        "code": "Error",
+        "message": "{\"code\":\"QUERY_FAILED\",\"message\":\"Exact BOOLEAN/NULL: expectedtrue received109\"}: expectedok receivederror"
+      }
+    }
+  ],
+  "proofs": {
+    "exactTypedFamilies": 1,
+    "strictEofCleanups": 1,
+    "dataAckPostedTurns": 1,
+    "finalAckPostedTurns": 1,
+    "cancelledWithoutEof": false,
+    "falseAckWithoutEof": false,
+    "ordinaryAfterCancel": null,
+    "ordinaryAfterFalseAck": null
+  },
+  "readers": [
+    {
+      "stream": true,
+      "open": 1,
+      "next": 2,
+      "inflight": 0,
+      "maxInflight": 1,
+      "batches": 1,
+      "batchRows": [
+        513
+      ],
+      "eof": 1,
+      "cancelRequested": 1,
+      "cancelFulfilled": 1,
+      "cancelError": null,
+      "cancelMethod": true,
+      "sql": "/* metadata-stream-probe:columns */ SELECT\n    (i%64)::INTEGER AS sheet_id,\n    CASE WHEN i%2=0 THEN '18446744073709551615'::UBIGINT ELSE '9007199254740993'::UBIGINT END AS column_id,\n    CASE WHEN i=0 THEN repeat('N',65537) WHEN i%4=0 THEN NULL::VARCHAR WHEN i%4=1 THEN '' WHEN i%4=2 THEN 'NULL' ELSE 'İstanbul 🦆' END AS name,\n    CASE WHEN i%5=0 THEN NULL::DOUBLE ELSE (i%17)::DOUBLE+0.25 END AS width\n    FROM range(513) AS source(i) ORDER BY i"
+    },
+    {
+      "stream": true,
+      "open": 1,
+      "next": 1,
+      "inflight": 0,
+      "maxInflight": 1,
+      "batches": 1,
+      "batchRows": [
+        513
+      ],
+      "eof": 0,
+      "cancelRequested": 1,
+      "cancelFulfilled": 1,
+      "cancelError": null,
+      "cancelMethod": true,
+      "sql": "/* metadata-stream-probe:cells */ SELECT\n    (i%64)::INTEGER AS sheet_id,\n    CASE WHEN i%2=0 THEN '18446744073709551615'::UBIGINT ELSE '9007199254740993'::UBIGINT END AS row_id,\n    CASE WHEN i%3=2 THEN NULL::BOOLEAN ELSE i%3=0 END AS enabled,\n    CASE WHEN i%4=0 THEN NULL::VARCHAR WHEN i%4=1 THEN '' WHEN i%4=2 THEN 'NULL' ELSE 'İstanbul 🦆' END AS value\n    FROM range(513) AS source(i) ORDER BY i"
+    }
+  ],
+  "error": {
+    "code": "Error",
+    "message": "{\"code\":\"QUERY_FAILED\",\"message\":\"Exact BOOLEAN/NULL: expectedtrue received109\"}: expectedok receivederror"
+  },
+  "cleanup": {
+    "cancelDrained": true
+  },
+  "boundary": "Caller-supplied adapter provenance required; synthetic SQL transport only. One Page/wire plus staged row excludes Arrow/allocator/caller-retained memory. No C codec, native metadata parity, Workbook publication, UI, source content or Save/Open claim.",
+  "registration": {
+    "name": "metadata-stream-guard.bin",
+    "bytes": 3,
+    "engineEpoch": "1",
+    "registrationId": "1"
+  }
+}

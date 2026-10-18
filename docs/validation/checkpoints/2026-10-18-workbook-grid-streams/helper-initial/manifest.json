@@ -1,0 +1,213 @@
+{
+  "status": "passed",
+  "base": "d49a720",
+  "scope": "Pure Node test-only stream callback helper; actual adapter/Arrow with mocked engine connection and C exports; real WebAssembly.Memory growth only (no executable Wasm module, actual C ABI or DuckDB engine)",
+  "initial_fixture_failure": "first-fixture-failure/manifest.json",
+  "steps": [
+    {
+      "name": "final-node-serial",
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=1",
+        "web/codec_stream_transport.test.mjs",
+        "web/metadata_stream.test.mjs",
+        "web/metadata_stream_probe.test.mjs",
+        "web/official_worker.test.mjs",
+        "web/page_wire.test.mjs",
+        "web/engine_host.test.mjs",
+        "web/official_worker_probe.test.mjs"
+      ],
+      "elapsed_seconds": 3.972839,
+      "exit_code": 0,
+      "log": "build/codec-stream-transport/node.txt",
+      "sha256": "57e1ba13d58431d4d2f54f4ed84e0e59da0b807abdf13c3a17a4d74a25a086f7"
+    }
+  ],
+  "inputs_before": {
+    "web/codec_stream_transport.mjs": "cd97342f8c67a9d15b2666dd3e8d8608f6a9d00e2ee27930752d251eb16f4be0",
+    "web/codec_stream_transport.test.mjs": "3f19ab409cb6516d891ebe2c4671ee95bd861cc8e9c383c0b120450ed7e51a90",
+    "web/official_worker.mjs": "d71365cf43855600084d5dcb9d6afa9ba0ddc5f0e3986d667e73d8a78314ec4e",
+    "web/page_wire.mjs": "8dda22a0115f13d92308eea14b662d908d73cce53f6f5ac7760e2130b429e865",
+    "web/metadata_stream.test.mjs": "63b5aa4973f71e98a59d6b9dde31670b1b1189c89546ce6b4054ace7917222ce",
+    "web/metadata_stream_probe.test.mjs": "5a6c015a2fb24bbd17c6365083ca96e613c4f063e37488ecbff510f7aacdc2a8",
+    "web/official_worker.test.mjs": "f7cb98bbc01844cfcb684f39779a7b28bb1cf102947be8164565874b23c09bb8",
+    "web/page_wire.test.mjs": "bd72b9d89368403c156ecc0d58522badb74c34020f88e8f22b1be14896feff4b",
+    "web/engine_host.test.mjs": "88d086e3859cb51acb6be9515fbcc878fe460820733238422a33cdea94fbb388",
+    "web/official_worker_probe.test.mjs": "41580a5ecb618cb478137c9bc5a8fcffee41d6109332a221da654e47196679da",
+    "web/package-lock.json": "d2bb118492c04d2558831ff9f48a21065de9ed84db7f9a6f63deb1a5f57258a9",
+    "web/toolchain.lock.json": "62872bc6072b219c674c7e4beba1b71d7b2f11ca5780ef0f2f940949e4e819ec"
+  },
+  "inputs_after": {
+    "web/codec_stream_transport.mjs": "cd97342f8c67a9d15b2666dd3e8d8608f6a9d00e2ee27930752d251eb16f4be0",
+    "web/codec_stream_transport.test.mjs": "3f19ab409cb6516d891ebe2c4671ee95bd861cc8e9c383c0b120450ed7e51a90",
+    "web/official_worker.mjs": "d71365cf43855600084d5dcb9d6afa9ba0ddc5f0e3986d667e73d8a78314ec4e",
+    "web/page_wire.mjs": "8dda22a0115f13d92308eea14b662d908d73cce53f6f5ac7760e2130b429e865",
+    "web/metadata_stream.test.mjs": "63b5aa4973f71e98a59d6b9dde31670b1b1189c89546ce6b4054ace7917222ce",
+    "web/metadata_stream_probe.test.mjs": "5a6c015a2fb24bbd17c6365083ca96e613c4f063e37488ecbff510f7aacdc2a8",
+    "web/official_worker.test.mjs": "f7cb98bbc01844cfcb684f39779a7b28bb1cf102947be8164565874b23c09bb8",
+    "web/page_wire.test.mjs": "bd72b9d89368403c156ecc0d58522badb74c34020f88e8f22b1be14896feff4b",
+    "web/engine_host.test.mjs": "88d086e3859cb51acb6be9515fbcc878fe460820733238422a33cdea94fbb388",
+    "web/official_worker_probe.test.mjs": "41580a5ecb618cb478137c9bc5a8fcffee41d6109332a221da654e47196679da",
+    "web/package-lock.json": "d2bb118492c04d2558831ff9f48a21065de9ed84db7f9a6f63deb1a5f57258a9",
+    "web/toolchain.lock.json": "62872bc6072b219c674c7e4beba1b71d7b2f11ca5780ef0f2f940949e4e819ec"
+  },
+  "inputs_unchanged": true,
+  "base_full": "d49a7202b0192d22f7f1c359796a90e909c79d20",
+  "node_version": "v26.7.0",
+  "results": {
+    "groups": 180,
+    "new_groups": 17,
+    "unchanged_adjacent_groups": 163,
+    "fail": 0,
+    "skipped": 0,
+    "cli_seconds": 3.972839,
+    "node_reported_milliseconds": 3910.554625,
+    "test_file_execution": "--test-concurrency=1 (serial files)"
+  },
+  "module_override": {
+    "DUXCEL_ENGINE_HOST_MODULE": null
+  },
+  "source_witness": [
+    {
+      "path": "web/codec_stream_transport.mjs",
+      "bytes": 9640,
+      "sha256": "cd97342f8c67a9d15b2666dd3e8d8608f6a9d00e2ee27930752d251eb16f4be0"
+    },
+    {
+      "path": "web/codec_stream_transport.test.mjs",
+      "bytes": 24872,
+      "sha256": "3f19ab409cb6516d891ebe2c4671ee95bd861cc8e9c383c0b120450ed7e51a90"
+    },
+    {
+      "path": "web/official_worker.mjs",
+      "bytes": 47300,
+      "sha256": "d71365cf43855600084d5dcb9d6afa9ba0ddc5f0e3986d667e73d8a78314ec4e",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/page_wire.mjs",
+      "bytes": 7952,
+      "sha256": "8dda22a0115f13d92308eea14b662d908d73cce53f6f5ac7760e2130b429e865",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/engine_host.mjs",
+      "bytes": 13635,
+      "sha256": "63068cac36f3989fe48476632608be235edd858be6d735e57bb59eefbd32c0d0",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/metadata_stream_probe.mjs",
+      "bytes": 16173,
+      "sha256": "0abb076fc8f54eecd943c0789347690655c707adb63dff8d09ad0a20dd3ef38f",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/metadata_stream.test.mjs",
+      "bytes": 20785,
+      "sha256": "63b5aa4973f71e98a59d6b9dde31670b1b1189c89546ce6b4054ace7917222ce",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/metadata_stream_probe.test.mjs",
+      "bytes": 9816,
+      "sha256": "5a6c015a2fb24bbd17c6365083ca96e613c4f063e37488ecbff510f7aacdc2a8",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/official_worker.test.mjs",
+      "bytes": 104735,
+      "sha256": "f7cb98bbc01844cfcb684f39779a7b28bb1cf102947be8164565874b23c09bb8",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/page_wire.test.mjs",
+      "bytes": 36022,
+      "sha256": "bd72b9d89368403c156ecc0d58522badb74c34020f88e8f22b1be14896feff4b",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/engine_host.test.mjs",
+      "bytes": 59175,
+      "sha256": "88d086e3859cb51acb6be9515fbcc878fe460820733238422a33cdea94fbb388",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/official_worker_probe.test.mjs",
+      "bytes": 2255,
+      "sha256": "41580a5ecb618cb478137c9bc5a8fcffee41d6109332a221da654e47196679da",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/official_worker_probe.mjs",
+      "bytes": 25834,
+      "sha256": "2dda1fb466534848d05e843edae80d373c46b1b084d9a01551b4e667ed8c7e29",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/package.json",
+      "bytes": 382,
+      "sha256": "4282b84d4a672ed5e15edfb5a2c82611b78bab0f5a10338c6f01042c192897e5",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/package-lock.json",
+      "bytes": 11356,
+      "sha256": "d2bb118492c04d2558831ff9f48a21065de9ed84db7f9a6f63deb1a5f57258a9",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "web/toolchain.lock.json",
+      "bytes": 2787,
+      "sha256": "62872bc6072b219c674c7e4beba1b71d7b2f11ca5780ef0f2f940949e4e819ec",
+      "unchanged_from_base": true
+    }
+  ],
+  "contract": {
+    "factory": "createCodecStreamTransport(adapter,runtime)",
+    "runtime": [
+      "heap",
+      "allocate",
+      "release",
+      "chunk",
+      "done",
+      "held"
+    ],
+    "methods": [
+      "submit(cookie,ticket,request,{holdSequence=0}) -> Promise<adapter reply or transport failure>",
+      "cancel() -> Promise after adapter drain + old done callback/cleanup",
+      "releaseHeld() -> synchronous boolean numericCACK1 only; once, false when absent/closed/staleACK0",
+      "close() -> cancel/drain, discard held without C replay; does not close caller adapter"
+    ],
+    "read_only_state": [
+      "active",
+      "hasHeld",
+      "closed"
+    ],
+    "chunk": "chunk(cookie,ticket,sequence,firstRowPtr,end0or1,wirePtr,size,totalPtr,pending0or1); exact numeric1 is ACK, after all C temps freed",
+    "done": "done(cookie,ticket,status0ok1cancelled/superseded2error,rowCountPtr,chunks,errorPtr); success only after explicit EOF ACK and adapter outer drain; cancel/error rows=0 and chunks=ACKed count; allocation failure static status2/NULL pointers",
+    "held": "Exactly one original owned JS Page/wire parked before C malloc. cancel preserves it until explicit stale replay, old_done first. close discards and resolvesfalse. New stream blocked until replay/discard and active/retiring quiescence.",
+    "diagnostics": "UTF8-complete prefix<=2048 bytes, embeddedNUL replaced; C callback checks IDs/status before optional pointers",
+    "request": "workbookMetadataStreamRequest frozen validated copy before await; cookie/ticket nonzero uint32 exactdocumentId/requestId; malformed sparse/admission rejects before latestId/send"
+  },
+  "initial_failure": {
+    "scope": "Test fixture corrections only; no helper/adapter changes after failed first run",
+    "cli_seconds": 4.367018,
+    "cases": [
+      "public done/held result-array properties collided with required C callback functions; renamed observations to completions/notifications",
+      "malformed dedicated request correctly raised existing BridgeError(INVALID_REQUEST), while cookie/runtime guards raise TypeError; fixture now checks the appropriate two explicit categories"
+    ],
+    "helper_source_unchanged_from_first_run": true,
+    "receipt": "first-fixture-failure/manifest.json",
+    "log": "first-fixture-failure/node.txt"
+  },
+  "boundaries": [
+    "Test-only helper; not imported into App/engine_host/codec_test_host or build here; root integration/shipping exclusion remains separate.",
+    "Actual adapter and Arrow vectors are used with mocked connection/C export functions. No real DuckDB engine, browser, GPU, C ABI, full workbook model or source SQL validation/execution acceptance.",
+    "Real WebAssembly.Memory growth/detachment checks heap reacquisition but does not run an executable Wasm/C module.",
+    "No wire buffer or C heap is transferred/detached by helper; helper uses temporary independent C allocations and frees before returning ACK. Heap alias wires are rejected.",
+    "No whole-App engine lease, external administration scheduler, persistent source identity or runtime model publication claim; caller owns engine and must await helper quiescence.",
+    "One held callback is intentional test fault control only, not production delay/backpressure acceptance."
+  ]
+}

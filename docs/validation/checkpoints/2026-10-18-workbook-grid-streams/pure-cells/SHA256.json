@@ -1,0 +1,22 @@
+{
+  "manifest.json": {
+    "bytes": 13448,
+    "sha256": "c1d5afcc2d2125ed059325017c419dc8cda5f2ea4a2793fab39c262ba61cec75"
+  },
+  "release-build.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "release-run.txt": {
+    "bytes": 951,
+    "sha256": "3d6361e8e9269060936dbbaffdce2588d02d4a34837d3e90ba260aadf554112a"
+  },
+  "sanitize-build.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "sanitize-run.txt": {
+    "bytes": 951,
+    "sha256": "3d6361e8e9269060936dbbaffdce2588d02d4a34837d3e90ba260aadf554112a"
+  }
+}

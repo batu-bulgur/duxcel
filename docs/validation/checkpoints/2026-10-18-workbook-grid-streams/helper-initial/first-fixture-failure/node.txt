@@ -1,0 +1,391 @@
+✖ factory and malformed cookie/request/options fail before adapter ticket admission (4.720542ms)
+✖ real adapter columns chunks copy exact data with growth, cleanup before ACK and post-drain done (41.577167ms)
+✖ real adapter cells chunks copy exact data with growth, cleanup before ACK and post-drain done (11.904458ms)
+✖ empty stream still requires one EOF ACK and uint32 MAX cookie/ticket stays exact (3.451834ms)
+✖ only synchronous numeric1 ACKs, including the final EOF, can complete successfully (1.06825ms)
+✖ chunk exceptions (including falsy throws) and release faults retire every temporary allocation (0.499ms)
+✖ malloc failures clean partial chunk/done buffers and use only a static error completion fallback (0.55875ms)
+✖ completion callback exceptions do not cause duplicate completion or leak its buffers (1.21075ms)
+✖ owned error C string is UTF8-complete, NUL-free and at most2048 bytes (0.618167ms)
+✔ held chunk blocks before any C malloc, then replays once and resumes only after cleanup (5.794792ms)
+✖ cancel drains strict reader cleanup and cancelSent while retaining one late stale replay (3.097291ms)
+✖ external adapter supersession drains before completion and leaves held reply for explicit stale C replay (5.903417ms)
+✖ close discards held JS ownership without C replay and never closes the caller adapter (2.527042ms)
+✖ throwing held notification resolves false and discards the slot before recovery (0.460625ms)
+✖ late revoked archive capture, including failed drop, never receives success and can recover (2.561125ms)
+✖ invalid chunk sequence/u64/geometry/identity and forged success are bounded transport errors (0.620291ms)
+✖ cancel in the completed-adapter/pre-C-done gap cannot publish success (1.45975ms)
+✔ export transfers exactly one binary heap allocation only after explicit synchronous adoption (2.243875ms)
+✔ export allocation failure returns a single static error fallback and retains no partial bytes (0.568375ms)
+✔ invalid export names or cookie/ticket identities fail before engine initialization (0.3375ms)
+✔ invalid export input cannot supersede an already active ordinary query (2.682833ms)
+✔ mismatched export replies and malformed output reject before binary ownership transfer (0.855333ms)
+✔ superseded, cancelled and closed exports cannot allocate or deliver late binary results (0.592834ms)
+✔ host chooses copy wire bounds only from its explicit request purpose (0.350584ms)
+✔ query delivery keeps exact identity/total and frees transport only after the synchronous C callback (0.151875ms)
+✔ superseded/cancelled replies and pending initialization cannot publish stale C results (0.556041ms)
+✔ every mismatched exact identity and engine/query/transport error yields one owned error reply (0.574709ms)
+✔ a superseded or closed file read never registers stale bytes or calls the old session (0.823375ms)
+✔ source import cancels the active C query exactly once before registering (1.966583ms)
+✔ source import cancels export with its own callback and waits for actual adapter cleanup (0.478667ms)
+✔ deferred source release waits through export acceptance and a synchronous following query (0.611541ms)
+✔ superseded import checks identity after engine initialization and asynchronous cancel (0.29575ms)
+✔ query waits behind file registration and the import callback may safely submit a new query (0.385334ms)
+✔ close during registration waits for stale-file cleanup, then closes unconditionally (0.321333ms)
+✔ stale registration drops its file before a newer import uses the engine (0.338ms)
+✔ import failure/cancellation cleans inputs and the admin barrier remains usable (0.253709ms)
+✔ file validation agrees with the C source extensions before allocating/registering bytes (0.225416ms)
+✔ original filenames reject NUL and unpaired surrogates before reads, registration or name allocation (0.485041ms)
+✔ original filenames preserve Unicode scalars, whitespace, apostrophes and import-like prefixes (0.396292ms)
+✔ original filename rejection and chooser cancellation leave an existing query active (0.67875ms)
+✔ OOM falls back without transport malloc and frees partially allocated query/file replies (0.422ms)
+✔ releaseFile validates host-owned names and deduplicates drops without cancelling an active query (0.505834ms)
+✔ a reentrant release and query behind import administration do not wait on each other (0.525083ms)
+✔ a query arriving during a drop runs before remaining cleanup and never overlaps administration (0.413459ms)
+✔ same-turn cancel reserves administration before a release can drop a still-draining file (0.375959ms)
+✔ a newer submission still revokes an older cancel while release waits for the latest query (0.30925ms)
+✔ close owns queued registrations until engine cleanup finishes and suppresses later drops (0.354583ms)
+✔ cleanup failure is explicit once, does not retry-spin, and leaves later queries usable (0.408917ms)
+✔ obsolete registration cleanup shares the same terminal status and reports failures (0.295583ms)
+✔ 1024 issued names and pending drops stay bounded, and retired names never reopen capacity (25.079667ms)
+✔ every file reply allocation OOM releases registered bytes without exposing a name or token to C (0.549625ms)
+✔ partial registration failure cleans adopted bytes before the original error and waiting query publish (0.417291ms)
+✔ failed partial-registration cleanup logs once, preserves the registration error, and waits for close (0.346ms)
+✔ a synchronous stale file-delivery guard retires registered bytes through drop or close (0.441416ms)
+✔ successful import carries exact captured registration tokens in independently owned C strings (0.294667ms)
+✔ malformed registration success is cleaned before one bounded owned diagnostic reaches C (2.245709ms)
+✔ chooser supersession or close during token transport frees every string without a stale callback (0.674083ms)
+✔ invalid token cleanup failure remains explicit and is not retried while the host recovers (0.355458ms)
+✔ hostile import diagnostics remain bounded and never allocate source identity strings (0.226375ms)
+✔ metadata stream factory is dense, frozen, exact and isolated from ordinary admission (5.198792ms)
+✔ one immutable Arrow reader yields irregular batches into exact owned chunks and one post-cleanup EOF (22.341375ms)
+✔ backpressure permits no next batch, row conversion or second delivery until true ACK (4.91975ms)
+✔ byte boundaries split rows without requery; a single oversized or malformed row never delivers (67.801334ms)
+✔ false, throwing and rejected ACKs stop without EOF and allow ordinary recovery (8.825959ms)
+✔ cancel, latest-wins and close abort an unacknowledged consumer without awaiting its late resolution (13.153834ms)
+✔ cancellation retires the one queued MessageChannel yield and cannot advance after a late event (1.704208ms)
+✔ revocation including failed drop invalidates the captured token after ACK and before another chunk (3.898666ms)
+✔ EOF waits for strict cleanup and final ACK, then rechecks the original registration (0.904125ms)
+✔ strict cleanup failure poisons every shared-engine admission before ticket or registration mutation (1.274417ms)
+✔ whole-family overflow, schema error and pending reader cancellation do not invent an EOF (0.864542ms)
+✔ a previously queued ordinary task cannot send after a cancelled stream fails strict cleanup (1.959042ms)
+✔ late open rejection and late next resolution after cancellation cannot resume row conversion (0.800125ms)
+✔ a missing reader cancel capability cannot acknowledge EOF or admit later work (2.627542ms)
+✔ probe import is inert and rejects invalid bounds/token/idle ownership before send or reservation (1.632083ms)
+✔ real adapter/probe preserves receiver identity, irregular Arrow observations and exact six-query workload (44.94325ms)
+✔ maximum total row admission is20,000 and reporting remains bounded without storing row text (97.138ms)
+✔ a prototype-owned send method is restored without leaving an own shadow property (17.793625ms)
+✔ first exact long-name mismatch stops atomically, drains, restores observer and admits recovery (2.625416ms)
+✔ an ordinary for-await validation error forwards iterator.return with its original receiver (14.970459ms)
+✔ missing or rejected actual reader.cancel remains a failed probe and poisons later admission (8.756666ms)
+✔ copy-only row envelopes keep ordinary page bounds and enforce 20,000 actual cells (38.394625ms)
+✔ workbook-sorts request is a separate frozen 449-row four-column single-source contract (0.787667ms)
+✔ workbook-sorts consumes one Arrow reader while preserving raw text and the normal row ceiling (11.9995ms)
+✔ dedicated workbook-sorts admission retains source-token guards without widening normal submit (2.932833ms)
+✔ workbook-objects has an explicit frozen 2049-row eleven-column single-archive request (0.54075ms)
+✔ workbook-objects drains one Arrow result with exact typed text and its own fixed envelope (57.542625ms)
+✔ dedicated object requests retain pre/post captured-registration guards through drop faults and recovery (1.10925ms)
+✔ pending object results retire on supersession before a normal recovery enters the same queue (3.449041ms)
+✔ workbook-owners is a frozen three-column single-archive policy separate from all ordinary purposes (0.498333ms)
+✔ owner-metadata Arrow results retain one 2113-row envelope, exact owner IDs and both family value types (17.383375ms)
+✔ captured owner-metadata registrations reject in-flight revocation and failed drops before ordinary recovery (11.356209ms)
+✔ pending owner-metadata output is retired on supersession and never contaminates ordinary recovery (1.486958ms)
+✔ Table family requests freeze exact bounded contracts and reject sparse descriptors before enqueue (2.208791ms)
+✔ validated Table purpose stays frozen when a caller getter changes during copying (0.120292ms)
+✔ workbook-table-sources consumes one full bounded Arrow result with exact typed sidecars (46.108208ms)
+✔ workbook-table-filters consumes one full bounded Arrow result with exact typed sidecars (222.968042ms)
+✔ workbook-table-sorts consumes one full bounded Arrow result with exact typed sidecars (79.102584ms)
+✔ Table submissions retain frozen token guards on success, revocation and failed drops without ticket leakage (2.385625ms)
+✔ Table results publish only under the frozen token and retire on ordinary supersession (1.063083ms)
+✔ Pivot/Marks requests freeze their separate policies without generic or prototype bypass (1.345583ms)
+✔ workbook-pivot-fields sparse maximum fits unchanged Arrow admission while populated maximum fails bytes (555.822375ms)
+✔ workbook-marks sparse maximum fits unchanged Arrow admission while populated maximum fails bytes (542.078542ms)
+✔ Pivot/Marks frozen tokens reject late revocation and failed drops before ordinary recovery (1.554792ms)
+✔ Pivot/Marks admitted ownership survives input mutation and retires on supersession or close (1.068625ms)
+✔ installed browser dependencies and transitive lock retain approved exact integrity pins (8.454875ms)
+✔ request identities remain exact uint64 strings and invalid requests do not enter the queue (0.289792ms)
+✔ exact signed/unsigned integers, DECIMAL and SQL NULL/empty/literal values survive real Arrow vectors (0.93125ms)
+✔ C-owned SQL metadata remains distinct from Arrow transport metadata (0.226125ms)
+✔ lazy official Arrow IPC readers are opened before accessing schema (4.117917ms)
+✔ owned page buffers detach cleanly on transfer and do not alias Arrow memory (0.287417ms)
+✔ row/column/byte budgets and lossy/unsupported Arrow types fail explicitly (4.116875ms)
+✔ latest pending request wins and old cancellation cannot interrupt the new query (1.960958ms)
+✔ cancellation clears pending work; stale SQL errors never replace a new page (0.294792ms)
+✔ SQL errors are bounded replies and a subsequent query can recover (0.190084ms)
+✔ file registration transfers only an owned copy, preserving the caller/Wasm heap (0.238166ms)
+✔ registration owns its data across caller detachment and blocks competing commands (0.204334ms)
+✔ a registered name cannot be rebound, including after cleanup or in a later query (0.522625ms)
+✔ partial registration failure permanently reserves its name before the engine mutates (0.1765ms)
+✔ drop attempts reserve unknown names even on failure and preserve administration exclusion (0.190916ms)
+✔ name registry exhaustion fails closed without eviction and still permits cleanup (2.611875ms)
+✔ reconnected adapters share name reservations by database identity, including failed names (0.300125ms)
+✔ nonmutating validation and active-query rejections do not consume a fresh valid name (0.192167ms)
+✔ export request is explicit and cannot enlarge ordinary pages or read arbitrary files (0.512541ms)
+✔ export drains Count before bounded file copy, removes its private file and owns exact output (0.375667ms)
+✔ exact large Count and reader shutdown precede every private file operation (3.685167ms)
+✔ existing private path is preserved and invalid requests never send SQL (0.418875ms)
+✔ missing/zero/oversized file sizes reject before copy; malformed binary and Count never publish bytes (1.1305ms)
+✔ SQL/flush/copy/drop failures discard all export data and permit a later ordinary query (0.587167ms)
+✔ superseding export waits through noninterruptible copy and private drop before next SQL (0.736833ms)
+✔ a cancellation begun during private cleanup drains before the next query can enter (0.351583ms)
+✔ cancel and close own export cleanup until completion and never return partial bytes (0.463ms)
+✔ superseded pending exports burn names without mutating files or growing normal limits (2.326834ms)
+✔ official Worker factory uses single-threaded lossless options and owns shutdown/failure cleanup (0.318042ms)
+✔ optional source bindings own exact bounded tokens and never silently downgrade malformed input (0.753208ms)
+✔ registration tokens are stable across shared database connections and distinct across independent databases (0.646708ms)
+✔ a stale bound request does not consume a ticket, cancel active work or reserve an export name (0.263459ms)
+✔ failed registrations and failed drops burn IDs, revoke immediately and never resurrect a token (0.492083ms)
+✔ a sibling drop during asynchronous registration cannot publish a resurrected ready token (0.205958ms)
+✔ all captured sources are rechecked after reader cleanup and a stale contributor discards the whole page (0.290792ms)
+✔ a queued source revoked while an old cancellation drains is rejected before its SQL (0.196167ms)
+✔ bound export rechecks after private cleanup and never publishes bytes for a revoked source (0.315ms)
+✔ a bound export preserves exact output and unrelated source cleanup does not invalidate it (0.231417ms)
+✔ 1024 burned reservations never evict active tokens, and a disposal revokes the whole database lifetime (2.446041ms)
+✔ workbook-filters captures a frozen five-column 961-row single-archive request without purpose coercion (1.24175ms)
+✔ workbook-filters drains one Arrow result with exact NULL/text and sentinel bounds without widening ordinary pages (23.288167ms)
+✔ workbook-filters Arrow admission charges Page overhead at exact 4 MiB rather than only raw text (16.866208ms)
+✔ workbook-filters freezes admitted binding and schema before asynchronous send and recovers after result limits (3.533417ms)
+✔ workbook-filters rejects revoked captures after successful or failed sibling drops before publication (1.133542ms)
+✔ workbook-filters retires a held reader on cancel without exposing a Page (0.526708ms)
+✔ workbook-filters retires a held reader on supersede without exposing a Page (1.430167ms)
+✔ workbook-filters retires a held reader on close without exposing a Page (1.391167ms)
+✔ probe import is inert and same-origin official URLs resolve against the artifact page (0.592375ms)
+✔ external/mismatched/threaded assets and unbounded probe work are rejected (0.856ms)
+✔ probe equality never merges SQL NULL, empty text, literal NULL or rounded integers (0.154ms)
+✔ copy transport purpose alone permits a bounded 20,000-cell envelope without changing normal pages (59.714458ms)
+✔ trusted workbook-sorts wire envelope permits 449 by four without changing normal or copy policies (14.124958ms)
+✔ workbook-sorts wire retains the same text limit and rejects invalid cells atomically (24.984625ms)
+✔ trusted workbook-objects encodes one 2049 by eleven result without relaxing existing purposes (57.152291ms)
+✔ workbook-objects retains exact text bounds and rejects malformed owned inputs before encoding (18.650791ms)
+✔ trusted workbook-owners encodes exactly three columns through2113 rows without changing existing envelopes (21.780208ms)
+✔ workbook-owners keeps the unchanged text bound and rejects malformed strings and masks atomically (13.585042ms)
+✔ workbook-table-sources wire has a fixed independent full envelope and transferable ownership (36.589ms)
+✔ workbook-table-filters wire has a fixed independent full envelope and transferable ownership (255.873084ms)
+✔ workbook-table-sorts wire has a fixed independent full envelope and transferable ownership (87.59925ms)
+✔ Table wire policies retain exact text admission and reject malformed masks, NUL, UTF8 and prototype names (44.259208ms)
+✔ workbook-pivot-fields sparse full wire envelope retains one transferable owned result (274.602333ms)
+✔ workbook-marks sparse full wire envelope retains one transferable owned result (334.134125ms)
+✔ Pivot/Marks wire keeps text limits and rejects malformed bytes or prototype policy names without mutation (20.458958ms)
+✔ DXP1 little-endian golden bytes retain SQL NULL, empty text and literal NULL (0.682416ms)
+✔ exact integer/DECIMAL text and Unicode metadata cross without number coercion (0.168875ms)
+✔ every supported numeric kind retains exact text and metadata (0.14925ms)
+✔ result is newly owned and transferable; caller subarrays remain attached and independent (0.171125ms)
+✔ dimensions, version and buffer shapes must match exactly (0.717334ms)
+✔ metadata byte limits reject NUL, malformed UTF-16 and invalid numeric descriptors (1.028ms)
+✔ offsets and NULL masks reject holes, regressions, out-of-bounds and bytes owned by NULL (0.206167ms)
+✔ cell UTF-8 rejects NUL, overlong encodings, surrogates, invalid scalars and split boundaries (0.349833ms)
+✔ empty pages and maximum dimensions/text/metadata stay within the wire budget (44.748084ms)
+✔ workbook-filters wire owns 257 and 961 rows without letting embedded purpose widen normal transport (18.765916ms)
+✔ workbook-filters wire has exact raw-text bounds independently of Arrow Page overhead (11.782333ms)
+✔ workbook-filters rejects malformed sparse descriptors and cell buffers without mutating callers (0.884667ms)
+ℹ tests 180
+ℹ suites 0
+ℹ pass 164
+ℹ fail 16
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4146.3565
+
+✖ failing tests:
+
+test at web/codec_stream_transport.test.mjs:75:1
+✖ factory and malformed cookie/request/options fail before adapter ticket admission (4.720542ms)
+  AssertionError [ERR_ASSERTION]: The error is expected to be an instance of "TypeError". Received "BridgeError"
+  
+  Error message:
+  
+  Dense metadata columns and archive binding required
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:82:82)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: BridgeError: Dense metadata columns and archive binding required
+        at check (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/official_worker.mjs:33:66)
+        at workbookMetadataStreamRequest (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/official_worker.mjs:193:5)
+        at Object.submit (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.mjs:96:23)
+        at file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:82:105
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:82:82)
+        at async Test.run (node:internal/test_runner/test:1404:7)
+        at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3),
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at web/codec_stream_transport.test.mjs:85:41
+✖ real adapter columns chunks copy exact data with growth, cleanup before ACK and post-drain done (41.577167ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [Function: done]
+  - [
+  -   {
+  -     cookie: 7,
+  -     count: 4,
+  -     error: null,
+  -     rows: '513',
+  -     status: 0,
+  -     ticket: 1
+  -   }
+  - ]
+  
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:91:12)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    expected: [ { cookie: 7, ticket: 1, status: 0, rows: '513', count: 4, error: null } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at web/codec_stream_transport.test.mjs:85:41
+✖ real adapter cells chunks copy exact data with growth, cleanup before ACK and post-drain done (11.904458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [Function: done]
+  - [
+  -   {
+  -     cookie: 7,
+  -     count: 4,
+  -     error: null,
+  -     rows: '513',
+  -     status: 0,
+  -     ticket: 1
+  -   }
+  - ]
+  
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:91:12)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    expected: [ { cookie: 7, ticket: 1, status: 0, rows: '513', count: 4, error: null } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at web/codec_stream_transport.test.mjs:95:1
+✖ empty stream still requires one EOF ACK and uint32 MAX cookie/ticket stays exact (3.451834ms)
+  TypeError: Cannot read properties of undefined (reading 'rows')
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:98:163)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7)
+
+test at web/codec_stream_transport.test.mjs:100:1
+✖ only synchronous numeric1 ACKs, including the final EOF, can complete successfully (1.06825ms)
+  TypeError: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:102:228)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7)
+
+test at web/codec_stream_transport.test.mjs:106:1
+✖ chunk exceptions (including falsy throws) and release faults retire every temporary allocation (0.499ms)
+  TypeError: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:108:173)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7)
+
+test at web/codec_stream_transport.test.mjs:111:1
+✖ malloc failures clean partial chunk/done buffers and use only a static error completion fallback (0.55875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  6 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:113:172)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 6,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at web/codec_stream_transport.test.mjs:117:1
+✖ completion callback exceptions do not cause duplicate completion or leak its buffers (1.21075ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  6 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:118:190)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 6,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at web/codec_stream_transport.test.mjs:120:1
+✖ owned error C string is UTF8-complete, NUL-free and at most2048 bytes (0.618167ms)
+  TypeError: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:121:243)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7)
+
+test at web/codec_stream_transport.test.mjs:129:1
+✖ cancel drains strict reader cleanup and cancelSent while retaining one late stale replay (3.097291ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  6 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:132:174)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 6,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at web/codec_stream_transport.test.mjs:139:1
+✖ external adapter supersession drains before completion and leaves held reply for explicit stale C replay (5.903417ms)
+  TypeError: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:141:258)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7)
+
+test at web/codec_stream_transport.test.mjs:144:1
+✖ close discards held JS ownership without C replay and never closes the caller adapter (2.527042ms)
+  TypeError: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:146:110)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7)
+
+test at web/codec_stream_transport.test.mjs:148:1
+✖ throwing held notification resolves false and discards the slot before recovery (0.460625ms)
+  TypeError: Cannot read properties of undefined (reading 'error')
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:149:268)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7)
+
+test at web/codec_stream_transport.test.mjs:151:1
+✖ late revoked archive capture, including failed drop, never receives success and can recover (2.561125ms)
+  TypeError: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:155:341)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7)
+
+test at web/codec_stream_transport.test.mjs:160:1
+✖ invalid chunk sequence/u64/geometry/identity and forged success are bounded transport errors (0.620291ms)
+  TypeError: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:163:356)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7)
+
+test at web/codec_stream_transport.test.mjs:168:1
+✖ cancel in the completed-adapter/pre-C-done gap cannot publish success (1.45975ms)
+  TypeError: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-codec-stream-transport/duxcel/web/codec_stream_transport.test.mjs:171:152)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7)

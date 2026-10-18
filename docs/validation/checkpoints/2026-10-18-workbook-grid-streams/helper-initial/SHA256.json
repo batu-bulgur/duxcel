@@ -1,0 +1,22 @@
+{
+  "first-fixture-failure/manifest.json": {
+    "bytes": 3405,
+    "sha256": "11a23d08dca7b373cea3555240a901532968685ab6bd1d0484f7db159ae7c6fd"
+  },
+  "first-fixture-failure/node.txt": {
+    "bytes": 30055,
+    "sha256": "6eae985e6b2942c1274d3a4fa5d5467201efe1abf5b525dc57574f73214044a0"
+  },
+  "focused-retry.txt": {
+    "bytes": 1893,
+    "sha256": "56d2b181ce1874b2fbdb3be44376d0a2a80fa5cfb44e28742a0c204bc2fa5e7e"
+  },
+  "manifest.json": {
+    "bytes": 10329,
+    "sha256": "175b1cfc00848c8ecbd5d6a0f42a3f93ce98c4d479f45796c5679d162fe20156"
+  },
+  "node.txt": {
+    "bytes": 19212,
+    "sha256": "57e1ba13d58431d4d2f54f4ed84e0e59da0b807abdf13c3a17a4d74a25a086f7"
+  }
+}

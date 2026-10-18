@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "f1b36947e9feb54d15cf6c68e794e0cc43191671",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "0017a2feca072c0e953b15601a9da5bf384915c41b4678d65957d1447bb87923",
+    "source_files": 310
+  },
+  "reader_error": null,
+  "native_persistence_helpers": {},
+  "command": [
+    "node",
+    "tools/test_web_app.mjs",
+    "http://127.0.0.1:49746/",
+    "/Users/h2o/dev/duxcel/tests/results/runs/20261018T093514-browser-36693",
+    "--metadata-stream-probe",
+    "--dpr",
+    "1"
+  ],
+  "exit_code": 0,
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "browser_seconds": 5.219,
+  "elapsed_seconds": 5.53,
+  "setup": {
+    "build_seconds": 0.001,
+    "artifact_validation_seconds": 0.084,
+    "source_metadata_seconds": 0.225,
+    "server_setup_seconds": 0.001
+  },
+  "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+  "profile": "metadata-stream-probe",
+  "scope": "Official Worker streaming transport only: synthetic ordered typed SQL, original registration, real reader cleanup, backpressure, cancellation and recovery. No C App, shared column/cell decoder, native archive parity, workbook Open/Save, UI, queue or service promotion.",
+  "artifact": {
+    "status": "built",
+    "signature": "70844022f3be46129f88ecb3bd4848c5651f10cfc6cc5e06a0e25e70e58a6640",
+    "source": {
+      "commit": "22efc6485b54f896485927da12efeeae5edeb5a3",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "8493bcad859f726b1d0be43121aed42927904be123920615257906e6ba088471",
+      "source_files": 308
+    },
+    "elapsed_seconds": 15.472,
+    "kind": "application",
+    "core_artifacts": {
+      "canvas_wheel.mjs": "258d5c1844612439447979b8a4434453f000086e715344bc93bd8062b15f6b9a",
+      "duxcel.wasm": "c2958f081c2fb69efd34526671bd7d95f66256e0b023ca562ca8839bb994b6f2",
+      "index.html": "bed11f27be31b54136ede658d6a88051a43f8473b4efd1dd3c034a258eee4b89",
+      "vendor.json": "162d1e956a3c065cd640b2dbc129ec0b860c95c727e7788700447b6228420d92",
+      "duxcel-32.png": "ac53475d5611a5e83d8d7f59dcd7dfb35a843cf25f7dc4b38ef998a8ccb19059",
+      "canvas_surface.mjs": "17ecaa74cf545b643c4e3c3a61b5c0cdab0c662ab348a70d997d042dbad12103",
+      "page_wire.mjs": "8dda22a0115f13d92308eea14b662d908d73cce53f6f5ac7760e2130b429e865",
+      "duxcel.data": "e1e2590a60d8294f93fddb62e08c4828d6b330cb15f5a0ee27a3483b339da5d3",
+      "canvas_input.mjs": "b793b5bf742fc62995924cbb2e9c71375e925075cc4a78ce7474f343b4ce5c91",
+      "duxcel.mjs": "9dba75a94dc52f068e0490ff1596e058d00a067bfb64dfc6a4695ab612c450c8",
+      "host.mjs": "53f67159df25788ae1c40c2ba5f995d5939cb2e7282b447b556e078a37fe0de4",
+      "clipboard.mjs": "b1f637c3b1b6810a37bc46031e8c1dad9e15c6865caa60e6e92d8cecc84f025f",
+      "official_worker.mjs": "d71365cf43855600084d5dcb9d6afa9ba0ddc5f0e3986d667e73d8a78314ec4e",
+      "engine_host.mjs": "63068cac36f3989fe48476632608be235edd858be6d735e57bb59eefbd32c0d0",
+      "download.mjs": "7835c1e5ecf226bc3d1dc1eef514f03e7c8e0b5cd9be58299b9c4bd80cc1d5dd",
+      "browser_platform.mjs": "a30143cc647f44f07d05275c355286afb770eb4d8828d130bf39c7fe784a9b8d"
+    }
+  }
+}

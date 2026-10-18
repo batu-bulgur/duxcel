@@ -1,0 +1,42 @@
+{
+  "before-name-scan-preflight/manifest.json": {
+    "bytes": 5060,
+    "sha256": "e3e9c32dcc8e193f642646866ebc78d9b6ae873b1a85c0c0db7942cd4a2d60b9"
+  },
+  "before-name-scan-preflight/release-build.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "before-name-scan-preflight/release-run.txt": {
+    "bytes": 757,
+    "sha256": "929283c9f1140fbdaf2843fc93a1bf0db223e56f26ed85cc73ac6c48d8e409dd"
+  },
+  "before-name-scan-preflight/sanitize-build.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "before-name-scan-preflight/sanitize-run.txt": {
+    "bytes": 757,
+    "sha256": "929283c9f1140fbdaf2843fc93a1bf0db223e56f26ed85cc73ac6c48d8e409dd"
+  },
+  "manifest.json": {
+    "bytes": 13463,
+    "sha256": "75daadc372af252ec23fe12075099305fa122a8bfb5a4367b77d4ee4e6317e58"
+  },
+  "release-build.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "release-run.txt": {
+    "bytes": 757,
+    "sha256": "e9243377019de0b4e5c5dad182c13e641b3fcc295007ab3c636544e0979a7a7b"
+  },
+  "sanitize-build.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "sanitize-run.txt": {
+    "bytes": 757,
+    "sha256": "e9243377019de0b4e5c5dad182c13e641b3fcc295007ab3c636544e0979a7a7b"
+  }
+}

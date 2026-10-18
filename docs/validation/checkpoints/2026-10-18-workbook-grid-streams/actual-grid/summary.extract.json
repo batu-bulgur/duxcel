@@ -1,0 +1,148 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "2f2429c9babab84751f2245d7519b55aa72427f0",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "d4047765178dbe87c2125dbaac0c03eac4224e7bc425e60ab37a7d4f0331c2aa",
+    "source_files": 314
+  },
+  "reader_error": null,
+  "native_persistence_helpers": {},
+  "command": [
+    "node",
+    "tools/test_web_app.mjs",
+    "http://127.0.0.1:50286/",
+    "/Users/h2o/dev/duxcel/tests/results/runs/20261018T095014-browser-40502",
+    "--codec-read-driver",
+    "--codec-grid",
+    "--dpr",
+    "1"
+  ],
+  "exit_code": 0,
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "browser_seconds": 7.937,
+  "elapsed_seconds": 17.975,
+  "setup": {
+    "build_seconds": 8.334,
+    "artifact_validation_seconds": 0.634,
+    "source_metadata_seconds": 0.126,
+    "server_setup_seconds": 0.942
+  },
+  "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+  "profile": "codec-grid-driver",
+  "codec_fixture_manifest": {
+    "schema": "duxcel.codec-fixtures",
+    "version": 1,
+    "files": [
+      {
+        "name": "grid-v12.dxls",
+        "version": 12,
+        "layout": 25,
+        "bytes": 2633728,
+        "sha256": "90cbcf236eeffc017a5506733efa9aeee263d2f9934ce239a2ce44b145dc7918"
+      },
+      {
+        "name": "grid-v13.dxls",
+        "version": 13,
+        "layout": 25,
+        "bytes": 3158016,
+        "sha256": "9a051e3e7015b5e3eb01f727bbbb66c2c162a422900860f4a9188eeaa8a3d35e"
+      },
+      {
+        "name": "grid-v14.dxls",
+        "version": 14,
+        "layout": 25,
+        "bytes": 5255168,
+        "sha256": "5ada9af58461f590307bb99fc7b8ed7f14134003c3d3550b9e2ec8c1029c137c"
+      },
+      {
+        "name": "grid-v14-reordered.dxls",
+        "version": 14,
+        "layout": 25,
+        "bytes": 5517312,
+        "sha256": "42bb7be04d1210b259b2dbddf98c475f83547737981067b40a4512c2ae177958"
+      }
+    ]
+  },
+  "codec_helper_sha256": "afe7e9afb995c6e2090a241088a883ad14f2fbfe460e5bea8a49b6979470bf91",
+  "scope": "Isolated C partial meta/sheets/ACKed-streamed column presentation and sparse cells Header decoder over four immutable native archives through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.",
+  "artifact": {
+    "status": "built",
+    "signature": "9d8ae57beaa41eb640b335f5bf75cfa468af4477df95801e5c6dec5ede74a8bb",
+    "source": {
+      "commit": "2f2429c9babab84751f2245d7519b55aa72427f0",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "d4047765178dbe87c2125dbaac0c03eac4224e7bc425e60ab37a7d4f0331c2aa",
+      "source_files": 314
+    },
+    "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+    "elapsed_seconds": 1.231,
+    "sources": [
+      "src/common.c",
+      "src/transforms/analysis.c",
+      "src/transforms/number.c",
+      "src/transforms/pivot.c",
+      "src/data/page.c",
+      "src/data/source_digest.c",
+      "src/data/page_wire.c",
+      "src/data/browser_query.c",
+      "src/transforms/marks.c",
+      "src/workbook/workbook_codec.c",
+      "src/workbook/workbook_codec_read.c",
+      "tests/test_browser_codec_read.c"
+    ],
+    "rebuilt_sources": [],
+    "flags": [
+      "-O2",
+      "-g",
+      "-std=c99",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-DDUXCEL_BROWSER_HOST",
+      "-DPLATFORM_WEB",
+      "-DGRAPHICS_API_OPENGL_ES2",
+      "-Isrc",
+      "-I/Users/h2o/dev/duxcel/build/web/toolchain/raylib/src",
+      "-I/opt/homebrew/include"
+    ],
+    "link": [
+      "-sALLOW_MEMORY_GROWTH=1",
+      "-sINITIAL_MEMORY=67108864",
+      "-sMAXIMUM_MEMORY=1073741824",
+      "-sSTACK_SIZE=2097152",
+      "-sASSERTIONS=1",
+      "-sMODULARIZE=1",
+      "-sEXPORT_ES6=1",
+      "-sEXPORT_NAME=createDuxcel",
+      "-sENVIRONMENT=web",
+      "-sEXIT_RUNTIME=0",
+      "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_codec_fixture_result','_dx_browser_codec_result','_dx_browser_codec_stream_chunk','_dx_browser_codec_stream_done','_dx_browser_codec_stream_held','_dx_browser_codec_stream_cancelled']"
+    ],
+    "kind": "codec-read-driver",
+    "scope": "No-window C meta/sheets Header decoder with separate opt-in primary secondary-sort, preferences, object-descriptor, primary/Table-query, source-options, coherent Table-source/filter/sort, Pivot/Marks, full primary FILTERS and ACKed column/cell streaming workflows through the official asynchronous DuckDB-Wasm Worker and owned DXP1 Page bridge. Immutable native v12/v13/v14 fixtures; no complete Workbook, App publication, browser Save/Open or remaining-family decoding.",
+    "core_artifacts": {
+      "duxcel.wasm": "cc79f93e781469192e9bd4f565b38deee2f5dbecac42898a3edb0068f3511ccd",
+      "index.html": "be61da42376eaa818f73483f76b22600fc5fd9d398b3f1f8223021aab07fa3a0",
+      "vendor.json": "162d1e956a3c065cd640b2dbc129ec0b860c95c727e7788700447b6228420d92",
+      "codec_stream_transport.mjs": "15e31ef0686b93f743e77dc9dcdae6cdb16aa78ffa232b3971614243cfca024f",
+      "page_wire.mjs": "8dda22a0115f13d92308eea14b662d908d73cce53f6f5ac7760e2130b429e865",
+      "duxcel.mjs": "90313048038c754b887bba3ce87e7498f9535112d8c3dc01c3eb4512817758b4",
+      "host.mjs": "11679ca533bb1aa9a48c82bf999fa66dd44cc325fcfb56bad9362b5c0cd6df3e",
+      "official_worker.mjs": "d71365cf43855600084d5dcb9d6afa9ba0ddc5f0e3986d667e73d8a78314ec4e",
+      "engine_host.mjs": "63068cac36f3989fe48476632608be235edd858be6d735e57bb59eefbd32c0d0"
+    },
+    "core_bytes": {
+      "duxcel.wasm": 1209005,
+      "index.html": 465,
+      "vendor.json": 28665,
+      "codec_stream_transport.mjs": 10022,
+      "page_wire.mjs": 7952,
+      "duxcel.mjs": 87595,
+      "host.mjs": 12142,
+      "official_worker.mjs": 47300,
+      "engine_host.mjs": 13635
+    }
+  }
+}
