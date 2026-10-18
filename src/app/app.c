@@ -8084,7 +8084,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 908
+#define LAYOUT_SMOKE_STAGES 911
 static unsigned inspector_pan_evidence;
 static uint64_t inspector_pan_top;
 static double inspector_pan_fraction;
@@ -13078,7 +13078,18 @@ static void layout_smoke_step(App *a,int *step) {
             a->request_id!=request || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries ||
             a->analysis_revision!=inspector_revision || s->undo_actions_count!=inspector_history ||
             strcmp(a->sql_text,"Unrelated SQL dialog") || a->ui.scissor_depth) goto failed;
-        puts("PASS: native SQL inspector keyboard scrolling and fresh presentation after Steps and Collapse, retained owned SQL/wrap/source caches and zero UI-only jobs without clipboard"); break;
+        break;
+    case 908:
+    case 909:
+        if (fabsf(a->inspector_sql_scroll-(*step==908 ? .25f : .35f))>.00001f || a->pipeline_outer_scroll ||
+            a->grid.top || a->grid.fraction || a->grid.horizontal || a->pipeline_layout.inner_offset!=a->inspector_sql_scroll) goto failed;
+        if (*step==908) smoke_snapshot("tests/results/workspace-layout/native-sql-scroll-fractional.png"); break;
+    case 910:
+        if (fabsf(a->inspector_sql_scroll)>.00001f || a->pipeline_outer_scroll || a->grid.top || a->grid.fraction || a->grid.horizontal ||
+            a->request_id!=request || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries ||
+            a->analysis_revision!=inspector_revision || s->undo_actions_count!=inspector_history || a->page.cells!=ribbon_cells ||
+            a->inspector_sql_text!=inspector_cached_sql || a->inspector_sql_lines.offsets!=inspector_cached_sql_offsets || a->ui.scissor_depth) goto failed;
+        puts("PASS: native SQL inspector keyboard scrolling and fresh presentation after Steps and Collapse, precise captured fractional pan/reversal, retained owned SQL/wrap/source caches and zero UI-only jobs without clipboard"); break;
 
     }
     free(error); (*step)++; return;
@@ -14711,10 +14722,15 @@ bool app_frame(AppSession *session) {
             scroll_keys|=bit;
         }
     }
-    if (options->layout_smoke && a->frames%24==2 && (session->layout_smoke==901 || session->layout_smoke==902 || session->layout_smoke==904)) {
+    if (options->layout_smoke && a->frames%24==2 && (session->layout_smoke==901 || session->layout_smoke==902 || session->layout_smoke==904 || (session->layout_smoke>=908 && session->layout_smoke<=910))) {
         static unsigned sql_scroll_keys=0; unsigned bit=1u<<(session->layout_smoke-901);
         if (!(sql_scroll_keys&bit)) {
-            if (session->layout_smoke==902) { ui_note_key_press(KEY_TAB,0); ui_note_key_press(KEY_ENTER,0); }
+            if (session->layout_smoke>=908) {
+                Rectangle code=a->pipeline_layout.sql_code;
+                float delta=session->layout_smoke==908 ? .25f : session->layout_smoke==909 ? .1f : -.35f;
+                a->ui.native_pan_valid=true;
+                a->ui.native_pan=(DxPanInput){.y=delta*a->ui.scale,.pointer_x=code.x+code.width*.5f,.pointer_y=code.y+code.height*.5f,.phase=DX_PAN_ACTIVE,.event=true};
+            } else if (session->layout_smoke==902) { ui_note_key_press(KEY_TAB,0); ui_note_key_press(KEY_ENTER,0); }
             else ui_note_key_press(KEY_END,0);
             sql_scroll_keys|=bit;
         }
