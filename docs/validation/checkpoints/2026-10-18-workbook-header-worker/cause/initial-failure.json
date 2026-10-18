@@ -1,0 +1,59 @@
+{
+  "run": "20261018T071659-browser-83320",
+  "classification": "Test-adapter phase/array assertion failure, not proof of numeric rounding in the shared decoder or Worker",
+  "source": {
+    "commit": "a4e176a9d74acaf75c6b120912e7cd2d441833ae",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "d37cd2885bba0bac93148986df9cefbc83c51201de9ec8a1a0763325feede516",
+    "source_files": 293
+  },
+  "artifact_signature": "80ce9ba988347154d27016a0548a44d5d3a7dd48fa61e92ea6d9fa70b2ea1c83",
+  "status": "failed",
+  "browser_seconds": 7.574,
+  "elapsed_seconds": 18.884,
+  "c_report": {
+    "ok": false,
+    "checks": 2448,
+    "fixtures": 7,
+    "headers": 7,
+    "queries": 35,
+    "rejections": 4,
+    "stale": 0,
+    "peakOwnedInput": 80463,
+    "headerOwnedLimit": 2097152,
+    "inputOwnedLimit": 4194304,
+    "budgetRejected": false,
+    "sentinelRejected": false,
+    "tinyNegativeRejected": false,
+    "u64Sentinels": [
+      "9007199254740993"
+    ],
+    "normalFixtureQueries": [
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4
+    ],
+    "familyExecutions": {
+      "meta": 12,
+      "sheets": 9,
+      "describe": 14
+    },
+    "error": "Maximum U64 was rounded before viewport rejection",
+    "boundary": "official-worker/shared-C-header-reader; no workbook publication or browser Save/Open"
+  },
+  "correction": "572100f gates fault5 maximum-U64 proof to sheets atoms and fault2 to meta atoms. It also checks genuine feed diagnostics before failed finish can replace the error; that second issue was discovered by read-only review, not independently reached in this failed run.",
+  "original_summary": {
+    "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071659-browser-83320/summary.json",
+    "bytes": 34585,
+    "sha256": "2e691c308811c85eee116303915f232d22c44ede73cf779026c444a512601307"
+  },
+  "original_report": {
+    "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071659-browser-83320/codec-read-driver.json",
+    "bytes": 28634,
+    "sha256": "a853a15395c84c6bc248e43d2d27d3b298adae57906af2ddfb644a0585a39841"
+  }
+}

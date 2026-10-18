@@ -1,0 +1,103 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "5e5529dffd75779d7c3848e864e76cd7dfa19c0f",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "d5b0b496dcb5bc4c6934aefda068e33df2c1d463a12c588cdcb7768149038d7e",
+    "source_files": 293
+  },
+  "reader_error": null,
+  "native_persistence_helpers": {},
+  "command": [
+    "node",
+    "tools/test_web_app.mjs",
+    "http://127.0.0.1:55721/",
+    "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071828-browser-84897",
+    "--codec-read-driver",
+    "--dpr",
+    "1"
+  ],
+  "exit_code": 0,
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "browser_seconds": 7.085,
+  "elapsed_seconds": 8.351,
+  "setup": {
+    "build_seconds": 0.001,
+    "artifact_validation_seconds": 0.622,
+    "source_metadata_seconds": 0.131,
+    "server_setup_seconds": 0.511
+  },
+  "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+  "profile": "codec-read-driver",
+  "codec_helper_sha256": "31d5f5b7c8fb6ba542a3882cee9991d4e02bf949f0ced2db387d3572673cd030",
+  "scope": "Isolated C partial meta/sheets Header decoder over seven immutable native v12/v13/v14 archives through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.",
+  "artifact": {
+    "kind": "codec-read-driver",
+    "signature": "7c06361c7b381ee3f3a55d2c6cfd16ae6a06499fae9eebc0aaf55cb06ee4a5cb",
+    "source": {
+      "commit": "572100fd3c9175ad8f7e90a90db2238c90541707",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "dec7ce7c99e875ada1a83dca7f4864c9aff4316a0799840effa9a97bbaaa3f9c",
+      "source_files": 293
+    },
+    "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+    "elapsed_seconds": 2.117,
+    "sources": [
+      "src/common.c",
+      "src/transforms/analysis.c",
+      "src/transforms/number.c",
+      "src/transforms/pivot.c",
+      "src/data/page.c",
+      "src/data/source_digest.c",
+      "src/data/page_wire.c",
+      "src/data/browser_query.c",
+      "src/workbook/workbook_codec.c",
+      "src/workbook/workbook_codec_read.c",
+      "tests/test_browser_codec_read.c"
+    ],
+    "flags": [
+      "-O2",
+      "-g",
+      "-std=c99",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-DDUXCEL_BROWSER_HOST",
+      "-DPLATFORM_WEB",
+      "-DGRAPHICS_API_OPENGL_ES2",
+      "-Isrc",
+      "-I/Users/h2o/dev/duxcel/build/web/toolchain/raylib/src",
+      "-I/opt/homebrew/include"
+    ],
+    "link": [
+      "-sALLOW_MEMORY_GROWTH=1",
+      "-sINITIAL_MEMORY=67108864",
+      "-sMAXIMUM_MEMORY=1073741824",
+      "-sSTACK_SIZE=2097152",
+      "-sASSERTIONS=1",
+      "-sMODULARIZE=1",
+      "-sEXPORT_ES6=1",
+      "-sEXPORT_NAME=createDuxcel",
+      "-sENVIRONMENT=web",
+      "-sEXIT_RUNTIME=0",
+      "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_codec_fixture_result','_dx_browser_codec_result']"
+    ],
+    "scope": "No-window C meta/sheets Header decoder through the official asynchronous DuckDB-Wasm Worker and owned DXP1 Page bridge. Immutable native v12/v13/v14 fixtures; no complete Workbook, App publication, browser Save/Open or later-family decoding.",
+    "artifacts": {
+      "duxcel.wasm": "040bce5c96dc7ca4d34ed41c8734706b0449c558569ac3bd00fa672aa10b876c",
+      "index.html": "be61da42376eaa818f73483f76b22600fc5fd9d398b3f1f8223021aab07fa3a0",
+      "vendor.json": "162d1e956a3c065cd640b2dbc129ec0b860c95c727e7788700447b6228420d92",
+      "page_wire.mjs": "cf935b9bd5d16c930c7bcc8c3df6c8a24b47ba2d511417c1302724c7db8b614a",
+      "duxcel.mjs": "d63b33d8ff32c8bf88622ec55fa876e2f9c60de553631aaf0df6ce5692576c35",
+      "host.mjs": "9e07891527eaed6ff0e6e6e421897039e9340c984c7e7c4de63df4886ae52dab",
+      "official_worker.mjs": "964951a72e547ebdd51433c84ac578b2b083d03a2d7a8c6c94e08fdd067bec0d",
+      "engine_host.mjs": "63068cac36f3989fe48476632608be235edd858be6d735e57bb59eefbd32c0d0"
+    }
+  },
+  "original_summary": {
+    "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071828-browser-84897/summary.json",
+    "bytes": 34571,
+    "sha256": "51440d204cfef37564147b95ded2c557bc0d1d79421aa61bcb5abb009a26dac1"
+  }
+}

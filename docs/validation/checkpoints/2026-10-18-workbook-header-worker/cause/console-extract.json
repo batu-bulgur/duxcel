@@ -1,0 +1,14 @@
+{
+  "scope": "Bounded exact C failure console messages from existing runtime events; no input/event stream copied.",
+  "original_events": {
+    "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071659-browser-83320/events.json",
+    "bytes": 1098765,
+    "sha256": "3a21a69d8ff5c8c03873cb07fa782d473e2b94e20a0ae277162e063d5375dfdc"
+  },
+  "messages": [
+    {
+      "event_index": 1367,
+      "message": "FAIL codec-read:229 fixture=6 phase=5 fault=5: Maximum U64 was rounded before viewport rejection"
+    }
+  ]
+}

@@ -1,0 +1,209 @@
+{
+  "state": "accepted bounded official Worker partial Header proof; payloads sealed by hashes.json; fresh shipping absence explicitly pending",
+  "prepared_utc": "2026-10-18T07:19:34.932954+00:00",
+  "draft_base": "572100fd3c9175ad8f7e90a90db2238c90541707",
+  "scope": "Dedicated official Worker/shared-C meta/sheets Header only; no Workbook/App/browser Save/Open activation, UI rendering or distribution promotion",
+  "unmodified_copies": {
+    "emitter/manifest.json": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-fixture-emitter/duxcel/build/bp1-fixture-emitter/manifest.json",
+      "bytes": 13560,
+      "sha256": "d8c2118c1282a2e6c2ad00ad75eee9ce93b5bb44d21baf839ffcdf987b76ccd6"
+    },
+    "emitter/release-default.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-fixture-emitter/duxcel/build/bp1-fixture-emitter/release-default.txt",
+      "bytes": 218,
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    "emitter/sanitize-default.txt": {
+      "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-fixture-emitter/duxcel/build/bp1-fixture-emitter/sanitize-default.txt",
+      "bytes": 218,
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    "first-pass/codec-native-create.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071747-browser-84130/codec-native-create.txt",
+      "bytes": 411,
+      "sha256": "045248e4d165746a2ab1f90d750f71a18eacec0691eebae57a5f40a6304e8bd8"
+    },
+    "first-pass/codec-fixture-manifest.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071747-browser-84130/codec-fixture-manifest.json",
+      "bytes": 1134,
+      "sha256": "3b091d80170973ec55cd1b699cbfe159ce12c20019b801416fc0d273f2562495"
+    },
+    "first-pass/codec-native-provenance.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071747-browser-84130/codec-native-provenance.json",
+      "bytes": 2493,
+      "sha256": "053e4626506daa37b853cfcbbc5b5314d9321cc1fe88cc2d21f0b1783cc34400"
+    },
+    "first-pass/driver.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071747-browser-84130/driver.txt",
+      "bytes": 633,
+      "sha256": "d7062e63e1e60d48c088fbca0a77839f34eed0af6586dff237f2dce2fd55fd41"
+    },
+    "first-pass/cleanup.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071747-browser-84130/cleanup.json",
+      "bytes": 207,
+      "sha256": "c8fb6f404da4271a00e59441bf5b04ab67b8e264f7f8ee0a9f609c563f9188f4"
+    },
+    "cause/driver.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071659-browser-83320/driver.txt",
+      "bytes": 228,
+      "sha256": "4c056f71a93c8a57aeabe9ebf0c466594d0c8992b5016b0bb8809bcc7e6739bd"
+    },
+    "final/codec-native-create.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071828-browser-84897/codec-native-create.txt",
+      "bytes": 411,
+      "sha256": "045248e4d165746a2ab1f90d750f71a18eacec0691eebae57a5f40a6304e8bd8"
+    },
+    "final/codec-fixture-manifest.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071828-browser-84897/codec-fixture-manifest.json",
+      "bytes": 1421,
+      "sha256": "14634329c8b105b84bf332ad634ebd0b915a1e202fcc32565eb8552cb8e24dae"
+    },
+    "final/codec-native-provenance.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071828-browser-84897/codec-native-provenance.json",
+      "bytes": 3095,
+      "sha256": "722e030e9c1412d27079df6f1fdc4310645aad13a8b7a8a4dc89d4fd2a318a25"
+    },
+    "final/driver.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071828-browser-84897/driver.txt",
+      "bytes": 633,
+      "sha256": "74c529164d9b9a78a59e22d7df1f1242643f8007de6c43415208751db741da86"
+    },
+    "final/cleanup.json": {
+      "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071828-browser-84897/cleanup.json",
+      "bytes": 207,
+      "sha256": "4cc5f005b3a019cfba7310f4dd30c0ebfd5f7c0149e7526e95d0395be5505048"
+    },
+    "harness-unit.txt": {
+      "original_path": "/Users/h2o/dev/duxcel/build/bp1-codec-harness-unit-final.txt",
+      "bytes": 102,
+      "sha256": "6c358ead1a152587a91de3e3cc1b887d6b66a62177382922897ec052f4004186"
+    }
+  },
+  "derived_records": {
+    "emitter/supplementary.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/.codex/worktrees/duxcel-bp1-fixture-emitter/duxcel/build/bp1-fixture-emitter/emitter-results.json",
+          "bytes": 32690,
+          "sha256": "18cd248061557ac6c7c2902960994def79f9891aa4b0a20ec6b3e464b0598039"
+        }
+      ],
+      "description": "Compact original supplementary emitter refusal/cleanup and read-only CLI fixture inspection. Repeated command argv and identical metadata/physical-column lists are factored with exact digest references; no new execution."
+    },
+    "first-pass/summary.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071747-browser-84130/summary.json",
+          "bytes": 34257,
+          "sha256": "efab30c677362961f5a0ff1b4796adb728f03a870d7a63baaef528ddc22e43d6"
+        }
+      ],
+      "description": "Source/timing/build and top-level artifact extraction; duplicate vendor hashes and fixture inventory omitted"
+    },
+    "first-pass/c-report.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071747-browser-84130/codec-read-driver.json",
+          "bytes": 51556,
+          "sha256": "f4219827aa2778363a4bd20f5dcfe50a642bad9fc90e7256ffb9c4e4fe90031e"
+        }
+      ],
+      "description": "Exact C scalar receipt; duplicate transport query SQL omitted"
+    },
+    "first-pass/transport.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071747-browser-84130/codec-read-transport.json",
+          "bytes": 49582,
+          "sha256": "e2047a9eaab91ba5e476150c9ae41bcaee9f9711424bd8cd2995ab912368eced"
+        }
+      ],
+      "description": "Compact first-pass transport receipt; detailed final-run query inventory will be retained separately. No fixture archives or full runtime events."
+    },
+    "cause/initial-failure.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071659-browser-83320/summary.json",
+          "bytes": 34585,
+          "sha256": "2e691c308811c85eee116303915f232d22c44ede73cf779026c444a512601307"
+        },
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071659-browser-83320/codec-read-driver.json",
+          "bytes": 28634,
+          "sha256": "a853a15395c84c6bc248e43d2d27d3b298adae57906af2ddfb644a0585a39841"
+        }
+      ],
+      "description": "Compact naturally failed first runtime and honest test-adapter correction scope"
+    },
+    "cause/console-extract.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071659-browser-83320/events.json",
+          "bytes": 1098765,
+          "sha256": "3a21a69d8ff5c8c03873cb07fa782d473e2b94e20a0ae277162e063d5375dfdc"
+        }
+      ],
+      "description": "Exact first-failure console extraction"
+    },
+    "cause/test-adapter-fix.txt": {
+      "command": [
+        "git",
+        "show",
+        "--format=fuller",
+        "572100f",
+        "--",
+        "tests/test_browser_codec_read.c"
+      ],
+      "description": "Git diff transcript for family-scoped proof and diagnostic ordering, with trailing whitespace stripped for repository formatting; raw git-show hash retained. Not an apply-ready patch; no production decoder change.",
+      "raw_git_show_sha256": "40f327a2bb77c22dcc134a56de85ace308e316fd7b623632b82ff0193ab4eab0"
+    },
+    "final/summary.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071828-browser-84897/summary.json",
+          "bytes": 34571,
+          "sha256": "51440d204cfef37564147b95ded2c557bc0d1d79421aa61bcb5abb009a26dac1"
+        }
+      ],
+      "description": "Final wrapper/source/timing and immutable572 C artifact extraction; duplicate vendor and fixture lists factored"
+    },
+    "final/c-report.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071828-browser-84897/codec-read-driver.json",
+          "bytes": 51556,
+          "sha256": "529bea7e922b04c7dcc035308659a09f380876bd55dbb5c7f1385a7bc13b8a75"
+        }
+      ],
+      "description": "Exact final C scalar receipt, separate from browser harness count"
+    },
+    "final/transport.json": {
+      "sources": [
+        {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071828-browser-84897/codec-read-transport.json",
+          "bytes": 49582,
+          "sha256": "36a05ee5f0643f1a4052d441e018da90856e89c0e36d5e73c4782875248219fe"
+        }
+      ],
+      "description": "54 actual C-submitted metadata queries. Binding tuple for each query is the indexed fixture token. Fixture ATTACH/DETACH administration excluded. Full repeated projections are replaced by exact hashes; original transport receipt is separately identified."
+    }
+  },
+  "finalized_utc": "2026-10-18T07:21:16.554504+00:00",
+  "source_boundaries": {
+    "first_failure": "a4e176a; test-adapter sheets proof ran against meta atoms; no numeric-rounding product conclusion",
+    "first_pass": "572100f C+wrapper; actual6294checks/7fixtures/10Headers/54Cqueries/11rejections/1stale;13.985s",
+    "final_wrapper": "5e5529d runner, same immutable572 C artifact;8.351s with version/layout sealedmanifest; no C rerun compilation",
+    "private_emitter": "aaee5e0 tested source; rootintegrationaef91f9; actual native archives, default1611/config, separate CLI supplementary proof",
+    "shipping": "Fresh absence for this transport integration deferred; no shipping/service promotion. Previous normalefd and review1082 scopes remain separate.",
+    "excluded": "Later isolated workbook sorts/policy and all future product activation"
+  },
+  "static_verification": {
+    "scope": "Evidence/source/log/hash checks only; no build/engine/UI run in this worktree",
+    "emitter": "Exact native source hashes match tested aaee5e0; 20 supplementary records and native1611/config retained",
+    "first_and_final": "572 and5e wrapper passes share exact572 C artifact;6294 checks,7fixtures,10Headers,54 C queries,11rejections,1 stale; version/layout final mapping exact",
+    "transport": "All54 original query hashes/tickets/UTF8 lengths/session binding fixture indices verified;15 DESCRIBE/20 meta/19 sheets; one owned hold/release; source-query sentinel never submitted",
+    "preservation": "Seven allowlisted native files exactly once, matching protocol/digests/served receipt and unchanged helper; clean owned browser exit",
+    "scope_limits": "Observed C admission checkpoints only; not JS/engine/RSS. No shipping absence, App/Open/Save, sort-policy or service promotion acceptance"
+  }
+}
