@@ -1,9 +1,12 @@
 #include "workbook/workbook_codec_read.h"
+#include "platform/platform.h"
 #include <duckdb.h>
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 static unsigned checks,executions,feeds,nul_cells;
@@ -153,6 +156,75 @@ static void mutate(const char *path,const char *sql) {
     duckdb_database database=NULL; duckdb_connection connection=NULL; CHECK(duckdb_open(path,&database)==DuckDBSuccess && duckdb_connect(database,&connection)==DuckDBSuccess);
     execute(connection,sql); duckdb_disconnect(&connection); duckdb_close(&database);
 }
+static const char reorder_sql[]="CREATE TABLE _duxcel_workspace.reordered_sheets AS SELECT canvas_zoom,* EXCLUDE(canvas_zoom) FROM _duxcel_workspace.sheets; DROP TABLE _duxcel_workspace.sheets; ALTER TABLE _duxcel_workspace.reordered_sheets RENAME TO sheets; CREATE TABLE _duxcel_workspace.reordered_meta AS SELECT user_scale,active_sheet,version FROM _duxcel_workspace.meta; DROP TABLE _duxcel_workspace.meta; ALTER TABLE _duxcel_workspace.reordered_meta RENAME TO meta";
+
+typedef struct { const char *name; unsigned version,layout; bool reordered; } EmitFixture;
+static const EmitFixture emit_fixtures[]={
+    {"v12.dxls",12,25,false},{"v12-reordered.dxls",12,25,true},{"v12-legacy24.dxls",12,24,true},
+    {"v13.dxls",13,25,false},{"v13-reordered.dxls",13,25,true},
+    {"v14.dxls",14,25,false},{"v14-reordered.dxls",14,25,true}
+};
+static struct {
+    char *directory,*missing,*stage,*wal,*outputs[7];
+    dev_t devices[7]; ino_t inodes[7];
+    bool published[7],complete;
+} emission;
+/* CHECK and the fixture SQL helper exit on failure. Retire only our private
+   staging file and successfully linked output inodes, never a preexisting file. */
+static void emit_cleanup(void) {
+    if (emission.stage) unlink(emission.stage);
+    if (emission.wal) unlink(emission.wal);
+    for (size_t i=0;i<7;i++) {
+        struct stat st;
+        if (!emission.complete && emission.published[i] && !lstat(emission.outputs[i],&st) &&
+            st.st_dev==emission.devices[i] && st.st_ino==emission.inodes[i]) unlink(emission.outputs[i]);
+        free(emission.outputs[i]);
+    }
+    free(emission.directory); free(emission.missing); free(emission.stage); free(emission.wal);
+}
+static void require_absent(const char *path) {
+    struct stat st;
+    if (!lstat(path,&st) || errno!=ENOENT) { fprintf(stderr,"fixture output must not exist: %s\n",path); exit(1); }
+}
+static int emit_fixture_files(const char *directory) {
+    char *canonical=dx_absolute_path(directory); struct stat st;
+    if (!canonical || stat(canonical,&st) || !S_ISDIR(st.st_mode)) {
+        fprintf(stderr,"fixture destination must be an existing accessible directory\n"); free(canonical); return 1;
+    }
+    CHECK(!atexit(emit_cleanup));
+    emission.directory=canonical;
+    char *missing=emission.missing=dx_printf("%s/missing-source.csv",canonical); require_absent(missing);
+    for (size_t i=0;i<7;i++) {
+        emission.outputs[i]=dx_printf("%s/%s",canonical,emit_fixtures[i].name); require_absent(emission.outputs[i]);
+    }
+    for (size_t i=0;i<7;i++) {
+        const EmitFixture *entry=emit_fixtures+i;
+        /* Same-parent native Save keeps every stored source reference exactly
+           missing-source.csv. Publish only after all DuckDB handles are closed. */
+        emission.stage=dx_printf("%s/.bp1-codec-stage-XXXXXX",canonical);
+        int descriptor=mkstemp(emission.stage);
+        if (descriptor<0) { free(emission.stage); emission.stage=NULL; CHECK(false); }
+        CHECK(!close(descriptor)); CHECK(!unlink(emission.stage));
+        emission.wal=dx_printf("%s.wal",emission.stage);
+        fixture(emission.stage,missing,entry->version);
+        if (entry->reordered) mutate(emission.stage,reorder_sql);
+        if (entry->layout==24) mutate(emission.stage,"ALTER TABLE _duxcel_workspace.sheets DROP COLUMN canvas_zoom");
+        CHECK(!lstat(emission.stage,&st) && S_ISREG(st.st_mode) && st.st_size>0);
+        CHECK(!chmod(emission.stage,0444));
+        /* link is an atomic no-replace operation, including a target created
+           after preflight; cleanup never claims that conflicting target. */
+        if (link(emission.stage,emission.outputs[i])) { fprintf(stderr,"cannot publish fixture: %s\n",emission.outputs[i]); exit(1); }
+        emission.published[i]=true; emission.devices[i]=st.st_dev; emission.inodes[i]=st.st_ino;
+        CHECK(!unlink(emission.stage)); free(emission.stage); emission.stage=NULL;
+        require_absent(emission.wal); free(emission.wal); emission.wal=NULL;
+    }
+    require_absent(missing);
+    /* Protocol metadata only: the consumer hashes and serves the actual closed
+       native archives; no workbook data is represented by this JSON. */
+    CHECK(fputs("{\"schema\":\"duxcel.codec-fixtures\",\"version\":1,\"files\":[",stdout)>=0);
+    for (size_t i=0;i<7;i++) CHECK(fprintf(stdout,"%s{\"name\":\"%s\",\"version\":%u,\"layout\":%u}",i ? "," : "",emit_fixtures[i].name,emit_fixtures[i].version,emit_fixtures[i].layout)>0);
+    CHECK(fputs("]}\n",stdout)>=0 && !fflush(stdout)); emission.complete=true; return 0;
+}
 static void open_readonly(const char *path,duckdb_database *database,duckdb_connection *connection) {
     duckdb_config config=NULL; CHECK(duckdb_create_config(&config)==DuckDBSuccess);
     CHECK(duckdb_set_config(config,"access_mode","READ_ONLY")==DuckDBSuccess && duckdb_set_config(config,"enable_external_access","false")==DuckDBSuccess &&
@@ -195,12 +267,14 @@ static void read_compare(const char *path,unsigned version,WorkbookCodecSheetsLa
     CHECK(workbook_codec_header_sheet_count(header)==3 && !strcmp(workbook_codec_header_name(header,0),"Native 'İ' 🦆"));
     workbook_codec_header_free(header); free(error);
 }
-int main(void) {
+int main(int argc,char **argv) {
+    if (argc==3 && !strcmp(argv[1],"--emit-fixtures")) return emit_fixture_files(argv[2]);
+    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR]\n",argv[0]); return 2; }
     char directory[]="/tmp/duxcel-codec-native-XXXXXX"; CHECK(mkdtemp(directory));
     char *missing=dx_printf("%s/missing-source.csv",directory); CHECK(access(missing,F_OK)!=0);
     for (unsigned version=12;version<=14;version++) {
         char *path=dx_printf("%s/v%u.dxls",directory,version); fixture(path,missing,version); read_compare(path,version,WORKBOOK_CODEC_SHEETS_25,version==12);
-        mutate(path,"CREATE TABLE _duxcel_workspace.reordered_sheets AS SELECT canvas_zoom,* EXCLUDE(canvas_zoom) FROM _duxcel_workspace.sheets; DROP TABLE _duxcel_workspace.sheets; ALTER TABLE _duxcel_workspace.reordered_sheets RENAME TO sheets; CREATE TABLE _duxcel_workspace.reordered_meta AS SELECT user_scale,active_sheet,version FROM _duxcel_workspace.meta; DROP TABLE _duxcel_workspace.meta; ALTER TABLE _duxcel_workspace.reordered_meta RENAME TO meta");
+        mutate(path,reorder_sql);
         read_compare(path,version,WORKBOOK_CODEC_SHEETS_25,false);
         if (version==12) { mutate(path,"ALTER TABLE _duxcel_workspace.sheets DROP COLUMN canvas_zoom"); read_compare(path,version,WORKBOOK_CODEC_SHEETS_24,false); }
         CHECK(!unlink(path)); free(path);
