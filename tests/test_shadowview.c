@@ -1,5 +1,6 @@
 #include "ui/shadowview.h"
 #include "shadow_reference.h"
+#include "shadow_corner_reference.h"
 #include <float.h>
 #include <math.h>
 #include <stdint.h>
@@ -144,7 +145,99 @@ static void reference_pixels(void) {
     CHECK(points==240);
     printf("Reference: %zu/%zu exact source-profile pixels, without exceptions or tolerance.\n",points,points);
 }
+
+/* Point-sample the actual public three-slice placement at a recorded DPR2
+   device-pixel center. Outside rows have no placed slice; this is a pure
+   placement test, not a claim about App scissor/GPU coverage. */
+static const unsigned char *reference_sample(const UIShadowLayout *q,const UIShadowPlacement *p,
+        const unsigned char *mask,unsigned x,unsigned y,int *atlas_x,int *atlas_y) {
+    static const unsigned char zero[4]={0};
+    const UIShadowSlice slices[]={p->top,p->body,p->bottom};
+    double px=(x+.5)/2,py=(y+.5)/2;
+    *atlas_x=*atlas_y=-1;
+    for (size_t i=0;i<sizeof slices/sizeof *slices;i++) {
+        Rectangle b=slices[i].bounds,t=slices[i].source;
+        if (b.width<=0 || b.height<=0 || px<b.x || py<b.y || px>=b.x+b.width || py>=b.y+b.height) continue;
+        int sx=(int)floor(t.x+(px-b.x)*t.width/b.width),sy=(int)floor(t.y+(py-b.y)*t.height/b.height);
+        CHECK(sx>=0 && sx<q->atlas_width && sy>=0 && sy<q->atlas_height);
+        *atlas_x=sx; *atlas_y=sy;
+        return mask+pixel(q,sx,sy);
+    }
+    return zero;
+}
+static void reference_composite(const unsigned char *mask,const unsigned char *background,unsigned char out[4]) {
+    for (int c=0;c<3;c++) out[c]=(unsigned char)(mask[c]+((unsigned)background[c]*(255-mask[3])+127)/255);
+    out[3]=255;
+}
+static void reference_corner_pixels(void) {
+#define CORNER_CASE(name,scale,wrapper,expected) {#name,scale,wrapper,name,sizeof name/sizeof *name,expected}
+    const struct {
+        const char *name; float scale; Rectangle wrapper; const ShadowCornerPixel *pixels; size_t count,expected;
+    } refs[]={
+        CORNER_CASE(narrow_100_top,1,((Rectangle){360,93,280,605}),1768),
+        CORNER_CASE(narrow_100_bottom,1,((Rectangle){360,93,280,605}),1596),
+        CORNER_CASE(narrow_100_top_seam,1,((Rectangle){360,93,280,605}),104),
+        CORNER_CASE(narrow_100_bottom_seam,1,((Rectangle){360,93,280,605}),104),
+        CORNER_CASE(narrow_150_top,1.5f,((Rectangle){220,139,420,468}),3080),
+        CORNER_CASE(narrow_150_bottom,1.5f,((Rectangle){220,139,420,468}),4723),
+        CORNER_CASE(narrow_150_top_seam,1.5f,((Rectangle){220,139,420,468}),132),
+        CORNER_CASE(narrow_150_bottom_seam,1.5f,((Rectangle){220,139,420,468}),156)
+    };
+#undef CORNER_CASE
+    const unsigned char white[]={255,255,255,255};
+    size_t points=0;
+    for (size_t r=0;r<sizeof refs/sizeof *refs;r++) {
+        CHECK(refs[r].count==refs[r].expected);
+        UIShadowLayout q=ui_shadow_layout(refs[r].scale,(Vector2){2,2}); CHECK(q.valid);
+        UIShadowPlacement p=ui_shadow_placement(&q,refs[r].wrapper); CHECK(p.valid);
+        unsigned char *mask=malloc(q.bytes); CHECK(mask && ui_shadow_mask_rgba(&q,mask,q.bytes));
+        for (size_t i=0;i<refs[r].count;i++) {
+            const ShadowCornerPixel *ref=&refs[r].pixels[i]; int sx,sy; unsigned char rgba[4];
+            const unsigned char *value=reference_sample(&q,&p,mask,ref->x,ref->y,&sx,&sy);
+            reference_composite(value,white,rgba); points++;
+            if (memcmp(rgba,ref->foreground,4)) {
+                fprintf(stderr,"STRICT corner mismatch %s pixel=(%u,%u) atlas=(%d,%d) expected=(%u,%u,%u,%u) actual=(%u,%u,%u,%u) mask=(%u,%u,%u,%u) background=(255,255,255,255)\n",
+                    refs[r].name,ref->x,ref->y,sx,sy,ref->foreground[0],ref->foreground[1],ref->foreground[2],ref->foreground[3],rgba[0],rgba[1],rgba[2],rgba[3],value[0],value[1],value[2],value[3]);
+                CHECK(!memcmp(rgba,ref->foreground,4));
+            }
+            CHECK(!memcmp(rgba,ref->foreground,4));
+        }
+        free(mask);
+    }
+    CHECK(points==11663);
+    printf("Corner reference: %zu/%zu exact recorded white-background top/bottom/seam pixels.\n",points,points);
+}
+static void reference_outside_pixels(void) {
+#define OUTSIDE_CASE(name,scale,wrapper,expected) {#name,scale,wrapper,name,sizeof name/sizeof *name,expected}
+    const struct {
+        const char *name; float scale; Rectangle wrapper; const ShadowOutsidePixel *pixels; size_t count,expected;
+    } refs[]={
+        OUTSIDE_CASE(narrow_100_outside_top,1,((Rectangle){360,93,280,605}),52),
+        OUTSIDE_CASE(narrow_100_outside_bottom,1,((Rectangle){360,93,280,605}),52),
+        OUTSIDE_CASE(narrow_150_outside_top,1.5f,((Rectangle){220,139,420,468}),78),
+        OUTSIDE_CASE(narrow_150_outside_bottom,1.5f,((Rectangle){220,139,420,468}),78)
+    };
+#undef OUTSIDE_CASE
+    size_t points=0;
+    for (size_t r=0;r<sizeof refs/sizeof *refs;r++) {
+        CHECK(refs[r].count==refs[r].expected);
+        UIShadowLayout q=ui_shadow_layout(refs[r].scale,(Vector2){2,2}); CHECK(q.valid);
+        UIShadowPlacement p=ui_shadow_placement(&q,refs[r].wrapper); CHECK(p.valid);
+        unsigned char *mask=malloc(q.bytes); CHECK(mask && ui_shadow_mask_rgba(&q,mask,q.bytes));
+        for (size_t i=0;i<refs[r].count;i++) {
+            const ShadowOutsidePixel *ref=&refs[r].pixels[i]; int sx,sy; unsigned char rgba[4];
+            const unsigned char *value=reference_sample(&q,&p,mask,ref->x,ref->y,&sx,&sy);
+            CHECK(sx==-1 && sy==-1); CHECK(!memcmp(ref->foreground,ref->background,4));
+            reference_composite(value,ref->background,rgba); points++;
+            CHECK(!memcmp(rgba,ref->foreground,4));
+        }
+        free(mask);
+    }
+    CHECK(points==260);
+    printf("Outside reference: %zu/%zu actual unchanged pixels immediately outside placed extent; no App clip claim.\n",points,points);
+}
+
 int main(void) {
-    reference_geometry(); density_masks(); invalid_inputs(); encoded_samples(); reference_pixels();
+    reference_geometry(); density_masks(); invalid_inputs(); encoded_samples(); reference_pixels(); reference_corner_pixels(); reference_outside_pixels();
     printf("PASS: %u pure shadowview checks; no GPU/render/OS parity claim.\n",checks); return 0;
 }
