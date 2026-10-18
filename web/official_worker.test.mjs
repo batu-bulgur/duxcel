@@ -1056,3 +1056,140 @@ test('1024 burned reservations never evict active tokens, and a disposal revokes
     await assert.rejects(fixture.adapter.registerFile('first.csv', new Uint8Array([3])), { code: 'NOT_AVAILABLE' });
     terminated.resolve(); await closing; await fixture.adapter.close();
 });
+
+
+// Primary secondary-FILTERS transport. Semantic owner/JSON validation remains C-owned.
+import { workbookFiltersRequest } from './official_worker.mjs';
+const workbookFilterColumns=[
+    {name:'sheet_id',typeName:'INTEGER',numberKind:'i32'},
+    {name:'position',typeName:'INTEGER',numberKind:'i32'},
+    {name:'name',typeName:'VARCHAR',numberKind:'none'},
+    {name:'op',typeName:'INTEGER',numberKind:'i32'},
+    {name:'value',typeName:'VARCHAR',numberKind:'none'},
+];
+const workbookFilterTexts=[null,'','NULL','9007199254740993','18446744073709551615',"'İstanbul' 🦆;\n"];
+function workbookFilterInput(id='1',change={}){
+    return {...workbookSortInput(id),purpose:'workbook-filters',rowLimit:961,
+        sql:'C OWNED CANONICAL FILTERS PROJECTION LIMIT 961',columns:workbookFilterColumns.map(c=>({...c})),...change};
+}
+function workbookFilterArrow(rows=961){
+    return new Table({sheet_id:vectorFromArray(Array.from({length:rows},(_,r)=>r%64),new Int32()),
+        position:vectorFromArray(Array.from({length:rows},(_,r)=>r%15),new Int32()),
+        name:vectorFromArray(Array.from({length:rows},(_,r)=>`Filter 'İ' ${r}`),new Utf8()),
+        op:vectorFromArray(Array.from({length:rows},(_,r)=>r%8),new Int32()),
+        value:vectorFromArray(Array.from({length:rows},(_,r)=>workbookFilterTexts[r%6]),new Utf8())});
+}
+function workbookFilterTextArrow(text){
+    return new Table({sheet_id:vectorFromArray([null],new Int32()),position:vectorFromArray([null],new Int32()),
+        name:vectorFromArray([text],new Utf8()),op:vectorFromArray([null],new Int32()),value:vectorFromArray([null],new Utf8())});
+}
+test('workbook-filters captures a frozen five-column 961-row single-archive request without purpose coercion',()=>{
+    const input=workbookFilterInput(),parsed=workbookFiltersRequest(input);
+    assert.equal(parsed.purpose,'workbook-filters');assert.equal(parsed.rowLimit,961);assert.equal(parsed.offset,'0');assert.equal(parsed.knownTotal,null);
+    for(const value of [parsed,parsed.columns,...parsed.columns,parsed.sourceBindings,...parsed.sourceBindings])assert.ok(Object.isFrozen(value));
+    input.columns[0].name='changed';input.sourceBindings[0].registrationId='2';input.sourceBindings.push({name:'other'});
+    assert.equal(parsed.columns[0].name,'sheet_id');assert.equal(parsed.sourceBindings.length,1);assert.equal(parsed.sourceBindings[0].registrationId,'1');
+    assert.equal(workbookFiltersRequest(workbookFilterInput('2',{rowLimit:undefined})).rowLimit,961);
+    for(const rowLimit of [1,257,960,961])assert.equal(workbookFiltersRequest(workbookFilterInput('2',{rowLimit})).rowLimit,rowLimit);
+    const sparse=workbookFilterColumns.map(c=>({...c}));delete sparse[2];
+    const sparseBinding=Array(1);
+    const changes=[{purpose:undefined},{purpose:'copy'},{purpose:'workbook-table-sorts'},{purpose:'__proto__'},
+        {purpose:'constructor'},{purpose:'toString'},{purpose:new String('workbook-filters')},
+        {purpose:{toString(){throw new Error('Purpose must not be coerced');}}},
+        {offset:'1'},{knownTotal:'961'},{rowLimit:0},{rowLimit:962},{rowLimit:NaN},{rowLimit:1.5},
+        {columns:undefined},{columns:[]},{columns:sparse},{columns:Array(5)},{columns:workbookFilterColumns.slice(1)},
+        {columns:[...workbookFilterColumns,{name:'extra',typeName:'VARCHAR'}]},
+        {columns:workbookFilterColumns.map((c,i)=>i===2?null:c)},
+        {sourceBindings:undefined},{sourceBindings:[]},{sourceBindings:sparseBinding},
+        {sourceBindings:[{name:'fixture.dxls',engineEpoch:'1',registrationId:'01'}]},
+        {sourceBindings:[{name:'fixture.dxls',engineEpoch:'1',registrationId:'0'}]},
+        {sourceBindings:[{name:'fixture.dxls',engineEpoch:'1',registrationId:'1'}, {name:'other.dxls',engineEpoch:'1',registrationId:'2'}]}];
+    for(const change of changes)assert.throws(()=>workbookFiltersRequest(workbookFilterInput('2',change)),{code:'INVALID_REQUEST'});
+    for(const parse of [pageRequest,workbookSortsRequest,workbookObjectsRequest,workbookOwnersRequest,workbookTablesRequest,workbookPivotMarksRequest])
+        assert.throws(()=>parse(workbookFilterInput()),{code:'INVALID_REQUEST'});
+    let reads=0;const getter=workbookFilterInput();Object.defineProperty(getter,'purpose',{enumerable:true,get(){return ++reads===1?'workbook-filters':'copy';}});
+    const captured=workbookFiltersRequest(getter);assert.equal(captured.purpose,'workbook-filters');assert.equal(captured.rowLimit,961);assert.equal(reads,2);
+    let sends=0;const adapter=new DuckDBWorkerAdapter({connection:connection({send(){sends++;throw new Error('Malformed request was sent');}})});
+    for(const change of changes)assert.throws(()=>adapter.submitWorkbookFilters(workbookFilterInput('1',change)),{code:'INVALID_REQUEST'});
+    assert.throws(()=>adapter.submit(workbookFilterInput()),{code:'INVALID_REQUEST'});assert.equal(sends,0);assert.equal(adapter.latestId,0n);
+});
+test('workbook-filters drains one Arrow result with exact NULL/text and sentinel bounds without widening ordinary pages',async()=>{
+    const parsed=workbookFiltersRequest(workbookFilterInput());
+    for(const rows of [0,257,960,961]){
+        const source=reader(workbookFilterArrow(rows));let iterations=0;
+        const iterate=source[Symbol.asyncIterator].bind(source);source[Symbol.asyncIterator]=async function*(){iterations++;yield*iterate();};
+        const output=await encodePage(source,parsed);assert.equal(iterations,1);assert.equal(output.rowCount,rows);assert.equal(output.columnCount,5);
+        assert.equal(output.total,String(rows));assert.equal(output.countPending,rows===961);
+        for(const r of [0,1,2,3,4,5,rows-1].filter(r=>r>=0&&r<rows)){
+            assert.equal(pageCellText(output,r,0),String(r%64));assert.equal(pageCellText(output,r,1),String(r%15));
+            assert.equal(pageCellText(output,r,3),String(r%8));assert.equal(pageCellText(output,r,4),workbookFilterTexts[r%6]);
+        }
+        const moved=structuredClone(output,{transfer:pageTransferables(output)});assert.equal(output.offsets.byteLength,0);
+        if(rows)assert.equal(pageCellText(moved,rows-1,4),workbookFilterTexts[(rows-1)%6]);
+    }
+    await assert.rejects(encodePage(reader(workbookFilterArrow(962)),parsed),{code:'PAGE_LIMIT'});
+    await assert.rejects(encodePage(reader(workbookFilterArrow(257)),request()),{code:'PAGE_LIMIT'});
+    for(const columns of [4,6]){
+        const table=new Table(Object.fromEntries(Array.from({length:columns},(_,i)=>['c'+i,vectorFromArray(['x'],new Utf8())])));
+        await assert.rejects(encodePage(reader(table),parsed),{code:'PAGE_LIMIT'});
+    }
+    // Explicit Copy and Table-Sorts policies legitimately overlap this geometry;
+    // an embedded filters purpose does not select either policy on its own.
+    const copy=pageRequest({...workbookFilterInput(),purpose:'copy'});
+    assert.equal((await encodePage(reader(workbookFilterArrow()),copy)).rowCount,961);
+});
+test('workbook-filters Arrow admission charges Page overhead at exact 4 MiB rather than only raw text',async()=>{
+    const parsed=workbookFiltersRequest(workbookFilterInput()),baseline=await encodePage(reader(workbookFilterTextArrow('')),parsed);
+    const overhead=new TextEncoder().encode(JSON.stringify(baseline.columns)).byteLength+(5+1)*4+5;
+    const exact=await encodePage(reader(workbookFilterTextArrow('x'.repeat(LIMITS.bytes-overhead))),parsed);
+    assert.equal(new TextEncoder().encode(JSON.stringify(exact.columns)).byteLength+exact.text.byteLength+exact.offsets.byteLength+exact.nulls.byteLength,LIMITS.bytes);
+    await assert.rejects(encodePage(reader(workbookFilterTextArrow('x'.repeat(LIMITS.bytes-overhead+1))),parsed),{code:'PAGE_LIMIT'});
+    const long=await encodePage(reader(workbookFilterTextArrow('x'.repeat(65537))),parsed);assert.equal(pageCellText(long,0,2).length,65537);
+    await assert.rejects(encodePage(reader(workbookFilterTextArrow('x'.repeat(LIMITS.bytes))),parsed),{code:'PAGE_LIMIT'});
+});
+test('workbook-filters freezes admitted binding and schema before asynchronous send and recovers after result limits',async()=>{
+    const began=deferred(),go=deferred(),owned=reader(workbookFilterArrow(3));let sends=0;
+    const adapter=new DuckDBWorkerAdapter({database:{async registerFileBuffer(){},async dropFile(){}},
+        connection:connection({async send(){sends++;if(sends===1){began.resolve();await go.promise;return owned;}return reader(workbookFilterArrow(sends===2?962:3));}})});
+    const token=await adapter.registerFile('filters.dxls',new Uint8Array([1]));const input=workbookFilterInput('1',{sourceBindings:[{...token}]});
+    const pending=adapter.submitWorkbookFilters(input);input.sourceBindings[0].registrationId='2';input.columns[2].name='poisoned';input.sql='not the captured SQL';
+    await began.promise;go.resolve();const reply=await pending;assert.equal(reply.status,'ok');assert.equal(reply.page.columns[2].name,'name');assert.equal(owned.cancelled,1);
+    const failure=await adapter.submitWorkbookFilters(workbookFilterInput('2',{sourceBindings:[token]}));
+    assert.equal(failure.status,'error');assert.equal(failure.error.code,'PAGE_LIMIT');assert.equal(failure.page,undefined);
+    const recovered=await adapter.submitWorkbookFilters(workbookFilterInput('3',{sourceBindings:[token]}));assert.equal(recovered.status,'ok');assert.equal(recovered.page.rowCount,3);
+    await adapter.close();
+});
+test('workbook-filters rejects revoked captures after successful or failed sibling drops before publication',async()=>{
+    for(const failed of [false,true]){
+        const began=deferred(),go=deferred(),owned=reader(workbookFilterArrow(3));let sends=0;
+        const database={async registerFileBuffer(){},async dropFile(){if(failed)throw new Error('Filters drop failed');}};
+        const adapter=new DuckDBWorkerAdapter({database,connection:connection({async send(){sends++;if(sends===1){began.resolve();await go.promise;return owned;}return reader(workbookFilterArrow(3));}})});
+        const sibling=new DuckDBWorkerAdapter({database,connection:connection()}),token=await adapter.registerFile('filters.dxls',new Uint8Array([1]));
+        const pending=adapter.submitWorkbookFilters(workbookFilterInput('1',{sourceBindings:[token]}));await began.promise;
+        if(failed)await assert.rejects(sibling.dropFile(token.name),/Filters drop failed/);else await sibling.dropFile(token.name);
+        go.resolve();const reply=await pending;assert.equal(reply.status,'error');assert.equal(reply.error.code,'SOURCE_INVALIDATED');assert.equal(reply.page,undefined);assert.equal(owned.cancelled,1);
+        const last=adapter.latestId;assert.throws(()=>adapter.submitWorkbookFilters(workbookFilterInput('2',{sourceBindings:[token]})),{code:'SOURCE_INVALIDATED'});
+        assert.equal(adapter.latestId,last);assert.equal(sends,1);
+        const replacement=await adapter.registerFile('recovered-filters.dxls',new Uint8Array([2]));
+        const recovered=await adapter.submitWorkbookFilters(workbookFilterInput('2',{sourceBindings:[replacement]}));assert.equal(recovered.status,'ok');assert.equal(recovered.page.rowCount,3);
+        await adapter.close();await sibling.close();
+    }
+});
+for(const action of ['cancel','supersede','close'])test(`workbook-filters retires a held reader on ${action} without exposing a Page`,async()=>{
+    const began=deferred(),go=deferred(),owned=reader(workbookFilterArrow(3));let sends=0;
+    const database={async registerFileBuffer(){},async dropFile(){}};
+    const adapter=new DuckDBWorkerAdapter({database,connection:connection({async send(){sends++;if(sends===1){began.resolve();await go.promise;return owned;}return reader(workbookFilterArrow(3));}})});
+    const token=await adapter.registerFile('filters.dxls',new Uint8Array([1]));
+    const pending=adapter.submitWorkbookFilters(workbookFilterInput('1',{sourceBindings:[token]}));await began.promise;
+    const next=action==='cancel'?adapter.cancel():action==='close'?adapter.close():adapter.submitWorkbookFilters(workbookFilterInput('2',{sourceBindings:[token]}));
+    go.resolve();const stopped=await pending;assert.equal(stopped.page,undefined);assert.equal(stopped.status,action==='supersede'?'superseded':'cancelled');assert.equal(owned.cancelled,1);
+    const completion=await next;
+    if(action==='supersede')assert.equal(completion.status,'ok');
+    else if(action==='cancel')assert.equal((await adapter.submitWorkbookFilters(workbookFilterInput('2',{sourceBindings:[token]}))).status,'ok');
+    else{
+        const replacement=new DuckDBWorkerAdapter({database,connection:connection({send:async()=>reader(workbookFilterArrow(3))})});
+        assert.equal((await replacement.submitWorkbookFilters(workbookFilterInput('1',{sourceBindings:[token]}))).status,'ok');await replacement.close();
+    }
+    await adapter.close();
+});
+// END primary secondary-FILTERS transport tests.
