@@ -490,11 +490,104 @@ static void test_workbook_owners_text_bound(void) {
     text[DX_PAGE_WIRE_TEXT_BYTES]='x';text[DX_PAGE_WIRE_TEXT_BYTES+1u]=0;wire=encode(owner_columns,3,1,values);out=retained_page();
     reject_workbook_owners(&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);free(text);page_free(&out);
 }
+/* These synthetic I/U/B/T sidecars validate transport only. The codec still
+   owns each real family's original schema/owner/position/value validation. */
+typedef bool (*TableDecode)(Page *,const void *,size_t,uint64_t,uint64_t,bool,size_t,char **);
+static const struct { const char *name; size_t rows,columns; TableDecode decode; } table_policies[]={
+    {"sources",2049,14,page_from_wire_workbook_table_sources_owned},
+    {"filters",30721,6,page_from_wire_workbook_table_filters_owned},
+    {"sorts",14337,5,page_from_wire_workbook_table_sorts_owned}
+};
+static const Descriptor table_columns[]={
+    {"sheet_id","INTEGER","i32",0,0},{"object_id","UBIGINT","u64",0,0},{"enabled","BOOLEAN","none",0,0},
+    {"text_3","VARCHAR","none",0,0},{"text_4","VARCHAR","none",0,0},{"text_5","VARCHAR","none",0,0},
+    {"text_6","VARCHAR","none",0,0},{"text_7","VARCHAR","none",0,0},{"text_8","VARCHAR","none",0,0},
+    {"text_9","VARCHAR","none",0,0},{"text_10","VARCHAR","none",0,0},{"text_11","VARCHAR","none",0,0},
+    {"text_12","VARCHAR","none",0,0},{"text_13","VARCHAR","none",0,0},{"extra","VARCHAR","none",0,0}
+};
+static Page table_retained(void) {
+    Page out=retained_page();out.records.file_identity_valid=true;
+    out.records.file_identity=(SourceFileIdentity){.device=7,.inode=UINT64_MAX,.size=99,.links=1,.mode=0100600,.modified_seconds=23,.modified_nanoseconds=17};
+    return out;
+}
+static void reject_table(TableDecode decode,Page *out,const Wire *wire,size_t size,uint64_t offset,uint64_t total,bool pending,size_t budget) {
+    unsigned char before[sizeof(*out)];memcpy(before,out,sizeof(before));unsigned released=releases;
+    unsigned char *input=dx_alloc(wire->size);memcpy(input,wire->bytes,wire->size);char *error=dx_strdup("Previous error");
+    SourceFileIdentity identity=out->records.file_identity;
+    CHECK(!decode(out,wire->bytes,size,offset,total,pending,budget,&error));
+    CHECK(error&&*error&&strcmp(error,"Previous error"));CHECK(!memcmp(out,before,sizeof(before))&&released==releases);
+    CHECK(!memcmp(wire->bytes,input,wire->size)&&out->records.file_identity_valid&&source_file_identity_same(&out->records.file_identity,&identity));
+    uint64_t id=0;CHECK(page_record_id(out,17,&id)&&id==UINT64_C(9007199254740993));
+    CHECK(!strcmp(out->records.source_key,"retained raw reader")&&!strcmp(out->sql,"Existing SQL")&&!strcmp(out->cells[0].text,"Retained NULL literal"));
+    free(input);free(error);
+}
+static size_t table_owned(size_t columns,size_t rows,const char *const *values) {
+    size_t result=columns*sizeof(Column)+columns*rows*sizeof(Cell);
+    for(size_t i=0;i<columns;i++)result+=strlen(table_columns[i].name)+strlen(table_columns[i].type)+2;
+    for(size_t i=0;i<columns*rows;i++)if(values[i])result+=strlen(values[i])+1;
+    return result;
+}
+static void test_table_envelopes(void) {
+    const char *texts[]={NULL,"","NULL","İstanbul 🦆 'quoted'"};
+    for(size_t p=0;p<sizeof(table_policies)/sizeof(*table_policies);p++){
+        size_t rows=table_policies[p].rows,columns=table_policies[p].columns;TableDecode decode=table_policies[p].decode;
+        const char **values=dx_alloc(rows*columns*sizeof(*values));
+        for(size_t r=0;r<rows;r++)for(size_t c=0;c<columns;c++)values[r*columns+c]=c==0?"63":c==1?(r%2?"9007199254740993":"18446744073709551615"):
+            c==2?(r%3==2?NULL:r%3?"false":"true"):texts[(r+c)%4];
+        Wire wire=encode(table_columns,(uint32_t)columns,(uint32_t)rows,values);Page out=table_retained();char *error=NULL;
+        // A full transport ceiling includes the codec's overflow sentinel.
+        // Once/configuration is enough: verify dimensions and representatives,
+        // not one CHECK per cell of the184,326-cell filters result.
+        size_t owned=table_owned(columns,rows,values);CHECK(owned<=32u*1024u*1024u&&wire.size<=DX_PAGE_WIRE_BYTES);
+        reject_table(decode,&out,&wire,wire.size,0,rows,true,owned-1);
+        const TableDecode old_policies[]={page_from_wire_owned,page_from_wire_copy_owned,page_from_wire_workbook_sorts_owned,page_from_wire_workbook_objects_owned,page_from_wire_workbook_owners_owned};
+        for(size_t old=0;old<sizeof(old_policies)/sizeof(*old_policies);old++)reject_table(old_policies[old],&out,&wire,wire.size,0,rows,true,SIZE_MAX);
+        for(size_t other=0;other<sizeof(table_policies)/sizeof(*table_policies);other++)if(other!=p)
+            reject_table(table_policies[other].decode,&out,&wire,wire.size,0,rows,true,SIZE_MAX);
+        unsigned released=releases;unsigned char *input=dx_alloc(wire.size);memcpy(input,wire.bytes,wire.size);
+        CHECK(decode(&out,wire.bytes,wire.size,0,rows,true,owned,&error)&&!error&&releases==released+1);
+        CHECK(out.row_count==rows&&out.column_count==columns&&out.count_pending&&out.total==rows&&out.bytes==owned&&out.bytes==allocated_bytes(&out));
+        CHECK(!memcmp(input,wire.bytes,wire.size)&&!out.records.ids&&!out.records.source_key&&!out.records.file_identity_valid&&!out.sql&&!out.totals&&!out.other);free(input);
+        CHECK(out.columns[0].type==DUCKDB_TYPE_INTEGER&&out.columns[0].number_type.kind==NUM_I32&&out.columns[1].type==DUCKDB_TYPE_UBIGINT&&out.columns[1].number_type.kind==NUM_U64&&out.columns[2].type==DUCKDB_TYPE_BOOLEAN);
+        const size_t samples[]={0,1,2,3,rows-1};
+        for(size_t i=0;i<sizeof(samples)/sizeof(*samples);i++)for(size_t c=0;c<columns;c++){
+            size_t at=samples[i]*columns+c;CHECK(out.cells[at].is_null==(values[at]==NULL));CHECK(values[at]?out.cells[at].text&&!strcmp(out.cells[at].text,values[at]):!out.cells[at].text);
+        }
+        printf("Table transport %s: %zu rows x %zu columns, %zu exact C-owned bytes, %zu wire bytes (32MiB caller reservation ceiling; no4MiB input/engine/RSS claim)\n",table_policies[p].name,rows,columns,out.bytes,wire.size);
+        memset(wire.bytes,0,wire.size);free(wire.bytes);CHECK(!strcmp(out.cells[(rows-1)*columns+1].text,values[(rows-1)*columns+1])&&!strcmp(out.columns[3].name,"text_3"));page_free(&out);
+        // Header/shape errors and byte budgets use small inputs after the one
+        // full-size decode. Old Pages, record identity and release counts survive.
+        wire=encode(table_columns,(uint32_t)columns,1,values);out=table_retained();
+        reject_table(decode,&out,&wire,wire.size,0,1,false,0);
+        reject_table(decode,&out,&wire,wire.size,1,2,false,SIZE_MAX);reject_table(decode,&out,&wire,wire.size,0,0,false,SIZE_MAX);
+        reject_table(decode,&out,&wire,DX_PAGE_WIRE_BYTES+1u,0,1,false,SIZE_MAX);reject_table(decode,&out,&wire,wire.size-1,0,1,false,SIZE_MAX);
+        wire.bytes[wire.nulls]=2;reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);wire.bytes[wire.nulls]=0;
+        wire.bytes[wire.text]=0;reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);wire.bytes[wire.text]=0xff;reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);
+        wire=encode(table_columns,(uint32_t)columns,1,values);set_word(&wire,12,(uint32_t)rows+1);reject_table(decode,&out,&wire,wire.size,0,rows+1,true,SIZE_MAX);free(wire.bytes);
+        const size_t bad_columns[]={0,columns-1,columns+1};
+        for(size_t i=0;i<3;i++){wire=encode(table_columns,(uint32_t)bad_columns[i],1,values);reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);}
+        wire=encode(table_columns,(uint32_t)columns,0,NULL);CHECK(decode(&out,wire.bytes,wire.size,0,0,false,SIZE_MAX,&error)&&!error&&!out.row_count&&out.column_count==columns);free(wire.bytes);page_free(&out);
+        wire=encode(table_columns,(uint32_t)columns,1,values);out=table_retained();size_t one=table_owned(columns,1,values);
+        reject_table(decode,&out,&wire,wire.size,0,1,false,one-1);CHECK(decode(&out,wire.bytes,wire.size,0,1,false,one+1,&error)&&!error&&out.bytes==one);free(wire.bytes);page_free(&out);
+        free(values);
+    }
+}
+static void test_table_text_bounds(void) {
+    for(size_t p=0;p<sizeof(table_policies)/sizeof(*table_policies);p++){
+        size_t columns=table_policies[p].columns;TableDecode decode=table_policies[p].decode;
+        char *text=dx_alloc(DX_PAGE_WIRE_TEXT_BYTES+2u);memset(text,'x',DX_PAGE_WIRE_TEXT_BYTES);text[DX_PAGE_WIRE_TEXT_BYTES]=0;
+        const char *values[14]={0};values[3]=text;Wire wire=encode(table_columns,(uint32_t)columns,1,values);Page out={0};char *error=NULL;
+        CHECK(decode(&out,wire.bytes,wire.size,0,1,false,32u*1024u*1024u,&error)&&!error&&strlen(out.cells[3].text)==DX_PAGE_WIRE_TEXT_BYTES);free(wire.bytes);page_free(&out);
+        text[DX_PAGE_WIRE_TEXT_BYTES]='x';text[DX_PAGE_WIRE_TEXT_BYTES+1u]=0;wire=encode(table_columns,(uint32_t)columns,1,values);out=table_retained();
+        reject_table(decode,&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);free(text);page_free(&out);
+    }
+}
 int main(void) {
     test_workbook_owners_envelope();test_workbook_owners_text_bound();
     test_workbook_objects_envelope();test_workbook_objects_text_bound();
     test_workbook_sorts_envelope();test_workbook_sorts_text_bound();
     test_copy_envelope();
     test_exact_owned_values(); test_row_major_and_replacement(); test_record_lookup_bounds(); test_descriptor_types(); test_bad_headers_and_lengths(); test_bad_metadata(); test_strict_utf8(); test_limits_and_empty_pages();
-    printf("PASS: %u page wire checks\n",checks); return 0;
+    unsigned original=checks;CHECK(original==60186);test_table_envelopes();test_table_text_bounds();
+    printf("PASS: %u page wire checks (60186 original retained; %u Table checks)\n",checks,checks-original); return 0;
 }

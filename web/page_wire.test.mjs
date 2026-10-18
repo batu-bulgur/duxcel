@@ -137,6 +137,51 @@ test('workbook-owners keeps the unchanged text bound and rejects malformed strin
     for(const purpose of ['Workbook-owners','workbook-owners ',{},false])assert.throws(()=>encodePageWire(page([],columns,0),{purpose}),/unknown transport purpose/);
 });
 
+const tableWirePolicies=[
+    {purpose:'workbook-table-sources',rows:2049,columns:14},
+    {purpose:'workbook-table-filters',rows:30721,columns:6},
+    {purpose:'workbook-table-sorts',rows:14337,columns:5},
+];
+function tableWireColumns(policy){
+    return Array.from({length:policy.columns},(_,i)=>column(i===0?{name:'sheet_id',typeName:'INTEGER',numberKind:'i32'}:
+        i===1?{name:'object_id',typeName:'UBIGINT',numberKind:'u64'}:i===2?{name:'enabled',typeName:'BOOLEAN'}:{name:'text_'+i}));
+}
+for(const policy of tableWirePolicies)test(`${policy.purpose} wire has a fixed independent full envelope and transferable ownership`,()=>{
+    const columns=tableWireColumns(policy),texts=[null,'','NULL',"İstanbul 🦆 'quoted'"];
+    const values=Array.from({length:policy.rows},(_,r)=>columns.map((_,i)=>i===0?'63':i===1?'18446744073709551615':
+        i===2?[null,'true','false'][r%3]:texts[(r+i)%4])).flat();
+    const input=page(values,columns),before={text:input.text.slice(),offsets:input.offsets.slice(),nulls:input.nulls.slice()};
+    input.purpose=policy.purpose;assert.throws(()=>encodePageWire(input),/row count/); // Wire data cannot select its own policy.
+    for(const purpose of ['copy','workbook-sorts','workbook-objects','workbook-owners',...tableWirePolicies.filter(x=>x!==policy).map(x=>x.purpose)])
+        assert.throws(()=>encodePageWire(input,{purpose}),/row count|column|20,000 cells/);
+    const wire=encodePageWire(input,{purpose:policy.purpose}),output=inspect(wire);
+    assert.equal(output.rows,policy.rows);assert.equal(output.columns,policy.columns);assert.deepEqual(output.metadata,columns);
+    for(const r of [0,1,2,3,policy.rows-1])for(const c of [0,1,2,3,policy.columns-1])assert.equal(output.values[r*policy.columns+c],values[r*policy.columns+c]);
+    for(const part of ['text','offsets','nulls'])assert.deepEqual(input[part],before[part]);
+    assert.throws(()=>encodePageWire(page([...values,...values.slice(0,policy.columns)],columns),{purpose:policy.purpose}),/row count/);
+    for(const count of [0,policy.columns-1,policy.columns+1])assert.throws(()=>encodePageWire(page(Array(count).fill(null),Array.from({length:count},()=>column()),1),{purpose:policy.purpose}),/column/);
+    assert.equal(inspect(encodePageWire(page([],columns,0),{purpose:policy.purpose})).rows,0);
+    input.text.fill(0);input.offsets.fill(0);input.nulls.fill(1);input.columns[0].name='changed';
+    assert.equal(inspect(wire).values.at(-policy.columns+1),'18446744073709551615');
+    const received=structuredClone(wire,{transfer:[wire.buffer]});assert.equal(wire.byteLength,0);
+    assert.equal(inspect(received).values.at(-policy.columns+1),'18446744073709551615');
+});
+test('Table wire policies retain exact text admission and reject malformed masks, NUL, UTF8 and prototype names',()=>{
+    for(const policy of tableWirePolicies){
+        const columns=tableWireColumns(policy),values=Array(policy.columns).fill(null);values[3]='x'.repeat(4*1024*1024);
+        assert.equal(inspect(encodePageWire(page(values,columns),{purpose:policy.purpose})).textBytes,4*1024*1024);
+        values[3]+='x';assert.throws(()=>encodePageWire(page(values,columns),{purpose:policy.purpose}),/4 MiB/);
+        for(const text of ['a\0b','İ🦆']){
+            const values=Array(policy.columns).fill(null);values[3]=text;const bad=page(values,columns);
+            if(text.includes('\0')){const before=bad.text.slice();assert.throws(()=>encodePageWire(bad,{purpose:policy.purpose}),/NUL/);assert.deepEqual(bad.text,before);}
+            else{bad.text[0]=0xff;const before=bad.text.slice();assert.throws(()=>encodePageWire(bad,{purpose:policy.purpose}),/UTF-8/);assert.deepEqual(bad.text,before);}
+        }
+        const mask=page(Array(policy.columns).fill(null),columns);mask.nulls[0]=2;assert.throws(()=>encodePageWire(mask,{purpose:policy.purpose}),/NULL/);
+        for(const purpose of ['__proto__','constructor','toString',new String(policy.purpose),Object.create({rows:30721,columns:6})])
+            assert.throws(()=>encodePageWire(page([],columns,0),{purpose}),/unknown transport purpose/);
+    }
+});
+
 test('DXP1 little-endian golden bytes retain SQL NULL, empty text and literal NULL', () => {
     const wire = encodePageWire(page());
     assert.equal(Buffer.from(wire).toString('hex'), [
