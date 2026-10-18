@@ -10,11 +10,18 @@
 #include <stdio.h>
 
 #define BROWSER_EXPORT_BYTES (64u*1024u*1024u)
+#define BROWSER_BINDINGS_JSON_BYTES (64u*1024u)
+typedef struct {
+    BrowserSourceGuard guards[DX_BROWSER_SOURCE_BINDINGS];
+    size_t count;
+    char *json; /* Exact names/order, independent of retired job definitions. */
+} BrowserSourceCacheKey;
 typedef enum { BROWSER_DESCRIBE, BROWSER_PAGE, BROWSER_COUNT, BROWSER_VALIDATE, BROWSER_DISTINCT_PAGE, BROWSER_DISTINCT_COUNT, BROWSER_TYPE_DESCRIBE,BROWSER_PIVOT_COUNT,BROWSER_PIVOT_TOTALS,BROWSER_PIVOT_DOMAIN,BROWSER_PIVOT_ROWS,BROWSER_PIVOT_COLUMNS,BROWSER_STATISTICS,BROWSER_COPY_PAGE,BROWSER_EXPORT } BrowserStage;
 typedef struct {
     QueryJob *job;
     QueryReply *reply;
     char *relation;
+    char *sources_json; /* Built once from frozen job bindings, never refreshed. */
     DistinctQuery distinct;
     Page distinct_values;
     char *type_relation;
@@ -52,18 +59,19 @@ static char *browser_schema_key;
    Keys exclude filters/sorts, and refresh/stop invalidate both bounded slots. */
 static Page browser_type_schema[2];
 static char *browser_type_key[2];
+static BrowserSourceCacheKey browser_schema_sources,browser_type_sources[2];
 static unsigned browser_cookie,browser_sequence;
-EM_JS(void, browser_send, (unsigned cookie,unsigned ticket,const char *sql,const char *generation,const char *object,const char *revision,const char *offset,const char *total,const char *columns,unsigned limit,int copying), {
+EM_JS(void, browser_send, (unsigned cookie,unsigned ticket,const char *sql,const char *generation,const char *object,const char *revision,const char *offset,const char *total,const char *columns,unsigned limit,int copying,const char *sources), {
     cookie=cookie>>>0;ticket=ticket>>>0;
-    Module['dxEngine'].submit({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_query_result},cookie,ticket,{requestId:String(ticket),generation:UTF8ToString(generation),documentId:String(cookie),sourceId:'0',objectId:UTF8ToString(object),revision:UTF8ToString(revision),offset:UTF8ToString(offset),knownTotal:total?UTF8ToString(total):null,rowLimit:limit,sql:UTF8ToString(sql),...(columns?{columns:JSON.parse(UTF8ToString(columns))}:{}),...(copying?{purpose:'copy'}:{})});
+    Module['dxEngine'].submit({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_query_result},cookie,ticket,{requestId:String(ticket),generation:UTF8ToString(generation),documentId:String(cookie),sourceId:'0',objectId:UTF8ToString(object),revision:UTF8ToString(revision),offset:UTF8ToString(offset),knownTotal:total?UTF8ToString(total):null,rowLimit:limit,sql:UTF8ToString(sql),...(columns?{columns:JSON.parse(UTF8ToString(columns))}:{}),...(copying?{purpose:'copy'}:{}),...(sources?{sourceBindings:JSON.parse(UTF8ToString(sources))}:{})});
 })
-EM_JS(void, browser_export_send, (unsigned cookie,unsigned ticket,const char *sql,const char *name,const char *generation,const char *object,const char *revision), {
+EM_JS(void, browser_export_send, (unsigned cookie,unsigned ticket,const char *sql,const char *name,const char *generation,const char *object,const char *revision,const char *sources), {
     cookie=cookie>>>0;ticket=ticket>>>0;
-    Module['dxEngine'].exportParquet({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_export_result},cookie,ticket,{requestId:String(ticket),generation:UTF8ToString(generation),documentId:String(cookie),sourceId:'0',objectId:UTF8ToString(object),revision:UTF8ToString(revision),offset:'0',knownTotal:'1',rowLimit:1,sql:UTF8ToString(sql),fileName:UTF8ToString(name)});
+    Module['dxEngine'].exportParquet({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_export_result},cookie,ticket,{requestId:String(ticket),generation:UTF8ToString(generation),documentId:String(cookie),sourceId:'0',objectId:UTF8ToString(object),revision:UTF8ToString(revision),offset:'0',knownTotal:'1',rowLimit:1,sql:UTF8ToString(sql),fileName:UTF8ToString(name),...(sources?{sourceBindings:JSON.parse(UTF8ToString(sources))}:{})});
 })
 EM_JS(void, browser_cancel, (int close), { Module['dxEngine'].cancel(Boolean(close)); })
 static void browser_discard(void) {
-    job_free(browser_query.job); reply_free(browser_query.reply); free(browser_query.relation); free(browser_query.type_relation);
+    job_free(browser_query.job); reply_free(browser_query.reply); free(browser_query.relation); free(browser_query.type_relation); free(browser_query.sources_json);
     page_free(&browser_query.totals_schema); free(browser_query.totals_sql);
     browser_pivot_plan_free(&browser_query.plan);
     for (size_t i=0;i<DX_PIVOT_FIELDS;i++) page_free(&browser_query.domains[i]);
@@ -90,9 +98,11 @@ static void browser_publish(const char *error) {
     browser_discard();
 }
 static void browser_fail(const char *error) { browser_cancel(0); browser_publish(error); }
+static void browser_source_cache_free(BrowserSourceCacheKey *key) { free(key->json); *key=(BrowserSourceCacheKey){0}; }
 static void browser_clear_schemas(void) {
     page_free(&browser_schema); free(browser_schema_key); browser_schema_key=NULL;
-    for (size_t i=0;i<2;i++) { page_free(&browser_type_schema[i]); free(browser_type_key[i]); browser_type_key[i]=NULL; }
+    browser_source_cache_free(&browser_schema_sources);
+    for (size_t i=0;i<2;i++) { page_free(&browser_type_schema[i]); free(browser_type_key[i]); browser_type_key[i]=NULL; browser_source_cache_free(&browser_type_sources[i]); }
 }
 static char *browser_json_string(const char *text) {
     size_t size=strlen(text); char *out=dx_alloc(size*6+3),*p=out; *p++='"';
@@ -103,6 +113,98 @@ static char *browser_json_string(const char *text) {
         else *p++=(char)*s;
     }
     *p++='"'; *p=0; return out;
+}
+static const SourceSnapshot *browser_source_snapshots(void) {
+    QueryJob *j=browser_query.job;
+    return j->copy ? &j->copy->sources : j->statistics ? &j->statistics->sources : NULL;
+}
+static const Analysis *browser_source_at(size_t source) {
+    if (!source) return &browser_query.reply->analysis; /* Job's primary was moved. */
+    const SourceSnapshot *extra=browser_source_snapshots();
+    return extra && extra->count<=DX_MAX_OBJECTS && source<=extra->count ? &extra->items[source-1] : NULL;
+}
+static bool browser_source_name(const char *name) {
+    if (!name) return false;
+    size_t size=0; while (size<=255 && name[size]) size++;
+    if (!size || size>255 || !strcmp(name,".") || !strcmp(name,"..")) return false;
+    for (size_t i=0;i<size;) {
+        unsigned char first=(unsigned char)name[i++]; if (first=='/' || first=='\\') return false;
+        if (first<0x80) continue;
+        unsigned count; uint32_t value,minimum;
+        if (first>=0xc2 && first<=0xdf) { count=1; value=first&31; minimum=0x80; }
+        else if (first>=0xe0 && first<=0xef) { count=2; value=first&15; minimum=0x800; }
+        else if (first>=0xf0 && first<=0xf4) { count=3; value=first&7; minimum=0x10000; }
+        else return false;
+        if (count>size-i) return false;
+        while (count--) { unsigned char next=(unsigned char)name[i++]; if ((next&0xc0)!=0x80) return false; value=(value<<6)|(next&63); }
+        if (value<minimum || value>0x10ffff || (value>=0xd800 && value<=0xdfff)) return false;
+    }
+    return true;
+}
+static void browser_source_name_json(const char *name,char out[255*6+3]) {
+    static const char hex[]="0123456789abcdef"; char *p=out; *p++='"';
+    for (const unsigned char *s=(const unsigned char *)name;*s;s++) {
+        if (*s=='"' || *s=='\\') { *p++='\\'; *p++=(char)*s; }
+        else if (*s<32) { memcpy(p,"\\u00",4); p+=4; *p++=hex[*s>>4]; *p++=hex[*s&15]; }
+        else *p++=(char)*s;
+    }
+    *p++='"'; *p=0;
+}
+static bool browser_sources_prepare(char **error) {
+    QueryJob *j=browser_query.job; const SourceSnapshot *extra=browser_source_snapshots();
+    const char *failure="Invalid or unavailable captured browser source bindings.";
+    if (j->browser_sources_invalid || j->browser_source_count>DX_BROWSER_SOURCE_BINDINGS) goto invalid;
+    if (!j->browser_source_count) return true; /* Explicit legacy/unbound contract. */
+    if ((j->copy && j->statistics) || (extra && extra->count>DX_MAX_OBJECTS)) goto invalid;
+    for (size_t i=0;i<j->browser_source_count;i++) {
+        const BrowserSourceGuard *g=&j->browser_sources[i]; const Analysis *a=browser_source_at(g->source);
+        if (!a || (a->kind!=SOURCE_CSV && a->kind!=SOURCE_PARQUET) || !browser_source_name(a->path) ||
+            !g->binding.engine_epoch || !g->binding.registration_id) goto invalid;
+        for (size_t k=0;k<i;k++) if (j->browser_sources[k].source==g->source ||
+            !strcmp(browser_source_at(j->browser_sources[k].source)->path,a->path)) goto invalid;
+    }
+    /* A nonempty vector is complete for all declared file snapshots, including
+       cached contributors that need no data query. It does not infer SQL's
+       external/remote dependencies or certify arbitrary database writes. */
+    for (size_t source=0;source<=(extra ? extra->count : 0);source++) {
+        const Analysis *a=browser_source_at(source); if (a->kind!=SOURCE_CSV && a->kind!=SOURCE_PARQUET) continue;
+        if (!browser_source_name(a->path)) goto invalid;
+        bool found=false; for (size_t i=0;i<j->browser_source_count;i++)
+            found|=!strcmp(browser_source_at(j->browser_sources[i].source)->path,a->path);
+        if (!found) goto invalid;
+    }
+    /* Exact two-pass sizing: only one retained JSON allocation. Escaping uses
+       bounded stack storage; no per-SQL rebuild or borrowed job string. */
+    const char *format="%s{\"name\":%s,\"engineEpoch\":\"%" PRIu64 "\",\"registrationId\":\"%" PRIu64 "\"}";
+    size_t bytes=3; char name[255*6+3];
+    for (size_t i=0;i<j->browser_source_count;i++) {
+        const BrowserSourceGuard *g=&j->browser_sources[i]; browser_source_name_json(browser_source_at(g->source)->path,name);
+        int n=snprintf(NULL,0,format,i ? "," : "",name,g->binding.engine_epoch,g->binding.registration_id);
+        if (n<0 || (size_t)n>BROWSER_BINDINGS_JSON_BYTES-bytes) goto invalid;
+        bytes+=(size_t)n;
+    }
+    char *json=dx_alloc(bytes),*p=json; *p++='[';
+    for (size_t i=0;i<j->browser_source_count;i++) {
+        const BrowserSourceGuard *g=&j->browser_sources[i]; browser_source_name_json(browser_source_at(g->source)->path,name);
+        int n=snprintf(p,bytes-(size_t)(p-json),format,i ? "," : "",name,g->binding.engine_epoch,g->binding.registration_id); p+=(size_t)n;
+    }
+    *p++=']'; *p=0; browser_query.sources_json=json; return true;
+invalid:
+    *error=dx_strdup(failure); return false;
+}
+static bool browser_sources_match(const BrowserSourceCacheKey *key) {
+    const QueryJob *j=browser_query.job;
+    if (key->count!=j->browser_source_count) return false;
+    for (size_t i=0;i<key->count;i++) {
+        const BrowserSourceGuard *a=&key->guards[i],*b=&j->browser_sources[i];
+        if (a->source!=b->source || a->binding.engine_epoch!=b->binding.engine_epoch || a->binding.registration_id!=b->binding.registration_id) return false;
+    }
+    return !key->count || (key->json && browser_query.sources_json && !strcmp(key->json,browser_query.sources_json));
+}
+static void browser_sources_cache(BrowserSourceCacheKey *key) {
+    browser_source_cache_free(key); key->count=browser_query.job->browser_source_count;
+    for (size_t i=0;i<key->count;i++) key->guards[i]=browser_query.job->browser_sources[i];
+    if (key->count) key->json=dx_strdup(browser_query.sources_json);
 }
 static char *browser_columns_json(const Page *schema) {
     static const char *kinds[]={"none","i8","i16","i32","i64","i128","u8","u16","u32","u64","u128","decimal","float"};
@@ -213,7 +315,7 @@ static bool browser_copy_preflight(char **error) {
 static bool browser_copy_retained(size_t extra,size_t *retained,char **error) {
     BrowserQuery *q=&browser_query; size_t used=q->copy_definitions,owned;
     if (!browser_copy_owned_bytes(browser_copy_cells(),&owned,error) || !browser_copy_add(&used,owned,error)) return false;
-    const char *texts[]={q->relation,q->type_relation,browser_schema_key,browser_type_key[0],browser_type_key[1]};
+    const char *texts[]={q->relation,q->type_relation,q->sources_json,browser_schema_key,browser_type_key[0],browser_type_key[1],browser_schema_sources.json,browser_type_sources[0].json,browser_type_sources[1].json};
     for (size_t i=0;i<sizeof(texts)/sizeof(*texts);i++) if (texts[i] && !browser_copy_add(&used,strlen(texts[i])+1,error)) return false;
     if (!browser_copy_add(&used,browser_schema.bytes,error) || !browser_copy_add(&used,q->copy_schema.bytes,error) || !browser_copy_add(&used,q->plan.bytes,error)) return false;
     for (size_t i=0;i<2;i++) if (!browser_copy_add(&used,browser_type_schema[i].bytes,error)) return false;
@@ -250,25 +352,13 @@ static bool browser_export_preflight(char **error) {
 }
 static bool browser_export_retained(size_t extra,size_t *retained,char **error) {
     BrowserQuery *q=&browser_query; size_t used=q->export_definitions;
-    const char *texts[]={q->relation,q->type_relation,browser_schema_key,browser_type_key[0],browser_type_key[1]};
+    const char *texts[]={q->relation,q->type_relation,q->sources_json,browser_schema_key,browser_type_key[0],browser_type_key[1],browser_schema_sources.json,browser_type_sources[0].json,browser_type_sources[1].json};
     for (size_t i=0;i<sizeof(texts)/sizeof(*texts);i++) if (texts[i] && !browser_export_add(&used,strlen(texts[i])+1,error)) return false;
     if (!browser_export_add(&used,browser_schema.bytes,error) || !browser_export_add(&used,q->plan.bytes,error)) return false;
     for (size_t i=0;i<2;i++) if (!browser_export_add(&used,browser_type_schema[i].bytes,error)) return false;
     for (size_t i=0;i<DX_PIVOT_FIELDS;i++) if (!browser_export_add(&used,q->domains[i].bytes,error)) return false;
     if (!browser_export_add(&used,extra,error)) return false;
     *retained=used; return true;
-}
-/* Schema replacement is transactional: the incoming DESCRIBE Page and old
-   cached schema remain live while the new typed metadata is constructed. */
-static bool browser_export_describe_retained(const Page *describe,char **error) {
-    if (describe->column_count!=6 || (describe->row_count && !describe->cells)) return true; /* Schema validator rejects it before allocation. */
-    size_t extra=describe->bytes,retained;
-    if (!browser_export_add(&extra,describe->row_count*sizeof(Column),error)) return false;
-    for (size_t i=0;i<describe->row_count;i++) for (size_t c=0;c<2;c++) {
-        const Cell *cell=&describe->cells[i*6+c];
-        if (!cell->is_null && cell->text && !browser_export_add(&extra,strlen(cell->text)+1,error)) return false;
-    }
-    return browser_export_retained(extra,&retained,error);
 }
 static bool browser_statistics_add_bytes(size_t *used,size_t bytes,char **error) {
     if (bytes>DX_PAGE_WIRE_TEXT_BYTES || *used>DX_PAGE_WIRE_TEXT_BYTES-bytes) { *error=dx_strdup("Selection statistics exceed their combined 4 MiB memory limit."); return false; }
@@ -283,13 +373,36 @@ static bool browser_statistics_retained(size_t extra,size_t *retained,char **err
             if (!browser_statistics_add_bytes(&used,strlen(f->name)+1+(f->value ? strlen(f->value)+1 : 0),error)) return false;
         }
     }
-    const char *texts[]={q->relation,q->type_relation,q->statistics_cells,browser_schema_key,browser_type_key[0],browser_type_key[1]};
+    const char *texts[]={q->relation,q->type_relation,q->statistics_cells,q->sources_json,browser_schema_key,browser_type_key[0],browser_type_key[1],browser_schema_sources.json,browser_type_sources[0].json,browser_type_sources[1].json};
     for (size_t i=0;i<sizeof(texts)/sizeof(*texts);i++) if (texts[i] && !browser_statistics_add_bytes(&used,strlen(texts[i])+1,error)) return false;
     if (!browser_statistics_add_bytes(&used,browser_schema.bytes,error) || !browser_statistics_add_bytes(&used,q->plan.bytes,error)) return false;
     for (size_t i=0;i<2;i++) if (!browser_statistics_add_bytes(&used,browser_type_schema[i].bytes,error)) return false;
     for (size_t i=0;i<DX_PIVOT_FIELDS;i++) if (!browser_statistics_add_bytes(&used,q->domains[i].bytes,error)) return false;
     if (!browser_statistics_add_bytes(&used,extra,error)) return false;
     *retained=used; return true;
+}
+static bool browser_source_cache_admit(size_t extra,char **error) {
+    BrowserQuery *q=&browser_query; size_t retained,bytes=q->sources_json ? strlen(q->sources_json)+1 : 0;
+    if (bytes>SIZE_MAX-extra) { *error=dx_strdup("Browser source-cache staging overflows its memory bound."); return false; }
+    extra+=bytes;
+    if (q->job->kind==JOB_EXPORT) return browser_export_retained(extra,&retained,error);
+    if (q->copying) return browser_copy_retained(extra,&retained,error);
+    if (q->job->kind==JOB_STATISTICS) return browser_statistics_retained(extra,&retained,error);
+    return true;
+}
+/* Admit replacement before changing either schema or its bound cache key. The
+   incoming DESCRIBE, old cache and new schema/JSON can coexist. Ordinary
+   unbound copy/statistics retain their existing admission behavior. */
+static bool browser_describe_retained(const Page *describe,char **error) {
+    if (browser_query.job->kind!=JOB_EXPORT && !browser_query.sources_json) return true;
+    if (describe->column_count!=6 || (describe->row_count && !describe->cells)) return true;
+    size_t extra=describe->bytes;
+    if (!browser_export_add(&extra,describe->row_count*sizeof(Column),error)) return false;
+    for (size_t i=0;i<describe->row_count;i++) for (size_t c=0;c<2;c++) {
+        const Cell *cell=&describe->cells[i*6+c];
+        if (!cell->is_null && cell->text && !browser_export_add(&extra,strlen(cell->text)+1,error)) return false;
+    }
+    return browser_source_cache_admit(extra,error);
 }
 static void browser_execute(char *sql,BrowserStage stage) {
     if (!sql) { browser_fail("Could not build the browser query."); return; }
@@ -325,7 +438,7 @@ static void browser_execute(char *sql,BrowserStage stage) {
     /* Browser counters count submitted SQL; the async host may supersede a
        request before the official engine executes it. */
     browser_owner->sql_executed++; if (stage==BROWSER_COUNT || stage==BROWSER_PIVOT_COUNT) browser_owner->counts_executed++;
-    browser_send(browser_cookie,q->ticket,sql,id,object,revision,offset,totals || stage==BROWSER_PIVOT_ROWS || ((stage==BROWSER_PAGE || stage==BROWSER_DISTINCT_PAGE) && j->known_total>=0) ? total : NULL,columns,stage==BROWSER_COPY_PAGE ? (unsigned)browser_copy_patch()->rows : totals ? 1 : stage==BROWSER_DISTINCT_PAGE ? DX_DISTINCT_ROWS : stage==BROWSER_PIVOT_DOMAIN ? 129 : DX_PAGE_ROWS,stage==BROWSER_COPY_PAGE);
+    browser_send(browser_cookie,q->ticket,sql,id,object,revision,offset,totals || stage==BROWSER_PIVOT_ROWS || ((stage==BROWSER_PAGE || stage==BROWSER_DISTINCT_PAGE) && j->known_total>=0) ? total : NULL,columns,stage==BROWSER_COPY_PAGE ? (unsigned)browser_copy_patch()->rows : totals ? 1 : stage==BROWSER_DISTINCT_PAGE ? DX_DISTINCT_ROWS : stage==BROWSER_PIVOT_DOMAIN ? 129 : DX_PAGE_ROWS,stage==BROWSER_COPY_PAGE,q->sources_json);
     free(sql); free(columns);
 }
 static void browser_fetch_page(void) {
@@ -413,7 +526,7 @@ static void browser_fetch_result(void) {
         if (!sql || !browser_export_retained(strlen(sql)+1,&retained,&error)) { free(sql); browser_fail(error); free(error); return; }
         q->stage=BROWSER_EXPORT; q->ticket=++browser_sequence; browser_owner->sql_executed++;
         snprintf(generation,sizeof(generation),"%" PRIu64,j->id); snprintf(object,sizeof(object),"%" PRIu64,j->object_id); snprintf(revision,sizeof(revision),"%" PRIu64,j->revision);
-        browser_export_send(browser_cookie,q->ticket,sql,name,generation,object,revision); free(sql); return;
+        browser_export_send(browser_cookie,q->ticket,sql,name,generation,object,revision,q->sources_json); free(sql); return;
     }
     if (j->kind!=JOB_STATISTICS) { browser_fetch_page(); return; }
     char *error=NULL,*sql=NULL;
@@ -463,6 +576,7 @@ static void browser_copy_type_schema(unsigned slot,const char *key) {
         schema.bytes+=strlen(c->name)+strlen(c->type_name)+2;
     }
     page_free(&browser_type_schema[slot]); browser_type_schema[slot]=schema; free(browser_type_key[slot]); browser_type_key[slot]=dx_strdup(key);
+    browser_sources_cache(&browser_type_sources[slot]);
 }
 static void browser_prepare_query(void) {
     BrowserQuery *q=&browser_query; QueryJob *j=q->job; Analysis *a=browser_active_analysis(); PivotDefinition *pivot=browser_context(); char *error=NULL;
@@ -477,12 +591,13 @@ static void browser_prepare_query(void) {
         if (!slot) shape.group_column=shape.measure_column=NULL;
         char *relation=browser_relation_sql(&shape,NULL,&error);
         if (!relation) { browser_fail(error); free(error); return; }
-        if ((!browser_type_key[slot] || strcmp(browser_type_key[slot],relation)) && browser_schema_key && !strcmp(browser_schema_key,relation)) {
+        if ((!browser_type_key[slot] || strcmp(browser_type_key[slot],relation) || !browser_sources_match(&browser_type_sources[slot])) && browser_schema_key && !strcmp(browser_schema_key,relation) && browser_sources_match(&browser_schema_sources)) {
             size_t retained;
             if (j->kind==JOB_EXPORT && !browser_export_retained(browser_schema.bytes+2*(strlen(relation)+1),&retained,&error)) { free(relation); browser_fail(error); free(error); return; }
+            if (q->sources_json && !browser_source_cache_admit(browser_schema.bytes+2*(strlen(relation)+1),&error)) { free(relation); browser_fail(error); free(error); return; }
             browser_copy_type_schema(slot,relation);
         }
-        if (browser_type_key[slot] && !strcmp(browser_type_key[slot],relation)) {
+        if (browser_type_key[slot] && !strcmp(browser_type_key[slot],relation) && browser_sources_match(&browser_type_sources[slot])) {
             free(relation); if (!browser_apply_types(slot,&error)) { browser_fail(error); free(error); return; }
         } else {
             q->type_relation=relation; q->type_slot=slot;
@@ -508,7 +623,7 @@ static void browser_prepare_query(void) {
         char *sql=browser_count_sql(q->relation,&error);
         if (error) { browser_fail(error); free(error); return; } browser_execute(sql,BROWSER_COUNT); return;
     }
-    if (j->kind!=JOB_VALIDATE_SQL && browser_schema_key && !strcmp(browser_schema_key,q->relation)) { browser_fetch_result(); return; }
+    if (j->kind!=JOB_VALIDATE_SQL && browser_schema_key && !strcmp(browser_schema_key,q->relation) && browser_sources_match(&browser_schema_sources)) { browser_fetch_result(); return; }
     char *sql=browser_describe_sql(q->relation,&error);
     if (error) { browser_fail(error); free(error); return; }
     browser_execute(sql,j->kind==JOB_VALIDATE_SQL ? BROWSER_VALIDATE : BROWSER_DESCRIBE);
@@ -622,7 +737,7 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
             if (q->rows_sql) q->columns_sql=browser_pivot_readout_sql(source,pivot,&q->plan,false,0,&error);
             if (!q->rows_sql || !q->columns_sql) { browser_publish(error); free(error); return; }
         }
-        if (browser_schema_key && !strcmp(browser_schema_key,q->relation)) browser_fetch_result();
+        if (browser_schema_key && !strcmp(browser_schema_key,q->relation) && browser_sources_match(&browser_schema_sources)) browser_fetch_result();
         else { char *sql=browser_describe_sql(q->relation,&error); if (!sql) { browser_publish(error); free(error); return; } browser_execute(sql,BROWSER_DESCRIBE); }
         return;
     }
@@ -647,20 +762,22 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
         r->page.total=count; r->page.count_pending=false; browser_matrix_ready(); return;
     }
     if (browser_query.stage==BROWSER_TYPE_DESCRIBE) {
-        if (j->kind==JOB_EXPORT && !browser_export_describe_retained(&page,&error)) { page_free(&page); browser_publish(error); free(error); return; }
+        if (!browser_describe_retained(&page,&error)) { page_free(&page); browser_publish(error); free(error); return; }
         unsigned slot=browser_query.type_slot; bool valid=browser_schema_from_describe(&browser_type_schema[slot],&page,&error); page_free(&page);
         if (!valid) { browser_publish(error); free(error); return; }
         free(browser_type_key[slot]); browser_type_key[slot]=browser_query.type_relation; browser_query.type_relation=NULL;
+        browser_sources_cache(&browser_type_sources[slot]);
         if (!browser_apply_types(slot,&error)) { browser_publish(error); free(error); return; }
         browser_prepare_query(); return;
     }
     if (browser_query.stage==BROWSER_DESCRIBE || browser_query.stage==BROWSER_VALIDATE) {
-        if (j->kind==JOB_EXPORT && !browser_export_describe_retained(&page,&error)) { page_free(&page); browser_publish(error); free(error); return; }
+        if (!browser_describe_retained(&page,&error)) { page_free(&page); browser_publish(error); free(error); return; }
         bool valid=browser_schema_from_describe(&browser_schema,&page,&error); page_free(&page);
         if (!valid) { browser_publish(error); free(error); return; }
         free(browser_schema_key); browser_schema_key=NULL;
         if (j->kind==JOB_EXPORT) { size_t retained; if (!browser_export_retained(strlen(browser_query.relation)+1,&retained,&error)) { browser_publish(error); free(error); return; } }
         browser_schema_key=dx_strdup(browser_query.relation);
+        browser_sources_cache(&browser_schema_sources);
         if (browser_query.stage==BROWSER_VALIDATE) browser_publish(NULL); else browser_fetch_result();
         return;
     }
@@ -749,6 +866,8 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
     if (j->kind==JOB_COLLECT_RECORDS) {
         browser_fail("Native record collection is unavailable in the browser engine; no identity query was submitted."); return;
     }
+    char *source_error=NULL;
+    if (!browser_sources_prepare(&source_error)) { browser_fail(source_error); free(source_error); return; }
     if (j->refresh_source) browser_clear_schemas();
     q->copying=j->kind==JOB_COPY || j->kind==JOB_PIVOT_COPY || j->kind==JOB_RANGE_COPY;
     q->matrix=j->kind==JOB_PIVOT && !j->is_table;
