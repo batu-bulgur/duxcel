@@ -392,6 +392,7 @@ PREVIEW_SRC = $(CORE) src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c s
 STATSVIEW_SRC = src/common.c src/transforms/number.c src/workbook/format.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/statsview.c tests/test_statsview.c
 GUIDEVIEW_SRC = src/common.c src/transforms/number.c src/workbook/format.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/textview.c src/ui/guideview.c tests/test_guideview.c
 FONTMETRICS_SRC = src/ui/fontmetrics.c tests/test_fontmetrics.c
+UI_FONT_FALLBACK_SRC = src/common.c src/ui/fontmetrics.c src/ui/ui.c tests/test_ui_font_fallback.c
 CHOICEVIEW_SRC = src/ui/choiceview.c src/ui/selectview.c tests/test_choiceview.c
 tests/test_choiceview: $(CHOICEVIEW_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(CHOICEVIEW_SRC) -o $@ $(RAYLIB_LIBS) -lm
@@ -466,6 +467,10 @@ tests/test_motion: $(MOTION_SRC) src/ui/motion.h
 	$(CC) -Isrc $(CFLAGS) $(WARN) $(MOTION_SRC) -o $@ -lm
 tests/test_motion-debug: $(MOTION_SRC) src/ui/motion.h
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(MOTION_SRC) -o $@ -lm $(SANFLAGS)
+tests/test_ui_font_fallback: $(UI_FONT_FALLBACK_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(UI_FONT_FALLBACK_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_ui_font_fallback-debug: $(UI_FONT_FALLBACK_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(UI_FONT_FALLBACK_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 tests/test_fontmetrics: $(FONTMETRICS_SRC) $(HEADERS)
 	$(CC) -Isrc $(CFLAGS) $(WARN) $(FONTMETRICS_SRC) -o $@ -lm
 tests/test_fontmetrics-debug: $(FONTMETRICS_SRC) $(HEADERS)
@@ -500,7 +505,7 @@ tests/test_paint-native-debug: $(PAINT_NATIVE_SRC) $(HEADERS)
 paint-smoke: tests/test_paint-native-debug
 	mkdir -p tests/results/native-authoring
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_paint-native-debug
-test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview tests/test_preview_input tests/test_preview_input_browser tests/test_textview tests/test_textview_review tests/test_statsview_input tests/test_statsview_input_review tests/test_ui_update_input tests/test_ui_update_input_browser tests/test_ui_update_input_control tests/test_guideview_input tests/test_guideview_input_review tests/test_sortview_input tests/test_sortview_input_review
+test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_ui_font_fallback tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview tests/test_preview_input tests/test_preview_input_browser tests/test_textview tests/test_textview_review tests/test_statsview_input tests/test_statsview_input_review tests/test_ui_update_input tests/test_ui_update_input_browser tests/test_ui_update_input_control tests/test_guideview_input tests/test_guideview_input_review tests/test_sortview_input tests/test_sortview_input_review
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
 	./tests/test_filterlabel
 	./tests/test_cellreadout
@@ -518,6 +523,7 @@ test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid 
 	./tests/test_statsview
 	./tests/test_guideview
 	./tests/test_fontmetrics
+	./tests/test_ui_font_fallback
 	./tests/test_motion
 	./tests/test_choiceview
 	./tests/test_paintlayer
@@ -536,7 +542,7 @@ test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid 
 	./tests/test_guideview_input_review
 	./tests/test_sortview_input
 	./tests/test_sortview_input_review
-test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug tests/test_preview_input-debug tests/test_preview_input_browser-debug tests/test_textview-debug tests/test_textview_review-debug tests/test_statsview_input-debug tests/test_statsview_input_review-debug tests/test_ui_update_input-debug tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control-debug tests/test_guideview_input-debug tests/test_guideview_input_review-debug tests/test_sortview_input-debug tests/test_sortview_input_review-debug
+test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_ui_font_fallback-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug tests/test_preview_input-debug tests/test_preview_input_browser-debug tests/test_textview-debug tests/test_textview_review-debug tests/test_statsview_input-debug tests/test_statsview_input_review-debug tests/test_ui_update_input-debug tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control-debug tests/test_guideview_input-debug tests/test_guideview_input_review-debug tests/test_sortview_input-debug tests/test_sortview_input_review-debug
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_filterlabel-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_cellreadout-debug
@@ -554,6 +560,7 @@ test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_cor
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_statsview-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_guideview-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_fontmetrics-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_ui_font_fallback-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_motion-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_choiceview-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_paintlayer-debug
@@ -655,8 +662,8 @@ clean:
 	rm -rf tests/test_filterlabel.dSYM tests/test_filterlabel-debug.dSYM tests/test_background-native-debug.dSYM
 	rm -f tests/test_cellreadout tests/test_cellreadout-debug
 	rm -f tests/test_marksview tests/test_marksview-debug tests/test_popup tests/test_popup-debug tests/test_paintlayer tests/test_paintlayer-debug tests/test_paint-native-debug
-	rm -f tests/test_fontmetrics tests/test_fontmetrics-debug
-	rm -rf tests/test_fontmetrics.dSYM tests/test_fontmetrics-debug.dSYM
+	rm -f tests/test_fontmetrics tests/test_ui_font_fallback tests/test_fontmetrics-debug
+	rm -rf tests/test_fontmetrics.dSYM tests/test_fontmetrics-debug.dSYM tests/test_ui_font_fallback.dSYM tests/test_ui_font_fallback-debug.dSYM
 	rm -f tests/test_guideview tests/test_guideview-debug
 	rm -rf tests/test_guideview.dSYM tests/test_guideview-debug.dSYM
 	rm -f tests/test_statsview tests/test_statsview-debug
