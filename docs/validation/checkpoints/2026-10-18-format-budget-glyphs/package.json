@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "fe6f17904ea58ca126c6bd6befe288a78b8bf6e2",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "b774f26b21f7bb095d9bd31ca99d82e64e60ea649991ade1c383d707b1edf515",
+    "source_files": 271
+  },
+  "native_code_revision": "fe6f17904ea58ca126c6bd6befe288a78b8bf6e2",
+  "native_review_run": "20261018T035436-review-17738",
+  "native_review_scope": "400 stages per optimized/O1 ASan+UBSan; no physical/AppKit claim",
+  "pane_shortcut_browser_run": "20261018T035148-browser-16433",
+  "source_filename_browser_run": "20261018T034816-browser-15506",
+  "gpu_run": "build/font-fallback-gpu/manifest.json",
+  "packaged_without_launch": true,
+  "unsigned_source_sha256": "6b048f5acc3cf07c3ea54304ffc4d66262e4a67a49eaef496f1bf5e7ef6bd854",
+  "signed_bundle_sha256": "9a1d60503b6aa34e5daabe166a082e27322cce9f72e74730770008eaea87418a",
+  "signature_verified": true,
+  "source_unchanged": true,
+  "seconds": 0.764
+}

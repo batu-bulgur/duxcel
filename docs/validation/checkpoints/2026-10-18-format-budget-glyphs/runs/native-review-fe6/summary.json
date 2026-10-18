@@ -1,0 +1,169 @@
+{
+  "started_utc": "2026-10-18T03:54:36.121721+00:00",
+  "status": "passed",
+  "configs": {
+    "release": {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/review/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "1600"
+      ],
+      "elapsed_seconds": 17.709,
+      "log": "tests/results/runs/20261018T035436-review-17738/release.log",
+      "owner_lifetime": {
+        "fixture_create": {
+          "command": [
+            "/Users/h2o/dev/duxcel/build/web-tests/test-persistence",
+            "create-owners",
+            "/Users/h2o/dev/duxcel/tests/results/runs/20261018T035436-review-17738/release/native-owner-fixture.dxls"
+          ],
+          "elapsed_seconds": 0.199,
+          "log": "tests/results/runs/20261018T035436-review-17738/release-owner-create.log"
+        },
+        "fixture_sha256": "b33bb379bb3c37d7a2c550b3b40b1ef884c063303a6a75f80c64775845b53014",
+        "saved_copy_sha256": "987a5bdb005019df10beb1d14615c31654ec73204d3a16022e3a9e161a7dc847",
+        "helper_sha256": "6151f14971a925c9dc1fe668443728b7bde2e21f7d7389dabd68ccd58df9c864",
+        "original_unchanged": true,
+        "scope": "Actual native App load/delete/import/bind/delete/save/reopen, exhausted import and high-ID inspector cancellation; no file-panel delivery claim"
+      },
+      "binary_sha256": "6f5c0acfb09c41654689dbb82d944b47839e0eaa955be4a3f84666009af58413",
+      "build_header_sha256": "34b05c88ff4325be6d5547bbebc8ac9779e9cbf4ffa82bc64b452654ef361a8a",
+      "completed_stages": 400,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792295678-17747-1",
+          "target": "filter.search",
+          "frame_id": "14",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 416449,
+            "sha256": "6b04b6963f74eb49eb06f3b9b29e62c40c5c56d969654457eacab9e6a5dc375c",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T035436-review-17738/release/outbox/DXR-S-1792295678-17747-1/frame.png"
+          },
+          "capture_sha256": "67eef3a5a4b23e0d75d4406f98d2822bb0f138679dece23d0c95990ed8a170d1"
+        },
+        {
+          "report_id": "DXR-S-1792295678-17747-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "37",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 267483,
+            "sha256": "82a2549142a2173a66a671eb2c6004c41a8bd4a0ce19218cab9e36fe62cc5f3f",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T035436-review-17738/release/outbox/DXR-S-1792295678-17747-2/frame.png"
+          },
+          "capture_sha256": "8929f75c087b6623d0c29b1da4ae58118135d1671f768dd5816a29c1de3c2ed2"
+        },
+        {
+          "report_id": "DXR-S-1792295678-17747-17",
+          "target": "file.scrollbar.thumb",
+          "frame_id": "119",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1280,
+            "height": 400,
+            "bytes": 68530,
+            "sha256": "ac7435d67ee78f938d1cf3cffc43d007620fe05feac9659897dff1df3a0d516e",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T035436-review-17738/release/outbox/DXR-S-1792295678-17747-17/frame.png"
+          },
+          "capture_sha256": "1be2d093a31a4394709f4ed45fb6cb738b04fcc797532b826cbe162c15349a51"
+        }
+      ]
+    },
+    "sanitize": {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/review-sanitize/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "1600"
+      ],
+      "elapsed_seconds": 20.099,
+      "log": "tests/results/runs/20261018T035436-review-17738/sanitize.log",
+      "owner_lifetime": {
+        "fixture_create": {
+          "command": [
+            "/Users/h2o/dev/duxcel/build/web-tests/test-persistence-sanitize",
+            "create-owners",
+            "/Users/h2o/dev/duxcel/tests/results/runs/20261018T035436-review-17738/sanitize/native-owner-fixture.dxls"
+          ],
+          "elapsed_seconds": 0.422,
+          "log": "tests/results/runs/20261018T035436-review-17738/sanitize-owner-create.log"
+        },
+        "fixture_sha256": "b33bb379bb3c37d7a2c550b3b40b1ef884c063303a6a75f80c64775845b53014",
+        "saved_copy_sha256": "987a5bdb005019df10beb1d14615c31654ec73204d3a16022e3a9e161a7dc847",
+        "helper_sha256": "8469138ffe15210b21c806f3493be268ce623ae7389aea7aa0226173bc7eab3f",
+        "original_unchanged": true,
+        "scope": "Actual native App load/delete/import/bind/delete/save/reopen, exhausted import and high-ID inspector cancellation; no file-panel delivery claim"
+      },
+      "binary_sha256": "24e758c4ac9a36610bde03a6d0bb5d2bd7faa5b18c9ff2b3cb3b628fb245606c",
+      "build_header_sha256": "4d32799789f1e696b37e24ec5c79f753b0eb9cfbf6398733992b28a8c94e56ae",
+      "completed_stages": 400,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792295696-17855-1",
+          "target": "filter.search",
+          "frame_id": "14",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 416449,
+            "sha256": "6b04b6963f74eb49eb06f3b9b29e62c40c5c56d969654457eacab9e6a5dc375c",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T035436-review-17738/sanitize/outbox/DXR-S-1792295696-17855-1/frame.png"
+          },
+          "capture_sha256": "ef670fda597d2d54a0d9a4252feb37a052f8d5b29a30deee8bf81c5a36f07074"
+        },
+        {
+          "report_id": "DXR-S-1792295696-17855-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "36",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 267483,
+            "sha256": "c2646103c11133d297ab9735f29550dbb074673e71f6e4f37a4fd02b84def335",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T035436-review-17738/sanitize/outbox/DXR-S-1792295696-17855-2/frame.png"
+          },
+          "capture_sha256": "010c18d051ee4e234a424c3446a979fb79162f6c9bb3196b227520fc146a9487"
+        },
+        {
+          "report_id": "DXR-S-1792295696-17855-17",
+          "target": "file.scrollbar.thumb",
+          "frame_id": "121",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1280,
+            "height": 400,
+            "bytes": 68530,
+            "sha256": "ac7435d67ee78f938d1cf3cffc43d007620fe05feac9659897dff1df3a0d516e",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T035436-review-17738/sanitize/outbox/DXR-S-1792295696-17855-17/frame.png"
+          },
+          "capture_sha256": "66c80c416ef556422b3b6ebe4925b946aceccfda4dda3fb9b95e059c7a71f03f"
+        }
+      ]
+    }
+  },
+  "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual",
+  "source": {
+    "commit": "fe6f17904ea58ca126c6bd6befe288a78b8bf6e2",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "b774f26b21f7bb095d9bd31ca99d82e64e60ea649991ade1c383d707b1edf515",
+    "source_files": 271
+  },
+  "background": {
+    "command": [
+      "./tests/test_background-native-debug"
+    ],
+    "elapsed_seconds": 1.25,
+    "log": "tests/results/runs/20261018T035436-review-17738/background.log"
+  },
+  "finished_utc": "2026-10-18T03:55:16.278724+00:00"
+}

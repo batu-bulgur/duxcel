@@ -1,0 +1,23 @@
+commit d997dd7cd3be9040c90b52a22fd2251060ca74cb
+Author:     Codex <codex@openai.com>
+AuthorDate: Sun Oct 18 06:43:56 2026 +0300
+Commit:     Codex <codex@openai.com>
+CommitDate: Sun Oct 18 06:43:56 2026 +0300
+
+    Negative control: retain terminal observation latch after budget denial
+
+diff --git a/src/app/source_format.inc b/src/app/source_format.inc
+index 96553d1..54bbc41 100644
+--- a/src/app/source_format.inc
++++ b/src/app/source_format.inc
+@@ -437,9 +437,7 @@ static void source_format_schedule(App *a) {
+         SourceFormatAttempt *attempt=&a->source_format_attempt;
+         if (attempt->valid && attempt->document==a->format_document && attempt->sheet==a->book.active &&
+             attempt->version==sheet->source_versions.high_water+1 && attempt->stamp==owner.page->records.stamp &&
+-            source_file_identity_same(&attempt->identity,&owner.page->records.file_identity) &&
+-            (!attempt->deferred || (attempt->denied_format_revision==sheet->formats.revision &&
+-                attempt->denied_cell_revision==sheet->cells.revision))) return;
++            source_file_identity_same(&attempt->identity,&owner.page->records.file_identity)) return;
+         /* A real edit can release retained history. Consume that permission
+            before eligibility/proof checks, so other failures stay terminal. */
+         *attempt=(SourceFormatAttempt){.identity=owner.page->records.file_identity,.document=a->format_document,
