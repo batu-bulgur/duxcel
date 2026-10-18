@@ -114,6 +114,10 @@ static bool metadata(const Analysis *a,const PivotDefinition *d,const Page *p,co
     if (p->count_pending) return fail(error,"Wait for the pivot page before aggregating Chart Other.");
     for (size_t k=0;k<rank->keys;k++) {
         if (!scalar_key(p->columns[k].type)) return fail(error,"Chart Other supports scalar Row keys only.");
+        /* Browser wire metadata preserves unknown/nested SQL type names while
+           its fallback enum is VARCHAR. Do not treat that fallback as proof. */
+        if (p->columns[k].type==DUCKDB_TYPE_VARCHAR && (!p->columns[k].type_name || strcmp(p->columns[k].type_name,"VARCHAR")))
+            return fail(error,"Chart Other requires a known scalar Row SQL type.");
         if (p->columns[k].date_grain!=d->fields[PIVOT_ROWS][k].grain) return fail(error,"Chart Other Row grain does not match the captured page.");
         for (size_t r=0;r<p->row_count;r++) {
             const Cell *cell=&p->cells[r*p->column_count+k];
