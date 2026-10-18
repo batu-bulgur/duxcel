@@ -1,0 +1,10 @@
+Review smoke stage=393 phase=2 file=0/4/4 ui_scale=1.50 window=1920x1120 target=
+Review smoke stage=394 phase=3 file=0/4/4 ui_scale=1.50 window=1920x1120 target=filter.values.status
+Review smoke stage=395 phase=0 file=0/4/4 ui_scale=1.50 window=1920x1120 target=filter.values.status
+PASS: native feedback closure case=5 actual genuine unavailable-file distinct error ownership/clipping/value and frozen pick/cancel retain models/manual/history/Pages/input/SQL caches/worker jobs
+Review smoke stage=396 phase=0 file=0/4/4 ui_scale=1.00 window=1280x820 target=filter.values.status
+Review smoke stage=397 phase=2 file=0/4/4 ui_scale=1.00 window=1280x900 target=
+Review smoke stage=398 phase=3 file=0/4/4 ui_scale=1.00 window=1280x900 target=filter.value.47.1.-1.0
+Review smoke stage=399 phase=0 file=0/4/4 ui_scale=1.00 window=1280x900 target=filter.value.47.1.-1.0
+PASS: native150-byte UTF8 source-query field remains selectable by complete stable hash/source/schema/column scope with honest124-byte UTF8 prefix plus ellipsis; actual Fields/More and filter controls/typed values retain definitions/input/history/Pages/jobs through capture/pick/cancel
+Review smoke completed [0,400)

@@ -1,0 +1,37 @@
+{
+  "helper_byte_equality": {
+    "174ad1d": {
+      "src/ui/shadowview.c": "7a3c1b8dc1cdbc4b7ac1a223ee5a3d1b67329aa5a92d8b1260c36536eee0cd08",
+      "tests/test_shadowview.c": "932cc1d1f1e9369b7c3d42dce1347830a846cb444c9cc6c62942b7af0017cc83"
+    },
+    "829ed1f": {
+      "src/ui/shadowview.c": "7a3c1b8dc1cdbc4b7ac1a223ee5a3d1b67329aa5a92d8b1260c36536eee0cd08",
+      "tests/test_shadowview.c": "932cc1d1f1e9369b7c3d42dce1347830a846cb444c9cc6c62942b7af0017cc83"
+    },
+    "260c146": {
+      "src/ui/shadowview.c": "7a3c1b8dc1cdbc4b7ac1a223ee5a3d1b67329aa5a92d8b1260c36536eee0cd08",
+      "tests/test_shadowview.c": "932cc1d1f1e9369b7c3d42dce1347830a846cb444c9cc6c62942b7af0017cc83"
+    }
+  },
+  "shared_app_shadow_integration": "483e6f940b56c43d36da8312541b6ed38fff7745",
+  "rgb_fix_integrated": "829ed1f",
+  "review_browser_product": "d67c2b934493644e22a4c58a9d4055581ae576c8",
+  "native_rgb_16_product": "2b0d50cea72b2af9c28c658caf6dbfad96d29b5d",
+  "fresh_component_product": "260c1469cedb5eaa8966a841f7b4952ce26ac132",
+  "distribution_unchanged": {
+    "native_code": "43b43d3",
+    "wrapper": "392f859",
+    "review_service_artifact": "aac0c29a0cbd70b80360",
+    "scope": "Prior accepted checkpoint only; no refresh or delivery retest in this shadow checkpoint."
+  },
+  "normal_wasm_pre_rgb": {
+    "source": "483e6f940b56c43d36da8312541b6ed38fff7745",
+    "signature": "0d06f9936da4e65240e7331ab7cb81f8ed74a52694ca20b5c647e9e79d9430e0"
+  },
+  "notes": [
+    "Model is premultiplied RGBA8. Binary16 describes RGB coefficient rounding, not texture format.",
+    "Fresh260 pure test is retained; original174 agent-reported runtime is not presented as a saved manifest.",
+    "Source hashes include untracked tools/ui-review/ only when recorded by original runner; exact source status retained."
+  ],
+  "transformed_ink_product": "e3ad8d97525ae244aff8e631154138498f536d88"
+}

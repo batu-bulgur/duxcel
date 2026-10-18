@@ -1,0 +1,3 @@
+Command: ["./tests/test_shadowview"]
+Reference: 240/240 exact source-profile pixels, without exceptions or tolerance.
+PASS: 2004589 pure shadowview checks; no GPU/render/OS parity claim.
