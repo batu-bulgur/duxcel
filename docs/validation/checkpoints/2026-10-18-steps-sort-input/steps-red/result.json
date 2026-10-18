@@ -1,0 +1,3890 @@
+{
+  "status": "failed",
+  "checks": 685,
+  "error": "Error: Invisible Steps row opened its context menu or stole focus over the verified Edit/details target",
+  "url": "http://127.0.0.1:54757/",
+  "elapsed_ms": 20087,
+  "steps": [
+    {
+      "key": "o",
+      "time": 1792291996121,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291996121,
+          "completed_ms": 1792291996121
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291996121,
+          "completed_ms": 1792291996144
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291996144,
+          "completed_ms": 1792291996146
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291996146,
+          "completed_ms": 1792291996176
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291996997,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291996997,
+          "completed_ms": 1792291996997
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291996997,
+          "completed_ms": 1792291997041
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997041,
+          "completed_ms": 1792291997042
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997042,
+          "completed_ms": 1792291997077
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291997112,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997112,
+          "completed_ms": 1792291997113
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997113,
+          "completed_ms": 1792291997145
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997145,
+          "completed_ms": 1792291997146
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997146,
+          "completed_ms": 1792291997178
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291997180,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997180,
+          "completed_ms": 1792291997180
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997180,
+          "completed_ms": 1792291997215
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997215,
+          "completed_ms": 1792291997216
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997216,
+          "completed_ms": 1792291997244
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291997278,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997278,
+          "completed_ms": 1792291997279
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997279,
+          "completed_ms": 1792291997310
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997310,
+          "completed_ms": 1792291997311
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997311,
+          "completed_ms": 1792291997345
+        }
+      ]
+    },
+    {
+      "key": "F6",
+      "time": 1792291997345,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997345,
+          "completed_ms": 1792291997346
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997346,
+          "completed_ms": 1792291997379
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997379,
+          "completed_ms": 1792291997380
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997380,
+          "completed_ms": 1792291997412
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291997414,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997414,
+          "completed_ms": 1792291997414
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997414,
+          "completed_ms": 1792291997455
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997455,
+          "completed_ms": 1792291997456
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997456,
+          "completed_ms": 1792291997478
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291997512,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997512,
+          "completed_ms": 1792291997513
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997513,
+          "completed_ms": 1792291997546
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997546,
+          "completed_ms": 1792291997546
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997546,
+          "completed_ms": 1792291997579
+        }
+      ]
+    },
+    {
+      "key": "Enter",
+      "time": 1792291997579,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997579,
+          "completed_ms": 1792291997580
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997580,
+          "completed_ms": 1792291997616
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997616,
+          "completed_ms": 1792291997617
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997617,
+          "completed_ms": 1792291997646
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291997647,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997647,
+          "completed_ms": 1792291997648
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997648,
+          "completed_ms": 1792291997695
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997695,
+          "completed_ms": 1792291997696
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997696,
+          "completed_ms": 1792291997728
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291997762,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997762,
+          "completed_ms": 1792291997763
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997763,
+          "completed_ms": 1792291997797
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997797,
+          "completed_ms": 1792291997798
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997798,
+          "completed_ms": 1792291997829
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291997831,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997831,
+          "completed_ms": 1792291997832
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997832,
+          "completed_ms": 1792291997864
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997864,
+          "completed_ms": 1792291997867
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997867,
+          "completed_ms": 1792291997895
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291997929,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291997929,
+          "completed_ms": 1792291997930
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291997930,
+          "completed_ms": 1792291997962
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291997962,
+          "completed_ms": 1792291997962
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291997962,
+          "completed_ms": 1792291997995
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291998080,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291998080,
+          "completed_ms": 1792291998080
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291998080,
+          "completed_ms": 1792291998114
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291998114,
+          "completed_ms": 1792291998114
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291998114,
+          "completed_ms": 1792291998145
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291998179,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291998179,
+          "completed_ms": 1792291998180
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291998180,
+          "completed_ms": 1792291998212
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291998212,
+          "completed_ms": 1792291998213
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291998213,
+          "completed_ms": 1792291998245
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291998329,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291998329,
+          "completed_ms": 1792291998330
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291998330,
+          "completed_ms": 1792291998362
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291998362,
+          "completed_ms": 1792291998362
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291998362,
+          "completed_ms": 1792291998395
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291998428,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291998428,
+          "completed_ms": 1792291998429
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291998429,
+          "completed_ms": 1792291998462
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291998462,
+          "completed_ms": 1792291998462
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291998462,
+          "completed_ms": 1792291998495
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291998581,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291998581,
+          "completed_ms": 1792291998582
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291998582,
+          "completed_ms": 1792291998611
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291998611,
+          "completed_ms": 1792291998612
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291998612,
+          "completed_ms": 1792291998645
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291998678,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291998678,
+          "completed_ms": 1792291998679
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291998679,
+          "completed_ms": 1792291998712
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291998712,
+          "completed_ms": 1792291998712
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291998712,
+          "completed_ms": 1792291998745
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291998746,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291998746,
+          "completed_ms": 1792291998746
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291998746,
+          "completed_ms": 1792291998781
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291998781,
+          "completed_ms": 1792291998782
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291998782,
+          "completed_ms": 1792291998812
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291998846,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291998846,
+          "completed_ms": 1792291998847
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291998847,
+          "completed_ms": 1792291998880
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291998880,
+          "completed_ms": 1792291998880
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291998880,
+          "completed_ms": 1792291998912
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291998998,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291998998,
+          "completed_ms": 1792291998998
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291998998,
+          "completed_ms": 1792291999032
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999032,
+          "completed_ms": 1792291999033
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999033,
+          "completed_ms": 1792291999063
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291999095,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291999095,
+          "completed_ms": 1792291999095
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291999095,
+          "completed_ms": 1792291999129
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999129,
+          "completed_ms": 1792291999129
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999129,
+          "completed_ms": 1792291999162
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291999163,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291999163,
+          "completed_ms": 1792291999164
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291999164,
+          "completed_ms": 1792291999201
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999201,
+          "completed_ms": 1792291999202
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999202,
+          "completed_ms": 1792291999229
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291999261,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291999261,
+          "completed_ms": 1792291999262
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291999262,
+          "completed_ms": 1792291999295
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999295,
+          "completed_ms": 1792291999296
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999296,
+          "completed_ms": 1792291999329
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291999414,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291999414,
+          "completed_ms": 1792291999414
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291999414,
+          "completed_ms": 1792291999453
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999453,
+          "completed_ms": 1792291999454
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999454,
+          "completed_ms": 1792291999482
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291999512,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291999512,
+          "completed_ms": 1792291999512
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291999512,
+          "completed_ms": 1792291999546
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999546,
+          "completed_ms": 1792291999546
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999546,
+          "completed_ms": 1792291999579
+        }
+      ]
+    },
+    {
+      "key": "ArrowDown",
+      "time": 1792291999582,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291999582,
+          "completed_ms": 1792291999583
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291999583,
+          "completed_ms": 1792291999613
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999613,
+          "completed_ms": 1792291999613
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999613,
+          "completed_ms": 1792291999646
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291999648,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291999648,
+          "completed_ms": 1792291999648
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291999648,
+          "completed_ms": 1792291999693
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999693,
+          "completed_ms": 1792291999693
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999693,
+          "completed_ms": 1792291999729
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792291999762,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291999762,
+          "completed_ms": 1792291999763
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291999763,
+          "completed_ms": 1792291999796
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999796,
+          "completed_ms": 1792291999796
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999796,
+          "completed_ms": 1792291999829
+        }
+      ]
+    },
+    {
+      "key": "ArrowRight",
+      "time": 1792291999830,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291999830,
+          "completed_ms": 1792291999830
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291999830,
+          "completed_ms": 1792291999863
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999863,
+          "completed_ms": 1792291999863
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999863,
+          "completed_ms": 1792291999896
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792291999899,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792291999899,
+          "completed_ms": 1792291999899
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792291999899,
+          "completed_ms": 1792291999945
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792291999945,
+          "completed_ms": 1792291999946
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792291999946,
+          "completed_ms": 1792291999979
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292000012,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000012,
+          "completed_ms": 1792292000013
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000013,
+          "completed_ms": 1792292000046
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000046,
+          "completed_ms": 1792292000046
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000046,
+          "completed_ms": 1792292000079
+        }
+      ]
+    },
+    {
+      "key": "Home",
+      "time": 1792292000080,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000080,
+          "completed_ms": 1792292000080
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000080,
+          "completed_ms": 1792292000110
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000110,
+          "completed_ms": 1792292000110
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000110,
+          "completed_ms": 1792292000145
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292000146,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000146,
+          "completed_ms": 1792292000147
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000147,
+          "completed_ms": 1792292000183
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000183,
+          "completed_ms": 1792292000183
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000183,
+          "completed_ms": 1792292000211
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292000245,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000245,
+          "completed_ms": 1792292000245
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000245,
+          "completed_ms": 1792292000279
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000279,
+          "completed_ms": 1792292000279
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000279,
+          "completed_ms": 1792292000312
+        }
+      ]
+    },
+    {
+      "key": "ArrowDown",
+      "time": 1792292000313,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000313,
+          "completed_ms": 1792292000313
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000313,
+          "completed_ms": 1792292000346
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000346,
+          "completed_ms": 1792292000346
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000346,
+          "completed_ms": 1792292000379
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292000381,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000381,
+          "completed_ms": 1792292000381
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000381,
+          "completed_ms": 1792292000420
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000420,
+          "completed_ms": 1792292000420
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000420,
+          "completed_ms": 1792292000448
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292000478,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000478,
+          "completed_ms": 1792292000479
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000479,
+          "completed_ms": 1792292000512
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000512,
+          "completed_ms": 1792292000513
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000513,
+          "completed_ms": 1792292000546
+        }
+      ]
+    },
+    {
+      "key": "ArrowRight",
+      "time": 1792292000547,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000547,
+          "completed_ms": 1792292000547
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000547,
+          "completed_ms": 1792292000579
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000579,
+          "completed_ms": 1792292000580
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000580,
+          "completed_ms": 1792292000612
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292000615,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000615,
+          "completed_ms": 1792292000615
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000615,
+          "completed_ms": 1792292000654
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000654,
+          "completed_ms": 1792292000654
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000654,
+          "completed_ms": 1792292000683
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292000712,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000712,
+          "completed_ms": 1792292000712
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000712,
+          "completed_ms": 1792292000746
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000746,
+          "completed_ms": 1792292000746
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000746,
+          "completed_ms": 1792292000779
+        }
+      ]
+    },
+    {
+      "key": "Home",
+      "time": 1792292000780,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000780,
+          "completed_ms": 1792292000781
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000781,
+          "completed_ms": 1792292000813
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000813,
+          "completed_ms": 1792292000814
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000814,
+          "completed_ms": 1792292000846
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292000848,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000848,
+          "completed_ms": 1792292000849
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000849,
+          "completed_ms": 1792292000892
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000892,
+          "completed_ms": 1792292000893
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000893,
+          "completed_ms": 1792292000912
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292000945,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292000945,
+          "completed_ms": 1792292000946
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292000946,
+          "completed_ms": 1792292000979
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292000979,
+          "completed_ms": 1792292000980
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292000980,
+          "completed_ms": 1792292001013
+        }
+      ]
+    },
+    {
+      "key": "F6",
+      "time": 1792292001014,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292001014,
+          "completed_ms": 1792292001015
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292001015,
+          "completed_ms": 1792292001047
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292001047,
+          "completed_ms": 1792292001047
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292001047,
+          "completed_ms": 1792292001080
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292001082,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292001082,
+          "completed_ms": 1792292001082
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292001082,
+          "completed_ms": 1792292001127
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292001127,
+          "completed_ms": 1792292001128
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292001128,
+          "completed_ms": 1792292001163
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292001193,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292001193,
+          "completed_ms": 1792292001194
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292001194,
+          "completed_ms": 1792292001230
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292001230,
+          "completed_ms": 1792292001230
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292001230,
+          "completed_ms": 1792292001263
+        }
+      ]
+    },
+    {
+      "key": "Enter",
+      "time": 1792292001263,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292001263,
+          "completed_ms": 1792292001264
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292001264,
+          "completed_ms": 1792292001297
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292001297,
+          "completed_ms": 1792292001297
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292001297,
+          "completed_ms": 1792292001331
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292001332,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292001332,
+          "completed_ms": 1792292001332
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292001332,
+          "completed_ms": 1792292001377
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292001377,
+          "completed_ms": 1792292001378
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292001378,
+          "completed_ms": 1792292001412
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292001445,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292001445,
+          "completed_ms": 1792292001446
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292001446,
+          "completed_ms": 1792292001480
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292001480,
+          "completed_ms": 1792292001481
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292001481,
+          "completed_ms": 1792292001512
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292001513,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292001513,
+          "completed_ms": 1792292001514
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292001514,
+          "completed_ms": 1792292001549
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292001549,
+          "completed_ms": 1792292001549
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292001549,
+          "completed_ms": 1792292001578
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292001612,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292001612,
+          "completed_ms": 1792292001613
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292001613,
+          "completed_ms": 1792292001646
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292001646,
+          "completed_ms": 1792292001646
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292001646,
+          "completed_ms": 1792292001679
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292001764,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292001764,
+          "completed_ms": 1792292001764
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292001764,
+          "completed_ms": 1792292001805
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292001805,
+          "completed_ms": 1792292001806
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292001806,
+          "completed_ms": 1792292001834
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292001862,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292001862,
+          "completed_ms": 1792292001863
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292001863,
+          "completed_ms": 1792292001896
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292001896,
+          "completed_ms": 1792292001897
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292001897,
+          "completed_ms": 1792292001929
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292002014,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292002014,
+          "completed_ms": 1792292002015
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292002015,
+          "completed_ms": 1792292002056
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292002056,
+          "completed_ms": 1792292002057
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292002057,
+          "completed_ms": 1792292002084
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292002112,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292002112,
+          "completed_ms": 1792292002113
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292002113,
+          "completed_ms": 1792292002147
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292002147,
+          "completed_ms": 1792292002147
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292002147,
+          "completed_ms": 1792292002180
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292002265,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292002265,
+          "completed_ms": 1792292002265
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292002265,
+          "completed_ms": 1792292002310
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292002310,
+          "completed_ms": 1792292002311
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292002311,
+          "completed_ms": 1792292002345
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292002379,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292002379,
+          "completed_ms": 1792292002380
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292002380,
+          "completed_ms": 1792292002413
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292002413,
+          "completed_ms": 1792292002414
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292002414,
+          "completed_ms": 1792292002451
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292002453,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292002453,
+          "completed_ms": 1792292002453
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292002453,
+          "completed_ms": 1792292002482
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292002482,
+          "completed_ms": 1792292002482
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292002482,
+          "completed_ms": 1792292002512
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292002545,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292002545,
+          "completed_ms": 1792292002546
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292002546,
+          "completed_ms": 1792292002580
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292002580,
+          "completed_ms": 1792292002580
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292002580,
+          "completed_ms": 1792292002613
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292002699,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292002699,
+          "completed_ms": 1792292002700
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292002700,
+          "completed_ms": 1792292002743
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292002743,
+          "completed_ms": 1792292002743
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292002743,
+          "completed_ms": 1792292002762
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292002795,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292002795,
+          "completed_ms": 1792292002796
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292002796,
+          "completed_ms": 1792292002830
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292002830,
+          "completed_ms": 1792292002830
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292002830,
+          "completed_ms": 1792292002863
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292002948,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292002948,
+          "completed_ms": 1792292002948
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292002948,
+          "completed_ms": 1792292002993
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292002993,
+          "completed_ms": 1792292002994
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292002994,
+          "completed_ms": 1792292003028
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292003062,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292003062,
+          "completed_ms": 1792292003063
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292003063,
+          "completed_ms": 1792292003096
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292003096,
+          "completed_ms": 1792292003097
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292003097,
+          "completed_ms": 1792292003130
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292003132,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292003132,
+          "completed_ms": 1792292003132
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292003132,
+          "completed_ms": 1792292003175
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292003175,
+          "completed_ms": 1792292003176
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292003176,
+          "completed_ms": 1792292003212
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292003245,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292003245,
+          "completed_ms": 1792292003246
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292003246,
+          "completed_ms": 1792292003280
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292003280,
+          "completed_ms": 1792292003281
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292003281,
+          "completed_ms": 1792292003313
+        }
+      ]
+    },
+    {
+      "key": "Home",
+      "time": 1792292003398,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292003398,
+          "completed_ms": 1792292003399
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292003399,
+          "completed_ms": 1792292003430
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292003430,
+          "completed_ms": 1792292003431
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292003431,
+          "completed_ms": 1792292003464
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292003499,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292003499,
+          "completed_ms": 1792292003500
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292003500,
+          "completed_ms": 1792292003546
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292003546,
+          "completed_ms": 1792292003547
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292003547,
+          "completed_ms": 1792292003579
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292003612,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292003612,
+          "completed_ms": 1792292003613
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292003613,
+          "completed_ms": 1792292003646
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292003646,
+          "completed_ms": 1792292003646
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292003646,
+          "completed_ms": 1792292003680
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292003763,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292003763,
+          "completed_ms": 1792292003764
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292003764,
+          "completed_ms": 1792292003795
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292003795,
+          "completed_ms": 1792292003796
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292003796,
+          "completed_ms": 1792292003829
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292003862,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292003862,
+          "completed_ms": 1792292003863
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292003863,
+          "completed_ms": 1792292003896
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292003896,
+          "completed_ms": 1792292003897
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292003897,
+          "completed_ms": 1792292003929
+        }
+      ]
+    },
+    {
+      "key": "Tab",
+      "time": 1792292004030,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292004030,
+          "completed_ms": 1792292004030
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292004030,
+          "completed_ms": 1792292004063
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292004063,
+          "completed_ms": 1792292004063
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292004063,
+          "completed_ms": 1792292004096
+        }
+      ]
+    },
+    {
+      "key": " ",
+      "time": 1792292004096,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292004096,
+          "completed_ms": 1792292004097
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292004097,
+          "completed_ms": 1792292004129
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292004129,
+          "completed_ms": 1792292004130
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292004130,
+          "completed_ms": 1792292004163
+        }
+      ]
+    },
+    {
+      "key": "Tab",
+      "time": 1792292004163,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292004163,
+          "completed_ms": 1792292004163
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292004163,
+          "completed_ms": 1792292004196
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292004196,
+          "completed_ms": 1792292004197
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292004197,
+          "completed_ms": 1792292004230
+        }
+      ]
+    },
+    {
+      "key": "Home",
+      "time": 1792292004230,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292004230,
+          "completed_ms": 1792292004230
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292004230,
+          "completed_ms": 1792292004262
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292004262,
+          "completed_ms": 1792292004263
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292004263,
+          "completed_ms": 1792292004296
+        }
+      ]
+    },
+    {
+      "key": "ArrowDown",
+      "time": 1792292004296,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292004296,
+          "completed_ms": 1792292004297
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292004297,
+          "completed_ms": 1792292004330
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292004330,
+          "completed_ms": 1792292004330
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292004330,
+          "completed_ms": 1792292004363
+        }
+      ]
+    },
+    {
+      "key": "ArrowDown",
+      "time": 1792292004363,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292004363,
+          "completed_ms": 1792292004363
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292004363,
+          "completed_ms": 1792292004396
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292004396,
+          "completed_ms": 1792292004396
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292004396,
+          "completed_ms": 1792292004429
+        }
+      ]
+    },
+    {
+      "key": " ",
+      "time": 1792292004429,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292004429,
+          "completed_ms": 1792292004429
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292004429,
+          "completed_ms": 1792292004462
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292004462,
+          "completed_ms": 1792292004463
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292004463,
+          "completed_ms": 1792292004496
+        }
+      ]
+    },
+    {
+      "key": "Enter",
+      "time": 1792292004496,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292004496,
+          "completed_ms": 1792292004496
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292004496,
+          "completed_ms": 1792292004529
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292004529,
+          "completed_ms": 1792292004530
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292004530,
+          "completed_ms": 1792292004563
+        }
+      ]
+    },
+    {
+      "key": "Alt",
+      "time": 1792292005246,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292005246,
+          "completed_ms": 1792292005250
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292005250,
+          "completed_ms": 1792292005279
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292005279,
+          "completed_ms": 1792292005280
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292005280,
+          "completed_ms": 1792292005313
+        }
+      ]
+    },
+    {
+      "key": "y",
+      "time": 1792292005313,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292005313,
+          "completed_ms": 1792292005313
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292005313,
+          "completed_ms": 1792292005346
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292005346,
+          "completed_ms": 1792292005347
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292005347,
+          "completed_ms": 1792292005380
+        }
+      ]
+    },
+    {
+      "key": "t",
+      "time": 1792292005380,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292005380,
+          "completed_ms": 1792292005381
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292005381,
+          "completed_ms": 1792292005415
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292005415,
+          "completed_ms": 1792292005415
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292005415,
+          "completed_ms": 1792292005446
+        }
+      ]
+    },
+    {
+      "key": "F6",
+      "time": 1792292005446,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292005446,
+          "completed_ms": 1792292005447
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292005447,
+          "completed_ms": 1792292005480
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292005480,
+          "completed_ms": 1792292005481
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292005481,
+          "completed_ms": 1792292005514
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292005515,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292005515,
+          "completed_ms": 1792292005516
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292005516,
+          "completed_ms": 1792292005591
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292005591,
+          "completed_ms": 1792292005592
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292005592,
+          "completed_ms": 1792292005611
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292005646,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292005646,
+          "completed_ms": 1792292005646
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292005646,
+          "completed_ms": 1792292005679
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292005679,
+          "completed_ms": 1792292005680
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292005680,
+          "completed_ms": 1792292005713
+        }
+      ]
+    },
+    {
+      "key": "F6",
+      "time": 1792292005713,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292005713,
+          "completed_ms": 1792292005713
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292005713,
+          "completed_ms": 1792292005746
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292005746,
+          "completed_ms": 1792292005747
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292005747,
+          "completed_ms": 1792292005780
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292005781,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292005781,
+          "completed_ms": 1792292005782
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292005782,
+          "completed_ms": 1792292005829
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292005829,
+          "completed_ms": 1792292005830
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292005830,
+          "completed_ms": 1792292005862
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292005896,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292005896,
+          "completed_ms": 1792292005897
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292005897,
+          "completed_ms": 1792292005930
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292005930,
+          "completed_ms": 1792292005930
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292005930,
+          "completed_ms": 1792292005963
+        }
+      ]
+    },
+    {
+      "key": "F6",
+      "time": 1792292005963,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292005963,
+          "completed_ms": 1792292005964
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292005964,
+          "completed_ms": 1792292005996
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292005996,
+          "completed_ms": 1792292005997
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292005997,
+          "completed_ms": 1792292006029
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292006031,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006031,
+          "completed_ms": 1792292006031
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006031,
+          "completed_ms": 1792292006067
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006067,
+          "completed_ms": 1792292006067
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006067,
+          "completed_ms": 1792292006097
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292006129,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006129,
+          "completed_ms": 1792292006130
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006130,
+          "completed_ms": 1792292006163
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006163,
+          "completed_ms": 1792292006163
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006163,
+          "completed_ms": 1792292006196
+        }
+      ]
+    },
+    {
+      "key": "F6",
+      "time": 1792292006196,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006196,
+          "completed_ms": 1792292006196
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006196,
+          "completed_ms": 1792292006229
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006229,
+          "completed_ms": 1792292006230
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006230,
+          "completed_ms": 1792292006263
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292006264,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006264,
+          "completed_ms": 1792292006264
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006264,
+          "completed_ms": 1792292006304
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006304,
+          "completed_ms": 1792292006304
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006304,
+          "completed_ms": 1792292006331
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292006362,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006362,
+          "completed_ms": 1792292006363
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006363,
+          "completed_ms": 1792292006394
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006394,
+          "completed_ms": 1792292006395
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006395,
+          "completed_ms": 1792292006429
+        }
+      ]
+    },
+    {
+      "key": "F6",
+      "time": 1792292006429,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006429,
+          "completed_ms": 1792292006430
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006430,
+          "completed_ms": 1792292006463
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006463,
+          "completed_ms": 1792292006463
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006463,
+          "completed_ms": 1792292006496
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292006497,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006497,
+          "completed_ms": 1792292006497
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006497,
+          "completed_ms": 1792292006538
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006538,
+          "completed_ms": 1792292006539
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006539,
+          "completed_ms": 1792292006567
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292006595,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006595,
+          "completed_ms": 1792292006596
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006596,
+          "completed_ms": 1792292006629
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006629,
+          "completed_ms": 1792292006630
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006630,
+          "completed_ms": 1792292006663
+        }
+      ]
+    },
+    {
+      "key": "F6",
+      "time": 1792292006663,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006663,
+          "completed_ms": 1792292006664
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006664,
+          "completed_ms": 1792292006696
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006696,
+          "completed_ms": 1792292006697
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006697,
+          "completed_ms": 1792292006730
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292006731,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006731,
+          "completed_ms": 1792292006732
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006732,
+          "completed_ms": 1792292006779
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006779,
+          "completed_ms": 1792292006780
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006780,
+          "completed_ms": 1792292006812
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292006846,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006846,
+          "completed_ms": 1792292006847
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006847,
+          "completed_ms": 1792292006880
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006880,
+          "completed_ms": 1792292006881
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006881,
+          "completed_ms": 1792292006913
+        }
+      ]
+    },
+    {
+      "key": "Home",
+      "time": 1792292006913,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006913,
+          "completed_ms": 1792292006913
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006913,
+          "completed_ms": 1792292006946
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292006946,
+          "completed_ms": 1792292006947
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292006947,
+          "completed_ms": 1792292006980
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292006981,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292006981,
+          "completed_ms": 1792292006981
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292006981,
+          "completed_ms": 1792292007025
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292007025,
+          "completed_ms": 1792292007026
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292007026,
+          "completed_ms": 1792292007062
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292007094,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292007094,
+          "completed_ms": 1792292007094
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292007094,
+          "completed_ms": 1792292007130
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292007130,
+          "completed_ms": 1792292007130
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292007130,
+          "completed_ms": 1792292007163
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292007165,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292007165,
+          "completed_ms": 1792292007165
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292007165,
+          "completed_ms": 1792292007206
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292007206,
+          "completed_ms": 1792292007207
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292007207,
+          "completed_ms": 1792292007229
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292007479,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292007479,
+          "completed_ms": 1792292007480
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292007480,
+          "completed_ms": 1792292007513
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292007513,
+          "completed_ms": 1792292007513
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292007513,
+          "completed_ms": 1792292007546
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292007547,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292007547,
+          "completed_ms": 1792292007547
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292007547,
+          "completed_ms": 1792292007584
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292007584,
+          "completed_ms": 1792292007585
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292007585,
+          "completed_ms": 1792292007612
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292007646,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292007646,
+          "completed_ms": 1792292007646
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292007646,
+          "completed_ms": 1792292007680
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292007680,
+          "completed_ms": 1792292007680
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292007680,
+          "completed_ms": 1792292007713
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292007715,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292007715,
+          "completed_ms": 1792292007715
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292007715,
+          "completed_ms": 1792292007753
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292007753,
+          "completed_ms": 1792292007754
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292007754,
+          "completed_ms": 1792292007782
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292007812,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292007812,
+          "completed_ms": 1792292007813
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292007813,
+          "completed_ms": 1792292007847
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292007847,
+          "completed_ms": 1792292007847
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292007847,
+          "completed_ms": 1792292007878
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292008233,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292008233,
+          "completed_ms": 1792292008234
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292008234,
+          "completed_ms": 1792292008281
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292008281,
+          "completed_ms": 1792292008282
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292008282,
+          "completed_ms": 1792292008313
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292008346,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292008346,
+          "completed_ms": 1792292008347
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292008347,
+          "completed_ms": 1792292008380
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292008380,
+          "completed_ms": 1792292008381
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292008381,
+          "completed_ms": 1792292008413
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292008415,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292008415,
+          "completed_ms": 1792292008415
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292008415,
+          "completed_ms": 1792292008453
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292008453,
+          "completed_ms": 1792292008453
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292008453,
+          "completed_ms": 1792292008479
+        }
+      ]
+    },
+    {
+      "key": " ",
+      "time": 1792292008513,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292008513,
+          "completed_ms": 1792292008514
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292008514,
+          "completed_ms": 1792292008546
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292008546,
+          "completed_ms": 1792292008546
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292008546,
+          "completed_ms": 1792292008579
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292008812,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292008812,
+          "completed_ms": 1792292008813
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292008813,
+          "completed_ms": 1792292008846
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292008846,
+          "completed_ms": 1792292008847
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292008847,
+          "completed_ms": 1792292008879
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292008880,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292008880,
+          "completed_ms": 1792292008880
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292008880,
+          "completed_ms": 1792292008912
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292008912,
+          "completed_ms": 1792292008912
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292008912,
+          "completed_ms": 1792292008945
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292008979,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292008979,
+          "completed_ms": 1792292008979
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292008979,
+          "completed_ms": 1792292009013
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292009013,
+          "completed_ms": 1792292009013
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292009013,
+          "completed_ms": 1792292009046
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292009048,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292009048,
+          "completed_ms": 1792292009048
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292009048,
+          "completed_ms": 1792292009084
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292009084,
+          "completed_ms": 1792292009085
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292009085,
+          "completed_ms": 1792292009112
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292009229,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292009229,
+          "completed_ms": 1792292009230
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292009230,
+          "completed_ms": 1792292009266
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292009266,
+          "completed_ms": 1792292009266
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292009266,
+          "completed_ms": 1792292009304
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292009306,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292009306,
+          "completed_ms": 1792292009306
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292009306,
+          "completed_ms": 1792292009344
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292009344,
+          "completed_ms": 1792292009345
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292009345,
+          "completed_ms": 1792292009379
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292009413,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292009413,
+          "completed_ms": 1792292009413
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292009413,
+          "completed_ms": 1792292009446
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292009446,
+          "completed_ms": 1792292009447
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292009447,
+          "completed_ms": 1792292009480
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292009481,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292009481,
+          "completed_ms": 1792292009481
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292009481,
+          "completed_ms": 1792292009518
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292009518,
+          "completed_ms": 1792292009518
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292009518,
+          "completed_ms": 1792292009545
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292009663,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292009663,
+          "completed_ms": 1792292009664
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292009664,
+          "completed_ms": 1792292009700
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292009700,
+          "completed_ms": 1792292009700
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292009700,
+          "completed_ms": 1792292009731
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292009732,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292009732,
+          "completed_ms": 1792292009732
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292009732,
+          "completed_ms": 1792292009775
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292009775,
+          "completed_ms": 1792292009775
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292009775,
+          "completed_ms": 1792292009795
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292009829,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292009829,
+          "completed_ms": 1792292009830
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292009830,
+          "completed_ms": 1792292009863
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292009863,
+          "completed_ms": 1792292009864
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292009864,
+          "completed_ms": 1792292009897
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292009898,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292009898,
+          "completed_ms": 1792292009898
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292009898,
+          "completed_ms": 1792292009936
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292009936,
+          "completed_ms": 1792292009939
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292009939,
+          "completed_ms": 1792292009963
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292009996,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292009996,
+          "completed_ms": 1792292009996
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292009996,
+          "completed_ms": 1792292010030
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292010030,
+          "completed_ms": 1792292010030
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292010030,
+          "completed_ms": 1792292010063
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292010415,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292010415,
+          "completed_ms": 1792292010416
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292010416,
+          "completed_ms": 1792292010456
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292010456,
+          "completed_ms": 1792292010456
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292010456,
+          "completed_ms": 1792292010484
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292010512,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292010512,
+          "completed_ms": 1792292010513
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292010513,
+          "completed_ms": 1792292010546
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292010546,
+          "completed_ms": 1792292010547
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292010547,
+          "completed_ms": 1792292010580
+        }
+      ]
+    },
+    {
+      "key": "Home",
+      "time": 1792292010646,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292010646,
+          "completed_ms": 1792292010647
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292010647,
+          "completed_ms": 1792292010681
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292010681,
+          "completed_ms": 1792292010682
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292010682,
+          "completed_ms": 1792292010711
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292010712,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292010712,
+          "completed_ms": 1792292010715
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292010715,
+          "completed_ms": 1792292010744
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292010744,
+          "completed_ms": 1792292010745
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292010745,
+          "completed_ms": 1792292010801
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292010842,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292010842,
+          "completed_ms": 1792292010857
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292010857,
+          "completed_ms": 1792292010894
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292010894,
+          "completed_ms": 1792292010897
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292010897,
+          "completed_ms": 1792292010933
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292011176,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292011176,
+          "completed_ms": 1792292011230
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292011230,
+          "completed_ms": 1792292011329
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292011329,
+          "completed_ms": 1792292011337
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292011337,
+          "completed_ms": 1792292011409
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292011728,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292011728,
+          "completed_ms": 1792292011729
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292011729,
+          "completed_ms": 1792292011763
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292011763,
+          "completed_ms": 1792292011764
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292011764,
+          "completed_ms": 1792292011795
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292011796,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292011796,
+          "completed_ms": 1792292011796
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292011797,
+          "completed_ms": 1792292011828
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292011828,
+          "completed_ms": 1792292011829
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292011829,
+          "completed_ms": 1792292011862
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292011898,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292011898,
+          "completed_ms": 1792292011899
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292011899,
+          "completed_ms": 1792292011931
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292011931,
+          "completed_ms": 1792292011936
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292011936,
+          "completed_ms": 1792292012052
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292012315,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292012315,
+          "completed_ms": 1792292012315
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292012315,
+          "completed_ms": 1792292012345
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292012345,
+          "completed_ms": 1792292012346
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292012346,
+          "completed_ms": 1792292012380
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292012413,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292012413,
+          "completed_ms": 1792292012414
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292012414,
+          "completed_ms": 1792292012446
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292012446,
+          "completed_ms": 1792292012446
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292012446,
+          "completed_ms": 1792292012479
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292012481,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292012481,
+          "completed_ms": 1792292012481
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292012481,
+          "completed_ms": 1792292012513
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292012513,
+          "completed_ms": 1792292012514
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292012514,
+          "completed_ms": 1792292012546
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292012580,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292012580,
+          "completed_ms": 1792292012580
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292012580,
+          "completed_ms": 1792292012613
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292012613,
+          "completed_ms": 1792292012614
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292012614,
+          "completed_ms": 1792292012646
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292012731,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292012731,
+          "completed_ms": 1792292012731
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292012731,
+          "completed_ms": 1792292012760
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292012760,
+          "completed_ms": 1792292012761
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292012761,
+          "completed_ms": 1792292012795
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292012829,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292012829,
+          "completed_ms": 1792292012830
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292012830,
+          "completed_ms": 1792292012863
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292012863,
+          "completed_ms": 1792292012864
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292012864,
+          "completed_ms": 1792292012896
+        }
+      ]
+    },
+    {
+      "key": ".",
+      "time": 1792292012982,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292012982,
+          "completed_ms": 1792292012983
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292012983,
+          "completed_ms": 1792292013015
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292013015,
+          "completed_ms": 1792292013016
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292013016,
+          "completed_ms": 1792292013047
+        }
+      ]
+    },
+    {
+      "key": "Escape",
+      "time": 1792292013079,
+      "phases": [
+        {
+          "phase": "keyDown",
+          "time": 1792292013079,
+          "completed_ms": 1792292013080
+        },
+        {
+          "phase": "frames_after_keyDown",
+          "time": 1792292013080,
+          "completed_ms": 1792292013113
+        },
+        {
+          "phase": "keyUp",
+          "time": 1792292013113,
+          "completed_ms": 1792292013114
+        },
+        {
+          "phase": "frames_after_keyUp",
+          "time": 1792292013114,
+          "completed_ms": 1792292013147
+        }
+      ]
+    }
+  ],
+  "diagnostics": {
+    "failure": null,
+    "pending": [],
+    "held_keys": [],
+    "visibility_focus": {
+      "status": "passed",
+      "started_ms": 1792292013148,
+      "elapsed_ms": 1,
+      "value": {
+        "visibility": "visible",
+        "hidden": false,
+        "focused": true,
+        "activeElement": {
+          "tag": "CANVAS",
+          "id": "canvas"
+        },
+        "readyState": "complete"
+      }
+    },
+    "debugger_pause": {
+      "status": "passed",
+      "started_ms": 1792292013149,
+      "elapsed_ms": 303,
+      "value": [
+        {
+          "method": "Debugger.paused",
+          "params": {
+            "callFrames": [
+              {
+                "callFrameId": "-3041871837200531256.2.0",
+                "functionName": "MainLoop_runner",
+                "functionLocation": {
+                  "scriptId": "9",
+                  "lineNumber": 4198,
+                  "columnNumber": 48
+                },
+                "location": {
+                  "scriptId": "9",
+                  "lineNumber": 4199,
+                  "columnNumber": 8
+                },
+                "url": "",
+                "scopeChain": [
+                  {
+                    "type": "local",
+                    "object": {
+                      "type": "object",
+                      "className": "Object",
+                      "description": "Object",
+                      "objectId": "-3041871837200531256.2.1"
+                    },
+                    "name": "MainLoop_runner",
+                    "startLocation": {
+                      "scriptId": "9",
+                      "lineNumber": 4198,
+                      "columnNumber": 48
+                    },
+                    "endLocation": {
+                      "scriptId": "9",
+                      "lineNumber": 4246,
+                      "columnNumber": 7
+                    }
+                  },
+                  {
+                    "type": "closure",
+                    "object": {
+                      "type": "object",
+                      "className": "Object",
+                      "description": "Object",
+                      "objectId": "-3041871837200531256.2.2"
+                    },
+                    "name": "setMainLoop",
+                    "startLocation": {
+                      "scriptId": "9",
+                      "lineNumber": 4181,
+                      "columnNumber": 20
+                    },
+                    "endLocation": {
+                      "scriptId": "9",
+                      "lineNumber": 4262,
+                      "columnNumber": 5
+                    }
+                  },
+                  {
+                    "type": "block",
+                    "object": {
+                      "type": "object",
+                      "className": "Object",
+                      "description": "Object",
+                      "objectId": "-3041871837200531256.2.3"
+                    },
+                    "startLocation": {
+                      "scriptId": "9",
+                      "lineNumber": 0,
+                      "columnNumber": 0
+                    },
+                    "endLocation": {
+                      "scriptId": "9",
+                      "lineNumber": 10591,
+                      "columnNumber": 0
+                    }
+                  },
+                  {
+                    "type": "global",
+                    "object": {
+                      "type": "object",
+                      "className": "Window",
+                      "description": "Window",
+                      "objectId": "-3041871837200531256.2.4"
+                    }
+                  }
+                ],
+                "this": {
+                  "type": "undefined"
+                },
+                "canBeRestarted": true
+              }
+            ],
+            "reason": "other",
+            "hitBreakpoints": []
+          }
+        }
+      ]
+    },
+    "debugger_resume": {
+      "status": "passed",
+      "started_ms": 1792292013452,
+      "elapsed_ms": 1,
+      "value": {}
+    },
+    "screenshot": {
+      "status": "passed",
+      "started_ms": 1792292013453,
+      "elapsed_ms": 89,
+      "value": "failed.png"
+    }
+  }
+}

@@ -1,0 +1,439 @@
+{
+  "purpose": "Compact Sort/Steps checkpoint with corrected untransformed/transformed Wasm rail and independent frozen-reference measurement provenance. The preliminary365 run adds no final scope and is not duplicated.",
+  "source_root": "/Users/h2o/dev/duxcel",
+  "retained": [
+    {
+      "source": "tests/results/runs/20261018T024549-fast-93411/summary.json",
+      "retained": "sort/summary.json",
+      "bytes": 3498,
+      "sha256": "ef1af6962e1f1f6a459395770899e771e746a6af8ee0ee319abaeedbf3a74f8b",
+      "source_mtime_ns": 1792291560478370406,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T024549-fast-93411/build-headless.txt",
+      "retained": "sort/build-headless.txt",
+      "bytes": 1968,
+      "sha256": "4f5eacfafa3fec1d698bc56fd7434a41e6523189c092bfa674184310cdd91632",
+      "source_mtime_ns": 1792291555628950444,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T024549-fast-93411/sortview_input-release.txt",
+      "retained": "sort/sortview_input-release.txt",
+      "bytes": 218,
+      "sha256": "d82bafc6e7dd91c6ff79fd05ec5ea44fba21f97f56d270c0fe47c73382501162",
+      "source_mtime_ns": 1792291558799894042,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T024549-fast-93411/sortview_input-sanitize.txt",
+      "retained": "sort/sortview_input-sanitize.txt",
+      "bytes": 224,
+      "sha256": "08ce68b61996ae4dfca2c93bee234132ebae97ee8cd1d6c249a80be9e79cc617",
+      "source_mtime_ns": 1792291559821874515,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T024549-fast-93411/sortview_input_review-release.txt",
+      "retained": "sort/sortview_input_review-release.txt",
+      "bytes": 225,
+      "sha256": "dff1b956e138cf562083cf7112f3427831804e446b6cebd8f8c0bb5571fbb590",
+      "source_mtime_ns": 1792291559128092695,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T024549-fast-93411/sortview_input_review-sanitize.txt",
+      "retained": "sort/sortview_input_review-sanitize.txt",
+      "bytes": 231,
+      "sha256": "25e667e9e55183733584d61fe326e046c9bc68f24e4a005f4822bff7b6a1f60a",
+      "source_mtime_ns": 1792291560280878996,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025041-review-95647/summary.json",
+      "retained": "native-review/summary.json",
+      "bytes": 7410,
+      "sha256": "aa3288783ead2b3db2b9a0b57ec84aae736fce7c3edbac9e399abc5d19ce2c3a",
+      "source_mtime_ns": 1792291886851587821,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025041-review-95647/release.log",
+      "retained": "native-review/release.log",
+      "bytes": 164188,
+      "sha256": "9eda958552553f87a33961c33b68045ebaefa383f37f2e4b77cb66faae42043a",
+      "source_mtime_ns": 1792291862072060056,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025041-review-95647/sanitize.log",
+      "retained": "native-review/sanitize.log",
+      "bytes": 164421,
+      "sha256": "88269ab04d0c0244f62ccf38793a0a08cd51c2617e95e033765721da7a5b20e0",
+      "source_mtime_ns": 1792291886492884590,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025041-review-95647/background.log",
+      "retained": "native-review/background.log",
+      "bytes": 2468,
+      "sha256": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
+      "source_mtime_ns": 1792291843834328154,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025313-browser-96394/summary.json",
+      "retained": "steps-red/summary.json",
+      "bytes": 38332,
+      "sha256": "03b8b3a250e07040aeb0b5b22e46e273d8d58da7f095daa83927ec020c4e4e28",
+      "source_mtime_ns": 1792292015751040634,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025313-browser-96394/driver.txt",
+      "retained": "steps-red/driver.txt",
+      "bytes": 536,
+      "sha256": "23a23ade79ba85994b870edc3456dfef8af966b781a0b0cbaf20876532807859",
+      "source_mtime_ns": 1792292015568892095,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025313-browser-96394/cleanup.json",
+      "retained": "steps-red/cleanup.json",
+      "bytes": 207,
+      "sha256": "5e490ab2350f53f5f11fe3de1ac522b286c19cd8b5320a2d0a7d768bf9bad673",
+      "source_mtime_ns": 1792292013672361264,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025431-browser-96835/summary.json",
+      "retained": "feedback-green/summary.json",
+      "bytes": 36628,
+      "sha256": "f19e96aaab3e4306706f9f1d444581580e63489df0a01d7a39a3b63ef23861ff",
+      "source_mtime_ns": 1792292131617578968,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025431-browser-96835/driver.txt",
+      "retained": "feedback-green/driver.txt",
+      "bytes": 183,
+      "sha256": "ac576ae17d3a86b9d1a6fb7200d5063017a234d78f72ca643a63a50b0c78ef36",
+      "source_mtime_ns": 1792292131339159442,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025431-browser-96835/cleanup.json",
+      "retained": "feedback-green/cleanup.json",
+      "bytes": 207,
+      "sha256": "501ae22b6f346898f8d3ed1b25b7366cafb61c7f59ad62792177c742758b5736",
+      "source_mtime_ns": 1792292130088132457,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025810-browser-98324/summary.json",
+      "retained": "steps-focused/summary.json",
+      "bytes": 36593,
+      "sha256": "e6165ef35e60899cab3d62b9ee9ac9e1b5b34c22316f554d06def82cc6c52c4f",
+      "source_mtime_ns": 1792292315131013027,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025810-browser-98324/driver.txt",
+      "retained": "steps-focused/driver.txt",
+      "bytes": 182,
+      "sha256": "c773f84b727f161dbdeeb5b1fb3547113b53a4b47306039faea7e87984257db0",
+      "source_mtime_ns": 1792292314863833304,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025810-browser-98324/cleanup.json",
+      "retained": "steps-focused/cleanup.json",
+      "bytes": 207,
+      "sha256": "5e6202bfdac2aaf40cf14bedd36d0b12a588a7ac763425ef9d1128a2c4dbb724",
+      "source_mtime_ns": 1792292313321743475,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025313-browser-96394/result.json",
+      "retained": "steps-red/result.json",
+      "bytes": 91640,
+      "sha256": "e1e0fb263ea5248736f6f40f593cd0f24719ac16b9127bd487bae15b0da4d154",
+      "source_mtime_ns": 1792292013551842214,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025313-browser-96394/failed.png",
+      "retained": "images/steps-old-build-failed.png",
+      "bytes": 172735,
+      "sha256": "28297ca64340ebf3c760ccd2dbe75d0327e0e664f23d7ee6821aafe0d53f9f80",
+      "source_mtime_ns": 1792292013542572922,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025810-browser-98324/steps-clip.json",
+      "retained": "steps-focused/steps-clip.json",
+      "bytes": 95722,
+      "sha256": "40c9cd7e35742527dc87aa25aa17d7b34ba3f136d5caf298b9f2316f9abfadab",
+      "source_mtime_ns": 1792292312808426744,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025810-browser-98324/feedback-short-steps-1.png",
+      "retained": "images/steps-short-100.png",
+      "bytes": 178590,
+      "sha256": "0eb8bde0454a0d0dfeb5de5d500895462b5fc22a0c331019fd1c8c2453242391",
+      "source_mtime_ns": 1792292302699784869,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T025810-browser-98324/feedback-short-steps-1.5.png",
+      "retained": "images/steps-short-150.png",
+      "bytes": 294417,
+      "sha256": "22c89ce15d6e6e3050303ea84f2177a9076aea85dfc66f6010b669cf5fd956a3",
+      "source_mtime_ns": 1792292306173731522,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T031602-browser-3917/summary.json",
+      "retained": "rail-untransformed/summary.json",
+      "bytes": 36709,
+      "sha256": "e3b96d43f41267c9f53501302c7ef03db615a9c793051023a99c521d79fb2ed3",
+      "source_mtime_ns": 1792293403197590806,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T031602-browser-3917/driver.txt",
+      "retained": "rail-untransformed/driver.txt",
+      "bytes": 181,
+      "sha256": "48e54a564284bd20eb1042e2692705e9aff17f056917a7f5d7b4b9e54f15dd2e",
+      "source_mtime_ns": 1792293402927830880,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T031602-browser-3917/cleanup.json",
+      "retained": "rail-untransformed/cleanup.json",
+      "bytes": 205,
+      "sha256": "201871487bd115b9cc3b96421f4c575986a5f99ce5b5c1c15c448caa4ca06a16",
+      "source_mtime_ns": 1792293401305922304,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T030846-reference-rail-1269/manifest.json",
+      "retained": "rail-reference/manifest.json",
+      "bytes": 5066,
+      "sha256": "3a530675ab5935de2d932092eb9e22b648403a3e3862d9dbc9b9b89ac634dc4f",
+      "source_mtime_ns": 1792292949206555815,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T030846-reference-rail-1269/driver.txt",
+      "retained": "rail-reference/driver.txt",
+      "bytes": 135,
+      "sha256": "b71202b4db001cfd405073403094797f46b9df9f559ea875ff52f5a16d724b5d",
+      "source_mtime_ns": 1792292946742669183,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T030846-reference-rail-1269/cleanup.json",
+      "retained": "rail-reference/cleanup.json",
+      "bytes": 98,
+      "sha256": "d8ca102c87781cd8028d47414a8c7a2aaee454b8694c649f06b0f300f0ac665e",
+      "source_mtime_ns": 1792292947002468588,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "build/current-review-service.json",
+      "retained": "service-unchanged.json",
+      "bytes": 690,
+      "sha256": "96c503c4d75655b7ed175387bd50c20b15bffd1a08eead320d3864038941914d",
+      "source_mtime_ns": 1792291466319038541,
+      "method": "exact unchanged service metadata snapshot; not a new service/queue acceptance run"
+    },
+    {
+      "source": "build/current-ui-package.json",
+      "retained": "package.json",
+      "bytes": 1226,
+      "sha256": "dc08fee6a57917f48154728648adc9df42469e6681caf798ad6d29cce719a68f",
+      "source_mtime_ns": 1792293737916680097,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T032115-browser-4702/summary.json",
+      "retained": "rail-transformed/summary.json",
+      "bytes": 36732,
+      "sha256": "5762f714fb1428e81519f733cfd63985d79a8d1308eb4248e9ea5a37ae15547b",
+      "source_mtime_ns": 1792293716706186590,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T032115-browser-4702/driver.txt",
+      "retained": "rail-transformed/driver.txt",
+      "bytes": 181,
+      "sha256": "6af02e9add829e52f06d04f18bf785c181747a2604d8ee4c6483e4a7b0d0c3f7",
+      "source_mtime_ns": 1792293716487481592,
+      "method": "exact byte copy"
+    },
+    {
+      "source": "tests/results/runs/20261018T032115-browser-4702/cleanup.json",
+      "retained": "rail-transformed/cleanup.json",
+      "bytes": 205,
+      "sha256": "44ce610070dbe6c00d716c7c494e017da041c4a595d6f7799e5261179372bb8c",
+      "source_mtime_ns": 1792293714792674517,
+      "method": "exact byte copy"
+    }
+  ],
+  "derived": [
+    {
+      "retained": "run-inventory.json",
+      "inputs": [
+        {
+          "source": "tests/results/runs/20261018T024549-fast-93411/summary.json",
+          "sha256": "ef1af6962e1f1f6a459395770899e771e746a6af8ee0ee319abaeedbf3a74f8b"
+        },
+        {
+          "source": "tests/results/runs/20261018T025041-review-95647/summary.json",
+          "sha256": "aa3288783ead2b3db2b9a0b57ec84aae736fce7c3edbac9e399abc5d19ce2c3a"
+        },
+        {
+          "source": "tests/results/runs/20261018T025313-browser-96394/summary.json",
+          "sha256": "03b8b3a250e07040aeb0b5b22e46e273d8d58da7f095daa83927ec020c4e4e28"
+        },
+        {
+          "source": "tests/results/runs/20261018T025431-browser-96835/summary.json",
+          "sha256": "f19e96aaab3e4306706f9f1d444581580e63489df0a01d7a39a3b63ef23861ff"
+        },
+        {
+          "source": "tests/results/runs/20261018T025810-browser-98324/summary.json",
+          "sha256": "e6165ef35e60899cab3d62b9ee9ac9e1b5b34c22316f554d06def82cc6c52c4f"
+        },
+        {
+          "source": "tests/results/runs/20261018T025313-browser-96394/result.json",
+          "sha256": "e1e0fb263ea5248736f6f40f593cd0f24719ac16b9127bd487bae15b0da4d154"
+        },
+        {
+          "source": "tests/results/runs/20261018T025431-browser-96835/result.json",
+          "sha256": "418d52b97161195233656112800caa3ed36fb61b2a465b95434e8bf48b2be0fd"
+        },
+        {
+          "source": "tests/results/runs/20261018T025810-browser-98324/result.json",
+          "sha256": "f67df956a0a750935254c7683505bf7ba1bd2c92991d65a822f9747b5229dc70"
+        },
+        {
+          "source": "tests/results/runs/20261018T031602-browser-3917/summary.json",
+          "sha256": "e3b96d43f41267c9f53501302c7ef03db615a9c793051023a99c521d79fb2ed3"
+        },
+        {
+          "source": "tests/results/runs/20261018T031602-browser-3917/result.json",
+          "sha256": "fcc59ce97bdbe5350b7685b440b16f9ee028789a40b5ef61f1276b9064d6fa04"
+        },
+        {
+          "source": "tests/results/runs/20261018T030846-reference-rail-1269/manifest.json",
+          "sha256": "3a530675ab5935de2d932092eb9e22b648403a3e3862d9dbc9b9b89ac634dc4f"
+        },
+        {
+          "source": "tests/results/runs/20261018T030846-reference-rail-1269/reference.json",
+          "sha256": "1c8f3a6ff4dc532598a580abe44f369848cd00107a2a93a69e9289071440f876"
+        },
+        {
+          "source": "tests/results/runs/20261018T032115-browser-4702/summary.json",
+          "sha256": "5762f714fb1428e81519f733cfd63985d79a8d1308eb4248e9ea5a37ae15547b"
+        },
+        {
+          "source": "tests/results/runs/20261018T032115-browser-4702/result.json",
+          "sha256": "dba50f32d8582f5dad39e7d19bd61802468668c5f40ce8cd1353a9e53b1f9e11"
+        }
+      ]
+    },
+    {
+      "retained": "feedback-green/measurements.json",
+      "source": "tests/results/runs/20261018T025431-browser-96835/feedback-review.json",
+      "sha256": "056f53f0eb30434891694017dc5d280f4099ed97ce2bb4d951398408da9417b0"
+    },
+    {
+      "retained": "rail-untransformed/measurements.json",
+      "source": "tests/results/runs/20261018T031602-browser-3917/pane-rail.json",
+      "sha256": "7d664edc71f105f48cf5fb97de8c1f4d666272a2443ccee1e4019c26804c09d8",
+      "extra_inputs": [
+        {
+          "source": "tests/results/runs/20261018T031602-browser-3917/pane-rail-wide-100-expand-bounds.json",
+          "sha256": "c22df77761c90d364d10b1e0c4a450d0042e2e7c121003dc08b6c16c0e20fac5"
+        },
+        {
+          "source": "tests/results/runs/20261018T031602-browser-3917/pane-rail-wide-100-dismiss-bounds.json",
+          "sha256": "c5215c57a213f98fe7b573e3c2328e1bb88c08c7b37c6fb2449614e244c7ffc3"
+        },
+        {
+          "source": "tests/results/runs/20261018T031602-browser-3917/pane-rail-wide-150-expand-bounds.json",
+          "sha256": "97d5c82c06802e2c4a168b205adb0826c99a4359633cb5ac90ce97eeb349f0e1"
+        },
+        {
+          "source": "tests/results/runs/20261018T031602-browser-3917/pane-rail-wide-150-dismiss-bounds.json",
+          "sha256": "7e5101e9798f0908c1870bacd9b6504395f06b880e6d215a235de0b6e6067340"
+        },
+        {
+          "source": "tests/results/runs/20261018T031602-browser-3917/pane-rail-narrow-100-expand-bounds.json",
+          "sha256": "a69079b14c6a37f000e962a9c84c512222ccf441d1e3f3d9654de423dbe9cdb6"
+        },
+        {
+          "source": "tests/results/runs/20261018T031602-browser-3917/pane-rail-narrow-100-dismiss-bounds.json",
+          "sha256": "d509616c8a2cc8e9a413ccfad9df8479a60825b8573ab7c2bcd4eb9aa677ef5f"
+        },
+        {
+          "source": "tests/results/runs/20261018T031602-browser-3917/pane-rail-narrow-150-expand-bounds.json",
+          "sha256": "5ad92b9394b32d1e59a893f3cdacf4e30ec408cc2099311c155a87d535d04b9a"
+        },
+        {
+          "source": "tests/results/runs/20261018T031602-browser-3917/pane-rail-narrow-150-dismiss-bounds.json",
+          "sha256": "1c7d8396f5802fc2b1aa2014b9f84a998c358c49ba622eda41559dec89956f36"
+        }
+      ]
+    },
+    {
+      "retained": "rail-reference/measurements.json",
+      "source": "tests/results/runs/20261018T030846-reference-rail-1269/reference.json",
+      "sha256": "1c8f3a6ff4dc532598a580abe44f369848cd00107a2a93a69e9289071440f876",
+      "extra_inputs": []
+    },
+    {
+      "retained": "rail-transformed/measurements.json",
+      "source": "tests/results/runs/20261018T032115-browser-4702/pane-rail.json",
+      "sha256": "c532affe29f1eef72e433a6be8d6155b1c0ce0ab18a814d72b557bef5b8b7a4b",
+      "extra_inputs": [
+        {
+          "source": "tests/results/runs/20261018T032115-browser-4702/pane-rail-wide-100-expand-bounds.json",
+          "sha256": "0b0b7c31891e221919b3e4575dd680de9d5c173d7482722919110467c9d7ca62"
+        },
+        {
+          "source": "tests/results/runs/20261018T032115-browser-4702/pane-rail-wide-100-dismiss-bounds.json",
+          "sha256": "a2ed6eba1ba0b0f298b93eaed3010a6c4a252df24622c423cf1cc654cd8e8238"
+        },
+        {
+          "source": "tests/results/runs/20261018T032115-browser-4702/pane-rail-wide-150-expand-bounds.json",
+          "sha256": "8bd0e3cdd5956fbec0dab797c095548097d4e3d91e90061a728ebdc3118aa8ff"
+        },
+        {
+          "source": "tests/results/runs/20261018T032115-browser-4702/pane-rail-wide-150-dismiss-bounds.json",
+          "sha256": "c5dab4d2d4ad88f2a2682139083c028d4d51f42717d853ce3ef65e712380d840"
+        },
+        {
+          "source": "tests/results/runs/20261018T032115-browser-4702/pane-rail-narrow-100-expand-bounds.json",
+          "sha256": "0db678cbc17a338c32c54021481d954a431eee348cfcd344ec949525596281d2"
+        },
+        {
+          "source": "tests/results/runs/20261018T032115-browser-4702/pane-rail-narrow-100-dismiss-bounds.json",
+          "sha256": "4edd557fcc568dd11099be0024b933824d8db1ce95ab0e25592865fe8811332f"
+        },
+        {
+          "source": "tests/results/runs/20261018T032115-browser-4702/pane-rail-narrow-150-expand-bounds.json",
+          "sha256": "468c5a5c42f23f0b76033b999808a383a139611c6be86b872da18b1152fe2945"
+        },
+        {
+          "source": "tests/results/runs/20261018T032115-browser-4702/pane-rail-narrow-150-dismiss-bounds.json",
+          "sha256": "def19dc76cc77f86ff02c300c087163dc1af0a359f0220375f28b5c1b4b335c8"
+        }
+      ]
+    }
+  ],
+  "excluded": "No duplicate native filter/File report bundles, generated owner archives, full browser event streams, raw excluded-pixel arrays, reference PNG sets or older successful runs. Read-only curation launches no compiler, engine, app or browser."
+}

@@ -1,0 +1,92 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T02:45:49.506956+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "edit": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "bc047a6d5d4b379f820eb1a0dbaba858a3bd25c7",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "d0ab018c8bed03d09aa900615ce8f9eda53eba7841082d3e614e12137a64b562",
+    "source_files": 268
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_sortview_input",
+        "tests/test_sortview_input_review",
+        "tests/test_sortview_input-debug",
+        "tests/test_sortview_input_review-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T024549-fast-93411/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 8.447
+    },
+    {
+      "name": "sortview_input-release",
+      "command": [
+        "./tests/test_sortview_input"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T024549-fast-93411/sortview_input-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.66
+    },
+    {
+      "name": "sortview_input_review-release",
+      "command": [
+        "./tests/test_sortview_input_review"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T024549-fast-93411/sortview_input_review-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.322
+    },
+    {
+      "name": "sortview_input-sanitize",
+      "command": [
+        "./tests/test_sortview_input-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T024549-fast-93411/sortview_input-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.762
+    },
+    {
+      "name": "sortview_input_review-sanitize",
+      "command": [
+        "./tests/test_sortview_input_review-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T024549-fast-93411/sortview_input_review-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.466
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_sortview_input": "dc18dbc4a37b22a5ca3cb893b3d26601de85260b4bbc4ac160cf77e93a9c5d07",
+    "/Users/h2o/dev/duxcel/tests/test_sortview_input_review": "c7476ffe63adf9348baaf9a22f7a98dbcc0e125ae31e00dc2693e7679892ae67",
+    "/Users/h2o/dev/duxcel/tests/test_sortview_input-debug": "0a3a0cf4636dff4dd375595c65807ca9937e64f5d7e4321e80d44382c9f17fb1",
+    "/Users/h2o/dev/duxcel/tests/test_sortview_input_review-debug": "ee54437d7477b046c5f3cd670a988cfeba6a2e353873ff7888f6dfe0bf6b30f2"
+  },
+  "elapsed_seconds": 10.784,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_sortview_input": "dc18dbc4a37b22a5ca3cb893b3d26601de85260b4bbc4ac160cf77e93a9c5d07",
+    "/Users/h2o/dev/duxcel/tests/test_sortview_input_review": "c7476ffe63adf9348baaf9a22f7a98dbcc0e125ae31e00dc2693e7679892ae67",
+    "/Users/h2o/dev/duxcel/tests/test_sortview_input-debug": "0a3a0cf4636dff4dd375595c65807ca9937e64f5d7e4321e80d44382c9f17fb1",
+    "/Users/h2o/dev/duxcel/tests/test_sortview_input_review-debug": "ee54437d7477b046c5f3cd670a988cfeba6a2e353873ff7888f6dfe0bf6b30f2"
+  },
+  "finished_utc": "2026-10-18T02:46:00.478096+00:00"
+}
