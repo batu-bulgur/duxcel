@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#ifdef DUXCEL_DEV_REVIEW
+#include "../dev/review_input.h"
+#endif
 void text_lines_free(TextLines *l) { free(l->offsets); memset(l,0,sizeof(*l)); }
 void text_lines_layout_sized(TextLines *l,UIContext *u,const char *text,float width,float size) {
     l->width=width; l->scale=u->scale; l->font_size=size; l->raster_size=u->raster_size; l->limited=false;
@@ -29,8 +32,12 @@ void text_lines_layout_sized(TextLines *l,UIContext *u,const char *text,float wi
 void text_lines_layout(TextLines *l,UIContext *u,const char *text,float width) { text_lines_layout_sized(l,u,text,width,13); }
 void text_lines_draw_sized(const TextLines *l,UIContext *u,const char *text,size_t first,Rectangle r,float size,float line_height,Color color) {
     float height=line_height*u->scale; size_t visible=(size_t)ceilf(r.height/height);
-    ui_set_clip(u,r);
+    Rectangle parent=u->clip,clip=u->clipping ? GetCollisionRec(r,parent) : r; bool clipped=u->clipping;
+    if (clip.width<=0 || clip.height<=0) return;
+    ui_set_clip(u,clip);
     for (size_t row=0;row<visible && first+row<l->count;row++) {
+        Rectangle line_bounds={r.x,r.y+row*height,r.width,height};
+        if (line_bounds.y+line_bounds.height<=clip.y || line_bounds.y>=clip.y+clip.height) continue;
         size_t at=first+row,start=l->offsets[at],end=l->offsets[at+1];
         while (end>start && (text[end-1]=='\r' || text[end-1]=='\n')) end--;
         char line[4096]; size_t n=0;
@@ -38,9 +45,9 @@ void text_lines_draw_sized(const TextLines *l,UIContext *u,const char *text,size
             if (text[p]=='\t') { memcpy(line+n,"    ",4); n+=4; }
             else line[n++]=text[p];
         }
-        line[n]=0; ui_label(u,line,(Rectangle){r.x,r.y+row*height,r.width,height},size,color,false,UI_REGULAR);
+        line[n]=0; ui_label(u,line,line_bounds,size,color,false,UI_REGULAR);
     }
-    ui_clear_clip(u);
+    u->clip=parent; u->clipping=clipped;
 }
 void text_lines_draw(const TextLines *l,UIContext *u,const char *text,size_t first,Rectangle r) { text_lines_draw_sized(l,u,text,first,r,13,21,UI_TEXT); }
 void text_editor_free(TextEditor *e) { text_lines_free(&e->lines); memset(e,0,sizeof(*e)); }
@@ -68,64 +75,77 @@ static size_t editor_hit(TextEditor *e,TextInput *in,UIContext *u,Rectangle r,Ve
 }
 bool text_editor_draw(TextEditor *e,TextInput *in,UIContext *u,Rectangle r,bool active) {
     float s=u->scale,line_height=21*s; Rectangle content={r.x+10*s,r.y+8*s,fmaxf(1,r.width-30*s),fmaxf(1,r.height-16*s)};
-    in->multiline=true;
-    if (active) input_update(in);
+    Rectangle parent=u->clip,area=u->clipping ? GetCollisionRec(r,parent) : r; bool clipped=u->clipping;
+    Rectangle content_clip=GetCollisionRec(content,area);
+    bool interactive=!u->pointer_blocked;
+#ifdef DUXCEL_DEV_REVIEW
+    interactive=interactive && !dx_review_input_blocked();
+#endif
+    if (interactive) { in->multiline=true; if (active) input_update(in); }
     if (!e->lines.offsets || e->revision!=in->revision || e->lines.width!=content.width || e->lines.scale!=s || e->lines.raster_size!=u->raster_size) {
         text_lines_layout(&e->lines,u,in->text ? in->text : "",content.width); e->revision=in->revision;
     }
     size_t cursor=in->select_all ? in->length : in->cursor;
     int visible=(int)(content.height/line_height); if (visible<1) visible=1;
     const int keys[]={KEY_UP,KEY_DOWN,KEY_PAGE_UP,KEY_PAGE_DOWN};
-    for (size_t i=0;active && i<sizeof(keys)/sizeof(*keys);i++) if (ui_key(keys[i])) {
+    for (size_t i=0;interactive && active && i<sizeof(keys)/sizeof(*keys);i++) if (ui_key(keys[i])) {
         size_t row=editor_line(&e->lines,cursor); int target=(int)row+(keys[i]==KEY_UP ? -1 : keys[i]==KEY_DOWN ? 1 : keys[i]==KEY_PAGE_UP ? -visible : visible);
         if (target<0) target=0; if ((size_t)target>=e->lines.count) target=(int)e->lines.count-1;
         size_t next=ui_key_shortcut(keys[i]) ? (keys[i]==KEY_UP || keys[i]==KEY_PAGE_UP ? 0 : in->length) : editor_hit_x(&e->lines,u,in->text,(size_t)target,editor_width(u,in->text,e->lines.offsets[row],cursor));
         if (!ui_key_shift(keys[i])) in->anchor=next; else if (in->select_all) in->anchor=0;
         in->cursor=cursor=next; in->select_all=false; in->edit_kind=0; break;
     }
-    if (active && (e->revealed_cursor!=cursor || e->revealed_revision!=in->revision)) {
+    if (interactive && active && (e->revealed_cursor!=cursor || e->revealed_revision!=in->revision)) {
         size_t row=editor_line(&e->lines,cursor);
         if (row<(size_t)e->scroll) e->scroll=(int)row; else if (row>=(size_t)(e->scroll+visible)) e->scroll=(int)row-visible+1;
     }
-    Vector2 mouse=GetMousePosition();
-    if (CheckCollisionPointRec(mouse,r)) { u->cursor=MOUSE_CURSOR_IBEAM; e->scroll+=ui_scroll_steps(&e->wheel,-GetMouseWheelMoveV().y*3); }
+    Vector2 mouse=ui_mouse_position();
+    if (interactive && area.width>0 && area.height>0 && CheckCollisionPointRec(mouse,area)) { u->cursor=MOUSE_CURSOR_IBEAM; e->scroll+=ui_scroll_steps(&e->wheel,-GetMouseWheelMoveV().y*3); }
     int maximum=(int)e->lines.count-visible; if (maximum<0) maximum=0;
-    if (e->scroll<0) e->scroll=0; if (e->scroll>maximum) e->scroll=maximum;
-    DxPointerGesture gesture={0}; bool replay=ui_take_left_gesture_from(content,&gesture);
+    int scroll=e->scroll<0 ? 0 : e->scroll>maximum ? maximum : e->scroll;
+    if (interactive) e->scroll=scroll;
+    DxPointerGesture gesture={0}; bool replay=interactive && content_clip.width>0 && content_clip.height>0 && ui_take_left_gesture_from(content_clip,&gesture);
     Vector2 pressed=replay ? (Vector2){gesture.x0,gesture.y0} : mouse;
-    bool activated=(replay || IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) && CheckCollisionPointRec(pressed,content);
+    bool activated=interactive && content_clip.width>0 && content_clip.height>0 && (replay || IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) && CheckCollisionPointRec(pressed,content_clip);
     if (activated) {
         size_t at=editor_hit(e,in,u,content,pressed); if (!(replay ? gesture.modifiers&DX_MOD_SHIFT : ui_shift())) in->anchor=at; else if (in->select_all) in->anchor=0;
         in->cursor=at; in->select_all=false; in->dragging=true; in->edit_kind=0; active=true;
     }
-    if (active && in->dragging && (replay || IsMouseButtonDown(MOUSE_BUTTON_LEFT))) {
+    if (interactive && active && in->dragging && (replay || IsMouseButtonDown(MOUSE_BUTTON_LEFT))) {
         Vector2 dragged=replay ? (Vector2){gesture.x1,gesture.y1} : mouse;
         if (dragged.y<content.y && e->scroll) e->scroll--; else if (dragged.y>content.y+content.height && e->scroll<maximum) e->scroll++;
         in->cursor=editor_hit(e,in,u,content,dragged); in->select_all=false;
     }
-    if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) in->dragging=false;
-    cursor=in->select_all ? in->length : in->cursor; e->revealed_cursor=cursor; e->revealed_revision=in->revision;
-    DrawRectangleRec(r,WHITE); DrawRectangleLinesEx(r,1.5f*s,active ? UI_ACCENT : UI_BORDER);
+    if (interactive && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) in->dragging=false;
+    cursor=in->select_all ? in->length : in->cursor;
+    if (interactive) { e->revealed_cursor=cursor; e->revealed_revision=in->revision; scroll=e->scroll; }
+    if (area.width>0 && area.height>0) DrawRectangleRec(area,WHITE);
+    ui_border(r,area,1.5f*s,active ? UI_ACCENT : UI_BORDER);
     size_t start=in->select_all ? 0 : in->anchor<cursor ? in->anchor : cursor,end=in->select_all ? in->length : in->anchor>cursor ? in->anchor : cursor;
-    ui_set_clip(u,content);
-    if (active && start<end) for (int i=0;i<=visible && (size_t)(e->scroll+i)<e->lines.count;i++) {
-        size_t row=(size_t)(e->scroll+i),lo=e->lines.offsets[row],hi=e->lines.offsets[row+1];
+    ui_set_clip(u,content_clip);
+    if (active && start<end) for (int i=0;i<=visible && (size_t)(scroll+i)<e->lines.count;i++) {
+        size_t row=(size_t)(scroll+i),lo=e->lines.offsets[row],hi=e->lines.offsets[row+1];
         if (start>=hi || end<=lo) continue;
         float left=start<=lo ? 0 : editor_width(u,in->text,lo,start),right=end>=hi ? content.width : editor_width(u,in->text,lo,end);
-        DrawRectangleRec((Rectangle){content.x+left,content.y+i*line_height,fmaxf(0,right-left),line_height},UI_TINT);
+        Rectangle selection=GetCollisionRec((Rectangle){content.x+left,content.y+i*line_height,fmaxf(0,right-left),line_height},content_clip);
+        if (selection.width>0 && selection.height>0) DrawRectangleRec(selection,UI_TINT);
     }
-    ui_clear_clip(u); text_lines_draw(&e->lines,u,in->text ? in->text : "",(size_t)e->scroll,content);
+    text_lines_draw(&e->lines,u,in->text ? in->text : "",(size_t)scroll,content);
     if (active && start==end && ((int)(GetTime()*2)%2)==0) {
-        size_t row=editor_line(&e->lines,cursor); float x=content.x+editor_width(u,in->text,e->lines.offsets[row],cursor),y=content.y+((int)row-e->scroll)*line_height;
-        if (y>=content.y && y+line_height<=content.y+content.height && x<=content.x+content.width) DrawLineV((Vector2){x,y+2*s},(Vector2){x,y+18*s},UI_ACCENT);
+        size_t row=editor_line(&e->lines,cursor); float x=content.x+editor_width(u,in->text,e->lines.offsets[row],cursor),y=content.y+((int)row-scroll)*line_height;
+        float top=fmaxf(y+2*s,content_clip.y),bottom=fminf(y+18*s,content_clip.y+content_clip.height);
+        if (x>=content_clip.x && x<=content_clip.x+content_clip.width && bottom>top) DrawLineV((Vector2){x,top},(Vector2){x,bottom},UI_ACCENT);
     }
     if (maximum) {
         Rectangle track={r.x+r.width-12*s,content.y,7*s,content.height}; float height=fminf(track.height,fmaxf(24*s,track.height*visible/e->lines.count)),travel=track.height-height;
-        Rectangle thumb={track.x,track.y+travel*e->scroll/maximum,track.width,height}; DrawRectangleRounded(thumb,.4f,3,UI_MUTED);
-        if (CheckCollisionPointRec(mouse,track)) u->cursor=MOUSE_CURSOR_DEFAULT;
-        if (CheckCollisionPointRec(mouse,track) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { e->dragging_scroll=true; e->scroll_grab=CheckCollisionPointRec(mouse,thumb) ? mouse.y-thumb.y : height/2; }
-        if (e->dragging_scroll && IsMouseButtonDown(MOUSE_BUTTON_LEFT) && travel>0) e->scroll=(int)lroundf(fmaxf(0,fminf(1,(mouse.y-track.y-e->scroll_grab)/travel))*maximum);
-        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) e->dragging_scroll=false;
+        Rectangle thumb={track.x,track.y+travel*scroll/maximum,track.width,height};
+        Rectangle visible_thumb=GetCollisionRec(thumb,area),visible_track=GetCollisionRec(track,area);
+        if (visible_thumb.width>0 && visible_thumb.height>0) DrawRectangleRounded(visible_thumb,.4f,3,UI_MUTED);
+        if (interactive && visible_track.width>0 && visible_track.height>0 && CheckCollisionPointRec(mouse,visible_track)) u->cursor=MOUSE_CURSOR_DEFAULT;
+        if (interactive && visible_track.width>0 && visible_track.height>0 && CheckCollisionPointRec(mouse,visible_track) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { e->dragging_scroll=true; e->scroll_grab=CheckCollisionPointRec(mouse,thumb) ? mouse.y-thumb.y : height/2; }
+        if (interactive && e->dragging_scroll && IsMouseButtonDown(MOUSE_BUTTON_LEFT) && travel>0) e->scroll=(int)lroundf(fmaxf(0,fminf(1,(mouse.y-track.y-e->scroll_grab)/travel))*maximum);
+        if (interactive && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) e->dragging_scroll=false;
     }
+    u->clip=parent; u->clipping=clipped;
     return activated;
 }
