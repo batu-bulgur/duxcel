@@ -1,0 +1,351 @@
+{
+  "scope": "CPU cmap coverage and actual raylib6 default atlas generation. No production coverage activation, GPU allocation or upload measurement.",
+  "coverage": [
+    {
+      "kind": "coverage",
+      "face": "regular",
+      "old_requested": 980,
+      "old_available": 418,
+      "punctuation_available": 39,
+      "math_available": 56,
+      "greek_basic": 73,
+      "cyrillic": 194,
+      "cyrillic_c": 0,
+      "greek_extended": 0,
+      "cyrillic_a": 0,
+      "cyrillic_b": 0,
+      "fffd": 1016
+    },
+    {
+      "kind": "coverage",
+      "face": "medium",
+      "old_requested": 980,
+      "old_available": 418,
+      "punctuation_available": 39,
+      "math_available": 56,
+      "greek_basic": 73,
+      "cyrillic": 194,
+      "cyrillic_c": 0,
+      "greek_extended": 0,
+      "cyrillic_a": 0,
+      "cyrillic_b": 0,
+      "fffd": 1016
+    },
+    {
+      "kind": "coverage",
+      "face": "semibold",
+      "old_requested": 980,
+      "old_available": 418,
+      "punctuation_available": 39,
+      "math_available": 56,
+      "greek_basic": 73,
+      "cyrillic": 194,
+      "cyrillic_c": 0,
+      "greek_extended": 0,
+      "cyrillic_a": 0,
+      "cyrillic_b": 0,
+      "fffd": 1016
+    },
+    {
+      "kind": "coverage",
+      "face": "italic",
+      "old_requested": 980,
+      "old_available": 418,
+      "punctuation_available": 39,
+      "math_available": 56,
+      "greek_basic": 73,
+      "cyrillic": 194,
+      "cyrillic_c": 0,
+      "greek_extended": 0,
+      "cyrillic_a": 0,
+      "cyrillic_b": 0,
+      "fffd": 1008
+    },
+    {
+      "kind": "coverage",
+      "face": "semibold_italic",
+      "old_requested": 980,
+      "old_available": 418,
+      "punctuation_available": 39,
+      "math_available": 56,
+      "greek_basic": 73,
+      "cyrillic": 194,
+      "cyrillic_c": 0,
+      "greek_extended": 0,
+      "cyrillic_a": 0,
+      "cyrillic_b": 0,
+      "fffd": 1008
+    },
+    {
+      "kind": "coverage",
+      "face": "mono",
+      "old_requested": 980,
+      "old_available": 519,
+      "punctuation_available": 32,
+      "math_available": 168,
+      "greek_basic": 79,
+      "cyrillic": 122,
+      "cyrillic_c": 0,
+      "greek_extended": 0,
+      "cyrillic_a": 0,
+      "cyrillic_b": 0,
+      "fffd": 1526
+    }
+  ],
+  "atlas_aggregates": [
+    {
+      "config": 0,
+      "mode": "current",
+      "atlases": 6,
+      "glyphs": 2508,
+      "requested": 5880,
+      "atlas_bytes": 11534336,
+      "rgba_upper": 23068672,
+      "retained_crop_bytes": 1817564,
+      "metadata_bytes": 140448,
+      "raster_cpu_ms": 16.778,
+      "pack_cpu_ms": 3.3989999999999996,
+      "shapes": {
+        "1024x1024@42": 5,
+        "1024x512@29": 1
+      }
+    },
+    {
+      "config": 0,
+      "mode": "filtered",
+      "atlases": 6,
+      "glyphs": 2508,
+      "requested": 2508,
+      "atlas_bytes": 11534336,
+      "rgba_upper": 23068672,
+      "retained_crop_bytes": 1817564,
+      "metadata_bytes": 140448,
+      "raster_cpu_ms": 15.615000000000002,
+      "pack_cpu_ms": 3.346,
+      "shapes": {
+        "1024x1024@42": 5,
+        "1024x512@29": 1
+      }
+    },
+    {
+      "config": 0,
+      "mode": "basic",
+      "atlases": 6,
+      "glyphs": 4110,
+      "requested": 4110,
+      "atlas_bytes": 14680064,
+      "rgba_upper": 29360128,
+      "retained_crop_bytes": 3133268,
+      "metadata_bytes": 230160,
+      "raster_cpu_ms": 30.05,
+      "pack_cpu_ms": 4.708,
+      "shapes": {
+        "1024x1024@42": 4,
+        "1024x1024@29": 1,
+        "2048x1024@42": 1
+      }
+    },
+    {
+      "config": 0,
+      "mode": "extended",
+      "atlases": 6,
+      "glyphs": 4110,
+      "requested": 4110,
+      "atlas_bytes": 14680064,
+      "rgba_upper": 29360128,
+      "retained_crop_bytes": 3133268,
+      "metadata_bytes": 230160,
+      "raster_cpu_ms": 28.624,
+      "pack_cpu_ms": 4.558,
+      "shapes": {
+        "1024x1024@42": 4,
+        "1024x1024@29": 1,
+        "2048x1024@42": 1
+      }
+    },
+    {
+      "config": 0,
+      "mode": "mono_unchanged",
+      "atlases": 1,
+      "glyphs": 7,
+      "requested": 7,
+      "atlas_bytes": 32768,
+      "rgba_upper": 65536,
+      "retained_crop_bytes": 2426,
+      "metadata_bytes": 392,
+      "raster_cpu_ms": 0.027,
+      "pack_cpu_ms": 0.016,
+      "shapes": {
+        "128x128@27": 1
+      }
+    },
+    {
+      "config": 1,
+      "mode": "current",
+      "atlases": 6,
+      "glyphs": 2508,
+      "requested": 5880,
+      "atlas_bytes": 23068672,
+      "rgba_upper": 46137344,
+      "retained_crop_bytes": 3954470,
+      "metadata_bytes": 140448,
+      "raster_cpu_ms": 18.28,
+      "pack_cpu_ms": 6.330999999999999,
+      "shapes": {
+        "2048x1024@63": 5,
+        "1024x1024@43": 1
+      }
+    },
+    {
+      "config": 1,
+      "mode": "filtered",
+      "atlases": 6,
+      "glyphs": 2508,
+      "requested": 2508,
+      "atlas_bytes": 23068672,
+      "rgba_upper": 46137344,
+      "retained_crop_bytes": 3954470,
+      "metadata_bytes": 140448,
+      "raster_cpu_ms": 17.750999999999998,
+      "pack_cpu_ms": 5.768000000000001,
+      "shapes": {
+        "2048x1024@63": 5,
+        "1024x1024@43": 1
+      }
+    },
+    {
+      "config": 1,
+      "mode": "basic",
+      "atlases": 6,
+      "glyphs": 4110,
+      "requested": 4110,
+      "atlas_bytes": 23068672,
+      "rgba_upper": 46137344,
+      "retained_crop_bytes": 6827460,
+      "metadata_bytes": 230160,
+      "raster_cpu_ms": 29.350000000000005,
+      "pack_cpu_ms": 7.146999999999999,
+      "shapes": {
+        "2048x1024@63": 5,
+        "1024x1024@43": 1
+      }
+    },
+    {
+      "config": 1,
+      "mode": "extended",
+      "atlases": 6,
+      "glyphs": 4110,
+      "requested": 4110,
+      "atlas_bytes": 23068672,
+      "rgba_upper": 46137344,
+      "retained_crop_bytes": 6827460,
+      "metadata_bytes": 230160,
+      "raster_cpu_ms": 28.762000000000004,
+      "pack_cpu_ms": 6.817,
+      "shapes": {
+        "2048x1024@63": 5,
+        "1024x1024@43": 1
+      }
+    },
+    {
+      "config": 1,
+      "mode": "mono_unchanged",
+      "atlases": 1,
+      "glyphs": 7,
+      "requested": 7,
+      "atlas_bytes": 32768,
+      "rgba_upper": 65536,
+      "retained_crop_bytes": 5186,
+      "metadata_bytes": 392,
+      "raster_cpu_ms": 0.020999999999999998,
+      "pack_cpu_ms": 0.01,
+      "shapes": {
+        "128x128@40": 1
+      }
+    },
+    {
+      "config": 2,
+      "mode": "current",
+      "atlases": 6,
+      "glyphs": 2508,
+      "requested": 5880,
+      "atlas_bytes": 92274688,
+      "rgba_upper": 184549376,
+      "retained_crop_bytes": 23377586,
+      "metadata_bytes": 140448,
+      "raster_cpu_ms": 34.387,
+      "pack_cpu_ms": 27.675,
+      "shapes": {
+        "4096x2048@156": 5,
+        "2048x2048@108": 1
+      }
+    },
+    {
+      "config": 2,
+      "mode": "filtered",
+      "atlases": 6,
+      "glyphs": 2508,
+      "requested": 2508,
+      "atlas_bytes": 92274688,
+      "rgba_upper": 184549376,
+      "retained_crop_bytes": 23377586,
+      "metadata_bytes": 140448,
+      "raster_cpu_ms": 34.035999999999994,
+      "pack_cpu_ms": 26.718000000000007,
+      "shapes": {
+        "4096x2048@156": 5,
+        "2048x2048@108": 1
+      }
+    },
+    {
+      "config": 2,
+      "mode": "basic",
+      "atlases": 6,
+      "glyphs": 4110,
+      "requested": 4110,
+      "atlas_bytes": 184549376,
+      "rgba_upper": 369098752,
+      "retained_crop_bytes": 40401610,
+      "metadata_bytes": 230160,
+      "raster_cpu_ms": 58.327999999999996,
+      "pack_cpu_ms": 52.223,
+      "shapes": {
+        "4096x4096@156": 5,
+        "4096x2048@108": 1
+      }
+    },
+    {
+      "config": 2,
+      "mode": "extended",
+      "atlases": 6,
+      "glyphs": 4110,
+      "requested": 4110,
+      "atlas_bytes": 184549376,
+      "rgba_upper": 369098752,
+      "retained_crop_bytes": 40401610,
+      "metadata_bytes": 230160,
+      "raster_cpu_ms": 58.900999999999996,
+      "pack_cpu_ms": 50.652,
+      "shapes": {
+        "4096x4096@156": 5,
+        "4096x2048@108": 1
+      }
+    },
+    {
+      "config": 2,
+      "mode": "mono_unchanged",
+      "atlases": 1,
+      "glyphs": 7,
+      "requested": 7,
+      "atlas_bytes": 131072,
+      "rgba_upper": 262144,
+      "retained_crop_bytes": 30746,
+      "metadata_bytes": 392,
+      "raster_cpu_ms": 0.038,
+      "pack_cpu_ms": 0.039,
+      "shapes": {
+        "256x256@100": 1
+      }
+    }
+  ]
+}

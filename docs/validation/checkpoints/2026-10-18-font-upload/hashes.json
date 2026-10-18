@@ -1,0 +1,126 @@
+{
+  "algorithm": "sha256",
+  "scope": "All curated checkpoint files except this self-referential seal. Product/source claims remain separately scoped in README and original summaries.",
+  "files": {
+    "README.md": {
+      "sha256": "0f7d5a7ccfda9f95fd8f6320462283cd9ba1d5abe3468a1838310d65af641220",
+      "bytes": 8591
+    },
+    "acceptance/background-sanitize.txt": {
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "bytes": 2518
+    },
+    "acceptance/cpu-build.txt": {
+      "sha256": "2c8555c4408821f540824cb4d1390157a46fe8736622502dcbd368bbe20f6b69",
+      "bytes": 824
+    },
+    "acceptance/cpu-release.txt": {
+      "sha256": "982ecc43386b0ab83d5ae1a5d08a62580599560b6653eff163d45faac6c1af8f",
+      "bytes": 124
+    },
+    "acceptance/cpu-sanitize.txt": {
+      "sha256": "a1e8793c3cd9d7773e9a130138f2a525bda617a6b1df63da063ccca9075d2234",
+      "bytes": 130
+    },
+    "acceptance/cpu-summary.json": {
+      "sha256": "a18fe7ae48c6663fd3236ec5a5d443b730afb1ef69ce0cb76a1a70f4e1ca9980",
+      "bytes": 2197
+    },
+    "acceptance/gpu-build.txt": {
+      "sha256": "ae5c91e682db1df866221a7208e6821c8ca0b5bb063e256995998d5daa072fc9",
+      "bytes": 638
+    },
+    "acceptance/gpu-sanitize.txt": {
+      "sha256": "e58fa67968b705746550c4703b06557b530ca97fe97fc2e4c8105d2b03f14ca0",
+      "bytes": 18535
+    },
+    "acceptance/gpu-summary.json": {
+      "sha256": "6af21c4daab2008d89f0efb35a10bc1a14ccafb8a6cd708e822db34c2adc97c7",
+      "bytes": 1838
+    },
+    "acceptance/native-review-background.txt": {
+      "sha256": "fe7b901d2fb9b1ad4599fc8976aed65ea463dc038b8a31c98b2c0c482880c6ac",
+      "bytes": 2468
+    },
+    "acceptance/native-review-build.txt": {
+      "sha256": "d6d3c1b3b046269575b1ee86901e7b35cafd38bc9a881f027675e69962354a87",
+      "bytes": 2173
+    },
+    "acceptance/native-review-extracts.json": {
+      "sha256": "dccb702ce9c986ee2e3cf57232c9f98c1479bb07a3e139246270bb983286be5f",
+      "bytes": 34183
+    },
+    "acceptance/native-review-summary.json": {
+      "sha256": "333249e4f8376f9a975c98ac71d0432e7a263e24f9a310e8d4331286dadd6b6d",
+      "bytes": 7742
+    },
+    "captures/native-glyph-080.png": {
+      "sha256": "dadb62f4a4868a8796dcdece8fc49fb4104d3c90b5a23137058418ddc160e512",
+      "bytes": 84974
+    },
+    "captures/native-glyph-100.png": {
+      "sha256": "0968408e0b8a2068879dc0999ca27adca52187f1da931bc329e25a162152f2dd",
+      "bytes": 91014
+    },
+    "captures/native-glyph-150.png": {
+      "sha256": "52ac15448d01c82cbdb2ca3f80f9fa5b79da377e655fdd17e3b295a1cb4a8e57",
+      "bytes": 104512
+    },
+    "cause/natural-red-manifest.json": {
+      "sha256": "25914ef58cbf07e73c2cde4ee1bbe7e438cb9190ce5d1d94ce5b4168b125cbb3",
+      "bytes": 2989
+    },
+    "cause/natural-red.log": {
+      "sha256": "6264692b0ab2b1cfa504f2898ada4ec370a4f34afcd3f7e1d750c987a4278a2b",
+      "bytes": 35
+    },
+    "delivery/build-summary.json": {
+      "sha256": "1f0bf0bb2c025a274f666dcc1101ce96cbb15f4971c74f146e1f4b9bb65c45d6",
+      "bytes": 12933
+    },
+    "delivery/native-exclusion.json": {
+      "sha256": "526ba16a5e4c1b2f9988855d1d7f693afe26a0d1aee22a7737fcf99fcce77ed4",
+      "bytes": 1995
+    },
+    "delivery/package.json": {
+      "sha256": "9c5b48fcb07154d7784f7f52f7306fba2bade1059afaabb7fa009b117ca17f49",
+      "bytes": 1110
+    },
+    "delivery/sanitize-exclusion.json": {
+      "sha256": "8077ffbce4de58f05826f2f400060e991bd7d32889e59d060ddfd3a8a3946071",
+      "bytes": 2011
+    },
+    "delivery/service-retention.json": {
+      "sha256": "4eca71cf25e777435b2f4d78a75e4bc75cf8f03c07804edbdc2ece6e9647c5a2",
+      "bytes": 502
+    },
+    "delivery/service.json": {
+      "sha256": "31f04cb5942f460403cad415c30a8c097683c767f710707b13458eeb3a21edcf",
+      "bytes": 1097
+    },
+    "delivery/wasm-absence.json": {
+      "sha256": "5de3605214a3d69d80ec1ce2be56842da9bb4a97924414ce077237638c69da94",
+      "bytes": 1954
+    },
+    "delivery/wasm-exclusion.txt": {
+      "sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a",
+      "bytes": 102
+    },
+    "profiles/coverage-summary.json": {
+      "sha256": "075c386fe257e4fd27f64ea8548b50f43cc4870441e894a6ac860e48533972c6",
+      "bytes": 8289
+    },
+    "profiles/packing-summary.json": {
+      "sha256": "e99145e504dacf29bfca7ddd6f7e5d9e119441bf65685f9cf9fa82e0c368dbf6",
+      "bytes": 5162
+    },
+    "profiles/provenance.json": {
+      "sha256": "90b19b707bb981b69e788778a83e6681d25b381658b77662ed58d427542718f1",
+      "bytes": 7456
+    },
+    "provenance.json": {
+      "sha256": "8fec32f80a40b10a495f960a036b10bcc56ccce7f4aaa9513cbe4461a9d5199e",
+      "bytes": 11462
+    }
+  }
+}

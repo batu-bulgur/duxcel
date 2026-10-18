@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T06:12:14.930999+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "edit": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "e955cb75ff092fec47f0063e2cf03826ea4e6017",
+    "status": "M src/ui/ui.c\n?? tools/ui-review/",
+    "source_sha256": "5d63162da16b77f09a7edb61980a6c902e76193381f99af2d603cf67041060f3",
+    "source_files": 278
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_ui_font_fallback",
+        "tests/test_ui_font_fallback-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T061214-fast-61575/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 2.574
+    },
+    {
+      "name": "ui_font_fallback-release",
+      "command": [
+        "./tests/test_ui_font_fallback"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T061214-fast-61575/ui_font_fallback-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.351
+    },
+    {
+      "name": "ui_font_fallback-sanitize",
+      "command": [
+        "./tests/test_ui_font_fallback-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T061214-fast-61575/ui_font_fallback-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 2.251
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_ui_font_fallback": "718e7808adf01ee753cc2b6e1478b93196096d0ede5221b5381b25470d3f72d9",
+    "/Users/h2o/dev/duxcel/tests/test_ui_font_fallback-debug": "6722c58917e4f1c1728f296ef8778c7114470f20def9f51d8051d92067b8f90d"
+  },
+  "elapsed_seconds": 6.286,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_ui_font_fallback": "718e7808adf01ee753cc2b6e1478b93196096d0ede5221b5381b25470d3f72d9",
+    "/Users/h2o/dev/duxcel/tests/test_ui_font_fallback-debug": "6722c58917e4f1c1728f296ef8778c7114470f20def9f51d8051d92067b8f90d"
+  },
+  "finished_utc": "2026-10-18T06:12:21.367908+00:00"
+}

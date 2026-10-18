@@ -1,0 +1,3 @@
+Command: ["make", "tests/test_background-native-debug", "tests/test_paint-native-debug"]
+make: `tests/test_background-native-debug' is up to date.
+clang -Isrc -I/opt/homebrew/include -I/opt/homebrew/Cellar/raylib/6.0/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer src/common.c src/transforms/number.c src/workbook/format.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c tests/test_paint_native.c -o tests/test_paint-native-debug -L/opt/homebrew/Cellar/raylib/6.0/lib -lraylib -lm -fsanitize=address,undefined -fno-omit-frame-pointer

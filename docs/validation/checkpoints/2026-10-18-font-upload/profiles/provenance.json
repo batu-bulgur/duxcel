@@ -1,0 +1,170 @@
+{
+  "coverage": {
+    "original_directory": "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-font-coverage-_gd46b5k",
+    "original_manifest_sha256": "feff1bf9f6728c95ff193b55e8053a41173b2df40735cca948571c519c0e4a32",
+    "original_manifest": {
+      "status": "passed",
+      "scope": "CPU cmap + raylib6 LoadFontData/GenImageFontAtlas with exact current request generator, default padding4/packer0. No window, GPU texture upload or rendering. Raster configs are scale1/1.5 atDPR2 canvas1, plus scale1.5 DPR2 canvas2.5; mono7 unchanged. Actual GPU driver storage/upload not measured.",
+      "command": [
+        "cc",
+        "-std=c99",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Isrc",
+        "src/ui/fontmetrics.c",
+        "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-font-coverage-_gd46b5k/profile.c",
+        "-o",
+        "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-font-coverage-_gd46b5k/profile",
+        "-I/opt/homebrew/Cellar/raylib/6.0/include",
+        "-L/opt/homebrew/Cellar/raylib/6.0/lib",
+        "-lraylib",
+        "-lm"
+      ],
+      "compile_seconds": 0.478141,
+      "runtime_seconds": 0.9879907499999999,
+      "inputs": {
+        "src/ui/ui.c": {
+          "sha256": "50f455a5e52b1bca41a710dd87891ec88c5f1b7b794cd120a766564f72ff0010",
+          "bytes": 69908
+        },
+        "src/ui/ui.h": {
+          "sha256": "b5a4deb167de199c207a131ffe9bbcddffb7a1af1c095779ea260d87757624f3",
+          "bytes": 12381
+        },
+        "src/ui/fontmetrics.c": {
+          "sha256": "1f460c23515338be230cecfdd872a03029d0fb9087a6458c1166e5b9e9c8c1bc",
+          "bytes": 4498
+        },
+        "src/ui/fontmetrics.h": {
+          "sha256": "0440cfc9f0ba56488ad613a46635644d51b92f246718235abbb2f8f7da98f7d6",
+          "bytes": 740
+        },
+        "assets/fonts/IBMPlexSans-Medium.otf": {
+          "sha256": "27d25e3e08ea63df7cd1fa535c9c45aa04ba11ca75b8031b2ffb83f247601ad1",
+          "bytes": 143164
+        },
+        "assets/fonts/IBMPlexSans-SemiBoldItalic.otf": {
+          "sha256": "86ef7da0dc30b089ac098e136016d90d9146b89cfc15188565d83f7e5788e396",
+          "bytes": 149432
+        },
+        "assets/fonts/IBMPlexSans-Italic.otf": {
+          "sha256": "d3cf12b234deda906353d9cb67b27c9ae7243e3ecdc069c6b4114b063dccb1e7",
+          "bytes": 144148
+        },
+        "assets/fonts/IBMPlexSans-Regular.otf": {
+          "sha256": "6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c",
+          "bytes": 136352
+        },
+        "assets/fonts/IBMPlexSans-SemiBold.otf": {
+          "sha256": "1aff1f99f0f415632e71a4b9d43804d093e85b8954489a973f0cf1e2e24b9b04",
+          "bytes": 143460
+        },
+        "assets/fonts/JetBrainsMono-Regular.ttf": {
+          "sha256": "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f",
+          "bytes": 273900
+        }
+      },
+      "raylib_version": "6.0.0",
+      "source": "https://raw.githubusercontent.com/raysan5/raylib/6.0/src/rtext.c",
+      "profile_sha256": "bcefd3418ccb00cfb33b8c1ff4d9271feef929741537a891b2965a9647ea85bb"
+    },
+    "retained": "Small derived coverage/atlas or packing aggregate only; private C helper and complete raw JSONL remain at original_directory. No raw helper/binary is claimed present in this checkpoint."
+  },
+  "packing": {
+    "original_directory": "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-font-packers-k_7s7khv",
+    "original_manifest_sha256": "b166f2329cd135319fb7b5ad359a01557819743e479a19402b694e6d645a2ed0",
+    "original_manifest": {
+      "status": "passed",
+      "scope": "Actual bundled fonts+fontmetrics cmap+raylib6 CPU LoadFontData/GenImageFontAtlas, pack0 vs pack1; no GPU/window/engine. Alpha pixels and bounds/overlap checked against source glyph bitmaps. Exact current scale/density/canvas formulas, all six primary atlases. Mono unchanged and excluded.",
+      "command": [
+        "cc",
+        "-std=c99",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Isrc",
+        "src/ui/fontmetrics.c",
+        "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-font-packers-k_7s7khv/packers.c",
+        "-o",
+        "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-font-packers-k_7s7khv/packers",
+        "-I/opt/homebrew/Cellar/raylib/6.0/include",
+        "-L/opt/homebrew/Cellar/raylib/6.0/lib",
+        "-lraylib",
+        "-lm"
+      ],
+      "compile_seconds": 0.661635,
+      "runtime_seconds": 0.9087598339999999,
+      "exit_code": 0,
+      "records": 72,
+      "inputs": {
+        "src/ui/ui.c": {
+          "sha256": "50f455a5e52b1bca41a710dd87891ec88c5f1b7b794cd120a766564f72ff0010",
+          "bytes": 69908
+        },
+        "src/ui/ui.h": {
+          "sha256": "b5a4deb167de199c207a131ffe9bbcddffb7a1af1c095779ea260d87757624f3",
+          "bytes": 12381
+        },
+        "src/ui/fontmetrics.c": {
+          "sha256": "1f460c23515338be230cecfdd872a03029d0fb9087a6458c1166e5b9e9c8c1bc",
+          "bytes": 4498
+        },
+        "src/ui/fontmetrics.h": {
+          "sha256": "0440cfc9f0ba56488ad613a46635644d51b92f246718235abbb2f8f7da98f7d6",
+          "bytes": 740
+        },
+        "assets/fonts/IBMPlexSans-Italic.otf": {
+          "sha256": "d3cf12b234deda906353d9cb67b27c9ae7243e3ecdc069c6b4114b063dccb1e7",
+          "bytes": 144148
+        },
+        "assets/fonts/IBMPlexSans-Medium.otf": {
+          "sha256": "27d25e3e08ea63df7cd1fa535c9c45aa04ba11ca75b8031b2ffb83f247601ad1",
+          "bytes": 143164
+        },
+        "assets/fonts/IBMPlexSans-Regular.otf": {
+          "sha256": "6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c",
+          "bytes": 136352
+        },
+        "assets/fonts/IBMPlexSans-SemiBold.otf": {
+          "sha256": "1aff1f99f0f415632e71a4b9d43804d093e85b8954489a973f0cf1e2e24b9b04",
+          "bytes": 143460
+        },
+        "assets/fonts/IBMPlexSans-SemiBoldItalic.otf": {
+          "sha256": "86ef7da0dc30b089ac098e136016d90d9146b89cfc15188565d83f7e5788e396",
+          "bytes": 149432
+        },
+        "assets/fonts/JetBrainsMono-Regular.ttf": {
+          "sha256": "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f",
+          "bytes": 273900
+        }
+      },
+      "raylib_version": "6.0.0",
+      "raylib_source": "https://raw.githubusercontent.com/raysan5/raylib/6.0/src/rtext.c",
+      "files": {
+        "packers.c": {
+          "sha256": "062c9a7b56f7d30e29529a7500e0007e8695260c8761fd7a05c2385c74c2f73d",
+          "bytes": 3785
+        },
+        "compile.log": {
+          "sha256": "42ecb6b586342c04f5b6299d8938b81f31c864da19d075ab5401e11ec94af624",
+          "bytes": 2058
+        },
+        "profile.jsonl": {
+          "sha256": "e6cc04b16be6fa3b805a6e24c312133a893971ce611b01868ed9e069ebe5322e",
+          "bytes": 28120
+        },
+        "run.log": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "summary.json": {
+          "sha256": "e99145e504dacf29bfca7ddd6f7e5d9e119441bf65685f9cf9fa82e0c368dbf6",
+          "bytes": 5162
+        }
+      },
+      "zero_area_scope": "Legitimate cmap glyphs with no bitmap (e.g. spacing) are retained, bounds checked, zero-area alpha samples omitted."
+    },
+    "retained": "Small derived coverage/atlas or packing aggregate only; private C helper and complete raw JSONL remain at original_directory. No raw helper/binary is claimed present in this checkpoint."
+  }
+}
