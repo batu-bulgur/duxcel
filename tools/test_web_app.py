@@ -29,7 +29,7 @@ def codec_fixture_manifest(directory, emitted):
         if inode in inodes:raise RuntimeError('Codec fixtures share an inode')
         inodes.add(inode);total+=info.st_size
         if total>128*1024*1024:raise RuntimeError('Codec fixture set exceeds transport budget')
-        entries.append({'name':name,'bytes':info.st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()})
+        entries.append({'name':name,'version':entry['version'],'layout':entry['layout'],'bytes':info.st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()})
     if {path.name for path in directory.iterdir()}!=seen:
         raise RuntimeError('Unexpected files remain in codec fixture directory')
     return {'schema':'duxcel.codec-fixtures','version':1,'files':entries}
