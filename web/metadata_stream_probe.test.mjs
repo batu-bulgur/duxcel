@@ -59,6 +59,8 @@ test('real adapter/probe preserves receiver identity, irregular Arrow observatio
     const report=await runMetadataStreamProbe(h.adapter,h.binding);assert.equal(report.ok,true,JSON.stringify(report.error));assert.equal(report.sqlExecutions,6);assert.equal(report.plannedSqlRows,2054);assert.equal(report.cases.length,6);assert.equal(report.postedTurns,6);
     assert.equal(h.connection.send,send);assert.deepEqual(Object.getOwnPropertyDescriptor(h.connection,'send'),descriptor);assert.equal(h.db.registrations,1);assert.equal(h.db.drops,0);assert.equal(h.connection.closed,0);
     assert.deepEqual(report.readers[0].batchRows,[1,0,255,257]);assert.deepEqual(report.readers[1].batchRows,[17,256,240]);
+    const raw=report.readers[1].rawSchema;assert.equal(raw.columnCount,4);assert.equal(raw.fieldsTruncated,false);assert.deepEqual(raw.fields.map(field=>[field.name,field.type]),[['sheet_id',String(new Int32())],['row_id',String(new Uint64())],['enabled',String(new Bool())],['value',String(new Utf8())]]);
+    assert.ok(report.readers.every(reader=>reader.schemaObservationError===null&&reader.rawSchema.fields.every(field=>!field.nameTruncated&&!field.typeTruncated)));
     for(const item of report.cases.slice(0,2)){assert.equal(item.rows,513);assert.equal(item.eofAfterCleanup,true);assert.equal(item.firstAckPostedTurn,true);assert.equal(item.finalAckPostedTurn,true);assert.deepEqual(item.shapes.map(c=>[c.firstRow,c.rows,c.end]),[['0',256,false],['256',256,false],['512',1,false],['513',0,true]]);}
     for(const reader of report.readers){assert.equal(reader.open,1);assert.equal(reader.cancelRequested,1);assert.equal(reader.cancelFulfilled,1);assert.equal(reader.maxInflight,1);}
     assert.deepEqual(h.raw.map(reader=>reader.calls.returned),[0,0,0,0,0,0]);

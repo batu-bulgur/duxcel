@@ -56,9 +56,19 @@ export async function runMetadataStreamProbe(adapter,binding,{rows=513,timeoutMs
     // Do not fabricate a schema, batch, completion or successful cleanup.
     connection.send=async function(...args) {
         const record={sql:args[0],stream:args[1],open:0,next:0,inflight:0,maxInflight:0,batches:0,batchRows:[],
-            eof:0,cancelRequested:0,cancelFulfilled:0,cancelError:null,cancelMethod:false};records.push(record);
+            eof:0,cancelRequested:0,cancelFulfilled:0,cancelError:null,cancelMethod:false,rawSchema:null,schemaObservationError:null};records.push(record);
         const reader=await original.apply(this,args);record.cancelMethod=typeof reader?.cancel==='function';
-        const observed={get schema(){return reader.schema;},[Symbol.asyncIterator](){
+        const observed={get schema(){
+            const schema=reader.schema;
+            // First already-open physical schema only: no DESCRIBE/fetch, type
+            // inference or Arrow rewrite. Diagnostics must not change delivery.
+            if(record.rawSchema===null&&!record.schemaObservationError)try{
+                if(Array.isArray(schema?.fields))record.rawSchema={columnCount:schema.fields.length,fieldsTruncated:schema.fields.length>4,
+                    fields:schema.fields.slice(0,4).map(field=>{const name=String(field.name),type=String(field.type);return {
+                        name:name.slice(0,4096),nameTruncated:name.length>4096,type:type.slice(0,256),typeTruncated:type.length>256};})};
+            }catch(error){record.schemaObservationError=errorRecord(error);}
+            return schema;
+        },[Symbol.asyncIterator](){
             const iterator=reader[Symbol.asyncIterator](),observedIterator={async next(...arguments_) {
                 record.next++;record.inflight++;record.maxInflight=Math.max(record.maxInflight,record.inflight);
                 try{const item=await iterator.next.apply(iterator,arguments_);if(item.done)record.eof++;else{record.batches++;if(record.batchRows.length<16)record.batchRows.push(item.value.numRows);}return item;}
