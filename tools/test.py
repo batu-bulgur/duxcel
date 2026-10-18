@@ -404,6 +404,9 @@ class Runner:
                     self.record(self.command(f"{module}-tables-{config}", ["./" + binary,"--tables-only"],
                                              completion_pattern=r"^PASS: native Table sources \d+ checks;"))
                     ensure_unchanged(self.summary["binaries"])
+                    self.record(self.command(f"{module}-pivot-marks-{config}", ["./" + binary,"--pivot-marks-only"],
+                                             completion_pattern=r"^PASS: native Pivot Marks \d+ checks;"))
+                    ensure_unchanged(self.summary["binaries"])
         with FileLock(native_lock_path(), "Native desktop tests"):
             self.background_check()
             self.record(self.command("gpu-sanitize", ["./tests/test_paint-native-debug"], "PASS: 110 native paint checks"))
