@@ -1,0 +1,1 @@
+PASS: 393 focused owner-counter workspace checks (v12 compatibility, v13 retired IDs, strict spatial package and atomic rejection)

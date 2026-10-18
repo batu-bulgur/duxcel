@@ -7,50 +7,6 @@
     "source_files": 286
   },
   "files": {
-    "native/sanitize-formats.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/sanitize-formats.log",
-      "sha256": "bf4a28b0d40ae01a3afd740dfff1ec7eccad28e1e380882aadc033a9624942cb"
-    },
-    "native/sanitize-source-versions.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/sanitize-source-versions.log",
-      "sha256": "cc4774517a9aae21bf7574c372abf9d2ba763b6ded85cfedd1e2885f363a0820"
-    },
-    "native/release-guarded-formats.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/release-guarded-formats.log",
-      "sha256": "db1c68835e65530b5ceae191a6a2bbe7625899f1e0cece271b2527642ee96a21"
-    },
-    "native/release-source-formats.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/release-source-formats.log",
-      "sha256": "c8b3ae60604ff8c33a1b1cd06c1d9109e50e43513db842ae5fd9dde21ee1df25"
-    },
-    "native/release-source-versions.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/release-source-versions.log",
-      "sha256": "cc4774517a9aae21bf7574c372abf9d2ba763b6ded85cfedd1e2885f363a0820"
-    },
-    "native/sanitize-owners.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/sanitize-owners.log",
-      "sha256": "15e3b1c3bf5d9dc5d967c2c6271b8ec5fc0a4464fd2bae806a69605d2bde1d94"
-    },
-    "native/sanitize-guarded-formats.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/sanitize-guarded-formats.log",
-      "sha256": "db1c68835e65530b5ceae191a6a2bbe7625899f1e0cece271b2527642ee96a21"
-    },
-    "native/release-formats.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/release-formats.log",
-      "sha256": "bf4a28b0d40ae01a3afd740dfff1ec7eccad28e1e380882aadc033a9624942cb"
-    },
-    "native/release-owners.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/release-owners.log",
-      "sha256": "15e3b1c3bf5d9dc5d967c2c6271b8ec5fc0a4464fd2bae806a69605d2bde1d94"
-    },
-    "native/sanitize-source-formats.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/sanitize-source-formats.log",
-      "sha256": "c8b3ae60604ff8c33a1b1cd06c1d9109e50e43513db842ae5fd9dde21ee1df25"
-    },
-    "native/build.log": {
-      "original": "/Users/h2o/dev/duxcel/build/bp1-native/build.log",
-      "sha256": "b19e847a0ba608ea3106539fae366c37fe1a0f88bcd4758258b6719847da5fc6"
-    },
     "native/manifest.json": {
       "original": "/Users/h2o/dev/duxcel/build/bp1-native/manifest.json",
       "sha256": "3c7c3d31c792d18d0fc90e4f890a2991440ef42cc50d4d64b8ac163661a1d906"
@@ -106,6 +62,50 @@
     "browser/build.json": {
       "original": "/Users/h2o/dev/duxcel/build/web/app/615b25925559451100a3/build.json",
       "sha256": "69e87a27e1775ed7d8525f12160f2146c985c821443eff9c3d3c706498f20fc1"
+    },
+    "native/sanitize-formats.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/sanitize-formats.log",
+      "sha256": "bf4a28b0d40ae01a3afd740dfff1ec7eccad28e1e380882aadc033a9624942cb"
+    },
+    "native/sanitize-source-versions.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/sanitize-source-versions.log",
+      "sha256": "cc4774517a9aae21bf7574c372abf9d2ba763b6ded85cfedd1e2885f363a0820"
+    },
+    "native/release-guarded-formats.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/release-guarded-formats.log",
+      "sha256": "db1c68835e65530b5ceae191a6a2bbe7625899f1e0cece271b2527642ee96a21"
+    },
+    "native/release-source-formats.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/release-source-formats.log",
+      "sha256": "c8b3ae60604ff8c33a1b1cd06c1d9109e50e43513db842ae5fd9dde21ee1df25"
+    },
+    "native/release-source-versions.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/release-source-versions.log",
+      "sha256": "cc4774517a9aae21bf7574c372abf9d2ba763b6ded85cfedd1e2885f363a0820"
+    },
+    "native/sanitize-owners.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/sanitize-owners.log",
+      "sha256": "15e3b1c3bf5d9dc5d967c2c6271b8ec5fc0a4464fd2bae806a69605d2bde1d94"
+    },
+    "native/sanitize-guarded-formats.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/sanitize-guarded-formats.log",
+      "sha256": "db1c68835e65530b5ceae191a6a2bbe7625899f1e0cece271b2527642ee96a21"
+    },
+    "native/release-formats.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/release-formats.log",
+      "sha256": "bf4a28b0d40ae01a3afd740dfff1ec7eccad28e1e380882aadc033a9624942cb"
+    },
+    "native/release-owners.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/release-owners.log",
+      "sha256": "15e3b1c3bf5d9dc5d967c2c6271b8ec5fc0a4464fd2bae806a69605d2bde1d94"
+    },
+    "native/sanitize-source-formats.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/sanitize-source-formats.log",
+      "sha256": "c8b3ae60604ff8c33a1b1cd06c1d9109e50e43513db842ae5fd9dde21ee1df25"
+    },
+    "native/build.txt": {
+      "original": "/Users/h2o/dev/duxcel/build/bp1-native/build.log",
+      "sha256": "b19e847a0ba608ea3106539fae366c37fe1a0f88bcd4758258b6719847da5fc6"
     }
   }
 }
