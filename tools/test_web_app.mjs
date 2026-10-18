@@ -2663,6 +2663,12 @@ try{
   await fs.writeFile(path.join(output,'binding-workloads.json'),JSON.stringify(bindings,null,2));
   check(bindings.jobs===28&&bindings.sql===35&&bindings.counts===0&&bindings.host_requests===35&&bindings.local_rejections===7&&bindings.host_rejections===4&&bindings.budget_rejections===1,'Captured-source validation, cache separation or rejection workload changed');
   check(bindings.sequential_workers===4&&bindings.total_jobs===225&&bindings.total_sql===441&&bindings.total_counts===21,'Captured-source workload did not preserve the original192-stage cumulative work');
+  const otherLines=events.filter(event=>event.method==='Runtime.consoleAPICalled').flatMap(event=>event.params.args.map(arg=>String(arg.value??''))).filter(line=>line.startsWith('Browser Other workloads: '));
+  check(otherLines.length===1,'C/Worker did not report one optional Other workload inventory');
+  const other=JSON.parse(otherLines[0].slice('Browser Other workloads: '.length));
+  check(other.jobs===24&&other.sql===88&&other.counts===0&&other.stages===26&&other.native_stamp_rejections===1&&other.source_drop_rejections===1,'Optional Other work, guard rejection or cancellation workload changed');
+  check(other.sequential_workers===5&&other.total_jobs===249&&other.total_sql===529&&other.total_counts===21&&report.stages===221+other.stages,'Other work did not preserve the original221-stage workload');
+  await fs.writeFile(path.join(output,'other-workloads.json'),JSON.stringify(other,null,2));
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
   console.log(JSON.stringify({status:'passed',checks,report,output}));
  }else{
