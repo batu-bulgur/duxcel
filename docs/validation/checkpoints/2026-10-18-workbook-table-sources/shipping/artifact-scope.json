@@ -1,0 +1,374 @@
+{
+  "schema": "duxcel.table-sources-artifact-scope",
+  "version": 1,
+  "scope": "Read accepted freshnormal/review exclusion and artifact metadata/files; no new compilation, engine, nativeGUI, service or bundle promotion. Native binaries retain ed053e3 package/path-fix scope. Codec reader/test modes remain outside production inventories.",
+  "artifacts": {
+    "normal": {
+      "directory": "/Users/h2o/dev/duxcel/build/web/app/b725290f6bac74b387c1",
+      "signature": "b725290f6bac74b387c130056df128bce8f3f2d0e16ec546d4abd1f81dd5fd43",
+      "source": {
+        "commit": "8770a291757fc650993492ba7a6222076de62566",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "b8b12833488eff9067e55e889e6bb271c573930091785d763c97f6f127e1df86",
+        "source_files": 303
+      },
+      "kind": "application",
+      "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+      "elapsed_seconds": 16.326,
+      "sources": [
+        "src/common.c",
+        "src/platform/platform.c",
+        "src/transforms/distinct.c",
+        "src/transforms/analysis.c",
+        "src/transforms/record_sql.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/chart_other.c",
+        "src/transforms/marks.c",
+        "src/data/page.c",
+        "src/data/source_digest.c",
+        "src/workbook/clipboard.c",
+        "src/workbook/cells.c",
+        "src/workbook/format.c",
+        "src/workbook/source_scope.c",
+        "src/workbook/objects.c",
+        "src/workbook/workbook.c",
+        "src/workbook/workbook_codec.c",
+        "src/data/worker.c",
+        "src/ui/cellreadout.c",
+        "src/ui/choiceview.c",
+        "src/ui/popup.c",
+        "src/ui/motion.c",
+        "src/ui/fontmetrics.c",
+        "src/ui/paintlayer.c",
+        "src/ui/paintlayer_backend.c",
+        "src/ui/ui.c",
+        "src/ui/ribbon.c",
+        "src/ui/ribbon_spec.c",
+        "src/ui/keytips.c",
+        "src/ui/flyout.c",
+        "src/ui/statusview.c",
+        "src/ui/dockview.c",
+        "src/ui/marksview.c",
+        "src/ui/workspace.c",
+        "src/ui/inspector.c",
+        "src/ui/statsview.c",
+        "src/ui/guideview.c",
+        "src/ui/stepview.c",
+        "src/ui/preview.c",
+        "src/ui/chartview.c",
+        "src/ui/chartencoding.c",
+        "src/ui/textview.c",
+        "src/ui/sortview.c",
+        "src/ui/brand.c",
+        "src/platform/icon.c",
+        "src/grid/grid.c",
+        "src/grid/selection_ladder.c",
+        "src/app/step_preview.c",
+        "src/app/app.c",
+        "src/main.c",
+        "src/ui/filterlabel.c",
+        "src/ui/selectview.c",
+        "src/ui/shadowview.c",
+        "src/workbook/workbook_browser.c",
+        "src/data/page_wire.c",
+        "src/data/browser_query.c",
+        "src/data/distinct_page.c"
+      ],
+      "artifact_files": {
+        "duxcel.wasm": {
+          "bytes": 3661991,
+          "sha256": "7952646fb722a09f4fcb1810398a1c611c3704c09ab24989948d2cccf8454975",
+          "current_bytes_match": true
+        },
+        "vendor.json": {
+          "bytes": 28665,
+          "sha256": "162d1e956a3c065cd640b2dbc129ec0b860c95c727e7788700447b6228420d92",
+          "current_bytes_match": true
+        },
+        "page_wire.mjs": {
+          "bytes": 7802,
+          "sha256": "3b1cb0b42e4f5b88d61affefa5ebff4b1e44cf6cf1b0313ca0ef2e3b8b02c9ae",
+          "current_bytes_match": true
+        },
+        "duxcel.mjs": {
+          "bytes": 393896,
+          "sha256": "5e02320ffacad0da79c1ca349054b01dda1b1ed02c5286334ae4b0850aa8e181",
+          "current_bytes_match": true
+        },
+        "host.mjs": {
+          "bytes": 1435,
+          "sha256": "53f67159df25788ae1c40c2ba5f995d5939cb2e7282b447b556e078a37fe0de4",
+          "current_bytes_match": true
+        },
+        "official_worker.mjs": {
+          "bytes": 34642,
+          "sha256": "4a6cf7bb6dc97a9b64f3dc47571c481f60003fe450a1e638b3727b5f66567582",
+          "current_bytes_match": true
+        },
+        "engine_host.mjs": {
+          "bytes": 13635,
+          "sha256": "63068cac36f3989fe48476632608be235edd858be6d735e57bb59eefbd32c0d0",
+          "current_bytes_match": true
+        },
+        "vendor/duckdb/dist/duckdb-browser-eh.worker.js": {
+          "bytes": 772759,
+          "sha256": "f8ab72b6b90b3ad83077d47426d4a99d5d9a4c7e07cba1a2be37d655adc7c1ab",
+          "current_bytes_match": true
+        },
+        "vendor/duckdb/dist/duckdb-browser.mjs": {
+          "bytes": 31977,
+          "sha256": "4f8c0bb3c23d1ec457a451cc27418597b9a40dd772cceacc436a2cb7b9a49c18",
+          "current_bytes_match": true
+        },
+        "vendor/duckdb/dist/duckdb-eh.wasm": {
+          "bytes": 34242586,
+          "sha256": "4c221bfa59c11f24dbd750e70c90b9252eca6eec5633936e6a2ec766e55fd879",
+          "current_bytes_match": true
+        }
+      },
+      "original_build_json": {
+        "path": "/Users/h2o/dev/duxcel/build/web/app/b725290f6bac74b387c1/build.json",
+        "bytes": 35200,
+        "sha256": "e5d1d293175baa2fe54ac01f6dc97c9b529da6a001a008b5d2e7f8a1f676af3d"
+      }
+    },
+    "review": {
+      "directory": "/Users/h2o/dev/duxcel/build/web/review/770a0fb1e0fd59f93d1c",
+      "signature": "770a0fb1e0fd59f93d1ca84c519e6dd0b4124f17b84d69ed212e8ff4816ef5bb",
+      "source": {
+        "commit": "8770a291757fc650993492ba7a6222076de62566",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "b8b12833488eff9067e55e889e6bb271c573930091785d763c97f6f127e1df86",
+        "source_files": 303
+      },
+      "kind": "review",
+      "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+      "elapsed_seconds": 16.621,
+      "sources": [
+        "src/common.c",
+        "src/platform/platform.c",
+        "src/transforms/distinct.c",
+        "src/transforms/analysis.c",
+        "src/transforms/record_sql.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/chart_other.c",
+        "src/transforms/marks.c",
+        "src/data/page.c",
+        "src/data/source_digest.c",
+        "src/workbook/clipboard.c",
+        "src/workbook/cells.c",
+        "src/workbook/format.c",
+        "src/workbook/source_scope.c",
+        "src/workbook/objects.c",
+        "src/workbook/workbook.c",
+        "src/workbook/workbook_codec.c",
+        "src/data/worker.c",
+        "src/ui/cellreadout.c",
+        "src/ui/choiceview.c",
+        "src/ui/popup.c",
+        "src/ui/motion.c",
+        "src/ui/fontmetrics.c",
+        "src/ui/paintlayer.c",
+        "src/ui/paintlayer_backend.c",
+        "src/ui/ui.c",
+        "src/ui/ribbon.c",
+        "src/ui/ribbon_spec.c",
+        "src/ui/keytips.c",
+        "src/ui/flyout.c",
+        "src/ui/statusview.c",
+        "src/ui/dockview.c",
+        "src/ui/marksview.c",
+        "src/ui/workspace.c",
+        "src/ui/inspector.c",
+        "src/ui/statsview.c",
+        "src/ui/guideview.c",
+        "src/ui/stepview.c",
+        "src/ui/preview.c",
+        "src/ui/chartview.c",
+        "src/ui/chartencoding.c",
+        "src/ui/textview.c",
+        "src/ui/sortview.c",
+        "src/ui/brand.c",
+        "src/platform/icon.c",
+        "src/grid/grid.c",
+        "src/grid/selection_ladder.c",
+        "src/app/step_preview.c",
+        "src/app/app.c",
+        "src/main.c",
+        "src/ui/filterlabel.c",
+        "src/ui/selectview.c",
+        "src/ui/shadowview.c",
+        "src/workbook/workbook_browser.c",
+        "src/data/page_wire.c",
+        "src/data/browser_query.c",
+        "src/data/distinct_page.c",
+        "src/dev/review_registry.c",
+        "src/dev/review_input.c",
+        "src/dev/review_capture.c",
+        "src/dev/review_browser.c"
+      ],
+      "artifact_files": {
+        "duxcel.wasm": {
+          "bytes": 4196685,
+          "sha256": "e6b91251820da2269185ebf836844ebf1d4fbdc8213c496bdfee11921322c505",
+          "current_bytes_match": true
+        },
+        "vendor.json": {
+          "bytes": 28665,
+          "sha256": "162d1e956a3c065cd640b2dbc129ec0b860c95c727e7788700447b6228420d92",
+          "current_bytes_match": true
+        },
+        "page_wire.mjs": {
+          "bytes": 7802,
+          "sha256": "3b1cb0b42e4f5b88d61affefa5ebff4b1e44cf6cf1b0313ca0ef2e3b8b02c9ae",
+          "current_bytes_match": true
+        },
+        "duxcel.mjs": {
+          "bytes": 396017,
+          "sha256": "9371850b49e53947da47cf80d43d965cc26d4e4fc40f02f8fca13acf4edb20c9",
+          "current_bytes_match": true
+        },
+        "host.mjs": {
+          "bytes": 1771,
+          "sha256": "13ae3dc11fafafbb32c39f929e5bb45528d374d6c25e5638819c6b76e4d66187",
+          "current_bytes_match": true
+        },
+        "official_worker.mjs": {
+          "bytes": 34642,
+          "sha256": "4a6cf7bb6dc97a9b64f3dc47571c481f60003fe450a1e638b3727b5f66567582",
+          "current_bytes_match": true
+        },
+        "engine_host.mjs": {
+          "bytes": 13635,
+          "sha256": "63068cac36f3989fe48476632608be235edd858be6d735e57bb59eefbd32c0d0",
+          "current_bytes_match": true
+        },
+        "vendor/duckdb/dist/duckdb-browser-eh.worker.js": {
+          "bytes": 772759,
+          "sha256": "f8ab72b6b90b3ad83077d47426d4a99d5d9a4c7e07cba1a2be37d655adc7c1ab",
+          "current_bytes_match": true
+        },
+        "vendor/duckdb/dist/duckdb-browser.mjs": {
+          "bytes": 31977,
+          "sha256": "4f8c0bb3c23d1ec457a451cc27418597b9a40dd772cceacc436a2cb7b9a49c18",
+          "current_bytes_match": true
+        },
+        "vendor/duckdb/dist/duckdb-eh.wasm": {
+          "bytes": 34242586,
+          "sha256": "4c221bfa59c11f24dbd750e70c90b9252eca6eec5633936e6a2ec766e55fd879",
+          "current_bytes_match": true
+        }
+      },
+      "original_build_json": {
+        "path": "/Users/h2o/dev/duxcel/build/web/review/770a0fb1e0fd59f93d1c/build.json",
+        "bytes": 35961,
+        "sha256": "2fbb0e927a12291d2f7df111f45f91ee83298a0b0f351b1fd2d9f50fc54be821"
+      }
+    },
+    "codec-read-driver": {
+      "directory": "/Users/h2o/dev/duxcel/build/web/codec-read-test/cbf5f8266747de20df16",
+      "signature": "cbf5f8266747de20df164d03eb1915288716bb6212c7ff222239171c9e5b8b26",
+      "source": {
+        "commit": "8770a291757fc650993492ba7a6222076de62566",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "b8b12833488eff9067e55e889e6bb271c573930091785d763c97f6f127e1df86",
+        "source_files": 303
+      },
+      "kind": "codec-read-driver",
+      "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+      "elapsed_seconds": 5.86,
+      "sources": [
+        "src/common.c",
+        "src/transforms/analysis.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/data/page.c",
+        "src/data/source_digest.c",
+        "src/data/page_wire.c",
+        "src/data/browser_query.c",
+        "src/workbook/workbook_codec.c",
+        "src/workbook/workbook_codec_read.c",
+        "tests/test_browser_codec_read.c"
+      ],
+      "artifact_files": {
+        "duxcel.wasm": {
+          "bytes": 946184,
+          "sha256": "1430b87efefc34bfbd9961d688638eb890acb0fbb1fde0332b96d9b85e7e4060",
+          "current_bytes_match": true
+        },
+        "vendor.json": {
+          "bytes": 28665,
+          "sha256": "162d1e956a3c065cd640b2dbc129ec0b860c95c727e7788700447b6228420d92",
+          "current_bytes_match": true
+        },
+        "page_wire.mjs": {
+          "bytes": 7802,
+          "sha256": "3b1cb0b42e4f5b88d61affefa5ebff4b1e44cf6cf1b0313ca0ef2e3b8b02c9ae",
+          "current_bytes_match": true
+        },
+        "duxcel.mjs": {
+          "bytes": 78635,
+          "sha256": "fdd439298740e93c810bef6c037632f98d7e23daeafc3f707a82f4c1e8f97c3d",
+          "current_bytes_match": true
+        },
+        "host.mjs": {
+          "bytes": 9071,
+          "sha256": "720974c46e4f30d2c5993d8d8a67ae2d593be2f7e7e3dbf1bb478f3f91ef9a08",
+          "current_bytes_match": true
+        },
+        "official_worker.mjs": {
+          "bytes": 34642,
+          "sha256": "4a6cf7bb6dc97a9b64f3dc47571c481f60003fe450a1e638b3727b5f66567582",
+          "current_bytes_match": true
+        },
+        "engine_host.mjs": {
+          "bytes": 13635,
+          "sha256": "63068cac36f3989fe48476632608be235edd858be6d735e57bb59eefbd32c0d0",
+          "current_bytes_match": true
+        },
+        "vendor/duckdb/dist/duckdb-browser-eh.worker.js": {
+          "bytes": 772759,
+          "sha256": "f8ab72b6b90b3ad83077d47426d4a99d5d9a4c7e07cba1a2be37d655adc7c1ab",
+          "current_bytes_match": true
+        },
+        "vendor/duckdb/dist/duckdb-browser.mjs": {
+          "bytes": 31977,
+          "sha256": "4f8c0bb3c23d1ec457a451cc27418597b9a40dd772cceacc436a2cb7b9a49c18",
+          "current_bytes_match": true
+        },
+        "vendor/duckdb/dist/duckdb-eh.wasm": {
+          "bytes": 34242586,
+          "sha256": "4c221bfa59c11f24dbd750e70c90b9252eca6eec5633936e6a2ec766e55fd879",
+          "current_bytes_match": true
+        }
+      },
+      "original_build_json": {
+        "path": "/Users/h2o/dev/duxcel/build/web/codec-read-test/cbf5f8266747de20df16/build.json",
+        "bytes": 31313,
+        "sha256": "5b3f86bf60b407a2140baf8d5e280a7e2c2864120118cc19949a4e298e8a363b"
+      }
+    }
+  },
+  "native_binaries": {
+    "duxcel": {
+      "sha256": "6ae281a842408d4831cf4fa2193212ccc9c322e502ac9ab6bb6d125632fe94d6",
+      "unexpected_symbols": []
+    },
+    "duxcel-debug": {
+      "sha256": "48fc8fbcc2f169ecc8b9ca6c87711ef2ce13083a4ba6edc8b6496f54c524e989",
+      "unexpected_symbols": []
+    }
+  },
+  "worker": {
+    "observed_C_checks": 125657,
+    "stages": 247,
+    "jobs": 249,
+    "SQL": 529,
+    "counts": 21,
+    "pending_start_releases": 1,
+    "pending_checks": 1
+  },
+  "unchanged_distribution": "Signed native ed053e3;8767review1082c1f/service/tab/queue unchanged; AppColumns172 retains57ce195."
+}

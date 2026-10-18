@@ -1,0 +1,13 @@
+{
+  "stage": "node",
+  "command": [
+    "node",
+    "--test",
+    "web/official_worker.test.mjs",
+    "web/page_wire.test.mjs"
+  ],
+  "seconds": 1.2171227910000002,
+  "exit_code": 0,
+  "log": "build/table-transport-tests/node.txt",
+  "sha256": "a06b8e0dffef24963632d143105afa2f26f61ebebd2e4d1000271c08bcbe19fa"
+}

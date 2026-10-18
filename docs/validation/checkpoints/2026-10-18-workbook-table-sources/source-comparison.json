@@ -1,0 +1,63 @@
+{
+  "schema": "duxcel.table-sources-component-comparison",
+  "version": 1,
+  "scope": "Named component files only; not native dependency, engine, whole-source or browser binary equivalence. Exact native preprocessor closure comparison is retained separately.",
+  "comparisons": [
+    {
+      "scope": "Table reader component",
+      "private_commit": "f4641513ec3b2292514c68ae5c8b0464fe6b5502",
+      "integrated_commit": "c531b0e6f5a1313c4b73520ee57200cae52c271d",
+      "files": [
+        {
+          "path": "src/workbook/workbook_codec_read.c",
+          "bytes": 61203,
+          "private_sha256": "2cc9decf5f0774e93d7263f370654b1b66f926f1d435d04b9b77ee828684c3e1",
+          "integrated_sha256": "2cc9decf5f0774e93d7263f370654b1b66f926f1d435d04b9b77ee828684c3e1",
+          "equal": true
+        },
+        {
+          "path": "src/workbook/workbook_codec_read.h",
+          "bytes": 13731,
+          "private_sha256": "45325120f63f7acd000e70d5b39269d782f971d52476337b45a51c9e29bb829e",
+          "integrated_sha256": "45325120f63f7acd000e70d5b39269d782f971d52476337b45a51c9e29bb829e",
+          "equal": true
+        },
+        {
+          "path": "tests/test_workbook_codec_read.c",
+          "bytes": 143128,
+          "private_sha256": "aacb2cc03722b44e2e388fadedfa65f224e3a89f9556995e2e3fae40ac8513a9",
+          "integrated_sha256": "aacb2cc03722b44e2e388fadedfa65f224e3a89f9556995e2e3fae40ac8513a9",
+          "equal": true
+        }
+      ]
+    },
+    {
+      "scope": "Table transport tests",
+      "private_commit": "4e50857df048097e55b1f4a1882b02aa66fafad5",
+      "integrated_commit": "45f9d29aef5c80d16174a26cc20ffa36791626cf",
+      "files": [
+        {
+          "path": "web/official_worker.test.mjs",
+          "bytes": 82984,
+          "private_sha256": "0146a671183c57d9348fd992bf20290f6fa623c3b08d11aaa57220f132a2ae12",
+          "integrated_sha256": "0146a671183c57d9348fd992bf20290f6fa623c3b08d11aaa57220f132a2ae12",
+          "equal": true
+        },
+        {
+          "path": "web/page_wire.test.mjs",
+          "bytes": 26881,
+          "private_sha256": "e17340621d1055588fad9c3020e9cd9f0f4ae4dc53fa42e2c40fa11da5be7ef4",
+          "integrated_sha256": "e17340621d1055588fad9c3020e9cd9f0f4ae4dc53fa42e2c40fa11da5be7ef4",
+          "equal": true
+        },
+        {
+          "path": "tests/test_page_wire.c",
+          "bytes": 50043,
+          "private_sha256": "1fd2e6e63f9556f7e0eede14131c0c65f3f060f0d2d22ac2c40b5a3a77a738db",
+          "integrated_sha256": "1fd2e6e63f9556f7e0eede14131c0c65f3f060f0d2d22ac2c40b5a3a77a738db",
+          "equal": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+[
+  {
+    "stage": "release-build",
+    "command": [
+      "make",
+      "-j1",
+      "build/web-tests/test-wire"
+    ],
+    "seconds": 2.4772105,
+    "exit_code": 0,
+    "log": "build/table-transport-tests/release-build.txt",
+    "sha256": "dfe8e1ec102da8ad27c1c75376cd9ed14450b98a4d71f73600d75fa0e14138e7"
+  },
+  {
+    "stage": "release",
+    "command": [
+      "./build/web-tests/test-wire"
+    ],
+    "seconds": 0.4455022500000001,
+    "exit_code": 0,
+    "log": "build/table-transport-tests/release.txt",
+    "sha256": "e5b4f37db3ff82d562bb088bac9ce2e06467a23ad1ab30f42509b9fadc65eb23"
+  },
+  {
+    "stage": "sanitize-build",
+    "command": [
+      "make",
+      "-j1",
+      "build/web-tests/test-wire-sanitize"
+    ],
+    "seconds": 3.325775083,
+    "exit_code": 0,
+    "log": "build/table-transport-tests/sanitize-build.txt",
+    "sha256": "2b6b2ec2269d403e37226bc0d885a03e624875a3c25a7da067dcb79f0db3849f"
+  },
+  {
+    "stage": "sanitize",
+    "command": [
+      "./build/web-tests/test-wire-sanitize"
+    ],
+    "seconds": 0.7367663330000003,
+    "exit_code": 0,
+    "log": "build/table-transport-tests/sanitize.txt",
+    "sha256": "e5b4f37db3ff82d562bb088bac9ce2e06467a23ad1ab30f42509b9fadc65eb23"
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "scope": "Natural test-only request-admission negative atf720 before production descriptor fix; no engine/GUI.",
+  "base": "f720322727c10c30ecef1119fecca69e709b7487",
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=Table family requests freeze",
+    "web/official_worker.test.mjs"
+  ],
+  "seconds": 0.3555775,
+  "exit_code": 1,
+  "log": "build/table-transport-tests/initial-sparse-columns-red.txt",
+  "log_sha256": "c7644722e5bee3981be46f03de232602e933b1f76809bf3688a6a115ec12b0ca",
+  "test_sha256": "bfc55742120215b8d51c0a9bdd359d7a0996a08fa1e147e27b60b98742780bd2"
+}
