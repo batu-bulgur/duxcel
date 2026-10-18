@@ -81,11 +81,11 @@ typedef struct {
     SourcePacket raw;
 } SourceFormatIntent;
 typedef struct {
-    SourcePacket raw;
+    SourcePacket raw,result;
     SourceDigest digest;
     uint64_t document,version,analysis_revision,format_revision;
-    size_t sheet,token;
-    bool ready,spare_ready;
+    size_t sheet,token,result_token;
+    bool ready,spare_ready,result_ready;
 } SourceFormatProof;
 typedef struct {
     SourceFileIdentity identity;
@@ -119,6 +119,7 @@ typedef struct {
     SourceFormatProof source_format_proof;
     SourceFormatAttempt source_format_attempt;
     SourceFormatTable source_format_tables[DX_MAX_OBJECTS];
+    size_t source_format_polled; /* Formatting reply remains owned until poll cleanup. */
     uint64_t format_document;
 #endif
     bool preview_valid;
@@ -4193,6 +4194,7 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
         grid->format_result_token=grid->format_record_token=imported_format_token(a);
 #ifndef DUXCEL_BROWSER_HOST
         grid->format_record_token=source_format_owner_token(a,owner ? owner->id : 0);
+        grid->format_result_token=source_format_owner_result_token(a,owner ? owner->id : 0);
 #endif
         uint64_t widths=grid->width_revision;
         float scale=s*grid->zoom; grid_layout(grid,scale,&preview,layout.preview);
@@ -7621,6 +7623,7 @@ static void draw_app(App *a) {
     a->grid.format_result_token=a->grid.format_record_token=imported_format_token(a);
 #ifndef DUXCEL_BROWSER_HOST
     a->grid.format_record_token=source_format_token(a);
+    a->grid.format_result_token=source_format_owner_result_token(a,0);
 #endif
     set_grid_navigation(a);
     bool canvas_input=!pivot_active && !zooming && !a->left_drawer && a->modal==MODAL_NONE && !a->chrome_focus && !a->ribbon_focus && !a->pivot_focus && !a->consume_grid_input && !a->split_side && !a->split_pipeline;
@@ -11234,9 +11237,9 @@ static void layout_smoke_step(App *a,int *step) {
     }
     case 717: {
         uint64_t revision=s->formats.revision; size_t actions=s->undo_actions_count; bool dirty=a->book.dirty;
-        if (!s->formats.source_aware || s->formats.scope_count!=2 || a->grid.format_result_token!=SIZE_MAX ||
-            a->grid.format_record_token==SIZE_MAX || active_format(a).flags || active_format(a).color!=3 ||
-            grid_cell_format(&a->grid,&a->page,0,1).flags || !(format_at(&s->formats,20,8).flags&FORMAT_ITALIC) ||
+        if (!s->formats.source_aware || s->formats.scope_count!=2 || a->grid.format_result_token==SIZE_MAX ||
+            a->grid.format_record_token==SIZE_MAX || active_format(a).flags!=FORMAT_ITALIC || active_format(a).color!=3 ||
+            grid_cell_format(&a->grid,&a->page,0,1).flags!=FORMAT_ITALIC || !(format_at(&s->formats,20,8).flags&FORMAT_ITALIC) ||
             a->request_id!=request+1 || a->page.cells!=ribbon_cells) goto failed;
         request=a->request_id;
         a->grid.end_row=a->page.total; /* Mixed imported/manual range remains unsupported. */
@@ -11245,7 +11248,7 @@ static void layout_smoke_step(App *a,int *step) {
             !a->message || !strstr(a->message,"ready finite range") || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         grid_select_cell(&a->grid,0,1,false);
         a->grid.selection=SELECT_COLUMNS; run_action(a,ACTION_ALIGN_CENTER);
-        if (active_format(a).align!=FORMAT_CENTER || active_format(a).flags || s->undo_actions_count!=actions+1 || !s->formats.source_aware ||
+        if (active_format(a).align!=FORMAT_CENTER || active_format(a).flags!=FORMAT_ITALIC || s->undo_actions_count!=actions+1 || !s->formats.source_aware ||
             a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         smoke_snapshot("tests/results/workspace-layout/source-aware-suspended.png"); break;
     }
@@ -11267,13 +11270,13 @@ static void layout_smoke_step(App *a,int *step) {
             a->page.total!=5 || a->page.column_count!=6 || strcmp(a->page.cells[1].text,"İstanbul") || a->book.dirty ||
             !strcmp(s->name,"Changed after scoped save")) goto failed;
         grid_select_cell(&a->grid,0,1,false);
-        if (active_format(a).flags || active_format(a).color!=3 || active_format(a).align!=FORMAT_CENTER ||
-            a->grid.format_result_token!=SIZE_MAX || a->grid.format_record_token==SIZE_MAX) goto failed;
+        if (active_format(a).flags!=FORMAT_ITALIC || active_format(a).color!=3 || active_format(a).align!=FORMAT_CENTER ||
+            a->grid.format_result_token==SIZE_MAX || a->grid.format_record_token==SIZE_MAX) goto failed;
         smoke_snapshot("tests/results/workspace-layout/source-aware-reopened.png");
         workspace_job(a,JOB_SAVE,"tests/generated/app-source-format.dxls"); break;
     case 722:
-        if (a->book.dirty || !s->formats.source_aware || s->formats.scope_count!=2 || active_format(a).flags || active_format(a).color!=3) goto failed;
-        puts("PASS: native v14 saved raw record styles reactivate only after verification, result styles stay suspended across real Save Open and overwrite, mixed finite commands reject atomically, manual and whole-column formatting retain Undo Redo and exact source values");
+        if (a->book.dirty || !s->formats.source_aware || s->formats.scope_count!=2 || active_format(a).flags!=FORMAT_ITALIC || active_format(a).color!=3) goto failed;
+        puts("PASS: native v14 saved raw record and matching exact-result styles reactivate only after verification across real Save Open and overwrite, mixed finite commands reject atomically, manual and whole-column formatting retain Undo Redo and exact source values");
         activate_sheet(a,cache_source_sheet,true); break;
     case 723:
         for (size_t i=0;i<2;i++) if (!object_ready(a,i)) {

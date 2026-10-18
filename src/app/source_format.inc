@@ -10,6 +10,7 @@ typedef struct {
     const Page *page;
     bool ready;
 } SourceFormatOwner;
+static void source_format_result_page(App *a,const SourceFormatOwner *owner,SourceFormatProof *proof);
 static bool source_format_owner(App *a,uint64_t owner,SourceFormatOwner *out) {
     Worksheet *sheet=active_sheet(a); if (!sheet) return false;
     if (!owner) {
@@ -57,6 +58,9 @@ static void source_format_intent_free(SourceFormatIntent *intent) {
     analysis_free(&intent->source); page_free(&intent->schema);
     source_packet_free(&intent->raw); *intent=(SourceFormatIntent){0};
 }
+static void source_format_proof_free(SourceFormatProof *proof) {
+    source_packet_free(&proof->raw); source_packet_free(&proof->result); *proof=(SourceFormatProof){0};
+}
 static void source_format_cancel(App *a,const char *message) {
     SourceFormatIntent *intent=&a->source_format; if (!intent->active) return;
     if (a->request_id==intent->request) { worker_cancel(&a->worker); a->request_id++; a->busy=false; }
@@ -64,10 +68,10 @@ static void source_format_cancel(App *a,const char *message) {
     if (message) status(a,message);
 }
 static void source_format_reset(App *a) {
-    source_format_cancel(a,NULL); source_packet_free(&a->source_format_proof.raw);
+    source_format_cancel(a,NULL); source_format_proof_free(&a->source_format_proof);
     a->source_format_proof=(SourceFormatProof){0}; a->source_format_attempt=(SourceFormatAttempt){0};
     for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
-        source_packet_free(&a->source_format_tables[i].proof.raw); a->source_format_tables[i]=(SourceFormatTable){0};
+        source_format_proof_free(&a->source_format_tables[i].proof); a->source_format_tables[i]=(SourceFormatTable){0};
     }
     if (a->format_document!=UINT64_MAX) a->format_document++;
 }
@@ -95,7 +99,7 @@ static void source_format_tick(App *a) {
     for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
         SourceFormatTable *slot=a->source_format_tables+i; SourceFormatOwner owner;
         if (slot->owner && !source_format_owner(a,slot->owner,&owner)) {
-            source_packet_free(&slot->proof.raw); *slot=(SourceFormatTable){0};
+            source_format_proof_free(&slot->proof); *slot=(SourceFormatTable){0};
         }
     }
     if (a->source_format.active && !source_format_fence(a))
@@ -103,7 +107,7 @@ static void source_format_tick(App *a) {
 }
 static void source_format_page_owner(App *a,uint64_t id) {
     SourceFormatProof *proof=source_format_owner_proof(a,id,false); if (!proof) return;
-    SourceFormatOwner owner; proof->ready=proof->spare_ready=false;
+    SourceFormatOwner owner; proof->ready=proof->spare_ready=proof->result_ready=false;
     if (!source_format_owner(a,id,&owner) || !owner.ready || !proof->raw.data ||
         proof->document!=a->format_document || proof->sheet!=a->book.active || proof->version!=owner.source->source_version) return;
     const SourceVersion *entry=source_format_owner_version(a,id,proof->version);
@@ -114,6 +118,7 @@ static void source_format_page_owner(App *a,uint64_t id) {
     proof->spare_ready=!id && a->spare.column_count &&
         source_version_page_verified(entry,0,proof->version,owner.source,&a->spare,
             SOURCE_DIGEST_OK,&proof->digest,duckdb_library_version(),NULL);
+    source_format_result_page(a,&owner,proof);
 }
 static void source_format_page(App *a) { source_format_page_owner(a,0); }
 static bool source_format_owner_verified(App *a,uint64_t id) {
@@ -128,9 +133,16 @@ static size_t source_format_owner_token(App *a,uint64_t owner) {
     SourceFormatProof *proof=source_format_owner_proof(a,owner,false);
     if (proof->format_revision!=sheet->formats.revision) {
         proof->token=format_scope_token(&sheet->formats,&(FormatScopeView){owner,proof->raw.data,proof->raw.bytes});
+        proof->result_token=proof->result_ready ? format_scope_token(&sheet->formats,&(FormatScopeView){owner,proof->result.data,proof->result.bytes}) : SIZE_MAX;
         proof->format_revision=sheet->formats.revision;
     }
     return proof->token;
+}
+static size_t source_format_owner_result_token(App *a,uint64_t owner) {
+    Worksheet *sheet=active_sheet(a); if (!sheet || !sheet->formats.source_aware) return 0;
+    if (!source_format_owner_verified(a,owner)) return SIZE_MAX;
+    source_format_owner_token(a,owner);
+    return source_format_owner_proof(a,owner,false)->result_token;
 }
 static size_t source_format_token(App *a) { return source_format_owner_token(a,0); }
 static CellFormat source_format_value(App *a,uint64_t row,size_t column) {
@@ -141,13 +153,14 @@ static CellFormat source_format_value(App *a,uint64_t row,size_t column) {
         if (object->kind!=OBJECT_TABLE || row<object->row+2) return format_resolve_token(&sheet->formats,row,column,SIZE_MAX);
         id=object->id; local_row=row-object->row-2; local_column=column-object->col; page=&a->objects[hit].page;
     }
-    size_t token=source_format_owner_token(a,id);
+    if ((!page->count_pending && local_row>=page->total) || local_column>=page->column_count) return format_resolve_token(&sheet->formats,row,column,SIZE_MAX);
+    size_t token=source_format_owner_token(a,id),result=source_format_owner_result_token(a,id);
     if (token!=SIZE_MAX && token && local_column<page->column_count) {
         bool found=page_record_id(page,local_row,&record);
         if (!found && !id && a->source_format_proof.spare_ready) found=page_record_id(&a->spare,local_row,&record);
-        if (found) return format_resolve_record_token(&sheet->formats,row,column,SIZE_MAX,token,record,local_column);
+        if (found) return format_resolve_record_token(&sheet->formats,row,column,result,token,record,local_column);
     }
-    return format_resolve_token(&sheet->formats,row,column,SIZE_MAX);
+    return format_resolve_token(&sheet->formats,row,column,result);
 }
 static void source_format_adjust_source(App *a,uint64_t owner,Analysis *source) {
     source_format_cancel(a,"Formatting cancelled because a table source changed.");
@@ -218,11 +231,12 @@ static bool source_format_budget(App *a,const WorkbookFormatReplacement *replace
        These are explicit conservative reservations, not measured heap/RSS. */
     size_t jobs=(size_t)worker.active_count+worker.pending_count;
     if (!result && !source_format_add(&jobs,new_jobs)) result=FORMAT_BUDGET_OVERFLOW;
-    size_t extra[]={a->source_format.bytes,a->source_format.object_reserved,a->source_format.raw.bytes,a->source_format_proof.raw.bytes,captured_extra,reply_owned};
+    size_t extra[]={a->source_format.bytes,a->source_format.object_reserved,a->source_format.raw.bytes,a->source_format_proof.raw.bytes,a->source_format_proof.result.bytes,captured_extra,reply_owned};
     for (size_t i=0;!result && i<sizeof(extra)/sizeof(*extra);i++)
         if (!source_format_add(&transient.other_staging,extra[i])) result=FORMAT_BUDGET_OVERFLOW;
     for (size_t i=0;!result && i<DX_MAX_OBJECTS;i++)
-        if (!source_format_add(&transient.other_staging,a->source_format_tables[i].proof.raw.bytes)) result=FORMAT_BUDGET_OVERFLOW;
+        if (!source_format_add(&transient.other_staging,a->source_format_tables[i].proof.raw.bytes) ||
+            !source_format_add(&transient.other_staging,a->source_format_tables[i].proof.result.bytes)) result=FORMAT_BUDGET_OVERFLOW;
     size_t pages=source_format_page_bytes(&a->page),spare=source_format_page_bytes(&a->spare);
     if (!result && (pages==SIZE_MAX || spare==SIZE_MAX || !source_format_add(&pages,spare))) result=FORMAT_BUDGET_OVERFLOW;
     for (size_t i=0;!result && i<DX_MAX_OBJECTS;i++) {
@@ -243,6 +257,19 @@ static bool source_format_budget(App *a,const WorkbookFormatReplacement *replace
     if (!result) result=workbook_format_preflight(&live,&next,&transient,&budget);
     if (result) status(a,workbook_format_budget_message(result));
     return result==FORMAT_BUDGET_OK;
+}
+static void source_format_result_page(App *a,const SourceFormatOwner *owner,SourceFormatProof *proof) {
+    /* The actual publication has already verified RAW/schema/locator. Cache
+       canonical RESULT once per definition, never parse/build it in paint. */
+    if (proof->result.data && source_scope_result_matches(proof->result.data,proof->result.bytes,&proof->raw,owner->source,NULL)) {
+        proof->result_ready=true; return;
+    }
+    source_packet_free(&proof->result);
+    if (!source_format_budget(a,NULL,0,DX_SOURCE_SCOPE_BYTES,a->source_format_polled,0,0)) return;
+    char *error=NULL;
+    proof->result_ready=source_scope_result_build(&proof->raw,owner->source,&proof->result,&error);
+    if (error) status(a,error);
+    free(error);
 }
 static bool source_format_schema_size(const Page *page,size_t *out) {
     if (!page->column_count || page->column_count>SOURCE_FORMAT_CAPTURE_BYTES/sizeof(Column)) return false;
@@ -355,7 +382,7 @@ static bool source_format_collect(App *a,size_t reply_owned) {
         /* Verification publishes only a session proof. Ledger, formats,
            Analysis, history and dirty state retain their saved ownership. */
         uint64_t id=intent->owner; SourceFormatProof *proof=source_format_owner_proof(a,id,false);
-        source_packet_free(&proof->raw);
+        source_format_proof_free(proof);
         *proof=(SourceFormatProof){.raw=intent->raw,.digest=intent->digest,
             .document=a->format_document,.version=intent->version,.sheet=a->book.active};
         intent->raw=(SourcePacket){0}; source_format_intent_free(intent); source_format_page_owner(a,id);
@@ -415,7 +442,7 @@ static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat 
     }
     source_format_verify(a); return true;
 }
-static bool source_format_reply(App *a,QueryReply *reply) {
+static bool source_format_reply_apply(App *a,QueryReply *reply) {
     if (reply->kind!=JOB_VERIFY_SOURCE && reply->kind!=JOB_COLLECT_RECORDS) return false;
     SourceFormatIntent *intent=&a->source_format;
     if (!source_format_fence(a) || reply->kind!=intent->stage || reply->revision!=intent->owner_revision || reply->object_id!=intent->owner) {
@@ -425,8 +452,7 @@ static bool source_format_reply(App *a,QueryReply *reply) {
         char message[768]; snprintf(message,sizeof(message),"Formatting failed: %.700s",reply->error);
         source_format_cancel(a,message); return true;
     }
-    size_t reply_bytes=sizeof(*reply)+analysis_text_bytes(&reply->analysis)+reply->records.bytes;
-    if (reply->path) reply_bytes+=strlen(reply->path)+1;
+    size_t reply_bytes=a->source_format_polled;
     if (reply->kind==JOB_VERIFY_SOURCE) {
         if (reply->source_digest_status!=SOURCE_DIGEST_OK) { source_format_cancel(a,"Source verification did not succeed. No formatting was applied."); return true; }
         intent->digest=reply->source_digest; source_format_collect(a,reply_bytes); return true;
@@ -504,10 +530,20 @@ static bool source_format_reply(App *a,QueryReply *reply) {
     bool formatted=format_commit(&sheet->formats,&plan);
     if (formatted || intent->issue) { worksheet_record(sheet,intent->issue ? intent->owner ? EDIT_OBJECTS_FORMAT : EDIT_ANALYSIS_FORMAT : EDIT_FORMAT); a->book.dirty=true; }
     uint64_t id=intent->owner; SourceFormatProof *proof=source_format_owner_proof(a,id,false);
-    source_packet_free(&proof->raw);
+    source_format_proof_free(proof);
     *proof=(SourceFormatProof){.raw=intent->raw,.digest=intent->digest,.document=a->format_document,
         .version=intent->version,.sheet=a->book.active};
     intent->raw=(SourcePacket){0}; source_format_intent_free(intent); source_format_page_owner(a,id);
     status(a,formatted ? "Formatting applied to the captured source records." : "The captured source records already have this format.");
     return true;
+}
+static bool source_format_reply(App *a,QueryReply *reply) {
+    if (reply->kind!=JOB_VERIFY_SOURCE && reply->kind!=JOB_COLLECT_RECORDS) return false;
+    size_t owned=sizeof(*reply);
+    if (!source_format_add(&owned,analysis_text_bytes(&reply->analysis)) || !source_format_add(&owned,reply->records.bytes) ||
+        (reply->path && !source_format_add(&owned,strlen(reply->path)+1))) owned=SIZE_MAX;
+    a->source_format_polled=owned;
+    bool handled=source_format_reply_apply(a,reply);
+    a->source_format_polled=0;
+    return handled;
 }
