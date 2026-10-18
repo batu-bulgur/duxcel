@@ -61,6 +61,7 @@ function newFileNameRegistry() {
     return { epoch: String(nextDatabaseEpoch++), nextId: 1n, names: new Map(), closed: false };
 }
 function descriptor(value) {
+    check(value && typeof value==='object' && !Array.isArray(value),'INVALID_REQUEST','Column descriptor required');
     const result = { name: boundedText(value.name, 4096, 'Column name'),
         typeName: boundedText(value.typeName, 128, 'SQL type'), numberKind: value.numberKind ?? 'none',
         precision: value.precision ?? 0, scale: value.scale ?? 0 };
@@ -85,7 +86,7 @@ export function pageRequest(value) {
     request.knownTotal = value.knownTotal == null ? null : u64(value.knownTotal, 'knownTotal');
     if (value.columns != null) {
         check(Array.isArray(value.columns) && value.columns.length <= LIMITS.columns, 'INVALID_REQUEST', 'Too many requested columns');
-        request.columns = Object.freeze(value.columns.map(descriptor));
+        request.columns = Object.freeze(Array.from(value.columns,descriptor));
         check(request.purpose!=='copy'||request.rowLimit*request.columns.length<=LIMITS.copyCells,'INVALID_REQUEST','Copy projection exceeds 20,000 cells');
     }
     // Absence keeps the existing unbound query contract. Explicit malformed
