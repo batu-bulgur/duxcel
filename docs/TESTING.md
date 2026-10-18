@@ -49,7 +49,7 @@ Focused native profiles currently expose existing valid bootstraps: `statistics`
 
 Core creates generated databases consumed by workbook/native tests. The runner preserves **core → workbook**, then completes that configuration before the next overwrites fixtures. It never parallelizes these mutable suites. Worktrees have separate `tests/generated/`; do not share it via symlink. The preview module's DuckDB connection uses its own private temp directory and reads authored input; it does not mutate those fixture databases.
 
-The full native inventory is **1,197 maintained application stages**, plus separate **110 GPU** and **477 background-window** checks. NYC's eight stages require `tests/downloads/yellow_tripdata_2025-01.parquet`. `--require-data` fails if it is missing. Without that flag the runner records an explicit skip and reports `passed-with-skips`, never a full 1,197-stage pass. `tests/download_data.sh` can reproduce the existing public inputs; nothing downloads automatically during ordinary tests.
+The full native inventory is **1,197 maintained application stages**, plus separate **110 GPU** and **477 background-window** checks. NYC's eight stages require `tests/downloads/yellow_tripdata_2025-01.parquet`. `--require-data` fails if it is missing. Without that flag the runner records an explicit skip and reports `passed-with-skips`, never a full 1,233-stage pass. `tests/download_data.sh` can reproduce the existing public inputs; nothing downloads automatically during ordinary tests.
 
 The full tier does not mean every optional stress/packaging/OS path was exercised. `make spill-test`, `make unique-large-test`, icon regeneration/verification, standalone distribution, physical trackpad/DPI/IME and manual file panels remain separately scoped checks. Run those when their area changes; Windows/Linux validation is deferred.
 
@@ -308,4 +308,16 @@ make tests/test_workbook tests/test_workbook-debug
 ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --guarded-formats-only
 ```
 
-At `ba79581`, source-record30 took15.163s optimized /17.677s sanitizer App time (24.504s /22.012s including focused preparation). Guarded codec1,003/configuration is a separately hashed component, with11.174s optimized /82.165s sanitizer timing; it repeatedly validates private archives/failed overwrites, without source verification or UI. Worker192 accepts native collector rejection and cached CSV/Pivot recovery; build `python3 tools/build_web.py --worker-driver`, then `python3 tools/test_web_app.py --worker-driver --no-build`. The current gate took13.744s. Layout inventory is764 /1,197 application stages; no full-inventory pass is claimed. [Exact manifests and remaining limits](validation/checkpoints/2026-10-18-primary-record-format/).
+At `ba79581`, source-record30 took15.163s optimized /17.677s sanitizer App time (24.504s /22.012s including focused preparation). Guarded codec1,003/configuration is a separately hashed component, with11.174s optimized /82.165s sanitizer timing; it repeatedly validates private archives/failed overwrites, without source verification or UI. Worker192 accepts native collector rejection and cached CSV/Pivot recovery; build `python3 tools/build_web.py --worker-driver`, then `python3 tools/test_web_app.py --worker-driver --no-build`. The current gate took13.744s. That checkpoint's layout inventory was764 /1,197 application stages; no full-inventory pass was claimed. [Exact manifests and remaining limits](validation/checkpoints/2026-10-18-primary-record-format/).
+
+
+The current `table-record-format` profile covers **[764,800)**,36 independently bootstrapped real-App stages. It verifies local Table physical membership and fields, captured cross-page commands, owner isolation, sort/filter/cache eviction, moves/pending placement, first-binding composite Undo/Redo, no-op source Apply, refreshed versions, actual v14 reopen and changed-file suspension. A real DuckDB PIVOT's source preview must show12 styled records at Page offset240 while its result cells remain plain. Current inventory is800 layout /1,233 total application stages; no full-inventory pass is claimed. [Source-scoped acceptance](validation/checkpoints/2026-10-18-table-record-format/).
+
+```sh
+python3 tools/test.py affected --feature table-record-format --modules objects --config sanitize
+python3 tools/test.py affected --feature table-record-format --modules objects --config release
+# Faster isolated App compilation during edits; headless tests stay O1 ASan.
+python3 tools/test.py affected --feature table-record-format --modules objects --config sanitize --edit
+```
+
+`--edit` is opt-in for affected/native only, with sanitize/both. It builds private O0 ASan/UBSan objects and `build/edit-sanitize/duxcel`, with executable-relative assets and separate compile/link signatures. It preserves assertions, frame/animation budgets, locks, hidden windows, ownership checks and result hashes. Its summaries explicitly identify `edit-sanitize`/`-O0`. Existing optimized/O1 gates remain the integration criteria; full/fast/records/formats and explicit release reject `--edit`. The actual58-check real-C build contract and32 runner tests pass. Apple's Make3.81 same-second limitation still applies, including deliberate dependency-file deletion in the mutation contract.
