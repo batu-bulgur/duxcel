@@ -1755,19 +1755,27 @@ static void history(App *a,bool redo) {
     }
     if (effects&2) { if (cells_history(&s->cells,redo)) { if (effects&8) format_history(&s->formats,redo); worksheet_transfer_history(s,redo); restore_column_widths(a,column,redo); a->book.dirty=true; validate_history_layout(a); } return; }
     if (effects==8) { if (format_history(&s->formats,redo)) { worksheet_transfer_history(s,redo); a->book.dirty=true; } return; }
-    char *error=NULL;
-    if (!worksheet_analysis_history_preflight(s,&a->analysis,redo,&error)) { status(a,error); free(error); return; }
-    Analysis *from=redo ? s->redo : s->undo;
-    size_t fc=redo ? s->redo_count : s->undo_count;
-    bool same=!a->fetch_failed && !a->page_stale && analysis_same_result(&a->analysis,&from[fc-1]);
-    /* Both constituents are known to exist before either moves. Keep the
-       resolved old value borrowed only until the nonfallible pointer moves
-       finish; the old live Analysis now belongs to the opposite history. */
-    Analysis resolved=a->analysis;
-    if (effects&8) format_history(&s->formats,redo);
-    worksheet_analysis_history_adopt(s,&a->analysis,redo);
-    if (same) analysis_merge_types(&a->analysis,&resolved);
-    worksheet_transfer_history(s,redo); a->book.dirty=true;
+    if (kind==EDIT_ANALYSIS_FORMAT) {
+        char *error=NULL;
+        if (!worksheet_analysis_history_preflight(s,&a->analysis,redo,&error)) { status(a,error); free(error); return; }
+        Analysis *from=redo ? s->redo : s->undo; size_t fc=redo ? s->redo_count : s->undo_count;
+        bool same=!a->fetch_failed && !a->page_stale && analysis_same_result(&a->analysis,&from[fc-1]);
+        /* The new composite producer has bounded admission. Keep legacy lone
+           Analysis admission separate until it shares that same preflight. */
+        Analysis resolved=a->analysis;
+        format_history(&s->formats,redo); worksheet_analysis_history_adopt(s,&a->analysis,redo);
+        if (same) analysis_merge_types(&a->analysis,&resolved);
+        worksheet_transfer_history(s,redo); a->book.dirty=true;
+        if (same) { cache_pipeline(a); if (!a->busy) status(a,"Ready"); } else change_analysis(a,true);
+        return;
+    }
+    Analysis *from=redo ? s->redo : s->undo,*to=redo ? s->undo : s->redo;
+    size_t *fc=redo ? &s->redo_count : &s->undo_count,*tc=redo ? &s->undo_count : &s->redo_count;
+    if (!*fc) return;
+    bool same=!a->fetch_failed && !a->page_stale && analysis_same_result(&a->analysis,&from[*fc-1]);
+    if (same) analysis_merge_types(&from[*fc-1],&a->analysis);
+    stack_push(to,tc,&a->analysis); analysis_free(&a->analysis); a->analysis=from[--*fc];
+    memset(&from[*fc],0,sizeof(*from)); worksheet_transfer_history(s,redo); a->book.dirty=true;
     if (same) { cache_pipeline(a); if (!a->busy) status(a,"Ready"); } else change_analysis(a,true);
 }
 static void open_modal(App *a,Modal modal) {
