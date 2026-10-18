@@ -293,7 +293,7 @@ class RunnerTests(unittest.TestCase):
                  mock.patch.object(runner, "native_lock_path", return_value=root / "desktop.lock"):
                 instance.full()
             engines = [runner.test_binary(module, config) for config in ("release", "sanitize")
-                       for module in ("core", "workbook", "record_sql", "record_pages")]
+                       for module in ("core", "workbook", "record_sql", "record_pages", "workbook_codec_native")]
             self.assertTrue(set(engines).issubset(command.call_args_list[0].args[1]))
             self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]], [["./" + binary] for binary in engines])
 
