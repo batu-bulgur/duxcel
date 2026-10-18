@@ -13,7 +13,7 @@ typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; }
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
     WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
     WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS,
-    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -78,6 +78,18 @@ bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool table_present,ch
    primary/secondary native text (including terminators) have separate8MiB caps.
    No source schema/SQL or setter-based deduplication is involved. */
 bool workbook_codec_read_add_filters(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
+/* Independent once-only continuation at complete unclaimed Header. Every writer
+   package12/13/14 requires columns; empty ordered results are valid. One named
+   INTEGER/INTEGER/VARCHAR/DOUBLE result admits1048576 rows plus one sentinel,
+   fed in atomic batches<=256 until explicit end. Each sheet has contiguous
+   indices0..16383; names may be empty or duplicate and have no native length
+   cap beyond checked arithmetic, UTF-8/NUL and the caller's owned budget.
+   Widths must be finite DOUBLE52..1200 before conversion to float. Geometric
+   arrays count their full capacity; batch admission includes old+new arrays,
+   staged/copied names and all caller-retained input before any allocation.
+   Names and view arrays borrow Header ownership; existing name identities
+   survive successful array growth. This does not validate full model placement. */
+bool workbook_codec_read_add_columns(WorkbookCodecRead *read,bool table_present,char **error);
 /* Independent optional continuation at HEADER_READY before claim, once. The
    adapter checks table presence/schema: absent12/13 defaults motion=false and
    all sheets visible; v14 requires preferences. One C-built named projection
@@ -146,7 +158,7 @@ bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPi
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   filters/sorts/preferences/object descriptors/queries/source options/Table sources/Pivot/Marks).
+   filters/sorts/preferences/object descriptors/queries/source options/Table sources/Pivot/Marks/columns).
    It is not a complete workbook: cells, formats, ledger and allocation counters remain absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
@@ -166,6 +178,7 @@ float workbook_codec_header_user_scale(const WorkbookCodecHeader *header);
    for the original meta/sheets-only Header, including an empty sort_count. */
 bool workbook_codec_header_sorts_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_filters_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_columns_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_preferences_ready(const WorkbookCodecHeader *header);
 /* Readiness applies only to the complete descriptor registry. Names borrow
    immutable Header storage; never free them or retain them beyond Header free.
