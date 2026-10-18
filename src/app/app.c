@@ -6323,7 +6323,10 @@ static bool pipeline_sql_action(App *a,Rectangle r,UICarbonIcon icon,const char 
     UIContext *u=&a->ui; float s=u->scale; bool clicked=ui_tool_button(u,r,"",false,enabled);
     Color color=enabled ? UI_TEXT : (Color){153,160,172,255};
     ui_carbon(u,icon,box(r.x+7*s+1,r.y+(r.height-16*s)*.5f,16*s,16*s),color);
-    ui_label(u,caption,box(r.x+30*s+1,r.y,fmaxf(0,r.width-37*s-2),r.height),11,color,false,UI_REGULAR);
+    /* Native unkerned advances are slightly wider than the frozen CSS label
+       advance. Keep its origin/button bounds, but allow the glyphs to use
+       the spare right padding before clipping against the inner button. */
+    ui_label(u,caption,box(r.x+30*s+1,r.y,fmaxf(0,r.width-31*s-2),r.height),11,color,false,UI_REGULAR);
     return clicked;
 }
 static bool pipeline_shadow_same_key(const App *a,const UIShadowLayout *layout) {
