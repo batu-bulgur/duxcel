@@ -1522,7 +1522,177 @@ static void test_analysis_journal_chronology(void) {
     journal_history(s,live,false); journal_history(s,live,false); CHECK(live->filter_value[0]=='c' && s->formats.source_aware && !strcmp(cells_get(&s->cells,2,4),"Keep current cell") && s->source_versions.high_water==99);
     workbook_free(&book); free(error);
 }
+static void budget_usage_reject(const Workbook *book,const WorkbookFormatReplacement *replacements,size_t count,FormatBudgetStatus expected) {
+    WorkbookFormatUsage out={.sheet_count=19,.current=23,.retained=29,.max_sheet_current=31,.max_sheet=37},before=out;
+    CHECK(workbook_format_usage(book,replacements,count,&out)==expected && !memcmp(&out,&before,sizeof(out)));
+}
+static void budget_reject(const WorkbookFormatUsage *live,const WorkbookFormatUsage *next,const FormatTransientUsage *transient,FormatBudgetStatus expected) {
+    FormatBudget out={.before=11,.after=13,.peak=17},before=out;
+    CHECK(workbook_format_preflight(live,next,transient,&out)==expected && !memcmp(&out,&before,sizeof(out)));
+}
+static void test_format_budget_models(void) {
+    Workbook book; workbook_init(&book); char *error=NULL; Analysis source={.kind=SOURCE_CSV,.path="/private/budget-source.csv"},blank={0};
+    CHECK(workbook_add(&book,"Dormant owned formats",&source,&error)); CHECK(workbook_add(&book,"Retired issuance only",&blank,&error));
+    Worksheet *sheet=book.sheets; sheet->objects.next_id=7; book.sheets[1].source_versions.high_water=UINT64_MAX;
+    source_format_issue(sheet,0,1,&source,true); source_format_issue(sheet,7,2,&source,false); sheet->analysis.source_version=1;
+    FormatScopeView raw={0,sheet->source_versions.items[0].raw.data,sheet->source_versions.items[0].raw.bytes};
+    uint64_t ids[]={1,7,UINT64_MAX}; size_t fields[]={0,2}; CellFormat value=format_default(); value.flags=FORMAT_BOLD;
+    CHECK(format_apply_records(&sheet->formats,&raw,ids,3,fields,2,FORMAT_BOLD,value,&error));
+    SourcePacket result={0}; CHECK(source_scope_result_build(&sheet->source_versions.items[0].raw,&sheet->analysis,&result,&error));
+    FormatScopeView exact={0,result.data,result.bytes}; value.flags=FORMAT_ITALIC;
+    CHECK(format_apply_scoped(&sheet->formats,(FormatRange){2,4,1,2},FORMAT_ITALIC,value,&exact,1,false,&error)); source_packet_free(&result);
+    value.flags=FORMAT_UNDERLINE; CHECK(format_apply(&sheet->formats,(FormatRange){20,20,8,8},FORMAT_UNDERLINE,value,&error));
+    CHECK(format_history(&sheet->formats,false) && sheet->formats.undo_count && sheet->formats.redo_count);
+    WorkbookFormatUsage live={0}; CHECK(workbook_format_usage(&book,NULL,0,&live)==FORMAT_BUDGET_OK);
+    CHECK(live.sheet_count==2 && live.current==format_owned_bytes(&sheet->formats,false)+sheet->source_versions.bytes);
+    CHECK(live.retained==format_owned_bytes(&sheet->formats,true)+sheet->source_versions.bytes && live.retained>live.current);
+    CHECK(live.max_sheet_current==live.current && live.max_sheet==0 && sheet->source_versions.count==2);
+    /* Save snapshots own a separate current-only copy. Dormant raw packets and
+       pending entries count once in each model, never once per format history. */
+    Workbook *snapshot=workbook_snapshot(&book); CHECK(snapshot); WorkbookFormatUsage saved={0};
+    CHECK(workbook_format_usage(snapshot,NULL,0,&saved)==FORMAT_BUDGET_OK && saved.current==live.current && saved.retained==saved.current);
+    CHECK(snapshot->sheets[0].formats.items!=sheet->formats.items && snapshot->sheets[0].source_versions.items!=sheet->source_versions.items);
+    CHECK(!snapshot->sheets[0].formats.undo_count && !snapshot->sheets[0].formats.redo_count && snapshot->sheets[1].source_versions.high_water==UINT64_MAX);
+    Worksheet prior=*sheet; Workbook before=book; FormatSnapshot plan={0}; value.flags=FORMAT_UNDERLINE;
+    uint64_t next_ids[]={2,8}; CHECK(format_plan_records(&sheet->formats,&raw,next_ids,2,fields,2,FORMAT_UNDERLINE,value,&plan,&error));
+    SourceVersion entry={.owner=0,.version=3,.kind=source.kind,.path=source.path}; SourceVersions versions={0};
+    CHECK(source_versions_plan(&sheet->source_versions,&entry,true,&versions,&error));
+    /* This is the complete logical post-adoption history: old current is pushed,
+       redo is discarded, and no implicit pruning is guessed by the meter. */
+    FormatStore projected=sheet->formats;
+    projected.undo[projected.undo_count++]=(FormatSnapshot){.items=sheet->formats.items,.count=sheet->formats.count,.scopes=sheet->formats.scopes,.scope_count=sheet->formats.scope_count,.source_aware=sheet->formats.source_aware};
+    projected.items=plan.items; projected.count=plan.count; projected.scopes=plan.scopes; projected.scope_count=plan.scope_count; projected.source_aware=plan.source_aware; projected.redo_count=0;
+    FormatStore planned_current={.items=plan.items,.count=plan.count,.scopes=plan.scopes,.scope_count=plan.scope_count,.source_aware=plan.source_aware};
+    WorkbookFormatReplacement replacement={.sheet=0,.formats=&projected,.versions=&versions}; WorkbookFormatUsage next={0};
+    CHECK(workbook_format_usage(&book,&replacement,1,&next)==FORMAT_BUDGET_OK);
+    CHECK(next.current==format_owned_bytes(&projected,false)+versions.bytes && next.retained==format_owned_bytes(&projected,true)+versions.bytes);
+    FormatTransientUsage transient={.adopted_staging=format_owned_bytes(&planned_current,false)+versions.bytes,.io_snapshots=saved.retained,.other_staging=1,.collector_owned=2,.page_metadata_owned=3,.pending_reserved=4}; FormatBudget budget={0};
+    CHECK(workbook_format_preflight(&live,&next,&transient,&budget)==FORMAT_BUDGET_OK);
+    CHECK(budget.before==live.retained+transient.adopted_staging+saved.retained+10 && budget.after==next.retained+saved.retained+10);
+    CHECK(budget.peak==(budget.before>budget.after ? budget.before : budget.after));
+    CHECK(!memcmp(&book,&before,sizeof(book)) && !memcmp(sheet,&prior,sizeof(prior)));
+    /* Cancel the independently owned next models. Live history/ledger and every
+       measured reservation remain until their owner explicitly releases them. */
+    format_snapshot_free(&plan); source_versions_free(&versions); workbook_free(snapshot); free(snapshot);
+    WorkbookFormatUsage again={0}; CHECK(workbook_format_usage(&book,NULL,0,&again)==FORMAT_BUDGET_OK && !memcmp(&again,&live,sizeof(live)));
+    budget_usage_reject(NULL,NULL,0,FORMAT_BUDGET_INPUT); CHECK(workbook_format_usage(&book,NULL,0,NULL)==FORMAT_BUDGET_INPUT);
+    budget_usage_reject(&book,NULL,1,FORMAT_BUDGET_INPUT); budget_usage_reject(&book,NULL,DX_MAX_SHEETS+1,FORMAT_BUDGET_INPUT);
+    Workbook invalid=book; invalid.count=DX_MAX_SHEETS+1; budget_usage_reject(&invalid,NULL,0,FORMAT_BUDGET_INPUT); invalid=book; invalid.sheets=NULL; budget_usage_reject(&invalid,NULL,0,FORMAT_BUDGET_INPUT);
+    replacement=(WorkbookFormatReplacement){.sheet=book.count}; budget_usage_reject(&book,&replacement,1,FORMAT_BUDGET_INPUT);
+    WorkbookFormatReplacement duplicate[]={{.sheet=0},{.sheet=0}}; budget_usage_reject(&book,duplicate,2,FORMAT_BUDGET_INPUT);
+    replacement=(WorkbookFormatReplacement){0}; CHECK(workbook_format_usage(&book,&replacement,1,&again)==FORMAT_BUDGET_OK && !memcmp(&again,&live,sizeof(live)));
+    FormatStore malformed=sheet->formats; replacement.formats=&malformed; malformed.count=DX_FORMAT_PATCHES+1; budget_usage_reject(&book,&replacement,1,FORMAT_BUDGET_MODEL);
+    malformed=sheet->formats; malformed.undo_count=DX_FORMAT_HISTORY+1; budget_usage_reject(&book,&replacement,1,FORMAT_BUDGET_MODEL);
+    /* Retained snapshot contents are checked too, even when their byte lengths
+       alone would fit: an owned guard vector cannot be missing. */
+    FormatPatch invalid_patch={.range={0},.mask=FORMAT_BOLD,.value=format_default(),.selector=FORMAT_RESULT,.guard_count=1};
+    malformed=sheet->formats; malformed.undo[0]=(FormatSnapshot){.items=&invalid_patch,.count=1,.source_aware=true}; budget_usage_reject(&book,&replacement,1,FORMAT_BUDGET_MODEL);
+    replacement.formats=NULL; SourceVersions invalid_versions=sheet->source_versions; invalid_versions.bytes++; replacement.versions=&invalid_versions; budget_usage_reject(&book,&replacement,1,FORMAT_BUDGET_MODEL);
+    replacement.versions=NULL; sheet->objects.next_id=6; budget_usage_reject(&book,&replacement,1,FORMAT_BUDGET_MODEL); sheet->objects.next_id=7;
+    entry=(SourceVersion){.owner=8,.version=3,.kind=source.kind,.path=source.path}; CHECK(source_versions_plan(&sheet->source_versions,&entry,true,&versions,&error));
+    replacement.versions=&versions; budget_usage_reject(&book,&replacement,1,FORMAT_BUDGET_MODEL); sheet->objects.next_id=8;
+    CHECK(workbook_format_usage(&book,&replacement,1,&again)==FORMAT_BUDGET_OK); sheet->objects.next_id=7; source_versions_free(&versions);
+    CHECK(!memcmp(sheet,&prior,sizeof(prior))); workbook_free(&book); free(error);
+}
+static void test_format_budget_combined_sheet(void) {
+    Workbook book; workbook_init(&book); Analysis blank={0}; char *error=NULL; CHECK(workbook_add(&book,"Combined owned limit",&blank,&error));
+    Worksheet *sheet=book.sheets; CellFormat value=format_default(); value.flags=FORMAT_BOLD;
+    CHECK(format_apply(&sheet->formats,(FormatRange){1,1,0,0},FORMAT_BOLD,value,&error));
+    SourceVersions *versions=&sheet->source_versions; versions->count=versions->capacity=16; versions->high_water=16;
+    versions->items=calloc(versions->capacity,sizeof(*versions->items)); CHECK(versions->items); versions->bytes=versions->capacity*sizeof(*versions->items);
+    const size_t per_path=(DX_SOURCE_VERSIONS_BYTES-versions->bytes)/versions->count;
+    CHECK(per_path<=DX_SOURCE_SCOPE_TEXT_BYTES && per_path>sizeof(FormatPatch)+1);
+    for (size_t i=0;i<versions->count;i++) {
+        size_t bytes=per_path-(i ? 0 : sizeof(FormatPatch)); char *path=malloc(bytes); CHECK(path); memset(path,'p',bytes-1); path[bytes-1]=0;
+        versions->items[i]=(SourceVersion){.owner=0,.version=i+1,.kind=SOURCE_CSV,.path=path}; versions->bytes+=bytes;
+    }
+    CHECK(source_versions_valid(versions,0,&error) && format_valid(&sheet->formats,&error)); WorkbookFormatUsage usage={0}; FormatBudget budget={0};
+    CHECK(workbook_format_usage(&book,NULL,0,&usage)==FORMAT_BUDGET_OK && usage.current==DX_FORMAT_CURRENT_BYTES && usage.retained==usage.current);
+    CHECK(workbook_format_preflight(&usage,&usage,NULL,&budget)==FORMAT_BUDGET_OK);
+    char *old=versions->items[0].path; size_t length=strlen(old); char *longer=malloc(length+2); CHECK(longer); memcpy(longer,old,length); longer[length]='p'; longer[length+1]=0; free(old); versions->items[0].path=longer; versions->bytes++;
+    CHECK(source_versions_valid(versions,0,&error) && versions->bytes<=DX_SOURCE_VERSIONS_BYTES && format_valid(&sheet->formats,&error));
+    CHECK(workbook_format_usage(&book,NULL,0,&usage)==FORMAT_BUDGET_OK && usage.current==DX_FORMAT_CURRENT_BYTES+1);
+    Worksheet before=*sheet; budget_reject(&usage,&usage,NULL,FORMAT_BUDGET_SHEET); CHECK(!memcmp(sheet,&before,sizeof(before)));
+    workbook_free(&book); free(error);
+}
+static void test_format_budget_policy(void) {
+    const size_t mib=1024u*1024u; WorkbookFormatUsage empty={0},next={.sheet_count=8,.current=8*mib,.retained=32*mib,.max_sheet_current=mib,.max_sheet=7},live=next;
+    FormatTransientUsage transient={.adopted_staging=32*mib}; FormatBudget budget={0};
+    CHECK(workbook_format_preflight(&live,&next,&transient,&budget)==FORMAT_BUDGET_OK && budget.before==64*mib && budget.after==32*mib && budget.peak==64*mib);
+    transient.adopted_staging++; budget_reject(&live,&next,&transient,FORMAT_BUDGET_APP);
+    transient=(FormatTransientUsage){.other_staging=32*mib}; CHECK(workbook_format_preflight(&empty,&next,&transient,&budget)==FORMAT_BUDGET_OK && budget.before==32*mib && budget.after==64*mib);
+    transient.other_staging++; budget_reject(&empty,&next,&transient,FORMAT_BUDGET_APP);
+    WorkbookFormatUsage bad=next; bad.max_sheet_current++; budget_reject(&empty,&bad,NULL,FORMAT_BUDGET_SHEET);
+    bad=next; bad.sheet_count=9; bad.current++; budget_reject(&empty,&bad,NULL,FORMAT_BUDGET_CURRENT);
+    bad=next; bad.retained++; budget_reject(&empty,&bad,NULL,FORMAT_BUDGET_RETAINED);
+    /* Existing over-cap history can be measured and then explicitly pruned in a
+       complete projected model; preflight never silently repairs live state. */
+    live.retained++; CHECK(workbook_format_preflight(&live,&next,NULL,&budget)==FORMAT_BUDGET_OK && budget.before==32*mib+1);
+    budget_reject(&live,&live,NULL,FORMAT_BUDGET_RETAINED);
+    WorkbookFormatUsage malformed[]={
+        {.sheet_count=DX_MAX_SHEETS+1},{.sheet_count=1,.current=2,.retained=1,.max_sheet_current=1},
+        {.sheet_count=1,.current=1,.retained=1,.max_sheet_current=2},{.retained=1},
+        {.max_sheet=1},{.sheet_count=1,.max_sheet=1},{.sheet_count=1,.current=1,.retained=1},
+        {.sheet_count=1,.current=2,.retained=2,.max_sheet_current=1}
+    };
+    for (size_t i=0;i<sizeof(malformed)/sizeof(*malformed);i++) { budget_reject(&empty,malformed+i,NULL,FORMAT_BUDGET_INPUT); budget_reject(malformed+i,&empty,NULL,FORMAT_BUDGET_INPUT); }
+    budget_reject(NULL,&empty,NULL,FORMAT_BUDGET_INPUT); budget_reject(&empty,NULL,NULL,FORMAT_BUDGET_INPUT); CHECK(workbook_format_preflight(&empty,&empty,NULL,NULL)==FORMAT_BUDGET_INPUT);
+    CHECK(workbook_format_preflight(&empty,&empty,NULL,&budget)==FORMAT_BUDGET_OK && !budget.before && !budget.after && !budget.peak);
+    /* All active, latest-pending, published, I/O and Page owners coexist until
+       explicitly freed; cancellation alone supplies no memory discount. */
+    live=(WorkbookFormatUsage){.sheet_count=1,.current=mib,.retained=4*mib,.max_sheet_current=mib}; next=live;
+    transient=(FormatTransientUsage){.io_snapshots=5*mib,.other_staging=6*mib,.collector_owned=24*mib,.page_metadata_owned=9*mib,.pending_reserved=16*mib};
+    CHECK(workbook_format_preflight(&live,&next,&transient,&budget)==FORMAT_BUDGET_OK && budget.peak==64*mib);
+    transient.collector_owned++; budget_reject(&live,&next,&transient,FORMAT_BUDGET_APP); transient.collector_owned--;
+    transient.collector_owned-=8*mib; CHECK(workbook_format_preflight(&live,&next,&transient,&budget)==FORMAT_BUDGET_OK && budget.peak==56*mib);
+    /* Upper-bound reservation first, then conversion to actual owned staging
+       before adoption. The after count excludes consumed staging exactly once. */
+    transient=(FormatTransientUsage){.pending_reserved=3*mib}; CHECK(workbook_format_preflight(&live,&next,&transient,&budget)==FORMAT_BUDGET_OK && budget.before==7*mib && budget.after==7*mib);
+    transient=(FormatTransientUsage){.adopted_staging=2*mib}; next.retained+=2*mib;
+    CHECK(workbook_format_preflight(&live,&next,&transient,&budget)==FORMAT_BUDGET_OK && budget.before==6*mib && budget.after==6*mib);
+    for (size_t i=0;i<5;i++) {
+        transient=(FormatTransientUsage){0}; size_t *fields[]={&transient.io_snapshots,&transient.other_staging,&transient.collector_owned,&transient.page_metadata_owned,&transient.pending_reserved};
+        *fields[i]=SIZE_MAX; *fields[(i+1)%5]=1; budget_reject(&empty,&empty,&transient,FORMAT_BUDGET_OVERFLOW);
+    }
+    transient=(FormatTransientUsage){.adopted_staging=SIZE_MAX}; budget_reject(&live,&next,&transient,FORMAT_BUDGET_OVERFLOW);
+    transient=(FormatTransientUsage){.other_staging=SIZE_MAX}; budget_reject(&empty,&next,&transient,FORMAT_BUDGET_OVERFLOW);
+    for (int i=FORMAT_BUDGET_OK;i<=FORMAT_BUDGET_APP;i++) { const char *message=workbook_format_budget_message((FormatBudgetStatus)i); CHECK(message && *message && message==workbook_format_budget_message((FormatBudgetStatus)i)); }
+    CHECK(!strcmp(workbook_format_budget_message((FormatBudgetStatus)-1),"Unknown formatting budget status."));
+}
+static void test_format_budget_legacy_measurement(void) {
+    /* A legacy spatial-only book can retain more than the proposed workbook-wide
+       history cap while each existing sheet remains within its accepted bound.
+       Accounting must observe it without changing legacy Save behavior. */
+    const size_t per_state=DX_FORMAT_PATCHES*sizeof(FormatPatch),per_sheet=per_state*(DX_FORMAT_HISTORY+1);
+    size_t sheets=DX_WORKBOOK_FORMAT_RETAINED_BYTES/per_sheet+1; CHECK(sheets<=DX_MAX_SHEETS);
+    Workbook book; workbook_init(&book); Analysis blank={0}; char *error=NULL;
+    for (size_t i=0;i<sheets;i++) {
+        CHECK(workbook_add(&book,"Legacy spatial histories",&blank,&error)); FormatStore *formats=&book.sheets[i].formats;
+        formats->count=DX_FORMAT_PATCHES; formats->items=calloc(formats->count,sizeof(*formats->items)); CHECK(formats->items);
+        for (size_t n=0;n<formats->count;n++) formats->items[n]=(FormatPatch){.range={n,n,0,0},.mask=FORMAT_BOLD,.value=format_default()};
+        formats->undo_count=DX_FORMAT_HISTORY;
+        for (size_t n=0;n<formats->undo_count;n++) {
+            formats->undo[n]=(FormatSnapshot){.items=malloc(per_state),.count=formats->count}; CHECK(formats->undo[n].items); memcpy(formats->undo[n].items,formats->items,per_state);
+        }
+        CHECK(format_valid(formats,&error) && format_persistable(formats,&error) && format_owned_bytes(formats,true)==per_sheet);
+    }
+    Workbook prior=book; WorkbookFormatUsage usage={0}; CHECK(workbook_format_usage(&book,NULL,0,&usage)==FORMAT_BUDGET_OK);
+    CHECK(usage.current==per_state*sheets && usage.retained==per_sheet*sheets && usage.retained>DX_WORKBOOK_FORMAT_RETAINED_BYTES);
+    budget_reject(&usage,&usage,NULL,FORMAT_BUDGET_RETAINED); CHECK(!memcmp(&prior,&book,sizeof(book)));
+    /* The caller supplies the explicit post-pruning histories. These views borrow
+       current allocations, add no ownership and are never freed as new stores. */
+    WorkbookFormatReplacement replacements[DX_MAX_SHEETS]={0}; FormatStore projected[DX_MAX_SHEETS]={0};
+    for (size_t i=0;i<sheets;i++) { projected[i]=book.sheets[i].formats; projected[i].undo_count=0; replacements[i]=(WorkbookFormatReplacement){.sheet=i,.formats=projected+i}; }
+    WorkbookFormatUsage next={0}; FormatBudget budget={0}; CHECK(workbook_format_usage(&book,replacements,sheets,&next)==FORMAT_BUDGET_OK && next.retained==usage.current);
+    CHECK(workbook_format_preflight(&usage,&next,NULL,&budget)==FORMAT_BUDGET_OK && budget.before==usage.retained && budget.after==next.retained);
+    for (size_t i=0;i<sheets;i++) CHECK(book.sheets[i].formats.undo_count==DX_FORMAT_HISTORY && format_persistable(&book.sheets[i].formats,&error));
+    workbook_free(&book); free(error);
+}
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--format-budget-only")) {
+        test_format_budget_models(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
+        printf("PASS: %u focused formatting-accounting checks (dormant ledgers, complete projected histories, explicit staging/reservations, exact caps and atomic failure)\n",checks); return 0;
+    }
     if (argc==2 && !strcmp(argv[1],"--journal-only")) {
         test_analysis_journal_owned(); test_analysis_journal_rejection(); test_analysis_journal_chronology();
         printf("PASS: %u focused owned Analysis/format journal checks (pointer moves, composite chronology, budgets, aliases, cancellation and high-water)\n",checks); return 0;
@@ -1546,7 +1716,8 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
         return 0;
     }
-    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only]\n",argv[0]); return 2; }
+    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only]\n",argv[0]); return 2; }
+    test_format_budget_models(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
     test_analysis_journal_owned(); test_analysis_journal_rejection(); test_analysis_journal_chronology();
     test_source_version_model(); test_source_version_save_guard();
     test_source_format_workspace(); test_invalid_source_format_package(); test_source_format_budget();
