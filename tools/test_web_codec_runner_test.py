@@ -118,6 +118,58 @@ console.log('PASS: actual grid report guards rejected '+mutations.length+' corru
         result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 13 corrupted receipts',result.stdout)
 
+    def test_counters_mode_requires_independent_driver_and_exact_four_fixture_inventory(self):
+        options=harness.parse_options(['--codec-read-driver','--codec-counters','--no-build'])
+        self.assertTrue(options.codec_counters and options.no_build);self.assertEqual(options.dpr,1)
+        invalid=[['--codec-counters'],*(['--codec-read-driver','--codec-counters',family] for family in
+            ('--codec-sorts','--codec-preferences','--codec-objects','--codec-queries','--codec-source-options','--codec-tables','--codec-pivot-marks','--codec-filters','--codec-grid','--review','--worker-driver','--metadata-stream-probe','--dpr=2'))]
+        for arguments in invalid:
+            with self.subTest(arguments=arguments),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(arguments)
+        self.assertEqual(harness.CODEC_COUNTERS_FIXTURES,{'counters-v12.dxls':(12,25),'counters-v13.dxls':(13,25),'counters-v14.dxls':(14,25),'counters-v14-reordered.dxls':(14,25)})
+        with tempfile.TemporaryDirectory() as temporary:
+            path=Path(temporary);emitted=self.fixtures(path,harness.CODEC_COUNTERS_FIXTURES)
+            manifest=harness.codec_fixture_manifest(path,emitted,harness.CODEC_COUNTERS_FIXTURES)
+            self.assertEqual([row['name'] for row in manifest['files']],list(harness.CODEC_COUNTERS_FIXTURES))
+            with self.assertRaisesRegex(RuntimeError,'Unexpected native codec fixture'):harness.codec_fixture_manifest(path,emitted,harness.CODEC_GRID_FIXTURES)
+
+    def test_full_tier_counters_command_is_serial_after_grid_and_requires_its_actual_pass_marker(self):
+        args=runner.parser().parse_args(['full','--config','both','--no-build'])
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);(root/'Makefile').write_text('');instance=runner.Runner(args,root)
+            with mock.patch.object(instance,'command',side_effect=lambda name,command,*a,**k:{'name':name,'command':command,'status':'passed'}) as command, \
+                 mock.patch.object(instance,'headless'),mock.patch.object(instance,'prepare_native'),mock.patch.object(instance,'retain_binaries'), \
+                 mock.patch.object(instance,'background_check'),mock.patch.object(instance,'native_scenarios'), \
+                 mock.patch.object(runner,'FileLock',side_effect=lambda *a,**k:contextlib.nullcontext()):
+                instance.full()
+            calls=command.call_args_list;counters=[(n,call) for n,call in enumerate(calls) if call.args[1][-1]=='--counters-only']
+            self.assertEqual(len(counters),2)
+            for index,call in counters:
+                binary=call.args[1][0];self.assertEqual(calls[index-1].args[1],[binary,'--grid-only'])
+                pattern=call.kwargs['completion_pattern'];runner.validate_output('PASS: native object counters 123 checks;\n',0,completion_pattern=pattern)
+                with self.assertRaises(RuntimeError):runner.validate_output('PASS: native workbook header 123 checks;\n',0,completion_pattern=pattern)
+
+    def test_actual_node_counters_report_guards_reject_missing_or_changed_runtime_proofs(self):
+        source=Path(__file__).with_name('test_web_app.mjs').read_text()
+        start=source.index('function validateCodecCountersReport(report,check) {');function=source[start:source.index('\nfunction validateCodecGridReport',start)]
+        report=dict(mode='counters',fixtures=4,headers=5,queries=54,rejections=4,stale=1,normalFixtureQueries=[6,8,8,8],
+            familyExecutions=dict(meta=10,sheets=10,objects=10,objectCounters=9,describe=15),
+            acceptedFeeds=dict(objects56=10,counters32=11),validCounterGroups=4,v12Defaults=1,poisonedCounterResults=4,rejectedFeeds=4,staleCallbacks=1,
+            rejectedFirstRows=[32,32,32,0],maximumCompletedHeaderOwned=100000,headerOwnedLimit=2097152,inputOwnedLimit=4194304,peakOwnedInput=2097300,
+            staleWireReservationBytes=10000,staleTotalReservationBytes=21)
+        for name in ('lowHighWaterRejected','requiredNullRejected','identityRejected','budgetRejected','stalePreserved','freshRecovery','v12NoCounterQuery','exactRetiredCounter','exactMaximumCounter'):report[name]=True
+        script="""import assert from 'node:assert/strict';import vm from 'node:vm';
+const validate=vm.runInNewContext('('+FUNCTION+')'),good=REPORT;
+const check=(condition,message)=>{if(!condition)throw new Error(message);};validate(good,check);
+const mutations=[r=>r.queries--,r=>r.normalFixtureQueries[0]=8,r=>r.familyExecutions.objectCounters--,r=>r.acceptedFeeds.counters32--,
+ r=>r.validCounterGroups--,r=>r.v12Defaults=0,r=>r.poisonedCounterResults--,r=>r.rejectedFeeds--,r=>r.staleCallbacks=0,
+ r=>r.rejectedFirstRows[2]=0,r=>r.v12NoCounterQuery=false,r=>r.exactMaximumCounter=false,r=>r.maximumCompletedHeaderOwned=2097153,
+ r=>r.peakOwnedInput=4194305,r=>r.staleWireReservationBytes=0,r=>r.staleWireReservationBytes=6291457,r=>r.staleTotalReservationBytes=20];
+for(const mutate of mutations){const bad=structuredClone(good);mutate(bad);assert.throws(()=>validate(bad,check));}
+console.log('PASS: actual counter report guards rejected '+mutations.length+' corrupted receipts');
+""".replace('FUNCTION',json.dumps(function)).replace('REPORT',json.dumps(report))
+        result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 17 corrupted receipts',result.stdout)
+
     def test_manifest_covers_bytes_and_refuses_unowned_extra_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary);emitted=self.fixtures(directory)
