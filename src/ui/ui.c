@@ -110,6 +110,7 @@ static unsigned char key_modifiers[512];
 static DxKeyModifiers keytip_presses[128];
 static unsigned keytip_head,keytip_count;
 static bool native_keytips;
+static unsigned modifiers_for(int key);
 void ui_note_keytip_press(int key,unsigned modifiers,bool native,bool repeat) {
     if (native && !native_keytips) { keytip_head=keytip_count=0; native_keytips=true; }
     if (key<=0 || key>=512 || repeat || (!native && native_keytips) || keytip_count==128) return;
@@ -221,18 +222,9 @@ void ui_update(UIContext *u) {
     int key; while ((key=GetKeyPressed())!=0) if (key>0 && key<512) {
         if (focus_key(key)) keyboard_focus_visible=true;
         queued_presses[key]=true;
-        unsigned press_modifiers=(ui_key_shift(key) ? DX_MOD_SHIFT : 0) | (ui_key_control(key) ? DX_MOD_CONTROL : 0) | (ui_key_alt(key) ? DX_MOD_ALT : 0);
-#ifdef __APPLE__
-        if (ui_key_shortcut(key)) press_modifiers|=DX_MOD_SUPER;
-#endif
+        unsigned press_modifiers=modifiers_for(key);
         ui_note_keytip_press(key,press_modifiers,false,false);
-        if (!native_navigation && navigation_key(key)) {
-            unsigned modifiers=(ui_key_shift(key) ? DX_MOD_SHIFT : 0) | (ui_key_control(key) ? DX_MOD_CONTROL : 0) | (ui_key_alt(key) ? DX_MOD_ALT : 0);
-#ifdef __APPLE__
-            if (ui_key_shortcut(key)) modifiers|=DX_MOD_SUPER;
-#endif
-            queue_navigation(key,modifiers);
-        }
+        if (!native_navigation && navigation_key(key)) queue_navigation(key,press_modifiers);
     }
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)||IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)||IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) keyboard_focus_visible=false;
     u->cursor=MOUSE_CURSOR_DEFAULT;
@@ -749,7 +741,9 @@ void ui_icon(UIContext *u,UIIcon icon,Vector2 origin,Color color) {
     ui_carbon(u,carbon_for(icon),(Rectangle){origin.x,origin.y,16*u->scale,16*u->scale},color);
 }
 bool ui_shortcut(void) {
-#ifdef __APPLE__
+#ifdef DUXCEL_BROWSER_HOST
+    return IsKeyDown(KEY_LEFT_SUPER)||IsKeyDown(KEY_RIGHT_SUPER)||IsKeyDown(KEY_LEFT_CONTROL)||IsKeyDown(KEY_RIGHT_CONTROL);
+#elif defined(__APPLE__)
     return IsKeyDown(KEY_LEFT_SUPER)||IsKeyDown(KEY_RIGHT_SUPER);
 #else
     return IsKeyDown(KEY_LEFT_CONTROL)||IsKeyDown(KEY_RIGHT_CONTROL);
