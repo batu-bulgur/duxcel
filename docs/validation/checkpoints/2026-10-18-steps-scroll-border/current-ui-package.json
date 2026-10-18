@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "392f859434858552eac7c24dd0e7575bc2424a1b",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "4eaa8dafbbdb7752a326c32725efcc9b83c40a946f13a55c3bc2892f6116a780",
+    "source_files": 271
+  },
+  "native_code_revision": "43b43d31a012ecf86907f791cb8c0799fb770978",
+  "native_review_run": "20261018T045508-review-38242",
+  "native_review_scope": "400 stages per optimized/O1 ASan+UBSan; hidden, no physical/AppKit claim",
+  "native_steps_runs": [
+    "20261018T044830-affected-36799",
+    "20261018T044903-affected-37200"
+  ],
+  "inspector_scroll_browser_runs": [
+    "20261018T044547-browser-36156",
+    "20261018T045232-browser-37801"
+  ],
+  "expanded_header_browser_runs": [
+    "20261018T045702-browser-38509",
+    "20261018T045754-browser-38653"
+  ],
+  "source_bindings_browser_run": "20261018T041500-browser-24628",
+  "source_bindings_scope": "Product57d459a/runnera972913; prior source-scoped actual App680",
+  "packaged_without_launch": true,
+  "unsigned_source_sha256": "8326e1e77f8278820fead1288f1eabb30c2ab53719aff64af3b80948a2f161a2",
+  "signed_bundle_sha256": "bea655b3574f053f98892d87a7927fb55ac5a5a2f077c1dcd7b370307727fffe",
+  "signature_verified": true,
+  "source_unchanged": true,
+  "seconds": 0.765
+}

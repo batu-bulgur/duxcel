@@ -1,0 +1,259 @@
+{
+  "run": "20261018T044449-browser-35258",
+  "original_summary": {
+    "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044449-browser-35258/summary.json",
+    "bytes": 36709,
+    "sha256": "b6b2ac74a4ebd967164af5ed4554e47447f1409accf20cc6cfff422074cb56ad"
+  },
+  "original_result": {
+    "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044449-browser-35258/result.json",
+    "bytes": 48762,
+    "sha256": "37f1e642eb6feeb0f725cc2c0a9cb4fefdd93a9d8d3a3805a26a16fa691da44f"
+  },
+  "status": "failed",
+  "checks": 148,
+  "runner": {
+    "commit": "364b381d9e538403fdc097af60b55b89e8d6f22d",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "e61b17c692d3b3730490d083765ca60410d95468f9cab39f83bc411c18b51a4d",
+    "source_files": 271
+  },
+  "product": {
+    "commit": "65c0ae3bd4d49c0a01c01f535619a304ec6761bf",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "2ae9073302d569eefc094dcd75db08a9233db3632311d1463d38c00eec3493a6",
+    "source_files": 271
+  },
+  "artifact_signature": "1c1dea6ffb0bbd87052cc94433002034d4926a08a189d9bc74cd331b263bba6b",
+  "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+  "selected_artifact_sha256": {
+    "duxcel.wasm": "0db73ac33d4d12bfc6f15ff32c6bfcd48b3c7e4b4bf7e57f29ebc19866776e9e",
+    "index.html": "bed11f27be31b54136ede658d6a88051a43f8473b4efd1dd3c034a258eee4b89",
+    "canvas_surface.mjs": "17ecaa74cf545b643c4e3c3a61b5c0cdab0c662ab348a70d997d042dbad12103",
+    "duxcel.data": "e1e2590a60d8294f93fddb62e08c4828d6b330cb15f5a0ee27a3483b339da5d3",
+    "duxcel.mjs": "4208f0f4be4404c8ee3753b0ce530f944ee82e191dd6b0fcb9599f63b7966b45",
+    "official_worker.mjs": "964951a72e547ebdd51433c84ac578b2b083d03a2d7a8c6c94e08fdd067bec0d",
+    "engine_host.mjs": "63068cac36f3989fe48476632608be235edd858be6d735e57bb59eefbd32c0d0",
+    "browser_platform.mjs": "a30143cc647f44f07d05275c355286afb770eb4d8828d130bf39c7fe784a9b8d"
+  },
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "reader_error": null,
+  "profile": "pane-rail-only",
+  "timing_seconds": {
+    "driver": 12.975,
+    "wrapper_browser": 15.415,
+    "total": 15.72
+  },
+  "scope": "Actual C Transformations expanded/retained/expanded/retained/dismissed at four wide/narrow100/150 percent viewports with Compact ribbon, frozen semantic proof before live controls, wide32-unit reservation and narrow unchanged canvas. Presented compositor PNGs measure exact237/242/246 rail interior and retained left-strip RGBA equality to dismissed canvas, with retained source/pages/selection/history and zero post-setup jobs. No physical OS input, new C hooks, clipboard or saved reports.",
+  "derivation": "Bounded extraction; complete original summary/result are identified above, not copied. No auth, events, report bundles or database retained.",
+  "original_measurements": {
+    "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T044449-browser-35258/pane-rail-wide-100.json",
+    "bytes": 678252,
+    "sha256": "b7972bb2d33e7b2379ba2bf7a6bc8776f9f6bd8a823fa055dc21df7cbdfe12d2"
+  },
+  "failure": "Actual pre-fix wide100 expanded inspector lacks the one-presented-point inside border; all68 fully covered border pixels contain panel fill.",
+  "measurement": {
+    "region": {
+      "x": 1160,
+      "y": 101.75,
+      "w": 3,
+      "h": 17.5,
+      "bands": [
+        {
+          "name": "expanded_inside_border",
+          "x": 1160,
+          "w": 1,
+          "rgba": [
+            202,
+            210,
+            218,
+            255
+          ]
+        },
+        {
+          "name": "expanded_after_border",
+          "x": 1161,
+          "w": 2,
+          "rgba": [
+            251,
+            252,
+            253,
+            255
+          ]
+        }
+      ]
+    },
+    "pixels": {
+      "x": 2320,
+      "y": 203,
+      "w": 6,
+      "h": 35
+    },
+    "colors": {
+      "251,252,253,255": 210
+    },
+    "bands": [
+      {
+        "name": "expanded_inside_border",
+        "x": 1160,
+        "w": 1,
+        "rgba": [
+          202,
+          210,
+          218,
+          255
+        ],
+        "eligible": 68,
+        "excluded": [
+          {
+            "x": 2320,
+            "y": 203,
+            "rgba": [
+              251,
+              252,
+              253,
+              255
+            ],
+            "footprint": {
+              "left": 1160,
+              "right": 1160.5,
+              "top": 101.5,
+              "bottom": 102
+            }
+          },
+          {
+            "x": 2321,
+            "y": 203,
+            "rgba": [
+              251,
+              252,
+              253,
+              255
+            ],
+            "footprint": {
+              "left": 1160.5,
+              "right": 1161,
+              "top": 101.5,
+              "bottom": 102
+            }
+          }
+        ],
+        "mismatch_count": 68,
+        "first_mismatch": {
+          "x": 2320,
+          "y": 204,
+          "rgba": [
+            251,
+            252,
+            253,
+            255
+          ],
+          "footprint": {
+            "left": 1160,
+            "right": 1160.5,
+            "top": 102,
+            "bottom": 102.5
+          }
+        },
+        "last_mismatch": {
+          "x": 2321,
+          "y": 237,
+          "rgba": [
+            251,
+            252,
+            253,
+            255
+          ],
+          "footprint": {
+            "left": 1160.5,
+            "right": 1161,
+            "top": 118.5,
+            "bottom": 119
+          }
+        }
+      },
+      {
+        "name": "expanded_after_border",
+        "x": 1161,
+        "w": 2,
+        "rgba": [
+          251,
+          252,
+          253,
+          255
+        ],
+        "eligible": 136,
+        "excluded": [
+          {
+            "x": 2322,
+            "y": 203,
+            "rgba": [
+              251,
+              252,
+              253,
+              255
+            ],
+            "footprint": {
+              "left": 1161,
+              "right": 1161.5,
+              "top": 101.5,
+              "bottom": 102
+            }
+          },
+          {
+            "x": 2323,
+            "y": 203,
+            "rgba": [
+              251,
+              252,
+              253,
+              255
+            ],
+            "footprint": {
+              "left": 1161.5,
+              "right": 1162,
+              "top": 101.5,
+              "bottom": 102
+            }
+          },
+          {
+            "x": 2324,
+            "y": 203,
+            "rgba": [
+              251,
+              252,
+              253,
+              255
+            ],
+            "footprint": {
+              "left": 1162,
+              "right": 1162.5,
+              "top": 101.5,
+              "bottom": 102
+            }
+          },
+          {
+            "x": 2325,
+            "y": 203,
+            "rgba": [
+              251,
+              252,
+              253,
+              255
+            ],
+            "footprint": {
+              "left": 1162.5,
+              "right": 1163,
+              "top": 101.5,
+              "bottom": 102
+            }
+          }
+        ],
+        "mismatch_count": 0,
+        "first_mismatch": null,
+        "last_mismatch": null
+      }
+    ]
+  }
+}

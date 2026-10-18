@@ -1,0 +1,2583 @@
+{
+  "derivation": "Relevant bounded C geometry/ownership fields and exact picks; large duplicated frozen provider, full states and compositor arrays omitted. Original identified by scroll-browser-untransformed-summary.json. Rectangles are presented UI points, offsets logical UI units.",
+  "reference": {
+    "path": "../2026-10-18-session-source-bindings/steps-scroll-reference.json",
+    "sha256": "f265dd239db596d177e96c824db3699d3c1e6a62016f663ab09abaa2fd876f3b"
+  },
+  "source": {
+    "id": "2",
+    "kind": 0,
+    "rows": 5,
+    "columns": 6,
+    "total": "5",
+    "counted": "0",
+    "pending": 0,
+    "error": 0,
+    "distinct_count": 0,
+    "distinct_total": "0"
+  },
+  "filters": [
+    {
+      "filter": {
+        "column": 0,
+        "steps": 2,
+        "term": "0"
+      },
+      "reply": {
+        "id": "5",
+        "kind": 0,
+        "rows": 5,
+        "columns": 6,
+        "total": "5",
+        "counted": "0",
+        "pending": 0,
+        "error": 0,
+        "distinct_count": 0,
+        "distinct_total": "0"
+      }
+    },
+    {
+      "filter": {
+        "column": 1,
+        "steps": 3,
+        "term": "A"
+      },
+      "reply": {
+        "id": "7",
+        "kind": 0,
+        "rows": 5,
+        "columns": 6,
+        "total": "5",
+        "counted": "0",
+        "pending": 0,
+        "error": 0,
+        "distinct_count": 0,
+        "distinct_total": "0"
+      }
+    },
+    {
+      "filter": {
+        "column": 2,
+        "steps": 2,
+        "term": "-1000"
+      },
+      "reply": {
+        "id": "9",
+        "kind": 0,
+        "rows": 5,
+        "columns": 6,
+        "total": "5",
+        "counted": "0",
+        "pending": 0,
+        "error": 0,
+        "distinct_count": 0,
+        "distinct_total": "0"
+      }
+    },
+    {
+      "filter": {
+        "column": 3,
+        "steps": 3,
+        "term": "2025-01-01"
+      },
+      "reply": {
+        "id": "11",
+        "kind": 0,
+        "rows": 5,
+        "columns": 6,
+        "total": "5",
+        "counted": "0",
+        "pending": 0,
+        "error": 0,
+        "distinct_count": 0,
+        "distinct_total": "0"
+      }
+    },
+    {
+      "filter": {
+        "column": 4,
+        "steps": 1,
+        "term": "e"
+      },
+      "reply": {
+        "id": "13",
+        "kind": 0,
+        "rows": 5,
+        "columns": 6,
+        "total": "5",
+        "counted": "0",
+        "pending": 0,
+        "error": 0,
+        "distinct_count": 0,
+        "distinct_total": "0"
+      }
+    }
+  ],
+  "jobs_after_setup": 12,
+  "baseline": {
+    "sheet": "1",
+    "modal": "0",
+    "focus": "0/0/0",
+    "active": "0,4",
+    "anchor": "0,4",
+    "extent": "0,4",
+    "top": "0",
+    "horizontal": "0.000",
+    "page": "0/5",
+    "spare": "0/0",
+    "source_revision": "7",
+    "schema": "6",
+    "request": "13",
+    "busy": "0",
+    "io_busy": "0",
+    "dirty": "1",
+    "manual_cells": "0",
+    "selection_history": "5,0",
+    "clipboard_pending": "0",
+    "clipboard_completed": "0",
+    "clipboard_status": "0"
+  },
+  "cases": [
+    {
+      "spec": {
+        "name": "wide-100",
+        "width": 1440,
+        "height": 1024,
+        "scale": 1,
+        "narrow": false
+      },
+      "expected": {
+        "header": [
+          1161,
+          93,
+          279,
+          35
+        ],
+        "viewport": [
+          1161,
+          128,
+          279,
+          874
+        ],
+        "list": [
+          1161,
+          162,
+          279,
+          337
+        ],
+        "edit": [
+          1174,
+          578,
+          122.5,
+          27
+        ],
+        "footer": [
+          1161,
+          932,
+          279,
+          70
+        ],
+        "outer_track": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "inner_track": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "initial": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0",
+        "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+        "feedback_pipeline_header_box": "1161.000,93.000,279.000,35.000",
+        "feedback_pipeline_viewport_box": "1161.000,128.000,279.000,874.000",
+        "feedback_pipeline_list_box": "1161.000,162.000,279.000,337.000",
+        "feedback_pipeline_edit_box": "1174.000,578.000,122.500,27.000",
+        "feedback_pipeline_footer_box": "1161.000,932.000,279.000,70.000",
+        "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_step_rect": "1168.000,169.000,265.000,55.000",
+        "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+        "feedback_pipeline_preview_rect": "1304.500,578.000,122.500,27.000",
+        "feedback_pipeline_inspect_rect": "1174.000,945.000,253.000,20.000"
+      },
+      "wheels": [],
+      "picks": [
+        {
+          "target": {
+            "id": "pane.transformations.edit",
+            "bounds": [
+              1174,
+              578,
+              122.5,
+              27
+            ]
+          },
+          "picked": "Review picked: pane.transformations.edit",
+          "reachable": {
+            "css": {
+              "x": 1235,
+              "y": 592
+            },
+            "logical": {
+              "x": 1235,
+              "y": 592
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "1161.000,93.000,279.000,35.000",
+            "feedback_pipeline_viewport_box": "1161.000,128.000,279.000,874.000",
+            "feedback_pipeline_list_box": "1161.000,162.000,279.000,337.000",
+            "feedback_pipeline_edit_box": "1174.000,578.000,122.500,27.000",
+            "feedback_pipeline_footer_box": "1161.000,932.000,279.000,70.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "1168.000,169.000,265.000,55.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "1304.500,578.000,122.500,27.000",
+            "feedback_pipeline_inspect_rect": "1174.000,945.000,253.000,20.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "1161.000,93.000,279.000,35.000",
+            "feedback_pipeline_viewport_box": "1161.000,128.000,279.000,874.000",
+            "feedback_pipeline_list_box": "1161.000,162.000,279.000,337.000",
+            "feedback_pipeline_edit_box": "1174.000,578.000,122.500,27.000",
+            "feedback_pipeline_footer_box": "1161.000,932.000,279.000,70.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "1168.000,169.000,265.000,55.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "1304.500,578.000,122.500,27.000",
+            "feedback_pipeline_inspect_rect": "1174.000,945.000,253.000,20.000"
+          }
+        },
+        {
+          "target": {
+            "id": "pane.transformations.collapse",
+            "bounds": [
+              1384,
+              98.5,
+              23,
+              23
+            ]
+          },
+          "picked": "Review picked: pane.transformations.collapse",
+          "reachable": {
+            "css": {
+              "x": 1396,
+              "y": 110
+            },
+            "logical": {
+              "x": 1396,
+              "y": 110
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "1161.000,93.000,279.000,35.000",
+            "feedback_pipeline_viewport_box": "1161.000,128.000,279.000,874.000",
+            "feedback_pipeline_list_box": "1161.000,162.000,279.000,337.000",
+            "feedback_pipeline_edit_box": "1174.000,578.000,122.500,27.000",
+            "feedback_pipeline_footer_box": "1161.000,932.000,279.000,70.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "1168.000,169.000,265.000,55.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "1304.500,578.000,122.500,27.000",
+            "feedback_pipeline_inspect_rect": "1174.000,945.000,253.000,20.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "1161.000,93.000,279.000,35.000",
+            "feedback_pipeline_viewport_box": "1161.000,128.000,279.000,874.000",
+            "feedback_pipeline_list_box": "1161.000,162.000,279.000,337.000",
+            "feedback_pipeline_edit_box": "1174.000,578.000,122.500,27.000",
+            "feedback_pipeline_footer_box": "1161.000,932.000,279.000,70.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "1168.000,169.000,265.000,55.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "1304.500,578.000,122.500,27.000",
+            "feedback_pipeline_inspect_rect": "1174.000,945.000,253.000,20.000"
+          }
+        }
+      ],
+      "collapsed": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0"
+      },
+      "reopened": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0",
+        "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+        "feedback_pipeline_header_box": "1161.000,93.000,279.000,35.000",
+        "feedback_pipeline_viewport_box": "1161.000,128.000,279.000,874.000",
+        "feedback_pipeline_list_box": "1161.000,162.000,279.000,337.000",
+        "feedback_pipeline_edit_box": "1174.000,578.000,122.500,27.000",
+        "feedback_pipeline_footer_box": "1161.000,932.000,279.000,70.000",
+        "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_step_rect": "1168.000,169.000,265.000,55.000",
+        "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+        "feedback_pipeline_preview_rect": "1304.500,578.000,122.500,27.000",
+        "feedback_pipeline_inspect_rect": "1174.000,945.000,253.000,20.000"
+      },
+      "dismissed": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "0/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0"
+      }
+    },
+    {
+      "spec": {
+        "name": "wide-150",
+        "width": 1920,
+        "height": 1120,
+        "scale": 1.5,
+        "narrow": false
+      },
+      "expected": {
+        "header": [
+          1501,
+          139,
+          419,
+          52.5
+        ],
+        "viewport": [
+          1501,
+          191.5,
+          419,
+          895.5
+        ],
+        "list": [
+          1501,
+          242.5,
+          419,
+          505.5
+        ],
+        "edit": [
+          1520.5,
+          866.5,
+          184,
+          40.5
+        ],
+        "footer": [
+          1501,
+          983,
+          419,
+          104
+        ],
+        "outer_track": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "inner_track": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "initial": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0",
+        "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+        "feedback_pipeline_header_box": "1501.000,139.000,419.000,52.500",
+        "feedback_pipeline_viewport_box": "1501.000,191.500,419.000,895.500",
+        "feedback_pipeline_list_box": "1501.000,242.500,419.000,505.500",
+        "feedback_pipeline_edit_box": "1520.500,866.500,184.000,40.500",
+        "feedback_pipeline_footer_box": "1501.000,983.000,419.000,104.000",
+        "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_step_rect": "1511.500,253.000,398.000,82.500",
+        "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+        "feedback_pipeline_preview_rect": "1716.500,866.500,184.000,40.500",
+        "feedback_pipeline_inspect_rect": "1520.500,1002.000,380.000,30.000"
+      },
+      "wheels": [],
+      "picks": [
+        {
+          "target": {
+            "id": "pane.transformations.edit",
+            "bounds": [
+              1520.5,
+              866.5,
+              184,
+              40.5
+            ]
+          },
+          "picked": "Review picked: pane.transformations.edit",
+          "reachable": {
+            "css": {
+              "x": 1613,
+              "y": 887
+            },
+            "logical": {
+              "x": 1613,
+              "y": 887
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "1501.000,139.000,419.000,52.500",
+            "feedback_pipeline_viewport_box": "1501.000,191.500,419.000,895.500",
+            "feedback_pipeline_list_box": "1501.000,242.500,419.000,505.500",
+            "feedback_pipeline_edit_box": "1520.500,866.500,184.000,40.500",
+            "feedback_pipeline_footer_box": "1501.000,983.000,419.000,104.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "1511.500,253.000,398.000,82.500",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "1716.500,866.500,184.000,40.500",
+            "feedback_pipeline_inspect_rect": "1520.500,1002.000,380.000,30.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "1501.000,139.000,419.000,52.500",
+            "feedback_pipeline_viewport_box": "1501.000,191.500,419.000,895.500",
+            "feedback_pipeline_list_box": "1501.000,242.500,419.000,505.500",
+            "feedback_pipeline_edit_box": "1520.500,866.500,184.000,40.500",
+            "feedback_pipeline_footer_box": "1501.000,983.000,419.000,104.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "1511.500,253.000,398.000,82.500",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "1716.500,866.500,184.000,40.500",
+            "feedback_pipeline_inspect_rect": "1520.500,1002.000,380.000,30.000"
+          }
+        },
+        {
+          "target": {
+            "id": "pane.transformations.collapse",
+            "bounds": [
+              1836,
+              147.5,
+              34.5,
+              34.5
+            ]
+          },
+          "picked": "Review picked: pane.transformations.collapse",
+          "reachable": {
+            "css": {
+              "x": 1853,
+              "y": 165
+            },
+            "logical": {
+              "x": 1853,
+              "y": 165
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "1501.000,139.000,419.000,52.500",
+            "feedback_pipeline_viewport_box": "1501.000,191.500,419.000,895.500",
+            "feedback_pipeline_list_box": "1501.000,242.500,419.000,505.500",
+            "feedback_pipeline_edit_box": "1520.500,866.500,184.000,40.500",
+            "feedback_pipeline_footer_box": "1501.000,983.000,419.000,104.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "1511.500,253.000,398.000,82.500",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "1716.500,866.500,184.000,40.500",
+            "feedback_pipeline_inspect_rect": "1520.500,1002.000,380.000,30.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "1501.000,139.000,419.000,52.500",
+            "feedback_pipeline_viewport_box": "1501.000,191.500,419.000,895.500",
+            "feedback_pipeline_list_box": "1501.000,242.500,419.000,505.500",
+            "feedback_pipeline_edit_box": "1520.500,866.500,184.000,40.500",
+            "feedback_pipeline_footer_box": "1501.000,983.000,419.000,104.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "1511.500,253.000,398.000,82.500",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "1716.500,866.500,184.000,40.500",
+            "feedback_pipeline_inspect_rect": "1520.500,1002.000,380.000,30.000"
+          }
+        }
+      ],
+      "collapsed": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0"
+      },
+      "reopened": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0",
+        "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+        "feedback_pipeline_header_box": "1501.000,139.000,419.000,52.500",
+        "feedback_pipeline_viewport_box": "1501.000,191.500,419.000,895.500",
+        "feedback_pipeline_list_box": "1501.000,242.500,419.000,505.500",
+        "feedback_pipeline_edit_box": "1520.500,866.500,184.000,40.500",
+        "feedback_pipeline_footer_box": "1501.000,983.000,419.000,104.000",
+        "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_step_rect": "1511.500,253.000,398.000,82.500",
+        "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+        "feedback_pipeline_preview_rect": "1716.500,866.500,184.000,40.500",
+        "feedback_pipeline_inspect_rect": "1520.500,1002.000,380.000,30.000"
+      },
+      "dismissed": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "0/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0"
+      }
+    },
+    {
+      "spec": {
+        "name": "narrow-100",
+        "width": 640,
+        "height": 720,
+        "scale": 1,
+        "narrow": true
+      },
+      "expected": {
+        "header": [
+          361,
+          93,
+          279,
+          35
+        ],
+        "viewport": [
+          361,
+          128,
+          279,
+          570
+        ],
+        "list": [
+          361,
+          162,
+          279,
+          337
+        ],
+        "edit": [
+          374,
+          578,
+          122.5,
+          27
+        ],
+        "footer": [
+          361,
+          628,
+          279,
+          70
+        ],
+        "outer_track": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "inner_track": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "initial": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0",
+        "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+        "feedback_pipeline_header_box": "361.000,93.000,279.000,35.000",
+        "feedback_pipeline_viewport_box": "361.000,128.000,279.000,570.000",
+        "feedback_pipeline_list_box": "361.000,162.000,279.000,337.000",
+        "feedback_pipeline_edit_box": "374.000,578.000,122.500,27.000",
+        "feedback_pipeline_footer_box": "361.000,628.000,279.000,70.000",
+        "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_step_rect": "368.000,169.000,265.000,55.000",
+        "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+        "feedback_pipeline_preview_rect": "504.500,578.000,122.500,27.000",
+        "feedback_pipeline_inspect_rect": "374.000,641.000,253.000,20.000"
+      },
+      "wheels": [],
+      "picks": [
+        {
+          "target": {
+            "id": "pane.transformations.edit",
+            "bounds": [
+              374,
+              578,
+              122.5,
+              27
+            ]
+          },
+          "picked": "Review picked: pane.transformations.edit",
+          "reachable": {
+            "css": {
+              "x": 435,
+              "y": 592
+            },
+            "logical": {
+              "x": 435,
+              "y": 592
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "361.000,93.000,279.000,35.000",
+            "feedback_pipeline_viewport_box": "361.000,128.000,279.000,570.000",
+            "feedback_pipeline_list_box": "361.000,162.000,279.000,337.000",
+            "feedback_pipeline_edit_box": "374.000,578.000,122.500,27.000",
+            "feedback_pipeline_footer_box": "361.000,628.000,279.000,70.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "368.000,169.000,265.000,55.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "504.500,578.000,122.500,27.000",
+            "feedback_pipeline_inspect_rect": "374.000,641.000,253.000,20.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "361.000,93.000,279.000,35.000",
+            "feedback_pipeline_viewport_box": "361.000,128.000,279.000,570.000",
+            "feedback_pipeline_list_box": "361.000,162.000,279.000,337.000",
+            "feedback_pipeline_edit_box": "374.000,578.000,122.500,27.000",
+            "feedback_pipeline_footer_box": "361.000,628.000,279.000,70.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "368.000,169.000,265.000,55.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "504.500,578.000,122.500,27.000",
+            "feedback_pipeline_inspect_rect": "374.000,641.000,253.000,20.000"
+          }
+        },
+        {
+          "target": {
+            "id": "pane.transformations.collapse",
+            "bounds": [
+              584,
+              98.5,
+              23,
+              23
+            ]
+          },
+          "picked": "Review picked: pane.transformations.collapse",
+          "reachable": {
+            "css": {
+              "x": 596,
+              "y": 110
+            },
+            "logical": {
+              "x": 596,
+              "y": 110
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "361.000,93.000,279.000,35.000",
+            "feedback_pipeline_viewport_box": "361.000,128.000,279.000,570.000",
+            "feedback_pipeline_list_box": "361.000,162.000,279.000,337.000",
+            "feedback_pipeline_edit_box": "374.000,578.000,122.500,27.000",
+            "feedback_pipeline_footer_box": "361.000,628.000,279.000,70.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "368.000,169.000,265.000,55.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "504.500,578.000,122.500,27.000",
+            "feedback_pipeline_inspect_rect": "374.000,641.000,253.000,20.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+            "feedback_pipeline_header_box": "361.000,93.000,279.000,35.000",
+            "feedback_pipeline_viewport_box": "361.000,128.000,279.000,570.000",
+            "feedback_pipeline_list_box": "361.000,162.000,279.000,337.000",
+            "feedback_pipeline_edit_box": "374.000,578.000,122.500,27.000",
+            "feedback_pipeline_footer_box": "361.000,628.000,279.000,70.000",
+            "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+            "feedback_pipeline_step_rect": "368.000,169.000,265.000,55.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "504.500,578.000,122.500,27.000",
+            "feedback_pipeline_inspect_rect": "374.000,641.000,253.000,20.000"
+          }
+        }
+      ],
+      "collapsed": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0"
+      },
+      "reopened": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0",
+        "feedback_pipeline_scroll": "0.000000,0.000000,0.000000,0.000000,6,0",
+        "feedback_pipeline_header_box": "361.000,93.000,279.000,35.000",
+        "feedback_pipeline_viewport_box": "361.000,128.000,279.000,570.000",
+        "feedback_pipeline_list_box": "361.000,162.000,279.000,337.000",
+        "feedback_pipeline_edit_box": "374.000,578.000,122.500,27.000",
+        "feedback_pipeline_footer_box": "361.000,628.000,279.000,70.000",
+        "feedback_pipeline_outer_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_inner_track": "0.000,0.000,0.000,0.000",
+        "feedback_pipeline_step_rect": "368.000,169.000,265.000,55.000",
+        "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+        "feedback_pipeline_preview_rect": "504.500,578.000,122.500,27.000",
+        "feedback_pipeline_inspect_rect": "374.000,641.000,253.000,20.000"
+      },
+      "dismissed": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "0/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0"
+      }
+    },
+    {
+      "spec": {
+        "name": "narrow-150",
+        "width": 640,
+        "height": 640,
+        "scale": 1.5,
+        "narrow": true
+      },
+      "expected": {
+        "header": [
+          221,
+          139,
+          406,
+          52.5
+        ],
+        "viewport": [
+          221,
+          191.5,
+          406,
+          415.5
+        ],
+        "list": [
+          221,
+          242.5,
+          406,
+          232.5
+        ],
+        "edit": [
+          240.5,
+          593.5,
+          177.5,
+          40.5
+        ],
+        "footer": [
+          221,
+          658,
+          406,
+          104
+        ],
+        "outer_track": [
+          627,
+          139,
+          13,
+          468
+        ],
+        "inner_track": [
+          614,
+          242.5,
+          13,
+          232.5
+        ]
+      },
+      "initial": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0",
+        "feedback_pipeline_scroll": "0.000000,103.333336,0.000000,182.000000,6,0",
+        "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+        "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+        "feedback_pipeline_list_box": "221.000,242.500,406.000,232.500",
+        "feedback_pipeline_edit_box": "240.500,593.500,177.500,40.500",
+        "feedback_pipeline_footer_box": "221.000,658.000,406.000,104.000",
+        "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+        "feedback_pipeline_inner_track": "614.000,242.500,13.000,232.500",
+        "feedback_pipeline_step_rect": "231.500,253.000,372.000,82.500",
+        "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+        "feedback_pipeline_preview_rect": "430.000,593.500,177.500,13.500"
+      },
+      "wheels": [
+        {
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "0.000000,103.333336,0.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,242.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,593.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,658.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,242.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,253.000,372.000,82.500",
+            "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+            "feedback_pipeline_preview_rect": "430.000,593.500,177.500,13.500"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,0.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,71.500",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.f09240e07b5b8d640.n0",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "part": "outer",
+          "amount": 100000,
+          "point": {
+            "x": 424,
+            "y": 165.25
+          },
+          "css": {
+            "x": 424,
+            "y": 165.25
+          },
+          "surface": {
+            "height": 640,
+            "clientHeight": 640,
+            "dpr": 2
+          },
+          "deltaY": 300000,
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "deltaY": 150000
+          }
+        },
+        {
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,0.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,71.500",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.f09240e07b5b8d640.n0",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "part": "list",
+          "amount": 100000,
+          "point": {
+            "x": 424,
+            "y": 255.75
+          },
+          "css": {
+            "x": 424,
+            "y": 255.75
+          },
+          "surface": {
+            "height": 640,
+            "clientHeight": 640,
+            "dpr": 2
+          },
+          "deltaY": 300000,
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "deltaY": 150000
+          }
+        },
+        {
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,126.500000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.750",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fba98a7152d80b949.n2",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "part": "list",
+          "amount": -55.5,
+          "point": {
+            "x": 424,
+            "y": 255.75
+          },
+          "css": {
+            "x": 424,
+            "y": 255.75
+          },
+          "surface": {
+            "height": 640,
+            "clientHeight": 640,
+            "dpr": 2
+          },
+          "deltaY": -166.5,
+          "delivered": {
+            "trusted": true,
+            "canvas": true,
+            "deltaY": -83.25
+          }
+        }
+      ],
+      "picks": [
+        {
+          "target": {
+            "id": "pane.transformations.edit",
+            "bounds": [
+              240.5,
+              438.5,
+              177.5,
+              40.5
+            ]
+          },
+          "picked": "Review picked: pane.transformations.edit",
+          "reachable": {
+            "css": {
+              "x": 329,
+              "y": 459
+            },
+            "logical": {
+              "x": 329,
+              "y": 459
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          }
+        },
+        {
+          "target": {
+            "id": "pane.transformations.preview",
+            "bounds": [
+              430,
+              438.5,
+              177.5,
+              40.5
+            ]
+          },
+          "picked": "Review picked: pane.transformations.preview",
+          "reachable": {
+            "css": {
+              "x": 519,
+              "y": 459
+            },
+            "logical": {
+              "x": 519,
+              "y": 459
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          }
+        },
+        {
+          "target": {
+            "id": "pane.transformations.inspect",
+            "bounds": [
+              240.5,
+              522,
+              367,
+              30
+            ]
+          },
+          "picked": "Review picked: pane.transformations.inspect",
+          "reachable": {
+            "css": {
+              "x": 424,
+              "y": 537
+            },
+            "logical": {
+              "x": 424,
+              "y": 537
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          }
+        },
+        {
+          "target": {
+            "id": "pane.transformations.step.filter.fba98a7152d80b949.n2",
+            "bounds": [
+              231.5,
+              191.5,
+              372,
+              46.75
+            ]
+          },
+          "picked": "Review picked: pane.transformations.step.filter.fba98a7152d80b949.n2",
+          "reachable": {
+            "css": {
+              "x": 418,
+              "y": 215
+            },
+            "logical": {
+              "x": 418,
+              "y": 215
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,126.500000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.750",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fba98a7152d80b949.n2",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,126.500000,182.000000,6,0",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.750",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fba98a7152d80b949.n2",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "outline_measurement": {
+            "mapping": {
+              "mode": "exact",
+              "browserVersion": {
+                "protocolVersion": "1.3",
+                "product": "Chrome/150.0.7871.46",
+                "revision": "@5b586c06e0d27582900f17e2d59c5370d8d6e0bb",
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+                "jsVersion": "15.0.245.13"
+              },
+              "sourceRevision": "5b586c06e0d27582900f17e2d59c5370d8d6e0bb",
+              "paintOriginCss": {
+                "x": 0,
+                "y": 0
+              },
+              "domOriginCss": {
+                "x": 0,
+                "y": 0
+              },
+              "basis": "Chrome150 HTMLCanvasPainter records ToPixelSnappedRect(paint_rect); PhysicalRect uses ToRoundedPoint→LayoutUnit.Round before this simple CSS scale. Untransformed is exact; transformed checks full/any pixel coverage, not a universal pure-bilinear sampling phase.",
+              "sources": [
+                "https://raw.githubusercontent.com/chromium/chromium/5b586c06e0d27582900f17e2d59c5370d8d6e0bb/third_party/blink/renderer/core/paint/html_canvas_painter.cc",
+                "https://raw.githubusercontent.com/chromium/chromium/5b586c06e0d27582900f17e2d59c5370d8d6e0bb/third_party/blink/renderer/core/layout/geometry/physical_rect.h",
+                "https://raw.githubusercontent.com/chromium/chromium/5b586c06e0d27582900f17e2d59c5370d8d6e0bb/third_party/blink/renderer/platform/geometry/physical_offset.h",
+                "https://raw.githubusercontent.com/chromium/chromium/5b586c06e0d27582900f17e2d59c5370d8d6e0bb/third_party/blink/renderer/platform/geometry/layout_unit.h"
+              ]
+            },
+            "image": {
+              "width": 1280,
+              "height": 1280
+            },
+            "ratio": 2,
+            "ratioY": 2,
+            "capture": "inspector-short-partial-row-frozen-bounds.png",
+            "sha256": "3d1698747dad793376fa69cadbc2bae0774b3ed4364bc00944889198a918b906",
+            "method": "single CDP compositor PNG of actual C canvas; bounded decoded RGBA regions",
+            "surface": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 640,
+              "canvasWidth": 1280,
+              "canvasHeight": 1280
+            },
+            "samples": {
+              "top": {
+                "region": {
+                  "x": 231.5,
+                  "y": 191.5,
+                  "w": 372,
+                  "h": 6,
+                  "ink": {
+                    "rgba": [
+                      121,
+                      82,
+                      179,
+                      255
+                    ],
+                    "bounds": [
+                      231.5,
+                      191.5,
+                      372,
+                      46.75
+                    ]
+                  }
+                },
+                "pixels": {
+                  "x": 463,
+                  "y": 383,
+                  "w": 744,
+                  "h": 12
+                },
+                "sha256": "5df93143593123f543912cf893dd8eb9607e2a7ead0fbbe2eeae724402cda981",
+                "ink": {
+                  "rgba": [
+                    121,
+                    82,
+                    179,
+                    255
+                  ],
+                  "bounds": [
+                    231.5,
+                    191.5,
+                    372,
+                    46.75
+                  ],
+                  "count": 4536,
+                  "left": 463,
+                  "top": 383,
+                  "right": 1206,
+                  "bottom": 394,
+                  "expected": {
+                    "left": 463,
+                    "right": 1206,
+                    "top": 383,
+                    "bottom": 475
+                  },
+                  "coverage": {
+                    "painted": {
+                      "left": 463,
+                      "right": 1207,
+                      "top": 383,
+                      "bottom": 476.5
+                    },
+                    "any": {
+                      "left": 463,
+                      "top": 383,
+                      "right": 1206,
+                      "bottom": 476
+                    },
+                    "full": {
+                      "left": 463,
+                      "top": 383,
+                      "right": 1206,
+                      "bottom": 475
+                    }
+                  },
+                  "excludedBoundary_count": 0
+                }
+              },
+              "bottom": {
+                "region": {
+                  "x": 231.5,
+                  "y": 232.25,
+                  "w": 372,
+                  "h": 6,
+                  "ink": {
+                    "rgba": [
+                      121,
+                      82,
+                      179,
+                      255
+                    ],
+                    "bounds": [
+                      231.5,
+                      191.5,
+                      372,
+                      46.75
+                    ]
+                  }
+                },
+                "pixels": {
+                  "x": 463,
+                  "y": 464,
+                  "w": 744,
+                  "h": 12
+                },
+                "sha256": "5e39b009376557770e6e34ff2c06b5142291cbe8d0482dc0052422ef294b08c0",
+                "ink": {
+                  "rgba": [
+                    121,
+                    82,
+                    179,
+                    255
+                  ],
+                  "bounds": [
+                    231.5,
+                    191.5,
+                    372,
+                    46.75
+                  ],
+                  "count": 4536,
+                  "left": 463,
+                  "top": 464,
+                  "right": 1206,
+                  "bottom": 475,
+                  "expected": {
+                    "left": 463,
+                    "right": 1206,
+                    "top": 383,
+                    "bottom": 475
+                  },
+                  "coverage": {
+                    "painted": {
+                      "left": 463,
+                      "right": 1207,
+                      "top": 383,
+                      "bottom": 476.5
+                    },
+                    "any": {
+                      "left": 463,
+                      "top": 383,
+                      "right": 1206,
+                      "bottom": 476
+                    },
+                    "full": {
+                      "left": 463,
+                      "top": 383,
+                      "right": 1206,
+                      "bottom": 475
+                    }
+                  },
+                  "excludedBoundary_count": 0
+                }
+              },
+              "left": {
+                "region": {
+                  "x": 231.5,
+                  "y": 191.5,
+                  "w": 6,
+                  "h": 46.75,
+                  "ink": {
+                    "rgba": [
+                      121,
+                      82,
+                      179,
+                      255
+                    ],
+                    "bounds": [
+                      231.5,
+                      191.5,
+                      372,
+                      46.75
+                    ]
+                  }
+                },
+                "pixels": {
+                  "x": 463,
+                  "y": 383,
+                  "w": 12,
+                  "h": 94
+                },
+                "sha256": "bd9d4e55e0e451b82215b05ed3821f515c1bd76ad276f61a717ed2d86565d43d",
+                "ink": {
+                  "rgba": [
+                    121,
+                    82,
+                    179,
+                    255
+                  ],
+                  "bounds": [
+                    231.5,
+                    191.5,
+                    372,
+                    46.75
+                  ],
+                  "count": 630,
+                  "left": 463,
+                  "top": 383,
+                  "right": 474,
+                  "bottom": 475,
+                  "expected": {
+                    "left": 463,
+                    "right": 1206,
+                    "top": 383,
+                    "bottom": 475
+                  },
+                  "coverage": {
+                    "painted": {
+                      "left": 463,
+                      "right": 1207,
+                      "top": 383,
+                      "bottom": 476.5
+                    },
+                    "any": {
+                      "left": 463,
+                      "top": 383,
+                      "right": 1206,
+                      "bottom": 476
+                    },
+                    "full": {
+                      "left": 463,
+                      "top": 383,
+                      "right": 1206,
+                      "bottom": 475
+                    }
+                  },
+                  "excludedBoundary_count": 12
+                }
+              },
+              "right": {
+                "region": {
+                  "x": 597.5,
+                  "y": 191.5,
+                  "w": 6,
+                  "h": 46.75,
+                  "ink": {
+                    "rgba": [
+                      121,
+                      82,
+                      179,
+                      255
+                    ],
+                    "bounds": [
+                      231.5,
+                      191.5,
+                      372,
+                      46.75
+                    ]
+                  }
+                },
+                "pixels": {
+                  "x": 1195,
+                  "y": 383,
+                  "w": 12,
+                  "h": 94
+                },
+                "sha256": "4ce332cec2be2e4e8ddf65ecc7c2de6a2dadff391aac623b92aab18b2621ce2c",
+                "ink": {
+                  "rgba": [
+                    121,
+                    82,
+                    179,
+                    255
+                  ],
+                  "bounds": [
+                    231.5,
+                    191.5,
+                    372,
+                    46.75
+                  ],
+                  "count": 630,
+                  "left": 1195,
+                  "top": 383,
+                  "right": 1206,
+                  "bottom": 475,
+                  "expected": {
+                    "left": 463,
+                    "right": 1206,
+                    "top": 383,
+                    "bottom": 475
+                  },
+                  "coverage": {
+                    "painted": {
+                      "left": 463,
+                      "right": 1207,
+                      "top": 383,
+                      "bottom": 476.5
+                    },
+                    "any": {
+                      "left": 463,
+                      "top": 383,
+                      "right": 1206,
+                      "bottom": 476
+                    },
+                    "full": {
+                      "left": 463,
+                      "top": 383,
+                      "right": 1206,
+                      "bottom": 475
+                    }
+                  },
+                  "excludedBoundary_count": 12
+                }
+              }
+            },
+            "coverage_note": "This accepted untransformed run uses exact expected source-pixel AABBs. Its diagnostic continuous coverage envelope predates the later transformed quantized-cell coverage correction; no transformed conclusion is drawn from it."
+          }
+        },
+        {
+          "target": {
+            "id": "pane.transformations.step.filter.ffecdd5e13f68c9ba.n4",
+            "bounds": [
+              231.5,
+              237.5,
+              372,
+              82.5
+            ]
+          },
+          "picked": "Review picked: pane.transformations.step.filter.ffecdd5e13f68c9ba.n4",
+          "reachable": {
+            "css": {
+              "x": 418,
+              "y": 279
+            },
+            "logical": {
+              "x": 418,
+              "y": 279
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,5",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,5",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          }
+        },
+        {
+          "target": {
+            "id": "pane.transformations.collapse",
+            "bounds": [
+              543,
+              147.5,
+              34.5,
+              34.5
+            ]
+          },
+          "picked": "Review picked: pane.transformations.collapse",
+          "reachable": {
+            "css": {
+              "x": 560,
+              "y": 165
+            },
+            "logical": {
+              "x": 560,
+              "y": 165
+            }
+          },
+          "before": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,5",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          },
+          "after": {
+            "sheet": "1",
+            "modal": "0",
+            "focus": "8/0/0",
+            "active": "0,4",
+            "anchor": "0,4",
+            "extent": "0,4",
+            "top": "0",
+            "horizontal": "0.000",
+            "page": "0/5",
+            "spare": "0/0",
+            "source_revision": "7",
+            "schema": "6",
+            "request": "13",
+            "busy": "0",
+            "io_busy": "0",
+            "dirty": "1",
+            "manual_cells": "0",
+            "selection_history": "5,0",
+            "clipboard_pending": "0",
+            "clipboard_completed": "0",
+            "clipboard_status": "0",
+            "feedback_pipeline_scroll": "103.333336,103.333336,182.000000,182.000000,6,5",
+            "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+            "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+            "feedback_pipeline_list_box": "221.000,87.500,406.000,232.500",
+            "feedback_pipeline_edit_box": "240.500,438.500,177.500,40.500",
+            "feedback_pipeline_footer_box": "221.000,503.000,406.000,104.000",
+            "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+            "feedback_pipeline_inner_track": "614.000,87.500,13.000,232.500",
+            "feedback_pipeline_step_rect": "231.500,191.500,372.000,46.000",
+            "feedback_pipeline_step_id": "pane.transformations.step.filter.fac8252732f2edb19.n3",
+            "feedback_pipeline_preview_rect": "430.000,438.500,177.500,40.500",
+            "feedback_pipeline_inspect_rect": "240.500,522.000,367.000,30.000"
+          }
+        }
+      ],
+      "collapsed": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0"
+      },
+      "reopened": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "8/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0",
+        "feedback_pipeline_scroll": "0.000000,103.333336,0.000000,182.000000,6,0",
+        "feedback_pipeline_header_box": "221.000,139.000,406.000,52.500",
+        "feedback_pipeline_viewport_box": "221.000,191.500,406.000,415.500",
+        "feedback_pipeline_list_box": "221.000,242.500,406.000,232.500",
+        "feedback_pipeline_edit_box": "240.500,593.500,177.500,40.500",
+        "feedback_pipeline_footer_box": "221.000,658.000,406.000,104.000",
+        "feedback_pipeline_outer_track": "627.000,139.000,13.000,468.000",
+        "feedback_pipeline_inner_track": "614.000,242.500,13.000,232.500",
+        "feedback_pipeline_step_rect": "231.500,253.000,372.000,82.500",
+        "feedback_pipeline_step_id": "pane.transformations.step.source.fcbf29ce484222325.n0",
+        "feedback_pipeline_preview_rect": "430.000,593.500,177.500,13.500"
+      },
+      "dismissed": {
+        "sheet": "1",
+        "modal": "0",
+        "focus": "0/0/0",
+        "active": "0,4",
+        "anchor": "0,4",
+        "extent": "0,4",
+        "top": "0",
+        "horizontal": "0.000",
+        "page": "0/5",
+        "spare": "0/0",
+        "source_revision": "7",
+        "schema": "6",
+        "request": "13",
+        "busy": "0",
+        "io_busy": "0",
+        "dirty": "1",
+        "manual_cells": "0",
+        "selection_history": "5,0",
+        "clipboard_pending": "0",
+        "clipboard_completed": "0",
+        "clipboard_status": "0"
+      }
+    }
+  ],
+  "final": {
+    "sheet": "1",
+    "modal": "0",
+    "focus": "0/0/0",
+    "active": "0,4",
+    "anchor": "0,4",
+    "extent": "0,4",
+    "top": "0",
+    "horizontal": "0.000",
+    "page": "0/5",
+    "spare": "0/0",
+    "source_revision": "7",
+    "schema": "6",
+    "request": "13",
+    "busy": "0",
+    "io_busy": "0",
+    "dirty": "1",
+    "manual_cells": "0",
+    "selection_history": "5,0",
+    "clipboard_pending": "0",
+    "clipboard_completed": "0",
+    "clipboard_status": "0"
+  },
+  "scope": "Actual shared C source with five real all-retaining predicates creates six Steps. Exact frozen DOM/CDP anatomy at four100/150 wide/narrow viewports, trusted independent/reversed nested wheel, partial55-row clipped registry/outline, sticky title, clipped-away Edit inertness, actual End/context Cancel and Collapse/reopen zero-offset lifetime preserve source/pages/history/selection/clipboard with zero post-setup jobs. Body Edit/Preview/footer reachability uses frozen semantic capture/cancel; none is activated. No DOM state injection, new C export, native/browser physical input, clipboard activation, saved reports or universal UI parity claim."
+}
