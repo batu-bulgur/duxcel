@@ -12,7 +12,7 @@ if(process.argv.length!==3)throw new Error('Run tools/capture_reference_rail.py,
 const config=JSON.parse(await fs.readFile(process.argv[2],'utf8'));
 if(config.desktop_lock_pid!==process.ppid||new URL(config.url).hostname!=='127.0.0.1'||![1,2].includes(config.dpr)||
    !path.isAbsolute(config.profile)||(await fs.readdir(config.profile)).length)throw new Error('Expected the locking wrapper and its new empty temporary profile');
-const output=config.output,events=[],states=[],actions=[],loadedAssets=[];
+const output=config.output,events=[],states=[],actions=[],loadedAssets=[],stepsScrollOnly=config.steps_scroll_only===true;
 const validatedRequests=new Set();
 let checks=0,stderr='',ws,cdp,browser,browserVersion,interrupted=false;
 const began=Date.now(),pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -107,6 +107,69 @@ async function capture(caseName,name,baseline){
  if(retained)check(JSON.stringify(image.railSample)==='[237,242,246,255]','Presented retained rail pixels differ from its computed #edf2f6');
  record.validated=true;await fs.writeFile(stateFile,JSON.stringify(record,null,2)+'\n');return record;
 }
+// This optional measurement profile reads real DOM geometry; it does not
+//supply intrinsic sizes, scrollTop, focus(), React state or synthetic models.
+async function stepsSnapshot(){
+ const base=await snapshot(),anatomy=await evaluate(`(()=>{
+  const scale=Number(document.querySelector('.duxcel-app').dataset.uiScale),rect=r=>({x:r.x,y:r.y,width:r.width,height:r.height}),intersect=(a,b)=>{const x=Math.max(a.x,b.x),y=Math.max(a.y,b.y);return{x,y,width:Math.max(0,Math.min(a.x+a.width,b.x+b.width)-x),height:Math.max(0,Math.min(a.y+a.height,b.y+b.height)-y)};};
+  const describe=el=>{if(!el)return null;const style=getComputedStyle(el),r=rect(el.getBoundingClientRect());let visible=intersect(r,{x:0,y:0,width:innerWidth,height:innerHeight});for(let parent=el.parentElement;parent;parent=parent.parentElement){const s=getComputedStyle(parent);if(/auto|scroll|hidden|clip/.test(s.overflowX+' '+s.overflowY))visible=intersect(visible,rect(parent.getBoundingClientRect()));}return{rect:r,clipIntersection:visible,tag:el.tagName,id:el.id,class:el.className,role:el.getAttribute('role'),label:el.getAttribute('aria-label'),text:el.textContent?.trim().slice(0,256),disabled:!!el.disabled,focused:el===document.activeElement,focusVisible:el.matches(':focus-visible'),style:Object.fromEntries(['position','top','height','minHeight','width','minWidth','flex','flexShrink','boxSizing','paddingTop','paddingRight','paddingBottom','paddingLeft','marginTop','marginBottom','borderLeftWidth','borderRightWidth','borderTopWidth','borderBottomWidth','overflowX','overflowY','scrollbarWidth','scrollbarColor'].map(key=>[key,style[key]])),metrics:{clientWidth:el.clientWidth,clientHeight:el.clientHeight,clientLeft:el.clientLeft,clientTop:el.clientTop,offsetWidth:el.offsetWidth,offsetHeight:el.offsetHeight,scrollWidth:el.scrollWidth,scrollHeight:el.scrollHeight,scrollLeft:el.scrollLeft,scrollTop:el.scrollTop}};};
+  const selectors={outer:'.right-inspector',header:'.inspector-title',source:'.inspector-source',list:'.step-list',details:'.step-details',detailTitle:'.step-details>strong',description:'.step-details>p',actions:'.step-actions',edit:'.step-actions button:first-child',preview:'.step-actions button:last-child',footer:'.inspector-foot',footerNote:'.inspector-foot>small',inspect:'.inspector-foot button',collapse:'[aria-label="Collapse and retain pane"]',dismiss:'[aria-label="Dismiss right pane"]',rail:'.retained-rail',expand:'[aria-label="Expand Transformations"]'},parts=Object.fromEntries(Object.entries(selectors).map(([key,selector])=>[key,describe(document.querySelector(selector))]));
+  return{scale,parts,rows:[...document.querySelectorAll('.step-list>li')].slice(0,64).map(el=>({item:describe(el),button:describe(el.querySelector('button'))})),rowsTotal:document.querySelectorAll('.step-list>li').length,focus:describe(document.activeElement),focusScope:document.activeElement?.closest('.step-list')?'inner':document.activeElement?.closest('.right-inspector')?'outer':'outside',nativeScrollbar:'DOM integer metrics and CDP box quads describe allocated content/gutter geometry; native painted thumb/track internals are not independently exposed.'};
+ })()`);
+ const document=await send('DOM.getDocument',{depth:0});
+ for(const [part,selector] of [['outer','.right-inspector'],['list','.step-list']]){
+  const element=anatomy.parts[part];if(!element)continue;
+  const node=await send('DOM.querySelector',{nodeId:document.root.nodeId,selector});check(node.nodeId,'Measured scroller disappeared before CDP box geometry: '+part);
+  element.box=(await send('DOM.getBoxModel',{nodeId:node.nodeId})).model;
+  const content=element.box.content,padding=element.box.padding,border=element.box.border;
+  element.contentRight=Math.max(...content.filter((_,i)=>i%2===0));
+  const paddingRight=Math.max(...padding.filter((_,i)=>i%2===0)),borderRight=Math.max(...border.filter((_,i)=>i%2===0)),top=Math.min(...padding.filter((_,i)=>i%2===1)),bottom=Math.max(...padding.filter((_,i)=>i%2===1));
+  element.scrollbarBand={contentRight:element.contentRight,paddingRight,borderRight,boxModelRightBand:{x:paddingRight,y:top,width:Math.max(0,borderRight-Number.parseFloat(element.style.borderRightWidth)*anatomy.scale-paddingRight),height:bottom-top},cssAllocation:element.metrics.offsetWidth-element.metrics.clientWidth-Number.parseFloat(element.style.borderLeftWidth)-Number.parseFloat(element.style.borderRightWidth),metricsRounding:'offsetWidth/clientWidth are integer CSSOM values; retain CDP quads rather than claiming exact native track ink from their difference.'};
+ }
+ return{...base,steps:anatomy};
+}
+async function captureSteps(caseName,name,baseline){
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:8,y:8});await settle();
+ const state=await stepsSnapshot(),record={case:caseName,name,state,validated:false};states.push(record);
+ const stateFile=path.join(output,caseName+'-'+name+'.state.json');await fs.writeFile(stateFile,JSON.stringify(record,null,2)+'\n');
+ const image=Buffer.from((await send('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:false})).data,'base64'),filename=caseName+'-'+name+'.png';await fs.writeFile(path.join(output,filename),image);record.capture={file:filename,sha256:hash(image),bytes:image.length};
+ check(JSON.stringify(state.model)===JSON.stringify(baseline.model),'Steps scroll lifecycle changed the actual source model/grid selection/scroll: '+caseName+'/'+name);
+ check(state.ribbon==='compact'&&state.authoring==='false','Steps capture left the actual Compact source-browsing state');
+ if(name==='collapsed')check(state.steps.parts.rail&&!state.steps.parts.outer&&!state.steps.parts.list,'Actual Collapse retained an inspector scroller instead of the rail');
+ else{
+  check(state.wrapper?.opacity==='1'&&state.phase?.includes('presence-open'),'Steps capture preceded its normal presence transition');
+  for(const part of ['outer','header','source','list','details','actions','edit','preview','footer','inspect','collapse','dismiss'])check(state.steps.parts[part]?.rect.width>0&&state.steps.parts[part]?.rect.height>0,'Missing actual Steps anatomy '+part+' in '+caseName+'/'+name);
+  check(state.steps.parts.header.style.position==='sticky'&&state.steps.parts.outer.style.overflowY==='auto'&&state.steps.parts.list.style.overflowY==='auto','Actual prototype lost sticky title or nested scroll ownership');
+ }
+ record.validated=true;await fs.writeFile(stateFile,JSON.stringify(record,null,2)+'\n');return record;
+}
+async function stepsScrollEnd(part){
+ const selector=part==='outer'?'.right-inspector':'.step-list',observations=[];
+ let previous=null;
+ for(let attempt=0;attempt<12;attempt++){
+  const before=await stepsSnapshot(),box=before.steps.parts[part];check(box,'Actual Steps scroller missing: '+part);const m=box.metrics;
+  if(m.scrollHeight<=m.clientHeight)return{part,outcome:'no-overflow',observations,before:box};
+  const target=await evaluate(`(()=>{const owner=document.querySelector(${JSON.stringify(selector)}),r=owner.getBoundingClientRect(),outer=document.querySelector('.right-inspector').getBoundingClientRect(),left=Math.max(r.left,outer.left,0),right=Math.min(r.right,outer.right,innerWidth),top=Math.max(r.top,outer.top,0),bottom=Math.min(r.bottom,outer.bottom,innerHeight);for(const x of [right-1,(left+right)/2])for(const fraction of [.9,.5,.1]){const y=top+(bottom-top)*fraction,hit=document.elementFromPoint(x,y);let nearest=hit;while(nearest){const style=getComputedStyle(nearest);if(/auto|scroll/.test(style.overflowY)&&nearest.scrollHeight>nearest.clientHeight)break;nearest=nearest.parentElement;}if(nearest===owner)return{x,y,hit:{tag:hit.tagName,label:hit.getAttribute('aria-label'),class:hit.className},owner:${JSON.stringify(part)}};}return null;})()`);
+  check(target,'No actual visible wheel target resolves to the intended '+part+' scroll owner');
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:target.x,y:target.y});await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:target.x,y:target.y,deltaX:0,deltaY:Math.max(120,(m.scrollHeight-m.clientHeight)*before.steps.scale+box.rect.height)});await settle();
+  const after=(await stepsSnapshot()).steps.parts[part],next=after.metrics;observations.push({target,before:m,after:next});
+  // Scroll extents are integer CSSOM values while scrollTop can be fractional.
+  // Require a second genuine wheel with an unchanged offset at that boundary.
+  if(previous===next.scrollTop&&next.scrollTop>=next.scrollHeight-next.clientHeight-1)return{part,outcome:'observed-end',observations,after};
+  previous=next.scrollTop;
+ }
+ throw new Error('Actual '+part+' Steps scroller did not reach a stable wheel boundary');
+}
+async function stepsScrollCase(fixture,baseline){
+ const initial=await captureSteps(fixture.name,'default',baseline),outer=await stepsScrollEnd('outer'),outerEnd=await captureSteps(fixture.name,'outer-end',baseline),inner=await stepsScrollEnd('list'),innerEnd=await captureSteps(fixture.name,'inner-end',baseline);
+ // Observe sticky/header/detail/scrollbar and mount lifetime. No numerical
+ //intrinsic height, scroll reset or retention policy is supplied by this tool.
+ check(innerEnd.state.steps.parts.outer.metrics.scrollTop===outerEnd.state.steps.parts.outer.metrics.scrollTop,'Inner wheel unexpectedly changed the already-ended outer inspector offset');
+ await click('[aria-label="Collapse and retain pane"]');const collapsed=await captureSteps(fixture.name,'collapsed',baseline);
+ await click('[aria-label="Expand Transformations"]');const reopened=await captureSteps(fixture.name,'reopened',baseline);
+ const lifetime={before:{outer:innerEnd.state.steps.parts.outer.metrics.scrollTop,inner:innerEnd.state.steps.parts.list.metrics.scrollTop,focus:innerEnd.state.steps.focus},after:{outer:reopened.state.steps.parts.outer.metrics.scrollTop,inner:reopened.state.steps.parts.list.metrics.scrollTop,focus:reopened.state.steps.focus}};
+ actions.push({case:fixture.name,outer,inner,lifetime,captures:[initial.name,outerEnd.name,innerEnd.name,collapsed.name,reopened.name]});
+}
 async function validateLoadedAssets(){
  const responses=events.filter(event=>event.method==='Network.responseReceived'&&!validatedRequests.has(event.params.requestId)&&['Document','Stylesheet','Script','Font'].includes(event.params.type));
  for(const event of responses){const response=event.params.response,url=new URL(response.url);check(url.origin===new URL(config.url).origin,'Reference loaded an external dependency: '+url.href);const name=decodeURIComponent(url.pathname).replace(/^\//,'')||'index.html',expected=config.assets[name];check(response.status===200&&expected,'Loaded unknown/missing prebuilt asset: '+name);const body=await send('Network.getResponseBody',{requestId:event.params.requestId}),bytes=Buffer.from(body.body,body.base64Encoded?'base64':'utf8');check(hash(bytes)===expected.sha256,'Actual served asset hash mismatch: '+name);loadedAssets.push({file:name,sha256:hash(bytes),bytes:bytes.length,type:event.params.type});validatedRequests.add(event.params.requestId);}
@@ -124,7 +187,7 @@ try{
  ws=new WebSocket(target.webSocketDebuggerUrl);cdp=createCDP(ws,events);await new Promise((resolve,reject)=>{ws.addEventListener('open',resolve,{once:true});ws.addEventListener('error',()=>reject(new Error('CDP connection failed')),{once:true});});
  await send('Page.enable');await send('Runtime.enable');await send('Network.enable');await send('Network.setCacheDisabled',{cacheDisabled:true});await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  browserVersion=await send('Browser.getVersion');
- await send('Page.addScriptToEvaluateOnNewDocument',{source:`globalThis.__duxcelRailInputs=[];for(const type of ['click','keydown'])document.addEventListener(type,event=>{const el=event.target.closest?.('button');__duxcelRailInputs.push({type,trusted:event.isTrusted,key:event.key,ctrl:event.ctrlKey,alt:event.altKey,label:el?.getAttribute('aria-label')||el?.textContent||null});},true);`});
+ await send('Page.addScriptToEvaluateOnNewDocument',{source:`globalThis.__duxcelRailInputs=[];for(const type of ${JSON.stringify(stepsScrollOnly?['click','keydown','wheel']:['click','keydown'])})document.addEventListener(type,event=>{const el=event.target.closest?.('button');__duxcelRailInputs.push({type,trusted:event.isTrusted,key:event.key,ctrl:event.ctrlKey,alt:event.altKey,deltaY:event.deltaY,label:el?.getAttribute('aria-label')||el?.textContent||null});},true);`});
  for(const fixture of [{name:'wide-100',width:1440,height:1024,scale:1},{name:'wide-150',width:1920,height:1120,scale:1.5},{name:'narrow-100',width:640,height:720,scale:1},{name:'narrow-150',width:640,height:640,scale:1.5}]){
   await send('Emulation.setDeviceMetricsOverride',{width:fixture.width,height:fixture.height,deviceScaleFactor:config.dpr,mobile:false});
   const location=new URL(config.url);location.searchParams.set('rail-case',fixture.name);
@@ -135,12 +198,16 @@ try{
   check(baseline.model.rowCount==='241'&&baseline.model.columnCount==='12'&&baseline.model.rows==='240 sample rows'&&baseline.model.address==='F7','Frozen source fixture is not240×12/activeF7');
   check(JSON.stringify(baseline.model.selection.map(cell=>[cell.row,cell.col]))==='[[5,5],[6,5],[7,5],[8,5]]','Frozen source selection is notF7:F10');
   check(JSON.stringify(baseline.model.filters)==='["status","currency"]'&&JSON.stringify(baseline.model.sort)==='[{"field":"Transaction ID","sort":"ascending"}]','Frozen source filters/sort differ from definition');
-  await shortcut();await capture(fixture.name,'expanded',baseline);
+  await shortcut();
+  if(stepsScrollOnly)await stepsScrollCase(fixture,baseline);
+  else{
+  await capture(fixture.name,'expanded',baseline);
   await click('[aria-label="Collapse and retain pane"]');const retained=await capture(fixture.name,'retained',baseline);
   await click('[aria-label="Expand Transformations"]');await capture(fixture.name,'expanded-again',baseline);
   await click('[aria-label="Collapse and retain pane"]');await capture(fixture.name,'retained-again',baseline);
   await click('[aria-label="Dismiss retained pane"]');const dismissed=await capture(fixture.name,'dismissed',baseline);
   if(retained.state.narrow)check(JSON.stringify(retained.image.adjacentStrip)===JSON.stringify(dismissed.image.adjacentStrip),'Collapsed narrow reference paints a shadow over the underlying grid');
+  }
   const inputs=await evaluate('__duxcelRailInputs');check(inputs.length>0&&inputs.every(input=>input.trusted),'Reference lifecycle bypassed actual trusted DOM input');
   check(inputs.some(input=>input.type==='keydown'&&input.key==='t'&&input.ctrl&&input.alt),'Reference Transformations was not opened through its real keyboard handler');
   actions.push({case:fixture.name,deliveredInputs:inputs});
@@ -148,7 +215,7 @@ try{
   await validateLoadedAssets();
  }
  await validateLoadedAssets();check(!events.some(event=>event.method==='Runtime.exceptionThrown'),'Reference raised a JavaScript exception');
- await fs.writeFile(path.join(output,'reference.json'),JSON.stringify({status:'passed',checks,elapsed_ms:Date.now()-began,dpr:config.dpr,browserVersion,states,actions,loadedAssets,scope:'Frozen prebuilt prototype rail DOM/style/layout and presented pixels at four viewports using trusted CDP input. Synthetic prototype data/calculations are reference-only; no native/Wasm parity, SQL, OS input or current dist/source derivation claim.'},null,2)+'\n');
+ await fs.writeFile(path.join(output,'reference.json'),JSON.stringify({status:'passed',checks,elapsed_ms:Date.now()-began,dpr:config.dpr,browserVersion,states,actions,loadedAssets,profile:stepsScrollOnly?'steps-scroll-only':'rail',frozen_reference:config.frozen_reference,scope:stepsScrollOnly?'Frozen exact-source/prebuilt Steps anatomy and nested outer/inner scroll metrics, actual CDP box quads/content edges and allocated native scrollbar bands at four viewports. Default→trusted-wheel outer boundary→inner boundary→normal Collapse/reopen records observed scroll/focus lifetime without assigning scrollTop/focus or guessing intrinsic sizes. Integer CSSOM extent rounding is explicit; native thumb/track ink and native/Wasm parity are not claimed. Synthetic prototype source/model stays retained.':'Frozen prebuilt prototype rail DOM/style/layout and presented pixels at four viewports using trusted CDP input. Synthetic prototype data/calculations are reference-only; no native/Wasm parity, SQL, OS input or current dist/source derivation claim.'},null,2)+'\n');
  console.log(JSON.stringify({status:'passed',checks,captures:states.length,output}));
 }catch(error){
  try{if(cdp){const image=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'failed.png'),Buffer.from(image.data,'base64'));}}catch{}

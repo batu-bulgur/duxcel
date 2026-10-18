@@ -78,6 +78,7 @@ def parse_options(argv=None):
     parser.add_argument("--prototype-root", type=Path, default=ROOT / "design/prototype")
     parser.add_argument("--output", type=Path, help="New private output directory outside design/prototype")
     parser.add_argument("--dpr", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--steps-scroll-only", action="store_true", help="Measure actual Steps anatomy and nested outer/inner scrolling; preserve the separate rail profile")
     return parser.parse_args(argv)
 
 
@@ -88,7 +89,7 @@ def main():
     signal.signal(signal.SIGTERM, interrupted)
     prototype = options.prototype_root.resolve()
     output = (options.output or ROOT / "tests/results/runs" / (
-        f"{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%S}-reference-rail-{os.getpid()}"
+        f"{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%S}-reference-{'steps-scroll' if options.steps_scroll_only else 'rail'}-{os.getpid()}"
     )).resolve()
     if output == prototype or prototype in output.parents:
         raise RuntimeError("Capture output must be outside the read-only prototype")
@@ -96,11 +97,21 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
     before = inventory(prototype)
+    frozen_reference = None
+    if options.steps_scroll_only:
+        provider = ROOT / "docs/validation/checkpoints/2026-10-18-steps-sort-input/rail-reference/manifest.json"
+        expected = json.loads(provider.read_text())
+        if expected.get("status") != "passed" or any(before.get(name) != entry for name, entry in expected["inputs"].items()):
+            raise RuntimeError("Steps scroll measurements require the exact source and prebuilt inputs of frozen reference030846-1269")
+        frozen_reference = {"file": str(provider.relative_to(ROOT)), "sha256": digest(provider), "inputs": expected["inputs"]}
     report = {"status": "failed", "prototype": str(prototype), "inputs": before,
               "capture_tools": {name: digest(ROOT / "tools" / name) for name in (
                   "capture_reference_rail.py", "capture_reference_rail.mjs", "test_web_cdp.mjs", "cdp_keyboard.mjs", "test.py")},
               "source_asset_relationship": "Existing prebuilt dist/client and current source hashes are recorded independently. Relevant live DOM/style/layout is asserted; no general rebuild freshness or production-engine claim.",
               "desktop_visibility": "Owned headless Chromium and temporary profile; no user browser, clipboard or visible window"}
+    if options.steps_scroll_only:
+        report["profile"] = "steps-scroll-only"
+        report["frozen_reference"] = frozen_reference
     process = server = thread = None
     try:
         with FileLock(native_lock_path(), "hidden frozen-prototype rail reference capture"):
@@ -113,6 +124,7 @@ def main():
                 thread.start()
                 config = {"url": f"http://127.0.0.1:{server.server_port}/", "output": str(output),
                           "profile": str(profile), "desktop_lock_pid": os.getpid(), "dpr": options.dpr,
+                          "steps_scroll_only": options.steps_scroll_only, "frozen_reference": frozen_reference,
                           "assets": {name[len('dist/client/'):]: entry for name, entry in before.items() if name.startswith('dist/client/')}}
                 config_path = output / "driver-config.json"
                 config_path.write_text(json.dumps(config, indent=2) + "\n")
