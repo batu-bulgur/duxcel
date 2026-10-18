@@ -416,6 +416,125 @@ class RunnerTests(unittest.TestCase):
             self.assertIn("--export-smoke", command.call_args_list[0].args[1])
             self.assertIn("--icon-smoke", command.call_args_list[1].args[1])
 
+    def test_edit_cli_is_opt_in_and_rejects_other_tiers_or_release_before_runner_creation(self):
+        invalid = (["--edit"], ["fast", "--edit", "--list"], ["full", "--edit"],
+                   ["records", "--edit"], ["formats", "--edit"],
+                   ["native", "--scenario", "icon", "--edit", "--config", "release"],
+                   ["affected", "--feature", "shelves", "--edit", "--config", "release"])
+        with mock.patch.object(runner, "Runner") as constructor:
+            for arguments in invalid:
+                with self.subTest(arguments=arguments), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                    runner.main(arguments)
+            constructor.assert_not_called()
+            constructor.return_value.run.return_value = 0
+            for tier, selector in (("native", ["--scenario", "icon"]), ("affected", ["--feature", "shelves"])):
+                for config in ("sanitize", "both"):
+                    with self.subTest(tier=tier, config=config):
+                        self.assertEqual(runner.main([tier, *selector, "--edit", "--config", config, "--no-build"]), 0)
+                        args = constructor.call_args.args[0]
+                        self.assertEqual((args.edit, args.config, args.no_build), (True, config, True))
+
+    def test_edit_changes_only_the_native_app_target_and_summary(self):
+        for config, binary in (("release", "duxcel"), ("sanitize", "duxcel-debug"), ("both", "duxcel-debug")):
+            with self.subTest(config=config), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory); (root / "Makefile").write_text("")
+                args = runner.parser().parse_args(["native", "--scenario", "icon", "--config", config])
+                instance = runner.Runner(args, root)
+                self.assertEqual(instance.native_binary(), binary)
+                self.assertFalse(instance.summary["edit"])
+                self.assertEqual(instance.summary["app_config"], "release" if config == "release" else "sanitize")
+                self.assertNotIn("app_optimization", instance.summary)
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            fixture = root / "tests/generated/design-definition.dxls"; fixture.parent.mkdir(parents=True); fixture.write_bytes(b"fixture")
+            args = runner.parser().parse_args(["native", "--scenario", "icon", "--edit"])
+            instance = runner.Runner(args, root)
+            expected = ["build/edit-sanitize/duxcel", "tests/test_background-native-debug", "design-fixture"]
+            def build(targets, name):
+                self.assertEqual((targets, name), (expected, "build-integration"))
+                for binary in targets[:2]:
+                    path = root / binary; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(binary)
+            with mock.patch.object(instance, "build", side_effect=build), mock.patch.object(runner, "validate_native_contract"):
+                instance.prepare_native()
+            self.assertEqual(instance.summary["binaries"], runner.fingerprint([root / name for name in expected[:2]]))
+            self.assertEqual((instance.summary["edit"], instance.summary["app_config"], instance.summary["app_optimization"]),
+                             (True, "edit-sanitize", "-O0"))
+            self.assertEqual(runner.configurations(args.config), ("release", "sanitize"))
+
+    def test_edit_no_build_requires_the_exact_binary_and_retains_locks_hashes_and_stages(self):
+        for present, replace in ((False, False), (True, False), (True, True)):
+            with self.subTest(present=present, replace=replace), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory); (root / "Makefile").write_text("")
+                fixture = root / "tests/generated/design-definition.dxls"; fixture.parent.mkdir(parents=True); fixture.write_bytes(b"fixture")
+                binary = root / "build/edit-sanitize/duxcel"; binary.parent.mkdir(parents=True)
+                if present: binary.write_text("owned edit binary")
+                (root / "duxcel-debug").write_text("ordinary sanitizer is not an edit fallback")
+                background = root / "tests/test_background-native-debug"; background.write_text("owned background binary")
+                args = runner.parser().parse_args(["native", "--scenario", "icon", "--edit", "--no-build"])
+                instance = runner.Runner(args, root)
+                def completed(name, command, marker=None, **kwargs):
+                    self.assertNotEqual(command[0], "make")
+                    if name == "native-icon":
+                        self.assertEqual(command[0], "./build/edit-sanitize/duxcel")
+                        self.assertEqual(command[1:4], ["--icon-smoke", "--frames", "500"])
+                        self.assertEqual((kwargs["native"], kwargs["stages"]), (True, 8))
+                        if replace: binary.write_text("replaced edit binary")
+                    return {"name": name, "command": command, "status": "passed", "expected_stages": kwargs.get("stages")}
+                with mock.patch.object(instance, "command", side_effect=completed) as command, \
+                     mock.patch.object(runner, "validate_native_contract"), \
+                     mock.patch.object(runner, "native_lock_path", return_value=root / "desktop.lock"), \
+                     contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(instance.run(), 0 if present and not replace else 1)
+                self.assertTrue((root / "tests/results/.runner.lock").is_file())
+                self.assertEqual((root / "desktop.lock").exists(), present)
+                self.assertEqual(command.call_count, 2 if present else 0)
+                if not present:
+                    self.assertIn("Missing test binary", instance.summary["error"])
+                    self.assertIn("edit-sanitize/duxcel", instance.summary["error"])
+                elif replace:
+                    self.assertIn("changed", instance.summary["error"])
+                else:
+                    self.assertEqual(instance.summary["binaries_after"], instance.summary["binaries"])
+                    self.assertEqual(instance.summary["native_visibility"], "hidden")
+
+    def test_edit_affected_preserves_headless_configs_and_exact_native_range(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            args = runner.parser().parse_args(["affected", "--feature", "shelves", "--modules", "format", "--edit", "--config", "both"])
+            instance = runner.Runner(args, root)
+            start, end, marker = runner.LAYOUT_PROFILES[args.feature]
+            def completed(name, command, marker=None, **kwargs):
+                self.assertEqual(command[0], "./build/edit-sanitize/duxcel")
+                self.assertEqual(command[1:4], ["--layout-smoke", "--frames", str(max(1200, (end-start+10)*48))])
+                self.assertEqual(kwargs["env_extra"], {"DUXCEL_LAYOUT_FROM": str(start), "DUXCEL_LAYOUT_TO": str(end)})
+                self.assertEqual(kwargs["completion_pattern"], runner.layout_completion_pattern(start, end))
+                self.assertEqual(kwargs["stages"], end-start)
+                return {"name": name, "status": "passed"}
+            with mock.patch.object(instance, "headless") as headless, mock.patch.object(instance, "prepare_native"), \
+                 mock.patch.object(instance, "background_check"), mock.patch.object(instance, "command", side_effect=completed) as command, \
+                 mock.patch.object(runner, "FileLock"), contextlib.redirect_stdout(io.StringIO()):
+                instance.affected()
+            headless.assert_called_once_with(["format"])
+            self.assertEqual(runner.configurations(instance.args.config), ("release", "sanitize"))
+            self.assertEqual(command.call_args.args[2], marker)
+
+    def test_edit_native_visibility_is_still_hidden_and_not_inherited(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            args = runner.parser().parse_args(["native", "--scenario", "icon", "--edit"])
+            instance = runner.Runner(args, root)
+            def child(command, **kwargs):
+                self.assertEqual(kwargs["env"]["DUXCEL_TEST_VISIBLE"], "0")
+                self.assertIn("halt_on_error=1", kwargs["env"]["ASAN_OPTIONS"])
+                self.assertIn("halt_on_error=1:print_stacktrace=1", kwargs["env"]["UBSAN_OPTIONS"])
+                kwargs["stdout"].write("PASS: final\nDuxcel frames=10 mean=1.0 ms smoke=0\n")
+                return mock.Mock(returncode=0)
+            with mock.patch.dict(runner.os.environ, {"DUXCEL_TEST_VISIBLE": "1"}), \
+                 mock.patch.object(runner.subprocess, "run", side_effect=child), contextlib.redirect_stdout(io.StringIO()):
+                result = instance.command("edit-native", ["./" + instance.native_binary()], "PASS: final", native=True)
+            self.assertEqual(result["status"], "passed")
+            self.assertEqual(instance.summary["native_visibility"], "hidden")
+
     def test_native_missing_inputs_fail_before_opening_desktop(self):
         for extra in (["--scenario", "table", "--no-build"], ["--scenario", "nyc", "--require-data"]):
             args = runner.parser().parse_args(["native", *extra])

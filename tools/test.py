@@ -211,7 +211,11 @@ class Runner:
         self.log_dir = Path(args.log_dir).resolve() if args.log_dir else root / "tests/results/runs" / f"{stamp}-{args.tier}-{os.getpid()}"
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.summary = {"status": "running", "started_utc": utc_now(), "tier": args.tier, "config": args.config,
-                        "jobs": args.jobs, "no_build": args.no_build, "native_visibility": "visible" if getattr(args, "visible", False) else "hidden", "root": str(root), "source": source_metadata(root), "results": [], "binaries": {}}
+                        "jobs": args.jobs, "no_build": args.no_build, "edit": args.edit, "native_visibility": "visible" if getattr(args, "visible", False) else "hidden", "root": str(root), "source": source_metadata(root), "results": [], "binaries": {}}
+        if args.tier in ("affected", "native", "full"):
+            self.summary["app_config"] = "edit-sanitize" if args.edit else "release" if args.config == "release" else "sanitize"
+            if args.edit:
+                self.summary["app_optimization"] = "-O0"
         self.start = time.monotonic()
 
     def write_summary(self):
@@ -296,6 +300,8 @@ class Runner:
             raise RuntimeError(f"{len(failures)} headless check(s) failed; see summary.json")
 
     def native_binary(self):
+        if self.args.edit:
+            return "build/edit-sanitize/duxcel"
         return "duxcel" if self.args.config == "release" else "duxcel-debug"
 
     def records(self):
@@ -456,6 +462,7 @@ def parser():
     result = argparse.ArgumentParser(description=__doc__, epilog="Native windows and clipboard checks run serially under a cross-worktree lock. --jobs only overlaps already-built read-only headless tests. No packages are installed.")
     result.add_argument("tier", nargs="?", choices=("fast", "records", "formats", "affected", "native", "full"), default="fast")
     result.add_argument("--config", choices=("release", "sanitize", "both"), default="both", help="headless build configuration; native uses sanitizer when both (default: both)")
+    result.add_argument("--edit", action="store_true", help="affected/native: use the isolated -O0 ASan/UBSan App; headless configurations stay unchanged")
     result.add_argument("--modules", nargs="+", choices=FAST_MODULES, help="read-only headless modules for fast/affected; full always runs all")
     result.add_argument("--feature", choices=tuple(LAYOUT_PROFILES), help="existing independently bootstrapped native slice; required for affected")
     result.add_argument("--scenario", nargs="+", choices=tuple(row[0] for row in NATIVE), help="native: run only the named existing workflows, serially")
@@ -472,6 +479,10 @@ def parser():
 def main(argv=None):
     argument_parser = parser()
     args = argument_parser.parse_args(argv)
+    if args.edit and args.tier not in ("affected", "native"):
+        argument_parser.error("--edit applies only to affected/native")
+    if args.edit and args.config == "release":
+        argument_parser.error("--edit requires --config sanitize or both; the edit App uses ASan/UBSan")
     if args.list:
         print("Read-only modules: " + ", ".join(FAST_MODULES))
         print("Records: " + ", ".join(RECORD_MODULES) + "; sequential native engine checks without GUI or shared fixtures")
