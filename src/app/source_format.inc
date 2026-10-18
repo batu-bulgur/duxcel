@@ -246,17 +246,17 @@ static bool source_format_first_safe(const FormatStore *store) {
 }
 static bool source_format_manual_import_ready(App *a) {
     Worksheet *sheet=active_sheet(a);
-    return sheet && !sheet->formats.source_aware && !source_format_first_safe(&sheet->formats) &&
+    return sheet && !sheet->formats.source_aware &&
         worksheet_manual_format_history_eligible(sheet,&a->analysis,NULL);
 }
-static void source_format_manual_import_adopt(App *a) {
-    /* The unchanged pre-import proof contained no imported owner in any
-       retained definition. These old rectangles stay manual when the first
-       new Table is introduced. No scope, allocation or journal entry is needed. */
+static void source_format_manual_adopt(App *a,bool advance_revision) {
+    /* Callers proved all pre-import definitions manual, or all prior legacy
+       rectangles whole-column before a new manual patch. No existing finite
+       imported rectangle is reinterpreted. No scope or journal entry needed. */
     FormatStore *store=&active_sheet(a)->formats; store->source_aware=true;
     for (size_t i=0;i<store->undo_count;i++) store->undo[i].source_aware=true;
     for (size_t i=0;i<store->redo_count;i++) store->redo[i].source_aware=true;
-    store->revision++;
+    if (advance_revision) store->revision++;
 }
 static bool source_format_save_ready(App *a) {
     for (size_t i=0;i<a->book.count;i++) {
@@ -264,7 +264,9 @@ static bool source_format_save_ready(App *a) {
         const Analysis *source=i==a->book.active ? &a->analysis : &sheet->analysis;
         FormatSnapshot current={.items=sheet->formats.items,.count=sheet->formats.count,.scopes=sheet->formats.scopes,
             .scope_count=sheet->formats.scope_count,.source_aware=sheet->formats.source_aware};
-        if ((source->kind!=SOURCE_NONE || sheet->objects.count) && !source_format_broad(&current)) {
+        bool imported=source->kind!=SOURCE_NONE;
+        for (size_t j=0;!imported && j<sheet->objects.count;j++) imported=sheet->objects.items[j].kind==OBJECT_TABLE;
+        if (imported && !source_format_broad(&current)) {
             status(a,"Saving needs verified migration of legacy finite formats on imported data. Reopen the unchanged source workbook; manual-only sheets and whole-column defaults remain saveable.");
             return false;
         }

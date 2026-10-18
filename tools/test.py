@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FAST_MODULES = (
     "cellreadout", "filterlabel", "grid", "selection_ladder", "source_scope", "objects", "brand", "format", "chartview", "chartencoding",
     "inspector", "stepview", "preview", "preview_input", "preview_input_browser", "textview", "textview_review", "statsview", "statsview_input", "statsview_input_review",
-    "ui_update_input", "ui_update_input_browser", "ui_update_input_control", "guideview", "fontmetrics",
+    "ui_update_input", "ui_update_input_browser", "ui_update_input_control", "guideview", "guideview_input", "guideview_input_review", "fontmetrics",
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
 RECORD_MODULES = ("record_sql", "record_pages")
@@ -54,12 +54,13 @@ LAYOUT_PROFILES = {
     "table-record-format": (764, 800, "PASS: native Table record formatting"),
     "source-result-format": (800, 824, "PASS: native verified exact-result and guarded styles"),
     "legacy-format-baseline": (824, 846, "PASS: native legacy format baselines"),
-    "manual-format-import": (846, 852, "PASS: native manual format history stays manual"),
+    "manual-format-import": (846, 861, "PASS: native manual format history stays manual"),
+    "stats-input": (861, 867, "PASS: native Statistics Enter keypad Enter and Space"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 852, 23000, "PASS: native manual format history stays manual"),
+    ("layout", 867, 24000, "PASS: native Statistics Enter keypad Enter and Space"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),

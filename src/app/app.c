@@ -650,7 +650,7 @@ static void source_format_cancel(App *a,const char *message);
 static void source_format_origin_arm(App *a);
 static void source_format_origin_invalidate(App *a);
 static bool source_format_manual_import_ready(App *a);
-static void source_format_manual_import_adopt(App *a);
+static void source_format_manual_adopt(App *a,bool advance_revision);
 static void source_format_reset(App *a);
 static void source_format_page(App *a);
 static void source_format_tick(App *a);
@@ -929,7 +929,7 @@ static bool import_table(App *a,const char *path) {
     int index=objects_add_table(&sheet->objects,a->grid.row,a->grid.col,name,&source,&error); analysis_free(&source);
     if (index<0) { status(a,error); free(error); return false; }
 #ifndef DUXCEL_BROWSER_HOST
-    if (manual_formats) source_format_manual_import_adopt(a);
+    if (manual_formats) source_format_manual_adopt(a,true);
 #endif
     worksheet_record(sheet,EDIT_OBJECTS); a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
     invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Loading table at the selected range…"); return true;
@@ -5159,12 +5159,13 @@ static void draw_statistics(App *a) {
     UIStatsLayout layout=ui_stats_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},s); a->statistics_layout=layout;
     if (!layout.valid) return;
     popup_capture(a,layout.panel);
+    /* Chrome owns the opener for this frame, including Enter/Space. */
     bool pointer=!a->consume_grid_input;
-    if (ui_pressed(KEY_ESCAPE) || (pointer && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),layout.panel))) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
-    if (ui_pressed(KEY_TAB)) a->statistics_focus=(a->statistics_focus+(ui_key_shift(KEY_TAB) ? 8 : 1))%9;
-    if (ui_key(KEY_UP)) a->statistics_focus=(a->statistics_focus+8)%9;
-    if (ui_key(KEY_DOWN)) a->statistics_focus=(a->statistics_focus+1)%9;
-    if (ui_pressed(KEY_HOME)) a->statistics_focus=0; if (ui_pressed(KEY_END)) a->statistics_focus=8;
+    if (pointer && (ui_pressed(KEY_ESCAPE) || (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),layout.panel)))) { a->modal=MODAL_NONE; a->consume_grid_input=true; return; }
+    if (pointer && ui_pressed(KEY_TAB)) a->statistics_focus=(a->statistics_focus+(ui_key_shift(KEY_TAB) ? 8 : 1))%9;
+    if (pointer && ui_key(KEY_UP)) a->statistics_focus=(a->statistics_focus+8)%9;
+    if (pointer && ui_key(KEY_DOWN)) a->statistics_focus=(a->statistics_focus+1)%9;
+    if (pointer && ui_pressed(KEY_HOME)) a->statistics_focus=0; if (pointer && ui_pressed(KEY_END)) a->statistics_focus=8;
     ui_stats_surface(u,&layout,statistics_scope(a));
     REVIEW_AUTHOR_PANEL(a,"statistics","Selection statistics",layout.panel,layout.title);
     const char *labels[]={"Count of cells","Filled cells","Numeric count","Distinct count","Sum","Average","Minimum","Maximum"};
@@ -5172,14 +5173,14 @@ static void draw_statistics(App *a) {
         char buffer[256],display[512]; bool checked=(a->statistics_mask&(1u<<i))!=0;
         const char *value=statistics_display_value(a,i,buffer,display);
         REVIEW_STATISTICS_ROW(a,i,labels[i],layout.rows[i],layout.panel,checked,a->statistics_focus==i);
-        if (ui_stats_row(u,layout.rows[i],labels[i],value,checked,a->statistics_focus==i,pointer) || (a->statistics_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { a->statistics_focus=i; a->statistics_mask^=1u<<i; statistics_line(a); }
+        if (ui_stats_row(u,layout.rows[i],labels[i],value,checked,a->statistics_focus==i,pointer) || (pointer && a->statistics_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) { a->statistics_focus=i; a->statistics_mask^=1u<<i; statistics_line(a); }
     }
     REVIEW_AUTHOR_ITEM(a,"statistics","done","statistics.close","button","Done",layout.done,layout.panel,true,false,a->statistics_focus==8,NULL);
-    bool close=ui_tool_button(u,layout.done,"",false,pointer) || (a->statistics_focus==8 && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)));
+    bool close=ui_tool_button(u,layout.done,"",false,pointer) || (pointer && a->statistics_focus==8 && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)));
     float label=ui_measure(u,"Done",11); ui_label(u,"Done",box(layout.done.x+layout.done.width-10*s-label,layout.done.y,label,layout.done.height),11,UI_ACCENT,false,UI_REGULAR);
     if (a->statistics_focus==8) ui_focus_border(layout.done,layout.done,s);
     if (close) { a->modal=MODAL_NONE; a->consume_grid_input=true; }
-    if (ui_key_shortcut(KEY_C) && ui_pressed(KEY_C)) copy_statistics(a);
+    if (pointer && ui_key_shortcut(KEY_C) && ui_pressed(KEY_C)) copy_statistics(a);
 }
 static void draw_table_relations(App *a) {
     size_t index=(size_t)a->table_relation_object; ObjectStore *store=&active_sheet(a)->objects;
@@ -5499,8 +5500,21 @@ static bool apply_format(App *a,unsigned mask,CellFormat value) {
         }
         if (imported) { status(a,"Source-bound cell formatting needs verified record collection. Whole-column defaults remain available."); return false; }
     }
+#ifndef DUXCEL_BROWSER_HOST
+    bool imported_owner=a->analysis.kind!=SOURCE_NONE;
+    for (size_t i=0;!imported_owner && i<sheet->objects.count;i++) imported_owner=sheet->objects.items[i].kind==OBJECT_TABLE;
+    bool manual_mode=imported_owner && !sheet->formats.source_aware && source_format_first_safe(&sheet->formats);
+#endif
     bool ok=format_apply(&sheet->formats,range,mask,value,&error);
-    if (ok && revision!=sheet->formats.revision) { worksheet_record(sheet,EDIT_FORMAT); a->book.dirty=true; }
+    if (ok && revision!=sheet->formats.revision) {
+#ifndef DUXCEL_BROWSER_HOST
+        /* The new patch is known manual (source admission above declined it).
+           Prior legacy states contain only broad defaults. Adopt within this
+           edit's existing revision advance, including UINT64_MAX-1 → MAX. */
+        if (manual_mode) source_format_manual_adopt(a,false);
+#endif
+        worksheet_record(sheet,EDIT_FORMAT); a->book.dirty=true;
+    }
     if (!ok) status(a,error); free(error); return ok;
 }
 static void close_format_menu(App *a) {
@@ -7734,7 +7748,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 852
+#define LAYOUT_SMOKE_STAGES 867
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -8665,10 +8679,10 @@ static void layout_smoke_step(App *a,int *step) {
     static size_t paint_bytes;
     static size_t draft_history; static uint64_t draft_revision; static bool draft_dirty;
     static unsigned char *result_cache; static uint64_t result_preview_offset;
-    static unsigned shelf_file_phase;
+    static unsigned shelf_file_phase,stats_input_phase;
     static PivotDefinition shelf_file_pivot;
     static Rectangle shelf_file_token;
-    static uint64_t shelf_file_jobs;
+    static uint64_t shelf_file_jobs,stats_input_jobs;
     static UICellReadout retained; static uint64_t retained_revision;
     static int select_open_phase,select_edit_phase,select_narrow_phase,representation_phase,plot_phase,narrow_author_phase;
     static size_t select_history;
@@ -12268,6 +12282,89 @@ static void layout_smoke_step(App *a,int *step) {
         smoke_snapshot("tests/results/workspace-layout/manual-format-import-reopened.png"); break;
     case 851:
         puts("PASS: native manual format history stays manual through first Table import, blank-template removal, normal Object Undo Redo and v14 Save Open without fabricated source bindings"); break;
+    case 852:
+        a->document_action=DOCUMENT_NEW; finish_document_action(a); s=active_sheet(a);
+        a->statistics_enabled=false; statistics_cancel(a); a->selected_object=-1;
+        if (s->formats.count || s->formats.source_aware) goto failed;
+        grid_select_cell(&a->grid,0,0,false);
+        if (!import_table(a,"tests/generated/app-manual-format-import.parquet") || !s->formats.source_aware || s->source_versions.high_water) goto failed;
+        break;
+    case 853:
+        if (!object_ready(a,0)) return;
+        grid_select_cell(&a->grid,1000,8,false);
+        { CellFormat value=format_default(); value.flags=FORMAT_BOLD; if (!apply_format(a,FORMAT_BOLD,value)) goto failed; }
+        if (!s->formats.source_aware || format_at(&s->formats,1000,8).flags!=FORMAT_BOLD || imported_cell_format(a,2,4).flags) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-empty-table-manual.dxls"); break;
+    case 854:
+        if (a->book.dirty) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-empty-table-manual.dxls"); break;
+    case 855:
+        if (!object_ready(a,0)) return;
+        if (a->book.dirty || !s->formats.source_aware || s->source_versions.high_water || s->objects.items[0].source.source_version ||
+            format_at(&s->formats,1000,8).flags!=FORMAT_BOLD || imported_cell_format(a,2,4).flags) goto failed;
+        a->document_action=DOCUMENT_NEW; finish_document_action(a); s=active_sheet(a);
+        /* A valid saved empty template has no imported owner. The current
+           Create view command requires source fields, so construct this
+           archive fixture through the real object model, not a fake result. */
+        if (objects_add(&s->objects,0,0,"Empty template",&error)<0) goto failed;
+        worksheet_record(s,EDIT_OBJECTS);
+        grid_select_cell(&a->grid,20,20,false); a->selected_object=-1;
+        { CellFormat value=format_default(); value.flags=FORMAT_ITALIC; if (!apply_format(a,FORMAT_ITALIC,value)) goto failed; }
+        if (s->formats.source_aware || !source_format_save_ready(a)) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-blank-pivot-manual.dxls"); break;
+    case 856:
+        if (a->book.dirty) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-blank-pivot-manual.dxls"); break;
+    case 857:
+        if (a->book.dirty || a->analysis.kind!=SOURCE_NONE || s->objects.count!=1 || s->objects.items[0].kind!=OBJECT_PIVOT ||
+            s->formats.source_aware || format_at(&s->formats,20,20).flags!=FORMAT_ITALIC || !source_format_save_ready(a)) goto failed;
+        a->document_action=DOCUMENT_NEW; finish_document_action(a);
+        open_source(a,"tests/generated/app-manual-format-import.parquet",false); break;
+    case 858:
+        if (a->page.total!=600 || a->page.column_count!=5 || s->formats.source_aware) goto failed;
+        grid_select_cell(&a->grid,1000,8,false); s->formats.revision=UINT64_MAX-1;
+        { CellFormat value=format_default(); value.flags=FORMAT_ITALIC; if (!apply_format(a,FORMAT_ITALIC,value)) goto failed; }
+        if (!s->formats.source_aware || s->formats.revision!=UINT64_MAX || s->formats.undo_count!=1 || !s->formats.undo[0].source_aware ||
+            s->source_versions.high_water || a->analysis.source_version || imported_cell_format(a,0,4).flags || format_at(&s->formats,1000,8).flags!=FORMAT_ITALIC) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-primary-manual-format.dxls"); break;
+    case 859:
+        if (a->book.dirty) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-primary-manual-format.dxls"); break;
+    case 860:
+        if (a->page.total!=600 || a->page.column_count!=5 || a->book.dirty || !s->formats.source_aware || s->source_versions.high_water ||
+            a->analysis.source_version || imported_cell_format(a,0,4).flags || format_at(&s->formats,1000,8).flags!=FORMAT_ITALIC) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/manual-source-format-reopened.png");
+        puts("PASS: native manual format history stays manual for empty first-Table imports, blank Pivot templates and primary sources through actual Save Open, without imported style inheritance or source binding and with exhausted revision safety"); break;
+
+    case 861:
+        a->document_action=DOCUMENT_NEW; finish_document_action(a); s=active_sheet(a);
+        a->statistics_enabled=false; statistics_cancel(a); a->statistics_mask=0;
+        a->chrome_focus=10; a->status_focus=0; a->pivot_focus=0; a->ribbon_focus=false;
+        request=a->request_id; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty; stats_input_phase=0;
+        dx_lock(&a->worker.mutex); stats_input_jobs=a->worker.jobs_started; dx_unlock(&a->worker.mutex);
+        layout_select_key=KEY_ENTER; break;
+    case 862:
+        if (a->modal!=MODAL_STATISTICS || a->statistics_mask || a->statistics_focus || a->request_id!=request) goto failed;
+        layout_select_key=KEY_SPACE; break;
+    case 863:
+        if (a->modal!=MODAL_STATISTICS || a->statistics_mask!=1 || a->statistics_focus || a->request_id!=request) goto failed;
+        layout_select_key=KEY_ESCAPE; break;
+    case 864:
+        if (a->modal!=MODAL_NONE || a->statistics_mask!=1 || a->request_id!=request) goto failed;
+        a->chrome_focus=10; a->status_focus=0; layout_select_key=KEY_KP_ENTER; break;
+    case 865:
+        if (a->modal!=MODAL_STATISTICS || a->statistics_mask!=1 || a->statistics_focus || a->request_id!=request) goto failed;
+        layout_select_key=KEY_ESCAPE; break;
+    case 866:
+        dx_lock(&a->worker.mutex); uint64_t stats_jobs=a->worker.jobs_started; dx_unlock(&a->worker.mutex);
+        if (stats_jobs!=stats_input_jobs) goto failed;
+        if (stats_input_phase==1) {
+            if (a->modal!=MODAL_STATISTICS || a->statistics_mask!=1 || a->statistics_focus || a->request_id!=request) goto failed;
+            layout_select_key=KEY_ESCAPE; stats_input_phase=2; return;
+        }
+        if (a->modal!=MODAL_NONE || a->statistics_mask!=1 || a->request_id!=request || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty) goto failed;
+        if (!stats_input_phase) { a->chrome_focus=10; a->status_focus=0; layout_select_key=KEY_SPACE; stats_input_phase=1; return; }
+        puts("PASS: native Statistics Enter keypad Enter and Space open without toggling a metric, independent Space toggles exactly once, Escape retains the mask and document without clipboard or database work"); break;
 
     }
     free(error); (*step)++; return;
@@ -13720,9 +13817,9 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
-    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
+    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
     else if (options->nyc_smoke) open_source(a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -13732,7 +13829,7 @@ AppSession *app_start(const AppOptions *options) {
     else if (options->path) open_source(a,options->path,false);
     else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(a,"tests/fixtures/null-text.csv",false);
     else { new_sheet(a); a->book.dirty=false; }
-    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 ? layout_start : 250) : 0;
+    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 ? layout_start : 250) : 0;
     session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     session->applied_cursor=-1;
     session->automated=automated; session->layout_start=layout_start; session->layout_target=layout_target;
