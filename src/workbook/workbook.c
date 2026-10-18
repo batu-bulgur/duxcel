@@ -1443,15 +1443,20 @@ static bool source_package_budget(duckdb_connection c,const Workbook *book,char 
     }
     duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
     if (!valid) return range_fail(error,"Workspace v14 restored formats exceed their sheet/workbook owned budget.");
-    const char *limits="SELECT EXISTS(SELECT sheet_id FROM _duxcel_workspace.source_versions GROUP BY sheet_id HAVING count(*)>1024) OR "
-        "EXISTS(SELECT 1 FROM _duxcel_workspace.source_versions WHERE source_reference IS NULL OR octet_length(encode(source_reference))>65536 OR contains(source_reference,chr(0)) OR octet_length(definition)>=262144) OR "
-        "EXISTS(SELECT 1 FROM _duxcel_workspace.sheets WHERE path IS NULL OR octet_length(encode(path))>65536 OR contains(path,chr(0))) OR "
-        "EXISTS(SELECT 1 FROM _duxcel_workspace.table_sources WHERE path IS NULL OR octet_length(encode(path))>65536 OR contains(path,chr(0))) OR "
-        "EXISTS(SELECT sheet_id FROM _duxcel_workspace.format_scopes GROUP BY sheet_id HAVING count(*)>512) OR "
-        "EXISTS(SELECT 1 FROM _duxcel_workspace.format_scopes WHERE definition IS NULL OR octet_length(definition)>=262144) OR "
-        "EXISTS(SELECT sheet_id,position FROM _duxcel_workspace.format_guards GROUP BY sheet_id,position HAVING count(*)>33) OR "
-        "EXISTS(SELECT sheet_id,position FROM _duxcel_workspace.format_records GROUP BY sheet_id,position HAVING count(*)>20000) OR "
-        "EXISTS(SELECT sheet_id,position FROM _duxcel_workspace.format_fields GROUP BY sheet_id,position HAVING count(*)>16384)";
+
+    /* Independent scalar checks avoid a nine-way join-order search. EXISTS
+       always yields a non-NULL Boolean; bool_or keeps the exact same limits. */
+    const char *limits="SELECT bool_or(invalid) FROM ("
+        "SELECT EXISTS(SELECT sheet_id FROM _duxcel_workspace.source_versions GROUP BY sheet_id HAVING count(*)>1024) AS invalid"
+        " UNION ALL SELECT EXISTS(SELECT 1 FROM _duxcel_workspace.source_versions WHERE source_reference IS NULL OR octet_length(encode(source_reference))>65536 OR contains(source_reference,chr(0)) OR octet_length(definition)>=262144) AS invalid"
+        " UNION ALL SELECT EXISTS(SELECT 1 FROM _duxcel_workspace.sheets WHERE path IS NULL OR octet_length(encode(path))>65536 OR contains(path,chr(0))) AS invalid"
+        " UNION ALL SELECT EXISTS(SELECT 1 FROM _duxcel_workspace.table_sources WHERE path IS NULL OR octet_length(encode(path))>65536 OR contains(path,chr(0))) AS invalid"
+        " UNION ALL SELECT EXISTS(SELECT sheet_id FROM _duxcel_workspace.format_scopes GROUP BY sheet_id HAVING count(*)>512) AS invalid"
+        " UNION ALL SELECT EXISTS(SELECT 1 FROM _duxcel_workspace.format_scopes WHERE definition IS NULL OR octet_length(definition)>=262144) AS invalid"
+        " UNION ALL SELECT EXISTS(SELECT sheet_id,position FROM _duxcel_workspace.format_guards GROUP BY sheet_id,position HAVING count(*)>33) AS invalid"
+        " UNION ALL SELECT EXISTS(SELECT sheet_id,position FROM _duxcel_workspace.format_records GROUP BY sheet_id,position HAVING count(*)>20000) AS invalid"
+        " UNION ALL SELECT EXISTS(SELECT sheet_id,position FROM _duxcel_workspace.format_fields GROUP BY sheet_id,position HAVING count(*)>16384) AS invalid"
+        ") checks";
     if (duckdb_query(c,limits,&r)!=DuckDBSuccess) { error_set(error,duckdb_result_error(&r)); duckdb_destroy_result(&r); return false; }
     valid=!duckdb_value_boolean(&r,0,0); duckdb_destroy_result(&r);
     return valid || range_fail(error,"Workspace v14 metadata exceeds bounded counts/text or contains an embedded NUL.");
