@@ -1794,6 +1794,102 @@ static void test_format_budget_analysis_rejection(void) {
     sheet->undo_count=sheet->undo_actions_count=1; sheet->undo_actions[0]=EDIT_ANALYSIS; sheet->undo[0]=(Analysis){.kind=SOURCE_DEMO,.path=malloc(DX_ANALYSIS_HISTORY_BYTES+1)}; CHECK(sheet->undo[0].path);
     memset(sheet->undo[0].path,'x',DX_ANALYSIS_HISTORY_BYTES); sheet->undo[0].path[DX_ANALYSIS_HISTORY_BYTES]=0; budget_analysis_usage(&book,0); workbook_free(&book); free(error);
 }
+static void budget_object_fixture(Workbook *book) {
+    Analysis blank={.kind=SOURCE_DEMO},source={.kind=SOURCE_CSV,.path="/private/table-format-accounting.csv"}; char *error=NULL; CHECK(workbook_add(book,"Object composite accounting",&blank,&error));
+    ObjectStore *objects=&book->sheets[0].objects; CHECK(objects_add_table(objects,0,8,"First table",&source,&error)==0);
+    PivotDefinition pivot={0}; CHECK(pivot_assign(&pivot,PIVOT_ROWS,"City",AGG_SUM,&error) && pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_AVG,&error));
+    CHECK(objects_add_chart(objects,10,8,"Independent analytical chart",&pivot,&error)==1); pivot_free(&pivot);
+    MarkDefinition marks={0}; MarkField color={.name="City",.aggregate=AGG_SUM}; CHECK(marks_assign(&marks,MARKS_COLOR,&color,&error) && objects_marks(objects,1,&marks,&error)); marks_free(&marks);
+    CHECK(objects_add_table(objects,30,8,"Unrelated table",&source,&error)==2); objects_trim_history(objects,false,0); objects_trim_history(objects,true,0);
+    SourceVersion entry={.owner=objects->items[0].id,.version=1,.kind=source.kind,.path=source.path};
+    SourceVersions versions={0}; CHECK(source_versions_plan(&book->sheets[0].source_versions,&entry,true,&versions,&error)); book->sheets[0].source_versions=versions; free(error);
+}
+static WorkbookFormatUsage budget_object_usage(const Workbook *book,const ObjectStore *objects,size_t extra) {
+    WorkbookFormatUsage usage={0}; WorkbookFormatReplacement replacement={.sheet=0,.objects=objects};
+    CHECK(workbook_format_usage(book,&replacement,1,&usage)==FORMAT_BUDGET_OK);
+    CHECK(usage.current==format_owned_bytes(&book->sheets[0].formats,false)+book->sheets[0].source_versions.bytes);
+    CHECK(usage.retained==format_owned_bytes(&book->sheets[0].formats,true)+book->sheets[0].source_versions.bytes+extra); return usage;
+}
+static void budget_object_composite(Worksheet *sheet,uint64_t version,bool range) {
+    char *error=NULL; bool changed=false; ObjectSnapshot next={0}; ObjectStore *objects=&sheet->objects;
+    CHECK(objects_plan_source_version(objects,objects->items[0].id,objects->items[0].source.source_version,version,&next,&changed,&error) && changed);
+    FormatSnapshot plan={0}; CHECK(format_plan_move(&sheet->formats,(FormatRange){0},0,0,&plan,&error)); plan.source_aware=!sheet->formats.source_aware;
+    if (range) CHECK(cells_set(&sheet->cells,100,20,"Range/objects/format constituent",&error));
+    objects_adopt_source_version(objects,&next); CHECK(!next.items && !next.count && format_commit(&sheet->formats,&plan));
+    worksheet_record(sheet,range ? EDIT_RANGE_FORMAT : EDIT_OBJECTS_FORMAT); journal_counts(sheet); free(error);
+}
+static void test_format_budget_objects(void) {
+    Workbook book; workbook_init(&book); budget_object_fixture(&book); Worksheet *sheet=book.sheets; ObjectStore *objects=&sheet->objects; char *error=NULL;
+    CHECK(objects_rename(objects,1,"Ordinary chart rename",&error)); worksheet_record(sheet,EDIT_OBJECTS); budget_object_usage(&book,NULL,0);
+    ObjectSnapshot current={objects->items,objects->count},prepared={0}; bool changed=false; CHECK(objects_plan_source_version(objects,objects->items[0].id,0,1,&prepared,&changed,&error) && changed);
+    size_t whole=objects_snapshot_owned_bytes(&current),next_bytes=objects_snapshot_owned_bytes(&prepared),expected=DX_MAX_OBJECTS*sizeof(SheetObject);
+    for (size_t i=0;i<objects->count;i++) {
+        const SheetObject *object=objects->items+i; expected+=strlen(object->name)+1+analysis_text_bytes(&object->source)+marks_text_bytes(&object->marks);
+        for (size_t r=0;r<4;r++) for (size_t j=0;j<object->pivot.counts[r];j++) expected+=strlen(object->pivot.fields[r][j].name)+1+(object->pivot.fields[r][j].value ? strlen(object->pivot.fields[r][j].value)+1 : 0);
+    }
+    CHECK(whole==expected && next_bytes==whole && whole>sizeof(SheetObject)+strlen(objects->items[0].name)+1+analysis_text_bytes(&objects->items[0].source));
+    CHECK(prepared.items!=objects->items && prepared.items[1].name!=objects->items[1].name && prepared.items[1].marks.fields[MARKS_COLOR][0].name!=objects->items[1].marks.fields[MARKS_COLOR][0].name);
+    WorkbookFormatUsage before=budget_object_usage(&book,NULL,0),projected=before; projected.retained+=whole;
+    FormatTransientUsage transient={.adopted_staging=next_bytes}; FormatBudget budget={0};
+    CHECK(workbook_format_preflight(&before,&projected,&transient,&budget)==FORMAT_BUDGET_OK && budget.before==before.retained+next_bytes && budget.after==projected.retained);
+    objects_snapshot_free(&prepared); budget_object_usage(&book,NULL,0); CHECK(sheet->source_versions.high_water==1); /* Cancel keeps separate issued lifetime. */
+    budget_object_composite(sheet,1,false); CHECK(objects->undo_count==2 && sheet->undo_actions[1]==EDIT_OBJECTS_FORMAT); size_t first=objects_snapshot_owned_bytes(objects->undo+1); budget_object_usage(&book,NULL,first);
+    CHECK(objects_rename(objects,2,"Ordinary range table rename",&error) && cells_set(&sheet->cells,101,20,"Ordinary range constituent",&error)); worksheet_record(sheet,EDIT_RANGE);
+    CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&sheet->formats,(FormatRange){120,120,7,7},FORMAT_BOLD,bold,&error)); worksheet_record(sheet,EDIT_FORMAT);
+    SourceVersion issued={.owner=objects->items[0].id,.version=2,.kind=SOURCE_CSV,.path=objects->items[0].source.path}; SourceVersions versions={0};
+    CHECK(source_versions_plan(&sheet->source_versions,&issued,true,&versions,&error)); source_versions_free(&sheet->source_versions); sheet->source_versions=versions;
+    budget_object_composite(sheet,2,true); CHECK(objects->undo_count==4 && sheet->undo_actions_count==5 && sheet->undo_actions[4]==EDIT_RANGE_FORMAT);
+    size_t second=objects_snapshot_owned_bytes(objects->undo+3); WorkbookFormatUsage complete=budget_object_usage(&book,NULL,first+second);
+    journal_history(sheet,&sheet->analysis,false); size_t redo=objects_snapshot_owned_bytes(objects->redo); budget_object_usage(&book,NULL,first+redo);
+    journal_history(sheet,&sheet->analysis,false); budget_object_usage(&book,NULL,first+redo); /* Format-only skips object index. */
+    journal_history(sheet,&sheet->analysis,false); budget_object_usage(&book,NULL,first+redo); /* Ordinary range snapshot is excluded. */
+    journal_history(sheet,&sheet->analysis,false); CHECK(objects->redo_count==3); budget_object_usage(&book,NULL,redo+objects_snapshot_owned_bytes(objects->redo+2));
+    for (size_t i=0;i<4;i++) journal_history(sheet,&sheet->analysis,true);
+    WorkbookFormatUsage restored=budget_object_usage(&book,NULL,first+second); CHECK(!memcmp(&complete,&restored,sizeof(complete)) && sheet->source_versions.high_water==2);
+    journal_history(sheet,&sheet->analysis,false); CHECK(objects_rename(objects,1,"Ordinary object branch",&error)); worksheet_record(sheet,EDIT_OBJECTS);
+    CHECK(!objects->redo_count && !sheet->redo_actions_count); budget_object_usage(&book,NULL,first);
+    /* Actual ObjectStore authority can be external to the save cache. Its owned
+       histories and high-water map against the original worksheet journal. */
+    ObjectStore authority=*objects; *objects=(ObjectStore){0}; WorkbookFormatReplacement replacement={.sheet=0,.objects=&authority}; WorkbookFormatUsage external={0};
+    budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); CHECK(workbook_format_usage(&book,&replacement,1,&external)==FORMAT_BUDGET_OK);
+    CHECK(external.retained==format_owned_bytes(&sheet->formats,true)+sheet->source_versions.bytes+first);
+    FormatStore format_view=sheet->formats; format_view.undo_count=format_view.redo_count=0; replacement.formats=&format_view;
+    CHECK(workbook_format_usage(&book,&replacement,1,&external)==FORMAT_BUDGET_OK && external.retained==format_owned_bytes(&format_view,true)+sheet->source_versions.bytes+first);
+    uint64_t high_water=authority.next_id; authority.next_id=0; budget_usage_reject(&book,&replacement,1,FORMAT_BUDGET_MODEL); authority.next_id=high_water;
+    authority.undo_count++; budget_usage_reject(&book,&replacement,1,FORMAT_BUDGET_MODEL); authority.undo_count--; /* An unrecorded next push is not an authority view. */
+    *objects=authority; authority=(ObjectStore){0}; workbook_free(&book); free(error);
+}
+static void test_format_budget_object_rejection(void) {
+    Workbook book; workbook_init(&book); budget_object_fixture(&book); Worksheet *sheet=book.sheets; ObjectStore *objects=&sheet->objects; char *error=NULL;
+    CHECK(objects_rename(objects,1,"Ordinary prior object",&error)); worksheet_record(sheet,EDIT_OBJECTS); budget_object_composite(sheet,1,false);
+    Worksheet before=*sheet; size_t count=objects->undo_count;
+    objects->undo_count=SIZE_MAX; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); objects->undo_count=count;
+    objects->undo_count--; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); objects->undo_count+=2; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); objects->undo_count--;
+    count=sheet->undo_actions_count; sheet->undo_actions_count=DX_HISTORY+1; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->undo_actions_count=count;
+    EditKind action=sheet->undo_actions[0]; sheet->undo_actions[0]=(EditKind)99; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->undo_actions[0]=EDIT_FORMAT; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->undo_actions[0]=action;
+    ObjectSnapshot *bound=objects->undo+1,retained=*bound; bound->items=malloc(1); bound->count=0; CHECK(bound->items);
+    CHECK(objects_snapshot_owned_bytes(bound)==DX_MAX_OBJECTS*sizeof(SheetObject)); budget_object_usage(&book,NULL,DX_MAX_OBJECTS*sizeof(SheetObject)); free(bound->items); *bound=retained;
+    count=bound->count; bound->count=DX_MAX_OBJECTS+1; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->count=count;
+    SheetObject *items=bound->items; bound->items=NULL; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->items=items;
+    bound->items[0].source.filter_count=SIZE_MAX; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->items[0].source.filter_count=0;
+    bound->items[0].source.filters[0].value=dx_strdup("inactive owned text"); budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); free(bound->items[0].source.filters[0].value); bound->items[0].source.filters[0].value=NULL;
+    count=bound->items[1].pivot.counts[PIVOT_ROWS]; bound->items[1].pivot.counts[PIVOT_ROWS]=DX_PIVOT_FIELDS+1; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->items[1].pivot.counts[PIVOT_ROWS]=count;
+    count=bound->items[1].marks.counts[MARKS_COLOR]; bound->items[1].marks.counts[MARKS_COLOR]=DX_MARK_FIELDS+1; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->items[1].marks.counts[MARKS_COLOR]=count;
+    char *name=bound->items[0].name; bound->items[0].name=NULL; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->items[0].name=name;
+    char *path=bound->items[0].source.path,*large=malloc(DX_OBJECT_HISTORY_BYTES+1); CHECK(large); memset(large,'x',DX_OBJECT_HISTORY_BYTES); large[DX_OBJECT_HISTORY_BYTES]=0;
+    bound->items[0].source.path=large; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); bound->items[0].source.path=path; free(large);
+    char *paths[]={objects->undo[0].items[0].source.path,bound->items[0].source.path}; char *large_a=malloc(4190001),*large_b=malloc(4190001); CHECK(large_a && large_b); memset(large_a,'a',4190000); large_a[4190000]=0; memset(large_b,'b',4190000); large_b[4190000]=0;
+    objects->undo[0].items[0].source.path=large_a; bound->items[0].source.path=large_b; CHECK(objects_snapshot_owned_bytes(objects->undo)+objects_snapshot_owned_bytes(bound)>DX_OBJECT_HISTORY_BYTES); budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL);
+    objects->undo[0].items[0].source.path=paths[0]; bound->items[0].source.path=paths[1]; free(large_a); free(large_b); CHECK(!memcmp(sheet,&before,sizeof(before)));
+    journal_history(sheet,&sheet->analysis,false); count=objects->redo_count; objects->redo_count=DX_HISTORY+1; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); objects->redo_count=count;
+    count=sheet->redo_actions_count; sheet->redo_actions_count=SIZE_MAX; budget_usage_reject(&book,NULL,0,FORMAT_BUDGET_MODEL); sheet->redo_actions_count=count;
+    workbook_free(&book); free(error); error=NULL;
+    /* No object+format action means ordinary data definitions remain excluded;
+       their existing behavior is not gated by this formatting-only policy. */
+    workbook_init(&book); budget_object_fixture(&book); sheet=book.sheets; objects=&sheet->objects; CHECK(objects_rename(objects,1,"Ordinary-only history",&error)); worksheet_record(sheet,EDIT_OBJECTS);
+    path=objects->undo[0].items[0].source.path; large=malloc(DX_OBJECT_HISTORY_BYTES+1); CHECK(large); memset(large,'x',DX_OBJECT_HISTORY_BYTES); large[DX_OBJECT_HISTORY_BYTES]=0;
+    objects->undo[0].items[0].source.path=large; budget_object_usage(&book,NULL,0); objects->undo[0].items[0].source.path=path; free(large); workbook_free(&book); free(error);
+}
 static void test_format_budget_combined_sheet(void) {
     Workbook book; workbook_init(&book); Analysis blank={0}; char *error=NULL; CHECK(workbook_add(&book,"Combined owned limit",&blank,&error));
     Worksheet *sheet=book.sheets; CellFormat value=format_default(); value.flags=FORMAT_BOLD;
@@ -1894,7 +1990,7 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused typed guarded-v14 codec checks (manual rectangles,1..33 exact RESULT owners,archived proofs,deep ownership and transactional rejection)\n",checks); return 0;
     }
     if (argc==2 && !strcmp(argv[1],"--format-budget-only")) {
-        test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
+        test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_objects(); test_format_budget_object_rejection(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
         printf("PASS: %u focused formatting-accounting checks (dormant ledgers, complete projected histories, explicit staging/reservations, exact caps and atomic failure)\n",checks); return 0;
     }
     if (argc==2 && !strcmp(argv[1],"--journal-only")) {
@@ -1922,7 +2018,7 @@ int main(int argc,char **argv) {
     }
     if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only|--guarded-formats-only]\n",argv[0]); return 2; }
     test_guarded_format_workspace(); test_guarded_format_rejection();
-    test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
+    test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_objects(); test_format_budget_object_rejection(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
     test_analysis_journal_owned(); test_analysis_journal_rejection(); test_analysis_journal_chronology();
     test_source_version_model(); test_source_version_save_guard();
     test_source_format_workspace(); test_invalid_source_format_package(); test_source_format_budget();

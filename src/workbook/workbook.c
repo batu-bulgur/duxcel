@@ -215,6 +215,33 @@ static FormatBudgetStatus format_budget_analysis_history(const Worksheet *sheet,
     for (size_t i=1;i<owned.count;i++) if (owned.ranges[i-1].last>owned.ranges[i].first) return FORMAT_BUDGET_MODEL;
     *out=charge; return FORMAT_BUDGET_OK;
 }
+static FormatBudgetStatus format_budget_object_history(const Worksheet *sheet,const ObjectStore *objects,size_t *out) {
+    bool composite=false;
+    for (size_t h=0;h<2;h++) {
+        const EditKind *actions=h ? sheet->redo_actions : sheet->undo_actions; size_t count=h ? sheet->redo_actions_count : sheet->undo_actions_count;
+        for (size_t i=0;i<count && i<DX_HISTORY;i++) composite|=(worksheet_edit_effects(actions[i])&12)==12;
+    }
+    if (!composite) { *out=0; return FORMAT_BUDGET_OK; }
+    if (objects->undo_count>DX_HISTORY || objects->redo_count>DX_HISTORY || sheet->undo_actions_count>DX_HISTORY || sheet->redo_actions_count>DX_HISTORY) return FORMAT_BUDGET_MODEL;
+    ObjectSnapshot current={objects->items,objects->count};
+    if (objects_snapshot_owned_bytes(&current)>DX_OBJECT_CURRENT_BYTES) return FORMAT_BUDGET_MODEL;
+    size_t charge=0;
+    for (size_t h=0;h<2;h++) {
+        const EditKind *actions=h ? sheet->redo_actions : sheet->undo_actions; size_t count=h ? sheet->redo_actions_count : sheet->undo_actions_count;
+        const ObjectSnapshot *states=h ? objects->redo : objects->undo; size_t available=h ? objects->redo_count : objects->undo_count,index=0,bytes=0;
+        for (size_t i=0;i<count;i++) {
+            unsigned effects=worksheet_edit_effects(actions[i]); if (!effects) return FORMAT_BUDGET_MODEL;
+            if (!(effects&4)) continue;
+            if (index>=available) return FORMAT_BUDGET_MODEL;
+            size_t entry=objects_snapshot_owned_bytes(states+index++);
+            if (entry>DX_OBJECT_HISTORY_BYTES-bytes) return FORMAT_BUDGET_MODEL;
+            bytes+=entry;
+            if ((effects&12)==12 && !format_budget_add(&charge,entry)) return FORMAT_BUDGET_OVERFLOW;
+        }
+        if (index!=available) return FORMAT_BUDGET_MODEL;
+    }
+    *out=charge; return FORMAT_BUDGET_OK;
+}
 static bool format_budget_model_valid(const FormatStore *store) {
     if (!format_valid(store,NULL)) return false;
     for (size_t h=0;h<2;h++) {
@@ -229,19 +256,21 @@ static bool format_budget_model_valid(const FormatStore *store) {
 }
 FormatBudgetStatus workbook_format_usage(const Workbook *book,const WorkbookFormatReplacement *replacements,size_t count,WorkbookFormatUsage *out) {
     if (!book || !out || book->count>DX_MAX_SHEETS || (book->count && !book->sheets) || count>DX_MAX_SHEETS || (count && !replacements)) return FORMAT_BUDGET_INPUT;
-    const FormatStore *formats[DX_MAX_SHEETS]={0}; const SourceVersions *versions[DX_MAX_SHEETS]={0}; bool replaced[DX_MAX_SHEETS]={0};
-    for (size_t i=0;i<book->count;i++) { formats[i]=&book->sheets[i].formats; versions[i]=&book->sheets[i].source_versions; }
+    const FormatStore *formats[DX_MAX_SHEETS]={0}; const SourceVersions *versions[DX_MAX_SHEETS]={0}; const ObjectStore *objects[DX_MAX_SHEETS]={0}; bool replaced[DX_MAX_SHEETS]={0};
+    for (size_t i=0;i<book->count;i++) { formats[i]=&book->sheets[i].formats; versions[i]=&book->sheets[i].source_versions; objects[i]=&book->sheets[i].objects; }
     for (size_t i=0;i<count;i++) {
         size_t sheet=replacements[i].sheet; if (sheet>=book->count || replaced[sheet]) return FORMAT_BUDGET_INPUT; replaced[sheet]=true;
         if (replacements[i].formats) formats[sheet]=replacements[i].formats;
         if (replacements[i].versions) versions[sheet]=replacements[i].versions;
+        if (replacements[i].objects) objects[sheet]=replacements[i].objects;
     }
     WorkbookFormatUsage usage={.sheet_count=book->count};
     for (size_t i=0;i<book->count;i++) {
-        if (!format_budget_model_valid(formats[i]) || !source_versions_valid(versions[i],book->sheets[i].objects.next_id,NULL)) return FORMAT_BUDGET_MODEL;
-        size_t current=format_owned_bytes(formats[i],false),retained=format_owned_bytes(formats[i],true),analysis=0;
+        if (!format_budget_model_valid(formats[i]) || !source_versions_valid(versions[i],objects[i]->next_id,NULL)) return FORMAT_BUDGET_MODEL;
+        size_t current=format_owned_bytes(formats[i],false),retained=format_owned_bytes(formats[i],true),analysis=0,object_history=0;
         FormatBudgetStatus status=format_budget_analysis_history(book->sheets+i,&analysis); if (status!=FORMAT_BUDGET_OK) return status;
-        if (current==SIZE_MAX || retained==SIZE_MAX || !format_budget_add(&current,versions[i]->bytes) || !format_budget_add(&retained,versions[i]->bytes) || !format_budget_add(&retained,analysis) || !format_budget_add(&usage.current,current) || !format_budget_add(&usage.retained,retained)) return FORMAT_BUDGET_OVERFLOW;
+        status=format_budget_object_history(book->sheets+i,objects[i],&object_history); if (status!=FORMAT_BUDGET_OK) return status;
+        if (current==SIZE_MAX || retained==SIZE_MAX || !format_budget_add(&current,versions[i]->bytes) || !format_budget_add(&retained,versions[i]->bytes) || !format_budget_add(&retained,analysis) || !format_budget_add(&retained,object_history) || !format_budget_add(&usage.current,current) || !format_budget_add(&usage.retained,retained)) return FORMAT_BUDGET_OVERFLOW;
         if (current>usage.max_sheet_current) { usage.max_sheet_current=current; usage.max_sheet=i; }
     }
     *out=usage; return FORMAT_BUDGET_OK;

@@ -87,7 +87,7 @@ void worksheet_analysis_history_adopt(Worksheet *sheet,Analysis *live,bool redo)
 typedef enum { FORMAT_BUDGET_OK,FORMAT_BUDGET_INPUT,FORMAT_BUDGET_MODEL,FORMAT_BUDGET_OVERFLOW,
     FORMAT_BUDGET_SHEET,FORMAT_BUDGET_CURRENT,FORMAT_BUDGET_RETAINED,FORMAT_BUDGET_APP } FormatBudgetStatus;
 typedef struct { size_t sheet_count,current,retained,max_sheet_current,max_sheet; } WorkbookFormatUsage;
-typedef struct { size_t sheet; const FormatStore *formats; const SourceVersions *versions; } WorkbookFormatReplacement;
+typedef struct { size_t sheet; const FormatStore *formats; const SourceVersions *versions; const ObjectStore *objects; } WorkbookFormatReplacement;
 typedef struct {
     size_t adopted_staging; /* Owned next buffers that become part of the next model. */
     size_t io_snapshots,other_staging,collector_owned,page_metadata_owned,pending_reserved;
@@ -98,12 +98,26 @@ typedef struct { size_t before,after,peak; } FormatBudget;
    including dormant proofs, paths and capacity. Its actual object high-water is
    validated. Retained usage additionally charges sizeof(Analysis)+owned text for
    each EDIT_ANALYSIS_FORMAT snapshot mapped chronologically on Undo and Redo.
+   Object+format composites (effects12/14) additionally reserve their complete
+   ObjectSnapshot array plus name/Pivot/Analysis/Marks text on both history stacks.
+   Array capacity is not stored: each nonnull items pointer reserves all32 slots,
+   including count0, so deletion tails are covered conservatively. This category
+   reservation is not an exact allocation-size/RSS measurement.
+   Live current objects and ordinary object/range history remain baseline.
    Baseline current/ordinary Analysis and other inline model/data values remain
    excluded. Analysis journal/storage validation is opt-in when either stack has
    this composite kind; it checks mapping, per-Analysis/per-stack bounds and shared
    text ownership, without reparsing filter semantics. Current/per-sheet usage
    remains only formats+ledger, preserving the 1 MiB codec policy.
    Replacements are unique existing sheets; NULL components keep live state.
+   objects overrides the actual CURRENT authority, including its high-water and
+   histories, never a next store containing an unrecorded incoming snapshot.
+   Original worksheet actions map its object history indices, even when formats
+   and ledgers are prospective. Object validation opts in for effects12/14 and
+   checks structural byte bounds/mapping, not allocation independence/aliases;
+   the producer must pass the objects owned-plan preflight before using these
+   trusted ownership categories. Incoming next ObjectSnapshot is adopted staging;
+   its old live graph is a separate prospective retained charge until recorded.
    Format/ledger projections still use the ORIGINAL worksheet Analysis journals;
    caller must separately project/reserve incoming composite Analysis until its
    journal adoption (old live retained charge and prepared next owned staging).
