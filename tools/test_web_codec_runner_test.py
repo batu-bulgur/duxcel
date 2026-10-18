@@ -170,6 +170,61 @@ console.log('PASS: actual counter report guards rejected '+mutations.length+' co
         result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 17 corrupted receipts',result.stdout)
 
+    def test_source_counters_mode_requires_independent_driver_and_exact_four_fixture_inventory(self):
+        options=harness.parse_options(['--codec-read-driver','--codec-source-counters','--no-build'])
+        self.assertTrue(options.codec_source_counters and options.no_build);self.assertEqual(options.dpr,1)
+        invalid=[['--codec-source-counters'],*(['--codec-read-driver','--codec-source-counters',family] for family in
+            ('--codec-sorts','--codec-preferences','--codec-objects','--codec-queries','--codec-source-options','--codec-tables','--codec-pivot-marks','--codec-filters','--codec-grid','--codec-counters','--review','--worker-driver','--metadata-stream-probe','--dpr=2'))]
+        for arguments in invalid:
+            with self.subTest(arguments=arguments),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(arguments)
+        self.assertEqual(harness.CODEC_SOURCE_COUNTERS_FIXTURES,{'source-counters-v12.dxls':(12,25),'source-counters-v13.dxls':(13,25),'source-counters-v14.dxls':(14,25),'source-counters-v14-reordered.dxls':(14,25)})
+        with tempfile.TemporaryDirectory() as temporary:
+            path=Path(temporary);emitted=self.fixtures(path,harness.CODEC_SOURCE_COUNTERS_FIXTURES)
+            manifest=harness.codec_fixture_manifest(path,emitted,harness.CODEC_SOURCE_COUNTERS_FIXTURES)
+            self.assertEqual([row['name'] for row in manifest['files']],list(harness.CODEC_SOURCE_COUNTERS_FIXTURES))
+            with self.assertRaisesRegex(RuntimeError,'Unexpected native codec fixture'):harness.codec_fixture_manifest(path,emitted,harness.CODEC_COUNTERS_FIXTURES)
+
+    def test_full_tier_source_counters_command_is_serial_after_counters_and_requires_its_actual_pass_marker(self):
+        args=runner.parser().parse_args(['full','--config','both','--no-build'])
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);(root/'Makefile').write_text('');instance=runner.Runner(args,root)
+            with mock.patch.object(instance,'command',side_effect=lambda name,command,*a,**k:{'name':name,'command':command,'status':'passed'}) as command, \
+                 mock.patch.object(instance,'headless'),mock.patch.object(instance,'prepare_native'),mock.patch.object(instance,'retain_binaries'), \
+                 mock.patch.object(instance,'background_check'),mock.patch.object(instance,'native_scenarios'), \
+                 mock.patch.object(runner,'FileLock',side_effect=lambda *a,**k:contextlib.nullcontext()):
+                instance.full()
+            calls=command.call_args_list;counters=[(n,call) for n,call in enumerate(calls) if call.args[1][-1]=='--source-counters-only']
+            self.assertEqual(len(counters),2)
+            for index,call in counters:
+                binary=call.args[1][0];self.assertEqual(calls[index-1].args[1],[binary,'--counters-only'])
+                pattern=call.kwargs['completion_pattern'];runner.validate_output('PASS: native source version counters 123 checks;\n',0,completion_pattern=pattern)
+                with self.assertRaises(RuntimeError):runner.validate_output('PASS: native object counters 123 checks;\n',0,completion_pattern=pattern)
+
+    def test_actual_node_source_counters_report_guards_reject_missing_or_changed_runtime_proofs(self):
+        source=Path(__file__).with_name('test_web_app.mjs').read_text()
+        start=source.index('function validateCodecSourceCountersReport(report,check) {');function=source[start:source.index('\nfunction validateCodecCountersReport',start)]
+        report=dict(mode='source-counters',fixtures=4,headers=5,queries=64,rejections=4,stale=1,callbacks=63,normalFixtureQueries=[6,8,10,10],
+            familyExecutions=dict(meta=10,sheets=10,objects=10,objectCounters=9,sourceCounters=8,describe=17),
+            acceptedFeeds=dict(objects56=10,objectCounters32=18,sourceCounters32=9),validObjectCounterGroups=9,validSourceCounterGroups=3,
+            objectCounterDefaults=1,sourceCounterDefaults=2,poisonedObjectCounterResults=9,poisonedSourceCounterResults=3,rejectedFeeds=4,staleCallbacks=1,
+            rejectedFirstRows=[32,32,32,0],maximumCompletedHeaderOwned=100000,headerOwnedLimit=2097152,inputOwnedLimit=4194304,peakOwnedInput=2097300,
+            staleWireReservationBytes=10000,staleTotalReservationBytes=21)
+        for name in ('requiredNullRejected','identityRejected','missingRowRejected','budgetRejected','stalePreserved','freshRecovery','olderNoSourceCounterQuery','exactSourceMaximum','independentDomains'):report[name]=True
+        script="""import assert from 'node:assert/strict';import vm from 'node:vm';
+const validate=vm.runInNewContext('('+FUNCTION+')'),good=REPORT;
+const check=(condition,message)=>{if(!condition)throw new Error(message);};validate(good,check);
+const mutations=[r=>r.queries--,r=>r.callbacks--,r=>r.normalFixtureQueries[1]=10,r=>r.familyExecutions.sourceCounters--,
+ r=>r.acceptedFeeds.objectCounters32--,r=>r.acceptedFeeds.sourceCounters32--,r=>r.validObjectCounterGroups--,r=>r.validSourceCounterGroups--,
+ r=>r.objectCounterDefaults=0,r=>r.sourceCounterDefaults--,r=>r.poisonedObjectCounterResults--,r=>r.poisonedSourceCounterResults--,
+ r=>r.rejectedFeeds--,r=>r.staleCallbacks=0,r=>r.rejectedFirstRows[2]=0,r=>r.olderNoSourceCounterQuery=false,r=>r.exactSourceMaximum=false,
+ r=>r.independentDomains=false,r=>r.missingRowRejected=false,r=>r.maximumCompletedHeaderOwned=2097153,r=>r.peakOwnedInput=4194305,
+ r=>r.staleWireReservationBytes=0,r=>r.staleWireReservationBytes=6291457,r=>r.staleTotalReservationBytes=20];
+for(const mutate of mutations){const bad=structuredClone(good);mutate(bad);assert.throws(()=>validate(bad,check));}
+console.log('PASS: actual source-counter report guards rejected '+mutations.length+' corrupted receipts');
+""".replace('FUNCTION',json.dumps(function)).replace('REPORT',json.dumps(report))
+        result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 24 corrupted receipts',result.stdout)
+
     def test_manifest_covers_bytes_and_refuses_unowned_extra_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary);emitted=self.fixtures(directory)
