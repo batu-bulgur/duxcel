@@ -1395,7 +1395,138 @@ static void test_source_format_budget(void) {
     CHECK(workbook_load(&loaded,path,&error) && loaded.count==1 && !loaded.sheets[0].source_versions.count); require_workspace_version(path,12);
     workbook_free(&book); workbook_free(&plain); workbook_free(&loaded); free(error);
 }
+static void journal_counts(const Worksheet *s) {
+    const unsigned expected[]={1,2,4,6,8,10,12,14,9};
+    for (size_t i=0;i<sizeof(expected)/sizeof(*expected);i++) CHECK(worksheet_edit_effects((EditKind)i)==expected[i]);
+    CHECK(!worksheet_edit_effects((EditKind)9) && !worksheet_edit_effects((EditKind)-1));
+    for (size_t h=0;h<2;h++) {
+        const EditKind *actions=h ? s->redo_actions : s->undo_actions; size_t count=h ? s->redo_actions_count : s->undo_actions_count,n[4]={0}; CHECK(count<=DX_HISTORY);
+        for (size_t i=0;i<count;i++) { unsigned effects=worksheet_edit_effects(actions[i]); CHECK(effects); for (size_t k=0;k<4;k++) n[k]+=!!(effects&(1u<<k)); }
+        CHECK(n[0]==(h ? s->redo_count : s->undo_count)); CHECK(n[1]==(h ? s->cells.redo_count : s->cells.undo_count));
+        CHECK(n[2]==(h ? s->objects.redo_count : s->objects.undo_count)); CHECK(n[3]==(h ? s->formats.redo_count : s->formats.undo_count));
+    }
+}
+static void journal_history(Worksheet *s,Analysis *live,bool redo) {
+    char *error=NULL; size_t n=redo ? s->redo_actions_count : s->undo_actions_count; CHECK(n); unsigned effects=worksheet_edit_effects((redo ? s->redo_actions : s->undo_actions)[n-1]);
+    if (effects&1) { CHECK(worksheet_analysis_history_preflight(s,live,redo,&error)); worksheet_analysis_history_adopt(s,live,redo); }
+    if (effects&2) CHECK(cells_history(&s->cells,redo)); if (effects&4) CHECK(objects_history(&s->objects,redo)); if (effects&8) CHECK(format_history(&s->formats,redo));
+    worksheet_transfer_history(s,redo); journal_counts(s); free(error);
+}
+static void journal_analysis(Worksheet *s,Analysis *live,Analysis *next) {
+    char *error=NULL; bool changed=false; CHECK(worksheet_analysis_preflight(s,live,next,&changed,&error) && changed);
+    worksheet_analysis_adopt(s,live,next); worksheet_record(s,EDIT_ANALYSIS); journal_counts(s); free(error);
+}
+static void journal_composite(Worksheet *s,Analysis *live,Analysis *next) {
+    char *error=NULL; bool changed=false; FormatSnapshot plan={0}; CHECK(format_plan_move(&s->formats,(FormatRange){0,0,0,0},0,0,&plan,&error)); plan.source_aware=!s->formats.source_aware;
+    CHECK(worksheet_analysis_preflight(s,live,next,&changed,&error) && changed);
+    worksheet_analysis_adopt(s,live,next); CHECK(format_commit(&s->formats,&plan)); worksheet_record(s,EDIT_ANALYSIS_FORMAT); journal_counts(s); free(error);
+}
+static void journal_reject(Worksheet *s,Analysis *live,Analysis *next) {
+    Worksheet before=*s; Analysis prior=*live; char *error=NULL; bool changed=true;
+    CHECK(!worksheet_analysis_preflight(s,live,next,&changed,&error) && changed && error && *error);
+    CHECK(!memcmp(s,&before,sizeof(before)) && !memcmp(live,&prior,sizeof(prior))); free(error);
+}
+static void test_analysis_journal_owned(void) {
+    Workbook book; workbook_init(&book); char *error=NULL; Analysis source={.kind=SOURCE_CSV,.path=dx_strdup("/private/journal-source.csv")};
+    CHECK(analysis_filter_set(&source,"Amount",FILTER_GREATER,"1.2500",&error)); analysis_filter_number(&source,"Amount",(NumberType){NUM_DECIMAL,38,4});
+    CHECK(analysis_filter_set(&source,"City",FILTER_EQUAL,"NULL",&error)); CHECK(analysis_sort_set(&source,"City",false,false,&error)); CHECK(analysis_sort_set(&source,"Id",true,true,&error));
+    CHECK(workbook_add(&book,"Owned source journal",&source,&error)); analysis_free(&source); Worksheet *s=book.sheets; Analysis live=analysis_copy(&s->analysis),next=analysis_copy(&live); char *cache=s->analysis.path;
+    source_format_issue(s,0,1,&live,true); FormatScopeView raw={0,s->source_versions.items[0].raw.data,s->source_versions.items[0].raw.bytes}; uint64_t ids[]={1,7}; size_t field=2;
+    CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; FormatSnapshot plan={0}; CHECK(format_plan_records(&s->formats,&raw,ids,2,&field,1,FORMAT_BOLD,bold,&plan,&error));
+    bool changed=true; Worksheet before=*s; Analysis current=live,prepared=next;
+    CHECK(worksheet_analysis_preflight(s,&live,&next,&changed,&error) && !changed);
+    CHECK(!memcmp(s,&before,sizeof(before)) && !memcmp(&live,&current,sizeof(live)) && !memcmp(&next,&prepared,sizeof(next))); analysis_free(&next);
+    /* Canceling independent plans publishes nothing and retains the separately
+       issued high-water. The helpers own neither reservation nor dirty state. */
+    next=analysis_copy(&live); next.source_version=1; CHECK(worksheet_analysis_preflight(s,&live,&next,&changed,&error) && changed && analysis_same_result(&live,&next));
+    CHECK(!memcmp(s,&before,sizeof(before))); analysis_free(&next); format_snapshot_free(&plan); CHECK(s->source_versions.high_water==1 && !s->undo_count && !s->formats.source_aware);
+    next=analysis_copy(&live); next.source_version=1; CHECK(format_plan_records(&s->formats,&raw,ids,2,&field,1,FORMAT_BOLD,bold,&plan,&error));
+    char *old_path=live.path,*new_path=next.path,*old_filter=live.filter_value,*new_filter=next.filter_value,*old_secondary=live.filters[0].value,*new_secondary=next.filters[0].value;
+    CHECK(worksheet_analysis_preflight(s,&live,&next,&changed,&error) && changed);
+    /* A separately prepared ledger may be adopted after preflight. It cannot
+       invalidate the independently owned Analysis/format plans. */
+    source_format_issue(s,0,2,&live,true); SourceVersion *ledger=s->source_versions.items;
+    worksheet_analysis_adopt(s,&live,&next); CHECK(format_commit(&s->formats,&plan)); worksheet_record(s,EDIT_ANALYSIS_FORMAT);
+    CHECK(!next.path && !next.filter_column && !next.filter_count && !next.source_version);
+    CHECK(live.path==new_path && live.filter_value==new_filter && live.filters[0].value==new_secondary && s->undo[0].path==old_path && s->undo[0].filter_value==old_filter && s->undo[0].filters[0].value==old_secondary);
+    CHECK(s->analysis.path==cache && !s->analysis.source_version && s->undo_actions_count==1 && s->undo_actions[0]==EDIT_ANALYSIS_FORMAT && s->formats.source_aware && live.source_version==1); journal_counts(s);
+    journal_history(s,&live,false); CHECK(live.path==old_path && !live.source_version && !s->formats.source_aware && s->redo[0].path==new_path && s->source_versions.items==ledger && s->source_versions.high_water==2);
+    next=analysis_copy(&live); before=*s; current=live; prepared=next; changed=true;
+    CHECK(worksheet_analysis_preflight(s,&live,&next,&changed,&error) && !changed && !memcmp(s,&before,sizeof(before)) && !memcmp(&live,&current,sizeof(live)) && !memcmp(&next,&prepared,sizeof(next)) && s->redo_count==1 && s->formats.redo_count==1); analysis_free(&next);
+    journal_history(s,&live,true); CHECK(live.path==new_path && live.source_version==1 && s->formats.source_aware && s->source_versions.items==ledger && s->source_versions.high_water==2);
+    next=analysis_copy(&live); next.filter_number.scale=3; CHECK(worksheet_analysis_preflight(s,&live,&next,&changed,&error) && changed); analysis_free(&next);
+    const char *values[]={NULL,"","NULL"};
+    for (size_t i=0;i<3;i++) { next=analysis_copy(&live); free(next.filters[0].value); next.filters[0].value=values[i] ? dx_strdup(values[i]) : NULL; CHECK(worksheet_analysis_preflight(s,&live,&next,&changed,&error) && changed==(i!=2)); analysis_free(&next); }
+    CHECK(live.path==new_path && live.source_version==1 && s->source_versions.high_water==2 && s->analysis.path==cache);
+    analysis_free(&live); workbook_free(&book); free(error);
+}
+static void test_analysis_journal_rejection(void) {
+    Workbook book; workbook_init(&book); Analysis source={.kind=SOURCE_DEMO}; char *error=NULL; CHECK(workbook_add(&book,"Rejected journal plans",&source,&error)); Worksheet *s=book.sheets;
+    Analysis live=analysis_copy(&s->analysis); live.path=dx_strdup("owned-live-text"); Analysis next=analysis_copy(&live); next.unique_rows=true;
+    journal_reject(s,&live,&live); journal_reject(s,&live,&s->analysis); journal_reject(s,&live,s->undo); journal_reject(s,&live,(Analysis *)((unsigned char *)&live+1)); journal_reject(s,&live,NULL);
+    Analysis borrowed=live; journal_reject(s,&live,&borrowed); borrowed=(Analysis){0};
+    free(next.path); next.path=live.path+1; journal_reject(s,&live,&next); next.path=NULL;
+    next.path=(char *)&next.source_version; journal_reject(s,&live,&next); next.path=NULL;
+    size_t undo=s->undo_count; s->undo_count=DX_HISTORY+1; journal_reject(s,&live,&next); s->undo_count=undo;
+    s->formats.redo_count=DX_HISTORY+1; journal_reject(s,&live,&next); s->formats.redo_count=0;
+    s->undo_actions_count=1; s->undo_actions[0]=EDIT_ANALYSIS; journal_reject(s,&live,&next); s->undo_actions_count=0;
+    size_t filters=next.filter_count; next.filter_count=SIZE_MAX; journal_reject(s,&live,&next); next.filter_count=filters;
+    next.sort_count=DX_ANALYSIS_SORTS; journal_reject(s,&live,&next); next.sort_count=0;
+    next.filters[0].value=dx_strdup("Unused owned field"); journal_reject(s,&live,&next); free(next.filters[0].value); next.filters[0].value=NULL;
+    next.sorts[0].column=dx_strdup("Unused sort"); journal_reject(s,&live,&next); free(next.sorts[0].column); next.sorts[0].column=NULL;
+    next.kind=(SourceKind)99; journal_reject(s,&live,&next); next.kind=SOURCE_DEMO;
+    next.path=dx_alloc(DX_ANALYSIS_HISTORY_BYTES+1); memset(next.path,'x',DX_ANALYSIS_HISTORY_BYTES); journal_reject(s,&live,&next); free(next.path); next.path=NULL;
+    CHECK(objects_add_table(&s->objects,10,10,"Owned table source",&source,&error)==0); worksheet_record(s,EDIT_OBJECTS); journal_reject(s,&live,&s->objects.items[0].source);
+    Worksheet before=*s; Analysis prior=live; CHECK(!worksheet_analysis_history_preflight(s,&live,false,&error) && error); free(error); error=NULL; CHECK(!memcmp(s,&before,sizeof(before)) && !memcmp(&live,&prior,sizeof(prior)));
+    analysis_free(&next); analysis_free(&live); workbook_free(&book); free(error);
+    /* Every entry fits individually, but an already-invalid retained history
+       cannot be made safe by silently pruning during publication preflight. */
+    workbook_init(&book); CHECK(workbook_add(&book,"Oversized retained history",&source,&error)); s=book.sheets; live=(Analysis){.kind=SOURCE_DEMO}; next=(Analysis){.kind=SOURCE_DEMO};
+    char *large=dx_alloc(4300001); memset(large,'x',4300000); Analysis entry={.kind=SOURCE_DEMO,.path=large};
+    s->undo[0]=analysis_copy(&entry); s->undo[1]=analysis_copy(&entry); s->undo_count=2; s->undo_actions[0]=s->undo_actions[1]=EDIT_ANALYSIS; s->undo_actions_count=2;
+    journal_reject(s,&live,&next); analysis_free(&entry); workbook_free(&book);
+}
+static void test_analysis_journal_chronology(void) {
+    Workbook book; workbook_init(&book); Analysis source={.kind=SOURCE_DEMO,.filter_column=dx_strdup("City"),.filter_value=dx_strdup("initial"),.filter_op=FILTER_EQUAL}; char *error=NULL;
+    CHECK(workbook_add(&book,"Interleaved history",&source,&error)); analysis_free(&source); Worksheet *s=book.sheets; Analysis *live=&s->analysis; s->source_versions.high_water=77;
+    CHECK(objects_add(&s->objects,100,10,"Persistent object",&error)==0); worksheet_record(s,EDIT_OBJECTS); CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    for (size_t i=0;i<80;i++) {
+        char text[24]; snprintf(text,sizeof(text),"%zu",i);
+        if (i%4==0 || i%4==3) { Analysis next=analysis_copy(live); free(next.filter_value); next.filter_value=dx_strdup(text); if (i%4) journal_composite(s,live,&next); else journal_analysis(s,live,&next); CHECK(!next.filter_value); }
+        else if (i%4==1) { CHECK(format_apply(&s->formats,(FormatRange){i,i,0,0},FORMAT_BOLD,bold,&error)); worksheet_record(s,EDIT_FORMAT); }
+        else { CHECK(cells_set(&s->cells,i,4,text,&error)); worksheet_record(s,EDIT_CELLS); }
+        journal_counts(s); CHECK(s->source_versions.high_water==77);
+    }
+    CHECK(s->undo_actions_count==32 && s->undo_count==16 && s->formats.undo_count==16 && s->cells.undo_count==8 && !s->objects.undo_count && !strcmp(live->filter_value,"79"));
+    for (size_t i=0;i<32;i++) journal_history(s,live,false);
+    CHECK(!s->undo_actions_count && !strcmp(live->filter_value,"47") && s->source_versions.high_water==77 && s->objects.count==1);
+    for (size_t i=0;i<32;i++) journal_history(s,live,true);
+    CHECK(!strcmp(live->filter_value,"79") && s->source_versions.high_water==77);
+    CHECK(objects_rename(&s->objects,0,"Renamed at the branch",&error)); worksheet_record(s,EDIT_OBJECTS);
+    for (size_t i=0;i<5;i++) journal_history(s,live,false);
+    CHECK(s->redo_count==2 && s->formats.redo_count==2 && s->cells.redo_count==1 && s->objects.redo_count==1);
+    Analysis next=analysis_copy(live); free(next.filter_value); next.filter_value=dx_strdup("branch"); journal_composite(s,live,&next);
+    CHECK(!s->redo_actions_count && !s->redo_count && !s->formats.redo_count && !s->cells.redo_count && !s->objects.redo_count && s->source_versions.high_water==77 && !strcmp(s->objects.items[0].name,"Persistent object"));
+    workbook_free(&book); free(error);
+    /* Crossing the Analysis byte budget must prune the chronological prefix
+       through a composite action, including its companion format/cell states. */
+    workbook_init(&book); source=(Analysis){.kind=SOURCE_DEMO,.filter_column=dx_strdup("City"),.filter_op=FILTER_EQUAL,.filter_value=dx_alloc(3u*1024u*1024u+1)}; memset(source.filter_value,'a',3u*1024u*1024u);
+    CHECK(workbook_add(&book,"Byte-budget composite prefix",&source,&error)); analysis_free(&source); s=book.sheets; live=&s->analysis; s->source_versions.high_water=99;
+    next=analysis_copy(live); next.filter_value[0]='b'; journal_analysis(s,live,&next);
+    CHECK(format_apply(&s->formats,(FormatRange){0,0,0,0},FORMAT_BOLD,bold,&error)); worksheet_record(s,EDIT_FORMAT); CHECK(cells_set(&s->cells,2,4,"Keep current cell",&error)); worksheet_record(s,EDIT_CELLS);
+    next=analysis_copy(live); next.filter_value[0]='c'; journal_composite(s,live,&next);
+    next=analysis_copy(live); next.filter_value[0]='d'; journal_analysis(s,live,&next);
+    CHECK(s->undo_actions_count==4 && s->undo_actions[0]==EDIT_FORMAT && s->undo_actions[2]==EDIT_ANALYSIS_FORMAT && s->undo_count==2 && s->formats.undo_count==2);
+    next=analysis_copy(live); next.filter_value[0]='e'; journal_analysis(s,live,&next);
+    CHECK(s->undo_actions_count==2 && s->undo_actions[0]==EDIT_ANALYSIS && s->undo_actions[1]==EDIT_ANALYSIS && s->undo_count==2 && !s->formats.undo_count && !s->cells.undo_count && s->formats.source_aware && s->source_versions.high_water==99);
+    journal_history(s,live,false); journal_history(s,live,false); CHECK(live->filter_value[0]=='c' && s->formats.source_aware && !strcmp(cells_get(&s->cells,2,4),"Keep current cell") && s->source_versions.high_water==99);
+    workbook_free(&book); free(error);
+}
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--journal-only")) {
+        test_analysis_journal_owned(); test_analysis_journal_rejection(); test_analysis_journal_chronology();
+        printf("PASS: %u focused owned Analysis/format journal checks (pointer moves, composite chronology, budgets, aliases, cancellation and high-water)\n",checks); return 0;
+    }
     if (argc==2 && !strcmp(argv[1],"--source-formats-only")) {
         test_source_format_workspace(); test_invalid_source_format_package(); test_source_format_budget();
         printf("PASS: %u focused v14 source-format codec checks (dormant typed scopes, source ledgers, exact uint64, budgets and transactional rejection)\n",checks); return 0;
@@ -1415,7 +1546,8 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
         return 0;
     }
-    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only]\n",argv[0]); return 2; }
+    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only]\n",argv[0]); return 2; }
+    test_analysis_journal_owned(); test_analysis_journal_rejection(); test_analysis_journal_chronology();
     test_source_version_model(); test_source_version_save_guard();
     test_source_format_workspace(); test_invalid_source_format_package(); test_source_format_budget();
     test_owner_counter_workspace(); test_invalid_owner_package();
