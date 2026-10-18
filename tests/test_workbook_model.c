@@ -86,6 +86,21 @@ static void test_unchanged_path_helpers(void) {
     CHECK(source && expected && !strcmp(source,expected));
     relative=workbook_relative_path(target,source); CHECK(!strcmp(relative,"transactions.csv"));
     free(relative); free(target); free(source); free(expected);
+    const char *workspaces[]={"/virtual/books/book.dxls","/book.dxls"};
+    const char *references[]={"missing-source.csv","nested/missing 'İ'.parquet","../data/missing.csv"};
+    for (size_t i=0;i<2;i++) for (size_t j=0;j<3;j++) {
+        relative=dx_strdup(references[j]);
+        for (unsigned round=0;round<4;round++) {
+            source=workbook_source_path(workspaces[i],relative);
+            expected=dx_printf("%s%s",i ? "/" : "/virtual/books/",references[j]);
+            CHECK(source && !strcmp(source,expected));
+            free(relative);relative=workbook_relative_path(workspaces[i],source);
+            CHECK(!strcmp(relative,references[j]));free(source);free(expected);
+        }
+        free(relative);
+    }
+    target=workbook_target_path("/duxcel-model-target-does-not-exist.dxls");
+    CHECK(target && !strcmp(target,"/duxcel-model-target-does-not-exist.dxls"));free(target);
 }
 static void test_object_high_water(void) {
     ObjectStore store={0},copy={0}; char *error=NULL; const uint64_t base=UINT64_C(9007199254740992);
