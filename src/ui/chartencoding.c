@@ -36,6 +36,11 @@ UIEncodingValue ui_encoding_value(const Page *p,const PivotDefinition *d,const U
         }
         return first ? cell_value(first,p->columns[column].numeric) : missing;
     }
+    /* Source-derived readouts preserve AVG/distinct and exact typed text for
+       every assigned measure, even when Plot selects a different measure. */
+    const Page *derived=page_other_values(p,view->measure);
+    if (derived && derived==view->other_values && derived->column_count==view->categories*view->measures)
+        return cell_value(&derived->cells[category*view->measures+binding.index],derived->columns[category*view->measures+binding.index].numeric);
     Aggregate aggregate=d->fields[PIVOT_VALUES][binding.index].aggregate;
     if (aggregate==AGG_AVG || aggregate==AGG_DISTINCT || !p->columns[column].numeric) return missing;
     UIEncodingValue out={.available=true,.is_null=true,.numeric=p->columns[column].numeric,.approximate=true};

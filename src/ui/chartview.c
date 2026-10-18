@@ -1,4 +1,5 @@
 #include "chartview.h"
+#include "../transforms/chart_other.h"
 #include <math.h>
 #include <float.h>
 #include <string.h>
@@ -24,34 +25,23 @@ bool ui_chart_view(const Page *p,const PivotDefinition *definition,size_t measur
     size_t categories=(p->column_count-keys)/measures; if (categories>DX_CHART_CATEGORIES) return false;
     for (size_t c=0;c<categories;c++) if (!p->columns[keys+c*measures+measure].numeric) return false;
     out->categories=categories; out->measure=measure; out->keys=keys; out->measures=measures; out->truncated=p->offset || p->total>p->row_count;
-    /* Match the definition's ranking by SUM when it is available. Scaling the
-       score first also handles finite opposite extremes without overflowing. */
-    size_t rank=measure; for (size_t m=0;m<measures;m++) if (definition->fields[PIVOT_VALUES][m].aggregate==AGG_SUM) { rank=m; break; }
-    double scale=0,scores[DX_PAGE_ROWS]={0};
-    for (size_t r=0;r<p->row_count;r++) for (size_t c=0;c<categories;c++) {
-        const Cell *cell=&p->cells[r*p->column_count+keys+c*measures+rank];
-        if (!cell->is_null && isfinite(cell->number)) scale=fmax(scale,fabs(cell->number));
+    /* The source aggregation and paint must select the same loaded tuples. */
+    ChartOtherRank rank={0}; if (!chart_other_rank(p,definition,measure,&rank,NULL)) return false;
+    size_t top=rank.top_count; memcpy(out->rows,rank.top_rows,sizeof(out->rows));
+    const Page *derived=page_other_values(p,measure);
+    if (derived) {
+        const PageOther *other=p->other; size_t variant=other->measure_variant[measure];
+        if (other->keys!=keys || other->measures!=measures || other->top_count!=top ||
+            other->rank_measure[variant]!=rank.rank_measure || memcmp(other->top_rows[variant],rank.top_rows,sizeof(rank.top_rows))) derived=NULL;
     }
-    if (!scale) scale=1;
-    for (size_t r=0;r<p->row_count;r++) for (size_t c=0;c<categories;c++) {
-        const Cell *cell=&p->cells[r*p->column_count+keys+c*measures+rank]; if (!cell->is_null && isfinite(cell->number)) scores[r]+=cell->number/scale;
-    }
-    size_t top=p->row_count<3 ? p->row_count : 3;
-    for (size_t i=0;i<top;i++) {
-        size_t best=SIZE_MAX;
-        for (size_t r=0;r<p->row_count;r++) {
-            bool selected=false; for (size_t j=0;j<i;j++) selected|=out->rows[j]==r;
-            if (!selected && (best==SIZE_MAX || fabs(scores[r])>fabs(scores[best]))) best=r;
-        }
-        out->rows[i]=best;
-    }
+    out->other_values=derived;
     Aggregate aggregate=definition->fields[PIVOT_VALUES][measure].aggregate;
     bool combinable=aggregate==AGG_SUM || aggregate==AGG_COUNT || aggregate==AGG_MIN || aggregate==AGG_MAX;
-    out->non_additive=!combinable && p->row_count>top;
-    out->other=combinable && p->row_count>top; out->series=top+(out->other ? 1 : 0);
+    out->non_additive=!combinable && !derived && p->row_count>top;
+    out->other=(combinable || derived) && p->row_count>top; out->series=top+(out->other ? 1 : 0);
     for (size_t r=0;r<p->row_count;r++) {
         size_t series=top; for (size_t i=0;i<top;i++) if (out->rows[i]==r) series=i;
-        if (series==top && !out->other) continue;
+        if (series==top && (!out->other || derived)) continue;
         for (size_t c=0;c<categories;c++) {
             const Cell *cell=&p->cells[r*p->column_count+keys+c*measures+measure]; if (cell->is_null) continue;
             if (!isfinite(cell->number)) { out->non_finite=true; continue; }
@@ -64,6 +54,11 @@ bool ui_chart_view(const Page *p,const PivotDefinition *definition,size_t measur
             if (!isfinite(value)) { out->non_finite=true; out->values[series][c]=NAN; out->present[series][c]=false; }
             else if (!isnan(out->values[series][c])) { out->values[series][c]=value; out->present[series][c]=true; }
         }
+    }
+    if (derived) for (size_t c=0;c<categories;c++) {
+        const Cell *cell=&derived->cells[c*measures+measure]; if (cell->is_null) continue;
+        if (!isfinite(cell->number)) { out->non_finite=true; continue; }
+        out->values[top][c]=cell->number; out->present[top][c]=true;
     }
     for (size_t i=0;i<out->series;i++) { out->legend[i]=i;
         for (size_t c=0;c<categories;c++) if (out->present[i][c]) { out->low=fmin(out->low,out->values[i][c]); out->high=fmax(out->high,out->values[i][c]); }

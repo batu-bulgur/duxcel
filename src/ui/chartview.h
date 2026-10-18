@@ -9,6 +9,7 @@ typedef struct {
     double values[4][DX_CHART_CATEGORIES],low,high;
     bool present[4][DX_CHART_CATEGORIES];
     size_t rows[3],legend[4],categories,series,measure,keys,measures;
+    const Page *other_values; /* Borrowed from this immutable parent Page. */
     bool valid,other,truncated,non_finite,non_additive;
 } UIChartView;
 bool ui_chart_view(const Page *page,const PivotDefinition *definition,size_t measure,UIChartView *out);
