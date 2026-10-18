@@ -144,7 +144,7 @@ def parse_options(argv=None):
     parser.add_argument('--codec-objects',action='store_true',help='Separate opt-in saved object descriptor proof; requires --codec-read-driver')
     parser.add_argument('--codec-queries',action='store_true',help='Separate opt-in primary/Table query definition proof; requires --codec-read-driver')
     parser.add_argument('--codec-filters',action='store_true',help='Separate full primary filter metadata proof; requires --codec-read-driver')
-    parser.add_argument('--codec-format-rows',action='store_true',help='Separate streamed base format properties and joint ledger budget proof; requires --codec-read-driver')
+    parser.add_argument('--codec-format-rows',action='store_true',help='Separate streamed base format properties after owned ledger/bindings; requires --codec-read-driver')
     parser.add_argument('--codec-source-bindings',action='store_true',help='Separate complete current-owner source-binding metadata proof; requires --codec-read-driver')
     parser.add_argument('--codec-source-versions',action='store_true',help='Separate bounded RAW source-ledger metadata streaming proof; requires --codec-read-driver')
     parser.add_argument('--codec-source-counters',action='store_true',help='Separate exact source-version allocation-counter metadata proof; requires --codec-read-driver')
