@@ -191,9 +191,10 @@ bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPi
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   filters/sorts/preferences/object descriptors/counters/queries/source options/Table sources/Pivot/Marks/columns/cells).
-   It is not a complete workbook: formats, source-version counters/ledger and
-   final model validation remain absent.
+   filters/sorts/preferences/object descriptors/object and source-version counters/
+   queries/source options/Table sources/Pivot/Marks/columns/cells).
+   It is not a complete workbook: formats, source ledger/bindings, historical
+   migration and final model validation remain absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
 void workbook_codec_read_free(WorkbookCodecRead *read);
