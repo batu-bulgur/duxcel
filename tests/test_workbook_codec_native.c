@@ -12,6 +12,9 @@
 static unsigned checks,executions,feeds,nul_cells,preference_result_rows;
 static unsigned query_result_rows,query_null_rows,query_batches256,query_batches64;
 static size_t query_last_owned,query_last_first;
+static unsigned option_result_rows,option_null_rows,option_batches256,option_batches64;
+static size_t option_last_owned,option_last_first;
+static bool option_boolean_schema;
 #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL native workbook header:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
 static const WorkbookCodecKey key={UINT64_MAX,UINT64_C(9007199254740993),UINT64_C(9007199254740994)};
 static void clear_error(char **error) { CHECK(*error && **error); free(*error); *error=NULL; }
@@ -53,6 +56,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
     WorkbookCodecFamily family=request->family; size_t row_limit=request->row_limit; const char *sql=override ? override : request->sql;
     if (family==WORKBOOK_CODEC_PREFERENCES) preference_result_rows=0;
     if (family==WORKBOOK_CODEC_QUERIES) query_result_rows=query_null_rows=query_batches256=query_batches64=0;
+    if (family==WORKBOOK_CODEC_SOURCE_OPTIONS) option_result_rows=option_null_rows=option_batches256=option_batches64=0;
     duckdb_prepared_statement statement=NULL; CHECK(duckdb_prepare(connection,sql,&statement)==DuckDBSuccess);
     size_t columns=(size_t)duckdb_prepared_statement_column_count(statement); CHECK(columns<=25);
     WorkbookCodecColumn schema[25]={0}; duckdb_type types[25]={0}; size_t schema_bytes=sizeof(schema)+strlen(sql)+1;
@@ -60,6 +64,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
         schema[c].name=duckdb_prepared_statement_column_name(statement,c); CHECK(schema[c].name);
         types[c]=duckdb_prepared_statement_column_type(statement,c); schema[c].kind=atom_kind(types[c]); schema_bytes+=strlen(schema[c].name)+1;
     }
+    if (family==WORKBOOK_CODEC_SOURCE_OPTIONS) option_boolean_schema=columns==3 && types[2]==DUCKDB_TYPE_BOOLEAN;
     duckdb_result result={0}; CHECK(duckdb_execute_prepared(statement,&result)==DuckDBSuccess); executions++;
     idx_t chunks=duckdb_result_chunk_count(result); size_t first=request->first_row; WorkbookCodecReadStatus status=WORKBOOK_CODEC_READ_ACCEPTED;
     for (idx_t ci=0;ci<chunks && status==WORKBOOK_CODEC_READ_ACCEPTED;ci++) {
@@ -67,6 +72,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
         size_t rows=(size_t)duckdb_data_chunk_get_size(chunk); CHECK(rows<=row_limit);
         if (family==WORKBOOK_CODEC_PREFERENCES) preference_result_rows+=(unsigned)rows;
         if (family==WORKBOOK_CODEC_QUERIES) query_result_rows+=(unsigned)rows;
+        if (family==WORKBOOK_CODEC_SOURCE_OPTIONS) option_result_rows+=(unsigned)rows;
         WorkbookCodecAtom *atoms=rows ? dx_alloc(rows*columns*sizeof(*atoms)) : NULL;
         size_t owned=schema_bytes+rows*columns*sizeof(*atoms);
         for (size_t c=0;c<columns;c++) {
@@ -76,7 +82,8 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
             for (size_t row=0;row<rows;row++) {
                 WorkbookCodecAtom *atom=&atoms[row*columns+c];
                 if (validity && !duckdb_validity_row_is_valid(validity,row)) {
-                    atom->kind=WORKBOOK_CODEC_NULL;if (family==WORKBOOK_CODEC_QUERIES && c==2) query_null_rows++;continue;
+                    atom->kind=WORKBOOK_CODEC_NULL;if (family==WORKBOOK_CODEC_QUERIES && c==2) query_null_rows++;
+                    if (family==WORKBOOK_CODEC_SOURCE_OPTIONS && c==2) option_null_rows++;continue;
                 }
                 atom->kind=schema[c].kind;
                 switch (atom->kind) {
@@ -98,6 +105,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
         if (!rows) {
             WorkbookCodecBatch batch={schema,columns,atoms,0,first,ci+1==chunks};
             if (family==WORKBOOK_CODEC_QUERIES) {query_last_owned=workbook_codec_read_owned_bytes(read);query_last_first=first;}
+            if (family==WORKBOOK_CODEC_SOURCE_OPTIONS) {option_last_owned=workbook_codec_read_owned_bytes(read);option_last_first=first;}
             status=workbook_codec_read_feed(read,key,family,&batch,extra_retained>SIZE_MAX-owned ? SIZE_MAX : owned+extra_retained,error); feeds++;
         }
         for (size_t at=0;at<rows && status==WORKBOOK_CODEC_READ_ACCEPTED;) {
@@ -109,8 +117,10 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
                 CHECK(workbook_codec_read_feed(read,stale,family,&batch,owned,error)==WORKBOOK_CODEC_READ_STALE && !*error && workbook_codec_read_owned_bytes(read)==before); stale_first=false;
             }
             if (family==WORKBOOK_CODEC_QUERIES) {query_last_owned=workbook_codec_read_owned_bytes(read);query_last_first=first;}
+            if (family==WORKBOOK_CODEC_SOURCE_OPTIONS) {option_last_owned=workbook_codec_read_owned_bytes(read);option_last_first=first;}
             status=workbook_codec_read_feed(read,key,family,&batch,extra_retained>SIZE_MAX-owned ? SIZE_MAX : owned+extra_retained,error); feeds++;
             if (family==WORKBOOK_CODEC_QUERIES && status==WORKBOOK_CODEC_READ_ACCEPTED) {query_batches256+=take==256;query_batches64+=take==64;}
+            if (family==WORKBOOK_CODEC_SOURCE_OPTIONS && status==WORKBOOK_CODEC_READ_ACCEPTED) {option_batches256+=take==256;option_batches64+=take==64;}
             if (status==WORKBOOK_CODEC_READ_ACCEPTED) first+=take;
             at+=take;
         }
@@ -118,6 +128,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
     }
     if (!chunks) {
         if (family==WORKBOOK_CODEC_QUERIES) {query_last_owned=workbook_codec_read_owned_bytes(read);query_last_first=first;}
+        if (family==WORKBOOK_CODEC_SOURCE_OPTIONS) {option_last_owned=workbook_codec_read_owned_bytes(read);option_last_first=first;}
         WorkbookCodecBatch batch={schema,columns,NULL,0,first,true}; status=workbook_codec_read_feed(read,key,family,&batch,extra_retained>SIZE_MAX-schema_bytes ? SIZE_MAX : schema_bytes+extra_retained,error); feeds++;
     }
     duckdb_destroy_result(&result); duckdb_destroy_prepare(&statement);
@@ -556,6 +567,7 @@ static int preferences_only(void) {
 }
 #include "test_workbook_codec_objects_native.inc"
 #include "test_workbook_codec_queries_native.inc"
+#include "test_workbook_codec_options_native.inc"
 int main(int argc,char **argv) {
     if (argc==3 && !strcmp(argv[1],"--emit-fixtures")) return emit_fixture_files(argv[2],emit_fixtures,7,fixture,NULL,NULL);
     if (argc==3 && !strcmp(argv[1],"--emit-sorts-fixtures")) return emit_fixture_files(argv[2],emit_sorts_fixtures,4,sorts_fixture,sorts_reorder_sql,NULL);
@@ -566,7 +578,9 @@ int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--objects-only")) return objects_only();
     if (argc==3 && !strcmp(argv[1],"--emit-queries-fixtures")) return emit_queries(argv[2]);
     if (argc==2 && !strcmp(argv[1],"--queries-only")) return queries_only();
-    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR]\n",argv[0]); return 2; }
+    if (argc==3 && !strcmp(argv[1],"--emit-source-options-fixtures")) return emit_options(argv[2]);
+    if (argc==2 && !strcmp(argv[1],"--source-options-only")) return options_only();
+    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR]\n",argv[0]); return 2; }
     char directory[]="/tmp/duxcel-codec-native-XXXXXX"; CHECK(mkdtemp(directory));
     char *missing=dx_printf("%s/missing-source.csv",directory); CHECK(access(missing,F_OK)!=0);
     for (unsigned version=12;version<=14;version++) {
