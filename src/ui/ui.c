@@ -56,7 +56,9 @@ static bool load_fonts(UIContext *u) {
     unsigned fallback=GetFontDefault().texture.id; int missing[6];
     Font faces[]={body,small,medium,emphasis,italic,bold_italic}; bool valid=true;
     for (int i=0;i<6;i++) {
-        if (!IsFontValid(faces[i]) || faces[i].texture.id==fallback) { valid=false; continue; }
+        /* IsFontValid checks CPU glyph data; a failed GPU upload still leaves
+           a valid Font with owned glyphs/rectangles and a zero texture. */
+        if (!IsFontValid(faces[i]) || !faces[i].texture.id || faces[i].texture.id==fallback) { valid=false; continue; }
         missing[i]=GetGlyphIndex(faces[i],0xfffd);
         /* GetGlyphIndex silently returns '?' when the requested glyph is
            absent, including with a custom DUXCEL_FONT. Validate the actual
@@ -70,7 +72,7 @@ static bool load_fonts(UIContext *u) {
     int mono_size=(int)ceilf(10*u->scale*density(u)*canvas*source_height(u,5)); Font mono=GetFontDefault(); bool owned=false;
     if (u->mono_path) {
         int marks[]={'N','U','L','"',' ',0x2318,0x21e7}; Font loaded=source_font(u,5,mono_size,marks,7);
-        if (IsFontValid(loaded) && loaded.texture.id!=fallback) { mono=loaded; owned=true; SetTextureFilter(mono.texture,TEXTURE_FILTER_BILINEAR); }
+        if (IsFontValid(loaded) && loaded.texture.id && loaded.texture.id!=fallback) { mono=loaded; owned=true; SetTextureFilter(mono.texture,TEXTURE_FILTER_BILINEAR); }
         else { release_font(loaded); release_font(body); release_font(small); release_font(medium); release_font(emphasis); release_font(italic); release_font(bold_italic); return false; }
     }
     /* Publish the entire family together. A failed DPI reload preserves every
