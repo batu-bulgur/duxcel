@@ -23,16 +23,22 @@ void ui_stats_surface(UIContext *ui,const UIStatsLayout *layout,const char *scop
     ui_label(ui,scope,layout->description,10.5f,UI_MUTED,false,UI_REGULAR); DrawRectangleRec(layout->separator,(Color){224,230,235,255});
 }
 bool ui_stats_row(UIContext *ui,Rectangle row,const char *name,const char *value,bool checked,bool focused,bool pointer) {
-    float s=ui->scale; bool hover=pointer && CheckCollisionPointRec(GetMousePosition(),row); DxPointerGesture gesture;
-    bool click=pointer && ((hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || (ui_take_gesture_from(row,&gesture) && !gesture.right));
-    if (hover) { ui->cursor=MOUSE_CURSOR_POINTING_HAND; DrawRectangleRec(row,(Color){237,243,247,255}); }
+    Rectangle visible=ui->clipping ? GetCollisionRec(row,ui->clip) : row;
+    if (visible.width<=0 || visible.height<=0) return false;
+    Rectangle saved_clip=ui->clip; bool saved_clipping=ui->clipping;
+    ui->clip=visible; ui->clipping=true;
+    float s=ui->scale; bool hover=false,click=ui_control_input(ui,row,pointer,&hover);
+    if (hover) DrawRectangleRec(visible,(Color){237,243,247,255});
     Rectangle check={row.x+10*s,row.y+(row.height-13*s)*.5f,13*s,13*s};
-    DrawRectangleRec(check,checked ? (Color){65,110,138,255} : WHITE); DrawRectangleLinesEx(check,s,(Color){122,135,145,255});
+    Rectangle check_visible=GetCollisionRec(check,visible);
+    if (check_visible.width>0 && check_visible.height>0) DrawRectangleRec(check_visible,checked ? (Color){65,110,138,255} : WHITE);
+    ui_border(check,visible,s,(Color){122,135,145,255});
     if (checked) ui_carbon(ui,CARBON_CHECKMARK,(Rectangle){check.x+s,check.y+s,11*s,11*s},WHITE);
     float label_width=fminf(ui_measure(ui,name,11.5f),row.width-57*s);
     ui_label(ui,name,(Rectangle){check.x+21*s,row.y,label_width,row.height},11.5f,UI_TEXT,false,UI_REGULAR);
     Rectangle number={check.x+25*s+label_width,row.y,fmaxf(0,row.x+row.width-10*s-check.x-25*s-label_width),row.height};
     float number_width=fminf(number.width,ui_measure(ui,value,10)); number.x+=number.width-number_width; number.width=number_width;
     ui_label(ui,value,number,10,UI_MUTED,false,UI_REGULAR);
-    if (focused) DrawRectangleLinesEx(row,s,UI_FOCUS); return click;
+    if (focused) ui_border(row,visible,s,UI_FOCUS);
+    ui->clip=saved_clip; ui->clipping=saved_clipping; return click;
 }
