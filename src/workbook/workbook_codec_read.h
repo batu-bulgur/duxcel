@@ -15,7 +15,7 @@ typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; }
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
     WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
     WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS,
-    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS,WORKBOOK_CODEC_OBJECT_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSIONS,WORKBOOK_CODEC_SOURCE_BINDINGS,WORKBOOK_CODEC_FORMAT_ROWS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS,WORKBOOK_CODEC_OBJECT_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSIONS,WORKBOOK_CODEC_SOURCE_BINDINGS,WORKBOOK_CODEC_FORMAT_ROWS,WORKBOOK_CODEC_FORMAT_STATE,WORKBOOK_CODEC_FORMAT_SELECTORS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_BLOB } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -195,6 +195,20 @@ bool workbook_codec_read_add_source_bindings(WorkbookCodecRead *read,bool table_
    v12/13 do not acquire the new aggregate cap. These are logical categories,
    not universal ABI, allocator/RSS or complete-model validity guarantees. */
 bool workbook_codec_read_add_format_rows(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
+typedef struct { bool state_present,selectors_present; } WorkbookCodecFormatTagsPresence;
+/* Once after complete unclaimed base format rows. v12 forbids both tables and
+   completes without SQL with explicit false/SPATIAL defaults. v13 forbids state
+   and requires complete SPATIAL selectors. v14 requires state first: one I/B row
+   per sheet, including false and empty-format sheets; then one I/I/I selector per
+   existing row in exact(sheet,position) order. Requests admit64/32768 rows plus
+   sentinels, respectively, in atomic<=256 feeds. Explicit awareness is never
+   inferred from ledger/counters/bindings or selector count. Nonspatial tags need
+   true awareness and known enum bounds, but scopes/guards/memberships are NOT
+   validated here. True with SPATIAL or zero rows is allowed. Fixed Header-owned
+   mode and existing row selectors allocate nothing; arming/every feed still
+   admits all retained caller input. Whole tags readiness is separate from full
+   formatting/model validity; no incomplete FormatStore escapes. */
+bool workbook_codec_read_add_format_tags(WorkbookCodecRead *read,WorkbookCodecFormatTagsPresence present,size_t retained_input,char **error);
 /* Explicit once-only continuation after the descriptor registry completes.
    All supported versions require queries. The trusted C projection preserves
    bytes while mapping SQL NULL, >64KiB, trim-empty and NUL text to required
@@ -246,7 +260,7 @@ bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPi
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   filters/sorts/preferences/object descriptors/object and source-version counters/ledger and binding views/base format-row properties/
+   filters/sorts/preferences/object descriptors/object and source-version counters/ledger and binding views/base format-row properties and explicit mode/selector tags/
    queries/source options/Table sources/Pivot/Marks/columns/cells).
    It is not a complete workbook: formats, final binding adoption, historical
    migration and final model validation remain absent.
@@ -323,6 +337,12 @@ typedef struct { FormatRange range; unsigned mask; CellFormat value; } WorkbookC
 bool workbook_codec_header_format_rows_ready(const WorkbookCodecHeader *header);
 size_t workbook_codec_header_format_row_count(const WorkbookCodecHeader *header,size_t sheet);
 bool workbook_codec_header_format_row_at(const WorkbookCodecHeader *header,size_t sheet,size_t index,WorkbookCodecFormatRowView *out);
+/* POD getters require whole tag-chain readiness; false preserves out. Explicit
+   awareness can remain true with zero rows. A nonspatial selector is only a
+   captured tag, not proof of valid scopes, guards, membership or activation. */
+bool workbook_codec_header_format_tags_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_format_source_aware(const WorkbookCodecHeader *header,size_t sheet,bool *out);
+bool workbook_codec_header_format_selector(const WorkbookCodecHeader *header,size_t sheet,size_t index,FormatSelector *out);
 bool workbook_codec_header_source_bindings_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_source_binding(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,WorkbookCodecSourceBindingView *out);
 size_t workbook_codec_header_object_count(const WorkbookCodecHeader *header,size_t sheet);
