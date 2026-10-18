@@ -2,6 +2,8 @@
    supplies Module.dxEngine=createEngineHost(...), exports the worker callback,
    and polls Module.dxBrowserWorkerTestDone. No renderer/window is created. */
 #include "data/worker.h"
+#include "data/browser_query.h"
+#include "data/page_wire.h"
 #include <emscripten/emscripten.h>
 #include <inttypes.h>
 #include <math.h>
@@ -886,19 +888,55 @@ static const char bound_names[2][96]={"worker-bound-O'Brien-İstanbul-\"-🦆.cs
 typedef enum {
     BOUND_PAGE,BOUND_CACHED,BOUND_UNBOUND,BOUND_REBOUND,BOUND_FILTER,BOUND_FILTER_CACHED,BOUND_FILTER_UNBOUND,BOUND_FILTER_REBOUND,
     BOUND_INVALID_FLAG,BOUND_TOO_MANY,BOUND_INVALID_SOURCE,BOUND_DUPLICATE,BOUND_ZERO_TOKEN,BOUND_BAD_UTF8,BOUND_INCOMPLETE,
-    BOUND_RECOVER,BOUND_BAD_TOKEN,BOUND_RECOVER_TOKEN,BOUND_MIX_STATS,BOUND_MIX_COPY,BOUND_REVOKED_COPY,BOUND_REVOKED_STATS,
+    BOUND_RECOVER,BOUND_BAD_TOKEN,BOUND_RECOVER_TOKEN,BOUND_CACHE_BUDGET,BOUND_CACHE_RECOVERY,BOUND_MIX_STATS,BOUND_MIX_COPY,BOUND_REVOKED_COPY,BOUND_REVOKED_STATS,
     BOUND_EXPORT,BOUND_REVOKED_EXPORT,BOUND_RECOVER_UNBOUND,BOUND_CASES
 } BoundCase;
 static BoundCase bound_case;
-static const unsigned bound_sql_counts[BOUND_CASES]={2,1,2,2,2,1,3,3,0,0,0,0,0,0,0,1,1,1,3,2,1,1,2,1,2};
+static const unsigned bound_sql_counts[BOUND_CASES]={2,1,2,2,2,1,3,3,0,0,0,0,0,0,0,1,1,1,1,1,3,2,1,1,2,1,2};
 static bool bound_local_error(BoundCase kind) { return kind>=BOUND_INVALID_FLAG && kind<=BOUND_INCOMPLETE; }
 static bool bound_host_error(BoundCase kind) { return kind==BOUND_BAD_TOKEN || kind==BOUND_REVOKED_COPY || kind==BOUND_REVOKED_STATS || kind==BOUND_REVOKED_EXPORT; }
+/* Real owned definitions/labels put this request below its pre-submit limit,
+   but its long, valid DESCRIBE names require schema+key coexistence beyond it.
+   No private cache/meter state is changed: a one-SQL recovery afterward proves
+   the previously accepted filtered cache survived callback admission failure. */
+static void bound_budget_request(QueryJob *job) {
+    job->kind=JOB_STATISTICS; job->object_id=statistics_object=0; job->revision=statistics_revision=0;
+    job->statistics=dx_alloc(sizeof(*job->statistics)); StatisticsRequest *request=job->statistics;
+    request->cells=2; request->count=1; request->ranges[0]=(StatisticsRange){.rows=1,.columns=1};
+    char *query=dx_strdup("SELECT ");
+    for (size_t c=0;c<16;c++) {
+        char name[3801]; memset(name,'x',sizeof(name)-1); name[sizeof(name)-1]=0;
+        name[0]='c'; name[1]=(char)('0'+c/10); name[2]=(char)('0'+c%10); name[3]='_';
+        dx_append(&query,"%sid AS \"%s\"",c ? "," : "",name);
+    }
+    dx_append(&query," FROM input"); CHECK(strlen(query)<DX_QUERY_BYTES); job->analysis.query=query;
+    char *padding=dx_alloc(DX_QUERY_BYTES+1); const char prefix[]="SELECT * FROM input /*";
+    memset(padding,' ',DX_QUERY_BYTES); memcpy(padding,prefix,sizeof(prefix)-1); memcpy(padding+DX_QUERY_BYTES-2,"*/",3);
+    Analysis source={.kind=SOURCE_CSV,.path=(char *)bound_names[0],.query=padding};
+    for (size_t i=0;i<DX_MAX_OBJECTS;i++) CHECK(source_snapshot_bind(&request->sources,object_id+100+i,&source,NULL)==i+1);
+    free(padding);
+    size_t definitions=0; CHECK(browser_statistics_request_valid(&job->analysis,request,&definitions,NULL));
+    char *relation=browser_relation_sql(&job->analysis,NULL,NULL); CHECK(relation);
+    char *describe=browser_describe_sql(relation,NULL); CHECK(describe);
+    char *empty="",*manual=browser_statistics_manual_sql(&empty,1,NULL); CHECK(manual);
+    size_t target=DX_PAGE_WIRE_TEXT_BYTES-96u*1024u;
+    size_t base=definitions+strlen(relation)+1+strlen(describe)+1+strlen(manual)+1+32*sizeof(char *)+1;
+    CHECK(base<target && (target-base)/2<DX_BROWSER_SQL_BYTES);
+    size_t length=(target-base)/2; char *label=dx_alloc(length+1); memset(label,'x',length); label[length]=0;
+    CHECK(statistics_request_text(request,label,NULL)); free(label); free(manual);
+    manual=browser_statistics_manual_sql(request->texts,request->text_count,NULL); CHECK(manual);
+    CHECK(browser_statistics_request_valid(&job->analysis,request,&definitions,NULL));
+    size_t before=definitions+strlen(relation)+1+strlen(describe)+1+strlen(manual)+1;
+    CHECK(before<=target && target-before<2 && strlen(manual)<DX_BROWSER_SQL_BYTES);
+    printf("Browser binding budget fixture: {\"definitions\":%zu,\"relation\":%zu,\"describe\":%zu,\"manual\":%zu,\"pre_submit_headroom_without_caches\":%zu}\n",definitions,strlen(relation)+1,strlen(describe)+1,strlen(manual)+1,DX_PAGE_WIRE_TEXT_BYTES-before);
+    free(relation); free(describe); free(manual);
+}
 static void submit_bound(BoundCase kind) {
     CHECK(!reply); QueryJob *j=dx_alloc(sizeof(*j)); j->id=expected_id=next_id; next_id+=4; j->kind=JOB_PAGE;
     j->analysis=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup(bound_names[0])}; j->known_total=3;
     j->object_id=object_id; j->revision=revision_id; expected_preview=false; expected_offset=0;
     j->browser_source_count=1; j->browser_sources[0]=(BrowserSourceGuard){.binding=bound_tokens[0]};
-    bool filtered=kind>=BOUND_FILTER && kind<=BOUND_RECOVER_TOKEN;
+    bool filtered=(kind>=BOUND_FILTER && kind<=BOUND_RECOVER_TOKEN) || kind==BOUND_CACHE_RECOVERY;
     if (filtered) { CHECK(analysis_filter_set(&j->analysis,"amount",FILTER_GREATER,"1.5",NULL)); j->known_total=2; }
     if (kind==BOUND_UNBOUND || kind==BOUND_FILTER_UNBOUND) j->browser_source_count=0;
     if (bound_local_error(kind)) j->refresh_source=true; /* Rejection must preserve accepted caches. */
@@ -909,7 +947,8 @@ static void submit_bound(BoundCase kind) {
     else if (kind==BOUND_ZERO_TOKEN) j->browser_sources[0].binding.registration_id=0;
     else if (kind==BOUND_BAD_UTF8) { free(j->analysis.path); j->analysis.path=dx_strdup("invalid-\xc0\xaf.csv"); }
     else if (kind==BOUND_BAD_TOKEN) j->browser_sources[0].binding.registration_id=UINT64_MAX;
-    if (kind==BOUND_INCOMPLETE || kind==BOUND_MIX_STATS || kind==BOUND_REVOKED_STATS) {
+    if (kind==BOUND_CACHE_BUDGET) bound_budget_request(j);
+    else if (kind==BOUND_INCOMPLETE || kind==BOUND_MIX_STATS || kind==BOUND_REVOKED_STATS) {
         j->kind=JOB_STATISTICS; j->object_id=statistics_object=0; j->revision=statistics_revision=0;
         j->statistics=dx_alloc(sizeof(*j->statistics)); StatisticsRequest *request=j->statistics;
         Analysis b={.kind=SOURCE_CSV,.path=(char *)bound_names[1]}; CHECK(source_snapshot_bind(&request->sources,object_id+16,&b,NULL)==1);
@@ -932,9 +971,10 @@ static void submit_bound(BoundCase kind) {
 }
 static void bound_values(void) {
     CHECK(observed_host_requests()-bound_host_before==bound_sql_counts[bound_case]);
-    if (bound_local_error(bound_case) || bound_host_error(bound_case)) {
+    if (bound_local_error(bound_case) || bound_host_error(bound_case) || bound_case==BOUND_CACHE_BUDGET) {
         CHECK(reply->error && !reply->clipboard && !reply->statistics.cells && !reply->statistics.sum && !reply->export_data && !reply->export_bytes && !reply->exported_rows);
         validation_reply(); if (bound_host_error(bound_case)) CHECK(verification_boundary_unchanged());
+        if (bound_case==BOUND_CACHE_BUDGET) CHECK(strstr(reply->error,"4 MiB"));
     } else if (bound_case==BOUND_MIX_STATS) {
         statistics_values(5,5,5,5); CHECK(!strcmp(reply->statistics.sum,"307.5") && !strcmp(reply->statistics.average,"61.5") && !strcmp(reply->statistics.minimum,"1.25") && !strcmp(reply->statistics.maximum,"200"));
     } else if (bound_case==BOUND_MIX_COPY) {
@@ -945,7 +985,7 @@ static void bound_values(void) {
         bound_export=reply->export_data; bound_export_bytes=reply->export_bytes; reply->export_data=NULL; reply->export_bytes=0; validation_reply();
     } else if (bound_case==BOUND_RECOVER_UNBOUND) short_reply("recovered after local rejection");
     else {
-        const Page *p=&reply->page; bool filtered=bound_case>=BOUND_FILTER && bound_case<=BOUND_RECOVER_TOKEN;
+        const Page *p=&reply->page; bool filtered=(bound_case>=BOUND_FILTER && bound_case<=BOUND_RECOVER_TOKEN) || bound_case==BOUND_CACHE_RECOVERY;
         CHECK(p->column_count==3 && p->row_count==(filtered ? 2u : 3u) && p->total==(filtered ? 2u : 3u) && !p->count_pending);
         CHECK(!strcmp(p->columns[0].name,"id") && p->columns[0].number_type.kind==NUM_I64 && p->columns[1].number_type.kind==NUM_FLOAT);
         CHECK(!strcmp(p->cells[0].text,filtered ? "2" : "1") && !strcmp(p->cells[1].text,filtered ? "2.5" : "1.25"));
@@ -1716,7 +1756,7 @@ static void tick(void) {
         bound_case=BOUND_PAGE; submit_bound(bound_case); enter(WAIT_BOUND_CASES); return;
     }
     case WAIT_BOUND_CASES:
-        if (!poll_received(bound_local_error(bound_case)||bound_host_error(bound_case),bound_sql_counts[bound_case]!=0)) return;
+        if (!poll_received(bound_local_error(bound_case)||bound_host_error(bound_case)||bound_case==BOUND_CACHE_BUDGET,bound_sql_counts[bound_case]!=0)) return;
         bound_values(); release_reply(); pass("captured browser binding: cache separation, complete contributors, strict rejection and atomic owned output");
         if (++bound_case==BOUND_CASES) {
             stale_cookie=observed_cookie(); stale_ticket=observed_ticket(); worker_stop(&worker);
@@ -1733,13 +1773,13 @@ static void tick(void) {
     case QUIET_BOUND_STOP:
         quiet(); if (emscripten_get_now()-entered<150) return;
         CHECK(late_callbacks==4 && !worker.started && !worker.running && !worker.reply);
-        CHECK(stages==218 && worker.jobs_started==26 && expected_sql==33 && expected_counts==0);
-        CHECK(observed_host_requests()==439 && observed_host_requests()-baseline_host_requests-export_host_requests-verification_requests==33);
+        CHECK(stages==220 && worker.jobs_started==28 && expected_sql==35 && expected_counts==0);
+        CHECK(observed_host_requests()==441 && observed_host_requests()-baseline_host_requests-export_host_requests-verification_requests==35);
         CHECK(bound_clipboard && !strcmp(bound_clipboard,"1.25\t10\n2.5\t11\n3.75\t") && bound_export && bound_export_bytes>=12 && !memcmp(bound_export,"PAR1",4));
         free(bound_clipboard); bound_clipboard=NULL; free(bound_export); bound_export=NULL; bound_export_bytes=0;
         pass("bound query teardown retires JSON/cache ownership and ignores scheduled stale callbacks");
-        CHECK(stages==219 && baseline_jobs+export_jobs+verification_jobs+worker.jobs_started==223 && baseline_sql+export_sql+verification_sql+worker.sql_executed==439);
-        printf("Browser binding workloads: {\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u,\"local_rejections\":7,\"host_rejections\":4,\"sequential_workers\":4,\"total_jobs\":223,\"total_sql\":439,\"total_counts\":21}\n",worker.jobs_started,worker.sql_executed,worker.counts_executed,observed_host_requests()-baseline_host_requests-export_host_requests-verification_requests);
+        CHECK(stages==221 && baseline_jobs+export_jobs+verification_jobs+worker.jobs_started==225 && baseline_sql+export_sql+verification_sql+worker.sql_executed==441);
+        printf("Browser binding workloads: {\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u,\"local_rejections\":7,\"host_rejections\":4,\"budget_rejections\":1,\"sequential_workers\":4,\"total_jobs\":225,\"total_sql\":441,\"total_counts\":21}\n",worker.jobs_started,worker.sql_executed,worker.counts_executed,observed_host_requests()-baseline_host_requests-export_host_requests-verification_requests);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,baseline_sql+export_sql+verification_sql+worker.sql_executed,baseline_counts+export_counts+verification_counts+worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
