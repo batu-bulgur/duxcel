@@ -81,6 +81,43 @@ bool worksheet_analysis_preflight(const Worksheet *sheet,Analysis *live,Analysis
 void worksheet_analysis_adopt(Worksheet *sheet,Analysis *live,Analysis *next);
 bool worksheet_analysis_history_preflight(const Worksheet *sheet,Analysis *live,bool redo,char **error);
 void worksheet_analysis_history_adopt(Worksheet *sheet,Analysis *live,bool redo);
+#define DX_WORKBOOK_FORMAT_CURRENT_BYTES (8u*1024u*1024u)
+#define DX_WORKBOOK_FORMAT_RETAINED_BYTES (32u*1024u*1024u)
+#define DX_APP_FORMAT_ADDITIONAL_BYTES (64u*1024u*1024u)
+typedef enum { FORMAT_BUDGET_OK,FORMAT_BUDGET_INPUT,FORMAT_BUDGET_MODEL,FORMAT_BUDGET_OVERFLOW,
+    FORMAT_BUDGET_SHEET,FORMAT_BUDGET_CURRENT,FORMAT_BUDGET_RETAINED,FORMAT_BUDGET_APP } FormatBudgetStatus;
+typedef struct { size_t sheet_count,current,retained,max_sheet_current,max_sheet; } WorkbookFormatUsage;
+typedef struct { size_t sheet; const FormatStore *formats; const SourceVersions *versions; } WorkbookFormatReplacement;
+typedef struct {
+    size_t adopted_staging; /* Owned next buffers that become part of the next model. */
+    size_t io_snapshots,other_staging,collector_owned,page_metadata_owned,pending_reserved;
+} FormatTransientUsage;
+typedef struct { size_t before,after,peak; } FormatBudget;
+/* Pure logical model accounting. Format arrays, scope terminators, memberships
+   and all retained format history count; source_versions.bytes counts once,
+   including dormant proofs, paths and capacity. Its actual object high-water is
+   validated. Inline Workbook/Worksheet metadata and ordinary data values are not
+   extra owned payload. Replacements are unique existing sheets; NULL components
+   keep live state. Complete borrowed prospective history views are allowed and
+   must never be freed as independent owners. No aggregate cap is imposed by
+   measurement, so otherwise-valid legacy state can be inspected without change.
+   Outputs are unchanged on failure; helpers allocate nothing or do FS/SQL work. */
+FormatBudgetStatus workbook_format_usage(const Workbook *book,const WorkbookFormatReplacement *replacements,size_t count,WorkbookFormatUsage *out);
+/* Explicit opt-in policy, not an installed reservation manager or a Save hook.
+   Before=live retained+adopted staging+all other categories; after=next retained
+   +all other categories. Each concrete owned allocation/reservation belongs in
+   exactly one category. Independently owned save/load snapshots can be measured
+   with usage().retained; save snapshots naturally omit history. Count active,
+   pending and published canceled work until its ownership is actually released.
+   Borrowed Page views count once at their owner. pending_reserved is unallocated
+   capacity not already included elsewhere; caller explicitly converts/releases
+   it. This helper never assumes cancellation freed a buffer, prunes history, or
+   allocates/releases reservations. Producer checks upper bounds before allocation
+   and actual replacements again before publication. Other staging surviving
+   adoption stays in other_staging, not adopted_staging. No allocator/process-peak
+   or per-job definition-cap guarantee is implied by these aggregate counts. */
+FormatBudgetStatus workbook_format_preflight(const WorkbookFormatUsage *live,const WorkbookFormatUsage *next,const FormatTransientUsage *transient,FormatBudget *out);
+const char *workbook_format_budget_message(FormatBudgetStatus status); /* Borrowed static diagnostic. */
 bool worksheet_range_fits(const Worksheet *sheet,SheetRange range,int64_t dr,int dc,uint64_t source_rows,size_t source_columns,char **error);
 /* Moves contained objects and manual values atomically, with one journal action. */
 bool worksheet_move_range(Worksheet *sheet,SheetRange range,int64_t dr,int dc,uint64_t source_rows,size_t source_columns,char **error);

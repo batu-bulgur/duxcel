@@ -181,6 +181,63 @@ void worksheet_analysis_history_adopt(Worksheet *s,Analysis *live,bool redo) {
     Analysis *from=redo ? s->redo : s->undo,*to=redo ? s->undo : s->redo; size_t *fc=redo ? &s->redo_count : &s->undo_count,*tc=redo ? &s->undo_count : &s->redo_count;
     Analysis restored=from[--*fc]; from[*fc]=(Analysis){0}; analysis_owned_push(to,tc,live); *live=restored;
 }
+static bool format_budget_add(size_t *value,size_t extra) {
+    if (*value>SIZE_MAX-extra) return false; *value+=extra; return true;
+}
+static bool format_budget_model_valid(const FormatStore *store) {
+    if (!format_valid(store,NULL)) return false;
+    for (size_t h=0;h<2;h++) {
+        const FormatSnapshot *states=h ? store->redo : store->undo; size_t count=h ? store->redo_count : store->undo_count;
+        for (size_t i=0;i<count;i++) {
+            const FormatSnapshot *state=states+i;
+            FormatStore view={.items=state->items,.count=state->count,.scopes=state->scopes,.scope_count=state->scope_count,.source_aware=state->source_aware};
+            if (!format_valid(&view,NULL)) return false;
+        }
+    }
+    return true;
+}
+FormatBudgetStatus workbook_format_usage(const Workbook *book,const WorkbookFormatReplacement *replacements,size_t count,WorkbookFormatUsage *out) {
+    if (!book || !out || book->count>DX_MAX_SHEETS || (book->count && !book->sheets) || count>DX_MAX_SHEETS || (count && !replacements)) return FORMAT_BUDGET_INPUT;
+    const FormatStore *formats[DX_MAX_SHEETS]={0}; const SourceVersions *versions[DX_MAX_SHEETS]={0}; bool replaced[DX_MAX_SHEETS]={0};
+    for (size_t i=0;i<book->count;i++) { formats[i]=&book->sheets[i].formats; versions[i]=&book->sheets[i].source_versions; }
+    for (size_t i=0;i<count;i++) {
+        size_t sheet=replacements[i].sheet; if (sheet>=book->count || replaced[sheet]) return FORMAT_BUDGET_INPUT; replaced[sheet]=true;
+        if (replacements[i].formats) formats[sheet]=replacements[i].formats;
+        if (replacements[i].versions) versions[sheet]=replacements[i].versions;
+    }
+    WorkbookFormatUsage usage={.sheet_count=book->count};
+    for (size_t i=0;i<book->count;i++) {
+        if (!format_budget_model_valid(formats[i]) || !source_versions_valid(versions[i],book->sheets[i].objects.next_id,NULL)) return FORMAT_BUDGET_MODEL;
+        size_t current=format_owned_bytes(formats[i],false),retained=format_owned_bytes(formats[i],true);
+        if (current==SIZE_MAX || retained==SIZE_MAX || !format_budget_add(&current,versions[i]->bytes) || !format_budget_add(&retained,versions[i]->bytes) || !format_budget_add(&usage.current,current) || !format_budget_add(&usage.retained,retained)) return FORMAT_BUDGET_OVERFLOW;
+        if (current>usage.max_sheet_current) { usage.max_sheet_current=current; usage.max_sheet=i; }
+    }
+    *out=usage; return FORMAT_BUDGET_OK;
+}
+static bool format_usage_valid(const WorkbookFormatUsage *usage) {
+    if (!usage || usage->sheet_count>DX_MAX_SHEETS || usage->current>usage->retained || usage->max_sheet_current>usage->current) return false;
+    if (!usage->sheet_count) return !usage->current && !usage->retained && !usage->max_sheet_current && !usage->max_sheet;
+    if (usage->max_sheet>=usage->sheet_count || (usage->current && (!usage->max_sheet_current || (usage->current-1)/usage->max_sheet_current>=usage->sheet_count))) return false;
+    return true;
+}
+FormatBudgetStatus workbook_format_preflight(const WorkbookFormatUsage *live,const WorkbookFormatUsage *next,const FormatTransientUsage *transient,FormatBudget *out) {
+    if (!out || !format_usage_valid(live) || !format_usage_valid(next)) return FORMAT_BUDGET_INPUT;
+    if (next->max_sheet_current>DX_FORMAT_CURRENT_BYTES) return FORMAT_BUDGET_SHEET;
+    if (next->current>DX_WORKBOOK_FORMAT_CURRENT_BYTES) return FORMAT_BUDGET_CURRENT;
+    if (next->retained>DX_WORKBOOK_FORMAT_RETAINED_BYTES) return FORMAT_BUDGET_RETAINED;
+    FormatTransientUsage empty={0}; if (!transient) transient=&empty;
+    size_t other=0; const size_t bytes[]={transient->io_snapshots,transient->other_staging,transient->collector_owned,transient->page_metadata_owned,transient->pending_reserved};
+    for (size_t i=0;i<sizeof(bytes)/sizeof(*bytes);i++) if (!format_budget_add(&other,bytes[i])) return FORMAT_BUDGET_OVERFLOW;
+    FormatBudget budget={.before=live->retained,.after=next->retained};
+    if (!format_budget_add(&budget.before,transient->adopted_staging) || !format_budget_add(&budget.before,other) || !format_budget_add(&budget.after,other)) return FORMAT_BUDGET_OVERFLOW;
+    budget.peak=budget.before>budget.after ? budget.before : budget.after;
+    if (budget.peak>DX_APP_FORMAT_ADDITIONAL_BYTES) return FORMAT_BUDGET_APP;
+    *out=budget; return FORMAT_BUDGET_OK;
+}
+const char *workbook_format_budget_message(FormatBudgetStatus status) {
+    static const char *messages[]={"Formatting storage is within its explicit limits.","Invalid formatting budget input.","Invalid owned format or source-version model.","Formatting byte accounting overflowed.","Current formats and source versions exceed 1 MiB in one worksheet.","Current formats and source versions exceed 8 MiB in the workbook.","Retained formatting and source versions exceed 32 MiB in the workbook.","Owned or reserved additional formatting data exceeds 64 MiB."};
+    return (unsigned)status<sizeof(messages)/sizeof(*messages) ? messages[status] : "Unknown formatting budget status.";
+}
 static bool range_overlap(SheetRange a,SheetRange b) { return a.r0<=b.r1 && b.r0<=a.r1 && a.c0<=b.c1 && b.c0<=a.c1; }
 static bool range_contains(SheetRange a,SheetRange b) { return a.r0<=b.r0 && a.r1>=b.r1 && a.c0<=b.c0 && a.c1>=b.c1; }
 static SheetRange object_range(const SheetObject *o) { return (SheetRange){o->row,o->row+o->rows-1,o->col,o->col+o->columns-1}; }
