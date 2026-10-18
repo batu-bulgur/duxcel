@@ -117,7 +117,12 @@ export function createCodecStreamTransport(adapter,runtime){
         if(retiring)return retiring;
         const current=operation;if(current)current.cancelRequested=true;
         let cancelled;try{cancelled=adapter.cancel();}catch(error){cancelled=Promise.reject(error);}
-        retiring=(async()=>{await cancelled;if(current)await current.promise;await quiescent();})().finally(()=>{retiring=null;});
+        retiring=(async()=>{
+            await cancelled;const reply=current?await current.promise:null;await quiescent();
+            // The adapter reports failed reader retirement in its completion,
+            // rather than rejecting cancel(). C has already received done2.
+            if(reply?.status==='error')throw Object.assign(new Error(message(reply.error?.message??'Metadata stream retirement failed')),{code:reply.error?.code??'CODEC_STREAM_TRANSPORT'});
+        })().finally(()=>{retiring=null;});
         return retiring;
     }
     function close(){

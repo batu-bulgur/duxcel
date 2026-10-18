@@ -139,6 +139,22 @@ test('cancel drains strict reader cleanup and cancelSent while retaining one lat
     assert.equal(h.transport.releaseHeld(),false);assert.equal(h.target.stale,1);assert.equal(h.target.live.size,0);assert.equal(h.transport.releaseHeld(),false);
     h.target.accepting=true;h.connection.send=async()=>reader(table(1));assert.equal((await h.transport.submit(7,2,input(h.token,'cells',2))).status,'ok');await finish(h);
 });
+test('held cancellation rejects failed reader retirement after one error completion and close discards the held chunk',async()=>{
+    const entered=deferred(),source=reader(table(600),[600],{cleanup(){throw new Error('reader cleanup fixture');}});
+    const h=await harness(source,{runtime:{held:entered.resolve}}),pending=h.transport.submit(7,1,input(h.token),{holdSequence:2});await entered.promise;
+    let cancelledSuccess=0;
+    try{
+        await assert.rejects(h.transport.cancel().then(()=>{cancelledSuccess++;}),/Metadata reader cleanup failed.*reader cleanup fixture/);
+        const reply=await pending;assert.equal(reply.status,'error');assert.equal(reply.error.code,'STREAM_CLEANUP');assert.equal(cancelledSuccess,0);
+        assert.equal(source.cancelled,1);assert.equal(h.adapter.active,null);assert.equal(h.adapter.draining,null);assert.equal(h.transport.active,false);
+        assert.equal(h.transport.hasHeld,true);assert.equal(h.target.chunks.length,1);assert.equal(h.target.live.size,0);
+        assert.equal(h.target.completions.length,1);assert.equal(h.target.completions[0].status,2);assert.equal(h.target.completions[0].count,1);
+        assert.match(h.target.completions[0].error,/Metadata reader cleanup failed.*reader cleanup fixture/);
+        await assert.rejects(h.adapter.registerFile('must-stay-poisoned.dxls',new Uint8Array([1])),{code:'STREAM_CLEANUP'});
+        await h.transport.close();assert.equal(h.transport.hasHeld,false);assert.equal(h.transport.releaseHeld(),false);
+        assert.equal(h.target.chunks.length,1);assert.equal(h.target.completions.length,1);assert.equal(h.target.live.size,0);assert.equal(h.connection.closed,0);
+    }finally{await h.transport.close();await h.adapter.close();}
+});
 test('external adapter supersession drains before completion and leaves held reply for explicit stale C replay',async()=>{
     const entered=deferred(),h=await harness(reader(table(600)),{runtime:{held:entered.resolve}});const pending=h.transport.submit(7,1,input(h.token),{holdSequence:1});await entered.promise;
     h.connection.send=async()=>reader(table(1));const ordinary=h.adapter.submit({requestId:'2',sql:'ordinary recovery',rowLimit:256});assert.equal((await ordinary).status,'ok');assert.equal((await pending).status,'superseded');assert.equal(h.target.completions[0].status,1);assert.equal(h.adapter.draining,null);
