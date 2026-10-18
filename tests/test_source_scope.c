@@ -147,6 +147,116 @@ static void exact_filter_bindings(void) {
     a.filter_number=(NumberType){0}; reject_filter_binding(&a,&page,&packet,&ledger); /* Even unused numeric bindings must be resolved for proof construction. */
     source_packet_free(&packet); source_packet_free(&other); source_packet_free(&output); source_versions_free(&ledger);
 }
+static void page_proof_check(bool expected,const SourceVersion *entry,uint64_t owner,uint64_t version,const Analysis *a,const Page *page,
+    SourceDigestStatus status,const SourceDigest *d,const char *engine) {
+    SourceVersion before_entry={0}; Analysis before_analysis={0}; Page before_page={0}; SourceDigest before_digest={0};
+    if (entry) memcpy(&before_entry,entry,sizeof(*entry)); if (a) memcpy(&before_analysis,a,sizeof(*a));
+    if (page) memcpy(&before_page,page,sizeof(*page)); if (d) memcpy(&before_digest,d,sizeof(*d));
+    char error[DX_SOURCE_DIGEST_ERROR_BYTES]="KEEP";
+    CHECK(source_version_page_verified(entry,owner,version,a,page,status,d,engine,error)==expected);
+    if (expected) CHECK(!strcmp(error,"KEEP")); else CHECK(*error && strlen(error)<sizeof(error) && strcmp(error,"KEEP"));
+    if (entry) CHECK(!memcmp(entry,&before_entry,sizeof(*entry))); if (a) CHECK(!memcmp(a,&before_analysis,sizeof(*a)));
+    if (page) CHECK(!memcmp(page,&before_page,sizeof(*page))); if (d) CHECK(!memcmp(d,&before_digest,sizeof(*d)));
+}
+static void verified_page_binding(void) {
+    Column cols[5]; Page page=schema(cols); Analysis a=source(); SourceDigest d=digest();
+    d.identity=(SourceFileIdentity){.device=17,.inode=UINT64_MAX,.size=d.bytes,.links=2,.mode=0100644,.uid=501,.gid=20,.flags=3,.generation=7,
+        .modified_seconds=INT64_C(9007199254740993),.changed_seconds=-7,.created_seconds=23,.modified_nanoseconds=123,.changed_nanoseconds=456,.created_nanoseconds=789};
+    SourcePacket packet={0}; char *error=NULL; uint64_t owner=UINT64_MAX,version=UINT64_C(9007199254740993);
+    CHECK(source_scope_raw_build(owner,version,&a,&page,&d,"v1.5.6",&packet,&error));
+    SourceVersion entry={.owner=owner,.version=version,.kind=SOURCE_CSV,.path=a.path,.raw=packet};
+    uint64_t ids[]={1,UINT64_MAX,3}; Cell cells[15]={0};
+    page.offset=400; page.row_count=3; page.total=1000; page.cells=cells;
+    page.records=(PageRecords){.ids=ids,.source_key="reader/cache identity is not a scope",.count=3,.stamp=d.observed_stamp,.file_identity=d.identity,.file_identity_valid=true};
+#if !defined(__APPLE__) || defined(__EMSCRIPTEN__) || defined(DUXCEL_BROWSER_HOST)
+    /* Even complete, fabricated native metadata cannot authorize browser or
+       unsupported-platform publication. Pure encoding remains portable. */
+    page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    CHECK(!source_version_page_verified(&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6",NULL));
+#else
+    page_proof_check(true,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    CHECK(source_version_page_verified(&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6",NULL));
+    Page original=page; SourceVersion original_entry=entry; SourceDigest original_digest=d;
+    /* A total/count or bounded optional-ID budget is not part of content proof. */
+    page.count_pending=true; page.records.ids=NULL; page.records.source_key=NULL; page.records.count=0; page.records.stamp=0;
+    page_proof_check(true,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); page=original;
+    /* Filter/sort definitions change the result, not this raw version; exact
+       referenced fields and numeric bindings must still be present. */
+    a.filter_column="Amount"; a.filter_op=FILTER_BETWEEN; a.filter_value="[\"1.0000\",\"9.0000\"]"; a.filter_number=(NumberType){NUM_DECIMAL,38,4};
+    a.filters[0]=(AnalysisFilter){"City","[null,\"\",\"NULL\"]",FILTER_IN,{0}}; a.filter_count=1; a.sort_column="ID"; a.descending=true;
+    page_proof_check(true,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    SourcePacket transformed={0}; CHECK(source_scope_raw_build(owner,version,&a,&page,&d,"v1.5.6",&transformed,&error) && equal(packet,transformed));
+    a.filter_number.scale=3; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a.filter_number.scale=4;
+    a.filters[0].number.kind=NUM_I64; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a.filters[0].number.kind=NUM_NONE;
+    a.filters[0].column="Amount"; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a.filters[0].column="City";
+    a.sort_column="Unknown"; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a.sort_column="Id";
+    a.sort_count=1; a.sorts[0]=(AnalysisSort){"ID",false}; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    a=source();
+    for (SourceDigestStatus status=SOURCE_DIGEST_CANCELLED;status<=SOURCE_DIGEST_UNSUPPORTED;status++) page_proof_check(false,&entry,owner,version,&a,&page,status,&d,"v1.5.6");
+    page_proof_check(false,&entry,owner,version,&a,&page,(SourceDigestStatus)99,&d,"v1.5.6");
+    page_proof_check(false,NULL,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    page_proof_check(false,&entry,owner,version,NULL,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    page_proof_check(false,&entry,owner,version,&a,NULL,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,NULL,"v1.5.6");
+    page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,NULL);
+    page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.7");
+    page_proof_check(false,&entry,owner-1,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    page_proof_check(false,&entry,owner,version+1,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    page_proof_check(false,&entry,owner,0,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    entry.owner=owner-1; page_proof_check(false,&entry,owner-1,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); entry=original_entry;
+    entry.version=version+1; page_proof_check(false,&entry,owner,version+1,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); entry=original_entry;
+    entry.raw=(SourcePacket){0}; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); entry=original_entry;
+    entry.path="/different.csv"; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); entry=original_entry;
+    entry.kind=SOURCE_PARQUET; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); entry=original_entry;
+    const SourceKind unsupported[]={SOURCE_NONE,SOURCE_DEMO,SOURCE_DATABASE,(SourceKind)99};
+    for (size_t i=0;i<sizeof(unsupported)/sizeof(*unsupported);i++) { a.kind=unsupported[i]; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); } a=source();
+    a.path="/private/*.csv"; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a=source();
+    a.query="SELECT * FROM input"; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a=source();
+    a.unique_rows=true; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a=source();
+    a.group_column="City"; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a=source();
+    a.measure_column="Amount"; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a=source();
+    a.filter_count=SIZE_MAX; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a=source();
+    a.sort_count=SIZE_MAX; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); a=source();
+    page.records.file_identity_valid=false; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); page=original;
+    /* Every metadata field matters even when stamp, SHA and visible values
+       remain unchanged. Padding is never compared as file identity. */
+#define DIFFERENT_IDENTITY(member) do { page.records.file_identity.member^=1; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); page=original; } while (0)
+    DIFFERENT_IDENTITY(device); DIFFERENT_IDENTITY(inode); DIFFERENT_IDENTITY(size); DIFFERENT_IDENTITY(links);
+    DIFFERENT_IDENTITY(mode); DIFFERENT_IDENTITY(uid); DIFFERENT_IDENTITY(gid); DIFFERENT_IDENTITY(flags); DIFFERENT_IDENTITY(generation);
+    DIFFERENT_IDENTITY(modified_seconds); DIFFERENT_IDENTITY(changed_seconds); DIFFERENT_IDENTITY(created_seconds);
+    DIFFERENT_IDENTITY(modified_nanoseconds); DIFFERENT_IDENTITY(changed_nanoseconds); DIFFERENT_IDENTITY(created_nanoseconds);
+#undef DIFFERENT_IDENTITY
+    page.records.stamp^=1; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); page=original;
+    d.observed_stamp=0; page.records.stamp=0; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); d=original_digest; page=original;
+    d.bytes++; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); d=original_digest;
+    d.bytes++; d.identity.size++; page.records.file_identity=d.identity;
+    page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); d=original_digest; page=original;
+    for (size_t i=0;i<DX_SOURCE_DIGEST_BYTES;i++) { d.sha256[i]^=1; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); d=original_digest; }
+    cols[2]=column("Amount",DUCKDB_TYPE_DECIMAL,"DECIMAL(38,3)",(NumberType){NUM_DECIMAL,38,3}); page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); schema(cols);
+    cols[0].type_name="INTEGER"; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); schema(cols);
+    cols[0].numeric=false; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); schema(cols);
+    cols[1].name="Changed"; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); schema(cols);
+    Column swap=cols[0]; cols[0]=cols[1]; cols[1]=swap; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); schema(cols);
+    cols[3].date_grain=PIVOT_DATE_YEAR; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); schema(cols);
+    cols[1].category_count=1; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); schema(cols);
+    cols[1].category_grains[0]=PIVOT_DATE_MONTH; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); schema(cols);
+    page.column_count--; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); page=original;
+    page.sql="PIVOT input"; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); page=original;
+    PivotTotals totals={0}; page.totals=&totals; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); page=original;
+    /* A valid RESULT packet cannot substitute for the immutable RAW entry. */
+    SourcePacket output=result(&packet,&a); entry.raw=output; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); entry=original_entry;
+    SourcePacket malformed=duplicate(packet); malformed.data[12]=1; entry.raw=malformed;
+    page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); entry.raw=packet;
+    for (size_t i=0;i<packet.bytes;i++) { entry.raw.bytes=i; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); } entry=original_entry;
+    /* The same native observation supports another reader kind only with its
+       own complete canonical packet and exact owner/version. */
+    a.kind=SOURCE_PARQUET; a.path="/private/source.parquet"; SourcePacket parquet={0};
+    CHECK(source_scope_raw_build(0,UINT64_MAX,&a,&page,&d,"v1.5.6",&parquet,&error)); entry=(SourceVersion){.version=UINT64_MAX,.kind=a.kind,.path=a.path,.raw=parquet};
+    page_proof_check(true,&entry,0,UINT64_MAX,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    source_packet_free(&parquet); source_packet_free(&transformed); source_packet_free(&output); source_packet_free(&malformed);
+#endif
+    CHECK(!error); source_packet_free(&packet);
+}
 static void invalid_inputs_and_schema(void) {
     Column cols[5]; Page page=schema(cols); Analysis a=source(); SourceDigest d=digest(); SourcePacket packet=raw(0,1,&page); char *error=NULL;
     reject_raw(0,&a,&page,&d,"engine"); reject_raw(1,NULL,&page,&d,"engine"); reject_raw(1,&a,NULL,&d,"engine"); reject_raw(1,&a,&page,NULL,"engine"); reject_raw(1,&a,&page,&d,NULL); reject_raw(1,&a,&page,&d,"");
@@ -320,6 +430,6 @@ static void ledger_limits_and_malformed_ownership(void) {
     source_versions_free(&live); source_versions_free(&out); sized_schema_free(&page);
 }
 int main(void) {
-    canonical_raw(); canonical_result(); exact_filter_bindings(); invalid_inputs_and_schema(); all_known_types(); adversarial_packets(); packet_budgets_and_ownership(); ledger_lifecycle(); ledger_limits_and_malformed_ownership();
+    canonical_raw(); canonical_result(); exact_filter_bindings(); verified_page_binding(); invalid_inputs_and_schema(); all_known_types(); adversarial_packets(); packet_budgets_and_ownership(); ledger_lifecycle(); ledger_limits_and_malformed_ownership();
     printf("PASS: %u source scope checks\n",checks); return 0;
 }

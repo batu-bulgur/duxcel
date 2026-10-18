@@ -31,9 +31,10 @@ typedef struct {
     size_t raw_bytes,field_count,field_bytes;
 } SourceScopeInfo;
 
-/* These are codecs, not filesystem/content verification. Callers bind a successful
-   digest to the captured Page/request/source lifetime before calling. raw_build
-   borrows only the original complete Column schema, never cell display values.
+/* These are codecs, not filesystem/content or displayed-Page verification.
+   Encoding a supplied digest does not verify its Page/request/source lifetime;
+   the separate publication proof below checks a captured Page before activation.
+   raw_build borrows the original complete Column schema, never cell values.
    CSV/Parquet only; query/DISTINCT/group and incomplete/nested types fail closed.
    The raw encoding excludes filters/sorts, path spelling, file stat identity,
    cache stamps and presentation. SourceVersion.path supplies the locator fence.
@@ -61,6 +62,21 @@ typedef struct {
     char *path;              /* Owned locator, resolved by the workbook codec. */
     SourcePacket raw;        /* Empty=pending; complete raw proof is immutable. */
 } SourceVersion;
+/* Native command/publication-time proof, not a codec or paint callback. The
+   caller supplies a successful digest and the actual captured raw Page, and
+   already owns a valid captured Analysis plus request/sheet/revision/latest-ID
+   routing. This checks the complete version locator, RAW packet, original Page
+   schema, engine/content and exact observed file identity; it does not prove
+   routing, parse filter payload grammar, compare result transforms, or activate
+   a version/token/style. Raw identity deliberately excludes filters and sorts;
+   their field references and exact numeric bindings are still checked here.
+   A pending version and unsupported/browser observations fail closed. A pending
+   row count is allowed; optional Page record IDs/stamp need not be present.
+   No allocation, file access or SQL. All inputs and a supplied error buffer are
+   preserved on success; failure writes only the optional bounded error buffer. */
+bool source_version_page_verified(const SourceVersion *entry,uint64_t owner,uint64_t version,
+    const Analysis *current,const Page *page,SourceDigestStatus status,
+    const SourceDigest *digest,const char *engine_version,char error[DX_SOURCE_DIGEST_ERROR_BYTES]);
 typedef struct {
     uint64_t high_water;     /* Last issued; deliberately outside Undo. */
     SourceVersion *items;
