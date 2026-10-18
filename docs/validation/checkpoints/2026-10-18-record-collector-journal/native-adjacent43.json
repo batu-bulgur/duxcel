@@ -1,0 +1,70 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T00:28:23.989331+00:00",
+  "tier": "affected",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": true,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "8424596bb804d8e6612f0bb648e21308e372ad42",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "5be037cbd5d608ce125593849c1150f0a9d28c93181a77d5574b8532c3cb1830",
+    "source_files": 260
+  },
+  "results": [
+    {
+      "name": "grid-sanitize",
+      "command": [
+        "./tests/test_grid-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T002823-affected-37023/grid-sanitize.txt",
+      "expected_stages": null,
+      "completion_pattern": "^\\d+ grid checks$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.197
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T002823-affected-37023/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.826
+    },
+    {
+      "name": "layout-source-format",
+      "command": [
+        "./duxcel-debug",
+        "--layout-smoke",
+        "--frames",
+        "2544",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T002823-affected-37023/final.png"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T002823-affected-37023/layout-source-format.txt",
+      "expected_stages": 43,
+      "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[687,730\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 25.742
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "85a8461805474fd888a00886147f823eda2aecbf8943ee352cfc6eb09ade9bd9",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "872baf56270fad5c47e377736aec80b2a31d1542d1e5cedec86fb1f6ee0032c9",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "elapsed_seconds": 26.931,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_grid-debug": "85a8461805474fd888a00886147f823eda2aecbf8943ee352cfc6eb09ade9bd9",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "872baf56270fad5c47e377736aec80b2a31d1542d1e5cedec86fb1f6ee0032c9",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "finished_utc": "2026-10-18T00:28:50.983844+00:00"
+}

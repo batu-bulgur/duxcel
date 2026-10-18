@@ -1,0 +1,48 @@
+{
+  "source": {
+    "commit": "4c89b5c622c60741deae60171cbd582589f4c39b",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "ff030719c751295f0f0a083664b00eaef1bd32f990998ccd839159ac6a4d8fc4",
+    "source_files": 260
+  },
+  "status": "passed",
+  "runs": [
+    {
+      "binary": "tests/test_workbook",
+      "sha256": "9d48d9849deb348749a0c350e382495f984a7e46f9a45f0535545593a52cfacb",
+      "mode": "--format-budget-only",
+      "seconds": 0.637,
+      "exit_code": 0,
+      "stdout": "PASS: 886 focused formatting-accounting checks (dormant ledgers, complete projected histories, explicit staging/reservations, exact caps and atomic failure)\n",
+      "stderr": ""
+    },
+    {
+      "binary": "tests/test_workbook",
+      "sha256": "9d48d9849deb348749a0c350e382495f984a7e46f9a45f0535545593a52cfacb",
+      "mode": "--journal-only",
+      "seconds": 0.049,
+      "exit_code": 0,
+      "stdout": "PASS: 9876 focused owned Analysis/format journal checks (pointer moves, composite chronology, budgets, aliases, cancellation and high-water)\n",
+      "stderr": ""
+    },
+    {
+      "binary": "tests/test_workbook-debug",
+      "sha256": "7d3a964328c0952184990a7daf45845dfe20b997ccccbe3d7b8ac4621d39a985",
+      "mode": "--format-budget-only",
+      "seconds": 0.659,
+      "exit_code": 0,
+      "stdout": "PASS: 886 focused formatting-accounting checks (dormant ledgers, complete projected histories, explicit staging/reservations, exact caps and atomic failure)\n",
+      "stderr": ""
+    },
+    {
+      "binary": "tests/test_workbook-debug",
+      "sha256": "7d3a964328c0952184990a7daf45845dfe20b997ccccbe3d7b8ac4621d39a985",
+      "mode": "--journal-only",
+      "seconds": 0.14,
+      "exit_code": 0,
+      "stdout": "PASS: 9876 focused owned Analysis/format journal checks (pointer moves, composite chronology, budgets, aliases, cancellation and high-water)\n",
+      "stderr": ""
+    }
+  ],
+  "build_seconds": 11.786
+}
