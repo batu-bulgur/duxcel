@@ -13,7 +13,7 @@ typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; }
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
     WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
     WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS,
-    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS,WORKBOOK_CODEC_OBJECT_COUNTERS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -116,9 +116,19 @@ bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool table_pres
    admits2048 descriptors plus a2049th sentinel, in atomic batches<=256, with at
    most32 descriptors per sheet. Source references resolve to same-sheet Table
    descriptors only when the family completes. Tables' source definitions,
-   Pivot fields/measure arity, Marks, cells and allocation counters remain
+   Pivot fields/measure arity, Marks, cells and unarmed allocation counters remain
    unvalidated; no source query or runtime revision is constructed. */
 bool workbook_codec_read_add_objects(WorkbookCodecRead *read,bool table_present,char **error);
+/* Once after complete object descriptors, before claim, independent of other
+   completed continuations. v12 forbids a present counter table; absent v12
+   completes without SQL using each sheet's maximum live descriptor ID (or0).
+   v13/v14 require one exact INTEGER/UBIGINT row per sheet, contiguous from0,
+   with high_water>=every live descriptor ID. Zero is valid for an empty sheet;
+   retired IDs and UINT64_MAX remain exact. One named ordered result admits64
+   rows plus a65th sentinel in atomic batches<=256. Fixed Header-owned POD is
+   charged by sizeof; even allocation-free feeds admit all retained caller input.
+   This preserves allocation state only, not issuance, history or source epochs. */
+bool workbook_codec_read_add_object_counters(WorkbookCodecRead *read,bool table_present,char **error);
 /* Explicit once-only continuation after the descriptor registry completes.
    All supported versions require queries. The trusted C projection preserves
    bytes while mapping SQL NULL, >64KiB, trim-empty and NUL text to required
@@ -170,8 +180,9 @@ bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPi
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   filters/sorts/preferences/object descriptors/queries/source options/Table sources/Pivot/Marks/columns/cells).
-   It is not a complete workbook: formats, ledger, allocation counters and final model validation remain absent.
+   filters/sorts/preferences/object descriptors/counters/queries/source options/Table sources/Pivot/Marks/columns/cells).
+   It is not a complete workbook: formats, source-version counters/ledger and
+   final model validation remain absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
 void workbook_codec_read_free(WorkbookCodecRead *read);
@@ -211,6 +222,10 @@ typedef struct {
     const char *name;
 } WorkbookCodecObjectView;
 bool workbook_codec_header_objects_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_object_counters_ready(const WorkbookCodecHeader *header);
+/* False preserves out for an unarmed/incomplete family, invalid sheet or NULL
+   argument. True copies one Header-owned scalar; no ObjectStore is exposed. */
+bool workbook_codec_header_object_high_water(const WorkbookCodecHeader *header,size_t sheet,uint64_t *out);
 size_t workbook_codec_header_object_count(const WorkbookCodecHeader *header,size_t sheet);
 bool workbook_codec_header_object_at(const WorkbookCodecHeader *header,size_t sheet,size_t index,WorkbookCodecObjectView *out);
 /* Definitions borrow Header-owned bytes. False preserves out for an invalid
