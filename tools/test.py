@@ -51,11 +51,12 @@ LAYOUT_PROFILES = {
     "format-journal": (730, 734, "PASS: native prepared Analysis and format transaction"),
     "source-record-format": (734, 764, "PASS: native captured Verify Collect Commit"),
     "table-record-format": (764, 800, "PASS: native Table record formatting"),
+    "source-result-format": (800, 824, "PASS: native verified exact-result and guarded styles"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 800, 22000, "PASS: native Table record formatting"),
+    ("layout", 824, 23000, "PASS: native verified exact-result and guarded styles"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),

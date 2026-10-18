@@ -7697,7 +7697,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 800
+#define LAYOUT_SMOKE_STAGES 824
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -8558,6 +8558,21 @@ static bool smoke_record_file(const char *path,bool changed,char **error) {
     free(sql); duckdb_destroy_result(&result); database_close(&fixture); return ok;
 }
 static bool smoke_table_bold_records[601];
+static bool smoke_copy_fixture(const char *from,const char *to) {
+    int bytes=0; unsigned char *data=LoadFileData(from,&bytes);
+    bool ok=data && bytes>0 && SaveFileData(to,data,bytes); UnloadFileData(data); return ok;
+}
+static bool smoke_exact_result_formats(App *a,int definition,bool raw) {
+    if (a->page.count_pending || !a->page.column_count || format_at(&active_sheet(a)->formats,700,8).color!=2) return false;
+    for (size_t i=0;i<a->page.row_count;i++) {
+        uint64_t row=a->page.offset+i,id=0; if (!page_record_id(&a->page,row,&id)) return false;
+        unsigned flags=(raw && id==11 ? FORMAT_BOLD : 0) | (definition==0 && row<12 ? FORMAT_ITALIC : 0) |
+            (definition==2 && row<3 ? FORMAT_UNDERLINE : 0);
+        CellFormat value=imported_cell_format(a,row,4);
+        if (value.flags!=flags || value.color!=(definition==0 && row>=20 ? 2 : 0) || imported_cell_format(a,row,3).flags) return false;
+    }
+    return true;
+}
 static bool smoke_table_record_formats(App *a,size_t index,bool bold,bool color) {
     if (!object_ready(a,index)) return false;
     const SheetObject *object=active_sheet(a)->objects.items+index; const Page *page=&a->objects[index].page;
@@ -8583,6 +8598,7 @@ static void layout_smoke_step(App *a,int *step) {
     static uint64_t paint_allocations;
     static size_t paint_bytes;
     static size_t draft_history; static uint64_t draft_revision; static bool draft_dirty;
+    static unsigned char *result_cache; static uint64_t result_preview_offset;
     static UICellReadout retained; static uint64_t retained_revision;
     static int select_open_phase,select_edit_phase,select_narrow_phase,representation_phase,plot_phase,narrow_author_phase;
     static size_t select_history;
@@ -11813,6 +11829,130 @@ static void layout_smoke_step(App *a,int *step) {
     case 799:
         puts("PASS: native Table record formatting preserves captured local IDs and fields across sort filter eviction move Undo Redo, isolates same-file owners and raw preview from Pivot results, retains no-op verified proof, and verifies or suspends v14 reopened sources"); break;
 
+    case 800:
+        if (!smoke_record_file("tests/generated/app-result-format.parquet",false,&error) ||
+            !smoke_copy_fixture("tests/generated/app-result-format.parquet","tests/generated/app-result-format-original.parquet")) goto failed;
+        a->document_action=DOCUMENT_NEW; finish_document_action(a);
+        a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
+        a->sidebar=a->fields_visible=a->pipeline=a->matrix_cells_active=false; a->selected_object=-1;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
+        open_source(a,"tests/generated/app-result-format.parquet",false); break;
+    case 801:
+        if (a->page.total!=600 || a->page.column_count!=5 || a->page.columns[4].type!=DUCKDB_TYPE_DECIMAL) goto failed;
+        grid_select_cell(&a->grid,10,4,false); run_action(a,ACTION_BOLD); break;
+    case 802: {
+        if (!a->source_format_proof.result_ready || !source_format_owner_verified(a,0) || a->analysis.source_version!=1 ||
+            active_format(a).flags!=FORMAT_BOLD) goto failed;
+        /* Canonical archive fixtures, not new user-facing RESULT commands.
+           Normal App verification/rendering/persistence owns their activation. */
+        FormatScopeView result={0,a->source_format_proof.result.data,a->source_format_proof.result.bytes};
+        CellFormat value=format_default(); value.flags=FORMAT_ITALIC;
+        if (!format_apply_scoped(&s->formats,(FormatRange){0,11,4,4},FORMAT_ITALIC,value,&result,1,false,&error)) goto failed;
+        worksheet_record(s,EDIT_FORMAT); value.color=2;
+        if (!format_apply_scoped(&s->formats,(FormatRange){20,700,4,8},FORMAT_COLOR,value,&result,1,true,&error)) goto failed;
+        worksheet_record(s,EDIT_FORMAT);
+        if (!cells_set(&s->cells,700,8,"Manual beside source",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS); a->book.dirty=true; break;
+    }
+    case 803:
+        if (!smoke_exact_result_formats(a,0,true) || active_format(a).flags!=(FORMAT_BOLD|FORMAT_ITALIC) ||
+            source_format_owner_result_token(a,0)==SIZE_MAX) goto failed;
+        result_cache=a->source_format_proof.result.data; request=a->request_id;
+        source_format_page(a); source_format_page(a);
+        if (a->source_format_proof.result.data!=result_cache || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/source-result-verified.png");
+        grid_select_cell(&a->grid,0,1,false); run_action(a,ACTION_SORT_DESC); break;
+    case 804:
+        if (source_format_owner_result_token(a,0)!=SIZE_MAX || !smoke_exact_result_formats(a,1,true)) goto failed;
+        run_action(a,ACTION_SOURCE_ORDER); break;
+    case 805: {
+        if (source_format_owner_result_token(a,0)==SIZE_MAX || !smoke_exact_result_formats(a,0,true)) goto failed;
+        Analysis next=analysis_copy(&a->analysis);
+        if (!analysis_filter_set(&next,"Label",FILTER_EQUAL,"NULL",&error)) { analysis_free(&next); goto failed; }
+        change_analysis(a,next); break;
+    }
+    case 806: {
+        if (a->page.total!=120 || source_format_owner_result_token(a,0)!=SIZE_MAX || !smoke_exact_result_formats(a,1,true)) goto failed;
+        FormatScopeView result={0,a->source_format_proof.result.data,a->source_format_proof.result.bytes}; CellFormat value=format_default(); value.flags=FORMAT_UNDERLINE;
+        if (!format_apply_scoped(&s->formats,(FormatRange){0,2,4,4},FORMAT_UNDERLINE,value,&result,1,false,&error)) goto failed;
+        worksheet_record(s,EDIT_FORMAT); break;
+    }
+    case 807:
+        if (source_format_owner_result_token(a,0)==SIZE_MAX || !smoke_exact_result_formats(a,2,true)) goto failed;
+        run_action(a,ACTION_CLEAR_FILTERS); break;
+    case 808:
+        if (a->page.total!=600 || !smoke_exact_result_formats(a,0,true)) goto failed;
+        result_cache=a->source_format_proof.result.data; a->grid.top=336; a->grid.fraction=0; break;
+    case 809:
+        if (a->page.offset<=20) return;
+        if (!smoke_exact_result_formats(a,0,true) || a->source_format_proof.result.data!=result_cache) goto failed;
+        result_preview_offset=a->page.offset; create_pivot(a);
+        if (s->objects.count!=1) goto failed;
+        { PivotDefinition definition={0}; bool ok=pivot_assign(&definition,PIVOT_ROWS,"Pair",AGG_SUM,&error) &&
+            pivot_assign(&definition,PIVOT_VALUES,"Amount",AGG_SUM,&error) && objects_update(&s->objects,0,&definition,&error);
+          pivot_free(&definition); if (!ok) goto failed; worksheet_record(s,EDIT_OBJECTS); invalidate_object(a,0); }
+        a->sidebar=a->fields_visible=true; a->selected_object=0; a->matrix_cells_active=true; a->pivot_reveal_object=false; break;
+    case 810:
+        if (!object_ready(a,0)) return;
+        if (a->page.offset!=result_preview_offset || a->source_preview.format_result_token==SIZE_MAX ||
+            !a->objects[0].page.totals || !smoke_exact_result_formats(a,0,true)) goto failed;
+        { Page prefix=a->page; prefix.offset=0; prefix.row_count=prefix.records.count=12;
+          for (size_t row=0;row<12;row++) { CellFormat value=grid_cell_format(&a->source_preview,&prefix,row,4);
+            if (value.flags || value.color!=2) goto failed; }
+          SheetObject *pivot=s->objects.items;
+          CellFormat value=imported_cell_format(a,pivot->row+22,pivot->col+1);
+          if (value.flags || value.color) goto failed; }
+        smoke_snapshot("tests/results/workspace-layout/source-result-preview.png"); break;
+    case 811:
+        a->sidebar=a->fields_visible=a->matrix_cells_active=false; a->selected_object=-1; a->pivot_reveal_object=false;
+        a->grid.top=0; a->grid.fraction=0; grid_select_cell(&a->grid,10,4,false); break;
+    case 812:
+        if (a->page.offset) return;
+        if (!smoke_exact_result_formats(a,0,true)) goto failed;
+        remove("tests/generated/app-result-format.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-result-format.dxls"); break;
+    case 813:
+        if (a->book.dirty || !a->book.path) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-result-format.dxls"); break;
+    case 814:
+        if (!object_ready(a,0) || !source_format_owner_verified(a,0)) return;
+        if (!smoke_exact_result_formats(a,0,true) || a->book.dirty || s->undo_actions_count || s->source_versions.high_water!=1 ||
+            s->formats.count!=4 || s->formats.scope_count!=3 || strcmp(cells_get(&s->cells,700,8),"Manual beside source")) goto failed;
+        request=a->request_id; result_cache=a->source_format_proof.result.data; draft_revision=s->formats.revision; break;
+    case 815:
+        source_format_page(a);
+        if (a->request_id!=request || a->source_format_proof.result.data!=result_cache || s->formats.revision!=draft_revision ||
+            a->book.dirty || !smoke_exact_result_formats(a,0,true)) goto failed;
+        break;
+    case 816:
+        if (!smoke_record_file("tests/generated/app-result-format.parquet",true,&error)) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-result-format.dxls"); break;
+    case 817:
+        if (!a->message || !strstr(a->message,"no longer matches")) return;
+        if (source_format_owner_result_token(a,0)!=SIZE_MAX || source_format_owner_token(a,0)!=SIZE_MAX ||
+            !smoke_exact_result_formats(a,-1,false) || a->book.dirty || s->undo_actions_count || s->source_versions.high_water!=1) goto failed;
+        request=a->request_id; draft_revision=s->formats.revision; break;
+    case 818:
+        if (a->request_id!=request || a->source_format.active || s->formats.revision!=draft_revision) goto failed;
+        grid_select_cell(&a->grid,10,4,false); run_action(a,ACTION_BOLD);
+        if (!a->source_format.active) goto failed;
+        break;
+    case 819:
+        if (a->source_format.active || a->book.dirty || s->undo_actions_count || s->formats.revision!=draft_revision ||
+            !smoke_exact_result_formats(a,-1,false)) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-result-format.dxls"); break;
+    case 820:
+        if (a->book.dirty || s->formats.count!=4 || s->formats.scope_count!=3 || s->source_versions.count!=1) goto failed;
+        break;
+    case 821:
+        if (!smoke_copy_fixture("tests/generated/app-result-format-original.parquet","tests/generated/app-result-format.parquet")) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-result-format.dxls"); break;
+    case 822:
+        if (!source_format_owner_verified(a,0) || !object_ready(a,0)) return;
+        if (!smoke_exact_result_formats(a,0,true) || a->book.dirty || s->undo_actions_count || s->source_versions.high_water!=1) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/source-result-restored.png"); break;
+    case 823:
+        puts("PASS: native verified exact-result and guarded styles follow only matching structured definitions, retain physical record styles through sort filter, reuse cached publication, isolate Pivot results and preserve v14 changed-file suspension and exact-byte restoration"); break;
+
     }
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: workspace layout smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : "");
@@ -13264,9 +13404,9 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
-    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
+    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
     else if (options->nyc_smoke) open_source(a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -13276,7 +13416,7 @@ AppSession *app_start(const AppOptions *options) {
     else if (options->path) open_source(a,options->path,false);
     else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(a,"tests/fixtures/null-text.csv",false);
     else { new_sheet(a); a->book.dirty=false; }
-    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 ? layout_start : 250) : 0;
+    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 ? layout_start : 250) : 0;
     session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     session->applied_cursor=-1;
     session->automated=automated; session->layout_start=layout_start; session->layout_target=layout_target;
