@@ -431,7 +431,67 @@ static void test_workbook_objects_text_bound(void) {
     text[DX_PAGE_WIRE_TEXT_BYTES]='x';text[DX_PAGE_WIRE_TEXT_BYTES+1u]=0;wire=encode(object_columns,11,1,values);out=retained_page();
     reject_workbook_objects(&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);free(text);page_free(&out);
 }
+static const Descriptor owner_columns[]={
+    {"sheet_id","INTEGER","i32",0,0},{"object_id","UBIGINT","u64",0,0},
+    {"query","VARCHAR","none",0,0},{"extra","VARCHAR","none",0,0}
+};
+static void reject_workbook_owners(Page *out,const Wire *wire,size_t size,uint64_t offset,uint64_t total,bool pending,size_t budget) {
+    Page before=*out;unsigned released=releases;char *error=dx_strdup("Previous error");
+    unsigned char *source=dx_alloc(wire->size);memcpy(source,wire->bytes,wire->size);
+    CHECK(!page_from_wire_workbook_owners_owned(out,wire->bytes,size,offset,total,pending,budget,&error));
+    CHECK(error&&*error&&strcmp(error,"Previous error"));
+    CHECK(!memcmp(out,&before,sizeof(before))&&releases==released&&!memcmp(wire->bytes,source,wire->size));
+    CHECK(!strcmp(out->cells[0].text,"Retained NULL literal")&&!strcmp(out->columns[0].name,"Keep")&&out->records.count==1&&out->records.stamp==UINT64_MAX);
+    free(source);free(error);
+}
+static void test_workbook_owners_envelope(void) {
+    const char *texts[]={NULL,"","NULL","SELECT 'İstanbul 🦆', 'apostrophe''s' FROM input;","9007199254740993","18446744073709551615"};
+    const char *ids[]={"0","9007199254740993","18446744073709551615"};const char **values=dx_alloc(2114u*3u*sizeof(*values));
+    for(size_t row=0;row<2114;row++){values[row*3]="63";values[row*3+1]=ids[row%3];values[row*3+2]=texts[row%6];}
+    Wire wire=encode(owner_columns,3,2113,values);Page out=retained_page();char *error=NULL;
+    reject(&out,wire.bytes,wire.size,0,2113,true);reject_workbook_sorts(&out,&wire,wire.size,0,2113,true,SIZE_MAX);reject_workbook_objects(&out,&wire,wire.size,0,2113,true,SIZE_MAX);
+    unsigned char *source=dx_alloc(wire.size);memcpy(source,wire.bytes,wire.size);unsigned released=releases;
+    CHECK(page_from_wire_workbook_owners_owned(&out,wire.bytes,wire.size,0,2113,true,SIZE_MAX,&error)&&!error);
+    CHECK(out.row_count==2113&&out.column_count==3&&out.total==2113&&out.count_pending&&releases==released+1);
+    CHECK(!memcmp(wire.bytes,source,wire.size));free(source);
+    CHECK(out.bytes==allocated_bytes(&out)&&!out.sql&&!out.totals&&!out.other&&!out.records.ids&&!out.records.source_key);
+    CHECK(out.columns[1].type==DUCKDB_TYPE_UBIGINT&&out.columns[1].number_type.kind==NUM_U64);
+    for(size_t i=0;i<2113u*3u;i++){CHECK(out.cells[i].is_null==(values[i]==NULL));CHECK(values[i]?out.cells[i].text&&!strcmp(out.cells[i].text,values[i]):!out.cells[i].text);}
+    size_t owned=out.bytes;page_free(&out);out=retained_page();reject_workbook_owners(&out,&wire,wire.size,0,2113,true,owned-1);
+    released=releases;CHECK(page_from_wire_workbook_owners_owned(&out,wire.bytes,wire.size,0,2113,true,owned,&error)&&!error&&out.bytes==owned&&releases==released+1);
+    memset(wire.bytes,0,wire.size);free(wire.bytes);CHECK(!strcmp(out.cells[4].text,"9007199254740993")&&!strcmp(out.cells[7].text,"18446744073709551615")&&!strcmp(out.cells[3*3+2].text,texts[3]));page_free(&out);
+    const size_t valid_rows[]={2048,2112};
+    for(size_t i=0;i<sizeof(valid_rows)/sizeof(*valid_rows);i++){
+        size_t rows=valid_rows[i];wire=encode(owner_columns,3,(uint32_t)rows,values);
+        CHECK(page_from_wire_workbook_owners_owned(&out,wire.bytes,wire.size,0,rows,false,SIZE_MAX,&error)&&!error&&out.row_count==rows&&!out.count_pending);free(wire.bytes);page_free(&out);
+    }
+    out=retained_page();wire=encode(owner_columns,3,2114,values);reject_workbook_owners(&out,&wire,wire.size,0,2114,true,SIZE_MAX);free(wire.bytes);
+    for(size_t count=0;count<=4;count++)if(count!=3){wire=encode(owner_columns,(uint32_t)count,1,values);reject_workbook_owners(&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);}
+    wire=encode(owner_columns,3,1,values);reject_workbook_owners(&out,&wire,wire.size,1,2,false,SIZE_MAX);reject_workbook_owners(&out,&wire,wire.size,0,0,false,SIZE_MAX);
+    reject_workbook_owners(&out,&wire,DX_PAGE_WIRE_BYTES+1u,0,1,false,SIZE_MAX);
+    wire.bytes[wire.nulls]=2;reject_workbook_owners(&out,&wire,wire.size,0,1,false,SIZE_MAX);wire.bytes[wire.nulls]=0;
+    wire.bytes[wire.text]=0;reject_workbook_owners(&out,&wire,wire.size,0,1,false,SIZE_MAX);wire.bytes[wire.text]=0xff;reject_workbook_owners(&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);
+    wire=encode(owner_columns,3,0,NULL);CHECK(page_from_wire_workbook_owners_owned(&out,wire.bytes,wire.size,0,0,false,SIZE_MAX,&error)&&!error&&out.row_count==0&&out.column_count==3);free(wire.bytes);page_free(&out);
+    const char *missing[3]={0};wire=encode(owner_columns,3,1,missing);size_t minimum=3u*sizeof(Column)+3u*sizeof(Cell);
+    for(size_t i=0;i<3;i++)minimum+=strlen(owner_columns[i].name)+strlen(owner_columns[i].type)+2;
+    out=retained_page();reject_workbook_owners(&out,&wire,wire.size,0,1,false,minimum-1);
+    CHECK(page_from_wire_workbook_owners_owned(&out,wire.bytes,wire.size,0,1,false,minimum,&error)&&!error&&out.bytes==minimum);
+    for(size_t i=0;i<3;i++)CHECK(out.cells[i].is_null&&!out.cells[i].text);free(wire.bytes);page_free(&out);
+    const Descriptor option_columns[]={{"sheet_id","INTEGER","i32",0,0},{"object_id","UBIGINT","u64",0,0},{"unique_rows","BOOLEAN","none",0,0}};
+    const char *options[]={"63","18446744073709551615","true","63","0","false","63","9007199254740993",NULL};wire=encode(option_columns,3,3,options);
+    CHECK(page_from_wire_workbook_owners_owned(&out,wire.bytes,wire.size,0,3,false,SIZE_MAX,&error)&&!error&&out.columns[2].type==DUCKDB_TYPE_BOOLEAN&&out.columns[2].number_type.kind==NUM_NONE);
+    CHECK(!strcmp(out.cells[2].text,"true")&&!strcmp(out.cells[5].text,"false")&&out.cells[8].is_null&&!out.cells[8].text);free(wire.bytes);page_free(&out);free(values);
+}
+static void test_workbook_owners_text_bound(void) {
+    char *text=dx_alloc(DX_PAGE_WIRE_TEXT_BYTES+2u);memset(text,'x',DX_PAGE_WIRE_TEXT_BYTES);text[DX_PAGE_WIRE_TEXT_BYTES]=0;
+    const char *values[]={NULL,NULL,text};Wire wire=encode(owner_columns,3,1,values);Page out={0};char *error=NULL;
+    CHECK(page_from_wire_workbook_owners_owned(&out,wire.bytes,wire.size,0,1,false,SIZE_MAX,&error)&&!error);
+    CHECK(strlen(out.cells[2].text)==DX_PAGE_WIRE_TEXT_BYTES&&out.bytes==allocated_bytes(&out));page_free(&out);free(wire.bytes);
+    text[DX_PAGE_WIRE_TEXT_BYTES]='x';text[DX_PAGE_WIRE_TEXT_BYTES+1u]=0;wire=encode(owner_columns,3,1,values);out=retained_page();
+    reject_workbook_owners(&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);free(text);page_free(&out);
+}
 int main(void) {
+    test_workbook_owners_envelope();test_workbook_owners_text_bound();
     test_workbook_objects_envelope();test_workbook_objects_text_bound();
     test_workbook_sorts_envelope();test_workbook_sorts_text_bound();
     test_copy_envelope();

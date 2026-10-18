@@ -110,6 +110,33 @@ test('workbook-objects retains exact text bounds and rejects malformed owned inp
     for(const purpose of ['Workbook-objects','workbook-objects ',{},false])assert.throws(()=>encodePageWire(page([],columns,0),{purpose}),/unknown transport purpose/);
 });
 
+test('trusted workbook-owners encodes exactly three columns through2113 rows without changing existing envelopes',()=>{
+    const columns=[column({name:'sheet_id',typeName:'INTEGER',numberKind:'i32'}),column({name:'object_id',typeName:'UBIGINT',numberKind:'u64'}),column({name:'query'})];
+    const texts=[null,'','NULL',"SELECT 'İstanbul 🦆', 'apostrophe''s' FROM input;",'9007199254740993','18446744073709551615'];
+    const values=Array.from({length:2113},(_,i)=>['63',['0','9007199254740993','18446744073709551615'][i%3],texts[i%6]]).flat();
+    const input=page(values,columns),before={text:input.text.slice(),offsets:input.offsets.slice(),nulls:input.nulls.slice()};
+    assert.throws(()=>encodePageWire(input),/row count/);assert.throws(()=>encodePageWire(input,{purpose:'workbook-sorts'}),/row count/);assert.throws(()=>encodePageWire(input,{purpose:'workbook-objects'}),/row count/);
+    const wire=encodePageWire(input,{purpose:'workbook-owners'}),output=inspect(wire);assert.equal(output.rows,2113);assert.equal(output.columns,3);assert.deepEqual(output.metadata,columns);assert.deepEqual(output.values,values);
+    for(const part of ['text','offsets','nulls'])assert.deepEqual(input[part],before[part]);
+    for(const rows of [2048,2112])assert.equal(inspect(encodePageWire(page(values.slice(0,rows*3),columns),{purpose:'workbook-owners'})).rows,rows);
+    assert.throws(()=>encodePageWire(page([...values,'0','0','sentinel'],columns),{purpose:'workbook-owners'}),/row count/);
+    for(const count of [0,2,4])assert.throws(()=>encodePageWire(page(Array(count).fill(null),Array.from({length:count},()=>column()),1),{purpose:'workbook-owners'}),/column/);
+    assert.equal(inspect(encodePageWire(page([],columns,0),{purpose:'workbook-owners'})).rows,0);
+    input.text.fill(0);input.offsets.fill(0);input.nulls.fill(1);assert.deepEqual(inspect(wire).values,values);
+    const received=structuredClone(wire,{transfer:[wire.buffer]});assert.equal(wire.length,0);assert.deepEqual(inspect(received).values,values);
+    const options=[columns[0],columns[1],column({name:'unique_rows',typeName:'BOOLEAN'})],booleans=['63','18446744073709551615','true','63','0','false','63','9007199254740993',null];
+    assert.deepEqual(inspect(encodePageWire(page(booleans,options),{purpose:'workbook-owners'})).values,booleans);
+});
+test('workbook-owners keeps the unchanged text bound and rejects malformed strings and masks atomically',()=>{
+    const columns=[column({name:'sheet_id',typeName:'INTEGER',numberKind:'i32'}),column({name:'object_id',typeName:'UBIGINT',numberKind:'u64'}),column({name:'query'})];
+    const values=[null,null,'x'.repeat(4*1024*1024)],input=page(values,columns);assert.deepEqual(inspect(encodePageWire(input,{purpose:'workbook-owners'})).values,values);
+    values[2]+='x';assert.throws(()=>encodePageWire(page(values,columns),{purpose:'workbook-owners'}),/4 MiB/);
+    const nul=page(['0','0','a\0b'],columns),before=nul.text.slice();assert.throws(()=>encodePageWire(nul,{purpose:'workbook-owners'}),/NUL/);assert.deepEqual(nul.text,before);
+    const bad=page(['0','0','İ🦆'],columns);bad.text[2]=0xff;const raw=bad.text.slice();assert.throws(()=>encodePageWire(bad,{purpose:'workbook-owners'}),/UTF-8/);assert.deepEqual(bad.text,raw);
+    const mask=page([null,null,null],columns);mask.nulls[0]=2;assert.throws(()=>encodePageWire(mask,{purpose:'workbook-owners'}),/NULL/);
+    for(const purpose of ['Workbook-owners','workbook-owners ',{},false])assert.throws(()=>encodePageWire(page([],columns,0),{purpose}),/unknown transport purpose/);
+});
+
 test('DXP1 little-endian golden bytes retain SQL NULL, empty text and literal NULL', () => {
     const wire = encodePageWire(page());
     assert.equal(Buffer.from(wire).toString('hex'), [
