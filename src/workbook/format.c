@@ -76,7 +76,7 @@ static size_t state_bytes(FormatSnapshot s) {
     for (size_t i=0;i<s.scope_count;i++) bytes=add_bytes(bytes,add_bytes(s.scopes[i].bytes,1));
     return bytes;
 }
-static FormatSnapshot current(const FormatStore *s) { return (FormatSnapshot){s->items,s->count,s->scopes,s->scope_count}; }
+static FormatSnapshot current(const FormatStore *s) { return (FormatSnapshot){.items=s->items,.count=s->count,.scopes=s->scopes,.scope_count=s->scope_count,.source_aware=s->source_aware}; }
 size_t format_owned_bytes(const FormatStore *s,bool history) {
     size_t bytes=state_bytes(current(s));
     if (history) {
@@ -102,6 +102,7 @@ bool format_valid(const FormatStore *s,char **error) {
     for (size_t i=0;i<s->count;i++) {
         const FormatPatch *p=&s->items[i];
         if (!range_valid(p->range) || !p->mask || (p->mask&~FORMAT_ALL) || !value_valid(p->value)) return fail(error,"Invalid cell format range.");
+        if (!s->source_aware && p->selector!=FORMAT_SPATIAL) return fail(error,"Scoped cell format selectors require source-aware snapshot state.");
         if (p->selector<FORMAT_SPATIAL || p->selector>FORMAT_RECORDS || p->guard_count>DX_FORMAT_GUARDS || (p->selector==FORMAT_SPATIAL ? p->guard_count!=0 || p->guard_ids!=NULL : !p->guard_count || !p->guard_ids)) return fail(error,"Invalid cell format result guards.");
         if (p->selector==FORMAT_RECORDS ? p->guard_count!=1 || !same_range(p->range,(FormatRange){0}) || !membership_valid(p->record_ids,p->record_count,p->fields,p->field_count) :
             p->record_ids!=NULL || p->record_count || p->fields!=NULL || p->field_count) return fail(error,"Invalid cell format record membership.");
@@ -111,7 +112,7 @@ bool format_valid(const FormatStore *s,char **error) {
     return true;
 }
 bool format_persistable(const FormatStore *s,char **error) {
-    if (s->scope_count) return fail(error,"Scoped cell formats require a newer workspace format; saving them through workspace v12 is unsupported.");
+    if (s->source_aware || s->scope_count) return fail(error,"Scoped cell formats require a newer workspace format; saving them through workspace v12 is unsupported.");
     for (size_t i=0;i<s->count;i++) if (s->items[i].selector!=FORMAT_SPATIAL || s->items[i].guard_count) return fail(error,"Scoped cell formats require a newer workspace format; saving them through workspace v12 is unsupported.");
     return true;
 }
@@ -123,7 +124,7 @@ static FormatPatch patch_copy(FormatPatch p) {
 }
 static void patch_free(FormatPatch p) { free(p.guard_ids); free(p.record_ids); free(p.fields); }
 static FormatSnapshot snapshot(const FormatStore *s) {
-    FormatSnapshot copy={.count=s->count,.scope_count=s->scope_count};
+    FormatSnapshot copy={.count=s->count,.scope_count=s->scope_count,.source_aware=s->source_aware};
     if (s->count) { copy.items=dx_alloc(s->count*sizeof(*copy.items)); for (size_t i=0;i<s->count;i++) copy.items[i]=patch_copy(s->items[i]); }
     if (s->scope_count) {
         copy.scopes=dx_alloc(s->scope_count*sizeof(*copy.scopes));
@@ -143,7 +144,7 @@ static void push(FormatSnapshot *stack,size_t *count,FormatSnapshot state) {
 }
 void format_free(FormatStore *s) { FormatSnapshot state=current(s); format_snapshot_free(&state); clear(s->undo,&s->undo_count); clear(s->redo,&s->redo_count); memset(s,0,sizeof(*s)); }
 void format_copy(FormatStore *to,const FormatStore *from) {
-    FormatSnapshot copy=snapshot(from); uint64_t revision=from->revision; format_free(to); to->items=copy.items; to->count=copy.count; to->scopes=copy.scopes; to->scope_count=copy.scope_count; to->revision=revision;
+    FormatSnapshot copy=snapshot(from); uint64_t revision=from->revision; format_free(to); to->items=copy.items; to->count=copy.count; to->scopes=copy.scopes; to->scope_count=copy.scope_count; to->source_aware=copy.source_aware; to->revision=revision;
 }
 static bool same_membership(FormatPatch a,FormatPatch b) {
     return a.record_count==b.record_count && a.field_count==b.field_count &&
@@ -151,7 +152,7 @@ static bool same_membership(FormatPatch a,FormatPatch b) {
         (!a.field_count || !memcmp(a.fields,b.fields,a.field_count*sizeof(size_t)));
 }
 static bool same_snapshot(const FormatStore *a,const FormatSnapshot *b) {
-    if (a->count!=b->count) return false;
+    if (a->source_aware!=b->source_aware || a->count!=b->count) return false;
     for (size_t i=0;i<a->count;i++) {
         const FormatPatch *x=&a->items[i],*y=&b->items[i];
         if (!same_range(x->range,y->range) || x->mask!=y->mask || !same_value(x->value,y->value,x->mask) || x->selector!=y->selector || x->guard_count!=y->guard_count || !same_membership(*x,*y)) return false;
@@ -165,7 +166,7 @@ static bool same_snapshot(const FormatStore *a,const FormatSnapshot *b) {
 bool format_commit(FormatStore *s,FormatSnapshot *owned) {
     if (same_snapshot(s,owned)) { format_snapshot_free(owned); return false; }
     clear(s->redo,&s->redo_count); push(s->undo,&s->undo_count,current(s));
-    s->items=owned->items; s->count=owned->count; s->scopes=owned->scopes; s->scope_count=owned->scope_count; *owned=(FormatSnapshot){0}; s->revision++; return true;
+    s->items=owned->items; s->count=owned->count; s->scopes=owned->scopes; s->scope_count=owned->scope_count; s->source_aware=owned->source_aware; *owned=(FormatSnapshot){0}; s->revision++; return true;
 }
 static bool same_selector(FormatPatch a,FormatPatch b) {
     return a.selector==b.selector && a.guard_count==b.guard_count && (!a.guard_count || !memcmp(a.guard_ids,b.guard_ids,a.guard_count*sizeof(size_t))) && same_membership(a,b);
@@ -251,7 +252,7 @@ static bool scope_ids(FormatSnapshot *s,const FormatScopeView *views,size_t coun
 bool format_apply_scoped(FormatStore *s,FormatRange range,unsigned mask,CellFormat value,const FormatScopeView *views,size_t count,bool manual,char **error) {
     if (!range_valid(range) || !mask || (mask&~FORMAT_ALL) || !value_valid(value)) return fail(error,"Choose a valid cell format and worksheet range.");
     if (!scope_views_valid(views,count,error)) return false;
-    FormatSnapshot next=snapshot(s); size_t ids[DX_FORMAT_GUARDS];
+    FormatSnapshot next=snapshot(s); next.source_aware=true; size_t ids[DX_FORMAT_GUARDS];
     bool ok=scope_ids(&next,views,count,ids,error) && append(&next,(FormatPatch){.range=range,.mask=mask,.value=value,.selector=manual ? FORMAT_GUARDED : FORMAT_RESULT,.guard_ids=ids,.guard_count=count},error) && ready(s,&next,error);
     if (!ok) { format_snapshot_free(&next); return false; } format_commit(s,&next); return true;
 }
@@ -264,7 +265,7 @@ bool format_plan_records(const FormatStore *s,const FormatScopeView *scope,const
     if (!out) return fail(error,"Choose an owned output for the record-format plan.");
     if (!mask || (mask&~FORMAT_ALL) || !value_valid(value) || !membership_valid(records,record_count,fields,field_count)) return fail(error,"Choose a valid format and sorted record/field membership (at most 20,000 records and 16,384 fields).");
     if (!scope_views_valid(scope,1,error)) return false;
-    FormatSnapshot next=snapshot(s); size_t ids[DX_FORMAT_GUARDS];
+    FormatSnapshot next=snapshot(s); next.source_aware=true; size_t ids[DX_FORMAT_GUARDS];
     bool ok=scope_ids(&next,scope,1,ids,error) && append(&next,(FormatPatch){.mask=mask,.value=value,.selector=FORMAT_RECORDS,.guard_ids=ids,.guard_count=1,
         .record_ids=(uint64_t *)records,.record_count=record_count,.fields=(size_t *)fields,.field_count=field_count},error) && ready(s,&next,error);
     if (!ok) { format_snapshot_free(&next); return false; }
@@ -277,10 +278,9 @@ bool format_apply_records(FormatStore *s,const FormatScopeView *scope,const uint
 }
 bool format_plan_guard_legacy(const FormatStore *s,const FormatScopeView *views,size_t count,FormatSnapshot *out,char **error) {
     *out=(FormatSnapshot){0}; if (!scope_views_valid(views,count,error)) return false;
-    *out=snapshot(s); size_t ids[DX_FORMAT_GUARDS];
+    *out=snapshot(s); out->source_aware=true; size_t ids[DX_FORMAT_GUARDS];
     bool finite=false; for (size_t i=0;i<s->count;i++) finite|=s->items[i].selector==FORMAT_SPATIAL && !whole_columns(s->items[i].range);
-    if (!finite) return true;
-    if (!scope_ids(out,views,count,ids,error)) goto failed;
+    if (finite && !scope_ids(out,views,count,ids,error)) goto failed;
     for (size_t i=0;i<out->count;i++) if (out->items[i].selector==FORMAT_SPATIAL && !whole_columns(out->items[i].range)) {
         out->items[i].selector=FORMAT_GUARDED; out->items[i].guard_count=count; out->items[i].guard_ids=dx_alloc(count*sizeof(size_t)); memcpy(out->items[i].guard_ids,ids,count*sizeof(size_t));
     }
@@ -290,7 +290,7 @@ failed: format_snapshot_free(out); return false;
 }
 bool format_history(FormatStore *s,bool redo) {
     FormatSnapshot *from=redo ? s->redo : s->undo,*to=redo ? s->undo : s->redo; size_t *fc=redo ? &s->redo_count : &s->undo_count,*tc=redo ? &s->undo_count : &s->redo_count;
-    if (!*fc) return false; push(to,tc,current(s)); FormatSnapshot state=from[--*fc]; from[*fc]=(FormatSnapshot){0}; s->items=state.items; s->count=state.count; s->scopes=state.scopes; s->scope_count=state.scope_count; s->revision++; return true;
+    if (!*fc) return false; push(to,tc,current(s)); FormatSnapshot state=from[--*fc]; from[*fc]=(FormatSnapshot){0}; s->items=state.items; s->count=state.count; s->scopes=state.scopes; s->scope_count=state.scope_count; s->source_aware=state.source_aware; s->revision++; return true;
 }
 void format_trim_history(FormatStore *s,bool redo,size_t keep) {
     FormatSnapshot *stack=redo ? s->redo : s->undo; size_t *count=redo ? &s->redo_count : &s->undo_count;
