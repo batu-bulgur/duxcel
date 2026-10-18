@@ -39,7 +39,7 @@ def main():
     check(all(markers.values()),'Shipping Wasm contains review/acceptance markers')
     for directory in (normal,review):
         check(b'dx_test_source_digest_checkpoint' not in (directory/'duxcel.wasm').read_bytes(),'Browser App contains an isolated native verification test checkpoint')
-    check(not any((normal/name).exists() for name in ('review_host.mjs','host_review.mjs','review_queue.mjs','worker_test_host.mjs','codec_test_host.mjs','official_worker_probe.mjs','persistence_probe.mjs')),'Shipping contains review/acceptance host assets')
+    check(not any((normal/name).exists() for name in ('review_host.mjs','host_review.mjs','review_queue.mjs','worker_test_host.mjs','codec_test_host.mjs','official_worker_probe.mjs','persistence_probe.mjs','metadata_stream_probe.mjs','metadata_stream_probe.test.mjs')),'Shipping contains review/acceptance host assets')
     for directory,build,module_exports in ((normal,shipping,exports),(review,development,review_exports)):
         check('tests/test_browser_codec_read.c' not in build['sources'],'Browser App includes the partial-codec acceptance driver')
         check(not any('dx_browser_codec_' in name for name in module_exports),'Browser App exports partial-codec acceptance callbacks')
