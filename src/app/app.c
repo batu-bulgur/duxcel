@@ -11086,7 +11086,10 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: native v14 saved source scopes stay suspended across real Save Open and overwrite, imported finite commands reject atomically, manual and whole-column formatting retain Undo Redo and exact source values");
         activate_sheet(a,cache_source_sheet,true); break;
     case 723:
-        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        for (size_t i=0;i<2;i++) if (!object_ready(a,i)) {
+            const SheetObject *o=&s->objects.items[i]; a->selected_object=(int)i;
+            grid_select_cell(&a->grid,o->row+2,o->col+1,false); a->pivot_reveal_object=true; return;
+        }
         if (s->objects.count!=2 || s->objects.items[0].kind!=OBJECT_TABLE || s->objects.items[1].kind!=OBJECT_PIVOT || s->formats.scope_count) goto failed;
         {
             CellFormat value=format_default(); value.flags=FORMAT_BOLD; value.color=3;
@@ -11099,7 +11102,7 @@ static void layout_smoke_step(App *a,int *step) {
             /* Test a mode-only archive too: these finite manual rectangles sit
                beneath real imported owners and must not style their values. */
             s->formats.source_aware=true; a->book.dirty=true;
-            a->selected_object=0; grid_select_cell(&a->grid,table->row+2,table->col+1,false);
+            a->selected_object=0; grid_select_cell(&a->grid,table->row+2,table->col+1,false); a->pivot_reveal_object=true;
         }
         request=a->request_id; author_cells=a->objects[0].page.cells; ribbon_cells=a->page.cells; break;
     case 724:
@@ -11107,7 +11110,7 @@ static void layout_smoke_step(App *a,int *step) {
             imported_cell_format(a,a->grid.row,a->grid.col).flags || a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells) goto failed;
         smoke_snapshot("tests/results/workspace-layout/source-aware-table.png");
         a->selected_object=1; a->sidebar=a->fields_visible=true; a->matrix_cells_active=true;
-        grid_select_cell(&a->grid,s->objects.items[1].row+2,s->objects.items[1].col+1,false); break;
+        grid_select_cell(&a->grid,s->objects.items[1].row+2,s->objects.items[1].col+1,false); a->pivot_reveal_object=true; break;
     case 725:
         if (active_format(a).flags || active_format(a).color || active_format(a).number!=FORMAT_ACCOUNTING ||
             a->source_preview.format_result_token!=SIZE_MAX || a->source_preview.format_record_token!=SIZE_MAX ||
@@ -11121,7 +11124,11 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->book.dirty) goto failed;
         workspace_job(a,JOB_LOAD,"tests/generated/app-source-format.dxls"); break;
     case 728:
-        if (!object_ready(a,0) || !object_ready(a,1)) return;
+        for (size_t i=0;i<2;i++) if (!object_ready(a,i)) {
+            const SheetObject *o=&s->objects.items[i]; a->selected_object=(int)i;
+            grid_select_cell(&a->grid,o->row+2,o->col+1,false); a->pivot_reveal_object=true; return;
+        }
+        a->selected_object=1; grid_select_cell(&a->grid,s->objects.items[1].row+2,s->objects.items[1].col+1,false);
         if (!s->formats.source_aware || s->formats.scope_count || s->source_versions.high_water || a->analysis.source_version ||
             active_format(a).flags || active_format(a).color || active_format(a).number!=FORMAT_ACCOUNTING ||
             strcmp(cells_get(&s->cells,9,7),"Note one") || strcmp(cells_get(&s->cells,10,7),"Note two") || a->book.dirty ||
