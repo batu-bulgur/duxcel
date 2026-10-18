@@ -57,6 +57,9 @@ typedef struct {
     PivotDefinition pivot;
     uint64_t object_id,revision;
     bool include_header,is_table,include_totals,is_preview;
+    /* Opt-in non-Table JOB_PIVOT readouts. Compute all eligible Plot rankings
+       in this original job; changing presentation never submits an Other job. */
+    bool include_chart_other;
     CopyRequest *copy;
     StatisticsRequest *statistics;
     bool refresh_source;
