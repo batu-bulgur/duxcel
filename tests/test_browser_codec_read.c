@@ -6,6 +6,7 @@
 #include "data/page_wire.h"
 #include <emscripten/emscripten.h>
 #include <errno.h>
+#include <float.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <math.h>
@@ -33,7 +34,8 @@ typedef struct {
     uint64_t total;
     WorkbookCodecKey key;
     unsigned cookie,ticket,fixture,phase,fault,checks,queries,headers,rejections,stale,callbacks,resolves;
-    unsigned meta_queries,sheets_queries,describe_queries,normal_queries[7],u64_proofs;
+    unsigned meta_queries,sheets_queries,describe_queries,normal_queries[7],u64_flags,fixtures;
+    bool budget_rejected,sentinel_rejected,tiny_negative_proven,tiny_negative_rejected;
     bool waiting,ready,done,failed,fixture_ready,held_ready,stale_released;
 } Driver;
 static Driver d;
@@ -47,9 +49,13 @@ EM_JS(void, query_start,(unsigned cookie,unsigned ticket,const char *sql,const c
     Module['dxCodecSubmit']({heap:()=>HEAPU8,allocate:_malloc,release:_free,reply:_dx_browser_codec_result,string:UTF8ToString,fixture:_dx_browser_codec_fixture_result},cookie,ticket,request,Boolean(hold));
 });
 EM_JS(void, release_held,(void),{Module['dxCodecRelease']();});
-EM_JS(void, report_done,(int ok,unsigned checks,unsigned fixtures,unsigned headers,unsigned queries,unsigned rejections,unsigned stale,size_t peak,const char *error),{
-    Module['dxCodecReadTestDone']({ok:Boolean(ok),checks,fixtures,headers,queries,rejections,stale,peakOwnedInput:peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,budgetRejected:Boolean(ok),u64Sentinels:ok?['9007199254740993','18446744073709551615']:[],normalFixtureQueries:ok?[4,4,4,4,4,4,4]:[],familyExecutions:ok?{meta:17,sheets:16,describe:15}:null,error:error?UTF8ToString(error):null,boundary:'official-worker/shared-C-header-reader; no workbook publication or browser Save/Open'});
+EM_JS(void, report_done,(int ok,unsigned checks,unsigned fixtures,unsigned headers,unsigned queries,unsigned rejections,unsigned stale,size_t peak,const unsigned *normal,unsigned meta,unsigned sheets,unsigned describe,unsigned u64_flags,int budget,int sentinel,int tiny,const char *error),{
+    const at=normal>>>2;
+    Module['dxCodecReadTestDone']({ok:Boolean(ok),checks,fixtures,headers,queries,rejections,stale,peakOwnedInput:peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,budgetRejected:Boolean(budget),sentinelRejected:Boolean(sentinel),tinyNegativeRejected:Boolean(tiny),u64Sentinels:[...(u64_flags&1?['9007199254740993']:[]),...(u64_flags&2?['18446744073709551615']:[])],normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+7)),familyExecutions:{meta,sheets,describe},error:error?UTF8ToString(error):null,boundary:'official-worker/shared-C-header-reader; no workbook publication or browser Save/Open'});
 });
+static void report(bool ok,const char *error) {
+    report_done(ok,d.checks,d.fixtures,d.headers,d.queries,d.rejections,d.stale,d.peak_input,d.normal_queries,d.meta_queries,d.sheets_queries,d.describe_queries,d.u64_flags,d.budget_rejected,d.sentinel_rejected,d.tiny_negative_rejected,error);
+}
 static size_t text_bytes(const char *s) { return s ? strlen(s)+1 : 0; }
 static size_t retained(void) {
     return sizeof(d)+d.page.bytes+d.meta_schema.bytes+d.sheets_schema.bytes+d.atom_bytes+d.pressure_bytes+
@@ -58,7 +64,7 @@ static size_t retained(void) {
 static void stop(const char *message,int line) {
     if(d.done)return;
     fprintf(stderr,"FAIL codec-read:%d fixture=%u phase=%u fault=%u: %s\n",line,d.fixture,d.phase,d.fault,message?message:"unknown");
-    d.failed=true;d.done=true;report_done(0,d.checks,d.fixture,d.headers,d.queries,d.rejections,d.stale,d.peak_input,message);
+    d.failed=true;d.done=true;report(false,message);
     emscripten_cancel_main_loop();
 }
 #define CHECK(test,message) do {d.checks++;if(!(test)){stop((message),__LINE__);return false;}}while(0)
@@ -143,9 +149,9 @@ static bool header_expected(void) {
         CHECK(same(workbook_codec_header_name(h,i),names[i]),"UTF-8 worksheet name changed");
         CHECK(a&&v&&a->path&&!*a->path&&!a->query&&!a->source_version&&!a->filter_count&&!a->sort_count&&!a->unique_rows,"Header executed/loaded later source or query state");
         CHECK(v->row==DX_SHEET_ROWS-1&&v->col==16383&&v->anchor_row==1&&v->anchor_col==2&&v->end_row==3&&v->end_col==4&&v->top==5&&v->horizontal==120.25f&&v->fraction==.25&&v->selection==2&&v->canvas_zoom==(layouts[d.fixture]==24?1:1.5f)&&!v->columns&&!v->column_count,"Exact viewport/canvas metadata changed");
-        if(!i){const char *ref=workbook_codec_header_reference(h,i);size_t n=ref?strlen(ref):0;
+        if(!i){const char *ref=workbook_codec_header_reference(h,i);
             CHECK(a->kind==SOURCE_CSV&&same(a->schema,"")&&same(a->table,"NULL")&&same(a->filter_column,"city")&&!a->filter_value&&a->filter_op==FILTER_NULL&&same(a->sort_column,"city")&&a->descending&&!a->group_column&&!a->measure_column,"Primary NULL/empty/literal metadata changed");
-            CHECK(n>=18&&!strcmp(ref+n-18,"missing-source.csv"),"Raw source reference lost; empty locator is a separate browser boundary");
+            CHECK(same(ref,"missing-source.csv"),"Raw source reference lost; empty locator is a separate browser boundary");
         }else CHECK(a->kind==(i==1?SOURCE_NONE:SOURCE_DEMO)&&same(a->filter_value,i==1?"":"NULL")&&same(workbook_codec_header_reference(h,i),""),"Empty versus literal NULL changed");
     }
     return true;
@@ -187,14 +193,21 @@ static bool send_family(bool sheets,bool hold) {
         const char *replacement=d.fault==3?"NULL::VARCHAR AS name":d.fault==4?"0::INTEGER AS id":d.fault==5?"18446744073709551615::UBIGINT AS active_row":d.fault==6?"'NaN'::DOUBLE AS horizontal":"concat('A',chr(0),'B') AS name";
         char *changed=dx_printf("SELECT * REPLACE (%s) FROM (%s) AS _codec_bad",replacement,relation);free(relation);relation=changed;
     }
+    if(sheets&&d.fault==12){
+        char *changed=dx_printf("SELECT seed.* REPLACE (CAST(n.i AS INTEGER) AS id) FROM (SELECT * FROM (%s) AS source WHERE id=0) AS seed CROSS JOIN range(65) AS n(i) ORDER BY id",relation);free(relation);relation=changed;
+    }
+    if(sheets&&d.fault==13){
+        char *changed=dx_printf("SELECT * REPLACE (-1e-50::DOUBLE AS horizontal) FROM (%s) AS _codec_tiny_negative",relation);free(relation);relation=changed;
+    }
     if(sheets)d.sheets_queries++;else d.meta_queries++;
     char *sql=browser_page_sql(relation,sheets?&d.sheets_schema:&d.meta_schema,0,&d.error);free(relation);
     return send_sql(sql,sheets?&d.sheets_schema:&d.meta_schema,(unsigned)request->row_limit,hold);
 }
 static bool atoms_from_page(bool sheets) {
     const WorkbookCodecTable *table=workbook_codec_table_find(sheets?"sheets":"meta");size_t columns=sheets?25:3;
-    CHECK(d.page.column_count==columns&&d.page.offset==0&&!d.page.count_pending&&d.page.total==d.page.row_count,"Expected one complete bounded canonical metadata result");
-    CHECK(d.page.row_count==(sheets?3:1),"Metadata fixture row count changed");
+    bool sentinel=sheets&&d.fault==12;
+    CHECK(d.page.column_count==columns&&d.page.offset==0&&d.page.count_pending==sentinel&&d.page.total==d.page.row_count,"Expected one bounded canonical metadata result with honest sentinel completeness");
+    CHECK(d.page.row_count==(sentinel?65:sheets?3:1),"Metadata fixture row count changed");
     d.atom_bytes=d.page.row_count*columns*sizeof(*d.atoms);d.atoms=dx_alloc(d.atom_bytes);
     const char *types=table->types;
     for(size_t c=0;c<columns;c++){
@@ -212,8 +225,13 @@ static bool atoms_from_page(bool sheets) {
             else atom->value.text=(WorkbookCodecText){cell->text,strlen(cell->text)};
         }
     }
-    if(d.fault==2){CHECK(d.atoms[1].value.u64==UINT64_C(9007199254740993)&&!strcmp(d.page.cells[1].text,"9007199254740993"),"Wide exact U64 was rounded before header validation");d.u64_proofs++;}
-    if(d.fault==5){CHECK(d.atoms[14].value.u64==UINT64_MAX&&!strcmp(d.page.cells[14].text,"18446744073709551615"),"Maximum U64 was rounded before viewport rejection");d.u64_proofs++;}
+    if(d.fault==2){CHECK(d.atoms[1].value.u64==UINT64_C(9007199254740993)&&!strcmp(d.page.cells[1].text,"9007199254740993"),"Wide exact U64 was rounded before header validation");d.u64_flags|=1;}
+    if(d.fault==5){CHECK(d.atoms[14].value.u64==UINT64_MAX&&!strcmp(d.page.cells[14].text,"18446744073709551615"),"Maximum U64 was rounded before viewport rejection");d.u64_flags|=2;}
+    if(sentinel)CHECK(d.atoms[0].value.i32==0&&d.atoms[64*columns].value.i32==64,"Actual 65th worksheet sentinel missing or unordered");
+    if(sheets&&d.fault==13){
+        double value=d.atoms[21].value.real;
+        CHECK(value<0&&isfinite(value)&&(float)value==0,"Original tiny-negative DOUBLE was narrowed or lost before shared-reader validation");d.tiny_negative_proven=true;
+    }
     return true;
 }
 static bool feed_page(bool sheets,bool expected_failure) {
@@ -225,21 +243,25 @@ static bool feed_page(bool sheets,bool expected_failure) {
         // The bad duplicate-id case is one atomic batch, otherwise its first
         // valid row would legitimately be adopted before the second failed.
         size_t count=expected_failure?d.page.row_count:1;
-        WorkbookCodecBatch batch={d.columns,d.page.column_count,d.atoms+row*d.page.column_count,count,row,row+count==d.page.row_count};
+        WorkbookCodecBatch batch={d.columns,d.page.column_count,d.atoms+row*d.page.column_count,count,row,row+count==d.page.row_count&&!d.page.count_pending};
         size_t input=retained(),all=input+workbook_codec_read_owned_bytes(d.read);CHECK(all<=INPUT_LIMIT,"Concrete coexisting C buffers exceed test input limit");if(all>d.peak_input)d.peak_input=all;
         WorkbookCodecReadStatus status=workbook_codec_read_feed(d.read,d.key,sheets?WORKBOOK_CODEC_SHEETS:WORKBOOK_CODEC_META,&batch,input,&d.error);
         if(expected_failure){
             CHECK(status==WORKBOOK_CODEC_READ_ERROR&&d.error,"Genuine invalid metadata/budget unexpectedly accepted");
             CHECK(d.header==old&&workbook_codec_read_owned_bytes(d.read)==bytes&&workbook_codec_read_request(d.read)->first_row==first&&workbook_codec_read_request(d.read)->sql==request_sql,"Failed feed changed old Header or staged reader");
             CHECK(!workbook_codec_read_finish(d.read,&d.header,&d.error)&&d.header==old,"Failed candidate replaced old Header");
-            CHECK(prior_unchanged(),"Invalid metadata changed retained Header");d.rejections++;return true;
+            CHECK(prior_unchanged(),"Invalid metadata changed retained Header");
+            if(d.fault==8){CHECK(strstr(d.error,"budget"),"Pressure case failed for a reason other than budget admission");d.budget_rejected=true;}
+            if(d.fault==12){CHECK(strstr(d.error,"Too many worksheets"),"65th sentinel failed for a reason other than the sheet bound");d.sentinel_rejected=true;}
+            if(d.fault==13){CHECK(d.tiny_negative_proven&&strstr(d.error,"viewport"),"Tiny-negative rejection lacks original DOUBLE/viewport proof");d.tiny_negative_rejected=true;}
+            d.rejections++;return true;
         }
         CHECK(status==WORKBOOK_CODEC_READ_ACCEPTED,d.error?d.error:"Shared reader rejected valid exact atoms");
     }
     return true;
 }
 static bool next_fault(void) {
-    clear_input();if(d.fault<11){d.fault++;return begin_read();}return true;
+    clear_input();if(d.fault<14){d.fault++;return begin_read();}return true;
 }
 EM_JS(void, cancel_candidate,(void),{Module['dxEngine'].cancel(false);});
 static bool tick_body(void) {
@@ -292,7 +314,7 @@ static bool tick_body(void) {
             CHECK(prior_unchanged(),"Wire failure changed retained Header");d.rejections++;CHECK(next_fault(),"Restart after wire rejection failed");d.phase=4;return true;
         }
         CHECK(!d.error,d.error?d.error:"Sheets transport failed");
-        bool reject=d.fault>=3&&d.fault<=8;
+        bool reject=(d.fault>=3&&d.fault<=8)||d.fault==12||d.fault==13;
         CHECK(feed_page(true,reject),"Sheets exact feed failed");
         if(reject){CHECK(next_fault(),"Restart after sheets rejection failed");d.phase=4;return true;}
         clear_input();CHECK(workbook_codec_read_finish(d.read,&d.header,&d.error),d.error?d.error:"Complete Header move failed");
@@ -304,8 +326,8 @@ static bool tick_body(void) {
             if(d.fixture<7){page_free(&d.meta_schema);page_free(&d.sheets_schema);d.phase=0;return true;}
             d.fixture=6;d.fault=1;CHECK(begin_read(),"Fault reader setup failed");d.phase=4;return true;
         }
-        if(d.fault<11){CHECK(next_fault(),"Recovery reader setup failed");d.phase=4;return true;}
-        CHECK(d.headers==9&&d.rejections==9&&d.stale==1&&d.queries==48&&d.meta_queries==17&&d.sheets_queries==16&&d.describe_queries==15&&d.u64_proofs==2,"Terminal fixture/fault/query inventory changed");
+        if(d.fault<14){CHECK(next_fault(),"Recovery reader setup failed");d.phase=4;return true;}
+        CHECK(d.fixtures==7&&d.headers==10&&d.rejections==11&&d.stale==1&&d.queries==54&&d.meta_queries==20&&d.sheets_queries==19&&d.describe_queries==15&&d.u64_flags==3&&d.budget_rejected&&d.sentinel_rejected&&d.tiny_negative_rejected,"Terminal fixture/fault/query inventory changed");
         for(size_t i=0;i<7;i++)CHECK(d.normal_queries[i]==4,"Normal fixture metadata query count changed");
         d.phase=9;d.ticket++;d.waiting=true;d.fixture_ready=false;
         fixture_start(d.cookie,d.ticket,"","","USE memory; DETACH codec_fixture");return true;
@@ -320,8 +342,8 @@ static bool tick_body(void) {
     }
     if(d.phase==9&&d.fixture_ready){
         clear_input();page_free(&d.meta_schema);page_free(&d.sheets_schema);workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;
-        d.done=true;printf("PASS browser-codec-read: %u checks, 7 immutable native fixtures, 9 headers, 9 atomic rejections, 1 real stale callback, 48 queries; no Workbook publication\n",d.checks);
-        report_done(1,d.checks,7,d.headers,d.queries,d.rejections,d.stale,d.peak_input,NULL);emscripten_cancel_main_loop();return true;
+        d.done=true;printf("PASS browser-codec-read: %u checks, 7 immutable native fixtures, 10 headers, 11 atomic rejections, 1 real stale callback, 54 queries; no Workbook publication\n",d.checks);
+        report(true,NULL);emscripten_cancel_main_loop();return true;
     }
     return true;
 }
@@ -341,6 +363,7 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_codec_fixture_result(unsigned cookie,unsign
     if(d.phase==9)return;
     uint64_t epoch_value=0,registration_value=0;
     if(!u64(epoch,&epoch_value)||!epoch_value||!u64(registration,&registration_value)||!registration_value||!sha||strlen(sha)!=64||!bytes){stop("Malformed immutable fixture token",__LINE__);return;}
+    d.fixtures++;
     memcpy(d.epoch,epoch,strlen(epoch)+1);memcpy(d.registration,registration,strlen(registration)+1);memcpy(d.sha,sha,65);
     free(d.bindings);d.bindings=dx_printf("[{\"name\":\"%s\",\"engineEpoch\":\"%s\",\"registrationId\":\"%s\"}]",files[d.fixture],d.epoch,d.registration);
 }
