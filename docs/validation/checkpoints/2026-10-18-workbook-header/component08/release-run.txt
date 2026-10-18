@@ -1,0 +1,1 @@
+PASS: workbook header reader 1391 checks (bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures)

@@ -1,0 +1,71 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T07:02:03.550616+00:00",
+  "tier": "native",
+  "config": "release",
+  "jobs": 1,
+  "no_build": false,
+  "edit": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "6599c233d6bea865f1f1e1a7467b7b7cf5ba582a",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "a8ea1c2092152bde888841a933a59a9a69b29de714a460fd9502aa445e1482c9",
+    "source_files": 289
+  },
+  "results": [
+    {
+      "name": "build-integration",
+      "command": [
+        "make",
+        "duxcel",
+        "tests/test_background-native-debug",
+        "design-fixture"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T070203-native-79516/build-integration.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 3.6
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T070203-native-79516/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.238
+    },
+    {
+      "name": "native-workspace",
+      "command": [
+        "./duxcel",
+        "--workspace-smoke",
+        "--frames",
+        "300",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T070203-native-79516/workspace.png"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T070203-native-79516/native-workspace.txt",
+      "expected_stages": 4,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 3.005
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/duxcel": "c9ef27e3807e3302aacd3676131d3571d1a86baff1ddd6ebf396fd6c22792957",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "app_config": "release",
+  "elapsed_seconds": 8.0,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/duxcel": "c9ef27e3807e3302aacd3676131d3571d1a86baff1ddd6ebf396fd6c22792957",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "finished_utc": "2026-10-18T07:02:11.689940+00:00"
+}
