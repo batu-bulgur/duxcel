@@ -12784,7 +12784,10 @@ static void layout_smoke_step(App *a,int *step) {
             !smoke_same_fixture("tests/generated/app-format-budget.dxls","tests/generated/app-format-budget-preserved.dxls")) goto failed;
         puts("PASS: native legacy format budget admission retries once after real Cell or Format Redo release, preserves proof history and Save reopen, does no idle work and never retries terminal exhausted revisions"); break;
     case 882: {
-        if (!a->analysis.path || strcmp(a->analysis.path,"tests/fixtures/transactions.csv")) { open_source(a,"tests/fixtures/transactions.csv",false); return; }
+        char *expected=dx_absolute_path("tests/fixtures/transactions.csv");
+        if (!expected) goto failed;
+        bool loaded=a->analysis.path && !strcmp(a->analysis.path,expected); free(expected);
+        if (!loaded) { open_source(a,"tests/fixtures/transactions.csv",false); return; }
         if (a->page.column_count!=6 || a->page.total!=5) goto failed;
         a->statistics_enabled=false; statistics_cancel(a); remember(a);
         analysis_filters_clear(&a->analysis); analysis_sorts_clear(&a->analysis);
