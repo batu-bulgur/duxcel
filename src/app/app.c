@@ -6347,6 +6347,8 @@ static void pipeline_activate(App *a,size_t index) {
 static bool chrome_keyboard(App *a) {
     if (!a->chrome_focus) return false;
     if (ui_key_control(KEY_TAB) && ui_pressed(KEY_TAB)) return false;
+    /* Read-only panes keep navigation focus while workbook history stays global. */
+    if ((ui_key_shortcut(KEY_Z) && ui_pressed(KEY_Z)) || (ui_key_shortcut(KEY_Y) && ui_pressed(KEY_Y))) return false;
     if ((a->chrome_focus==2 && !a->sidebar) || (a->chrome_focus==8 && !a->pipeline) || ui_pressed(KEY_ESCAPE)) { a->chrome_focus=0; a->consume_grid_input=true; return true; }
     if (a->chrome_focus==10) {
         const int order[]={0,3,1,4,2}; int index=0; for (int i=0;i<5;i++) if (order[i]==a->status_focus) index=i;
