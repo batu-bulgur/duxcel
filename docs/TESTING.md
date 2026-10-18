@@ -492,7 +492,7 @@ python3 tools/test.py fast --modules workbook_codec_read --config both
 
 Root `6599c23` passes1,391 checks/config in3.756s total. It produces only an opaque owned meta/sheets Header, never a partial Workbook or product Open action. Original DOUBLE bounds are checked before narrowing, including tiny negative offsets and adjacent-outside canvas limits. Actual native comparison is accepted separately below; official Worker adapter acceptance has its separate receipts below.
 
-The current accepted pure reader at `c531b0e` passes 13,675 checks/configuration, including 10,468 retained checks and 3,207 Table-chain checks, in 9.109 s including build. Complete Table sources/filters/sorts now have separate native/Worker acceptance below. Keep this fast gate in the edit loop; the native metadata sanitizer gates have separately measured long integration costs.
+The current accepted pure reader at `8acae02` passes 19,150 checks/configuration, retaining all 13,675 earlier checks plus 5,475 Pivot/Marks checks. Integrated runtime is 10.340 s including build (10.772 s parent). Complete Table and Pivot/Marks definitions have separate native/Worker acceptance below. Keep this fast gate in the edit loop; slower native metadata integration remains separately scoped.
 
 The budget-query rewrite `554b591` keeps all nine EXISTS predicates, collecting their non-NULL Boolean values with UNION ALL/bool_or. A matched private query probe passes1,009 checks/config and30 cases, with the warm query19.901→1.277ms optimized and72.362→4.771ms O1. The unchanged1,287-check native source-format workload separately passes15.329/93.838s optimized/O1 (124.981s including15.566s build); this is not a controlled whole-suite speed claim. Existing native workspace4 additionally passes at `6599c23` in3.005/3.110s App. The browser-conditioned C model87/config passes at `e142142` in8.821s including7.781s build: native locator helpers are separately compiled without JS bridges; real path assertions remain. [Exact sources, natural target build failures and boundaries](validation/checkpoints/2026-10-18-workbook-budget-query/).
 
@@ -572,3 +572,18 @@ The first actual corrected-factory Worker gate passes 133,686 C /498 external ch
 Separate memory-only transport tests retain 78 focused Node groups (123 with adjacent host tests) and 60,863 C checks/configuration. Dedicated source/filter/sort policies allow 2,049×14 /30,721×6 /14,337×5, including overflow sentinels. Maximum synthetic filter output needs 5,904,278 Page-owned bytes and uses an explicit caller reservation up to 32 MiB; this is not actual Worker combined-input admission. The real Table driver retains 2 MiB Header/4 MiB input limits, with observed 2,097,214-byte peak including forced pressure, not allocator/engine/RSS peak. Normal Page256 and prior trusted policies remain unchanged.
 
 Three adjacent actual metadata modes retain their original workloads on the updated driver. Fresh normal/review exclusion and Worker247 pass separately at `8770a29`; observed 125,657 C checks retain 249 jobs/529 SQL/21 counts, one start-barrier release and one pending check. No new native GUI/App172 run, native package/service promotion, source execution, full candidate or browser Open/Save is claimed. [Exact sources, natural request failures, fixture correction, counters and limits](validation/checkpoints/2026-10-18-workbook-table-sources/).
+
+
+For complete persisted Pivot and Marks definitions:
+
+```sh
+python3 tools/test.py fast --modules workbook_codec_read --config both
+make test-workbook-codec-pivot-marks
+python3 tools/test_web_app.py --codec-read-driver --codec-pivot-marks
+```
+
+At `66c0de4`, native `--pivot-marks-only` passes 20,702 checks/configuration, 250 cursor metadata executions/259 typed feeds in 3.062/12.734 s optimized/O1. Its exact 48-file/SDK closure matches integrated inputs. Four immutable native archives include empty, Table-bound and primary-bound views; the two-sheet case has 288 Pivot/320 Marks rows fed 256+32 and 256+64 from single results. Full-tier ordering checks its native completion marker after the Table-source marker. Original Header controls and the separately rerun Table native mode retain 1,611/28,602 checks/configuration; maximal old native query/options modes are not repeated.
+
+The official Worker passes 132,097 C /690 external checks, four archives, six Headers, 176 requests, eight rejections and one held completed stale callback/recovery in 21.194 s CLI /8.940 s browser. Fresh transport passes 61,274 C checks/configuration and 131 Node groups. Sparse maximum transport results explicitly reserve up to 32 MiB; actual Header/input limits remain 2 MiB/4 MiB, with peak 2,097,214 including deliberate pressure. These are separate logical admissions, not allocator/engine/RSS measurements. Fixed 4 MiB text/6 MiB wire and normal Page256 limits remain.
+
+Four original metadata profiles, fresh normal/review exclusion and Worker247 pass separately on the same frozen source. No source SQL, App publication, browser Save/Open, native GUI, package/service promotion or physical-input acceptance follows. [Exact source, counters, budgets, timings and retained receipts](validation/checkpoints/2026-10-18-workbook-pivot-marks/).
