@@ -286,6 +286,64 @@ console.log('PASS: actual ledger report guards rejected '+mutations.length+' cor
         result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 33 corrupted receipts',result.stdout)
 
+    def test_source_bindings_mode_refuses_mixed_profiles_and_seals_exact_inventory(self):
+        options=harness.parse_options(['--codec-read-driver','--codec-source-bindings','--no-build'])
+        self.assertTrue(options.codec_source_bindings and options.no_build)
+        self.assertEqual(harness.CODEC_SOURCE_BINDINGS_FIXTURES,{'source-bindings-v12.dxls':(12,25),'source-bindings-v13.dxls':(13,25),'source-bindings-v14.dxls':(14,25),'source-bindings-v14-reordered.dxls':(14,25)})
+        invalid=[['--codec-source-bindings'],*(['--codec-read-driver','--codec-source-bindings',family] for family in
+            ('--codec-sorts','--codec-preferences','--codec-objects','--codec-queries','--codec-source-options','--codec-tables','--codec-pivot-marks','--codec-filters','--codec-grid','--codec-counters','--codec-source-counters','--codec-source-versions','--review','--worker-driver','--metadata-stream-probe','--dpr=2'))]
+        for arguments in invalid:
+            with self.subTest(arguments=arguments),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(arguments)
+        with tempfile.TemporaryDirectory() as temporary:
+            path=Path(temporary);emitted=self.fixtures(path,harness.CODEC_SOURCE_BINDINGS_FIXTURES)
+            self.assertEqual([row['name'] for row in harness.codec_fixture_manifest(path,emitted,harness.CODEC_SOURCE_BINDINGS_FIXTURES)['files']],list(harness.CODEC_SOURCE_BINDINGS_FIXTURES))
+            with self.assertRaisesRegex(RuntimeError,'Unexpected native codec fixture'):
+                harness.codec_fixture_manifest(path,emitted,harness.CODEC_SOURCE_VERSIONS_FIXTURES)
+
+    def test_full_tier_bindings_follow_ledger_and_require_their_own_completion(self):
+        args=runner.parser().parse_args(['full','--config','both','--no-build'])
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);(root/'Makefile').write_text('');instance=runner.Runner(args,root)
+            with mock.patch.object(instance,'command',side_effect=lambda name,command,*a,**k:{'name':name,'command':command,'status':'passed'}) as command, \
+                 mock.patch.object(instance,'headless'),mock.patch.object(instance,'prepare_native'),mock.patch.object(instance,'retain_binaries'), \
+                 mock.patch.object(instance,'background_check'),mock.patch.object(instance,'native_scenarios'), \
+                 mock.patch.object(runner,'FileLock',side_effect=lambda *a,**k:contextlib.nullcontext()):
+                instance.full()
+            calls=command.call_args_list;bindings=[(n,call) for n,call in enumerate(calls) if call.args[1][-1]=='--source-bindings-only']
+            self.assertEqual(len(bindings),2)
+            for index,call in bindings:
+                binary=call.args[1][0];self.assertEqual(calls[index-1].args[1],[binary,'--source-versions-only'])
+                pattern=call.kwargs['completion_pattern'];runner.validate_output('PASS: native source bindings 123 checks;\n',0,completion_pattern=pattern)
+                with self.assertRaises(RuntimeError):runner.validate_output('PASS: native source versions 123 checks;\n',0,completion_pattern=pattern)
+
+    def test_actual_binding_report_guards_refuse_incomplete_or_changed_evidence(self):
+        source=Path(__file__).with_name('test_web_app.mjs').read_text();start=source.index('function validateCodecSourceBindingsReport(report,check) {')
+        function=source[start:source.index('\nfunction validateCodecSourceVersionsReport',start)]
+        report=dict(mode='source-bindings',fixtures=4,headers=5,queries=166,rejections=5,stale=1,callbacks=156,normalFixtureQueries=[16,18,24,24],
+            familyExecutions=dict(meta=11,sheets=11,objects=11,queries=11,sourceOptions=11,tableSources=11,tableFilters=11,tableSorts=11,objectCounters=10,sourceCounters=9,sourceVersions=9,sourceBindings=9,describe=41),
+            acceptedFeeds=dict(objects56=11,queries21=11,sourceOptionsEmpty=11,tableSources18=11,tableFiltersEmpty=11,tableSortsEmpty=11,objectCounters32=20,sourceCounters32=18,sourceVersions256=8,sourceVersions32=8,sourceVersions8=1,sourceVersionsEof=9,sourceBindings32=14,sourceBindings18=3),
+            objectDefaults=1,sourceCounterDefaults=2,ledgerDefaults=2,bindingDefaults=2,ledgerStreams=9,matchedLedgerDataCallbacks=17,matchedLedgerEofCallbacks=9,ledgerChunkCallbacks=26,ledgerAcceptedAcks=26,ledgerDoneCallbacks=9,ledgerPoisonedDataChunks=17,
+            completedBindingResults=3,poisonedBindingResults=8,rejectedFeeds=5,staleCallbacks=1,rejectedFirstRows=[64,64,64,64,0],staleWireReservationBytes=10000,staleTotalReservationBytes=21,
+            maximumCompletedHeaderOwned=200000,headerOwnedLimit=2097152,inputOwnedLimit=4194304,peakOwnedInput=2200000,
+            transport=dict(sourceVersionPhysicalChunks=26,stream=dict(submissions=9,chunkCallbacks=26,acceptedAcks=26,doneCallbacks=9,held=0,released=0,cancelled=0)))
+        for name in ('requiredNullRejected','foreignOwnerRejected','missingOwnerRejected','danglingVersionRejected','budgetRejected','stalePreserved','freshRecovery','olderNoBindingQuery','exactRawBytes','independentLocators','deferredBindingsRetained','analysisVersionsRemainZero'):report[name]=True
+        script="""import assert from 'node:assert/strict';import vm from 'node:vm';
+const validate=vm.runInNewContext('('+FUNCTION+')'),good=REPORT;
+const check=(condition,message)=>{if(!condition)throw new Error(message);};validate(good,check);
+const mutations=[r=>r.queries--,r=>r.callbacks--,r=>r.normalFixtureQueries[1]=24,r=>r.familyExecutions.sourceBindings--,
+ r=>r.acceptedFeeds.sourceBindings32--,r=>r.acceptedFeeds.sourceVersionsEof--,r=>r.bindingDefaults=0,r=>r.objectDefaults=0,
+ r=>r.poisonedBindingResults--,r=>r.rejectedFeeds--,r=>r.staleCallbacks=0,r=>r.ledgerAcceptedAcks++,r=>r.ledgerDoneCallbacks--,
+ r=>r.rejectedFirstRows[2]=0,r=>r.exactRawBytes=false,r=>r.independentLocators=false,r=>r.deferredBindingsRetained=false,
+ r=>r.analysisVersionsRemainZero=false,r=>r.olderNoBindingQuery=false,r=>r.danglingVersionRejected=false,r=>r.budgetRejected=false,
+ r=>r.maximumCompletedHeaderOwned=2097153,r=>r.peakOwnedInput=4194305,r=>r.staleWireReservationBytes=0,
+ r=>r.staleWireReservationBytes=6291457,r=>r.staleTotalReservationBytes=20,r=>r.transport.stream.acceptedAcks++,
+ r=>r.transport.stream.doneCallbacks--,r=>r.transport.sourceVersionPhysicalChunks--];
+for(const mutate of mutations){const bad=structuredClone(good);mutate(bad);assert.throws(()=>validate(bad,check));}
+console.log('PASS: binding report guards rejected '+mutations.length+' corrupted receipts');
+""".replace('FUNCTION',json.dumps(function)).replace('REPORT',json.dumps(report))
+        result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 29 corrupted receipts',result.stdout)
+
     def test_manifest_covers_bytes_and_refuses_unowned_extra_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary);emitted=self.fixtures(directory)

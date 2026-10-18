@@ -30,7 +30,7 @@ static const unsigned queries_versions[]={12,14,14,13,14,14};
 static bool sorts_mode,sorts_wire,preferences_mode,objects_mode,objects_wire,queries_mode,queries_wire;
 static const char *options_files[]={"options-v12.dxls","options-v13.dxls","options-v14.dxls","options-v14-reordered.dxls"};
 static const unsigned options_versions[]={12,13,14,14};
-static bool options_mode,options_wire,tables_mode,pm_mode,filters_mode,filters_wire,grid_mode,counters_mode,source_counters_mode,source_versions_mode;
+static bool options_mode,options_wire,tables_mode,pm_mode,filters_mode,filters_wire,grid_mode,counters_mode,source_counters_mode,source_versions_mode,source_bindings_mode,source_bindings_wire;
 static const char *grid_files[]={"grid-v12.dxls","grid-v13.dxls","grid-v14.dxls","grid-v14-reordered.dxls"};
 static const unsigned grid_versions[]={12,13,14,14};
 static const char *counters_files[]={"counters-v12.dxls","counters-v13.dxls","counters-v14.dxls","counters-v14-reordered.dxls"};
@@ -39,6 +39,17 @@ static const char *source_counters_files[]={"source-counters-v12.dxls","source-c
 static const unsigned source_counters_versions[]={12,13,14,14};
 static const char *source_versions_files[]={"source-versions-v12.dxls","source-versions-v13.dxls","source-versions-v14.dxls","source-versions-v14-reordered.dxls"};
 static const unsigned source_versions_versions[]={12,13,14,14};
+static const char *source_bindings_files[]={"source-bindings-v12.dxls","source-bindings-v13.dxls","source-bindings-v14.dxls","source-bindings-v14-reordered.dxls"};
+static const unsigned source_bindings_versions[]={12,13,14,14};
+static void source_bindings_report(bool ok,const char *error);
+static void source_bindings_tick(void);
+static size_t source_bindings_retained(void);
+static bool source_bindings_observe(size_t extra);
+static bool source_bindings_stale(size_t size);
+static int source_bindings_stream_chunk(unsigned cookie,unsigned ticket,unsigned sequence,const char *first,int end,const void *wire,size_t size,const char *total,int pending);
+static void source_bindings_stream_done(unsigned cookie,unsigned ticket,int status,const char *rows,unsigned chunks,const char *error);
+static void source_bindings_stream_held(unsigned cookie,unsigned ticket,unsigned sequence);
+static void source_bindings_stream_cancelled(unsigned cookie,unsigned ticket,const char *error);
 static void source_versions_report(bool ok,const char *error);
 static void source_versions_tick(void);
 static size_t source_versions_retained(void);
@@ -82,9 +93,9 @@ static void tables_report(bool ok,const char *error);
 static void tables_tick(void);
 static size_t tables_retained(void);
 static bool tables_observe(size_t extra);
-static bool table_wire(void) {return (tables_mode||pm_mode)&&tables_wire;}
-static bool owner_wire(void) {return ((queries_mode||options_mode||tables_mode||pm_mode||filters_mode)&&queries_wire)||((options_mode||tables_mode||pm_mode||filters_mode)&&options_wire);}
-static bool object_wire(void) {return (objects_mode||queries_mode||options_mode||tables_mode||pm_mode||filters_mode||counters_mode||source_counters_mode||source_versions_mode)&&objects_wire;}
+static bool table_wire(void) {return (tables_mode||pm_mode||source_bindings_mode)&&tables_wire;}
+static bool owner_wire(void) {return ((queries_mode||options_mode||tables_mode||pm_mode||filters_mode||source_bindings_mode)&&queries_wire)||((options_mode||tables_mode||pm_mode||filters_mode||source_bindings_mode)&&options_wire)||(source_bindings_mode&&source_bindings_wire);}
+static bool object_wire(void) {return (objects_mode||queries_mode||options_mode||tables_mode||pm_mode||filters_mode||counters_mode||source_counters_mode||source_versions_mode||source_bindings_mode)&&objects_wire;}
 static void options_report(bool ok,const char *error);
 static void options_tick(void);
 static size_t options_retained(void);
@@ -110,7 +121,7 @@ typedef struct {
     WorkbookCodecHeader *header,*prior;
     WorkbookCodecKey prior_key;
     size_t prior_header_bytes;
-    Page page,meta_schema,sheets_schema,sorts_schema,preferences_schema,objects_schema,queries_schema,options_schema,filters_schema,grid_columns_schema,grid_cells_schema,counters_schema,source_counters_schema,source_versions_schema,table_sources_schema,table_filters_schema,table_sorts_schema,pivot_schema,marks_schema;
+    Page page,meta_schema,sheets_schema,sorts_schema,preferences_schema,objects_schema,queries_schema,options_schema,filters_schema,grid_columns_schema,grid_cells_schema,counters_schema,source_counters_schema,source_versions_schema,source_bindings_schema,table_sources_schema,table_filters_schema,table_sorts_schema,pivot_schema,marks_schema;
     WorkbookCodecColumn columns[25];
     WorkbookCodecAtom *atoms;
     size_t atom_bytes,wire_bytes,peak_input,pressure_bytes;
@@ -145,13 +156,13 @@ static void report(bool ok,const char *error) {
 }
 static size_t text_bytes(const char *s) { return s ? strlen(s)+1 : 0; }
 static size_t retained(void) {
-    return sizeof(d)+(sorts_mode?sorts_retained():0)+(preferences_mode?preferences_retained():0)+(objects_mode?objects_retained():0)+(queries_mode?queries_retained():0)+(options_mode?options_retained():0)+(tables_mode?tables_retained():0)+(pm_mode?pm_retained():0)+(filters_mode?filters_retained():0)+(grid_mode?grid_retained():0)+(counters_mode?counters_retained():0)+(source_counters_mode?source_counters_retained():0)+(source_versions_mode?source_versions_retained():0)+d.source_versions_schema.bytes+d.source_counters_schema.bytes+d.counters_schema.bytes+d.grid_columns_schema.bytes+d.grid_cells_schema.bytes+d.filters_schema.bytes+d.pivot_schema.bytes+d.marks_schema.bytes+d.table_sources_schema.bytes+d.table_filters_schema.bytes+d.table_sorts_schema.bytes+d.page.bytes+d.meta_schema.bytes+d.sheets_schema.bytes+d.sorts_schema.bytes+d.preferences_schema.bytes+d.objects_schema.bytes+d.queries_schema.bytes+d.options_schema.bytes+d.atom_bytes+d.pressure_bytes+
+    return sizeof(d)+(sorts_mode?sorts_retained():0)+(preferences_mode?preferences_retained():0)+(objects_mode?objects_retained():0)+(queries_mode?queries_retained():0)+(options_mode?options_retained():0)+(tables_mode?tables_retained():0)+(pm_mode?pm_retained():0)+(filters_mode?filters_retained():0)+(grid_mode?grid_retained():0)+(counters_mode?counters_retained():0)+(source_counters_mode?source_counters_retained():0)+(source_versions_mode?source_versions_retained():0)+(source_bindings_mode?source_bindings_retained():0)+d.source_bindings_schema.bytes+d.source_versions_schema.bytes+d.source_counters_schema.bytes+d.counters_schema.bytes+d.grid_columns_schema.bytes+d.grid_cells_schema.bytes+d.filters_schema.bytes+d.pivot_schema.bytes+d.marks_schema.bytes+d.table_sources_schema.bytes+d.table_filters_schema.bytes+d.table_sorts_schema.bytes+d.page.bytes+d.meta_schema.bytes+d.sheets_schema.bytes+d.sorts_schema.bytes+d.preferences_schema.bytes+d.objects_schema.bytes+d.queries_schema.bytes+d.options_schema.bytes+d.atom_bytes+d.pressure_bytes+
         text_bytes(d.sql)+text_bytes(d.descriptors)+text_bytes(d.bindings)+text_bytes(d.error)+workbook_codec_header_owned_bytes(d.header);
 }
 static void stop(const char *message,int line) {
     if(d.done)return;
     fprintf(stderr,"FAIL codec-read:%d fixture=%u phase=%u fault=%u: %s\n",line,d.fixture,d.phase,d.fault,message?message:"unknown");
-    d.failed=true;d.done=true;if(source_versions_mode)source_versions_report(false,message);else if(source_counters_mode)source_counters_report(false,message);else if(counters_mode)counters_report(false,message);else if(grid_mode)grid_report(false,message);else if(filters_mode)filters_report(false,message);else if(pm_mode)pm_report(false,message);else if(tables_mode)tables_report(false,message);else if(options_mode)options_report(false,message);else if(queries_mode)queries_report(false,message);else if(objects_mode)objects_report(false,message);else if(preferences_mode)preferences_report(false,message);else if(sorts_mode)sorts_report(false,message);else report(false,message);
+    d.failed=true;d.done=true;if(source_bindings_mode)source_bindings_report(false,message);else if(source_versions_mode)source_versions_report(false,message);else if(source_counters_mode)source_counters_report(false,message);else if(counters_mode)counters_report(false,message);else if(grid_mode)grid_report(false,message);else if(filters_mode)filters_report(false,message);else if(pm_mode)pm_report(false,message);else if(tables_mode)tables_report(false,message);else if(options_mode)options_report(false,message);else if(queries_mode)queries_report(false,message);else if(objects_mode)objects_report(false,message);else if(preferences_mode)preferences_report(false,message);else if(sorts_mode)sorts_report(false,message);else report(false,message);
     emscripten_cancel_main_loop();
 }
 #define CHECK(test,message) do {d.checks++;if(!(test)){stop((message),__LINE__);return false;}}while(0)
@@ -210,7 +221,7 @@ static bool canonical_schema(Page *out,const WorkbookCodecTable *table) {
         column->numeric=column->number_type.kind!=NUM_NONE;next.bytes+=n+1+strlen(column->type_name)+1;
         p+=n;if(*p)p++;types++;
     }
-    if((sorts_mode&&!sorts_observe(next.bytes))||(preferences_mode&&!preferences_observe(next.bytes))||(objects_mode&&!objects_observe(next.bytes))||(queries_mode&&!queries_observe(next.bytes))||(options_mode&&!options_observe(next.bytes))||(tables_mode&&!tables_observe(next.bytes))||(pm_mode&&!pm_observe(next.bytes))||(filters_mode&&!filters_observe(next.bytes))||(grid_mode&&!grid_observe(next.bytes))||(counters_mode&&!counters_observe(next.bytes))||(source_counters_mode&&!source_counters_observe(next.bytes))||(source_versions_mode&&!source_versions_observe(next.bytes))){page_free(&next);return false;}
+    if((sorts_mode&&!sorts_observe(next.bytes))||(preferences_mode&&!preferences_observe(next.bytes))||(objects_mode&&!objects_observe(next.bytes))||(queries_mode&&!queries_observe(next.bytes))||(options_mode&&!options_observe(next.bytes))||(tables_mode&&!tables_observe(next.bytes))||(pm_mode&&!pm_observe(next.bytes))||(filters_mode&&!filters_observe(next.bytes))||(grid_mode&&!grid_observe(next.bytes))||(counters_mode&&!counters_observe(next.bytes))||(source_counters_mode&&!source_counters_observe(next.bytes))||(source_versions_mode&&!source_versions_observe(next.bytes))||(source_bindings_mode&&!source_bindings_observe(next.bytes))){page_free(&next);return false;}
     page_free(out);*out=next;return true;
 }
 static char *descriptors(const Page *schema) {
@@ -225,7 +236,7 @@ static char *descriptors(const Page *schema) {
     dx_append(&json,"]");return json;
 }
 static bool resolver(void *context,SourceKind kind,const char *reference,size_t maximum,WorkbookCodecOwnedText *out) {
-    Driver *driver=context;if(((tables_mode||pm_mode)?(kind<SOURCE_CSV||kind>SOURCE_DATABASE):source_versions_mode?(kind!=SOURCE_CSV&&kind!=SOURCE_PARQUET):kind!=SOURCE_CSV)||!reference||!*reference||!maximum)return false;
+    Driver *driver=context;if(((tables_mode||pm_mode)?(kind<SOURCE_CSV||kind>SOURCE_DATABASE):(source_versions_mode||source_bindings_mode)?(kind!=SOURCE_CSV&&kind!=SOURCE_PARQUET):kind!=SOURCE_CSV)||!reference||!*reference||!maximum)return false;
     out->data=malloc(1);if(!out->data)return false;out->data[0]=0;out->bytes=0;driver->resolves++;return true;
 }
 static bool header_expected(void) {
@@ -263,7 +274,7 @@ static bool begin_read(void) {
     d.prior=d.header;d.prior_header_bytes=workbook_codec_header_owned_bytes(d.header);
     if(d.header)d.prior_key=*workbook_codec_header_key(d.header);
     d.key=(WorkbookCodecKey){UINT64_C(9007199254740993),UINT64_C(18446744073709551615)-d.fault,UINT64_C(9007199254740995)+d.fixture};
-    CHECK(workbook_codec_read_begin_with_options(&d.read,d.key,source_versions_mode?source_versions_versions[d.fixture]:source_counters_mode?source_counters_versions[d.fixture]:counters_mode?counters_versions[d.fixture]:grid_mode?grid_versions[d.fixture]:filters_mode?filters_versions[d.fixture]:pm_mode?pm_versions[d.fixture]:tables_mode?tables_versions[d.fixture]:options_mode?options_versions[d.fixture]:queries_mode?queries_versions[d.fixture]:objects_mode?objects_versions[d.fixture]:preferences_mode?preferences_versions[d.fixture]:sorts_mode?sorts_versions[d.fixture]:versions[d.fixture],(WorkbookCodecSheetsLayout)(sorts_mode||preferences_mode||objects_mode||queries_mode||options_mode||tables_mode||pm_mode||filters_mode||grid_mode||counters_mode||source_counters_mode||source_versions_mode?25:layouts[d.fixture]),(WorkbookCodecReadOptions){filters_mode},HEADER_LIMIT,resolver,&d,&d.error),d.error?d.error:"Begin shared header reader");
+    CHECK(workbook_codec_read_begin_with_options(&d.read,d.key,source_bindings_mode?source_bindings_versions[d.fixture]:source_versions_mode?source_versions_versions[d.fixture]:source_counters_mode?source_counters_versions[d.fixture]:counters_mode?counters_versions[d.fixture]:grid_mode?grid_versions[d.fixture]:filters_mode?filters_versions[d.fixture]:pm_mode?pm_versions[d.fixture]:tables_mode?tables_versions[d.fixture]:options_mode?options_versions[d.fixture]:queries_mode?queries_versions[d.fixture]:objects_mode?objects_versions[d.fixture]:preferences_mode?preferences_versions[d.fixture]:sorts_mode?sorts_versions[d.fixture]:versions[d.fixture],(WorkbookCodecSheetsLayout)(sorts_mode||preferences_mode||objects_mode||queries_mode||options_mode||tables_mode||pm_mode||filters_mode||grid_mode||counters_mode||source_counters_mode||source_versions_mode||source_bindings_mode?25:layouts[d.fixture]),(WorkbookCodecReadOptions){filters_mode},HEADER_LIMIT,resolver,&d,&d.error),d.error?d.error:"Begin shared header reader");
     CHECK(!workbook_codec_read_finish(d.read,&d.header,&d.error),"Incomplete metadata unexpectedly replaced old Header");
     free(d.error);d.error=NULL;return true;
 }
@@ -284,6 +295,7 @@ static bool send_sql(char *owned,const Page *schema,unsigned limit,bool hold) {
     if(counters_mode)CHECK(counters_observe(0),"Counter request buffers exceed C input budget");
     if(source_counters_mode)CHECK(source_counters_observe(0),"Source-counter request buffers exceed C input budget");
     if(source_versions_mode)CHECK(source_versions_observe(0),"Source-version request buffers exceed C input budget");
+    if(source_bindings_mode)CHECK(source_bindings_observe(0),"Source-binding request buffers exceed C input budget");
     query_start(d.cookie,d.ticket,d.sql,d.descriptors,d.bindings,limit,hold,filters_mode&&filters_wire?9:pm_mode&&pm_wire?pm_wire:table_wire()?tables_wire:owner_wire()?3:object_wire()?2:(sorts_mode||filters_mode)&&sorts_wire);return true;
 }
 static bool send_family(bool sheets,bool hold) {
@@ -462,6 +474,7 @@ static bool tick_body(void) {
 #include "test_browser_codec_counters.inc"
 #include "test_browser_codec_source_counters.inc"
 #include "test_browser_codec_source_versions.inc"
+#include "test_browser_codec_source_bindings.inc"
 static void tick(void) {
     if(d.done)return;
     if(sorts_mode){sorts_tick();return;}
@@ -476,6 +489,7 @@ static void tick(void) {
     if(counters_mode){counters_tick();return;}
     if(source_counters_mode){source_counters_tick();return;}
     if(source_versions_mode){source_versions_tick();return;}
+    if(source_bindings_mode){source_bindings_tick();return;}
     // A held response has completed official execution and left EngineHost's
     // active submission before the fixture event allows its stale replay.
     if(d.phase==6&&d.fault==9&&d.held_ready&&!d.stale_released)d.waiting=false;
@@ -492,18 +506,18 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_codec_fixture_result(unsigned cookie,unsign
     if(!u64(epoch,&epoch_value)||!epoch_value||!u64(registration,&registration_value)||!registration_value||!sha||strlen(sha)!=64||!bytes){stop("Malformed immutable fixture token",__LINE__);return;}
     d.fixtures++;
     memcpy(d.epoch,epoch,strlen(epoch)+1);memcpy(d.registration,registration,strlen(registration)+1);memcpy(d.sha,sha,65);
-    free(d.bindings);d.bindings=dx_printf("[{\"name\":\"%s\",\"engineEpoch\":\"%s\",\"registrationId\":\"%s\"}]",source_versions_mode?source_versions_files[d.fixture]:source_counters_mode?source_counters_files[d.fixture]:counters_mode?counters_files[d.fixture]:grid_mode?grid_files[d.fixture]:filters_mode?filters_files[d.fixture]:pm_mode?pm_files[d.fixture]:tables_mode?tables_files[d.fixture]:options_mode?options_files[d.fixture]:queries_mode?queries_files[d.fixture]:objects_mode?objects_files[d.fixture]:preferences_mode?preferences_files[d.fixture]:sorts_mode?sorts_files[d.fixture]:files[d.fixture],d.epoch,d.registration);
+    free(d.bindings);d.bindings=dx_printf("[{\"name\":\"%s\",\"engineEpoch\":\"%s\",\"registrationId\":\"%s\"}]",source_bindings_mode?source_bindings_files[d.fixture]:source_versions_mode?source_versions_files[d.fixture]:source_counters_mode?source_counters_files[d.fixture]:counters_mode?counters_files[d.fixture]:grid_mode?grid_files[d.fixture]:filters_mode?filters_files[d.fixture]:pm_mode?pm_files[d.fixture]:tables_mode?tables_files[d.fixture]:options_mode?options_files[d.fixture]:queries_mode?queries_files[d.fixture]:objects_mode?objects_files[d.fixture]:preferences_mode?preferences_files[d.fixture]:sorts_mode?sorts_files[d.fixture]:files[d.fixture],d.epoch,d.registration);
 }
 EMSCRIPTEN_KEEPALIVE void dx_browser_codec_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,const char *total,int pending,const char *failure) {
     // Superseded callbacks are ignored before looking at any borrowed buffer,
     // including the error and total pointers. The host retires their ownership.
-    if(d.done||cookie!=d.cookie||ticket!=d.ticket){if(!d.done&&((counters_mode&&!counters_stale(size))||(source_counters_mode&&!source_counters_stale(size))||(source_versions_mode&&!source_versions_stale(size))))return;d.stale++;return;}
+    if(d.done||cookie!=d.cookie||ticket!=d.ticket){if(!d.done&&((counters_mode&&!counters_stale(size))||(source_counters_mode&&!source_counters_stale(size))||(source_versions_mode&&!source_versions_stale(size))||(source_bindings_mode&&!source_bindings_stale(size))))return;d.stale++;return;}
     if(!d.waiting){stop("Duplicate active codec callback",__LINE__);return;}
     d.callbacks++;d.waiting=false;d.ready=true;
     if(failure){free(d.error);d.error=dx_strdup(failure);return;}
     if((filters_mode&&filters_wire)||(pm_mode&&pm_wire)||table_wire()||object_wire()||owner_wire()||((sorts_mode||filters_mode)&&sorts_wire)){
         const WorkbookCodecRequest *request=workbook_codec_read_request(d.read);
-        WorkbookCodecFamily expected=filters_mode&&filters_wire?WORKBOOK_CODEC_FILTERS:pm_mode&&pm_wire?(pm_wire==7?WORKBOOK_CODEC_PIVOT_FIELDS:WORKBOOK_CODEC_MARKS):table_wire()?(tables_wire==4?WORKBOOK_CODEC_TABLE_SOURCES:tables_wire==5?WORKBOOK_CODEC_TABLE_FILTERS:WORKBOOK_CODEC_TABLE_SORTS):owner_wire()?((options_mode||tables_mode||pm_mode||filters_mode)&&options_wire?WORKBOOK_CODEC_SOURCE_OPTIONS:WORKBOOK_CODEC_QUERIES):object_wire()?WORKBOOK_CODEC_OBJECTS:WORKBOOK_CODEC_SORTS;
+        WorkbookCodecFamily expected=filters_mode&&filters_wire?WORKBOOK_CODEC_FILTERS:pm_mode&&pm_wire?(pm_wire==7?WORKBOOK_CODEC_PIVOT_FIELDS:WORKBOOK_CODEC_MARKS):table_wire()?(tables_wire==4?WORKBOOK_CODEC_TABLE_SOURCES:tables_wire==5?WORKBOOK_CODEC_TABLE_FILTERS:WORKBOOK_CODEC_TABLE_SORTS):owner_wire()?(source_bindings_mode&&source_bindings_wire?WORKBOOK_CODEC_SOURCE_BINDINGS:(options_mode||tables_mode||pm_mode||filters_mode||source_bindings_mode)&&options_wire?WORKBOOK_CODEC_SOURCE_OPTIONS:WORKBOOK_CODEC_QUERIES):object_wire()?WORKBOOK_CODEC_OBJECTS:WORKBOOK_CODEC_SORTS;
         if(!request||request->family!=expected){stop("Trusted metadata wire policy has no matching active cursor",__LINE__);return;}
     }
     uint64_t count=0;if(!u64(total,&count)){stop("Noncanonical callback total",__LINE__);return;}
@@ -535,12 +549,13 @@ EM_JS(int, codec_options_mode,(void),{return Module['dxCodecSourceOptionsMode']?
 EM_JS(int, codec_tables_mode,(void),{return Module['dxCodecTablesMode']?1:0;})
 EM_JS(int, codec_pm_mode,(void),{return Module['dxCodecPivotMarksMode']?1:0;})
 EM_JS(int, codec_filters_mode,(void),{return Module['dxCodecFiltersMode']?1:0;})
+EM_JS(int, codec_source_bindings_mode,(void),{return Module['dxCodecSourceBindingsMode']?1:0;})
 EM_JS(int, codec_source_versions_mode,(void),{return Module['dxCodecSourceVersionsMode']?1:0;})
 EM_JS(int, codec_source_counters_mode,(void),{return Module['dxCodecSourceCountersMode']?1:0;})
 EM_JS(int, codec_counters_mode,(void),{return Module['dxCodecCountersMode']?1:0;})
 EM_JS(int, codec_grid_mode,(void),{return Module['dxCodecGridMode']?1:0;})
 int main(void) {
-    source_versions_mode=codec_source_versions_mode()!=0;source_counters_mode=codec_source_counters_mode()!=0;counters_mode=codec_counters_mode()!=0;grid_mode=codec_grid_mode()!=0;filters_mode=codec_filters_mode()!=0;pm_mode=codec_pm_mode()!=0;tables_mode=codec_tables_mode()!=0;sorts_mode=codec_sorts_mode()!=0;preferences_mode=codec_preferences_mode()!=0;objects_mode=codec_objects_mode()!=0;queries_mode=codec_queries_mode()!=0;options_mode=codec_options_mode()!=0;d.cookie=40;d.ticket=100;
-    if((unsigned)sorts_mode+(unsigned)preferences_mode+(unsigned)objects_mode+(unsigned)queries_mode+(unsigned)options_mode+(unsigned)tables_mode+(unsigned)pm_mode+(unsigned)filters_mode+(unsigned)grid_mode+(unsigned)counters_mode+(unsigned)source_counters_mode+(unsigned)source_versions_mode>1){stop("Ambiguous codec acceptance modes",__LINE__);return 1;}
+    source_bindings_mode=codec_source_bindings_mode()!=0;source_versions_mode=codec_source_versions_mode()!=0;source_counters_mode=codec_source_counters_mode()!=0;counters_mode=codec_counters_mode()!=0;grid_mode=codec_grid_mode()!=0;filters_mode=codec_filters_mode()!=0;pm_mode=codec_pm_mode()!=0;tables_mode=codec_tables_mode()!=0;sorts_mode=codec_sorts_mode()!=0;preferences_mode=codec_preferences_mode()!=0;objects_mode=codec_objects_mode()!=0;queries_mode=codec_queries_mode()!=0;options_mode=codec_options_mode()!=0;d.cookie=40;d.ticket=100;
+    if((unsigned)sorts_mode+(unsigned)preferences_mode+(unsigned)objects_mode+(unsigned)queries_mode+(unsigned)options_mode+(unsigned)tables_mode+(unsigned)pm_mode+(unsigned)filters_mode+(unsigned)grid_mode+(unsigned)counters_mode+(unsigned)source_counters_mode+(unsigned)source_versions_mode+(unsigned)source_bindings_mode>1){stop("Ambiguous codec acceptance modes",__LINE__);return 1;}
     emscripten_set_main_loop(tick,60,0);return 0;
 }
