@@ -610,7 +610,7 @@ async function browserChartOther(){
  const distinctReply=await assigned('Customer','values',{result:true});
  let published=await platformSnapshot();const object=analysisObject(published,7);
  check(distinctReply.rows===5&&distinctReply.columns===4&&distinctReply.total==='5'&&!distinctReply.pending&&object.counts.join(',')==='1,1,3,0'&&object.page.join(',')==='0,5,4,5,0,0','Actual authoring did not publish five Groups with Current Bucket and three assigned aggregates');
- check(published.totals_shape==='5,3,1,4,1'&&published.object_category0_present==='1'&&published.object_category0_null==='0'&&published.object_category0_truncated==='0'&&Buffer.from(published.object_category0_hex??'','hex').toString('utf8')==='Current','Actual Columns matrix lost its source category/footer shapes');
+ check(published.totals_shape==='5,3,1,6,1'&&published.object_category0_present==='1'&&published.object_category0_null==='0'&&published.object_category0_truncated==='0'&&Buffer.from(published.object_category0_hex??'','hex').toString('utf8')==='Current','Actual Columns matrix lost its source category/footer shapes');
  const sourceFields=['sheet','sheet_count','manual_cells','source_revision','schema','page','spare'];
  check(sourceFields.every(name=>published[name]===baseline[name]),'Source-derived Other publication replaced primary source/manual ownership');
  check(published.object_other_status==='2'&&published.object_other_variants==='1','Actual App did not retain one READY source-aggregation Other variant');
