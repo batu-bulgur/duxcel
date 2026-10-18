@@ -393,13 +393,16 @@ static char *positional_relation(Database *db,Analysis *a,char **error) {
     char *sql=dx_printf("SELECT * EXCLUDE (%s) FROM (\n%s\n) AS source_positions",id,records.relation);
     free(id); free(base); free(optional_error); record_sql_free(&records); return sql;
 }
-static bool result_page_visible(duckdb_result *r,Page *p,size_t limit,size_t visible,char **error) {
+static bool result_page_visible_status(duckdb_result *r,Page *p,size_t limit,size_t visible,bool *limited,char **error) {
+    if (limited) *limited=false;
     /* DuckDB owns the allocator behind duckdb_value_varchar, including empty
        strings. Preserve that release function through Page moves and totals. */
     p->release_cell_text=duckdb_free;
     size_t rows=(size_t)duckdb_row_count(r);
-    if (visible>(size_t)duckdb_column_count(r) || visible>16384 || visible>limit/sizeof(*p->columns) ||
+    if (visible>(size_t)duckdb_column_count(r)) { fail(error,"Result page columns do not match its result."); return false; }
+    if (visible>16384 || visible>limit/sizeof(*p->columns) ||
         (visible && rows>(limit-visible*sizeof(*p->columns))/sizeof(*p->cells)/visible)) {
+        if (limited) *limited=true;
         fail(error,"Result page is too wide. Select fewer columns in SQL."); return false;
     }
     p->column_count=visible; p->row_count=rows;
@@ -416,7 +419,7 @@ static bool result_page_visible(duckdb_result *r,Page *p,size_t limit,size_t vis
             duckdb_destroy_logical_type(&type);
         } else col->type_name = dx_strdup(type_name(col->type));
         p->bytes+=strlen(col->name)+strlen(col->type_name)+2;
-        if (p->bytes>limit) { fail(error,"Column metadata exceeds the page memory limit."); return false; }
+        if (p->bytes>limit) { if (limited) *limited=true; fail(error,"Column metadata exceeds the page memory limit."); return false; }
         for (size_t row = 0; row < p->row_count; row++) {
             Cell *cell = &p->cells[row * p->column_count + c];
             cell->is_null = duckdb_value_is_null(r, c, row);
@@ -425,11 +428,14 @@ static bool result_page_visible(duckdb_result *r,Page *p,size_t limit,size_t vis
                 if (!cell->text) { fail(error,"DuckDB could not convert a cell for display"); return false; }
                 if (col->numeric) cell->number = duckdb_value_double(r, c, row);
                 p->bytes += strlen(cell->text) + 1;
-                if (p->bytes>limit) { fail(error,"Result page exceeds its memory limit. Choose fewer fields or shorter values."); return false; }
+                if (p->bytes>limit) { if (limited) *limited=true; fail(error,"Result page exceeds its memory limit. Choose fewer fields or shorter values."); return false; }
             }
         }
     }
     return true;
+}
+static bool result_page_visible(duckdb_result *r,Page *p,size_t limit,size_t visible,char **error) {
+    return result_page_visible_status(r,p,limit,visible,NULL,error);
 }
 static bool result_page(duckdb_result *r,Page *p,size_t limit,char **error) {
     return result_page_visible(r,p,limit,(size_t)duckdb_column_count(r),error);
@@ -748,11 +754,12 @@ static bool other_scalar_type(duckdb_type type) {
 typedef struct { bool observed; SourceFileIdentity identity; uint64_t stamp; } OtherSourceGuard;
 static bool other_source_begin(const Analysis *source,uint64_t expected,OtherSourceGuard *guard,bool *supported,char **error) {
     bool file=source->kind==SOURCE_CSV || source->kind==SOURCE_PARQUET;
-    *supported=true;
+    *supported=source->kind==SOURCE_DEMO;
     if (!file) {
         if (expected) { fail(error,"The captured source stamp does not match this chart source."); return false; }
-        return true;
+        return true; /* Attached databases have no immutable all-pass snapshot. */
     }
+    *supported=true;
     char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
     if (!source->path || strpbrk(source->path,"*?[]") ||
         source_file_identity(source->path,&guard->identity,detail)!=SOURCE_DIGEST_OK || !(guard->stamp=dx_file_stamp(source->path))) {
@@ -799,6 +806,35 @@ static bool other_retained(const Page *page,const PageOther *other,size_t defini
     if (extra>DX_PAGE_OTHER_BYTES-bytes) return false;
     *used=bytes+extra; return true;
 }
+/* Result validation/conversion is atomic and reports only real admission
+   limits through limited. Unexpected query output remains a fatal error. */
+static bool other_result_page(duckdb_result *result,const Page *parent,size_t keys,size_t columns,
+    size_t budget,Page *out,bool *limited,char **error) {
+    if (limited) *limited=false;
+    if (!parent || !parent->columns || !out || keys>parent->column_count || columns!=parent->column_count-keys ||
+        !columns || columns>DX_PAGE_OTHER_VALUE_COLUMNS || duckdb_row_count(result)!=1 || duckdb_column_count(result)!=columns) {
+        fail(error,"Source-derived chart readouts returned an unexpected shape."); return false;
+    }
+    for (size_t c=0;c<columns;c++) {
+        const Column *expected=&parent->columns[keys+c]; char name[48]; snprintf(name,sizeof(name),"__dx_other_%zu",c);
+        const char *actual_name=duckdb_column_name(result,c); duckdb_type actual=duckdb_column_type(result,c);
+        duckdb_logical_type logical=duckdb_column_logical_type(result,c); NumberType number=number_type(logical); duckdb_destroy_logical_type(&logical);
+        if (!actual_name || strcmp(actual_name,name) || actual!=expected->type || numeric_type(actual)!=expected->numeric ||
+            number.kind!=expected->number_type.kind || number.precision!=expected->number_type.precision || number.scale!=expected->number_type.scale) {
+            fail(error,"Source-derived chart readout names or SQL types changed."); return false;
+        }
+    }
+    Page next={0};
+    if (!result_page_visible_status(result,&next,budget,columns,limited,error)) { page_free(&next); return false; }
+    next.total=1; page_free(out); *out=next; return true;
+}
+#ifdef DUXCEL_TEST_CHART_OTHER
+/* Compiled only into the focused test target; never a shipping interface. */
+bool dx_test_chart_other_result(duckdb_result *result,const Page *parent,size_t keys,size_t columns,
+    size_t budget,Page *out,bool *limited,char **error) {
+    return other_result_page(result,parent,keys,columns,budget,out,limited,error);
+}
+#endif
 static bool other_populate(Database *db,Analysis *source,const PivotDefinition *definition,Page *page,char **error) {
     if (page->other_status==PAGE_OTHER_UNSAFE_KEY) return true;
     size_t keys=definition->counts[PIVOT_ROWS],measures=definition->counts[PIVOT_VALUES];
@@ -840,18 +876,20 @@ static bool other_populate(Database *db,Analysis *source,const PivotDefinition *
         }
         duckdb_result result={0};
         if (cancelled(db,error) || !database_execute(db,plan.sql,&result,error)) { chart_other_plan_free(&plan); goto fatal; }
-        Page *values=&other->variants[variant];
-        bool converted=duckdb_row_count(&result)==1 && duckdb_column_count(&result)==other->value_columns;
-        if (converted) converted=result_page(&result,values,DX_PAGE_OTHER_BYTES-used,&local_error);
+        Page *values=&other->variants[variant]; bool limited=false;
+        bool converted=other_result_page(&result,page,keys,other->value_columns,DX_PAGE_OTHER_BYTES-used,values,&limited,&local_error);
         duckdb_destroy_result(&result); chart_other_plan_free(&plan);
-        if (!converted) { page->other_status=PAGE_OTHER_LIMIT; goto done; }
-        values->offset=0; values->total=1;
+        if (!converted) {
+            if (limited) { page->other_status=PAGE_OTHER_LIMIT; goto done; }
+            fail(error,local_error); goto fatal;
+        }
         other->rank_measure[variant]=rank.rank_measure;
         memcpy(other->top_rows[variant],rank.top_rows,sizeof(rank.top_rows));
         other->variant_count++; other->measure_variant[m]=variant;
     }
     if (!other->variant_count) { page->other_status=PAGE_OTHER_UNAVAILABLE; goto done; }
-    if (!page_other_adopt(page,&other,&local_error)) { page->other_status=PAGE_OTHER_LIMIT; goto done; }
+    if (!other_retained(page,other,definitions,0,&used)) { page->other_status=PAGE_OTHER_LIMIT; goto done; }
+    if (!page_other_adopt(page,&other,&local_error)) { fail(error,local_error); goto fatal; }
     ok=true;
  done:
     page_other_free(other); free(local_error); return true;

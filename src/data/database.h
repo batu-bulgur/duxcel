@@ -72,7 +72,9 @@ bool database_pivot(Database *db,Analysis *source,const PivotDefinition *definit
    status; query/cancellation/observed-file failures preserve out. A zero stamp
    captures the current eligible CSV/Parquet observation; nonzero must match.
    Same-query BOOLEAN witnesses gate NUL-free keys. This observes the declared
-   regular source file, not arbitrary SQL dependencies or durable identity.
+   regular source file, not arbitrary SQL dependencies, query determinism or
+   durable identity. Attached databases have no all-pass immutable snapshot and
+   retain their ordinary matrix/totals with Other unsupported.
    Combined Page+Other+retained plan staging is <=4 MiB; engine/allocator peaks
    and temporary existing SQL helper construction are separate costs. */
 bool database_pivot_with_other(Database *db,Analysis *source,const PivotDefinition *definition,
