@@ -12871,14 +12871,14 @@ static void layout_smoke_step(App *a,int *step) {
     case 896:
         if (a->pipeline_focus_index!=1 || a->pipeline_inner_scroll!=62 || a->pipeline_outer_scroll ||
             a->page.total!=5 || a->analysis.filter_count!=5 || strcmp(a->analysis.filters[0].column,"City") ||
-            a->analysis_revision!=inspector_revision+1 || s->undo_actions_count!=inspector_history+1 ||
-            a->worker.jobs_started!=inspector_jobs+1 || a->worker.sql_executed!=inspector_queries+1 || a->ui.scissor_depth) goto failed;
+            a->analysis_revision!=inspector_revision || s->undo_actions_count!=inspector_history+1 || a->request_id!=request ||
+            a->page.cells!=ribbon_cells || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries || a->ui.scissor_depth) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-reordered.png");
         history(a,false); break;
     case 897:
         if (a->page.total!=5 || a->analysis.filter_count!=5 || strcmp(a->analysis.filters[0].column,"ID") ||
-            s->undo_actions_count!=inspector_history || a->worker.jobs_started!=inspector_jobs+2 ||
-            a->worker.sql_executed!=inspector_queries+2 || a->ui.scissor_depth) goto failed;
+            s->undo_actions_count!=inspector_history || a->analysis_revision!=inspector_revision || a->request_id!=request ||
+            a->page.cells!=ribbon_cells || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries || a->ui.scissor_depth) goto failed;
         puts("PASS: native independent Steps outer and inner scrolling, sticky header, partial row, captured pan, keyboard/context/collapse without queries, and real reordered-step reveal/Undo without clipboard"); break;
 
     }
