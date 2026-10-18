@@ -11726,7 +11726,7 @@ static void layout_smoke_step(App *a,int *step) {
         SheetObject *table=s->objects.items; Page *page=&a->objects[0].page;
         if (a->analysis.kind!=SOURCE_NONE || a->page.column_count || s->objects.count!=1 || table->row!=8 || table->col!=7 ||
             page->total!=600 || page->column_count!=5 || strcmp(page->cells[3].text,"9007199254740993") ||
-            page->columns[4].type!=DUCKDB_TYPE_DECIMAL || !page->cells[2].is_null ||
+            page->columns[4].type!=DUCKDB_TYPE_DECIMAL || !page->cells[2].is_null || !s->formats.source_aware ||
             *page->cells[12].text || strcmp(page->cells[22].text,"NULL")) goto failed;
         author_cells=page->cells; draft_history=s->undo_actions_count;
         a->selected_object=0; a->book.dirty=false;
@@ -11752,8 +11752,12 @@ static void layout_smoke_step(App *a,int *step) {
         if (!smoke_table_record_formats(a,0,true,true) || active_format(a).color) goto failed;
         request=a->request_id;
         history(a,false); history(a,false);
-        if (s->objects.items[0].source.source_version || s->formats.source_aware || s->source_versions.high_water!=1 ||
-            s->undo_actions_count!=draft_history || a->objects[0].page.cells!=author_cells) goto failed;
+        /* The first Table import already established manual-only formatting
+           semantics. Undo removes both record edits and their live binding,
+           while retaining that pre-command mode and the retired high-water. */
+        if (s->objects.items[0].source.source_version || !s->formats.source_aware || s->formats.count || s->formats.scope_count ||
+            source_format_owner_token(a,s->objects.items[0].id)!=SIZE_MAX || active_format(a).flags || active_format(a).color ||
+            s->source_versions.high_water!=1 || s->undo_actions_count!=draft_history || a->objects[0].page.cells!=author_cells) goto failed;
         history(a,true); history(a,true);
         if (!smoke_table_record_formats(a,0,true,true) || s->objects.items[0].source.source_version!=1 ||
             a->objects[0].page.cells!=author_cells || a->request_id!=request || s->redo_actions_count) goto failed;
