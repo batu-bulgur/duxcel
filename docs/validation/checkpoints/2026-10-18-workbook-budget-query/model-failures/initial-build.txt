@@ -1,0 +1,7 @@
+mkdir -p build/web-tests
+clang -Isrc -I/opt/homebrew/include -DDUXCEL_BROWSER_HOST -O2 -g -std=c99 -Wall -Wextra -Wpedantic src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/workbook/workbook_codec.c src/workbook/workbook_browser.c tests/test_workbook_model.c -o build/web-tests/test-model -lm
+src/platform/platform.c:13:10: fatal error: 'emscripten/emscripten.h' file not found
+   13 | #include <emscripten/emscripten.h>
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~
+1 error generated.
+make: *** [build/web-tests/test-model] Error 1

@@ -1,0 +1,134 @@
+{
+  "source": "efd7adf",
+  "scope": "Temporary matched command metadata-query probe; no App/UI/persistence execution claim; boundary checks use nine unchanged standalone predicates.",
+  "library": "/opt/homebrew/lib/libduckdb.dylib",
+  "library_sha256": "b36d22b47c649b266380d02e4d0940e4b7a5c38fe4bf5370b777742386650c8a",
+  "records": [
+    {
+      "configuration": "release",
+      "build_seconds": 0.481772,
+      "elapsed_seconds": 0.701125,
+      "exit_code": 0,
+      "command": [
+        "clang",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-g",
+        "-O2",
+        "-I/opt/homebrew/include",
+        "/Users/h2o/.codex/worktrees/duxcel-workbook-limits-probe/duxcel/build/workbook-limits-probe/probe.c",
+        "-L/opt/homebrew/lib",
+        "-lduckdb",
+        "-pthread",
+        "-lm",
+        "-o",
+        "/Users/h2o/.codex/worktrees/duxcel-workbook-limits-probe/duxcel/build/workbook-limits-probe/probe-release"
+      ],
+      "timings": [
+        {
+          "kind": "timing",
+          "variant": "old_or",
+          "temperature": "cold",
+          "milliseconds": 26.629,
+          "invalid": false
+        },
+        {
+          "kind": "timing",
+          "variant": "union_bool_or",
+          "temperature": "cold",
+          "milliseconds": 1.395,
+          "invalid": false
+        },
+        {
+          "kind": "timing",
+          "variant": "union_bool_or",
+          "temperature": "warm",
+          "milliseconds": 1.277,
+          "invalid": false
+        },
+        {
+          "kind": "timing",
+          "variant": "old_or",
+          "temperature": "warm",
+          "milliseconds": 19.901,
+          "invalid": false
+        }
+      ],
+      "result": {
+        "kind": "passed",
+        "checks": 1009,
+        "cases": 30,
+        "timed_queries": 4,
+        "predicate_order_unchanged": true
+      },
+      "source_sha256": "6fb9d5fddbcd51761e7b3bac401c2b61e19adba5205d9f1d1923059d396516aa",
+      "binary_sha256": "21045e21eaa4fd342eb61a9595cca801d2da010e77a071c684edaa2f7c8188c7"
+    },
+    {
+      "configuration": "sanitize",
+      "build_seconds": 0.133468,
+      "elapsed_seconds": 1.499741,
+      "exit_code": 0,
+      "command": [
+        "clang",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-g",
+        "-O1",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "-I/opt/homebrew/include",
+        "/Users/h2o/.codex/worktrees/duxcel-workbook-limits-probe/duxcel/build/workbook-limits-probe/probe.c",
+        "-L/opt/homebrew/lib",
+        "-lduckdb",
+        "-pthread",
+        "-lm",
+        "-o",
+        "/Users/h2o/.codex/worktrees/duxcel-workbook-limits-probe/duxcel/build/workbook-limits-probe/probe-sanitize"
+      ],
+      "timings": [
+        {
+          "kind": "timing",
+          "variant": "old_or",
+          "temperature": "cold",
+          "milliseconds": 73.563001,
+          "invalid": false
+        },
+        {
+          "kind": "timing",
+          "variant": "union_bool_or",
+          "temperature": "cold",
+          "milliseconds": 5.451,
+          "invalid": false
+        },
+        {
+          "kind": "timing",
+          "variant": "union_bool_or",
+          "temperature": "warm",
+          "milliseconds": 4.771,
+          "invalid": false
+        },
+        {
+          "kind": "timing",
+          "variant": "old_or",
+          "temperature": "warm",
+          "milliseconds": 72.362,
+          "invalid": false
+        }
+      ],
+      "result": {
+        "kind": "passed",
+        "checks": 1009,
+        "cases": 30,
+        "timed_queries": 4,
+        "predicate_order_unchanged": true
+      },
+      "source_sha256": "6fb9d5fddbcd51761e7b3bac401c2b61e19adba5205d9f1d1923059d396516aa",
+      "binary_sha256": "99d2716e24132717eec4bb0786e371c1ae2acf4d16f6e42a43e100cadf4630b6"
+    }
+  ]
+}

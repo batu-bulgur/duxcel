@@ -1,0 +1,24 @@
+{
+  "source": {
+    "commit": "96e68b10169944dc92b0489c7fa0e543a3627fe0",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "f749bb655086584003e0cdd4c6048f8a5d4cae1673acec66e185853add36b6be",
+    "source_files": 286
+  },
+  "results": [
+    {
+      "name": "build",
+      "command": [
+        "make",
+        "build/web-tests/test-model",
+        "build/web-tests/test-model-sanitize"
+      ],
+      "exit_code": 2,
+      "seconds": 3.432,
+      "log": "build/bp1-browser-model-final-build.txt"
+    }
+  ],
+  "seconds": 3.432,
+  "source_unchanged": true,
+  "scope": "Browser-conditioned C model build/ownership only, no Worker or browser persistence activation."
+}
