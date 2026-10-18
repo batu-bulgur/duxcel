@@ -6165,9 +6165,11 @@ static void draw_pipeline(App *a,Rectangle r) {
         ui_label(u,step->title,box(item.x+39*scale,item.y+6*scale,item.width-64*scale,15*scale),11.5f,(Color){41,72,94,255},false,UI_REGULAR);
         ui_label(u,step->detail,box(item.x+39*scale,item.y+24*scale,item.width-64*scale,14*scale),10.5f,UI_MUTED,false,UI_REGULAR);
         ui_carbon(u,CARBON_CHECKMARK,box(item.x+item.width-18*scale,item.y+(item.height-12*scale)*.5f,12*scale,12*scale),UI_MUTED);
-        DxPointerGesture gesture;
-        if (enabled && (ui_take_gesture_from(item,&gesture) && gesture.right)) { ui_clear_clip(u); a->pipeline_focus_index=index; begin_step_menu(a,(size_t)index,(Vector2){gesture.x1,gesture.y1}); return; }
-        if (enabled && CheckCollisionPointRec(mouse,item) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { ui_clear_clip(u); a->pipeline_focus_index=index; begin_step_menu(a,(size_t)index,mouse); return; }
+        /* The extra painted row may extend below the list into its actions.
+           Only its visible portion can own a context gesture. */
+        Rectangle hit=GetCollisionRec(item,u->clip); DxPointerGesture gesture;
+        if (enabled && hit.width>0 && hit.height>0 && ui_take_gesture_from(hit,&gesture) && gesture.right) { ui_clear_clip(u); a->pipeline_focus_index=index; begin_step_menu(a,(size_t)index,(Vector2){gesture.x1,gesture.y1}); return; }
+        if (enabled && hit.width>0 && hit.height>0 && CheckCollisionPointRec(mouse,hit) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { ui_clear_clip(u); a->pipeline_focus_index=index; begin_step_menu(a,(size_t)index,mouse); return; }
         if (selected && a->chrome_focus==8) ui_focus_border(item,layout.list,scale);
     }
     ui_clear_clip(u); if (maximum) list_scrollbar(a,layout.list,count,visible,&a->step_scroll,&a->steps_drag,&a->steps_grab,enabled);
