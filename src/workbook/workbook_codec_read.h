@@ -11,7 +11,7 @@ typedef struct WorkbookCodecRead WorkbookCodecRead;
 typedef struct WorkbookCodecHeader WorkbookCodecHeader;
 typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; } WorkbookCodecKey;
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
-    WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES } WorkbookCodecFamily;
+    WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -68,6 +68,14 @@ bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool table_present,ch
    Whole-batch POD publication owns no input strings; failure preserves state.
    Completion of this family still does not validate/publish a Workbook. */
 bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool table_present,char **error);
+/* Optional writer12/13/14 descriptor registry, not complete SheetObjects.
+   Absent12/13 defaults empty; v14 requires this table. One named ordered result
+   admits2048 descriptors plus a2049th sentinel, in atomic batches<=256, with at
+   most32 descriptors per sheet. Source references resolve to same-sheet Table
+   descriptors only when the family completes. Tables' source definitions,
+   Pivot fields/measure arity, Marks, cells and allocation counters remain
+   unvalidated; no source query or runtime revision is constructed. */
+bool workbook_codec_read_add_objects(WorkbookCodecRead *read,bool table_present,char **error);
 /* Cells/column descriptors are borrowed for this call, not a DXP1 buffer. The
    existing wire decoder remains the sole wire parser; an adapter supplies exact
    typed atoms. Include all concrete caller-owned input/adapter bytes that
@@ -79,8 +87,8 @@ bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool table_pres
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   sorts/preferences). It is not a complete workbook: cells, objects, formats,
-   ledger and queries are absent.
+   sorts/preferences/object descriptors). It is not a complete workbook: cells,
+   full objects, formats, ledger and queries are absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
 void workbook_codec_read_free(WorkbookCodecRead *read);
@@ -99,6 +107,21 @@ float workbook_codec_header_user_scale(const WorkbookCodecHeader *header);
    for the original meta/sheets-only Header, including an empty sort_count. */
 bool workbook_codec_header_sorts_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_preferences_ready(const WorkbookCodecHeader *header);
+/* Readiness applies only to the complete descriptor registry. Names borrow
+   immutable Header storage; never free them or retain them beyond Header free.
+   Invalid/not-ready getters return0/false; object_at preserves out on false.
+   IDs are worksheet-local full uint64 values, not array positions. */
+typedef struct {
+    uint64_t id,row,height,source_id;
+    size_t column,width;
+    ObjectKind kind;
+    ChartMark mark;
+    unsigned chart_measure;
+    const char *name;
+} WorkbookCodecObjectView;
+bool workbook_codec_header_objects_ready(const WorkbookCodecHeader *header);
+size_t workbook_codec_header_object_count(const WorkbookCodecHeader *header,size_t sheet);
+bool workbook_codec_header_object_at(const WorkbookCodecHeader *header,size_t sheet,size_t index,WorkbookCodecObjectView *out);
 /* POD defaults are false until preferences is explicitly complete. Invalid
    Header/sheet arguments return false; check sheet_count to validate identity. */
 bool workbook_codec_header_reduced_motion(const WorkbookCodecHeader *header);
