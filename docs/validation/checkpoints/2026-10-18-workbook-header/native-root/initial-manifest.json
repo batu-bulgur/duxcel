@@ -1,0 +1,52 @@
+{
+  "source": {
+    "commit": "6766749795504a90dc76541451f420c544456a55",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "4e951043da240c4b3888c5caf005d5e6fffed60fb7c0cb98490f0a7098e6ae42",
+    "source_files": 290
+  },
+  "results": [
+    {
+      "name": "build",
+      "command": [
+        "make",
+        "tests/test_workbook_codec_native",
+        "tests/test_workbook_codec_native-debug"
+      ],
+      "exit_code": 0,
+      "seconds": 11.238,
+      "log": "build/bp1-header-native-root-build.txt"
+    },
+    {
+      "name": "release",
+      "command": [
+        "./tests/test_workbook_codec_native"
+      ],
+      "exit_code": 0,
+      "seconds": 1.226,
+      "log": "build/bp1-header-native-root-release.txt"
+    },
+    {
+      "name": "sanitize",
+      "command": [
+        "./tests/test_workbook_codec_native-debug"
+      ],
+      "exit_code": 0,
+      "seconds": 2.87,
+      "log": "build/bp1-header-native-root-sanitize.txt"
+    },
+    {
+      "name": "runner",
+      "command": [
+        "python3",
+        "tools/test_runner_test.py"
+      ],
+      "exit_code": 1,
+      "seconds": 2.052,
+      "log": "build/bp1-header-native-root-runner.txt"
+    }
+  ],
+  "seconds": 17.388,
+  "source_unchanged": true,
+  "scope": "Real native engine typed meta/sheets Header comparison only; no product loader/browser/Save/Open activation."
+}

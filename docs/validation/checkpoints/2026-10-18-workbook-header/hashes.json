@@ -1,0 +1,150 @@
+{
+  "algorithm": "sha256",
+  "scope": "Every retained checkpoint payload except this self-referential seal. Partial-header component, native comparison, adjacent App/package and runner sources remain separately scoped. No decoder-linked product activation.",
+  "files": {
+    "README.md": {
+      "sha256": "28311ab9d119fb7de79f5fcd64835d1382c3ba677d1fb17ea5350bad53d842be",
+      "bytes": 8419
+    },
+    "adjacent-app/release/background-sanitize.txt": {
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "bytes": 2518
+    },
+    "adjacent-app/release/build-integration.txt": {
+      "sha256": "25ce63c4ea1ed74c153db4e18b4f427f9700acaacd615753b09a02884703b8a3",
+      "bytes": 390
+    },
+    "adjacent-app/release/native-workspace.txt": {
+      "sha256": "12db62dcf1e02accd53f4bbfc070e60b22970f7a32e3bec0295aeb0ced71ada8",
+      "bytes": 10328
+    },
+    "adjacent-app/release/summary.json": {
+      "sha256": "b50602b0baac1e336cff7fedaca2f2fc3cac509574edd11833958966a84df405",
+      "bytes": 2320
+    },
+    "adjacent-app/sanitize/background-sanitize.txt": {
+      "sha256": "9a7af766e8f3b6abcfcb8a4cbcece76e68fe969bd029644100d56d603604e226",
+      "bytes": 2518
+    },
+    "adjacent-app/sanitize/build-integration.txt": {
+      "sha256": "ca65d8efa697fc998942c0e5e0a519383fd9f22163383e80069715ca6fd7c4a1",
+      "bytes": 396
+    },
+    "adjacent-app/sanitize/native-workspace.txt": {
+      "sha256": "7f4582b49991eb33555e249b53d56a62e25723a085144d5f54fe9a989f2dd2c2",
+      "bytes": 14159
+    },
+    "adjacent-app/sanitize/summary.json": {
+      "sha256": "cb6605a460a348566cc97f0ce2f190e09fbbad7f12bab3f04b0a105242a16e7e",
+      "bytes": 2349
+    },
+    "component08/manifest.json": {
+      "sha256": "ae0d075ca47587321ded005d7064ac519e67e445a7124014fb57460084cff9ce",
+      "bytes": 10103
+    },
+    "component08/release-run.txt": {
+      "sha256": "5384d9d5253c9b5d97a80a0c796cab37bb6c4106f8ab38176a2af917e651c5b0",
+      "bytes": 159
+    },
+    "component08/sanitize-run.txt": {
+      "sha256": "5384d9d5253c9b5d97a80a0c796cab37bb6c4106f8ab38176a2af917e651c5b0",
+      "bytes": 159
+    },
+    "component404/manifest.json": {
+      "sha256": "fe12fb277efb2610255c07ef56e36685fb4f7bfaab31758947f5e923cae4120e",
+      "bytes": 10626
+    },
+    "component404/release-nm.txt": {
+      "sha256": "b09942ffdef7811cd16ca887bf8f9f29f421b9fe1b4eafb6caeb3039afe964e0",
+      "bytes": 330
+    },
+    "component404/release-run.txt": {
+      "sha256": "84b8138e20541cdb6288361173fa4f52521dae1b0651294d8b451a49681677a4",
+      "bytes": 159
+    },
+    "component404/sanitize-run.txt": {
+      "sha256": "84b8138e20541cdb6288361173fa4f52521dae1b0651294d8b451a49681677a4",
+      "bytes": 159
+    },
+    "delivery-adjacent/workbook-policy-exclusion-native-sanitize.txt": {
+      "sha256": "56fbbb9ed0d77a0280d8d5f376fd9a515124a47c2215c5622f0b6787395460e5",
+      "bytes": 2011
+    },
+    "delivery-adjacent/workbook-policy-exclusion-native.txt": {
+      "sha256": "287f632a47ca0d5edda745918ef2380cf8d7eafa7571f40529ad2e1d5000335b",
+      "bytes": 1995
+    },
+    "delivery-adjacent/workbook-policy-package.json": {
+      "sha256": "c4b13f1206e719a32bda4f34b7e5917f2164a62384de34c91625628401ae0866",
+      "bytes": 1564
+    },
+    "delivery-adjacent/workbook-policy-package.txt": {
+      "sha256": "f72622f1885ce31c8b5860d3e511a455838e08b6c216a768a0f0e526380bd858",
+      "bytes": 471
+    },
+    "native-private/initial-noncanonical-resolver-setup.txt": {
+      "sha256": "5e2c01b5702a6b5624f5665e8f95801a28d634ea5478c75a996b13107049a04f",
+      "bytes": 472
+    },
+    "native-private/manifest.json": {
+      "sha256": "196ea0af3ad15c73ba6ace8ffe499c6a7b37c6ac20419660b5afbca0d1889e25",
+      "bytes": 13660
+    },
+    "native-private/release-run.txt": {
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044",
+      "bytes": 218
+    },
+    "native-private/sanitize-run.txt": {
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044",
+      "bytes": 218
+    },
+    "native-root/final-acceptance.json": {
+      "sha256": "8fcfb85223c8b13e4280ec025ef47258420a54e26945fb4ef0d41b8c766f577c",
+      "bytes": 857
+    },
+    "native-root/final-runner.txt": {
+      "sha256": "f495c274c04a070297391af08268b8a651164e8b22fce57a7fe6f21e552cc011",
+      "bytes": 4981
+    },
+    "native-root/initial-build.txt": {
+      "sha256": "89b7418737dcc72a8fa89e70e9bd922c772eb5c89a7f25b875a6ca272c8fa119",
+      "bytes": 1461
+    },
+    "native-root/initial-manifest.json": {
+      "sha256": "9ab1e339a88288849dba48b192f5471202e0f374f0de7bc15edd3ab3f48472e3",
+      "bytes": 1349
+    },
+    "native-root/initial-runner.txt": {
+      "sha256": "90b12c0bf548710183d6d6090c7f20f60924b576a789f149bfab245cb0ef7fa3",
+      "bytes": 6627
+    },
+    "native-root/release.txt": {
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044",
+      "bytes": 218
+    },
+    "native-root/sanitize.txt": {
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044",
+      "bytes": 218
+    },
+    "provenance.json": {
+      "sha256": "67eae5298dbda562acb55f2b76623d0fd5daafd758888d1085e63455680ff86d",
+      "bytes": 11447
+    },
+    "pure-root/build-headless.txt": {
+      "sha256": "f40e687aada958646e3833b7019523de1c1746e9c921485292b16303944e2059",
+      "bytes": 719
+    },
+    "pure-root/summary.json": {
+      "sha256": "5aea875a88b45eaec95e82f5b8e9f2d9610fc167dd3c2d87d6dd7315f13db202",
+      "bytes": 2218
+    },
+    "pure-root/workbook_codec_read-release.txt": {
+      "sha256": "46a8d4638feabbd83127254ce858debfdcfed11ab491f9a24ce2b37e9d1738db",
+      "bytes": 205
+    },
+    "pure-root/workbook_codec_read-sanitize.txt": {
+      "sha256": "7b77f8ac2dabf6ffff86b7eaf6164a3502fa32a46b3129930eaa5d091bb4f561",
+      "bytes": 211
+    }
+  }
+}
