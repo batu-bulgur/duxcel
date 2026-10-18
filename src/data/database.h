@@ -32,6 +32,16 @@ bool database_validate_relation(Database *db,Analysis *analysis,char **error); /
 void database_close(Database *db);
 /* Source stamps reject observed in-session file changes, not cross-session identity. */
 bool database_source_matches(const Analysis *source,uint64_t expected_source_stamp,char **error);
+/* One native raw CSV/Parquet result interval, under its captured exact file
+   identity and mandatory nonzero stamp. One bounded identity-only execution
+   collects at most 20,000 IDs (+one overflow sentinel), with no count/business
+   Page or repeated OFFSET execution. Cancellation is checked between <=256-ID
+   conversion batches. Unsupported identity/projection never falls back to
+   positional data. out is zero-initialized or owned: failure preserves it,
+   success replaces it. Analysis may acquire resolved numeric filter bindings.
+   Request/owner/version/latest-publication routing remains caller-owned. */
+bool database_collect_records(Database *db,Analysis *source,uint64_t first,uint64_t rows,
+    const SourceFileIdentity *expected_identity,uint64_t expected_stamp,RecordSelection *out,char **error);
 bool database_copy_bound(Database *db,Analysis *source,uint64_t first,uint64_t rows,size_t column,size_t columns,uint64_t expected_source_stamp,char **tsv,char **error);
 /* Bound Page output must be zero-initialized or own a valid Page. Failure
    preserves it; success replaces its owned contents. */

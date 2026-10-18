@@ -6,6 +6,9 @@ enum { STATISTICS_TEXT_LIMIT=32768 };
 static void fail(char **error,const char *text) {
     free(*error); *error=dx_strdup(text ? text : "DuckDB query failed");
 }
+void record_selection_free(RecordSelection *selection) {
+    if (selection) { free(selection->ids); *selection=(RecordSelection){0}; }
+}
 void page_column_free(Column *c) {
     free(c->name); free(c->type_name); free(c->caption); free(c->detail);
     for (size_t i=0;i<c->category_count;i++) free(c->categories[i]);
