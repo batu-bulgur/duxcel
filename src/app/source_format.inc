@@ -211,7 +211,7 @@ static bool source_format_budget(App *a,const WorkbookFormatReplacement *replace
     if (!result && !source_format_add(&next.retained,incoming_retained)) result=FORMAT_BUDGET_OVERFLOW;
     WorkerFormatUsage worker=worker_format_usage(&a->worker);
     FormatTransientUsage transient={.adopted_staging=adopted,
-        .other_staging=sizeof(SourceFormatIntent)+sizeof(SourceFormatProof)+sizeof(SourceFormatAttempt)+sizeof(a->source_format_tables),.io_snapshots=SOURCE_FORMAT_IO_RESERVE};
+        .other_staging=sizeof(SourceFormatIntent)+sizeof(SourceFormatProof)+sizeof(SourceFormatAttempt)+sizeof(a->source_format_tables)+DX_FORMAT_VALIDATION_BYTES,.io_snapshots=SOURCE_FORMAT_IO_RESERVE};
     /* Keep capacity for two retiring/current save snapshots. SQL construction
        uses the existing bounded raw helper; its separate staging allowance is
        retained for every active/pending operation, including canceled work.
