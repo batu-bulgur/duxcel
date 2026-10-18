@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
 static unsigned checks;
 #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL workbook:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
 static void sql_file(const char *path,const char *sql) {
@@ -1122,6 +1124,16 @@ static void test_source_version_save_guard(void) {
             ObjectSnapshot history={copy.items,copy.count}; copy.items=NULL; copy.count=0; objects_free(&copy);
             if (kind==7) { sheet->objects.undo[0]=history; sheet->objects.undo_count=1; } else { sheet->objects.redo[0]=history; sheet->objects.redo_count=1; }
         }
+        if (kind>=2 && kind<=4) {
+            /* A retained counter and pending/complete archival entries now have
+               a v14 representation; they must not force a live binding. */
+            CHECK(workbook_save(trial,fresh,&error)); require_workspace_version(fresh,14);
+            CHECK(workbook_load(&loaded,fresh,&error));
+            CHECK(loaded.sheets[0].source_versions.high_water==sheet->source_versions.high_water && loaded.sheets[0].source_versions.count==sheet->source_versions.count);
+            CHECK(!loaded.sheets[0].analysis.source_version && !loaded.sheets[0].objects.items[0].source.source_version);
+            if (kind==4) CHECK(loaded.sheets[0].source_versions.items[0].raw.bytes==sheet->source_versions.items[0].raw.bytes && !memcmp(loaded.sheets[0].source_versions.items[0].raw.data,sheet->source_versions.items[0].raw.data,sheet->source_versions.items[0].raw.bytes));
+            remove(fresh); workbook_free(trial); free(trial); continue;
+        }
         Workbook before=*trial;
         for (size_t i=0;i<3;i++) {
             CHECK(!workbook_save(trial,i<2 ? paths[i] : fresh,&error) && error && strstr(error,"v14")); free(error); error=NULL;
@@ -1139,10 +1151,258 @@ static void test_source_version_save_guard(void) {
     }
     workbook_free(&book); workbook_free(&loaded);
 }
+/* These are codec fixtures, not filesystem-verification or App activation
+   fixtures. Their packet proofs deliberately use a fixed synthetic digest. */
+static void source_format_issue(Worksheet *sheet,uint64_t owner,uint64_t version,const Analysis *source,bool complete) {
+    Column columns[]={
+        {.name="Id",.type_name="UBIGINT",.type=DUCKDB_TYPE_UBIGINT,.number_type={NUM_U64,0,0},.numeric=true},
+        {.name="City",.type_name="VARCHAR",.type=DUCKDB_TYPE_VARCHAR},
+        {.name="Amount",.type_name="DECIMAL(38,4)",.type=DUCKDB_TYPE_DECIMAL,.number_type={NUM_DECIMAL,38,4},.numeric=true}
+    };
+    Page schema={.columns=columns,.column_count=3}; SourceDigest digest={.bytes=3,.identity={.size=3}}; memset(digest.sha256,0x5a,sizeof(digest.sha256));
+    SourcePacket raw={0}; char *error=NULL;
+    if (complete) CHECK(source_scope_raw_build(owner,version,source,&schema,&digest,"v1.5.6",&raw,&error));
+    SourceVersion entry={.owner=owner,.version=version,.kind=source->kind,.path=source->path,.raw=raw}; SourceVersions next={0};
+    CHECK(source_versions_plan(&sheet->source_versions,&entry,true,&next,&error));
+    source_versions_free(&sheet->source_versions); sheet->source_versions=next; source_packet_free(&raw); free(error);
+}
+static void source_format_fixture(Workbook *book) {
+    const uint64_t base=UINT64_C(9007199254740992); char *error=NULL;
+    FILE *file=fopen("tests/generated/source-format-proof.csv","wb"); CHECK(file && fwrite("Id,City,Amount\n1,NULL,1.0000\n",1,27,file)==27 && !fclose(file));
+    Analysis source={.kind=SOURCE_CSV,.path=dx_absolute_path("tests/generated/source-format-proof.csv")},blank={0}; CHECK(source.path);
+    CHECK(analysis_filter_set(&source,"Amount",FILTER_GREATER,"9007199254740993.1250",&error)); analysis_filter_number(&source,"Amount",(NumberType){NUM_DECIMAL,38,4});
+    CHECK(analysis_sort_set(&source,"City",true,false,&error));
+    CHECK(workbook_add(book,"Source records",&source,&error)); Worksheet *sheet=book->sheets;
+    sheet->source_versions.high_water=base; source_format_issue(sheet,0,base+1,&source,true); source_format_issue(sheet,0,base+2,&source,false); source_format_issue(sheet,0,base+3,&source,true);
+    sheet->analysis.source_version=base+1;
+    CellFormat value=format_default(); value.flags=FORMAT_BOLD;
+    FormatScopeView raw={0,sheet->source_versions.items[0].raw.data,sheet->source_versions.items[0].raw.bytes};
+    uint64_t ids[]={1,UINT64_C(9007199254740993),UINT64_MAX}; size_t fields[]={0,2};
+    CHECK(format_apply_records(&sheet->formats,&raw,ids,3,fields,2,FORMAT_BOLD,value,&error));
+    SourcePacket result={0}; CHECK(source_scope_result_build(&sheet->source_versions.items[0].raw,&sheet->analysis,&result,&error));
+    FormatScopeView exact={0,result.data,result.bytes}; value.flags=FORMAT_ITALIC;
+    CHECK(format_apply_scoped(&sheet->formats,(FormatRange){4,7,1,2},FORMAT_ITALIC,value,&exact,1,false,&error)); source_packet_free(&result);
+    value.flags=FORMAT_UNDERLINE; CHECK(format_apply(&sheet->formats,(FormatRange){20,20,5,5},FORMAT_UNDERLINE,value,&error));
+    CHECK(cells_set(&sheet->cells,20,5,"NULL",&error)); CHECK(cells_set(&sheet->cells,21,5,"12345678901234567890.0123456789",&error));
+    CHECK(workbook_add(book,"Table owner",&blank,&error)); sheet=book->sheets+1; sheet->objects.next_id=base;
+    Analysis table={.kind=SOURCE_PARQUET,.path=source.path}; CHECK(objects_add_table(&sheet->objects,0,8,"Bound source",&table,&error)==0);
+    uint64_t owner=sheet->objects.items[0].id; sheet->source_versions.high_water=UINT64_MAX-1; source_format_issue(sheet,owner,UINT64_MAX,&table,true); sheet->objects.items[0].source.source_version=UINT64_MAX;
+    raw=(FormatScopeView){owner,sheet->source_versions.items[0].raw.data,sheet->source_versions.items[0].raw.bytes}; uint64_t table_ids[]={2,5}; size_t table_field=1; value.flags=FORMAT_BOLD;
+    CHECK(format_apply_records(&sheet->formats,&raw,table_ids,2,&table_field,1,FORMAT_BOLD,value,&error));
+    CHECK(workbook_add(book,"Unbound",&blank,&error)); CHECK(workbook_add(book,"Retired versions",&blank,&error)); book->sheets[3].source_versions.high_water=UINT64_MAX; book->active=0;
+    analysis_free(&source); free(error);
+}
+static void source_format_check(const Workbook *book,const Workbook *original) {
+    const uint64_t base=UINT64_C(9007199254740992); CHECK(book->count==4 && book->active==0);
+    const Worksheet *sheet=book->sheets; const SourceVersions *versions=&sheet->source_versions;
+    CHECK(versions->high_water==base+3 && versions->count==3 && sheet->analysis.source_version==base+1);
+    CHECK(versions->items[0].version==base+1 && versions->items[1].version==base+2 && versions->items[2].version==base+3 && !versions->items[1].raw.bytes);
+    CHECK(!strcmp(versions->items[0].path,sheet->analysis.path) && versions->items[0].raw.data!=original->sheets[0].source_versions.items[0].raw.data);
+    CHECK(!memcmp(versions->items[0].raw.data,original->sheets[0].source_versions.items[0].raw.data,versions->items[0].raw.bytes));
+    CHECK(sheet->formats.source_aware && sheet->formats.scope_count==2 && sheet->formats.count==3 && sheet->formats.scopes!=original->sheets[0].formats.scopes);
+    const FormatPatch *records=sheet->formats.items,*result=records+1;
+    CHECK(records->selector==FORMAT_RECORDS && records->record_count==3 && records->field_count==2 && records->record_ids[0]==1 && records->record_ids[1]==base+1 && records->record_ids[2]==UINT64_MAX && records->fields[0]==0 && records->fields[1]==2);
+    CHECK(result->selector==FORMAT_RESULT && result->range.r0==4 && result->range.r1==7 && result->guard_count==1);
+    CHECK(!format_at(&sheet->formats,4,1).flags && !format_at(&sheet->formats,0,0).flags && format_at(&sheet->formats,20,5).flags==FORMAT_UNDERLINE); /* Dormant through legacy consumer. */
+    CHECK(!strcmp(cells_get(&sheet->cells,20,5),"NULL") && !strcmp(cells_get(&sheet->cells,21,5),"12345678901234567890.0123456789"));
+    CHECK(!sheet->analysis.filter_number.kind && !sheet->undo_count && !sheet->formats.undo_count); /* Never trust restored derived numeric bindings. */
+    sheet=book->sheets+1; CHECK(sheet->objects.next_id==base+1 && sheet->objects.items[0].id==base+1 && sheet->objects.items[0].source.source_version==UINT64_MAX);
+    CHECK(sheet->source_versions.high_water==UINT64_MAX && sheet->source_versions.items[0].owner==base+1 && sheet->source_versions.items[0].version==UINT64_MAX);
+    CHECK(!strcmp(sheet->source_versions.items[0].path,sheet->objects.items[0].source.path) && sheet->formats.items[0].fields[0]==1);
+    CHECK(!book->sheets[2].analysis.source_version && !book->sheets[2].source_versions.high_water && book->sheets[3].source_versions.high_water==UINT64_MAX && !book->sheets[3].source_versions.count && !book->sheets[3].formats.source_aware);
+}
+static void source_format_reject(const char *path,const Workbook *replacement,Workbook *caller,const char *mutation) {
+    char *error=NULL; size_t before_bytes=0,after_bytes=0; unsigned char *before=workspace_bytes(path,&before_bytes);
+    Workbook previous=*caller,replacement_before=*replacement; Worksheet sheet=caller->sheets[0],replacement_sheet=replacement->sheets[0];
+    bool accepted=workbook_load(caller,path,&error); if (accepted || !error || !*error) fprintf(stderr,"Unexpected v14 load outcome for %s: %s\n",mutation,error ? error : "no error");
+    CHECK(!accepted && error && *error); free(error); error=NULL;
+    CHECK(!memcmp(&previous,caller,sizeof(previous)) && !memcmp(&sheet,caller->sheets,sizeof(sheet)) && !strcmp(cells_get(&caller->sheets[0].cells,30,0),"Keep unsaved source state"));
+    CHECK(!workbook_save(replacement,path,&error) && error && *error); free(error); error=NULL;
+    CHECK(!memcmp(&replacement_before,replacement,sizeof(replacement_before)) && !memcmp(&replacement_sheet,replacement->sheets,sizeof(replacement_sheet)));
+    unsigned char *after=workspace_bytes(path,&after_bytes); CHECK(before_bytes==after_bytes && !memcmp(before,after,before_bytes)); free(before); free(after);
+}
+static void test_source_format_workspace(void) {
+    Workbook book,loaded,plain; workbook_init(&book); workbook_init(&loaded); workbook_init(&plain); char *error=NULL; Analysis blank={0};
+    const char *path="tests/generated/source-format-v14.dxls",*second="tests/generated/source-format-other.dxls"; remove(path); remove(second); source_format_fixture(&book);
+    CHECK(workbook_save(&book,path,&error)); require_workspace_version(path,14); CHECK(workbook_load(&loaded,path,&error)); source_format_check(&loaded,&book);
+    sql_file(path,"SELECT CASE WHEN count(*)=26 THEN true ELSE error('v14 package incomplete') END FROM information_schema.tables WHERE table_schema='_duxcel_workspace'; SELECT CASE WHEN count(*)=5 AND sum(CASE WHEN version=0 THEN 1 ELSE 0 END)=3 THEN true ELSE error('bindings are not complete') END FROM _duxcel_workspace.source_bindings");
+    CHECK(workbook_save(&loaded,second,&error) && workbook_load(&loaded,second,&error)); source_format_check(&loaded,&book);
+    const char *reordered="tests/generated/source-format-reordered.dxls"; remove(reordered); CHECK(workbook_save(&book,reordered,&error));
+    sql_file(reordered,"CREATE TABLE _duxcel_workspace.reordered_sheets AS SELECT canvas_zoom,selection,fraction,horizontal,top_row,end_col,end_row,anchor_col,anchor_row,active_col,active_row,descending,sort_column,aggregate,measure_column,group_column,filter_op,filter_value,filter_column,source_table,source_schema,path,kind,name,id FROM _duxcel_workspace.sheets; DROP TABLE _duxcel_workspace.sheets; ALTER TABLE _duxcel_workspace.reordered_sheets RENAME TO sheets; CREATE TABLE _duxcel_workspace.reordered_versions AS SELECT definition,encoding,source_reference,source_kind,owner,version,sheet_id FROM _duxcel_workspace.source_versions; DROP TABLE _duxcel_workspace.source_versions; ALTER TABLE _duxcel_workspace.reordered_versions RENAME TO source_versions");
+    CHECK(workbook_load(&loaded,reordered,&error)); source_format_check(&loaded,&book);
+    CHECK(workbook_save(&book,reordered,&error) && workbook_load(&loaded,reordered,&error)); source_format_check(&loaded,&book);
+    const char *nullable[]={NULL,"","NULL"}; SourcePacket previous={0}; remove("tests/generated/source-format-null-empty-literal.dxls");
+    for (size_t i=0;i<3;i++) {
+        Workbook *literal=workbook_snapshot(&book); CHECK(literal); Worksheet *sheet=literal->sheets; analysis_filters_clear(&sheet->analysis);
+        CHECK(analysis_filter_set(&sheet->analysis,"City",FILTER_EQUAL,nullable[i],&error));
+        SourcePacket result={0}; CHECK(source_scope_result_build(&sheet->source_versions.items[0].raw,&sheet->analysis,&result,&error));
+        if (i) CHECK(result.bytes!=previous.bytes || memcmp(result.data,previous.data,result.bytes));
+        format_free(&sheet->formats); FormatScopeView scope={0,result.data,result.bytes}; CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+        CHECK(format_apply_scoped(&sheet->formats,(FormatRange){0,1,1,1},FORMAT_BOLD,bold,&scope,1,false,&error));
+        const char *literal_path="tests/generated/source-format-null-empty-literal.dxls";
+        CHECK(workbook_save(literal,literal_path,&error) && workbook_load(&loaded,literal_path,&error));
+        const char *value=loaded.sheets[0].analysis.filter_value;
+        CHECK(nullable[i] ? value && !strcmp(value,nullable[i]) : value==NULL);
+        CHECK(loaded.sheets[0].formats.scopes[0].bytes==result.bytes && !memcmp(loaded.sheets[0].formats.scopes[0].definition,result.data,result.bytes));
+        source_packet_free(&previous); previous=result; workbook_free(literal); free(literal);
+    }
+    source_packet_free(&previous);
+    /* A missing source stays an archived locator/proof: opening must not read it. */
+    remove("tests/generated/source-format-proof.csv"); CHECK(workbook_load(&loaded,path,&error)); source_format_check(&loaded,&book);
+    loaded.sheets[0].analysis.source_version=UINT64_C(9007199254740994); CHECK(workbook_save(&loaded,second,&error) && workbook_load(&loaded,second,&error));
+    CHECK(loaded.sheets[0].analysis.source_version==UINT64_C(9007199254740994) && !loaded.sheets[0].source_versions.items[1].raw.bytes && loaded.sheets[0].formats.scope_count==2);
+    CHECK(!format_at(&loaded.sheets[0].formats,4,1).flags); /* Current pending version cannot activate archived scopes. */
+    CHECK(workbook_add(&plain,"Plain overwrite",&blank,&error)); CHECK(workbook_save(&plain,second,&error)); require_workspace_version(second,14); CHECK(workbook_load(&loaded,second,&error) && loaded.count==1 && !loaded.sheets[0].source_versions.count);
+    /* A mode-only sheet retains its semantic boundary after all scopes/patches
+       are gone. Neither a ledger counter nor active scope count can infer it. */
+    plain.sheets[0].formats.source_aware=true; const char *mode_path="tests/generated/source-format-mode.dxls"; remove(mode_path);
+    CHECK(workbook_save(&plain,mode_path,&error)); require_workspace_version(mode_path,14); CHECK(workbook_load(&loaded,mode_path,&error));
+    CHECK(loaded.sheets[0].formats.source_aware && !loaded.sheets[0].formats.count && !loaded.sheets[0].formats.scope_count && !loaded.sheets[0].source_versions.high_water);
+    CHECK(!format_persistable(&loaded.sheets[0].formats,&error) && error); free(error); error=NULL;
+    plain.sheets[0].formats.source_aware=false; CHECK(workbook_save(&plain,mode_path,&error)); require_workspace_version(mode_path,14); CHECK(workbook_load(&loaded,mode_path,&error) && !loaded.sheets[0].formats.source_aware);
+    /* Rebase into a different directory without requiring the source to exist. */
+    CHECK(!mkdir("tests/generated/source-format-subdir",0700) || errno==EEXIST);
+    const char *nested="tests/generated/source-format-subdir/rebased.dxls"; remove(nested); CHECK(workbook_save(&book,nested,&error)); CHECK(workbook_load(&loaded,nested,&error)); source_format_check(&loaded,&book);
+    CHECK(strstr(loaded.sheets[0].analysis.path,"../") && !strcmp(loaded.sheets[0].analysis.path,loaded.sheets[0].source_versions.items[0].path));
+    Workbook *retired=workbook_snapshot(&book); CHECK(retired && objects_remove(&retired->sheets[1].objects,0));
+    remove(second); CHECK(workbook_save(retired,second,&error) && workbook_load(&loaded,second,&error));
+    CHECK(!loaded.sheets[1].objects.count && loaded.sheets[1].objects.next_id==UINT64_C(9007199254740993) && loaded.sheets[1].source_versions.items[0].owner==UINT64_C(9007199254740993) && loaded.sheets[1].formats.items[0].selector==FORMAT_RECORDS);
+    CHECK(!format_at(&loaded.sheets[1].formats,0,8).flags); workbook_free(retired); free(retired);
+    /* Legacy unrelated metadata is still valid for legacy saves, but cannot be
+       silently carried into v14's exact supported package. Fail before BEGIN. */
+    const char *upgrade="tests/generated/source-format-upgrade.dxls";
+    for (unsigned owner_only=0;owner_only<2;owner_only++) {
+        remove(upgrade); plain.sheets[0].objects.next_id=owner_only; CHECK(workbook_save(&plain,upgrade,&error)); require_workspace_version(upgrade,12+(int)owner_only);
+        sql_file(upgrade,"CREATE TABLE _duxcel_workspace.custom_note(value VARCHAR); INSERT INTO _duxcel_workspace.custom_note VALUES ('Preserve my legacy metadata')");
+        CHECK(workbook_save(&plain,upgrade,&error)); size_t before_bytes,after_bytes; unsigned char *before=workspace_bytes(upgrade,&before_bytes);
+        CHECK(!workbook_save(&book,upgrade,&error) && error && strstr(error,"known base")); free(error); error=NULL;
+        unsigned char *after=workspace_bytes(upgrade,&after_bytes); CHECK(before_bytes==after_bytes && !memcmp(before,after,before_bytes)); free(before); free(after);
+        CHECK(workbook_load(&loaded,upgrade,&error) && loaded.count==1 && !loaded.sheets[0].source_versions.count); require_workspace_version(upgrade,12+(int)owner_only);
+        sql_file(upgrade,"SELECT CASE WHEN min(value)='Preserve my legacy metadata' THEN true ELSE error('Legacy metadata lost') END FROM _duxcel_workspace.custom_note");
+    }
+    workbook_free(&book); workbook_free(&loaded); workbook_free(&plain); free(error);
+}
+static void test_invalid_source_format_package(void) {
+    Workbook book,caller,plain; workbook_init(&book); workbook_init(&caller); workbook_init(&plain); char *error=NULL; Analysis blank={0}; source_format_fixture(&book);
+    CHECK(workbook_add(&plain,"Replacement",&blank,&error)); const char *path="tests/generated/invalid-source-format.dxls"; remove(path);
+    CHECK(workbook_save(&book,path,&error) && workbook_load(&caller,path,&error)); CHECK(cells_set(&caller.sheets[0].cells,30,0,"Keep unsaved source state",&error)); worksheet_record(caller.sheets,EDIT_CELLS); caller.dirty=true;
+    size_t pristine_bytes=0; unsigned char *pristine=workspace_bytes(path,&pristine_bytes);
+    const char *invalid[]={
+        "DELETE FROM _duxcel_workspace.format_state WHERE sheet_id=3",
+        "UPDATE _duxcel_workspace.format_state SET source_aware=NULL WHERE sheet_id=0",
+        "UPDATE _duxcel_workspace.format_state SET source_aware=false WHERE sheet_id=0",
+        "UPDATE _duxcel_workspace.format_state SET sheet_id=4 WHERE sheet_id=3",
+        "CREATE TABLE _duxcel_workspace.duplicate_state AS SELECT * FROM _duxcel_workspace.format_state; INSERT INTO _duxcel_workspace.duplicate_state SELECT * FROM _duxcel_workspace.format_state LIMIT 1; DROP TABLE _duxcel_workspace.format_state; ALTER TABLE _duxcel_workspace.duplicate_state RENAME TO format_state",
+        "UPDATE _duxcel_workspace.meta SET active_sheet=4",
+        "UPDATE _duxcel_workspace.meta SET user_scale=2",
+        "UPDATE _duxcel_workspace.sheets SET active_col=16384 WHERE id=0",
+        "UPDATE _duxcel_workspace.sheets SET canvas_zoom=3 WHERE id=0",
+        "UPDATE _duxcel_workspace.sheets SET horizontal=-1 WHERE id=0",
+        "UPDATE _duxcel_workspace.sheets SET fraction=1 WHERE id=0",
+        "INSERT INTO _duxcel_workspace.columns VALUES(0,0,'Id',0)",
+        "UPDATE _duxcel_workspace.cells SET row_id=18446744073709551615 WHERE sheet_id=0 AND row_id=20",
+        "INSERT INTO _duxcel_workspace.cells VALUES(1,0,8,'Cannot overlap table')",
+        "INSERT INTO _duxcel_workspace.preferences VALUES('sheet_hidden_0',true)",
+        "UPDATE _duxcel_workspace.meta SET active_sheet=NULL",
+        "UPDATE _duxcel_workspace.sheets SET active_row=NULL WHERE id=0",
+        "UPDATE _duxcel_workspace.sheets SET filter_op=NULL WHERE id=0",
+        "UPDATE _duxcel_workspace.formats SET flags=NULL WHERE sheet_id=0 AND position=2",
+        "UPDATE _duxcel_workspace.table_sources SET filter_op=NULL WHERE sheet_id=1",
+        "UPDATE _duxcel_workspace.format_selectors SET kind=NULL WHERE sheet_id=0 AND position=0",
+        "UPDATE _duxcel_workspace.sheets SET name='prefix'||chr(0)||'suffix' WHERE id=0",
+        "UPDATE _duxcel_workspace.sheets SET filter_value='9'||chr(0)||'99' WHERE id=0",
+        "UPDATE _duxcel_workspace.table_sources SET filter_value='NULL'||chr(0)||'suffix' WHERE sheet_id=1",
+        "INSERT INTO _duxcel_workspace.filters VALUES(0,0,'City'||chr(0)||'suffix',1,'NULL')",
+        "UPDATE _duxcel_workspace.cells SET text='NULL'||chr(0)||'suffix' WHERE sheet_id=0 AND row_id=20",
+        "UPDATE _duxcel_workspace.format_scopes SET encoding=2 WHERE sheet_id=0 AND scope_id=0",
+        "UPDATE _duxcel_workspace.source_versions SET encoding=2 WHERE sheet_id=0 AND version=9007199254740993",
+        "UPDATE _duxcel_workspace.source_versions SET encoding=1 WHERE sheet_id=0 AND version=9007199254740994",
+        "UPDATE _duxcel_workspace.source_versions SET encoding=0 WHERE sheet_id=0 AND version=9007199254740993",
+        "UPDATE _duxcel_workspace.source_version_counters SET high_water=0 WHERE sheet_id=0",
+        "DELETE FROM _duxcel_workspace.source_version_counters WHERE sheet_id=3",
+        "UPDATE _duxcel_workspace.source_versions SET version=0 WHERE sheet_id=0 AND version=9007199254740994",
+        "UPDATE _duxcel_workspace.source_versions SET owner=1 WHERE sheet_id=0 AND version=9007199254740994",
+        "UPDATE _duxcel_workspace.source_versions SET source_reference='elsewhere.csv' WHERE sheet_id=0 AND version=9007199254740993",
+        "UPDATE _duxcel_workspace.source_versions SET source_kind=2 WHERE sheet_id=0 AND version=9007199254740993",
+        "UPDATE _duxcel_workspace.source_versions SET definition=definition||from_hex('00') WHERE sheet_id=0 AND version=9007199254740993",
+        "UPDATE _duxcel_workspace.format_scopes SET definition=definition||from_hex('00') WHERE sheet_id=0 AND scope_id=0",
+        "UPDATE _duxcel_workspace.format_scopes SET owner=1 WHERE sheet_id=0 AND scope_id=0",
+        "UPDATE _duxcel_workspace.format_scopes SET definition=from_hex(substr(hex(definition),1,96)||'00'||substr(hex(definition),99)) WHERE sheet_id=0 AND scope_id=0",
+        "INSERT INTO _duxcel_workspace.format_scopes SELECT 0,2,0,1,definition FROM _duxcel_workspace.source_versions WHERE sheet_id=0 AND version=9007199254740995",
+        "UPDATE _duxcel_workspace.format_selectors SET kind=2 WHERE sheet_id=0 AND position=0",
+        "UPDATE _duxcel_workspace.format_selectors SET kind=1 WHERE sheet_id=0 AND position=0",
+        "DELETE FROM _duxcel_workspace.source_bindings WHERE sheet_id=2",
+        "UPDATE _duxcel_workspace.source_bindings SET owner=1 WHERE sheet_id=2",
+        "UPDATE _duxcel_workspace.source_bindings SET version=1 WHERE sheet_id=0",
+        "INSERT INTO _duxcel_workspace.format_guards VALUES(0,2,0,0)",
+        "UPDATE _duxcel_workspace.format_guards SET guard_position=1 WHERE sheet_id=0 AND position=0",
+        "INSERT INTO _duxcel_workspace.format_guards VALUES(0,0,1,0)",
+        "DELETE FROM _duxcel_workspace.format_records WHERE sheet_id=0 AND position=0; INSERT INTO _duxcel_workspace.format_records SELECT 0,0,i::INTEGER,(i+1)::UBIGINT FROM range(20001)t(i)",
+        "INSERT INTO _duxcel_workspace.source_versions SELECT 0,(i+1)::UBIGINT,0,1,'missing.csv',0,NULL FROM range(1024)t(i)",
+        "UPDATE _duxcel_workspace.format_records SET member_position=7 WHERE sheet_id=0 AND member_position=1",
+        "UPDATE _duxcel_workspace.format_records SET record_id=0 WHERE sheet_id=0 AND member_position=0",
+        "UPDATE _duxcel_workspace.format_records SET record_id=1 WHERE sheet_id=0 AND member_position=1",
+        "UPDATE _duxcel_workspace.format_records SET position=2 WHERE sheet_id=0",
+        "UPDATE _duxcel_workspace.format_fields SET source_ordinal=3 WHERE sheet_id=0 AND field_position=1",
+        "UPDATE _duxcel_workspace.format_fields SET field_position=2 WHERE sheet_id=0 AND field_position=1",
+        "UPDATE _duxcel_workspace.format_fields SET source_ordinal=0 WHERE sheet_id=0 AND field_position=1",
+        "ALTER TABLE _duxcel_workspace.source_versions ADD COLUMN unknown INTEGER",
+        "CREATE TABLE _duxcel_workspace.typed_versions AS SELECT sheet_id,version::VARCHAR AS version,owner,source_kind,source_reference,encoding,definition FROM _duxcel_workspace.source_versions; DROP TABLE _duxcel_workspace.source_versions; ALTER TABLE _duxcel_workspace.typed_versions RENAME TO source_versions",
+        "DROP TABLE _duxcel_workspace.source_bindings; CREATE VIEW _duxcel_workspace.source_bindings AS SELECT 0::INTEGER AS sheet_id,0::UBIGINT AS owner,0::UBIGINT AS version",
+        "CREATE TABLE _duxcel_workspace.unknown_feature(value INTEGER)",
+        "UPDATE _duxcel_workspace.format_scopes SET definition=encode(repeat('x',262144)) WHERE sheet_id=0 AND scope_id=0",
+        "UPDATE _duxcel_workspace.source_versions SET source_reference=repeat('x',65537) WHERE sheet_id=0 AND version=9007199254740994",
+        "UPDATE _duxcel_workspace.meta SET version=13",
+        "UPDATE _duxcel_workspace.meta SET version=12",
+        "CREATE TABLE _duxcel_workspace.duplicate_bindings AS SELECT * FROM _duxcel_workspace.source_bindings; INSERT INTO _duxcel_workspace.duplicate_bindings SELECT * FROM _duxcel_workspace.source_bindings LIMIT 1; DROP TABLE _duxcel_workspace.source_bindings; ALTER TABLE _duxcel_workspace.duplicate_bindings RENAME TO source_bindings",
+        "CREATE TABLE _duxcel_workspace.duplicate_versions AS SELECT * FROM _duxcel_workspace.source_versions; INSERT INTO _duxcel_workspace.duplicate_versions SELECT * FROM _duxcel_workspace.source_versions LIMIT 1; DROP TABLE _duxcel_workspace.source_versions; ALTER TABLE _duxcel_workspace.duplicate_versions RENAME TO source_versions"
+    };
+    for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
+        remove(path); FILE *file=fopen(path,"wb"); CHECK(file && fwrite(pristine,1,pristine_bytes,file)==pristine_bytes && !fclose(file));
+        sql_file(path,invalid[i]); source_format_reject(path,&plain,&caller,invalid[i]);
+    }
+    /* A syntactically valid RAW proof is not a matching RESULT guard. */
+    remove(path); CHECK(workbook_save(&book,path,&error)); sql_file(path,"UPDATE _duxcel_workspace.format_scopes SET definition=(SELECT definition FROM _duxcel_workspace.source_versions WHERE sheet_id=0 AND version=9007199254740993) WHERE sheet_id=0 AND scope_id=1"); source_format_reject(path,&plain,&caller,"RAW packet substituted for RESULT");
+    for (unsigned owner_only=0;owner_only<2;owner_only++) {
+        remove(path); plain.sheets[0].objects.next_id=owner_only; CHECK(workbook_save(&plain,path,&error));
+        sql_file(path,"CREATE TABLE _duxcel_workspace.format_state(sheet_id INTEGER,source_aware BOOLEAN); INSERT INTO _duxcel_workspace.format_state VALUES(0,false)");
+        source_format_reject(path,&plain,&caller,"Reserved v14 format_state under a legacy workspace version");
+    }
+    free(pristine); workbook_free(&book); workbook_free(&caller); workbook_free(&plain); free(error);
+}
+static void source_format_full_ledger(Worksheet *sheet) {
+    SourceVersions *versions=&sheet->source_versions; size_t count=DX_SOURCE_VERSIONS,path_bytes=DX_SOURCE_VERSIONS_BYTES/count-sizeof(SourceVersion);
+    CHECK(path_bytes>2 && path_bytes<=DX_SOURCE_SCOPE_TEXT_BYTES); char *path=dx_alloc(path_bytes); memset(path,'x',path_bytes-1); path[0]='/'; path[path_bytes-1]=0;
+    *versions=(SourceVersions){.high_water=count,.items=dx_alloc(count*sizeof(SourceVersion)),.count=count,.capacity=count,.bytes=count*(sizeof(SourceVersion)+path_bytes)};
+    for (size_t i=0;i<count;i++) versions->items[i]=(SourceVersion){.owner=0,.version=i+1,.kind=SOURCE_CSV,.path=dx_strdup(path)};
+    free(path); char *error=NULL; CHECK(source_versions_valid(versions,0,&error)); free(error);
+}
+static void test_source_format_budget(void) {
+    Workbook book,plain,loaded; workbook_init(&book); workbook_init(&plain); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
+    const char *path="tests/generated/source-format-budget.dxls"; remove(path); CHECK(workbook_add(&plain,"Keep ordinary file",&blank,&error)); CHECK(workbook_save(&plain,path,&error));
+    CHECK(workbook_add(&book,"Combined current budget",&blank,&error)); source_format_full_ledger(book.sheets); CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    CHECK(format_apply(&book.sheets[0].formats,(FormatRange){0,0,0,0},FORMAT_BOLD,bold,&error));
+    size_t before_bytes,after_bytes; unsigned char *before=workspace_bytes(path,&before_bytes); CHECK(!workbook_save(&book,path,&error) && error && strstr(error,"owned")); free(error); error=NULL;
+    unsigned char *after=workspace_bytes(path,&after_bytes); CHECK(before_bytes==after_bytes && !memcmp(before,after,before_bytes)); free(after);
+    /* Each sheet is individually valid, but v14's new aggregate must be checked
+       before mutating a previously valid v12 destination. */
+    format_free(&book.sheets[0].formats);
+    CHECK(!workbook_save(&book,path,&error) && error && strstr(error,"restored")); free(error); error=NULL; /* Missing-path Save As expansion cannot write an unloadable archive. */
+    after=workspace_bytes(path,&after_bytes); CHECK(before_bytes==after_bytes && !memcmp(before,after,before_bytes)); free(after);
+    for (size_t i=1;i<9;i++) { CHECK(workbook_add(&book,"Global budget",&blank,&error)); source_format_full_ledger(book.sheets+i); }
+    CHECK(!workbook_save(&book,path,&error) && error && strstr(error,"8 MiB")); free(error); error=NULL;
+    after=workspace_bytes(path,&after_bytes); CHECK(before_bytes==after_bytes && !memcmp(before,after,before_bytes)); free(before); free(after);
+    CHECK(workbook_load(&loaded,path,&error) && loaded.count==1 && !loaded.sheets[0].source_versions.count); require_workspace_version(path,12);
+    workbook_free(&book); workbook_free(&plain); workbook_free(&loaded); free(error);
+}
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--source-formats-only")) {
+        test_source_format_workspace(); test_invalid_source_format_package(); test_source_format_budget();
+        printf("PASS: %u focused v14 source-format codec checks (dormant typed scopes, source ledgers, exact uint64, budgets and transactional rejection)\n",checks); return 0;
+    }
     if (argc==2 && !strcmp(argv[1],"--source-versions-only")) {
         test_source_version_model(); test_source_version_save_guard();
-        printf("PASS: %u focused source-version model checks (deep ownership, Analysis history, lifetime high-water and v12/v13 rejection)\n",checks); return 0;
+        printf("PASS: %u focused source-version model checks (deep ownership, Analysis history, lifetime high-water, v14 archival and dangling-binding rejection)\n",checks); return 0;
     }
     if (argc==2 && !strcmp(argv[1],"--owners-only")) {
         test_owner_counter_workspace(); test_invalid_owner_package();
@@ -1155,8 +1415,9 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
         return 0;
     }
-    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only]\n",argv[0]); return 2; }
+    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only]\n",argv[0]); return 2; }
     test_source_version_model(); test_source_version_save_guard();
+    test_source_format_workspace(); test_invalid_source_format_package(); test_source_format_budget();
     test_owner_counter_workspace(); test_invalid_owner_package();
     test_chart_optional_errors();
     test_marks_workspace();
