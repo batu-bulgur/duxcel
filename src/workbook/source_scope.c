@@ -84,6 +84,24 @@ static int names_compare(const void *a,const void *b) {
     while (*x && *y && fold(*x)==fold(*y)) { x++; y++; } return (int)fold(*x)-(int)fold(*y);
 }
 static bool same_name(const char *a,const char *b) { return names_compare(&a,&b)==0; }
+/* Do not rely on a libc qsort implementation's optional heap scratch when
+   parsing publication-time packets. This bounded pointer heap sorts in place. */
+static void names_sift(const char **names,size_t root,size_t count) {
+    const char *value=names[root];
+    while (root<count/2) {
+        size_t child=root*2+1;
+        if (child+1<count && names_compare(names+child,names+child+1)<0) child++;
+        if (names_compare(&value,names+child)>=0) break;
+        names[root]=names[child]; root=child;
+    }
+    names[root]=value;
+}
+static void names_sort(const char **names,size_t count) {
+    for (size_t i=count/2;i;i--) names_sift(names,i-1,count);
+    for (size_t end=count;end>1;) {
+        const char *first=names[0]; names[0]=names[--end]; names[end]=first; names_sift(names,0,end);
+    }
+}
 static const SqlType *sql_tag(unsigned tag) {
     for (size_t i=0;i<sizeof(types)/sizeof(*types);i++) if (types[i].tag==tag) return types+i; return NULL;
 }
@@ -146,11 +164,11 @@ static bool parse_raw(const void *data,size_t bytes,SourceScopeInfo *out) {
     const char *names[DX_SOURCE_SCOPE_FIELDS];
     for (size_t i=0;i<info.field_count;i++) { SourceScopeField field; if (!field_read(&r,i,&field)) return false; names[i]=field.name; }
     if (r.at!=r.bytes) return false;
-    qsort(names,info.field_count,sizeof(*names),names_compare);
+    names_sort(names,info.field_count);
     for (size_t i=1;i<info.field_count;i++) if (!names_compare(names+i-1,names+i)) return false;
     info.raw=data; info.raw_bytes=bytes; info.field_bytes=r.at-start; *out=info; return true;
 }
-static bool parse(const void *data,size_t bytes,Parsed *out) {
+static bool parse_context(const void *data,size_t bytes,Parsed *out,bool grammar) {
     if (!data || bytes<SCOPE_HEADER || bytes>=DX_SOURCE_SCOPE_BYTES) return false;
     const unsigned char *p=data;
     if (p[6]==SOURCE_SCOPE_RAW) { Parsed parsed={0}; if (!parse_raw(data,bytes,&parsed.info)) return false; *out=parsed; return true; }
@@ -164,7 +182,7 @@ static bool parse(const void *data,size_t bytes,Parsed *out) {
     for (size_t i=0;i<parsed.filter_count;i++) {
         Filter *filter=parsed.filters+i; filter->ordinal=(uint32_t)integer(&r,4); filter->op=(uint32_t)integer(&r,4);
         filter->value=text(&r,DX_SOURCE_SCOPE_TEXT_BYTES,true,true,&filter->bytes);
-        if (!r.ok || filter->ordinal>=parsed.info.field_count || (i && filter->ordinal<=parsed.filters[i-1].ordinal) || filter->op>FILTER_OP_MAX || !filter_valid((FilterOp)filter->op,filter->value)) return false;
+        if (!r.ok || filter->ordinal>=parsed.info.field_count || (i && filter->ordinal<=parsed.filters[i-1].ordinal) || filter->op>FILTER_OP_MAX || (grammar && !filter_valid((FilterOp)filter->op,filter->value))) return false;
     }
     parsed.sort_count=(size_t)integer(&r,4);
     if (!r.ok || parsed.sort_count>DX_ANALYSIS_SORTS) return false;
@@ -176,6 +194,7 @@ static bool parse(const void *data,size_t bytes,Parsed *out) {
     }
     if (!r.ok || r.at!=r.bytes) return false; *out=parsed; return true;
 }
+static bool parse(const void *data,size_t bytes,Parsed *out) { return parse_context(data,bytes,out,true); }
 bool source_scope_validate(const void *data,size_t bytes,SourceScopeInfo *out,char **error) {
     Parsed parsed;
     if (!out || !parse(data,bytes,&parsed)) return fail(error,"Invalid or unsupported canonical source scope packet.");
@@ -216,7 +235,7 @@ static bool schema_valid(const Page *schema,size_t *bytes,char **error) {
         if (!add(&total,13+n,DX_SOURCE_SCOPE_BYTES-1)) return fail(error,"Canonical source schema exceeds the 256 KiB packet limit.");
         names[i]=schema->columns[i].name;
     }
-    qsort(names,schema->column_count,sizeof(*names),names_compare);
+    names_sort(names,schema->column_count);
     for (size_t i=1;i<schema->column_count;i++) if (!names_compare(names+i-1,names+i)) return fail(error,"Ambiguous original source field names cannot bind record styles.");
     *bytes=total; return true;
 }
@@ -296,7 +315,6 @@ bool source_scope_schema_matches(const void *data,size_t bytes,const Page *schem
 static bool page_proof_fail(char *error,const char *message) {
     if (error) snprintf(error,DX_SOURCE_DIGEST_ERROR_BYTES,"%s",message); return false;
 }
-#if defined(__APPLE__) && !defined(__EMSCRIPTEN__) && !defined(DUXCEL_BROWSER_HOST)
 /* RAW proof does not interpret filter payloads. Keep this separate from
    source_valid/transforms, whose full JSON validation can allocate. */
 static bool page_proof_source(const Analysis *a,const SourceScopeInfo *info) {
@@ -321,6 +339,7 @@ static bool page_proof_source(const Analysis *a,const SourceScopeInfo *info) {
     }
     return true;
 }
+#if defined(__APPLE__) && !defined(__EMSCRIPTEN__) && !defined(DUXCEL_BROWSER_HOST)
 static bool page_proof_schema(const SourceScopeInfo *info,const Page *page) {
     if (!page || !page->columns || page->column_count!=info->field_count || page->sql || page->totals || page->relations || page->relation_count) return false;
     Read r={info->fields,info->field_bytes,0,true};
@@ -423,6 +442,43 @@ bool source_versions_plan(const SourceVersions *current,const SourceVersion *ent
     for (size_t i=0;i<count;i++) entry_copy(next.items+i,i==index ? entry : current->items+i);
     source_versions_free(out); *out=next; return true;
 }
+static const char *result_difference(const Parsed *shape,const Parsed *parsed) {
+    if (shape->filter_count!=parsed->filter_count || shape->sort_count!=parsed->sort_count) return "Source result filters or sort order changed.";
+    for (size_t i=0;i<shape->filter_count;i++) {
+        Filter a=shape->filters[i],b=parsed->filters[i];
+        if (a.ordinal!=b.ordinal || a.op!=b.op || (a.value && b.value ? strcmp(a.value,b.value)!=0 : a.value!=b.value)) return "Source result filter definition changed.";
+    }
+    for (size_t i=0;i<shape->sort_count;i++) if (shape->sorts[i].ordinal!=parsed->sorts[i].ordinal || shape->sorts[i].descending!=parsed->sorts[i].descending) return "Source result sort order changed.";
+    return NULL;
+}
+bool source_scope_result_matches(const void *result,size_t bytes,const SourcePacket *verified_raw,const Analysis *current,char error[DX_SOURCE_DIGEST_ERROR_BYTES]) {
+    SourceScopeInfo raw; Parsed parsed,shape={0};
+    if (!verified_raw || !parse_raw(verified_raw->data,verified_raw->bytes,&raw) ||
+        !parse_context(result,bytes,&parsed,false) || parsed.info.kind!=SOURCE_SCOPE_RESULT ||
+        parsed.info.owner!=raw.owner || parsed.info.version!=raw.version || parsed.info.source_kind!=raw.source_kind ||
+        parsed.info.raw_bytes!=verified_raw->bytes || memcmp(parsed.info.raw,verified_raw->data,verified_raw->bytes))
+        return page_proof_fail(error,"The result does not embed this complete canonical raw owner/version proof.");
+    if (!page_proof_source(current,&raw)) return page_proof_fail(error,"The captured raw source or exact typed field bindings changed.");
+    /* The caller already owns valid filter grammar. Exact byte comparison below
+       rejects malformed/mismatching cached payloads without a second JSON parse. */
+    shape.filter_count=current->filter_count+(current->filter_column ? 1 : 0);
+    shape.sort_count=current->sort_count+(current->sort_column ? 1 : 0);
+    for (size_t i=0;i<shape.filter_count;i++) {
+        const char *name=i ? current->filters[i-1].column : current->filter_column;
+        const char *value=i ? current->filters[i-1].value : current->filter_value;
+        shape.filters[i]=(Filter){(uint32_t)field_ordinal(&raw,name,NULL),(uint32_t)(i ? current->filters[i-1].op : current->filter_op),value,0};
+    }
+    for (size_t i=1;i<shape.filter_count;i++) {
+        Filter value=shape.filters[i]; size_t j=i;
+        while (j && shape.filters[j-1].ordinal>value.ordinal) { shape.filters[j]=shape.filters[j-1]; j--; }
+        shape.filters[j]=value;
+    }
+    for (size_t i=0;i<shape.sort_count;i++) {
+        AnalysisSort sort=analysis_sort_at(current,i); shape.sorts[i]=(Sort){(uint32_t)field_ordinal(&raw,sort.column,NULL),sort.descending};
+    }
+    const char *difference=result_difference(&shape,&parsed);
+    return difference ? page_proof_fail(error,difference) : true;
+}
 bool source_versions_scope_matches(const SourceVersions *versions,uint64_t owner,uint64_t version,const Analysis *current,const void *scope,size_t bytes,char **error) {
     Parsed parsed,shape;
     if (!source_versions_valid(versions,UINT64_MAX,error) || !source_valid(current,error)) return false;
@@ -431,13 +487,7 @@ bool source_versions_scope_matches(const SourceVersions *versions,uint64_t owner
     for (size_t i=0;i<versions->count;i++) if (versions->items[i].version==version) entry=versions->items+i;
     if (!entry || !entry->raw.bytes || entry->owner!=owner || entry->kind!=current->kind || strcmp(entry->path,current->path) || entry->raw.bytes!=parsed.info.raw_bytes || memcmp(entry->raw.data,parsed.info.raw,entry->raw.bytes)) return fail(error,"Source scope is pending or differs from its exact version binding.");
     if (!transforms(&parsed.info,current,&shape,error)) return false;
-    if (parsed.info.kind==SOURCE_SCOPE_RESULT) {
-        if (shape.filter_count!=parsed.filter_count || shape.sort_count!=parsed.sort_count) return fail(error,"Source result filters or sort order changed.");
-        for (size_t i=0;i<shape.filter_count;i++) {
-            Filter a=shape.filters[i],b=parsed.filters[i];
-            if (a.ordinal!=b.ordinal || a.op!=b.op || (a.value && b.value ? strcmp(a.value,b.value)!=0 : a.value!=b.value)) return fail(error,"Source result filter definition changed.");
-        }
-        for (size_t i=0;i<shape.sort_count;i++) if (shape.sorts[i].ordinal!=parsed.sorts[i].ordinal || shape.sorts[i].descending!=parsed.sorts[i].descending) return fail(error,"Source result sort order changed.");
-    }
+    const char *difference=parsed.info.kind==SOURCE_SCOPE_RESULT ? result_difference(&shape,&parsed) : NULL;
+    if (difference) return fail(error,difference);
     return true;
 }
