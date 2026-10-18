@@ -326,9 +326,9 @@ test-chart-other: tests/test_chart_other tests/test_chart_other-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_chart_other-debug
 DATABASE_CHART_OTHER_SRC = $(RECORD_PAGE_SRC) tests/test_database_chart_other.c
 tests/test_database_chart_other: $(DATABASE_CHART_OTHER_SRC) $(HEADERS)
-	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(DATABASE_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_TEST_CHART_OTHER $(CFLAGS) $(WARN) $(DATABASE_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 tests/test_database_chart_other-debug: $(DATABASE_CHART_OTHER_SRC) $(HEADERS)
-	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(DATABASE_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_TEST_CHART_OTHER -O1 -g $(WARN) $(SANFLAGS) $(DATABASE_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 WORKER_CHART_OTHER_SRC = $(CORE) src/ui/chartview.c src/ui/chartencoding.c tests/test_worker_chart_other.c
 tests/test_worker_chart_other: $(WORKER_CHART_OTHER_SRC) $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(WORKER_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
