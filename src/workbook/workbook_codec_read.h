@@ -13,7 +13,7 @@ typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; }
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
     WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
     WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS,
-    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -44,6 +44,7 @@ typedef struct { char *data; size_t bytes; } WorkbookCodecOwnedText;
    This is a logical ownership contract, not an allocator/RSS bound. */
 typedef bool (*WorkbookCodecResolve)(void *context,SourceKind kind,const char *reference,size_t max_bytes,WorkbookCodecOwnedText *out);
 typedef enum { WORKBOOK_CODEC_READ_ERROR=-1,WORKBOOK_CODEC_READ_STALE=0,WORKBOOK_CODEC_READ_ACCEPTED=1 } WorkbookCodecReadStatus;
+typedef struct { bool full_primary_filters; } WorkbookCodecReadOptions;
 /* All three key scalars must be nonzero; only equality is guaranteed, not key
    issuance or wrap prevention. version is prevalidated12/13/14. The declared
    layout is the adapter's checked source schema, while all requests project25
@@ -51,6 +52,12 @@ typedef enum { WORKBOOK_CODEC_READ_ERROR=-1,WORKBOOK_CODEC_READ_STALE=0,WORKBOOK
    only on success; failures preserve it. Context stays borrowed until free. */
 bool workbook_codec_read_begin(WorkbookCodecRead **out,WorkbookCodecKey key,unsigned version,
     WorkbookCodecSheetsLayout layout,size_t owned_limit,WorkbookCodecResolve resolve,void *context,char **error);
+/* Explicit before-Sheets capture opt-in: primary filter name4096/value4MiB.
+   All other fields retain default limits. The original constructor supplies
+   zero options and preserves its64KiB primary capture behavior. This does not
+   validate primary filters until their retained-input-aware continuation. */
+bool workbook_codec_read_begin_with_options(WorkbookCodecRead **out,WorkbookCodecKey key,unsigned version,
+    WorkbookCodecSheetsLayout layout,WorkbookCodecReadOptions options,size_t owned_limit,WorkbookCodecResolve resolve,void *context,char **error);
 const WorkbookCodecRequest *workbook_codec_read_request(const WorkbookCodecRead *read);
 /* Explicit continuation after complete sheets, before finish; the default
    begin/feed/finish path still reads only meta/sheets. Validate primary sort
@@ -61,6 +68,16 @@ const WorkbookCodecRequest *workbook_codec_read_request(const WorkbookCodecRead 
    fed in batches<=256. This is a component contract, not Worker transport or
    browser Open support. No SQL or source schema is executed/resolved here. */
 bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool table_present,char **error);
+/* Once at complete unclaimed Header, independent of other continuations.
+   Absent12/13 defaults ready only after primary validation; v14 requires this
+   table. Caller supplies all retained input/old-output bytes because validating
+   primary JSON can allocate. Admission reserves max native parser scratch
+   before any filter validator call. One named5-column ordered result admits
+   960 secondary rows plus a961st sentinel, in atomic<=256 batches; names4096,
+   values4MiB, at most15 secondaries per sheet. Raw secondary text and combined
+   primary/secondary native text (including terminators) have separate8MiB caps.
+   No source schema/SQL or setter-based deduplication is involved. */
+bool workbook_codec_read_add_filters(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
 /* Independent optional continuation at HEADER_READY before claim, once. The
    adapter checks table presence/schema: absent12/13 defaults motion=false and
    all sheets visible; v14 requires preferences. One C-built named projection
@@ -129,7 +146,7 @@ bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPi
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   sorts/preferences/object descriptors/queries/source options/Table sources/Pivot/Marks).
+   filters/sorts/preferences/object descriptors/queries/source options/Table sources/Pivot/Marks).
    It is not a complete workbook: cells, formats, ledger and allocation counters remain absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
@@ -148,6 +165,7 @@ float workbook_codec_header_user_scale(const WorkbookCodecHeader *header);
 /* True only after an explicitly armed sorts family completed/defaulted; false
    for the original meta/sheets-only Header, including an empty sort_count. */
 bool workbook_codec_header_sorts_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_filters_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_preferences_ready(const WorkbookCodecHeader *header);
 /* Readiness applies only to the complete descriptor registry. Names borrow
    immutable Header storage; never free them or retain them beyond Header free.
