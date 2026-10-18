@@ -1,0 +1,160 @@
+{
+  "scope": "Actual project source/header preprocessor closure of the private pure compile; installed header/toolchain provenance separately named",
+  "files": [
+    {
+      "path": "src/common.c",
+      "bytes": 1850,
+      "sha256": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4"
+    },
+    {
+      "path": "src/common.h",
+      "bytes": 852,
+      "sha256": "027d4a52e7bd019dd21f3ddd2f077f464d4554142eceee1edddfbd3d8d7e6100"
+    },
+    {
+      "path": "src/transforms/../common.h",
+      "bytes": 852,
+      "sha256": "027d4a52e7bd019dd21f3ddd2f077f464d4554142eceee1edddfbd3d8d7e6100"
+    },
+    {
+      "path": "src/transforms/analysis.c",
+      "bytes": 33320,
+      "sha256": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19"
+    },
+    {
+      "path": "src/transforms/analysis.h",
+      "bytes": 5323,
+      "sha256": "6d9571f28ea6ee9c42233faae588fedd310ce193db0c2d8dee2b309ac6711166"
+    },
+    {
+      "path": "src/transforms/marks.c",
+      "bytes": 3796,
+      "sha256": "864da129ebccf18bc8cd72db75ae36c8e9d03f3e50db76cd9c385ed7eb22952b"
+    },
+    {
+      "path": "src/transforms/marks.h",
+      "bytes": 971,
+      "sha256": "649b9cc9491eaf1855b42eb668adc6fe08e0dac2c64869b87900a71ba62305c7"
+    },
+    {
+      "path": "src/transforms/number.c",
+      "bytes": 6804,
+      "sha256": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e"
+    },
+    {
+      "path": "src/transforms/number.h",
+      "bytes": 916,
+      "sha256": "54360de3c934dfc1c686527c2392db3999630aff9f56d45a2f74598f41a24482"
+    },
+    {
+      "path": "src/transforms/pivot.c",
+      "bytes": 13343,
+      "sha256": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d"
+    },
+    {
+      "path": "src/transforms/pivot.h",
+      "bytes": 2164,
+      "sha256": "c76fb81248dbf1d1aacd754f6560a432ffd1c93c37378310865f289905e2e49b"
+    },
+    {
+      "path": "src/workbook/../common.h",
+      "bytes": 852,
+      "sha256": "027d4a52e7bd019dd21f3ddd2f077f464d4554142eceee1edddfbd3d8d7e6100"
+    },
+    {
+      "path": "src/workbook/../data/../transforms/analysis.h",
+      "bytes": 5323,
+      "sha256": "6d9571f28ea6ee9c42233faae588fedd310ce193db0c2d8dee2b309ac6711166"
+    },
+    {
+      "path": "src/workbook/../data/../transforms/pivot.h",
+      "bytes": 2164,
+      "sha256": "c76fb81248dbf1d1aacd754f6560a432ffd1c93c37378310865f289905e2e49b"
+    },
+    {
+      "path": "src/workbook/../data/page.h",
+      "bytes": 8211,
+      "sha256": "31e0fbb396f33a75b73933442561dcfbeaf36dde7a3287ea135489b6895cfe9f"
+    },
+    {
+      "path": "src/workbook/../data/source_digest.h",
+      "bytes": 3029,
+      "sha256": "443a4ef6be2ea7dad017c8f1528c503eb414ab9b2bc1e9c585072f6a3ffde8ee"
+    },
+    {
+      "path": "src/workbook/../transforms/../common.h",
+      "bytes": 852,
+      "sha256": "027d4a52e7bd019dd21f3ddd2f077f464d4554142eceee1edddfbd3d8d7e6100"
+    },
+    {
+      "path": "src/workbook/../transforms/analysis.h",
+      "bytes": 5323,
+      "sha256": "6d9571f28ea6ee9c42233faae588fedd310ce193db0c2d8dee2b309ac6711166"
+    },
+    {
+      "path": "src/workbook/../transforms/marks.h",
+      "bytes": 971,
+      "sha256": "649b9cc9491eaf1855b42eb668adc6fe08e0dac2c64869b87900a71ba62305c7"
+    },
+    {
+      "path": "src/workbook/../transforms/number.h",
+      "bytes": 916,
+      "sha256": "54360de3c934dfc1c686527c2392db3999630aff9f56d45a2f74598f41a24482"
+    },
+    {
+      "path": "src/workbook/../transforms/pivot.h",
+      "bytes": 2164,
+      "sha256": "c76fb81248dbf1d1aacd754f6560a432ffd1c93c37378310865f289905e2e49b"
+    },
+    {
+      "path": "src/workbook/cells.h",
+      "bytes": 1987,
+      "sha256": "2bc452c6d7ce5c176acf5da862530ce7036897c59c5f0da19bd40a65a5be1b19"
+    },
+    {
+      "path": "src/workbook/format.h",
+      "bytes": 9349,
+      "sha256": "5cebb5ff7c78ec4cf2060d39c3fb2df464d0ac92a133fcec08cc35f0f4d945a8"
+    },
+    {
+      "path": "src/workbook/objects.h",
+      "bytes": 5858,
+      "sha256": "9b95698956335dc1fba02355339a850c62b8254b3918512a4497adac8d7313bd"
+    },
+    {
+      "path": "src/workbook/source_scope.h",
+      "bytes": 7484,
+      "sha256": "c8c97559a1e58868f01348abeb72f1627394929f40bcd4de41a27b7b7faabd3b"
+    },
+    {
+      "path": "src/workbook/workbook.h",
+      "bytes": 12997,
+      "sha256": "f47c0b5896ee28d6e3fcecccb72bc6357956fc5583eda65d3be1825794791d79"
+    },
+    {
+      "path": "src/workbook/workbook_codec.c",
+      "bytes": 6618,
+      "sha256": "75519f3222cdecf9fc351e8b5db0928b043a6e5db0ecf04bb3eae097cf173b11"
+    },
+    {
+      "path": "src/workbook/workbook_codec.h",
+      "bytes": 2344,
+      "sha256": "7073011199d4b53f3d506174aed33e5a8f03cdb96257caf0837d32e37e99b39e"
+    },
+    {
+      "path": "src/workbook/workbook_codec_read.c",
+      "bytes": 98482,
+      "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+    },
+    {
+      "path": "src/workbook/workbook_codec_read.h",
+      "bytes": 21783,
+      "sha256": "0597fae362a55ca1c7558f10ee804caaf3b9cd8bb8a3c962f02b6f7e8c609054"
+    },
+    {
+      "path": "tests/test_workbook_codec_read.c",
+      "bytes": 269321,
+      "sha256": "8e296ed19db4c9bf4228c8e1baca0be8041019e25a0ddef804546370b9ebddfd"
+    }
+  ]
+}

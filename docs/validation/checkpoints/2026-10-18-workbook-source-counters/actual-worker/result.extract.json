@@ -1,0 +1,6 @@
+{
+  "status": "passed",
+  "profile": "codec-source-counters-driver",
+  "checks": 290,
+  "scope": "Partial owned Header with independent object and source-version counter observations only; no Workbook publication, App Save/Open or engine/RSS peak bound"
+}

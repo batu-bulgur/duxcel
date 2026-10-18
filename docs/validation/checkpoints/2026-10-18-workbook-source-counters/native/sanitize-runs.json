@@ -1,0 +1,45 @@
+[
+  {
+    "label": "sanitize-build",
+    "command": [
+      "make",
+      "-W",
+      "tests/test_workbook_codec_native.c",
+      "tests/test_workbook_codec_native-debug"
+    ],
+    "seconds": 11.681251667000002,
+    "exit_code": 0,
+    "log": "sanitize-build.txt",
+    "environment": {
+      "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+      "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+    }
+  },
+  {
+    "label": "sanitize-source-counters",
+    "command": [
+      "tests/test_workbook_codec_native-debug",
+      "--source-counters-only"
+    ],
+    "seconds": 11.293035542,
+    "exit_code": 0,
+    "log": "sanitize-source-counters.txt",
+    "environment": {
+      "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+      "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+    }
+  },
+  {
+    "label": "sanitize-default",
+    "command": [
+      "tests/test_workbook_codec_native-debug"
+    ],
+    "seconds": 2.858380750000002,
+    "exit_code": 0,
+    "log": "sanitize-default.txt",
+    "environment": {
+      "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+      "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+    }
+  }
+]

@@ -1,0 +1,1 @@
+PASS: native source version counters 44937 checks; 79 metadata executions/106 typed feeds;64-sheet v12/v13 forbidden-table/zero defaults and v14 independent exact high-water with empty ledger, reorder, atomic null/type/identity/coverage/65-sentinel/budget/stale/retry; source SQL never executed, partial Header only; engine v1.5.6

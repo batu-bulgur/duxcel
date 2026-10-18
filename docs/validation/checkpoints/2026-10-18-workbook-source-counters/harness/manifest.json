@@ -1,0 +1,28 @@
+{
+  "command": [
+    "python3",
+    "tools/test_web_codec_runner_test.py"
+  ],
+  "seconds": 1.0349079170000002,
+  "exit_code": 0,
+  "log_sha256": "0a8b010b61bf075266e4678baa051186dcf4e2caeb61c67abf8efa1f20ad6f31",
+  "scope": "Pure Python/Node harness mocks and loopback-only immutable temporary fixtures; all native/browser/engine commands mocked.",
+  "schema": "duxcel.source-counters-harness-mocks",
+  "version": 1,
+  "status": "passed",
+  "tests": 15,
+  "base": "682864e818b02d18d6301152609e39fa77bd28e0",
+  "prior_test_definitions_unchanged": 12,
+  "report_negative_mutations": 24,
+  "static_checks": [
+    "node --check tools/test_web_app.mjs",
+    "Python AST: three owned .py files",
+    "git diff --check"
+  ],
+  "sources": {
+    "tools/test_web_app.py": "551f8418c6455abc68edcc784c4036db4a324453e8e48b674870c6c4b86783cd",
+    "tools/test_web_app.mjs": "37265e7b5b47c8e07646ecbbdd6b7a9d35119c1c7b2018233f153959992f2183",
+    "tools/test_web_codec_runner_test.py": "9839cfa8992b0d60ce63c53ca40bfc7f19076dc6bfaeecaf54180c984bfd60e2",
+    "tools/test.py": "42d69f2fe9e99e1cffc8a01de74ecf05f7b6eafe1893173c22ac779c55cfc25e"
+  }
+}
