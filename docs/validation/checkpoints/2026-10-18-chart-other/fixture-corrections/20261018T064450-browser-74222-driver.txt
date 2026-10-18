@@ -1,0 +1,4 @@
+Error: Actual Columns matrix lost its source category/footer shapes
+    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:128:56)
+    at browserChartOther (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:613:2)
+    at async file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:2776:20

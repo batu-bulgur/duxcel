@@ -1,0 +1,122 @@
+{
+  "scope": "Three naturally observed fixture-assumption corrections against the same product artifact; final App742 follows ordinary controls without mock analytical state.",
+  "runs": [
+    {
+      "run": "20261018T064408-browser-74046",
+      "classification": "Real harness/fixture-assumption failure; not evidence of an analytical product defect",
+      "runner_source": {
+        "commit": "5bba30413b6f87ea458f5cf347bee8d5998cd163",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "1a6f854aa94715e35819dc2ae605edb2e698d61a03c90664d73b296e747c4fce",
+        "source_files": 283
+      },
+      "product_source": {
+        "commit": "1082c1f10b668eb260c529465aefef2390889f3a",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "e54f86e0d5983bffe253cf22b736228a07a2264adb081b4d8f5324e0beabe4f3",
+        "source_files": 283
+      },
+      "artifact_signature": "7d229ee094909d11deb0131e84d11a1904a19a36bbb41e358520998fe48a5a46",
+      "status": "failed",
+      "checks": 272,
+      "error": "Error: Empty pivot was not anchored beside the real source at I1",
+      "elapsed_seconds": 11.831,
+      "browser_seconds": 11.605,
+      "fix": "da3dc7a",
+      "explanation": "Runner hardcoded six-source-column I1; this five-column fixture correctly anchors the empty Pivot at H1.",
+      "original_summary": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064408-browser-74046/summary.json",
+        "bytes": 38510,
+        "sha256": "8dbc820e925e88eed0783919aeeb845edb083f3a68680d9e1f94bf93aaa92e42"
+      },
+      "original_result": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064408-browser-74046/result.json",
+        "bytes": 39605,
+        "sha256": "a96ef6a62dd1cbc2004275179b2cf53a3fecc8557a5eade444e56cbb1f95149b"
+      },
+      "original_driver": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064408-browser-74046/driver.txt",
+        "bytes": 379,
+        "sha256": "f5e4a776e93877b286cdd1ed4e3351c832a671c890798d8d39c3c6b7c1622085"
+      }
+    },
+    {
+      "run": "20261018T064450-browser-74222",
+      "classification": "Real harness/fixture-assumption failure; not evidence of an analytical product defect",
+      "runner_source": {
+        "commit": "da3dc7aa5c0f5673526140bda93d7320fbdda458",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "60a34535caa034d20a82445b5eece064ac4743de0ba1e020320aff563c9339f1",
+        "source_files": 283
+      },
+      "product_source": {
+        "commit": "1082c1f10b668eb260c529465aefef2390889f3a",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "e54f86e0d5983bffe253cf22b736228a07a2264adb081b4d8f5324e0beabe4f3",
+        "source_files": 283
+      },
+      "artifact_signature": "7d229ee094909d11deb0131e84d11a1904a19a36bbb41e358520998fe48a5a46",
+      "status": "failed",
+      "checks": 457,
+      "error": "Error: Actual Columns matrix lost its source category/footer shapes",
+      "elapsed_seconds": 20.499,
+      "browser_seconds": 20.193,
+      "fix": "bb0698e",
+      "explanation": "Runner expected four category/grand footer measure columns; three assigned Values correctly produce six.",
+      "original_summary": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064450-browser-74222/summary.json",
+        "bytes": 38509,
+        "sha256": "ac450bc9ac79d20a52e90c922cf150355f473662ae14a0037f717825b951fa04"
+      },
+      "original_result": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064450-browser-74222/result.json",
+        "bytes": 70509,
+        "sha256": "3f4a88254f3167211fcc7a28f6853e2bdfbf45d1ff3fe610e287957de7cff39a"
+      },
+      "original_driver": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064450-browser-74222/driver.txt",
+        "bytes": 300,
+        "sha256": "1063b8bdb6a9a4b40e6d6740aeda7ac6e4d30bb613b2c0d451e18209f92350a9"
+      }
+    },
+    {
+      "run": "20261018T064533-browser-74432",
+      "classification": "Real harness/fixture-assumption failure; not evidence of an analytical product defect",
+      "runner_source": {
+        "commit": "bb0698ed4b4745ab0eebc429ef28fdb92d32c2cf",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "e2330756d2d04c759d896a5b7c9524ac36e08c9901a80bf1264449eec138eddc",
+        "source_files": 283
+      },
+      "product_source": {
+        "commit": "1082c1f10b668eb260c529465aefef2390889f3a",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "e54f86e0d5983bffe253cf22b736228a07a2264adb081b4d8f5324e0beabe4f3",
+        "source_files": 283
+      },
+      "artifact_signature": "7d229ee094909d11deb0131e84d11a1904a19a36bbb41e358520998fe48a5a46",
+      "status": "failed",
+      "checks": 511,
+      "error": "Error: SUM Rank Bar changed its retained source/matrix/Other/cache ownership",
+      "elapsed_seconds": 20.096,
+      "browser_seconds": 19.868,
+      "fix": "d097f5c",
+      "explanation": "Runner sentinel H10 collided with the real expanded Bar footprint H1:M12. The friendly collision preserved the matrix/request/Other; sentinel moved to G10.",
+      "original_summary": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064533-browser-74432/summary.json",
+        "bytes": 38510,
+        "sha256": "54fb647aefa0ad561c6d7ea7fa0150f536fe4087976b06952b0c95fdfaa6d8de"
+      },
+      "original_result": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064533-browser-74432/result.json",
+        "bytes": 79611,
+        "sha256": "a0a4d007b87b1709741764dc1372fb0e8f3ec9a91f120da8219ebdcdaf6bb7b6"
+      },
+      "original_driver": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064533-browser-74432/driver.txt",
+        "bytes": 461,
+        "sha256": "3556934fe417840585fa2f1246b42ebba39706144d4f14aafdce64dfba824ddc"
+      }
+    }
+  ]
+}

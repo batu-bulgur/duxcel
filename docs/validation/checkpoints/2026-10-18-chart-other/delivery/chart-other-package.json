@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "d097f5c3edcd760e02f4492b0ca7844f0f9badc4",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "336aeafd539835b033c43df0dfab05a5249642b737f0616817007970ba40acdb",
+    "source_files": 283
+  },
+  "native_code_revision": "0fd8c57",
+  "native_review_source": "1082c1f",
+  "native_review_run": "20261018T064202-review-72614",
+  "native_chart_runs": [
+    "20261018T063336-native-69512",
+    "20261018T063738-native-70842"
+  ],
+  "browser_app_run": "20261018T064606-browser-74554",
+  "packaged_without_launch": true,
+  "unsigned_source_sha256": "e22c1cc3828cb1787a89f611bda443ff7b9529b1c4ab6776cedcdd7a1fb4c063",
+  "signed_bundle_sha256": "72db8ae6a01a5833c3962fb809c03b524c74693e0211193a42a2d67be8ce295b",
+  "signature_verified": true,
+  "source_unchanged": true,
+  "seconds": 0.856,
+  "scope": "Chart Other native40 optimized/O1 and review400; exact source revisions retain their separate test manifests. Browser App742 at review1082 is separate from native bundle."
+}

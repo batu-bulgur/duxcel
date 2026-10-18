@@ -1,0 +1,110 @@
+{
+  "scope": "Bounded exact console message extraction from already-completed real Worker run; not a new runtime and not the full input/event stream.",
+  "original_events": {
+    "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T063554-browser-70637/events.json",
+    "bytes": 4088543,
+    "sha256": "ff39f727440c66210a8a6f60dcf28304c48e79ef8252543189810a4518c0afd4"
+  },
+  "messages": [
+    {
+      "event_index": 2324,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2328,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2332,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2337,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2341,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2346,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2349,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2353,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2358,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2362,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2367,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2370,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2374,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2378,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2382,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2385,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2389,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2393,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2397,
+      "message": "PASS browser-worker: opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits"
+    },
+    {
+      "event_index": 2399,
+      "message": "PASS browser-worker: cancel between real Other variants frees staged readouts and ignores the delayed second variant"
+    },
+    {
+      "event_index": 2403,
+      "message": "PASS browser-worker: normal flagged Pivot recovers after variant cancellation without aliasing retained Other ownership"
+    },
+    {
+      "event_index": 2405,
+      "message": "PASS browser-worker: two real CSV registrations provide independent immutable Other source bindings"
+    },
+    {
+      "event_index": 2410,
+      "message": "PASS browser-worker: every source/schema/Other stage keeps the captured CSV registration and exact source-derived readouts"
+    },
+    {
+      "event_index": 2413,
+      "message": "PASS browser-worker: actual drop before Other rejects the captured binding without engine ticket/send advance or matrix publication"
+    },
+    {
+      "event_index": 2426,
+      "message": "Browser Other workloads: {\"jobs\":24,\"sql\":88,\"counts\":0,\"stages\":26,\"native_stamp_rejections\":1,\"source_drop_rejections\":1,\"sequential_workers\":5,\"total_jobs\":249,\"total_sql\":529,\"total_counts\":21}"
+    }
+  ]
+}

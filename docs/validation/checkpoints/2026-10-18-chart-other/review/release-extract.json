@@ -1,0 +1,286 @@
+{
+  "scope": "Exact PASS and final performance lines from completed native review400; full report archives and repetitive GPU allocation log omitted.",
+  "original_log": {
+    "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T064202-review-72614/release.log",
+    "bytes": 169416,
+    "sha256": "efe90833730c3379287e54a96bb707f144af15c74465dc263a94d6a6a7666a6f"
+  },
+  "lines": [
+    {
+      "line": 80,
+      "text": "PASS: first-open inspector/Generated SQL pin current document before any captured frame"
+    },
+    {
+      "line": 341,
+      "text": "PASS: native review filter/selection isolation, typed frozen cell, disabled ribbon/overflow, pane controls, 100/150 percent, capture/write retry, durable reports, queued query reply, title/ribbon pointer/keyboard targets and bounded File menu targets"
+    },
+    {
+      "line": 426,
+      "text": "PASS: native headed choice targets retain checked/focused state, popup clipping and frozen ribbon, UI scale, row density and text color"
+    },
+    {
+      "line": 499,
+      "text": "PASS: short 150 percent review composer has a visible multiline editor, pointer focus, actual Backspace and pointer Save with retained frozen state"
+    },
+    {
+      "line": 508,
+      "text": "PASS: native authoring review kind=source_context case=0 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 517,
+      "text": "PASS: native authoring review kind=context case=1 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 525,
+      "text": "PASS: native authoring review kind=context case=2 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 562,
+      "text": "PASS: native authoring review kind=field case=3 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 570,
+      "text": "PASS: native authoring review kind=step case=4 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 581,
+      "text": "PASS: native authoring review kind=object case=5 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 590,
+      "text": "PASS: native authoring review kind=pivot_field case=6 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 599,
+      "text": "PASS: native authoring review kind=pivot_field case=7 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 608,
+      "text": "PASS: native authoring review kind=pivot_field case=8 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 617,
+      "text": "PASS: native authoring review kind=marks case=9 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 626,
+      "text": "PASS: native authoring review kind=assign_field case=10 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 635,
+      "text": "PASS: native authoring review kind=representation case=11 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 644,
+      "text": "PASS: native authoring review kind=plot case=12 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 652,
+      "text": "PASS: native authoring review kind=view case=13 retains definitions, focus, owned pages, history and query jobs"
+    },
+    {
+      "line": 690,
+      "text": "PASS: native dialog review kind=column_width ui_scale=1.0 retains draft text/cursor/anchor, modal ownership, models and jobs"
+    },
+    {
+      "line": 727,
+      "text": "PASS: native dialog review kind=move_range ui_scale=1.5 retains draft text/cursor/anchor, modal ownership, models and jobs"
+    },
+    {
+      "line": 767,
+      "text": "PASS: native dialog review kind=object_name ui_scale=1.0 retains draft text/cursor/anchor, modal ownership, models and jobs"
+    },
+    {
+      "line": 805,
+      "text": "PASS: native dialog review kind=chart_size ui_scale=1.5 retains draft text/cursor/anchor, modal ownership, models and jobs"
+    },
+    {
+      "line": 815,
+      "text": "PASS: native dialog review kind=unsaved ui_scale=1.5 retains draft text/cursor/anchor, modal ownership, models and jobs"
+    },
+    {
+      "line": 823,
+      "text": "PASS: native Plot distinguishes SUM and AVG of the same raw field with separate semantic IDs and retained checked state"
+    },
+    {
+      "line": 862,
+      "text": "PASS: native worksheet review case=0 retains captured position/order, names, hidden state, draft/selection and pages/jobs"
+    },
+    {
+      "line": 872,
+      "text": "PASS: native worksheet review case=1 retains captured position/order, names, hidden state, draft/selection and pages/jobs"
+    },
+    {
+      "line": 881,
+      "text": "PASS: native worksheet review case=2 retains captured position/order, names, hidden state, draft/selection and pages/jobs"
+    },
+    {
+      "line": 918,
+      "text": "PASS: native worksheet review case=3 retains captured position/order, names, hidden state, draft/selection and pages/jobs"
+    },
+    {
+      "line": 957,
+      "text": "PASS: native source-query review owner=primary pending=0 retains SQL/cursor/focus, source and dependent pages; validation jobs=0 prepares=0 executed SQL=0"
+    },
+    {
+      "line": 994,
+      "text": "PASS: native source-query review owner=upstream table pending=1 retains SQL/cursor/focus, source and dependent pages; validation jobs=1 prepares=1 executed SQL=0"
+    },
+    {
+      "line": 1060,
+      "text": "PASS: native source-relation review retains actual table ownership, quoted cached names, source/model/pages and SQL/job counts"
+    },
+    {
+      "line": 1099,
+      "text": "PASS: native multi-sort review owner=primary ui_scale=1.0 retains draft order, search selection, stable field priorities, source/pages and query jobs"
+    },
+    {
+      "line": 1135,
+      "text": "PASS: native multi-sort review owner=upstream table ui_scale=1.5 retains draft order, search selection, stable field priorities, source/pages and query jobs"
+    },
+    {
+      "line": 1174,
+      "text": "PASS: native statistics review scope=DECIMAL source range retains checklist/focus, exact cached values/flags, source/model/pages and query jobs"
+    },
+    {
+      "line": 1210,
+      "text": "PASS: native statistics review scope=matrix frame retains checklist/focus, exact cached values/flags, source/model/pages and query jobs"
+    },
+    {
+      "line": 1250,
+      "text": "PASS: native statistics review scope=primary range with Chart selected retains checklist/focus, exact cached values/flags, source/model/pages and query jobs"
+    },
+    {
+      "line": 1261,
+      "text": "PASS: native cell-inspector review value=SQL NULL retains owned full text/type, pinned cell origin, layout/scroll, statistics, source/models/pages and query jobs; Copy never activated"
+    },
+    {
+      "line": 1271,
+      "text": "PASS: native cell-inspector review value=empty VARCHAR retains owned full text/type, pinned cell origin, layout/scroll, statistics, source/models/pages and query jobs; Copy never activated"
+    },
+    {
+      "line": 1280,
+      "text": "PASS: native cell-inspector review value=literal NULL retains owned full text/type, pinned cell origin, layout/scroll, statistics, source/models/pages and query jobs; Copy never activated"
+    },
+    {
+      "line": 1316,
+      "text": "PASS: native cell-inspector review value=50000-byte VARCHAR retains owned full text/type, pinned cell origin, layout/scroll, statistics, source/models/pages and query jobs; Copy never activated"
+    },
+    {
+      "line": 1355,
+      "text": "PASS: native Settings review layout=wide two columns at100% retains actual/requested UI scale, reduced motion, source/models/pages/statistics and query jobs"
+    },
+    {
+      "line": 1391,
+      "text": "PASS: native Settings review layout=narrow single column at150% retains actual/requested UI scale, reduced motion, source/models/pages/statistics and query jobs"
+    },
+    {
+      "line": 1430,
+      "text": "PASS: native compact format review kind=font size retains worksheet range/revision, full format ownership/content/history, source/models/pages/statistics and query jobs"
+    },
+    {
+      "line": 1468,
+      "text": "PASS: native compact format review kind=number retains worksheet range/revision, full format ownership/content/history, source/models/pages/statistics and query jobs; actual retained parent flyout restored and closed"
+    },
+    {
+      "line": 1507,
+      "text": "PASS: native Generated SQL review owner=primary while another Pivot stays selected retains owned SQL/pinned origin, independent Transformations SQL, scroll0 and source/models/pages/statistics/jobs; Copy never activated"
+    },
+    {
+      "line": 1544,
+      "text": "PASS: native Generated SQL review owner=upstream Table while another Pivot stays selected retains owned SQL/pinned origin, independent Transformations SQL, scroll0 and source/models/pages/statistics/jobs; Copy never activated"
+    },
+    {
+      "line": 1595,
+      "text": "PASS: native owner lifetime load/delete/import/bind/delete/save/reopen retains retired uint64 IDs above2^53, exact sparse cells/spatial formats, exhausted and never-allocated sheets; exhausted import adds no object/query; reopened Table inspector capture/cancel retains exact owner and Pages without clipboard/panels"
+    },
+    {
+      "line": 1604,
+      "text": "PASS: native Guide review wide100% at top retains actual visible text/shortcuts, logical buttons, clipping, focus/scroll, all owned line caches, source/Pivot/Pages/statistics/jobs and document-only identity; normal Escape returns Help focus"
+    },
+    {
+      "line": 1644,
+      "text": "PASS: native Guide review short150% at real End/Tab footer retains actual visible text/shortcuts, logical buttons, clipping, focus/scroll, all owned line caches, source/Pivot/Pages/statistics/jobs and document-only identity; normal Escape returns Help focus"
+    },
+    {
+      "line": 1683,
+      "text": "PASS: native inline cell editor 100% partial UTF8 selection uses normal blank-cell click/F2, UTF8 quoted editing primitive and queued navigation; capture/pick/cancel retains draft/selection/hscroll/owned histories/model/Pages/jobs with manual-cell scope; normal Escape leaves sparse NULL unchanged"
+    },
+    {
+      "line": 1719,
+      "text": "PASS: native inline cell editor 150% select-all uses normal blank-cell click/F2, UTF8 quoted editing primitive and queued navigation; capture/pick/cancel retains draft/selection/hscroll/owned histories/model/Pages/jobs with manual-cell scope; normal Enter creates one cell Undo action; normal Undo restores sparse NULL"
+    },
+    {
+      "line": 1758,
+      "text": "PASS: native Error review after actual failed workspace Save retains owned message/timestamp, source/model/Pages/dirty/history/io/jobs and document-only scope; SOURCE_NONE wide has no hidden Relink despite selected Pivot; normal Close/Enter preserves error context without clipboard or OS panels"
+    },
+    {
+      "line": 1794,
+      "text": "PASS: native Error review after actual failed workspace Save retains owned message/timestamp, source/model/Pages/dirty/history/io/jobs and document-only scope; CSV short150% exposes real Relink and clipped text; normal Escape preserves error context without clipboard or OS panels"
+    },
+    {
+      "line": 1859,
+      "text": "PASS: native Source Query missing-column validation produces one real prepare and no executed SQL; actual status/error targets retain owned draft, exact message, line cache/scroll, input histories, source/model/Pages/jobs through capture/pick/cancel and normal Escape"
+    },
+    {
+      "line": 1896,
+      "text": "PASS: native contextual workspace review empty100% with field actions checks actual visible Fields/actions, Rows/Columns, Measures/Filters/Marks ownership/clipping and frozen pick/cancel; retains search/history, source/Pivot/manual/Pages/Stats/jobs without underlying activation"
+    },
+    {
+      "line": 1930,
+      "text": "PASS: native contextual workspace review populated150% with disabled sole-measure remove checks actual visible Fields/actions, Rows/Columns, Measures/Filters/Marks ownership/clipping and frozen pick/cancel; retains search/history, source/Pivot/manual/Pages/Stats/jobs without underlying activation"
+    },
+    {
+      "line": 1997,
+      "text": "PASS: native Steps capture quarantines owned 3-unit inspector pan with actual outer room and retains offsets/grid/models/Pages/caches/jobs after cancel"
+    },
+    {
+      "line": 2035,
+      "text": "PASS: native feedback closure case=0 actual Table Steps100 with Pivot selected ownership/clipping/value and frozen pick/cancel retain models/manual/history/Pages/input/SQL caches/worker jobs"
+    },
+    {
+      "line": 2069,
+      "text": "PASS: native SQL capture quarantines owned 3-unit inspector pan with actual outer room and retains offsets/grid/models/Pages/caches/jobs after cancel"
+    },
+    {
+      "line": 2077,
+      "text": "PASS: native feedback closure case=1 actual upstream Table SQL150 with Pivot selected ownership/clipping/value and frozen pick/cancel retain models/manual/history/Pages/input/SQL caches/worker jobs"
+    },
+    {
+      "line": 2085,
+      "text": "PASS: native feedback closure case=2 actual pending historical preview ownership/clipping/value and frozen pick/cancel retain models/manual/history/Pages/input/SQL caches/worker jobs; exactly one owned preview reply publishes after cancellation"
+    },
+    {
+      "line": 2097,
+      "text": "PASS: native feedback closure case=3 actual scrolled distinct domain ownership/clipping/value and frozen pick/cancel retain models/manual/history/Pages/input/SQL caches/worker jobs"
+    },
+    {
+      "line": 2105,
+      "text": "PASS: native feedback closure case=4 actual no-match domain ownership/clipping/value and frozen pick/cancel retain models/manual/history/Pages/input/SQL caches/worker jobs"
+    },
+    {
+      "line": 2112,
+      "text": "PASS: native feedback closure case=5 actual genuine unavailable-file distinct error ownership/clipping/value and frozen pick/cancel retain models/manual/history/Pages/input/SQL caches/worker jobs"
+    },
+    {
+      "line": 2150,
+      "text": "PASS: native150-byte UTF8 source-query field remains selectable by complete stable hash/source/schema/column scope with honest124-byte UTF8 prefix plus ellipsis; actual Fields/More and filter controls/typed values retain definitions/input/history/Pages/jobs through capture/pick/cancel"
+    },
+    {
+      "line": 2152,
+      "text": "Draw submission CPU p95=12.078 ms (excludes swap/pacing)"
+    },
+    {
+      "line": 2153,
+      "text": "Final relation rows=0 columns=0 cache offset=0 top=0 first_col=0"
+    },
+    {
+      "line": 2154,
+      "text": "Duxcel frames=887 mean=19.35 ms p95=35.56 ms max=75.96 ms dpi=2.0x2.0 logical=1280x900 framebuffer=2560x1800 smoke=0"
+    },
+    {
+      "line": 2155,
+      "text": "Worker jobs=39 SQL executions=76 count queries=7"
+    }
+  ]
+}

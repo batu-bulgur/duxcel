@@ -1,0 +1,41 @@
+{
+  "source": {
+    "commit": "24daeb0aee07d3adec522a196534f970418fdf63",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "47c6f5792dbc468bea9d32b6056a66899bb898a11cd77a64c560bd67c0c3a089",
+    "source_files": 283
+  },
+  "results": [
+    {
+      "name": "app",
+      "command": [
+        "python3",
+        "tools/build_web.py"
+      ],
+      "seconds": 14.824,
+      "exit_code": 0
+    },
+    {
+      "name": "review",
+      "command": [
+        "python3",
+        "tools/build_web.py",
+        "--review"
+      ],
+      "seconds": 19.296,
+      "exit_code": 0
+    },
+    {
+      "name": "exclusion",
+      "command": [
+        "python3",
+        "tools/test_web_review_build.py",
+        "--no-build"
+      ],
+      "seconds": 0.345,
+      "exit_code": 0
+    }
+  ],
+  "seconds": 34.465,
+  "source_unchanged": true
+}

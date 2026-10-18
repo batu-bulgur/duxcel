@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "scope": "Post-run strict validation of immutable c3a4a99 console events; not a new engine run",
+  "run": "tests/results/runs/20261018T063554-browser-70637",
+  "other": {
+    "jobs": 24,
+    "sql": 88,
+    "counts": 0,
+    "stages": 26,
+    "native_stamp_rejections": 1,
+    "source_drop_rejections": 1,
+    "sequential_workers": 5,
+    "total_jobs": 249,
+    "total_sql": 529,
+    "total_counts": 21
+  },
+  "driver": {
+    "ok": true,
+    "checks": 125639,
+    "stages": 247
+  }
+}

@@ -1,0 +1,9 @@
+mkdir -p build
+python3 tools/generate_icons.py --check || python3 tools/generate_icons.py
+PASS: canonical vector and 56 derivatives match their hashes
+PASS: 23 sRGB RGBA sizes, transparent surround, ICNS 1x/2x and ICO representations
+touch build/icons.stamp
+clang -Isrc -I/opt/homebrew/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/data/page.c src/data/source_digest.c src/ui/chartview.c tests/test_chartview.c -o tests/test_chartview -lm
+clang -Isrc -I/opt/homebrew/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/data/page.c src/data/source_digest.c src/ui/chartview.c tests/test_chartview.c -o tests/test_chartview-debug -lm -fsanitize=address,undefined -fno-omit-frame-pointer
+clang -Isrc -Isrc/ui -I/opt/homebrew/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/data/page.c src/data/source_digest.c src/transforms/marks.c src/ui/chartview.c src/ui/chartencoding.c tests/test_chartencoding.c -o tests/test_chartencoding -lm
+clang -Isrc -Isrc/ui -I/opt/homebrew/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/data/page.c src/data/source_digest.c src/transforms/marks.c src/ui/chartview.c src/ui/chartencoding.c tests/test_chartencoding.c -o tests/test_chartencoding-debug -lm -fsanitize=address,undefined -fno-omit-frame-pointer
