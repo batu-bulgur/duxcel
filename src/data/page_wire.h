@@ -45,4 +45,11 @@ bool page_from_wire_copy_owned(Page *out,const void *bytes,size_t size,uint64_t 
    Decode once, then feed the shared row cursor in batches of at most256. */
 bool page_from_wire_workbook_sorts_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
                                         uint64_t total,bool count_pending,size_t owned_budget,char **error);
+/* Only the trusted active object-registry metadata cursor selects this policy:
+   exactly eleven columns, at most2049 rows (2048 legal rows + one sentinel),
+   offset zero, unchanged text/wire/owned bounds. Decode one result, then feed
+   the shared cursor in <=256-row batches. The wire cannot select this policy;
+   object/schema/reference validity is checked by that cursor, not this parser. */
+bool page_from_wire_workbook_objects_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                                          uint64_t total,bool count_pending,size_t owned_budget,char **error);
 #endif

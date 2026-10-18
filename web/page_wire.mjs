@@ -68,12 +68,13 @@ function cellText(text, start, end) {
  * Exact text bytes are authoritative and are never parsed as JavaScript numbers.
  */
 export function encodePageWire(page,{purpose}={}) {
-    check(purpose===undefined||purpose==='copy'||purpose==='workbook-sorts','unknown transport purpose');
+    check(purpose===undefined||purpose==='copy'||purpose==='workbook-sorts'||purpose==='workbook-objects','unknown transport purpose');
     check(page && typeof page === 'object' && page.schema === 'duxcel.page' && page.version === 1,
         'expected duxcel.page version 1');
     const columns = count(page.columnCount, MAX_COLUMNS, 'column count');
-    const rows = count(page.rowCount, purpose==='copy'?MAX_COPY_CELLS:purpose==='workbook-sorts'?449:MAX_ROWS, 'row count');
+    const rows = count(page.rowCount, purpose==='copy'?MAX_COPY_CELLS:purpose==='workbook-sorts'?449:purpose==='workbook-objects'?2049:MAX_ROWS, 'row count');
     check(purpose!=='workbook-sorts'||columns===4,'workbook sorts require exactly four columns');
+    check(purpose!=='workbook-objects'||columns===11,'workbook objects require exactly eleven columns');
     check(Array.isArray(page.columns) && page.columns.length === columns, 'column descriptors disagree with column count');
     const cells = columns * rows;
     check(purpose!=='copy'||cells<=MAX_COPY_CELLS,'copy exceeds 20,000 cells');
