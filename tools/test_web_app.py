@@ -34,7 +34,7 @@ def parse_options(argv=None):
     parser.add_argument('--review',action='store_true')
     parser.add_argument('--source-labels-only',action='store_true',help='Original source filenames across primary/Table imports, rename, filter history, query and preview; requires --review and transactions.csv')
     parser.add_argument('--source-bindings-only',action='store_true',help='Real registration-bound primary/Table jobs and atomic mixed-copy revocation; requires --review and transactions.csv')
-    parser.add_argument('--pane-rail-only',action='store_true',help='Actual retained Transformations rail geometry/color and narrow shadow absence at100/150 percent; requires --review and transactions.csv')
+    parser.add_argument('--pane-rail-only',action='store_true',help='Actual retained rail and measured expanded Collapse/Dismiss bounds, colors and narrow shadow absence at100/150 percent; requires --review and transactions.csv')
     parser.add_argument('--pane-shortcuts-only',action='store_true',help='Delivered pane Control/Meta history, refresh/new-sheet/pane toggles and local editing ownership; requires --review and transactions.csv')
     parser.add_argument('--steps-clip-only',action='store_true',help='Focused short Steps Edit/right-details input and retained SQL/Back widths at100/150 percent; requires --review and transactions.csv')
     parser.add_argument('--feedback-review-only',action='store_true',help='Real primary Steps/SQL, historical preview, distinct feedback and readouts; requires --review and transactions.csv')
