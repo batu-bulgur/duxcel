@@ -1755,13 +1755,19 @@ static void history(App *a,bool redo) {
     }
     if (effects&2) { if (cells_history(&s->cells,redo)) { if (effects&8) format_history(&s->formats,redo); worksheet_transfer_history(s,redo); restore_column_widths(a,column,redo); a->book.dirty=true; validate_history_layout(a); } return; }
     if (effects==8) { if (format_history(&s->formats,redo)) { worksheet_transfer_history(s,redo); a->book.dirty=true; } return; }
-    Analysis *from=redo ? s->redo : s->undo, *to=redo ? s->undo : s->redo;
-    size_t *fc=redo ? &s->redo_count : &s->undo_count, *tc=redo ? &s->undo_count : &s->redo_count;
-    if (!*fc) return;
-    bool same=!a->fetch_failed && !a->page_stale && analysis_same_result(&a->analysis,&from[*fc-1]);
-    if (same) analysis_merge_types(&from[*fc-1],&a->analysis);
-    stack_push(to,tc,&a->analysis); analysis_free(&a->analysis); a->analysis=from[--*fc];
-    memset(&from[*fc],0,sizeof(*from)); worksheet_transfer_history(s,redo); a->book.dirty=true;
+    char *error=NULL;
+    if (!worksheet_analysis_history_preflight(s,&a->analysis,redo,&error)) { status(a,error); free(error); return; }
+    Analysis *from=redo ? s->redo : s->undo;
+    size_t fc=redo ? s->redo_count : s->undo_count;
+    bool same=!a->fetch_failed && !a->page_stale && analysis_same_result(&a->analysis,&from[fc-1]);
+    /* Both constituents are known to exist before either moves. Keep the
+       resolved old value borrowed only until the nonfallible pointer moves
+       finish; the old live Analysis now belongs to the opposite history. */
+    Analysis resolved=a->analysis;
+    if (effects&8) format_history(&s->formats,redo);
+    worksheet_analysis_history_adopt(s,&a->analysis,redo);
+    if (same) analysis_merge_types(&a->analysis,&resolved);
+    worksheet_transfer_history(s,redo); a->book.dirty=true;
     if (same) { cache_pipeline(a); if (!a->busy) status(a,"Ready"); } else change_analysis(a,true);
 }
 static void open_modal(App *a,Modal modal) {
@@ -7547,7 +7553,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 730
+#define LAYOUT_SMOKE_STAGES 734
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -8401,6 +8407,8 @@ static void layout_smoke_step(App *a,int *step) {
     static size_t select_history;
     static size_t author_select_history;
     static size_t cache_source_sheet,cache_source_sheets,retired_object_bytes;
+    static const char *journal_old_path,*journal_new_path,*journal_cache_path;
+    static FormatPatch *journal_old_formats,*journal_new_formats;
     if ((a->modal==MODAL_ERROR || a->fetch_failed) && *step!=671) goto failed;
     switch (*step) {
     case 0:
@@ -11138,6 +11146,65 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     case 729:
         puts("PASS: native source-aware primary Table matrix preview readout and totals share suspended imported versus manual formatting, retained mode-only archives and actual v14 Save Open overwrite"); break;
+    case 730: {
+        /* A prepared transaction exercises the real history controller before
+           enabling an asynchronous source-format command producer. */
+        stack_clear(s->undo,&s->undo_count); stack_clear(s->redo,&s->redo_count);
+        cells_trim_history(&s->cells,false,0); cells_trim_history(&s->cells,true,0);
+        objects_trim_history(&s->objects,false,0); objects_trim_history(&s->objects,true,0);
+        format_free(&s->formats); source_versions_free(&s->source_versions);
+        s->undo_actions_count=s->redo_actions_count=0;
+        memset(s->undo_columns,0,sizeof(s->undo_columns)); memset(s->redo_columns,0,sizeof(s->redo_columns));
+        a->analysis.source_version=s->analysis.source_version=0;
+        CellFormat value=format_default(); value.flags=FORMAT_BOLD;
+        if (!format_apply(&s->formats,(FormatRange){80,80,40,40},FORMAT_BOLD,value,&error)) goto failed;
+        worksheet_record(s,EDIT_FORMAT);
+        Analysis next_analysis=analysis_copy(&a->analysis); next_analysis.source_version=1;
+        FormatSnapshot next_format={0}; SourceVersions versions={0}; bool changed=false;
+        SourceVersion entry={.owner=0,.version=1,.kind=a->analysis.kind,.path=a->analysis.path};
+        bool ok=source_versions_plan(&s->source_versions,&entry,true,&versions,&error) &&
+            format_plan_move(&s->formats,(FormatRange){80,80,40,40},1,0,&next_format,&error) &&
+            worksheet_analysis_preflight(s,&a->analysis,&next_analysis,&changed,&error) && changed;
+        if (!ok) { analysis_free(&next_analysis); format_snapshot_free(&next_format); source_versions_free(&versions); goto failed; }
+        next_format.source_aware=true;
+        journal_old_path=a->analysis.path; journal_new_path=next_analysis.path; journal_cache_path=s->analysis.path;
+        journal_old_formats=s->formats.items;
+        s->source_versions=versions;
+        worksheet_analysis_adopt(s,&a->analysis,&next_analysis);
+        if (!format_commit(&s->formats,&next_format)) goto failed;
+        worksheet_record(s,EDIT_ANALYSIS_FORMAT); a->book.dirty=true;
+        journal_new_formats=s->formats.items; request=a->request_id; ribbon_cells=a->page.cells;
+        if (next_analysis.path || s->undo_actions_count!=2 || s->undo_actions[1]!=EDIT_ANALYSIS_FORMAT ||
+            a->analysis.path!=journal_new_path || !a->analysis.source_version || !s->formats.source_aware ||
+            !(format_at(&s->formats,81,40).flags&FORMAT_BOLD) || format_at(&s->formats,80,40).flags ||
+            s->analysis.path!=journal_cache_path || s->analysis.source_version) goto failed;
+        break;
+    }
+    case 731:
+        run_action(a,ACTION_UNDO);
+        if (a->analysis.source_version || a->analysis.path!=journal_old_path || s->formats.source_aware ||
+            s->formats.items!=journal_old_formats || !(format_at(&s->formats,80,40).flags&FORMAT_BOLD) ||
+            format_at(&s->formats,81,40).flags || s->source_versions.high_water!=1 || s->source_versions.count!=1 ||
+            s->undo_actions_count!=1 || s->redo_actions_count!=1 || s->analysis.path!=journal_cache_path || s->analysis.source_version ||
+            a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        break;
+    case 732:
+        run_action(a,ACTION_REDO);
+        if (a->analysis.source_version!=1 || a->analysis.path!=journal_new_path || !s->formats.source_aware ||
+            s->formats.items!=journal_new_formats || !(format_at(&s->formats,81,40).flags&FORMAT_BOLD) ||
+            format_at(&s->formats,80,40).flags || s->source_versions.high_water!=1 || s->undo_actions_count!=2 || s->redo_actions_count ||
+            s->analysis.path!=journal_cache_path || s->analysis.source_version || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        break;
+    case 733:
+        remember(a); a->analysis.source_version=0;
+        run_action(a,ACTION_UNDO); if (a->analysis.source_version!=1 || !s->formats.source_aware || s->formats.items!=journal_new_formats) goto failed;
+        run_action(a,ACTION_UNDO); if (a->analysis.source_version || s->formats.source_aware || s->formats.items!=journal_old_formats) goto failed;
+        run_action(a,ACTION_REDO); if (a->analysis.source_version!=1 || !s->formats.source_aware || s->formats.items!=journal_new_formats) goto failed;
+        run_action(a,ACTION_REDO);
+        if (a->analysis.source_version || !s->formats.source_aware || s->formats.items!=journal_new_formats ||
+            s->source_versions.high_water!=1 || s->source_versions.count!=1 || s->undo_actions_count!=3 || s->redo_actions_count ||
+            s->analysis.path!=journal_cache_path || s->analysis.source_version || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        puts("PASS: native prepared Analysis and format transaction restores both through one Undo Redo, retains source issuance outside history and cached values, and interleaves ordinary Analysis actions without copying moved ownership"); break;
 
     }
     free(error); (*step)++; return;
@@ -12590,9 +12657,9 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
-    if (focused_layout && layout_start==687) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
+    if (focused_layout && (layout_start==687 || layout_start==730)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
     else if (options->nyc_smoke) open_source(a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -12602,7 +12669,7 @@ AppSession *app_start(const AppOptions *options) {
     else if (options->path) open_source(a,options->path,false);
     else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(a,"tests/fixtures/null-text.csv",false);
     else { new_sheet(a); a->book.dirty=false; }
-    session->layout_smoke=focused_layout ? (layout_start==687 ? 687 : 250) : 0;
+    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 ? layout_start : 250) : 0;
     session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     session->applied_cursor=-1;
     session->automated=automated; session->layout_start=layout_start; session->layout_target=layout_target;

@@ -74,7 +74,8 @@ size_t format_owned_bytes(const FormatStore *store,bool include_history);
 bool format_apply(FormatStore *store,FormatRange range,unsigned mask,CellFormat value,char **error);
 bool format_apply_scoped(FormatStore *store,FormatRange range,unsigned mask,CellFormat value,
     const FormatScopeView *scopes,size_t count,bool include_manual,char **error);
-/* Pure model only; not accepted by the current workspace codec. IDs must be
+/* Native v14 can archive these dormant selectors; live producers must still
+   verify their source/fields and captured request before activation. IDs must be
    nonzero and strictly increasing (at most 20,000); original field ordinals must
    be strictly increasing in [0,16383]. Inputs and the exact scope are copied. */
 bool format_apply_records(FormatStore *store,const FormatScopeView *scope,

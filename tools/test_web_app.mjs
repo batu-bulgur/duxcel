@@ -1822,13 +1822,13 @@ try{
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelWorkerResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'worker-driver.json'),JSON.stringify(report??{ok:false,error:'C driver did not complete'},null,2));
   check(report?.ok,'Real C/Worker bridge failed; see worker-driver.json and events.json');
-  check(report.stages===187,'C/Worker acceptance stage inventory changed');
+  check(report.stages===192,'C/Worker acceptance stage inventory changed');
   const workloadLines=events.filter(event=>event.method==='Runtime.consoleAPICalled').flatMap(event=>event.params.args.map(arg=>String(arg.value??''))).filter(line=>line.startsWith('Browser worker workloads: '));
   check(workloadLines.length===1,'C/Worker did not report one actual sequential workload inventory');
   const workloads=JSON.parse(workloadLines[0].slice('Browser worker workloads: '.length));
   check(workloads.sequential_workers===3&&workloads.baseline?.jobs===146&&workloads.baseline?.sql===325&&workloads.baseline?.counts===21&&workloads.baseline?.host_requests===325,'Original139-stage Worker workload changed');
   check(workloads.export?.jobs===43&&workloads.export?.sql===74&&workloads.export?.counts===0&&workloads.export?.host_requests===74,'Export Worker workload changed');
-  check(workloads.verification?.jobs===3&&workloads.verification?.sql===3&&workloads.verification?.counts===0&&workloads.verification?.host_requests===3&&workloads.verification?.rejected_jobs===1,'Unsupported native verification submitted browser work or broke cached recovery');
+  check(workloads.verification?.jobs===8&&workloads.verification?.sql===7&&workloads.verification?.counts===0&&workloads.verification?.host_requests===7&&workloads.verification?.rejected_jobs===3&&workloads.verification?.rejected_record_jobs===2,'Unsupported native identity work submitted browser queries or broke cached source/Pivot recovery');
   await fs.writeFile(path.join(output,'worker-workloads.json'),JSON.stringify(workloads,null,2));
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
   console.log(JSON.stringify({status:'passed',checks,report,output}));
