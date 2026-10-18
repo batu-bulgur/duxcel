@@ -416,6 +416,33 @@ tests/test_textview_review: $(TEXTVIEW_INPUT_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW $(CFLAGS) $(WARN) $(TEXTVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
 tests/test_textview_review-debug: $(TEXTVIEW_INPUT_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -O1 -g $(WARN) $(SANFLAGS) $(TEXTVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+# Actual shared UI input, with section collection only in these test binaries.
+UI_INPUT_LINK = -ffunction-sections -Wl,--gc-sections
+ifeq ($(shell uname -s),Darwin)
+UI_INPUT_LINK = -ffunction-sections -Wl,-dead_strip
+endif
+STATS_INPUT_SRC = src/ui/ui.c src/ui/statsview.c tests/test_statsview_input.c
+UI_UPDATE_INPUT_SRC = src/common.c src/ui/fontmetrics.c src/ui/ui.c tests/test_ui_update_input.c
+tests/test_statsview_input: $(STATS_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(STATS_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_statsview_input-debug: $(STATS_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(STATS_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+tests/test_statsview_input_review: $(STATS_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -DDUXCEL_REVIEW_INPUT_IMPLEMENTATION -include src/dev/review_input.h $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(STATS_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_statsview_input_review-debug: $(STATS_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -DDUXCEL_REVIEW_INPUT_IMPLEMENTATION -include src/dev/review_input.h -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(STATS_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+tests/test_ui_update_input: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_ui_update_input-debug: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+tests/test_ui_update_input_browser: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -DDUXCEL_BROWSER_HOST -U__APPLE__ $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_ui_update_input_browser-debug: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -DDUXCEL_BROWSER_HOST -U__APPLE__ -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+tests/test_ui_update_input_control: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -U__APPLE__ $(CFLAGS) $(WARN) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_ui_update_input_control-debug: $(UI_UPDATE_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -U__APPLE__ -O1 -g $(WARN) $(SANFLAGS) $(UI_INPUT_LINK) $(UI_UPDATE_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 MOTION_SRC = src/ui/motion.c tests/test_motion.c
 tests/test_motion: $(MOTION_SRC) src/ui/motion.h
 	$(CC) -Isrc $(CFLAGS) $(WARN) $(MOTION_SRC) -o $@ -lm
@@ -455,7 +482,7 @@ tests/test_paint-native-debug: $(PAINT_NATIVE_SRC) $(HEADERS)
 paint-smoke: tests/test_paint-native-debug
 	mkdir -p tests/results/native-authoring
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_paint-native-debug
-test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview tests/test_preview_input tests/test_preview_input_browser tests/test_textview tests/test_textview_review
+test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview tests/test_preview_input tests/test_preview_input_browser tests/test_textview tests/test_textview_review tests/test_statsview_input tests/test_statsview_input_review tests/test_ui_update_input tests/test_ui_update_input_browser tests/test_ui_update_input_control
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
 	./tests/test_filterlabel
 	./tests/test_cellreadout
@@ -482,7 +509,12 @@ test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid 
 	./tests/test_preview_input_browser
 	./tests/test_textview
 	./tests/test_textview_review
-test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug tests/test_preview_input-debug tests/test_preview_input_browser-debug tests/test_textview-debug tests/test_textview_review-debug
+	./tests/test_statsview_input
+	./tests/test_statsview_input_review
+	./tests/test_ui_update_input
+	./tests/test_ui_update_input_browser
+	./tests/test_ui_update_input_control
+test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug tests/test_preview_input-debug tests/test_preview_input_browser-debug tests/test_textview-debug tests/test_textview_review-debug tests/test_statsview_input-debug tests/test_statsview_input_review-debug tests/test_ui_update_input-debug tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control-debug
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_filterlabel-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_cellreadout-debug
@@ -509,6 +541,11 @@ test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_cor
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_preview_input_browser-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_textview-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_textview_review-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_statsview_input-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_statsview_input_review-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_ui_update_input-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_ui_update_input_browser-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_ui_update_input_control-debug
 spill-test: tests/test_cellreadout tests/test_core tests/test_core-debug
 	./tests/test_core --spill-probe
 	TMPDIR=/ ASAN_OPTIONS=halt_on_error=1 ./tests/test_core-debug --spill-probe
@@ -576,6 +613,8 @@ ifeq ($(shell uname -s),Darwin)
 	codesign --force --sign - build/Duxcel.app
 endif
 clean:
+	rm -f tests/test_statsview_input tests/test_statsview_input-debug tests/test_statsview_input_review tests/test_statsview_input_review-debug tests/test_ui_update_input tests/test_ui_update_input-debug tests/test_ui_update_input_browser tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control tests/test_ui_update_input_control-debug
+	rm -rf tests/test_statsview_input.dSYM tests/test_statsview_input-debug.dSYM tests/test_statsview_input_review.dSYM tests/test_statsview_input_review-debug.dSYM tests/test_ui_update_input.dSYM tests/test_ui_update_input-debug.dSYM tests/test_ui_update_input_browser.dSYM tests/test_ui_update_input_browser-debug.dSYM tests/test_ui_update_input_control.dSYM tests/test_ui_update_input_control-debug.dSYM
 	rm -rf build/edit-sanitize
 	rm -f tests/test_objects tests/test_objects-debug
 	rm -rf tests/test_objects.dSYM tests/test_objects-debug.dSYM
@@ -647,8 +686,8 @@ tests/test_filterlabel: $(FILTERLABEL_SRC) src/ui/filterlabel.h src/transforms/a
 	$(CC) -Isrc $(CFLAGS) $(WARN) $(FILTERLABEL_SRC) -o $@ -lm
 tests/test_filterlabel-debug: $(FILTERLABEL_SRC) src/ui/filterlabel.h src/transforms/analysis.h src/transforms/number.h src/common.h
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(FILTERLABEL_SRC) -o $@ -lm $(SANFLAGS)
-test: tests/test_filterlabel
-test-debug: tests/test_filterlabel-debug
+test: tests/test_filterlabel tests/test_statsview_input tests/test_statsview_input_review tests/test_ui_update_input tests/test_ui_update_input_browser tests/test_ui_update_input_control
+test-debug: tests/test_filterlabel-debug tests/test_statsview_input-debug tests/test_statsview_input_review-debug tests/test_ui_update_input-debug tests/test_ui_update_input_browser-debug tests/test_ui_update_input_control-debug
 
 # Review helpers compile without renderer/database/platform dependencies.
 REVIEW_REGISTRY_TEST = src/dev/review_registry.c tests/test_review_registry.c
