@@ -1,0 +1,14 @@
+In file included from tests/test_workbook_codec_native.c:594:
+tests/test_workbook_codec_pivot_marks_native.inc:65:6: error: misleading indentation; statement is not part of the previous 'for' [-Werror,-Wmisleading-indentation]
+   65 |     }return stamp;
+      |      ^
+tests/test_workbook_codec_pivot_marks_native.inc:60:14: note: previous statement is here
+   60 |     if(ready)for(size_t s=0;s<workbook_codec_header_sheet_count(h);s++)for(size_t j=0;j<workbook_codec_header_object_count(h,s);j++){
+      |              ^
+tests/test_workbook_codec_pivot_marks_native.inc:65:6: error: misleading indentation; statement is not part of the previous 'if' [-Werror,-Wmisleading-indentation]
+   65 |     }return stamp;
+      |      ^
+tests/test_workbook_codec_pivot_marks_native.inc:60:5: note: previous statement is here
+   60 |     if(ready)for(size_t s=0;s<workbook_codec_header_sheet_count(h);s++)for(size_t j=0;j<workbook_codec_header_object_count(h,s);j++){
+      |     ^
+2 errors generated.

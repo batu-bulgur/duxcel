@@ -1,0 +1,67 @@
+{
+  "schema": "duxcel.pivot-marks-adjacent",
+  "version": 1,
+  "revision": "66c0de4f271871093ae9feb4cdd171498918b04c",
+  "scope": "Unchanged original actual metadata/Worker workflows, source-scoped normal/review exclusion. No new nativeGUI/bundle/service/App172/physical/RSS/OpenSave claim",
+  "status": "passed",
+  "steps": [
+    {
+      "name": "tables",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build",
+        "--codec-tables"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 9.081971541047096,
+      "log": "build/bp1-pivot-marks-adjacent/tables.txt",
+      "sha256": "1164c01b41ba92c4294d1a30203f75f3b4ada20475d7435031d11acbb392ec66"
+    },
+    {
+      "name": "source-options",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build",
+        "--codec-source-options"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 17.41436154197436,
+      "log": "build/bp1-pivot-marks-adjacent/source-options.txt",
+      "sha256": "8761d71df511cc5b4555c118d41d70d3f947cacc6fa1a61bcad5f897b9bdd113"
+    },
+    {
+      "name": "queries",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build",
+        "--codec-queries"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 13.953863041009754,
+      "log": "build/bp1-pivot-marks-adjacent/queries.txt",
+      "sha256": "e81775d6b36e3869cbe5d628fdd843b0a3b37d447d590b6c9719ac4c2a18b495"
+    },
+    {
+      "name": "objects",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build",
+        "--codec-objects"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 9.965153874945827,
+      "log": "build/bp1-pivot-marks-adjacent/objects.txt",
+      "sha256": "250d452099d31e747e382e83f6d7f177f26e738feec5b9cc58ac7af76bf54e3d"
+    }
+  ],
+  "elapsed_seconds": 50.41776279103942,
+  "source_revision_unchanged": true
+}

@@ -1,0 +1,25 @@
+{
+  "schema": "duxcel.pivot-marks-components",
+  "version": 1,
+  "revision": "8acae02202c1d650b3062a18ae2179b6947e75b5",
+  "scope": "Integrated pure Pivot/Marks codec only; native/actualWorker/OpenSave pending",
+  "status": "passed",
+  "steps": [
+    {
+      "command": [
+        "python3",
+        "tools/test.py",
+        "fast",
+        "--modules",
+        "workbook_codec_read",
+        "--config",
+        "both"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 10.772319208015688,
+      "log": "build/bp1-pivot-marks-components/pure.txt",
+      "sha256": "240e2121d956c4044a372f6d3250e32c505502f0781132f6305e2242386b2e56"
+    }
+  ],
+  "source_revision_unchanged": true
+}

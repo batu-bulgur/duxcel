@@ -1,0 +1,46 @@
+{
+  "schema": "duxcel.pivot-marks-integration",
+  "version": 1,
+  "revision": "66c0de4f271871093ae9feb4cdd171498918b04c",
+  "scope": "Transport explicit32MiB output reservation differs from actual driver2MiBHeader/4MiBcombinedinput; no fullWorkbook/OpenSave/App/GUI/RSS claim",
+  "status": "passed",
+  "steps": [
+    {
+      "name": "harness",
+      "command": [
+        "python3",
+        "tools/test_web_codec_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.6869205830153078,
+      "log": "build/bp1-pivot-marks-integration/harness.txt",
+      "sha256": "7ee4da85970bf6176fe8bb2d0aee787f5795f8a768e71570ae622c937d7b3076"
+    },
+    {
+      "name": "runner",
+      "command": [
+        "python3",
+        "tools/test_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.1194078339030966,
+      "log": "build/bp1-pivot-marks-integration/runner.txt",
+      "sha256": "142e28f2fcdde2fc1e652b884bb6641cafb6bedd69153d15f0f79b03bbbc5ee2"
+    },
+    {
+      "name": "actual-pivot-marks",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--codec-pivot-marks"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 21.526158791035414,
+      "log": "build/bp1-pivot-marks-integration/actual-pivot-marks.txt",
+      "sha256": "8e852307d1f32eb3c20725454cbc3fe2801cb6239e02aec019c008d639c8c1b2"
+    }
+  ],
+  "elapsed_seconds": 24.333797457977198,
+  "source_revision_unchanged": true
+}

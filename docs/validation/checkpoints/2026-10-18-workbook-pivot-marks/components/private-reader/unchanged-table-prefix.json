@@ -1,0 +1,7 @@
+{
+  "base": "8770a291757fc650993492ba7a6222076de62566",
+  "scope": "Source witness: all prior13675 assertion/helper definitions are byte-identical; main only snapshots their count and appends Pivot/Marks tests. Runtime scopes are recorded separately.",
+  "bytes": 141125,
+  "sha256": "c5435784e6f33e4ec0046f537a971f5d778547e72db3b09e8b4b2343e941e1be",
+  "unchanged": true
+}

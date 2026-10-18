@@ -1,0 +1,6 @@
+{
+  "status": "passed",
+  "profile": "codec-pivot-marks-driver",
+  "checks": 690,
+  "scope": "Partial owned Header with object descriptors, primary/Table definitions and complete Pivot/Marks metadata only; no Workbook publication, App Save/Open or engine/RSS peak bound"
+}
