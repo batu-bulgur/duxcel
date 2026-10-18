@@ -52,6 +52,7 @@ class RunnerTests(unittest.TestCase):
                 self.assertLessEqual(end, 800)
                 self.assertIn(marker, source)
                 if start in (687, 730, 734, 764):
+                    self.assertIn(f'!strcmp(layout_from,"{start}")', source)
                     self.assertIn('if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764))', source)
                     self.assertIn('session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 ? layout_start : 250) : 0;', source)
                 elif start not in (0, 250):
