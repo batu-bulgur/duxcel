@@ -58,7 +58,7 @@ static ObjectStore fixture(void) {
     return s;
 }
 static size_t manual_bytes(ObjectSnapshot state) {
-    size_t bytes=state.count*sizeof(SheetObject);
+    size_t bytes=state.items ? DX_MAX_OBJECTS*sizeof(SheetObject) : 0;
     for (size_t i=0;i<state.count;i++) {
         const SheetObject *o=&state.items[i]; bytes+=strlen(o->name)+1+analysis_text_bytes(&o->source)+marks_text_bytes(&o->marks);
         for (int r=0;r<4;r++) for (size_t j=0;j<o->pivot.counts[r];j++) bytes+=strlen(o->pivot.fields[r][j].name)+1+(o->pivot.fields[r][j].value ? strlen(o->pivot.fields[r][j].value)+1 : 0);
@@ -123,7 +123,7 @@ static void history_limits(void) {
     objects_free(&s);
     /* Exactly8MiB of proposed undo is admitted; one byte more fails atomically.
        Large valid CONTAINS payloads avoid artificial invalid model state. */
-    size_t per=DX_OBJECT_HISTORY_BYTES/2,base=sizeof(SheetObject)+strlen("Table")+1+strlen(a.path)+1+strlen("City")+1;
+    size_t per=DX_OBJECT_HISTORY_BYTES/2,base=DX_MAX_OBJECTS*sizeof(SheetObject)+strlen("Table")+1+strlen(a.path)+1+strlen("City")+1;
     char *value=dx_alloc(per-base); memset(value,'x',per-base-1);
     a.filter_column="City"; a.filter_value=value; a.filter_op=FILTER_CONTAINS;
     CHECK(objects_add_table(&s,0,0,"Table",&a,&error)==0); free(value); objects_trim_history(&s,false,0);
@@ -135,7 +135,14 @@ static void history_limits(void) {
     free(old); s.items[0].source.filter_value=larger; before=s; original=*s.items; changed=false;
     CHECK(current_bytes(&s)==per+1);
     CHECK(!objects_plan_source_version(&s,s.items[0].id,0,1,&out,&changed,&error) && !changed && !out.items && strstr(error,"without pruning"));
-    unchanged(&s,&before,&original); clear_error(&error); objects_free(&s);
+    unchanged(&s,&before,&original); clear_error(&error);
+    /* Ordinary history retains both logical snapshots; the new conservative
+       reservation must not replace its legacy count-based accounting policy. */
+    CHECK(objects_move(&s,0,2,0,NULL,0,0,&error) && s.undo_count==2);
+    CHECK(objects_snapshot_owned_bytes(&s.undo[0])+objects_snapshot_owned_bytes(&s.undo[1])>DX_OBJECT_HISTORY_BYTES);
+    s.items[0].source.source_version=1; before=s; original=*s.items; changed=true;
+    CHECK(objects_plan_source_version(&s,s.items[0].id,1,1,&out,&changed,&error) && !changed && !out.items);
+    unchanged(&s,&before,&original); objects_free(&s);
 }
 static void malformed_and_full_id(void) {
     ObjectStore s={.next_id=UINT64_MAX-1}; Analysis a={.kind=SOURCE_CSV,.path="/private/full.csv"}; char *error=NULL; ObjectSnapshot out={0}; bool changed=false;
@@ -151,7 +158,7 @@ static void malformed_and_full_id(void) {
     s.redo[0].items[0].source.filter_count=0; unchanged(&s,&before,&original);
     ObjectSnapshot bad={.count=SIZE_MAX}; CHECK(objects_snapshot_owned_bytes(&bad)==SIZE_MAX);
     bad=(ObjectSnapshot){.count=1}; CHECK(objects_snapshot_owned_bytes(&bad)==SIZE_MAX);
-    SheetObject item={.name="x"}; bad=(ObjectSnapshot){&item,1}; CHECK(objects_snapshot_owned_bytes(&bad)==sizeof(item)+2);
+    SheetObject item={.name="x"}; bad=(ObjectSnapshot){&item,1}; CHECK(objects_snapshot_owned_bytes(&bad)==DX_MAX_OBJECTS*sizeof(item)+2);
     item.pivot.counts[0]=DX_PIVOT_FIELDS+1; CHECK(objects_snapshot_owned_bytes(&bad)==SIZE_MAX); item.pivot.counts[0]=1;
     CHECK(objects_snapshot_owned_bytes(&bad)==SIZE_MAX); item.pivot.counts[0]=0;
     item.marks.counts[0]=DX_MARK_FIELDS+1; CHECK(objects_snapshot_owned_bytes(&bad)==SIZE_MAX); item.marks.counts[0]=1;
@@ -163,4 +170,45 @@ static void malformed_and_full_id(void) {
     CHECK(objects_snapshot_owned_bytes(NULL)==SIZE_MAX); bad=(ObjectSnapshot){0}; CHECK(!objects_snapshot_owned_bytes(&bad));
     objects_snapshot_free(&out); CHECK(!out.items && !out.count); objects_free(&s);
 }
-int main(void) { binding_plan(); history_limits(); malformed_and_full_id(); printf("objects: %u checks passed\n",checks); return 0; }
+static void retained_arrays_and_inactive_slots(void) {
+    ObjectStore s={0}; Analysis a={.kind=SOURCE_CSV,.path="/private/tail.csv",.source_version=1}; char *error=NULL;
+    ObjectSnapshot out={0}; bool changed=false; size_t array=DX_MAX_OBJECTS*sizeof(SheetObject);
+    CHECK(objects_add_table(&s,0,0,"Kept",&a,&error)==0);
+    CHECK(objects_add(&s,10,10,"Deleted",&error)==1); CHECK(objects_add(&s,20,10,"Last",&error)==2);
+    SheetObject *retained=s.items; size_t full=current_bytes(&s);
+    CHECK(objects_remove(&s,1) && s.items==retained && s.count==2);
+    CHECK(current_bytes(&s)==full-strlen("Deleted")-1);
+    CHECK(objects_remove(&s,1) && s.items==retained && s.count==1);
+    CHECK(current_bytes(&s)==array+strlen("Kept")+1+strlen(a.path)+1);
+    CHECK(objects_plan_source_version(&s,s.items[0].id,1,2,&out,&changed,&error) && changed);
+    CHECK(objects_snapshot_owned_bytes(&out)==current_bytes(&s)); objects_snapshot_free(&out);
+    CHECK(objects_remove(&s,0) && s.items==retained && !s.count && current_bytes(&s)==array);
+    CHECK(objects_history(&s,false) && s.count==1); /* Empty retained array is now in redo. */
+    CHECK(s.redo_count==1 && !s.redo[0].count && s.redo[0].items==retained && objects_snapshot_owned_bytes(&s.redo[0])==array);
+    CHECK(objects_plan_source_version(&s,s.items[0].id,1,2,&out,&changed,&error)); objects_snapshot_free(&out);
+    ObjectStore before=s; SheetObject original=*s.items;
+    /* The ordinary model still accepts inactive fixed slots. Source-binding
+       planning rejects them without parsing, cloning or adopting the pointer. */
+    char **inactive[]={&s.items[0].source.filters[14].column,&s.items[0].source.filters[14].value,
+        &s.items[0].source.sorts[6].column,&s.items[0].pivot.fields[PIVOT_FILTERS][7].name,
+        &s.items[0].pivot.fields[PIVOT_FILTERS][7].value,&s.items[0].marks.fields[MARKS_LABEL][7].name};
+    for (size_t i=0;i<sizeof(inactive)/sizeof(*inactive);i++) {
+        *inactive[i]=dx_strdup("inactive owned text"); CHECK(objects_valid(&s,&error) && !error);
+        CHECK(current_bytes(&s)==SIZE_MAX); changed=i%2!=0; bool prior=changed;
+        CHECK(!objects_plan_source_version(&s,s.items[0].id,1,2,&out,&changed,&error) && changed==prior && !out.items && !out.count);
+        clear_error(&error); free(*inactive[i]); *inactive[i]=NULL; unchanged(&s,&before,&original);
+    }
+    /* Analysis free always owns its nine top-level strings, even a filter value
+       with no active column: the reservation must charge it rather than omit it. */
+    size_t normal=current_bytes(&s); s.items[0].source.filter_value=dx_strdup("inactive top-level value");
+    CHECK(current_bytes(&s)==normal+strlen("inactive top-level value")+1);
+    CHECK(objects_plan_source_version(&s,s.items[0].id,1,2,&out,&changed,&error));
+    CHECK(out.items[0].source.filter_value!=s.items[0].source.filter_value && !strcmp(out.items[0].source.filter_value,"inactive top-level value"));
+    objects_snapshot_free(&out); free(s.items[0].source.filter_value); s.items[0].source.filter_value=NULL;
+    /* Reject noncanonical history as well as the live model before cloning. */
+    s.undo[s.undo_count-1].items[0].marks.fields[MARKS_COLOR][7].name=dx_strdup("hidden history ownership"); changed=true;
+    CHECK(!objects_plan_source_version(&s,s.items[0].id,1,2,&out,&changed,&error) && changed && !out.items); clear_error(&error);
+    free(s.undo[s.undo_count-1].items[0].marks.fields[MARKS_COLOR][7].name); s.undo[s.undo_count-1].items[0].marks.fields[MARKS_COLOR][7].name=NULL;
+    objects_free(&s);
+}
+int main(void) { binding_plan(); history_limits(); malformed_and_full_id(); retained_arrays_and_inactive_slots(); printf("objects: %u checks passed\n",checks); return 0; }
