@@ -8004,7 +8004,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 898
+#define LAYOUT_SMOKE_STAGES 908
 static unsigned inspector_pan_evidence;
 static uint64_t inspector_pan_top;
 static double inspector_pan_fraction;
@@ -9030,6 +9030,8 @@ static void layout_smoke_step(App *a,int *step) {
     static uint64_t request; char *error=NULL; Worksheet *s=active_sheet(a);
     static uint64_t inspector_jobs,inspector_queries,inspector_revision,inspector_shadow_uploads;
     static bool inspector_shadow_reuse;
+    static const char *inspector_cached_sql;
+    static const size_t *inspector_cached_sql_offsets;
     static size_t inspector_history;
     static uint64_t label_builds;
     static Cell *author_cells; static uint64_t author_revision;
@@ -12955,6 +12957,48 @@ static void layout_smoke_step(App *a,int *step) {
             s->undo_actions_count!=inspector_history || a->analysis_revision!=inspector_revision || a->request_id!=request ||
             a->page.cells!=ribbon_cells || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries || a->ui.scissor_depth) goto failed;
         puts("PASS: native independent Steps outer and inner scrolling, sticky header, partial row, captured pan, keyboard/context/collapse without queries, and real reordered-step reveal/Undo without clipboard"); break;
+    case 898:
+        remember(a);
+        if (!analysis_filter_set(&a->analysis,"City",FILTER_NOT_IN,"[\"Atlantis\"]",&error)) goto failed;
+        change_analysis(a,false); break;
+    case 899:
+        if (a->page.total!=5) goto failed;
+        request=a->request_id; ribbon_cells=a->page.cells; inspector_jobs=a->worker.jobs_started; inspector_queries=a->worker.sql_executed;
+        inspector_revision=a->analysis_revision; inspector_history=s->undo_actions_count;
+        free(a->sql_text); a->sql_text=dx_strdup("Unrelated SQL dialog");
+        pipeline_show_sql(a); break;
+    case 900:
+        if (!a->pipeline_sql || !a->inspector_sql_text || !strstr(a->inspector_sql_text,"json_each") ||
+            a->inspector_sql_lines.count<=(size_t)(a->pipeline_layout.sql_code.height/(20*a->ui.scale))) goto failed;
+        inspector_cached_sql=a->inspector_sql_text; inspector_cached_sql_offsets=a->inspector_sql_lines.offsets;
+        if (a->inspector_sql_scroll || strcmp(a->sql_text,"Unrelated SQL dialog")) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-sql-scroll-default.png"); break;
+    case 901:
+        if (!a->pipeline_sql || a->inspector_sql_scroll<=0 || a->chrome_focus!=8) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-sql-scroll-end.png"); break;
+    case 902:
+        if (a->pipeline_sql || a->inspector_sql_text!=inspector_cached_sql) goto failed;
+        pipeline_show_sql(a); break;
+    case 903:
+        if (!a->pipeline_sql || a->inspector_sql_scroll || a->inspector_sql_text!=inspector_cached_sql ||
+            a->inspector_sql_lines.offsets!=inspector_cached_sql_offsets) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-sql-scroll-reentered.png"); break;
+    case 904:
+        if (!a->pipeline_sql || a->inspector_sql_scroll<=0) goto failed;
+        present_pipeline(a,true,true); break;
+    case 905:
+        if (!a->pipeline_collapsed || a->pipeline_extent!=32 || a->inspector_sql_scroll) goto failed;
+        present_pipeline(a,true,false); break;
+    case 906:
+        if (a->pipeline_sql || a->pipeline_collapsed || a->inspector_sql_scroll) goto failed;
+        pipeline_show_sql(a); break;
+    case 907:
+        if (!a->pipeline_sql || a->inspector_sql_scroll || a->inspector_sql_text!=inspector_cached_sql ||
+            a->inspector_sql_lines.offsets!=inspector_cached_sql_offsets || a->page.cells!=ribbon_cells || a->page.total!=5 ||
+            a->request_id!=request || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries ||
+            a->analysis_revision!=inspector_revision || s->undo_actions_count!=inspector_history ||
+            strcmp(a->sql_text,"Unrelated SQL dialog") || a->ui.scissor_depth) goto failed;
+        puts("PASS: native SQL inspector keyboard scrolling and fresh presentation after Steps and Collapse, retained owned SQL/wrap/source caches and zero UI-only jobs without clipboard"); break;
 
     }
     free(error); (*step)++; return;
@@ -14584,6 +14628,14 @@ bool app_frame(AppSession *session) {
                 a->ui.native_pan=(DxPanInput){.y=3*a->ui.scale,.pointer_x=origin.x,.pointer_y=origin.y,.phase=DX_PAN_ACTIVE,.event=true};
             }
             scroll_keys|=bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && (session->layout_smoke==901 || session->layout_smoke==902 || session->layout_smoke==904)) {
+        static unsigned sql_scroll_keys=0; unsigned bit=1u<<(session->layout_smoke-901);
+        if (!(sql_scroll_keys&bit)) {
+            if (session->layout_smoke==902) { ui_note_key_press(KEY_TAB,0); ui_note_key_press(KEY_ENTER,0); }
+            else ui_note_key_press(KEY_END,0);
+            sql_scroll_keys|=bit;
         }
     }
     if (options->filter_smoke) {
