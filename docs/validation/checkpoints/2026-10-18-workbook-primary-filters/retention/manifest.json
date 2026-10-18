@@ -1,0 +1,47 @@
+{
+  "schema": "duxcel.primary-filters-retention",
+  "version": 1,
+  "revision": "22efc6485b54f896485927da12efeeae5edeb5a3",
+  "scope": "One coherent adjacent Pivot/Marks/Table/owner metadata mode, freshnormal/reviewexclusion and broader247. Old maximal nativequery/options and otheroldmetadatamodes deliberately not rerun; no GUI/App/OpenSave/delivery/service promotion.",
+  "steps": [
+    {
+      "name": "adjacent-pivot-marks",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--codec-pivot-marks"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 13.449449667008594,
+      "log": "build/bp1-primary-filters-retention/adjacent-pivot-marks.txt",
+      "sha256": "f05ef993756a7f01aeff1c3f6abd88e375359d0024073e053a816c53f082fef9"
+    },
+    {
+      "name": "fresh-normal-review-exclusion",
+      "command": [
+        "python3",
+        "tools/test_web_review_build.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 35.64788162498735,
+      "log": "build/bp1-primary-filters-retention/fresh-normal-review-exclusion.txt",
+      "sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a"
+    },
+    {
+      "name": "official-worker-247",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--worker-driver"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 22.985503040952608,
+      "log": "build/bp1-primary-filters-retention/official-worker-247.txt",
+      "sha256": "f700f94c5be1f181ec75b2c93467a8e778c93e2203580271ccad24e31870075e"
+    }
+  ],
+  "status": "passed",
+  "elapsed_seconds": 72.08333316701464,
+  "source_revision_unchanged": true
+}

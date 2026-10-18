@@ -1,0 +1,140 @@
+[
+  {
+    "stage": "release-build",
+    "command": [
+      "clang",
+      "-Isrc",
+      "-I/opt/homebrew/include",
+      "-std=c99",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-Werror",
+      "-O2",
+      "-g",
+      "src/common.c",
+      "src/platform/platform.c",
+      "src/transforms/distinct.c",
+      "src/transforms/analysis.c",
+      "src/transforms/record_sql.c",
+      "src/transforms/number.c",
+      "src/transforms/pivot.c",
+      "src/transforms/chart_other.c",
+      "src/transforms/marks.c",
+      "src/data/database.c",
+      "src/data/page.c",
+      "src/data/source_digest.c",
+      "src/workbook/clipboard.c",
+      "src/workbook/cells.c",
+      "src/workbook/format.c",
+      "src/workbook/source_scope.c",
+      "src/workbook/objects.c",
+      "src/workbook/workbook.c",
+      "src/workbook/workbook_codec.c",
+      "src/data/worker.c",
+      "src/workbook/workbook_codec_read.c",
+      "tests/test_workbook_codec_native.c",
+      "-L/opt/homebrew/lib",
+      "-lduckdb",
+      "-pthread",
+      "-lm",
+      "-o",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release"
+    ],
+    "seconds": 6.97191,
+    "exit_code": 0,
+    "log": "build/bp1-filters-native/release-build.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "stage": "release-filters",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release",
+      "--filters-only"
+    ],
+    "seconds": 2.29952,
+    "exit_code": 0,
+    "log": "build/bp1-filters-native/release-filters.txt",
+    "sha256": "1d80e424813208c30d0b1dd4817e55c6d7f3205847002ac6ebc4799cff3b1e53"
+  },
+  {
+    "stage": "release-default",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release"
+    ],
+    "seconds": 0.671522,
+    "exit_code": 0,
+    "log": "build/bp1-filters-native/release-default.txt",
+    "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+  },
+  {
+    "stage": "sanitize-build",
+    "command": [
+      "clang",
+      "-Isrc",
+      "-I/opt/homebrew/include",
+      "-std=c99",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-Werror",
+      "-O1",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-fno-omit-frame-pointer",
+      "src/common.c",
+      "src/platform/platform.c",
+      "src/transforms/distinct.c",
+      "src/transforms/analysis.c",
+      "src/transforms/record_sql.c",
+      "src/transforms/number.c",
+      "src/transforms/pivot.c",
+      "src/transforms/chart_other.c",
+      "src/transforms/marks.c",
+      "src/data/database.c",
+      "src/data/page.c",
+      "src/data/source_digest.c",
+      "src/workbook/clipboard.c",
+      "src/workbook/cells.c",
+      "src/workbook/format.c",
+      "src/workbook/source_scope.c",
+      "src/workbook/objects.c",
+      "src/workbook/workbook.c",
+      "src/workbook/workbook_codec.c",
+      "src/data/worker.c",
+      "src/workbook/workbook_codec_read.c",
+      "tests/test_workbook_codec_native.c",
+      "-L/opt/homebrew/lib",
+      "-lduckdb",
+      "-pthread",
+      "-lm",
+      "-o",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize"
+    ],
+    "seconds": 10.724806,
+    "exit_code": 0,
+    "log": "build/bp1-filters-native/sanitize-build.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "stage": "sanitize-filters",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize",
+      "--filters-only"
+    ],
+    "seconds": 8.394445,
+    "exit_code": 0,
+    "log": "build/bp1-filters-native/sanitize-filters.txt",
+    "sha256": "1d80e424813208c30d0b1dd4817e55c6d7f3205847002ac6ebc4799cff3b1e53"
+  },
+  {
+    "stage": "sanitize-default",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize"
+    ],
+    "seconds": 2.772179,
+    "exit_code": 0,
+    "log": "build/bp1-filters-native/sanitize-default.txt",
+    "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+  }
+]

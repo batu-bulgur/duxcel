@@ -1,0 +1,58 @@
+{
+  "status": "passed",
+  "base": "66c0de4f271871093ae9feb4cdd171498918b04c",
+  "tested_commit": "34a8eea2d98baa7153c555d37cb569d2c15bca25",
+  "scope": "Adapter-only memory-backed Node tests; no engine/browser/host/C/App activation or RSS guarantee.",
+  "accepted": {
+    "original_groups": 131,
+    "new_groups": 14,
+    "total_groups": 145,
+    "command": [
+      "node",
+      "--test",
+      "--test-concurrency=1",
+      "web/official_worker.test.mjs",
+      "web/page_wire.test.mjs",
+      "web/engine_host.test.mjs",
+      "web/official_worker_probe.test.mjs",
+      "web/metadata_stream.test.mjs"
+    ],
+    "seconds": 3.987782,
+    "exit_code": 0,
+    "log": "build/metadata-stream-tests/accepted-all-node.txt",
+    "sha256": "fe8c090213582b45a0d67b233b481e61e1a3f75da062736cb3ec653a31f1771f"
+  },
+  "inputs": [
+    {
+      "path": "web/official_worker.mjs",
+      "bytes": 46033,
+      "sha256": "7f80555fce4d6cce2ed5639474aefcc99537083c887e8a351b6f1e19c6b1a77a"
+    },
+    {
+      "path": "web/metadata_stream.test.mjs",
+      "bytes": 20785,
+      "sha256": "63b5aa4973f71e98a59d6b9dde31670b1b1189c89546ce6b4054ace7917222ce"
+    },
+    {
+      "path": "web/page_wire.mjs",
+      "bytes": 7905,
+      "sha256": "d731ca2a04d6026e763ff0bc7f8c06281aeb6ef20ee7a819371f1064cac8b18a"
+    },
+    {
+      "path": "web/package-lock.json",
+      "bytes": 11356,
+      "sha256": "d2bb118492c04d2558831ff9f48a21065de9ed84db7f9a6f63deb1a5f57258a9"
+    }
+  ],
+  "unchanged_original_tests": "original-tests-preserved.json",
+  "initial_failure": "initial-new-tests.json: frozen token fixture helper mutation; copied caller-owned token in test, no product/assertion relaxation.",
+  "bounds": {
+    "chunk_rows": 256,
+    "page_combined_bytes": 4194304,
+    "wire_bytes": 6291456,
+    "columns_rows": 1048577,
+    "cells_rows": 1280001
+  },
+  "cleanup": "reader.cancel success is local retirement fence; missing/failed cancel poisons all shared-DB admissions until close/recreate. Exactly true ACK required, including explicit EOF after cleanup/binding checks.",
+  "owned_boundary": "One logical Page + wire + one bounded staged row; engine Arrow batch, strings/allocator and caller-retained chunks excluded."
+}
