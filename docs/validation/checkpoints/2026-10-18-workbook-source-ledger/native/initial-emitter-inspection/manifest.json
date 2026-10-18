@@ -1,0 +1,8 @@
+{
+  "status": "test-oracle-failure",
+  "cause": "Inspection expected stored NULL query rows for SOURCE_NONE primaries. Native writer stores only non-NULL query rows; actual18 Table sentinel rows are correct. No C source/fixtures changed.",
+  "files": {
+    "check-emitters.py": "5e84bb5d8cb0df2ed8b2fe55d2bdd29a50f86c72a9ae129ffa7a13cd799e9d72",
+    "emitter-log.txt": "31c9f8e9636e6e2f0859b8d2e8b933f83c67270a93dcaf5380e4efa0dba3dda0"
+  }
+}

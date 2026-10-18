@@ -1,0 +1,42 @@
+{
+  "schema": "duxcel.source-ledger-retained-receipt-audit",
+  "version": 1,
+  "kind": "postvalidation-only; no new runtime",
+  "source": "2bb5bf49332877ac3d9e3570307eb17fcdba8354",
+  "status": "passed",
+  "ledger_C_checks": 176738,
+  "ledger_external_checks": 460,
+  "family_executions": {
+    "meta": 14,
+    "sheets": 14,
+    "objects": 14,
+    "objectCounters": 13,
+    "sourceCounters": 12,
+    "sourceVersions": 12,
+    "describe": 19
+  },
+  "per_archive_queries": {
+    "source-versions-v12.dxls": 6,
+    "source-versions-v13.dxls": 8,
+    "source-versions-v14.dxls": 12,
+    "source-versions-v14-reordered.dxls": 72
+  },
+  "original_archives_unchanged": true,
+  "captured_bindings_exact": true,
+  "physical_Utf8_sidecars_observed": 25,
+  "canonical_single_execution_numeric_order": true,
+  "stored_source_SQL_not_executed": true,
+  "stream_ACK_cleanup_stale_inventory_exact": true,
+  "adjacent_Grid_C_checks": 79583,
+  "adjacent_Grid_external_checks": 282,
+  "scope": "Independent JSON/hash/SQL receipt validation only. C retained-buffer categories exclude engine/Arrow/allocator/RSS. No App/binding/issuer activation.",
+  "fresh_shipping_exclusion": {
+    "status": "passed",
+    "source": "2bb5bf49332877ac3d9e3570307eb17fcdba8354",
+    "normal": "99baff5ac3d835b69e2b",
+    "review": "c356b47b51b3935928e8",
+    "new_ledger_name_mode_and_callbacks_absent": true,
+    "native_existing_binary_symbol_check": true,
+    "no_new_App_runtime_or_delivery": true
+  }
+}

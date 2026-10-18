@@ -1,0 +1,48 @@
+{
+  "schema": "duxcel.source-versions-harness",
+  "version": 1,
+  "source": "0e04723 with pending root browser integration diff",
+  "results": [
+    {
+      "command": [
+        "python3",
+        "tools/test_web_codec_runner_test.py"
+      ],
+      "seconds": 1.6350882919505239,
+      "exit_code": 0,
+      "log": "1.txt"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/test_runner_test.py"
+      ],
+      "seconds": 3.0775842079892755,
+      "exit_code": 0,
+      "log": "2.txt"
+    },
+    {
+      "command": [
+        "node",
+        "--check",
+        "tools/test_web_app.mjs"
+      ],
+      "seconds": 0.16268654097802937,
+      "exit_code": 0,
+      "log": "3.txt"
+    },
+    {
+      "command": [
+        "node",
+        "--check",
+        "web/codec_test_host.mjs"
+      ],
+      "seconds": 0.039368291036225855,
+      "exit_code": 0,
+      "log": "4.txt"
+    }
+  ],
+  "scope": "Pure harness/report guards/runner ordering and JS syntax only; no Worker/C runtime or GUI",
+  "previous_failure": "../bp1-source-versions-harness/manifest.json",
+  "correction": "Expanded exact full-runner expected order to include the new source-versions-only gate after source counters for each configuration; existing core-before-workbook fixture order retained"
+}

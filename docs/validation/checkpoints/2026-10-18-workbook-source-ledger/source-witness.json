@@ -1,0 +1,490 @@
+{
+  "schema": "duxcel.source-ledger-selected-source-witness",
+  "version": 1,
+  "scope": "Selected committed source hashes; NOT a replacement for native actual53-input clang-MM closure or root76 conservative inventory. Missing new files predate their addition.",
+  "revisions": {
+    "ad36d3b": {
+      "commit": "ad36d3b795a675fd120f615ba9fb342272d7010e",
+      "files": {
+        "src/workbook/workbook_codec_read.c": {
+          "bytes": 111740,
+          "sha256": "b51851fc844a6aa3aa785cbb800b85969bf79fef999f39a4dc6d472f6b270773"
+        },
+        "src/workbook/workbook_codec_read.h": {
+          "bytes": 24606,
+          "sha256": "c400767ab439f7a9cbd9ba2fa868938f12569b3efa40e664e4f0477f6c73e977"
+        },
+        "tests/test_workbook_codec_read.c": {
+          "bytes": 297138,
+          "sha256": "2cebeb84beff7d6477c7662302140c6a6d5d7b341a03aaadc6e17c6df5f4545f"
+        },
+        "web/official_worker.mjs": {
+          "bytes": 47300,
+          "sha256": "d71365cf43855600084d5dcb9d6afa9ba0ddc5f0e3986d667e73d8a78314ec4e"
+        },
+        "web/metadata_stream.test.mjs": {
+          "bytes": 20785,
+          "sha256": "63b5aa4973f71e98a59d6b9dde31670b1b1189c89546ce6b4054ace7917222ce"
+        },
+        "web/codec_stream_transport.mjs": {
+          "bytes": 10022,
+          "sha256": "15e31ef0686b93f743e77dc9dcdae6cdb16aa78ffa232b3971614243cfca024f"
+        },
+        "web/codec_stream_transport.test.mjs": {
+          "bytes": 26614,
+          "sha256": "9d6e0af1cfba0d63b337d103f5d1f1975b23f6d962193bb98365ca8fad2da233"
+        },
+        "tests/test_browser_codec_source_versions.inc": null,
+        "tests/test_browser_codec_read.c": {
+          "bytes": 45189,
+          "sha256": "db2f6176139c3aa8d73fe8de0d3407590aaa14773e2ed4c0e5b4a5548183299e"
+        },
+        "tests/test_browser_codec_grid.inc": {
+          "bytes": 34349,
+          "sha256": "153dfdad2e62004a72a2c0cf3cd4ed78f3e2c9977f73767261611f183be2a26b"
+        },
+        "web/codec_test_host.mjs": {
+          "bytes": 12713,
+          "sha256": "200d9dd21109df156e3661ac4695d1f7bde5e0f370a601b668488d01b451f8cb"
+        },
+        "tools/test_web_app.py": {
+          "bytes": 79977,
+          "sha256": "551f8418c6455abc68edcc784c4036db4a324453e8e48b674870c6c4b86783cd"
+        },
+        "tools/test_web_app.mjs": {
+          "bytes": 592203,
+          "sha256": "37265e7b5b47c8e07646ecbbdd6b7a9d35119c1c7b2018233f153959992f2183"
+        },
+        "tools/build_web.py": {
+          "bytes": 13363,
+          "sha256": "47a3174f8fe30e3843e06e85d5edda531c6638a5c47f847ec3c6086c663165cf"
+        }
+      }
+    },
+    "c626f6c": {
+      "commit": "c626f6cbc62b1a06d627757d9133b13e94b20e1a",
+      "files": {
+        "src/workbook/workbook_codec_read.c": {
+          "bytes": 98482,
+          "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+        },
+        "src/workbook/workbook_codec_read.h": {
+          "bytes": 21827,
+          "sha256": "33083103c3ae7dbdd89470ab2e1040510b2375c6137ac0ad5cb94dbcb64f2757"
+        },
+        "tests/test_workbook_codec_read.c": {
+          "bytes": 269321,
+          "sha256": "8e296ed19db4c9bf4228c8e1baca0be8041019e25a0ddef804546370b9ebddfd"
+        },
+        "web/official_worker.mjs": {
+          "bytes": 47607,
+          "sha256": "9bb8197eff654a83059c2c0b0327190ac60dcde623a8366695070a36a733ec07"
+        },
+        "web/metadata_stream.test.mjs": {
+          "bytes": 32987,
+          "sha256": "1be6f322cb3cbfccb3c065a66f3eff2b940fd244afdcecb8a92a6d1b81e6a7d9"
+        },
+        "web/codec_stream_transport.mjs": {
+          "bytes": 10051,
+          "sha256": "44dd075d376817067bba072013055458d307b4a5b49470cb7b177e187cbf88c9"
+        },
+        "web/codec_stream_transport.test.mjs": {
+          "bytes": 36109,
+          "sha256": "55c1b06308dc5da348fb85f412bcceda22da532fc64e0f8e9056ced1607f6772"
+        },
+        "tests/test_browser_codec_source_versions.inc": null,
+        "tests/test_browser_codec_read.c": {
+          "bytes": 45189,
+          "sha256": "db2f6176139c3aa8d73fe8de0d3407590aaa14773e2ed4c0e5b4a5548183299e"
+        },
+        "tests/test_browser_codec_grid.inc": {
+          "bytes": 34349,
+          "sha256": "153dfdad2e62004a72a2c0cf3cd4ed78f3e2c9977f73767261611f183be2a26b"
+        },
+        "web/codec_test_host.mjs": {
+          "bytes": 12713,
+          "sha256": "200d9dd21109df156e3661ac4695d1f7bde5e0f370a601b668488d01b451f8cb"
+        },
+        "tools/test_web_app.py": {
+          "bytes": 79977,
+          "sha256": "551f8418c6455abc68edcc784c4036db4a324453e8e48b674870c6c4b86783cd"
+        },
+        "tools/test_web_app.mjs": {
+          "bytes": 592203,
+          "sha256": "37265e7b5b47c8e07646ecbbdd6b7a9d35119c1c7b2018233f153959992f2183"
+        },
+        "tools/build_web.py": {
+          "bytes": 13363,
+          "sha256": "47a3174f8fe30e3843e06e85d5edda531c6638a5c47f847ec3c6086c663165cf"
+        }
+      }
+    },
+    "4201dc8": {
+      "commit": "4201dc8189f58dc05b0883ec29015845c6ad3582",
+      "files": {
+        "src/workbook/workbook_codec_read.c": {
+          "bytes": 98482,
+          "sha256": "f7edf872984cdfee99015da5f2afa34f4104569ec402de0dde409cc86648fa4b"
+        },
+        "src/workbook/workbook_codec_read.h": {
+          "bytes": 21827,
+          "sha256": "33083103c3ae7dbdd89470ab2e1040510b2375c6137ac0ad5cb94dbcb64f2757"
+        },
+        "tests/test_workbook_codec_read.c": {
+          "bytes": 269321,
+          "sha256": "8e296ed19db4c9bf4228c8e1baca0be8041019e25a0ddef804546370b9ebddfd"
+        },
+        "web/official_worker.mjs": {
+          "bytes": 47607,
+          "sha256": "9bb8197eff654a83059c2c0b0327190ac60dcde623a8366695070a36a733ec07"
+        },
+        "web/metadata_stream.test.mjs": {
+          "bytes": 32987,
+          "sha256": "1be6f322cb3cbfccb3c065a66f3eff2b940fd244afdcecb8a92a6d1b81e6a7d9"
+        },
+        "web/codec_stream_transport.mjs": {
+          "bytes": 10051,
+          "sha256": "44dd075d376817067bba072013055458d307b4a5b49470cb7b177e187cbf88c9"
+        },
+        "web/codec_stream_transport.test.mjs": {
+          "bytes": 36109,
+          "sha256": "55c1b06308dc5da348fb85f412bcceda22da532fc64e0f8e9056ced1607f6772"
+        },
+        "tests/test_browser_codec_source_versions.inc": {
+          "bytes": 51821,
+          "sha256": "befbdb76e55d37bdb2f0f3d822aaee80bf11693d2d1ed0f0774d895f27669c97"
+        },
+        "tests/test_browser_codec_read.c": {
+          "bytes": 45189,
+          "sha256": "db2f6176139c3aa8d73fe8de0d3407590aaa14773e2ed4c0e5b4a5548183299e"
+        },
+        "tests/test_browser_codec_grid.inc": {
+          "bytes": 34349,
+          "sha256": "153dfdad2e62004a72a2c0cf3cd4ed78f3e2c9977f73767261611f183be2a26b"
+        },
+        "web/codec_test_host.mjs": {
+          "bytes": 12713,
+          "sha256": "200d9dd21109df156e3661ac4695d1f7bde5e0f370a601b668488d01b451f8cb"
+        },
+        "tools/test_web_app.py": {
+          "bytes": 79977,
+          "sha256": "551f8418c6455abc68edcc784c4036db4a324453e8e48b674870c6c4b86783cd"
+        },
+        "tools/test_web_app.mjs": {
+          "bytes": 592203,
+          "sha256": "37265e7b5b47c8e07646ecbbdd6b7a9d35119c1c7b2018233f153959992f2183"
+        },
+        "tools/build_web.py": {
+          "bytes": 13363,
+          "sha256": "47a3174f8fe30e3843e06e85d5edda531c6638a5c47f847ec3c6086c663165cf"
+        }
+      }
+    },
+    "f661434": {
+      "commit": "f661434559420c650f78b2b96ecf0c70b6f2293f",
+      "files": {
+        "src/workbook/workbook_codec_read.c": {
+          "bytes": 111740,
+          "sha256": "b51851fc844a6aa3aa785cbb800b85969bf79fef999f39a4dc6d472f6b270773"
+        },
+        "src/workbook/workbook_codec_read.h": {
+          "bytes": 24606,
+          "sha256": "c400767ab439f7a9cbd9ba2fa868938f12569b3efa40e664e4f0477f6c73e977"
+        },
+        "tests/test_workbook_codec_read.c": {
+          "bytes": 297138,
+          "sha256": "2cebeb84beff7d6477c7662302140c6a6d5d7b341a03aaadc6e17c6df5f4545f"
+        },
+        "web/official_worker.mjs": {
+          "bytes": 47607,
+          "sha256": "9bb8197eff654a83059c2c0b0327190ac60dcde623a8366695070a36a733ec07"
+        },
+        "web/metadata_stream.test.mjs": {
+          "bytes": 32987,
+          "sha256": "1be6f322cb3cbfccb3c065a66f3eff2b940fd244afdcecb8a92a6d1b81e6a7d9"
+        },
+        "web/codec_stream_transport.mjs": {
+          "bytes": 10051,
+          "sha256": "44dd075d376817067bba072013055458d307b4a5b49470cb7b177e187cbf88c9"
+        },
+        "web/codec_stream_transport.test.mjs": {
+          "bytes": 36109,
+          "sha256": "55c1b06308dc5da348fb85f412bcceda22da532fc64e0f8e9056ced1607f6772"
+        },
+        "tests/test_browser_codec_source_versions.inc": null,
+        "tests/test_browser_codec_read.c": {
+          "bytes": 45189,
+          "sha256": "db2f6176139c3aa8d73fe8de0d3407590aaa14773e2ed4c0e5b4a5548183299e"
+        },
+        "tests/test_browser_codec_grid.inc": {
+          "bytes": 34349,
+          "sha256": "153dfdad2e62004a72a2c0cf3cd4ed78f3e2c9977f73767261611f183be2a26b"
+        },
+        "web/codec_test_host.mjs": {
+          "bytes": 12713,
+          "sha256": "200d9dd21109df156e3661ac4695d1f7bde5e0f370a601b668488d01b451f8cb"
+        },
+        "tools/test_web_app.py": {
+          "bytes": 79977,
+          "sha256": "551f8418c6455abc68edcc784c4036db4a324453e8e48b674870c6c4b86783cd"
+        },
+        "tools/test_web_app.mjs": {
+          "bytes": 592203,
+          "sha256": "37265e7b5b47c8e07646ecbbdd6b7a9d35119c1c7b2018233f153959992f2183"
+        },
+        "tools/build_web.py": {
+          "bytes": 13363,
+          "sha256": "47a3174f8fe30e3843e06e85d5edda531c6638a5c47f847ec3c6086c663165cf"
+        }
+      }
+    },
+    "0e04723": {
+      "commit": "0e04723884c4a2b19c16967d889f231c92155d31",
+      "files": {
+        "src/workbook/workbook_codec_read.c": {
+          "bytes": 111740,
+          "sha256": "b51851fc844a6aa3aa785cbb800b85969bf79fef999f39a4dc6d472f6b270773"
+        },
+        "src/workbook/workbook_codec_read.h": {
+          "bytes": 24606,
+          "sha256": "c400767ab439f7a9cbd9ba2fa868938f12569b3efa40e664e4f0477f6c73e977"
+        },
+        "tests/test_workbook_codec_read.c": {
+          "bytes": 297138,
+          "sha256": "2cebeb84beff7d6477c7662302140c6a6d5d7b341a03aaadc6e17c6df5f4545f"
+        },
+        "web/official_worker.mjs": {
+          "bytes": 47607,
+          "sha256": "9bb8197eff654a83059c2c0b0327190ac60dcde623a8366695070a36a733ec07"
+        },
+        "web/metadata_stream.test.mjs": {
+          "bytes": 32987,
+          "sha256": "1be6f322cb3cbfccb3c065a66f3eff2b940fd244afdcecb8a92a6d1b81e6a7d9"
+        },
+        "web/codec_stream_transport.mjs": {
+          "bytes": 10051,
+          "sha256": "44dd075d376817067bba072013055458d307b4a5b49470cb7b177e187cbf88c9"
+        },
+        "web/codec_stream_transport.test.mjs": {
+          "bytes": 36109,
+          "sha256": "55c1b06308dc5da348fb85f412bcceda22da532fc64e0f8e9056ced1607f6772"
+        },
+        "tests/test_browser_codec_source_versions.inc": {
+          "bytes": 51821,
+          "sha256": "befbdb76e55d37bdb2f0f3d822aaee80bf11693d2d1ed0f0774d895f27669c97"
+        },
+        "tests/test_browser_codec_read.c": {
+          "bytes": 45189,
+          "sha256": "db2f6176139c3aa8d73fe8de0d3407590aaa14773e2ed4c0e5b4a5548183299e"
+        },
+        "tests/test_browser_codec_grid.inc": {
+          "bytes": 34349,
+          "sha256": "153dfdad2e62004a72a2c0cf3cd4ed78f3e2c9977f73767261611f183be2a26b"
+        },
+        "web/codec_test_host.mjs": {
+          "bytes": 12713,
+          "sha256": "200d9dd21109df156e3661ac4695d1f7bde5e0f370a601b668488d01b451f8cb"
+        },
+        "tools/test_web_app.py": {
+          "bytes": 79977,
+          "sha256": "551f8418c6455abc68edcc784c4036db4a324453e8e48b674870c6c4b86783cd"
+        },
+        "tools/test_web_app.mjs": {
+          "bytes": 592203,
+          "sha256": "37265e7b5b47c8e07646ecbbdd6b7a9d35119c1c7b2018233f153959992f2183"
+        },
+        "tools/build_web.py": {
+          "bytes": 13363,
+          "sha256": "47a3174f8fe30e3843e06e85d5edda531c6638a5c47f847ec3c6086c663165cf"
+        }
+      }
+    },
+    "e9193f9": {
+      "commit": "e9193f9e813e4c3147ec9490875da754465fbec3",
+      "files": {
+        "src/workbook/workbook_codec_read.c": {
+          "bytes": 111740,
+          "sha256": "b51851fc844a6aa3aa785cbb800b85969bf79fef999f39a4dc6d472f6b270773"
+        },
+        "src/workbook/workbook_codec_read.h": {
+          "bytes": 24606,
+          "sha256": "c400767ab439f7a9cbd9ba2fa868938f12569b3efa40e664e4f0477f6c73e977"
+        },
+        "tests/test_workbook_codec_read.c": {
+          "bytes": 297138,
+          "sha256": "2cebeb84beff7d6477c7662302140c6a6d5d7b341a03aaadc6e17c6df5f4545f"
+        },
+        "web/official_worker.mjs": {
+          "bytes": 47300,
+          "sha256": "d71365cf43855600084d5dcb9d6afa9ba0ddc5f0e3986d667e73d8a78314ec4e"
+        },
+        "web/metadata_stream.test.mjs": {
+          "bytes": 20785,
+          "sha256": "63b5aa4973f71e98a59d6b9dde31670b1b1189c89546ce6b4054ace7917222ce"
+        },
+        "web/codec_stream_transport.mjs": {
+          "bytes": 10022,
+          "sha256": "15e31ef0686b93f743e77dc9dcdae6cdb16aa78ffa232b3971614243cfca024f"
+        },
+        "web/codec_stream_transport.test.mjs": {
+          "bytes": 26614,
+          "sha256": "9d6e0af1cfba0d63b337d103f5d1f1975b23f6d962193bb98365ca8fad2da233"
+        },
+        "tests/test_browser_codec_source_versions.inc": null,
+        "tests/test_browser_codec_read.c": {
+          "bytes": 45189,
+          "sha256": "db2f6176139c3aa8d73fe8de0d3407590aaa14773e2ed4c0e5b4a5548183299e"
+        },
+        "tests/test_browser_codec_grid.inc": {
+          "bytes": 34349,
+          "sha256": "153dfdad2e62004a72a2c0cf3cd4ed78f3e2c9977f73767261611f183be2a26b"
+        },
+        "web/codec_test_host.mjs": {
+          "bytes": 12713,
+          "sha256": "200d9dd21109df156e3661ac4695d1f7bde5e0f370a601b668488d01b451f8cb"
+        },
+        "tools/test_web_app.py": {
+          "bytes": 79977,
+          "sha256": "551f8418c6455abc68edcc784c4036db4a324453e8e48b674870c6c4b86783cd"
+        },
+        "tools/test_web_app.mjs": {
+          "bytes": 592203,
+          "sha256": "37265e7b5b47c8e07646ecbbdd6b7a9d35119c1c7b2018233f153959992f2183"
+        },
+        "tools/build_web.py": {
+          "bytes": 13363,
+          "sha256": "47a3174f8fe30e3843e06e85d5edda531c6638a5c47f847ec3c6086c663165cf"
+        }
+      }
+    },
+    "2bb5bf4": {
+      "commit": "2bb5bf49332877ac3d9e3570307eb17fcdba8354",
+      "files": {
+        "src/workbook/workbook_codec_read.c": {
+          "bytes": 111740,
+          "sha256": "b51851fc844a6aa3aa785cbb800b85969bf79fef999f39a4dc6d472f6b270773"
+        },
+        "src/workbook/workbook_codec_read.h": {
+          "bytes": 24606,
+          "sha256": "c400767ab439f7a9cbd9ba2fa868938f12569b3efa40e664e4f0477f6c73e977"
+        },
+        "tests/test_workbook_codec_read.c": {
+          "bytes": 297138,
+          "sha256": "2cebeb84beff7d6477c7662302140c6a6d5d7b341a03aaadc6e17c6df5f4545f"
+        },
+        "web/official_worker.mjs": {
+          "bytes": 47607,
+          "sha256": "9bb8197eff654a83059c2c0b0327190ac60dcde623a8366695070a36a733ec07"
+        },
+        "web/metadata_stream.test.mjs": {
+          "bytes": 32987,
+          "sha256": "1be6f322cb3cbfccb3c065a66f3eff2b940fd244afdcecb8a92a6d1b81e6a7d9"
+        },
+        "web/codec_stream_transport.mjs": {
+          "bytes": 10051,
+          "sha256": "44dd075d376817067bba072013055458d307b4a5b49470cb7b177e187cbf88c9"
+        },
+        "web/codec_stream_transport.test.mjs": {
+          "bytes": 36109,
+          "sha256": "55c1b06308dc5da348fb85f412bcceda22da532fc64e0f8e9056ced1607f6772"
+        },
+        "tests/test_browser_codec_source_versions.inc": {
+          "bytes": 51821,
+          "sha256": "befbdb76e55d37bdb2f0f3d822aaee80bf11693d2d1ed0f0774d895f27669c97"
+        },
+        "tests/test_browser_codec_read.c": {
+          "bytes": 47150,
+          "sha256": "c01eaf38425f7c12175b752a4c26b250e97c85e32c53d9a8d39a734e80a73cb0"
+        },
+        "tests/test_browser_codec_grid.inc": {
+          "bytes": 34745,
+          "sha256": "6e555a03e21cdfe69819134c263c0501d3a9940d3a2ff8ef4f7befce5bc09792"
+        },
+        "web/codec_test_host.mjs": {
+          "bytes": 13839,
+          "sha256": "6e1a3caa1f6ff30db209bddf1d921701ac0ceefceca86ed0acd729f523ed88fb"
+        },
+        "tools/test_web_app.py": {
+          "bytes": 81020,
+          "sha256": "270466023265ee76267d2923b171c840826dd4ceea65f6ba20afaba150478c73"
+        },
+        "tools/test_web_app.mjs": {
+          "bytes": 597235,
+          "sha256": "d0e79048d2030f4bc4ef9531aee3ed68efd83c3ce62d8a7ef037a0c41a06a93f"
+        },
+        "tools/build_web.py": {
+          "bytes": 13430,
+          "sha256": "c922a24ec00b2d2df9c4ef0bc62f5cdf01d2d8eab99452e833322d433464e0c8"
+        }
+      }
+    }
+  },
+  "equalities": [
+    {
+      "left": "ad36d3b",
+      "right": "f661434",
+      "path": "src/workbook/workbook_codec_read.c",
+      "exact_bytes_equal": true
+    },
+    {
+      "left": "ad36d3b",
+      "right": "f661434",
+      "path": "src/workbook/workbook_codec_read.h",
+      "exact_bytes_equal": true
+    },
+    {
+      "left": "ad36d3b",
+      "right": "f661434",
+      "path": "tests/test_workbook_codec_read.c",
+      "exact_bytes_equal": true
+    },
+    {
+      "left": "ad36d3b",
+      "right": "2bb5bf4",
+      "path": "src/workbook/workbook_codec_read.c",
+      "exact_bytes_equal": true
+    },
+    {
+      "left": "ad36d3b",
+      "right": "2bb5bf4",
+      "path": "src/workbook/workbook_codec_read.h",
+      "exact_bytes_equal": true
+    },
+    {
+      "left": "ad36d3b",
+      "right": "2bb5bf4",
+      "path": "tests/test_workbook_codec_read.c",
+      "exact_bytes_equal": true
+    },
+    {
+      "left": "c626f6c",
+      "right": "2bb5bf4",
+      "path": "web/official_worker.mjs",
+      "exact_bytes_equal": true
+    },
+    {
+      "left": "c626f6c",
+      "right": "2bb5bf4",
+      "path": "web/metadata_stream.test.mjs",
+      "exact_bytes_equal": true
+    },
+    {
+      "left": "c626f6c",
+      "right": "2bb5bf4",
+      "path": "web/codec_stream_transport.mjs",
+      "exact_bytes_equal": true
+    },
+    {
+      "left": "c626f6c",
+      "right": "2bb5bf4",
+      "path": "web/codec_stream_transport.test.mjs",
+      "exact_bytes_equal": true
+    },
+    {
+      "left": "4201dc8",
+      "right": "2bb5bf4",
+      "path": "tests/test_browser_codec_source_versions.inc",
+      "exact_bytes_equal": true
+    }
+  ]
+}

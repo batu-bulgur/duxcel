@@ -1,0 +1,16 @@
+{
+  "base": "3e98de2",
+  "definition_prefix": {
+    "bytes": 264253,
+    "sha256": "bb8c4d9ab7d4e0d10c7cb57a7a3487910116c08abd486a4fc431351710759c96",
+    "exact": true
+  },
+  "main_original_statements": {
+    "bytes": 5068,
+    "sha256": "0ec71c5ae3df145c230335128440d96fff7821c8d51d44da4d187771fbe6169b",
+    "exact_after_removing_new_extension": true
+  },
+  "original_checks": 24739,
+  "final_checks": 35033,
+  "new_checks": 10294
+}

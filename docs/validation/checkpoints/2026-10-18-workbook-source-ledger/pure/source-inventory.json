@@ -1,0 +1,385 @@
+{
+  "scope": "Direct compiler C inputs plus conservative all-project-header inventory; NOT an exact preprocessor closure. System SDK includes excluded.",
+  "files": [
+    {
+      "path": "src/app/app.h",
+      "bytes": 1096,
+      "sha256": "574c35f5e29718841cabd429d7783afa906b41066255f8beb28e408650b9bf0a"
+    },
+    {
+      "path": "src/app/step_preview.h",
+      "bytes": 2584,
+      "sha256": "4c50bfb56279d51326f3bc1084890b83468fd3637e21afdad836b8ea2e08b951"
+    },
+    {
+      "path": "src/common.c",
+      "bytes": 1850,
+      "sha256": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4"
+    },
+    {
+      "path": "src/common.h",
+      "bytes": 852,
+      "sha256": "027d4a52e7bd019dd21f3ddd2f077f464d4554142eceee1edddfbd3d8d7e6100"
+    },
+    {
+      "path": "src/data/browser_query.h",
+      "bytes": 7810,
+      "sha256": "ed43952655df3a997593284b91efebf69bd443b413dbb8dc3621caf2f71476e3"
+    },
+    {
+      "path": "src/data/database.h",
+      "bytes": 7329,
+      "sha256": "c4d7ff5a1bfa161a8854ac6acb2e91871dacbbb28358b648c80f4aacbb376e2f"
+    },
+    {
+      "path": "src/data/distinct_page.h",
+      "bytes": 716,
+      "sha256": "7c07799b170ec3f28514720209db5982ef30fd5227ee67796d9f3e54b56200c7"
+    },
+    {
+      "path": "src/data/page.h",
+      "bytes": 8211,
+      "sha256": "31e0fbb396f33a75b73933442561dcfbeaf36dde7a3287ea135489b6895cfe9f"
+    },
+    {
+      "path": "src/data/page_wire.h",
+      "bytes": 6767,
+      "sha256": "255374c95c159deb2e5d50c7dbc6ea80c64a23adc97498505dfa8e8a1734ee96"
+    },
+    {
+      "path": "src/data/source_digest.c",
+      "bytes": 8084,
+      "sha256": "6bf46cd0827b0b7740350c2342beadfbc5689b890b049646e3b4e99fcd867f14"
+    },
+    {
+      "path": "src/data/source_digest.h",
+      "bytes": 3029,
+      "sha256": "443a4ef6be2ea7dad017c8f1528c503eb414ab9b2bc1e9c585072f6a3ffde8ee"
+    },
+    {
+      "path": "src/data/worker.h",
+      "bytes": 6657,
+      "sha256": "ff9aa1afb87a693b405aa96b95ee8842af508b58886132c21b045a626d64811d"
+    },
+    {
+      "path": "src/dev/review_browser.h",
+      "bytes": 912,
+      "sha256": "73a935eb09b638f88fefb03757b882fb58ec3f00491eb8747d3dcf31f885b312"
+    },
+    {
+      "path": "src/dev/review_capture.h",
+      "bytes": 1882,
+      "sha256": "54a91ef3e353c41690230b9f236c6786d2a0ac8c8e95ecb18280a8ba8666378a"
+    },
+    {
+      "path": "src/dev/review_capture_layout.h",
+      "bytes": 2765,
+      "sha256": "e026d4bd1b69310f7d409658500eb6fe990525dc0b206dd6b38b611d3053138b"
+    },
+    {
+      "path": "src/dev/review_input.h",
+      "bytes": 1359,
+      "sha256": "9a8e18d725f234a45f3daffd6a332ce0d97b6053209def54a876abf077254581"
+    },
+    {
+      "path": "src/dev/review_registry.h",
+      "bytes": 5213,
+      "sha256": "a83acc81e323b37bf819f069b7e0094d21d23e0001ba6d29a1514a9286a02b3b"
+    },
+    {
+      "path": "src/dev/review_store.h",
+      "bytes": 1446,
+      "sha256": "f7b56f211c5baf0c5f9858a790bbf3eb7ee8308729081550e0daf5824949ab4d"
+    },
+    {
+      "path": "src/grid/grid.h",
+      "bytes": 7557,
+      "sha256": "d62652c488f21cd936bfcb9446e1a31c11bfa117eb18054412996ca662fbd524"
+    },
+    {
+      "path": "src/grid/selection_ladder.h",
+      "bytes": 840,
+      "sha256": "4ade3aef2c8ac191ec6887ba16fb6f8bbc22f53db068aa8cd763a5eb1af22b57"
+    },
+    {
+      "path": "src/platform/brand_images.h",
+      "bytes": 179664,
+      "sha256": "bf6791a2f6331ff076815adcf2d4585fbd205954615b6efc5edb4f594b6364e6"
+    },
+    {
+      "path": "src/platform/platform.h",
+      "bytes": 5796,
+      "sha256": "bf535c023c55edc9e60f46c4cac2e284706e480833efaa4afa73a85bd85d9d83"
+    },
+    {
+      "path": "src/transforms/analysis.c",
+      "bytes": 33320,
+      "sha256": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19"
+    },
+    {
+      "path": "src/transforms/analysis.h",
+      "bytes": 5323,
+      "sha256": "6d9571f28ea6ee9c42233faae588fedd310ce193db0c2d8dee2b309ac6711166"
+    },
+    {
+      "path": "src/transforms/chart_other.h",
+      "bytes": 4494,
+      "sha256": "14b3d02dc8f0736f2b3d9c871e72db647613217526c44c8e3e00e49e22570a63"
+    },
+    {
+      "path": "src/transforms/distinct.h",
+      "bytes": 1051,
+      "sha256": "74d010da999052333c9f2612a1860944e8fbb0de6656fc306c61cc53b4948a0e"
+    },
+    {
+      "path": "src/transforms/marks.c",
+      "bytes": 3796,
+      "sha256": "864da129ebccf18bc8cd72db75ae36c8e9d03f3e50db76cd9c385ed7eb22952b"
+    },
+    {
+      "path": "src/transforms/marks.h",
+      "bytes": 971,
+      "sha256": "649b9cc9491eaf1855b42eb668adc6fe08e0dac2c64869b87900a71ba62305c7"
+    },
+    {
+      "path": "src/transforms/number.c",
+      "bytes": 6804,
+      "sha256": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e"
+    },
+    {
+      "path": "src/transforms/number.h",
+      "bytes": 916,
+      "sha256": "54360de3c934dfc1c686527c2392db3999630aff9f56d45a2f74598f41a24482"
+    },
+    {
+      "path": "src/transforms/pivot.c",
+      "bytes": 13343,
+      "sha256": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d"
+    },
+    {
+      "path": "src/transforms/pivot.h",
+      "bytes": 2164,
+      "sha256": "c76fb81248dbf1d1aacd754f6560a432ffd1c93c37378310865f289905e2e49b"
+    },
+    {
+      "path": "src/transforms/record_sql.h",
+      "bytes": 1761,
+      "sha256": "35da9c8377a4548ebea5d6455ba37f4c0c85a711df85aa9dc98d97656b7ac57f"
+    },
+    {
+      "path": "src/ui/brand.h",
+      "bytes": 679,
+      "sha256": "498bf8a03d4cf2e544484bd649a14abf753882dc4d927113bbb33d579bc336da"
+    },
+    {
+      "path": "src/ui/brand_bitmap.h",
+      "bytes": 22085,
+      "sha256": "5b8bbd8b52eda491d084ff052c268d22a0a16505cc2f732d5156f66327309be9"
+    },
+    {
+      "path": "src/ui/brand_geometry.h",
+      "bytes": 32624,
+      "sha256": "47e9a7b4e65bdfeb6e4b0c72da2e26d573329b8431552bf1155a90c940fc53ea"
+    },
+    {
+      "path": "src/ui/carbon_icons.h",
+      "bytes": 2193,
+      "sha256": "a3e7544fbedc970ce905be970994a834ccb5895cb52b8f554f0491e3b73caad2"
+    },
+    {
+      "path": "src/ui/cellreadout.h",
+      "bytes": 563,
+      "sha256": "46c1425d2f65e360575262d7f476166b6b31bbfb6b897a1d97675af09eed9e94"
+    },
+    {
+      "path": "src/ui/chartencoding.h",
+      "bytes": 1150,
+      "sha256": "bece4375b8281b2dc54ef608d5be26c15f3d42a03112911d411daf7bc7cf040e"
+    },
+    {
+      "path": "src/ui/chartview.h",
+      "bytes": 845,
+      "sha256": "12ffdd3101667c96935d30d01e485fbff1c83616fb84a8eb38e3f7cbc24f2cbb"
+    },
+    {
+      "path": "src/ui/choiceview.h",
+      "bytes": 1057,
+      "sha256": "9044d39230b99545fd198c70997d3a9eef82cc1848c2c0639811de57becc110e"
+    },
+    {
+      "path": "src/ui/dockview.h",
+      "bytes": 848,
+      "sha256": "29b14990e5ff2e88b8135d51c801ad6058842dfeec9f8004a7b1f152caaff88c"
+    },
+    {
+      "path": "src/ui/filterlabel.h",
+      "bytes": 749,
+      "sha256": "d7518ef21cb9cc5013a890ee057c9c5a625898825cadf034788d2ceecf5d9712"
+    },
+    {
+      "path": "src/ui/flyout.h",
+      "bytes": 359,
+      "sha256": "608ea2fe3dc4113416495402a97eb24ccf4968f625cb05830a7efa5d7ed41bca"
+    },
+    {
+      "path": "src/ui/fontmetrics.h",
+      "bytes": 740,
+      "sha256": "0440cfc9f0ba56488ad613a46635644d51b92f246718235abbb2f8f7da98f7d6"
+    },
+    {
+      "path": "src/ui/guideview.h",
+      "bytes": 1671,
+      "sha256": "0f8d74e5ffa710ea873cc1c039aaf9d47704177c66634fcdd2808bc3f1890a35"
+    },
+    {
+      "path": "src/ui/inspector.h",
+      "bytes": 1344,
+      "sha256": "d8ff1726a358ac61e2376b2413c9f06d57c003319a43016bd863eede2d92c95f"
+    },
+    {
+      "path": "src/ui/keytips.h",
+      "bytes": 2142,
+      "sha256": "0fbd78ae0910d713bee2e50f148e613ec9bd0d69ec993b9e3cf0c41bc3b63e69"
+    },
+    {
+      "path": "src/ui/marksview.h",
+      "bytes": 1022,
+      "sha256": "e53d334cfe4faa075588fc860403bea4c1c9785817f977c96687f03a87ff0e70"
+    },
+    {
+      "path": "src/ui/motion.h",
+      "bytes": 721,
+      "sha256": "3bc3d2ec3643bf135ae4c483638e2425d37322eca19027d9d112618a27a8628b"
+    },
+    {
+      "path": "src/ui/paintlayer.h",
+      "bytes": 1144,
+      "sha256": "cef6673c19f81883eba719a2ebaf16dcfb4c980f638e5a90bd2e49f12da98540"
+    },
+    {
+      "path": "src/ui/popup.h",
+      "bytes": 361,
+      "sha256": "000d3d65fc116b15563b675759b14b983e30177e743c03cee7cc988239af56a8"
+    },
+    {
+      "path": "src/ui/preview.h",
+      "bytes": 1356,
+      "sha256": "40dcf41f08ff65895184f4aa93d56726122345e176c63ff0fd7fa53e644e2f92"
+    },
+    {
+      "path": "src/ui/ribbon.h",
+      "bytes": 2302,
+      "sha256": "3f80394aecab7e152c44bf2f2eceb1089ab1d4d3a043db15ffefdddca42dba4d"
+    },
+    {
+      "path": "src/ui/ribbon_spec.h",
+      "bytes": 1829,
+      "sha256": "54d3f34e8d55311b2f4ad3e2788bf9720379c196bd82bcc5add0331f9592ccda"
+    },
+    {
+      "path": "src/ui/selectview.h",
+      "bytes": 2005,
+      "sha256": "a61cd998b3996c6b804fff66d2658feeef1eb4756ac770721377d7c34f0566c5"
+    },
+    {
+      "path": "src/ui/shadowview.h",
+      "bytes": 1786,
+      "sha256": "4ce84586d3731470fc15ab812e1fad1b724b8cb944753acc02f422843ee3f4ed"
+    },
+    {
+      "path": "src/ui/sortview.h",
+      "bytes": 1853,
+      "sha256": "6d1a2ee1fb1427f84272f486abed9938246e433c17ff322e513937ba4fd8d70b"
+    },
+    {
+      "path": "src/ui/statsview.h",
+      "bytes": 588,
+      "sha256": "b942aa5dd06d799614d1c90a40f2c4f1bda941fc8561cac2102439033bca1c4e"
+    },
+    {
+      "path": "src/ui/statusview.h",
+      "bytes": 711,
+      "sha256": "c96fdc16caf0d951b71a955b8d65147d2b955284b5fddd774a3ed1dc20c695dd"
+    },
+    {
+      "path": "src/ui/stepview.h",
+      "bytes": 1268,
+      "sha256": "e5fbc1d91319a8b3c3bcdbf9cbc5c27d962eaecddf823b77c809172d41dbd558"
+    },
+    {
+      "path": "src/ui/textview.h",
+      "bytes": 1141,
+      "sha256": "bd780c6f82b1d3ad0d446cd5766f02182262827cbb027b5ad4a8cbe4547212c1"
+    },
+    {
+      "path": "src/ui/ui.h",
+      "bytes": 12381,
+      "sha256": "b5a4deb167de199c207a131ffe9bbcddffb7a1af1c095779ea260d87757624f3"
+    },
+    {
+      "path": "src/ui/workspace.h",
+      "bytes": 2671,
+      "sha256": "baa66a3ae55a348fadd3efdcecd7294d7463b39bf8b122408f4ddf4f55bdc3df"
+    },
+    {
+      "path": "src/workbook/cells.h",
+      "bytes": 1987,
+      "sha256": "2bc452c6d7ce5c176acf5da862530ce7036897c59c5f0da19bd40a65a5be1b19"
+    },
+    {
+      "path": "src/workbook/clipboard.h",
+      "bytes": 1099,
+      "sha256": "a99858cb0ae6dc62ce14ee665904e7608e15c78854afc052bac52a5a1f52cd3f"
+    },
+    {
+      "path": "src/workbook/format.h",
+      "bytes": 9349,
+      "sha256": "5cebb5ff7c78ec4cf2060d39c3fb2df464d0ac92a133fcec08cc35f0f4d945a8"
+    },
+    {
+      "path": "src/workbook/objects.h",
+      "bytes": 5858,
+      "sha256": "9b95698956335dc1fba02355339a850c62b8254b3918512a4497adac8d7313bd"
+    },
+    {
+      "path": "src/workbook/source_scope.c",
+      "bytes": 37892,
+      "sha256": "1177452e699b69b18ad5506c5b73ee96fd0847b706307347822d6288289b80f8"
+    },
+    {
+      "path": "src/workbook/source_scope.h",
+      "bytes": 7484,
+      "sha256": "c8c97559a1e58868f01348abeb72f1627394929f40bcd4de41a27b7b7faabd3b"
+    },
+    {
+      "path": "src/workbook/workbook.h",
+      "bytes": 12997,
+      "sha256": "f47c0b5896ee28d6e3fcecccb72bc6357956fc5583eda65d3be1825794791d79"
+    },
+    {
+      "path": "src/workbook/workbook_codec.c",
+      "bytes": 6618,
+      "sha256": "75519f3222cdecf9fc351e8b5db0928b043a6e5db0ecf04bb3eae097cf173b11"
+    },
+    {
+      "path": "src/workbook/workbook_codec.h",
+      "bytes": 2344,
+      "sha256": "7073011199d4b53f3d506174aed33e5a8f03cdb96257caf0837d32e37e99b39e"
+    },
+    {
+      "path": "src/workbook/workbook_codec_read.c",
+      "bytes": 111740,
+      "sha256": "b51851fc844a6aa3aa785cbb800b85969bf79fef999f39a4dc6d472f6b270773"
+    },
+    {
+      "path": "src/workbook/workbook_codec_read.h",
+      "bytes": 24606,
+      "sha256": "c400767ab439f7a9cbd9ba2fa868938f12569b3efa40e664e4f0477f6c73e977"
+    },
+    {
+      "path": "tests/test_workbook_codec_read.c",
+      "bytes": 297138,
+      "sha256": "2cebeb84beff7d6477c7662302140c6a6d5d7b341a03aaadc6e17c6df5f4545f"
+    }
+  ]
+}

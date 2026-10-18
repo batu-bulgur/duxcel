@@ -1,0 +1,9 @@
+{
+  "schema": "duxcel.native-failure-source-witness",
+  "version": 1,
+  "original": "/Users/h2o/.codex/worktrees/duxcel-bp1-source-versions-native/duxcel/build/bp1-source-versions-native/first-failure/test_workbook_codec_native.c",
+  "bytes": 59074,
+  "sha256": "162bccaac137d074b633ada446be5f8525dc62130e8cbcb9a4b4aca3a76ffff7",
+  "matches_committed_source": "e9193f9:tests/test_workbook_codec_native.c",
+  "note": "Omit this redundant59KB snapshot; original failed wrapper bytes equal the final committed wrapper exactly. The failed include and reconstructed diagnostic delta retain distinct source identities."
+}

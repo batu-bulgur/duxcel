@@ -1,0 +1,20 @@
+[
+  {
+    "command": [
+      "make",
+      "-W",
+      "tests/test_workbook_codec_native.c",
+      "tests/test_workbook_codec_native"
+    ],
+    "status": 0,
+    "seconds": 6.3307825
+  },
+  {
+    "command": [
+      "./tests/test_workbook_codec_native",
+      "--source-versions-only"
+    ],
+    "status": 0,
+    "seconds": 4.6007095829999995
+  }
+]
