@@ -1,0 +1,39 @@
+{
+  "scope": "Exact component file equality only. No native preprocessor closure, runtime or complete all-source equality inferred.",
+  "components": [
+    {
+      "component": "source-options reader",
+      "private_commit": "5315d303003618d9ad1bf1aeae750e40922a01a1",
+      "integrated_commit": "d8b306351a840bbec7d41fe02e40879d8215185c",
+      "files": [
+        {
+          "path": "src/workbook/workbook_codec_read.c",
+          "sha256": "5b2625235527504ed6f7cadb61835c8829589791a7898cbf8c3786fb7ba56eb2",
+          "byte_identical": true
+        },
+        {
+          "path": "src/workbook/workbook_codec_read.h",
+          "sha256": "87b54fd69221257e698599e8405f33b9a260bf413ccd2dd1d93b77b22ee9480c",
+          "byte_identical": true
+        },
+        {
+          "path": "tests/test_workbook_codec_read.c",
+          "sha256": "2fe587ed4be4c2bd5c12a59cfad0825e0517bc0f81d2bfa67c1101d89f23a203",
+          "byte_identical": true
+        }
+      ]
+    },
+    {
+      "component": "Worker test include only (runtime pending)",
+      "private_commit": "87aaa50cf63aed3b74a1e27502af604015856f7e",
+      "integrated_commit": "201db5f7a2ae611e7c186b7bb42572bf14ae90bb",
+      "files": [
+        {
+          "path": "tests/test_browser_codec_options.inc",
+          "sha256": "c2d25fe83a2dc2beb8b431e6dc27e22366027b9c4ba4c4039fdf988f0f72045f",
+          "byte_identical": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+# Source-options metadata
+
+Accepted source-scoped metadata and path-correction evidence, 18 October 2026. Complete primary/Table source-options state passes pure, native and official Worker gates. The reader remains test-boundary-only; browser Open/Save is unavailable.
+
+The source-options continuation adds owned `unique_rows` state for the complete primary/Table owner domain. It does not construct full Table Analyses, run stored/source SQL or publish a Workbook. Browser Open/Save, Table source/filter/sort reconstruction and the broader persistence milestone remain open. Earlier query acceptance retains its [own frozen source scope](../2026-10-18-workbook-queries/); this checkpoint does not relabel that native pass after the shared path fix.
+
+| Available scope | Source | Result |
+| --- | --- | --- |
+| Private pure reader | `5315d30` → `d8b3063`, three byte-identical files | 10,468 checks/configuration: 7,630 prior checks retained plus 2,838 options checks; optimized/O1 ASan+UBSan, 5.520 s including builds |
+| Integrated pure reader | `d8b3063` | Both configurations pass; nested fast runner 6.896 s including build, parent subprocess 7.204 s |
+| Shared path-helper model | `a304a83` | Natural new-test red, then 136 checks/configuration pass;8.924 s including build |
+| New Worker test include | `87aaa50` → `201db5f` | Static syntax/delimiter/counter checks only; no runtime inferred |
+| Actual official Worker options | Runtime `ed053e3`, cached driver built at dirty `7521410` | 1,090,277 C /308 external checks; four archives, six Headers, 79 requests, seven rejections and one stale callback; 26.088 s CLI /26.407 s parent |
+| Final native acceptance | `c9ea130` native 46-file closure equals frozen root `ed053e3` | 1,283,860 checks/configuration, 93 cursor executions/413 feeds plus four raw-reference validation queries; 13.641/78.146 s optimized/O1 |
+
+[Source comparison](source-comparison.json) identifies exact component file equality only. [Provenance](provenance.json) retains original paths, sizes and SHA256 values for unmodified receipts/logs. No archives, executables, user workbooks, event streams or duplicate earlier capsules are copied here. The evidence author runs no compiler, engine or GUI; runtime receipts belong to the separately named execution owners.
+
+## Owner and publication contract
+
+All writer versions 12–14 require `source_options`. Owner 0 denotes the worksheet primary, including a SOURCE_NONE sheet whose only permitted stored value is false. A nonzero owner must be an exact same-sheet Table descriptor; Pivot/Chart source links are not aliases. Full uint64 IDs remain exact, including IDs above 2^53 and `UINT64_MAX`. Options may precede or follow queries once the descriptor registry is complete; family readiness remains distinct from a complete Workbook.
+
+An existing owner without an options row defaults false. Explicit false rows still count as seen and duplicate false rows reject. Invalid/not-ready getters preserve the caller's output. The trusted C request orders `(sheet_id, object_id)`, uses the exact INTEGER/UBIGINT/BOOLEAN source schema, and admits at most 2,112 rows plus a 2,113th sentinel. A full result uses eight 256-row feeds plus 64 from one execution, without OFFSET requery. The existing dedicated three-column `workbook-owners` transport and DXP1 decoder are reused; the normal 256-row policy is unchanged.
+
+The options feed validates a complete batch in a first pass using fixed 512-byte stack seen-mask scratch, then publishes booleans in a second pass. It performs no feed heap allocation or persistent owned-byte growth; retained reader/input admission still applies. Failure/stale/budget behavior preserves accepted prefixes, cursor and old independent Header. [Pure receipts](components/private-reader/manifest.json) include exact-limit/+1 admission, blank-owner rules, false duplicates, ownership and both query/options composition orders. The [unchanged-query witness](components/private-reader/unchanged-query-closure.json) compares query projection/functions and earlier test definitions; it is not a native preprocessor closure.
+
+The static Worker plan expects four valid native archives with all 2,112 owner flags true, original schemas checked before canonical casts, complete descriptors/queries/options and independent old Header retention. Its [expected report](components/worker-static-only/expected-report.json) remains labeled as a source-level expectation; the independent actual receipts below now confirm it.
+
+## Actual Worker observation
+
+The [complete terminal C report](worker/c-report.json) matches every expected counter and all seven rejection flags. Its 79 requests comprise 21 DESCRIBEs, 13 each of meta/sheets/objects/source-options and six raw-query executions. A full options result is fed eight 256-row batches plus 64. Across valid and negative cases, 64 accepted 256-row feeds and six 64-row tails are observed; six complete groups finish. Failed prefixes remain `[2048,0,0,0,2048,0]`; the separate original-BOOLEAN schema failure happens before canonical casting. Six POD results and six query results are poisoned in already-owned temporary Pages before Header validation. Stored flags and independently owned raw query pointers survive catalog detach and stale completed-callback supersession.
+
+[Transport deduplication](worker/transport-deduplicated.json) preserves 16 exact SQL strings and structurally reconstructs all 79 original requests. [Independent audit](worker/receipt-audit.json) observes 47 normal, 13 dedicated objects and 19 dedicated owners requests; per-registration counts are 10/10/10/49. Every request retains its original archive epoch/registration token. Peak 4,128,831 bytes includes concrete pressure, not a natural-working-set/RSS measurement. The Header/input test limits remain 2 MiB/4 MiB; wire limits retain their earlier source-scoped contract.
+
+The [runtime summary](worker/summary.json) pins `ed053e3` separately from cached artifact `0c6d59fb462648db3e6c`, originally built in 4.836 s at dirty `7521410`. The 26.088 s CLI includes 6.665 s build/native-helper preparation, 10.690 s native-emitter/server setup and 8.008 s browser. The enclosing subprocess takes 26.407 s; the 29.533 s parent integration batch also includes harness 5/runner 32 tests. No source status is relabeled clean.
+
+The [adjacent metadata batch](adjacent/manifest.json) accepts the existing query and object workflows using the same options-aware driver at dirty `7521410`; [bounded terminal reports](adjacent/reports.json) preserve their exact counters and source status. Its intentionally reused native emitter `f3ef` retains the earlier `87aa37f` scope. This is no new native query comparison or repeat of the 129.759 s old native query sanitizer gate.
+
+## Real path drift and focused correction
+
+The native options factory performs actual load → set unique rows → Save → reopen → Save over every owner; it does not rebind a fixture to work around a path failure. Before the fix, its [original diagnostic](path-fix/native-red/release-options.txt) shows stored `missing-source.csv` drifting to `/missing-source.csv`, failing the strict raw-reference check in 2.789 s. The [sealed red manifest](path-fix/native-red/manifest.json), [source identities](path-fix/native-red/source-witness.json) and small original options test include retain that boundary. Its successful actual native recovery is recorded below, separately from the pure model gate.
+
+The [product fix](path-fix/shared-join-fix.patch) adds one bounded shared directory join that preserves an existing slash/backslash separator. It changes the real workbook path helpers and a focused model test, not the metadata decoder or fixture expectations. The model's [natural red](path-fix/model/red.json) fails in 0.538 s; the [green batch](path-fix/model/manifest.json) passes 136 checks per optimized/O1 configuration in 8.924 s including 7.823 s build. Nested relative references, root-level workbooks and repeated missing-source roundtrips remain exact. The final native options closure includes this changed product source; it does not reuse the earlier query-native closure.
+
+## Native comparison and emission
+
+The [final native manifest](native/manifest.json) accepts 1,283,860 checks/configuration, 93 cursor executions and 413 typed feeds with exact BOOLEAN values, both query/options composition orders and independently owned query strings. Four additional metadata queries validate all 2,112 raw references after actual second Save; they are separate from the 93 cursor executions. The original cheap Header/sorts/preferences/objects modes retain 1,611/15,913/11,715/395,451 checks in both configurations. The old expensive `--queries-only` mode is unchanged and intentionally not rerun; its 129.759 s earlier sanitizer result remains historical.
+
+The native options runtimes are 13.641/78.146 s optimized/O1 ASan+UBSan. The full native batch including builds/old modes takes 161.357 s; supplementary emission/inspection/refusal checks take 154.640 s, 315.998 s combined. The [four-file emitter](native/emitter-results.json) takes 9.467/63.058 s; late-conflict cleanup takes 10.025/70.230 s. It verifies every true owner flag, exact raw query bytes/reordered columns, missing references, read-only closed archives and refusal to replace existing files/symlinks. Output hashes are separately scoped to those native emissions and the later independently emitted Worker inputs.
+
+[Exact compiler dependency closure](native/preprocessor-closure.json) and [independent comparison](native/root-source-comparison.json) verify 46 native project files at tested `c9ea130` and frozen root `ed053e3`, including changed workbook path code, plus installed DuckDB 1.5.6 header/library hashes. Broader 91-file convenience inventories are not substituted for this closure. System/Apple SDK headers omitted by `clang -MM` remain excluded. This source match reuses the private native acceptance without another root native matrix.
+
+The first native test compilation had an out-of-scope `OBJECT_BASE` test constant; its [original diagnostic](native/initial-compile-error.txt) is retained as test setup. Correcting that setup preceded the genuine product path red; the locator expectation was never weakened or rebound.
+
+## Shipping and bounded adjacent retention
+
+The [shipping batch](shipping/manifest.json) at frozen `ed053e3` passes in 75.126 s: native optimized/debug build and quiet bundle refresh 7.177 s, deep/strict signature verification 0.022 s, fresh normal/review Wasm exclusion 46.236 s and broader Worker subprocess 21.690 s. [Independent artifact checks](shipping/artifact-scope.json) verify the two native binaries, signed bundle and both Wasm hashes. New normal/review artifacts are `33c4e6c3a27f1e471b3b` /`b261ba64f5adcea833e3`; [absence/export evidence](shipping/review-absence.json) confirms test-only reader/driver markers remain excluded from shipping. The partial reader is absent from the application source inventories. These checks establish no new native GUI, visual or physical-input acceptance.
+
+The [actual Worker 247 report](adjacent/worker/worker-driver.json) observes 125,790 C checks, with unchanged 249 jobs/529 SQL/21 counts and exactly one cancellation start release plus two pending checks. CLI 21.038 s /browser 16.851 s differs from the parent subprocess 21.690 s. Assertion totals include timed polling; terminal workload counts remain exact. The [observed workload](adjacent/worker/other-workloads.json) retains this run's values instead of copying the previous 125,819 observation.
+
+The signed native bundle is quietly refreshed to `ed053e3` with the real path fix, without launching an app/window. The existing 8767 service, user tab and queue are unchanged; Columns 172 retains its `57ce195` acceptance. No service/report-delivery promotion or fresh App 172 run is claimed.
+
+No full-native historical migration, production browser Open/Save, complete Table Analysis/Workbook publication, source availability/content proof or visual parity is implied. Logical owned-buffer limits are not allocator, JavaScript, engine or RSS peak measurements. ASan/UBSan does not imply leak-sanitizer coverage. The checkpoint seal is [hashes.json](hashes.json); executable/archive/source bytes remain identified by their own scoped receipts.

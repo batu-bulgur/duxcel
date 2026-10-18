@@ -1,0 +1,46 @@
+{
+  "schema": "duxcel.options-integration",
+  "version": 1,
+  "revision": "ed053e3995aa93c1ab301f6dea724789a0a46a66",
+  "scope": "Integrated source-options driver over actual native archives and official Worker; frozenroot, no usertab/nativeGUI/fullquerynative rerun.",
+  "steps": [
+    {
+      "name": "harness",
+      "command": [
+        "python3",
+        "tools/test_web_codec_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.7165167910279706,
+      "log": "build/bp1-options-integration/harness.txt",
+      "sha256": "edd08be823816873cc8f49ba0f5e907543194427155725c7e5c35eabad773fb4"
+    },
+    {
+      "name": "runner",
+      "command": [
+        "python3",
+        "tools/test_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.4085871659917757,
+      "log": "build/bp1-options-integration/runner.txt",
+      "sha256": "ea73352b53b03d582bb85d89b2095edc75ab1d73c35b29758e11300856d43357"
+    },
+    {
+      "name": "source-options",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--codec-source-options"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 26.406694500008598,
+      "log": "build/bp1-options-integration/source-options.txt",
+      "sha256": "a1cb3f7ad7bba277a463d9603d77bc5158d8da609ac0105011412c3b674f45c9"
+    }
+  ],
+  "elapsed_seconds": 29.533427332993597,
+  "status": "passed",
+  "source_revision_unchanged": true
+}

@@ -1,0 +1,1 @@
+FAIL native workbook header:78: primary&&primary->kind==SOURCE_CSV&&text_same(primary->path,s->analysis.path)&&!strcmp(workbook_codec_header_reference(*out,sheet),"missing-source.csv")&&!strcmp(workbook_codec_header_name(*out,sheet),s->name)

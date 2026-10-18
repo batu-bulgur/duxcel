@@ -1,0 +1,27 @@
+{
+  "schema": "duxcel.options-components",
+  "version": 1,
+  "revision": "d8b306351a840bbec7d41fe02e40879d8215185c",
+  "scope": "Integrated source-options pure reader only; native/actualWorker options pending",
+  "status": "passed",
+  "steps": [
+    {
+      "name": "pure",
+      "command": [
+        "python3",
+        "tools/test.py",
+        "fast",
+        "--modules",
+        "workbook_codec_read",
+        "--config",
+        "both"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 7.204182666959241,
+      "log": "build/bp1-options-components/pure.txt",
+      "sha256": "3feacdc17160cc595a00ae2d3a8ef26b4f4aa3a12241d71e6b09cb85b86fb549"
+    }
+  ],
+  "elapsed_seconds": 7.204182666959241,
+  "source_revision_unchanged": true
+}

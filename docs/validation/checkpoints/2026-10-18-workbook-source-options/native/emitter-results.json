@@ -1,0 +1,496 @@
+[
+  {
+    "stage": "release-source-options-emit",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/alias-options-release-options-release-v7szv60x"
+    ],
+    "seconds": 9.466722,
+    "exit_code": 0,
+    "stdout": "{\"schema\":\"duxcel.codec-fixtures\",\"version\":1,\"files\":[{\"name\":\"options-v12.dxls\",\"version\":12,\"layout\":25},{\"name\":\"options-v13.dxls\",\"version\":13,\"layout\":25},{\"name\":\"options-v14.dxls\",\"version\":14,\"layout\":25},{\"name\":\"options-v14-reordered.dxls\",\"version\":14,\"layout\":25}]}\n",
+    "stderr": ""
+  },
+  {
+    "stage": "release-repeat-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-release-v7szv60x"
+    ],
+    "seconds": 0.013719,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-release-v7szv60x/options-v12.dxls\n"
+  },
+  {
+    "stage": "release-existing-source-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-release-source-hj_32l1n"
+    ],
+    "seconds": 0.012834,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-release-source-hj_32l1n/missing-source.csv\n"
+  },
+  {
+    "stage": "release-existing-file-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-release-file-83ponjk0"
+    ],
+    "seconds": 0.012477,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-release-file-83ponjk0/options-v12.dxls\n"
+  },
+  {
+    "stage": "release-existing-symlink-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-release-symlink-408ikf6v"
+    ],
+    "seconds": 0.012471,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-release-symlink-408ikf6v/options-v12.dxls\n"
+  },
+  {
+    "stage": "release-late-conflict-cleanup",
+    "seconds": 10.02474,
+    "exit_code": 1,
+    "stderr": "cannot publish fixture: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-race-release-6lws758_/options-v14-reordered.dxls\n",
+    "remaining": [
+      "options-v14-reordered.dxls"
+    ]
+  },
+  {
+    "stage": "release-invalid-invocation",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release",
+      "--emit-source-options-fixtures"
+    ],
+    "seconds": 0.015685,
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR]\n"
+  },
+  {
+    "stage": "release-invalid-invocation",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release",
+      "--source-options-only",
+      "extra"
+    ],
+    "seconds": 0.012819,
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR]\n"
+  },
+  {
+    "stage": "release-invalid-invocation",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-release",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/absent-directory"
+    ],
+    "seconds": 0.013211,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture destination must be an existing accessible directory\n"
+  },
+  {
+    "stage": "release-inspection",
+    "directory": "build/bp1-options-native/options-release-v7szv60x",
+    "protocol": {
+      "schema": "duxcel.codec-fixtures",
+      "version": 1,
+      "files": [
+        {
+          "name": "options-v12.dxls",
+          "version": 12,
+          "layout": 25
+        },
+        {
+          "name": "options-v13.dxls",
+          "version": 13,
+          "layout": 25
+        },
+        {
+          "name": "options-v14.dxls",
+          "version": 14,
+          "layout": 25
+        },
+        {
+          "name": "options-v14-reordered.dxls",
+          "version": 14,
+          "layout": 25
+        }
+      ]
+    },
+    "files": {
+      "options-v12.dxls": {
+        "bytes": 6565888,
+        "sha256": "fb8b01beb6a7220610b04b98dba945d6bc4bb06b300c3dd943742cb8939ba49f"
+      },
+      "options-v13.dxls": {
+        "bytes": 7876608,
+        "sha256": "27955f770dc16fc2541d41a662d01d6dc8aa9c8e9794fd829f39a6749fad8fe8"
+      },
+      "options-v14.dxls": {
+        "bytes": 11022336,
+        "sha256": "a8f366cd799d265e0387da72aa4fdd18c8cc94b934d2ed159e6250fd57071f40"
+      },
+      "options-v14-reordered.dxls": {
+        "bytes": 11022336,
+        "sha256": "3c7370525be9752eeec9f6c5790005c07873d3e1b45363d363a4be50346fc1fa"
+      }
+    },
+    "metadata": [
+      {
+        "name": "options-v12.dxls",
+        "seconds": 0.151124,
+        "rows": 2112,
+        "objects": 2048,
+        "all_exact_owner_texts_checked": true,
+        "all_exact_owner_boolean_values_checked": true,
+        "boolean_type": "BOOLEAN",
+        "physical_options": [
+          "sheet_id",
+          "object_id",
+          "unique_rows"
+        ],
+        "first_hex": "4E554C4C",
+        "last_hex": "53454C4543542031202F2A2027C4B0272036333A3332202A2F3B20200A",
+        "physical_queries": [
+          "sheet_id",
+          "object_id",
+          "query"
+        ]
+      },
+      {
+        "name": "options-v13.dxls",
+        "seconds": 0.044536,
+        "rows": 2112,
+        "objects": 2048,
+        "all_exact_owner_texts_checked": true,
+        "all_exact_owner_boolean_values_checked": true,
+        "boolean_type": "BOOLEAN",
+        "physical_options": [
+          "sheet_id",
+          "object_id",
+          "unique_rows"
+        ],
+        "first_hex": "4E554C4C",
+        "last_hex": "53454C4543542031202F2A2027C4B0272036333A3332202A2F3B20200A",
+        "physical_queries": [
+          "sheet_id",
+          "object_id",
+          "query"
+        ]
+      },
+      {
+        "name": "options-v14.dxls",
+        "seconds": 0.046724,
+        "rows": 2112,
+        "objects": 2048,
+        "all_exact_owner_texts_checked": true,
+        "all_exact_owner_boolean_values_checked": true,
+        "boolean_type": "BOOLEAN",
+        "physical_options": [
+          "sheet_id",
+          "object_id",
+          "unique_rows"
+        ],
+        "first_hex": "4E554C4C",
+        "last_hex": "53454C4543542031202F2A2027C4B0272036333A3332202A2F3B20200A",
+        "physical_queries": [
+          "sheet_id",
+          "object_id",
+          "query"
+        ]
+      },
+      {
+        "name": "options-v14-reordered.dxls",
+        "seconds": 0.046611,
+        "rows": 2112,
+        "objects": 2048,
+        "all_exact_owner_texts_checked": true,
+        "all_exact_owner_boolean_values_checked": true,
+        "boolean_type": "BOOLEAN",
+        "physical_options": [
+          "unique_rows",
+          "object_id",
+          "sheet_id"
+        ],
+        "first_hex": "4E554C4C",
+        "last_hex": "53454C4543542031202F2A2027C4B0272036333A3332202A2F3B20200A",
+        "physical_queries": [
+          "query",
+          "object_id",
+          "sheet_id"
+        ]
+      }
+    ],
+    "checks": [
+      "four closed independent native-produced archives",
+      "exact JSON protocol/order/versions/layout25",
+      "all2112 native BOOLEAN true values and exact retained query bytes checked",
+      "source references canonical/missing without execution",
+      "mode0444",
+      "repeat/existing/dangling refusal",
+      "late-conflict removes only owned outputs"
+    ]
+  },
+  {
+    "stage": "sanitize-source-options-emit",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-sanitize",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/alias-options-sanitize-options-sanitize-l1yxiici"
+    ],
+    "seconds": 63.057537,
+    "exit_code": 0,
+    "stdout": "{\"schema\":\"duxcel.codec-fixtures\",\"version\":1,\"files\":[{\"name\":\"options-v12.dxls\",\"version\":12,\"layout\":25},{\"name\":\"options-v13.dxls\",\"version\":13,\"layout\":25},{\"name\":\"options-v14.dxls\",\"version\":14,\"layout\":25},{\"name\":\"options-v14-reordered.dxls\",\"version\":14,\"layout\":25}]}\n",
+    "stderr": ""
+  },
+  {
+    "stage": "sanitize-repeat-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-sanitize",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-sanitize-l1yxiici"
+    ],
+    "seconds": 0.415752,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-sanitize-l1yxiici/options-v12.dxls\n"
+  },
+  {
+    "stage": "sanitize-existing-source-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-sanitize",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-sanitize-source-b5o7hle5"
+    ],
+    "seconds": 0.083853,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-sanitize-source-b5o7hle5/missing-source.csv\n"
+  },
+  {
+    "stage": "sanitize-existing-file-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-sanitize",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-sanitize-file-2j80z0o1"
+    ],
+    "seconds": 0.078416,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-sanitize-file-2j80z0o1/options-v12.dxls\n"
+  },
+  {
+    "stage": "sanitize-existing-symlink-refused",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-sanitize",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-sanitize-symlink-k6pqf8ap"
+    ],
+    "seconds": 0.077911,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-refuse-sanitize-symlink-k6pqf8ap/options-v12.dxls\n"
+  },
+  {
+    "stage": "sanitize-late-conflict-cleanup",
+    "seconds": 70.229885,
+    "exit_code": 1,
+    "stderr": "cannot publish fixture: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/options-race-sanitize-q62sx2en/options-v14-reordered.dxls\n",
+    "remaining": [
+      "options-v14-reordered.dxls"
+    ]
+  },
+  {
+    "stage": "sanitize-invalid-invocation",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-sanitize",
+      "--emit-source-options-fixtures"
+    ],
+    "seconds": 0.203889,
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-sanitize [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR]\n"
+  },
+  {
+    "stage": "sanitize-invalid-invocation",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-sanitize",
+      "--source-options-only",
+      "extra"
+    ],
+    "seconds": 0.098117,
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-sanitize [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR]\n"
+  },
+  {
+    "stage": "sanitize-invalid-invocation",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/native-sanitize",
+      "--emit-source-options-fixtures",
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-options-native/duxcel/build/bp1-options-native/absent-directory"
+    ],
+    "seconds": 0.132686,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fixture destination must be an existing accessible directory\n"
+  },
+  {
+    "stage": "sanitize-inspection",
+    "directory": "build/bp1-options-native/options-sanitize-l1yxiici",
+    "protocol": {
+      "schema": "duxcel.codec-fixtures",
+      "version": 1,
+      "files": [
+        {
+          "name": "options-v12.dxls",
+          "version": 12,
+          "layout": 25
+        },
+        {
+          "name": "options-v13.dxls",
+          "version": 13,
+          "layout": 25
+        },
+        {
+          "name": "options-v14.dxls",
+          "version": 14,
+          "layout": 25
+        },
+        {
+          "name": "options-v14-reordered.dxls",
+          "version": 14,
+          "layout": 25
+        }
+      ]
+    },
+    "files": {
+      "options-v12.dxls": {
+        "bytes": 6565888,
+        "sha256": "ceae4a91985dbf6a4e6d9125d2272f39ef5bfab71a15feaa7d988afc79e97629"
+      },
+      "options-v13.dxls": {
+        "bytes": 7876608,
+        "sha256": "ef8bbbf4ad5341bdd72ce2e9ae8feec1abae259cdf3d6ce87d4af18452107ea6"
+      },
+      "options-v14.dxls": {
+        "bytes": 11022336,
+        "sha256": "4efacc1e2aacdf4fada70f50d93c49e26afa298e95aa9629da313e163109b1ea"
+      },
+      "options-v14-reordered.dxls": {
+        "bytes": 11022336,
+        "sha256": "1829b65d4e97662bfc16e31d9d834cf2d05723f61c4653e1dd4f9c7e2c56a3ca"
+      }
+    },
+    "metadata": [
+      {
+        "name": "options-v12.dxls",
+        "seconds": 0.143728,
+        "rows": 2112,
+        "objects": 2048,
+        "all_exact_owner_texts_checked": true,
+        "all_exact_owner_boolean_values_checked": true,
+        "boolean_type": "BOOLEAN",
+        "physical_options": [
+          "sheet_id",
+          "object_id",
+          "unique_rows"
+        ],
+        "first_hex": "4E554C4C",
+        "last_hex": "53454C4543542031202F2A2027C4B0272036333A3332202A2F3B20200A",
+        "physical_queries": [
+          "sheet_id",
+          "object_id",
+          "query"
+        ]
+      },
+      {
+        "name": "options-v13.dxls",
+        "seconds": 0.044043,
+        "rows": 2112,
+        "objects": 2048,
+        "all_exact_owner_texts_checked": true,
+        "all_exact_owner_boolean_values_checked": true,
+        "boolean_type": "BOOLEAN",
+        "physical_options": [
+          "sheet_id",
+          "object_id",
+          "unique_rows"
+        ],
+        "first_hex": "4E554C4C",
+        "last_hex": "53454C4543542031202F2A2027C4B0272036333A3332202A2F3B20200A",
+        "physical_queries": [
+          "sheet_id",
+          "object_id",
+          "query"
+        ]
+      },
+      {
+        "name": "options-v14.dxls",
+        "seconds": 0.04658,
+        "rows": 2112,
+        "objects": 2048,
+        "all_exact_owner_texts_checked": true,
+        "all_exact_owner_boolean_values_checked": true,
+        "boolean_type": "BOOLEAN",
+        "physical_options": [
+          "sheet_id",
+          "object_id",
+          "unique_rows"
+        ],
+        "first_hex": "4E554C4C",
+        "last_hex": "53454C4543542031202F2A2027C4B0272036333A3332202A2F3B20200A",
+        "physical_queries": [
+          "sheet_id",
+          "object_id",
+          "query"
+        ]
+      },
+      {
+        "name": "options-v14-reordered.dxls",
+        "seconds": 0.04781,
+        "rows": 2112,
+        "objects": 2048,
+        "all_exact_owner_texts_checked": true,
+        "all_exact_owner_boolean_values_checked": true,
+        "boolean_type": "BOOLEAN",
+        "physical_options": [
+          "unique_rows",
+          "object_id",
+          "sheet_id"
+        ],
+        "first_hex": "4E554C4C",
+        "last_hex": "53454C4543542031202F2A2027C4B0272036333A3332202A2F3B20200A",
+        "physical_queries": [
+          "query",
+          "object_id",
+          "sheet_id"
+        ]
+      }
+    ],
+    "checks": [
+      "four closed independent native-produced archives",
+      "exact JSON protocol/order/versions/layout25",
+      "all2112 native BOOLEAN true values and exact retained query bytes checked",
+      "source references canonical/missing without execution",
+      "mode0444",
+      "repeat/existing/dangling refusal",
+      "late-conflict removes only owned outputs"
+    ]
+  }
+]
