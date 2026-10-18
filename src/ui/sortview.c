@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <ctype.h>
+#ifdef DUXCEL_DEV_REVIEW
+#include "../dev/review_input.h"
+#endif
 static Rectangle rect(float x,float y,float w,float h) { return (Rectangle){x,y,w,h}; }
 #ifdef DUXCEL_DEV_REVIEW
 static bool sort_review_text(char *to,size_t capacity,const char *text) {
@@ -61,8 +64,20 @@ static void reveal(int *scroll,int selected,int visible,int count) {
     if (selected>=*scroll+visible) *scroll=selected-visible+1;
     int max=count-visible; if (max<0) max=0; if (*scroll>max) *scroll=max; if (*scroll<0) *scroll=0;
 }
-static void wheel_scroll(int *scroll,double *remainder,Rectangle area,int visible,int count) {
-    if (CheckCollisionPointRec(GetMousePosition(),area)) *scroll+=ui_scroll_steps(remainder,-GetMouseWheelMoveV().y*3);
+static bool pointer_available(const UIContext *u) {
+    if (u->pointer_blocked) return false;
+#ifdef DUXCEL_DEV_REVIEW
+    if (dx_review_input_blocked()) return false;
+#endif
+    return true;
+}
+static bool pointer_over(const UIContext *u,Rectangle area) {
+    Vector2 mouse=ui_mouse_position();
+    return CheckCollisionPointRec(mouse,area) && (!u->clipping || CheckCollisionPointRec(mouse,u->clip));
+}
+static void wheel_scroll(UIContext *u,int *scroll,double *remainder,Rectangle area,int visible,int count) {
+    if (!pointer_available(u)) return;
+    if (pointer_over(u,area)) *scroll+=ui_scroll_steps(remainder,-GetMouseWheelMoveV().y*3);
     int max=count-visible; if (max<0) max=0; if (*scroll>max) *scroll=max; if (*scroll<0) *scroll=0;
 }
 static void scrollbar(SortEditor *e,UIContext *u,int id,int *scroll,Rectangle area,int visible,int count) {
@@ -74,8 +89,9 @@ static void scrollbar(SortEditor *e,UIContext *u,int id,int *scroll,Rectangle ar
     SORT_REVIEW(e,u,id==1 ? SORT_REVIEW_FIELD_SCROLL : SORT_REVIEW_ORDER_SCROLL,"Scroll track",NULL,0,0,track,true,false,false,false);
     SORT_REVIEW(e,u,id==1 ? SORT_REVIEW_FIELD_THUMB : SORT_REVIEW_ORDER_THUMB,"Scroll thumb",NULL,0,0,handle,true,false,e->dragging==id,false);
     DrawRectangleRec(track,UI_BG); DrawRectangleRounded(handle,.5f,4,(Color){161,174,191,255});
-    Vector2 mouse=GetMousePosition();
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse,track)) { e->dragging=id; e->grab=CheckCollisionPointRec(mouse,handle) ? mouse.y-handle.y : thumb/2; }
+    if (!pointer_available(u)) return;
+    Vector2 mouse=ui_mouse_position();
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && pointer_over(u,track)) { e->dragging=id; e->grab=CheckCollisionPointRec(mouse,handle) ? mouse.y-handle.y : thumb/2; }
     if (e->dragging==id) {
         if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) e->dragging=0;
         else if (travel>0) { float fraction=fminf(1,fmaxf(0,(mouse.y-e->grab-track.y)/travel)); *scroll=(int)roundf(fraction*(count-visible)); }
@@ -106,7 +122,7 @@ SortResult sort_editor_draw(SortEditor *e,UIContext *u,const Page *page) {
     Rectangle priorities=rect(orders.x,orders.y+28*s,orders.width,orders.height-28*s);
     int field_visible=(int)fmaxf(1,floorf(list.height/(30*s))),order_visible=(int)fmaxf(1,floorf(priorities.height/(59*s)));
     if (input && ui_pressed(KEY_TAB)) e->focus=(e->focus+3+(ui_key_shift(KEY_TAB) ? -1 : 1))%3;
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(),search)) e->focus=0;
+    if (pointer_available(u) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && pointer_over(u,search)) e->focus=0;
     if (input && e->focus==0) input_update(&e->search); else while (GetCharPressed()) { }
     match_fields(e,page);
     bool enter=input && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)),apply=enter && (ui_key_shortcut(ui_pressed(KEY_KP_ENTER) ? KEY_KP_ENTER : KEY_ENTER) || e->focus==2);
@@ -127,7 +143,7 @@ SortResult sort_editor_draw(SortEditor *e,UIContext *u,const Page *page) {
     if (enter && !apply && e->count) { add_field(e,page->columns[e->matches[e->choice]].name); e->focus=1; }
     if (e->level>=(int)levels(e)) e->level=levels(e) ? (int)levels(e)-1 : 0;
     if (e->focus==2 && movement) reveal(&e->order_scroll,e->level,order_visible,(int)levels(e));
-    wheel_scroll(&e->field_scroll,&e->field_wheel,list,field_visible,(int)e->count); wheel_scroll(&e->order_scroll,&e->order_wheel,priorities,order_visible,(int)levels(e));
+    wheel_scroll(u,&e->field_scroll,&e->field_wheel,list,field_visible,(int)e->count); wheel_scroll(u,&e->order_scroll,&e->order_wheel,priorities,order_visible,(int)levels(e));
     if (e->focus==0) input_draw(u,&e->search,search);
     else { DrawRectangleRec(search,WHITE); DrawRectangleLinesEx(search,s,UI_BORDER); ui_text_clip(u,*e->search.text ? e->search.text : "Search columns",search,12,UI_MUTED,false); }
     SORT_REVIEW(e,u,SORT_REVIEW_FIELDS,"Columns",NULL,0,0,fields,true,false,e->focus==1,true);
@@ -158,7 +174,7 @@ SortResult sort_editor_draw(SortEditor *e,UIContext *u,const Page *page) {
         SORT_REVIEW(e,u,SORT_REVIEW_ASCENDING,"Ascending",sort.column,0,(size_t)i,ascending,true,!sort.descending,false,false);
         SORT_REVIEW(e,u,SORT_REVIEW_DESCENDING,"Descending",sort.column,0,(size_t)i,descending,true,sort.descending,false,false);
         ui_text_clip(u,label,title,12,UI_TEXT,false);
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(),row)) { e->level=i; e->focus=2; }
+        if (pointer_available(u) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && pointer_over(u,row)) { e->level=i; e->focus=2; }
         if (ui_button(u,up,"↑",false,i>0)) { analysis_sort_move(&e->draft,(size_t)i,(size_t)i-1); e->level=i-1; break; }
         if (ui_button(u,down,"↓",false,i+1<(int)levels(e))) { analysis_sort_move(&e->draft,(size_t)i,(size_t)i+1); e->level=i+1; break; }
         if (ui_button(u,remove,"×",false,true)) { analysis_sort_remove(&e->draft,(size_t)i); break; }
