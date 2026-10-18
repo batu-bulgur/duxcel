@@ -1842,6 +1842,180 @@ static void test_object_counters_composition(void) {
     }
 }
 /* END optional object-counter continuation tests. */
+/* BEGIN source-version counter continuation tests. */
+static WorkbookCodecRead *source_counter_header(unsigned version,size_t sheets,const uint64_t *ids,size_t limit) {
+    WorkbookCodecRead *read=counter_header(version,sheets,ids,limit); char *error=NULL;
+    CHECK(workbook_codec_read_add_object_counters(read,version>=13,&error)&&!error);
+    if (version>=13) {
+        CounterFixture f=counter_fixture(sheets); for (size_t n=0;n<sheets;n++) f.cells[n*2+1]=u(ids?ids[n]:0);
+        WorkbookCodecBatch batch=counter_batch(&f,0,sheets,true);
+        CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_OBJECT_COUNTERS,&batch,sizeof(f),&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
+    }
+    return read;
+}
+static void reject_source_counters_arm(WorkbookCodecRead *read,bool present) {
+    const WorkbookCodecRequest *r=workbook_codec_read_request(read); WorkbookCodecRequest before=r?*r:(WorkbookCodecRequest){0};
+    size_t bytes=workbook_codec_read_owned_bytes(read); char *error=NULL;
+    CHECK(!workbook_codec_read_add_source_version_counters(read,present,&error)&&error&&*error&&workbook_codec_read_owned_bytes(read)==bytes);
+    CHECK(r?same_request(before,workbook_codec_read_request(read)):!workbook_codec_read_request(read)); error_clear(&error);
+}
+static void source_counter_get_unchanged(const WorkbookCodecHeader *h,size_t sheet) {
+    uint64_t value=UINT64_C(9007199254740999);
+    CHECK(!workbook_codec_header_source_version_high_water(h,sheet,&value)&&value==UINT64_C(9007199254740999));
+}
+static void test_source_version_counters_contract_and_defaults(void) {
+    CHECK(WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS==18&&WORKBOOK_CODEC_OBJECT_COUNTERS==17&&WORKBOOK_CODEC_CELLS==16);
+    CHECK(!workbook_codec_header_source_version_counters_ready(NULL)); source_counter_get_unchanged(NULL,0);
+    reject_source_counters_arm(NULL,true); CHECK(!workbook_codec_read_add_source_version_counters(NULL,true,NULL));
+    WorkbookCodecRead *read=begin(14,WORKBOOK_CODEC_SHEETS_25,LIMIT,NULL); reject_source_counters_arm(read,true);
+    meta(read,14,0,0); reject_source_counters_arm(read,true); workbook_codec_read_free(read);
+    const uint64_t ids[]={0,1,UINT64_C(9007199254740993),UINT64_MAX}; char *error=NULL;
+    for (unsigned version=12;version<=14;version++) {
+        read=sort_header(version,1,NULL,LIMIT); reject_source_counters_arm(read,true); reject_source_counters_arm(read,false); workbook_codec_read_free(read);
+        read=counter_header(version,4,ids,LIMIT); reject_source_counters_arm(read,true); reject_source_counters_arm(read,false); workbook_codec_read_free(read);
+        read=source_counter_header(version,4,ids,LIMIT); WorkbookCodecHeader *plain=NULL;
+        CHECK(workbook_codec_read_finish(read,&plain,&error)&&!workbook_codec_header_source_version_counters_ready(plain));
+        source_counter_get_unchanged(plain,0); reject_source_counters_arm(read,true); workbook_codec_read_free(read); workbook_codec_header_free(plain);
+        read=source_counter_header(version,4,ids,LIMIT); size_t bytes=workbook_codec_read_owned_bytes(read);
+        if (version<14) {
+            reject_source_counters_arm(read,true); CHECK(!workbook_codec_read_add_source_version_counters(read,true,NULL));
+            CHECK(workbook_codec_read_add_source_version_counters(read,false,&error)&&!error&&!workbook_codec_read_request(read));
+        } else {
+            reject_source_counters_arm(read,false); CHECK(!workbook_codec_read_add_source_version_counters(read,false,NULL));
+            CHECK(workbook_codec_read_add_source_version_counters(read,true,&error)&&!error);
+            const WorkbookCodecRequest *r=workbook_codec_read_request(read);
+            CHECK(r&&r->family==WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS&&r->column_count==2&&r->source_column_count==2&&r->row_limit==65&&!r->first_row&&
+                !strcmp(r->sql,"SELECT sheet_id,high_water FROM _duxcel_workspace.source_version_counters ORDER BY sheet_id LIMIT 65")&&!strstr(r->sql,"OFFSET"));
+            reject_source_counters_arm(read,true); reject_source_counters_arm(read,false);
+            CounterFixture f=counter_fixture(4); WorkbookCodecBatch batch=counter_batch(&f,0,4,true);
+            CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f),NULL)==WORKBOOK_CODEC_READ_ACCEPTED);
+        }
+        CHECK(workbook_codec_read_owned_bytes(read)==bytes); reject_source_counters_arm(read,false); reject_source_counters_arm(read,true);
+        WorkbookCodecHeader *h=NULL; CHECK(workbook_codec_read_finish(read,&h,&error)&&!error&&workbook_codec_header_source_version_counters_ready(h)); workbook_codec_read_free(read);
+        for (size_t n=0;n<4;n++) { uint64_t value=UINT64_MAX; CHECK(workbook_codec_header_source_version_high_water(h,n,&value)&&value==0);
+            CHECK(workbook_codec_header_object_high_water(h,n,&value)&&value==ids[n]); CHECK(workbook_codec_header_analysis(h,n)->source_version==0); }
+        source_counter_get_unchanged(h,4); source_counter_get_unchanged(h,SIZE_MAX); CHECK(!workbook_codec_header_source_version_high_water(h,0,NULL)); workbook_codec_header_free(h);
+    }
+}
+static void test_source_version_counters_values_and_eof(void) {
+    uint64_t ids[64],expected[64];
+    for (size_t n=0;n<64;n++) { ids[n]=n%2?UINT64_MAX:0;
+        expected[n]=n%4==0?UINT64_MAX:n%4==1?0:n%4==2?UINT64_C(9007199254740993):1; }
+    for (unsigned split=0;split<3;split++) {
+        WorkbookCodecRead *read=source_counter_header(14,64,ids,LIMIT); char *error=NULL;
+        CHECK(workbook_codec_read_add_source_version_counters(read,true,&error)); CounterFixture f=counter_fixture(65);
+        for (size_t n=0;n<64;n++) f.cells[n*2+1]=u(expected[n]); WorkbookCodecBatch batch=counter_batch(&f,0,65,true);
+        reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f)); size_t owned=workbook_codec_read_owned_bytes(read);
+        size_t first=split==1?1:split==2?31:64; batch=counter_batch(&f,0,first,false);
+        CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f),&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error&&workbook_codec_read_owned_bytes(read)==owned);
+        WorkbookCodecHeader *h=NULL; CHECK(!workbook_codec_read_finish(read,&h,&error)&&!h); error_clear(&error);
+        if (first<64) { batch=counter_batch(&f,first,64-first,false); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f),&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error); }
+        batch=counter_batch(&f,64,1,true); reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f));
+        batch=counter_batch(&f,64,0,false); reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f));
+        batch=counter_batch(&f,64,0,true); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f),&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
+        memset(&f,0xa5,sizeof(f)); CHECK(workbook_codec_read_finish(read,&h,&error)&&workbook_codec_header_source_version_counters_ready(h)); workbook_codec_read_free(read);
+        for (size_t n=0;n<64;n++) { uint64_t value=5; CHECK(workbook_codec_header_source_version_high_water(h,n,&value)&&value==expected[n]);
+            CHECK(workbook_codec_header_object_high_water(h,n,&value)&&value==ids[n]); }
+        workbook_codec_header_free(h);
+    }
+    WorkbookCodecRead *read=source_counter_header(14,1,NULL,LIMIT); char *error=NULL; CHECK(workbook_codec_read_add_source_version_counters(read,true,&error));
+    CounterFixture f=counter_fixture(1); f.cells[1]=u(UINT64_MAX); WorkbookCodecBatch batch=counter_batch(&f,0,1,true);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+    WorkbookCodecHeader *h=NULL; CHECK(workbook_codec_read_finish(read,&h,&error)); workbook_codec_read_free(read); uint64_t value=0;
+    CHECK(workbook_codec_header_source_version_high_water(h,0,&value)&&value==UINT64_MAX); workbook_codec_header_free(h);
+}
+static void test_source_version_counters_invalid_atomic_and_stale(void) {
+    const uint64_t ids[]={UINT64_MAX,0,1}; char *error=NULL; WorkbookCodecRead *read=source_counter_header(14,3,ids,LIMIT);
+    CHECK(workbook_codec_read_add_source_version_counters(read,true,&error)); CounterFixture f=counter_fixture(3); f.cells[1]=u(1); f.cells[3]=u(UINT64_MAX); f.cells[5]=u(0);
+    WorkbookCodecBatch batch=counter_batch(&f,0,3,true); char *diagnostic=dx_strdup("stale diagnostic");
+    for (unsigned part=0;part<3;part++) {
+        WorkbookCodecKey stale=key; if (!part) stale.document_epoch--; else if (part==1) stale.operation_ticket--; else stale.snapshot_generation--;
+        WorkbookCodecRequest before=*workbook_codec_read_request(read); size_t owned=workbook_codec_read_owned_bytes(read);
+        CHECK(workbook_codec_read_feed(read,stale,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,(const WorkbookCodecBatch *)(uintptr_t)1,SIZE_MAX,&diagnostic)==WORKBOOK_CODEC_READ_STALE&&
+            !strcmp(diagnostic,"stale diagnostic")&&same_request(before,workbook_codec_read_request(read))&&owned==workbook_codec_read_owned_bytes(read));
+    }
+    free(diagnostic); reject(read,WORKBOOK_CODEC_OBJECT_COUNTERS,&batch,sizeof(f)); batch.first_row=1; reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f)); batch.first_row=0;
+    for (size_t row=0;row<3;row++) for (size_t col=0;col<2;col++) {
+        WorkbookCodecAtom saved=f.cells[row*2+col]; f.cells[row*2+col]=(WorkbookCodecAtom){0}; reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f));
+        f.cells[row*2+col]=col?d(0):u(row); reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f)); f.cells[row*2+col]=saved;
+    }
+    for (size_t col=0;col<2;col++) {
+        WorkbookCodecColumn saved=f.columns[col]; f.columns[col].name="wrong"; reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f));
+        f.columns[col]=saved; f.columns[col].kind=WORKBOOK_CODEC_DOUBLE; reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f)); f.columns[col]=saved;
+    }
+    batch.column_count=1; reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f)); batch.column_count=3; reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f)); batch.column_count=2;
+    batch.row_count=257; reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f)); batch.row_count=3;
+    batch.cells=NULL; reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f)); batch.cells=f.cells;
+    batch.columns=NULL; reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f)); batch.columns=f.columns;
+    for (size_t row=0;row<3;row++) {
+        WorkbookCodecAtom saved=f.cells[row*2]; const int32_t bad[]={-1,3,(int32_t)(row?row-1:1)};
+        for (size_t n=0;n<3;n++) { f.cells[row*2]=i(bad[n]); reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f)); } f.cells[row*2]=saved;
+    }
+    batch=counter_batch(&f,0,0,true); reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f));
+    batch=counter_batch(&f,0,1,true); reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f));
+    batch.end=false; CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f),&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
+    batch=counter_batch(&f,1,1,true); reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f));
+    batch=counter_batch(&f,1,2,true); f.cells[4]=i(1); reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f));
+    f.cells[4]=i(2); f.cells[3]=u(UINT64_C(9007199254740999)); f.cells[5]=u(UINT64_MAX);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f),&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
+    WorkbookCodecHeader *h=NULL; CHECK(workbook_codec_read_finish(read,&h,&error)); workbook_codec_read_free(read); memset(&f,0xa5,sizeof(f));
+    const uint64_t expected[]={1,UINT64_C(9007199254740999),UINT64_MAX};
+    for (size_t n=0;n<3;n++) { uint64_t value=0; CHECK(workbook_codec_header_source_version_high_water(h,n,&value)&&value==expected[n]); } workbook_codec_header_free(h);
+}
+static void test_source_version_counters_budget_and_old_output(void) {
+    const uint64_t ids[]={UINT64_MAX,0}; char *error=NULL; WorkbookCodecRead *read=source_counter_header(14,2,ids,LIMIT);
+    CHECK(workbook_codec_read_add_source_version_counters(read,true,&error)); CounterFixture f=counter_fixture(2); f.cells[1]=u(UINT64_MAX);
+    WorkbookCodecBatch batch=counter_batch(&f,0,2,true); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+    WorkbookCodecHeader *old=NULL; CHECK(workbook_codec_read_finish(read,&old,&error)); workbook_codec_read_free(read); WorkbookCodecHeader *identity=old;
+    const Analysis *analysis=workbook_codec_header_analysis(old,0); const SheetView *view=workbook_codec_header_view(old,0);
+    WorkbookCodecObjectView object={0}; CHECK(workbook_codec_header_object_at(old,0,0,&object)); const char *name=object.name,*path=analysis->path;
+    size_t old_bytes=workbook_codec_header_owned_bytes(old); read=source_counter_header(14,2,ids,LIMIT); CHECK(workbook_codec_read_add_source_version_counters(read,true,&error));
+    f=counter_fixture(2); f.cells[3]=u(UINT64_MAX); batch=counter_batch(&f,0,1,false); size_t owned=workbook_codec_read_owned_bytes(read),retained=old_bytes+sizeof(f);
+    CHECK(owned<LIMIT&&retained<LIMIT-owned); size_t pressure_bytes=LIMIT-owned-retained; unsigned char *pressure=dx_alloc(pressure_bytes+1u);
+    reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,retained+pressure_bytes+1u); reject(read,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,SIZE_MAX);
+    CHECK(!workbook_codec_read_finish(read,&old,&error)&&old==identity); error_clear(&error);
+    CHECK(old_bytes==workbook_codec_header_owned_bytes(old)&&workbook_codec_header_analysis(old,0)==analysis&&workbook_codec_header_view(old,0)==view&&analysis->path==path);
+    CHECK(workbook_codec_header_object_at(old,0,0,&object)&&object.name==name&&!strcmp(name,"Object 'İ' 0")); uint64_t value=0;
+    CHECK(workbook_codec_header_source_version_high_water(old,0,&value)&&value==UINT64_MAX); CHECK(workbook_codec_header_source_version_high_water(old,1,&value)&&value==0);
+    free(pressure); pressure=dx_alloc(pressure_bytes);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,retained+pressure_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error&&workbook_codec_read_owned_bytes(read)==owned);
+    free(pressure); pressure=dx_alloc(pressure_bytes+1u); batch=counter_batch(&f,1,1,true);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,retained+pressure_bytes+1u,NULL)==WORKBOOK_CODEC_READ_ERROR);
+    CHECK(workbook_codec_read_request(read)->first_row==1&&workbook_codec_read_owned_bytes(read)==owned);
+    CHECK(!workbook_codec_read_finish(read,&old,&error)&&old==identity); error_clear(&error); free(pressure); pressure=dx_alloc(pressure_bytes);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,retained+pressure_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error&&workbook_codec_read_owned_bytes(read)==owned);
+    free(pressure); memset(&f,0xa5,sizeof(f)); WorkbookCodecHeader *next=NULL; CHECK(workbook_codec_read_finish(read,&next,&error)&&next!=old); workbook_codec_read_free(read);
+    CHECK(workbook_codec_header_source_version_high_water(next,0,&value)&&value==0); CHECK(workbook_codec_header_source_version_high_water(next,1,&value)&&value==UINT64_MAX);
+    CHECK(workbook_codec_header_source_version_high_water(old,0,&value)&&value==UINT64_MAX); CHECK(workbook_codec_header_analysis(old,0)==analysis&&analysis->path==path&&object.name==name);
+    printf("INFO: source-counter retained pressure limit=%zu reader=%zu old_header=%zu borrowed=%zu exact_pressure=%zu; exact accepted/+1 denied\n",(size_t)LIMIT,owned,old_bytes,sizeof(f),pressure_bytes);
+    workbook_codec_header_free(next); workbook_codec_header_free(old);
+}
+static void test_source_version_counters_composition(void) {
+    for (unsigned order=0;order<2;order++) {
+        char query[]="SELECT 'query remains owned';  \n",*error=NULL;
+        WorkbookCodecRead *read=definition_header(14,2,2,true,0,LIMIT,query); CounterFixture counters=counter_fixture(2);
+        counters.cells[1]=u(2); counters.cells[3]=u(UINT64_MAX); WorkbookCodecBatch batch=counter_batch(&counters,0,2,true);
+        CHECK(workbook_codec_read_add_object_counters(read,true,&error)&&workbook_codec_read_feed(read,key,WORKBOOK_CODEC_OBJECT_COUNTERS,&batch,sizeof(counters),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+        counters.cells[1]=u(UINT64_MAX); counters.cells[3]=u(0);
+        if (!order) { CHECK(workbook_codec_read_add_source_version_counters(read,true,&error)); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(counters),&error)==WORKBOOK_CODEC_READ_ACCEPTED); }
+        CHECK(workbook_codec_read_add_pivot_marks(read,(WorkbookCodecPivotMarksPresence){true,true},&error)); definition_empty(read,false,0); definition_empty(read,true,0);
+        CHECK(workbook_codec_read_add_columns(read,true,&error)); ColumnsFixture *columns=columns_fixture(0,0,1); WorkbookCodecBatch data=columns_batch(columns,0,1,true);
+        CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_COLUMNS,&data,sizeof(*columns),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(columns);
+        CHECK(workbook_codec_read_add_cells(read,true,&error)); CellsFixture *cells=cells_fixture(0,0,1); data=cells_batch(cells,0,1,true);
+        CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_CELLS,&data,sizeof(*cells),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(cells);
+        if (order) { CHECK(workbook_codec_read_add_source_version_counters(read,true,&error)); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,&batch,sizeof(counters),&error)==WORKBOOK_CODEC_READ_ACCEPTED); }
+        WorkbookCodecHeader *h=NULL; CHECK(workbook_codec_read_finish(read,&h,&error)&&!error); workbook_codec_read_free(read); memset(query,'x',strlen(query));
+        CHECK(workbook_codec_header_source_version_counters_ready(h)&&workbook_codec_header_object_counters_ready(h)&&workbook_codec_header_queries_ready(h)&&workbook_codec_header_source_options_ready(h)&&workbook_codec_header_table_sources_ready(h)&&workbook_codec_header_pivot_marks_ready(h)&&workbook_codec_header_columns_ready(h)&&workbook_codec_header_cells_ready(h));
+        for (size_t sheet=0;sheet<2;sheet++) { uint64_t value=9; CHECK(workbook_codec_header_source_version_high_water(h,sheet,&value)&&value==(sheet?0:UINT64_MAX));
+            CHECK(workbook_codec_header_object_high_water(h,sheet,&value)&&value==(sheet?UINT64_MAX:2)); WorkbookCodecTableSourceView table={0};
+            CHECK(workbook_codec_header_table_source(h,sheet,2,&table)&&table.analysis->source_version==0&&table.analysis->unique_rows&&!strcmp(table.analysis->query,"SELECT 'query remains owned';  \n"));
+            const char *q=NULL; CHECK(workbook_codec_header_query(h,sheet,2,&q)&&q==table.analysis->query); CHECK(workbook_codec_header_analysis(h,sheet)->source_version==0);
+            const PivotDefinition *pivot=NULL; const MarkDefinition *marks=NULL; CHECK(workbook_codec_header_pivot_definition(h,sheet,1,&pivot)&&pivot&&workbook_codec_header_marks_definition(h,sheet,1,&marks)&&marks); }
+        CHECK(workbook_codec_header_view(h,0)->column_count==1&&!strcmp(workbook_codec_header_view(h,0)->columns[0],"Column 'İ' 0:0"));
+        WorkbookCodecCellsView cells_view={0}; CHECK(workbook_codec_header_cells(h,0,&cells_view)&&cells_view.count==1&&!strcmp(cells_view.cells[0].text,"")); workbook_codec_header_free(h);
+    }
+}
+/* END source-version counter continuation tests. */
 int main(void) {
     test_happy(); test_meta_and_order(); test_sheets_invalid(); test_many_and_atomic(); test_budget(); test_text_boundaries();
     unsigned base_checks=checks;
@@ -1869,5 +2043,11 @@ int main(void) {
     printf("PASS: workbook cells reader %u checks (20988 original retained; %u Cells checks; compact owned sparse records, explicit EOF, native count/text bounds; no histories or full workbook support)\n",checks,checks-prior_cells);
     unsigned prior_counters=checks;CHECK(prior_counters==21980);
     test_object_counters_contract_and_defaults();test_object_counters_exact_values_and_eof();test_object_counters_invalid_atomic_and_stale();test_object_counters_budget_and_retained_output();test_object_counters_composition();
-    printf("PASS: workbook object-counter reader %u checks (21980 original retained; %u counter checks; exact immutable scalar ownership, atomic EOF/order/budget failure and version12 defaults; no issuance, source-ledger or workbook Open support)\n",checks,checks-prior_counters); return 0;
+    printf("PASS: workbook object-counter reader %u checks (21980 original retained; %u counter checks; exact immutable scalar ownership, atomic EOF/order/budget failure and version12 defaults; no issuance, source-ledger or workbook Open support)\n",checks,checks-prior_counters);
+    /* BEGIN source-version counter main extension. */
+    unsigned prior_source_counters=checks;CHECK(prior_source_counters==23220);
+    test_source_version_counters_contract_and_defaults();test_source_version_counters_values_and_eof();test_source_version_counters_invalid_atomic_and_stale();test_source_version_counters_budget_and_old_output();test_source_version_counters_composition();
+    printf("PASS: workbook source-version-counter reader %u checks (23220 original retained; %u source counter checks; independent uint64 domain, atomic scalar ownership/EOF and actual retained-pressure admission; no ledger, bindings, issuer, source activation or workbook Open support)\n",checks,checks-prior_source_counters);
+    /* END source-version counter main extension. */
+ return 0;
 }
