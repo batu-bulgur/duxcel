@@ -789,9 +789,7 @@ static void browser_matrix_ready(void) {
     if (!browser_pivot_complete(&q->reply->page,NULL,&q->job->pivot,&error)) { browser_publish(error); free(error); return; }
     browser_pivot_finish();
 }
-EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,const char *total_text,int pending,const char *failure) {
-    if (!browser_owner || !browser_query.job || cookie!=browser_cookie || ticket!=browser_query.ticket) return;
-    if (browser_query.stage==BROWSER_EXPORT) return; /* Only the binary callback owns this phase. */
+static void browser_query_result(const void *wire,size_t size,const char *total_text,int pending,const char *failure) {
     if (failure && *failure) { browser_publish(failure); return; }
     uint64_t total=0; char *error=NULL; Page page={0};
     QueryJob *j=browser_query.job; QueryReply *r=browser_query.reply;
@@ -805,7 +803,7 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
     size_t available=SIZE_MAX;
     bool other_stage=browser_query.stage==BROWSER_OTHER_TYPE || browser_query.stage==BROWSER_OTHER_VALUES;
     if (other_stage) {
-        size_t retained; browser_query.other_wire_bytes=size;
+        size_t retained;
         if (!browser_other_retained(0,&retained)) { browser_publish("Chart Other wire and retained buffers exceed 4 MiB."); return; }
         available=DX_PAGE_OTHER_BYTES-retained;
     }
@@ -840,7 +838,7 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
         if (!valid) { browser_publish(error); free(error); return; }
         page_free(&browser_type_schema[1]); browser_type_schema[1]=schema;
         free(browser_type_key[1]); browser_type_key[1]=q->type_relation; q->type_relation=NULL; browser_sources_cache(&browser_type_sources[1]);
-        browser_other_start(); browser_query.other_wire_bytes=0; return;
+        browser_other_start(); return;
     }
     if (browser_query.stage==BROWSER_OTHER_VALUES) {
         BrowserQuery *q=&browser_query; bool valid=q->other && page.row_count==1 && page.total==1 && !page.offset && !page.count_pending && page.column_count==q->other_schema.column_count;
@@ -851,7 +849,7 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
         }
         if (!valid) { page_free(&page); browser_publish("Chart Other result no longer matches its captured typed matrix."); return; }
         chart_other_plan_free(&q->other_plan); page_free(&q->other_schema);
-        q->other->variants[q->other_index++]=page; browser_other_next(); browser_query.other_wire_bytes=0; return;
+        q->other->variants[q->other_index++]=page; browser_other_next(); return;
     }
     if (browser_query.copying) {
         size_t retained;
@@ -995,6 +993,23 @@ EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticke
     r->page=page;
     browser_publish(NULL);
 }
+/* Every opted-in matrix callback owns its transport until this exported call
+   returns, including PAGE/COUNT/readout callbacks that synchronously start Other.
+   Keep that wire in admission across every continuation and early body return. */
+EMSCRIPTEN_KEEPALIVE void dx_browser_query_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,const char *total_text,int pending,const char *failure) {
+    BrowserQuery *q=&browser_query;
+    if (!browser_owner || !q->job || cookie!=browser_cookie || ticket!=q->ticket) return;
+    if (q->stage==BROWSER_EXPORT) return; /* Only the binary callback owns this phase. */
+    QueryJob *job=q->job; uint64_t id=job->id; size_t previous=q->other_wire_bytes;
+    if (job->include_chart_other) {
+        if (size>SIZE_MAX-previous) { browser_publish("Chart Other callback wire size overflow."); return; }
+        q->other_wire_bytes=previous+size;
+    }
+    browser_query_result(wire,size,total_text,pending,failure);
+    /* Publication/cancellation may already have discarded the job. Never carry
+       this callback's reservation into a different request or a future frame. */
+    if (q->job==job && q->job && q->job->id==id && cookie==browser_cookie) q->other_wire_bytes=previous;
+}
 EMSCRIPTEN_KEEPALIVE int dx_browser_export_result(unsigned cookie,unsigned ticket,const void *wire,size_t size,unsigned char *owned_data,size_t data_size,const char *failure) {
     BrowserQuery *q=&browser_query;
     if (!browser_owner || !q->job || !q->reply || q->job->kind!=JOB_EXPORT || q->stage!=BROWSER_EXPORT || cookie!=browser_cookie || ticket!=q->ticket) return 0;
@@ -1035,6 +1050,9 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
     printf("Browser worker started: {\"id\":\"%" PRIu64 "\",\"kind\":%d}\n",r->id,(int)r->kind);
     if (j->include_chart_other && (j->kind!=JOB_PIVOT || j->is_table)) {
         browser_fail("Chart Other readouts require an opted-in non-Table Pivot job."); return;
+    }
+    if (j->include_chart_other && j->expected_source_stamp) {
+        browser_fail("Native source stamps cannot be verified by browser Chart Other readouts."); return;
     }
     if (j->include_chart_other && (j->copy || j->statistics || j->workbook || r->path || j->column || j->search || j->date_start || j->date_end)) {
         browser_fail("Chart Other Pivot jobs cannot own unrelated operation payloads."); return;
