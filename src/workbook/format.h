@@ -22,6 +22,7 @@ typedef struct { uint64_t r0,r1; size_t c0,c1; } FormatRange;
    These bytes are copied on edits, never borrowed by a stored patch. */
 typedef struct { uint64_t owner; const void *definition; size_t bytes; } FormatScopeView;
 typedef struct { uint64_t owner; void *definition; size_t bytes; } FormatScope;
+#define DX_FORMAT_VALIDATION_BYTES (DX_FORMAT_PATCHES*DX_FORMAT_GUARDS*sizeof(const FormatScope *))
 typedef enum { FORMAT_SPATIAL,FORMAT_RESULT,FORMAT_GUARDED,FORMAT_RECORDS } FormatSelector;
 typedef struct {
     FormatRange range; unsigned mask; CellFormat value;
@@ -66,6 +67,10 @@ CellFormat format_resolve_token(const FormatStore *store,uint64_t row,size_t col
    Like the legacy resolvers, this lookup does not allocate. */
 CellFormat format_resolve_record_token(const FormatStore *store,uint64_t row,size_t column,
     size_t result_token,size_t record_token,uint64_t record_id,size_t original_field);
+/* Duplicate-scope validation uses no temporary allocation for <=33 scopes.
+   Larger tables own temporary pointer scratch of at most
+   DX_FORMAT_VALIDATION_BYTES, released before return. Callers budgeting staged
+   state must reserve this separately from retained format/history bytes. */
 bool format_valid(const FormatStore *store,char **error);
 /* Valid scoped state/mode is deliberately not serializable through v12, even
    after its last scope was compacted away. */
