@@ -9,8 +9,9 @@ struct WorkbookCodecHeader {
     WorkbookCodecKey key;
     unsigned version;
     size_t count,active,bytes;
+    uint64_t hidden;
     float user_scale;
-    bool sorts_ready;
+    bool sorts_ready,preferences_ready,reduced_motion;
     HeaderSheet sheets[DX_MAX_SHEETS];
 };
 struct WorkbookCodecRead {
@@ -22,14 +23,18 @@ struct WorkbookCodecRead {
     size_t limit,bytes;
     unsigned version;
     WorkbookCodecSheetsLayout layout;
+    uint64_t preference_seen;
+    bool preference_motion_seen;
 };
 static const char meta_sql[]="SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2";
 static const char sheets25_sql[]="SELECT " DX_WORKBOOK_SHEET_COLUMNS ",canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65";
 static const char sheets24_sql[]="SELECT " DX_WORKBOOK_SHEET_COLUMNS ",1::DOUBLE AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65";
 static const char sorts_sql[]="SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449";
+static const char preferences_sql[]="SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') ORDER BY name LIMIT 66";
+static const char preferences14_sql[]="SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') OR name IS NULL OR value IS NULL OR contains(name,chr(0)) ORDER BY name LIMIT 66";
 #define SORT_ROWS (DX_MAX_SHEETS*(DX_ANALYSIS_SORTS-1u))
 static bool request_family(WorkbookCodecFamily family) {
-    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS;
+    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES;
 }
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
@@ -118,6 +123,14 @@ bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool present,char **e
     else read->header->sorts_ready=true;
     return true;
 }
+bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool present,char **error) {
+    if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->preferences_ready)
+        return fail(error,"Preferences require a complete unclaimed header and may be armed once.");
+    if (!present && read->version==14) return fail(error,"The v14 workbook requires preferences.");
+    if (present) read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_PREFERENCES,read->version==14 ? preferences14_sql : preferences_sql,0,2,2,DX_MAX_SHEETS+2u};
+    else read->header->preferences_ready=true;
+    return true;
+}
 static bool copy_text(const WorkbookCodecAtom *atom,char **out,size_t *staged,size_t owned,size_t retained,size_t limit,char **error) {
     if (atom->kind==WORKBOOK_CODEC_NULL) { *out=NULL; return true; }
     size_t bytes=atom->value.text.bytes+1;
@@ -202,15 +215,49 @@ rejected:
     for (size_t i=0;i<=done && i<batch->row_count;i++) free(next[i].sort.column);
     free(next); return false;
 }
+static bool preferences_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *batch,char **error) {
+    if (read->request.first_row>DX_MAX_SHEETS+1u || batch->row_count>DX_MAX_SHEETS+1u-read->request.first_row)
+        return fail(error,"Too many supported preference rows.");
+    uint64_t seen=read->preference_seen,hidden=read->header->hidden;
+    bool motion_seen=read->preference_motion_seen,motion=read->header->reduced_motion;
+    for (size_t i=0;i<batch->row_count;i++) {
+        const WorkbookCodecAtom *row=batch->cells+i*2; WorkbookCodecText name=row[0].value.text;
+        if (name.bytes==sizeof("reduce_motion")-1u && !memcmp(name.data,"reduce_motion",name.bytes)) {
+            if (motion_seen) return fail(error,"Duplicate reduce_motion preference.");
+            motion_seen=true; motion=row[1].value.boolean; continue;
+        }
+        size_t prefix=sizeof("sheet_hidden_")-1u;
+        if (name.bytes<=prefix || name.bytes>prefix+2u || memcmp(name.data,"sheet_hidden_",prefix))
+            return fail(error,"Preference name does not match the supported named projection.");
+        if (name.bytes>prefix+1u && name.data[prefix]=='0') return fail(error,"Visibility index is not canonical decimal.");
+        size_t sheet=0;
+        for (size_t j=prefix;j<name.bytes;j++) {
+            unsigned char digit=(unsigned char)name.data[j];
+            if (digit<'0' || digit>'9') return fail(error,"Visibility index is not canonical decimal.");
+            sheet=sheet*10u+(digit-'0'); /* At most2 digits; bounded before arithmetic. */
+        }
+        if (sheet>=read->header->count || sheet>=DX_MAX_SHEETS) return fail(error,"Visibility preference references a missing worksheet.");
+        uint64_t bit=UINT64_C(1)<<sheet;
+        if (seen&bit) return fail(error,"Duplicate worksheet visibility preference.");
+        seen|=bit;
+        if (row[1].value.boolean) hidden|=bit; else hidden&=~bit;
+    }
+    if (hidden&(UINT64_C(1)<<read->header->active)) return fail(error,"The active worksheet must be visible.");
+    read->preference_seen=seen; read->preference_motion_seen=motion_seen;
+    read->header->hidden=hidden; read->header->reduced_motion=motion; read->request.first_row+=batch->row_count;
+    if (batch->end) { read->header->preferences_ready=true; read->request.family=WORKBOOK_CODEC_HEADER_READY; }
+    return true;
+}
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained,char **error) {
     if (!read || !same_key(read->key,key)) return WORKBOOK_CODEC_READ_STALE;
     if (!read->header || !request_family(read->request.family) || family!=read->request.family || !batch || batch->first_row!=read->request.first_row) {
         fail(error,"Metadata family or batch order does not match its cursor."); return WORKBOOK_CODEC_READ_ERROR;
     }
-    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : "sorts");
+    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : "preferences");
     if (!shape(batch,table,error)) return WORKBOOK_CODEC_READ_ERROR;
     if (!room(read->bytes,retained,0,read->limit)) { fail(error,"Metadata input exceeds its owned-buffer budget."); return WORKBOOK_CODEC_READ_ERROR; }
+    if (family==WORKBOOK_CODEC_PREFERENCES) return preferences_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_SORTS) return sorts_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_META) {
         if (batch->first_row || batch->row_count!=1 || !batch->end || batch->cells[0].value.i32!=(int32_t)read->version ||
@@ -250,6 +297,9 @@ size_t workbook_codec_header_sheet_count(const WorkbookCodecHeader *header) { re
 size_t workbook_codec_header_active_sheet(const WorkbookCodecHeader *header) { return header ? header->active : SIZE_MAX; }
 float workbook_codec_header_user_scale(const WorkbookCodecHeader *header) { return header ? header->user_scale : 0; }
 bool workbook_codec_header_sorts_ready(const WorkbookCodecHeader *header) { return header && header->sorts_ready; }
+bool workbook_codec_header_preferences_ready(const WorkbookCodecHeader *header) { return header && header->preferences_ready; }
+bool workbook_codec_header_reduced_motion(const WorkbookCodecHeader *header) { return header && header->reduced_motion; }
+bool workbook_codec_header_sheet_hidden(const WorkbookCodecHeader *header,size_t sheet) { return header && sheet<header->count && (header->hidden&(UINT64_C(1)<<sheet))!=0; }
 const char *workbook_codec_header_name(const WorkbookCodecHeader *header,size_t sheet) { return header && sheet<header->count ? header->sheets[sheet].name : NULL; }
 const char *workbook_codec_header_reference(const WorkbookCodecHeader *header,size_t sheet) { return header && sheet<header->count ? header->sheets[sheet].reference : NULL; }
 const Analysis *workbook_codec_header_analysis(const WorkbookCodecHeader *header,size_t sheet) { return header && sheet<header->count ? &header->sheets[sheet].analysis : NULL; }

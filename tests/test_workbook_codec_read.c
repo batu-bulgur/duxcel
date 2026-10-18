@@ -405,9 +405,133 @@ static void test_sorts_budget_and_limits(void) {
     memset(first,'x',4096); memset(second,'x',4096); free(first); free(second); free(f); workbook_codec_read_free(read);
     CHECK(a->sorts[0].column[4095]=='a' && a->sorts[1].column[4095]=='b'); workbook_codec_header_free(header);
 }
+typedef struct { WorkbookCodecColumn columns[2]; WorkbookCodecAtom cells[66*2]; char names[65][32]; } PreferenceFixture;
+static int preference_order(const void *a,const void *b) {
+    return strcmp(((const WorkbookCodecAtom *)a)->value.text.data,((const WorkbookCodecAtom *)b)->value.text.data);
+}
+static PreferenceFixture *preference_fixture(size_t sheets) {
+    PreferenceFixture *f=dx_alloc(sizeof(*f));
+    f->columns[0]=(WorkbookCodecColumn){"name",WORKBOOK_CODEC_TEXT}; f->columns[1]=(WorkbookCodecColumn){"value",WORKBOOK_CODEC_BOOLEAN};
+    strcpy(f->names[0],"reduce_motion"); f->cells[0]=t(f->names[0]); f->cells[1]=b(true);
+    for (size_t i=0;i<sheets;i++) {
+        snprintf(f->names[i+1],sizeof(f->names[i+1]),"sheet_hidden_%zu",i); f->cells[(i+1)*2]=t(f->names[i+1]); f->cells[(i+1)*2+1]=b(i!=0);
+    }
+    qsort(f->cells,sheets+1,2*sizeof(*f->cells),preference_order); return f;
+}
+static WorkbookCodecBatch preference_batch(PreferenceFixture *f,size_t first,size_t count,bool end) {
+    return (WorkbookCodecBatch){f->columns,2,f->cells+first*2,count,first,end};
+}
+static void reject_preferences_arm(WorkbookCodecRead *read,bool present) {
+    const WorkbookCodecRequest *request=workbook_codec_read_request(read); WorkbookCodecRequest before=request ? *request : (WorkbookCodecRequest){0};
+    size_t owned=workbook_codec_read_owned_bytes(read); char *error=NULL;
+    CHECK(!workbook_codec_read_add_preferences(read,present,&error) && error && *error && workbook_codec_read_owned_bytes(read)==owned);
+    CHECK(request ? same_request(before,workbook_codec_read_request(read)) : !workbook_codec_read_request(read)); error_clear(&error);
+}
+static void test_preferences_defaults_and_composition(void) {
+    CHECK(!workbook_codec_header_preferences_ready(NULL) && !workbook_codec_header_reduced_motion(NULL) && !workbook_codec_header_sheet_hidden(NULL,0)); reject_preferences_arm(NULL,true);
+    WorkbookCodecRead *read=begin(14,WORKBOOK_CODEC_SHEETS_25,LIMIT,NULL); reject_preferences_arm(read,true); meta(read,14,0,0); reject_preferences_arm(read,true); workbook_codec_read_free(read);
+    char *error=NULL;
+    for (unsigned version=12;version<=14;version++) {
+        read=sort_header(version,2,"city",LIMIT); size_t owned=workbook_codec_read_owned_bytes(read);
+        if (version==14) reject_preferences_arm(read,false);
+        else {
+            CHECK(workbook_codec_read_add_preferences(read,false,&error) && !error && !workbook_codec_read_request(read) && workbook_codec_read_owned_bytes(read)==owned);
+            reject_preferences_arm(read,true); WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error));
+            CHECK(workbook_codec_header_preferences_ready(header) && !workbook_codec_header_reduced_motion(header) && !workbook_codec_header_sheet_hidden(header,1) && !workbook_codec_header_sorts_ready(header));
+            reject_preferences_arm(read,true); workbook_codec_read_free(read); workbook_codec_header_free(header); read=sort_header(version,2,"city",LIMIT);
+        }
+        CHECK(workbook_codec_read_add_preferences(read,true,&error) && !error);
+        const WorkbookCodecRequest *request=workbook_codec_read_request(read);
+        CHECK(request && request->family==WORKBOOK_CODEC_PREFERENCES && request->row_limit==66 && request->column_count==2 && request->source_column_count==2 && !request->first_row);
+        CHECK(strstr(request->sql,"SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_')") && strstr(request->sql,"ORDER BY name LIMIT 66") && !strstr(request->sql,"OFFSET"));
+        CHECK((strstr(request->sql,"OR name IS NULL OR value IS NULL OR contains(name,chr(0))")!=NULL)==(version==14));
+        reject_preferences_arm(read,true); reject_arm(read,true);
+        PreferenceFixture *f=preference_fixture(0); WorkbookCodecBatch empty=preference_batch(f,0,0,true);
+        CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_PREFERENCES,&empty,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+        WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error));
+        CHECK(workbook_codec_header_preferences_ready(header) && !workbook_codec_header_reduced_motion(header) && !workbook_codec_header_sheet_hidden(header,0));
+        workbook_codec_read_free(read); workbook_codec_header_free(header); free(f);
+    }
+    for (unsigned preferences_first=0;preferences_first<2;preferences_first++) {
+        read=sort_header(14,1,"city",LIMIT); PreferenceFixture *f=preference_fixture(1); SortFixture *s=sort_fixture(1);
+        if (!preferences_first) {
+            CHECK(workbook_codec_read_add_sorts(read,true,&error)); reject_preferences_arm(read,true);
+            WorkbookCodecBatch batch=sort_batch(s,0,1,true); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,sizeof(*s)+sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+        }
+        CHECK(workbook_codec_read_add_preferences(read,true,&error)); WorkbookCodecBatch batch=preference_batch(f,0,2,true);
+        CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*s)+sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+        if (preferences_first) {
+            CHECK(workbook_codec_read_add_sorts(read,true,&error)); batch=sort_batch(s,0,1,true);
+            CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SORTS,&batch,sizeof(*s)+sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+        }
+        reject_preferences_arm(read,true); reject_arm(read,true); WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error));
+        CHECK(workbook_codec_header_preferences_ready(header) && workbook_codec_header_sorts_ready(header) && workbook_codec_header_reduced_motion(header) && !workbook_codec_header_sheet_hidden(header,0));
+        CHECK(workbook_codec_header_analysis(header,0)->sort_count==1 && !strcmp(workbook_codec_header_analysis(header,0)->sorts[0].column,"Field 'İ' 0"));
+        workbook_codec_read_free(read); workbook_codec_header_free(header); free(s); free(f);
+    }
+    /* Preferences neither validates nor modifies an unarmed sort definition. */
+    read=sort_header(12,1,"",LIMIT); CHECK(workbook_codec_read_add_preferences(read,false,&error)); WorkbookCodecHeader *header=NULL;
+    CHECK(workbook_codec_read_finish(read,&header,&error) && workbook_codec_header_preferences_ready(header) && !workbook_codec_header_sorts_ready(header) && !strcmp(workbook_codec_header_analysis(header,0)->sort_column,""));
+    workbook_codec_read_free(read); workbook_codec_header_free(header);
+}
+static void test_preferences_rejection_and_recovery(void) {
+    WorkbookCodecRead *read=sort_header(14,2,"city",LIMIT); char *error=NULL; CHECK(workbook_codec_read_add_preferences(read,true,&error));
+    PreferenceFixture *f=preference_fixture(2); WorkbookCodecBatch batch=preference_batch(f,0,3,true);
+    size_t owned=workbook_codec_read_owned_bytes(read); error=dx_strdup("keep"); char *identity=error;
+    WorkbookCodecKey stale=key; stale.operation_ticket--;
+    CHECK(workbook_codec_read_feed(read,stale,(WorkbookCodecFamily)99,(const WorkbookCodecBatch *)(uintptr_t)1,SIZE_MAX,&error)==WORKBOOK_CODEC_READ_STALE && error==identity && workbook_codec_read_owned_bytes(read)==owned); free(error); error=NULL;
+    for (size_t col=0;col<2;col++) { WorkbookCodecAtom old=f->cells[col]; f->cells[col]=(WorkbookCodecAtom){0}; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); f->cells[col]=old; }
+    WorkbookCodecAtom name=f->cells[0]; const char *invalid_names[]={"","future_option","Reduce_motion","sheet_hidden_","sheet_hidden_00","sheet_hidden_01","sheet_hidden_+1","sheet_hidden_-1","sheet_hidden_ 1","sheet_hidden_1x","sheet_hidden_64","sheet_hidden_18446744073709551615","\xed\xa0\x80","\xc0\x80"};
+    for (size_t n=0;n<sizeof(invalid_names)/sizeof(*invalid_names);n++) { f->cells[0]=t(invalid_names[n]); reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); }
+    const char nul[]={'a',0,'b'}; f->cells[0]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={nul,sizeof(nul)}}; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f));
+    f->cells[0]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={NULL,1}}; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f));
+    f->cells[0]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={"x",SIZE_MAX}}; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); f->cells[0]=name;
+    f->columns[0].name="Name"; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); f->columns[0].name="name";
+    f->columns[1].kind=WORKBOOK_CODEC_I32; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); f->columns[1].kind=WORKBOOK_CODEC_BOOLEAN;
+    WorkbookCodecAtom value=f->cells[1]; f->cells[1]=i(1); reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); f->cells[1]=value;
+    batch.column_count=1; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); batch.column_count=3; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); batch.column_count=2;
+    batch.row_count=257; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); batch.row_count=0; batch.end=false; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); batch.row_count=3; batch.end=true;
+    batch.first_row=1; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); batch.first_row=0; reject(read,WORKBOOK_CODEC_SORTS,&batch,sizeof(*f));
+    batch.cells=NULL; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); batch.cells=f->cells; batch.columns=NULL; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); batch.columns=f->columns;
+    WorkbookCodecAtom last=f->cells[4]; f->cells[4]=f->cells[2]; reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); f->cells[4]=last;
+    last=f->cells[2]; f->cells[2]=t("reduce_motion"); reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); f->cells[2]=last;
+    f->cells[3]=b(true); reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); f->cells[3]=b(false); /* Late active-hidden failure must retire the earlier motion=true staging. */
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+    WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error)); memset(f->names,'x',sizeof(f->names)); free(f); workbook_codec_read_free(read);
+    CHECK(workbook_codec_header_preferences_ready(header) && workbook_codec_header_reduced_motion(header) && !workbook_codec_header_sheet_hidden(header,0) && workbook_codec_header_sheet_hidden(header,1));
+    CHECK(!workbook_codec_header_sheet_hidden(header,2) && !workbook_codec_header_sheet_hidden(header,SIZE_MAX) && !strcmp(workbook_codec_header_analysis(header,0)->sort_column,"city")); workbook_codec_header_free(header);
+}
+static void test_preferences_many_and_budget(void) {
+    WorkbookCodecRead *read=sort_header(14,64,"city",LIMIT); char *error=NULL; CHECK(workbook_codec_read_add_preferences(read,true,&error));
+    PreferenceFixture *f=preference_fixture(64); WorkbookCodecBatch batch=preference_batch(f,0,1,false);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+    f->cells[130]=t("reduce_motion"); f->cells[131]=b(false); batch=preference_batch(f,1,65,true); reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f));
+    batch.row_count=64; CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+    WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error));
+    for (size_t sheet=0;sheet<64;sheet++) CHECK(workbook_codec_header_sheet_hidden(header,sheet)==(sheet!=0));
+    CHECK(workbook_codec_header_preferences_ready(header) && workbook_codec_header_reduced_motion(header) && !workbook_codec_header_sheet_hidden(header,64)); workbook_codec_read_free(read); workbook_codec_header_free(header); free(f);
+    read=sort_header(14,2,"city",LIMIT); CHECK(workbook_codec_read_add_preferences(read,true,&error)); f=preference_fixture(2); f->cells[1]=b(false); batch=preference_batch(f,0,2,false);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+    WorkbookCodecAtom name=f->cells[4],value=f->cells[5]; f->cells[4]=t("reduce_motion"); f->cells[5]=b(false); batch=preference_batch(f,2,1,true); reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f));
+    f->cells[4]=t("sheet_hidden_0"); reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f)); f->cells[4]=name; f->cells[5]=value;
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_PREFERENCES,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED); header=NULL;
+    CHECK(workbook_codec_read_finish(read,&header,&error) && !workbook_codec_header_reduced_motion(header) && workbook_codec_header_sheet_hidden(header,1)); workbook_codec_read_free(read); workbook_codec_header_free(header); free(f);
+    WorkbookCodecRead *prior=sort_header(12,2,"city",LIMIT); CHECK(workbook_codec_read_add_preferences(prior,false,&error)); header=NULL;
+    CHECK(workbook_codec_read_finish(prior,&header,&error)); workbook_codec_read_free(prior);
+    read=sort_header(14,2,"city",LIMIT); CHECK(workbook_codec_read_add_preferences(read,true,&error)); f=preference_fixture(2); batch=preference_batch(f,0,3,true);
+    size_t old_bytes=workbook_codec_header_owned_bytes(header),owned=workbook_codec_read_owned_bytes(read);
+    CHECK(owned+old_bytes+sizeof(*f)<LIMIT); size_t pressure_bytes=LIMIT-owned-old_bytes-sizeof(*f); unsigned char *pressure=dx_alloc(pressure_bytes),*extra=dx_alloc(1);
+    reject(read,WORKBOOK_CODEC_PREFERENCES,&batch,old_bytes+sizeof(*f)+pressure_bytes+1); free(extra);
+    WorkbookCodecHeader *identity=header; CHECK(!workbook_codec_read_finish(read,&header,&error) && header==identity && workbook_codec_header_owned_bytes(header)==old_bytes && !workbook_codec_header_reduced_motion(header) && !workbook_codec_header_sheet_hidden(header,1)); error_clear(&error);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_PREFERENCES,&batch,old_bytes+sizeof(*f)+pressure_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && workbook_codec_read_owned_bytes(read)==owned);
+    CHECK(workbook_codec_read_finish(read,&header,&error) && workbook_codec_header_preferences_ready(header)); free(pressure); free(f); workbook_codec_read_free(read);
+    CHECK(workbook_codec_header_reduced_motion(header) && workbook_codec_header_sheet_hidden(header,1)); workbook_codec_header_free(header);
+}
 int main(void) {
     test_happy(); test_meta_and_order(); test_sheets_invalid(); test_many_and_atomic(); test_budget(); test_text_boundaries();
     unsigned base_checks=checks;
     test_sorts_continuation(); test_sorts_invalid_and_atomic(); test_sorts_many_and_order(); test_sorts_budget_and_limits();
-    printf("PASS: workbook header reader %u checks (%u unchanged base Header; %u optional sorts; bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures; no Worker sorts or workbook Open support)\n",checks,base_checks,checks-base_checks); return 0;
+    unsigned sorts_checks=checks;
+    test_preferences_defaults_and_composition(); test_preferences_rejection_and_recovery(); test_preferences_many_and_budget();
+    printf("PASS: workbook header reader %u checks (%u unchanged base Header; %u original optional sorts, %u combined; %u optional preferences; bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures; no Worker preferences or workbook Open support)\n",checks,base_checks,sorts_checks-base_checks,sorts_checks,checks-sorts_checks); return 0;
 }
