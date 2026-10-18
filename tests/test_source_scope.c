@@ -177,6 +177,9 @@ static void verified_page_binding(void) {
     page_proof_check(true,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
     CHECK(source_version_page_verified(&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6",NULL));
     Page original=page; SourceVersion original_entry=entry; SourceDigest original_digest=d;
+    a.source_version=version; page_proof_check(true,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    a.source_version=version+1; page_proof_check(false,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
+    a.source_version=0; page_proof_check(true,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6");
     /* A total/count or bounded optional-ID budget is not part of content proof. */
     page.count_pending=true; page.records.ids=NULL; page.records.source_key=NULL; page.records.count=0; page.records.stamp=0;
     page_proof_check(true,&entry,owner,version,&a,&page,SOURCE_DIGEST_OK,&d,"v1.5.6"); page=original;
