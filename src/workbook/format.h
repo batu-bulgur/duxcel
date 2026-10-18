@@ -32,11 +32,16 @@ typedef struct {
     uint64_t *record_ids; size_t record_count;
     size_t *fields; size_t field_count; /* Original source ordinals, not display columns. */
 } FormatPatch;
-typedef struct { FormatPatch *items; size_t count; FormatScope *scopes; size_t scope_count; } FormatSnapshot;
+/* Scope-aware interpretation is explicit owned snapshot state. Compaction can
+   remove every scope without reverting finite spatial patches to legacy data
+   formatting. Undo/Redo restores this mode together with the exact patches.
+   It does not itself activate a renderer or a source-format producer. */
+typedef struct { FormatPatch *items; size_t count; FormatScope *scopes; size_t scope_count; bool source_aware; } FormatSnapshot;
 typedef struct {
     FormatPatch *items; size_t count; uint64_t revision;
     FormatSnapshot undo[DX_FORMAT_HISTORY],redo[DX_FORMAT_HISTORY]; size_t undo_count,redo_count;
     FormatScope *scopes; size_t scope_count;
+    bool source_aware;
 } FormatStore;
 CellFormat format_default(void);
 /* Legacy/manual lookup: finite spatial and guarded manual parts apply. Record
@@ -62,7 +67,8 @@ CellFormat format_resolve_token(const FormatStore *store,uint64_t row,size_t col
 CellFormat format_resolve_record_token(const FormatStore *store,uint64_t row,size_t column,
     size_t result_token,size_t record_token,uint64_t record_id,size_t original_field);
 bool format_valid(const FormatStore *store,char **error);
-/* Valid scoped state is deliberately not serializable through workspace v12. */
+/* Valid scoped state/mode is deliberately not serializable through v12, even
+   after its last scope was compacted away. */
 bool format_persistable(const FormatStore *store,char **error);
 size_t format_owned_bytes(const FormatStore *store,bool include_history);
 bool format_apply(FormatStore *store,FormatRange range,unsigned mask,CellFormat value,char **error);
@@ -83,7 +89,8 @@ bool format_plan_records(const FormatStore *store,const FormatScopeView *scope,
     const uint64_t *record_ids,size_t record_count,const size_t *fields,size_t field_count,
     unsigned mask,CellFormat value,FormatSnapshot *out,char **error);
 /* Explicit legacy migration only. Finite spatial patches gain guards and retain
-   their manual component; full-column defaults and existing scopes are unchanged. */
+   their manual component; full-column defaults and existing scopes are unchanged.
+   The planned mode becomes source-aware even when no finite patches remain. */
 bool format_plan_guard_legacy(const FormatStore *store,const FormatScopeView *scopes,size_t count,FormatSnapshot *out,char **error);
 void format_free(FormatStore *store);
 void format_copy(FormatStore *to,const FormatStore *from);

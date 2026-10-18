@@ -68,9 +68,9 @@ static void scoped_resolution(void) {
     CHECK(format_apply_scoped(&s,r,FORMAT_BOLD,v,&binary,1,false,&error));
     CHECK(format_resolve(&s,3,2,&binary).flags==FORMAT_BOLD && !format_resolve(&s,3,2,&other).flags && !format_at(&s,3,2).flags);
     v.flags=0; CHECK(format_apply(&s,(FormatRange){0,DX_SHEET_ROWS-1,0,16383},FORMAT_ALL,v,&error));
-    CHECK(s.count==1 && !s.scope_count && format_persistable(&s,&error) && format_valid(&s,&error));
+    CHECK(s.count==1 && !s.scope_count && s.source_aware && !format_persistable(&s,&error) && format_valid(&s,NULL)); clear_error(&error);
     CHECK(format_history(&s,false) && !format_persistable(&s,&error)); clear_error(&error);
-    CHECK(format_history(&s,true) && format_persistable(&s,&error));
+    CHECK(format_history(&s,true) && s.source_aware && !format_persistable(&s,&error)); clear_error(&error);
     format_trim_history(&s,false,1); CHECK(s.undo_count==1 && format_valid(&s,&error));
     format_free(&copy); format_free(&s); clear_error(&error);
 }
@@ -91,7 +91,7 @@ static void scoped_legacy(void) {
     CHECK(!format_plan_move(&s,(FormatRange){1,1,0,0},600,1,&plan,&error) && !plan.items && !plan.scopes && s.revision==revision && s.count==DX_FORMAT_PATCHES); clear_error(&error);
     CHECK(format_history(&s,false) && format_persistable(&s,&error) && !format_resolve(&s,3,0,&scopes[0]).flags && format_at(&s,3,0).flags==FORMAT_BOLD);
     CHECK(format_history(&s,true) && format_valid(&s,&error));
-    CHECK(format_plan_axis(&s,true,0,DX_SHEET_ROWS-1,false,&plan,&error) && format_commit(&s,&plan) && !s.scope_count && format_persistable(&s,&error));
+    CHECK(format_plan_axis(&s,true,0,DX_SHEET_ROWS-1,false,&plan,&error) && format_commit(&s,&plan) && !s.scope_count && s.source_aware && !format_persistable(&s,&error)); clear_error(&error);
     CHECK(format_history(&s,false) && s.scope_count==2 && format_valid(&s,&error));
     /* Whole-column defaults remain explicit defaults when worksheet rows are
        inserted/deleted; their future-cell meaning must not become finite. */
@@ -138,6 +138,64 @@ static void scoped_budgets(void) {
     CHECK(format_apply(&s,(FormatRange){0,DX_SHEET_ROWS-1,0,16383},FORMAT_ALL,format_default(),&error) && !s.redo_count && !s.scope_count && format_valid(&s,&error));
     format_trim_history(&s,false,1); CHECK(s.undo_count==1 && format_owned_bytes(&s,true)==DX_FORMAT_CURRENT_BYTES+sizeof(FormatPatch));
     format_free(&s); free(definition); clear_error(&error);
+}
+static void source_aware_lifetime(void) {
+    FormatStore s={0},copy={0},empty={0}; FormatSnapshot plan={0}; CellFormat v=format_default(); char *error=NULL;
+    const char definition[]="owner=7;verified-result=1"; FormatScopeView scope={7,definition,sizeof(definition)-1},invalid=scope;
+    FormatRange finite={4,4,2,2},column={0,DX_SHEET_ROWS-1,2,2}; v.flags=FORMAT_BOLD;
+    CHECK(!s.source_aware && format_valid(&s,&error) && format_persistable(&s,&error));
+    CHECK(format_apply(&s,finite,FORMAT_BOLD,v,&error) && !s.source_aware);
+    unsigned char live[sizeof(s)]; memcpy(live,&s,sizeof(s)); size_t bytes=format_owned_bytes(&s,true);
+    /* Merely preparing/cancelling a migration does not change live mode. */
+    CHECK(format_plan_guard_legacy(&s,&scope,1,&plan,&error) && plan.source_aware && !s.source_aware && !memcmp(live,&s,sizeof(s)));
+    format_snapshot_free(&plan); CHECK(!plan.source_aware && !plan.items && !memcmp(live,&s,sizeof(s)) && format_owned_bytes(&s,true)==bytes);
+    invalid.bytes=0; CHECK(!format_plan_guard_legacy(&s,&invalid,1,&plan,&error) && !plan.source_aware && !memcmp(live,&s,sizeof(s))); clear_error(&error);
+    CHECK(!format_apply_scoped(&s,finite,0,v,&scope,1,true,&error) && !memcmp(live,&s,sizeof(s))); clear_error(&error);
+    CHECK(format_plan_guard_legacy(&s,&scope,1,&plan,&error) && format_commit(&s,&plan) && s.source_aware && !plan.source_aware);
+    CHECK(s.undo_count==2 && !s.undo[1].source_aware && s.items[0].selector==FORMAT_GUARDED);
+    FormatStore unsupported=s; unsupported.source_aware=false;
+    CHECK(!format_valid(&unsupported,&error) && s.source_aware && format_valid(&s,NULL)); clear_error(&error);
+    v.color=3; CHECK(format_apply(&s,finite,FORMAT_COLOR,v,&error) && s.source_aware);
+    CHECK(s.scope_count==1 && s.count==2 && s.items[0].selector==FORMAT_GUARDED && s.items[1].selector==FORMAT_SPATIAL);
+    /* The broad Bold supersedes the only guarded mask while the unrelated
+       finite manual Color survives. No scope remains to infer mode from. */
+    CHECK(format_apply(&s,column,FORMAT_BOLD,v,&error) && s.source_aware && !s.scope_count && s.count==2);
+    CHECK(s.items[0].selector==FORMAT_SPATIAL && s.items[0].mask==FORMAT_COLOR && s.items[1].mask==FORMAT_BOLD);
+    CHECK(format_at(&s,4,2).color==3 && format_at(&s,4,2).flags==FORMAT_BOLD);
+    CHECK(format_resolve_token(&s,4,2,SIZE_MAX).color==0 && format_resolve_token(&s,4,2,SIZE_MAX).flags==FORMAT_BOLD);
+    CHECK(format_valid(&s,&error) && !format_persistable(&s,&error) && strstr(error,"v12")); clear_error(&error);
+    format_copy(&copy,&s); CHECK(copy.source_aware && !copy.scope_count && copy.items!=s.items && !copy.undo_count && format_owned_bytes(&copy,false)==format_owned_bytes(&s,false));
+    format_copy(&copy,&copy); CHECK(copy.source_aware && format_at(&copy,4,2).color==3);
+    CHECK(format_history(&s,false) && s.source_aware && s.scope_count==1 && s.redo[0].source_aware);
+    CHECK(format_history(&s,false) && s.source_aware && s.count==1);
+    CHECK(format_history(&s,false) && !s.source_aware && !s.scope_count && s.items[0].selector==FORMAT_SPATIAL && format_persistable(&s,&error));
+    CHECK(format_history(&s,true) && s.source_aware && s.scope_count==1);
+    CHECK(format_history(&s,true) && s.source_aware && format_at(&s,4,2).color==3);
+    CHECK(format_history(&s,true) && s.source_aware && !s.scope_count && format_at(&s,4,2).color==3);
+    uint64_t revision=s.revision; memcpy(live,&s,sizeof(s));
+    CHECK(format_plan_move(&s,finite,0,0,&plan,&error) && plan.source_aware && !format_commit(&s,&plan) && !plan.source_aware && !memcmp(live,&s,sizeof(s)));
+    CHECK(!format_plan_move(&s,(FormatRange){0,0,0,0},-1,0,&plan,&error) && !plan.source_aware && !memcmp(live,&s,sizeof(s))); clear_error(&error);
+    CHECK(format_plan_move(&s,finite,3,1,&plan,&error) && plan.source_aware && format_commit(&s,&plan) && s.source_aware && s.revision==revision+1 && format_at(&s,7,3).color==3);
+    CHECK(format_history(&s,false) && s.source_aware && format_at(&s,4,2).color==3);
+    CHECK(format_history(&s,true) && s.source_aware && format_at(&s,7,3).color==3);
+    /* Empty migration is a real mode-only edit; equality/history must retain it
+       despite zero owned arrays or definitions. Repeating it is a no-op. */
+    CHECK(format_plan_guard_legacy(&empty,&scope,1,&plan,&error) && plan.source_aware && !plan.count && !plan.scope_count && !empty.source_aware);
+    format_snapshot_free(&plan); CHECK(!plan.source_aware && !empty.source_aware && !empty.revision && !empty.undo_count);
+    CHECK(format_plan_guard_legacy(&empty,&scope,1,&plan,&error) && format_commit(&empty,&plan) && empty.source_aware && empty.undo_count==1 && empty.revision==1);
+    CHECK(!format_persistable(&empty,&error) && strstr(error,"v12") && !format_owned_bytes(&empty,true)); clear_error(&error);
+    CHECK(format_history(&empty,false) && !empty.source_aware && empty.redo_count==1 && empty.redo[0].source_aware);
+    CHECK(format_history(&empty,true) && empty.source_aware && empty.undo_count==1 && !empty.undo[0].source_aware);
+    revision=empty.revision; size_t undo=empty.undo_count;
+    CHECK(format_plan_guard_legacy(&empty,&scope,1,&plan,&error) && plan.source_aware && !format_commit(&empty,&plan) && !plan.source_aware && empty.revision==revision && empty.undo_count==undo);
+    CHECK(format_apply(&empty,finite,FORMAT_COLOR,v,&error) && empty.source_aware);
+    CHECK(format_plan_axis(&empty,true,4,1,false,&plan,&error) && plan.source_aware && !plan.count && format_commit(&empty,&plan) && empty.source_aware && !empty.count && !empty.scope_count);
+    CHECK(format_history(&empty,false) && empty.source_aware && format_at(&empty,4,2).color==3);
+    CHECK(format_history(&empty,true) && empty.source_aware && !empty.count && format_valid(&empty,&error));
+    format_copy(&copy,&empty); CHECK(copy.source_aware && !copy.count && !copy.scope_count && !copy.undo_count);
+    format_free(&copy); CHECK(!copy.source_aware && !copy.revision && !format_owned_bytes(&copy,true));
+    format_free(&empty); CHECK(!empty.source_aware && !empty.undo_count && !empty.redo_count);
+    format_free(&s); CHECK(!s.source_aware && !s.undo_count && !s.redo_count); clear_error(&error);
 }
 static uint32_t random_step(uint32_t *state) { *state=*state*UINT32_C(1664525)+UINT32_C(1013904223); return *state; }
 static void scoped_precedence(void) {
@@ -379,7 +437,7 @@ static void record_edit_plan(void) {
     v.color=3; v.size=16;
     CHECK(format_plan_records(&s,&scope,ids,3,fields,2,FORMAT_COLOR|FORMAT_SIZE,v,&plan,&error));
     CHECK(!memcmp(live,&s,sizeof(s)) && format_owned_bytes(&s,true)==bytes && record_at(&s,4,2,&old,ids[1],1).color==2 && s.redo_count==1);
-    CHECK(plan.count==2 && plan.scope_count==2 && plan.items!=s.items && plan.scopes!=s.scopes);
+    CHECK(plan.source_aware && s.source_aware && plan.count==2 && plan.scope_count==2 && plan.items!=s.items && plan.scopes!=s.scopes);
     CHECK(plan.items[1].record_ids!=ids && plan.items[1].fields!=fields && plan.scopes[1].definition!=definition);
     ids[1]=2; fields[1]=3; definition[0]='X';
     CHECK(plan.items[1].record_ids[1]==UINT64_C(9007199254740993) && plan.items[1].fields[1]==1 && !memcmp(plan.scopes[1].definition,"raw-version=2;",14));
@@ -422,6 +480,7 @@ static void record_budgets(void) {
     const char pending_definition[]="uncommitted"; FormatScopeView pending_scope={99,pending_definition,sizeof(pending_definition)-1};
     uint64_t pending_id=UINT64_MAX; size_t pending_field=16383;
     CHECK(format_plan_records(&empty,&pending_scope,&pending_id,1,&pending_field,1,FORMAT_BOLD,v,&pending,&error));
+    CHECK(pending.source_aware && !empty.source_aware);
     unsigned char owned[sizeof(pending)],live[sizeof(s)]; memcpy(owned,&pending,sizeof(pending));
     char *definition=dx_alloc(DX_FORMAT_SCOPE_BYTES); memset(definition,'t',DX_FORMAT_SCOPE_BYTES);
     uint64_t *ids=dx_alloc(DX_FORMAT_RECORDS*sizeof(*ids)); size_t *fields=dx_alloc(DX_FORMAT_FIELDS*sizeof(*fields));
@@ -525,7 +584,7 @@ int main(void) {
     value.flags=0; value.number=FORMAT_ACCOUNTING; CHECK(format_apply(&s,(FormatRange){0,DX_SHEET_ROWS-1,0,16383},FORMAT_ALL,value,&error)); CHECK(s.count==1 && format_at(&s,DX_SHEET_ROWS-1,16383).number==FORMAT_ACCOUNTING);
     CHECK(format_plan_axis(&s,true,DX_SHEET_ROWS-1,1,true,&plan,&error) && !format_commit(&s,&plan));
     format_trim_history(&s,false,3); CHECK(s.undo_count==3); format_free(&s);
-    scoped_resolution(); scoped_legacy(); scoped_budgets(); scoped_precedence();
+    scoped_resolution(); scoped_legacy(); scoped_budgets(); source_aware_lifetime(); scoped_precedence();
     record_resolution(); record_planners(); record_dual_scopes(); record_invalid(); record_edit_plan(); record_budgets(); record_precedence();
     printf("PASS: %u formatting checks (exact numeric display, bounded ranges, scoped record membership, precedence, ownership, moves, structural edits, history and whole-sheet selection)\n",checks); return 0;
 }
