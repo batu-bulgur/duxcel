@@ -34,12 +34,16 @@ def main():
     for directory in (normal,review):
         check("import {installCanvasInput} from './canvas_input.mjs'" in (directory/'host.mjs').read_text() and (directory/'canvas_input.mjs').is_file(),'Canvas input platform policy is missing')
     check((normal/'canvas_input.mjs').read_bytes()==(review/'canvas_input.mjs').read_bytes(),'Normal/review canvas input policies differ')
-    forbidden=[b'dx_review_',b'duxcel.native-review',b'duxcel.browser-review',b'dxBrowserWorkerTestDone',b'test_browser_worker.c']
+    forbidden=[b'dx_review_',b'duxcel.native-review',b'duxcel.browser-review',b'dxBrowserWorkerTestDone',b'test_browser_worker.c',b'dxCodecReadTestDone',b'test_browser_codec_read.c',b'dx_browser_codec_fixture_result',b'dx_browser_codec_result']
     wasm=(normal/'duxcel.wasm').read_bytes();markers={value.decode():value not in wasm for value in forbidden}
     check(all(markers.values()),'Shipping Wasm contains review/acceptance markers')
     for directory in (normal,review):
         check(b'dx_test_source_digest_checkpoint' not in (directory/'duxcel.wasm').read_bytes(),'Browser App contains an isolated native verification test checkpoint')
-    check(not any((normal/name).exists() for name in ('review_host.mjs','host_review.mjs','review_queue.mjs','worker_test_host.mjs','official_worker_probe.mjs','persistence_probe.mjs')),'Shipping contains review/acceptance host assets')
+    check(not any((normal/name).exists() for name in ('review_host.mjs','host_review.mjs','review_queue.mjs','worker_test_host.mjs','codec_test_host.mjs','official_worker_probe.mjs','persistence_probe.mjs')),'Shipping contains review/acceptance host assets')
+    for directory,build,module_exports in ((normal,shipping,exports),(review,development,review_exports)):
+        check('tests/test_browser_codec_read.c' not in build['sources'],'Browser App includes the partial-codec acceptance driver')
+        check(not any('dx_browser_codec_' in name for name in module_exports),'Browser App exports partial-codec acceptance callbacks')
+        check(not any((directory/name).exists() for name in ('codec_test_host.mjs','codec-fixture-manifest.json')),'Browser App packages codec acceptance assets')
     for directory in (normal,review):
         for name in ('canvas_surface.mjs','canvas_wheel.mjs','browser_platform.mjs','clipboard.mjs','download.mjs'):
             check((directory/name).is_file(),'Browser device adapter asset is missing: '+name)

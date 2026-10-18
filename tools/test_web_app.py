@@ -1,9 +1,38 @@
 #!/usr/bin/env python3
 """Run the actual shared C browser UI in an owned, hidden browser session."""
-import argparse, datetime, functools, hashlib, http.server, json, os, re, shutil, signal, socketserver, subprocess, threading, time
+import argparse, datetime, functools, hashlib, http.server, json, os, re, shutil, signal, socketserver, stat, subprocess, threading, time
 from pathlib import Path
 from test import FileLock, native_lock_path, source_metadata
 ROOT=Path(__file__).resolve().parents[1]
+CODEC_FIXTURES={
+    'v12.dxls':(12,25),'v12-reordered.dxls':(12,25),
+    'v12-legacy24.dxls':(12,24),'v13.dxls':(13,25),
+    'v13-reordered.dxls':(13,25),'v14.dxls':(14,25),
+    'v14-reordered.dxls':(14,25)}
+
+def codec_fixture_manifest(directory, emitted):
+    """Validate only this invocation's closed, bounded immutable archives."""
+    if emitted.get('schema')!='duxcel.codec-fixtures' or emitted.get('version')!=1:
+        raise RuntimeError('Invalid native codec fixture manifest')
+    files=emitted.get('files')
+    if not isinstance(files,list) or len(files)!=len(CODEC_FIXTURES):
+        raise RuntimeError('Incomplete native codec fixture set')
+    seen=set();entries=[];inodes=set();total=0
+    for entry in files:
+        name=entry.get('name')
+        if name not in CODEC_FIXTURES or name in seen or (entry.get('version'),entry.get('layout'))!=CODEC_FIXTURES[name]:
+            raise RuntimeError('Unexpected native codec fixture: '+str(name))
+        seen.add(name);path=directory/name;info=path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_mode&0o222 or not 0<info.st_size<=32*1024*1024:
+            raise RuntimeError('Codec fixture must be a closed read-only bounded file: '+name)
+        inode=(info.st_dev,info.st_ino)
+        if inode in inodes:raise RuntimeError('Codec fixtures share an inode')
+        inodes.add(inode);total+=info.st_size
+        if total>128*1024*1024:raise RuntimeError('Codec fixture set exceeds transport budget')
+        entries.append({'name':name,'bytes':info.st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()})
+    if {path.name for path in directory.iterdir()}!=seen:
+        raise RuntimeError('Unexpected files remain in codec fixture directory')
+    return {'schema':'duxcel.codec-fixtures','version':1,'files':entries}
 class LoopbackServer(http.server.ThreadingHTTPServer):
     def server_bind(self):
         # HTTPServer's getfqdn() spends 35 s in reverse DNS on this host.
@@ -14,6 +43,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args): pass
     def do_GET(self):
         # Test-only probe is served by this owned harness, never packaged into App.
+        if self.path.startswith('/__codec-fixtures/'):
+            manifest=getattr(self.server,'codec_manifest',None)
+            if manifest and self.path=='/__codec-fixtures/manifest.json':
+                content=json.dumps(manifest,sort_keys=True).encode();mime='application/json'
+            elif manifest and self.path in self.server.codec_files:
+                path,entry=self.server.codec_files[self.path];mime='application/octet-stream'
+                try:
+                    info=path.lstat()
+                    if not stat.S_ISREG(info.st_mode) or info.st_mode&0o222 or info.st_size!=entry['bytes']:raise OSError('Fixture identity changed')
+                    content=path.read_bytes()
+                except OSError:self.send_error(409,'Codec fixture changed');return
+                if len(content)!=entry['bytes'] or hashlib.sha256(content).hexdigest()!=entry['sha256']:
+                    self.send_error(409,'Codec fixture changed');return
+                self.server.codec_requests.append(dict(entry))
+            else:self.send_error(404);return
+            self.send_response(200);self.send_header('Content-Type',mime);self.send_header('Cache-Control','no-store');self.send_header('Content-Length',str(len(content)));self.end_headers();self.wfile.write(content);return
         probe={'/official_worker_probe.mjs':ROOT/'web/official_worker_probe.mjs','/persistence_probe.mjs':ROOT/'web/persistence_probe.mjs'}
         if self.path in probe:
             content=probe[self.path].read_bytes()
@@ -31,6 +76,7 @@ def parse_options(argv=None):
     parser.add_argument('--filters',action='store_true',help='Exercise the real transactions.csv value and date dropdowns')
     parser.add_argument('--busy',action='store_true',help='Require real UI input/rendering before the imported source job completes')
     parser.add_argument('--worker-driver',action='store_true')
+    parser.add_argument('--codec-read-driver',action='store_true',help='Isolated C meta/sheets Header decoding over seven immutable native archives and the official Worker; no App Save/Open')
     parser.add_argument('--review',action='store_true')
     parser.add_argument('--source-labels-only',action='store_true',help='Original source filenames across primary/Table imports, rename, filter history, query and preview; requires --review and transactions.csv')
     parser.add_argument('--chart-other-only',action='store_true',help='Real same-sheet chart weighted AVG/distinct Other, cached Plot/Marks/representation and history; requires --review, chart-other.csv and --dpr 2')
@@ -74,6 +120,10 @@ def parse_options(argv=None):
     parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker v12 file compatibility (test-only, no Save UI claim)')
     parser.add_argument('--persistence-owners',action='store_true',help='Separate BP0 v13 owner lifetime/format package rewrite and native readback; no Save UI claim')
     options=parser.parse_args(argv)
+    if options.codec_read_driver:
+        if options.dpr!=1 or any(value for name,value in vars(options).items() if name not in ('codec_read_driver','no_build','dpr')):
+            parser.error('--codec-read-driver is an isolated no-window gate; only --no-build and default --dpr 1 are allowed')
+        return options
     if options.chart_other_only:
         other_profiles=sum(bool(value) for name,value in vars(options).items() if name.endswith('_only'))>1
         if not options.review or not options.source or options.source.name!='chart-other.csv' or options.dpr!=2 or other_profiles or any((options.filters,options.busy,options.worker_driver,options.worker_probe,options.platform,options.alt_stress,options.persistence,options.persistence_owners,options.query_apply,options.review_offline,options.review_outbox)):
@@ -233,11 +283,17 @@ def main():
     options=parse_options()
     persistence_mode=options.persistence or options.persistence_owners
     if not options.no_build:
-        subprocess.run(['python3','tools/build_web.py']+(['--worker-driver'] if options.worker_driver else ['--review'] if options.review else []), cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(['python3','tools/build_web.py']+(['--codec-read-driver'] if options.codec_read_driver else ['--worker-driver'] if options.worker_driver else ['--review'] if options.review else []), cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
+        if options.codec_read_driver:subprocess.run(['make','tests/test_workbook_codec_native'],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
         if persistence_mode:subprocess.run(['make','build/web-tests/test-persistence','build/web-tests/test-persistence-sanitize'],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
     phases['build_seconds']=round(time.monotonic()-overall,3);phase=time.monotonic()
-    latest=json.loads((ROOT/('build/web/worker-test/latest.json' if options.worker_driver else 'build/web/review/latest.json' if options.review else 'build/web/app/latest.json')).read_text())
+    latest=json.loads((ROOT/('build/web/codec-read-test/latest.json' if options.codec_read_driver else 'build/web/worker-test/latest.json' if options.worker_driver else 'build/web/review/latest.json' if options.review else 'build/web/app/latest.json')).read_text())
     artifact=Path(latest['directory']); manifest=json.loads((artifact/'build.json').read_text())
+    expected_kind='codec-read-driver' if options.codec_read_driver else 'worker-driver' if options.worker_driver else 'review' if options.review else 'application'
+    if manifest.get('kind')!=expected_kind:raise RuntimeError('Browser artifact kind does not match requested profile')
+    if options.codec_read_driver:
+        expected_sources=subprocess.check_output(['make','--no-print-directory','web-codec-read-sources'],cwd=ROOT,text=True).splitlines()
+        if manifest.get('sources')!=expected_sources:raise RuntimeError('Codec browser artifact source inventory changed')
     for name,digest in manifest['artifacts'].items():
         if hashlib.sha256((artifact/name).read_bytes()).hexdigest()!=digest:
             raise RuntimeError('Browser artifact changed: '+name)
@@ -247,6 +303,17 @@ def main():
     output=ROOT/'tests/results/runs'/f'{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%S}-browser-{os.getpid()}'
     output.mkdir(parents=True,exist_ok=True)
     with FileLock(native_lock_path(),'hidden shared C browser acceptance'):
+        codec_manifest=None;codec_helper=None;codec_helper_hash=None
+        if options.codec_read_driver:
+            codec_helper=ROOT/'tests/test_workbook_codec_native'
+            codec_helper_hash=hashlib.sha256(codec_helper.read_bytes()).hexdigest()
+            codec_directory=output/'codec-fixtures';codec_directory.mkdir()
+            emitted=subprocess.run([str(codec_helper),'--emit-fixtures',str(codec_directory)],cwd=ROOT,text=True,capture_output=True,timeout=30)
+            (output/'codec-native-create.txt').write_text(emitted.stdout+emitted.stderr)
+            if emitted.returncode:raise RuntimeError('Native codec fixture emission failed; see '+str(output/'codec-native-create.txt'))
+            codec_emitted=json.loads(emitted.stdout)
+            codec_manifest=codec_fixture_manifest(codec_directory,codec_emitted)
+            (output/'codec-fixture-manifest.json').write_text(json.dumps(codec_manifest,indent=2)+'\n')
         persistence_binary=ROOT/'build/web-tests/test-persistence'
         persistence_sanitizer=ROOT/'build/web-tests/test-persistence-sanitize'
         persistence_hashes={}
@@ -266,12 +333,16 @@ def main():
         else:
             server=LoopbackServer(('127.0.0.1',0),functools.partial(Handler,directory=str(artifact)))
             if persistence_mode:server.persistence_fixture=fixture
+            if options.codec_read_driver:
+                server.codec_manifest=codec_manifest;server.codec_requests=[]
+                server.codec_files={'/__codec-fixtures/'+entry['name']:(codec_directory/entry['name'],entry) for entry in codec_manifest['files']}
         phases['server_setup_seconds']=round(time.monotonic()-phase,3)
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         begin=time.monotonic()
         try:
             command=['node','tools/test_web_app.mjs',f'http://127.0.0.1:{server.server_port}/',str(output)]
             if options.worker_driver:command.append('--worker-driver')
+            if options.codec_read_driver:command.append('--codec-read-driver')
             if options.worker_probe: command.append('--worker-probe')
             if options.source: command.extend(['--source',str(options.source.resolve(strict=True))])
             if options.filters: command.append('--filters')
@@ -325,6 +396,15 @@ def main():
                 except subprocess.TimeoutExpired:os.killpg(process.pid,signal.SIGKILL);log,_=process.communicate()
             (output/'driver.txt').write_text(log)
             reader_error=None
+            if options.codec_read_driver:
+                try:
+                    if codec_fixture_manifest(codec_directory,codec_emitted)!=codec_manifest:raise RuntimeError('Codec proof mutated its original archives')
+                    if hashlib.sha256(codec_helper.read_bytes()).hexdigest()!=codec_helper_hash:raise RuntimeError('Native codec helper changed during acceptance')
+                    expected={entry['name'] for entry in codec_manifest['files']}
+                    requested=[entry['name'] for entry in server.codec_requests]
+                    if process.returncode==0 and (len(requested)!=len(expected) or set(requested)!=expected):raise RuntimeError('Codec proof did not fetch each immutable native archive exactly once')
+                except Exception as error:reader_error=str(error)
+                (output/'codec-native-provenance.json').write_text(json.dumps({'helper':str(codec_helper.relative_to(ROOT)),'helper_sha256':codec_helper_hash,'fixtures':codec_manifest,'served_archives':server.codec_requests,'unchanged':not reader_error,'error':reader_error},indent=2)+'\n')
             if persistence_mode and process.returncode==0:
                 try:
                     for executable in (persistence_binary,persistence_sanitizer):
@@ -351,7 +431,10 @@ def main():
             record={'status':'passed' if process.returncode==0 and unchanged and artifacts_unchanged and not reader_error else 'failed','source':before,'artifact':manifest,'reader_error':reader_error,'native_persistence_helpers':persistence_hashes,
                     'command':command,'exit_code':process.returncode,'source_unchanged':unchanged,'artifacts_unchanged':artifacts_unchanged,
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
-            record['profile']='chart-other-only' if options.chart_other_only else 'inspector-sql-only' if options.inspector_sql_only else 'inspector-shadow-only' if options.inspector_shadow_only else 'inspector-scroll-only' if options.inspector_scroll_only else 'source-bindings-only' if options.source_bindings_only else 'pane-shortcuts-only' if options.pane_shortcuts_only else 'source-labels-only' if options.source_labels_only else 'source-cache-only' if options.source_cache_only else 'selection-only' if options.selection_only else 'export-cancel-only' if options.export_cancel_only else 'export-only' if options.export_only else 'pane-rail-only' if options.pane_rail_only else 'steps-clip-only' if options.steps_clip_only else 'feedback-review-only' if options.feedback_review_only else 'workspace-review-only' if options.workspace_review_only else 'copy-only' if options.copy_only else 'focus-only' if options.focus_only else 'review-error-only' if options.review_error_only else 'review-cell-only' if options.review_cell_only else 'review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            record['profile']='codec-read-driver' if options.codec_read_driver else 'chart-other-only' if options.chart_other_only else 'inspector-sql-only' if options.inspector_sql_only else 'inspector-shadow-only' if options.inspector_shadow_only else 'inspector-scroll-only' if options.inspector_scroll_only else 'source-bindings-only' if options.source_bindings_only else 'pane-shortcuts-only' if options.pane_shortcuts_only else 'source-labels-only' if options.source_labels_only else 'source-cache-only' if options.source_cache_only else 'selection-only' if options.selection_only else 'export-cancel-only' if options.export_cancel_only else 'export-only' if options.export_only else 'pane-rail-only' if options.pane_rail_only else 'steps-clip-only' if options.steps_clip_only else 'feedback-review-only' if options.feedback_review_only else 'workspace-review-only' if options.workspace_review_only else 'copy-only' if options.copy_only else 'focus-only' if options.focus_only else 'review-error-only' if options.review_error_only else 'review-cell-only' if options.review_cell_only else 'review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            if options.codec_read_driver:
+                record['codec_fixture_manifest']=codec_manifest;record['codec_helper_sha256']=codec_helper_hash
+                record['scope']='Isolated C partial meta/sheets Header decoder over seven immutable native v12/v13/v14 archives through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.'
             if options.chart_other_only:
                 record['scope']='Actual shared C same-sheet Rows Group/Columns Bucket/SUM Rank/AVG Value/COUNT DISTINCT Customer through real authoring menus and official Worker. Cached source-derived Other7.5/3, exact typed readouts, Bar/Plot/Marks pointer and keyboard actions, presentation-only Undo/Redo and source/manual retention are checked with zero post-publication jobs. No injected analytical state, clipboard activation, report upload, persistence or physical input claim.'
             if options.inspector_sql_only:

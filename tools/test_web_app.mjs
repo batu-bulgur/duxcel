@@ -12,6 +12,15 @@ const url=process.argv[2]??'http://127.0.0.1:8767';
 const output=path.resolve(process.argv[3]??'build/web/browser-qa/cdp');
 const workerProbe=process.argv.includes('--worker-probe');
 const workerDriver=process.argv.includes('--worker-driver');
+const codecReadDriver=process.argv.includes('--codec-read-driver');
+if(codecReadDriver){
+ const args=process.argv.slice(4);
+ for(let i=0;i<args.length;i++){
+  if(args[i]==='--codec-read-driver')continue;
+  if(args[i]==='--dpr'&&args[++i]==='1')continue;
+  throw new Error('--codec-read-driver is an isolated no-window gate with default DPR1');
+ }
+}
 const filters=process.argv.includes('--filters');
 const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
@@ -2726,7 +2735,47 @@ try{
  if(copyOnly||paneShortcutsOnly||sourceBindingsOnly||inspectorSQLOnly)await send('Page.addScriptToEvaluateOnNewDocument',{source:copyClipboardHarnessSource()});
  if(reviewOffline)await send('Page.addScriptToEvaluateOnNewDocument',{source:`globalThis.duxcelReviewOffline=true;const originalFetch=globalThis.fetch.bind(globalThis);globalThis.fetch=(input,...args)=>globalThis.duxcelReviewOffline&&new URL(typeof input==='string'?input:input.url??input,location.href).pathname.startsWith('/__review/')?Promise.reject(new Error('Owned offline review acceptance')):originalFetch(input,...args);`});
  const navigation=await send('Page.navigate',{url});check(!navigation.errorText,'Navigation failed: '+navigation.errorText);
- if(workerDriver){
+ if(codecReadDriver){
+  let report;
+  for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelCodecReadResult');if(report)break;await pause(20);}
+  await fs.writeFile(path.join(output,'codec-read-driver.json'),JSON.stringify(report??{ok:false,error:'C header driver did not complete'},null,2));
+  check(report?.ok,'Real C/Worker header decoding failed; see codec-read-driver.json and events.json');
+  check(report.fixtures===7&&report.headers===10&&report.queries===54&&report.rejections===11&&report.stale===1,'C header fixture/failure/recovery inventory changed');
+  check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([4,4,4,4,4,4,4]),'A normal archive did not execute its two original-schema and two canonical metadata requests exactly once');
+  check(report.familyExecutions?.meta===20&&report.familyExecutions?.sheets===19&&report.familyExecutions?.describe===15,'Observed C metadata execution inventory changed');
+  check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=report.inputOwnedLimit,'C header retained-input admission bound changed');
+  check(report.budgetRejected===true&&report.sentinelRejected===true&&report.tinyNegativeRejected===true,'Actual budget,65th-sheet or original-DOUBLE rejection was not observed');
+  check(JSON.stringify(report.u64Sentinels)===JSON.stringify(['9007199254740993','18446744073709551615']),'Exact raw U64 transport proofs changed');
+  const transport=report.transport,fixtureNames=['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
+  check(transport?.schema==='duxcel.codec-read-transport'&&transport.version===1&&transport.held===1&&transport.released===1,'Held actual callback transport/release receipt changed');
+  check(Array.isArray(transport.fixtures)&&transport.fixtures.length===7&&Array.isArray(transport.queries)&&transport.queries.length===54,'Official transport fixture/request inventory changed');
+  const expected=await(await fetch(new URL('/__codec-fixtures/manifest.json',url))).json(),byName=new Map(),tokens=new Set();
+  for(let i=0;i<fixtureNames.length;i++){
+   const actual=transport.fixtures[i],sealed=expected.files.find(item=>item.name===fixtureNames[i]);
+   check(actual.name===fixtureNames[i]&&sealed&&actual.bytes===sealed.bytes&&actual.sha256===sealed.sha256,'Worker did not register the original sealed native archive');
+   check(/^[1-9][0-9]*$/.test(actual.engineEpoch)&&/^[1-9][0-9]*$/.test(actual.registrationId),'Fixture registration lost exact scalar tokens');
+   const token=actual.engineEpoch+':'+actual.registrationId;check(!tokens.has(token),'Independent fixtures reused a registration token');tokens.add(token);byName.set(actual.name,{...actual,queries:0});
+  }
+  check(new Set(transport.fixtures.map(item=>item.engineEpoch)).size===1,'Header proof unexpectedly used more than one engine');
+  let lastTicket=0;const families={meta:0,sheets:0,describe:0};
+  for(const request of transport.queries){
+   check(Number.isSafeInteger(request.ticket)&&request.ticket>lastTicket&&typeof request.sql==='string'&&request.sql.length<=1048576,'Observed request lost ordered ticket/bounded C SQL');lastTicket=request.ticket;
+   check(Array.isArray(request.sourceBindings)&&request.sourceBindings.length===1,'Metadata request did not pin one original registration');
+   const binding=request.sourceBindings[0],fixture=byName.get(binding.name);
+   check(fixture&&binding.engineEpoch===fixture.engineEpoch&&binding.registrationId===fixture.registrationId,'Metadata request changed its captured fixture token');fixture.queries++;
+   if(request.sql.startsWith('DESCRIBE '))families.describe++;
+   else if(request.sql.includes('_duxcel_workspace.meta'))families.meta++;
+   else if(request.sql.includes('_duxcel_workspace.sheets'))families.sheets++;
+   else throw new Error('Unexpected nonmetadata SQL in Header request');
+  }
+  check(families.meta===20&&families.sheets===19&&families.describe===15,'Host-observed SQL inventory disagrees with C counters');
+  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===(i===6?30:4),'Metadata batching re-executed a fixture query');
+  check(!events.some(event=>event.method==='Runtime.exceptionThrown'),'Uncaught exception in isolated header transport');
+  await fs.writeFile(path.join(output,'codec-read-transport.json'),JSON.stringify(transport,null,2));
+  await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
+  await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',profile:'codec-read-driver',checks,report,scope:'Partial owned meta/sheets Header only; no Workbook publication, App Save/Open or engine/RSS peak bound'},null,2));
+  console.log(JSON.stringify({status:'passed',checks,report:{...report,transport:undefined},output}));
+ }else if(workerDriver){
   let report;
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelWorkerResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'worker-driver.json'),JSON.stringify(report??{ok:false,error:'C driver did not complete'},null,2));

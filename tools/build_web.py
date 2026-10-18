@@ -8,7 +8,8 @@ import web_raylib_adapter as adapter
 from test import FileLock,source_metadata
 ROOT=Path(__file__).resolve().parents[1]
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);mode=parser.add_mutually_exclusive_group();mode.add_argument('--worker-driver',action='store_true');mode.add_argument('--review',action='store_true');options=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);mode=parser.add_mutually_exclusive_group();mode.add_argument('--worker-driver',action='store_true');mode.add_argument('--codec-read-driver',action='store_true');mode.add_argument('--review',action='store_true');options=parser.parse_args()
+    no_window=options.worker_driver or options.codec_read_driver
     lock_path=ROOT/'web/toolchain.lock.json'; lock=tools.load_lock(lock_path)
     sdk=tools.local_root(ROOT); state=tools.status(sdk,lock,tools.sha256(lock_path))
     tools.require(state['ready'],'Run tools/web_toolchain.py bootstrap first')
@@ -16,11 +17,12 @@ def main():
     tools.require(library.is_file() and lib_manifest.is_file(),'Run tools/build_web_raylib.py first')
     lib=json.loads(lib_manifest.read_text());tools.require(tools.sha256(library)==lib['library_sha256'],'raylib web archive changed')
     tools.require(lib.get('adapter')=={str(p.relative_to(ROOT)):tools.sha256(p) for p in adapter.INPUTS},'Rebuild the current browser platform adapter with tools/build_web_raylib.py')
-    sources=tools.command(['make','--no-print-directory','web-worker-sources' if options.worker_driver else 'web-review-sources' if options.review else 'web-sources']).splitlines()
+    sources=tools.command(['make','--no-print-directory','web-codec-read-sources' if options.codec_read_driver else 'web-worker-sources' if options.worker_driver else 'web-review-sources' if options.review else 'web-sources']).splitlines()
     tools.require(sources and all((ROOT/p).is_file() for p in sources),'Invalid shared web source inventory')
     headers=sorted((ROOT/'src').rglob('*.h'))+sorted((ROOT/'src').rglob('*.inc'))
     host=[ROOT/'web/index.html',ROOT/'web/host.mjs',ROOT/'web/canvas_input.mjs',ROOT/'web/canvas_surface.mjs',ROOT/'web/canvas_wheel.mjs',ROOT/'web/browser_platform.mjs',ROOT/'web/clipboard.mjs',ROOT/'web/download.mjs',ROOT/'web/official_worker.mjs',ROOT/'web/engine_host.mjs',ROOT/'web/page_wire.mjs',ROOT/'assets/icons/png/duxcel-32.png']
     if options.worker_driver:host=[p for p in host if p.name not in ('index.html','host.mjs','canvas_input.mjs')]+[ROOT/'web/worker_test_host.mjs']
+    if options.codec_read_driver:host=[ROOT/'web'/name for name in ('official_worker.mjs','engine_host.mjs','page_wire.mjs','codec_test_host.mjs')]
     if options.review:host=[p for p in host if p.name!='host.mjs']+[ROOT/'web/host_review.mjs',ROOT/'web/review_host.mjs',ROOT/'web/review_queue.mjs']
     assets=sorted(p for base in ('assets/fonts','assets/ui') for p in (ROOT/base).rglob('*') if p.is_file())
     duckdb_flags=shlex.split(tools.command(['make','--no-print-directory','web-duckdb-flags']))
@@ -33,9 +35,9 @@ def main():
         review_header=ROOT/'build/web/review-info/review_build_info.h'
         tools.command(['python3','tools/review_build_info.py','--header',str(review_header),'--flags',' '.join(flags)])
     link=['-sUSE_GLFW=3','-sALLOW_MEMORY_GROWTH=1','-sINITIAL_MEMORY=67108864','-sMAXIMUM_MEMORY=1073741824','-sSTACK_SIZE=2097152','-sASSERTIONS=1','-sMODULARIZE=1','-sEXPORT_ES6=1','-sEXPORT_NAME=createDuxcel','-sENVIRONMENT=web','-sEXIT_RUNTIME=0','-sMAX_WEBGL_VERSION=1',"-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_query_result','_dx_browser_export_result','_dx_browser_file_result']",'--preload-file','assets/fonts@/assets/fonts','--preload-file','assets/ui@/assets/ui']
-    if options.worker_driver:
+    if no_window:
         link=[value for value in link if value not in ('-sUSE_GLFW=3','-sMAX_WEBGL_VERSION=1','--preload-file','assets/fonts@/assets/fonts','assets/ui@/assets/ui') and not value.startswith('-sEXPORTED_FUNCTIONS=')]
-        link.append("-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_query_result','_dx_browser_export_result']")
+        link.append("-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_codec_fixture_result','_dx_browser_codec_result']" if options.codec_read_driver else "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_dx_browser_query_result','_dx_browser_export_result']")
         assets=[]
     if options.review:
         link=[value.replace("'_dx_browser_file_result']","'_dx_browser_file_result','_dx_browser_review_result']") for value in link]
@@ -51,7 +53,7 @@ def main():
     signature['vendor']=vendor_inputs
     signature['packages']={str(p.relative_to(ROOT)):tools.sha256(p) for p in (ROOT/'web/package.json',ROOT/'web/package-lock.json',ROOT/'tools/package_web_vendor.py')}
     key=hashlib.sha256(json.dumps(signature,sort_keys=True).encode()).hexdigest()
-    folder=ROOT/('build/web/worker-test' if options.worker_driver else 'build/web/review' if options.review else 'build/web/app'); folder.mkdir(parents=True,exist_ok=True)
+    folder=ROOT/('build/web/codec-read-test' if options.codec_read_driver else 'build/web/worker-test' if options.worker_driver else 'build/web/review' if options.review else 'build/web/app'); folder.mkdir(parents=True,exist_ok=True)
     destination=folder/key[:20]
     with FileLock(folder/'.build.lock','shared web App build'):
         if (destination/'build.json').is_file():
@@ -66,6 +68,7 @@ def main():
         # Per-file objects share only this exact compiler/flag/header setup.
         # A host/asset edit relinks/packages without recompiling the C UI.
         object_config={'flags':flags,'headers':{str(p.relative_to(ROOT)):tools.sha256(p) for p in headers},'toolchain':signature['toolchain'],'duckdb_header':signature['duckdb_header_sha256']}
+        if options.codec_read_driver:object_config['acceptance_driver']='codec-read'
         object_key=hashlib.sha256(json.dumps(object_config,sort_keys=True).encode()).hexdigest()[:20]
         cache=ROOT/'build/web/objects'/object_key;cache.mkdir(parents=True,exist_ok=True)
         objects=[]; rebuilt=[]
@@ -81,12 +84,12 @@ def main():
                 result=subprocess.run(command,cwd=ROOT,env=env,stdout=output,stderr=subprocess.STDOUT)
                 tools.require(result.returncode==0,'C99 browser compilation failed; see '+str(log))
                 temporary.replace(obj);stamp.write_text(digest);rebuilt.append(source)
-            command=[*compiler,*flags,*(str(p) for p in objects),*([str(library)] if not options.worker_driver else []),*link,'-lm','-o',str(stage/'duxcel.mjs')]
+            command=[*compiler,*flags,*(str(p) for p in objects),*([str(library)] if not no_window else []),*link,'-lm','-o',str(stage/'duxcel.mjs')]
             result=subprocess.run(command,cwd=ROOT,env=env,stdout=output,stderr=subprocess.STDOUT)
             tools.require(result.returncode==0,'Browser link failed; see '+str(log))
         tools.require(source_metadata(ROOT)==before,'Source changed during browser build')
-        for path in host:shutil.copyfile(path,stage/('host.mjs' if path.name in ('worker_test_host.mjs','host_review.mjs') else path.name))
-        if options.worker_driver:(stage/'index.html').write_text('<!doctype html><title>Duxcel Worker acceptance</title><script type="module" src="./host.mjs"></script>')
+        for path in host:shutil.copyfile(path,stage/('host.mjs' if path.name in ('worker_test_host.mjs','codec_test_host.mjs','host_review.mjs') else path.name))
+        if no_window:(stage/'index.html').write_text('<!doctype html><title>Duxcel '+('header codec' if options.codec_read_driver else 'Worker')+' acceptance</title><script type="module" src="./host.mjs"></script>')
         packaged=vendor.package_vendor(ROOT,stage)
         tools.require(packaged['files']==vendor_inputs,'Vendor inputs changed during build')
         tools.require(all(tools.sha256(ROOT/name)==digest for name,digest in inputs.items()),'Browser build inputs changed during compilation/packaging')
@@ -99,7 +102,8 @@ def main():
         scope='No-window shared C/official Worker acceptance driver.' if options.worker_driver else 'Shared C99 renderer with browser-scheduled App frames.'
         scope+=' Official asynchronous DuckDB-Wasm Worker backend for bounded source pages/count/SQL validation, paged available values/date hierarchy, asynchronous CSV/Parquet source/worksheet-Table import, bounded Rows/Columns/Values PIVOT matrices with source-derived totals and direct or mixed/manual selection statistics. Bounded direct/Pivot/mixed copy and typed Parquet export are integrated with acknowledged clipboard/requested-download adapters. Browser workbook Save/Open and native source-content verification are unavailable. Runtime acceptance is source-scoped and separate.'
         if options.review:scope+=' Review-only C registry/capture/composer and durable browser outbox/shared review queue transport; service/agent acceptance is separate.'
-        record={'status':'built','signature':key,'source':before,'compiler':state['emcc'],'elapsed_seconds':round(time.monotonic()-begin,3),'sources':sources,'rebuilt_sources':rebuilt,'flags':flags,'link':link,'artifacts':artifacts,'bytes':{p:(stage/p).stat().st_size for p in artifacts},'kind':'worker-driver' if options.worker_driver else 'review' if options.review else 'application','scope':scope}
+        if options.codec_read_driver:scope='No-window C meta/sheets Header decoder through the official asynchronous DuckDB-Wasm Worker and owned DXP1 Page bridge. Immutable native v12/v13/v14 fixtures; no complete Workbook, App publication, browser Save/Open or later-family decoding.'
+        record={'status':'built','signature':key,'source':before,'compiler':state['emcc'],'elapsed_seconds':round(time.monotonic()-begin,3),'sources':sources,'rebuilt_sources':rebuilt,'flags':flags,'link':link,'artifacts':artifacts,'bytes':{p:(stage/p).stat().st_size for p in artifacts},'kind':'codec-read-driver' if options.codec_read_driver else 'worker-driver' if options.worker_driver else 'review' if options.review else 'application','scope':scope}
         for path in stage.glob('*.o'):path.unlink()
         tools.write_json(stage/'build.json',record);stage.rename(destination)
         tools.write_json(folder/'latest.json',{'directory':str(destination),'signature':key})

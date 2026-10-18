@@ -870,6 +870,13 @@ web-worker-sources:
 # The browser protocol and workbook model compile with C99/ASan independently
 # of either engine or renderer. No desktop or mutable database fixtures.
 BROWSER_QUERY_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c src/data/page_wire.c src/data/browser_query.c
+# Partial meta/sheets decoder proof only: deliberately outside App/CORE.
+WEB_CODEC_READ_SOURCES = $(BROWSER_QUERY_TEST_SRC) src/workbook/workbook_codec.c src/workbook/workbook_codec_read.c tests/test_browser_codec_read.c
+web-codec-read-sources:
+	@printf '%s\n' $(WEB_CODEC_READ_SOURCES)
+test-browser-codec-read:
+	python3 tools/test_web_app.py --codec-read-driver
+.PHONY: web-codec-read-sources test-browser-codec-read
 BROWSER_MODEL_TEST_SRC = $(filter-out src/platform/platform.c src/data/database.c src/data/worker.c,$(CORE)) src/workbook/workbook_browser.c tests/test_workbook_model.c
 BROWSER_DISTINCT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/distinct.c
 BROWSER_DISTINCT_PAGE_TEST_SRC = $(BROWSER_DISTINCT_TEST_SRC) src/data/page.c src/data/source_digest.c src/data/distinct_page.c
