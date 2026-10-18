@@ -482,3 +482,14 @@ ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --owners-only
 ```
 
 The pure policy gate has2,274 checks/config,3.455s total at `efd7adf`, without an engine library or desktop. The native integration also uses existing `--formats-only`, `--source-versions-only`, `--source-formats-only` and `--guarded-formats-only`, serialized in both configurations with unchanged core fixtures. Those five subsets pass635/393/207/1,287/1,003 checks/config and take254.364s including16.501s build; O1 source-format119.750s/guarded60.296s expose existing metadata-query planning cost. Preserve these assertions and use the pure gate during edits. No complete legacy regression, browser decoder/Open/Save or App-runtime acceptance follows from this policy extraction. [Receipts and exact source boundaries](validation/checkpoints/2026-10-18-workbook-policy/).
+
+
+The metadata staging component has its own fast gate:
+
+```sh
+python3 tools/test.py fast --modules workbook_codec_read --config both
+```
+
+Root `6599c23` passes1,391 checks/config in3.756s total. It produces only an opaque owned meta/sheets Header, never a partial Workbook or product Open action. Original DOUBLE bounds are checked before narrowing, including tiny negative offsets and adjacent-outside canvas limits. Actual native/Worker adapter acceptance remains separate.
+
+The budget-query rewrite `554b591` keeps all nine EXISTS predicates, collecting their non-NULL Boolean values with UNION ALL/bool_or. A matched private query probe passes1,009 checks/config and30 cases, with the warm query19.901→1.277ms optimized and72.362→4.771ms O1. The unchanged1,287-check native source-format workload separately passes15.329/93.838s optimized/O1 (124.981s including15.566s build); this is not a controlled whole-suite speed claim. Existing native workspace4 additionally passes at `6599c23` in3.005/3.110s App. The browser-conditioned C model87/config passes at `e142142` in8.821s including7.781s build: native locator helpers are separately compiled without JS bridges; real path assertions remain. [Exact sources, natural target build failures and boundaries](validation/checkpoints/2026-10-18-workbook-budget-query/).
