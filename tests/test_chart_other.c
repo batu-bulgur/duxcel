@@ -15,7 +15,7 @@ static void assign(PivotDefinition *d,PivotRole role,const char *name,Aggregate 
     char *error=NULL; CHECK(pivot_assign(d,role,name,aggregate,&error)); CHECK(!error);
 }
 static void fetch(Database *db,Analysis *a,PivotDefinition *d,uint64_t offset,Page *p) {
-    char *error=NULL; CHECK(database_pivot(db,a,d,offset,-1,p,&error)); CHECK(!error && !p->count_pending);
+    page_free(p); char *error=NULL; CHECK(database_pivot(db,a,d,offset,-1,p,&error)); CHECK(!error && !p->count_pending);
 }
 static void execute(Database *db,const ChartOtherPlan *plan,duckdb_result *result) {
     char *error=NULL; uint64_t queries=db->query_count;
