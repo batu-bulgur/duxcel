@@ -68,7 +68,9 @@ typedef struct {
    routing. This checks the complete version locator, RAW packet, original Page
    schema, engine/content and exact observed file identity; it does not prove
    routing, parse filter payload grammar, compare result transforms, or activate
-   a version/token/style. Raw identity deliberately excludes filters and sorts;
+   a version/token/style. A nonzero Analysis.source_version must match; zero
+   permits a proposed binding before its first atomic commit, not proof of
+   issuance or routing. Raw identity deliberately excludes filters and sorts;
    their field references and exact numeric bindings are still checked here.
    A pending version and unsupported/browser observations fail closed. A pending
    row count is allowed; optional Page record IDs/stamp need not be present.

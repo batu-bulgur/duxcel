@@ -301,7 +301,7 @@ static bool page_proof_fail(char *error,const char *message) {
    source_valid/transforms, whose full JSON validation can allocate. */
 static bool page_proof_source(const Analysis *a,const SourceScopeInfo *info) {
     size_t bytes;
-    if (!a || a->kind!=info->source_kind || !text_size(a->path,DX_SOURCE_SCOPE_TEXT_BYTES,false,&bytes) || strpbrk(a->path,"*?[]") ||
+    if (!a || a->kind!=info->source_kind || (a->source_version && a->source_version!=info->version) || !text_size(a->path,DX_SOURCE_SCOPE_TEXT_BYTES,false,&bytes) || strpbrk(a->path,"*?[]") ||
         a->schema || a->table || a->query || a->unique_rows || a->group_column || a->measure_column || (unsigned)a->aggregate>AGG_MAX ||
         a->filter_count>=DX_ANALYSIS_FILTERS || a->sort_count>=DX_ANALYSIS_SORTS || (a->filter_count && !a->filter_column) || (a->sort_count && !a->sort_column)) return false;
     size_t filters[DX_ANALYSIS_FILTERS],sorts[DX_ANALYSIS_SORTS];
