@@ -5,7 +5,7 @@
 #include "objects.h"
 #include "format.h"
 #include "source_scope.h"
-#define DX_WORKSPACE_VERSION 13
+#define DX_WORKSPACE_VERSION 14
 #define DX_MAX_SHEETS 64
 #define DX_HISTORY 32
 typedef enum { EDIT_ANALYSIS,EDIT_CELLS,EDIT_OBJECTS,EDIT_RANGE,EDIT_FORMAT,EDIT_CELLS_FORMAT,EDIT_OBJECTS_FORMAT,EDIT_RANGE_FORMAT } EditKind;
