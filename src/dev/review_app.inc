@@ -446,7 +446,7 @@ static void review_shadow_state(App *a) {
     review_author_capture_state(a,state);
 }
 static void review_sql_inspector_state(App *a) {
-    if (!review_armed(a) || !a->pipeline || a->pipeline_collapsed || !a->pipeline_sql || !a->pipeline_layout.valid) return;
+    if (!review_armed(a) || !a->pipeline || a->pipeline_collapsed || !a->pipeline_sql || !a->workspace.valid || a->ribbon_mode==3 || !a->pipeline_layout.valid) return;
     const UIInspectorLayout *layout=&a->pipeline_layout;
     char state[512];
     snprintf(state,sizeof(state)," feedback_sql_scroll=%.6f,%.6f,%.6f,%.6f,%zu,%d,%d",a->inspector_sql_scroll,layout->inner_max,layout->outer_offset,layout->outer_max,a->inspector_sql_lines.count,a->inspector_sql_lines.limited,layout->inner_scrollable);
