@@ -1,0 +1,8 @@
+Group,Rank,Value,Customer,Bucket
+A,100,100,a,Current
+B,90,100,b,Current
+C,80,100,c,Current
+D,2,0,x,Current
+E,1,10,x,Current
+E,1,10,y,Current
+E,1,10,z,Current

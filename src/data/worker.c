@@ -131,7 +131,7 @@ static bool source_digest_payload_valid(const QueryJob *job,const QueryReply *re
     if (length>65536 || a->kind!=SOURCE_NONE || a->source_version || a->path || a->schema || a->table || a->query || a->filter_column || a->filter_value || a->group_column || a->measure_column || a->sort_column ||
         a->filter_count || a->sort_count || a->unique_rows || a->descending || a->filter_op || a->aggregate || a->filter_number.kind || a->filter_number.precision || a->filter_number.scale ||
         job->workbook || job->copy || job->statistics || job->column || job->search || job->date_start || job->date_end || job->offset || job->rows || job->first_col || job->cols ||
-        (job->known_total!=0 && job->known_total!=-1) || job->include_header || job->include_totals || job->is_preview || job->refresh_source || job->is_table || job->date_level) return false;
+        (job->known_total!=0 && job->known_total!=-1) || job->include_header || job->include_totals || job->include_chart_other || job->is_preview || job->refresh_source || job->is_table || job->date_level) return false;
     for (size_t i=0;i<sizeof(a->filters)/sizeof(*a->filters);i++) {
         const AnalysisFilter *field=&a->filters[i];
         if (field->column || field->value || field->op || field->number.kind || field->number.precision || field->number.scale) return false;
@@ -166,7 +166,7 @@ static bool record_selection_payload_valid(const QueryJob *job,const QueryReply 
         (a->kind!=SOURCE_CSV && a->kind!=SOURCE_PARQUET) || a->query || a->unique_rows || a->schema || a->table || a->group_column || a->measure_column ||
         a->filter_count>=DX_ANALYSIS_FILTERS || a->sort_count>=DX_ANALYSIS_SORTS || analysis_text_bytes(a)>8*1024*1024 ||
         job->workbook || job->copy || job->statistics || reply->path || job->column || job->search || job->date_start || job->date_end || job->first_col || job->cols ||
-        (job->known_total!=0 && job->known_total!=-1) || job->include_header || job->include_totals || job->is_preview || job->refresh_source || job->date_level ||
+        (job->known_total!=0 && job->known_total!=-1) || job->include_header || job->include_totals || job->include_chart_other || job->is_preview || job->refresh_source || job->date_level ||
         (job->object_id ? !job->is_table : job->is_table)) return false;
     for (size_t role=0;role<4;role++) if (job->pivot.counts[role]) return false;
     return true;
@@ -190,6 +190,7 @@ static void *worker_main(void *ptr) {
             r->source_digest_status=SOURCE_DIGEST_ERROR;
             r->error=dx_strdup("Native formatting request definitions exceed the 8 MiB owned limit. No file or identity query was opened.");
         }
+        else if (j->include_chart_other && (j->kind!=JOB_PIVOT || j->is_table)) r->error=dx_strdup("Chart Other readouts require an analytical Pivot job.");
         else if (j->kind==JOB_VERIFY_SOURCE) verify_source(w,j,r);
         else if (j->kind==JOB_COLLECT_RECORDS && !record_selection_payload_valid(j,r)) r->error=dx_strdup("Record collection requires one bounded raw-source range and its captured native identity without analytical payloads.");
         else if (j->kind==JOB_SAVE) workbook_save(j->workbook,r->path,&r->error);
@@ -220,7 +221,9 @@ static void *worker_main(void *ptr) {
             else if (j->kind == JOB_STEP_PREVIEW) database_fetch_table(&w->db,&r->analysis,j->offset,j->known_total,&r->page,&r->error);
             else if (j->kind == JOB_PIVOT && j->is_table) database_fetch_table_window(&w->db,&r->analysis,j->offset,j->known_total,&r->page,&r->error);
             else if (j->kind == JOB_PIVOT) {
-                if (database_pivot(&w->db,&r->analysis,&j->pivot,j->offset,j->known_total,&r->page,&r->error) && j->include_totals)
+                if (j->include_chart_other)
+                    database_pivot_with_other(&w->db,&r->analysis,&j->pivot,j->offset,j->known_total,j->include_totals,j->expected_source_stamp,&r->page,&r->error);
+                else if (database_pivot(&w->db,&r->analysis,&j->pivot,j->offset,j->known_total,&r->page,&r->error) && j->include_totals)
                     database_pivot_totals(&w->db,&r->analysis,&j->pivot,&r->page,&r->error);
             }
             else if (j->kind == JOB_PIVOT_COPY) {

@@ -324,6 +324,22 @@ tests/test_chart_other-debug: $(CHART_OTHER_SRC) $(HEADERS)
 test-chart-other: tests/test_chart_other tests/test_chart_other-debug
 	./tests/test_chart_other
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_chart_other-debug
+DATABASE_CHART_OTHER_SRC = $(RECORD_PAGE_SRC) tests/test_database_chart_other.c
+tests/test_database_chart_other: $(DATABASE_CHART_OTHER_SRC) $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(DATABASE_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+tests/test_database_chart_other-debug: $(DATABASE_CHART_OTHER_SRC) $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(DATABASE_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+WORKER_CHART_OTHER_SRC = $(CORE) src/ui/chartview.c src/ui/chartencoding.c tests/test_worker_chart_other.c
+tests/test_worker_chart_other: $(WORKER_CHART_OTHER_SRC) $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(WORKER_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+tests/test_worker_chart_other-debug: $(WORKER_CHART_OTHER_SRC) $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(WORKER_CHART_OTHER_SRC) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+test-chart-other-native: tests/test_database_chart_other tests/test_database_chart_other-debug tests/test_worker_chart_other tests/test_worker_chart_other-debug
+	./tests/test_database_chart_other
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_database_chart_other-debug
+	./tests/test_worker_chart_other
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_worker_chart_other-debug
+.PHONY: test-chart-other-native
 .PHONY: test-chart-other
 tests/test_record_pages: $(RECORD_PAGE_SRC) tests/test_record_pages.c $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(RECORD_PAGE_SRC) tests/test_record_pages.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm

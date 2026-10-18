@@ -4169,6 +4169,8 @@ static void schedule_pivot(App *a) {
         if (!dirty && cached) continue;
         QueryJob *j=dx_alloc(sizeof(*j)); j->id=++a->request_id; j->kind=JOB_PIVOT; j->analysis=analysis_copy(object_source(a,o)); j->pivot=pivot_copy(&o->pivot); j->object_id=o->id; j->revision=o->revision; j->is_table=o->kind==OBJECT_TABLE;
         j->include_totals=!j->is_table;
+        if (!j->is_table) for (size_t m=0;m<j->pivot.counts[PIVOT_VALUES];m++)
+            j->include_chart_other|=j->pivot.fields[PIVOT_VALUES][m].aggregate==AGG_AVG || j->pivot.fields[PIVOT_VALUES][m].aggregate==AGG_DISTINCT;
         j->refresh_source=a->refresh_plans; a->refresh_plans=false;
         j->offset=first<96 ? 0 : first-96; j->known_total=dirty || v->page.count_pending ? -1 : (int64_t)v->page.total;
         a->busy=true; a->pending_kind=JOB_PIVOT; a->pending_object_id=o->id; app_worker_submit(a,j); return;
@@ -13405,7 +13407,7 @@ static void statistics_smoke_step(App *a,int *step) {
 failed: fprintf(stderr,"FAIL: statistics application at stage %d state %d: %s\n",*step,a->statistics_state,a->statistics_error ? a->statistics_error : a->message); *step=-1;
 }
 static void chart_smoke_step(App *a,int *step) {
-    if (*step<0 || *step>=33 || a->busy || a->io_busy || a->page.count_pending || (a->modal!=MODAL_NONE && a->modal!=MODAL_CHART_SIZE && a->modal!=MODAL_OBJECT_NAME) || !a->page.column_count) return;
+    if (*step<0 || *step>=40 || a->busy || a->io_busy || a->page.count_pending || (a->modal!=MODAL_NONE && a->modal!=MODAL_CHART_SIZE && a->modal!=MODAL_OBJECT_NAME) || !a->page.column_count) return;
     char *error=NULL; ObjectStore *store=&active_sheet(a)->objects;
     static Cell *result; static uint64_t request;
     switch (*step) {
@@ -13547,6 +13549,54 @@ static void chart_smoke_step(App *a,int *step) {
     case 32:
         if (strcmp(store->items[1].name,"İstanbul analizi") || store->items[1].rows!=16 || store->items[1].columns!=9) goto failed;
         puts("PASS: pivot/chart names, invalid and duplicate name guards, UTF-8, query-free shared history, dialog layouts and dxls save/reopen"); break;
+    case 33:
+        open_source(a,"tests/fixtures/chart-other.csv",false); break;
+    case 34: {
+        if (a->page.total!=7 || a->page.column_count!=5 || store->count) goto failed;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,900); set_ribbon_mode(a,1);
+        a->sidebar=true; a->pipeline=false; grid_zoom_at(&a->grid,&a->page,a->ui.scale,1,(Vector2){a->grid.body.x,a->grid.body.y});
+        grid_select_cell(&a->grid,0,6,false); create_pivot(a);
+        PivotDefinition d={0};
+        bool ok=pivot_assign(&d,PIVOT_ROWS,"Group",AGG_SUM,&error) && pivot_assign(&d,PIVOT_COLUMNS,"Bucket",AGG_SUM,&error) &&
+            pivot_assign(&d,PIVOT_VALUES,"Rank",AGG_SUM,&error) && pivot_assign(&d,PIVOT_VALUES,"Value",AGG_AVG,&error) &&
+            pivot_assign(&d,PIVOT_VALUES,"Customer",AGG_DISTINCT,&error);
+        if (!ok) { pivot_free(&d); goto failed; }
+        if (!set_pivot_definition(a,&d)) goto failed;
+        a->pivot_focus=0; break;
+    }
+    case 35: {
+        Page *p=&a->objects[0].page; if (!p->column_count) return;
+        const Page *other=page_other_values(p,1);
+        if (store->count!=1 || store->items[0].kind!=OBJECT_PIVOT || !p->totals || !strstr(p->sql,"PIVOT") || !other ||
+            p->row_count!=5 || other->cells[1].number!=7.5 || other->cells[2].number!=3) goto failed;
+        result=p->cells; request=a->request_id;
+        if (!set_representation(a,1) || !set_chart_measure(a,1) || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
+        a->pivot_focus=0; break;
+    }
+    case 36:
+        if (!a->chart_view.valid || !a->chart_view.other_values || a->chart_view.measure!=1 || a->chart_view.series!=4 ||
+            a->chart_view.values[3][0]!=7.5 || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
+        smoke_snapshot("tests/results/chart-marks/other-average.png");
+        if (!set_chart_measure(a,2)) goto failed; break;
+    case 37: {
+        if (!a->chart_view.other_values || a->chart_view.measure!=2 || a->chart_view.values[3][0]!=3 || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
+        MarkDefinition marks={0}; MarkField average={.name="Value",.aggregate=AGG_AVG,.measure=true};
+        bool ok=marks_assign(&marks,MARKS_TOOLTIP,&average,&error) && set_marks(a,&marks); marks_free(&marks); if (!ok) goto failed;
+        UIEncodingValue value=ui_encoding_value(&a->objects[0].page,&store->items[0].pivot,&a->chart_view,(UIEncodingBinding){UI_BIND_MEASURE,1},3,0);
+        if (!value.available || value.is_null || value.approximate || !value.raw || strcmp(value.raw,"7.5") || a->request_id!=request) goto failed;
+        smoke_snapshot("tests/results/chart-marks/other-distinct.png");
+        if (!set_representation(a,0) || a->objects[0].page.cells!=result || a->request_id!=request) goto failed;
+        remove("tests/generated/chart-other.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/chart-other.dxls"); break;
+    }
+    case 38: workspace_job(a,JOB_LOAD,"tests/generated/chart-other.dxls"); break;
+    case 39: {
+        if (store->count!=1 || store->items[0].kind!=OBJECT_PIVOT || store->items[0].chart_measure!=2 || store->items[0].marks.counts[MARKS_TOOLTIP]!=1 || a->page.total!=7) goto failed;
+        Page *p=&a->objects[0].page; if (!p->column_count) return;
+        const Page *other=page_other_values(p,2); if (!other || other->cells[1].number!=7.5 || other->cells[2].number!=3) goto failed;
+        request=a->request_id; result=p->cells;
+        if (!set_representation(a,1) || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
+        puts("PASS: source-derived chart Other weighted AVG and distinct, real same-sheet PIVOT, query-free Plot/Marks/representation and dxls reopen"); break;
+    }
     }
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: chart marks at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
@@ -14621,7 +14671,7 @@ bool app_frame(AppSession *session) {
         {options->clipboard_smoke,&session->clipboard_smoke,13},{options->sort_smoke,&session->sort_smoke,12},
         {options->layout_smoke,&session->layout_smoke,layout_target},{options->navigation_smoke,&session->navigation_smoke,13},
         {options->nyc_smoke,&session->nyc_smoke,8},{options->document_smoke,&session->document_smoke,10},
-        {options->chart_smoke,&session->chart_smoke,33},{options->statistics_smoke,&session->statistics_smoke,31},
+        {options->chart_smoke,&session->chart_smoke,40},{options->statistics_smoke,&session->statistics_smoke,31},
         {options->table_smoke,&session->table_smoke,73},{options->icon_smoke,&session->icon_smoke,8},
         {options->query_smoke,&session->query_smoke,QUERY_SMOKE_STAGES},{options->unique_smoke,&session->unique_smoke,32}
     };
@@ -15379,7 +15429,7 @@ int app_finish(AppSession *session) {
     if (options->layout_smoke && session->layout_smoke>=250 && session->layout_smoke!=layout_target) fprintf(stderr,"Statistics state=%d error=%s enabled=%d source=%d columns=%zu active=%d\n",a->statistics_state,a->statistics_error ? a->statistics_error : "none",a->statistics_enabled,a->analysis.kind,a->statistics_columns,a->statistics_key.active);
     if (options->navigation_smoke && session->navigation_smoke!=13) fprintf(stderr,"Navigation smoke unfinished at stage %d: %s\n",session->navigation_smoke,a->message ? a->message : "");
     if (options->nyc_smoke && session->nyc_smoke!=8) fprintf(stderr,"NYC smoke unfinished at stage %d: %s\n",session->nyc_smoke,a->message ? a->message : "");
-    if (options->chart_smoke && session->chart_smoke!=33) fprintf(stderr,"Chart smoke unfinished at stage %d: %s\n",session->chart_smoke,a->message ? a->message : "");
+    if (options->chart_smoke && session->chart_smoke!=40) fprintf(stderr,"Chart smoke unfinished at stage %d: %s\n",session->chart_smoke,a->message ? a->message : "");
     if (options->statistics_smoke && session->statistics_smoke!=31) fprintf(stderr,"Statistics smoke unfinished at stage %d: %s\n",session->statistics_smoke,a->statistics_error ? a->statistics_error : a->message);
     if (options->table_smoke && session->table_smoke!=73) fprintf(stderr,"Table smoke unfinished at stage %d: %s\n",session->table_smoke,a->message ? a->message : "");
     if (options->unique_smoke && session->unique_smoke!=32) fprintf(stderr,"Unique rows smoke unfinished at stage %d\n",session->unique_smoke);
@@ -15419,7 +15469,7 @@ int app_finish(AppSession *session) {
 #if defined(DUXCEL_DEV_REVIEW) && !defined(DUXCEL_BROWSER_HOST)
         (options->review_smoke && session->review_smoke.stage!=REVIEW_SMOKE_STAGES) ||
 #endif
-        (options->smoke && !smoke_ok) || (options->workspace_smoke && session->workspace_smoke!=4) || (options->filter_smoke && session->filter_smoke!=66) || (options->pivot_smoke && session->pivot_smoke!=45) || (options->export_smoke && session->export_smoke!=20) || (options->count_smoke && session->count_smoke!=12) || (options->clipboard_smoke && session->clipboard_smoke!=13) || (options->sort_smoke && session->sort_smoke!=12) || (options->layout_smoke && session->layout_smoke!=layout_target) || (options->navigation_smoke && session->navigation_smoke!=13) || (options->nyc_smoke && session->nyc_smoke!=8) || (options->document_smoke && !document_ok) || (options->chart_smoke && session->chart_smoke!=33) || (options->statistics_smoke && session->statistics_smoke!=31) || (options->table_smoke && session->table_smoke!=73) || (options->icon_smoke && session->icon_smoke!=8) || (options->query_smoke && session->query_smoke!=QUERY_SMOKE_STAGES) || (options->unique_smoke && session->unique_smoke!=32) ? 1 : 0;
+        (options->smoke && !smoke_ok) || (options->workspace_smoke && session->workspace_smoke!=4) || (options->filter_smoke && session->filter_smoke!=66) || (options->pivot_smoke && session->pivot_smoke!=45) || (options->export_smoke && session->export_smoke!=20) || (options->count_smoke && session->count_smoke!=12) || (options->clipboard_smoke && session->clipboard_smoke!=13) || (options->sort_smoke && session->sort_smoke!=12) || (options->layout_smoke && session->layout_smoke!=layout_target) || (options->navigation_smoke && session->navigation_smoke!=13) || (options->nyc_smoke && session->nyc_smoke!=8) || (options->document_smoke && !document_ok) || (options->chart_smoke && session->chart_smoke!=40) || (options->statistics_smoke && session->statistics_smoke!=31) || (options->table_smoke && session->table_smoke!=73) || (options->icon_smoke && session->icon_smoke!=8) || (options->query_smoke && session->query_smoke!=QUERY_SMOKE_STAGES) || (options->unique_smoke && session->unique_smoke!=32) ? 1 : 0;
     app_session_free(session);
     return result;
 }

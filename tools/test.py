@@ -75,7 +75,7 @@ NATIVE = (
     ("navigation", 13, 1200, "PASS: native sheet rename"),
     ("nyc", 8, 1000, "PASS: public NYC 3,475,226-row source"),
     ("document", 10, 700, "PASS: pending cell commit"),
-    ("chart", 33, 1600, "PASS: pivot/chart names"),
+    ("chart", 40, 2000, "PASS: source-derived chart Other"),
     ("statistics", 31, 2500, "PASS: frame selection reports object identity"),
     ("table", 73, 3400, "PASS: independent same-sheet CSV/Parquet/DuckDB tables"),
     ("icon", 8, 500, "PASS: shared vector and prebuilt app icon previews"),
