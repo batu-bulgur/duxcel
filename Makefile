@@ -411,6 +411,15 @@ test-workbook-codec-read: tests/test_workbook_codec_read tests/test_workbook_cod
 	./tests/test_workbook_codec_read
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_read-debug
 .PHONY: test-workbook-codec-read
+WORKBOOK_CODEC_NATIVE_TEST = $(CORE) src/workbook/workbook_codec_read.c tests/test_workbook_codec_native.c
+tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_TEST) $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_TEST) $(HEADERS)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+test-workbook-codec-native: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
+	./tests/test_workbook_codec_native
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug
+.PHONY: test-workbook-codec-native
 test-workbook-codec: tests/test_workbook_codec tests/test_workbook_codec-debug
 	./tests/test_workbook_codec
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec-debug

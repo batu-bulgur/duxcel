@@ -23,7 +23,7 @@ FAST_MODULES = (
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
 RECORD_MODULES = ("record_sql", "record_pages")
-ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES)
+ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES, "workbook_codec_native")
 FORMATS_COMPLETION_PATTERN = r"^PASS: [1-9]\d* focused workspace formatting checks \(format round-trip, validation, scoped-save rejection and original-file preservation\)$"
 # These are existing, independently bootstrapped layout checkpoints. The end is
 # exclusive, as in DUXCEL_LAYOUT_TO. Never jump into arbitrary stateful stages.
