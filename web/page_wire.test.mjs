@@ -383,3 +383,63 @@ test('empty pages and maximum dimensions/text/metadata stay within the wire budg
     excessive.offsets[1] = excessive.text.length;
     rejects(excessive, /text exceeds 4 MiB/);
 });
+
+
+// Primary secondary-FILTERS: an explicit bounded transport, not codec validation.
+function filterColumns(){
+    return ['sheet_id','position','name','op','value'].map((name,i)=>column({name,typeName:[0,1,3].includes(i)?'INTEGER':'VARCHAR',numberKind:[0,1,3].includes(i)?'i32':'none'}));
+}
+test('workbook-filters wire owns 257 and 961 rows without letting embedded purpose widen normal transport',()=>{
+    const columns=filterColumns(),texts=[null,'','NULL','9007199254740993','18446744073709551615',"'İ' 🦆\n"];
+    for(const rows of [0,257,960,961]){
+        const values=Array.from({length:rows},(_,r)=>[String(r%64),String(r%15),`Filter 'İ' ${r}`,String(r%8),texts[r%6]]).flat();
+        const input=page(values,columns),before=structuredClone(input);input.purpose='workbook-filters';
+        if(rows>256)assert.throws(()=>encodePageWire(input),/row count/);
+        const wire=encodePageWire(input,{purpose:'workbook-filters'}),output=inspect(wire);
+        assert.equal(output.rows,rows);assert.equal(output.columns,5);assert.deepEqual(output.values,values);assert.deepEqual(output.metadata,columns);
+        for(const part of ['text','offsets','nulls'])assert.deepEqual(input[part],before[part]);
+        // Copy and Table-Sorts explicitly allow this size/arity too; DXP1 has no family tag.
+        assert.deepEqual(inspect(encodePageWire(input,{purpose:'copy'})).values,values);
+        assert.deepEqual(inspect(encodePageWire(input,{purpose:'workbook-table-sorts'})).values,values);
+        input.text.fill(0);input.offsets.fill(0);input.nulls.fill(1);input.columns[2].name='poisoned';
+        assert.deepEqual(inspect(wire).values,values);assert.equal(inspect(wire).metadata[2].name,'name');input.columns[2].name='name';
+        const moved=structuredClone(wire,{transfer:[wire.buffer]});assert.equal(wire.byteLength,0);assert.deepEqual(inspect(moved).values,values);
+    }
+    assert.throws(()=>encodePageWire(page(Array(962*5).fill(null),columns),{purpose:'workbook-filters'}),/row count/);
+    for(const count of [0,4,6])assert.throws(()=>encodePageWire(page(Array(count).fill(null),Array.from({length:count},()=>column()),1),{purpose:'workbook-filters'}),/column/);
+    for(const purpose of ['workbook-sorts','workbook-objects','workbook-owners','workbook-table-sources','workbook-table-filters','workbook-pivot-fields','workbook-marks'])
+        assert.throws(()=>encodePageWire(page(Array(257*5).fill(null),columns),{purpose}),/column/);
+    for(const purpose of ['__proto__','constructor','toString',new String('workbook-filters'),{toString(){throw new Error('Must not coerce');}}])
+        assert.throws(()=>encodePageWire(page([],columns,0),{purpose}),/unknown transport purpose/);
+    let reads=0;const options={get purpose(){return ++reads===1?'workbook-filters':'copy';}};
+    assert.equal(inspect(encodePageWire(page(Array(961*5).fill(null),columns),options)).rows,961);assert.equal(reads,1);
+});
+test('workbook-filters wire has exact raw-text bounds independently of Arrow Page overhead',()=>{
+    const columns=filterColumns(),maximum=4*1024*1024;
+    for(const length of [65537,maximum]){
+        const values=[null,null,null,null,'x'.repeat(length)],input=page(values,columns);
+        const wire=encodePageWire(input,{purpose:'workbook-filters'}),output=inspect(wire);
+        assert.deepEqual(output.values,values);assert.equal(output.textBytes,length);
+        const metadataBytes=columns.reduce((sum,c)=>sum+20+encoder.encode(c.name).length+encoder.encode(c.typeName).length+encoder.encode(c.numberKind).length,0);
+        assert.equal(wire.length,20+metadataBytes+6*4+5+length);assert.ok(wire.length<6*1024*1024);
+    }
+    assert.throws(()=>encodePageWire(page([null,null,null,null,'x'.repeat(maximum+1)],columns),{purpose:'workbook-filters'}),/4 MiB/);
+    // With this fixed 961x5 shape, metadata/text maxima lie below6MiB; a valid
+    // exact6MiB transport is unreachable, rather than an invented positive case.
+});
+test('workbook-filters rejects malformed sparse descriptors and cell buffers without mutating callers',()=>{
+    const columns=filterColumns();
+    const changes=[input=>{input.columns=Array(5);},input=>{delete input.columns[2];},
+        input=>{input.offsets=new Uint32Array([0]);},input=>{input.nulls=new Uint8Array(0);},
+        input=>{input.nulls[0]=2;},input=>{input.nulls[2]=1;},input=>{input.offsets[2]=99;},
+        input=>{input.offsets[1]=1;input.offsets[2]=0;},input=>{input.text[0]=0;},input=>{input.text[0]=0xff;},
+        input=>{input.columns[2].name='bad\0name';},input=>{input.columns[2].numberKind='constructor';},
+        input=>{input.text=Array.from(input.text);},input=>{input.offsets=Array.from(input.offsets);}];
+    for(const mutate of changes){
+        const input=page(['0','1','a','2','NULL'],filterColumns());mutate(input);const before=structuredClone(input);
+        assert.throws(()=>encodePageWire(input,{purpose:'workbook-filters'}),{name:'TypeError'});assert.deepEqual(input,before);
+    }
+    const input=page(['0','1','a','2','NULL'],columns);structuredClone(input.text,{transfer:[input.text.buffer]});
+    assert.throws(()=>encodePageWire(input,{purpose:'workbook-filters'}),/detached/);
+});
+// END primary secondary-FILTERS transport tests.

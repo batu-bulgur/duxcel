@@ -636,6 +636,120 @@ static void test_pivot_marks_text_bounds(void) {
     }
 }
 /* END Pivot/Marks transport tests. */
+
+/* Primary secondary-FILTERS: real I/I/T/I/T sidecars; the codec validates
+   filter positions/operations/JSON after this transport has copied the Page. */
+static const Descriptor filter_columns[]={
+    {"sheet_id","INTEGER","i32",0,0},{"position","INTEGER","i32",0,0},
+    {"name","VARCHAR","none",0,0},{"op","INTEGER","i32",0,0},
+    {"value","VARCHAR","none",0,0},{"extra","VARCHAR","none",0,0}
+};
+static size_t filter_owned(size_t rows,const char *const *values) {
+    size_t bytes=5u*sizeof(Column)+rows*5u*sizeof(Cell);
+    for(size_t i=0;i<5;i++)bytes+=strlen(filter_columns[i].name)+strlen(filter_columns[i].type)+2;
+    for(size_t i=0;i<rows*5u;i++)if(values[i])bytes+=strlen(values[i])+1;
+    return bytes;
+}
+static void test_workbook_filters_envelope(void) {
+    static const char *texts[]={NULL,"","NULL","9007199254740993","18446744073709551615","'İ' 🦆;\n"};
+    const char **values=dx_alloc(962u*5u*sizeof(*values));
+    for(size_t r=0;r<962;r++){
+        values[r*5]="63";values[r*5+1]="14";values[r*5+2]="Filter 'İ'";
+        values[r*5+3]="2";values[r*5+4]=texts[r%6];
+    }
+    const size_t rows_cases[]={257,960,961};char *error=NULL;
+    for(size_t n=0;n<sizeof(rows_cases)/sizeof(*rows_cases);n++){
+        size_t rows=rows_cases[n],owned=filter_owned(rows,values);bool pending=rows==961;
+        Wire wire=encode(filter_columns,5,(uint32_t)rows,values);Page out=table_retained();
+        unsigned char *before=dx_alloc(wire.size);memcpy(before,wire.bytes,wire.size);
+        reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,rows,pending,owned-1);
+        const TableDecode incompatible[]={page_from_wire_owned,page_from_wire_workbook_sorts_owned,page_from_wire_workbook_objects_owned,
+            page_from_wire_workbook_owners_owned,page_from_wire_workbook_table_sources_owned,page_from_wire_workbook_table_filters_owned,
+            page_from_wire_workbook_pivot_fields_owned,page_from_wire_workbook_marks_owned};
+        for(size_t i=0;i<sizeof(incompatible)/sizeof(*incompatible);i++)reject_table(incompatible[i],&out,&wire,wire.size,0,rows,pending,SIZE_MAX);
+        unsigned released=releases;
+        CHECK(page_from_wire_workbook_filters_owned(&out,wire.bytes,wire.size,0,rows,pending,owned,&error)&&!error);
+        CHECK(releases==released+1&&out.row_count==rows&&out.column_count==5&&out.offset==0&&out.total==rows&&out.count_pending==pending);
+        CHECK(out.bytes==owned&&out.bytes==allocated_bytes(&out)&&!memcmp(wire.bytes,before,wire.size));free(before);
+        CHECK(!out.sql&&!out.totals&&!out.other&&!out.records.ids&&!out.records.source_key&&!out.records.file_identity_valid&&!out.release_cell_text);
+        for(size_t c=0;c<5;c++)CHECK(!strcmp(out.columns[c].name,filter_columns[c].name)&&!strcmp(out.columns[c].type_name,filter_columns[c].type));
+        CHECK(out.columns[0].type==DUCKDB_TYPE_INTEGER&&out.columns[0].number_type.kind==NUM_I32&&out.columns[4].type==DUCKDB_TYPE_VARCHAR&&!out.columns[4].numeric);
+        for(size_t r=0;r<6;r++){
+            CHECK(out.cells[r*5+4].is_null==(texts[r]==NULL));
+            CHECK(texts[r]?out.cells[r*5+4].text&&!strcmp(out.cells[r*5+4].text,texts[r]):!out.cells[r*5+4].text);
+        }
+        CHECK(!strcmp(out.cells[(rows-1)*5+2].text,"Filter 'İ'"));
+        page_free(&out);
+        /* Copy and Table-Sorts explicitly accept this bounded geometry too;
+           DXP1 has no family tag and must not invent one. */
+        CHECK(page_from_wire_copy_owned(&out,wire.bytes,wire.size,0,rows,pending,owned,&error)&&!error&&out.row_count==rows);page_free(&out);
+        CHECK(page_from_wire_workbook_table_sorts_owned(&out,wire.bytes,wire.size,0,rows,pending,owned,&error)&&!error&&out.row_count==rows);page_free(&out);
+        CHECK(page_from_wire_workbook_filters_owned(&out,wire.bytes,wire.size,0,rows,pending,owned,&error)&&!error);
+        memset(wire.bytes,0xa5,wire.size);free(wire.bytes);
+        CHECK(out.cells[4].is_null&&!out.cells[4].text&&!out.cells[9].is_null&&out.cells[9].text&&!out.cells[9].text[0]);
+        CHECK(!strcmp(out.cells[14].text,"NULL")&&!strcmp(out.cells[19].text,"9007199254740993")&&!strcmp(out.cells[24].text,"18446744073709551615"));
+        CHECK(!strcmp(out.columns[2].name,"name")&&!strcmp(out.cells[29].text,texts[5]));page_free(&out);
+    }
+    Page out=table_retained();Wire wire=encode(filter_columns,5,962,values);
+    reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,962,true,SIZE_MAX);free(wire.bytes);
+    for(size_t c=0;c<=6;c++)if(c==0||c==4||c==6){
+        wire=encode(filter_columns,(uint32_t)c,1,values);reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);
+    }
+    wire=encode(filter_columns,5,0,NULL);size_t empty=filter_owned(0,NULL);
+    reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,0,false,empty-1);
+    CHECK(page_from_wire_workbook_filters_owned(&out,wire.bytes,wire.size,0,0,false,empty,&error)&&!error&&!out.row_count&&out.column_count==5&&out.bytes==empty);
+    free(wire.bytes);page_free(&out);
+    /* The old Page may itself own the incoming wire. Publication must copy the
+       complete result before retiring any of that graph. */
+    wire=encode(filter_columns,5,6,values);out=table_retained();free(out.records.ids);out.records.ids=(uint64_t *)wire.bytes;
+    unsigned released=releases;
+    CHECK(page_from_wire_workbook_filters_owned(&out,wire.bytes,wire.size,0,6,false,SIZE_MAX,NULL));
+    CHECK(releases==released+1&&!out.records.ids&&!strcmp(out.cells[24].text,"18446744073709551615")&&!strcmp(out.columns[4].name,"value"));
+    page_free(&out);page_free(&out);free(values);
+}
+static void test_workbook_filters_rejections(void) {
+    const char *values[]={"63","14","Filter 'İ'","2","NULL"};Wire wire=encode(filter_columns,5,1,values);Page out=table_retained();
+    reject_table(page_from_wire_workbook_filters_owned,&out,&wire,DX_PAGE_WIRE_BYTES+1u,0,1,false,SIZE_MAX);
+    reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size-1,0,1,false,SIZE_MAX);
+    reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,1,2,false,SIZE_MAX);
+    reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,0,false,SIZE_MAX);
+    for(size_t i=0;i<wire.size;i++){
+        /* End-of-buffer rejection checks every truncation boundary without
+           reducing any existing policy's parser coverage. */
+        reject_table(page_from_wire_workbook_filters_owned,&out,&wire,i,0,1,false,SIZE_MAX);
+    }
+    wire.bytes[wire.nulls+4]=2;reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,SIZE_MAX);wire.bytes[wire.nulls+4]=0;
+    wire.bytes[wire.nulls+4]=1;reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,SIZE_MAX);wire.bytes[wire.nulls+4]=0;
+    unsigned char last=wire.bytes[wire.size-1];wire.bytes[wire.size-1]=0;
+    reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,SIZE_MAX);
+    wire.bytes[wire.size-1]=0xff;reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,SIZE_MAX);wire.bytes[wire.size-1]=last;
+    set_word(&wire,wire.offsets+4,UINT32_MAX);reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,SIZE_MAX);set_word(&wire,wire.offsets+4,2);
+    set_word(&wire,wire.offsets+8,1);reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,SIZE_MAX);set_word(&wire,wire.offsets+8,4);
+    set_word(&wire,wire.descriptor[4]+12,39);reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,SIZE_MAX);set_word(&wire,wire.descriptor[4]+12,0);
+    unsigned char name=wire.bytes[wire.name[4]];wire.bytes[wire.name[4]]=0;
+    reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,SIZE_MAX);wire.bytes[wire.name[4]]=name;
+    size_t exact=filter_owned(1,values);char *error=NULL;unsigned released=releases;
+    CHECK(page_from_wire_workbook_filters_owned(&out,wire.bytes,wire.size,0,1,false,exact,&error)&&!error&&out.bytes==exact&&releases==released+1);
+    CHECK(!strcmp(out.cells[4].text,"NULL"));free(wire.bytes);page_free(&out);
+}
+static void test_workbook_filters_text_bounds(void) {
+    char *text=dx_alloc(DX_PAGE_WIRE_TEXT_BYTES+2u);const size_t lengths[]={65537,DX_PAGE_WIRE_TEXT_BYTES};
+    for(size_t i=0;i<sizeof(lengths)/sizeof(*lengths);i++){
+        size_t length=lengths[i];memset(text,'x',length);text[length]=0;
+        const char *values[]={NULL,NULL,NULL,NULL,text};Wire wire=encode(filter_columns,5,1,values);Page out=table_retained();char *error=NULL;
+        size_t owned=filter_owned(1,values);CHECK(wire.size<DX_PAGE_WIRE_BYTES);
+        reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,owned-1);
+        /* A full4MiB text buffer needs additional owned Page memory. The C
+           decoder has an explicit caller budget; Arrow's Page ceiling is4MiB. */
+        if(length==DX_PAGE_WIRE_TEXT_BYTES){CHECK(owned>DX_PAGE_WIRE_TEXT_BYTES);reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,DX_PAGE_WIRE_TEXT_BYTES);}
+        CHECK(page_from_wire_workbook_filters_owned(&out,wire.bytes,wire.size,0,1,false,owned,&error)&&!error&&out.bytes==owned&&out.bytes==allocated_bytes(&out));
+        memset(wire.bytes,0,wire.size);free(wire.bytes);CHECK(strlen(out.cells[4].text)==length&&out.cells[4].text[length-1]=='x'&&out.cells[0].is_null);page_free(&out);
+    }
+    memset(text,'x',DX_PAGE_WIRE_TEXT_BYTES+1u);text[DX_PAGE_WIRE_TEXT_BYTES+1u]=0;
+    const char *values[]={NULL,NULL,NULL,NULL,text};Wire wire=encode(filter_columns,5,1,values);Page out=table_retained();
+    reject_table(page_from_wire_workbook_filters_owned,&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);page_free(&out);free(text);
+}
+/* END primary secondary-FILTERS transport tests. */
 int main(void) {
     test_workbook_owners_envelope();test_workbook_owners_text_bound();
     test_workbook_objects_envelope();test_workbook_objects_text_bound();
@@ -645,5 +759,7 @@ int main(void) {
     unsigned original=checks;CHECK(original==60186);test_table_envelopes();test_table_text_bounds();
     printf("PASS: %u page wire checks (60186 original retained; %u Table checks)\n",checks,checks-original);
     unsigned previous=checks;CHECK(previous==60863);test_pivot_marks_envelopes();test_pivot_marks_text_bounds();
-    printf("PASS: %u page wire checks (60863 original retained; %u Pivot/Marks checks)\n",checks,checks-previous); return 0;
+    printf("PASS: %u page wire checks (60863 original retained; %u Pivot/Marks checks)\n",checks,checks-previous);
+    unsigned prior_filters=checks;CHECK(prior_filters==61274);test_workbook_filters_envelope();test_workbook_filters_rejections();test_workbook_filters_text_bounds();
+    printf("PASS: %u page wire checks (61274 original retained; %u primary FILTERS checks)\n",checks,checks-prior_filters); return 0;
 }
