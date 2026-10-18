@@ -1,0 +1,54 @@
+{
+  "status": "passed",
+  "runtime_component_revision": "383527ca23821f0b4a0e9177ad7ca7e8eb759fb2",
+  "shipping_tool_revision": "e7c75be30fecc00396e2c4065752acadea5e78ce",
+  "builds": {
+    "app": {
+      "artifact": "c65fb47c307acc877cd7",
+      "elapsed_seconds": 24.679,
+      "source": {
+        "commit": "e7c75be30fecc00396e2c4065752acadea5e78ce",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "cfd17c1e2743cc93abbcebc3d0cbf1a4bc015c1ac8923e7aee42dec1188a5e0e",
+        "source_files": 324
+      },
+      "rebuilt_sources": 58,
+      "object_cache": {
+        "mode": "app",
+        "configuration": "d57cb000cc40768cdbfe4e1573895a82c4cef4af8a0434c9b83f0d49df61ae0c",
+        "directory": "/Users/h2o/dev/duxcel/build/web/objects/app/d57cb000cc40768cdbfe",
+        "scanned_sources": 58,
+        "reused_sources": 0,
+        "elapsed_seconds": 21.911,
+        "input_validation_seconds": 1.513
+      }
+    },
+    "review": {
+      "artifact": "c623f797fec07f86b881",
+      "elapsed_seconds": 27.13,
+      "source": {
+        "commit": "e7c75be30fecc00396e2c4065752acadea5e78ce",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "cfd17c1e2743cc93abbcebc3d0cbf1a4bc015c1ac8923e7aee42dec1188a5e0e",
+        "source_files": 324
+      },
+      "rebuilt_sources": 62,
+      "object_cache": {
+        "mode": "review",
+        "configuration": "e5bfc693ba371e5e86b084a1d686c458dbf6f9b167db79bdc37cb531f2ab5cea",
+        "directory": "/Users/h2o/dev/duxcel/build/web/objects/review/e5bfc693ba371e5e86b0",
+        "scanned_sources": 62,
+        "reused_sources": 0,
+        "elapsed_seconds": 24.126,
+        "input_validation_seconds": 1.53
+      }
+    }
+  },
+  "scope": "Fresh normal/review compile and linked production exclusion after tool-only object-cache integration. Binding C/native sources unchanged383. Coldcache times are recorded separately from runtime acceptance. No user App/GPU/window launch or bundle/service/queue promotion.",
+  "receipts": {
+    "exclusion.json": "095cd4dd858127f5ae0afc6c035c7350fe2db7c0ea25743986655a0c8990ff1f",
+    "exclusion.txt": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a",
+    "app-build.json": "dc8f74fc87e0d722d7aaba7c32ad0da07cf3cd36c09eb9b54afa26e444e2b630",
+    "review-build.json": "e4b67d124cf926d169416ccc11b169fedbf323a785fd6b97c95ed4e6fa680367"
+  }
+}

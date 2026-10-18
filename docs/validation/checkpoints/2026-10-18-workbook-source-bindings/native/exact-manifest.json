@@ -1,0 +1,22 @@
+[
+  {
+    "label": "exact-build",
+    "command": [
+      "make",
+      "-W",
+      "tests/test_workbook_codec_native.c",
+      "tests/test_workbook_codec_native"
+    ],
+    "status": 0,
+    "seconds": 5.4980294160000005
+  },
+  {
+    "label": "exact-release",
+    "command": [
+      "./tests/test_workbook_codec_native",
+      "--source-bindings-only"
+    ],
+    "status": 0,
+    "seconds": 4.926000542000001
+  }
+]

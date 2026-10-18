@@ -1,0 +1,117 @@
+{
+  "status": "static-only",
+  "base": "8d49c2682c04bebc8702162308ca1990950fa046",
+  "scope": "Only the new C actual-Worker controller include was authored/static-checked. No C compilation, Node, Worker, engine, browser, application or GUI was run. Common/host/harness integration belongs to root.",
+  "source": {
+    "path": "tests/test_browser_codec_source_bindings.inc",
+    "bytes": 53541,
+    "lines": 147,
+    "sha256": "ae93bf3440dc656e4ba2ae6e4d80889aae1473ad0c44ff99773f17ebeda26bc9"
+  },
+  "api": "Family20 from pure4e188e7 integrated8d49c26; captured binding POD remains separate from Analysis.source_version",
+  "checks": {
+    "delimiters_balanced": true,
+    "common_hooks_declared": true,
+    "old_shared_files_byte_identical": {
+      "tests/test_browser_codec_read.c": {
+        "bytes": 47150,
+        "sha256": "c01eaf38425f7c12175b752a4c26b250e97c85e32c53d9a8d39a734e80a73cb0",
+        "byte_identical_to_base": true
+      },
+      "tests/test_browser_codec_grid.inc": {
+        "bytes": 34745,
+        "sha256": "6e555a03e21cdfe69819134c263c0501d3a9940d3a2ff8ef4f7befce5bc09792",
+        "byte_identical_to_base": true
+      },
+      "tests/test_browser_codec_source_versions.inc": {
+        "bytes": 51821,
+        "sha256": "befbdb76e55d37bdb2f0f3d822aaee80bf11693d2d1ed0f0774d895f27669c97",
+        "byte_identical_to_base": true
+      },
+      "tests/test_browser_codec_source_counters.inc": {
+        "bytes": 24603,
+        "sha256": "26409492856bb347ce16377bb7482bb5620c9e039c53e255fb9c00b219e31add",
+        "byte_identical_to_base": true
+      },
+      "tests/test_browser_codec_tables.inc": {
+        "bytes": 33629,
+        "sha256": "f8596f79966ab6a91916e5ced2a4f554679054c621ef0d6a4b3ecdc4483d3c21",
+        "byte_identical_to_base": true
+      },
+      "tests/test_browser_codec_queries.inc": {
+        "bytes": 27610,
+        "sha256": "343163f61eded9480edb316f87a92cde8689b03f2815825abd65c662d903942a",
+        "byte_identical_to_base": true
+      },
+      "tests/test_browser_codec_options.inc": {
+        "bytes": 32422,
+        "sha256": "c2d25fe83a2dc2beb8b431e6dc27e22366027b9c4ba4c4039fdf988f0f72045f",
+        "byte_identical_to_base": true
+      }
+    },
+    "no_prior_mutable_mode_state_reused": true,
+    "concrete_budget_allocation_exact_limit_plus_one": true
+  },
+  "planned": {
+    "fixtures": 4,
+    "headers": 5,
+    "queries": 166,
+    "rejections": 5,
+    "stale": 1,
+    "ordinary_callbacks": 156,
+    "normal_fixture_queries": [
+      16,
+      18,
+      24,
+      24
+    ],
+    "family_executions": {
+      "meta": 11,
+      "sheets": 11,
+      "objects": 11,
+      "queries": 11,
+      "sourceOptions": 11,
+      "tableSources": 11,
+      "tableFilters": 11,
+      "tableSorts": 11,
+      "objectCounters": 10,
+      "sourceCounters": 9,
+      "sourceVersions": 9,
+      "sourceBindings": 9,
+      "describe": 41
+    },
+    "accepted_binding_feeds": {
+      "32": 14,
+      "18": 3
+    },
+    "ledger": {
+      "streams": 9,
+      "chunk_callbacks": 26,
+      "ACKs": 26,
+      "done": 9,
+      "data256": 8,
+      "data32": 8,
+      "data8": 1,
+      "EOF": 9,
+      "poisoned_data": 17
+    },
+    "default_families": {
+      "objectCounters": 1,
+      "sourceCounters": 2,
+      "sourceVersions": 2,
+      "sourceBindings": 2
+    },
+    "rejected_first_rows": [
+      64,
+      64,
+      64,
+      64,
+      0
+    ],
+    "complete_binding_results": 3,
+    "poisoned_binding_results": 8
+  },
+  "ownership": "Only stateless prior hash/RAW-encoding/count/fixture helpers reused. Current helper state, wire/scalars, Page, decoded arena/atoms, read/oldHeader, all schemas/SQL/diagnostics are retained/admitted. All ledger streams finish EOF+ACK+cleanup before ordinary family20 begins. No binding query can publish/activate a source.",
+  "commit": "72deff9b652e1dceae44b1f42cedb77d41ba89f0",
+  "identity": "Codex <codex@openai.com> / Codex <codex@openai.com>"
+}
