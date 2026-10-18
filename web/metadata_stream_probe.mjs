@@ -17,12 +17,14 @@ const columns=family=>family==='columns'?
         {name:'name',typeName:'VARCHAR',numberKind:'none'},{name:'width',typeName:'DOUBLE',numberKind:'float'}]:
     [{name:'sheet_id',typeName:'INTEGER',numberKind:'i32'},{name:'row_id',typeName:'UBIGINT',numberKind:'u64'},
         {name:'enabled',typeName:'BOOLEAN',numberKind:'none'},{name:'value',typeName:'VARCHAR',numberKind:'none'}];
+// Follow the C metadata projection boundary: SQL renders BOOLEAN as exact
+// canonical text, while the captured original sidecar still says BOOLEAN.
 const sourceSql=(family,rows,tag)=>`/* metadata-stream-probe:${tag} */ SELECT
     (i%64)::INTEGER AS sheet_id,
     CASE WHEN i%2=0 THEN '18446744073709551615'::UBIGINT ELSE '9007199254740993'::UBIGINT END AS ${family==='columns'?'column_id':'row_id'},
     ${family==='columns'?`CASE WHEN i=0 THEN repeat('N',65537) WHEN i%4=0 THEN NULL::VARCHAR WHEN i%4=1 THEN '' WHEN i%4=2 THEN 'NULL' ELSE 'İstanbul 🦆' END AS name,
     CASE WHEN i%5=0 THEN NULL::DOUBLE ELSE (i%17)::DOUBLE+0.25 END AS width`:
-        `CASE WHEN i%3=2 THEN NULL::BOOLEAN ELSE i%3=0 END AS enabled,
+        `CAST(CASE WHEN i%3=2 THEN NULL::BOOLEAN ELSE i%3=0 END AS VARCHAR) AS enabled,
     CASE WHEN i%4=0 THEN NULL::VARCHAR WHEN i%4=1 THEN '' WHEN i%4=2 THEN 'NULL' ELSE 'İstanbul 🦆' END AS value`}
     FROM range(${rows}) AS source(i) ORDER BY i`;
 async function deadline(value,ms) {
@@ -90,6 +92,10 @@ export async function runMetadataStreamProbe(adapter,binding,{rows=513,timeoutMs
         equal(page.offset,String(state.rows),'Page offset');equal(page.total,String(state.rows+page.rowCount),'Exact total lower bound');equal(page.countPending,!chunk.end,'Explicit EOF completeness');
         for(const name of idFields)if(name!=='offset')equal(page[name],req[name],`Page ${name}`);
         const expected=columns(family);for(let c=0;c<4;c++){equal(page.columns[c].name,expected[c].name,'Typed field name');equal(page.columns[c].typeName,expected[c].typeName,'Original SQL type');equal(page.columns[c].numberKind,expected[c].numberKind,'Numeric sidecar');}
+        if(family==='cells'){
+            equal(page.columns[2].arrowType,'Utf8','Canonical BOOLEAN physical Arrow type');check(Object.isFrozen(page.columns[2]),'Original BOOLEAN sidecar remains frozen');
+            state.canonicalBooleanProjection=true;
+        }
         const bytes=new TextEncoder().encode(JSON.stringify(page.columns)).byteLength+page.text.byteLength+page.offsets.byteLength+page.nulls.byteLength;
         check(bytes<=LIMITS.bytes&&chunk.wire instanceof Uint8Array&&chunk.wire.byteLength<=6*1024*1024,'Page+wire transport bounds');
         state.maxPageBytes=Math.max(state.maxPageBytes,bytes);state.maxWireBytes=Math.max(state.maxWireBytes,chunk.wire.byteLength);
@@ -103,7 +109,7 @@ export async function runMetadataStreamProbe(adapter,binding,{rows=513,timeoutMs
         }
         state.rows+=page.rowCount;state.callbacks++;if(chunk.end)state.ends++;
     };
-    const state=()=>({rows:0,sequence:0,callbacks:0,ends:0,shapes:[],maxPageBytes:0,maxWireBytes:0});
+    const state=()=>({rows:0,sequence:0,callbacks:0,ends:0,shapes:[],maxPageBytes:0,maxWireBytes:0,canonicalBooleanProjection:false});
     async function step(name,operation) {
         const start=now(),before=records.length;
         try{const result=await deadline(operation(),timeoutMs);equal(records.length-before,1,`${name} exactly one SQL execution`);cases.push({name,status:'passed',milliseconds:now()-start,...result});}
@@ -158,6 +164,7 @@ export async function runMetadataStreamProbe(adapter,binding,{rows=513,timeoutMs
             dataAckPostedTurns:positive.filter(value=>value.firstAckPostedTurn).length,finalAckPostedTurns:positive.filter(value=>value.finalAckPostedTurn).length,
             cancelledWithoutEof:Boolean(cancelled&&cancelled.streamStatus==='cancelled'&&!cancelled.ends),
             falseAckWithoutEof:Boolean(rejected&&rejected.errorCode==='STREAM_CONSUMER'&&!rejected.ends),
+            canonicalBooleanProjection:Boolean(passed('cells-exact-and-final-ack')?.canonicalBooleanProjection&&cancelled?.canonicalBooleanProjection&&rejected?.canonicalBooleanProjection),
             ordinaryAfterCancel:passed('ordinary-after-cancel')?.value??null,ordinaryAfterFalseAck:passed('ordinary-after-failed-ack')?.value??null},
         readers:records.map(({sql,...value})=>({...value,batchRows:[...value.batchRows],sql})),error:failure,cleanup,
         boundary:'Caller-supplied adapter provenance required; synthetic SQL transport only. One Page/wire plus staged row excludes Arrow/allocator/caller-retained memory. No C codec, native metadata parity, Workbook publication, UI, source content or Save/Open claim.'});
