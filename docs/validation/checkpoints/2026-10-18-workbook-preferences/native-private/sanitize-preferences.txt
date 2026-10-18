@@ -1,0 +1,1 @@
+PASS: native optional preferences 11715 checks; 48 metadata executions/57 typed feeds;65-row native parity/reorder/defaults, unknownNULL/NUL, duplicatefalse/active/malformed/66sentinel rejection, owned state and budget/stale/recovery; source definitions never executed; no Worker preferences/Open support; engine v1.5.6

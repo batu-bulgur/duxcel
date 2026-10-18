@@ -1,0 +1,39 @@
+{
+  "scope": "Tracked byte witnesses, not rebuilds; preserves the private pre-wording assertion source distinction",
+  "integration": "871de7f34b8e8b0c2af1d0ce7733551ed63ffaa3",
+  "files": [
+    {
+      "path": "src/workbook/workbook_codec_read.c",
+      "sha256": "6a06796e28727b4f98b87e9dc7684f4e9dae89f622d3ea8479739c7dbe640e42",
+      "matches_private_component": true
+    },
+    {
+      "path": "src/workbook/workbook_codec_read.h",
+      "sha256": "b1d84d641bf6bde626d68dcf8a0275985119e824dbaf2911e5a3ce01695b05ee",
+      "matches_private_component": true
+    },
+    {
+      "path": "tests/test_workbook_codec_read.c",
+      "sha256": "2bdc7a7747d36832d5f778e1e2eb9a3713ac4cbace62bbce50d4a3bc4659a030",
+      "matches_private_component": true
+    },
+    {
+      "path": "tests/test_workbook_codec_native.c",
+      "sha256": "fffad909d56d779a0907f14d1b4f206f6844a013610d72f24434a464849a2f7e",
+      "matches_private_final_wording": true,
+      "matches_private_native_assertion_bytes": false
+    },
+    {
+      "path": "tests/test_browser_codec_read.c",
+      "sha256": "4d3507f5dbc86c4d9b23f80a2c8eca85cffadd8afe6af2b93126c1aefda93c17"
+    },
+    {
+      "path": "tests/test_browser_codec_preferences.inc",
+      "sha256": "7a36f098b5de3ad665e81f7b15a23fb8179f91ac3bf872fb3c22c7a61809972f"
+    },
+    {
+      "path": "web/codec_test_host.mjs",
+      "sha256": "d9d81ac9c78af3248941460e6f6ce22d33314d835b74a61f6bb499504c4c165a"
+    }
+  ]
+}

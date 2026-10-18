@@ -1,0 +1,92 @@
+{
+  "schema": "duxcel.focused-native-codec-preferences",
+  "version": 1,
+  "revision": "871de7f34b8e8b0c2af1d0ce7733551ed63ffaa3",
+  "started": 1792309493.335398,
+  "scope": "No GUI; private metadata files only; component Header comparison, not App Open",
+  "steps": [
+    {
+      "name": "build",
+      "command": [
+        "make",
+        "tests/test_workbook_codec_native",
+        "tests/test_workbook_codec_native-debug"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.722326625022106,
+      "log": "build/bp1-preferences-native-root/build.txt",
+      "sha256": "89b7418737dcc72a8fa89e70e9bd922c772eb5c89a7f25b875a6ca272c8fa119"
+    },
+    {
+      "name": "header-release",
+      "command": [
+        "./tests/test_workbook_codec_native"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.2597711659036577,
+      "log": "build/bp1-preferences-native-root/header-release.txt",
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    {
+      "name": "header-sanitize",
+      "command": [
+        "./tests/test_workbook_codec_native-debug"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.7560739159816876,
+      "log": "build/bp1-preferences-native-root/header-sanitize.txt",
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    {
+      "name": "sorts-release",
+      "command": [
+        "./tests/test_workbook_codec_native",
+        "--sorts-only"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.4750454579479992,
+      "log": "build/bp1-preferences-native-root/sorts-release.txt",
+      "sha256": "ae882610bfb92ceaec67d6650126021f57b80be8fba2c74a28e95a49f5f54eed"
+    },
+    {
+      "name": "sorts-sanitize",
+      "command": [
+        "./tests/test_workbook_codec_native-debug",
+        "--sorts-only"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.071608041063882,
+      "log": "build/bp1-preferences-native-root/sorts-sanitize.txt",
+      "sha256": "ae882610bfb92ceaec67d6650126021f57b80be8fba2c74a28e95a49f5f54eed"
+    },
+    {
+      "name": "preferences-release",
+      "command": [
+        "./tests/test_workbook_codec_native",
+        "--preferences-only"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.600328249973245,
+      "log": "build/bp1-preferences-native-root/preferences-release.txt",
+      "sha256": "96d871b6abdd023c6fb1853a9810c0eb1cfa4ee881670c82802ec02143a76765"
+    },
+    {
+      "name": "preferences-sanitize",
+      "command": [
+        "./tests/test_workbook_codec_native-debug",
+        "--preferences-only"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 17.470745583064854,
+      "log": "build/bp1-preferences-native-root/preferences-sanitize.txt",
+      "sha256": "96d871b6abdd023c6fb1853a9810c0eb1cfa4ee881670c82802ec02143a76765"
+    }
+  ],
+  "status": "passed",
+  "elapsed_seconds": 47.3597636250779,
+  "source_revision_unchanged": true,
+  "binaries": {
+    "tests/test_workbook_codec_native": "9b3e1998b0423c6235adee781c31e9cca26e2c6303d9715f06f85e8f2c007ba8",
+    "tests/test_workbook_codec_native-debug": "be94ccb92245071aa7b9559b23ecb954cbd2b41dc89d9884593f84775f369cc7"
+  }
+}

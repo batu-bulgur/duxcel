@@ -1,0 +1,111 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "871de7f34b8e8b0c2af1d0ce7733551ed63ffaa3",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "481ce2f013987e8daff67d0a9f9b959a1713683b6e2e8d568aa46b9b57a7de0f",
+    "source_files": 295
+  },
+  "reader_error": null,
+  "native_persistence_helpers": {},
+  "command": [
+    "node",
+    "tools/test_web_app.mjs",
+    "http://127.0.0.1:57401/",
+    "/Users/h2o/dev/duxcel/tests/results/runs/20261018T074609-browser-94483",
+    "--codec-read-driver",
+    "--dpr",
+    "1"
+  ],
+  "exit_code": 0,
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "browser_seconds": 6.58,
+  "elapsed_seconds": 7.82,
+  "setup": {
+    "build_seconds": 0.001,
+    "artifact_validation_seconds": 0.661,
+    "source_metadata_seconds": 0.135,
+    "server_setup_seconds": 0.442
+  },
+  "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+  "profile": "codec-read-driver",
+  "codec_fixture_manifest": {
+    "schema": "duxcel.codec-fixtures",
+    "version": 1,
+    "files": [
+      {
+        "name": "v12.dxls",
+        "version": 12,
+        "layout": 25,
+        "bytes": 2109440,
+        "sha256": "36b70825a7fa8d2e795d54296d647d5e4e58e2dd2c46d1f622c64782f360720e"
+      },
+      {
+        "name": "v12-reordered.dxls",
+        "version": 12,
+        "layout": 25,
+        "bytes": 2633728,
+        "sha256": "82a8618b9802bb014dd00846bae80daf40865a49ce13a92ae5ecff6ef46a2b42"
+      },
+      {
+        "name": "v12-legacy24.dxls",
+        "version": 12,
+        "layout": 24,
+        "bytes": 2633728,
+        "sha256": "98ab049993b5e177f5351cbfd53de625b5b08a5b7b935350de2ca713d6910335"
+      },
+      {
+        "name": "v13.dxls",
+        "version": 13,
+        "layout": 25,
+        "bytes": 2633728,
+        "sha256": "52133d5111e0e0ddef22bd181b9eeb38f41ab0dd9d951e95911bc67b6112e660"
+      },
+      {
+        "name": "v13-reordered.dxls",
+        "version": 13,
+        "layout": 25,
+        "bytes": 3420160,
+        "sha256": "16e594ca75da04db31d77e79281c08dc4a4a626953085f9d0e24b21b202ddd22"
+      },
+      {
+        "name": "v14.dxls",
+        "version": 14,
+        "layout": 25,
+        "bytes": 4206592,
+        "sha256": "e7230b245bad042e8fb234cd87c9517538aa93cd7d60c31a11987162dc53d86d"
+      },
+      {
+        "name": "v14-reordered.dxls",
+        "version": 14,
+        "layout": 25,
+        "bytes": 4993024,
+        "sha256": "282ca2ca6a9e01f69965c34283e659b76632b76f151aa0ee80c2b6b06b9e20ce"
+      }
+    ]
+  },
+  "codec_helper_sha256": "9b3e1998b0423c6235adee781c31e9cca26e2c6303d9715f06f85e8f2c007ba8",
+  "scope": "Isolated C partial meta/sheets Header decoder over seven immutable native v12/v13/v14 archives through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.",
+  "artifact": {
+    "status": "built",
+    "signature": "766610c481a453d0439919a710762ef5d14c17d84225764c6de5162fc0ddce28",
+    "kind": "codec-read-driver",
+    "scope": "No-window C meta/sheets Header decoder with separate opt-in primary secondary-sort and preferences workflows through the official asynchronous DuckDB-Wasm Worker and owned DXP1 Page bridge. Immutable native v12/v13/v14 fixtures; no complete Workbook, App publication, browser Save/Open or remaining-family decoding.",
+    "source": {
+      "commit": "871de7f34b8e8b0c2af1d0ce7733551ed63ffaa3",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "481ce2f013987e8daff67d0a9f9b959a1713683b6e2e8d568aa46b9b57a7de0f",
+      "source_files": 295
+    },
+    "selected_artifacts": {
+      "duxcel.wasm": "a110bf31da1b35e36c9f48f8971deb0a1830129bb5a280c5106a5b6f8fa4ac6b",
+      "vendor.json": "162d1e956a3c065cd640b2dbc129ec0b860c95c727e7788700447b6228420d92",
+      "page_wire.mjs": "dbda0154875f6deb002659ef94eabd559e0aeee02f976b2e230ccc9a53cac5da",
+      "duxcel.mjs": "b205e2e16a0c7f591f2cbf491e3a6fac0c355b87509aab01564733e3cc6ede05",
+      "host.mjs": "d9d81ac9c78af3248941460e6f6ce22d33314d835b74a61f6bb499504c4c165a",
+      "official_worker.mjs": "df2cf035b05f57132912cfb9782b8043f33d5b798d56f77c2dc068bbf499a0fc"
+    },
+    "original_artifacts_count": 177
+  }
+}

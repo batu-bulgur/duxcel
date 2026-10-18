@@ -1,0 +1,60 @@
+{
+  "schema": "duxcel.preferences-adjacent",
+  "version": 1,
+  "revision": "871de7f34b8e8b0c2af1d0ce7733551ed63ffaa3",
+  "scope": "Same isolated codec driver; no App/UI/physical-input or shipping refresh claim",
+  "steps": [
+    {
+      "name": "header-worker",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--no-build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.219709416967817,
+      "log": "build/bp1-preferences-adjacent/header-worker.txt",
+      "sha256": "57e46d2a36faa50e825cf3750bd808ba31205bb1b248eafff4827b4fd5054656"
+    },
+    {
+      "name": "sorts-worker",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--codec-sorts",
+        "--no-build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 7.567759542027488,
+      "log": "build/bp1-preferences-adjacent/sorts-worker.txt",
+      "sha256": "02535289eb969079774800bf264a4ae1c9c1f6246d81af6cb6f1d9080ae473e8"
+    },
+    {
+      "name": "harness-unit",
+      "command": [
+        "python3",
+        "tools/test_web_codec_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.6881677920464426,
+      "log": "build/bp1-preferences-adjacent/harness-unit.txt",
+      "sha256": "2b44eef030a55f040fdd978d6b8284bd41072be5b86094dc4a9234b92f98290e"
+    },
+    {
+      "name": "runner-unit",
+      "command": [
+        "python3",
+        "tools/test_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.003238167031668,
+      "log": "build/bp1-preferences-adjacent/runner-unit.txt",
+      "sha256": "93ee79d2f465284fb83b2af10df716bef31634a08801cccca093093557be9983"
+    }
+  ],
+  "status": "passed",
+  "elapsed_seconds": 18.48183954192791,
+  "source_revision_unchanged": true
+}

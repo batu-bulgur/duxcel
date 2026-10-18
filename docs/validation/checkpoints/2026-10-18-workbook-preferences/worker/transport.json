@@ -1,0 +1,556 @@
+{
+  "schema": "duxcel.codec-read-transport",
+  "version": 1,
+  "scope": "All61 actual C metadata tickets and closed test-session registrations; no persistent/content capability",
+  "engineVersion": "v1.4.3",
+  "fixtures": [
+    {
+      "name": "preferences-v12.dxls",
+      "bytes": 2895872,
+      "sha256": "9b46e74eccf10a6a31364c52a13cc5881417ef241a97c57a7502e3ab6745814f",
+      "engineEpoch": "1",
+      "registrationId": "1"
+    },
+    {
+      "name": "preferences-v14-unknown-null.dxls",
+      "bytes": 5517312,
+      "sha256": "b9a63bc9026a39e11e57fd78754b999cc07f04d7e69a57c800cbc1dc5cd8f4be",
+      "engineEpoch": "1",
+      "registrationId": "2"
+    },
+    {
+      "name": "preferences-v14-unknown-nul.dxls",
+      "bytes": 5517312,
+      "sha256": "bbe1fa493fffc89e666743bca6ae38d7227fe8a2bd9a2b7dea663b07b6fe8c66",
+      "engineEpoch": "1",
+      "registrationId": "3"
+    },
+    {
+      "name": "preferences-v13.dxls",
+      "bytes": 3420160,
+      "sha256": "d570ee488ca6c9f8c5092c4842f206023a74602c083f25b921597ea2dae13069",
+      "engineEpoch": "1",
+      "registrationId": "4"
+    },
+    {
+      "name": "preferences-v14.dxls",
+      "bytes": 5255168,
+      "sha256": "f7b5d82c58ec57b910dcad42d824587916e5512deff3c5ac262e661b2f0dac87",
+      "engineEpoch": "1",
+      "registrationId": "5"
+    },
+    {
+      "name": "preferences-v14-reordered.dxls",
+      "bytes": 5255168,
+      "sha256": "d8b2373eb7b6f3bdecb88f7fb482b0ae71649388cfa00457bd6a9cee1ac4cbd4",
+      "engineEpoch": "1",
+      "registrationId": "6"
+    }
+  ],
+  "queries": [
+    {
+      "ticket": 102,
+      "sql_bytes": 45,
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "fixture_indices": [
+        0
+      ]
+    },
+    {
+      "ticket": 103,
+      "sql_bytes": 47,
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "fixture_indices": [
+        0
+      ]
+    },
+    {
+      "ticket": 104,
+      "sql_bytes": 52,
+      "sql_sha256": "0cce2a9f48304087960b367db9f9476186abc26336044c16e724ad47e17d6067",
+      "fixture_indices": [
+        0
+      ]
+    },
+    {
+      "ticket": 105,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        0
+      ]
+    },
+    {
+      "ticket": 106,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        0
+      ]
+    },
+    {
+      "ticket": 107,
+      "sql_bytes": 262,
+      "sql_sha256": "408b567aa1d51e919cd0e713388aba2500f04b9fa46f0bf93d0117a5d2ebb19c",
+      "fixture_indices": [
+        0
+      ]
+    },
+    {
+      "ticket": 109,
+      "sql_bytes": 45,
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "fixture_indices": [
+        1
+      ]
+    },
+    {
+      "ticket": 110,
+      "sql_bytes": 47,
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "fixture_indices": [
+        1
+      ]
+    },
+    {
+      "ticket": 111,
+      "sql_bytes": 52,
+      "sql_sha256": "0cce2a9f48304087960b367db9f9476186abc26336044c16e724ad47e17d6067",
+      "fixture_indices": [
+        1
+      ]
+    },
+    {
+      "ticket": 112,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        1
+      ]
+    },
+    {
+      "ticket": 113,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        1
+      ]
+    },
+    {
+      "ticket": 114,
+      "sql_bytes": 320,
+      "sql_sha256": "d4658e34fafc3d48b18c807392088f6e5526bdd9a611b425d63242e5a228cb4e",
+      "fixture_indices": [
+        1
+      ]
+    },
+    {
+      "ticket": 116,
+      "sql_bytes": 45,
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "fixture_indices": [
+        2
+      ]
+    },
+    {
+      "ticket": 117,
+      "sql_bytes": 47,
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "fixture_indices": [
+        2
+      ]
+    },
+    {
+      "ticket": 118,
+      "sql_bytes": 52,
+      "sql_sha256": "0cce2a9f48304087960b367db9f9476186abc26336044c16e724ad47e17d6067",
+      "fixture_indices": [
+        2
+      ]
+    },
+    {
+      "ticket": 119,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        2
+      ]
+    },
+    {
+      "ticket": 120,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        2
+      ]
+    },
+    {
+      "ticket": 121,
+      "sql_bytes": 320,
+      "sql_sha256": "d4658e34fafc3d48b18c807392088f6e5526bdd9a611b425d63242e5a228cb4e",
+      "fixture_indices": [
+        2
+      ]
+    },
+    {
+      "ticket": 123,
+      "sql_bytes": 45,
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "fixture_indices": [
+        3
+      ]
+    },
+    {
+      "ticket": 124,
+      "sql_bytes": 47,
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "fixture_indices": [
+        3
+      ]
+    },
+    {
+      "ticket": 125,
+      "sql_bytes": 52,
+      "sql_sha256": "0cce2a9f48304087960b367db9f9476186abc26336044c16e724ad47e17d6067",
+      "fixture_indices": [
+        3
+      ]
+    },
+    {
+      "ticket": 126,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        3
+      ]
+    },
+    {
+      "ticket": 127,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        3
+      ]
+    },
+    {
+      "ticket": 128,
+      "sql_bytes": 262,
+      "sql_sha256": "408b567aa1d51e919cd0e713388aba2500f04b9fa46f0bf93d0117a5d2ebb19c",
+      "fixture_indices": [
+        3
+      ]
+    },
+    {
+      "ticket": 130,
+      "sql_bytes": 45,
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "fixture_indices": [
+        4
+      ]
+    },
+    {
+      "ticket": 131,
+      "sql_bytes": 47,
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "fixture_indices": [
+        4
+      ]
+    },
+    {
+      "ticket": 132,
+      "sql_bytes": 52,
+      "sql_sha256": "0cce2a9f48304087960b367db9f9476186abc26336044c16e724ad47e17d6067",
+      "fixture_indices": [
+        4
+      ]
+    },
+    {
+      "ticket": 133,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        4
+      ]
+    },
+    {
+      "ticket": 134,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        4
+      ]
+    },
+    {
+      "ticket": 135,
+      "sql_bytes": 320,
+      "sql_sha256": "d4658e34fafc3d48b18c807392088f6e5526bdd9a611b425d63242e5a228cb4e",
+      "fixture_indices": [
+        4
+      ]
+    },
+    {
+      "ticket": 137,
+      "sql_bytes": 45,
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 138,
+      "sql_bytes": 47,
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 139,
+      "sql_bytes": 52,
+      "sql_sha256": "0cce2a9f48304087960b367db9f9476186abc26336044c16e724ad47e17d6067",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 140,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 141,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 142,
+      "sql_bytes": 320,
+      "sql_sha256": "d4658e34fafc3d48b18c807392088f6e5526bdd9a611b425d63242e5a228cb4e",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 143,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 144,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 145,
+      "sql_bytes": 509,
+      "sql_sha256": "24174a5e8ce22411414b5d6c698200e451efec8f97bf3e79afebe22143e0b547",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 146,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 147,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 148,
+      "sql_bytes": 440,
+      "sql_sha256": "140b9a49553ea542b319e7713c735c271b8d188c9f6372230b00edc920e5ebd0",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 149,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 150,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 151,
+      "sql_bytes": 451,
+      "sql_sha256": "cb1ada2f6e5b0f83d4c36127c43918fff0b988a571db0617d3d63140f088894c",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 152,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 153,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 154,
+      "sql_bytes": 449,
+      "sql_sha256": "33d18364dc15041fc896e6be9cb69f866d59b62384f5c99ec154be2393696ff3",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 155,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 156,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 157,
+      "sql_bytes": 455,
+      "sql_sha256": "fb8defc6843fe549dec3a6eb1f4338375632ec746c31b931c42437ec81d99adb",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 158,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 159,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 160,
+      "sql_bytes": 320,
+      "sql_sha256": "d4658e34fafc3d48b18c807392088f6e5526bdd9a611b425d63242e5a228cb4e",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 161,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 162,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 163,
+      "sql_bytes": 320,
+      "sql_sha256": "d4658e34fafc3d48b18c807392088f6e5526bdd9a611b425d63242e5a228cb4e",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 164,
+      "sql_bytes": 320,
+      "sql_sha256": "d4658e34fafc3d48b18c807392088f6e5526bdd9a611b425d63242e5a228cb4e",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 165,
+      "sql_bytes": 263,
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 166,
+      "sql_bytes": 1484,
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "fixture_indices": [
+        5
+      ]
+    },
+    {
+      "ticket": 167,
+      "sql_bytes": 320,
+      "sql_sha256": "d4658e34fafc3d48b18c807392088f6e5526bdd9a611b425d63242e5a228cb4e",
+      "fixture_indices": [
+        5
+      ]
+    }
+  ],
+  "sql_examples": {
+    "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15": "DESCRIBE SELECT * FROM _duxcel_workspace.meta",
+    "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63": "DESCRIBE SELECT * FROM _duxcel_workspace.sheets",
+    "0cce2a9f48304087960b367db9f9476186abc26336044c16e724ad47e17d6067": "DESCRIBE SELECT * FROM _duxcel_workspace.preferences",
+    "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f": "SELECT CAST(\"version\" AS VARCHAR) AS \"version\",CAST(\"active_sheet\" AS VARCHAR) AS \"active_sheet\",CAST(\"user_scale\" AS VARCHAR) AS \"user_scale\" FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _duxcel_relation LIMIT 256 OFFSET 0",
+    "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9": "SELECT CAST(\"id\" AS VARCHAR) AS \"id\",CAST(\"name\" AS VARCHAR) AS \"name\",CAST(\"kind\" AS VARCHAR) AS \"kind\",CAST(\"path\" AS VARCHAR) AS \"path\",CAST(\"source_schema\" AS VARCHAR) AS \"source_schema\",CAST(\"source_table\" AS VARCHAR) AS \"source_table\",CAST(\"filter_column\" AS VARCHAR) AS \"filter_column\",CAST(\"filter_value\" AS VARCHAR) AS \"filter_value\",CAST(\"filter_op\" AS VARCHAR) AS \"filter_op\",CAST(\"group_column\" AS VARCHAR) AS \"group_column\",CAST(\"measure_column\" AS VARCHAR) AS \"measure_column\",CAST(\"aggregate\" AS VARCHAR) AS \"aggregate\",CAST(\"sort_column\" AS VARCHAR) AS \"sort_column\",CAST(\"descending\" AS VARCHAR) AS \"descending\",CAST(\"active_row\" AS VARCHAR) AS \"active_row\",CAST(\"active_col\" AS VARCHAR) AS \"active_col\",CAST(\"anchor_row\" AS VARCHAR) AS \"anchor_row\",CAST(\"anchor_col\" AS VARCHAR) AS \"anchor_col\",CAST(\"end_row\" AS VARCHAR) AS \"end_row\",CAST(\"end_col\" AS VARCHAR) AS \"end_col\",CAST(\"top_row\" AS VARCHAR) AS \"top_row\",CAST(\"horizontal\" AS VARCHAR) AS \"horizontal\",CAST(\"fraction\" AS VARCHAR) AS \"fraction\",CAST(\"selection\" AS VARCHAR) AS \"selection\",CAST(\"canvas_zoom\" AS VARCHAR) AS \"canvas_zoom\" FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _duxcel_relation LIMIT 256 OFFSET 0",
+    "408b567aa1d51e919cd0e713388aba2500f04b9fa46f0bf93d0117a5d2ebb19c": "SELECT CAST(\"name\" AS VARCHAR) AS \"name\",CAST(\"value\" AS VARCHAR) AS \"value\" FROM (SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') ORDER BY name LIMIT 66) AS _duxcel_relation LIMIT 256 OFFSET 0",
+    "d4658e34fafc3d48b18c807392088f6e5526bdd9a611b425d63242e5a228cb4e": "SELECT CAST(\"name\" AS VARCHAR) AS \"name\",CAST(\"value\" AS VARCHAR) AS \"value\" FROM (SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') OR name IS NULL OR value IS NULL OR contains(name,chr(0)) ORDER BY name LIMIT 66) AS _duxcel_relation LIMIT 256 OFFSET 0",
+    "24174a5e8ce22411414b5d6c698200e451efec8f97bf3e79afebe22143e0b547": "SELECT CAST(\"name\" AS VARCHAR) AS \"name\",CAST(\"value\" AS VARCHAR) AS \"value\" FROM (SELECT * FROM (SELECT * FROM (SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') OR name IS NULL OR value IS NULL OR contains(name,chr(0)) ORDER BY name LIMIT 66) AS _pref_original WHERE name<>'sheet_hidden_62' UNION ALL SELECT 'sheet_hidden_63'::VARCHAR AS name,false::BOOLEAN AS value) AS _pref_duplicate ORDER BY name) AS _duxcel_relation LIMIT 256 OFFSET 0",
+    "140b9a49553ea542b319e7713c735c271b8d188c9f6372230b00edc920e5ebd0": "SELECT CAST(\"name\" AS VARCHAR) AS \"name\",CAST(\"value\" AS VARCHAR) AS \"value\" FROM (SELECT * REPLACE (CASE WHEN name='sheet_hidden_63' THEN true ELSE value END AS value) FROM (SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') OR name IS NULL OR value IS NULL OR contains(name,chr(0)) ORDER BY name LIMIT 66) AS _pref_bad ORDER BY name) AS _duxcel_relation LIMIT 256 OFFSET 0",
+    "cb1ada2f6e5b0f83d4c36127c43918fff0b988a571db0617d3d63140f088894c": "SELECT CAST(\"name\" AS VARCHAR) AS \"name\",CAST(\"value\" AS VARCHAR) AS \"value\" FROM (SELECT * REPLACE (CASE WHEN name='sheet_hidden_63' THEN 'sheet_hidden_01' ELSE name END AS name) FROM (SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') OR name IS NULL OR value IS NULL OR contains(name,chr(0)) ORDER BY name LIMIT 66) AS _pref_bad ORDER BY name) AS _duxcel_relation LIMIT 256 OFFSET 0",
+    "33d18364dc15041fc896e6be9cb69f866d59b62384f5c99ec154be2393696ff3": "SELECT CAST(\"name\" AS VARCHAR) AS \"name\",CAST(\"value\" AS VARCHAR) AS \"value\" FROM (SELECT * REPLACE (CASE WHEN name='sheet_hidden_63' THEN 'sheet_hidden_' ELSE name END AS name) FROM (SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') OR name IS NULL OR value IS NULL OR contains(name,chr(0)) ORDER BY name LIMIT 66) AS _pref_bad ORDER BY name) AS _duxcel_relation LIMIT 256 OFFSET 0",
+    "fb8defc6843fe549dec3a6eb1f4338375632ec746c31b931c42437ec81d99adb": "SELECT CAST(\"name\" AS VARCHAR) AS \"name\",CAST(\"value\" AS VARCHAR) AS \"value\" FROM (SELECT * FROM ((SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') OR name IS NULL OR value IS NULL OR contains(name,chr(0)) ORDER BY name LIMIT 66) UNION ALL SELECT 'sheet_hidden_63'::VARCHAR AS name,false::BOOLEAN AS value) AS _pref_sentinel ORDER BY name LIMIT 66) AS _duxcel_relation LIMIT 256 OFFSET 0"
+  },
+  "held": 1,
+  "released": 1
+}
