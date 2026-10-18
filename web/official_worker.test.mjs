@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { Table, Int32, Int64, Uint64, Decimal, Utf8, TimestampNanosecond,
     vectorFromArray, makeVector, makeData, RecordBatchReader, tableToIPC } from 'apache-arrow';
 import { LIMITS, pageRequest, decimalText, encodePage, pageCellText, pageTransferables,
-    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport } from './official_worker.mjs';
+    DuckDBWorkerAdapter, createOfficialWorkerAdapter,EXPORT_LIMITS,exportRequest,inspectParquetExport,workbookSortsRequest } from './official_worker.mjs';
 
 const request = (id = '1', extra = {}) => pageRequest({ requestId: id, sql: 'C BUILT SQL LIMIT 256', ...extra });
 function words(value, length = 4) {
@@ -30,11 +30,80 @@ test('copy-only row envelopes keep ordinary page bounds and enforce 20,000 actua
     const wide=new Table({a:vectorFromArray(Array(10001).fill(1),new Int32()),b:vectorFromArray(Array(10001).fill(2),new Int32())});
     await assert.rejects(encodePage(reader(wide),request('3',{purpose:'copy',rowLimit:10001})),{code:'PAGE_LIMIT'});
 });
+const workbookSortColumns=[
+    {name:'sheet_id',typeName:'INTEGER',numberKind:'i32'},
+    {name:'position',typeName:'INTEGER',numberKind:'i32'},
+    {name:'name',typeName:'VARCHAR',numberKind:'none'},
+    {name:'descending',typeName:'BOOLEAN',numberKind:'none'},
+];
+function workbookSortInput(id='1',change={}){
+    return {requestId:id,generation:'9007199254740993',documentId:'7',sourceId:'0',objectId:'0',revision:'18446744073709551615',
+        offset:'0',knownTotal:null,rowLimit:449,purpose:'workbook-sorts',sql:'C OWNED CANONICAL SORTS PROJECTION LIMIT 449',
+        columns:workbookSortColumns.map(column=>({...column})),
+        sourceBindings:[{name:'fixture.dxls',engineEpoch:'1',registrationId:'1'}],...change};
+}
+function workbookSortTable(rows=449){
+    const names=[null,'','NULL','9007199254740993','18446744073709551615','İstanbul 🦆'];
+    return new Table({sheet_id:vectorFromArray(Array.from({length:rows},(_,i)=>i%64),new Int32()),
+        position:vectorFromArray(Array.from({length:rows},(_,i)=>i%7),new Int32()),
+        name:vectorFromArray(Array.from({length:rows},(_,i)=>names[i%names.length]),new Utf8()),
+        descending:vectorFromArray(Array.from({length:rows},(_,i)=>Boolean(i%2)))});
+}
+test('workbook-sorts request is a separate frozen 449-row four-column single-source contract',()=>{
+    const input=workbookSortInput(),parsed=workbookSortsRequest(input);
+    assert.equal(parsed.purpose,'workbook-sorts');assert.equal(parsed.rowLimit,449);assert.equal(parsed.offset,'0');assert.equal(parsed.knownTotal,null);
+    assert.ok(Object.isFrozen(parsed));assert.ok(Object.isFrozen(parsed.columns));assert.ok(Object.isFrozen(parsed.sourceBindings));
+    input.columns[0].name='changed';input.sourceBindings[0].registrationId='2';
+    assert.equal(parsed.columns[0].name,'sheet_id');assert.equal(parsed.sourceBindings[0].registrationId,'1');
+    assert.throws(()=>pageRequest(workbookSortInput()),{code:'INVALID_REQUEST'});
+    assert.throws(()=>pageRequest({requestId:'2',sql:'normal',rowLimit:257}),{code:'INVALID_REQUEST'});
+    for(const change of [{purpose:undefined},{purpose:'copy'},{purpose:'Workbook-sorts'},{purpose:{}},{offset:'1'},
+        {knownTotal:'449'},{rowLimit:0},{rowLimit:450},{rowLimit:NaN},{rowLimit:1.5},{columns:undefined},
+        {columns:[]},{columns:workbookSortColumns.slice(0,3)},{columns:[...workbookSortColumns,{name:'extra',typeName:'VARCHAR'}]},
+        {sourceBindings:undefined},{sourceBindings:[]},{sourceBindings:[{name:'a.dxls',engineEpoch:'1',registrationId:'1'},{name:'b.dxls',engineEpoch:'1',registrationId:'2'}]},
+        {sourceBindings:[{name:'fixture.dxls',engineEpoch:'0',registrationId:'1'}]}]){
+        assert.throws(()=>workbookSortsRequest(workbookSortInput('2',change)),{code:'INVALID_REQUEST'});
+    }
+});
+test('workbook-sorts consumes one Arrow reader while preserving raw text and the normal row ceiling',async()=>{
+    const source=reader(workbookSortTable()),parsed=workbookSortsRequest(workbookSortInput());
+    const output=await encodePage(source,parsed);
+    assert.equal(output.rowCount,449);assert.equal(output.columnCount,4);assert.equal(output.total,'449');assert.equal(output.countPending,true);
+    assert.deepEqual(Array.from({length:6},(_,row)=>pageCellText(output,row,2)),[null,'','NULL','9007199254740993','18446744073709551615','İstanbul 🦆']);
+    assert.equal(pageCellText(output,448,0),'0');assert.equal(pageCellText(output,448,1),'0');
+    assert.equal(output.columns[0].typeName,'INTEGER');assert.equal(output.columns[3].typeName,'BOOLEAN');
+    const valid=await encodePage(reader(workbookSortTable(448)),parsed);assert.equal(valid.rowCount,448);assert.equal(valid.countPending,false);
+    await assert.rejects(encodePage(reader(workbookSortTable(450)),parsed),{code:'PAGE_LIMIT'});
+    await assert.rejects(encodePage(reader(workbookSortTable(257)),request()),{code:'PAGE_LIMIT'});
+    const wrong=new Table({sheet_id:vectorFromArray([0],new Int32()),position:vectorFromArray([0],new Int32()),name:vectorFromArray(['x'],new Utf8())});
+    await assert.rejects(encodePage(reader(wrong),parsed),{code:'PAGE_LIMIT'});
+    const huge=new Table({sheet_id:vectorFromArray([0],new Int32()),position:vectorFromArray([0],new Int32()),
+        name:vectorFromArray(['x'.repeat(LIMITS.bytes+1)],new Utf8()),descending:vectorFromArray([false])});
+    await assert.rejects(encodePage(reader(huge),parsed),{code:'PAGE_LIMIT'});
+});
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function connection(extra = {}) {
     return { async send() { return reader(simple()); }, async cancelSent() { return true; }, async close() {}, ...extra };
 }
+
+test('dedicated workbook-sorts admission retains source-token guards without widening normal submit',async()=>{
+    let sends=0;const ownedReader=reader(workbookSortTable());
+    const database={async registerFileBuffer(){},async dropFile(){}};
+    const adapter=new DuckDBWorkerAdapter({database,connection:connection({async send(){sends++;return sends===1?ownedReader:reader(simple());}})});
+    const token=await adapter.registerFile('fixture.dxls',new Uint8Array([1]));
+    const input=workbookSortInput('1',{sourceBindings:[token]});
+    assert.throws(()=>adapter.submit(input),{code:'INVALID_REQUEST'});assert.equal(adapter.latestId,0n);assert.equal(sends,0);
+    const reply=await adapter.submitWorkbookSorts(input);
+    assert.equal(reply.status,'ok');assert.equal(reply.page.rowCount,449);assert.equal(sends,1);assert.equal(ownedReader.cancelled,1);
+    await adapter.dropFile('fixture.dxls');const previous=adapter.latestId;
+    assert.throws(()=>adapter.submitWorkbookSorts(workbookSortInput('2',{sourceBindings:[token]})),{code:'SOURCE_INVALIDATED'});
+    assert.equal(adapter.latestId,previous);assert.equal(sends,1);
+    // A source-free ordinary recovery query still has its unchanged envelope.
+    const recovered=await adapter.submit({requestId:'2',sql:'ordinary recovery',rowLimit:256});
+    assert.equal(recovered.status,'ok');assert.equal(recovered.page.rowCount,2);assert.equal(sends,2);
+    await adapter.close();
+});
 
 test('installed browser dependencies and transitive lock retain approved exact integrity pins', async () => {
     const lock = JSON.parse(await readFile(new URL('./package-lock.json', import.meta.url)));

@@ -292,7 +292,76 @@ static void test_copy_envelope(void) {
     CHECK(page_from_wire_owned(&out,wire.bytes,wire.size,0,1,false,budget,&error) && !error && out.bytes==budget && out.cells[0].is_null);
     free(wire.bytes); page_free(&out);
 }
+/* A trusted active workbook cursor selects this entry explicitly. The wire
+   itself cannot opt into a larger envelope, nor may ordinary pages select it. */
+static void reject_workbook_sorts(Page *out,const Wire *wire,size_t size,uint64_t offset,uint64_t total,bool pending,size_t budget) {
+    unsigned char before[sizeof(*out)];memcpy(before,out,sizeof(before));
+    unsigned released=releases;char *error=dx_strdup("Previous error");
+    CHECK(!page_from_wire_workbook_sorts_owned(out,wire->bytes,size,offset,total,pending,budget,&error));
+    CHECK(error&&*error&&strcmp(error,"Previous error"));
+    CHECK(!memcmp(out,before,sizeof(before))&&releases==released);
+    CHECK(!strcmp(out->cells[0].text,"Retained NULL literal")&&!strcmp(out->columns[0].name,"Keep")&&out->records.count==1&&out->records.stamp==UINT64_MAX);
+    free(error);
+}
+static void test_workbook_sorts_envelope(void) {
+    const Descriptor columns[]={
+        {"sheet_id","INTEGER","i32",0,0},{"position","INTEGER","i32",0,0},
+        {"name","VARCHAR","none",0,0},{"descending","BOOLEAN","none",0,0},{"extra","VARCHAR","none",0,0}
+    };
+    const char *names[]={NULL,"","NULL","9007199254740993","18446744073709551615","İstanbul 🦆"};
+    const char **values=dx_alloc(450*5*sizeof(*values));
+    for(size_t row=0;row<450;row++){
+        values[row*4]="63";values[row*4+1]="6";values[row*4+2]=names[row%6];values[row*4+3]=row%2?"true":"false";
+    }
+    Wire wire=encode(columns,4,449,values);Page out=retained_page();char *error=NULL;
+    // The normal decoder still rejects a 257+ row envelope. The metadata path
+    // is opt-in and can preserve the sentinel's honest incomplete count.
+    reject(&out,wire.bytes,wire.size,0,449,true);
+    unsigned released=releases;
+    CHECK(page_from_wire_workbook_sorts_owned(&out,wire.bytes,wire.size,0,449,true,SIZE_MAX,&error)&&!error);
+    CHECK(out.row_count==449&&out.column_count==4&&out.total==449&&out.count_pending&&releases==released+1);
+    CHECK(out.bytes==allocated_bytes(&out)&&!out.records.ids&&!out.records.source_key&&!out.sql&&!out.totals&&!out.other);
+    CHECK(out.columns[0].type==DUCKDB_TYPE_INTEGER&&out.columns[0].number_type.kind==NUM_I32&&out.columns[3].type==DUCKDB_TYPE_BOOLEAN);
+    for(size_t row=0;row<449;row++){
+        const Cell *cell=out.cells+row*4+2;const char *expected=names[row%6];
+        CHECK(cell->is_null==(expected==NULL));CHECK(expected?cell->text&&!strcmp(cell->text,expected):!cell->text);
+    }
+    size_t owned=out.bytes;page_free(&out);out=retained_page();
+    reject_workbook_sorts(&out,&wire,wire.size,0,449,true,owned-1);
+    released=releases;CHECK(page_from_wire_workbook_sorts_owned(&out,wire.bytes,wire.size,0,449,true,owned,&error)&&!error&&out.bytes==owned&&releases==released+1);
+    memset(wire.bytes,0,wire.size);free(wire.bytes);
+    CHECK(!strcmp(out.cells[3*4+2].text,"9007199254740993")&&!strcmp(out.cells[4*4+2].text,"18446744073709551615"));page_free(&out);
+    wire=encode(columns,4,257,values);out=retained_page();reject(&out,wire.bytes,wire.size,0,257,false);free(wire.bytes);
+    wire=encode(columns,4,450,values);reject_workbook_sorts(&out,&wire,wire.size,0,450,true,SIZE_MAX);free(wire.bytes);
+    for(size_t count=0;count<=5;count++)if(count!=4){
+        wire=encode(columns,(uint32_t)count,1,values);reject_workbook_sorts(&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);
+    }
+    wire=encode(columns,4,1,values);
+    reject_workbook_sorts(&out,&wire,wire.size,1,2,false,SIZE_MAX);
+    reject_workbook_sorts(&out,&wire,DX_PAGE_WIRE_BYTES+1u,0,1,false,SIZE_MAX);
+    wire.bytes[wire.nulls]=2;reject_workbook_sorts(&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);
+    wire=encode(columns,4,0,NULL);CHECK(page_from_wire_workbook_sorts_owned(&out,wire.bytes,wire.size,0,0,false,SIZE_MAX,&error)&&!error&&out.row_count==0&&out.column_count==4);free(wire.bytes);page_free(&out);
+    // A tiny NULL-only result also needs the descriptor/Cell storage budget;
+    // it cannot bypass owned-byte admission simply because text is empty.
+    const char *missing[]={NULL,NULL,NULL,NULL};wire=encode(columns,4,1,missing);
+    size_t minimum=4*sizeof(Column)+4*sizeof(Cell);
+    for(size_t i=0;i<4;i++)minimum+=strlen(columns[i].name)+strlen(columns[i].type)+2;
+    out=retained_page();reject_workbook_sorts(&out,&wire,wire.size,0,1,false,minimum-1);
+    CHECK(page_from_wire_workbook_sorts_owned(&out,wire.bytes,wire.size,0,1,false,minimum,&error)&&!error&&out.bytes==minimum);
+    for(size_t i=0;i<4;i++)CHECK(out.cells[i].is_null&&!out.cells[i].text);
+    free(wire.bytes);page_free(&out);free(values);
+}
+static void test_workbook_sorts_text_bound(void) {
+    const Descriptor columns[]={{"sheet_id","INTEGER","i32",0,0},{"position","INTEGER","i32",0,0},{"name","VARCHAR","none",0,0},{"descending","BOOLEAN","none",0,0}};
+    char *text=dx_alloc(DX_PAGE_WIRE_TEXT_BYTES+2);memset(text,'x',DX_PAGE_WIRE_TEXT_BYTES);text[DX_PAGE_WIRE_TEXT_BYTES]=0;
+    const char *values[]={NULL,NULL,text,NULL};Wire wire=encode(columns,4,1,values);Page out={0};char *error=NULL;
+    CHECK(page_from_wire_workbook_sorts_owned(&out,wire.bytes,wire.size,0,1,false,SIZE_MAX,&error)&&!error);
+    CHECK(strlen(out.cells[2].text)==DX_PAGE_WIRE_TEXT_BYTES&&out.bytes==allocated_bytes(&out));page_free(&out);free(wire.bytes);
+    text[DX_PAGE_WIRE_TEXT_BYTES]='x';text[DX_PAGE_WIRE_TEXT_BYTES+1]=0;wire=encode(columns,4,1,values);out=retained_page();
+    reject_workbook_sorts(&out,&wire,wire.size,0,1,false,SIZE_MAX);free(wire.bytes);free(text);page_free(&out);
+}
 int main(void) {
+    test_workbook_sorts_envelope();test_workbook_sorts_text_bound();
     test_copy_envelope();
     test_exact_owned_values(); test_row_major_and_replacement(); test_record_lookup_bounds(); test_descriptor_types(); test_bad_headers_and_lengths(); test_bad_metadata(); test_strict_utf8(); test_limits_and_empty_pages();
     printf("PASS: %u page wire checks\n",checks); return 0;
