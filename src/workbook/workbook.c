@@ -567,15 +567,20 @@ static bool absolute(const char *path) {
 static char *directory(const char *path) {
     const char *base=dx_basename(path); return base==path ? dx_strdup(".") : dx_printf("%.*s",(int)(base-path),path);
 }
+static char *directory_join(const char *dir,const char *name) {
+    size_t n=strlen(dir);
+    bool separated=n && (dir[n-1]=='/' || dir[n-1]=='\\');
+    return dx_printf("%s%s%s",dir,separated ? "" : "/",name);
+}
 char *workbook_target_path(const char *path) {
     char *existing=dx_absolute_path(path); if (existing) return existing;
     char *dir=directory(path),*resolved=dx_absolute_path(dir); free(dir);
     if (!resolved) return NULL;
-    char *out=dx_printf("%s/%s",resolved,dx_basename(path)); free(resolved); return out;
+    char *out=directory_join(resolved,dx_basename(path)); free(resolved); return out;
 }
 char *workbook_source_path(const char *workspace,const char *ref) {
     if (absolute(ref)) return dx_strdup(ref);
-    char *dir=directory(workspace); char *out=dx_printf("%s/%s",dir,ref); free(dir);
+    char *dir=directory(workspace); char *out=directory_join(dir,ref); free(dir);
     char *resolved=dx_absolute_path(out); if (resolved) { free(out); return resolved; } return out;
 }
 char *workbook_relative_path(const char *workspace,const char *source) {
