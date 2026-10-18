@@ -250,6 +250,10 @@ typedef struct {
     uint64_t inspector_sql_steps_key;
     bool pipeline_rows_valid;
     UIInspectorLayout pipeline_layout;
+    Rectangle pipeline_panel;
+    float pipeline_outer_scroll,pipeline_inner_scroll;
+    UIScrollbar pipeline_outer_bar,pipeline_inner_bar;
+    bool pipeline_reveal;
     int pipeline_selected_step,step_menu_index;
     bool step_menu_opening;
     bool key_tips, ribbon_focus, diagnostics, consume_grid_input;
@@ -424,6 +428,9 @@ static void present_pipeline(App *a,bool visible,bool collapsed) {
     a->pipeline=visible; a->pipeline_collapsed=visible && collapsed;
     a->chrome_focus=visible ? 8 : 0; a->pipeline_focus_index=0;
     a->steps_drag=a->split_pipeline=false; a->consume_grid_input=true;
+    a->pipeline_outer_scroll=a->pipeline_inner_scroll=0;
+    a->pipeline_outer_bar=a->pipeline_inner_bar=(UIScrollbar){0};
+    a->pipeline_reveal=true;
 }
 static void show_workspace(App *a) {
     if (!a->sidebar && !a->fields_visible && !selected_pivot(a)) a->fields_visible=true;
@@ -6094,6 +6101,8 @@ static void pipeline_rows_cache(App *a) {
 }
 static void pipeline_show_sql(App *a) {
     a->pipeline_selected_step=a->pipeline_focus_index; a->pipeline_sql=true; a->pipeline_focus_index=0; a->chrome_focus=8; a->consume_grid_input=true;
+    a->pipeline_outer_scroll=a->pipeline_inner_scroll=0;
+    a->pipeline_outer_bar=a->pipeline_inner_bar=(UIScrollbar){0};
 }
 static bool pipeline_step_editable(App *a,const UIStep *step) {
     const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table);
@@ -6163,6 +6172,48 @@ static void draw_step_menu(App *a) {
         }
     }
 }
+/* Both offsets use interface units, independent of sheet zoom. A packet is
+   routed once to the innermost viewport, then only its unused part bubbles. */
+static void pipeline_scroll_delta(App *a,const UIInspectorLayout *layout,Rectangle panel,Vector2 pointer,float delta) {
+    if (!isfinite(delta) || !delta || !CheckCollisionPointRec(pointer,panel)) return;
+    if (layout->inner_scrollable && CheckCollisionPointRec(pointer,GetCollisionRec(layout->list_frame,layout->body_clip))) {
+        float before=a->pipeline_inner_scroll;
+        a->pipeline_inner_scroll=fmaxf(0,fminf(layout->inner_max,before+delta));
+        delta-=a->pipeline_inner_scroll-before;
+    }
+    if (layout->outer_scrollable)
+        a->pipeline_outer_scroll=fmaxf(0,fminf(layout->outer_max,a->pipeline_outer_scroll+delta));
+}
+static void pipeline_reveal_step(App *a,size_t index) {
+    const UIInspectorLayout *layout=&a->pipeline_layout; float s=a->ui.scale;
+    if (!layout->valid || a->pipeline_sql || a->pipeline_collapsed || !s) return;
+    float top=7+index*layout->row_height,bottom=top+layout->row_height,visible=layout->list_frame.height/s;
+    if (top<a->pipeline_inner_scroll) a->pipeline_inner_scroll=top;
+    if (bottom>a->pipeline_inner_scroll+visible) a->pipeline_inner_scroll=bottom-visible;
+    a->pipeline_inner_scroll=fmaxf(0,fminf(layout->inner_max,a->pipeline_inner_scroll));
+    float y=layout->list_frame.y+(top-a->pipeline_inner_scroll)*s,edge=layout->body_clip.y+layout->body_clip.height;
+    if (y<layout->body_clip.y) a->pipeline_outer_scroll+=(y-layout->body_clip.y)/s;
+    else if (y+layout->row_height*s>edge) a->pipeline_outer_scroll+=(y+layout->row_height*s-edge)/s;
+    a->pipeline_outer_scroll=fmaxf(0,fminf(layout->outer_max,a->pipeline_outer_scroll));
+    a->step_scroll=(int)fmaxf(0,floorf((a->pipeline_inner_scroll-7)/layout->row_height));
+}
+static Rectangle pipeline_scrollbar_thumb(Rectangle track,float content,float viewport,float offset,float scale) {
+    Rectangle thumb=ui_scrollbar_thumb(track,content,viewport,offset,false,scale);
+    if (thumb.width>0 && thumb.height>0) { thumb.x=track.x+2*scale; thumb.width=fmaxf(0,track.width-4*scale); }
+    return thumb;
+}
+static void pipeline_visible_rows(const UIInspectorLayout *layout,float scale,int count,int *first,int *last) {
+    float height=layout->row_height*scale;
+    *first=layout->list.height>0 ? (int)fmaxf(0,floorf((layout->list.y-layout->list_origin.y)/height)) : 0;
+    *last=layout->list.height>0 ? (int)fminf((float)count,ceilf((layout->list.y+layout->list.height-layout->list_origin.y)/height)) : 0;
+}
+static void pipeline_scrollbar_paint(UIContext *u,Rectangle track,float content,float viewport,float offset,bool enabled) {
+    Rectangle thumb=pipeline_scrollbar_thumb(track,content,viewport,offset,u->scale);
+    if (thumb.width<=0 || thumb.height<=0) return;
+    DrawRectangleRec(track,(Color){241,244,246,255});
+    bool hover=enabled && !u->pointer_blocked && CheckCollisionPointRec(ui_mouse_position(),thumb);
+    DrawRectangleRounded(thumb,1,4,hover ? (Color){153,172,188,255} : (Color){184,198,209,255});
+}
 static void draw_pipeline(App *a,Rectangle r) {
     const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table);
     UIContext *u=&a->ui; float scale=u->scale; Vector2 mouse=ui_mouse_position();
@@ -6185,7 +6236,45 @@ static void draw_pipeline(App *a,Rectangle r) {
         if (header_enabled && CheckCollisionPointRec(mouse,dismiss)) { a->ribbon_hover="Dismiss Transformations"; a->ribbon_hover_rect=dismiss; }
         return;
     }
-    pipeline_rows_cache(a); UIInspectorLayout layout=ui_inspector_layout(r,scale,a->pipeline_row_count,a->pipeline_sql); a->pipeline_layout=layout; if (!layout.valid) return;
+    pipeline_rows_cache(a);
+    UIInspectorLayout layout=ui_inspector_layout_scrolled(r,scale,a->pipeline_row_count,a->pipeline_sql,a->pipeline_outer_scroll,a->pipeline_inner_scroll);
+    if (!layout.valid) return;
+    if (!a->pipeline_sql) {
+        a->pipeline_outer_scroll=layout.outer_offset; a->pipeline_inner_scroll=layout.inner_offset;
+        if (enabled) {
+            Vector2 pointer=mouse; float delta=-GetMouseWheelMoveV().y*48;
+#ifdef DUXCEL_BROWSER_HOST
+            float dx=0,dy=0; if (dx_web_pixel_pan(&dx,&dy)) delta=dy/scale;
+#else
+            if (u->native_pan_valid) {
+                delta=u->native_pan.y/scale;
+                if (u->native_pan.event) pointer=(Vector2){u->native_pan.pointer_x,u->native_pan.pointer_y};
+            }
+#endif
+            pipeline_scroll_delta(a,&layout,r,pointer,delta);
+        }
+        layout=ui_inspector_layout_scrolled(r,scale,a->pipeline_row_count,false,a->pipeline_outer_scroll,a->pipeline_inner_scroll);
+        if (ui_scrollbar_update(u,layout.outer_scrollbar,r.height/scale+layout.outer_max,r.height/scale,&a->pipeline_outer_scroll,false,&a->pipeline_outer_bar,enabled)) a->consume_grid_input=true;
+        if (ui_scissor_begin(u,layout.body_clip)) {
+            if (ui_scrollbar_update(u,layout.list_scrollbar,layout.list_frame.height/scale+layout.inner_max,layout.list_frame.height/scale,&a->pipeline_inner_scroll,false,&a->pipeline_inner_bar,enabled)) a->consume_grid_input=true;
+            ui_scissor_end(u);
+        }
+        layout=ui_inspector_layout_scrolled(r,scale,a->pipeline_row_count,false,a->pipeline_outer_scroll,a->pipeline_inner_scroll);
+        a->pipeline_outer_scroll=layout.outer_offset; a->pipeline_inner_scroll=layout.inner_offset;
+    }
+    a->pipeline_layout=layout; a->pipeline_panel=r;
+    if (!a->pipeline_sql) {
+        int visible=(int)ceilf(layout.list_frame.height/(layout.row_height*scale)); if (visible<1) visible=1;
+        if (a->pipeline_focus_index>=(int)a->pipeline_row_count) a->pipeline_focus_index=a->pipeline_row_count ? (int)a->pipeline_row_count-1 : 0;
+        if (a->pipeline_focus_index<0) a->pipeline_focus_index=0;
+        if ((a->pipeline_visible_rows!=visible && a->chrome_focus==8) || a->pipeline_reveal) {
+            pipeline_reveal_step(a,(size_t)a->pipeline_focus_index);
+            layout=ui_inspector_layout_scrolled(r,scale,a->pipeline_row_count,false,a->pipeline_outer_scroll,a->pipeline_inner_scroll);
+            a->pipeline_layout=layout;
+        }
+        a->pipeline_reveal=false;
+        a->pipeline_visible_rows=visible;
+    }
     REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.body","pane.transformations","pipeline.inspect","group",a->pipeline_sql ? "Inspect SQL" : "Transformations",r,r,true,false,false,NULL,false,NULL);
     REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.title","pane.transformations.body","pipeline.inspect","text",a->pipeline_sql ? "Inspect SQL" : "Transformations",layout.title,r,true,false,false,"VARCHAR",false,a->pipeline_sql ? "Inspect SQL" : "Transformations");
     REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.collapse","pane.transformations.body","pipeline.collapse","button","Collapse Transformations",layout.collapse,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer,false,false,NULL,false,NULL);
@@ -6194,10 +6283,15 @@ static void draw_pipeline(App *a,Rectangle r) {
     if (ui_icon_button(u,layout.collapse,CARBON_CHEVRON_RIGHT,false,passive_control(a,header_enabled))) { present_pipeline(a,true,true); return; }
     if (ui_icon_button(u,layout.dismiss,CARBON_CLOSE,false,passive_control(a,header_enabled))) { present_pipeline(a,false,false); return; }
     DrawLineV((Vector2){r.x,r.y+35*scale},(Vector2){r.x+r.width,r.y+35*scale},(Color){220,228,234,255});
-    float prefix=ui_measure(u,"Source:",11.5f)+5*scale; ui_label(u,"Source:",layout.source,11.5f,UI_MUTED,false,UI_REGULAR);
-    ui_label(u,table ? table->name : active_sheet(a)->name,box(layout.source.x+prefix,layout.source.y,layout.source.width-prefix,layout.source.height),11.5f,(Color){48,79,102,255},false,UI_MEDIUM);
-    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.source","pane.transformations.body","pipeline.inspect_source","text","Source",layout.source,r,true,false,false,"VARCHAR",false,table ? table->name : active_sheet(a)->name);
-    DrawLineV((Vector2){r.x,r.y+69*scale},(Vector2){r.x+r.width,r.y+69*scale},(Color){225,231,236,255});
+    bool body_scissor=!a->pipeline_sql;
+    if (body_scissor && !ui_scissor_begin(u,layout.body_clip)) return;
+    Rectangle source_label=layout.source;
+    if (body_scissor) { source_label.x+=13*scale; source_label.width=fmaxf(0,source_label.width-26*scale); }
+    float prefix=ui_measure(u,"Source:",11.5f)+5*scale; ui_label(u,"Source:",source_label,11.5f,UI_MUTED,false,UI_REGULAR);
+    ui_label(u,table ? table->name : active_sheet(a)->name,box(source_label.x+prefix,source_label.y,source_label.width-prefix,source_label.height),11.5f,(Color){48,79,102,255},false,UI_MEDIUM);
+    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.source","pane.transformations.body","pipeline.inspect_source","text","Source",source_label,body_scissor ? layout.body_clip : r,true,false,false,"VARCHAR",false,table ? table->name : active_sheet(a)->name);
+    float source_bottom=body_scissor ? layout.source.y+layout.source.height : r.y+69*scale;
+    DrawLineV((Vector2){r.x,source_bottom},(Vector2){r.x+r.width,source_bottom},(Color){225,231,236,255});
     if (a->pipeline_sql) {
         uint64_t id=table ? table->id : 0,revision=table ? table->revision : a->analysis_revision;
         if (!a->inspector_sql_valid || a->inspector_sql_id!=id || a->inspector_sql_revision!=revision || a->inspector_sql_generation!=a->analysis_revision || a->inspector_sql_sheet!=a->book.active || a->inspector_sql_steps_key!=a->pipeline_rows_key) {
@@ -6219,24 +6313,18 @@ static void draw_pipeline(App *a,Rectangle r) {
         if (maximum) list_scrollbar(a,box(code.x+code.width,code.y,8*scale,code.height),(int)lines->count,visible,&a->inspector_sql_scroll,&a->steps_drag,&a->steps_grab,enabled);
         DrawLineV((Vector2){r.x,layout.footer.y},(Vector2){r.x+r.width,layout.footer.y},(Color){220,228,235,255});
         if (ui_carbon_command(u,layout.copy,CARBON_COPY,"Copy SQL",false,passive_control(a,header_enabled))) { copy_text(a,a->inspector_sql_text,"Source SQL copied."); }
-        if (ui_carbon_command(u,layout.steps,CARBON_DATA_STRUCTURED,"Steps",false,passive_control(a,header_enabled))) { a->pipeline_sql=false; a->pipeline_focus_index=a->pipeline_selected_step; }
+        if (ui_carbon_command(u,layout.steps,CARBON_DATA_STRUCTURED,"Steps",false,passive_control(a,header_enabled))) { a->pipeline_sql=false; a->pipeline_focus_index=a->pipeline_selected_step; a->pipeline_outer_scroll=a->pipeline_inner_scroll=0; a->pipeline_reveal=true; }
         if (a->chrome_focus==8) ui_focus_border(a->pipeline_focus_index ? layout.steps : layout.copy,a->pipeline_focus_index ? layout.steps : layout.copy,1.5f*scale);
         return;
     }
-    int previous_visible=a->pipeline_visible_rows;
-    int count=(int)a->pipeline_row_count,visible=(int)(layout.list.height/(layout.row_height*scale)); if (visible<1) visible=1; a->pipeline_visible_rows=visible;
-    int maximum=count>visible ? count-visible : 0;
-    if (a->pipeline_focus_index>=count) a->pipeline_focus_index=count ? count-1 : 0; if (a->pipeline_focus_index<0) a->pipeline_focus_index=0;
-    if (previous_visible!=visible && a->chrome_focus==8) {
-        if (a->pipeline_focus_index<a->step_scroll) a->step_scroll=a->pipeline_focus_index;
-        if (a->pipeline_focus_index>=a->step_scroll+visible) a->step_scroll=a->pipeline_focus_index-visible+1;
-    }
-    if (enabled && CheckCollisionPointRec(mouse,layout.list)) a->step_scroll+=ui_scroll_steps(&a->wheel_steps,-GetMouseWheelMoveV().y*2);
-    if (a->step_scroll<0) a->step_scroll=0; if (a->step_scroll>maximum) a->step_scroll=maximum;
-    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.steps","pane.transformations.body","pipeline.inspect_steps","listbox","Source steps",layout.list,r,true,false,a->chrome_focus==8,NULL,false,NULL);
+    int count=(int)a->pipeline_row_count;
+    a->step_scroll=(int)fmaxf(0,floorf((layout.inner_offset-7)/layout.row_height));
+    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.steps","pane.transformations.body","pipeline.inspect_steps","listbox","Source steps",layout.list,layout.body_clip,true,false,a->chrome_focus==8,NULL,false,NULL);
     ui_set_clip(u,layout.list);
-    for (int row=0;row<visible+1 && row+a->step_scroll<count;row++) {
-        int index=row+a->step_scroll; UIStep *step=&a->pipeline_rows[index]; Rectangle item=box(layout.list.x,layout.list.y+row*layout.row_height*scale,layout.list.width-8*scale,layout.row_height*scale);
+    float row_height=layout.row_height*scale;
+    int first,last; pipeline_visible_rows(&layout,scale,count,&first,&last);
+    for (int index=first;index<last;index++) {
+        UIStep *step=&a->pipeline_rows[index]; Rectangle item=box(layout.list_origin.x,layout.list_origin.y+index*row_height,layout.list_origin.width,row_height);
         bool selected=index==a->pipeline_focus_index;
         REVIEW_FEEDBACK_STEP(a,table,step,(size_t)index,item,layout.list,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && !a->grid.dragging && !a->grid.moving && a->grid.resizing<0 && !a->grid.scrollbar,selected,selected && a->chrome_focus==8);
         if (ui_list_row(u,item,"",false,passive_control(a,enabled))) { a->pipeline_focus_index=index; a->chrome_focus=8; a->consume_grid_input=true; selected=true; }
@@ -6251,19 +6339,19 @@ static void draw_pipeline(App *a,Rectangle r) {
         /* The extra painted row may extend below the list into its actions.
            Only its visible portion can own a context gesture. */
         Rectangle hit=GetCollisionRec(item,u->clip); DxPointerGesture gesture;
-        if (enabled && hit.width>0 && hit.height>0 && ui_take_gesture_from(hit,&gesture) && gesture.right) { ui_clear_clip(u); a->pipeline_focus_index=index; begin_step_menu(a,(size_t)index,(Vector2){gesture.x1,gesture.y1}); return; }
-        if (enabled && hit.width>0 && hit.height>0 && CheckCollisionPointRec(mouse,hit) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { ui_clear_clip(u); a->pipeline_focus_index=index; begin_step_menu(a,(size_t)index,mouse); return; }
+        if (enabled && hit.width>0 && hit.height>0 && ui_take_gesture_from(hit,&gesture) && gesture.right) { ui_clear_clip(u); ui_scissor_end(u); a->pipeline_focus_index=index; begin_step_menu(a,(size_t)index,(Vector2){gesture.x1,gesture.y1}); return; }
+        if (enabled && hit.width>0 && hit.height>0 && CheckCollisionPointRec(mouse,hit) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { ui_clear_clip(u); ui_scissor_end(u); a->pipeline_focus_index=index; begin_step_menu(a,(size_t)index,mouse); return; }
         if (selected && a->chrome_focus==8) ui_focus_border(item,layout.list,scale);
     }
-    ui_clear_clip(u); if (maximum) list_scrollbar(a,layout.list,count,visible,&a->step_scroll,&a->steps_drag,&a->steps_grab,enabled);
+    ui_clear_clip(u);
     DrawLineV((Vector2){r.x,layout.details.y},(Vector2){r.x+r.width,layout.details.y},(Color){220,228,235,255});
     if (count) {
         UIStep *step=&a->pipeline_rows[a->pipeline_focus_index];
         ui_label(u,step->title,layout.detail_title,11.5f,UI_TEXT,false,UI_MEDIUM);
-        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.detail_title","pane.transformations.body","pipeline.inspect_step","text",step->title,layout.detail_title,r,true,false,false,"VARCHAR",false,step->title);
-        if (layout.description.height) REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.description","pane.transformations.body","pipeline.inspect_step","text","Step detail",layout.description,r,true,false,false,"VARCHAR",false,step->detail);
-        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.edit","pane.transformations.body","pipeline.edit_step","button",step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…",layout.edit,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && pipeline_step_editable(a,step),false,false,NULL,false,NULL);
-        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.preview","pane.transformations.body","pipeline.preview","button","Preview…",layout.preview,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && source->kind!=SOURCE_NONE,false,false,NULL,false,NULL);
+        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.detail_title","pane.transformations.body","pipeline.inspect_step","text",step->title,layout.detail_title,layout.body_clip,true,false,false,"VARCHAR",false,step->title);
+        if (layout.description.height) REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.description","pane.transformations.body","pipeline.inspect_step","text","Step detail",layout.description,layout.body_clip,true,false,false,"VARCHAR",false,step->detail);
+        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.edit","pane.transformations.body","pipeline.edit_step","button",step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…",layout.edit,layout.body_clip,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && pipeline_step_editable(a,step),false,false,NULL,false,NULL);
+        REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.preview","pane.transformations.body","pipeline.preview","button","Preview…",layout.preview,layout.body_clip,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && source->kind!=SOURCE_NONE,false,false,NULL,false,NULL);
         if (layout.description.height) ui_label(u,step->detail,layout.description,11,UI_MUTED,false,UI_REGULAR);
         if (ui_popup_button(u,layout.edit,step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…",false,false,passive_control(a,enabled) && pipeline_step_editable(a,step))) pipeline_edit_step(a,(size_t)a->pipeline_focus_index);
         if (ui_popup_button(u,layout.preview,"Preview…",false,false,passive_control(a,enabled) && !a->busy && source->kind!=SOURCE_NONE)) {
@@ -6277,8 +6365,19 @@ static void draw_pipeline(App *a,Rectangle r) {
     DrawLineV((Vector2){r.x,layout.footer.y},(Vector2){r.x+r.width,layout.footer.y},(Color){225,231,236,255});
     if (ui_carbon_command(u,layout.inspect,CARBON_SQL,"Inspect SQL",false,passive_control(a,enabled) && source->kind!=SOURCE_NONE)) pipeline_show_sql(a);
     if (layout.note.height) ui_label(u,"Current source steps",layout.note,10,UI_MUTED,false,UI_REGULAR);
-    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.inspect","pane.transformations.body","pipeline.show_sql","button","Inspect SQL",layout.inspect,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && source->kind!=SOURCE_NONE,false,false,NULL,false,NULL);
-    if (layout.note.height) REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.note","pane.transformations.body","pipeline.inspect","text","Current source steps",layout.note,r,true,false,false,"VARCHAR",false,"Current source steps");
+    REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.inspect","pane.transformations.body","pipeline.show_sql","button","Inspect SQL",layout.inspect,layout.body_clip,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy && source->kind!=SOURCE_NONE,false,false,NULL,false,NULL);
+    if (layout.note.height) REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.note","pane.transformations.body","pipeline.inspect","text","Current source steps",layout.note,layout.body_clip,true,false,false,"VARCHAR",false,"Current source steps");
+    if (layout.inner_scrollable) {
+        float viewport=layout.list_frame.height/scale,content=viewport+layout.inner_max;
+        pipeline_scrollbar_paint(u,layout.list_scrollbar,content,viewport,layout.inner_offset,enabled);
+        REVIEW_FEEDBACK_SCROLL(a,"pipeline",table,"pane.transformations.steps.scrollbar","pane.transformations.body",layout.list_scrollbar,pipeline_scrollbar_thumb(layout.list_scrollbar,content,viewport,layout.inner_offset,scale),layout.body_clip,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy,a->pipeline_inner_bar.dragging);
+    }
+    ui_scissor_end(u);
+    if (layout.outer_scrollable) {
+        float viewport=r.height/scale,content=viewport+layout.outer_max;
+        pipeline_scrollbar_paint(u,layout.outer_scrollbar,content,viewport,layout.outer_offset,enabled);
+        REVIEW_FEEDBACK_SCROLL(a,"pipeline",table,"pane.transformations.scrollbar","pane.transformations.body",layout.outer_scrollbar,pipeline_scrollbar_thumb(layout.outer_scrollbar,content,viewport,layout.outer_offset,scale),r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy,a->pipeline_outer_bar.dragging);
+    }
 }
 static void paste_selection(App *a) {
     const char *text=GetClipboardText(); char *error=NULL; size_t rows=0,columns=0;
@@ -6416,13 +6515,14 @@ static bool chrome_keyboard(App *a) {
         if (ui_pressed(KEY_TAB)) a->pipeline_focus_index=a->pipeline_focus_index ? 0 : 1;
         bool copy=ui_pressed(KEY_C) && ui_key_shortcut(KEY_C),activate=ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE);
         if (copy || (activate && !a->pipeline_focus_index)) { copy_text(a,a->inspector_sql_text,"Source SQL copied."); }
-        else if (activate) { a->pipeline_sql=false; a->pipeline_focus_index=a->pipeline_selected_step; }
+        else if (activate) { a->pipeline_sql=false; a->pipeline_focus_index=a->pipeline_selected_step; a->pipeline_outer_scroll=a->pipeline_inner_scroll=0; a->pipeline_reveal=true; }
         a->consume_grid_input=true; return true;
     }
     int count=workbook ? (int)(sheet_count+a->page.relation_count) : a->pipeline_collapsed ? 2 : (int)pipeline_steps(a);
     int *index=workbook ? &a->workbook_focus_index : &a->pipeline_focus_index;
     int *scroll=workbook ? &a->sheet_scroll : &a->step_scroll;
     int visible=workbook ? a->workbook_visible_rows : a->pipeline_visible_rows; if (visible<1) visible=1;
+    bool row_navigation=ui_key(KEY_UP)||ui_key(KEY_DOWN)||ui_key(KEY_PAGE_UP)||ui_key(KEY_PAGE_DOWN)||ui_pressed(KEY_HOME)||ui_pressed(KEY_END);
     if (ui_key(KEY_UP) && !ui_key_alt(KEY_UP)) (*index)--;
     if (ui_key(KEY_DOWN) && !ui_key_alt(KEY_DOWN)) (*index)++;
     if (ui_key(KEY_PAGE_UP)) *index-=visible;
@@ -6439,11 +6539,19 @@ static bool chrome_keyboard(App *a) {
         else begin_sheet_menu(a,sheet,(Vector2){12*a->ui.scale,a->grid.rect.y+38*a->ui.scale});
         return true;
     }
-    if (*index<*scroll) *scroll=*index;
-    if (*index>=*scroll+visible) *scroll=*index-visible+1;
+    if (workbook) {
+        if (*index<*scroll) *scroll=*index;
+        if (*index>=*scroll+visible) *scroll=*index-visible+1;
+    } else if (row_navigation && !a->pipeline_collapsed) {
+        pipeline_reveal_step(a,(size_t)*index); a->pipeline_reveal=true;
+    }
     if (!workbook && !a->pipeline_collapsed && !a->busy) {
         if (ui_pressed(KEY_KB_MENU) || (ui_pressed(KEY_F10) && ui_key_shift(KEY_F10))) {
-            begin_step_menu(a,(size_t)*index,(Vector2){a->pipeline_layout.list.x,a->pipeline_layout.list.y+(*index-*scroll+1)*a->pipeline_layout.row_height*a->ui.scale}); return true;
+            pipeline_reveal_step(a,(size_t)*index); a->pipeline_reveal=true;
+            UIInspectorLayout revealed=ui_inspector_layout_scrolled(a->pipeline_panel,a->ui.scale,a->pipeline_row_count,false,a->pipeline_outer_scroll,a->pipeline_inner_scroll);
+            float y=revealed.list_origin.y+(*index+1)*revealed.row_height*a->ui.scale;
+            y=fmaxf(revealed.body_clip.y,fminf(revealed.body_clip.y+revealed.body_clip.height,y));
+            begin_step_menu(a,(size_t)*index,(Vector2){revealed.list_origin.x,y}); return true;
         }
         if (ui_pressed(KEY_DELETE) || ui_pressed(KEY_BACKSPACE)) { pipeline_step_change(a,(size_t)*index,0,true); return true; }
         if (ui_key_alt(KEY_UP) && ui_pressed(KEY_UP)) { pipeline_step_change(a,(size_t)*index,-1,false); return true; }
@@ -7598,7 +7706,9 @@ static void draw_app(App *a) {
     for (size_t i=0;i<sizeof(regions)/sizeof(*regions);i++) { regions[i]->x*=s; regions[i]->y*=s; regions[i]->width*=s; regions[i]->height*=s; }
     float viewport_right=a->workspace.canvas.x+a->workspace.canvas.width;
     Rectangle inspector=a->workspace.inspector;
-    bool over_inspector=a->pipeline_extent>1 && (CheckCollisionPointRec(ui_mouse_position(),inspector) || ui_gesture_starts_in(inspector));
+    bool pan_in_inspector=u->native_pan_valid && u->native_pan.event &&
+        CheckCollisionPointRec((Vector2){u->native_pan.pointer_x,u->native_pan.pointer_y},inspector);
+    bool over_inspector=a->pipeline_extent>1 && (CheckCollisionPointRec(ui_mouse_position(),inspector) || ui_gesture_starts_in(inspector) || pan_in_inspector);
     float top=a->workspace.canvas.y;
     memset(a->pivot_shelves,0,sizeof(a->pivot_shelves)); a->author_marks_layout=(UIMarksLayout){0}; a->field_list=a->field_footer=(Rectangle){0};
     if (a->workspace.left_overlay && a->modal==MODAL_NONE) {
@@ -7839,7 +7949,11 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 882
+#define LAYOUT_SMOKE_STAGES 896
+static unsigned inspector_pan_evidence;
+static uint64_t inspector_pan_top;
+static double inspector_pan_fraction;
+static float inspector_pan_horizontal,inspector_pan_outer,inspector_pan_inner;
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -8840,6 +8954,8 @@ static bool smoke_table_record_formats(App *a,size_t index,bool bold,bool color)
 static void layout_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=LAYOUT_SMOKE_STAGES || a->busy || a->io_busy || a->page.count_pending || (!a->page.column_count && *step<764)) return;
     static uint64_t request; char *error=NULL; Worksheet *s=active_sheet(a);
+    static uint64_t inspector_jobs,inspector_queries,inspector_revision;
+    static size_t inspector_history;
     static uint64_t label_builds;
     static Cell *author_cells; static uint64_t author_revision;
     static Cell *ribbon_cells; static uint64_t ribbon_row,ribbon_top; static size_t ribbon_col; static bool ribbon_dirty,previous_workbook;
@@ -12667,7 +12783,72 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->io_busy || a->request_id!=budget_state.request ||
             !smoke_same_fixture("tests/generated/app-format-budget.dxls","tests/generated/app-format-budget-preserved.dxls")) goto failed;
         puts("PASS: native legacy format budget admission retries once after real Cell or Format Redo release, preserves proof history and Save reopen, does no idle work and never retries terminal exhausted revisions"); break;
-
+    case 882: {
+        if (!a->analysis.path || strcmp(a->analysis.path,"tests/fixtures/transactions.csv")) { open_source(a,"tests/fixtures/transactions.csv",false); return; }
+        if (a->page.column_count!=6 || a->page.total!=5) goto failed;
+        a->statistics_enabled=false; statistics_cancel(a); remember(a);
+        analysis_filters_clear(&a->analysis); analysis_sorts_clear(&a->analysis);
+        for (size_t c=0;c<5;c++) if (!analysis_filter_set(&a->analysis,a->page.columns[c].name,FILTER_NOT_NULL,NULL,&error)) goto failed;
+        change_analysis(a,false); set_ribbon_mode(a,1); ui_set_scale(&a->ui,1); SetWindowSize(1440,1024);
+        a->sidebar=a->fields_visible=false; a->selected_object=-1; present_pipeline(a,true,false); inspector_pan_evidence=0; break;
+    }
+    case 883:
+        if (!a->pipeline_layout.valid || a->pipeline_row_count!=6 || a->page.total!=5 || a->pipeline_layout.outer_scrollable || a->pipeline_layout.inner_scrollable) goto failed;
+        request=a->request_id; ribbon_cells=a->page.cells; inspector_jobs=a->worker.jobs_started; inspector_queries=a->worker.sql_executed;
+        inspector_revision=a->analysis_revision; inspector_history=s->undo_actions_count;
+        a->grid.top=a->last_top=0; a->grid.fraction=0; a->grid.horizontal=0; a->viewport_changed=dx_millis()+1000000;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); a->chrome_focus=0; break;
+    case 884: {
+        const UIInspectorLayout *layout=&a->pipeline_layout;
+        if (!layout->outer_scrollable || !layout->inner_scrollable || fabsf(layout->outer_max-103.333336f)>.001f || layout->inner_max!=182 ||
+            fabsf(layout->header.y-139)>.001f || fabsf(layout->edit.y-593.5f)>.001f || fabsf(layout->footer.y-658)>.001f || layout->outer_scrollbar.width!=13) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-default.png");
+        pipeline_scroll_delta(a,layout,a->pipeline_panel,(Vector2){layout->body_clip.x+4,layout->body_clip.y+layout->body_clip.height-4},layout->outer_max); break;
+    }
+    case 885: {
+        const UIInspectorLayout *layout=&a->pipeline_layout;
+        if (fabsf(layout->outer_offset-layout->outer_max)>.001f || layout->inner_offset || layout->header.y!=139 || fabsf(layout->footer.y-503)>.001f || fabsf(layout->details.y-333.5f)>.001f || a->ui.scissor_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-outer-end.png");
+        a->pipeline_outer_scroll=0;
+        UIInspectorLayout origin=ui_inspector_layout_scrolled(a->pipeline_panel,a->ui.scale,6,false,0,0);
+        pipeline_scroll_delta(a,&origin,a->pipeline_panel,(Vector2){origin.list.x+30,origin.list.y+30},54.9f); break;
+    }
+    case 886:
+        if (fabsf(a->pipeline_layout.inner_offset-54.9f)>.001f || a->pipeline_outer_scroll) goto failed;
+        pipeline_scroll_delta(a,&a->pipeline_layout,a->pipeline_panel,(Vector2){a->pipeline_layout.list.x+30,a->pipeline_layout.list.y+30},.1f); break;
+    case 887: {
+        int first,last; pipeline_visible_rows(&a->pipeline_layout,a->ui.scale,6,&first,&last);
+        if (fabsf(a->pipeline_layout.inner_offset-55)>.001f || first!=0 || last<3 || a->pipeline_layout.list_origin.y+82.5f<=a->pipeline_layout.list.y) goto failed;
+        Rectangle thumb=pipeline_scrollbar_thumb(a->pipeline_layout.list_scrollbar,337,155,55,1.5f);
+        if (thumb.x!=617 || thumb.width!=7) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-row-boundary.png");
+        pipeline_scroll_delta(a,&a->pipeline_layout,a->pipeline_panel,(Vector2){a->pipeline_layout.list.x+30,a->pipeline_layout.list.y+30},.1f); break;
+    }
+    case 888:
+        if (fabsf(a->pipeline_layout.inner_offset-55.1f)>.001f || a->pipeline_outer_scroll || a->ui.scissor_depth) goto failed;
+        a->chrome_focus=8; break;
+    case 889:
+        if (a->pipeline_focus_index || a->pipeline_inner_scroll || a->pipeline_outer_scroll) goto failed; break;
+    case 890:
+        if (a->pipeline_focus_index!=5 || a->pipeline_inner_scroll!=182 || a->pipeline_outer_scroll || a->modal!=MODAL_NONE) goto failed;
+        a->chrome_focus=0; break;
+    case 891:
+        if (inspector_pan_evidence!=3 || fabsf(a->pipeline_outer_scroll-3)>.001f || a->pipeline_inner_scroll!=182 || a->ui.scissor_depth) goto failed;
+        a->chrome_focus=8; break;
+    case 892:
+        if (a->modal!=MODAL_STEP || a->step_menu_index!=5 || a->request_id!=request) goto failed; break;
+    case 893:
+        if (a->modal!=MODAL_NONE || a->pipeline_focus_index!=5 || a->chrome_focus!=8) goto failed;
+        present_pipeline(a,true,true); break;
+    case 894:
+        if (!a->pipeline_collapsed || a->pipeline_extent!=32 || a->pipeline_outer_scroll || a->pipeline_inner_scroll) goto failed;
+        present_pipeline(a,true,false); break;
+    case 895:
+        if (a->pipeline_collapsed || a->pipeline_extent!=280 || a->pipeline_focus_index || a->pipeline_outer_scroll || a->pipeline_inner_scroll ||
+            a->request_id!=request || a->worker.jobs_started!=inspector_jobs || a->worker.sql_executed!=inspector_queries || a->analysis_revision!=inspector_revision ||
+            s->undo_actions_count!=inspector_history || a->page.cells!=ribbon_cells || a->page.total!=5 || a->grid.top || a->grid.fraction || a->grid.horizontal || a->ui.scissor_depth) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-reopened.png");
+        puts("PASS: native independent Steps outer and inner scrolling, sticky header, retained partial row, captured pan ownership, keyboard reveal/context and collapse reset without queries or clipboard"); break;
 
     }
     free(error); (*step)++; return;
@@ -14136,9 +14317,9 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
-    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
+    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882)) { SetWindowSize(1440,988); open_source(a,layout_start==882 ? "tests/fixtures/transactions.csv" : "tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
     else if (options->nyc_smoke) open_source(a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -14148,7 +14329,7 @@ AppSession *app_start(const AppOptions *options) {
     else if (options->path) open_source(a,options->path,false);
     else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(a,"tests/fixtures/null-text.csv",false);
     else { new_sheet(a); a->book.dirty=false; }
-    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 ? layout_start : 250) : 0;
+    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882 ? layout_start : 250) : 0;
     session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     session->applied_cursor=-1;
     session->automated=automated; session->layout_start=layout_start; session->layout_target=layout_target;
@@ -14278,6 +14459,24 @@ bool app_frame(AppSession *session) {
                 float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
             }
             marks_injected|=1u<<bit;
+        }
+    }
+    if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=889 && session->layout_smoke<=893) {
+        static unsigned scroll_keys=0; unsigned bit=1u<<(session->layout_smoke-889);
+        if (!(scroll_keys&bit)) {
+            if (session->layout_smoke==889) ui_note_key_press(KEY_HOME,0);
+            else if (session->layout_smoke==890) ui_note_key_press(KEY_END,0);
+            else if (session->layout_smoke==892) ui_note_key_press(KEY_F10,DX_MOD_SHIFT);
+            else if (session->layout_smoke==893) ui_note_key_press(KEY_ESCAPE,0);
+            else {
+                Vector2 origin={a->pipeline_layout.details.x+20,a->pipeline_layout.details.y+25};
+                inspector_pan_top=a->grid.top; inspector_pan_fraction=a->grid.fraction; inspector_pan_horizontal=a->grid.horizontal;
+                inspector_pan_outer=a->pipeline_outer_scroll; inspector_pan_inner=a->pipeline_inner_scroll;
+                inspector_pan_evidence=CheckCollisionPointRec(ui_mouse_position(),a->pipeline_panel) || !CheckCollisionPointRec(origin,a->grid.body) ? 4 : 1;
+                a->ui.native_pan_valid=true;
+                a->ui.native_pan=(DxPanInput){.y=3*a->ui.scale,.pointer_x=origin.x,.pointer_y=origin.y,.phase=DX_PAN_ACTIVE,.event=true};
+            }
+            scroll_keys|=bit;
         }
     }
     if (options->filter_smoke) {
@@ -14779,6 +14978,11 @@ bool app_frame(AppSession *session) {
     if (review_capture) { record_frame(a,frame); return true; }
 #endif
 #ifndef DUXCEL_BROWSER_HOST
+    if (options->layout_smoke && session->layout_smoke==891 && inspector_pan_evidence==1) {
+        bool retained=a->grid.top==inspector_pan_top && a->grid.fraction==inspector_pan_fraction && a->grid.horizontal==inspector_pan_horizontal &&
+            fabsf(a->pipeline_outer_scroll-inspector_pan_outer-3)<.001f && a->pipeline_inner_scroll==inspector_pan_inner;
+        inspector_pan_evidence|=retained ? 2 : 4;
+    }
     if (options->layout_smoke && session->layout_smoke>=359 && session->layout_smoke<=365) {
         unsigned bit=session->layout_smoke==359 ? 1 : session->layout_smoke==360 ? 2 : session->layout_smoke==364 ? 4 : session->layout_smoke==365 ? 8 : 0;
         bool middle=bit<4 ? a->left_motion.elapsed>=.05f && a->left_motion.elapsed<.16f && a->left_extent>0 && a->left_extent<a->sidebar_width : a->pipeline_motion.elapsed>=.05f && a->pipeline_motion.elapsed<.16f && a->pipeline_extent>0 && a->pipeline_extent<280;
