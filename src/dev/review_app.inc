@@ -445,6 +445,22 @@ static void review_shadow_state(App *a) {
     char state[256]; snprintf(state,sizeof(state)," feedback_pipeline_shadow=%d,%d,%llu,%zu,%d,%d,%.6f,%.6f,%.6f",a->pipeline_shadow_ready,a->pipeline_shadow_active,(unsigned long long)a->pipeline_shadow_uploads,a->pipeline_shadow_ready ? layout->bytes : (size_t)0,a->pipeline_shadow_texture.width,a->pipeline_shadow_texture.height,layout->scale,layout->density.x,layout->density.y);
     review_author_capture_state(a,state);
 }
+static void review_sql_inspector_state(App *a) {
+    if (!review_armed(a) || !a->pipeline || a->pipeline_collapsed || !a->pipeline_sql || !a->pipeline_layout.valid) return;
+    const UIInspectorLayout *layout=&a->pipeline_layout;
+    char state[512];
+    snprintf(state,sizeof(state)," feedback_sql_scroll=%.6f,%.6f,%.6f,%.6f,%zu,%d,%d",a->inspector_sql_scroll,layout->inner_max,layout->outer_offset,layout->outer_max,a->inspector_sql_lines.count,a->inspector_sql_lines.limited,layout->inner_scrollable);
+    review_author_capture_state(a,state);
+    const struct { const char *name; Rectangle bounds; } rectangles[]={
+        {"header",layout->header},{"source",layout->source},{"frame",layout->sql_frame},{"content",layout->sql_code},{"description",layout->sql_description},
+        {"footer",layout->footer},{"copy",layout->copy},{"steps",layout->steps},{"track",layout->list_scrollbar}
+    };
+    for (size_t i=0;i<sizeof(rectangles)/sizeof(*rectangles);i++) {
+        Rectangle r=rectangles[i].bounds;
+        snprintf(state,sizeof(state)," feedback_sql_%s_box=%.6f,%.6f,%.6f,%.6f",rectangles[i].name,r.x,r.y,r.width,r.height);
+        review_author_capture_state(a,state);
+    }
+}
 static void review_author_capture_count(App *a,int count) {
     DxReviewFrame *frames[]={&a->review->frame,&a->review->registry->frame};
     for (size_t i=0;i<sizeof(frames)/sizeof(*frames);i++) {
@@ -760,7 +776,7 @@ static void review_feedback_metadata(App *a,const DxReviewWidget *widget) {
     }
 #endif
     if (!strcmp(id,"pane.transformations.sql") && a->modal==MODAL_NONE) {
-        snprintf(state,sizeof(state)," feedback_sql_cache=%llu,%llu,%zu,%llu,%llu feedback_sql_layout=%d,%zu,%d",(unsigned long long)a->inspector_sql_id,(unsigned long long)a->inspector_sql_revision,a->inspector_sql_sheet,(unsigned long long)a->inspector_sql_generation,(unsigned long long)a->inspector_sql_steps_key,a->inspector_sql_scroll,a->inspector_sql_lines.count,a->inspector_sql_lines.limited); review_author_capture_state(a,state);
+        snprintf(state,sizeof(state)," feedback_sql_cache=%llu,%llu,%zu,%llu,%llu feedback_sql_layout=%.6f,%zu,%d",(unsigned long long)a->inspector_sql_id,(unsigned long long)a->inspector_sql_revision,a->inspector_sql_sheet,(unsigned long long)a->inspector_sql_generation,(unsigned long long)a->inspector_sql_steps_key,a->inspector_sql_scroll,a->inspector_sql_lines.count,a->inspector_sql_lines.limited); review_author_capture_state(a,state);
     } else if (!strcmp(id,"status.metrics") && a->modal==MODAL_NONE && !a->file_menu) {
         const StatsKey *key=&a->statistics_key;
         snprintf(state,sizeof(state)," feedback_stats_key=%llu,%llu,%zu,%zu,%llu,%llu,%llu,%llu,%zu,%zu,%d,%d feedback_stats_state=%d,%d,%d,%llu",(unsigned long long)key->r0,(unsigned long long)key->r1,key->c0,key->c1,(unsigned long long)key->source_revision,(unsigned long long)key->cell_revision,(unsigned long long)key->objects,(unsigned long long)key->total,key->sheet,key->columns,key->count_pending,key->active,a->statistics_state,a->statistics_object,a->statistics_frame,(unsigned long long)a->statistics_request); review_author_capture_state(a,state);
@@ -1390,7 +1406,8 @@ typedef struct {
     int format_parent_group,format_parent_command,format_focus,format_scroll,format_popup_group,format_popup_focus,format_setup_item;
     bool format_setup_started,format_parent_closing,format_more_anchor;
     Analysis sql_source; char *sql_text,*sql_pointer,*sql_expected,*sql_pane_text,*sql_pane_pointer; size_t *sql_pane_offsets;
-    DxReviewDataIdentity sql_origin; TextLines sql_pane_lines; int sql_owner,sql_scroll,sql_pane_scroll,sql_setup_item,sql_pane_focus,sql_pane_step;
+    DxReviewDataIdentity sql_origin; TextLines sql_pane_lines; int sql_owner,sql_scroll,sql_setup_item,sql_pane_focus,sql_pane_step;
+    float sql_pane_scroll;
     double sql_wheel; uint64_t sql_revision,sql_owner_id; bool sql_valid,sql_stale,sql_setup_started,sql_pane_visible,sql_pane_collapsed,sql_pane_mode;
     char owner_fixture[4096],owner_copy[4096];
     UIGuideLayout guide_layout; TextLines guide_lines[18]; size_t *guide_offsets[18];
