@@ -70,4 +70,14 @@ bool page_from_wire_workbook_table_filters_owned(Page *out,const void *bytes,siz
                                                 uint64_t total,bool count_pending,size_t owned_budget,char **error);
 bool page_from_wire_workbook_table_sorts_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
                                               uint64_t total,bool count_pending,size_t owned_budget,char **error);
+/* Active Pivot/Marks definition cursors only: exact9/8 columns and native
+   coarse row caps65536/98304 plus one sentinel. Native Size/Shape constraints
+   narrow valid Marks data further to69632 assignments. Offset zero and the
+   existing4MiB text/6MiB wire plus explicit owned admission remain unchanged;
+   a row ceiling is not a guarantee that a full result fits those byte budgets.
+   The shared codec separately validates original types, owners and semantics. */
+bool page_from_wire_workbook_pivot_fields_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                                               uint64_t total,bool count_pending,size_t owned_budget,char **error);
+bool page_from_wire_workbook_marks_owned(Page *out,const void *bytes,size_t size,uint64_t offset,
+                                        uint64_t total,bool count_pending,size_t owned_budget,char **error);
 #endif

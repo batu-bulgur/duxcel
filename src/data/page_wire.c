@@ -145,7 +145,7 @@ static char *copy_text(Text text) {
     char *copy=dx_alloc(text.size+1); memcpy(copy,text.bytes,text.size); return copy;
 }
 typedef enum { WIRE_PAGE,WIRE_COPY,WIRE_WORKBOOK_SORTS,WIRE_WORKBOOK_OBJECTS,WIRE_WORKBOOK_OWNERS,
-    WIRE_TABLE_SOURCES,WIRE_TABLE_FILTERS,WIRE_TABLE_SORTS } WirePolicy;
+    WIRE_TABLE_SOURCES,WIRE_TABLE_FILTERS,WIRE_TABLE_SORTS,WIRE_PIVOT_FIELDS,WIRE_MARKS } WirePolicy;
 static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,WirePolicy policy,size_t owned_budget,char **error) {
     if (!out || !bytes || size<20 || size>DX_PAGE_WIRE_BYTES) return fail(error,"Invalid DXP1 page size or destination.");
     Reader reader={bytes,size,0};
@@ -162,6 +162,8 @@ static bool decode_page(Page *out,const void *bytes,size_t size,uint64_t offset,
     case WIRE_TABLE_SOURCES:max_rows=2049;exact_columns=14;break;
     case WIRE_TABLE_FILTERS:max_rows=30721;exact_columns=6;break;
     case WIRE_TABLE_SORTS:max_rows=14337;exact_columns=5;break;
+    case WIRE_PIVOT_FIELDS:max_rows=65537;exact_columns=9;break;
+    case WIRE_MARKS:max_rows=98305;exact_columns=8;break;
     case WIRE_PAGE:break;
     }
     if (columns>DX_PAGE_WIRE_COLUMNS || rows>max_rows ||
@@ -246,4 +248,10 @@ bool page_from_wire_workbook_table_filters_owned(Page *out,const void *bytes,siz
 }
 bool page_from_wire_workbook_table_sorts_owned(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,size_t budget,char **error) {
     return decode_page(out,bytes,size,offset,total,count_pending,WIRE_TABLE_SORTS,budget,error);
+}
+bool page_from_wire_workbook_pivot_fields_owned(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,size_t budget,char **error) {
+    return decode_page(out,bytes,size,offset,total,count_pending,WIRE_PIVOT_FIELDS,budget,error);
+}
+bool page_from_wire_workbook_marks_owned(Page *out,const void *bytes,size_t size,uint64_t offset,uint64_t total,bool count_pending,size_t budget,char **error) {
+    return decode_page(out,bytes,size,offset,total,count_pending,WIRE_MARKS,budget,error);
 }

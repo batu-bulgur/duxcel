@@ -151,6 +151,24 @@ export function workbookTablesRequest(value) {
         'INVALID_REQUEST','Table metadata requires its exact typed columns and one captured archive binding');
     return Object.freeze({...request,purpose,rowLimit:rows});
 }
+// Separate fixed analytical-definition families. These row ceilings include an
+// overflow sentinel; unchanged reply-byte limits may reject a larger result.
+// They do not authorize a source query or construct a Pivot/Marks definition.
+const workbookPivotMarksPolicies=new Map([
+    ['workbook-pivot-fields',{rows:65537,columns:9}],
+    ['workbook-marks',{rows:98305,columns:8}],
+]);
+export function workbookPivotMarksRequest(value) {
+    const purpose=value?.purpose,policy=workbookPivotMarksPolicies.get(purpose);
+    check(policy,'INVALID_REQUEST','Explicit Pivot/Marks metadata family required');
+    const request=pageRequest({...value,purpose:undefined,rowLimit:1});
+    const rows=value.rowLimit??policy.rows;
+    check(Number.isInteger(rows)&&rows>0&&rows<=policy.rows&&request.offset==='0'&&request.knownTotal===null,
+        'INVALID_REQUEST','Pivot/Marks metadata requires offset zero, unknown total and its fixed family row bound');
+    check(request.columns?.length===policy.columns&&request.sourceBindings?.length===1,
+        'INVALID_REQUEST','Pivot/Marks metadata requires its exact typed columns and one captured archive binding');
+    return Object.freeze({...request,purpose,rowLimit:rows});
+}
 export function exportRequest(value) {
     const request=pageRequest(value);
     check(value.rowLimit===1 && value.offset==='0' && value.knownTotal==='1' && value.columns===undefined && value.purpose===undefined,
@@ -239,8 +257,8 @@ export async function encodePage(reader, request, { obsolete = () => false } = {
     check(request.purpose!=='workbook-sorts'||fields.length===4,'PAGE_LIMIT','Workbook sorts require exactly four result columns');
     check(request.purpose!=='workbook-objects'||fields.length===11,'PAGE_LIMIT','Workbook objects require exactly eleven result columns');
     check(request.purpose!=='workbook-owners'||fields.length===3,'PAGE_LIMIT','Workbook owners require exactly three result columns');
-    const tablePolicy=workbookTablePolicies.get(request.purpose);
-    check(!tablePolicy||fields.length===tablePolicy.columns,'PAGE_LIMIT','Table metadata result has the wrong column count');
+    const metadataPolicy=workbookTablePolicies.get(request.purpose)??workbookPivotMarksPolicies.get(request.purpose);
+    check(!metadataPolicy||fields.length===metadataPolicy.columns,'PAGE_LIMIT','Metadata result has the wrong family column count');
     check(!request.columns || request.columns.length === fields.length, 'SCHEMA_CHANGED', 'Result column count disagrees with the C-owned schema');
     const columns = fields.map((field, index) => metadata(field, request.columns?.[index]));
     let bytes = encoder.encode(JSON.stringify(columns)).byteLength, rows = 0;
@@ -252,7 +270,7 @@ export async function encodePage(reader, request, { obsolete = () => false } = {
         check(request.purpose!=='workbook-sorts'||rows+batch.numRows<=449,'PAGE_LIMIT','Workbook sorts exceed449 rows');
         check(request.purpose!=='workbook-objects'||rows+batch.numRows<=2049,'PAGE_LIMIT','Workbook objects exceed2049 rows');
         check(request.purpose!=='workbook-owners'||rows+batch.numRows<=2113,'PAGE_LIMIT','Workbook owners exceed2113 rows');
-        check(!tablePolicy||rows+batch.numRows<=tablePolicy.rows,'PAGE_LIMIT','Table metadata exceeds its family row bound');
+        check(!metadataPolicy||rows+batch.numRows<=metadataPolicy.rows,'PAGE_LIMIT','Metadata exceeds its family row bound');
         check(request.purpose!=='copy'||fields.length*(rows+batch.numRows)<=LIMITS.copyCells,'PAGE_LIMIT','Copy result exceeds 20,000 cells');
         for (let row = 0; row < batch.numRows; row++) for (let column = 0; column < fields.length; column++) {
             const vector = batch.getChildAt(column), value = vector.get(row);
@@ -345,6 +363,9 @@ export class DuckDBWorkerAdapter {
     }
     submitWorkbookTables(value) {
         return this.#enqueue(workbookTablesRequest(value),false);
+    }
+    submitWorkbookPivotMarks(value) {
+        return this.#enqueue(workbookPivotMarksRequest(value),false);
     }
     exportParquet(value) {
         return this.#enqueue(exportRequest(value),true);
