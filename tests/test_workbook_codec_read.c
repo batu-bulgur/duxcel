@@ -1806,9 +1806,12 @@ static void test_object_counters_budget_and_retained_output(void) {
     CHECK(old==identity&&workbook_codec_header_owned_bytes(old)==old_bytes&&workbook_codec_header_object_at(old,1,0,&object)&&object.name==name&&!strcmp(name,"Object 'İ' 0"));
     uint64_t value=1; CHECK(workbook_codec_header_object_high_water(old,0,&value)&&value==0); CHECK(workbook_codec_header_object_high_water(old,1,&value)&&value==UINT64_MAX);
     CHECK(!workbook_codec_read_finish(read,&old,&error)&&old==identity); error_clear(&error);
+    free(pressure); pressure=dx_alloc(pressure_bytes);
     CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_OBJECT_COUNTERS,&batch,retained+pressure_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error&&workbook_codec_read_owned_bytes(read)==owned);
+    free(pressure); pressure=dx_alloc(pressure_bytes+1u);
     batch=counter_batch(&f,1,1,true); reject(read,WORKBOOK_CODEC_OBJECT_COUNTERS,&batch,retained+pressure_bytes+1u);
     CHECK(!workbook_codec_read_finish(read,&old,&error)&&old==identity); error_clear(&error);
+    free(pressure); pressure=dx_alloc(pressure_bytes);
     CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_OBJECT_COUNTERS,&batch,retained+pressure_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error&&workbook_codec_read_owned_bytes(read)==owned);
     memset(&f,0xa5,sizeof(f)); free(pressure); WorkbookCodecHeader *next=NULL;
     CHECK(workbook_codec_read_finish(read,&next,&error)&&next!=old); workbook_codec_read_free(read);
