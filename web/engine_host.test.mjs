@@ -357,6 +357,63 @@ test('file validation agrees with the C source extensions before allocating/regi
     assert.equal(accepted.calls[0].label, 'City É.CSV.GZ'); assert.equal(accepted.calls[0].error, null);
 }));
 
+test('original filenames reject NUL and unpaired surrogates before reads, registration or name allocation', async () => withDOM(async inputs => {
+    const adapter=engine();let factories=0,reads=0;
+    const host=createEngineHost({},async()=>{factories++;return adapter;});
+    const invalid=['\0data.csv','data\0.csv','data.csv\0','\ud800.csv','pre\udbffpost.csv','data.csv\ud800',
+        '\udc00.csv','pre\udfffpost.csv','data.csv\udfff','\ud800\ud801.csv','pre\ud800a.csv','🦆\ud800.csv'];
+    for(const name of invalid){
+        const target=runtime('file'),allocations=[],allocate=target.allocate;
+        target.allocate=size=>{allocations.push(size);return allocate(size);};
+        const selected=choose(host,target,inputs,{name,arrayBuffer(){reads++;return Promise.resolve(new ArrayBuffer(0));}});
+        await selected.completion;
+        assert.equal(reads,0,'invalid original text is rejected before reading source bytes');
+        assert.equal(factories,0,'invalid original text cannot initialize the engine');
+        assert.equal(target.calls.length,1);const result=target.calls[0];
+        assert.equal(result.name,null);assert.equal(result.label,null);assert.match(result.error,/filename.*valid Unicode.*no NUL/);
+        assert.deepEqual(result.args.slice(0,3),[77,0,0]);assert.ok(result.args[3]>0);
+        assert.deepEqual(allocations,[encoder.encode(result.error).length+1],'only the diagnostic is allocated');
+        assert.ok(allocations[0]<=256);assert.equal(target.releases.length,1);assert.equal(target.live.size,0);assert.ok(selected.input.removed);
+    }
+    assert.deepEqual(adapter.calls,[]);
+    const oom=runtime('file',0);await choose(host,oom,inputs,{name:'bad\0.csv'}).completion;
+    assert.deepEqual(oom.calls[0].args,[77,0,0,0]);assert.equal(oom.live.size,0);assert.equal(oom.releases.length,0);assert.equal(factories,0);
+    const accepted=runtime('file');await choose(host,accepted,inputs,{name:'after.csv'}).completion;
+    assert.equal(accepted.calls[0].name,'import-1-after.csv','rejections never reserve or burn a registration name');
+    assert.equal(accepted.calls[0].label,'after.csv');assert.equal(accepted.calls[0].error,null);await host.cancel(true);
+}));
+
+test('original filenames preserve Unicode scalars, whitespace, apostrophes and import-like prefixes', async () => withDOM(async inputs => {
+    const adapter=engine(),host=createEngineHost({},async()=>adapter);
+    const names=["import-7-O'Brien-İstanbul-表-🦆.csv",'  two\twords\n.csv','edge-\ud7ff\ue000-\ud800\udc00-\udbff\udfff.parquet',
+        'literal/path\\name.csv','🦆'.repeat(49)+'.csv'];
+    for(const [i,name] of names.entries()){
+        const target=runtime('file'),selected=choose(host,target,inputs,{name});await selected.completion;
+        assert.equal(target.calls.length,1);assert.equal(target.calls[0].error,null);assert.equal(target.calls[0].label,name);
+        const key=`import-${i+1}-${name.replace(/[\\/\x00-\x1f\x7f]/g,'_')}`;
+        assert.equal(target.calls[0].name,key);assert.notEqual(key,name);
+        assert.deepEqual(adapter.calls.filter(call=>call[0]==='register').at(-1),['register',key,Uint8Array.from([1,2,3])]);
+        assert.equal(target.releases.length,2);assert.equal(target.live.size,0);assert.ok(selected.input.removed);
+    }
+    assert.equal(encoder.encode(names.at(-1)).length,200);
+    const excess=runtime('file');await choose(host,excess,inputs,{name:'🦆'.repeat(49)+'x.csv',arrayBuffer(){assert.fail('existing byte cap precedes file reads');}}).completion;
+    assert.match(excess.calls[0].error,/200 UTF-8 bytes/);assert.equal(adapter.calls.filter(call=>call[0]==='register').length,names.length);
+    await host.cancel(true);
+}));
+
+test('original filename rejection and chooser cancellation leave an existing query active', async () => withDOM(async inputs => {
+    const pending=deferred(),input=request('61'),adapter=engine({submit(value){this.calls.push(['submit',value.requestId]);return pending.promise;}});
+    const host=createEngineHost({},async()=>adapter),queryTarget=runtime(),query=host.submit(queryTarget,7,61,input);await tick();
+    const invalid=runtime('file');await choose(host,invalid,inputs,{name:'bad\udfff.csv',arrayBuffer(){assert.fail('invalid filename must not read');}}).completion;
+    assert.match(invalid.calls[0].error,/filename.*valid Unicode.*no NUL/);assert.deepEqual(adapter.calls,[['submit','61']]);
+    assert.equal(queryTarget.calls.length,0);assert.equal(invalid.live.size,0);
+    const cancelled=runtime('file');host.chooseFile(cancelled,88);const chooser=inputs.at(-1);await chooser.dispatch('cancel');
+    assert.deepEqual(cancelled.calls[0].args,[88,0,0,0]);assert.equal(cancelled.releases.length,0);assert.ok(chooser.removed);
+    pending.resolve(reply(input));await query;
+    assert.equal(queryTarget.calls.length,1);assert.equal(queryTarget.calls[0].error,null);assert.equal(queryTarget.live.size,0);
+    assert.deepEqual(adapter.calls,[['submit','61']]);await host.cancel(true);
+}));
+
 test('OOM falls back without transport malloc and frees partially allocated query/file replies', async () => withDOM(async inputs => {
     for (const failAfter of [0, 1]) {
         const target = runtime('query', failAfter);
