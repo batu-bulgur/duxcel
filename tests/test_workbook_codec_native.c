@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static unsigned checks,executions,feeds,nul_cells;
+static unsigned checks,executions,feeds,nul_cells,preference_result_rows;
 #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL native workbook header:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
 static const WorkbookCodecKey key={UINT64_MAX,UINT64_C(9007199254740993),UINT64_C(9007199254740994)};
 static void clear_error(char **error) { CHECK(*error && **error); free(*error); *error=NULL; }
@@ -49,6 +49,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
     size_t split,bool stale_first,size_t extra_retained,char **error) {
     const WorkbookCodecRequest *request=workbook_codec_read_request(read); CHECK(request && split && split<=256);
     WorkbookCodecFamily family=request->family; size_t row_limit=request->row_limit; const char *sql=override ? override : request->sql;
+    if (family==WORKBOOK_CODEC_PREFERENCES) preference_result_rows=0;
     duckdb_prepared_statement statement=NULL; CHECK(duckdb_prepare(connection,sql,&statement)==DuckDBSuccess);
     size_t columns=(size_t)duckdb_prepared_statement_column_count(statement); CHECK(columns<=25);
     WorkbookCodecColumn schema[25]={0}; duckdb_type types[25]={0}; size_t schema_bytes=sizeof(schema)+strlen(sql)+1;
@@ -61,6 +62,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
     for (idx_t ci=0;ci<chunks && status==WORKBOOK_CODEC_READ_ACCEPTED;ci++) {
         duckdb_data_chunk chunk=duckdb_result_get_chunk(result,ci); CHECK(chunk && duckdb_data_chunk_get_column_count(chunk)==columns);
         size_t rows=(size_t)duckdb_data_chunk_get_size(chunk); CHECK(rows<=row_limit);
+        if (family==WORKBOOK_CODEC_PREFERENCES) preference_result_rows+=(unsigned)rows;
         WorkbookCodecAtom *atoms=rows ? dx_alloc(rows*columns*sizeof(*atoms)) : NULL;
         size_t owned=schema_bytes+rows*columns*sizeof(*atoms);
         for (size_t c=0;c<columns;c++) {
@@ -91,8 +93,9 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
             WorkbookCodecBatch batch={schema,columns,atoms,0,first,ci+1==chunks};
             status=workbook_codec_read_feed(read,key,family,&batch,extra_retained>SIZE_MAX-owned ? SIZE_MAX : owned+extra_retained,error); feeds++;
         }
-        for (size_t at=0;at<rows && status==WORKBOOK_CODEC_READ_ACCEPTED;at+=split) {
-            size_t take=rows-at<split ? rows-at : split;
+        for (size_t at=0;at<rows && status==WORKBOOK_CODEC_READ_ACCEPTED;) {
+            size_t width=family==WORKBOOK_CODEC_PREFERENCES && at && (split==1 || split==32) ? 256u : split;
+            size_t take=rows-at<width ? rows-at : width;
             WorkbookCodecBatch batch={schema,columns,atoms+at*columns,take,first,ci+1==chunks && at+take==rows};
             if (stale_first) {
                 size_t before=workbook_codec_read_owned_bytes(read); WorkbookCodecKey stale=key; stale.snapshot_generation--;
@@ -100,6 +103,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
             }
             status=workbook_codec_read_feed(read,key,family,&batch,extra_retained>SIZE_MAX-owned ? SIZE_MAX : owned+extra_retained,error); feeds++;
             if (status==WORKBOOK_CODEC_READ_ACCEPTED) first+=take;
+            at+=take;
         }
         free(atoms); duckdb_destroy_data_chunk(&chunk);
     }
@@ -175,8 +179,28 @@ static void mutate(const char *path,const char *sql) {
     duckdb_database database=NULL; duckdb_connection connection=NULL; CHECK(duckdb_open(path,&database)==DuckDBSuccess && duckdb_connect(database,&connection)==DuckDBSuccess);
     execute(connection,sql); duckdb_disconnect(&connection); duckdb_close(&database);
 }
+static void preferences_fixture(const char *path,const char *missing,unsigned version) {
+    Workbook book; workbook_init(&book); char *error=NULL;
+    for (size_t sheet=0;sheet<64;sheet++) {
+        Analysis a={.kind=SOURCE_CSV,.path=dx_strdup(missing),.schema=dx_strdup(""),.table=dx_strdup("NULL"),
+            .query=dx_strdup("SELECT * FROM __BP1_SOURCE_MUST_NOT_EXECUTE")};
+        char name[64]; snprintf(name,sizeof(name),"Sorted 'İ' %zu",sheet); CHECK(workbook_add(&book,name,&a,&error)); analysis_free(&a);
+        book.sheets[sheet].hidden=sheet!=63;
+        book.sheets[sheet].view=(SheetView){.row=DX_SHEET_ROWS-1,.col=16383,.anchor_row=1,.anchor_col=2,.end_row=3,.end_col=4,.top=5,.horizontal=120.25f,.fraction=.25,.selection=2,.canvas_zoom=1.5f};
+    }
+    book.active=63; book.user_scale=1.25f; book.reduced_motion=true;
+    if (version==13) book.sheets[0].objects.next_id=UINT64_C(9007199254740994);
+    if (version==14) book.sheets[0].formats.source_aware=true;
+    CHECK(workbook_save(&book,path,&error) && !error); workbook_free(&book);
+    /* Native Save omits visible entries. This explicitly stored false is valid
+       metadata and reaches65 rows without changing the active sheet. */
+    mutate(path,"INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('sheet_hidden_63',false)");
+}
 static const char reorder_sql[]="CREATE TABLE _duxcel_workspace.reordered_sheets AS SELECT canvas_zoom,* EXCLUDE(canvas_zoom) FROM _duxcel_workspace.sheets; DROP TABLE _duxcel_workspace.sheets; ALTER TABLE _duxcel_workspace.reordered_sheets RENAME TO sheets; CREATE TABLE _duxcel_workspace.reordered_meta AS SELECT user_scale,active_sheet,version FROM _duxcel_workspace.meta; DROP TABLE _duxcel_workspace.meta; ALTER TABLE _duxcel_workspace.reordered_meta RENAME TO meta";
 static const char sorts_reorder_sql[]="CREATE TABLE _duxcel_workspace.reordered_sorts AS SELECT descending,name,position,sheet_id FROM _duxcel_workspace.sorts; DROP TABLE _duxcel_workspace.sorts; ALTER TABLE _duxcel_workspace.reordered_sorts RENAME TO sorts";
+static const char preferences_reorder_sql[]="CREATE TABLE _duxcel_workspace.reordered_preferences AS SELECT value,name FROM _duxcel_workspace.preferences; DROP TABLE _duxcel_workspace.preferences; ALTER TABLE _duxcel_workspace.reordered_preferences RENAME TO preferences";
+static const char preferences_unknown_null[]="DELETE FROM _duxcel_workspace.preferences WHERE name='sheet_hidden_63'; INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('a',NULL)";
+static const char preferences_unknown_nul[]="DELETE FROM _duxcel_workspace.preferences WHERE name='sheet_hidden_63'; INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('a'||chr(0)||'b',false)";
 
 typedef struct { const char *name; unsigned version,layout; bool reordered; } EmitFixture;
 static const EmitFixture emit_fixtures[]={
@@ -188,6 +212,12 @@ static const EmitFixture emit_sorts_fixtures[]={
     {"sorts-v12.dxls",12,25,false},{"sorts-v13.dxls",13,25,false},
     {"sorts-v14.dxls",14,25,false},{"sorts-v14-reordered.dxls",14,25,true}
 };
+static const EmitFixture emit_preferences_fixtures[]={
+    {"preferences-v12.dxls",12,25,false},{"preferences-v13.dxls",13,25,false},
+    {"preferences-v14.dxls",14,25,false},{"preferences-v14-reordered.dxls",14,25,true},
+    {"preferences-v14-unknown-null.dxls",14,25,false},{"preferences-v14-unknown-nul.dxls",14,25,false}
+};
+static const char *const preferences_post_sql[]={NULL,NULL,NULL,NULL,preferences_unknown_null,preferences_unknown_nul};
 static struct {
     char *directory,*missing,*stage,*wal,*outputs[7];
     dev_t devices[7]; ino_t inodes[7];
@@ -211,7 +241,7 @@ static void require_absent(const char *path) {
     if (!lstat(path,&st) || errno!=ENOENT) { fprintf(stderr,"fixture output must not exist: %s\n",path); exit(1); }
 }
 static int emit_fixture_files(const char *directory,const EmitFixture *entries,size_t count,
-    void (*make_fixture)(const char *,const char *,unsigned),const char *extra_reorder) {
+    void (*make_fixture)(const char *,const char *,unsigned),const char *extra_reorder,const char *const *post_sql) {
     CHECK(count<=7);
     char *canonical=dx_absolute_path(directory); struct stat st;
     if (!canonical || stat(canonical,&st) || !S_ISDIR(st.st_mode)) {
@@ -235,6 +265,7 @@ static int emit_fixture_files(const char *directory,const EmitFixture *entries,s
         make_fixture(emission.stage,missing,entry->version);
         if (entry->reordered) { mutate(emission.stage,reorder_sql); if (extra_reorder) mutate(emission.stage,extra_reorder); }
         if (entry->layout==24) mutate(emission.stage,"ALTER TABLE _duxcel_workspace.sheets DROP COLUMN canvas_zoom");
+        if (post_sql && post_sql[i]) mutate(emission.stage,post_sql[i]);
         CHECK(!lstat(emission.stage,&st) && S_ISREG(st.st_mode) && st.st_size>0);
         CHECK(!chmod(emission.stage,0444));
         /* link is an atomic no-replace operation, including a target created
@@ -399,13 +430,127 @@ static int sorts_only(void) {
     sorts_archive_rejected(path,false,&header); mutate(path,"DELETE FROM _duxcel_workspace.sorts WHERE sheet_id=64");
     sorts_compare(path,14,true,false,&header); CHECK(!unlink(path)); free(path); workbook_codec_header_free(header);
     CHECK(access(missing,F_OK)!=0); free(missing); CHECK(!rmdir(directory)); free(directory);
-    printf("PASS: native optional sorts %u checks; %u metadata executions/%u typed feeds; four448-row native packages, legacy missing-table default, v14 missing/sentinel rejection, owned prior Header and fault/budget/stale recovery; source definitions never executed; no Worker sorts/Open support; engine %s\n",checks,executions,feeds,duckdb_library_version()); return 0;
+    printf("PASS: native optional sorts %u checks; %u metadata executions/%u typed feeds; four448-row native packages, legacy missing-table default, v14 missing/sentinel rejection, owned prior Header and fault/budget/stale recovery; source definitions never executed; native comparison only, no Worker/App Open claim; engine %s\n",checks,executions,feeds,duckdb_library_version()); return 0;
+}
+typedef struct { WorkbookCodecHeader *identity; size_t bytes,count; unsigned version; bool ready,motion; uint64_t hidden; } PreferenceHeaderStamp;
+static PreferenceHeaderStamp preference_stamp(WorkbookCodecHeader *header) {
+    PreferenceHeaderStamp stamp={header,workbook_codec_header_owned_bytes(header),workbook_codec_header_sheet_count(header),
+        workbook_codec_header_version(header),workbook_codec_header_preferences_ready(header),workbook_codec_header_reduced_motion(header),0};
+    for (size_t i=0;i<stamp.count;i++) if (workbook_codec_header_sheet_hidden(header,i)) stamp.hidden|=UINT64_C(1)<<i;
+    return stamp;
+}
+static void kept_preferences_header(WorkbookCodecHeader *header,PreferenceHeaderStamp before) {
+    PreferenceHeaderStamp after=preference_stamp(header);
+    CHECK(after.identity==before.identity && after.bytes==before.bytes && after.count==before.count && after.version==before.version && after.ready==before.ready && after.motion==before.motion && after.hidden==before.hidden);
+    if (header) CHECK(!strcmp(workbook_codec_header_name(header,63),"Sorted 'İ' 63") && !workbook_codec_header_analysis(header,63)->sort_column);
+}
+static void pending_preferences_header(WorkbookCodecRead *read,WorkbookCodecHeader **out) {
+    PreferenceHeaderStamp before=preference_stamp(*out); char *error=NULL;
+    CHECK(!workbook_codec_read_finish(read,out,&error)); clear_error(&error); kept_preferences_header(*out,before);
+}
+static void preferences_compare(const char *path,unsigned version,bool present,bool faults,WorkbookCodecHeader **out) {
+    FileImage before=file_image(path); Workbook native; workbook_init(&native); char *error=NULL;
+    CHECK(workbook_load(&native,path,&error) && !error && native.count==64 && native.active==63);
+    duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
+    WorkbookCodecRead *read=NULL; CHECK(workbook_codec_read_begin(&read,key,version,WORKBOOK_CODEC_SHEETS_25,8u*1024u*1024u,resolve,native.path,&error));
+    size_t old_bytes=workbook_codec_header_owned_bytes(*out);
+    CHECK(result_feed(connection,read,NULL,256,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+    CHECK(result_feed(connection,read,NULL,256,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+    CHECK(workbook_codec_read_add_preferences(read,present,&error) && !error);
+    if (present) {
+        CHECK(workbook_codec_read_request(read)->family==WORKBOOK_CODEC_PREFERENCES && workbook_codec_read_request(read)->row_limit==66); pending_preferences_header(read,out);
+        if (faults) {
+            const char *sql=workbook_codec_read_request(read)->sql;
+            const char *replacements[]={"value::INTEGER AS value","NULL::VARCHAR AS name",
+                "CASE WHEN name='sheet_hidden_62' THEN 'sheet_hidden_bad' ELSE name END AS name",
+                "CASE WHEN name='sheet_hidden_63' THEN true ELSE value END AS value"};
+            for (size_t i=0;i<sizeof(replacements)/sizeof(*replacements);i++) {
+                size_t owned=workbook_codec_read_owned_bytes(read); char *bad=dx_printf("SELECT * REPLACE (%s) FROM (%s)",replacements[i],sql);
+                CHECK(result_feed(connection,read,bad,65,false,old_bytes,&error)==WORKBOOK_CODEC_READ_ERROR && preference_result_rows==65 && workbook_codec_read_owned_bytes(read)==owned && !workbook_codec_read_request(read)->first_row);
+                clear_error(&error); free(bad); pending_preferences_header(read,out);
+            }
+            size_t owned=workbook_codec_read_owned_bytes(read); CHECK(owned+old_bytes<8u*1024u*1024u);
+            size_t pressure_bytes=8u*1024u*1024u-owned-old_bytes-1; unsigned char *pressure=dx_alloc(pressure_bytes);
+            CHECK(result_feed(connection,read,NULL,32,false,old_bytes+pressure_bytes,&error)==WORKBOOK_CODEC_READ_ERROR && preference_result_rows==65 && workbook_codec_read_owned_bytes(read)==owned && !workbook_codec_read_request(read)->first_row);
+            clear_error(&error); free(pressure); pending_preferences_header(read,out);
+        }
+        unsigned old_executions=executions,old_feeds=feeds;
+        CHECK(result_feed(connection,read,NULL,version==13 ? 32 : 1,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+        CHECK(preference_result_rows==65 && executions==old_executions+1 && feeds==old_feeds+2); /* One65-row result ->1+64 or32+33. */
+    }
+    CHECK(workbook_codec_read_finish(read,out,&error) && !error && workbook_codec_header_preferences_ready(*out));
+    workbook_codec_read_free(read); duckdb_disconnect(&connection); duckdb_close(&database);
+    CHECK(workbook_codec_header_version(*out)==version && workbook_codec_header_user_scale(*out)==1.25f && workbook_codec_header_reduced_motion(*out)==native.reduced_motion && workbook_codec_header_sheet_count(*out)==64 && workbook_codec_header_active_sheet(*out)==63 && !workbook_codec_header_sorts_ready(*out));
+    for (size_t i=0;i<native.count;i++) {
+        const Analysis *a=workbook_codec_header_analysis(*out,i),*b=&native.sheets[i].analysis;
+        CHECK(workbook_codec_header_sheet_hidden(*out,i)==native.sheets[i].hidden && native.sheets[i].hidden==(present && i!=63));
+        CHECK(a->kind==SOURCE_CSV && text_same(a->path,b->path) && !a->sort_column && !a->sort_count && !a->query && !a->filter_column && !a->filter_count && !strcmp(a->schema,"") && !strcmp(a->table,"NULL"));
+        CHECK(!strcmp(b->query,"SELECT * FROM __BP1_SOURCE_MUST_NOT_EXECUTE") && !strcmp(workbook_codec_header_reference(*out,i),"missing-source.csv") && !strcmp(workbook_codec_header_name(*out,i),native.sheets[i].name));
+        const SheetView *view=workbook_codec_header_view(*out,i);
+        CHECK(view->row==DX_SHEET_ROWS-1 && view->col==16383 && view->anchor_row==1 && view->anchor_col==2 && view->end_row==3 && view->end_col==4 && view->top==5 && view->horizontal==120.25f && view->fraction==.25 && view->selection==2 && view->canvas_zoom==1.5f && !view->column_count);
+    }
+    workbook_free(&native); FileImage after=file_image(path); CHECK(before.bytes==after.bytes && !memcmp(before.data,after.data,before.bytes)); free(before.data); free(after.data);
+    CHECK(!workbook_codec_header_sheet_hidden(*out,63) && !workbook_codec_header_sheet_hidden(*out,64) && workbook_codec_header_reduced_motion(*out)==present); free(error);
+}
+static void preferences_rejected(const char *path,bool missing_table,unsigned rows,size_t split,size_t accepted,WorkbookCodecHeader **out) {
+    FileImage before=file_image(path); Workbook native; workbook_init(&native); char *error=NULL; Analysis blank={0};
+    CHECK(workbook_add(&native,"Retained native",&blank,&error)); Workbook old_native=native;
+    CHECK(!workbook_load(&native,path,&error) && !memcmp(&native,&old_native,sizeof(native)) && !strcmp(native.sheets[0].name,"Retained native")); clear_error(&error);
+    PreferenceHeaderStamp old=preference_stamp(*out); char *target=dx_absolute_path(path); CHECK(target); WorkbookCodecRead *read=NULL;
+    CHECK(workbook_codec_read_begin(&read,key,14,WORKBOOK_CODEC_SHEETS_25,8u*1024u*1024u,resolve,target,&error));
+    duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
+    CHECK(result_feed(connection,read,NULL,256,true,old.bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+    CHECK(result_feed(connection,read,NULL,256,true,old.bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error); size_t owned=workbook_codec_read_owned_bytes(read);
+    if (missing_table) {
+        CHECK(!workbook_codec_read_add_preferences(read,false,&error) && workbook_codec_read_owned_bytes(read)==owned && !workbook_codec_read_request(read)); clear_error(&error);
+    } else {
+        CHECK(workbook_codec_read_add_preferences(read,true,&error)); unsigned old_executions=executions;
+        CHECK(result_feed(connection,read,NULL,split,true,old.bytes,&error)==WORKBOOK_CODEC_READ_ERROR && preference_result_rows==rows && workbook_codec_read_owned_bytes(read)==owned && workbook_codec_read_request(read)->first_row==accepted);
+        CHECK(executions==old_executions+1); clear_error(&error); pending_preferences_header(read,out);
+    }
+    kept_preferences_header(*out,old); workbook_codec_read_free(read); free(target); duckdb_disconnect(&connection); duckdb_close(&database); workbook_free(&native);
+    FileImage after=file_image(path); CHECK(before.bytes==after.bytes && !memcmp(before.data,after.data,before.bytes)); free(before.data); free(after.data); free(error);
+}
+static int preferences_only(void) {
+    char temporary[]="/tmp/duxcel-codec-preferences-XXXXXX"; CHECK(mkdtemp(temporary)); char *directory=dx_absolute_path(temporary); CHECK(directory);
+    char *missing=dx_printf("%s/missing-source.csv",directory); CHECK(access(missing,F_OK)!=0); WorkbookCodecHeader *header=NULL;
+    for (size_t i=0;i<6;i++) {
+        const EmitFixture *entry=emit_preferences_fixtures+i; char *path=dx_printf("%s/%s",directory,entry->name); preferences_fixture(path,missing,entry->version);
+        if (entry->reordered) { mutate(path,reorder_sql); mutate(path,preferences_reorder_sql); }
+        if (preferences_post_sql[i]) { mutate(path,preferences_post_sql[i]); preferences_rejected(path,false,65,32,0,&header); }
+        else {
+            preferences_compare(path,entry->version,true,entry->version==13,&header);
+            if (i==2) { mutate(path,"INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('Future ''İ'' flag',true)"); preferences_compare(path,14,true,false,&header); }
+        }
+        CHECK(!unlink(path)); free(path);
+    }
+    char *path=dx_printf("%s/absent12.dxls",directory); preferences_fixture(path,missing,12); mutate(path,"DROP TABLE _duxcel_workspace.preferences");
+    preferences_compare(path,12,false,false,&header); CHECK(!unlink(path)); free(path);
+    path=dx_printf("%s/absent14.dxls",directory); preferences_fixture(path,missing,14); mutate(path,"DROP TABLE _duxcel_workspace.preferences");
+    preferences_rejected(path,true,0,32,0,&header); CHECK(!unlink(path)); free(path);
+    const char *invalid[]={
+        "CREATE TABLE _duxcel_workspace.bad_preferences AS SELECT * FROM _duxcel_workspace.preferences WHERE name<>'sheet_hidden_62'; INSERT INTO _duxcel_workspace.bad_preferences VALUES ('sheet_hidden_63',false); DROP TABLE _duxcel_workspace.preferences; ALTER TABLE _duxcel_workspace.bad_preferences RENAME TO preferences",
+        "UPDATE _duxcel_workspace.preferences SET value=true WHERE name='sheet_hidden_63'",
+        "UPDATE _duxcel_workspace.preferences SET name='sheet_hidden_bad' WHERE name='sheet_hidden_62'",
+        "CREATE TABLE _duxcel_workspace.bad_preferences AS SELECT name,value::INTEGER AS value FROM _duxcel_workspace.preferences; DROP TABLE _duxcel_workspace.preferences; ALTER TABLE _duxcel_workspace.bad_preferences RENAME TO preferences",
+        "CREATE TABLE _duxcel_workspace.bad_preferences AS SELECT * FROM _duxcel_workspace.preferences; INSERT INTO _duxcel_workspace.bad_preferences VALUES ('reduce_motion',false); DROP TABLE _duxcel_workspace.preferences; ALTER TABLE _duxcel_workspace.bad_preferences RENAME TO preferences"
+    };
+    for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
+        path=dx_printf("%s/rejected%zu.dxls",directory,i); preferences_fixture(path,missing,14); mutate(path,invalid[i]);
+        preferences_rejected(path,false,i==4 ? 66 : 65,i==4 ? 66 : 32,i<3 ? 32 : 0,&header);
+        if (i==4) { mutate(path,"DELETE FROM _duxcel_workspace.preferences WHERE name='reduce_motion' AND value=false"); preferences_compare(path,14,true,false,&header); }
+        CHECK(!unlink(path)); free(path);
+    }
+    workbook_codec_header_free(header); CHECK(nul_cells==1 && access(missing,F_OK)!=0); free(missing); CHECK(!rmdir(directory)); free(directory);
+    printf("PASS: native optional preferences %u checks; %u metadata executions/%u typed feeds;65-row native parity/reorder/defaults, unknownNULL/NUL, duplicatefalse/active/malformed/66sentinel rejection, owned state and budget/stale/recovery; source definitions never executed; native comparison only, no Worker/App Open claim; engine %s\n",checks,executions,feeds,duckdb_library_version()); return 0;
 }
 int main(int argc,char **argv) {
-    if (argc==3 && !strcmp(argv[1],"--emit-fixtures")) return emit_fixture_files(argv[2],emit_fixtures,7,fixture,NULL);
-    if (argc==3 && !strcmp(argv[1],"--emit-sorts-fixtures")) return emit_fixture_files(argv[2],emit_sorts_fixtures,4,sorts_fixture,sorts_reorder_sql);
+    if (argc==3 && !strcmp(argv[1],"--emit-fixtures")) return emit_fixture_files(argv[2],emit_fixtures,7,fixture,NULL,NULL);
+    if (argc==3 && !strcmp(argv[1],"--emit-sorts-fixtures")) return emit_fixture_files(argv[2],emit_sorts_fixtures,4,sorts_fixture,sorts_reorder_sql,NULL);
+    if (argc==3 && !strcmp(argv[1],"--emit-preferences-fixtures")) return emit_fixture_files(argv[2],emit_preferences_fixtures,6,preferences_fixture,preferences_reorder_sql,preferences_post_sql);
     if (argc==2 && !strcmp(argv[1],"--sorts-only")) return sorts_only();
-    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR]\n",argv[0]); return 2; }
+    if (argc==2 && !strcmp(argv[1],"--preferences-only")) return preferences_only();
+    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR]\n",argv[0]); return 2; }
     char directory[]="/tmp/duxcel-codec-native-XXXXXX"; CHECK(mkdtemp(directory));
     char *missing=dx_printf("%s/missing-source.csv",directory); CHECK(access(missing,F_OK)!=0);
     for (unsigned version=12;version<=14;version++) {
