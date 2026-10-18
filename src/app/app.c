@@ -60,7 +60,7 @@ typedef struct { uint64_t r0,r1,source_revision,cell_revision,objects,total; siz
 typedef struct { GridLocation location; uint64_t id,revision,row; size_t column; } SourceLocation;
 #ifdef DUXCEL_BROWSER_HOST
 enum { BROWSER_SOURCE_LABELS=1024 }; /* Same bound as the host's session registrations. */
-typedef struct { char *key,*name; } BrowserSourceLabel;
+typedef struct { char *key,*name; BrowserSourceBinding binding; } BrowserSourceLabel;
 #endif
 typedef struct {
     UICellReadout value;
@@ -156,6 +156,7 @@ typedef struct {
     uint64_t browser_file_revision,browser_file_row;
     size_t browser_file_sheet,browser_file_col;
     char *browser_file_path,*browser_file_label;
+    BrowserSourceBinding browser_file_binding;
     BrowserSourceLabel browser_source_labels[BROWSER_SOURCE_LABELS];
     size_t browser_source_label_count;
     unsigned browser_clipboard_pending,browser_clipboard_completed,browser_clipboard_status;
@@ -648,6 +649,30 @@ static void begin_sheet_menu(App *a,size_t index,Vector2 origin);
 static void begin_sheet_rename(App *a,size_t index);
 static void begin_field_menu(App *a,size_t column,Vector2 origin);
 static void inspector_copy(App *a);
+static void app_worker_submit(App *a,QueryJob *job) {
+#ifdef DUXCEL_BROWSER_HOST
+    job->browser_source_count=0; job->browser_sources_invalid=false;
+    const SourceSnapshot *extra=job->copy ? &job->copy->sources : job->statistics ? &job->statistics->sources : NULL;
+    if (extra && extra->count>DX_MAX_OBJECTS) job->browser_sources_invalid=true;
+    size_t count=extra && !job->browser_sources_invalid ? extra->count : 0;
+    for (size_t index=0;index<=count;index++) {
+        const Analysis *source=index ? extra->items+index-1 : &job->analysis;
+        if (source->kind!=SOURCE_CSV && source->kind!=SOURCE_PARQUET) continue;
+        const BrowserSourceLabel *entry=NULL;
+        for (size_t i=0;source->path && i<a->browser_source_label_count;i++)
+            if (!strcmp(a->browser_source_labels[i].key,source->path)) { entry=a->browser_source_labels+i; break; }
+        if (!entry || !entry->binding.engine_epoch || !entry->binding.registration_id) { job->browser_sources_invalid=true; continue; }
+        bool duplicate=false;
+        for (size_t i=0;i<job->browser_source_count;i++) {
+            size_t previous=job->browser_sources[i].source;
+            const Analysis *prior=previous ? extra->items+previous-1 : &job->analysis;
+            if (prior->path && !strcmp(prior->path,source->path)) { duplicate=true; break; }
+        }
+        if (!duplicate) job->browser_sources[job->browser_source_count++]=(BrowserSourceGuard){.source=index,.binding=entry->binding};
+    }
+#endif
+    worker_submit(&a->worker,job);
+}
 static bool commit_cell(App *a);
 static void request_document_action(App *a,DocumentAction action,const char *path);
 static void cancel_document_action(App *a);
@@ -751,7 +776,7 @@ static float active_canvas_zoom(App *a) { return a->step_preview.active ? a->ste
 static void schedule_step_preview(App *a) {
     if (!a->step_preview.active || a->busy || a->io_busy || a->modal!=MODAL_NONE) return;
     QueryJob *job=step_preview_job(&a->step_preview,a->request_id+1,false); if (!job) return;
-    a->request_id=job->id; a->busy=true; a->pending_kind=JOB_STEP_PREVIEW; worker_submit(&a->worker,job);
+    a->request_id=job->id; a->busy=true; a->pending_kind=JOB_STEP_PREVIEW; app_worker_submit(a,job);
 }
 static SheetObject *filter_object(App *a) {
     ObjectStore *store=&active_sheet(a)->objects;
@@ -956,7 +981,7 @@ static const char *source_display_filename(const App *a,const Analysis *source) 
 static void clear_browser_file(App *a,bool release) {
     if (release && a->browser_file_path) app_browser_release_file(a->browser_file_path);
     free(a->browser_file_path); free(a->browser_file_label);
-    a->browser_file_path=a->browser_file_label=NULL; a->browser_file_intent=0;
+    a->browser_file_path=a->browser_file_label=NULL; a->browser_file_binding=(BrowserSourceBinding){0}; a->browser_file_intent=0;
 }
 static void choose_browser_file(App *a,bool table) {
     clear_browser_file(a,true);
@@ -980,25 +1005,29 @@ static void process_browser_file(App *a) {
     for (size_t i=0;i<a->browser_source_label_count;i++)
         if (!strcmp(a->browser_source_labels[i].key,a->browser_file_path)) { known=true; break; }
     if (known || a->browser_source_label_count>=BROWSER_SOURCE_LABELS || strlen(a->browser_file_path)>255 ||
-        !a->browser_file_label || !*a->browser_file_label || strlen(a->browser_file_label)>200) {
+        !a->browser_file_label || !*a->browser_file_label || strlen(a->browser_file_label)>200 ||
+        !a->browser_file_binding.engine_epoch || !a->browser_file_binding.registration_id) {
         clear_browser_file(a,!known); status(a,"The browser source name is invalid or this session's source-name limit was reached."); return;
     }
+    /* Publish the immutable binding before open_source can submit its first
+       Page. No frame or asynchronous callback can observe a half entry here. */
+    BrowserSourceLabel *entry=a->browser_source_labels+a->browser_source_label_count++;
+    *entry=(BrowserSourceLabel){a->browser_file_path,a->browser_file_label,a->browser_file_binding};
+    a->browser_file_path=a->browser_file_label=NULL;
     bool accepted;
-    if (table) {
-        accepted=import_table(a,a->browser_file_path);
-    } else {
-        open_source(a,a->browser_file_path,false);
+    if (table) accepted=import_table(a,entry->key);
+    else {
+        open_source(a,entry->key,false);
         Worksheet *sheet=active_sheet(a);
-        accepted=a->analysis.path && !strcmp(a->analysis.path,a->browser_file_path);
-        if (accepted && sheet && a->browser_file_label && *a->browser_file_label) { free(sheet->name); sheet->name=dx_strdup(a->browser_file_label); }
+        accepted=a->analysis.path && !strcmp(a->analysis.path,entry->key);
+        if (accepted && sheet) { free(sheet->name); sheet->name=dx_strdup(entry->name); }
     }
-    if (accepted) {
-        /* Move the pending strings, without borrowing callback/Analysis memory.
-           Retain across document/history changes, just like host registrations. */
-        a->browser_source_labels[a->browser_source_label_count++]=(BrowserSourceLabel){a->browser_file_path,a->browser_file_label};
-        a->browser_file_path=a->browser_file_label=NULL; a->pipeline_rows_valid=false;
+    if (accepted) a->pipeline_rows_valid=false;
+    else {
+        app_browser_release_file(entry->key); free(entry->key); free(entry->name);
+        *entry=(BrowserSourceLabel){0}; a->browser_source_label_count--;
     }
-    clear_browser_file(a,!accepted);
+    clear_browser_file(a,false);
 }
 #endif
 static void import_table_panel(App *a) {
@@ -1123,7 +1152,7 @@ static void request_page(App *a,bool reset) {
         a->grid.horizontal=0; page_free(&a->spare); a->waiting_count_page=false;
         a->page_stale=a->page.column_count>0;
     }
-    worker_submit(&a->worker,j);
+    app_worker_submit(a,j);
 }
 static void change_analysis(App *a,bool schema) {
     SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
@@ -1201,7 +1230,7 @@ static void workspace_job(App *a,JobKind kind,const char *path) {
     if (kind==JOB_SAVE) { capture_sheet(a); j->workbook=workbook_snapshot(&a->book); }
     a->pivot_drag_role=a->pivot_drag_field=-1; a->grid.moving=false; a->grid.resizing=-1;
     a->pending_kind=kind; a->busy=a->io_busy=true; a->modal=MODAL_NONE;
-    worker_submit(&a->worker,j); status(a,kind==JOB_SAVE ? "Saving workspace…" : "Opening workspace…");
+    app_worker_submit(a,j); status(a,kind==JOB_SAVE ? "Saving workspace…" : "Opening workspace…");
 }
 static void open_source(App *a,const char *path,bool demo) {
     end_step_preview(a);
@@ -1333,7 +1362,7 @@ static void start_export(App *a,const char *path) {
     j->expected_source_stamp=object_fields(a,object)->records.stamp;
     if (object) { j->object_id=object->id; j->revision=object->revision; j->is_table=object->kind==OBJECT_TABLE; if (!j->is_table) j->pivot=pivot_copy(&object->pivot); }
     a->pending_kind=JOB_EXPORT; a->busy=true; a->modal=MODAL_NONE;
-    status(a,"Exporting data to Parquet… Escape cancels."); worker_submit(&a->worker,j);
+    status(a,"Exporting data to Parquet… Escape cancels."); app_worker_submit(a,j);
 }
 static void export_panel(App *a) {
     if (!export_ready(a)) return;
@@ -1352,7 +1381,7 @@ static void schedule_count(App *a) {
         (a->count_request_id && a->count_request_id==a->request_id)) return;
     QueryJob *j=dx_alloc(sizeof(*j)); j->kind=JOB_COUNT; j->id=++a->request_id; j->analysis=analysis_copy(&a->analysis);
     j->expected_source_stamp=target->records.stamp;
-    a->pending_kind=JOB_COUNT; a->pending_object_id=0; a->count_request_id=j->id; a->count_started_ms=dx_millis(); worker_submit(&a->worker,j);
+    a->pending_kind=JOB_COUNT; a->pending_object_id=0; a->count_request_id=j->id; a->count_started_ms=dx_millis(); app_worker_submit(a,j);
 }
 static bool table_count_validation(App *a,size_t index,size_t columns) {
     Worksheet *sheet=active_sheet(a); SheetObject *table=&sheet->objects.items[index];
@@ -1407,7 +1436,7 @@ static void schedule_table_count(App *a) {
         if (o->kind!=OBJECT_TABLE || v->dirty || v->failed || v->count_paused || !v->page.column_count || !v->page.count_pending) continue;
         QueryJob *j=dx_alloc(sizeof(*j)); j->kind=JOB_COUNT; j->id=++a->request_id; j->analysis=analysis_copy(&o->source); j->object_id=o->id; j->revision=o->revision; j->is_table=true;
         j->expected_source_stamp=v->page.records.stamp;
-        a->pending_kind=JOB_COUNT; a->pending_object_id=o->id; a->count_request_id=j->id; worker_submit(&a->worker,j); return;
+        a->pending_kind=JOB_COUNT; a->pending_object_id=o->id; a->count_request_id=j->id; app_worker_submit(a,j); return;
     }
 }
 static void source_ready(App *a) {
@@ -1625,7 +1654,7 @@ static void schedule_statistics(App *a) {
         if (preview->stats_state==PREVIEW_STATS_LOADING && preview->stats_request!=a->request_id) { preview->stats_state=PREVIEW_STATS_WAITING; preview->stats_request=0; }
         if (a->busy || a->io_busy || (a->modal!=MODAL_NONE && a->modal!=MODAL_STATISTICS)) return;
         QueryJob *job=step_preview_statistics_job(preview,a->request_id+1); if (!job) return;
-        a->request_id=job->id; a->busy=true; a->pending_kind=JOB_STATISTICS; worker_submit(&a->worker,job); return;
+        a->request_id=job->id; a->busy=true; a->pending_kind=JOB_STATISTICS; app_worker_submit(a,job); return;
     }
     if (!a->statistics_enabled) return;
     if (a->statistics_state==STATS_CALCULATING && a->statistics_request!=a->request_id) { a->statistics_request=0; a->statistics_state=STATS_WAITING; statistics_line(a); }
@@ -1646,7 +1675,7 @@ static void schedule_statistics(App *a) {
         j->pivot=pivot_copy(&o->pivot); j->object_id=o->id; j->revision=o->revision; j->is_table=o->kind==OBJECT_TABLE;
     } else if (!snapshot) { j->analysis=analysis_copy(&a->analysis); j->expected_source_stamp=a->page.records.stamp; }
     else for (size_t i=0;i<snapshot->count;i++) if (!snapshot->ranges[i].source) { j->analysis=analysis_copy(&a->analysis); break; }
-    a->statistics_request=j->id; a->statistics_state=STATS_CALCULATING; statistics_line(a); worker_submit(&a->worker,j);
+    a->statistics_request=j->id; a->statistics_state=STATS_CALCULATING; statistics_line(a); app_worker_submit(a,j);
 }
 static const Analysis *query_source(App *a) {
     if (a->query_object<0) return &a->analysis;
@@ -1682,7 +1711,7 @@ static void submit_source_query(App *a) {
     QueryJob *job=dx_alloc(sizeof(*job)); job->id=++a->request_id; job->kind=JOB_VALIDATE_SQL; job->analysis=candidate;
     if (a->query_object>=0) job->object_id=active_sheet(a)->objects.items[a->query_object].id;
     job->revision=a->query_source_revision; a->query_draft_revision=a->query_edit_revision=a->input.revision; a->count_request_id=0;
-    a->pending_kind=JOB_VALIDATE_SQL; a->query_loading=a->busy=true; worker_submit(&a->worker,job);
+    a->pending_kind=JOB_VALIDATE_SQL; a->query_loading=a->busy=true; app_worker_submit(a,job);
 }
 static void receive_source_validation(App *a,QueryReply *r) {
     a->query_loading=false;
@@ -2119,7 +2148,7 @@ static void copy_selection(App *a) {
         if (r1-r0+1>DX_COPY_CELLS/(c1-c0+1)) { status(a,"Choose up to 20,000 preview cells to copy."); return; }
         QueryJob *job=dx_alloc(sizeof(*job)); job->id=++a->request_id; job->kind=JOB_COPY; job->is_preview=true; job->analysis=analysis_copy(&preview->source); job->offset=r0; job->rows=r1-r0+1; job->first_col=c0; job->cols=c1-c0+1;
         job->expected_source_stamp=preview->page.records.stamp;
-        a->busy=true; a->pending_kind=JOB_COPY; worker_submit(&a->worker,job); a->consume_grid_input=true; return;
+        a->busy=true; a->pending_kind=JOB_COPY; app_worker_submit(a,job); a->consume_grid_input=true; return;
     }
     if (a->busy) return;
     if (a->page_stale) { status(a,"The new analysis is still updating or needs attention. Copy after its result is ready."); return; }
@@ -2198,7 +2227,7 @@ static void copy_selection(App *a) {
     job->copy=copy;
     for (size_t i=0;i<copy->count;i++) if (!copy->patches[i].source) { job->analysis=analysis_copy(&a->analysis); break; }
     if (job->analysis.kind==SOURCE_NONE) for (size_t i=0;i<copy->guard_count;i++) if (!copy->guards[i].source) { job->analysis=analysis_copy(&a->analysis); break; }
-    a->busy=true; a->pending_kind=JOB_RANGE_COPY; worker_submit(&a->worker,job); return;
+    a->busy=true; a->pending_kind=JOB_RANGE_COPY; app_worker_submit(a,job); return;
 failed:
     status(a,error ? error : "The selection could not be copied."); free(error); copy_request_free(copy);
 }
@@ -2352,7 +2381,7 @@ static void request_values(App *a,uint64_t offset) {
     j->date_level=a->date_level; j->offset=offset; j->known_total=a->values_total;
     if (object) { j->pivot=pivot_copy(&object->pivot); j->object_id=object->id; j->is_table=object->kind==OBJECT_TABLE; }
     if (a->date_level>0) { j->date_start=dx_strdup(a->date_starts[a->date_level-1]); j->date_end=dx_strdup(a->date_ends[a->date_level-1]); }
-    a->values_loading=true; a->pending_kind=JOB_DISTINCT; worker_submit(&a->worker,j);
+    a->values_loading=true; a->pending_kind=JOB_DISTINCT; app_worker_submit(a,j);
 }
 static void restart_values(App *a) {
 #ifdef DUXCEL_DEV_REVIEW
@@ -4105,7 +4134,7 @@ static void schedule_pivot(App *a) {
         j->include_totals=!j->is_table;
         j->refresh_source=a->refresh_plans; a->refresh_plans=false;
         j->offset=first<96 ? 0 : first-96; j->known_total=dirty || v->page.count_pending ? -1 : (int64_t)v->page.total;
-        a->busy=true; a->pending_kind=JOB_PIVOT; a->pending_object_id=o->id; worker_submit(&a->worker,j); return;
+        a->busy=true; a->pending_kind=JOB_PIVOT; a->pending_object_id=o->id; app_worker_submit(a,j); return;
     }
 }
 static void preview_to_source(App *a,uint64_t row,size_t column) {
@@ -13967,13 +13996,29 @@ struct AppSession {
 };
 static AppSession *active_session; /* raylib owns one process-wide window/context. */
 #ifdef DUXCEL_BROWSER_HOST
-EMSCRIPTEN_KEEPALIVE void dx_browser_file_result(unsigned session,const char *path,const char *label,const char *error) {
+static bool browser_binding_scalar(const char *text,uint64_t *out) {
+    if (!text || *text<'1' || *text>'9') return false;
+    uint64_t value=0; size_t digits=0;
+    for (const char *p=text;*p;p++) {
+        if (++digits>20 || *p<'0' || *p>'9' || value>(UINT64_MAX-(unsigned)(*p-'0'))/10) return false;
+        value=value*10+(unsigned)(*p-'0');
+    }
+    *out=value; return true;
+}
+EMSCRIPTEN_KEEPALIVE void dx_browser_file_result(unsigned session,const char *path,const char *label,const char *engine_epoch,const char *registration_id,const char *error) {
     if (!active_session || active_session->finished || session!=browser_app_id) return;
     App *a=&active_session->app;
     if (error && *error) { clear_browser_file(a,true); status(a,error); }
     else if (a->browser_file_intent && path && *path) {
         free(a->browser_file_path); free(a->browser_file_label);
         a->browser_file_path=dx_strdup(path); a->browser_file_label=dx_strdup(label);
+        a->browser_file_binding=(BrowserSourceBinding){0};
+        if (!browser_binding_scalar(engine_epoch,&a->browser_file_binding.engine_epoch) ||
+            !browser_binding_scalar(registration_id,&a->browser_file_binding.registration_id)) {
+            /* The normal admission guard also checks duplicate keys, so an
+               invalid callback cannot retire an already accepted source. */
+            a->browser_file_binding=(BrowserSourceBinding){0};
+        }
     } else clear_browser_file(a,true);
 }
 #endif
