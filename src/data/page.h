@@ -62,6 +62,17 @@ bool statistics_request_text(StatisticsRequest *request,const char *text,char **
 
 typedef struct { char *schema, *name, *label; } Relation;
 typedef struct PivotTotals PivotTotals;
+/* Optional native raw-reader provenance. IDs are one-based original records,
+   not result offsets. source_key/stamp identify this session's reader/cache
+   snapshot, NOT a verified persistent source version or a format binding.
+   Both pointers use malloc/free. A borrowed prefix may shorten count; bounds
+   never follow Page.total or an infinite-canvas geometry view. */
+typedef struct {
+    uint64_t *ids;
+    char *source_key;
+    size_t count;
+    uint64_t stamp;
+} PageRecords;
 /* Page owns columns/cells/relations, including all text. Never shared while mutable.
    Every non-NULL Cell.text uses release_cell_text, or free when the callback is
    NULL. Set the callback before storing text; it must remain valid until cleanup.
@@ -78,6 +89,7 @@ typedef struct {
     bool count_pending; /* total is an observed lower bound until the count reply. */
     double query_ms;
     PivotTotals *totals; /* Optional owned matrix readouts; not ordinary result rows. */
+    PageRecords records;
 } Page;
 struct PivotTotals {
     Page rows; /* One aggregate per measure, aligned to the owning page's rows. */
@@ -89,5 +101,8 @@ struct PivotTotals {
 void page_column_free(Column *column);
 void page_relations_free(Relation *relations,size_t count);
 void page_free(Page *page);
+/* Result row in this Page's display offset. Works on a non-owning bounded
+   prefix too; no allocation/lookup outside the loaded row array. */
+bool page_record_id(const Page *page,uint64_t row,uint64_t *id);
 void distinct_free(DistinctPage *page);
 #endif
