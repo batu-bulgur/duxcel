@@ -1,0 +1,46 @@
+{
+  "status": "failed",
+  "checks": 3,
+  "error": "Error: Real C/Worker header decoding failed; see codec-read-driver.json and events.json",
+  "url": "http://127.0.0.1:50752/?codec_counters=1",
+  "elapsed_ms": 3938,
+  "steps": [],
+  "diagnostics": {
+    "failure": null,
+    "pending": [],
+    "held_keys": [],
+    "visibility_focus": {
+      "status": "passed",
+      "started_ms": 1792317544793,
+      "elapsed_ms": 2,
+      "value": {
+        "visibility": "visible",
+        "hidden": false,
+        "focused": true,
+        "activeElement": {
+          "tag": "BODY",
+          "id": ""
+        },
+        "readyState": "complete"
+      }
+    },
+    "debugger_pause": {
+      "status": "failed",
+      "started_ms": 1792317544795,
+      "elapsed_ms": 304,
+      "error": "Error: Debugger.pause returned without a Debugger.paused stack event"
+    },
+    "debugger_resume": {
+      "status": "failed",
+      "started_ms": 1792317545099,
+      "elapsed_ms": 1,
+      "error": "Error: CDP Debugger.resume: {\"code\":-32000,\"message\":\"Can only perform operation while paused.\"}"
+    },
+    "screenshot": {
+      "status": "passed",
+      "started_ms": 1792317545100,
+      "elapsed_ms": 40,
+      "value": "failed.png"
+    }
+  }
+}

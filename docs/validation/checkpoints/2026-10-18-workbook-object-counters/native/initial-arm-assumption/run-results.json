@@ -1,0 +1,37 @@
+[
+  {
+    "config": "release",
+    "label": "build",
+    "command": [
+      "make",
+      "tests/test_workbook_codec_native"
+    ],
+    "seconds": 5.343156,
+    "exit_code": 0,
+    "log": "release-build.txt",
+    "log_sha256": "f578af126c4dade8c715e4b938968fe45cceb4136925ccebd652e1f6d26559cb"
+  },
+  {
+    "config": "release",
+    "label": "default",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native"
+    ],
+    "seconds": 1.0456091660000002,
+    "exit_code": 0,
+    "log": "release-default.txt",
+    "log_sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+  },
+  {
+    "config": "release",
+    "label": "counters",
+    "command": [
+      "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native",
+      "--counters-only"
+    ],
+    "seconds": 1.5904239170000007,
+    "exit_code": 1,
+    "log": "release-counters.txt",
+    "log_sha256": "2c4a1cb9865810fbcd3fe3835805ffa97c6ff5c07b51542990daf2871c1051c3"
+  }
+]

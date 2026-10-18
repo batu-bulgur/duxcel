@@ -1,0 +1,812 @@
+{
+  "scope": "Actual four closed native archives, exact SQL metadata inspected read-only. Source SQL is stored only. Late publication conflicts preserve the independent conflicting input.",
+  "seconds": 4.6333565000000005,
+  "records": [
+    {
+      "stage": "release-emit",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/alias-emit-release-6wnxohpm"
+      ],
+      "seconds": 0.418974792,
+      "exit_code": 0,
+      "stdout": "{\"schema\":\"duxcel.codec-fixtures\",\"version\":1,\"files\":[{\"name\":\"counters-v12.dxls\",\"version\":12,\"layout\":25},{\"name\":\"counters-v13.dxls\",\"version\":13,\"layout\":25},{\"name\":\"counters-v14.dxls\",\"version\":14,\"layout\":25},{\"name\":\"counters-v14-reordered.dxls\",\"version\":14,\"layout\":25}]}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "release-repeat-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/emit-release-6wnxohpm"
+      ],
+      "seconds": 0.013175584000000073,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/emit-release-6wnxohpm/counters-v12.dxls\n"
+    },
+    {
+      "stage": "release-source-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-release-source-xk3pkqqj"
+      ],
+      "seconds": 0.013002540999999979,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-release-source-xk3pkqqj/missing-source.csv\n"
+    },
+    {
+      "stage": "release-file-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-release-file-5mllhxkn"
+      ],
+      "seconds": 0.012871415999999969,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-release-file-5mllhxkn/counters-v12.dxls\n"
+    },
+    {
+      "stage": "release-symlink-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-release-symlink-6zi5trmj"
+      ],
+      "seconds": 0.013200125000000007,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-release-symlink-6zi5trmj/counters-v12.dxls\n"
+    },
+    {
+      "stage": "release-late-conflict",
+      "seconds": 0.132578125,
+      "exit_code": 1,
+      "stderr": "cannot publish fixture: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/race-release-85kuwgrt/counters-v13.dxls\n"
+    },
+    {
+      "stage": "release-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native",
+        "--emit-counters-fixtures"
+      ],
+      "seconds": 0.013682500000000042,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR | --grid-only | --emit-grid-fixtures DIR | --counters-only | --emit-counters-fixtures DIR]\n"
+    },
+    {
+      "stage": "release-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native",
+        "--counters-only",
+        "extra"
+      ],
+      "seconds": 0.012523416999999926,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR | --grid-only | --emit-grid-fixtures DIR | --counters-only | --emit-counters-fixtures DIR]\n"
+    },
+    {
+      "stage": "release-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/missing-dir"
+      ],
+      "seconds": 0.013349209000000029,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture destination must be an existing accessible directory\n"
+    },
+    {
+      "stage": "release-inspection",
+      "directory": "build/bp1-counters-native/emit-release-6wnxohpm",
+      "files": {
+        "counters-v12.dxls": {
+          "bytes": 3158016,
+          "sha256": "d4f2fe3f53415212512abfd3be0fa650991c4a146730f0027c920e619cd520db"
+        },
+        "counters-v13.dxls": {
+          "bytes": 3682304,
+          "sha256": "7d1e5959c725e146e50fd9aace23ba9db05575c0449b73b9dc0534be20a124b1"
+        },
+        "counters-v14.dxls": {
+          "bytes": 5255168,
+          "sha256": "ca473d551798af8e9a2e31eab6a16c03b5170ecf7b7e8c225470faf600bf6ec7"
+        },
+        "counters-v14-reordered.dxls": {
+          "bytes": 6041600,
+          "sha256": "4f6c6f4353fbcf2eb03af1821048e656b589761b5f2d67a231929278f91d3ee4"
+        }
+      },
+      "protocol": {
+        "schema": "duxcel.codec-fixtures",
+        "version": 1,
+        "files": [
+          {
+            "name": "counters-v12.dxls",
+            "version": 12,
+            "layout": 25
+          },
+          {
+            "name": "counters-v13.dxls",
+            "version": 13,
+            "layout": 25
+          },
+          {
+            "name": "counters-v14.dxls",
+            "version": 14,
+            "layout": 25
+          },
+          {
+            "name": "counters-v14-reordered.dxls",
+            "version": 14,
+            "layout": 25
+          }
+        ]
+      },
+      "inspections": [
+        {
+          "name": "counters-v12.dxls",
+          "seconds": 0.061857166999999935,
+          "all_exact_field_values": true,
+          "counts": {
+            "sheets": 64,
+            "objects": 56,
+            "counters": 0,
+            "sources": 18,
+            "queries": 82
+          },
+          "stdout_sha256": "83fd4cfc0dc6378ebaa2ec4eea5c92c45a1f13dbc1194c1ff297e7c2455fbb9f",
+          "physical": {
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "objects": [
+              "sheet_id",
+              "id",
+              "name",
+              "row_id",
+              "column_id",
+              "height",
+              "width",
+              "kind",
+              "mark",
+              "source_id",
+              "chart_measure"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ]
+          }
+        },
+        {
+          "name": "counters-v13.dxls",
+          "seconds": 0.05651800000000007,
+          "all_exact_field_values": true,
+          "counts": {
+            "sheets": 64,
+            "objects": 56,
+            "counters": 64,
+            "sources": 18,
+            "queries": 82
+          },
+          "stdout_sha256": "f60e010449953f9a57102fcff41164a1113c3721cf4d0183d8de8189e916c111",
+          "physical": {
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "object_counters": [
+              "sheet_id",
+              "high_water"
+            ],
+            "objects": [
+              "sheet_id",
+              "id",
+              "name",
+              "row_id",
+              "column_id",
+              "height",
+              "width",
+              "kind",
+              "mark",
+              "source_id",
+              "chart_measure"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ]
+          }
+        },
+        {
+          "name": "counters-v14.dxls",
+          "seconds": 0.067253542,
+          "all_exact_field_values": true,
+          "counts": {
+            "sheets": 64,
+            "objects": 56,
+            "counters": 64,
+            "sources": 18,
+            "queries": 82
+          },
+          "stdout_sha256": "5092f4ba07084d9f123f73e81423a7accb8bb55bb517fe92ce70e2aba39055c5",
+          "physical": {
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "object_counters": [
+              "sheet_id",
+              "high_water"
+            ],
+            "objects": [
+              "sheet_id",
+              "id",
+              "name",
+              "row_id",
+              "column_id",
+              "height",
+              "width",
+              "kind",
+              "mark",
+              "source_id",
+              "chart_measure"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ]
+          }
+        },
+        {
+          "name": "counters-v14-reordered.dxls",
+          "seconds": 0.06097358399999997,
+          "all_exact_field_values": true,
+          "counts": {
+            "sheets": 64,
+            "objects": 56,
+            "counters": 64,
+            "sources": 18,
+            "queries": 82
+          },
+          "stdout_sha256": "ed02c4f86978ec7ec5f03142b467225b6cda746731a89cd033e24535c4cd138b",
+          "physical": {
+            "meta": [
+              "user_scale",
+              "active_sheet",
+              "version"
+            ],
+            "object_counters": [
+              "high_water",
+              "sheet_id"
+            ],
+            "objects": [
+              "sheet_id",
+              "id",
+              "name",
+              "row_id",
+              "column_id",
+              "height",
+              "width",
+              "kind",
+              "mark",
+              "source_id",
+              "chart_measure"
+            ],
+            "sheets": [
+              "canvas_zoom",
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stage": "sanitize-emit",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/alias-emit-sanitize-u_5krvbk"
+      ],
+      "seconds": 2.306117,
+      "exit_code": 0,
+      "stdout": "{\"schema\":\"duxcel.codec-fixtures\",\"version\":1,\"files\":[{\"name\":\"counters-v12.dxls\",\"version\":12,\"layout\":25},{\"name\":\"counters-v13.dxls\",\"version\":13,\"layout\":25},{\"name\":\"counters-v14.dxls\",\"version\":14,\"layout\":25},{\"name\":\"counters-v14-reordered.dxls\",\"version\":14,\"layout\":25}]}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "sanitize-repeat-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/emit-sanitize-u_5krvbk"
+      ],
+      "seconds": 0.07366512499999978,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/emit-sanitize-u_5krvbk/counters-v12.dxls\n"
+    },
+    {
+      "stage": "sanitize-source-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-sanitize-source-u1oc70gx"
+      ],
+      "seconds": 0.07440920800000006,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-sanitize-source-u1oc70gx/missing-source.csv\n"
+    },
+    {
+      "stage": "sanitize-file-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-sanitize-file-1ciol5pq"
+      ],
+      "seconds": 0.07388812499999986,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-sanitize-file-1ciol5pq/counters-v12.dxls\n"
+    },
+    {
+      "stage": "sanitize-symlink-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-sanitize-symlink-81089tyq"
+      ],
+      "seconds": 0.07429929200000007,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/refuse-sanitize-symlink-81089tyq/counters-v12.dxls\n"
+    },
+    {
+      "stage": "sanitize-late-conflict",
+      "seconds": 0.6608797920000002,
+      "exit_code": 1,
+      "stderr": "cannot publish fixture: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/race-sanitize-rbtspj27/counters-v13.dxls\n"
+    },
+    {
+      "stage": "sanitize-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug",
+        "--emit-counters-fixtures"
+      ],
+      "seconds": 0.07484620799999941,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR | --grid-only | --emit-grid-fixtures DIR | --counters-only | --emit-counters-fixtures DIR]\n"
+    },
+    {
+      "stage": "sanitize-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug",
+        "--counters-only",
+        "extra"
+      ],
+      "seconds": 0.07303716699999985,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR | --grid-only | --emit-grid-fixtures DIR | --counters-only | --emit-counters-fixtures DIR]\n"
+    },
+    {
+      "stage": "sanitize-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug",
+        "--emit-counters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/build/bp1-counters-native/missing-dir"
+      ],
+      "seconds": 0.07393120900000039,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture destination must be an existing accessible directory\n"
+    },
+    {
+      "stage": "sanitize-inspection",
+      "directory": "build/bp1-counters-native/emit-sanitize-u_5krvbk",
+      "files": {
+        "counters-v12.dxls": {
+          "bytes": 3158016,
+          "sha256": "eb99184550a476dc58288c7cb8a4441f027c555fd6803e12589cc32e802ed30c"
+        },
+        "counters-v13.dxls": {
+          "bytes": 3682304,
+          "sha256": "7b529b0fe3f41e9f5fd40447ed4ec51947eb49a7c952007bdfef01ff18d7b9ff"
+        },
+        "counters-v14.dxls": {
+          "bytes": 5255168,
+          "sha256": "850567209f856c16b243481c7d4deb6b29c80e6a71a0adbaf99830d430a92a86"
+        },
+        "counters-v14-reordered.dxls": {
+          "bytes": 6041600,
+          "sha256": "883f6b573020f02f997884228dad091f2fb12bcfd61eab367823294de97a3bf7"
+        }
+      },
+      "protocol": {
+        "schema": "duxcel.codec-fixtures",
+        "version": 1,
+        "files": [
+          {
+            "name": "counters-v12.dxls",
+            "version": 12,
+            "layout": 25
+          },
+          {
+            "name": "counters-v13.dxls",
+            "version": 13,
+            "layout": 25
+          },
+          {
+            "name": "counters-v14.dxls",
+            "version": 14,
+            "layout": 25
+          },
+          {
+            "name": "counters-v14-reordered.dxls",
+            "version": 14,
+            "layout": 25
+          }
+        ]
+      },
+      "inspections": [
+        {
+          "name": "counters-v12.dxls",
+          "seconds": 0.04159691600000004,
+          "all_exact_field_values": true,
+          "counts": {
+            "sheets": 64,
+            "objects": 56,
+            "counters": 0,
+            "sources": 18,
+            "queries": 82
+          },
+          "stdout_sha256": "83fd4cfc0dc6378ebaa2ec4eea5c92c45a1f13dbc1194c1ff297e7c2455fbb9f",
+          "physical": {
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "objects": [
+              "sheet_id",
+              "id",
+              "name",
+              "row_id",
+              "column_id",
+              "height",
+              "width",
+              "kind",
+              "mark",
+              "source_id",
+              "chart_measure"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ]
+          }
+        },
+        {
+          "name": "counters-v13.dxls",
+          "seconds": 0.054438291000000305,
+          "all_exact_field_values": true,
+          "counts": {
+            "sheets": 64,
+            "objects": 56,
+            "counters": 64,
+            "sources": 18,
+            "queries": 82
+          },
+          "stdout_sha256": "f60e010449953f9a57102fcff41164a1113c3721cf4d0183d8de8189e916c111",
+          "physical": {
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "object_counters": [
+              "sheet_id",
+              "high_water"
+            ],
+            "objects": [
+              "sheet_id",
+              "id",
+              "name",
+              "row_id",
+              "column_id",
+              "height",
+              "width",
+              "kind",
+              "mark",
+              "source_id",
+              "chart_measure"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ]
+          }
+        },
+        {
+          "name": "counters-v14.dxls",
+          "seconds": 0.055404709000000274,
+          "all_exact_field_values": true,
+          "counts": {
+            "sheets": 64,
+            "objects": 56,
+            "counters": 64,
+            "sources": 18,
+            "queries": 82
+          },
+          "stdout_sha256": "5092f4ba07084d9f123f73e81423a7accb8bb55bb517fe92ce70e2aba39055c5",
+          "physical": {
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "object_counters": [
+              "sheet_id",
+              "high_water"
+            ],
+            "objects": [
+              "sheet_id",
+              "id",
+              "name",
+              "row_id",
+              "column_id",
+              "height",
+              "width",
+              "kind",
+              "mark",
+              "source_id",
+              "chart_measure"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ]
+          }
+        },
+        {
+          "name": "counters-v14-reordered.dxls",
+          "seconds": 0.05719783300000003,
+          "all_exact_field_values": true,
+          "counts": {
+            "sheets": 64,
+            "objects": 56,
+            "counters": 64,
+            "sources": 18,
+            "queries": 82
+          },
+          "stdout_sha256": "ed02c4f86978ec7ec5f03142b467225b6cda746731a89cd033e24535c4cd138b",
+          "physical": {
+            "meta": [
+              "user_scale",
+              "active_sheet",
+              "version"
+            ],
+            "object_counters": [
+              "high_water",
+              "sheet_id"
+            ],
+            "objects": [
+              "sheet_id",
+              "id",
+              "name",
+              "row_id",
+              "column_id",
+              "height",
+              "width",
+              "kind",
+              "mark",
+              "source_id",
+              "chart_measure"
+            ],
+            "sheets": [
+              "canvas_zoom",
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

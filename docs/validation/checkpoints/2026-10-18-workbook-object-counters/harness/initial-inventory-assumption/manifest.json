@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "tools/test_web_codec_runner_test.py"
+  ],
+  "seconds": 1.110528084,
+  "exit_code": 1,
+  "log_sha256": "0f0023a87dc52b4eec1d193bc591912b8c0b9edbbdc54574207042d1699aa008",
+  "scope": "Pure Python/Node harness mocks and loopback-only immutable temporary fixtures; all native/browser/engine commands mocked."
+}

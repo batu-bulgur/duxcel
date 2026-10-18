@@ -1,0 +1,151 @@
+{
+  "schema": "duxcel.native-object-counters-evidence",
+  "version": 1,
+  "status": "passed",
+  "tested_commit": "adb10543efe8f3a5348ef19242a6b6e7afbdb7f9",
+  "base": "2f2429c",
+  "pure_dependency": "e34f9c7 (private alias f50a696; production unchanged by cdc666b pure-test correction)",
+  "owned_sources": {
+    "tests/test_workbook_codec_native.c": "c2dee604f5a5fdc0ff6f3f68d1c58a8ae8d787926557bd36e377f9d6095fce98",
+    "tests/test_workbook_codec_counters_native.inc": "5a403c26c99d53838e6895209dbc5eb0849fa2e6f2e39d7350507d0c2c817319"
+  },
+  "checks": {
+    "counters_per_config": 30993,
+    "metadata_executions": 65,
+    "typed_feeds": 202,
+    "original_header_per_config": 1611,
+    "original_header_executions": 21,
+    "original_header_feeds": 35
+  },
+  "seconds": {
+    "native_and_build": 33.89843479299999,
+    "supplementary_emission": 4.6333565000000005,
+    "total": 38.53179129299999,
+    "preprocessor_separate": 0.8495647489999999,
+    "counter_release": 1.7518125419999997,
+    "counter_sanitize": 9.861785583,
+    "emit_release": 0.418974792,
+    "emit_sanitize": 2.306117
+  },
+  "runs": [
+    {
+      "config": "release",
+      "label": "build",
+      "command": [
+        "make",
+        "-W",
+        "tests/test_workbook_codec_native.c",
+        "tests/test_workbook_codec_native"
+      ],
+      "seconds": 6.225838167,
+      "exit_code": 0,
+      "log": "release-build.txt",
+      "log_sha256": "08d6665ded89e66c0a6e5b2ed91ac73234d8c21df4421605578d0088017fc38a"
+    },
+    {
+      "config": "release",
+      "label": "default",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native"
+      ],
+      "seconds": 1.4470675000000002,
+      "exit_code": 0,
+      "log": "release-default.txt",
+      "log_sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    {
+      "config": "release",
+      "label": "counters",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native",
+        "--counters-only"
+      ],
+      "seconds": 1.7518125419999997,
+      "exit_code": 0,
+      "log": "release-counters.txt",
+      "log_sha256": "21de0211e966140f33861610c6ab2a054c7284664e7c7fbd0c504d08f6cb71a1"
+    },
+    {
+      "config": "sanitize",
+      "label": "build",
+      "command": [
+        "make",
+        "-W",
+        "tests/test_workbook_codec_native.c",
+        "tests/test_workbook_codec_native-debug"
+      ],
+      "seconds": 11.319679416999998,
+      "exit_code": 0,
+      "log": "sanitize-build.txt",
+      "log_sha256": "cc67073064a6c1d68872d948a1bfe735e4ae378ab10298f73bdb3830c7b6d372"
+    },
+    {
+      "config": "sanitize",
+      "label": "default",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug"
+      ],
+      "seconds": 3.292251583999999,
+      "exit_code": 0,
+      "log": "sanitize-default.txt",
+      "log_sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    {
+      "config": "sanitize",
+      "label": "counters",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-counters-native/duxcel/tests/test_workbook_codec_native-debug",
+        "--counters-only"
+      ],
+      "seconds": 9.861785583,
+      "exit_code": 0,
+      "log": "sanitize-counters.txt",
+      "log_sha256": "21de0211e966140f33861610c6ab2a054c7284664e7c7fbd0c504d08f6cb71a1"
+    }
+  ],
+  "binaries": {
+    "tests/test_workbook_codec_native": "274da6dda189c50d4825156e5577332971d63449c35577747748c6d85ebd8872",
+    "tests/test_workbook_codec_native-debug": "c54a95ff4ad04e4a787f41279af5303d9cf926019cc119f94a69f9a7788c2810"
+  },
+  "receipt_files": {
+    "emitter-results.json": {
+      "bytes": 28202,
+      "sha256": "a4458749871f7b88d10953f135d879c86abe146a0a373375ef29ece1fda4ebbd"
+    },
+    "initial-inspection-setup.json": {
+      "bytes": 419,
+      "sha256": "c35fe8e82d50ecfac68f21c6fd7e06585d73aa6af6881c4a4be2d8768f0117d9"
+    },
+    "preprocessor-closure.json": {
+      "bytes": 11214,
+      "sha256": "e17dc23b29f7f983a44e95349c8c2ab3de300d3d0382145206bd98356d861dd4"
+    },
+    "run-results.json": {
+      "bytes": 2228,
+      "sha256": "8fd3e380f062a86b5d7b860f650431578f3a463d8fe78834fa22d58121c87305"
+    },
+    "unchanged-native-paths.json": {
+      "bytes": 1168,
+      "sha256": "2a56ea915e61fc5c420475061d8a9fa773c9988fd24f389c218d0eb2525ddea7"
+    }
+  },
+  "logs": {
+    "release-build.txt": "08d6665ded89e66c0a6e5b2ed91ac73234d8c21df4421605578d0088017fc38a",
+    "release-default.txt": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044",
+    "release-counters.txt": "21de0211e966140f33861610c6ab2a054c7284664e7c7fbd0c504d08f6cb71a1",
+    "sanitize-build.txt": "cc67073064a6c1d68872d948a1bfe735e4ae378ab10298f73bdb3830c7b6d372",
+    "sanitize-default.txt": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044",
+    "sanitize-counters.txt": "21de0211e966140f33861610c6ab2a054c7284664e7c7fbd0c504d08f6cb71a1"
+  },
+  "scope": "Known writer12/13/14 native SDK metadata -> shared partial Header owner counters, real native workbook_load comparison and native issuer behavior. Exact I/U64 values and four immutable closed archives; no stored source SQL execution, App publication/browser gate/Save-Open feature/RSS/LSan claim. Existing Header control rerun, other historical native modes not rerun.",
+  "initial_failure": {
+    "path": "initial-arm-assumption/manifest.json",
+    "sha256": "f738b67765e6b71fa66ff7048cdafe766ce8b8ec14f52ee217c01c969ad6123c",
+    "kind": "new-test optional-arm assumption, not product failure"
+  },
+  "supplementary_setup": {
+    "path": "initial-inspection-setup.json",
+    "sha256": "c35fe8e82d50ecfac68f21c6fd7e06585d73aa6af6881c4a4be2d8768f0117d9",
+    "kind": "ignored script/parser setup, no C source change"
+  }
+}

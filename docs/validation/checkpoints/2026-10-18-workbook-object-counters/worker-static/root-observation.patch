@@ -1,0 +1,12 @@
+diff --git a/tests/test_browser_codec_counters.inc b/tests/test_browser_codec_counters.inc
+index 8a04d5d..81cb55e 100644
+--- a/tests/test_browser_codec_counters.inc
++++ b/tests/test_browser_codec_counters.inc
+@@ -143,6 +143,7 @@ static bool counters_feed_result(void) {
+         WorkbookCodecBatch batch={d.columns,2,d.atoms+first*2,32,first,first+32==64};CHECK(counters_observe(0),"Counter feed coexistence exceeds input admission");WorkbookCodecReadStatus status=workbook_codec_read_feed(d.read,d.key,WORKBOOK_CODEC_OBJECT_COUNTERS,&batch,retained(),&d.error);
+         if(d.fault>=1&&d.fault<=4&&first==(d.fault==4?0u:32u)) {
+             const char *reason=d.fault==2?"SQL NULL":d.fault==4?"budget":"high-water";CHECK(status==WORKBOOK_CODEC_READ_ERROR&&d.error&&strstr(d.error,reason),d.error?d.error:"Expected actual counter failure missing");
++            CHECK(counters_observe(0),"Counter feed rejection diagnostic exceeds input admission");
+             CHECK(workbook_codec_read_owned_bytes(d.read)==owned&&workbook_codec_read_request(d.read)->first_row==first&&workbook_codec_read_request(d.read)->sql==sql,"Rejected counter batch changed accepted scalar ownership/cursor");
+             CHECK(counters_prior_unchanged(),"Rejected counter batch changed prior Header");CHECK(!workbook_codec_read_finish(d.read,&d.header,&d.error)&&d.header==d.prior,"Rejected counter candidate replaced prior Header");CHECK(counters_observe(0),"Counter rejection diagnostic exceeds input admission");counters.rejected_first[d.fault-1]=(unsigned)first;counters.rejected_feeds++;counters.proofs|=1u<<(d.fault-1);d.rejections++;return true;
+         }

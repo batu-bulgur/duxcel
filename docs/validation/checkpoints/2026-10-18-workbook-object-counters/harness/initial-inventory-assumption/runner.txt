@@ -1,0 +1,17 @@
+..F.........
+======================================================================
+FAIL: test_counters_mode_requires_independent_driver_and_exact_four_fixture_inventory (__main__.CodecHarnessTests)
+----------------------------------------------------------------------
+RuntimeError: Unexpected native codec fixture: counters-v12.dxls
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/h2o/.codex/worktrees/duxcel-browser-codec-counters-harness/duxcel/tools/test_web_codec_runner_test.py", line 133, in test_counters_mode_requires_independent_driver_and_exact_four_fixture_inventory
+    with self.assertRaisesRegex(RuntimeError,'Incomplete native codec fixture set'):harness.codec_fixture_manifest(path,emitted,harness.CODEC_GRID_FIXTURES)
+AssertionError: "Incomplete native codec fixture set" does not match "Unexpected native codec fixture: counters-v12.dxls"
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.951s
+
+FAILED (failures=1)

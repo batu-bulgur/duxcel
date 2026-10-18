@@ -1,0 +1,48 @@
+{
+  "schema": "duxcel.bp1-counters-driver-source",
+  "version": 1,
+  "base": "fe1d2722d453485ef1e3781f7beaf823d8ea56e6",
+  "path": "tests/test_browser_codec_counters.inc",
+  "bytes": 29252,
+  "sha256": "573fe080389febc7ca6efc160fff73d4e44764761366cde3ed5f07b9d4594d33",
+  "checks": [
+    "balanced C/EM_JS delimiters and literals",
+    "approved report fields present",
+    "exact concrete pressure allocation +1",
+    "one stale numeric-reservation helper",
+    "git diff whitespace"
+  ],
+  "runtime": "None: no compiler, engine, browser or GUI launched. Root owns common driver integration and actual acceptance.",
+  "planned": {
+    "queries": 54,
+    "headers": 5,
+    "rejections": 4,
+    "stale": 1,
+    "normal": [
+      6,
+      8,
+      8,
+      8
+    ],
+    "familyExecutions": {
+      "meta": 10,
+      "sheets": 10,
+      "objects": 10,
+      "objectCounters": 9,
+      "describe": 15
+    },
+    "acceptedFeeds": {
+      "objects56": 10,
+      "counters32": 11
+    },
+    "validCounterGroups": 4,
+    "v12Defaults": 1,
+    "poisonedCounterResults": 4,
+    "rejectedFirstRows": [
+      32,
+      32,
+      32,
+      0
+    ]
+  }
+}
