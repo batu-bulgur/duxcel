@@ -566,7 +566,7 @@ static void test_objects_defaults_and_composition(void) {
     char *error=NULL;
     for (unsigned version=12;version<=14;version++) {
         read=sort_header(version,2,NULL,LIMIT); size_t owned=workbook_codec_read_owned_bytes(read);
-        if (version==14) reject_objects_arm(read,false);
+        if (version>=13) reject_objects_arm(read,false);
         else {
             CHECK(workbook_codec_read_add_objects(read,false,&error) && !error && !workbook_codec_read_request(read) && workbook_codec_read_owned_bytes(read)==owned);
             reject_objects_arm(read,true); WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error));
