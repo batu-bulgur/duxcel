@@ -107,7 +107,7 @@ static void source_format_request(App *a) {
     }
     source_format_cancel(a,"Source formatting cancelled by a new data request.");
 }
-static bool source_format_fence(App *a) {
+static bool source_format_epoch(App *a) {
     const SourceFormatIntent *intent=&a->source_format; Worksheet *sheet=active_sheet(a); SourceFormatOwner owner;
     return intent->active && sheet && source_format_owner(a,intent->owner,&owner) && owner.ready &&
         intent->document==a->format_document && intent->sheet==a->book.active && intent->request==a->request_id &&
@@ -116,8 +116,13 @@ static bool source_format_fence(App *a) {
         intent->origin_rows==owner.rows && intent->origin_columns==owner.columns &&
         intent->format_revision==sheet->formats.revision && intent->cell_revision==sheet->cells.revision &&
         intent->high_water==sheet->source_versions.high_water && intent->source.source_version==owner.source->source_version &&
-        analysis_same_result(&intent->source,owner.source) && !a->io_busy && !a->step_preview.active &&
+        !a->io_busy && !a->step_preview.active &&
         (!intent->baseline || source_format_origin_valid(a));
+}
+static bool source_format_fence(App *a) {
+    SourceFormatOwner owner;
+    return source_format_epoch(a) && source_format_owner(a,a->source_format.owner,&owner) &&
+        analysis_same_result(&a->source_format.source,owner.source);
 }
 static void source_format_tick(App *a) {
     for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
@@ -126,7 +131,10 @@ static void source_format_tick(App *a) {
             source_format_proof_free(&slot->proof); *slot=(SourceFormatTable){0};
         }
     }
-    if (a->source_format.active && !source_format_fence(a))
+    /* Result validation parses owned BETWEEN/composite predicates. Keep it at
+       reply/publication boundaries; ordinary frames need only the captured
+       epochs. Supported definition changes cancel or advance these epochs. */
+    if (a->source_format.active && !source_format_epoch(a))
         source_format_cancel(a,"Formatting cancelled because its source, worksheet, placement or formatting changed.");
 }
 static void source_format_page_owner(App *a,uint64_t id) {

@@ -3244,7 +3244,7 @@ static void draw_pivot_tokens(App *a,int role,Rectangle shelf,Rectangle contents
 static void draw_pivot_editor(App *a,float y,float bottom,float right) {
     (void)bottom; SheetObject *o=selected_pivot(a); if (!o) return;
     UIContext *u=&a->ui; float s=u->scale,left=a->workspace.context.x;
-    float width=right-left; bool enabled=a->modal==MODAL_NONE && !a->io_busy && !a->left_drawer &&
+    float width=right-left; bool enabled=a->modal==MODAL_NONE && !a->io_busy && !a->left_drawer && !u->pointer_blocked &&
         !(a->pipeline_extent>1 && CheckCollisionPointRec(ui_mouse_position(),a->workspace.inspector));
     Rectangle title=box(left,y,width,26*s); DrawRectangleRec(title,(Color){248,250,251,255});
     const SheetObject *bound=objects_source(&active_sheet(a)->objects,o);
@@ -8665,6 +8665,10 @@ static void layout_smoke_step(App *a,int *step) {
     static size_t paint_bytes;
     static size_t draft_history; static uint64_t draft_revision; static bool draft_dirty;
     static unsigned char *result_cache; static uint64_t result_preview_offset;
+    static unsigned shelf_file_phase;
+    static PivotDefinition shelf_file_pivot;
+    static Rectangle shelf_file_token;
+    static uint64_t shelf_file_jobs;
     static UICellReadout retained; static uint64_t retained_revision;
     static int select_open_phase,select_edit_phase,select_narrow_phase,representation_phase,plot_phase,narrow_author_phase;
     static size_t select_history;
@@ -10145,6 +10149,7 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: real view-filter draft preserves cached matrix/history/dirty state on open/Cancel/Clear; Apply commits one typed predicate and actual PIVOT, Clear removes its field, Undo restores exact one/30-group results, source remains 240 rows and footer label fits native font advances"); break;
 
     case 426:
+        shelf_file_phase=0;
         workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
     case 427:
         if (!object_ready(a,0)) { a->selected_object=0; return; }
@@ -10252,10 +10257,42 @@ static void layout_smoke_step(App *a,int *step) {
     case 456:
         if (a->modal!=MODAL_ASSIGN_FIELD || a->pivot_search_focus || a->field_match_count!=12 || a->ui.paint_depth || a->ui.scissor_depth || a->request_id!=request) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-exact-add-menu-150.png"); break;
-    case 457:
-        if (a->modal!=MODAL_NONE || a->request_id!=request || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks) goto failed;
-        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true;
+    case 457: {
+        if (a->modal!=(shelf_file_phase==4 ? MODAL_PIVOT_FIELD : MODAL_NONE) || a->request_id!=request || s->undo_actions_count!=draft_history || a->book.dirty!=draft_dirty || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || a->ui.paint_depth || a->ui.scissor_depth || a->ui.paint_fallbacks) goto failed;
+        if (!shelf_file_phase) {
+            ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->pipeline=true;
+            a->pivot_focus=0; a->pivot_search_focus=false;
+            if (a->pivot_drag_role>=0 || a->pivot_drag_field>=0 || a->pivot_drop_pending) goto failed;
+            shelf_file_phase=1; return;
+        }
+        if (shelf_file_phase==1) {
+            if (!s->objects.items[0].pivot.counts[PIVOT_ROWS]) goto failed;
+            shelf_file_token=GetCollisionRec(a->pivot_tokens[PIVOT_ROWS][0],a->pivot_contents[PIVOT_ROWS]);
+            Vector2 center={shelf_file_token.x+shelf_file_token.width*.5f,shelf_file_token.y+shelf_file_token.height*.5f};
+            if (shelf_file_token.width<=0 || shelf_file_token.height<=0 || CheckCollisionPointRec(center,file_menu_layout(a).frame.panel)) goto failed;
+            shelf_file_pivot=s->objects.items[0].pivot; author_revision=s->objects.items[0].revision;
+            dx_lock(&a->worker.mutex); shelf_file_jobs=a->worker.jobs_started; dx_unlock(&a->worker.mutex);
+            a->file_menu=true; a->file_menu_focus=a->file_menu_scroll=0; a->file_menu_frame=a->frames;
+            shelf_file_phase=2; return;
+        }
+        if (memcmp(&shelf_file_pivot,&s->objects.items[0].pivot,sizeof(shelf_file_pivot)) || s->objects.items[0].revision!=author_revision) goto failed;
+        dx_lock(&a->worker.mutex); uint64_t jobs=a->worker.jobs_started; dx_unlock(&a->worker.mutex);
+        if (jobs!=shelf_file_jobs) goto failed;
+        if (shelf_file_phase==2) {
+            if (!a->file_menu || a->pivot_focus || a->pivot_search_focus) goto failed;
+            layout_select_click=shelf_file_token; shelf_file_phase=3; return;
+        }
+        if (shelf_file_phase==3) {
+            if (a->file_menu || a->pivot_focus || a->pivot_search_focus || a->pivot_drag_role>=0 || a->pivot_drag_field>=0 || a->pivot_drop_pending) goto failed;
+            layout_select_click=shelf_file_token; shelf_file_phase=4; return;
+        }
+        if (shelf_file_phase==4) {
+            if (a->file_menu || a->pivot_drag_role!=PIVOT_ROWS || a->pivot_drag_index || a->pivot_focus!=PIVOT_ROWS+2 || a->pivot_drop_pending) goto failed;
+            layout_select_key=KEY_ESCAPE; shelf_file_phase=5; return;
+        }
+        puts("PASS: File dismissal over a real Rows token leaves shelf focus/drag/definition/history/Pages/jobs untouched; the next independent click opens the normal field menu");
         puts("PASS: compact 240-unit Add field menu, bounded eleven-row viewport with real twelfth field reachable by End, optional slash search, exact filtered labels and 150 percent clamping, Escape/cache/history/dirty recovery without database work"); break;
+    }
 
     case 458:
         workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); break;
