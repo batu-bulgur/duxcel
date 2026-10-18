@@ -23,6 +23,37 @@ static bool same_range(FormatRange a,FormatRange b) { return a.r0==b.r0 && a.r1=
 static bool value_valid(CellFormat v) { return v.flags<=7 && v.align<=FORMAT_RIGHT && v.color<=3 && v.size>=11 && v.size<=16 && v.number<=FORMAT_NUMBER && v.decimals<=4; }
 static bool whole_columns(FormatRange r) { return !r.r0 && r.r1==DX_SHEET_ROWS-1; }
 static bool scope_same(FormatScope a,FormatScope b) { return a.owner==b.owner && a.bytes==b.bytes && !memcmp(a.definition,b.definition,a.bytes); }
+static int scope_compare(const FormatScope *a,const FormatScope *b) {
+    if (a->owner!=b->owner) return a->owner<b->owner ? -1 : 1;
+    if (a->bytes!=b->bytes) return a->bytes<b->bytes ? -1 : 1;
+    return memcmp(a->definition,b->definition,a->bytes);
+}
+static void scope_sift(const FormatScope **heap,size_t root,size_t count) {
+    while (root<count/2) {
+        size_t child=2*root+1;
+        if (child+1<count && scope_compare(heap[child],heap[child+1])<0) child++;
+        if (scope_compare(heap[root],heap[child])>=0) break;
+        const FormatScope *swap=heap[root]; heap[root]=heap[child]; heap[child]=swap; root=child;
+    }
+}
+/* Shapes have been checked before comparisons. Keep normal owner tables
+   allocation-free; larger tables use one bounded pointer array and heapsort,
+   with deterministic O(n log n) comparisons and exact binary equality. */
+static bool scopes_unique(const FormatScope *scopes,size_t count) {
+    if (count<=DX_FORMAT_GUARDS) {
+        for (size_t i=0;i<count;i++) for (size_t j=0;j<i;j++) if (scope_same(scopes[i],scopes[j])) return false;
+        return true;
+    }
+    const FormatScope **ordered=dx_alloc(count*sizeof(*ordered));
+    for (size_t i=0;i<count;i++) ordered[i]=&scopes[i];
+    for (size_t start=count/2;start;start--) scope_sift(ordered,start-1,count);
+    for (size_t end=count;end>1;) {
+        const FormatScope *swap=ordered[0]; ordered[0]=ordered[--end]; ordered[end]=swap; scope_sift(ordered,0,end);
+    }
+    bool unique=true;
+    for (size_t i=1;i<count;i++) if (!scope_compare(ordered[i-1],ordered[i])) { unique=false; break; }
+    free(ordered); return unique;
+}
 size_t format_scope_token(const FormatStore *s,const FormatScopeView *scope) {
     if (!scope) return 0;
     if (!scope->definition || !scope->bytes || scope->bytes>=DX_FORMAT_SCOPE_BYTES) return SIZE_MAX;
@@ -98,8 +129,8 @@ bool format_valid(const FormatStore *s,char **error) {
     for (size_t i=0;i<s->scope_count;i++) {
         const FormatScope *scope=&s->scopes[i];
         if (!scope->definition || !scope->bytes || scope->bytes>=DX_FORMAT_SCOPE_BYTES) return fail(error,"A cell format result definition exceeds its 256 KiB limit.");
-        for (size_t j=0;j<i;j++) if (scope_same(*scope,s->scopes[j])) return fail(error,"Duplicate cell format result definition.");
     }
+    if (!scopes_unique(s->scopes,s->scope_count)) return fail(error,"Duplicate cell format result definition.");
     for (size_t i=0;i<s->count;i++) {
         const FormatPatch *p=&s->items[i];
         if (!range_valid(p->range) || !p->mask || (p->mask&~FORMAT_ALL) || !value_valid(p->value)) return fail(error,"Invalid cell format range.");
