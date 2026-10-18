@@ -194,6 +194,13 @@ static bool capture_draw(DxReviewCapture *r,UIContext *u,const DxReviewCaptureLa
         if (hovered) {
             Rectangle b={hover.bounds.x,hover.bounds.y,hover.bounds.width,hover.bounds.height}; b.x=display.x+b.x*display.width/r->frame.window_width; b.y=display.y+b.y*display.height/r->frame.window_height;
             b.width*=display.width/r->frame.window_width; b.height*=display.height/r->frame.window_height;
+            /* Keep the marker on the semantic rectangle's covered pixel
+               centers. Half-pixel bottom edges otherwise gain a solid row
+               under GL's inclusive raster edge, beyond a clipped target. */
+            float dx=fmaxf(1,u->render_scale.x),dy=fmaxf(1,u->render_scale.y);
+            float left=ceilf(b.x*dx-.5f),top=ceilf(b.y*dy-.5f);
+            float right=ceilf((b.x+b.width)*dx-.5f),bottom=ceilf((b.y+b.height)*dy-.5f);
+            b=(Rectangle){left/dx,top/dy,fmaxf(0,right-left)/dx,fmaxf(0,bottom-top)/dy};
             DrawRectangleLinesEx(b,2*s,UI_FOCUS); if (CheckCollisionPointRec(GetMousePosition(),display)) u->cursor=MOUSE_CURSOR_CROSSHAIR;
         }
         DxPointerGesture gesture; Rectangle pick_area=display;
