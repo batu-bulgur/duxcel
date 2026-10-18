@@ -24,8 +24,21 @@ EM_JS(int, observe_query_host, (void), {
         Module['dxBrowserHostRequests']=(Module['dxBrowserHostRequests']||0)+1;
         Module['dxBrowserWorkerObserved']={cookie,ticket,generation:request.generation,object:request.objectId,revision:request.revision,offset:request.offset};
         Module['dxBrowserObservedBindings']=request.sourceBindings??null;
+        const other=request.sql.includes('__dx_chart_members');
+        if(other)Module['dxOtherQueries']=(Module['dxOtherQueries']||0)+1;
+        if(other&&Module['dxOtherDropBeforeSend']){
+            Module['dxOtherDropBeforeSend']=0;
+            return Promise.resolve().then(async()=>{
+                const adapter=Module['dxTestAdapter'];
+                if(adapter.active||adapter.pending||adapter.draining)throw new Error('Other drop test requires the real idle adapter');
+                await adapter.dropFile(Module['dxBoundTokens'][0].name);
+                const before=adapter.latestId,sends=Module['dxOtherConnectionSends']||0;
+                await submit(runtime,cookie,ticket,request);
+                Module['dxOtherDropVerified']=adapter.latestId===before&&(Module['dxOtherConnectionSends']||0)===sends?1:-1;
+            }).catch(error=>{Module['dxOtherDropVerified']=-1;console.error(error);});
+        }
         const hold=Module['dxHoldMatrixReply'];
-        if((hold===1 && request.sql.includes('__duxcel_count')) || (hold===2 && request.sql.includes('_duxcel_matrix_totals')) || (hold===3 && request.sql.includes('_duxcel_domain_input')) || (hold===4 && request.sql.includes('_duxcel_matrix_rows')) || (hold===5 && request.sql.includes('_duxcel_matrix_columns')) || (hold===6 && request.sql.includes(' AS distinct_values')) || (hold===7 && request.purpose==='copy' && request.sql.includes(' ON '))){
+        if((hold===1 && request.sql.includes('__duxcel_count')) || (hold===2 && request.sql.includes('_duxcel_matrix_totals')) || (hold===3 && request.sql.includes('_duxcel_domain_input')) || (hold===4 && request.sql.includes('_duxcel_matrix_rows')) || (hold===5 && request.sql.includes('_duxcel_matrix_columns')) || (hold===6 && request.sql.includes(' AS distinct_values')) || (hold===7 && request.purpose==='copy' && request.sql.includes(' ON ')) || (hold===8&&other&&Module['dxOtherQueries']===2)){
             Module['dxHoldMatrixReply']=0;
             const original=runtime;
             runtime={...original,reply:(...args)=>{
@@ -164,11 +177,28 @@ EM_JS(unsigned, observed_cancels, (void), {
     const count=Module['dxTestCancels'];
     return Number.isInteger(count) && count>=0 && count<4294967295 ? count>>>0 : 4294967295;
 })
-EM_JS(void, hold_matrix_reply, (int kind), { Module['dxHoldMatrixReply']=kind; })
+EM_JS(void, hold_matrix_reply, (int kind), { Module['dxHoldMatrixReply']=kind;if(kind===8)Module['dxOtherQueries']=0; })
 EM_JS(int, matrix_reply_held, (void), { return typeof Module['dxHeldMatrixReply']==='function'; })
 EM_JS(void, release_matrix_reply, (void), { Module['dxHeldMatrixReply'](); })
 EM_JS(void, completed, (int ok,unsigned checks,unsigned stages), {
     Module['dxBrowserWorkerTestDone']={ok:Boolean(ok),checks,stages};
+})
+EM_JS(void, register_other_sources, (void), {
+    Module['dxBoundSetupReady']=0;
+    Promise.resolve().then(async()=>{
+        const adapter=Module['dxTestAdapter'],send=adapter.connection.send.bind(adapter.connection);
+        adapter.connection.send=(...args)=>{Module['dxOtherConnectionSends']=(Module['dxOtherConnectionSends']||0)+1;return send(...args);};
+        const text='r,rank,v,customer\nA,100,100,a\nB,90,100,b\nC,80,100,c\nD,2,0,x\nE,1,10,x\nE,1,10,y\nE,1,10,z\n';
+        const first=await adapter.registerFile('worker-other.csv',new TextEncoder().encode(text));
+        const second=await adapter.registerFile('worker-other-unrelated.csv',new TextEncoder().encode(text));
+        Module['dxBoundTokens']=[first,second];Module['dxBoundSetupReady']=1;
+    }).catch(error=>{Module['dxBoundSetupReady']=-1;console.error(error);});
+})
+EM_JS(void, drop_before_other, (void), { Module['dxOtherDropBeforeSend']=1;Module['dxOtherDropVerified']=0; })
+EM_JS(int, other_drop_verified, (void), { return Module['dxOtherDropVerified']||0; })
+EM_JS(int, other_binding_observed, (unsigned index), {
+    const expected=Module['dxBoundTokens']?.[index],actual=Module['dxBrowserObservedBindings'];
+    return Boolean(expected&&actual?.length===1&&actual[0].name===expected.name&&actual[0].engineEpoch===expected.engineEpoch&&actual[0].registrationId===expected.registrationId);
 })
 
 static const char exact_sql[]=
@@ -253,11 +283,12 @@ typedef enum {
     WAIT_VERIFY_RESET,WAIT_VERIFY_WARM,WAIT_VERIFY_UNSUPPORTED,WAIT_VERIFY_RECOVERY,
     WAIT_RECORDS_SOURCE_UNSUPPORTED,WAIT_RECORDS_SOURCE_RECOVERY,WAIT_RECORDS_PIVOT_WARM,
     WAIT_RECORDS_PIVOT_UNSUPPORTED,WAIT_RECORDS_PIVOT_RECOVERY,QUIET_VERIFY_STOP,
-    WAIT_BOUND_RESET,WAIT_BOUND_WARM,WAIT_BOUND_REGISTER,WAIT_BOUND_CASES,WAIT_BOUND_DROP,QUIET_BOUND_STOP,FINISHED
+    WAIT_BOUND_RESET,WAIT_BOUND_WARM,WAIT_BOUND_REGISTER,WAIT_BOUND_CASES,WAIT_BOUND_DROP,QUIET_BOUND_STOP,
+    WAIT_OTHER_RESET,WAIT_OTHER_CASES,WAIT_OTHER_CANCEL,WAIT_OTHER_RECOVERY,WAIT_OTHER_REGISTER,WAIT_OTHER_BOUND,WAIT_OTHER_DROP,WAIT_OTHER_UNRELATED,QUIET_OTHER_STOP,FINISHED
 } Stage;
 static QueryWorker worker;
 static QueryReply *reply;
-static Page retained,verification_retained,collection_retained;
+static Page retained,verification_retained,collection_retained,other_retained,other_bound_retained;
 static DistinctPage retained_distinct;
 static SelectionStats retained_statistics;
 static char *retained_rejection;
@@ -267,6 +298,7 @@ static size_t retained_export_size;
 static uint64_t baseline_jobs,baseline_sql,baseline_counts,export_object,export_revision;
 static uint64_t export_jobs,export_sql,export_counts;
 static uint64_t verification_jobs,verification_sql,verification_counts;
+static uint64_t binding_jobs,binding_sql,binding_counts;
 static unsigned verification_requests,bound_host_before;
 static BrowserSourceBinding bound_tokens[2];
 static char *bound_clipboard;
@@ -286,7 +318,8 @@ static void retained_values(void);
 static void die(const char *condition,int line) {
     fprintf(stderr,"FAIL browser-worker stage %d line %d: %s\n",(int)stage,line,condition);
     if (reply && reply->error) fprintf(stderr,"Worker error: %s\n",reply->error);
-    reply_free(reply); reply=NULL; page_free(&retained); page_free(&verification_retained); page_free(&collection_retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); free(retained_clipboard); free(retained_export); free(bound_clipboard); free(bound_export); if (worker.started) worker_stop(&worker);
+    if (stage>=WAIT_OTHER_RESET && stage<=QUIET_OTHER_STOP) fprintf(stderr,"Other gate: sql=%" PRIu64 "/%" PRIu64 " jobs=%" PRIu64 " status=%d rows=%zu columns=%zu\n",worker.sql_executed,expected_sql,worker.jobs_started,reply ? (int)reply->page.other_status : -1,reply ? reply->page.row_count : 0,reply ? reply->page.column_count : 0);
+    reply_free(reply); reply=NULL; page_free(&retained); page_free(&verification_retained); page_free(&collection_retained); page_free(&other_retained); page_free(&other_bound_retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); free(retained_clipboard); free(retained_export); free(bound_clipboard); free(bound_export); if (worker.started) worker_stop(&worker);
     completed(0,checks,stages); emscripten_cancel_main_loop(); abort();
 }
 #define CHECK(condition) do { checks++; if (!(condition)) die(#condition,__LINE__); } while (0)
@@ -668,6 +701,97 @@ static void copy_values(CopyCase kind) {
         }
         CHECK(!*text);
     }
+}
+typedef enum { OTHER_WEIGHTED,OTHER_CACHED,OTHER_VARIANTS,OTHER_COLUMNS,OTHER_DATE,OTHER_OFFSET,OTHER_SMALL,OTHER_ADDITIVE,
+    OTHER_LIMIT,OTHER_COMPLEX,OTHER_UNKNOWN_COLUMN,OTHER_NUL_ROW,OTHER_NUL_COLUMN,OTHER_INVALID_FLAG,OTHER_TABLE_FLAG,OTHER_UNBOUND,OTHER_NO_TOTALS,OTHER_CASES } OtherCase;
+static OtherCase other_case;
+static const unsigned other_sql_counts[OTHER_CASES]={5,3,6,7,8,5,3,3,4,4,6,2,1,0,0,0,4};
+static const char other_weighted_sql[]="SELECT * FROM (VALUES ('A',100,100,'a'),('B',90,100,'b'),('C',80,100,'c'),('D',2,0,'x'),('E',1,10,'x'),('E',1,10,'y'),('E',1,10,'z')) t(r,rank,v,customer)";
+static const char other_columns_sql[]="SELECT r,c,rank,v,customer FROM (VALUES ('A',100,100,'a'),('B',90,100,'b'),('C',80,100,'c'),(NULL,1,NULL,NULL),('',1,NULL,''),('NULL',1,NULL,'NULL'),('O''İ',1,NULL,'')) t(r,rank,v,customer) CROSS JOIN (VALUES (NULL::VARCHAR),(''),('NULL'),('q''\"İ')) categories(c)";
+static const char other_date_sql[]="SELECT make_date(2020+i::INTEGER,1,1) AS occurred,10-i AS rank,(10-i)::DECIMAL(38,4) AS v FROM range(5) t(i)";
+static const char other_offset_sql[]="SELECT i AS r,1000000-i AS rank,i::DOUBLE AS v,CASE WHEN i<300 THEN 'outside' ELSE 'loaded-'||(i%3)::VARCHAR END AS customer FROM range(600) t(i)";
+static bool other_case_error(OtherCase kind) { return kind>=OTHER_NUL_ROW && kind<=OTHER_UNBOUND; }
+static QueryJob *other_job(OtherCase kind) {
+    QueryJob *job=dx_alloc(sizeof(*job)); job->kind=expected_kind=JOB_PIVOT; job->include_chart_other=true;
+    job->id=expected_id=next_id; next_id+=4; job->object_id=object_id; job->revision=revision_id;
+    job->known_total=5; job->include_totals=kind!=OTHER_NO_TOTALS; job->refresh_source=kind!=OTHER_CACHED;
+    expected_preview=false; expected_offset=0;
+    const char *sql=other_weighted_sql;
+    if (kind==OTHER_COLUMNS) { sql=other_columns_sql; job->known_total=7; }
+    else if (kind==OTHER_DATE) sql=other_date_sql;
+    else if (kind==OTHER_OFFSET) { sql=other_offset_sql; job->known_total=600; job->offset=300; }
+    else if (kind==OTHER_SMALL) { sql="SELECT 'key-'||i::VARCHAR AS r,100-i AS rank,i AS v FROM range(3) t(i)"; job->known_total=3; }
+    else if (kind==OTHER_LIMIT) { sql="SELECT repeat('x',900000)||i::VARCHAR AS r,100-i AS rank,i AS v FROM range(4) t(i)"; job->known_total=4; }
+    else if (kind==OTHER_COMPLEX) sql="SELECT [i] AS r,100-i AS rank,i AS v FROM range(5) t(i)";
+    else if (kind==OTHER_UNKNOWN_COLUMN) sql="SELECT i AS r,CASE WHEN i%2=0 THEN 'open' ELSE 'closed' END::ENUM('open','closed') AS c,100-i AS rank,i AS v FROM range(5) t(i)";
+    else if (kind==OTHER_NUL_ROW) sql="SELECT CASE WHEN i=3 THEN 'a'||chr(0)||'b' ELSE i::VARCHAR END AS r,100-i AS rank,i AS v FROM range(5) t(i)";
+    else if (kind==OTHER_NUL_COLUMN) sql="SELECT i AS r,'a'||chr(0)||'b' AS c,100-i AS rank,i AS v FROM range(5) t(i)";
+    job->analysis=(Analysis){.kind=SOURCE_DEMO,.query=dx_strdup(sql)};
+    CHECK(pivot_assign(&job->pivot,PIVOT_ROWS,kind==OTHER_DATE ? "occurred" : "r",AGG_SUM,NULL));
+    if (kind==OTHER_DATE) {
+        CHECK(pivot_set_grain(&job->pivot,PIVOT_ROWS,0,PIVOT_DATE_YEAR,NULL));
+        CHECK(pivot_assign_grain(&job->pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_MONTH,NULL));
+        CHECK(pivot_assign_grain(&job->pivot,PIVOT_COLUMNS,"occurred",AGG_SUM,PIVOT_DATE_QUARTER,NULL));
+    } else if (kind==OTHER_COLUMNS || kind==OTHER_UNKNOWN_COLUMN || kind==OTHER_NUL_COLUMN) CHECK(pivot_assign(&job->pivot,PIVOT_COLUMNS,"c",AGG_SUM,NULL));
+    if (kind!=OTHER_VARIANTS) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"rank",AGG_SUM,NULL));
+    if (kind!=OTHER_ADDITIVE) CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"v",AGG_AVG,NULL));
+    if (kind==OTHER_WEIGHTED || kind==OTHER_CACHED || kind==OTHER_VARIANTS || kind==OTHER_COLUMNS || kind==OTHER_OFFSET || kind==OTHER_NO_TOTALS)
+        CHECK(pivot_assign(&job->pivot,PIVOT_VALUES,"customer",AGG_DISTINCT,NULL));
+    if (kind==OTHER_INVALID_FLAG) job->kind=expected_kind=JOB_PAGE;
+    if (kind==OTHER_TABLE_FLAG) job->is_table=true;
+    if (kind==OTHER_UNBOUND) { analysis_free(&job->analysis); job->analysis=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup("missing-Other-binding.csv")}; }
+    return job;
+}
+static void submit_other(OtherCase kind) { CHECK(!reply); QueryJob *job=other_job(kind); expected_sql+=other_sql_counts[kind]; worker_submit(&worker,job); }
+static void other_number(const Page *page,size_t column,double number) {
+    CHECK(page && column<page->column_count && !page->cells[column].is_null && fabs(page->cells[column].number-number)<1e-9);
+}
+static void other_weighted_values(const Page *page) {
+    CHECK(page->other_status==PAGE_OTHER_READY && page->other && page->other->variant_count==1 && page->other->rank_measure[0]==0);
+    const Page *values=page_other_values(page,1); CHECK(values && page_other_values(page,0)==values && page_other_values(page,2)==values);
+    CHECK(values->row_count==1 && values->column_count==3 && page->bytes<=DX_PAGE_OTHER_BYTES);
+    other_number(values,0,5); other_number(values,1,7.5); other_number(values,2,3);
+}
+static void other_values(OtherCase kind) {
+    Page *page=&reply->page;
+    if (other_case_error(kind)) {
+        CHECK(reply->error && !page->cells && !page->columns && !page->other && !page->other_status);
+        return;
+    }
+    CHECK(!reply->error && !page->count_pending && page->sql && (page->totals!=NULL)==(kind!=OTHER_NO_TOTALS));
+    if (kind==OTHER_SMALL || kind==OTHER_ADDITIVE) { CHECK(page->other_status==PAGE_OTHER_NOT_NEEDED && !page->other); return; }
+    if (kind==OTHER_LIMIT) { CHECK(page->other_status==PAGE_OTHER_LIMIT && !page->other && page->row_count==4); return; }
+    if (kind==OTHER_COMPLEX) { CHECK(page->other_status==PAGE_OTHER_UNSUPPORTED_KEY && !page->other && !strcmp(page->columns[0].type_name,"BIGINT[]")); return; }
+    if (kind==OTHER_UNKNOWN_COLUMN) { CHECK(page->other_status==PAGE_OTHER_UNSUPPORTED_KEY && !page->other && page->column_count==5 && page->columns[0].type==DUCKDB_TYPE_BIGINT); return; }
+    if (kind==OTHER_WEIGHTED || kind==OTHER_CACHED || kind==OTHER_NO_TOTALS) other_weighted_values(page);
+    else if (kind==OTHER_VARIANTS) {
+        CHECK(page->other_status==PAGE_OTHER_READY && page->other && page->other->variant_count==2 && page->other->rank_measure[0]==0 && page->other->rank_measure[1]==1);
+        const Page *average=page_other_values(page,0),*distinct=page_other_values(page,1); CHECK(average && distinct && average!=distinct);
+        other_number(average,0,7.5); other_number(average,1,3); other_number(distinct,0,50); other_number(distinct,1,2);
+    } else if (kind==OTHER_COLUMNS) {
+        const Page *values=page_other_values(page,1); CHECK(values && values->column_count==12 && page->row_count==7);
+        bool missing=false,empty=false,literal=false,quoted=false;
+        for (size_t c=0;c<4;c++) {
+            const char *key=page->columns[1+c*3].categories[0]; missing|=!key; empty|=key && !*key; literal|=key && !strcmp(key,"NULL"); quoted|=key && !strcmp(key,"q'\"İ");
+            other_number(values,c*3,4); CHECK(values->cells[c*3+1].is_null && !values->cells[c*3+1].text); other_number(values,c*3+2,2);
+        }
+        CHECK(missing && empty && literal && quoted);
+    } else if (kind==OTHER_DATE) {
+        const Page *values=page_other_values(page,1); CHECK(values && page->columns[0].date_grain==PIVOT_DATE_YEAR && values->column_count==10);
+        double sum=0; size_t present=0;
+        for (size_t c=0;c<5;c++) if (!values->cells[c*2].is_null) { sum+=values->cells[c*2].number; present++; CHECK(values->columns[c*2].type==DUCKDB_TYPE_HUGEINT); }
+        CHECK(present==2 && sum==13);
+    } else if (kind==OTHER_OFFSET) {
+        const Page *values=page_other_values(page,1); CHECK(values && page->offset==300 && page->row_count==256 && page->total==600);
+        other_number(values,1,429); other_number(values,2,3); CHECK(page->other->top_rows[0][0]==0 && page->other->top_rows[0][2]==2);
+    }
+    if (other_retained.cells) other_weighted_values(&other_retained);
+}
+static void submit_other_bound(unsigned index,bool refresh,unsigned queries) {
+    CHECK(!reply); QueryJob *job=other_job(OTHER_WEIGHTED); analysis_free(&job->analysis);
+    job->analysis=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup(index ? "worker-other-unrelated.csv" : "worker-other.csv"),.query=dx_strdup("SELECT r::VARCHAR AS r,rank::BIGINT AS rank,v::DOUBLE AS v,customer::VARCHAR AS customer FROM input")};
+    job->refresh_source=refresh; job->browser_sources[0]=(BrowserSourceGuard){.source=0,.binding=bound_tokens[index]}; job->browser_source_count=1;
+    expected_sql+=queries; worker_submit(&worker,job);
 }
 typedef enum { EXPORT_PRIMARY,EXPORT_TABLE,EXPORT_ROWS,EXPORT_COLUMNS,EXPORT_EMPTY,EXPORT_GRAND,EXPORT_DATE,
     EXPORT_STAMP,EXPORT_OWNER,EXPORT_PAYLOAD,EXPORT_PATH,EXPORT_COUNTS,EXPORT_NONE,EXPORT_DATABASE,
@@ -1780,7 +1904,76 @@ static void tick(void) {
         pass("bound query teardown retires JSON/cache ownership and ignores scheduled stale callbacks");
         CHECK(stages==221 && baseline_jobs+export_jobs+verification_jobs+worker.jobs_started==225 && baseline_sql+export_sql+verification_sql+worker.sql_executed==441);
         printf("Browser binding workloads: {\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u,\"local_rejections\":7,\"host_rejections\":4,\"budget_rejections\":1,\"sequential_workers\":4,\"total_jobs\":225,\"total_sql\":441,\"total_counts\":21}\n",worker.jobs_started,worker.sql_executed,worker.counts_executed,observed_host_requests()-baseline_host_requests-export_host_requests-verification_requests);
-        enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,baseline_sql+export_sql+verification_sql+worker.sql_executed,baseline_counts+export_counts+verification_counts+worker.counts_executed);
+        binding_jobs=worker.jobs_started; binding_sql=worker.sql_executed; binding_counts=worker.counts_executed;
+        CHECK(reset_test_engine()); enter(WAIT_OTHER_RESET); return;
+    case WAIT_OTHER_RESET: {
+        int ready=export_reset_ready(); CHECK(ready>=0); if (!ready) return;
+        CHECK(!worker.started && !worker.running && worker_start(&worker) && observe_host()); expected_sql=expected_counts=0;
+        other_case=OTHER_WEIGHTED; submit_other(other_case); enter(WAIT_OTHER_CASES); return;
+    }
+    case WAIT_OTHER_CASES:
+        if (!poll_received(other_case_error(other_case),other_sql_counts[other_case]!=0)) return;
+        other_values(other_case);
+        if (other_case==OTHER_WEIGHTED) { other_retained=reply->page; reply->page=(Page){0}; }
+        release_reply(); pass("opted-in chart Other: exact loaded membership, true aggregates, typed domains and honest local limits");
+        if (++other_case==OTHER_CASES) {
+            hold_matrix_reply(8); submit_other(OTHER_VARIANTS); enter(WAIT_OTHER_CANCEL); return;
+        }
+        submit_other(other_case); enter(WAIT_OTHER_CASES); return;
+    case WAIT_OTHER_CANCEL:
+        if (!matrix_reply_held()) { CHECK(worker.running); quiet(); return; }
+        counters(); CHECK(worker.running && !worker_poll(&worker)); other_weighted_values(&other_retained);
+        stale_cookie=observed_cookie(); stale_ticket=observed_ticket(); worker_cancel(&worker); release_matrix_reply(); quiet();
+        CHECK(!worker.running && !worker.reply); other_weighted_values(&other_retained);
+        pass("cancel between real Other variants frees staged readouts and ignores the delayed second variant");
+        submit_other(OTHER_WEIGHTED); enter(WAIT_OTHER_RECOVERY); return;
+    case WAIT_OTHER_RECOVERY:
+        if (!received(false)) return;
+        other_weighted_values(&reply->page); CHECK(reply->page.cells!=other_retained.cells && reply->page.other!=other_retained.other);
+        release_reply(); pass("normal flagged Pivot recovers after variant cancellation without aliasing retained Other ownership");
+        register_other_sources(); enter(WAIT_OTHER_REGISTER); return;
+    case WAIT_OTHER_REGISTER: {
+        int ready=bound_setup_ready(); CHECK(ready>=0); if (!ready) return;
+        for (unsigned i=0;i<2;i++) { uint32_t parts[4]; CHECK(captured_bound_token(i,parts));
+            bound_tokens[i]=(BrowserSourceBinding){.engine_epoch=(uint64_t)parts[0]|((uint64_t)parts[1]<<32),.registration_id=(uint64_t)parts[2]|((uint64_t)parts[3]<<32)};
+            CHECK(bound_tokens[i].engine_epoch && bound_tokens[i].registration_id);
+        }
+        CHECK(bound_tokens[0].engine_epoch==bound_tokens[1].engine_epoch && bound_tokens[0].registration_id!=bound_tokens[1].registration_id);
+        pass("two real CSV registrations provide independent immutable Other source bindings");
+        submit_other_bound(0,true,5); enter(WAIT_OTHER_BOUND); return;
+    }
+    case WAIT_OTHER_BOUND:
+        if (!received(false)) return;
+        CHECK(other_binding_observed(0)); other_weighted_values(&reply->page);
+        other_bound_retained=reply->page; reply->page=(Page){0}; release_reply();
+        pass("every source/schema/Other stage keeps the captured CSV registration and exact source-derived readouts");
+        drop_before_other(); submit_other_bound(0,false,3); enter(WAIT_OTHER_DROP); return;
+    case WAIT_OTHER_DROP: {
+        int verified=other_drop_verified(); CHECK(verified>=0); if (!verified) return;
+        if (!received(true)) return;
+        CHECK(strstr(reply->error,"captured browser source registration") && other_binding_observed(0)); validation_reply();
+        CHECK(!reply->page.other && !reply->page.other_status && !reply->page.totals);
+        other_weighted_values(&other_bound_retained); other_weighted_values(&other_retained);
+        release_reply(); pass("actual drop before Other rejects the captured binding without engine ticket/send advance or matrix publication");
+        submit_other_bound(1,false,5); enter(WAIT_OTHER_UNRELATED); return;
+    }
+    case WAIT_OTHER_UNRELATED:
+        if (!received(false)) return;
+        CHECK(other_binding_observed(1)); other_weighted_values(&reply->page); other_weighted_values(&other_bound_retained);
+        for (size_t i=0;i<64;i++) CHECK(page_other_values(&reply->page,i%3)); counters();
+        release_reply(); pass("unrelated original registration recovers and cached Plot lookups add no jobs or SQL");
+        stale_cookie=observed_cookie(); stale_ticket=observed_ticket(); worker_stop(&worker);
+        inject_late(NULL); emscripten_async_call(inject_late,NULL,50); enter(QUIET_OTHER_STOP); return;
+    case QUIET_OTHER_STOP:
+        quiet(); if (emscripten_get_now()-entered<150) return;
+        CHECK(late_callbacks==6 && !worker.started && !worker.running && !worker.reply);
+        CHECK(worker.jobs_started==22 && expected_sql==85 && expected_counts==0);
+        other_weighted_values(&other_retained); other_weighted_values(&other_bound_retained); page_free(&other_retained); page_free(&other_bound_retained);
+        pass("fifth Worker teardown frees staged/readout caches and retained independent Pages without late publication");
+        CHECK(stages==245 && baseline_jobs+export_jobs+verification_jobs+binding_jobs+worker.jobs_started==247);
+        CHECK(baseline_sql+export_sql+verification_sql+binding_sql+worker.sql_executed==526 && observed_host_requests()==526);
+        printf("Browser Other workloads: {\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"stages\":24,\"source_drop_rejections\":1,\"sequential_workers\":5,\"total_jobs\":247,\"total_sql\":526,\"total_counts\":21}\n",worker.jobs_started,worker.sql_executed,worker.counts_executed);
+        enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,baseline_sql+export_sql+verification_sql+binding_sql+worker.sql_executed,baseline_counts+export_counts+verification_counts+binding_counts+worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
     }
