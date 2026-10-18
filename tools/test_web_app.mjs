@@ -1002,7 +1002,9 @@ function paneRailTarget(state,action,retained,narrow){
  const [x,y,w,h]=state.grid_rect.split(',').map(Number),s=Number(state.ui_scale),right=x+w+(narrow?0:(retained?32:280)*s);
  const point=retained?{x:right-16*s,y:y+(action==='expand'?-10:21)*s}:{x:right-(action==='collapse'?40.5:15.5)*s,y:y-10.5*s};
  check([x,y,w,h,s,point.x,point.y].every(Number.isFinite)&&w>0&&h>0&&s>0,'Retained rail candidate lost the actual C grid geometry');
- return{part:'pane_rail_'+action,id:'pane.transformations.'+action,point,bounds:[point.x-s/2,point.y-s/2,s,s]};
+ // Keep a reachable CSS pixel after fractional embedding. This small probe
+ // stays inside the button; the actual frozen registry still decides its ID.
+ return{part:'pane_rail_'+action,id:'pane.transformations.'+action,point,bounds:[point.x-2*s,point.y-2*s,4*s,4*s]};
 }
 async function paneRailPixels(state,name,regions){
  const surface=await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,viewportWidth:innerWidth,viewportHeight:innerHeight}})()');
