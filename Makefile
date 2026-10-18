@@ -388,9 +388,9 @@ tests/test_core-debug: $(CORE) tests/test_core.c $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/test_core.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 SHADOWVIEW_SRC = src/ui/shadowview.c tests/test_shadowview.c
 # The frozen pixel oracle remains a test fixture; it never enters App sources.
-tests/test_shadowview: $(SHADOWVIEW_SRC) tests/shadow_reference.h $(HEADERS)
+tests/test_shadowview: $(SHADOWVIEW_SRC) tests/shadow_reference.h tests/shadow_corner_reference.h $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(SHADOWVIEW_SRC) -o $@ -lm
-tests/test_shadowview-debug: $(SHADOWVIEW_SRC) tests/shadow_reference.h $(HEADERS)
+tests/test_shadowview-debug: $(SHADOWVIEW_SRC) tests/shadow_reference.h tests/shadow_corner_reference.h $(HEADERS)
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(SHADOWVIEW_SRC) -o $@ -lm $(SANFLAGS)
 INSPECTOR_SRC = src/ui/inspector.c tests/test_inspector.c
 STEPVIEW_SRC = src/common.c src/platform/platform.c src/transforms/number.c src/transforms/analysis.c src/ui/stepview.c tests/test_stepview.c
