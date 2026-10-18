@@ -10,6 +10,7 @@ struct WorkbookCodecHeader {
     unsigned version;
     size_t count,active,bytes;
     float user_scale;
+    bool sorts_ready;
     HeaderSheet sheets[DX_MAX_SHEETS];
 };
 struct WorkbookCodecRead {
@@ -25,6 +26,11 @@ struct WorkbookCodecRead {
 static const char meta_sql[]="SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2";
 static const char sheets25_sql[]="SELECT " DX_WORKBOOK_SHEET_COLUMNS ",canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65";
 static const char sheets24_sql[]="SELECT " DX_WORKBOOK_SHEET_COLUMNS ",1::DOUBLE AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65";
+static const char sorts_sql[]="SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449";
+#define SORT_ROWS (DX_MAX_SHEETS*(DX_ANALYSIS_SORTS-1u))
+static bool request_family(WorkbookCodecFamily family) {
+    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS;
+}
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
 }
@@ -69,7 +75,7 @@ static bool shape(const WorkbookCodecBatch *batch,const WorkbookCodecTable *tabl
                 if (!workbook_codec_nullable(table,p,n)) return fail(error,"Required metadata value is SQL NULL.");
             } else if (atom->kind!=actual->kind) return fail(error,"Metadata atom does not match its exact SQL type.");
             else if (atom->kind==WORKBOOK_CODEC_TEXT) {
-                size_t maximum=!strcmp(table->table,"sheets") && column==1 ? 4096u : DX_WORKBOOK_CODEC_READ_TEXT;
+                size_t maximum=(!strcmp(table->table,"sheets") && column==1) || (!strcmp(table->table,"sorts") && column==2) ? 4096u : DX_WORKBOOK_CODEC_READ_TEXT;
                 if (atom->value.text.bytes>maximum || (!atom->value.text.data && atom->value.text.bytes) ||
                     !utf8(atom->value.text.data,atom->value.text.bytes)) return fail(error,"Metadata text is oversized, contains NUL or is not valid UTF-8.");
             }
@@ -101,7 +107,16 @@ bool workbook_codec_read_begin(WorkbookCodecRead **out,WorkbookCodecKey key,unsi
     workbook_codec_read_free(*out); *out=next; return true;
 }
 const WorkbookCodecRequest *workbook_codec_read_request(const WorkbookCodecRead *read) {
-    return read && read->request.family<WORKBOOK_CODEC_HEADER_READY ? &read->request : NULL;
+    return read && request_family(read->request.family) ? &read->request : NULL;
+}
+bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool present,char **error) {
+    if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->sorts_ready)
+        return fail(error,"Sort metadata requires a complete unclaimed header and may be armed once.");
+    if (!present && read->version==14) return fail(error,"The v14 workbook requires sort metadata.");
+    for (size_t i=0;i<read->header->count;i++) if (!analysis_sorts_valid(&read->header->sheets[i].analysis,error)) return false;
+    if (present) read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SORTS,sorts_sql,0,4,4,SORT_ROWS+1u};
+    else read->header->sorts_ready=true;
+    return true;
 }
 static bool copy_text(const WorkbookCodecAtom *atom,char **out,size_t *staged,size_t owned,size_t retained,size_t limit,char **error) {
     if (atom->kind==WORKBOOK_CODEC_NULL) { *out=NULL; return true; }
@@ -144,15 +159,59 @@ static bool sheet_row(WorkbookCodecRead *read,const WorkbookCodecAtom *cells,siz
     }
     a->path=resolved.data; *staged+=resolved.bytes+1; return true;
 }
+typedef struct { size_t sheet; AnalysisSort sort; } SortRow;
+static bool sorts_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *batch,size_t retained,char **error) {
+    if (read->request.first_row>SORT_ROWS || batch->row_count>SORT_ROWS-read->request.first_row)
+        return fail(error,"Too many secondary sort metadata rows.");
+    size_t array_bytes=batch->row_count*sizeof(SortRow);
+    if (!room(read->bytes,retained,array_bytes,read->limit)) return fail(error,"Sort metadata batch staging exceeds its owned-buffer budget.");
+    SortRow *next=array_bytes ? dx_alloc(array_bytes) : NULL; size_t staged=array_bytes,done=0;
+    bool previous=read->request.first_row!=0; size_t last_sheet=0,current_sheet=SIZE_MAX;
+    if (previous) for (size_t i=0;i<read->header->count;i++) if (read->header->sheets[i].analysis.sort_count) last_sheet=i;
+    /* The prospective Analysis borrows old and staged strings. Never free it:
+       only the staging rows own their newly copied names until publication. */
+    Analysis prospective={0};
+    for (;done<batch->row_count;done++) {
+        const WorkbookCodecAtom *row=batch->cells+done*4;
+        int32_t sheet=row[0].value.i32,position=row[1].value.i32;
+        if (sheet<0 || (size_t)sheet>=read->header->count || position<0 || position>=DX_ANALYSIS_SORTS-1 ||
+            (previous && (size_t)sheet<last_sheet)) {
+            fail(error,"Invalid ordered secondary sort metadata."); goto rejected;
+        }
+        if ((size_t)sheet!=current_sheet) { current_sheet=(size_t)sheet; prospective=read->header->sheets[current_sheet].analysis; }
+        if (!prospective.sort_column || (size_t)position!=prospective.sort_count) {
+            fail(error,"Secondary sort positions must follow an existing primary sort without gaps."); goto rejected;
+        }
+        next[done].sheet=(size_t)sheet; next[done].sort.descending=row[3].value.boolean;
+        if (!copy_text(row+2,&next[done].sort.column,&staged,read->bytes,retained,read->limit,error)) goto rejected;
+        prospective.sorts[prospective.sort_count++]=next[done].sort;
+        /* At most8 names of4096 bytes also preserves the native32768-byte
+           name limit. Existing ASCII-insensitive duplicate semantics apply. */
+        if (!analysis_sorts_valid(&prospective,error)) goto rejected;
+        previous=true; last_sheet=(size_t)sheet;
+    }
+    for (size_t i=0;i<done;i++) {
+        Analysis *analysis=&read->header->sheets[next[i].sheet].analysis;
+        analysis->sorts[analysis->sort_count++]=next[i].sort;
+    }
+    free(next); staged-=array_bytes;
+    read->bytes+=staged; read->header->bytes+=staged; read->request.first_row+=done;
+    if (batch->end) { read->header->sorts_ready=true; read->request.family=WORKBOOK_CODEC_HEADER_READY; }
+    return true;
+rejected:
+    for (size_t i=0;i<=done && i<batch->row_count;i++) free(next[i].sort.column);
+    free(next); return false;
+}
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained,char **error) {
     if (!read || !same_key(read->key,key)) return WORKBOOK_CODEC_READ_STALE;
-    if (!read->header || read->request.family>=WORKBOOK_CODEC_HEADER_READY || family!=read->request.family || !batch || batch->first_row!=read->request.first_row) {
+    if (!read->header || !request_family(read->request.family) || family!=read->request.family || !batch || batch->first_row!=read->request.first_row) {
         fail(error,"Metadata family or batch order does not match its cursor."); return WORKBOOK_CODEC_READ_ERROR;
     }
-    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : "sheets");
+    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : "sorts");
     if (!shape(batch,table,error)) return WORKBOOK_CODEC_READ_ERROR;
     if (!room(read->bytes,retained,0,read->limit)) { fail(error,"Metadata input exceeds its owned-buffer budget."); return WORKBOOK_CODEC_READ_ERROR; }
+    if (family==WORKBOOK_CODEC_SORTS) return sorts_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_META) {
         if (batch->first_row || batch->row_count!=1 || !batch->end || batch->cells[0].value.i32!=(int32_t)read->version ||
             batch->cells[1].value.u64>=DX_MAX_SHEETS || !isfinite(batch->cells[2].value.real) || batch->cells[2].value.real<.8 || batch->cells[2].value.real>1.5) {
@@ -190,6 +249,7 @@ unsigned workbook_codec_header_version(const WorkbookCodecHeader *header) { retu
 size_t workbook_codec_header_sheet_count(const WorkbookCodecHeader *header) { return header ? header->count : 0; }
 size_t workbook_codec_header_active_sheet(const WorkbookCodecHeader *header) { return header ? header->active : SIZE_MAX; }
 float workbook_codec_header_user_scale(const WorkbookCodecHeader *header) { return header ? header->user_scale : 0; }
+bool workbook_codec_header_sorts_ready(const WorkbookCodecHeader *header) { return header && header->sorts_ready; }
 const char *workbook_codec_header_name(const WorkbookCodecHeader *header,size_t sheet) { return header && sheet<header->count ? header->sheets[sheet].name : NULL; }
 const char *workbook_codec_header_reference(const WorkbookCodecHeader *header,size_t sheet) { return header && sheet<header->count ? header->sheets[sheet].reference : NULL; }
 const Analysis *workbook_codec_header_analysis(const WorkbookCodecHeader *header,size_t sheet) { return header && sheet<header->count ? &header->sheets[sheet].analysis : NULL; }
