@@ -11,7 +11,8 @@ typedef struct WorkbookCodecRead WorkbookCodecRead;
 typedef struct WorkbookCodecHeader WorkbookCodecHeader;
 typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; } WorkbookCodecKey;
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
-    WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
+    WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -94,6 +95,19 @@ bool workbook_codec_read_add_queries(WorkbookCodecRead *read,bool table_present,
    Nonzero owners must be same-sheet Table descriptors; explicit false rows
    still count as seen. This does not construct full Table source Analyses. */
 bool workbook_codec_read_add_source_options(WorkbookCodecRead *read,bool table_present,char **error);
+typedef struct { bool sources,filters,sorts; } WorkbookCodecTableSourcePresence;
+/* One chain after complete descriptors/queries/options:14-column sources,
+   6-column secondary filters,5-column secondary sorts, each one ordered result
+   in atomic<=256-row feeds. Limits2048/30720/14336 plus one sentinel each.
+   v14 requires all three tables; absent sources in12/13 defaults empty only
+   with no Table descriptors. Present sources always requires both children.
+   Raw text is bounded8MiB/sheet, independently of owned-buffer admission.
+   Completion also checks the known native object-current byte lower bound:
+   object/name/Table/query data and actual available locator bytes. Unavailable
+   native path lengths and future Pivot/Marks payloads still require completed
+   candidate validation. Preserved definitions do not authorize source SQL or
+   file execution or constitute complete native ObjectStore validation. */
+bool workbook_codec_read_add_table_sources(WorkbookCodecRead *read,WorkbookCodecTableSourcePresence present,char **error);
 /* Cells/column descriptors are borrowed for this call, not a DXP1 buffer. The
    existing wire decoder remains the sole wire parser; an adapter supplies exact
    typed atoms. Include all concrete caller-owned input/adapter bytes that
@@ -105,8 +119,8 @@ bool workbook_codec_read_add_source_options(WorkbookCodecRead *read,bool table_p
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   sorts/preferences/object descriptors/queries/source options). It is not a complete workbook:
-   cells, full object sources/fields, formats and ledger remain absent.
+   sorts/preferences/object descriptors/queries/source options/Table sources).
+   It is not a complete workbook: cells, Pivot/Marks, formats and ledger remain absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
 void workbook_codec_read_free(WorkbookCodecRead *read);
@@ -150,6 +164,17 @@ bool workbook_codec_header_query(const WorkbookCodecHeader *header,size_t sheet,
    false, including a blank sheet's primary slot; no stored row is required. */
 bool workbook_codec_header_source_options_ready(const WorkbookCodecHeader *header);
 bool workbook_codec_header_unique_rows(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,bool *out);
+typedef struct {
+    const Analysis *analysis;
+    const char *reference;
+    bool locator_available;
+} WorkbookCodecTableSourceView;
+/* Complete persisted Table definitions only. All pointers borrow Header storage;
+   raw reference and independently resolved locator remain separate. A browser
+   resolver may leave the locator unavailable without discarding the definition.
+   Invalid/incomplete/non-Table owners return false and preserve out. */
+bool workbook_codec_header_table_sources_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_table_source(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,WorkbookCodecTableSourceView *out);
 /* POD defaults are false until preferences is explicitly complete. Invalid
    Header/sheet arguments return false; check sheet_count to validate identity. */
 bool workbook_codec_header_reduced_motion(const WorkbookCodecHeader *header);

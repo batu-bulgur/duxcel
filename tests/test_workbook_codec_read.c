@@ -1031,6 +1031,207 @@ static void test_source_options_queries_composition(void) {
         CHECK(workbook_codec_header_unique_rows(header,0,1,&value) && !value && workbook_codec_header_query(header,0,1,&query) && !strcmp(query,"NULL")); workbook_codec_header_free(header);
     }
 }
+#define TABLE_TEST_LIMIT (32u*1024u*1024u)
+typedef struct { unsigned calls; int mode; } TableResolver;
+static bool table_resolve(void *context,SourceKind kind,const char *reference,size_t maximum,WorkbookCodecOwnedText *out) {
+    TableResolver *r=context; r->calls++; CHECK(kind>=SOURCE_CSV && kind<=SOURCE_DATABASE && reference && maximum);
+    if (r->mode==1) { out->data=dx_strdup(""); out->bytes=0; return true; }
+    if (r->mode==2) { out->data=dx_strdup("x"); out->bytes=SIZE_MAX; return true; }
+    if (r->mode==3) { out->data=dx_strdup("owned failure"); out->bytes=13; return false; }
+    if (r->mode==4) { out->data=dx_alloc(4); memcpy(out->data,"a\0b",4); out->bytes=3; return true; }
+    size_t bytes=strlen(reference)+8; if (bytes>=maximum) return false;
+    out->data=dx_printf("logical:%s",reference); out->bytes=bytes; return true;
+}
+static uint64_t table_test_id(size_t position) { return position==31 ? UINT64_MAX : position+1; }
+static WorkbookCodecRead *table_header_text(unsigned version,size_t sheets,size_t per_sheet,size_t limit,TableResolver *resolver,const char *query_text) {
+    WorkbookCodecRead *read=NULL; char *error=NULL;
+    CHECK(workbook_codec_read_begin(&read,key,version,WORKBOOK_CODEC_SHEETS_25,limit,resolver ? table_resolve : NULL,resolver,&error)); meta(read,version,0,0);
+    Fixture *s=dx_alloc(sizeof(*s)); fixture_columns(s,"sheets"); for (size_t row=0;row<sheets;row++) sheet(s,row,SOURCE_NONE);
+    WorkbookCodecBatch batch={s->columns,25,s->cells,sheets,0,true}; CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SHEETS,&batch,sizeof(*s),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(s);
+    size_t total=sheets*per_sheet; ObjectFixture *o=object_fixture(total);
+    for (size_t row=0;row<total;row++) { WorkbookCodecAtom *c=o->cells+row*11; c[0]=i((int32_t)(row/per_sheet)); c[1]=u(table_test_id(row%per_sheet)); c[3]=u((row%per_sheet)*2); c[7]=i(OBJECT_TABLE); }
+    CHECK(workbook_codec_read_add_objects(read,true,&error));
+    for (size_t first=0;first<total || (!total && !first);) { size_t n=total-first>256 ? 256 : total-first; batch=object_batch(o,first,n,first+n==total); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_OBJECTS,&batch,sizeof(*o),&error)==WORKBOOK_CODEC_READ_ACCEPTED); first+=n; if (!n) break; }
+    free(o); QueryFixture *q=query_fixture(total);
+    for (size_t row=0;row<total;row++) { q->cells[row*3]=i((int32_t)(row/per_sheet)); q->cells[row*3+1]=u(table_test_id(row%per_sheet)); q->cells[row*3+2]=t(query_text); }
+    CHECK(workbook_codec_read_add_queries(read,true,&error));
+    for (size_t first=0;first<total || (!total && !first);) { size_t n=total-first>256 ? 256 : total-first; batch=query_batch(q,first,n,first+n==total); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_QUERIES,&batch,sizeof(*q)+strlen(query_text)+1u,&error)==WORKBOOK_CODEC_READ_ACCEPTED); first+=n; if (!n) break; }
+    q->columns[2]=(WorkbookCodecColumn){"unique_rows",WORKBOOK_CODEC_BOOLEAN}; for (size_t row=0;row<total;row++) q->cells[row*3+2]=b(true);
+    CHECK(workbook_codec_read_add_source_options(read,true,&error));
+    for (size_t first=0;first<total || (!total && !first);) { size_t n=total-first>256 ? 256 : total-first; batch=query_batch(q,first,n,first+n==total); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_SOURCE_OPTIONS,&batch,sizeof(*q)+strlen(query_text)+1u,&error)==WORKBOOK_CODEC_READ_ACCEPTED); first+=n; if (!n) break; }
+    free(q); return read;
+}
+static WorkbookCodecRead *table_header(unsigned version,size_t sheets,size_t per_sheet,size_t limit,TableResolver *resolver) {
+    return table_header_text(version,sheets,per_sheet,limit,resolver,"SELECT 'retained';  \n");
+}
+typedef struct { WorkbookCodecColumn columns[14]; WorkbookCodecAtom cells[2049*14]; } TableSourceFixture;
+typedef struct { WorkbookCodecColumn columns[6]; WorkbookCodecAtom cells[30721*6]; } TableFilterFixture;
+typedef struct { WorkbookCodecColumn columns[5]; WorkbookCodecAtom cells[14337*5]; } TableSortFixture;
+static TableSourceFixture *table_source_fixture(size_t count,size_t per_sheet) {
+    TableSourceFixture *f=dx_alloc(sizeof(*f)); const char *names[]={"sheet_id","object_id","kind","path","source_schema","source_table","filter_column","filter_value","filter_op","group_column","measure_column","aggregate","sort_column","descending"};
+    const WorkbookCodecAtomKind kinds[]={WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_BOOLEAN};
+    for (size_t col=0;col<14;col++) f->columns[col]=(WorkbookCodecColumn){names[col],kinds[col]};
+    for (size_t row=0;row<count;row++) { WorkbookCodecAtom *c=f->cells+row*14; c[0]=i((int32_t)(row/per_sheet)); c[1]=u(table_test_id(row%per_sheet)); c[2]=i(SOURCE_DEMO); c[3]=t(""); c[4]=t(""); c[5]=t("NULL"); c[6]=t("Primary"); c[7]=t("NULL"); c[8]=i(FILTER_EQUAL); c[11]=i(AGG_SUM); c[12]=t("Sort"); c[13]=b(false); }
+    return f;
+}
+static TableFilterFixture *table_filter_fixture(size_t count,size_t per_sheet) {
+    TableFilterFixture *f=dx_alloc(sizeof(*f)); const char *names[]={"sheet_id","object_id","position","name","op","value"}; const WorkbookCodecAtomKind kinds[]={WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_TEXT};
+    static const char *fields[]={"F0","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","F13","F14"};
+    for (size_t col=0;col<6;col++) f->columns[col]=(WorkbookCodecColumn){names[col],kinds[col]};
+    for (size_t row=0;row<count;row++) { size_t owner=row/15; WorkbookCodecAtom *c=f->cells+row*6; c[0]=i((int32_t)(owner/per_sheet)); c[1]=u(table_test_id(owner%per_sheet)); c[2]=i((int32_t)(row%15)); c[3]=t(fields[row%15]); c[4]=i(FILTER_EQUAL); c[5]=row%3==0 ? (WorkbookCodecAtom){0} : t(row%3==1 ? "" : "NULL"); }
+    return f;
+}
+static TableSortFixture *table_sort_fixture(size_t count,size_t per_sheet) {
+    TableSortFixture *f=dx_alloc(sizeof(*f)); const char *names[]={"sheet_id","object_id","position","name","descending"}; const WorkbookCodecAtomKind kinds[]={WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_BOOLEAN}; static const char *fields[]={"S0","S1","S2","S3","S4","S5","S6"};
+    for (size_t col=0;col<5;col++) f->columns[col]=(WorkbookCodecColumn){names[col],kinds[col]};
+    for (size_t row=0;row<count;row++) { size_t owner=row/7; WorkbookCodecAtom *c=f->cells+row*5; c[0]=i((int32_t)(owner/per_sheet)); c[1]=u(table_test_id(owner%per_sheet)); c[2]=i((int32_t)(row%7)); c[3]=t(fields[row%7]); c[4]=b(row%2!=0); } return f;
+}
+static WorkbookCodecBatch table_base_batch(TableSourceFixture *f,size_t first,size_t count,bool end) { return (WorkbookCodecBatch){f->columns,14,f->cells+first*14,count,first,end}; }
+static WorkbookCodecBatch table_filter_batch(TableFilterFixture *f,size_t first,size_t count,bool end) { return (WorkbookCodecBatch){f->columns,6,f->cells+first*6,count,first,end}; }
+static WorkbookCodecBatch table_sort_batch(TableSortFixture *f,size_t first,size_t count,bool end) { return (WorkbookCodecBatch){f->columns,5,f->cells+first*5,count,first,end}; }
+static void reject_tables_arm(WorkbookCodecRead *read,WorkbookCodecTableSourcePresence present) {
+    const WorkbookCodecRequest *request=workbook_codec_read_request(read); WorkbookCodecRequest before=request ? *request : (WorkbookCodecRequest){0}; size_t bytes=workbook_codec_read_owned_bytes(read); char *error=NULL;
+    CHECK(!workbook_codec_read_add_table_sources(read,present,&error) && error && *error && workbook_codec_read_owned_bytes(read)==bytes); CHECK(request ? same_request(before,workbook_codec_read_request(read)) : !workbook_codec_read_request(read)); error_clear(&error);
+}
+static void table_get_unchanged(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner) {
+    WorkbookCodecTableSourceView out={(const Analysis *)(uintptr_t)1,"unchanged",true},saved=out;
+    CHECK(!workbook_codec_header_table_source(header,sheet,owner,&out) && !memcmp(&out,&saved,sizeof(out)));
+}
+static void table_empty_children(WorkbookCodecRead *read,size_t retained) {
+    char *error=NULL; TableFilterFixture *f=table_filter_fixture(0,1); WorkbookCodecBatch batch=table_filter_batch(f,0,0,true);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_FILTERS,&batch,sizeof(*f)+retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(f);
+    TableSortFixture *s=table_sort_fixture(0,1); batch=table_sort_batch(s,0,0,true);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SORTS,&batch,sizeof(*s)+retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(s);
+}
+static void test_tables_contract(void) {
+    CHECK(WORKBOOK_CODEC_TABLE_SOURCES==9 && WORKBOOK_CODEC_TABLE_FILTERS==10 && WORKBOOK_CODEC_TABLE_SORTS==11 && !workbook_codec_header_table_sources_ready(NULL)); table_get_unchanged(NULL,0,1); reject_tables_arm(NULL,(WorkbookCodecTableSourcePresence){true,true,true});
+    WorkbookCodecRead *read=sort_header(14,1,NULL,LIMIT); reject_tables_arm(read,(WorkbookCodecTableSourcePresence){true,true,true}); workbook_codec_read_free(read); char *error=NULL;
+    for (unsigned version=12;version<=14;version++) {
+        read=table_header(version,1,1,LIMIT,NULL); reject_tables_arm(read,(WorkbookCodecTableSourcePresence){false,true,true}); reject_tables_arm(read,(WorkbookCodecTableSourcePresence){true,false,true}); reject_tables_arm(read,(WorkbookCodecTableSourcePresence){true,true,false});
+        CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error)); reject_tables_arm(read,(WorkbookCodecTableSourcePresence){true,true,true});
+        const WorkbookCodecRequest *r=workbook_codec_read_request(read); CHECK(r && r->family==WORKBOOK_CODEC_TABLE_SOURCES && r->row_limit==2049 && r->column_count==14 && r->source_column_count==14);
+        CHECK(!strcmp(r->sql,"SELECT sheet_id,object_id,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending FROM _duxcel_workspace.table_sources ORDER BY sheet_id,object_id LIMIT 2049"));
+        TableSourceFixture *f=table_source_fixture(1,1); WorkbookCodecBatch batch=table_base_batch(f,0,0,true); reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)); batch=table_base_batch(f,0,1,true);
+        CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(f); r=workbook_codec_read_request(read);
+        CHECK(r && r->family==WORKBOOK_CODEC_TABLE_FILTERS && r->row_limit==30721 && r->column_count==6 && !strcmp(r->sql,"SELECT sheet_id,object_id,position,name,op,value FROM _duxcel_workspace.table_filters ORDER BY sheet_id,object_id,position LIMIT 30721"));
+        WorkbookCodecHeader *header=NULL; CHECK(!workbook_codec_read_finish(read,&header,&error) && !header); error_clear(&error); table_empty_children(read,0);
+        CHECK(workbook_codec_read_finish(read,&header,&error) && workbook_codec_header_table_sources_ready(header)); reject_tables_arm(read,(WorkbookCodecTableSourcePresence){true,true,true});
+        WorkbookCodecTableSourceView view={0}; CHECK(workbook_codec_header_table_source(header,0,1,&view) && view.analysis && view.locator_available && view.analysis->kind==SOURCE_DEMO && !strcmp(view.reference,"") && !strcmp(view.analysis->path,"") && view.analysis->unique_rows && !strcmp(view.analysis->query,"SELECT 'retained';  \n"));
+        table_get_unchanged(header,0,0); table_get_unchanged(header,1,1); table_get_unchanged(header,0,UINT64_MAX); CHECK(!workbook_codec_header_table_source(header,0,1,NULL)); workbook_codec_read_free(read); workbook_codec_header_free(header);
+        read=table_header(version,1,0,LIMIT,NULL);
+        if (version==14) { reject_tables_arm(read,(WorkbookCodecTableSourcePresence){false,true,true}); CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error)); f=table_source_fixture(0,1); batch=table_base_batch(f,0,0,true); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(f); table_empty_children(read,0); }
+        else CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){false,true,false},&error));
+        header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error) && workbook_codec_header_table_sources_ready(header)); table_get_unchanged(header,0,1); workbook_codec_read_free(read); workbook_codec_header_free(header);
+    }
+    read=table_header(14,1,1,LIMIT,NULL); WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error) && !workbook_codec_header_table_sources_ready(header)); table_get_unchanged(header,0,1); workbook_codec_read_free(read); workbook_codec_header_free(header);
+}
+static void test_tables_owned_and_invalid(void) {
+    char *error=NULL; TableResolver resolver={0}; WorkbookCodecRead *read=table_header(14,1,2,TABLE_TEST_LIMIT,&resolver); CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error));
+    TableSourceFixture *f=table_source_fixture(2,2); WorkbookCodecBatch batch=table_base_batch(f,0,1,false); size_t owned=workbook_codec_read_owned_bytes(read); error=dx_strdup("stale untouched"); char *old_error=error;
+    for (unsigned part=0;part<3;part++) { WorkbookCodecKey stale=key; if (!part) stale.document_epoch--; else if (part==1) stale.operation_ticket--; else stale.snapshot_generation--; CHECK(workbook_codec_read_feed(read,stale,(WorkbookCodecFamily)99,(const WorkbookCodecBatch *)(uintptr_t)1,SIZE_MAX,&error)==WORKBOOK_CODEC_READ_STALE && error==old_error && workbook_codec_read_owned_bytes(read)==owned); }
+    free(error); error=NULL;
+    const size_t required[]={0,1,2,3,8,11,13};
+    for (size_t i=0;i<sizeof(required)/sizeof(*required);i++) { size_t col=required[i]; WorkbookCodecAtom saved=f->cells[col]; f->cells[col]=(WorkbookCodecAtom){0}; reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)); f->cells[col]=saved; }
+    for (size_t col=0;col<14;col++) { WorkbookCodecAtomKind kind=f->columns[col].kind; f->columns[col].kind=kind==WORKBOOK_CODEC_BOOLEAN ? WORKBOOK_CODEC_I32 : WORKBOOK_CODEC_BOOLEAN; reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)); f->columns[col].kind=kind; }
+    const uint64_t owners[]={0,2,UINT64_MAX}; for (size_t i=0;i<3;i++) { f->cells[1]=u(owners[i]); reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)); } f->cells[1]=u(1);
+    f->cells[2]=i(SOURCE_NONE); reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)); f->cells[2]=i(SOURCE_CSV); reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f));
+    char reference[]="Table 'İ'.csv"; f->cells[3]=t(reference); f->cells[7]=t("");
+    for (int mode=2;mode<=4;mode++) { resolver.mode=mode; reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+sizeof(reference)); } resolver.mode=1;
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+sizeof(reference),&error)==WORKBOOK_CODEC_READ_ACCEPTED); memset(reference,'x',strlen(reference));
+    f->cells[14+2]=i(SOURCE_PARQUET); f->cells[14+3]=t("second.parquet"); f->cells[14+7]=(WorkbookCodecAtom){0}; resolver.mode=0;
+    batch=table_base_batch(f,1,1,true); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(f);
+    TableFilterFixture *filters=table_filter_fixture(2,2); filters->cells[6]=i(0); filters->cells[7]=u(2); filters->cells[8]=i(0); filters->cells[9]=t("Other"); filters->cells[11]=t("NULL"); batch=table_filter_batch(filters,0,2,true);
+    filters->cells[2]=i(1); reject(read,WORKBOOK_CODEC_TABLE_FILTERS,&batch,sizeof(*filters)); filters->cells[2]=i(0); filters->cells[3]=t("pRIMARY"); reject(read,WORKBOOK_CODEC_TABLE_FILTERS,&batch,sizeof(*filters)); filters->cells[3]=t("F0");
+    filters->cells[7]=u(0); reject(read,WORKBOOK_CODEC_TABLE_FILTERS,&batch,sizeof(*filters)); filters->cells[7]=u(2);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_FILTERS,&batch,sizeof(*filters),&error)==WORKBOOK_CODEC_READ_ACCEPTED); memset(filters->cells,0,sizeof(filters->cells)); free(filters);
+    const WorkbookCodecRequest *r=workbook_codec_read_request(read); CHECK(r && r->family==WORKBOOK_CODEC_TABLE_SORTS && r->row_limit==14337 && r->column_count==5 && !strcmp(r->sql,"SELECT sheet_id,object_id,position,name,descending FROM _duxcel_workspace.table_sorts ORDER BY sheet_id,object_id,position LIMIT 14337"));
+    TableSortFixture *sorts=table_sort_fixture(2,2); sorts->cells[5]=i(0); sorts->cells[6]=u(2); sorts->cells[7]=i(0); sorts->cells[8]=t("Other sort"); batch=table_sort_batch(sorts,0,2,false);
+    sorts->cells[3]=t("sOrT"); reject(read,WORKBOOK_CODEC_TABLE_SORTS,&batch,sizeof(*sorts)); sorts->cells[3]=t("S0");
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SORTS,&batch,sizeof(*sorts),&error)==WORKBOOK_CODEC_READ_ACCEPTED); size_t before_move=workbook_codec_read_owned_bytes(read);
+    batch=table_sort_batch(sorts,2,0,true); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SORTS,&batch,sizeof(*sorts),&error)==WORKBOOK_CODEC_READ_ACCEPTED && workbook_codec_read_owned_bytes(read)==before_move); free(sorts);
+    WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error)); workbook_codec_read_free(read);
+    WorkbookCodecTableSourceView first={0},second={0}; CHECK(workbook_codec_header_table_source(header,0,1,&first) && workbook_codec_header_table_source(header,0,2,&second));
+    CHECK(!strcmp(first.reference,"Table 'İ'.csv") && first.analysis->path && !*first.analysis->path && !first.locator_available && first.analysis->kind==SOURCE_CSV);
+    CHECK(!strcmp(second.reference,"second.parquet") && !strcmp(second.analysis->path,"logical:second.parquet") && second.locator_available && second.analysis->kind==SOURCE_PARQUET);
+    CHECK(first.analysis->filter_value && !*first.analysis->filter_value && !second.analysis->filter_value && !first.analysis->filters[0].value && !strcmp(second.analysis->filters[0].value,"NULL"));
+    CHECK(first.analysis->filter_count==1 && second.analysis->filter_count==1 && first.analysis->sort_count==1 && second.analysis->sort_count==1 && !strcmp(first.analysis->schema,"") && !strcmp(first.analysis->table,"NULL"));
+    const char *query=NULL; bool unique=false; CHECK(workbook_codec_header_query(header,0,1,&query) && query==first.analysis->query && !strcmp(query,"SELECT 'retained';  \n") && workbook_codec_header_unique_rows(header,0,1,&unique) && unique && first.analysis->unique_rows && !first.analysis->source_version); workbook_codec_header_free(header);
+}
+static void test_tables_full_limits(void) {
+    char *error=NULL; WorkbookCodecRead *read=table_header(14,64,32,TABLE_TEST_LIMIT,NULL); CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error));
+    TableSourceFixture *base=table_source_fixture(2049,32); WorkbookCodecBatch batch=table_base_batch(base,0,257,false); reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*base));
+    for (size_t first=0;first<2048;first+=256) { batch=table_base_batch(base,first,256,false); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*base),&error)==WORKBOOK_CODEC_READ_ACCEPTED); }
+    batch=table_base_batch(base,2048,1,true); reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*base)); batch=table_base_batch(base,2048,0,true); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*base),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(base);
+    TableFilterFixture *filters=table_filter_fixture(30721,32);
+    for (size_t first=0;first<30720;first+=256) { batch=table_filter_batch(filters,first,256,false); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_FILTERS,&batch,sizeof(*filters),&error)==WORKBOOK_CODEC_READ_ACCEPTED); }
+    batch=table_filter_batch(filters,30720,1,true); reject(read,WORKBOOK_CODEC_TABLE_FILTERS,&batch,sizeof(*filters)); batch=table_filter_batch(filters,30720,0,true); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_FILTERS,&batch,sizeof(*filters),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(filters);
+    TableSortFixture *sorts=table_sort_fixture(14337,32);
+    for (size_t first=0;first<14336;first+=256) { batch=table_sort_batch(sorts,first,256,false); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SORTS,&batch,sizeof(*sorts),&error)==WORKBOOK_CODEC_READ_ACCEPTED); }
+    batch=table_sort_batch(sorts,14336,1,true); reject(read,WORKBOOK_CODEC_TABLE_SORTS,&batch,sizeof(*sorts)); batch=table_sort_batch(sorts,14336,0,true); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SORTS,&batch,sizeof(*sorts),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(sorts);
+    WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error)); workbook_codec_read_free(read);
+    for (size_t sheet=0;sheet<64;sheet++) for (size_t position=0;position<32;position++) { WorkbookCodecTableSourceView view={0}; CHECK(workbook_codec_header_table_source(header,sheet,table_test_id(position),&view) && view.analysis->filter_count==15 && view.analysis->sort_count==7 && view.analysis->unique_rows && !strcmp(view.analysis->query,"SELECT 'retained';  \n")); }
+    workbook_codec_header_free(header);
+}
+static void test_tables_text_and_scratch_budget(void) {
+    char *error=NULL; TableSourceFixture *f=table_source_fixture(1,1); char *large=dx_alloc(4u*1024u*1024u+2u); memset(large,'q',4u*1024u*1024u+1u); large[4u*1024u*1024u+1u]=0;
+    WorkbookCodecRead *read=table_header(14,1,1,TABLE_TEST_LIMIT,NULL); CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error)); WorkbookCodecBatch batch=table_base_batch(f,0,1,true);
+    f->cells[7]=t(large); reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+4u*1024u*1024u+2u); f->cells[7].value.text.bytes=4u*1024u*1024u; f->cells[8]=i(FILTER_CONTAINS);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+4u*1024u*1024u+2u,&error)==WORKBOOK_CODEC_READ_ACCEPTED); table_empty_children(read,sizeof(*f)+4u*1024u*1024u+2u); WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error)); workbook_codec_read_free(read);
+    WorkbookCodecTableSourceView old={0}; CHECK(workbook_codec_header_table_source(header,0,1,&old) && strlen(old.analysis->filter_value)==4u*1024u*1024u); WorkbookCodecHeader *identity=header; size_t old_bytes=workbook_codec_header_owned_bytes(header); const char *old_query=old.analysis->query;
+    read=table_header(14,1,1,TABLE_TEST_LIMIT,NULL); CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error));
+    char payload[]="[\"6\",\"[\\\"a\\\"]\",\"1\",\"x\"]"; f->cells[7]=t(payload); f->cells[8]=i(FILTER_COMPOSITE); size_t base=workbook_codec_read_owned_bytes(read);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+sizeof(payload)+old_bytes+4u*1024u*1024u+2u,&error)==WORKBOOK_CODEC_READ_ACCEPTED); size_t copied=workbook_codec_read_owned_bytes(read)-base; workbook_codec_read_free(read);
+    read=table_header(14,1,1,TABLE_TEST_LIMIT,NULL); CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error)); size_t owned=workbook_codec_read_owned_bytes(read),n=strlen(payload),scratch=3u*n+4102u+6160u*sizeof(char *),retained=sizeof(*f)+sizeof(payload)+old_bytes+4u*1024u*1024u+2u,staged=copied+2u*sizeof(void *);
+    CHECK(owned+retained+staged+scratch<TABLE_TEST_LIMIT); size_t pressure_bytes=TABLE_TEST_LIMIT-owned-retained-staged-scratch; unsigned char *pressure=dx_alloc(pressure_bytes+1u);
+    payload[0]='x'; CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,retained+pressure_bytes+1u,&error)==WORKBOOK_CODEC_READ_ERROR && error && strstr(error,"scratch")); error_clear(&error);
+    CHECK(workbook_codec_read_owned_bytes(read)==owned && !workbook_codec_read_request(read)->first_row);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,retained+pressure_bytes,&error)==WORKBOOK_CODEC_READ_ERROR && error && strstr(error,"filter")); error_clear(&error);
+    CHECK(!workbook_codec_read_finish(read,&header,&error) && header==identity && workbook_codec_header_owned_bytes(header)==old_bytes && old.analysis->query==old_query && !strcmp(old_query,"SELECT 'retained';  \n")); error_clear(&error);
+    payload[0]='['; CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,retained+pressure_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(pressure); table_empty_children(read,retained); CHECK(workbook_codec_read_finish(read,&header,&error)); workbook_codec_read_free(read);
+    WorkbookCodecTableSourceView view={0}; CHECK(workbook_codec_header_table_source(header,0,1,&view) && !strcmp(view.analysis->filter_value,payload)); workbook_codec_header_free(header); free(large); free(f);
+}
+static void test_tables_field_and_native_budgets(void) {
+    char *error=NULL; const size_t value_bytes=4u*1024u*1024u; char *text=dx_alloc(value_bytes+1u); memset(text,'x',value_bytes); text[value_bytes]=0;
+    TableSourceFixture *f=table_source_fixture(2,2); WorkbookCodecRead *read=table_header(14,1,2,TABLE_TEST_LIMIT,NULL); CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error));
+    WorkbookCodecBatch batch=table_base_batch(f,0,2,true); f->cells[7]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={text,value_bytes}}; f->cells[14+7]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={text,value_bytes-29u}};
+    /* Raw text counts no terminators:15 other bytes per base row. One byte
+       over8MiB rejects the entire batch, then the exact raw-boundary retry is
+       accepted privately. It still cannot become a complete native object. */
+    size_t owned=workbook_codec_read_owned_bytes(read); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+value_bytes+1u,&error)==WORKBOOK_CODEC_READ_ERROR && error && strstr(error,"raw Table")); error_clear(&error);
+    CHECK(workbook_codec_read_owned_bytes(read)==owned && !workbook_codec_read_request(read)->first_row); f->cells[14+7].value.text.bytes=value_bytes-30u;
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+value_bytes+1u,&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+    TableFilterFixture *filters=table_filter_fixture(1,2); WorkbookCodecBatch child=table_filter_batch(filters,0,1,true); size_t prefix=workbook_codec_read_owned_bytes(read);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_FILTERS,&child,sizeof(*f)+sizeof(*filters)+value_bytes+1u,&error)==WORKBOOK_CODEC_READ_ERROR && error && strstr(error,"raw Table")); error_clear(&error);
+    CHECK(workbook_codec_read_owned_bytes(read)==prefix && !workbook_codec_read_request(read)->first_row); child=table_filter_batch(filters,0,0,true);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_FILTERS,&child,sizeof(*f)+sizeof(*filters)+value_bytes+1u,&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(filters);
+    TableSortFixture *sorts=table_sort_fixture(0,2); child=table_sort_batch(sorts,0,0,true);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SORTS,&child,sizeof(*f)+sizeof(*sorts)+value_bytes+1u,&error)==WORKBOOK_CODEC_READ_ERROR && error && strstr(error,"native 8 MiB current")); error_clear(&error); free(sorts); workbook_codec_read_free(read);
+    /* Path64KiB/schema4096 retain exact bytes; one-over, NUL and bad UTF-8
+       reject before staging. DEMO has no external locator normalization. */
+    read=table_header(14,1,1,TABLE_TEST_LIMIT,NULL); CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error));
+    f->cells[7]=t("NULL"); f->cells[3]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={text,65537}}; batch=table_base_batch(f,0,1,true); reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+value_bytes+1u);
+    f->cells[3].value.text.bytes=65536; f->cells[4]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={text,4097}}; reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+value_bytes+1u); f->cells[4].value.text.bytes=4096;
+    text[0]=0; reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+value_bytes+1u); text[0]=(char)0x80; reject(read,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+value_bytes+1u); text[0]='x';
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,sizeof(*f)+value_bytes+1u,&error)==WORKBOOK_CODEC_READ_ACCEPTED); table_empty_children(read,sizeof(*f)+value_bytes+1u);
+    WorkbookCodecHeader *header=NULL; CHECK(workbook_codec_read_finish(read,&header,&error)); workbook_codec_read_free(read); WorkbookCodecTableSourceView prior={0}; CHECK(workbook_codec_header_table_source(header,0,1,&prior) && strlen(prior.reference)==65536 && strlen(prior.analysis->path)==65536 && strlen(prior.analysis->schema)==4096);
+    WorkbookCodecHeader *identity=header; size_t old_bytes=workbook_codec_header_owned_bytes(header); const char *old_query=prior.analysis->query;
+    /* Queries are absent from the rawTable8MiB sum but are part of native
+       ObjectSnapshot bytes. Sufficient Header admission must not hide this. */
+    char *query=dx_alloc(65537); memset(query,'q',65536); query[65536]=0;
+    read=table_header_text(14,1,2,TABLE_TEST_LIMIT,NULL,query); CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error));
+    f->cells[3]=t(""); f->cells[4]=t(""); f->cells[7]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={text,value_bytes}}; f->cells[14+7]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={text,value_bytes-65536u}}; batch=table_base_batch(f,0,2,true);
+    size_t retained=sizeof(*f)+value_bytes+1u+65537u+old_bytes; CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+    filters=table_filter_fixture(0,2); child=table_filter_batch(filters,0,0,true); CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_FILTERS,&child,retained+sizeof(*filters),&error)==WORKBOOK_CODEC_READ_ACCEPTED); free(filters);
+    sorts=table_sort_fixture(1,2); child=table_sort_batch(sorts,0,1,true); owned=workbook_codec_read_owned_bytes(read);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SORTS,&child,retained+sizeof(*sorts),&error)==WORKBOOK_CODEC_READ_ERROR && error && strstr(error,"native 8 MiB current")); error_clear(&error);
+    CHECK(workbook_codec_read_owned_bytes(read)==owned && !workbook_codec_read_request(read)->first_row);
+    CHECK(!workbook_codec_read_finish(read,&header,&error) && header==identity && prior.analysis->query==old_query && workbook_codec_header_owned_bytes(header)==old_bytes); error_clear(&error);
+    CHECK(!strcmp(old_query,"SELECT 'retained';  \n") && query[0]=='q' && query[65535]=='q' && text[0]=='x'); free(sorts); workbook_codec_read_free(read);
+    read=table_header(14,1,1,TABLE_TEST_LIMIT,NULL); CHECK(workbook_codec_read_add_table_sources(read,(WorkbookCodecTableSourcePresence){true,true,true},&error)); f->cells[7]=t("NULL"); batch=table_base_batch(f,0,1,true);
+    CHECK(workbook_codec_read_feed(read,key,WORKBOOK_CODEC_TABLE_SOURCES,&batch,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED); table_empty_children(read,retained); CHECK(workbook_codec_read_finish(read,&header,&error)); workbook_codec_read_free(read); CHECK(workbook_codec_header_table_source(header,0,1,&prior) && !strcmp(prior.analysis->filter_value,"NULL"));
+    workbook_codec_header_free(header); free(query); free(text); free(f);
+}
+#undef TABLE_TEST_LIMIT
 int main(void) {
     test_happy(); test_meta_and_order(); test_sheets_invalid(); test_many_and_atomic(); test_budget(); test_text_boundaries();
     unsigned base_checks=checks;
@@ -1043,5 +1244,7 @@ int main(void) {
     test_queries_contract_and_empty(); test_queries_owned_and_validation(); test_queries_limits_atomic_budget(); test_queries_composition(); test_queries_foreign_and_partial_budget();
     unsigned queries_checks=checks;
     test_source_options_contract(); test_source_options_atomic_and_types(); test_source_options_limits_budget_and_foreign(); test_source_options_queries_composition();
-    printf("PASS: workbook header reader %u checks (%u unchanged base Header; %u original optional sorts, %u combined; %u optional preferences; %u object descriptors, %u prior combined; %u query definitions, %u prior combined; %u source options; bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures; no full objects or workbook Open support)\n",checks,base_checks,sorts_checks-base_checks,sorts_checks,preferences_checks-sorts_checks,objects_checks-preferences_checks,objects_checks,queries_checks-objects_checks,queries_checks,checks-queries_checks); return 0;
+    unsigned options_checks=checks;
+    test_tables_contract(); test_tables_owned_and_invalid(); test_tables_full_limits(); test_tables_text_and_scratch_budget(); test_tables_field_and_native_budgets();
+    printf("PASS: workbook header reader %u checks (%u unchanged base Header; %u original optional sorts, %u combined; %u optional preferences; %u object descriptors, %u prior combined; %u query definitions, %u prior combined; %u source options, %u prior combined; %u Table source-chain checks; bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures; no full objects or workbook Open support)\n",checks,base_checks,sorts_checks-base_checks,sorts_checks,preferences_checks-sorts_checks,objects_checks-preferences_checks,objects_checks,queries_checks-objects_checks,queries_checks,options_checks-queries_checks,options_checks,checks-options_checks); return 0;
 }
