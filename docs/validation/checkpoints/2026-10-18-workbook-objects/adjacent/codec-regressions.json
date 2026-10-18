@@ -1,0 +1,303 @@
+{
+  "scope": "Fresh unchanged Header/sorts/preferences modes, not new objects acceptance. Exact dirtya8source and callback ownership observation retained; no clean-revision or changed historical peaks claim.",
+  "batch_total_seconds": 32.18272891698871,
+  "artifact_manifest": "codec-artifact.json",
+  "runs": [
+    {
+      "status": "passed",
+      "reader_error": null,
+      "native_persistence_helpers": {},
+      "exit_code": 0,
+      "source_unchanged": true,
+      "artifacts_unchanged": true,
+      "browser_seconds": 8.662,
+      "elapsed_seconds": 9.752,
+      "setup": {
+        "build_seconds": 0.001,
+        "artifact_validation_seconds": 0.578,
+        "source_metadata_seconds": 0.081,
+        "server_setup_seconds": 0.43
+      },
+      "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+      "profile": "codec-read-driver",
+      "codec_fixture_manifest": {
+        "schema": "duxcel.codec-fixtures",
+        "version": 1,
+        "files": [
+          {
+            "name": "v12.dxls",
+            "version": 12,
+            "layout": 25,
+            "bytes": 2109440,
+            "sha256": "5a31179e31d08821cbd7708ff4f348acc324ddfd294d374a38bd01f895b10151"
+          },
+          {
+            "name": "v12-reordered.dxls",
+            "version": 12,
+            "layout": 25,
+            "bytes": 2633728,
+            "sha256": "0e3d0534fc59214da73720f71f1afc0dcef16ca6f0aeed1061775fe6976b146b"
+          },
+          {
+            "name": "v12-legacy24.dxls",
+            "version": 12,
+            "layout": 24,
+            "bytes": 2633728,
+            "sha256": "4475f9d2415134c6914dbec4141625449d5465788263a407399bbfc27e0d0486"
+          },
+          {
+            "name": "v13.dxls",
+            "version": 13,
+            "layout": 25,
+            "bytes": 2633728,
+            "sha256": "05034d5328f05507c1b42a270745ea56cb9f354f7c81437aa6eb1d17f77a9493"
+          },
+          {
+            "name": "v13-reordered.dxls",
+            "version": 13,
+            "layout": 25,
+            "bytes": 3420160,
+            "sha256": "c5d6b77333c9e7761a7a9c9972499c48b76db6416cfa7f78c03726ee2316450e"
+          },
+          {
+            "name": "v14.dxls",
+            "version": 14,
+            "layout": 25,
+            "bytes": 4206592,
+            "sha256": "850446d02152ae7794709c0c60e9b3cca7e7869f97be0357fd9b7d8c68274d47"
+          },
+          {
+            "name": "v14-reordered.dxls",
+            "version": 14,
+            "layout": 25,
+            "bytes": 4993024,
+            "sha256": "6588600b0de70e9580cf088516c5491ba23646c333f507d8f6c00805570e3631"
+          }
+        ]
+      },
+      "codec_helper_sha256": "9b3e1998b0423c6235adee781c31e9cca26e2c6303d9715f06f85e8f2c007ba8",
+      "scope": "Isolated C partial meta/sheets Header decoder over seven immutable native v12/v13/v14 archives through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.",
+      "mode": "header",
+      "original_run": "20261018T075717-browser-98263",
+      "source": {
+        "commit": "a8fd5c967970ae92822bf55f0464c2726b57643c",
+        "status": "M Makefile\n M tests/test_browser_codec_read.c\n M tools/build_web.py\n M tools/test.py\n M tools/test_runner_test.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M tools/test_web_codec_runner_test.py\n M tools/test_web_review_build.py\n M web/codec_test_host.mjs\n?? tools/ui-review/",
+        "source_sha256": "8455ed8312d5a74a253a55d338776952c42af5c8eca4398e5e5a41a2e1dc1baf",
+        "source_files": 296
+      },
+      "original_receipts": {
+        "summary.json": {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T075717-browser-98263/summary.json",
+          "bytes": 35541,
+          "sha256": "1cb8ba2de1ffb0be2edd7d9bcbbacbc08db57edfea8c6c2eacf498380ab4774e"
+        },
+        "codec-read-driver.json": {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T075717-browser-98263/codec-read-driver.json",
+          "bytes": 51587,
+          "sha256": "da8b9003f15bf646f22a062d060129990ef33604fa804f61b26ece7129fa3404"
+        },
+        "codec-read-transport.json": {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T075717-browser-98263/codec-read-transport.json",
+          "bytes": 49611,
+          "sha256": "7d4810edd9c3bf7226473eeba60bd37257d6b3c05938602076d332c54e905812"
+        }
+      },
+      "c_report": "header-c-report.json",
+      "transport_observation": {
+        "engineVersion": "v1.4.3",
+        "fixtures": 7,
+        "queries": 54,
+        "held": 1,
+        "released": 1
+      }
+    },
+    {
+      "status": "passed",
+      "reader_error": null,
+      "native_persistence_helpers": {},
+      "exit_code": 0,
+      "source_unchanged": true,
+      "artifacts_unchanged": true,
+      "browser_seconds": 6.805,
+      "elapsed_seconds": 8.098,
+      "setup": {
+        "build_seconds": 0.001,
+        "artifact_validation_seconds": 0.581,
+        "source_metadata_seconds": 0.136,
+        "server_setup_seconds": 0.574
+      },
+      "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+      "profile": "codec-sorts-driver",
+      "codec_fixture_manifest": {
+        "schema": "duxcel.codec-fixtures",
+        "version": 1,
+        "files": [
+          {
+            "name": "sorts-v12.dxls",
+            "version": 12,
+            "layout": 25,
+            "bytes": 2633728,
+            "sha256": "bda7b06895ede7b710cc4a5abb0c04db3d9710f28de3a78bc3ae08d2ef7be4cd"
+          },
+          {
+            "name": "sorts-v13.dxls",
+            "version": 13,
+            "layout": 25,
+            "bytes": 3158016,
+            "sha256": "c0627e1cfc5e4883e1f479b5a43ec424313c208bf4f8bf5a0c1500b665fdca5b"
+          },
+          {
+            "name": "sorts-v14.dxls",
+            "version": 14,
+            "layout": 25,
+            "bytes": 4730880,
+            "sha256": "6170a6149c8144042475efcace311c0047f6f20aacc822071b150ba9400ee6db"
+          },
+          {
+            "name": "sorts-v14-reordered.dxls",
+            "version": 14,
+            "layout": 25,
+            "bytes": 5517312,
+            "sha256": "d38cf5ea123c28c9281caebc36a81584bbc1240f43b8efc0e4b3e7320f920db1"
+          }
+        ]
+      },
+      "codec_helper_sha256": "9b3e1998b0423c6235adee781c31e9cca26e2c6303d9715f06f85e8f2c007ba8",
+      "scope": "Isolated C partial meta/sheets/secondary-sort Header decoder over four immutable native archives through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.",
+      "mode": "sorts",
+      "original_run": "20261018T075727-browser-98468",
+      "source": {
+        "commit": "a8fd5c967970ae92822bf55f0464c2726b57643c",
+        "status": "M Makefile\n M tests/test_browser_codec_read.c\n M tools/build_web.py\n M tools/test.py\n M tools/test_runner_test.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M tools/test_web_codec_runner_test.py\n M tools/test_web_review_build.py\n M web/codec_test_host.mjs\n?? tools/ui-review/",
+        "source_sha256": "8455ed8312d5a74a253a55d338776952c42af5c8eca4398e5e5a41a2e1dc1baf",
+        "source_files": 296
+      },
+      "original_receipts": {
+        "summary.json": {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T075727-browser-98468/summary.json",
+          "bytes": 34958,
+          "sha256": "36e0939dac4cc7900ca235b4fd9922a1afa67bfc9d41510768c275114211becb"
+        },
+        "codec-read-driver.json": {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T075727-browser-98468/codec-read-driver.json",
+          "bytes": 41257,
+          "sha256": "2f176af656b133fe51506e000cfb033b36c5c09d9a2c11aa171f6ffcb305da0d"
+        },
+        "codec-read-transport.json": {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T075727-browser-98468/codec-read-transport.json",
+          "bytes": 39196,
+          "sha256": "256202998de435f205d8680ebbbc4fc5c52458656742871b9885673c2ef264dc"
+        }
+      },
+      "c_report": "sorts-c-report.json",
+      "transport_observation": {
+        "engineVersion": "v1.4.3",
+        "fixtures": 4,
+        "queries": 49,
+        "held": 1,
+        "released": 1
+      }
+    },
+    {
+      "status": "passed",
+      "reader_error": null,
+      "native_persistence_helpers": {},
+      "exit_code": 0,
+      "source_unchanged": true,
+      "artifacts_unchanged": true,
+      "browser_seconds": 5.955,
+      "elapsed_seconds": 7.366,
+      "setup": {
+        "build_seconds": 0.001,
+        "artifact_validation_seconds": 0.605,
+        "source_metadata_seconds": 0.08,
+        "server_setup_seconds": 0.725
+      },
+      "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+      "profile": "codec-preferences-driver",
+      "codec_fixture_manifest": {
+        "schema": "duxcel.codec-fixtures",
+        "version": 1,
+        "files": [
+          {
+            "name": "preferences-v12.dxls",
+            "version": 12,
+            "layout": 25,
+            "bytes": 2895872,
+            "sha256": "6ea9757997ebbc3489337960e14976b187910c54d73275d0bd5086b532a5dc9b"
+          },
+          {
+            "name": "preferences-v13.dxls",
+            "version": 13,
+            "layout": 25,
+            "bytes": 3420160,
+            "sha256": "e5f004bede2e034e617fb36bf4967b40132120e7717afd60ff25d0d61b8dbc3b"
+          },
+          {
+            "name": "preferences-v14.dxls",
+            "version": 14,
+            "layout": 25,
+            "bytes": 5255168,
+            "sha256": "b4e319e2154b2e5407a16788aefcba01cf87eb8b5d9a1694348ded360bd6bacb"
+          },
+          {
+            "name": "preferences-v14-reordered.dxls",
+            "version": 14,
+            "layout": 25,
+            "bytes": 5255168,
+            "sha256": "003d799cb9d21ffeec31ff457ec4fd069a23f0ae52db606f3eb6f53770c58827"
+          },
+          {
+            "name": "preferences-v14-unknown-null.dxls",
+            "version": 14,
+            "layout": 25,
+            "bytes": 5517312,
+            "sha256": "07d3ff2b637d7aae4c8a34d3d7d2f0c090c561f42518f6ba57ee4322c7f22208"
+          },
+          {
+            "name": "preferences-v14-unknown-nul.dxls",
+            "version": 14,
+            "layout": 25,
+            "bytes": 5517312,
+            "sha256": "3db0e2e616e0a3e70862f5e285936f140c6bb303d278cf537102d3994cee1c98"
+          }
+        ]
+      },
+      "codec_helper_sha256": "9b3e1998b0423c6235adee781c31e9cca26e2c6303d9715f06f85e8f2c007ba8",
+      "scope": "Isolated C partial meta/sheets/preferences Header decoder over six closed native archives including two deliberately invalid packages through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.",
+      "mode": "preferences",
+      "original_run": "20261018T075736-browser-98649",
+      "source": {
+        "commit": "a8fd5c967970ae92822bf55f0464c2726b57643c",
+        "status": "M Makefile\n M tests/test_browser_codec_read.c\n M tools/build_web.py\n M tools/test.py\n M tools/test_runner_test.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M tools/test_web_codec_runner_test.py\n M tools/test_web_review_build.py\n M web/codec_test_host.mjs\n?? tools/ui-review/",
+        "source_sha256": "8455ed8312d5a74a253a55d338776952c42af5c8eca4398e5e5a41a2e1dc1baf",
+        "source_files": 296
+      },
+      "original_receipts": {
+        "summary.json": {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T075736-browser-98649/summary.json",
+          "bytes": 35481,
+          "sha256": "a770bf7ed5da0c68f6b3c22416e6e275ed13ad63b7034aa258c1b791f6b11382"
+        },
+        "codec-read-driver.json": {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T075736-browser-98649/codec-read-driver.json",
+          "bytes": 50977,
+          "sha256": "9905209e4cacbc2f50c05523e1d19c4f3938d274c69e7412135d1f42c7a74a7b"
+        },
+        "codec-read-transport.json": {
+          "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T075736-browser-98649/codec-read-transport.json",
+          "bytes": 48425,
+          "sha256": "c438b487bb5ed45b7f4c592256e9fc57eee8273c4933ece771ed0b0c558976e3"
+        }
+      },
+      "c_report": "preferences-c-report.json",
+      "transport_observation": {
+        "engineVersion": "v1.4.3",
+        "fixtures": 6,
+        "queries": 61,
+        "held": 1,
+        "released": 1
+      }
+    }
+  ]
+}

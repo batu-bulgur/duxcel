@@ -1,0 +1,14 @@
+{
+  "status": "Cause statement corroborated by retained original native failure, not final native acceptance",
+  "observed_by": "native integration agent, then root",
+  "root_cause": "The initial partial reader mirrored isolated load_objects absence handling, but complete v13 package admission first requires objects through format_metadata_supported. Missing objects must reject in v13/v14; only v12 can default empty. This is a reader policy defect exposed by native integration, not a DuckDB failure.",
+  "source_commit": "a8fd5c967970ae92822bf55f0464c2726b57643c",
+  "source_path": "src/workbook/workbook.c",
+  "source_sha256": "a8bf89253c6dbdfff0239903707dd379ca41a83aa7a73753e85c5650510fdfd6",
+  "function": "format_metadata_supported",
+  "required_objects_expression": "if (!codec_package_shape(c,\"meta\",error) || !codec_package_shape(c,\"objects\",error) ||",
+  "correction_commit": "341a24ec784d6715812a0708a423b2d539240ac6",
+  "accepted_component_manifest": "../component/corrected-manifest.json",
+  "original_failure_manifest": "initial-v13-package-boundary-manifest.json",
+  "original_failure_log": "initial-v13-package-boundary-release-objects.txt"
+}

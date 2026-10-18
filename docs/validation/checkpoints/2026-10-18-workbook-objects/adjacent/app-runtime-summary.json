@@ -1,0 +1,98 @@
+{
+  "scope": "Official Worker247 and real shared-C DPR2 transformed Columns App172; no full UI parity, physical gestures, new report delivery or service promotion claim",
+  "batch_total_seconds": 33.82017904194072,
+  "runs": [
+    {
+      "mode": "worker247",
+      "original_run": "20261018T080235-browser-1453",
+      "original_summary": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T080235-browser-1453/summary.json",
+        "bytes": 34157,
+        "sha256": "ba4358928ab3978abe3b009d28bc7a75622042c190e27d1310f55ac6cf545816"
+      },
+      "summary": {
+        "status": "passed",
+        "source": {
+          "commit": "57ce1951bab17e779e894f720041af6b96447c86",
+          "status": "?? tools/ui-review/",
+          "source_sha256": "7773e1754ace920e25bb80f379971752ff76bab7fa871b4caf6e13e778b61e02",
+          "source_files": 297
+        },
+        "exit_code": 0,
+        "source_unchanged": true,
+        "artifacts_unchanged": true,
+        "browser_seconds": 15.725,
+        "elapsed_seconds": 19.262,
+        "setup": {
+          "build_seconds": 3.425,
+          "artifact_validation_seconds": 0.026,
+          "source_metadata_seconds": 0.085,
+          "server_setup_seconds": 0.001
+        },
+        "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+        "profile": "standard"
+      },
+      "artifact": {
+        "signature": "73a3dc702c28a2f04745e1e7885d2ae7bd12b16ac4a3d80430310cddb3ce0d52",
+        "source": {
+          "commit": "57ce1951bab17e779e894f720041af6b96447c86",
+          "status": "?? tools/ui-review/",
+          "source_sha256": "7773e1754ace920e25bb80f379971752ff76bab7fa871b4caf6e13e778b61e02",
+          "source_files": 297
+        },
+        "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+        "kind": "worker-driver",
+        "scope": "No-window shared C/official Worker acceptance driver. Official asynchronous DuckDB-Wasm Worker backend for bounded source pages/count/SQL validation, paged available values/date hierarchy, asynchronous CSV/Parquet source/worksheet-Table import, bounded Rows/Columns/Values PIVOT matrices with source-derived totals and direct or mixed/manual selection statistics. Bounded direct/Pivot/mixed copy and typed Parquet export are integrated with acknowledged clipboard/requested-download adapters. Browser workbook Save/Open and native source-content verification are unavailable. Runtime acceptance is source-scoped and separate."
+      }
+    },
+    {
+      "mode": "columns172",
+      "original_run": "20261018T080251-browser-1829",
+      "original_summary": {
+        "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T080251-browser-1829/summary.json",
+        "bytes": 38375,
+        "sha256": "9ae8a2b654fa05feeb967d1644454ccb6868db8279129d3cc2e07462c22dad6f"
+      },
+      "summary": {
+        "status": "passed",
+        "source": {
+          "commit": "57ce1951bab17e779e894f720041af6b96447c86",
+          "status": "?? tools/ui-review/",
+          "source_sha256": "7773e1754ace920e25bb80f379971752ff76bab7fa871b4caf6e13e778b61e02",
+          "source_files": 297
+        },
+        "exit_code": 0,
+        "source_unchanged": true,
+        "artifacts_unchanged": true,
+        "browser_seconds": 13.632,
+        "elapsed_seconds": 13.788,
+        "setup": {
+          "build_seconds": 0.001,
+          "artifact_validation_seconds": 0.054,
+          "source_metadata_seconds": 0.074,
+          "server_setup_seconds": 0.026
+        },
+        "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+        "profile": "analysis-columns-only",
+        "scope": "Shared C same-sheet Rows City/Columns Approved/SUM Amount, real official Worker Columns matrix and source-derived footer totals, source/manual retention; no broad analytical or report-upload acceptance."
+      },
+      "artifact": {
+        "signature": "0e704f4f3b8015f8fc9b76c9784507abe3860ff3ef9598324f1433c04e433491",
+        "source": {
+          "commit": "57ce1951bab17e779e894f720041af6b96447c86",
+          "status": "?? tools/ui-review/",
+          "source_sha256": "7773e1754ace920e25bb80f379971752ff76bab7fa871b4caf6e13e778b61e02",
+          "source_files": 297
+        },
+        "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+        "kind": "review",
+        "scope": "Shared C99 renderer with browser-scheduled App frames. Official asynchronous DuckDB-Wasm Worker backend for bounded source pages/count/SQL validation, paged available values/date hierarchy, asynchronous CSV/Parquet source/worksheet-Table import, bounded Rows/Columns/Values PIVOT matrices with source-derived totals and direct or mixed/manual selection statistics. Bounded direct/Pivot/mixed copy and typed Parquet export are integrated with acknowledged clipboard/requested-download adapters. Browser workbook Save/Open and native source-content verification are unavailable. Runtime acceptance is source-scoped and separate. Review-only C registry/capture/composer and durable browser outbox/shared review queue transport; service/agent acceptance is separate."
+      }
+    }
+  ],
+  "source_fixture": {
+    "original_path": "/Users/h2o/dev/duxcel/tests/fixtures/transactions.csv",
+    "bytes": 235,
+    "sha256": "2882319b247bf0b252aa938be53aa3817939b63633bb412cec0c6f7b35f948bf"
+  }
+}
