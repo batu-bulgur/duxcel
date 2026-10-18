@@ -94,3 +94,74 @@ test('missing or rejected actual reader.cancel remains a failed probe and poison
         assert.throws(()=>h.adapter.submit({requestId:String(h.adapter.latestId+1n),sql:'SELECT 43::INTEGER AS recovered'}),{code:'STREAM_CLEANUP'});assert.equal(h.sql.length,1);await h.adapter.close();
     }
 });
+
+// Transport-only format rows: these fixtures do not certify FormatPatch rules.
+// Keep the original six-query probe and every earlier test definition unchanged.
+import {workbookMetadataStreamRequest,pageRequest,pageCellText,LIMITS} from './official_worker.mjs';
+const formatProbeNames=['sheet_id','position','r0','r1','c0','c1','mask','flags','alignment','color','font_size','numeric_format','decimals'];
+function formatProbeColumns(){return formatProbeNames.map((name,i)=>({name,typeName:i===2||i===3?'UBIGINT':'INTEGER',numberKind:i===2||i===3?'u64':'i32'}));}
+function formatProbeInput(binding,change={}){return {requestId:'1',documentId:'7',sql:'C FORMAT ROW SQL ORDER BY sheet_id,position LIMIT 32769',purpose:'workbook-metadata-stream',family:'format-rows',offset:'0',knownTotal:null,columns:formatProbeColumns(),sourceBindings:[{...binding}],...change};}
+function formatProbeValue(row,col){return col===2?(row%2?9007199254740993n:18446744073709551615n):col===3?18446744073709551615n:row*13+col;}
+function formatProbeTable(rows,{canonical=false,cell=formatProbeValue}={}){
+    return new Table(Object.fromEntries(formatProbeNames.map((name,col)=>[name,vectorFromArray(Array.from({length:rows},(_,r)=>{const value=cell(r,col);return canonical&&value!==null?String(value):value;}),canonical?new Utf8():col===2||col===3?new Uint64():new Int32())])));
+}
+function formatProbeReader(source,lengths=[source.numRows],options={}){
+    let first=0,index=0;const batches=lengths.map(count=>{const batch=count?source.slice(first,first+count).batches[0]:{numRows:0,numCols:13};first+=count;return batch;});assert.equal(first,source.numRows);
+    return {schema:source.schema,cancelled:0,reads:0,nextCalls:0,open(){return this;},[Symbol.asyncIterator](){return {next:async()=>{
+        this.nextCalls++;if(index===batches.length)return {done:true};const batch=batches[index++];return {done:false,value:{numCols:options.numCols??13,numRows:options.numRows??batch.numRows,getChildAt:c=>({get:r=>{this.reads++;return batch.getChildAt(c).get(r);}})}};
+    }};},async cancel(){this.cancelled++;}};
+}
+async function formatProbeHarness(source){
+    const connection={sends:[],async send(sql){this.sends.push(sql);return source;},async cancelSent(){return true;},async close(){}};
+    const adapter=new DuckDBWorkerAdapter({database:{async registerFileBuffer(){},async dropFile(){}},connection});
+    const binding=await adapter.registerFile('format-fixture.dxls',new Uint8Array([1]));return {adapter,binding,connection};
+}
+function formatProbeFootprint(page){return new TextEncoder().encode(JSON.stringify(page.columns)).byteLength+page.text.byteLength+page.offsets.byteLength+page.nulls.byteLength;}
+
+test('format-row stream captures its family once and rejects malformed13-column admission before tickets or SQL',async()=>{
+    const source=formatProbeReader(formatProbeTable(1)),h=await formatProbeHarness(source),value=formatProbeInput(h.binding);let reads=0;
+    Object.defineProperty(value,'family',{enumerable:true,get(){return ++reads===1?'format-rows':'cells';}});
+    const frozen=workbookMetadataStreamRequest(value);assert.equal(frozen.family,'format-rows');assert.equal(frozen.rowLimit,32769);assert.equal(frozen.columns.length,13);assert.ok(Object.isFrozen(frozen.columns[12]));
+    const holes=formatProbeColumns();delete holes[12];const inherited=formatProbeColumns();delete inherited[12];Object.setPrototypeOf(inherited,Object.assign(Object.create(Array.prototype),{12:formatProbeColumns()[12]}));
+    for(const change of [{columns:holes},{columns:inherited},{columns:Array(13)},{columns:formatProbeColumns().slice(1)},{columns:[...formatProbeColumns(),formatProbeColumns()[0]]},{rowLimit:32770},{rowLimit:0},{rowLimit:1.5},{offset:'1'},{knownTotal:'0'},{sourceBindings:[]},{sourceBindings:Array(1)},{purpose:'copy'},{family:'formats'},{family:'constructor'},...['columns','cells','source-versions'].map(family=>({family}))]){
+        assert.throws(()=>h.adapter.submitWorkbookMetadataStream(formatProbeInput(h.binding,change),()=>true),{code:'INVALID_REQUEST'});assert.equal(h.adapter.latestId,0n);assert.equal(h.connection.sends.length,0);
+    }
+    assert.throws(()=>pageRequest(formatProbeInput(h.binding)),{code:'INVALID_REQUEST'});assert.throws(()=>h.adapter.submit(formatProbeInput(h.binding)),{code:'INVALID_REQUEST'});await h.adapter.close();
+});
+test('format-row7/285 typed original sidecars retain exactU64 and independent256-row chunking/EOF',async()=>{
+    for(const rows of [7,285]){
+        const source=formatProbeReader(formatProbeTable(rows),rows===7?[0,1,6]:[17,0,240,28]),h=await formatProbeHarness(source),chunks=[];
+        const request=formatProbeInput(h.binding),pending=h.adapter.submitWorkbookMetadataStream(request,chunk=>{
+            assert.equal(chunk.page.columnCount,13);assert.ok(formatProbeFootprint(chunk.page)<=LIMITS.bytes);assert.ok(chunk.wire.byteLength<=6*1024*1024);
+            assert.deepEqual(chunk.page.columns.map(c=>[c.typeName,c.numberKind]),formatProbeColumns().map(c=>[c.typeName,c.numberKind]));
+            if(chunk.end)assert.equal(source.cancelled,1);else{const row=Number(chunk.firstRow);assert.equal(pageCellText(chunk.page,0,2),String(formatProbeValue(row,2)));assert.equal(pageCellText(chunk.page,chunk.page.rowCount-1,3),'18446744073709551615');}
+            chunks.push(chunk);return true;
+        });request.columns[2].typeName='DOUBLE';request.sourceBindings[0].registrationId='999';request.sql='must not replace captured SQL';
+        assert.equal((await pending).status,'ok');assert.deepEqual(chunks.map(c=>[c.firstRow,c.page.rowCount,c.end]),rows===7?[['0',7,false],['7',0,true]]:[['0',256,false],['256',29,false],['285',0,true]]);
+        assert.equal(source.reads,rows*13);assert.equal(h.connection.sends.length,1);assert.equal(h.connection.sends[0],'C FORMAT ROW SQL ORDER BY sheet_id,position LIMIT 32769');assert.equal(source.cancelled,1);await h.adapter.close();
+    }
+});
+test('format-row canonical text preserves numeric sidecars and malformed NULL/empty/literal atoms for C validation',async()=>{
+    const source=formatProbeReader(formatProbeTable(4,{canonical:true,cell:(r,c)=>c===0?[null,'','NULL','0'][r]:formatProbeValue(r,c)})),h=await formatProbeHarness(source),chunks=[];
+    assert.equal((await h.adapter.submitWorkbookMetadataStream(formatProbeInput(h.binding),c=>{chunks.push(c);return true;})).status,'ok');
+    assert.deepEqual(Array.from({length:4},(_,r)=>pageCellText(chunks[0].page,r,0)),[null,'','NULL','0']);assert.equal(chunks[0].page.columns[0].typeName,'INTEGER');assert.equal(chunks[0].page.columns[0].arrowType,'Utf8');assert.equal(pageCellText(chunks[0].page,1,2),'9007199254740993');assert.equal(pageCellText(chunks[0].page,0,3),'18446744073709551615');await h.adapter.close();
+});
+test('format-row32769 transport sentinel streams one immutable result without expanded ordinary pages',async()=>{
+    const source=formatProbeReader(formatProbeTable(32769)),h=await formatProbeHarness(source);let count=0,chunks=0,ends=0;
+    const result=await h.adapter.submitWorkbookMetadataStream(formatProbeInput(h.binding),c=>{
+        assert.equal(c.firstRow,String(count));assert.ok(c.page.rowCount<=256);assert.ok(formatProbeFootprint(c.page)<=LIMITS.bytes);assert.ok(c.wire.byteLength<=6*1024*1024);assert.equal(c.page.columnCount,13);
+        if(c.end){ends++;assert.equal(source.cancelled,1);}else{assert.equal(pageCellText(c.page,0,3),'18446744073709551615');count+=c.page.rowCount;}chunks++;return true;
+    });assert.equal(result.status,'ok');assert.equal(result.rowCount,'32769');assert.equal(count,32769);assert.equal(chunks,130);assert.equal(ends,1);assert.equal(h.connection.sends.length,1);await h.adapter.close();
+});
+test('format-row result overflow/wrongarity and individual oversized row fail before any chunk',async()=>{
+    for(const [source,code] of [[formatProbeReader(formatProbeTable(1),[1],{numRows:32770}),'PAGE_LIMIT'],[formatProbeReader(formatProbeTable(1),[1],{numCols:12}),'SCHEMA_CHANGED'],[formatProbeReader(formatProbeTable(1),[1],{numCols:14}),'SCHEMA_CHANGED'],[formatProbeReader(formatProbeTable(1,{canonical:true,cell:(r,c)=>c===0?'9'.repeat(LIMITS.bytes):formatProbeValue(r,c)})),'PAGE_LIMIT']]){
+        const h=await formatProbeHarness(source);let calls=0;const result=await h.adapter.submitWorkbookMetadataStream(formatProbeInput(h.binding),()=>{calls++;return true;});assert.equal(result.status,'error');assert.equal(result.error.code,code);assert.equal(calls,0);assert.equal(source.cancelled,1);await h.adapter.close();
+    }
+});
+test('format-row paused ACK prevents advancement and cancellation retires reader before ordinary recovery',async()=>{
+    const source=formatProbeReader(formatProbeTable(600)),h=await formatProbeHarness(source);let enter,ack;const entered=new Promise(r=>{enter=r;}),held=new Promise(r=>{ack=r;});
+    const pending=h.adapter.submitWorkbookMetadataStream(formatProbeInput(h.binding),()=>{enter();return held;});await entered;const reads=source.reads,next=source.nextCalls;
+    await new Promise(r=>setImmediate(r));assert.equal(source.reads,256*13);assert.equal(source.reads,reads);assert.equal(source.nextCalls,next);
+    await h.adapter.cancel();assert.equal((await pending).status,'cancelled');assert.equal(source.cancelled,1);ack(true);h.connection.send=async()=>new Reader(new Table({recovered:vectorFromArray([43],new Int32())}));
+    assert.equal((await h.adapter.submit({requestId:'2',sql:'ordinary recovery'})).status,'ok');await h.adapter.close();
+});
