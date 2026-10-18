@@ -6089,8 +6089,8 @@ static void draw_pipeline(App *a,Rectangle r) {
     bool enabled=!u->pointer_blocked && a->pipeline && !a->left_drawer && a->ribbon_mode!=3 && a->modal==MODAL_NONE && !a->io_busy && !a->busy && !a->grid.dragging && !a->grid.moving && a->grid.resizing<0 && !a->grid.scrollbar;
     bool header_enabled=!u->pointer_blocked && a->pipeline && !a->left_drawer && a->modal==MODAL_NONE && !a->io_busy;
     if (enabled && CheckCollisionPointRec(mouse,r) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { a->chrome_focus=8; a->ribbon_focus=false; a->pivot_focus=0; a->pivot_search_focus=false; a->consume_grid_input=true; }
-    if (GetScreenWidth()/scale<1040) DrawRectangleRec(box(r.x-5*scale,r.y,5*scale,r.height),(Color){39,61,79,28});
-    DrawRectangleRec(r,(Color){251,252,253,255}); DrawLineV((Vector2){r.x,r.y},(Vector2){r.x,r.y+r.height},UI_BORDER);
+    if (!a->pipeline_collapsed && GetScreenWidth()/scale<1040) DrawRectangleRec(box(r.x-5*scale,r.y,5*scale,r.height),(Color){39,61,79,28});
+    DrawRectangleRec(r,a->pipeline_collapsed ? (Color){237,242,246,255} : (Color){251,252,253,255}); DrawLineV((Vector2){r.x,r.y},(Vector2){r.x,r.y+r.height},UI_BORDER);
     if (a->pipeline_collapsed) {
         Rectangle expand=box(r.x+3*scale,r.y+5*scale,26*scale,26*scale),dismiss=box(r.x+3*scale,r.y+36*scale,26*scale,26*scale);
         REVIEW_FEEDBACK(a,"pipeline",table,"pane.transformations.expand","pane.transformations","pipeline.expand","button","Expand Transformations",expand,r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer,false,a->chrome_focus==8 && !a->pipeline_focus_index,NULL,false,NULL);
