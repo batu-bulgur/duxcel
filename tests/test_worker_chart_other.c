@@ -69,7 +69,8 @@ int main(void) {
         CHECK(value.available && value.numeric && !value.is_null && !value.approximate && value.raw && !strcmp(value.raw,"3"));
     }
     CHECK(w.db.query_count==sql && w.jobs_started==jobs && !worker_poll(&w)); reply_free(r);
-    /* A superseded owned Other graph must never publish as the latest job. */
+    /* A superseded Other request must never publish as the latest job. The
+       older request can be pending or active when it is superseded. */
     j=request(true); worker_submit(&w,j); j=request(true); id=j->id; worker_submit(&w,j);
     r=wait_reply(&w); result(r,id,true); wait_idle(&w);
     worker_stop(&w); CHECK(!w.started);

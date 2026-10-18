@@ -3910,7 +3910,7 @@ static void draw_workspace_chart(App *a,SheetObject *o,Page *p,Rectangle rect,Re
         char field[512]; pivot_label(a,field,&o->pivot.fields[PIVOT_COLUMNS][i],PIVOT_COLUMNS);
         at+=snprintf(note+at,sizeof(note)-(size_t)at,"%s%s",i ? " / " : " · ",field);
     }
-    if (at>0 && (size_t)at<sizeof(note)) snprintf(note+at,sizeof(note)-(size_t)at,"%s%s%s",view->other ? view->truncated ? " · 3 largest loaded groups + Other" : " · 3 largest groups + Other" : view->non_additive ? " · Other groups omitted for this aggregate" : "",view->non_finite ? " · Non-finite values omitted" : "",view->truncated && !view->other ? " · Loaded groups" : "");
+    if (at>0 && (size_t)at<sizeof(note)) snprintf(note+at,sizeof(note)-(size_t)at,"%s%s%s",view->other ? view->truncated ? " · 3 largest loaded groups + Other" : " · 3 largest groups + Other" : view->non_additive ? " · Other groups unavailable for this result" : "",view->non_finite ? " · Non-finite values omitted" : "",view->truncated && !view->other ? " · Loaded groups" : "");
     ui_text_clip(u,note,box(rect.x+3*s,rect.y+287*s,rect.width-6*s,20*s),10,UI_MUTED,false);
     Vector2 mouse=ui_mouse_position();
     if (a->modal==MODAL_NONE && CheckCollisionPointRec(mouse,data_clip)) {
@@ -13569,8 +13569,13 @@ static void chart_smoke_step(App *a,int *step) {
         const Page *other=page_other_values(p,1);
         if (store->count!=1 || store->items[0].kind!=OBJECT_PIVOT || !p->totals || !strstr(p->sql,"PIVOT") || !other ||
             p->row_count!=5 || other->cells[1].number!=7.5 || other->cells[2].number!=3) goto failed;
-        result=p->cells; request=a->request_id;
-        if (!set_representation(a,1) || !set_chart_measure(a,1) || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
+        result=p->cells; request=a->request_id; PageOther *cached=p->other;
+        if (!set_representation(a,1)) goto failed;
+        history(a,false); if (store->items[0].kind!=OBJECT_PIVOT || a->objects[0].page.other!=cached) goto failed;
+        history(a,true); if (store->items[0].kind!=OBJECT_CHART || a->objects[0].page.other!=cached) goto failed;
+        if (!set_chart_measure(a,1)) goto failed;
+        history(a,false); if (store->items[0].chart_measure || a->objects[0].page.other!=cached) goto failed;
+        history(a,true); if (store->items[0].chart_measure!=1 || a->objects[0].page.other!=cached || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
         a->pivot_focus=0; break;
     }
     case 36:
@@ -13582,6 +13587,9 @@ static void chart_smoke_step(App *a,int *step) {
         if (!a->chart_view.other_values || a->chart_view.measure!=2 || a->chart_view.values[3][0]!=3 || a->request_id!=request || a->objects[0].page.cells!=result) goto failed;
         MarkDefinition marks={0}; MarkField average={.name="Value",.aggregate=AGG_AVG,.measure=true};
         bool ok=marks_assign(&marks,MARKS_TOOLTIP,&average,&error) && set_marks(a,&marks); marks_free(&marks); if (!ok) goto failed;
+        PageOther *cached=a->objects[0].page.other;
+        history(a,false); if (store->items[0].marks.counts[MARKS_TOOLTIP] || a->objects[0].page.other!=cached) goto failed;
+        history(a,true); if (store->items[0].marks.counts[MARKS_TOOLTIP]!=1 || a->objects[0].page.other!=cached || a->objects[0].page.cells!=result || a->request_id!=request) goto failed;
         UIEncodingValue value=ui_encoding_value(&a->objects[0].page,&store->items[0].pivot,&a->chart_view,(UIEncodingBinding){UI_BIND_MEASURE,1},3,0);
         if (!value.available || value.is_null || value.approximate || !value.raw || strcmp(value.raw,"7.5") || a->request_id!=request) goto failed;
         smoke_snapshot("tests/results/chart-marks/other-distinct.png");
