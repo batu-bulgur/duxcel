@@ -970,7 +970,7 @@ test-browser-core: build/web-tests/test-wire build/web-tests/test-wire-sanitize 
 	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-distinct-query-sanitize
 	./build/web-tests/test-distinct-page
 	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-distinct-page-sanitize
-	node --test web/official_worker.test.mjs web/page_wire.test.mjs web/engine_host.test.mjs web/official_worker_probe.test.mjs web/metadata_stream.test.mjs
+	node --test web/official_worker.test.mjs web/page_wire.test.mjs web/engine_host.test.mjs web/official_worker_probe.test.mjs web/metadata_stream.test.mjs web/metadata_stream_probe.test.mjs
 	python3 tools/package_web_vendor_test.py
 .PHONY: test-browser-core
 

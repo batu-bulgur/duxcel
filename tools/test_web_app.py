@@ -71,6 +71,15 @@ class LoopbackServer(http.server.ThreadingHTTPServer):
 class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args): pass
     def do_GET(self):
+        # Blank test-only document: no C App, graphics or second UI/engine.
+        if self.path in ('/__metadata-stream-probe.html','/metadata_stream_probe.mjs'):
+            imports=getattr(self.server,'metadata_stream_import_map',None)
+            if imports is None:self.send_error(404);return
+            if self.path.endswith('.html'):
+                mapping=json.dumps(imports).replace('<','\\u003c')
+                content=('<!doctype html><html><head><meta charset="utf-8"><title>Owned metadata stream probe</title></head><body><script type="importmap">'+mapping+'</script></body></html>').encode();mime='text/html'
+            else:content=(ROOT/'web/metadata_stream_probe.mjs').read_bytes();mime='text/javascript'
+            self.send_response(200);self.send_header('Content-Type',mime);self.send_header('Cache-Control','no-store');self.send_header('Content-Length',str(len(content)));self.end_headers();self.wfile.write(content);return
         # Test-only probe is served by this owned harness, never packaged into App.
         if self.path.startswith('/__codec-fixtures/'):
             manifest=getattr(self.server,'codec_manifest',None)
@@ -101,6 +110,7 @@ def parse_options(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--no-build', action='store_true')
     parser.add_argument('--worker-probe', action='store_true')
+    parser.add_argument('--metadata-stream-probe',action='store_true',help='Isolated official Worker streaming transport; cached matching assets, no C App or workbook Open/Save')
     parser.add_argument('--source',type=Path)
     parser.add_argument('--filters',action='store_true',help='Exercise the real transactions.csv value and date dropdowns')
     parser.add_argument('--busy',action='store_true',help='Require real UI input/rendering before the imported source job completes')
@@ -157,6 +167,9 @@ def parse_options(argv=None):
     parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker v12 file compatibility (test-only, no Save UI claim)')
     parser.add_argument('--persistence-owners',action='store_true',help='Separate BP0 v13 owner lifetime/format package rewrite and native readback; no Save UI claim')
     options=parser.parse_args(argv)
+    if options.metadata_stream_probe:
+        if not options.no_build or options.dpr!=1 or any(value for name,value in vars(options).items() if name not in ('metadata_stream_probe','no_build','dpr')):
+            parser.error('--metadata-stream-probe requires --no-build and is isolated from App/other profiles')
     if options.codec_sorts and not options.codec_read_driver:parser.error('--codec-sorts requires --codec-read-driver')
     if options.codec_preferences and not options.codec_read_driver:parser.error('--codec-preferences requires --codec-read-driver')
     if options.codec_objects and not options.codec_read_driver:parser.error('--codec-objects requires --codec-read-driver')
@@ -343,6 +356,10 @@ def main():
     for name,digest in manifest['artifacts'].items():
         if hashlib.sha256((artifact/name).read_bytes()).hexdigest()!=digest:
             raise RuntimeError('Browser artifact changed: '+name)
+    if options.metadata_stream_probe:
+        # The cached application binary is unused; transport assets must match.
+        for name in ('official_worker.mjs','page_wire.mjs'):
+            if (artifact/name).read_bytes()!=(ROOT/'web'/name).read_bytes():raise RuntimeError('Rebuild matching browser engine assets before metadata streaming: '+name)
     phases['artifact_validation_seconds']=round(time.monotonic()-phase,3);phase=time.monotonic()
     before=source_metadata(ROOT)
     phases['source_metadata_seconds']=round(time.monotonic()-phase,3);phase=time.monotonic()
@@ -380,6 +397,7 @@ def main():
         else:
             server=LoopbackServer(('127.0.0.1',0),functools.partial(Handler,directory=str(artifact)))
             if persistence_mode:server.persistence_fixture=fixture
+            if options.metadata_stream_probe:server.metadata_stream_import_map=json.loads((artifact/'vendor.json').read_text())['import_map']
             if options.codec_read_driver:
                 server.codec_manifest=codec_manifest;server.codec_requests=[]
                 server.codec_files={'/__codec-fixtures/'+entry['name']:(codec_directory/entry['name'],entry) for entry in codec_manifest['files']}
@@ -389,6 +407,7 @@ def main():
         try:
             command=['node','tools/test_web_app.mjs',f'http://127.0.0.1:{server.server_port}/',str(output)]
             if options.worker_driver:command.append('--worker-driver')
+            if options.metadata_stream_probe:command.append('--metadata-stream-probe')
             if options.codec_read_driver:command.append('--codec-read-driver')
             if options.codec_sorts:command.append('--codec-sorts')
             if options.codec_preferences:command.append('--codec-preferences')
@@ -486,7 +505,9 @@ def main():
             record={'status':'passed' if process.returncode==0 and unchanged and artifacts_unchanged and not reader_error else 'failed','source':before,'artifact':manifest,'reader_error':reader_error,'native_persistence_helpers':persistence_hashes,
                     'command':command,'exit_code':process.returncode,'source_unchanged':unchanged,'artifacts_unchanged':artifacts_unchanged,
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
-            record['profile']='codec-read-driver' if options.codec_read_driver else 'chart-other-only' if options.chart_other_only else 'inspector-sql-only' if options.inspector_sql_only else 'inspector-shadow-only' if options.inspector_shadow_only else 'inspector-scroll-only' if options.inspector_scroll_only else 'source-bindings-only' if options.source_bindings_only else 'pane-shortcuts-only' if options.pane_shortcuts_only else 'source-labels-only' if options.source_labels_only else 'source-cache-only' if options.source_cache_only else 'selection-only' if options.selection_only else 'export-cancel-only' if options.export_cancel_only else 'export-only' if options.export_only else 'pane-rail-only' if options.pane_rail_only else 'steps-clip-only' if options.steps_clip_only else 'feedback-review-only' if options.feedback_review_only else 'workspace-review-only' if options.workspace_review_only else 'copy-only' if options.copy_only else 'focus-only' if options.focus_only else 'review-error-only' if options.review_error_only else 'review-cell-only' if options.review_cell_only else 'review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            record['profile']='metadata-stream-probe' if options.metadata_stream_probe else 'codec-read-driver' if options.codec_read_driver else 'chart-other-only' if options.chart_other_only else 'inspector-sql-only' if options.inspector_sql_only else 'inspector-shadow-only' if options.inspector_shadow_only else 'inspector-scroll-only' if options.inspector_scroll_only else 'source-bindings-only' if options.source_bindings_only else 'pane-shortcuts-only' if options.pane_shortcuts_only else 'source-labels-only' if options.source_labels_only else 'source-cache-only' if options.source_cache_only else 'selection-only' if options.selection_only else 'export-cancel-only' if options.export_cancel_only else 'export-only' if options.export_only else 'pane-rail-only' if options.pane_rail_only else 'steps-clip-only' if options.steps_clip_only else 'feedback-review-only' if options.feedback_review_only else 'workspace-review-only' if options.workspace_review_only else 'copy-only' if options.copy_only else 'focus-only' if options.focus_only else 'review-error-only' if options.review_error_only else 'review-cell-only' if options.review_cell_only else 'review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
+            if options.metadata_stream_probe:
+                record['scope']='Official Worker streaming transport only: synthetic ordered typed SQL, original registration, real reader cleanup, backpressure, cancellation and recovery. No C App, shared column/cell decoder, native archive parity, workbook Open/Save, UI, queue or service promotion.'
             if options.codec_read_driver:
                 if options.codec_sorts:record['profile']='codec-sorts-driver'
                 if options.codec_preferences:record['profile']='codec-preferences-driver'

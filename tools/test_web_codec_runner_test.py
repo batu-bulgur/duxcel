@@ -56,6 +56,11 @@ class CodecHarnessTests(unittest.TestCase):
             with self.subTest(option=option),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):
                 harness.parse_options(['--codec-read-driver',option])
 
+    def test_metadata_stream_probe_requires_matching_cached_assets_and_no_app_profile(self):
+        self.assertTrue(harness.parse_options(['--metadata-stream-probe','--no-build']).metadata_stream_probe)
+        for arguments in (['--metadata-stream-probe'],['--metadata-stream-probe','--no-build','--review'],['--metadata-stream-probe','--no-build','--codec-read-driver'],['--metadata-stream-probe','--no-build','--worker-driver'],['--metadata-stream-probe','--no-build','--source','x.csv'],['--metadata-stream-probe','--no-build','--dpr','2']):
+            with self.subTest(arguments=arguments),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(arguments)
+
     def test_manifest_covers_bytes_and_refuses_unowned_extra_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary);emitted=self.fixtures(directory)
@@ -100,6 +105,11 @@ class CodecHarnessTests(unittest.TestCase):
             thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
             base=f'http://127.0.0.1:{server.server_port}'
             try:
+                with self.assertRaises(HTTPError) as caught:urlopen(base+'/__metadata-stream-probe.html',timeout=2)
+                self.assertEqual(caught.exception.code,404);caught.exception.close()
+                server.metadata_stream_import_map={'imports':{'test':'./vendor/test.mjs'}}
+                with urlopen(base+'/__metadata-stream-probe.html',timeout=2) as response:
+                    html=response.read().decode();self.assertIn('importmap',html);self.assertNotIn('<canvas',html);self.assertNotIn('host.mjs',html)
                 with urlopen(base+'/__codec-fixtures/manifest.json',timeout=2) as response:
                     self.assertEqual(json.load(response),manifest)
                 with urlopen(base+'/__codec-fixtures/v12.dxls',timeout=2) as response:

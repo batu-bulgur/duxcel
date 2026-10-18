@@ -10,6 +10,16 @@ import {createCDP} from './test_web_cdp.mjs';
 import {cdpKeyEvent} from './cdp_keyboard.mjs';
 let url=process.argv[2]??'http://127.0.0.1:8767';
 const output=path.resolve(process.argv[3]??'build/web/browser-qa/cdp');
+const metadataStreamProbe=process.argv.includes('--metadata-stream-probe');
+if(metadataStreamProbe){
+ const args=process.argv.slice(4);
+ for(let i=0;i<args.length;i++){
+  if(args[i]==='--metadata-stream-probe')continue;
+  if(args[i]==='--dpr'&&args[++i]==='1')continue;
+  throw new Error('--metadata-stream-probe is an isolated no-App transport gate with default DPR1');
+ }
+ const target=new URL(url);target.pathname='/__metadata-stream-probe.html';url=target.href;
+}
 const workerProbe=process.argv.includes('--worker-probe');
 const workerDriver=process.argv.includes('--worker-driver');
 const codecReadDriver=process.argv.includes('--codec-read-driver');
@@ -2760,7 +2770,40 @@ try{
  if(copyOnly||paneShortcutsOnly||sourceBindingsOnly||inspectorSQLOnly)await send('Page.addScriptToEvaluateOnNewDocument',{source:copyClipboardHarnessSource()});
  if(reviewOffline)await send('Page.addScriptToEvaluateOnNewDocument',{source:`globalThis.duxcelReviewOffline=true;const originalFetch=globalThis.fetch.bind(globalThis);globalThis.fetch=(input,...args)=>globalThis.duxcelReviewOffline&&new URL(typeof input==='string'?input:input.url??input,location.href).pathname.startsWith('/__review/')?Promise.reject(new Error('Owned offline review acceptance')):originalFetch(input,...args);`});
  const navigation=await send('Page.navigate',{url});check(!navigation.errorText,'Navigation failed: '+navigation.errorText);
- if(codecReadDriver){
+ if(metadataStreamProbe){
+  check(await evaluate('document.querySelector("canvas")===null'),'Transport probe unexpectedly initialized a canvas');
+  const report=await evaluate(`(async()=>{
+   const vendor=await(await fetch('./vendor.json')).json();
+   const {createOfficialWorkerAdapter}=await import('./official_worker.mjs');
+   const {runMetadataStreamProbe}=await import('./metadata_stream_probe.mjs');
+   const adapter=await createOfficialWorkerAdapter({moduleURL:new URL(vendor.worker.moduleURL,location.href).href,workerURL:new URL(vendor.worker.workerURL,location.href).href});
+   try{
+    const binding=await adapter.registerFile('metadata-stream-guard.bin',new Uint8Array([1,2,3]));
+    const receipt=await runMetadataStreamProbe(adapter,binding);
+    return {...receipt,registration:binding};
+   }finally{await adapter.close();}
+  })()`);
+  await fs.writeFile(path.join(output,'metadata-stream-probe.json'),JSON.stringify(report,null,2));
+  check(report?.schema==='duxcel.metadata-stream-probe'&&report.version===1&&report.ok===true,'Actual metadata streaming probe failed; see metadata-stream-probe.json');
+  check(report.sqlExecutions===6&&report.rowsPerSuccessfulFamily===513&&report.plannedSqlRows===2054&&report.postedTurns===6,'Metadata streaming workload or posted-turn ownership changed');
+  check(typeof report.engineVersion==='string'&&report.engineVersion.length>0&&report.engineVersion.length<=256,'Initialized stream engine did not report its version');
+  const proofs={exactTypedFamilies:2,strictEofCleanups:2,dataAckPostedTurns:2,finalAckPostedTurns:2,cancelledWithoutEof:true,falseAckWithoutEof:true,ordinaryAfterCancel:43,ordinaryAfterFalseAck:44};
+  check(Object.entries(proofs).every(([key,value])=>report.proofs?.[key]===value),'Metadata stream lost exact values, true ACK, cancellation or real cleanup proof');
+  const names=['columns-exact-and-final-ack','cells-exact-and-final-ack','cancel-suspended-ack','ordinary-after-cancel','reject-consumer-ack','ordinary-after-failed-ack'];
+  check(report.cases?.length===6&&report.cases.every((item,index)=>item.name===names[index]&&item.status==='passed'),'Metadata streaming case inventory changed');
+  for(const item of report.cases.slice(0,2)){
+   check(item.rows===513&&item.ends===1&&item.callbacks===4&&item.firstAckPostedTurn&&item.finalAckPostedTurn&&item.eofAfterCleanup,'Successful stream did not wait for data/final ACK or reader cleanup');
+   check(JSON.stringify(item.shapes.map(x=>[x.sequence,x.firstRow,x.rows,x.end]))===JSON.stringify([[1,'0',256,false],[2,'256',256,false],[3,'512',1,false],[4,'513',0,true]]),'Metadata stream lost dense256 chunks, exact tail or explicit empty EOF');
+  }
+  check(report.readers?.length===6&&report.readers.every(item=>item.stream===true&&item.maxInflight<=1&&item.cancelMethod&&item.cancelRequested===1&&item.cancelFulfilled===1&&!item.cancelError),'Actual reader cleanup/serial iteration changed');
+  check(report.error===null&&report.cleanup===null&&Number.isSafeInteger(report.checks)&&report.checks>0,'Probe reported a failure or unbounded check counter');
+  check(report.registration?.name==='metadata-stream-guard.bin'&&report.registration.bytes===3,'Probe guard registration was replaced or read as a workbook');
+  check(await evaluate('document.querySelector("canvas")===null'),'Transport probe started the application during execution');
+  check(!events.some(event=>event.method==='Runtime.exceptionThrown'),'Uncaught exception in isolated metadata streaming transport');
+  await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
+  await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',profile:'metadata-stream-probe',checks,report,scope:'Official Worker transport-only synthetic SQL; no C App, C workbook decoder, native archive parity, UI/OpenSave or review delivery'},null,2));
+  console.log(JSON.stringify({status:'passed',checks,report,output}));
+ }else if(codecReadDriver){
   let report;
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelCodecReadResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'codec-read-driver.json'),JSON.stringify(report??{ok:false,error:'C header driver did not complete'},null,2));
