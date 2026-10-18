@@ -275,3 +275,21 @@ python3 tools/test_web_app.py --worker-driver --no-build
 ```
 
 The source-digest worker checkpoint macro is defined only by its isolated test target. It must remain absent from shipping/review native and Wasm artifacts. The browser driver now requires three sequential workload inventories and 187 terminal stages; it does not claim browser filesystem hashing. No source-style persistence or renderer activation is implied.
+
+## Containing selection, displayed addresses and source-version ownership
+
+[Current evidence](validation/checkpoints/2026-10-18-selection-address-source-ownership/) separates native27, address45, actual browser selection502/controls1,185, Worker187, current review400 and model prerequisites. Run focused work without foreground windows:
+
+```sh
+python3 tools/test.py affected --feature selection-ladder --modules selection_ladder --config sanitize
+python3 tools/test.py affected --feature selection-start --modules grid source_scope --config sanitize
+python3 tools/test_web_app.py --review --selection-only --no-build --source tests/fixtures/null-text.csv --dpr 2 --canvas-transform
+python3 tools/test.py fast --modules format source_scope page --config both
+make tests/test_workbook tests/test_workbook-debug
+./tests/test_workbook --source-versions-only
+./tests/test_workbook-debug --source-versions-only
+```
+
+The browser profile builds its real source/Table/Pivot/manual fixture, uses actual metric checkboxes before a zero-job selection baseline, and tests trusted Control and Meta input. Its stored bounds are zero-based model coordinates; source-header displayed rows have an additional header row. The source-version model mode uses private focused save fixtures, not the full core/workbook data suite. It does not activate record styles or implement v14 persistence.
+
+The `source-cache` affected profile extends that independent selection bootstrap through[687,716),29 stages. Run `python3 tools/test.py affected --feature source-cache --modules selection_ladder --config sanitize`. It verifies successful cache retirement and failed64-sheet-open preservation using actual source results and a valid deep workbook snapshot. [Acceptance](validation/checkpoints/2026-10-18-source-cache/) is hidden and does not operate an OS file panel.

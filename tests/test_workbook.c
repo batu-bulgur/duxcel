@@ -1022,7 +1022,128 @@ static void test_marks_workspace(void) {
     CHECK(workbook_save(&book,path,&error)); sql_file(path,"DROP TABLE _duxcel_workspace.marks; UPDATE _duxcel_workspace.meta SET version=11"); CHECK(workbook_load(&loaded,path,&error)); CHECK(!loaded.sheets[0].objects.items[0].marks.counts[MARKS_COLOR]);
     marks_free(&marks); workbook_free(&book); workbook_free(&loaded); free(error);
 }
+static void source_version_issue(Worksheet *sheet,uint64_t owner,uint64_t version,bool complete) {
+    char *error=NULL; Analysis source={.kind=SOURCE_CSV,.path="/private/source-version-model.csv"};
+    SourcePacket raw={0};
+    if (complete) {
+        Column field={.name="Amount",.type_name="DECIMAL(38,4)",.type=DUCKDB_TYPE_DECIMAL,.number_type={NUM_DECIMAL,38,4},.numeric=true};
+        Page schema={.columns=&field,.column_count=1}; SourceDigest digest={.bytes=3,.identity={.size=3}};
+        memset(digest.sha256,0x5a,sizeof(digest.sha256));
+        CHECK(source_scope_raw_build(owner,version,&source,&schema,&digest,"v1.5.6",&raw,&error));
+    }
+    SourceVersion entry={.owner=owner,.version=version,.kind=SOURCE_CSV,.path=source.path,.raw=raw}; SourceVersions next={0};
+    CHECK(source_versions_plan(&sheet->source_versions,&entry,true,&next,&error));
+    source_versions_free(&sheet->source_versions); sheet->source_versions=next; source_packet_free(&raw);
+}
+/* Exercise the existing Analysis stacks/journal, without introducing the future
+   combined format action or pretending the App already creates source bindings. */
+static void source_version_remember(Worksheet *sheet,uint64_t version) {
+    CHECK(sheet->undo_count<DX_HISTORY); sheet->undo[sheet->undo_count++]=analysis_copy(&sheet->analysis);
+    sheet->analysis.source_version=version; worksheet_record(sheet,EDIT_ANALYSIS);
+}
+static void source_version_history(Worksheet *sheet,bool redo) {
+    Analysis *from=redo ? sheet->redo : sheet->undo,*to=redo ? sheet->undo : sheet->redo;
+    size_t *fc=redo ? &sheet->redo_count : &sheet->undo_count,*tc=redo ? &sheet->undo_count : &sheet->redo_count;
+    CHECK(*fc && *tc<DX_HISTORY); to[(*tc)++]=analysis_copy(&sheet->analysis); analysis_free(&sheet->analysis);
+    sheet->analysis=from[--*fc]; memset(from+*fc,0,sizeof(*from)); worksheet_transfer_history(sheet,redo);
+}
+static void test_source_version_model(void) {
+    char *error=NULL; const uint64_t base=UINT64_C(9007199254740992);
+    Analysis source={.kind=SOURCE_CSV,.path=dx_strdup("/private/source-version-model.csv"),.source_version=UINT64_MAX};
+    Analysis copied=analysis_copy(&source); CHECK(copied.source_version==UINT64_MAX && copied.path!=source.path && !strcmp(copied.path,source.path));
+    copied.source_version=0; CHECK(analysis_same_result(&source,&copied) && analysis_text_bytes(&source)==analysis_text_bytes(&copied));
+    char *sql=analysis_sql(&source,false),*other=analysis_sql(&copied,false); CHECK(!strcmp(sql,other)); free(sql); free(other); analysis_free(&copied); CHECK(!copied.source_version);
+    source.source_version=0; Workbook book; workbook_init(&book); CHECK(workbook_add(&book,"Source lifetime",&source,&error)); Worksheet *sheet=&book.sheets[0];
+    sheet->source_versions.high_water=base; source_version_issue(sheet,0,base+1,true); source_version_remember(sheet,base+1);
+    CHECK(sheet->undo[0].source_version==0 && sheet->analysis.source_version==base+1);
+    source_version_issue(sheet,0,base+2,false); source_version_remember(sheet,base+2); SourceVersion *entries=sheet->source_versions.items;
+    source_version_history(sheet,false); CHECK(sheet->analysis.source_version==base+1 && sheet->source_versions.high_water==base+2 && sheet->source_versions.items==entries);
+    source_version_history(sheet,false); CHECK(!sheet->analysis.source_version && sheet->source_versions.high_water==base+2 && sheet->source_versions.count==2);
+    CHECK(!source_versions_scope_matches(&sheet->source_versions,0,sheet->analysis.source_version,&sheet->analysis,entries[0].raw.data,entries[0].raw.bytes,&error)); free(error); error=NULL;
+    source_version_history(sheet,true); source_version_history(sheet,true); CHECK(sheet->analysis.source_version==base+2 && sheet->source_versions.high_water==base+2);
+    source_version_history(sheet,false); CHECK(sheet->analysis.source_version==base+1);
+    SourceVersion reused={.version=base+2,.kind=SOURCE_CSV,.path=source.path}; SourceVersions plan={0};
+    CHECK(!source_versions_plan(&sheet->source_versions,&reused,true,&plan,&error) && !plan.items && sheet->source_versions.high_water==base+2); free(error); error=NULL;
+    source_version_issue(sheet,0,base+3,true); source_version_remember(sheet,base+3); CHECK(!sheet->redo_count && !sheet->redo_actions_count && sheet->source_versions.high_water==base+3);
+    CHECK(objects_add_table(&sheet->objects,10,10,"Bound table",&source,&error)==0); uint64_t owner=sheet->objects.items[0].id;
+    source_version_issue(sheet,owner,base+4,true); sheet->objects.items[0].source.source_version=base+4;
+    CHECK(source_versions_valid(&sheet->source_versions,sheet->objects.next_id,&error));
+    Workbook *snapshot=workbook_snapshot(&book); CHECK(snapshot && snapshot->sheets[0].analysis.source_version==base+3 && snapshot->sheets[0].objects.items[0].source.source_version==base+4);
+    Worksheet *saved=&snapshot->sheets[0]; CHECK(!saved->undo_count && !saved->redo_count && !saved->undo_actions_count && !saved->objects.undo_count);
+    CHECK(saved->source_versions.high_water==base+4 && saved->source_versions.count==4 && saved->source_versions.items!=sheet->source_versions.items);
+    for (size_t i=0;i<4;i++) {
+        CHECK(saved->source_versions.items[i].path!=sheet->source_versions.items[i].path && !strcmp(saved->source_versions.items[i].path,sheet->source_versions.items[i].path));
+        if (saved->source_versions.items[i].raw.bytes) CHECK(saved->source_versions.items[i].raw.data!=sheet->source_versions.items[i].raw.data && !memcmp(saved->source_versions.items[i].raw.data,sheet->source_versions.items[i].raw.data,saved->source_versions.items[i].raw.bytes));
+    }
+    CHECK(workbook_duplicate(&book,0,&error) && book.count==2); sheet=&book.sheets[0]; Worksheet *duplicate=&book.sheets[1];
+    CHECK(duplicate->analysis.source_version==base+3 && duplicate->objects.items[0].source.source_version==base+4 && duplicate->source_versions.high_water==base+4 && duplicate->source_versions.items!=sheet->source_versions.items && !duplicate->undo_count);
+    CHECK(duplicate->source_versions.items[0].raw.data!=sheet->source_versions.items[0].raw.data);
+    unsigned char first=saved->source_versions.items[0].raw.data[48]; sheet->source_versions.items[0].raw.data[48]^=1;
+    CHECK(saved->source_versions.items[0].raw.data[48]==first && duplicate->source_versions.items[0].raw.data[48]==first);
+    SourceVersion *owned=sheet->source_versions.items; CHECK(workbook_reorder(&book,0,1,&error) && book.sheets[1].source_versions.items==owned);
+    workbook_free(&book); CHECK(!book.count && !book.sheets && saved->source_versions.high_water==base+4 && source_versions_valid(&saved->source_versions,saved->objects.next_id,&error));
+    workbook_free(snapshot); free(snapshot);
+    CHECK(workbook_add(&book,"Exhausted versions",&source,&error)); book.sheets[0].source_versions.high_water=UINT64_MAX;
+    snapshot=workbook_snapshot(&book); CHECK(snapshot && snapshot->sheets[0].source_versions.high_water==UINT64_MAX && !snapshot->sheets[0].source_versions.count);
+    CHECK(workbook_duplicate(&book,0,&error) && book.sheets[1].source_versions.high_water==UINT64_MAX);
+    reused.version=UINT64_MAX; CHECK(!source_versions_plan(&book.sheets[1].source_versions,&reused,true,&plan,&error)); free(error); error=NULL;
+    workbook_free(snapshot); free(snapshot); workbook_free(&book);
+    CHECK(workbook_add(&book,"Valid first",&source,&error)); source_version_issue(&book.sheets[0],0,1,true);
+    CHECK(workbook_add(&book,"Invalid second",&source,&error)); source_version_issue(&book.sheets[1],0,1,true); book.sheets[1].source_versions.high_water=0;
+    Workbook before=book; CHECK(!workbook_snapshot(&book)); CHECK(!workbook_duplicate(&book,1,&error) && !memcmp(&before,&book,sizeof(book))); free(error); error=NULL;
+    book.sheets[1].source_versions.high_water=1; CHECK(workbook_duplicate(&book,1,&error)); workbook_free(&book); analysis_free(&source);
+}
+static unsigned char *source_version_file(const char *path,size_t *length) {
+    FILE *file=fopen(path,"rb"); CHECK(file && fseek(file,0,SEEK_END)==0); long bytes=ftell(file); CHECK(bytes>0 && fseek(file,0,SEEK_SET)==0);
+    unsigned char *data=dx_alloc((size_t)bytes); CHECK(fread(data,1,(size_t)bytes,file)==(size_t)bytes && !fclose(file)); *length=(size_t)bytes; return data;
+}
+static void test_source_version_save_guard(void) {
+    Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={0},table={.kind=SOURCE_CSV,.path="/private/missing-version-source.csv"}; char *error=NULL;
+    CHECK(workbook_add(&book,"Legacy remains supported",&blank,&error)); CHECK(cells_set(&book.sheets[0].cells,0,0,"Preserved original file",&error));
+    CHECK(objects_add_table(&book.sheets[0].objects,10,10,"Ordinary table",&table,&error)==0);
+    const char *paths[]={"tests/generated/source-version-v12.dxls","tests/generated/source-version-v13.dxls"},*fresh="tests/generated/source-version-rejected.dxls";
+    remove(paths[0]); remove(paths[1]); remove(fresh); CHECK(workbook_save(&book,paths[0],&error));
+    book.sheets[0].objects.next_id++; CHECK(workbook_save(&book,paths[1],&error));
+    sql_file(paths[0],"SELECT CASE WHEN version=12 THEN true ELSE error('ordinary v12 changed') END FROM _duxcel_workspace.meta");
+    sql_file(paths[1],"SELECT CASE WHEN version=13 THEN true ELSE error('owner-only v13 changed') END FROM _duxcel_workspace.meta");
+    size_t lengths[2]; unsigned char *originals[2]; for (size_t i=0;i<2;i++) originals[i]=source_version_file(paths[i],lengths+i);
+    for (unsigned kind=0;kind<9;kind++) {
+        Workbook *trial=workbook_snapshot(&book); CHECK(trial); Worksheet *sheet=&trial->sheets[0];
+        if (kind==0) sheet->analysis.source_version=UINT64_MAX;
+        if (kind==1) sheet->objects.items[0].source.source_version=UINT64_MAX;
+        if (kind==2) sheet->source_versions.high_water=UINT64_MAX;
+        if (kind==3 || kind==4) source_version_issue(sheet,0,1,kind==4);
+        if (kind==5 || kind==6) {
+            Analysis *history=kind==5 ? sheet->undo : sheet->redo; history[0]=analysis_copy(&sheet->analysis); history[0].source_version=1;
+            if (kind==5) sheet->undo_count=1; else sheet->redo_count=1;
+        }
+        if (kind==7 || kind==8) {
+            ObjectStore copy={0}; objects_copy(&copy,&sheet->objects); copy.items[0].source.source_version=1;
+            ObjectSnapshot history={copy.items,copy.count}; copy.items=NULL; copy.count=0; objects_free(&copy);
+            if (kind==7) { sheet->objects.undo[0]=history; sheet->objects.undo_count=1; } else { sheet->objects.redo[0]=history; sheet->objects.redo_count=1; }
+        }
+        Workbook before=*trial;
+        for (size_t i=0;i<3;i++) {
+            CHECK(!workbook_save(trial,i<2 ? paths[i] : fresh,&error) && error && strstr(error,"v14")); free(error); error=NULL;
+            CHECK(!memcmp(&before,trial,sizeof(before)));
+        }
+        CHECK(!workbook_save(trial,"tests/generated/no-source-version-parent/book.dxls",&error) && strstr(error,"v14")); free(error); error=NULL; /* Before target resolution. */
+        FILE *file=fopen(fresh,"rb"); CHECK(!file);
+        for (size_t i=0;i<2;i++) { size_t length; unsigned char *after=source_version_file(paths[i],&length); CHECK(length==lengths[i] && !memcmp(originals[i],after,length)); free(after); }
+        workbook_free(trial); free(trial);
+    }
+    CHECK(!workbook_save(NULL,paths[0],&error)); free(error); error=NULL; CHECK(!workbook_save(NULL,NULL,NULL));
+    for (size_t i=0;i<2;i++) {
+        CHECK(workbook_load(&loaded,paths[i],&error) && !loaded.sheets[0].analysis.source_version && !loaded.sheets[0].objects.items[0].source.source_version);
+        CHECK(!loaded.sheets[0].source_versions.count && !loaded.sheets[0].source_versions.high_water && !strcmp(cells_get(&loaded.sheets[0].cells,0,0),"Preserved original file")); free(originals[i]); remove(paths[i]);
+    }
+    workbook_free(&book); workbook_free(&loaded);
+}
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--source-versions-only")) {
+        test_source_version_model(); test_source_version_save_guard();
+        printf("PASS: %u focused source-version model checks (deep ownership, Analysis history, lifetime high-water and v12/v13 rejection)\n",checks); return 0;
+    }
     if (argc==2 && !strcmp(argv[1],"--owners-only")) {
         test_owner_counter_workspace(); test_invalid_owner_package();
         printf("PASS: %u focused owner-counter workspace checks (v12 compatibility, v13 retired IDs, strict spatial package and atomic rejection)\n",checks); return 0;
@@ -1034,7 +1155,8 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
         return 0;
     }
-    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only]\n",argv[0]); return 2; }
+    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only]\n",argv[0]); return 2; }
+    test_source_version_model(); test_source_version_save_guard();
     test_owner_counter_workspace(); test_invalid_owner_package();
     test_chart_optional_errors();
     test_marks_workspace();

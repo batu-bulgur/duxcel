@@ -1,0 +1,95 @@
+{
+  "started_utc": "2026-10-17T23:46:53.574247+00:00",
+  "status": "passed",
+  "configs": {
+    "release": {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/review/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "1100"
+      ],
+      "elapsed_seconds": 17.613,
+      "log": "tests/results/runs/20261017T234653-review-23309/release.log",
+      "owner_lifetime": {
+        "fixture_create": {
+          "command": [
+            "/Users/h2o/dev/duxcel/build/web-tests/test-persistence",
+            "create-owners",
+            "/Users/h2o/dev/duxcel/tests/results/runs/20261017T234653-review-23309/release/native-owner-fixture.dxls"
+          ],
+          "elapsed_seconds": 0.243,
+          "log": "tests/results/runs/20261017T234653-review-23309/release-owner-create.log"
+        },
+        "fixture_sha256": "b33bb379bb3c37d7a2c550b3b40b1ef884c063303a6a75f80c64775845b53014",
+        "saved_copy_sha256": "8a88df60b7c1444f89c759399f9af017566f8724c9b9f057d4afe61d08d6f762",
+        "helper_sha256": "a31f15b19cb109446505a0baec553c4360e459dffd244e6c6f9eae533f904edb",
+        "original_unchanged": true,
+        "scope": "Actual native App load/delete/import/bind/delete/save/reopen, exhausted import and high-ID inspector cancellation; no file-panel delivery claim"
+      },
+      "binary_sha256": "99c6bd3029796395256c1b5b86833ebb92d16ee7fbb548e2acfb7c290d6183e0",
+      "build_header_sha256": "dd88abf9c11216eb957ddca38a0cc013f6bfe8b81995112b5df6a953d51ab646",
+      "completed_stages": 400,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792280815-23322-1",
+          "target": "filter.search",
+          "frame_id": "12",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 416449,
+            "sha256": "6b04b6963f74eb49eb06f3b9b29e62c40c5c56d969654457eacab9e6a5dc375c",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T234653-review-23309/release/outbox/DXR-S-1792280815-23322-1/frame.png"
+          },
+          "capture_sha256": "5e59d66c239d7e5da35d139ee2e0610b7a7b60663247fcd6649aeb2726ce9c0a"
+        },
+        {
+          "report_id": "DXR-S-1792280815-23322-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "35",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 267483,
+            "sha256": "82a2549142a2173a66a671eb2c6004c41a8bd4a0ce19218cab9e36fe62cc5f3f",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T234653-review-23309/release/outbox/DXR-S-1792280815-23322-2/frame.png"
+          },
+          "capture_sha256": "4deb155760db4e4bd47205e7842e029b70d0c55844a4acf9c134566cac974d3a"
+        },
+        {
+          "report_id": "DXR-S-1792280815-23322-17",
+          "target": "file.scrollbar.thumb",
+          "frame_id": "116",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1280,
+            "height": 400,
+            "bytes": 68530,
+            "sha256": "bcb41116c02c0f7fbd6832c6a7db9917791981d5487e2c380bc4b39481bfb6e1",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261017T234653-review-23309/release/outbox/DXR-S-1792280815-23322-17/frame.png"
+          },
+          "capture_sha256": "d1ebd33d486af6d23442b7c0c8c5be4e7415c340da15ac3b063aaa65cfabe6c2"
+        }
+      ]
+    }
+  },
+  "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual",
+  "source": {
+    "commit": "9c882ac5d0bab314ed2e16ea82c138e03af43457",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "27cf40268b86ca57026c972e14361fab0cfa5bbaa1d7e8519a4187fe8ef09c28",
+    "source_files": 258
+  },
+  "background": {
+    "command": [
+      "./tests/test_background-native-debug"
+    ],
+    "elapsed_seconds": 1.232,
+    "log": "tests/results/runs/20261017T234653-review-23309/background.log"
+  },
+  "finished_utc": "2026-10-17T23:47:13.654000+00:00"
+}

@@ -243,3 +243,7 @@ In a filter popover, Control+Tab (or Control+Shift+Tab) switches Available value
 Fields supports a right-click / Shift+F10 menu with Reveal, Center, Select column and Go to field at active row. Reveal/Center retain the active range and vertical offset; Go to also brings an offscreen active row into view. Arrow keys, Tab/Shift+Tab, Home/End and Enter/Space operate the menu. Short completed button clicks are preserved even when press and release occur between frames; releasing outside a button cancels that click.
 
 New view filters stay in the editor until Apply. Opening, cancelling or clearing a new draft preserves the current matrix, cached result and Undo history; Clear on an applied view filter removes its field.
+
+Select All uses **Command+A** natively on Mac and **Control/Command+A** in the browser. In a Table or Pivot it expands through data, headers, the complete object, the used sheet, then the canvas, skipping unavailable stages. The active cell and selection direction stay fixed. Blank space outside used bounds selects the sheet; row/column selections also expand to the sheet. No count query is submitted just to select a range.
+
+Move destinations match the visible grid numbering. A source's header occupies displayed row1, so its first data/model row displays2; blank worksheets start at1. Embedded Table headers do not add another global offset. Source header row1 is not a movable data cell.

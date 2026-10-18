@@ -14,6 +14,9 @@ typedef struct { char *column,*value; FilterOp op; NumberType number; } Analysis
 typedef struct { char *column; bool descending; } AnalysisSort;
 typedef struct {
     SourceKind kind;
+    /* Worksheet-local binding, not a query revision. Scalar copies/history retain
+       it; SQL and analysis_same_result deliberately ignore it. 0 is unbound. */
+    uint64_t source_version;
     char *path, *schema, *table;
     char *query; /* owned SELECT relation over the original source named input */
     bool unique_rows; /* DISTINCT across source-query output, before filtering/aggregation */

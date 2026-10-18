@@ -142,7 +142,7 @@ bool worksheet_rows(Worksheet *s,uint64_t row,uint64_t count,bool insert,uint64_
 }
 void workbook_free(Workbook *b) {
     for (size_t i=0;i<b->count;i++) {
-        Worksheet *s=&b->sheets[i]; free(s->name); analysis_free(&s->analysis); view_free(&s->view); cells_free(&s->cells); objects_free(&s->objects); format_free(&s->formats);
+        Worksheet *s=&b->sheets[i]; free(s->name); analysis_free(&s->analysis); view_free(&s->view); cells_free(&s->cells); objects_free(&s->objects); format_free(&s->formats); source_versions_free(&s->source_versions);
         for (size_t j=0;j<s->undo_count;j++) analysis_free(&s->undo[j]);
         for (size_t j=0;j<s->redo_count;j++) analysis_free(&s->redo[j]);
     }
@@ -195,6 +195,8 @@ bool workbook_reorder(Workbook *b,size_t from,size_t to,char **error) {
 bool workbook_duplicate(Workbook *b,size_t index,char **error) {
     if (index>=b->count) return range_fail(error,"Choose a worksheet to duplicate.");
     if (b->count>=DX_MAX_SHEETS) return range_fail(error,"A workspace supports up to 64 worksheets.");
+    SourceVersions versions={0};
+    if (!source_versions_valid(&b->sheets[index].source_versions,b->sheets[index].objects.next_id,error) || !source_versions_copy(&versions,&b->sheets[index].source_versions,error)) return false;
     char *name=NULL;
     for (unsigned suffix=2;;suffix++) {
         const char *base=b->sheets[index].name; size_t bytes=strlen(base);
@@ -204,10 +206,11 @@ bool workbook_duplicate(Workbook *b,size_t index,char **error) {
         if (!taken) break;
     }
     /* add may realloc the sheet array: never retain a pointer into it. */
-    if (!workbook_add(b,name,&b->sheets[index].analysis,error)) { free(name); return false; } free(name);
+    if (!workbook_add(b,name,&b->sheets[index].analysis,error)) { free(name); source_versions_free(&versions); return false; } free(name);
     Worksheet *to=&b->sheets[b->active],*from=&b->sheets[index];
     view_copy(&to->view,&from->view); cells_copy(&to->cells,&from->cells); objects_copy(&to->objects,&from->objects);
     format_copy(&to->formats,&from->formats);
+    to->source_versions=versions;
     return workbook_reorder(b,b->active,index+1,error);
 }
 size_t workbook_visible_count(const Workbook *b) {
@@ -228,15 +231,19 @@ bool workbook_hide(Workbook *b,size_t index,bool hidden,char **error) {
     b->dirty=true; return true;
 }
 Workbook *workbook_snapshot(const Workbook *b) {
+    if (!b || b->count>DX_MAX_SHEETS || (b->count && !b->sheets)) return NULL;
     Workbook *out=dx_alloc(sizeof(*out)); workbook_init(out); out->user_scale=b->user_scale; out->reduced_motion=b->reduced_motion;
     out->path=b->path ? dx_strdup(b->path) : NULL;
     for (size_t i=0;i<b->count;i++) {
-        char *error=NULL; workbook_add(out,b->sheets[i].name,&b->sheets[i].analysis,&error); free(error);
+        char *error=NULL; SourceVersions versions={0};
+        if (!source_versions_valid(&b->sheets[i].source_versions,b->sheets[i].objects.next_id,&error) || !source_versions_copy(&versions,&b->sheets[i].source_versions,&error)) { free(error); workbook_free(out); free(out); return NULL; }
+        if (!workbook_add(out,b->sheets[i].name,&b->sheets[i].analysis,&error)) { free(error); source_versions_free(&versions); workbook_free(out); free(out); return NULL; } free(error);
         out->sheets[i].hidden=b->sheets[i].hidden;
         view_copy(&out->sheets[i].view,&b->sheets[i].view);
         cells_copy(&out->sheets[i].cells,&b->sheets[i].cells);
         objects_copy(&out->sheets[i].objects,&b->sheets[i].objects);
         format_copy(&out->sheets[i].formats,&b->sheets[i].formats);
+        out->sheets[i].source_versions=versions;
     }
     out->active=b->active; out->dirty=b->dirty; return out;
 }
@@ -573,7 +580,27 @@ static bool version(duckdb_connection c,bool existing,int *found,char **error) {
     duckdb_destroy_result(&r); if (!ok) error_set(error,"Unsupported or invalid Duxcel workspace version.");
     if (ok) ok=format_metadata_supported(c,v,error); if (ok && found) *found=v; return ok;
 }
+/* v14 is not implemented. Reject state that v12/v13 cannot represent before
+   resolving/opening a destination. History is not serialized; a dangling bound
+   history is still unsupported rather than silently treated as legacy input. */
+static bool source_versions_legacy_saveable(const Worksheet *sheet,char **error) {
+    const SourceVersions *versions=&sheet->source_versions; const ObjectStore *objects=&sheet->objects;
+    bool bound=sheet->analysis.source_version || versions->high_water || versions->count || versions->capacity || versions->bytes || versions->items;
+    if (sheet->undo_count>DX_HISTORY || sheet->redo_count>DX_HISTORY || objects->undo_count>DX_HISTORY || objects->redo_count>DX_HISTORY) return range_fail(error,"Invalid source-binding history metadata.");
+    for (size_t i=0;i<sheet->undo_count;i++) bound|=sheet->undo[i].source_version!=0;
+    for (size_t i=0;i<sheet->redo_count;i++) bound|=sheet->redo[i].source_version!=0;
+    for (size_t i=0;i<objects->count;i++) bound|=objects->items[i].source.source_version!=0;
+    for (size_t history=0;history<2;history++) {
+        const ObjectSnapshot *stack=history ? objects->redo : objects->undo; size_t count=history ? objects->redo_count : objects->undo_count;
+        for (size_t i=0;i<count;i++) {
+            if (stack[i].count>DX_MAX_OBJECTS || (stack[i].count && !stack[i].items)) return range_fail(error,"Invalid source-binding object history metadata.");
+            for (size_t j=0;j<stack[i].count;j++) bound|=stack[i].items[j].source.source_version!=0;
+        }
+    }
+    return !bound || range_fail(error,"Source-version bindings require workspace v14; saving them through workspace v12/v13 is unsupported.");
+}
 bool workbook_save(const Workbook *b,const char *path,char **error) {
+    if (!b || !path || !*path || (b->count && !b->sheets)) { if (error) error_set(error,"No valid workbook or destination to save."); return false; }
     if (!b->count || b->count>DX_MAX_SHEETS || b->active>=b->count) { error_set(error,"No valid worksheet to save."); return false; }
     if (b->sheets[b->active].hidden) { error_set(error,"The active worksheet must be visible."); return false; }
     if (!isfinite(b->user_scale) || b->user_scale<.8 || b->user_scale>1.5) { error_set(error,"Invalid workspace zoom."); return false; }
@@ -590,7 +617,7 @@ bool workbook_save(const Workbook *b,const char *path,char **error) {
         for (size_t c=0;c<v->column_count;c++) if (!v->columns[c] || !isfinite(v->widths[c]) || v->widths[c]<52 || v->widths[c]>1200) {
             error_set(error,"Invalid column presentation metadata."); return false;
         }
-        if (!objects_valid(&s->objects,error) || !format_valid(&s->formats,error) || !format_persistable(&s->formats,error)) return false;
+        if (!objects_valid(&s->objects,error) || !source_versions_legacy_saveable(s,error) || !format_valid(&s->formats,error) || !format_persistable(&s->formats,error)) return false;
         for (size_t j=0;j<s->objects.count;j++) {
             const SheetObject *o=&s->objects.items[j];
             if (!o->id || !o->name || (unsigned)o->kind>OBJECT_TABLE || strlen(o->name)>4096 || !pivot_valid(&o->pivot,error) ||

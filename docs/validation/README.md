@@ -50,3 +50,5 @@ Matching-state visual acceptance additionally records viewport, UI scale, canvas
 [Actual export delivery and SQL pane width](checkpoints/2026-10-18-export-delivery-sql-width/) records runtime/harness `402a03d`: native 400, browser feedback 405, export/reopen 570 and natural export cancellation 118, separate native export 20, refreshed shipping exclusion and signed local packaging. Exact source/binary/byte evidence and remaining limits are retained.
 
 [Source-format prerequisite acceptance](checkpoints/2026-10-18-source-format-foundation/) records `8c9e2d2`: owned record selector/model and asynchronous native verification, real browser unsupported/recovery, unchanged codec boundary and hidden native baseline. App activation remains open.
+
+[Containing selection, addresses and source ownership](checkpoints/2026-10-18-selection-address-source-ownership/) records `9c882ac` and explicitly scoped earlier interaction gates, current native review400, real browser controls/Worker, model/verification prerequisites, production exclusion and refreshed runnable artifacts.

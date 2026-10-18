@@ -93,7 +93,7 @@ static void basic_and_payloads(QueryWorker *worker,const char *path,const char *
         QueryJob *job=request(path,unbound ? 0 : dx_file_stamp(path)); uint64_t id=job->id; job->known_total=unbound ? -1 : 0;
         worker_submit(worker,job); QueryReply *reply=wait_reply(worker); success(reply,id,path,true); reply_free(reply); no_sql(worker);
     }
-    for (unsigned kind=0;kind<19;kind++) {
+    for (unsigned kind=0;kind<20;kind++) {
         QueryJob *job=request(kind ? path : NULL,0); uint64_t id=job->id;
         if (kind==1) { free(job->path); job->path=dx_strdup(missing); }
         if (kind==2) { free(job->path); job->path=dx_alloc(65538); memset(job->path,'x',65537); job->path[65537]=0; }
@@ -123,9 +123,11 @@ static void basic_and_payloads(QueryWorker *worker,const char *path,const char *
             job->analysis.sorts[last]=(AnalysisSort){.column=dx_strdup("Owned zero-count last sort"),.descending=true};
             CHECK(!job->analysis.sort_count);
         }
+        if (kind==19) job->analysis.source_version=UINT64_MAX;
         char *owned_path=job->path ? dx_strdup(job->path) : NULL;
         arm(worker,id); worker_submit(worker,job); QueryReply *reply=wait_reply(worker); failed(reply,id,owned_path,SOURCE_DIGEST_ERROR);
         CHECK(!checkpoint_visits());
+        if (kind==19) CHECK(strstr(reply->error,"without analytical payloads"));
         if (kind==17 || kind==18) {
             CHECK(!reply->analysis.filter_count && !reply->analysis.sort_count);
             for (size_t i=0;i<sizeof(reply->analysis.filters)/sizeof(*reply->analysis.filters);i++) CHECK(!reply->analysis.filters[i].column && !reply->analysis.filters[i].value);
@@ -177,5 +179,5 @@ int main(void) {
     write_file(large,true); write_file(small,false); dx_mutex_init(&checkpoint.mutex); dx_cond_init(&checkpoint.condition);
     QueryWorker worker; CHECK(worker_start(&worker)); basic_and_payloads(&worker,large,missing); cancellation_and_latest(&worker,large,small,missing); changed_input(&worker,large,replacement); stop_while_verifying(&worker,large);
     dx_cond_destroy(&checkpoint.condition); dx_mutex_destroy(&checkpoint.mutex); CHECK(unlink(large)==0 && unlink(small)==0 && rmdir(directory)==0);
-    printf("PASS worker-source-digest: %u checks; zero SQL and no DuckDB connection\n",checks); return 0;
+    printf("PASS: %u worker-source-digest checks; zero SQL and no DuckDB connection\n",checks); return 0;
 }

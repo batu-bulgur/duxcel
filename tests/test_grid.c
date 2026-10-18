@@ -19,6 +19,64 @@ static void event(Grid *g,UIContext *u,Page *p,GridInput in) {
     if (!in.dt) in.dt=.016f;
     grid_handle_input(g,u,p,&in);
 }
+static void test_grid_page_formats(void) {
+    FormatStore formats={0}; char *error=NULL; CellFormat value=format_default();
+    value.number=FORMAT_ACCOUNTING;
+    CHECK(format_apply(&formats,(FormatRange){0,DX_SHEET_ROWS-1,5,5},FORMAT_NUMERIC,value,&error));
+    value.flags=FORMAT_BOLD;
+    CHECK(format_apply(&formats,(FormatRange){111,111,5,5},FORMAT_BOLD,value,&error));
+    FormatScopeView result={17,"exact result",12},raw={17,"raw source",10},other={88,"other owner",11};
+    value.flags=FORMAT_ITALIC;
+    CHECK(format_apply_scoped(&formats,(FormatRange){111,111,5,5},FORMAT_ITALIC,value,&result,1,false,&error));
+    uint64_t member=9; size_t field=2; value.color=3;
+    CHECK(format_apply_records(&formats,&raw,&member,1,&field,1,FORMAT_COLOR,value,&error));
+    value.size=16;
+    CHECK(format_apply_scoped(&formats,(FormatRange){111,111,5,5},FORMAT_SIZE,value,&other,1,false,&error));
+    CHECK(!error);
+    uint64_t ids[]={40,9,77};
+    Page page={.offset=100,.row_count=3,.column_count=3,.total=1000000,
+        .records={.ids=ids,.source_key="owned reader",.count=3}};
+    Grid grid; grid_init(&grid); grid.formats=&formats; grid.format_row=10; grid.format_col=3;
+    CellFormat resolved=grid_cell_format(&grid,&page,101,2);
+    CHECK(resolved.flags==FORMAT_BOLD && !resolved.color && resolved.size==13 && resolved.number==FORMAT_ACCOUNTING);
+    /* Native IDs alone do not activate a stored scope or change legacy paint. */
+    grid.format_result_token=format_scope_token(&formats,&result);
+    grid.format_record_token=format_scope_token(&formats,&raw);
+    Grid before=grid; Page page_before=page;
+    resolved=grid_cell_format(&grid,&page,101,2);
+    CHECK(resolved.flags==FORMAT_ITALIC && resolved.color==3 && resolved.size==13 && resolved.number==FORMAT_ACCOUNTING);
+    CHECK(!memcmp(&grid,&before,sizeof(grid)) && !memcmp(&page,&page_before,sizeof(page)) && ids[1]==9);
+    CHECK(!grid_cell_format(&grid,&page,100,2).color && !grid_cell_format(&grid,&page,102,2).color);
+    CHECK(!grid_cell_format(&grid,&page,99,2).color && !grid_cell_format(&grid,&page,103,2).color);
+    page.column_count=2; CHECK(!grid_cell_format(&grid,&page,101,2).color); page.column_count=3;
+    page.records.count=1; resolved=grid_cell_format(&grid,&page,101,2);
+    CHECK(resolved.flags==FORMAT_ITALIC && !resolved.color); page.records.count=3;
+    page.records.source_key=NULL; CHECK(!grid_cell_format(&grid,&page,101,2).color); page.records.source_key="owned reader";
+    ids[1]=0; CHECK(!grid_cell_format(&grid,&page,101,2).color); ids[1]=9;
+    /* Source preview rebases only Page.offset and spatial origin. Its borrowed
+       record prefix must still be read locally and bounded by row_count. */
+    Page preview=page; preview.offset=0; preview.row_count=2; preview.total=2;
+    grid.format_row=110; resolved=grid_cell_format(&grid,&preview,1,2);
+    CHECK(resolved.flags==FORMAT_ITALIC && resolved.color==3 && resolved.number==FORMAT_ACCOUNTING);
+    member=77; value.color=2;
+    CHECK(format_apply_records(&formats,&raw,&member,1,&field,1,FORMAT_COLOR,value,&error));
+    grid.format_result_token=format_scope_token(&formats,&result); grid.format_record_token=format_scope_token(&formats,&raw);
+    CHECK(!grid_cell_format(&grid,&preview,2,2).color); /* Parent's third ID is not in the borrowed prefix. */
+    grid.format_row=10; grid.format_result_token=grid.format_record_token=SIZE_MAX;
+    resolved=grid_cell_format(&grid,&page,101,2);
+    CHECK(!resolved.flags && !resolved.color && resolved.number==FORMAT_ACCOUNTING);
+    grid.format_result_token=format_scope_token(&formats,&other); grid.format_record_token=format_scope_token(&formats,&raw);
+    resolved=grid_cell_format(&grid,&page,101,2);
+    CHECK(!resolved.flags && !resolved.color && resolved.size==13 && resolved.number==FORMAT_ACCOUNTING);
+    grid.format_result_token=grid.format_record_token=0;
+    CHECK(grid_cell_format(&grid,NULL,101,2).flags==FORMAT_BOLD);
+    grid.format_row=UINT64_MAX; CHECK(!grid_cell_format(&grid,&page,101,2).specified);
+    grid.format_row=DX_SHEET_ROWS-1; CHECK(!grid_cell_format(&grid,&page,1,2).specified);
+    grid.format_row=10; grid.format_col=SIZE_MAX; CHECK(!grid_cell_format(&grid,&page,101,2).specified);
+    grid.format_col=DX_FORMAT_FIELDS-1; CHECK(!grid_cell_format(&grid,&page,101,1).specified);
+    grid.formats=NULL; CHECK(!grid_cell_format(&grid,&page,101,2).specified);
+    grid_destroy(&grid); format_free(&formats); free(error);
+}
 static void test_focus_modality(void) {
     DxPointerGesture gesture; DxKeyModifiers key;
     ui_note_pointer_gesture((DxPointerGesture){0}); CHECK(!ui_focus_visible());
@@ -964,6 +1022,25 @@ static void test_addresses(void) {
         CHECK(!grid_parse_address(invalid[i],&row,&col)); CHECK(row==9 && col==9);
     }
     uint64_t row; size_t col; CHECK(!grid_parse_address("A1",NULL,&col) && !grid_parse_address("A1",&row,NULL));
+    const uint64_t model_rows[]={0,1,60,70,1048575,DX_SHEET_ROWS-1};
+    const size_t columns[]={0,7,20,24,26,16383};
+    for (int source=0;source<2;source++) for (size_t r=0;r<sizeof(model_rows)/sizeof(*model_rows);r++)
+        for (size_t c=0;c<sizeof(columns)/sizeof(*columns);c++) {
+            char text[48]; grid_format_address(model_rows[r],columns[c],source!=0,text);
+            row=123; col=123;
+            CHECK(grid_parse_display_address(text,source!=0,&row,&col));
+            CHECK(row==model_rows[r] && col==columns[c]);
+            CHECK(grid_row_number(row,source!=0)==model_rows[r]+1+(unsigned)source);
+        }
+    char text[48]; grid_format_address(60,20,true,text); CHECK(!strcmp(text,"U62"));
+    grid_format_address(60,20,false,text); CHECK(!strcmp(text,"U61"));
+    row=9; col=9; CHECK(grid_parse_display_address("  $y$0072 ",true,&row,&col) && row==70 && col==24);
+    CHECK(grid_parse_display_address("$XFD$1099511627777",true,&row,&col) && row==DX_SHEET_ROWS-1 && col==16383);
+    const char *bad_source[]={NULL,"A0","A1","$a$0001","XFD1099511627778","A18446744073709551616","XFE2","A2:B3","A-2"};
+    for (size_t i=0;i<sizeof(bad_source)/sizeof(*bad_source);i++) {
+        row=9; col=9; CHECK(!grid_parse_display_address(bad_source[i],true,&row,&col)); CHECK(row==9 && col==9);
+    }
+    CHECK(!grid_parse_display_address("A2",true,NULL,&col) && !grid_parse_display_address("A2",true,&row,NULL));
 }
 static void test_navigation_queue(void) {
     DxKeyModifiers event; while (ui_take_navigation_key(&event)) {}
@@ -1308,7 +1385,7 @@ int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--column-benchmark")) return column_benchmark();
     if (argc==2 && !strcmp(argv[1],"--font-benchmark")) return font_benchmark();
     if (argc==2 && !strcmp(argv[1],"--overscroll")) { test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); printf("PASS: %u precise overscroll/return checks\n",checks); return 0; }
-    test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); test_keytip_queue();
+    test_grid_page_formats(); test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); test_keytip_queue();
     test_animated_workspace_extent(); test_dock_scroll_and_clips(); test_ribbon_flyouts(); test_workspace_layout(); test_frozen_columns(); test_ribbon_spec(); test_grid_density(); test_zoom_header_geometry(); test_zoom_column_fit(); test_bounded_preview(); test_carbon_assets(); test_status_geometry(); test_status_metrics(); test_ribbon_layout(); test_menu_bounds(); test_text_lines(); test_text_editing(); test_text_history(); test_region_navigation(); test_long_range_outlines(); test_addresses(); test_navigation_queue();
     CHECK(ui_chart_fraction(0,-DBL_MAX,DBL_MAX)==.5);
     CHECK(ui_chart_fraction(DBL_MAX,-DBL_MAX,DBL_MAX)==1);
