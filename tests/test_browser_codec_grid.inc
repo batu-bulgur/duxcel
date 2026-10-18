@@ -139,6 +139,7 @@ static bool grid_chunk_body(unsigned sequence,const char *first,int end,const vo
     return true;
 }
 EMSCRIPTEN_KEEPALIVE int dx_browser_codec_stream_chunk(unsigned cookie,unsigned ticket,unsigned sequence,const char *first,int end,const void *wire,size_t size,const char *total,int pending) {
+    if(source_versions_mode)return source_versions_stream_chunk(cookie,ticket,sequence,first,end,wire,size,total,pending);
     grid.chunk_calls++;if(d.done||cookie!=d.cookie||ticket!=d.ticket){grid.stale_chunks++;d.stale++;
         /* The held callback is rejected before any pointer borrow. Charge its
            numeric wire size and reserve two maximum canonical-u64 C strings. */
@@ -153,17 +154,17 @@ static bool grid_done_body(int status,const char *rows,unsigned chunks,const cha
     else{CHECK(grid.rejected&&!grid.end_acked&&chunks==grid.stream_acks&&grid_prior_unchanged(),"Unexpected grid transport error or changed rejected prefix");grid.errors[grid.family]++;}
     grid.incoming_strings=0;grid.active=false;grid.finished=true;d.waiting=false;return true;
 }
-EMSCRIPTEN_KEEPALIVE void dx_browser_codec_stream_done(unsigned cookie,unsigned ticket,int status,const char *rows,unsigned chunks,const char *error) {grid.done_calls++;if(d.done||cookie!=d.cookie||ticket!=d.ticket){grid.stale_done++;d.stale++;
+EMSCRIPTEN_KEEPALIVE void dx_browser_codec_stream_done(unsigned cookie,unsigned ticket,int status,const char *rows,unsigned chunks,const char *error) {if(source_versions_mode){source_versions_stream_done(cookie,ticket,status,rows,chunks,error);return;}grid.done_calls++;if(d.done||cookie!=d.cookie||ticket!=d.ticket){grid.stale_done++;d.stale++;
     /* No stale-pointer inspection: reserve the helper's maximum row string
        and UTF-8 diagnostic envelope while its TEMP allocations still exist. */
     if(!d.done&&grid.cancel_pending){grid.incoming_strings=21u+2049u;grid_observe(0);grid.incoming_strings=0;}return;}grid_done_body(status,rows,chunks,error);}
 static bool grid_held_body(unsigned sequence) {CHECK(grid.active&&d.waiting&&grid.family==1&&d.fault==6&&sequence==2&&grid.sequence==1&&grid.rows==256&&!grid.held,"Unexpected held grid chunk boundary");grid.held=true;grid.held_calls++;return true;}
-EMSCRIPTEN_KEEPALIVE void dx_browser_codec_stream_held(unsigned cookie,unsigned ticket,unsigned sequence) {if(d.done||cookie!=d.cookie||ticket!=d.ticket){stop("Unexpected stale held-notification",__LINE__);return;}grid_held_body(sequence);}
+EMSCRIPTEN_KEEPALIVE void dx_browser_codec_stream_held(unsigned cookie,unsigned ticket,unsigned sequence) {if(source_versions_mode){source_versions_stream_held(cookie,ticket,sequence);return;}if(d.done||cookie!=d.cookie||ticket!=d.ticket){stop("Unexpected stale held-notification",__LINE__);return;}grid_held_body(sequence);}
 static bool grid_cancelled_body(const char *error) {
     CHECK(grid.cancel_pending&&grid.active&&d.waiting&&(!error||!*error)&&grid.stale_chunks==1&&grid.stale_done==1,"Grid cancellation did not drain old done/release one stale chunk");const WorkbookCodecRequest *request=workbook_codec_read_request(d.read);
     CHECK(request&&request->family==WORKBOOK_CODEC_CELLS&&request->first_row==256&&request->sql==grid.pending_sql&&workbook_codec_read_owned_bytes(d.read)==grid.pending_owned&&grid_prior_unchanged(),"Cancelled/stale callbacks changed accepted grid prefix/independent Header");grid.cancelled=true;grid.cancel_pending=false;grid.active=false;d.waiting=false;grid.cancelled_calls++;grid.proofs|=32;return true;
 }
-EMSCRIPTEN_KEEPALIVE void dx_browser_codec_stream_cancelled(unsigned cookie,unsigned ticket,const char *error) {if(d.done||cookie!=d.cookie||ticket!=d.ticket){stop("Unexpected stale cancellation completion",__LINE__);return;}grid_cancelled_body(error);}
+EMSCRIPTEN_KEEPALIVE void dx_browser_codec_stream_cancelled(unsigned cookie,unsigned ticket,const char *error) {if(source_versions_mode){source_versions_stream_cancelled(cookie,ticket,error);return;}if(d.done||cookie!=d.cookie||ticket!=d.ticket){stop("Unexpected stale cancellation completion",__LINE__);return;}grid_cancelled_body(error);}
 static void grid_free_schemas(void) {for(unsigned i=0;i<4;i++)page_free(grid_schema(i));}
 static bool grid_restart(void) {CHECK(!grid.active&&!d.waiting&&!grid.incoming_wire&&!grid.incoming_strings,"Grid candidate restarted before stream retirement");clear_input();d.fault++;return grid_begin();}
 static bool grid_tick_body(void) {

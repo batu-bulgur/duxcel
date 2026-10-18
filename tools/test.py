@@ -419,6 +419,9 @@ class Runner:
                     self.record(self.command(f"{module}-source-counters-{config}", ["./" + binary,"--source-counters-only"],
                                              completion_pattern=r"^PASS: native source version counters \d+ checks;"))
                     ensure_unchanged(self.summary["binaries"])
+                    self.record(self.command(f"{module}-source-versions-{config}", ["./" + binary,"--source-versions-only"],
+                                             completion_pattern=r"^PASS: native source versions \d+ checks;"))
+                    ensure_unchanged(self.summary["binaries"])
         with FileLock(native_lock_path(), "Native desktop tests"):
             self.background_check()
             self.record(self.command("gpu-sanitize", ["./tests/test_paint-native-debug"], "PASS: 110 native paint checks"))

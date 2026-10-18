@@ -225,6 +225,67 @@ console.log('PASS: actual source-counter report guards rejected '+mutations.leng
         result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 24 corrupted receipts',result.stdout)
 
+    def test_source_versions_mode_owns_exact_four_fixtures_and_rejects_mixed_profiles(self):
+        options=harness.parse_options(['--codec-read-driver','--codec-source-versions','--no-build'])
+        self.assertTrue(options.codec_source_versions and options.no_build)
+        self.assertEqual(harness.CODEC_SOURCE_VERSIONS_FIXTURES,{'source-versions-v12.dxls':(12,25),'source-versions-v13.dxls':(13,25),'source-versions-v14.dxls':(14,25),'source-versions-v14-reordered.dxls':(14,25)})
+        invalid=[['--codec-source-versions'],*(['--codec-read-driver','--codec-source-versions',family] for family in
+            ('--codec-sorts','--codec-preferences','--codec-objects','--codec-queries','--codec-source-options','--codec-tables','--codec-pivot-marks','--codec-filters','--codec-grid','--codec-counters','--codec-source-counters','--review','--worker-driver','--metadata-stream-probe','--dpr=2'))]
+        for arguments in invalid:
+            with self.subTest(arguments=arguments),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(arguments)
+        with tempfile.TemporaryDirectory() as temporary:
+            path=Path(temporary);emitted=self.fixtures(path,harness.CODEC_SOURCE_VERSIONS_FIXTURES)
+            manifest=harness.codec_fixture_manifest(path,emitted,harness.CODEC_SOURCE_VERSIONS_FIXTURES)
+            self.assertEqual([row['name'] for row in manifest['files']],list(harness.CODEC_SOURCE_VERSIONS_FIXTURES))
+            with self.assertRaisesRegex(RuntimeError,'Unexpected native codec fixture'):
+                harness.codec_fixture_manifest(path,emitted,harness.CODEC_SOURCE_COUNTERS_FIXTURES)
+
+    def test_full_tier_ledger_runs_after_source_counters_and_requires_ledger_completion(self):
+        args=runner.parser().parse_args(['full','--config','both','--no-build'])
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);(root/'Makefile').write_text('');instance=runner.Runner(args,root)
+            with mock.patch.object(instance,'command',side_effect=lambda name,command,*a,**k:{'name':name,'command':command,'status':'passed'}) as command, \
+                 mock.patch.object(instance,'headless'),mock.patch.object(instance,'prepare_native'),mock.patch.object(instance,'retain_binaries'), \
+                 mock.patch.object(instance,'background_check'),mock.patch.object(instance,'native_scenarios'), \
+                 mock.patch.object(runner,'FileLock',side_effect=lambda *a,**k:contextlib.nullcontext()):
+                instance.full()
+            calls=command.call_args_list;ledgers=[(n,call) for n,call in enumerate(calls) if call.args[1][-1]=='--source-versions-only']
+            self.assertEqual(len(ledgers),2)
+            for index,call in ledgers:
+                binary=call.args[1][0];self.assertEqual(calls[index-1].args[1],[binary,'--source-counters-only'])
+                pattern=call.kwargs['completion_pattern'];runner.validate_output('PASS: native source versions 123 checks;\n',0,completion_pattern=pattern)
+                with self.assertRaises(RuntimeError):runner.validate_output('PASS: native source version counters 123 checks;\n',0,completion_pattern=pattern)
+
+    def test_actual_node_source_versions_guards_refuse_missing_or_changed_runtime_evidence(self):
+        source=Path(__file__).with_name('test_web_app.mjs').read_text()
+        start=source.index('function validateCodecSourceVersionsReport(report,check) {')
+        function=source[start:source.index('\nfunction validateCodecSourceCountersReport',start)]
+        report=dict(mode='source-versions',fixtures=4,headers=5,queries=98,rejections=8,stale=2,callbacks=86,normalFixtureQueries=[6,8,12,12],
+            familyExecutions=dict(meta=14,sheets=14,objects=14,objectCounters=13,sourceCounters=12,sourceVersions=12,describe=19),
+            acceptedFeeds=dict(objects56=14,objectCounters32=26,sourceCounters32=24,sourceVersions256=10,sourceVersions29=2,sourceVersions5=1,sourceVersionsEof=3),
+            objectDefaults=1,sourceCounterDefaults=2,ledgerDefaults=2,sharedDecoderRejections=6,hexAdaptationRejections=2,matchedDataCallbacks=21,matchedEofCallbacks=3,
+            acceptedAcks=16,chunkCallbacks=25,doneCallbacks=12,completedStreams=3,errorStreams=8,poisonedDataChunks=19,staleChunks=1,staleDoneCallbacks=1,heldCallbacks=1,cancelledCallbacks=1,
+            rejectedFirstRows=[256,256,256,256,256,256,256,0],maximumCompletedHeaderOwned=200000,headerOwnedLimit=2097152,inputOwnedLimit=4194304,peakOwnedInput=2200000,
+            staleWireReservationBytes=10000,staleScalarReservationBytes=42,staleTerminalReservationBytes=2070,
+            transport=dict(sourceVersionPhysicalChunks=25,stream=dict(submissions=12,chunkCallbacks=25,acceptedAcks=16,doneCallbacks=12,held=1,released=1,cancelled=1)))
+        for name in ('requiredNullRejected','pendingEncodingRejected','malformedRawRejected','resultTagRejected','oddHexRejected','nonHexRejected','emptyBlobRejected','budgetRejected','stalePreserved','freshRecovery','olderNoLedgerQuery','exactRawBytes','independentLocators','archivedOwnersRetained','exactMaximumVersion'):report[name]=True
+        script="""import assert from 'node:assert/strict';import vm from 'node:vm';
+const validate=vm.runInNewContext('('+FUNCTION+')'),good=REPORT;
+const check=(condition,message)=>{if(!condition)throw new Error(message);};validate(good,check);
+const mutations=[r=>r.queries--,r=>r.callbacks--,r=>r.normalFixtureQueries[1]=12,r=>r.familyExecutions.sourceVersions--,
+ r=>r.acceptedFeeds.sourceVersions256--,r=>r.acceptedFeeds.sourceVersionsEof--,r=>r.sharedDecoderRejections--,r=>r.hexAdaptationRejections--,
+ r=>r.ledgerDefaults=0,r=>r.objectDefaults=0,r=>r.poisonedDataChunks--,r=>r.staleChunks=0,r=>r.staleDoneCallbacks=0,r=>r.cancelledCallbacks=0,
+ r=>r.acceptedAcks++,r=>r.rejectedFirstRows[4]=0,r=>r.exactRawBytes=false,r=>r.independentLocators=false,r=>r.archivedOwnersRetained=false,
+ r=>r.exactMaximumVersion=false,r=>r.olderNoLedgerQuery=false,r=>r.emptyBlobRejected=false,r=>r.budgetRejected=false,
+ r=>r.maximumCompletedHeaderOwned=2097153,r=>r.peakOwnedInput=4194305,r=>r.staleWireReservationBytes=0,
+ r=>r.staleWireReservationBytes=6291457,r=>r.staleScalarReservationBytes=41,r=>r.transport.stream.acceptedAcks++,r=>r.transport.stream.doneCallbacks--,
+ r=>r.transport.sourceVersionPhysicalChunks--,r=>r.heldCallbacks=0,r=>r.staleTerminalReservationBytes=2069];
+for(const mutate of mutations){const bad=structuredClone(good);mutate(bad);assert.throws(()=>validate(bad,check));}
+console.log('PASS: actual ledger report guards rejected '+mutations.length+' corrupted receipts');
+""".replace('FUNCTION',json.dumps(function)).replace('REPORT',json.dumps(report))
+        result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 33 corrupted receipts',result.stdout)
+
     def test_manifest_covers_bytes_and_refuses_unowned_extra_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary);emitted=self.fixtures(directory)
