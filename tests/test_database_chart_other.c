@@ -7,6 +7,12 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifndef DUXCEL_TEST_CHART_OTHER
+#error "Compile only the focused chart Other test target with its private seam."
+#endif
+bool dx_test_chart_other_result(duckdb_result *result,const Page *parent,size_t keys,size_t columns,
+    size_t budget,Page *out,bool *limited,char **error);
+
 static unsigned checks;
 #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL database chart Other:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
 static void clear_error(char **error) { CHECK(*error && **error); free(*error); *error=NULL; }
@@ -163,6 +169,84 @@ static Page synthetic(size_t rows,size_t columns,const char *prefix) {
     for (size_t i=0;i<rows*columns;i++) { p.cells[i].text=dx_strdup("1"); p.cells[i].number=1; p.bytes+=2; }
     return p;
 }
+static void test_result_validation(Database *db) {
+    Page parent=synthetic(5,3,"c"),out=synthetic(1,2,"old");
+    Page parent_before=parent,out_before=out; char *error=NULL; bool limited=true;
+    const char *invalid[]={
+        "SELECT 1::DOUBLE AS __dx_other_0",
+        "SELECT 1::DOUBLE AS __dx_other_0,2::DOUBLE AS __dx_other_1 WHERE false",
+        "SELECT i::DOUBLE AS __dx_other_0,i::DOUBLE AS __dx_other_1 FROM range(2) t(i)",
+        "SELECT 1::DOUBLE AS wrong,2::DOUBLE AS __dx_other_1",
+        "SELECT 1::INTEGER AS __dx_other_0,2::DOUBLE AS __dx_other_1",
+        "SELECT 1::DECIMAL(10,2) AS __dx_other_0,2::DOUBLE AS __dx_other_1"
+    };
+    for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
+        duckdb_result result={0}; CHECK(database_execute(db,invalid[i],&result,&error));
+        limited=true;
+        CHECK(!dx_test_chart_other_result(&result,&parent,1,2,DX_PAGE_OTHER_BYTES,&out,&limited,&error));
+        CHECK(!limited && !memcmp(&parent,&parent_before,sizeof(parent)) && !memcmp(&out,&out_before,sizeof(out)));
+        CHECK(duckdb_column_count(&result)>0); clear_error(&error); duckdb_destroy_result(&result);
+    }
+    Column decimal_expected=parent.columns[1];
+    parent.columns[1].type=DUCKDB_TYPE_DECIMAL; parent.columns[1].number_type=(NumberType){NUM_DECIMAL,12,2};
+    duckdb_result decimal={0};
+    CHECK(database_execute(db,"SELECT 1::DECIMAL(10,2) AS __dx_other_0,2::DOUBLE AS __dx_other_1",&decimal,&error));
+    for (size_t mismatch=0;mismatch<2;mismatch++) {
+        parent.columns[1].number_type=(NumberType){NUM_DECIMAL,mismatch ? 10 : 12,mismatch ? 3 : 2};
+        limited=true;
+        CHECK(!dx_test_chart_other_result(&decimal,&parent,1,2,DX_PAGE_OTHER_BYTES,&out,&limited,&error));
+        CHECK(!limited && !memcmp(&out,&out_before,sizeof(out))); clear_error(&error);
+    }
+    duckdb_destroy_result(&decimal); parent.columns[1]=decimal_expected;
+    /* Match the expected native LIST metadata, then reach the real legacy
+       conversion failure after the first independently owned DOUBLE cell. */
+    Column expected=parent.columns[2];
+    parent.columns[2].type=DUCKDB_TYPE_LIST; parent.columns[2].numeric=false; parent.columns[2].number_type=(NumberType){0};
+    duckdb_result result={0}; CHECK(database_execute(db,"SELECT 1::DOUBLE AS __dx_other_0,[1] AS __dx_other_1",&result,&error));
+    limited=true;
+    CHECK(!dx_test_chart_other_result(&result,&parent,1,2,DX_PAGE_OTHER_BYTES,&out,&limited,&error));
+    CHECK(!limited && !memcmp(&out,&out_before,sizeof(out)) && parent.columns[2].type==DUCKDB_TYPE_LIST);
+    CHECK(!strcmp(error,"DuckDB could not convert a cell for display")); clear_error(&error); duckdb_destroy_result(&result);
+    parent.columns[2]=expected; CHECK(!memcmp(&parent,&parent_before,sizeof(parent)));
+
+    CHECK(database_execute(db,"SELECT 1::DOUBLE AS __dx_other_0,2::DOUBLE AS __dx_other_1",&result,&error));
+    Page measured={0}; limited=true;
+    CHECK(dx_test_chart_other_result(&result,&parent,1,2,DX_PAGE_OTHER_BYTES,&measured,&limited,&error));
+    CHECK(!limited && !error && measured.bytes>0); size_t exact=measured.bytes; page_free(&measured);
+    limited=false;
+    CHECK(!dx_test_chart_other_result(&result,&parent,1,2,exact-1,&out,&limited,&error));
+    CHECK(limited && !memcmp(&out,&out_before,sizeof(out)) && !memcmp(&parent,&parent_before,sizeof(parent))); clear_error(&error);
+    limited=false;
+    CHECK(!dx_test_chart_other_result(&result,&parent,1,2,0,&out,&limited,&error));
+    CHECK(limited && !memcmp(&out,&out_before,sizeof(out))); clear_error(&error);
+    limited=true;
+    CHECK(dx_test_chart_other_result(&result,&parent,1,2,exact,&out,&limited,&error));
+    CHECK(!limited && !error && out.bytes==exact && out.total==1 && !memcmp(&parent,&parent_before,sizeof(parent)));
+    number(&out,0,1); number(&out,1,2); duckdb_destroy_result(&result);
+    page_free(&out); page_free(&parent);
+}
+static void test_attached_database(Database *db,const char *directory) {
+    char *path=dx_printf("%s/source.duckdb",directory); duckdb_database file=NULL; duckdb_connection connection=NULL;
+    CHECK(duckdb_open(path,&file)==DuckDBSuccess); CHECK(duckdb_connect(file,&connection)==DuckDBSuccess);
+    duckdb_result result={0};
+    CHECK(duckdb_query(connection,"CREATE TABLE data AS SELECT 'r'||i::VARCHAR r,i::INTEGER v FROM range(5) t(i)",&result)==DuckDBSuccess);
+    duckdb_destroy_result(&result); duckdb_disconnect(&connection); duckdb_close(&file);
+    Analysis a={.kind=SOURCE_DATABASE,.path=dx_strdup(path),.schema=dx_strdup("main"),.table=dx_strdup("data")};
+    PivotDefinition d={0}; Page ordinary={0},p={0}; char *error=NULL;
+    assign(&d,PIVOT_ROWS,"r",AGG_SUM); assign(&d,PIVOT_VALUES,"v",AGG_AVG);
+    CHECK(database_refresh(db,&error));
+    CHECK(database_pivot(db,&a,&d,0,-1,&ordinary,&error)); CHECK(database_pivot_totals(db,&a,&d,&ordinary,&error));
+    CHECK(ordinary.totals && ordinary.row_count==5 && !ordinary.other && !db->pivot_other_keys);
+    uint64_t before=db->query_count; fetch(db,&a,&d,0,5,true,&p);
+    CHECK(p.other_status==PAGE_OTHER_UNSUPPORTED_KEY && !p.other && p.totals && !db->pivot_other_keys);
+    CHECK(db->query_count==before+3); /* Warm ordinary page and two totals reads, no proof/Other execution. */
+    same_body(&ordinary,&p); CHECK(!strcmp(ordinary.totals->columns.cells[0].text,p.totals->columns.cells[0].text));
+    Page preserved=p;
+    CHECK(!database_pivot_with_other(db,&a,&d,0,5,true,1,&p,&error));
+    CHECK(!memcmp(&p,&preserved,sizeof(p)) && db->query_count==before+3); clear_error(&error);
+    page_free(&ordinary); page_free(&p); pivot_free(&d); analysis_free(&a);
+    CHECK(database_refresh(db,&error)); CHECK(!unlink(path)); free(path); free(error);
+}
 static void test_owned_adoption(void) {
     Page p=synthetic(5,3,"c"); p.sql=dx_strdup("real captured relation"); p.bytes+=strlen(p.sql)+1;
     PageOther *other=dx_alloc(sizeof(*other)); other->keys=1; other->measures=2; other->value_columns=2; other->top_count=3; other->variant_count=2;
@@ -223,7 +307,8 @@ static void test_atomic_and_guard(Database *db,const char *directory) {
 int main(void) {
     char directory[]="/tmp/duxcel-database-other-XXXXXX"; CHECK(mkdtemp(directory));
     Database db={0}; char *error=NULL; CHECK(database_open(&db,&error)); CHECK(!error);
-    test_owned_adoption(); test_weighted(&db); test_no_sum(&db); test_types_and_nulls(&db);
+    test_owned_adoption(); test_result_validation(&db); test_attached_database(&db,directory);
+    test_weighted(&db); test_no_sum(&db); test_types_and_nulls(&db);
     test_exact_and_offsets(&db); test_nul_and_unsupported(&db); test_limits(&db); test_atomic_and_guard(&db,directory);
     database_close(&db); free(error); CHECK(!rmdir(directory));
     printf("PASS: database chart Other %u checks; real native weighted/distinct/typed/key-proof/ownership gates\n",checks); return 0;
