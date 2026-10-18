@@ -65,6 +65,28 @@ typedef struct {
     unsigned kind;
     bool preview;
 } ActiveReadout;
+#ifndef DUXCEL_BROWSER_HOST
+typedef struct {
+    bool active,issue;
+    uint64_t document,request,analysis_revision,format_revision,cell_revision,high_water,version;
+    size_t sheet,bytes;
+    JobKind stage;
+    FormatRange range;
+    unsigned mask;
+    CellFormat value;
+    Analysis source;
+    Page schema; /* Owned schema only; no business cells or borrowed Page text. */
+    SourceDigest digest;
+    SourcePacket raw;
+} SourceFormatIntent;
+typedef struct {
+    SourcePacket raw;
+    SourceDigest digest;
+    uint64_t document,version,analysis_revision,format_revision;
+    size_t sheet,token;
+    bool ready,spare_ready;
+} SourceFormatProof;
+#endif
 typedef struct {
     UIContext ui;
 #ifdef DUXCEL_DEV_REVIEW
@@ -84,6 +106,11 @@ typedef struct {
     SourceLocation source_locations[DX_MAX_OBJECTS+1];
     UICellContextLayout cell_context;
     ActiveReadout active_readout;
+#ifndef DUXCEL_BROWSER_HOST
+    SourceFormatIntent source_format;
+    SourceFormatProof source_format_proof;
+    uint64_t format_document;
+#endif
     bool preview_valid;
     uint64_t preview_source_id,preview_source_revision,preview_generation,preview_width_revision;
     size_t preview_sheet;
@@ -605,6 +632,27 @@ static bool commit_cell(App *a);
 static void request_document_action(App *a,DocumentAction action,const char *path);
 static void cancel_document_action(App *a);
 static Worksheet *active_sheet(App *a) { return a->book.count ? &a->book.sheets[a->book.active] : NULL; }
+#ifndef DUXCEL_BROWSER_HOST
+static void source_format_cancel(App *a,const char *message);
+static void source_format_reset(App *a);
+static void source_format_page(App *a);
+static void source_format_tick(App *a);
+static bool source_format_reply(App *a,QueryReply *reply);
+static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat value,bool *handled);
+static size_t source_format_token(App *a);
+static CellFormat source_format_value(App *a,uint64_t row,size_t column);
+#define SOURCE_FORMAT_CANCEL(a,message) source_format_cancel(a,message)
+#define SOURCE_FORMAT_RESET(a) source_format_reset(a)
+#define SOURCE_FORMAT_PAGE(a) source_format_page(a)
+#define SOURCE_FORMAT_TICK(a) source_format_tick(a)
+#define SOURCE_FORMAT_PENDING(a) ((a)->source_format.active)
+#else
+#define SOURCE_FORMAT_CANCEL(...) ((void)0)
+#define SOURCE_FORMAT_RESET(...) ((void)0)
+#define SOURCE_FORMAT_PAGE(...) ((void)0)
+#define SOURCE_FORMAT_TICK(...) ((void)0)
+#define SOURCE_FORMAT_PENDING(...) false
+#endif
 /* Persisted scopes remain suspended until a verified publication supplies exact
    tokens. Manual cells always use token0; imported cells must never inherit a
    finite manual/guarded rectangle through that fallback. Legacy stores retain
@@ -614,6 +662,9 @@ static size_t imported_format_token(App *a) {
 }
 static CellFormat imported_cell_format(App *a,uint64_t row,size_t column) {
     Worksheet *sheet=active_sheet(a);
+#ifndef DUXCEL_BROWSER_HOST
+    if (sheet && sheet->formats.source_aware) return source_format_value(a,row,column);
+#endif
     return sheet ? format_resolve_token(&sheet->formats,row,column,imported_format_token(a)) : format_default();
 }
 static bool imported_cell(App *a,uint64_t row,size_t column) {
@@ -964,7 +1015,11 @@ static void remember(App *a) {
     stack_push(s->undo,&s->undo_count,&a->analysis); stack_clear(s->redo,&s->redo_count); a->book.dirty=true;
     worksheet_record(s,EDIT_ANALYSIS);
 }
+#ifndef DUXCEL_BROWSER_HOST
+#include "source_format.inc"
+#endif
 static void request_page(App *a,bool reset) {
+    SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by a new data request.");
     QueryJob *j=dx_alloc(sizeof(*j));
     j->id=++a->request_id; j->analysis=analysis_copy(&a->analysis); j->kind=JOB_PAGE;
     j->refresh_source=a->refresh_plans; a->refresh_plans=false;
@@ -982,6 +1037,15 @@ static void request_page(App *a,bool reset) {
     worker_submit(&a->worker,j);
 }
 static void change_analysis(App *a,bool schema) {
+    SOURCE_FORMAT_CANCEL(a,"Formatting cancelled because the source definition changed.");
+#ifndef DUXCEL_BROWSER_HOST
+    const SourceVersion *binding=source_format_version(a,a->analysis.source_version);
+    if (a->analysis.source_version && (a->refresh_plans || !binding || binding->kind!=a->analysis.kind ||
+        !a->analysis.path || strcmp(binding->path,a->analysis.path))) {
+        a->analysis.source_version=0; SOURCE_FORMAT_RESET(a);
+    }
+    a->source_format_proof.ready=false;
+#endif
     size_t column=a->grid.col; float horizontal=a->grid.horizontal;
     ObjectStore *store=&active_sheet(a)->objects;
     for (size_t i=0;i<store->count;i++) if (!objects_source(store,&store->items[i])) {
@@ -1009,6 +1073,7 @@ static void restore_sheet_view(App *a) {
 static void activate_sheet(App *a,size_t index,bool capture) {
     end_step_preview(a);
     if (index>=a->book.count || a->book.sheets[index].hidden || a->io_busy) return;
+    SOURCE_FORMAT_RESET(a);
     if (capture) capture_sheet(a);
     memset(a->source_locations,0,sizeof(a->source_locations));
     a->active_readout.value.valid=false;
@@ -1026,6 +1091,7 @@ static void activate_sheet(App *a,size_t index,bool capture) {
     } else { request_page(a,false); status(a,"Loading worksheet…"); }
 }
 static void workspace_job(App *a,JobKind kind,const char *path) {
+    SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by the workbook file operation.");
     if (kind==JOB_SAVE) for (size_t i=0;i<a->book.count;i++) {
         char *error=NULL; bool ok=format_valid(&a->book.sheets[i].formats,&error);
         if (!ok) { status(a,error); free(error); return; }
@@ -1065,6 +1131,7 @@ static void open_source(App *a,const char *path,bool demo) {
     }
     /* The new sheet has no objects. Retire the previous sheet's owned Pages
        before submitting its replacement query; a failed add keeps them intact. */
+    SOURCE_FORMAT_RESET(a);
     memset(a->source_locations,0,sizeof(a->source_locations)); clear_object_views(a);
     a->active_readout.value.valid=false;
     analysis_free(&a->analysis); a->analysis=source; a->restore_view=false; page_free(&a->page); page_free(&a->spare); a->page_stale=a->waiting_count_page=false;
@@ -1083,6 +1150,7 @@ static void finish_document_action(App *a) {
     if (action==DOCUMENT_QUIT) a->exit_ready=true;
     else if (action==DOCUMENT_OPEN) workspace_job(a,JOB_LOAD,path);
     else if (action==DOCUMENT_CLOSE || action==DOCUMENT_NEW) {
+        SOURCE_FORMAT_RESET(a);
         end_step_preview(a); cancel_values(a); statistics_cancel(a);
         workbook_free(&a->book); workbook_init(&a->book); new_sheet(a); a->book.dirty=false;
         a->key_tips=a->ribbon_focus=a->file_menu=false;
@@ -1251,6 +1319,7 @@ static void source_ready(App *a) {
     a->field_schema_generation++;
     grid_schema(&a->grid,&a->page,false); if (a->restore_view) restore_sheet_view(a);
     a->new_schema=false; a->page_stale=false; status(a,"Ready");
+    SOURCE_FORMAT_PAGE(a);
     if (!a->first_rows_ms && a->page.row_count && grid_cached(&a->grid,&a->page)) {
         a->first_rows_ms=dx_millis()-a->launched_ms;
         printf("First visible rows: %.2f ms; cache: %zu rows, %zu bytes\n",a->first_rows_ms,a->page.row_count,a->page.bytes);
@@ -1292,6 +1361,7 @@ static void pause_count(App *a) {
     status(a,"Row counting paused. Data remains available; F5 retries.");
 }
 static void cancel_active_query(App *a) {
+    if (SOURCE_FORMAT_PENDING(a)) { SOURCE_FORMAT_CANCEL(a,"Source formatting cancelled. No style or history was changed."); return; }
     JobKind kind=a->pending_kind;
     worker_cancel(&a->worker); a->request_id++; a->busy=false;
     if (kind==JOB_PAGE) {
@@ -1541,6 +1611,9 @@ static void poll_query(App *a) {
     REVIEW_EVENT(a,"async.reply",r->id);
     if (r->id!=a->request_id) { reply_free(r); return; }
     a->busy=false;
+#ifndef DUXCEL_BROWSER_HOST
+    if (source_format_reply(a,r)) { reply_free(r); return; }
+#endif
     if (r->kind==JOB_STEP_PREVIEW) { step_preview_reply(&a->step_preview,r); reply_free(r); return; }
     if (r->is_preview) {
         if (r->kind==JOB_COPY) { if (r->error) status(a,r->error); else { copy_text(a,r->clipboard,"Preview selection copied."); } }
@@ -1717,6 +1790,7 @@ static void restore_column_widths(App *a,ColumnEdit edit,bool redo) {
     if (edit.active) shift_column_widths(&a->grid,edit.column,redo ? edit.insert : !edit.insert,!redo && !edit.insert ? edit.width : 96);
 }
 static void history(App *a,bool redo) {
+    SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by Undo or Redo.");
     Worksheet *s=active_sheet(a); if (!s) return;
     size_t count=redo ? s->redo_actions_count : s->undo_actions_count; if (!count) return;
     /* Every history entry point, including ribbon menus, returns to live data. */
@@ -4081,6 +4155,9 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
         }
         grid->formats=&active_sheet(a)->formats; grid->format_row=owner ? owner->row+2+source->offset : source->offset; grid->format_col=owner ? owner->col : 0;
         grid->format_result_token=grid->format_record_token=imported_format_token(a);
+#ifndef DUXCEL_BROWSER_HOST
+        if (!owner) grid->format_record_token=source_format_token(a);
+#endif
         uint64_t widths=grid->width_revision;
         float scale=s*grid->zoom; grid_layout(grid,scale,&preview,layout.preview);
         Rectangle visible=GetCollisionRec(layout.preview,canvas); DxPointerGesture gesture;
@@ -4786,6 +4863,7 @@ static void begin_sheet_menu(App *a,size_t index,Vector2 origin) {
 static void process_sheet_action(App *a) {
     SheetAction action=a->sheet_action; a->sheet_action=SHEET_ACTION_NONE;
     size_t index=a->sheet_menu_index; if (action==SHEET_ACTION_NONE || a->io_busy || index>=a->book.count) return;
+    SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by worksheet navigation.");
     char *error=NULL; size_t previous=a->book.active; bool ok=false;
     if (action==SHEET_ACTION_DUPLICATE || (action==SHEET_ACTION_HIDE && index==previous)) capture_sheet(a);
     if (action==SHEET_ACTION_DUPLICATE) ok=workbook_duplicate(&a->book,index,&error);
@@ -4799,6 +4877,9 @@ static void process_sheet_action(App *a) {
         ok=workbook_reorder(&a->book,index,destination,&error);
     }
     if (!ok) { status(a,error); free(error); return; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (a->source_format_proof.raw.data) a->source_format_proof.sheet=a->book.active;
+#endif
     if (action==SHEET_ACTION_DUPLICATE || (action==SHEET_ACTION_HIDE && index==previous)) activate_sheet(a,a->book.active,false);
     else if (action==SHEET_ACTION_SHOW) activate_sheet(a,index,true);
     a->workbook_focus_index=(int)sheet_display_position(&a->book,a->book.active); a->reveal_tab=true;
@@ -5320,10 +5401,15 @@ static CellFormat active_format(App *a) {
         sheet ? format_at(&sheet->formats,a->grid.row,a->grid.col) : format_default();
 }
 static bool apply_format(App *a,unsigned mask,CellFormat value) {
+    SOURCE_FORMAT_CANCEL(a,NULL);
     Worksheet *sheet=active_sheet(a); if (!sheet) return false;
     FormatRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1); char *error=NULL; uint64_t revision=sheet->formats.revision;
     if (range.r1>=DX_SHEET_ROWS) range.r1=DX_SHEET_ROWS-1;
     if (range.c1>=16384) range.c1=16383;
+#ifndef DUXCEL_BROWSER_HOST
+    bool handled=false,accepted=source_format_try(a,range,mask,value,&handled);
+    if (handled) return accepted;
+#endif
     if (sheet->formats.source_aware && (range.r0 || range.r1!=DX_SHEET_ROWS-1)) {
         bool imported=a->analysis.kind!=SOURCE_NONE && (!a->page.column_count ||
             (range.c0<a->page.column_count && (a->page.count_pending || range.r0<a->page.total)));
@@ -6002,6 +6088,7 @@ static void draw_pipeline(App *a,Rectangle r) {
         if (layout.description.height) ui_label(u,step->detail,layout.description,11,UI_MUTED,false,UI_REGULAR);
         if (ui_popup_button(u,layout.edit,step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…",false,false,passive_control(a,enabled) && pipeline_step_editable(a,step))) pipeline_edit_step(a,(size_t)a->pipeline_focus_index);
         if (ui_popup_button(u,layout.preview,"Preview…",false,false,passive_control(a,enabled) && !a->busy && source->kind!=SOURCE_NONE)) {
+            SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by historical preview.");
             if (step_preview_start(&a->step_preview,source,(size_t)a->pipeline_focus_index,table ? table->id : 0,table ? table->revision : a->analysis_revision,&a->grid)) {
                 step_preview_presentation(&a->step_preview,context_fields(a),&a->grid,&active_sheet(a)->formats,table ? table->col : 0);
                 a->consume_grid_input=true; a->pivot_focus=0; a->ribbon_focus=false; status(a,"Historical step preview · read-only"); schedule_step_preview(a);
@@ -7489,6 +7576,9 @@ static void draw_app(App *a) {
     uint64_t width_revision=a->grid.width_revision; int resizing=a->grid.resizing;
     a->grid.formats=sheet ? &sheet->formats : NULL; a->grid.format_row=0; a->grid.format_col=0;
     a->grid.format_result_token=a->grid.format_record_token=imported_format_token(a);
+#ifndef DUXCEL_BROWSER_HOST
+    a->grid.format_record_token=source_format_token(a);
+#endif
     set_grid_navigation(a);
     bool canvas_input=!pivot_active && !zooming && !a->left_drawer && a->modal==MODAL_NONE && !a->chrome_focus && !a->ribbon_focus && !a->pivot_focus && !a->consume_grid_input && !a->split_side && !a->split_pipeline;
     grid_update(&a->grid,u,&a->page,gr,canvas_input);
@@ -7561,7 +7651,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 734
+#define LAYOUT_SMOKE_STAGES 754
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -8396,6 +8486,19 @@ static bool smoke_grid_chrome(const Grid *g,float scale) {
 static bool smoke_selected(App *a,uint64_t row,size_t column,uint64_t r0,uint64_t r1,size_t c0,size_t c1) {
     uint64_t first,last; size_t left,right; grid_bounds(&a->grid,&first,&last,&left,&right);
     return a->grid.row==row && a->grid.col==column && a->grid.selection==SELECT_CELLS && first==r0 && last==r1 && left==c0 && right==c1;
+}
+static bool smoke_source_record_formats(App *a,bool color) {
+    size_t token=source_format_token(a);
+    if (!token || token==SIZE_MAX || !a->source_format_proof.ready) return false;
+    for (size_t i=0;i<a->page.row_count;i++) {
+        uint64_t row=a->page.offset+i,id=0;
+        if (!page_record_id(&a->page,row,&id)) return false;
+        CellFormat format=grid_cell_format(&a->grid,&a->page,row,4);
+        if (!!(format.flags&FORMAT_BOLD)!=(id>=241 && id<=350) ||
+            format.color!=(color && id==1 ? 3 : 0) ||
+            grid_cell_format(&a->grid,&a->page,row,3).flags) return false;
+    }
+    return true;
 }
 static void layout_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=LAYOUT_SMOKE_STAGES || a->busy || a->io_busy || a->page.count_pending || !a->page.column_count) return;
@@ -11213,6 +11316,132 @@ static void layout_smoke_step(App *a,int *step) {
             s->source_versions.high_water!=1 || s->source_versions.count!=1 || s->undo_actions_count!=3 || s->redo_actions_count ||
             s->analysis.path!=journal_cache_path || s->analysis.source_version || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         puts("PASS: native prepared Analysis and format transaction restores both through one Undo Redo, retains source issuance outside history and cached values, and interleaves ordinary Analysis actions without copying moved ownership"); break;
+    case 734: {
+        Database fixture={0}; duckdb_result result={0};
+        remove("tests/generated/app-record-format.parquet");
+        if (!database_open(&fixture,&error)) goto failed;
+        const char *sql="COPY (SELECT floor(i/2)::BIGINT AS Pair,(floor(i/2)::BIGINT%7)::INTEGER AS Tie,"
+            "CASE floor(i/2)::BIGINT%5 WHEN 0 THEN NULL WHEN 1 THEN '' WHEN 2 THEN 'NULL' ELSE 'pair' END::VARCHAR AS Label,"
+            "(9007199254740993+floor(i/2)::BIGINT)::BIGINT AS Exact,(floor(i/2)/8)::DECIMAL(18,4) AS Amount "
+            "FROM range(600) t(i)) TO 'tests/generated/app-record-format.parquet' (FORMAT PARQUET)";
+        bool ok=duckdb_query(fixture.connection,sql,&result)==DuckDBSuccess;
+        if (!ok) { free(error); error=dx_strdup(duckdb_result_error(&result)); }
+        duckdb_destroy_result(&result); database_close(&fixture); if (!ok) goto failed;
+        a->document_action=DOCUMENT_NEW; finish_document_action(a);
+        a->statistics_enabled=false; a->matrix_cells_active=false; a->selected_object=-1;
+        a->sidebar=a->fields_visible=a->pipeline=false; a->reduced_motion=true;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
+        open_source(a,"tests/generated/app-record-format.parquet",false); break;
+    }
+    case 735:
+        if (a->page.total!=600 || a->page.column_count!=5 || a->page.columns[4].type!=DUCKDB_TYPE_DECIMAL ||
+            strcmp(a->page.cells[3].text,"9007199254740993") || strcmp(a->page.cells[4].text,"0.0000") ||
+            !a->page.cells[2].is_null || a->page.cells[2+2*5].is_null || *a->page.cells[2+2*5].text ||
+            strcmp(a->page.cells[2+4*5].text,"NULL") || s->formats.count || s->undo_actions_count || s->source_versions.high_water) goto failed;
+        a->book.dirty=false; ribbon_cells=a->page.cells;
+        grid_select_cell(&a->grid,240,4,false); a->grid.end_row=349;
+        run_action(a,ACTION_BOLD);
+        if (!a->source_format.active || a->pending_kind!=JOB_VERIFY_SOURCE || !a->busy ||
+            s->formats.count || s->undo_actions_count || s->source_versions.high_water || a->book.dirty) goto failed;
+        grid_select_cell(&a->grid,10,4,false); break;
+    case 736:
+        if (a->source_format.active || !smoke_source_record_formats(a,false) ||
+            a->page.cells!=ribbon_cells || a->analysis.source_version!=1 || s->source_versions.high_water!=1 ||
+            s->source_versions.count!=1 || s->undo_actions_count!=1 || s->undo_actions[0]!=EDIT_ANALYSIS_FORMAT ||
+            s->formats.count!=1 || s->formats.items[0].record_count!=110 || s->formats.items[0].field_count!=1 ||
+            s->formats.items[0].fields[0]!=4 || s->formats.items[0].record_ids[0]!=241 ||
+            s->formats.items[0].record_ids[109]!=350 || active_format(a).flags || !a->book.dirty) goto failed;
+        grid_select_cell(&a->grid,0,4,false);
+        { CellFormat value=active_format(a); value.color=3; if (!apply_format(a,FORMAT_COLOR,value) || a->pending_kind!=JOB_COLLECT_RECORDS) goto failed; }
+        grid_select_cell(&a->grid,1,4,false); break;
+    case 737:
+        if (!smoke_source_record_formats(a,true) || active_format(a).color || s->source_versions.high_water!=1 ||
+            s->undo_actions_count!=2 || s->undo_actions[1]!=EDIT_FORMAT || a->page.cells!=ribbon_cells) goto failed;
+        request=a->request_id;
+        history(a,false); history(a,false);
+        if (s->formats.source_aware || a->analysis.source_version || s->source_versions.high_water!=1 ||
+            s->undo_actions_count || s->redo_actions_count!=2 || active_format(a).flags || active_format(a).color) goto failed;
+        history(a,true); history(a,true);
+        if (!s->formats.source_aware || a->analysis.source_version!=1 || s->source_versions.high_water!=1 ||
+            s->undo_actions_count!=2 || s->redo_actions_count || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        break;
+    case 738:
+        history(a,false); a->book.dirty=false; draft_revision=s->formats.revision;
+        grid_select_cell(&a->grid,240,4,false); a->grid.end_row=349;
+        { CellFormat value=active_format(a); value.flags|=FORMAT_BOLD; if (!apply_format(a,FORMAT_BOLD,value)) goto failed; }
+        break;
+    case 739:
+        if (!smoke_source_record_formats(a,false) || s->formats.revision!=draft_revision || a->book.dirty ||
+            s->undo_actions_count!=1 || s->redo_actions_count!=1 || s->source_versions.high_water!=1) goto failed;
+        history(a,true); break;
+    case 740:
+        if (!smoke_source_record_formats(a,true)) goto failed;
+        sort_field(a,1,true); break;
+    case 741:
+        if (!smoke_source_record_formats(a,true) || a->page.total!=600) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/source-record-format-descending.png");
+        sort_field(a,1,false); break;
+    case 742:
+        if (!smoke_source_record_formats(a,true) || a->page.total!=600) goto failed;
+        set_source_filter(a,"Pair",FILTER_LESS,"100",false); break;
+    case 743:
+        if (a->page.total!=200 || !smoke_source_record_formats(a,true) || s->formats.count!=2) goto failed;
+        set_source_filter(a,"Pair",FILTER_LESS,NULL,true); break;
+    case 744:
+        if (a->page.total!=600 || !smoke_source_record_formats(a,true)) goto failed;
+        page_free(&a->page); page_free(&a->spare); a->page_stale=true; request_page(a,false); break;
+    case 745:
+        if (a->page.total!=600 || !smoke_source_record_formats(a,true) || a->spare.column_count) goto failed;
+        grid_select_cell(&a->grid,0,4,false);
+        smoke_snapshot("tests/results/workspace-layout/source-record-format-returned.png");
+        draft_history=s->undo_actions_count; draft_revision=s->formats.revision;
+        grid_select_cell(&a->grid,10,4,false);
+        { CellFormat value=active_format(a); value.color=5; if (!apply_format(a,FORMAT_COLOR,value)) goto failed; }
+        cancel_active_query(a);
+        if (a->busy || a->source_format.active || s->formats.revision!=draft_revision ||
+            s->undo_actions_count!=draft_history || s->source_versions.high_water!=1) goto failed;
+        break;
+    case 746:
+        if (s->formats.revision!=draft_revision || s->undo_actions_count!=draft_history || !smoke_source_record_formats(a,true)) goto failed;
+        { CellFormat value=active_format(a); value.color=5; if (!apply_format(a,FORMAT_COLOR,value)) goto failed; }
+        a->grid.top=400; a->grid.fraction=0; request_page(a,false); break;
+    case 747:
+        if (a->source_format.active || s->formats.revision!=draft_revision || s->undo_actions_count!=draft_history ||
+            s->source_versions.high_water!=1 || !smoke_source_record_formats(a,true) || !a->page.offset) goto failed;
+        grid_select_cell(&a->grid,a->page.offset+4,4,false);
+        { CellFormat value=active_format(a); value.color=5; if (!apply_format(a,FORMAT_COLOR,value)) goto failed;
+          value.align=FORMAT_CENTER;
+          if (!format_apply(&s->formats,(FormatRange){0,DX_SHEET_ROWS-1,4,4},FORMAT_ALIGN,value,&error)) goto failed;
+          worksheet_record(s,EDIT_FORMAT); a->book.dirty=true; }
+        draft_revision=s->formats.revision; draft_history=s->undo_actions_count; break;
+    case 748:
+        if (a->source_format.active || s->formats.revision!=draft_revision || s->undo_actions_count!=draft_history ||
+            s->source_versions.high_water!=1 || !smoke_source_record_formats(a,true) || active_format(a).align!=FORMAT_CENTER) goto failed;
+        remove("tests/generated/app-live-record-format.dxls"); workspace_job(a,JOB_SAVE,"tests/generated/app-live-record-format.dxls"); break;
+    case 749:
+        if (a->book.dirty || !a->book.path || !smoke_source_record_formats(a,true)) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-live-record-format.dxls"); break;
+    case 750:
+        if (a->book.dirty || !s->formats.source_aware || s->formats.count!=3 || s->formats.scope_count!=1 ||
+            s->source_versions.high_water!=1 || s->source_versions.count!=1 || a->analysis.source_version!=1 ||
+            source_format_token(a)!=SIZE_MAX || a->source_format_proof.raw.data || a->page.total!=600 ||
+            a->page.columns[3].type!=DUCKDB_TYPE_BIGINT || a->page.columns[4].type!=DUCKDB_TYPE_DECIMAL) goto failed;
+        grid_select_cell(&a->grid,a->page.offset+4,4,false); draft_revision=s->formats.revision;
+        run_action(a,ACTION_BOLD);
+        if (a->busy || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision ||
+            s->undo_actions_count || !a->message || !strstr(a->message,"verified reactivation")) goto failed;
+        break;
+    case 751:
+        if (source_format_token(a)!=SIZE_MAX || active_format(a).flags || active_format(a).color ||
+            active_format(a).align!=FORMAT_CENTER || a->book.dirty) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/source-record-format-dormant.png"); break;
+    case 752:
+        if (s->source_versions.high_water!=1 || s->formats.items[0].selector!=FORMAT_RECORDS ||
+            s->formats.items[0].record_count!=110 || s->formats.items[1].record_count!=1 ||
+            s->formats.items[1].record_ids[0]!=1 || s->formats.items[1].value.color!=3) goto failed;
+        break;
+    case 753:
+        puts("PASS: native captured Verify Collect Commit formats original records across page boundaries sort filter eviction and duplicate values, preserves first-binding Undo Redo and no-op redo, rejects canceled superseded stale commands, and archives typed styles dormant in v14"); break;
 
     }
     free(error); (*step)++; return;
@@ -12665,9 +12894,9 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
-    if (focused_layout && (layout_start==687 || layout_start==730)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
+    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
     else if (options->nyc_smoke) open_source(a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -12677,7 +12906,7 @@ AppSession *app_start(const AppOptions *options) {
     else if (options->path) open_source(a,options->path,false);
     else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(a,"tests/fixtures/null-text.csv",false);
     else { new_sheet(a); a->book.dirty=false; }
-    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 ? layout_start : 250) : 0;
+    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 ? layout_start : 250) : 0;
     session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     session->applied_cursor=-1;
     session->automated=automated; session->layout_start=layout_start; session->layout_target=layout_target;
@@ -12765,6 +12994,7 @@ bool app_frame(AppSession *session) {
     if (a->count_deferred && !a->grid.scrollbar && !a->busy && (!a->page_stale || a->waiting_count_page)) { a->count_deferred=false; publish_count(a,a->deferred_total); }
     watch_statistics(a);
     poll_query(a);
+    SOURCE_FORMAT_TICK(a);
 #ifdef DUXCEL_BROWSER_HOST
     /* Owned chooser replies publish only during ordinary App dispatch, after
        pending worker work; frozen review never mutates the captured workbook. */
@@ -13342,11 +13572,12 @@ bool app_frame(AppSession *session) {
     else if (a->pending_relation) { a->pending_relation=false; if (a->pending_relation_index<a->page.relation_count) select_relation(a,&a->page.relations[a->pending_relation_index]); }
     if (!a->step_preview.active && !a->waiting_count_page && !a->page_stale && a->spare.column_count && !grid_cached(&a->grid,&a->page) && grid_cached(&a->grid,&a->spare)) {
         Page swap=a->page; a->page=a->spare; a->spare=swap;
+        SOURCE_FORMAT_PAGE(a);
     }
     if (a->last_top!=a->grid.top) { a->last_top=a->grid.top; a->viewport_changed=dx_millis(); }
     if (!a->step_preview.active && !a->waiting_count_page && !a->page_stale && a->page.column_count && a->modal==MODAL_NONE && !a->io_busy && !a->fetch_failed && !grid_cached(&a->grid,&a->page) &&
         dx_millis()-a->viewport_changed>=25 &&
-        (!a->busy || (a->pending_kind==JOB_PAGE && (a->grid.top<a->pending_offset || a->grid.top+a->grid.render_rows>a->pending_offset+DX_PAGE_ROWS)))) request_page(a,false);
+        (!a->busy || SOURCE_FORMAT_PENDING(a) || (a->pending_kind==JOB_PAGE && (a->grid.top<a->pending_offset || a->grid.top+a->grid.render_rows>a->pending_offset+DX_PAGE_ROWS)))) request_page(a,false);
     StepPreview *preview=&a->step_preview;
     if (preview->active && !preview->loading && preview->spare.column_count && !grid_cached(&preview->grid,&preview->page) && grid_cached(&preview->grid,&preview->spare)) { Page swap=preview->page; preview->page=preview->spare; preview->spare=swap; }
     watch_statistics(a); schedule_step_preview(a); schedule_pivot(a); schedule_count(a); schedule_table_count(a); schedule_statistics(a);
@@ -13437,6 +13668,7 @@ int app_finish(AppSession *session) {
 #ifdef DUXCEL_DEV_REVIEW
     dx_review_capture_destroy(a->review); a->review=NULL;
 #endif
+    SOURCE_FORMAT_RESET(a);
     cancel_values(a); worker_stop(&a->worker); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a->worker.jobs_started,a->worker.sql_executed,a->worker.counts_executed);
     statistics_free(&a->statistics); free(a->statistics_error);
 #ifdef DUXCEL_BROWSER_HOST
