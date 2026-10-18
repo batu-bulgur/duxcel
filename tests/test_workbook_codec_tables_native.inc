@@ -9,28 +9,33 @@ static char *table_fixture_query(size_t sheet,size_t table,bool primary) {
     return primary ? dx_printf("SELECT * FROM __BP1_PRIMARY_MUST_NOT_EXECUTE /* 'İ' %zu */;  \n",sheet) :
         dx_printf("SELECT * FROM __BP1_TABLE_MUST_NOT_EXECUTE /* 'İ' %zu:%zu */;  \n",sheet,table);
 }
+/* dx_strdup(NULL) intentionally yields empty text; these fixtures require SQL NULL. */
+static char *table_fixture_nullable(const char *value) {return value?dx_strdup(value):NULL;}
 static Analysis table_fixture_source(const char *workspace,unsigned version,bool large,size_t sheet,size_t table) {
     static const char *const references[]={"missing-source.csv","missing-source.parquet","missing-source.duckdb",""};
     static const char *const small_schemas[]={NULL,"","NULL",NULL},*const small_tables[]={NULL,"NULL","","NULL"};
     static const char *const schemas[]={NULL,"","NULL"},*const tables[]={"","NULL",NULL},*const values[]={NULL,"","NULL"};
     SourceKind kind=large?SOURCE_CSV:(SourceKind)(SOURCE_CSV+table);
     Analysis a={.kind=kind,.path=kind==SOURCE_DEMO?dx_strdup(""):workbook_source_path(workspace,references[large?0:table]),
-        .schema=dx_strdup(large?schemas[table%3]:small_schemas[table]),.table=dx_strdup(large?tables[table%3]:small_tables[table]),
+        .schema=table_fixture_nullable(large?schemas[table%3]:small_schemas[table]),.table=table_fixture_nullable(large?tables[table%3]:small_tables[table]),
         .query=table_fixture_query(sheet,table,false),.unique_rows=(sheet+table+1)%2!=0};
     CHECK(a.path&&(kind==SOURCE_DEMO||access(a.path,F_OK)!=0));
     if(large){
-        a.filter_column=dx_strdup("P 'İ'");a.filter_value=dx_strdup(values[(sheet+table)%3]);a.filter_op=FILTER_CONTAINS;
+        a.filter_column=dx_strdup("P 'İ'");a.filter_value=table_fixture_nullable(values[(sheet+table)%3]);a.filter_op=FILTER_CONTAINS;
         a.filter_count=8;
-        for(size_t f=0;f<8;f++)a.filters[f]=(AnalysisFilter){dx_printf("F 'İ' %zu",f),dx_strdup(f==7?"[\"10\",\"20\"]":values[f%3]),f==7?FILTER_BETWEEN:FILTER_CONTAINS,{0}};
+        for(size_t f=0;f<8;f++)a.filters[f]=(AnalysisFilter){dx_printf("F 'İ' %zu",f),table_fixture_nullable(f==7?"[\"10\",\"20\"]":values[f%3]),f==7?FILTER_BETWEEN:FILTER_CONTAINS,{0}};
         a.sort_column=dx_strdup("S 'İ' 0");a.descending=(sheet+table)%2!=0;a.sort_count=7;
         for(size_t n=0;n<7;n++)a.sorts[n]=(AnalysisSort){dx_printf("S 'İ' %zu",n+1),(n+1)%2!=0};
     }else{
-        if(table!=1){a.filter_column=dx_printf("P 'İ' %zu",table);a.filter_op=table==0?FILTER_NULL:table==2?FILTER_EQUAL:FILTER_CONTAINS;a.filter_value=dx_strdup(table==0?NULL:table==2?"":"NULL");}
+        if(table!=1){a.filter_column=dx_printf("P 'İ' %zu",table);a.filter_op=table==0?FILTER_NULL:table==2?FILTER_EQUAL:FILTER_CONTAINS;a.filter_value=table_fixture_nullable(table==0?NULL:table==2?"":"NULL");}
         if(table==1||table==3){a.sort_column=dx_printf("S 'İ' %zu",table==1?0:3);a.descending=true;}
         if(table==2)a.sort_column=dx_strdup("NULL");
         if(version==14&&table==0){char *long_value=dx_alloc(65538);memset(long_value,'x',65537);long_value[65537]=0;a.filters[0]=(AnalysisFilter){dx_strdup("Large 'İ'"),long_value,FILTER_CONTAINS,{0}};a.filter_count=1;}
     }
     if((large&&table%2)||(!large&&table==1)){a.group_column=dx_strdup("Group 'İ'");a.measure_column=dx_strdup("Measure 'İ'");a.aggregate=AGG_AVG;}
+    if(large)CHECK((a.schema==NULL)==(table%3==0)&&(a.table==NULL)==(table%3==2)&&
+        (a.filter_value==NULL)==((sheet+table)%3==0)&&!a.filters[0].value&&a.filters[1].value&&!*a.filters[1].value&&a.filters[2].value&&!strcmp(a.filters[2].value,"NULL"));
+    else CHECK((a.schema==NULL)==(table==0||table==3)&&(a.table==NULL)==(table==0)&&(a.filter_value==NULL)==(table<2));
     return a;
 }
 static void tables_make_fixture(const char *path,const char *missing,unsigned version,bool large,bool empty) {
