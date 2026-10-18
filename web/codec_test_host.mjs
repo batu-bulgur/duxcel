@@ -3,16 +3,18 @@
 import createDuxcel from './duxcel.mjs';
 import {createEngineHost} from './engine_host.mjs';
 import {createOfficialWorkerAdapter} from './official_worker.mjs';
+import {createCodecStreamTransport} from './codec_stream_transport.mjs';
 
 const parameters=new URLSearchParams(location.search);
 const filtersMode=parameters.get('codec_filters')==='1';
+const gridMode=parameters.get('codec_grid')==='1';
 const pmMode=parameters.get('codec_pivot_marks')==='1';
 const tablesMode=parameters.get('codec_tables')==='1';
 const sortsMode=parameters.get('codec_sorts')==='1',preferencesMode=parameters.get('codec_preferences')==='1',objectsMode=parameters.get('codec_objects')==='1',queriesMode=parameters.get('codec_queries')==='1',optionsMode=parameters.get('codec_source_options')==='1';
-const names=filtersMode?['filters-v12.dxls','filters-v13.dxls','filters-v14.dxls','filters-v14-reordered.dxls']:pmMode?['pivot-marks-v12.dxls','pivot-marks-v13.dxls','pivot-marks-v14.dxls','pivot-marks-v14-reordered.dxls']:tablesMode?['tables-v12.dxls','tables-v13.dxls','tables-v14.dxls','tables-v14-reordered.dxls']:optionsMode?['options-v12.dxls','options-v13.dxls','options-v14.dxls','options-v14-reordered.dxls']:queriesMode?['queries-v12.dxls','queries-v14-blank.dxls','queries-v14-nul.dxls','queries-v13.dxls','queries-v14.dxls','queries-v14-reordered.dxls']:objectsMode?['objects-v12.dxls','objects-v13.dxls','objects-v14.dxls','objects-v14-reordered.dxls']:preferencesMode?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:sortsMode?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
+const names=gridMode?['grid-v12.dxls','grid-v13.dxls','grid-v14.dxls','grid-v14-reordered.dxls']:filtersMode?['filters-v12.dxls','filters-v13.dxls','filters-v14.dxls','filters-v14-reordered.dxls']:pmMode?['pivot-marks-v12.dxls','pivot-marks-v13.dxls','pivot-marks-v14.dxls','pivot-marks-v14-reordered.dxls']:tablesMode?['tables-v12.dxls','tables-v13.dxls','tables-v14.dxls','tables-v14-reordered.dxls']:optionsMode?['options-v12.dxls','options-v13.dxls','options-v14.dxls','options-v14-reordered.dxls']:queriesMode?['queries-v12.dxls','queries-v14-blank.dxls','queries-v14-nul.dxls','queries-v13.dxls','queries-v14.dxls','queries-v14-reordered.dxls']:objectsMode?['objects-v12.dxls','objects-v13.dxls','objects-v14.dxls','objects-v14-reordered.dxls']:preferencesMode?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:sortsMode?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
 const encoder=new TextEncoder();
 const receipts={schema:'duxcel.codec-read-transport',version:1,fixtures:[],queries:[],held:0,released:0};
-let adapter,engine,registered=null,held=null,module;
+let adapter,engine,registered=null,held=null,module,stream=null;
 const errorText=error=>String(error?.message??error).slice(0,4096);
 function callback(runtime,cookie,ticket,event,epoch='',registration='',sha='',bytes=0,error='') {
     const owned=[];
@@ -30,7 +32,7 @@ async function manifest() {
     return value;
 }
 try {
-    if(Number(sortsMode)+Number(preferencesMode)+Number(objectsMode)+Number(queriesMode)+Number(optionsMode)+Number(tablesMode)+Number(pmMode)+Number(filtersMode)>1)throw new Error('Ambiguous codec acceptance modes');
+    if(Number(sortsMode)+Number(preferencesMode)+Number(objectsMode)+Number(queriesMode)+Number(optionsMode)+Number(tablesMode)+Number(pmMode)+Number(filtersMode)+Number(gridMode)>1)throw new Error('Ambiguous codec acceptance modes');
     const vendor=await(await fetch('./vendor.json')).json();
     const config={moduleURL:new URL(vendor.worker.moduleURL,location.href).href,workerURL:new URL(vendor.worker.workerURL,location.href).href};
     const fixtureManifest=await manifest();
@@ -41,13 +43,13 @@ try {
         receipts.engineVersion=value.engineVersion;adapter=value;return value;
     });
     engine=createEngineHost(config,()=>adapterPromise);
-    const options={print:message=>console.log(message),printErr:message=>console.error(message),dxEngine:engine,dxCodecSortsMode:sortsMode,dxCodecPreferencesMode:preferencesMode,dxCodecObjectsMode:objectsMode,dxCodecQueriesMode:queriesMode,dxCodecSourceOptionsMode:optionsMode,dxCodecTablesMode:tablesMode,dxCodecPivotMarksMode:pmMode,dxCodecFiltersMode:filtersMode};
+    const options={print:message=>console.log(message),printErr:message=>console.error(message),dxEngine:engine,dxCodecSortsMode:sortsMode,dxCodecPreferencesMode:preferencesMode,dxCodecObjectsMode:objectsMode,dxCodecQueriesMode:queriesMode,dxCodecSourceOptionsMode:optionsMode,dxCodecTablesMode:tablesMode,dxCodecPivotMarksMode:pmMode,dxCodecFiltersMode:filtersMode,dxCodecGridMode:gridMode};
     options.dxCodecFixture=(runtime,cookie,ticket,name,attachSQL,detachSQL)=>{
         // Copy all C-owned strings before the first await.
         const file=String(name),attach=String(attachSQL),detach=String(detachSQL);
         Promise.resolve().then(async()=>{
             await adapterPromise;
-            if(adapter.active||adapter.pending||adapter.draining)throw new Error('Codec fixture administration requires an idle adapter');
+            if(stream?.active||stream?.hasHeld||adapter.active||adapter.pending||adapter.draining||adapter.admin)throw new Error('Codec fixture administration requires an idle adapter');
             if(registered){await adapter.connection.query(detach);await adapter.dropFile(registered.name);registered=null;}
             if(!file){callback(runtime,cookie,ticket,0);return;}
             const expected=fixtureManifest.files.find(entry=>entry.name===file);if(!expected)throw new Error('Unlisted codec fixture');
@@ -83,9 +85,37 @@ try {
         try {runtime.reply(value.cookie,value.ticket,value.data?bytes(value.data):0,value.size,string(value.total),value.pending,string(value.error));receipts.released++;}
         finally {for(const pointer of owned)runtime.release(pointer);}
     };
+    if(gridMode){
+        const counts=receipts.stream={submissions:0,chunkCallbacks:0,acceptedAcks:0,doneCallbacks:0,held:0,released:0,cancelled:0};
+        const failed=error=>{console.error(error);globalThis.duxcelCodecReadResult={ok:false,error:errorText(error),transport:receipts};};
+        options.dxCodecStreamSubmit=(runtime,cookie,ticket,request,holdSequence)=>{
+            // Copy the original C request synchronously; the helper validates and
+            // freezes it before admission. Only this private driver uses the seam.
+            const frozen=structuredClone(request);
+            receipts.queries.push({ticket,sql:frozen.sql,sourceBindings:frozen.sourceBindings,purpose:frozen.purpose,family:frozen.family,rowLimit:frozen.rowLimit});
+            counts.submissions++;
+            try{
+                if(!adapter)throw new Error('Grid stream submitted before fixture registration');
+                if(!stream)stream=createCodecStreamTransport(adapter,{...runtime,
+                    chunk:(...args)=>{counts.chunkCallbacks++;const ack=runtime.chunk(...args);if(ack===1)counts.acceptedAcks++;return ack;},
+                    done:(...args)=>{counts.doneCallbacks++;return runtime.done(...args);},
+                    held:(...args)=>{counts.held++;return runtime.held(...args);}});
+                void stream.submit(cookie,ticket,frozen,{holdSequence}).catch(failed);
+            }catch(error){failed(error);}
+        };
+        options.dxCodecStreamCancel=(runtime,cookie,ticket)=>{
+            Promise.resolve().then(async()=>{
+                if(!stream?.hasHeld)throw new Error('No held grid stream to cancel');
+                await stream.cancel(); // Old done and temporary cleanup precede replay.
+                if(stream.releaseHeld()!==false||stream.hasHeld)throw new Error('Stale held grid chunk was accepted or retained');
+                counts.released++;counts.cancelled++;
+                runtime.cancelled(cookie,ticket,0);
+            }).catch(failed);
+        };
+    }
     options.dxCodecReadTestDone=async result=>{
-        try {await engine.cancel(true);globalThis.duxcelCodecReadResult={...result,transport:receipts};}
+        try {if(stream)await stream.close();await engine.cancel(true);globalThis.duxcelCodecReadResult={...result,transport:receipts};}
         catch(error){globalThis.duxcelCodecReadResult={ok:false,error:errorText(error),transport:receipts};}
     };
     module=await createDuxcel(options);
-} catch(error) {if(engine)await engine.cancel(true).catch(()=>{});globalThis.duxcelCodecReadResult={ok:false,error:errorText(error),transport:receipts};console.error(error);}
+} catch(error) {if(stream)await stream.close().catch(()=>{});if(engine)await engine.cancel(true).catch(()=>{});globalThis.duxcelCodecReadResult={ok:false,error:errorText(error),transport:receipts};console.error(error);}
