@@ -1,0 +1,23 @@
+{
+  "baseline": {
+    "jobs": 146,
+    "sql": 325,
+    "counts": 21,
+    "host_requests": 325
+  },
+  "export": {
+    "jobs": 43,
+    "sql": 74,
+    "counts": 0,
+    "host_requests": 74
+  },
+  "verification": {
+    "jobs": 8,
+    "sql": 7,
+    "counts": 0,
+    "host_requests": 7,
+    "rejected_jobs": 3,
+    "rejected_record_jobs": 2
+  },
+  "sequential_workers": 3
+}

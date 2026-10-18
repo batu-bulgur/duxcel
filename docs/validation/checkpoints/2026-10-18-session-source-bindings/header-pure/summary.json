@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T04:06:24.272067+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "edit": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "974119a78611000fdf96aea6570b5907bbe5d045",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "5cb487eb5e5ee7c636c221601596e30f9ef5dc80e5366754dc2258a4587769bc",
+    "source_files": 271
+  },
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_inspector",
+        "tests/test_inspector-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T040624-fast-21105/build-headless.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.502
+    },
+    {
+      "name": "inspector-release",
+      "command": [
+        "./tests/test_inspector"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T040624-fast-21105/inspector-release.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.484
+    },
+    {
+      "name": "inspector-sanitize",
+      "command": [
+        "./tests/test_inspector-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T040624-fast-21105/inspector-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.601
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_inspector": "4995e24cdf1193571d31539440ad1ce23f04137e4ac6f2043bbc90eefe750413",
+    "/Users/h2o/dev/duxcel/tests/test_inspector-debug": "d2c82486b145d6408d2b587487acfc341f3a1fb2d1fc9552ad92e05c3ec0ac34"
+  },
+  "elapsed_seconds": 2.752,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_inspector": "4995e24cdf1193571d31539440ad1ce23f04137e4ac6f2043bbc90eefe750413",
+    "/Users/h2o/dev/duxcel/tests/test_inspector-debug": "d2c82486b145d6408d2b587487acfc341f3a1fb2d1fc9552ad92e05c3ec0ac34"
+  },
+  "finished_utc": "2026-10-18T04:06:27.230097+00:00"
+}

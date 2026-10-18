@@ -1,0 +1,8 @@
+Error: Expanded-header candidate lost its measured reference viewport/grid origin: dismiss
+    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:116:56)
+    at paneRailExpandedTarget (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:1164:2)
+    at targetAt (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:1186:124)
+    at feedbackPick (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:965:97)
+    at async expandedHeaderProof (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:1186:16)
+    at async browserPaneRail (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:1195:22)
+    at async file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:2383:18

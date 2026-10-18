@@ -1,0 +1,4 @@
+python3 tools/review_build_info.py --header build/review/review_build_info.h --flags '-Isrc -I/opt/homebrew/include -I/opt/homebrew/Cellar/raylib/6.0/include -DDUXCEL_DEV_REVIEW -include src/dev/review_input.h -Ibuild/review -O2 -g -std=c99 -Wall -Wextra -Wpedantic'
+python3 tools/review_build_info.py --binary build/review/duxcel-review
+python3 tools/review_build_info.py --header build/review-sanitize/review_build_info.h --flags '-Isrc -I/opt/homebrew/include -I/opt/homebrew/Cellar/raylib/6.0/include -DDUXCEL_DEV_REVIEW -include src/dev/review_input.h -Ibuild/review-sanitize -O1 -g -std=c99 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer'
+python3 tools/review_build_info.py --binary build/review-sanitize/duxcel-review

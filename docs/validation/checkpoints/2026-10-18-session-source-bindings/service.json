@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "url": "http://127.0.0.1:8767/",
+  "pid": 27211,
+  "artifact": "/Users/h2o/dev/duxcel/build/web/review/e1d15a1d91da9953f356",
+  "source": {
+    "commit": "e22840d48f56c523d463b46d00e06dce48cde538",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "6fe95a8e959a512fba5458add410b876b69df7cde1f65f7e5ea529211a32d145",
+    "source_files": 271
+  },
+  "signature": "e1d15a1d91da9953f3569398149b7cad9a5366aa67dcdbc28d2e81894f9f1336",
+  "queue_project": "duxcel-c368c516acb3d456",
+  "queue_report_count_before": 0,
+  "queue_report_count_after": 0,
+  "queue_report_ids_retained": true,
+  "agent": "codex",
+  "browser_reloaded": false,
+  "native_launched": false,
+  "accepted_browser_runs": [
+    "20261018T041915-browser-25810",
+    "20261018T042028-browser-26117"
+  ],
+  "source_binding_browser_run": "20261018T041500-browser-24628",
+  "source_binding_scope": "57d459a/runnera972913; before one-point chrome correction",
+  "scope": "Accepted measured expanded inspector controls and same-C captured-session source bindings; existing durable queue retained, no new report delivery test"
+}
