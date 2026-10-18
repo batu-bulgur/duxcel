@@ -784,6 +784,8 @@ static void submit_unsupported_records(SourceKind kind) {
 static void unsupported_records_reply(SourceKind kind) {
     validation_reply(); RecordSelection empty; memset(&empty,0,sizeof(empty));
     SourceDigest digest; memset(&digest,0,sizeof(digest));
+    WorkerFormatUsage usage=worker_format_usage(&worker);
+    CHECK(!usage.active_count && !usage.pending_count && !usage.published_count && !usage.active_reserved && !usage.pending_reserved && !usage.published_owned);
     CHECK(strlen(reply->error)<DX_SOURCE_DIGEST_ERROR_BYTES && strstr(reply->error,"Native record collection is unavailable") && strstr(reply->error,"no identity query was submitted"));
     CHECK(!memcmp(&reply->records,&empty,sizeof(empty)) && !memcmp(&reply->source_digest,&digest,sizeof(digest)));
     CHECK(reply->analysis.kind==kind && reply->analysis.path && !strcmp(reply->analysis.path,kind==SOURCE_CSV ? "must-not-open-native-records.csv" : "must-not-open-native-records.parquet"));

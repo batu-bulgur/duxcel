@@ -800,6 +800,9 @@ void worker_submit(QueryWorker *w,QueryJob *j) {
     browser_prepare_query();
 }
 QueryReply *worker_poll(QueryWorker *w) { QueryReply *r=w->reply; w->reply=NULL; return r; }
+WorkerFormatUsage worker_format_usage(QueryWorker *w) {
+    (void)w; return (WorkerFormatUsage){0}; /* Native format jobs reject synchronously; no native reservation is admitted. */
+}
 void worker_cancel(QueryWorker *w) { w->latest_id++; browser_discard(); reply_free(w->reply); w->reply=NULL; browser_cancel(0); }
 void worker_stop(QueryWorker *w) {
     if (!w->started) return;

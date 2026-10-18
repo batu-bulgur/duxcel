@@ -19,6 +19,42 @@ static void source_digest_rejected_analysis(Analysis *analysis) {
     analysis->filter_count=analysis->sort_count=0;
 }
 #ifndef DUXCEL_BROWSER_HOST
+static bool format_job_kind(JobKind kind) { return kind==JOB_VERIFY_SOURCE || kind==JOB_COLLECT_RECORDS; }
+static bool format_text_add(const char *text,size_t limit,size_t *bytes) {
+    if (!text) return true;
+    if (*bytes>=limit) return false;
+    size_t length=0,room=limit-*bytes;
+    while (length<room && text[length]) length++;
+    if (length==room) return false;
+    *bytes+=length+1; return true;
+}
+static bool format_analysis_bytes(const Analysis *a,size_t limit,size_t *bytes) {
+    const char *texts[]={a->path,a->schema,a->table,a->query,a->filter_column,a->filter_value,a->group_column,a->measure_column,a->sort_column};
+    for (size_t i=0;i<sizeof(texts)/sizeof(*texts);i++) if (!format_text_add(texts[i],limit,bytes)) return false;
+    /* Rejected C jobs can own zero-count slots; cleanup owns those too. */
+    for (size_t i=0;i<sizeof(a->filters)/sizeof(*a->filters);i++)
+        if (!format_text_add(a->filters[i].column,limit,bytes) || !format_text_add(a->filters[i].value,limit,bytes)) return false;
+    for (size_t i=0;i<sizeof(a->sorts)/sizeof(*a->sorts);i++) if (!format_text_add(a->sorts[i].column,limit,bytes)) return false;
+    return true;
+}
+static bool format_definition_fits(const QueryJob *j) {
+    size_t bytes=0;
+    if (!format_analysis_bytes(&j->analysis,DX_WORKER_FORMAT_DEFINITION_BYTES,&bytes)) return false;
+    const char *texts[]={j->path,j->column,j->search,j->date_start,j->date_end};
+    for (size_t i=0;i<sizeof(texts)/sizeof(*texts);i++) if (!format_text_add(texts[i],DX_WORKER_FORMAT_DEFINITION_BYTES,&bytes)) return false;
+    for (size_t role=0;role<4;role++) for (size_t i=0;i<DX_PIVOT_FIELDS;i++)
+        if (!format_text_add(j->pivot.fields[role][i].name,DX_WORKER_FORMAT_DEFINITION_BYTES,&bytes) ||
+            !format_text_add(j->pivot.fields[role][i].value,DX_WORKER_FORMAT_DEFINITION_BYTES,&bytes)) return false;
+    return true;
+}
+static size_t format_reply_owned(const QueryReply *r) {
+    if (!r || !format_job_kind(r->kind)) return 0;
+    size_t bytes=sizeof(*r);
+    if (!format_analysis_bytes(&r->analysis,SIZE_MAX,&bytes) || !format_text_add(r->path,SIZE_MAX,&bytes) || !format_text_add(r->error,SIZE_MAX,&bytes) ||
+        r->records.count>DX_RECORD_SELECTION_ROWS || r->records.bytes!=r->records.count*sizeof(uint64_t) ||
+        ((r->records.ids!=NULL)!=(r->records.count!=0)) || r->records.bytes>SIZE_MAX-bytes) return SIZE_MAX;
+    return bytes+r->records.bytes;
+}
 static bool copy_sources_match(const Analysis *primary,const CopyRequest *copy,char **error) {
     for (size_t i=0;i<copy->guard_count;i++) {
         const CopySourceGuard *guard=&copy->guards[i];
@@ -142,12 +178,19 @@ static void *worker_main(void *ptr) {
         while (!w->stop && !w->pending) dx_cond_wait(&w->condition, &w->mutex);
         if (w->stop) { dx_unlock(&w->mutex); break; }
         QueryJob *j = w->pending; w->pending = NULL; w->running = true; w->active_id=j->id; w->jobs_started++;
+        bool format_definition_rejected=w->pending_format_definition_rejected;
+        w->active_kind=j->kind; w->active_format_reserved=w->pending_format_reserved;
+        w->pending_format_reserved=0; w->pending_format_definition_rejected=false;
         dx_unlock(&w->mutex);
         QueryReply *r = dx_alloc(sizeof(*r)); r->id = j->id; r->kind = j->kind; r->object_id=j->object_id; r->revision=j->revision; r->is_preview=j->is_preview;
         r->analysis=j->analysis; memset(&j->analysis,0,sizeof(j->analysis));
         r->path=j->path; j->path=NULL;
         /* File hashing never opens DuckDB or runs source/result SQL. */
-        if (j->kind==JOB_VERIFY_SOURCE) verify_source(w,j,r);
+        if (format_definition_rejected) {
+            r->source_digest_status=SOURCE_DIGEST_ERROR;
+            r->error=dx_strdup("Native formatting request definitions exceed the 8 MiB owned limit. No file or identity query was opened.");
+        }
+        else if (j->kind==JOB_VERIFY_SOURCE) verify_source(w,j,r);
         else if (j->kind==JOB_COLLECT_RECORDS && !record_selection_payload_valid(j,r)) r->error=dx_strdup("Record collection requires one bounded raw-source range and its captured native identity without analytical payloads.");
         else if (j->kind==JOB_SAVE) workbook_save(j->workbook,r->path,&r->error);
         else if (j->kind==JOB_LOAD) {
@@ -201,9 +244,12 @@ static void *worker_main(void *ptr) {
 finished:
         dx_lock(&w->mutex); w->running = false;
         if (!w->stop && w->latest_id == j->id) {
-            reply_free(w->reply); w->reply = r; r = NULL;
+            reply_free(w->reply); w->reply = r; w->published_format_owned=format_reply_owned(r); r = NULL;
         }
         dx_unlock(&w->mutex); reply_free(r); job_free(j);
+        /* Cancellation only requests retirement. Keep the reservation until
+           these actual frees finish, including after running became false. */
+        dx_lock(&w->mutex); w->active_format_reserved=0; w->active_kind=JOB_PAGE; dx_unlock(&w->mutex);
     }
     return NULL;
 }
@@ -214,17 +260,28 @@ bool worker_start(QueryWorker *w) {
     return w->started;
 }
 void worker_submit(QueryWorker *w, QueryJob *j) {
+    bool format=format_job_kind(j->kind),definition_rejected=format && !format_definition_fits(j);
+    size_t reserved=format ? (definition_rejected || j->workbook || j->copy || j->statistics ? SIZE_MAX : DX_WORKER_FORMAT_RESERVED_BYTES) : 0;
     dx_lock(&w->mutex); w->latest_id = j->id;
     job_free(w->pending); w->pending = j; reply_free(w->reply); w->reply = NULL;
+    w->pending_format_reserved=reserved; w->pending_format_definition_rejected=definition_rejected; w->published_format_owned=0;
     if (w->running && w->db.connection) duckdb_interrupt(w->db.connection);
     dx_signal(&w->condition); dx_unlock(&w->mutex);
 }
 QueryReply *worker_poll(QueryWorker *w) {
-    dx_lock(&w->mutex); QueryReply *r = w->reply; w->reply = NULL; dx_unlock(&w->mutex); return r;
+    dx_lock(&w->mutex); QueryReply *r = w->reply; w->reply = NULL; w->published_format_owned=0; dx_unlock(&w->mutex); return r;
+}
+WorkerFormatUsage worker_format_usage(QueryWorker *w) {
+    if (!w || !w->started) return (WorkerFormatUsage){0};
+    dx_lock(&w->mutex);
+    WorkerFormatUsage usage={.active_reserved=w->active_format_reserved,.pending_reserved=w->pending_format_reserved,.published_owned=w->published_format_owned,
+        .active_count=w->active_format_reserved!=0,.pending_count=w->pending_format_reserved!=0,.published_count=w->reply && format_job_kind(w->reply->kind)};
+    dx_unlock(&w->mutex); return usage;
 }
 void worker_cancel(QueryWorker *w) {
     dx_lock(&w->mutex); w->latest_id++; job_free(w->pending); w->pending = NULL;
     reply_free(w->reply); w->reply = NULL;
+    w->pending_format_reserved=w->published_format_owned=0; w->pending_format_definition_rejected=false;
     if (w->running && w->db.connection) duckdb_interrupt(w->db.connection);
     dx_unlock(&w->mutex);
 }
@@ -234,6 +291,7 @@ void worker_stop(QueryWorker *w) {
     if (w->db.connection) duckdb_interrupt(w->db.connection);
     dx_signal(&w->condition); dx_unlock(&w->mutex);
     dx_thread_join(w->thread); job_free(w->pending); w->pending=NULL; reply_free(w->reply); w->reply=NULL;
+    w->active_format_reserved=w->pending_format_reserved=w->published_format_owned=0; w->active_kind=JOB_PAGE; w->pending_format_definition_rejected=false;
     w->sql_executed=w->db.query_count; w->counts_executed=w->db.count_queries; database_close(&w->db);
     dx_cond_destroy(&w->condition); dx_mutex_destroy(&w->mutex); w->started = false;
 }
