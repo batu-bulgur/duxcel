@@ -7,8 +7,9 @@ The existing chart's AVG/distinct limitation remains until that integration.
 The three largest **loaded** Row tuples use the existing chart ranking: first
 assigned SUM when present, otherwise the chosen Plot measure, finite scaled
 scores across categories, absolute magnitude, and loaded-row order for ties.
-The planner aggregates the exact union of the remaining loaded tuples from
-`pivot_input_sql`, retaining source/Pivot filters and date grains. It never
+Given separately proved keys, the planner aggregates the exact union of the
+remaining loaded tuples from `pivot_input_sql`, retaining source/Pivot filters
+and date grains. It never
 subtracts global totals or folds unloaded groups into Other. Every assigned
 category/measure result appears in the captured matrix's existing order.
 
@@ -26,8 +27,16 @@ helpers and DuckDB memory are separate costs. Success replaces an owned plan;
 failure preserves it. Three or fewer loaded groups need no Other query.
 
 The caller must supply the matching captured source definition, Pivot Page
-and original Column-key SQL types in shelf order. Complex key types and
+and original Column-key SQL types in shelf order, not unchecked generic wire
+fallback types. Complex key types and
 non-temporal date-grain sources are rejected. No describe query is performed.
+The caller must also prove complete, lossless, NUL-free Row/category C-string
+keys. Page strings have no explicit lengths: a native SQL key `a\0b` can appear
+as C string `a` and produce an incorrect membership predicate. This helper
+cannot establish that proof. Native result-byte validation and browser wire
+rejection must gate every actual call before integration. VARCHAR fallback
+metadata additionally requires the known `VARCHAR` type name; nested/unknown
+SQL types that were mapped to the VARCHAR enum remain unsupported.
 Request/source/version freshness, cancellation and reply publication remain
 caller responsibilities; this component does not certify a Page's provenance.
 
@@ -44,3 +53,9 @@ ranking with the existing chart helper and check weighted AVG, overlapping
 distinct values, missing/empty/literal keys, date grains, exact DECIMAL text,
 filtered sources, nonzero loaded offsets, ownership and bounded failures.
 This is component evidence, not integrated analytical or UI acceptance.
+`test_chart_other --unproved-nul-counterexample` separately retains the natural
+unsafe-input counterexample (expected 42 versus unproved 1). The owned VARCHAR
+chunk reports three original bytes via `duckdb_string_t_length`; both the Page
+C string and installed SDK's `duckdb_value_string.size` report one. That legacy
+accessor's size must not be used as independent key proof. The diagnostic deliberately
+violates the key-proof precondition and is not accepted analytical behavior.
