@@ -1214,7 +1214,10 @@ async function browserPaneRail(){
   async function expandedHeaderProof(action){
    const proof=await feedbackPick('pane_rail_expanded_'+action,'pane-rail-'+spec.name+'-expanded-'+action,{targetAt:state=>paneRailExpandedTarget(state,action,headerReference),hoverCapture:state=>{
     const [x,y,w]=headerReference.panel,bounds=headerReference.controls[action];
-    return paneRailPixels(state,'pane-rail-'+spec.name+'-expanded-'+action+'-frozen-bounds',{semantic_outline:{x:x+w-64*s,y,w:64*s,h:headerReference.headerHeight,ink:{rgba:[121,82,179,255],bounds}}});
+    // Include the measured controls after the short outer-scrollbar lane;
+    // its Collapse can extend left of the older64-unit sampling strip.
+    const left=Math.min(x+w-64*s,...Object.values(headerReference.controls).map(rect=>rect[0]-2*s));
+    return paneRailPixels(state,'pane-rail-'+spec.name+'-expanded-'+action+'-frozen-bounds',{semantic_outline:{x:left,y,w:x+w-left,h:headerReference.headerHeight,ink:{rgba:[121,82,179,255],bounds}}});
    }});
    proofs.push(proof);await fs.writeFile(path.join(output,'pane-rail-'+spec.name+'-expanded-'+action+'-bounds.json'),JSON.stringify({reference:headerReference,proof},null,2));
    const ink=proof.hover.samples.semantic_outline.ink,mode=proof.hover.mapping.mode,matches=mode==='exact'?['left','right','top','bottom'].every(edge=>ink[edge]===ink.expected[edge]):['left','top'].every(edge=>ink[edge]>=ink.coverage.any[edge]&&ink[edge]<=ink.coverage.full[edge])&&['right','bottom'].every(edge=>ink[edge]>=ink.coverage.full[edge]&&ink[edge]<=ink.coverage.any[edge]);
