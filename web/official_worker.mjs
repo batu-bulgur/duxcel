@@ -185,17 +185,20 @@ export function workbookPivotMarksRequest(value) {
 }
 // One immutable metadata result, streamed only by the dedicated method below.
 // These are whole-family SQL bounds, not expanded ordinary Page policies.
-const metadataStreamRows=new Map([['columns',1048577],['cells',1280001]]);
+const metadataStreamPolicies=new Map([
+    ['columns',{rows:1048577,columns:4}],['cells',{rows:1280001,columns:4}],
+    ['source-versions',{rows:65537,columns:7}],
+]);
 export function workbookMetadataStreamRequest(value) {
-    const purpose=value?.purpose,family=value?.family,limit=metadataStreamRows.get(family),rows=value?.rowLimit??limit;
+    const purpose=value?.purpose,family=value?.family,policy=metadataStreamPolicies.get(family),rows=value?.rowLimit??policy?.rows;
     const columns=value?.columns,bindings=value?.sourceBindings;
-    check(purpose==='workbook-metadata-stream'&&limit,'INVALID_REQUEST','Explicit columns/cells metadata stream required');
-    check(Array.isArray(columns)&&columns.length===4&&[0,1,2,3].every(i=>Object.hasOwn(columns,i))&&
+    check(purpose==='workbook-metadata-stream'&&policy,'INVALID_REQUEST','Explicit supported metadata stream family required');
+    check(Array.isArray(columns)&&columns.length===policy.columns&&Array.from({length:policy.columns},(_,i)=>Object.hasOwn(columns,i)).every(Boolean)&&
         Array.isArray(bindings)&&bindings.length===1&&Object.hasOwn(bindings,0),'INVALID_REQUEST','Dense metadata columns and archive binding required');
     const request=pageRequest({...value,purpose:undefined,rowLimit:1,columns,sourceBindings:bindings});
-    check(Number.isInteger(rows)&&rows>0&&rows<=limit&&request.offset==='0'&&request.knownTotal===null,
+    check(Number.isInteger(rows)&&rows>0&&rows<=policy.rows&&request.offset==='0'&&request.knownTotal===null,
         'INVALID_REQUEST','Metadata stream requires its whole-family bound, offset zero and unknown total');
-    check(request.columns?.length===4&&request.sourceBindings?.length===1,'INVALID_REQUEST','Metadata stream requires four typed columns and one archive binding');
+    check(request.columns?.length===policy.columns&&request.sourceBindings?.length===1,'INVALID_REQUEST','Metadata stream requires its exact typed columns and one archive binding');
     return Object.freeze({...request,purpose,family,rowLimit:rows});
 }
 export function exportRequest(value) {
@@ -373,14 +376,15 @@ function metadataYield() {
 // caller-retained chunks, JS string/allocator overhead and Ccandidate are not.
 async function metadataChunks(reader,request,guard,wait,emit,yieldTurn) {
     if(reader.open)await wait(reader.open({autoDestroy:false}));guard();
-    const fields=reader.schema?.fields;check(Array.isArray(fields)&&fields.length===4,'PAGE_LIMIT','Metadata stream requires four result columns');
+    const count=metadataStreamPolicies.get(request.family).columns;
+    const fields=reader.schema?.fields;check(Array.isArray(fields)&&fields.length===count,'PAGE_LIMIT','Metadata stream requires its exact family result columns');
     const columns=Object.freeze(fields.map((field,i)=>Object.freeze(metadata(field,request.columns[i]))));
     const descriptorBytes=encoder.encode(JSON.stringify(columns)).byteLength;
     check(descriptorBytes+4<=LIMITS.bytes,'PAGE_LIMIT','Metadata descriptors exceed the chunk byte budget');
     const iterator=reader[Symbol.asyncIterator]();let first=0,rows=0,textBytes=0,pieces=[],starts=[0],nulls=[];
     const page=(end)=>{
         const text=new Uint8Array(textBytes);let at=0;for(const piece of pieces){text.set(piece,at);at+=piece.length;}
-        return Object.freeze({schema:'duxcel.page',version:1,...identity(request),offset:String(first),columns,rowCount:rows,columnCount:4,
+        return Object.freeze({schema:'duxcel.page',version:1,...identity(request),offset:String(first),columns,rowCount:rows,columnCount:count,
             total:String(first+rows),countPending:!end,text,offsets:Uint32Array.from(starts),nulls:Uint8Array.from(nulls)});
     };
     const flush=async()=>{
@@ -389,19 +393,19 @@ async function metadataChunks(reader,request,guard,wait,emit,yieldTurn) {
     };
     for(;;) {
         guard();const item=await wait(iterator.next());guard();if(item.done)break;
-        const batch=item.value;check(batch&&batch.numCols===4&&Number.isSafeInteger(batch.numRows)&&batch.numRows>=0,'SCHEMA_CHANGED','Invalid metadata record batch');
+        const batch=item.value;check(batch&&batch.numCols===count&&Number.isSafeInteger(batch.numRows)&&batch.numRows>=0,'SCHEMA_CHANGED','Invalid metadata record batch');
         check(first+rows+batch.numRows<=request.rowLimit,'PAGE_LIMIT','Metadata result exceeds its whole-family row bound');
         for(let row=0;row<batch.numRows;row++) {
             guard();const texts=[],lengths=[];let rowBytes=0;
-            for(let col=0;col<4;col++) {
+            for(let col=0;col<count;col++) {
                 const value=batch.getChildAt(col).get(row),text=value===null?null:valueText(value,fields[col].type);
                 const size=text===null?0:metadataStringBytes(text);texts.push(text);lengths.push(size);rowBytes+=size;
-                check(descriptorBytes+rowBytes+24<=LIMITS.bytes,'PAGE_LIMIT','One metadata row exceeds the chunk byte budget');
+                check(descriptorBytes+rowBytes+(count+1)*4+count<=LIMITS.bytes,'PAGE_LIMIT','One metadata row exceeds the chunk byte budget');
             }
             // At most this one preflighted row coexists with one delivery.
             const encoded=texts.map(text=>text===null?null:encoder.encode(text));
-            if(rows&&(rows===LIMITS.rows||descriptorBytes+textBytes+rowBytes+(4*(rows+1)+1)*4+4*(rows+1)>LIMITS.bytes))await flush();
-            for(let col=0;col<4;col++){const bytes=encoded[col];nulls.push(bytes===null?1:0);if(bytes){pieces.push(bytes);textBytes+=lengths[col];}starts.push(textBytes);}
+            if(rows&&(rows===LIMITS.rows||descriptorBytes+textBytes+rowBytes+(count*(rows+1)+1)*4+count*(rows+1)>LIMITS.bytes))await flush();
+            for(let col=0;col<count;col++){const bytes=encoded[col];nulls.push(bytes===null?1:0);if(bytes){pieces.push(bytes);textBytes+=lengths[col];}starts.push(textBytes);}
             rows++;
             if(rows===LIMITS.rows)await flush();
         }

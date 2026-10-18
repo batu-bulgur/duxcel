@@ -56,7 +56,7 @@ export function createCodecStreamTransport(adapter,runtime){
         check(decimal(chunk.firstRow)&&BigInt(chunk.firstRow)===session.rows,'invalid chunk firstRow');
         check(typeof chunk.end==='boolean'&&!session.eof,'invalid EOF lifetime');
         const page=chunk.page,wire=chunk.wire;
-        check(page&&Number.isInteger(page.rowCount)&&page.rowCount>=0&&page.rowCount<=256&&page.columnCount===4&&page.offset===chunk.firstRow,'invalid chunk geometry');
+        check(page&&Number.isInteger(page.rowCount)&&page.rowCount>=0&&page.rowCount<=256&&page.columnCount===session.request.columns.length&&page.offset===chunk.firstRow,'invalid chunk geometry');
         for(const name of IDENTITIES.filter(name=>name!=='offset'))check(page[name]===session.request[name],`mismatched Page ${name}`);
         check(decimal(page.total)&&BigInt(page.total)===session.rows+BigInt(page.rowCount)&&BigInt(page.total)<=BigInt(session.request.rowLimit),'invalid chunk total');
         check(page.countPending===!chunk.end&&(chunk.end?page.rowCount===0:page.rowCount>0),'invalid chunk EOF/pending state');

@@ -189,3 +189,68 @@ test('cancel in the completed-adapter/pre-C-done gap cannot publish success',asy
     h.adapter.submitWorkbookMetadataStream=(r,cb)=>original(r,cb).then(reply=>{cancellation=h.transport.cancel();return reply;});
     const result=await h.transport.submit(7,1,input(h.token));await cancellation;assert.equal(result.status,'cancelled');assert.equal(h.target.completions[0].status,1);assert.equal(h.target.live.size,0);await finish(h);
 });
+
+// Additional family fixtures are kept separate so all existing callback tests
+// and their original four-column fixture definitions remain byte-for-byte.
+function sourceStreamColumns(){return [
+    {name:'sheet_id',typeName:'INTEGER',numberKind:'i32'},{name:'version',typeName:'UBIGINT',numberKind:'u64'},
+    {name:'owner',typeName:'UBIGINT',numberKind:'u64'},{name:'source_kind',typeName:'INTEGER',numberKind:'i32'},
+    {name:'source_reference',typeName:'VARCHAR',numberKind:'none'},{name:'encoding',typeName:'INTEGER',numberKind:'i32'},
+    {name:'definition',typeName:'BLOB',numberKind:'none'},
+];}
+function sourceStreamInput(token,ticket=1,change={}){return {...input(token,'cells',ticket),family:'source-versions',columns:sourceStreamColumns(),...change};}
+function sourceStreamTable(rows,definition=r=>[null,'','0','GG','NULL','00fF'][r%6]){
+    const values={sheet_id:r=>String(r%64),version:r=>r%2?'18446744073709551615':'9007199254740993',owner:r=>r%2?'0':'18446744073709551615',source_kind:()=> '1',source_reference:()=>"raw 'İ' 🦆.csv",encoding:r=>definition(r)===null?'0':'1',definition};
+    return new Table(Object.fromEntries(Object.entries(values).map(([name,get])=>[name,vectorFromArray(Array.from({length:rows},(_,r)=>get(r)),new Utf8())])));
+}
+function sourceStreamReader(source,options={}){
+    let sent=false;return {schema:source.schema,cancelled:0,reads:0,open(){return this;},[Symbol.asyncIterator](){return {next:async()=>{
+        if(sent)return {done:true};sent=true;return {done:false,value:{numCols:7,numRows:source.numRows,getChildAt:c=>({get:r=>{this.reads++;return source.getChildAt(c).get(r);}})}};
+    }};},async cancel(){this.cancelled++;await options.cleanup?.();}};
+}
+test('source-version helper freezes seven original sidecars and copies opaque hex/NULL/fullu64 with real heap growth',async()=>{
+    const h=await harness(sourceStreamReader(sourceStreamTable(6))),request=sourceStreamInput(h.token),pending=h.transport.submit(7,1,request);
+    request.columns[6].typeName='VARCHAR';request.sourceBindings[0].registrationId='999';request.sql='must not replace original C SQL';const reply=await pending;
+    assert.equal(reply.status,'ok');assert.equal(h.connection.sends.length,1);assert.equal(h.connection.sends[0],'C OWNED ORDERED METADATA, NOT REWRITTEN');const p=h.target.chunks[0].page;
+    assert.equal(p.columns,7);assert.equal(p.metadata[6].typeName,'BLOB');assert.equal(p.metadata[6].numberKind,'none');assert.equal(p.values[1],'9007199254740993');assert.equal(p.values[8],'18446744073709551615');assert.equal(p.values[2],'18446744073709551615');assert.deepEqual(Array.from({length:6},(_,r)=>p.values[r*7+6]),[null,'','0','GG','NULL','00fF']);
+    assert.ok(h.target.growths>=7);assert.equal(h.target.live.size,0);assert.deepEqual(h.target.completions,[{cookie:7,ticket:1,status:0,rows:'6',count:2,error:null}]);await finish(h);
+});
+test('source-version helper preserves maximum packet hex through byte-driven chunks without changing C callback ABI',async()=>{
+    const hex='bA'.repeat(262143),source=sourceStreamReader(sourceStreamTable(8,()=>hex)),h=await harness(source);const reply=await h.transport.submit(7,1,sourceStreamInput(h.token));
+    assert.equal(reply.status,'ok');assert.equal(h.connection.sends.length,1);assert.equal(source.cancelled,1);assert.deepEqual(h.target.chunks.map(c=>[c.first,c.page.rows,c.end]),[['0',7,0],['7',1,0],['8',0,1]]);
+    for(const chunk of h.target.chunks)for(let row=0;row<chunk.page.rows;row++)assert.equal(chunk.page.values[row*7+6],hex);assert.equal(h.target.completions[0].count,3);assert.equal(h.target.live.size,0);await finish(h);
+});
+test('source-version helper cannot admit four/eight/sparse columns and rejects forged four-column chunks before C',async()=>{
+    const h=await harness(sourceStreamReader(sourceStreamTable(1))),holes=sourceStreamColumns();delete holes[6];
+    for(const columns of [descriptors(),[...sourceStreamColumns(),descriptors()[0]],holes])assert.throws(()=>h.transport.submit(7,1,sourceStreamInput(h.token,1,{columns})),{code:'INVALID_REQUEST'});
+    assert.equal(h.adapter.latestId,0n);assert.equal(h.connection.sends.length,0);assert.equal(h.target.allocations,0);
+    const original=h.adapter.submitWorkbookMetadataStream.bind(h.adapter);h.adapter.submitWorkbookMetadataStream=(r,cb)=>original(r,c=>cb({...c,page:{...c.page,columnCount:4}}));
+    assert.equal((await h.transport.submit(7,1,sourceStreamInput(h.token))).status,'error');assert.equal(h.target.chunks.length,0);assert.equal(h.target.completions[0].status,2);assert.equal(h.target.live.size,0);await finish(h);
+});
+test('source-version final ACK/malloc rejection remains error with cleaned temporaries and normal-family recovery',async()=>{
+    for(const options of [{ack:r=>r.end?0:1},{failAfter:1}]){
+        const h=await harness(sourceStreamReader(sourceStreamTable(1)),{runtime:options});assert.equal((await h.transport.submit(7,1,sourceStreamInput(h.token))).status,'error');assert.equal(h.target.completions.length,1);assert.equal(h.target.completions[0].status,2);assert.equal(h.target.live.size,0);
+        await finish(h);
+    }
+    const options={ack:r=>r.end?0:1},h=await harness(sourceStreamReader(sourceStreamTable(1)),{runtime:options});await h.transport.submit(7,1,sourceStreamInput(h.token));options.ack=1;h.target.expectedTicket=2;h.connection.send=async()=>reader(table(1));assert.equal((await h.transport.submit(7,2,input(h.token,'cells',2))).status,'ok');await finish(h);
+});
+test('source-version held second chunk drains old completion before one stale replay and a fresh seven-column recovery',async()=>{
+    const entered=deferred(),source=sourceStreamReader(sourceStreamTable(600)),h=await harness(source,{runtime:{held:entered.resolve}}),pending=h.transport.submit(7,1,sourceStreamInput(h.token),{holdSequence:2});await entered.promise;
+    assert.equal(h.target.chunks.length,1);assert.equal(h.target.chunks[0].page.rows,256);assert.equal(source.reads,512*7);assert.equal(h.target.live.size,0);
+    await h.transport.cancel();assert.equal((await pending).status,'cancelled');assert.equal(h.target.completions[0].status,1);assert.equal(h.target.completions[0].count,1);assert.equal(h.transport.hasHeld,true);h.target.expectedTicket=2;h.target.accepting=false;
+    assert.equal(h.transport.releaseHeld(),false);assert.equal(h.target.stale,1);assert.equal(h.transport.hasHeld,false);assert.equal(h.target.live.size,0);assert.equal(h.target.completions.length,1);assert.equal(source.reads,512*7);
+    h.target.accepting=true;h.connection.send=async()=>sourceStreamReader(sourceStreamTable(1));assert.equal((await h.transport.submit(7,2,sourceStreamInput(h.token,2))).status,'ok');await finish(h);
+});
+test('source-version held reader cleanup failure rejects cancellation and close discards owned hex without stale delivery',async()=>{
+    const entered=deferred(),source=sourceStreamReader(sourceStreamTable(600),{cleanup(){throw new Error('source held cleanup');}}),h=await harness(source,{runtime:{held:entered.resolve}}),pending=h.transport.submit(7,1,sourceStreamInput(h.token),{holdSequence:2});await entered.promise;
+    try{await assert.rejects(h.transport.cancel(),{code:'STREAM_CLEANUP'});assert.equal((await pending).status,'error');assert.equal(h.target.completions.length,1);assert.equal(h.target.completions[0].status,2);assert.equal(h.target.completions[0].count,1);assert.equal(h.transport.hasHeld,true);assert.equal(h.target.live.size,0);
+        await assert.rejects(h.adapter.registerFile('blocked-after-source.dxls',new Uint8Array([1])),{code:'STREAM_CLEANUP'});await h.transport.close();assert.equal(h.transport.hasHeld,false);assert.equal(h.transport.releaseHeld(),false);assert.equal(h.target.stale,0);assert.equal(h.target.chunks.length,1);assert.equal(h.target.completions.length,1);
+    }finally{await h.transport.close();await h.adapter.close();}
+    const fresh=await harness(sourceStreamReader(sourceStreamTable(1)));assert.equal((await fresh.transport.submit(7,1,sourceStreamInput(fresh.token))).status,'ok');await finish(fresh);
+});
+test('source-version revoked held result cannot succeed and new owned registration recovers without reticketing denial',async()=>{
+    const entered=deferred(),db={async registerFileBuffer(){},async dropFile(){throw new Error('source drop failed');}},h=await harness(sourceStreamReader(sourceStreamTable(600)),{database:db,runtime:{held:entered.resolve}}),sibling=new DuckDBWorkerAdapter({database:db,connection:{async send(){return reader(table(1));},async cancelSent(){return true;},async close(){}}});
+    const pending=h.transport.submit(7,1,sourceStreamInput(h.token),{holdSequence:1});await entered.promise;await assert.rejects(sibling.dropFile(h.token.name),/source drop failed/);assert.equal(h.transport.releaseHeld(),true);assert.equal((await pending).status,'error');assert.equal(h.target.completions[0].status,2);
+    h.target.expectedTicket=2;const previous=h.adapter.latestId,sends=h.connection.sends.length;assert.equal((await h.transport.submit(7,2,sourceStreamInput(h.token,2))).status,'error');assert.equal(h.adapter.latestId,previous);assert.equal(h.connection.sends.length,sends);
+    const token=await h.adapter.registerFile('new-source.dxls',new Uint8Array([2]));h.connection.send=async()=>sourceStreamReader(sourceStreamTable(1));assert.equal((await h.transport.submit(7,2,sourceStreamInput(token,2))).status,'ok');assert.equal(h.target.live.size,0);await finish(h);await sibling.close();
+});

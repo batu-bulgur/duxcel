@@ -171,3 +171,78 @@ test('a missing reader cancel capability cannot acknowledge EOF or admit later w
     const result=await h.adapter.submitWorkbookMetadataStream(input(token),()=>{calls++;return true;});assert.equal(result.status,'error');assert.equal(result.error.code,'STREAM_CLEANUP');assert.equal(calls,0);
     assert.throws(()=>h.adapter.submit({requestId:'2',sql:'missing cleanup cannot send'}),{code:'STREAM_CLEANUP'});assert.equal(h.connection.sends,1);await h.adapter.close();assert.equal(h.connection.closed,1);
 });
+
+// Source-version transport preserves C-projected text; these are not valid
+// source packets or native models. Packet syntax/hex decoding belongs to C.
+const {Binary:SourceVersionsBinary}=await import('apache-arrow');
+function sourceVersionsColumns(){return [
+    {name:'sheet_id',typeName:'INTEGER',numberKind:'i32'},{name:'version',typeName:'UBIGINT',numberKind:'u64'},
+    {name:'owner',typeName:'UBIGINT',numberKind:'u64'},{name:'source_kind',typeName:'INTEGER',numberKind:'i32'},
+    {name:'source_reference',typeName:'VARCHAR',numberKind:'none'},{name:'encoding',typeName:'INTEGER',numberKind:'i32'},
+    {name:'definition',typeName:'BLOB',numberKind:'none'},
+];}
+function sourceVersionsInput(token,id='1',change={}){return {...input(token,'source-versions',id),columns:sourceVersionsColumns(),...change};}
+function sourceVersionsTable(rows,{definition=r=>[null,'','0','GG','NULL','00fF'][r%6],reference=r=>`raw 'İ' 🦆 ${r}.csv`,binary=false}={}){
+    const values={sheet_id:r=>String(r%64),version:r=>r%2?'18446744073709551615':'9007199254740993',owner:r=>r%2?'0':'18446744073709551615',source_kind:r=>r%2?'2':'1',source_reference:reference,encoding:r=>definition(r)===null?'0':'1',definition};
+    return new Table(Object.fromEntries(Object.entries(values).map(([name,get])=>[name,vectorFromArray(Array.from({length:rows},(_,r)=>get(r)),binary&&name==='definition'?new SourceVersionsBinary():new Utf8())])));
+}
+function sourceVersionsReader(source,lengths=[source.numRows],options={}){
+    let first=0,index=0;const batches=lengths.map(count=>{if(!count)return {numRows:0,numCols:7};const batch=source.slice(first,first+count).batches[0];first+=count;return batch;});assert.equal(first,source.numRows);
+    return {schema:source.schema,reads:0,nextCalls:0,cancelled:0,open(){return this;},[Symbol.asyncIterator](){return {next:async()=>{
+        this.nextCalls++;if(options.next)return options.next(index++);if(index===batches.length)return {done:true};const batch=batches[index++];
+        return {done:false,value:{numCols:7,numRows:batch.numRows,getChildAt:c=>({get:r=>{this.reads++;return batch.getChildAt(c).get(r);}})}};
+    }};},async cancel(){this.cancelled++;await options.cleanup?.();}};
+}
+test('source-version stream admits only its seven dense sidecars and65537 bound without changing four-column families',async()=>{
+    const value=sourceVersionsInput(),request=workbookMetadataStreamRequest(value);assert.equal(request.rowLimit,65537);assert.equal(request.columns.length,7);assert.equal(request.columns[6].typeName,'BLOB');assert.equal(request.columns[6].numberKind,'none');
+    value.columns[6].typeName='VARCHAR';value.sourceBindings[0].registrationId='2';assert.equal(request.columns[6].typeName,'BLOB');assert.equal(request.sourceBindings[0].registrationId,'1');assert.ok(Object.isFrozen(request.columns[6]));
+    const holes=sourceVersionsColumns();delete holes[6];const inherited=sourceVersionsColumns();delete inherited[6];Object.setPrototypeOf(inherited,Object.assign(Object.create(Array.prototype),{6:sourceVersionsColumns()[6]}));
+    const h=harness(sourceVersionsReader(sourceVersionsTable(1))),token=await bound(h);
+    for(const change of [{columns:holes},{columns:inherited},{columns:Array(7)},{columns:sourceVersionsColumns().slice(1)},{columns:[...sourceVersionsColumns(),columns()[0]]},{rowLimit:65538},{rowLimit:0},{offset:'1'},{knownTotal:'0'},{purpose:'copy'},{family:'source_versions'}]){
+        assert.throws(()=>h.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token,'1',change),()=>true),{code:'INVALID_REQUEST'});assert.equal(h.adapter.latestId,0n);assert.equal(h.connection.sends,0);
+    }
+    for(const family of ['columns','cells'])assert.throws(()=>workbookMetadataStreamRequest(sourceVersionsInput(token,'1',{family})),{code:'INVALID_REQUEST'});
+    assert.throws(()=>pageRequest(sourceVersionsInput(token)),{code:'INVALID_REQUEST'});assert.throws(()=>h.adapter.submit(sourceVersionsInput(token)),{code:'INVALID_REQUEST'});await assert.rejects(encodePage(sourceVersionsReader(sourceVersionsTable(1)),request),{code:'INVALID_REQUEST'});await h.adapter.close();
+});
+test('source-version seven-column canonical text keeps fullu64, BLOB sidecar and opaque NULL/empty/odd/nonhex in one execution',async()=>{
+    const source=sourceVersionsReader(sourceVersionsTable(513),[0,1,255,0,256,1]),h=harness(source),token=await bound(h),chunks=[];
+    const reply=await h.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token),chunk=>{assert.equal(chunk.page.columnCount,7);assert.ok(footprint(chunk.page)<=LIMITS.bytes);assert.equal(chunk.page.columns[6].typeName,'BLOB');assert.equal(chunk.page.columns[6].arrowType,'Utf8');if(chunk.end)assert.equal(source.cancelled,1);chunks.push(chunk);return true;});
+    assert.equal(reply.status,'ok');assert.equal(h.connection.sends,1);assert.equal(reply.rowCount,'513');assert.equal(reply.chunks,4);assert.deepEqual(chunks.map(c=>[c.firstRow,c.page.rowCount,c.end]),[['0',256,false],['256',256,false],['512',1,false],['513',0,true]]);
+    const page=chunks[0].page;assert.equal(pageCellText(page,0,1),'9007199254740993');assert.equal(pageCellText(page,1,1),'18446744073709551615');assert.equal(pageCellText(page,0,2),'18446744073709551615');assert.equal(pageCellText(page,0,4),"raw 'İ' 🦆 0.csv");
+    assert.deepEqual(Array.from({length:6},(_,r)=>pageCellText(page,r,6)),[null,'','0','GG','NULL','00fF']);await h.adapter.close();
+});
+test('maximum524286-character packet hex splits by combined seven-column bytes while keeping one reader',async()=>{
+    const hex='aB'.repeat(262143),source=sourceVersionsReader(sourceVersionsTable(8,{definition:()=>hex})),h=harness(source),token=await bound(h),shapes=[];
+    const reply=await h.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token),chunk=>{assert.ok(footprint(chunk.page)<=LIMITS.bytes&&chunk.wire.byteLength<=6*1024*1024);if(!chunk.end)for(let row=0;row<chunk.page.rowCount;row++)assert.equal(pageCellText(chunk.page,row,6),hex);shapes.push([chunk.firstRow,chunk.page.rowCount,chunk.end]);return true;});
+    assert.equal(reply.status,'ok');assert.equal(h.connection.sends,1);assert.deepEqual(shapes,[['0',7,false],['7',1,false],['8',0,true]]);assert.equal(source.cancelled,1);await h.adapter.close();
+});
+test('seven-column row preflight admits exact4MiB combined bytes and rejects one more before encoding/delivery',async()=>{
+    const baseline=harness(sourceVersionsReader(sourceVersionsTable(0))),token=await bound(baseline);let metadataBytes=0;
+    assert.equal((await baseline.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token),chunk=>{metadataBytes=new TextEncoder().encode(JSON.stringify(chunk.page.columns)).byteLength;return true;})).status,'ok');await baseline.adapter.close();
+    // Deliberately overlong reference exercises transport bytes only, not the
+    // native64KiB locator semantics. Null definition remains distinguishable.
+    const scalarBytes='0'.length+'9007199254740993'.length+'18446744073709551615'.length+'1'.length+'0'.length;
+    const exact=LIMITS.bytes-metadataBytes-(7+1)*4-7-scalarBytes;
+    for(const extra of [0,1]){const h=harness(sourceVersionsReader(sourceVersionsTable(1,{definition:()=>null,reference:()=> 'r'.repeat(exact+extra)}))),token=await bound(h);let data=0;
+        const reply=await h.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token),chunk=>{if(!chunk.end){data++;assert.equal(footprint(chunk.page),LIMITS.bytes);}return true;});assert.equal(reply.status,extra?'error':'ok');assert.equal(data,extra?0:1);if(extra)assert.equal(reply.error.code,'PAGE_LIMIT');await h.adapter.close();}
+});
+test('source-version schema/whole-result overflow and raw Binary fail before chunks without hex stringification',async()=>{
+    for(const count of [6,8]){const source=sourceVersionsReader(sourceVersionsTable(0));source.schema={fields:Array.from({length:count},(_,i)=>sourceVersionsTable(0).schema.fields[i%7])};const h=harness(source),token=await bound(h);let calls=0;const reply=await h.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token),()=>{calls++;return true;});assert.equal(reply.error.code,'PAGE_LIMIT');assert.equal(calls,0);assert.equal(source.cancelled,1);await h.adapter.close();}
+    const raw=sourceVersionsReader(sourceVersionsTable(1,{definition:()=>new Uint8Array([0,255]),binary:true})),binary=harness(raw),token=await bound(binary);let calls=0;assert.equal((await binary.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token),()=>{calls++;return true;})).error.code,'UNSUPPORTED_TYPE');assert.equal(calls,0);assert.equal(raw.reads,0);await binary.adapter.close();
+    const overflow=sourceVersionsReader(sourceVersionsTable(0),[],{next:()=>({done:false,value:{numCols:7,numRows:65538}})}),h=harness(overflow),t=await bound(h);assert.equal((await h.adapter.submitWorkbookMetadataStream(sourceVersionsInput(t),()=>{calls++;return true;})).error.code,'PAGE_LIMIT');assert.equal(calls,0);assert.equal(overflow.reads,0);await h.adapter.close();
+});
+test('source-version false data/final ACK never succeeds and recovers through an ordinary query',async()=>{
+    for(const final of [false,true]){const source=sourceVersionsReader(sourceVersionsTable(1)),h=harness(source),token=await bound(h);let calls=0;const reply=await h.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token),chunk=>{calls++;return final?!chunk.end:false;});assert.equal(reply.status,'error');assert.equal(reply.error.code,'STREAM_CONSUMER');assert.equal(calls,final?2:1);assert.equal(source.cancelled,1);h.connection.send=async()=>reader(table(1));assert.equal((await h.adapter.submit({requestId:'2',sql:'ordinary recovery after source ACK rejection'})).status,'ok');await h.adapter.close();}
+});
+test('source-version pending ACK cancellation and revoked bindings drain without extra row conversion',async()=>{
+    for(const action of ['cancel','drop','failed-drop']){const db={async registerFileBuffer(){},async dropFile(){if(action==='failed-drop')throw new Error('source drop fixture');}},source=sourceVersionsReader(sourceVersionsTable(600)),h=harness(source,{database:db}),token=await bound(h),entered=deferred(),ack=deferred();let calls=0;
+        const pending=h.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token),()=>{calls++;entered.resolve();return ack.promise;});await entered.promise;assert.equal(source.reads,256*7);
+        if(action==='cancel'){await h.adapter.cancel();assert.equal((await pending).status,'cancelled');ack.resolve(true);}else{const sibling=harness(reader(table(1)),{database:db});if(action==='failed-drop')await assert.rejects(sibling.adapter.dropFile(token.name),/source drop fixture/);else await sibling.adapter.dropFile(token.name);ack.resolve(true);assert.equal((await pending).error.code,'SOURCE_INVALIDATED');await sibling.adapter.close();}
+        assert.equal(calls,1);assert.equal(source.reads,256*7);assert.equal(source.cancelled,1);h.connection.send=async()=>reader(table(1));assert.equal((await h.adapter.submit({requestId:'2',sql:'ordinary unbound recovery'})).status,'ok');await h.adapter.close();}
+});
+test('source-version cleanup failure suppresses EOF and poisons admission until caller recreates the engine',async()=>{
+    const source=sourceVersionsReader(sourceVersionsTable(1),[1],{cleanup(){throw new Error('source reader cleanup');}}),h=harness(source),token=await bound(h);let ends=0;
+    const result=await h.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token),chunk=>{ends+=Number(chunk.end);return true;});assert.equal(result.error.code,'STREAM_CLEANUP');assert.equal(ends,0);const id=h.adapter.latestId;
+    assert.throws(()=>h.adapter.submitWorkbookMetadataStream(sourceVersionsInput(token,'2'),()=>true),{code:'STREAM_CLEANUP'});assert.equal(h.adapter.latestId,id);await assert.rejects(h.adapter.registerFile('blocked-source.dxls',new Uint8Array([1])),{code:'STREAM_CLEANUP'});await h.adapter.close();
+    const fresh=harness(sourceVersionsReader(sourceVersionsTable(1))),freshToken=await bound(fresh);assert.equal((await fresh.adapter.submitWorkbookMetadataStream(sourceVersionsInput(freshToken),()=>true)).status,'ok');await fresh.adapter.close();
+});
