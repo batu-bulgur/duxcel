@@ -8877,6 +8877,25 @@ static bool smoke_same_fixture(const char *first,const char *second) {
     int n=0,m=0; unsigned char *a=LoadFileData(first,&n),*b=LoadFileData(second,&m);
     bool same=a && b && n>0 && n==m && !memcmp(a,b,(size_t)n); UnloadFileData(a); UnloadFileData(b); return same;
 }
+/* Compare visible sticky paint, not only the stationary widget rectangles. */
+static bool smoke_same_pipeline_header(App *a,const char *baseline) {
+    Image before=LoadImage(baseline),after=LoadImageFromScreen();
+    Rectangle header=a->pipeline_layout.header; Vector2 density=a->ui.render_scale;
+    Rectangle pixels={roundf(header.x*density.x),roundf(header.y*density.y),roundf(header.width*density.x),roundf(header.height*density.y)};
+    bool ok=before.data && after.data && before.width==after.width && before.height==after.height &&
+        pixels.width>0 && pixels.height>0 && pixels.x>=0 && pixels.y>=0 &&
+        pixels.x+pixels.width<=before.width && pixels.y+pixels.height<=before.height;
+    if (ok) {
+        ImageCrop(&before,pixels); ImageCrop(&after,pixels);
+        ImageFormat(&before,PIXELFORMAT_UNCOMPRESSED_R8G8B8A8); ImageFormat(&after,PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+        size_t count=(size_t)before.width*(size_t)before.height,ink=0;
+        const unsigned char *rgba=before.data;
+        for (size_t i=0;i<count;i++) if (rgba[i*4]<150 && rgba[i*4+1]<150 && rgba[i*4+2]<150) ink++;
+        ok=ink>40 && !memcmp(before.data,after.data,count*4);
+        if (!ok) fprintf(stderr,"Sticky header paint changed: %zu dark baseline pixels, %dx%d ROI\n",ink,before.width,before.height);
+    }
+    UnloadImage(before); UnloadImage(after); return ok;
+}
 static bool smoke_legacy_format_book(const char *path,const char *source,char **error) {
     Workbook book; workbook_init(&book); Analysis input={.kind=SOURCE_PARQUET,.path=dx_absolute_path(source)};
     bool ok=input.path && workbook_add(&book,"Legacy transactions",&input,error); analysis_free(&input);
@@ -12876,6 +12895,7 @@ static void layout_smoke_step(App *a,int *step) {
         const UIInspectorLayout *layout=&a->pipeline_layout;
         if (fabsf(layout->outer_offset-layout->outer_max)>.001f || layout->inner_offset || layout->header.y!=139 || fabsf(layout->footer.y-503)>.001f || fabsf(layout->details.y-333.5f)>.001f || a->ui.scissor_depth) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-steps-scroll-outer-end.png");
+        if (!smoke_same_pipeline_header(a,"tests/results/workspace-layout/native-steps-scroll-default.png")) goto failed;
         a->pipeline_outer_scroll=0;
         UIInspectorLayout origin=ui_inspector_layout_scrolled(a->pipeline_panel,a->ui.scale,6,false,0,0);
         pipeline_scroll_delta(a,&origin,a->pipeline_panel,(Vector2){origin.list.x+30,origin.list.y+30},54.9f); break;
