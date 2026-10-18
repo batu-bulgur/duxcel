@@ -1,0 +1,25 @@
+{
+  "scope": "Real Clang dependency escaping/normalization observation only",
+  "command": [
+    "/usr/bin/clang",
+    "-std=c99",
+    "-Iinclude",
+    "-MM",
+    "-MF",
+    "scan.d",
+    "-MQ",
+    "duxcel_object",
+    "first.c"
+  ],
+  "seconds": 0.22487779200000002,
+  "status": 0,
+  "source": "#include \"with space.h\"\n#include \"hash#cash$.h\"\n#include \"back\\slash.h\"\n#include \"double\\\\slash.h\"\nint answer(void){return 17;}\n",
+  "actual_header_names": [
+    "with space.h",
+    "hash#cash$.h",
+    "back\\slash.h",
+    "double\\\\slash.h"
+  ],
+  "raw_depfile": "duxcel_object: first.c include/with\\ space.h include/hash\\#cash$$.h \\\n  include/back/slash.h include/double//slash.h\n",
+  "stderr": ""
+}

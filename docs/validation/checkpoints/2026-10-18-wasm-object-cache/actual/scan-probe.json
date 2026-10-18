@@ -1,0 +1,93 @@
+{
+  "scope": "Actual pinned Emscripten -MM scans only; not a build-speed or App runtime claim",
+  "rows": [
+    {
+      "source": "src/app/app.c",
+      "mode": "app",
+      "command": [
+        "/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/bin/python3.13",
+        "/Users/h2o/dev/duxcel/build/web/toolchain/emsdk/upstream/emscripten/emcc.py",
+        "-O2",
+        "-g",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-DDUXCEL_BROWSER_HOST",
+        "-DPLATFORM_WEB",
+        "-DGRAPHICS_API_OPENGL_ES2",
+        "-Isrc",
+        "-I/Users/h2o/dev/duxcel/build/web/toolchain/raylib/src",
+        "-I/opt/homebrew/include",
+        "-MM",
+        "-MF",
+        "/Users/h2o/dev/duxcel/build/web-object-cache-integration/app.d",
+        "-MQ",
+        "duxcel_object",
+        "src/app/app.c"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.497143
+    },
+    {
+      "source": "src/workbook/workbook_codec_read.c",
+      "mode": "app",
+      "command": [
+        "/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/bin/python3.13",
+        "/Users/h2o/dev/duxcel/build/web/toolchain/emsdk/upstream/emscripten/emcc.py",
+        "-O2",
+        "-g",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-DDUXCEL_BROWSER_HOST",
+        "-DPLATFORM_WEB",
+        "-DGRAPHICS_API_OPENGL_ES2",
+        "-Isrc",
+        "-I/Users/h2o/dev/duxcel/build/web/toolchain/raylib/src",
+        "-I/opt/homebrew/include",
+        "-MM",
+        "-MF",
+        "/Users/h2o/dev/duxcel/build/web-object-cache-integration/workbook_codec_read.d",
+        "-MQ",
+        "duxcel_object",
+        "src/workbook/workbook_codec_read.c"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.142565
+    },
+    {
+      "source": "src/dev/review_capture.c",
+      "mode": "review",
+      "command": [
+        "/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/bin/python3.13",
+        "/Users/h2o/dev/duxcel/build/web/toolchain/emsdk/upstream/emscripten/emcc.py",
+        "-O2",
+        "-g",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-DDUXCEL_BROWSER_HOST",
+        "-DPLATFORM_WEB",
+        "-DGRAPHICS_API_OPENGL_ES2",
+        "-Isrc",
+        "-I/Users/h2o/dev/duxcel/build/web/toolchain/raylib/src",
+        "-I/opt/homebrew/include",
+        "-DDUXCEL_DEV_REVIEW",
+        "-include",
+        "src/dev/review_input.h",
+        "-Ibuild/web/review-info",
+        "-MM",
+        "-MF",
+        "/Users/h2o/dev/duxcel/build/web-object-cache-integration/review_capture.d",
+        "-MQ",
+        "duxcel_object",
+        "src/dev/review_capture.c"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.125759
+    }
+  ]
+}

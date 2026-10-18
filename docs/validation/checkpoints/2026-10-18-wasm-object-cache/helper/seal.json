@@ -1,0 +1,50 @@
+{
+  "schema": "duxcel.evidence.sha256",
+  "version": 1,
+  "files": {
+    "backslash-dep-diagnostic.json": {
+      "bytes": 721,
+      "sha256": "18a4afb64f47cd11c5cf3b7b38e7c31f38298dc91ac302e6efe42b5f0a79bbc8"
+    },
+    "final.txt": {
+      "bytes": 1734,
+      "sha256": "c43c803523bb63d8dd7414fb590c1d633fad60f6f6696748d533d83d8ae25e7e"
+    },
+    "first-failure/initial-manifest.json": {
+      "bytes": 351,
+      "sha256": "c9caec64ed1eb6c72f046190cda52a33b61240231e621763caf3280742237f55"
+    },
+    "first-failure/initial.txt": {
+      "bytes": 2711,
+      "sha256": "3ffd03f54231ef5cb24c901ea7079d146381e1181b0bb7e8232166514ea12ad3"
+    },
+    "first-failure/test_web_object_cache.py": {
+      "bytes": 14107,
+      "sha256": "681ea0e745025232d6a731bcb996f741f5892756836cdbbb0b45a7a9df420669"
+    },
+    "first-failure/web_object_cache.py": {
+      "bytes": 7867,
+      "sha256": "2c8fb5b36e10dd9e98f960efc88bd6f74fba53a8a45d19ae5fa0445bba094118"
+    },
+    "initial-manifest.json": {
+      "bytes": 351,
+      "sha256": "c9caec64ed1eb6c72f046190cda52a33b61240231e621763caf3280742237f55"
+    },
+    "initial.txt": {
+      "bytes": 2711,
+      "sha256": "3ffd03f54231ef5cb24c901ea7079d146381e1181b0bb7e8232166514ea12ad3"
+    },
+    "manifest.json": {
+      "bytes": 1500,
+      "sha256": "8765a445e3e49319bd77c185ddfc1c3e3bcdbd145375e195f562ad75822e42fa"
+    },
+    "test_web_object_cache.py": {
+      "bytes": 15137,
+      "sha256": "5e6d4f428a2c8315d80d9b7a3485c4c1c6d5913b816ae741b5eec99839553650"
+    },
+    "web_object_cache.py": {
+      "bytes": 7933,
+      "sha256": "77647f56a035cc92969fee0d05542ff3fa2caf981c537deceaa8f8dd24eb5b39"
+    }
+  }
+}

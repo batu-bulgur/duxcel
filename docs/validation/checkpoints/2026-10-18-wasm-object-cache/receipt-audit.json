@@ -1,0 +1,18 @@
+{
+  "schema": "duxcel.wasm-cache-receipt-audit",
+  "version": 1,
+  "status": "passed",
+  "helper_payloads_verified": 11,
+  "root_build_extracts_verified": 4,
+  "unit_equality": {
+    "app": 58,
+    "review": 62
+  },
+  "real_warm_normal_reused": 58,
+  "real_warm_review_reused": 61,
+  "real_warm_review_rebuilt": [
+    "src/dev/review_capture.c"
+  ],
+  "warm_exclusion": "passed",
+  "scope": "Read-only receipt, source Git-object and hash audit; no new compiler or runtime execution."
+}
