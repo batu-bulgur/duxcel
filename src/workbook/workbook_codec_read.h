@@ -11,7 +11,7 @@ typedef struct WorkbookCodecRead WorkbookCodecRead;
 typedef struct WorkbookCodecHeader WorkbookCodecHeader;
 typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; } WorkbookCodecKey;
 typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_READY,WORKBOOK_CODEC_HEADER_CLAIMED,
-    WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS } WorkbookCodecFamily;
+    WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES } WorkbookCodecFamily;
 typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
@@ -76,6 +76,16 @@ bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool table_pres
    Pivot fields/measure arity, Marks, cells and allocation counters remain
    unvalidated; no source query or runtime revision is constructed. */
 bool workbook_codec_read_add_objects(WorkbookCodecRead *read,bool table_present,char **error);
+/* Explicit once-only continuation after the descriptor registry completes.
+   All supported versions require queries. The trusted C projection preserves
+   bytes while mapping SQL NULL, >64KiB, trim-empty and NUL text to required
+   NULL for rejection; original source types must be checked by its adapter.
+   The pure feed additionally rejects empty/oversized/NUL/invalid UTF-8 text,
+   not SQL whitespace using a different generic isspace interpretation.
+   One ordered result admits2112 rows plus a2113th sentinel. Primary owner0
+   requires a non-NONE source; nonzero owners must be exact same-sheet Table
+   descriptors. This stores definitions only, never parses or executes SQL. */
+bool workbook_codec_read_add_queries(WorkbookCodecRead *read,bool table_present,char **error);
 /* Cells/column descriptors are borrowed for this call, not a DXP1 buffer. The
    existing wire decoder remains the sole wire parser; an adapter supplies exact
    typed atoms. Include all concrete caller-owned input/adapter bytes that
@@ -87,8 +97,8 @@ bool workbook_codec_read_add_objects(WorkbookCodecRead *read,bool table_present,
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained_input,char **error);
 /* Moves only a complete opaque header once (meta/sheets plus explicitly armed
-   sorts/preferences/object descriptors). It is not a complete workbook: cells,
-   full objects, formats, ledger and queries are absent.
+   sorts/preferences/object descriptors/queries). It is not a complete workbook:
+   cells, full object sources/fields, formats and ledger remain absent.
    Failure preserves read and independent owned out. */
 bool workbook_codec_read_finish(WorkbookCodecRead *read,WorkbookCodecHeader **out,char **error);
 void workbook_codec_read_free(WorkbookCodecRead *read);
@@ -122,6 +132,12 @@ typedef struct {
 bool workbook_codec_header_objects_ready(const WorkbookCodecHeader *header);
 size_t workbook_codec_header_object_count(const WorkbookCodecHeader *header,size_t sheet);
 bool workbook_codec_header_object_at(const WorkbookCodecHeader *header,size_t sheet,size_t index,WorkbookCodecObjectView *out);
+/* Definitions borrow Header-owned bytes. False preserves out for an invalid
+   owner or incomplete family; true+NULL means that existing owner has no stored
+   query, including the primary slot of a SOURCE_NONE sheet. Table definitions
+   are private strings, not fake Analyses. */
+bool workbook_codec_header_queries_ready(const WorkbookCodecHeader *header);
+bool workbook_codec_header_query(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,const char **out);
 /* POD defaults are false until preferences is explicitly complete. Invalid
    Header/sheet arguments return false; check sheet_count to validate identity. */
 bool workbook_codec_header_reduced_motion(const WorkbookCodecHeader *header);
