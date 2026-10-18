@@ -9,18 +9,21 @@ CODEC_FIXTURES={
     'v12-legacy24.dxls':(12,24),'v13.dxls':(13,25),
     'v13-reordered.dxls':(13,25),'v14.dxls':(14,25),
     'v14-reordered.dxls':(14,25)}
+CODEC_SORTS_FIXTURES={
+    'sorts-v12.dxls':(12,25),'sorts-v13.dxls':(13,25),
+    'sorts-v14.dxls':(14,25),'sorts-v14-reordered.dxls':(14,25)}
 
-def codec_fixture_manifest(directory, emitted):
+def codec_fixture_manifest(directory, emitted, expected=CODEC_FIXTURES):
     """Validate only this invocation's closed, bounded immutable archives."""
     if emitted.get('schema')!='duxcel.codec-fixtures' or emitted.get('version')!=1:
         raise RuntimeError('Invalid native codec fixture manifest')
     files=emitted.get('files')
-    if not isinstance(files,list) or len(files)!=len(CODEC_FIXTURES):
+    if not isinstance(files,list) or len(files)!=len(expected):
         raise RuntimeError('Incomplete native codec fixture set')
     seen=set();entries=[];inodes=set();total=0
     for entry in files:
         name=entry.get('name')
-        if name not in CODEC_FIXTURES or name in seen or (entry.get('version'),entry.get('layout'))!=CODEC_FIXTURES[name]:
+        if name not in expected or name in seen or (entry.get('version'),entry.get('layout'))!=expected[name]:
             raise RuntimeError('Unexpected native codec fixture: '+str(name))
         seen.add(name);path=directory/name;info=path.lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_mode&0o222 or not 0<info.st_size<=32*1024*1024:
@@ -77,6 +80,7 @@ def parse_options(argv=None):
     parser.add_argument('--busy',action='store_true',help='Require real UI input/rendering before the imported source job completes')
     parser.add_argument('--worker-driver',action='store_true')
     parser.add_argument('--codec-read-driver',action='store_true',help='Isolated C meta/sheets Header decoding over seven immutable native archives and the official Worker; no App Save/Open')
+    parser.add_argument('--codec-sorts',action='store_true',help='Separate opt-in saved-sort family proof; requires --codec-read-driver')
     parser.add_argument('--review',action='store_true')
     parser.add_argument('--source-labels-only',action='store_true',help='Original source filenames across primary/Table imports, rename, filter history, query and preview; requires --review and transactions.csv')
     parser.add_argument('--chart-other-only',action='store_true',help='Real same-sheet chart weighted AVG/distinct Other, cached Plot/Marks/representation and history; requires --review, chart-other.csv and --dpr 2')
@@ -120,9 +124,10 @@ def parse_options(argv=None):
     parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker v12 file compatibility (test-only, no Save UI claim)')
     parser.add_argument('--persistence-owners',action='store_true',help='Separate BP0 v13 owner lifetime/format package rewrite and native readback; no Save UI claim')
     options=parser.parse_args(argv)
+    if options.codec_sorts and not options.codec_read_driver:parser.error('--codec-sorts requires --codec-read-driver')
     if options.codec_read_driver:
-        if options.dpr!=1 or any(value for name,value in vars(options).items() if name not in ('codec_read_driver','no_build','dpr')):
-            parser.error('--codec-read-driver is an isolated no-window gate; only --no-build and default --dpr 1 are allowed')
+        if options.dpr!=1 or any(value for name,value in vars(options).items() if name not in ('codec_read_driver','codec_sorts','no_build','dpr')):
+            parser.error('--codec-read-driver is an isolated no-window gate; only --codec-sorts, --no-build and default --dpr 1 are allowed')
         return options
     if options.chart_other_only:
         other_profiles=sum(bool(value) for name,value in vars(options).items() if name.endswith('_only'))>1
@@ -305,14 +310,15 @@ def main():
     with FileLock(native_lock_path(),'hidden shared C browser acceptance'):
         codec_manifest=None;codec_helper=None;codec_helper_hash=None
         if options.codec_read_driver:
+            codec_expected=CODEC_SORTS_FIXTURES if options.codec_sorts else CODEC_FIXTURES
             codec_helper=ROOT/'tests/test_workbook_codec_native'
             codec_helper_hash=hashlib.sha256(codec_helper.read_bytes()).hexdigest()
             codec_directory=output/'codec-fixtures';codec_directory.mkdir()
-            emitted=subprocess.run([str(codec_helper),'--emit-fixtures',str(codec_directory)],cwd=ROOT,text=True,capture_output=True,timeout=30)
+            emitted=subprocess.run([str(codec_helper),'--emit-sorts-fixtures' if options.codec_sorts else '--emit-fixtures',str(codec_directory)],cwd=ROOT,text=True,capture_output=True,timeout=30)
             (output/'codec-native-create.txt').write_text(emitted.stdout+emitted.stderr)
             if emitted.returncode:raise RuntimeError('Native codec fixture emission failed; see '+str(output/'codec-native-create.txt'))
             codec_emitted=json.loads(emitted.stdout)
-            codec_manifest=codec_fixture_manifest(codec_directory,codec_emitted)
+            codec_manifest=codec_fixture_manifest(codec_directory,codec_emitted,codec_expected)
             (output/'codec-fixture-manifest.json').write_text(json.dumps(codec_manifest,indent=2)+'\n')
         persistence_binary=ROOT/'build/web-tests/test-persistence'
         persistence_sanitizer=ROOT/'build/web-tests/test-persistence-sanitize'
@@ -343,6 +349,7 @@ def main():
             command=['node','tools/test_web_app.mjs',f'http://127.0.0.1:{server.server_port}/',str(output)]
             if options.worker_driver:command.append('--worker-driver')
             if options.codec_read_driver:command.append('--codec-read-driver')
+            if options.codec_sorts:command.append('--codec-sorts')
             if options.worker_probe: command.append('--worker-probe')
             if options.source: command.extend(['--source',str(options.source.resolve(strict=True))])
             if options.filters: command.append('--filters')
@@ -398,7 +405,7 @@ def main():
             reader_error=None
             if options.codec_read_driver:
                 try:
-                    if codec_fixture_manifest(codec_directory,codec_emitted)!=codec_manifest:raise RuntimeError('Codec proof mutated its original archives')
+                    if codec_fixture_manifest(codec_directory,codec_emitted,codec_expected)!=codec_manifest:raise RuntimeError('Codec proof mutated its original archives')
                     if hashlib.sha256(codec_helper.read_bytes()).hexdigest()!=codec_helper_hash:raise RuntimeError('Native codec helper changed during acceptance')
                     expected={entry['name'] for entry in codec_manifest['files']}
                     requested=[entry['name'] for entry in server.codec_requests]
@@ -433,8 +440,9 @@ def main():
                     'browser_seconds':round(time.monotonic()-begin,3),'elapsed_seconds':round(time.monotonic()-overall,3),'setup':phases,'desktop_visibility':'owned headless browser, simulated focus; no user profile'}
             record['profile']='codec-read-driver' if options.codec_read_driver else 'chart-other-only' if options.chart_other_only else 'inspector-sql-only' if options.inspector_sql_only else 'inspector-shadow-only' if options.inspector_shadow_only else 'inspector-scroll-only' if options.inspector_scroll_only else 'source-bindings-only' if options.source_bindings_only else 'pane-shortcuts-only' if options.pane_shortcuts_only else 'source-labels-only' if options.source_labels_only else 'source-cache-only' if options.source_cache_only else 'selection-only' if options.selection_only else 'export-cancel-only' if options.export_cancel_only else 'export-only' if options.export_only else 'pane-rail-only' if options.pane_rail_only else 'steps-clip-only' if options.steps_clip_only else 'feedback-review-only' if options.feedback_review_only else 'workspace-review-only' if options.workspace_review_only else 'copy-only' if options.copy_only else 'focus-only' if options.focus_only else 'review-error-only' if options.review_error_only else 'review-cell-only' if options.review_cell_only else 'review-guide-only' if options.review_guide_only else 'persistence-owners' if options.persistence_owners else 'review-sql-only' if options.review_sql_only else 'mixed-statistics-only' if options.mixed_statistics_only else 'table-statistics-only' if options.table_statistics_only else 'review-values-only' if options.review_values_only else 'analysis-statistics-only' if options.analysis_statistics_only else 'statistics-only' if options.statistics_only else 'review-query-apply' if options.query_apply else 'review-query-only' if options.review_query_only else 'analysis-columns-only' if options.analysis_columns_only else 'analysis-only' if options.analysis_only else 'review-controls-only' if options.review_controls_only else 'zoom-only' if options.zoom_only else 'access-only' if options.access_only else 'standard'
             if options.codec_read_driver:
+                if options.codec_sorts:record['profile']='codec-sorts-driver'
                 record['codec_fixture_manifest']=codec_manifest;record['codec_helper_sha256']=codec_helper_hash
-                record['scope']='Isolated C partial meta/sheets Header decoder over seven immutable native v12/v13/v14 archives through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.'
+                record['scope']='Isolated C partial '+('meta/sheets/secondary-sort Header decoder over four immutable native archives' if options.codec_sorts else 'meta/sheets Header decoder over seven immutable native v12/v13/v14 archives')+' through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.'
             if options.chart_other_only:
                 record['scope']='Actual shared C same-sheet Rows Group/Columns Bucket/SUM Rank/AVG Value/COUNT DISTINCT Customer through real authoring menus and official Worker. Cached source-derived Other7.5/3, exact typed readouts, Bar/Plot/Marks pointer and keyboard actions, presentation-only Undo/Redo and source/manual retention are checked with zero post-publication jobs. No injected analytical state, clipboard activation, report upload, persistence or physical input claim.'
             if options.inspector_sql_only:

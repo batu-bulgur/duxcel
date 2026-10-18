@@ -14,15 +14,17 @@ import test_web_app as harness
 
 
 class CodecHarnessTests(unittest.TestCase):
-    def fixtures(self, directory):
+    def fixtures(self, directory, inventory=harness.CODEC_FIXTURES):
         files=[]
-        for name,(version,layout) in harness.CODEC_FIXTURES.items():
+        for name,(version,layout) in inventory.items():
             path=directory/name;path.write_bytes(name.encode());path.chmod(0o444)
             files.append(dict(name=name,version=version,layout=layout))
         return dict(schema='duxcel.codec-fixtures',version=1,files=files)
 
     def test_mode_rejects_other_profiles_before_any_process(self):
         self.assertTrue(harness.parse_options(['--codec-read-driver','--no-build']).codec_read_driver)
+        self.assertTrue(harness.parse_options(['--codec-read-driver','--codec-sorts','--no-build']).codec_sorts)
+        with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(['--codec-sorts'])
         for option in ('--worker-driver','--review','--persistence','--canvas-transform','--dpr=2'):
             with self.subTest(option=option),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):
                 harness.parse_options(['--codec-read-driver',option])
@@ -48,6 +50,14 @@ class CodecHarnessTests(unittest.TestCase):
                 harness.codec_fixture_manifest(directory,wrong)
             target=directory/'v12.dxls';target.unlink();target.symlink_to('v13.dxls')
             with self.assertRaisesRegex(RuntimeError,'read-only bounded'):
+                harness.codec_fixture_manifest(directory,emitted)
+
+    def test_sort_archives_require_the_explicit_family_fixture_set(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory=Path(temporary);emitted=self.fixtures(directory,harness.CODEC_SORTS_FIXTURES)
+            manifest=harness.codec_fixture_manifest(directory,emitted,harness.CODEC_SORTS_FIXTURES)
+            self.assertEqual({entry['name'] for entry in manifest['files']},set(harness.CODEC_SORTS_FIXTURES))
+            with self.assertRaisesRegex(RuntimeError,'Incomplete native codec fixture set'):
                 harness.codec_fixture_manifest(directory,emitted)
 
     def test_reserved_routes_are_sealed_and_never_fall_back_to_static_files(self):

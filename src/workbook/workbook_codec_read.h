@@ -78,6 +78,9 @@ void workbook_codec_read_free(WorkbookCodecRead *read);
 void workbook_codec_header_free(WorkbookCodecHeader *header);
 size_t workbook_codec_read_owned_bytes(const WorkbookCodecRead *read);
 size_t workbook_codec_header_owned_bytes(const WorkbookCodecHeader *header);
+/* Getter pointers borrow read-only storage from this Header until it is freed.
+   They never transfer an Analysis, SheetView, string or key to the caller.
+   A completed optional family still does not make this a complete Workbook. */
 const WorkbookCodecKey *workbook_codec_header_key(const WorkbookCodecHeader *header);
 unsigned workbook_codec_header_version(const WorkbookCodecHeader *header);
 size_t workbook_codec_header_sheet_count(const WorkbookCodecHeader *header);

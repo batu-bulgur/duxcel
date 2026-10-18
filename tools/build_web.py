@@ -20,6 +20,7 @@ def main():
     sources=tools.command(['make','--no-print-directory','web-codec-read-sources' if options.codec_read_driver else 'web-worker-sources' if options.worker_driver else 'web-review-sources' if options.review else 'web-sources']).splitlines()
     tools.require(sources and all((ROOT/p).is_file() for p in sources),'Invalid shared web source inventory')
     headers=sorted((ROOT/'src').rglob('*.h'))+sorted((ROOT/'src').rglob('*.inc'))
+    if options.codec_read_driver and (ROOT/'tests/test_browser_codec_sorts.inc').is_file():headers.append(ROOT/'tests/test_browser_codec_sorts.inc')
     host=[ROOT/'web/index.html',ROOT/'web/host.mjs',ROOT/'web/canvas_input.mjs',ROOT/'web/canvas_surface.mjs',ROOT/'web/canvas_wheel.mjs',ROOT/'web/browser_platform.mjs',ROOT/'web/clipboard.mjs',ROOT/'web/download.mjs',ROOT/'web/official_worker.mjs',ROOT/'web/engine_host.mjs',ROOT/'web/page_wire.mjs',ROOT/'assets/icons/png/duxcel-32.png']
     if options.worker_driver:host=[p for p in host if p.name not in ('index.html','host.mjs','canvas_input.mjs')]+[ROOT/'web/worker_test_host.mjs']
     if options.codec_read_driver:host=[ROOT/'web'/name for name in ('official_worker.mjs','engine_host.mjs','page_wire.mjs','codec_test_host.mjs')]
