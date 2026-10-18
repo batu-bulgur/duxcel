@@ -917,7 +917,7 @@ static void submit_bound(BoundCase kind) {
         request->ranges[1]=(StatisticsRange){.source=1,.rows=2,.column=1,.columns=1};
         if (kind!=BOUND_INCOMPLETE) { j->browser_source_count=2; j->browser_sources[1]=(BrowserSourceGuard){.source=1,.binding=bound_tokens[1]}; }
     } else if (kind==BOUND_MIX_COPY || kind==BOUND_REVOKED_COPY) {
-        j->kind=JOB_RANGE_COPY; j->object_id=0; j->copy=dx_alloc(sizeof(*j->copy)); CopyRequest *copy=j->copy;
+        j->kind=JOB_RANGE_COPY; j->object_id=0; j->revision=0; j->copy=dx_alloc(sizeof(*j->copy)); CopyRequest *copy=j->copy;
         CHECK(clipboard_init(&copy->cells,3,2,NULL) && clipboard_set(&copy->cells,0,1,"10",NULL) && clipboard_set(&copy->cells,1,1,"11",NULL));
         Analysis b={.kind=SOURCE_CSV,.path=(char *)bound_names[1]}; CHECK(source_snapshot_bind(&copy->sources,object_id+16,&b,NULL)==1);
         copy->count=1; copy->patches[0]=(CopyPatch){.rows=3,.column=1,.columns=1};
