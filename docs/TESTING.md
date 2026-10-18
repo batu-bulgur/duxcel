@@ -519,3 +519,13 @@ python3 tools/test_web_app.py --codec-read-driver --codec-preferences
 ```
 
 At `871de7f`, preferences passes3,928 pure checks/configuration,11,715 native checks/configuration and39,611 actual Worker checks plus253 external checks. Six immutable native files include real invalid v14 unknown-NULL/NUL rows;61 requests cover65-row results fed32+33, eight rejections and one held completed stale callback/recovery. The normal66-row Page policy suffices; no transport expansion is used. Total15.771s includes6.407s setup/build preparation and7.871s browser, distinct from the C artifact's4.188s build. Native integration takes47.360s including12.722s build and all three modes/configurations; brief Worker build overlap makes these observations unsuitable as a serial speed comparison. Full-tier ordering runs Header, sorts and preferences for each configuration. Same-driver Header6,294 and sorts77,148 remain unchanged; five harness and32 runner checks pass. Missing-table/default/malformed cases have additional pure/native coverage. This component does not implement browser Open/Save or full v14 validation; prior broad App/shipping acceptance keeps its separate `de6e15e` scope. [Exact sources, receipts and limits](validation/checkpoints/2026-10-18-workbook-preferences/).
+
+For object descriptors:
+
+```sh
+python3 tools/test.py fast --modules workbook_codec_read --config both
+make test-workbook-codec-objects
+python3 tools/test_web_app.py --codec-read-driver --codec-objects
+```
+
+The `57ce195` checkpoint passes4,867 pure checks/configuration and700,762 actual Worker checks plus221 external checks. Four native archives each contain2,048 objects; one result is fed eight256-row batches, with nine rejections, unchanged accepted prefixes and stale recovery across58 requests. Its first native comparison caught the incorrect v13 absent-table default; the fixed component rejects missing objects for13/14 and permits12's empty default. Native395,451/configuration takes4.216/24.500s; the integrated44-input/SDK closure matches those private tested bytes, avoiding another full native matrix. Actual Worker takes15.557s including6.394s build/native preparation and6.321s browser; the cached C artifact's original4.318s build has a separately retained dirty-source scope. Fresh root wire47,420/configuration and61 Node groups pass; fresh normal/review exclusion takes34.307s. Original Worker247 and real transformed Columns172 pass separately. Full-tier ordering adds the exact native object completion marker after preferences. This covers descriptors and bounded analytical retention, not complete Objects, workbook Open/Save, physical gestures or full UI parity. [Exact sources, natural failure and receipts](validation/checkpoints/2026-10-18-workbook-objects/).
