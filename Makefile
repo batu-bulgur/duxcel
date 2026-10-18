@@ -402,7 +402,7 @@ tests/test_workbook_codec: $(WORKBOOK_CODEC_TEST) $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKBOOK_CODEC_TEST) -o $@
 tests/test_workbook_codec-debug: $(WORKBOOK_CODEC_TEST) $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(WORKBOOK_CODEC_TEST) -o $@
-WORKBOOK_CODEC_READ_TEST = src/common.c src/transforms/analysis.c src/transforms/number.c src/workbook/workbook_codec.c src/workbook/workbook_codec_read.c tests/test_workbook_codec_read.c
+WORKBOOK_CODEC_READ_TEST = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/workbook/workbook_codec.c src/workbook/workbook_codec_read.c tests/test_workbook_codec_read.c
 tests/test_workbook_codec_read: $(WORKBOOK_CODEC_READ_TEST) $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKBOOK_CODEC_READ_TEST) -o $@ -lm
 tests/test_workbook_codec_read-debug: $(WORKBOOK_CODEC_READ_TEST) $(HEADERS)
@@ -871,7 +871,7 @@ web-worker-sources:
 # of either engine or renderer. No desktop or mutable database fixtures.
 BROWSER_QUERY_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c src/data/page_wire.c src/data/browser_query.c
 # Partial meta/sheets decoder proof only: deliberately outside App/CORE.
-WEB_CODEC_READ_SOURCES = $(BROWSER_QUERY_TEST_SRC) src/workbook/workbook_codec.c src/workbook/workbook_codec_read.c tests/test_browser_codec_read.c
+WEB_CODEC_READ_SOURCES = $(BROWSER_QUERY_TEST_SRC) src/transforms/marks.c src/workbook/workbook_codec.c src/workbook/workbook_codec_read.c tests/test_browser_codec_read.c
 web-codec-read-sources:
 	@printf '%s\n' $(WEB_CODEC_READ_SOURCES)
 test-browser-codec-read:
