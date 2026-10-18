@@ -183,23 +183,45 @@ static void generate(Sql *sql,const char *input,const PivotDefinition *d,const P
     }
     append(sql," FROM __dx_chart_members");
 }
-bool chart_other_plan(const Analysis *a,const PivotDefinition *d,const Page *p,size_t measure,
-                      const duckdb_type *types,size_t type_count,size_t budget,ChartOtherPlan *out,char **error) {
+static bool owned_add(size_t *used,size_t bytes,size_t limit) {
+    if (bytes>limit || *used>limit-bytes) return false;
+    *used+=bytes; return true;
+}
+bool chart_other_plan_retained(const Analysis *a,const PivotDefinition *d,const Page *p,size_t measure,
+                      const duckdb_type *types,size_t type_count,size_t budget,size_t retained,size_t owned_limit,ChartOtherPlan *out,char **error) {
     if (!a || !out || !budget) return fail(error,"Chart Other requires an output plan and SQL budget.");
+    size_t used=retained,old_bytes=out->sql ? strlen(out->sql) : 0;
+    if ((out->sql && old_bytes==SIZE_MAX) || !owned_add(&used,out->sql ? old_bytes+1 : 0,owned_limit))
+        return fail(error,"Chart Other retained ownership exceeds its construction limit.");
     if (budget>DX_CHART_OTHER_SQL_BYTES) budget=DX_CHART_OTHER_SQL_BYTES;
     ChartOtherPlan next={0};
     if (!chart_other_rank(p,d,measure,&next.rank,error) || !metadata(a,d,p,&next.rank,types,type_count,budget,error)) return false;
     if (!next.rank.has_other) { chart_other_plan_free(out); *out=next; return true; }
+    if (used==owned_limit) return fail(error,"Chart Other construction exceeds its owned-buffer limit.");
     char *input=pivot_input_sql(a,d),*rows[DX_PIVOT_FIELDS]={0},*columns[DX_PIVOT_FIELDS]={0};
-    for (size_t k=0;k<next.rank.keys;k++) rows[k]=pivot_field_key(d,PIVOT_ROWS,k);
-    for (size_t k=0;k<d->counts[PIVOT_COLUMNS];k++) columns[k]=pivot_field_key(d,PIVOT_COLUMNS,k);
+    bool admitted=owned_add(&used,strlen(input)+1,owned_limit);
+    for (size_t k=0;admitted && k<next.rank.keys;k++) {
+        rows[k]=pivot_field_key(d,PIVOT_ROWS,k); admitted=owned_add(&used,strlen(rows[k])+1,owned_limit);
+    }
+    for (size_t k=0;admitted && k<d->counts[PIVOT_COLUMNS];k++) {
+        columns[k]=pivot_field_key(d,PIVOT_COLUMNS,k); admitted=owned_add(&used,strlen(columns[k])+1,owned_limit);
+    }
+    if (!admitted) {
+        free(input); for (size_t k=0;k<DX_PIVOT_FIELDS;k++) { free(rows[k]); free(columns[k]); }
+        return fail(error,"Chart Other construction exceeds its owned-buffer limit.");
+    }
     Sql sql={.limit=budget-1,.valid=true}; generate(&sql,input,d,p,&next.rank,rows,columns);
-    if (sql.valid) {
+    if (sql.valid && (admitted=owned_add(&used,sql.length+1,owned_limit))) {
         next.sql=dx_alloc(sql.length+1); next.sql_bytes=sql.length+1;
         sql.data=next.sql; sql.length=0; generate(&sql,input,d,p,&next.rank,rows,columns); next.sql[sql.length]=0;
     }
     free(input);
     for (size_t k=0;k<DX_PIVOT_FIELDS;k++) { free(rows[k]); free(columns[k]); }
+    if (!admitted) { chart_other_plan_free(&next); return fail(error,"Chart Other construction exceeds its owned-buffer limit."); }
     if (!sql.valid) { chart_other_plan_free(&next); return fail(error,"Chart Other SQL exceeds its memory limit."); }
     chart_other_plan_free(out); *out=next; return true;
+}
+bool chart_other_plan(const Analysis *a,const PivotDefinition *d,const Page *p,size_t measure,
+                      const duckdb_type *types,size_t type_count,size_t budget,ChartOtherPlan *out,char **error) {
+    return chart_other_plan_retained(a,d,p,measure,types,type_count,budget,0,SIZE_MAX,out,error);
 }

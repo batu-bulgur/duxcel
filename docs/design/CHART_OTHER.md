@@ -26,6 +26,17 @@ owned SQL is bounded to 4 MiB including its terminator; temporary existing SQL
 helpers and DuckDB memory are separate costs. Success replaces an owned plan;
 failure preserves it. Three or fewer loaded groups need no Other query.
 
+`chart_other_plan_retained` additionally admits logical owned buffers against
+a caller-supplied category limit. Caller-retained data, the existing output
+SQL, returned input SQL, returned Row/Column key strings and the counted new
+SQL must fit together before the final SQL allocation. The helper frees its
+input/key buffers before returning. The caller must separately charge any
+subsequent canonical transport wrapper and decoded result against the same
+category. The compatibility planner retains its earlier output-only scope.
+These are owned construction-boundary checks: existing builders/validators
+can allocate or reallocate internally before returning. Parser, allocator,
+engine, RSS and error-diagnostic peaks are not certified by this API.
+
 The caller must supply the matching captured source definition, Pivot Page
 and original Column-key SQL types in shelf order, not unchecked generic wire
 fallback types. Complex key types and
