@@ -3940,9 +3940,13 @@ static void draw_workspace_chart(App *a,SheetObject *o,Page *p,Rectangle rect,Re
             Rectangle line=box(tip.x+8*s,tip.y+(28+series*23)*s,width-16*s,22*s); clipped_fill(box(line.x,line.y+6*s,8*s,8*s),clip,colors[series]);
             draw_chart_group(u,p,view,series,box(line.x+13*s,line.y,line.width*.62f-13*s,line.height),UI_TEXT);
             char raw[64]; const char *text=NULL; bool missing=!view->present[series][category];
-            if (!missing && series<3) text=p->cells[view->rows[series]*p->column_count+view->keys+category*view->measures+view->measure].text;
-            else if (!missing) { snprintf(raw,sizeof(raw),"%.17g",view->values[series][category]); text=raw; }
-            CellFormat format=format_default(); format.number=measure->aggregate==AGG_COUNT ? FORMAT_NUMBER : FORMAT_ACCOUNTING; format.decimals=measure->aggregate==AGG_COUNT ? 0 : 2;
+            if (!missing) {
+                UIEncodingValue value=ui_encoding_value(p,&o->pivot,view,(UIEncodingBinding){UI_BIND_MEASURE,view->measure},series,category);
+                text=value.raw;
+                if (!text) { snprintf(raw,sizeof(raw),"%.17g",view->values[series][category]); text=raw; }
+            }
+            bool count=measure->aggregate==AGG_COUNT || measure->aggregate==AGG_DISTINCT;
+            CellFormat format=format_default(); format.number=count ? FORMAT_NUMBER : FORMAT_ACCOUNTING; format.decimals=count ? 0 : 2;
             ui_formatted_value(u,text,missing,true,false,view->values[series][category],box(line.x+line.width*.62f,line.y,line.width*.38f,line.height),11,UI_TEXT,format);
         }
         if (shown) {
