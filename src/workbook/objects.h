@@ -3,6 +3,8 @@
 #include "../transforms/pivot.h"
 #include "../transforms/marks.h"
 #include "cells.h"
+#define DX_OBJECT_CURRENT_BYTES (8*1024*1024)
+#define DX_OBJECT_HISTORY_BYTES (8*1024*1024) /* Each undo/redo snapshot stack. */
 typedef enum { OBJECT_PIVOT,OBJECT_CHART,OBJECT_TABLE } ObjectKind;
 typedef enum { MARK_BAR,MARK_LINE,MARK_DOT,MARK_SCATTER } ChartMark;
 typedef struct {
@@ -33,6 +35,24 @@ int objects_add_table(ObjectStore *store,uint64_t row,size_t col,const char *nam
 const SheetObject *objects_source(const ObjectStore *store,const SheetObject *object);
 bool objects_bind_source(ObjectStore *store,size_t index,uint64_t source_id,char **error);
 bool objects_set_source(ObjectStore *store,size_t index,const Analysis *source,char **error);
+/* Prepare only a Table's worksheet-local source-version binding. out must be
+   zero-initialized or independently owned. Failure preserves out and changed;
+   a same-version success sets changed=false without replacing out. No history
+   is pruned to admit the changed plan. The caller still validates the version
+   ledger and coordinates the composite Objects/Format journal action. */
+bool objects_plan_source_version(const ObjectStore *store,uint64_t owner,
+    uint64_t expected_version,uint64_t next_version,ObjectSnapshot *out,bool *changed,char **error);
+/* Consume a changed plan from objects_plan_source_version without allocation.
+   The store must be unchanged since planning; owned must remain independent
+   and unmodified. Moves the previous current snapshot into undo, clears redo,
+   and preserves allocation/query/title/Marks counters. */
+void objects_adopt_source_version(ObjectStore *store,ObjectSnapshot *owned);
+void objects_snapshot_free(ObjectSnapshot *owned);
+/* Owned logical graph: array plus name/Pivot/Analysis/Marks strings, excluding
+   this inline descriptor. Allocation-free; SIZE_MAX for invalid shape/overflow.
+   Requires readable owned strings; does not prove allocation independence or
+   parse/validate SQL and filter payloads. Empty arrays contribute zero bytes. */
+size_t objects_snapshot_owned_bytes(const ObjectSnapshot *state);
 /* Pin a worker-resolved default relation without a new edit or query revision. */
 bool objects_resolve_source(ObjectStore *store,size_t index,const Analysis *resolved,char **error);
 bool objects_update(ObjectStore *store,size_t index,const PivotDefinition *definition,char **error);
