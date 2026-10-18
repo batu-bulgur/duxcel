@@ -1,0 +1,2 @@
+Command: ["./tests/test_stepview-debug"]
+PASS: 128 native step checks (named source presentation, unchanged identity, exact filter labels, typed NULL/empty/literal keys, owned prefix previews, sort/group order and UTF-8 bounds)
