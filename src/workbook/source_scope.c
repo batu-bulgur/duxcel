@@ -293,6 +293,70 @@ bool source_scope_schema_matches(const void *data,size_t bytes,const Page *schem
     }
     return true;
 }
+static bool page_proof_fail(char *error,const char *message) {
+    if (error) snprintf(error,DX_SOURCE_DIGEST_ERROR_BYTES,"%s",message); return false;
+}
+#if defined(__APPLE__) && !defined(__EMSCRIPTEN__) && !defined(DUXCEL_BROWSER_HOST)
+/* RAW proof does not interpret filter payloads. Keep this separate from
+   source_valid/transforms, whose full JSON validation can allocate. */
+static bool page_proof_source(const Analysis *a,const SourceScopeInfo *info) {
+    size_t bytes;
+    if (!a || a->kind!=info->source_kind || !text_size(a->path,DX_SOURCE_SCOPE_TEXT_BYTES,false,&bytes) || strpbrk(a->path,"*?[]") ||
+        a->schema || a->table || a->query || a->unique_rows || a->group_column || a->measure_column || (unsigned)a->aggregate>AGG_MAX ||
+        a->filter_count>=DX_ANALYSIS_FILTERS || a->sort_count>=DX_ANALYSIS_SORTS || (a->filter_count && !a->filter_column) || (a->sort_count && !a->sort_column)) return false;
+    size_t filters[DX_ANALYSIS_FILTERS],sorts[DX_ANALYSIS_SORTS];
+    for (size_t i=0;i<a->filter_count+(a->filter_column ? 1 : 0);i++) {
+        const char *name=i ? a->filters[i-1].column : a->filter_column,*value=i ? a->filters[i-1].value : a->filter_value;
+        FilterOp op=i ? a->filters[i-1].op : a->filter_op; NumberType number=i ? a->filters[i-1].number : a->filter_number; SourceScopeField field;
+        if (!text_size(name,DX_SOURCE_SCOPE_NAME_BYTES,false,&bytes) || (value && !text_size(value,DX_SOURCE_SCOPE_TEXT_BYTES,true,&bytes)) || (unsigned)op>FILTER_OP_MAX) return false;
+        filters[i]=field_ordinal(info,name,&field);
+        if (filters[i]==SIZE_MAX || number.kind!=field.number.kind || number.precision!=field.number.precision || number.scale!=field.number.scale) return false;
+        for (size_t j=0;j<i;j++) if (filters[j]==filters[i]) return false;
+    }
+    for (size_t i=0;i<a->sort_count+(a->sort_column ? 1 : 0);i++) {
+        const char *name=analysis_sort_at(a,i).column;
+        if (!text_size(name,DX_SOURCE_SCOPE_NAME_BYTES,false,&bytes)) return false;
+        sorts[i]=field_ordinal(info,name,NULL); if (sorts[i]==SIZE_MAX) return false;
+        for (size_t j=0;j<i;j++) if (sorts[j]==sorts[i]) return false;
+    }
+    return true;
+}
+static bool page_proof_schema(const SourceScopeInfo *info,const Page *page) {
+    if (!page || !page->columns || page->column_count!=info->field_count || page->sql || page->totals || page->relations || page->relation_count) return false;
+    Read r={info->fields,info->field_bytes,0,true};
+    for (size_t i=0;i<page->column_count;i++) {
+        const Column *column=page->columns+i; const SqlType *type; size_t bytes; SourceScopeField field;
+        if (column->date_grain || column->categories || column->category_count || !column_valid(column,&type,&bytes) || !field_read(&r,i,&field) ||
+            strcmp(field.name,column->name) || field.type!=column->type || field.number.kind!=column->number_type.kind ||
+            field.number.precision!=column->number_type.precision || field.number.scale!=column->number_type.scale) return false;
+        for (size_t j=0;j<DX_PIVOT_FIELDS;j++) if (column->category_grains[j]) return false;
+    }
+    return true;
+}
+#endif
+bool source_version_page_verified(const SourceVersion *entry,uint64_t owner,uint64_t version,
+    const Analysis *current,const Page *page,SourceDigestStatus status,const SourceDigest *digest,const char *engine,char error[DX_SOURCE_DIGEST_ERROR_BYTES]) {
+#if !defined(__APPLE__) || defined(__EMSCRIPTEN__) || defined(DUXCEL_BROWSER_HOST)
+    (void)entry; (void)owner; (void)version; (void)current; (void)page; (void)status; (void)digest; (void)engine;
+    return page_proof_fail(error,"Page/source verification requires a supported native macOS observation.");
+#else
+    SourceScopeInfo info; size_t bytes;
+    if (status!=SOURCE_DIGEST_OK || !digest || !digest->observed_stamp || digest->bytes!=digest->identity.size)
+        return page_proof_fail(error,"Page/source verification needs a successful complete native digest.");
+    if (!entry || !version || entry->owner!=owner || entry->version!=version || !entry->raw.data || !entry->raw.bytes ||
+        !parse_raw(entry->raw.data,entry->raw.bytes,&info) || info.owner!=owner || info.version!=version || info.source_kind!=entry->kind)
+        return page_proof_fail(error,"The source version is pending or differs from its exact canonical raw proof.");
+    if (!page_proof_source(current,&info) || !text_size(entry->path,DX_SOURCE_SCOPE_TEXT_BYTES,false,&bytes) || strcmp(entry->path,current->path))
+        return page_proof_fail(error,"The captured raw source owner, locator or typed field bindings changed.");
+    if (!text_size(engine,DX_SOURCE_SCOPE_ENGINE_BYTES,false,&bytes) || strcmp(info.engine_version,engine) || info.file_bytes!=digest->bytes || memcmp(info.sha256,digest->sha256,DX_SOURCE_DIGEST_BYTES))
+        return page_proof_fail(error,"The canonical source engine, byte count or content digest changed.");
+    if (!page_proof_schema(&info,page)) return page_proof_fail(error,"The captured Page is not the complete original raw source schema.");
+    if (!page->records.file_identity_valid || !source_file_identity_same(&page->records.file_identity,&digest->identity) ||
+        (page->records.stamp && page->records.stamp!=digest->observed_stamp))
+        return page_proof_fail(error,"The digest does not match the Page's exact native file observation.");
+    return true;
+#endif
+}
 static bool entry_valid(const SourceVersion *entry,uint64_t owners,size_t *bytes,char **error) {
     size_t n; Parsed parsed;
     if (!entry || !entry->version || entry->owner>owners || (entry->kind!=SOURCE_CSV && entry->kind!=SOURCE_PARQUET) || !text_size(entry->path,DX_SOURCE_SCOPE_TEXT_BYTES,false,&n) || strpbrk(entry->path,"*?[]") || ((entry->raw.data!=NULL)!=(entry->raw.bytes!=0))) return fail(error,"Invalid source-version owner, locator or pending state.");
