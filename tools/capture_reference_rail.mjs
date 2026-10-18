@@ -12,7 +12,8 @@ if(process.argv.length!==3)throw new Error('Run tools/capture_reference_rail.py,
 const config=JSON.parse(await fs.readFile(process.argv[2],'utf8'));
 if(config.desktop_lock_pid!==process.ppid||new URL(config.url).hostname!=='127.0.0.1'||![1,2].includes(config.dpr)||
    !path.isAbsolute(config.profile)||(await fs.readdir(config.profile)).length)throw new Error('Expected the locking wrapper and its new empty temporary profile');
-const output=config.output,events=[],states=[],actions=[],loadedAssets=[],stepsScrollOnly=config.steps_scroll_only===true;
+const output=config.output,events=[],states=[],actions=[],loadedAssets=[],stepsScrollOnly=config.steps_scroll_only===true,sqlOnly=config.sql_only===true;
+if(stepsScrollOnly&&sqlOnly)throw new Error('SQL and Steps measurement profiles are mutually exclusive');
 const validatedRequests=new Set();
 let checks=0,stderr='',ws,cdp,browser,browserVersion,interrupted=false;
 const began=Date.now(),pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -173,6 +174,102 @@ async function stepsScrollCase(fixture,baseline){
  const lifetime={before:{outer:innerEnd.state.steps.parts.outer.metrics.scrollTop,inner:innerEnd.state.steps.parts.list.metrics.scrollTop,focus:innerEnd.state.steps.focus},after:{outer:reopened.state.steps.parts.outer.metrics.scrollTop,inner:reopened.state.steps.parts.list.metrics.scrollTop,focus:reopened.state.steps.focus}};
  actions.push({case:fixture.name,outer,inner,lifetime,captures:[initial.name,outerEnd.name,innerEnd.name,collapsed.name,reopened.name]});
 }
+// SQL owns a different flex subtree from Steps. Observe its real min-content,
+// scroll containers and mount lifetime; never manufacture a nonzero overflow.
+async function sqlShortcut(){
+ for(const type of ['keyDown','keyUp'])await send('Input.dispatchKeyEvent',cdpKeyEvent(type,'i','KeyI',73,{modifiers:3}));
+ await settle();
+}
+async function sqlKey(key,code,number){
+ for(const type of ['keyDown','keyUp'])await send('Input.dispatchKeyEvent',cdpKeyEvent(type,key,code,number));
+ await settle();
+}
+async function sqlSnapshot(){
+ const base=await snapshot(),anatomy=await evaluate(`(()=>{
+  const scale=Number(document.querySelector('.duxcel-app').dataset.uiScale),rect=r=>({x:r.x,y:r.y,width:r.width,height:r.height}),intersect=(a,b)=>{const x=Math.max(a.x,b.x),y=Math.max(a.y,b.y);return{x,y,width:Math.max(0,Math.min(a.x+a.width,b.x+b.width)-x),height:Math.max(0,Math.min(a.y+a.height,b.y+b.height)-y)};};
+  const describe=el=>{if(!el)return null;const style=getComputedStyle(el),r=rect(el.getBoundingClientRect());let visible=intersect(r,{x:0,y:0,width:innerWidth,height:innerHeight});for(let parent=el.parentElement;parent;parent=parent.parentElement){const s=getComputedStyle(parent);if(/auto|scroll|hidden|clip/.test(s.overflowX+' '+s.overflowY))visible=intersect(visible,rect(parent.getBoundingClientRect()));}return{rect:r,clipIntersection:visible,tag:el.tagName,class:el.className?.baseVal??el.className,role:el.getAttribute('role'),label:el.getAttribute('aria-label'),text:el.textContent?.trim().slice(0,256),disabled:!!el.disabled,focused:el===document.activeElement,focusVisible:el.matches(':focus-visible'),style:Object.fromEntries(['position','top','height','minHeight','maxHeight','width','minWidth','maxWidth','flex','flexBasis','flexGrow','flexShrink','boxSizing','paddingTop','paddingRight','paddingBottom','paddingLeft','marginTop','marginBottom','borderLeftWidth','borderRightWidth','borderTopWidth','borderBottomWidth','overflowX','overflowY','scrollbarGutter','scrollbarWidth','scrollbarColor','fontFamily','fontSize','fontWeight','lineHeight','whiteSpace','wordBreak','overflowWrap','tabSize','color','backgroundColor'].map(key=>[key,style[key]])),metrics:{clientWidth:el.clientWidth,clientHeight:el.clientHeight,clientLeft:el.clientLeft,clientTop:el.clientTop,offsetWidth:el.offsetWidth,offsetHeight:el.offsetHeight,scrollWidth:el.scrollWidth,scrollHeight:el.scrollHeight,scrollLeft:el.scrollLeft,scrollTop:el.scrollTop}};};
+  const selectors={outer:'.right-inspector',header:'.inspector-title',title:'.inspector-title>strong',source:'.inspector-source',sourceName:'.inspector-source>strong',description:'.sql-description',code:'.sql-code',footer:'.sql-footer',copy:'.sql-footer button:first-child',copyLabel:'.sql-footer button:first-child>span',copyIcon:'.sql-footer button:first-child>svg',steps:'.sql-footer button:last-child',stepsLabel:'.sql-footer button:last-child>span',stepsIcon:'.sql-footer button:last-child>svg',collapse:'[aria-label="Collapse and retain pane"]',dismiss:'[aria-label="Dismiss right pane"]',rail:'.retained-rail',expand:'[aria-label="Expand Transformations"]'},parts=Object.fromEntries(Object.entries(selectors).map(([key,selector])=>[key,describe(document.querySelector(selector))]));
+  const code=document.querySelector('.sql-code'),text=code?.textContent??null,fragments=[];let fragmentLimited=false;
+  if(text!==null&&text.length>65536)throw new Error('Actual frozen SQL exceeds bounded64Ki-character measurement');
+  if(code){const walker=document.createTreeWalker(code,NodeFilter.SHOW_TEXT);let node,nodeIndex=0;while((node=walker.nextNode())){let start=0;while(start<node.length){if(fragments.length===128){fragmentLimited=true;break;}let end=node.data.indexOf('\\n',start);if(end<0)end=node.length;const range=document.createRange();range.setStart(node,start);range.setEnd(node,end);fragments.push({node:nodeIndex,start,end,text:node.data.slice(start,end),rects:[...range.getClientRects()].map(rect)});start=end+1;}if(fragmentLimited)break;nodeIndex++;}}
+  return{scale,parts,text,fragments,fragmentLimited,focus:describe(document.activeElement),focusScope:document.activeElement?.closest('.sql-code')?'code':document.activeElement?.closest('.right-inspector')?'outer':'outside',nativeScrollbar:'Computed flex/min sizes, integer CSSOM extents and CDP quads are observations; allocated bands do not certify native painted thumb/track internals.'};
+ })()`);
+ const document=await send('DOM.getDocument',{depth:0});
+ for(const [part,selector] of [['outer','.right-inspector'],['code','.sql-code'],['header','.inspector-title'],['source','.inspector-source'],['description','.sql-description'],['footer','.sql-footer'],['copy','.sql-footer button:first-child'],['steps','.sql-footer button:last-child']]){
+  const element=anatomy.parts[part];if(!element||element.rect.width<=0||element.rect.height<=0)continue;
+  const node=await send('DOM.querySelector',{nodeId:document.root.nodeId,selector});check(node.nodeId,'Actual SQL part disappeared before passive CDP geometry: '+part);
+  element.box=(await send('DOM.getBoxModel',{nodeId:node.nodeId})).model;
+  if(part!=='outer'&&part!=='code')continue;
+  const content=element.box.content,padding=element.box.padding,border=element.box.border,xs=q=>q.filter((_,i)=>i%2===0),ys=q=>q.filter((_,i)=>i%2===1),contentRight=Math.max(...xs(content)),contentBottom=Math.max(...ys(content)),paddingRight=Math.max(...xs(padding)),paddingBottom=Math.max(...ys(padding)),top=Math.min(...ys(padding)),left=Math.min(...xs(padding)),scrollbarLeft=contentRight+Number.parseFloat(element.style.paddingRight)*anatomy.scale,scrollbarTop=contentBottom+Number.parseFloat(element.style.paddingBottom)*anatomy.scale;
+  element.allocatedBands={vertical:{x:scrollbarLeft,y:top,width:Math.max(0,paddingRight-scrollbarLeft),height:paddingBottom-top},horizontal:{x:left,y:scrollbarTop,width:paddingRight-left,height:Math.max(0,paddingBottom-scrollbarTop)},contentRight,contentBottom,paddingRight,paddingBottom,borderRight:Math.max(...xs(border)),integerMetricCaution:'CSSOM extents round independently; retain raw CDP quads and CSS padding rather than inventing a track width or rounding policy.'};
+ }
+ anatomy.textSha256=anatomy.text===null?null:hash(Buffer.from(anatomy.text));return{...base,sql:anatomy};
+}
+function sqlModelRetained(state,baseline,label){
+ // Rendering fewer visible cells after a pane-width change is not a model
+ //mutation. Preserve the actual source/selection/filter/sort/scroll contract.
+ const fields=['rowCount','columnCount','active','address','rows','selection','scroll','filters','sort'],project=m=>Object.fromEntries(fields.map(key=>[key,m[key]]));
+ check(JSON.stringify(project(state.model))===JSON.stringify(project(baseline.model)),'SQL measurement changed source/model/grid selection or scroll: '+label);
+ const previous=new Map(baseline.model.cells.map(cell=>[cell.row+','+cell.col,cell]));
+ check(state.model.cells.every(cell=>{const before=previous.get(cell.row+','+cell.col);return!before||(cell.id===before.id&&cell.text===before.text&&cell.value===before.value);}), 'SQL pane reflow changed an existing actual cell value: '+label);
+}
+async function captureSQL(caseName,name,baseline,expectedText){
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:8,y:8});await settle();
+ const state=await sqlSnapshot(),record={case:caseName,name,state,validated:false};states.push(record);
+ const stateFile=path.join(output,caseName+'-'+name+'.state.json');await fs.writeFile(stateFile,JSON.stringify(record,null,2)+'\n');
+ const image=Buffer.from((await send('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:false})).data,'base64'),filename=caseName+'-'+name+'.png';await fs.writeFile(path.join(output,filename),image);record.capture={file:filename,sha256:hash(image),bytes:image.length};
+ sqlModelRetained(state,baseline,caseName+'/'+name);check(state.ribbon==='compact'&&state.authoring==='false','SQL capture left Compact source browsing');
+ check(state.wrapper?.opacity==='1'&&state.phase?.includes('presence-open')&&state.sql.parts.title?.text==='Inspect SQL','SQL captured before its actual pane entry completed');
+ for(const part of ['outer','header','source','description','footer','copy','steps'])check(state.sql.parts[part]?.rect.width>0&&state.sql.parts[part]?.rect.height>0,'Missing actual SQL anatomy '+part+' in '+caseName+'/'+name);
+ check(state.sql.parts.code&&state.sql.parts.header.style.position==='sticky'&&state.sql.parts.outer.style.overflowY==='auto'&&state.sql.parts.code.style.overflowY==='auto','Frozen SQL no longer has its actual sticky title/outer/pre scroll containers');
+ check(state.sql.text!==null&&(!expectedText||state.sql.textSha256===expectedText),'Actual frozen SQL text changed during a presentation-only measurement');
+ record.validated=true;await fs.writeFile(stateFile,JSON.stringify(record,null,2)+'\n');return record;
+}
+async function sqlWheelTarget(part){
+ const selector=part==='outer'?'.right-inspector':'.sql-code';
+ return evaluate(`(()=>{const owner=document.querySelector(${JSON.stringify(selector)});if(!owner)return null;const r=owner.getBoundingClientRect(),outer=document.querySelector('.right-inspector').getBoundingClientRect(),left=Math.max(r.left,outer.left,0),right=Math.min(r.right,outer.right,innerWidth),top=Math.max(r.top,outer.top,0),bottom=Math.min(r.bottom,outer.bottom,innerHeight);if(right<=left||bottom<=top)return null;for(const x of [left+Math.min(13,(right-left)/2),(left+right)/2,right-1])for(const fraction of [.1,.5,.9]){const y=top+(bottom-top)*fraction,hit=document.elementFromPoint(x,y);if(!hit||!(hit===owner||owner.contains(hit)))continue;let nearest=hit;while(nearest){if(/auto|scroll/.test(getComputedStyle(nearest).overflowY))break;nearest=nearest.parentElement;}if(nearest===owner)return{x,y,hit:{tag:hit.tagName,class:hit.className?.baseVal??hit.className},owner:${JSON.stringify(part)}};}return null;})()`);
+}
+async function sqlWheel(part,deltaY){
+ const before=await sqlSnapshot(),box=before.sql.parts[part];check(box,'Missing actual SQL wheel owner '+part);
+ if(box.rect.width<=0||box.rect.height<=0||box.clipIntersection.width<=0||box.clipIntersection.height<=0)return{part,outcome:'no-visible-area',before:before.sql};
+ const target=await sqlWheelTarget(part);
+ if(!target)return{part,outcome:'no-reachable-area',before:before.sql};
+ const inputStart=await evaluate('__duxcelRailInputs.length');await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:target.x,y:target.y});await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:target.x,y:target.y,deltaX:0,deltaY});await settle();
+ const after=await sqlSnapshot(),delivered=await evaluate('__duxcelRailInputs.slice('+inputStart+').filter(event=>event.type==="wheel")');check(delivered.length>0&&delivered.every(event=>event.trusted),'SQL wheel was not delivered through actual trusted input');
+ return{part,outcome:'delivered',deltaY,target,delivered,before:{outer:before.sql.parts.outer.metrics,code:before.sql.parts.code.metrics},after:{outer:after.sql.parts.outer.metrics,code:after.sql.parts.code.metrics}};
+}
+async function sqlScrollEnd(part){
+ const observations=[];let previous=null;
+ for(let attempt=0;attempt<12;attempt++){
+  const state=await sqlSnapshot(),box=state.sql.parts[part];check(box,'SQL scroll owner disappeared: '+part);
+  const observation=await sqlWheel(part,Math.max(120,(box.metrics.scrollHeight-box.metrics.clientHeight)*state.scale+box.rect.height));observations.push(observation);
+  if(observation.outcome!=='delivered')return{part,outcome:observation.outcome,observations};
+  const next=observation.after[part];if(next.scrollHeight<=next.clientHeight)return{part,outcome:'observed-no-overflow',observations};
+  if(previous===next.scrollTop&&next.scrollTop>=next.scrollHeight-next.clientHeight-1)return{part,outcome:'observed-end',observations};previous=next.scrollTop;
+ }
+ throw new Error('Actual SQL '+part+' scroll did not reach a stable observed boundary');
+}
+async function sqlScrollCase(fixture,baseline){
+ const initial=await captureSQL(fixture.name,'sql-default',baseline),text=initial.state.sql.textSha256,code=await sqlScrollEnd('code'),codeEnd=await captureSQL(fixture.name,'sql-code-end',baseline,text),residual=await sqlWheel('code',120),reverse=await sqlWheel('code',-55.5),reversed=await captureSQL(fixture.name,'sql-reverse',baseline,text),outer=await sqlScrollEnd('outer'),outerEnd=await captureSQL(fixture.name,'sql-outer-end',baseline,text);
+ let keyboard={outcome:'no-reachable-code'};const codeTarget=await sqlWheelTarget('code');
+ if(codeTarget){
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:codeTarget.x,y:codeTarget.y});
+  for(const type of ['mousePressed','mouseReleased'])await send('Input.dispatchMouseEvent',{type,button:'left',clickCount:1,x:codeTarget.x,y:codeTarget.y});
+  await settle();const focused=await sqlSnapshot();check(focused.sql.focusScope==='code','Trusted code click did not focus the actual tabindex pre');
+  await sqlKey('Home','Home',36);const home=await sqlSnapshot();await sqlKey('PageDown','PageDown',34);const page=await sqlSnapshot();await sqlKey('End','End',35);const end=await sqlSnapshot();
+  keyboard={outcome:'observed',target:codeTarget,focused:focused.sql,home:home.sql,page:page.sql,end:end.sql};
+ }
+ const keyboardEnd=await captureSQL(fixture.name,'sql-keyboard-end',baseline,text);
+ // A boundary may chain into the outer owner. Reach its real end before the
+ //footer click; never call focus(), scrollIntoView() or assign scrollTop.
+ await sqlScrollEnd('outer');await click('.sql-footer button:last-child');const steps=await stepsSnapshot();sqlModelRetained(steps,baseline,fixture.name+'/steps-return');check(!steps.sql&&steps.steps.parts.list,'Normal SQL Steps button did not reveal the actual Steps subtree');
+ await sqlShortcut();const reentered=await captureSQL(fixture.name,'sql-reentered',baseline,text);
+ const beforeCollapse=await sqlScrollEnd('code');await click('[aria-label="Collapse and retain pane"]');const collapsed=await sqlSnapshot();sqlModelRetained(collapsed,baseline,fixture.name+'/collapsed');check(collapsed.sql.parts.rail&&!collapsed.sql.parts.code,'SQL Collapse did not retain only the actual rail');
+ await click('[aria-label="Expand Transformations"]');const expanded=await stepsSnapshot();sqlModelRetained(expanded,baseline,fixture.name+'/expanded');check(expanded.steps.parts.list,'Actual retained Expand did not mount Steps');
+ await sqlShortcut();const afterCollapse=await captureSQL(fixture.name,'sql-after-collapse',baseline,text);
+ actions.push({case:fixture.name,exploratory:!!fixture.exploratory,code,residual,reverse,outer,keyboard,lifetime:{beforeSteps:keyboardEnd.state.sql,steps:steps.steps,afterSteps:reentered.state.sql,beforeCollapse,collapsed:collapsed.sql,expanded:expanded.steps,afterCollapse:afterCollapse.state.sql},captures:[initial.name,codeEnd.name,reversed.name,outerEnd.name,keyboardEnd.name,reentered.name,afterCollapse.name]});
+ return initial.state.sql.parts.outer.metrics.scrollHeight>initial.state.sql.parts.outer.metrics.clientHeight;
+}
 async function validateLoadedAssets(){
  const responses=events.filter(event=>event.method==='Network.responseReceived'&&!validatedRequests.has(event.params.requestId)&&['Document','Stylesheet','Script','Font'].includes(event.params.type));
  for(const event of responses){const response=event.params.response,url=new URL(response.url);check(url.origin===new URL(config.url).origin,'Reference loaded an external dependency: '+url.href);const name=decodeURIComponent(url.pathname).replace(/^\//,'')||'index.html',expected=config.assets[name];check(response.status===200&&expected,'Loaded unknown/missing prebuilt asset: '+name);const body=await send('Network.getResponseBody',{requestId:event.params.requestId}),bytes=Buffer.from(body.body,body.base64Encoded?'base64':'utf8');check(hash(bytes)===expected.sha256,'Actual served asset hash mismatch: '+name);loadedAssets.push({file:name,sha256:hash(bytes),bytes:bytes.length,type:event.params.type});validatedRequests.add(event.params.requestId);}
@@ -190,8 +287,10 @@ try{
  ws=new WebSocket(target.webSocketDebuggerUrl);cdp=createCDP(ws,events);await new Promise((resolve,reject)=>{ws.addEventListener('open',resolve,{once:true});ws.addEventListener('error',()=>reject(new Error('CDP connection failed')),{once:true});});
  await send('Page.enable');await send('Runtime.enable');await send('Network.enable');await send('Network.setCacheDisabled',{cacheDisabled:true});await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  browserVersion=await send('Browser.getVersion');
- await send('Page.addScriptToEvaluateOnNewDocument',{source:`globalThis.__duxcelRailInputs=[];for(const type of ${JSON.stringify(stepsScrollOnly?['click','keydown','wheel']:['click','keydown'])})document.addEventListener(type,event=>{const el=event.target.closest?.('button');__duxcelRailInputs.push({type,trusted:event.isTrusted,key:event.key,ctrl:event.ctrlKey,alt:event.altKey,deltaY:event.deltaY,label:el?.getAttribute('aria-label')||el?.textContent||null});},true);`});
- for(const fixture of [{name:'wide-100',width:1440,height:1024,scale:1},{name:'wide-150',width:1920,height:1120,scale:1.5},{name:'narrow-100',width:640,height:720,scale:1},{name:'narrow-150',width:640,height:640,scale:1.5}]){
+ await send('Page.addScriptToEvaluateOnNewDocument',{source:`globalThis.__duxcelRailInputs=[];for(const type of ${JSON.stringify(sqlOnly?['click','keydown','keyup','wheel']:stepsScrollOnly?['click','keydown','wheel']:['click','keydown'])})document.addEventListener(type,event=>{const el=event.target.closest?.('button');__duxcelRailInputs.push({type,trusted:event.isTrusted,key:event.key,ctrl:event.ctrlKey,alt:event.altKey,deltaY:event.deltaY,label:el?.getAttribute('aria-label')||el?.textContent||null${sqlOnly?',target:event.target.tagName,targetClass:event.target.className?.baseVal??event.target.className':''}});},true);`});
+ const fixtures=[{name:'wide-100',width:1440,height:1024,scale:1},{name:'wide-150',width:1920,height:1120,scale:1.5},{name:'narrow-100',width:640,height:720,scale:1},{name:'narrow-150',width:640,height:640,scale:1.5}];let observedSQLOuter=false;
+ for(let fixtureIndex=0;fixtureIndex<fixtures.length;fixtureIndex++){
+  const fixture=fixtures[fixtureIndex];
   await send('Emulation.setDeviceMetricsOverride',{width:fixture.width,height:fixture.height,deviceScaleFactor:config.dpr,mobile:false});
   const location=new URL(config.url);location.searchParams.set('rail-case',fixture.name);
   const navigation=await send('Page.navigate',{url:location.href});check(!navigation.errorText,'Reference navigation failed');await waitFor('location.search==='+JSON.stringify(location.search)+'&&!!document.querySelector("[role=grid]")','new frozen grid document');await settle();
@@ -201,9 +300,10 @@ try{
   check(baseline.model.rowCount==='241'&&baseline.model.columnCount==='12'&&baseline.model.rows==='240 sample rows'&&baseline.model.address==='F7','Frozen source fixture is not240×12/activeF7');
   check(JSON.stringify(baseline.model.selection.map(cell=>[cell.row,cell.col]))==='[[5,5],[6,5],[7,5],[8,5]]','Frozen source selection is notF7:F10');
   check(JSON.stringify(baseline.model.filters)==='["status","currency"]'&&JSON.stringify(baseline.model.sort)==='[{"field":"Transaction ID","sort":"ascending"}]','Frozen source filters/sort differ from definition');
-  await shortcut();
-  if(stepsScrollOnly)await stepsScrollCase(fixture,baseline);
+  if(sqlOnly){await sqlShortcut();observedSQLOuter=await sqlScrollCase(fixture,baseline)||observedSQLOuter;if(fixtureIndex===3&&!observedSQLOuter)fixtures.push({name:'narrow-short-150',width:640,height:400,scale:1.5,exploratory:true});}
+  else if(stepsScrollOnly){await shortcut();await stepsScrollCase(fixture,baseline);}
   else{
+  await shortcut();
   await capture(fixture.name,'expanded',baseline);
   await click('[aria-label="Collapse and retain pane"]');const retained=await capture(fixture.name,'retained',baseline);
   await click('[aria-label="Expand Transformations"]');await capture(fixture.name,'expanded-again',baseline);
@@ -212,13 +312,13 @@ try{
   if(retained.state.narrow)check(JSON.stringify(retained.image.adjacentStrip)===JSON.stringify(dismissed.image.adjacentStrip),'Collapsed narrow reference paints a shadow over the underlying grid');
   }
   const inputs=await evaluate('__duxcelRailInputs');check(inputs.length>0&&inputs.every(input=>input.trusted),'Reference lifecycle bypassed actual trusted DOM input');
-  check(inputs.some(input=>input.type==='keydown'&&input.key==='t'&&input.ctrl&&input.alt),'Reference Transformations was not opened through its real keyboard handler');
+  check(inputs.some(input=>input.type==='keydown'&&input.key===(sqlOnly?'i':'t')&&input.ctrl&&input.alt),'Reference inspector was not opened through its real keyboard handler');
   actions.push({case:fixture.name,deliveredInputs:inputs});
   // Validate bodies before the next navigation can retire their CDP resources.
   await validateLoadedAssets();
  }
  await validateLoadedAssets();check(!events.some(event=>event.method==='Runtime.exceptionThrown'),'Reference raised a JavaScript exception');
- await fs.writeFile(path.join(output,'reference.json'),JSON.stringify({status:'passed',checks,elapsed_ms:Date.now()-began,dpr:config.dpr,browserVersion,states,actions,loadedAssets,profile:stepsScrollOnly?'steps-scroll-only':'rail',frozen_reference:config.frozen_reference,scope:stepsScrollOnly?'Frozen exact-source/prebuilt Steps anatomy and nested outer/inner scroll metrics, actual CDP box quads/content edges and allocated native scrollbar bands at four viewports. Default→trusted-wheel outer boundary→inner boundary→normal Collapse/reopen records observed scroll/focus lifetime without assigning scrollTop/focus or guessing intrinsic sizes. Integer CSSOM extent rounding is explicit; native thumb/track ink and native/Wasm parity are not claimed. Synthetic prototype source/model stays retained.':'Frozen prebuilt prototype rail DOM/style/layout and presented pixels at four viewports using trusted CDP input. Synthetic prototype data/calculations are reference-only; no native/Wasm parity, SQL, OS input or current dist/source derivation claim.'},null,2)+'\n');
+ await fs.writeFile(path.join(output,'reference.json'),JSON.stringify({status:'passed',checks,elapsed_ms:Date.now()-began,dpr:config.dpr,browserVersion,states,actions,loadedAssets,profile:sqlOnly?'sql-only':stepsScrollOnly?'steps-scroll-only':'rail',frozen_reference:config.frozen_reference,scope:sqlOnly?'Frozen exact-source/prebuilt SQL flex anatomy, computed min/font/padding/button sizes, actual text line fragments, outer/pre scroll metrics and raw CDP quads. Trusted code wheel/end/residual/reverse and keyboard focus, then normal Steps and Collapse/reopen lifetime are observed without scrollTop/focus/content/React injection or imposed overflow. Four established100/150 wide/narrow viewports; one explicitly exploratory640×400/150 viewport is added only if all four have no outer overflow. Source/selection/filter/sort/grid scroll stay retained. CSSOM extent rounding and allocated-band limitations are explicit. No Copy activation, clipboard, native/Wasm UI parity, engine or physical-input claim.':stepsScrollOnly?'Frozen exact-source/prebuilt Steps anatomy and nested outer/inner scroll metrics, actual CDP box quads/content edges and allocated native scrollbar bands at four viewports. Default→trusted-wheel outer boundary→inner boundary→normal Collapse/reopen records observed scroll/focus lifetime without assigning scrollTop/focus or guessing intrinsic sizes. Integer CSSOM extent rounding is explicit; native thumb/track ink and native/Wasm parity are not claimed. Synthetic prototype source/model stays retained.':'Frozen prebuilt prototype rail DOM/style/layout and presented pixels at four viewports using trusted CDP input. Synthetic prototype data/calculations are reference-only; no native/Wasm parity, SQL, OS input or current dist/source derivation claim.'},null,2)+'\n');
  console.log(JSON.stringify({status:'passed',checks,captures:states.length,output}));
 }catch(error){
  try{if(cdp){const image=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'failed.png'),Buffer.from(image.data,'base64'));}}catch{}
