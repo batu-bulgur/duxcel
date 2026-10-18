@@ -1,0 +1,69 @@
+{
+  "status": "passed",
+  "tier": "affected",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": true,
+  "edit": false,
+  "native_visibility": "hidden",
+  "source": {
+    "commit": "d36525db0ff4f8f26ca5dd912943cc190c2b87a6",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "3673b41f8d5333e60462dd8b554aa2376b2074f913e8971871e4af5059a79ebf",
+    "source_files": 278
+  },
+  "app_config": "sanitize",
+  "elapsed_seconds": 15.735,
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_inspector-debug": "df74e224f90a38c12733f87a3016302e2f7d45ae8560c2227d7b6d5ad945cecd",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "640871cf7d1a0cf3bed5f41ba96555241c9a4b02ea5dddb453e4d4cb1a2aa14b",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_inspector-debug": "df74e224f90a38c12733f87a3016302e2f7d45ae8560c2227d7b6d5ad945cecd",
+    "/Users/h2o/dev/duxcel/duxcel-debug": "640871cf7d1a0cf3bed5f41ba96555241c9a4b02ea5dddb453e4d4cb1a2aa14b",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "original": "20261018T055646-affected-58982",
+  "product_code_revision": "f2546550a0ba587f67e0b800a972af0532a2794a",
+  "source_note": "Wrapperd36525d, with no product C changes afterf254655; final caption paint included.",
+  "results": [
+    {
+      "name": "inspector-sanitize",
+      "command": [
+        "./tests/test_inspector-debug"
+      ],
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.209
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.821
+    },
+    {
+      "name": "layout-inspector-sql",
+      "command": [
+        "./duxcel-debug",
+        "--layout-smoke",
+        "--frames",
+        "1872",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055646-affected-58982/final.png"
+      ],
+      "expected_stages": 29,
+      "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[882,911\\)$",
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 14.504
+    }
+  ],
+  "scope": "Final native layout[882,911):29stages in sanitize; no full inventory or physical-input acceptance."
+}

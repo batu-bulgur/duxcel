@@ -1,0 +1,88 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T05:53:21.618119+00:00",
+  "tier": "fast",
+  "config": "both",
+  "jobs": 1,
+  "no_build": false,
+  "edit": false,
+  "native_visibility": "hidden",
+  "source": {
+    "commit": "f2546550a0ba587f67e0b800a972af0532a2794a",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "c34abb3040168d0b77fb201ffdd580c75bda62e92fb655dbddff595ef1414ebb",
+    "source_files": 278
+  },
+  "binaries": {
+    "/Users/h2o/dev/duxcel/tests/test_inspector": "4efa4ecb5f7f5aa7b63b1a570c833e33f6b1245aa234802d9c3ca76c1ea45953",
+    "/Users/h2o/dev/duxcel/tests/test_shadowview": "ea38b9045c69f4ff2f6c3cb377e1e6ae0e02f730f7383012f762a27f943c4aae",
+    "/Users/h2o/dev/duxcel/tests/test_inspector-debug": "df74e224f90a38c12733f87a3016302e2f7d45ae8560c2227d7b6d5ad945cecd",
+    "/Users/h2o/dev/duxcel/tests/test_shadowview-debug": "5a53851f318a8ba4c556e02d58025d54b6eebda3f28a6fa439a83d147306f14f"
+  },
+  "elapsed_seconds": 4.769,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/tests/test_inspector": "4efa4ecb5f7f5aa7b63b1a570c833e33f6b1245aa234802d9c3ca76c1ea45953",
+    "/Users/h2o/dev/duxcel/tests/test_shadowview": "ea38b9045c69f4ff2f6c3cb377e1e6ae0e02f730f7383012f762a27f943c4aae",
+    "/Users/h2o/dev/duxcel/tests/test_inspector-debug": "df74e224f90a38c12733f87a3016302e2f7d45ae8560c2227d7b6d5ad945cecd",
+    "/Users/h2o/dev/duxcel/tests/test_shadowview-debug": "5a53851f318a8ba4c556e02d58025d54b6eebda3f28a6fa439a83d147306f14f"
+  },
+  "finished_utc": "2026-10-18T05:53:26.502746+00:00",
+  "original": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055321-fast-58005/summary.json",
+  "scope": "Fresh build and pure inspector2117 +shadow2004589 each optimized/O1 sanitizer; total4.769s includes both modules, not inspector alone.",
+  "results": [
+    {
+      "name": "build-headless",
+      "command": [
+        "make",
+        "tests/test_inspector",
+        "tests/test_shadowview",
+        "tests/test_inspector-debug",
+        "tests/test_shadowview-debug"
+      ],
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 2.743
+    },
+    {
+      "name": "inspector-release",
+      "command": [
+        "./tests/test_inspector"
+      ],
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.491
+    },
+    {
+      "name": "shadowview-release",
+      "command": [
+        "./tests/test_shadowview"
+      ],
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.361
+    },
+    {
+      "name": "inspector-sanitize",
+      "command": [
+        "./tests/test_inspector-debug"
+      ],
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.571
+    },
+    {
+      "name": "shadowview-sanitize",
+      "command": [
+        "./tests/test_shadowview-debug"
+      ],
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 0.471
+    }
+  ]
+}

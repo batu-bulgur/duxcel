@@ -1,0 +1,3 @@
+PASS: native independent Steps outer and inner scrolling, sticky header, partial row, captured pan, keyboard/context/collapse without queries, and real reordered-step reveal/Undo without clipboard
+PASS: native SQL inspector keyboard scrolling and fresh presentation after Steps and Collapse, precise captured fractional pan/reversal, retained owned SQL/wrap/source caches and zero UI-only jobs without clipboard
+Layout smoke completed [882,911)

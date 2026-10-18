@@ -1,0 +1,278 @@
+{
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054439-browser-55802/summary.json": {
+    "bytes": 38326,
+    "sha256": "5a03a3b17900d93c6c33cf66864089ddcbab8531fa009276d53980dc5cb2b1d1"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054439-browser-55802/result.json": {
+    "bytes": 949916,
+    "sha256": "1d9199bd6ac3af13e300555e09abbc0ac5c79b4484879a88d20b57b0bf3ba338"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054439-browser-55802/inspector-sql.json": {
+    "bytes": 674835,
+    "sha256": "e549509d11f710ffa62f63b35aec9f1f32d6af085cdd1db8fd00afba4b87e629"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054439-browser-55802/driver.txt": {
+    "bytes": 183,
+    "sha256": "0dbca482639c26f20c49d47e62654524343e7107f322733993a25142ac3d33b3"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054439-browser-55802/inspector-sql-wide-100-first.png": {
+    "bytes": 416372,
+    "sha256": "a7acf7242a187cf6feb380ff1cedd3cff5b94d4ff7dcb902e7a8ab81f86cb256"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054439-browser-55802/inspector-sql-narrow-150-first.png": {
+    "bytes": 172202,
+    "sha256": "4b16ffce971c0121e1a5b4679e288b2566c1c2af2fbcaf52f39f7e370cfe6429"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054439-browser-55802/inspector-sql-narrow-150-scrolled-code-picker.png": {
+    "bytes": 177189,
+    "sha256": "92fa8ac3f5520a405eb173de4414fd05f6f313bb01ee1124f98945bae98e38a4"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054439-browser-55802/inspector-sql-narrow-short-150-first.png": {
+    "bytes": 95732,
+    "sha256": "024d75569401005d329f9d6031677e588700bd8a9c3feb52a2db5096a5cc3780"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054907-review-56371/summary.json": {
+    "bytes": 7410,
+    "sha256": "dc02d145168c997b88c7ba00aa6c99fe6a25b685b53736f92b0713e94b7b004b"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054907-review-56371/release.log": {
+    "bytes": 169418,
+    "sha256": "b918e7f07a745933435e7d45fd0f36295f0b334761d451804149e435c0db27a6"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054907-review-56371/sanitize.log": {
+    "bytes": 169495,
+    "sha256": "0f1d57001e0bef75d7859d6cb4bf52885f796ebe113b83b61b3d5560458f6fcf"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054957-affected-56687/summary.json": {
+    "bytes": 3171,
+    "sha256": "057985bc2218ffcd3b75113cfc9c2407277d738ae6ed0a1ca8a264c0b864e071"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054957-affected-56687/inspector-release.txt": {
+    "bytes": 185,
+    "sha256": "24021653acdc8ee294ed16aef528823c45f6b9a84a98fc7e7dffe2bb2b3db394"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054957-affected-56687/inspector-sanitize.txt": {
+    "bytes": 191,
+    "sha256": "0e5b1c68a2cb0a248c9a4419c495dd57a29ce3b6a7546fcc3d255649df01a45a"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054957-affected-56687/layout-inspector-sql.txt": {
+    "bytes": 11663,
+    "sha256": "330e6bb424ffc78d810cca9407662a0f7f6c1f04e7c8d0b69a597f3ff2838f18"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055026-affected-56819/summary.json": {
+    "bytes": 2578,
+    "sha256": "f6cb94f10a4561c02280b202a4ccde1e726b31f0e68adf4ad69a4718781b38df"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055026-affected-56819/inspector-release.txt": {
+    "bytes": 185,
+    "sha256": "24021653acdc8ee294ed16aef528823c45f6b9a84a98fc7e7dffe2bb2b3db394"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055026-affected-56819/layout-inspector-sql.txt": {
+    "bytes": 11657,
+    "sha256": "64271386a55172d61159f2b2e96415c3ba8b600e61c1a89dc056d2158c7dd955"
+  },
+  "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T054312-review-54923/summary.json": {
+    "bytes": 910,
+    "sha256": "43f3be987db34880a6be742a16f340a48953d0cfd6cc7651add2e6431bfcfdcb"
+  },
+  "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T054312-review-54923/sanitize.log": {
+    "bytes": 165944,
+    "sha256": "bda36f73304417e02aa8a2e66609540a064d01030bfed7d81bd20e445b690f37"
+  },
+  "/Users/h2o/.codex/worktrees/duxcel-inspector-sql-browser/duxcel/tests/results/runs/20261018T053310-browser-50010/summary.json": {
+    "bytes": 36667,
+    "sha256": "5349d7fbeec09ae3ade5be8c66b5a40bf84cae8afdd1a425d0c189a4ac5fd016"
+  },
+  "/Users/h2o/.codex/worktrees/duxcel-inspector-sql-browser/duxcel/tests/results/runs/20261018T053310-browser-50010/result.json": {
+    "bytes": 101908,
+    "sha256": "8633228c5b18f1b8546c536a85e1b238f92864871a089ea7de6db1df47876338"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T053401-browser-50128/summary.json": {
+    "bytes": 38324,
+    "sha256": "5e9fb0597d042eaf20c83bbfd8cdff272f686415ce9382a5270315fae2fa2f26"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T053401-browser-50128/result.json": {
+    "bytes": 189688,
+    "sha256": "b7dd5504a81744843dc401d6d5e9f0fa5ddae37f0a51ca2c308af3f52498da59"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T053834-browser-52254/summary.json": {
+    "bytes": 38328,
+    "sha256": "ba04ee0c22d0475b553b15c77763f4c0ec771e5cc7f6ff6fd1de6a019ef2e098"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T053834-browser-52254/result.json": {
+    "bytes": 223515,
+    "sha256": "dc1adfcc080680cd0698bde0ed4bf692631c11eca78a359918268749f18a05b8"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054130-browser-54319/summary.json": {
+    "bytes": 38327,
+    "sha256": "6061873fb03bae67bc59271253acca86ea729bb6e72788282a7f6ad31bd6d8e3"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T054130-browser-54319/result.json": {
+    "bytes": 224730,
+    "sha256": "d450772450bf3765be0cbd5d695ed13612d3ccf0cb9658a7dd5ebc3a69ca2ed9"
+  },
+  "/Users/h2o/dev/duxcel/build/sql-native-exclusion.json": {
+    "bytes": 1995,
+    "sha256": "60a3c4cc453b4b91d97aa27b894cb3f237e120edf2476bddae0a29fd70035247"
+  },
+  "/Users/h2o/dev/duxcel/build/sql-native-sanitize-exclusion.json": {
+    "bytes": 2011,
+    "sha256": "825725ebf25a4fe4abe758cba80dbfcfe6aa72343ac3a978e431a6c1c4814e95"
+  },
+  "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T053938-review-52908/summary.json": {
+    "bytes": 910,
+    "sha256": "72b9b1e22c6d5e76dc1ef58942d543582267226689fac878a44b9e402a0b4f4a"
+  },
+  "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T053938-review-52908/sanitize.log": {
+    "bytes": 80899,
+    "sha256": "c9a07dd3f841fbafb0928f6fc5e4242875700119eca04c521621398e16931435"
+  },
+  "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T054045-review-53470/summary.json": {
+    "bytes": 910,
+    "sha256": "374235db3dad727575e94ace85b64aefc0d6bba594d913e5a7be90fcb8fbe89b"
+  },
+  "/Users/h2o/.codex/worktrees/duxcel-review-inspector-pan/duxcel/tests/results/runs/20261018T054045-review-53470/sanitize.log": {
+    "bytes": 159378,
+    "sha256": "b52fddc87940fc668fd285e9c695d56e5d7837db32849a69a3dd1f6b1f2ea3e7"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055321-fast-58005/summary.json": {
+    "bytes": 3306,
+    "sha256": "a9052eb0ed47ef4efadeba638f1023eb25ede62fe58443d48ed1835b31eb81c8"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055321-fast-58005/inspector-release.txt": {
+    "bytes": 185,
+    "sha256": "85a24bb116a503d864cd5b6de8864a7f3a444e9f3911648ceba106a0cdfd592b"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055321-fast-58005/inspector-sanitize.txt": {
+    "bytes": 191,
+    "sha256": "ca9d07f161bf00b19f68c72bc0d9940a5334b3d543a811fd587254372ab93d7e"
+  },
+  "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-sql-caption-uavp4u9y/manifest.json": {
+    "bytes": 1018,
+    "sha256": "801ec5154e3f8a8e289e73800e47775254637792ea5720818de4bf4230b4d6dd"
+  },
+  "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-sql-caption-uavp4u9y/metrics.txt": {
+    "bytes": 590,
+    "sha256": "3fded143c1d02e7ef0cbdbb4830346114ccbc8571b1830842ae2bc3627e2e859"
+  },
+  "/var/folders/mf/g6xv22kj7bzgdj1g1zxm_nlh0000gn/T/duxcel-sql-caption-uavp4u9y/caption.c": {
+    "bytes": 889,
+    "sha256": "b7f90806fb51f9f5b563ab9f239d5f7892b83afb20955d72ccf213a259ea222a"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/summary.json": {
+    "bytes": 36594,
+    "sha256": "fc995ee8167880eeafc4c35a7c4f70e913542d16e6d5f743b82f5cb14334d325"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/result.json": {
+    "bytes": 1018032,
+    "sha256": "1b7c42c988b08f4d52dbdbadca6a016fbd8d99f0c497149da466ad4df6632cca"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/inspector-sql.json": {
+    "bytes": 724615,
+    "sha256": "9255ec01326194efe298d569edf655f94356ba7300469a9e231a2005e8fcb9df"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/driver.txt": {
+    "bytes": 183,
+    "sha256": "1fc17b645fb4ed60bd8474e9040e5620ea0b4cb10acfadf1b024966b190b5cb0"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/inspector-sql-wide-100-first.png": {
+    "bytes": 417486,
+    "sha256": "2c394802531601c782cf0d15f7b41fac71ca69d4a0128ef852c86fa375e7f59f"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/inspector-sql-narrow-150-first.png": {
+    "bytes": 168243,
+    "sha256": "dcc8f48b02937702d1fe067c233c683fbb870c6ceb2c3bad622bdf06f9a26a6c"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/inspector-sql-narrow-150-scrolled-code-picker.png": {
+    "bytes": 178683,
+    "sha256": "984758159239620d56270f3e4d6dc64b0274cb7dc93cd276f82cb0cffc4e2823"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055417-browser-58575/inspector-sql-narrow-short-150-first.png": {
+    "bytes": 97151,
+    "sha256": "e19a94a7d47f2b8409c67cf787694025143f933ad3ee721f2f939e2d114b64cd"
+  },
+  "/Users/h2o/dev/duxcel/build/sql-final-native-exclusion.json": {
+    "bytes": 1995,
+    "sha256": "ca634808ce6c56ac144c75571ed939c4d87203a34a4ad021b004c9ff59ca5462"
+  },
+  "/Users/h2o/dev/duxcel/build/sql-final-native-sanitize-exclusion.json": {
+    "bytes": 2011,
+    "sha256": "c6d99b0fda27301174c7591e50e2febc0c4a5df425e7b67ca49ddd3f906dbb99"
+  },
+  "/Users/h2o/dev/duxcel/build/sql-final-web-exclusion.json": {
+    "bytes": 102,
+    "sha256": "bbeeb14445ad6b12979e5257701846f0918e5a67a272059eb833ad9923e32c3a"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055630-affected-58983/summary.json": {
+    "bytes": 2578,
+    "sha256": "cb4972e7d00ea562dd032ee720658eb5a40a449405e9bfcaf45cb7a5af0af6ee"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055630-affected-58983/layout-inspector-sql.txt": {
+    "bytes": 11657,
+    "sha256": "41ed06de2a87b88db43b5c1724e71e7fba66d77dbc7ab33c1eea5b0ae867ed24"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055646-affected-58982/summary.json": {
+    "bytes": 2618,
+    "sha256": "1b0c4e581812bb38791e3a8971dd8381b360e05f360fb40240a6633d749e43d2"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055646-affected-58982/layout-inspector-sql.txt": {
+    "bytes": 11663,
+    "sha256": "0b7ae3da83b5ee66c9200528180fb6230b1eb9eb48348fc9dcdb350eb1646c67"
+  },
+  "/Users/h2o/dev/duxcel/build/sql-ui-package.json": {
+    "bytes": 1281,
+    "sha256": "20a707eafbc269d6bfea2cade74d1ea7e2beb80bc17f1f3796b6203c1c8aef11"
+  },
+  "/Users/h2o/dev/duxcel/build/sql-ui-package.txt": {
+    "bytes": 471,
+    "sha256": "f72622f1885ce31c8b5860d3e511a455838e08b6c216a768a0f0e526380bd858"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055858-browser-59551/summary.json": {
+    "bytes": 36621,
+    "sha256": "2085e46d541a8a58fea92d77eac225a526542f4c1c1a185c040cd4c7145dd74e"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055858-browser-59551/result.json": {
+    "bytes": 1042029,
+    "sha256": "9000250bee612d5f261321e51f31cd7ab4dc688fc2a74f57ae576aa1c47f0804"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055858-browser-59551/inspector-sql.json": {
+    "bytes": 747772,
+    "sha256": "621297f2ab3c5dbfdb68b5925b3ba083763e70c302dad6bc5e9c9115ff4aa8e9"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055858-browser-59551/inspector-sql-wheel-1.json": {
+    "bytes": 10154,
+    "sha256": "9bbdde9ef2f2b76c2ac5f259b792c1ff28e3999e1b0b839805acd26cba65bd1b"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055530-browser-58825/summary.json": {
+    "bytes": 36620,
+    "sha256": "00f8dde605e4a59a288cdf6eff97a429b6ad2dab4a167001b3ff35b73fa02a01"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055530-browser-58825/result.json": {
+    "bytes": 110353,
+    "sha256": "d65d5721892ef7814cf38ee74bca5e763c9e79702955dedcf2a1cd09a913c5f5"
+  },
+  "/Users/h2o/dev/duxcel/tools/test_web_app.mjs": {
+    "bytes": 532441,
+    "sha256": "00104c23d52b46a2daddf48c4e49ebed045cc4a956c0d42a1ec44292d89f47b7"
+  },
+  "/Users/h2o/dev/duxcel/tests/results/runs/20261018T055858-browser-59551/driver.txt": {
+    "bytes": 183,
+    "sha256": "832cf59eb62d24090e7baa219a139a19197efa6ea40bbc070c928b51dfb9fdbc"
+  },
+  "/Users/h2o/dev/duxcel/build/sql-review-service.json": {
+    "bytes": 1282,
+    "sha256": "51983e6541e6a77ab82fea6ea4299c9e3e5c3050f5da26739115ec5618941c1a"
+  },
+  "/Users/h2o/dev/duxcel/build/sql-review-service-retention.json": {
+    "bytes": 148,
+    "sha256": "68358a9e096ee159885f7af6210ce9532fe6ef67e45e59530f6f8081cc8a7299"
+  },
+  "/Users/h2o/dev/duxcel/build/sql-review-service-ports.txt": {
+    "bytes": 157,
+    "sha256": "e9a88764acacb62dc819823b7f31fdfb681f3d220b581164021f4703d97071f7"
+  },
+  "/Users/h2o/dev/duxcel/build/current-ui-package.json": {
+    "bytes": 1393,
+    "sha256": "75e44ca10475a3340cc5db8b907a0fd61064146ceee32856b4862ff64b4c58c9"
+  }
+}
