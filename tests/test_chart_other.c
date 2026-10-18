@@ -47,6 +47,49 @@ static void reject_types(Analysis *a,PivotDefinition *d,Page *p,const duckdb_typ
     CHECK(!chart_other_plan(a,d,p,0,types,count,DX_CHART_OTHER_SQL_BYTES,out,&error)); clear_error(&error);
     CHECK(!memcmp(before,out,sizeof(before)) && !strcmp(copy,out->sql)); free(copy);
 }
+static void retained_rejected(Analysis *a,PivotDefinition *d,Page *p,const duckdb_type *types,size_t count,
+                             size_t sql_limit,size_t retained,size_t owned_limit,ChartOtherPlan *out) {
+    unsigned char before[sizeof(*out)]; memcpy(before,out,sizeof(before)); char *copy=out->sql ? dx_strdup(out->sql) : NULL,*error=NULL;
+    CHECK(!chart_other_plan_retained(a,d,p,0,types,count,sql_limit,retained,owned_limit,out,&error)); clear_error(&error);
+    CHECK(!memcmp(before,out,sizeof(before)) && (!copy || !strcmp(copy,out->sql))); free(copy);
+}
+static void retained_bounds(Analysis *a,PivotDefinition *d,Page *p,const duckdb_type *types,size_t count) {
+    ChartOtherPlan reference={0},out={0}; char *error=NULL;
+    CHECK(chart_other_plan(a,d,p,0,types,count,DX_CHART_OTHER_SQL_BYTES,&reference,&error) && reference.sql && !error);
+    char *input=pivot_input_sql(a,d); size_t input_bytes=strlen(input)+1,construction=input_bytes+reference.sql_bytes;
+    free(input);
+    for (int role=PIVOT_ROWS;role<=PIVOT_COLUMNS;role++) for (size_t i=0;i<d->counts[role];i++) {
+        char *key=pivot_field_key(d,(PivotRole)role,i); construction+=strlen(key)+1; free(key);
+    }
+    size_t retained=p->bytes+analysis_text_bytes(a)+reference.sql_bytes;
+    for (int role=0;role<4;role++) for (size_t i=0;i<d->counts[role];i++) {
+        retained+=strlen(d->fields[role][i].name)+1;
+        if (d->fields[role][i].value) retained+=strlen(d->fields[role][i].value)+1;
+    }
+    retained_rejected(a,d,p,types,count,DX_CHART_OTHER_SQL_BYTES,retained,retained+input_bytes-1,&out);
+    retained_rejected(a,d,p,types,count,DX_CHART_OTHER_SQL_BYTES,retained,retained+construction-1,&out);
+    CHECK(chart_other_plan_retained(a,d,p,0,types,count,DX_CHART_OTHER_SQL_BYTES,retained,retained+construction,&out,&error) && !error);
+    CHECK(out.sql_bytes==reference.sql_bytes && !strcmp(out.sql,reference.sql));
+    /* The old plan remains owned until the new plan is admitted and written. */
+    retained_rejected(a,d,p,types,count,DX_CHART_OTHER_SQL_BYTES,retained,retained+construction,&out);
+    size_t old_bytes=out.sql_bytes;
+    CHECK(chart_other_plan_retained(a,d,p,0,types,count,DX_CHART_OTHER_SQL_BYTES,retained,retained+old_bytes+construction,&out,&error) && !error);
+    CHECK(out.sql_bytes==reference.sql_bytes && !strcmp(out.sql,reference.sql));
+    retained_rejected(a,d,p,types,count,0,retained,SIZE_MAX,&out);
+    retained_rejected(a,d,p,types,count,DX_CHART_OTHER_SQL_BYTES,0,0,&out);
+    retained_rejected(a,d,p,types,count,DX_CHART_OTHER_SQL_BYTES,SIZE_MAX,SIZE_MAX,&out);
+    retained_rejected(a,d,p,types,count,DX_CHART_OTHER_SQL_BYTES,SIZE_MAX,SIZE_MAX-1,&out);
+    chart_other_plan_free(&out);
+    retained_rejected(a,d,p,types,count,DX_CHART_OTHER_SQL_BYTES,1,0,&out);
+    retained_rejected(a,d,p,types,count,DX_CHART_OTHER_SQL_BYTES,SIZE_MAX,SIZE_MAX,&out);
+    size_t rows=p->row_count; p->row_count=3;
+    /* With no Other, even zero available owned bytes need no returned input,
+       keys or SQL. Caller/old ownership must still fit its stated category. */
+    CHECK(chart_other_plan_retained(a,d,p,0,types,count,DX_CHART_OTHER_SQL_BYTES,0,0,&out,&error) && !error);
+    CHECK(!out.sql && !out.sql_bytes && !out.rank.has_other);
+    CHECK(chart_other_plan_retained(a,d,p,0,types,count,DX_CHART_OTHER_SQL_BYTES,17,17,&out,&error) && !error);
+    p->row_count=rows; chart_other_plan_free(&out); chart_other_plan_free(&reference);
+}
 static void test_weighted(Database *db) {
     Analysis a=source("SELECT * FROM (VALUES ('A',100,100,'a'),('B',90,100,'b'),('C',80,100,'c'),('D',2,0,'x'),('E',1,10,'x'),('E',1,10,'y'),('E',1,10,'z')) t(r,rank,v,customer)");
     PivotDefinition d={0}; Page p={0}; ChartOtherPlan out={0}; duckdb_result result={0};
@@ -111,6 +154,7 @@ static void test_exact_typed(Database *db) {
     CHECK(present==2 && sum==13 && average_sum==13);
     duckdb_type types[]={DUCKDB_TYPE_VARCHAR,DUCKDB_TYPE_DATE}; reject_types(&a,&d,&p,types,2,&out);
     types[0]=DUCKDB_TYPE_DATE; types[1]=DUCKDB_TYPE_STRUCT; reject_types(&a,&d,&p,types,2,&out);
+    types[1]=DUCKDB_TYPE_DATE; retained_bounds(&a,&d,&p,types,2);
     duckdb_destroy_result(&result); chart_other_plan_free(&out); page_free(&p); pivot_free(&d); analysis_free(&a); free(error);
 }
 static void test_loaded_window(Database *db) {
@@ -174,6 +218,7 @@ static void test_limits(Database *db) {
     SourceKind kind=a.kind; a.kind=SOURCE_NONE; rejected(&a,&d,&p,0,DX_CHART_OTHER_SQL_BYTES,&out); a.kind=kind;
     size_t arity=d.counts[PIVOT_VALUES]; d.counts[PIVOT_VALUES]=DX_PIVOT_FIELDS+1; rejected(&a,&d,&p,0,DX_CHART_OTHER_SQL_BYTES,&out); d.counts[PIVOT_VALUES]=arity;
     CHECK(db->query_count==queries); /* validation/planning never executes SQL */
+    retained_bounds(&a,&d,&p,NULL,0); CHECK(db->query_count==queries);
     p.row_count=3; CHECK(chart_other_plan(&a,&d,&p,0,NULL,0,DX_CHART_OTHER_SQL_BYTES,&out,&error)); CHECK(!error && !out.sql && !out.sql_bytes && !out.rank.has_other);
     p.row_count=5; page_free(&p); chart_other_plan_free(&out); pivot_free(&d); analysis_free(&a);
 }

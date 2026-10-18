@@ -46,5 +46,21 @@ bool chart_other_rank(const Page *page,const PivotDefinition *definition,size_t 
 bool chart_other_plan(const Analysis *source,const PivotDefinition *definition,const Page *page,
                       size_t plot_measure,const duckdb_type *column_key_types,size_t column_key_count,
                       size_t max_sql_bytes,ChartOtherPlan *out,char **error);
+/* Same planning semantics, with admission at owned-buffer construction
+   boundaries. retained_bytes counts caller buffers sharing owned_limit,
+   including the borrowed Page/schema/definitions when applicable, but excludes
+   out->sql: its actual existing C-string bytes are charged here. Returned input
+   SQL, each returned key string, and old+new plan SQL must coexist within the
+   limit. Reject before allocating the counted final SQL if that sum cannot fit.
+   A no-Other plan builds no input/key SQL and charges only caller+old ownership.
+
+   Existing SQL builders/validators can allocate internally before returning;
+   parser/realloc/allocator peaks, engine memory and failure diagnostics are NOT
+   certified by this logical owned-boundary admission. This is not an absolute
+   process/RSS cap. out is preserved on failure. The compatibility function
+   above retains its output-only bound through retained=0/owned_limit=SIZE_MAX. */
+bool chart_other_plan_retained(const Analysis *source,const PivotDefinition *definition,const Page *page,
+                      size_t plot_measure,const duckdb_type *column_key_types,size_t column_key_count,
+                      size_t max_sql_bytes,size_t retained_bytes,size_t owned_limit,ChartOtherPlan *out,char **error);
 void chart_other_plan_free(ChartOtherPlan *plan);
 #endif
