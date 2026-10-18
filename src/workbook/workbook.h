@@ -114,7 +114,9 @@ typedef struct { size_t before,after,peak; } FormatBudget;
    histories, never a next store containing an unrecorded incoming snapshot.
    Original worksheet actions map its object history indices, even when formats
    and ledgers are prospective. Object validation opts in for effects12/14 and
-   checks structural byte bounds/mapping, not allocation independence/aliases;
+   checks structural logical8MiB current/history bounds and journal mapping, not
+   allocation independence/aliases. Conservative array slack is charged for the
+   composite reservation, not treated as a stricter legacy-model validity cap;
    the producer must pass the objects owned-plan preflight before using these
    trusted ownership categories. Incoming next ObjectSnapshot is adopted staging;
    its old live graph is a separate prospective retained charge until recorded.

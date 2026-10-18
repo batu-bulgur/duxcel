@@ -215,6 +215,14 @@ static FormatBudgetStatus format_budget_analysis_history(const Worksheet *sheet,
     for (size_t i=1;i<owned.count;i++) if (owned.ranges[i-1].last>owned.ranges[i].first) return FORMAT_BUDGET_MODEL;
     *out=charge; return FORMAT_BUDGET_OK;
 }
+static bool format_budget_object_bytes(const ObjectSnapshot *state,size_t *logical,size_t *reserved) {
+    size_t bytes=objects_snapshot_owned_bytes(state); if (bytes==SIZE_MAX) return false;
+    /* The shared helper validates shape before this checked subtraction. Its
+       documented max32 reservation includes slack, not extra logical fields. */
+    size_t slack=state->items ? (DX_MAX_OBJECTS-state->count)*sizeof(SheetObject) : 0;
+    if (bytes<slack) return false;
+    *logical=bytes-slack; *reserved=bytes; return true;
+}
 static FormatBudgetStatus format_budget_object_history(const Worksheet *sheet,const ObjectStore *objects,size_t *out) {
     bool composite=false;
     for (size_t h=0;h<2;h++) {
@@ -223,8 +231,8 @@ static FormatBudgetStatus format_budget_object_history(const Worksheet *sheet,co
     }
     if (!composite) { *out=0; return FORMAT_BUDGET_OK; }
     if (objects->undo_count>DX_HISTORY || objects->redo_count>DX_HISTORY || sheet->undo_actions_count>DX_HISTORY || sheet->redo_actions_count>DX_HISTORY) return FORMAT_BUDGET_MODEL;
-    ObjectSnapshot current={objects->items,objects->count};
-    if (objects_snapshot_owned_bytes(&current)>DX_OBJECT_CURRENT_BYTES) return FORMAT_BUDGET_MODEL;
+    ObjectSnapshot current={objects->items,objects->count}; size_t logical=0,reserved=0;
+    if (!format_budget_object_bytes(&current,&logical,&reserved) || logical>DX_OBJECT_CURRENT_BYTES) return FORMAT_BUDGET_MODEL;
     size_t charge=0;
     for (size_t h=0;h<2;h++) {
         const EditKind *actions=h ? sheet->redo_actions : sheet->undo_actions; size_t count=h ? sheet->redo_actions_count : sheet->undo_actions_count;
@@ -233,10 +241,9 @@ static FormatBudgetStatus format_budget_object_history(const Worksheet *sheet,co
             unsigned effects=worksheet_edit_effects(actions[i]); if (!effects) return FORMAT_BUDGET_MODEL;
             if (!(effects&4)) continue;
             if (index>=available) return FORMAT_BUDGET_MODEL;
-            size_t entry=objects_snapshot_owned_bytes(states+index++);
-            if (entry>DX_OBJECT_HISTORY_BYTES-bytes) return FORMAT_BUDGET_MODEL;
-            bytes+=entry;
-            if ((effects&12)==12 && !format_budget_add(&charge,entry)) return FORMAT_BUDGET_OVERFLOW;
+            if (!format_budget_object_bytes(states+index++,&logical,&reserved) || logical>DX_OBJECT_HISTORY_BYTES-bytes) return FORMAT_BUDGET_MODEL;
+            bytes+=logical;
+            if ((effects&12)==12 && !format_budget_add(&charge,reserved)) return FORMAT_BUDGET_OVERFLOW;
         }
         if (index!=available) return FORMAT_BUDGET_MODEL;
     }

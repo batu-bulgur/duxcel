@@ -1890,6 +1890,43 @@ static void test_format_budget_object_rejection(void) {
     path=objects->undo[0].items[0].source.path; large=malloc(DX_OBJECT_HISTORY_BYTES+1); CHECK(large); memset(large,'x',DX_OBJECT_HISTORY_BYTES); large[DX_OBJECT_HISTORY_BYTES]=0;
     objects->undo[0].items[0].source.path=large; budget_object_usage(&book,NULL,0); objects->undo[0].items[0].source.path=path; free(large); workbook_free(&book); free(error);
 }
+static size_t budget_object_logical(const ObjectSnapshot *state) {
+    size_t bytes=state->count*sizeof(SheetObject);
+    for (size_t i=0;i<state->count;i++) {
+        const SheetObject *object=state->items+i; bytes+=strlen(object->name)+1+analysis_text_bytes(&object->source)+marks_text_bytes(&object->marks);
+        for (size_t r=0;r<4;r++) for (size_t j=0;j<object->pivot.counts[r];j++) bytes+=strlen(object->pivot.fields[r][j].name)+1+(object->pivot.fields[r][j].value ? strlen(object->pivot.fields[r][j].value)+1 : 0);
+    }
+    return bytes;
+}
+static void test_format_budget_object_legacy_slack(void) {
+    Workbook book; workbook_init(&book); budget_object_fixture(&book); Worksheet *sheet=book.sheets; ObjectStore *objects=&sheet->objects; char *error=NULL;
+    char *value=malloc(180001); CHECK(value); memset(value,'x',180000); value[180000]=0;
+    CHECK(analysis_filter_set(&objects->items[0].source,"City",FILTER_CONTAINS,value,&error)); free(value);
+    budget_object_composite(sheet,1,false);
+    for (size_t i=0;i<DX_HISTORY-1;i++) { char name[48]; snprintf(name,sizeof(name),"Ordinary chart history %zu",i); CHECK(objects_rename(objects,1,name,&error)); worksheet_record(sheet,EDIT_OBJECTS); }
+    CHECK(objects->undo_count==DX_HISTORY && sheet->undo_actions_count==DX_HISTORY && sheet->undo_actions[0]==EDIT_OBJECTS_FORMAT && sheet->formats.undo_count==1);
+    size_t logical=0,reserved=0;
+    for (size_t i=0;i<objects->undo_count;i++) { logical+=budget_object_logical(objects->undo+i); reserved+=objects_snapshot_owned_bytes(objects->undo+i); }
+    CHECK(logical<=DX_OBJECT_HISTORY_BYTES && reserved>DX_OBJECT_HISTORY_BYTES && objects_valid(objects,&error));
+    ObjectSnapshot unchanged={0}; bool changed=true;
+    CHECK(objects_plan_source_version(objects,objects->items[0].id,1,1,&unchanged,&changed,&error) && !changed && !unchanged.items && !unchanged.count);
+    Worksheet before=*sheet; size_t composite=objects_snapshot_owned_bytes(objects->undo); WorkbookFormatUsage measured=budget_object_usage(&book,NULL,composite);
+    CHECK(measured.retained==format_owned_bytes(&sheet->formats,true)+sheet->source_versions.bytes+composite && !memcmp(sheet,&before,sizeof(before)));
+    /* A valid current graph may similarly approach its legacy logical bound
+       while the conservative array reservation crosses that bound. */
+    Analysis *source=&objects->items[0].source; CHECK(analysis_filter_set(source,"City",FILTER_CONTAINS,"a",&error) && analysis_filter_set(source,"Id",FILTER_CONTAINS,"b",&error));
+    ObjectSnapshot current={objects->items,objects->count}; size_t base=budget_object_logical(&current)-4,target=DX_OBJECT_CURRENT_BYTES-1;
+    size_t first=4u*1024u*1024u,second=target-base-first; CHECK(second>1 && second<=first);
+    char *a=malloc(first),*b=malloc(second); CHECK(a && b); memset(a,'a',first-1); a[first-1]=0; memset(b,'b',second-1); b[second-1]=0;
+    free(source->filter_value); source->filter_value=a; free(source->filters[0].value); source->filters[0].value=b;
+    CHECK(budget_object_logical(&current)==target && objects_snapshot_owned_bytes(&current)>DX_OBJECT_CURRENT_BYTES && objects_valid(objects,&error));
+    changed=true; CHECK(objects_plan_source_version(objects,objects->items[0].id,1,1,&unchanged,&changed,&error) && !changed);
+    budget_object_usage(&book,NULL,composite);
+    /* Unknown retained capacity for a nonnull empty current allocation is a
+       reservation category, not extra logical object definitions. */
+    SheetObject *owned=objects->items; size_t count=objects->count; objects->items=malloc(1); objects->count=0; CHECK(objects->items); budget_object_usage(&book,NULL,composite); free(objects->items); objects->items=owned; objects->count=count;
+    workbook_free(&book); free(error);
+}
 static void test_format_budget_combined_sheet(void) {
     Workbook book; workbook_init(&book); Analysis blank={0}; char *error=NULL; CHECK(workbook_add(&book,"Combined owned limit",&blank,&error));
     Worksheet *sheet=book.sheets; CellFormat value=format_default(); value.flags=FORMAT_BOLD;
@@ -1990,7 +2027,7 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused typed guarded-v14 codec checks (manual rectangles,1..33 exact RESULT owners,archived proofs,deep ownership and transactional rejection)\n",checks); return 0;
     }
     if (argc==2 && !strcmp(argv[1],"--format-budget-only")) {
-        test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_objects(); test_format_budget_object_rejection(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
+        test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_objects(); test_format_budget_object_rejection(); test_format_budget_object_legacy_slack(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
         printf("PASS: %u focused formatting-accounting checks (dormant ledgers, complete projected histories, explicit staging/reservations, exact caps and atomic failure)\n",checks); return 0;
     }
     if (argc==2 && !strcmp(argv[1],"--journal-only")) {
@@ -2018,7 +2055,7 @@ int main(int argc,char **argv) {
     }
     if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only|--guarded-formats-only]\n",argv[0]); return 2; }
     test_guarded_format_workspace(); test_guarded_format_rejection();
-    test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_objects(); test_format_budget_object_rejection(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
+    test_format_budget_models(); test_format_budget_analysis_journal(); test_format_budget_analysis_rejection(); test_format_budget_objects(); test_format_budget_object_rejection(); test_format_budget_object_legacy_slack(); test_format_budget_combined_sheet(); test_format_budget_policy(); test_format_budget_legacy_measurement();
     test_analysis_journal_owned(); test_analysis_journal_rejection(); test_analysis_journal_chronology();
     test_source_version_model(); test_source_version_save_guard();
     test_source_format_workspace(); test_invalid_source_format_package(); test_source_format_budget();
