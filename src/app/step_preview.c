@@ -9,8 +9,8 @@ void step_preview_free(StepPreview *preview) {
     analysis_free(&preview->source); page_free(&preview->page); page_free(&preview->spare); free(preview->title); free(preview->error);
     clear_widths(preview); format_free(&preview->formats); statistics_free(&preview->statistics); free(preview->stats_error); if (preview->initialized) grid_destroy(&preview->grid); memset(preview,0,sizeof(*preview));
 }
-bool step_preview_start(StepPreview *preview,const Analysis *source,size_t step,uint64_t id,uint64_t revision,const Grid *presentation) {
-    Analysis prefix={0}; UIStep rows[DX_UI_STEPS]; size_t count=ui_source_steps(source,0,rows);
+bool step_preview_start_named(StepPreview *preview,const Analysis *source,size_t step,uint64_t id,uint64_t revision,const Grid *presentation,const char *display_filename) {
+    Analysis prefix={0}; UIStep rows[DX_UI_STEPS]; size_t count=ui_source_steps_named(source,0,display_filename,rows);
     if (step>=count || !source || source->kind==SOURCE_NONE || !ui_step_source(source,step,&prefix)) return false;
     char *title=dx_strdup(rows[step].title); step_preview_free(preview);
     preview->source=prefix; preview->title=title; preview->step=step; preview->source_id=id; preview->source_revision=revision; preview->active=true;
@@ -21,6 +21,9 @@ bool step_preview_start(StepPreview *preview,const Analysis *source,size_t step,
         for (size_t i=0;i<preview->width_count;i++) { preview->width_names[i]=dx_strdup(presentation->column_names[i]); preview->width_values[i]=presentation->widths[i]; }
     }
     return true;
+}
+bool step_preview_start(StepPreview *preview,const Analysis *source,size_t step,uint64_t id,uint64_t revision,const Grid *presentation) {
+    return step_preview_start_named(preview,source,step,id,revision,presentation,NULL);
 }
 void step_preview_presentation(StepPreview *preview,const Page *fields,const Grid *grid,const FormatStore *formats,size_t first) {
     if (!preview->active || !fields || !grid || fields->column_count>16384) return;

@@ -28,6 +28,12 @@ void step_preview_free(StepPreview *preview);
    only during this call; jobs and retained definitions own separate copies. */
 bool step_preview_start(StepPreview *preview,const Analysis *source,size_t step,
     uint64_t source_id,uint64_t source_revision,const Grid *presentation);
+/* Same owned preview with an optional presentation filename. The name is
+   borrowed for this call, including when it aliases the old preview title;
+   the new bounded title owns its text. NULL preserves the native fallback.
+   Source paths and the executable prefix remain unchanged. */
+bool step_preview_start_named(StepPreview *preview,const Analysis *source,size_t step,
+    uint64_t source_id,uint64_t source_revision,const Grid *presentation,const char *display_filename);
 /* Copy widths and whole-column styles by bound source fields. Row/range
    formatting cannot safely follow a historical filter/sort prefix. */
 void step_preview_presentation(StepPreview *preview,const Page *fields,const Grid *grid,const FormatStore *formats,size_t first_column);
