@@ -10,6 +10,20 @@ typedef struct {
     const Page *page;
     bool ready;
 } SourceFormatOwner;
+static void source_format_origin_invalidate(App *a) { a->source_format_origin=(SourceFormatOrigin){0}; }
+static void source_format_origin_arm(App *a) {
+    Worksheet *sheet=active_sheet(a); source_format_origin_invalidate(a);
+    if (!sheet || sheet->formats.source_aware || sheet->objects.count || a->analysis.source_version ||
+        a->format_document==UINT64_MAX || (a->analysis.kind!=SOURCE_CSV && a->analysis.kind!=SOURCE_PARQUET)) return;
+    a->source_format_origin=(SourceFormatOrigin){.document=a->format_document,.sheet=a->book.active,
+        .analysis_revision=a->analysis_revision,.armed=true};
+}
+static bool source_format_origin_valid(App *a) {
+    const SourceFormatOrigin *origin=&a->source_format_origin; Worksheet *sheet=active_sheet(a);
+    return origin->armed && origin->page_ready && sheet && !sheet->formats.source_aware && !sheet->objects.count &&
+        !a->analysis.source_version && origin->document==a->format_document && origin->sheet==a->book.active &&
+        origin->analysis_revision==a->analysis_revision;
+}
 static void source_format_result_page(App *a,const SourceFormatOwner *owner,SourceFormatProof *proof);
 static bool source_format_owner(App *a,uint64_t owner,SourceFormatOwner *out) {
     Worksheet *sheet=active_sheet(a); if (!sheet) return false;
@@ -76,6 +90,7 @@ static void source_format_cancel(App *a,const char *message) {
     if (message) status(a,message);
 }
 static void source_format_reset(App *a) {
+    source_format_origin_invalidate(a);
     source_format_cancel(a,NULL); source_format_proof_free(&a->source_format_proof);
     a->source_format_proof=(SourceFormatProof){0}; a->source_format_attempt=(SourceFormatAttempt){0};
     for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
@@ -101,7 +116,8 @@ static bool source_format_fence(App *a) {
         intent->origin_rows==owner.rows && intent->origin_columns==owner.columns &&
         intent->format_revision==sheet->formats.revision && intent->cell_revision==sheet->cells.revision &&
         intent->high_water==sheet->source_versions.high_water && intent->source.source_version==owner.source->source_version &&
-        analysis_same_result(&intent->source,owner.source) && !a->io_busy && !a->step_preview.active;
+        analysis_same_result(&intent->source,owner.source) && !a->io_busy && !a->step_preview.active &&
+        (!intent->baseline || source_format_origin_valid(a));
 }
 static void source_format_tick(App *a) {
     for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
@@ -128,7 +144,13 @@ static void source_format_page_owner(App *a,uint64_t id) {
             SOURCE_DIGEST_OK,&proof->digest,duckdb_library_version(),NULL);
     source_format_result_page(a,&owner,proof);
 }
-static void source_format_page(App *a) { source_format_page_owner(a,0); }
+static void source_format_page(App *a) {
+    SourceFormatOrigin *origin=&a->source_format_origin;
+    if (origin->armed && origin->document==a->format_document && origin->sheet==a->book.active &&
+        origin->analysis_revision==a->analysis_revision && !a->page_stale && !a->fetch_failed &&
+        a->page.column_count && a->page.records.file_identity_valid && a->page.records.stamp) origin->page_ready=true;
+    source_format_page_owner(a,0);
+}
 static bool source_format_owner_verified(App *a,uint64_t id) {
     SourceFormatOwner owner; SourceFormatProof *proof=source_format_owner_proof(a,id,false);
     return proof && proof->ready && source_format_owner(a,id,&owner) && owner.ready &&
@@ -136,7 +158,7 @@ static bool source_format_owner_verified(App *a,uint64_t id) {
         proof->version==owner.source->source_version && proof->analysis_revision==owner.revision;
 }
 static size_t source_format_owner_token(App *a,uint64_t owner) {
-    Worksheet *sheet=active_sheet(a); if (!sheet || !sheet->formats.source_aware) return 0;
+    Worksheet *sheet=active_sheet(a); if (!sheet || !sheet->formats.source_aware) return SIZE_MAX;
     if (!source_format_owner_verified(a,owner)) return SIZE_MAX;
     SourceFormatProof *proof=source_format_owner_proof(a,owner,false);
     if (proof->format_revision!=sheet->formats.revision) {
@@ -147,7 +169,7 @@ static size_t source_format_owner_token(App *a,uint64_t owner) {
     return proof->token;
 }
 static size_t source_format_owner_result_token(App *a,uint64_t owner) {
-    Worksheet *sheet=active_sheet(a); if (!sheet || !sheet->formats.source_aware) return 0;
+    Worksheet *sheet=active_sheet(a); if (!sheet || !sheet->formats.source_aware) return SIZE_MAX;
     if (!source_format_owner_verified(a,owner)) return SIZE_MAX;
     source_format_owner_token(a,owner);
     return source_format_owner_proof(a,owner,false)->result_token;
@@ -214,6 +236,19 @@ static bool source_format_first_safe(const FormatStore *store) {
     for (size_t i=0;i<store->redo_count;i++) if (!source_format_broad(store->redo+i)) return false;
     return true;
 }
+static bool source_format_save_ready(App *a) {
+    for (size_t i=0;i<a->book.count;i++) {
+        const Worksheet *sheet=a->book.sheets+i;
+        const Analysis *source=i==a->book.active ? &a->analysis : &sheet->analysis;
+        FormatSnapshot current={.items=sheet->formats.items,.count=sheet->formats.count,.scopes=sheet->formats.scopes,
+            .scope_count=sheet->formats.scope_count,.source_aware=sheet->formats.source_aware};
+        if ((source->kind!=SOURCE_NONE || sheet->objects.count) && !source_format_broad(&current)) {
+            status(a,"Saving needs verified migration of legacy finite formats on imported data. Reopen the unchanged source workbook; manual-only sheets and whole-column defaults remain saveable.");
+            return false;
+        }
+    }
+    return true;
+}
 static bool source_format_add(size_t *bytes,size_t extra) {
     if (*bytes>SIZE_MAX-extra) return false; *bytes+=extra; return true;
 }
@@ -255,7 +290,9 @@ static bool source_format_budget(App *a,const WorkbookFormatReplacement *replace
     transient.collector_owned=worker.active_reserved;
     if (!result && (!source_format_add(&transient.collector_owned,worker.pending_reserved) ||
         !source_format_add(&transient.collector_owned,worker.published_owned))) result=FORMAT_BUDGET_OVERFLOW;
-    transient.pending_reserved=replacement ? sizeof(size_t)*DX_SOURCE_SCOPE_FIELDS : 3u*1024u*1024u;
+    transient.pending_reserved=replacement ? sizeof(size_t)*DX_SOURCE_SCOPE_FIELDS :
+        a->source_format.baseline && a->source_format.raw.data ?
+            DX_FORMAT_HISTORY_BYTES+DX_SOURCE_VERSIONS_BYTES+DX_SOURCE_SCOPE_BYTES : 3u*1024u*1024u;
     /* Before planning, reserve ledger/format/definition coexistence; after
        planning, those actual buffers are counted above as adopted_staging. */
     if (!result && (jobs>SIZE_MAX/SOURCE_FORMAT_SQL_RESERVE ||
@@ -343,11 +380,31 @@ static bool source_format_raw_ready(App *a,const SourceFormatOwner *owner) {
 }
 static void source_format_schedule(App *a) {
     Worksheet *sheet=active_sheet(a);
-    if (!sheet || !sheet->formats.source_aware ||
+    if (!sheet ||
         a->busy || a->io_busy || a->source_format.active || a->values_loading || a->modal!=MODAL_NONE ||
         a->document_action!=DOCUMENT_NONE || (a->statistics_enabled &&
         (a->statistics_state==STATS_WAITING || a->statistics_state==STATS_CALCULATING)) ||
         (a->count_request_id && a->count_request_id==a->request_id) || dx_millis()-a->viewport_changed<150 || a->format_document==UINT64_MAX) return;
+    if (!sheet->formats.source_aware) {
+        SourceFormatOwner owner;
+        if (!source_format_origin_valid(a) || source_format_first_safe(&sheet->formats) ||
+            sheet->source_versions.high_water==UINT64_MAX || !source_format_owner(a,0,&owner) ||
+            !source_format_raw_ready(a,&owner) || !grid_cached(&a->grid,owner.page)) return;
+        SourceFormatAttempt *attempt=&a->source_format_attempt;
+        if (attempt->valid && attempt->document==a->format_document && attempt->sheet==a->book.active &&
+            attempt->version==sheet->source_versions.high_water+1 && attempt->stamp==owner.page->records.stamp &&
+            source_file_identity_same(&attempt->identity,&owner.page->records.file_identity)) return;
+        *attempt=(SourceFormatAttempt){.identity=owner.page->records.file_identity,.document=a->format_document,
+            .sheet=a->book.active,.version=sheet->source_versions.high_water+1,.stamp=owner.page->records.stamp,.valid=true};
+        char *error=NULL;
+        if (!worksheet_legacy_format_history_eligible(sheet,&error)) { status(a,error); free(error); return; }
+        if (source_format_capture(a,&owner,(FormatRange){0},0,format_default(),true)) {
+            a->source_format.baseline=true;
+            if (source_format_budget(a,NULL,0,0,0,1,0)) source_format_verify(a);
+            else source_format_cancel(a,NULL);
+        }
+        return;
+    }
     for (size_t i=0;i<=sheet->objects.count;i++) {
         uint64_t id=i ? sheet->objects.items[i-1].id : 0; SourceFormatOwner owner;
         if (!source_format_owner(a,id,&owner) || !owner.source->source_version || !source_format_raw_ready(a,&owner) || source_format_owner_verified(a,id)) continue;
@@ -365,6 +422,36 @@ static void source_format_schedule(App *a) {
         if (source_format_capture(a,&owner,(FormatRange){0},0,format_default(),true)) source_format_verify(a);
         return;
     }
+}
+static bool source_format_baseline_commit(App *a,size_t reply_owned) {
+    SourceFormatIntent *intent=&a->source_format; Worksheet *sheet=active_sheet(a);
+    SourcePacket result={0}; SourceVersions versions={0}; FormatStore formats={0}; char *error=NULL; bool changed=false;
+    SourceVersion entry={.owner=0,.version=intent->version,.kind=intent->source.kind,.path=intent->source.path,.raw=intent->raw};
+    bool ok=source_format_fence(a) && worksheet_legacy_format_history_eligible(sheet,&error) &&
+        source_format_budget(a,NULL,0,0,reply_owned,0,0) &&
+        source_scope_result_build(&intent->raw,&intent->source,&result,&error) &&
+        source_versions_plan(&sheet->source_versions,&entry,true,&versions,&error) &&
+        format_plan_guard_store(&sheet->formats,&(FormatScopeView){0,result.data,result.bytes},1,&formats,&changed,&error) && changed;
+    size_t adopted=ok ? format_owned_bytes(&formats,true) : 0;
+    if (ok) ok=source_format_add(&adopted,versions.bytes);
+    WorkbookFormatReplacement replacement={.sheet=a->book.active,.formats=&formats,.versions=&versions};
+    if (ok) ok=source_format_budget(a,&replacement,adopted,result.bytes,reply_owned,0,0) && source_format_fence(a);
+    if (!ok) {
+        if (error) status(a,error);
+        free(error); source_packet_free(&result); source_versions_free(&versions); format_free(&formats);
+        source_format_cancel(a,NULL); return false;
+    }
+    /* One compatibility baseline, not an edit: preserve both journals, Redo,
+       cell ownership and every retained format state. Issuance stays outside Undo. */
+    source_versions_free(&sheet->source_versions); sheet->source_versions=versions;
+    format_adopt_guard_store(&sheet->formats,&formats); a->analysis.source_version=intent->version;
+    SourceFormatProof *proof=&a->source_format_proof; source_format_proof_free(proof);
+    *proof=(SourceFormatProof){.raw=intent->raw,.result=result,.digest=intent->digest,
+        .document=a->format_document,.version=intent->version,.sheet=a->book.active};
+    intent->raw=(SourcePacket){0}; source_format_intent_free(intent); source_format_origin_invalidate(a);
+    a->book.dirty=true; source_format_page(a);
+    status(a,"Legacy formats are bound to this verified loaded result. Sorting or filtering suspends their imported part.");
+    return true;
 }
 static bool source_format_collect(App *a,size_t reply_owned) {
     SourceFormatIntent *intent=&a->source_format; char *error=NULL;
@@ -386,6 +473,7 @@ static bool source_format_collect(App *a,size_t reply_owned) {
         source_packet_free(&raw); source_format_cancel(a,NULL); return false;
     }
     intent->raw=raw;
+    if (intent->baseline) return source_format_baseline_commit(a,reply_owned);
     if (intent->restore) {
         /* Verification publishes only a session proof. Ledger, formats,
            Analysis, history and dirty state retain their saved ownership. */
