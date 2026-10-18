@@ -1,0 +1,2 @@
+Command: ["./tests/test_statsview-debug"]
+PASS: 964 statistics popover checks (exact study measurements, corner anchors, bounded checklist and 80/100/150/250 percent)

@@ -1,0 +1,53 @@
+{
+  "scope": "Source/configuration-scoped test runs; draw CPU excludes swap/pacing/GPU, whole-frame includes queries/loading/captures and is not input latency. Only profiles explicitly labeled release are optimized performance samples.",
+  "profiles": [
+    {
+      "path": "final-0b/legacy22-sanitize/layout-legacy-format-baseline.txt",
+      "draw_submission_cpu": "Draw submission CPU p95=1.412 ms (excludes swap/pacing)",
+      "whole_frame": "Duxcel frames=722 mean=19.54 ms p95=17.87 ms max=470.16 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+      "worker": "Worker jobs=39 SQL executions=22 count queries=8"
+    },
+    {
+      "path": "final-0b/manual15-release/layout-manual-format-import.txt",
+      "draw_submission_cpu": "Draw submission CPU p95=1.046 ms (excludes swap/pacing)",
+      "whole_frame": "Duxcel frames=362 mean=19.63 ms p95=17.89 ms max=426.89 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+      "worker": "Worker jobs=23 SQL executions=15 count queries=7"
+    },
+    {
+      "path": "final-0b/shelves32-sanitize/layout-shelves.txt",
+      "draw_submission_cpu": "Draw submission CPU p95=3.847 ms (excludes swap/pacing)",
+      "whole_frame": "Duxcel frames=914 mean=20.91 ms p95=17.95 ms max=349.92 ms dpi=2.0x2.0 logical=1280x820 framebuffer=2560x1640 smoke=0",
+      "worker": "Worker jobs=8 SQL executions=39 count queries=4"
+    },
+    {
+      "path": "final-0b/stats-opener6-sanitize/layout-stats-input.txt",
+      "draw_submission_cpu": "Draw submission CPU p95=3.516 ms (excludes swap/pacing)",
+      "whole_frame": "Duxcel frames=194 mean=17.66 ms p95=17.95 ms max=22.36 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+      "worker": "Worker jobs=1 SQL executions=1 count queries=0"
+    },
+    {
+      "path": "final-91b/result24-release/layout-source-result-format.txt",
+      "draw_submission_cpu": "Draw submission CPU p95=0.989 ms (excludes swap/pacing)",
+      "whole_frame": "Duxcel frames=578 mean=20.07 ms p95=17.84 ms max=442.10 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+      "worker": "Worker jobs=32 SQL executions=45 count queries=9"
+    },
+    {
+      "path": "final-91b/result24-sanitize/layout-source-result-format.txt",
+      "draw_submission_cpu": "Draw submission CPU p95=1.555 ms (excludes swap/pacing)",
+      "whole_frame": "Duxcel frames=938 mean=19.22 ms p95=17.87 ms max=466.07 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+      "worker": "Worker jobs=32 SQL executions=45 count queries=9"
+    },
+    {
+      "path": "final-10f/table36-sanitize/layout-table-record-format.txt",
+      "draw_submission_cpu": "Draw submission CPU p95=2.025 ms (excludes swap/pacing)",
+      "whole_frame": "Duxcel frames=1154 mean=18.70 ms p95=17.90 ms max=443.04 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+      "worker": "Worker jobs=45 SQL executions=37 count queries=11"
+    },
+    {
+      "path": "final-10f/primary30-sanitize/layout-source-record-format.txt",
+      "draw_submission_cpu": "Draw submission CPU p95=1.493 ms (excludes swap/pacing)",
+      "whole_frame": "Duxcel frames=842 mean=19.70 ms p95=17.91 ms max=442.34 ms dpi=2.0x2.0 logical=1440x988 framebuffer=2880x1976 smoke=0",
+      "worker": "Worker jobs=30 SQL executions=19 count queries=5"
+    }
+  ]
+}

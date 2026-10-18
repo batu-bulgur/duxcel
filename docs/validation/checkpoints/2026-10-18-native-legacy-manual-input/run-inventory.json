@@ -1,0 +1,562 @@
+[
+  {
+    "path": "integration/current-fast12",
+    "run": "20261018T022110-fast-83747",
+    "status": "passed",
+    "source": {
+      "commit": "55b413dbbcb301d77db400df1a8bf9eef1ea4ddf",
+      "status": "M Makefile\n M tools/test.py\n?? tools/ui-review/",
+      "source_sha256": "30c82a0a5f737c452a7b3add22690127ed089fd33035e8b2109aff191d8a5c6f",
+      "source_files": 266
+    },
+    "config": "both",
+    "app_config": null,
+    "app_optimization": null,
+    "elapsed_seconds": 17.983,
+    "stages_requested": 0,
+    "results": [
+      {
+        "name": "build-headless",
+        "seconds": 13.205,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "statsview-release",
+        "seconds": 0.65,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "statsview_input-release",
+        "seconds": 1.036,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "statsview_input_review-release",
+        "seconds": 0.709,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "ui_update_input-release",
+        "seconds": 0.668,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "ui_update_input_browser-release",
+        "seconds": 0.712,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "ui_update_input_control-release",
+        "seconds": 0.737,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "statsview-sanitize",
+        "seconds": 0.934,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "statsview_input-sanitize",
+        "seconds": 0.722,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "statsview_input_review-sanitize",
+        "seconds": 0.55,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "ui_update_input-sanitize",
+        "seconds": 0.725,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "ui_update_input_browser-sanitize",
+        "seconds": 0.727,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "ui_update_input_control-sanitize",
+        "seconds": 0.732,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "final-0b/browser-feedback1407",
+    "run": "20261018T022904-browser-88776",
+    "status": "passed",
+    "source": {
+      "commit": "0b8cdbcf807bfa5cb382515ffaa679b3b6317a14",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "f341950089b8c6192bcc17f7c6b712b6a39afd088f1f9dfc201e4fc3beb089ac",
+      "source_files": 267
+    },
+    "profile": "feedback-review-only",
+    "elapsed_seconds": 55.461,
+    "browser_seconds": 55.219
+  },
+  {
+    "path": "final-0b/browser-values875",
+    "run": "20261018T022959-browser-88775",
+    "status": "passed",
+    "source": {
+      "commit": "0b8cdbcf807bfa5cb382515ffaa679b3b6317a14",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "f341950089b8c6192bcc17f7c6b712b6a39afd088f1f9dfc201e4fc3beb089ac",
+      "source_files": 267
+    },
+    "profile": "review-values-only",
+    "elapsed_seconds": 19.977,
+    "browser_seconds": 19.845
+  },
+  {
+    "path": "final-0b/guide-fast6",
+    "run": "20261018T022805-fast-87598",
+    "status": "passed",
+    "source": {
+      "commit": "0b8cdbcf807bfa5cb382515ffaa679b3b6317a14",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "f341950089b8c6192bcc17f7c6b712b6a39afd088f1f9dfc201e4fc3beb089ac",
+      "source_files": 267
+    },
+    "profile": null,
+    "elapsed_seconds": 12.316,
+    "browser_seconds": null
+  },
+  {
+    "path": "final-0b/review400",
+    "run": "20261018T023026-review-89151",
+    "status": "passed",
+    "source": {
+      "commit": "0b8cdbcf807bfa5cb382515ffaa679b3b6317a14",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "f341950089b8c6192bcc17f7c6b712b6a39afd088f1f9dfc201e4fc3beb089ac",
+      "source_files": 267
+    },
+    "configs": {
+      "release": {
+        "stages": 400,
+        "seconds": 17.744
+      },
+      "sanitize": {
+        "stages": 400,
+        "seconds": 20.625
+      }
+    }
+  },
+  {
+    "path": "final-0b/legacy22-sanitize",
+    "run": "20261018T023107-affected-89275",
+    "status": "passed",
+    "source": {
+      "commit": "0b8cdbcf807bfa5cb382515ffaa679b3b6317a14",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "f341950089b8c6192bcc17f7c6b712b6a39afd088f1f9dfc201e4fc3beb089ac",
+      "source_files": 267
+    },
+    "config": "sanitize",
+    "app_config": "sanitize",
+    "app_optimization": null,
+    "elapsed_seconds": 17.194,
+    "results": [
+      {
+        "name": "format-sanitize",
+        "seconds": 0.679,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "source_scope-sanitize",
+        "seconds": 0.14,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "background-sanitize",
+        "seconds": 0.785,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "layout-legacy-format-baseline",
+        "seconds": 15.415,
+        "expected_stages": 22,
+        "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[824,846\\)$",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "final-0b/manual15-release",
+    "run": "20261018T023125-affected-89328",
+    "status": "passed",
+    "source": {
+      "commit": "0b8cdbcf807bfa5cb382515ffaa679b3b6317a14",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "f341950089b8c6192bcc17f7c6b712b6a39afd088f1f9dfc201e4fc3beb089ac",
+      "source_files": 267
+    },
+    "config": "release",
+    "app_config": "release",
+    "app_optimization": null,
+    "elapsed_seconds": 9.218,
+    "results": [
+      {
+        "name": "format-release",
+        "seconds": 0.151,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "background-sanitize",
+        "seconds": 0.87,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "layout-manual-format-import",
+        "seconds": 8.084,
+        "expected_stages": 15,
+        "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[846,861\\)$",
+        "status": "passed"
+      }
+    ],
+    "images": [
+      {
+        "path": "images/manual15-current/manual-format-import-reopened.png",
+        "origin": "/Users/h2o/dev/duxcel/tests/results/workspace-layout/manual-format-import-reopened.png",
+        "mtime_ns": 1792290689481156494,
+        "run": "20261018T023125-affected-89328",
+        "started_utc": "2026-10-18T02:31:25.257993+00:00",
+        "finished_utc": "2026-10-18T02:31:34.537457+00:00"
+      },
+      {
+        "path": "images/manual15-current/manual-source-format-reopened.png",
+        "origin": "/Users/h2o/dev/duxcel/tests/results/workspace-layout/manual-source-format-reopened.png",
+        "mtime_ns": 1792290694070636669,
+        "run": "20261018T023125-affected-89328",
+        "started_utc": "2026-10-18T02:31:25.257993+00:00",
+        "finished_utc": "2026-10-18T02:31:34.537457+00:00"
+      }
+    ]
+  },
+  {
+    "path": "final-0b/stats-opener6-sanitize",
+    "run": "20261018T023134-affected-89347",
+    "status": "passed",
+    "source": {
+      "commit": "0b8cdbcf807bfa5cb382515ffaa679b3b6317a14",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "f341950089b8c6192bcc17f7c6b712b6a39afd088f1f9dfc201e4fc3beb089ac",
+      "source_files": 267
+    },
+    "config": "sanitize",
+    "app_config": "sanitize",
+    "app_optimization": null,
+    "elapsed_seconds": 5.333,
+    "results": [
+      {
+        "name": "statsview-sanitize",
+        "seconds": 0.199,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "background-sanitize",
+        "seconds": 0.717,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "layout-stats-input",
+        "seconds": 4.293,
+        "expected_stages": 6,
+        "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[861,867\\)$",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "final-0b/shelves32-sanitize",
+    "run": "20261018T023140-affected-89150",
+    "status": "passed",
+    "source": {
+      "commit": "0b8cdbcf807bfa5cb382515ffaa679b3b6317a14",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "f341950089b8c6192bcc17f7c6b712b6a39afd088f1f9dfc201e4fc3beb089ac",
+      "source_files": 267
+    },
+    "config": "sanitize",
+    "app_config": "sanitize",
+    "app_optimization": null,
+    "elapsed_seconds": 20.955,
+    "results": [
+      {
+        "name": "marksview-sanitize",
+        "seconds": 0.15,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "background-sanitize",
+        "seconds": 0.728,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "layout-shelves",
+        "seconds": 19.89,
+        "expected_stages": 32,
+        "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[426,458\\)$",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "diagnostics/token-cache-format-max",
+    "run": "20261018T023216-affected-89443",
+    "status": "failed",
+    "source": {
+      "commit": "0b8cdbcf807bfa5cb382515ffaa679b3b6317a14",
+      "status": "M src/app/app.c\n?? tools/ui-review/",
+      "source_sha256": "892c7ab9cb804ab496c62c30b071e941c77f285483c9363eb7664fbd8d956ba8",
+      "source_files": 267
+    },
+    "config": "sanitize",
+    "elapsed_seconds": 12.649,
+    "results": [
+      {
+        "name": "build-headless",
+        "seconds": 0.54,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "source_scope-sanitize",
+        "seconds": 0.21,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "build-integration",
+        "seconds": 7.725,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "background-sanitize",
+        "seconds": 0.887,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "layout-source-result-format",
+        "seconds": 3.234,
+        "expected_stages": 24,
+        "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[800,824\\)$",
+        "status": "failed"
+      }
+    ]
+  },
+  {
+    "path": "final-91b/result24-release",
+    "run": "20261018T023447-affected-90806",
+    "status": "passed",
+    "source": {
+      "commit": "91b5d6e972d1b14abc9798888c3d4fa8cc225074",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "9b4578da304ba111c12d81f5bb1112fd5c66580130f876c41431a9268cb217a7",
+      "source_files": 267
+    },
+    "config": "release",
+    "elapsed_seconds": 14.527,
+    "results": [
+      {
+        "name": "source_scope-release",
+        "seconds": 0.024,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "background-sanitize",
+        "seconds": 1.521,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "layout-source-result-format",
+        "seconds": 12.818,
+        "expected_stages": 24,
+        "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[800,824\\)$",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "final-91b/result24-sanitize",
+    "run": "20261018T023502-affected-90875",
+    "status": "passed",
+    "source": {
+      "commit": "91b5d6e972d1b14abc9798888c3d4fa8cc225074",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "9b4578da304ba111c12d81f5bb1112fd5c66580130f876c41431a9268cb217a7",
+      "source_files": 267
+    },
+    "config": "sanitize",
+    "elapsed_seconds": 21.108,
+    "results": [
+      {
+        "name": "source_scope-sanitize",
+        "seconds": 0.358,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "background-sanitize",
+        "seconds": 0.961,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "layout-source-result-format",
+        "seconds": 19.59,
+        "expected_stages": 24,
+        "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[800,824\\)$",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "final-10f/table36-sanitize",
+    "run": "20261018T023842-affected-92047",
+    "status": "passed",
+    "source": {
+      "commit": "10f606eb9c0b71a22de3cc3d6442aa4bb04af011",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "a402664df6daccfea6f5b3fcfb4d65976f0907fa6e8ffab1c44dd2bbcfa87f22",
+      "source_files": 267
+    },
+    "config": "sanitize",
+    "elapsed_seconds": 24.833,
+    "results": [
+      {
+        "name": "source_scope-sanitize",
+        "seconds": 0.432,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "background-sanitize",
+        "seconds": 1.092,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "layout-table-record-format",
+        "seconds": 23.146,
+        "expected_stages": 36,
+        "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[764,800\\)$",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "final-10f/primary30-sanitize",
+    "run": "20261018T023907-affected-91600",
+    "status": "passed",
+    "source": {
+      "commit": "10f606eb9c0b71a22de3cc3d6442aa4bb04af011",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "a402664df6daccfea6f5b3fcfb4d65976f0907fa6e8ffab1c44dd2bbcfa87f22",
+      "source_files": 267
+    },
+    "config": "sanitize",
+    "elapsed_seconds": 19.015,
+    "results": [
+      {
+        "name": "source_scope-sanitize",
+        "seconds": 0.436,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "background-sanitize",
+        "seconds": 0.91,
+        "expected_stages": null,
+        "completion_pattern": null,
+        "status": "passed"
+      },
+      {
+        "name": "layout-source-record-format",
+        "seconds": 17.487,
+        "expected_stages": 30,
+        "completion_pattern": "^Layout\\ smoke\\ completed\\ \\[734,764\\)$",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "final-10f/review400",
+    "run": "20261018T024019-review-92274",
+    "status": "passed",
+    "source": {
+      "commit": "10f606eb9c0b71a22de3cc3d6442aa4bb04af011",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "a402664df6daccfea6f5b3fcfb4d65976f0907fa6e8ffab1c44dd2bbcfa87f22",
+      "source_files": 267
+    },
+    "configs": {
+      "release": {
+        "stages": 400,
+        "seconds": 17.938
+      }
+    }
+  }
+]

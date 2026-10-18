@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "10f606eb9c0b71a22de3cc3d6442aa4bb04af011",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "a402664df6daccfea6f5b3fcfb4d65976f0907fa6e8ffab1c44dd2bbcfa87f22",
+    "source_files": 267
+  },
+  "packaged_without_launch": true,
+  "unsigned_source_sha256": "a5298fd40796ec42166dadd659638a7d66682539ebe6e5096bc1c49c7139c061",
+  "signed_bundle_sha256": "0b5ae86015459f5668cf5a351452c11236cf6f92bf1784f75a6fd9bae691a9cc",
+  "signature_verified": true,
+  "source_unchanged": true,
+  "seconds": 1.76
+}
