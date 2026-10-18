@@ -1,0 +1,16 @@
+{
+  "directory": "/Users/h2o/dev/duxcel/build/web/review/73207928f236e1a72b42",
+  "signature": "73207928f236e1a72b424ceb6baaf84208a3ba54db60fd1bca6de4fec39730a2",
+  "source": {
+    "commit": "7c451c359d92f5b0102f56dcb43761d510ec3fa1",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "355d810b0e1c7c718d69858ccd133b6fd0302e50ed8c54bfd067201d4fbe3199",
+    "source_files": 258
+  },
+  "artifacts": {
+    "duxcel.wasm": "4e15f8477d753ca231cbfbc016a2f5b014484346d331153013353a284ae913f2",
+    "duxcel.data": "e1e2590a60d8294f93fddb62e08c4828d6b330cb15f5a0ee27a3483b339da5d3",
+    "duxcel.mjs": "c5ec0f72997ec258e58a5395cde09baffbe7ee2daea98f0ca9833c9431e5534b",
+    "host.mjs": "13ae3dc11fafafbb32c39f929e5bb45528d374d6c25e5638819c6b76e4d66187"
+  }
+}
