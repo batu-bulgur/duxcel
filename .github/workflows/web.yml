@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   test:
-    name: Browser core and sanitizers
+    name: Web tests and sanitizers
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -42,9 +42,9 @@ jobs:
       - run: python3 tools/test_package_web_pages.py
 
   build:
-    name: Shared C99 Wasm build
-    needs: test
-    # Matches the checksum-pinned darwin-arm64 SDK; no new native runtime.
+    name: Web build and browser smoke (Wasm)
+    # Starts alongside web tests; no native-platform build dependency.
+    # macOS is the build host for the pinned SDK, not the product target.
     runs-on: macos-15
     timeout-minutes: 30
     env:
@@ -91,7 +91,7 @@ jobs:
   deploy:
     name: Publish GitHub Pages
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: build
+    needs: [test, build]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

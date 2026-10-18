@@ -19,6 +19,12 @@ destination is <https://batu-bulgur.github.io/duxcel/>; remote Actions/deploymen
 acceptance is separate from these local results. Browser workbook Open/Save
 and complete UI/input parity remain unavailable. See [delivery details](../web/README.md#github-pages-delivery).
 
+**CI scope:** web tests and the Wasm build start independently; Pages waits for
+both web jobs. The web build's macOS runner is only a toolchain host. Native
+macOS has a separate manual-only workflow, disabled in GitHub while native
+development/testing stays local. No native Windows/Linux CI is configured.
+The paused hosted native gate has not been executed.
+
 | Capability | Implementation location | Current quality / remaining work |
 | --- | --- | --- |
 | Unified automatic review queue | `tools/review_{queue,service,worker}.py`, review-only `web/review_queue.mjs` | Accepted real native/Wasm reports through one persistent queue and automatic installed Codex CLI pickup, with captured PNG/target/context and durable structured triage. Actual offline IndexedDB save/reload/reconnect passed;28queue/8service/29Node groups, both26-stage hidden native optimized/sanitizer flows and current shipping absence passed. Idle scans avoid repeated image reads; leases/retry/restart protect ownership. Human lifecycle stays independent; triage does not implement or verify a defect. Mock/Agentation services are stopped; one stable loopback Wasm review origin replaces them. [Evidence and remaining limits](validation/checkpoints/2026-10-17-unified-review/). |
