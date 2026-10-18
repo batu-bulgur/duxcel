@@ -19,6 +19,14 @@ const began=Date.now(),pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 function check(value,message){checks++;if(!value)throw new Error(message);}
 function near(a,b,tolerance=.08){return Number.isFinite(a)&&Math.abs(a-b)<=tolerance;}
+// CSSOM serializes resolved fractional widths as decimal text. Bound only that
+// serialization rounding; do not invent a zoom/DPR border-snapping algorithm.
+function resolvedCssInterval(text,multiplier=1){
+ const match=/^(\d+)(?:\.(\d+))?px$/.exec(text??'');if(!match)return null;
+ const value=Number.parseFloat(text),rounding=match[2]?0.5*10**(-match[2].length):0;
+ return{value:value*multiplier,minimum:(value-rounding)*multiplier,maximum:(value+rounding)*multiplier};
+}
+function resolvedCssMatches(actual,text,multiplier=1){const interval=resolvedCssInterval(text,multiplier);return interval&&Number.isFinite(actual)&&actual>=interval.minimum&&actual<=interval.maximum;}
 async function send(method,params={},timeout=10000){return cdp.send(method,params,timeout,'frozen reference rail');}
 async function evaluate(expression){const result=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw new Error(JSON.stringify(result.exceptionDetails));return result.result?.value;}
 async function waitFor(expression,label){for(const end=Date.now()+8000;Date.now()<end;){if(interrupted)throw new Error('Reference capture interrupted');if(await evaluate(expression))return;await pause(25);}throw new Error('Timed out waiting for '+label);}
@@ -41,11 +49,12 @@ async function shortcut(){
 }
 async function snapshot(){return evaluate(`(()=>{
  const rect=el=>{if(!el)return null;const r=el.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};};
- const describe=selector=>{const el=document.querySelector(selector);if(!el)return null;const s=getComputedStyle(el);return{rect:rect(el),background:s.backgroundColor,shadow:s.boxShadow,borderLeft:s.borderLeftWidth,borderColor:s.borderLeftColor,opacity:s.opacity,position:s.position,display:s.display,width:s.width,height:s.height};};
+ const describe=selector=>{const el=document.querySelector(selector);if(!el)return null;const s=getComputedStyle(el);return{rect:rect(el),background:s.backgroundColor,shadow:s.boxShadow,borderLeft:s.borderLeftWidth,borderStyle:s.borderLeftStyle,borderColor:s.borderLeftColor,opacity:s.opacity,position:s.position,display:s.display,width:s.width,height:s.height};};
  const app=document.querySelector('.duxcel-app'),grid=document.querySelector('[role="grid"]');
+ const railDeclarations=[];function rules(list,href){for(const rule of list){if(rule.selectorText==='.retained-rail')railDeclarations.push({stylesheet:href,selector:rule.selectorText,borderLeft:rule.style.getPropertyValue('border-left'),borderLeftWidth:rule.style.borderLeftWidth,borderLeftStyle:rule.style.borderLeftStyle,borderLeftColor:rule.style.borderLeftColor});if(rule.cssRules)rules(rule.cssRules,href);}}for(const sheet of document.styleSheets)rules(sheet.cssRules,sheet.href);
  const cells=[...grid.querySelectorAll('[data-grid-cell]')].map(el=>({row:Number(el.dataset.row),col:Number(el.dataset.col),id:el.id,text:el.textContent,value:el.title,selected:el.getAttribute('aria-selected')}));
  return{viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},scale:Number(app.dataset.uiScale),ribbon:app.dataset.ribbonMode,authoring:app.dataset.authoring,narrow:app.classList.contains('narrow-workspace'),compact:app.classList.contains('compact-workspace'),
-  workspace:describe('.workspace'),sheet:describe('.sheet-workspace'),grid:describe('[role="grid"]'),wrapper:describe('.right-pane-wrap'),rail:describe('.retained-rail'),inspector:describe('.right-inspector'),
+  workspace:describe('.workspace'),sheet:describe('.sheet-workspace'),grid:describe('[role="grid"]'),wrapper:describe('.right-pane-wrap'),rail:describe('.retained-rail'),railDeclarations,inspector:describe('.right-inspector'),
   expand:describe('[aria-label="Expand Transformations"]'),dismiss:describe('[aria-label="Dismiss retained pane"]'),collapse:describe('[aria-label="Collapse and retain pane"]'),
   source:document.querySelector('.inspector-source')?.textContent||null,phase:document.querySelector('.right-pane-wrap')?.className||null,
   model:{rowCount:grid.getAttribute('aria-rowcount'),columnCount:grid.getAttribute('aria-colcount'),active:grid.getAttribute('aria-activedescendant'),address:document.querySelector('.cell-address')?.textContent,rows:document.querySelector('.row-count')?.textContent,
@@ -55,6 +64,16 @@ async function capture(caseName,name,baseline){
  // Park away from the rail so hover/tooltip pixels do not contaminate its fill.
  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:8,y:8});await settle();
  const state=await snapshot(),scale=state.scale,retained=name.startsWith('retained'),dismissed=name==='dismissed';
+ const geometry=state.rail?{resolvedBorderCss:state.rail.borderLeft,resolvedBorderViewport:resolvedCssInterval(state.rail.borderLeft,scale),resolvedBorderDevice:resolvedCssInterval(state.rail.borderLeft,scale*state.viewport.dpr),buttons:Object.fromEntries(['expand','dismiss'].map(part=>{const button=state[part];return[part,button?{offsetX:button.rect.x-state.rail.rect.x,offsetY:button.rect.y-state.rail.rect.y,contentCenterBorderViewport:2*(button.rect.x-state.rail.rect.x)-(state.rail.rect.width-button.rect.width)}:null];}))}:null;
+ // Persist raw geometry before any assertion, including the first failing state.
+ const record={case:caseName,name,state,geometry,validated:false};states.push(record);
+ const stateFile=path.join(output,caseName+'-'+name+'.state.json');
+ await fs.writeFile(stateFile,JSON.stringify(record,null,2)+'\n');
+ const screenshot=Buffer.from((await send('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:false})).data,'base64');
+ const filename=caseName+'-'+name+'.png';await fs.writeFile(path.join(output,filename),screenshot);
+ record.capture={file:filename,sha256:hash(screenshot),bytes:screenshot.length};
+ const image=await evaluate(`(async()=>{const bytes=Uint8Array.from(atob(${JSON.stringify(screenshot.toString('base64'))}),c=>c.charCodeAt(0)),image=await createImageBitmap(new Blob([bytes],{type:'image/png'})),surface=new OffscreenCanvas(image.width,image.height),ctx=surface.getContext('2d',{willReadFrequently:true});ctx.drawImage(image,0,0);const ratio=image.width/innerWidth,scale=${scale},panel=${JSON.stringify(state.rail?.rect??null)},rail=${JSON.stringify(state.rail)},workspace=${JSON.stringify(state.workspace.rect)},x=innerWidth-32*scale,y=workspace.y+Math.min(110*scale,workspace.height/2),p=(x,y)=>Array.from(ctx.getImageData(Math.floor(x*ratio),Math.floor(y*ratio),1,1).data),strip=ctx.getImageData(Math.ceil((x-5*scale)*ratio),Math.floor(y*ratio),Math.max(1,Math.floor(4*scale*ratio)),1).data;let border=null;if(panel){const width=Number.parseFloat(rail.borderLeft)*scale,first=Math.floor(panel.x*ratio),last=Math.ceil((panel.x+width)*ratio)-1,start=Math.max(0,first-1),end=Math.min(image.width-1,last+1),rgba=[...(rail.borderColor.match(/[0-9.]+/g)||[]).map(Number),255].slice(0,4),samples=[];for(let at=start;at<=end;at++)samples.push({x:at,rgba:Array.from(ctx.getImageData(at,Math.floor(y*ratio),1,1).data)});const ink=samples.filter(sample=>sample.rgba.every((value,i)=>value===rgba[i])).map(sample=>sample.x);border={resolvedCss:rail.borderLeft,viewportWidth:width,deviceWidth:width*ratio,rgba,envelope:{first,last},samples,inkPixels:ink,inkWidth:ink.length,contiguous:ink.every((at,i)=>!i||at===ink[i-1]+1)};}const result={width:image.width,height:image.height,ratio,railSample:panel?p(panel.x+16*scale,y):null,adjacentStrip:Array.from(strip),sampleY:y,border};image.close();return result;})()`);
+ record.image=image;await fs.writeFile(stateFile,JSON.stringify(record,null,2)+'\n');
  check(JSON.stringify(state.model)===JSON.stringify(baseline.model),'Rail lifecycle changed source, selection, values or scroll: '+caseName+'/'+name);
  check(state.ribbon==='compact'&&state.authoring==='false','Capture left compact source-browsing state');
  check(state.narrow===(state.viewport.width/scale<1040),'Reference narrow-workspace rule differs from frozen definition');
@@ -68,21 +87,25 @@ async function capture(caseName,name,baseline){
   check(state.wrapper.shadow===(state.narrow&&!retained?'rgba(39, 61, 79, 0.13) -5px 0px 14px 0px':'none'),'Reference narrow retained/expanded shadow mismatch');
   if(retained){
    check(!state.inspector&&state.rail?.background==='rgb(237, 242, 246)','Retained reference fill is not #edf2f6');
-   check(near(Number.parseFloat(state.rail.borderLeft),1),'Retained rail lost its one-unit left border');
-   for(const [button,y]of [[state.expand,5],[state.dismiss,36]]){
+   // The var() shorthand can leave its declared longhands pending substitution.
+   // Inspect its actual CSSOM declaration, independently of resolved/raster width.
+   check(state.railDeclarations.length===1&&state.railDeclarations[0].borderLeft==='1px solid var(--line)','Loaded reference CSS no longer declares the one-pixel solid rail border');
+   check(state.rail.borderStyle==='solid'&&state.rail.borderColor==='rgb(202, 210, 218)'&&Number.parseFloat(state.rail.borderLeft)>0,'Resolved retained rail border disappeared or changed style/color');
+   const border=image.border;
+   check(border?.contiguous&&border.inkWidth>0&&resolvedCssMatches(border.inkWidth,state.rail.borderLeft,scale*image.ratio),'Presented rail border ink does not match resolved CSS width×zoom×DPR');
+   check(border.inkPixels.every(x=>x>=border.envelope.first&&x<=border.envelope.last),'Presented rail border ink escapes its resolved border-box envelope');
+   for(const [part,y]of [['expand',5],['dismiss',36]]){
+    const button=state[part];
     check(button&&near(button.rect.width,26*scale)&&near(button.rect.height,26*scale),'Retained control is not26×26 logical units');
-    check(near(button.rect.x-state.rail.rect.x,3.5*scale)&&near(button.rect.y-state.rail.rect.y,y*scale),'Retained control no longer matches centered border-box geometry');
+    check(resolvedCssMatches(geometry.buttons[part].contentCenterBorderViewport,state.rail.borderLeft,scale)&&near(button.rect.y-state.rail.rect.y,y*scale),'Retained control no longer centers in the actual resolved border-box content');
    }
   }else check(!state.rail&&state.inspector?.background==='rgb(251, 252, 253)'&&state.source==='Source: Transactions','Expanded reference source/background mismatch');
  }
  const expectedWidth=state.workspace.rect.width-(state.compact?0:228*scale)-(state.narrow||dismissed?0:(retained?32:280)*scale);
  check(near(state.sheet.rect.width,expectedWidth,.12),'Reference pane reserved an incorrect grid width');
- const screenshot=Buffer.from((await send('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:false})).data,'base64');
- const filename=caseName+'-'+name+'.png';await fs.writeFile(path.join(output,filename),screenshot);
- const image=await evaluate(`(async()=>{const bytes=Uint8Array.from(atob(${JSON.stringify(screenshot.toString('base64'))}),c=>c.charCodeAt(0)),image=await createImageBitmap(new Blob([bytes],{type:'image/png'})),surface=new OffscreenCanvas(image.width,image.height),ctx=surface.getContext('2d',{willReadFrequently:true});ctx.drawImage(image,0,0);const ratio=image.width/innerWidth,scale=${scale},panel=${JSON.stringify(state.rail?.rect??null)},workspace=${JSON.stringify(state.workspace.rect)},x=innerWidth-32*scale,y=workspace.y+Math.min(110*scale,workspace.height/2),p=(x,y)=>Array.from(ctx.getImageData(Math.floor(x*ratio),Math.floor(y*ratio),1,1).data),strip=ctx.getImageData(Math.ceil((x-5*scale)*ratio),Math.floor(y*ratio),Math.max(1,Math.floor(4*scale*ratio)),1).data;const result={width:image.width,height:image.height,ratio,railSample:panel?p(panel.x+16*scale,y):null,adjacentStrip:Array.from(strip),sampleY:y};image.close();return result;})()`);
  check(image.width===Math.round(state.viewport.width*config.dpr)&&image.height===Math.round(state.viewport.height*config.dpr),'Reference compositor screenshot DPR mismatch');
  if(retained)check(JSON.stringify(image.railSample)==='[237,242,246,255]','Presented retained rail pixels differ from its computed #edf2f6');
- const record={case:caseName,name,state,image,capture:{file:filename,sha256:hash(screenshot),bytes:screenshot.length}};states.push(record);return record;
+ record.validated=true;await fs.writeFile(stateFile,JSON.stringify(record,null,2)+'\n');return record;
 }
 async function validateLoadedAssets(){
  const responses=events.filter(event=>event.method==='Network.responseReceived'&&!validatedRequests.has(event.params.requestId)&&['Document','Stylesheet','Script','Font'].includes(event.params.type));
