@@ -544,13 +544,16 @@ static int preferences_only(void) {
     workbook_codec_header_free(header); CHECK(nul_cells==1 && access(missing,F_OK)!=0); free(missing); CHECK(!rmdir(directory)); free(directory);
     printf("PASS: native optional preferences %u checks; %u metadata executions/%u typed feeds;65-row native parity/reorder/defaults, unknownNULL/NUL, duplicatefalse/active/malformed/66sentinel rejection, owned state and budget/stale/recovery; source definitions never executed; native comparison only, no Worker/App Open claim; engine %s\n",checks,executions,feeds,duckdb_library_version()); return 0;
 }
+#include "test_workbook_codec_objects_native.inc"
 int main(int argc,char **argv) {
     if (argc==3 && !strcmp(argv[1],"--emit-fixtures")) return emit_fixture_files(argv[2],emit_fixtures,7,fixture,NULL,NULL);
     if (argc==3 && !strcmp(argv[1],"--emit-sorts-fixtures")) return emit_fixture_files(argv[2],emit_sorts_fixtures,4,sorts_fixture,sorts_reorder_sql,NULL);
     if (argc==3 && !strcmp(argv[1],"--emit-preferences-fixtures")) return emit_fixture_files(argv[2],emit_preferences_fixtures,6,preferences_fixture,preferences_reorder_sql,preferences_post_sql);
     if (argc==2 && !strcmp(argv[1],"--sorts-only")) return sorts_only();
     if (argc==2 && !strcmp(argv[1],"--preferences-only")) return preferences_only();
-    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR]\n",argv[0]); return 2; }
+    if (argc==3 && !strcmp(argv[1],"--emit-objects-fixtures")) return emit_fixture_files(argv[2],emit_objects_fixtures,4,objects_fixture,objects_reorder_sql,NULL);
+    if (argc==2 && !strcmp(argv[1],"--objects-only")) return objects_only();
+    if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR]\n",argv[0]); return 2; }
     char directory[]="/tmp/duxcel-codec-native-XXXXXX"; CHECK(mkdtemp(directory));
     char *missing=dx_printf("%s/missing-source.csv",directory); CHECK(access(missing,F_OK)!=0);
     for (unsigned version=12;version<=14;version++) {
