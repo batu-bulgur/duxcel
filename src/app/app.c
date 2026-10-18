@@ -6232,6 +6232,17 @@ static Rectangle pipeline_scrollbar_thumb(Rectangle track,float content,float vi
     if (thumb.width>0 && thumb.height>0) { thumb.x=track.x+2*scale; thumb.width=fmaxf(0,track.width-4*scale); }
     return thumb;
 }
+static bool pipeline_scrollbar_update(UIContext *u,Rectangle track,float maximum,float viewport,float *offset,UIScrollbar *state,bool enabled) {
+    /* The layout owns the exact range. Adding a small overflow to a larger
+       viewport and subtracting it again can lose low bits; the generic bar's
+       representable range must not clamp the model on every idle paint. */
+    float content=viewport+maximum,bar_maximum=content-viewport;
+    float value=maximum>0 && bar_maximum>0 ? (*offset/maximum)*bar_maximum : 0;
+    bool consumed=ui_scrollbar_update(u,track,content,viewport,&value,false,state,enabled);
+    if (consumed && maximum>0 && bar_maximum>0)
+        *offset=value>=bar_maximum ? maximum : fmaxf(0,(value/bar_maximum)*maximum);
+    return consumed;
+}
 static void pipeline_visible_rows(const UIInspectorLayout *layout,float scale,int count,int *first,int *last) {
     float height=layout->row_height*scale;
     *first=layout->list.height>0 ? (int)fmaxf(0,floorf((layout->list.y-layout->list_origin.y)/height)) : 0;
@@ -6295,14 +6306,14 @@ static UIInspectorLayout pipeline_prepare_sql(App *a,const Analysis *source,cons
     }
     layout=ui_inspector_layout_scrolled(panel,scale,a->pipeline_row_count,true,a->pipeline_outer_scroll,0);
     a->pipeline_outer_scroll=layout.outer_offset;
-    if (ui_scrollbar_update(u,layout.outer_scrollbar,panel.height/scale+layout.outer_max,panel.height/scale,&a->pipeline_outer_scroll,false,&a->pipeline_outer_bar,enabled)) a->consume_grid_input=true;
+    if (pipeline_scrollbar_update(u,layout.outer_scrollbar,layout.outer_max,panel.height/scale,&a->pipeline_outer_scroll,&a->pipeline_outer_bar,enabled)) a->consume_grid_input=true;
     layout=ui_inspector_layout_scrolled(panel,scale,a->pipeline_row_count,true,a->pipeline_outer_scroll,0);
     layout.inner_max=maximum; layout.inner_scrollable=maximum>0 && viewport>0;
     if (layout.inner_scrollable) {
         layout.sql_code.width=fmaxf(0,layout.sql_code.width-lane);
         layout.list_scrollbar=box(layout.sql_frame.x+layout.sql_frame.width-lane,layout.sql_frame.y,lane,layout.sql_frame.height);
         if (ui_scissor_begin(u,GetCollisionRec(layout.sql_frame,layout.body_clip))) {
-            if (ui_scrollbar_update(u,layout.list_scrollbar,content,viewport,&a->inspector_sql_scroll,false,&a->inspector_sql_bar,enabled)) a->consume_grid_input=true;
+            if (pipeline_scrollbar_update(u,layout.list_scrollbar,maximum,viewport,&a->inspector_sql_scroll,&a->inspector_sql_bar,enabled)) a->consume_grid_input=true;
             ui_scissor_end(u);
         }
     } else a->inspector_sql_bar=(UIScrollbar){0};
@@ -6381,9 +6392,9 @@ static void draw_pipeline(App *a,Rectangle r) {
             pipeline_scroll_delta(a,&layout,r,pointer,delta);
         }
         layout=ui_inspector_layout_scrolled(r,scale,a->pipeline_row_count,false,a->pipeline_outer_scroll,a->pipeline_inner_scroll);
-        if (ui_scrollbar_update(u,layout.outer_scrollbar,r.height/scale+layout.outer_max,r.height/scale,&a->pipeline_outer_scroll,false,&a->pipeline_outer_bar,enabled)) a->consume_grid_input=true;
+        if (pipeline_scrollbar_update(u,layout.outer_scrollbar,layout.outer_max,r.height/scale,&a->pipeline_outer_scroll,&a->pipeline_outer_bar,enabled)) a->consume_grid_input=true;
         if (ui_scissor_begin(u,layout.body_clip)) {
-            if (ui_scrollbar_update(u,layout.list_scrollbar,layout.list_frame.height/scale+layout.inner_max,layout.list_frame.height/scale,&a->pipeline_inner_scroll,false,&a->pipeline_inner_bar,enabled)) a->consume_grid_input=true;
+            if (pipeline_scrollbar_update(u,layout.list_scrollbar,layout.inner_max,layout.list_frame.height/scale,&a->pipeline_inner_scroll,&a->pipeline_inner_bar,enabled)) a->consume_grid_input=true;
             ui_scissor_end(u);
         }
         layout=ui_inspector_layout_scrolled(r,scale,a->pipeline_row_count,false,a->pipeline_outer_scroll,a->pipeline_inner_scroll);
