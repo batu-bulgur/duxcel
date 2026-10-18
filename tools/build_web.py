@@ -21,7 +21,7 @@ def main():
     tools.require(sources and all((ROOT/p).is_file() for p in sources),'Invalid shared web source inventory')
     headers=sorted((ROOT/'src').rglob('*.h'))+sorted((ROOT/'src').rglob('*.inc'))
     if options.codec_read_driver:
-        headers+=[ROOT/'tests'/name for name in ('test_browser_codec_sorts.inc','test_browser_codec_preferences.inc','test_browser_codec_objects.inc','test_browser_codec_queries.inc','test_browser_codec_options.inc','test_browser_codec_tables.inc','test_browser_codec_pivot_marks.inc') if (ROOT/'tests'/name).is_file()]
+        headers+=[ROOT/'tests'/name for name in ('test_browser_codec_sorts.inc','test_browser_codec_preferences.inc','test_browser_codec_objects.inc','test_browser_codec_queries.inc','test_browser_codec_options.inc','test_browser_codec_tables.inc','test_browser_codec_pivot_marks.inc','test_browser_codec_filters.inc') if (ROOT/'tests'/name).is_file()]
     host=[ROOT/'web/index.html',ROOT/'web/host.mjs',ROOT/'web/canvas_input.mjs',ROOT/'web/canvas_surface.mjs',ROOT/'web/canvas_wheel.mjs',ROOT/'web/browser_platform.mjs',ROOT/'web/clipboard.mjs',ROOT/'web/download.mjs',ROOT/'web/official_worker.mjs',ROOT/'web/engine_host.mjs',ROOT/'web/page_wire.mjs',ROOT/'assets/icons/png/duxcel-32.png']
     if options.worker_driver:host=[p for p in host if p.name not in ('index.html','host.mjs','canvas_input.mjs')]+[ROOT/'web/worker_test_host.mjs']
     if options.codec_read_driver:host=[ROOT/'web'/name for name in ('official_worker.mjs','engine_host.mjs','page_wire.mjs','codec_test_host.mjs')]

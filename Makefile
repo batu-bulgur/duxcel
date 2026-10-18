@@ -412,9 +412,9 @@ test-workbook-codec-read: tests/test_workbook_codec_read tests/test_workbook_cod
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_read-debug
 .PHONY: test-workbook-codec-read
 WORKBOOK_CODEC_NATIVE_TEST = $(CORE) src/workbook/workbook_codec_read.c tests/test_workbook_codec_native.c
-tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc $(HEADERS)
+tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc $(HEADERS)
+tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 test-workbook-codec-native: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
 	./tests/test_workbook_codec_native
@@ -970,7 +970,7 @@ test-browser-core: build/web-tests/test-wire build/web-tests/test-wire-sanitize 
 	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-distinct-query-sanitize
 	./build/web-tests/test-distinct-page
 	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-distinct-page-sanitize
-	node --test web/official_worker.test.mjs web/page_wire.test.mjs web/engine_host.test.mjs web/official_worker_probe.test.mjs
+	node --test web/official_worker.test.mjs web/page_wire.test.mjs web/engine_host.test.mjs web/official_worker_probe.test.mjs web/metadata_stream.test.mjs
 	python3 tools/package_web_vendor_test.py
 .PHONY: test-browser-core
 
@@ -979,3 +979,10 @@ tests/test_keytips: $(KEYTIPS_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(KEYTIPS_SRC) -o $@ -lm
 tests/test_keytips-debug: $(KEYTIPS_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(KEYTIPS_SRC) -o $@ -lm $(SANFLAGS)
+
+test-browser-codec-filters:
+	python3 tools/test_web_app.py --codec-read-driver --codec-filters
+test-workbook-codec-filters: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
+	./tests/test_workbook_codec_native --filters-only
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --filters-only
+.PHONY: test-browser-codec-filters test-workbook-codec-filters

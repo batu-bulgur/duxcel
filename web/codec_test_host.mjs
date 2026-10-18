@@ -5,10 +5,11 @@ import {createEngineHost} from './engine_host.mjs';
 import {createOfficialWorkerAdapter} from './official_worker.mjs';
 
 const parameters=new URLSearchParams(location.search);
+const filtersMode=parameters.get('codec_filters')==='1';
 const pmMode=parameters.get('codec_pivot_marks')==='1';
 const tablesMode=parameters.get('codec_tables')==='1';
 const sortsMode=parameters.get('codec_sorts')==='1',preferencesMode=parameters.get('codec_preferences')==='1',objectsMode=parameters.get('codec_objects')==='1',queriesMode=parameters.get('codec_queries')==='1',optionsMode=parameters.get('codec_source_options')==='1';
-const names=pmMode?['pivot-marks-v12.dxls','pivot-marks-v13.dxls','pivot-marks-v14.dxls','pivot-marks-v14-reordered.dxls']:tablesMode?['tables-v12.dxls','tables-v13.dxls','tables-v14.dxls','tables-v14-reordered.dxls']:optionsMode?['options-v12.dxls','options-v13.dxls','options-v14.dxls','options-v14-reordered.dxls']:queriesMode?['queries-v12.dxls','queries-v14-blank.dxls','queries-v14-nul.dxls','queries-v13.dxls','queries-v14.dxls','queries-v14-reordered.dxls']:objectsMode?['objects-v12.dxls','objects-v13.dxls','objects-v14.dxls','objects-v14-reordered.dxls']:preferencesMode?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:sortsMode?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
+const names=filtersMode?['filters-v12.dxls','filters-v13.dxls','filters-v14.dxls','filters-v14-reordered.dxls']:pmMode?['pivot-marks-v12.dxls','pivot-marks-v13.dxls','pivot-marks-v14.dxls','pivot-marks-v14-reordered.dxls']:tablesMode?['tables-v12.dxls','tables-v13.dxls','tables-v14.dxls','tables-v14-reordered.dxls']:optionsMode?['options-v12.dxls','options-v13.dxls','options-v14.dxls','options-v14-reordered.dxls']:queriesMode?['queries-v12.dxls','queries-v14-blank.dxls','queries-v14-nul.dxls','queries-v13.dxls','queries-v14.dxls','queries-v14-reordered.dxls']:objectsMode?['objects-v12.dxls','objects-v13.dxls','objects-v14.dxls','objects-v14-reordered.dxls']:preferencesMode?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:sortsMode?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
 const encoder=new TextEncoder();
 const receipts={schema:'duxcel.codec-read-transport',version:1,fixtures:[],queries:[],held:0,released:0};
 let adapter,engine,registered=null,held=null,module;
@@ -29,18 +30,18 @@ async function manifest() {
     return value;
 }
 try {
-    if(Number(sortsMode)+Number(preferencesMode)+Number(objectsMode)+Number(queriesMode)+Number(optionsMode)+Number(tablesMode)+Number(pmMode)>1)throw new Error('Ambiguous codec acceptance modes');
+    if(Number(sortsMode)+Number(preferencesMode)+Number(objectsMode)+Number(queriesMode)+Number(optionsMode)+Number(tablesMode)+Number(pmMode)+Number(filtersMode)>1)throw new Error('Ambiguous codec acceptance modes');
     const vendor=await(await fetch('./vendor.json')).json();
     const config={moduleURL:new URL(vendor.worker.moduleURL,location.href).href,workerURL:new URL(vendor.worker.workerURL,location.href).href};
     const fixtureManifest=await manifest();
     const adapterPromise=createOfficialWorkerAdapter(config).then(value=>{
-        if(sortsMode){const ordinary=value.submit.bind(value);value.submit=request=>request?.purpose==='workbook-sorts'?value.submitWorkbookSorts(request):ordinary(request);}
+        if(sortsMode||filtersMode){const ordinary=value.submit.bind(value);value.submit=request=>request?.purpose==='workbook-sorts'?value.submitWorkbookSorts(request):ordinary(request);}
         if(objectsMode){const ordinary=value.submit.bind(value);value.submit=request=>request?.purpose==='workbook-objects'?value.submitWorkbookObjects(request):ordinary(request);}
-        if(queriesMode||optionsMode||tablesMode||pmMode){const ordinary=value.submit.bind(value);value.submit=request=>pmMode&&['workbook-pivot-fields','workbook-marks'].includes(request?.purpose)?value.submitWorkbookPivotMarks(request):(tablesMode||pmMode)&&['workbook-table-sources','workbook-table-filters','workbook-table-sorts'].includes(request?.purpose)?value.submitWorkbookTables(request):request?.purpose==='workbook-owners'?value.submitWorkbookOwners(request):request?.purpose==='workbook-objects'?value.submitWorkbookObjects(request):ordinary(request);}
+        if(queriesMode||optionsMode||tablesMode||pmMode||filtersMode){const ordinary=value.submit.bind(value);value.submit=request=>filtersMode&&request?.purpose==='workbook-filters'?value.submitWorkbookFilters(request):pmMode&&['workbook-pivot-fields','workbook-marks'].includes(request?.purpose)?value.submitWorkbookPivotMarks(request):(tablesMode||pmMode)&&['workbook-table-sources','workbook-table-filters','workbook-table-sorts'].includes(request?.purpose)?value.submitWorkbookTables(request):request?.purpose==='workbook-owners'?value.submitWorkbookOwners(request):request?.purpose==='workbook-objects'?value.submitWorkbookObjects(request):ordinary(request);}
         receipts.engineVersion=value.engineVersion;adapter=value;return value;
     });
     engine=createEngineHost(config,()=>adapterPromise);
-    const options={print:message=>console.log(message),printErr:message=>console.error(message),dxEngine:engine,dxCodecSortsMode:sortsMode,dxCodecPreferencesMode:preferencesMode,dxCodecObjectsMode:objectsMode,dxCodecQueriesMode:queriesMode,dxCodecSourceOptionsMode:optionsMode,dxCodecTablesMode:tablesMode,dxCodecPivotMarksMode:pmMode};
+    const options={print:message=>console.log(message),printErr:message=>console.error(message),dxEngine:engine,dxCodecSortsMode:sortsMode,dxCodecPreferencesMode:preferencesMode,dxCodecObjectsMode:objectsMode,dxCodecQueriesMode:queriesMode,dxCodecSourceOptionsMode:optionsMode,dxCodecTablesMode:tablesMode,dxCodecPivotMarksMode:pmMode,dxCodecFiltersMode:filtersMode};
     options.dxCodecFixture=(runtime,cookie,ticket,name,attachSQL,detachSQL)=>{
         // Copy all C-owned strings before the first await.
         const file=String(name),attach=String(attachSQL),detach=String(detachSQL);
