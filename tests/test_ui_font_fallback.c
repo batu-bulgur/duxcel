@@ -10,9 +10,11 @@
 
 static unsigned checks;
 #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL font fallback:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
+typedef struct { GlyphInfo *glyphs; Rectangle *recs; unsigned texture; } OwnedFont;
 static struct {
-    unsigned loads,omit_on_call,next_texture,live,unloads,draws;
-    bool owned[128];
+    unsigned loads,omit_on_call,zero_on_call,zero_loads,zero_unloads,next_texture,live,unloads,draws;
+    bool owned[512];
+    OwnedFont fonts[16]; /* Actual allocation ownership is independent of GPU success. */
     Rectangle sources[8];
     float density;
     double time;
@@ -23,7 +25,8 @@ static Rectangle default_rect={0,0,5,10};
 Font GetFontDefault(void) {
     return (Font){.baseSize=10,.glyphCount=1,.texture={.id=1},.glyphs=&default_glyph,.recs=&default_rect};
 }
-bool IsFontValid(Font font) { return font.baseSize>0 && font.glyphCount>0 && font.glyphs && font.recs && font.texture.id; }
+/* raylib 6 deliberately does not check the GPU texture in IsFontValid(). */
+bool IsFontValid(Font font) { return font.baseSize>0 && font.glyphCount>0 && font.glyphs && font.recs; }
 int GetGlyphIndex(Font font,int cp) {
     int fallback=0;
     for (int i=0;i<font.glyphCount;i++) {
@@ -41,12 +44,23 @@ Font LoadFontFromMemory(const char *type,const unsigned char *data,int bytes,int
     CHECK(font.glyphs && font.glyphCount>0);
     font.recs=calloc((size_t)font.glyphCount,sizeof(*font.recs)); CHECK(font.recs);
     for (int i=0;i<font.glyphCount;i++) font.recs[i]=(Rectangle){i*128.0f,0,(float)font.glyphs[i].image.width,(float)font.glyphs[i].image.height};
-    font.texture.id=++state.next_texture; CHECK(font.texture.id<128 && !state.owned[font.texture.id]);
-    state.owned[font.texture.id]=true; state.live++; return font;
+    if (state.loads==state.zero_on_call) state.zero_loads++;
+    else {
+        font.texture.id=++state.next_texture; CHECK(font.texture.id<512 && !state.owned[font.texture.id]);
+        state.owned[font.texture.id]=true;
+    }
+    size_t slot=0; while (slot<16 && state.fonts[slot].glyphs) slot++;
+    CHECK(slot<16); state.fonts[slot]=(OwnedFont){font.glyphs,font.recs,font.texture.id};
+    state.live++; return font;
 }
 void UnloadFont(Font font) {
-    CHECK(font.texture.id>2 && font.texture.id<128 && state.owned[font.texture.id]);
-    state.owned[font.texture.id]=false; state.live--; state.unloads++;
+    size_t slot=0; while (slot<16 && state.fonts[slot].glyphs!=font.glyphs) slot++;
+    CHECK(slot<16 && state.fonts[slot].recs==font.recs && state.fonts[slot].texture==font.texture.id);
+    if (font.texture.id) {
+        CHECK(font.texture.id>2 && font.texture.id<512 && state.owned[font.texture.id]);
+        state.owned[font.texture.id]=false;
+    } else state.zero_unloads++;
+    state.fonts[slot]=(OwnedFont){0}; state.live--; state.unloads++;
     UnloadFontData(font.glyphs,font.glyphCount); free(font.recs);
 }
 void SetTextureFilter(Texture2D texture,int filter) { (void)texture; (void)filter; }
@@ -78,6 +92,56 @@ static void family(Font fonts[7],const UIContext *ui) { for (int f=0;f<6;f++) fo
 static void same_family(const UIContext *ui,const Font old[7]) {
     Font current[7]; family(current,ui); CHECK(!memcmp(current,old,sizeof(current)));
     for (int f=0;f<7;f++) CHECK(state.owned[current[f].texture.id]);
+}
+static void same_font_state(const UIContext *ui,const UIContext *before) {
+    Font old[7]; family(old,before); same_family(ui,old);
+    CHECK(ui->fonts_loaded && ui->mono_owned);
+    CHECK(ui->raster_size==before->raster_size && ui->small_raster==before->small_raster && ui->mono_raster==before->mono_raster);
+    CHECK(!memcmp(ui->marker_glyphs,before->marker_glyphs,sizeof(ui->marker_glyphs)));
+    CHECK(!memcmp(ui->fallback,before->fallback,sizeof(ui->fallback)));
+    CHECK(!memcmp(ui->glyph_index,before->glyph_index,sizeof(ui->glyph_index)));
+    CHECK(!memcmp(ui->em_advance,before->em_advance,sizeof(ui->em_advance)));
+    CHECK(!memcmp(ui->em_height,before->em_height,sizeof(ui->em_height)));
+    CHECK(ui->digit_width==before->digit_width && ui->advances_ready==before->advances_ready);
+    CHECK(ui->command_glyph==before->command_glyph && ui->shift_glyph==before->shift_glyph);
+    CHECK(ui->command_advance==before->command_advance && ui->shift_advance==before->shift_advance && ui->mono_em_height==before->mono_em_height);
+    CHECK(ui->mono.glyphs[ui->marker_glyphs[0]].value=='N' && ui->mono.glyphs[ui->marker_glyphs[3]].value=='"');
+}
+static void expect_failed_uploads(void) {
+    /* A failed upload still owns CPU glyphs and rectangles. Every primary
+       atlas and the separate NULL-marker mono atlas must be cleaned up. */
+    for (unsigned bad=1;bad<=7;bad++) {
+        UIContext ui; unsigned loads=state.loads,unloads=state.unloads,zero_loads=state.zero_loads,zero_unloads=state.zero_unloads;
+        unsigned created=bad==7 ? 7 : 6; state.zero_on_call=loads+bad;
+        CHECK(!init(&ui));
+        CHECK(state.loads==loads+created && state.unloads==unloads+created);
+        CHECK(state.zero_loads==zero_loads+1 && state.zero_unloads==zero_unloads+1);
+        CHECK(!ui.fonts_loaded && !ui.mono_owned && !state.live);
+        ui_destroy(&ui); CHECK(!state.live);
+    }
+    state.zero_on_call=0;
+    for (unsigned dpi=0;dpi<2;dpi++) for (unsigned bad=1;bad<=7;bad++) {
+        UIContext ui; CHECK(init(&ui) && state.live==7);
+        /* Read-only shallow snapshot: only ui owns/frees these resources. */
+        UIContext before=ui;
+        unsigned loads=state.loads,unloads=state.unloads,zero_loads=state.zero_loads,zero_unloads=state.zero_unloads;
+        unsigned created=bad==7 ? 7 : 6; state.zero_on_call=loads+bad;
+        if (dpi) state.density=3; else ui_set_scale(&ui,1.5f);
+        state.time+=3; ui_update(&ui);
+        CHECK(state.loads==loads+created && state.unloads==unloads+created && state.live==7);
+        CHECK(state.zero_loads==zero_loads+1 && state.zero_unloads==zero_unloads+1);
+        CHECK(ui.reload_after==state.time+2); same_font_state(&ui,&before);
+        loads=state.loads; state.time+=1; ui_update(&ui);
+        CHECK(state.loads==loads); same_font_state(&ui,&before);
+        state.zero_on_call=0; state.time+=1; ui_update(&ui);
+        CHECK(state.loads==loads+7 && state.live==7 && !ui.reload_after && ui.raster_size!=before.raster_size);
+        Font old[7]; family(old,&before);
+        for (int f=0;f<7;f++) CHECK(!state.owned[old[f].texture.id]);
+        for (int f=0;f<6;f++) CHECK(face(&ui,f).glyphs[ui.fallback[f]].value==0xfffd);
+        CHECK(ui.mono.glyphs[ui.marker_glyphs[0]].value=='N' && ui.mono.glyphs[ui.marker_glyphs[3]].value=='"');
+        ui_destroy(&ui); CHECK(!state.live); state.density=2;
+    }
+    CHECK(state.zero_loads==21 && state.zero_unloads==21);
 }
 static void expect_text(UIContext *ui) {
     static const char *unknown[]={"\xd8\xa7","\xe8\xa1\xa8","\xf0\x9f\xa6\x86"}; /* Unsupported BMP below/above table cap, supplementary. */
@@ -126,5 +190,6 @@ int main(void) {
     state.omit_on_call=0; state.time=3; ui_update(&ui); CHECK(state.live==7 && !ui.reload_after && ui.raster_size!=old[0].baseSize);
     for (int f=0;f<7;f++) CHECK(!state.owned[old[f].texture.id]);
     expect_text(&ui); ui_destroy(&ui); CHECK(!state.live);
+    expect_failed_uploads();
     printf("PASS: %u font fallback checks (actual ui.c, bundled CPU glyphs; no GPU/window)\n",checks); return 0;
 }
