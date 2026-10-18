@@ -3559,6 +3559,13 @@ static bool review_smoke_feedback_targets(App *a,ReviewSmoke *t,int item) {
 static int review_smoke_feedback_tick(App *a,ReviewSmoke *t) {
     int item=(t->stage-REVIEW_WORKSPACE_END)/4,phase=(t->stage-REVIEW_WORKSPACE_END)%4; DxReviewCapture *r=a->review;
     if (!phase) {
+        /* The extra probe owns PICK/cancel before the original capture's
+           IDLE-only setup can resume. Keep it bound to its prepared case. */
+        if (item<2 && t->feedback_started && t->feedback_item==item && t->feedback_pan_item==item &&
+            t->feedback_pan_phase>=2 && t->feedback_pan_phase<=3) {
+            if (review_smoke_feedback_pan_tick(a,t,item)<0) goto failed;
+            return 0;
+        }
         if (r->phase!=DX_REPORT_IDLE || !smoke_work_idle(a)) return 0;
         if (!review_smoke_feedback_fixture(t)) goto failed;
         if (!t->feedback_table_added) { grid_select_cell(&a->grid,20,8,false); keyboard_object(a); if (!import_table(a,t->feedback_path)) goto failed; t->feedback_table=a->selected_object; t->feedback_table_added=true; return 0; }
