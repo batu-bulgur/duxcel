@@ -412,9 +412,9 @@ test-workbook-codec-read: tests/test_workbook_codec_read tests/test_workbook_cod
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_read-debug
 .PHONY: test-workbook-codec-read
 WORKBOOK_CODEC_NATIVE_TEST = $(CORE) src/workbook/workbook_codec_read.c tests/test_workbook_codec_native.c
-tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc $(HEADERS)
+tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc $(HEADERS)
+tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 test-workbook-codec-native: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
 	./tests/test_workbook_codec_native
@@ -882,6 +882,8 @@ test-browser-codec-preferences:
 	python3 tools/test_web_app.py --codec-read-driver --codec-preferences
 test-browser-codec-objects:
 	python3 tools/test_web_app.py --codec-read-driver --codec-objects
+test-browser-codec-queries:
+	python3 tools/test_web_app.py --codec-read-driver --codec-queries
 test-workbook-codec-sorts: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
 	./tests/test_workbook_codec_native --sorts-only
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --sorts-only
@@ -891,9 +893,13 @@ test-workbook-codec-preferences: tests/test_workbook_codec_native tests/test_wor
 test-workbook-codec-objects: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
 	./tests/test_workbook_codec_native --objects-only
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --objects-only
+test-workbook-codec-queries: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
+	./tests/test_workbook_codec_native --queries-only
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --queries-only
 .PHONY: web-codec-read-sources test-browser-codec-read test-browser-codec-sorts test-workbook-codec-sorts
 .PHONY: test-browser-codec-preferences test-workbook-codec-preferences
 .PHONY: test-browser-codec-objects test-workbook-codec-objects
+.PHONY: test-browser-codec-queries test-workbook-codec-queries
 BROWSER_MODEL_TEST_SRC = $(filter-out src/platform/platform.c src/data/database.c src/data/worker.c,$(CORE)) src/workbook/workbook_browser.c tests/test_workbook_model.c
 BROWSER_DISTINCT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/distinct.c
 BROWSER_DISTINCT_PAGE_TEST_SRC = $(BROWSER_DISTINCT_TEST_SRC) src/data/page.c src/data/source_digest.c src/data/distinct_page.c

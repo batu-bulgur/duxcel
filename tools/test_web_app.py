@@ -19,6 +19,10 @@ CODEC_PREFERENCES_FIXTURES={
 CODEC_OBJECTS_FIXTURES={
     'objects-v12.dxls':(12,25),'objects-v13.dxls':(13,25),
     'objects-v14.dxls':(14,25),'objects-v14-reordered.dxls':(14,25)}
+CODEC_QUERIES_FIXTURES={
+    'queries-v12.dxls':(12,25),'queries-v13.dxls':(13,25),
+    'queries-v14.dxls':(14,25),'queries-v14-reordered.dxls':(14,25),
+    'queries-v14-blank.dxls':(14,25),'queries-v14-nul.dxls':(14,25)}
 
 def codec_fixture_manifest(directory, emitted, expected=CODEC_FIXTURES):
     """Validate only this invocation's closed, bounded immutable archives."""
@@ -90,6 +94,7 @@ def parse_options(argv=None):
     parser.add_argument('--codec-sorts',action='store_true',help='Separate opt-in saved-sort family proof; requires --codec-read-driver')
     parser.add_argument('--codec-preferences',action='store_true',help='Separate opt-in saved preferences proof; requires --codec-read-driver')
     parser.add_argument('--codec-objects',action='store_true',help='Separate opt-in saved object descriptor proof; requires --codec-read-driver')
+    parser.add_argument('--codec-queries',action='store_true',help='Separate opt-in primary/Table query definition proof; requires --codec-read-driver')
     parser.add_argument('--review',action='store_true')
     parser.add_argument('--source-labels-only',action='store_true',help='Original source filenames across primary/Table imports, rename, filter history, query and preview; requires --review and transactions.csv')
     parser.add_argument('--chart-other-only',action='store_true',help='Real same-sheet chart weighted AVG/distinct Other, cached Plot/Marks/representation and history; requires --review, chart-other.csv and --dpr 2')
@@ -136,9 +141,10 @@ def parse_options(argv=None):
     if options.codec_sorts and not options.codec_read_driver:parser.error('--codec-sorts requires --codec-read-driver')
     if options.codec_preferences and not options.codec_read_driver:parser.error('--codec-preferences requires --codec-read-driver')
     if options.codec_objects and not options.codec_read_driver:parser.error('--codec-objects requires --codec-read-driver')
+    if options.codec_queries and not options.codec_read_driver:parser.error('--codec-queries requires --codec-read-driver')
     if options.codec_read_driver:
-        if sum((options.codec_sorts,options.codec_preferences,options.codec_objects))>1:parser.error('Choose one independent codec family gate')
-        if options.dpr!=1 or any(value for name,value in vars(options).items() if name not in ('codec_read_driver','codec_sorts','codec_preferences','codec_objects','no_build','dpr')):
+        if sum((options.codec_sorts,options.codec_preferences,options.codec_objects,options.codec_queries))>1:parser.error('Choose one independent codec family gate')
+        if options.dpr!=1 or any(value for name,value in vars(options).items() if name not in ('codec_read_driver','codec_sorts','codec_preferences','codec_objects','codec_queries','no_build','dpr')):
             parser.error('--codec-read-driver is an isolated no-window gate; choose one optional codec family, --no-build and default --dpr 1')
         return options
     if options.chart_other_only:
@@ -322,11 +328,11 @@ def main():
     with FileLock(native_lock_path(),'hidden shared C browser acceptance'):
         codec_manifest=None;codec_helper=None;codec_helper_hash=None
         if options.codec_read_driver:
-            codec_expected=CODEC_OBJECTS_FIXTURES if options.codec_objects else CODEC_PREFERENCES_FIXTURES if options.codec_preferences else CODEC_SORTS_FIXTURES if options.codec_sorts else CODEC_FIXTURES
+            codec_expected=CODEC_QUERIES_FIXTURES if options.codec_queries else CODEC_OBJECTS_FIXTURES if options.codec_objects else CODEC_PREFERENCES_FIXTURES if options.codec_preferences else CODEC_SORTS_FIXTURES if options.codec_sorts else CODEC_FIXTURES
             codec_helper=ROOT/'tests/test_workbook_codec_native'
             codec_helper_hash=hashlib.sha256(codec_helper.read_bytes()).hexdigest()
             codec_directory=output/'codec-fixtures';codec_directory.mkdir()
-            emitted=subprocess.run([str(codec_helper),'--emit-objects-fixtures' if options.codec_objects else '--emit-preferences-fixtures' if options.codec_preferences else '--emit-sorts-fixtures' if options.codec_sorts else '--emit-fixtures',str(codec_directory)],cwd=ROOT,text=True,capture_output=True,timeout=30)
+            emitted=subprocess.run([str(codec_helper),'--emit-queries-fixtures' if options.codec_queries else '--emit-objects-fixtures' if options.codec_objects else '--emit-preferences-fixtures' if options.codec_preferences else '--emit-sorts-fixtures' if options.codec_sorts else '--emit-fixtures',str(codec_directory)],cwd=ROOT,text=True,capture_output=True,timeout=30)
             (output/'codec-native-create.txt').write_text(emitted.stdout+emitted.stderr)
             if emitted.returncode:raise RuntimeError('Native codec fixture emission failed; see '+str(output/'codec-native-create.txt'))
             codec_emitted=json.loads(emitted.stdout)
@@ -364,6 +370,7 @@ def main():
             if options.codec_sorts:command.append('--codec-sorts')
             if options.codec_preferences:command.append('--codec-preferences')
             if options.codec_objects:command.append('--codec-objects')
+            if options.codec_queries:command.append('--codec-queries')
             if options.worker_probe: command.append('--worker-probe')
             if options.source: command.extend(['--source',str(options.source.resolve(strict=True))])
             if options.filters: command.append('--filters')
@@ -457,8 +464,9 @@ def main():
                 if options.codec_sorts:record['profile']='codec-sorts-driver'
                 if options.codec_preferences:record['profile']='codec-preferences-driver'
                 if options.codec_objects:record['profile']='codec-objects-driver'
+                if options.codec_queries:record['profile']='codec-queries-driver'
                 record['codec_fixture_manifest']=codec_manifest;record['codec_helper_sha256']=codec_helper_hash
-                record['scope']='Isolated C partial '+('meta/sheets/object-descriptor Header decoder over four immutable native archives' if options.codec_objects else 'meta/sheets/preferences Header decoder over six closed native archives including two deliberately invalid packages' if options.codec_preferences else 'meta/sheets/secondary-sort Header decoder over four immutable native archives' if options.codec_sorts else 'meta/sheets Header decoder over seven immutable native v12/v13/v14 archives')+' through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.'
+                record['scope']='Isolated C partial '+('meta/sheets/objects/primary-Table-query Header decoder over six immutable native archives including two deliberately invalid query packages' if options.codec_queries else 'meta/sheets/object-descriptor Header decoder over four immutable native archives' if options.codec_objects else 'meta/sheets/preferences Header decoder over six closed native archives including two deliberately invalid packages' if options.codec_preferences else 'meta/sheets/secondary-sort Header decoder over four immutable native archives' if options.codec_sorts else 'meta/sheets Header decoder over seven immutable native v12/v13/v14 archives')+' through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.'
             if options.chart_other_only:
                 record['scope']='Actual shared C same-sheet Rows Group/Columns Bucket/SUM Rank/AVG Value/COUNT DISTINCT Customer through real authoring menus and official Worker. Cached source-derived Other7.5/3, exact typed readouts, Bar/Plot/Marks pointer and keyboard actions, presentation-only Undo/Redo and source/manual retention are checked with zero post-publication jobs. No injected analytical state, clipboard activation, report upload, persistence or physical input claim.'
             if options.inspector_sql_only:

@@ -302,6 +302,7 @@ class RunnerTests(unittest.TestCase):
                     expected.append(["./"+binary,"--sorts-only"])
                     expected.append(["./"+binary,"--preferences-only"])
                     expected.append(["./"+binary,"--objects-only"])
+                    expected.append(["./"+binary,"--queries-only"])
             self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]],expected)
 
     def test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation(self):
