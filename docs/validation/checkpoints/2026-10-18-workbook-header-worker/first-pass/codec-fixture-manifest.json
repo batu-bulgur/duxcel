@@ -1,0 +1,41 @@
+{
+  "schema": "duxcel.codec-fixtures",
+  "version": 1,
+  "files": [
+    {
+      "name": "v12.dxls",
+      "bytes": 2109440,
+      "sha256": "94d2e99e65945f918001c6c91bbb700febfc0225bfa43bb808a1bd87ce0aacca"
+    },
+    {
+      "name": "v12-reordered.dxls",
+      "bytes": 2633728,
+      "sha256": "8e1c18b6b2940d8d9101274455f779362d595fce21735d9a827bc1911599adb1"
+    },
+    {
+      "name": "v12-legacy24.dxls",
+      "bytes": 2633728,
+      "sha256": "45ba3e279e03624fa03d94062a359503cc2877c670c5fc59c9246ab6238ab157"
+    },
+    {
+      "name": "v13.dxls",
+      "bytes": 2633728,
+      "sha256": "a7d2bf2a704b4bb6cd5537f84c28d3ebb8be849ad039087846de8384f7a2d3ed"
+    },
+    {
+      "name": "v13-reordered.dxls",
+      "bytes": 3420160,
+      "sha256": "c63c0a3679e43767ef4f124c0de0194148af03d0f3c8112598b510eda49b12c4"
+    },
+    {
+      "name": "v14.dxls",
+      "bytes": 4206592,
+      "sha256": "62b38fa16b4eab047a62ae168ba6f94db4d056740ed121c70fb3553ca436a942"
+    },
+    {
+      "name": "v14-reordered.dxls",
+      "bytes": 4993024,
+      "sha256": "c5fb79e31bf44bc6b9f547324c705d94dfcfb8456acc95ebb731e613d02a6844"
+    }
+  ]
+}

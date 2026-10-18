@@ -1,0 +1,65 @@
+{
+  "schema": "duxcel.codec-read-transport",
+  "version": 1,
+  "fixtures": [
+    {
+      "name": "v12.dxls",
+      "bytes": 2109440,
+      "sha256": "94d2e99e65945f918001c6c91bbb700febfc0225bfa43bb808a1bd87ce0aacca",
+      "engineEpoch": "1",
+      "registrationId": "1"
+    },
+    {
+      "name": "v12-reordered.dxls",
+      "bytes": 2633728,
+      "sha256": "8e1c18b6b2940d8d9101274455f779362d595fce21735d9a827bc1911599adb1",
+      "engineEpoch": "1",
+      "registrationId": "2"
+    },
+    {
+      "name": "v12-legacy24.dxls",
+      "bytes": 2633728,
+      "sha256": "45ba3e279e03624fa03d94062a359503cc2877c670c5fc59c9246ab6238ab157",
+      "engineEpoch": "1",
+      "registrationId": "3"
+    },
+    {
+      "name": "v13.dxls",
+      "bytes": 2633728,
+      "sha256": "a7d2bf2a704b4bb6cd5537f84c28d3ebb8be849ad039087846de8384f7a2d3ed",
+      "engineEpoch": "1",
+      "registrationId": "4"
+    },
+    {
+      "name": "v13-reordered.dxls",
+      "bytes": 3420160,
+      "sha256": "c63c0a3679e43767ef4f124c0de0194148af03d0f3c8112598b510eda49b12c4",
+      "engineEpoch": "1",
+      "registrationId": "5"
+    },
+    {
+      "name": "v14.dxls",
+      "bytes": 4206592,
+      "sha256": "62b38fa16b4eab047a62ae168ba6f94db4d056740ed121c70fb3553ca436a942",
+      "engineEpoch": "1",
+      "registrationId": "6"
+    },
+    {
+      "name": "v14-reordered.dxls",
+      "bytes": 4993024,
+      "sha256": "c5fb79e31bf44bc6b9f547324c705d94dfcfb8456acc95ebb731e613d02a6844",
+      "engineEpoch": "1",
+      "registrationId": "7"
+    }
+  ],
+  "held": 1,
+  "released": 1,
+  "query_count": 54,
+  "submitted_queries_sha256": "da41e3d8695fdca9bcfb8e51fd9d4d0d565e6c0ebc009790e367d0dd1216dc42",
+  "scope": "Compact first-pass transport receipt; detailed final-run query inventory will be retained separately. No fixture archives or full runtime events.",
+  "original": {
+    "original_path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T071747-browser-84130/codec-read-transport.json",
+    "bytes": 49582,
+    "sha256": "e2047a9eaab91ba5e476150c9ae41bcaee9f9711424bd8cd2995ab912368eced"
+  }
+}
