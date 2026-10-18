@@ -1,0 +1,92 @@
+{
+  "scope": "Exact component file comparison only; not an all-source, native, browser, or runtime equivalence claim.",
+  "scopes": [
+    {
+      "name": "query reader",
+      "private_commit": "927d7848479e77f1d5021cc59cdf799e080c6a6b",
+      "integrated_commit": "eab66d76c4d1b9568f94a5133a9184aedfcf1a02",
+      "files": [
+        {
+          "path": "src/workbook/workbook_codec_read.c",
+          "private_commit": "e55ad38513009668a34c13d8774f4574082c9fbcf6834b27a1607651b2360912",
+          "integrated_commit": "e55ad38513009668a34c13d8774f4574082c9fbcf6834b27a1607651b2360912",
+          "byte_identical": true
+        },
+        {
+          "path": "src/workbook/workbook_codec_read.h",
+          "private_commit": "f7a05500b10c96447b8e897fd2eddecf55c13b49aa47abdd27f1a8eeac70c050",
+          "integrated_commit": "f7a05500b10c96447b8e897fd2eddecf55c13b49aa47abdd27f1a8eeac70c050",
+          "byte_identical": true
+        },
+        {
+          "path": "tests/test_workbook_codec_read.c",
+          "private_commit": "31de1877ade1064d9d6619231d6d83768e3061d0ee2a400342f7e0bc8d33d2a3",
+          "integrated_commit": "31de1877ade1064d9d6619231d6d83768e3061d0ee2a400342f7e0bc8d33d2a3",
+          "byte_identical": true
+        }
+      ]
+    },
+    {
+      "name": "owners transport",
+      "private_commit": "910acaa6352f9bcb2a0691871c96c88f6c2700cf",
+      "integrated_commit": "e2c256b778b3402a026d8dd0d7e6e0692b364456",
+      "files": [
+        {
+          "path": "src/data/page_wire.c",
+          "private_commit": "ae094d0dabe524f76affa716f534f495663b10378edfb7784a162a692c2a66bb",
+          "integrated_commit": "ae094d0dabe524f76affa716f534f495663b10378edfb7784a162a692c2a66bb",
+          "byte_identical": true
+        },
+        {
+          "path": "src/data/page_wire.h",
+          "private_commit": "67472ceea3e599b9b9d4a4d03f14aa27d29874fb50840282baf64ab76c465da6",
+          "integrated_commit": "67472ceea3e599b9b9d4a4d03f14aa27d29874fb50840282baf64ab76c465da6",
+          "byte_identical": true
+        },
+        {
+          "path": "tests/test_page_wire.c",
+          "private_commit": "dcf1637cee93b22c00553b60092b2c01bd693c8a53ceae0c235ebfd760f2b656",
+          "integrated_commit": "dcf1637cee93b22c00553b60092b2c01bd693c8a53ceae0c235ebfd760f2b656",
+          "byte_identical": true
+        },
+        {
+          "path": "web/official_worker.mjs",
+          "private_commit": "983600f32c51ec653779e27820fd0e49a94c221a9bc8f75efa809355fa0e8935",
+          "integrated_commit": "983600f32c51ec653779e27820fd0e49a94c221a9bc8f75efa809355fa0e8935",
+          "byte_identical": true
+        },
+        {
+          "path": "web/official_worker.test.mjs",
+          "private_commit": "784386113a6f513da2173e6c54509e4d0254e2086dec69e2fc12c502ff854b63",
+          "integrated_commit": "784386113a6f513da2173e6c54509e4d0254e2086dec69e2fc12c502ff854b63",
+          "byte_identical": true
+        },
+        {
+          "path": "web/page_wire.mjs",
+          "private_commit": "85c91a2634ec1e3a6756fe42c21d20feb66e85cadac4904c55787c54a0d6acaf",
+          "integrated_commit": "85c91a2634ec1e3a6756fe42c21d20feb66e85cadac4904c55787c54a0d6acaf",
+          "byte_identical": true
+        },
+        {
+          "path": "web/page_wire.test.mjs",
+          "private_commit": "8e3f2a666db3cf7f8dfbddd977b914d5c8e0481e1ce5f71ff4643b8a7ad238c1",
+          "integrated_commit": "8e3f2a666db3cf7f8dfbddd977b914d5c8e0481e1ce5f71ff4643b8a7ad238c1",
+          "byte_identical": true
+        }
+      ]
+    },
+    {
+      "name": "actual Worker query include (runtime pending)",
+      "private_commit": "4c89e57d6c4e5c09c37780d4f03e5f2c01baf730",
+      "integrated_commit": "09e75a71086e36cb5105b4244d3cd23993de459e",
+      "files": [
+        {
+          "path": "tests/test_browser_codec_queries.inc",
+          "private_commit": "343163f61eded9480edb316f87a92cde8689b03f2815825abd65c662d903942a",
+          "integrated_commit": "343163f61eded9480edb316f87a92cde8689b03f2815825abd65c662d903942a",
+          "byte_identical": true
+        }
+      ]
+    }
+  ]
+}

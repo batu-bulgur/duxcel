@@ -1,0 +1,25 @@
+{
+  "scope": "Independent post-run receipt derivation; no runtime rerun.",
+  "engineVersion": "v1.4.3",
+  "queries": 85,
+  "unique_sql_strings": 14,
+  "requests_by_registered_fixture": {
+    "queries-v12.dxls": 8,
+    "queries-v14-blank.dxls": 8,
+    "queries-v14-nul.dxls": 8,
+    "queries-v13.dxls": 8,
+    "queries-v14.dxls": 8,
+    "queries-v14-reordered.dxls": 45
+  },
+  "requests_by_purpose": {
+    "normal": 55,
+    "workbook-objects": 15,
+    "workbook-owners": 15
+  },
+  "all_requests_use_exact_original_fixture_binding": true,
+  "stored_query_or_missing_source_not_executed": true,
+  "deduplicated_transport_structurally_reconstructs_original": true,
+  "observed_C_counts_match_expected_terminal_contract": true,
+  "peakOwnedInput": 4128831,
+  "peak_scope": "C logical owned graph coexistence including concrete pressure; not natural allocation or process/RSS peak."
+}

@@ -1,0 +1,6 @@
+Logs: /Users/h2o/dev/duxcel/tests/results/runs/20261018T080856-fast-2872
+RUN    build-headless: /Users/h2o/dev/duxcel/tests/results/runs/20261018T080856-fast-2872/build-headless.txt
+PASSED build-headless: 5.465s
+PASSED workbook_codec_read-release: 0.501s
+PASSED workbook_codec_read-sanitize: 0.540s
+PASSED: 6.639s; 0 application stages; /Users/h2o/dev/duxcel/tests/results/runs/20261018T080856-fast-2872/summary.json

@@ -1,0 +1,327 @@
+{
+  "scope": "Derived bounded current four-mode regression summary with complete terminal C reports except duplicate transport; original workload counters preserved. No copied old capsules/events/archives.",
+  "results": [
+    {
+      "mode": "header",
+      "run": "20261018T081830-browser-6085",
+      "status": "passed",
+      "source": {
+        "commit": "87aa37f9a81f9025a0e736e8ef3c193588fe066e",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "07e7662171182c9c3f7a4b848e6b46423c13ef358d45046839f2c290d554ae45",
+        "source_files": 299
+      },
+      "artifact": {
+        "signature": "7a87819e8b35373b9c013eb6855b6d38568dbd1255592cf78f069f9d734dc050",
+        "source": {
+          "commit": "09e75a71086e36cb5105b4244d3cd23993de459e",
+          "status": "M Makefile\n M tests/test_browser_codec_read.c\n M tools/build_web.py\n M tools/test.py\n M tools/test_runner_test.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M tools/test_web_codec_runner_test.py\n M tools/test_web_review_build.py\n M web/codec_test_host.mjs\n?? tools/ui-review/",
+          "source_sha256": "930791a5429da9361110d02e756b269a4e6ccf1ee629dd34cdaa2641a880fa57",
+          "source_files": 298
+        }
+      },
+      "elapsed_seconds": 8.689,
+      "browser_seconds": 6.705,
+      "external_checks": 205,
+      "C_report": {
+        "ok": true,
+        "checks": 6294,
+        "fixtures": 7,
+        "headers": 10,
+        "queries": 54,
+        "rejections": 11,
+        "stale": 1,
+        "peakOwnedInput": 2179514,
+        "headerOwnedLimit": 2097152,
+        "inputOwnedLimit": 4194304,
+        "budgetRejected": true,
+        "sentinelRejected": true,
+        "tinyNegativeRejected": true,
+        "u64Sentinels": [
+          "9007199254740993",
+          "18446744073709551615"
+        ],
+        "normalFixtureQueries": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "familyExecutions": {
+          "meta": 20,
+          "sheets": 19,
+          "describe": 15
+        },
+        "error": null,
+        "boundary": "official-worker/shared-C-header-reader; no workbook publication or browser Save/Open"
+      },
+      "original_summary": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081830-browser-6085/summary.json",
+        "bytes": 35285,
+        "sha256": "8c76d205afac800336e9c68db8d16ab0d9e631f8f090154e5185e0c35fe6259c"
+      },
+      "original_C_report": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081830-browser-6085/codec-read-driver.json",
+        "bytes": 51587,
+        "sha256": "d19e7d5e7abe16532db75fea1c7fd666b88ca5be5f644c0cc1c39b36306b19cd"
+      },
+      "original_result": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081830-browser-6085/result.json",
+        "bytes": 53157,
+        "sha256": "ba681f6bb09ad4e93b77abb74f481b67def2980f1173b31ba55afc743bfffa4c"
+      }
+    },
+    {
+      "mode": "sorts",
+      "run": "20261018T081838-browser-6267",
+      "status": "passed",
+      "source": {
+        "commit": "87aa37f9a81f9025a0e736e8ef3c193588fe066e",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "07e7662171182c9c3f7a4b848e6b46423c13ef358d45046839f2c290d554ae45",
+        "source_files": 299
+      },
+      "artifact": {
+        "signature": "7a87819e8b35373b9c013eb6855b6d38568dbd1255592cf78f069f9d734dc050",
+        "source": {
+          "commit": "09e75a71086e36cb5105b4244d3cd23993de459e",
+          "status": "M Makefile\n M tests/test_browser_codec_read.c\n M tools/build_web.py\n M tools/test.py\n M tools/test_runner_test.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M tools/test_web_codec_runner_test.py\n M tools/test_web_review_build.py\n M web/codec_test_host.mjs\n?? tools/ui-review/",
+          "source_sha256": "930791a5429da9361110d02e756b269a4e6ccf1ee629dd34cdaa2641a880fa57",
+          "source_files": 298
+        }
+      },
+      "elapsed_seconds": 6.946,
+      "browser_seconds": 5.696,
+      "external_checks": 191,
+      "C_report": {
+        "ok": true,
+        "mode": "sorts",
+        "checks": 77148,
+        "fixtures": 4,
+        "headers": 6,
+        "queries": 49,
+        "rejections": 6,
+        "stale": 1,
+        "peakOwnedInput": 2254322,
+        "headerOwnedLimit": 2097152,
+        "inputOwnedLimit": 4194304,
+        "normalFixtureQueries": [
+          6,
+          6,
+          6,
+          6
+        ],
+        "familyExecutions": {
+          "meta": 12,
+          "sheets": 12,
+          "sorts": 13,
+          "describe": 12
+        },
+        "acceptedFeeds": {
+          "rows256": 7,
+          "rows192": 6
+        },
+        "rejectedFeeds": 6,
+        "validSplitPairs": 6,
+        "requiredNullRejected": true,
+        "nameNullRejected": true,
+        "orderRejected": true,
+        "caseDuplicateRejected": true,
+        "sentinelRejected": true,
+        "budgetRejected": true,
+        "error": null,
+        "boundary": "official-worker/shared-C-meta-sheets-sorts Header; no Workbook, owner families, browser Save/Open, missing-table or source execution proof"
+      },
+      "original_summary": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081838-browser-6267/summary.json",
+        "bytes": 34701,
+        "sha256": "0ed7efd94f61dd773182a34b87cfa7f5da8a26f1ab7ba8d3c931b28ae15b6d5c"
+      },
+      "original_C_report": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081838-browser-6267/codec-read-driver.json",
+        "bytes": 41257,
+        "sha256": "7597d1fb335bf4f8fb54f7870f2e547e00d0ae8fffb8449870e78676ff6e243a"
+      },
+      "original_result": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081838-browser-6267/result.json",
+        "bytes": 42771,
+        "sha256": "84bf9c5785f7d7159c53f1c2d6833458ebe8f69c8e8609beda0f88c5b7028bf5"
+      }
+    },
+    {
+      "mode": "preferences",
+      "run": "20261018T081845-browser-6488",
+      "status": "passed",
+      "source": {
+        "commit": "87aa37f9a81f9025a0e736e8ef3c193588fe066e",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "07e7662171182c9c3f7a4b848e6b46423c13ef358d45046839f2c290d554ae45",
+        "source_files": 299
+      },
+      "artifact": {
+        "signature": "7a87819e8b35373b9c013eb6855b6d38568dbd1255592cf78f069f9d734dc050",
+        "source": {
+          "commit": "09e75a71086e36cb5105b4244d3cd23993de459e",
+          "status": "M Makefile\n M tests/test_browser_codec_read.c\n M tools/build_web.py\n M tools/test.py\n M tools/test_runner_test.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M tools/test_web_codec_runner_test.py\n M tools/test_web_review_build.py\n M web/codec_test_host.mjs\n?? tools/ui-review/",
+          "source_sha256": "930791a5429da9361110d02e756b269a4e6ccf1ee629dd34cdaa2641a880fa57",
+          "source_files": 298
+        }
+      },
+      "elapsed_seconds": 7.937,
+      "browser_seconds": 6.502,
+      "external_checks": 253,
+      "C_report": {
+        "ok": true,
+        "mode": "preferences",
+        "checks": 39611,
+        "fixtures": 6,
+        "headers": 6,
+        "queries": 61,
+        "rejections": 8,
+        "stale": 1,
+        "peakOwnedInput": 2182454,
+        "headerOwnedLimit": 2097152,
+        "inputOwnedLimit": 4194304,
+        "normalFixtureQueries": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "familyExecutions": {
+          "meta": 14,
+          "sheets": 14,
+          "preferences": 15,
+          "describe": 18
+        },
+        "acceptedFeeds": {
+          "rows32": 9,
+          "rows33": 6
+        },
+        "rejectedFeeds": 7,
+        "validSplitPairs": 6,
+        "v14PredicateQueries": 13,
+        "unknownNullRejected": true,
+        "unknownNulRejected": true,
+        "duplicateFalseRejected": true,
+        "activeHiddenRejected": true,
+        "noncanonicalRejected": true,
+        "malformedRejected": true,
+        "sentinelRejected": true,
+        "budgetRejected": true,
+        "error": null,
+        "boundary": "official-worker/shared-C-meta-sheets-preferences Header; no Workbook, owner families, browser Save/Open, missing-table or source execution proof"
+      },
+      "original_summary": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081845-browser-6488/summary.json",
+        "bytes": 35225,
+        "sha256": "33520e1d793af9b61a8d3c3b8b9c66385a8255b690365cacb0aedd51775705e6"
+      },
+      "original_C_report": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081845-browser-6488/codec-read-driver.json",
+        "bytes": 50977,
+        "sha256": "f8d57ce274546e7b8cac733ff7a1d1fb49f66422e4debc991e5a2ed90d63de44"
+      },
+      "original_result": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081845-browser-6488/result.json",
+        "bytes": 52887,
+        "sha256": "dc816e9ef3b1221124be962c5685a3d29a0238a0588e5cfb2f589c1c48fa16dc"
+      }
+    },
+    {
+      "mode": "objects",
+      "run": "20261018T081854-browser-6680",
+      "status": "passed",
+      "source": {
+        "commit": "87aa37f9a81f9025a0e736e8ef3c193588fe066e",
+        "status": "?? tools/ui-review/",
+        "source_sha256": "07e7662171182c9c3f7a4b848e6b46423c13ef358d45046839f2c290d554ae45",
+        "source_files": 299
+      },
+      "artifact": {
+        "signature": "7a87819e8b35373b9c013eb6855b6d38568dbd1255592cf78f069f9d734dc050",
+        "source": {
+          "commit": "09e75a71086e36cb5105b4244d3cd23993de459e",
+          "status": "M Makefile\n M tests/test_browser_codec_read.c\n M tools/build_web.py\n M tools/test.py\n M tools/test_runner_test.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M tools/test_web_codec_runner_test.py\n M tools/test_web_review_build.py\n M web/codec_test_host.mjs\n?? tools/ui-review/",
+          "source_sha256": "930791a5429da9361110d02e756b269a4e6ccf1ee629dd34cdaa2641a880fa57",
+          "source_files": 298
+        }
+      },
+      "elapsed_seconds": 9.03,
+      "browser_seconds": 6.657,
+      "external_checks": 221,
+      "C_report": {
+        "ok": true,
+        "mode": "objects",
+        "checks": 700762,
+        "fixtures": 4,
+        "headers": 6,
+        "queries": 58,
+        "rejections": 9,
+        "stale": 1,
+        "peakOwnedInput": 4128831,
+        "headerOwnedLimit": 2097152,
+        "inputOwnedLimit": 4194304,
+        "normalFixtureQueries": [
+          6,
+          6,
+          6,
+          6
+        ],
+        "familyExecutions": {
+          "meta": 15,
+          "sheets": 15,
+          "objects": 15,
+          "describe": 13
+        },
+        "acceptedFeeds": {
+          "rows256": 77
+        },
+        "rejectedFeeds": 7,
+        "validSplitGroups": 6,
+        "rejectedFirstRows": [
+          0,
+          0,
+          1792,
+          1792,
+          1792,
+          2048,
+          0
+        ],
+        "wireRejections": 1,
+        "schemaRejections": 1,
+        "requiredNullRejected": true,
+        "duplicateIdRejected": true,
+        "geometryRejected": true,
+        "forwardBindingRejected": true,
+        "overlapRejected": true,
+        "sentinelRejected": true,
+        "budgetRejected": true,
+        "wireNulRejected": true,
+        "originalTypeRejected": true,
+        "error": null,
+        "boundary": "official-worker/shared-C-meta-sheets-object-registry Header; no full objects, source execution, Workbook publication or browser Save/Open"
+      },
+      "original_summary": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081854-browser-6680/summary.json",
+        "bytes": 34714,
+        "sha256": "8e92d5200df47edec36d2e4feaa246dae3aaad6567a8cf3e6ecac04226890e00"
+      },
+      "original_C_report": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081854-browser-6680/codec-read-driver.json",
+        "bytes": 55023,
+        "sha256": "a4013783a360cc99b6f7690fd4da28f2d614d044da4205c0a5b40e483e0349e0"
+      },
+      "original_result": {
+        "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081854-browser-6680/result.json",
+        "bytes": 56766,
+        "sha256": "2622683c2ef8dcbf2f993a7e06c4e78dc3131c9ebcdeff2d92bfc33b4d50224b"
+      }
+    }
+  ]
+}

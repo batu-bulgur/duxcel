@@ -1,0 +1,3 @@
+Error: Real C/Worker bridge failed; see worker-driver.json and events.json
+    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:150:56)
+    at file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:2842:3

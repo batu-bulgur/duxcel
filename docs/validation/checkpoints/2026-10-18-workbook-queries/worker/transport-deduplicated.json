@@ -1,0 +1,1154 @@
+{
+  "schema": "duxcel.codec-read-transport",
+  "version": 1,
+  "fixtures": [
+    {
+      "name": "queries-v12.dxls",
+      "bytes": 3158016,
+      "sha256": "ef3f6b9998fde2c8d3e2dc51e62b6e02ae53899aa8cb7ec23f3b96a7102e7bf6",
+      "engineEpoch": "1",
+      "registrationId": "1"
+    },
+    {
+      "name": "queries-v14-blank.dxls",
+      "bytes": 6041600,
+      "sha256": "1eb7b28944275a02a5963f5ae58e133c0fe7d3801a5c6986a83d3b55843fe5ff",
+      "engineEpoch": "1",
+      "registrationId": "2"
+    },
+    {
+      "name": "queries-v14-nul.dxls",
+      "bytes": 6041600,
+      "sha256": "a2a8aea5134778879a26de4cdcbdfb73ed715320627452d8c47a9112f8879d4a",
+      "engineEpoch": "1",
+      "registrationId": "3"
+    },
+    {
+      "name": "queries-v13.dxls",
+      "bytes": 3682304,
+      "sha256": "991450fe8b073d401a8648f55821120929f79cd29a5b9fb49382fa72e7686b8f",
+      "engineEpoch": "1",
+      "registrationId": "4"
+    },
+    {
+      "name": "queries-v14.dxls",
+      "bytes": 5255168,
+      "sha256": "9f80e304802bd42b53ec40cd7eff5c9e573fdd8a3f2c7d0e9e6f3a06b429d3ba",
+      "engineEpoch": "1",
+      "registrationId": "5"
+    },
+    {
+      "name": "queries-v14-reordered.dxls",
+      "bytes": 6041600,
+      "sha256": "be13c770e7ce364fc1c032bd6207da0be2500b8aca68bac929e567267f5c7b9e",
+      "engineEpoch": "1",
+      "registrationId": "6"
+    }
+  ],
+  "held": 1,
+  "released": 1,
+  "engineVersion": "v1.4.3",
+  "queries": [
+    {
+      "ticket": 102,
+      "sourceBindings": [
+        {
+          "name": "queries-v12.dxls",
+          "engineEpoch": "1",
+          "registrationId": "1"
+        }
+      ],
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "sql_utf8_bytes": 45
+    },
+    {
+      "ticket": 103,
+      "sourceBindings": [
+        {
+          "name": "queries-v12.dxls",
+          "engineEpoch": "1",
+          "registrationId": "1"
+        }
+      ],
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "sql_utf8_bytes": 47
+    },
+    {
+      "ticket": 104,
+      "sourceBindings": [
+        {
+          "name": "queries-v12.dxls",
+          "engineEpoch": "1",
+          "registrationId": "1"
+        }
+      ],
+      "sql_sha256": "ba64f3184e88025dfbdf86c946b69523360c5d65b7b729985affcf7742b78727",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 105,
+      "sourceBindings": [
+        {
+          "name": "queries-v12.dxls",
+          "engineEpoch": "1",
+          "registrationId": "1"
+        }
+      ],
+      "sql_sha256": "46865423b006a443a624d12cb4cc329a9bcbb1b67a36909ec168da386d2d4321",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 106,
+      "sourceBindings": [
+        {
+          "name": "queries-v12.dxls",
+          "engineEpoch": "1",
+          "registrationId": "1"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 107,
+      "sourceBindings": [
+        {
+          "name": "queries-v12.dxls",
+          "engineEpoch": "1",
+          "registrationId": "1"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 108,
+      "sourceBindings": [
+        {
+          "name": "queries-v12.dxls",
+          "engineEpoch": "1",
+          "registrationId": "1"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 109,
+      "sourceBindings": [
+        {
+          "name": "queries-v12.dxls",
+          "engineEpoch": "1",
+          "registrationId": "1"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    },
+    {
+      "ticket": 111,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-blank.dxls",
+          "engineEpoch": "1",
+          "registrationId": "2"
+        }
+      ],
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "sql_utf8_bytes": 45
+    },
+    {
+      "ticket": 112,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-blank.dxls",
+          "engineEpoch": "1",
+          "registrationId": "2"
+        }
+      ],
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "sql_utf8_bytes": 47
+    },
+    {
+      "ticket": 113,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-blank.dxls",
+          "engineEpoch": "1",
+          "registrationId": "2"
+        }
+      ],
+      "sql_sha256": "ba64f3184e88025dfbdf86c946b69523360c5d65b7b729985affcf7742b78727",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 114,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-blank.dxls",
+          "engineEpoch": "1",
+          "registrationId": "2"
+        }
+      ],
+      "sql_sha256": "46865423b006a443a624d12cb4cc329a9bcbb1b67a36909ec168da386d2d4321",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 115,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-blank.dxls",
+          "engineEpoch": "1",
+          "registrationId": "2"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 116,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-blank.dxls",
+          "engineEpoch": "1",
+          "registrationId": "2"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 117,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-blank.dxls",
+          "engineEpoch": "1",
+          "registrationId": "2"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 118,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-blank.dxls",
+          "engineEpoch": "1",
+          "registrationId": "2"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    },
+    {
+      "ticket": 120,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-nul.dxls",
+          "engineEpoch": "1",
+          "registrationId": "3"
+        }
+      ],
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "sql_utf8_bytes": 45
+    },
+    {
+      "ticket": 121,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-nul.dxls",
+          "engineEpoch": "1",
+          "registrationId": "3"
+        }
+      ],
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "sql_utf8_bytes": 47
+    },
+    {
+      "ticket": 122,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-nul.dxls",
+          "engineEpoch": "1",
+          "registrationId": "3"
+        }
+      ],
+      "sql_sha256": "ba64f3184e88025dfbdf86c946b69523360c5d65b7b729985affcf7742b78727",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 123,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-nul.dxls",
+          "engineEpoch": "1",
+          "registrationId": "3"
+        }
+      ],
+      "sql_sha256": "46865423b006a443a624d12cb4cc329a9bcbb1b67a36909ec168da386d2d4321",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 124,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-nul.dxls",
+          "engineEpoch": "1",
+          "registrationId": "3"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 125,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-nul.dxls",
+          "engineEpoch": "1",
+          "registrationId": "3"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 126,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-nul.dxls",
+          "engineEpoch": "1",
+          "registrationId": "3"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 127,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-nul.dxls",
+          "engineEpoch": "1",
+          "registrationId": "3"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    },
+    {
+      "ticket": 129,
+      "sourceBindings": [
+        {
+          "name": "queries-v13.dxls",
+          "engineEpoch": "1",
+          "registrationId": "4"
+        }
+      ],
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "sql_utf8_bytes": 45
+    },
+    {
+      "ticket": 130,
+      "sourceBindings": [
+        {
+          "name": "queries-v13.dxls",
+          "engineEpoch": "1",
+          "registrationId": "4"
+        }
+      ],
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "sql_utf8_bytes": 47
+    },
+    {
+      "ticket": 131,
+      "sourceBindings": [
+        {
+          "name": "queries-v13.dxls",
+          "engineEpoch": "1",
+          "registrationId": "4"
+        }
+      ],
+      "sql_sha256": "ba64f3184e88025dfbdf86c946b69523360c5d65b7b729985affcf7742b78727",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 132,
+      "sourceBindings": [
+        {
+          "name": "queries-v13.dxls",
+          "engineEpoch": "1",
+          "registrationId": "4"
+        }
+      ],
+      "sql_sha256": "46865423b006a443a624d12cb4cc329a9bcbb1b67a36909ec168da386d2d4321",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 133,
+      "sourceBindings": [
+        {
+          "name": "queries-v13.dxls",
+          "engineEpoch": "1",
+          "registrationId": "4"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 134,
+      "sourceBindings": [
+        {
+          "name": "queries-v13.dxls",
+          "engineEpoch": "1",
+          "registrationId": "4"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 135,
+      "sourceBindings": [
+        {
+          "name": "queries-v13.dxls",
+          "engineEpoch": "1",
+          "registrationId": "4"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 136,
+      "sourceBindings": [
+        {
+          "name": "queries-v13.dxls",
+          "engineEpoch": "1",
+          "registrationId": "4"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    },
+    {
+      "ticket": 138,
+      "sourceBindings": [
+        {
+          "name": "queries-v14.dxls",
+          "engineEpoch": "1",
+          "registrationId": "5"
+        }
+      ],
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "sql_utf8_bytes": 45
+    },
+    {
+      "ticket": 139,
+      "sourceBindings": [
+        {
+          "name": "queries-v14.dxls",
+          "engineEpoch": "1",
+          "registrationId": "5"
+        }
+      ],
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "sql_utf8_bytes": 47
+    },
+    {
+      "ticket": 140,
+      "sourceBindings": [
+        {
+          "name": "queries-v14.dxls",
+          "engineEpoch": "1",
+          "registrationId": "5"
+        }
+      ],
+      "sql_sha256": "ba64f3184e88025dfbdf86c946b69523360c5d65b7b729985affcf7742b78727",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 141,
+      "sourceBindings": [
+        {
+          "name": "queries-v14.dxls",
+          "engineEpoch": "1",
+          "registrationId": "5"
+        }
+      ],
+      "sql_sha256": "46865423b006a443a624d12cb4cc329a9bcbb1b67a36909ec168da386d2d4321",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 142,
+      "sourceBindings": [
+        {
+          "name": "queries-v14.dxls",
+          "engineEpoch": "1",
+          "registrationId": "5"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 143,
+      "sourceBindings": [
+        {
+          "name": "queries-v14.dxls",
+          "engineEpoch": "1",
+          "registrationId": "5"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 144,
+      "sourceBindings": [
+        {
+          "name": "queries-v14.dxls",
+          "engineEpoch": "1",
+          "registrationId": "5"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 145,
+      "sourceBindings": [
+        {
+          "name": "queries-v14.dxls",
+          "engineEpoch": "1",
+          "registrationId": "5"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    },
+    {
+      "ticket": 147,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15",
+      "sql_utf8_bytes": 45
+    },
+    {
+      "ticket": 148,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63",
+      "sql_utf8_bytes": 47
+    },
+    {
+      "ticket": 149,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "ba64f3184e88025dfbdf86c946b69523360c5d65b7b729985affcf7742b78727",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 150,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "46865423b006a443a624d12cb4cc329a9bcbb1b67a36909ec168da386d2d4321",
+      "sql_utf8_bytes": 48
+    },
+    {
+      "ticket": 151,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 152,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 153,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 154,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    },
+    {
+      "ticket": 155,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 156,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 157,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 158,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "30d2f7f853e5ad8438c697780b693c5080a9e14eb6769aa93b4779a022a04595",
+      "sql_utf8_bytes": 516
+    },
+    {
+      "ticket": 159,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 160,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 161,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 162,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "0fcc97dd55acc5f104d877fd9b6ef74e08dc01d1d7e9665129f71c5098218f94",
+      "sql_utf8_bytes": 578
+    },
+    {
+      "ticket": 163,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 164,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 165,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "14c6fcce663b8e2fb0e36bab3f6c980cf8e51a7971cac703bc8fad66c92bccbc",
+      "sql_utf8_bytes": 714
+    },
+    {
+      "ticket": 166,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    },
+    {
+      "ticket": 167,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 168,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 169,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 170,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "24dcbe5dd7a00d143620713966375415133fec550bd42cae39b295ff83523585",
+      "sql_utf8_bytes": 595
+    },
+    {
+      "ticket": 171,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 172,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 173,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 174,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "ff6f62672d6ac3b912ea8f8eccb6904047747883ce5673c6ddfcae0eb8680822",
+      "sql_utf8_bytes": 565
+    },
+    {
+      "ticket": 175,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 176,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 177,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 178,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    },
+    {
+      "ticket": 179,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 180,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 181,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 182,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "a9809a953c1c9e47e34dcefd99439ee666a60f1a76291e006d54d89fad037d8c",
+      "sql_utf8_bytes": 93
+    },
+    {
+      "ticket": 183,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 184,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 185,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 186,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    },
+    {
+      "ticket": 187,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    },
+    {
+      "ticket": 188,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f",
+      "sql_utf8_bytes": 263
+    },
+    {
+      "ticket": 189,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "sql_sha256": "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9",
+      "sql_utf8_bytes": 1484
+    },
+    {
+      "ticket": 190,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-objects",
+      "rowLimit": 2049,
+      "sql_sha256": "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d",
+      "sql_utf8_bytes": 575
+    },
+    {
+      "ticket": 191,
+      "sourceBindings": [
+        {
+          "name": "queries-v14-reordered.dxls",
+          "engineEpoch": "1",
+          "registrationId": "6"
+        }
+      ],
+      "purpose": "workbook-owners",
+      "rowLimit": 2113,
+      "sql_sha256": "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad",
+      "sql_utf8_bytes": 395
+    }
+  ],
+  "sql_by_sha256": {
+    "99e8d7279a16be199b6e1ee698635ddf975476149764e4ee014808cc106e9e15": "DESCRIBE SELECT * FROM _duxcel_workspace.meta",
+    "dc15e71930328a1c0a3c6c80065c37f79474365f2bcec7340cd952a47e902b63": "DESCRIBE SELECT * FROM _duxcel_workspace.sheets",
+    "ba64f3184e88025dfbdf86c946b69523360c5d65b7b729985affcf7742b78727": "DESCRIBE SELECT * FROM _duxcel_workspace.objects",
+    "46865423b006a443a624d12cb4cc329a9bcbb1b67a36909ec168da386d2d4321": "DESCRIBE SELECT * FROM _duxcel_workspace.queries",
+    "3cc46e61c501e828148169c743bd79d255662239622c1fa6bbbe977b47dc465f": "SELECT CAST(\"version\" AS VARCHAR) AS \"version\",CAST(\"active_sheet\" AS VARCHAR) AS \"active_sheet\",CAST(\"user_scale\" AS VARCHAR) AS \"user_scale\" FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _duxcel_relation LIMIT 256 OFFSET 0",
+    "de0b860fb04f55a3c8e0d5296bb0daf99abb1752b421eb6a0836285f622642e9": "SELECT CAST(\"id\" AS VARCHAR) AS \"id\",CAST(\"name\" AS VARCHAR) AS \"name\",CAST(\"kind\" AS VARCHAR) AS \"kind\",CAST(\"path\" AS VARCHAR) AS \"path\",CAST(\"source_schema\" AS VARCHAR) AS \"source_schema\",CAST(\"source_table\" AS VARCHAR) AS \"source_table\",CAST(\"filter_column\" AS VARCHAR) AS \"filter_column\",CAST(\"filter_value\" AS VARCHAR) AS \"filter_value\",CAST(\"filter_op\" AS VARCHAR) AS \"filter_op\",CAST(\"group_column\" AS VARCHAR) AS \"group_column\",CAST(\"measure_column\" AS VARCHAR) AS \"measure_column\",CAST(\"aggregate\" AS VARCHAR) AS \"aggregate\",CAST(\"sort_column\" AS VARCHAR) AS \"sort_column\",CAST(\"descending\" AS VARCHAR) AS \"descending\",CAST(\"active_row\" AS VARCHAR) AS \"active_row\",CAST(\"active_col\" AS VARCHAR) AS \"active_col\",CAST(\"anchor_row\" AS VARCHAR) AS \"anchor_row\",CAST(\"anchor_col\" AS VARCHAR) AS \"anchor_col\",CAST(\"end_row\" AS VARCHAR) AS \"end_row\",CAST(\"end_col\" AS VARCHAR) AS \"end_col\",CAST(\"top_row\" AS VARCHAR) AS \"top_row\",CAST(\"horizontal\" AS VARCHAR) AS \"horizontal\",CAST(\"fraction\" AS VARCHAR) AS \"fraction\",CAST(\"selection\" AS VARCHAR) AS \"selection\",CAST(\"canvas_zoom\" AS VARCHAR) AS \"canvas_zoom\" FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _duxcel_relation LIMIT 256 OFFSET 0",
+    "fe22f4b68709b809b7fc7cb36c315171936723618f278d0326f8c4b46813c49d": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _query_objects_projection",
+    "a6dd7199a742a56b64ed41b6fcf05a56626c3f079030b7b81d1b6196a7f860ad": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _query_projection",
+    "30d2f7f853e5ad8438c697780b693c5080a9e14eb6769aa93b4779a022a04595": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT * REPLACE (CASE WHEN sheet_id=0 AND object_id=0 THEN NULL::VARCHAR ELSE query END AS query) FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _query_null) AS _query_projection",
+    "0fcc97dd55acc5f104d877fd9b6ef74e08dc01d1d7e9665129f71c5098218f94": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT * REPLACE (CASE WHEN sheet_id=0 AND object_id=9007199254740993::UBIGINT THEN 0::UBIGINT ELSE object_id END AS object_id) FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _query_duplicate ORDER BY sheet_id,object_id) AS _query_projection",
+    "14c6fcce663b8e2fb0e36bab3f6c980cf8e51a7971cac703bc8fad66c92bccbc": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT * REPLACE (CASE WHEN sheet_id=0 AND id=9007199254740993::UBIGINT THEN 0::INTEGER ELSE kind END AS kind) FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _query_wrong_kind) AS _query_objects_projection",
+    "24dcbe5dd7a00d143620713966375415133fec550bd42cae39b295ff83523585": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT * REPLACE (CASE WHEN sheet_id=0 AND object_id=9007199254740993::UBIGINT THEN 18446744073709551615::UBIGINT ELSE object_id END AS object_id) FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _query_foreign ORDER BY sheet_id,object_id) AS _query_projection",
+    "ff6f62672d6ac3b912ea8f8eccb6904047747883ce5673c6ddfcae0eb8680822": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT * FROM ((SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) UNION ALL SELECT 64::INTEGER AS sheet_id,0::UBIGINT AS object_id,'sentinel'::VARCHAR AS query) AS _query_sentinel ORDER BY sheet_id,object_id LIMIT 2113) AS _query_projection",
+    "a9809a953c1c9e47e34dcefd99439ee666a60f1a76291e006d54d89fad037d8c": "DESCRIBE SELECT sheet_id,object_id::VARCHAR AS object_id,query FROM _duxcel_workspace.queries"
+  },
+  "original_receipt": {
+    "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T081717-browser-5127/codec-read-transport.json",
+    "bytes": 65672,
+    "sha256": "c0506ac8b3d888a76959af7b2f895c35ceeecf4e15b56d1565a7d34f2c0dbdbb"
+  }
+}
