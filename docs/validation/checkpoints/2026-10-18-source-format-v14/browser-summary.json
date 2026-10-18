@@ -1,0 +1,75 @@
+{
+  "status": "passed",
+  "source": {
+    "commit": "7c451c359d92f5b0102f56dcb43761d510ec3fa1",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "355d810b0e1c7c718d69858ccd133b6fd0302e50ed8c54bfd067201d4fbe3199",
+    "source_files": 258
+  },
+  "reader_error": null,
+  "native_persistence_helpers": {},
+  "command": [
+    "node",
+    "tools/test_web_app.mjs",
+    "http://127.0.0.1:64871/",
+    "/Users/h2o/dev/duxcel/tests/results/runs/20261018T002015-browser-33000",
+    "--source",
+    "/Users/h2o/dev/duxcel/tests/fixtures/null-text.csv",
+    "--review",
+    "--source-cache-only",
+    "--dpr",
+    "2",
+    "--canvas-transform"
+  ],
+  "exit_code": 0,
+  "source_unchanged": true,
+  "artifacts_unchanged": true,
+  "browser_seconds": 54.53,
+  "elapsed_seconds": 54.681,
+  "setup": {
+    "build_seconds": 0.001,
+    "artifact_validation_seconds": 0.039,
+    "source_metadata_seconds": 0.081,
+    "server_setup_seconds": 0.031
+  },
+  "desktop_visibility": "owned headless browser, simulated focus; no user profile",
+  "profile": "source-cache-only",
+  "scope": "Actual successful source Open clears observable matrix/owner state and publishes real new values; returning to the original sheet republishes its unchanged Table/Pivot/manual definitions. Real ShiftF11 fills64 sheets and another valid source Open is rejected without changing the active cached source/model/history/request. Native source-cache coverage owns exact allocation/bookmark retirement; browser checks consumer state only. No new review fields, fake callbacks, clipboard or saved reports.",
+  "artifact": {
+    "signature": "73207928f236e1a72b424ceb6baaf84208a3ba54db60fd1bca6de4fec39730a2",
+    "source": {
+      "commit": "7c451c359d92f5b0102f56dcb43761d510ec3fa1",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "355d810b0e1c7c718d69858ccd133b6fd0302e50ed8c54bfd067201d4fbe3199",
+      "source_files": 258
+    },
+    "elapsed_seconds": 17.099,
+    "flags": [
+      "-O2",
+      "-g",
+      "-std=c99",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-DDUXCEL_BROWSER_HOST",
+      "-DPLATFORM_WEB",
+      "-DGRAPHICS_API_OPENGL_ES2",
+      "-Isrc",
+      "-I/Users/h2o/dev/duxcel/build/web/toolchain/raylib/src",
+      "-I/opt/homebrew/include",
+      "-DDUXCEL_DEV_REVIEW",
+      "-include",
+      "src/dev/review_input.h",
+      "-Ibuild/web/review-info"
+    ]
+  },
+  "result": {
+    "status": "passed",
+    "checks": 485,
+    "elapsed_ms": 52224,
+    "profile": "source-cache-only",
+    "scope": "Actual shared-C Open with trusted file delivery replaces the active source context by a new transactions sheet, clears observable selected-object/matrix state and publishes a real inspected City value. Returning through Workbook controls republishes the original source/Table/Pivot and retains object definitions/revisions/grand totals/manual text/history/dirty. Exactly61 real ShiftF11 actions reach64 sheets without query jobs; a65th valid source Open is rejected by workbook_add with active cached source/model/selection/history/request intact and no C query job. Native source-cache29 separately proves exact allocation/totals/bookmark byte retirement; this browser gate claims observable consumer-state cleanup and retention only. Fixture coordinates are zero-based model bounds, not displayed row labels. No broad review fields, fake callback, OS clipboard, saved report or user-window interaction."
+  },
+  "original_result_sha256": "03835896f774d09c2f134c677754c8c4e037d04cd30ab471cbeaba0a2cc2fba9",
+  "source_cache_sha256": "f242c66f66515d1588db9ab4e24ccd7c24ca52f8e2a5e7bfa2768fc04c1f39ba"
+}

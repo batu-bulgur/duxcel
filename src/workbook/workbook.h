@@ -8,7 +8,8 @@
 #define DX_WORKSPACE_VERSION 14
 #define DX_MAX_SHEETS 64
 #define DX_HISTORY 32
-typedef enum { EDIT_ANALYSIS,EDIT_CELLS,EDIT_OBJECTS,EDIT_RANGE,EDIT_FORMAT,EDIT_CELLS_FORMAT,EDIT_OBJECTS_FORMAT,EDIT_RANGE_FORMAT } EditKind;
+#define DX_ANALYSIS_HISTORY_BYTES (8u*1024u*1024u)
+typedef enum { EDIT_ANALYSIS,EDIT_CELLS,EDIT_OBJECTS,EDIT_RANGE,EDIT_FORMAT,EDIT_CELLS_FORMAT,EDIT_OBJECTS_FORMAT,EDIT_RANGE_FORMAT,EDIT_ANALYSIS_FORMAT } EditKind;
 typedef struct { bool active,insert; size_t column; float width; } ColumnEdit;
 /* View units are logical/unscaled, never framebuffer pixels. No raylib types here. */
 typedef struct {
@@ -61,6 +62,25 @@ size_t workbook_visible_sheet(const Workbook *book,size_t position);
 void worksheet_record(Worksheet *sheet,EditKind kind);
 unsigned worksheet_edit_effects(EditKind kind); /* analysis=1, cells=2, objects=4, formats=8 */
 void worksheet_transfer_history(Worksheet *sheet,bool redo);
+/* Pure owned primary-Analysis journal primitives. live may be sheet.analysis or
+   the App's independently owned authoritative value; the save cache is otherwise
+   untouched. next is an independent owned prepared value, never a sheet/object
+   history location or borrowed text. Preflight preserves all inputs and leaves
+   changed untouched on failure. Each Analysis and each existing history stack
+   has an 8 MiB owned bound (including its Analysis structures).
+   Adoption is nonfallible and requires successful preflight, changed=true and
+   unchanged Analysis/history inputs (a separate ledger adoption is allowed).
+   It moves pointers, consumes next and clears Analysis redo.
+   Commit the other constituent first/afterward, then call worksheet_record ONCE
+   with EDIT_ANALYSIS_FORMAT (or EDIT_ANALYSIS for a lone Analysis change).
+   History follows the same preflight/move/format/transfer sequence. These helpers
+   never touch the source-version ledger, formats, journal, dirty bit or save cache
+   (except when live explicitly is sheet.analysis). They do not validate source
+   ledger/schema association or infer heap ownership outside these trusted inputs. */
+bool worksheet_analysis_preflight(const Worksheet *sheet,Analysis *live,Analysis *next,bool *changed,char **error);
+void worksheet_analysis_adopt(Worksheet *sheet,Analysis *live,Analysis *next);
+bool worksheet_analysis_history_preflight(const Worksheet *sheet,Analysis *live,bool redo,char **error);
+void worksheet_analysis_history_adopt(Worksheet *sheet,Analysis *live,bool redo);
 bool worksheet_range_fits(const Worksheet *sheet,SheetRange range,int64_t dr,int dc,uint64_t source_rows,size_t source_columns,char **error);
 /* Moves contained objects and manual values atomically, with one journal action. */
 bool worksheet_move_range(Worksheet *sheet,SheetRange range,int64_t dr,int dc,uint64_t source_rows,size_t source_columns,char **error);

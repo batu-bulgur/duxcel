@@ -1,0 +1,25 @@
+# Dormant source-format archives and common imported-cell containment
+
+Accepted source `7c451c3`, 18 October 2026. Source digest `355d810b0e1c7c718d69858ccd133b6fd0302e50ed8c54bfd067201d4fbe3199` covers258 source files; unrelated untracked `tools/ui-review/` was left intact. The complete source-record formatting feature remains unfinished.
+
+Native `.dxls` v14 now archives explicit source-aware mode, immutable source-version counters/packets, primary/Table bindings and typed result/record selectors. Its26-table package validates names/types/nullability, exact uint64 values, owner/schema associations, bounded payloads and all ordinary workbook metadata through one connection-based reader. Missing external files remain references and do not trigger hashing/querying during load. Malformed loads leave the caller unchanged; unsupported upgrades/overwrites fail before modifying the destination. Ordinary lossless files remain v12; retired-owner-only files remain v13. Guarded legacy selectors remain unsupported by the codec until migration is integrated.
+
+Explicit source-aware mode is owned Undo/Redo/snapshot state, including when its last scope disappears. Main-grid, Table/Pivot body, contextual matrix, source preview, active-cell readout/ribbon and numeric totals use the common imported-context policy: unverified imported data cannot inherit finite manual-coordinate patches; broad worksheet-column defaults remain available. Native actual-app fixtures confirm manual styles survive alongside unstyled imported values, real Accounting totals and visible matrix values. Finite commands against unresolved imported data fail atomically with an explanation; manual and broad-column commands retain their existing Undo behavior.
+
+This is dormant archival and containment, not activated record-following formatting. Ordinary legacy App commands still create coordinate patches. No verified token is inferred from a saved packet, file stamp or version counter. Captured-intent verification/collection, legacy current/history migration, aggregate reservations and actual sort/filter/eviction/move/save-reactivation workflows remain open. The native test's SDK digest proof is a fixture check, not an asynchronous App producer.
+
+| Gate | Result and elapsed time | Evidence scope |
+| --- | --- | --- |
+| Native source-format, ASan/UBSan |43 stages `[687,730)`,25.711s App /56.096s total | Real primary, Table, matrix, preview, readout/totals, command rejection and asynchronous Save/Open/overwrite; hidden/unfocused |
+| Native source-format, optimized |43 stages,22.327s App /29.139s total | Same actual App workflow;16 jobs,27 SQL executions,3 counts across the entire fixture |
+| Native review, optimized |400 stages,17.324s App | Existing semantic picking/composer flow, three immutable actual reports, current binary/image provenance |
+| Integrated pure models |36,827 grid;43,524 format;10,535 scope checks per configuration | Release/ASan,21.852s combined runner; earlier exact source recorded in its manifest |
+| Codec component |1,287 source-format;207 source-version;635 legacy-format;393 owner checks per configuration | Exact component file hashes match this root; source-format18.524s optimized /126.849s ASan. Separate component acceptance, not a full root regression |
+| Actual transformed DPR2 browser |485 checks,54.681s total | Trusted Open/new source, old Table/Pivot/manual owner retention and64-sheet rejection; does not test v14 browser persistence or verified styles |
+| Shipping exclusion/package |Passed | Native release/sanitizer and normal/review Wasm separation; ad-hoc signed bundle refreshed without launching |
+
+The optimized fixture reports draw-submission CPU p95=1.505ms, excluding swap/pacing; whole-run frame p95=17.89ms and max436.33ms include queries/load/captures. These are fixture measurements, not physical input latency or a broad performance claim. The retained current screenshots show Table at150% UI scale and a fully visible actual matrix/preview at100%.
+
+An earlier added test waited for an offscreen lazy Pivot without selecting its owner and exhausted its frame budget. The fixture now selects/reveals that owner before awaiting real materialization. Assertions and animation waits were retained. The current inventory contains1,163 application stages (layout730); this checkpoint runs the focused43 and400 gates, not the entire inventory. Supported macOS ASan+UBSan passed; this SDK does not support LeakSanitizer, so no leak-sanitizer claim is made.
+
+`build/Duxcel.app` now contains the accepted7c release. The sole persistent project origin `http://127.0.0.1:8767/` serves review artifact `73207928f236e1a72b42`; normal artifact is `26bcf4fd7d4ccb8ffdd0`. The persistent queue is retained. No user window was launched, browser tab refreshed, system clipboard used or OS file panel invoked. Private browser processes/ports were cleaned up. Hashes, commands, source scopes and component manifests are retained beside this record; large generated browser traces remain in the referenced ignored run directory with their hashes in `browser-summary.json`.

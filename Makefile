@@ -329,10 +329,34 @@ test-worker-source-digest: build/data-tests/test-worker-source-digest build/data
 	./build/data-tests/test-worker-source-digest
 	ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-worker-source-digest-sanitize
 .PHONY: test-worker-source-digest
+RECORD_SELECTION_TEST = $(RECORD_PAGE_SRC) tests/test_record_selection.c
+WORKER_RECORD_SELECTION_TEST = $(CORE) tests/test_record_selection_worker.c
+build/data-tests/test-record-selection: $(RECORD_SELECTION_TEST) $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(RECORD_SELECTION_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+build/data-tests/test-record-selection-sanitize: $(RECORD_SELECTION_TEST) $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(RECORD_SELECTION_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+build/data-tests/test-worker-record-selection: $(WORKER_RECORD_SELECTION_TEST) $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKER_RECORD_SELECTION_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+build/data-tests/test-worker-record-selection-sanitize: $(WORKER_RECORD_SELECTION_TEST) $(HEADERS)
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(WORKER_RECORD_SELECTION_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+test-record-selection: build/data-tests/test-record-selection build/data-tests/test-record-selection-sanitize build/data-tests/test-worker-record-selection build/data-tests/test-worker-record-selection-sanitize
+	./build/data-tests/test-record-selection
+	ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-record-selection-sanitize
+	./build/data-tests/test-worker-record-selection
+	ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-worker-record-selection-sanitize
+.PHONY: test-record-selection
 tests/test_workbook: $(CORE) tests/test_workbook.c $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 tests/test_workbook-debug: $(CORE) tests/test_workbook.c $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+test-analysis-journal: tests/test_workbook tests/test_workbook-debug
+	./tests/test_workbook --journal-only
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --journal-only
+.PHONY: test-analysis-journal
 tests/test_core: $(CORE) tests/test_core.c $(HEADERS)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_core.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 tests/test_core-debug: $(CORE) tests/test_core.c $(HEADERS)
