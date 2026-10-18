@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
 static bool fail(char **error,const char *text) { if (error) { free(*error); *error=dx_strdup(text); } return false; }
-static void snapshot_free(ObjectSnapshot *s) {
+void objects_snapshot_free(ObjectSnapshot *s) {
     for (size_t i=0;i<s->count;i++) { free(s->items[i].name); pivot_free(&s->items[i].pivot); analysis_free(&s->items[i].source); marks_free(&s->items[i].marks); }
     free(s->items); memset(s,0,sizeof(*s));
 }
@@ -27,16 +28,35 @@ const SheetObject *objects_source(const ObjectStore *s,const SheetObject *o) {
     for (size_t i=0;o->source_id && i<s->count;i++) if (s->items[i].id==o->source_id && s->items[i].kind==OBJECT_TABLE) return &s->items[i];
     return NULL;
 }
-static size_t bytes(const ObjectSnapshot *s) {
+static bool add_text_bytes(size_t *bytes,const char *text) {
+    if (!text) return true;
+    size_t n=strlen(text);
+    if (n==SIZE_MAX || *bytes>SIZE_MAX-(n+1)) return false;
+    *bytes+=n+1; return true;
+}
+size_t objects_snapshot_owned_bytes(const ObjectSnapshot *s) {
+    if (!s || s->count>DX_MAX_OBJECTS || (s->count && !s->items)) return SIZE_MAX;
     size_t n=s->count*sizeof(SheetObject);
     for (size_t i=0;i<s->count;i++) {
-        n+=strlen(s->items[i].name)+1;
-        const PivotDefinition *p=&s->items[i].pivot;
-        n+=analysis_text_bytes(&s->items[i].source)+marks_text_bytes(&s->items[i].marks);
-        for (int r=0;r<4;r++) for (size_t j=0;j<p->counts[r];j++) n+=strlen(p->fields[r][j].name)+1+(p->fields[r][j].value ? strlen(p->fields[r][j].value)+1 : 0);
+        const SheetObject *o=&s->items[i]; const Analysis *a=&o->source;
+        if (!o->name || !add_text_bytes(&n,o->name) || a->filter_count>=DX_ANALYSIS_FILTERS || a->sort_count>=DX_ANALYSIS_SORTS) return SIZE_MAX;
+        const char *texts[]={a->path,a->schema,a->table,a->query,a->filter_column,a->filter_value,a->group_column,a->measure_column,a->sort_column};
+        for (size_t j=0;j<sizeof(texts)/sizeof(*texts);j++) if (!add_text_bytes(&n,texts[j])) return SIZE_MAX;
+        for (size_t j=0;j<a->filter_count;j++) if (!a->filters[j].column || !add_text_bytes(&n,a->filters[j].column) || !add_text_bytes(&n,a->filters[j].value)) return SIZE_MAX;
+        for (size_t j=0;j<a->sort_count;j++) if (!a->sorts[j].column || !add_text_bytes(&n,a->sorts[j].column)) return SIZE_MAX;
+        const PivotDefinition *p=&o->pivot;
+        for (int r=0;r<4;r++) {
+            if (p->counts[r]>DX_PIVOT_FIELDS) return SIZE_MAX;
+            for (size_t j=0;j<p->counts[r];j++) if (!p->fields[r][j].name || !add_text_bytes(&n,p->fields[r][j].name) || !add_text_bytes(&n,p->fields[r][j].value)) return SIZE_MAX;
+        }
+        for (int r=0;r<DX_MARK_ROLES;r++) {
+            if (o->marks.counts[r]>DX_MARK_FIELDS) return SIZE_MAX;
+            for (size_t j=0;j<o->marks.counts[r];j++) if (!o->marks.fields[r][j].name || !add_text_bytes(&n,o->marks.fields[r][j].name)) return SIZE_MAX;
+        }
     }
     return n;
 }
+static size_t bytes(const ObjectSnapshot *s) { return objects_snapshot_owned_bytes(s); }
 bool objects_valid(const ObjectStore *s,char **error) {
     if (s->count>DX_MAX_OBJECTS || (s->count && !s->items)) return fail(error,"Too many sheet objects.");
     for (size_t i=0;i<s->count;i++) {
@@ -50,17 +70,17 @@ bool objects_valid(const ObjectStore *s,char **error) {
         } else if (o->source.kind!=SOURCE_NONE || o->source.unique_rows || analysis_text_bytes(&o->source) || (o->source_id && !objects_source(s,o))) return fail(error,"Missing or invalid source table binding.");
     }
     ObjectSnapshot current={s->items,s->count};
-    return bytes(&current)<=8*1024*1024 || fail(error,"Sheet object definitions exceed 8 MiB.");
+    return bytes(&current)<=DX_OBJECT_CURRENT_BYTES || fail(error,"Sheet object definitions exceed 8 MiB.");
 }
-static void clear(ObjectSnapshot *stack,size_t *count) { while (*count) snapshot_free(&stack[--*count]); }
+static void clear(ObjectSnapshot *stack,size_t *count) { while (*count) objects_snapshot_free(&stack[--*count]); }
 static void push(ObjectSnapshot *stack,size_t *count,ObjectSnapshot state) {
     size_t size=bytes(&state); for (size_t i=0;i<*count;i++) size+=bytes(&stack[i]);
-    while (*count && (*count==32 || size>8*1024*1024)) { size-=bytes(&stack[0]); snapshot_free(&stack[0]); memmove(stack,stack+1,(--*count)*sizeof(*stack)); }
+    while (*count && (*count==32 || size>DX_OBJECT_HISTORY_BYTES)) { size-=bytes(&stack[0]); objects_snapshot_free(&stack[0]); memmove(stack,stack+1,(--*count)*sizeof(*stack)); }
     stack[(*count)++]=state;
 }
 static void remember(ObjectStore *s) { clear(s->redo,&s->redo_count); push(s->undo,&s->undo_count,snapshot(s)); }
 void objects_free(ObjectStore *s) {
-    ObjectSnapshot data={s->items,s->count}; snapshot_free(&data); clear(s->undo,&s->undo_count); clear(s->redo,&s->redo_count); memset(s,0,sizeof(*s));
+    ObjectSnapshot data={s->items,s->count}; objects_snapshot_free(&data); clear(s->undo,&s->undo_count); clear(s->redo,&s->redo_count); memset(s,0,sizeof(*s));
 }
 void objects_copy(ObjectStore *to,const ObjectStore *from) {
     uint64_t next=from->next_id,titles=from->title_revision,marks=from->marks_revision; ObjectSnapshot copy=snapshot(from);
@@ -79,14 +99,14 @@ int objects_add_chart(ObjectStore *s,uint64_t row,size_t col,const char *name,co
     bool valid=pivot_valid(definition,error ? error : &ignored_error); free(ignored_error);
     if (!valid) return -1;
     SheetObject candidate={.name=(char *)name,.pivot=*definition}; ObjectSnapshot current={s->items,s->count},add={&candidate,1};
-    if (!name || bytes(&current)+bytes(&add)>8*1024*1024) { fail(error,"Sheet object definitions exceed 8 MiB."); return -1; }
+    if (!name || bytes(&current)+bytes(&add)>DX_OBJECT_CURRENT_BYTES) { fail(error,"Sheet object definitions exceed 8 MiB."); return -1; }
     int index=objects_add(s,row,col,name,error); if (index<0) return index;
     SheetObject *o=&s->items[index]; o->kind=OBJECT_CHART; o->rows=12; o->columns=6; o->pivot=pivot_copy(definition); return index;
 }
 int objects_add_table(ObjectStore *s,uint64_t row,size_t col,const char *name,const Analysis *source,char **error) {
     if (!source_valid(source,error)) return -1;
     SheetObject candidate={.name=(char *)name,.source=*source}; ObjectSnapshot current={s->items,s->count},add={&candidate,1};
-    if (!name || bytes(&current)+bytes(&add)>8*1024*1024) { fail(error,"Sheet object definitions exceed 8 MiB."); return -1; }
+    if (!name || bytes(&current)+bytes(&add)>DX_OBJECT_CURRENT_BYTES) { fail(error,"Sheet object definitions exceed 8 MiB."); return -1; }
     Analysis copy=analysis_copy(source); char *owned=dx_strdup(name);
     int index=objects_add(s,row,col,owned,error); free(owned);
     if (index<0) { analysis_free(&copy); return index; }
@@ -109,9 +129,46 @@ bool objects_set_source(ObjectStore *s,size_t index,const Analysis *source,char 
     }
     if (same) return true;
     ObjectSnapshot current={s->items,s->count};
-    if (bytes(&current)-analysis_text_bytes(old)+analysis_text_bytes(source)>8*1024*1024) return fail(error,"Sheet object definitions exceed 8 MiB.");
+    if (bytes(&current)-analysis_text_bytes(old)+analysis_text_bytes(source)>DX_OBJECT_CURRENT_BYTES) return fail(error,"Sheet object definitions exceed 8 MiB.");
     Analysis copy=analysis_copy(source); remember(s); analysis_free(&s->items[index].source); s->items[index].source=copy;
     if (!same_result) s->items[index].revision++; return true;
+}
+static bool plan_snapshot_valid(const ObjectSnapshot *state,uint64_t next_id,char **error) {
+    if (objects_snapshot_owned_bytes(state)==SIZE_MAX) return fail(error,"Invalid owned sheet object snapshot.");
+    ObjectStore model={.items=state->items,.count=state->count,.next_id=next_id};
+    return objects_valid(&model,error);
+}
+static bool plan_history_valid(const ObjectSnapshot *states,size_t count,uint64_t next_id,size_t *owned,char **error) {
+    *owned=0;
+    for (size_t i=0;i<count;i++) {
+        if (!plan_snapshot_valid(&states[i],next_id,error)) return false;
+        size_t n=objects_snapshot_owned_bytes(&states[i]);
+        if (n>DX_OBJECT_HISTORY_BYTES-*owned) return fail(error,"Sheet object history exceeds 8 MiB.");
+        *owned+=n;
+    }
+    return true;
+}
+bool objects_plan_source_version(const ObjectStore *s,uint64_t owner,uint64_t expected,uint64_t next,ObjectSnapshot *out,bool *changed,char **error) {
+    if (!s || !out || !changed || !owner || !next) return fail(error,"Choose an issued source version and source table.");
+    if (s->undo_count>32 || s->redo_count>32) return fail(error,"Invalid sheet object history.");
+    ObjectSnapshot current={s->items,s->count}; size_t undo_bytes=0,redo_bytes=0;
+    if (!plan_snapshot_valid(&current,s->next_id,error) ||
+        !plan_history_valid(s->undo,s->undo_count,s->next_id,&undo_bytes,error) ||
+        !plan_history_valid(s->redo,s->redo_count,s->next_id,&redo_bytes,error)) return false;
+    size_t index=0; while (index<s->count && s->items[index].id!=owner) index++;
+    if (index==s->count || s->items[index].kind!=OBJECT_TABLE) return fail(error,"The source table is missing.");
+    if (s->items[index].source.source_version!=expected) return fail(error,"The source table binding changed before formatting.");
+    if (next==expected) { *changed=false; return true; }
+    if (s->undo_count==32 || objects_snapshot_owned_bytes(&current)>DX_OBJECT_HISTORY_BYTES-undo_bytes)
+        return fail(error,"The source binding cannot fit sheet object history without pruning another action.");
+    ObjectSnapshot planned=snapshot(s); planned.items[index].source.source_version=next;
+    objects_snapshot_free(out); *out=planned; *changed=true; return true;
+}
+void objects_adopt_source_version(ObjectStore *s,ObjectSnapshot *owned) {
+    assert(s && owned && owned->items && s->undo_count<32);
+    clear(s->redo,&s->redo_count);
+    s->undo[s->undo_count++]=(ObjectSnapshot){s->items,s->count};
+    s->items=owned->items; s->count=owned->count; *owned=(ObjectSnapshot){0};
 }
 bool objects_resolve_source(ObjectStore *s,size_t index,const Analysis *resolved,char **error) {
     if (index>=s->count || s->items[index].kind!=OBJECT_TABLE || !resolved) return fail(error,"Choose a valid source table.");
@@ -122,7 +179,7 @@ bool objects_resolve_source(ObjectStore *s,size_t index,const Analysis *resolved
     Analysis candidate=*source; candidate.schema=resolved->schema; candidate.table=resolved->table;
     if (!source_valid(&candidate,error)) return false;
     ObjectSnapshot current={s->items,s->count};
-    if (bytes(&current)-analysis_text_bytes(source)+analysis_text_bytes(&candidate)>8*1024*1024) return fail(error,"Sheet object definitions exceed 8 MiB.");
+    if (bytes(&current)-analysis_text_bytes(source)+analysis_text_bytes(&candidate)>DX_OBJECT_CURRENT_BYTES) return fail(error,"Sheet object definitions exceed 8 MiB.");
     char *schema=dx_strdup(candidate.schema),*table=dx_strdup(candidate.table);
     free(source->schema); source->schema=schema; source->table=table; return true;
 }
@@ -139,7 +196,7 @@ bool objects_update(ObjectStore *s,size_t index,const PivotDefinition *definitio
     if (same) return true;
     SheetObject candidate=s->items[index]; candidate.pivot=*definition;
     ObjectSnapshot current={s->items,s->count},before={&s->items[index],1},after={&candidate,1};
-    if (bytes(&current)-bytes(&before)+bytes(&after)>8*1024*1024) return fail(error,"Pivot definitions are limited to 8 MiB per sheet. Narrow the value selection.");
+    if (bytes(&current)-bytes(&before)+bytes(&after)>DX_OBJECT_CURRENT_BYTES) return fail(error,"Pivot definitions are limited to 8 MiB per sheet. Narrow the value selection.");
     size_t selected=s->items[index].chart_measure;
     if (selected<old->counts[PIVOT_VALUES]) {
         const PivotField *value=&old->fields[PIVOT_VALUES][selected]; bool found=false;
@@ -159,7 +216,7 @@ bool objects_marks(ObjectStore *s,size_t index,const MarkDefinition *marks,char 
     if (index>=s->count || s->items[index].kind==OBJECT_TABLE || !marks_valid(marks,error)) return fail(error,"Choose an analysis view for Marks.");
     if (marks_equal(&s->items[index].marks,marks)) return true;
     ObjectSnapshot current={s->items,s->count};
-    if (bytes(&current)-marks_text_bytes(&s->items[index].marks)+marks_text_bytes(marks)>8*1024*1024) return fail(error,"Sheet object definitions exceed 8 MiB.");
+    if (bytes(&current)-marks_text_bytes(&s->items[index].marks)+marks_text_bytes(marks)>DX_OBJECT_CURRENT_BYTES) return fail(error,"Sheet object definitions exceed 8 MiB.");
     MarkDefinition copy=marks_copy(marks); remember(s); marks_free(&s->items[index].marks); s->items[index].marks=copy; s->marks_revision++; return true;
 }
 bool objects_chart_measure(ObjectStore *s,size_t index,size_t measure,char **error) {
@@ -192,7 +249,7 @@ bool objects_rename(ObjectStore *s,size_t index,const char *name,char **error) {
     for (size_t i=0;i<s->count;i++) if (i!=index && names_equal(owned,s->items[i].name)) { free(owned); return fail(error,"Another pivot or chart already has that name."); }
     if (!strcmp(owned,s->items[index].name)) { free(owned); return true; }
     ObjectSnapshot current={s->items,s->count};
-    if (bytes(&current)-strlen(s->items[index].name)+n>8*1024*1024) { free(owned); return fail(error,"Sheet object definitions exceed 8 MiB."); }
+    if (bytes(&current)-strlen(s->items[index].name)+n>DX_OBJECT_CURRENT_BYTES) { free(owned); return fail(error,"Sheet object definitions exceed 8 MiB."); }
     remember(s); free(s->items[index].name); s->items[index].name=owned; s->title_revision++; return true;
 }
 bool objects_remove(ObjectStore *s,size_t index) {
@@ -214,7 +271,7 @@ bool objects_history(ObjectStore *s,bool redo) {
 void objects_trim_history(ObjectStore *s,bool redo,size_t keep) {
     ObjectSnapshot *stack=redo ? s->redo : s->undo; size_t *count=redo ? &s->redo_count : &s->undo_count;
     if (keep>=*count) return;
-    size_t drop=*count-keep; for (size_t i=0;i<drop;i++) snapshot_free(&stack[i]);
+    size_t drop=*count-keep; for (size_t i=0;i<drop;i++) objects_snapshot_free(&stack[i]);
     memmove(stack,stack+drop,keep*sizeof(*stack)); memset(stack+keep,0,drop*sizeof(*stack)); *count=keep;
 }
 void objects_translate_mask(ObjectStore *s,uint32_t mask,int64_t dr,int dc) {
