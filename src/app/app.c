@@ -6245,6 +6245,11 @@ static void pipeline_scrollbar_paint(UIContext *u,Rectangle track,float content,
     DrawRectangleRounded(thumb,1,4,hover ? (Color){153,172,188,255} : (Color){184,198,209,255});
 }
 static float pipeline_pan_delta(App *a,Vector2 *pointer) {
+#ifdef DUXCEL_DEV_REVIEW
+    /* Pixel snapshots bypass the wheel adapter; an armed render must not
+       apply an already drained pan packet to either inspector controller. */
+    if (dx_review_input_blocked()) return 0;
+#endif
     float delta=-GetMouseWheelMoveV().y*48;
 #ifdef DUXCEL_BROWSER_HOST
     (void)pointer;
@@ -6290,7 +6295,7 @@ static UIInspectorLayout pipeline_prepare_sql(App *a,const Analysis *source,cons
     }
     layout=ui_inspector_layout_scrolled(panel,scale,a->pipeline_row_count,true,a->pipeline_outer_scroll,0);
     a->pipeline_outer_scroll=layout.outer_offset;
-    if (layout.outer_scrollable && ui_scrollbar_update(u,layout.outer_scrollbar,panel.height/scale+layout.outer_max,panel.height/scale,&a->pipeline_outer_scroll,false,&a->pipeline_outer_bar,enabled)) a->consume_grid_input=true;
+    if (ui_scrollbar_update(u,layout.outer_scrollbar,panel.height/scale+layout.outer_max,panel.height/scale,&a->pipeline_outer_scroll,false,&a->pipeline_outer_bar,enabled)) a->consume_grid_input=true;
     layout=ui_inspector_layout_scrolled(panel,scale,a->pipeline_row_count,true,a->pipeline_outer_scroll,0);
     layout.inner_max=maximum; layout.inner_scrollable=maximum>0 && viewport>0;
     if (layout.inner_scrollable) {
@@ -6300,7 +6305,7 @@ static UIInspectorLayout pipeline_prepare_sql(App *a,const Analysis *source,cons
             if (ui_scrollbar_update(u,layout.list_scrollbar,content,viewport,&a->inspector_sql_scroll,false,&a->inspector_sql_bar,enabled)) a->consume_grid_input=true;
             ui_scissor_end(u);
         }
-    }
+    } else a->inspector_sql_bar=(UIScrollbar){0};
     layout.inner_offset=a->inspector_sql_scroll; return layout;
 }
 static bool pipeline_sql_action(App *a,Rectangle r,UICarbonIcon icon,const char *caption,bool enabled) {
