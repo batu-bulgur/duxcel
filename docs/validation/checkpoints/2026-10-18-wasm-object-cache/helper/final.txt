@@ -1,0 +1,23 @@
+test_comments_duplicates_and_no_make_variable_evaluation (__main__.ParserTests) ... ok
+test_make_escapes_continuations_and_literal_backslashes (__main__.ParserTests) ... ok
+test_non_ascii_whitespace_is_a_literal_make_filename_character (__main__.ParserTests) ... ok
+test_actual_compiler_depfile_special_paths (__main__.TinyCompilerTests) ... ok
+test_clang_ambiguous_literal_backslash_dependency_fails_closed (__main__.TinyCompilerTests) ... ok
+test_cold_warm_and_real_link (__main__.TinyCompilerTests) ... ok
+test_configuration_and_mode_are_independent (__main__.TinyCompilerTests) ... ok
+test_deleted_dependency_fails_without_reusing_or_replacing_old_object (__main__.TinyCompilerTests) ... ok
+test_dependency_mutation_after_compile_rejects_and_recovers (__main__.TinyCompilerTests) ... ok
+test_generated_force_include_only_its_actual_consumer (__main__.TinyCompilerTests) ... ok
+test_interrupt_preserves_triplet_and_cleans_unique_temporaries (__main__.TinyCompilerTests) ... ok
+test_missing_corrupt_sidecars_and_corrupt_object_rebuild (__main__.TinyCompilerTests) ... ok
+test_new_dependency_during_compile_rejects_closure (__main__.TinyCompilerTests) ... ok
+test_new_earlier_include_shadow_and_symlink_target (__main__.TinyCompilerTests) ... ok
+test_publication_interruption_metadata_last_prevents_false_reuse (__main__.TinyCompilerTests) ... ok
+test_real_compile_failure_preserves_triplet_and_recovers (__main__.TinyCompilerTests) ... ok
+test_source_freeze_callback_runs_on_reuse_and_before_publication (__main__.TinyCompilerTests) ... ok
+test_unused_transitive_shared_and_same_timestamp_content (__main__.TinyCompilerTests) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 8.974s
+
+OK
