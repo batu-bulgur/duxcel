@@ -189,6 +189,7 @@ const metadataStreamPolicies=new Map([
     ['columns',{rows:1048577,columns:4}],['cells',{rows:1280001,columns:4}],
     ['source-versions',{rows:65537,columns:7}],
     ['format-rows',{rows:32769,columns:13}],
+    ['format-selectors',{rows:32769,columns:3}],
 ]);
 export function workbookMetadataStreamRequest(value) {
     const purpose=value?.purpose,family=value?.family,policy=metadataStreamPolicies.get(family),rows=value?.rowLimit??policy?.rows;
