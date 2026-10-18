@@ -98,6 +98,14 @@ These inspect immutable artifact copies for linked review symbols, source paths,
 
 ## Isolated web preparation
 
+GitHub CI is defined in [web.yml](../.github/workflows/web.yml): browser-core
+release/ASan/UBSan, Node adapter and offline toolchain/cache/package checks,
+then a real shipping Wasm build and owned headless CSV/filter acceptance.
+`python3 tools/test_package_web_pages.py` verifies the publication boundary.
+Only successful `main` runs deploy; pull requests cannot deploy. See the
+[delivery setup](../web/README.md#github-pages-delivery). This is a scoped web
+gate, not the full native regression or a browser workbook Open/Save claim.
+
 `python3 tools/web_toolchain_test.py` checks bootstrap fixtures without network or graphics. `python3 tools/web_toolchain.py status` verifies the installed local compiler; `python3 tools/build_web_raylib.py` builds the pinned dependency with one compiler process, validates every archive object as Wasm, and publishes its library atomically under `build/web/raylib/`. It uses a private copied source/build tree and does not use Homebrew's native archive. The dependency uses its upstream GNU99 web setting for Emscripten `EM_ASM`; application C remains C99. See [setup and constraints](../web/README.md) and [actual compiler/dependency evidence](validation/checkpoints/2026-10-17-web-toolchain/). Toolchain checks alone do not close browser acceptance. `make web` builds the shared App; `python3 tools/test_web_app.py --no-build` acquires the desktop lock and checks it in an owned headless Chromium profile. The W1 interaction proof is separate from W2 query/ownership acceptance.
 
 ## Real browser engine gates

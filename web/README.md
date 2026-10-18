@@ -184,3 +184,42 @@ collects without model calls. Use one stable origin so pending browser reports r
 No review host, registry or callback export is packaged with the normal target.
 `tools/test_web_review_build.py` verifies the actual compiled boundary; see
 [browser reporting acceptance](../docs/validation/checkpoints/2026-10-17-browser-review/).
+
+## GitHub Pages delivery
+
+[Web CI and Pages](../.github/workflows/web.yml) runs on pull requests, pushes
+to `main`, and manual dispatch. Pull requests test/build without deploying;
+successful `main` builds publish to <https://batu-bulgur.github.io/duxcel/>.
+Repository Settings → Pages must use **GitHub Actions** as the publishing source.
+Deployment uses GitHub's short-lived Pages token/OIDC, without a stored PAT.
+
+The Linux job runs browser-core release and ASan/UBSan tests, browser adapter
+Node tests, and toolchain/cache/packaging contracts. The macOS arm64 job uses
+the existing checksum-pinned Emscripten/raylib toolchain, builds the same C99
+shipping UI, and exercises CSV import/filtering in an owned headless Chrome
+session. Only downloaded SDK archives are cached. npm uses the committed lock
+and disabled install scripts. CI downloads the checksum-pinned DuckDB v1.4.3 C
+type header; no native DuckDB or raylib installation is needed for this target.
+
+`python3 tools/package_web_pages.py` stages the current application into a fresh
+`build/pages` directory. It verifies artifact hashes, shipping source/flag
+isolation and linked development-marker absence, then copies runtime files and
+vendor licenses. Build logs, full compiler manifests, review tools and test
+drivers are excluded. A small `release.json` identifies the source commit,
+build signature, file hashes and workbook-persistence limitation. Serve the
+directory over HTTP, including from a project subpath; runtime URLs are relative.
+
+```sh
+python3 tools/package_web_pages.py
+python3 tools/test_web_pages.py --directory build/pages
+python3 tools/test_web_pages.py --url https://batu-bulgur.github.io/duxcel/
+```
+
+These checks use the existing desktop lock and a fresh owned headless profile,
+exercise actual CSV import/filtering, and retain ignored screenshots/results.
+Local serving uses `/duxcel/` with ordinary static HTTP headers, matching Pages.
+
+This deploys the current browser capabilities. Browser workbook Open/Save,
+complete visual/input parity and the broader browser matrix remain unfinished.
+The single-threaded official DuckDB Worker needs no COOP/COEP response headers.
+Native GUI regression and signed native distribution remain separate gates.

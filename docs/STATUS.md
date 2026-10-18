@@ -8,6 +8,17 @@ The nine-hour audit found useful earlier fixes to pane input/scrolling, fonts, s
 
 The [cleanup audit](audit/2026-10-18-cleanup.md) records worktree disposition and recovery paths. Historical source-scoped acceptance lives in [validation/checkpoints/](validation/checkpoints/); only the current capability matrix belongs here.
 
+**Web publication, 18 October 2026:** [GitHub Actions](../.github/workflows/web.yml)
+now gates Pages publication on browser-core release/ASan/UBSan, Node adapters,
+toolchain/cache/package contracts, the shared C99 Wasm build and a real browser
+CSV/filter check at the `/duxcel/` project subpath. Local validation passed
+322 Node tests, the browser-core gate and 26 packaged-browser checks in 11.1s;
+the pinned-header Wasm build took 25.8s. The verified shipping payload is about
+41.2MB and excludes build logs, review code and acceptance drivers. The configured
+destination is <https://batu-bulgur.github.io/duxcel/>; remote Actions/deployment
+acceptance is separate from these local results. Browser workbook Open/Save
+and complete UI/input parity remain unavailable. See [delivery details](../web/README.md#github-pages-delivery).
+
 | Capability | Implementation location | Current quality / remaining work |
 | --- | --- | --- |
 | Unified automatic review queue | `tools/review_{queue,service,worker}.py`, review-only `web/review_queue.mjs` | Accepted real native/Wasm reports through one persistent queue and automatic installed Codex CLI pickup, with captured PNG/target/context and durable structured triage. Actual offline IndexedDB save/reload/reconnect passed;28queue/8service/29Node groups, both26-stage hidden native optimized/sanitizer flows and current shipping absence passed. Idle scans avoid repeated image reads; leases/retry/restart protect ownership. Human lifecycle stays independent; triage does not implement or verify a defect. Mock/Agentation services are stopped; one stable loopback Wasm review origin replaces them. [Evidence and remaining limits](validation/checkpoints/2026-10-17-unified-review/). |
