@@ -1,0 +1,60 @@
+{
+  "schema": "duxcel.primary-filters-transport",
+  "version": 1,
+  "revision": "c7f59c7ab05e507daa75f7fb533edf98139ad99c",
+  "source_status": " M Makefile\n M tests/test_browser_codec_read.c\n M tools/build_web.py\n M tools/test.py\n M tools/test_runner_test.py\n M tools/test_web_app.mjs\n M tools/test_web_app.py\n M tools/test_web_codec_runner_test.py\n M tools/test_web_review_build.py\n M web/codec_test_host.mjs\n?? tools/ui-review/\n",
+  "scope": "Cfiltertransport+Nodeadapter/streamunit components only. No fullWorkbook,App,actualWorkerstream,UI/OpenSave claim. Browser/build harness edits in progress do not change compiled native wire sources.",
+  "steps": [
+    {
+      "name": "build",
+      "command": [
+        "make",
+        "build/web-tests/test-wire",
+        "build/web-tests/test-wire-sanitize"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 6.387952208053321,
+      "log": "build/bp1-primary-filters-transport/build.txt",
+      "sha256": "6f46ae19a6b48fadba051299f525f1ad754364155fdf4f2c156d3e0c00f231ab"
+    },
+    {
+      "name": "release",
+      "command": [
+        "build/web-tests/test-wire"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.6064013749128208,
+      "log": "build/bp1-primary-filters-transport/release.txt",
+      "sha256": "5b87304c82c6f93cca75a0b73cf39a74b31481d74e88add9206d22b4a909aae1"
+    },
+    {
+      "name": "sanitize",
+      "command": [
+        "build/web-tests/test-wire-sanitize"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.8940781670389697,
+      "log": "build/bp1-primary-filters-transport/sanitize.txt",
+      "sha256": "5b87304c82c6f93cca75a0b73cf39a74b31481d74e88add9206d22b4a909aae1"
+    },
+    {
+      "name": "node",
+      "command": [
+        "node",
+        "--test",
+        "web/official_worker.test.mjs",
+        "web/page_wire.test.mjs",
+        "web/engine_host.test.mjs",
+        "web/official_worker_probe.test.mjs",
+        "web/metadata_stream.test.mjs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.167119332938455,
+      "log": "build/bp1-primary-filters-transport/node.txt",
+      "sha256": "0f60ad5f2b9889e5e5afb045823c0676ee17af833f6d678147684d7308e40846"
+    }
+  ],
+  "status": "passed",
+  "elapsed_seconds": 10.056038000038825,
+  "source_revision_unchanged": true
+}

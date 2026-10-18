@@ -1,0 +1,1 @@
+FAIL workbook header reader:1381: a->path&&!*a->path&&workbook_codec_header_query(header,0,0,&query)&&query==a->query&&!strcmp(query,"SELECT exact;  \n")&&workbook_codec_header_unique_rows(header,0,0,&flag)&&flag&&a->unique_rows&&workbook_codec_header_filters_ready(header)&&!a->filter_count

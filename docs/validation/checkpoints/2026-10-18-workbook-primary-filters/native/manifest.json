@@ -1,0 +1,299 @@
+{
+  "schema": "duxcel.native-codec-filters-evidence",
+  "version": 1,
+  "status": "passed",
+  "scope": "Definition-only native primary FILTERS continuation, not Worker/App Open/Save. Four actual native Save archives; named original typed DuckDB chunk atoms feed one shared C decoder; stored source SQL and missing CSV never executed. Decoder logical owned staging plus caller-retained input/old Header is bounded at 2 MiB for this representative gate. Full 4 MiB field boundary remains pure-only; engine/oracle/file images/allocator/RSS peaks excluded. ASan/UBSan enabled; macOS LSan unsupported and not claimed.",
+  "source_base": "c362c41d8a9a0dd6c82dbe413708ffa998fd3b10",
+  "tested_commit": "dbf0ae7b85d709cd796612ba89dce9b51fc462a5",
+  "observed_root_commit": "c7f59c7ab05e507daa75f7fb533edf98139ad99c",
+  "owned_source_files": {
+    "tests/test_workbook_codec_native.c": "1da4e831ca4f827f26cf163714cea77583e9c1d69f14eaed9b2abb5697dc15bd",
+    "tests/test_workbook_codec_filters_native.inc": "eb9b358c2d03692ba8d53460df98477eab84df51aa4248ef829c2101826645dd"
+  },
+  "preprocessor_project_count": 49,
+  "project_files": {
+    "src/common.c": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4",
+    "src/common.h": "027d4a52e7bd019dd21f3ddd2f077f464d4554142eceee1edddfbd3d8d7e6100",
+    "src/data/database.c": "5e597a475b639e880f3bb534805cc94825152e8d108e99ea2aa7d3b1ba9edbce",
+    "src/data/database.h": "c4d7ff5a1bfa161a8854ac6acb2e91871dacbbb28358b648c80f4aacbb376e2f",
+    "src/data/page.c": "20e609ecf1328e8c42589697a5331dfe778a41577ba16be629996117b52d7ef3",
+    "src/data/page.h": "31e0fbb396f33a75b73933442561dcfbeaf36dde7a3287ea135489b6895cfe9f",
+    "src/data/source_digest.c": "6bf46cd0827b0b7740350c2342beadfbc5689b890b049646e3b4e99fcd867f14",
+    "src/data/source_digest.h": "443a4ef6be2ea7dad017c8f1528c503eb414ab9b2bc1e9c585072f6a3ffde8ee",
+    "src/data/worker.c": "c6ba9b4075c2b5209863619e2b70e81deb8f80abc5f17dbe0612eb2770c6d9d8",
+    "src/data/worker.h": "ff9aa1afb87a693b405aa96b95ee8842af508b58886132c21b045a626d64811d",
+    "src/platform/platform.c": "743116c0c7fad43cc3f5286e3192ffe8936476c3e48b35f2eac0f7b2a5ae0aa6",
+    "src/platform/platform.h": "bf535c023c55edc9e60f46c4cac2e284706e480833efaa4afa73a85bd85d9d83",
+    "src/transforms/analysis.c": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19",
+    "src/transforms/analysis.h": "6d9571f28ea6ee9c42233faae588fedd310ce193db0c2d8dee2b309ac6711166",
+    "src/transforms/chart_other.c": "fd6e092c95d9313cedb8fac49a8f08de5124b110a81b4c4ee10539a108c9db1d",
+    "src/transforms/chart_other.h": "14b3d02dc8f0736f2b3d9c871e72db647613217526c44c8e3e00e49e22570a63",
+    "src/transforms/distinct.c": "fd6dfb234dccf2ae33becb61faff64710720b06494bba6abf44aba2b166aad7c",
+    "src/transforms/distinct.h": "74d010da999052333c9f2612a1860944e8fbb0de6656fc306c61cc53b4948a0e",
+    "src/transforms/marks.c": "864da129ebccf18bc8cd72db75ae36c8e9d03f3e50db76cd9c385ed7eb22952b",
+    "src/transforms/marks.h": "649b9cc9491eaf1855b42eb668adc6fe08e0dac2c64869b87900a71ba62305c7",
+    "src/transforms/number.c": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e",
+    "src/transforms/number.h": "54360de3c934dfc1c686527c2392db3999630aff9f56d45a2f74598f41a24482",
+    "src/transforms/pivot.c": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d",
+    "src/transforms/pivot.h": "c76fb81248dbf1d1aacd754f6560a432ffd1c93c37378310865f289905e2e49b",
+    "src/transforms/record_sql.c": "cc395a8855d63e6ded3c0828bd3ad9d14663259733029bf3d2b04203e8c90f96",
+    "src/transforms/record_sql.h": "35da9c8377a4548ebea5d6455ba37f4c0c85a711df85aa9dc98d97656b7ac57f",
+    "src/workbook/cells.c": "5c56f3c895b43d07790970bc2c7334e7c598268289fedd1581717d3b7648410c",
+    "src/workbook/cells.h": "2bc452c6d7ce5c176acf5da862530ce7036897c59c5f0da19bd40a65a5be1b19",
+    "src/workbook/clipboard.c": "2359bb7cf09890ff1ac46d8cd0db4184a3c983c970c200c41ce82992c4fb60bd",
+    "src/workbook/clipboard.h": "a99858cb0ae6dc62ce14ee665904e7608e15c78854afc052bac52a5a1f52cd3f",
+    "src/workbook/format.c": "cd20649d531bdf6ed33148fa6a9a6cdee5f4d3915d587284d65c62ec0ea766a3",
+    "src/workbook/format.h": "5cebb5ff7c78ec4cf2060d39c3fb2df464d0ac92a133fcec08cc35f0f4d945a8",
+    "src/workbook/objects.c": "11bef814a7eef30fbb9ea3263f7fa38b29dbe2c8a706cde63a774199b5842c07",
+    "src/workbook/objects.h": "9b95698956335dc1fba02355339a850c62b8254b3918512a4497adac8d7313bd",
+    "src/workbook/source_scope.c": "1177452e699b69b18ad5506c5b73ee96fd0847b706307347822d6288289b80f8",
+    "src/workbook/source_scope.h": "c8c97559a1e58868f01348abeb72f1627394929f40bcd4de41a27b7b7faabd3b",
+    "src/workbook/workbook.c": "8f72fe9529b27e460f454040b492ff9cdde69f11ff67f814d587c4dcfd02e790",
+    "src/workbook/workbook.h": "f47c0b5896ee28d6e3fcecccb72bc6357956fc5583eda65d3be1825794791d79",
+    "src/workbook/workbook_codec.c": "75519f3222cdecf9fc351e8b5db0928b043a6e5db0ecf04bb3eae097cf173b11",
+    "src/workbook/workbook_codec.h": "7073011199d4b53f3d506174aed33e5a8f03cdb96257caf0837d32e37e99b39e",
+    "src/workbook/workbook_codec_read.c": "21514d5b91f6809df71d87d73ea400c8df676ec619477ae5dec9c47f95ec1990",
+    "src/workbook/workbook_codec_read.h": "0f53ffd542406565f4aec903cd444b05012a9a28cebe15e1cdcbcc4734746392",
+    "tests/test_workbook_codec_filters_native.inc": "eb9b358c2d03692ba8d53460df98477eab84df51aa4248ef829c2101826645dd",
+    "tests/test_workbook_codec_native.c": "1da4e831ca4f827f26cf163714cea77583e9c1d69f14eaed9b2abb5697dc15bd",
+    "tests/test_workbook_codec_objects_native.inc": "18ecf374b1e22fda9f6adb1a84ed38ede7a66da4c4a876e99cb8c7558030a99c",
+    "tests/test_workbook_codec_options_native.inc": "3b5e113a5f16b34103440fa391227b10406760320bae178405dfee9c4ba27b5d",
+    "tests/test_workbook_codec_pivot_marks_native.inc": "3a0a4d47c668007946f2868f233e30e1f05fc032fa611831f5e61fdd38176e3b",
+    "tests/test_workbook_codec_queries_native.inc": "894f6c877c656906c5d6a356252a701fe05b47828c8dbc645ac3f51b31fdc539",
+    "tests/test_workbook_codec_tables_native.inc": "7aba59d0ddfa06cde2e22f338dd68692cf7c4103b954d9feeee9e3409641c8e3"
+  },
+  "installed_files": {
+    "/opt/homebrew/include/duckdb.h": "e85f70155b5948c8575e59f66e60d43575cec8b252293534c9e8598eb313a293",
+    "/opt/homebrew/lib/libduckdb.dylib": "b36d22b47c649b266380d02e4d0940e4b7a5c38fe4bf5370b777742386650c8a",
+    "/opt/homebrew/bin/duckdb": "d485672a16b9f167a33e14ad4ce350abebc38e357c064faa9de84eaa09464391"
+  },
+  "results": [
+    {
+      "stage": "release-build",
+      "command": [
+        "clang",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-Werror",
+        "-O2",
+        "-g",
+        "src/common.c",
+        "src/platform/platform.c",
+        "src/transforms/distinct.c",
+        "src/transforms/analysis.c",
+        "src/transforms/record_sql.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/chart_other.c",
+        "src/transforms/marks.c",
+        "src/data/database.c",
+        "src/data/page.c",
+        "src/data/source_digest.c",
+        "src/workbook/clipboard.c",
+        "src/workbook/cells.c",
+        "src/workbook/format.c",
+        "src/workbook/source_scope.c",
+        "src/workbook/objects.c",
+        "src/workbook/workbook.c",
+        "src/workbook/workbook_codec.c",
+        "src/data/worker.c",
+        "src/workbook/workbook_codec_read.c",
+        "tests/test_workbook_codec_native.c",
+        "-L/opt/homebrew/lib",
+        "-lduckdb",
+        "-pthread",
+        "-lm",
+        "-o",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release"
+      ],
+      "seconds": 6.97191,
+      "exit_code": 0,
+      "log": "build/bp1-filters-native/release-build.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "stage": "release-filters",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release",
+        "--filters-only"
+      ],
+      "seconds": 2.29952,
+      "exit_code": 0,
+      "log": "build/bp1-filters-native/release-filters.txt",
+      "sha256": "1d80e424813208c30d0b1dd4817e55c6d7f3205847002ac6ebc4799cff3b1e53"
+    },
+    {
+      "stage": "release-default",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release"
+      ],
+      "seconds": 0.671522,
+      "exit_code": 0,
+      "log": "build/bp1-filters-native/release-default.txt",
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    },
+    {
+      "stage": "sanitize-build",
+      "command": [
+        "clang",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-Werror",
+        "-O1",
+        "-g",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "src/common.c",
+        "src/platform/platform.c",
+        "src/transforms/distinct.c",
+        "src/transforms/analysis.c",
+        "src/transforms/record_sql.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/chart_other.c",
+        "src/transforms/marks.c",
+        "src/data/database.c",
+        "src/data/page.c",
+        "src/data/source_digest.c",
+        "src/workbook/clipboard.c",
+        "src/workbook/cells.c",
+        "src/workbook/format.c",
+        "src/workbook/source_scope.c",
+        "src/workbook/objects.c",
+        "src/workbook/workbook.c",
+        "src/workbook/workbook_codec.c",
+        "src/data/worker.c",
+        "src/workbook/workbook_codec_read.c",
+        "tests/test_workbook_codec_native.c",
+        "-L/opt/homebrew/lib",
+        "-lduckdb",
+        "-pthread",
+        "-lm",
+        "-o",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize"
+      ],
+      "seconds": 10.724806,
+      "exit_code": 0,
+      "log": "build/bp1-filters-native/sanitize-build.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "stage": "sanitize-filters",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize",
+        "--filters-only"
+      ],
+      "seconds": 8.394445,
+      "exit_code": 0,
+      "log": "build/bp1-filters-native/sanitize-filters.txt",
+      "sha256": "1d80e424813208c30d0b1dd4817e55c6d7f3205847002ac6ebc4799cff3b1e53"
+    },
+    {
+      "stage": "sanitize-default",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize"
+      ],
+      "seconds": 2.772179,
+      "exit_code": 0,
+      "log": "build/bp1-filters-native/sanitize-default.txt",
+      "sha256": "5ecf5ea0df5f8c63c309cb59815b8d3cc53deaa5d2301a76f49e36b1e37a7044"
+    }
+  ],
+  "runtime_build_seconds": 31.834382,
+  "publication_seconds": 3.40131,
+  "total_seconds": 35.235692,
+  "terminal": {
+    "checks_per_config": 10666,
+    "cursor_metadata_executions_per_config": 113,
+    "typed_feeds_per_config": 118,
+    "unchanged_header_control": {
+      "checks_per_config": 1611,
+      "executions_per_config": 21,
+      "feeds_per_config": 35
+    }
+  },
+  "binary_sha256": {
+    "release": "cf7d41b4c5d95881088439c04ba63f708f1fec087eeb9d497f5a8d31eaba5d78",
+    "sanitize": "78980995785b416ea3c5cd0bb21672cc365f09b4da9f6ed3d9e7f6435f0932f7"
+  },
+  "receipts": {
+    "build/bp1-filters-native/preprocessor-closure.json": "b5e67442dffd399d20b6c602e6163ed69cdee75f0493e36fa03ba906347b984b",
+    "build/bp1-filters-native/root-source-comparison.json": "25dfb81c0846fcc5c1e9f2b73f0613c1d76f537ae14860aec992c934da8b654e",
+    "build/bp1-filters-native/emitter-results.json": "b60009961f5657808bd07b227520a53230e75df2102f4122fc45d111417fe85a",
+    "build/bp1-filters-native/run-results.json": "f89ac2846bb7801c28664c0a51c6e0a63bc9421fe535897fb204cea50ee61696",
+    "build/bp1-filters-native/run.py": "fa2b4ba6fb815eef4428316b6efaf7bf239e4ad1cc4b4bd2da8a9ed279f3788a",
+    "build/bp1-filters-native/check-emitters.py": "a29502a1d029293e7157323bee6cfb4aadbebab8ce798b85ed48c7d56dafa271",
+    "build/bp1-filters-native/closure.py": "48c6169467fff7ff837c5079178dc700db6e13812da26c2714966504bb042fc1",
+    "build/bp1-filters-native/initial-emitter-inspection.py": "d4149f0384747ecccd1a251141e55551c04891ed6d7e09384f9d9e40efd12c24",
+    "build/bp1-filters-native/initial-emitter-inspection.json": "5c1aa724526d80cc4b56d0186b101f8740faa9d812f56981c481d08b63cd64fb"
+  },
+  "fixture_scope": {
+    "four_files": [
+      {
+        "name": "filters-v12.dxls",
+        "version": 12,
+        "layout": 25,
+        "sheets": 1,
+        "filters": 3,
+        "sorts": 7,
+        "queries": 1,
+        "true_options": 0
+      },
+      {
+        "name": "filters-v13.dxls",
+        "version": 13,
+        "layout": 25,
+        "sheets": 1,
+        "filters": 3,
+        "sorts": 7,
+        "queries": 1,
+        "true_options": 0
+      },
+      {
+        "name": "filters-v14.dxls",
+        "version": 14,
+        "layout": 25,
+        "sheets": 1,
+        "filters": 4,
+        "sorts": 7,
+        "queries": 1,
+        "true_options": 0
+      },
+      {
+        "name": "filters-v14-reordered.dxls",
+        "version": 14,
+        "layout": 25,
+        "sheets": 19,
+        "filters": 285,
+        "sorts": 133,
+        "queries": 19,
+        "true_options": 9
+      }
+    ],
+    "objects": 0,
+    "large_result_feeds": [
+      256,
+      29
+    ],
+    "long_values": "Small v14 contains exactly one 65537-byte primary p value and one 65537-byte secondary x value. Genuine SQL NULL, empty, literal NULL independently asserted before Save and after closed immutable publication.",
+    "not_decoded": "Object high-water and source-aware format state trigger writer version only; no counters/format/ledger decoding or activation claim."
+  },
+  "coverage": [
+    "Complete query/options/seven-sort/view composition with empty descriptor registry, exact Unicode/apostrophe names, raw query trailing whitespace and relative missing-source locator",
+    "Required NULL and original SQL type errors, embedded NUL length proof via chunk string_t, primary/secondary casefold duplicates, ordering/position/op/foreign-sheet and late BETWEEN parse error",
+    "Batch failure preserves first256 accepted prefix and exact cursor/owned bytes; old complete Header pointers/content/bytes unchanged; corrected re-execution recovers",
+    "Absent v12/v13 defaults still validate primary; required v14 table; SOURCE_NONE filters; pre-parser exact/one-under scratch admission; actual retained-input pressure; stale operation keys before read",
+    "Physical named-column reorder; all native handles retired before parity/borrow-lifetime checks; immutable original archive bytes; no-overwrite, symlink/canonical directory,0444 and late-conflict own-only cleanup"
+  ],
+  "unchanged_modes": "Only WORKBOOK_CODEC_FILTERS-specific instrumentation branches were added; all prior mode assertions are unchanged. Ordinary Header 1611/21/35 rerun both. Maximal old query/options native modes were deliberately not rerun.",
+  "initial_inspection_failure": "Only the external Python publication oracle expected JSON strings for exact UBIGINT values inside nested struct_pack JSON; corrected to exact JSON integers. Native source/assertions/runtime unchanged; no product natural-red claim.",
+  "source_git_status": ""
+}

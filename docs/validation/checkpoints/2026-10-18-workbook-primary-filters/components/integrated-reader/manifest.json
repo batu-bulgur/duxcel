@@ -1,0 +1,71 @@
+{
+  "schema": "duxcel.bp1-primary-filters-components",
+  "source": "40955c3079fc03edec8f7d1c5229e5b4af613df8",
+  "component_source_unchanged_at": "c362c41d8a9a0dd6c82dbe413708ffa998fd3b10",
+  "run": "tests/results/runs/20261018T091259-fast-29178",
+  "summary": {
+    "status": "passed",
+    "started_utc": "2026-10-18T09:12:59.240618+00:00",
+    "tier": "fast",
+    "config": "both",
+    "jobs": 1,
+    "no_build": false,
+    "edit": false,
+    "native_visibility": "hidden",
+    "root": "/Users/h2o/dev/duxcel",
+    "source": {
+      "commit": "40955c3079fc03edec8f7d1c5229e5b4af613df8",
+      "status": "?? tools/ui-review/",
+      "source_sha256": "33b569d817e1186e7c88a5b8d26504b7b5537c31552bb40d03a95f4170e6153e",
+      "source_files": 305
+    },
+    "results": [
+      {
+        "name": "build-headless",
+        "command": [
+          "make",
+          "tests/test_workbook_codec_read",
+          "tests/test_workbook_codec_read-debug"
+        ],
+        "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T091259-fast-29178/build-headless.txt",
+        "expected_stages": null,
+        "exit_code": 0,
+        "status": "passed",
+        "seconds": 8.693
+      },
+      {
+        "name": "workbook_codec_read-release",
+        "command": [
+          "./tests/test_workbook_codec_read"
+        ],
+        "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T091259-fast-29178/workbook_codec_read-release.txt",
+        "expected_stages": null,
+        "exit_code": 0,
+        "status": "passed",
+        "seconds": 0.879
+      },
+      {
+        "name": "workbook_codec_read-sanitize",
+        "command": [
+          "./tests/test_workbook_codec_read-debug"
+        ],
+        "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T091259-fast-29178/workbook_codec_read-sanitize.txt",
+        "expected_stages": null,
+        "exit_code": 0,
+        "status": "passed",
+        "seconds": 1.233
+      }
+    ],
+    "binaries": {
+      "/Users/h2o/dev/duxcel/tests/test_workbook_codec_read": "7f68ba655c53927b50380d8e75feda8309339c61b39e0fedb38208293146dd9a",
+      "/Users/h2o/dev/duxcel/tests/test_workbook_codec_read-debug": "82a99f79df03166ad50d1a74f7f039e95d05aaa2897d9043fa6aa0ee9ce878d3"
+    },
+    "elapsed_seconds": 10.965,
+    "binaries_after": {
+      "/Users/h2o/dev/duxcel/tests/test_workbook_codec_read": "7f68ba655c53927b50380d8e75feda8309339c61b39e0fedb38208293146dd9a",
+      "/Users/h2o/dev/duxcel/tests/test_workbook_codec_read-debug": "82a99f79df03166ad50d1a74f7f039e95d05aaa2897d9043fa6aa0ee9ce878d3"
+    },
+    "finished_utc": "2026-10-18T09:13:10.387651+00:00"
+  },
+  "scope": "Pure shared partial metadata reader only; no native/Worker/App/Open/Save acceptance."
+}

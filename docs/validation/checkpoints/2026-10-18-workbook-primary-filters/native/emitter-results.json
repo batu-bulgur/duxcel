@@ -1,0 +1,868 @@
+{
+  "scope": "Actual four closed native archives; exact SQL metadata inspected read-only after emit exit. No source execution. Late publication conflicts preserve only the independently created conflict.",
+  "seconds": 3.40131,
+  "records": [
+    {
+      "stage": "release-emit",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/alias-emit-release-n9vhj6_b"
+      ],
+      "seconds": 0.413949,
+      "exit_code": 0,
+      "stdout": "{\"schema\":\"duxcel.codec-fixtures\",\"version\":1,\"files\":[{\"name\":\"filters-v12.dxls\",\"version\":12,\"layout\":25},{\"name\":\"filters-v13.dxls\",\"version\":13,\"layout\":25},{\"name\":\"filters-v14.dxls\",\"version\":14,\"layout\":25},{\"name\":\"filters-v14-reordered.dxls\",\"version\":14,\"layout\":25}]}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "release-repeat-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/emit-release-n9vhj6_b"
+      ],
+      "seconds": 0.0135,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/emit-release-n9vhj6_b/filters-v12.dxls\n"
+    },
+    {
+      "stage": "release-source-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-release-source-f012yw99"
+      ],
+      "seconds": 0.013077,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-release-source-f012yw99/missing-source.csv\n"
+    },
+    {
+      "stage": "release-file-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-release-file-j8itx3jj"
+      ],
+      "seconds": 0.012721,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-release-file-j8itx3jj/filters-v12.dxls\n"
+    },
+    {
+      "stage": "release-symlink-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-release-symlink-sgta805p"
+      ],
+      "seconds": 0.013078,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-release-symlink-sgta805p/filters-v12.dxls\n"
+    },
+    {
+      "stage": "release-late-conflict",
+      "seconds": 0.08186,
+      "exit_code": 1,
+      "stderr": "cannot publish fixture: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/race-release-oxpfm4uw/filters-v13.dxls\n"
+    },
+    {
+      "stage": "release-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release",
+        "--emit-filters-fixtures"
+      ],
+      "seconds": 0.012839,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR]\n"
+    },
+    {
+      "stage": "release-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release",
+        "--filters-only",
+        "extra"
+      ],
+      "seconds": 0.012532,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR]\n"
+    },
+    {
+      "stage": "release-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-release",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/missing-dir"
+      ],
+      "seconds": 0.012715,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture destination must be an existing accessible directory\n"
+    },
+    {
+      "stage": "release-inspection",
+      "directory": "build/bp1-filters-native/emit-release-n9vhj6_b",
+      "files": {
+        "filters-v12.dxls": {
+          "bytes": 3158016,
+          "sha256": "c37dcdc5b1dbc66a0c7ea1b0c097bed25ae1a5067bf31d2c10b19cc72250a276"
+        },
+        "filters-v13.dxls": {
+          "bytes": 3420160,
+          "sha256": "60ce3908961cd0f1385aacb90670e894ddf61da55981783058444077a56ce4c5"
+        },
+        "filters-v14.dxls": {
+          "bytes": 4730880,
+          "sha256": "267289c99723d76610b90d8505f0fdf42e308b1c5459285307a85e2d0cf5b656"
+        },
+        "filters-v14-reordered.dxls": {
+          "bytes": 7090176,
+          "sha256": "fa3240fe72575c2e82edd1513dc30b8adffcc9cb96ff475429764649cbe641fa"
+        }
+      },
+      "protocol": {
+        "schema": "duxcel.codec-fixtures",
+        "version": 1,
+        "files": [
+          {
+            "name": "filters-v12.dxls",
+            "version": 12,
+            "layout": 25
+          },
+          {
+            "name": "filters-v13.dxls",
+            "version": 13,
+            "layout": 25
+          },
+          {
+            "name": "filters-v14.dxls",
+            "version": 14,
+            "layout": 25
+          },
+          {
+            "name": "filters-v14-reordered.dxls",
+            "version": 14,
+            "layout": 25
+          }
+        ]
+      },
+      "inspections": [
+        {
+          "name": "filters-v12.dxls",
+          "seconds": 0.062479,
+          "counts": {
+            "sheets": 1,
+            "filters": 3,
+            "sorts": 7,
+            "queries": 1,
+            "options": 0
+          },
+          "all_exact_field_values": true,
+          "stdout_sha256": "53ca6e512e8061c92ae37b45e0fe7e0dac540f51c411b553b6064dd2abfbe160",
+          "physical": {
+            "filters": [
+              "sheet_id",
+              "position",
+              "name",
+              "op",
+              "value"
+            ],
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "queries": [
+              "sheet_id",
+              "object_id",
+              "query"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ],
+            "sorts": [
+              "sheet_id",
+              "position",
+              "name",
+              "descending"
+            ],
+            "source_options": [
+              "sheet_id",
+              "object_id",
+              "unique_rows"
+            ]
+          }
+        },
+        {
+          "name": "filters-v13.dxls",
+          "seconds": 0.057076,
+          "counts": {
+            "sheets": 1,
+            "filters": 3,
+            "sorts": 7,
+            "queries": 1,
+            "options": 0
+          },
+          "all_exact_field_values": true,
+          "stdout_sha256": "835aa66b37de752746bb0771d9ce5de59a384c23ed3aca29425d7662ce4d201f",
+          "physical": {
+            "filters": [
+              "sheet_id",
+              "position",
+              "name",
+              "op",
+              "value"
+            ],
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "queries": [
+              "sheet_id",
+              "object_id",
+              "query"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ],
+            "sorts": [
+              "sheet_id",
+              "position",
+              "name",
+              "descending"
+            ],
+            "source_options": [
+              "sheet_id",
+              "object_id",
+              "unique_rows"
+            ]
+          }
+        },
+        {
+          "name": "filters-v14.dxls",
+          "seconds": 0.061332,
+          "counts": {
+            "sheets": 1,
+            "filters": 4,
+            "sorts": 7,
+            "queries": 1,
+            "options": 0
+          },
+          "all_exact_field_values": true,
+          "stdout_sha256": "876e3d2f3aff5a9809c33a51be7ab9ffbf0985f3cf06a5da9d111c167443b213",
+          "physical": {
+            "filters": [
+              "sheet_id",
+              "position",
+              "name",
+              "op",
+              "value"
+            ],
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "queries": [
+              "sheet_id",
+              "object_id",
+              "query"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ],
+            "sorts": [
+              "sheet_id",
+              "position",
+              "name",
+              "descending"
+            ],
+            "source_options": [
+              "sheet_id",
+              "object_id",
+              "unique_rows"
+            ]
+          }
+        },
+        {
+          "name": "filters-v14-reordered.dxls",
+          "seconds": 0.061476,
+          "counts": {
+            "sheets": 19,
+            "filters": 285,
+            "sorts": 133,
+            "queries": 19,
+            "options": 9
+          },
+          "all_exact_field_values": true,
+          "stdout_sha256": "4389c9926f3a52e1b65c76d5a8200210989dafc3817543fff03453ba9702de89",
+          "physical": {
+            "filters": [
+              "value",
+              "op",
+              "name",
+              "position",
+              "sheet_id"
+            ],
+            "meta": [
+              "user_scale",
+              "active_sheet",
+              "version"
+            ],
+            "queries": [
+              "query",
+              "object_id",
+              "sheet_id"
+            ],
+            "sheets": [
+              "canvas_zoom",
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection"
+            ],
+            "sorts": [
+              "descending",
+              "name",
+              "position",
+              "sheet_id"
+            ],
+            "source_options": [
+              "unique_rows",
+              "object_id",
+              "sheet_id"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stage": "sanitize-emit",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/alias-emit-sanitize-0om89uae"
+      ],
+      "seconds": 1.441565,
+      "exit_code": 0,
+      "stdout": "{\"schema\":\"duxcel.codec-fixtures\",\"version\":1,\"files\":[{\"name\":\"filters-v12.dxls\",\"version\":12,\"layout\":25},{\"name\":\"filters-v13.dxls\",\"version\":13,\"layout\":25},{\"name\":\"filters-v14.dxls\",\"version\":14,\"layout\":25},{\"name\":\"filters-v14-reordered.dxls\",\"version\":14,\"layout\":25}]}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "sanitize-repeat-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/emit-sanitize-0om89uae"
+      ],
+      "seconds": 0.08095,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/emit-sanitize-0om89uae/filters-v12.dxls\n"
+    },
+    {
+      "stage": "sanitize-source-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-sanitize-source-4g03673t"
+      ],
+      "seconds": 0.073627,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-sanitize-source-4g03673t/missing-source.csv\n"
+    },
+    {
+      "stage": "sanitize-file-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-sanitize-file-a9pdj_yq"
+      ],
+      "seconds": 0.073573,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-sanitize-file-a9pdj_yq/filters-v12.dxls\n"
+    },
+    {
+      "stage": "sanitize-symlink-refused",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-sanitize-symlink-ws2kut6k"
+      ],
+      "seconds": 0.074181,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture output must not exist: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/refuse-sanitize-symlink-ws2kut6k/filters-v12.dxls\n"
+    },
+    {
+      "stage": "sanitize-late-conflict",
+      "seconds": 0.290439,
+      "exit_code": 1,
+      "stderr": "cannot publish fixture: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/race-sanitize-ikkk95dc/filters-v13.dxls\n"
+    },
+    {
+      "stage": "sanitize-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize",
+        "--emit-filters-fixtures"
+      ],
+      "seconds": 0.083868,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR]\n"
+    },
+    {
+      "stage": "sanitize-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize",
+        "--filters-only",
+        "extra"
+      ],
+      "seconds": 0.07688,
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "usage: /Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR]\n"
+    },
+    {
+      "stage": "sanitize-invalid-args",
+      "command": [
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/native-sanitize",
+        "--emit-filters-fixtures",
+        "/Users/h2o/.codex/worktrees/duxcel-bp1-filters-native/duxcel/build/bp1-filters-native/missing-dir"
+      ],
+      "seconds": 0.078858,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "fixture destination must be an existing accessible directory\n"
+    },
+    {
+      "stage": "sanitize-inspection",
+      "directory": "build/bp1-filters-native/emit-sanitize-0om89uae",
+      "files": {
+        "filters-v12.dxls": {
+          "bytes": 3158016,
+          "sha256": "a30a7a99bb16da51396c3cb1515e2671b9fb921937e8d84694e36c87c5f549d5"
+        },
+        "filters-v13.dxls": {
+          "bytes": 3420160,
+          "sha256": "eb7f9a379dcc2e6c293e8b7a66dba24a91c908fd023ec7a638e5a7177cfde79e"
+        },
+        "filters-v14.dxls": {
+          "bytes": 4730880,
+          "sha256": "28820d66c88cf83e221b28f5890024ddd54ccd2fbf508ef5597ff120ef41d9fc"
+        },
+        "filters-v14-reordered.dxls": {
+          "bytes": 7090176,
+          "sha256": "be28935b4cc38ffabb0caae73353cf21567d113534335f253e10c5fb99f3ada4"
+        }
+      },
+      "protocol": {
+        "schema": "duxcel.codec-fixtures",
+        "version": 1,
+        "files": [
+          {
+            "name": "filters-v12.dxls",
+            "version": 12,
+            "layout": 25
+          },
+          {
+            "name": "filters-v13.dxls",
+            "version": 13,
+            "layout": 25
+          },
+          {
+            "name": "filters-v14.dxls",
+            "version": 14,
+            "layout": 25
+          },
+          {
+            "name": "filters-v14-reordered.dxls",
+            "version": 14,
+            "layout": 25
+          }
+        ]
+      },
+      "inspections": [
+        {
+          "name": "filters-v12.dxls",
+          "seconds": 0.056787,
+          "counts": {
+            "sheets": 1,
+            "filters": 3,
+            "sorts": 7,
+            "queries": 1,
+            "options": 0
+          },
+          "all_exact_field_values": true,
+          "stdout_sha256": "53ca6e512e8061c92ae37b45e0fe7e0dac540f51c411b553b6064dd2abfbe160",
+          "physical": {
+            "filters": [
+              "sheet_id",
+              "position",
+              "name",
+              "op",
+              "value"
+            ],
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "queries": [
+              "sheet_id",
+              "object_id",
+              "query"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ],
+            "sorts": [
+              "sheet_id",
+              "position",
+              "name",
+              "descending"
+            ],
+            "source_options": [
+              "sheet_id",
+              "object_id",
+              "unique_rows"
+            ]
+          }
+        },
+        {
+          "name": "filters-v13.dxls",
+          "seconds": 0.059615,
+          "counts": {
+            "sheets": 1,
+            "filters": 3,
+            "sorts": 7,
+            "queries": 1,
+            "options": 0
+          },
+          "all_exact_field_values": true,
+          "stdout_sha256": "835aa66b37de752746bb0771d9ce5de59a384c23ed3aca29425d7662ce4d201f",
+          "physical": {
+            "filters": [
+              "sheet_id",
+              "position",
+              "name",
+              "op",
+              "value"
+            ],
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "queries": [
+              "sheet_id",
+              "object_id",
+              "query"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ],
+            "sorts": [
+              "sheet_id",
+              "position",
+              "name",
+              "descending"
+            ],
+            "source_options": [
+              "sheet_id",
+              "object_id",
+              "unique_rows"
+            ]
+          }
+        },
+        {
+          "name": "filters-v14.dxls",
+          "seconds": 0.065346,
+          "counts": {
+            "sheets": 1,
+            "filters": 4,
+            "sorts": 7,
+            "queries": 1,
+            "options": 0
+          },
+          "all_exact_field_values": true,
+          "stdout_sha256": "876e3d2f3aff5a9809c33a51be7ab9ffbf0985f3cf06a5da9d111c167443b213",
+          "physical": {
+            "filters": [
+              "sheet_id",
+              "position",
+              "name",
+              "op",
+              "value"
+            ],
+            "meta": [
+              "version",
+              "active_sheet",
+              "user_scale"
+            ],
+            "queries": [
+              "sheet_id",
+              "object_id",
+              "query"
+            ],
+            "sheets": [
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection",
+              "canvas_zoom"
+            ],
+            "sorts": [
+              "sheet_id",
+              "position",
+              "name",
+              "descending"
+            ],
+            "source_options": [
+              "sheet_id",
+              "object_id",
+              "unique_rows"
+            ]
+          }
+        },
+        {
+          "name": "filters-v14-reordered.dxls",
+          "seconds": 0.065163,
+          "counts": {
+            "sheets": 19,
+            "filters": 285,
+            "sorts": 133,
+            "queries": 19,
+            "options": 9
+          },
+          "all_exact_field_values": true,
+          "stdout_sha256": "4389c9926f3a52e1b65c76d5a8200210989dafc3817543fff03453ba9702de89",
+          "physical": {
+            "filters": [
+              "value",
+              "op",
+              "name",
+              "position",
+              "sheet_id"
+            ],
+            "meta": [
+              "user_scale",
+              "active_sheet",
+              "version"
+            ],
+            "queries": [
+              "query",
+              "object_id",
+              "sheet_id"
+            ],
+            "sheets": [
+              "canvas_zoom",
+              "id",
+              "name",
+              "kind",
+              "path",
+              "source_schema",
+              "source_table",
+              "filter_column",
+              "filter_value",
+              "filter_op",
+              "group_column",
+              "measure_column",
+              "aggregate",
+              "sort_column",
+              "descending",
+              "active_row",
+              "active_col",
+              "anchor_row",
+              "anchor_col",
+              "end_row",
+              "end_col",
+              "top_row",
+              "horizontal",
+              "fraction",
+              "selection"
+            ],
+            "sorts": [
+              "descending",
+              "name",
+              "position",
+              "sheet_id"
+            ],
+            "source_options": [
+              "unique_rows",
+              "object_id",
+              "sheet_id"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

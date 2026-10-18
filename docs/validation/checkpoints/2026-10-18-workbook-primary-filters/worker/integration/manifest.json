@@ -1,0 +1,46 @@
+{
+  "schema": "duxcel.primary-filters-integration",
+  "version": 1,
+  "revision": "22efc6485b54f896485927da12efeeae5edeb5a3",
+  "scope": "Isolated owned metadata Header only; no App/OpenSave/GUI/stream actualWorker claim.",
+  "steps": [
+    {
+      "name": "harness",
+      "command": [
+        "python3",
+        "tools/test_web_codec_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.6930249999277294,
+      "log": "build/bp1-primary-filters-integration/harness.txt",
+      "sha256": "54dfaf9b96eef8a318198adeee7becc493dff9ea7cbdf09fc92674eb598c952b"
+    },
+    {
+      "name": "runner",
+      "command": [
+        "python3",
+        "tools/test_runner_test.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.094154666061513,
+      "log": "build/bp1-primary-filters-integration/runner.txt",
+      "sha256": "ca0bce4cefd454e59a0211682158fdb4126a8942ee847f622a01bf396cfa17f5"
+    },
+    {
+      "name": "actual-filters",
+      "command": [
+        "python3",
+        "tools/test_web_app.py",
+        "--codec-read-driver",
+        "--codec-filters"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 22.301155374967493,
+      "log": "build/bp1-primary-filters-integration/actual-filters.txt",
+      "sha256": "100570270ec76950c34e8e2c50a77910216ffba5d18fb0bc5a9602f3bcfb46f4"
+    }
+  ],
+  "status": "passed",
+  "elapsed_seconds": 25.088594084023498,
+  "source_revision_unchanged": true
+}

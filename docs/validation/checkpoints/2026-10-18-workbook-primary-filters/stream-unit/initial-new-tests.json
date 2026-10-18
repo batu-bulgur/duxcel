@@ -1,0 +1,14 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-concurrency=1",
+    "web/metadata_stream.test.mjs"
+  ],
+  "seconds": 0.511743125,
+  "exit_code": 1,
+  "log": "build/metadata-stream-tests/initial-new-tests.txt",
+  "sha256": "d3f9c58b73faa745b149f15ec6f41544a5963b6dcb89f3c58ff1a6a53fde5444",
+  "classification": "New test fixture attempted to mutate the frozen registration token returned by registerFile. Corrected test helper copies the token before testing caller input mutation; no product code/assertion relaxation.",
+  "initial_test_source_sha256": "7da9b4268acd6dfdfdd196a9ddf6ac06e91474c64ad67648e6dbbf00c186a3f6"
+}

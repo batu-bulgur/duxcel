@@ -1,0 +1,1477 @@
+{
+  "ok": true,
+  "mode": "primary-filters",
+  "checks": 62785,
+  "fixtures": 4,
+  "headers": 6,
+  "queries": 113,
+  "rejections": 7,
+  "stale": 1,
+  "peakOwnedInput": 2097214,
+  "maximumCompletedHeaderOwned": 167455,
+  "headerOwnedLimit": 2097152,
+  "inputOwnedLimit": 4194304,
+  "normalFixtureQueries": [
+    14,
+    14,
+    14,
+    14
+  ],
+  "familyExecutions": {
+    "meta": 12,
+    "sheets": 12,
+    "objects": 12,
+    "queries": 12,
+    "sourceOptions": 12,
+    "sorts": 12,
+    "filters": 12,
+    "describe": 29
+  },
+  "acceptedFeeds": {
+    "objectsEmpty": 12,
+    "queries": 12,
+    "sourceOptions": 12,
+    "sorts": 12,
+    "filters256": 7,
+    "filters29": 3,
+    "filters3": 2,
+    "filters4": 1
+  },
+  "completedResults": {
+    "objects": 12,
+    "queries": 12,
+    "sourceOptions": 12,
+    "sorts": 12,
+    "filters": 6
+  },
+  "poisonedResults": {
+    "objects": 0,
+    "queries": 12,
+    "sourceOptions": 12,
+    "sorts": 12,
+    "filters": 6
+  },
+  "rejectedFeeds": 5,
+  "primaryRejections": 1,
+  "schemaRejections": 1,
+  "rejectedFirstRows": [
+    256,
+    256,
+    256,
+    256,
+    0
+  ],
+  "largePrimaryExact": true,
+  "largeSecondaryExact": true,
+  "requiredNullRejected": true,
+  "caseDuplicateRejected": true,
+  "lateJsonRejected": true,
+  "positionRejected": true,
+  "budgetRejected": true,
+  "primaryJsonRejected": true,
+  "originalTypeRejected": true,
+  "error": null,
+  "boundary": "official-worker/shared-C-primary filters/sorts/query/options Header; owned metadata only, no source SQL, complete Workbook publication or browser Save/Open",
+  "transport": {
+    "schema": "duxcel.codec-read-transport",
+    "version": 1,
+    "fixtures": [
+      {
+        "name": "filters-v12.dxls",
+        "bytes": 3158016,
+        "sha256": "e9675d4a9d7ef9ca93c89947ef8b5914700309ef80e17253fcc474a1d5adaca6",
+        "engineEpoch": "1",
+        "registrationId": "1"
+      },
+      {
+        "name": "filters-v13.dxls",
+        "bytes": 3420160,
+        "sha256": "acf077a13c456b962a5f1b57c8e3a8c5ff49bbd43b7b9f82c5e34ba02e4f2763",
+        "engineEpoch": "1",
+        "registrationId": "2"
+      },
+      {
+        "name": "filters-v14.dxls",
+        "bytes": 4730880,
+        "sha256": "79616e55efd70b7e5f7fe43ccc109aa2f09e7c33443e8670bf9fb31df1029c96",
+        "engineEpoch": "1",
+        "registrationId": "3"
+      },
+      {
+        "name": "filters-v14-reordered.dxls",
+        "bytes": 7090176,
+        "sha256": "5c9113d88d74e68ac7aebcf66d4fb2121a7f57842ce345274e34fba9506148f9",
+        "engineEpoch": "1",
+        "registrationId": "4"
+      }
+    ],
+    "queries": [
+      {
+        "ticket": 102,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.meta",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ]
+      },
+      {
+        "ticket": 103,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.sheets",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ]
+      },
+      {
+        "ticket": 104,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.objects",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ]
+      },
+      {
+        "ticket": 105,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.queries",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ]
+      },
+      {
+        "ticket": 106,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.source_options",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ]
+      },
+      {
+        "ticket": 107,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.sorts",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ]
+      },
+      {
+        "ticket": 108,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.filters",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ]
+      },
+      {
+        "ticket": 109,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ]
+      },
+      {
+        "ticket": 110,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ]
+      },
+      {
+        "ticket": 111,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 112,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 113,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 114,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 115,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v12.dxls",
+            "engineEpoch": "1",
+            "registrationId": "1"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 117,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.meta",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ]
+      },
+      {
+        "ticket": 118,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.sheets",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ]
+      },
+      {
+        "ticket": 119,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.objects",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ]
+      },
+      {
+        "ticket": 120,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.queries",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ]
+      },
+      {
+        "ticket": 121,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.source_options",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ]
+      },
+      {
+        "ticket": 122,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.sorts",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ]
+      },
+      {
+        "ticket": 123,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.filters",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ]
+      },
+      {
+        "ticket": 124,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ]
+      },
+      {
+        "ticket": 125,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ]
+      },
+      {
+        "ticket": 126,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 127,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 128,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 129,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 130,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v13.dxls",
+            "engineEpoch": "1",
+            "registrationId": "2"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 132,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.meta",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ]
+      },
+      {
+        "ticket": 133,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.sheets",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ]
+      },
+      {
+        "ticket": 134,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.objects",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ]
+      },
+      {
+        "ticket": 135,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.queries",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ]
+      },
+      {
+        "ticket": 136,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.source_options",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ]
+      },
+      {
+        "ticket": 137,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.sorts",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ]
+      },
+      {
+        "ticket": 138,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.filters",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ]
+      },
+      {
+        "ticket": 139,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ]
+      },
+      {
+        "ticket": 140,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ]
+      },
+      {
+        "ticket": 141,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 142,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 143,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 144,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 145,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14.dxls",
+            "engineEpoch": "1",
+            "registrationId": "3"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 147,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.meta",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 148,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.sheets",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 149,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.objects",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 150,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.queries",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 151,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.source_options",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 152,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.sorts",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 153,
+        "sql": "DESCRIBE SELECT * FROM _duxcel_workspace.filters",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 154,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 155,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 156,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 157,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 158,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 159,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 160,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 161,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 162,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 163,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 164,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 165,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 166,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 167,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT * REPLACE (CASE WHEN sheet_id=18 AND position=14 THEN NULL::VARCHAR ELSE name END AS name) FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_required_null) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 168,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 169,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 170,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 171,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 172,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 173,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 174,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT * REPLACE (CASE WHEN sheet_id=18 AND position=14 THEN 'pRIMARY ''İ''' ELSE name END AS name) FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_case_duplicate) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 175,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 176,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 177,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 178,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 179,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 180,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 181,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT * REPLACE (CASE WHEN sheet_id=18 AND position=14 THEN '[\"only\"]' ELSE value END AS value) FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_late_json) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 182,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 183,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 184,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 185,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 186,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 187,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 188,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT * REPLACE (CASE WHEN sheet_id=18 AND position=14 THEN 15::INTEGER ELSE position END AS position) FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_position) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 189,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 190,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 191,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 192,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 193,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 194,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 195,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 196,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 197,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT * REPLACE (CASE WHEN id=0 THEN 10::INTEGER ELSE filter_op END AS filter_op,CASE WHEN id=0 THEN '[\"only\"]' ELSE filter_value END AS filter_value) FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_primary_json) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 198,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 199,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 200,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 201,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 202,
+        "sql": "DESCRIBE SELECT * REPLACE (op::VARCHAR AS op) FROM _duxcel_workspace.filters",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 203,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 204,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 205,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 206,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 207,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 208,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 209,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 210,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      },
+      {
+        "ticket": 211,
+        "sql": "SELECT CAST(version AS VARCHAR) AS version,CAST(active_sheet AS VARCHAR) AS active_sheet,CAST(user_scale AS VARCHAR) AS user_scale FROM (SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 212,
+        "sql": "SELECT CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(kind AS VARCHAR) AS kind,CAST(path AS VARCHAR) AS path,CAST(source_schema AS VARCHAR) AS source_schema,CAST(source_table AS VARCHAR) AS source_table,CAST(filter_column AS VARCHAR) AS filter_column,CAST(filter_value AS VARCHAR) AS filter_value,CAST(filter_op AS VARCHAR) AS filter_op,CAST(group_column AS VARCHAR) AS group_column,CAST(measure_column AS VARCHAR) AS measure_column,CAST(aggregate AS VARCHAR) AS aggregate,CAST(sort_column AS VARCHAR) AS sort_column,CAST(descending AS VARCHAR) AS descending,CAST(active_row AS VARCHAR) AS active_row,CAST(active_col AS VARCHAR) AS active_col,CAST(anchor_row AS VARCHAR) AS anchor_row,CAST(anchor_col AS VARCHAR) AS anchor_col,CAST(end_row AS VARCHAR) AS end_row,CAST(end_col AS VARCHAR) AS end_col,CAST(top_row AS VARCHAR) AS top_row,CAST(horizontal AS VARCHAR) AS horizontal,CAST(fraction AS VARCHAR) AS fraction,CAST(selection AS VARCHAR) AS selection,CAST(canvas_zoom AS VARCHAR) AS canvas_zoom FROM (SELECT id,name,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending,active_row,active_col,anchor_row,anchor_col,end_row,end_col,top_row,horizontal,fraction,selection,canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ]
+      },
+      {
+        "ticket": 213,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(id AS VARCHAR) AS id,CAST(name AS VARCHAR) AS name,CAST(row_id AS VARCHAR) AS row_id,CAST(column_id AS VARCHAR) AS column_id,CAST(height AS VARCHAR) AS height,CAST(width AS VARCHAR) AS width,CAST(kind AS VARCHAR) AS kind,CAST(mark AS VARCHAR) AS mark,CAST(source_id AS VARCHAR) AS source_id,CAST(chart_measure AS VARCHAR) AS chart_measure FROM (SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-objects",
+        "rowLimit": 2049
+      },
+      {
+        "ticket": 214,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(query AS VARCHAR) AS query FROM (SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 215,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(object_id AS VARCHAR) AS object_id,CAST(unique_rows AS VARCHAR) AS unique_rows FROM (SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-owners",
+        "rowLimit": 2113
+      },
+      {
+        "ticket": 216,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(descending AS VARCHAR) AS descending FROM (SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-sorts",
+        "rowLimit": 449
+      },
+      {
+        "ticket": 217,
+        "sql": "SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(position AS VARCHAR) AS position,CAST(name AS VARCHAR) AS name,CAST(op AS VARCHAR) AS op,CAST(value AS VARCHAR) AS value FROM (SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961) AS _filters_projection",
+        "sourceBindings": [
+          {
+            "name": "filters-v14-reordered.dxls",
+            "engineEpoch": "1",
+            "registrationId": "4"
+          }
+        ],
+        "purpose": "workbook-filters",
+        "rowLimit": 961
+      }
+    ],
+    "held": 1,
+    "released": 1,
+    "engineVersion": "v1.4.3"
+  }
+}
