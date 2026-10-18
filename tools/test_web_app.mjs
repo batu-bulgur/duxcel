@@ -31,6 +31,7 @@ const codecFilters=process.argv.includes('--codec-filters');
 const codecSourceCounters=process.argv.includes('--codec-source-counters');
 const codecSourceVersions=process.argv.includes('--codec-source-versions');
 const codecSourceBindings=process.argv.includes('--codec-source-bindings');
+const codecFormatRows=process.argv.includes('--codec-format-rows');
 const codecCounters=process.argv.includes('--codec-counters');
 const codecGrid=process.argv.includes('--codec-grid');
 const codecPivotMarks=process.argv.includes('--codec-pivot-marks');
@@ -41,6 +42,7 @@ if(codecPreferences&&!codecReadDriver)throw new Error('--codec-preferences requi
 if(codecObjects&&!codecReadDriver)throw new Error('--codec-objects requires --codec-read-driver');
 if(codecQueries&&!codecReadDriver)throw new Error('--codec-queries requires --codec-read-driver');
 if(codecFilters&&!codecReadDriver)throw new Error('--codec-filters requires --codec-read-driver');
+if(codecFormatRows&&!codecReadDriver)throw new Error('--codec-format-rows requires --codec-read-driver');
 if(codecSourceBindings&&!codecReadDriver)throw new Error('--codec-source-bindings requires --codec-read-driver');
 if(codecSourceVersions&&!codecReadDriver)throw new Error('--codec-source-versions requires --codec-read-driver');
 if(codecSourceCounters&&!codecReadDriver)throw new Error('--codec-source-counters requires --codec-read-driver');
@@ -49,11 +51,11 @@ if(codecGrid&&!codecReadDriver)throw new Error('--codec-grid requires --codec-re
 if(codecPivotMarks&&!codecReadDriver)throw new Error('--codec-pivot-marks requires --codec-read-driver');
 if(codecTables&&!codecReadDriver)throw new Error('--codec-tables requires --codec-read-driver');
 if(codecSourceOptions&&!codecReadDriver)throw new Error('--codec-source-options requires --codec-read-driver');
-if(Number(codecPreferences)+Number(codecSorts)+Number(codecObjects)+Number(codecQueries)+Number(codecSourceOptions)+Number(codecTables)+Number(codecPivotMarks)+Number(codecFilters)+Number(codecGrid)+Number(codecCounters)+Number(codecSourceCounters)+Number(codecSourceVersions)+Number(codecSourceBindings)>1)throw new Error('Choose one independent codec family gate');
+if(Number(codecPreferences)+Number(codecSorts)+Number(codecObjects)+Number(codecQueries)+Number(codecSourceOptions)+Number(codecTables)+Number(codecPivotMarks)+Number(codecFilters)+Number(codecGrid)+Number(codecCounters)+Number(codecSourceCounters)+Number(codecSourceVersions)+Number(codecSourceBindings)+Number(codecFormatRows)>1)throw new Error('Choose one independent codec family gate');
 if(codecReadDriver){
  const args=process.argv.slice(4);
  for(let i=0;i<args.length;i++){
-  if(args[i]==='--codec-read-driver'||args[i]==='--codec-sorts'||args[i]==='--codec-preferences'||args[i]==='--codec-objects'||args[i]==='--codec-queries'||args[i]==='--codec-source-options'||args[i]==='--codec-tables'||args[i]==='--codec-pivot-marks'||args[i]==='--codec-filters'||args[i]==='--codec-grid'||args[i]==='--codec-counters'||args[i]==='--codec-source-counters'||args[i]==='--codec-source-versions'||args[i]==='--codec-source-bindings')continue;
+  if(args[i]==='--codec-read-driver'||args[i]==='--codec-sorts'||args[i]==='--codec-preferences'||args[i]==='--codec-objects'||args[i]==='--codec-queries'||args[i]==='--codec-source-options'||args[i]==='--codec-tables'||args[i]==='--codec-pivot-marks'||args[i]==='--codec-filters'||args[i]==='--codec-grid'||args[i]==='--codec-counters'||args[i]==='--codec-source-counters'||args[i]==='--codec-source-versions'||args[i]==='--codec-source-bindings'||args[i]==='--codec-format-rows')continue;
   if(args[i]==='--dpr'&&args[++i]==='1')continue;
   throw new Error('--codec-read-driver is an isolated no-window gate with default DPR1');
  }
@@ -66,6 +68,7 @@ if(codecSourceOptions){const target=new URL(url);target.searchParams.set('codec_
 if(codecTables){const target=new URL(url);target.searchParams.set('codec_tables','1');url=target.href;}
 if(codecPivotMarks){const target=new URL(url);target.searchParams.set('codec_pivot_marks','1');url=target.href;}
 if(codecFilters){const target=new URL(url);target.searchParams.set('codec_filters','1');url=target.href;}
+if(codecFormatRows){const target=new URL(url);target.searchParams.set('codec_format_rows','1');url=target.href;}
 if(codecSourceBindings){const target=new URL(url);target.searchParams.set('codec_source_bindings','1');url=target.href;}
 if(codecSourceVersions){const target=new URL(url);target.searchParams.set('codec_source_versions','1');url=target.href;}
 if(codecSourceCounters){const target=new URL(url);target.searchParams.set('codec_source_counters','1');url=target.href;}
@@ -73,6 +76,24 @@ if(codecCounters){const target=new URL(url);target.searchParams.set('codec_count
 if(codecGrid){const target=new URL(url);target.searchParams.set('codec_grid','1');url=target.href;}
 // Kept pure so runner mock tests can exercise these actual report guards
 // without starting Chromium, a Worker or the application.
+function validateCodecFormatRowsReport(report,check) {
+ check(report.mode==='format-rows'&&report.fixtures===4&&report.headers===5&&report.queries===207&&report.rejections===7&&report.stale===2&&report.callbacks===183,'C format-row fixture/failure/recovery inventory changed');
+ check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([18,20,26,26]),'Format archives repeated a family or queried absent legacy metadata');
+ const families={meta:13,sheets:13,objects:13,queries:13,sourceOptions:13,tableSources:13,tableFilters:13,tableSorts:13,objectCounters:12,sourceCounters:11,sourceVersions:11,sourceBindings:11,formatRows:13,describe:45};
+ check(Object.entries(families).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed format/dependency SQL inventory changed');
+ const feeds={objects56:13,queries21:13,sourceOptionsEmpty:13,tableSources18:13,tableFiltersEmpty:13,tableSortsEmpty:13,objectCounters32:24,sourceCounters32:22,sourceVersions256:10,sourceVersions32:10,sourceVersions8:1,sourceVersionsEof:11,sourceBindings32:22,sourceBindings18:11,formatRows256:10,formatRows29:2,formatRows7:3,formatRowsEof:5};
+ check(Object.entries(feeds).every(([key,value])=>report.acceptedFeeds?.[key]===value),'Format bounded feeds or dependency EOF inventory changed');
+ const counts={objectDefaults:1,sourceCounterDefaults:2,ledgerDefaults:2,bindingDefaults:2,ledgerStreams:11,matchedLedgerDataCallbacks:21,matchedLedgerEofCallbacks:11,ledgerChunkCallbacks:32,ledgerAcceptedAcks:32,ledgerDoneCallbacks:11,ledgerPoisonedDataChunks:21,completedBindingResults:11,poisonedBindingResults:11,formatStreams:13,matchedFormatDataCallbacks:22,matchedFormatEofCallbacks:5,formatChunkCallbacks:28,formatAcceptedAcks:20,formatDoneCallbacks:13,completedFormatStreams:5,errorFormatStreams:7,poisonedFormatDataChunks:22,staleChunkCallbacks:1,staleDoneCallbacks:1,heldCallbacks:1,cancelledCallbacks:1,rejectedFeeds:7};
+ check(Object.entries(counts).every(([key,value])=>report[key]===value),'Format defaults/ownership/cancellation/cleanup inventory changed');
+ check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([256,256,256,256,256,512,0]),'Format rejection changed its accepted prefix');
+ for(const proof of ['requiredNullRejected','invalidMaskRejected','losslessFlagsRejected','rangeRejected','positionRejected','sheetLimitRejected','budgetRejected','heldSecondChunkCancelled','wholeCandidateRetry','freshRecovery','exactRawBytes','independentLocators','deferredBindingsRetained','analysisVersionsRemainZero','exactProperties','maximumCoordinateExact','unmaskedPropertiesRetained'])
+  check(report[proof]===true,'Missing actual format-row proof '+proof);
+ check(report.maximumCompletedHeaderOwned>0&&report.maximumCompletedHeaderOwned<=2097152,'Completed format Header exceeds admission');
+ check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=4194304,'Format C retained-input admission changed');
+ check(report.staleWireReservationBytes>0&&report.staleWireReservationBytes<=6291456&&report.staleScalarReservationBytes===42&&report.staleTerminalReservationBytes===2070,'Stale format chunk/completion lost pre-borrow reservation');
+ const stream={submissions:24,chunkCallbacks:60,acceptedAcks:52,doneCallbacks:24,held:1,released:1,cancelled:1};
+ check(Object.entries(stream).every(([key,value])=>report.transport?.stream?.[key]===value)&&report.transport?.sourceVersionPhysicalChunks===32&&report.transport?.formatRowPhysicalChunks===28,'Host format/dependency stream or physical sidecar inventory changed');
+}
 function validateCodecSourceBindingsReport(report,check) {
  check(report.mode==='source-bindings'&&report.fixtures===4&&report.headers===5&&report.queries===166&&report.rejections===5&&report.stale===1&&report.callbacks===156,'C binding fixture/failure/recovery inventory changed');
  check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([16,18,24,24]),'Binding archives repeated a family or queried absent legacy metadata');
@@ -2912,7 +2933,9 @@ try{
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelCodecReadResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'codec-read-driver.json'),JSON.stringify(report??{ok:false,error:'C header driver did not complete'},null,2));
   check(report?.ok,'Real C/Worker header decoding failed; see codec-read-driver.json and events.json');
-  if(codecSourceBindings){
+  if(codecFormatRows){
+   validateCodecFormatRowsReport(report,check);
+  }else if(codecSourceBindings){
    validateCodecSourceBindingsReport(report,check);
   }else if(codecSourceVersions){
    validateCodecSourceVersionsReport(report,check);
@@ -3002,7 +3025,7 @@ try{
    check(JSON.stringify(report.u64Sentinels)===JSON.stringify(['9007199254740993','18446744073709551615']),'Exact raw U64 transport proofs changed');
   }
   check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=report.inputOwnedLimit,'C header retained-input admission bound changed');
-  const transport=report.transport,fixtureNames=codecSourceBindings?['source-bindings-v12.dxls','source-bindings-v13.dxls','source-bindings-v14.dxls','source-bindings-v14-reordered.dxls']:codecSourceVersions?['source-versions-v12.dxls','source-versions-v13.dxls','source-versions-v14.dxls','source-versions-v14-reordered.dxls']:codecSourceCounters?['source-counters-v12.dxls','source-counters-v13.dxls','source-counters-v14.dxls','source-counters-v14-reordered.dxls']:codecCounters?['counters-v12.dxls','counters-v13.dxls','counters-v14.dxls','counters-v14-reordered.dxls']:codecGrid?['grid-v12.dxls','grid-v13.dxls','grid-v14.dxls','grid-v14-reordered.dxls']:codecFilters?['filters-v12.dxls','filters-v13.dxls','filters-v14.dxls','filters-v14-reordered.dxls']:codecPivotMarks?['pivot-marks-v12.dxls','pivot-marks-v13.dxls','pivot-marks-v14.dxls','pivot-marks-v14-reordered.dxls']:codecTables?['tables-v12.dxls','tables-v13.dxls','tables-v14.dxls','tables-v14-reordered.dxls']:codecSourceOptions?['options-v12.dxls','options-v13.dxls','options-v14.dxls','options-v14-reordered.dxls']:codecQueries?['queries-v12.dxls','queries-v14-blank.dxls','queries-v14-nul.dxls','queries-v13.dxls','queries-v14.dxls','queries-v14-reordered.dxls']:codecObjects?['objects-v12.dxls','objects-v13.dxls','objects-v14.dxls','objects-v14-reordered.dxls']:codecPreferences?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:codecSorts?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
+  const transport=report.transport,fixtureNames=codecFormatRows?['format-rows-v12.dxls','format-rows-v13.dxls','format-rows-v14.dxls','format-rows-v14-reordered.dxls']:codecSourceBindings?['source-bindings-v12.dxls','source-bindings-v13.dxls','source-bindings-v14.dxls','source-bindings-v14-reordered.dxls']:codecSourceVersions?['source-versions-v12.dxls','source-versions-v13.dxls','source-versions-v14.dxls','source-versions-v14-reordered.dxls']:codecSourceCounters?['source-counters-v12.dxls','source-counters-v13.dxls','source-counters-v14.dxls','source-counters-v14-reordered.dxls']:codecCounters?['counters-v12.dxls','counters-v13.dxls','counters-v14.dxls','counters-v14-reordered.dxls']:codecGrid?['grid-v12.dxls','grid-v13.dxls','grid-v14.dxls','grid-v14-reordered.dxls']:codecFilters?['filters-v12.dxls','filters-v13.dxls','filters-v14.dxls','filters-v14-reordered.dxls']:codecPivotMarks?['pivot-marks-v12.dxls','pivot-marks-v13.dxls','pivot-marks-v14.dxls','pivot-marks-v14-reordered.dxls']:codecTables?['tables-v12.dxls','tables-v13.dxls','tables-v14.dxls','tables-v14-reordered.dxls']:codecSourceOptions?['options-v12.dxls','options-v13.dxls','options-v14.dxls','options-v14-reordered.dxls']:codecQueries?['queries-v12.dxls','queries-v14-blank.dxls','queries-v14-nul.dxls','queries-v13.dxls','queries-v14.dxls','queries-v14-reordered.dxls']:codecObjects?['objects-v12.dxls','objects-v13.dxls','objects-v14.dxls','objects-v14-reordered.dxls']:codecPreferences?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:codecSorts?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
   check(transport?.schema==='duxcel.codec-read-transport'&&transport.version===1&&transport.held===((codecGrid||codecSourceVersions)?0:1)&&transport.released===((codecGrid||codecSourceVersions)?0:1),'Held actual callback transport/release receipt changed');
   check(typeof transport.engineVersion==='string'&&transport.engineVersion.length>0&&transport.engineVersion.length<=256,'Initialized official Worker did not report its engine version');
   check(Array.isArray(transport.fixtures)&&transport.fixtures.length===fixtureNames.length&&Array.isArray(transport.queries)&&transport.queries.length===report.queries,'Official transport fixture/request inventory changed');
@@ -3014,29 +3037,34 @@ try{
    const token=actual.engineEpoch+':'+actual.registrationId;check(!tokens.has(token),'Independent fixtures reused a registration token');tokens.add(token);byName.set(actual.name,{...actual,queries:0});
   }
   check(new Set(transport.fixtures.map(item=>item.engineEpoch)).size===1,'Header proof unexpectedly used more than one engine');
-  let lastTicket=0,v14PreferenceQueries=0;const families={meta:0,sheets:0,describe:0,sorts:0,preferences:0,objects:0,queries:0,sourceOptions:0,tableSources:0,tableFilters:0,tableSorts:0,pivotFields:0,marks:0,filters:0,...(codecGrid?{columns:0,cells:0}:{}),...((codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings)?{objectCounters:0}:{}),...((codecSourceCounters||codecSourceVersions||codecSourceBindings)?{sourceCounters:0}:{}),...((codecSourceVersions||codecSourceBindings)?{sourceVersions:0}:{}),...(codecSourceBindings?{sourceBindings:0}:{})};
+  let lastTicket=0,v14PreferenceQueries=0;const families={meta:0,sheets:0,describe:0,sorts:0,preferences:0,objects:0,queries:0,sourceOptions:0,tableSources:0,tableFilters:0,tableSorts:0,pivotFields:0,marks:0,filters:0,...(codecGrid?{columns:0,cells:0}:{}),...((codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)?{objectCounters:0}:{}),...((codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)?{sourceCounters:0}:{}),...((codecSourceVersions||codecSourceBindings||codecFormatRows)?{sourceVersions:0}:{}),...((codecSourceBindings||codecFormatRows)?{sourceBindings:0}:{}),...(codecFormatRows?{formatRows:0}:{})};
   for(const request of transport.queries){
    check(Number.isSafeInteger(request.ticket)&&request.ticket>lastTicket&&typeof request.sql==='string'&&request.sql.length<=1048576,'Observed request lost ordered ticket/bounded C SQL');lastTicket=request.ticket;
    check(Array.isArray(request.sourceBindings)&&request.sourceBindings.length===1,'Metadata request did not pin one original registration');
    const binding=request.sourceBindings[0],fixture=byName.get(binding.name);
    check(fixture&&binding.engineEpoch===fixture.engineEpoch&&binding.registrationId===fixture.registrationId,'Metadata request changed its captured fixture token');fixture.queries++;
    if(request.sql.startsWith('DESCRIBE '))families.describe++;
-   else if(codecSourceBindings&&request.sql.includes('_duxcel_workspace.source_bindings')){
-    check(binding.name.startsWith('source-bindings-v14')&&request.purpose==='workbook-owners'&&request.rowLimit===2113&&request.sql.includes('ORDER BY sheet_id,owner LIMIT 2113')&&!/\bOFFSET\b/i.test(request.sql),'Bindings lost their captured one-execution I/U/U owner result');
+   else if((codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.source_bindings')){
+    check(binding.name.startsWith(codecFormatRows?'format-rows-v14':'source-bindings-v14')&&request.purpose==='workbook-owners'&&request.rowLimit===2113&&request.sql.includes('ORDER BY sheet_id,owner LIMIT 2113')&&!/\bOFFSET\b/i.test(request.sql),'Bindings lost their captured one-execution I/U/U owner result');
     check(request.sql.startsWith('SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(owner AS VARCHAR) AS owner,CAST(version AS VARCHAR) AS version'),'Bindings bypassed the original-type C canonical projection');families.sourceBindings++;
    }
-   else if((codecSourceVersions||codecSourceBindings)&&request.sql.includes('_duxcel_workspace.source_versions')){
-    check(binding.name.startsWith(codecSourceBindings?'source-bindings-v14':'source-versions-v14')&&request.purpose==='workbook-metadata-stream'&&request.family==='source-versions'&&request.rowLimit===65537&&request.sql.includes('ORDER BY sheet_id,version LIMIT 65537')&&!/\bOFFSET\b/i.test(request.sql),'Source ledger lost its captured single-execution bound/order');
+   else if((codecSourceVersions||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.source_versions')){
+    check(binding.name.startsWith(codecFormatRows?'format-rows-v14':codecSourceBindings?'source-bindings-v14':'source-versions-v14')&&request.purpose==='workbook-metadata-stream'&&request.family==='source-versions'&&request.rowLimit===65537&&request.sql.includes('ORDER BY sheet_id,version LIMIT 65537')&&!/\bOFFSET\b/i.test(request.sql),'Source ledger lost its captured single-execution bound/order');
     check(request.sql.startsWith('SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(version AS VARCHAR) AS version,CAST(owner AS VARCHAR) AS owner,CAST(source_kind AS VARCHAR) AS source_kind,CAST(source_reference AS VARCHAR) AS source_reference,CAST(encoding AS VARCHAR) AS encoding,'),'Source ledger bypassed original-type C projection');
     check(request.sql.includes('hex(definition)'),'Source ledger did not project nullable binary bytes to hex');families.sourceVersions++;
    }
-   else if((codecSourceCounters||codecSourceVersions||codecSourceBindings)&&request.sql.includes('_duxcel_workspace.source_version_counters')){
-    check(binding.name.startsWith(codecSourceBindings?'source-bindings-v14':codecSourceVersions?'source-versions-v14':'source-counters-v14')&&request.purpose===undefined&&request.rowLimit===65&&request.sql.includes('ORDER BY sheet_id LIMIT 65')&&!/\bOFFSET\b/i.test(request.sql),'Source-version counters lost their captured one-execution65-row ordinary policy');
+   else if((codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.source_version_counters')){
+    check(binding.name.startsWith(codecFormatRows?'format-rows-v14':codecSourceBindings?'source-bindings-v14':codecSourceVersions?'source-versions-v14':'source-counters-v14')&&request.purpose===undefined&&request.rowLimit===65&&request.sql.includes('ORDER BY sheet_id LIMIT 65')&&!/\bOFFSET\b/i.test(request.sql),'Source-version counters lost their captured one-execution65-row ordinary policy');
     check(request.sql.startsWith('SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(high_water AS VARCHAR) AS high_water FROM ('),'Source-version counter result bypassed its C original I/U canonical projection');families.sourceCounters++;
    }
-   else if((codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings)&&request.sql.includes('_duxcel_workspace.object_counters')){
-    check((codecSourceBindings?!binding.name.startsWith('source-bindings-v12'):codecSourceVersions?!binding.name.startsWith('source-versions-v12'):codecSourceCounters?!binding.name.startsWith('source-counters-v12'):!binding.name.startsWith('counters-v12'))&&request.purpose===undefined&&request.rowLimit===65&&request.sql.includes('ORDER BY sheet_id LIMIT 65')&&!/\bOFFSET\b/i.test(request.sql),'Counter result lost its one-execution bounded65-row ordinary policy');
+   else if((codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.object_counters')){
+    check((codecFormatRows?!binding.name.startsWith('format-rows-v12'):codecSourceBindings?!binding.name.startsWith('source-bindings-v12'):codecSourceVersions?!binding.name.startsWith('source-versions-v12'):codecSourceCounters?!binding.name.startsWith('source-counters-v12'):!binding.name.startsWith('counters-v12'))&&request.purpose===undefined&&request.rowLimit===65&&request.sql.includes('ORDER BY sheet_id LIMIT 65')&&!/\bOFFSET\b/i.test(request.sql),'Counter result lost its one-execution bounded65-row ordinary policy');
     check(request.sql.startsWith('SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(high_water AS VARCHAR) AS high_water FROM ('),'Counter result bypassed the C original I/U canonical projection');families.objectCounters++;
+   }
+   else if(codecFormatRows&&request.sql.includes('_duxcel_workspace.formats')){
+    check(request.purpose==='workbook-metadata-stream'&&request.family==='format-rows'&&request.rowLimit===32769&&request.sql.includes('ORDER BY sheet_id,position LIMIT 32769')&&!/\bOFFSET\b/i.test(request.sql),'Format rows lost one-execution bounded ordered streaming');
+    const names=['sheet_id','position','r0','r1','c0','c1','mask','flags','alignment','color','font_size','numeric_format','decimals'];
+    check(request.sql.startsWith('SELECT '+names.map(name=>'CAST(_format_rows_source.'+name+' AS VARCHAR) AS '+name).join(',')),'Format stream bypassed original integer schema and C canonical projection');families.formatRows++;
    }
    else if(codecGrid&&(request.sql.includes('_duxcel_workspace.columns')||request.sql.includes('_duxcel_workspace.cells'))){
     const cells=request.sql.includes('_duxcel_workspace.cells'),family=cells?'cells':'columns',limit=cells?1280001:1048577;
@@ -3048,24 +3076,24 @@ try{
    else if((codecSorts||codecFilters)&&request.sql.includes('_duxcel_workspace.sorts')){
     check(request.purpose==='workbook-sorts'&&request.rowLimit===449&&/LIMIT 449/.test(request.sql),'Sort result did not use its explicit captured449-row policy');families.sorts++;
    }
-   else if((codecObjects||codecQueries||codecSourceOptions||codecTables||codecPivotMarks||codecFilters||codecFilters||codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings)&&request.sql.includes('_duxcel_workspace.objects')){
+   else if((codecObjects||codecQueries||codecSourceOptions||codecTables||codecPivotMarks||codecFilters||codecFilters||codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.objects')){
     check(request.purpose==='workbook-objects'&&request.rowLimit===2049&&/LIMIT 2049/.test(request.sql),'Object descriptors did not use their explicit captured2049-row policy');
-    if(codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings)check(request.sql.includes('ORDER BY sheet_id,id LIMIT 2049')&&!/\bOFFSET\b/i.test(request.sql),'Counter descriptors requery/paging policy changed');families.objects++;
+    if(codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)check(request.sql.includes('ORDER BY sheet_id,id LIMIT 2049')&&!/\bOFFSET\b/i.test(request.sql),'Counter descriptors requery/paging policy changed');families.objects++;
    }
-   else if((codecQueries||codecSourceOptions||codecTables||codecPivotMarks||codecFilters||codecSourceBindings)&&request.sql.includes('_duxcel_workspace.queries')){
+   else if((codecQueries||codecSourceOptions||codecTables||codecPivotMarks||codecFilters||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.queries')){
     check(request.purpose==='workbook-owners'&&request.rowLimit===2113&&/LIMIT 2113/.test(request.sql),'Source queries did not use their explicit captured2113-row owner policy');
     check(request.sql.includes('CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query'),'C-built native query predicate was removed or bypassed');families.queries++;
    }
-   else if((codecSourceOptions||codecTables||codecPivotMarks||codecFilters||codecSourceBindings)&&request.sql.includes('_duxcel_workspace.source_options')){
+   else if((codecSourceOptions||codecTables||codecPivotMarks||codecFilters||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.source_options')){
     check(request.purpose==='workbook-owners'&&request.rowLimit===2113&&/LIMIT 2113/.test(request.sql),'Source options did not use their explicit captured2113-row owner policy');families.sourceOptions++;
    }
-   else if((codecTables||codecPivotMarks||codecSourceBindings)&&request.sql.includes('_duxcel_workspace.table_sources')){
+   else if((codecTables||codecPivotMarks||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.table_sources')){
     check(request.purpose==='workbook-table-sources'&&request.rowLimit===2049&&/LIMIT 2049/.test(request.sql),'Table sources did not use the captured2049-row policy');families.tableSources++;
    }
-   else if((codecTables||codecPivotMarks||codecSourceBindings)&&request.sql.includes('_duxcel_workspace.table_filters')){
+   else if((codecTables||codecPivotMarks||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.table_filters')){
     check(request.purpose==='workbook-table-filters'&&request.rowLimit===30721&&/LIMIT 30721/.test(request.sql),'Table filters did not use the captured30721-row policy');families.tableFilters++;
    }
-   else if((codecTables||codecPivotMarks||codecSourceBindings)&&request.sql.includes('_duxcel_workspace.table_sorts')){
+   else if((codecTables||codecPivotMarks||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.table_sorts')){
     check(request.purpose==='workbook-table-sorts'&&request.rowLimit===14337&&/LIMIT 14337/.test(request.sql),'Table sorts did not use the captured14337-row policy');families.tableSorts++;
    }
    else if(codecPivotMarks&&request.sql.includes('_duxcel_workspace.pivot_fields')){
@@ -3089,11 +3117,11 @@ try{
   }
   check(Object.entries(families).every(([family,count])=>count===(report.familyExecutions[family]??0)),'Host-observed SQL inventory disagrees with C counters');
   if(codecPreferences)check(v14PreferenceQueries===report.v14PredicateQueries,'Transport did not observe every v14 malformed-row predicate');
-  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===(codecSourceBindings?(i===0?16:i===1?18:i===2?24:108):codecSourceVersions?(i===0?6:i===1?8:i===2?12:72):codecSourceCounters?(i===0?6:i===1?8:i===2?10:40):codecCounters?(i===0?6:i===3?32:8):codecGrid?(i===3?38:8):codecFilters?(i===3?71:14):codecPivotMarks?(i===3?116:20):codecTables?(i===3?78:16):codecSourceOptions?(i===3?49:10):codecQueries?(i===5?45:8):codecObjects?(i===3?40:6):codecPreferences?(i===5?31:6):codecSorts?(i===3?31:6):(i===6?30:4)),'Metadata batching re-executed a fixture query');
+  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===(codecFormatRows?(i===0?18:i===1?20:i===2?26:143):codecSourceBindings?(i===0?16:i===1?18:i===2?24:108):codecSourceVersions?(i===0?6:i===1?8:i===2?12:72):codecSourceCounters?(i===0?6:i===1?8:i===2?10:40):codecCounters?(i===0?6:i===3?32:8):codecGrid?(i===3?38:8):codecFilters?(i===3?71:14):codecPivotMarks?(i===3?116:20):codecTables?(i===3?78:16):codecSourceOptions?(i===3?49:10):codecQueries?(i===5?45:8):codecObjects?(i===3?40:6):codecPreferences?(i===5?31:6):codecSorts?(i===3?31:6):(i===6?30:4)),'Metadata batching re-executed a fixture query');
   check(!events.some(event=>event.method==='Runtime.exceptionThrown'),'Uncaught exception in isolated header transport');
   await fs.writeFile(path.join(output,'codec-read-transport.json'),JSON.stringify(transport,null,2));
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
-  await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',profile:codecSourceBindings?'codec-source-bindings-driver':codecSourceVersions?'codec-source-versions-driver':codecSourceCounters?'codec-source-counters-driver':codecCounters?'codec-counters-driver':codecGrid?'codec-grid-driver':codecFilters?'codec-filters-driver':codecPivotMarks?'codec-pivot-marks-driver':codecTables?'codec-tables-driver':codecSourceOptions?'codec-source-options-driver':codecQueries?'codec-queries-driver':codecObjects?'codec-objects-driver':codecPreferences?'codec-preferences-driver':codecSorts?'codec-sorts-driver':'codec-read-driver',checks,report,scope:'Partial owned Header'+(codecSourceBindings?' with complete current-owner definitions, RAW ledger and deferred source bindings':codecSourceVersions?' with owned RAW source-ledger packets and independent counters':codecSourceCounters?' with independent object and source-version counter observations':codecCounters?' with object descriptors and exact allocation counters':codecGrid?' with ACKed column presentation and sparse-cell streams':codecFilters?' with primary filters, raw queries, source options and sorts':codecPivotMarks?' with object descriptors, primary/Table definitions and complete Pivot/Marks metadata':codecTables?' with object descriptors, primary/Table SQL definitions, source options and complete Table sources/filters/sorts':codecSourceOptions?' with object descriptors, primary/Table SQL definitions and source options':codecQueries?' with object descriptors and primary/Table SQL definitions':codecObjects?' with typed object descriptors':codecPreferences?' with reduced-motion/worksheet visibility preferences':codecSorts?' with primary-sheet secondary sorts':'')+' only; no Workbook publication, App Save/Open or engine/RSS peak bound'},null,2));
+  await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',profile:codecFormatRows?'codec-format-rows-driver':codecSourceBindings?'codec-source-bindings-driver':codecSourceVersions?'codec-source-versions-driver':codecSourceCounters?'codec-source-counters-driver':codecCounters?'codec-counters-driver':codecGrid?'codec-grid-driver':codecFilters?'codec-filters-driver':codecPivotMarks?'codec-pivot-marks-driver':codecTables?'codec-tables-driver':codecSourceOptions?'codec-source-options-driver':codecQueries?'codec-queries-driver':codecObjects?'codec-objects-driver':codecPreferences?'codec-preferences-driver':codecSorts?'codec-sorts-driver':'codec-read-driver',checks,report,scope:'Partial owned Header'+(codecFormatRows?' with streamed base format properties and owned current-owner/RAW/binding prerequisites':codecSourceBindings?' with complete current-owner definitions, RAW ledger and deferred source bindings':codecSourceVersions?' with owned RAW source-ledger packets and independent counters':codecSourceCounters?' with independent object and source-version counter observations':codecCounters?' with object descriptors and exact allocation counters':codecGrid?' with ACKed column presentation and sparse-cell streams':codecFilters?' with primary filters, raw queries, source options and sorts':codecPivotMarks?' with object descriptors, primary/Table definitions and complete Pivot/Marks metadata':codecTables?' with object descriptors, primary/Table SQL definitions, source options and complete Table sources/filters/sorts':codecSourceOptions?' with object descriptors, primary/Table SQL definitions and source options':codecQueries?' with object descriptors and primary/Table SQL definitions':codecObjects?' with typed object descriptors':codecPreferences?' with reduced-motion/worksheet visibility preferences':codecSorts?' with primary-sheet secondary sorts':'')+' only; no Workbook publication, App Save/Open or engine/RSS peak bound'},null,2));
   console.log(JSON.stringify({status:'passed',checks,report:{...report,transport:undefined},output}));
  }else if(workerDriver){
   let report;

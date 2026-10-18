@@ -344,6 +344,67 @@ console.log('PASS: binding report guards rejected '+mutations.length+' corrupted
         result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 29 corrupted receipts',result.stdout)
 
+    def test_format_rows_require_explicit_mode_and_exact_fixture_inventory(self):
+        options=harness.parse_options(['--codec-read-driver','--codec-format-rows'])
+        self.assertTrue(options.codec_format_rows)
+        self.assertEqual(harness.CODEC_FORMAT_ROWS_FIXTURES,{'format-rows-v12.dxls':(12,25),'format-rows-v13.dxls':(13,25),'format-rows-v14.dxls':(14,25),'format-rows-v14-reordered.dxls':(14,25)})
+        invalid=[['--codec-format-rows'],*(['--codec-read-driver','--codec-format-rows',family] for family in
+            ('--codec-sorts','--codec-preferences','--codec-objects','--codec-queries','--codec-source-options','--codec-tables','--codec-pivot-marks','--codec-filters','--codec-grid','--codec-counters','--codec-source-counters','--codec-source-versions','--codec-source-bindings','--review','--worker-driver','--metadata-stream-probe','--dpr=2'))]
+        for arguments in invalid:
+            with self.subTest(arguments=arguments),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(arguments)
+        with tempfile.TemporaryDirectory() as temporary:
+            path=Path(temporary);emitted=self.fixtures(path,harness.CODEC_FORMAT_ROWS_FIXTURES)
+            self.assertEqual([row['name'] for row in harness.codec_fixture_manifest(path,emitted,harness.CODEC_FORMAT_ROWS_FIXTURES)['files']],list(harness.CODEC_FORMAT_ROWS_FIXTURES))
+            with self.assertRaisesRegex(RuntimeError,'Unexpected native codec fixture'):
+                harness.codec_fixture_manifest(path,emitted,harness.CODEC_SOURCE_BINDINGS_FIXTURES)
+
+    def test_full_tier_format_rows_follow_bindings_with_separate_completion(self):
+        args=runner.parser().parse_args(['full','--config','both','--no-build'])
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);(root/'Makefile').write_text('');instance=runner.Runner(args,root)
+            with mock.patch.object(instance,'command',side_effect=lambda name,command,*a,**k:{'name':name,'command':command,'status':'passed'}) as command, \
+                 mock.patch.object(instance,'headless'),mock.patch.object(instance,'prepare_native'),mock.patch.object(instance,'retain_binaries'), \
+                 mock.patch.object(instance,'background_check'),mock.patch.object(instance,'native_scenarios'), \
+                 mock.patch.object(runner,'FileLock',side_effect=lambda *a,**k:contextlib.nullcontext()):
+                instance.full()
+            calls=command.call_args_list;formats=[(n,call) for n,call in enumerate(calls) if call.args[1][-1]=='--format-rows-only']
+            self.assertEqual(len(formats),2)
+            for index,call in formats:
+                binary=call.args[1][0];self.assertEqual(calls[index-1].args[1],[binary,'--source-bindings-only'])
+                pattern=call.kwargs['completion_pattern'];runner.validate_output('PASS: native format rows 123 checks;\n',0,completion_pattern=pattern)
+                with self.assertRaises(RuntimeError):runner.validate_output('PASS: native source bindings 123 checks;\n',0,completion_pattern=pattern)
+
+    def test_actual_format_report_guards_reject_incomplete_or_changed_evidence(self):
+        source=Path(__file__).with_name('test_web_app.mjs').read_text();start=source.index('function validateCodecFormatRowsReport(report,check) {')
+        function=source[start:source.index('\nfunction validateCodecSourceBindingsReport',start)]
+        report=dict(mode='format-rows',fixtures=4,headers=5,queries=207,rejections=7,stale=2,callbacks=183,normalFixtureQueries=[18,20,26,26],
+            familyExecutions=dict(meta=13,sheets=13,objects=13,queries=13,sourceOptions=13,tableSources=13,tableFilters=13,tableSorts=13,objectCounters=12,sourceCounters=11,sourceVersions=11,sourceBindings=11,formatRows=13,describe=45),
+            acceptedFeeds=dict(objects56=13,queries21=13,sourceOptionsEmpty=13,tableSources18=13,tableFiltersEmpty=13,tableSortsEmpty=13,objectCounters32=24,sourceCounters32=22,sourceVersions256=10,sourceVersions32=10,sourceVersions8=1,sourceVersionsEof=11,sourceBindings32=22,sourceBindings18=11,formatRows256=10,formatRows29=2,formatRows7=3,formatRowsEof=5),
+            objectDefaults=1,sourceCounterDefaults=2,ledgerDefaults=2,bindingDefaults=2,ledgerStreams=11,matchedLedgerDataCallbacks=21,matchedLedgerEofCallbacks=11,ledgerChunkCallbacks=32,ledgerAcceptedAcks=32,ledgerDoneCallbacks=11,ledgerPoisonedDataChunks=21,
+            completedBindingResults=11,poisonedBindingResults=11,formatStreams=13,matchedFormatDataCallbacks=22,matchedFormatEofCallbacks=5,formatChunkCallbacks=28,formatAcceptedAcks=20,formatDoneCallbacks=13,completedFormatStreams=5,errorFormatStreams=7,poisonedFormatDataChunks=22,
+            staleChunkCallbacks=1,staleDoneCallbacks=1,heldCallbacks=1,cancelledCallbacks=1,rejectedFeeds=7,rejectedFirstRows=[256,256,256,256,256,512,0],staleWireReservationBytes=10000,staleScalarReservationBytes=42,staleTerminalReservationBytes=2070,
+            maximumCompletedHeaderOwned=200000,headerOwnedLimit=2097152,inputOwnedLimit=4194304,peakOwnedInput=2200000,
+            transport=dict(sourceVersionPhysicalChunks=32,formatRowPhysicalChunks=28,stream=dict(submissions=24,chunkCallbacks=60,acceptedAcks=52,doneCallbacks=24,held=1,released=1,cancelled=1)))
+        for name in ('requiredNullRejected','invalidMaskRejected','losslessFlagsRejected','rangeRejected','positionRejected','sheetLimitRejected','budgetRejected','heldSecondChunkCancelled','wholeCandidateRetry','freshRecovery','exactRawBytes','independentLocators','deferredBindingsRetained','analysisVersionsRemainZero','exactProperties','maximumCoordinateExact','unmaskedPropertiesRetained'):report[name]=True
+        script="""import assert from 'node:assert/strict';import vm from 'node:vm';
+const validate=vm.runInNewContext('('+FUNCTION+')'),good=REPORT;
+const check=(condition,message)=>{if(!condition)throw new Error(message);};validate(good,check);
+const mutations=[r=>r.queries--,r=>r.callbacks--,r=>r.normalFixtureQueries[1]=26,r=>r.familyExecutions.formatRows--,
+ r=>r.acceptedFeeds.formatRows256--,r=>r.acceptedFeeds.formatRowsEof--,r=>r.bindingDefaults=0,r=>r.objectDefaults=0,
+ r=>r.poisonedFormatDataChunks--,r=>r.rejectedFeeds--,r=>r.staleChunkCallbacks=0,r=>r.staleDoneCallbacks=0,
+ r=>r.formatAcceptedAcks++,r=>r.ledgerDoneCallbacks--,r=>r.rejectedFirstRows[5]=256,r=>r.losslessFlagsRejected=false,
+ r=>r.exactProperties=false,r=>r.maximumCoordinateExact=false,r=>r.unmaskedPropertiesRetained=false,r=>r.heldSecondChunkCancelled=false,
+ r=>r.independentLocators=false,r=>r.deferredBindingsRetained=false,r=>r.analysisVersionsRemainZero=false,r=>r.budgetRejected=false,
+ r=>r.maximumCompletedHeaderOwned=2097153,r=>r.peakOwnedInput=4194305,r=>r.staleWireReservationBytes=0,
+ r=>r.staleWireReservationBytes=6291457,r=>r.staleScalarReservationBytes=41,r=>r.staleTerminalReservationBytes=2069,
+ r=>r.transport.stream.acceptedAcks++,r=>r.transport.stream.doneCallbacks--,r=>r.transport.formatRowPhysicalChunks--,
+ r=>r.transport.sourceVersionPhysicalChunks--];
+for(const mutate of mutations){const bad=structuredClone(good);mutate(bad);assert.throws(()=>validate(bad,check));}
+console.log('PASS: format-row report guards rejected '+mutations.length+' corrupted receipts');
+""".replace('FUNCTION',json.dumps(function)).replace('REPORT',json.dumps(report))
+        result=subprocess.run(['node','--input-type=module','-e',script],capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('rejected 34 corrupted receipts',result.stdout)
+
     def test_manifest_covers_bytes_and_refuses_unowned_extra_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary);emitted=self.fixtures(directory)
