@@ -1,0 +1,114 @@
+{
+  "status": "accepted ordinary body component; strict opt-in corners remain red",
+  "tested_source": {
+    "commit": "ff31254d3b7386945e982b2f78cd05b6f36d3e66",
+    "status": "",
+    "source_sha256": "03faf2c4eb2382864ffb889c53897f0bc5eddfe3d454dfede924bb6a70b5e528",
+    "source_files": 275
+  },
+  "ordinary": {
+    "checks_per_configuration": 2004589,
+    "build_seconds": 1.684,
+    "release_seconds": 0.493,
+    "sanitize_seconds": 0.544,
+    "total_seconds": 2.794,
+    "results": [
+      {
+        "name": "build-headless",
+        "command": [
+          "make",
+          "tests/test_shadowview",
+          "tests/test_shadowview-debug"
+        ],
+        "log": "/Users/h2o/.codex/worktrees/duxcel-shadow-corners/duxcel/tests/results/runs/20261018T055110-fast-56923/build-headless.txt",
+        "expected_stages": null,
+        "exit_code": 0,
+        "status": "passed",
+        "seconds": 1.684
+      },
+      {
+        "name": "shadowview-release",
+        "command": [
+          "./tests/test_shadowview"
+        ],
+        "log": "/Users/h2o/.codex/worktrees/duxcel-shadow-corners/duxcel/tests/results/runs/20261018T055110-fast-56923/shadowview-release.txt",
+        "expected_stages": null,
+        "exit_code": 0,
+        "status": "passed",
+        "seconds": 0.493
+      },
+      {
+        "name": "shadowview-sanitize",
+        "command": [
+          "./tests/test_shadowview-debug"
+        ],
+        "log": "/Users/h2o/.codex/worktrees/duxcel-shadow-corners/duxcel/tests/results/runs/20261018T055110-fast-56923/shadowview-sanitize.txt",
+        "expected_stages": null,
+        "exit_code": 0,
+        "status": "passed",
+        "seconds": 0.544
+      }
+    ],
+    "binaries": {
+      "/Users/h2o/.codex/worktrees/duxcel-shadow-corners/duxcel/tests/test_shadowview": "b916a47a5889d8be1c178d57b4b0eb51e7aec0557bf40f2ac9dce59149a5067f",
+      "/Users/h2o/.codex/worktrees/duxcel-shadow-corners/duxcel/tests/test_shadowview-debug": "77c67a237522e536c92605e6c255a4631e29b0cffbdd34821270a8e5788f644c"
+    },
+    "binaries_after": {
+      "/Users/h2o/.codex/worktrees/duxcel-shadow-corners/duxcel/tests/test_shadowview": "b916a47a5889d8be1c178d57b4b0eb51e7aec0557bf40f2ac9dce59149a5067f",
+      "/Users/h2o/.codex/worktrees/duxcel-shadow-corners/duxcel/tests/test_shadowview-debug": "77c67a237522e536c92605e6c255a4631e29b0cffbdd34821270a8e5788f644c"
+    }
+  },
+  "corner_diagnostic": {
+    "status": "known strict reference mismatch; no full corner closure",
+    "command": [
+      "./tests/test_shadowview",
+      "--reference-corners"
+    ],
+    "exit_code": 1,
+    "elapsed_seconds": 0.00934,
+    "binary_sha256": "b916a47a5889d8be1c178d57b4b0eb51e7aec0557bf40f2ac9dce59149a5067f",
+    "source_commit": "ff31254d3b7386945e982b2f78cd05b6f36d3e66",
+    "strict_output": "Reference: 240/240 exact source-profile pixels, without exceptions or tolerance.\nOutside reference: 260/260 actual unchanged pixels immediately outside placed extent; no App clip claim.\nSTRICT corner mismatch narrow_100_top pixel=(696,198) atlas=(28,12) expected=(252,252,252,255) actual=(251,251,251,255) mask=(1,1,1,5) background=(255,255,255,255)\nFAIL shadowview:201: !memcmp(rgba,ref->foreground,4)\n",
+    "scope": "Original body gate and260 outside pixels pass; exact2D corner diagnostic stops at first unchanged reference mismatch. No exception, tolerance, production edit, App/GPU or physical claim."
+  },
+  "model_and_fixture_sha256": {
+    "src/ui/shadowview.c": "7a3c1b8dc1cdbc4b7ac1a223ee5a3d1b67329aa5a92d8b1260c36536eee0cd08",
+    "tests/test_shadowview.c": "655af24f0457d1d5e199085ef8d73e7ae850cd5b20041e5013630c7b8e11d288",
+    "tests/shadow_reference.h": "118c8d1f68570fc5477a6ad6b657857fe5b5ffb0073337c88c5020b1af5a9f9b",
+    "tests/shadow_corner_reference.h": "4c9bfff4d3ca878b21263ad1e1b78d572298eba0de4d645974569d4780592225",
+    "tests/shadow_corner_reference.json": "c23cd90ab2beaf6ab5a1c9bcdd02b158d5e0ef23c85b5b553102aa937999891a",
+    "tools/extract_shadow_corners.py": "78f42807256d33a5714e9d76510fa58c654ddbbf384125f101a5d1b248ac0a08"
+  },
+  "original_logs": {
+    "tests/results/runs/20261018T055110-fast-56923/build-headless.txt": {
+      "bytes": 570,
+      "sha256": "89d6d9e46ce020bf1862664ff71fae41b40ad6d5c6dad68184bf4148f6b55268"
+    },
+    "tests/results/runs/20261018T055110-fast-56923/corner-diagnostic.json": {
+      "bytes": 980,
+      "sha256": "0cf898a4d13709e72f1f8c128238d3a76a1ab340d6074a60b77505a63461f2d7"
+    },
+    "tests/results/runs/20261018T055110-fast-56923/corner-diagnostic.txt": {
+      "bytes": 403,
+      "sha256": "4ee1116d201a747113a07ff5c346fe29ec646e03198e9f41a6ab801a5744102f"
+    },
+    "tests/results/runs/20261018T055110-fast-56923/shadowview-release.txt": {
+      "bytes": 187,
+      "sha256": "fd537275b5acfbdce11a8166df705d9c7590dcdb9c3d67b0ed49a6f990a8a0cd"
+    },
+    "tests/results/runs/20261018T055110-fast-56923/shadowview-sanitize.txt": {
+      "bytes": 193,
+      "sha256": "7ee3e1a534d5026489c8a12533f05baf576f26cf75f14ca3d46cee1b91a83a71"
+    },
+    "tests/results/runs/20261018T055110-fast-56923/summary.json": {
+      "bytes": 2371,
+      "sha256": "bfa15d2f070b2da98ce68f2ca960c7b5675b3c57f9a5afffb5bea17ed8eefcbf"
+    }
+  },
+  "limits": [
+    "This is a pure component gate; no App/GPU/OS delivery acceptance.",
+    "The exact recorded white top/bottom counterexample is retained in shadow_corner_reference.json. It precludes full corner closure by the current perfectly mirrored atlas.",
+    "A literal binary16-rounding experiment on both lookup coverages/product failed an existing encoded sample and was reverted. No production change, fitted coordinate, oracle edit or tolerance was retained.",
+    "SkSL half declarations do not alone establish runtime storage precision; original browser metadata did not retain actual Skia shader/backend identity."
+  ]
+}
