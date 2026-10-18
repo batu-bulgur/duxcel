@@ -10,7 +10,10 @@ UIInspectorLayout ui_inspector_layout(Rectangle panel,float scale,size_t count,b
     if (width<160 || height<220) return out;
     out.compact=height<360; out.row_height=height<300 ? 40 : 55;
     out.title=rect(panel,scale,13,0,width-75,35);
-    out.collapse=rect(panel,scale,width-52,6,23,23); out.dismiss=rect(panel,scale,width-27,6,23,23);
+    out.collapse=rect(panel,scale,width-56,6,23,23); out.dismiss=rect(panel,scale,width-31,6,23,23);
+    /* The study header has an eight-unit right inset and a two-unit gap.
+       Center in its 35-unit box above the one-presented-point bottom border. */
+    out.collapse.y-=.5f; out.dismiss.y-=.5f;
     out.source=rect(panel,scale,13,35,width-26,34);
     if (sql) {
         out.sql_description=rect(panel,scale,13,69,width-26,32);
