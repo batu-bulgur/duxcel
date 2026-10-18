@@ -1,6 +1,6 @@
 # Project documentation
 
-**Current priority, 18 October 2026:** audit/cleanup and deliver a clean native bundle, then reproduce the remaining physical pan/selection bugs in the actual user-launchable app before expanding metadata components. Browser workbook Open/Save is still unavailable; complete UI and physical-input parity are not achieved. [STATUS.md](STATUS.md) distinguishes earlier tested revisions from the next bundle delivery.
+**Current priority, 18 October 2026:** continue interaction correctness and workbook persistence from the clean native delivery. Persistence internals and focused sanitizer/integration tests remain essential roadmap work alongside visible fixes; cleanup limits generated-artifact retention, not coverage. Browser workbook Open/Save and complete UI/physical-input parity remain unfinished. [STATUS.md](STATUS.md) identifies the tested delivery.
 
 The JavaScript prototype remains the frozen design reference. The established architecture uses a native agentic review build and a browser proof compiling the same C99/raylib UI to WebAssembly with the official DuckDB-Wasm Worker behind a thin typed bridge. Refine actual application behavior through native evidence and versioned design decisions; the reference's mock calculations, sample counts and design JSON are not production behavior. Native distribution gains no web runtime.
 

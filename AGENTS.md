@@ -2,8 +2,8 @@
 
 ## Current human priority — 18 October 2026
 
-- Stop metadata component expansion. Audit and clean the repository/worktrees, then deliver a clean, user-launchable native bundle with its exact source recorded.
-- Next reproduce the remaining physical pan/selection bugs in that actual app before more metadata work. Automated callbacks, hidden tests and browser simulations do not establish physical-input parity.
+- Repository/worktree cleanup and a clean native delivery are complete. Continue the full roadmap, including persistence internals and tests; they remain essential work even when changes are not visible in the GUI.
+- Address the remaining physical pan/selection bugs alongside persistence correctness in independent bounded lanes where ownership permits. Keep focused sanitizer and integration coverage. Automated callbacks, hidden tests and browser simulations do not establish physical-input parity.
 - Browser workbook Open/Save remains unavailable; complete UI and physical-input parity have not been achieved.
 
 ## Product and source of truth

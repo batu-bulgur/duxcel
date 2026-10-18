@@ -4,9 +4,9 @@ Current order following the 18 October cleanup request:
 
 1. Completed: repository/worktree cleanup, unfinished branch preservation and a clean signed native bundle with focused checks. See the [delivery audit](audit/2026-10-18-cleanup.md).
 2. Reproduce the reported native and Wasm trackpad oscillation, inconsistent return and selection/value-retention problems against that exact delivery. Fix one concrete behavior at a time, with a focused test and a current runnable app.
-3. Resume exact prototype UI parity and the other unchecked product tasks below. Browser persistence foundation work is paused until visible interaction work is back on track; browser workbook Open/Save remains unavailable.
+3. Continue workbook persistence internals, exact prototype UI parity and the other unchecked product tasks below. Persistence and tests remain essential deliverables alongside visible interaction fixes; use independent bounded lanes where ownership permits. Browser workbook Open/Save remains unavailable.
 
-Hidden synthetic input is useful regression coverage, but does not establish physical trackpad behavior or complete UI parity. Component test totals are not shipped features. See [current status](STATUS.md) and the [cleanup audit](audit/2026-10-18-cleanup.md). Earlier checkpoint details remain in [validation/checkpoints/](validation/checkpoints/).
+Hidden synthetic input is useful regression coverage, but does not establish physical trackpad behavior or complete UI parity. Component tests establish important infrastructure correctness; they do not by themselves establish an integrated user-facing feature. See [current status](STATUS.md) and the [cleanup audit](audit/2026-10-18-cleanup.md). Earlier checkpoint details remain in [validation/checkpoints/](validation/checkpoints/).
 
 ## 0. Make development bounded and reproducible
 

@@ -1,6 +1,6 @@
 # Current implementation status
 
-The current delivery priority is a clean native app, followed by reproducing the remaining physical trackpad and selection bugs in that app. Further browser metadata expansion is paused. The executable `design/prototype/` remains the exact UI definition; full visual and physical-input parity is **not complete**.
+The clean native delivery is ready. Continue remaining physical trackpad/selection fixes and workbook persistence correctness, with focused sanitizer and integration tests. Persistence internals and testing remain essential planned work; their value is independent of visible GUI changes. The executable `design/prototype/` remains the exact UI definition; full visual and physical-input parity is **not complete**.
 
 **Delivery after cleanup:** signed `build/Duxcel.app` and `./duxcel`, built and tested at `bb5bfc0` with unchanged product inputs in the delivery follow-up. Optimized selection41, grid/motion/value checks in optimized/O1 ASan+UBSan, and the actual signed bundle’s six-stage query/history check from `/` pass. The clean build took approximately79s; focused selection29.7s, sanitizer tier11.8s and bundle run4.0s. The local source/binary pointer is `build/current-ui-package.json`. All project HTTP services are stopped. Historical package/service pointers in checkpoint documents describe their original deliveries.
 
