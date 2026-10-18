@@ -6,14 +6,17 @@
 
 typedef struct { char *name,*reference; Analysis analysis; SheetView view; size_t object_offset,object_count; } HeaderSheet;
 typedef struct { Analysis analysis; char *reference; } HeaderTableSource;
-typedef struct { size_t sheet; WorkbookCodecObjectView value; char *query; bool unique_rows; HeaderTableSource *source; } HeaderObject;
+typedef struct { size_t sheet; WorkbookCodecObjectView value; char *query; bool unique_rows; HeaderTableSource *source; PivotDefinition *pivot; MarkDefinition *marks; } HeaderObject;
+typedef struct { HeaderObject *owner; void *definition; size_t original[DX_MARK_ROLES]; } DefinitionChange;
 struct WorkbookCodecHeader {
     WorkbookCodecKey key;
     unsigned version;
     size_t count,active,bytes;
     uint64_t hidden;
     float user_scale;
-    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready;
+    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready,object_table_present,pivot_marks_ready;
+    PivotDefinition empty_pivot;
+    MarkDefinition empty_marks;
     HeaderObject *objects;
     size_t object_count;
     HeaderSheet sheets[DX_MAX_SHEETS];
@@ -35,6 +38,8 @@ struct WorkbookCodecRead {
     uint64_t source_options_owner;
     size_t table_next,table_sheet,table_raw[DX_MAX_SHEETS];
     uint64_t table_owner;
+    size_t definition_sheet,definition_role,definition_raw[2][DX_MAX_SHEETS];
+    uint64_t definition_owner;
     bool preference_motion_seen;
 };
 static const char meta_sql[]="SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2";
@@ -49,6 +54,8 @@ static const char source_options_sql[]="SELECT sheet_id,object_id,unique_rows FR
 static const char table_sources_sql[]="SELECT sheet_id,object_id,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending FROM _duxcel_workspace.table_sources ORDER BY sheet_id,object_id LIMIT 2049";
 static const char table_filters_sql[]="SELECT sheet_id,object_id,position,name,op,value FROM _duxcel_workspace.table_filters ORDER BY sheet_id,object_id,position LIMIT 30721";
 static const char table_sorts_sql[]="SELECT sheet_id,object_id,position,name,descending FROM _duxcel_workspace.table_sorts ORDER BY sheet_id,object_id,position LIMIT 14337";
+static const char pivot_fields_sql[]="SELECT sheet_id,object_id,role,position,name,aggregate,filter_op,value,grain FROM _duxcel_workspace.pivot_fields ORDER BY sheet_id,object_id,role,position LIMIT 65537";
+static const char marks_sql[]="SELECT sheet_id,object_id,role,position,name,is_measure,aggregate,grain FROM _duxcel_workspace.marks ORDER BY sheet_id,object_id,role,position LIMIT 98305";
 #define SORT_ROWS (DX_MAX_SHEETS*(DX_ANALYSIS_SORTS-1u))
 #define OBJECT_ROWS (DX_MAX_SHEETS*DX_MAX_OBJECTS)
 #define QUERY_ROWS (DX_MAX_SHEETS*(DX_MAX_OBJECTS+1u))
@@ -56,8 +63,10 @@ static const char table_sorts_sql[]="SELECT sheet_id,object_id,position,name,des
 #define TABLE_SORT_ROWS (OBJECT_ROWS*(DX_ANALYSIS_SORTS-1u))
 #define TABLE_RAW_BYTES (8u*1024u*1024u)
 #define TABLE_FILTER_BYTES (4u*1024u*1024u)
+#define PIVOT_ROWS_LIMIT (OBJECT_ROWS*4u*DX_PIVOT_FIELDS)
+#define MARK_ROWS_LIMIT (OBJECT_ROWS*DX_MARK_ROLES*DX_MARK_FIELDS)
 static bool request_family(WorkbookCodecFamily family) {
-    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES || family==WORKBOOK_CODEC_OBJECTS || family==WORKBOOK_CODEC_QUERIES || family==WORKBOOK_CODEC_SOURCE_OPTIONS || family==WORKBOOK_CODEC_TABLE_SOURCES || family==WORKBOOK_CODEC_TABLE_FILTERS || family==WORKBOOK_CODEC_TABLE_SORTS;
+    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES || family==WORKBOOK_CODEC_OBJECTS || family==WORKBOOK_CODEC_QUERIES || family==WORKBOOK_CODEC_SOURCE_OPTIONS || family==WORKBOOK_CODEC_TABLE_SOURCES || family==WORKBOOK_CODEC_TABLE_FILTERS || family==WORKBOOK_CODEC_TABLE_SORTS || family==WORKBOOK_CODEC_PIVOT_FIELDS || family==WORKBOOK_CODEC_MARKS;
 }
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
@@ -106,7 +115,8 @@ static bool shape(const WorkbookCodecBatch *batch,const WorkbookCodecTable *tabl
                 size_t maximum=(!strcmp(table->table,"sheets") && column==1) || ((!strcmp(table->table,"sorts") || !strcmp(table->table,"objects")) && column==2) ? 4096u : DX_WORKBOOK_CODEC_READ_TEXT;
                 if (!strcmp(table->table,"table_sources")) maximum=column==7 ? TABLE_FILTER_BYTES : column==3 ? DX_WORKBOOK_CODEC_READ_TEXT : 4096u;
                 else if (!strcmp(table->table,"table_filters")) maximum=column==5 ? TABLE_FILTER_BYTES : 4096u;
-                else if (!strcmp(table->table,"table_sorts")) maximum=4096u;
+                else if (!strcmp(table->table,"table_sorts") || !strcmp(table->table,"marks")) maximum=4096u;
+                else if (!strcmp(table->table,"pivot_fields")) maximum=column==7 ? TABLE_RAW_BYTES : 4096u;
                 if (atom->value.text.bytes>maximum || (!atom->value.text.data && atom->value.text.bytes) ||
                     !utf8(atom->value.text.data,atom->value.text.bytes)) return fail(error,"Metadata text is oversized, contains NUL or is not valid UTF-8.");
             }
@@ -124,7 +134,9 @@ static void table_source_free(HeaderTableSource *source) {
 void workbook_codec_header_free(WorkbookCodecHeader *header) {
     if (!header) return;
     for (size_t i=0;i<header->count;i++) sheet_free(header->sheets+i);
-    for (size_t i=0;i<header->object_count;i++) { free((char *)header->objects[i].value.name); free(header->objects[i].query); table_source_free(header->objects[i].source); }
+    for (size_t i=0;i<header->object_count;i++) { free((char *)header->objects[i].value.name); free(header->objects[i].query); table_source_free(header->objects[i].source);
+        if (header->objects[i].pivot) { pivot_free(header->objects[i].pivot); free(header->objects[i].pivot); }
+        if (header->objects[i].marks) { marks_free(header->objects[i].marks); free(header->objects[i].marks); } }
     free(header->objects);
     free(header);
 }
@@ -166,6 +178,7 @@ bool workbook_codec_read_add_objects(WorkbookCodecRead *read,bool present,char *
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->objects_ready)
         return fail(error,"Object descriptors require a complete unclaimed header and may be armed once.");
     if (!present && read->version>=13) return fail(error,read->version==13 ? "The v13 workbook requires object descriptors." : "The v14 workbook requires object descriptors.");
+    read->header->object_table_present=present;
     if (present) read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_OBJECTS,objects_sql,0,11,11,OBJECT_ROWS+1u};
     else read->header->objects_ready=true;
     return true;
@@ -199,6 +212,13 @@ bool workbook_codec_read_add_table_sources(WorkbookCodecRead *read,WorkbookCodec
     if (!present.filters || !present.sorts) return fail(error,"Present Table sources require filter and sort metadata tables.");
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_TABLE_SOURCES,table_sources_sql,0,14,14,OBJECT_ROWS+1u};
     return true;
+}
+bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPivotMarksPresence present,char **error) {
+    if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || !read->header->table_sources_ready || read->header->pivot_marks_ready)
+        return fail(error,"Pivot/Marks require the complete unclaimed Table metadata chain and may be armed once.");
+    if (!read->header->object_table_present) { read->header->pivot_marks_ready=true; return true; }
+    if (!present.fields || !present.marks) return fail(error,"An objects table requires both Pivot fields and Marks metadata.");
+    read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_PIVOT_FIELDS,pivot_fields_sql,0,9,9,PIVOT_ROWS_LIMIT+1u}; return true;
 }
 static char **query_target(WorkbookCodecHeader *header,size_t sheet,uint64_t owner) {
     if (!header || sheet>=header->count) return NULL;
@@ -603,9 +623,9 @@ static bool table_known_add(size_t *bytes,size_t extra,char **error) {
 static bool table_known_text(size_t *bytes,const char *text,char **error) {
     return !text || table_known_add(bytes,strlen(text)+1u,error);
 }
-static bool table_known_current(const WorkbookCodecHeader *header,const TableSortChange *pending,size_t count,char **error) {
+static bool object_known_current(const WorkbookCodecHeader *header,const TableSortChange *pending,size_t count,const DefinitionChange *definitions,size_t definition_count,bool marks_phase,char **error) {
     /* Same native ObjectSnapshot byte terms for the data already decoded.
-       Unavailable locator lengths and future Pivot/Marks payloads are unknown;
+       Unavailable locator lengths and uncompleted Pivot/Marks payloads are unknown;
        this is a lower bound, not completed ObjectStore/model validation. Raw
        references have their separate native raw-text and reader-owned budgets. */
     for (size_t sheet=0;sheet<header->count;sheet++) {
@@ -613,9 +633,17 @@ static bool table_known_current(const WorkbookCodecHeader *header,const TableSor
         for (size_t i=0;i<s->object_count;i++) {
             const HeaderObject *owner=header->objects+s->object_offset+i;
             if (!table_known_text(&bytes,owner->value.name,error)) return false;
+            const PivotDefinition *pivot=owner->pivot; const MarkDefinition *marks=owner->marks;
+            for (size_t j=0;j<definition_count;j++) if (definitions[j].owner==owner) {
+                if (marks_phase) marks=definitions[j].definition; else pivot=definitions[j].definition;
+            }
+            if (pivot) for (size_t r=0;r<4;r++) for (size_t j=0;j<pivot->counts[r];j++)
+                if (!table_known_text(&bytes,pivot->fields[r][j].name,error) || !table_known_text(&bytes,pivot->fields[r][j].value,error)) return false;
+            if (marks) for (size_t r=0;r<DX_MARK_ROLES;r++) for (size_t j=0;j<marks->counts[r];j++)
+                if (!table_known_text(&bytes,marks->fields[r][j].name,error)) return false;
             if (owner->value.kind!=OBJECT_TABLE) continue;
             const Analysis *a=&owner->source->analysis;
-            const char *texts[]={a->path,a->schema,a->table,owner->query,a->filter_column,a->filter_value,a->group_column,a->measure_column,a->sort_column};
+            const char *texts[]={a->path,a->schema,a->table,a->query ? a->query : owner->query,a->filter_column,a->filter_value,a->group_column,a->measure_column,a->sort_column};
             for (size_t j=0;j<sizeof(texts)/sizeof(*texts);j++) if (!table_known_text(&bytes,texts[j],error)) return false;
             for (size_t j=0;j<a->filter_count;j++) if (!table_known_text(&bytes,a->filters[j].column,error) || !table_known_text(&bytes,a->filters[j].value,error)) return false;
             for (size_t j=0;j<a->sort_count;j++) if (!table_known_text(&bytes,a->sorts[j].column,error)) return false;
@@ -644,7 +672,7 @@ static bool table_sorts_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *b
         if (!table_analysis_valid(read,owner,owner->source,&prospective,staged,retained,error)) goto rejected;
         previous=true; last_sheet=(size_t)sheet; last_owner=id;
     }
-    if (batch->end && !table_known_current(read->header,next,batch->row_count,error)) goto rejected;
+    if (batch->end && !object_known_current(read->header,next,batch->row_count,NULL,0,false,error)) goto rejected;
     for (size_t row=0;row<batch->row_count;row++) { Analysis *a=&next[row].owner->source->analysis; a->sorts[a->sort_count++]=next[row].sort; }
     free(next); staged-=array_bytes; read->bytes+=staged; read->header->bytes+=staged; memcpy(read->table_raw,raw,sizeof(raw)); read->table_sheet=last_sheet; read->table_owner=last_owner; read->request.first_row+=batch->row_count;
     if (batch->end) {
@@ -663,13 +691,112 @@ rejected:
     for (size_t row=0;row<batch->row_count;row++) free(next[row].sort.column);
     free(next); return false;
 }
+static HeaderObject *analytical_owner(WorkbookCodecHeader *header,size_t sheet,uint64_t id) {
+    if (sheet>=header->count || !id) return NULL;
+    HeaderSheet *s=header->sheets+sheet;
+    for (size_t i=0;i<s->object_count;i++) { HeaderObject *o=header->objects+s->object_offset+i; if (o->value.id==id && o->value.kind!=OBJECT_TABLE) return o; }
+    return NULL;
+}
+static void definition_discard(DefinitionChange *change,bool marks_phase) {
+    if (marks_phase) {
+        MarkDefinition *m=change->definition;
+        for (size_t r=0;r<DX_MARK_ROLES;r++) for (size_t i=change->original[r];i<m->counts[r];i++) free(m->fields[r][i].name);
+    } else {
+        PivotDefinition *p=change->definition;
+        for (size_t r=0;r<4;r++) for (size_t i=change->original[r];i<p->counts[r];i++) { free(p->fields[r][i].name); free(p->fields[r][i].value); }
+    }
+    free(change->definition);
+}
+static bool definition_pivot_valid(WorkbookCodecRead *read,const PivotDefinition *p,size_t staged,size_t retained,char **error) {
+    size_t scratch=0;
+    for (size_t r=0;r<4;r++) for (size_t i=0;i<p->counts[r];i++) {
+        size_t next=0; if (!table_filter_scratch(p->fields[r][i].filter,p->fields[r][i].value,&next,error)) return false;
+        if (next>scratch) scratch=next;
+    }
+    if (!table_reserve(read,retained,staged,scratch,error)) return false;
+    /* pivot_valid's legacy failure helper requires an actual diagnostic slot. */
+    char *discard=NULL; bool valid=pivot_valid(p,error ? error : &discard); free(discard); return valid;
+}
+static bool definition_arity(const WorkbookCodecHeader *header,const DefinitionChange *next,size_t count,char **error) {
+    for (size_t i=0;i<header->object_count;i++) {
+        const HeaderObject *owner=header->objects+i; const PivotDefinition *p=owner->pivot;
+        for (size_t j=0;j<count;j++) if (next[j].owner==owner) p=next[j].definition;
+        if (owner->value.chart_measure && (!p || owner->value.chart_measure>=p->counts[PIVOT_VALUES]))
+            return fail(error,"Object presentation index does not fit its complete Values shelf.");
+    }
+    return true;
+}
+static bool definitions_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *batch,size_t retained,bool marks_phase,char **error) {
+    size_t limit=marks_phase ? MARK_ROWS_LIMIT : PIVOT_ROWS_LIMIT;
+    if (read->request.first_row>limit || batch->row_count>limit-read->request.first_row) return fail(error,"Too many Pivot/Marks metadata rows.");
+    size_t array_bytes=batch->row_count*sizeof(DefinitionChange);
+    if (!table_reserve(read,retained,0,array_bytes,error)) return false;
+    DefinitionChange *next=array_bytes ? dx_alloc(array_bytes) : NULL; size_t staged=array_bytes,count=0,retired=0;
+    size_t raw[DX_MAX_SHEETS]; memcpy(raw,read->definition_raw[marks_phase ? 1 : 0],sizeof(raw));
+    size_t last_sheet=read->definition_sheet,last_role=read->definition_role; uint64_t last_owner=read->definition_owner; bool previous=read->request.first_row!=0;
+    for (size_t row=0;row<batch->row_count;row++) {
+        const WorkbookCodecAtom *cells=batch->cells+row*(marks_phase ? 8 : 9);
+        int32_t sheet=cells[0].value.i32,role=cells[2].value.i32,position=cells[3].value.i32,aggregate=cells[marks_phase ? 6 : 5].value.i32,grain=cells[marks_phase ? 7 : 8].value.i32;
+        uint64_t id=cells[1].value.u64;
+        if (sheet<0 || (size_t)sheet>=read->header->count || role<0 || role>=(marks_phase ? DX_MARK_ROLES : 4) || position<0 || position>=(marks_phase ? DX_MARK_FIELDS : DX_PIVOT_FIELDS) || aggregate<0 || aggregate>AGG_MAX || grain<0 || grain>PIVOT_DATE_MONTH)
+            { fail(error,"Invalid Pivot/Marks owner, role, position or operation."); goto rejected; }
+        if (previous && ((size_t)sheet<last_sheet || ((size_t)sheet==last_sheet && (id<last_owner || (id==last_owner && (size_t)role<last_role)))))
+            { fail(error,"Pivot/Marks owners and roles must be strictly ordered."); goto rejected; }
+        HeaderObject *owner=analytical_owner(read->header,(size_t)sheet,id);
+        if (!owner) { fail(error,"Pivot/Marks requires an exact non-Table object owner."); goto rejected; }
+        if (cells[4].value.text.bytes>TABLE_RAW_BYTES-raw[sheet]) { fail(error,"Raw Pivot/Marks text exceeds 8 MiB on one worksheet."); goto rejected; }
+        raw[sheet]+=cells[4].value.text.bytes;
+        if (!marks_phase && cells[7].kind!=WORKBOOK_CODEC_NULL) {
+            if (cells[7].value.text.bytes>TABLE_RAW_BYTES-raw[sheet]) { fail(error,"Raw Pivot/Marks text exceeds 8 MiB on one worksheet."); goto rejected; }
+            raw[sheet]+=cells[7].value.text.bytes;
+        }
+        if (!count || next[count-1].owner!=owner) {
+            size_t bytes=marks_phase ? sizeof(MarkDefinition) : sizeof(PivotDefinition);
+            if (!table_reserve(read,retained,staged,bytes,error)) goto rejected;
+            DefinitionChange *change=next+count++; change->owner=owner; change->definition=dx_alloc(bytes); staged+=bytes;
+            if (marks_phase && owner->marks) { memcpy(change->definition,owner->marks,bytes); memcpy(change->original,owner->marks->counts,sizeof(owner->marks->counts)); retired+=bytes; }
+            if (!marks_phase && owner->pivot) { memcpy(change->definition,owner->pivot,bytes); memcpy(change->original,owner->pivot->counts,sizeof(owner->pivot->counts)); retired+=bytes; }
+        }
+        DefinitionChange *change=next+count-1;
+        if (marks_phase) {
+            MarkDefinition *m=change->definition;
+            if ((size_t)position!=m->counts[role]) { fail(error,"Marks positions must be contiguous and unique."); goto rejected; }
+            MarkField *field=&m->fields[role][m->counts[role]++];
+            *field=(MarkField){.measure=cells[5].value.boolean,.aggregate=(Aggregate)aggregate,.grain=(PivotDateGrain)grain};
+            if (!copy_text(cells+4,&field->name,&staged,read->bytes,retained,read->limit,error) || !marks_valid(m,error)) goto rejected;
+        } else {
+            PivotDefinition *p=change->definition; int32_t op=cells[6].value.i32;
+            if ((size_t)position!=p->counts[role] || op<0 || op>FILTER_OP_MAX) { fail(error,"Pivot positions must be contiguous and operations valid."); goto rejected; }
+            PivotField *field=&p->fields[role][p->counts[role]++];
+            *field=(PivotField){.aggregate=(Aggregate)aggregate,.filter=(FilterOp)op,.grain=(PivotDateGrain)grain};
+            if (!copy_text(cells+4,&field->name,&staged,read->bytes,retained,read->limit,error) || !copy_text(cells+7,&field->value,&staged,read->bytes,retained,read->limit,error) || !definition_pivot_valid(read,p,staged,retained,error)) goto rejected;
+        }
+        previous=true; last_sheet=(size_t)sheet; last_owner=id; last_role=(size_t)role;
+    }
+    if (batch->end && ((!marks_phase && !definition_arity(read->header,next,count,error)) || !object_known_current(read->header,NULL,0,next,count,marks_phase,error))) goto rejected;
+    for (size_t i=0;i<count;i++) {
+        if (marks_phase) { free(next[i].owner->marks); next[i].owner->marks=next[i].definition; }
+        else { free(next[i].owner->pivot); next[i].owner->pivot=next[i].definition; }
+    }
+    free(next); size_t added=staged-array_bytes-retired; read->bytes+=added; read->header->bytes+=added;
+    memcpy(read->definition_raw[marks_phase ? 1 : 0],raw,sizeof(raw)); read->definition_sheet=last_sheet; read->definition_owner=last_owner; read->definition_role=last_role; read->request.first_row+=batch->row_count;
+    if (batch->end) {
+        if (marks_phase) { read->header->pivot_marks_ready=true; read->request.family=WORKBOOK_CODEC_HEADER_READY; }
+        else { read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_MARKS,marks_sql,0,8,8,MARK_ROWS_LIMIT+1u}; read->definition_sheet=read->definition_role=0; read->definition_owner=0; }
+    }
+    return true;
+rejected:
+    for (size_t i=0;i<count;i++) definition_discard(next+i,marks_phase);
+    free(next); return false;
+}
+
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained,char **error) {
     if (!read || !same_key(read->key,key)) return WORKBOOK_CODEC_READ_STALE;
     if (!read->header || !request_family(read->request.family) || family!=read->request.family || !batch || batch->first_row!=read->request.first_row) {
         fail(error,"Metadata family or batch order does not match its cursor."); return WORKBOOK_CODEC_READ_ERROR;
     }
-    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : family==WORKBOOK_CODEC_OBJECTS ? "objects" : family==WORKBOOK_CODEC_QUERIES ? "queries" : family==WORKBOOK_CODEC_SOURCE_OPTIONS ? "source_options" : family==WORKBOOK_CODEC_TABLE_SOURCES ? "table_sources" : family==WORKBOOK_CODEC_TABLE_FILTERS ? "table_filters" : family==WORKBOOK_CODEC_TABLE_SORTS ? "table_sorts" : "preferences");
+    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : family==WORKBOOK_CODEC_OBJECTS ? "objects" : family==WORKBOOK_CODEC_QUERIES ? "queries" : family==WORKBOOK_CODEC_SOURCE_OPTIONS ? "source_options" : family==WORKBOOK_CODEC_TABLE_SOURCES ? "table_sources" : family==WORKBOOK_CODEC_TABLE_FILTERS ? "table_filters" : family==WORKBOOK_CODEC_TABLE_SORTS ? "table_sorts" : family==WORKBOOK_CODEC_PIVOT_FIELDS ? "pivot_fields" : family==WORKBOOK_CODEC_MARKS ? "marks" : "preferences");
     if (!shape(batch,table,error)) return WORKBOOK_CODEC_READ_ERROR;
     if (!room(read->bytes,retained,0,read->limit)) { fail(error,"Metadata input exceeds its owned-buffer budget."); return WORKBOOK_CODEC_READ_ERROR; }
     if (family==WORKBOOK_CODEC_PREFERENCES) return preferences_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
@@ -680,6 +807,7 @@ WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,Workboo
     if (family==WORKBOOK_CODEC_TABLE_SOURCES) return table_sources_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_TABLE_FILTERS) return table_filters_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_TABLE_SORTS) return table_sorts_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
+    if (family==WORKBOOK_CODEC_PIVOT_FIELDS || family==WORKBOOK_CODEC_MARKS) return definitions_feed(read,batch,retained,family==WORKBOOK_CODEC_MARKS,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_META) {
         if (batch->first_row || batch->row_count!=1 || !batch->end || batch->cells[0].value.i32!=(int32_t)read->version ||
             batch->cells[1].value.u64>=DX_MAX_SHEETS || !isfinite(batch->cells[2].value.real) || batch->cells[2].value.real<.8 || batch->cells[2].value.real>1.5) {
@@ -768,4 +896,18 @@ bool workbook_codec_header_table_source(const WorkbookCodecHeader *header,size_t
         }
     }
     return false;
+}
+
+bool workbook_codec_header_pivot_marks_ready(const WorkbookCodecHeader *header) { return header && header->pivot_marks_ready; }
+bool workbook_codec_header_pivot_definition(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,const PivotDefinition **out) {
+    if (!out || !header || !header->pivot_marks_ready) return false;
+    HeaderObject *object=analytical_owner((WorkbookCodecHeader *)header,sheet,owner);
+    if (!object) return false;
+    *out=object->pivot ? object->pivot : &header->empty_pivot; return true;
+}
+bool workbook_codec_header_marks_definition(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,const MarkDefinition **out) {
+    if (!out || !header || !header->pivot_marks_ready) return false;
+    HeaderObject *object=analytical_owner((WorkbookCodecHeader *)header,sheet,owner);
+    if (!object) return false;
+    *out=object->marks ? object->marks : &header->empty_marks; return true;
 }
