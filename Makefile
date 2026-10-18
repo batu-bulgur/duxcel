@@ -879,12 +879,20 @@ build/web-tests/test-query: $(BROWSER_QUERY_TEST_SRC) tests/test_browser_query.c
 build/web-tests/test-query-sanitize: $(BROWSER_QUERY_TEST_SRC) tests/test_browser_query.c $(HEADERS)
 	mkdir -p $(@D)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(BROWSER_QUERY_TEST_SRC) tests/test_browser_query.c -o $@ -lm $(SANFLAGS)
-build/web-tests/test-model: $(BROWSER_MODEL_TEST_SRC) $(HEADERS)
+# The host-conditioned model retains real native locator tests. Compile that
+# boundary separately without browser JS bridges or a native GUI dependency.
+build/web-tests/platform-model.o: src/platform/platform.c $(HEADERS)
 	mkdir -p $(@D)
-	$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_BROWSER_HOST -O2 -g $(WARN) $(BROWSER_MODEL_TEST_SRC) -o $@ -lm
-build/web-tests/test-model-sanitize: $(BROWSER_MODEL_TEST_SRC) $(HEADERS)
+	$(CC) -Isrc -O2 -g $(WARN) -c src/platform/platform.c -o $@
+build/web-tests/platform-model-sanitize.o: src/platform/platform.c $(HEADERS)
 	mkdir -p $(@D)
-	$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_BROWSER_HOST -O1 -g $(WARN) $(SANFLAGS) $(BROWSER_MODEL_TEST_SRC) -o $@ -lm $(SANFLAGS)
+	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) -c src/platform/platform.c -o $@
+build/web-tests/test-model: $(BROWSER_MODEL_TEST_SRC) $(HEADERS) build/web-tests/platform-model.o
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_BROWSER_HOST -O2 -g $(WARN) $(BROWSER_MODEL_TEST_SRC) build/web-tests/platform-model.o -o $@ $(THREAD_LIBS) -lm
+build/web-tests/test-model-sanitize: $(BROWSER_MODEL_TEST_SRC) $(HEADERS) build/web-tests/platform-model-sanitize.o
+	mkdir -p $(@D)
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_BROWSER_HOST -O1 -g $(WARN) $(SANFLAGS) $(BROWSER_MODEL_TEST_SRC) build/web-tests/platform-model-sanitize.o -o $@ $(THREAD_LIBS) -lm $(SANFLAGS)
 test-browser-core: build/web-tests/test-wire build/web-tests/test-wire-sanitize build/web-tests/test-query build/web-tests/test-query-sanitize build/web-tests/test-model build/web-tests/test-model-sanitize build/web-tests/test-distinct-query build/web-tests/test-distinct-query-sanitize build/web-tests/test-distinct-page build/web-tests/test-distinct-page-sanitize
 	./build/web-tests/test-wire
 	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-wire-sanitize
