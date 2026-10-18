@@ -11720,7 +11720,14 @@ static void layout_smoke_step(App *a,int *step) {
     case 785:
         if (!object_ready(a,0)) return;
         if (s->objects.items[0].source.source_version!=2 || s->source_versions.high_water!=2 || s->source_versions.count!=2 ||
-            !smoke_table_record_formats(a,0,true,false) || !smoke_table_record_formats(a,1,false,false)) goto failed;
+            !smoke_table_record_formats(a,0,true,false) || !smoke_table_record_formats(a,1,false,false)) {
+            fprintf(stderr,"Table refresh harness: version=%llu high_water=%llu ledger=%zu ready=%d/%d formats=%d/%d proof=%zu/%zu\n",
+                (unsigned long long)s->objects.items[0].source.source_version,(unsigned long long)s->source_versions.high_water,
+                s->source_versions.count,object_ready(a,0),object_ready(a,1),smoke_table_record_formats(a,0,true,false),
+                smoke_table_record_formats(a,1,false,false),source_format_owner_token(a,s->objects.items[0].id),
+                source_format_owner_token(a,s->objects.items[1].id));
+            goto failed;
+        }
         a->grid.top=s->objects.items[0].row+2+120; break;
     case 786:
         if (!object_ready(a,0) || !a->objects[0].page.offset) return;
