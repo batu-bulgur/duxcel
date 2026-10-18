@@ -732,6 +732,55 @@ static void guarded_store_limits(void) {
     CHECK(!format_plan_guard_store(&s,scopes,1,&plan,&changed,&error) && !changed && !plan.items && !memcmp(live,&s,sizeof(s)) && strstr(error,"scope limit"));
     format_free(&s); free(definition); clear_error(&error);
 }
+static void scope_duplicate_validation(void) {
+    const size_t counts[]={DX_FORMAT_GUARDS,DX_FORMAT_GUARDS+1,1000,4000,DX_FORMAT_PATCHES*DX_FORMAT_GUARDS};
+    const uint64_t owners[]={0,UINT64_MAX,UINT64_C(9007199254740993),17};
+    for (size_t which=0;which<sizeof(counts)/sizeof(*counts);which++) {
+        size_t count=counts[which]; FormatStore s={.scope_count=count,.source_aware=true}; char *error=NULL;
+        s.scopes=dx_alloc(count*sizeof(*s.scopes)); FormatScope *prior=dx_alloc(count*sizeof(*prior));
+        for (size_t i=0;i<count;i++) {
+            size_t bytes=8+i%8; unsigned char *data=dx_alloc(bytes+1); memset(data,'x',bytes+1);
+            data[1]=0; data[bytes-2]=(unsigned char)i; data[bytes-1]=(unsigned char)(i>>8);
+            s.scopes[i]=(FormatScope){owners[(i/8)%4],data,bytes};
+        }
+        CHECK(format_owned_bytes(&s,false)<=DX_FORMAT_CURRENT_BYTES);
+        for (size_t reversed=0;reversed<2;reversed++) {
+            if (reversed) for (size_t i=0;i<count/2;i++) { FormatScope swap=s.scopes[i]; s.scopes[i]=s.scopes[count-1-i]; s.scopes[count-1-i]=swap; }
+            memcpy(prior,s.scopes,count*sizeof(*prior)); CHECK(format_valid(&s,&error) && !memcmp(prior,s.scopes,count*sizeof(*prior)));
+            const size_t pairs[][2]={{0,1},{0,count-1},{count/2,count/2+1},{count-2,count-1},{5,count/2},{1,count-2}};
+            for (size_t pair=0;pair<sizeof(pairs)/sizeof(*pairs);pair++) {
+                size_t a=pairs[pair][0],b=pairs[pair][1]; FormatScope saved=s.scopes[b]; s.scopes[b]=s.scopes[a];
+                CHECK(!format_valid(&s,&error) && error && !strcmp(error,"Duplicate cell format result definition.")); clear_error(&error);
+                CHECK(s.scopes[b].definition==s.scopes[a].definition && s.scopes[b].owner==s.scopes[a].owner);
+                s.scopes[b]=saved; CHECK(!memcmp(prior,s.scopes,count*sizeof(*prior)));
+            }
+            /* Equal text after an embedded zero remains exact binary data;
+               owner or byte-length differences must not become duplicates. */
+            FormatScope saved=s.scopes[1]; s.scopes[1]=s.scopes[0]; s.scopes[1].owner^=UINT64_C(1);
+            CHECK(format_valid(&s,&error)); s.scopes[1]=s.scopes[0]; s.scopes[1].bytes=7;
+            CHECK(format_valid(&s,&error)); s.scopes[1]=saved;
+            CHECK(!memcmp(prior,s.scopes,count*sizeof(*prior)));
+        }
+        /* Validate every shape before a sort comparator can read it, even when
+           an earlier pair would already be a duplicate. */
+        FormatScope first=s.scopes[1],last=s.scopes[count-1]; s.scopes[1]=s.scopes[0]; s.scopes[count-1].definition=NULL;
+        CHECK(!format_valid(&s,&error) && strstr(error,"256 KiB")); clear_error(&error);
+        s.scopes[1]=first; s.scopes[count-1]=last;
+        size_t bytes=s.scopes[count/2].bytes; s.scopes[count/2].bytes=0;
+        CHECK(!format_valid(&s,&error) && strstr(error,"256 KiB")); clear_error(&error); s.scopes[count/2].bytes=DX_FORMAT_SCOPE_BYTES;
+        CHECK(!format_valid(&s,&error) && strstr(error,"256 KiB")); clear_error(&error); s.scopes[count/2].bytes=bytes;
+        FormatScope *array=s.scopes; s.scopes=NULL; CHECK(!format_valid(&s,&error)); clear_error(&error); s.scopes=array;
+        s.scope_count=SIZE_MAX; CHECK(!format_valid(&s,&error)); clear_error(&error); s.scope_count=count;
+        CHECK(format_valid(&s,&error) && !memcmp(prior,s.scopes,count*sizeof(*prior)));
+        for (size_t i=0;i<count;i++) {
+            /* Both original and reversed orders preserve their exact payload. */
+            size_t original=count-1-i,bytes_expected=8+original%8; const unsigned char *data=s.scopes[i].definition;
+            CHECK(s.scopes[i].owner==owners[(original/8)%4] && s.scopes[i].bytes==bytes_expected && data[1]==0);
+            CHECK(data[bytes_expected-2]==(unsigned char)original && data[bytes_expected-1]==(unsigned char)(original>>8));
+        }
+        free(prior); format_free(&s); clear_error(&error);
+    }
+}
 int main(void) {
     display("128450.00",2,true,"128,450.00"); display("-24860",2,true,"(24,860.00)"); display("-24860",0,false,"−24,860");
     display("9.995",2,true,"10.00"); display("-0.00005",4,true,"(0.0001)"); display("0.00000000001",4,false,"0.0000");
@@ -771,5 +820,6 @@ int main(void) {
     scoped_resolution(); scoped_legacy(); scoped_budgets(); source_aware_lifetime(); scoped_precedence();
     record_resolution(); record_planners(); record_dual_scopes(); record_invalid(); record_edit_plan(); record_budgets(); record_precedence();
     guarded_store_baseline(); guarded_store_invalid(); guarded_store_limits();
+    scope_duplicate_validation();
     printf("PASS: %u formatting checks (exact numeric display, bounded ranges, scoped record membership, precedence, ownership, moves, structural edits, history and whole-sheet selection)\n",checks); return 0;
 }
