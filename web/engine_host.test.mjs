@@ -49,19 +49,20 @@ function runtime(kind = 'query', failAfter = Infinity,adopt=false) {
                     ownedPointer:adopt&&data?data:0,error:string(error)});
                 return adopt&&data?1:0;
             } else {
-                const [session, name, label, error] = args;
-                calls.push({ args, session, name: string(name), label: string(label), error: string(error) });
+                const [session, name, label, engineEpoch, registrationId, error] = args;
+                calls.push({ args, session, name: string(name), label: string(label), engineEpoch: string(engineEpoch), registrationId: string(registrationId), error: string(error) });
             }
         },
     };
 }
 function engine(overrides = {}) {
-    const calls = [];
+    const calls = []; let nextRegistrationId=1n;
     return { calls,
+        registration(name,bytes){return Object.freeze({name,bytes:bytes.byteLength,engineEpoch:'9007199254740993',registrationId:String(nextRegistrationId++)});},
         async submit(input) { calls.push(['submit', input.requestId]); return reply(input); },
         async exportParquet(input){calls.push(['export',input.requestId]);return exportReply(input);},
         async cancel() { calls.push(['cancel']); },
-        async registerFile(name, bytes) { calls.push(['register', name, bytes.slice()]); },
+        async registerFile(name, bytes) { calls.push(['register', name, bytes.slice()]); return this.registration(name,bytes); },
         async dropFile(name) { calls.push(['drop', name]); },
         async close() { calls.push(['close']); }, ...overrides };
 }
@@ -284,7 +285,7 @@ test('superseded import checks identity after engine initialization and asynchro
 test('query waits behind file registration and the import callback may safely submit a new query', async () => withDOM(async inputs => {
     const registering = deferred(), began = deferred(), order = [];
     const adapter = engine({
-        async registerFile() { order.push('register:start'); began.resolve(); await registering.promise; order.push('register:end'); },
+        async registerFile(name,bytes) { order.push('register:start'); began.resolve(); await registering.promise; order.push('register:end'); return this.registration(name,bytes); },
         async submit(input) { order.push('query'); return reply(input); },
     });
     const host = createEngineHost({}, async () => adapter), fileTarget = runtime('file'), queryTarget = runtime();
@@ -301,7 +302,7 @@ test('query waits behind file registration and the import callback may safely su
 
 test('close during registration waits for stale-file cleanup, then closes unconditionally', async () => withDOM(async inputs => {
     const registering = deferred(), began = deferred(), order = [], fileTarget = runtime('file');
-    const adapter = engine({ async registerFile() { order.push('register:start'); began.resolve(); await registering.promise; order.push('register:end'); },
+    const adapter = engine({ async registerFile(name,bytes) { order.push('register:start'); began.resolve(); await registering.promise; order.push('register:end'); return this.registration(name,bytes); },
         async dropFile() { order.push('drop'); }, async close() { order.push('close'); } });
     const host = createEngineHost({}, async () => adapter), selected = choose(host, fileTarget, inputs);
     await began.promise; const closing = host.cancel(true);
@@ -316,10 +317,10 @@ test('close during registration waits for stale-file cleanup, then closes uncond
 
 test('stale registration drops its file before a newer import uses the engine', async () => withDOM(async inputs => {
     const registering = deferred(), began = deferred(), order = [];
-    const adapter = engine({ async registerFile(name) {
+    const adapter = engine({ async registerFile(name,bytes) {
         order.push(['register:start', name]);
         if (name.endsWith('first.csv')) { began.resolve(); await registering.promise; }
-        order.push(['register:end', name]);
+        order.push(['register:end', name]); return this.registration(name,bytes);
     }, async dropFile(name) { order.push(['drop', name]); } });
     const host = createEngineHost({}, async () => adapter), first = runtime('file'), second = runtime('file');
     const before = choose(host, first, inputs, { name: 'first.csv' }); await began.promise;
@@ -331,7 +332,7 @@ test('stale registration drops its file before a newer import uses the engine', 
 
 test('import failure/cancellation cleans inputs and the admin barrier remains usable', async () => withDOM(async inputs => {
     let failures = 0;
-    const adapter = engine({ async registerFile() { if (failures++ === 0) throw new Error('registration failed'); } });
+    const adapter = engine({ async registerFile(name,bytes) { if (failures++ === 0) throw new Error('registration failed'); return this.registration(name,bytes); } });
     const host = createEngineHost({}, async () => adapter), failed = runtime('file');
     const before = choose(host, failed, inputs); await before.completion;
     assert.equal(failed.calls.length, 1); assert.equal(failed.calls[0].error, 'registration failed');
@@ -371,13 +372,13 @@ test('original filenames reject NUL and unpaired surrogates before reads, regist
         assert.equal(factories,0,'invalid original text cannot initialize the engine');
         assert.equal(target.calls.length,1);const result=target.calls[0];
         assert.equal(result.name,null);assert.equal(result.label,null);assert.match(result.error,/filename.*valid Unicode.*no NUL/);
-        assert.deepEqual(result.args.slice(0,3),[77,0,0]);assert.ok(result.args[3]>0);
+        assert.deepEqual(result.args.slice(0,5),[77,0,0,0,0]);assert.ok(result.args[5]>0);
         assert.deepEqual(allocations,[encoder.encode(result.error).length+1],'only the diagnostic is allocated');
         assert.ok(allocations[0]<=256);assert.equal(target.releases.length,1);assert.equal(target.live.size,0);assert.ok(selected.input.removed);
     }
     assert.deepEqual(adapter.calls,[]);
     const oom=runtime('file',0);await choose(host,oom,inputs,{name:'bad\0.csv'}).completion;
-    assert.deepEqual(oom.calls[0].args,[77,0,0,0]);assert.equal(oom.live.size,0);assert.equal(oom.releases.length,0);assert.equal(factories,0);
+    assert.deepEqual(oom.calls[0].args,[77,0,0,0,0,0]);assert.equal(oom.live.size,0);assert.equal(oom.releases.length,0);assert.equal(factories,0);
     const accepted=runtime('file');await choose(host,accepted,inputs,{name:'after.csv'}).completion;
     assert.equal(accepted.calls[0].name,'import-1-after.csv','rejections never reserve or burn a registration name');
     assert.equal(accepted.calls[0].label,'after.csv');assert.equal(accepted.calls[0].error,null);await host.cancel(true);
@@ -393,7 +394,8 @@ test('original filenames preserve Unicode scalars, whitespace, apostrophes and i
         const key=`import-${i+1}-${name.replace(/[\\/\x00-\x1f\x7f]/g,'_')}`;
         assert.equal(target.calls[0].name,key);assert.notEqual(key,name);
         assert.deepEqual(adapter.calls.filter(call=>call[0]==='register').at(-1),['register',key,Uint8Array.from([1,2,3])]);
-        assert.equal(target.releases.length,2);assert.equal(target.live.size,0);assert.ok(selected.input.removed);
+        assert.equal(target.calls[0].engineEpoch,'9007199254740993');assert.equal(target.calls[0].registrationId,String(i+1));
+        assert.equal(target.releases.length,4);assert.equal(target.live.size,0);assert.ok(selected.input.removed);
     }
     assert.equal(encoder.encode(names.at(-1)).length,200);
     const excess=runtime('file');await choose(host,excess,inputs,{name:'🦆'.repeat(49)+'x.csv',arrayBuffer(){assert.fail('existing byte cap precedes file reads');}}).completion;
@@ -408,7 +410,7 @@ test('original filename rejection and chooser cancellation leave an existing que
     assert.match(invalid.calls[0].error,/filename.*valid Unicode.*no NUL/);assert.deepEqual(adapter.calls,[['submit','61']]);
     assert.equal(queryTarget.calls.length,0);assert.equal(invalid.live.size,0);
     const cancelled=runtime('file');host.chooseFile(cancelled,88);const chooser=inputs.at(-1);await chooser.dispatch('cancel');
-    assert.deepEqual(cancelled.calls[0].args,[88,0,0,0]);assert.equal(cancelled.releases.length,0);assert.ok(chooser.removed);
+    assert.deepEqual(cancelled.calls[0].args,[88,0,0,0,0,0]);assert.equal(cancelled.releases.length,0);assert.ok(chooser.removed);
     pending.resolve(reply(input));await query;
     assert.equal(queryTarget.calls.length,1);assert.equal(queryTarget.calls[0].error,null);assert.equal(queryTarget.live.size,0);
     assert.deepEqual(adapter.calls,[['submit','61']]);await host.cancel(true);
@@ -424,10 +426,10 @@ test('OOM falls back without transport malloc and frees partially allocated quer
     const target = runtime('query', 0);
     await createEngineHost({}, async () => { throw new Error('initialization failed'); }).submit(target, 7, 8, request());
     assert.deepEqual(target.calls[0].args, [7, 8, 0, 0, 0, 0, 0]);
-    for (const failAfter of [0, 1]) {
+    for (const failAfter of [0, 1, 2, 3]) {
         const fileTarget = runtime('file', failAfter), host = createEngineHost({}, async () => engine());
         const selected = choose(host, fileTarget, inputs); await selected.completion;
-        assert.equal(fileTarget.calls.length, 1); assert.deepEqual(fileTarget.calls[0].args, [77, 0, 0, 0]);
+        assert.equal(fileTarget.calls.length, 1); assert.deepEqual(fileTarget.calls[0].args, [77, 0, 0, 0, 0, 0]);
         assert.equal(fileTarget.live.size, 0); assert.equal(fileTarget.releases.length, failAfter); assert.ok(selected.input.removed);
     }
 }));
@@ -455,7 +457,7 @@ test('releaseFile validates host-owned names and deduplicates drops without canc
 test('a reentrant release and query behind import administration do not wait on each other', { timeout: 2000 }, async () => {
     for (const earlierWaiting of [false, true]) await withDOM(async inputs => {
         const registering = deferred(), began = deferred(), order = [];
-        const adapter = engine({ async registerFile() { order.push('register:start'); began.resolve(); await registering.promise; order.push('register:end'); },
+        const adapter = engine({ async registerFile(name,bytes) { order.push('register:start'); began.resolve(); await registering.promise; order.push('register:end'); return this.registration(name,bytes); },
             async submit(input) { order.push('query'); return reply(input); }, async dropFile() { order.push('drop'); } });
         const host = createEngineHost({}, async () => adapter), fileTarget = runtime('file'), target = runtime(), stale = runtime();
         const fileReply = fileTarget.reply; let reentrant, waiting;
@@ -522,7 +524,7 @@ test('a newer submission still revokes an older cancel while release waits for t
 
 test('close owns queued registrations until engine cleanup finishes and suppresses later drops', { timeout: 2000 }, async () => withDOM(async inputs => {
     const pending = deferred(), closing = deferred(), began = deferred(), owned = new Set();
-    const adapter = engine({ async registerFile(name) { owned.add(name); }, submit() { return pending.promise; },
+    const adapter = engine({ async registerFile(name,bytes) { owned.add(name); return this.registration(name,bytes); }, submit() { return pending.promise; },
         async dropFile() { assert.fail('queued files belong to close, not an overlapping drop'); },
         async close() { began.resolve(); await closing.promise; owned.clear(); pending.resolve(reply(request('6'), { status: 'cancelled' })); } });
     const host = createEngineHost({}, async () => adapter), first = runtime('file'), second = runtime('file'), target = runtime();
@@ -556,7 +558,7 @@ test('obsolete registration cleanup shares the same terminal status and reports 
     const previous = console.error, errors = []; console.error = (...args) => errors.push(args);
     try {
         const registering = deferred(), began = deferred(), names = []; let drops = 0;
-        const adapter = engine({ async registerFile(name) { names.push(name); if (names.length === 1) { began.resolve(); await registering.promise; } },
+        const adapter = engine({ async registerFile(name,bytes) { names.push(name); if (names.length === 1) { began.resolve(); await registering.promise; } return this.registration(name,bytes); },
             async dropFile() { drops++; throw new Error('obsolete drop failed'); } });
         const host = createEngineHost({}, async () => adapter), first = runtime('file'), second = runtime('file');
         const before = choose(host, first, inputs); await began.promise;
@@ -588,11 +590,14 @@ test('1024 issued names and pending drops stay bounded, and retired names never 
     assert.equal(drops.length, 1024); assert.equal(new Set(drops).size, 1024); assert.equal(target.calls.length, 1);
 }));
 
-test('a file reply OOM releases its registered bytes without exposing a name to C', async () => withDOM(async inputs => {
-    const adapter = engine(), host = createEngineHost({}, async () => adapter), target = runtime('file', 0);
-    await choose(host, target, inputs).completion; await tick();
-    assert.deepEqual(target.calls[0].args, [77, 0, 0, 0]);
-    assert.deepEqual(adapter.calls.map(call => call[0]), ['cancel', 'register', 'drop']);
+test('every file reply allocation OOM releases registered bytes without exposing a name or token to C', async () => withDOM(async inputs => {
+    for (const failAfter of [0, 1, 2, 3]) {
+        const adapter = engine(), host = createEngineHost({}, async () => adapter), target = runtime('file', failAfter);
+        await choose(host, target, inputs).completion; await tick();
+        assert.deepEqual(target.calls[0].args, [77, 0, 0, 0, 0, 0]);
+        assert.equal(target.live.size,0); assert.equal(target.releases.length,failAfter);
+        assert.deepEqual(adapter.calls.map(call => call[0]), ['cancel', 'register', 'drop']);
+    }
 }));
 
 test('partial registration failure cleans adopted bytes before the original error and waiting query publish', { timeout: 2000 }, async () => withDOM(async inputs => {
@@ -610,7 +615,7 @@ test('partial registration failure cleans adopted bytes before the original erro
     assert.deepEqual(order, ['register', 'drop', 'file:error', 'query']); assert.equal(owned.size, 0);
     assert.equal(fileTarget.calls[0].error, 'registration failed after adoption'); assert.equal(target.calls[0].error, null);
     assert.equal(host.releaseFile(failedName), true, 'successful best-effort cleanup remains idempotently released');
-    adapter.registerFile = async name => { assert.notEqual(name, failedName, 'failed names remain burned'); };
+    adapter.registerFile = async (name,bytes) => { assert.notEqual(name, failedName, 'failed names remain burned'); return adapter.registration(name,bytes); };
     const next = runtime('file'); await choose(host, next, inputs).completion; assert.equal(next.calls[0].error, null);
 }));
 
@@ -634,7 +639,7 @@ test('failed partial-registration cleanup logs once, preserves the registration 
 test('a synchronous stale file-delivery guard retires registered bytes through drop or close', async () => {
     for (const closing of [false, true]) await withDOM(async inputs => {
         const owned = new Set(), order = []; let registered = false, superseded = false, closed, name;
-        const adapter = engine({ async registerFile(value) { name = value; owned.add(value); registered = true; order.push('register'); },
+        const adapter = engine({ async registerFile(value,bytes) { name = value; owned.add(value); registered = true; order.push('register'); return this.registration(value,bytes); },
             async dropFile(value) { assert.ok(owned.delete(value)); order.push('drop'); }, async close() { owned.clear(); order.push('close'); } });
         const host = createEngineHost({}, async () => adapter), first = runtime('file'), latest = runtime('file');
         host.chooseFile(first, 77); const input = inputs.at(-1);
@@ -648,3 +653,68 @@ test('a synchronous stale file-delivery guard retires registered bytes through d
         if (!closing) { await inputs.at(-1).dispatch('cancel'); assert.equal(latest.calls[0].name, null); }
     });
 });
+
+test('successful import carries exact captured registration tokens in independently owned C strings', async () => withDOM(async inputs => {
+    const registrations=[];
+    const adapter=engine({async registerFile(name,bytes){
+        const value={name,bytes:bytes.byteLength,engineEpoch:'18446744073709551615',registrationId:String(9007199254740993n+BigInt(registrations.length))};
+        registrations.push(value);return value;
+    }}),host=createEngineHost({},async()=>adapter);
+    const first=runtime('file'),sizes=[],allocate=first.allocate;first.allocate=size=>{sizes.push(size);return allocate(size);};
+    await choose(host,first,inputs,{name:"import-7-O'Brien-İstanbul-🦆.csv"}).completion;
+    assert.equal(first.calls.length,1);const actual=first.calls[0];
+    assert.equal(actual.args.length,6);assert.equal(actual.engineEpoch,'18446744073709551615');assert.equal(actual.registrationId,'9007199254740993');
+    assert.equal(actual.label,"import-7-O'Brien-İstanbul-🦆.csv");assert.equal(actual.name,"import-1-import-7-O'Brien-İstanbul-🦆.csv");assert.equal(actual.error,null);
+    assert.equal(new Set(actual.args.slice(1,5)).size,4,'all strings have separate owned allocations');
+    assert.deepEqual(sizes,[encoder.encode(actual.name).length+1,encoder.encode(actual.label).length+1,21,17]);
+    assert.equal(first.releases.length,4);assert.equal(first.live.size,0);
+    registrations[0].engineEpoch='1';registrations[0].registrationId='2';
+    assert.equal(actual.engineEpoch,'18446744073709551615');assert.equal(actual.registrationId,'9007199254740993');
+    const second=runtime('file');await choose(host,second,inputs,{name:"import-7-O'Brien-İstanbul-🦆.csv"}).completion;
+    assert.equal(second.calls[0].engineEpoch,actual.engineEpoch);assert.equal(second.calls[0].registrationId,'9007199254740994');
+    assert.notEqual(second.calls[0].name,actual.name);assert.equal(second.calls[0].label,actual.label);
+    await host.cancel(true);
+}));
+test('malformed registration success is cleaned before one bounded owned diagnostic reaches C', async () => withDOM(async inputs => {
+    const edits=[null,undefined,{}, {name:'other.csv'},{bytes:4}];
+    for(const field of ['engineEpoch','registrationId'])for(const value of [undefined,null,1,1n,'','0','01','-1','1.0','18446744073709551616','1'.repeat(1000)])edits.push({[field]:value});
+    for(const edit of edits){
+        const order=[],adapter=engine({async registerFile(name,bytes){order.push('register');const value=this.registration(name,bytes);return edit===null||edit===undefined||!Object.keys(edit).length?edit:{...value,...edit};},
+            async dropFile(){order.push('drop');}}),host=createEngineHost({},async()=>adapter),target=runtime('file');
+        const original=target.reply;target.reply=(...args)=>{order.push('diagnostic');original(...args);};
+        await choose(host,target,inputs).completion;await tick();
+        assert.deepEqual(order,['register','drop','diagnostic']);assert.equal(target.calls.length,1);
+        const result=target.calls[0];assert.equal(result.name,null);assert.equal(result.label,null);assert.equal(result.engineEpoch,null);assert.equal(result.registrationId,null);
+        assert.match(result.error,/invalid source registration token/);assert.equal(target.releases.length,1);assert.equal(target.live.size,0);
+        await host.cancel(true);
+    }
+}));
+test('chooser supersession or close during token transport frees every string without a stale callback', async () => {
+    for(const closing of [false,true])for(const boundary of [1,2,3,4])await withDOM(async inputs=>{
+        const adapter=engine(),host=createEngineHost({},async()=>adapter),target=runtime('file'),latest=runtime('file');
+        let allocations=0,closed;const allocate=target.allocate;
+        target.allocate=size=>{const pointer=allocate(size);if(++allocations===boundary){if(closing)closed=host.cancel(true);else host.chooseFile(latest,88);}return pointer;};
+        await choose(host,target,inputs).completion;if(closed)await closed;await tick();
+        assert.equal(target.calls.length,0);assert.equal(target.live.size,0);assert.equal(target.releases.length,4);
+        assert.deepEqual(adapter.calls.map(call=>call[0]),['cancel','register',closing?'close':'drop']);
+        if(!closing){await inputs.at(-1).dispatch('cancel');assert.deepEqual(latest.calls[0].args,[88,0,0,0,0,0]);await host.cancel(true);}
+    });
+});
+test('invalid token cleanup failure remains explicit and is not retried while the host recovers', async () => withDOM(async inputs=>{
+    const previous=console.error,errors=[];console.error=(...args)=>errors.push(args);
+    try{
+        const adapter=engine({async registerFile(){return null;},async dropFile(){throw new Error('token cleanup failed');}}),host=createEngineHost({},async()=>adapter),target=runtime('file');
+        await choose(host,target,inputs).completion;await tick();
+        assert.match(target.calls[0].error,/invalid source registration token/);assert.equal(target.calls[0].engineEpoch,null);assert.equal(target.live.size,0);
+        assert.equal(errors.length,1);assert.equal(errors[0][1].message,'token cleanup failed');await tick();assert.equal(errors.length,1);
+        const next=runtime();await host.submit(next,7,1,request('1'));assert.equal(next.calls[0].error,null);await host.cancel(true);
+    }finally{console.error=previous;}
+}));
+test('hostile import diagnostics remain bounded and never allocate source identity strings', async () => withDOM(async inputs=>{
+    const adapter=engine({async registerFile(){throw new Error('界'.repeat(8192));}}),host=createEngineHost({},async()=>adapter),target=runtime('file');
+    const sizes=[],allocate=target.allocate;target.allocate=size=>{sizes.push(size);return allocate(size);};
+    await choose(host,target,inputs).completion;
+    assert.equal(target.calls.length,1);const result=target.calls[0];assert.deepEqual(result.args.slice(0,5),[77,0,0,0,0]);
+    assert.equal(result.error,'界'.repeat(2048));assert.deepEqual(sizes,[6145]);assert.equal(target.live.size,0);assert.equal(target.releases.length,1);
+    await host.cancel(true);
+}));
