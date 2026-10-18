@@ -25,6 +25,16 @@ typedef struct {
     size_t guard_count;
 } CopyRequest;
 void copy_request_free(CopyRequest *request);
+#ifdef DUXCEL_BROWSER_HOST
+/* Runtime-only immutable registration identity. Never persisted as a native
+   source version, reconstructed from a filename or refreshed during execution. */
+#define DX_BROWSER_SOURCE_BINDINGS (DX_MAX_OBJECTS+1)
+typedef struct { uint64_t engine_epoch,registration_id; } BrowserSourceBinding;
+typedef struct {
+    size_t source; /* 0 primary; otherwise 1-based Copy/Statistics SourceSnapshot. */
+    BrowserSourceBinding binding;
+} BrowserSourceGuard;
+#endif
 typedef enum { JOB_PAGE, JOB_COPY, JOB_SAVE, JOB_LOAD, JOB_DISTINCT, JOB_PIVOT, JOB_PIVOT_COPY, JOB_EXPORT, JOB_COUNT, JOB_RANGE_COPY,JOB_STATISTICS,JOB_VALIDATE_SQL,JOB_STEP_PREVIEW,JOB_VERIFY_SOURCE,JOB_COLLECT_RECORDS } JobKind;
 typedef struct {
     uint64_t id;
@@ -50,6 +60,11 @@ typedef struct {
     CopyRequest *copy;
     StatisticsRequest *statistics;
     bool refresh_source;
+#ifdef DUXCEL_BROWSER_HOST
+    BrowserSourceGuard browser_sources[DX_BROWSER_SOURCE_BINDINGS];
+    size_t browser_source_count;
+    bool browser_sources_invalid; /* Required file binding unavailable at capture. */
+#endif
 } QueryJob;
 typedef struct {
     uint64_t id;
