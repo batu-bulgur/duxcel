@@ -5,14 +5,15 @@
 #include <string.h>
 
 typedef struct { char *name,*reference; Analysis analysis; SheetView view; size_t object_offset,object_count; } HeaderSheet;
-typedef struct { size_t sheet; WorkbookCodecObjectView value; char *query; bool unique_rows; } HeaderObject;
+typedef struct { Analysis analysis; char *reference; } HeaderTableSource;
+typedef struct { size_t sheet; WorkbookCodecObjectView value; char *query; bool unique_rows; HeaderTableSource *source; } HeaderObject;
 struct WorkbookCodecHeader {
     WorkbookCodecKey key;
     unsigned version;
     size_t count,active,bytes;
     uint64_t hidden;
     float user_scale;
-    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready;
+    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready;
     HeaderObject *objects;
     size_t object_count;
     HeaderSheet sheets[DX_MAX_SHEETS];
@@ -32,6 +33,8 @@ struct WorkbookCodecRead {
     uint64_t source_options_seen[DX_MAX_SHEETS];
     size_t source_options_sheet;
     uint64_t source_options_owner;
+    size_t table_next,table_sheet,table_raw[DX_MAX_SHEETS];
+    uint64_t table_owner;
     bool preference_motion_seen;
 };
 static const char meta_sql[]="SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2";
@@ -43,11 +46,18 @@ static const char preferences14_sql[]="SELECT name,value FROM _duxcel_workspace.
 static const char objects_sql[]="SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049";
 static const char queries_sql[]="SELECT sheet_id,object_id,CASE WHEN query IS NULL OR octet_length(encode(query))>65536 OR length(trim(query))=0 OR contains(query,chr(0)) THEN NULL::VARCHAR ELSE query END AS query FROM _duxcel_workspace.queries ORDER BY sheet_id,object_id LIMIT 2113";
 static const char source_options_sql[]="SELECT sheet_id,object_id,unique_rows FROM _duxcel_workspace.source_options ORDER BY sheet_id,object_id LIMIT 2113";
+static const char table_sources_sql[]="SELECT sheet_id,object_id,kind,path,source_schema,source_table,filter_column,filter_value,filter_op,group_column,measure_column,aggregate,sort_column,descending FROM _duxcel_workspace.table_sources ORDER BY sheet_id,object_id LIMIT 2049";
+static const char table_filters_sql[]="SELECT sheet_id,object_id,position,name,op,value FROM _duxcel_workspace.table_filters ORDER BY sheet_id,object_id,position LIMIT 30721";
+static const char table_sorts_sql[]="SELECT sheet_id,object_id,position,name,descending FROM _duxcel_workspace.table_sorts ORDER BY sheet_id,object_id,position LIMIT 14337";
 #define SORT_ROWS (DX_MAX_SHEETS*(DX_ANALYSIS_SORTS-1u))
 #define OBJECT_ROWS (DX_MAX_SHEETS*DX_MAX_OBJECTS)
 #define QUERY_ROWS (DX_MAX_SHEETS*(DX_MAX_OBJECTS+1u))
+#define TABLE_FILTER_ROWS (OBJECT_ROWS*(DX_ANALYSIS_FILTERS-1u))
+#define TABLE_SORT_ROWS (OBJECT_ROWS*(DX_ANALYSIS_SORTS-1u))
+#define TABLE_RAW_BYTES (8u*1024u*1024u)
+#define TABLE_FILTER_BYTES (4u*1024u*1024u)
 static bool request_family(WorkbookCodecFamily family) {
-    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES || family==WORKBOOK_CODEC_OBJECTS || family==WORKBOOK_CODEC_QUERIES || family==WORKBOOK_CODEC_SOURCE_OPTIONS;
+    return family==WORKBOOK_CODEC_META || family==WORKBOOK_CODEC_SHEETS || family==WORKBOOK_CODEC_SORTS || family==WORKBOOK_CODEC_PREFERENCES || family==WORKBOOK_CODEC_OBJECTS || family==WORKBOOK_CODEC_QUERIES || family==WORKBOOK_CODEC_SOURCE_OPTIONS || family==WORKBOOK_CODEC_TABLE_SOURCES || family==WORKBOOK_CODEC_TABLE_FILTERS || family==WORKBOOK_CODEC_TABLE_SORTS;
 }
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
@@ -94,6 +104,9 @@ static bool shape(const WorkbookCodecBatch *batch,const WorkbookCodecTable *tabl
             } else if (atom->kind!=actual->kind) return fail(error,"Metadata atom does not match its exact SQL type.");
             else if (atom->kind==WORKBOOK_CODEC_TEXT) {
                 size_t maximum=(!strcmp(table->table,"sheets") && column==1) || ((!strcmp(table->table,"sorts") || !strcmp(table->table,"objects")) && column==2) ? 4096u : DX_WORKBOOK_CODEC_READ_TEXT;
+                if (!strcmp(table->table,"table_sources")) maximum=column==7 ? TABLE_FILTER_BYTES : column==3 ? DX_WORKBOOK_CODEC_READ_TEXT : 4096u;
+                else if (!strcmp(table->table,"table_filters")) maximum=column==5 ? TABLE_FILTER_BYTES : 4096u;
+                else if (!strcmp(table->table,"table_sorts")) maximum=4096u;
                 if (atom->value.text.bytes>maximum || (!atom->value.text.data && atom->value.text.bytes) ||
                     !utf8(atom->value.text.data,atom->value.text.bytes)) return fail(error,"Metadata text is oversized, contains NUL or is not valid UTF-8.");
             }
@@ -105,10 +118,13 @@ static bool shape(const WorkbookCodecBatch *batch,const WorkbookCodecTable *tabl
 static void sheet_free(HeaderSheet *sheet) {
     free(sheet->name); free(sheet->reference); analysis_free(&sheet->analysis); *sheet=(HeaderSheet){0};
 }
+static void table_source_free(HeaderTableSource *source) {
+    if (source) { analysis_free(&source->analysis); free(source->reference); free(source); }
+}
 void workbook_codec_header_free(WorkbookCodecHeader *header) {
     if (!header) return;
     for (size_t i=0;i<header->count;i++) sheet_free(header->sheets+i);
-    for (size_t i=0;i<header->object_count;i++) { free((char *)header->objects[i].value.name); free(header->objects[i].query); }
+    for (size_t i=0;i<header->object_count;i++) { free((char *)header->objects[i].value.name); free(header->objects[i].query); table_source_free(header->objects[i].source); }
     free(header->objects);
     free(header);
 }
@@ -168,6 +184,20 @@ bool workbook_codec_read_add_source_options(WorkbookCodecRead *read,bool present
         return fail(error,"Source options require complete unclaimed object descriptors and may be armed once.");
     if (!present) return fail(error,"The workbook requires source options metadata.");
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SOURCE_OPTIONS,source_options_sql,0,3,3,QUERY_ROWS+1u};
+    return true;
+}
+bool workbook_codec_read_add_table_sources(WorkbookCodecRead *read,WorkbookCodecTableSourcePresence present,char **error) {
+    if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || !read->header->objects_ready ||
+        !read->header->queries_ready || !read->header->source_options_ready || read->header->table_sources_ready)
+        return fail(error,"Table sources require complete unclaimed descriptors, queries and options and may be armed once.");
+    if (read->version==14 && (!present.sources || !present.filters || !present.sorts)) return fail(error,"The v14 workbook requires the complete Table source package.");
+    if (!present.sources) {
+        for (size_t i=0;i<read->header->object_count;i++) if (read->header->objects[i].value.kind==OBJECT_TABLE)
+            return fail(error,"A Table descriptor requires its source definition.");
+        read->header->table_sources_ready=true; return true;
+    }
+    if (!present.filters || !present.sorts) return fail(error,"Present Table sources require filter and sort metadata tables.");
+    read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_TABLE_SOURCES,table_sources_sql,0,14,14,OBJECT_ROWS+1u};
     return true;
 }
 static char **query_target(WorkbookCodecHeader *header,size_t sheet,uint64_t owner) {
@@ -440,13 +470,206 @@ static bool source_options_feed(WorkbookCodecRead *read,const WorkbookCodecBatch
     if (batch->end) { read->header->source_options_ready=true; read->request.family=WORKBOOK_CODEC_HEADER_READY; }
     return true;
 }
+static HeaderObject *table_owner(WorkbookCodecHeader *header,size_t sheet,uint64_t owner) {
+    if (sheet>=header->count || !owner) return NULL;
+    HeaderSheet *s=header->sheets+sheet;
+    for (size_t i=0;i<s->object_count;i++) {
+        HeaderObject *object=header->objects+s->object_offset+i;
+        if (object->value.id==owner && object->value.kind==OBJECT_TABLE) return object;
+    }
+    return NULL;
+}
+static bool table_reserve(WorkbookCodecRead *read,size_t retained,size_t staged,size_t extra,char **error) {
+    return extra<=SIZE_MAX-staged && room(read->bytes,retained,staged+extra,read->limit) ? true : fail(error,"Table metadata staging or validation scratch exceeds its owned-buffer budget.");
+}
+static bool table_raw_add(size_t raw[DX_MAX_SHEETS],size_t sheet,const WorkbookCodecAtom *atom,char **error) {
+    size_t bytes=atom->kind==WORKBOOK_CODEC_NULL ? 0 : atom->value.text.bytes;
+    if (raw[sheet]>TABLE_RAW_BYTES || bytes>TABLE_RAW_BYTES-raw[sheet]) return fail(error,"Combined raw Table source text exceeds 8 MiB on one worksheet.");
+    raw[sheet]+=bytes; return true;
+}
+static bool table_filter_scratch(FilterOp op,const char *text,size_t *out,char **error) {
+    *out=0;
+    if (!text || (op!=FILTER_BETWEEN && op!=FILTER_COMPOSITE)) return true;
+    size_t n=strlen(text),pointers=6144u*sizeof(char *);
+    /* analysis_parse_values: input scratchN+1, copied/temporary strings<=N+4097,
+       and old2048+new4096 pointer arrays during growth. Composite retains only
+       four outer strings<=N+4 plus16 pointers while one nested parser runs;
+       its condition grammar permits BETWEEN, never recursive COMPOSITE.
+       This is logical buffer admission, excluding allocator/RSS/diagnostics. */
+    if (pointers>SIZE_MAX-4098u || n>(SIZE_MAX-4098u-pointers)/2u) return fail(error,"Table filter validation scratch overflow.");
+    size_t bytes=2u*n+4098u+pointers;
+    if (op==FILTER_COMPOSITE) {
+        size_t extra=4u+16u*sizeof(char *);
+        if (n>SIZE_MAX-extra || bytes>SIZE_MAX-n-extra) return fail(error,"Table composite validation scratch overflow.");
+        bytes+=n+extra;
+    }
+    *out=bytes; return true;
+}
+static bool table_analysis_valid(WorkbookCodecRead *read,const HeaderObject *owner,const HeaderTableSource *source,const Analysis *analysis,size_t staged,size_t retained,char **error) {
+    Analysis view=*analysis; view.path=source->reference; view.query=owner->query; view.unique_rows=owner->unique_rows;
+    if (!analysis_query_valid(&view,error) || !analysis_sorts_valid(&view,error)) return false;
+    size_t scratch=0;
+    for (size_t i=0;i<view.filter_count+(view.filter_column ? 1u : 0u);i++) {
+        const char *value=i ? view.filters[i-1].value : view.filter_value; FilterOp op=i ? view.filters[i-1].op : view.filter_op; size_t next=0;
+        if (!table_filter_scratch(op,value,&next,error)) return false;
+        if (next>scratch) scratch=next; /* Existing validator frees each parse before the next. */
+    }
+    return table_reserve(read,retained,staged,scratch,error) && analysis_filters_valid(&view,error);
+}
+static bool table_locator(WorkbookCodecRead *read,HeaderTableSource *source,const WorkbookCodecAtom *atom,size_t *staged,size_t retained,char **error) {
+    Analysis *a=&source->analysis;
+    if (a->kind==SOURCE_DEMO) return copy_text(atom,&a->path,staged,read->bytes,retained,read->limit,error);
+    if (!read->resolve) return fail(error,"Table reference needs a bounded locator resolver.");
+    if (!table_reserve(read,retained,*staged,1,error)) return false;
+    size_t maximum=read->limit-read->bytes-retained-*staged;
+    if (maximum>DX_WORKBOOK_CODEC_READ_TEXT+1u) maximum=DX_WORKBOOK_CODEC_READ_TEXT+1u;
+    WorkbookCodecOwnedText resolved={0}; bool ok=read->resolve(read->context,a->kind,source->reference,maximum,&resolved);
+    if (!ok || !resolved.data || resolved.bytes>=maximum || resolved.data[resolved.bytes] || !utf8(resolved.data,resolved.bytes)) {
+        free(resolved.data); return fail(error,"Table locator resolver returned invalid or oversized owned storage.");
+    }
+    a->path=resolved.data; *staged+=resolved.bytes+1u; return true;
+}
+typedef struct { HeaderObject *owner; HeaderTableSource *source; } TableBaseChange;
+static bool table_sources_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *batch,size_t retained,char **error) {
+    if (read->request.first_row>OBJECT_ROWS || batch->row_count>OBJECT_ROWS-read->request.first_row) return fail(error,"Too many Table source rows.");
+    size_t array_bytes=batch->row_count*sizeof(TableBaseChange);
+    if (!table_reserve(read,retained,0,array_bytes,error)) return false;
+    TableBaseChange *next=array_bytes ? dx_alloc(array_bytes) : NULL; size_t staged=array_bytes,index=read->table_next;
+    size_t raw[DX_MAX_SHEETS]; memcpy(raw,read->table_raw,sizeof(raw));
+    for (size_t row=0;row<batch->row_count;row++) {
+        const WorkbookCodecAtom *cells=batch->cells+row*14;
+        while (index<read->header->object_count && read->header->objects[index].value.kind!=OBJECT_TABLE) index++;
+        HeaderObject *owner=index<read->header->object_count ? read->header->objects+index : NULL;
+        int32_t sheet=cells[0].value.i32,kind=cells[2].value.i32,op=cells[8].value.i32,aggregate=cells[11].value.i32;
+        if (!owner || sheet<0 || owner->sheet!=(size_t)sheet || owner->value.id!=cells[1].value.u64 || owner->source) { fail(error,"Table sources must match every ordered Table descriptor exactly once."); goto rejected; }
+        if (kind<SOURCE_CSV || kind>SOURCE_DEMO || op<0 || op>FILTER_OP_MAX || aggregate<0 || aggregate>AGG_MAX || (kind!=SOURCE_DEMO && !cells[3].value.text.bytes)) { fail(error,"Invalid Table source kind, reference or operation."); goto rejected; }
+        const size_t fields[]={3,4,5,6,7,9,10,12};
+        for (size_t f=0;f<sizeof(fields)/sizeof(*fields);f++) if (!table_raw_add(raw,(size_t)sheet,cells+fields[f],error)) goto rejected;
+        if (!table_reserve(read,retained,staged,sizeof(HeaderTableSource),error)) goto rejected;
+        next[row].owner=owner; next[row].source=dx_alloc(sizeof(HeaderTableSource)); staged+=sizeof(HeaderTableSource);
+        HeaderTableSource *source=next[row].source; Analysis *a=&source->analysis; a->kind=(SourceKind)kind; a->filter_op=(FilterOp)op; a->aggregate=(Aggregate)aggregate; a->descending=cells[13].value.boolean;
+        char **texts[]={&source->reference,&a->schema,&a->table,&a->filter_column,&a->filter_value,&a->group_column,&a->measure_column,&a->sort_column};
+        for (size_t f=0;f<sizeof(fields)/sizeof(*fields);f++) if (!copy_text(cells+fields[f],texts[f],&staged,read->bytes,retained,read->limit,error)) goto rejected;
+        if (!table_locator(read,source,cells+3,&staged,retained,error) || !table_analysis_valid(read,owner,source,a,staged,retained,error)) goto rejected;
+        index++;
+    }
+    if (batch->end) {
+        while (index<read->header->object_count && read->header->objects[index].value.kind!=OBJECT_TABLE) index++;
+        if (index!=read->header->object_count) { fail(error,"A Table descriptor is missing its source definition."); goto rejected; }
+    }
+    for (size_t row=0;row<batch->row_count;row++) next[row].owner->source=next[row].source;
+    free(next); staged-=array_bytes; read->bytes+=staged; read->header->bytes+=staged; read->table_next=index; memcpy(read->table_raw,raw,sizeof(raw)); read->request.first_row+=batch->row_count;
+    if (batch->end) read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_TABLE_FILTERS,table_filters_sql,0,6,6,TABLE_FILTER_ROWS+1u};
+    return true;
+rejected:
+    for (size_t row=0;row<batch->row_count;row++) table_source_free(next[row].source);
+    free(next); return false;
+}
+typedef struct { HeaderObject *owner; AnalysisFilter filter; } TableFilterChange;
+static bool table_filters_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *batch,size_t retained,char **error) {
+    if (read->request.first_row>TABLE_FILTER_ROWS || batch->row_count>TABLE_FILTER_ROWS-read->request.first_row) return fail(error,"Too many Table filter rows.");
+    size_t array_bytes=batch->row_count*sizeof(TableFilterChange);
+    if (!table_reserve(read,retained,0,array_bytes,error)) return false;
+    TableFilterChange *next=array_bytes ? dx_alloc(array_bytes) : NULL; size_t staged=array_bytes,raw[DX_MAX_SHEETS]; memcpy(raw,read->table_raw,sizeof(raw));
+    size_t last_sheet=read->table_sheet; uint64_t last_owner=read->table_owner; bool previous=read->request.first_row!=0; HeaderObject *current=NULL; Analysis prospective={0};
+    for (size_t row=0;row<batch->row_count;row++) {
+        const WorkbookCodecAtom *cells=batch->cells+row*6; int32_t sheet=cells[0].value.i32,position=cells[2].value.i32,op=cells[4].value.i32; uint64_t id=cells[1].value.u64;
+        if (sheet<0 || (size_t)sheet>=read->header->count || (previous && ((size_t)sheet<last_sheet || ((size_t)sheet==last_sheet && id<last_owner)))) { fail(error,"Table filter owners are not ordered."); goto rejected; }
+        HeaderObject *owner=table_owner(read->header,(size_t)sheet,id);
+        if (!owner || !owner->source) { fail(error,"Table filter owner is missing or not a Table."); goto rejected; }
+        if (owner!=current) { current=owner; prospective=owner->source->analysis; }
+        if (!prospective.filter_column || position<0 || position>=DX_ANALYSIS_FILTERS-1 || (size_t)position!=prospective.filter_count || op<0 || op>FILTER_OP_MAX) { fail(error,"Table secondary filters require a primary and contiguous positions."); goto rejected; }
+        if (!table_raw_add(raw,(size_t)sheet,cells+3,error) || !table_raw_add(raw,(size_t)sheet,cells+5,error)) goto rejected;
+        next[row].owner=owner; next[row].filter.op=(FilterOp)op;
+        if (!copy_text(cells+3,&next[row].filter.column,&staged,read->bytes,retained,read->limit,error) || !copy_text(cells+5,&next[row].filter.value,&staged,read->bytes,retained,read->limit,error)) goto rejected;
+        prospective.filters[prospective.filter_count++]=next[row].filter;
+        if (!table_analysis_valid(read,owner,owner->source,&prospective,staged,retained,error)) goto rejected;
+        previous=true; last_sheet=(size_t)sheet; last_owner=id;
+    }
+    for (size_t row=0;row<batch->row_count;row++) { Analysis *a=&next[row].owner->source->analysis; a->filters[a->filter_count++]=next[row].filter; }
+    free(next); staged-=array_bytes; read->bytes+=staged; read->header->bytes+=staged; memcpy(read->table_raw,raw,sizeof(raw)); read->table_sheet=last_sheet; read->table_owner=last_owner; read->request.first_row+=batch->row_count;
+    if (batch->end) read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_TABLE_SORTS,table_sorts_sql,0,5,5,TABLE_SORT_ROWS+1u};
+    return true;
+rejected:
+    for (size_t row=0;row<batch->row_count;row++) { free(next[row].filter.column); free(next[row].filter.value); }
+    free(next); return false;
+}
+typedef struct { HeaderObject *owner; AnalysisSort sort; } TableSortChange;
+static bool table_known_add(size_t *bytes,size_t extra,char **error) {
+    if (*bytes>DX_OBJECT_CURRENT_BYTES || extra>DX_OBJECT_CURRENT_BYTES-*bytes)
+        return fail(error,"Known Table/object definitions exceed the native 8 MiB current limit.");
+    *bytes+=extra; return true;
+}
+static bool table_known_text(size_t *bytes,const char *text,char **error) {
+    return !text || table_known_add(bytes,strlen(text)+1u,error);
+}
+static bool table_known_current(const WorkbookCodecHeader *header,const TableSortChange *pending,size_t count,char **error) {
+    /* Same native ObjectSnapshot byte terms for the data already decoded.
+       Unavailable locator lengths and future Pivot/Marks payloads are unknown;
+       this is a lower bound, not completed ObjectStore/model validation. Raw
+       references have their separate native raw-text and reader-owned budgets. */
+    for (size_t sheet=0;sheet<header->count;sheet++) {
+        const HeaderSheet *s=header->sheets+sheet; size_t bytes=s->object_count*sizeof(SheetObject);
+        for (size_t i=0;i<s->object_count;i++) {
+            const HeaderObject *owner=header->objects+s->object_offset+i;
+            if (!table_known_text(&bytes,owner->value.name,error)) return false;
+            if (owner->value.kind!=OBJECT_TABLE) continue;
+            const Analysis *a=&owner->source->analysis;
+            const char *texts[]={a->path,a->schema,a->table,owner->query,a->filter_column,a->filter_value,a->group_column,a->measure_column,a->sort_column};
+            for (size_t j=0;j<sizeof(texts)/sizeof(*texts);j++) if (!table_known_text(&bytes,texts[j],error)) return false;
+            for (size_t j=0;j<a->filter_count;j++) if (!table_known_text(&bytes,a->filters[j].column,error) || !table_known_text(&bytes,a->filters[j].value,error)) return false;
+            for (size_t j=0;j<a->sort_count;j++) if (!table_known_text(&bytes,a->sorts[j].column,error)) return false;
+        }
+        for (size_t i=0;i<count;i++) if (pending[i].owner->sheet==sheet && !table_known_text(&bytes,pending[i].sort.column,error)) return false;
+    }
+    return true;
+}
+static bool table_sorts_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *batch,size_t retained,char **error) {
+    if (read->request.first_row>TABLE_SORT_ROWS || batch->row_count>TABLE_SORT_ROWS-read->request.first_row) return fail(error,"Too many Table sort rows.");
+    size_t array_bytes=batch->row_count*sizeof(TableSortChange);
+    if (!table_reserve(read,retained,0,array_bytes,error)) return false;
+    TableSortChange *next=array_bytes ? dx_alloc(array_bytes) : NULL; size_t staged=array_bytes,raw[DX_MAX_SHEETS]; memcpy(raw,read->table_raw,sizeof(raw));
+    size_t last_sheet=read->table_sheet; uint64_t last_owner=read->table_owner; bool previous=read->request.first_row!=0; HeaderObject *current=NULL; Analysis prospective={0};
+    for (size_t row=0;row<batch->row_count;row++) {
+        const WorkbookCodecAtom *cells=batch->cells+row*5; int32_t sheet=cells[0].value.i32,position=cells[2].value.i32; uint64_t id=cells[1].value.u64;
+        if (sheet<0 || (size_t)sheet>=read->header->count || (previous && ((size_t)sheet<last_sheet || ((size_t)sheet==last_sheet && id<last_owner)))) { fail(error,"Table sort owners are not ordered."); goto rejected; }
+        HeaderObject *owner=table_owner(read->header,(size_t)sheet,id);
+        if (!owner || !owner->source) { fail(error,"Table sort owner is missing or not a Table."); goto rejected; }
+        if (owner!=current) { current=owner; prospective=owner->source->analysis; }
+        if (!prospective.sort_column || position<0 || position>=DX_ANALYSIS_SORTS-1 || (size_t)position!=prospective.sort_count) { fail(error,"Table secondary sorts require a primary and contiguous positions."); goto rejected; }
+        if (!table_raw_add(raw,(size_t)sheet,cells+3,error)) goto rejected;
+        next[row].owner=owner; next[row].sort.descending=cells[4].value.boolean;
+        if (!copy_text(cells+3,&next[row].sort.column,&staged,read->bytes,retained,read->limit,error)) goto rejected;
+        prospective.sorts[prospective.sort_count++]=next[row].sort;
+        if (!table_analysis_valid(read,owner,owner->source,&prospective,staged,retained,error)) goto rejected;
+        previous=true; last_sheet=(size_t)sheet; last_owner=id;
+    }
+    if (batch->end && !table_known_current(read->header,next,batch->row_count,error)) goto rejected;
+    for (size_t row=0;row<batch->row_count;row++) { Analysis *a=&next[row].owner->source->analysis; a->sorts[a->sort_count++]=next[row].sort; }
+    free(next); staged-=array_bytes; read->bytes+=staged; read->header->bytes+=staged; memcpy(read->table_raw,raw,sizeof(raw)); read->table_sheet=last_sheet; read->table_owner=last_owner; read->request.first_row+=batch->row_count;
+    if (batch->end) {
+        /* Every fallible operation is over. Move each already-owned query once;
+           no copy/reallocation changes its borrowed text identity. */
+        for (size_t i=0;i<read->header->object_count;i++) {
+            HeaderObject *owner=read->header->objects+i;
+            if (owner->value.kind!=OBJECT_TABLE) continue;
+            owner->source->analysis.query=owner->query; owner->query=NULL;
+            owner->source->analysis.unique_rows=owner->unique_rows;
+        }
+        read->header->table_sources_ready=true; read->request.family=WORKBOOK_CODEC_HEADER_READY;
+    }
+    return true;
+rejected:
+    for (size_t row=0;row<batch->row_count;row++) free(next[row].sort.column);
+    free(next); return false;
+}
 WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,WorkbookCodecKey key,
     WorkbookCodecFamily family,const WorkbookCodecBatch *batch,size_t retained,char **error) {
     if (!read || !same_key(read->key,key)) return WORKBOOK_CODEC_READ_STALE;
     if (!read->header || !request_family(read->request.family) || family!=read->request.family || !batch || batch->first_row!=read->request.first_row) {
         fail(error,"Metadata family or batch order does not match its cursor."); return WORKBOOK_CODEC_READ_ERROR;
     }
-    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : family==WORKBOOK_CODEC_OBJECTS ? "objects" : family==WORKBOOK_CODEC_QUERIES ? "queries" : family==WORKBOOK_CODEC_SOURCE_OPTIONS ? "source_options" : "preferences");
+    const WorkbookCodecTable *table=workbook_codec_table_find(family==WORKBOOK_CODEC_META ? "meta" : family==WORKBOOK_CODEC_SHEETS ? "sheets" : family==WORKBOOK_CODEC_SORTS ? "sorts" : family==WORKBOOK_CODEC_OBJECTS ? "objects" : family==WORKBOOK_CODEC_QUERIES ? "queries" : family==WORKBOOK_CODEC_SOURCE_OPTIONS ? "source_options" : family==WORKBOOK_CODEC_TABLE_SOURCES ? "table_sources" : family==WORKBOOK_CODEC_TABLE_FILTERS ? "table_filters" : family==WORKBOOK_CODEC_TABLE_SORTS ? "table_sorts" : "preferences");
     if (!shape(batch,table,error)) return WORKBOOK_CODEC_READ_ERROR;
     if (!room(read->bytes,retained,0,read->limit)) { fail(error,"Metadata input exceeds its owned-buffer budget."); return WORKBOOK_CODEC_READ_ERROR; }
     if (family==WORKBOOK_CODEC_PREFERENCES) return preferences_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
@@ -454,6 +677,9 @@ WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,Workboo
     if (family==WORKBOOK_CODEC_OBJECTS) return objects_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_QUERIES) return queries_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_SOURCE_OPTIONS) return source_options_feed(read,batch,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
+    if (family==WORKBOOK_CODEC_TABLE_SOURCES) return table_sources_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
+    if (family==WORKBOOK_CODEC_TABLE_FILTERS) return table_filters_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
+    if (family==WORKBOOK_CODEC_TABLE_SORTS) return table_sorts_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_META) {
         if (batch->first_row || batch->row_count!=1 || !batch->end || batch->cells[0].value.i32!=(int32_t)read->version ||
             batch->cells[1].value.u64>=DX_MAX_SHEETS || !isfinite(batch->cells[2].value.real) || batch->cells[2].value.real<.8 || batch->cells[2].value.real>1.5) {
@@ -502,7 +728,7 @@ bool workbook_codec_header_unique_rows(const WorkbookCodecHeader *header,size_t 
     if (!owner) { *out=s->analysis.unique_rows; return true; }
     for (size_t i=0;i<s->object_count;i++) {
         const HeaderObject *object=header->objects+s->object_offset+i;
-        if (object->value.id==owner && object->value.kind==OBJECT_TABLE) { *out=object->unique_rows; return true; }
+        if (object->value.id==owner && object->value.kind==OBJECT_TABLE) { *out=header->table_sources_ready && object->source ? object->source->analysis.unique_rows : object->unique_rows; return true; }
     }
     return false;
 }
@@ -512,7 +738,7 @@ bool workbook_codec_header_query(const WorkbookCodecHeader *header,size_t sheet,
     if (!owner) { *out=s->analysis.query; return true; }
     for (size_t i=0;i<s->object_count;i++) {
         const HeaderObject *object=header->objects+s->object_offset+i;
-        if (object->value.id==owner && object->value.kind==OBJECT_TABLE) { *out=object->query; return true; }
+        if (object->value.id==owner && object->value.kind==OBJECT_TABLE) { *out=header->table_sources_ready && object->source ? object->source->analysis.query : object->query; return true; }
     }
     return false;
 }
@@ -529,3 +755,17 @@ const char *workbook_codec_header_name(const WorkbookCodecHeader *header,size_t 
 const char *workbook_codec_header_reference(const WorkbookCodecHeader *header,size_t sheet) { return header && sheet<header->count ? header->sheets[sheet].reference : NULL; }
 const Analysis *workbook_codec_header_analysis(const WorkbookCodecHeader *header,size_t sheet) { return header && sheet<header->count ? &header->sheets[sheet].analysis : NULL; }
 const SheetView *workbook_codec_header_view(const WorkbookCodecHeader *header,size_t sheet) { return header && sheet<header->count ? &header->sheets[sheet].view : NULL; }
+
+bool workbook_codec_header_table_sources_ready(const WorkbookCodecHeader *header) { return header && header->table_sources_ready; }
+bool workbook_codec_header_table_source(const WorkbookCodecHeader *header,size_t sheet,uint64_t owner,WorkbookCodecTableSourceView *out) {
+    if (!out || !header || !header->table_sources_ready || sheet>=header->count || !owner) return false;
+    const HeaderSheet *s=header->sheets+sheet;
+    for (size_t i=0;i<s->object_count;i++) {
+        const HeaderObject *object=header->objects+s->object_offset+i;
+        if (object->value.id==owner && object->value.kind==OBJECT_TABLE && object->source) {
+            const Analysis *a=&object->source->analysis;
+            *out=(WorkbookCodecTableSourceView){a,object->source->reference,a->kind==SOURCE_DEMO || (a->path && *a->path)}; return true;
+        }
+    }
+    return false;
+}
