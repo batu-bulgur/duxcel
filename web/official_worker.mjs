@@ -10,6 +10,7 @@
  * C may instead project canonical VARCHAR in SQL and supply original metadata.
  */
 import { DataType } from 'apache-arrow';
+import {encodePageWire} from './page_wire.mjs';
 
 export const LIMITS = Object.freeze({ rows: 256, columns: 256, bytes: 4 * 1024 * 1024,
     copyCells:20000,sqlBytes: 1024 * 1024, fileBytes: 256 * 1024 * 1024, fileNames: 1024, sourceBindings: 33 });
@@ -58,7 +59,7 @@ function sourceBindings(value) {
 }
 function newFileNameRegistry() {
     check(nextDatabaseEpoch <= MAX_U64, 'FILE_REGISTRY_LIMIT', 'Source engine epochs are exhausted. Start a new browser session.');
-    return { epoch: String(nextDatabaseEpoch++), nextId: 1n, names: new Map(), closed: false };
+    return { epoch: String(nextDatabaseEpoch++), nextId: 1n, names: new Map(), closed: false, poisoned: false };
 }
 function descriptor(value) {
     check(value && typeof value==='object' && !Array.isArray(value),'INVALID_REQUEST','Column descriptor required');
@@ -169,6 +170,21 @@ export function workbookPivotMarksRequest(value) {
         'INVALID_REQUEST','Pivot/Marks metadata requires its exact typed columns and one captured archive binding');
     return Object.freeze({...request,purpose,rowLimit:rows});
 }
+// One immutable metadata result, streamed only by the dedicated method below.
+// These are whole-family SQL bounds, not expanded ordinary Page policies.
+const metadataStreamRows=new Map([['columns',1048577],['cells',1280001]]);
+export function workbookMetadataStreamRequest(value) {
+    const purpose=value?.purpose,family=value?.family,limit=metadataStreamRows.get(family),rows=value?.rowLimit??limit;
+    const columns=value?.columns,bindings=value?.sourceBindings;
+    check(purpose==='workbook-metadata-stream'&&limit,'INVALID_REQUEST','Explicit columns/cells metadata stream required');
+    check(Array.isArray(columns)&&columns.length===4&&[0,1,2,3].every(i=>Object.hasOwn(columns,i))&&
+        Array.isArray(bindings)&&bindings.length===1&&Object.hasOwn(bindings,0),'INVALID_REQUEST','Dense metadata columns and archive binding required');
+    const request=pageRequest({...value,purpose:undefined,rowLimit:1,columns,sourceBindings:bindings});
+    check(Number.isInteger(rows)&&rows>0&&rows<=limit&&request.offset==='0'&&request.knownTotal===null,
+        'INVALID_REQUEST','Metadata stream requires its whole-family bound, offset zero and unknown total');
+    check(request.columns?.length===4&&request.sourceBindings?.length===1,'INVALID_REQUEST','Metadata stream requires four typed columns and one archive binding');
+    return Object.freeze({...request,purpose,family,rowLimit:rows});
+}
 export function exportRequest(value) {
     const request=pageRequest(value);
     check(value.rowLimit===1 && value.offset==='0' && value.knownTotal==='1' && value.columns===undefined && value.purpose===undefined,
@@ -251,6 +267,7 @@ function valueText(value, fieldType) {
  * Caller closes the reader; DuckDBWorkerAdapter does so on every path.
  */
 export async function encodePage(reader, request, { obsolete = () => false } = {}) {
+    check(request.purpose!=='workbook-metadata-stream','INVALID_REQUEST','Metadata streams require their dedicated chunk consumer');
     if (reader.open) await reader.open({ autoDestroy: false }); // official send() returns a lazy Arrow IPC reader
     const fields = reader.schema?.fields;
     check(Array.isArray(fields) && fields.length <= LIMITS.columns, 'PAGE_LIMIT', 'Page exceeds 256 columns');
@@ -306,6 +323,78 @@ export function pageCellText(page, row, column) {
     check(Number.isInteger(row) && Number.isInteger(column) && row >= 0 && row < page.rowCount && column >= 0 && column < page.columnCount, 'INVALID_CELL', 'Cell is outside this page');
     return page.nulls[index] ? null : decoder.decode(page.text.subarray(page.offsets[index], page.offsets[index + 1]));
 }
+// Preflight before encoding one row: a hostile/unsupported string cannot
+// allocate an over-limit UTF-8 staging buffer or silently replace Unicode.
+function metadataStringBytes(text) {
+    let bytes=0;
+    for(let i=0;i<text.length;i++) {
+        const unit=text.charCodeAt(i);check(unit!==0,'UNSUPPORTED_TYPE','Metadata text contains NUL');
+        if(unit<0x80)bytes++;else if(unit<0x800)bytes+=2;
+        else if(unit>=0xd800&&unit<=0xdbff) {
+            const next=text.charCodeAt(++i);check(next>=0xdc00&&next<=0xdfff,'UNSUPPORTED_TYPE','Metadata text contains an unpaired surrogate');bytes+=4;
+        } else {check(unit<0xdc00||unit>0xdfff,'UNSUPPORTED_TYPE','Metadata text contains an unpaired surrogate');bytes+=3;}
+        check(bytes<=LIMITS.bytes,'PAGE_LIMIT','One metadata row exceeds the chunk byte budget');
+    }
+    return bytes;
+}
+function metadataYield() {
+    let channel=null,pending=null,timer=null,closed=false;
+    const finish=()=>{const resolve=pending;pending=null;timer=null;if(resolve)resolve();};
+    return {
+        next(){
+            check(!closed&&!pending,'STREAM_STATE','Invalid metadata yield state');
+            return new Promise(resolve=>{
+                pending=resolve;
+                if(typeof MessageChannel==='function') {
+                    if(!channel){channel=new MessageChannel();channel.port1.onmessage=finish;}
+                    channel.port2.postMessage(null);
+                } else timer=setTimeout(finish,0);
+            });
+        },
+        close(){closed=true;if(timer!==null)clearTimeout(timer);finish();if(channel){channel.port1.close();channel.port2.close();channel=null;}}
+    };
+}
+// Only transport buffers are bounded here: the engine's current Arrow batch,
+// caller-retained chunks, JS string/allocator overhead and Ccandidate are not.
+async function metadataChunks(reader,request,guard,wait,emit,yieldTurn) {
+    if(reader.open)await wait(reader.open({autoDestroy:false}));guard();
+    const fields=reader.schema?.fields;check(Array.isArray(fields)&&fields.length===4,'PAGE_LIMIT','Metadata stream requires four result columns');
+    const columns=Object.freeze(fields.map((field,i)=>Object.freeze(metadata(field,request.columns[i]))));
+    const descriptorBytes=encoder.encode(JSON.stringify(columns)).byteLength;
+    check(descriptorBytes+4<=LIMITS.bytes,'PAGE_LIMIT','Metadata descriptors exceed the chunk byte budget');
+    const iterator=reader[Symbol.asyncIterator]();let first=0,rows=0,textBytes=0,pieces=[],starts=[0],nulls=[];
+    const page=(end)=>{
+        const text=new Uint8Array(textBytes);let at=0;for(const piece of pieces){text.set(piece,at);at+=piece.length;}
+        return Object.freeze({schema:'duxcel.page',version:1,...identity(request),offset:String(first),columns,rowCount:rows,columnCount:4,
+            total:String(first+rows),countPending:!end,text,offsets:Uint32Array.from(starts),nulls:Uint8Array.from(nulls)});
+    };
+    const flush=async()=>{
+        const output=page(false),count=rows;pieces=[];starts=[0];nulls=[];rows=0;textBytes=0;
+        await emit(output,false,first);first+=count;await wait(yieldTurn.next());guard();
+    };
+    for(;;) {
+        guard();const item=await wait(iterator.next());guard();if(item.done)break;
+        const batch=item.value;check(batch&&batch.numCols===4&&Number.isSafeInteger(batch.numRows)&&batch.numRows>=0,'SCHEMA_CHANGED','Invalid metadata record batch');
+        check(first+rows+batch.numRows<=request.rowLimit,'PAGE_LIMIT','Metadata result exceeds its whole-family row bound');
+        for(let row=0;row<batch.numRows;row++) {
+            guard();const texts=[],lengths=[];let rowBytes=0;
+            for(let col=0;col<4;col++) {
+                const value=batch.getChildAt(col).get(row),text=value===null?null:valueText(value,fields[col].type);
+                const size=text===null?0:metadataStringBytes(text);texts.push(text);lengths.push(size);rowBytes+=size;
+                check(descriptorBytes+rowBytes+24<=LIMITS.bytes,'PAGE_LIMIT','One metadata row exceeds the chunk byte budget');
+            }
+            // At most this one preflighted row coexists with one delivery.
+            const encoded=texts.map(text=>text===null?null:encoder.encode(text));
+            if(rows&&(rows===LIMITS.rows||descriptorBytes+textBytes+rowBytes+(4*(rows+1)+1)*4+4*(rows+1)>LIMITS.bytes))await flush();
+            for(let col=0;col<4;col++){const bytes=encoded[col];nulls.push(bytes===null?1:0);if(bytes){pieces.push(bytes);textBytes+=lengths[col];}starts.push(textBytes);}
+            rows++;
+            if(rows===LIMITS.rows)await flush();
+        }
+        if(!batch.numRows){await wait(yieldTurn.next());guard();}
+    }
+    if(rows)await flush();
+    return {rows:first,empty:()=>page(true)};
+}
 function failure(request, status, error) {
     return { ...identity(request), status, ...(error ? { error: { code: error instanceof BridgeError ? error.code : 'QUERY_FAILED', message: String(error.message ?? error).slice(0, 2048) } } : {}) };
 }
@@ -333,6 +422,7 @@ export class DuckDBWorkerAdapter {
         registry.names.set(name, entry); return entry;
     }
     #checkSourceBindings(request) {
+        check(!this.#fileRegistry.poisoned,'STREAM_CLEANUP','Metadata reader quiescence is unproved; close and recreate the engine');
         if (!request.sourceBindings) return;
         const registry = this.#fileRegistry;
         for (const binding of request.sourceBindings) {
@@ -367,29 +457,74 @@ export class DuckDBWorkerAdapter {
     submitWorkbookPivotMarks(value) {
         return this.#enqueue(workbookPivotMarksRequest(value),false);
     }
+    submitWorkbookMetadataStream(value,onChunk) {
+        const request=workbookMetadataStreamRequest(value);
+        check(typeof onChunk==='function','INVALID_REQUEST','Metadata consumer callback required');
+        return this.#enqueue(request,false,onChunk);
+    }
     exportParquet(value) {
         return this.#enqueue(exportRequest(value),true);
     }
-    #enqueue(request,exporting) {
+    #enqueue(request,exporting,stream=null) {
         check(!this.closed && !this.admin, 'NOT_AVAILABLE', 'Engine is closed or registering a file');
         check(BigInt(request.requestId) > this.latestId, 'STALE_REQUEST', 'requestId must increase within this adapter');
         this.#checkSourceBindings(request); // No ticket/output reservation on failed admission.
         if(exporting)this.#reserveFileName(request.fileName,true);
         this.latestId = BigInt(request.requestId);
         if (this.pending) this.pending.resolve(failure(this.pending.request, 'superseded'));
-        const result = new Promise(resolve => { this.pending = { request, resolve, reason: null, cancel: null,exporting,privateOwned:false }; });
+        const result = new Promise(resolve => { this.pending = { request, resolve, reason: null, cancel: null,exporting,privateOwned:false,...(stream?{stream}:{} ) }; });
         if (this.active) this.interrupt(this.active, 'superseded');
         if (!this.draining) this.draining = this.drain();
         return result;
     }
     interrupt(task, reason) {
         task.reason = reason;
+        task.streamAbort?.();
         if (!task.cancel) task.cancel = Promise.resolve().then(() => this.connection.cancelSent()).catch(() => false);
+    }
+    async #drainMetadata(task) {
+        let reader=null,abortWait=null,reply,sequence=0,dataChunks=0;
+        const turn=metadataYield(),guard=()=>{check(!task.reason,'SUPERSEDED','Metadata stream cancelled or superseded');this.#checkSourceBindings(task.request);};
+        const wait=value=>new Promise((resolve,reject)=>{
+            let settled=false;
+            const finish=(error,result)=>{if(settled)return;settled=true;if(abortWait===abort)abortWait=null;error?reject(error):resolve(result);};
+            const abort=()=>finish(new BridgeError('SUPERSEDED','Metadata stream cancelled or superseded'));
+            abortWait=abort;Promise.resolve(value).then(result=>finish(null,result),error=>finish(error));if(task.reason)abort();
+        });
+        task.streamAbort=()=>{abortWait?.();turn.close();};
+        const retire=async()=>{
+            if(!reader)return;const owned=reader;reader=null;
+            // Successful cancel is the local reader-quiescence fence, not a
+            // claim about other connections, engine memory or persistent data.
+            try{check(typeof owned.cancel==='function','STREAM_CLEANUP','Metadata reader cannot prove cleanup');await owned.cancel();}
+            catch(error){this.#fileRegistry.poisoned=true;throw new BridgeError('STREAM_CLEANUP',`Metadata reader cleanup failed; close and recreate the engine: ${String(error.message??error).slice(0,1500)}`);}
+        };
+        const emit=async(page,end,first)=>{
+            guard();const wire=encodePageWire(page);check(wire.byteLength<=6*1024*1024,'PAGE_LIMIT','Metadata wire exceeds6MiB');
+            const chunk=Object.freeze({...identity(task.request),sequence:++sequence,firstRow:String(first),end,page,wire});
+            const ack=await wait(task.stream(chunk));guard();check(ack===true,'STREAM_CONSUMER','Metadata consumer did not acknowledge this chunk');if(!end)dataChunks++;
+        };
+        try {
+            guard();reader=await this.connection.send(task.request.sql,true);guard();
+            const result=await metadataChunks(reader,task.request,guard,wait,emit,turn);
+            await retire();guard();await emit(result.empty(),true,result.rows);guard();
+            reply={...identity(task.request),status:'ok',rowCount:String(result.rows),dataChunks,chunks:sequence};
+        } catch(error) {
+            reply=failure(task.request,task.reason??'error',error);
+            if(!task.cancel)this.interrupt(task,task.reason??'error');
+        } finally {
+            try{await retire();}catch(error){reply=failure(task.request,'error',error);}
+            if(task.cancel)await task.cancel;
+            turn.close();task.streamAbort=null;abortWait=null;
+        }
+        if(reply?.status==='ok')try{guard();}catch(error){reply=failure(task.request,task.reason??'error',error);}
+        task.resolve(reply);
     }
     async drain() {
         try {
             while (this.pending) {
                 const task = this.active = this.pending; this.pending = null;
+                if(task.stream){await this.#drainMetadata(task);this.active=null;continue;}
                 let reader, reply;
                 try {
                     this.#checkSourceBindings(task.request);
@@ -461,6 +596,7 @@ export class DuckDBWorkerAdapter {
         if (this.draining) await this.draining;
     }
     async registerFile(name, bytes) {
+        check(!this.#fileRegistry.poisoned,'STREAM_CLEANUP','Close and recreate the engine after metadata cleanup failure');
         virtualName(name);
         check(bytes instanceof Uint8Array && bytes.byteLength <= LIMITS.fileBytes, 'FILE_LIMIT', 'File buffer must be at most 256 MiB');
         check(!this.closed && !this.active && !this.pending && !this.admin, 'NOT_AVAILABLE', 'Await an idle adapter before registering a file');
@@ -482,6 +618,7 @@ export class DuckDBWorkerAdapter {
         } finally { this.admin = false; }
     }
     async dropFile(name) {
+        check(!this.#fileRegistry.poisoned,'STREAM_CLEANUP','Close and recreate the engine after metadata cleanup failure');
         virtualName(name);
         check(!this.closed && !this.active && !this.pending && !this.admin, 'NOT_AVAILABLE', 'Await an idle adapter before dropping a file');
         const entry = this.#reserveFileName(name, false); entry.state = 'revoked';
