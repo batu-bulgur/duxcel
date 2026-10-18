@@ -1,0 +1,86 @@
+[
+  {
+    "config": "release",
+    "build": {
+      "command": [
+        "clang",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-Werror",
+        "-O2",
+        "-g",
+        "src/common.c",
+        "src/transforms/analysis.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/marks.c",
+        "src/data/source_digest.c",
+        "src/workbook/source_scope.c",
+        "src/workbook/workbook_codec.c",
+        "src/workbook/workbook_codec_read.c",
+        "tests/test_workbook_codec_read.c",
+        "-lm",
+        "-o",
+        "build/bp1-source-bindings-reader/test-release"
+      ],
+      "elapsed": 5.674029292,
+      "returncode": 0
+    },
+    "run": {
+      "command": [
+        "build/bp1-source-bindings-reader/test-release"
+      ],
+      "elapsed": 0.7247815840000005,
+      "returncode": 0,
+      "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+      "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+    }
+  },
+  {
+    "config": "sanitize",
+    "build": {
+      "command": [
+        "clang",
+        "-Isrc",
+        "-I/opt/homebrew/include",
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-Wpedantic",
+        "-Werror",
+        "-O1",
+        "-g",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "src/common.c",
+        "src/transforms/analysis.c",
+        "src/transforms/number.c",
+        "src/transforms/pivot.c",
+        "src/transforms/marks.c",
+        "src/data/source_digest.c",
+        "src/workbook/source_scope.c",
+        "src/workbook/workbook_codec.c",
+        "src/workbook/workbook_codec_read.c",
+        "tests/test_workbook_codec_read.c",
+        "-lm",
+        "-o",
+        "build/bp1-source-bindings-reader/test-sanitize"
+      ],
+      "elapsed": 9.936333292,
+      "returncode": 0
+    },
+    "run": {
+      "command": [
+        "build/bp1-source-bindings-reader/test-sanitize"
+      ],
+      "elapsed": 1.3381184170000004,
+      "returncode": 0,
+      "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1",
+      "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+    }
+  }
+]

@@ -1,0 +1,339 @@
+{
+  "schema": "duxcel.binding-compiled-closure-Git-comparison",
+  "version": 1,
+  "kind": "read-only postvalidation; no compiler or runtime",
+  "accepted_commit": "383527ca23821f0b4a0e9177ad7ca7e8eb759fb2",
+  "comparisons": [
+    {
+      "layer": "pure",
+      "project_inputs": 24,
+      "files": {
+        "src/common.c": {
+          "bytes": 1850,
+          "sha256": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4"
+        },
+        "src/common.h": {
+          "bytes": 852,
+          "sha256": "027d4a52e7bd019dd21f3ddd2f077f464d4554142eceee1edddfbd3d8d7e6100"
+        },
+        "src/data/page.h": {
+          "bytes": 8211,
+          "sha256": "31e0fbb396f33a75b73933442561dcfbeaf36dde7a3287ea135489b6895cfe9f"
+        },
+        "src/data/source_digest.c": {
+          "bytes": 8084,
+          "sha256": "6bf46cd0827b0b7740350c2342beadfbc5689b890b049646e3b4e99fcd867f14"
+        },
+        "src/data/source_digest.h": {
+          "bytes": 3029,
+          "sha256": "443a4ef6be2ea7dad017c8f1528c503eb414ab9b2bc1e9c585072f6a3ffde8ee"
+        },
+        "src/transforms/analysis.c": {
+          "bytes": 33320,
+          "sha256": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19"
+        },
+        "src/transforms/analysis.h": {
+          "bytes": 5323,
+          "sha256": "6d9571f28ea6ee9c42233faae588fedd310ce193db0c2d8dee2b309ac6711166"
+        },
+        "src/transforms/marks.c": {
+          "bytes": 3796,
+          "sha256": "864da129ebccf18bc8cd72db75ae36c8e9d03f3e50db76cd9c385ed7eb22952b"
+        },
+        "src/transforms/marks.h": {
+          "bytes": 971,
+          "sha256": "649b9cc9491eaf1855b42eb668adc6fe08e0dac2c64869b87900a71ba62305c7"
+        },
+        "src/transforms/number.c": {
+          "bytes": 6804,
+          "sha256": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e"
+        },
+        "src/transforms/number.h": {
+          "bytes": 916,
+          "sha256": "54360de3c934dfc1c686527c2392db3999630aff9f56d45a2f74598f41a24482"
+        },
+        "src/transforms/pivot.c": {
+          "bytes": 13343,
+          "sha256": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d"
+        },
+        "src/transforms/pivot.h": {
+          "bytes": 2164,
+          "sha256": "c76fb81248dbf1d1aacd754f6560a432ffd1c93c37378310865f289905e2e49b"
+        },
+        "src/workbook/cells.h": {
+          "bytes": 1987,
+          "sha256": "2bc452c6d7ce5c176acf5da862530ce7036897c59c5f0da19bd40a65a5be1b19"
+        },
+        "src/workbook/format.h": {
+          "bytes": 9349,
+          "sha256": "5cebb5ff7c78ec4cf2060d39c3fb2df464d0ac92a133fcec08cc35f0f4d945a8"
+        },
+        "src/workbook/objects.h": {
+          "bytes": 5858,
+          "sha256": "9b95698956335dc1fba02355339a850c62b8254b3918512a4497adac8d7313bd"
+        },
+        "src/workbook/source_scope.c": {
+          "bytes": 37892,
+          "sha256": "1177452e699b69b18ad5506c5b73ee96fd0847b706307347822d6288289b80f8"
+        },
+        "src/workbook/source_scope.h": {
+          "bytes": 7484,
+          "sha256": "c8c97559a1e58868f01348abeb72f1627394929f40bcd4de41a27b7b7faabd3b"
+        },
+        "src/workbook/workbook.h": {
+          "bytes": 12997,
+          "sha256": "f47c0b5896ee28d6e3fcecccb72bc6357956fc5583eda65d3be1825794791d79"
+        },
+        "src/workbook/workbook_codec.c": {
+          "bytes": 6618,
+          "sha256": "75519f3222cdecf9fc351e8b5db0928b043a6e5db0ecf04bb3eae097cf173b11"
+        },
+        "src/workbook/workbook_codec.h": {
+          "bytes": 2344,
+          "sha256": "7073011199d4b53f3d506174aed33e5a8f03cdb96257caf0837d32e37e99b39e"
+        },
+        "src/workbook/workbook_codec_read.c": {
+          "bytes": 118130,
+          "sha256": "c2165911ada8a7685b3b9cb07b6e831db80820a48b2834b5853e6a712d02008d"
+        },
+        "src/workbook/workbook_codec_read.h": {
+          "bytes": 26540,
+          "sha256": "ebe2f4c26e66e884b7c3531f45529e733ce0300a448e67562b63337e6fef6b10"
+        },
+        "tests/test_workbook_codec_read.c": {
+          "bytes": 319206,
+          "sha256": "6ac26206b94f6ea37deafc62017eee78208295cdfebc612591cb35a331a00cb1"
+        }
+      },
+      "matches_accepted_Git_bytes": true
+    },
+    {
+      "layer": "native",
+      "project_inputs": 54,
+      "files": {
+        "src/common.c": {
+          "bytes": 1850,
+          "sha256": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4"
+        },
+        "src/common.h": {
+          "bytes": 852,
+          "sha256": "027d4a52e7bd019dd21f3ddd2f077f464d4554142eceee1edddfbd3d8d7e6100"
+        },
+        "src/data/database.c": {
+          "bytes": 92691,
+          "sha256": "5e597a475b639e880f3bb534805cc94825152e8d108e99ea2aa7d3b1ba9edbce"
+        },
+        "src/data/database.h": {
+          "bytes": 7329,
+          "sha256": "c4d7ff5a1bfa161a8854ac6acb2e91871dacbbb28358b648c80f4aacbb376e2f"
+        },
+        "src/data/page.c": {
+          "bytes": 11752,
+          "sha256": "20e609ecf1328e8c42589697a5331dfe778a41577ba16be629996117b52d7ef3"
+        },
+        "src/data/page.h": {
+          "bytes": 8211,
+          "sha256": "31e0fbb396f33a75b73933442561dcfbeaf36dde7a3287ea135489b6895cfe9f"
+        },
+        "src/data/source_digest.c": {
+          "bytes": 8084,
+          "sha256": "6bf46cd0827b0b7740350c2342beadfbc5689b890b049646e3b4e99fcd867f14"
+        },
+        "src/data/source_digest.h": {
+          "bytes": 3029,
+          "sha256": "443a4ef6be2ea7dad017c8f1528c503eb414ab9b2bc1e9c585072f6a3ffde8ee"
+        },
+        "src/data/worker.c": {
+          "bytes": 21727,
+          "sha256": "c6ba9b4075c2b5209863619e2b70e81deb8f80abc5f17dbe0612eb2770c6d9d8"
+        },
+        "src/data/worker.h": {
+          "bytes": 6657,
+          "sha256": "ff9aa1afb87a693b405aa96b95ee8842af508b58886132c21b045a626d64811d"
+        },
+        "src/platform/platform.c": {
+          "bytes": 9878,
+          "sha256": "743116c0c7fad43cc3f5286e3192ffe8936476c3e48b35f2eac0f7b2a5ae0aa6"
+        },
+        "src/platform/platform.h": {
+          "bytes": 5796,
+          "sha256": "bf535c023c55edc9e60f46c4cac2e284706e480833efaa4afa73a85bd85d9d83"
+        },
+        "src/transforms/analysis.c": {
+          "bytes": 33320,
+          "sha256": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19"
+        },
+        "src/transforms/analysis.h": {
+          "bytes": 5323,
+          "sha256": "6d9571f28ea6ee9c42233faae588fedd310ce193db0c2d8dee2b309ac6711166"
+        },
+        "src/transforms/chart_other.c": {
+          "bytes": 14249,
+          "sha256": "fd6e092c95d9313cedb8fac49a8f08de5124b110a81b4c4ee10539a108c9db1d"
+        },
+        "src/transforms/chart_other.h": {
+          "bytes": 4494,
+          "sha256": "14b3d02dc8f0736f2b3d9c871e72db647613217526c44c8e3e00e49e22570a63"
+        },
+        "src/transforms/distinct.c": {
+          "bytes": 4505,
+          "sha256": "fd6dfb234dccf2ae33becb61faff64710720b06494bba6abf44aba2b166aad7c"
+        },
+        "src/transforms/distinct.h": {
+          "bytes": 1051,
+          "sha256": "74d010da999052333c9f2612a1860944e8fbb0de6656fc306c61cc53b4948a0e"
+        },
+        "src/transforms/marks.c": {
+          "bytes": 3796,
+          "sha256": "864da129ebccf18bc8cd72db75ae36c8e9d03f3e50db76cd9c385ed7eb22952b"
+        },
+        "src/transforms/marks.h": {
+          "bytes": 971,
+          "sha256": "649b9cc9491eaf1855b42eb668adc6fe08e0dac2c64869b87900a71ba62305c7"
+        },
+        "src/transforms/number.c": {
+          "bytes": 6804,
+          "sha256": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e"
+        },
+        "src/transforms/number.h": {
+          "bytes": 916,
+          "sha256": "54360de3c934dfc1c686527c2392db3999630aff9f56d45a2f74598f41a24482"
+        },
+        "src/transforms/pivot.c": {
+          "bytes": 13343,
+          "sha256": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d"
+        },
+        "src/transforms/pivot.h": {
+          "bytes": 2164,
+          "sha256": "c76fb81248dbf1d1aacd754f6560a432ffd1c93c37378310865f289905e2e49b"
+        },
+        "src/transforms/record_sql.c": {
+          "bytes": 8183,
+          "sha256": "cc395a8855d63e6ded3c0828bd3ad9d14663259733029bf3d2b04203e8c90f96"
+        },
+        "src/transforms/record_sql.h": {
+          "bytes": 1761,
+          "sha256": "35da9c8377a4548ebea5d6455ba37f4c0c85a711df85aa9dc98d97656b7ac57f"
+        },
+        "src/workbook/cells.c": {
+          "bytes": 12982,
+          "sha256": "5c56f3c895b43d07790970bc2c7334e7c598268289fedd1581717d3b7648410c"
+        },
+        "src/workbook/cells.h": {
+          "bytes": 1987,
+          "sha256": "2bc452c6d7ce5c176acf5da862530ce7036897c59c5f0da19bd40a65a5be1b19"
+        },
+        "src/workbook/clipboard.c": {
+          "bytes": 4364,
+          "sha256": "2359bb7cf09890ff1ac46d8cd0db4184a3c983c970c200c41ce82992c4fb60bd"
+        },
+        "src/workbook/clipboard.h": {
+          "bytes": 1099,
+          "sha256": "a99858cb0ae6dc62ce14ee665904e7608e15c78854afc052bac52a5a1f52cd3f"
+        },
+        "src/workbook/format.c": {
+          "bytes": 34734,
+          "sha256": "cd20649d531bdf6ed33148fa6a9a6cdee5f4d3915d587284d65c62ec0ea766a3"
+        },
+        "src/workbook/format.h": {
+          "bytes": 9349,
+          "sha256": "5cebb5ff7c78ec4cf2060d39c3fb2df464d0ac92a133fcec08cc35f0f4d945a8"
+        },
+        "src/workbook/objects.c": {
+          "bytes": 27149,
+          "sha256": "11bef814a7eef30fbb9ea3263f7fa38b29dbe2c8a706cde63a774199b5842c07"
+        },
+        "src/workbook/objects.h": {
+          "bytes": 5858,
+          "sha256": "9b95698956335dc1fba02355339a850c62b8254b3918512a4497adac8d7313bd"
+        },
+        "src/workbook/source_scope.c": {
+          "bytes": 37892,
+          "sha256": "1177452e699b69b18ad5506c5b73ee96fd0847b706307347822d6288289b80f8"
+        },
+        "src/workbook/source_scope.h": {
+          "bytes": 7484,
+          "sha256": "c8c97559a1e58868f01348abeb72f1627394929f40bcd4de41a27b7b7faabd3b"
+        },
+        "src/workbook/workbook.c": {
+          "bytes": 160051,
+          "sha256": "8f72fe9529b27e460f454040b492ff9cdde69f11ff67f814d587c4dcfd02e790"
+        },
+        "src/workbook/workbook.h": {
+          "bytes": 12997,
+          "sha256": "f47c0b5896ee28d6e3fcecccb72bc6357956fc5583eda65d3be1825794791d79"
+        },
+        "src/workbook/workbook_codec.c": {
+          "bytes": 6618,
+          "sha256": "75519f3222cdecf9fc351e8b5db0928b043a6e5db0ecf04bb3eae097cf173b11"
+        },
+        "src/workbook/workbook_codec.h": {
+          "bytes": 2344,
+          "sha256": "7073011199d4b53f3d506174aed33e5a8f03cdb96257caf0837d32e37e99b39e"
+        },
+        "src/workbook/workbook_codec_read.c": {
+          "bytes": 118130,
+          "sha256": "c2165911ada8a7685b3b9cb07b6e831db80820a48b2834b5853e6a712d02008d"
+        },
+        "src/workbook/workbook_codec_read.h": {
+          "bytes": 26540,
+          "sha256": "ebe2f4c26e66e884b7c3531f45529e733ce0300a448e67562b63337e6fef6b10"
+        },
+        "tests/test_workbook_codec_counters_native.inc": {
+          "bytes": 16065,
+          "sha256": "5a403c26c99d53838e6895209dbc5eb0849fa2e6f2e39d7350507d0c2c817319"
+        },
+        "tests/test_workbook_codec_filters_native.inc": {
+          "bytes": 22893,
+          "sha256": "eb9b358c2d03692ba8d53460df98477eab84df51aa4248ef829c2101826645dd"
+        },
+        "tests/test_workbook_codec_grid_native.inc": {
+          "bytes": 21189,
+          "sha256": "358335831fe000b319c0a031807897154a74270dad97791239b4fb5ca8501b52"
+        },
+        "tests/test_workbook_codec_native.c": {
+          "bytes": 59389,
+          "sha256": "c7a9e654d4f884f62bfdb54d5e9f6530cd7b64d4b89c77a201e887aa7db3a2d2"
+        },
+        "tests/test_workbook_codec_objects_native.inc": {
+          "bytes": 20477,
+          "sha256": "18ecf374b1e22fda9f6adb1a84ed38ede7a66da4c4a876e99cb8c7558030a99c"
+        },
+        "tests/test_workbook_codec_options_native.inc": {
+          "bytes": 20097,
+          "sha256": "3b5e113a5f16b34103440fa391227b10406760320bae178405dfee9c4ba27b5d"
+        },
+        "tests/test_workbook_codec_pivot_marks_native.inc": {
+          "bytes": 23682,
+          "sha256": "3a0a4d47c668007946f2868f233e30e1f05fc032fa611831f5e61fdd38176e3b"
+        },
+        "tests/test_workbook_codec_queries_native.inc": {
+          "bytes": 20252,
+          "sha256": "894f6c877c656906c5d6a356252a701fe05b47828c8dbc645ac3f51b31fdc539"
+        },
+        "tests/test_workbook_codec_source_bindings_native.inc": {
+          "bytes": 26429,
+          "sha256": "651c8a09ed835a12cd9e63ba055911f2ba51602ebb204c1434998cd7459cfe0a"
+        },
+        "tests/test_workbook_codec_source_counters_native.inc": {
+          "bytes": 16473,
+          "sha256": "780e7923594ec270a86356ef017d7182a273c67f075095adfc48d3695e453e53"
+        },
+        "tests/test_workbook_codec_source_versions_native.inc": {
+          "bytes": 33208,
+          "sha256": "00b571b6e881f27145f6f37da6b27cb7e29cb5768ba028167a7ce0d2a6484fdc"
+        },
+        "tests/test_workbook_codec_tables_native.inc": {
+          "bytes": 28753,
+          "sha256": "7aba59d0ddfa06cde2e22f338dd68692cf7c4103b954d9feeee9e3409641c8e3"
+        }
+      },
+      "matches_accepted_Git_bytes": true
+    }
+  ],
+  "native_installed_sdk": {
+    "/opt/homebrew/include/duckdb.h": "e85f70155b5948c8575e59f66e60d43575cec8b252293534c9e8598eb313a293",
+    "/opt/homebrew/lib/libduckdb.dylib": "b36d22b47c649b266380d02e4d0940e4b7a5c38fe4bf5370b777742386650c8a"
+  },
+  "scope": "Exact original clang-MM project closures compared to accepted committed bytes. Original native SDK identities are retained; system SDK omitted by -MM. Pure/native closures do not prove browser preprocessor closure."
+}

@@ -1,0 +1,64 @@
+{
+  "schema": "duxcel.native-original-omissions",
+  "version": 1,
+  "original_root": "/Users/h2o/.codex/worktrees/duxcel-bp1-source-bindings-native/duxcel/build/bp1-source-bindings-native",
+  "original_seal": "evidence-seal.json",
+  "files": {
+    "diagnostic-build.txt": {
+      "bytes": 701,
+      "sha256": "08d6665ded89e66c0a6e5b2ed91ac73234d8c21df4421605578d0088017fc38a",
+      "reason": "Redundant intermediate/progress/script or empty build output; final manifest/logs/closure and original seal retained."
+    },
+    "emitter-log.txt": {
+      "bytes": 186,
+      "sha256": "03ddf5500b33609be5da75a77ee739d99857a3424289b7808054fa945a297a8e",
+      "reason": "Redundant intermediate/progress/script or empty build output; final manifest/logs/closure and original seal retained."
+    },
+    "emitter-progress.json": {
+      "bytes": 21599,
+      "sha256": "b722d9776047b4db292bac1d62db3675541cd964b0ec6972beea4a869ca298dd",
+      "reason": "Redundant intermediate/progress/script or empty build output; final manifest/logs/closure and original seal retained."
+    },
+    "first-failure/test_workbook_codec_native.c": {
+      "bytes": 59389,
+      "sha256": "c7a9e654d4f884f62bfdb54d5e9f6530cd7b64d4b89c77a201e887aa7db3a2d2",
+      "reason": "Source available from tested Git8a10ad8; initial include reconstructible with retained patch and hashes. No repeated broad C source dump."
+    },
+    "first-failure/test_workbook_codec_source_bindings_native.inc": {
+      "bytes": 26086,
+      "sha256": "e64225e545167af5c5d4963ede8b817e47d326813225125480a713fcdbeaa686",
+      "reason": "Source available from tested Git8a10ad8; initial include reconstructible with retained patch and hashes. No repeated broad C source dump."
+    },
+    "initial-manifest.json": {
+      "bytes": 676,
+      "sha256": "458a8f9b4977a31a7fc585091721167d6cc2f826fbfe0c6885c57053ea32a1ab",
+      "reason": "Redundant intermediate/progress/script or empty build output; final manifest/logs/closure and original seal retained."
+    },
+    "release.txt": {
+      "bytes": 117,
+      "sha256": "e83ac99b8efb1ac5b58983afb9a7a46039537974498bbbb8d4bf03e9db3b0dde",
+      "reason": "Redundant intermediate/progress/script or empty build output; final manifest/logs/closure and original seal retained."
+    },
+    "run_initial.py": {
+      "bytes": 1099,
+      "sha256": "868ac704d3160adf4f70b4fad11ce55d3ac3bf22d6cecb71c5b5141dfe029322",
+      "reason": "Redundant intermediate/progress/script or empty build output; final manifest/logs/closure and original seal retained."
+    },
+    "seal.py": {
+      "bytes": 4686,
+      "sha256": "2d2dc361d0b1e7dc2cdac00bffd97ccb3a1d4549e77282d207b60907a28c3310",
+      "reason": "Redundant intermediate/progress/script or empty build output; final manifest/logs/closure and original seal retained."
+    },
+    "test_workbook_codec_native.c": {
+      "bytes": 59389,
+      "sha256": "c7a9e654d4f884f62bfdb54d5e9f6530cd7b64d4b89c77a201e887aa7db3a2d2",
+      "reason": "Source available from tested Git8a10ad8; initial include reconstructible with retained patch and hashes. No repeated broad C source dump."
+    },
+    "test_workbook_codec_source_bindings_native.inc": {
+      "bytes": 26086,
+      "sha256": "e64225e545167af5c5d4963ede8b817e47d326813225125480a713fcdbeaa686",
+      "reason": "Source available from tested Git8a10ad8; initial include reconstructible with retained patch and hashes. No repeated broad C source dump."
+    }
+  },
+  "scope": "Original seal is preserved verbatim. This checkpoint deliberately copies bounded selected originals and source deltas, not every private payload."
+}

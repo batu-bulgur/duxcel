@@ -1,0 +1,70 @@
+{
+  "helper": "tests/test_workbook_codec_native",
+  "helper_sha256": "16ae17723dd593581342021043a1cde1bff76c84486c610fa08268cb03b8516d",
+  "fixtures": {
+    "schema": "duxcel.codec-fixtures",
+    "version": 1,
+    "files": [
+      {
+        "name": "source-versions-v12.dxls",
+        "version": 12,
+        "layout": 25,
+        "bytes": 3158016,
+        "sha256": "0c07f70dd8daa3c04ecf1f395d8346658b786a183f79a8687add112b2dc84662"
+      },
+      {
+        "name": "source-versions-v13.dxls",
+        "version": 13,
+        "layout": 25,
+        "bytes": 3682304,
+        "sha256": "41c3dd757c4d1270091ee6b43437832b228c2b9afb02119417066a3c83e24acd"
+      },
+      {
+        "name": "source-versions-v14.dxls",
+        "version": 14,
+        "layout": 25,
+        "bytes": 5779456,
+        "sha256": "62f3c607e1d18adb8ca050aa0a4b77b055bd3a3b4a772d3286af46054b4325b2"
+      },
+      {
+        "name": "source-versions-v14-reordered.dxls",
+        "version": 14,
+        "layout": 25,
+        "bytes": 6565888,
+        "sha256": "380271d28335baa6f59a11a2962ae4680b6c35155d5d1b4eb6e5ed79cce6096b"
+      }
+    ]
+  },
+  "served_archives": [
+    {
+      "name": "source-versions-v12.dxls",
+      "version": 12,
+      "layout": 25,
+      "bytes": 3158016,
+      "sha256": "0c07f70dd8daa3c04ecf1f395d8346658b786a183f79a8687add112b2dc84662"
+    },
+    {
+      "name": "source-versions-v13.dxls",
+      "version": 13,
+      "layout": 25,
+      "bytes": 3682304,
+      "sha256": "41c3dd757c4d1270091ee6b43437832b228c2b9afb02119417066a3c83e24acd"
+    },
+    {
+      "name": "source-versions-v14.dxls",
+      "version": 14,
+      "layout": 25,
+      "bytes": 5779456,
+      "sha256": "62f3c607e1d18adb8ca050aa0a4b77b055bd3a3b4a772d3286af46054b4325b2"
+    },
+    {
+      "name": "source-versions-v14-reordered.dxls",
+      "version": 14,
+      "layout": 25,
+      "bytes": 6565888,
+      "sha256": "380271d28335baa6f59a11a2962ae4680b6c35155d5d1b4eb6e5ed79cce6096b"
+    }
+  ],
+  "unchanged": true,
+  "error": null
+}
