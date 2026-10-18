@@ -1,0 +1,62 @@
+{
+  "base": "b2e7ddbb3b5110463b9c0746c8c5148713294bd5",
+  "scope": "retained owned-boundary admission, not allocator/parser/engine/RSS bound; no App activation",
+  "source_sha256": {
+    "src/common.c": "15f410fd1aff413e1ab017752a3298eeea07505955a99f1a7df82ff32af230c4",
+    "src/transforms/analysis.c": "57d616149b57436d169d415ebc5ab79c9db3678ee17bf82fa3b9ed34b266ba19",
+    "src/transforms/number.c": "d9646d9700ed0c243c741aa530c9dc463217c7ffc63b36a2c1b713bb3879085e",
+    "src/transforms/record_sql.c": "cc395a8855d63e6ded3c0828bd3ad9d14663259733029bf3d2b04203e8c90f96",
+    "src/platform/platform.c": "743116c0c7fad43cc3f5286e3192ffe8936476c3e48b35f2eac0f7b2a5ae0aa6",
+    "src/transforms/pivot.c": "b66b422e99efb0cf567d4772afe8b08091f01ab62709940b4d5b0b8db57c9f5d",
+    "src/transforms/distinct.c": "fd6dfb234dccf2ae33becb61faff64710720b06494bba6abf44aba2b166aad7c",
+    "src/data/page.c": "41b3035f707e4983e56a825ad0baf23ad1596ad41d0ba7102c9c0d3b9499a2dc",
+    "src/data/source_digest.c": "6bf46cd0827b0b7740350c2342beadfbc5689b890b049646e3b4e99fcd867f14",
+    "src/data/database.c": "49030569d20605174bc915bfb179f7a7c89d6a00e2830174c4ca110d6c50b700",
+    "src/ui/chartview.c": "127523642afd1d424e0a0ddce1ab67533bc5a5934c339eb02243680a87b260a0",
+    "src/transforms/chart_other.c": "fd6e092c95d9313cedb8fac49a8f08de5124b110a81b4c4ee10539a108c9db1d",
+    "tests/test_chart_other.c": "34b0887ba6733cb889bc9b65f9a55bad152a1540692b8132aaf861a88a0ae6ee",
+    "src/transforms/chart_other.h": "14b3d02dc8f0736f2b3d9c871e72db647613217526c44c8e3e00e49e22570a63"
+  },
+  "runs": [
+    {
+      "configuration": "optimized",
+      "profile": "ordinary",
+      "build_seconds": 1.269222667,
+      "test_seconds": 0.45059425,
+      "exit": 0,
+      "binary_sha256": "6bbe6b6c27efd2ad9ac8e7864bdd493884d1578b17390306e1e26977c07d6dc4",
+      "stdout": "PASS: 396 Chart Other component checks; real source AVG/distinct, no App/UI activation\n",
+      "stderr": ""
+    },
+    {
+      "configuration": "optimized",
+      "profile": "unproved-counterexample",
+      "build_seconds": 0,
+      "test_seconds": 0.02728370800000013,
+      "exit": 0,
+      "binary_sha256": "6bbe6b6c27efd2ad9ac8e7864bdd493884d1578b17390306e1e26977c07d6dc4",
+      "stdout": "COUNTEREXAMPLE: intentionally unproved NUL key: chunk bytes=3, legacy accessor bytes=1, C-string bytes=1, expected Other=42, unproved plan Other=1; no producer enabled\n",
+      "stderr": ""
+    },
+    {
+      "configuration": "sanitize",
+      "profile": "ordinary",
+      "build_seconds": 2.538004042,
+      "test_seconds": 0.7129025000000002,
+      "exit": 0,
+      "binary_sha256": "63b6ca2415431b1aeeb16b6ddde4c139a11ab407ea6ae317def67a388b708d40",
+      "stdout": "PASS: 396 Chart Other component checks; real source AVG/distinct, no App/UI activation\n",
+      "stderr": ""
+    },
+    {
+      "configuration": "sanitize",
+      "profile": "unproved-counterexample",
+      "build_seconds": 0,
+      "test_seconds": 0.11037195799999999,
+      "exit": 0,
+      "binary_sha256": "63b6ca2415431b1aeeb16b6ddde4c139a11ab407ea6ae317def67a388b708d40",
+      "stdout": "COUNTEREXAMPLE: intentionally unproved NUL key: chunk bytes=3, legacy accessor bytes=1, C-string bytes=1, expected Other=42, unproved plan Other=1; no producer enabled\n",
+      "stderr": ""
+    }
+  ]
+}

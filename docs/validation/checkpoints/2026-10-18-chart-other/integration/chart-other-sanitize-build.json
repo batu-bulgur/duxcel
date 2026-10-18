@@ -1,0 +1,16 @@
+{
+  "source": {
+    "commit": "c3a4a99fcc135c8db1a0e9151e8f924c2db183f3",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "10acbb56d3480fecfcd47c3a20396fcf42d6be6a20c5dcd343a89b55b8c945cb",
+    "source_files": 283
+  },
+  "command": [
+    "make",
+    "duxcel-debug",
+    "tests/test_background-native-debug"
+  ],
+  "exit_code": 0,
+  "seconds": 39.031,
+  "source_unchanged": true
+}

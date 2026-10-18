@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "url": "http://127.0.0.1:8767/",
+  "pid": 75024,
+  "artifact": "/Users/h2o/dev/duxcel/build/web/review/7d229ee094909d11deb0",
+  "source": {
+    "commit": "1082c1f10b668eb260c529465aefef2390889f3a",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "e54f86e0d5983bffe253cf22b736228a07a2264adb081b4d8f5324e0beabe4f3",
+    "source_files": 283
+  },
+  "wrapper_source": {
+    "commit": "d097f5c3edcd760e02f4492b0ca7844f0f9badc4",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "336aeafd539835b033c43df0dfab05a5249642b737f0616817007970ba40acdb",
+    "source_files": 283
+  },
+  "signature": "7d229ee094909d11deb0131e84d11a1904a19a36bbb41e358520998fe48a5a46",
+  "queue_project": "duxcel-c368c516acb3d456",
+  "queue_retained_unchanged": true,
+  "agent": "codex",
+  "browser_reloaded": false,
+  "native_launched": false,
+  "source_unchanged": true,
+  "seconds": 0.199,
+  "browser_app_run": "20261018T064606-browser-74554",
+  "scope": "Chart Other actual shared-C App742 with source-derived weighted AVG/distinct/tooltip and query-free presentation/history; Worker247 and native40/review400 have their own source scopes. No new feedback-delivery or full parity acceptance."
+}

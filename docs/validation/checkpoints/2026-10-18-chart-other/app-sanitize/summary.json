@@ -1,0 +1,71 @@
+{
+  "status": "passed",
+  "started_utc": "2026-10-18T06:37:38.128929+00:00",
+  "tier": "native",
+  "config": "sanitize",
+  "jobs": 1,
+  "no_build": false,
+  "edit": false,
+  "native_visibility": "hidden",
+  "root": "/Users/h2o/dev/duxcel",
+  "source": {
+    "commit": "24daeb0aee07d3adec522a196534f970418fdf63",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "47c6f5792dbc468bea9d32b6056a66899bb898a11cd77a64c560bd67c0c3a089",
+    "source_files": 283
+  },
+  "results": [
+    {
+      "name": "build-integration",
+      "command": [
+        "make",
+        "duxcel-debug",
+        "tests/test_background-native-debug",
+        "design-fixture"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T063738-native-70842/build-integration.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.317
+    },
+    {
+      "name": "background-sanitize",
+      "command": [
+        "./tests/test_background-native-debug"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T063738-native-70842/background-sanitize.txt",
+      "expected_stages": null,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 1.446
+    },
+    {
+      "name": "native-chart",
+      "command": [
+        "./duxcel-debug",
+        "--chart-smoke",
+        "--frames",
+        "2000",
+        "--screenshot",
+        "/Users/h2o/dev/duxcel/tests/results/runs/20261018T063738-native-70842/chart.png"
+      ],
+      "log": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T063738-native-70842/native-chart.txt",
+      "expected_stages": 40,
+      "exit_code": 0,
+      "status": "passed",
+      "seconds": 22.818
+    }
+  ],
+  "binaries": {
+    "/Users/h2o/dev/duxcel/duxcel-debug": "80a1603237d2d619987d36234d81efd22e4742df4c71a0838f9c590714eb6cf0",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "app_config": "sanitize",
+  "elapsed_seconds": 25.741,
+  "binaries_after": {
+    "/Users/h2o/dev/duxcel/duxcel-debug": "80a1603237d2d619987d36234d81efd22e4742df4c71a0838f9c590714eb6cf0",
+    "/Users/h2o/dev/duxcel/tests/test_background-native-debug": "ad0dd4851ad72abf12550eff4f89a75e78b83d7b39570c7e2b30fe675efad63c"
+  },
+  "finished_utc": "2026-10-18T06:38:04.073825+00:00"
+}
