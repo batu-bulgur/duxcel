@@ -27,7 +27,7 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="duxcel-build-contract-") as temporary:
         tree = Path(temporary)
-        for directory in ("src", "tools", "generated", "inputs"):
+        for directory in ("src", "tools", "generated", "inputs", "assets"):
             (tree / directory).mkdir()
         shutil.copyfile(ROOT / "Makefile", tree / "Makefile")
         (tree / "src/common.h").write_text("int answer(void);\n")
@@ -92,6 +92,7 @@ with pathlib.Path('compiler.lock').open('a') as lock:
         check(not (tree / "generations.log").exists(), "valid checked-in icons must not regenerate")
         check(build() == ([], 0), "warm app must not invoke the compiler/linker")
         check((tree / "build/obj/release/app/src/first.d").is_file(), "compiler dependency output")
+        next_timestamp()  # Sidecar removal is a deliberate edit on Make 3.81 too.
         (tree / "build/obj/release/app/src/first.d").unlink()
         check(build() == (["src/first.c"], 1), "missing dependency sidecars must be recreated")
         check(build() == ([], 0), "repaired dependency graph returns to a warm no-op")
@@ -113,6 +114,25 @@ with pathlib.Path('compiler.lock').open('a') as lock:
         check(len(compiled) == 2 and links == 1, "independent sanitizer objects")
         check((tree / "build/obj/sanitize/app/src/first.o").is_file(), "sanitizer object path")
         check(build(options=["CFLAGS=-O0 -g", "LDFLAGS=-lm"]) == ([], 0), "sanitizers must not alter release objects")
+        accepted = {name: digest(tree / name) for name in ("duxcel", "duxcel-debug")}
+        edit_target = "build/edit-sanitize/duxcel"
+        compiled, links = build(edit_target)
+        check(sorted(compiled) == ["src/first.c", "src/main.c"] and links == 1, "independent edit sanitizer objects")
+        edit_object = tree / "build/obj/edit-sanitize/app/src/first.o"
+        check(edit_object.is_file() and (tree / "build/edit-sanitize/assets").resolve() == (tree / "assets").resolve(), "edit objects and executable-relative assets")
+        edit_calls = [call for call in commands() if "-c" in call and "build/obj/edit-sanitize/" in call[call.index("-o") + 1]]
+        check(len(edit_calls) == 2 and all("-O0" in call and "-fsanitize=address,undefined" in call for call in edit_calls), "edit compilation keeps both sanitizers at O0")
+        subprocess.run([str(tree / edit_target)], cwd=tree, check=True)
+        check(build(edit_target) == ([], 0), "warm edit build")
+        next_timestamp()
+        (tree / "build/obj/edit-sanitize/app/src/first.d").unlink()
+        check(build(edit_target) == (["src/first.c"], 1), "edit missing dependency recovery")
+        edit_before, edit_object_before = digest(tree / edit_target), digest(edit_object)
+        build(edit_target, options=["APP_EDIT_FLAGS=-invalid-duxcel-edit-flag"], success=False)
+        check(digest(tree / edit_target) == edit_before and digest(edit_object) == edit_object_before, "failed edit compile preserves accepted output")
+        check(not list(tree.rglob("*.new")), "failed edit compilation cleans private temporary files")
+        check(build(edit_target)[1] == 1, "edit flag recovery relinks only after successful compilation")
+        check(all(digest(tree / name) == value for name, value in accepted.items()), "edit mode never replaces release or O1 sanitizer artifacts")
         compiled, links = build("build/create-design-workbook")
         check(sorted(compiled) == ["src/first.c", "tools/create_design_workbook.c"] and links == 1,
               "helper must not reuse application objects with different include flags")

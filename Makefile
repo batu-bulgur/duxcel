@@ -104,9 +104,10 @@ APP_SOURCES = $(filter %.c %.m,$(SRC))
 APP_EXTRA_OBJECTS = $(filter %.o,$(SRC))
 APP_RELEASE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
 APP_SANITIZE_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
+APP_EDIT_OBJECTS = $(addprefix build/obj/edit-sanitize/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
 DESIGN_SOURCES = $(CORE) tools/create_design_workbook.c
 DESIGN_OBJECTS = $(addprefix build/obj/release/design/,$(addsuffix .o,$(basename $(DESIGN_SOURCES))))
-INCREMENTAL_OBJECTS = $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(DESIGN_OBJECTS)
+INCREMENTAL_OBJECTS = $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(APP_EDIT_OBJECTS) $(DESIGN_OBJECTS)
 REVIEW_SOURCES = $(APP_SOURCES) src/dev/review_registry.c src/dev/review_store.c src/dev/review_input.c src/dev/review_capture.c
 REVIEW_OBJECTS = $(addprefix build/obj/review/app/,$(addsuffix .o,$(basename $(REVIEW_SOURCES))))
 REVIEW_SANITIZE_OBJECTS = $(addprefix build/obj/review-sanitize/app/,$(addsuffix .o,$(basename $(REVIEW_SOURCES))))
@@ -116,6 +117,8 @@ REVIEW_FLAGS = $(REVIEW_CPPFLAGS) -Ibuild/review -O2 -g $(WARN)
 REVIEW_SANITIZE_FLAGS = $(REVIEW_CPPFLAGS) -Ibuild/review-sanitize -O1 -g $(WARN) $(SANFLAGS)
 APP_RELEASE_FLAGS = $(CPPFLAGS) $(CFLAGS) $(WARN)
 APP_SANITIZE_FLAGS = $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS)
+# Opt-in edit loop only. Optimized release/O1 sanitizer acceptance stays separate.
+APP_EDIT_FLAGS = $(CPPFLAGS) -O0 -g $(WARN) $(SANFLAGS)
 DESIGN_FLAGS = -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN)
 
 # A no-op signature recipe preserves its timestamp. Changed compiler, includes,
@@ -130,12 +133,16 @@ build/obj/release/app/compile.flags: force-build-signature
 	$(call build_signature,$(CC) $(APP_RELEASE_FLAGS) -MMD -MP -c)
 build/obj/sanitize/app/compile.flags: force-build-signature
 	$(call build_signature,$(CC) $(APP_SANITIZE_FLAGS) -MMD -MP -c)
+build/obj/edit-sanitize/app/compile.flags: force-build-signature
+	$(call build_signature,$(CC) $(APP_EDIT_FLAGS) -MMD -MP -c)
 build/obj/release/design/compile.flags: force-build-signature
 	$(call build_signature,$(CC) $(DESIGN_FLAGS) -MMD -MP -c)
 build/obj/release/app/link.flags: force-build-signature
 	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS) $(LDFLAGS) $(LDLIBS))
 build/obj/sanitize/app/link.flags: force-build-signature
 	$(call build_signature,$(CC) -O1 -g $(WARN) $(SANFLAGS) $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS) $(LDFLAGS) $(LDLIBS) $(SANFLAGS))
+build/obj/edit-sanitize/app/link.flags: force-build-signature
+	$(call build_signature,$(CC) -O0 -g $(WARN) $(SANFLAGS) $(APP_EDIT_OBJECTS) $(APP_EXTRA_OBJECTS) $(LDFLAGS) $(LDLIBS) $(SANFLAGS))
 build/obj/release/design/link.flags: force-build-signature
 	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(DESIGN_OBJECTS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
 .PHONY: force-build-signature
@@ -197,9 +204,13 @@ build/obj/sanitize/app/%.o: %.c build/obj/sanitize/app/compile.flags
 	$(call compile_object,$(APP_SANITIZE_FLAGS))
 build/obj/sanitize/app/%.o: %.m build/obj/sanitize/app/compile.flags
 	$(call compile_object,$(APP_SANITIZE_FLAGS))
+build/obj/edit-sanitize/app/%.o: %.c build/obj/edit-sanitize/app/compile.flags
+	$(call compile_object,$(APP_EDIT_FLAGS))
+build/obj/edit-sanitize/app/%.o: %.m build/obj/edit-sanitize/app/compile.flags
+	$(call compile_object,$(APP_EDIT_FLAGS))
 build/obj/release/design/%.o: %.c build/obj/release/design/compile.flags
 	$(call compile_object,$(DESIGN_FLAGS))
-$(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS): | $(ICON_OUTPUTS)
+$(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(APP_EDIT_OBJECTS): | $(ICON_OUTPUTS)
 
 define link_binary
 	@mkdir -p "$(@D)"
@@ -210,6 +221,11 @@ duxcel: $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/release/app/link.f
 	$(call link_binary,$(CFLAGS) $(WARN) $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS),$(LDFLAGS) $(LDLIBS))
 duxcel-debug: $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/sanitize/app/link.flags
 	$(call link_binary,-O1 -g $(WARN) $(SANFLAGS) $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
+build/edit-sanitize/assets:
+	mkdir -p $(@D)
+	ln -s ../../assets $@
+build/edit-sanitize/duxcel: build/edit-sanitize/assets $(APP_EDIT_OBJECTS) $(APP_EXTRA_OBJECTS) build/obj/edit-sanitize/app/link.flags
+	$(call link_binary,-O0 -g $(WARN) $(SANFLAGS) $(APP_EDIT_OBJECTS) $(APP_EXTRA_OBJECTS),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
 # The lifecycle driver uses real application objects, never renderer stubs.
 LIFECYCLE_RELEASE_OBJECTS = $(filter-out build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) build/obj/release/app/tests/test_app_lifecycle.o
 LIFECYCLE_SANITIZE_OBJECTS = $(filter-out build/obj/sanitize/app/src/main.o,$(APP_SANITIZE_OBJECTS)) build/obj/sanitize/app/tests/test_app_lifecycle.o
@@ -533,6 +549,7 @@ ifeq ($(shell uname -s),Darwin)
 	codesign --force --sign - build/Duxcel.app
 endif
 clean:
+	rm -rf build/edit-sanitize
 	rm -f tests/test_objects tests/test_objects-debug
 	rm -rf tests/test_objects.dSYM tests/test_objects-debug.dSYM
 	rm -rf build/obj
