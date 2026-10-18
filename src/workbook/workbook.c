@@ -261,6 +261,36 @@ static bool format_budget_model_valid(const FormatStore *store) {
     }
     return true;
 }
+static bool legacy_cell_shape(const SheetCell *cells,size_t count,size_t bytes) {
+    return count<=DX_MAX_EDIT_CELLS && bytes<=DX_CELL_BYTES && (!count || cells);
+}
+bool worksheet_legacy_format_history_eligible(const Worksheet *s,char **error) {
+    if (!s || s->undo_actions_count>DX_HISTORY || s->redo_actions_count>DX_HISTORY ||
+        s->cells.undo_count>DX_HISTORY || s->cells.redo_count>DX_HISTORY ||
+        s->formats.undo_count>DX_FORMAT_HISTORY || s->formats.redo_count>DX_FORMAT_HISTORY)
+        return range_fail(error,"Legacy formatting migration needs bounded worksheet history; reopen the unchanged workbook.");
+    if (s->undo_count || s->redo_count || s->objects.undo_count || s->objects.redo_count)
+        return range_fail(error,"Legacy formatting migration cannot bind retained Analysis or object history; reopen the unchanged workbook.");
+    if (s->cells.count>s->cells.capacity || !legacy_cell_shape(s->cells.cells,s->cells.count,s->cells.bytes))
+        return range_fail(error,"Legacy formatting migration found an invalid editable-cell array shape.");
+    for (size_t h=0;h<2;h++) {
+        const EditKind *actions=h ? s->redo_actions : s->undo_actions; size_t count=h ? s->redo_actions_count : s->undo_actions_count,cells=0,formats=0;
+        for (size_t i=0;i<count;i++) {
+            if (actions[i]!=EDIT_CELLS && actions[i]!=EDIT_FORMAT && actions[i]!=EDIT_CELLS_FORMAT)
+                return range_fail(error,"Legacy formatting migration supports only retained Cell and Format actions; reopen the unchanged workbook.");
+            cells+=actions[i]!=EDIT_FORMAT; formats+=actions[i]!=EDIT_CELLS;
+        }
+        size_t available_cells=h ? s->cells.redo_count : s->cells.undo_count,available_formats=h ? s->formats.redo_count : s->formats.undo_count;
+        if (cells!=available_cells || formats!=available_formats)
+            return range_fail(error,"Legacy formatting migration needs aligned Cell and Format Undo/Redo histories; reopen the unchanged workbook.");
+        const CellSnapshot *states=h ? s->cells.redo : s->cells.undo;
+        for (size_t i=0;i<available_cells;i++) if (!legacy_cell_shape(states[i].cells,states[i].count,states[i].bytes))
+            return range_fail(error,"Legacy formatting migration found an invalid retained editable-cell array shape.");
+    }
+    if (!format_budget_model_valid(&s->formats))
+        return range_fail(error,"Legacy formatting migration found invalid current or retained cell formats.");
+    return true;
+}
 FormatBudgetStatus workbook_format_usage(const Workbook *book,const WorkbookFormatReplacement *replacements,size_t count,WorkbookFormatUsage *out) {
     if (!book || !out || book->count>DX_MAX_SHEETS || (book->count && !book->sheets) || count>DX_MAX_SHEETS || (count && !replacements)) return FORMAT_BUDGET_INPUT;
     const FormatStore *formats[DX_MAX_SHEETS]={0}; const SourceVersions *versions[DX_MAX_SHEETS]={0}; const ObjectStore *objects[DX_MAX_SHEETS]={0}; bool replaced[DX_MAX_SHEETS]={0};
