@@ -6196,7 +6196,8 @@ static void pipeline_reveal_step(App *a,size_t index) {
     const UIInspectorLayout *layout=&a->pipeline_layout; float s=a->ui.scale;
     if (!layout->valid || a->pipeline_sql || a->pipeline_collapsed || !s) return;
     float top=7+index*layout->row_height,bottom=top+layout->row_height,visible=layout->list_frame.height/s;
-    if (top<a->pipeline_inner_scroll) a->pipeline_inner_scroll=top;
+    /* Home retains the list's leading padding as well as the first row. */
+    if (top<a->pipeline_inner_scroll) a->pipeline_inner_scroll=index ? top : 0;
     if (bottom>a->pipeline_inner_scroll+visible) a->pipeline_inner_scroll=bottom-visible;
     a->pipeline_inner_scroll=fmaxf(0,fminf(layout->inner_max,a->pipeline_inner_scroll));
     float y=layout->list_frame.y+(top-a->pipeline_inner_scroll)*s,edge=layout->body_clip.y+layout->body_clip.height;
