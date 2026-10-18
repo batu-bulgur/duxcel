@@ -490,7 +490,7 @@ The metadata staging component has its own fast gate:
 python3 tools/test.py fast --modules workbook_codec_read --config both
 ```
 
-Root `6599c23` passes1,391 checks/config in3.756s total. It produces only an opaque owned meta/sheets Header, never a partial Workbook or product Open action. Original DOUBLE bounds are checked before narrowing, including tiny negative offsets and adjacent-outside canvas limits. Actual native comparison is accepted separately below; official Worker adapter acceptance remains in progress.
+Root `6599c23` passes1,391 checks/config in3.756s total. It produces only an opaque owned meta/sheets Header, never a partial Workbook or product Open action. Original DOUBLE bounds are checked before narrowing, including tiny negative offsets and adjacent-outside canvas limits. Actual native comparison is accepted separately below; official Worker adapter acceptance has its separate receipts below.
 
 The budget-query rewrite `554b591` keeps all nine EXISTS predicates, collecting their non-NULL Boolean values with UNION ALL/bool_or. A matched private query probe passes1,009 checks/config and30 cases, with the warm query19.901→1.277ms optimized and72.362→4.771ms O1. The unchanged1,287-check native source-format workload separately passes15.329/93.838s optimized/O1 (124.981s including15.566s build); this is not a controlled whole-suite speed claim. Existing native workspace4 additionally passes at `6599c23` in3.005/3.110s App. The browser-conditioned C model87/config passes at `e142142` in8.821s including7.781s build: native locator helpers are separately compiled without JS bridges; real path assertions remain. [Exact sources, natural target build failures and boundaries](validation/checkpoints/2026-10-18-workbook-budget-query/).
 
@@ -498,3 +498,14 @@ The budget-query rewrite `554b591` keeps all nine EXISTS predicates, collecting 
 `make test-workbook-codec-native` compares the same partial Header against seven private actual native v12/v13/v14 archives in optimized/O1 sanitizer builds. At `6766749`, each passes1,611 checks,21 metadata adapter executions and35 feeds in1.226/2.870s after11.238s build. These counters exclude fixture/native-loader SQL. The corrected full-tier command-list expectation passes32 checks at `95a2d9b`; its initial failure remains retained. [Exact receipts and ownership scope](validation/checkpoints/2026-10-18-workbook-header/).
 
 `python3 tools/test_web_app.py --codec-read-driver` is a separate no-window official Worker gate. Its test-only helper emits seven closed native archives into a fresh owned directory, refuses replacement, and preserves raw `missing-source.csv` references without creating that source. The harness seals sizes/SHA-256 before serving a narrow read-only route map and rechecks archives/helper afterward. It does not share files with other worktrees or use a user app/browser profile. It decodes only meta/sheets into an opaque Header, never product Open/Save. At C product572/wrapper5e5529d,6,294 checks pass with54 queries,11 atomic rejections and one superseded actual completed callback, in8.351s warm total. The initial test-adapter failure at a4e176a (sheet-only U64 assertion ran on the smaller meta result) is retained separately; product engine/decoder assertions were not weakened. Four harness boundary tests additionally check profile isolation, sealed bytes/schema, symlinks and reserved-route behavior. Existing Worker247 keeps its separate analytical workload.
+
+
+Optional primary secondary-sort staging has focused gates:
+
+```sh
+python3 tools/test.py fast --modules workbook_codec_read --config both
+make test-workbook-codec-sorts
+python3 tools/test_web_app.py --codec-read-driver --codec-sorts
+```
+
+The accepted sort checkpoint at `de6e15e` preserves the original1,391 pure Header checks within3,220 total/config; native `--sorts-only` passes15,913/config, while default1,611/21 metadata executions/35 feeds remains unchanged. Full-tier ordering now runs the optional sort gate after each native Header gate. The actual Worker mode observes77,148 C checks plus190 external checks,49 queries and six complete256+192 result pairs in15.041s including6.580s build/native-helper preparation (6.860s browser). Its six explicit semantic/budget rejections and actual held completed callback retain the previous owned Header; this is not active-query cancellation timing or complete Workbook/Open/Save. Five wrapper boundary tests and32 runner tests pass. Original Worker247, Header6,294, fresh shipping absence and actual transformed Columns172 pass separately. [Exact binaries, counters, elapsed times and limitations](validation/checkpoints/2026-10-18-workbook-sorts/).
