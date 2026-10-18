@@ -1,4 +1,5 @@
 #include "format.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 static bool fail(char **error,const char *text) { if (error) { free(*error); *error=dx_strdup(text); } return false; }
@@ -287,6 +288,63 @@ bool format_plan_guard_legacy(const FormatStore *s,const FormatScopeView *views,
     if (!ready(s,out,error)) goto failed;
     return true;
 failed: format_snapshot_free(out); return false;
+}
+static FormatStore state_view(FormatSnapshot state) {
+    return (FormatStore){.items=state.items,.count=state.count,.scopes=state.scopes,.scope_count=state.scope_count,.source_aware=state.source_aware};
+}
+static bool guarded_state_bytes(FormatSnapshot state,const FormatScopeView *views,size_t count,size_t *out,char **error) {
+    FormatStore view=state_view(state);
+    if (!format_valid(&view,error)) return false;
+    size_t bytes=state_bytes(state),finite=0,added=0;
+    if (!state.source_aware) for (size_t i=0;i<state.count;i++) finite+=!whole_columns(state.items[i].range);
+    if (finite) {
+        for (size_t i=0;i<count;i++) {
+            FormatScope candidate={views[i].owner,(void *)views[i].definition,views[i].bytes}; size_t at=0;
+            while (at<state.scope_count && !scope_same(state.scopes[at],candidate)) at++;
+            if (at==state.scope_count) { bytes=add_bytes(bytes,add_bytes(sizeof(FormatScope),candidate.bytes+1)); added++; }
+        }
+        if (added>DX_FORMAT_PATCHES*DX_FORMAT_GUARDS-state.scope_count) return fail(error,"The guarded baseline exceeds the bounded cell format scope limit.");
+        bytes=add_bytes(bytes,finite*count*sizeof(size_t));
+    }
+    if (bytes>DX_FORMAT_CURRENT_BYTES) return fail(error,"The guarded baseline exceeds the 1 MiB cell format limit for a retained state. No history was changed.");
+    *out=bytes; return true;
+}
+static bool guarded_state_copy(FormatSnapshot state,const FormatScopeView *views,size_t count,FormatSnapshot *out,char **error) {
+    FormatStore view=state_view(state); *out=snapshot(&view);
+    if (state.source_aware) return true;
+    out->source_aware=true; bool finite=false; size_t ids[DX_FORMAT_GUARDS];
+    for (size_t i=0;i<state.count;i++) finite|=!whole_columns(state.items[i].range);
+    if (finite && !scope_ids(out,views,count,ids,error)) return false;
+    for (size_t i=0;i<out->count;i++) if (!whole_columns(out->items[i].range)) {
+        FormatPatch *patch=&out->items[i]; patch->selector=FORMAT_GUARDED; patch->guard_count=count;
+        patch->guard_ids=dx_alloc(count*sizeof(size_t)); memcpy(patch->guard_ids,ids,count*sizeof(size_t));
+    }
+    return true;
+}
+bool format_plan_guard_store(const FormatStore *s,const FormatScopeView *views,size_t count,FormatStore *out,bool *changed,char **error) {
+    if (!s || !out || s==out || !changed) return fail(error,"Choose independent owned outputs for the guarded baseline plan.");
+    if (!scope_views_valid(views,count,error)) return false;
+    if (s->undo_count>DX_FORMAT_HISTORY || s->redo_count>DX_FORMAT_HISTORY) return fail(error,"Cell format history exceeds its bounded state limit.");
+    size_t bytes=0; bool needs=false;
+    for (size_t i=0;i<1+s->undo_count+s->redo_count;i++) {
+        FormatSnapshot state=i==0 ? current(s) : i<=s->undo_count ? s->undo[i-1] : s->redo[i-1-s->undo_count]; size_t next=0;
+        if (!guarded_state_bytes(state,views,count,&next,error)) return false;
+        bytes=add_bytes(bytes,next); needs|=!state.source_aware;
+    }
+    if (bytes>DX_FORMAT_HISTORY_BYTES) return fail(error,"The guarded baseline exceeds the 32 MiB cell format history limit. No history was changed.");
+    if (!needs) { *changed=false; return true; }
+    if (s->revision==UINT64_MAX) return fail(error,"The guarded baseline cannot advance the exhausted cell format revision.");
+    FormatStore next={.revision=s->revision,.undo_count=s->undo_count,.redo_count=s->redo_count}; FormatSnapshot state={0};
+    if (!guarded_state_copy(current(s),views,count,&state,error)) { format_snapshot_free(&state); return false; }
+    next.items=state.items; next.count=state.count; next.scopes=state.scopes; next.scope_count=state.scope_count; next.source_aware=state.source_aware;
+    for (size_t i=0;i<s->undo_count;i++) if (!guarded_state_copy(s->undo[i],views,count,&next.undo[i],error)) goto failed;
+    for (size_t i=0;i<s->redo_count;i++) if (!guarded_state_copy(s->redo[i],views,count,&next.redo[i],error)) goto failed;
+    format_free(out); *out=next; *changed=true; return true;
+failed: format_free(&next); return false;
+}
+void format_adopt_guard_store(FormatStore *s,FormatStore *owned) {
+    assert(s && owned && s!=owned && s->revision==owned->revision && s->revision!=UINT64_MAX);
+    FormatStore next=*owned; *owned=(FormatStore){0}; format_free(s); *s=next; s->revision++;
 }
 bool format_history(FormatStore *s,bool redo) {
     FormatSnapshot *from=redo ? s->redo : s->undo,*to=redo ? s->undo : s->redo; size_t *fc=redo ? &s->redo_count : &s->undo_count,*tc=redo ? &s->undo_count : &s->redo_count;
