@@ -63,6 +63,23 @@ static void wrap(TextLines *lines,UIContext *ui,const char *text,float width,flo
     if (!lines->offsets || lines->width!=width || lines->scale!=ui->scale || lines->raster_size!=ui->raster_size || lines->font_size!=size) text_lines_layout_sized(lines,ui,text,width,size);
 }
 static Rectangle shifted(Rectangle rect,float offset) { rect.y-=offset; return rect; }
+static bool backdrop_press(UIContext *ui,Rectangle panel,bool pointer) {
+    if (!pointer || ui->pointer_blocked) return false;
+    float width=GetScreenWidth(),height=GetScreenHeight();
+    Rectangle regions[]={{0,0,width,panel.y},{0,panel.y+panel.height,width,height-panel.y-panel.height},
+        {0,panel.y,panel.x,panel.height},{panel.x+panel.width,panel.y,width-panel.x-panel.width,panel.height}};
+    for (size_t i=0;i<sizeof(regions)/sizeof(*regions);i++) {
+        Rectangle area=ui->clipping ? GetCollisionRec(regions[i],ui->clip) : regions[i];
+        if (area.width<=0 || area.height<=0) continue;
+        /* Match the reference's backdrop pointer-down even when the native
+           press/release completed between frames. Leave right clicks owned. */
+        DxPointerGesture gesture; if (ui_take_left_gesture_from(area,&gesture)) return true;
+        bool hover=false; int cursor=ui->cursor;
+        bool pressed=ui_control_input(ui,area,true,&hover); ui->cursor=cursor;
+        if (pressed) return true;
+    }
+    return false;
+}
 static void text(GUIDE_TEXT_CONTEXT UIContext *ui,const TextLines *lines,const char *raw,Rectangle rect,Rectangle clip,float size,float line_height,Color color,UIFontWeight weight) {
     ui_set_clip(ui,GetCollisionRec(rect,clip));
     for (size_t i=0;i<lines->count;i++) {
@@ -88,7 +105,7 @@ bool ui_guide_draw(UIContext *ui,UIGuide *guide,bool pointer) {
     if (!layout.valid) return false;
     float maximum=fmaxf(0,layout.content_height-layout.panel.height/s);
     if (pointer && ui_pressed(KEY_ESCAPE)) return true;
-    if (pointer && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(),layout.panel)) return true;
+    if (backdrop_press(ui,layout.panel,pointer)) return true;
     if (pointer && CheckCollisionPointRec(GetMousePosition(),layout.panel)) guide->scroll-=GetMouseWheelMoveV().y*42;
     if (pointer && ui_key(KEY_UP)) guide->scroll-=24; if (pointer && ui_key(KEY_DOWN)) guide->scroll+=24;
     if (pointer && ui_key(KEY_PAGE_UP)) guide->scroll-=layout.clip.height/s-30; if (pointer && ui_key(KEY_PAGE_DOWN)) guide->scroll+=layout.clip.height/s-30;
