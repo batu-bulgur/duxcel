@@ -2649,7 +2649,7 @@ try{
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelWorkerResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'worker-driver.json'),JSON.stringify(report??{ok:false,error:'C driver did not complete'},null,2));
   check(report?.ok,'Real C/Worker bridge failed; see worker-driver.json and events.json');
-  check(report.stages===245,'C/Worker acceptance stage inventory changed');
+  check(report.stages===247,'C/Worker acceptance stage inventory changed');
   const workloadLines=events.filter(event=>event.method==='Runtime.consoleAPICalled').flatMap(event=>event.params.args.map(arg=>String(arg.value??''))).filter(line=>line.startsWith('Browser worker workloads: '));
   check(workloadLines.length===1,'C/Worker did not report one actual sequential workload inventory');
   const workloads=JSON.parse(workloadLines[0].slice('Browser worker workloads: '.length));
