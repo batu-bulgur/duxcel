@@ -224,11 +224,13 @@ typedef enum {
     QUIET_CANCEL,WAIT_CANCEL_RECOVERY,WAIT_STOP_SCHEMA,RUN_STOP,QUIET_STOP,
     WAIT_EXPORT_RESET,WAIT_EXPORT_CASES,WAIT_EXPORT_REGISTER,WAIT_EXPORT_READBACK,WAIT_EXPORT_LAST,WAIT_EXPORT_SOURCE_REGISTER,
     WAIT_EXPORT_CANCEL,WAIT_EXPORT_STALE,WAIT_EXPORT_RECOVERY,WAIT_EXPORT_SOURCE_VERIFY,QUIET_EXPORT_STOP,
-    WAIT_VERIFY_RESET,WAIT_VERIFY_WARM,WAIT_VERIFY_UNSUPPORTED,WAIT_VERIFY_RECOVERY,QUIET_VERIFY_STOP,FINISHED
+    WAIT_VERIFY_RESET,WAIT_VERIFY_WARM,WAIT_VERIFY_UNSUPPORTED,WAIT_VERIFY_RECOVERY,
+    WAIT_RECORDS_SOURCE_UNSUPPORTED,WAIT_RECORDS_SOURCE_RECOVERY,WAIT_RECORDS_PIVOT_WARM,
+    WAIT_RECORDS_PIVOT_UNSUPPORTED,WAIT_RECORDS_PIVOT_RECOVERY,QUIET_VERIFY_STOP,FINISHED
 } Stage;
 static QueryWorker worker;
 static QueryReply *reply;
-static Page retained,verification_retained;
+static Page retained,verification_retained,collection_retained;
 static DistinctPage retained_distinct;
 static SelectionStats retained_statistics;
 static char *retained_rejection;
@@ -251,7 +253,7 @@ static void retained_values(void);
 static void die(const char *condition,int line) {
     fprintf(stderr,"FAIL browser-worker stage %d line %d: %s\n",(int)stage,line,condition);
     if (reply && reply->error) fprintf(stderr,"Worker error: %s\n",reply->error);
-    reply_free(reply); reply=NULL; page_free(&retained); page_free(&verification_retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); free(retained_clipboard); free(retained_export); if (worker.started) worker_stop(&worker);
+    reply_free(reply); reply=NULL; page_free(&retained); page_free(&verification_retained); page_free(&collection_retained); distinct_free(&retained_distinct); statistics_free(&retained_statistics); free(retained_rejection); free(retained_clipboard); free(retained_export); if (worker.started) worker_stop(&worker);
     completed(0,checks,stages); emscripten_cancel_main_loop(); abort();
 }
 #define CHECK(condition) do { checks++; if (!(condition)) die(#condition,__LINE__); } while (0)
@@ -766,6 +768,33 @@ static void submit_unsupported_verification(void) {
        refresh can invalidate the already accepted source schema. */
     job->refresh_source=true; expected_preview=false; expected_offset=0;
     verification_host_requests=observed_host_requests(); verification_cancels=observed_cancels(); CHECK(remember_verification_boundary()); worker_submit(&worker,job);
+}
+static void submit_unsupported_records(SourceKind kind) {
+    CHECK(!reply && (kind==SOURCE_CSV || kind==SOURCE_PARQUET));
+    QueryJob *job=dx_alloc(sizeof(*job)); job->kind=expected_kind=JOB_COLLECT_RECORDS; job->id=expected_id=next_id; next_id+=4;
+    job->object_id=object_id; job->revision=revision_id; job->is_table=true;
+    job->analysis=(Analysis){.kind=kind,.path=dx_strdup(kind==SOURCE_CSV ? "must-not-open-native-records.csv" : "must-not-open-native-records.parquet")};
+    job->offset=256; job->rows=2; job->expected_source_stamp=UINT64_MAX;
+    /* Deliberately supplied native-only observation, never a browser proof.
+       Unsupported dispatch must precede metadata/path access or schema refresh. */
+    job->expected_file_identity_valid=true; job->expected_file_identity=(SourceFileIdentity){.device=1,.inode=UINT64_MAX,.size=4096,.links=1};
+    job->refresh_source=true; expected_preview=false; expected_offset=0;
+    verification_host_requests=observed_host_requests(); verification_cancels=observed_cancels(); CHECK(remember_verification_boundary()); worker_submit(&worker,job);
+}
+static void unsupported_records_reply(SourceKind kind) {
+    validation_reply(); RecordSelection empty; memset(&empty,0,sizeof(empty));
+    SourceDigest digest; memset(&digest,0,sizeof(digest));
+    CHECK(strlen(reply->error)<DX_SOURCE_DIGEST_ERROR_BYTES && strstr(reply->error,"Native record collection is unavailable") && strstr(reply->error,"no identity query was submitted"));
+    CHECK(!memcmp(&reply->records,&empty,sizeof(empty)) && !memcmp(&reply->source_digest,&digest,sizeof(digest)));
+    CHECK(reply->analysis.kind==kind && reply->analysis.path && !strcmp(reply->analysis.path,kind==SOURCE_CSV ? "must-not-open-native-records.csv" : "must-not-open-native-records.parquet"));
+    CHECK(!reply->analysis.query && !reply->path && !reply->workbook && !reply->clipboard && !reply->export_data && !reply->export_bytes && !reply->statistics.sum && !reply->distinct.values);
+    CHECK(observed_host_requests()==verification_host_requests && verification_boundary_unchanged() && observed_cancels()==verification_cancels+1);
+    CHECK(verification_retained.row_count==1 && verification_retained.column_count==1 && !verification_retained.cells[0].is_null && !strcmp(verification_retained.cells[0].text,"recovered after local rejection"));
+    if (collection_retained.cells) {
+        CHECK(collection_retained.row_count==256 && collection_retained.column_count==2 && collection_retained.total==600 && !collection_retained.count_pending && !collection_retained.totals);
+        CHECK(collection_retained.sql && strstr(collection_retained.sql,"PIVOT (") && !strcmp(collection_retained.columns[1].caption,"SUM(amount)") && collection_retained.columns[1].number_type.kind==NUM_DECIMAL);
+        CHECK(!strcmp(collection_retained.cells[0].text,"0") && !strcmp(collection_retained.cells[1].text,"0.00") && !strcmp(collection_retained.cells[510].text,"255") && !strcmp(collection_retained.cells[511].text,"55.00"));
+    }
 }
 static void distinct_reply(size_t count,uint64_t total) {
     validation_reply(); CHECK(reply->distinct.offset==0 && reply->distinct.count==count && reply->distinct.total==total);
@@ -1516,14 +1545,45 @@ static void tick(void) {
         if (!received(false)) return;
         short_reply("recovered after local rejection"); CHECK(worker.jobs_started==3 && observed_host_requests()==verification_host_requests+1);
         CHECK(reply->page.cells!=verification_retained.cells && reply->page.columns!=verification_retained.columns && !strcmp(verification_retained.cells[0].text,"recovered after local rejection"));
-        release_reply(); page_free(&verification_retained); pass("ordinary cached source recovery needs one real SQL after unsupported verification and retains independent data");
+        release_reply(); pass("ordinary cached source recovery needs one real SQL after unsupported verification and retains independent data");
+        submit_unsupported_records(SOURCE_CSV); enter(WAIT_RECORDS_SOURCE_UNSUPPORTED); return;
+    case WAIT_RECORDS_SOURCE_UNSUPPORTED:
+        if (!poll_received(true,false)) return;
+        unsupported_records_reply(SOURCE_CSV); CHECK(worker.jobs_started==4);
+        release_reply(); pass("native CSV record collection rejects without vector, identity query, host request or source-schema refresh");
+        submit(JOB_PAGE,rejection_recovery_sql,0,1,false,1); enter(WAIT_RECORDS_SOURCE_RECOVERY); return;
+    case WAIT_RECORDS_SOURCE_RECOVERY:
+        if (!received(false)) return;
+        short_reply("recovered after local rejection"); CHECK(worker.jobs_started==5 && observed_host_requests()==verification_host_requests+1);
+        CHECK(!reply->records.ids && !reply->records.count && !reply->records.bytes && reply->page.cells!=verification_retained.cells && reply->page.columns!=verification_retained.columns && reply->page.cells[0].text!=verification_retained.cells[0].text);
+        CHECK(!strcmp(verification_retained.cells[0].text,"recovered after local rejection"));
+        release_reply(); pass("ordinary source cache survives unsupported record collection and recovers with one real SQL and independent Page ownership");
+        submit_matrix(MATRIX_RANGE,0,600,false,2); enter(WAIT_RECORDS_PIVOT_WARM); return;
+    case WAIT_RECORDS_PIVOT_WARM:
+        if (!received(false)) return;
+        matrix_range_values(0,256,false); CHECK(worker.jobs_started==6);
+        collection_retained=reply->page; reply->page=(Page){0}; release_reply();
+        pass("real Rows/Values Pivot warms its typed result schema before unsupported native record collection");
+        submit_unsupported_records(SOURCE_PARQUET); enter(WAIT_RECORDS_PIVOT_UNSUPPORTED); return;
+    case WAIT_RECORDS_PIVOT_UNSUPPORTED:
+        if (!poll_received(true,false)) return;
+        unsupported_records_reply(SOURCE_PARQUET); CHECK(worker.jobs_started==7);
+        release_reply(); pass("native Parquet record collection rejects before schema refresh and preserves independently owned source and Pivot Pages");
+        submit_matrix(MATRIX_RANGE,0,600,false,1); enter(WAIT_RECORDS_PIVOT_RECOVERY); return;
+    case WAIT_RECORDS_PIVOT_RECOVERY:
+        if (!received(false)) return;
+        matrix_range_values(0,256,false); CHECK(worker.jobs_started==8 && observed_host_requests()==verification_host_requests+1);
+        CHECK(!reply->records.ids && !reply->records.count && !reply->records.bytes && reply->page.cells!=collection_retained.cells && reply->page.columns!=collection_retained.columns && reply->page.sql!=collection_retained.sql);
+        CHECK(reply->page.cells[0].text!=collection_retained.cells[0].text && !strcmp(collection_retained.cells[0].text,"0") && !strcmp(collection_retained.cells[511].text,"55.00") && !strcmp(verification_retained.cells[0].text,"recovered after local rejection"));
+        release_reply(); page_free(&verification_retained); page_free(&collection_retained);
+        pass("cached typed Pivot recovers with one real SQL after unsupported record collection while prior Pages remain independent");
         worker_stop(&worker); enter(QUIET_VERIFY_STOP); return;
     case QUIET_VERIFY_STOP:
         quiet(); if (emscripten_get_now()-entered<150) return;
-        CHECK(!worker.started && !worker.running && !worker.reply && stages==187 && worker.jobs_started==3 && expected_sql==3 && expected_counts==0);
-        CHECK(baseline_jobs+export_jobs+worker.jobs_started==192 && baseline_sql+export_sql+worker.sql_executed==402 && baseline_counts+export_counts+worker.counts_executed==21);
-        CHECK(observed_host_requests()==402);
-        printf("Browser worker workloads: {\"baseline\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u},\"export\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u},\"verification\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u,\"rejected_jobs\":1},\"sequential_workers\":3}\n",baseline_jobs,baseline_sql,baseline_counts,baseline_host_requests,export_jobs,export_sql,export_counts,export_host_requests,worker.jobs_started,worker.sql_executed,worker.counts_executed,observed_host_requests()-baseline_host_requests-export_host_requests);
+        CHECK(!worker.started && !worker.running && !worker.reply && stages==192 && worker.jobs_started==8 && expected_sql==7 && expected_counts==0);
+        CHECK(baseline_jobs+export_jobs+worker.jobs_started==197 && baseline_sql+export_sql+worker.sql_executed==406 && baseline_counts+export_counts+worker.counts_executed==21);
+        CHECK(observed_host_requests()==406);
+        printf("Browser worker workloads: {\"baseline\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u},\"export\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u},\"verification\":{\"jobs\":%" PRIu64 ",\"sql\":%" PRIu64 ",\"counts\":%" PRIu64 ",\"host_requests\":%u,\"rejected_jobs\":3,\"rejected_record_jobs\":2},\"sequential_workers\":3}\n",baseline_jobs,baseline_sql,baseline_counts,baseline_host_requests,export_jobs,export_sql,export_counts,export_host_requests,worker.jobs_started,worker.sql_executed,worker.counts_executed,observed_host_requests()-baseline_host_requests-export_host_requests);
         enter(FINISHED); completed(1,checks,stages); printf("PASS browser-worker complete: %u checks, %u stages, %" PRIu64 " SQL, %" PRIu64 " counts\n",checks,stages,baseline_sql+export_sql+worker.sql_executed,baseline_counts+export_counts+worker.counts_executed);
         emscripten_cancel_main_loop(); return;
     case FINISHED: die("main loop ran after completion",__LINE__);
