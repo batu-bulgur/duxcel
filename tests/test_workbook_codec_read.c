@@ -1,4 +1,5 @@
 #include "workbook/workbook_codec_read.h"
+#include <float.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -149,6 +150,11 @@ static void test_sheets_invalid(void) {
     for (size_t x=0;x<sizeof(row_columns)/sizeof(*row_columns);x++) { size_t col=row_columns[x]; WorkbookCodecAtom saved=f.cells[col]; f.cells[col]=u(UINT64_MAX); reject(read,WORKBOOK_CODEC_SHEETS,&batch,0); f.cells[col]=saved; }
     const size_t floats[]={21,22,24};
     for (size_t x=0;x<sizeof(floats)/sizeof(*floats);x++) { size_t col=floats[x]; WorkbookCodecAtom saved=f.cells[col]; f.cells[col]=d(NAN); reject(read,WORKBOOK_CODEC_SHEETS,&batch,0); f.cells[col]=d(INFINITY); reject(read,WORKBOOK_CODEC_SHEETS,&batch,0); f.cells[col]=d(-1); reject(read,WORKBOOK_CODEC_SHEETS,&batch,0); f.cells[col]=saved; }
+    WorkbookCodecAtom before_horizontal=f.cells[21],before_canvas=f.cells[24];
+    f.cells[21]=d(-DBL_MIN); reject(read,WORKBOOK_CODEC_SHEETS,&batch,0);
+    f.cells[21]=d(DBL_MAX); reject(read,WORKBOOK_CODEC_SHEETS,&batch,0); f.cells[21]=before_horizontal;
+    f.cells[24]=d(nextafter(.5,0)); reject(read,WORKBOOK_CODEC_SHEETS,&batch,0);
+    f.cells[24]=d(nextafter(2.5,INFINITY)); reject(read,WORKBOOK_CODEC_SHEETS,&batch,0); f.cells[24]=before_canvas;
     WorkbookCodecAtom saved=f.cells[1]; const char nul[]={'a',0,'b'}; f.cells[1]=(WorkbookCodecAtom){.kind=WORKBOOK_CODEC_TEXT,.value.text={nul,sizeof(nul)}}; reject(read,WORKBOOK_CODEC_SHEETS,&batch,0);
     const char *bad_utf8[]={"\xed\xa0\x80","\xc0\x80","\xf4\x90\x80\x80","\x80","\xe2\x82"};
     for (size_t x=0;x<sizeof(bad_utf8)/sizeof(*bad_utf8);x++) { f.cells[1]=t(bad_utf8[x]); reject(read,WORKBOOK_CODEC_SHEETS,&batch,0); }

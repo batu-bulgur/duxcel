@@ -1,4 +1,5 @@
 #include "workbook_codec_read.h"
+#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -116,11 +117,12 @@ static bool sheet_row(WorkbookCodecRead *read,const WorkbookCodecAtom *cells,siz
     uint64_t columns[]={cells[15].value.u64,cells[17].value.u64,cells[19].value.u64};
     for (size_t i=0;i<sizeof(rows)/sizeof(*rows);i++) if (rows[i]>=DX_SHEET_ROWS) return fail(error,"Invalid worksheet viewport row.");
     for (size_t i=0;i<sizeof(columns)/sizeof(*columns);i++) if (columns[i]>=16384) return fail(error,"Invalid worksheet viewport column.");
-    float horizontal=(float)cells[21].value.real,canvas=(float)cells[24].value.real;
+    double horizontal_value=cells[21].value.real,canvas_value=cells[24].value.real;
     double fraction=cells[22].value.real;
-    if (!isfinite(horizontal) || horizontal<0 || !isfinite(fraction) || fraction<0 || fraction>=1 ||
-        cells[23].value.i32<0 || cells[23].value.i32>3 || !isfinite(canvas) || canvas<.5f || canvas>2.5f ||
+    if (!isfinite(horizontal_value) || horizontal_value<0 || horizontal_value>FLT_MAX || !isfinite(fraction) || fraction<0 || fraction>=1 ||
+        cells[23].value.i32<0 || cells[23].value.i32>3 || !isfinite(canvas_value) || canvas_value<.5 || canvas_value>2.5 ||
         (read->layout==WORKBOOK_CODEC_SHEETS_24 && cells[24].value.real!=1)) return fail(error,"Invalid worksheet viewport or legacy canvas default.");
+    float horizontal=(float)horizontal_value,canvas=(float)canvas_value;
     Analysis *a=&out->analysis; a->kind=(SourceKind)cells[2].value.i32; a->filter_op=(FilterOp)cells[8].value.i32;
     a->aggregate=(Aggregate)cells[11].value.i32; a->descending=cells[13].value.boolean;
     out->view=(SheetView){.row=rows[0],.col=(size_t)columns[0],.anchor_row=rows[1],.anchor_col=(size_t)columns[1],.end_row=rows[2],.end_col=(size_t)columns[2],
