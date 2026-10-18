@@ -11189,7 +11189,7 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     }
     case 731:
-        run_action(a,ACTION_UNDO);
+        history(a,false);
         if (a->analysis.source_version || a->analysis.path!=journal_old_path || s->formats.source_aware ||
             s->formats.items!=journal_old_formats || !(format_at(&s->formats,80,40).flags&FORMAT_BOLD) ||
             format_at(&s->formats,81,40).flags || s->source_versions.high_water!=1 || s->source_versions.count!=1 ||
@@ -11197,7 +11197,7 @@ static void layout_smoke_step(App *a,int *step) {
             a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         break;
     case 732:
-        run_action(a,ACTION_REDO);
+        history(a,true);
         if (a->analysis.source_version!=1 || a->analysis.path!=journal_new_path || !s->formats.source_aware ||
             s->formats.items!=journal_new_formats || !(format_at(&s->formats,81,40).flags&FORMAT_BOLD) ||
             format_at(&s->formats,80,40).flags || s->source_versions.high_water!=1 || s->undo_actions_count!=2 || s->redo_actions_count ||
@@ -11205,10 +11205,10 @@ static void layout_smoke_step(App *a,int *step) {
         break;
     case 733:
         remember(a); a->analysis.source_version=0;
-        run_action(a,ACTION_UNDO); if (a->analysis.source_version!=1 || !s->formats.source_aware || s->formats.items!=journal_new_formats) goto failed;
-        run_action(a,ACTION_UNDO); if (a->analysis.source_version || s->formats.source_aware || s->formats.items!=journal_old_formats) goto failed;
-        run_action(a,ACTION_REDO); if (a->analysis.source_version!=1 || !s->formats.source_aware || s->formats.items!=journal_new_formats) goto failed;
-        run_action(a,ACTION_REDO);
+        history(a,false); if (a->analysis.source_version!=1 || !s->formats.source_aware || s->formats.items!=journal_new_formats) goto failed;
+        history(a,false); if (a->analysis.source_version || s->formats.source_aware || s->formats.items!=journal_old_formats) goto failed;
+        history(a,true); if (a->analysis.source_version!=1 || !s->formats.source_aware || s->formats.items!=journal_new_formats) goto failed;
+        history(a,true);
         if (a->analysis.source_version || !s->formats.source_aware || s->formats.items!=journal_new_formats ||
             s->source_versions.high_water!=1 || s->source_versions.count!=1 || s->undo_actions_count!=3 || s->redo_actions_count ||
             s->analysis.path!=journal_cache_path || s->analysis.source_version || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
