@@ -34,7 +34,7 @@ def main():
     for directory in (normal,review):
         check("import {installCanvasInput} from './canvas_input.mjs'" in (directory/'host.mjs').read_text() and (directory/'canvas_input.mjs').is_file(),'Canvas input platform policy is missing')
     check((normal/'canvas_input.mjs').read_bytes()==(review/'canvas_input.mjs').read_bytes(),'Normal/review canvas input policies differ')
-    forbidden=[b'dx_review_',b'duxcel.native-review',b'duxcel.browser-review',b'dxBrowserWorkerTestDone',b'test_browser_worker.c',b'dxCodecReadTestDone',b'test_browser_codec_read.c',b'test_browser_codec_sorts.inc',b'dxCodecSortsMode',b'dx_browser_codec_fixture_result',b'dx_browser_codec_result']
+    forbidden=[b'dx_review_',b'duxcel.native-review',b'duxcel.browser-review',b'dxBrowserWorkerTestDone',b'test_browser_worker.c',b'dxCodecReadTestDone',b'test_browser_codec_read.c',b'test_browser_codec_sorts.inc',b'dxCodecSortsMode',b'test_browser_codec_preferences.inc',b'dxCodecPreferencesMode',b'dx_browser_codec_fixture_result',b'dx_browser_codec_result']
     wasm=(normal/'duxcel.wasm').read_bytes();markers={value.decode():value not in wasm for value in forbidden}
     check(all(markers.values()),'Shipping Wasm contains review/acceptance markers')
     for directory in (normal,review):
@@ -45,7 +45,7 @@ def main():
         check(not any('dx_browser_codec_' in name for name in module_exports),'Browser App exports partial-codec acceptance callbacks')
         check(not any((directory/name).exists() for name in ('codec_test_host.mjs','codec-fixture-manifest.json')),'Browser App packages codec acceptance assets')
         check('dxCodec' not in (directory/'host.mjs').read_text(),'Browser App loader contains codec acceptance controls')
-        check(not any(marker in (directory/'duxcel.wasm').read_bytes() for marker in (b'dxCodecReadTestDone',b'test_browser_codec_read.c',b'test_browser_codec_sorts.inc')),'Browser App contains the codec acceptance workflow')
+        check(not any(marker in (directory/'duxcel.wasm').read_bytes() for marker in (b'dxCodecReadTestDone',b'test_browser_codec_read.c',b'test_browser_codec_sorts.inc',b'test_browser_codec_preferences.inc',b'dxCodecPreferencesMode')),'Browser App contains the codec acceptance workflow')
     for directory in (normal,review):
         for name in ('canvas_surface.mjs','canvas_wheel.mjs','browser_platform.mjs','clipboard.mjs','download.mjs'):
             check((directory/name).is_file(),'Browser device adapter asset is missing: '+name)

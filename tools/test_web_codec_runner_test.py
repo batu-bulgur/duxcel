@@ -24,7 +24,10 @@ class CodecHarnessTests(unittest.TestCase):
     def test_mode_rejects_other_profiles_before_any_process(self):
         self.assertTrue(harness.parse_options(['--codec-read-driver','--no-build']).codec_read_driver)
         self.assertTrue(harness.parse_options(['--codec-read-driver','--codec-sorts','--no-build']).codec_sorts)
+        self.assertTrue(harness.parse_options(['--codec-read-driver','--codec-preferences','--no-build']).codec_preferences)
         with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(['--codec-sorts'])
+        with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(['--codec-preferences'])
+        with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):harness.parse_options(['--codec-read-driver','--codec-sorts','--codec-preferences'])
         for option in ('--worker-driver','--review','--persistence','--canvas-transform','--dpr=2'):
             with self.subTest(option=option),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):
                 harness.parse_options(['--codec-read-driver',option])

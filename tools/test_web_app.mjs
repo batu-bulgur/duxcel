@@ -14,16 +14,20 @@ const workerProbe=process.argv.includes('--worker-probe');
 const workerDriver=process.argv.includes('--worker-driver');
 const codecReadDriver=process.argv.includes('--codec-read-driver');
 const codecSorts=process.argv.includes('--codec-sorts');
+const codecPreferences=process.argv.includes('--codec-preferences');
 if(codecSorts&&!codecReadDriver)throw new Error('--codec-sorts requires --codec-read-driver');
+if(codecPreferences&&!codecReadDriver)throw new Error('--codec-preferences requires --codec-read-driver');
+if(codecPreferences&&codecSorts)throw new Error('Choose one independent codec family gate');
 if(codecReadDriver){
  const args=process.argv.slice(4);
  for(let i=0;i<args.length;i++){
-  if(args[i]==='--codec-read-driver'||args[i]==='--codec-sorts')continue;
+  if(args[i]==='--codec-read-driver'||args[i]==='--codec-sorts'||args[i]==='--codec-preferences')continue;
   if(args[i]==='--dpr'&&args[++i]==='1')continue;
   throw new Error('--codec-read-driver is an isolated no-window gate with default DPR1');
  }
 }
 if(codecSorts){const target=new URL(url);target.searchParams.set('codec_sorts','1');url=target.href;}
+if(codecPreferences){const target=new URL(url);target.searchParams.set('codec_preferences','1');url=target.href;}
 const filters=process.argv.includes('--filters');
 const busy=process.argv.includes('--busy');
 const review=process.argv.includes('--review');
@@ -2743,7 +2747,13 @@ try{
   for(const deadline=Date.now()+45000;Date.now()<deadline;){report=await evaluate('globalThis.duxcelCodecReadResult');if(report)break;await pause(20);}
   await fs.writeFile(path.join(output,'codec-read-driver.json'),JSON.stringify(report??{ok:false,error:'C header driver did not complete'},null,2));
   check(report?.ok,'Real C/Worker header decoding failed; see codec-read-driver.json and events.json');
-  if(codecSorts){
+  if(codecPreferences){
+   check(report.mode==='preferences'&&report.fixtures===6&&report.headers===6&&report.queries===61&&report.rejections===8&&report.stale===1,'C preference-family fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,6,6,6,6,6]),'Preference archives did not execute each original-schema/canonical family request once');
+   check(report.familyExecutions?.meta===14&&report.familyExecutions?.sheets===14&&report.familyExecutions?.preferences===15&&report.familyExecutions?.describe===18,'Observed C preference metadata execution inventory changed');
+   check(report.acceptedFeeds?.rows32===9&&report.acceptedFeeds?.rows33===6&&report.rejectedFeeds===7&&report.validSplitPairs===6,'Real65-row preference results did not retain their32+33 feed boundaries');
+   check(report.v14PredicateQueries===13&&report.unknownNullRejected&&report.unknownNulRejected&&report.duplicateFalseRejected&&report.activeHiddenRejected&&report.noncanonicalRejected&&report.malformedRejected&&report.sentinelRejected&&report.budgetRejected,'Preference-family predicate/rejection reasons were not observed');
+  }else if(codecSorts){
    check(report.mode==='sorts'&&report.fixtures===4&&report.headers===6&&report.queries===49&&report.rejections===6&&report.stale===1,'C sort-family fixture/failure/recovery inventory changed');
    check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,6,6,6]),'Sort archive original-schema/canonical requests did not execute once per family');
    check(report.familyExecutions?.meta===12&&report.familyExecutions?.sheets===12&&report.familyExecutions?.sorts===13&&report.familyExecutions?.describe===12,'Observed C sort metadata execution inventory changed');
@@ -2757,8 +2767,9 @@ try{
    check(JSON.stringify(report.u64Sentinels)===JSON.stringify(['9007199254740993','18446744073709551615']),'Exact raw U64 transport proofs changed');
   }
   check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=report.inputOwnedLimit,'C header retained-input admission bound changed');
-  const transport=report.transport,fixtureNames=codecSorts?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
+  const transport=report.transport,fixtureNames=codecPreferences?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:codecSorts?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
   check(transport?.schema==='duxcel.codec-read-transport'&&transport.version===1&&transport.held===1&&transport.released===1,'Held actual callback transport/release receipt changed');
+  check(typeof transport.engineVersion==='string'&&transport.engineVersion.length>0&&transport.engineVersion.length<=256,'Initialized official Worker did not report its engine version');
   check(Array.isArray(transport.fixtures)&&transport.fixtures.length===fixtureNames.length&&Array.isArray(transport.queries)&&transport.queries.length===report.queries,'Official transport fixture/request inventory changed');
   const expected=await(await fetch(new URL('/__codec-fixtures/manifest.json',url))).json(),byName=new Map(),tokens=new Set();
   for(let i=0;i<fixtureNames.length;i++){
@@ -2768,7 +2779,7 @@ try{
    const token=actual.engineEpoch+':'+actual.registrationId;check(!tokens.has(token),'Independent fixtures reused a registration token');tokens.add(token);byName.set(actual.name,{...actual,queries:0});
   }
   check(new Set(transport.fixtures.map(item=>item.engineEpoch)).size===1,'Header proof unexpectedly used more than one engine');
-  let lastTicket=0;const families={meta:0,sheets:0,describe:0,sorts:0};
+  let lastTicket=0,v14PreferenceQueries=0;const families={meta:0,sheets:0,describe:0,sorts:0,preferences:0};
   for(const request of transport.queries){
    check(Number.isSafeInteger(request.ticket)&&request.ticket>lastTicket&&typeof request.sql==='string'&&request.sql.length<=1048576,'Observed request lost ordered ticket/bounded C SQL');lastTicket=request.ticket;
    check(Array.isArray(request.sourceBindings)&&request.sourceBindings.length===1,'Metadata request did not pin one original registration');
@@ -2778,16 +2789,23 @@ try{
    else if(codecSorts&&request.sql.includes('_duxcel_workspace.sorts')){
     check(request.purpose==='workbook-sorts'&&request.rowLimit===449&&/LIMIT 449/.test(request.sql),'Sort result did not use its explicit captured449-row policy');families.sorts++;
    }
+   else if(codecPreferences&&request.sql.includes('_duxcel_workspace.preferences')){
+    check(request.purpose===undefined&&request.rowLimit===66&&/LIMIT 66/.test(request.sql),'Preferences did not use the ordinary bounded66-row Page policy');
+    const v14=request.sql.includes('OR name IS NULL OR value IS NULL OR contains(name,chr(0))');
+    check(v14===binding.name.startsWith('preferences-v14'),'Preference query used the wrong version-specific malformed-row predicate');
+    if(v14)v14PreferenceQueries++;families.preferences++;
+   }
    else if(request.sql.includes('_duxcel_workspace.meta'))families.meta++;
    else if(request.sql.includes('_duxcel_workspace.sheets'))families.sheets++;
    else throw new Error('Unexpected nonmetadata SQL in Header request');
   }
   check(Object.entries(families).every(([family,count])=>count===(report.familyExecutions[family]??0)),'Host-observed SQL inventory disagrees with C counters');
-  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===(codecSorts?(i===3?31:6):(i===6?30:4)),'Metadata batching re-executed a fixture query');
+  if(codecPreferences)check(v14PreferenceQueries===report.v14PredicateQueries,'Transport did not observe every v14 malformed-row predicate');
+  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===(codecPreferences?(i===5?31:6):codecSorts?(i===3?31:6):(i===6?30:4)),'Metadata batching re-executed a fixture query');
   check(!events.some(event=>event.method==='Runtime.exceptionThrown'),'Uncaught exception in isolated header transport');
   await fs.writeFile(path.join(output,'codec-read-transport.json'),JSON.stringify(transport,null,2));
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));
-  await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',profile:codecSorts?'codec-sorts-driver':'codec-read-driver',checks,report,scope:'Partial owned Header'+(codecSorts?' with primary-sheet secondary sorts':'')+' only; no Workbook publication, App Save/Open or engine/RSS peak bound'},null,2));
+  await fs.writeFile(path.join(output,'result.json'),JSON.stringify({status:'passed',profile:codecPreferences?'codec-preferences-driver':codecSorts?'codec-sorts-driver':'codec-read-driver',checks,report,scope:'Partial owned Header'+(codecPreferences?' with reduced-motion/worksheet visibility preferences':codecSorts?' with primary-sheet secondary sorts':'')+' only; no Workbook publication, App Save/Open or engine/RSS peak bound'},null,2));
   console.log(JSON.stringify({status:'passed',checks,report:{...report,transport:undefined},output}));
  }else if(workerDriver){
   let report;

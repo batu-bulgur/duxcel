@@ -878,10 +878,16 @@ test-browser-codec-read:
 	python3 tools/test_web_app.py --codec-read-driver
 test-browser-codec-sorts:
 	python3 tools/test_web_app.py --codec-read-driver --codec-sorts
+test-browser-codec-preferences:
+	python3 tools/test_web_app.py --codec-read-driver --codec-preferences
 test-workbook-codec-sorts: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
 	./tests/test_workbook_codec_native --sorts-only
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --sorts-only
+test-workbook-codec-preferences: tests/test_workbook_codec_native tests/test_workbook_codec_native-debug
+	./tests/test_workbook_codec_native --preferences-only
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook_codec_native-debug --preferences-only
 .PHONY: web-codec-read-sources test-browser-codec-read test-browser-codec-sorts test-workbook-codec-sorts
+.PHONY: test-browser-codec-preferences test-workbook-codec-preferences
 BROWSER_MODEL_TEST_SRC = $(filter-out src/platform/platform.c src/data/database.c src/data/worker.c,$(CORE)) src/workbook/workbook_browser.c tests/test_workbook_model.c
 BROWSER_DISTINCT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/distinct.c
 BROWSER_DISTINCT_PAGE_TEST_SRC = $(BROWSER_DISTINCT_TEST_SRC) src/data/page.c src/data/source_digest.c src/data/distinct_page.c
