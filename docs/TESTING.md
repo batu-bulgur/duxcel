@@ -49,7 +49,7 @@ Focused native profiles currently expose existing valid bootstraps: `statistics`
 
 Core creates generated databases consumed by workbook/native tests. The runner preserves **core → workbook**, then completes that configuration before the next overwrites fixtures. It never parallelizes these mutable suites. Worktrees have separate `tests/generated/`; do not share it via symlink. The preview module's DuckDB connection uses its own private temp directory and reads authored input; it does not mutate those fixture databases.
 
-The full native inventory is **1,167 maintained application stages**, plus separate **110 GPU** and **477 background-window** checks. NYC's eight stages require `tests/downloads/yellow_tripdata_2025-01.parquet`. `--require-data` fails if it is missing. Without that flag the runner records an explicit skip and reports `passed-with-skips`, never a full 1,167-stage pass. `tests/download_data.sh` can reproduce the existing public inputs; nothing downloads automatically during ordinary tests.
+The full native inventory is **1,197 maintained application stages**, plus separate **110 GPU** and **477 background-window** checks. NYC's eight stages require `tests/downloads/yellow_tripdata_2025-01.parquet`. `--require-data` fails if it is missing. Without that flag the runner records an explicit skip and reports `passed-with-skips`, never a full 1,197-stage pass. `tests/download_data.sh` can reproduce the existing public inputs; nothing downloads automatically during ordinary tests.
 
 The full tier does not mean every optional stress/packaging/OS path was exercised. `make spill-test`, `make unique-large-test`, icon regeneration/verification, standalone distribution, physical trackpad/DPI/IME and manual file panels remain separately scoped checks. Run those when their area changes; Windows/Linux validation is deferred.
 
@@ -265,7 +265,7 @@ make test-source-digest
 
 ## Source-format prerequisite gates
 
-The [8c9e2d2 foundation](validation/checkpoints/2026-10-18-source-format-foundation/) retains exact source/binary provenance for the owned record-selector model, native async verifier, unchanged workbook-format codec boundary, actual browser unsupported/recovery Worker and hidden native baseline. Use these focused checks while their App producer remains disabled:
+The [8c9e2d2 foundation](validation/checkpoints/2026-10-18-source-format-foundation/) retains exact source/binary provenance for the owned record-selector model, native async verifier, unchanged workbook-format codec boundary, actual browser unsupported/recovery Worker and hidden native baseline. Use these focused prerequisite checks; the narrow primary native producer has separate actual-App acceptance below:
 
 ```sh
 python3 tools/test.py fast --modules format --config both
@@ -296,6 +296,16 @@ The `source-cache` affected profile extends that independent selection bootstrap
 
 Browser source-cache acceptance uses `python3 tools/test_web_app.py --review --source-cache-only --no-build --source tests/fixtures/null-text.csv --dpr 2 --canvas-transform` after a matching review build. It reuses the actual source/Table/Pivot/manual fixture, verifies real successful Open then64-sheet capacity rejection through trusted controls, and makes no browser heap/bookmark-byte inference or saved-report upload.
 
-The `source-format` profile now covers **[687,730)** (43 stages) with independent design-fixture bootstrap: explicit source-aware suspension in primary/Table/matrix/preview/readout/totals, atomic finite-command rejection, native v14 Save/Open/overwrite and manual/broad-default retention. Run `python3 tools/test.py affected --feature source-format --modules grid --config sanitize` (or `release`). Current acceptance took25.711s sanitizer /22.327s optimized App time; the400-stage native review and actual browser485 gate were separate integration checks. Current layout inventory is730, total1,163 application stages; no full-inventory pass is claimed. [Exact source/artifact scopes](validation/checkpoints/2026-10-18-source-format-v14/).
+The `source-format` profile covers **[687,730)** (43 stages) with independent bootstrap: containing selection, cache retirement, verified primary RAW versus suspended RESULT scopes, Table/matrix/preview/readout/totals containment, v14 Save/Open/overwrite and manual/broad-default retention. Its current sanitizer run at `b315694` took31.900s App /33.117s total. The earlier dormant-only acceptance retains its [original revision/scope](validation/checkpoints/2026-10-18-source-format-v14/).
 
-For bounded identity collection and prepared composite ownership, use `make test-record-selection`, `make test-analysis-journal` and `make test-format-budget`. These optimized/ASan gates need no GUI or shared core fixtures. `python3 tools/test.py affected --feature format-journal --modules grid --config sanitize` runs an independent **[730,734)** four-stage hidden App history fixture, preserving the existing43-stage `source-format` profile. Current inventory is layout734 /1,167 application stages. The real browser Worker driver now accepts192 stages/124,381 checks with explicit native collector rejection and cached CSV/Pivot recovery; build with `python3 tools/build_web.py --worker-driver`, then use `python3 tools/test_web_app.py --worker-driver --no-build`. [Source-scoped manifests and limits](validation/checkpoints/2026-10-18-record-collector-journal/).
+For identity collection and composite ownership, use `make test-record-selection`, `make test-worker-source-digest`, `make test-analysis-journal` and `make test-format-budget`. These optimized/ASan gates need no GUI or shared core fixtures. `format-journal` runs **[730,734)**, four hidden prepared-ownership stages. `source-record-format` runs **[734,764)**,30 independently initialized real-App stages: private600-row Parquet, physical duplicates, SQL NULL/empty/literal text, exact BIGINT/DECIMAL, cross-page captured selection, sorting/filtering/eviction, Undo/Redo/no-op, canceled/stale requests, verified v14 reopen and replaced-source suspension without idle retry.
+
+```sh
+python3 tools/test.py affected --feature source-record-format --modules grid --config sanitize
+python3 tools/test.py affected --feature source-record-format --modules grid --config release
+make tests/test_workbook tests/test_workbook-debug
+./tests/test_workbook --guarded-formats-only
+ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --guarded-formats-only
+```
+
+At `ba79581`, source-record30 took15.163s optimized /17.677s sanitizer App time (24.504s /22.012s including focused preparation). Guarded codec1,003/configuration is a separately hashed component, with11.174s optimized /82.165s sanitizer timing; it repeatedly validates private archives/failed overwrites, without source verification or UI. Worker192 accepts native collector rejection and cached CSV/Pivot recovery; build `python3 tools/build_web.py --worker-driver`, then `python3 tools/test_web_app.py --worker-driver --no-build`. The current gate took13.744s. Layout inventory is764 /1,197 application stages; no full-inventory pass is claimed. [Exact manifests and remaining limits](validation/checkpoints/2026-10-18-primary-record-format/).

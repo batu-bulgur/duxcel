@@ -1,0 +1,34 @@
+mkdir -p build/data-tests
+clang -Isrc -I/opt/homebrew/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic -Werror -DDUXCEL_TEST_SOURCE_DIGEST src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c tests/test_worker_source_digest.c -o build/data-tests/test-worker-source-digest -L/opt/homebrew/lib -lduckdb -pthread -lm
+mkdir -p build/data-tests
+clang -Isrc -I/opt/homebrew/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -DDUXCEL_TEST_SOURCE_DIGEST src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c tests/test_worker_source_digest.c -o build/data-tests/test-worker-source-digest-sanitize -L/opt/homebrew/lib -lduckdb -pthread -lm
+./build/data-tests/test-worker-source-digest
+PASS: 1289 worker-source-digest checks; zero SQL and no DuckDB connection
+ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-worker-source-digest-sanitize
+PASS: 1289 worker-source-digest checks; zero SQL and no DuckDB connection
+mkdir -p build/data-tests
+clang -Isrc -I/opt/homebrew/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic -Werror src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/record_sql.c src/platform/platform.c src/transforms/pivot.c src/transforms/distinct.c src/data/page.c src/data/source_digest.c src/data/database.c tests/test_record_selection.c -o build/data-tests/test-record-selection -L/opt/homebrew/lib -lduckdb -pthread -lm
+mkdir -p build/data-tests
+clang -Isrc -I/opt/homebrew/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -Werror -fsanitize=address,undefined -fno-omit-frame-pointer src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/record_sql.c src/platform/platform.c src/transforms/pivot.c src/transforms/distinct.c src/data/page.c src/data/source_digest.c src/data/database.c tests/test_record_selection.c -o build/data-tests/test-record-selection-sanitize -L/opt/homebrew/lib -lduckdb -pthread -lm
+mkdir -p build/data-tests
+clang -Isrc -I/opt/homebrew/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic -Werror src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c tests/test_record_selection_worker.c -o build/data-tests/test-worker-record-selection -L/opt/homebrew/lib -lduckdb -pthread -lm
+mkdir -p build/data-tests
+clang -Isrc -I/opt/homebrew/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -Werror -fsanitize=address,undefined -fno-omit-frame-pointer src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c tests/test_record_selection_worker.c -o build/data-tests/test-worker-record-selection-sanitize -L/opt/homebrew/lib -lduckdb -pthread -lm
+./build/data-tests/test-record-selection
+PASS: 85492 finite raw-record selection checks
+ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-record-selection-sanitize
+PASS: 85492 finite raw-record selection checks
+./build/data-tests/test-worker-record-selection
+PASS: 438 owned native worker record-collection checks
+ASAN_OPTIONS=halt_on_error=1 ./build/data-tests/test-worker-record-selection-sanitize
+PASS: 438 owned native worker record-collection checks
+clang -Isrc -I/opt/homebrew/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c tests/test_workbook.c -o tests/test_workbook -L/opt/homebrew/lib -lduckdb -pthread -lm
+clang -Isrc -I/opt/homebrew/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/data/worker.c tests/test_workbook.c -o tests/test_workbook-debug -L/opt/homebrew/lib -lduckdb -pthread -lm -fsanitize=address,undefined -fno-omit-frame-pointer
+./tests/test_workbook --journal-only
+PASS: 9876 focused owned Analysis/format journal checks (pointer moves, composite chronology, budgets, aliases, cancellation and high-water)
+ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --journal-only
+PASS: 9876 focused owned Analysis/format journal checks (pointer moves, composite chronology, budgets, aliases, cancellation and high-water)
+./tests/test_workbook --format-budget-only
+PASS: 1537 focused formatting-accounting checks (dormant ledgers, complete projected histories, explicit staging/reservations, exact caps and atomic failure)
+ASAN_OPTIONS=halt_on_error=1 ./tests/test_workbook-debug --format-budget-only
+PASS: 1537 focused formatting-accounting checks (dormant ledgers, complete projected histories, explicit staging/reservations, exact caps and atomic failure)

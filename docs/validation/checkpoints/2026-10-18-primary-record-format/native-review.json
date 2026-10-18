@@ -1,0 +1,105 @@
+{
+  "started_utc": "2026-10-18T00:58:01.930561+00:00",
+  "status": "passed",
+  "configs": {
+    "release": {
+      "command": [
+        "/Users/h2o/dev/duxcel/build/review/duxcel-review",
+        "tests/fixtures/null-text.csv",
+        "--review-smoke",
+        "--frames",
+        "1100"
+      ],
+      "elapsed_seconds": 17.302,
+      "log": "tests/results/runs/20261018T005801-review-44959/release.log",
+      "owner_lifetime": {
+        "fixture_create": {
+          "command": [
+            "/Users/h2o/dev/duxcel/build/web-tests/test-persistence",
+            "create-owners",
+            "/Users/h2o/dev/duxcel/tests/results/runs/20261018T005801-review-44959/release/native-owner-fixture.dxls"
+          ],
+          "elapsed_seconds": 0.806,
+          "log": "tests/results/runs/20261018T005801-review-44959/release-owner-create.log"
+        },
+        "fixture_sha256": "b33bb379bb3c37d7a2c550b3b40b1ef884c063303a6a75f80c64775845b53014",
+        "saved_copy_sha256": "8a88df60b7c1444f89c759399f9af017566f8724c9b9f057d4afe61d08d6f762",
+        "helper_sha256": "6151f14971a925c9dc1fe668443728b7bde2e21f7d7389dabd68ccd58df9c864",
+        "original_unchanged": true,
+        "scope": "Actual native App load/delete/import/bind/delete/save/reopen, exhausted import and high-ID inspector cancellation; no file-panel delivery claim"
+      },
+      "binary_sha256": "058b2eeedbc40f97523c240f049db44fdfaafc382f260b200f75ce9826158dd5",
+      "build_header_sha256": "1079eab6a19f392cb6624d55338122933c1e933fd767a220f90bb043efc47c16",
+      "completed_stages": 400,
+      "reports": [
+        {
+          "report_id": "DXR-S-1792285099-45400-1",
+          "target": "filter.search",
+          "frame_id": "12",
+          "ui_scale": 1,
+          "image": {
+            "width": 2560,
+            "height": 1640,
+            "bytes": 416449,
+            "sha256": "6b04b6963f74eb49eb06f3b9b29e62c40c5c56d969654457eacab9e6a5dc375c",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T005801-review-44959/release/outbox/DXR-S-1792285099-45400-1/frame.png"
+          },
+          "capture_sha256": "fc7b923c652a4f4bc8991d88deea76f912b4b928f423bd880e0af349ad5815fb"
+        },
+        {
+          "report_id": "DXR-S-1792285099-45400-2",
+          "target": "filter.condition.option.equal",
+          "frame_id": "34",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1520,
+            "height": 1280,
+            "bytes": 267483,
+            "sha256": "82a2549142a2173a66a671eb2c6004c41a8bd4a0ce19218cab9e36fe62cc5f3f",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T005801-review-44959/release/outbox/DXR-S-1792285099-45400-2/frame.png"
+          },
+          "capture_sha256": "c6e3c6da181d8be6ab69845f8d8e3921a36690ef041a462b20c6c3d6001bdf90"
+        },
+        {
+          "report_id": "DXR-S-1792285099-45400-17",
+          "target": "file.scrollbar.thumb",
+          "frame_id": "116",
+          "ui_scale": 1.5,
+          "image": {
+            "width": 1280,
+            "height": 400,
+            "bytes": 68530,
+            "sha256": "bcb41116c02c0f7fbd6832c6a7db9917791981d5487e2c380bc4b39481bfb6e1",
+            "path": "/Users/h2o/dev/duxcel/tests/results/runs/20261018T005801-review-44959/release/outbox/DXR-S-1792285099-45400-17/frame.png"
+          },
+          "capture_sha256": "222d27144ac06a0d7ffb6eb7583efced3e173163c28aa3e6537f0f8557a5edab"
+        }
+      ]
+    }
+  },
+  "scope": "hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual",
+  "build": {
+    "command": [
+      "make",
+      "review",
+      "tests/test_background-native-debug",
+      "build/web-tests/test-persistence"
+    ],
+    "elapsed_seconds": 14.368,
+    "log": "tests/results/runs/20261018T005801-review-44959/build.log"
+  },
+  "source": {
+    "commit": "ba7958185047a2dbbe2204bb06f96ab493b4970b",
+    "status": "?? tools/ui-review/",
+    "source_sha256": "7ee5826f833134ecd0f9bfd4ba11643f3a191584ef28e03511c2c4ced1020be4",
+    "source_files": 261
+  },
+  "background": {
+    "command": [
+      "./tests/test_background-native-debug"
+    ],
+    "elapsed_seconds": 1.372,
+    "log": "tests/results/runs/20261018T005801-review-44959/background.log"
+  },
+  "finished_utc": "2026-10-18T00:58:36.145103+00:00"
+}

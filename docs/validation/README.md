@@ -52,3 +52,5 @@ Matching-state visual acceptance additionally records viewport, UI scale, canvas
 [Source-format prerequisite acceptance](checkpoints/2026-10-18-source-format-foundation/) records `8c9e2d2`: owned record selector/model and asynchronous native verification, real browser unsupported/recovery, unchanged codec boundary and hidden native baseline. App activation remains open.
 
 [Containing selection, addresses and source ownership](checkpoints/2026-10-18-selection-address-source-ownership/) records `9c882ac` and explicitly scoped earlier interaction gates, current native review400, real browser controls/Worker, model/verification prerequisites, production exclusion and refreshed runnable artifacts.
+
+[Captured primary record formats and verified reopen](checkpoints/2026-10-18-primary-record-format/) records native30 optimized/sanitizer through`ba79581`, adjacent43/4, current review400 and Worker192, owned reservation/journal models, typed guarded codec components and the pinned59MB NYC collector benchmark. Table/mixed/legacy migration/browser activation and full visual parity remain open.
