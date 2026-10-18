@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Classify every local file; fingerprint all project-owned/versionable files.
 
-No files are deleted. Generated/dependency files get metadata in an ignored local
-manifest; the compact authored/intentional-derivative manifest can be reviewed.
+No files are deleted. Both the full inventory and the compact
+authored/intentional-derivative manifest stay in the selected output directory.
 """
 import argparse
 import csv
@@ -15,7 +15,6 @@ import subprocess
 from collections import defaultdict
 
 ROOT = Path(__file__).resolve().parents[1]
-INDEX = Path("docs/audit/FILES.tsv")
 
 
 def category(path):
@@ -24,7 +23,7 @@ def category(path):
     if name == ".DS_Store":
         return "os-metadata"
     if "node_modules" in parts:
-        return "prototype-dependency"
+        return "installed-dependency"
     if parts[:3] == ("design", "prototype", "dist"):
         return "prototype-build"
     if parts[:2] == ("tests", "downloads"):
@@ -36,7 +35,7 @@ def category(path):
     if parts[0] == "build" or "__pycache__" in parts or any(p.endswith(".dSYM") for p in parts):
         return "build-output"
     if name in ("duxcel", "duxcel-debug", "a.out") or (
-        parts[0] == "tests" and name.startswith("test_") and path.suffix != ".c"
+        parts[0] == "tests" and name.startswith("test_") and path.suffix in ("", ".exe")
     ):
         return "build-output"
     if parts[:2] == ("design", "prototype"):
@@ -59,6 +58,8 @@ def category(path):
         return "test-source-and-tools"
     if parts[0] == "tools":
         return "developer-tool"
+    if parts[0] == "web":
+        return "browser-platform-source-and-tools"
     if parts[:2] in (("assets", "icons"), ("assets", "ui")):
         return "runtime-artwork-and-derivatives"
     if parts[:2] == ("assets", "fonts"):
@@ -98,6 +99,8 @@ def main():
     parser.add_argument("--output", type=Path, default=Path("build/project-audit"))
     parser.add_argument("--check", action="store_true", help="Check compact manifest without writing it")
     args = parser.parse_args()
+    destination = (ROOT / args.output).resolve()
+    index = destination / "versionable-files.tsv"
     versionable = versionable_files()
     records, compact = [], []
     totals = defaultdict(lambda: {"files": 0, "bytes": 0})
@@ -106,7 +109,7 @@ def main():
         for name in sorted(files):
             absolute = Path(base) / name
             path = absolute.relative_to(ROOT)
-            if path == INDEX or path.is_relative_to(args.output):
+            if absolute.is_relative_to(destination):
                 continue  # Avoid self-referential output.
             info = absolute.lstat()
             kind = category(path)
@@ -119,15 +122,13 @@ def main():
                 compact.append(record)
     text = tsv(sorted(compact))
     if args.check:
-        if not (ROOT / INDEX).exists() or (ROOT / INDEX).read_text() != text:
+        if not index.exists() or index.read_text() != text:
             parser.exit(1, "Project file manifest is stale; run tools/project_inventory.py.\n")
     else:
-        destination = ROOT / args.output
         destination.mkdir(parents=True, exist_ok=True)
         (destination / "full-inventory.tsv").write_text(tsv(sorted(records)))
         (destination / "summary.json").write_text(json.dumps(dict(sorted(totals.items())), indent=2) + "\n")
-        (ROOT / INDEX).parent.mkdir(parents=True, exist_ok=True)
-        (ROOT / INDEX).write_text(text)
+        index.write_text(text)
     print(f"Classified {len(records):,} local files; fingerprinted {len(compact)} versionable files.")
     unknown = [r[0] for r in records if r[1] == "review-unclassified"]
     if unknown:

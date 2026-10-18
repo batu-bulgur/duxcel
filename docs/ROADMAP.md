@@ -2,7 +2,7 @@
 
 Current order following the 18 October cleanup request:
 
-1. Finish repository/worktree cleanup, preserve unfinished branches and deliver one clean native bundle with focused checks.
+1. Completed: repository/worktree cleanup, unfinished branch preservation and a clean signed native bundle with focused checks. See the [delivery audit](audit/2026-10-18-cleanup.md).
 2. Reproduce the reported native and Wasm trackpad oscillation, inconsistent return and selection/value-retention problems against that exact delivery. Fix one concrete behavior at a time, with a focused test and a current runnable app.
 3. Resume exact prototype UI parity and the other unchecked product tasks below. Browser persistence foundation work is paused until visible interaction work is back on track; browser workbook Open/Save remains unavailable.
 
