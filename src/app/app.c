@@ -7839,6 +7839,9 @@ static void draw_app(App *a) {
     }
     Rectangle *regions[]={&a->workspace.canvas,&a->workspace.left,&a->workspace.context,&a->workspace.inspector};
     for (size_t i=0;i<sizeof(regions)/sizeof(*regions);i++) { regions[i]->x*=s; regions[i]->y*=s; regions[i]->width*=s; regions[i]->height*=s; }
+    /* Anchor in presented points: dividing the window by UI scale and then
+       multiplying its logical left edge can leave a one-ULP right-edge gap. */
+    a->workspace.inspector.x=GetScreenWidth()-a->workspace.inspector.width;
     float viewport_right=a->workspace.canvas.x+a->workspace.canvas.width;
     Rectangle inspector=a->workspace.inspector;
     bool pan_in_inspector=u->native_pan_valid && u->native_pan.event &&
@@ -13054,7 +13057,8 @@ static void layout_smoke_step(App *a,int *step) {
         pipeline_show_sql(a); break;
     case 900:
         if (!a->pipeline_sql || !a->inspector_sql_text || !strstr(a->inspector_sql_text,"json_each") ||
-            a->inspector_sql_lines.count<=(size_t)(a->pipeline_layout.sql_code.height/(20*a->ui.scale))) goto failed;
+            a->inspector_sql_lines.count<=(size_t)(a->pipeline_layout.sql_code.height/(20*a->ui.scale)) ||
+            a->pipeline_panel.x!=130 || a->pipeline_panel.width!=510 || a->pipeline_layout.header.x!=131) goto failed;
         inspector_cached_sql=a->inspector_sql_text; inspector_cached_sql_offsets=a->inspector_sql_lines.offsets;
         if (a->inspector_sql_scroll || strcmp(a->sql_text,"Unrelated SQL dialog")) goto failed;
         smoke_snapshot("tests/results/workspace-layout/native-sql-scroll-default.png"); break;
