@@ -47,6 +47,10 @@ CODEC_COUNTERS_FIXTURES={
     'counters-v12.dxls':(12,25),'counters-v13.dxls':(13,25),
     'counters-v14.dxls':(14,25),'counters-v14-reordered.dxls':(14,25)}
 
+CODEC_SOURCE_COUNTERS_FIXTURES={
+    'source-counters-v12.dxls':(12,25),'source-counters-v13.dxls':(13,25),
+    'source-counters-v14.dxls':(14,25),'source-counters-v14-reordered.dxls':(14,25)}
+
 def codec_fixture_manifest(directory, emitted, expected=CODEC_FIXTURES):
     """Validate only this invocation's closed, bounded immutable archives."""
     if emitted.get('schema')!='duxcel.codec-fixtures' or emitted.get('version')!=1:
@@ -129,6 +133,7 @@ def parse_options(argv=None):
     parser.add_argument('--codec-objects',action='store_true',help='Separate opt-in saved object descriptor proof; requires --codec-read-driver')
     parser.add_argument('--codec-queries',action='store_true',help='Separate opt-in primary/Table query definition proof; requires --codec-read-driver')
     parser.add_argument('--codec-filters',action='store_true',help='Separate full primary filter metadata proof; requires --codec-read-driver')
+    parser.add_argument('--codec-source-counters',action='store_true',help='Separate exact source-version allocation-counter metadata proof; requires --codec-read-driver')
     parser.add_argument('--codec-counters',action='store_true',help='Separate exact object allocation-counter metadata proof; requires --codec-read-driver')
     parser.add_argument('--codec-grid',action='store_true',help='Separate ACKed column/sparse-cell metadata streaming proof; requires --codec-read-driver')
     parser.add_argument('--codec-pivot-marks',action='store_true',help='Separate coherent saved Pivot/Marks definition proof; requires --codec-read-driver')
@@ -185,14 +190,15 @@ def parse_options(argv=None):
     if options.codec_objects and not options.codec_read_driver:parser.error('--codec-objects requires --codec-read-driver')
     if options.codec_queries and not options.codec_read_driver:parser.error('--codec-queries requires --codec-read-driver')
     if options.codec_filters and not options.codec_read_driver:parser.error('--codec-filters requires --codec-read-driver')
+    if options.codec_source_counters and not options.codec_read_driver:parser.error('--codec-source-counters requires --codec-read-driver')
     if options.codec_counters and not options.codec_read_driver:parser.error('--codec-counters requires --codec-read-driver')
     if options.codec_grid and not options.codec_read_driver:parser.error('--codec-grid requires --codec-read-driver')
     if options.codec_pivot_marks and not options.codec_read_driver:parser.error('--codec-pivot-marks requires --codec-read-driver')
     if options.codec_tables and not options.codec_read_driver:parser.error('--codec-tables requires --codec-read-driver')
     if options.codec_source_options and not options.codec_read_driver:parser.error('--codec-source-options requires --codec-read-driver')
     if options.codec_read_driver:
-        if sum((options.codec_sorts,options.codec_preferences,options.codec_objects,options.codec_queries,options.codec_source_options,options.codec_tables,options.codec_pivot_marks,options.codec_filters,options.codec_grid,options.codec_counters))>1:parser.error('Choose one independent codec family gate')
-        if options.dpr!=1 or any(value for name,value in vars(options).items() if name not in ('codec_read_driver','codec_sorts','codec_preferences','codec_objects','codec_queries','codec_source_options','codec_tables','codec_pivot_marks','codec_filters','codec_grid','codec_counters','no_build','dpr')):
+        if sum((options.codec_sorts,options.codec_preferences,options.codec_objects,options.codec_queries,options.codec_source_options,options.codec_tables,options.codec_pivot_marks,options.codec_filters,options.codec_grid,options.codec_counters,options.codec_source_counters))>1:parser.error('Choose one independent codec family gate')
+        if options.dpr!=1 or any(value for name,value in vars(options).items() if name not in ('codec_read_driver','codec_sorts','codec_preferences','codec_objects','codec_queries','codec_source_options','codec_tables','codec_pivot_marks','codec_filters','codec_grid','codec_counters','codec_source_counters','no_build','dpr')):
             parser.error('--codec-read-driver is an isolated no-window gate; choose one optional codec family, --no-build and default --dpr 1')
         return options
     if options.chart_other_only:
@@ -380,11 +386,11 @@ def main():
     with FileLock(native_lock_path(),'hidden shared C browser acceptance'):
         codec_manifest=None;codec_helper=None;codec_helper_hash=None
         if options.codec_read_driver:
-            codec_expected=CODEC_COUNTERS_FIXTURES if options.codec_counters else CODEC_GRID_FIXTURES if options.codec_grid else CODEC_FILTERS_FIXTURES if options.codec_filters else CODEC_PIVOT_MARKS_FIXTURES if options.codec_pivot_marks else CODEC_TABLES_FIXTURES if options.codec_tables else CODEC_SOURCE_OPTIONS_FIXTURES if options.codec_source_options else CODEC_QUERIES_FIXTURES if options.codec_queries else CODEC_OBJECTS_FIXTURES if options.codec_objects else CODEC_PREFERENCES_FIXTURES if options.codec_preferences else CODEC_SORTS_FIXTURES if options.codec_sorts else CODEC_FIXTURES
+            codec_expected=CODEC_SOURCE_COUNTERS_FIXTURES if options.codec_source_counters else CODEC_COUNTERS_FIXTURES if options.codec_counters else CODEC_GRID_FIXTURES if options.codec_grid else CODEC_FILTERS_FIXTURES if options.codec_filters else CODEC_PIVOT_MARKS_FIXTURES if options.codec_pivot_marks else CODEC_TABLES_FIXTURES if options.codec_tables else CODEC_SOURCE_OPTIONS_FIXTURES if options.codec_source_options else CODEC_QUERIES_FIXTURES if options.codec_queries else CODEC_OBJECTS_FIXTURES if options.codec_objects else CODEC_PREFERENCES_FIXTURES if options.codec_preferences else CODEC_SORTS_FIXTURES if options.codec_sorts else CODEC_FIXTURES
             codec_helper=ROOT/'tests/test_workbook_codec_native'
             codec_helper_hash=hashlib.sha256(codec_helper.read_bytes()).hexdigest()
             codec_directory=output/'codec-fixtures';codec_directory.mkdir()
-            emitted=subprocess.run([str(codec_helper),'--emit-counters-fixtures' if options.codec_counters else '--emit-grid-fixtures' if options.codec_grid else '--emit-filters-fixtures' if options.codec_filters else '--emit-pivot-marks-fixtures' if options.codec_pivot_marks else '--emit-tables-fixtures' if options.codec_tables else '--emit-source-options-fixtures' if options.codec_source_options else '--emit-queries-fixtures' if options.codec_queries else '--emit-objects-fixtures' if options.codec_objects else '--emit-preferences-fixtures' if options.codec_preferences else '--emit-sorts-fixtures' if options.codec_sorts else '--emit-fixtures',str(codec_directory)],cwd=ROOT,text=True,capture_output=True,timeout=30)
+            emitted=subprocess.run([str(codec_helper),'--emit-source-counters-fixtures' if options.codec_source_counters else '--emit-counters-fixtures' if options.codec_counters else '--emit-grid-fixtures' if options.codec_grid else '--emit-filters-fixtures' if options.codec_filters else '--emit-pivot-marks-fixtures' if options.codec_pivot_marks else '--emit-tables-fixtures' if options.codec_tables else '--emit-source-options-fixtures' if options.codec_source_options else '--emit-queries-fixtures' if options.codec_queries else '--emit-objects-fixtures' if options.codec_objects else '--emit-preferences-fixtures' if options.codec_preferences else '--emit-sorts-fixtures' if options.codec_sorts else '--emit-fixtures',str(codec_directory)],cwd=ROOT,text=True,capture_output=True,timeout=30)
             (output/'codec-native-create.txt').write_text(emitted.stdout+emitted.stderr)
             if emitted.returncode:raise RuntimeError('Native codec fixture emission failed; see '+str(output/'codec-native-create.txt'))
             codec_emitted=json.loads(emitted.stdout)
@@ -431,6 +437,7 @@ def main():
             if options.codec_filters:command.append('--codec-filters')
             if options.codec_grid:command.append('--codec-grid')
             if options.codec_counters:command.append('--codec-counters')
+            if options.codec_source_counters:command.append('--codec-source-counters')
             if options.worker_probe: command.append('--worker-probe')
             if options.source: command.extend(['--source',str(options.source.resolve(strict=True))])
             if options.filters: command.append('--filters')
@@ -533,8 +540,9 @@ def main():
                 if options.codec_filters:record['profile']='codec-filters-driver'
                 if options.codec_grid:record['profile']='codec-grid-driver'
                 if options.codec_counters:record['profile']='codec-counters-driver'
+                if options.codec_source_counters:record['profile']='codec-source-counters-driver'
                 record['codec_fixture_manifest']=codec_manifest;record['codec_helper_sha256']=codec_helper_hash
-                record['scope']='Isolated C partial '+('meta/sheets/object-descriptors/exact-allocation-counters Header decoder over four immutable native archives' if options.codec_counters else 'meta/sheets/ACKed-streamed column presentation and sparse cells Header decoder over four immutable native archives' if options.codec_grid else 'meta/sheets/empty-object-descriptors/queries/options/sorts/full-primary-filter Header decoder over four immutable native archives' if options.codec_filters else 'meta/sheets/objects/queries/options/Table-sources-filters-sorts/Pivot-Marks definitions Header decoder over four immutable native archives' if options.codec_pivot_marks else 'meta/sheets/objects/primary-Table-queries/source-options/complete-Table-sources-filters-sorts Header decoder over four immutable native archives' if options.codec_tables else 'meta/sheets/objects/primary-Table-queries/source-options Header decoder over four immutable native archives' if options.codec_source_options else 'meta/sheets/objects/primary-Table-query Header decoder over six immutable native archives including two deliberately invalid query packages' if options.codec_queries else 'meta/sheets/object-descriptor Header decoder over four immutable native archives' if options.codec_objects else 'meta/sheets/preferences Header decoder over six closed native archives including two deliberately invalid packages' if options.codec_preferences else 'meta/sheets/secondary-sort Header decoder over four immutable native archives' if options.codec_sorts else 'meta/sheets Header decoder over seven immutable native v12/v13/v14 archives')+' through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.'
+                record['scope']='Isolated C partial '+('meta/sheets/object-descriptors/independent-object-and-source-version-counters Header decoder over four immutable native archives' if options.codec_source_counters else 'meta/sheets/object-descriptors/exact-allocation-counters Header decoder over four immutable native archives' if options.codec_counters else 'meta/sheets/ACKed-streamed column presentation and sparse cells Header decoder over four immutable native archives' if options.codec_grid else 'meta/sheets/empty-object-descriptors/queries/options/sorts/full-primary-filter Header decoder over four immutable native archives' if options.codec_filters else 'meta/sheets/objects/queries/options/Table-sources-filters-sorts/Pivot-Marks definitions Header decoder over four immutable native archives' if options.codec_pivot_marks else 'meta/sheets/objects/primary-Table-queries/source-options/complete-Table-sources-filters-sorts Header decoder over four immutable native archives' if options.codec_tables else 'meta/sheets/objects/primary-Table-queries/source-options Header decoder over four immutable native archives' if options.codec_source_options else 'meta/sheets/objects/primary-Table-query Header decoder over six immutable native archives including two deliberately invalid query packages' if options.codec_queries else 'meta/sheets/object-descriptor Header decoder over four immutable native archives' if options.codec_objects else 'meta/sheets/preferences Header decoder over six closed native archives including two deliberately invalid packages' if options.codec_preferences else 'meta/sheets/secondary-sort Header decoder over four immutable native archives' if options.codec_sorts else 'meta/sheets Header decoder over seven immutable native v12/v13/v14 archives')+' through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.'
             if options.chart_other_only:
                 record['scope']='Actual shared C same-sheet Rows Group/Columns Bucket/SUM Rank/AVG Value/COUNT DISTINCT Customer through real authoring menus and official Worker. Cached source-derived Other7.5/3, exact typed readouts, Bar/Plot/Marks pointer and keyboard actions, presentation-only Undo/Redo and source/manual retention are checked with zero post-publication jobs. No injected analytical state, clipboard activation, report upload, persistence or physical input claim.'
             if options.inspector_sql_only:
