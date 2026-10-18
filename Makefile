@@ -397,6 +397,25 @@ tests/test_choiceview: $(CHOICEVIEW_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(CHOICEVIEW_SRC) -o $@ $(RAYLIB_LIBS) -lm
 tests/test_choiceview-debug: $(CHOICEVIEW_SRC) $(HEADERS)
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CHOICEVIEW_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+# Small actual-module input/paint recorders; never linked into App binaries.
+PREVIEW_INPUT_SRC = src/ui/preview.c tests/test_preview_input.c
+TEXTVIEW_INPUT_SRC = src/common.c src/ui/textview.c tests/test_textview.c
+tests/test_preview_input: $(PREVIEW_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(PREVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_preview_input-debug: $(PREVIEW_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(PREVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+tests/test_preview_input_browser: $(PREVIEW_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -DDUXCEL_BROWSER_HOST $(CFLAGS) $(WARN) $(PREVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_preview_input_browser-debug: $(PREVIEW_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -DDUXCEL_BROWSER_HOST -O1 -g $(WARN) $(SANFLAGS) $(PREVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+tests/test_textview: $(TEXTVIEW_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(TEXTVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_textview-debug: $(TEXTVIEW_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(TEXTVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+tests/test_textview_review: $(TEXTVIEW_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW $(CFLAGS) $(WARN) $(TEXTVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm
+tests/test_textview_review-debug: $(TEXTVIEW_INPUT_SRC) $(HEADERS)
+	$(CC) $(CPPFLAGS) -DDUXCEL_DEV_REVIEW -O1 -g $(WARN) $(SANFLAGS) $(TEXTVIEW_INPUT_SRC) -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 MOTION_SRC = src/ui/motion.c tests/test_motion.c
 tests/test_motion: $(MOTION_SRC) src/ui/motion.h
 	$(CC) -Isrc $(CFLAGS) $(WARN) $(MOTION_SRC) -o $@ -lm
@@ -436,7 +455,7 @@ tests/test_paint-native-debug: $(PAINT_NATIVE_SRC) $(HEADERS)
 paint-smoke: tests/test_paint-native-debug
 	mkdir -p tests/results/native-authoring
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_paint-native-debug
-test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview
+test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid tests/test_workbook tests/test_brand tests/test_format tests/test_chartview tests/test_chartencoding tests/test_inspector tests/test_stepview tests/test_preview tests/test_statsview tests/test_guideview tests/test_fontmetrics tests/test_motion tests/test_choiceview icons-check tests/test_paintlayer tests/test_popup tests/test_marksview tests/test_preview_input tests/test_preview_input_browser tests/test_textview tests/test_textview_review
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
 	./tests/test_filterlabel
 	./tests/test_cellreadout
@@ -459,7 +478,11 @@ test: tests/test_keytips tests/test_cellreadout tests/test_core tests/test_grid 
 	./tests/test_paintlayer
 	./tests/test_popup
 	./tests/test_marksview
-test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug
+	./tests/test_preview_input
+	./tests/test_preview_input_browser
+	./tests/test_textview
+	./tests/test_textview_review
+test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_core-debug tests/test_grid-debug tests/test_workbook-debug tests/test_brand-debug tests/test_format-debug tests/test_chartview-debug tests/test_chartencoding-debug tests/test_inspector-debug tests/test_stepview-debug tests/test_preview-debug tests/test_statsview-debug tests/test_guideview-debug tests/test_fontmetrics-debug tests/test_motion-debug tests/test_choiceview-debug icons-check tests/test_paintlayer-debug tests/test_popup-debug tests/test_marksview-debug tests/test_preview_input-debug tests/test_preview_input_browser-debug tests/test_textview-debug tests/test_textview_review-debug
 	mkdir -p tests/generated/workspace-old tests/generated/workspace-new
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_filterlabel-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_cellreadout-debug
@@ -482,6 +505,10 @@ test-debug: tests/test_keytips-debug tests/test_cellreadout-debug tests/test_cor
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_paintlayer-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_popup-debug
 	ASAN_OPTIONS=halt_on_error=1 ./tests/test_marksview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_preview_input-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_preview_input_browser-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_textview-debug
+	ASAN_OPTIONS=halt_on_error=1 ./tests/test_textview_review-debug
 spill-test: tests/test_cellreadout tests/test_core tests/test_core-debug
 	./tests/test_core --spill-probe
 	TMPDIR=/ ASAN_OPTIONS=halt_on_error=1 ./tests/test_core-debug --spill-probe
@@ -569,6 +596,7 @@ clean:
 	rm -rf tests/test_preview.dSYM tests/test_preview-debug.dSYM
 	rm -f tests/test_inspector tests/test_inspector-debug tests/test_stepview tests/test_stepview-debug
 	rm -rf tests/test_inspector.dSYM tests/test_inspector-debug.dSYM tests/test_stepview.dSYM tests/test_stepview-debug.dSYM
+	rm -f tests/test_preview_input tests/test_preview_input-debug tests/test_preview_input_browser tests/test_preview_input_browser-debug tests/test_textview tests/test_textview-debug tests/test_textview_review tests/test_textview_review-debug
 	rm -f tests/test_choiceview tests/test_choiceview-debug tests/test_motion tests/test_motion-debug duxcel duxcel-debug tests/test_core tests/test_core-debug tests/test_grid tests/test_grid-debug tests/test_workbook tests/test_workbook-debug tests/test_brand tests/test_brand-debug tests/test_chartencoding tests/test_chartencoding-debug
 	rm -rf duxcel.dSYM duxcel-debug.dSYM tests/test_core.dSYM tests/test_core-debug.dSYM tests/test_grid.dSYM tests/test_grid-debug.dSYM tests/test_workbook.dSYM tests/test_workbook-debug.dSYM tests/test_brand.dSYM tests/test_brand-debug.dSYM tests/test_chartencoding.dSYM tests/test_chartencoding-debug.dSYM
 .PHONY: all run debug run-debug test test-debug spill-test unique-large-test smoke workspace-smoke filter-smoke pivot-smoke export-smoke count-smoke clipboard-smoke sort-smoke layout-smoke navigation-smoke startup-smoke nyc-smoke document-smoke chart-smoke statistics-smoke table-smoke icon-smoke query-smoke unique-smoke mac-icon-check bundle clean icons icons-check icons-verify paint-smoke

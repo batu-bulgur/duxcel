@@ -236,6 +236,20 @@ static bool source_format_first_safe(const FormatStore *store) {
     for (size_t i=0;i<store->redo_count;i++) if (!source_format_broad(store->redo+i)) return false;
     return true;
 }
+static bool source_format_manual_import_ready(App *a) {
+    Worksheet *sheet=active_sheet(a);
+    return sheet && !sheet->formats.source_aware && !source_format_first_safe(&sheet->formats) &&
+        worksheet_manual_format_history_eligible(sheet,&a->analysis,NULL);
+}
+static void source_format_manual_import_adopt(App *a) {
+    /* The unchanged pre-import proof contained no imported owner in any
+       retained definition. These old rectangles stay manual when the first
+       new Table is introduced. No scope, allocation or journal entry is needed. */
+    FormatStore *store=&active_sheet(a)->formats; store->source_aware=true;
+    for (size_t i=0;i<store->undo_count;i++) store->undo[i].source_aware=true;
+    for (size_t i=0;i<store->redo_count;i++) store->redo[i].source_aware=true;
+    store->revision++;
+}
 static bool source_format_save_ready(App *a) {
     for (size_t i=0;i<a->book.count;i++) {
         const Worksheet *sheet=a->book.sheets+i;

@@ -787,6 +787,11 @@ static void review_feedback_preview(App *a,const UIPreviewReviewFrame *frame) {
     if (!review_armed(a) || !frame || !frame->armed || a->modal!=MODAL_NONE || a->file_menu) return;
     DxReviewDataIdentity origin=review_feedback_origin(a,"preview",NULL); char metadata[256];
     snprintf(metadata,sizeof(metadata)," feedback_preview=%llu,%llu,%llu,%zu,%d,%d feedback_preview_records=%zu,%d",(unsigned long long)a->step_preview.source_id,(unsigned long long)a->step_preview.source_revision,(unsigned long long)a->step_preview.request,a->step_preview.step,a->step_preview.loading,a->step_preview.error!=NULL,frame->count,frame->overflow); review_author_capture_state(a,metadata);
+    const Grid *grid=&a->step_preview.grid;
+    snprintf(metadata,sizeof(metadata)," feedback_preview_selection=%llu,%zu,%llu,%zu,%llu,%zu",
+        (unsigned long long)grid->row,grid->col,(unsigned long long)grid->anchor_row,grid->anchor_col,
+        (unsigned long long)grid->end_row,grid->end_col); review_author_capture_state(a,metadata);
+    snprintf(metadata,sizeof(metadata)," feedback_preview_body=%.3f,%.3f,%.3f,%.3f",grid->body.x,grid->body.y,grid->body.width,grid->body.height); review_author_capture_state(a,metadata);
     if (frame->overflow) a->review->registry->truncated=true;
     for (size_t i=0;i<frame->count;i++) {
         const UIPreviewReviewTarget *target=&frame->targets[i]; char id[128]; snprintf(id,sizeof(id),"preview.%s",target->key);

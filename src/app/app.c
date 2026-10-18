@@ -649,6 +649,8 @@ static Worksheet *active_sheet(App *a) { return a->book.count ? &a->book.sheets[
 static void source_format_cancel(App *a,const char *message);
 static void source_format_origin_arm(App *a);
 static void source_format_origin_invalidate(App *a);
+static bool source_format_manual_import_ready(App *a);
+static void source_format_manual_import_adopt(App *a);
 static void source_format_reset(App *a);
 static void source_format_page(App *a);
 static void source_format_tick(App *a);
@@ -806,7 +808,9 @@ static void replay_canvas_keys(App *a,bool enabled) {
     set_grid_navigation(a);
         GridInput input={.mouse={-1000000,-1000000},.key=event.key,.separate_keyboard=true,
             .key_shift=(event.modifiers&DX_MOD_SHIFT)!=0,.key_alt=(event.modifiers&DX_MOD_ALT)!=0};
-#ifdef __APPLE__
+#if defined(DUXCEL_BROWSER_HOST)
+        input.key_shortcut=(event.modifiers&(DX_MOD_CONTROL|DX_MOD_SUPER))!=0;
+#elif defined(__APPLE__)
         input.key_shortcut=(event.modifiers&DX_MOD_SUPER)!=0;
 #else
         input.key_shortcut=(event.modifiers&DX_MOD_CONTROL)!=0;
@@ -919,8 +923,14 @@ static bool import_table(App *a,const char *path) {
     Worksheet *sheet=active_sheet(a); char *error=NULL;
     if (!objects_fits(&sheet->objects,-1,a->grid.row,a->grid.col,5,4,&sheet->cells,source_rows(a),a->page.column_count,&error)) { status(a,error); free(error); free(absolute); return false; }
     Analysis source={.kind=kind,.path=absolute}; char name[64]; snprintf(name,sizeof(name),"Table %" PRIu64,sheet->objects.next_id+1);
+#ifndef DUXCEL_BROWSER_HOST
+    bool manual_formats=source_format_manual_import_ready(a);
+#endif
     int index=objects_add_table(&sheet->objects,a->grid.row,a->grid.col,name,&source,&error); analysis_free(&source);
     if (index<0) { status(a,error); free(error); return false; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (manual_formats) source_format_manual_import_adopt(a);
+#endif
     worksheet_record(sheet,EDIT_OBJECTS); a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
     invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Loading table at the selected range…"); return true;
 }
@@ -7724,7 +7734,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 846
+#define LAYOUT_SMOKE_STAGES 852
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -12178,6 +12188,50 @@ static void layout_smoke_step(App *a,int *step) {
     case 845:
         puts("PASS: native legacy format baselines preserve Cell Format Undo Redo and verified loaded definitions; pruned sort history cancellation changed files and blocked Save cannot invent source identity"); break;
 
+    case 846: {
+        if (!smoke_record_file("tests/generated/app-manual-format-import.parquet",false,&error)) goto failed;
+        a->document_action=DOCUMENT_NEW; finish_document_action(a); s=active_sheet(a);
+        a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
+        a->sidebar=a->fields_visible=a->pipeline=a->matrix_cells_active=false; a->selected_object=-1;
+        ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
+        /* A loaded blank Pivot template is not an imported data owner. Keep
+           its real removal history while introducing the first data Table. */
+        int template=objects_add(&s->objects,0,8,"Empty template",&error); if (template<0) goto failed;
+        worksheet_record(s,EDIT_OBJECTS); a->selected_object=template; remove_pivot(a);
+        grid_select_cell(&a->grid,0,4,false); a->grid.end_row=11; run_action(a,ACTION_BOLD);
+        if (s->formats.source_aware || format_at(&s->formats,2,4).flags!=FORMAT_BOLD ||
+            !worksheet_manual_format_history_eligible(s,&a->analysis,&error)) goto failed;
+        draft_revision=s->formats.revision; draft_history=s->undo_actions_count;
+        grid_select_cell(&a->grid,0,0,false);
+        if (!import_table(a,"tests/generated/app-manual-format-import.parquet") || !s->formats.source_aware ||
+            s->formats.revision!=draft_revision+1 || s->undo_actions_count!=draft_history+1 ||
+            s->undo_actions[draft_history]!=EDIT_OBJECTS || s->formats.undo_count!=1 || !s->formats.undo[0].source_aware) goto failed;
+        break;
+    }
+    case 847:
+        if (!object_ready(a,0)) return;
+        if (a->analysis.kind!=SOURCE_NONE || s->source_versions.high_water || s->objects.items[0].source.source_version ||
+            format_at(&s->formats,2,4).flags!=FORMAT_BOLD || imported_cell_format(a,2,4).flags ||
+            strcmp(a->objects[0].page.cells[4].text,"0.0000")) goto failed;
+        history(a,false); grid_select_cell(&a->grid,2,4,false);
+        if (s->objects.count || active_format(a).flags!=FORMAT_BOLD || !s->formats.source_aware) goto failed;
+        history(a,true); break;
+    case 848:
+        if (!object_ready(a,0)) return;
+        if (imported_cell_format(a,2,4).flags || format_at(&s->formats,2,4).flags!=FORMAT_BOLD) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-manual-format-import.dxls"); break;
+    case 849:
+        if (a->book.dirty) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-manual-format-import.dxls"); break;
+    case 850:
+        if (!object_ready(a,0)) return;
+        if (a->book.dirty || s->undo_actions_count || !s->formats.source_aware || s->source_versions.high_water ||
+            s->objects.items[0].source.source_version || imported_cell_format(a,2,4).flags ||
+            format_at(&s->formats,2,4).flags!=FORMAT_BOLD || s->formats.items[0].selector!=FORMAT_SPATIAL) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/manual-format-import-reopened.png"); break;
+    case 851:
+        puts("PASS: native manual format history stays manual through first Table import, blank-template removal, normal Object Undo Redo and v14 Save Open without fabricated source bindings"); break;
+
     }
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: workspace layout smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : "");
@@ -13629,9 +13683,9 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
-    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
+    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846)) { SetWindowSize(1440,988); open_source(a,"tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
     else if (options->nyc_smoke) open_source(a,"tests/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -13641,7 +13695,7 @@ AppSession *app_start(const AppOptions *options) {
     else if (options->path) open_source(a,options->path,false);
     else if (options->export_smoke || options->clipboard_smoke || options->layout_smoke || options->navigation_smoke) open_source(a,"tests/fixtures/null-text.csv",false);
     else { new_sheet(a); a->book.dirty=false; }
-    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 ? layout_start : 250) : 0;
+    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 ? layout_start : 250) : 0;
     session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     session->applied_cursor=-1;
     session->automated=automated; session->layout_start=layout_start; session->layout_target=layout_target;
