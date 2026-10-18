@@ -67,7 +67,7 @@ typedef struct {
 } ActiveReadout;
 #ifndef DUXCEL_BROWSER_HOST
 typedef struct {
-    bool active,issue;
+    bool active,issue,restore;
     uint64_t document,request,analysis_revision,format_revision,cell_revision,high_water,version;
     size_t sheet,bytes;
     JobKind stage;
@@ -86,6 +86,12 @@ typedef struct {
     size_t sheet,token;
     bool ready,spare_ready;
 } SourceFormatProof;
+typedef struct {
+    SourceFileIdentity identity;
+    uint64_t document,version,stamp;
+    size_t sheet;
+    bool valid;
+} SourceFormatAttempt;
 #endif
 typedef struct {
     UIContext ui;
@@ -109,6 +115,7 @@ typedef struct {
 #ifndef DUXCEL_BROWSER_HOST
     SourceFormatIntent source_format;
     SourceFormatProof source_format_proof;
+    SourceFormatAttempt source_format_attempt;
     uint64_t format_document;
 #endif
     bool preview_valid;
@@ -637,6 +644,8 @@ static void source_format_cancel(App *a,const char *message);
 static void source_format_reset(App *a);
 static void source_format_page(App *a);
 static void source_format_tick(App *a);
+static void source_format_schedule(App *a);
+static void source_format_request(App *a);
 static bool source_format_reply(App *a,QueryReply *reply);
 static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat value,bool *handled);
 static size_t source_format_token(App *a);
@@ -645,12 +654,16 @@ static CellFormat source_format_value(App *a,uint64_t row,size_t column);
 #define SOURCE_FORMAT_RESET(a) source_format_reset(a)
 #define SOURCE_FORMAT_PAGE(a) source_format_page(a)
 #define SOURCE_FORMAT_TICK(a) source_format_tick(a)
+#define SOURCE_FORMAT_SCHEDULE(a) source_format_schedule(a)
+#define SOURCE_FORMAT_REQUEST(a) source_format_request(a)
 #define SOURCE_FORMAT_PENDING(a) ((a)->source_format.active)
 #else
 #define SOURCE_FORMAT_CANCEL(...) ((void)0)
 #define SOURCE_FORMAT_RESET(...) ((void)0)
 #define SOURCE_FORMAT_PAGE(...) ((void)0)
 #define SOURCE_FORMAT_TICK(...) ((void)0)
+#define SOURCE_FORMAT_SCHEDULE(...) ((void)0)
+#define SOURCE_FORMAT_REQUEST(...) ((void)0)
 #define SOURCE_FORMAT_PENDING(...) false
 #endif
 /* Persisted scopes remain suspended until a verified publication supplies exact
@@ -1019,7 +1032,7 @@ static void remember(App *a) {
 #include "source_format.inc"
 #endif
 static void request_page(App *a,bool reset) {
-    SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by a new data request.");
+    SOURCE_FORMAT_REQUEST(a);
     QueryJob *j=dx_alloc(sizeof(*j));
     j->id=++a->request_id; j->analysis=analysis_copy(&a->analysis); j->kind=JOB_PAGE;
     j->refresh_source=a->refresh_plans; a->refresh_plans=false;
@@ -7652,7 +7665,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 754
+#define LAYOUT_SMOKE_STAGES 764
 #define QUERY_SMOKE_STAGES 47
 #ifndef DUXCEL_BROWSER_HOST
 static void smoke_step(App *a,int *step) {
@@ -11168,12 +11181,16 @@ static void layout_smoke_step(App *a,int *step) {
     }
     case 717: {
         uint64_t revision=s->formats.revision; size_t actions=s->undo_actions_count; bool dirty=a->book.dirty;
-        if (!s->formats.source_aware || s->formats.scope_count!=2 || a->grid.format_result_token!=SIZE_MAX || a->grid.format_record_token!=SIZE_MAX ||
-            active_format(a).flags || active_format(a).color || grid_cell_format(&a->grid,&a->page,0,1).flags ||
-            !(format_at(&s->formats,20,8).flags&FORMAT_ITALIC)) goto failed;
+        if (!s->formats.source_aware || s->formats.scope_count!=2 || a->grid.format_result_token!=SIZE_MAX ||
+            a->grid.format_record_token==SIZE_MAX || active_format(a).flags || active_format(a).color!=3 ||
+            grid_cell_format(&a->grid,&a->page,0,1).flags || !(format_at(&s->formats,20,8).flags&FORMAT_ITALIC) ||
+            a->request_id!=request+1 || a->page.cells!=ribbon_cells) goto failed;
+        request=a->request_id;
+        a->grid.end_row=a->page.total; /* Mixed imported/manual range remains unsupported. */
         run_action(a,ACTION_BOLD);
         if (s->formats.revision!=revision || s->undo_actions_count!=actions || a->book.dirty!=dirty ||
-            !a->message || !strstr(a->message,"verified record collection") || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+            !a->message || !strstr(a->message,"ready finite range") || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        grid_select_cell(&a->grid,0,1,false);
         a->grid.selection=SELECT_COLUMNS; run_action(a,ACTION_ALIGN_CENTER);
         if (active_format(a).align!=FORMAT_CENTER || active_format(a).flags || s->undo_actions_count!=actions+1 || !s->formats.source_aware ||
             a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
@@ -11197,13 +11214,13 @@ static void layout_smoke_step(App *a,int *step) {
             a->page.total!=5 || a->page.column_count!=6 || strcmp(a->page.cells[1].text,"İstanbul") || a->book.dirty ||
             !strcmp(s->name,"Changed after scoped save")) goto failed;
         grid_select_cell(&a->grid,0,1,false);
-        if (active_format(a).flags || active_format(a).color || active_format(a).align!=FORMAT_CENTER ||
-            a->grid.format_result_token!=SIZE_MAX || a->grid.format_record_token!=SIZE_MAX) goto failed;
+        if (active_format(a).flags || active_format(a).color!=3 || active_format(a).align!=FORMAT_CENTER ||
+            a->grid.format_result_token!=SIZE_MAX || a->grid.format_record_token==SIZE_MAX) goto failed;
         smoke_snapshot("tests/results/workspace-layout/source-aware-reopened.png");
         workspace_job(a,JOB_SAVE,"tests/generated/app-source-format.dxls"); break;
     case 722:
-        if (a->book.dirty || !s->formats.source_aware || s->formats.scope_count!=2 || active_format(a).flags || active_format(a).color) goto failed;
-        puts("PASS: native v14 saved source scopes stay suspended across real Save Open and overwrite, imported finite commands reject atomically, manual and whole-column formatting retain Undo Redo and exact source values");
+        if (a->book.dirty || !s->formats.source_aware || s->formats.scope_count!=2 || active_format(a).flags || active_format(a).color!=3) goto failed;
+        puts("PASS: native v14 saved raw record styles reactivate only after verification, result styles stay suspended across real Save Open and overwrite, mixed finite commands reject atomically, manual and whole-column formatting retain Undo Redo and exact source values");
         activate_sheet(a,cache_source_sheet,true); break;
     case 723:
         for (size_t i=0;i<2;i++) if (!object_ready(a,i)) {
@@ -11425,24 +11442,82 @@ static void layout_smoke_step(App *a,int *step) {
     case 750:
         if (a->book.dirty || !s->formats.source_aware || s->formats.count!=3 || s->formats.scope_count!=1 ||
             s->source_versions.high_water!=1 || s->source_versions.count!=1 || a->analysis.source_version!=1 ||
-            source_format_token(a)!=SIZE_MAX || a->source_format_proof.raw.data || a->page.total!=600 ||
+            !smoke_source_record_formats(a,true) || !a->source_format_attempt.valid || a->page.total!=600 ||
             a->page.columns[3].type!=DUCKDB_TYPE_BIGINT || a->page.columns[4].type!=DUCKDB_TYPE_DECIMAL) goto failed;
-        grid_select_cell(&a->grid,a->page.offset+4,4,false); draft_revision=s->formats.revision;
-        run_action(a,ACTION_BOLD);
-        if (a->busy || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision ||
-            s->undo_actions_count || !a->message || !strstr(a->message,"verified reactivation")) goto failed;
+        grid_select_cell(&a->grid,a->page.offset+4,4,false); draft_revision=s->formats.revision; request=a->request_id;
+        ribbon_cells=a->page.cells;
         break;
     case 751:
-        if (source_format_token(a)!=SIZE_MAX || active_format(a).flags || active_format(a).color ||
-            active_format(a).align!=FORMAT_CENTER || a->book.dirty) goto failed;
-        smoke_snapshot("tests/results/workspace-layout/source-record-format-dormant.png"); break;
+        if (!smoke_source_record_formats(a,true) || active_format(a).align!=FORMAT_CENTER || a->book.dirty ||
+            s->formats.revision!=draft_revision || s->undo_actions_count || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
+        smoke_snapshot("tests/results/workspace-layout/source-record-format-reopened.png"); break;
     case 752:
         if (s->source_versions.high_water!=1 || s->formats.items[0].selector!=FORMAT_RECORDS ||
             s->formats.items[0].record_count!=110 || s->formats.items[1].record_count!=1 ||
             s->formats.items[1].record_ids[0]!=1 || s->formats.items[1].value.color!=3) goto failed;
         break;
     case 753:
-        puts("PASS: native captured Verify Collect Commit formats original records across page boundaries sort filter eviction and duplicate values, preserves first-binding Undo Redo and no-op redo, rejects canceled superseded stale commands, and archives typed styles dormant in v14"); break;
+        if (!smoke_source_record_formats(a,true) || a->request_id!=request || a->book.dirty || s->undo_actions_count ||
+            s->formats.revision!=draft_revision) goto failed;
+        break;
+    case 754:
+        /* Explicit Escape terminates one automatic attempt without an idle
+           retry; returning to a sheet creates a new verification context. */
+        source_packet_free(&a->source_format_proof.raw); a->source_format_proof=(SourceFormatProof){0};
+        a->source_format_attempt=(SourceFormatAttempt){0}; source_format_schedule(a);
+        if (!a->source_format.active || !a->source_format.restore || a->pending_kind!=JOB_VERIFY_SOURCE) goto failed;
+        cancel_active_query(a); request=a->request_id; break;
+    case 755:
+        if (a->source_format.active || a->request_id!=request || a->book.dirty || s->undo_actions_count ||
+            s->formats.revision!=draft_revision || source_format_token(a)!=SIZE_MAX) goto failed;
+        activate_sheet(a,a->book.active,true); break;
+    case 756:
+        if (!smoke_source_record_formats(a,true) || a->book.dirty || s->undo_actions_count ||
+            s->formats.revision!=draft_revision || s->source_versions.high_water!=1) goto failed;
+        break;
+    case 757: {
+        /* A different file at the identical locator and exact same schema
+           must never reactivate saved physical-record styles. */
+        Database fixture={0}; duckdb_result result={0};
+        remove("tests/generated/app-record-format-replaced.parquet");
+        if (!database_open(&fixture,&error)) goto failed;
+        const char *sql="COPY (SELECT floor(i/2)::BIGINT AS Pair,(floor(i/2)::BIGINT%7)::INTEGER AS Tie,"
+            "CASE floor(i/2)::BIGINT%5 WHEN 0 THEN NULL WHEN 1 THEN '' WHEN 2 THEN 'NULL' ELSE 'pair' END::VARCHAR AS Label,"
+            "(9007199254740993+floor(i/2)::BIGINT)::BIGINT AS Exact,(1000+floor(i/2)/8)::DECIMAL(18,4) AS Amount "
+            "FROM range(600) t(i)) TO 'tests/generated/app-record-format-replaced.parquet' (FORMAT PARQUET)";
+        bool ok=duckdb_query(fixture.connection,sql,&result)==DuckDBSuccess;
+        if (!ok) { free(error); error=dx_strdup(duckdb_result_error(&result)); }
+        duckdb_destroy_result(&result); database_close(&fixture);
+        if (!ok || rename("tests/generated/app-record-format-replaced.parquet","tests/generated/app-record-format.parquet")) goto failed;
+        workspace_job(a,JOB_LOAD,"tests/generated/app-live-record-format.dxls"); break;
+    }
+    case 758:
+        if (source_format_token(a)!=SIZE_MAX || a->source_format_proof.raw.data || !a->source_format_attempt.valid ||
+            a->book.dirty || s->undo_actions_count || s->formats.count!=3 || s->source_versions.high_water!=1 ||
+            a->page.total!=600 || a->page.columns[4].type!=DUCKDB_TYPE_DECIMAL ||
+            active_format(a).flags || active_format(a).color || active_format(a).align!=FORMAT_CENTER ||
+            !a->message || !strstr(a->message,"no longer matches")) goto failed;
+        request=a->request_id; draft_revision=s->formats.revision; ribbon_cells=a->page.cells;
+        smoke_snapshot("tests/results/workspace-layout/source-record-format-changed.png"); break;
+    case 759:
+        if (a->request_id!=request || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision ||
+            s->undo_actions_count || a->page.cells!=ribbon_cells || source_format_token(a)!=SIZE_MAX) goto failed;
+        { CellFormat value=active_format(a); value.flags|=FORMAT_BOLD;
+          if (!apply_format(a,FORMAT_BOLD,value) || a->pending_kind!=JOB_VERIFY_SOURCE) goto failed; }
+        break;
+    case 760:
+        if (a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision || s->undo_actions_count ||
+            s->source_versions.high_water!=1 || source_format_token(a)!=SIZE_MAX || a->page.cells!=ribbon_cells) goto failed;
+        request=a->request_id; break;
+    case 761:
+        if (a->request_id!=request || a->source_format.active || a->book.dirty || s->formats.revision!=draft_revision) goto failed;
+        workspace_job(a,JOB_SAVE,"tests/generated/app-live-record-format.dxls"); break;
+    case 762:
+        if (a->book.dirty || source_format_token(a)!=SIZE_MAX || s->formats.items[0].record_count!=110 ||
+            s->formats.items[1].record_ids[0]!=1 || s->formats.items[1].value.color!=3) goto failed;
+        break;
+    case 763:
+        puts("PASS: native captured Verify Collect Commit formats original records across page boundaries sort filter eviction and duplicate values, preserves first-binding Undo Redo and no-op redo, rejects canceled superseded stale commands, reactivates verified v14 styles without edits, and suspends same-schema replaced sources without idle retries"); break;
 
     }
     free(error); (*step)++; return;
@@ -13582,6 +13657,7 @@ bool app_frame(AppSession *session) {
     StepPreview *preview=&a->step_preview;
     if (preview->active && !preview->loading && preview->spare.column_count && !grid_cached(&preview->grid,&preview->page) && grid_cached(&preview->grid,&preview->spare)) { Page swap=preview->page; preview->page=preview->spare; preview->spare=swap; }
     watch_statistics(a); schedule_step_preview(a); schedule_pivot(a); schedule_count(a); schedule_table_count(a); schedule_statistics(a);
+    SOURCE_FORMAT_SCHEDULE(a);
 #ifndef DUXCEL_BROWSER_HOST
     if (options->smoke && a->frames%24==0) smoke_step(a,&session->smoke);
     if (options->workspace_smoke && a->frames%24==0) workspace_smoke_step(a,&session->workspace_smoke);

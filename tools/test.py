@@ -49,12 +49,12 @@ LAYOUT_PROFILES = {
     "source-cache": (687, 716, "PASS: source replacement retires"),
     "source-format": (687, 730, "PASS: native source-aware primary Table matrix preview"),
     "format-journal": (730, 734, "PASS: native prepared Analysis and format transaction"),
-    "source-record-format": (734, 754, "PASS: native captured Verify Collect Commit"),
+    "source-record-format": (734, 764, "PASS: native captured Verify Collect Commit"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 754, 20000, "PASS: native captured Verify Collect Commit"),
+    ("layout", 764, 20000, "PASS: native captured Verify Collect Commit"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),
