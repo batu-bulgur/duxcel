@@ -963,12 +963,14 @@ static bool source_model_valid(const Workbook *book,char **error) {
         }
         for (size_t i=0;i<formats->count;i++) {
             const FormatPatch *patch=formats->items+i;
-            if (patch->selector==FORMAT_GUARDED) return range_fail(error,"Guarded legacy formatting still requires imported/manual resolver integration; v12/v13 cannot preserve it.");
             if (patch->selector==FORMAT_SPATIAL) continue;
-            if (patch->guard_count!=1) return range_fail(error,"Workspace v14 result/record selectors require one exact source scope.");
-            size_t guard=patch->guard_ids[0]; used[guard]=true;
-            if (infos[guard].kind!=(patch->selector==FORMAT_RECORDS ? SOURCE_SCOPE_RAW : SOURCE_SCOPE_RESULT)) return range_fail(error,"Workspace v14 selector and canonical packet kinds disagree.");
-            for (size_t j=0;j<patch->field_count;j++) if (patch->fields[j]>=infos[guard].field_count) return range_fail(error,"Workspace v14 record formatting refers to an unknown original field.");
+            if (patch->selector!=FORMAT_GUARDED && patch->guard_count!=1) return range_fail(error,"Workspace v14 result/record selectors require one exact source scope.");
+            for (size_t g=0;g<patch->guard_count;g++) {
+                size_t guard=patch->guard_ids[g]; used[guard]=true;
+                if (infos[guard].kind!=(patch->selector==FORMAT_RECORDS ? SOURCE_SCOPE_RAW : SOURCE_SCOPE_RESULT)) return range_fail(error,"Workspace v14 selector and canonical packet kinds disagree.");
+                for (size_t h=0;h<g;h++) if (infos[patch->guard_ids[h]].owner==infos[guard].owner) return range_fail(error,"Workspace v14 guarded formatting requires one exact result per owner.");
+                for (size_t j=0;j<patch->field_count;j++) if (patch->fields[j]>=infos[guard].field_count) return range_fail(error,"Workspace v14 record formatting refers to an unknown original field.");
+            }
         }
         for (size_t i=0;i<formats->scope_count;i++) if (!used[i]) return range_fail(error,"Workspace v14 contains an unreferenced format scope.");
         size_t formats_bytes=format_owned_bytes(formats,false),ledger_bytes=sheet->source_versions.bytes;
@@ -1394,7 +1396,7 @@ static bool source_package_budget(duckdb_connection c,const Workbook *book,char 
         "EXISTS(SELECT 1 FROM _duxcel_workspace.table_sources WHERE path IS NULL OR octet_length(encode(path))>65536 OR contains(path,chr(0))) OR "
         "EXISTS(SELECT sheet_id FROM _duxcel_workspace.format_scopes GROUP BY sheet_id HAVING count(*)>512) OR "
         "EXISTS(SELECT 1 FROM _duxcel_workspace.format_scopes WHERE definition IS NULL OR octet_length(definition)>=262144) OR "
-        "EXISTS(SELECT sheet_id,position FROM _duxcel_workspace.format_guards GROUP BY sheet_id,position HAVING count(*)>1) OR "
+        "EXISTS(SELECT sheet_id,position FROM _duxcel_workspace.format_guards GROUP BY sheet_id,position HAVING count(*)>33) OR "
         "EXISTS(SELECT sheet_id,position FROM _duxcel_workspace.format_records GROUP BY sheet_id,position HAVING count(*)>20000) OR "
         "EXISTS(SELECT sheet_id,position FROM _duxcel_workspace.format_fields GROUP BY sheet_id,position HAVING count(*)>16384)";
     if (duckdb_query(c,limits,&r)!=DuckDBSuccess) { error_set(error,duckdb_result_error(&r)); duckdb_destroy_result(&r); return false; }
@@ -1416,7 +1418,7 @@ static bool load_owner_package(duckdb_connection c,Workbook *book,bool scoped,ch
     for (idx_t i=0;i<duckdb_row_count(&r);i++) {
         int sheet=duckdb_value_int32(&r,0,i),position=duckdb_value_int32(&r,1,i);
         int kind=duckdb_value_int32(&r,2,i);
-        if (duckdb_value_is_null(&r,0,i) || duckdb_value_is_null(&r,1,i) || duckdb_value_is_null(&r,2,i) || sheet<0 || (size_t)sheet>=book->count || position<0 || (size_t)position!=counts[sheet]++ || (size_t)position>=book->sheets[sheet].formats.count || (scoped ? kind!=FORMAT_SPATIAL && kind!=FORMAT_RESULT && kind!=FORMAT_RECORDS : kind!=FORMAT_SPATIAL)) goto invalid;
+        if (duckdb_value_is_null(&r,0,i) || duckdb_value_is_null(&r,1,i) || duckdb_value_is_null(&r,2,i) || sheet<0 || (size_t)sheet>=book->count || position<0 || (size_t)position!=counts[sheet]++ || (size_t)position>=book->sheets[sheet].formats.count || (scoped ? kind<FORMAT_SPATIAL || kind>FORMAT_RECORDS : kind!=FORMAT_SPATIAL)) goto invalid;
         book->sheets[sheet].formats.items[position].selector=(FormatSelector)kind;
     }
     ok=true; goto done;
@@ -1551,16 +1553,31 @@ static bool load_source_package(duckdb_connection c,Workbook *book,const char *t
         FormatScope *scope=book->sheets[s].formats.scopes+id; scope->owner=duckdb_value_uint64(&r,2,i); scope->bytes=(size_t)blob.size; scope->definition=dx_alloc(scope->bytes+1); memcpy(scope->definition,blob.data,scope->bytes); duckdb_free(blob.data);
     }
     duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
-    if (duckdb_query(c,"SELECT sheet_id,position,guard_position,scope_id FROM _duxcel_workspace.format_guards ORDER BY sheet_id,position,guard_position LIMIT 32769",&r)!=DuckDBSuccess) goto sql_error;
-    if (duckdb_row_count(&r)>DX_MAX_SHEETS*DX_FORMAT_PATCHES) goto invalid;
+    const size_t guard_limit=(size_t)DX_MAX_SHEETS*DX_FORMAT_PATCHES*DX_FORMAT_GUARDS;
+    char *guard_sql=dx_printf("SELECT sheet_id,position,guard_position,scope_id FROM _duxcel_workspace.format_guards ORDER BY sheet_id,position,guard_position LIMIT %zu",guard_limit+1);
+    bool guards_queried=duckdb_query(c,guard_sql,&r)==DuckDBSuccess; free(guard_sql); if (!guards_queried) goto sql_error;
+    if (duckdb_row_count(&r)>guard_limit) goto invalid;
+    /* Count the complete bounded vectors before allocation. The staged patches
+       already account for those slots when checking restored path/format room. */
+    int previous_sheet=-1,previous_patch=-1; size_t ids[DX_FORMAT_GUARDS]={0};
     for (idx_t i=0;i<duckdb_row_count(&r);i++) {
         for (idx_t col=0;col<4;col++) if (duckdb_value_is_null(&r,col,i)) goto invalid;
         int s=duckdb_value_int32(&r,0,i),p=duckdb_value_int32(&r,1,i),g=duckdb_value_int32(&r,2,i),id=duckdb_value_int32(&r,3,i);
-        if (s<0 || (size_t)s>=book->count || p<0 || (size_t)p>=book->sheets[s].formats.count || g!=0 || id<0 || (size_t)id>=book->sheets[s].formats.scope_count) goto invalid;
+        if (s<0 || (size_t)s>=book->count || p<0 || (size_t)p>=book->sheets[s].formats.count || g<0 || id<0 || (size_t)id>=book->sheets[s].formats.scope_count) goto invalid;
         FormatPatch *patch=book->sheets[s].formats.items+p;
-        if (patch->selector==FORMAT_SPATIAL || patch->guard_count) goto invalid;
-        if (!source_restored_room(book,(size_t)s,sizeof(size_t),error)) goto done;
-        patch->guard_ids=dx_alloc(sizeof(size_t)); patch->guard_ids[0]=(size_t)id; patch->guard_count=1;
+        if (patch->selector==FORMAT_SPATIAL || patch->guard_count>=DX_FORMAT_GUARDS || (size_t)g!=patch->guard_count || (patch->selector!=FORMAT_GUARDED && patch->guard_count)) goto invalid;
+        if (s!=previous_sheet || p!=previous_patch) { previous_sheet=s; previous_patch=p; memset(ids,0,sizeof(ids)); }
+        for (size_t j=0;j<patch->guard_count;j++) if (ids[j]==(size_t)id) goto invalid;
+        ids[patch->guard_count++]=(size_t)id;
+    }
+    if (!source_restored_room(book,0,0,error)) goto done;
+    for (size_t s=0;s<book->count;s++) for (size_t p=0;p<book->sheets[s].formats.count;p++) {
+        FormatPatch *patch=book->sheets[s].formats.items+p;
+        if (patch->guard_count) patch->guard_ids=dx_alloc(patch->guard_count*sizeof(*patch->guard_ids));
+    }
+    for (idx_t i=0;i<duckdb_row_count(&r);i++) {
+        size_t s=(size_t)duckdb_value_int32(&r,0,i),p=(size_t)duckdb_value_int32(&r,1,i),g=(size_t)duckdb_value_int32(&r,2,i);
+        book->sheets[s].formats.items[p].guard_ids[g]=(size_t)duckdb_value_int32(&r,3,i);
     }
     duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
     if (!load_source_members(c,book,false,error) || !load_source_members(c,book,true,error)) goto done;
