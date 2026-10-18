@@ -1,0 +1,6 @@
+Error: Invisible Steps row opened its context menu or stole focus over the verified Edit/details target
+    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:101:56)
+    at feedbackShortSteps (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:928:2)
+    at async feedbackInspectorScaleCycle (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:936:17)
+    at async browserFeedbackReview (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:994:958)
+    at async file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:1951:24
