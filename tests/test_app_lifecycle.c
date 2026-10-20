@@ -8,6 +8,7 @@
 #include <string.h>
 #ifdef __APPLE__
 bool dx_test_session_native_input(void);
+bool dx_test_session_native_quit(bool keyboard);
 #endif
 static unsigned checks;
 #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL: lifecycle line %d: %s\n",__LINE__,#x); exit(1); } } while (0)
@@ -48,6 +49,13 @@ int main(void) {
     CHECK(dx_test_session_native_input());
 #endif
     CHECK(app_frame(session)); CHECK(app_finish(session)==0); CHECK(!IsWindowReady());
+#ifdef __APPLE__
+    for (unsigned keyboard=0;keyboard<2;keyboard++) {
+        options=(AppOptions){.frames=120}; session=app_start(&options); CHECK(session!=NULL);
+        CHECK(IsWindowHidden()); CHECK(dx_test_session_native_quit(keyboard!=0));
+        CHECK(!app_frame(session)); CHECK(app_finish(session)==0); CHECK(!IsWindowReady());
+    }
+#endif
     printf("PASS: %u App lifecycle checks (owned options, yielded frames, stable completion, early worker shutdown, hidden windows)\n",checks);
     return 0;
 }

@@ -66,8 +66,8 @@ Each row has a stable ID. Identical command labels share a feature; similar comm
 | F013 | Insert cells | PARTIAL | Unverified | Home > Cells > Insert / context | — | Axis insertion exists; shift-cells dialog is a separate feature |
 | F014 | Delete cells | PARTIAL | Unverified | Home > Cells > Delete / context | — | Safe axis deletion exists; shifting cells is a separate feature |
 | F015 | Calculate all workbooks | MISSING | Unverified | Formulas > Calculate all workbooks [candidate] | — | No general cell formula engine; SQL analytics is not equivalent |
-| F016 | Close window | PARTIAL | Unverified | File > Close | — | Native Cmd+W dirty guard; browser Cmd+W belongs to host |
-| F017 | Quit application | PRESENT | Unverified | Duxcel > Quit | — | Native Cmd+Q; does not imply crash recovery |
+| F016 | Close window | PARTIAL | Unverified | File > Close | — | W04 compact native dirty guard tested; human acceptance pending; browser Cmd+W belongs to host |
+| F017 | Quit application | PRESENT | Unverified | Duxcel > Quit | — | W04 explicit app-menu Quit / Cmd+Q dispatch tested; human acceptance pending; crash recovery separate |
 | F018 | Go To | MISSING | Unverified | Home > Editing > Go To / address | — | F5 currently refreshes analysis; Move destination is not Go To |
 | F019 | Format Cells | REVIEW | Unverified | Home > Font / Alignment / Number [candidate] | — | Map existing formatting options and scopes individually |
 | F020 | Find and Replace | REVIEW | Unverified | Placement decision pending | — | Inspect feature behavior and input mapping |
@@ -1407,6 +1407,8 @@ Each row has a stable ID. Identical command labels share a feature; similar comm
 - **Icon/appearance:** Document name and dirty/recoverable/saved state; Save icon/tooltip; Save / Don't Save / Cancel dialog. Icon choice is pending.
 - **Data:** Distinguish saved revision from latest edited revision. Preserve the model on IO failure/cancellation. A close guard is not crash recovery. Recovery and autosave remain roadmap work even without shortcuts here.
 - **Acceptance:** Untitled/named/clean/dirty/IO error, close versus quit, newer edits during Save, source access, native reopen, unsupported browser paths and the F12 conflict decision. Crash recovery has separate acceptance.
+
+W04 in [ROADMAP.md](ROADMAP.md#workbook-trd-implementation-slices) implements the compact dialog and repairs application-menu Quit/Command-Q. Native menu/key-equivalent dispatch, clean termination, all three dialog actions, failed IO and narrow 150% layout have synthetic integration coverage; the hands-on visual/physical-key demo is pending. This does not complete C05 recovery, revision fencing or browser workbook IO.
 
 ### New feature card template
 

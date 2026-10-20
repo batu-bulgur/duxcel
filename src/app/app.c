@@ -170,7 +170,8 @@ typedef struct {
     char *document_path;
     bool document_saving,exit_ready;
     int document_focus,context_focus,context_scroll,width_focus;
-    Rectangle document_actions[3];
+    Rectangle document_actions[3],document_panel;
+    TextLines document_lines;
     bool context_drag;
     float context_grab;
     double context_wheel;
@@ -5212,33 +5213,46 @@ static void draw_field_menu(App *a) {
     }
 }
 static void draw_unsaved(App *a) {
-    UIContext *u=&a->ui; float s=u->scale,w=fminf(574*s,GetScreenWidth()-32*s),h=226*s;
+    UIContext *u=&a->ui; float s=u->scale,w=fminf(360*s,GetScreenWidth()-32*s);
+    const char *message="Unsaved changes will be lost.";
+    text_lines_layout_sized(&a->document_lines,u,message,w-32*s,12);
+    bool stacked=w<320*s;
+    float body_height=16*s*a->document_lines.count,h=136*s+body_height+(stacked ? 72*s : 0);
     float x=(GetScreenWidth()-w)/2,y=(GetScreenHeight()-h)/2;
+    a->document_panel=box(x,y,w,h);
     if (ui_pressed(KEY_ESCAPE)) { cancel_document_action(a); return; }
     if (ui_pressed(KEY_TAB)) a->document_focus=(a->document_focus+(ui_key_shift(KEY_TAB) ? 2 : 1))%3;
     if (ui_key(KEY_LEFT)) a->document_focus=(a->document_focus+2)%3;
     if (ui_key(KEY_RIGHT)) a->document_focus=(a->document_focus+1)%3;
+    if (stacked && ui_key(KEY_UP)) a->document_focus=(a->document_focus+2)%3;
+    if (stacked && ui_key(KEY_DOWN)) a->document_focus=(a->document_focus+1)%3;
 #ifdef DUXCEL_BROWSER_HOST
     if (!a->document_focus) a->document_focus=ui_key(KEY_LEFT) || (ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB)) ? 2 : 1;
 #endif
-    REVIEW_AUTHOR_PANEL(a,"unsaved","Save your changes?",box(x,y,w,h),box(x+24*s,y+22*s,w-48*s,30*s));
-    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,75});
-    DrawRectangleRounded(box(x+4*s,y+6*s,w,h),.035f,4,(Color){20,32,45,38});
-    DrawRectangleRounded(box(x,y,w,h),.035f,4,UI_BG); DrawRectangleRoundedLinesEx(box(x,y,w,h),.035f,4,1,UI_BORDER);
-    ui_text(u,"Save your changes?",x+24*s,y+22*s,20,UI_TEXT);
-    ui_text_clip_weight(u,a->book.path ? dx_basename(a->book.path) : "Untitled workbook",box(x+24*s,y+62*s,w-48*s,26*s),13,UI_TEXT,false,UI_MEDIUM);
-    ui_text_clip(u,a->document_action==DOCUMENT_QUIT ? "Save this workbook before quitting Duxcel." : a->document_action==DOCUMENT_CLOSE ? "Save this workbook before closing it." : "Save this workbook before opening another workbook.",box(x+24*s,y+98*s,w-48*s,26*s),12,UI_MUTED,false);
-    ui_text_clip(u,"Cells, analysis definitions and layout are included in the dxls file.",box(x+24*s,y+128*s,w-48*s,24*s),11,UI_MUTED,false);
-    const char *labels[]={"Save…","Don't Save","Cancel"};
-    float button_width=fminf(124*s,(w-64*s)/3),button_start=x+w-24*s-3*button_width-16*s;
-    for (int i=0;i<3;i++) {
+    const char *title=a->document_action==DOCUMENT_QUIT ? "Save before quitting?" :
+        a->document_action==DOCUMENT_CLOSE ? "Save before closing?" :
+        a->document_action==DOCUMENT_NEW ? "Save before starting over?" : "Save before opening?";
+    REVIEW_AUTHOR_PANEL(a,"unsaved",title,a->document_panel,box(x+16*s,y+16*s,w-32*s,20*s));
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,55});
+    DrawRectangleRounded(box(x+2*s,y+4*s,w,h),.05f,4,(Color){20,32,45,28});
+    DrawRectangleRounded(a->document_panel,.05f,4,UI_BG); DrawRectangleRoundedLinesEx(a->document_panel,.05f,4,s,UI_BORDER);
+    ui_label(u,title,box(x+16*s,y+16*s,w-32*s,20*s),14,UI_TEXT,false,UI_MEDIUM);
+    ui_label(u,a->book.path ? dx_basename(a->book.path) : "Untitled workbook",box(x+16*s,y+42*s,w-32*s,18*s),12,UI_TEXT,false,UI_MEDIUM);
+    text_lines_draw_sized(&a->document_lines,u,message,0,box(x+16*s,y+66*s,w-32*s,body_height),12,16,UI_MUTED);
+    const char *labels[]={a->book.path ? "Save" : "Save…","Don't Save","Cancel"};
+    const int order[]={1,2,0};
+    float button_x=x+w-288*s;
+    for (int slot=0;slot<3;slot++) {
+        int i=order[slot];
         bool available=true;
 #ifdef DUXCEL_BROWSER_HOST
         if (!i) available=false;
 #endif
-        Rectangle r=box(button_start+i*(button_width+8*s),y+h-54*s,button_width,32*s); a->document_actions[i]=r;
-        REVIEW_AUTHOR_ITEM(a,"unsaved",((const char *const[]){"save","discard","cancel"})[i],"document.action","button",labels[i],r,box(x,y,w,h),available,false,a->document_focus==i,NULL);
-        if (a->document_focus==i) ui_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),box(x,y,w,h),1.5f*s,UI_ACCENT);
+        float button_width=(i==1 ? 96 : 80)*s;
+        Rectangle r=stacked ? box(x+16*s,y+h-116*s+slot*36*s,w-32*s,28*s) : box(button_x,y+h-44*s,button_width,28*s);
+        a->document_actions[i]=r; button_x+=button_width+8*s;
+        REVIEW_AUTHOR_ITEM(a,"unsaved",((const char *const[]){"save","discard","cancel"})[i],"document.action","button",labels[i],r,a->document_panel,available,false,a->document_focus==i,NULL);
+        if (a->document_focus==i) ui_focus_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),a->document_panel,1.5f*s);
         if (ui_button(u,r,labels[i],i==0,available) || (available && a->document_focus==i && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE)))) {
             if (!i) save_document_action(a); else if (i==1) finish_document_action(a); else cancel_document_action(a);
             return;
@@ -8958,6 +8972,7 @@ static Rectangle workbook_new_target;
    next ui_update, which otherwise clears the prior frame's input snapshot. */
 static int layout_select_key;
 static Rectangle layout_select_click;
+static Rectangle document_smoke_click;
 static DxPointerGesture layout_range_gesture;
 static bool layout_range_queued;
 static void smoke_queue_range_drag(App *a,uint64_t row,size_t col,uint64_t target_row,size_t target_col,bool border) {
@@ -13698,8 +13713,8 @@ failed: fprintf(stderr,"FAIL: chart marks at stage %d: %s (%s)\n",*step,error ? 
 }
 static void document_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=10 || a->io_busy || a->busy) return;
-    char *error=NULL;
-    const char *first="build/tests/generated/document-first.dxls",*second="build/tests/generated/document-second.dxls",*invalid="build/tests/generated/document-invalid.dxls";
+    char *error=NULL; static unsigned prompt_phase; static bool discard_pending;
+    const char *first="build/tests/generated/document-first.dxls",*second="build/tests/generated/document-long-name-İstanbul-quarterly-analysis-and-manual-edits-before-closing.dxls",*invalid="build/tests/generated/document-invalid.dxls";
     switch (*step) {
     case 0:
         a->file_menu=a->key_tips=a->ribbon_focus=true; a->file_menu_frame=a->frames-1;
@@ -13734,17 +13749,35 @@ static void document_smoke_step(App *a,int *step) {
         worksheet_record(active_sheet(a),EDIT_CELLS); a->book.dirty=true;
         request_document_action(a,DOCUMENT_OPEN,first);
         if (a->modal!=MODAL_UNSAVED || a->io_busy || strcmp(cells_get(&active_sheet(a)->cells,0,0),"After")) goto failed;
-        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640);
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
         break;
     case 4:
-        for (int i=0;i<3;i++) if (a->document_actions[i].x<0 || a->document_actions[i].x+a->document_actions[i].width>GetScreenWidth() || a->document_actions[i].width<60*a->ui.scale) goto failed;
-        { Image image=LoadImageFromScreen(); ExportImage(image,"build/tests/results/current-workspace/document-prompt.png"); UnloadImage(image); }
-        cancel_document_action(a);
-        ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
-        if (a->document_action!=DOCUMENT_NONE || !a->book.dirty || a->io_busy) goto failed;
-        request_document_action(a,DOCUMENT_OPEN,first); save_document_action(a);
-        if (!a->io_busy || !a->document_saving || a->document_action!=DOCUMENT_OPEN) goto failed;
-        break;
+        if (prompt_phase==2) {
+            if (a->modal!=MODAL_NONE || a->document_action!=DOCUMENT_NONE || !a->book.dirty ||
+                strcmp(cells_get(&active_sheet(a)->cells,0,0),"After")) goto failed;
+            request_document_action(a,DOCUMENT_OPEN,first); prompt_phase=3; return;
+        }
+        if (prompt_phase==3) {
+            if (a->modal!=MODAL_UNSAVED) goto failed;
+            document_smoke_click=a->document_actions[0]; prompt_phase=4; return;
+        }
+        if (prompt_phase==4) {
+            if (a->modal!=MODAL_NONE || a->document_action!=DOCUMENT_NONE || a->book.dirty ||
+                strcmp(cells_get(&active_sheet(a)->cells,0,0),"Before")) goto failed;
+            ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+        }
+        if (a->document_panel.width>360*a->ui.scale+.01f || a->document_panel.height>160*a->ui.scale ||
+            a->document_panel.x<0 || a->document_panel.y<0 ||
+            a->document_panel.x+a->document_panel.width>GetScreenWidth() || a->document_panel.y+a->document_panel.height>GetScreenHeight() ||
+            a->document_actions[1].x>=a->document_actions[2].x || a->document_actions[2].x>=a->document_actions[0].x) goto failed;
+        for (int i=0;i<3;i++) {
+            Rectangle r=a->document_actions[i],panel=a->document_panel;
+            if (r.x<panel.x+12*a->ui.scale || r.y<panel.y || r.x+r.width>panel.x+panel.width ||
+                r.y+r.height>panel.y+panel.height || r.width<60*a->ui.scale || r.height<28*a->ui.scale) goto failed;
+        }
+        smoke_snapshot(prompt_phase ? "build/tests/results/current-workspace/document-prompt-150.png" : "build/tests/results/current-workspace/document-prompt-100.png");
+        if (!prompt_phase) { prompt_phase=1; ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); return; }
+        document_smoke_click=a->document_actions[2]; prompt_phase=2; return;
     case 5:
         if (a->document_action!=DOCUMENT_NONE || a->book.dirty || strcmp(cells_get(&active_sheet(a)->cells,0,0),"Before")) goto failed;
         workspace_job(a,JOB_LOAD,second); break;
@@ -13757,11 +13790,15 @@ static void document_smoke_step(App *a,int *step) {
         if (!a->io_busy) goto failed; break;
     }
     case 7:
+        if (discard_pending) {
+            if (a->modal!=MODAL_UNSAVED) goto failed;
+            document_smoke_click=a->document_actions[1]; break;
+        }
         if (a->exit_ready || !a->book.dirty || a->modal!=MODAL_ERROR || a->document_action!=DOCUMENT_NONE || strcmp(cells_get(&active_sheet(a)->cells,0,0),"After")) goto failed;
         free(a->book.path); a->book.path=dx_absolute_path(second); a->modal=MODAL_NONE;
         request_document_action(a,DOCUMENT_OPEN,invalid);
         if (a->modal!=MODAL_UNSAVED) goto failed;
-        finish_document_action(a); break;
+        discard_pending=true; return;
     case 8:
         if (a->exit_ready || !a->book.dirty || a->modal!=MODAL_ERROR || a->document_action!=DOCUMENT_NONE || strcmp(cells_get(&active_sheet(a)->cells,0,0),"After")) goto failed;
         a->modal=MODAL_NONE; input_set(&a->input,"After"); a->book.dirty=false;
@@ -13774,7 +13811,7 @@ static void document_smoke_step(App *a,int *step) {
     }
     free(error); (*step)++; return;
 failed:
-    fprintf(stderr,"FAIL: document guard at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
+    fprintf(stderr,"FAIL: document guard at stage %d phase %u modal=%d action=%d dirty=%d: %s (%s)\n",*step,prompt_phase,a->modal,a->document_action,a->book.dirty,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
 }
 static bool object_ready(App *a,size_t index) {
     ObjectStore *store=&active_sheet(a)->objects;
@@ -14854,6 +14891,11 @@ bool app_frame(AppSession *session) {
         for (size_t i=0;i<sizeof(keys)/sizeof(*keys);i++) if (ui_pressed(keys[i])) fprintf(stderr,"Canvas key=%d\n",keys[i]);
     }
 #ifndef DUXCEL_BROWSER_HOST
+    if (options->document_smoke && document_smoke_click.width>0) {
+        Rectangle target=document_smoke_click; document_smoke_click=(Rectangle){0};
+        float x=target.x+target.width*.5f,y=target.y+target.height*.5f;
+        ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});
+    }
     if (options->layout_smoke && a->frames%24==2) {
         static unsigned marks_injected=0;
         int bit=session->layout_smoke==173 ? 0 : session->layout_smoke==174 ? 1 : session->layout_smoke==175 ? 2 : session->layout_smoke==176 ? 3 : session->layout_smoke==177 ? 4 : session->layout_smoke==178 ? 5 : session->layout_smoke==179 ? 6 : session->layout_smoke==180 ? 7 : session->layout_smoke==189 ? 8 : session->layout_smoke==190 ? 9 : -1;
@@ -15563,7 +15605,7 @@ int app_finish(AppSession *session) {
     if (a->pipeline_shadow_texture.id) UnloadTexture(a->pipeline_shadow_texture);
     brand_shutdown();
     if (session->render_batch.vertexBuffer && session->render_batch.draws) { rlSetRenderBatchActive(NULL); rlUnloadRenderBatch(session->render_batch); }
-    a->busy=false; step_preview_free(&a->step_preview); ui_guide_free(&a->guide); clear_object_views(a); grid_destroy(&a->source_preview); grid_destroy(&a->grid); ui_destroy(&a->ui); input_free(&a->input); input_free(&a->filter_term); input_free(&a->filter_end); input_free(&a->pivot_search); input_free(&a->chart_columns); free(a->chart_resize_error); free(a->object_name_error); free(a->range_move_error); free(a->field_matches); text_lines_free(&a->toast_lines); text_lines_free(&a->inspector_sql_lines); free(a->inspector_sql_text); free(a->sql_text); free(a->message); free(a->pipeline_text); free(a->document_path); dx_native_shutdown(); CloseWindow();
+    a->busy=false; step_preview_free(&a->step_preview); ui_guide_free(&a->guide); clear_object_views(a); grid_destroy(&a->source_preview); grid_destroy(&a->grid); ui_destroy(&a->ui); input_free(&a->input); input_free(&a->filter_term); input_free(&a->filter_end); input_free(&a->pivot_search); input_free(&a->chart_columns); free(a->chart_resize_error); free(a->object_name_error); free(a->range_move_error); free(a->field_matches); text_lines_free(&a->toast_lines); text_lines_free(&a->document_lines); text_lines_free(&a->inspector_sql_lines); free(a->inspector_sql_text); free(a->sql_text); free(a->message); free(a->pipeline_text); free(a->document_path); dx_native_shutdown(); CloseWindow();
     int result=
 #if defined(DUXCEL_DEV_REVIEW) && !defined(DUXCEL_BROWSER_HOST)
         (options->review_smoke && session->review_smoke.stage!=REVIEW_SMOKE_STAGES) ||

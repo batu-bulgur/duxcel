@@ -27,6 +27,8 @@ Native AppKit is intentionally Objective-C behind the portable platform interfac
 
 macOS workbook Open Document callbacks enqueue owned filesystem paths in the adapter (16 pending paths, whole-event admission). A will-finish-launching hook installs the delegate before cold-launch documents arrive inside raylib window creation. Ordinary C frame dispatch consumes one eligible request through the existing document controller, preserving unsaved-change guards, ongoing file IO and frozen review boundaries. Closed document surfaces can reopen; shutdown frees pending paths and removes the launch observer. Other hosts keep a no-op boundary. Bundle document/UTI declarations live in `packaging/Info.plist`.
 
+The macOS adapter owns an explicit application menu rather than depending on GLFW's optional defaults. Menu Quit and its Command-Q equivalent call AppKit `terminate:`; the delegate records a quit request and defers termination to the ordinary C document controller. AppKit does not bypass the dirty guard. Shutdown restores the prior application/Services menus and delegate before raylib teardown, supporting repeated App sessions.
+
 The shared workbook metadata reader is staged infrastructure, not completed browser Open/Save. Complete candidate validation, migration, activation, writer/output adapters and recovery remain roadmap work.
 
 ## Review isolation

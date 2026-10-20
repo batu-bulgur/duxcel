@@ -7,6 +7,28 @@
    without focusing or ordering the hidden test window. No global OS input. */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+bool dx_test_session_native_quit(bool keyboard) {
+    @autoreleasepool {
+        NSWindow *window=[NSOpenGLContext currentContext].view.window;
+        if (!window || window.visible || window.keyWindow || !IsWindowHidden() || dx_native_quit_requested()) return false;
+        NSMenu *menu=[NSApp.mainMenu itemAtIndex:0].submenu; NSMenuItem *quit=nil;
+        unsigned count=0;
+        for (NSMenuItem *item in menu.itemArray) if (item.action==@selector(terminate:)) { quit=item; count++; }
+        if (count!=1 || ![quit.title isEqualToString:@"Quit Duxcel"] || ![quit.keyEquivalent isEqualToString:@"q"] ||
+            quit.target!=NSApp || quit.keyEquivalentModifierMask!=NSEventModifierFlagCommand) return false;
+        /* Text input/popups must not disable the application-level Quit. */
+        dx_native_context(true,true,false,false);
+        bool invoked;
+        if (keyboard) {
+            NSEvent *event=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint
+                modifierFlags:NSEventModifierFlagCommand timestamp:0 windowNumber:window.windowNumber
+                context:nil characters:@"q" charactersIgnoringModifiers:@"q" isARepeat:NO keyCode:12];
+            invoked=[NSApp.mainMenu performKeyEquivalent:event];
+        } else invoked=[NSApp sendAction:quit.action to:quit.target from:quit];
+        dx_native_context(false,false,false,false);
+        return invoked && dx_native_quit_requested() && !window.visible && !window.keyWindow && !IsWindowFocused();
+    }
+}
 bool dx_test_session_native_input(void) {
     @autoreleasepool {
         NSWindow *window=[NSOpenGLContext currentContext].view.window;
@@ -34,6 +56,10 @@ bool dx_test_session_native_input(void) {
         if ([delegate application:NSApp openFile:second]) return false;
         for (unsigned i=0;i<16;i++) { path=dx_take_open_path(); ordered=ordered && path && !strcmp(path,first.fileSystemRepresentation); free(path); }
         if (!ordered || dx_take_open_path()) return false;
+        if (!dx_test_session_native_quit(false)) return false;
+        dx_native_acknowledge_quit();
+        if (!dx_test_session_native_quit(true)) return false;
+        dx_native_acknowledge_quit();
         return received && !window.visible && !window.keyWindow && IsWindowHidden() && !IsWindowFocused();
     }
 }

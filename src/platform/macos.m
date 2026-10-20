@@ -101,6 +101,9 @@ static bool native_panel_active;
 static NSSavePanel *active_native_panel;
 static bool quit_requested;
 static NSMenu *native_edit_menu;
+static NSMenu *native_app_menu,*previous_app_menu,*previous_services_menu;
+static NSMenuItem *native_app_root;
+static bool native_app_root_added;
 static bool app_modal,text_input,pivot_context,key_tips;
 static bool trace_input;
 static NSWindow *canvas_window; /* borrowed from GLFW */
@@ -301,6 +304,44 @@ void dx_native_context(bool modal,bool editing,bool pivot,bool tips) { app_modal
 }
 @end
 static DuxcelMenuActions *actions;
+static void install_application_menu(void) {
+    /* GLFW's menu depends on its host/configuration. Build the application
+       commands explicitly, including Quit's standard Command-Q equivalent. */
+    if (!NSApp.mainMenu) {
+        NSMenu *bar=[[NSMenu alloc] initWithTitle:@"Duxcel"];
+        NSApp.mainMenu=bar; [bar release];
+    }
+    native_app_root_added=NSApp.mainMenu.numberOfItems==0;
+    if (native_app_root_added) {
+        NSMenuItem *root=[[NSMenuItem alloc] initWithTitle:@"Duxcel" action:nil keyEquivalent:@""];
+        [NSApp.mainMenu addItem:root]; [root release];
+    }
+    native_app_root=[NSApp.mainMenu itemAtIndex:0];
+    previous_app_menu=[native_app_root.submenu retain];
+    previous_services_menu=[NSApp.servicesMenu retain];
+    NSMenu *menu=[[NSMenu alloc] initWithTitle:@"Duxcel"];
+    native_app_root.title=@"Duxcel"; native_app_root.submenu=menu;
+    native_app_menu=menu; [menu release]; /* Retained by the root. */
+    NSMenuItem *item=[[NSMenuItem alloc] initWithTitle:@"About Duxcel" action:@selector(about:) keyEquivalent:@""];
+    item.target=actions; [menu addItem:item]; [item release];
+    [menu addItem:NSMenuItem.separatorItem];
+    item=[[NSMenuItem alloc] initWithTitle:@"Settings…" action:@selector(invoke:) keyEquivalent:@","];
+    item.target=actions; item.tag=DX_COMMAND_SETTINGS; item.keyEquivalentModifierMask=NSEventModifierFlagCommand;
+    [menu addItem:item]; [item release]; [menu addItem:NSMenuItem.separatorItem];
+    item=[[NSMenuItem alloc] initWithTitle:@"Services" action:nil keyEquivalent:@""];
+    NSMenu *services=[[NSMenu alloc] initWithTitle:@"Services"];
+    item.submenu=services; NSApp.servicesMenu=services; [menu addItem:item]; [services release]; [item release];
+    [menu addItem:NSMenuItem.separatorItem];
+    const SEL selectors[]={@selector(hide:),@selector(hideOtherApplications:),@selector(unhideAllApplications:),@selector(terminate:)};
+    NSArray *titles=@[@"Hide Duxcel",@"Hide Others",@"Show All",@"Quit Duxcel"];
+    NSArray *keys=@[@"h",@"h",@"",@"q"];
+    for (NSUInteger i=0;i<4;i++) {
+        if (i==3) [menu addItem:NSMenuItem.separatorItem];
+        item=[[NSMenuItem alloc] initWithTitle:titles[i] action:selectors[i] keyEquivalent:keys[i]];
+        item.target=NSApp; item.keyEquivalentModifierMask=NSEventModifierFlagCommand | (i==1 ? NSEventModifierFlagOption : 0);
+        [menu addItem:item]; [item release];
+    }
+}
 bool dx_native_quit_requested(void) { return quit_requested; }
 void dx_native_acknowledge_quit(void) { quit_requested=false; }
 void dx_native_window_visible(bool visible) {
@@ -410,16 +451,7 @@ void dx_native_setup(void *window) {
     }];
     if (!actions) {
         actions=[[DuxcelMenuActions alloc] init];
-        NSMenu *applicationMenu=[NSApp.mainMenu itemAtIndex:0].submenu;
-        [NSApp.mainMenu itemAtIndex:0].title=@"Duxcel"; applicationMenu.title=@"Duxcel";
-        NSMenuItem *about=nil;
-        for (NSMenuItem *item in applicationMenu.itemArray) {
-            if (item.action==@selector(orderFrontStandardAboutPanel:)) about=item;
-            if (item.action==@selector(hide:)) item.title=@"Hide Duxcel";
-            if (item.action==@selector(terminate:)) item.title=@"Quit Duxcel";
-        }
-        if (!about) { about=[[[NSMenuItem alloc] initWithTitle:@"About Duxcel" action:@selector(about:) keyEquivalent:@""] autorelease]; [applicationMenu insertItem:about atIndex:0]; }
-        about.title=@"About Duxcel"; about.action=@selector(about:); about.target=actions;
+        install_application_menu();
         install_application_delegate();
         NSMenuItem *root=[[NSMenuItem alloc] initWithTitle:@"File" action:nil keyEquivalent:@""];
         NSMenu *file=[[NSMenu alloc] initWithTitle:@"File"];
@@ -509,6 +541,13 @@ void dx_native_shutdown(void) {
             }
         }
         native_edit_menu=nil;
+        if (native_app_root.submenu==native_app_menu) {
+            if (native_app_root_added) [NSApp.mainMenu removeItem:native_app_root];
+            else native_app_root.submenu=previous_app_menu;
+        }
+        NSApp.servicesMenu=previous_services_menu;
+        [previous_app_menu release]; [previous_services_menu release];
+        previous_app_menu=previous_services_menu=native_app_menu=nil; native_app_root=nil; native_app_root_added=false;
         if (NSApp.delegate==(id<NSApplicationDelegate>)application_delegate)
             NSApp.delegate=(id<NSApplicationDelegate>)[application_delegate previousDelegate];
         [application_delegate release]; application_delegate=nil;

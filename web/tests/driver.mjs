@@ -586,7 +586,7 @@ async function reviewUnsavedDialog(results){
  const baseline=await platformSnapshot(),jobs=starts().length;
  await key('Alt','AltLeft',18);await key('f','KeyF',70);await key('c','KeyC',67);
  const guarded=authorState(await platformSnapshot(),'unsaved');
- check(guarded.rows.map(row=>row.key).join(',')==='save,discard,cancel'&&!guarded.rows[0].enabled&&guarded.rows[1].enabled&&guarded.rows[2].enabled,'Browser Close guard lost disabled Save or available discard/cancel targets');
+ check(guarded.rows.map(row=>row.key).join(',')==='discard,cancel,save'&&guarded.rows[0].enabled&&guarded.rows[1].enabled&&!guarded.rows[2].enabled,'Browser Close guard lost compact action order, disabled Save or available discard/cancel targets');
  results.picks.push(await authorPick('unsaved',menu=>menu.rows.find(row=>row.key==='save'&&!row.enabled),'unsaved-disabled-save',{frozenName:'unsaved'}));
  results.picks.push(await authorPick('unsaved',menu=>({id:menu.state.author_parent+'.backdrop.background',bounds:[1,Number(menu.state.logical.split(',')[1])/2,2,2]}),'unsaved-backdrop'));
  await authorActivate('unsaved','cancel');const cancelled=await platformSnapshot();

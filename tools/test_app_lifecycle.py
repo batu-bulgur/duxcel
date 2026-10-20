@@ -38,7 +38,7 @@ def main():
             with FileLock(native_lock_path(),'App lifecycle native checks'):
                 run(['./build/tests/test_background-native-debug'],'background','PASS: 477 background native checks')
                 for binary in binaries:
-                    run([str(binary)],binary.name,'PASS: 26 App lifecycle checks')
+                    run([str(binary)],binary.name,'PASS: 38 App lifecycle checks')
             if source_metadata(ROOT)!=before or any(hashlib.sha256((ROOT/p).read_bytes()).hexdigest()!=h for p,h in hashes.items()):
                 raise RuntimeError('Source or binary changed during acceptance')
             summary['status']='passed'
