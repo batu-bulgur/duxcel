@@ -4,7 +4,7 @@ Duxcel uses one C99/raylib UI and DuckDB analytical definitions. Native macOS is
 
 | Capability | Current behavior and limits |
 | --- | --- |
-| Sparse workbook/grid | Manual text, selections/range moves, structural edits, per-sheet viewport, independent sheet zoom/UI scale and fixed header chrome. General formulas/typed editing/import overlays remain open. |
+| Sparse workbook/grid | Manual text, single-outline cell selections, border/Option-interior range moves with grabbed-cell anchoring and a five-interface-pixel threshold, structural edits, per-sheet viewport, independent sheet zoom/UI scale and fixed header chrome. General formulas/typed editing/import overlays remain open. |
 | Native files | Native macOS panels for sources and `.dxls` Save/Open; guarded Close versus Quit; real versioned DuckDB workbook state and history. External sources remain references. Standalone packaging is incomplete. |
 | Analysis | Real DuckDB source/filter/sort/query/available-value/date operations, same-sheet Tables/PIVOT/charts and exact typed statistics. No mock calculation engine. Unsupported Marks grain/lineage remain bounded. |
 | NULL and precision | SQL NULL, empty text and literal `NULL` remain distinct; exact integer/DECIMAL text survives supported operations. Sparse missing cells use the distinct NULL mark. |
@@ -15,6 +15,12 @@ Duxcel uses one C99/raylib UI and DuckDB analytical definitions. Native macOS is
 | Browser workbook persistence | Shared C/native/official-Worker metadata components cover definitions, filters, cells/columns, counters, ledger/bindings and base format rows. Whole-candidate validation/migration/writer/admission/recovery remain open; browser workbook Open/Save is unavailable. |
 | Review/feedback | Native and Wasm use the development-only C semantic registry and persistent external queue. Automatic triage is separate from implementing/verifying a report. All review code/commands/bridges are excluded from production. Services start only on explicit developer commands. |
 | Web publication | GitHub Pages builds the real shared-C Wasm app. Web tests run independently; publication requires build/package/browser smoke. Hosted native CI is manual/paused; no native Linux/Windows execution claim. |
+
+## Workbook TRD first demo slice
+
+[ROADMAP.md](ROADMAP.md#workbook-trd-implementation-slices) decomposes the accepted workbook TRD into prioritized dependency slices. W01 implements manual-range Option/Alt-interior movement through the existing move/Undo command, retaining border movement and occupied/read-only guards. Escape/no-op leaves data unchanged, releasing Option after capture preserves the move, and multi-cell paint retains one outer active outline with the logical active cell unchanged. General formulas, floating object movement, global durable history and refresh/Data Model remain planned capabilities.
+
+The real hidden native range-move profile passes ten stages in optimized (6.07s) and O1 ASan/UBSan (6.25s) App builds, including single-outline pixel assertions at 100%/150%, exact moved values/styles, Undo/Redo and `.dxls` Save/Open. Focused grid tests pass optimized + ASan/UBSan; the runner's 33 orchestration checks pass. The optimized bundle builds and passes strict signature verification. The real shared-C/official-Worker browser selection profile also passes 569 checks (97.25s including owned lifecycle), ending with trusted Alt-mouse movement from the second selected row and one Undo/Redo action without source queries. The 24 browser-runner contract tests pass. Source/binary fingerprints and concise run receipts are in ignored `build/tests/results/runs/`. These are synthetic input assertions; user hands-on/physical-device acceptance remains pending.
 
 ## Current repository and tooling
 

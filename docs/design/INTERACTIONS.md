@@ -49,7 +49,7 @@ The active sheet, active object, data selection, and keyboard focus are separate
 | State | Visible result | Primary keyboard behavior |
 | --- | --- | --- |
 | Source/manual cell active | Strong active-cell border; address/value in context strip | Arrows move; Shift extends |
-| Cell range selected | Subtle range fill and outer boundary; one active anchor cell | Shift extends; Tab/Enter traverse |
+| Cell range selected | Subtle range fill and one outer boundary; active cell retained logically without a second inner active border | Shift extends; Tab/Enter traverse |
 | Object frame selected | Boundary and object handles; object identity in context strip | Move/resize commands and Enter to edit |
 | Matrix content selected | Matrix cell focus, scoped to that object's output | Cell navigation within matrix |
 | Chart marks selected | Mark highlight and mark-scoped summary | Navigate marks and inspect values |
@@ -63,6 +63,7 @@ Opening a pane or changing ribbon mode preserves selection. Resizing chrome pres
 ## Ordinary grid manipulation
 
 - Click selects a cell. Shift-click extends from the selection anchor. Drag extends a range and auto-scrolls at edges. Selection normalizes overlaps before statistics or copy.
+- Move an existing manual cell selection from its border or by Option/Alt-dragging its interior. Capture the grabbed cell, require five interface pixels before moving, preview the destination, cancel with Escape and commit one move on release. No-op makes no history entry. Existing occupied/read-only destination guards apply; analytical-object floating gestures have a separate TRD/roadmap contract.
 - Arrows move; Shift+arrows extend. Tab and Enter traverse as established by the current selection. Home/End and page navigation follow existing spreadsheet conventions.
 - Row and column headers select their respective data region. Their keyboard equivalents are visible in menus. Selecting an entire source column uses current-result bounds for data statistics rather than querying empty worksheet space.
 - Drag a column boundary to resize. A six-unit boundary target is independent of the header filter target. Double-click fits content using an explicitly described sample or full-data operation; it must not silently imply a whole-table scan.

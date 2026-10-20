@@ -8112,7 +8112,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 911
+#define LAYOUT_SMOKE_STAGES 921
 static unsigned inspector_pan_evidence;
 static uint64_t inspector_pan_top;
 static double inspector_pan_fraction;
@@ -8926,15 +8926,22 @@ static void sort_smoke_step(App *a,int *step) {
 failed: fprintf(stderr,"FAIL: sort application smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
 }
 /* Count the actual focus ink in one modal, excluding document token colors. */
-static unsigned smoke_focus_pixels(Rectangle region) {
+static unsigned smoke_color_pixels(Rectangle region,Color target) {
     Image frame=LoadImageFromScreen(); Vector2 dpi=GetWindowScaleDPI(); unsigned count=0;
     int x0=(int)fmaxf(0,region.x*dpi.x),y0=(int)fmaxf(0,region.y*dpi.y);
     int x1=(int)fminf(frame.width,(region.x+region.width)*dpi.x),y1=(int)fminf(frame.height,(region.y+region.height)*dpi.y);
     for (int y=y0;y<y1;y++) for (int x=x0;x<x1;x++) {
         Color c=GetImageColor(frame,x,y);
-        if (abs((int)c.r-UI_FOCUS.r)<=2 && abs((int)c.g-UI_FOCUS.g)<=2 && abs((int)c.b-UI_FOCUS.b)<=2) count++;
+        if (abs((int)c.r-target.r)<=2 && abs((int)c.g-target.g)<=2 && abs((int)c.b-target.b)<=2) count++;
     }
     UnloadImage(frame); return count;
+}
+static unsigned smoke_focus_pixels(Rectangle region) { return smoke_color_pixels(region,UI_FOCUS); }
+static bool smoke_range_border(App *a) {
+    Rectangle cell=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,a->grid.row,a->grid.col,1,1);
+    float cs=a->ui.scale;
+    return smoke_color_pixels((Rectangle){cell.x+cell.width-2*cs,cell.y+6*cs,3*cs,cell.height-12*cs},UI_ACCENT)==0 &&
+        smoke_color_pixels((Rectangle){cell.x+10*cs,cell.y,20*cs,3*cs},UI_ACCENT)>5;
 }
 static unsigned pane_motion_evidence;
 static Rectangle workbook_new_target;
@@ -8942,6 +8949,15 @@ static Rectangle workbook_new_target;
    next ui_update, which otherwise clears the prior frame's input snapshot. */
 static int layout_select_key;
 static Rectangle layout_select_click;
+static DxPointerGesture layout_range_gesture;
+static bool layout_range_queued;
+static void smoke_queue_range_drag(App *a,uint64_t row,size_t col,uint64_t target_row,size_t target_col,bool border) {
+    float scale=a->ui.scale*a->grid.zoom;
+    Rectangle from=grid_range_rect(&a->grid,scale,row,col,1,1),to=grid_range_rect(&a->grid,scale,target_row,target_col,1,1);
+    layout_range_gesture=(DxPointerGesture){from.x+from.width*.5f,from.y+(border ? 1 : from.height*.5f),
+        to.x+to.width*.5f,to.y+(border ? 1 : to.height*.5f),border ? 0 : DX_MOD_ALT,false};
+    layout_range_queued=true;
+}
 /* Header chrome follows interface scale; data dimensions follow canvas zoom. */
 static bool smoke_grid_chrome(const Grid *g,float scale) {
     return fabsf(g->body.x-g->rect.x-g->gutter*scale)<.02f &&
@@ -10081,6 +10097,7 @@ static void layout_smoke_step(App *a,int *step) {
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"638")) { *step=638; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"665")) { *step=665; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"675")) { *step=675; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"911")) { *step=911; return; }
         }
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->statistics_enabled=true; a->statistics_mask=49;
         grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=0; a->grid.horizontal=0; break;
@@ -13120,6 +13137,63 @@ static void layout_smoke_step(App *a,int *step) {
             a->inspector_sql_text!=inspector_cached_sql || a->inspector_sql_lines.offsets!=inspector_cached_sql_offsets || a->ui.scissor_depth) goto failed;
         puts("PASS: native SQL inspector keyboard scrolling and fresh presentation after Steps and Collapse, precise captured fractional pan/reversal, retained owned SQL/wrap/source caches and zero UI-only jobs without clipboard"); break;
 
+    case 911:
+        a->statistics_enabled=false; a->document_action=DOCUMENT_NEW; finish_document_action(a); break;
+    case 912: {
+        a->reduced_motion=true;
+        a->sidebar=a->fields_visible=a->pipeline=false; a->selected_object=-1;
+        a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; set_ribbon_mode(a,0);
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->grid.zoom=1;
+        if (!cells_set(&s->cells,1,1,"Move",&error) || !cells_set(&s->cells,2,2,"Grab",&error) ||
+            !cells_set(&s->cells,3,3,"Tail",&error) || !cells_set(&s->cells,8,7,"Occupied",&error)) goto failed;
+        CellFormat style=format_default(); style.flags=FORMAT_BOLD;
+        if (!format_apply(&s->formats,(FormatRange){1,1,1,1},FORMAT_BOLD,style,&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS); worksheet_record(s,EDIT_FORMAT);
+        for (size_t i=0;i<10;i++) grid_set_width(&a->grid,i,80);
+        grid_set_width(&a->grid,1,75); grid_set_width(&a->grid,2,160); grid_set_width(&a->grid,3,90); grid_set_width(&a->grid,4,135);
+        grid_select_cell(&a->grid,1,1,false); grid_select_cell(&a->grid,3,3,true);
+        a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0;
+        draft_history=s->undo_actions_count; request=a->request_id; break;
+    }
+    case 913:
+        if (!smoke_range_border(a) || s->undo_actions_count!=draft_history || a->request_id!=request) goto failed;
+        smoke_snapshot("build/tests/results/workspace-layout/native-range-outline-100.png");
+        smoke_queue_range_drag(a,2,2,4,4,false); break;
+    case 914:
+        if (s->undo_actions_count!=draft_history+1 || a->request_id!=request ||
+            strcmp(cells_get(&s->cells,3,3),"Move") || strcmp(cells_get(&s->cells,4,4),"Grab") || strcmp(cells_get(&s->cells,5,5),"Tail") ||
+            *cells_get(&s->cells,1,1) || !(format_at(&s->formats,3,3).flags&FORMAT_BOLD)) goto failed;
+        history(a,false);
+        if (strcmp(cells_get(&s->cells,1,1),"Move") || strcmp(cells_get(&s->cells,2,2),"Grab") || strcmp(cells_get(&s->cells,3,3),"Tail") ||
+            *cells_get(&s->cells,5,5) || !(format_at(&s->formats,1,1).flags&FORMAT_BOLD)) goto failed;
+        history(a,true);
+        if (strcmp(cells_get(&s->cells,3,3),"Move") || strcmp(cells_get(&s->cells,4,4),"Grab") || strcmp(cells_get(&s->cells,5,5),"Tail")) goto failed;
+        a->grid.zoom=1.5f; break;
+    case 915:
+        if (!smoke_range_border(a)) goto failed;
+        smoke_snapshot("build/tests/results/workspace-layout/native-range-outline-150.png");
+        smoke_queue_range_drag(a,4,4,4,4,false); break;
+    case 916:
+        if (s->undo_actions_count!=draft_history+1 || strcmp(cells_get(&s->cells,4,4),"Grab") || a->request_id!=request) goto failed;
+        smoke_queue_range_drag(a,4,4,7,6,false); break;
+    case 917:
+        if (s->undo_actions_count!=draft_history+1 || strcmp(cells_get(&s->cells,3,3),"Move") ||
+            strcmp(cells_get(&s->cells,4,4),"Grab") || strcmp(cells_get(&s->cells,8,7),"Occupied") || a->request_id!=request) goto failed;
+        smoke_queue_range_drag(a,3,3,4,3,true); break;
+    case 918:
+        if (s->undo_actions_count!=draft_history+2 || strcmp(cells_get(&s->cells,4,3),"Move") ||
+            strcmp(cells_get(&s->cells,5,4),"Grab") || strcmp(cells_get(&s->cells,6,5),"Tail") ||
+            !(format_at(&s->formats,4,3).flags&FORMAT_BOLD) || a->request_id!=request) goto failed;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/layout-option-range.dxls");
+        if (!a->io_busy) goto failed; break;
+    case 919:
+        workspace_job(a,JOB_LOAD,"build/tests/generated/layout-option-range.dxls"); break;
+    case 920:
+        if (strcmp(cells_get(&s->cells,4,3),"Move") || strcmp(cells_get(&s->cells,5,4),"Grab") ||
+            strcmp(cells_get(&s->cells,6,5),"Tail") || strcmp(cells_get(&s->cells,8,7),"Occupied") ||
+            !(format_at(&s->formats,4,3).flags&FORMAT_BOLD) || *cells_get(&s->cells,1,1) || a->book.dirty) goto failed;
+        puts("PASS: native Option interior and border range moves, single outer outline at 100/150 percent, grabbed-cell anchoring, no-op/collision guards, exact value/style Undo/Redo and dxls reopen"); break;
+
     }
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: workspace layout smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : "");
@@ -14645,7 +14719,7 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882") || !strcmp(layout_from,"911"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
     if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882)) { SetWindowSize(1440,988); open_source(a,layout_start==882 ? "tests/fixtures/transactions.csv" : "tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); }
@@ -15259,6 +15333,7 @@ bool app_frame(AppSession *session) {
         }
     }
     if (options->layout_smoke) {
+        if (layout_range_queued) { ui_note_pointer_gesture(layout_range_gesture); layout_range_queued=false; }
         if (layout_select_key) { ui_note_key_press(layout_select_key,0); layout_select_key=0; }
         if (layout_select_click.width>0 && layout_select_click.height>0) {
             Rectangle target=layout_select_click; layout_select_click=(Rectangle){0};

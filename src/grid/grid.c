@@ -480,17 +480,26 @@ void grid_handle_input(Grid *g,UIContext *u,const Page *p,const GridInput *in) {
     pan_axis(&g->pan_y,phase,pan_y,in->dt,g->elastic.y,&g->spring_velocity.y);
     spring(g,in->dt);
     if (in->key) clear_elastic(g);
-    if (!g->lock_structure && g->allow_move && g->selection==SELECT_CELLS && CheckCollisionPointRec(m,g->body)) {
+    if (!g->lock_structure && !g->dragging && g->resizing<0 && !g->scrollbar && g->allow_move && g->selection==SELECT_CELLS && CheckCollisionPointRec(m,g->body)) {
         Rectangle selection=selection_rect(g,s,0,0);
         bool edge=selection.width>0 && m.x>=selection.x-4*cs && m.x<=selection.x+selection.width+4*cs &&
             m.y>=selection.y-4*cs && m.y<=selection.y+selection.height+4*cs &&
             (fabsf(m.x-selection.x)<4*cs || fabsf(m.x-selection.x-selection.width)<4*cs || fabsf(m.y-selection.y)<4*cs || fabsf(m.y-selection.y-selection.height)<4*cs);
-        if (edge) {
+        uint64_t row,r0,r1; size_t col,c0,c1; grid_bounds(g,&r0,&r1,&c0,&c1);
+        bool interior=in->alt && grid_cell_at(g,s,m,&row,&col) && row>=r0 && row<=r1 && col>=c0 && col<=c1;
+        if (edge || interior) {
             g->cursor=MOUSE_CURSOR_RESIZE_ALL;
-            if (in->pressed) { g->moving=true; g->move_dr=0; g->move_dc=0; g->move_row=row_at(g,s,m.y); g->move_col=column_at(g,content_at(g,s,m.x)); }
+            if (in->pressed) { g->moving=true; g->move_threshold_met=false; g->move_start=m; g->move_dr=0; g->move_dc=0; g->move_row=row_at(g,s,m.y); g->move_col=column_at(g,content_at(g,s,m.x)); }
         }
     }
     if (g->moving) {
+        float dx=m.x-g->move_start.x,dy=m.y-g->move_start.y;
+        if (dx*dx+dy*dy>=25*cs*cs) g->move_threshold_met=true;
+        if (!g->move_threshold_met) {
+            g->cursor=MOUSE_CURSOR_RESIZE_ALL;
+            if (in->released || !in->down) g->moving=false;
+            grid_layout(g,s,data,g->rect); return;
+        }
         uint64_t r0,r1; size_t c0,c1; grid_bounds(g,&r0,&r1,&c0,&c1);
         float edge=0, speed=fmaxf(1,in->dt*40);
         if (m.y<g->body.y+edge) scroll_to(g,data,(double)g->top+g->fraction-speed);
@@ -714,7 +723,7 @@ static void draw_grid_region(Grid *g,UIContext *u,const Page *p,bool frozen) {
             ui_formatted_value(u,text,null,numeric,floating,value ? value->number : 0,(Rectangle){x+3*s,y0+vr*rh,w-4*s,rh},13,color,format);
         }
     }
-    if (!g->hide_selection && g->col>=start && g->col<end && g->row>=g->top && g->row-g->top<g->render_rows) ui_border(grid_range_rect(g,s,g->row,g->col,1,1),clip,2*g->chrome_scale,UI_ACCENT);
+    if (!g->hide_selection && g->selection!=SELECT_CELLS && g->col>=start && g->col<end && g->row>=g->top && g->row-g->top<g->render_rows) ui_border(grid_range_rect(g,s,g->row,g->col,1,1),clip,2*g->chrome_scale,UI_ACCENT);
     if (!g->hide_selection && g->selection==SELECT_CELLS) {
         Rectangle outline=selection_rect(&plane,s,g->moving ? g->move_dr : 0,g->moving ? g->move_dc : 0);
         ui_border(outline,clip,1.5f*g->chrome_scale,UI_ACCENT);

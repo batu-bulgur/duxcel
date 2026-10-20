@@ -167,7 +167,7 @@ def parse_options(argv=None):
     parser.add_argument('--feedback-review-only',action='store_true',help='Real primary Steps/SQL, historical preview, distinct feedback and readouts; requires --review and transactions.csv')
     parser.add_argument('--workspace-review-only',action='store_true',help='Actual workspace Fields/compact shelves/Marks review with empty and populated same-sheet pivots; requires --review and transactions.csv')
     parser.add_argument('--source-cache-only',action='store_true',help='Actual Open consumer-cache reset, original-sheet republication and 64-sheet rejected-open retention; requires --review and null-text.csv')
-    parser.add_argument('--selection-only',action='store_true',help='Real primary/Table/Pivot/manual containing-range selection with retained active cell/cache/history; requires --review and null-text.csv')
+    parser.add_argument('--selection-only',action='store_true',help='Real primary/Table/Pivot/manual containing-range selection with retained state, followed by trusted manual Alt-drag and Undo/Redo; requires --review and null-text.csv')
     parser.add_argument('--export-cancel-only',action='store_true',help='Real600000-row pending export Escape, retained owners, Undo and small download recovery; requires --review and null-text.csv')
     parser.add_argument('--export-only',action='store_true',help='Actual App Parquet download, honest dispatch failure/recovery and typed reopen in a private folder; requires --review and null-text.csv')
     parser.add_argument('--copy-only',action='store_true',help='Owned memory clipboard acceptance for cached/Worker copies and asynchronous results; requires --review and null-text.csv')

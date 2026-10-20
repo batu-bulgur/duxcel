@@ -78,6 +78,8 @@ typedef struct {
     bool filter_requested,fit_requested;
     size_t fit_column;
     bool allow_move,moving,move_requested,context_requested;
+    Vector2 move_start;
+    bool move_threshold_met;
     uint64_t move_row;
     size_t move_col;
     int64_t move_dr;

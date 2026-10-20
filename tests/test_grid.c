@@ -1381,11 +1381,68 @@ static void test_boundary_tail_noise(void) {
         grid_destroy(&g);
     }
 }
+static void test_range_move_gestures(void) {
+    const float scales[]={1,1.5f},zooms[]={.75f,1.5f};
+    for (size_t si=0;si<2;si++) for (size_t zi=0;zi<2;zi++) {
+        Grid g; grid_init(&g); Page page={0}; grid_schema(&g,&page,true);
+        g.zoom=zooms[zi]; UIContext ui={.scale=scales[si]*g.zoom};
+        grid_set_width(&g,1,75); grid_set_width(&g,2,160); grid_set_width(&g,3,90); grid_set_width(&g,4,135);
+        grid_layout(&g,ui.scale,&page,(Rectangle){0,0,1800,1000}); g.allow_move=true;
+        grid_select_cell(&g,1,1,false); grid_select_cell(&g,3,3,true);
+        Rectangle from=grid_range_rect(&g,ui.scale,2,2,1,1),to=grid_range_rect(&g,ui.scale,4,4,1,1);
+        Vector2 start={from.x+from.width*.5f,from.y+from.height*.5f},end={to.x+to.width*.5f,to.y+to.height*.5f};
+        event(&g,&ui,&page,(GridInput){.mouse=start,.alt=true,.pressed=true,.down=true});
+        CHECK(g.moving && !g.dragging && !g.move_requested && g.move_row==2 && g.move_col==2);
+        /* Releasing Option after capture must not turn a move into selection. */
+        event(&g,&ui,&page,(GridInput){.mouse=end,.down=true});
+        CHECK(g.moving && g.move_dr==2 && g.move_dc==2 && g.row==1 && g.col==1 && g.end_row==3 && g.end_col==3);
+        event(&g,&ui,&page,(GridInput){.mouse=end,.released=true});
+        CHECK(!g.moving && g.move_requested && g.move_dr==2 && g.move_dc==2);
+        g.move_requested=false;
+        event(&g,&ui,&page,(GridInput){.mouse=start,.alt=true,.pressed=true,.down=true});
+        event(&g,&ui,&page,(GridInput){.mouse=end,.down=true});
+        event(&g,&ui,&page,(GridInput){.key=KEY_ESCAPE});
+        CHECK(!g.moving && !g.move_requested && g.anchor_row==1 && g.end_row==3);
+        /* A tiny movement across a cell boundary is still a click. */
+        start.x=from.x+from.width-1;
+        event(&g,&ui,&page,(GridInput){.mouse=start,.alt=true,.pressed=true,.down=true});
+        event(&g,&ui,&page,(GridInput){.mouse={start.x+2,start.y},.released=true});
+        CHECK(!g.moving && !g.move_requested && !g.move_dr && !g.move_dc);
+        grid_replay_gesture(&g,&ui,&page,(DxPointerGesture){start.x,start.y,start.x,start.y,DX_MOD_ALT,false});
+        CHECK(!g.moving && !g.move_requested && g.row==1 && g.end_row==3);
+        event(&g,&ui,&page,(GridInput){.mouse=start,.alt=true,.pressed=true,.down=true});
+        event(&g,&ui,&page,(GridInput){.mouse=end,.down=true});
+        event(&g,&ui,&page,(GridInput){.mouse=start,.released=true});
+        CHECK(!g.move_requested && !g.move_dr && !g.move_dc);
+        grid_replay_gesture(&g,&ui,&page,(DxPointerGesture){start.x,start.y,end.x,end.y,DX_MOD_ALT,false});
+        CHECK(g.move_requested && g.move_dr==2 && g.move_dc==2); g.move_requested=false;
+        grid_replay_gesture(&g,&ui,&page,(DxPointerGesture){start.x,start.y,end.x,end.y,0,false});
+        CHECK(!g.moving && !g.move_requested && g.anchor_row==2 && g.anchor_col==2 && g.end_row==4 && g.end_col==4);
+        grid_select_cell(&g,1,1,false); grid_select_cell(&g,3,3,true);
+        grid_replay_gesture(&g,&ui,&page,(DxPointerGesture){end.x,end.y,end.x,end.y,DX_MOD_ALT,false});
+        CHECK(!g.move_requested && g.row==4 && g.col==4);
+        grid_select_cell(&g,1,1,false); grid_select_cell(&g,3,3,true);
+        g.block_pointer=true;
+        grid_replay_gesture(&g,&ui,&page,(DxPointerGesture){start.x,start.y,end.x,end.y,DX_MOD_ALT,false});
+        CHECK(!g.moving && !g.move_requested && g.row==1 && g.end_row==3); g.block_pointer=false;
+        g.lock_structure=true;
+        grid_replay_gesture(&g,&ui,&page,(DxPointerGesture){start.x,start.y,end.x,end.y,DX_MOD_ALT,false});
+        CHECK(!g.moving && !g.move_requested); g.lock_structure=false;
+        grid_select_cell(&g,1,1,false); grid_select_cell(&g,3,3,true); g.allow_move=false;
+        grid_replay_gesture(&g,&ui,&page,(DxPointerGesture){start.x,start.y,end.x,end.y,DX_MOD_ALT,false});
+        CHECK(!g.moving && !g.move_requested); g.allow_move=true;
+        grid_select_cell(&g,1,1,false); grid_select_cell(&g,3,3,true);
+        Rectangle origin=grid_range_rect(&g,ui.scale,0,0,1,1);
+        grid_replay_gesture(&g,&ui,&page,(DxPointerGesture){start.x,start.y,origin.x+10,origin.y+10,DX_MOD_ALT,false});
+        CHECK(g.move_requested && g.move_dr==-1 && g.move_dc==-1);
+        grid_destroy(&g);
+    }
+}
 int main(int argc,char **argv) {
     if (argc==2 && !strcmp(argv[1],"--column-benchmark")) return column_benchmark();
     if (argc==2 && !strcmp(argv[1],"--font-benchmark")) return font_benchmark();
     if (argc==2 && !strcmp(argv[1],"--overscroll")) { test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); printf("PASS: %u precise overscroll/return checks\n",checks); return 0; }
-    test_grid_page_formats(); test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); test_keytip_queue();
+    test_range_move_gestures(); test_grid_page_formats(); test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); test_keytip_queue();
     test_animated_workspace_extent(); test_dock_scroll_and_clips(); test_ribbon_flyouts(); test_workspace_layout(); test_frozen_columns(); test_ribbon_spec(); test_grid_density(); test_zoom_header_geometry(); test_zoom_column_fit(); test_bounded_preview(); test_carbon_assets(); test_status_geometry(); test_status_metrics(); test_ribbon_layout(); test_menu_bounds(); test_text_lines(); test_text_editing(); test_text_history(); test_region_navigation(); test_long_range_outlines(); test_addresses(); test_navigation_queue();
     CHECK(ui_chart_fraction(0,-DBL_MAX,DBL_MAX)==.5);
     CHECK(ui_chart_fraction(DBL_MAX,-DBL_MAX,DBL_MAX)==1);

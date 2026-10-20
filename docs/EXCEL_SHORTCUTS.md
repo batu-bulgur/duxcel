@@ -33,6 +33,8 @@ Single ownership: feature status lives here, context-specific binding/acceptance
 
 This ordering applies to this inventory. Data-loss/recovery work and existing persistence dependencies remain on the roadmap.
 
+W01 in [ROADMAP.md](ROADMAP.md#workbook-trd-implementation-slices) delivers the manual-range gesture subset of C03/C04: one outer selection outline, border or Option/Alt-interior move, grabbed-cell anchoring, click threshold, Escape/no-op and existing atomic Undo/Redo/destination guards. It does not establish Shift insert-drop (F154), general formulas or floating analytical placement. Physical-device/human acceptance remains separate from synthetic App input and C checks.
+
 ### Source ambiguities and platform rules
 
 - `MAC-15-11`: the previous-sheet row also says Ctrl+PageDown; Option+Left is an alternative. This possible documentation error has not been silently changed to Ctrl+PageUp.
