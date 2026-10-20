@@ -27,6 +27,12 @@ Use the app’s archive tool for worktrees attached to the current chat. For man
 checkouts, preserve work before `git worktree remove`; never force-reset another
 lane or use `git clean -xfd` as routine cleanup.
 
+After removing a checkout, remove its empty outer worktree directory too,
+including a leftover zero-byte `.codex-worktree-name` marker. Check the actual
+`~/.codex/worktrees/` directory as well as `git worktree list`. Refuse unexpected
+contents; preserve active checkouts and other projects. Empty retired Duxcel
+wrappers are unfinished cleanup.
+
 ## Integration and unfinished work
 
 One owner reviews the exact lane commits, then fast-forwards main if possible,
