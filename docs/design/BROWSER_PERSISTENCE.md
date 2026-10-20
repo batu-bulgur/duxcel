@@ -1,5 +1,13 @@
 # Browser workbook persistence adaptation
 
+Recovered worktree components now include explicit format awareness/selector
+reading in shared C (82,792 pure checks/configuration and 451,526 native
+comparison checks/configuration, optimized + ASan/UBSan) and bounded JS selector
+transport (56 focused Node checks). The native column is `kind`. These do not yet
+form an actual official-Worker/C continuation: the format-state stream, connected
+browser driver, scopes/guards/memberships, whole candidate validation and App
+publication remain open. See the recovered-work table in `../ROADMAP.md`.
+
 Implementation sequence, updated 18 October 2026 through accepted metadata `22efc64`; acceptance retains the exact source scopes below. **Browser workbook Save/Open remains unavailable.** The native codec now supports workspace v14; separate BP0 probes cover real v12 and owner-only v13 files, while browser C jobs now capture session registration tokens. These are distinct acceptance boundaries, detailed below. Follow the current roadmap for execution priority. Keep the shared C99/raylib UI and official asynchronous DuckDB-Wasm Worker; no new spreadsheet runtime, custom DuckDB build or JavaScript calculation model is proposed.
 
 ## Existing behavior and the missing seam

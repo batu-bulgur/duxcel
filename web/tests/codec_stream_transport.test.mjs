@@ -313,3 +313,61 @@ test('format-row cleanup failure with held ownership poisons all admissions and 
         await h.transport.close();assert.equal(h.transport.hasHeld,false);assert.equal(h.transport.releaseHeld(),false);assert.equal(h.target.stale,0);
     }finally{await h.transport.close();await h.adapter.close();}
 });
+
+// Three-column format-selector transport only. No JS enum/scope/boolean decoder
+// or changes to the callback helper/actual six-query probe accompany this family.
+const selectorStreamNames=['sheet_id','position','kind'];
+function selectorStreamColumns(){return selectorStreamNames.map(name=>({name,typeName:'INTEGER',numberKind:'i32'}));}
+function selectorStreamInput(token,ticket=1,change={}){return {...input(token,'cells',ticket),family:'format-selectors',columns:selectorStreamColumns(),...change};}
+function selectorStreamTable(rows,{canonical=false}={}){
+    return new Table(Object.fromEntries(selectorStreamNames.map((name,c)=>[name,vectorFromArray(Array.from({length:rows},(_,r)=>{
+        const value=canonical&&c===2?[null,'','NULL','-1','4','2147483648'][r%6]:c===2?[-1,0,1,2,3,4,2147483647,-2147483648][r%8]:r*3+c;return canonical&&value!==null?String(value):value;
+    }),canonical?new Utf8():new Int32())])));
+}
+function selectorStreamReader(source,lengths=[source.numRows],options={}){
+    let first=0,index=0;const batches=lengths.map(count=>{const batch=count?source.slice(first,first+count).batches[0]:{numCols:3,numRows:0};first+=count;return batch;});assert.equal(first,source.numRows);
+    return {schema:source.schema,cancelled:0,reads:0,open(){return this;},[Symbol.asyncIterator](){return {next:async()=>{
+        if(index===batches.length)return {done:true};const batch=batches[index++];return {done:false,value:{numCols:3,numRows:batch.numRows,getChildAt:c=>({get:r=>{this.reads++;return batch.getChildAt(c).get(r);}})}};
+    }};},async cancel(){this.cancelled++;await options.cleanup?.();}};
+}
+test('selector helper copies dense3 I32 sidecars and7/10/288 values with growth and all TEMP borrows freed',async()=>{
+    for(const rows of [7,10,288]){
+        const source=selectorStreamReader(selectorStreamTable(rows),rows===288?[17,0,240,31]:[1,0,rows-1]),h=await harness(source),request=selectorStreamInput(h.token),pending=h.transport.submit(7,1,request);
+        request.columns[2].typeName='BOOLEAN';request.sourceBindings[0].registrationId='999';request.sql='not frozen C SQL';assert.equal((await pending).status,'ok');assert.equal(h.connection.sends.length,1);assert.equal(h.connection.sends[0],'C OWNED ORDERED METADATA, NOT REWRITTEN');
+        assert.deepEqual(h.target.chunks.map(c=>[c.first,c.page.rows,c.end]),rows===288?[['0',256,0],['256',32,0],['288',0,1]]:[['0',rows,0],[String(rows),0,1]]);
+        for(const c of h.target.chunks){assert.equal(c.page.columns,3);assert.deepEqual(c.page.metadata.map(x=>[x.name,x.typeName,x.numberKind]),selectorStreamColumns().map(x=>[x.name,x.typeName,x.numberKind]));assert.deepEqual(inspect(c.wire),c.page);for(let r=0;r<c.page.rows;r++)assert.equal(c.page.values[r*3+2],String([-1,0,1,2,3,4,2147483647,-2147483648][(Number(c.first)+r)%8]));}
+        assert.equal(source.reads,rows*3);assert.equal(source.cancelled,1);assert.equal(h.target.live.size,0);assert.ok(h.target.growths>=7);assert.equal(h.target.completions[0].status,0);assert.equal(h.target.completions[0].rows,String(rows));assert.equal(h.target.completions[0].count,rows===288?3:2);await finish(h);
+    }
+});
+test('selector helper preserves originalINTEGER NULL/empty/literal/unsupported text and rejects admission without Cmalloc',async()=>{
+    const h=await harness(selectorStreamReader(selectorStreamTable(6,{canonical:true}))),holes=selectorStreamColumns();delete holes[1];
+    for(const change of [{columns:holes},{columns:Array(3)},{columns:selectorStreamColumns().slice(1)},{columns:[...selectorStreamColumns(),selectorStreamColumns()[0]]},{family:'columns'},{family:'cells'},{family:'source-versions'},{family:'format-rows'},{family:'format-state'},{rowLimit:32770},{offset:'1'},{knownTotal:'0'},{purpose:'copy'}]){
+        assert.throws(()=>h.transport.submit(7,1,selectorStreamInput(h.token,1,change)),{code:'INVALID_REQUEST'});assert.equal(h.adapter.latestId,0n);assert.equal(h.connection.sends.length,0);assert.equal(h.target.allocations,0);
+    }
+    assert.equal((await h.transport.submit(7,1,selectorStreamInput(h.token))).status,'ok');const p=h.target.chunks[0].page;assert.deepEqual(Array.from({length:6},(_,r)=>p.values[r*3+2]),[null,'','NULL','-1','4','2147483648']);assert.equal(p.metadata[2].typeName,'INTEGER');assert.equal(p.metadata[2].numberKind,'i32');assert.equal(h.target.live.size,0);await finish(h);
+});
+test('selector held second32 rows retire old done before one stale replay and fresh whole stream recovery',async()=>{
+    const entered=deferred(),source=selectorStreamReader(selectorStreamTable(288)),h=await harness(source,{runtime:{held:entered.resolve}}),pending=h.transport.submit(7,1,selectorStreamInput(h.token),{holdSequence:2});await entered.promise;
+    assert.equal(h.target.chunks.length,1);assert.equal(h.target.chunks[0].page.rows,256);assert.equal(source.reads,288*3);assert.equal(h.target.live.size,0);assert.equal(h.transport.hasHeld,true);
+    await h.transport.cancel();assert.equal((await pending).status,'cancelled');assert.equal(source.cancelled,1);assert.equal(h.target.completions.length,1);assert.equal(h.target.completions[0].status,1);assert.equal(h.target.completions[0].count,1);
+    h.target.expectedTicket=2;h.target.accepting=false;assert.equal(h.transport.releaseHeld(),false);assert.equal(h.target.stale,1);assert.equal(h.transport.releaseHeld(),false);assert.equal(h.target.live.size,0);assert.equal(h.target.completions.length,1);assert.ok(h.target.events.findIndex(e=>e[0]==='done')<h.target.events.findIndex(e=>e[0]==='stale'));assert.equal(source.reads,288*3);
+    h.target.accepting=true;h.connection.send=async()=>selectorStreamReader(selectorStreamTable(10));assert.equal((await h.transport.submit(7,2,selectorStreamInput(h.token,2))).status,'ok');assert.equal(h.target.completions.at(-1).rows,'10');assert.equal(h.target.live.size,0);await finish(h);
+});
+test('selector finalACK or malloc failure cannot report success and ordinary recovery uses the drained adapter',async()=>{
+    for(const options of [{ack:r=>r.end?0:1},{failAfter:1}]){
+        const h=await harness(selectorStreamReader(selectorStreamTable(10)),{runtime:options});assert.equal((await h.transport.submit(7,1,selectorStreamInput(h.token))).status,'error');assert.equal(h.target.completions.length,1);assert.equal(h.target.completions[0].status,2);assert.equal(h.target.live.size,0);
+        h.connection.send=async()=>reader(table(1));assert.equal((await h.adapter.submit({requestId:'2',sql:'ordinary selector error recovery'})).status,'ok');await finish(h);
+    }
+});
+test('selector held cleanup failure remains error/poison and close discards unborrowed ownership exactly once',async()=>{
+    const entered=deferred(),source=selectorStreamReader(selectorStreamTable(288),[288],{cleanup(){throw new Error('selector cleanup failed');}}),h=await harness(source,{runtime:{held:entered.resolve}}),pending=h.transport.submit(7,1,selectorStreamInput(h.token),{holdSequence:2});await entered.promise;
+    try{await assert.rejects(h.transport.cancel(),{code:'STREAM_CLEANUP'});assert.equal((await pending).status,'error');assert.equal(h.target.completions.length,1);assert.equal(h.target.completions[0].status,2);assert.equal(h.target.completions[0].count,1);assert.equal(h.target.live.size,0);
+        const id=h.adapter.latestId,sends=h.connection.sends.length;assert.throws(()=>h.adapter.submit({requestId:'2',sql:'no selector after cleanup error'}),{code:'STREAM_CLEANUP'});assert.equal(h.adapter.latestId,id);assert.equal(h.connection.sends.length,sends);await h.transport.close();assert.equal(h.transport.hasHeld,false);assert.equal(h.transport.releaseHeld(),false);assert.equal(h.target.stale,0);
+    }finally{await h.transport.close();await h.adapter.close();}
+});
+test('selector held registration revoked by failedDrop cannot complete and fresh registration recovers',async()=>{
+    const entered=deferred(),db={async registerFileBuffer(){},async dropFile(){throw new Error('selector drop failed');}},h=await harness(selectorStreamReader(selectorStreamTable(288)),{database:db,runtime:{held:entered.resolve}}),sibling=new DuckDBWorkerAdapter({database:db,connection:{async send(){return reader(table(1));},async cancelSent(){return true;},async close(){}}});
+    const pending=h.transport.submit(7,1,selectorStreamInput(h.token),{holdSequence:2});await entered.promise;await assert.rejects(sibling.dropFile(h.token.name),/selector drop failed/);assert.equal(h.transport.releaseHeld(),true);assert.equal((await pending).status,'error');assert.equal(h.target.completions.length,1);assert.equal(h.target.completions[0].status,2);assert.equal(h.target.live.size,0);
+    h.target.expectedTicket=2;const previous=h.adapter.latestId,sends=h.connection.sends.length;assert.equal((await h.transport.submit(7,2,selectorStreamInput(h.token,2))).status,'error');assert.equal(h.adapter.latestId,previous);assert.equal(h.connection.sends.length,sends);
+    const token=await h.adapter.registerFile('selector-new.dxls',new Uint8Array([2]));h.connection.send=async()=>selectorStreamReader(selectorStreamTable(7));assert.equal((await h.transport.submit(7,2,selectorStreamInput(token,2))).status,'ok');assert.equal(h.target.live.size,0);await finish(h);await sibling.close();
+});
