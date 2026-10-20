@@ -1,27 +1,63 @@
-# Git and parallel development
+# Linear development and parallel work
 
-**Current priority, 18 October 2026:** continue from the clean native delivery with both remaining interaction correctness and persistence internals. Native pan/snap-back is user-confirmed resolved on the current setup; broader gesture coverage remains separate. Preserve focused sanitizer/integration coverage; compact evidence retention does not reduce testing scope. Browser Open/Save and complete UI/physical-input parity remain unfinished. Follow the current delivery note in [STATUS.md](STATUS.md), rather than treating an earlier test or service pointer as the latest app.
+`main` is the ordinary development line. Work on it directly for solo tasks and
+make small commits after the affected checks pass. Do not create a branch for
+an audit, a document edit, a test run or every individual implementation step.
+Codex commits use command-scoped author and committer environment variables:
+`Codex <codex@openai.com>`. Never change global Git identity.
 
-The repository starts locally on `main`. `snapshot/pre-audit-2026-10-17` preserves the initial source/design state; it is not a release. No remote has been configured or anything published. Commits made by the assistant use a command-scoped Codex author identity, leaving the user's global configuration untouched.
+## What a worktree adds
 
-Use short branches such as `ui/filter-labels`, `grid/active-readout`, `engine/chart-other`, or `tooling/incremental-build`. A branch is an independent history; a **worktree** is a separate checkout where an agent can edit/build it without sharing another agent's working files.
+A branch is a named pointer to a commit. A worktree is another directory with
+its own checked-out files, index and working state; it shares the repository’s
+objects/history. A worktree can use a detached HEAD, so another permanent branch
+is not required. Separate directories prevent simultaneous edits of the same
+working files; branches alone do not provide that isolation.
 
-```sh
-git status --short
-git worktree add -b ui/filter-labels ../build/bin/duxcel-filter-labels main
-# Work, verify and commit inside that checkout.
-git log --oneline main..ui/filter-labels
-git merge --no-ff ui/filter-labels
-# After integration, remove a clean manual worktree:
-git worktree remove ../build/bin/duxcel-filter-labels
-```
+Use at most two implementation lanes, only when actual simultaneous work needs
+separate files/builds. Agree on owned files, base commit, acceptance and the
+integration owner first. App/shared interfaces/Makefile have one owner. A lane
+that needs the same interfaces queues its integration instead of racing them.
+Read-only review needs neither a new branch nor a worktree.
 
-Codex-managed worktrees should be created/archived with the app's worktree tools so their recoverable snapshots and attachment metadata stay intact. The first two independent lanes were exercised for test tooling and an optional-error fix. Source/design audit could run in parallel read-only without a checkout.
+For a manual parallel checkout, `git worktree add --detach <path> main` is enough.
+If a Codex worktree tool requires a branch, use a temporary `codex/<feature>`
+branch; remove it after integration instead of accumulating old branch pointers.
+Use the app’s archive tool for worktrees attached to the current chat. For manual
+checkouts, preserve work before `git worktree remove`; never force-reset another
+lane or use `git clean -xfd` as routine cleanup.
 
-Before dispatch, agree on files owned, feature acceptance, base commit and verification scope. Keep at most two active implementation lanes on this Mac. App, shared UI interfaces, Makefile and integration documents have one owner; changes there require coordination. A feature needing the same App section should queue integration, not race another agent's edit. Remove an integrated clean checkout promptly once its commits are reachable through retained refs; keep unfinished or dirty work isolated and recoverable.
+## Integration and unfinished work
 
-Build outputs, mutable test fixtures and logs stay inside each worktree's ignored directories. Do not symlink writable `build/tests/generated` between them. Large downloaded inputs can be shared read-only. Native windows still share the desktop, clipboard and preferences: serialize their tests using the runner's lock even across branches. Bundle/signing/manual UI acceptance also belongs to that owner.
+One owner reviews the exact lane commits, then fast-forwards main if possible,
+otherwise cherry-picks the accepted commits. Recheck the combined source. A
+component test does not establish integrated UI, engine or persistence behavior.
+Keep main linear; do not create merge commits just to retain a branch name.
+Remove a completed checkout and its temporary branch promptly.
 
-Keep evidence concise and source-scoped: describe the behavior, tested revision/binary and remaining limits. Do not commit a full payload capsule for every metadata slice. Generated databases, binaries, event dumps and repeated machine reports remain ignored. Historical payloads are recoverable at `archive/pre-layout-cleanup-20261018`. Accepted regression inputs live in `tests/fixtures/ui/`; do not recreate checkpoint trees.
+Before retiring unfinished work, record in `ROADMAP.md`: what is implemented,
+what actually passed, the remaining acceptance, and its exact saved commit or
+archive reference. Preserve dirty and ignored authored inputs too. Do not merge
+an old whole tree merely to rescue one feature; it may restore a retired mock,
+obsolete layout or previously fixed input behavior. Generated reports/captures
+are not fixture inputs or active design requirements.
 
-Integrate a reviewed commit, run its affected gate on the combined source, and update current status once. A clean merge does not prove behavior. Full regression belongs at a coherent integration boundary; its results must identify the source and binary tested. Preserve work before cleanup, never force-reset another branch, and never use `git clean -xfd` as routine tidying: ignored data/results may be valuable.
+Builds/fixtures/reports are private to each checkout. Never share writable test
+databases across worktrees. Independent native translation units use eight
+compilation jobs by default; recursive Make shares the jobserver. Mutable engine
+suites remain serial, already-built read-only tests use at most two processes,
+and desktop/file-panel/clipboard/preferences/signing tests have one hidden owner.
+
+## Recovering the retired branch inventory
+
+`archive/streamline-20261020` is a historical tag, not a development branch or a
+product integration. Its commit retains all 231 old branch tips and five dirty
+worktree snapshots as ancestors. `branches.json` maps old names to commits;
+`worktrees.json` names the saved snapshots and original paths. Read them with
+`git show archive/streamline-20261020:worktrees.json`, then recover a particular
+snapshot into a detached worktree when needed. The external verified bundle and
+untracked/ignored-input tar files are under
+`~/.codex/archives/duxcel-streamline-20261020/`.
+
+The older pre-layout/pre-cleanup/legacy-review archive names are historical tags.
+Keep the historical mock and old reports there; do not restore them to main.

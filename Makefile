@@ -97,14 +97,14 @@ mac-icon-check: bundle build/check-macos-icon
 endif
 
 all: build/bin/duxcel
-design-fixture: build/tests/create-workbook
-	./build/tests/create-workbook
-design-large-fixture: build/tests/create-workbook
-	./build/tests/create-workbook --large
+design-fixture:
+	python3 tools/create_workbook.py
+design-large-fixture:
+	python3 tools/create_workbook.py --large
 design-smoke: build/bin/duxcel-debug design-fixture
 	mkdir -p build/tests/results/design-definition
 	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug build/tests/generated/design-definition.dxls --frames 240 --screenshot build/tests/results/design-definition/authoring.png
-# App and fixture-helper compilation are incremental and isolated by exact
+# App and fixture-assertion compilation are incremental and isolated by exact
 # configuration. Module tests retain their original independent commands below;
 # in particular, renderer stubs must never reuse the application's UI objects.
 APP_SOURCES = $(filter %.c %.m,$(SRC))
@@ -112,9 +112,11 @@ APP_EXTRA_OBJECTS = $(filter %.o,$(SRC))
 APP_RELEASE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
 APP_SANITIZE_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
 APP_EDIT_OBJECTS = $(addprefix build/obj/edit-sanitize/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
-FIXTURE_SOURCES = $(CORE) tests/support/create_workbook.c
+FIXTURE_SOURCES = $(CORE) tests/test_fixture.c
 FIXTURE_OBJECTS = $(addprefix build/obj/release/fixtures/,$(addsuffix .o,$(basename $(FIXTURE_SOURCES))))
+FIXTURE_SANITIZE_OBJECTS = $(addprefix build/obj/sanitize/fixtures/,$(addsuffix .o,$(basename $(FIXTURE_SOURCES))))
 INCREMENTAL_OBJECTS = $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(APP_EDIT_OBJECTS) $(FIXTURE_OBJECTS)
+INCREMENTAL_OBJECTS += $(FIXTURE_SANITIZE_OBJECTS)
 REVIEW_SOURCES = $(APP_SOURCES) src/dev/review_registry.c src/dev/review_store.c src/dev/review_input.c src/dev/review_capture.c
 REVIEW_OBJECTS = $(addprefix build/obj/review/app/,$(addsuffix .o,$(basename $(REVIEW_SOURCES))))
 REVIEW_SANITIZE_OBJECTS = $(addprefix build/obj/review-sanitize/app/,$(addsuffix .o,$(basename $(REVIEW_SOURCES))))
@@ -127,6 +129,7 @@ APP_SANITIZE_FLAGS = $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS)
 # Opt-in edit loop only. Optimized release/O1 sanitizer acceptance stays separate.
 APP_EDIT_FLAGS = $(CPPFLAGS) -O0 -g $(WARN) $(SANFLAGS)
 FIXTURE_FLAGS = -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN)
+FIXTURE_SANITIZE_FLAGS = -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS)
 
 # A no-op signature recipe preserves its timestamp. Changed compiler, includes,
 # defines or options therefore invalidate the appropriate objects, not every
@@ -144,6 +147,8 @@ build/obj/edit-sanitize/app/compile.flags: force-build-signature
 	$(call build_signature,$(CC) $(APP_EDIT_FLAGS) -MMD -MP -c)
 build/obj/release/fixtures/compile.flags: force-build-signature
 	$(call build_signature,$(CC) $(FIXTURE_FLAGS) -MMD -MP -c)
+build/obj/sanitize/fixtures/compile.flags: force-build-signature
+	$(call build_signature,$(CC) $(FIXTURE_SANITIZE_FLAGS) -MMD -MP -c)
 build/obj/release/app/link.flags: force-build-signature
 	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS) $(LDFLAGS) $(LDLIBS))
 build/obj/sanitize/app/link.flags: force-build-signature
@@ -152,6 +157,8 @@ build/obj/edit-sanitize/app/link.flags: force-build-signature
 	$(call build_signature,$(CC) -O0 -g $(WARN) $(SANFLAGS) $(APP_EDIT_OBJECTS) $(APP_EXTRA_OBJECTS) $(LDFLAGS) $(LDLIBS) $(SANFLAGS))
 build/obj/release/fixtures/link.flags: force-build-signature
 	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(FIXTURE_OBJECTS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/obj/sanitize/fixtures/link.flags: force-build-signature
+	$(call build_signature,$(CC) -O1 -g $(WARN) $(SANFLAGS) $(FIXTURE_SANITIZE_OBJECTS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 .PHONY: force-build-signature
 
 build/obj/review/app/compile.flags: force-build-signature
@@ -217,6 +224,8 @@ build/obj/edit-sanitize/app/%.o: %.m build/obj/edit-sanitize/app/compile.flags
 	$(call compile_object,$(APP_EDIT_FLAGS))
 build/obj/release/fixtures/%.o: %.c build/obj/release/fixtures/compile.flags
 	$(call compile_object,$(FIXTURE_FLAGS))
+build/obj/sanitize/fixtures/%.o: %.c build/obj/sanitize/fixtures/compile.flags
+	$(call compile_object,$(FIXTURE_SANITIZE_FLAGS))
 $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(APP_EDIT_OBJECTS): | $(ICON_OUTPUTS)
 
 define link_binary
@@ -255,8 +264,10 @@ build/lifecycle/test-app: build/lifecycle/assets $(LIFECYCLE_RELEASE_OBJECTS) bu
 build/lifecycle/test-app-sanitize: build/lifecycle/assets $(LIFECYCLE_SANITIZE_OBJECTS) build/obj/sanitize/app/lifecycle-link.flags
 	$(call link_binary,-O1 -g $(WARN) $(SANFLAGS) $(LIFECYCLE_SANITIZE_OBJECTS),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
 
-build/tests/create-workbook: $(FIXTURE_OBJECTS) build/obj/release/fixtures/link.flags
+build/tests/test_fixture: $(FIXTURE_OBJECTS) build/obj/release/fixtures/link.flags
 	$(call link_binary,$(CFLAGS) $(WARN) $(FIXTURE_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_fixture-debug: $(FIXTURE_SANITIZE_OBJECTS) build/obj/sanitize/fixtures/link.flags
+	$(call link_binary,-O1 -g $(WARN) $(SANFLAGS) $(FIXTURE_SANITIZE_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 
 # Losing a sidecar must not silently discard its header tracking. An absent
 # empty-rule dependency forces its object to recreate the compiler's sidecar.
@@ -726,7 +737,7 @@ distclean:
 PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug \
 	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
-	build/lifecycle/test-app build/lifecycle/test-app-sanitize build/tests/create-workbook
+	build/lifecycle/test-app build/lifecycle/test-app-sanitize build/tests/test_fixture build/tests/test_fixture-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -1031,12 +1042,8 @@ build/bin/assets build/tests/assets:
 build/tests:
 	mkdir -p $@
 
-# Native fixture acceptance uses the same C/DuckDB path in both configurations.
-build/tests/create-fixture-debug: $(CORE) tests/support/create_workbook.c $(HEADERS) | build/tests
-	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/support/create_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
-test-fixture: build/tests/create-workbook build/tests/create-fixture-debug
-	./build/tests/create-workbook
-	./build/tests/create-workbook --large
-	ASAN_OPTIONS=halt_on_error=1 ./build/tests/create-fixture-debug
-	ASAN_OPTIONS=halt_on_error=1 ./build/tests/create-fixture-debug --large
-.PHONY: test-fixture
+# Python produces inputs; C tests verify the actual product APIs separately.
+test-fixture: build/tests/test_fixture build/tests/test_fixture-debug design-fixture design-large-fixture
+	./build/tests/test_fixture
+	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_fixture-debug
+.PHONY: test-fixture design-fixture design-large-fixture

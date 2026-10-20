@@ -28,7 +28,7 @@ def main():
             raise RuntimeError(f'{name} failed; see {log}')
         summary['results'].append({'command':argv,'elapsed_seconds':round(time.monotonic()-start,3),'log':str(log.relative_to(ROOT))})
     try:
-        with FileLock(ROOT/'.state/test-runner.lock','worktree lifecycle checks'):
+        with FileLock(ROOT/'build/locks/test-runner.lock','worktree lifecycle checks'):
             if not args.no_build:
                 run(['make','build/lifecycle/test-app','build/lifecycle/test-app-sanitize','build/tests/test_background-native-debug'],'build',None)
             before=source_metadata(ROOT); summary['source']=before

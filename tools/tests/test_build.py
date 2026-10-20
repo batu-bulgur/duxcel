@@ -28,14 +28,14 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="duxcel-build-contract-") as temporary:
         tree = Path(temporary)
-        for directory in ("src", "tools", "tests/support", "generated", "inputs", "assets"):
+        for directory in ("src", "tools", "tests", "generated", "inputs", "assets"):
             (tree / directory).mkdir(parents=True)
         shutil.copyfile(ROOT / "Makefile", tree / "Makefile")
         (tree / "src/common.h").write_text("int answer(void);\n")
         original = '#include "common.h"\n#include "brand.h"\nint answer(void) { return BRAND_INT; }\n'
         (tree / "src/first.c").write_text(original)
         (tree / "src/main.c").write_text('#include "common.h"\nint main(void) { return answer()!=17; }\n')
-        (tree / "tests/support/create_workbook.c").write_text('#include "common.h"\nint main(void) { return answer()!=17; }\n')
+        (tree / "tests/test_fixture.c").write_text('#include "common.h"\nint main(void) { return answer()!=17; }\n')
         (tree / "inputs/source.svg").write_text("#define BRAND_INT 17\n")
         (tree / "generated/brand.h").write_text("#define BRAND_INT 17\n")
         (tree / "generated/icon.bin").write_text("#define BRAND_INT 17\n")
@@ -167,10 +167,10 @@ sys.exit(result)
         check(not list(tree.rglob("*.new")), "failed edit compilation cleans private temporary files")
         check(build(edit_target)[1] == 1, "edit flag recovery relinks only after successful compilation")
         check(all(digest(tree / name) == value for name, value in accepted.items()), "edit mode never replaces release or O1 sanitizer artifacts")
-        compiled, links = build("build/tests/create-workbook")
-        check(sorted(compiled) == ["src/first.c", "tests/support/create_workbook.c"] and links == 1,
+        compiled, links = build("build/tests/test_fixture")
+        check(sorted(compiled) == ["src/first.c", "tests/test_fixture.c"] and links == 1,
               "helper must not reuse application objects with different include flags")
-        check(build("build/tests/create-workbook") == ([], 0), "warm helper build")
+        check(build("build/tests/test_fixture") == ([], 0), "warm helper build")
 
         before = digest(tree / "build/bin/duxcel")
         first_object = tree / "build/obj/release/app/src/first.o"

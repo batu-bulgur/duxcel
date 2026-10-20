@@ -28,8 +28,8 @@ def category(path):
         return "installed-dependency"
     if parts[0] == ".cache":
         return "dependency-cache"
-    if parts[0] == ".state":
-        return "workspace-lock-state"
+    if parts[:2] == ("build", "locks"):
+        return "build-operation-lock"
     if parts[:2] == ("data", "downloads"):
         return "downloaded-reference-data"
     if parts[:2] == ("tools", "tests"):

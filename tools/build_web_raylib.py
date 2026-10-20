@@ -58,7 +58,7 @@ def main():
     return 0
 if __name__=='__main__':
     try:
-        with FileLock(ROOT/'.state/web-build.lock','Web builds in this worktree'):
+        with FileLock(ROOT/'build/locks/web-build.lock','Web builds in this worktree'):
             raise SystemExit(main())
     except (OSError,ValueError,subprocess.SubprocessError) as error:
         print(str(error)); raise SystemExit(1)

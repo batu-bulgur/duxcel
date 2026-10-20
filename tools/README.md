@@ -8,7 +8,8 @@ beside the reusable tools.
 
 | Files | Responsibility / interface |
 | --- | --- |
-| `workspace.py` | Shared output/cache/input retention, stable locks and source/binary fingerprints; independent of the test runner |
+| `workspace.py` | Output/cache/input retention, build-local operation locks, OS-temp cleanup gate and source/binary fingerprints |
+| `create_workbook.py` | Python synthetic data/Parquet/fixed workbook generation via the existing DuckDB CLI; no C generator |
 | `test.py` | Focused/native/full test orchestration; process exits/completion, sanitizer diagnostics and fixture ordering |
 | `test_app_lifecycle.py`, `test_native_review.py` | Hidden native workflow drivers through compiled C binaries and bounded reports |
 | `test_review_build.py`, `test_web_review_build.py` | Actual build/artifact isolation checks; self-test cases live in `tools/tests/` |
@@ -22,8 +23,9 @@ beside the reusable tools.
 
 ## Language and runtime boundary
 
-- Native product invariants and helpers linking product APIs are C99 under `src/`
-  or `tests/`. The workbook fixture generator is `tests/support/create_workbook.c`.
+- Native product invariants and assertions linking product APIs are C99 under
+  `src/` or `tests/`. Synthetic fixture generation is Python; the native fixture
+  test is `tests/test_fixture.c`.
 - Python launches those programs and consumes exits/logs/versioned reports. It
   does not load a second model or call Python from the shipping native app.
 - Browser API/Worker glue is JavaScript under `web/`. Browser tests are under

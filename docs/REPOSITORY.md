@@ -17,7 +17,7 @@ Dosyalar uzantılarına veya üretildikleri session'a göre değil, sorumlulukla
 | `assets/`, `packaging/` | Runtime font/lisans/ikonları, bilinçli türevler ve platform metadatası | Build girdileri |
 | `docs/` | Tek güncel plan/durum, gereksinimler, mimari ve rehberler | Eski session raporları değil |
 
-`create_workbook.c` C'dir çünkü gerçek Workbook/DuckDB fonksiyonlarını linkler; exact DECIMAL, SQL NULL/boş text, PIVOT ve kayıt sahipliğini bu API üzerinden doğrular. Python aynı işin başka implementasyonunu yazmaz: derlenmiş programı başlatır, çıkışını/logunu/raporunu denetler. Shipping native app'e Python runtime veya FFI eklenmez. Yalnız “tools klasöründeydi” diye C işini Python'a, veya dil istatistiği için süreç yöneticisini C'ye çevirmeyiz.
+Sentetik fixture üretimi `tools/create_workbook.py` içinde Python ile yapılır. Mevcut DuckDB CLI, CSV’yi Parquet’e çevirir ve `tests/fixtures/workbook/transactions.sql` içindeki sabit v12 test girdisini oluşturur. Genel workbook serializer’ının ikinci bir implementasyonu yoktur. `tests/test_fixture.c` üretim yapmaz; bu dosyaları gerçek ürün API’siyle açıp PIVOT, kesin DECIMAL, NULL/boş/literal metin ve save/reload davranışını sınar. Generator için C derlenmez; yeni Python paketi kurulmaz.
 
 Test otomasyonu Python'dur; ürün fonksiyonlarına ilişkin native assertion'lar C'dir. Tarayıcı API sınırının ve gerçek Worker davranışının testleri JS'dir. Bunlar aynı işin rastgele farklı dillerde yazılmış kopyaları değildir. Yeni bir istisna somut API/platform/performance gerekçesi, açık arayüz ve ilgili test gerektirir. Büyük App/test-driver parçalarını ayırmak ayrı bakım işidir.
 
@@ -29,10 +29,10 @@ Test otomasyonu Python'dur; ürün fonksiyonlarına ilişkin native assertion'la
 | `.cache/web/` | İndirilen SDK ve raylib dependency cache'i | `make distclean` kaldırır |
 | `web/node_modules/` | Mevcut pinli browser bağımlılıkları | `make distclean` kaldırır |
 | `data/downloads/` | Yellow Cab gibi tekrar kullanılabilen public referans verisi | İki clean hedefi de korur |
-| `.state/` | Kalıcı checkout lock inode'ları | İki clean hedefi de korur |
+| `build/locks/` | Test/build işlemlerinin sahiplik kilitleri | İki clean hedefi de kaldırır |
 | `__pycache__/` | Ignore edilen, yeniden üretilebilir Python bytecode'u | Kaynak/fixture/kayıt sayılmaz |
 
-`clean` ve `distclean` test/web/desktop kilitlerini önce alır. Eski `build/data` önce yeni veri konumuna korunarak taşınır; iki konum bağımsız doluysa üzerine yazmak yerine temizlik reddedilir. Normal clean eski SDK/raylib cache'ini de yeni cache konumuna taşır. SDK'nın absolute configuration'ı taşındıysa ilk web kullanımında offline bootstrap gerekir. Kullanıcı workbook'ları ve repo dışındaki review outbox bu işlemlerin hedefi değildir.
+`clean` ve `distclean`, OS geçici dizinindeki checkout’a özgü kapıyı exclusive ve masaüstü kilidini alır. Build içindeki bir işlem kilidi kapıyı shared tuttuğundan temizlik çalışan işi silemez; temizlik sırasında yeni kilit inode’u açılamaz. Root’ta `.state/` tutulmaz. Eski `build/data` önce yeni veri konumuna korunarak taşınır; iki konum bağımsız doluysa üzerine yazmak yerine temizlik reddedilir. Normal clean eski SDK/raylib cache'ini de yeni cache konumuna taşır. SDK'nın absolute configuration'ı taşındıysa ilk web kullanımında offline bootstrap gerekir. Kullanıcı workbook'ları ve repo dışındaki review outbox bu işlemlerin hedefi değildir.
 
 İndirilen veri explicit `python3 tools/download_test_data.py` ile alınır. Hiçbir test/build otomatik download başlatmaz. `--roundtrip` istenirse mevcut DuckDB CLI ile türetilen CSV/Parquet `build/tests/generated/public-data/` içine yazılır; orijinaller veri klasöründe kalır. Kalıcı girdiyi generated çıktı gibi silmeyiz.
 
@@ -40,9 +40,9 @@ Test otomasyonu Python'dur; ürün fonksiyonlarına ilişkin native assertion'la
 
 Bir fixture'ın ismi, şeması ve gerçek tüketicisi olmalıdır. Yedi küçük CSV NULL/text/quoting/sort/chart durumlarını sınar. Üç UI JSON'u yalnız kabul edilmiş panel/geometri/scroll durumlarını ve beklenen değerleri tutar; [fixture haritası](../tests/fixtures/ui/README.md) her birini açıklar. İki rendering header'ı native pixel testlerinin girdisidir.
 
-Eski kaynak/prototype manifestleri, komutlar, süre/pass raporları ve kullanılmayan capture state'leri fixture değildir. Bu tur bunlar JSON'lardan çıkarıldı; üç eski session/provenance JSON'u ve eski screenshot dizinine bağımlı verifier kaldırıldı. Kabul edilmiş geometri/scroll/renk projeksiyonları önce/sonra aynı kaldı ve bağımsız fingerprint testiyle korunuyor. Araç testleri ile browser sürücüleri kendi test dizinlerine taşındı; C workbook yardımcısı artık `tests/support/create_workbook.c` içindedir.
+Eski kaynak/prototype manifestleri, komutlar, süre/pass raporları ve kullanılmayan capture state'leri fixture değildir. Bu tur bunlar JSON'lardan çıkarıldı; üç eski session/provenance JSON'u ve eski screenshot dizinine bağımlı verifier kaldırıldı. Kabul edilmiş geometri/scroll/renk projeksiyonları önce/sonra aynı kaldı ve bağımsız fingerprint testiyle korunuyor. Araç testleri ile browser sürücüleri kendi test dizinlerine taşındı; Fixture üretimi Python’da, ürün kabul assertion’ları `tests/test_fixture.c` içindedir.
 
-Runtime font/ikon lisansları ve bilinçli checked-in türevler korunur. Eski executable mock/görsel denemeler source'a geri getirilmez. Tarihçe Git'te bulunur; HEAD içinde ayrıca audit/archive/screenshot payload ağacı biriktirilmez. Beş tamamlanmamış worktree ayrı ve değiştirilmeden korunur.
+Runtime font/ikon lisansları ve bilinçli checked-in türevler korunur. Eski executable mock/görsel denemeler source'a geri getirilmez. Tarihçe Git'te bulunur; HEAD içinde ayrıca audit/archive/screenshot payload ağacı biriktirilmez. Eski branch uçları ve worktree değişiklikleri `archive/streamline-20261020` etiketi altında korunur; yarım işlerin güncel durumu roadmap’te izlenir.
 
 ## Kontrol ve kalan işler
 

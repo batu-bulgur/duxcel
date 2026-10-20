@@ -398,7 +398,7 @@ class Runner:
     def run(self):
         print("Logs: " + str(self.log_dir), flush=True)
         try:
-            with FileLock(self.root / ".state/test-runner.lock", "Tests in this worktree"):
+            with FileLock(self.root / "build/locks/test-runner.lock", "Tests in this worktree"):
                 if self.args.tier == "fast":
                     self.headless(self.args.modules or FAST_MODULES)
                 elif self.args.tier == "affected":

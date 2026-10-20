@@ -12,7 +12,7 @@ class LayoutTests(unittest.TestCase):
             tree = ast.parse(path.read_text())
             tests = [node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef) and any(ast.unparse(base).endswith('TestCase') for base in node.bases)]
             self.assertFalse(tests, str(path))
-        self.assertTrue((ROOT / 'tests/support/create_workbook.c').is_file())
+        self.assertTrue((ROOT / 'tools/create_workbook.py').is_file())
 
     def test_browser_runtime_has_no_node_imports_or_browser_test_drivers(self):
         for path in (ROOT / 'web').glob('*.mjs'):

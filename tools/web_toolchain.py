@@ -305,5 +305,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    with FileLock(PROJECT / '.state/web-build.lock', 'Web builds in this worktree'):
+    with FileLock(PROJECT / 'build/locks/web-build.lock', 'Web builds in this worktree'):
         raise SystemExit(main())

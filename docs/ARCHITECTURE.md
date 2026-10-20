@@ -33,13 +33,13 @@ Normal binaries omit review modules, command strings and browser bridges at comp
 
 ## Generated output
 
-`build/bin/` holds native binaries and an executable-relative asset link; `build/obj/` separates release/sanitizer/review objects; `build/tests/` holds test programs, generated databases and reports. `data/downloads/` is optional public-data cache. `.cache/web/` holds installed SDK/dependencies; `build/web/` holds disposable Wasm packages; `.state/` owns stable checkout lock inodes. No generated executable belongs at root or next to test source.
+`build/bin/` holds native binaries and an executable-relative asset link; `build/obj/` separates release/sanitizer/review objects; `build/tests/` holds test programs, generated databases and reports. `data/downloads/` is optional public-data cache. `.cache/web/` holds installed SDK/dependencies; `build/web/` holds disposable Wasm packages; `build/locks/` holds disposable operation locks; a checkout-specific OS-temp shared/exclusive gate prevents cleanup from replacing a lock while it is in use. No generated executable belongs at root or next to test source.
 
 ## Known structural debt
 
 `src/app/app.c` is about 15,500 lines / 1.22 MB; native scenario code shares this translation unit. `src/dev/review_app.inc` is about 4,200 lines / 441 KB. These sizes impede focused compilation and ownership. Extract cohesive controllers and test-only harnesses incrementally, preserving behavior and keeping a single integration owner. Do not undertake a broad rewrite solely to change GitHub language percentages.
 
-Native fixture generation now uses the DuckDB C API and production workbook/PIVOT code, with no mock, Node or DuckDB CLI dependency. Most behavioral assertions already are C. External orchestration remains Python with completion, sanitizer, timeout, binary-fingerprint, fixture-order and desktop-lock contracts. Product-linked helpers remain C under `tests/support/`; tool/browser test sources live in their subsystem test directories.
+Synthetic fixture generation uses Python plus the existing DuckDB CLI and a finite SQL input; native tests separately verify product load/PIVOT/save/reload behavior. Most behavioral assertions already are C. External orchestration remains Python with completion, sanitizer, timeout, binary-fingerprint, fixture-order and desktop-lock contracts. Product-linked helpers remain C under `tests/support/`; tool/browser test sources live in their subsystem test directories.
 
 ## Türkçe çalışma haritası ve değerlendirme
 

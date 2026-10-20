@@ -260,7 +260,7 @@ class RunnerTests(unittest.TestCase):
                 saved = json.loads((instance.log_dir / "summary.json").read_text())
                 self.assertEqual(saved["tier"], "records"); self.assertEqual(saved["status"], "passed")
                 self.assertEqual(saved["source"]["source_sha256"], runner.source_metadata(root)["source_sha256"])
-                self.assertTrue((root / ".state/test-runner.lock").exists())
+                self.assertTrue((root / "build/locks/test-runner.lock").exists())
 
     def test_records_no_build_requires_all_binaries_before_any_execution(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -383,7 +383,7 @@ class RunnerTests(unittest.TestCase):
                     saved = json.loads((instance.log_dir / "summary.json").read_text())
                     self.assertEqual(saved["tier"], "formats"); self.assertEqual(saved["status"], "passed")
                     self.assertEqual(saved["source"]["source_sha256"], runner.source_metadata(root)["source_sha256"])
-                    self.assertTrue((root / ".state/test-runner.lock").exists())
+                    self.assertTrue((root / "build/locks/test-runner.lock").exists())
                     self.assertFalse((root / "build/tests/generated/million.parquet").exists())
 
     def test_formats_no_build_requires_all_selected_binaries_before_any_execution(self):
@@ -521,7 +521,7 @@ class RunnerTests(unittest.TestCase):
                      mock.patch.object(runner, "native_lock_path", return_value=root / "desktop.lock"), \
                      contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                     self.assertEqual(instance.run(), 0 if present and not replace else 1)
-                self.assertTrue((root / ".state/test-runner.lock").is_file())
+                self.assertTrue((root / "build/locks/test-runner.lock").is_file())
                 self.assertEqual((root / "desktop.lock").exists(), present)
                 self.assertEqual(command.call_count, 2 if present else 0)
                 if not present:

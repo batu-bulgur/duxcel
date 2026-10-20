@@ -35,7 +35,7 @@ def main():
     (ROOT/'build/tests/results/native-review').mkdir(parents=True,exist_ok=True)
     summary={'started_utc':utc_now(),'status':'failed','configs':{},'scope':'hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual'}
     try:
-        with FileLock(ROOT/'.state/test-runner.lock','worktree tests'):
+        with FileLock(ROOT/'build/locks/test-runner.lock','worktree tests'):
             configs=['release','sanitize'] if args.config=='both' else [args.config]
             if not args.no_build:
                 targets=[('review' if c=='release' else 'review-debug') for c in configs]+['build/tests/test_background-native-debug']

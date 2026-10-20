@@ -4,6 +4,7 @@ No dependency on the test runner, product model or browser runtime. Build/test
 CLIs use these functions; cleanup owns explicit output/cache paths only.
 """
 import argparse
+import contextlib
 import datetime
 import fcntl
 import hashlib
@@ -47,7 +48,7 @@ def source_metadata(root):
             subdirectories[:]=[name for name in subdirectories if name not in {"generated", "results", "downloads", "node_modules"}]
             paths.extend(Path(folder)/name for name in names
                          if (Path(name).suffix in suffixes or
-                             (Path(folder).is_relative_to(root / "tests/fixtures") and Path(name).suffix in {".csv", ".json"}))
+                             (Path(folder).is_relative_to(root / "tests/fixtures") and Path(name).suffix in {".csv", ".json", ".sql"}))
                          and (Path(folder)/name).is_file())
     digest = hashlib.sha256()
     for path in sorted(paths):
@@ -62,32 +63,57 @@ def source_metadata(root):
 
 
 class FileLock:
-    """Do not unlink lock files: that would permit locking a different inode."""
+    """Build locks are disposable; an OS-temp gate protects their lifetime.
 
-    def __init__(self, path, purpose):
+    Every build-local lock holds the gate shared. Cleanup holds it exclusively
+    before removing build/, so no process can open a replacement lock inode.
+    """
+
+    def __init__(self, path, purpose, *, shared=False):
         self.path, self.purpose, self.stream = Path(path), purpose, None
+        self.shared, self.gate = shared, None
 
     def __enter__(self):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.stream = self.path.open("a+", encoding="utf-8")
+        build = next((p for p in self.path.resolve().parents if p.name == "build"), None)
+        if build is not None:
+            self.gate = FileLock(checkout_gate_path(build.parent), "Workspace cleanup", shared=True)
+            self.gate.__enter__()
         try:
-            fcntl.flock(self.stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            self.stream.seek(0)
-            owner = self.stream.read().strip() or "owner metadata unavailable"
-            self.stream.close()
-            self.stream = None
-            raise RuntimeError(f"{self.purpose} is already running: {owner}") from None
-        self.stream.seek(0)
-        self.stream.truncate()
-        json.dump({"pid": os.getpid(), "cwd": str(ROOT), "started_utc": utc_now(),
-                   "command": sys.argv}, self.stream)
-        self.stream.flush()
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.stream = self.path.open("a+", encoding="utf-8")
+            try:
+                mode = fcntl.LOCK_SH if self.shared else fcntl.LOCK_EX
+                fcntl.flock(self.stream.fileno(), mode | fcntl.LOCK_NB)
+            except BlockingIOError:
+                self.stream.seek(0)
+                owner = self.stream.read().strip() or "workspace operation active"
+                raise RuntimeError(f"{self.purpose} is already running: {owner}") from None
+            if not self.shared:
+                self.stream.seek(0)
+                self.stream.truncate()
+                json.dump({"pid": os.getpid(), "cwd": str(ROOT), "started_utc": utc_now(),
+                           "command": sys.argv}, self.stream)
+                self.stream.flush()
+        except BaseException:
+            if self.stream:
+                self.stream.close()
+                self.stream = None
+            if self.gate:
+                self.gate.__exit__(None, None, None)
+                self.gate = None
+            raise
         return self
 
     def __exit__(self, *unused):
         fcntl.flock(self.stream.fileno(), fcntl.LOCK_UN)
         self.stream.close()
+        if self.gate:
+            self.gate.__exit__(None, None, None)
+
+
+def checkout_gate_path(root=None):
+    identity = hashlib.sha256(os.fsencode((ROOT if root is None else root).resolve())).hexdigest()[:20]
+    return Path("/tmp") / f"duxcel-workspace-{os.getuid()}-{identity}.lock"
 
 
 def native_lock_path():
@@ -96,10 +122,15 @@ def native_lock_path():
 
 
 def clean_outputs(full=False):
-    """Remove disposable outputs while preserving fixtures, work, and lock inodes."""
-    with FileLock(ROOT / ".state/test-runner.lock", "Tests in this worktree"), \
-         FileLock(ROOT / ".state/web-build.lock", "Web builds in this worktree"), \
-         FileLock(native_lock_path(), "Native desktop tests"):
+    """Remove all build output; preserve authored inputs and active ownership."""
+    with FileLock(checkout_gate_path(), "Workspace is in use"), \
+         FileLock(native_lock_path(), "Native desktop tests"), contextlib.ExitStack() as legacy:
+        # Old checkouts used .state/. Refuse an old active runner too, then
+        # retire the obsolete directory with the rest of the disposable output.
+        for name in ("test-runner.lock", "web-build.lock"):
+            path = ROOT / ".state" / name
+            if path.exists():
+                legacy.enter_context(FileLock(path, "Legacy workspace operation"))
         def remove(path):
             if path.is_dir() and not path.is_symlink():
                 shutil.rmtree(path)
@@ -119,6 +150,7 @@ def clean_outputs(full=False):
                 new.parent.mkdir(parents=True, exist_ok=True)
                 old.rename(new)
         remove(ROOT / "build")
+        remove(ROOT / ".state")
         if full:
             remove(ROOT / ".cache")
             remove(ROOT / "web/node_modules")
