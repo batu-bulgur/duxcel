@@ -32,6 +32,8 @@ Dropping or suspending styles whenever a query changes prevents a wrong associat
 
 These are proposed product decisions. In particular, the finite-selection limit, broad-column meaning, refresh policy and fallback for arbitrary SQL need to remain visible in the implementation handoff and acceptance record.
 
+The 21 October [workbook TRD Refresh contract](WORKBOOK_MODEL_TRD.md#75-refresh-replacement-and-ad-hoc-state) supersedes the earlier proposal for preserving/suspending ad hoc styles across a user Refresh: replace affected data and reset ad hoc formats/value overrides while retaining compatible field formats and conditional rules. No row survival/deletion proof or reconciliation is required. This is future product behavior, not a claim that the current native refresh path or its verified within-version format coverage has changed.
+
 | Target or operation | Proposed behavior |
 | --- | --- |
 | Blank/manual cells and ordinary spatial ranges | Keep worksheet-coordinate formatting and existing move/insert/delete behavior. A finite spatial style applies to manual/blank targets, not as an automatic imported-record fallback. Missing cells remain sparse; do not create values to carry a style. |
@@ -45,7 +47,8 @@ These are proposed product decisions. In particular, the finite-selection limit,
 | DISTINCT or Group/Aggregate | These change grain. Suspend raw-record styles; never add an internal ID to `DISTINCT *` or grouping keys. New formatting is result-scoped in the first release. |
 | PIVOT, totals and chart marks | Do not propagate a transaction's cell style to a group/measure/mark. Initial matrix styles are result-scoped; totals keep the existing separate numeric-display policy. Marks remain presentation bindings, not cell-format records. |
 | Return to a previous definition through Undo | Reactivate compatible retained styles after definition/version/schema checks. Suspending a style does not delete it or create another undo action. |
-| Refresh, relink, replacement or external modification | Start a new source version and suspend old record/result styles. The initial implementation does not remap by row position, filename, visible values or an assumed business key. |
+| Explicit user Refresh | Publish replacement data and reset affected ad hoc styles/value overrides atomically on success. Retain compatible field formats and conditional rules; no row matching, deletion proof or dormant reattachment. Ordinary retained Undo/version state remains separate. |
+| Relink or unrequested external modification | Preserve the existing fail-closed identity checks; never silently reuse old record/result styles on different bytes. This safety check is distinct from the new explicit Refresh reset contract. |
 | Duplicate physical records | Distinct original ordinals have distinct styles within an eligible immutable source. Equal values, including all-NULL rows, do not merge records. |
 | Historical source preview | Apply record styles only when the preview carries the same source-version IDs and field bindings. Otherwise retain the current conservative whole-column-only behavior. Preview is read-only and must not mutate live styles. |
 
