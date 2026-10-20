@@ -672,26 +672,11 @@ Every scenario needs the relevant model, analytical, persistence and real-input 
 
 Fault injection belongs in owned test processes/private databases, never the user's running application. Use C99 product-linked tests, Python orchestration, and JS browser adapter tests in their existing repository locations. Hidden native workflows retain the desktop lock. Record source/binary/fixture and elapsed limits in ignored results rather than tracked evidence capsules.
 
-## 18 Proposed delivery slices
+## 18 Delivery plan ownership
 
-These are dependency proposals for later roadmap promotion. They are not scheduled roadmap entries, and independent basic UI fixes should not wait for the full history design.
+The dependency-ordered implementation backlog now lives in [ROADMAP.md — Workbook TRD implementation slices](../ROADMAP.md#workbook-trd-implementation-slices). W01–W40 replace the former coarse S0–S9 proposals, with priorities, prerequisites, separately demonstrable scope and acceptance gates. G01/G02 apply codec/browser and resource/failure checks to each affected slice instead of leaving integration until the end.
 
-| Slice | Deliverable | Completion gate |
-| --- | --- | --- |
-| S0 | Record accepted semantics; focused DuckDB latency/failure spike; document/sheet/revision identity plan. | Apply resolved Q01–Q07/R01–R03 contracts and measure the pinned DuckDB path without adding dependencies. |
-| S1 | Focused selection/drag corrections and region contract. | A01–A03 through pure C and real hidden native input; preserve existing range/format Undo. |
-| S2 | Shared command boundary for one manual-edit transaction, workbook history and sheet lifecycle. | UI/API use same producer; exact rollback/no-op/stale behavior; A09–A10. |
-| S3 | Native DuckDB durable recovery and checkpoint/Latest Saved lifecycle for that slice. | A13–A15/A28 including blank unnamed workspaces, IO failure, progress/dialog sizing and deferred recovery. Expand commands only with equivalent safety. |
-| S4 | Named checkpoints, three-state cross-session Undo retention, pruning and historical Save As. | A11–A12/A27, coherent assets, complete analytical snapshots and explicit history export. |
-| S5 | Typed manual cells and range-backed analytical input. | A06 plus typed clipboard/statistics/Save/Open; general formula parser can be a separately accepted sub-slice. |
-| S6 | Connect/Import/Data Model boundaries, internal edit overlay, refresh replacement and supported drill-through. | A07–A08/A16/A24–A26/A31–A34 across DuckDB viewport, pivot, statistics, copy/export and offline Save/recovery; no record-reconciliation engine. |
-| S7 | Positional/local references, code/display names, focused coordinate chrome, spill, floating objects, Master View and snap modes. | A04–A05/A20–A23/A29–A30; model/codec/hit-test migration included. Semantic pivot references FT01 are not a prerequisite. |
-| S8 | Production automation transport and core-only host. | A17–A18 over the accepted command subset; preview rendering separately tested. |
-| S9 | Browser integration of each new codec/command/storage family. | Actual official-Worker and shared-C App workflow, quota/cancel/reload; existing browser Open/Save gates still apply. |
-
-Native recovery does not wait for full browser persistence; browser compatibility constraints must still inform schema/API design from S0. Formula references can be designed early and delivered after the initial command/recovery slices. Product automation can expose a narrow accepted command subset before every UI feature is converted.
-
-When a slice is accepted, promote concise behavior decisions into REQUIREMENTS/the relevant design owner, dependencies and batch acceptance into ROADMAP, and implemented capability into STATUS. Keep detailed future contracts here while they remain under iteration; avoid copying this inventory into every document.
+This TRD continues to own semantics, requirement IDs, acceptance scenarios and deferred capabilities. ROADMAP owns sequencing and implementation state; STATUS owns verified current behavior and limits. Independent selection/gesture improvements can ship before durable history. Native recovery does not wait for complete browser persistence. Semantic pivot references FT01 remain unscheduled.
 
 ## 19 Decision register
 

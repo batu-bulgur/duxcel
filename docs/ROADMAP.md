@@ -59,6 +59,83 @@ This is the initial sequence; prioritize C05 if data loss/recovery is blocking. 
 - [ ] Implement typed manual cells/formulas and an explicit imported-data overlay model.
 - [ ] Add further transforms/joins/table nesting and recovery features through narrow designs with actual DuckDB tests.
 
+## Workbook TRD implementation slices
+
+The [workbook model TRD](design/WORKBOOK_MODEL_TRD.md) owns behavior and requirement/acceptance IDs; this section owns delivery order. Its former S0–S9 groups are decomposed below. **P0** protects editing/document integrity and establishes the command/recovery foundation; **P1** delivers data/formula capabilities; **P2** adds advanced composition/automation. Dependencies are hard prerequisites, not a requirement to finish every earlier row. A production data-loss reproduction takes precedence over the first convenience demo. No dates or unmeasured latency promises are implied.
+
+Each row is a separately reviewable implementation/demo boundary. Scope expansion requires splitting the row, rather than hiding a subsystem rewrite inside it. Acceptance includes focused optimized/sanitizer C coverage, the relevant real native workflow, existing-file compatibility and applicable Undo/Save/Open. Distinguish synthetic App input from physical-device/human acceptance. Schema/command slices also require the incremental browser gate below; native recovery need not wait for full browser Open/Save.
+
+### First hands-on slice and immediate follow-ups
+
+| ID / priority / state | Scope and dependency | Demo and acceptance gate |
+| --- | --- | --- |
+| W01 · P0 · Selected | Manual cell-range selection and move gesture; existing range-move command only. No new model/codec. | Option/Alt-drag inside a selected range or drag its border; preserve the grabbed cell, show one outer outline, use a small drag threshold, cancel with Escape, ignore no-op. One existing Undo action, exact Redo and Save/Open; occupied/read-only destinations stay rejected. UX01–UX03; manual-range part of A01–A02. Floating/object gestures and region inference remain separate. |
+| W02 · P0 · Queued | Explicit destination conflict feedback and replace/cancel for manual moves; W01. Integrates C03/C04. | Offscreen occupied destinations cannot be silently overwritten; cancel changes nothing; replace/self-overlap is atomic with exact values/styles Undo. Preserve safe rejection until the complete action exists. UX04; A03. |
+| W03 · P1 · Queued | Deterministic containing-region discovery; existing selection ladder and C01. | Irregular/diagonal islands, holes, NULL/empty/format-only cells and offscreen explicit bounds produce strict supersets; active cell stays fixed, no query/dirty/history side effect. WM02; remaining A01. |
+| W04 · P0 · Queued | Compact unsaved/close dialogs; existing C05 guard, independent of journal. | Narrow/100%/150% windows fit actions and content; Save/Discard/Cancel preserve their current safety behavior, no forced startup filename. UX05; dialog/blank-workspace portion of A28. |
+
+### Command, recovery and version foundation
+
+Implement one existing manual-cell edit through each boundary before expanding the operation family. Continue existing persistence/codec work above; it is not replaced by this plan.
+
+| ID / priority / state | Scope and dependency | Demo and acceptance gate |
+| --- | --- | --- |
+| W05 · P0 · Queued | Stable workbook/sheet IDs and revision-bearing C command boundary for one manual edit; existing C05/C03. | UI invokes the shared producer; resolved typed arguments, expected revision, no-op, validation and rollback have explicit results. IDs survive rename/reorder/reopen and are never recycled. AU01/HI03/PL01; foundation of A09/A18/A19. |
+| W06 · P0 · Queued | Workbook chronological Undo/Redo for manual edits on two sheets; W05. | Edit A then B and traverse in chronological order; branching clears the correct redo tail; display defaults do not alter replayed data. HI01/HI03; A09–A10 for admitted commands. |
+| W07 · P0 · Queued | Undoable sheet lifecycle; W06. | Delete/restore a sheet with cells, objects, binding identities and formats; reorder/hide/duplicate use the same command history. HI02; remaining A09. Do not claim formula restoration before W26. |
+| W08 · P0 · Queued | DuckDB journal writer for the admitted command subset; W05–W06. | Measure single/batched edits and large paste on the pinned engine; ordered pending/durable acknowledgement, idempotent retry and bounded queue. Kill before/after commit, disk-full/write failures yield old/new complete state. No SQLite dependency. RE01/RE03/PL02; commit part of A13. |
+| W09 · P0 · Queued | Revision-fenced Save publication and proportional progress/cancel; W08. | Save R while R+1 arrives; report R only after its complete checkpoint is published, retain R+1 unsaved/recoverable. Failed/cancelled Save preserves old file and dirty state. UX05/RE03; A13/A15/A28. |
+| W10 · P0 · Queued | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. RE02; A14. |
+| W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
+| W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
+| W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
+| W14 · P2 · Queued | Selected-history export; W12–W13. | Export an explicit history interval with required assets and valid roots; omitted history is absent, new artifact restores every advertised state. VE05; remaining A27. |
+
+### Owned data, refresh and complete analytical results
+
+| ID / priority / state | Scope and dependency | Demo and acceptance gate |
+| --- | --- | --- |
+| W15 · P1 · Queued | Explicit Connect source mode and provenance; W05/W09. | Read-only Parquet/CSV query views save definitions/styles and a bounded preview; offline dependencies are visible, originals unchanged by Save/export. DE06; Connect portion of A16/A24. |
+| W16 · P1 · Queued | Import retained source bytes and recipe; W15/W11. | Import then remove external file: workbook/version still queries retained data; failed import leaves no partial dataset. Retention policy and path/content identity explicit. DE07; retained-source A16/A24. |
+| W17 · P1 · Queued | Add selected query result to hidden Data Model; W16. | Materialize the complete query once, save/reopen offline and query it without a visible table; optional sheet view references the same dataset. DE07; model portion of A24. |
+| W18 · P1 · Queued | Workbook-owned effective relation and one typed record patch; W08/W17. | Distinguish duplicate records, NULL presence, empty/literal text and exact DECIMAL; viewport/filter/pivot/statistics/copy/export read one revision. Connect requires explicit conversion; originals unchanged. DE01/DE03/DE04; A07. |
+| W19 · P1 · Queued | Owned row insert/delete and field add/drop/reorder; W18. | Stable surviving IDs/order, exact Undo/reopen; consumers rebind or report schema errors. Resolve bindings rather than rewrite raw SQL text. DE05; A08. |
+| W20 · P1 · Queued | Inspectable resolved edit/transform steps; W18–W19. | Show the admitted operations and parameterized effective SQL without inventing editable raw-SQL history; replay reproduces edits under sort/filter. DE02; complements A07–A08. |
+| W21 · P1 · Queued | Complete pivot/aggregate/chart result persistence; W09/W15. | Save cells outside the viewport and chart state; offline reopen displays the full result, while a million-row connected browse result remains optional. Distinct definition/data/result generations survive reopen. VE04; A20/A25. |
+| W22 · P1 · Queued | Stale object warning and retained-result Save; W21. | Change definition/data offline, save and reopen with old complete output plus newer definition and clear stale provenance; successful recompute replaces output atomically. VE06; object/Save portion of A31. Formula behavior follows W26. |
+| W23 · P1 · Queued | Atomic Refresh replacement/reset for admitted owned datasets; W18/W21/W08. | Success replaces data and clears affected ad hoc cell/row styles/value overrides, even for identical/duplicate rows; compatible field formats remain. Failure/cancel preserves old data/styles/history; Undo/retained version restores prior state. No record matching/merge or automatic tag. DE09; A26/A32–A34. |
+| W24 · P1 · Queued | Conditional formatting on a current relation; W18/W23. | A key=482 rule evaluates all matching current rows after refresh, including duplicates/changed other fields; compatible rules persist and incompatible fields fail explicitly. Field formatting and ad hoc styles stay distinct. Rule portion of A26/A32. |
+| W25 · P1 · Queued | Pivot drill-through into a new query sheet; W17/W21. | Apply the exact displayed cell's group/filter provenance; model-backed result drills offline; unavailable external provenance reports a clear error without fabricated rows. DE08; A25. |
+
+### Typed ranges, positional formulas and analytical geometry
+
+| ID / priority / state | Scope and dependency | Demo and acceptance gate |
+| --- | --- | --- |
+| W26 · P1 · Queued | Typed sparse manual cells and basic parsed positional formulas; W05/W08/W18. Integrates C08. | NULL/empty/literal text and precision survive edit/clipboard/reopen; dependency recalc/cycles and typed ref/type/calc errors are visible. Changed valid numbers recalculate normally; stale saved output is identified, not disguised as a newly computed generation. WM01/WM04; formula part of A06/A31. Start with an explicit small operator/function set. |
+| W27 · P1 · Queued | Explicit manual-range analytical input; W26. | Bind a finite typed range to a relation and pivot; one edit updates consumers at one revision; schema changes invalidate explicitly. WM03; remaining A06. |
+| W28 · P1 · Queued | Code/display names and object-local positional references; W26/W21. | `sheet_code.object_code.A1` resolves offscreen; display rename is cosmetic, code rename updates parsed bindings atomically. No category/GETPIVOTDATA lookup. WM07–WM08; naming part of A29. |
+| W29 · P1 · Queued | Reference-following manual/analytical move; W28/W02. | Cross-sheet dependents follow moved target, including absolute bindings; move/Undo/Redo updates addresses and values together. Sorting still addresses output positions. WM04; A21 and formula part of A03. |
+| W30 · P1 · Queued | Independent analysis inventory and owner-local styles; W21/W28. | List/reveal/edit offscreen analyses; moving/restoring retains local styles without changing query data or object IDs. WM05–WM06; foundation of A04/A29. |
+| W31 · P1 · Queued | Blocked placement/spill state; W29/W30. | No same-sheet analytical/manual-content overwrite; retain last effective footprint/result plus pending target, reachable error handle and typed bound-read spill error. Valid retry publishes placement/ref changes once. LA01/LA06; A22. |
+| W32 · P2 · Queued | Floating matrix/chart placement and scale; W31. | Preserve local grabbed point, preview and Undo/Save/Open geometry; snapped→floating converts sheet analytical bindings to qualified local form atomically. LA02/UX02–UX03; transform/mode portions of A04/A29. |
+| W33 · P2 · Queued | Floating stacking and always-reachable controls; W32. | Drag/click promotes the correct object, including a fully covered one; hit/paint order agrees and formulas retain owners. LA07; occlusion part of A04. |
+| W34 · P2 · Queued | Object-focused coordinate chrome; W28/W32. | Off-origin matrix local A/B/C and 1/2/3 labels align at 100%/150%, clipping/freeze consistent, focus return restores worksheet headers; reference insertion uses shown owner. UX06; A30. |
+| W35 · P2 · Queued | Matrix-to-sheet-grid fit; W31/W32. | Explicit snap uses variable column/row metrics, previews conflicts and survives one Undo and Save/Open. LA03; first mode of A05. |
+| W36 · P2 · Queued | Per-row geometry and sheet-to-matrix fit; W35. | Show impact on other anchored objects before changing sheet metrics; publish one reversible geometry transaction and identical reopen. LA04; second mode of A05. |
+| W37 · P2 · Queued | Chart-to-range fit; W32. | Fit to chosen sheet rectangle without mutating sheet metrics; exact Undo and persisted bounds. LA05; third mode of A05. |
+| W38 · P2 · Queued | Inspection-first Master View; W33/W36. | Compose independent sheets with explicit active owner/transparency and z-order; each retains its own metrics, addresses and formulas. No implicit cross-sheet grid edits. LA01; A23. |
+
+### Automation and cross-cutting delivery gates
+
+| ID / priority / state | Scope and dependency | Demo and acceptance gate |
+| --- | --- | --- |
+| W39 · P2 · Queued | Narrow authorized production IPC over admitted commands; W05/W08. | Same typed command through UI/IPC yields identical state; stale/duplicate/unauthorized/oversized requests are bounded and predictable. Development review bridges stay excluded. AU01–AU02; A17/A18. |
+| W40 · P2 · Queued | Core-only command host; W39. | Open/apply/query/save the supported subset without a window; optional preview renderer remains separate; same typed results as UI. AU03; remaining A18. |
+| G01 · Each affected slice | Shared codec/migrations and browser acceptance; schema/command producer of that slice. | Existing supported files load or reject atomically; shared C + actual official Worker exercise new records/commands and cancellation/quota/reload where applicable. Existing browser Open/Save gates remain open until end-to-end publication passes. PL01; A19. A shared-C gesture change needs focused browser input validation, not a persistence rewrite. |
+| G02 · Each affected slice | Resource/ownership/failure budgets; W08 establishes measured journal baseline. | Bound retained memory/queue/assets, preserve NULL/precision and explicit ownership; record tested binary, elapsed time and coverage limits. No whole-table browser/native snapshot disguised as a cache. PL02; TRD section 16. |
+
+Suggested dependency path after the first user demo: **W04/W05 → W06/W08 → W09/W10**, with W07 once workbook history is available. Then W11/W15/W21 unlock useful offline/version demos; W16–W25 and W26–W31 are separate capability tracks. The rows are solo delivery steps, not authorization for concurrent implementation lanes. FT01–FT03 in the TRD remain unscheduled future features.
+
 Retain native/Wasm review and the persistent agentic queue as development infrastructure, with strict production exclusion. Review helpers passing does not close a product feature. Use small isolated implementation lanes, concise source-scoped results and hidden desktop-owned tests; do not store repeated full evidence capsules in source control.
 
 ## Recovered worktree work
