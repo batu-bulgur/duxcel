@@ -45,6 +45,8 @@ Synthetic fixture generation uses Python plus the existing DuckDB CLI and a fini
 
 This section explains the current source paths, missing product contracts and architectural proposals for discussion. **Current-behavior sections describe implementation; proposal sections are neither implemented nor accepted decisions.** Preserve C99/raylib/DuckDB and the shared C/Wasm boundaries. Duxcel has a real analytical query engine and sparse text cells, but these do not yet form a shared, typed, recoverable editing model comparable to Excel.
 
+For future workbook behavior, the 21 October user decisions in [the workbook TRD](design/WORKBOOK_MODEL_TRD.md#19-decision-register) take precedence over the earlier proposals below: DuckDB journaling without a new SQLite dependency, explicit Connect/Import/Data Model boundaries, complete saved analytical outputs, move-following A1 references, separate grid occupancy/floating/Master View composition and three-version-state Undo retention. [REQUIREMENTS](REQUIREMENTS.md#workbook-design-direction) summarizes this accepted direction. These are design decisions; the current implementation walkthrough and STATUS do not gain those capabilities from this revision.
+
 ### Current layers and main flow
 
 ```mermaid
