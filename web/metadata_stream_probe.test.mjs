@@ -165,3 +165,62 @@ test('format-row paused ACK prevents advancement and cancellation retires reader
     await h.adapter.cancel();assert.equal((await pending).status,'cancelled');assert.equal(source.cancelled,1);ack(true);h.connection.send=async()=>new Reader(new Table({recovered:vectorFromArray([43],new Int32())}));
     assert.equal((await h.adapter.submit({requestId:'2',sql:'ordinary recovery'})).status,'ok');await h.adapter.close();
 });
+
+// Selector values stay opaque metadata. The C continuation owns enum, owner,
+// selector/scope and explicit source-aware-state validation; the six-query
+// Columns/Cells runtime probe and all prior test definitions stay unchanged.
+const selectorProbeNames=['sheet_id','position','selector'];
+function selectorProbeColumns(){return selectorProbeNames.map(name=>({name,typeName:'INTEGER',numberKind:'i32'}));}
+function selectorProbeInput(binding,change={}){return {...formatProbeInput(binding),family:'format-selectors',columns:selectorProbeColumns(),sql:'C SELECTOR SQL ORDER BY sheet_id,position LIMIT 32769',...change};}
+function selectorProbeTable(rows,{canonical=false,cell=(r,c)=>c===2?[-1,0,1,2,3,4,2147483647,-2147483648][r%8]:r*3+c}={}){
+    return new Table(Object.fromEntries(selectorProbeNames.map((name,c)=>[name,vectorFromArray(Array.from({length:rows},(_,r)=>{const value=cell(r,c);return canonical&&value!==null?String(value):value;}),canonical?new Utf8():new Int32())])));
+}
+function selectorProbeReader(source,lengths=[source.numRows],options={}){
+    let first=0,index=0;const batches=lengths.map(count=>{const batch=count?source.slice(first,first+count).batches[0]:{numCols:3,numRows:0};first+=count;return batch;});assert.equal(first,source.numRows);
+    return {schema:source.schema,cancelled:0,reads:0,nextCalls:0,open(){return this;},[Symbol.asyncIterator](){return {next:async()=>{
+        this.nextCalls++;if(index===batches.length)return {done:true};const batch=batches[index++];return {done:false,value:{numCols:options.numCols??3,numRows:options.numRows??batch.numRows,getChildAt:c=>({get:r=>{this.reads++;return batch.getChildAt(c).get(r);}})}};
+    }};},async cancel(){this.cancelled++;await options.cleanup?.();}};
+}
+
+test('selector stream policy freezes three dense descriptors once and rejects malformed/crossfamily requests before admission',async()=>{
+    const source=selectorProbeReader(selectorProbeTable(1)),h=await formatProbeHarness(source),request=selectorProbeInput(h.binding);let reads=0;
+    Object.defineProperty(request,'family',{enumerable:true,get(){return ++reads===1?'format-selectors':'format-rows';}});
+    const captured=workbookMetadataStreamRequest(request);assert.equal(captured.family,'format-selectors');assert.equal(captured.rowLimit,32769);assert.equal(captured.columns.length,3);assert.ok(Object.isFrozen(captured.columns[2]));
+    const holes=selectorProbeColumns();delete holes[1];const inherited=selectorProbeColumns();delete inherited[2];Object.setPrototypeOf(inherited,Object.assign(Object.create(Array.prototype),{2:selectorProbeColumns()[2]}));
+    for(const change of [{columns:holes},{columns:inherited},{columns:Array(3)},{columns:selectorProbeColumns().slice(1)},{columns:[...selectorProbeColumns(),selectorProbeColumns()[0]]},{rowLimit:32770},{rowLimit:0},{rowLimit:1.5},{offset:'1'},{knownTotal:'0'},{sourceBindings:[]},{sourceBindings:Array(1)},{purpose:'copy'},{family:'format-state'},{family:'constructor'},...['columns','cells','source-versions','format-rows'].map(family=>({family}))]){
+        assert.throws(()=>h.adapter.submitWorkbookMetadataStream(selectorProbeInput(h.binding,change),()=>true),{code:'INVALID_REQUEST'});assert.equal(h.adapter.latestId,0n);assert.equal(h.connection.sends.length,0);
+    }
+    assert.throws(()=>pageRequest(selectorProbeInput(h.binding)),{code:'INVALID_REQUEST'});assert.throws(()=>h.adapter.submit(selectorProbeInput(h.binding)),{code:'INVALID_REQUEST'});await h.adapter.close();
+});
+test('selector7/10/288 rows retain I32 sidecars, opaque unsupported values and one-execution256-row chunking',async()=>{
+    for(const rows of [7,10,288]){
+        const source=selectorProbeReader(selectorProbeTable(rows),rows===288?[17,0,240,31]:[1,0,rows-1]),h=await formatProbeHarness(source),chunks=[];
+        const request=selectorProbeInput(h.binding),pending=h.adapter.submitWorkbookMetadataStream(request,chunk=>{
+            assert.equal(chunk.page.columnCount,3);assert.deepEqual(chunk.page.columns.map(c=>[c.name,c.typeName,c.numberKind]),selectorProbeColumns().map(c=>[c.name,c.typeName,c.numberKind]));assert.ok(formatProbeFootprint(chunk.page)<=LIMITS.bytes);assert.ok(chunk.wire.byteLength<=6*1024*1024);
+            if(chunk.end)assert.equal(source.cancelled,1);else for(let r=0;r<chunk.page.rowCount;r++)assert.equal(pageCellText(chunk.page,r,2),String([-1,0,1,2,3,4,2147483647,-2147483648][(Number(chunk.firstRow)+r)%8]));chunks.push(chunk);return true;
+        });request.columns[0].name='mutated';request.sourceBindings[0].registrationId='999';request.sql='not the frozen C SQL';
+        assert.equal((await pending).status,'ok');assert.equal(h.connection.sends.length,1);assert.equal(h.connection.sends[0],'C SELECTOR SQL ORDER BY sheet_id,position LIMIT 32769');assert.equal(source.reads,rows*3);assert.equal(source.cancelled,1);
+        assert.deepEqual(chunks.map(c=>[c.firstRow,c.page.rowCount,c.end]),rows===288?[['0',256,false],['256',32,false],['288',0,true]]:[['0',rows,false],[String(rows),0,true]]);await h.adapter.close();
+    }
+});
+test('selector canonical text keeps NULL/empty/literal/negative and large invalid scalars for C without enum interpretation',async()=>{
+    const exact=[null,'','NULL','-1','4','2147483648','x'.repeat(65537)],source=selectorProbeReader(selectorProbeTable(exact.length,{canonical:true,cell:(r,c)=>c===2?exact[r]:r})),h=await formatProbeHarness(source);let delivered;
+    const result=await h.adapter.submitWorkbookMetadataStream(selectorProbeInput(h.binding),chunk=>{if(!chunk.end)delivered=chunk.page;return true;});assert.equal(result.status,'ok');assert.deepEqual(exact.map((_,r)=>pageCellText(delivered,r,2)),exact);assert.equal(delivered.columns[2].typeName,'INTEGER');assert.equal(delivered.columns[2].numberKind,'i32');await h.adapter.close();
+});
+test('selector transport admits its32769 sentinel but refuses result overflow/arity and4MiB scalar plus Page overhead',async()=>{
+    const source=selectorProbeReader(selectorProbeTable(32769)),h=await formatProbeHarness(source);let rows=0,chunks=0,eofs=0;
+    const result=await h.adapter.submitWorkbookMetadataStream(selectorProbeInput(h.binding),c=>{rows+=c.page.rowCount;chunks++;eofs+=c.end?1:0;return true;});assert.equal(result.status,'ok');assert.equal(result.rowCount,'32769');assert.equal(rows,32769);assert.equal(chunks,130);assert.equal(eofs,1);assert.equal(h.connection.sends.length,1);await h.adapter.close();
+    for(const [bad,code]of [[selectorProbeReader(selectorProbeTable(1),[1],{numRows:32770}),'PAGE_LIMIT'],[selectorProbeReader(selectorProbeTable(1),[1],{numCols:2}),'SCHEMA_CHANGED'],[selectorProbeReader(selectorProbeTable(1),[1],{numCols:4}),'SCHEMA_CHANGED'],[selectorProbeReader(selectorProbeTable(1,{canonical:true,cell:(r,c)=>c===2?'x'.repeat(LIMITS.bytes):'0'})),'PAGE_LIMIT']]){
+        const x=await formatProbeHarness(bad);let emitted=0;const failed=await x.adapter.submitWorkbookMetadataStream(selectorProbeInput(x.binding),()=>{emitted++;return true;});assert.equal(failed.status,'error');assert.equal(failed.error.code,code);assert.equal(emitted,0);assert.equal(bad.cancelled,1);await x.adapter.close();
+    }
+});
+test('selector paused ACK prevents new borrowed reads and cancellation drains before ordinary recovery',async()=>{
+    const source=selectorProbeReader(selectorProbeTable(288)),h=await formatProbeHarness(source);let enter,ack;const entered=new Promise(r=>{enter=r;}),held=new Promise(r=>{ack=r;});
+    const pending=h.adapter.submitWorkbookMetadataStream(selectorProbeInput(h.binding),()=>{enter();return held;});await entered;const reads=source.reads,next=source.nextCalls;await new Promise(r=>setImmediate(r));assert.equal(reads,256*3);assert.equal(source.reads,reads);assert.equal(source.nextCalls,next);
+    await h.adapter.cancel();assert.equal((await pending).status,'cancelled');assert.equal(source.cancelled,1);ack(true);h.connection.send=async()=>new Reader(new Table({recovered:vectorFromArray([43],new Int32())}));assert.equal((await h.adapter.submit({requestId:'2',sql:'ordinary selector recovery'})).status,'ok');await h.adapter.close();
+});
+test('selector revoked archive fails before ticket/send even after failedDrop and independent registration recovers',async()=>{
+    const db={async registerFileBuffer(){},async dropFile(){throw new Error('selector owned drop failed');}},connection={sends:0,async send(){this.sends++;return selectorProbeReader(selectorProbeTable(1));},async cancelSent(){return true;},async close(){}},adapter=new DuckDBWorkerAdapter({database:db,connection}),sibling=new DuckDBWorkerAdapter({database:db,connection});
+    const token=await adapter.registerFile('selector.dxls',new Uint8Array([1]));await assert.rejects(sibling.dropFile(token.name),/selector owned drop failed/);assert.throws(()=>adapter.submitWorkbookMetadataStream(selectorProbeInput(token),()=>true),{code:'SOURCE_INVALIDATED'});assert.equal(adapter.latestId,0n);assert.equal(connection.sends,0);
+    const fresh=await adapter.registerFile('selector-recovery.dxls',new Uint8Array([2]));assert.equal((await adapter.submitWorkbookMetadataStream(selectorProbeInput(fresh),()=>true)).status,'ok');await adapter.close();await sibling.close();
+});
