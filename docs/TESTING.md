@@ -55,6 +55,7 @@ The runner detects sanitizer diagnostics even with exit0, incomplete terminal su
 ```sh
 make web
 make web-review
+python3 -m tools.tests.test_web_build
 node --test --test-concurrency=2 web/tests/*.test.mjs
 python3 tools/test_web_app.py --review --inspector-sql-only --source tests/fixtures/transactions.csv --dpr 2
 python3 tools/package_web_pages.py
@@ -62,6 +63,12 @@ python3 tools/test_web_pages.py --directory build/pages
 ```
 
 Use the existing pinned SDK and dependencies. Bootstrap/download only when explicitly needed; ordinary native builds do not install browser tooling. Browser runs own a temporary profile, ephemeral server and hidden Chromium process; they must close all three. Do not reload the user's browser or leave project ports running. The CI-specific `test-browser-core` uses the pinned header preparation and headless browser-core configuration.
+
+Wasm source/flag queries keep Make diagnostics on stderr and read metadata only
+from stdout. The build contract checks every source mode from both direct
+Python invocation and an eight-job parent Make recipe, including inherited
+command-line header overrides. Native recursive compilation keeps its shared
+jobserver; a metadata warning cannot become a source path or compiler flag.
 
 `tests/fixtures/ui/` contains finite accepted geometry/scroll/paint contracts. They are regression inputs, not a demand to match a retired external demo. Preserve assertions when changing intentional behavior, update the corresponding contract deliberately, and keep visual behavior separate from engine correctness.
 

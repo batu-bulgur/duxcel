@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Compile the shared C99 App into a versioned, isolated browser artifact."""
-import argparse,hashlib,json,os,shutil,subprocess,tempfile,time,shlex
+import argparse,hashlib,json,os,shutil,subprocess,sys,tempfile,time,shlex
 from pathlib import Path
 import web_toolchain as tools
 import package_web_vendor as vendor
@@ -9,6 +9,22 @@ from web_object_cache import ObjectCacheError,ensure_object
 from workspace import FileLock,source_metadata
 from browser_test_assets import flat_test_module
 ROOT=Path(__file__).resolve().parents[1]
+
+def make_metadata(target):
+    """Read Make's data channel without treating scheduler diagnostics as data.
+
+    A Python subprocess does not inherit the parent Make jobserver descriptors.
+    Metadata queries are serial and may warn about that; retain those warnings
+    on stderr while preserving command-line variable overrides in MAKEFLAGS.
+    """
+    result=subprocess.run(['make','--no-print-directory',target],cwd=ROOT,
+                          text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    if result.stderr:
+        print(result.stderr,end='',file=sys.stderr)
+    tools.require(result.returncode==0,'Make metadata query failed: '+target+'\n'+
+                  result.stdout[-4096:]+result.stderr[-4096:])
+    return result.stdout
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__);mode=parser.add_mutually_exclusive_group();mode.add_argument('--worker-driver',action='store_true');mode.add_argument('--codec-read-driver',action='store_true');mode.add_argument('--review',action='store_true');options=parser.parse_args()
     no_window=options.worker_driver or options.codec_read_driver
@@ -19,7 +35,7 @@ def main():
     tools.require(library.is_file() and lib_manifest.is_file(),'Run tools/build_web_raylib.py first')
     lib=json.loads(lib_manifest.read_text());tools.require(tools.sha256(library)==lib['library_sha256'],'raylib web archive changed')
     tools.require(lib.get('adapter')=={str(p.relative_to(ROOT)):tools.sha256(p) for p in adapter.INPUTS},'Rebuild the current browser platform adapter with tools/build_web_raylib.py')
-    sources=tools.command(['make','--no-print-directory','web-codec-read-sources' if options.codec_read_driver else 'web-worker-sources' if options.worker_driver else 'web-review-sources' if options.review else 'web-sources']).splitlines()
+    sources=make_metadata('web-codec-read-sources' if options.codec_read_driver else 'web-worker-sources' if options.worker_driver else 'web-review-sources' if options.review else 'web-sources').splitlines()
     tools.require(sources and all((ROOT/p).is_file() for p in sources),'Invalid shared web source inventory')
     headers=sorted((ROOT/'src').rglob('*.h'))+sorted((ROOT/'src').rglob('*.inc'))
     if options.codec_read_driver:
@@ -29,7 +45,7 @@ def main():
     if options.codec_read_driver:host=[ROOT/('web/tests/support' if name=='codec_test_host.mjs' else 'web')/name for name in ('official_worker.mjs','engine_host.mjs','page_wire.mjs','codec_test_host.mjs','codec_stream_transport.mjs')]
     if options.review:host=[p for p in host if p.name!='host.mjs']+[ROOT/'web/host_review.mjs',ROOT/'web/review_host.mjs',ROOT/'web/review_queue.mjs']
     assets=sorted(p for base in ('assets/fonts','assets/ui') for p in (ROOT/base).rglob('*') if p.is_file())
-    duckdb_flags=shlex.split(tools.command(['make','--no-print-directory','web-duckdb-flags']))
+    duckdb_flags=shlex.split(make_metadata('web-duckdb-flags'))
     external_header=next((Path(flag[2:])/'duckdb.h' for flag in duckdb_flags if flag.startswith('-I') and (Path(flag[2:])/'duckdb.h').is_file()),None)
     tools.require(external_header is not None,'Cannot locate the existing DuckDB type header from DUCKDB_CFLAGS')
     flags=['-O2' ,'-g','-std=c99','-Wall','-Wextra','-Wpedantic','-DDUXCEL_BROWSER_HOST','-DPLATFORM_WEB','-DGRAPHICS_API_OPENGL_ES2','-Isrc','-I'+str(sdk/'raylib/src'),*duckdb_flags]

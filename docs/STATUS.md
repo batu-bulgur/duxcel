@@ -11,7 +11,7 @@ Duxcel uses one C99/raylib UI and DuckDB analytical definitions. Native macOS is
 | Record formats | Verified native primary/Table and supported archived RESULT/GUARDED subsets exist. Broader history/owner migration, new RESULT commands and browser activation remain incomplete. |
 | UI | Native ribbon/shelves/panes/dialogs/keytips/keyboard history implemented, with remaining clipping/focus/narrow-window/state-matrix work. Current regressions use accepted native contracts, not a live mock. |
 | Typography | Bundled Plex Sans/JetBrains Mono, replacement glyph and failure-safe reload. Broader CJK/emoji and expanded atlas budgets remain open. |
-| Shared-C Wasm | Same C UI with official asynchronous DuckDB-Wasm Worker. Real import/PIVOT/statistics/copy/export and captured session registrations are implemented. Browser/IME/clipboard/WebGL/display matrix remains incomplete. |
+| Shared-C Wasm | Same C UI with official asynchronous DuckDB-Wasm Worker. Real import/PIVOT/statistics/copy/export and captured session registrations are implemented. A focused sheet-zoom row-label glyph comparison currently fails; build/import/Worker/codec/Guide passes do not close that visual check. Browser/IME/clipboard/WebGL/display matrix remains incomplete. |
 | Browser workbook persistence | Shared C/native/official-Worker metadata components cover definitions, filters, cells/columns, counters, ledger/bindings and base format rows. Whole-candidate validation/migration/writer/admission/recovery remain open; browser workbook Open/Save is unavailable. |
 | Review/feedback | Native and Wasm use the development-only C semantic registry and persistent external queue. Automatic triage is separate from implementing/verifying a report. All review code/commands/bridges are excluded from production. Services start only on explicit developer commands. |
 | Web publication | GitHub Pages builds the real shared-C Wasm app. Web tests run independently; publication requires build/package/browser smoke. Hosted native CI is manual/paused; no native Linux/Windows execution claim. |
@@ -47,6 +47,14 @@ jobs (`BUILD_JOBS`), sharing the recursive Make jobserver. A clean optimized
 (1.96×); a warm build made no compiler/linker calls. Legacy whole-program module
 builds and mutable test execution remain serial. This does not change Wasm
 compilation parallelism.
+
+Web source/flag discovery reads stdout separately from Make scheduler diagnostics,
+preserving command-line overrides when Python is launched inside parallel Make.
+The regression covers all four Wasm source inventories and the header flags.
+Local release/O1/edit/review native builds and the signed bundle pass, as do all
+four Wasm build modes, scoped C sanitizer tests and the production browser
+import/filter, Worker, codec and review Guide checks. The separate zoom glyph
+comparison remains an explicit visual limitation, not a compilation failure.
 
 ## Recovered persistence scope and verification
 
