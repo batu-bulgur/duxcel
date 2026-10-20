@@ -115,18 +115,34 @@ bool cells_paste_checked(CellStore *s,uint64_t row,size_t col,const char *tsv,si
  done:
     free(field); cells_free(&input); cells_free(&merged); return ok;
 }
-bool cells_move(CellStore *s,uint64_t r0,uint64_t r1,size_t c0,size_t c1,int64_t dr,int dc,char **error) {
+static bool move_cells(CellStore *s,uint64_t r0,uint64_t r1,size_t c0,size_t c1,int64_t dr,int dc,bool replace,char **error) {
     if (r0>r1 || c0>c1 || r1>=DX_SHEET_ROWS || c1>=16384 || dr < -(int64_t)DX_SHEET_ROWS || dr>(int64_t)DX_SHEET_ROWS || dc < -16384 || dc>16384) return fail(error,"Move stays inside the worksheet.");
     if (!dr && !dc) return true;
     if ((dr<0 && r0<(uint64_t)-dr) || (dc<0 && c0<(size_t)-dc) || (int64_t)r1+dr>=(int64_t)DX_SHEET_ROWS || (int64_t)c1+dc>=16384) return fail(error,"Move stays inside the worksheet.");
+    uint64_t to0=(uint64_t)((int64_t)r0+dr),to1=(uint64_t)((int64_t)r1+dr);
+    size_t tc0=(size_t)((int64_t)c0+dc),tc1=(size_t)((int64_t)c1+dc);
     bool changed=false;
     for (size_t i=0;i<s->count;i++) if (inside(&s->cells[i],r0,r1,c0,c1)) {
         SheetCell target=s->cells[i]; target.row=(uint64_t)((int64_t)target.row+dr); target.col=(size_t)((int)target.col+dc);
-        if (*cells_get(s,target.row,target.col) && !inside(&target,r0,r1,c0,c1)) return fail(error,"Destination contains data. Choose an empty destination."); changed=true;
+        if (!replace && *cells_get(s,target.row,target.col) && !inside(&target,r0,r1,c0,c1)) return fail(error,"Destination contains data. Choose an empty destination."); changed=true;
     }
+    if (replace) for (size_t i=0;i<s->count;i++) if (inside(&s->cells[i],to0,to1,tc0,tc1)) changed=true;
     if (!changed) return true; remember(s);
-    for (size_t i=0;i<s->count;i++) if (inside(&s->cells[i],r0,r1,c0,c1)) { s->cells[i].row=(uint64_t)((int64_t)s->cells[i].row+dr); s->cells[i].col=(size_t)((int)s->cells[i].col+dc); }
+    size_t out=0;
+    for (size_t i=0;i<s->count;i++) {
+        SheetCell cell=s->cells[i];
+        if (inside(&cell,r0,r1,c0,c1)) { cell.row=(uint64_t)((int64_t)cell.row+dr); cell.col=(size_t)((int)cell.col+dc); }
+        else if (replace && inside(&cell,to0,to1,tc0,tc1)) { s->bytes-=strlen(cell.text)+1; free(cell.text); continue; }
+        s->cells[out++]=cell;
+    }
+    s->count=out;
     qsort(s->cells,s->count,sizeof(SheetCell),order); return true;
+}
+bool cells_move(CellStore *s,uint64_t r0,uint64_t r1,size_t c0,size_t c1,int64_t dr,int dc,char **error) {
+    return move_cells(s,r0,r1,c0,c1,dr,dc,false,error);
+}
+bool cells_move_replace(CellStore *s,uint64_t r0,uint64_t r1,size_t c0,size_t c1,int64_t dr,int dc,char **error) {
+    return move_cells(s,r0,r1,c0,c1,dr,dc,true,error);
 }
 bool cells_column(CellStore *s,size_t col,bool insert,char **error) {
     if (col>=16384) return fail(error,"Column is outside the worksheet.");

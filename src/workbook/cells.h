@@ -22,6 +22,8 @@ typedef bool (*CellPasteGuard)(void *context,uint64_t row,size_t column,size_t r
 bool cells_paste_checked(CellStore *store,uint64_t row,size_t col,const char *tsv,size_t *rows,size_t *columns,CellPasteGuard guard,void *context,char **error);
 bool cells_clear(CellStore *store,uint64_t r0,uint64_t r1,size_t c0,size_t c1);
 bool cells_move(CellStore *store,uint64_t r0,uint64_t r1,size_t c0,size_t c1,int64_t dr,int dc,char **error);
+/* Explicit destructive move: source holes clear destination values too. One Undo. */
+bool cells_move_replace(CellStore *store,uint64_t r0,uint64_t r1,size_t c0,size_t c1,int64_t dr,int dc,char **error);
 bool cells_column(CellStore *store,size_t col,bool insert,char **error);
 bool cells_row(CellStore *store,uint64_t row,bool insert,char **error);
 bool cells_rows(CellStore *store,uint64_t row,uint64_t count,bool insert,char **error);

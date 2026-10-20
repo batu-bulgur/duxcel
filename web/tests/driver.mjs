@@ -582,6 +582,36 @@ async function reviewManualDialogs(results){
  check(['request','source_revision','schema','page','spare','sheet_count'].every(field=>moved[field]===widthApplied[field])&&starts().length===jobs,'Manual width/Move dialogs submitted queries or changed source publication');
  results.dialogs={widthDraft,widthApplied,moveDraft,moved,scope:'Real editable C width/Move drafts, partial selections and report cancellation followed by actual Apply; no clipboard or invented controller state.'};
 }
+async function reviewRangeReplacement(results){
+ await selectionPosition(2,2);await selectionChord('b','KeyB',66);
+ const styled=await platformSnapshot();
+ await key('ArrowRight','ArrowRight',39);await key('9','Digit9',57,'9');await key('Enter','Enter',13);
+ await selectionPosition(2,2);
+ const before=await platformSnapshot(),jobs=starts().length,[undo]=before.selection_history.split(',').map(Number);
+ check(before.manual_cells==='2'&&Number(styled.active_format_flags)>0,'Replacement fixture needs styled C3 and occupied D3');
+ async function openReplacement(keyboard=false){
+  await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));
+  try{await key('F10','F10',121,'',8);}finally{await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16));}
+  await authorActivate('context','move');await authorDraft('D3');
+  if(keyboard)await key('Enter','Enter',13);else await authorActivate('move_range','apply');
+  return authorState(await platformSnapshot(),'replace_range');
+ }
+ const opened=await openReplacement();
+ check(opened.rows.map(row=>row.key).join(',')==='cancel,replace'&&opened.rows[0].focused&&opened.state.manual_cells==='2'&&opened.state.selection_history===before.selection_history,'Replacement must default to Cancel without changing data/history');
+ results.picks.push(await authorPick('replace_range',menu=>menu.rows.find(row=>row.key==='replace'),'range-replacement',{frozenName:'range-replacement'}));
+ await key('Enter','Enter',13);const cancelled=await platformSnapshot();
+ check(cancelled.modal==='0'&&cancelled.manual_cells==='2'&&cancelled.selection_history===before.selection_history&&cancelled.active===before.active,'Default Enter must cancel a destructive move');
+ await openReplacement(true);await authorActivate('replace_range','replace');const replaced=await platformSnapshot();
+ check(replaced.modal==='0'&&replaced.manual_cells==='1'&&replaced.active==='2,3'&&replaced.selection_history===`${undo+1},0`&&replaced.active_format_flags===styled.active_format_flags,'Replace lost its one-action values/style contract');
+ async function editorValue(){await key('F2','F2',113);const editor=await platformSnapshot();await key('Escape','Escape',27);return editor.cell_editor_text_hex;}
+ check(await editorValue()==='37','Replacement did not retain the exact source value 7');
+ await selectionChord('z','KeyZ',90);const undone=await platformSnapshot();
+ check(undone.manual_cells==='2'&&undone.selection_history===`${undo},1`&&await editorValue()==='39','Undo did not restore replaced destination value 9');
+ await selectionChord('z','KeyZ',90,{shift:true});const redone=await platformSnapshot();
+ check(redone.manual_cells==='1'&&redone.selection_history===`${undo+1},0`&&redone.active_format_flags===styled.active_format_flags&&await editorValue()==='37','Redo did not restore replacement values/style');
+ check(['request','source_revision','schema','page','spare','sheet_count'].every(field=>redone[field]===before[field])&&starts().length===jobs,'Manual replacement submitted SQL or changed source ownership');
+ results.dialogs.replacement={before,opened:opened.state,cancelled,replaced,undone,redone};
+}
 async function reviewUnsavedDialog(results){
  const baseline=await platformSnapshot(),jobs=starts().length;
  await key('Alt','AltLeft',18);await key('f','KeyF',70);await key('c','KeyC',67);
@@ -648,6 +678,7 @@ async function reviewControls(){
  results.picks.push(await authorPick('context',menu=>menu.rows.find(row=>row.key==='move'),'manual-move'));
  results.manualNavigation=await authorNavigation('context');await key('Escape','Escape',27);
  await reviewManualDialogs(results);
+ await reviewRangeReplacement(results);
  await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('7','Digit7',55);await key('Home','Home',36);for(let i=0;i<3;i++)await key('ArrowDown','ArrowDown',40);await key('Enter','Enter',13);
  await send('Emulation.setDeviceMetricsOverride',{width:640,height:640,deviceScaleFactor:dpr,mobile:false});await frames(4);
  const narrow=await platformSnapshot();check(narrow.ui_scale==='1.500000'&&narrow.manual_cells==='1','Narrow review preparation changed manual data or interface scale');

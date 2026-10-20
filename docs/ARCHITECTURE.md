@@ -96,6 +96,8 @@ Current limits are 20,000 editable cells and 4 MiB of text per sheet, with 64 Ki
 
 Sources: [cells.c](../src/workbook/cells.c), [cells.h](../src/workbook/cells.h), `commit_cell`, `draw_blank_cells` and `statistics_snapshot` in [app.c](../src/app/app.c).
 
+Manual range moves preflight the complete model through `worksheet_check_move`, returning ready, invalid/protected or needs explicit replacement. The default `worksheet_move_range` still rejects occupied destinations. After UI confirmation, `worksheet_replace_range` revalidates read-only/object boundaries and admits only manual ranges. It prepares formatting before changing cells, clears destination values under source holes and translates the original sparse cells once, so self-overlap cannot read partially moved values. Existing composite worksheet history records cells/formats as one action. The transient C dialog captures the sheet index, selection and data/format/Analysis revisions; it refuses stale approval and never owns a second copy of the document. This does not introduce W05 stable sheet IDs, general formula rewrites or durable journal commands.
+
 ### How query results live in memory
 
 | Area | Contents | Lifetime and limits |

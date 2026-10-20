@@ -383,7 +383,7 @@ static bool range_overlap(SheetRange a,SheetRange b) { return a.r0<=b.r1 && b.r0
 static bool range_contains(SheetRange a,SheetRange b) { return a.r0<=b.r0 && a.r1>=b.r1 && a.c0<=b.c0 && a.c1>=b.c1; }
 static SheetRange object_range(const SheetObject *o) { return (SheetRange){o->row,o->row+o->rows-1,o->col,o->col+o->columns-1}; }
 static bool range_cell(SheetRange r,const SheetCell *c) { return c->row>=r.r0 && c->row<=r.r1 && c->col>=r.c0 && c->col<=r.c1; }
-bool worksheet_range_fits(const Worksheet *s,SheetRange r,int64_t dr,int dc,uint64_t rows,size_t columns,char **error) {
+static bool range_fits(const Worksheet *s,SheetRange r,int64_t dr,int dc,uint64_t rows,size_t columns,bool replace,char **error) {
     if (r.r0>r.r1 || r.c0>r.c1 || r.r1>=DX_SHEET_ROWS || r.c1>=16384 || dr < -(int64_t)DX_SHEET_ROWS || dr>(int64_t)DX_SHEET_ROWS || dc < -16384 || dc>16384)
         return range_fail(error,"Move stays inside the worksheet.");
     if ((dr<0 && r.r0<(uint64_t)-dr) || (dc<0 && r.c0<(size_t)-dc) || (int64_t)r.r1+dr>=(int64_t)DX_SHEET_ROWS || (int64_t)r.c1+dc>=16384)
@@ -396,22 +396,40 @@ bool worksheet_range_fits(const Worksheet *s,SheetRange r,int64_t dr,int dc,uint
         if (range_overlap(r,object)) { if (!range_contains(r,object)) return range_fail(error,"Select the entire table, pivot or chart before moving it."); }
         else if (range_overlap(to,object)) return range_fail(error,"Destination overlaps another table, pivot or chart. Choose an empty range.");
     }
-    if (dr || dc) for (size_t i=0;i<s->cells.count;i++) if (range_cell(to,&s->cells.cells[i]) && !range_cell(r,&s->cells.cells[i]))
+    if (!replace && (dr || dc)) for (size_t i=0;i<s->cells.count;i++) if (range_cell(to,&s->cells.cells[i]) && !range_cell(r,&s->cells.cells[i]))
         return range_fail(error,"Destination contains data. Choose an empty range.");
     return true;
 }
-bool worksheet_move_range(Worksheet *s,SheetRange r,int64_t dr,int dc,uint64_t rows,size_t columns,char **error) {
-    if (!worksheet_range_fits(s,r,dr,dc,rows,columns,error)) return false;
+bool worksheet_range_fits(const Worksheet *s,SheetRange r,int64_t dr,int dc,uint64_t rows,size_t columns,char **error) {
+    return range_fits(s,r,dr,dc,rows,columns,false,error);
+}
+SheetMoveStatus worksheet_check_move(const Worksheet *s,SheetRange r,int64_t dr,int dc,uint64_t rows,size_t columns,char **error) {
+    if (!range_fits(s,r,dr,dc,rows,columns,true,error)) return SHEET_MOVE_INVALID;
+    if (range_fits(s,r,dr,dc,rows,columns,false,error)) return SHEET_MOVE_READY;
+    for (size_t i=0;i<s->objects.count;i++) if (range_overlap(r,object_range(&s->objects.items[i]))) return SHEET_MOVE_INVALID;
+    return SHEET_MOVE_NEEDS_REPLACE;
+}
+static bool move_range(Worksheet *s,SheetRange r,int64_t dr,int dc,uint64_t rows,size_t columns,bool replace,char **error) {
+    if (!range_fits(s,r,dr,dc,rows,columns,replace,error)) return false;
+    if (replace) for (size_t i=0;i<s->objects.count;i++) if (range_overlap(r,object_range(&s->objects.items[i])))
+        return range_fail(error,"Replacement is available only for manual cell ranges. Move analytical objects to an empty range.");
     if (!dr && !dc) return true;
     uint32_t mask=0;
     for (size_t i=0;i<s->objects.count;i++) if (range_contains(r,object_range(&s->objects.items[i]))) mask|=UINT32_C(1)<<i;
     uint64_t revision=s->cells.revision;
     FormatSnapshot formats={0}; if (!format_plan_move(&s->formats,(FormatRange){r.r0,r.r1,r.c0,r.c1},dr,dc,&formats,error)) return false;
-    if (!cells_move(&s->cells,r.r0,r.r1,r.c0,r.c1,dr,dc,error)) { format_snapshot_free(&formats); return false; }
+    bool moved=replace ? cells_move_replace(&s->cells,r.r0,r.r1,r.c0,r.c1,dr,dc,error) : cells_move(&s->cells,r.r0,r.r1,r.c0,r.c1,dr,dc,error);
+    if (!moved) { format_snapshot_free(&formats); return false; }
     objects_translate_mask(&s->objects,mask,dr,dc);
     bool cells_changed=revision!=s->cells.revision,format_changed=format_commit(&s->formats,&formats);
     if (cells_changed || mask || format_changed) worksheet_record(s,range_edit(cells_changed,mask!=0,format_changed));
     return true;
+}
+bool worksheet_move_range(Worksheet *s,SheetRange r,int64_t dr,int dc,uint64_t rows,size_t columns,char **error) {
+    return move_range(s,r,dr,dc,rows,columns,false,error);
+}
+bool worksheet_replace_range(Worksheet *s,SheetRange r,int64_t dr,int dc,uint64_t rows,size_t columns,char **error) {
+    return move_range(s,r,dr,dc,rows,columns,true,error);
 }
 bool worksheet_column(Worksheet *s,size_t col,bool insert,size_t source_columns,char **error) {
     if (col>=16384) return range_fail(error,"Column is outside the worksheet.");

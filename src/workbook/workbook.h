@@ -171,8 +171,13 @@ FormatBudgetStatus workbook_format_usage(const Workbook *book,const WorkbookForm
 FormatBudgetStatus workbook_format_preflight(const WorkbookFormatUsage *live,const WorkbookFormatUsage *next,const FormatTransientUsage *transient,FormatBudget *out);
 const char *workbook_format_budget_message(FormatBudgetStatus status); /* Borrowed static diagnostic. */
 bool worksheet_range_fits(const Worksheet *sheet,SheetRange range,int64_t dr,int dc,uint64_t source_rows,size_t source_columns,char **error);
+typedef enum { SHEET_MOVE_INVALID,SHEET_MOVE_READY,SHEET_MOVE_NEEDS_REPLACE } SheetMoveStatus;
+/* Full-model preflight. NEEDS_REPLACE applies only to manual ranges; no mutation. */
+SheetMoveStatus worksheet_check_move(const Worksheet *sheet,SheetRange range,int64_t dr,int dc,uint64_t source_rows,size_t source_columns,char **error);
 /* Moves contained objects and manual values atomically, with one journal action. */
 bool worksheet_move_range(Worksheet *sheet,SheetRange range,int64_t dr,int dc,uint64_t source_rows,size_t source_columns,char **error);
+/* Explicitly authorized manual-only replacement; revalidates all protected areas. */
+bool worksheet_replace_range(Worksheet *sheet,SheetRange range,int64_t dr,int dc,uint64_t source_rows,size_t source_columns,char **error);
 /* Insert/delete outside the imported columns. Shift sparse cells and complete
    objects together, rejecting a split object or a last-column overflow. */
 bool worksheet_column(Worksheet *sheet,size_t column,bool insert,size_t source_columns,char **error);

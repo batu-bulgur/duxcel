@@ -50,7 +50,7 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 #include <string.h>
 #include <ctype.h>
 
-typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW } Modal;
+typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE } Modal;
 typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
 typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW } SheetAction;
 typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN,DOCUMENT_CLOSE,DOCUMENT_NEW } DocumentAction;
@@ -313,6 +313,14 @@ typedef struct {
     char *object_name_error;
     int range_move_focus;
     char *range_move_error;
+    SheetRange replace_range;
+    size_t replace_sheet;
+    uint64_t replace_cells_revision,replace_formats_revision,replace_analysis_revision;
+    int64_t replace_dr;
+    int replace_dc,replace_focus;
+    bool replace_reveal;
+    Rectangle replace_actions[2],replace_panel;
+    TextLines replace_lines;
     int table_relation_object,table_relation_focus,table_relation_scroll;
     bool table_relation_drag;
     float table_relation_grab;
@@ -4679,7 +4687,7 @@ static bool range_can_move(App *a,SheetRange range,char **error) {
     if (reason) { if (error) { free(*error); *error=dx_strdup(reason); } return false; }
     return worksheet_range_fits(sheet,range,0,0,source_rows(a),a->page.column_count,error);
 }
-static bool move_selection(App *a,int64_t dr,int dc,bool reveal,char **error) {
+static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replace,char **error) {
     Grid *g=&a->grid; Worksheet *sheet=active_sheet(a); SheetRange range;
     grid_bounds(g,&range.r0,&range.r1,&range.c0,&range.c1);
     if (!range_can_move(a,range,error)) return false;
@@ -4688,7 +4696,9 @@ static bool move_selection(App *a,int64_t dr,int dc,bool reveal,char **error) {
         SheetObject *o=&sheet->objects.items[i];
         if (range.r0<=o->row && range.r1>=o->row+o->rows-1 && range.c0<=o->col && range.c1>=o->col+o->columns-1) objects=true;
     }
-    if (!worksheet_move_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error)) return false;
+    bool moved=replace ? worksheet_replace_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error) :
+        worksheet_move_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error);
+    if (!moved) return false;
     g->anchor_row=(uint64_t)((int64_t)g->anchor_row+dr); g->end_row=(uint64_t)((int64_t)g->end_row+dr); g->row=(uint64_t)((int64_t)g->row+dr);
     g->anchor_col=(size_t)((int)g->anchor_col+dc); g->end_col=(size_t)((int)g->end_col+dc); g->col=(size_t)((int)g->col+dc);
     if (revision!=sheet->cells.revision || (objects && (dr || dc))) a->book.dirty=true;
@@ -4696,6 +4706,69 @@ static bool move_selection(App *a,int64_t dr,int dc,bool reveal,char **error) {
     size_t last=g->anchor_col>g->end_col ? g->anchor_col : g->end_col; grid_ensure_columns(g,last+1);
     if (reveal) { grid_reveal_cell(g,&a->page,a->ui.scale*g->zoom); a->pivot_reveal_object=a->selected_object>=0; }
     return true;
+}
+static bool move_selection(App *a,int64_t dr,int dc,bool reveal,char **error) {
+    return move_selection_mode(a,dr,dc,reveal,false,error);
+}
+static bool request_range_move(App *a,int64_t dr,int dc,bool reveal,char **error) {
+    SheetRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1);
+    if (!range_can_move(a,range,error)) return false;
+    Worksheet *s=active_sheet(a);
+    SheetMoveStatus check=worksheet_check_move(s,range,dr,dc,source_rows(a),a->page.column_count,error);
+    if (check==SHEET_MOVE_INVALID) return false;
+    if (check==SHEET_MOVE_READY) return move_selection(a,dr,dc,reveal,error);
+    a->replace_range=range; a->replace_dr=dr; a->replace_dc=dc; a->replace_reveal=reveal;
+    a->replace_sheet=a->book.active; a->replace_cells_revision=s->cells.revision;
+    a->replace_formats_revision=s->formats.revision; a->replace_analysis_revision=a->analysis_revision;
+    a->replace_focus=0; a->modal=MODAL_REPLACE_RANGE; a->consume_grid_input=true;
+    return false;
+}
+static void cancel_range_replace(App *a) { a->modal=MODAL_NONE; a->consume_grid_input=true; }
+static bool confirm_range_replace(App *a) {
+    if (a->modal!=MODAL_REPLACE_RANGE) return false;
+    SheetRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1);
+    Worksheet *s=active_sheet(a); SheetRange expected=a->replace_range;
+    bool same=s && a->book.active==a->replace_sheet && s->cells.revision==a->replace_cells_revision &&
+        s->formats.revision==a->replace_formats_revision && a->analysis_revision==a->replace_analysis_revision &&
+        range.r0==expected.r0 && range.r1==expected.r1 && range.c0==expected.c0 && range.c1==expected.c1;
+    char *error=NULL;
+    bool moved=same && move_selection_mode(a,a->replace_dr,a->replace_dc,a->replace_reveal,true,&error);
+    cancel_range_replace(a);
+    status(a,moved ? "Range moved. Undo restores the source and replaced destination." :
+        error ? error : "The worksheet changed. Move the range again to review its destination.");
+    free(error); return moved;
+}
+static void draw_range_replace(App *a) {
+    UIContext *u=&a->ui; float s=u->scale,w=fminf(360*s,GetScreenWidth()-32*s);
+    const char *message="Existing destination values and formatting will be replaced.";
+    text_lines_layout_sized(&a->replace_lines,u,message,w-32*s,12);
+    bool stacked=w<256*s;
+    float body=16*s*a->replace_lines.count,h=136*s+body+(stacked ? 36*s : 0);
+    float x=(GetScreenWidth()-w)*.5f,y=(GetScreenHeight()-h)*.5f;
+    Rectangle panel=box(x,y,w,h); a->replace_panel=panel;
+    if (ui_pressed(KEY_ESCAPE)) { cancel_range_replace(a); return; }
+    if (ui_pressed(KEY_TAB) || ui_key(KEY_LEFT) || ui_key(KEY_RIGHT)) a->replace_focus=1-a->replace_focus;
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,55});
+    DrawRectangleRounded(box(x+2*s,y+4*s,w,h),.05f,4,(Color){20,32,45,28});
+    DrawRectangleRounded(panel,.05f,4,UI_BG); DrawRectangleRoundedLinesEx(panel,.05f,4,s,UI_BORDER);
+    REVIEW_AUTHOR_PANEL(a,"replace_range","Replace destination cells?",panel,box(x+16*s,y+16*s,w-32*s,20*s));
+    ui_label(u,"Replace destination cells?",box(x+16*s,y+16*s,w-32*s,20*s),14,UI_TEXT,false,UI_MEDIUM);
+    char first[48],last[48],label[112]; SheetRange r=a->replace_range;
+    grid_format_address((uint64_t)((int64_t)r.r0+a->replace_dr),(size_t)((int64_t)r.c0+a->replace_dc),a->analysis.kind!=SOURCE_NONE,first);
+    grid_format_address((uint64_t)((int64_t)r.r1+a->replace_dr),(size_t)((int64_t)r.c1+a->replace_dc),a->analysis.kind!=SOURCE_NONE,last);
+    snprintf(label,sizeof(label),"Destination: %s:%s",first,last);
+    ui_label(u,label,box(x+16*s,y+42*s,w-32*s,18*s),12,UI_TEXT,false,UI_MEDIUM);
+    text_lines_draw_sized(&a->replace_lines,u,message,0,box(x+16*s,y+66*s,w-32*s,body),12,16,UI_MUTED);
+    for (int i=0;i<2;i++) {
+        Rectangle button=stacked ? box(x+16*s,y+h-80*s+i*36*s,w-32*s,28*s) : box(x+w-(224-i*108)*s,y+h-44*s,100*s,28*s);
+        a->replace_actions[i]=button;
+        const char *label=i ? "Replace" : "Cancel";
+        REVIEW_AUTHOR_ITEM(a,"replace_range",i ? "replace" : "cancel","range.replace","button",label,button,panel,true,false,a->replace_focus==i,NULL);
+        if (a->replace_focus==i) ui_focus_border(box(button.x-3*s,button.y-3*s,button.width+6*s,button.height+6*s),panel,1.5f*s);
+        if (ui_button(u,button,label,i!=0,true) || (a->replace_focus==i && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE)))) {
+            if (i) confirm_range_replace(a); else cancel_range_replace(a); return;
+        }
+    }
 }
 static void begin_move_range(App *a,bool whole_object) {
     Grid *g=&a->grid; SheetRange range; grid_bounds(g,&range.r0,&range.r1,&range.c0,&range.c1);
@@ -4711,7 +4784,7 @@ static bool apply_range_move(App *a) {
     uint64_t row; size_t column; free(a->range_move_error); a->range_move_error=NULL;
     if (!grid_parse_display_address(a->input.text,a->analysis.kind!=SOURCE_NONE,&row,&column)) { a->range_move_error=dx_strdup("Enter a cell address in this sheet, such as H12."); return false; }
     SheetRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1);
-    if (!move_selection(a,(int64_t)row-(int64_t)range.r0,(int)column-(int)range.c0,true,&a->range_move_error)) return false;
+    if (!request_range_move(a,(int64_t)row-(int64_t)range.r0,(int)column-(int)range.c0,true,&a->range_move_error)) return false;
     a->modal=MODAL_NONE; a->consume_grid_input=true; status(a,"Range moved. Undo restores its previous location."); return true;
 }
 static void draw_move_range(App *a) {
@@ -5772,6 +5845,7 @@ static void draw_modal(App *a) {
     if (a->modal==MODAL_OBJECT_NAME) { draw_object_name(a); return; }
     if (a->modal==MODAL_TABLE_RELATION) { draw_table_relations(a); return; }
     if (a->modal==MODAL_MOVE_RANGE) { draw_move_range(a); return; }
+    if (a->modal==MODAL_REPLACE_RANGE) { draw_range_replace(a); return; }
     if (a->modal==MODAL_INSPECT) { draw_inspector(a); return; }
     if (a->modal==MODAL_PIVOT_FIELD || a->modal==MODAL_OBJECT) { draw_pivot_menu(a); return; }
     if (a->modal==MODAL_CONTEXT) { draw_context(a); return; }
@@ -8080,7 +8154,8 @@ static void draw_app(App *a) {
     if (pivot_active) draw_authoring_workspace(a,gr,enabled && !zooming && !over_inspector && !a->left_drawer);
     if (a->grid.move_requested) {
         a->grid.move_requested=false; char *error=NULL;
-        if (!move_selection(a,a->grid.move_dr,a->grid.move_dc,false,&error)) status(a,error);
+        if (!request_range_move(a,a->grid.move_dr,a->grid.move_dc,false,&error)) { if (a->modal!=MODAL_REPLACE_RANGE) status(a,error); }
+        else status(a,"Range moved. Undo restores its previous location.");
         free(error);
     }
     if (a->grid.context_requested) {
@@ -8135,7 +8210,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 921
+#define LAYOUT_SMOKE_STAGES 936
 static unsigned inspector_pan_evidence;
 static uint64_t inspector_pan_top;
 static double inspector_pan_fraction;
@@ -9402,6 +9477,8 @@ static void layout_smoke_step(App *a,int *step) {
         if (apply_range_move(a) || !a->range_move_error || s->undo_actions_count!=actions || a->request_id!=request) goto failed;
         input_set(&a->input,"W67");
         if (apply_range_move(a) || !a->range_move_error || strcmp(cells_get(&s->cells,60,20),"Move me") || strcmp(cells_get(&s->cells,65,22),"Occupied") || s->undo_actions_count!=actions) goto failed;
+        if (a->modal!=MODAL_REPLACE_RANGE) goto failed;
+        cancel_range_replace(a); a->modal=MODAL_MOVE_RANGE;
         break;
     }
     case 36:
@@ -10122,6 +10199,7 @@ static void layout_smoke_step(App *a,int *step) {
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"665")) { *step=665; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"675")) { *step=675; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"911")) { *step=911; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"921")) { *step=921; return; }
         }
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->statistics_enabled=true; a->statistics_mask=49;
         grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=0; a->grid.horizontal=0; break;
@@ -13203,6 +13281,8 @@ static void layout_smoke_step(App *a,int *step) {
     case 917:
         if (s->undo_actions_count!=draft_history+1 || strcmp(cells_get(&s->cells,3,3),"Move") ||
             strcmp(cells_get(&s->cells,4,4),"Grab") || strcmp(cells_get(&s->cells,8,7),"Occupied") || a->request_id!=request) goto failed;
+        if (a->modal!=MODAL_REPLACE_RANGE) goto failed;
+        cancel_range_replace(a);
         smoke_queue_range_drag(a,3,3,4,3,true); break;
     case 918:
         if (s->undo_actions_count!=draft_history+2 || strcmp(cells_get(&s->cells,4,3),"Move") ||
@@ -13217,6 +13297,90 @@ static void layout_smoke_step(App *a,int *step) {
             strcmp(cells_get(&s->cells,6,5),"Tail") || strcmp(cells_get(&s->cells,8,7),"Occupied") ||
             !(format_at(&s->formats,4,3).flags&FORMAT_BOLD) || *cells_get(&s->cells,1,1) || a->book.dirty) goto failed;
         puts("PASS: native Option interior and border range moves, single outer outline at 100/150 percent, grabbed-cell anchoring, no-op/collision guards, exact value/style Undo/Redo and dxls reopen"); break;
+
+    case 921:
+        a->statistics_enabled=false; a->document_action=DOCUMENT_NEW; finish_document_action(a); break;
+    case 922: {
+        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=false; a->selected_object=-1;
+        a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; set_ribbon_mode(a,0);
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->grid.zoom=1;
+        if (!cells_set(&s->cells,1,1,"NULL",&error) || !cells_set(&s->cells,2,2,"12345678901234567890.123456789",&error) ||
+            !cells_set(&s->cells,3,3,"Tail",&error) || !cells_set(&s->cells,8,7,"Occupied",&error) ||
+            !cells_set(&s->cells,8,8,"Under a source hole",&error) || !cells_set(&s->cells,4,4,"Overlap target",&error) ||
+            !cells_set(&s->cells,20000,26,"Offscreen value",&error) || !cells_set(&s->cells,20000,27,"Offscreen hole",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS); CellFormat style=format_default(); style.flags=FORMAT_BOLD;
+        if (!format_apply(&s->formats,(FormatRange){1,1,1,1},FORMAT_BOLD,style,&error)) goto failed;
+        worksheet_record(s,EDIT_FORMAT); style.flags=FORMAT_ITALIC;
+        if (!format_apply(&s->formats,(FormatRange){20000,20002,26,28},FORMAT_ITALIC,style,&error)) goto failed;
+        worksheet_record(s,EDIT_FORMAT);
+        for (size_t i=0;i<35;i++) grid_set_width(&a->grid,i,80);
+        grid_select_cell(&a->grid,1,1,false); grid_select_cell(&a->grid,3,3,true);
+        a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/move-replace-demo.dxls"); break;
+    }
+    case 923:
+        if (a->book.dirty) goto failed;
+        draft_history=s->undo_actions_count; request=a->request_id;
+        smoke_queue_range_drag(a,2,2,9,8,false); break;
+    case 924:
+        if (a->modal!=MODAL_REPLACE_RANGE || a->replace_focus || a->book.dirty || s->undo_actions_count!=draft_history ||
+            strcmp(cells_get(&s->cells,1,1),"NULL") || strcmp(cells_get(&s->cells,8,7),"Occupied") || a->request_id!=request) goto failed;
+        if (a->replace_panel.width>360*a->ui.scale+.01f || a->replace_panel.height>180*a->ui.scale) goto failed;
+        smoke_snapshot("build/tests/results/workspace-layout/replace-range-100.png"); layout_select_key=KEY_ESCAPE; break;
+    case 925:
+        if (a->modal!=MODAL_NONE || a->book.dirty || s->undo_actions_count!=draft_history || strcmp(cells_get(&s->cells,8,7),"Occupied")) goto failed;
+        smoke_queue_range_drag(a,2,2,9,8,false); break;
+    case 926:
+        if (a->modal!=MODAL_REPLACE_RANGE) goto failed;
+        layout_select_click=a->replace_actions[0]; break;
+    case 927:
+        if (a->modal!=MODAL_NONE || a->book.dirty || s->undo_actions_count!=draft_history) goto failed;
+        begin_move_range(a,false); input_set(&a->input,"AA20001");
+        if (apply_range_move(a) || a->modal!=MODAL_REPLACE_RANGE || a->book.dirty || s->undo_actions_count!=draft_history) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640); break;
+    case 928:
+        if (a->modal!=MODAL_REPLACE_RANGE || a->replace_panel.x<0 || a->replace_panel.y<0 ||
+            a->replace_panel.x+a->replace_panel.width>GetScreenWidth() || a->replace_panel.y+a->replace_panel.height>GetScreenHeight()) goto failed;
+        for (int i=0;i<2;i++) if (a->replace_actions[i].x<a->replace_panel.x ||
+            a->replace_actions[i].x+a->replace_actions[i].width>a->replace_panel.x+a->replace_panel.width || a->replace_actions[i].height<28*a->ui.scale) goto failed;
+        smoke_snapshot("build/tests/results/workspace-layout/replace-range-150.png"); layout_select_click=a->replace_actions[1]; break;
+    case 929:
+        if (a->modal!=MODAL_NONE || !a->book.dirty || s->undo_actions_count!=draft_history+1 ||
+            strcmp(cells_get(&s->cells,20000,26),"NULL") || strcmp(cells_get(&s->cells,20001,27),"12345678901234567890.123456789") ||
+            strcmp(cells_get(&s->cells,20002,28),"Tail") || *cells_get(&s->cells,20000,27) || *cells_get(&s->cells,1,1) ||
+            !(format_at(&s->formats,20000,26).flags&FORMAT_BOLD) || (format_at(&s->formats,20000,26).flags&FORMAT_ITALIC) || a->request_id!=request) goto failed;
+        history(a,false);
+        if (strcmp(cells_get(&s->cells,20000,27),"Offscreen hole") || strcmp(cells_get(&s->cells,1,1),"NULL") ||
+            !(format_at(&s->formats,20000,26).flags&FORMAT_ITALIC)) goto failed;
+        history(a,true); if (strcmp(cells_get(&s->cells,20001,27),"12345678901234567890.123456789")) goto failed;
+        history(a,false); grid_select_cell(&a->grid,1,1,false); grid_select_cell(&a->grid,3,3,true);
+        if (request_range_move(a,7,6,false,&error) || a->modal!=MODAL_REPLACE_RANGE) goto failed;
+        if (!cells_set(&s->cells,100,0,"Intervening edit",&error)) goto failed; worksheet_record(s,EDIT_CELLS);
+        if (confirm_range_replace(a) || a->modal!=MODAL_NONE || strcmp(cells_get(&s->cells,8,7),"Occupied")) goto failed;
+        history(a,false);
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0;
+        break;
+    case 930:
+        grid_select_cell(&a->grid,1,1,false); grid_select_cell(&a->grid,3,3,true);
+        draft_history=s->undo_actions_count; smoke_queue_range_drag(a,2,2,3,3,false); break;
+    case 931:
+        if (a->modal!=MODAL_REPLACE_RANGE || s->undo_actions_count!=draft_history) goto failed;
+        layout_select_click=a->replace_actions[1]; break;
+    case 932:
+        if (a->modal!=MODAL_NONE || s->undo_actions_count!=draft_history+1 || strcmp(cells_get(&s->cells,2,2),"NULL") ||
+            strcmp(cells_get(&s->cells,3,3),"12345678901234567890.123456789") || strcmp(cells_get(&s->cells,4,4),"Tail") ||
+            *cells_get(&s->cells,1,1) || !(format_at(&s->formats,2,2).flags&FORMAT_BOLD) || a->request_id!=request) goto failed;
+        history(a,false);
+        if (strcmp(cells_get(&s->cells,4,4),"Overlap target") || strcmp(cells_get(&s->cells,2,2),"12345678901234567890.123456789")) goto failed;
+        history(a,true); workspace_job(a,JOB_SAVE,"build/tests/generated/layout-replace-range.dxls"); break;
+    case 933: workspace_job(a,JOB_LOAD,"build/tests/generated/layout-replace-range.dxls"); break;
+    case 934:
+        if (a->book.dirty || strcmp(cells_get(&s->cells,2,2),"NULL") || strcmp(cells_get(&s->cells,3,3),"12345678901234567890.123456789") ||
+            strcmp(cells_get(&s->cells,4,4),"Tail") || !(format_at(&s->formats,2,2).flags&FORMAT_BOLD) ||
+            strcmp(cells_get(&s->cells,20000,26),"Offscreen value") || strcmp(cells_get(&s->cells,8,7),"Occupied")) goto failed;
+        break;
+    case 935:
+        puts("PASS: native explicit manual Replace/Cancel, Escape and pointer actions, offscreen holes and stale confirmation guard, atomic self-overlap value/style Undo/Redo, narrow 150 percent bounds and dxls reopen"); break;
 
     }
     free(error); (*step)++; return;
@@ -14766,7 +14930,7 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882") || !strcmp(layout_from,"911"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882") || !strcmp(layout_from,"911") || !strcmp(layout_from,"921"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
     if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882)) { SetWindowSize(1440,988); open_source(a,layout_start==882 ? "tests/fixtures/transactions.csv" : "tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); }
@@ -15605,7 +15769,7 @@ int app_finish(AppSession *session) {
     if (a->pipeline_shadow_texture.id) UnloadTexture(a->pipeline_shadow_texture);
     brand_shutdown();
     if (session->render_batch.vertexBuffer && session->render_batch.draws) { rlSetRenderBatchActive(NULL); rlUnloadRenderBatch(session->render_batch); }
-    a->busy=false; step_preview_free(&a->step_preview); ui_guide_free(&a->guide); clear_object_views(a); grid_destroy(&a->source_preview); grid_destroy(&a->grid); ui_destroy(&a->ui); input_free(&a->input); input_free(&a->filter_term); input_free(&a->filter_end); input_free(&a->pivot_search); input_free(&a->chart_columns); free(a->chart_resize_error); free(a->object_name_error); free(a->range_move_error); free(a->field_matches); text_lines_free(&a->toast_lines); text_lines_free(&a->document_lines); text_lines_free(&a->inspector_sql_lines); free(a->inspector_sql_text); free(a->sql_text); free(a->message); free(a->pipeline_text); free(a->document_path); dx_native_shutdown(); CloseWindow();
+    a->busy=false; step_preview_free(&a->step_preview); ui_guide_free(&a->guide); clear_object_views(a); grid_destroy(&a->source_preview); grid_destroy(&a->grid); ui_destroy(&a->ui); input_free(&a->input); input_free(&a->filter_term); input_free(&a->filter_end); input_free(&a->pivot_search); input_free(&a->chart_columns); free(a->chart_resize_error); free(a->object_name_error); free(a->range_move_error); free(a->field_matches); text_lines_free(&a->toast_lines); text_lines_free(&a->document_lines); text_lines_free(&a->replace_lines); text_lines_free(&a->inspector_sql_lines); free(a->inspector_sql_text); free(a->sql_text); free(a->message); free(a->pipeline_text); free(a->document_path); dx_native_shutdown(); CloseWindow();
     int result=
 #if defined(DUXCEL_DEV_REVIEW) && !defined(DUXCEL_BROWSER_HOST)
         (options->review_smoke && session->review_smoke.stage!=REVIEW_SMOKE_STAGES) ||

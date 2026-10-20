@@ -231,7 +231,7 @@ static uint64_t review_field_hash(const char *text) {
     return hash;
 }
 static bool review_author_dialog(const char *kind) {
-    return !strcmp(kind,"column_width") || !strcmp(kind,"move_range") || !strcmp(kind,"object_name") ||
+    return !strcmp(kind,"column_width") || !strcmp(kind,"move_range") || !strcmp(kind,"replace_range") || !strcmp(kind,"object_name") ||
         !strcmp(kind,"chart_size") || !strcmp(kind,"unsaved") || !strcmp(kind,"source_query") || !strcmp(kind,"source_relation") || !strcmp(kind,"sort") || !strcmp(kind,"sheet_rename") || !strcmp(kind,"cell_inspector") || !strcmp(kind,"settings") || !strcmp(kind,"generated_sql") || !strcmp(kind,"guide") || !strcmp(kind,"error");
 }
 static bool review_author_field(char output[128],const char *field) {

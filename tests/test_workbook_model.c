@@ -50,6 +50,66 @@ static void populate_and_move(Workbook *book) {
     CHECK(error && sheet->undo_actions_count==history && sheet->cells.revision==revision && sheet->objects.items[0].row==40);
     free(error);
 }
+static void test_manual_replace_move(void) {
+    Workbook book; workbook_init(&book); Analysis blank={0}; char *error=NULL;
+    CHECK(workbook_add(&book,"Replace moves",&blank,&error)); Worksheet *s=&book.sheets[0];
+    CHECK(cells_set(&s->cells,10,10,"NULL",&error));
+    CHECK(cells_set(&s->cells,11,11,exact,&error));
+    CHECK(cells_set(&s->cells,10,20,"Old value",&error));
+    CHECK(cells_set(&s->cells,10,21,"Under a source hole",&error));
+    CHECK(cells_set(&s->cells,900000,90,"Unrelated İstanbul",&error)); worksheet_record(s,EDIT_CELLS);
+    CellFormat style=format_default(); style.flags=FORMAT_BOLD;
+    CHECK(format_apply(&s->formats,(FormatRange){10,10,10,10},FORMAT_BOLD,style,&error)); worksheet_record(s,EDIT_FORMAT);
+    style.flags=FORMAT_ITALIC;
+    CHECK(format_apply(&s->formats,(FormatRange){10,12,20,22},FORMAT_ITALIC,style,&error)); worksheet_record(s,EDIT_FORMAT);
+    SheetRange r={10,12,10,12}; size_t history=s->undo_actions_count,bytes=s->cells.bytes; uint64_t revision=s->cells.revision;
+    CHECK(worksheet_check_move(s,r,0,10,0,0,&error)==SHEET_MOVE_NEEDS_REPLACE);
+    CHECK(!worksheet_move_range(s,r,0,10,0,0,&error));
+    CHECK(s->cells.revision==revision && s->undo_actions_count==history && s->cells.bytes==bytes);
+    CHECK(worksheet_replace_range(s,r,0,10,0,0,&error));
+    CHECK(s->undo_actions_count==history+1 && s->undo_actions[history]==EDIT_CELLS_FORMAT);
+    CHECK(!strcmp(cells_get(&s->cells,10,20),"NULL") && !strcmp(cells_get(&s->cells,11,21),exact));
+    CHECK(!*cells_get(&s->cells,10,10) && !*cells_get(&s->cells,10,21) && s->cells.count==3);
+    CHECK((format_at(&s->formats,10,20).flags&FORMAT_BOLD) && !(format_at(&s->formats,10,20).flags&FORMAT_ITALIC));
+    CHECK(!(format_at(&s->formats,10,21).flags&(FORMAT_BOLD|FORMAT_ITALIC)));
+    CHECK(cells_history(&s->cells,false) && format_history(&s->formats,false)); worksheet_transfer_history(s,false);
+    CHECK(s->cells.bytes==bytes && !strcmp(cells_get(&s->cells,10,21),"Under a source hole") && !strcmp(cells_get(&s->cells,11,11),exact));
+    CHECK((format_at(&s->formats,10,10).flags&FORMAT_BOLD) && (format_at(&s->formats,10,21).flags&FORMAT_ITALIC));
+    CHECK(cells_history(&s->cells,true) && format_history(&s->formats,true)); worksheet_transfer_history(s,true);
+    CHECK(!strcmp(cells_get(&s->cells,11,21),exact) && !strcmp(cells_get(&s->cells,900000,90),"Unrelated İstanbul"));
+    CHECK(worksheet_replace_range(s,r,0,0,0,0,&error) && s->undo_actions_count==history+1);
+    CHECK(worksheet_check_move(s,r,INT64_MIN,0,0,0,&error)==SHEET_MOVE_INVALID);
+    CHECK(!worksheet_replace_range(s,r,0,-11,0,0,&error));
+    CHECK(!worksheet_replace_range(s,r,-10,-10,3,3,&error));
+    CHECK(objects_add(&s->objects,10,30,"Protected pivot",&error)==0); worksheet_record(s,EDIT_OBJECTS);
+    history=s->undo_actions_count;
+    CHECK(worksheet_check_move(s,(SheetRange){10,12,20,22},0,10,0,0,&error)==SHEET_MOVE_INVALID);
+    CHECK(!worksheet_replace_range(s,(SheetRange){10,12,20,22},0,10,0,0,&error));
+    CHECK(!worksheet_replace_range(s,(SheetRange){10,14,30,33},10,0,0,0,&error));
+    CHECK(s->undo_actions_count==history && !strcmp(cells_get(&s->cells,10,20),"NULL"));
+    workbook_free(&book); workbook_init(&book); CHECK(workbook_add(&book,"Overlap",&blank,&error)); s=&book.sheets[0];
+    CHECK(cells_set(&s->cells,0,0,"A",&error) && cells_set(&s->cells,0,1,"B",&error) && cells_set(&s->cells,1,0,"C",&error));
+    CHECK(cells_set(&s->cells,2,2,"Erase through a source hole",&error)); worksheet_record(s,EDIT_CELLS);
+    history=s->undo_actions_count;
+    CHECK(worksheet_check_move(s,(SheetRange){0,1,0,1},1,1,0,0,&error)==SHEET_MOVE_NEEDS_REPLACE);
+    CHECK(worksheet_replace_range(s,(SheetRange){0,1,0,1},1,1,0,0,&error));
+    CHECK(s->undo_actions_count==history+1 && s->cells.count==3 && !*cells_get(&s->cells,0,0) && !*cells_get(&s->cells,2,2));
+    CHECK(!strcmp(cells_get(&s->cells,1,1),"A") && !strcmp(cells_get(&s->cells,1,2),"B") && !strcmp(cells_get(&s->cells,2,1),"C"));
+    CHECK(cells_history(&s->cells,false)); worksheet_transfer_history(s,false);
+    CHECK(!strcmp(cells_get(&s->cells,0,0),"A") && !strcmp(cells_get(&s->cells,2,2),"Erase through a source hole"));
+    CHECK(cells_history(&s->cells,true)); worksheet_transfer_history(s,true);
+    CHECK(worksheet_replace_range(s,(SheetRange){1,2,1,2},-1,-1,0,0,&error));
+    CHECK(!strcmp(cells_get(&s->cells,0,0),"A") && !strcmp(cells_get(&s->cells,0,1),"B") && !strcmp(cells_get(&s->cells,1,0),"C") && !*cells_get(&s->cells,1,1));
+    CHECK(cells_set(&s->cells,DX_SHEET_ROWS-1,16383,"Last cell",&error)); worksheet_record(s,EDIT_CELLS);
+    CHECK(worksheet_replace_range(s,(SheetRange){0,0,0,0},DX_SHEET_ROWS-1,16383,0,0,&error));
+    CHECK(!strcmp(cells_get(&s->cells,DX_SHEET_ROWS-1,16383),"A"));
+    /* Moving an empty source is a deliberate clear, still one reversible action. */
+    CHECK(worksheet_replace_range(s,(SheetRange){100,100,0,0},(int64_t)DX_SHEET_ROWS-101,16383,0,0,&error));
+    CHECK(!*cells_get(&s->cells,DX_SHEET_ROWS-1,16383));
+    CHECK(cells_history(&s->cells,false)); worksheet_transfer_history(s,false);
+    CHECK(!strcmp(cells_get(&s->cells,DX_SHEET_ROWS-1,16383),"A"));
+    free(error); workbook_free(&book);
+}
 static void test_owned_snapshot_and_sheets(Workbook *book) {
     char *error=NULL; Worksheet *sheet=&book->sheets[0];
     sheet->view=(SheetView){.row=9000,.col=80,.top=8990,.canvas_zoom=1.25f,.column_count=1};
@@ -152,7 +212,7 @@ static void test_unavailable_persistence(Workbook *book) {
 }
 int main(void) {
     Workbook book; workbook_init(&book);
-    populate_and_move(&book); test_owned_snapshot_and_sheets(&book); test_unchanged_path_helpers(); test_object_high_water(); test_unavailable_persistence(&book);
+    populate_and_move(&book); test_manual_replace_move(); test_owned_snapshot_and_sheets(&book); test_unchanged_path_helpers(); test_object_high_water(); test_unavailable_persistence(&book);
     workbook_free(&book); CHECK(!book.sheets && !book.count && book.user_scale==1);
     printf("PASS: %u browser workbook model checks\n",checks); return 0;
 }
