@@ -9,6 +9,8 @@ The native C99 application and explicit written requirements define the product.
 | [REQUIREMENTS.md](REQUIREMENTS.md) | Product requirements and human decisions |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Module ownership and native/browser boundaries |
 | [REPOSITORY.md](REPOSITORY.md) | Folder inventory, cleanup findings and C migration assessment |
+| [../tests/README.md](../tests/README.md) | Native test sources/helpers and fixture taxonomy |
+| [../tools/README.md](../tools/README.md) | Automation and language/interface policy |
 | [TESTING.md](TESTING.md) | Commands, sanitizer/fixture/desktop ownership and evidence retention |
 | [USER_GUIDE.md](USER_GUIDE.md) | Controls, file format and supported workflows |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Git and integration discipline |

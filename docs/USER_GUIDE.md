@@ -169,7 +169,7 @@ make test-affected FEATURE=author-menus TEST_ARGS='--modules choiceview'
 make test-full TEST_ARGS='--require-data'
 ```
 
-The existing individual smoke/stress targets remain available for focused investigations; the full runner records completion, hashes and timings. Public downloads are optional outside their named data scenarios and stay ignored. `tests/download_data.sh` reproduces the NYC Parquet/CSV conversion inputs.
+The existing individual smoke/stress targets remain available for focused investigations; the full runner records completion, hashes and timings. Public downloads are optional outside their named data scenarios and stay ignored. `python3 tools/download_test_data.py` restores the NYC source; optional `--roundtrip` creates CSV/Parquet derivatives under build.
 
 Release and ASan/UBSan suites cover typed queries, exact numeric filters, virtual distinct/date filters, clipboard atomicity, worker recovery, font metrics, grid geometry, vector icon geometry and workbook ownership/history/round trips/failure handling. Current counts, coherent regression checkpoints and measured timings are in validation records. Native scenarios cover analytical objects, independent sources, filters, clipboard/export, range movement, sheets, typography and ribbon layouts. These application-state smokes complement physical mouse/key/DPI inspection. LeakSanitizer is unsupported by this Apple Silicon runtime.
 

@@ -88,10 +88,10 @@ mac-icon-check: bundle build/check-macos-icon
 endif
 
 all: build/bin/duxcel
-design-fixture: build/create-design-workbook
-	./build/create-design-workbook
-design-large-fixture: build/create-design-workbook
-	./build/create-design-workbook --large
+design-fixture: build/tests/create-workbook
+	./build/tests/create-workbook
+design-large-fixture: build/tests/create-workbook
+	./build/tests/create-workbook --large
 design-smoke: build/bin/duxcel-debug design-fixture
 	mkdir -p build/tests/results/design-definition
 	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug build/tests/generated/design-definition.dxls --frames 240 --screenshot build/tests/results/design-definition/authoring.png
@@ -103,9 +103,9 @@ APP_EXTRA_OBJECTS = $(filter %.o,$(SRC))
 APP_RELEASE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
 APP_SANITIZE_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
 APP_EDIT_OBJECTS = $(addprefix build/obj/edit-sanitize/app/,$(addsuffix .o,$(basename $(APP_SOURCES))))
-DESIGN_SOURCES = $(CORE) tools/create_design_workbook.c
-DESIGN_OBJECTS = $(addprefix build/obj/release/design/,$(addsuffix .o,$(basename $(DESIGN_SOURCES))))
-INCREMENTAL_OBJECTS = $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(APP_EDIT_OBJECTS) $(DESIGN_OBJECTS)
+FIXTURE_SOURCES = $(CORE) tests/support/create_workbook.c
+FIXTURE_OBJECTS = $(addprefix build/obj/release/fixtures/,$(addsuffix .o,$(basename $(FIXTURE_SOURCES))))
+INCREMENTAL_OBJECTS = $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(APP_EDIT_OBJECTS) $(FIXTURE_OBJECTS)
 REVIEW_SOURCES = $(APP_SOURCES) src/dev/review_registry.c src/dev/review_store.c src/dev/review_input.c src/dev/review_capture.c
 REVIEW_OBJECTS = $(addprefix build/obj/review/app/,$(addsuffix .o,$(basename $(REVIEW_SOURCES))))
 REVIEW_SANITIZE_OBJECTS = $(addprefix build/obj/review-sanitize/app/,$(addsuffix .o,$(basename $(REVIEW_SOURCES))))
@@ -117,7 +117,7 @@ APP_RELEASE_FLAGS = $(CPPFLAGS) $(CFLAGS) $(WARN)
 APP_SANITIZE_FLAGS = $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS)
 # Opt-in edit loop only. Optimized release/O1 sanitizer acceptance stays separate.
 APP_EDIT_FLAGS = $(CPPFLAGS) -O0 -g $(WARN) $(SANFLAGS)
-DESIGN_FLAGS = -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN)
+FIXTURE_FLAGS = -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN)
 
 # A no-op signature recipe preserves its timestamp. Changed compiler, includes,
 # defines or options therefore invalidate the appropriate objects, not every
@@ -133,16 +133,16 @@ build/obj/sanitize/app/compile.flags: force-build-signature
 	$(call build_signature,$(CC) $(APP_SANITIZE_FLAGS) -MMD -MP -c)
 build/obj/edit-sanitize/app/compile.flags: force-build-signature
 	$(call build_signature,$(CC) $(APP_EDIT_FLAGS) -MMD -MP -c)
-build/obj/release/design/compile.flags: force-build-signature
-	$(call build_signature,$(CC) $(DESIGN_FLAGS) -MMD -MP -c)
+build/obj/release/fixtures/compile.flags: force-build-signature
+	$(call build_signature,$(CC) $(FIXTURE_FLAGS) -MMD -MP -c)
 build/obj/release/app/link.flags: force-build-signature
 	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(APP_RELEASE_OBJECTS) $(APP_EXTRA_OBJECTS) $(LDFLAGS) $(LDLIBS))
 build/obj/sanitize/app/link.flags: force-build-signature
 	$(call build_signature,$(CC) -O1 -g $(WARN) $(SANFLAGS) $(APP_SANITIZE_OBJECTS) $(APP_EXTRA_OBJECTS) $(LDFLAGS) $(LDLIBS) $(SANFLAGS))
 build/obj/edit-sanitize/app/link.flags: force-build-signature
 	$(call build_signature,$(CC) -O0 -g $(WARN) $(SANFLAGS) $(APP_EDIT_OBJECTS) $(APP_EXTRA_OBJECTS) $(LDFLAGS) $(LDLIBS) $(SANFLAGS))
-build/obj/release/design/link.flags: force-build-signature
-	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(DESIGN_OBJECTS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/obj/release/fixtures/link.flags: force-build-signature
+	$(call build_signature,$(CC) $(CFLAGS) $(WARN) $(FIXTURE_OBJECTS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
 .PHONY: force-build-signature
 
 build/obj/review/app/compile.flags: force-build-signature
@@ -206,8 +206,8 @@ build/obj/edit-sanitize/app/%.o: %.c build/obj/edit-sanitize/app/compile.flags
 	$(call compile_object,$(APP_EDIT_FLAGS))
 build/obj/edit-sanitize/app/%.o: %.m build/obj/edit-sanitize/app/compile.flags
 	$(call compile_object,$(APP_EDIT_FLAGS))
-build/obj/release/design/%.o: %.c build/obj/release/design/compile.flags
-	$(call compile_object,$(DESIGN_FLAGS))
+build/obj/release/fixtures/%.o: %.c build/obj/release/fixtures/compile.flags
+	$(call compile_object,$(FIXTURE_FLAGS))
 $(APP_RELEASE_OBJECTS) $(APP_SANITIZE_OBJECTS) $(APP_EDIT_OBJECTS): | $(ICON_OUTPUTS)
 
 define link_binary
@@ -246,8 +246,8 @@ build/lifecycle/test-app: build/lifecycle/assets $(LIFECYCLE_RELEASE_OBJECTS) bu
 build/lifecycle/test-app-sanitize: build/lifecycle/assets $(LIFECYCLE_SANITIZE_OBJECTS) build/obj/sanitize/app/lifecycle-link.flags
 	$(call link_binary,-O1 -g $(WARN) $(SANFLAGS) $(LIFECYCLE_SANITIZE_OBJECTS),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
 
-build/create-design-workbook: $(DESIGN_OBJECTS) build/obj/release/design/link.flags
-	$(call link_binary,$(CFLAGS) $(WARN) $(DESIGN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/create-workbook: $(FIXTURE_OBJECTS) build/obj/release/fixtures/link.flags
+	$(call link_binary,$(CFLAGS) $(WARN) $(FIXTURE_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
 
 # Losing a sidecar must not silently discard its header tracking. An absent
 # empty-rule dependency forces its object to recreate the compiler's sidecar.
@@ -440,9 +440,9 @@ build/tests/test_core-debug: $(CORE) tests/test_core.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/test_core.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 SHADOWVIEW_SRC = src/ui/shadowview.c tests/test_shadowview.c
 # The frozen pixel oracle remains a test fixture; it never enters App sources.
-build/tests/test_shadowview: $(SHADOWVIEW_SRC) tests/shadow_reference.h tests/shadow_corner_reference.h $(HEADERS) | build/tests
+build/tests/test_shadowview: $(SHADOWVIEW_SRC) tests/fixtures/rendering/shadow_reference.h tests/fixtures/rendering/shadow_corner_reference.h $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(SHADOWVIEW_SRC) -o $@ -lm
-build/tests/test_shadowview-debug: $(SHADOWVIEW_SRC) tests/shadow_reference.h tests/shadow_corner_reference.h $(HEADERS) | build/tests
+build/tests/test_shadowview-debug: $(SHADOWVIEW_SRC) tests/fixtures/rendering/shadow_reference.h tests/fixtures/rendering/shadow_corner_reference.h $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(SHADOWVIEW_SRC) -o $@ -lm $(SANFLAGS)
 INSPECTOR_SRC = src/ui/inspector.c tests/test_inspector.c
 STEPVIEW_SRC = src/common.c src/platform/platform.c src/transforms/number.c src/transforms/analysis.c src/ui/stepview.c tests/test_stepview.c
@@ -643,9 +643,9 @@ spill-test: build/tests/test_cellreadout build/tests/test_core build/tests/test_
 	./build/tests/test_core --spill-probe
 	TMPDIR=/ ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_core-debug --spill-probe
 unique-large-test: build/tests/test_cellreadout build/tests/test_core build/tests/test_core-debug
-	test -f build/data/yellow_tripdata_2025-01.parquet
-	./build/tests/test_core --unique-large build/data/yellow_tripdata_2025-01.parquet
-	TMPDIR=/ ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_core-debug --unique-large build/data/yellow_tripdata_2025-01.parquet
+	test -f data/downloads/yellow_tripdata_2025-01.parquet
+	./build/tests/test_core --unique-large data/downloads/yellow_tripdata_2025-01.parquet
+	TMPDIR=/ ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_core-debug --unique-large data/downloads/yellow_tripdata_2025-01.parquet
 smoke: build/bin/duxcel-debug
 	./build/bin/duxcel-debug --smoke --frames 240 --screenshot /tmp/duxcel-smoke.png
 workspace-smoke: build/bin/duxcel-debug
@@ -679,7 +679,7 @@ startup-smoke: navigation-smoke
 	cp tests/fixtures/null-text.csv build/tests/generated/invalid-workspace.dxls
 	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug build/tests/generated/invalid-workspace.dxls --frames 60
 nyc-smoke: build/bin/duxcel-debug
-	test -f build/data/yellow_tripdata_2025-01.parquet
+	test -f data/downloads/yellow_tripdata_2025-01.parquet
 	mkdir -p build/tests/generated build/tests/results/current-workspace
 	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --nyc-smoke --frames 720 --screenshot build/tests/results/current-workspace/nyc-analysis.png
 document-smoke: build/bin/duxcel-debug
@@ -706,9 +706,9 @@ ifeq ($(shell uname -s),Darwin)
 	codesign --force --sign - build/Duxcel.app
 endif
 clean:
-	python3 -c 'from tools.test import clean_outputs; clean_outputs()'
+	python3 tools/workspace.py clean
 distclean:
-	python3 -c 'from tools.test import clean_outputs; clean_outputs(full=True)'
+	python3 tools/workspace.py distclean
 .PHONY: all run debug run-debug test test-debug spill-test unique-large-test smoke workspace-smoke filter-smoke pivot-smoke export-smoke count-smoke clipboard-smoke sort-smoke layout-smoke navigation-smoke startup-smoke nyc-smoke document-smoke chart-smoke statistics-smoke table-smoke icon-smoke query-smoke unique-smoke mac-icon-check bundle clean icons icons-check icons-verify paint-smoke
 .NOTPARALLEL:
 
@@ -727,9 +727,9 @@ build/tests/test_background-native-debug: tests/test_background_native.m | build
 test-full:
 	python3 tools/test.py full $(TEST_ARGS)
 test-runner:
-	python3 tools/test_runner_test.py
+	python3 -m tools.tests.test_runner
 test-build:
-	python3 tools/test_build.py
+	python3 -m tools.tests.test_build
 .PHONY: test-fast test-affected test-native test-full test-runner test-build
 
 
@@ -788,7 +788,7 @@ test-review-core: build/review/test_registry build/review-sanitize/test_registry
 	ASAN_OPTIONS=halt_on_error=1 ./build/review-sanitize/test_store
 	./build/review/test_capture_layout
 	ASAN_OPTIONS=halt_on_error=1 ./build/review-sanitize/test_capture_layout
-	python3 tools/native_review_test.py
+	python3 -m tools.tests.test_native_review
 	python3 tools/test_review_build.py --self-test
 test-review:
 	python3 tools/test_native_review.py $(TEST_ARGS)
@@ -798,9 +798,9 @@ test-review:
 review-serve:
 	python3 tools/review_service.py serve --agent codex
 test-review-queue:
-	python3 tools/review_queue_test.py
-	python3 tools/review_service_test.py
-	node --test web/review_host.test.mjs web/review_queue.test.mjs
+	python3 -m tools.tests.test_review_queue
+	python3 -m tools.tests.test_review_service
+	node --test web/tests/review_host.test.mjs web/tests/review_queue.test.mjs
 .PHONY: review-serve test-review-queue
 
 # Browser proof uses the same C renderer/controllers and a separate backend.
@@ -941,8 +941,8 @@ test-browser-core: build/web-tests/test-wire build/web-tests/test-wire-sanitize 
 	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-distinct-query-sanitize
 	./build/web-tests/test-distinct-page
 	ASAN_OPTIONS=halt_on_error=1 ./build/web-tests/test-distinct-page-sanitize
-	node --test web/official_worker.test.mjs web/page_wire.test.mjs web/engine_host.test.mjs web/official_worker_probe.test.mjs web/metadata_stream.test.mjs web/metadata_stream_probe.test.mjs web/codec_stream_transport.test.mjs
-	python3 tools/package_web_vendor_test.py
+	node --test web/tests/official_worker.test.mjs web/tests/page_wire.test.mjs web/tests/engine_host.test.mjs web/tests/official_worker_probe.test.mjs web/tests/metadata_stream.test.mjs web/tests/metadata_stream_probe.test.mjs web/tests/codec_stream_transport.test.mjs
+	python3 -m tools.tests.test_web_vendor
 .PHONY: test-browser-core
 
 KEYTIPS_SRC = src/ui/keytips.c src/ui/ribbon_spec.c src/ui/ribbon.c tests/test_keytips.c
@@ -1012,11 +1012,11 @@ build/tests:
 	mkdir -p $@
 
 # Native fixture acceptance uses the same C/DuckDB path in both configurations.
-build/tests/create-fixture-debug: $(CORE) tools/create_design_workbook.c $(HEADERS) | build/tests
-	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tools/create_design_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
-test-fixture: build/create-design-workbook build/tests/create-fixture-debug
-	./build/create-design-workbook
-	./build/create-design-workbook --large
+build/tests/create-fixture-debug: $(CORE) tests/support/create_workbook.c $(HEADERS) | build/tests
+	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/support/create_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+test-fixture: build/tests/create-workbook build/tests/create-fixture-debug
+	./build/tests/create-workbook
+	./build/tests/create-workbook --large
 	ASAN_OPTIONS=halt_on_error=1 ./build/tests/create-fixture-debug
 	ASAN_OPTIONS=halt_on_error=1 ./build/tests/create-fixture-debug --large
 .PHONY: test-fixture

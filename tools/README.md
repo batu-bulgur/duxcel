@@ -1,18 +1,47 @@
-# Development tools
+# Development automation
 
-These programs are not linked into the native application. Ordinary `make` builds the native C app; tests, browser builds, artwork generation and review services are separate commands.
+Tools orchestrate processes, filesystem/network work, build artifacts and review
+reports. Use Python standard-library code for new orchestration. Do not implement
+spreadsheet calculations or duplicate the C product model here. Tool tests live
+under `tests/` in this subsystem; no session-specific scripts or payloads remain
+beside the reusable tools.
 
-| Files | Purpose / why retained |
+| Files | Responsibility / interface |
 | --- | --- |
-| `create_design_workbook.c` | Native deterministic CSV/Parquet/workbook fixture and actual production PIVOT assertions. Historical filenames remain for test compatibility; no mock dependency. |
-| `test.py`, `test_runner_test.py` | Process/fixture/desktop ownership, bounded focused/full tiers, sanitizer/completion/binary guards and cleanup; contract tests cover refusals. Candidate for a parity-tested C runner. |
-| `test_build.py`, `test_review_build.py` | Incremental/atomic build and production-review exclusion contracts. |
-| `native_review.py`, `review_queue.py`, `review_service.py`, `review_worker.py` | External report validation, durable queue, leases/recovery and optional agent dispatch. Services are not started by `make` or the product. |
-| `web_toolchain.py`, `build_web*.py`, `web_object_cache.py`, `prepare_web_ci.py` | Isolated pinned SDK/headers/raylib, Wasm builds and incremental object cache. |
-| `package_web_pages.py`, `test_web_pages.py` | Stage only production browser payload and check real browser import/filter at a deployment subpath. |
-| `test_web_app.py`, `test_web_app.mjs`, `test_web_cdp.mjs`, `cdp_keyboard.mjs` | Own hidden Chromium lifecycle and drive the real C canvas/official Worker. The large MJS driver needs modularization; it is not another spreadsheet UI. |
-| `generate_icons.py`, `render_ui_icons.m`, `check_macos_icon.m` | Offline checked-in icon derivatives and macOS artwork verification. Explicit generation uses Python standard-library tooling and macOS artwork APIs; native runtime does not. |
-| `project_inventory.py` | Read-only classification/fingerprinting; output is ignored, never a tracked per-build manifest. |
-| Other `*_test.py`, `*.test.mjs`, `test_*.py` | Tests of adapters, file/queue/process contracts or actual platform integration. |
+| `workspace.py` | Shared output/cache/input retention, stable locks and source/binary fingerprints; independent of the test runner |
+| `test.py` | Focused/native/full test orchestration; process exits/completion, sanitizer diagnostics and fixture ordering |
+| `test_app_lifecycle.py`, `test_native_review.py` | Hidden native workflow drivers through compiled C binaries and bounded reports |
+| `test_review_build.py`, `test_web_review_build.py` | Actual build/artifact isolation checks; self-test cases live in `tools/tests/` |
+| `build_web*.py`, `web_toolchain.py`, `web_object_cache.py`, `web_raylib_adapter.py`, `prepare_web_ci.py` | Pinned compiler/raylib, shared-C Wasm builds and object caching |
+| `package_web*.py`, `test_web_pages.py` | Stage/verify production browser packages and deployment paths |
+| `test_web_app.py`, `test_web_export.py`, `browser_test_assets.py` | Own hidden browser/server lifetime and serve the test modules from `web/tests/` |
+| `native_review.py`, `review_queue.py`, `review_service.py`, `review_worker.py` | External development-only reports, durable queue, leases and optional agent dispatch |
+| `download_test_data.py` | Explicit public-data download; optional CLI conversion generates derivatives in build, originals survive clean |
+| `generate_icons.py`, `render_ui_icons.m`, `check_macos_icon.m` | Offline artwork derivatives and native AppKit artwork integration; Objective-C is the macOS API boundary |
+| `project_inventory.py` | Read-only local file classification/fingerprints; output stays ignored |
 
-Most product/engine/grid/codec assertions are already C. C99 alone does not supply portable processes, HTTP, filesystem locks, DOM or IndexedDB; moving orchestration requires explicit platform glue and equivalent failure tests. Keep the browser API boundary small and product semantics in C. Do not hide JS inside C strings to manufacture a language percentage.
+## Language and runtime boundary
+
+- Native product invariants and helpers linking product APIs are C99 under `src/`
+  or `tests/`. The workbook fixture generator is `tests/support/create_workbook.c`.
+- Python launches those programs and consumes exits/logs/versioned reports. It
+  does not load a second model or call Python from the shipping native app.
+- Browser API/Worker glue is JavaScript under `web/`. Browser tests are under
+  `web/tests/`; no JavaScript spreadsheet UI or Node source belongs in tools.
+- Objective-C is used when a native macOS API is needed.
+- `__pycache__/` is ordinary ignored Python bytecode. It is regenerated, never
+  source or a report, and never a reason to preserve an obsolete script.
+
+Do not rewrite a program into another language only to change a GitHub percentage.
+An exception to these roles needs a concrete API/platform/performance reason,
+a named owner and a testable interface. Preserve meaningful existing coverage.
+
+## Test commands
+
+`python3 -m unittest discover -s tools/tests -t .` runs the tool contracts.
+`make test-build` separately executes the real miniature Make/build graph.
+`make test-fixture` runs the real C/DuckDB helper in both configurations.
+`npm test --prefix web` runs browser adapter/contract unit tests.
+
+The one test-package bootstrap mirrors standalone CLI imports; no product code
+imports it. Normal `make` builds the native app and starts no service or agent.

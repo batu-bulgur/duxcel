@@ -2,7 +2,8 @@
 """Run the actual shared C browser UI in an owned, hidden browser session."""
 import argparse, datetime, functools, hashlib, http.server, json, os, re, shutil, signal, socketserver, stat, subprocess, threading, time
 from pathlib import Path
-from test import FileLock, native_lock_path, source_metadata
+from workspace import FileLock, native_lock_path, source_metadata
+from browser_test_assets import flat_test_module
 ROOT=Path(__file__).resolve().parents[1]
 CODEC_FIXTURES={
     'v12.dxls':(12,25),'v12-reordered.dxls':(12,25),
@@ -101,7 +102,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if self.path.endswith('.html'):
                 mapping=json.dumps(imports).replace('<','\\u003c')
                 content=('<!doctype html><html><head><meta charset="utf-8"><title>Owned metadata stream probe</title></head><body><script type="importmap">'+mapping+'</script></body></html>').encode();mime='text/html'
-            else:content=(ROOT/'web/metadata_stream_probe.mjs').read_bytes();mime='text/javascript'
+            else:content=flat_test_module(ROOT/'web/tests/support/metadata_stream_probe.mjs').encode();mime='text/javascript'
             self.send_response(200);self.send_header('Content-Type',mime);self.send_header('Cache-Control','no-store');self.send_header('Content-Length',str(len(content)));self.end_headers();self.wfile.write(content);return
         # Test-only probe is served by this owned harness, never packaged into App.
         if self.path.startswith('/__codec-fixtures/'):
@@ -120,9 +121,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.server.codec_requests.append(dict(entry))
             else:self.send_error(404);return
             self.send_response(200);self.send_header('Content-Type',mime);self.send_header('Cache-Control','no-store');self.send_header('Content-Length',str(len(content)));self.end_headers();self.wfile.write(content);return
-        probe={'/official_worker_probe.mjs':ROOT/'web/official_worker_probe.mjs','/persistence_probe.mjs':ROOT/'web/persistence_probe.mjs'}
+        probe={'/official_worker_probe.mjs':ROOT/'web/tests/support/official_worker_probe.mjs','/persistence_probe.mjs':ROOT/'web/tests/support/persistence_probe.mjs'}
         if self.path in probe:
-            content=probe[self.path].read_bytes()
+            content=flat_test_module(probe[self.path]).encode()
             self.send_response(200);self.send_header('Content-Type','text/javascript');self.send_header('Content-Length',str(len(content)));self.end_headers();self.wfile.write(content)
         elif self.path=='/native-fixture.dxls' and getattr(self.server,'persistence_fixture',None):
             content=self.server.persistence_fixture.read_bytes()
@@ -440,7 +441,7 @@ def main():
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         begin=time.monotonic()
         try:
-            command=['node','tools/test_web_app.mjs',f'http://127.0.0.1:{server.server_port}/',str(output)]
+            command=['node','web/tests/driver.mjs',f'http://127.0.0.1:{server.server_port}/',str(output)]
             if options.worker_driver:command.append('--worker-driver')
             if options.metadata_stream_probe:command.append('--metadata-stream-probe')
             if options.codec_read_driver:command.append('--codec-read-driver')

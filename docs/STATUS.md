@@ -18,6 +18,12 @@ Duxcel uses one C99/raylib UI and DuckDB analytical definitions. Native macOS is
 
 ## Current layout change
 
-All native/module executables and generated fixture/report files now live under `build/`; the seven authored CSVs and immutable UI regression inputs remain in `tests/fixtures/`. The native fixture generator is C/DuckDB and no longer needs the mock, Node or the DuckDB CLI. `make clean` removes generated output while retaining SDK/public-data caches; `distclean` removes those caches too. Cleanup verification and remaining structural debt are recorded in [REPOSITORY.md](REPOSITORY.md).
+Build/test outputs are isolated under `build/`, dependency caches under `.cache/`, downloaded reference inputs under `data/downloads/`, and stable checkout locks under `.state/`. `make clean` removes all build output; `distclean` additionally removes dependency caches, and both preserve reference data. Native C helpers live in `tests/support/`; Python tool tests in `tools/tests/`; browser tests/drivers in `web/tests/`. Three versioned UI contracts retain accepted values without archived run manifests. These are tooling/layout changes, not new GUI features. See [repository boundaries](REPOSITORY.md).
 
 Historical receipts and discarded studies remain in Git at `archive/pre-layout-cleanup-20261018`, not in active agent context. No new full application-inventory acceptance is implied by this layout cleanup.
+
+## Tooling boundary verification
+
+The role/layout integration passes 169 Python contracts, 325 Node contracts, 60 real incremental/atomic Make checks and optimized/O1 ASan/UBSan canonical/large C fixture runs. Focused grid/inspector/shadow/codec checks pass both configurations; hidden native selection completes 41 stages (90.7s including builds), then base/NYC completes 14 stages (10.3s). The restored NYC source is in `data/downloads/`.
+
+Real hidden shared-C Wasm panel/SQL workflows pass 42.6s/58.2s; the relocated isolated C/official-Worker host passes 29.3s. The staged production browser import/filter gate passes 14.0s. Native bundle smoke from `/` passes six stages in 3.2s and codesign verification passes. Normal/review Wasm and native release/sanitizer artifacts pass production review-exclusion checks. These verify the layout/interfaces, not full 1351-stage native or physical-input/browser/OS coverage. Concise source/binary results live in ignored `build/tests/results/tooling-summary.json`; transient successful captures are disposable.

@@ -1,6 +1,6 @@
 #include "ui/shadowview.h"
-#include "shadow_reference.h"
-#include "shadow_corner_reference.h"
+#include "fixtures/rendering/shadow_reference.h"
+#include "fixtures/rendering/shadow_corner_reference.h"
 #include <float.h>
 #include <math.h>
 #include <stdint.h>

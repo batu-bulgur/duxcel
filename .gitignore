@@ -1,5 +1,9 @@
-# All build products, cached datasets, generated fixtures and test evidence.
+# Reproducible build products, generated fixtures and test evidence.
 /build/
+# Downloaded reference data survives both clean targets.
+/data/downloads/
+# Persistent lock inodes stay outside disposable build/cache directories.
+/.state/
 # Installed development dependencies and transient local state.
 node_modules/
 *.dSYM/

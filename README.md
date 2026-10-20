@@ -19,4 +19,4 @@ The former JavaScript mock is retired. The current native UI and [written requir
 - [Architecture](docs/ARCHITECTURE.md) and [repository audit](docs/REPOSITORY.md)
 - [Testing](docs/TESTING.md), [user guide](docs/USER_GUIDE.md), [contributing](docs/CONTRIBUTING.md)
 
-All generated output is under `build/`. `make clean` removes build/test artifacts; `make distclean` also removes the installed web SDK, dependency/data caches. Source, authored fixtures, runtime assets and licenses remain.
+`make clean` removes all of `build/`. `make distclean` also removes dependency caches (`.cache/`, `web/node_modules`). Downloaded reference data in `data/downloads/`, authored fixtures, assets/licenses and user workbooks remain. See [repository boundaries](docs/REPOSITORY.md) for language and test ownership.

@@ -13,7 +13,8 @@ import socketserver
 import subprocess
 import threading
 import time
-from test import FileLock, native_lock_path, source_metadata
+from workspace import FileLock, native_lock_path, source_metadata
+from browser_test_assets import flat_test_module
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,13 +31,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        probes = {f'/{name}': ROOT/'web'/name for name in ('export_probe.mjs', 'official_worker_probe.mjs')}
+        probes = {f'/{name}': ROOT/'web/tests/support'/name for name in ('export_probe.mjs', 'official_worker_probe.mjs')}
         if self.path == '/':
             content = ('<!doctype html><meta charset="utf-8"><title>Duxcel isolated Parquet proof</title>'
                        '<script type="importmap">'+json.dumps(self.server.import_map)+'</script>').encode()
             mime = 'text/html; charset=utf-8'
         elif self.path in probes:
-            content, mime = probes[self.path].read_bytes(), 'text/javascript'
+            content, mime = flat_test_module(probes[self.path]).encode(), 'text/javascript'
         elif self.path in ('/vendor.json', '/official_worker.mjs') or self.path.startswith('/vendor/'):
             return super().do_GET()
         else:
@@ -76,7 +77,7 @@ def main():
         server.import_map = vendor['import_map']
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
-        command = ['node', 'tools/test_web_export.mjs', f'http://127.0.0.1:{server.server_port}/', str(output)]
+        command = ['node', 'web/tests/export_driver.mjs', f'http://127.0.0.1:{server.server_port}/', str(output)]
         process = None
         try:
             process = subprocess.Popen(command, cwd=ROOT, text=True, stdout=subprocess.PIPE,

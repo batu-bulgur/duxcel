@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install/use pinned web tools inside this checkout's ignored build/web tree.
+"""Install/use pinned web tools inside this checkout's ignored .cache/web tree.
 
 No shell activation, global packages, PATH changes, UI, browser or engine build.
 Only bootstrap downloads; status is offline and run uses an installed toolchain.
@@ -20,7 +20,7 @@ import tarfile
 import tempfile
 import time
 import urllib.request
-from test import FileLock
+from workspace import FileLock
 
 PROJECT = Path(__file__).resolve().parents[1]
 TOOLS = {name: name + ".py" for name in ("emcc", "em++", "emar", "emranlib", "emmake", "emcmake")}
@@ -68,11 +68,11 @@ def load_lock(path):
 
 def local_root(project, requested=None):
     project = Path(project).resolve()
-    root = Path(requested) if requested else project / "build/web/toolchain"
+    root = Path(requested) if requested else project / ".cache/web/toolchain"
     if not root.is_absolute():
         root = project / root
-    base = project / "build/web"
-    require(root != base and root.is_relative_to(base) and ".." not in root.parts, "Toolchain root must be below this checkout's build/web directory")
+    base = project / ".cache/web"
+    require(root != base and root.is_relative_to(base) and ".." not in root.parts, "Toolchain root must be below this checkout's .cache/web directory")
     current = project
     for part in root.relative_to(project).parts:
         current = current / part
@@ -272,7 +272,7 @@ def bootstrap(root, lock, lock_digest, offline=False, python=None, node=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", help="isolated directory below this checkout's build/web (default: build/web/toolchain)")
+    parser.add_argument("--root", help="isolated directory below this checkout's .cache/web (default: .cache/web/toolchain)")
     parser.add_argument("--offline", action="store_true", help="bootstrap uses cached sources and an already installed compiler only")
     parser.add_argument("--python", help="existing Python >=3.10 executable for emsdk/emcc")
     parser.add_argument("--node", help="existing Node >=18.3 executable")
@@ -305,5 +305,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    with FileLock(PROJECT / 'build/.web-build.lock', 'Web builds in this worktree'):
+    with FileLock(PROJECT / '.state/web-build.lock', 'Web builds in this worktree'):
         raise SystemExit(main())

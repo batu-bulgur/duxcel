@@ -10,7 +10,7 @@ import time
 
 import web_toolchain as tools
 import web_raylib_adapter as adapter
-from test import FileLock
+from workspace import FileLock
 
 ROOT=Path(__file__).resolve().parents[1]
 def main():
@@ -18,7 +18,7 @@ def main():
     lock=tools.load_lock(lock_path); lock_hash=tools.sha256(lock_path)
     sdk=tools.local_root(ROOT); state=tools.status(sdk,lock,lock_hash)
     tools.require(state['ready'],'Run tools/web_toolchain.py bootstrap first')
-    folder=ROOT/'build/web/raylib'; folder.mkdir(parents=True,exist_ok=True)
+    folder=ROOT/'.cache/web/raylib'; folder.mkdir(parents=True,exist_ok=True)
     tools.require(not folder.is_symlink(),'Web build directory must be owned by this checkout')
     stamp={'source':lock['raylib']['commit'],'toolchain':lock_hash,'flags':'PLATFORM_WEB GRAPHICS_API_OPENGL_ES2 RELEASE STATIC upstream-gnu99','schema':2,
            'adapter':{str(p.relative_to(ROOT)):tools.sha256(p) for p in adapter.INPUTS}}
@@ -58,7 +58,7 @@ def main():
     return 0
 if __name__=='__main__':
     try:
-        with FileLock(ROOT/'build/.web-build.lock','Web builds in this worktree'):
+        with FileLock(ROOT/'.state/web-build.lock','Web builds in this worktree'):
             raise SystemExit(main())
     except (OSError,ValueError,subprocess.SubprocessError) as error:
         print(str(error)); raise SystemExit(1)

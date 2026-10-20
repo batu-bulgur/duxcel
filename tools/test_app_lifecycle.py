@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import time
-from test import FileLock, native_lock_path, source_metadata, utc_now
+from workspace import FileLock, native_lock_path, source_metadata, utc_now
 ROOT=Path(__file__).resolve().parents[1]
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -28,7 +28,7 @@ def main():
             raise RuntimeError(f'{name} failed; see {log}')
         summary['results'].append({'command':argv,'elapsed_seconds':round(time.monotonic()-start,3),'log':str(log.relative_to(ROOT))})
     try:
-        with FileLock(ROOT/'build/.test-runner.lock','worktree lifecycle checks'):
+        with FileLock(ROOT/'.state/test-runner.lock','worktree lifecycle checks'):
             if not args.no_build:
                 run(['make','build/lifecycle/test-app','build/lifecycle/test-app-sanitize','build/tests/test_background-native-debug'],'build',None)
             before=source_metadata(ROOT); summary['source']=before

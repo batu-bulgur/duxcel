@@ -6,7 +6,8 @@ import web_toolchain as tools
 import package_web_vendor as vendor
 import web_raylib_adapter as adapter
 from web_object_cache import ObjectCacheError,ensure_object
-from test import FileLock,source_metadata
+from workspace import FileLock,source_metadata
+from browser_test_assets import flat_test_module
 ROOT=Path(__file__).resolve().parents[1]
 def main():
     parser=argparse.ArgumentParser(description=__doc__);mode=parser.add_mutually_exclusive_group();mode.add_argument('--worker-driver',action='store_true');mode.add_argument('--codec-read-driver',action='store_true');mode.add_argument('--review',action='store_true');options=parser.parse_args()
@@ -14,7 +15,7 @@ def main():
     lock_path=ROOT/'web/toolchain.lock.json'; lock=tools.load_lock(lock_path)
     sdk=tools.local_root(ROOT); state=tools.status(sdk,lock,tools.sha256(lock_path))
     tools.require(state['ready'],'Run tools/web_toolchain.py bootstrap first')
-    library=ROOT/'build/web/raylib/libraylib.web.a'; lib_manifest=library.with_name('build.json')
+    library=ROOT/'.cache/web/raylib/libraylib.web.a'; lib_manifest=library.with_name('build.json')
     tools.require(library.is_file() and lib_manifest.is_file(),'Run tools/build_web_raylib.py first')
     lib=json.loads(lib_manifest.read_text());tools.require(tools.sha256(library)==lib['library_sha256'],'raylib web archive changed')
     tools.require(lib.get('adapter')=={str(p.relative_to(ROOT)):tools.sha256(p) for p in adapter.INPUTS},'Rebuild the current browser platform adapter with tools/build_web_raylib.py')
@@ -24,8 +25,8 @@ def main():
     if options.codec_read_driver:
         headers+=[ROOT/'tests'/name for name in ('test_browser_codec_sorts.inc','test_browser_codec_preferences.inc','test_browser_codec_objects.inc','test_browser_codec_queries.inc','test_browser_codec_options.inc','test_browser_codec_tables.inc','test_browser_codec_pivot_marks.inc','test_browser_codec_filters.inc','test_browser_codec_grid.inc','test_browser_codec_counters.inc','test_browser_codec_source_counters.inc','test_browser_codec_source_versions.inc','test_browser_codec_source_bindings.inc','test_browser_codec_format_rows.inc') if (ROOT/'tests'/name).is_file()]
     host=[ROOT/'web/index.html',ROOT/'web/host.mjs',ROOT/'web/canvas_input.mjs',ROOT/'web/canvas_surface.mjs',ROOT/'web/canvas_wheel.mjs',ROOT/'web/browser_platform.mjs',ROOT/'web/clipboard.mjs',ROOT/'web/download.mjs',ROOT/'web/official_worker.mjs',ROOT/'web/engine_host.mjs',ROOT/'web/page_wire.mjs',ROOT/'assets/icons/png/duxcel-32.png']
-    if options.worker_driver:host=[p for p in host if p.name not in ('index.html','host.mjs','canvas_input.mjs')]+[ROOT/'web/worker_test_host.mjs']
-    if options.codec_read_driver:host=[ROOT/'web'/name for name in ('official_worker.mjs','engine_host.mjs','page_wire.mjs','codec_test_host.mjs','codec_stream_transport.mjs')]
+    if options.worker_driver:host=[p for p in host if p.name not in ('index.html','host.mjs','canvas_input.mjs')]+[ROOT/'web/tests/support/worker_test_host.mjs']
+    if options.codec_read_driver:host=[ROOT/('web/tests/support' if name=='codec_test_host.mjs' else 'web')/name for name in ('official_worker.mjs','engine_host.mjs','page_wire.mjs','codec_test_host.mjs','codec_stream_transport.mjs')]
     if options.review:host=[p for p in host if p.name!='host.mjs']+[ROOT/'web/host_review.mjs',ROOT/'web/review_host.mjs',ROOT/'web/review_queue.mjs']
     assets=sorted(p for base in ('assets/fonts','assets/ui') for p in (ROOT/base).rglob('*') if p.is_file())
     duckdb_flags=shlex.split(tools.command(['make','--no-print-directory','web-duckdb-flags']))
@@ -52,7 +53,7 @@ def main():
             link=[value.replace("'_dx_browser_file_result']","'_dx_browser_file_result','_dx_browser_review_result']") for value in link]
         # Only DuckDB's type declarations are read from its existing native header;
         # no native engine, thread, Objective-C or web runtime is linked into C UI.
-        inputs={str(p.relative_to(ROOT)):tools.sha256(p) for p in [*(ROOT/p for p in sources),*headers,*host,*assets,ROOT/'Makefile',Path(__file__),ROOT/'tools/web_object_cache.py']}
+        inputs={str(p.relative_to(ROOT)):tools.sha256(p) for p in [*(ROOT/p for p in sources),*headers,*host,*assets,ROOT/'Makefile',Path(__file__),ROOT/'tools/web_object_cache.py',ROOT/'tools/browser_test_assets.py']}
         if options.review:
             inputs[str(review_header.relative_to(ROOT))]=tools.sha256(review_header)
             inputs['tools/review_build_info.py']=tools.sha256(ROOT/'tools/review_build_info.py')
@@ -99,7 +100,10 @@ def main():
             result=subprocess.run(command,cwd=ROOT,env=env,stdout=output,stderr=subprocess.STDOUT)
             tools.require(result.returncode==0,'Browser link failed; see '+str(log))
         tools.require(source_metadata(ROOT)==before,'Source changed during browser build')
-        for path in host:shutil.copyfile(path,stage/('host.mjs' if path.name in ('worker_test_host.mjs','codec_test_host.mjs','host_review.mjs') else path.name))
+        for path in host:
+            target=stage/('host.mjs' if path.name in ('worker_test_host.mjs','codec_test_host.mjs','host_review.mjs') else path.name)
+            if path.parent==ROOT/'web/tests/support':target.write_text(flat_test_module(path))
+            else:shutil.copyfile(path,target)
         if no_window:(stage/'index.html').write_text('<!doctype html><title>Duxcel '+('header codec' if options.codec_read_driver else 'Worker')+' acceptance</title><script type="module" src="./host.mjs"></script>')
         packaged=vendor.package_vendor(ROOT,stage)
         tools.require(packaged['files']==vendor_inputs,'Vendor inputs changed during build')
@@ -121,6 +125,6 @@ def main():
         print(json.dumps(dict(status='built',directory=str(destination),manifest=record),indent=2));return 0
 if __name__=='__main__':
     try:
-        with FileLock(ROOT/'build/.web-build.lock','Web builds in this worktree'):
+        with FileLock(ROOT/'.state/web-build.lock','Web builds in this worktree'):
             raise SystemExit(main())
     except (OSError,ValueError,subprocess.SubprocessError) as error:print(str(error));raise SystemExit(1)

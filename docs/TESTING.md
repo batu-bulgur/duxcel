@@ -30,15 +30,15 @@ make build/tests/test_core build/tests/test_workbook
 make test-full TEST_ARGS='--require-data'
 ```
 
-Each worktree owns its writable fixtures. Public data is cached at `build/data/`; `tests/download_data.sh` reproduces optional sources only on explicit request. Missing required data fails; optional skips remain explicit. The canonical 310-row and large transaction fixtures are generated entirely by C/DuckDB; `make test-fixture` checks normal and sanitizer paths, exact sums/counts/PIVOT shape, SQL NULL/empty text and saved workbooks.
+Each worktree owns its writable fixtures. Public data is cached at `data/downloads/`; `tools/download_test_data.py` reproduces optional sources only on explicit request. Missing required data fails; optional skips remain explicit. The canonical 310-row and large transaction fixtures are generated entirely by C/DuckDB; `make test-fixture` checks normal and sanitizer paths, exact sums/counts/PIVOT shape, SQL NULL/empty text and saved workbooks.
 
 The complete maintained native scenario inventory is larger than an ordinary focused check. Full regression is appropriate at coherent integration/release boundaries or for changes to shared ownership/rendering, not after each cosmetic edit. No new full pass is implied by an isolated profile passing.
 
 ## Build, runner and review contracts
 
 ```sh
-python3 tools/test_runner_test.py
-python3 tools/test_build.py
+python3 -m tools.tests.test_runner
+python3 -m tools.tests.test_build
 python3 tools/test_review_build.py --self-test
 make review
 python3 tools/test_review_build.py
@@ -53,7 +53,7 @@ The runner detects sanitizer diagnostics even with exit0, incomplete terminal su
 ```sh
 make web
 make web-review
-node --test --test-concurrency=2 web/*.test.mjs tools/cdp_keyboard.test.mjs tools/test_web_cdp.test.mjs
+node --test --test-concurrency=2 web/tests/*.test.mjs
 python3 tools/test_web_app.py --review --inspector-sql-only --source tests/fixtures/transactions.csv --dpr 2
 python3 tools/package_web_pages.py
 python3 tools/test_web_pages.py --directory build/pages
@@ -65,15 +65,17 @@ Use the existing pinned SDK and dependencies. Bootstrap/download only when expli
 
 ## Outputs and retention
 
-Everything generated belongs under ignored `build/`:
+Disposable build/test output belongs under ignored `build/`:
 
 - `bin/`: optimized/O1 native executables and executable-relative assets link.
 - `obj/`: separate release/sanitizer/edit/review objects and dependency sidecars.
 - `tests/`: module executables, `generated/` databases and `results/` logs/screenshots/summaries.
-- `data/`: optional cached public CSV/Parquet inputs.
-- `web/`: pinned SDK/raylib plus disposable Wasm packages/objects; `pages/` is production staging.
+- Reference inputs live separately in `data/downloads/`; clean targets preserve them.
+- `web/`: disposable Wasm packages/objects; `pages/` is production staging. SDK/raylib caches live separately in `.cache/web/`.
 - `Duxcel.app/`: local signed macOS bundle.
 
 The runner records source/binary hashes, commands, expected completion, exit status and elapsed time. Native/browser scenarios may capture selected states for inspection; not every build takes new screenshots and old captures are not automatically a before/after baseline. Meaningful visual comparison requires the same fixture, viewport, UI scale, sheet zoom and state. Keep failures or a few useful frames while investigating; remove obsolete outputs after integration. Do not commit full screenshot/event/log capsules.
 
-`make clean` removes generated outputs while retaining the installed SDK/raylib and public-data cache. `make distclean` also removes those caches and `web/node_modules`; do not use it for routine edit loops. Authored tests, small fixtures, assets/licenses, user data and the external review outbox remain. Git stores historical code/evidence; no separate archive tree is required in HEAD.
+`make clean` removes all of `build/`. `make distclean` also removes `.cache/` and `web/node_modules`. Both preserve `data/downloads/`, authored fixtures, assets/licenses, user workbooks and the external review outbox. Stable locks in `.state/` stay intact. Legacy data/cache is migrated before cleanup; conflicting copies cause refusal rather than overwrite. A moved SDK may require offline bootstrap to refresh its absolute configuration.
+
+Use `python3 -m unittest discover -s tools/tests -t .` for automation contracts, `make test-build` for the real miniature Make graph, and `npm test --prefix web` for browser adapter/contracts. Native suite sources remain under `tests/`; product-linked helpers under `tests/support/`; browser test-only hosts/probes and drivers under `web/tests/`. No test source is a disposable output. Only targeted tests are required during edits; full native/browser/OS acceptance remains separately scoped.

@@ -9,7 +9,7 @@ import re
 import subprocess
 import time
 
-from test import FileLock, native_lock_path, source_metadata, utc_now
+from workspace import FileLock, native_lock_path, source_metadata, utc_now
 from native_review import ReviewStore, default_project
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,7 +35,7 @@ def main():
     (ROOT/'build/tests/results/native-review').mkdir(parents=True,exist_ok=True)
     summary={'started_utc':utc_now(),'status':'failed','configs':{},'scope':'hidden renderer/controller acceptance; OS responder/IME/physical gestures remain manual'}
     try:
-        with FileLock(ROOT/'build/.test-runner.lock','worktree tests'):
+        with FileLock(ROOT/'.state/test-runner.lock','worktree tests'):
             configs=['release','sanitize'] if args.config=='both' else [args.config]
             if not args.no_build:
                 targets=[('review' if c=='release' else 'review-debug') for c in configs]+['build/tests/test_background-native-debug']

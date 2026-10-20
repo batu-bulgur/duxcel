@@ -13,7 +13,7 @@ import threading
 import time
 import urllib.request
 
-from test import FileLock, native_lock_path, source_metadata
+from workspace import FileLock, native_lock_path, source_metadata
 from test_web_app import LoopbackServer
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,7 +49,7 @@ def main():
             with urllib.request.urlopen(url + 'release.json', timeout=60) as response:
                 release = json.load(response)
             before = source_metadata(ROOT)
-            command = ['node', 'tools/test_web_app.mjs', url, str(output / 'cdp'),
+            command = ['node', 'web/tests/driver.mjs', url, str(output / 'cdp'),
                        '--source', str(ROOT / 'tests/fixtures/transactions.csv'), '--filters']
             with (output / 'browser.txt').open('w') as log:
                 result = subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, timeout=240)

@@ -14650,7 +14650,7 @@ AppSession *app_start(const AppOptions *options) {
     if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882)) { SetWindowSize(1440,988); open_source(a,layout_start==882 ? "tests/fixtures/transactions.csv" : "tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
-    else if (options->nyc_smoke) open_source(a,"build/data/yellow_tripdata_2025-01.parquet",false);
+    else if (options->nyc_smoke) open_source(a,"data/downloads/yellow_tripdata_2025-01.parquet",false);
     else if (options->sort_smoke) open_source(a,"tests/fixtures/sort-keys.csv",false);
     else if (options->chart_smoke) open_source(a,"tests/fixtures/chart-series.csv",false);
     else if (options->statistics_smoke) open_source(a,"tests/fixtures/transactions.csv",false);

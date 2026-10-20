@@ -1,5 +1,20 @@
-# UI regression inputs
+# UI expected-value contracts
 
-These four immutable JSON inputs retain accepted panel geometry, scrolling and paint measurements used by the real C/Wasm tests. They contain no executable UI and are not a design specification. The former mock has been retired; current native behavior and written requirements define the product. Change these baselines deliberately when an intended native behavior changes.
+These are test inputs for real C UI behavior, never executable mock/design code.
+Each JSON has a schema, version and a finite set of accepted states:
 
-Original captures and sources remain in Git at `archive/pre-layout-cleanup-20261018`. Image paths and source hashes inside these files are historical provenance; tests do not reopen those sources or require those images. The test driver validates these files themselves and actual application behavior.
+| File | Consumer / expected values |
+| --- | --- |
+| `rail-measurements.json` | Expanded panel/control bounds at four viewport/scale combinations |
+| `steps-scroll.json` | Seven Steps panel/header/list states including inner/outer scrolling |
+| `sql-inspector.json` | Six SQL inspector states, bounds, wrapping and fractional scroll limits |
+
+`web/tests/support/ui_contracts.mjs` checks the inputs and prepares expected values;
+`web/tests/driver.mjs` compares actual C state, controls and pixels against them.
+The contract test preserves the accepted geometry/scroll/color fingerprints.
+Intentional UI changes require deliberate expectation changes and real behavior
+verification, not blindly preserving old pixels.
+
+Old run commands, source manifests, screenshot provenance, exploratory states
+and historical pass reports have been removed. Original material remains in Git.
+These inputs have no dependency on old sessions or deleted mock source files.

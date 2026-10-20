@@ -22,10 +22,20 @@ def category(path):
     name = path.name
     if name == ".DS_Store":
         return "os-metadata"
+    if "__pycache__" in parts or path.suffix in {".pyc", ".pyo"}:
+        return "python-bytecode-cache"
     if "node_modules" in parts:
         return "installed-dependency"
-    if parts[:2] == ("build", "data"):
-        return "cached-public-dataset"
+    if parts[0] == ".cache":
+        return "dependency-cache"
+    if parts[0] == ".state":
+        return "workspace-lock-state"
+    if parts[:2] == ("data", "downloads"):
+        return "downloaded-reference-data"
+    if parts[:2] == ("tools", "tests"):
+        return "tooling-test-source"
+    if parts[:2] == ("web", "tests"):
+        return "browser-test-source"
     if parts[:3] == ("build", "tests", "generated"):
         return "generated-fixture"
     if parts[:3] == ("build", "tests", "results"):
