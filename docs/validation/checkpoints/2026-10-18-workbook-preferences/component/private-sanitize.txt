@@ -1,1 +1,0 @@
-PASS: workbook header reader 3928 checks (1391 unchanged base Header; 1829 original optional sorts, 3220 combined; 708 optional preferences; bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures; no Worker preferences or workbook Open support)

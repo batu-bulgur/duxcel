@@ -1,2 +1,0 @@
-Command: ["./tests/test_chart_other-debug"]
-PASS: 396 Chart Other component checks; real source AVG/distinct, no App/UI activation

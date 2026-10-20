@@ -1,2 +1,0 @@
-Command: ["./tests/test_stepview-debug"]
-PASS: 57 native step checks (source scope, exact filter labels, typed NULL/empty/literal keys, owned prefix previews, sort/group order and bounds)

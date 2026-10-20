@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "tools/build_web.py"
-  ],
-  "exit_code": 0,
-  "elapsed_seconds": 19.05,
-  "source_revision": "689f0a7c2ccb576a3a9f95ee783da1d67b1885c9"
-}

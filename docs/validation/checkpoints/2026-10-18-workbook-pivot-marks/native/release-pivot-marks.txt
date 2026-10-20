@@ -1,1 +1,0 @@
-PASS: native Pivot Marks 20702 checks; 250 cursor metadata executions/259 typed feeds; exact complete definitions and 288 Pivot/320 Marks cross256 composition, NULL-empty-literal, native closed-handle parity, empty defaults and atomic error/budget/stale/recovery; source SQL never executed; native comparison only, no Worker/App Open claim; engine v1.5.6

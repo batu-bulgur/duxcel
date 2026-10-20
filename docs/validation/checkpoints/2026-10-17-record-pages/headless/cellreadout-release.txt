@@ -1,2 +1,0 @@
-Command: ["./tests/test_cellreadout"]
-PASS: 133 active-value snapshot checks (owned prefixes, exact decimals, UTF-8 bounds, NULL/empty/literal distinctions, non-finite values and alias safety)

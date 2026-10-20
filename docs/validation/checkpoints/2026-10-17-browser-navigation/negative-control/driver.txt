@@ -1,3 +1,0 @@
-Error: Shared canvas navigation escaped to browser defaults
-    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:30:56)
-    at file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:244:2

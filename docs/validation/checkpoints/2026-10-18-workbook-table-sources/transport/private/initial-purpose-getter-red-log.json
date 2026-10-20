@@ -1,8 +1,0 @@
-{
-  "schema": "duxcel.original-text-receipt",
-  "version": 1,
-  "scope": "Lossless UTF-8 JSON envelope only, preserving original Node failure log bytes including trailing whitespace; not a cleaned or summarized log.",
-  "original_bytes": 1081,
-  "original_sha256": "10684286b3163473cbf8a5e8e72c37f99f95bbe3f988f80fed69221b50aae50c",
-  "text": "✖ validated Table purpose stays frozen when a caller getter changes during copying (1.692125ms)\nℹ tests 1\nℹ suites 0\nℹ pass 0\nℹ fail 1\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 137.861291\n\n✖ failing tests:\n\ntest at web/official_worker.test.mjs:322:1\n✖ validated Table purpose stays frozen when a caller getter changes during copying (1.692125ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + 'copy'\n  - 'workbook-table-filters'\n  \n      at TestContext.<anonymous> (file:///Users/h2o/.codex/worktrees/duxcel-table-transport-tests/duxcel/web/official_worker.test.mjs:325:54)\n      at Test.runInAsyncScope (node:async_hooks:226:14)\n      at Test.run (node:internal/test_runner/test:1397:25)\n      at Test.start (node:internal/test_runner/test:1257:17)\n      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: 'copy',\n    expected: 'workbook-table-filters',\n    operator: 'strictEqual',\n    diff: 'simple'\n  }\n"
-}

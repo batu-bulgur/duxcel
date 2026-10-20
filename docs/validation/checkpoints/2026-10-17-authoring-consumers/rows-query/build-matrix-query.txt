@@ -1,5 +1,0 @@
-Command: ["make", "build/web-tests/test-query", "build/web-tests/test-query-sanitize"]
-mkdir -p build/web-tests
-clang -Isrc -I/opt/homebrew/include -O2 -g -std=c99 -Wall -Wextra -Wpedantic src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/page_wire.c src/data/browser_query.c tests/test_browser_query.c -o build/web-tests/test-query -lm
-mkdir -p build/web-tests
-clang -Isrc -I/opt/homebrew/include -O1 -g -std=c99 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/page_wire.c src/data/browser_query.c tests/test_browser_query.c -o build/web-tests/test-query-sanitize -lm -fsanitize=address,undefined -fno-omit-frame-pointer

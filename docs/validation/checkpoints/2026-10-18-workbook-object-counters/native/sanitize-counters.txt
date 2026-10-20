@@ -1,1 +1,0 @@
-PASS: native object counters 30993 checks; 65 metadata executions/202 typed feeds;64-sheet v12 max-live reconstruction/v13-v14 required retired-exhausted exact U64/native issuer parity, reorder, atomic late/null/type/missing/duplicate/foreign/65-sentinel/budget/stale/recovery; source SQL never executed, partial Header only; engine v1.5.6

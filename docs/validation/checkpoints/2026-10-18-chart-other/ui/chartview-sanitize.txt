@@ -1,2 +1,0 @@
-PASS: bounded cached matrix-to-chart mapping, Column X categories, ranked Row series, selected measure, Other aggregates, NULL/non-finite/partial results and readable finite ticks
-187 chart checks

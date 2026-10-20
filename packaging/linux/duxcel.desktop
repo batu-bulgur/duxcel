@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Duxcel
-Comment=DuckDB analytical spreadsheet
-Exec=duxcel %F
-Icon=dev.duxcel.desktop
-Terminal=false
-Categories=Office;Spreadsheet;
-StartupNotify=true

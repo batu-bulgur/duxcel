@@ -1,6 +1,0 @@
-ID,City,Amount,Date,Approved,Note
-1,İstanbul,12.50,2026-01-01,true,First
-2,Ankara,30.00,2026-01-02,false,
-3,İstanbul,7.25,2026-01-03,true,"Has, comma"
-4,İzmir,100.00,2026-01-04,false,"A ""quote"""
-5,Bursa,-4.50,2026-01-05,true,Last

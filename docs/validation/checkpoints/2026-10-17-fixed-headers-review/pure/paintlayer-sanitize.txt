@@ -1,2 +1,0 @@
-Command: ["./tests/test_paintlayer-debug"]
-PASS: 1686 paint-layer geometry checks (pixel alignment, DPI, retained capacity and resource bounds)

@@ -1,2 +1,0 @@
-Command: ["./tests/test_brand"]
-PASS: 1501 icon geometry checks (triangulation, bounds, optical gaps and 1/1.25/1.5/2x scales)

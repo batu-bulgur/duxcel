@@ -1,2 +1,0 @@
-binding bootstrap step1 unavailable1 retained95372 owned68416 status-1 diagnostic=This source reference needs a bounded locator resolver.
-FAIL native workbook header:91: status==WORKBOOK_CODEC_READ_ACCEPTED&&!error

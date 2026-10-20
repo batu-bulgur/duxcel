@@ -1,3 +1,0 @@
-Error: Real C/Worker header decoding failed; see codec-read-driver.json and events.json
-    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:213:56)
-    at file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:2852:3

@@ -1,2 +1,0 @@
-Command: ["./tests/test_preview"]
-PASS: 319 historical preview checks (geometry, real worker prefixes/counts/paging, ownership, stale/cancelled replies, widths and unchanged live source)

@@ -1,1 +1,0 @@
-PASS browser-persistence verify-owners: native owner-only v13 metadata and spatial formats retained with exact uint64 lifetimes; 59 checks

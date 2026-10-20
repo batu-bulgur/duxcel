@@ -1,6 +1,0 @@
-Logs: /Users/h2o/dev/duxcel/tests/results/runs/20261017T231944-formats-12344
-RUN    build-formats: /Users/h2o/dev/duxcel/tests/results/runs/20261017T231944-formats-12344/build-formats.txt
-PASSED build-formats: 8.473s
-PASSED formats-release: 2.139s
-PASSED formats-sanitize: 8.763s
-PASSED: 19.516s; 0 application stages; /Users/h2o/dev/duxcel/tests/results/runs/20261017T231944-formats-12344/summary.json

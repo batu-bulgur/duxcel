@@ -1,6 +1,0 @@
-{
-  "status": "passed",
-  "profile": "metadata-stream-probe",
-  "checks": 18,
-  "scope": "Official Worker transport-only synthetic SQL; no C App, C workbook decoder, native archive parity, UI/OpenSave or review delivery"
-}

@@ -1,2 +1,0 @@
-Command: ["./tests/test_sortview_input_review"]
-PASS: 932 Sort pointer checks (actual wizard/shared UI/Analysis; blocked focus/wheel/thumb, clipped and translated pointer, retained drag and normal keyboard; no GPU/OS/engine)

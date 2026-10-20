@@ -1,9 +1,0 @@
-Command: ["./tests/test_grid-debug"]
-INFO: FILEIO: [assets/ui/carbon-atlas.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (512x640 | R8G8B8A8 | 1 mipmaps)
-INFO: FILEIO: [assets/fonts/JetBrainsMono-Regular.ttf] File loaded successfully
-INFO: FILEIO: [assets/fonts/IBMPlexSans-Regular.otf] File loaded successfully
-INFO: FILEIO: [assets/fonts/IBMPlexSans-Medium.otf] File loaded successfully
-INFO: FILEIO: [assets/fonts/IBMPlexSans-SemiBold.otf] File loaded successfully
-PASS: grid input, geometry, selection, fractional scrolling, thumb dragging, resizing, zoom and empty relations
-36562 grid checks

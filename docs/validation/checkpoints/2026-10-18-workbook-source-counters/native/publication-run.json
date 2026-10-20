@@ -1,8 +1,0 @@
-{
-  "command": [
-    "python3",
-    "build/bp1-source-counters-native/check-emitters.py"
-  ],
-  "seconds": 5.103938,
-  "exit_code": 0
-}

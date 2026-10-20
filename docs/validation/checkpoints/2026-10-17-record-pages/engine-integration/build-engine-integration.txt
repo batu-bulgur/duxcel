@@ -1,9 +1,0 @@
-Command: ["make", "tests/test_core", "tests/test_workbook", "tests/test_page-engine", "build/web-tests/test-wire", "tests/test_core-debug", "tests/test_workbook-debug", "tests/test_page-engine-debug", "build/web-tests/test-wire-sanitize"]
-make: `tests/test_core' is up to date.
-make: `tests/test_workbook' is up to date.
-make: `tests/test_page-engine' is up to date.
-make: `build/web-tests/test-wire' is up to date.
-make: `tests/test_core-debug' is up to date.
-make: `tests/test_workbook-debug' is up to date.
-make: `tests/test_page-engine-debug' is up to date.
-make: `build/web-tests/test-wire-sanitize' is up to date.

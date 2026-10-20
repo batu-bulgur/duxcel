@@ -1,2 +1,0 @@
-Command: ["./tests/test_keytips-debug"]
-PASS: sequential Excel keytips and custom extension metadata, 2683 checks

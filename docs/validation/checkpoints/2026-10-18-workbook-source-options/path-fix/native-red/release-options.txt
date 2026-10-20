@@ -1,2 +1,0 @@
-options sheet0 kind1 path </missing-source.csv>/</missing-source.csv> reference </missing-source.csv> name <Sorted 'İ' 0>/<Sorted 'İ' 0>
-FAIL native workbook header:80: primary&&primary->kind==SOURCE_CSV&&text_same(primary->path,s->analysis.path)&&!strcmp(workbook_codec_header_reference(*out,sheet),"missing-source.csv")&&!strcmp(workbook_codec_header_name(*out,sheet),s->name)

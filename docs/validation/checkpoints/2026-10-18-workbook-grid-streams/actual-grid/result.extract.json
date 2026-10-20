@@ -1,6 +1,0 @@
-{
-  "status": "passed",
-  "profile": "codec-grid-driver",
-  "checks": 282,
-  "scope": "Partial owned Header with ACKed column presentation and sparse-cell streams only; no Workbook publication, App Save/Open or engine/RSS peak bound"
-}

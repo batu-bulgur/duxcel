@@ -1,5 +1,0 @@
-#include "ui/fontmetrics.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-int main(void){const char *path="assets/fonts/IBMPlexSans-Regular.otf";FILE *f=fopen(path,"rb");if(!f)return 1;fseek(f,0,SEEK_END);long n=ftell(f);rewind(f);unsigned char*d=malloc((size_t)n);if(!d||fread(d,1,(size_t)n,f)!=(size_t)n)return 2;fclose(f);UIFontMetrics m;if(!ui_font_metrics_init(&m,d,(size_t)n))return 3;const char*labels[]={"Copy SQL","Steps"};float css[]={47.09375f,27.984375f};for(int i=0;i<2;i++)for(int j=0;j<2;j++){float s=j?1.5f:1.0f,advance=0;for(const unsigned char*p=(const unsigned char*)labels[i];*p;p++)advance+=ui_font_advance_em(&m,*p)*11*s;float slot=ceilf(css[i]*s*64)/64;printf("%s scale=%.1f actual_unkerned=%.9f frozen_slot=%.9f overflow=%.9f right_padding=%.9f extra_available=%.9f\n",labels[i],s,advance,slot,advance-slot,7*s+1,7*s+1-(advance-slot));}free(d);return 0;}

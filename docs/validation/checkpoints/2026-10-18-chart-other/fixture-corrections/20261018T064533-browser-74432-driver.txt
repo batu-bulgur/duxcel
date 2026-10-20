@@ -1,6 +1,0 @@
-Error: SUM Rank Bar changed its retained source/matrix/Other/cache ownership
-    at check (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:128:56)
-    at retained (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:620:3)
-    at plotted (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:628:3)
-    at browserChartOther (file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:637:40)
-    at async file:///Users/h2o/dev/duxcel/tools/test_web_app.mjs:2776:20

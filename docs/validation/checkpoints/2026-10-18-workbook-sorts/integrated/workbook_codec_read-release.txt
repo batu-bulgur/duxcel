@@ -1,2 +1,0 @@
-Command: ["./tests/test_workbook_codec_read"]
-PASS: workbook header reader 3220 checks (1391 unchanged base Header; 1829 optional sorts; bounded typed families, exact keys, schema/null/text/viewport validation, deep ownership and atomic budget failures; no Worker sorts or workbook Open support)

@@ -1,2 +1,0 @@
-Command: ["./tests/test_ui_font_fallback-debug"]
-PASS: 1715 font fallback checks (actual ui.c, bundled CPU glyphs; no GPU/window)
