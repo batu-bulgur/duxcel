@@ -14,7 +14,7 @@
 
 - Build products, generated databases, captures and logs belong under ignored `build/`. Keep downloaded dependencies in `.cache/`, reference data in ignored `data/downloads/`, and checkout locks in `.state/`. Ordinary `make` produces `build/bin/duxcel`; `make bundle` produces `build/Duxcel.app`.
 - `make clean` removes all of `build/`; `make distclean` also removes dependency caches and `web/node_modules`. Both preserve downloaded reference data, authored inputs, lock inodes and user workbooks. Migrate legacy inputs safely; refuse conflicting copies. Do not recreate root/test executables.
-- Prefer existing modules. Keep one integration owner for App/shared UI interfaces/build. At most two active implementation lanes in isolated branches/worktrees and two simultaneous compiler/engine processes on this 8 GB Mac. Read-only review may run concurrently.
+- Prefer existing modules. Keep one integration owner for App/shared UI interfaces/build. At most two active implementation lanes in isolated branches/worktrees. Compile independent native translation units with eight parallel jobs by default (`BUILD_JOBS=8`); recursive makes share that jobserver. This supersedes the old two-compiler cap. Keep mutable engine suites serial, at most two already-built read-only tests, and one desktop owner on this 8 GB Mac. Read-only review may run concurrently.
 - Review small commits, integrate accepted work and remove completed clean checkouts while retaining refs. Preserve unfinished work. Never force-reset another branch or change global Git identity.
 - Attribute Codex commits to `Codex <codex@openai.com>` as author and committer using environment variables only on the commit command.
 

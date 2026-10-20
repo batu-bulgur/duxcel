@@ -21,7 +21,9 @@ Native automated windows are hidden by default and use a real graphics context/f
 
 ## Engine and integration ordering
 
-The core suite writes fixture databases consumed by workbook tests. Run core before workbook and finish one configuration before another overwrites generated files. Mutable engine suites remain serial. Read-only already-built pure tests may use `--jobs 2`; keep at most two compiler/engine processes on this Mac.
+Ordinary `make`, `make debug`, `make bundle` and incremental native binary/object targets compile with eight parallel jobs by default. Use `make BUILD_JOBS=16` to change that budget or `make BUILD_JOBS=1` for a serial comparison (Apple Make 3.81 applies Makefile job flags after command-line `-j`). Recursive makes inherit the existing jobserver. Legacy whole-program module-test build recipes remain serial until they have compatible per-file objects; do not share their renderer stubs with the App. Mixed goals outside the admitted native build graph also remain serial.
+
+Compilation parallelism is separate from executing tests. The core suite writes fixture databases consumed by workbook tests. Run core before workbook and finish one configuration before another overwrites generated files. Mutable engine suites remain serial. Read-only already-built pure tests may use `--jobs 2`; native desktop tests still have one owner.
 
 ```sh
 make build/tests/test_core build/tests/test_workbook

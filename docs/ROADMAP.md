@@ -11,7 +11,8 @@ Continue product correctness, persistence internals and focused tests together. 
 - [x] Separate reference data, dependency caches and stable locks from disposable build output; clean preserves data.
 - [ ] Improve orchestration through its existing Python boundary with equivalent timeout, locking, failure/recovery and browser/platform coverage; no blanket language rewrite.
 - [ ] Extract native scenarios from App into a test-only build boundary without losing assertions. Split cohesive App controllers only when directly needed.
-- [ ] Extend compatible per-file compilation to module tests, then relax global build serialization where ownership and memory limits permit.
+- [x] Default incremental native App/review/helper builds to eight parallel compilation jobs, with one icon-generation owner and separate configuration/temp outputs. Keep mutable engine/desktop execution serialized.
+- [ ] Extend compatible per-file compilation to legacy module-test builds, preserving renderer-stub/configuration boundaries before admitting their graph to parallel builds.
 - [ ] Split the large browser integration driver by workflow behind one shared CDP/lifecycle layer; remove duplicated helpers instead of writing a second engine.
 
 ## Persistence and source identity

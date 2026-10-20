@@ -22,6 +22,8 @@ Build/test outputs are isolated under `build/`, dependency caches under `.cache/
 
 Historical receipts and discarded studies remain in Git at `archive/pre-layout-cleanup-20261018`, not in active agent context. No new full application-inventory acceptance is implied by this layout cleanup.
 
+Incremental native App/review/helper builds now default to eight compilation jobs (`BUILD_JOBS`), sharing a recursive Make jobserver. Legacy whole-program module builds and mutable test execution remain serial. On this Mac, an isolated clean optimized App build compiled 56 translation units in 18.852s with one job versus 9.630s with eight (1.96×); warm builds took about 0.46s with no compiler/linker calls. The focused gate passes 73 real Make checks and 37 runner/workspace contracts. The parallel-built optimized and O1 ASan/UBSan applications each complete six hidden native stages (3.676s/3.652s). This changes the native build graph, not product behavior or Wasm compilation; no new full regression is claimed. Concise hashes/timings live in ignored `build/tests/results/parallel-build/summary.json`.
+
 ## Tooling boundary verification
 
 The role/layout integration passes 169 Python contracts, 325 Node contracts, 60 real incremental/atomic Make checks and optimized/O1 ASan/UBSan canonical/large C fixture runs. Focused grid/inspector/shadow/codec checks pass both configurations; hidden native selection completes 41 stages (90.7s including builds), then base/NYC completes 14 stages (10.3s). The restored NYC source is in `data/downloads/`.

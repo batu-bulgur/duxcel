@@ -2,6 +2,7 @@
 """Exercise the real Make build graph in an isolated, tiny C99 checkout."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -47,12 +48,33 @@ if '--check' in sys.argv:
 with (root/'generations.log').open('a') as log: log.write('generated\\n')
 for p in outputs: p.write_bytes(expected)
 ''')
-        (tree / "tools/compiler.py").write_text('''import fcntl, json, pathlib, shutil, subprocess, sys
-with pathlib.Path('compiler.lock').open('a') as lock:
-    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    with pathlib.Path('compiler.jsonl').open('a') as log:
-        log.write(json.dumps(sys.argv[1:])+'\\n')
-    sys.exit(subprocess.call([shutil.which('clang'),*sys.argv[1:]]))
+        (tree / "tools/compiler.py").write_text('''import fcntl, json, os, pathlib, shutil, subprocess, sys, time
+state_path=pathlib.Path('compiler-state.json')
+def activity(delta):
+    with pathlib.Path('compiler.lock').open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        state=json.loads(state_path.read_text()) if state_path.exists() else dict(active=0,peak=0,started=0)
+        state['active']+=delta
+        if delta>0:
+            state['started']+=1
+            state['peak']=max(state['peak'],state['active'])
+            with pathlib.Path('compiler.jsonl').open('a') as log:
+                log.write(json.dumps(sys.argv[1:])+'\\n')
+        state_path.write_text(json.dumps(state))
+        return state
+activity(1)
+try:
+    # A bounded barrier proves eight simultaneous compiler invocations rather
+    # than merely observing -j8 in command text or relying on timing luck.
+    expected=int(os.environ.get('DUXCEL_BUILD_BARRIER','0'))
+    deadline=time.monotonic()+15
+    while expected and activity(0)['started']<expected:
+        if time.monotonic()>deadline: raise RuntimeError('parallel compiler barrier timed out')
+        time.sleep(.01)
+    result=subprocess.call([shutil.which('clang'),*sys.argv[1:]])
+finally:
+    activity(-1)
+sys.exit(result)
 ''')
         settings = ["BREW_PREFIX=", "RAYLIB_CFLAGS=", "RAYLIB_LIBS=", "DUCKDB_CFLAGS=-Igenerated -Isrc",
                     "DUCKDB_LIBS=-lm", "CPPFLAGS=-Igenerated -Isrc", "LDLIBS=-lm", "THREAD_LIBS=",
@@ -76,16 +98,26 @@ with pathlib.Path('compiler.lock').open('a') as lock:
             next_timestamp()
             path.write_text(text)
 
-        def build(target="build/bin/duxcel", options=(), success=True):
+        def build(target="build/bin/duxcel", options=(), success=True, env=None):
             if target in previous_options and tuple(options) != previous_options[target]:
                 next_timestamp()
             previous_options[target] = tuple(options)
             before = len(commands())
-            result = subprocess.run(["make", "-j4", target, *settings, *options], cwd=tree,
-                                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            targets = [target] if isinstance(target, str) else list(target)
+            result = subprocess.run(["make", *targets, *settings, *options], cwd=tree, env=env,
+                                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
             check((result.returncode == 0) == success, result.stdout)
             calls = commands()[before:]
             return [call[call.index("-c") + 1] for call in calls if "-c" in call], sum("-c" not in call for call in calls)
+
+        probe_sources = [f"src/parallel_{index}.c" for index in range(8)]
+        probe_targets = tuple("build/obj/release/app/" + source[:-2] + ".o" for source in probe_sources)
+        for index, source in enumerate(probe_sources):
+            (tree / source).write_text(f"int parallel_{index}(void) {{ return {index}; }}\n")
+        compiled, links = build(probe_targets, env=dict(os.environ, DUXCEL_BUILD_BARRIER="8"))
+        check(sorted(compiled) == probe_sources and links == 0, "parallel object targets compile their own sources")
+        activity = json.loads((tree / "compiler-state.json").read_text())
+        check(activity["peak"] == 8 and activity["active"] == 0, "ordinary make must admit eight compiler jobs")
 
         compiled, links = build()
         check(sorted(compiled) == ["src/first.c", "src/main.c"] and links == 1, "cold app compilation")
@@ -166,6 +198,35 @@ with pathlib.Path('compiler.lock').open('a') as lock:
         check(len((tree / "generations.log").read_text().splitlines()) == 2, "canonical change regenerates once")
         check(build(options=["CFLAGS=-O0 -g", "LDFLAGS=-lm"]) == ([], 0), "repaired icon graph returns to a warm no-op")
         subprocess.run([str(tree / "build/bin/duxcel")], cwd=tree, check=True)
+
+        for target in probe_targets:
+            (tree / target).unlink()
+        (tree / "compiler-state.json").unlink()
+        compiled, links = build(probe_targets, options=["BUILD_JOBS=1"])
+        check(len(compiled) == 8 and links == 0, "serial budget still compiles every object")
+        check(json.loads((tree / "compiler-state.json").read_text())["peak"] == 1, "BUILD_JOBS override controls actual concurrency")
+
+        # Legacy fixture/execution goals must retain serialization even though
+        # their admitted object prerequisites can be compiled in parallel alone.
+        with (tree / "Makefile").open("a") as makefile:
+            makefile.write("\nserial-probe: " + " ".join(probe_targets) + "\n")
+        for target in probe_targets:
+            (tree / target).unlink()
+        (tree / "compiler-state.json").unlink()
+        compiled, links = build("serial-probe")
+        check(len(compiled) == 8 and links == 0, "serial execution goals retain their prerequisites")
+        check(json.loads((tree / "compiler-state.json").read_text())["peak"] == 1, "legacy execution graphs remain serial")
+
+        build()  # The application is warm before probing inherited job slots.
+        with (tree / "Makefile").open("a") as makefile:
+            makefile.write("\nall: recursive-probe\nrecursive-probe:\n\t+$(MAKE) BUILD_JOBS=8 " + " ".join(probe_targets) + "\n")
+        for target in probe_targets:
+            (tree / target).unlink()
+        (tree / "compiler-state.json").unlink()
+        compiled, links = build("all", options=["BUILD_JOBS=2"], env=dict(os.environ, DUXCEL_BUILD_BARRIER="2"))
+        check(len(compiled) == 8 and links == 0, "recursive builds complete their object inventory")
+        check(json.loads((tree / "compiler-state.json").read_text())["peak"] == 2,
+              "recursive make shares the parent jobserver even when its local budget is eight")
     print(f"PASS: {checks} incremental build checks in {time.monotonic()-started:.3f}s")
 
 

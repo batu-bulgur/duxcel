@@ -37,6 +37,6 @@ Remote application control, arbitrary SQL/shell access, continuous video and gen
 - Focused real native/browser tests cover capture/composer isolation, actual images, cancellation, write failure/retry, durable queue/reload behavior, malformed uploads, concurrent consumers and expired leases.
 - Cover disabled/closed widgets, frozen surfaces, popups, ribbon overflow, panes and narrow/short/150% layouts. Physical input, IME, clipboard, non-Chromium and OS acceptance remain separately scoped.
 - Keep tested source/binary/fixture/viewport and elapsed time. Rendering, analytical correctness, feedback transport and user design acceptance are separate claims.
-- One desktop owner uses the shared test lock and hidden windows. Never control/terminate the user's app or overwrite a running test binary. Follow the two compiler/engine process limit and per-worktree mutable fixtures.
+- One desktop owner uses the shared test lock and hidden windows. Never control/terminate the user's app or overwrite a running test binary. Native compilation defaults to eight jobs; keep mutable engine checks serial and use per-worktree mutable fixtures.
 
 The Wasm target uses the same C App/registry with browser capture/outbox adapters and the official asynchronous DuckDB-Wasm Worker. Request identities, cancellation, stale replies, typed transport and independently owned memory remain mandatory. Complete browser workbook Open/Save remains separate unfinished work.

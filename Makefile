@@ -1,5 +1,14 @@
 CC = clang
 .DEFAULT_GOAL := all
+# Use eight compilation slots by default, including with Apple's Make 3.81.
+# BUILD_JOBS is the portable override (e.g. make BUILD_JOBS=1 for a baseline).
+# Recursive makes inherit the parent's jobserver instead of creating a new pool.
+BUILD_JOBS ?= 8
+ifeq ($(MAKELEVEL),0)
+ifeq ($(filter --jobserver%,$(MAKEFLAGS)),)
+MAKEFLAGS += -j$(BUILD_JOBS)
+endif
+endif
 CFLAGS ?= -O2 -g
 WARN = -std=c99 -Wall -Wextra -Wpedantic
 SANFLAGS = -fsanitize=address,undefined -fno-omit-frame-pointer
@@ -121,7 +130,7 @@ FIXTURE_FLAGS = -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN)
 
 # A no-op signature recipe preserves its timestamp. Changed compiler, includes,
 # defines or options therefore invalidate the appropriate objects, not every
-# other build configuration. Single make invocations remain serialized below.
+# other build configuration. Each target has its own temporary output paths.
 define build_signature
 	@set -e; mkdir -p "$(@D)"; trap 'rm -f "$@.tmp"' 0; \
 	printf '%s\n' $(1) > "$@.tmp"; \
@@ -710,11 +719,22 @@ clean:
 distclean:
 	python3 tools/workspace.py distclean
 .PHONY: all run debug run-debug test test-debug spill-test unique-large-test smoke workspace-smoke filter-smoke pivot-smoke export-smoke count-smoke clipboard-smoke sort-smoke layout-smoke navigation-smoke startup-smoke nyc-smoke document-smoke chart-smoke statistics-smoke table-smoke icon-smoke query-smoke unique-smoke mac-icon-check bundle clean icons icons-check icons-verify paint-smoke
+# Only the incremental native graph is admitted to parallel compilation for now.
+# Legacy module-test recipes compile whole source lists and some execution goals
+# mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
+# targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
+PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug \
+	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
+	build/review/duxcel-review build/review-sanitize/duxcel-review \
+	build/lifecycle/test-app build/lifecycle/test-app-sanitize build/tests/create-workbook
+ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
+endif
 
 # Short edit loop, a named native slice, or the recorded full integration tier.
-# Builds stay serialized by the existing rules; TEST_ARGS may set --jobs 2 for
-# independent already-built headless checks. See python3 tools/test.py --list.
+# Incremental native builds use BUILD_JOBS slots. Legacy module builds and
+# mutable engine/desktop checks remain serialized; TEST_ARGS may set --jobs 2
+# for independent already-built headless checks. See tools/test.py --list.
 test-fast:
 	python3 tools/test.py fast $(TEST_ARGS)
 test-affected:
