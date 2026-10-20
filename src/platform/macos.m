@@ -7,6 +7,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <raylib.h>
 /* raylib's macOS backend uses NSOpenGLContext. AppKit menu/panel work can change
    the thread's current context; return ownership to the renderer afterwards. */
@@ -32,6 +33,24 @@ static unsigned pointer_count,pointer_head;
 static bool pointer_recording[2];
 static DxCommand commands[64];
 static unsigned command_head,command_count;
+static char *open_paths[16];
+static unsigned open_head,open_count;
+static id launch_observer;
+static bool enqueue_open_paths(NSArray<NSString *> *paths) {
+    /* Admit a whole event or none; never silently drop the end of a batch. */
+    if (!paths.count || paths.count>16-open_count) return false;
+    for (NSString *path in paths) {
+        NSString *extension=path.pathExtension.lowercaseString;
+        if (!path.isAbsolutePath || (![extension isEqualToString:@"dxls"] && ![extension isEqualToString:@"duxcel"]) ||
+            !path.fileSystemRepresentation || strlen(path.fileSystemRepresentation)>32768) return false;
+    }
+    for (NSString *path in paths) { open_paths[(open_head+open_count)%16]=dx_strdup(path.fileSystemRepresentation); open_count++; }
+    return true;
+}
+char *dx_take_open_path(void) {
+    if (!open_count) return NULL;
+    char *path=open_paths[open_head]; open_paths[open_head]=NULL; open_head=(open_head+1)%16; open_count--; return path;
+}
 static DxKeyModifiers modifier_events[128];
 static unsigned modifier_head,modifier_count;
 static void record_key_modifiers(NSEvent *event) {
@@ -195,10 +214,14 @@ static bool native_titlebar_drag(NSEvent *event,float x,float y) {
 - (void)dealloc { [previous release]; [super dealloc]; }
 - (id)previousDelegate { return previous; }
 - (BOOL)respondsToSelector:(SEL)selector {
-    return selector==@selector(applicationShouldTerminate:) || selector==@selector(applicationShouldHandleReopen:hasVisibleWindows:) || selector==@selector(applicationShouldTerminateAfterLastWindowClosed:) || [previous respondsToSelector:selector];
+    return selector==@selector(application:openFile:) || selector==@selector(application:openFiles:) || selector==@selector(applicationShouldTerminate:) || selector==@selector(applicationShouldHandleReopen:hasVisibleWindows:) || selector==@selector(applicationShouldTerminateAfterLastWindowClosed:) || [previous respondsToSelector:selector];
 }
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)selector { return [previous methodSignatureForSelector:selector]; }
 - (void)forwardInvocation:(NSInvocation *)invocation { [invocation invokeWithTarget:previous]; }
+- (BOOL)application:(NSApplication *)sender openFile:(NSString *)path { (void)sender; return enqueue_open_paths(@[path]); }
+- (void)application:(NSApplication *)sender openFiles:(NSArray<NSString *> *)paths {
+    [sender replyToOpenOrPrint:enqueue_open_paths(paths) ? NSApplicationDelegateReplySuccess : NSApplicationDelegateReplyFailure];
+}
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender {
     (void)sender; quit_requested=true;
     if (native_panel_active) { [active_native_panel cancel:nil]; [NSApp abortModal]; }
@@ -210,6 +233,20 @@ static bool native_titlebar_drag(NSEvent *event,float x,float y) {
 }
 @end
 static DuxcelApplicationDelegate *application_delegate;
+static void install_application_delegate(void) {
+    if (NSApp.delegate==(id<NSApplicationDelegate>)application_delegate) return;
+    [application_delegate release];
+    application_delegate=[[DuxcelApplicationDelegate alloc] initWithDelegate:NSApp.delegate];
+    NSApp.delegate=(id<NSApplicationDelegate>)application_delegate;
+}
+void dx_native_prepare(void) {
+    /* GLFW creates its delegate and calls finishLaunching inside InitWindow.
+       Cold-launch open-document events precede our window setup. Observe the
+       will-finish boundary without creating/replacing GLFW's NSApplication. */
+    if (!launch_observer) launch_observer=[[NSNotificationCenter defaultCenter]
+        addObserverForName:NSApplicationWillFinishLaunchingNotification object:nil queue:nil
+        usingBlock:^(NSNotification *notification) { (void)notification; install_application_delegate(); }];
+}
 bool dx_presentation_load(DxPresentation *out) {
     @autoreleasepool {
         id stored=[[NSUserDefaults standardUserDefaults] objectForKey:DX_PRESENTATION_KEY];
@@ -383,8 +420,7 @@ void dx_native_setup(void *window) {
         }
         if (!about) { about=[[[NSMenuItem alloc] initWithTitle:@"About Duxcel" action:@selector(about:) keyEquivalent:@""] autorelease]; [applicationMenu insertItem:about atIndex:0]; }
         about.title=@"About Duxcel"; about.action=@selector(about:); about.target=actions;
-        application_delegate=[[DuxcelApplicationDelegate alloc] initWithDelegate:NSApp.delegate];
-        NSApp.delegate=(id<NSApplicationDelegate>)application_delegate;
+        install_application_delegate();
         NSMenuItem *root=[[NSMenuItem alloc] initWithTitle:@"File" action:nil keyEquivalent:@""];
         NSMenu *file=[[NSMenu alloc] initWithTitle:@"File"];
         NSArray *titles=@[@"Open…",@"Save",@"Save As…",@"New Workbook",@"Settings…",@"Export Parquet…",@"Import Table…",@"Close Window"];
@@ -442,6 +478,10 @@ void dx_native_setup(void *window) {
 }
 void dx_native_shutdown(void) {
     @autoreleasepool {
+        if (launch_observer) [[NSNotificationCenter defaultCenter] removeObserver:launch_observer];
+        launch_observer=nil;
+        char *path; while ((path=dx_take_open_path())) free(path);
+        open_head=0;
         if (pointer_monitor) [NSEvent removeMonitor:pointer_monitor];
         if (gesture_monitor) [NSEvent removeMonitor:gesture_monitor];
         if (shortcut_monitor) [NSEvent removeMonitor:shortcut_monitor];

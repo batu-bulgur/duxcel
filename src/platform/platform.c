@@ -154,6 +154,8 @@ char *dx_open_table_panel(bool relink) { (void)relink; return NULL; }
 char *dx_save_file_panel(const char *suggested) { (void)suggested; return NULL; }
 char *dx_export_parquet_panel(const char *suggested) { (void)suggested; return NULL; }
 void dx_native_setup(void *window) { (void)window; }
+void dx_native_prepare(void) {}
+char *dx_take_open_path(void) { return NULL; }
 float dx_native_titlebar_inset(void) { return 0; }
 void dx_native_titlebar_height(float height) { (void)height; }
 void dx_native_shutdown(void) {}

@@ -1335,6 +1335,15 @@ static void request_document_action(App *a,DocumentAction action,const char *pat
     a->modal=MODAL_NONE; a->consume_grid_input=true;
     continue_document_action(a);
 }
+static void process_native_open(App *a) {
+    if (a->io_busy || a->document_action!=DOCUMENT_NONE || a->exit_ready) return;
+    char *path=dx_take_open_path(); if (!path) return;
+    if (a->window_closed) {
+        a->window_closed=false;
+        if (!a->background_test) dx_native_window_visible(true);
+    }
+    request_document_action(a,DOCUMENT_OPEN,path); free(path);
+}
 static void save_document_action(App *a) {
     a->modal=MODAL_NONE; a->consume_grid_input=true;
     char *path=a->book.path ? dx_strdup(a->book.path) : dx_save_file_panel(NULL);
@@ -14654,8 +14663,9 @@ AppSession *app_start(const AppOptions *options) {
     SetConfigFlags(FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT |
         (background_test ? FLAG_WINDOW_HIDDEN | FLAG_WINDOW_UNFOCUSED | FLAG_WINDOW_ALWAYS_RUN : 0));
     a->statistics_mask=49; a->statistics_enabled=!automated || options->statistics_smoke; a->statistics_object=-1;
+    dx_native_prepare();
     InitWindow(1280,820,automated ? "Duxcel — automated test" : "Duxcel");
-    if (!IsWindowReady()) { fprintf(stderr,"Cannot initialize the native window and graphics context.\n"); app_session_free(session); return NULL; }
+    if (!IsWindowReady()) { fprintf(stderr,"Cannot initialize the native window and graphics context.\n"); dx_native_shutdown(); app_session_free(session); return NULL; }
     printf("Native test window: %s\n",background_test ? "hidden, unfocused" : "visible");
     dx_native_setup(GetWindowHandle()); SetWindowMinSize(640,640); SetExitKey(KEY_NULL);
     if (!brand_install_icon()) TraceLog(LOG_WARNING,"Cannot install the application icon");
@@ -14770,6 +14780,7 @@ bool app_frame(AppSession *session) {
         /* Retain the process/menu/context, but no document, painting or query
            scheduling. Only explicit New/Open/Dock reopen reveals a surface. */
         poll_query(a);
+        process_native_open(a);
         if (dx_native_quit_requested()) { dx_native_acknowledge_quit(); request_document_action(a,DOCUMENT_QUIT,NULL); }
         DxCommand command;
         while ((command=dx_take_command())!=DX_COMMAND_NONE) {
@@ -14830,6 +14841,7 @@ bool app_frame(AppSession *session) {
     if (window_close_requested() || dx_native_quit_requested()) { DocumentAction action=dx_native_quit_requested() ? DOCUMENT_QUIT : DOCUMENT_CLOSE; dx_native_acknowledge_quit(); request_document_action(a,action,NULL); }
     continue_document_action(a);
     if (a->exit_ready) goto finished;
+    process_native_open(a);
     if (IsFileDropped()) {
         FilePathList files=LoadDroppedFiles(); if (files.count) open_source(a,files.paths[0],false); UnloadDroppedFiles(files);
     }

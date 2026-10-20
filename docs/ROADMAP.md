@@ -76,6 +76,8 @@ Each row is a separately reviewable implementation/demo boundary. Scope expansio
 
 W01 native acceptance: `python3 tools/test.py affected --feature range-move --config release --modules grid --jobs 2` and the corresponding `--config sanitize` run pass all ten App stages. The generated manual-only `build/tests/generated/layout-option-range.dxls` exercises values/styles, both move gestures, collision/no-op, Undo/Redo and reopen. C input checks also cover Escape, modifier release, blocked controls, bounds, zoom/variable widths and click threshold. The actual shared-C/official-Worker browser selection profile also passes 569 checks, including trusted Alt-drag and one Undo/Redo action. User hands-on/physical-device acceptance is still pending; this does not close A01–A02 for analytical objects or region discovery.
 
+W01 demo unblock / C05 entry path: fixed missing macOS bundle workbook declarations and cold/warm Open Document dispatch. The real LaunchServices test opens the generated manual-only workbook with a space/Unicode filename in an isolated hidden bundle; cold and running-instance results match the direct-path framebuffer exactly. Native lifecycle and document-safety regressions pass. W01 still awaits the user's actual range-move demo; this fix does not close the remaining C05 journal/recovery work.
+
 ### Command, recovery and version foundation
 
 Implement one existing manual-cell edit through each boundary before expanding the operation family. Continue existing persistence/codec work above; it is not replaced by this plan.

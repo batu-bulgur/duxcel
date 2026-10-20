@@ -7,6 +7,20 @@
 <key>CFBundleDisplayName</key><string>Duxcel</string>
 <key>CFBundleIconFile</key><string>duxcel.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleDocumentTypes</key><array><dict>
+<key>CFBundleTypeName</key><string>Duxcel Workbook</string>
+<key>CFBundleTypeRole</key><string>Editor</string>
+<key>LSHandlerRank</key><string>Owner</string>
+<key>LSItemContentTypes</key><array><string>dev.duxcel.workbook</string></array>
+</dict></array>
+<key>UTExportedTypeDeclarations</key><array><dict>
+<key>UTTypeIdentifier</key><string>dev.duxcel.workbook</string>
+<key>UTTypeDescription</key><string>Duxcel Workbook</string>
+<key>UTTypeConformsTo</key><array><string>public.data</string></array>
+<key>UTTypeTagSpecification</key><dict>
+<key>public.filename-extension</key><array><string>dxls</string><string>duxcel</string></array>
+</dict>
+</dict></array>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>LSMinimumSystemVersion</key><string>12.0</string>

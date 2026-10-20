@@ -43,6 +43,10 @@ bool dx_replace_file(const char *temporary,const char *target);
 bool dx_same_file(const char *first,const char *second);
 uint64_t dx_file_stamp(const char *path);
 void dx_native_setup(void *window);
+/* Install launch hooks before window creation. Main-thread file events are
+   queued until the C document host can apply its unsaved-change guard. */
+void dx_native_prepare(void);
+char *dx_take_open_path(void); /* caller owns; NULL when no document is queued */
 /* Canvas-space traffic-light reservation; zero on other platforms/fullscreen. */
 float dx_native_titlebar_inset(void);
 void dx_native_titlebar_height(float height);
