@@ -755,6 +755,8 @@ test-native:
 
 build/tests/test_background-native-debug: tests/test_background_native.m | build/tests
 	$(CC) $(RAYLIB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $< -o $@ $(RAYLIB_LIBS) -framework AppKit $(SANFLAGS)
+build/tests/native-alert-guard.dylib: tests/support/native_alert_guard.m | build/tests
+	$(CC) $(WARN) -O1 -g -dynamiclib $< -o $@ -framework AppKit
 test-full:
 	python3 tools/test.py full $(TEST_ARGS)
 test-runner:

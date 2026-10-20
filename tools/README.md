@@ -12,7 +12,7 @@ beside the reusable tools.
 | `create_workbook.py` | Python synthetic data/Parquet/fixed workbook generation via the existing DuckDB CLI; no C generator |
 | `test.py` | Focused/native/full test orchestration; process exits/completion, sanitizer diagnostics and fixture ordering |
 | `test_app_lifecycle.py`, `test_native_review.py` | Hidden native workflow drivers through compiled C binaries and bounded reports |
-| `test_open_documents.py` | Real hidden LaunchServices cold/warm workbook Open in a private bundle; exact direct-path framebuffer comparison, source-file retention and owned-process/registration cleanup |
+| `test_open_documents.py` | Real hidden LaunchServices cold/warm workbook Open in a private bundle; test-only native-alert rejection with negative control, exact framebuffer comparison, source-file retention and owned-process/registration cleanup |
 | `test_review_build.py`, `test_web_review_build.py` | Actual build/artifact isolation checks; self-test cases live in `tools/tests/` |
 | `build_web*.py`, `web_toolchain.py`, `web_object_cache.py`, `web_raylib_adapter.py`, `prepare_web_ci.py` | Pinned compiler/raylib, shared-C Wasm builds and object caching |
 | `package_web*.py`, `test_web_pages.py` | Stage/verify production browser packages and deployment paths |
