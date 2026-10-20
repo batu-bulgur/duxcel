@@ -1,5 +1,7 @@
 # Duxcel interaction rules
 
+The editable [Excel shortcut/feature inventory](../EXCEL_SHORTCUTS.md) owns individual platform bindings, feature status and acceptance cards. This document owns shared behavior rules. Shortcut suggestions below are proposals subject to conflicts; current bindings are in [USER_GUIDE](../USER_GUIDE.md#shortcuts-and-interaction). Find/filter/Focus/F5/F12 differences remain open rather than silently redefining current input.
+
 
 
 ## Native motion and layout requirements

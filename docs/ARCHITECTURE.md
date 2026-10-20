@@ -41,222 +41,222 @@ Normal binaries omit review modules, command strings and browser bridges at comp
 
 Synthetic fixture generation uses Python plus the existing DuckDB CLI and a finite SQL input; native tests separately verify product load/PIVOT/save/reload behavior. Most behavioral assertions already are C. External orchestration remains Python with completion, sanitizer, timeout, binary-fingerprint, fixture-order and desktop-lock contracts. Product-linked helpers remain C under `tests/support/`; tool/browser test sources live in their subsystem test directories.
 
-## Türkçe çalışma haritası ve değerlendirme
+## Operational walkthrough and assessment
 
-Bu bölüm bugünkü kaynak kodunun çalışma yollarını, ürünün eksik sözleşmelerini ve tartışılacak mimari önerileri açıklar. **“Mevcut” bölümleri uygulamayı anlatır; “öneri” bölümleri uygulanmış veya kabul edilmiş karar değildir.** Mevcut C99/raylib/DuckDB ve ortak C/Wasm sınırları korunur. Buradaki temel ayrım şudur: Duxcel bugün gerçek bir analitik sorgu motoruna ve seyrek metin hücrelerine sahiptir; bu ikisi henüz Excel benzeri ortak, tipli ve kurtarılabilir bir düzenleme modelinde birleşmez.
+This section explains the current source paths, missing product contracts and architectural proposals for discussion. **Current-behavior sections describe implementation; proposal sections are neither implemented nor accepted decisions.** Preserve C99/raylib/DuckDB and the shared C/Wasm boundaries. Duxcel has a real analytical query engine and sparse text cells, but these do not yet form a shared, typed, recoverable editing model comparable to Excel.
 
-### Mevcut katmanlar ve ana akış
+### Current layers and main flow
 
 ```mermaid
 flowchart TD
-    Input["Klavye, fare, macOS menüsü"] --> App["AppSession / App<br/>komutlar, odak, zamanlama, yayınlama"]
-    App --> Manual["Elle hücre girişi<br/>CellStore: satır, sütun, metin"]
-    App --> Definitions["Analysis / SheetObject<br/>kaynak, filtre, sıralama, pivot, chart"]
-    Manual --> Book["Workbook / Worksheet<br/>hücreler, biçimler, nesneler, görünüm"]
+    Input["Keyboard, mouse, macOS menus"] --> App["AppSession / App<br/>commands, focus, scheduling, publication"]
+    App --> Manual["Manual cell entry<br/>CellStore: row, column, text"]
+    App --> Definitions["Analysis / SheetObject<br/>source, filter, sort, pivot, chart"]
+    Manual --> Book["Workbook / Worksheet<br/>cells, formats, objects, view"]
     Definitions --> Book
-    Definitions --> Job["QueryJob<br/>sahipli tanım kopyası ve istek kimliği"]
-    Job --> Worker["QueryWorker<br/>tek etkin iş, en yeni okuma isteği"]
-    Worker --> SQL["C SQL üreticileri + DuckDB<br/>CSV / Parquet / salt okunur DuckDB"]
-    SQL --> Reply["QueryReply / Page<br/>tipler, NULL, kesin metin, sayısal çizim değeri"]
-    Reply --> Publish["App: kimlik ve revision kontrolü<br/>uygun sonucu sahipliğiyle devral"]
-    Publish --> Cache["Page + spare + ObjectView<br/>atılabilir sonuç önbellekleri"]
-    Cache --> Draw["Grid / UI / raylib<br/>görünen hücreler, glyph atlasları, GPU"]
+    Definitions --> Job["QueryJob<br/>owned definition copy and request ID"]
+    Job --> Worker["QueryWorker<br/>one active job, latest read request"]
+    Worker --> SQL["C SQL generators + DuckDB<br/>CSV / Parquet / read-only DuckDB"]
+    SQL --> Reply["QueryReply / Page<br/>types, NULL, exact text, numeric drawing value"]
+    Reply --> Publish["App: check identity and revision<br/>adopt matching result ownership"]
+    Publish --> Cache["Page + spare + ObjectView<br/>disposable result caches"]
+    Cache --> Draw["Grid / UI / raylib<br/>visible cells, glyph atlases, GPU"]
     Manual --> Draw
     Book --> Draw
-    Book --> Snapshot["Açık Save komutu<br/>workbook_snapshot"]
+    Book --> Snapshot["Explicit Save command<br/>workbook_snapshot"]
     Snapshot --> Save["JOB_SAVE / workbook_save<br/>DuckDB transaction"]
-    Save --> File[".dxls<br/>belge tanımları ve elle girilen hücreler"]
+    Save --> File[".dxls<br/>document definitions and manual cells"]
 ```
 
-`main.c`, native tarafta `app_run` döngüsünü; browser tarafında aynı `app_start/app_frame/app_finish` yaşam döngüsünü host zamanlayıcısıyla çalıştırır. `AppSession` tek raylib pencere/context oturumuna sahiptir. Native `QueryWorker` ayrı thread üzerinde kendi DuckDB bağlantısını kullanır. UI bu bağlantıyı sorgulamak için kullanmaz; iptal isteği kilit altında `duckdb_interrupt` üzerinden iletilir.
+`main.c` drives the native `app_run` loop; the browser host schedules the same `app_start/app_frame/app_finish` lifecycle. `AppSession` owns one raylib window/context session. Native `QueryWorker` uses its own DuckDB connection on a separate thread. The UI does not execute queries on that connection; it sends cancellation through `duckdb_interrupt` under the lock.
 
-App bugün hem kalıcı belgeyi hem geçici görünümü hem de iş orkestrasyonunu taşır. Aktif ana kaynağın canlı `Analysis` değeri `App.analysis` içindedir; `Worksheet.analysis`, `capture_sheet` sırasında güncellenen bir kayıt/sheet kopyası da taşır. Table kaynakları ise `SheetObject.source` içindedir. Birden fazla sahiplik ve revision türünün App içinde koordine edilmesi, yeni bir özelliğin doğru halkalara ulaşmasını zorlaştırır.
+App currently contains persistent document state, transient views and job orchestration. The active primary source's live `Analysis` resides in `App.analysis`; `Worksheet.analysis` also holds a saved/sheet copy updated by `capture_sheet`. Table sources reside in `SheetObject.source`. Coordinating several ownership and revision types inside App makes it harder for new features to reach all affected layers.
 
-Browser aynı C App/grid/UI'ını Wasm olarak çalıştırır. C tarafında üretilen SQL, ince JS adaptöründen resmi asenkron DuckDB-Wasm Worker'ına gider; Arrow çıktısı tip/null bilgisi korunarak bounded wire üzerinden C Page'e kopyalanır. DuckDB handle'ı veya C pointer'ı Worker'la ortak sahiplenilmez. Native kaynağı yerinde sorgulama ile browser dosya yaşam döngüsü eşdeğer değildir: mevcut browser chooser, en fazla 256 MiB dosyanın tamamını okuyup oturumluk buffer olarak kaydeder. Bu registration kalıcı workbook/source referansı değildir. Kaynak: [worker_browser.inc](../src/data/worker_browser.inc), [engine_host.mjs](../web/engine_host.mjs), [official_worker.mjs](../web/official_worker.mjs).
+The browser runs the same C App/grid/UI as Wasm. C-generated SQL passes through the thin JS adapter to the official asynchronous DuckDB-Wasm Worker. Arrow output is copied into C Pages through bounded wire transport, preserving type/null information. DuckDB handles and C pointers are not jointly owned with the Worker. Native in-place queries and browser file lifecycles differ: the current browser chooser reads the entire file, limited to 256 MiB, and registers a session buffer. This registration is not a persistent workbook/source reference. Sources: [worker_browser.inc](../src/data/worker_browser.inc), [engine_host.mjs](../web/engine_host.mjs), [official_worker.mjs](../web/official_worker.mjs).
 
-Kaynak girişleri: [main.c](../src/main.c), [App modeli](../src/app/app.c), [worker.c](../src/data/worker.c), [workbook.h](../src/workbook/workbook.h).
+Entry points: [main.c](../src/main.c), [App model](../src/app/app.c), [worker.c](../src/data/worker.c), [workbook.h](../src/workbook/workbook.h).
 
-### Bir hücre yazıldığında gerçekten ne olur
+### What happens when a user enters a cell
 
-1. `TextInput`, kullanıcı yazarken henüz commit edilmemiş metni taşır. Enter, Tab veya uygun odak değişimi `commit_cell` çağrısına ulaşır.
-2. `manual_range`, hedefin içe alınmış ana veri alanıyla veya bir nesneyle çakışmasını engeller. Mevcut kaynak hücreleri bu yoldan düzenlenemez.
-3. `cells_set`, `(row, col)` sıralı seyrek dizide metni saklar. Her dolu hücrenin metni kendine ait allocation'dır; lookup binary search ile yapılır. Devasa canvas boyutu kadar hücre bellekte ayrılmaz.
-4. Değişen hücre deposunun eski durumu undo snapshot'ına kopyalanır; `worksheet_record(EDIT_CELLS)` kronolojik aksiyon kaydını ekler ve belge dirty olur.
-5. `draw_blank_cells`, görünür konumlardaki metni bu depodan okuyup çizer. Her tuşa basışta DuckDB'ye hücre UPDATE'i gönderilmez.
+1. `TextInput` holds uncommitted text while the user types. Enter, Tab or a relevant focus change reaches `commit_cell`.
+2. `manual_range` prevents overlap with the imported primary data area or an object. Existing source cells cannot be edited through this path.
+3. `cells_set` stores text in a sparse array sorted by `(row, col)`. Every populated cell owns its text allocation; lookup uses binary search. The virtual canvas does not allocate a dense cell matrix.
+4. The previous cell-store state is copied into an undo snapshot; `worksheet_record(EDIT_CELLS)` adds the chronological action and the document becomes dirty.
+5. `draw_blank_cells` reads visible text from this store. Typing does not send a DuckDB cell UPDATE for every keystroke.
 
-Bu depo **metin tabanlıdır**. `123` elle girildiğinde sayı tipi kazanmaz; `=SUM(A1:A3)` için parser, bağımlılık grafiği veya hesaplama yürütmesi yoktur. Karışık seçim istatistiğine katılan elle yazılmış değerler de VARCHAR olarak taşınır. Sayı biçimi uygulamak, metni sayısal veri tipine dönüştürmez.
+This store is **text-based**. Entering `123` does not create a numeric value; `=SUM(A1:A3)` has no parser, dependency graph or calculation execution. Manual values entering mixed-selection statistics are also carried as VARCHAR. Applying a number format does not convert text into a numeric type.
 
-Mevcut sınırlar sheet başına 20.000 düzenlenebilir hücre, 4 MiB metin ve hücre başına 64 KiB'dır. Boş metinle `cells_set` hücre kaydını kaldırır; eksik hücre getter'da boş metin döner. Dolayısıyla bu giriş yolu SQL NULL/boş VARCHAR/literal `NULL` için genel bir tipli editör değildir. İçe alınmış Page değerlerinde bu ayrım ayrıca korunur; iki yolun semantiğini aynı saymamak gerekir.
+Current limits are 20,000 editable cells and 4 MiB of text per sheet, with 64 KiB per value. Calling `cells_set` with empty text removes the cell record; the getter returns empty text for missing cells. This entry path is therefore not a general typed editor for SQL NULL/empty VARCHAR/literal `NULL`. Imported Page values preserve these distinctions separately; the two paths do not have identical semantics.
 
-Kaynak: [cells.c](../src/workbook/cells.c), [cells.h](../src/workbook/cells.h), `commit_cell`, `draw_blank_cells`, `statistics_snapshot` içinde [app.c](../src/app/app.c).
+Sources: [cells.c](../src/workbook/cells.c), [cells.h](../src/workbook/cells.h), `commit_cell`, `draw_blank_cells` and `statistics_snapshot` in [app.c](../src/app/app.c).
 
-### Bir sorgu sonucu bellekte nasıl tutulur
+### How query results live in memory
 
-| Alan | Ne tutar | Kalıcılık ve sınır |
+| Area | Contents | Lifetime and limits |
 | --- | --- | --- |
-| Workbook / Worksheet | Hücre metinleri, kaynak ve işlem tanımları, nesneler, biçimler, görünüm, kaynak kimliği metadata'sı | RAM otoritesi; açık Save ile `.dxls`'e aktarılır |
-| DuckDB query database | Hazırlanmış sorgular, operator belleği, native pivot sonuç/totals geçici tabloları | Native oturum içi in-memory database, gerektiğinde özel geçici klasöre spill; config 512 MB ve iki thread |
-| C Page | Sütun şeması ve satır sıralı `Cell[]`; her değerde `is_null`, kesin `text`, çizim için `double number` | Olağan sayfa en fazla 256 satır; ana kaynak sayfası 16 MiB, Table/Pivot sayfası 4 MiB sınırına tabi |
-| App sonuç önbellekleri | Ana `page`, `spare`, nesne başına `ObjectView.page`, ayrı step preview | Atılabilir ve yeniden sorgulanabilir; workbook snapshot'ına girmez |
-| Undo / Redo | Hücre, Analysis, nesne ve format snapshot'ları; bunları eşleyen aksiyon dizisi | Oturum belleği; genel durable komut günlüğü veya kaydedilmiş kullanıcı sürüm geçmişi değildir |
-| GPU / UI | Glyph atlasları, render batch'leri, geçiş ve popup texture'ları | Hesaplamanın/verinin otoritesi değildir; paint buffer bütçesi toplam 32 MiB, font ve driver maliyetleri bunun dışındadır |
+| Workbook / Worksheet | Cell text, source/operation definitions, objects, formats, views and source-identity metadata | Authoritative RAM state; explicit Save writes it to `.dxls` |
+| DuckDB query database | Prepared queries, operator memory and native pivot result/totals temporary tables | Native session in-memory database; spills to a private temporary directory as necessary; configured for 512 MB and two threads |
+| C Page | Column schema and row-major `Cell[]`; each value has `is_null`, exact `text` and `double number` for drawing | Ordinary pages have at most 256 rows; primary pages have a 16 MiB bound and Table/Pivot pages a 4 MiB bound |
+| App result caches | Primary `page`, `spare`, per-object `ObjectView.page` and separate step preview | Disposable and re-queryable; excluded from workbook snapshots |
+| Undo / Redo | Cell, Analysis, object and format snapshots plus their matching action sequence | Session memory; not a general durable command journal or saved user version history |
+| GPU / UI | Glyph atlases, render batches, transition and popup textures | Not authoritative calculation/data state; paint buffers have a combined 32 MiB budget excluding fonts and driver costs |
 
-`Page.cells[(row - offset) * column_count + column]` yalnızca yüklenmiş pencerenin hücresidir. `Page.total` ise sorgu sonucunun toplam satır sayısıdır veya count tamamlanana kadar bir alt sınırdır; `total` adet hücre allocation'ı yapılmaz. `spare`, önceki pencereye kısa geri dönüşü yeniden sorgusuz yapabilir. Ana viewport, yeterli önbellek yoksa kısa bir beklemeden sonra yeni pencere ister.
+`Page.cells[(row - offset) * column_count + column]` addresses only the loaded window. `Page.total` is the result's total row count, or a lower bound until counting completes; it does not allocate `total` cells. `spare` can avoid re-querying a recent previous window. The primary viewport requests a new window after a short debounce when cached coverage is insufficient.
 
-Native DuckDB sonucu C Page'e dönüştürüldükten sonra `duckdb_result` bırakılır. `Page`, text'in uygun allocator ile serbest bırakılmasını da taşır; `QueryReply` → App geçişinde pointer sahipliği taşınır ve eski sahip sıfırlanır. Render sırasında geçerli Page okunur. Büyük integer/DECIMAL değerlerinin kesin temsili metindir; `double` grafik koordinatı veya uygun yaklaşık gösterim içindir. Kesin kopya/değerler çizim double'ından geri üretilmemelidir.
+Native `duckdb_result` is released after conversion into a C Page. The Page carries the callback needed to free text using the correct allocator. The `QueryReply` → App transition transfers pointer ownership and zeroes the former owner. Rendering reads the accepted Page. Text is the exact representation of large integer/DECIMAL values; `double` supports chart coordinates or appropriate approximate display. Never reconstruct exact copied values from the drawing double.
 
-**256 satırlık çıktı, sorgunun yalnızca 256 satır çalıştığı anlamına gelmez.** Sort, DISTINCT, aggregate ve COUNT çok daha büyük veriyi işleyebilir. Native pivot `_duxcel_pivot_result` geçici tablosunda materyalize edilir; UI bunun sayfasını alır. Ana sayfa SQL'i bütün iş sütunlarını seçer; sadece yatayda görünen sütunlar kadar okuma garantisi yoktur. `LIMIT/OFFSET` derin gezinmede maliyet yaratabilir. DuckDB'nin 512 MB ayarı da toplam C/JS/GPU/process belleğine sert bir üst sınır değildir. [DuckDB bellek açıklaması](https://duckdb.org/2024/07/09/memory-management).
+**A 256-row output does not mean the query processes only 256 rows.** Sort, DISTINCT, aggregates and COUNT can process much larger data. Native pivots materialize into temporary `_duxcel_pivot_result`; the UI reads pages from it. Primary-page SQL selects all business columns, not just horizontally visible columns. Deep `LIMIT/OFFSET` navigation can be costly. DuckDB's 512 MB setting is not a hard limit on combined C/JS/GPU/process memory. [DuckDB memory management](https://duckdb.org/2024/07/09/memory-management).
 
-Chart görünümü de kendi kapsamını korumalıdır: mevcut chart sıralaması yüklenmiş pivot grupları üzerinden çalışır. Kaynakta yeniden hesaplanan non-additive “Other” desteği belirli birleşimler içindir; tüm veri üzerinde evrensel global top-N garantisi değildir.
+Charts also have bounded scope: current ranking operates on loaded pivot groups. Source-derived non-additive “Other” support covers specific combinations, not a universal global top-N guarantee over all data.
 
-Kaynak: [Page modeli ve cleanup](../src/data/page.h), [page.c](../src/data/page.c), `result_page_visible_status`, `fetch_window`, `pivot_materialize_proved` ve istatistik sorguları içinde [database.c](../src/data/database.c), [chartview.c](../src/ui/chartview.c).
+Sources: [Page model and cleanup](../src/data/page.h), [page.c](../src/data/page.c), `result_page_visible_status`, `fetch_window`, `pivot_materialize_proved` and statistics queries in [database.c](../src/data/database.c), [chartview.c](../src/ui/chartview.c).
 
-### Rendering ve kullanıcı etkileşimi
+### Rendering and user interaction
 
-Her frame platform event'leri ve UI girişleri alınır; worker cevapları yayınlanır; komutlar, grid geometrisi ve görünür alan işlenir; raylib draw çağrıları GPU'ya gönderilir; sonraki sayfa/pivot/count/istatistik işleri zamanlanır. Hücre çizim döngüsünde doğrudan DuckDB sorgusu yoktur. Bununla birlikte bazı `draw_*` fonksiyonları input, odak ve komut yan etkilerini de işler; görünüm ile davranış sınırı bütün App boyunca katı değildir.
+Each frame receives platform/UI input, publishes worker replies, processes commands/grid geometry/visible content, sends raylib drawing calls to the GPU, and schedules subsequent page/pivot/count/statistics jobs. There is no direct DuckDB query in the cell drawing loop. However, some `draw_*` functions also process input, focus and command side effects; presentation and behavior are not strictly separated throughout App.
 
-Grid `top/fraction/horizontal`, seçim `active/anchor/extent`, kolon genişlikleri ve nesne koordinatlarından görünür dikdörtgenleri hesaplar. Görünen hücreler ve kesişen nesneler çizilir. Frozen sütunlar ayrı clipping düzlemindedir. Uygulama ölçeği, sheet zoom ve fiziksel framebuffer/DPI ayrı kavramlardır. UI metrik ve glyph cache'leri ile sınırlı framebuffer cache'leri kullanır; ekran buffer'ı belgeyi saklamaz.
+The grid calculates visible rectangles from `top/fraction/horizontal`, selection `active/anchor/extent`, column widths and object coordinates. It draws visible cells and intersecting objects. Frozen columns use a separate clipping plane. Application scale, sheet zoom and physical framebuffer/DPI are separate concepts. UI metrics, glyph caches and bounded framebuffer caches support drawing; the screen buffer does not store the document.
 
-`Command+Shift+Down` örneğinin kod karşılığı özellikle açıklayıcıdır. `grid.c:navigate`, shortcut oku için `Grid.navigation` varsa o dikdörtgenin sınırına; yoksa ana `Page.total` sınırına gider. `set_grid_navigation` hazır Table/Pivot nesnesinin sınırını sağlar, elle girilen `CellStore` içindeki dolu/boş hücre dizisini sağlamaz. `cells_region` başka bir komut olan Select All için kullanılır. Ortak “bir sonraki veri sınırını bul” semantiği mevcut değildir. Bu, fiziksel klavye event'i testi yapılmış iddiası olmadan, kaynaktan görülen bir model açığıdır. Excel Mac'in belgelenmiş davranışı Shift+Cmd+ok ile dolu veri sınırına seçim genişletmektir. [Microsoft kısayol sözleşmesi](https://support.microsoft.com/en-us/accessibility/excel/keyboard-shortcuts-in-excel).
+The `Command+Shift+Down` example exposes a specific gap. `grid.c:navigate` sends shortcut-arrow navigation to the edge of `Grid.navigation` when present, otherwise to the primary `Page.total` boundary. `set_grid_navigation` provides ready Table/Pivot bounds, not the occupied/empty sequence in manual `CellStore` data. `cells_region` serves the separate Select All command. There is no shared “find next data boundary” contract. This is a source-level model gap, not evidence of a physical keyboard-event test. Excel Mac documents extending selection to a populated data boundary with Shift+Cmd+Arrow. [Microsoft shortcut reference](https://support.microsoft.com/en-us/accessibility/excel/keyboard-shortcuts-in-excel).
 
-Kaynak: [grid.c](../src/grid/grid.c), `set_grid_navigation`, `select_region`, `shortcuts`, `draw_app` içinde [app.c](../src/app/app.c), [UI input ve font yönetimi](../src/ui/ui.c), [paintlayer backend](../src/ui/paintlayer_backend.c), [macOS adaptörü](../src/platform/macos.m).
+Sources: [grid.c](../src/grid/grid.c), `set_grid_navigation`, `select_region`, `shortcuts` and `draw_app` in [app.c](../src/app/app.c), [UI input/font management](../src/ui/ui.c), [paintlayer backend](../src/ui/paintlayer_backend.c), [macOS adapter](../src/platform/macos.m).
 
-### Save, Close, recovery ve sürümleme aynı şey değildir
+### Save, Close, recovery and versioning are distinct
 
-| İhtiyaç | Bugünkü durum |
+| Need | Current behavior |
 | --- | --- |
-| Açık Save / Save As | Native tarafta gerçek DuckDB `.dxls` kaydı var. Ayrı sahipli Workbook snapshot'ı worker'a verilir, metadata transaction içinde yazılır. |
-| Başarısız Open / Save | Load geçici aday Workbook oluşturur; başarılı doğrulamada eskisini değiştirir. Save transaction/rollback kullanır. Bu, autosave değildir. |
-| Normal native Close / Quit | `request_document_action`, açık hücre editini commit eder; dirty belge için Save / Don't Save / Cancel sunar. Başarılı Save gelmeden bekleyen Quit tamamlanmaz. |
-| Browser workbook Open / Save | `workbook_browser.c` açıkça unavailable döner. Paylaşılan metadata reader testleri bütünleşik özelliği tamamlamaz. Browser sekmesini kapatmanın ayrı host kısıtları da vardır. |
-| Otomatik kayıt / yeniden başlatmada unsaved belge | Üretim akışında tamamlanmış autosave, recovery journal veya açılışta unsaved oturum geri yüklemesi yok. Dosya yolu verilmeden açılış yeni boş sheet oluşturur. |
-| Undo ve belge sürüm geçmişi | Undo/Redo RAM'de sınırlı snapshot'lardır. `workbook_snapshot` bunları ve Page'leri dışarıda bırakır; yeniden açılan belge önceki oturumun undo geçmişini yüklemez. |
-| Dış kaynak verisi | CSV/Parquet/DuckDB içerikleri otomatik olarak workbook içine kopyalanmaz. Kaynak referansları ve desteklenen kimlik kanıtları saklanır; dosya taşınır/değişirse relink veya yeniden doğrulama gerekir. |
+| Explicit Save / Save As | Native DuckDB `.dxls` persistence exists. A separately owned Workbook snapshot goes to the worker; metadata is written in a transaction. |
+| Failed Open / Save | Load builds a temporary candidate Workbook and replaces the current one only after successful validation. Save uses transactions/rollback. This is not autosave. |
+| Normal native Close / Quit | `request_document_action` commits an open cell edit and offers Save / Don't Save / Cancel for dirty documents. Pending Quit waits for successful Save. |
+| Browser workbook Open / Save | `workbook_browser.c` explicitly returns unavailable. Shared metadata-reader tests do not establish the integrated feature. Browser tab closing also has host constraints. |
+| Autosave / restoring unsaved work after restart | No complete autosave, recovery journal or startup restoration of unsaved sessions exists in production. Startup without a file path creates a new blank sheet. |
+| Undo and document version history | Undo/Redo are bounded RAM snapshots. `workbook_snapshot` excludes them and Pages; reopening does not restore the previous session's undo history. |
+| External source data | CSV/Parquet/DuckDB contents are not automatically embedded in the workbook. Source references and supported identity proofs are saved; moving/changing a file requires relinking or reverification. |
 
-`.dxls` şema sürümü 1–14 arası dosya biçimi uyumluluğudur. `SourceVersions` ledger'ı, belirli kaynak/owner/reader/schema/içerik kanıtını bağlar; eski Parquet byte'larını saklayan bir veri time-travel sistemi değildir. Ekrandaki satır konumu da kalıcı kaynak kayıt kimliği değildir. Mevcut destekli raw CSV/Parquet yolları orijinal kayıt ordinal'larını taşıyabilir; özel SQL, DISTINCT, aggregate ve browser için evrensel lineage yoktur. Format için oluşturulmuş bu temeli düzenleme modeline genişletmek ayrı tasarım ve doğrulama ister.
+`.dxls` schema versions 1–14 represent file-format compatibility. The `SourceVersions` ledger binds source/owner/reader/schema/content proofs; it does not retain old Parquet bytes for time travel. Displayed row position is not durable source-record identity. Supported raw CSV/Parquet paths can carry original record ordinals; universal lineage is absent for custom SQL, DISTINCT, aggregates and the browser. Extending this formatting foundation into an editing model needs separate design and validation.
 
-Kullanıcının “normal kapattım, uyarı gelmedi” gözlemi mevcut native kaynak yolu ile farklıdır; kullanılan binary, platform ve kapanış şekliyle yeniden üretilmesi gerekir. Kaynakta diyalog bulunması çalışan uygulamada bu olayın doğru yönetildiğini tek başına kanıtlamaz. Crash/force quit için bu diyalog koruma sağlamaz.
+The user's report of closing normally without a warning differs from the native source path and needs reproduction with the actual binary, platform and close mechanism. A dialog in the source does not establish that the running application handles the event correctly. It does not protect against crashes or force quit.
 
-Kaynak: `capture_sheet`, `workspace_job`, `request_document_action`, `draw_unsaved`, `poll_query` ve `app_start` içinde [app.c](../src/app/app.c), [workbook_save/load](../src/workbook/workbook.c), [browser unavailable adaptörü](../src/workbook/workbook_browser.c), [source_scope.h](../src/workbook/source_scope.h), [browser persistence planı](design/BROWSER_PERSISTENCE.md).
+Sources: `capture_sheet`, `workspace_job`, `request_document_action`, `draw_unsaved`, `poll_query` and `app_start` in [app.c](../src/app/app.c), [workbook_save/load](../src/workbook/workbook.c), [browser unavailable adapter](../src/workbook/workbook_browser.c), [source_scope.h](../src/workbook/source_scope.h), [browser persistence plan](design/BROWSER_PERSISTENCE.md).
 
-### Öneri: ortak belge ve komut sözleşmesi
+### Proposal: shared document and command contracts
 
-Bu proje için uygun hedef, native C içinde açık sınırları olan modüler bir uygulamadır. Mevcut dosyaları yalnızca küçültmek davranış kopukluğunu çözmez; her kullanıcı işleminin ortak belge modeline hangi değişikliği yaptığı tanımlanmalıdır.
+A suitable target is a modular native C application with explicit boundaries. Merely shrinking source files does not fix disconnected behavior; define how every user operation changes the shared document model.
 
 ```mermaid
 flowchart TD
-    UI["Grid, ribbon, menü, erişilebilirlik<br/>input ve sunum"] --> Intent["Ortak komut API<br/>SetCell, Paste, MoveRange, ChangeFilter"]
-    Intent --> Commit["Belge işlemi<br/>doğrula, atomik değiştir, revision üret"]
-    Commit --> Model["Workbook domain<br/>tipli hücreler, kaynaklar, overlay, nesneler"]
-    Commit --> History["Undo / Redo<br/>aynı işlemdeki önceki ve sonraki değerler"]
-    Commit --> Recovery["Kurtarma yazıcısı<br/>sıralı kalıcı kayıt ve snapshot"]
-    Model --> Schedule["Bağımlılık ve invalidation<br/>hangi sonuç tekrar hesaplanmalı"]
-    Schedule --> Formula["Hücre formül motoru<br/>parser, referanslar, bağımlılık grafiği"]
-    Schedule --> Relational["Analitik motor<br/>C tanımlarından DuckDB SQL"]
-    Formula --> Results["Revision ile bağlı sonuçlar<br/>Page / tipli hücre sonucu"]
+    UI["Grid, ribbon, menus, accessibility<br/>input and presentation"] --> Intent["Shared command API<br/>SetCell, Paste, MoveRange, ChangeFilter"]
+    Intent --> Commit["Document transaction<br/>validate, apply atomically, create revision"]
+    Commit --> Model["Workbook domain<br/>typed cells, sources, overlay, objects"]
+    Commit --> History["Undo / Redo<br/>before/after values in one transaction"]
+    Commit --> Recovery["Recovery writer<br/>ordered durable records and snapshots"]
+    Model --> Schedule["Dependencies and invalidation<br/>which results need recalculation"]
+    Schedule --> Formula["Cell formula engine<br/>parser, references, dependency graph"]
+    Schedule --> Relational["Analytical engine<br/>C definitions to DuckDB SQL"]
+    Formula --> Results["Revision-bound results<br/>Page / typed cell result"]
     Relational --> Results
     Results --> UI
-    Recovery --> Files["Recovery oturumu + açık Save<br/>versiyonlu workbook codec"]
+    Recovery --> Files["Recovery session + explicit Save<br/>versioned workbook codec"]
 ```
 
-Buradaki Formula kolu yeni yetenektir. SQL analitiği ile aynı veri tiplerini, belge revision'ını ve bağımlılık sınırlarını paylaşır; her hücre tuşunu SQL sorgusuna çevirmek gerekmez. Excel'in kamuya açık hesabı da bağımlılık ağacı, hesaplama sırası ve dirty bağımlıların yeniden hesaplanmasına dayanır. Bu, Duxcel'in formül motoru tasarımı için referanstır; Excel'in tüm iç mimarisini bildiğimiz anlamına gelmez. [Microsoft hesaplama açıklaması](https://learn.microsoft.com/en-us/office/client-developer/excel/excel-recalculation).
+The Formula branch is a new capability. It shares types, document revisions and dependency boundaries with SQL analytics; each cell keystroke need not become a SQL query. Microsoft's public calculation description also uses a dependency tree, calculation order and recalculation of dirty dependents. This is a formula-engine design reference, not a claim to know all Excel internals. [Microsoft recalculation documentation](https://learn.microsoft.com/en-us/office/client-developer/excel/excel-recalculation).
 
-Önerilen ortak sözleşmeler:
+Proposed shared contracts:
 
-- **Tek belge otoritesi:** Kalıcı model ile aktif görünüm kopyalarının rolü açık olsun. UI doğrudan dağınık store'ları değiştirerek dirty/undo/sorgu invalidation zincirini elle tamamlamasın.
-- **Hedef kimliği:** Elle girilmiş hücre için sheet/cell adresi; veri editinde dataset, sabit kaynak sürümü, özgün kayıt ve alan kimliği; sonuç hücresinde ayrıca tanım ve sonuç revision'ı kullanılsın. Satır ekleme/silmede referans taşıma kuralları açık olsun.
-- **Tipli değer ve ifade:** Eksik seyrek hücre, SQL NULL, boş metin, literal `NULL`, integer/DECIMAL, tarih, hata ve formül girdisi birbirine dönüşmesin. Girilen ham metin/ifade ile hesaplanmış değer ve biçimli gösterim ayrı tutulsun. Bu, sentetik bir “blank” veri türü icat etmeyi gerektirmez.
-- **Tek değişiklik sonucu:** Başarılı bir işlem neyin değiştiğini ve hangi sonuçların geçersizleştiğini döndürsün. Paste gibi çok hücreli işlemler bir undo ve bir kalıcı işlem olsun. Yalnız seçim/scroll gibi görünüm işlemleri veri dirty'si oluşturmasın.
-- **İş türüne uygun zamanlama:** Viewport okumalarında eskisini iptal et/en yenisini kabul et yaklaşımı korunsun. Kalıcı kayıtlar ise sırayla tamamlanan işlemler olsun; viewport kaydırması bir commit'i düşürmesin. Mevcut tek worker önceliklerinin ayrılması gerektiği nokta budur; daha fazla thread açmak başlı başına çözüm değildir.
-- **Revision'a bağlı yayın:** Asenkron Save hangi belge revision'ını kalıcılaştırdığını bildirsin. O sırada daha yeni edit varsa belge dirty kalsın. Şu anki geniş I/O input kilidini kaldırıp arka planda autosave sunmadan önce bu sözleşme gerekir.
+- **One document authority:** Define persistent-model and active-view-copy roles. Avoid having UI code mutate scattered stores and manually complete dirty/undo/query-invalidation chains.
+- **Target identity:** Use sheet/cell addresses for manual cells; dataset, immutable base version, original record and field identity for data edits; additionally definition/result revisions for result cells. Define reference movement during row insertion/deletion.
+- **Typed value and expression:** Preserve sparse absence, SQL NULL, empty text, literal `NULL`, integer/DECIMAL, dates, errors and formula input. Separate raw input/expression, computed value and formatted display. This does not require a synthetic “blank” storage type.
+- **One change result:** Return what changed and which results were invalidated. Multi-cell operations such as Paste are one undo action and one durable transaction. Selection/scroll alone must not dirty data.
+- **Scheduling appropriate to job type:** Preserve cancellation/latest-wins for viewport reads. Durable writes complete in order; viewport scrolling must not drop a commit. This is where priorities on the current single worker need separation; adding threads alone does not solve it.
+- **Revision-bound publication:** Asynchronous Save reports the revision persisted. Newer edits keep the document dirty. Establish this contract before removing the current broad IO input lock and enabling background autosave.
 
-Mevcut `worksheet_*` atomik range/history yardımcıları, sahipli snapshot'lar, source identity ve stale reply korumaları bu hedefe geçiş için kullanılabilir. İşlevleri baştan yazmak gerekmez. Önce `app.c` içinden document lifecycle, komut/history, query scheduling/publication ve grid interaction controller'ları mevcut testleri koruyarak çıkarılabilir. Native senaryolar test build sınırına taşınmalı; geliştirme altyapısı üretim davranışına dönüşmemelidir.
+Existing `worksheet_*` atomic range/history helpers, owned snapshots, source identity and stale-reply protection can support this transition. A rewrite is unnecessary. Extract document lifecycle, command/history, query scheduling/publication and grid-interaction controllers from `app.c` while preserving tests. Move native scenarios behind a test-build boundary; development infrastructure must not become production behavior.
 
-### Öneri: büyük Parquet verisini düzenleme
+### Proposal: editing large Parquet datasets
 
-Bir `Page` içindeki text'i değiştirmek yalnız görüntüyü değiştirir. Doğru düzenleme, sorgunun okuduğu mantıksal veriyi değiştirmelidir. İlk hedef için kaynak Parquet'i sabit tutup yalnız değişiklikleri saklayan yerel bir overlay uygundur.
+Changing text inside a `Page` only changes the display. Correct editing changes the logical relation read by queries. A suitable first slice keeps the base Parquet immutable and stores changes in a local overlay.
 
 ```mermaid
 flowchart LR
-    Base["Sabit kaynak snapshot'ı<br/>Parquet veya yönetilen veri"] --> Effective["Etkin veri ilişkisi<br/>base + typed patch + insert - delete"]
-    Patches["Edit overlay<br/>özgün kayıt ve alan kimliğiyle"] --> Effective
-    Effective --> Transform["Source query / filtre / sort<br/>pivot / istatistik"]
-    Transform --> Consumers["Viewport, copy, chart, export<br/>aynı veri revision'ı"]
+    Base["Immutable source snapshot<br/>Parquet or managed data"] --> Effective["Effective relation<br/>base + typed patch + insert - delete"]
+    Patches["Edit overlay<br/>original record and field identity"] --> Effective
+    Effective --> Transform["Source query / filter / sort<br/>pivot / statistics"]
+    Transform --> Consumers["Viewport, copy, chart, export<br/>same data revision"]
 ```
 
-Örneğin görünür yedinci satır sıralama sonrası özgün kayıt 8.431 ise editin hedefi “7. satır” olamaz. Hedef `(dataset, base_version, record_id=8431, field_id=amount)` olmalıdır. İlk destek yalnız doğrudan kaynak kayıtları ve bire bir izlenebilir alanlar olabilir. Aggregate/pivot toplamına yazmak, kaynaktaki hangi kayıtları nasıl değiştireceğini ayrıca tanımlamadan açılmamalıdır.
+If displayed row seven corresponds to original record 8,431 after sorting, an edit cannot target “row seven.” Its identity must be `(dataset, base_version, record_id=8431, field_id=amount)`. Initial support can be limited to direct source records and individually traceable fields. Do not enable aggregate/pivot-total editing without defining which source records change and how.
 
-RAM'de sınırlı güncel patch indeksi tutulur; kalıcı store tipli patch'leri, insert/delete'leri ve işlem revision'ını saklar. Kaynağın tamamı C hücre dizisine alınmaz. Overlay boyutu büyürse managed DuckDB table veya yeni Parquet snapshot'ına materyalizasyon/compaction ölçülerek seçilir. “Overlay” az edit için uygun öneridir; milyonlarca değişiklikte aynı planın hızlı kalacağı varsayılmaz.
+Keep a bounded current-patch index in RAM. A durable store holds typed patches, inserts/deletes and transaction revisions. Do not materialize the whole source into a C cell array. As overlays grow, measure managed DuckDB tables versus materialization/compaction into new Parquet snapshots. An overlay is a proposal for sparse edits; the same plan is not assumed to remain fast for millions of changes.
 
-Overlay **filtre, sıralama ve aggregate'den önce** etkin ilişkiye uygulanmalıdır. Filtreye dahil olmayan bir satır editten sonra görünebilir; görünen satır da filtreden düşebilir. Sadece yüklenmiş 256 satırı yamamak bu sonuçları kaçırır. Benzer şekilde SQL `COALESCE(patch, base)` edit semantiği olamaz: kullanıcı açıkça NULL girerse eski değere döner. Patch'in varlığı ile patch değerinin NULL olması ayrı bilgiler olmalıdır.
+Apply the overlay to the effective relation **before filtering, sorting and aggregation**. An excluded row can become visible after an edit; a visible row can leave the filter. Patching only the loaded 256 rows misses these effects. SQL `COALESCE(patch, base)` is also incorrect edit semantics: an explicitly NULL patch would restore the old value. Patch presence and patch-value nullness must be separate information.
 
-İlk düzenleme kabulü: filtre/sort altında doğru kayıt değişsin; viewport, tam seçim istatistiği, pivot, copy ve export aynı revision'ı görsün; Undo/Redo ile eski değer geri gelsin; Save/Open ve crash recovery değişikliği korusun; dış kaynak değiştiyse overlay sessizce başka kayıtlara uygulanmasın. Snapshot içerik hash'i doğrulama sağlayabilir fakat eski kaynağı saklamaz; kalıcı geçmiş için eski kaynak byte'larının da erişilebilir tutulması gerekir.
+Initial editing acceptance: change the correct record under filter/sort; viewport, full-selection statistics, pivot, copy and export observe the same revision; Undo/Redo restores old values; Save/Open and crash recovery retain the edit; external source changes never silently apply patches to other records. A snapshot content hash can verify identity but does not retain the old source. Durable history also needs access to old source bytes.
 
-### DuckLake veya Delta Lake gerekli mi
+### Do we need DuckLake or Delta Lake?
 
-| Yaklaşım | Sağladığı şey | Bu proje için değerlendirme |
+| Approach | Capability | Assessment for this project |
 | --- | --- | --- |
-| Mevcut DuckDB + tipli yerel overlay | C uygulaması içinde kontrollü kayıt düzenleme; mevcut workbook formatını ve SQL motorunu genişletme | İlk düzenleme dilimi için en az yeni bileşen. Kimlik, sorgu planı, kalıcı journal ve compaction politikası yine tasarlanır. |
-| Yönetilen DuckDB table | İçe alınmış verinin uygulama tarafından sahiplenildiği gerçek UPDATE/DELETE yolu | Çok edit ve bağımsız dosya paylaşımı için aday; import süresi, kopya disk alanı ve snapshot/history politikası ölçülmeli. |
-| DuckLake | Veri snapshot'ları, time travel, küçük değişiklikleri metadata içinde tutma; catalog ve data files | Büyük yönetilen dataset'ler ve ileride ortak veri için araştırma adayı. Native/browser sabit engine sürümlerinde extension, paketleme ve gerçek dosya uyumluluğu ayrıca kanıtlanmalı. |
-| Delta Lake / Iceberg | Dosyalar üzerinde transaction/snapshot ve row-level değişiklik mekanizmaları | Dış lakehouse birlikte çalışabilirliği hedeflendiğinde değerlendirilmeli; hücre/formül/odak/undo sözleşmelerini kendiliğinden sağlamaz. |
+| Existing DuckDB + typed local overlay | Controlled record editing within C; extend the workbook format and SQL engine | Fewest new components for the first editing slice. Identity, query plans, durable journals and compaction still need design. |
+| Managed DuckDB table | Application-owned imported data with real UPDATE/DELETE | Candidate for frequent edits and independent file sharing; measure import time, duplicate disk space and snapshot/history policy. |
+| DuckLake | Data snapshots, time travel and small changes stored in metadata; catalog plus data files | Research candidate for large managed datasets and future shared data. Prove extensions, packaging and file compatibility against pinned native/browser engines. |
+| Delta Lake / Iceberg | File-based transactions/snapshots and row-level change mechanisms | Consider for external lakehouse interoperability. These do not provide cell/formula/focus/undo contracts automatically. |
 
-DuckLake'in [data inlining](https://ducklake.select/docs/stable/duckdb/advanced_features/data_inlining), [time travel](https://ducklake.select/docs/stable/duckdb/usage/time_travel) ve [catalog seçimi](https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database) gerçek özelliklerdir. Delta'nın [deletion vectors](https://docs.delta.io/delta-deletion-vectors/) yaklaşımı da her küçük editte bütün Parquet dosyasını yeniden yazma zorunluluğuna alternatif sunar. **Bu özelliklerden hareketle önerimiz**, veri depolama sağlayıcısını belge/komut katmanının arkasında değiştirilebilir tutmak ve lakehouse entegrasyonunu temel grid davranışlarının önkoşulu yapmamaktır. Çok kullanıcılı veri yazımı ile tek kullanıcının workbook düzenlemesi ayrı kapsamdır.
+DuckLake provides [data inlining](https://ducklake.select/docs/stable/duckdb/advanced_features/data_inlining), [time travel](https://ducklake.select/docs/stable/duckdb/usage/time_travel) and [catalog choices](https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database). Delta's [deletion vectors](https://docs.delta.io/delta-deletion-vectors/) also offer an alternative to rewriting an entire Parquet file for each small edit. **The resulting proposal** is to keep the storage provider replaceable behind the document/command layer, without making lakehouse integration a prerequisite for basic grid behavior. Multi-user data writing and single-user workbook editing are different scopes.
 
-### Öneri: autosave ve crash recovery
+### Proposal: autosave and crash recovery
 
-Kullanıcı için üç farklı söz ayrılmalıdır: ekranda edit kabul edildi; edit recovery deposuna kalıcı yazıldı; açık workbook dosyası kaydedildi. Tek `dirty` bool'u bu üçünü anlatmaya yetmez. Belge kimliği, current revision, recoverable revision ve saved revision gerekir.
+Distinguish three promises: the UI accepted the edit; the edit was durably written to recovery storage; the named workbook file was saved. One `dirty` boolean cannot express all three. Track document identity, current revision, recoverable revision and saved revision.
 
-İlk dilim, mevcut snapshot/codec ile untitled workbook dahil özel bir recovery oturumuna periyodik snapshot yazabilir. Sonraki dilim, komut transaction'larını sıralı kalıcı journal'a alıp arada snapshot/compaction yapabilir. Kendi yeni WAL biçimini yazmadan önce mevcut transaction store'unun küçük yazı gecikmesi ve kaynak maliyeti ölçülmelidir. UI'da “kaydedildi/kurtarılabilir” bilgisi ancak ilgili yazı tamamlandıktan sonra gösterilmeli; debounce aralığındaki olası kayıp sınırı açık olmalıdır.
+A first slice can periodically write snapshots using the existing codec into a private recovery session, including untitled workbooks. A later slice can journal command transactions in order, with periodic snapshots/compaction. Before designing a custom WAL format, measure small-write latency and resource costs of the existing transactional store. Display “saved/recoverable” only after the corresponding write completes; state the possible data-loss window during debounce.
 
-Recovery kaydı cache değildir; `build/` veya geçici query spill klasöründe tutulmamalıdır. Platformun kalıcı kullanıcı verisi alanında belge/oturum kimliğiyle saklanır. Açılış tamamlanmış snapshot + commit edilmiş devam kayıtlarını yükler, eksik/kesilmiş kuyruğu güvenli biçimde ele alır ve kaynak erişimini ayrıca çözer. Disk dolu, izin hatası, yazıcı kapanışı ve eski recovery kaydının yanlış workbook'a uygulanması kabul testleridir. Açık “Don't Save” ile bu oturumun recovery kaydını kapatma davranışı da tanımlanmalıdır.
+Recovery records are not caches and must not live under `build/` or temporary query-spill directories. Store them in the platform's durable user-data location under document/session identities. Startup reads a complete snapshot plus committed continuation records, handles missing/truncated tails safely and resolves source access separately. Acceptance includes disk full, permission failures, writer shutdown and preventing old recovery data from being applied to the wrong workbook. Define how explicit Don't Save retires that session's recovery records.
 
-Normal named-file autosave kaynak dosyayı otomatik güncelleme politikasıdır; recovery ise kullanıcı Save dememiş olsa da çalışmayı korur. VS Code bu ayrımı Auto Save ve unsaved değişiklikler için Hot Exit ile görünür kılar. Office de AutoSave ile AutoRecover'ı ayırır. Bu ürünlerden alınan öneri, Duxcel'de untitled/crash korumasını açık workbook kaydından bağımsız kurmaktır. [VS Code](https://code.visualstudio.com/docs/editing/codebasics), [Microsoft AutoSave](https://support.microsoft.com/en-us/office/collab-files/what-is-autosave?ad=us&rs=en-us&ui=en-us).
+Named-file autosave updates the chosen workbook automatically; recovery protects work even without explicit Save. VS Code exposes Auto Save separately from Hot Exit for unsaved changes. Office also distinguishes AutoSave and AutoRecover. The proposal drawn from these products is to separate untitled/crash protection from explicit workbook persistence. [VS Code](https://code.visualstudio.com/docs/editing/codebasics), [Microsoft AutoSave](https://support.microsoft.com/en-us/office/collab-files/what-is-autosave?ad=us&rs=en-us&ui=en-us).
 
-### Öneri: Excel benzeri davranış sözleşmeleri
+### Proposal: Excel-like behavior contracts
 
-Excel'e benzerlik tek bir “parity” onayıyla kapanmamalıdır. Her davranış için başlangıç durumu, gerçek input, beklenen seçim/değer ve yan etkiler yazılmalıdır. İlk matris; dolu/boş sınırında Cmd+ok ve Shift+Cmd+ok, aktif hücre/anchor/extent, Enter/Tab, edit commit/cancel, paste/clear, range move, insert/delete, Undo/Redo ve save/close kapsamını içermelidir.
+Excel-like behavior cannot be accepted through one general parity checkbox. Specify starting state, actual input, expected selection/value and side effects for each behavior. The first matrix should include Cmd+Arrow and Shift+Cmd+Arrow at occupied/empty boundaries, active cell/anchor/extent, Enter/Tab, edit commit/cancel, paste/clear, range move, insert/delete, Undo/Redo and save/close.
 
-Ortak navigation servisi seyrek manuel hücreler, kaynak tabloları ve mevcut nesneler için hedef sınırı modelden çözmelidir. Seyrek veride tüm canvas taranmaz; mevcut dolu hücre indeksi kullanılır. SQL verisinde gerekirse aynı source revision'ına bağlı sınırlı bir sınır sorgusu çalışır; viewport cache'indeki 256 satır bütün sheet'in doluluğu sayılamaz. SQL NULL, boş string, yalnız formatlı hücre ve ileride boş metin döndüren formülün “dolu” sayılma kuralları açıkça seçilip Excel Mac üzerinde doğrulanmalıdır.
+A shared navigation service should resolve targets from the model for sparse manual cells, sources and objects. Use the existing occupied-cell index rather than scanning the entire sparse canvas. SQL-backed data can use a bounded boundary query tied to the same source revision when necessary. A 256-row viewport cache cannot represent whole-sheet occupancy. Explicitly decide and verify Excel Mac occupancy rules for SQL NULL, empty strings, formatting-only cells and future formulas returning empty text.
 
-Özellik kabulü değişen halkaları birlikte kapsar. Navigation değişikliği için doğru hedef/seçim ve dirty/query yan etkisinin olmaması; veri editi için ayrıca motor sonuçları, undo ve kalıcılık gerekir. Saf gölge/spacing değişikliği her seferinde tam persistence regresyonu gerektirmez. Unit pass, gerçek event teslimi veya bütünleşik veri doğruluğu yerine kullanılmamalıdır.
+Acceptance covers the affected layers together. Navigation changes need correct target/selection and no unintended dirty/query effects. Data edits also need engine results, undo and persistence. Pure shadow/spacing changes do not require a full persistence regression every time. A unit pass does not replace real event delivery or integrated data correctness.
 
-### Mevcut feedback altyapısı ve batch önerisi
+### Current feedback infrastructure and batch proposal
 
-Native review uygulaması rapor bundle'ını yerel outbox'a atomik olarak yazar; o anda Python servisi veya çalışan agent gerekmez. Browser review önce IndexedDB'ye saklar, sonra ortak outbox'a taşımayı dener; yalnız local-pending durumu ortak depoda kalıcı teslim sayılmaz. Harici Python kuyruğu SQLite transaction/lease/retry ile raporları tutar. Opsiyonel worker'ın yaptığı iş read-only triage'dır, otomatik fix değildir. Normal ürün binary'si review machinery'yi içermez.
+Native review atomically writes report bundles into a local outbox without requiring a running Python service or agent. Browser review first stores reports in IndexedDB and then attempts shared-outbox delivery; local-pending does not establish shared durable delivery. The external Python queue uses SQLite transactions, leases and retries. The optional worker performs read-only triage, not automatic fixes. Normal product binaries exclude review infrastructure.
 
 ```mermaid
 flowchart LR
-    Capture["Kullanıcı raporları<br/>görsel + not + hedef + build"] --> Outbox["Kalıcı outbox<br/>agent kapalıyken de birikir"]
-    Outbox --> Inbox["Öneri: okunabilir feedback listesi<br/>benzerleri grupla, katman ve öncelik ver"]
-    Inbox --> Batch["Öneri: seçilmiş batch<br/>kimlikler + ortak davranış + kabul"]
-    Batch --> Fix["Uygulama ve veri değişikliği<br/>ilgili katmanlarda"]
-    Fix --> Verify["Bütünleşik doğrulama<br/>yeni build ve rapor kimlikleri"]
+    Capture["User reports<br/>image + note + target + build"] --> Outbox["Durable outbox<br/>collects while agent is stopped"]
+    Outbox --> Inbox["Proposal: readable feedback list<br/>group duplicates, assign layer and priority"]
+    Inbox --> Batch["Proposal: selected batch<br/>IDs + shared behavior + acceptance"]
+    Batch --> Fix["Implementation and data changes<br/>in affected layers"]
+    Fix --> Verify["Integrated verification<br/>new build and report IDs"]
     Verify --> Inbox
 ```
 
-Bu nedenle ihtiyacın ilk karşılığı yeni bir sürekli agent daemon'ı kurmak değil, mevcut outbox'ın üstüne **batch iş akışı** eklemektir. Raporları topla → bir batch'e seç → ortak kök neden ve kabul davranışını yaz → uygula → doğrula. `triaged`, `implemented`, `verified` ve kullanıcı tasarım kabulü ayrı durumlar olarak kalmalıdır. Bir raporun queue'da completed/triaged olması, sorunun düzeldiği anlamına gelmez.
+The first missing piece is a **batch workflow** over the existing outbox: collect reports → select a batch → describe shared root cause and acceptance → implement → verify. Keep `triaged`, `implemented`, `verified` and human design acceptance separate. A completed/triaged queue item does not establish that the defect is fixed.
 
-Batch kaydı rapor ID'leri, ilgili belge/source revision'ı, beklenen/gözlenen davranış, katman etiketleri, test kapsamı ve çözüm build'ini bağlayabilir. Screenshot bütün veri doğruluğunu göstermez; hesaplama/persistence raporlarında küçük reproducible veri veya desteklenen workbook fixture'ı gerekir. Mevcut reader `list/read/status`, queue ve `worker --once` temelleri vardır; seçilmiş çoklu rapor paketi, duplicate/root-cause gruplama ve toplu ilerleme görünümü ayrı eksiklerdir. Python burada dış geliştirme aracıdır; yalnızca dili değiştirmek batch kullanım sorununu çözmez.
+A batch can link report IDs, document/source revisions, expected/observed behavior, layer tags, test scope and fix build. Screenshots alone do not establish data correctness; calculation/persistence reports need small reproducible data or supported workbook fixtures. Existing foundations include reader `list/read/status`, the queue and `worker --once`. Selected multi-report packages, duplicate/root-cause grouping and batch progress views remain missing. Python is external development tooling here; changing its language does not solve the batch workflow.
 
-Kaynak: [review capture](../src/dev/review_capture.c), [native outbox](../src/dev/review_store.c), [reader](../tools/native_review.py), [queue](../tools/review_queue.py), [worker](../tools/review_worker.py), [service komutları](../tools/review_service.py), [review planı](design/NATIVE_REVIEW_PLAN.md).
+Sources: [review capture](../src/dev/review_capture.c), [native outbox](../src/dev/review_store.c), [reader](../tools/native_review.py), [queue](../tools/review_queue.py), [worker](../tools/review_worker.py), [service commands](../tools/review_service.py), [review plan](design/NATIVE_REVIEW_PLAN.md).
 
-### Önerilen geliştirme alanları ve ilk sıra
+### Proposed ownership areas and initial order
 
-| Sorumluluk alanı | Sözleşmesi | Birlikte kanıtlanacak sonuç |
+| Ownership area | Contract | Integrated result to prove |
 | --- | --- | --- |
-| Grid ve interaction | Kullanıcı input'undan seçim/edit komutuna geçiş; hit test, odak, geometri | Manuel ve sorgu verisinde tutarlı gezinme ve edit yaşam döngüsü |
-| Workbook ve komutlar | Tipli değer/ifade, hedef kimliği, atomik değişiklik, undo/revision | UI menüsü ve shortcut aynı işlemi yapar |
-| Analitik ve formula runtime | Etkin dataset, lineage, SQL, formül bağımlılıkları, sonuç yayınlama | Bütün tüketiciler aynı revision'ı gösterir |
-| Persistence ve recovery | Versiyonlu codec, kalıcı işlem sırası, snapshot, kaynak referansları | Save/Open ve crash sonrası aynı kabul edilmiş çalışma |
-| Feedback ve kabul | Rapor/batch/tespit/fix/test ilişkisi; doğru build kanıtı | Bir rapor hangi davranış ve testle kapandı görülebilir |
+| Grid and interaction | User input to selection/edit commands; hit testing, focus and geometry | Consistent navigation/edit lifecycle for manual and queried data |
+| Workbook and commands | Typed values/expressions, target identity, atomic changes, undo/revisions | UI menus and shortcuts perform the same operation |
+| Analytics and formula runtime | Effective dataset, lineage, SQL, formula dependencies and result publication | All consumers observe the same revision |
+| Persistence and recovery | Versioned codec, durable ordering, snapshots and source references | Accepted work survives Save/Open and crashes |
+| Feedback and acceptance | Report/batch/finding/fix/test links with correct build evidence | Each closed report identifies its accepted behavior and tests |
 
-Bunlar beş eşzamanlı agent/implementation lane önerisi değildir. Bu Mac'te mevcut en fazla iki aktif implementation lane ve tek App/shared-interface/build/desktop integratörü kuralı korunmalıdır. İlk iki uyumlu alan, ortak sözleşmeyi paylaşan grid/manuel edit ve native kayıt/recovery dilimleri olabilir. Halihazırdaki browser codec/test çalışması korunmalı; native recovery'nin önkoşulu yapılmamalıdır.
+These are logical ownership areas, not a proposal for five simultaneous agents/implementation lanes. Preserve the maximum of two active implementation lanes and one App/shared-interface/build/desktop integrator on this Mac. Compatible initial areas could be grid/manual editing and native persistence/recovery sharing common contracts. Preserve ongoing browser codec/tests without making them a prerequisite for native recovery.
 
-Önerilen ilk işler: (1) native kapanışta yaşanan kaybı kullanılan build ve kapanış yolu ile ayırıp untitled dahil recovery'nin ilk dikey dilimini kurmak; (2) dolu/boş hücre gezinmesini ve temel edit/undo davranışını ortak komut sözleşmesiyle düzeltmek; (3) tipli manuel hücreleri analitik modele bağlamak; (4) doğrudan raw kaynak kayıtlarında edit overlay'ini viewport/pivot/stats/export/save/recovery ile birlikte tamamlamak. Seçilmiş feedback batch görünümü bunlarla paralel küçük dış araç işi olabilir. Genel formül bağımlılık motoru ve lakehouse sağlayıcısı sonraki, ayrı kabulü olan ürün yetenekleridir. İlk grid düzeltmelerini bütün bu altyapının bitmesine bağlamamak gerekir.
+Proposed initial work: (1) isolate closing-related data loss by build and close path, then deliver the first recovery slice including untitled workbooks; (2) fix occupied/empty navigation and basic edit/undo using shared command contracts; (3) connect typed manual cells to the analytical model; (4) complete raw-source record overlays across viewport/pivot/statistics/export/save/recovery. A selected-feedback batch view can be a small parallel external-tool task. General formula dependencies and a lakehouse provider are later capabilities with separate acceptance. Basic grid fixes must not wait for all this infrastructure.
 
-### İnceleme ve doğrulama kapsamı
+### Review and verification scope
 
-Kaynak yolları mevcut kirli çalışma ağacına aittir; yalnız HEAD'i incelemek bu checkout'ı tarif etmez. Ürün kaynak ağacı 135 dosyadan oluşur; modül arayüzleri ve App/input → model → worker/SQL → Page → render ile Save/Open/review yolları incelenmiştir. Generated marka/icon türevleri tasarım otoritesi olarak ele alınmamıştır. Bu bölüm bir native görsel/gerçek klavye kabulü değildir; kullanıcının uygulaması kontrol edilmemiştir.
+These source paths describe the dirty working tree inspected, not HEAD alone. The product source tree contained 135 files; the review examined module interfaces and App/input → model → worker/SQL → Page → render, plus Save/Open/review paths. Generated brand/icon derivatives were not treated as design authority. This section does not establish native visual or physical-keyboard acceptance; the user's application was not controlled.
 
-Odaklı mevcut testler: `grid`, `page`, `cellreadout`, `objects`, `selection_ladder` release ve ASan/UBSan yapılandırmalarında geçti (build dahil 11,933 s). Native workbook `--formats-only` kayıt testleri release ve ASan/UBSan ile geçti (17,413 s). İki koşuda da 0 App scenario stage çalıştı. Sonuçlar, source/binary hash'leri ve komutlar ignored `build/tests/results/architecture-review/` ve `architecture-persistence/` koşularında kaydedildi. Bu geçici payload'lar depo temizliğinde budandı; güncel temizlik/kabul özeti `build/tests/results/cleanup-summary.json` içindedir. Test kaynakları ve komutlar korunur. Bu testler yeni autosave, genel formula veya editable Parquet desteği kanıtı değildir.
+Focused checks passed for `grid`, `page`, `cellreadout`, `objects` and `selection_ladder` in release and ASan/UBSan configurations (11.933 s including builds). Native workbook `--formats-only` checks passed in release and ASan/UBSan (17.413 s). Both runs executed zero App scenario stages. Results, source/binary hashes and commands were recorded under ignored `build/tests/results/architecture-review/` and `architecture-persistence/`. Cleanup subsequently pruned these disposable payloads; its current acceptance summary is `build/tests/results/cleanup-summary.json`. Test sources and commands remain. These historical checks do not establish new autosave, general formulas or editable Parquet support.
