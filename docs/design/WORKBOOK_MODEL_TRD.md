@@ -1,6 +1,6 @@
 # Workbook editing analytics and versioning TRD Draft
 
-Status: Draft for product and technical iteration, revised 21 October 2026 with the user's decisions. Source baseline remains `b5e6be0e92b9a784027781b78343de51a783e5d3`; the first draft was committed as `4099673`. Accepted design direction is distinguished from remaining implementation proposals in sections 19 and 20 and summarized in [REQUIREMENTS](../REQUIREMENTS.md). No feature implementation or roadmap scheduling is implied.
+Status: Draft for product and technical iteration, revised 21 October 2026 with the user's decisions on local pivot coordinates, positional references, spill behavior, Master View, durability and stale-result warnings. Source baseline remains `b5e6be0e92b9a784027781b78343de51a783e5d3`; the first draft was committed as `4099673`. Sections 19–21 distinguish accepted decisions, remaining policies and deferred features. [REQUIREMENTS](../REQUIREMENTS.md) summarizes the accepted direction. No feature implementation or roadmap scheduling is implied.
 
 Duxcel should combine freeform spreadsheet editing with relational analysis and spatial dashboard authoring in one workbook. Users should be able to edit manual cells and eligible imported records, arrange independent analytical objects over a sheet, reference their values, undo workbook changes, retain selected versions and recover committed work. The recommended foundation is a shared C document model and command boundary, with separate data identity, placement, durable history and disposable calculation caches.
 
@@ -61,15 +61,15 @@ An inferred region is a navigation convenience. It is not automatically a persis
 | Entity | Authority and identity | Contract |
 | --- | --- | --- |
 | Workbook | Durable document UUID, monotonic revision and ID allocation high-water marks | Owns sheets, datasets, definitions, transactions and checkpoint references. File path is a locator. |
-| Worksheet | Stable sheet ID; independent display name/order | Owns sparse manual cells, sheet metrics, range bindings, placements and view state. Rename/reorder preserves references. |
+| Worksheet | Stable sheet ID; separate code name, display name and order | Owns sparse manual cells, sheet metrics, range bindings, placements and view state. Rename/reorder preserves references. |
 | Worksheet cell | Sheet ID plus logical row/column address | Stores optional typed value or expression. Structural operations rewrite references under an explicit rule. |
 | Range binding | Stable binding ID plus sheet/address definition | Declares analytical input, headers, schema and expansion policy. Plain selection does not create one. |
 | Dataset | Stable dataset ID, immutable base version and schema/field IDs | Represents a range relation, read-only connection, imported source or materialized Data Model query result. Dataset identity is distinct from its views. |
 | Record | Dataset/base identity plus stable record ID | Never a displayed row index. Inserted records use durable, non-reused IDs. |
-| Analysis definition | Stable analysis ID and definition/data revisions | Binds sources, transforms, shelves, measures and representation. Can be located through an object inventory. |
+| Analysis definition | Stable analysis ID, code/display names and definition/data revisions | Binds sources, transforms, shelves, measures and representation. A matrix also has its own positional A1 address space. |
 | Placement | Placement ID, sheet ID, referenced analysis/view ID and geometry | Owns location, size, anchor policy, layer/order and optional local scale. Initially one placement per existing object. |
 | Master View | Workbook-owned composition ID plus ordered sheet IDs and display transforms | Composites existing sheets visually. It owns no copied cells or independent calculation plane. |
-| Result value | Analysis ID plus result generation and local address or semantic group/measure key | Resolves offscreen values. A retained cache entry alone is not a durable analytical identity. |
+| Result value | Analysis ID plus result generation and local positional address | Resolves offscreen values independently of placement. Group/measure semantic references are deferred FT01, not required now. |
 | Transaction | Transaction ID, parent state, versioned resolved delta and effect set | One atomic user operation can touch several sheets/stores. |
 | Checkpoint | Immutable state manifest plus retained asset references | Opens without replay from workbook creation. Physical blobs may be shared. |
 | Version tag | User label pointing to a checkpoint | Immutable target until an explicit retag/delete operation. Separate from Latest Saved. |
@@ -103,21 +103,37 @@ Logical separation should allow the same analysis to appear on a sheet and be re
 
 **Accepted direction D02:** ordinary worksheet addresses can refer directly to grid-resident pivot/table output. Binding prioritizes the analytical object's cell ownership within its successful footprint. A formula referring to that output follows the object when it moves, including references from other sheets. It must not fall back to the manual cell newly exposed at the old location.
 
-For example, a pivot output at `Analysis!B7` is referenced from a manual formula `=Analysis!B7*2`. Moving the pivot five columns right updates the displayed reference to `=Analysis!G7*2` and preserves the same object-local output binding. The move, dependent reference rewrites and placement changes are one workbook transaction and one Undo action. Absolute references such as `$B$7` prevent copy-relative adjustment; they do not freeze a reference against movement of its target. Whole-object moves retain field/result identity and do not require recomputing the pivot solely because its screen position changed.
+For example, grid output at `analysis.B7` is referenced as `=analysis.B7*2`. Moving its pivot five columns right updates the sheet-address expression to `=analysis.G7*2` and preserves the same object-local target. The move, dependent reference rewrites and placement changes are one workbook transaction and one Undo action. Absolute references such as `$B$7` prevent copy-relative adjustment; they do not freeze a reference against movement of its target. Whole-object moves do not require recomputing the pivot solely because its screen position changed. Dot-qualified names are the preferred Duxcel syntax; this example is not a claim of Excel formula-text compatibility.
 
 Implement references as parsed bindings to stable sheet/object identities and local targets, retaining relative/absolute flags and a rendered A1 representation. Do not search/replace formula strings. A sheet rename/reorder preserves its identity. Moving a manual range uses the analogous reference-update contract. Copying a range remains a separate operation with its own relative-reference rules.
 
-Grid-resident analytical footprints cannot overlap other grid-resident analytical footprints on the same sheet. The proposed interpretation also blocks covering populated manual cells, pending Q01. This prevents address ambiguity rather than trying to resolve it continuously through z-order. Floating geometry and Master View composition do not claim additional A1 addresses merely by covering pixels. A floating pivot retains a stable analytical target; whether it also retains a reserved grid address is open in Q01.
+Grid-resident analytical footprints cannot overlap other grid-resident analytical footprints on the same sheet. The working interpretation also blocks covering populated manual cells. Floating geometry and Master View composition do not claim sheet A1 addresses merely by covering pixels. A floating pivot has its own local A1 space, independently of the sheet coordinate under its upper-left corner.
 
-Movement-following is accepted; behavior after sorting/re-grouping/pivot schema changes is still a separate choice. Object-local positional references and semantic group/measure references answer different questions. Initially preserve the positional target across movement and return an explicit reference error when it no longer exists; do not silently promise that it follows a category through sort. Q02 records the remaining reference and drill-through edge cases.
+**Accepted Q02:** references are positional now. Local `A1` means that position in the object's output; sorting can change its value and removing that position produces an explicit reference error. A reference does not follow a category/measure after regrouping. GETPIVOTDATA-style semantic references are an unscheduled nice-to-have in FT01, not an open gate for movement or formulas. Internal object IDs preserve the referenced object through a move; they do not introduce semantic group lookup.
+
+#### 4.1.1 Object local coordinates and names
+
+**Accepted Q01:** a pivot/matrix has its own A/B/C columns and 1/2/3 rows in both floating and grid-aligned presentation. If its upper-left lies over sheet D10, its local A1 remains A1. A qualified reference can be `sales.regional_pivot.A1`, where `sales` is the sheet's code name and `regional_pivot` the object's code name. A sheet reference such as `sales.D10` is a different reference form. Reference insertion follows the active sheet versus object authoring context and must show that context in the address/formula strip.
+
+Keep three naming concepts separate: immutable internal IDs, readable code names for formulas/automation, and free-form display names for dashboard titles. A display name such as Regional Sales Pivot may contain spaces and localized text without introducing quotes into ordinary expressions. Propose ASCII identifiers of the form `[A-Za-z_][A-Za-z0-9_]*`, with sheet code names unique per workbook and object code names unique in their sheet. Validate reserved/ambiguous identifiers; generate safe unique defaults. Display-name changes do not rename code names. An explicit code-name rename rewrites serialized references through stable bindings atomically rather than breaking them.
+
+Object-local references remain stable under move, zoom, local resizing and z-order. Grid sheet-address references continue to follow successful object relocation while it participates in the sheet value plane. Changing between snapped and floating modes raises a remaining migration question: whether existing sheet-style references convert to the qualified local form or preserve a separate logical anchor. R01 records the recommended explicit conversion; do not silently let them start reading cells under the floating object.
+
+#### 4.1.2 Object focused coordinate chrome
+
+When an addressable matrix is focused, use its local geometry to project column letters into the existing top header band and row numbers into the existing left gutter. Draw these labels only across the visible projected span of that object, starting from its local coordinates, regardless of the underlying sheet's D10 position or unrelated widths/heights. De-emphasize or suppress the ordinary sheet labels outside that span so two coordinate systems cannot both look active. Avoid creating a full-sheet local grid outside the object.
+
+The address strip identifies the sheet/object code context; the visible title uses the display name. Returning focus to the worksheet restores its coordinate chrome without changing its cell geometry. Use the same object-local transforms for headers, hit tests, selection and formula-reference insertion. Frozen planes, offscreen portions and clipping must not duplicate or mislabel local indices. Chart frames are not assigned fictitious A1 cells; this contract applies to addressable table/matrix output.
+
+The exact placement of the first addressable local cell relative to pivot headers/totals needs one canonical implementation rule. Proposed default: include addressable matrix headers/totals, exclude the object title/frame, and never renumber the local grid based on viewport clipping. This is a layout/address-origin detail, not a request to build semantic references.
 
 ### 4.2 Master View composition
 
 **Accepted direction:** sheets can be displayed together through a Master View in a user-defined sheet z-order. A manual formula on one sheet can reference a pivot on another, while their rendered content overlaps in the composite. The highest sheet/object in the display stack contributes its own formatting and visible content. Its z-order never changes the ownership of either referenced value.
 
-Master View is a composition of existing sheet IDs, metrics and object transforms, not merged cell storage and not a new formula sheet. Resolve a click to an explicit sheet/object owner before editing or inserting a formula reference. There is no unqualified master `B7` that changes meaning when the sheet stack is reordered. Propose an inspection-first Master View until active-sheet editing is specified in Q04.
+Master View is a composition of existing sheet IDs, metrics and object transforms, not merged cell storage and not a new formula sheet. Resolve a click to an explicit sheet/object owner before inserting a reference. There is no unqualified master `B7` that changes meaning when the sheet stack is reordered. **Accepted Q04:** start with an inspection-first composite and explicit active owner, retaining each sheet's geometry. Direct cell editing through the composite is a later capability.
 
-Preserve each sheet's column widths, row heights and independent alignment unless an explicit layout command changes them. A composite can share a viewport origin/zoom or apply display transforms, but rendering itself must not rewrite source sheet geometry. Decide transparency and alignment controls in Q04. This permits both visually aligned and misaligned layers without altering calculation dependencies.
+Preserve each sheet's column widths, row heights and independent alignment unless an explicit layout command changes them. A composite can share a viewport origin/zoom or apply display transforms, but rendering itself must not rewrite source sheet geometry. Use transparent absent/unfilled areas initially; explicit cell fills can cover underlying display. Grid alignment is a viewing option or explicit layout command. Drag/click promotes floating focus; explicit ordering commands persist authored order without making every focus click an Undo action.
 
 Copy/statistics/read APIs name the selected sheet/object owner or an explicit mixed scope. A rendered composite is suitable for image export but is not automatically a typed rectangular dataset. Editing an aggregate does not imply write-back to its underlying rows.
 
@@ -143,6 +159,8 @@ The IDs below are discussion and future acceptance identifiers. **Brief** denote
 | WM04 | Brief | Reference worksheet and grid-resident analytical cells through A1, including offscreen values, and rewrite dependent references atomically when their target moves. | Parsed stable bindings and formula dependency runtime |
 | WM05 | Brief | List/reveal/edit analyses independently of their location on the sheet. | Stable identities and object inventory |
 | WM06 | Brief | Retain object-local formatting and representation state across movement and version restore. | Owner-scoped styles and codec |
+| WM07 | Brief | Address a floating or aligned matrix through sheet/object-local A1 coordinates independently of its screen position. | Parsed reference kind and stable owner/local position |
+| WM08 | Brief | Separate formula/automation code names from user-facing sheet/object titles. | Unique validated identifiers, immutable IDs and atomic rename |
 | DE01 | Brief | Edit workbook-owned imported/model records and fields; keep connected datasets read-only and external files unchanged. | Connect/Import/Data Model modes and effective relation |
 | DE02 | Brief | Inspect reproducible transformations and resolved record edits as meaningful steps and SQL where applicable. | Typed operations, bound parameters and read-only SQL presentation |
 | DE03 | Derived | Apply edits consistently to viewport, filters, sort, pivot, chart, statistics, copy and export. | One effective relation and revision fence |
@@ -160,6 +178,7 @@ The IDs below are discussion and future acceptance identifiers. **Brief** denote
 | VE03 | Brief | Restore a complete version without replaying all earlier operations. | Complete state manifest and required assets |
 | VE04 | Brief | Save complete pivot/aggregate output and chart state, including offscreen output; keep large browse-query results optional unless materialized into the Data Model. | Complete analytical snapshots distinct from runtime Page caches |
 | VE05 | Brief | Save As the inspected historical state by default, with an explicit option to include a selected history subset. | Independent new artifact and retained dependency closure |
+| VE06 | Brief | Warn on an analytical object when its data/query/definition is newer than its displayed complete result. | Independent desired/computed/displayed generations and saved provenance |
 | RE01 | Brief | Journal committed document operations and detect an unfinished session. | Ordered durable writer and session generation |
 | RE02 | Brief | Offer fast checkpoint open or latest committed-state recovery after an unsaved/interrupted session. | Candidate replay, progress/cancel and preserved journal |
 | RE03 | Derived | Handle failed commits, partial Save, disk exhaustion and ambiguous acknowledgements without silent loss or duplicate edits. | Failure protocol and idempotency |
@@ -178,6 +197,7 @@ The IDs below are discussion and future acceptance identifiers. **Brief** denote
 | UX03 | Brief | Preserve the grabbed point/cell while dragging, with a truthful destination preview. | Captured local grab offset and coordinate transforms |
 | UX04 | Brief | Detect offscreen destination conflicts before destructive cell moves and expose an actionable warning. | Full-model destination validation |
 | UX05 | Brief | Keep Save progress and close/unsaved dialogs proportional to the application's existing UI. | Compact content-driven modal sizing and narrow-window checks |
+| UX06 | Brief | On matrix focus, show its local row/column labels in the existing chrome over its visible span and de-emphasize the worksheet context. | Shared local transforms, clipping and focus restoration |
 | PL01 | Derived | Preserve existing native files and shared-C browser codec progress during schema changes. | Explicit migrations and platform acceptance |
 | PL02 | Derived | Keep work bounded and responsive on the current 8 GB Mac. | Measured memory, latency, checkpoint and retention budgets |
 
@@ -218,7 +238,7 @@ sequenceDiagram
     C->>C: Publish only if document and dependencies still match
 ```
 
-This is the proposed commit/publication contract. Local recovery protection is accepted; per-action flush versus bounded group commit remains Q05. An optimistic UI preview or buffered action must not claim durability. Allocate/validate before durable commit so normal adoption cannot fail halfway. If a committed transaction cannot be adopted because of an exceptional runtime failure, stop further mutations and reload/recover it; do not continue from a divergent RAM model.
+**Accepted Q05:** give prompt UI feedback, retain pending versus durable acknowledgement, and make successful Save flush/publish every included action. Choose immediate versus short bounded group commit from DuckDB measurements; the exact interval is an implementation acceptance parameter, not another unresolved engine choice. An optimistic UI preview or buffered action must not claim durability. Allocate/validate before durable commit so normal adoption cannot fail halfway. If a committed transaction cannot be adopted because of an exceptional runtime failure, stop further mutations and reload/recover it; do not continue from a divergent RAM model.
 
 Serialized document mutations establish a total order even when an agent and a user act together. Preconditions reject stale writes rather than editing a target derived from old selection state. Check completed request IDs before revalidating a retry's now-stale expected revision; return the original outcome for the same payload and reject reuse with different payloads. Persist enough deduplication information to cover the promised retry window. Cancellation before commit discards preparation; after commit it cannot erase the accepted operation.
 
@@ -286,7 +306,7 @@ An ordinal in a particular immutable Parquet source can distinguish duplicate ph
 
 For unproven query-result positions, expose result-scoped formatting with a clear persistence/refresh limitation and offer Import/Add to Data Model for a stable frozen dataset. Do not claim a guaranteed record-following style merely because Save succeeded. Field-wide/default formatting can survive compatible schema bindings; record-specific scopes need stronger identity. Unknown or duplicate keys must never silently select a different record.
 
-Validated user-selected unique-key reconciliation is a later opt-in extension. Require uniqueness/non-NULL policy, stable field binding and conflict handling. Do not implement automatic full-row matching or duplicate matching in the first slice. Q06 covers how refreshed internal data should interact with existing edits/styles; until resolved, preserve the current internal version and build a separate candidate rather than overwriting it.
+Validated user-selected unique-key reconciliation is a later opt-in extension. Require uniqueness/non-NULL policy, stable field binding and conflict handling. Do not implement automatic full-row matching or duplicate matching in the first slice. The Excel research below informs the remaining R02 policy; preserve the current internal version and build a separate candidate rather than overwriting it.
 
 ### 7.6 Drill-through and full analytical snapshots
 
@@ -294,7 +314,24 @@ A saved pivot's displayed values are not its source rows. Drill-through creates 
 
 For a pivot backed only by Connect, unavailable or changed external data can disable exact drill-through while the full saved pivot remains readable. For a pivot backed by saved Data Model M1, drill-through queries M1 and works without the external file. The new sheet initially holds a query/view, not an automatic second full copy of the matching rows; the user can explicitly materialize it.
 
-Non-additive measures, calculated fields and top-N/Other are not always invertible to a simple equality predicate. Enable only supported lineage/grain combinations and provide a concrete unavailable reason otherwise. Q02 retains the first supported drill-through scope and the meaning of positional versus semantic formula references after regrouping.
+Non-additive measures, calculated fields and top-N/Other are not always invertible to a simple equality predicate. Enable only supported lineage/grain combinations and provide a concrete unavailable reason otherwise. Drill-through predicates still require source/group provenance; this does not require implementing the deferred semantic formula-reference feature FT01.
+
+### 7.7 Excel refresh formatting findings
+
+Microsoft documents formatting preservation and refresh layout controls separately from query transformations. The following describes those documented contracts, not a measured claim about every Power Query connector or a particular installed Excel build.
+
+| Mechanism | Documented behavior | Relevance to record annotations |
+| --- | --- | --- |
+| External data range properties | Preserve cell formatting and separate controls for sort/filter/layout and row insertion, clearing or overwrite. [Microsoft Support](https://support.microsoft.com/en-au/excel/manage-external-data-ranges-and-their-properties) | Controls how returned data occupies/formats the worksheet; does not document a universal primary-key match for a manually highlighted source record. |
+| QueryTable PreserveFormatting | Can extend formatting shared by the first five data rows to newly returned rows. [Microsoft Learn](https://learn.microsoft.com/en-us/office/vba/api/excel.querytable.preserveformatting) | A formatting-preservation/extension rule, not evidence of durable identity for one highlighted business record. |
+| Conditional formatting | A formula determines whether the current cell data meets a formatting condition. [Excel for Mac](https://support.microsoft.com/en-gb/excel/use-a-formula-to-apply-conditional-formatting-in-excel-for-mac) | A rule such as matching a record key is reevaluated against current data; this is different from manually painting one row. |
+| Power Query Merge | Joins tables using chosen matching columns. [Microsoft Learn](https://learn.microsoft.com/en-us/power-query/merge-queries-overview) | Can associate a separate annotation table with data through an explicit key; it is not automatic preservation of cell styles. |
+
+**Design inference:** Excel's documented Preserve Formatting is insufficient as the guarantee for keeping a unique row highlight attached across arbitrary insert/delete/reorder/duplicate refreshes. No claim is made that every Excel refresh path always loses or always preserves such a highlight. Keyed annotations and value-based rules solve explicitly defined cases; they cannot identify a deleted or indistinguishable duplicate record without additional policy.
+
+Proposed first Duxcel policy separates field styles, conditional/value rules and direct record annotations. Keep field styles when field identity/schema remain compatible. A direct record style remains attached to that record in its retained dataset version. If a validated refresh mapping proves the record is absent, leave its old style dormant rather than transferring it to the new occupant of that row number. Without a validated mapping, suspend the unproven finite styles as a group and expose that state. Historical style metadata remains retained; a linked source's old raw bytes are still subject to its source-retention policy.
+
+If a user authors a condition such as record_key equals 482, an absent key matches nothing and duplicate key values match multiple rows unless uniqueness is explicitly required. That behavior must be declared; do not present it as identifying one selected physical record. General conditional formatting/keyed reconciliation are later capabilities, while safe suspension and retained versions suffice for the initial refresh boundary. R02 asks whether that conservative first behavior is acceptable before refresh-with-edits ships.
 
 ## 8 Workbook history and named versions
 
@@ -359,11 +396,21 @@ Separate completeness of authored state from completeness of evaluated output. F
 | Large connected browse/table query | Definition/history/styles and bounded preview; full result is optional until explicitly imported/materialized. |
 | Runtime Pages and GPU textures | Bounded/disposable loading and rendering caches. Their bounds do not truncate the saved analytical snapshot. |
 
-Stream required results to storage with bounded RAM and backpressure. Do not impose a hidden output-row cap or silently fall back to saving only the visible Page. Save shows progress for pending materialization and fails/cancels safely when a complete required result cannot be saved. An earlier complete analytical generation may remain visible as an explicitly saved/stale generation; it cannot masquerade as the result of a newer uncomputed definition. Q07 defines Save policy for those pending/offline cases.
+Stream required results to storage with bounded RAM and backpressure. Do not impose a hidden output-row cap or silently fall back to saving only the visible Page. Save shows progress for required materialization and fails/cancels safely if a required payload cannot be written completely. A complete older generation is different from an incomplete result: Q07's accepted warning contract below preserves that distinction, while R03 specifies the remaining Save/dependent-read policy.
 
 Key stored results by source/base/overlay versions, definition/schema and relevant calculation semantics, with explicit completeness. Workbook display defaults may reformat typed output without invalidating its calculation. Preserve saved results for historical display even when source refresh is unavailable. Exact drill-through is governed by section 7.6.
 
 Formatting, movement and Master View z-order normally invalidate layout/paint, not SQL aggregates. Row/column edits can invalidate reference mapping and layout. Formula/input edits invalidate affected calculation dependencies. Reuse immutable unchanged analytical payloads between checkpoints rather than copying/recalculating on every Save.
+
+#### 9.2.1 Outdated analytical output warnings
+
+**Accepted Q07:** keep an explicit warning on the analytical object when known input data, query or definition revisions have advanced beyond the complete result currently displayed. Explain which dependency changed and identify the last completed result generation/time where available. Pending calculation, failed refresh, unavailable source and stale displayed data are distinguishable states; an object can be both stale and in error.
+
+Track desired definition/data revisions separately from computed/displayed result revisions. Movement, focus, zoom or display-locale changes alone do not mean the analytical data is stale. An unverified external source is not proof that its bytes changed; display verification/unavailability honestly. Refresh completion clears the warning only if the accepted result matches all current dependencies.
+
+Persist the warning's provenance and any retained complete result rather than falsely rewriting it as output for the new definition. On reopen, keep that mismatch visible. The proposed R03 Save behavior permits saving the newer definition together with the previous complete result and explicit stale status; a partial/truncated result still cannot satisfy full-output persistence. If there is no complete result, save an explicit uncomputed object only under a declared draft policy rather than inventing output values.
+
+Bound formula reads, statistics, copy/export and drill-through must expose the result generation. R03 asks whether ordinary formulas may consume last-known values with propagated stale status or should return a typed unavailable/stale result until recomputation. An on-object warning is accepted; this dependent-calculation policy is not silently decided by that warning.
 
 ### 9.3 DuckDB persistence and journal topology
 
@@ -375,7 +422,7 @@ The recommended topology is a private durable DuckDB recovery/working store per 
 
 Two files do not become one transaction merely because both use DuckDB. The authoritative sequence remains journal commit → prepared model adoption → derived analytical/cache updates. Save publishes the exact revision/presentation generation and required payloads into the named artifact, then advances Latest Saved and eventually trims its covered journal prefix. Required payloads become durable before a manifest references them. Test crashes at every boundary; do not depend on a transaction spanning independently published files.
 
-Keep the journal connection open and use prepared/batched writes where measured useful. Pointer motion never generates durable actions; one paste/drag is one logical transaction. Group commit may reduce overhead, but pending versus durable acknowledgement and the bounded loss window need Q05. Save always drains included pending actions and guarantees the complete captured state before reporting success.
+Keep the journal connection open and use prepared/batched writes where measured useful. Pointer motion never generates durable actions; one paste/drag is one logical transaction. Under accepted Q05, measure and state the bounded group-commit window while preserving pending versus durable acknowledgement. Save always drains included pending actions and guarantees the complete captured state before reporting success.
 
 Keep product recovery/retained assets in durable platform user-data storage or an explicitly owned workbook working store, outside ignored `build/` and temporary query-spill paths. Generated tests and fault-injection artifacts remain under `build/tests/results/`. A portable `.dxls` must not require the user's private working-store file or a live database WAL to reconstruct its promised saved state. A different package container is not required for the first slice.
 
@@ -417,7 +464,7 @@ Replace a single dirty flag as the conceptual model with document ID, accepted h
 
 A clean-exit marker is diagnostic, not sufficient proof that no unsaved work exists. A deliberate fast quit may be clean but leave head newer than Latest Saved. Compare durable/saved revisions and session ownership. A stale lock cannot be broken solely because a process ID is absent; verify the document/session identity and platform ownership policy.
 
-**Accepted D05:** local DuckDB journal protection plus explicit named-file Save. Optional named-file autosave is separate. Save includes complete data according to Import/Connect/Data Model rules and required analytical outputs; progress must describe actual work and success only follows full publication. Define crash versus power-loss guarantees and batch/group-commit latency in Q05.
+**Accepted D05/Q05:** local DuckDB journal protection plus explicit named-file Save. Optional named-file autosave is separate. Save includes complete data according to Import/Connect/Data Model rules and declared analytical-output generations; progress describes actual work and success only follows full publication. Measure the bounded pending interval and power-loss guarantees as implementation acceptance, preserving the accepted pending/durable distinction.
 
 **Accepted UI feedback:** current close/unsaved dialogs appear oversized relative to the application. Redesign them with compact, content-driven bounds, restrained padding/buttons and clear Save/Discard/Cancel semantics; keep progress visible without a disproportionate modal. Validate short/narrow windows and scaling with the actual native UI. This is a requested visual correction, not a newly reproduced runtime measurement.
 
@@ -429,11 +476,11 @@ A clean-exit marker is diagnostic, not sufficient proof that no unsaved work exi
 
 Separate **grid occupancy**, **floating presentation** and **Master View sheet composition**. A grid-resident analytical object owns its successful local worksheet footprint and cannot overlap another such object on that sheet. A floating object can overlap other floating objects visually. A Master View can composite different sheets even where their grids/objects cover the same pixels; each retains its own address space.
 
-For floating objects, dragging brings the object to the front; explicitly clicking an exposed object also brings it forward. This affects visual interaction, never a formula binding or a dataset. Choose persistence/Undo policy for click-induced promotion under Q04 rather than allowing a focus click to create unexpected data-history entries. Persist deliberately authored sheet/object stacking separately from transient focus where appropriate.
+For floating objects, dragging brings the object to the front; explicitly clicking an exposed object also brings it forward. This affects visual interaction, never a formula binding or a dataset. Under accepted Q04, keep click-induced promotion in transient focus and persist deliberately authored ordering through explicit commands; a focus click does not append document Undo.
 
 Provide always-reachable object controls outside occludable content: an overlay handle/edge rail plus the object inventory or equivalent guaranteed route. Protruding handles alone are insufficient when many objects exactly coincide or the handle is offscreen. Resolve handle collisions in the overlay UI and provide keyboard Select/Reveal/Bring to front. Covered objects must remain recoverable without moving unrelated content.
 
-Moving an analysis changes placement and dependent reference mapping as one transaction; it does not paste values into `CellStore`, overwrite manual cells or transfer their formatting. Use explicit selected-owner input routing. Master View geometry/transparency remain display rules under Q04, not a mutation of participating sheet data.
+Moving an analysis changes placement and dependent reference mapping as one transaction; it does not paste values into `CellStore`, overwrite manual cells or transfer their formatting. Use explicit selected-owner input routing. Accepted Q04 Master View geometry/transparency remain display rules, not a mutation of participating sheet data.
 
 Retain three separate geometries:
 
@@ -447,7 +494,7 @@ Persist document geometry, not framebuffer coordinates. Apply and invert the sam
 
 | Mode/action | Exact effect | Impact on other content |
 | --- | --- | --- |
-| Free placement | Retain unscaled position, bounds and local scale, optionally with a cell anchor plus offsets. A matrix keeps its own grid. | Visual overlaps are allowed; floating value-address policy is Q01. |
+| Free placement | Retain unscaled position, bounds and local scale, optionally with a cell anchor plus offsets. A matrix keeps its own grid and qualified local A1 addresses. | Visual overlaps are allowed; snapped-to-floating reference migration is R01. |
 | Snap matrix to sheet | Choose a concrete anchor and map its local rows/columns one-to-one to the target sheet rows/columns. Local display metrics adopt sheet metrics; define title/header/total participation. | Does not change sheet widths/heights; must pass grid occupancy. |
 | Fit sheet to matrix | Resolve the matrix's displayed local metrics into target sheet row/column metric changes and align placement. | Changes every use of those sheet rows/columns, including offscreen cells and other anchored objects. |
 | Fit chart to range | Set chart bounds to the edges of an explicit/previewed sheet rectangle; the chart has no invented cell grid. | Does not change sheet metrics; decide floating-aligned versus grid-resident reservation explicitly. |
@@ -471,7 +518,7 @@ Manual range selection must not automatically include every visually covered obj
 
 Represent `Ready`, `PlacementBlocked` and analytical `Pending/Error` separately. Save/reopen must retain blocked requested geometry, result provenance and a reachable move handle. Do not paint a partially overlapping output or destroy another object's cells to make space.
 
-**Proposed Q03 behavior:** keep the last successful effective footprint and reference mapping until a new placement succeeds; retain the requested target and show its spill error through a reachable anchor/overlay. A successful retry atomically publishes placement and dependent A1 rewrites. If there was no prior successful footprint, retain an error anchor without expanding the body. An already-occupied anchor cannot be replaced by an error cell; preserve existing content and use the selected object's handle/status. Q03 asks whether dependent formulas should continue using the last complete value or report a spill error while blocked.
+**Accepted Q03 behavior:** keep the last successful effective footprint and reference mapping until a new placement succeeds; retain the requested target and show its spill error through a reachable anchor/overlay. Bound formula reads report a typed spill error while blocked; previous complete values remain separately inspectable. A successful retry atomically publishes placement and dependent A1 rewrites. If there was no prior successful footprint, retain an error anchor without expanding the body. An already-occupied anchor cannot be replaced by an error cell; preserve existing content and use the selected object's handle/status. The typed error must not be confused with literal text containing an error label.
 
 ## 12 Selection and dragging contracts
 
@@ -547,6 +594,8 @@ Browser durability remains its own integration gate. Storage is origin-scoped an
 | False self-contained version | A tag stores a Parquet hash but the source was removed. | Retained assets or a declared externally dependent version. |
 | Unbounded Save | Every minor format change recalculates/copies every full result. | Reuse immutable complete analytical snapshots; stream required new results with progress and bounded RAM. |
 | Invalid historical cache | Old totals appear current beside new formulas. | Cache/result revision provenance and explicit stale/frozen states. |
+| Local headers change target meaning | A floating pivot over D10 inserts a sheet D10 reference while its chrome shows local A1. | Explicit sheet/object reference kind, local header transforms and visible authoring context. |
+| Names break formulas | Renaming a dashboard title changes every expression or ambiguous display names resolve incorrectly. | Separate display/code names and immutable IDs; atomically rewrite code-name references. |
 | Misleading durability | Commit acknowledged before chosen sync/flush guarantee. | Define and measure acknowledgement/power-loss contract. |
 | Retention removes recovery | History cleanup deletes a base still needed by deferred recovery. | Reachability-based pruning after durable replacement publication. |
 | Grid metric conflicts | Fit one pivot to sheet shifts another dashboard object. | Impact preview, anchor rules and explicit conflict policy. |
@@ -602,6 +651,10 @@ Every scenario needs the relevant model, analytical, persistence and real-input 
 | A26 | Refresh after row additions/deletions/duplicates with finite row formats and local model edits. | New candidate/version; no positional/full-row style guessing; old state preserved and explicit conflict policy applied. |
 | A27 | Save As from an old preview with current-state-only and selected-history options. | Artifact contains inspected state, complete required assets/results and only selected history; live workbook/recovery remain independent. |
 | A28 | Open blank workspace and exercise Save progress/close dialogs in narrow and scaled windows. | No forced initial Save/name; compact proportional dialogs with clear actions; no false completion while required data/output is pending. |
+| A29 | Rename display/code names and move a matrix with both sheet-style and object-local references. | Display rename leaves expressions intact; code rename rewrites valid bindings; local coordinates survive move; declared mode-transition policy preserves targets. |
+| A30 | Focus an off-origin matrix with independent row/column metrics at several zooms and then return to the sheet. | Local A/B/C and 1/2/3 chrome aligns to the visible object span; no duplicated labels or geometry mutation; reference insertion names the correct owner. |
+| A31 | Change input/query/definition while retaining a complete old analytical result, then save/reopen under the declared policy. | On-object warning and old/new provenance persist; no false relabelling as current output; dependent reads follow the explicit stale policy. |
+| A32 | Refresh a highlighted record away, reorder other rows and introduce duplicate key values. | No highlight transfers by ordinal; unresolved scopes remain retained/suspended; explicit conditions and direct-record annotations remain distinguishable. |
 
 Fault injection belongs in owned test processes/private databases, never the user's running application. Use C99 product-linked tests, Python orchestration, and JS browser adapter tests in their existing repository locations. Hidden native workflows retain the desktop lock. Record source/binary/fixture and elapsed limits in ignored results rather than tracked evidence capsules.
 
@@ -611,14 +664,14 @@ These are dependency proposals for later roadmap promotion. They are not schedul
 
 | Slice | Deliverable | Completion gate |
 | --- | --- | --- |
-| S0 | Record accepted semantics; focused DuckDB latency/failure spike; document/sheet/revision identity plan. | Resolve relevant Q01–Q07 details and measure the pinned DuckDB path without adding dependencies. |
+| S0 | Record accepted semantics; focused DuckDB latency/failure spike; document/sheet/revision identity plan. | Apply Q01–Q07 resolution, settle relevant R01–R03 policy and measure the pinned DuckDB path without adding dependencies. |
 | S1 | Focused selection/drag corrections and region contract. | A01–A03 through pure C and real hidden native input; preserve existing range/format Undo. |
 | S2 | Shared command boundary for one manual-edit transaction, workbook history and sheet lifecycle. | UI/API use same producer; exact rollback/no-op/stale behavior; A09–A10. |
 | S3 | Native DuckDB durable recovery and checkpoint/Latest Saved lifecycle for that slice. | A13–A15/A28 including blank unnamed workspaces, IO failure, progress/dialog sizing and deferred recovery. Expand commands only with equivalent safety. |
 | S4 | Named checkpoints, three-state cross-session Undo retention, pruning and historical Save As. | A11–A12/A27, coherent assets, complete analytical snapshots and explicit history export. |
 | S5 | Typed manual cells and range-backed analytical input. | A06 plus typed clipboard/statistics/Save/Open; general formula parser can be a separately accepted sub-slice. |
-| S6 | Connect/Import/Data Model boundaries, internal edit overlay, supported refresh and drill-through. | A07–A08/A16/A24–A26 across DuckDB viewport, pivot, statistics, copy/export and offline Save/recovery. |
-| S7 | Move-following references, grid spill state, floating objects, Master View and snap modes. | A04–A05/A20–A23; model/codec/hit-test migration included. Start after ownership/reference contracts stabilize. |
+| S6 | Connect/Import/Data Model boundaries, internal edit overlay, supported refresh and drill-through. | A07–A08/A16/A24–A26/A31–A32 across DuckDB viewport, pivot, statistics, copy/export and offline Save/recovery. |
+| S7 | Positional/local references, code/display names, focused coordinate chrome, spill, floating objects, Master View and snap modes. | A04–A05/A20–A23/A29–A30; model/codec/hit-test migration included. Semantic pivot references FT01 are not a prerequisite. |
 | S8 | Production automation transport and core-only host. | A17–A18 over the accepted command subset; preview rendering separately tested. |
 | S9 | Browser integration of each new codec/command/storage family. | Actual official-Worker and shared-C App workflow, quota/cancel/reload; existing browser Open/Save gates still apply. |
 
@@ -632,11 +685,11 @@ These product directions were accepted or refined on 21 October. Remaining detai
 
 | Decision | Accepted direction | Remaining boundary |
 | --- | --- | --- |
-| D01 | Separate Connect, Import and query-result materialization into an optional nonvisual Data Model. | Internal storage representation is an engineering choice; refresh reconciliation is Q06. |
-| D02 | Analytical output supports A1 references that follow movement. Same-sheet grid ownership is unambiguous; floating objects and Master View allow visual composition. | Q01–Q04 specify floating addresses, changed result meaning, spill and composite interaction. |
+| D01 | Separate Connect, Import and query-result materialization into an optional nonvisual Data Model. | Internal storage representation is an engineering choice; refresh/style policy is R02, informed by section 7.7. |
+| D02 | Positional sheet and object-local references, separate code/display names and local focused headers. Same-sheet grid ownership is unambiguous; floating/Master View allow visual composition. | Q01–Q04 resolved in section 20; snapped/floating reference conversion is R01. Semantic pivot lookup is deferred FT01. |
 | D03 | Edit the workbook and its internal data; never implicitly edit external Parquet/CSV. Connected relations are read-only; data-only export is explicit. | Materialize to establish a new editable boundary when a query is otherwise read-only. |
-| D04 | Continue with DuckDB, including the local journal. Add no SQLite dependency now. | Measure latency/flush/connection behavior; Q05 covers the acknowledgement window. |
-| D05 | Protect edits through the local journal and publish complete named `.dxls` state on Save, with progress. | Pending/offline analytical outputs are Q07; named-file autosave is separate. |
+| D04 | Continue with DuckDB, including the local journal. Add no SQLite dependency now. | Q05 accepts pending/durable separation; measure exact flush/latency bounds during implementation. |
+| D05 | Protect edits through the local journal and publish complete named `.dxls` state on Save, with progress. Warn on analytical objects whose display predates known data/query/definition changes. | Q07 warning accepted; saving/reading stale or uncomputed results is R03. Named-file autosave is separate. |
 | D06 | Save full pivot/aggregate outputs and chart data/state; do not require saving every large connected browse query. Data Model data is retained in full. | Required output cannot silently truncate to runtime Page limits. |
 | D07 | Retain cross-session Undo across three version states including Latest Saved: V8→V9 and V9→V10 in the ten-state example, plus the current suffix. | Resource limits must be explicit; this is not a ten-tag retention cap. |
 | D08 | Persist workbook visualization defaults outside data Undo. Automatic formats look up the current default; explicit formats ignore it. | Keep input parsing/calculation semantics separate and typed. |
@@ -647,16 +700,32 @@ These product directions were accepted or refined on 21 October. Remaining detai
 | D13 | Start with document safety/command boundary and the focused selection/drag fixes, then source/model editing and layered placement. | Proposed dependencies only; no roadmap scheduling in this revision. |
 | D14 | Save As captures the inspected historical/current state; default current-state-only export, optional selected history inclusion/truncation. | Preserve dependency closure and propose an independent new document/recovery identity. |
 
-## 20 Remaining questions and proposed safe defaults
+## 20 Question resolution and remaining policies
 
-| Question | Ambiguity that affects behavior | Proposed default and decision timing |
+The latest feedback resolves the earlier Q01–Q07 directions as follows. Residual policies below are narrower than the original questions and do not reopen accepted choices.
+
+| Question | Resolution | Remaining work |
 | --- | --- | --- |
-| Q01 | Does a floating pivot retain a reserved A1 footprint? Can a grid analytical object cover manual values on its own sheet? | Reserve non-overlapping worksheet addresses for grid-resident analytical output; block occupied manual values too. Floating output uses an object binding without newly claiming covered A1 cells. Confirm before the reference/placement slice because the earlier analytical-priority idea could imply a different policy. |
-| Q02 | Does a reference follow a positional pivot cell or a category/measure after sort/regroup? What drill-through grain is initially supported? | Guarantee movement-following now. Use positional local cells initially, offer explicit semantic references later; drill through supported dimension/filter lineage and disable ambiguous aggregates. Decide before formula/drill-through acceptance. |
-| Q03 | While a move/spill is blocked, do dependent formulas retain last valid values or report spill errors? Where does an error anchor live if its target is already occupied? | Preserve last successful footprint/reference mapping plus pending target; show an overlay/anchor error without overwriting another owner. Prefer an explicit error state for bound reads, with previous computed values separately inspectable. Confirm before spill implementation. |
-| Q04 | Which sheets are editable in Master View, which empty/fill regions are transparent, and do clicks persistently change z-order? | Inspection-first composite, explicit active owner, transparent absent/unfilled areas, per-sheet metrics with optional display alignment. Drag/click promotes floating focus; explicit ordering commands persist authored order. Confirm interaction details before composite UI work. |
-| Q05 | Can buffered edits be lost on process crash/power loss, and how long may acknowledgement wait? | Distinguish preview/pending/durable states; serialize logical actions and measure DuckDB immediate versus short group commit. Save flushes all included actions. Choose an explicit maximum pending interval after the latency spike; no implied zero-loss guarantee for unacknowledged actions. |
-| Q06 | On refreshing an imported/model dataset, what happens to local edits, row styles and duplicate/unkeyed records? | Build a new candidate version, preserve the current one/history and suspend unproven finite styles. No automatic full-row matching; ask for an explicit replace/new-version/reconcile action when edits conflict. Confirm before refresh-with-edits ships. |
-| Q07 | Can Save succeed when an analysis's new definition is pending/failed or its external source is offline? | Wait/stream complete output for the captured definition or fail/cancel without replacing the previous saved artifact. Unchanged saved analytical snapshots remain usable offline with their provenance. Define any explicit incomplete-draft Save mode separately. Decide before Save/materialization acceptance. |
+| Q01 | Accepted: local positional A1 space for floating/aligned matrices, preferred dot-qualified sheet/object names, separate code/display names and focused local headers. | R01 mode conversion; choose canonical header/title addressing and identifier validation during implementation. |
+| Q02 | Accepted: positional references only now. No category/measure-following lookup. | FT01 records semantic pivot references as an unscheduled nice-to-have. Drill-through retains its own bounded lineage rules. |
+| Q03 | Accepted: preserve last successful placement/reference mapping plus pending target; show spill without overwriting content. Bound reads report spill errors; previous values remain inspectable. | Implement typed error, reachable handle and exact Undo/Save restoration. |
+| Q04 | Accepted: inspection-first Master View, explicit active owner, independent sheet geometry and explicit alignment. | Implement clipping/transparency/focus; no composite cell editing is required initially. |
+| Q05 | Accepted: prompt feedback, pending/durable distinction, measured bounded group commit, and full flush/publication on successful Save. | Measure and record the exact latency/loss-window/power-loss contract. Engine choice remains DuckDB. |
+| Q06 | Excel research completed in section 7.7. Formatting preservation is not a documented universal record-identity guarantee. | R02 selects the first refresh-with-edits/style policy. |
+| Q07 | Accepted: on-object warning when data/query/definition has changed since the displayed result was computed. Preserve result provenance. | R03 selects Save/dependent-read behavior for stale/uncomputed results. |
 
-Q01–Q04 refine the new ownership/composition model; Q05 is a measured durability tradeoff; Q06 is the important remaining data-identity policy. Q07 prevents the full-output Save guarantee from being weakened implicitly. None requires solving arbitrary SQL write-back, duplicate matching or every future formula function before the first safe slice.
+| Policy | Concrete remaining ambiguity | Proposed initial behavior |
+| --- | --- | --- |
+| R01 | A sheet-address reference targets a snapped pivot, then the pivot becomes floating. What happens to that reference? | Convert existing analytical sheet bindings to qualified object-local references as one undoable mode-change transaction. Keep already-qualified local references unchanged. Re-snapping does not silently convert them back. An explicit sheet-only positional reference, if introduced later, must be a distinct reference kind. |
+| R02 | A refresh removes a manually highlighted record or replaces an edited internal dataset without a proven unique key. | Create a candidate/new version, retain the old version/scopes, keep compatible field-wide styles and suspend unproven record styles. Do not transfer to the same row number or promise arbitrary duplicate reconciliation. If a validated mapping proves a record is absent, its style remains dormant. Local edit replacement requires an explicit action. This conservative rule can be the first sufficient boundary. |
+| R03 | Can Save retain a newer definition with a complete older result, and may formulas use that old result? | Allow Save of both generations with durable stale status and the accepted warning, provided every retained result payload is complete. Never label it as newly calculated. Propose typed stale/unavailable dependent results by default, with last-known values separately inspectable. If no complete result exists, retain explicit uncomputed/error status under a declared draft Save policy. Confirm this behavioral refinement before implementation. |
+
+R01 determines mode-transition consistency, R02 bounds refresh identity, and R03 separates honest persistence of unfinished work from pretending it has current analytical output. Other choices such as identifier case rules, exact header offsets and measured commit intervals can be settled in their implementation slices without reopening the product model.
+
+## 21 Deferred capabilities
+
+| Feature | Scope | Scheduling and nondependency |
+| --- | --- | --- |
+| FT01 | GETPIVOTDATA-style semantic references keyed by dimensions/measures/categories rather than local cell position. | User-requested nice-to-have. Unscheduled; not required for positional formulas, object movement, local grids, Save or drill-through. |
+| FT02 | General conditional formatting and validated key-based record annotations/reconciliation across external refresh. | Candidate extension informed by Excel research, not an accepted automatic merge engine. Safe retained versions/suspension can ship first. |
+| FT03 | Editing underlying sheets directly through Master View and reusing one analysis in several authored placements. | Later extension; initial Master View is inspection-first and analysis placement remains one-to-one. |
