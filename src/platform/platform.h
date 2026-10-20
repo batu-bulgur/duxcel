@@ -51,6 +51,8 @@ bool dx_native_set_icon(const unsigned char *icns,size_t length);
 void dx_native_context(bool modal,bool text_input,bool pivot,bool key_tips);
 bool dx_native_quit_requested(void);
 void dx_native_acknowledge_quit(void);
+/* Close the document surface while retaining the Mac application/menu host. */
+void dx_native_window_visible(bool visible);
 typedef struct {
     int ribbon_mode,previous_ribbon_mode;
     bool workbook,fields,transformations,workbook_collapsed,fields_collapsed,reduced_motion,transformations_collapsed,freeze;
@@ -61,6 +63,12 @@ typedef struct {
 bool dx_presentation_load(DxPresentation *presentation);
 void dx_presentation_save(const DxPresentation *presentation);
 float dx_take_magnification(void);
+/* Non-consuming logical-point input snapshot, drained once per App frame.
+   Native phases survive frames with no wheel packet; event marks a new packet. */
+typedef enum { DX_PAN_NONE,DX_PAN_BEGIN,DX_PAN_ACTIVE,DX_PAN_RELEASE,DX_PAN_MOMENTUM } DxPanPhase;
+typedef struct { float x,y,pointer_x,pointer_y; DxPanPhase phase; bool event; } DxPanInput;
+void dx_input_begin_frame(void);
+bool dx_input_pixel_pan(DxPanInput *input);
 #ifdef DUXCEL_BROWSER_HOST
 /* Non-consuming per-frame CSS-pixel pan; never monitor/backing pixels. */
 bool dx_web_pixel_pan(float *x,float *y);
@@ -73,6 +81,7 @@ typedef enum { DX_COMMAND_NONE,DX_COMMAND_OPEN,DX_COMMAND_SAVE,DX_COMMAND_SAVE_A
 #ifdef DUXCEL_DEV_REVIEW
     ,DX_COMMAND_REPORT_UI
 #endif
+    ,DX_COMMAND_CLOSE,DX_COMMAND_NEW_WORKBOOK,DX_COMMAND_KEYTIP_BASE=256,DX_COMMAND_KEYTIP_LAST=383
 } DxCommand;
 DxCommand dx_take_command(void);
 #ifdef DUXCEL_DEV_REVIEW
