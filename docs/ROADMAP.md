@@ -48,8 +48,9 @@ Retain native/Wasm review and the persistent agentic queue as development infras
 
 Retiring a checkout does not complete its feature. Saved source is recoverable
 through `archive/streamline-20261020:worktrees.json` and the snapshot IDs there.
-The external bundle also preserves every prior branch name/commit. Do not restore
-old checkpoint/report trees into active source.
+The prior branch names/commits and unfinished authored changes are retained in
+Git. There is no separate filesystem backup. Do not restore old checkpoint/report
+trees into active source.
 
 | Retired lane | Current integration and verified scope | Remaining work |
 | --- | --- | --- |
@@ -57,7 +58,7 @@ old checkpoint/report trees into active source.
 | `duxcel-format-selectors-stream` | Recovered bounded 3-column selector transport and helper tests; column name corrected to native `kind`. 56 focused Node tests pass. | A real Worker/C decoder workflow, including 2-column awareness state, cancellation/retry and retained-budget admission. Node transport tests alone do not close this. |
 | `duxcel-native-precise-pan` | Dirty frame-time/phase/close/keytip work already exists in main’s newer native adapter/grid. User-confirmed native pan stays accepted. | Broader browser/physical pinch/Space/IME matrix remains in UI/platform tasks; no old pan code is reapplied. |
 | `duxcel-page-record-wire` | Dirty Page record ownership and wire-replacement assertions already exist in main’s stronger Page/source-identity/wire tests. | Portable source lineage and persistence activation remain separate engine/persistence tasks above. |
-| `duxcel-workbook-format-rows-checkpoint` | Base format-row code is already in main. Remaining untracked files are run reports, preserved externally rather than reintroduced. | Whole-candidate scope/member validation, migration and browser Open/Save remain open above. |
+| `duxcel-workbook-format-rows-checkpoint` | Base format-row code is already in main. Remaining untracked files were disposable run reports; no external archive is retained. | Whole-candidate scope/member validation, migration and browser Open/Save remain open above. |
 
 - [x] Recover the C/native format-state/selector reader without losing the original assertions.
 - [x] Recover bounded selector transport helpers with native column names.

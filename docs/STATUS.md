@@ -23,8 +23,9 @@ there; temporary detached worktrees are for actual parallel lanes. All 231 prior
 branch tips and five dirty worktree snapshots are reachable from the historical
 `archive/streamline-20261020` tag. The five retired checkouts are removed. Their
 component passes and remaining work are recorded in [ROADMAP.md](ROADMAP.md),
-not hidden in branch names or declared complete by cleanup. Historical mock and
-reports remain archived, outside active source.
+not hidden in branch names or declared complete by cleanup. Historical source
+remains in Git; duplicate filesystem backups and disposable old run reports are
+removed.
 
 Build/test output and operation locks live under `build/`, dependency caches under
 `.cache/`, and downloaded references under `data/downloads/`. `make clean` removes

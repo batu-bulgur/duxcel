@@ -35,12 +35,17 @@ component test does not establish integrated UI, engine or persistence behavior.
 Keep main linear; do not create merge commits just to retain a branch name.
 Remove a completed checkout and its temporary branch promptly.
 
-Before retiring unfinished work, record in `ROADMAP.md`: what is implemented,
-what actually passed, the remaining acceptance, and its exact saved commit or
-archive reference. Preserve dirty and ignored authored inputs too. Do not merge
+Before retiring unfinished work, commit its authored changes in Git, including
+any intentionally ignored source inputs, and keep the commit reachable. Record
+in `ROADMAP.md` what is implemented, what passed, the remaining acceptance and
+the exact Git commit/tag. Do not merge
 an old whole tree merely to rescue one feature; it may restore a retired mock,
 obsolete layout or previously fixed input behavior. Generated reports/captures
 are not fixture inputs or active design requirements.
+
+Git is the history store. Do not keep duplicate bundles, tarballs, patch backups
+or filesystem archive directories for code/history already retained in Git.
+Disposable audit/run output may be removed; it does not need another archive.
 
 Builds/fixtures/reports are private to each checkout. Never share writable test
 databases across worktrees. Independent native translation units use eight
@@ -55,9 +60,8 @@ product integration. Its commit retains all 231 old branch tips and five dirty
 worktree snapshots as ancestors. `branches.json` maps old names to commits;
 `worktrees.json` names the saved snapshots and original paths. Read them with
 `git show archive/streamline-20261020:worktrees.json`, then recover a particular
-snapshot into a detached worktree when needed. The external verified bundle and
-untracked/ignored-input tar files are under
-`~/.codex/archives/duxcel-streamline-20261020/`.
+snapshot into a detached worktree when needed. These records and source contents
+are in Git; no external backup directory is required.
 
 The older pre-layout/pre-cleanup/legacy-review archive names are historical tags.
 Keep the historical mock and old reports there; do not restore them to main.

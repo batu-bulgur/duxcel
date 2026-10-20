@@ -42,7 +42,7 @@ Bir fixture'ın ismi, şeması ve gerçek tüketicisi olmalıdır. Yedi küçük
 
 Eski kaynak/prototype manifestleri, komutlar, süre/pass raporları ve kullanılmayan capture state'leri fixture değildir. Bu tur bunlar JSON'lardan çıkarıldı; üç eski session/provenance JSON'u ve eski screenshot dizinine bağımlı verifier kaldırıldı. Kabul edilmiş geometri/scroll/renk projeksiyonları önce/sonra aynı kaldı ve bağımsız fingerprint testiyle korunuyor. Araç testleri ile browser sürücüleri kendi test dizinlerine taşındı; Fixture üretimi Python’da, ürün kabul assertion’ları `tests/test_fixture.c` içindedir.
 
-Runtime font/ikon lisansları ve bilinçli checked-in türevler korunur. Eski executable mock/görsel denemeler source'a geri getirilmez. Tarihçe Git'te bulunur; HEAD içinde ayrıca audit/archive/screenshot payload ağacı biriktirilmez. Eski branch uçları ve worktree değişiklikleri `archive/streamline-20261020` etiketi altında korunur; yarım işlerin güncel durumu roadmap’te izlenir.
+Runtime font/ikon lisansları ve bilinçli checked-in türevler korunur. Eski executable mock/görsel denemeler source'a geri getirilmez. Tarihçe Git'te bulunur; ayrıca filesystem arşivi, bundle, tar veya patch yedeği tutulmaz. HEAD içinde audit/archive/screenshot payload ağacı biriktirilmez. Eski branch uçları ve worktree değişiklikleri Git'teki `archive/streamline-20261020` etiketi altında korunur; yarım işlerin güncel durumu roadmap’te izlenir.
 
 ## Kontrol ve kalan işler
 
