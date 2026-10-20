@@ -24,6 +24,7 @@ Start with STATUS → ROADMAP → the relevant feature/design document → ARCHI
 | [design/NATIVE_REVIEW_PLAN.md](design/NATIVE_REVIEW_PLAN.md) | What are the development-only capture/outbox/queue boundaries and report lifecycle? | Copies of the actual feedback queue or batch records |
 | [design/BROWSER_PERSISTENCE.md](design/BROWSER_PERSISTENCE.md) | Which gates connect the shared C codec, Worker and browser Open/Save/recovery? | Treating partial components as complete browser IO |
 | [design/SOURCE_FORMAT_IDENTITY.md](design/SOURCE_FORMAT_IDENTITY.md) | Which source record owns a format, under which identity, migration, budget and suspension rules? | Assuming source-edit overlays or data time travel are implemented |
+| [design/WORKBOOK_MODEL_TRD.md](design/WORKBOOK_MODEL_TRD.md) | Draft contracts for editable datasets, layered analytics, workbook commands, recovery, versions and automation; unresolved decisions for iteration | Accepted requirements, scheduled roadmap work or implemented capability |
 | [design/CHART_OTHER.md](design/CHART_OTHER.md) | At which aggregate/grain is bounded chart Other correct? | The entire chart/Marks backlog or a universal top-N guarantee |
 | [../tests/README.md](../tests/README.md) | Which native test/helper consumes each fixture? | Run output |
 | [../tools/README.md](../tools/README.md) | What does each external tool do, and where is the product/orchestration boundary? | Adding tool dependencies to the native runtime |
