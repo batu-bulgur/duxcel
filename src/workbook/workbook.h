@@ -25,6 +25,7 @@ typedef struct {
 } SheetView;
 typedef struct {
     char *name;
+    uint64_t edit_session_id; /* Transient command identity; not a persisted sheet ID. */
     bool hidden;
     Analysis analysis;
     SheetView view;
@@ -40,6 +41,7 @@ typedef struct {
 } Worksheet;
 typedef struct {
     Worksheet *sheets;
+    uint64_t edit_session_id; /* Transient command identity; reset on load/snapshot. */
     size_t count,active;
     float user_scale;
     char *path;

@@ -1,0 +1,38 @@
+#ifndef DUXCEL_CELL_COMMAND_H
+#define DUXCEL_CELL_COMMAND_H
+#include "workbook.h"
+
+#define CELL_EDIT_COMMAND_VERSION 1u
+typedef struct {
+    uint64_t document,sheet,expected_revision,row;
+    size_t column;
+} CellEditTarget;
+typedef struct {
+    unsigned version;
+    CellEditTarget target;
+    const char *text; size_t bytes; /* Borrowed byte span; no terminator required. */
+} CellEditCommand;
+typedef struct {
+    uint64_t source_rows;
+    size_t source_columns;
+    bool source_ready; /* App resolves its independent live primary authority. */
+} CellEditPolicy;
+typedef enum { CELL_EDIT_APPLIED,CELL_EDIT_NOOP,CELL_EDIT_STALE,CELL_EDIT_INVALID,
+    CELL_EDIT_PROTECTED,CELL_EDIT_LIMIT } CellEditStatus;
+typedef struct { CellEditStatus status; uint64_t before_revision,after_revision; } CellEditResult;
+
+/* Single mutation owner only (not thread safe). Assign non-recycled process-
+   lifetime identities lazily, without dirtying data or entering Undo. Resolve
+   before opening a draft; never prepare a replacement target at commit time.
+   These are session fences, NOT durable workbook/sheet IDs or journal entries.
+   Snapshots/new loads get independent identities. out is unchanged on failure. */
+bool workbook_prepare_cell_edit(Workbook *book,size_t sheet,uint64_t row,size_t column,CellEditTarget *out,char **error);
+/* Resolved bytes, target and expected CellStore revision are the complete input.
+   Revalidate source/object protection before adoption. A changed value creates
+   exactly one existing worksheet Undo action and marks the workbook dirty.
+   No-op/stale/invalid/protected/limit results preserve data, histories and dirty
+   state. Errors own optional initialized *error; successful calls leave it alone.
+   No IO/query, durable receipt, idempotent retry or workbook-global revision is
+   implied. Allocation exhaustion follows the existing process-fatal allocator. */
+CellEditResult workbook_apply_cell_edit(Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error);
+#endif

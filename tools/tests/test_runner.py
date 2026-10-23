@@ -307,10 +307,12 @@ class RunnerTests(unittest.TestCase):
             with mock.patch.object(instance, "command", side_effect=completed) as command, \
                  mock.patch.object(instance, "headless"), mock.patch.object(instance, "background_check"), \
                  mock.patch.object(instance, "about_check") as about_check, \
+                 mock.patch.object(instance, "standalone_gui_check") as standalone_gui_check, \
                  mock.patch.object(instance, "native_scenarios"), mock.patch.object(runner, "validate_native_contract"), \
                  mock.patch.object(runner, "native_lock_path", return_value=root / "desktop.lock"):
                 instance.full()
             about_check.assert_called_once_with()
+            standalone_gui_check.assert_called_once_with("cell-command")
             engines = [runner.test_binary(module, config) for config in ("release", "sanitize")
                        for module in ("core", "workbook", "record_sql", "record_pages", "workbook_codec_native")]
             self.assertTrue(set(engines).issubset(command.call_args_list[0].args[1]))

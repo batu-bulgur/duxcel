@@ -23,7 +23,7 @@ Continue product correctness, persistence internals and focused tests together. 
   tasks below, not prerequisites for every feature.
 
 T01–T03 are infrastructure, not a change in W02/W03 hands-on acceptance or the
-numbered workbook dependencies. The next numbered workbook slice remains W05.
+numbered workbook dependencies. The next numbered workbook foundation is W05, now split into W05a and W05b below.
 
 ## Repository and C tooling
 
@@ -103,7 +103,7 @@ W01 demo unblock / C05 entry path: fixed missing macOS bundle workbook declarati
 
 W04 acceptance: the unsaved guard uses a 360×152 logical-unit panel at normal width, existing font/colors and 28-unit buttons. The ten-stage hidden native document workflow passes optimized and ASan/UBSan, including a long Unicode filename at 100% and a 640×640 window at 150%, actual UI clicks for all three actions, Save/Open values and failure preservation. The 38-check repeat-session lifecycle test passes both configurations, including real AppKit menu action/key-equivalent dispatch while text/modal context is active and clean termination through the C controller. The shared-C/official-Worker browser controls profile passes 1,185 checks, including disabled Save, Cancel retention and narrow 150% layout. The user subsequently accepted the compact dialog and confirmed physical Command-Q works; W04 is complete. W09 Save progress/publication and crash recovery remain separate.
 
-W02 is the next selected hands-on slice because W01 is accepted and its existing atomic move/history boundary is available. W03 region discovery and W05 command/revision foundations are larger independent tasks. `worksheet_check_move` distinguishes a protected/invalid target from a manual replacement candidate. The explicitly authorized replacement path retains the default reject-on-conflict API for other callers. The generated manual-only `build/tests/generated/move-replace-demo.dxls` opens with B2:D4 selected, occupied H9/I9 and AA20001/AB20001 destinations, and an E5 self-overlap target. Replace must be demonstrated through either Option-drag or the existing Move selection address dialog; user acceptance remains pending.
+W02 follows accepted W01 and reuses its atomic move/history boundary. W03 region discovery is implemented; W05 is the current command/revision foundation. `worksheet_check_move` distinguishes a protected/invalid target from a manual replacement candidate. The explicitly authorized replacement path retains the default reject-on-conflict API for other callers. The generated manual-only `build/tests/generated/move-replace-demo.dxls` opens with B2:D4 selected, occupied H9/I9 and AA20001/AB20001 destinations, and an E5 self-overlap target. Replace must be demonstrated through either Option-drag or the existing Move selection address dialog; user acceptance remains pending.
 
 W02 verification: `python3 tools/test.py affected --feature range-replace --config release --modules grid --jobs 2` and its sanitizer counterpart pass 15 native stages (7.83s/8.72s for the App workflow), including actual drag/Escape/Cancel/Replace input, full-model offscreen targets, clean cancellation, stale data-revision refusal, exact self-overlap Undo/Redo and Save/Open. The existing range-move and selection-start optimized regressions pass 10 and 45 stages. The shared model passes 186 optimized/sanitizer checks, covering holes, literal NULL/exact decimal text, formats, both overlap directions, the last worksheet cell, empty-source replacement, no-op and protected areas. The real shared-C/official-Worker browser controls profile passes 1,366 checks (34.36s), including button and Enter-driven Move, default Cancel, exact replaced value/style Undo/Redo and no source query. Source/binary receipts and screenshots remain under ignored `build/tests/results/`. Physical replacement gestures and human visual acceptance remain pending.
 
@@ -117,7 +117,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 
 | ID / priority / state | Scope and dependency | Demo and acceptance gate |
 | --- | --- | --- |
-| W05 · P0 · Queued | Stable workbook/sheet IDs and revision-bearing C command boundary for one manual edit; existing C05/C03. | UI invokes the shared producer; resolved typed arguments, expected revision, no-op, validation and rollback have explicit results. IDs survive rename/reorder/reopen and are never recycled. AU01/HI03/PL01; foundation of A09/A18/A19. |
+| W05 · P0 · In progress; split below | Stable workbook/sheet IDs and revision-bearing C command boundary for one manual edit; existing C05/C03. | Complete W05a and W05b before claiming persistent identities or the full W05 envelope. AU01/HI03/PL01; foundation of A09/A18/A19. |
+| W05a · P0 · Implemented; human demo pending | Session-fenced, resolved single-cell command; existing cell/history model. | F2/type/click-away/close commit uses the shared producer. Draft captures cell and expected CellStore revision at open; stale data/target cannot be overwritten. Applied/no-op/stale/invalid/protected/limit outcomes are explicit. One existing Undo action, preserved Redo for no-op, exact text and Save/Open. Process-lifetime target fences survive rename/reorder but reset on load/snapshot. |
+| W05b · P0 · Queued | Persisted workbook/sheet identities, non-recycled high-water, migration and document revision/envelope completion; W05a. | IDs survive rename/reorder/reopen, duplicate receives a new ID, malformed/duplicate/exhausted IDs reject atomically, and supported old files migrate through native/shared-C/browser gates. Replace transient command fences with durable identities without promising journal durability or global Undo yet. |
 | W06 · P0 · Queued | Workbook chronological Undo/Redo for manual edits on two sheets; W05. | Edit A then B and traverse in chronological order; branching clears the correct redo tail; display defaults do not alter replayed data. HI01/HI03; A09–A10 for admitted commands. |
 | W07 · P0 · Queued | Undoable sheet lifecycle; W06. | Delete/restore a sheet with cells, objects, binding identities and formats; reorder/hide/duplicate use the same command history. HI02; remaining A09. Do not claim formula restoration before W26b. |
 | W08 · P0 · Queued | DuckDB journal writer for the admitted command subset; W05–W06. | Measure single/batched edits and large paste on the pinned engine; ordered pending/durable acknowledgement, idempotent retry and bounded queue. Kill before/after commit, disk-full/write failures yield old/new complete state. No SQLite dependency. RE01/RE03/PL02; commit part of A13. |
@@ -127,6 +129,20 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
 | W14 · P2 · Queued | Selected-history export; W12–W13. | Export an explicit history interval with required assets and valid roots; omitted history is absent, new artifact restores every advertised state. VE05; remaining A27. |
+
+W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
+The App captures a draft once and supplies its freshly resolved live source
+protection at commit; the producer resolves sheet ownership and records one
+existing worksheet action only after a changed value is adopted. No-op and
+failure preserve dirty/history state. Session IDs are outside Undo and are not
+serialized; this deliberately leaves the existing v12–v14 codec unchanged.
+Expected revision is the target CellStore revision, not a workbook-global clock.
+W05b remains necessary for the original persistent identity/document-envelope
+guarantee. W06 global history and W08 durability remain separate prerequisites.
+The local `cell-command` gate runs isolated C model checks and a test-only real
+App fixture without the canonical workbook or background/browser suites. Its
+clean demo is `build/tests/generated/cell-command-demo.dxls`; stale draft and
+final captures live under `build/tests/results/cell-command/`.
 
 ### Owned data, refresh and complete analytical results
 

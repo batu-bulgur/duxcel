@@ -1,3 +1,4 @@
+#include "../workbook/cell_command.h"
 #include "selection.h"
 #include "app.h"
 #include "../data/worker.h"
@@ -403,6 +404,11 @@ typedef struct {
     JobKind pending_kind;
     Modal modal;
     TextInput input;
+    CellEditTarget cell_edit_target;
+    bool cell_edit_target_valid;
+    char *cell_edit_error;
+    TextLines cell_edit_error_lines;
+    Rectangle cell_edit_error_panel;
     size_t field, measure;
     FilterOp filter_op;
     Aggregate aggregate;
@@ -703,6 +709,7 @@ static void app_worker_submit(App *a,QueryJob *job) {
     worker_submit(&a->worker,job);
 }
 static bool commit_cell(App *a);
+static void clear_cell_edit_error(App *a);
 static void request_document_action(App *a,DocumentAction action,const char *path);
 static void cancel_document_action(App *a);
 static Worksheet *active_sheet(App *a) { return a->book.count ? &a->book.sheets[a->book.active] : NULL; }
@@ -2055,7 +2062,13 @@ static void open_modal(App *a,Modal modal) {
         sort_editor_open(&a->sort_editor,table ? &object->source : &a->analysis,table ? &a->objects[a->selected_object].page : &a->page,table && a->grid.col>=object->col ? a->grid.col-object->col : a->grid.col);
         a->consume_grid_input=true; return;
     }
-    if (modal==MODAL_CELL) { input_set(&a->input,cells_get(&active_sheet(a)->cells,a->grid.row,a->grid.col)); a->consume_grid_input=true; return; }
+    if (modal==MODAL_CELL) {
+        clear_cell_edit_error(a); char *error=NULL;
+        a->cell_edit_target_valid=manual_cell(a) && workbook_prepare_cell_edit(&a->book,a->book.active,a->grid.row,a->grid.col,&a->cell_edit_target,&error);
+        if (!a->cell_edit_target_valid) { status(a,error ? error : "Choose a writable manual cell."); free(error); a->modal=MODAL_NONE; return; }
+        input_set(&a->input,cells_get(&active_sheet(a)->cells,a->cell_edit_target.row,a->cell_edit_target.column));
+        a->consume_grid_input=true; return;
+    }
     if (modal==MODAL_SQL) {
         REVIEW_SQL_CLEAR(a); free(a->sql_text); SheetObject *o=selected_object(a);
         if (o && a->objects[a->selected_object].page.sql) a->sql_text=dx_strdup(a->objects[a->selected_object].page.sql);
@@ -4543,21 +4556,51 @@ static void draw_blank_cells(App *a) {
     }
     ui_clear_clip(u);
 }
+static void clear_cell_edit_error(App *a) {
+    free(a->cell_edit_error); a->cell_edit_error=NULL;
+    text_lines_free(&a->cell_edit_error_lines); a->cell_edit_error_panel=(Rectangle){0};
+}
+static void cell_edit_failed(App *a,const char *message) {
+    clear_cell_edit_error(a); a->cell_edit_error=dx_strdup(message); status(a,message);
+}
 static bool commit_cell(App *a) {
-    char *error=NULL; Worksheet *sheet=active_sheet(a); Grid *g=&a->grid;
-    if (!sheet) return false;
-    uint64_t revision=sheet->cells.revision;
-    if (!manual_range(a,g->row,g->col,1,1,&error) || !cells_set(&sheet->cells,g->row,g->col,a->input.text,&error)) { status(a,error); free(error); return false; }
-    if (revision!=sheet->cells.revision) { worksheet_record(sheet,EDIT_CELLS); a->book.dirty=true; }
-    a->modal=MODAL_NONE; a->consume_grid_input=true; return true;
+    char *error=NULL; Worksheet *sheet=active_sheet(a);
+    if (!sheet || !a->cell_edit_target_valid || sheet->edit_session_id!=a->cell_edit_target.sheet ||
+        a->grid.row!=a->cell_edit_target.row || a->grid.col!=a->cell_edit_target.column) {
+        cell_edit_failed(a,"The edited cell changed. Your draft is kept; press Escape and reopen the cell."); return false;
+    }
+    CellEditCommand command={CELL_EDIT_COMMAND_VERSION,a->cell_edit_target,a->input.text,strlen(a->input.text)};
+    CellEditPolicy policy={source_rows(a),a->page.column_count,
+        !(a->analysis.kind!=SOURCE_NONE && !a->page.column_count && !a->fetch_failed)};
+    CellEditResult result=workbook_apply_cell_edit(&a->book,&command,policy,&error);
+    if (result.status!=CELL_EDIT_APPLIED && result.status!=CELL_EDIT_NOOP) {
+        cell_edit_failed(a,error ? error : "Cell edit could not be applied."); free(error); return false;
+    }
+    clear_cell_edit_error(a);
+    status(a,result.status==CELL_EDIT_APPLIED ? "Cell updated." : "Ready");
+    a->cell_edit_target_valid=false; a->modal=MODAL_NONE; a->consume_grid_input=true; return true;
 }
 static void draw_cell_editor(App *a) {
     UIContext *u=&a->ui; Grid *g=&a->grid; float scale=u->scale,s=scale*g->zoom;
     Rectangle field=grid_range_rect(g,s,g->row,g->col,1,1); field.width=fmaxf(160*s,field.width);
     if (field.x+field.width>g->body.x+g->body.width) field.width=g->body.x+g->body.width-field.x;
-    u->scale=s; input_update(&a->input); input_draw(u,&a->input,field); u->scale=scale;
+    u->scale=s; input_update(&a->input); input_draw(u,&a->input,field);
+    if (a->cell_edit_error) {
+        float width=fminf(410*s,g->body.width);
+        text_lines_layout_sized(&a->cell_edit_error_lines,u,a->cell_edit_error,fmaxf(s,width-20*s),12);
+        float height=fminf(g->body.height,(16*a->cell_edit_error_lines.count+16)*s);
+        float x=fminf(field.x,g->body.x+g->body.width-width),y=field.y+field.height+4*s;
+        if (y+height>g->body.y+g->body.height) y=field.y-height-4*s;
+        y=fmaxf(g->body.y,fminf(y,g->body.y+g->body.height-height));
+        Rectangle panel=box(fmaxf(g->body.x,x),y,width,height); a->cell_edit_error_panel=panel;
+        DrawRectangleRec(panel,(Color){255,246,233,255});
+        DrawRectangleLinesEx(panel,s,(Color){219,164,96,255});
+        text_lines_draw_sized(&a->cell_edit_error_lines,u,a->cell_edit_error,0,
+            box(panel.x+10*s,panel.y+8*s,panel.width-20*s,panel.height-16*s),12,16,(Color){137,66,30,255});
+    }
+    u->scale=scale;
     REVIEW_CELL_EDITOR(a,field,g->body);
-    if (ui_pressed(KEY_ESCAPE)) { a->modal=MODAL_NONE; return; }
+    if (ui_pressed(KEY_ESCAPE)) { clear_cell_edit_error(a); a->cell_edit_target_valid=false; a->modal=MODAL_NONE; return; }
     bool enter=ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER),tab=ui_pressed(KEY_TAB);
     if (enter || tab || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),field))) {
         if (!commit_cell(a)) return;
@@ -13954,7 +13997,7 @@ static void document_smoke_step(App *a,int *step) {
         request_document_action(a,DOCUMENT_QUIT,NULL);
         if (!a->exit_ready) goto failed;
         a->exit_ready=false; grid_select_cell(&a->grid,0,0,false);
-        input_set(&a->input,"Before"); a->modal=MODAL_CELL;
+        open_modal(a,MODAL_CELL); input_set(&a->input,"Before");
         request_document_action(a,DOCUMENT_CLOSE,NULL);
         if (a->exit_ready || a->modal!=MODAL_UNSAVED || !a->book.dirty || strcmp(cells_get(&active_sheet(a)->cells,0,0),"Before")) goto failed;
         cancel_document_action(a);
@@ -14854,6 +14897,9 @@ static void record_frame(App *a,double started) {
 #endif
 /* A frame may return to a host scheduler without losing owned App state.
    The native runner uses the same start/frame/finish contract as future hosts. */
+#ifdef DUXCEL_FEATURE_CELL_COMMAND
+static void cell_command_test_frame(AppSession *session);
+#endif
 struct AppSession {
     App app;
     AppOptions options;
@@ -15646,6 +15692,9 @@ bool app_frame(AppSession *session) {
         }
     }
 #endif /* native scenario input */
+#ifdef DUXCEL_FEATURE_CELL_COMMAND
+    cell_command_test_frame(session);
+#endif
 #ifdef DUXCEL_BROWSER_HOST
     bool file_before_shortcuts=a->file_menu;
 #endif
@@ -15823,7 +15872,7 @@ int app_finish(AppSession *session) {
     for (size_t i=0;i<a->browser_source_label_count;i++) { free(a->browser_source_labels[i].key); free(a->browser_source_labels[i].name); }
 #endif
     page_free(&a->page); page_free(&a->spare); analysis_free(&a->analysis);
-    workbook_free(&a->book); inspector_free(a); sort_editor_free(&a->sort_editor); REVIEW_SQL_CLEAR(a);
+    clear_cell_edit_error(a); workbook_free(&a->book); inspector_free(a); sort_editor_free(&a->sort_editor); REVIEW_SQL_CLEAR(a);
     reply_free(a->query_validated); text_editor_free(&a->query_editor); text_lines_free(&a->query_errors); free(a->query_error);
     clear_value_choices(a); free(a->value_pending_key); free(a->values_context);
     for (int i=0;i<4;i++) { distinct_free(&a->value_cache[i]); free(a->value_cache_keys[i]); }
@@ -15848,3 +15897,7 @@ int app_run(const AppOptions *options) {
     while (app_frame(session)) {}
     return app_finish(session);
 }
+
+#ifdef DUXCEL_FEATURE_CELL_COMMAND
+#include "../../tests/support/cell_command_app.inc"
+#endif

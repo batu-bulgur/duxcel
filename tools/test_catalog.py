@@ -14,7 +14,17 @@ class Feature:
     owns: tuple
 
 
+STANDALONE_GUI = {
+    "cell-command": ("build/tests/test_cell_command-native", "PASS: native cell command workflow",
+                     r"^PASS: native cell command workflow \(13 stages, [1-9]\d* checks\)$", 13),
+}
+
+
 FEATURES = {
+    "cell-command": Feature(("cell_command",), "cell-command",
+        ("python3 tools/test.py native --scenario document workspace --config sanitize",
+         "python3 tools/test_web_app.py --review --review-cell-only"),
+        ("src/workbook/cell_command.c", "src/workbook/workbook.h", "src/app/app.c: cell editor adapter")),
     "containing-regions": Feature(("cell_regions", "selection_ladder", "selection"), "containing-regions",
         ("python3 tools/test.py affected --feature selection-ladder --modules selection_ladder --config sanitize",
          "python3 tools/test_web_app.py --review --selection-only --source tests/fixtures/null-text.csv"),

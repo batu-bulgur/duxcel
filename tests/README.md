@@ -8,6 +8,8 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | --- | --- | --- |
 | `test_*.c`, `test_*.inc`, `test_*.m` | Native suites and their implementation fragments | Tracked source |
 | `test_fixture.c` | Native load/PIVOT/typed data/save/reload acceptance of canonical/large inputs | Tracked C test |
+| `test_cell_command.c` | Shared-C bounded command validation, session fences, stale/no-op/history ownership, protection, exact text and limits | Tracked C test; per-file optimized/sanitizer objects |
+| `test_cell_command_gui.c`, `support/cell_command_app.inc` | Isolated real App editor/Undo/Redo/stale-draft/Save/Open workflow; private compile-time fixture | Tracked C tests; hidden TEST-badged release App |
 | `test_selection.c` | Controller rules over borrowed cells/resolved analytical bounds, with model/viewport retention | Tracked C test; optimized/sanitizer targets |
 | `test_build_info.c` | Direct C/source-archive metadata fallback without Git or generated headers | Tracked C test; optimized/sanitizer targets |
 | `test_about_native.m` | Standalone real AppKit history scrolling, TEST icon/Dock identity and repeated cleanup; consumes canonical `assets/icons/duxcel.icns` | Tracked macOS adapter test; hidden ASan/UBSan GUI |

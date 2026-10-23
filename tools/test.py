@@ -13,11 +13,11 @@ import sys
 import time
 
 
-from test_catalog import FEATURES, plan as feature_plan
+from test_catalog import FEATURES, STANDALONE_GUI, plan as feature_plan
 from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
                        utc_now, sha256, fingerprint, ensure_unchanged)
 FAST_MODULES = (
-    "build_info", "cellreadout", "filterlabel", "grid", "selection_ladder", "selection", "cell_regions", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
+    "build_info", "cell_command", "cellreadout", "filterlabel", "grid", "selection_ladder", "selection", "cell_regions", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
     "inspector", "shadowview", "stepview", "preview", "preview_input", "preview_input_browser", "textview", "textview_review", "statsview", "statsview_input", "statsview_input_review",
     "ui_update_input", "ui_update_input_browser", "ui_update_input_control", "guideview", "guideview_input", "guideview_input_review", "sortview_input", "sortview_input_review", "fontmetrics", "ui_font_fallback",
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
@@ -298,6 +298,16 @@ class Runner:
             self.record(self.command("about-native", ["./" + binary], "PASS: native About and test identity",
                 completion_pattern=r"^PASS: native About and test identity \([1-9]\d* checks\)$"))
 
+    def standalone_gui_check(self,name):
+        binary, marker, completion, stages = STANDALONE_GUI[name]
+        self.build([binary], "build-feature-gui")
+        self.retain_binaries([binary])
+        (self.root / "build/tests/generated").mkdir(parents=True,exist_ok=True)
+        (self.root / "build/tests/results" / name).mkdir(parents=True,exist_ok=True)
+        with FileLock(native_lock_path(), "Native feature tests"):
+            self.record(self.command(name+"-native",["./"+binary],marker,native=True,
+                                     completion_pattern=completion,stages=stages))
+
     def feature(self):
         plan = feature_plan(self.args.feature)
         self.summary["feature_plan"] = plan
@@ -308,6 +318,8 @@ class Runner:
             self.headless(plan["modules"])
         if plan["gui"] == "about":
             self.about_check()
+        elif plan["gui"] in STANDALONE_GUI:
+            self.standalone_gui_check(plan["gui"])
         elif plan["gui"]:
             # The local GUI uses release; the selected logic modules retain
             # ASan/UBSan. Full-App sanitizer/background coverage is deferred.
@@ -347,6 +359,8 @@ class Runner:
             raise RuntimeError("Required NYC dataset missing: " + str(data))
         self.headless(FAST_MODULES)
         self.about_check()
+        for name in STANDALONE_GUI:
+            self.standalone_gui_check(name)
         self.prepare_native(full=True)
         # The workbook suite consumes core's generated fixtures. Each
         # configuration completes both before another can replace their files.
@@ -527,7 +541,10 @@ def main(argv=None):
             print(f"Affected {name}: layout {start}–{end-1} ({end-start} stages)")
         for name, stages, frames, _ in NATIVE:
             print(f"Full {name}: {stages} stages, {frames} frame timeout")
-        print(f"Full total: {sum(row[1] for row in NATIVE)} application stages +110 GPU checks; NYC8 optional unless --require-data")
+        for name, (_, _, _, stages) in STANDALONE_GUI.items():
+            print(f"Full standalone {name}: {stages} application stages")
+        print(f"Full legacy scenarios: {sum(row[1] for row in NATIVE)} application stages +110 GPU checks; NYC8 optional unless --require-data")
+        print(f"Full total: {sum(row[1] for row in NATIVE)+sum(row[3] for row in STANDALONE_GUI.values())} application stages plus About adapter checks")
         return 0
     if args.tier == "affected" and not args.feature:
         argument_parser.error("affected requires --feature (see --list)")

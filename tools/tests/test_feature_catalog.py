@@ -5,7 +5,7 @@ import shlex
 import unittest
 from unittest import mock
 import test as runner
-from test_catalog import FEATURES, plan
+from test_catalog import FEATURES, STANDALONE_GUI, plan
 
 
 class FeatureCatalogTests(unittest.TestCase):
@@ -13,7 +13,7 @@ class FeatureCatalogTests(unittest.TestCase):
         for name, feature in FEATURES.items():
             self.assertTrue(set(feature.modules) <= set(runner.FAST_MODULES), name)
             self.assertLess(len(feature.modules), 5, name)
-            if feature.gui and feature.gui != "about":
+            if feature.gui and feature.gui != "about" and feature.gui not in STANDALONE_GUI:
                 self.assertIn(feature.gui, runner.LAYOUT_PROFILES)
             self.assertTrue(feature.interactions)
             for command in feature.interactions:
@@ -42,6 +42,17 @@ class FeatureCatalogTests(unittest.TestCase):
         self.assertEqual(obj.command.call_count, 1)
         self.assertEqual(obj.args.config, "both")
         self.assertEqual(obj.summary["feature_plan"]["deferred_interactions"], plan("containing-regions")["deferred_interactions"])
+
+    def test_command_gui_has_no_canonical_or_background_dependency(self):
+        obj = runner.Runner.__new__(runner.Runner)
+        obj.args = runner.parser().parse_args(["feature", "--feature", "cell-command"])
+        obj.summary = {}; obj.headless = mock.Mock(); obj.standalone_gui_check = mock.Mock()
+        obj.prepare_native = mock.Mock(side_effect=AssertionError("Unrelated native bootstrap"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            obj.feature()
+        obj.headless.assert_called_once_with(["cell_command"])
+        obj.standalone_gui_check.assert_called_once_with("cell-command")
+        obj.prepare_native.assert_not_called()
 
     def test_about_does_not_build_full_app_or_canonical_fixture(self):
         self.assertEqual(FEATURES["about"].modules, ("build_info",))

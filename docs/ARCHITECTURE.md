@@ -41,6 +41,25 @@ no worker, workbook, history, page allocation or renderer. Pure module checks
 and the real App GUI slice exercise the same controller. Extend this pattern
 when a feature changes rather than pre-emptively rewriting all App state.
 
+`src/workbook/cell_command.c` is the first admitted mutation producer. A borrowed
+byte span plus frozen cell/expected CellStore revision enters the coordinator;
+an explicit result reports applied/no-op/stale/invalid/protected/limit and
+before/after store revision. The producer resolves a process-lifetime document
+and sheet fence, rechecks primary/object protection and owns cell-history/dirty
+publication. The App owns draft lifecycle, authoritative source readiness,
+keyboard navigation and feedback. Preparing a target lazily assigns transient
+identities without entering Undo or dirtying data. Rename/reorder carry the
+sheet fence; duplicate/snapshot/load do not copy it. This is not the persistent
+W05b identity scheme, global document revision, automation wire ABI or durable
+journal. No file schema or source writes are introduced.
+
+The cell-command GUI fixture has its own App object compiled with
+`DUXCEL_FEATURE_CELL_COMMAND`; its private fixture lives in `tests/support/`.
+Normal/review/browser App objects omit the hook, state and fixture dependency.
+Pure command/model tests have incremental per-file optimized/sanitizer objects,
+using the existing shared-C browser-conditioned model without a GUI or DuckDB
+engine. This keeps their cache/configuration separate from the production App.
+
 `src/app/build_info.c` owns immutable compiled provenance with a source-archive
 fallback. The build generates metadata into one object only; browser cache input
 signatures include the generated metadata while other object flags stay stable.

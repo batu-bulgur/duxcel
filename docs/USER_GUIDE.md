@@ -95,6 +95,12 @@ Save writes transactional DuckDB metadata, using version12 for ordinary lossless
 
 On a blank sheet or in empty canvas beside imported data, type to replace a cell or press F2 to edit it. Arrow/Home/End keys position the text caret; Shift extends a partial selection, Option+arrows traverse words and Command+arrows reach the ends on macOS. Copy uses the selected substring; typing and paste replace only the selection. Command+Z / Shift+Command+Z undo and redo inside the focused editor, including its caret and selection. Consecutive typing/deletion is grouped; paste is a separate step. Committing a cell remains one worksheet Undo action. Mouse clicks and drags also place/select text, with double-click word and triple-click all selection. Paste quoted TSV into a range with Cmd+V; UTF-8, tabs and embedded newlines round-trip through copy/paste. Paste is atomic and one undo operation. Drag the selected range's border to move its contents; occupied destinations are rejected. Right-click a column to insert left/right or delete. Row-header menus offer insert above/below and delete for the complete selected row span below imported rows; whole tables/pivots/charts and notes shift together, and operations through an object's interior are rejected. These edits are sparse text cells, limited to 20,000 populated cells / 4 MiB per sheet, with 64 KiB per value. Formula evaluation and imported-data overlays are pending; external Parquet/CSV is never modified.
 
+A manual cell editor retains the cell and data revision it opened against. If
+cell data changes before commit, the draft stays open and a warning prevents
+it from replacing the newer data. Copy any text you want to keep, press Escape,
+and reopen the cell to edit the latest value. Committing unchanged text adds no
+Undo step and preserves an existing Redo action.
+
 Chronological cell/object/analysis undo and redo are per sheet, limited to 32 actions and session-only. Manual history also has an 8 MiB text budget per stack. External source changes can alter results. Closing or replacing a modified workbook offers Save / Don't Save / Cancel; automatic crash recovery remains pending.
 
 Cmd+W closes the Mac workbook surface and leaves Duxcel running. Cmd+Q quits. Use File→New Workbook (Cmd+N), Open or the Dock to reopen a surface. Shift+F11 adds a worksheet. In the browser, Ctrl/Cmd+W keeps its browser meaning; **Alt→F→C** closes the workbook inside the live tab. Modified workbooks offer Cancel/Discard; browser Save is still unavailable and disabled.

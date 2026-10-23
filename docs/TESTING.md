@@ -7,6 +7,7 @@ Product/engine/grid/codec assertions are primarily C; macOS integration uses Obj
 ```sh
 make test-feature FEATURE=containing-regions
 make test-feature FEATURE=about
+make test-feature FEATURE=cell-command
 python3 tools/test.py feature --feature containing-regions --plan
 make test-feature FEATURE=test-infrastructure
 ```
@@ -32,6 +33,21 @@ standalone About GUI stays ASan/UBSan. Use explicit integration commands below
 when full-App sanitizer or platform boundaries are affected. The receipt records
 these configurations and the deferred commands. A focused pass is acceptance of
 that boundary, not whole-product/native-browser parity.
+
+The `cell-command` gate runs only `test_cell_command` in optimized/ASan/UBSan
+and a 13-stage release App fixture compiled separately from production. The
+fixture drives the real editor/Enter/Escape/Undo/Redo path, simulates a competing
+command against an open draft, verifies rejection without draft/history loss,
+then saves/reopens a finite manual workbook and rejects the old session target.
+It needs no canonical fixture or background-window bootstrap. Test-only hooks
+are absent from production/review/browser App objects. Both command model and
+GUI fixture are included in the explicit full native milestone inventory.
+
+Its incremental browser interaction gate is
+`python3 tools/test_web_app.py --review --review-cell-only`: real F2, UTF-8 draft,
+review/cancel, commit and Undo at 100/150 percent. Wider document/workspace and
+other browser scenarios remain deferred. The command API's session fences do
+not establish persisted identity, global Undo, journaling or recovery.
 
 ## Interaction checks and milestones (explicit)
 

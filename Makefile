@@ -25,7 +25,7 @@ THREAD_LIBS =
 endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/workbook/workbook_codec.c src/data/worker.c
+CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/workbook/cell_command.c src/workbook/workbook_codec.c src/data/worker.c
 SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m src/platform/macos_about.m
@@ -200,6 +200,15 @@ build/review-sanitize/duxcel-review: build/review-sanitize/assets $(REVIEW_SANIT
 	$(call link_binary,-O1 -g $(WARN) $(SANFLAGS) $(REVIEW_SANITIZE_OBJECTS),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
 	python3 tools/review_build_info.py --binary $@
 .PHONY: review review-debug
+
+# Feature-only App fixture: the production App object has no test hook/state.
+CELL_COMMAND_GUI_OBJECT = build/obj/feature-cell-command/app.o
+$(CELL_COMMAND_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_CELL_COMMAND)
+CELL_COMMAND_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(CELL_COMMAND_GUI_OBJECT)
+build/tests/test_cell_command-native: tests/test_cell_command_gui.c $(CELL_COMMAND_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_cell_command_gui.c $(CELL_COMMAND_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(CELL_COMMAND_GUI_OBJECT:.o=.d)
 
 # Only a successful compiler/linker invocation replaces an accepted artifact.
 # Separate object and dependency temporary files preserve the previous pair on
@@ -765,6 +774,7 @@ distclean:
 # mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
 # targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
 PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug \
+	build/tests/test_cell_command build/tests/test_cell_command-debug build/tests/test_cell_command-native \
 	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
 	build/lifecycle/test-app build/lifecycle/test-app-sanitize build/tests/test_fixture build/tests/test_fixture-debug
@@ -958,6 +968,21 @@ test-workbook-codec-pivot-marks: build/tests/test_workbook_codec_native build/te
 	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug --pivot-marks-only
 .PHONY: test-browser-codec-pivot-marks test-workbook-codec-pivot-marks
 BROWSER_MODEL_TEST_SRC = $(filter-out src/platform/platform.c src/data/database.c src/data/worker.c,$(CORE)) src/workbook/workbook_browser.c tests/test_workbook_model.c
+# Pure command/model checks use the existing shared-C browser-conditioned model
+# and native platform stubs, with per-file objects and no GUI/engine dependency.
+CELL_COMMAND_TEST_SRC = $(filter-out tests/test_workbook_model.c,$(BROWSER_MODEL_TEST_SRC)) tests/test_cell_command.c
+CELL_COMMAND_TEST_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(CELL_COMMAND_TEST_SRC))))
+CELL_COMMAND_TEST_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(CELL_COMMAND_TEST_SRC))))
+build/obj/release/cell-command/%.o: %.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_BROWSER_HOST)
+build/obj/sanitize/cell-command/%.o: %.c build/obj/sanitize/app/compile.flags
+	$(call compile_object,$(APP_SANITIZE_FLAGS) -DDUXCEL_BROWSER_HOST)
+build/tests/test_cell_command: $(CELL_COMMAND_TEST_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $(CELL_COMMAND_TEST_OBJECTS) build/web-tests/platform-model.o,$(THREAD_LIBS) -lm)
+build/tests/test_cell_command-debug: $(CELL_COMMAND_TEST_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(CELL_COMMAND_TEST_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(CELL_COMMAND_TEST_OBJECTS:.o=.d) $(CELL_COMMAND_TEST_SAN_OBJECTS:.o=.d)
+
 BROWSER_DISTINCT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/distinct.c
 BROWSER_DISTINCT_PAGE_TEST_SRC = $(BROWSER_DISTINCT_TEST_SRC) src/data/page.c src/data/source_digest.c src/data/distinct_page.c
 build/web-tests/test-distinct-query: $(BROWSER_DISTINCT_TEST_SRC) tests/test_distinct_query.c $(HEADERS)
