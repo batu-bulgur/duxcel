@@ -806,7 +806,7 @@ PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
 	build/tests/test_workbook_lifecycle build/tests/test_workbook_lifecycle-debug build/tests/test_workbook_lifecycle-gui \
-	build/tests/test_workbook_journal build/tests/test_workbook_journal-debug \
+	build/tests/test_workbook_journal build/tests/test_workbook_journal-debug build/tests/test_journal_queue build/tests/test_journal_queue-debug \
 	build/tests/test_cell_command build/tests/test_cell_command-debug build/tests/test_cell_command-native \
 	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
@@ -1182,3 +1182,11 @@ build/tests/test_workbook_journal: $(JOURNAL_TEST_OBJECTS) | build/tests
 build/tests/test_workbook_journal-debug: $(JOURNAL_TEST_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_TEST_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(JOURNAL_TEST_OBJECTS:.o=.d) $(JOURNAL_TEST_SAN_OBJECTS:.o=.d)
+
+JOURNAL_QUEUE_TEST_OBJECTS = build/obj/release/app/src/common.o build/obj/release/app/src/platform/platform.o build/obj/release/app/src/workbook/journal.o build/obj/release/app/src/workbook/journal_queue.o build/obj/release/app/tests/test_journal_queue.o
+JOURNAL_QUEUE_TEST_SAN_OBJECTS = build/obj/sanitize/app/src/common.o build/obj/sanitize/app/src/platform/platform.o build/obj/sanitize/app/src/workbook/journal.o build/obj/sanitize/app/src/workbook/journal_queue.o build/obj/sanitize/app/tests/test_journal_queue.o
+build/tests/test_journal_queue: $(JOURNAL_QUEUE_TEST_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(JOURNAL_QUEUE_TEST_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_journal_queue-debug: $(JOURNAL_QUEUE_TEST_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_QUEUE_TEST_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(JOURNAL_QUEUE_TEST_OBJECTS:.o=.d) $(JOURNAL_QUEUE_TEST_SAN_OBJECTS:.o=.d)

@@ -12,6 +12,8 @@ typedef struct {
     const char *before,*after;
     size_t before_bytes,after_bytes;
 } JournalCellEdit;
+/* Pure validation shared by reservation and transactional admission. */
+bool workbook_journal_edit_valid(const JournalCellEdit *edit);
 typedef struct { uint64_t durable_revision; size_t appended,replayed; } JournalReceipt;
 typedef struct {
     /* Writer-thread callbacks, never reentrant. False cancels before COMMIT.

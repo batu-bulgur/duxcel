@@ -130,6 +130,20 @@ staging replay. This primitive is not yet linked into the App command path and
 does not establish recovery, retained Undo, async queue ownership or Save fencing.
 Its private file format is independent of native workbook v15.
 
+`src/workbook/journal_queue.c` is the staged native asynchronous owner. The
+producer reserves a bounded immutable record before model mutation and either
+cancels it on rejection/no-op or publishes after success. The worker never reads
+Workbook/App pointers; it owns a private DuckDB connection and borrows only the
+queue's immutable in-flight prefix. All reserved/pending/in-flight data remains
+charged until acknowledged. A failure racing a reservation cannot make its later
+publication fail or release its bytes. Failed records remain for explicit
+same-ID retry; uncertain commits reopen and resolve through the storage API.
+Accepted and durable revisions stay separate. Stop joins only this owned thread,
+with explicit drain/abort semantics and reported non-durable work. App adapters
+must still create a valid checkpoint lineage, fence unsupported mutation families,
+and preserve pending work across Save/replacement/close; those are W08b2/W09/W10.
+No queue exists in the current App and no browser journal adapter is implemented.
+
 The cell-command GUI fixture has its own App object compiled with
 `DUXCEL_FEATURE_CELL_COMMAND`; its private fixture lives in `tests/support/`.
 Normal/review/browser App objects omit the hook, state and fixture dependency.

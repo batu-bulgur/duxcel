@@ -121,6 +121,13 @@ class FeatureCatalogTests(unittest.TestCase):
         self.assertEqual(events[3][1][-1], "build/tests/test_workbook_journal-debug")
         self.assertIn("completion_pattern", events[1][2])
 
+    def test_queue_gate_has_no_desktop_or_canonical_fixture(self):
+        local = plan("journal-queue")
+        self.assertEqual(local["modules"], [])
+        self.assertIsNone(local["gui"])
+        self.assertEqual(local["engine_modules"], ["journal_queue", "workbook_journal"])
+        self.assertEqual(local["engine_process_checks"], ["tools/test_journal_process.py"])
+
     def test_about_does_not_build_full_app_or_canonical_fixture(self):
         self.assertEqual(FEATURES["about"].modules, ("build_info",))
         self.assertEqual(plan("about")["gui"], "about")

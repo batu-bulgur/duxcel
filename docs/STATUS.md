@@ -118,9 +118,17 @@ batches, exact byte payloads and IDs, checkpoint lineage and idempotent retries.
 Receipts appear only after COMMIT. Optimized/sanitizer component tests and real
 process kills before/after COMMIT pass; their private databases and binary
 receipts stay under `build/tests/`. This module is not yet connected to App edits:
-the asynchronous queue, visible pending/durable state, disk/write failure policy,
-Save coordination and startup recovery remain W08b/W08c/W09/W10. There is no
+visible pending/durable state, App admission, disk/write failure policy,
+Save coordination and startup recovery remain W08b2/W08c/W09/W10. There is no
 current application-level crash-recovery or durable Undo claim.
+
+W08b1 adds the native asynchronous queue as tested infrastructure: immutable
+reservation before mutation, bounded pending/in-flight bytes, ordered durable
+acknowledgement, retained failures and same-ID retry, and explicit drain/abort.
+Its 1,426 assertions pass optimized/sanitizer, along with the underlying storage
+and kill/retry checks (6.866s local gate). The queue is not yet connected to the
+App; checkpoint-backed admission and user feedback remain W08b2. No additional
+application-level durability or recovery is claimed.
 
 ## Feature iteration and build identity
 

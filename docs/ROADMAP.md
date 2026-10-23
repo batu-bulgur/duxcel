@@ -128,7 +128,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W07 · P0 · Complete | Undoable sheet lifecycle; W06. | Delete/restore a sheet with cells, objects, binding identities and formats; reorder/hide/duplicate use the same command history. HI02; remaining A09. Do not claim formula restoration before W26b. |
 | W08 · P0 · In progress | DuckDB journal writer for the admitted command subset; W05–W06. | Measure single/batched edits and large paste on the pinned engine; ordered pending/durable acknowledgement, idempotent retry and bounded queue. Kill before/after commit, disk-full/write failures yield old/new complete state. No SQLite dependency. RE01/RE03/PL02; commit part of A13. |
 | W08a · P0 · Complete | Native DuckDB journal transaction/receipt primitive; W05. | Private checkpoint lineage, exact before/after byte spans and uint64 IDs; bounded atomic append/read; identical operation-ID retry; reject payload/revision conflicts; process kill before/after commit preserves complete old/new state. Engine component only, no App durability claim. |
-| W08b · P0 · Next | Bounded owned asynchronous journal queue and App admission; W08a/W06. | Single mutation owner reserves immutable records before applying supported edits; immediate pending and ordered durable feedback; retries retain operation IDs, full/failing queue never silently loses an edit. Explicit boundary for unadmitted legacy/lifecycle commands. Narrow real-App gate; no startup recovery claim. |
+| W08b · P0 · In progress | Bounded owned asynchronous journal queue and App admission; W08a/W06. | Single mutation owner reserves immutable records before applying supported edits; immediate pending and ordered durable feedback; retries retain operation IDs, full/failing queue never silently loses an edit. Explicit boundary for unadmitted legacy/lifecycle commands. Narrow real-App gate; no startup recovery claim. |
+| W08b1 · P0 · Complete | Native bounded asynchronous writer queue; W08a. | Reserve owned bytes before mutation; publish only after success, cancel on rejection; pending/in-flight/reserved share a hard bound. Ordered post-COMMIT acknowledgement, same-ID retry with retained payloads, failed-open recovery and explicit drain/abort shutdown. Engine infrastructure, not App coverage. |
+| W08b2 · P0 · Next | Checkpoint-backed App admission and pending/durable feedback; W08b1. | Capture valid lineage, reserve before a supported edit, publish after its successful command, retain drafts on backpressure. Unsupported mutation coverage must be explicit; document replacement/Save/close cannot silently discard a pending tail. Narrow hidden real-App gate. |
 | W08c · P0 · Queued | Fault/performance integration and batching policy; W08b. | Actual write/disk-full/kill/close failures, measured per-edit tail latency, large paste admission and bounded backpressure. Preserve all-or-nothing state and retry after uncertain commit; finalize W08 acceptance before W09. |
 | W09 · P0 · Queued | Revision-fenced Save publication and proportional progress/cancel; W08. | Save R while R+1 arrives; report R only after its complete checkpoint is published, retain R+1 unsaved/recoverable. Failed/cancelled Save preserves old file and dirty state. UX05/RE03; A13/A15/A28. |
 | W10 · P0 · Queued | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. RE02; A14. |
@@ -218,6 +220,23 @@ The measured native engine is v1.5.6; the preliminary optimized sample is 20.900
 for 32 single commits and 38.666ms for 256 edits in one commit. These are local
 component samples, not UI latency or large-paste acceptance. W08b/W08c remain
 required; current App edits still have no durable journal acknowledgement.
+
+W08b1 adds `src/workbook/journal_queue.c`: one producer reserves immutable bytes
+before applying a model edit, then publishes nonfallibly or cancels the unused
+reservation. The writer owns its DuckDB connection; pending, in-flight and the
+single outstanding reservation share a 256-entry/4 MiB hard bound. A writer
+failure racing reservation cannot lose the successfully applied edit: publication
+still retains it, and explicit retry reopens with the same operation IDs. Durable
+revision advances only after successful COMMIT. Missing-path open failure can
+retry; drain/abort joins the owned writer and reports remaining non-durable work.
+`journal-queue` passes 1,426 queue and 190 storage assertions per optimized/
+sanitizer configuration, plus 14 kill/retry process checks per binary (6.866s
+whole local gate). Coverage includes immutable bytes after caller mutation/free,
+count/byte backpressure including in-flight data, a failure between reserve and
+publish, batching of 256 records, ordered acknowledgements, retained failed
+records, retry, mismatched lineage, and drain/abort. No GUI is launched. App
+checkpoint lifecycle/admission/feedback remains W08b2; actual disk/write faults
+and final latency/paste policy remain W08c. There is still no App durability claim.
 
 ### Owned data, refresh and complete analytical results
 

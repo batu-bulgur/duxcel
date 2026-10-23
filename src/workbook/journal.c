@@ -30,8 +30,8 @@ static bool run(duckdb_prepared_statement s,duckdb_result *r,char **error) {
     fail(error,duckdb_result_error(r)); duckdb_destroy_result(r); return false;
 }
 static bool span(const char *text,size_t bytes) { return bytes<=65536 && (text || !bytes) && (!bytes || !memchr(text,0,bytes)); }
-static bool edit_valid(const JournalCellEdit *e) {
-    return (e->operation.high || e->operation.low) && e->sheet && e->row<DX_SHEET_ROWS && e->column<16384 &&
+bool workbook_journal_edit_valid(const JournalCellEdit *e) {
+    return e && (e->operation.high || e->operation.low) && e->sheet && e->row<DX_SHEET_ROWS && e->column<16384 &&
         e->previous_revision<UINT64_MAX && e->revision==e->previous_revision+1 && span(e->before,e->before_bytes) && span(e->after,e->after_bytes) &&
         (e->before_bytes!=e->after_bytes || (e->before_bytes && memcmp(e->before,e->after,e->before_bytes)));
 }
@@ -105,7 +105,7 @@ static bool decode(duckdb_result *r,idx_t row,JournalCellEdit *e,char **error) {
         .previous_revision=duckdb_value_uint64(r,2,row),.revision=duckdb_value_uint64(r,3,row),.sheet=duckdb_value_uint64(r,4,row),
         .row=duckdb_value_uint64(r,5,row),.column=duckdb_value_uint32(r,6,row),.before=before.data,.after=after.data,
         .before_bytes=(size_t)before.size,.after_bytes=(size_t)after.size};
-    if (edit_valid(e)) return true;
+    if (workbook_journal_edit_valid(e)) return true;
     duckdb_free(before.data); duckdb_free(after.data); e->before=e->after=NULL;
     return fail(error,"Invalid cell journal payload.");
 }
@@ -125,7 +125,7 @@ bool workbook_journal_append(WorkbookJournal *j,const JournalCellEdit *edits,siz
     if (!j || j->failed || !edits || !count || count>DX_JOURNAL_BATCH) return fail(error,"Use an open journal and a bounded nonempty batch; reopen after engine failure.");
     size_t bytes=0;
     for (size_t i=0;i<count;i++) {
-        if (!edit_valid(edits+i) || (i && edits[i].previous_revision!=edits[i-1].revision)) return fail(error,"Cell journal edits must be valid and revision-ordered.");
+        if (!workbook_journal_edit_valid(edits+i) || (i && edits[i].previous_revision!=edits[i-1].revision)) return fail(error,"Cell journal edits must be valid and revision-ordered.");
         bytes+=sizeof(*edits)+edits[i].before_bytes+edits[i].after_bytes;
         if (bytes>DX_JOURNAL_BATCH_BYTES) return fail(error,"Journal batch exceeds its 4 MiB owned budget.");
     }

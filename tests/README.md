@@ -8,6 +8,7 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | --- | --- | --- |
 | `test_*.c`, `test_*.inc`, `test_*.m` | Native suites and their implementation fragments | Tracked source |
 | `test_fixture.c` | Native load/PIVOT/typed data/save/reload acceptance of canonical/large inputs | Tracked C test |
+| `test_journal_queue.c` | Real native worker reservation/publication races, owned bytes, count/byte limits, batching/order, retry, lineage and drain/abort | Serial optimized/sanitizer engine targets; private journals; no App/desktop |
 | `test_workbook_journal.c` | Private DuckDB lineage, atomic batches, BLOB/uint64 round-trip, exact retry, rollback/conflict/cancel, bounds, version/gap rejection and initial timing | Optimized/sanitizer engine runs serially; no App/canonical fixture |
 | `../tools/test_journal_process.py` | Kills the API writer at pre/post-COMMIT barriers and verifies exact old/new payloads and repeated idempotent retries | Each already-built variant; private temp journals; no desktop |
 | `test_workbook_lifecycle.c` | Sheet command chronology, detached ownership, binding/style restoration, IDs, branches, hidden sheets, stale drafts, limits and eviction | Shared-C optimized/sanitizer; no engine/GUI |
@@ -69,3 +70,9 @@ and a private 24-stage App fixture. The checkpoint is
 `build/tests/generated/workbook-lifecycle-demo.dxls`; session-only deleted sheets
 are intentionally absent after reopen. The full-App/source/browser interaction
 commands stay registered in the feature catalog for milestone runs.
+
+W08b1 local gate: `make test-feature FEATURE=journal-queue`. Only the native queue,
+underlying storage API and each already-built binary's kill/retry process gate
+run. Commit barriers make in-flight capacity and failure races deterministic;
+short bounded waits only observe completion. The queue's private checkpoints
+are finite API test outputs, not authored user/source fixtures or recovery UI.

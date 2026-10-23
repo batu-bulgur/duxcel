@@ -34,6 +34,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "journal-queue": Feature((), "",
+        ("python3 tools/test.py feature --feature workbook-journal",
+         "python3 tools/test.py feature --feature workbook-lifecycle"),
+        ("src/workbook/journal_queue.c", "src/workbook/journal.c"), ("journal_queue", "workbook_journal")),
     "workbook-journal": Feature((), "",
         ("python3 tools/test.py feature --feature workbook-lifecycle",
          "python3 tools/test.py native --scenario workspace document --config sanitize"),
