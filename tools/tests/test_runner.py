@@ -92,6 +92,9 @@ class RunnerTests(unittest.TestCase):
                     self.assertIn(f'!strcmp(layout_from,"{start}")', source)
                     self.assertIn('if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882))', source)
                     self.assertIn('session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882 ? layout_start : 250) : 0;', source)
+                elif start == 216:
+                    self.assertIn('if (focused_layout && layout_start==216) session->layout_smoke=216;', source)
+                    self.assertIn('case 216:\n        if (!object_ready(a,0)) return;', source)
                 elif start not in (0, 250):
                     self.assertIn(f'"{start}"', source)
                     self.assertIn(f'if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"{start}")) {{ *step={start}; return; }}', source)

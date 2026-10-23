@@ -64,8 +64,14 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "foundation-layout": Feature((), "foundation-layout",
+        ("python3 tools/test.py native --scenario layout --config sanitize",),
+        ("src/app/app.c: foundation milestone layout continuation",)),
+    "inspector-basics": Feature(("inspector", "stepview"), "inspector-basics",
+        ("python3 tools/test.py affected --feature inspector-scroll --modules inspector --config sanitize", "python3 tools/test.py native --scenario layout --config sanitize"),
+        ("src/app/app.c: Steps/SQL/preview workflow and visible row hit geometry",)),
     "format-controls": Feature(("format",), "format-controls",
-        ("python3 tools/test.py feature --feature source-format", "python3 tools/test.py native --scenario layout --config sanitize"),
+        ("python3 tools/test.py affected --feature source-format --modules source_scope format --config sanitize", "python3 tools/test.py native --scenario layout --config sanitize"),
         ("src/app/app.c: generic formatting controls and manual/source test ownership",)),
     "workbook-schema": Feature(("workbook_schema",), "workbook-save",
         ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature recovery-ui", "python3 tools/test.py feature --feature workbook-identity"),

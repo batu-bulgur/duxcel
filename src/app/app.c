@@ -10393,6 +10393,8 @@ static void layout_smoke_step(App *a,int *step) {
         if (!a->objects[0].page.totals || strcmp(a->objects[0].page.totals->columns.cells[6].text,"-1288834.30") || a->objects[0].page.total!=30 || a->objects[0].page.column_count!=8) goto failed;
         puts("PASS: source-derived row/category/grand totals, pinned native footer, horizontal Total columns, frame selection for aggregate readouts, presentation-only scrolling, 150 percent narrow layout and regenerated dxls totals"); break;
     case 216:
+        if (!object_ready(a,0)) return;
+        a->reduced_motion=true;
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988); a->selected_object=0; a->pipeline_width=280; a->pipeline_sql=false; present_pipeline(a,true,false); request=a->request_id; author_cells=a->objects[0].page.cells; ribbon_cells=a->page.cells; break;
     case 217:
         if (!a->pipeline_layout.valid || a->pipeline_layout.row_height!=55 || a->pipeline_row_count!=4 || strcmp(a->pipeline_rows[1].title,"Filter Status = Posted") || strcmp(a->pipeline_rows[2].title,"Filter Currency = USD") || a->request_id!=request) goto failed;
@@ -10450,7 +10452,7 @@ static void layout_smoke_step(App *a,int *step) {
     case 234:
         if (a->step_preview.grid.row!=1 || a->step_preview.grid.col || a->chrome_focus || a->request_id!=request) goto failed; break;
     case 235:
-        if (a->step_preview.grid.row!=2 || a->step_preview.grid.col!=2 || a->step_preview.grid.anchor_col!=1 || a->grid.row!=preview_live_grid.row || a->grid.col!=preview_live_grid.col || a->request_id!=request) goto failed;
+        if (a->step_preview.grid.row!=2 || a->step_preview.grid.col!=1 || a->step_preview.grid.anchor_row!=2 || a->step_preview.grid.anchor_col!=1 || a->step_preview.grid.end_row!=2 || a->step_preview.grid.end_col!=2 || a->grid.row!=preview_live_grid.row || a->grid.col!=preview_live_grid.col || a->request_id!=request) goto failed;
         grid_select_cell(&a->step_preview.grid,0,0,false); break;
     case 236:
         if (strcmp(GetClipboardText(),a->step_preview.page.cells[0].text) || a->page.cells!=ribbon_cells || a->grid.widths!=preview_live_grid.widths) goto failed; request=a->request_id; break;
@@ -15338,7 +15340,7 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882") || !strcmp(layout_from,"911") || !strcmp(layout_from,"921") || !strcmp(layout_from,"936"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"216") || !strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882") || !strcmp(layout_from,"911") || !strcmp(layout_from,"921") || !strcmp(layout_from,"936"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
     if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882)) { SetWindowSize(1440,988); open_source(a,layout_start==882 ? "tests/fixtures/transactions.csv" : "tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); }
@@ -15355,6 +15357,7 @@ AppSession *app_start(const AppOptions *options) {
     if (!options->path && !a->book.dirty && (!automated || getenv("DUXCEL_TEST_RECOVERY_STARTUP"))) recovery_scan(a,true);
 #endif
     session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882 ? layout_start : 250) : 0;
+    if (focused_layout && layout_start==216) session->layout_smoke=216;
     session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     session->applied_cursor=-1;
     session->automated=automated; session->layout_start=layout_start; session->layout_target=layout_target;
@@ -15610,15 +15613,25 @@ bool app_frame(AppSession *session) {
     }
     if (options->layout_smoke && session->layout_smoke==229 && a->frames%24==2) {
         static bool narrow_inspector_injected=false;
-        if (!narrow_inspector_injected) { Rectangle list=a->pipeline_layout.list; float x=list.x+list.width*.5f,y=list.y+a->pipeline_layout.row_height*a->ui.scale*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); narrow_inspector_injected=true; }
+        if (!narrow_inspector_injected) {
+            UIInspectorLayout layout=a->pipeline_layout;
+            Rectangle row=layout.list_origin; row.y+=layout.row_height*a->ui.scale; row.height=layout.row_height*a->ui.scale;
+            Rectangle hit=clip_rect(row,layout.list);
+            if (hit.width>0 && hit.height>0) {
+                float x=hit.x+hit.width*.5f,y=hit.y+hit.height*.5f;
+                ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); narrow_inspector_injected=true;
+            }
+        }
     }
     if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=233 && session->layout_smoke<=248) {
         static unsigned preview_injected=0; unsigned bit=1u<<(session->layout_smoke-233);
         if (!(preview_injected&bit)) {
             bool ready=true;
             if (session->layout_smoke==233 || session->layout_smoke==244 || session->layout_smoke==247) {
-                Rectangle target=a->pipeline_layout.preview;
-                ready=target.width>0 && !a->pipeline_sql && fabsf(a->pipeline_extent-a->pipeline_width)<.1f && fabsf(a->pipeline_layout.title.x-a->workspace.inspector.x-13*a->ui.scale)<.1f;
+                Rectangle target=clip_rect(a->pipeline_layout.preview,a->pipeline_layout.body_clip);
+                ready=a->pipeline_layout.valid && target.width>0 && target.height>0 && !a->pipeline_sql &&
+                    fabsf(a->pipeline_extent-a->pipeline_width)<.1f &&
+                    fabsf(a->pipeline_layout.title.x-a->pipeline_panel.x-1-13*a->ui.scale)<.1f;
                 if (ready) { float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false}); }
             } else if (session->layout_smoke==234) {
                 Rectangle target=grid_range_rect(&a->step_preview.grid,a->ui.scale*a->step_preview.grid.zoom,1,0,1,1); float x=target.x+target.width*.5f,y=target.y+target.height*.5f; ui_note_pointer_gesture((DxPointerGesture){x,y,x,y,0,false});

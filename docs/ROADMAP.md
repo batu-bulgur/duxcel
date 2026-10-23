@@ -160,6 +160,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10c3b · P0 · In progress | Final foundation integration and native lifecycle/Open; W10c3a. | Finish the registered full native milestone on current source, verify owned crash/restart, lifecycle/Finder entry and hidden TEST boundaries, and record actual limits before W11. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W11a · P1 · Queued | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
+| W11a1 · P1 · Queued | Bounded version manifest/index controller and publication intents; W10. | Stable state IDs and one saved pointer; reject duplicate/dangling/exhausted metadata. Prepare changes without publishing them before successful IO. Recovery checkpoints never advance the user pointer. Pure optimized/sanitizer module gate; no archive/tag UI claim. |
+| W11a2 · P1 · Queued | Native Latest Saved root codec and Save receipt integration; W11a1. | Current-root closure, non-writing legacy Open, safe first upgrade, cancelled/failed Save and R/R+1 publication. Advertise only fully retained states; scoped archive and hidden Save gate. |
 | W11b · P1 · Queued | Immutable named-state payloads and transactional tag operation; W11a. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
 | W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
 | W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
@@ -495,6 +497,13 @@ whole-column defaults. Dedicated verified source-record workflows remain intact.
 The focused sanitizer formatting workflow passes all 148 stages in 79.061s,
 including actual menus/shortcuts, Undo/Redo and Save/Open; 49 runner/catalog
 contracts pass. Complete native layout and subsequent platform gates remain open.
+
+The next broad native pass reached stage229. Inspector pointer tests now use
+the actual clipped row origin and one-point panel border, and preview selection
+asserts the accepted active-origin Shift contract. An independent fixture-backed
+216–250 bootstrap passes34 sanitizer App stages in17.992s (27.012s gate, edit
+build). This permits resuming the remaining250–950 layout coverage without
+replaying completed prefixes; it does not claim the full layout has passed yet.
 
 ### Owned data, refresh and complete analytical results
 

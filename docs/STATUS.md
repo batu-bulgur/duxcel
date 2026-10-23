@@ -142,7 +142,8 @@ checkpoint copy through the existing dirty-document guard. Checkpoint forks keep
 deferred tails after edits and Save As; dismissed candidates never delete files.
 The 19-stage hidden UI gate passes through the real File menu in 4.195s
 optimized/9.210s ASan/UBSan, including 640×640 at 150%.
-Process crash/restart and foundation regression remain W10c3; persistent Undo is
+Owned real-App crash/restart and active-instance exclusion pass optimized and
+ASan/UBSan. The broader foundation regression remains W10c3; persistent Undo is
 W12. W09 Save publication/progress/cancel is complete. Browser persistence is unchanged and has no native
 journal backend. Receipts and captures remain in ignored `build/tests/results/`.
 
@@ -253,37 +254,30 @@ R+1, preserving newer dirty state and its pending close guard. Failed/cancelled
 Save preserves the previous file/path and local recovery material. Focused
 optimized/sanitizer writer and worker checks plus 18 hidden real-App stages pass,
 including pointer Cancel at 150%, native pan, R+1 and failed Save. Startup recovery
-remains W10; retained durable Undo and full analytical outputs remain later slices.
+uses the verified W10 path below; retained durable Undo and complete analytical
+outputs remain later slices.
 
-W10a now binds native macOS recovery generations to the actual closed checkpoint
-size/SHA-256, parent generation and original locator before acknowledging journal
-edits. Origin failure/mismatch keeps pending bytes for explicit Retry. Scoped
-optimized/sanitizer model, actual fingerprint/rotation, origin IO-fault and hidden
-App checks pass. Startup recovery/branch choice is still unavailable (W10b/W10c).
-Other native hosts retain unbound v1 backups pending their digest adapter.
+Native macOS recovery binds each journal generation to the closed checkpoint's
+actual size/SHA-256, parent generation and original locator before acknowledging
+edits. Origin failure preserves pending bytes for explicit Retry. An OS lease
+excludes live owners; read-only inspection/replay cannot create or append a
+journal. Other native hosts retain unbound v1 backups pending digest adapters.
 
-The native macOS recovery controller can now prepare a separately owned, verified
-checkpoint/tail candidate with cooperative cancellation and an exclusive lease.
-It does not mutate the current workbook or live draft/history issuers, run source
-queries, delete artifacts or automatically restore an original path. Checkpoint
-inspection marks a deferred/unknown suffix; unbound tails cannot replay. Scoped
-optimized/sanitizer tests cover fingerprints, corrupt tails, cancellation and a
-concurrent live edit/Undo. This remains a native backend capability: recovery
-startup choice and App adoption are still W10c; durable Undo is W12.
+The catalog streams bounded pages without creating a missing root, recursing,
+pruning artifacts or ordering same-clock branches by timestamps. A separate
+reader thread prepares an owned checkpoint/tail candidate with cooperative
+cancellation, explicit memory reservations and joined shutdown. It preserves
+unpolled candidates and their leases; no worker path mutates the live book or
+its process-wide draft/history issuers. Invalid, incomplete and unbound tails
+remain explicit. macOS validates POSIX iteration; Windows enumeration remains
+unavailable.
 
-The native recovery catalog now streams bounded metadata pages without creating a
-missing root, recursing, pruning artifacts or inferring lineage from timestamps.
-It skips active owners and preserves distinct same-clock branches; older/unbound,
-incomplete and invalid folders remain explicit. Scoped directory/catalog and
-candidate-sidecar optimized/sanitizer gates pass. This remains backend work:
-background App requests and startup/manual recovery UI are W10c. POSIX iteration
-is validated on macOS; Windows enumeration currently returns unavailable.
-
-The native recovery reader now performs paginated scanning and candidate
-preparation on its own thread, with copied bounded rows, explicit resource
-reservations, cooperative cancellation and joined shutdown. It preserves an
-unpolled candidate and its lease until ownership is consumed, and cannot drop a
-late result via replacement requests. Scoped optimized/sanitizer ownership,
-65 KiB locator/page, cancellation/retirement and shutdown tests pass. App startup
-and manual recovery presentation/adoption still remain W10c2; this does not yet
-turn on recovery dialogs in the shipped UI.
+Startup and File recovery use the existing dirty-document guard before adoption.
+Recovered copies are dirty and have no implicit Save destination. Checkpoint
+forks preserve deferred tails across new edits and Save As; a complete recovered
+tail can retire only after an explicit resolved Save/discard and unchanged fixed
+artifacts. Cancellation and stale replies preserve recovery material. Scoped
+optimized/sanitizer module, hidden GUI and owned process-crash checks pass;
+remaining foundation milestone checks are tracked in ROADMAP. Durable restored
+Undo is W12, and recovery does not retain external source bytes or full analytic
+outputs that the workbook codec does not yet store.
