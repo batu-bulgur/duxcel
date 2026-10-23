@@ -113,6 +113,21 @@ The App captures live Analysis/view before structural changes and invalidates
 its result/cache adapter when activating the resulting sheet. This does not
 implement formula/reference restoration or durable lifecycle replay.
 
+`src/workbook/journal.c` is the staged native DuckDB storage boundary. One
+connection owns a private schema-v1 journal tied to a document ID and immutable
+checkpoint revision. Cell records carry operation ID, exact uint64 revision and
+targets, and bounded before/after BLOB spans, avoiding UTF-8/numeric conversion.
+Append validates an ordered 256-entry/4 MiB batch before BEGIN, compares complete
+payloads for operation-ID retries and commits all new records plus the durable
+head together. Cancel/conflict rolls back; an engine/commit failure poisons the
+handle, requiring reopen and same-ID retry to resolve uncertain durability.
+Only a successful COMMIT publishes a receipt. Reads return at most 31 records
+per page (under 4 MiB worst-case text); borrowed spans end at the visitor return.
+The caller must match the actual checkpoint and validate before-values when
+staging replay. This primitive is not yet linked into the App command path and
+does not establish recovery, retained Undo, async queue ownership or Save fencing.
+Its private file format is independent of native workbook v15.
+
 The cell-command GUI fixture has its own App object compiled with
 `DUXCEL_FEATURE_CELL_COMMAND`; its private fixture lives in `tests/support/`.
 Normal/review/browser App objects omit the hook, state and fixture dependency.

@@ -48,3 +48,11 @@ a named owner and a testable interface. Preserve meaningful existing coverage.
 
 The one test-package bootstrap mirrors standalone CLI imports; no product code
 imports it. Normal `make` builds the native app and starts no service or agent.
+
+`test_journal_process.py --binary build/tests/test_workbook_journal` owns the
+native journal process-kill boundary checks. It starts only its private C helper,
+waits for explicit pre/post-COMMIT barriers, kills that process and reopens its
+own temporary databases to assert exact old/new records and idempotent retries.
+The `workbook-journal` feature gate runs it serially for each already-built
+optimized/sanitizer engine binary and verifies binary fingerprints. It never
+starts or addresses a desktop application.

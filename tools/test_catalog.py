@@ -27,7 +27,17 @@ STANDALONE_GUI = {
 }
 
 
+ENGINE_PROCESS_CHECKS = {
+    "workbook_journal": ("tools/test_journal_process.py", "PASS: journal process boundaries",
+                         r"^PASS: journal process boundaries \([1-9]\d* checks\)$"),
+}
+
+
 FEATURES = {
+    "workbook-journal": Feature((), "",
+        ("python3 tools/test.py feature --feature workbook-lifecycle",
+         "python3 tools/test.py native --scenario workspace document --config sanitize"),
+        ("src/workbook/journal.c", "tests/test_workbook_journal.c"), ("workbook_journal",)),
     "workbook-lifecycle": Feature(("workbook_lifecycle", "workbook_history", "cell_command"), "workbook-lifecycle",
         ("python3 tools/test.py feature --feature workbook-history",
          "python3 tools/test.py native --scenario workspace document --config sanitize",
@@ -76,6 +86,7 @@ def plan(name):
     return {"feature": name, "modules": list(feature.modules), "gui": feature.gui or None,
             "tool_tests": ["tools.tests.test_build_info"] if name == "about" else
                           ["tools.tests.test_runner", "tools.tests.test_feature_catalog", "tools.tests.test_web_build"] if name == "test-infrastructure" else [],
-            "engine_modules": list(feature.engine_modules), "owns": list(feature.owns), "deferred_interactions": list(feature.interactions),
+            "engine_modules": list(feature.engine_modules),
+            "engine_process_checks": [ENGINE_PROCESS_CHECKS[module][0] for module in feature.engine_modules if module in ENGINE_PROCESS_CHECKS], "owns": list(feature.owns), "deferred_interactions": list(feature.interactions),
             "milestone": "python3 tools/test.py full --config both",
             "limits": "A focused pass covers this boundary; it does not establish whole-application or browser acceptance."}

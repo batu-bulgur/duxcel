@@ -113,6 +113,15 @@ chronology and 158 cell-command checks per optimized/sanitizer configuration,
 then 24 hidden TEST App stages/29 assertions in 6.434s (17.590s total gate).
 The adjusted W06 GUI also passes; broader source/browser regression is deferred.
 
+W08a provides a native DuckDB journal storage primitive, with atomic bounded
+batches, exact byte payloads and IDs, checkpoint lineage and idempotent retries.
+Receipts appear only after COMMIT. Optimized/sanitizer component tests and real
+process kills before/after COMMIT pass; their private databases and binary
+receipts stay under `build/tests/`. This module is not yet connected to App edits:
+the asynchronous queue, visible pending/durable state, disk/write failure policy,
+Save coordination and startup recovery remain W08b/W08c/W09/W10. There is no
+current application-level crash-recovery or durable Undo claim.
+
 ## Feature iteration and build identity
 
 The default CLI development tier now requires a registered feature and never

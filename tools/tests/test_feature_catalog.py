@@ -98,6 +98,29 @@ class FeatureCatalogTests(unittest.TestCase):
         self.assertEqual(local["engine_modules"], [])
         self.assertIn("python3 tools/test.py feature --feature workbook-history", local["deferred_interactions"])
 
+    def test_journal_plan_has_no_app_or_fixture_bootstrap(self):
+        local = plan("workbook-journal")
+        self.assertEqual(local["modules"], [])
+        self.assertIsNone(local["gui"])
+        self.assertEqual(local["engine_modules"], ["workbook_journal"])
+        self.assertEqual(local["engine_process_checks"], ["tools/test_journal_process.py"])
+
+    def test_journal_process_barriers_use_each_already_built_variant_serially(self):
+        obj = runner.Runner.__new__(runner.Runner)
+        obj.args = runner.parser().parse_args(["feature", "--feature", "workbook-journal"])
+        obj.summary = {"binaries": {}}; events = []
+        obj.build = mock.Mock(); obj.retain_binaries = mock.Mock()
+        obj.command = lambda name, argv, marker, **kwargs: events.append((name, argv, kwargs)) or {"name": name}
+        obj.record = mock.Mock()
+        with mock.patch.object(runner, "ensure_unchanged"):
+            obj.feature_engine_checks(["workbook_journal"])
+        self.assertEqual([event[0] for event in events], [
+            "workbook_journal-release", "workbook_journal-release-process",
+            "workbook_journal-sanitize", "workbook_journal-sanitize-process"])
+        self.assertEqual(events[1][1][-1], "build/tests/test_workbook_journal")
+        self.assertEqual(events[3][1][-1], "build/tests/test_workbook_journal-debug")
+        self.assertIn("completion_pattern", events[1][2])
+
     def test_about_does_not_build_full_app_or_canonical_fixture(self):
         self.assertEqual(FEATURES["about"].modules, ("build_info",))
         self.assertEqual(plan("about")["gui"], "about")
