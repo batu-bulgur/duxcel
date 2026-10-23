@@ -64,6 +64,15 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "source-layout": Feature(("cellreadout",), "source-layout",
+        ("python3 tools/test.py native --scenario layout --config sanitize",),
+        ("src/app/app.c: source menu to canvas layout and value-strip isolation",)),
+    "foundation-final": Feature((), "foundation-final",
+        ("python3 tools/test.py native --scenario layout --config sanitize",),
+        ("src/app/app.c: remaining shared actions/source-format/range milestone workflow",)),
+    "foundation-remainder": Feature((), "foundation-remainder",
+        ("python3 tools/test.py native --scenario layout --config sanitize",),
+        ("src/app/app.c: foundation milestone remaining layout workflow",)),
     "foundation-layout": Feature((), "foundation-layout",
         ("python3 tools/test.py native --scenario layout --config sanitize",),
         ("src/app/app.c: foundation milestone layout continuation",)),

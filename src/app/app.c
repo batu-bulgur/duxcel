@@ -10643,6 +10643,8 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->modal!=MODAL_NONE || a->grid.anchor_row!=5 || a->grid.end_row!=8 || a->grid.anchor_col!=5 || a->grid.end_col!=5 || a->page.cells!=ribbon_cells) goto failed;
         puts("PASS: completed source range drag immediately after Fields navigation transfers keyboard focus, preserves the live cache, selects four real Amount cells and calculates the actual filtered sum"); break;
     case 294:
+        /* Source-field defaults are query-free whole-column commands. */
+        a->grid.selection=SELECT_COLUMNS;
         flyout_format=active_format(a); preview_live_history=s->undo_actions_count; ribbon_dirty=a->book.dirty; request=a->request_id;
         a->ribbon_tab=RIBBON_HOME; a->ribbon_focus=false; open_command_group(a,1,0); break;
     case 295:
@@ -10674,7 +10676,7 @@ static void layout_smoke_step(App *a,int *step) {
         open_command_group(a,4,0); break;
     case 304:
         if (!a->ribbon_flyout.valid || a->ribbon_flyout.panel.width!=280 || a->ribbon_flyout.panel.height!=122 || a->ribbon_flyout.commands[19].x+a->ribbon_flyout.commands[19].width>a->ribbon_flyout.commands[20].x || a->request_id!=request) goto failed;
-        smoke_snapshot("build/tests/results/workspace-layout/native-data-group-flyout.png"); close_command_group(a);
+        smoke_snapshot("build/tests/results/workspace-layout/native-data-group-flyout.png"); close_command_group(a); a->grid.selection=SELECT_CELLS;
         puts("PASS: exact spatial native ribbon group flyouts, Font/Number selectors and icon tools, disabled-label keyboard skipping, retained formatting toggles, nested size picker returning to its group, pointer input/Undo and bounded 150 percent geometry without source SQL/cache changes"); break;
     case 305:
         a->ribbon_focus=false; a->selected_object=-1; a->sidebar=a->fields_visible=true; a->workbook_collapsed=a->fields_collapsed=false;
@@ -10872,7 +10874,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->left_extent || a->left_drawer || !a->sidebar || !a->fields_visible || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988); present_pipeline(a,true,false); break;
     case 364:
-        if (!(pane_motion_evidence&4) || a->pipeline_extent!=280 || a->pipeline_layout.footer.width!=280 || a->request_id!=request || a->ui.scissor_depth) goto failed;
+        if (!(pane_motion_evidence&4) || a->pipeline_extent!=280 || a->pipeline_layout.footer.width!=279 || a->request_id!=request || a->ui.scissor_depth) goto failed;
         present_pipeline(a,false,false); break;
     case 365:
         if (!(pane_motion_evidence&8) || a->pipeline_extent || a->request_id!=request || a->page.cells!=ribbon_cells) goto failed;
@@ -11253,6 +11255,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || s->undo_actions_count!=draft_history || a->request_id!=request || a->ui.paint_fallbacks) goto failed;
         puts("PASS: real matrix/chart ellipsis opens exact four-action view menu, native keyboard conversion/Undo preserves PIVOT result and source, Return to data preserves history/cache, narrow 150 percent bounds and Escape without presentation SQL"); break;
     case 470:
+        grid_select_cell(&a->grid,500,30,false);
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; a->format_action=ACTION_TEXT_COLOR; a->format_origin=(Vector2){630,630}; a->format_return_group=a->format_return_command=-1; a->context_focus=0; a->modal=MODAL_FORMAT;
         flyout_format=active_format(a); draft_history=s->undo_actions_count; break;
     case 471:
@@ -11355,7 +11358,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 501:
         a->selected_object=0; if (!object_ready(a,0)) return;
-        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->workbook_collapsed=false; a->sidebar_width=228; a->pipeline_width=280;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->workbook_collapsed=false; a->sidebar_width=228; a->pipeline_width=280; a->pipeline_sql=false;
         a->pivot_focus=a->chrome_focus=0; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
         a->grid.freeze=0; a->analysis_scroll=a->author_scroll=a->dock_scroll[1]=0; a->source_preview.top=0; a->source_preview.fraction=0;
         request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells; draft_history=s->undo_actions_count; draft_dirty=a->book.dirty; break;
@@ -11387,7 +11390,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->statistics_enabled=false; statistics_cancel(a); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 511:
         if (!object_ready(a,0)) return;
-        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->sidebar_width=228; a->pipeline_width=280; a->workbook_collapsed=false;
+        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=true; a->sidebar_width=228; a->pipeline_width=280; a->pipeline_sql=false; a->workbook_collapsed=false;
         a->pivot_focus=a->chrome_focus=0; a->ribbon_tab=RIBBON_HOME; set_ribbon_mode(a,0); ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
         a->selected_object=-1; grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=3; a->grid.fraction=.25; a->grid.horizontal=273.75f;
         remember_source_location(a); a->selected_object=0; a->pivot_reveal_object=false; a->analysis_scroll=0;
@@ -11766,7 +11769,8 @@ static void layout_smoke_step(App *a,int *step) {
     }
     case 607:
         if (a->modal!=MODAL_NONE || s->objects.items[0].chart_measure!=1 || a->objects[0].page.cells!=author_cells || a->request_id!=request) goto failed;
-        a->selected_object=-1; a->pivot_focus=0; a->ribbon_focus=false; select_history=s->undo_actions_count; break;
+        a->selected_object=-1; a->pivot_focus=0; a->ribbon_focus=false;
+        grid_select_cell(&a->grid,500,30,false); select_history=s->undo_actions_count; break;
     case 608:
         if (a->request_id!=request || a->page.cells!=ribbon_cells || a->objects[0].page.cells!=author_cells || s->undo_actions_count!=select_history || active_format(a).size!=13) goto failed;
         if (select_open_phase==1) {

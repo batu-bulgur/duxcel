@@ -161,8 +161,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W11a · P1 · Queued | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
 | W11a1 · P1 · Queued | Bounded version manifest/index controller and publication intents; W10. | Stable state IDs and one saved pointer; reject duplicate/dangling/exhausted metadata. Prepare changes without publishing them before successful IO. Recovery checkpoints never advance the user pointer. Pure optimized/sanitizer module gate; no archive/tag UI claim. |
-| W11a2 · P1 · Queued | Native Latest Saved root codec and Save receipt integration; W11a1. | Current-root closure, non-writing legacy Open, safe first upgrade, cancelled/failed Save and R/R+1 publication. Advertise only fully retained states; scoped archive and hidden Save gate. |
-| W11b · P1 · Queued | Immutable named-state payloads and transactional tag operation; W11a. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
+| W11a2 · P1 · Queued | Immutable supported-state payload closure and native version codec; W11a1. | Archive every advertised root independently of the editable head, without recursive history copies. Reject missing/invalid payloads and preserve non-writing legacy Open/safe upgrade. Scoped archive gate; no tag UI claim. |
+| W11a3 · P1 · Queued | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
+| W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
 | W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
 | W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
@@ -176,6 +177,10 @@ payload closure. A successful R capture may update saved/tag metadata while R+1
 remains dirty. Keep the write owner separate from historical display ownership,
 even when both share a durable document ID. Payload reuse needs full supported
 content evidence; current command clocks alone cannot identify every mutation.
+In particular, a private checkpoint of R+1 may contain an older Latest Saved R:
+its complete supported payload must travel with the checkpoint. A flat current
+root plus an old dangling saved ID is insufficient. W11a2 establishes this
+closure before W11a3 publishes user-visible saved metadata.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source
@@ -489,21 +494,18 @@ named interaction/full-milestone check; the existing object-archive CLI provides
 a smaller edit-time path. Final full native/lifecycle/Open acceptance remains
 W10c3b; the shared-C/official-Worker controls boundary has passed in 59.001s.
 
-W10c3b milestone continuation: the full optimized/sanitizer engine matrix,
-owned crash/restart, fault injection and standalone App workflows passed before
-the broad layout stopped at an obsolete positional source-format assertion.
-The generic controls now target manual cells; Pivot presentation uses supported
-whole-column defaults. Dedicated verified source-record workflows remain intact.
-The focused sanitizer formatting workflow passes all 148 stages in 79.061s,
-including actual menus/shortcuts, Undo/Redo and Save/Open; 49 runner/catalog
-contracts pass. Complete native layout and subsequent platform gates remain open.
-
-The next broad native pass reached stage229. Inspector pointer tests now use
-the actual clipped row origin and one-point panel border, and preview selection
-asserts the accepted active-origin Shift contract. An independent fixture-backed
-216–250 bootstrap passes34 sanitizer App stages in17.992s (27.012s gate, edit
-build). This permits resuming the remaining250–950 layout coverage without
-replaying completed prefixes; it does not claim the full layout has passed yet.
+W10c3b milestone integration is continuing. The complete optimized/sanitizer
+engine matrix, owned crash/restart, fault injection and standalone App workflows
+passed. Broad layout exposed stale generic source-format, active-origin selection
+and inspector geometry assumptions. Generic controls now use manual cells or
+whole-column defaults, while dedicated Verify/Collect/Commit record tests remain.
+Fixture setup explicitly separates Steps and SQL layout preferences. Focused
+sanitizer checks pass148 formatting,34 inspector/preview,43 pane-motion,48 joined
+source-menu/canvas/readout and24 criteria/select stages; the last three GUI runs
+took24.536s,25.283s and19.358s. Registered continuation profiles preserve all950
+layout stages without repeatedly replaying completed prefixes. Remaining layout,
+native scenarios and lifecycle/Open gates are still open. Current receipts and
+source/binary fingerprints are under ignored build/tests/results/.
 
 ### Owned data, refresh and complete analytical results
 
