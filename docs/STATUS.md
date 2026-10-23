@@ -274,3 +274,12 @@ incomplete and invalid folders remain explicit. Scoped directory/catalog and
 candidate-sidecar optimized/sanitizer gates pass. This remains backend work:
 background App requests and startup/manual recovery UI are W10c. POSIX iteration
 is validated on macOS; Windows enumeration currently returns unavailable.
+
+The native recovery reader now performs paginated scanning and candidate
+preparation on its own thread, with copied bounded rows, explicit resource
+reservations, cooperative cancellation and joined shutdown. It preserves an
+unpolled candidate and its lease until ownership is consumed, and cannot drop a
+late result via replacement requests. Scoped optimized/sanitizer ownership,
+65 KiB locator/page, cancellation/retirement and shutdown tests pass. App startup
+and manual recovery presentation/adoption still remain W10c2; this does not yet
+turn on recovery dialogs in the shipped UI.

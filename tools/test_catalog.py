@@ -58,6 +58,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "recovery-worker": Feature((), "",
+        ("python3 tools/test.py feature --feature recovery-catalog", "python3 tools/test.py feature --feature recovery-candidate"),
+        ("src/workbook/recovery_worker.c", "src/workbook/recovery_worker.h"), ("recovery_worker",)),
     "recovery-catalog": Feature((), "",
         ("python3 tools/test.py feature --feature recovery-owner", "python3 tools/test.py feature --feature recovery-candidate"),
         ("src/platform/directory.c", "src/workbook/recovery_catalog.c", "src/workbook/recovery_catalog.h"), ("directory_cursor", "recovery_catalog")),

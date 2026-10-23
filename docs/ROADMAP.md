@@ -151,8 +151,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10b2a · P0 · Complete | Isolated verified recovery candidate; W10b1. | Validate closed baseline and exact-before-image bounded tail projection without touching the live model/global draft or history issuers. Hold ownership; failure/cancel preserves all material, checkpoint inspection marks its deferred suffix. |
 | W10b2b · P0 · Complete | Bounded native recovery catalog; W10b2a. | Enumerate known direct generations off the UI thread, skip active owners, expose bound/unbound/incomplete entries and ambiguous branches without pruning or mtime-based lineage inference. |
 | W10c · P0 · In progress | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
-| W10c1 · P0 · Next | Background recovery requests and owned page/candidate results; W10b. | Keep filesystem/engine work off App frames, cap row/result ownership, support page continuation and cooperative cancel/join without dropping leases or late results. |
-| W10c2 · P0 · Queued | Startup/manual recovery choice and guarded adoption; W10c1. | Restore the complete candidate or explicitly fork from checkpoint; deferred tails survive cancellation, new edits and Save As. Current dirty documents stay guarded; original locators are not automatic write targets. Narrow/scaled hidden App gate. |
+| W10c1 · P0 · Complete | Background recovery requests and owned page/candidate results; W10b. | Keep filesystem/engine work off App frames, cap row/result ownership, support page continuation and cooperative cancel/join without dropping leases or late results. |
+| W10c2 · P0 · In progress | Startup/manual recovery choice and guarded adoption; W10c1. | Restore the complete candidate or explicitly fork from checkpoint; deferred tails survive cancellation, new edits and Save As. Current dirty documents stay guarded; original locators are not automatic write targets. Narrow/scaled hidden App gate. |
 | W10c3 · P0 · Queued | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
@@ -373,6 +373,20 @@ including dangling WAL aliases; 56 tool contracts pass (8.882s). Native-only
 sources remain excluded from Wasm. POSIX iteration is validated on macOS;
 Windows enumeration currently reports unavailable. Background App requests and
 startup adoption now move to W10c; no recovery UI completion is claimed.
+
+W10c1 complete: the independent native recovery reader owns scan continuation,
+32-row/4 MiB copied pages, isolated candidates and cooperative cancellation.
+One active request/unpolled reply is admitted at a time; late candidates cannot
+be dropped by a replacement request. Publication and cancellation share the
+mutex, while expensive retirement happens outside it and reservations stay held
+until actual release/transfer. Active preparation reserves at most 8 MiB of
+format ownership, then reports the actual ready model; this is not total RSS.
+The `recovery-worker` gate passes 156 assertions per optimized/sanitizer variant
+(5.897s): page pause/restart, 65,536-byte original locators, cancelled rows/replay/
+late results, unpolled admission, shutdown join, lease transfer and replies
+outliving the worker. Original checkpoint/journal bytes remain unchanged; 56 tool
+contracts pass (9.362s). Barriers exist only in private worker objects and the
+module is excluded from Wasm. Actual startup/manual UI adoption is W10c2.
 
 ### Owned data, refresh and complete analytical results
 

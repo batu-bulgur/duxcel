@@ -192,3 +192,12 @@ unknown folders or prunes anything. POSIX iteration is validated on macOS; the
 Windows adapter currently reports unavailable. The named `recovery-candidate`
 interaction checks shared no-follow/dangling-WAL handling. Both native modules
 stay excluded from the shared-C browser source inventory.
+
+`make test-feature FEATURE=recovery-worker` runs `test_recovery_worker.c` with
+private optimized/sanitizer reader objects. Test-only barriers hold before IO,
+during replay and before reply publication. It exercises 32-row continuation,
+65,536-byte original locators, copied rows/results outliving the worker, format/
+row reservation transfer, cancelled and late results, rejection while an owned
+reply is unpolled, and shutdown/join with a held lease. Artifact hashes remain
+unchanged. Production App/reader objects contain no barrier symbols; no GUI or
+external account/service is used by this backend gate.

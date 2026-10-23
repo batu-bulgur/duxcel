@@ -238,8 +238,19 @@ retains the cursor; enumeration failure requires a fresh scan. There is no
 recursion, full-root filename inventory, pruning, sorting or mtime-based branch
 inference. The POSIX cursor/no-follow metadata boundary is in
 `src/platform/directory.c`; Windows iteration currently reports unavailable.
-Missing roots are completed empty scans without filesystem creation. Actual App
-background requests and startup/manual adoption remain W10c.
+Missing roots are completed empty scans without filesystem creation.
+
+`recovery_worker.c` owns a native reading thread with one active request or
+unpolled reply, never latest-wins disposal of a candidate. It copies at most
+32 rows into a 4 MiB reply, retaining scan continuation only on that thread.
+Cancellation releases partial pages/candidates and restarts a later scan;
+publication competes with cancellation under the mutex. Retirement occurs
+outside that mutex before reservations are released. Preparation reserves the
+loader's maximum format ownership; ready state exposes actual format/row bytes,
+not total RSS. Poll transfers those owners to the App; replies/candidates may
+outlive the worker. Shutdown cancels/joins and releases only worker-owned data,
+without deleting recovery files. No App/live-model pointers cross this seam.
+Actual startup/manual UI adoption remains W10c2.
 
 Native `workbook_save_controlled` (`src/workbook/save.h`) borrows an immutable
 snapshot and a synchronous, bounded saving-thread callback. Progress counts
