@@ -40,12 +40,15 @@ typedef struct {
     EditKind undo_actions[DX_HISTORY],redo_actions[DX_HISTORY];
     ColumnEdit undo_columns[DX_HISTORY],redo_columns[DX_HISTORY];
     size_t undo_actions_count,redo_actions_count;
+    uint64_t undo_order[DX_HISTORY],redo_order[DX_HISTORY];
+    uint64_t history_last,history_floor,history_ceiling; /* Session order and missing past/future barriers. */
 } Worksheet;
 typedef struct {
     Worksheet *sheets;
     WorkbookId id;
     uint64_t sheet_high_water; /* Never decremented or restored by Undo. */
     uint64_t command_revision; /* Monotonic clock for admitted C commands only. */
+    uint64_t history_branch; /* Latest recorded session edit acknowledged by history. */
     uint64_t edit_session_id; /* Transient command identity; reset on load/snapshot. */
     size_t count,active;
     float user_scale;

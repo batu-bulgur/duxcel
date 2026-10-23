@@ -1,4 +1,5 @@
 #include "../workbook/cell_command.h"
+#include "../workbook/history.h"
 #include "selection.h"
 #include "app.h"
 #include "../data/worker.h"
@@ -1965,7 +1966,7 @@ static void shift_column_widths(Grid *g,size_t col,bool insert,float width) {
 static void restore_column_widths(App *a,ColumnEdit edit,bool redo) {
     if (edit.active) shift_column_widths(&a->grid,edit.column,redo ? edit.insert : !edit.insert,!redo && !edit.insert ? edit.width : 96);
 }
-static void history(App *a,bool redo) {
+static void history_sheet(App *a,bool redo) {
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by Undo or Redo.");
     Worksheet *s=active_sheet(a); if (!s) return;
     size_t count=redo ? s->redo_actions_count : s->undo_actions_count; if (!count) return;
@@ -2029,6 +2030,33 @@ static void history(App *a,bool redo) {
     stack_push(to,tc,&a->analysis); analysis_free(&a->analysis); a->analysis=from[--*fc];
     memset(&from[*fc],0,sizeof(*from)); worksheet_transfer_history(s,redo); a->book.dirty=true;
     if (same) { cache_pipeline(a); if (!a->busy) status(a,"Ready"); } else change_analysis(a,true);
+}
+/* Workbook chronology selects the owner; legacy analytical/format operations
+   retain their existing App-owned live Analysis, cache and layout adapter. */
+static void history(App *a,bool redo) {
+    if (a->io_busy) return;
+    char *error=NULL; WorkbookHistoryResult target=workbook_history_peek(&a->book,redo,&error);
+    if (target.status!=WORKBOOK_HISTORY_READY) {
+        if (error) status(a,error); free(error); return;
+    }
+    SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by Undo or Redo."); end_step_preview(a);
+    if (target.kind==EDIT_CELLS || target.kind==EDIT_FORMAT || target.kind==EDIT_CELLS_FORMAT) {
+        WorkbookHistoryResult applied=workbook_history_step(&a->book,redo,&error);
+        if (applied.status!=WORKBOOK_HISTORY_APPLIED) { if (error) status(a,error); free(error); return; }
+        a->book.sheets[target.sheet].hidden=false;
+        if (target.sheet!=a->book.active) activate_sheet(a,target.sheet,true);
+        restore_column_widths(a,target.column,redo);
+        if (worksheet_edit_effects(target.kind)&2) validate_history_layout(a);
+    } else {
+        workbook_history_sync(&a->book);
+        a->book.sheets[target.sheet].hidden=false;
+        if (target.sheet!=a->book.active) activate_sheet(a,target.sheet,true);
+        history_sheet(a,redo);
+        Worksheet *sheet=active_sheet(a); size_t count=redo ? sheet->undo_actions_count : sheet->redo_actions_count;
+        const uint64_t *orders=redo ? sheet->undo_order : sheet->redo_order;
+        if (count && orders[count-1]==target.order) a->book.command_revision++;
+    }
+    free(error);
 }
 static void open_modal(App *a,Modal modal) {
 #ifdef DUXCEL_BROWSER_HOST
@@ -7437,8 +7465,7 @@ static int command_popup_count(App *a,int indices[RIBBON_MORE_ITEMS]) {
 }
 static bool command_popup_enabled(App *a,int item) {
     if (item>=0) return true;
-    Worksheet *sheet=active_sheet(a);
-    return sheet && (item==RIBBON_MORE_UNDO ? sheet->undo_actions_count : sheet->redo_actions_count);
+    return workbook_history_available(&a->book,item==RIBBON_MORE_REDO);
 }
 static void open_command_group(App *a,int group,int focus) {
     update_ribbon_layout(a);
@@ -7566,7 +7593,7 @@ static void draw_command_popup(App *a) {
     for (int i=0;i<count;i++) {
         int item=indices[i]; char label[96]; UICarbonIcon icon;
         if (item>=0) { snprintf(label,sizeof(label),"%s commands",ribbon_groups[a->ribbon_tab][item].name); icon=ui_ribbon_group_icon(a->ribbon_tab,item); }
-        else { snprintf(label,sizeof(label),"%s analytical change",item==RIBBON_MORE_UNDO ? "Undo" : "Redo"); icon=item==RIBBON_MORE_UNDO ? CARBON_UNDO : CARBON_REDO; }
+        else { snprintf(label,sizeof(label),"%s",item==RIBBON_MORE_UNDO ? "Undo" : "Redo"); icon=item==RIBBON_MORE_UNDO ? CARBON_UNDO : CARBON_REDO; }
         bool available=command_popup_enabled(a,item);
         if (item>=0) { REVIEW_GROUP(a,item,menu.rows[i],true); }
         else { REVIEW_CONTROL(a,item==RIBBON_MORE_UNDO ? "ribbon.more.undo" : "ribbon.more.redo",item==RIBBON_MORE_UNDO ? "command.undo" : "command.redo","ribbon/more","menuitem",label,menu.rows[i],1,available,a->ribbon_popup_focus==i,false); }
@@ -7684,9 +7711,9 @@ static void draw_ribbon_commands(App *a,bool enabled) {
         DrawLineV((Vector2){divider,61*s},(Vector2){divider,(56+a->ribbon_layout.height-(collapsed ? 3 : 5))*s},(Color){216,224,230,255});
     }
     if (GetScreenWidth()/s>=700) {
-        Worksheet *sheet=active_sheet(a); float y=(56+(a->ribbon_mode==0 ? 25 : 4))*s,shift=(a->ribbon_mode==0 ? 0 : 32)*s;
-        if (ui_icon_button(u,box(GetScreenWidth()-62*s-shift,y,27*s,27*s),CARBON_UNDO,false,passive_control(a,enabled) && sheet && sheet->undo_actions_count)) history(a,false);
-        if (ui_icon_button(u,box(GetScreenWidth()-34*s-shift,y,27*s,27*s),CARBON_REDO,false,passive_control(a,enabled) && sheet && sheet->redo_actions_count)) history(a,true);
+        float y=(56+(a->ribbon_mode==0 ? 25 : 4))*s,shift=(a->ribbon_mode==0 ? 0 : 32)*s;
+        if (ui_icon_button(u,box(GetScreenWidth()-62*s-shift,y,27*s,27*s),CARBON_UNDO,false,passive_control(a,enabled) && workbook_history_available(&a->book,false))) history(a,false);
+        if (ui_icon_button(u,box(GetScreenWidth()-34*s-shift,y,27*s,27*s),CARBON_REDO,false,passive_control(a,enabled) && workbook_history_available(&a->book,true))) history(a,true);
     }
     if (ribbon_more_available(a)) {
         Rectangle more=ribbon_rect(a,a->ribbon_layout.overflow);
@@ -14897,6 +14924,9 @@ static void record_frame(App *a,double started) {
 #endif
 /* A frame may return to a host scheduler without losing owned App state.
    The native runner uses the same start/frame/finish contract as future hosts. */
+#ifdef DUXCEL_FEATURE_WORKBOOK_HISTORY
+static void workbook_history_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY
 static void workbook_identity_test_frame(AppSession *session);
 #endif
@@ -15695,6 +15725,9 @@ bool app_frame(AppSession *session) {
         }
     }
 #endif /* native scenario input */
+#ifdef DUXCEL_FEATURE_WORKBOOK_HISTORY
+    workbook_history_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY
     workbook_identity_test_frame(session);
 #endif
@@ -15729,6 +15762,9 @@ bool app_frame(AppSession *session) {
     if (session->applied_cursor!=a->ui.cursor) { SetMouseCursor(a->ui.cursor); session->applied_cursor=a->ui.cursor; }
     dx_native_context(a->modal!=MODAL_NONE,a->pivot_search_focus,selected_pivot(a)!=NULL,a->key_tips);
     EndDrawing();
+    /* Legacy UI producers record atomically inside the frame. Retire every
+       abandoned cross-sheet Redo payload before accepting the next frame. */
+    workbook_history_sync(&a->book);
 #ifdef DUXCEL_DEV_REVIEW
     if (review_capture) { record_frame(a,frame); return true; }
 #endif
@@ -15910,4 +15946,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY
 #include "../../tests/support/workbook_identity_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_WORKBOOK_HISTORY
+#include "../../tests/support/workbook_history_app.inc"
 #endif

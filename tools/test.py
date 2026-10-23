@@ -17,7 +17,7 @@ from test_catalog import FEATURES, STANDALONE_GUI, plan as feature_plan
 from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
                        utc_now, sha256, fingerprint, ensure_unchanged)
 FAST_MODULES = (
-    "build_info", "workbook_identity", "cell_command", "cellreadout", "filterlabel", "grid", "selection_ladder", "selection", "cell_regions", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
+    "build_info", "workbook_history", "workbook_identity", "cell_command", "cellreadout", "filterlabel", "grid", "selection_ladder", "selection", "cell_regions", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
     "inspector", "shadowview", "stepview", "preview", "preview_input", "preview_input_browser", "textview", "textview_review", "statsview", "statsview_input", "statsview_input_review",
     "ui_update_input", "ui_update_input_browser", "ui_update_input_control", "guideview", "guideview_input", "guideview_input_review", "sortview_input", "sortview_input_review", "fontmetrics", "ui_font_fallback",
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",

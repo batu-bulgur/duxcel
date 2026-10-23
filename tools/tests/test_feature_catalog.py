@@ -79,6 +79,18 @@ class FeatureCatalogTests(unittest.TestCase):
         self.assertEqual(events, ["workbook_identity_native-release", "completed:workbook_identity_native-release",
                                   "workbook_identity_native-sanitize", "completed:workbook_identity_native-sanitize"])
 
+    def test_history_gate_avoids_engine_and_canonical_bootstrap(self):
+        obj = runner.Runner.__new__(runner.Runner)
+        obj.args = runner.parser().parse_args(["feature", "--feature", "workbook-history"])
+        obj.summary = {}; obj.headless = mock.Mock(); obj.standalone_gui_check = mock.Mock()
+        obj.prepare_native = mock.Mock(side_effect=AssertionError("Unrelated native bootstrap"))
+        obj.feature_engine_checks = mock.Mock(side_effect=AssertionError("Unrelated archive matrix"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            obj.feature()
+        obj.headless.assert_called_once_with(["workbook_history", "cell_command", "workbook_identity"])
+        obj.standalone_gui_check.assert_called_once_with("workbook-history")
+        obj.prepare_native.assert_not_called(); obj.feature_engine_checks.assert_not_called()
+
     def test_about_does_not_build_full_app_or_canonical_fixture(self):
         self.assertEqual(FEATURES["about"].modules, ("build_info",))
         self.assertEqual(plan("about")["gui"], "about")

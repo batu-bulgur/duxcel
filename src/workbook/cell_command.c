@@ -1,4 +1,5 @@
 #include "cell_command.h"
+#include "history.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -56,13 +57,16 @@ CellEditResult workbook_apply_cell_edit(Workbook *book,const CellEditCommand *co
         result.status=CELL_EDIT_NOOP; return result;
     }
     result.status=CELL_EDIT_LIMIT;
-    if (sheet->cells.revision==UINT64_MAX || book->command_revision==UINT64_MAX) { fail(error,"Cell editing revision space is exhausted."); return result; }
+    if (sheet->cells.revision==UINT64_MAX || book->command_revision==UINT64_MAX || !worksheet_history_order_available()) { fail(error,"Cell editing revision space is exhausted."); return result; }
+    if (workbook_history_peek(book,false,NULL).status==WORKBOOK_HISTORY_INVALID) {
+        result.status=CELL_EDIT_INVALID; fail(error,"Worksheet history is incomplete; no cell edit was applied."); return result;
+    }
     char *owned=dx_alloc(command->bytes+1);
     if (command->bytes) memcpy(owned,command->text,command->bytes);
     owned[command->bytes]=0;
     bool accepted=cells_set(&sheet->cells,target->row,target->column,owned,&failure); free(owned);
     if (!accepted) { fail(error,failure ? failure : "Cell edit could not be applied."); free(failure); return result; }
-    worksheet_record(sheet,EDIT_CELLS); book->dirty=true; book->command_revision++;
+    worksheet_record(sheet,EDIT_CELLS); workbook_history_note_edit(book); book->dirty=true; book->command_revision++;
     result.status=CELL_EDIT_APPLIED; result.after_revision=sheet->cells.revision; result.after_document_revision=book->command_revision;
     return result;
 }

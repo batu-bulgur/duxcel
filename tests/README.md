@@ -8,6 +8,8 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | --- | --- | --- |
 | `test_*.c`, `test_*.inc`, `test_*.m` | Native suites and their implementation fragments | Tracked source |
 | `test_fixture.c` | Native load/PIVOT/typed data/save/reload acceptance of canonical/large inputs | Tracked C test |
+| `test_workbook_history.c` | Shared-C global ordering, branch cleanup, composite styles, stable targets, stale drafts, retention barriers, overflow and atomic rejection | Reuses per-file optimized/sanitizer model objects; no engine/GUI |
+| `test_workbook_history_gui.c`, `support/workbook_history_app.inc` | 21-stage real App Cmd-Z/Shift-Cmd-Z across two sheets, hidden owner reveal, no-op/branch behavior, rename/reorder and Save/Open | Hidden TEST release App; production excludes fixture |
 | `test_workbook_identity.c` | Shared-C identity validation, allocation/exhaustion, snapshots and admitted command clock | Tracked C tests; reuses per-file model objects |
 | `test_workbook_identity_native.c` | Private native v15 round-trip, v1–v14 metadata migration, exact uint64 and malformed-archive atomic rejection | Tracked C test; optimized/sanitizer engine runs are serial |
 | `test_workbook_identity_gui.c`, `support/workbook_identity_app.inc` | Nine-stage legacy Open, rename/duplicate/reorder, edit, Save/Open and stale-session workflow | Hidden TEST App; production excludes fixture |
@@ -47,3 +49,12 @@ and `tests/fixtures/workbook/identity-legacy.sql`, without canonical/large datas
 The completed two-sheet demo is `build/tests/generated/workbook-identity-demo.dxls`.
 The legacy component reader intentionally remains limited to v12–v14 and rejects
 v15; the identity model is shared C, not proof of browser persistence activation.
+
+W06 local gate: make test-feature FEATURE=workbook-history. It runs only the
+history, cell-command and identity modules in optimized/ASan/UBSan builds, then
+the private 21-stage real GUI fixture. It does not bootstrap the canonical dataset,
+full engine archive matrix, background worker, browser or lifecycle suites.
+Their named interactions remain in tools/test_catalog.py for milestone runs.
+The saved demo workbook is build/tests/generated/workbook-history-demo.dxls;
+like ordinary current saves it retains values/IDs/revision, not session history.
+No routine human-acceptance-pending status is required after a local pass.

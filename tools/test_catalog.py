@@ -16,6 +16,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "workbook-history": ("build/tests/test_workbook_history-gui", "PASS: native workbook chronology workflow",
+                         r"^PASS: native workbook chronology workflow \(21 stages, [1-9]\d* checks\)$", 21),
     "workbook-identity": ("build/tests/test_workbook_identity-gui", "PASS: native workbook identity workflow",
                           r"^PASS: native workbook identity workflow \(9 stages, [1-9]\d* checks\)$", 9),
     "cell-command": ("build/tests/test_cell_command-native", "PASS: native cell command workflow",
@@ -24,6 +26,11 @@ STANDALONE_GUI = {
 
 
 FEATURES = {
+    "workbook-history": Feature(("workbook_history", "cell_command", "workbook_identity"), "workbook-history",
+        ("python3 tools/test.py native --scenario workspace document --config sanitize",
+         "python3 tools/test.py formats --config both",
+         "python3 tools/test_web_app.py --review --review-cell-only"),
+        ("src/workbook/history.c", "src/workbook/workbook.c: action order/pruning", "src/app/app.c: history adapter")),
     "workbook-identity": Feature(("workbook_identity", "cell_command", "workbook_codec"), "workbook-identity",
         ("python3 tools/test.py native --scenario document workspace --config sanitize",
          "python3 tools/test.py formats --config both"),

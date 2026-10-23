@@ -1,5 +1,6 @@
 #include "workbook.h"
 #include "workbook_codec.h"
+#include "history.h"
 #include "../platform/platform.h"
 #ifndef DUXCEL_BROWSER_HOST
 #include <duckdb.h>
@@ -28,9 +29,14 @@ void view_free(SheetView *v) {
     free(v->columns); free(v->widths); memset(v,0,sizeof(*v));
 }
 void workbook_init(Workbook *b) { memset(b,0,sizeof(*b)); b->user_scale=1; }
-static void action_push(EditKind *actions,ColumnEdit *columns,size_t *count,EditKind kind,ColumnEdit column) {
-    if (*count==DX_HISTORY) { memmove(actions,actions+1,(DX_HISTORY-1)*sizeof(*actions)); memmove(columns,columns+1,(DX_HISTORY-1)*sizeof(*columns)); --*count; }
-    columns[*count]=column; actions[(*count)++]=kind;
+static void history_lost(Worksheet *s,bool redo,uint64_t order) {
+    if (redo) {
+        if (order && (!s->history_ceiling || order<s->history_ceiling)) s->history_ceiling=order;
+    } else if (order>s->history_floor) s->history_floor=order;
+}
+static void action_push(Worksheet *s,EditKind *actions,ColumnEdit *columns,uint64_t *orders,size_t *count,EditKind kind,ColumnEdit column,uint64_t order) {
+    if (*count==DX_HISTORY) { history_lost(s,orders==s->redo_order,orders[0]); memmove(orders,orders+1,(DX_HISTORY-1)*sizeof(*orders)); memmove(actions,actions+1,(DX_HISTORY-1)*sizeof(*actions)); memmove(columns,columns+1,(DX_HISTORY-1)*sizeof(*columns)); --*count; }
+    orders[*count]=order; columns[*count]=column; actions[(*count)++]=kind;
 }
 unsigned worksheet_edit_effects(EditKind kind) { static const unsigned effects[]={1,2,4,6,8,10,12,14,9}; return (unsigned)kind<sizeof(effects)/sizeof(*effects) ? effects[kind] : 0; }
 static EditKind range_edit(bool cells,bool objects,bool formats) {
@@ -48,6 +54,9 @@ static void action_prune(Worksheet *s,bool redo) {
     while (drop<*n && (required[0]>available[0] || required[1]>available[1] || required[2]>available[2] || required[3]>available[3])) {
         for (int k=0;k<4;k++) required[k]-=!!(worksheet_edit_effects(actions[drop]) & (1u<<k)); drop++;
     }
+    uint64_t *orders=redo ? s->redo_order : s->undo_order;
+    for (size_t i=0;i<drop;i++) history_lost(s,redo,orders[i]);
+    memmove(orders,orders+drop,(*n-drop)*sizeof(*orders)); memset(orders+*n-drop,0,drop*sizeof(*orders));
     memmove(actions,actions+drop,(*n-drop)*sizeof(*actions)); memmove(columns,columns+drop,(*n-drop)*sizeof(*columns)); memset(columns+*n-drop,0,drop*sizeof(*columns)); *n-=drop;
     Analysis *stack=redo ? s->redo : s->undo; size_t *count=redo ? &s->redo_count : &s->undo_count;
     drop=*count-required[0]; for (size_t i=0;i<drop;i++) analysis_free(&stack[i]);
@@ -56,13 +65,15 @@ static void action_prune(Worksheet *s,bool redo) {
     format_trim_history(&s->formats,redo,required[3]);
 }
 void worksheet_record(Worksheet *s,EditKind kind) {
-    action_push(s->undo_actions,s->undo_columns,&s->undo_actions_count,kind,(ColumnEdit){0}); s->redo_actions_count=0; memset(s->redo_columns,0,sizeof(s->redo_columns)); action_prune(s,false); action_prune(s,true);
+    s->history_last=worksheet_history_issue_order();
+    action_push(s,s->undo_actions,s->undo_columns,s->undo_order,&s->undo_actions_count,kind,(ColumnEdit){0},s->history_last); s->redo_actions_count=0; memset(s->redo_columns,0,sizeof(s->redo_columns)); action_prune(s,false); action_prune(s,true);
 }
 void worksheet_transfer_history(Worksheet *s,bool redo) {
     size_t *from=redo ? &s->redo_actions_count : &s->undo_actions_count,*to=redo ? &s->undo_actions_count : &s->redo_actions_count;
     EditKind *a=redo ? s->redo_actions : s->undo_actions,*b=redo ? s->undo_actions : s->redo_actions;
     ColumnEdit *ca=redo ? s->redo_columns : s->undo_columns,*cb=redo ? s->undo_columns : s->redo_columns;
-    if (*from) { --*from; action_push(b,cb,to,a[*from],ca[*from]); ca[*from]=(ColumnEdit){0}; }
+    uint64_t *oa=redo ? s->redo_order : s->undo_order,*ob=redo ? s->undo_order : s->redo_order;
+    if (*from) { --*from; action_push(s,b,cb,ob,to,a[*from],ca[*from],oa[*from]); ca[*from]=(ColumnEdit){0}; oa[*from]=0; }
     action_prune(s,false); action_prune(s,true);
 }
 static bool range_fail(char **error,const char *message) { if (error) error_set(error,message); return false; }

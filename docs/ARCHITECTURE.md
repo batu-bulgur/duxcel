@@ -48,8 +48,8 @@ borrowed bytes. The producer rechecks primary/object protection, then publishes
 one cell-history action, dirty state and one monotonic command revision only for
 a changed value. No-op and failure preserve all three. The App owns drafts,
 source readiness, navigation and feedback. The persisted command clock covers
-this admitted subset; legacy paste/range/object/Undo paths still use their own
-store revisions and histories. It is not a durable receipt or retry protocol.
+this admitted subset and coordinated history replays; direct legacy
+paste/range/object producers still use their own store revisions. It is not a durable receipt or retry protocol.
 
 `src/workbook/identity.c` owns bounded identity validation/allocation/restore.
 The first sheet allocates a 128-bit workbook ID from OS/browser cryptographic
@@ -71,6 +71,31 @@ dirty; Save upgrades transactionally. Snapshot/Save As preserve logical identity
 Physical copies can share an identity but their runtime fences remain separate.
 The shared partial browser decoder still rejects v15; browser Workbook Open/Save
 and final staged-model activation remain incomplete.
+
+`src/workbook/history.c` coordinates the existing session journals. Each
+worksheet_record receives a non-recycled process-order stamp; transfers retain
+it and prune/cap operations advance a lost-history floor. Stable IDs identify the
+selected sheet independently of its name/position. The coordinator scans bounded
+journals for the newest Undo or earliest Redo and refuses misaligned constituents,
+ambiguous targets and revision overflow. It stops at the largest discarded order,
+so a retained older action on another sheet cannot jump a missing interval.
+A separate smallest lost-future order stops Redo after constituent eviction; it
+does not block valid older Undo. A new branch clears this future ceiling.
+No duplicate snapshot storage or persistence schema is introduced.
+
+Cell/style/composite transfers, dirty state and command revision publication are
+owned by C; the App follows the affected sheet, restores column presentation and
+checks current source layout. Analysis/object replay delegates to the existing
+live-Analysis/cache adapter, using the same global selection and advancing the
+clock only after an action transfers. Their wider interaction matrix remains a
+milestone gate. Changed cell commands release abandoned Redo constituents across
+all sheets only after success; failed/no-op commands preserve them. Legacy new
+records invalidate Redo logically immediately; the App frame boundary releases
+the obsolete branch, and direct C clients synchronize before history transfer. Display defaults
+and identity/high-water metadata remain outside snapshot replay. Order/floor/
+branch metadata and history are session state, excluded from snapshot/Save/Open.
+The private DUXCEL_FEATURE_WORKBOOK_HISTORY App fixture is compile/link excluded
+from production, matching the other feature fixtures.
 
 The cell-command GUI fixture has its own App object compiled with
 `DUXCEL_FEATURE_CELL_COMMAND`; its private fixture lives in `tests/support/`.

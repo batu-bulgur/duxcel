@@ -4,7 +4,7 @@ Duxcel uses one C99/raylib UI and DuckDB analytical definitions. Native macOS is
 
 | Capability | Current behavior and limits |
 | --- | --- |
-| Sparse workbook/grid | Manual text, single-outline selections, deterministic four-neighbor Select All regions, border/Option-interior range moves, explicit Replace/Cancel for occupied manual destinations, atomic value/style Undo/Redo, structural edits, per-sheet viewport, independent sheet zoom/UI scale and fixed header chrome. General formulas/typed editing/import overlays remain open. |
+| Sparse workbook/grid | Manual text, single-outline selections, deterministic four-neighbor Select All regions, border/Option-interior range moves, explicit Replace/Cancel for occupied manual destinations, atomic value/style and workbook-chronological session Undo/Redo, structural edits, per-sheet viewport, independent sheet zoom/UI scale and fixed header chrome. General formulas/typed editing/import overlays remain open. |
 | Native files | Native macOS panels for sources and `.dxls` Save/Open; Finder/LaunchServices workbook Open on startup and in a running instance; compact dirty guard for Close versus Quit; explicit application menu with Command-Q; real versioned DuckDB workbook state and history. External sources remain references. Standalone packaging is incomplete. |
 | Analysis | Real DuckDB source/filter/sort/query/available-value/date operations, same-sheet Tables/PIVOT/charts and exact typed statistics. No mock calculation engine. Unsupported Marks grain/lineage remain bounded. |
 | NULL and precision | SQL NULL, empty text and literal `NULL` remain distinct; exact integer/DECIMAL text survives supported operations. Sparse missing cells use the distinct NULL mark. |
@@ -26,12 +26,12 @@ The W01 demo exposed a separate bundle-entry defect: missing workbook type decla
 
 W04 replaces the oversized unsaved panel with a 360×152 logical-unit dialog, action-specific title, ellipsized filename, short warning and standard Don't Save / Cancel / Save buttons. The macOS adapter now constructs its application menu explicitly: About, Settings, Services, Hide and Quit. It no longer assumes GLFW supplied Quit; Command-Q and menu Quit enter the existing C document guard. Native document acceptance passes all ten stages in optimized (7.08s) and ASan/UBSan (7.56s) App builds, exercising actual button clicks, long Unicode names, 100%/narrow 150% geometry and failed IO preservation. Repeat-session lifecycle tests pass 38 checks in each build (1.43s/1.59s), including AppKit menu and Command-Q dispatch with text/modal context and clean session termination. The real shared-C/official-Worker browser controls profile passes 1,185 checks (27.32s), retaining unavailable Save and safe Cancel. The rebuilt bundle passes cold/warm LaunchServices Open with the alert guard (12.34s) and strict signature verification. The user has accepted the compact dialog and confirmed physical Command-Q works, completing W04. Durable journal, recovery and W09 Save progress remain separate.
 
-W02 adds explicit Replace/Cancel after a manual drag or destination-address move reaches occupied cells. The complete target is checked, including offscreen cells and source holes; source/object areas remain protected. Cancel/Escape preserves data/history/dirty state, and confirmation refuses changed sheet/selection/data/format/source definitions. A confirmed self-overlap move uses original source values and one existing composite Undo/Redo action. The 15-stage native workflow passes optimized (7.83s) and ASan/UBSan (8.72s), including 100%/640×640 at 150%, actual button input, stale confirmation and Save/Open. Existing optimized range-move/selection-start regressions pass 10/45 stages (5.59s/22.53s). The shared model passes 186 checks per optimized/sanitizer build; runner contracts pass 33 tests. The real shared-C/official-Worker controls profile passes 1,366 checks (34.36s), including exact replacement/Undo/Redo values/styles and default Cancel after button/Enter-driven Move. The rebuilt bundle passes strict signature verification and cold/warm LaunchServices Open with the alert guard. User hands-on acceptance is pending; W02 does not add formula rewrites, global Undo, durable history or analytical-object replacement.
+W02 adds explicit Replace/Cancel after a manual drag or destination-address move reaches occupied cells. The complete target is checked, including offscreen cells and source holes; source/object areas remain protected. Cancel/Escape preserves data/history/dirty state, and confirmation refuses changed sheet/selection/data/format/source definitions. A confirmed self-overlap move uses original source values and one existing composite Undo/Redo action. The 15-stage native workflow passes optimized (7.83s) and ASan/UBSan (8.72s), including 100%/640×640 at 150%, actual button input, stale confirmation and Save/Open. Existing optimized range-move/selection-start regressions pass 10/45 stages (5.59s/22.53s). The shared model passes 186 checks per optimized/sanitizer build; runner contracts pass 33 tests. The real shared-C/official-Worker controls profile passes 1,366 checks (34.36s), including exact replacement/Undo/Redo values/styles and default Cancel after button/Enter-driven Move. The rebuilt bundle passes strict signature verification and cold/warm LaunchServices Open with the alert guard. W02 does not add formula rewrites, global Undo, durable history or analytical-object replacement.
 
-W03 implements deterministic manual containing regions for Select All. Four-neighbor components use the original finite selection as the seed; diagonal islands and format-only coordinates do not connect. Blank interiors use area/coordinate tie rules. Strict supersets retain active cell/direction and viewport, while current Table/Pivot/source bounds keep their existing priority. Pure C component/ladder tests pass 133/170 checks per optimized/sanitizer build. Hidden native W03 passes 14 stages (7.43s optimized/7.34s sanitizer), including reversed three-row selection, 100%/narrow 150%, offscreen data/format-only exclusion, no data/history/query changes and reopen. The existing analytical selection ladder passes 27 optimized stages; the shared-C/official-Worker browser selection profile passes 705 checks (77.70s) with actual Ctrl/Cmd+A and prior range-move/analytical-owner coverage. The rebuilt bundle passes strict signature verification and cold/warm LaunchServices Open with the native-alert guard. Physical/human W03 acceptance is pending. Cmd+Arrow data boundaries remain separate C01 work; no inferred Table, typed cell or formula engine is introduced.
+W03 implements deterministic manual containing regions for Select All. Four-neighbor components use the original finite selection as the seed; diagonal islands and format-only coordinates do not connect. Blank interiors use area/coordinate tie rules. Strict supersets retain active cell/direction and viewport, while current Table/Pivot/source bounds keep their existing priority. Pure C component/ladder tests pass 133/170 checks per optimized/sanitizer build. Hidden native W03 passes 14 stages (7.43s optimized/7.34s sanitizer), including reversed three-row selection, 100%/narrow 150%, offscreen data/format-only exclusion, no data/history/query changes and reopen. The existing analytical selection ladder passes 27 optimized stages; the shared-C/official-Worker browser selection profile passes 705 checks (77.70s) with actual Ctrl/Cmd+A and prior range-move/analytical-owner coverage. The rebuilt bundle passes strict signature verification and cold/warm LaunchServices Open with the native-alert guard. Cmd+Arrow data boundaries remain separate C01 work; no inferred Table, typed cell or formula engine is introduced.
 
-W05a/W05b implement the single-cell command foundation; human acceptance remains
-pending. The v2 command captures durable workbook/sheet IDs, session fences and
+W05a/W05b complete the single-cell command foundation under scoped automated
+verification. The v2 command captures durable workbook/sheet IDs, session fences and
 expected CellStore/admitted-command revisions. Changed edits create one worksheet
 action and advance the persisted command clock; no-op/failure preserve it.
 Native v15 persists a 128-bit document ID and exact uint64 sheet IDs/high-water.
@@ -40,8 +40,9 @@ Exhaustion rejects allocation atomically while existing sheets remain saveable.
 Legacy v1–v14 Open assigns IDs in RAM without writing the file; Save upgrades.
 Malformed current identity metadata rejects Open/overwrite without replacing the
 live document or corrupt archive. Session fences still reject old drafts after
-reopen, including a file with matching durable IDs. Legacy mutation families,
-global Undo and the durable journal are not brought under the clock by this slice.
+reopen, including a file with matching durable IDs. Direct legacy mutation
+producers retain their own store clocks; W06 history
+replays now advance the command clock. Durable journal work remains W08.
 The partial browser header decoder still rejects v15; no browser Open/Save claim.
 
 The W05a baseline verification recorded 158 shared-model assertions per optimized and
@@ -57,7 +58,7 @@ was then verified by the focused pixel check. This is not browser stale-warning
 visual acceptance. The 38 runner/catalog contracts pass. Wider document,
 workspace, recovery and browser suites remain explicitly deferred. Source/binary
 receipts and captures live under ignored `build/tests/results/`; physical input
-and human demo acceptance remain pending. The clean generated demo is
+remains outside this automated gate. The clean generated demo is
 `build/tests/generated/cell-command-demo.dxls`.
 
 W05b's focused gate passes75 identity,158 cell-command and2,353 descriptor checks
@@ -70,9 +71,35 @@ session rejection. A separate optimized legacy-header comparison passes1,611
 checks across v12/v13/v14/physical-reorder/legacy24 components;41 focused runner,
 catalog and identity-fixture tool contracts pass. Source/binary fingerprints,
 completion markers, logs and captures are under ignored build/tests/results/.
-Full native/source/browser regression remains deferred. Human test inputs are
+Full native/source/browser regression remains deferred. Generated example inputs are
 build/tests/generated/identity-legacy.dxls (untouched v12) and
 build/tests/generated/workbook-identity-demo.dxls (saved v15, two independent sheets).
+
+W06 completes workbook-chronological session Undo/Redo under the local automated
+gate. Existing worksheet actions carry process-order stamps, independent of
+stable IDs and persistent command revisions. The shared C history coordinator
+selects the newest Undo / earliest Redo, verifies aligned constituent counts,
+transfers cell/style snapshots atomically and advances the command clock. The
+App follows the selected sheet, revealing it when hidden; analytical/object
+replay keeps its existing App-owned adapter. New changed cell commands clear all
+abandoned Redo payloads; legacy UI records normalize the branch at frame end.
+No-op/rejection retain the tail. Display defaults are
+not replayed, rename/reorder preserve targeting, and pruning establishes a safe
+past/future barriers rather than skipping missing edits on another sheet. Save/Open preserves
+current values/IDs/revision and intentionally clears session history. Full history
+persistence remains separate. Ordinary slices no longer carry a routine human-
+acceptance-pending flag; detailed hands-on review belongs at major milestones.
+The local W06 gate passes 565 chronology, 158 cell-command and 75 identity checks
+per optimized/ASan/UBSan configuration, then 21 hidden TEST App stages with 37
+assertions in 6.394s. Total gate time is 17.702s including 6.048s feature App rebuild;
+there is no canonical dataset, archive matrix or full-App sanitizer bootstrap.
+The GUI covers actual Cmd-Z/Shift-Cmd-Z, hidden owner reveal, a no-op preserving
+both sheets' Redo, legacy style branching/cleanup/replay, a new cell branch,
+rename/reorder and Save/Open clearing session history while retaining values,
+IDs and command revision. Broader native/source/browser interactions remain
+registered for milestones. The generated checkpoint is
+build/tests/generated/workbook-history-demo.dxls; tests and source/binary
+receipts remain in ignored build/tests/results/.
 
 ## Feature iteration and build identity
 
@@ -103,7 +130,7 @@ Its offscreen panel/icon captures were inspected. The bundle builds and the
 extended lifecycle helper compiles; full lifecycle/Open/browser suites were
 intentionally not run for this change. Receipts remain under ignored
 `build/tests/results/runs/`. These timings describe the narrower gates, not an
-equivalent full-suite benchmark or human acceptance.
+equivalent full-suite benchmark or milestone review.
 
 ## Current repository and tooling
 
