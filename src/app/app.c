@@ -10110,7 +10110,12 @@ static void layout_smoke_step(App *a,int *step) {
         puts("PASS: complete between-frame matrix scrollbar drags, bounded horizontal scroll, range drag selection mapped to real worksheet cells, preserved query generation and result ownership"); break;
     case 124:
         preview_to_source(a,0,2); a->ribbon_tab=RIBBON_HOME; a->ribbon_focus=false; a->pivot_focus=a->chrome_focus=0;
-        a->grid.end_row=2; request=a->request_id; ribbon_cells=a->page.cells; break;
+        /* Generic controls exercise manual cells. Source record formatting has
+           its own asynchronous Verify/Collect/Commit workflow below. */
+        grid_select_cell(&a->grid,0,6,false); a->grid.end_row=2;
+        if (!cells_set(&s->cells,0,6,"10",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS);
+        request=a->request_id; ribbon_cells=a->page.cells; break;
     case 125:
         run_action(a,ACTION_BOLD); if (!(active_format(a).flags&FORMAT_BOLD) || s->undo_actions[s->undo_actions_count-1]!=EDIT_FORMAT) goto failed; break;
     case 126:
@@ -10138,11 +10143,11 @@ static void layout_smoke_step(App *a,int *step) {
     case 134:
         if (active_format(a).decimals || a->request_id!=request || a->page.cells!=ribbon_cells || strcmp(a->page.cells[2].text,"10")) goto failed;
         history(a,false); if (active_format(a).decimals!=1) goto failed; history(a,true); if (active_format(a).decimals) goto failed;
-        grid_select_cell(&a->grid,0,0,false); a->grid.end_row=2; a->grid.end_col=2; run_action(a,ACTION_BOLD); break;
+        grid_select_cell(&a->grid,0,4,false); a->grid.end_row=2; a->grid.end_col=6; run_action(a,ACTION_BOLD); break;
     case 135:
-        if (!(format_at(&s->formats,0,1).flags&FORMAT_BOLD) || !a->page.cells[1].is_null || a->page.cells[4].is_null || strcmp(a->page.cells[4].text,"NULL") || *a->page.cells[7].text) goto failed;
+        if (!(format_at(&s->formats,0,5).flags&FORMAT_BOLD) || !a->page.cells[1].is_null || a->page.cells[4].is_null || strcmp(a->page.cells[4].text,"NULL") || *a->page.cells[7].text) goto failed;
         smoke_snapshot("build/tests/results/workspace-layout/native-format-null-literal-empty.png");
-        a->selected_object=0; grid_select_cell(&a->grid,s->objects.items[0].row+2,s->objects.items[0].col,false); run_action(a,ACTION_ACCOUNTING); break;
+        a->selected_object=0; grid_select_cell(&a->grid,s->objects.items[0].row+2,s->objects.items[0].col,false); a->grid.selection=SELECT_COLUMNS; run_action(a,ACTION_ACCOUNTING); break;
     case 136:
         if (active_format(a).number!=FORMAT_ACCOUNTING || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         smoke_snapshot("build/tests/results/workspace-layout/native-formatted-matrix.png"); break;
@@ -10150,9 +10155,9 @@ static void layout_smoke_step(App *a,int *step) {
     case 138: workspace_job(a,JOB_LOAD,"build/tests/generated/layout-formats.dxls"); break;
     case 139:
         if (!object_ready(a,0)) return;
-        if (!s->formats.count || s->formats.undo_count || format_at(&s->formats,0,2).size!=16 || format_at(&s->formats,0,2).color!=3 || format_at(&s->formats,0,2).decimals || active_format(a).number!=FORMAT_ACCOUNTING) goto failed;
+        if (!s->formats.count || s->formats.undo_count || format_at(&s->formats,0,6).size!=16 || format_at(&s->formats,0,6).color!=3 || format_at(&s->formats,0,6).decimals || active_format(a).number!=FORMAT_ACCOUNTING) goto failed;
         request=a->request_id; ribbon_cells=a->page.cells; author_cells=a->objects[0].page.cells;
-        ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); a->selected_object=-1; grid_select_cell(&a->grid,0,2,false); break;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(1020,640); a->selected_object=-1; grid_select_cell(&a->grid,0,6,false); break;
     case 140:
         a->ribbon_focus=true; a->ribbon_command=4; run_action(a,ACTION_FONT_SIZE); break;
     case 141:
@@ -10171,11 +10176,11 @@ static void layout_smoke_step(App *a,int *step) {
         history(a,false); break;
     }
     case 145:
-        if (format_at(&s->formats,0,2).size!=16 || a->request_id!=request) goto failed;
+        if (format_at(&s->formats,0,6).size!=16 || a->request_id!=request) goto failed;
         a->selected_object=0; a->grid.selection=SELECT_CELLS; grid_select_cell(&a->grid,s->objects.items[0].row+2,s->objects.items[0].col,false); break;
     case 146: smoke_snapshot("build/tests/results/workspace-layout/native-format-roundtrip-authoring.png"); break;
     case 147:
-        puts("PASS: real native Bold/Italic/Underline, font-size/color/number menus, center alignment, decimal controls, exact raw values and typed NULL/text/empty preservation, matrix formatting, chronological Undo/Redo, bounded whole-sheet formatting, menu Escape/focus return and version-12 save/reopen at 100/150 percent"); break;
+        puts("PASS: real native Bold/Italic/Underline, font-size/color/number menus, center alignment, decimal controls, exact raw values and typed NULL/text/empty preservation, matrix formatting, chronological Undo/Redo, bounded whole-sheet formatting, menu Escape/focus return and current-format save/reopen at 100/150 percent"); break;
     case 148: workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); break;
     case 149:
         if (!object_ready(a,0)) return;

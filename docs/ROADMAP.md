@@ -167,6 +167,14 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
 | W14 · P2 · Queued | Selected-history export; W12–W13. | Export an explicit history interval with required assets and valid roots; omitted history is absent, new artifact restores every advertised state. VE05; remaining A27. |
 
+W11 integration constraints: distinguish user Save/Tag, private recovery
+checkpoint and historical export intents. A working checkpoint never advances
+Latest Saved; every advertised saved/tagged state must retain a complete supported
+payload closure. A successful R capture may update saved/tag metadata while R+1
+remains dirty. Keep the write owner separate from historical display ownership,
+even when both share a durable document ID. Payload reuse needs full supported
+content evidence; current command clocks alone cannot identify every mutation.
+
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source
 protection at commit; the producer resolves sheet ownership and records one
@@ -478,6 +486,15 @@ Save App workflow. `workbook-archive` keeps the expensive complete matrix as a
 named interaction/full-milestone check; the existing object-archive CLI provides
 a smaller edit-time path. Final full native/lifecycle/Open acceptance remains
 W10c3b; the shared-C/official-Worker controls boundary has passed in 59.001s.
+
+W10c3b milestone continuation: the full optimized/sanitizer engine matrix,
+owned crash/restart, fault injection and standalone App workflows passed before
+the broad layout stopped at an obsolete positional source-format assertion.
+The generic controls now target manual cells; Pivot presentation uses supported
+whole-column defaults. Dedicated verified source-record workflows remain intact.
+The focused sanitizer formatting workflow passes all 148 stages in 79.061s,
+including actual menus/shortcuts, Undo/Redo and Save/Open; 49 runner/catalog
+contracts pass. Complete native layout and subsequent platform gates remain open.
 
 ### Owned data, refresh and complete analytical results
 

@@ -64,6 +64,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "format-controls": Feature(("format",), "format-controls",
+        ("python3 tools/test.py feature --feature source-format", "python3 tools/test.py native --scenario layout --config sanitize"),
+        ("src/app/app.c: generic formatting controls and manual/source test ownership",)),
     "workbook-schema": Feature(("workbook_schema",), "workbook-save",
         ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature recovery-ui", "python3 tools/test.py feature --feature workbook-identity"),
         ("src/workbook/schema.c", "src/workbook/schema.h", "src/workbook/workbook.c: bounded catalog proof")),

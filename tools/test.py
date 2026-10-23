@@ -30,6 +30,7 @@ FORMATS_COMPLETION_PATTERN = r"^PASS: [1-9]\d* focused workspace formatting chec
 LAYOUT_PROFILES = {
     "selection-start": (0, 45, "PASS: keyboard destination move"),
     "ribbon": (0, 64, "PASS: measured native ribbon"),
+    "format-controls": (0, 148, "PASS: real native Bold/Italic/Underline"),
     "statistics": (250, 266, "PASS: exact compact native statistics popover"),
     "dock": (311, 335, "PASS: measured native status bar"),
     "pane-motion": (357, 400, "PASS: real nested pane/Workbook group-opacity"),
