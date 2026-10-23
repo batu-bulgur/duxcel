@@ -365,6 +365,9 @@ FormatBudgetStatus workbook_format_usage(const Workbook *book,const WorkbookForm
         if (current==SIZE_MAX || retained==SIZE_MAX || !format_budget_add(&current,versions[i]->bytes) || !format_budget_add(&retained,versions[i]->bytes) || !format_budget_add(&retained,analysis) || !format_budget_add(&retained,object_history) || !format_budget_add(&usage.current,current) || !format_budget_add(&usage.retained,retained)) return FORMAT_BUDGET_OVERFLOW;
         if (current>usage.max_sheet_current) { usage.max_sheet_current=current; usage.max_sheet=i; }
     }
+    size_t detached=0; FormatBudgetStatus status=workbook_lifecycle_format_usage(book,&detached);
+    if (status!=FORMAT_BUDGET_OK) return status;
+    if (!format_budget_add(&usage.retained,detached)) return FORMAT_BUDGET_OVERFLOW;
     *out=usage; return FORMAT_BUDGET_OK;
 }
 static bool format_usage_valid(const WorkbookFormatUsage *usage) {

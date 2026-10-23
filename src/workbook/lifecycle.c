@@ -40,6 +40,36 @@ void workbook_lifecycle_free(Workbook *b) {
 }
 uint64_t workbook_lifecycle_latest(const Workbook *b) { return b->lifecycle ? b->lifecycle->latest : 0; }
 uint64_t workbook_lifecycle_floor(const Workbook *b) { return b->lifecycle ? b->lifecycle->floor : 0; }
+FormatBudgetStatus workbook_lifecycle_format_usage(const Workbook *b,size_t *retained) {
+    size_t bytes=0; const struct WorkbookLifecycle *h=b->lifecycle;
+    if (h) for (unsigned side=0;side<2;side++) {
+        const SheetEvent *events=side ? h->redo : h->undo; size_t count=side ? h->redo_count : h->undo_count;
+        if (count>DX_HISTORY) return FORMAT_BUDGET_MODEL;
+        for (size_t i=0;i<count;i++) if (events[i].detached) {
+            /* Borrowed one-sheet accounting view, never freed or snapshotted.
+               Its null lifecycle prevents recursive retained-owner traversal. */
+            Workbook view={.sheets=events[i].detached,.count=1}; WorkbookFormatUsage usage;
+            FormatBudgetStatus status=workbook_format_usage(&view,NULL,0,&usage);
+            if (status!=FORMAT_BUDGET_OK) return status;
+            if (bytes>SIZE_MAX-usage.retained) return FORMAT_BUDGET_OVERFLOW;
+            bytes+=usage.retained;
+        }
+    }
+    *retained=bytes; return FORMAT_BUDGET_OK;
+}
+static bool presence_budget(const Workbook *b,const Worksheet *sheet,bool duplicate,char **error) {
+    WorkbookFormatUsage live,next; FormatBudgetStatus status=workbook_format_usage(b,NULL,0,&live);
+    if (status!=FORMAT_BUDGET_OK) return fail(error,workbook_format_budget_message(status));
+    size_t extra=format_owned_bytes(&sheet->formats,false);
+    if (extra==SIZE_MAX || extra>SIZE_MAX-sheet->source_versions.bytes) return fail(error,workbook_format_budget_message(FORMAT_BUDGET_OVERFLOW));
+    extra+=sheet->source_versions.bytes; next=live; next.sheet_count++;
+    if (next.current>SIZE_MAX-extra || (duplicate && next.retained>SIZE_MAX-extra)) return fail(error,workbook_format_budget_message(FORMAT_BUDGET_OVERFLOW));
+    next.current+=extra; if (duplicate) next.retained+=extra;
+    if (extra>next.max_sheet_current) { next.max_sheet_current=extra; next.max_sheet=next.sheet_count-1; }
+    FormatBudget budget;
+    status=workbook_format_preflight(&live,&next,&(FormatTransientUsage){.adopted_staging=duplicate ? extra : 0},&budget);
+    return status==FORMAT_BUDGET_OK || fail(error,workbook_format_budget_message(status));
+}
 static void push(struct WorkbookLifecycle *h,bool redo,SheetEvent event) {
     SheetEvent *stack=redo ? h->redo : h->undo;
     size_t *count=redo ? &h->redo_count : &h->undo_count;
@@ -91,6 +121,7 @@ bool workbook_sheet_command(Workbook *b,WorkbookSheetCommand c,bool *changed,cha
         (c.operation!=SHEET_CREATE && c.sheet>=b->count)) return fail(error,"Choose an existing worksheet document.");
     WorkbookHistoryResult history=workbook_history_peek(b,false,error);
     if (history.status==WORKBOOK_HISTORY_INVALID) return false;
+    if ((c.operation==SHEET_CREATE || c.operation==SHEET_DUPLICATE) && b->count>=DX_MAX_SHEETS) return fail(error,"A workspace supports up to 64 worksheets.");
     if (c.operation==SHEET_REORDER && c.destination>=b->count) return fail(error,"Choose an existing worksheet position.");
     if ((c.operation==SHEET_HIDE && b->sheets[c.sheet].hidden) || (c.operation==SHEET_SHOW && !b->sheets[c.sheet].hidden) ||
         (c.operation==SHEET_REORDER && c.sheet==c.destination)) return true;
@@ -110,6 +141,7 @@ bool workbook_sheet_command(Workbook *b,WorkbookSheetCommand c,bool *changed,cha
         free(prepared);
         event.position=b->active; event.id=b->sheets[b->active].id; break;
     case SHEET_DUPLICATE:
+        if (!presence_budget(b,b->sheets+c.sheet,true,error)) return false;
         if (!workbook_duplicate(b,c.sheet,error)) return false;
         event.position=b->active; event.id=b->sheets[b->active].id; break;
     case SHEET_DELETE:
@@ -137,6 +169,7 @@ WorkbookHistoryResult workbook_lifecycle_step(Workbook *b,bool redo,char **error
         (presence && !e->detached && !b->sheets[index].hidden && workbook_visible_count(b)<=1)) {
         result.status=WORKBOOK_HISTORY_INVALID; fail(error,"Worksheet history no longer matches this document."); return result;
     }
+    if (presence && e->detached && !presence_budget(b,e->detached,false,error)) { result.status=WORKBOOK_HISTORY_LIMIT; return result; }
     workbook_history_sync(b);
     uint64_t active=b->sheets[b->active].id;
     if (presence) {

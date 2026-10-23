@@ -151,6 +151,8 @@ typedef struct { size_t before,after,peak; } FormatBudget;
    Array capacity is not stored: each nonnull items pointer reserves all32 slots,
    including count0, so deletion tails are covered conservatively. This category
    reservation is not an exact allocation-size/RSS measurement.
+   Detached lifecycle sheets contribute their complete format/ledger/history
+   charge to retained usage only, until branch disposal or event eviction.
    Live current objects and ordinary object/range history remain baseline.
    Baseline current/ordinary Analysis and other inline model/data values remain
    excluded. Analysis journal/storage validation is opt-in when either stack has

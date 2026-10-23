@@ -105,7 +105,9 @@ including its earlier histories, source ledger, objects and formats. It never
 clones a deleted dataset. At most 32 lifecycle events can retain detached sheets
 in addition to the 64 live-sheet bound; duplicate still creates independent
 current stores. Eviction releases detached ownership and raises the coordinator's
-past barrier. Branch disposal also releases detached Redo payloads and clears
+past barrier. Detached format/ledger/composite-history ownership remains charged
+to retained workbook usage; duplicate and restoration preflight their prospective
+current/retained budgets without evicting history to admit a change. Branch disposal also releases detached Redo payloads and clears
 obsolete per-sheet future constituents. Workbook identity/high-water, command
 revision and presentation defaults never rewind. Save snapshots clone live
 current state only, excluding the lifecycle journal and detached sheets.

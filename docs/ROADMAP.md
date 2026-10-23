@@ -193,7 +193,13 @@ passes 21 stages in 5.712s; 42 runner/catalog contracts pass. Real menu Delete,
 Cmd-Z/Shift-Cmd-Z, retained value/style/object identities, duplicate/hide,
 Save/Open and non-recycled creation IDs are covered. Wider native/source/browser
 and full-App sanitizer matrices remain milestone gates. Receipts and the generated
-`workbook-lifecycle-demo.dxls` stay under ignored `build/tests/`. W08 is next.
+`workbook-lifecycle-demo.dxls` stay under ignored `build/tests/`. W08 follows.
+Integration follow-up: detached sheets remain charged to retained formatting/
+source-version/history budgets until actually released. Duplicate and restoration
+preflight prospective current/retained limits without pruning history on failure.
+The added ownership-accounting checks pass optimized/sanitizer; the same 24-stage
+GUI passes in 7.027s (18.561s focused gate). Save snapshots exclude detached
+charges, while branch disposal and lifecycle eviction release them.
 
 W08a adds `src/workbook/journal.c` as a native engine component, separate from
 `.dxls` and not yet called by the App. Schema v1 stores exact byte spans as BLOBs,

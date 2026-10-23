@@ -18,6 +18,7 @@ bool workbook_sheet_command(Workbook *book,WorkbookSheetCommand command,bool *ch
 void workbook_lifecycle_free(Workbook *book);
 void workbook_lifecycle_clear_redo(Workbook *book);
 uint64_t workbook_lifecycle_latest(const Workbook *book);
+FormatBudgetStatus workbook_lifecycle_format_usage(const Workbook *book,size_t *retained);
 uint64_t workbook_lifecycle_floor(const Workbook *book);
 bool workbook_lifecycle_peek(const Workbook *book,bool redo,WorkbookHistoryResult *result,char **error);
 WorkbookHistoryResult workbook_lifecycle_step(Workbook *book,bool redo,char **error);

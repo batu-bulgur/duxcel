@@ -120,9 +120,32 @@ static void hidden_limits_and_drafts(void) {
     b.sheet_high_water=2;
     for (unsigned i=2;i<DX_MAX_SHEETS;i++) CHECK(workbook_add(&b,"Fixture",&(Analysis){0},&error));
     CHECK(!workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name="Overflow",.analysis=&(Analysis){0}},NULL,&error));
+    CHECK(!workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name="Overflow",.analysis=&(Analysis){0}},NULL,NULL));
+    CHECK(!workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_DUPLICATE,.sheet=0},NULL,NULL));
     CHECK(b.count==DX_MAX_SHEETS && error && b.command_revision==revision); free(error); error=NULL;
     CHECK(!workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_REORDER,.sheet=0,.destination=DX_MAX_SHEETS},NULL,&error));
     CHECK(error && b.command_revision==revision); free(error);
+    workbook_free(&b);
+}
+static void retained_format_budget(void) {
+    Workbook b; base(&b); char *error=NULL; CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    CHECK(format_apply(&b.sheets[0].formats,(FormatRange){3,3,2,2},FORMAT_BOLD,bold,&error)); worksheet_record(&b.sheets[0],EDIT_FORMAT);
+    WorkbookFormatUsage original,deleted,restored,duplicate,evicted;
+    CHECK(workbook_format_usage(&b,NULL,0,&original)==FORMAT_BUDGET_OK && original.current>0);
+    command(&b,(WorkbookSheetCommand){.operation=SHEET_DELETE,.sheet=0});
+    CHECK(workbook_format_usage(&b,NULL,0,&deleted)==FORMAT_BUDGET_OK);
+    CHECK(!deleted.current && deleted.retained==original.retained);
+    Workbook *snapshot=workbook_snapshot(&b); CHECK(snapshot);
+    CHECK(workbook_format_usage(snapshot,NULL,0,&restored)==FORMAT_BUDGET_OK && !restored.retained); workbook_free(snapshot); free(snapshot);
+    step(&b,false,true);
+    CHECK(workbook_format_usage(&b,NULL,0,&restored)==FORMAT_BUDGET_OK && restored.current==original.current && restored.retained==original.retained);
+    command(&b,(WorkbookSheetCommand){.operation=SHEET_DUPLICATE,.sheet=0});
+    CHECK(workbook_format_usage(&b,NULL,0,&duplicate)==FORMAT_BUDGET_OK && duplicate.current==2*original.current && duplicate.retained==original.retained+original.current);
+    step(&b,false,true); edit(&b,1,"Abandon duplicate");
+    CHECK(workbook_format_usage(&b,NULL,0,&restored)==FORMAT_BUDGET_OK && restored.retained==original.retained);
+    command(&b,(WorkbookSheetCommand){.operation=SHEET_DELETE,.sheet=0});
+    for (unsigned i=0;i<DX_HISTORY;i++) { char name[32]; snprintf(name,sizeof(name),"Eviction %u",i); command(&b,(WorkbookSheetCommand){.operation=SHEET_RENAME,.sheet=0,.name=name}); }
+    CHECK(workbook_format_usage(&b,NULL,0,&evicted)==FORMAT_BUDGET_OK && !evicted.current && !evicted.retained);
     workbook_free(&b);
 }
 static void retention_and_ownership(void) {
@@ -147,6 +170,6 @@ static void retention_and_ownership(void) {
     workbook_free(&b);
 }
 int main(void) {
-    deletion_and_chronology(); metadata_and_creation(); branch_and_failures(); hidden_limits_and_drafts(); retention_and_ownership();
+    deletion_and_chronology(); metadata_and_creation(); branch_and_failures(); hidden_limits_and_drafts(); retained_format_budget(); retention_and_ownership();
     printf("PASS: %u workbook lifecycle checks\n",checks); return 0;
 }
