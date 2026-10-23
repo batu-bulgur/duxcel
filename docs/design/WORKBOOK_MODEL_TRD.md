@@ -631,6 +631,17 @@ Measure p50/p95/p99 command preparation, durable acknowledgement, UI frame stall
 
 Proposed product targets for discussion: local selection/drag preview stays within a 16.7 ms frame budget; ordinary edit feedback appears within 50 ms even when durability is pending; small local commits target p95 below 100 ms; eligible saved view reopening targets a useful first frame within 1 s on the stated fixture; long materialization/recovery exposes progress/cancel and never freezes the window. These are candidate targets, not measured results or universal file-size promises. Define fixture sizes and cold/warm conditions before acceptance.
 
+W08c2 native policy: wake the writer immediately, naturally coalesce at most
+256 records/4MiB, and acknowledge only after COMMIT. Keep pending distinct from
+durable; no artificial debounce or guaranteed wall-clock durability deadline.
+On this Mac/DuckDB v1.5.6, optimized warm producer/durable p95 is 0.005/1.516ms;
+256 burst edits use two commits. A 20,000-cell legacy paste needs a new baseline:
+about 0.99ms producer copy and 2.14s background checkpoint, with full replay
+verified. Runtime library/input/helper hashes live in ignored run receipts.
+These are C API timings, not UI latency SLAs, and do not admit legacy paste into
+the one-cell journal. Later range/import/result commands need their own bounded
+measurements; keep analytical-worker contention separate from this workload.
+
 Retain existing Page/wire/format limits until deliberately changed with evidence. Add explicit bounds for journal queue, resolved deltas, retained history, tags/assets, full-result cache, and Save/recovery staging. Low storage or memory must reject/adapt before publication rather than pruning protected history opportunistically. Group commits can improve throughput only under an explicit acknowledgement/data-loss-window contract.
 
 ## 17 Acceptance scenarios

@@ -63,3 +63,8 @@ short writes and ENOSPC/EIO/fsync/close failures exercise real engine calls,
 without filling the drive or affecting another process. Queue startup/commit
 failures retain exact records through repaired retries. The owning feature and
 full plans build/hash the support library; checkpoint/UI plans defer the matrix.
+
+`benchmark_journal.py` owns the native journal workload process and engine/input
+provenance. Use its registered `journal-performance` feature plan; finite input
+comes from `create_workbook.py --journal-paste-only`, while native product APIs
+own paste/checkpoint/replay assertions. Metrics are disposable ignored run output.

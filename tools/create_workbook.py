@@ -99,6 +99,21 @@ def create_identity(output, *, duckdb=None):
     return target
 
 
+def create_journal_paste(output, *, duckdb=None):
+    """Finite TSV input; C owns paste, checkpoint and recovery assertions."""
+    executable = duckdb or shutil.which("duckdb")
+    if not executable:
+        raise RuntimeError("The existing DuckDB CLI is required to generate fixtures")
+    output.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".journal-paste-", dir=output) as temporary:
+        stage = Path(temporary) / "journal-paste.tsv"
+        sql = (ROOT / "tests/fixtures/workbook/journal-paste.sql").read_text()
+        execute(executable, ":memory:", sql.replace("@OUTPUT_TSV@", quote(stage)))
+        target = output / stage.name
+        os.replace(stage, target)
+    return target
+
+
 def create(output, *, large=False, duckdb=None):
     executable = duckdb or shutil.which("duckdb")
     if not executable:
@@ -131,9 +146,14 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--large", action="store_true")
     mode.add_argument("--identity-only", action="store_true")
+    mode.add_argument("--journal-paste-only", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "build/tests/generated")
     options = parser.parse_args()
     with FileLock(ROOT / "build/locks/fixture-inputs.lock", "Fixture generation"):
+        if options.journal_paste_only:
+            target = create_journal_paste(options.output_dir.resolve())
+            print(f"PASS: journal paste fixture: {target}")
+            return
         if options.identity_only:
             target = create_identity(options.output_dir.resolve())
             print(f"PASS: identity migration fixture: {target}")

@@ -13,7 +13,7 @@ import sys
 import time
 
 
-from test_catalog import FEATURES, STANDALONE_GUI, ENGINE_PROCESS_CHECKS, plan as feature_plan
+from test_catalog import FEATURE_FIXTURES, FEATURES, STANDALONE_GUI, ENGINE_PROCESS_CHECKS, plan as feature_plan
 from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
                        utc_now, sha256, fingerprint, ensure_unchanged)
 FAST_MODULES = (
@@ -23,7 +23,7 @@ FAST_MODULES = (
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
 RECORD_MODULES = ("record_sql", "record_pages")
-ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES, "workbook_codec_native", "workbook_identity_native", "workbook_journal", "journal_queue", "journal_session")
+ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES, "workbook_codec_native", "workbook_identity_native", "workbook_journal", "journal_queue", "journal_session", "journal_performance")
 FORMATS_COMPLETION_PATTERN = r"^PASS: [1-9]\d* focused workspace formatting checks \(format round-trip, validation, scoped-save rejection and original-file preservation\)$"
 # These are existing, independently bootstrapped layout checkpoints. The end is
 # exclusive, as in DUXCEL_LAYOUT_TO. Never jump into arbitrary stateful stages.
@@ -325,20 +325,34 @@ class Runner:
         self.retain_binaries([binary for _, _, binary in runs]+support)
         for module, config, binary in runs:
             ensure_unchanged(self.summary["binaries"])
-            self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
+            check = ENGINE_PROCESS_CHECKS.get(module)
+            if not check or not check.primary:
+                self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
             ensure_unchanged(self.summary["binaries"])
             self.engine_process_check(module,config,binary)
 
     def engine_process_check(self,module,config,binary):
         if module in ENGINE_PROCESS_CHECKS and ENGINE_PROCESS_CHECKS[module].selected(self.args.feature):
             check = ENGINE_PROCESS_CHECKS[module]
-            self.record(self.command(f"{module}-{config}-process", [sys.executable, check.script, "--binary", binary, *check.arguments],
+            extra = ["--output", str(self.log_dir / f"{module}-{config}-metrics.json")] if check.primary else []
+            self.record(self.command(f"{module}-{config}-process", [sys.executable, check.script, "--binary", binary, *check.arguments, *extra],
                                      check.marker, completion_pattern=check.completion))
             ensure_unchanged(self.summary["binaries"])
+
+    def prepare_feature_fixtures(self, names):
+        for name in sorted(set(names)):
+            arguments, marker, target = FEATURE_FIXTURES[name]
+            if self.args.no_build:
+                if not (self.root / target).is_file():
+                    raise RuntimeError("Missing feature fixture; omit --no-build: " + target)
+            else:
+                self.record(self.command(name+"-fixture", [sys.executable, *arguments], marker))
 
     def feature(self):
         plan = feature_plan(self.args.feature)
         self.summary["feature_plan"] = plan
+        if plan["fixtures"]:
+            self.prepare_feature_fixtures(plan["fixtures"])
         self.summary["app_config"] = "release" if plan["gui"] and plan["gui"] != "about" else "standalone-sanitize" if plan["gui"] else None
         if plan["tool_tests"]:
             self.record(self.command("feature-tools", [sys.executable, "-m", "unittest", *plan["tool_tests"]], "OK"))
@@ -393,6 +407,7 @@ class Runner:
             self.standalone_gui_check(name)
         self.prepare_native(full=True)
         self.retain_binaries(sorted({target for check in ENGINE_PROCESS_CHECKS.values() for target in check.support}))
+        self.prepare_feature_fixtures(FEATURE_FIXTURES)
         # The workbook suite consumes core's generated fixtures. Each
         # configuration completes both before another can replace their files.
         # Independent record suites follow that adjacent pair, still serially.
@@ -400,7 +415,9 @@ class Runner:
             for module in ENGINE_MODULES:
                 binary = test_binary(module, config)
                 self.retain_binaries([binary])
-                self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
+                check = ENGINE_PROCESS_CHECKS.get(module)
+                if not check or not check.primary:
+                    self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
                 ensure_unchanged(self.summary["binaries"])
                 if module=="workbook_codec_native":
                     self.record(self.command(f"{module}-sorts-{config}", ["./" + binary,"--sorts-only"],

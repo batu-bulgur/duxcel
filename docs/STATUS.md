@@ -132,7 +132,12 @@ checkpoint rotation, Save R/R+1, reopen and Don't Save. The existing W06 GUI als
 passes. The separate W08c1 fault matrix now passes actual write-limit and injected
 ENOSPC/EIO/short-write/fsync/close failures in optimized/sanitizer builds. A failed
 first creation cleans up only its own new incomplete journal, allowing Retry;
-existing files remain intact. Final throughput/batching evidence remains W08c2. Startup
+existing files remain intact. W08c2 now measures optimized warm producer/durable p95 at 0.005/1.516ms on
+DuckDB v1.5.6; 256 burst edits coalesce into two commits. The full 20,000-cell
+checkpoint and tail replay passes optimized/sanitizer; its background checkpoint
+is about 2.14s. Keep immediate wakeup and bounded natural batching, without an
+artificial delay. These are helper API measurements, not UI frame guarantees.
+Startup
 recovery selection is W10; persistent Undo is W12; W09 still owns complete Save
 publication/progress/cancel. Browser persistence is unchanged and has no native
 journal backend. Receipts and captures remain in ignored `build/tests/results/`.

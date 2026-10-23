@@ -816,7 +816,7 @@ PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
 	build/tests/test_workbook_lifecycle build/tests/test_workbook_lifecycle-debug build/tests/test_workbook_lifecycle-gui \
-	build/tests/test_workbook_journal build/tests/test_workbook_journal-debug build/tests/test_journal_queue build/tests/test_journal_queue-debug build/tests/test_journal_session build/tests/test_journal_session-debug build/tests/test_journal_session-gui \
+	build/tests/test_workbook_journal build/tests/test_workbook_journal-debug build/tests/test_journal_queue build/tests/test_journal_queue-debug build/tests/test_journal_session build/tests/test_journal_session-debug build/tests/test_journal_session-gui build/tests/test_journal_performance build/tests/test_journal_performance-debug \
 	build/tests/test_cell_command build/tests/test_cell_command-debug build/tests/test_cell_command-native \
 	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
@@ -1218,3 +1218,12 @@ else
 build/tests/libjournal_fault.dylib: tests/support/journal_fault.c | build/tests
 	$(call link_binary,-O2 -g $(WARN) -fPIC -shared $<,-ldl -pthread)
 endif
+
+# Finite product-API workload; Python generates its TSV, never a C fixture writer.
+JOURNAL_PERF_OBJECTS = $(filter-out %/tests/test_journal_session.o,$(JOURNAL_SESSION_OBJECTS)) build/obj/release/app/tests/test_journal_performance.o
+JOURNAL_PERF_SAN_OBJECTS = $(filter-out %/tests/test_journal_session.o,$(JOURNAL_SESSION_SAN_OBJECTS)) build/obj/sanitize/app/tests/test_journal_performance.o
+build/tests/test_journal_performance: $(JOURNAL_PERF_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(JOURNAL_PERF_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm)
+build/tests/test_journal_performance-debug: $(JOURNAL_PERF_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_PERF_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm $(SANFLAGS))
+-include $(JOURNAL_PERF_OBJECTS:.o=.d) $(JOURNAL_PERF_SAN_OBJECTS:.o=.d)

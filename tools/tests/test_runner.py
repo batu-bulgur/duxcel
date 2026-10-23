@@ -318,9 +318,12 @@ class RunnerTests(unittest.TestCase):
             engines = [runner.test_binary(module, config) for config in ("release", "sanitize")
                        for module in runner.ENGINE_MODULES]
             self.assertTrue(set(engines).issubset(command.call_args_list[0].args[1]))
-            expected=[]
+            expected=[[runner.sys.executable, "tools/create_workbook.py", "--journal-paste-only"]]
             for binary in engines:
-                expected.append(["./"+binary])
+                module=pathlib.Path(binary).name.removeprefix("test_").removesuffix("-debug")
+                check=runner.ENGINE_PROCESS_CHECKS.get(module)
+                if not check or not check.primary:
+                    expected.append(["./"+binary])
                 if 'test_workbook_codec_native' in binary:
                     expected.append(["./"+binary,"--sorts-only"])
                     expected.append(["./"+binary,"--preferences-only"])
@@ -338,7 +341,10 @@ class RunnerTests(unittest.TestCase):
                     expected.append(["./"+binary,"--format-rows-only"])
                 module=pathlib.Path(binary).name.removeprefix("test_").removesuffix("-debug")
                 if module in runner.ENGINE_PROCESS_CHECKS:
-                    expected.append([runner.sys.executable,runner.ENGINE_PROCESS_CHECKS[module].script,"--binary",binary,*runner.ENGINE_PROCESS_CHECKS[module].arguments])
+                    check=runner.ENGINE_PROCESS_CHECKS[module]
+                    config="sanitize" if binary.endswith("-debug") else "release"
+                    extra=["--output",str(instance.log_dir / f"{module}-{config}-metrics.json")] if check.primary else []
+                    expected.append([runner.sys.executable,check.script,"--binary",binary,*check.arguments,*extra])
             self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]],expected)
 
     def test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation(self):
