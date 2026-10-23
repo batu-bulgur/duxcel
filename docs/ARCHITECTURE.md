@@ -154,8 +154,11 @@ adapter is implemented.
 checkpoint lineage. It creates a private generation only for a valid changed
 command, snapshots current owned state, reserves immutable before/after bytes,
 applies through the existing producer and publishes only on success. Checkpoint
-Save and journal opening run on the queue owner, before any edit COMMIT can be
-acknowledged. No App/Page/renderer pointer crosses that boundary. The App captures
+Save, closed-file fingerprinting and immutable journal-origin binding run on the
+queue owner before readiness or any edit COMMIT can be acknowledged. Native
+macOS uses the existing fixed-buffer SHA-256 adapter; a leftover baseline WAL
+rejects preparation for Retry. Other native hosts retain v1 unbound backups until
+their digest boundary is implemented. No App/Page/renderer pointer crosses that boundary. The App captures
 its independent live Analysis/view first; source protection remains authoritative.
 
 A bounded scalar/identity/store/action fence tracks the admitted prefix, including
@@ -469,4 +472,8 @@ replace an existing origin or infer one for a nonempty legacy tail. Metadata
 reads bound row count and text/blob sizes before native allocation; path bytes
 are read as BLOB to reject embedded NUL instead of silently truncating. Recovery
 must still hash the actual checkpoint and compare the complete origin before
-replay. W10a2 owns the real session fingerprint/admission integration.
+replay. The session now supplies the actual closed-checkpoint fingerprint and immutable
+parent/generation identity before opening the write lane on native macOS.
+Missing/conflicting origin or engine failure retains pending records for exact
+retry; no failed metadata binding can acknowledge an edit. Startup discovery and
+process ownership remain W10b/W10c.

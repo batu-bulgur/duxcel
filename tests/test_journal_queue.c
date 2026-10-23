@@ -142,6 +142,26 @@ static void preparation(const char *path) {
     CHECK(workbook_journal_queue_request_stop(q,true,&error)); CHECK(workbook_journal_queue_stop(q,true,&error));
     workbook_journal_queue_free(q); CHECK(setup.calls==2 && setup.released); gate_free(&gate); inspect(path,1,"Prepared",NULL,false);
 }
+typedef struct { Gate preparation; JournalOrigin origin; bool missing; } OriginSetup;
+static bool origin_prepare(void *context,char **error) { (void)error; return gate_before(&((OriginSetup *)context)->preparation); }
+static const JournalOrigin *origin_ready(void *context) { OriginSetup *s=context; return s->missing ? NULL : &s->origin; }
+static void origin_admission(const char *path) {
+    Gate commit; gate_init(&commit,true,false); OriginSetup setup={0}; gate_init(&setup.preparation,false,false);
+    setup.origin=(JournalOrigin){.generation={12,34},.parent={56,78},.baseline_bytes=1234,.original_path="/tmp/original.dxls"}; memset(setup.origin.baseline_sha256,'x',32); setup.missing=true;
+    JournalQueueOptions opts=options(&commit,2,2); opts.setup=(JournalQueueSetup){origin_prepare,NULL,&setup}; opts.origin=origin_ready;
+    char *error=NULL; WorkbookJournalQueue *q=workbook_journal_queue_start(path,document,0,0,opts,&error); CHECK(q && !error);
+    gate_wait(&setup.preparation); publish(q,edit(1,"","Origin")); gate_release(&setup.preparation);
+    JournalQueueState failed=wait_state(q,0,true); CHECK(failed.prepared && failed.pending==1 && !failed.durable_revision && *failed.error);
+    setup.missing=false; CHECK(workbook_journal_queue_retry(q,&error)); JournalQueueState ready=wait_state(q,1,false); CHECK(ready.prepared && !ready.pending && !ready.owned_bytes);
+    CHECK(workbook_journal_queue_stop(q,true,&error)); workbook_journal_queue_free(q);
+    WorkbookJournal *j=NULL; CHECK(workbook_journal_open(&j,path,document,0,&error)); const JournalOrigin *origin=workbook_journal_origin(j);
+    CHECK(origin && origin->generation.low==34 && origin->parent.low==78 && origin->baseline_bytes==1234); workbook_journal_close(j);
+    setup.origin.generation.low++; q=workbook_journal_queue_start(path,document,0,1,opts,&error); CHECK(q && !error);
+    failed=wait_state(q,1,true); CHECK(failed.failed && !failed.pending && failed.durable_revision==1);
+    setup.origin.generation.low--; CHECK(workbook_journal_queue_retry(q,&error)); wait_state(q,1,false); publish(q,edit(2,"Origin","Exact origin")); wait_state(q,2,false);
+    CHECK(workbook_journal_queue_stop(q,true,&error)); workbook_journal_queue_free(q); CHECK(!error);
+    inspect(path,2,"Origin","Exact origin",false); gate_free(&setup.preparation); gate_free(&commit);
+}
 static void lineage_and_options(const char *path,const char *missing) {
     Gate gate; gate_init(&gate,true,false); char *error=NULL; JournalQueueOptions opts=options(&gate,2,2);
     WorkbookJournalQueue *q=workbook_journal_queue_start(path,document,0,0,opts,&error); CHECK(q && !error);
@@ -160,6 +180,21 @@ static void lineage_and_options(const char *path,const char *missing) {
     gate_free(&gate);
 }
 static bool process_prepare(void *context,char **error) { (void)error; return gate_before(context); }
+static const JournalOrigin process_origin_value={.generation={93,12},.parent={93,11},.baseline_bytes=4096,.baseline_sha256={1},.original_path="/tmp/original.dxls"};
+static const JournalOrigin *process_origin(void *context) {
+    (void)context; static bool armed;
+    if (!armed) {
+        void *symbol=dlsym(RTLD_DEFAULT,"duxcel_journal_fault_arm"); void (*arm)(void)=NULL;
+        if (!symbol || sizeof(symbol)!=sizeof(arm)) return NULL;
+        memcpy(&arm,&symbol,sizeof(arm)); arm(); armed=true;
+    }
+    return &process_origin_value;
+}
+static void inspect_origin(const char *path) {
+    WorkbookJournal *j=NULL; char *error=NULL; CHECK(workbook_journal_open(&j,path,document,0,&error));
+    const JournalOrigin *origin=workbook_journal_origin(j); CHECK(origin && !error && origin->generation.low==12 && origin->parent.low==11 && origin->baseline_bytes==4096 && origin->baseline_sha256[0]==1);
+    workbook_journal_close(j);
+}
 static int process_mode(int argc,char **argv) {
     if (argc!=3) return 2;
     const char *path=argv[2]; char *error=NULL;
@@ -168,9 +203,11 @@ static int process_mode(int argc,char **argv) {
         puts("PASS: queue journal initialized"); return 0;
     }
     if (!strcmp(argv[1],"--inspect")) { inspect(path,2,"First","Second",false); puts("PASS: queue journal complete"); return 0; }
-    if (strcmp(argv[1],"--fault")) return 2;
+    if (!strcmp(argv[1],"--inspect-origin")) { inspect(path,2,"First","Second",false); inspect_origin(path); puts("PASS: queue origin journal complete"); return 0; }
+    bool origin_fault=!strcmp(argv[1],"--origin-fault");
+    if (strcmp(argv[1],"--fault") && !origin_fault) return 2;
     Gate gate; gate_init(&gate,false,false); JournalQueueOptions opts={.entries=2,.bytes=DX_JOURNAL_BATCH_BYTES,.batch=2};
-    opts.setup=(JournalQueueSetup){.prepare=process_prepare,.context=&gate};
+    opts.setup=(JournalQueueSetup){.prepare=process_prepare,.context=&gate}; if (origin_fault) opts.origin=process_origin;
     /* Setup pauses before opening the existing file, so both records are ready
        before the actual failing two-record transaction begins. */
     WorkbookJournalQueue *q=workbook_journal_queue_start(path,document,0,0,opts,&error); CHECK(q && !error);
@@ -183,15 +220,16 @@ static int process_mode(int argc,char **argv) {
     CHECK(workbook_journal_queue_retry(q,&error)); JournalQueueState done=wait_state(q,2,false);
     CHECK(done.durable_revision==2 && !done.pending && !done.owned_bytes && !done.failed);
     CHECK(workbook_journal_queue_stop(q,true,&error)); CHECK(!error); workbook_journal_queue_free(q); gate_free(&gate);
-    inspect(path,2,"First","Second",false); puts("PASS: queue I/O retry retained exact records"); return 0;
+    inspect(path,2,"First","Second",false); if (origin_fault) inspect_origin(path);
+    puts(origin_fault ? "PASS: queue origin I/O retry retained exact records" : "PASS: queue I/O retry retained exact records"); return 0;
 }
 int main(int argc,char **argv) {
     if (argc>1) return process_mode(argc,argv);
     char directory[]="build/tests/journal-queue-XXXXXX"; CHECK(mkdtemp(directory));
-    const char *names[]={"bounds","retry","batch","bytes","abort","drain","prepare"}; char *paths[7];
-    for (unsigned i=0;i<7;i++) paths[i]=dx_printf("%s/%s.duckdb",directory,names[i]);
-    reservation_and_backpressure(paths[0]); failure_during_reservation(paths[1]); batching(paths[2]); byte_budget(paths[3]); shutdown_case(paths[4],false); shutdown_case(paths[5],true); preparation(paths[6]);
+    const char *names[]={"bounds","retry","batch","bytes","abort","drain","prepare","origin"}; char *paths[8];
+    for (unsigned i=0;i<8;i++) paths[i]=dx_printf("%s/%s.duckdb",directory,names[i]);
+    reservation_and_backpressure(paths[0]); failure_during_reservation(paths[1]); batching(paths[2]); byte_budget(paths[3]); shutdown_case(paths[4],false); shutdown_case(paths[5],true); preparation(paths[6]); origin_admission(paths[7]);
     char *missing=dx_printf("%s/missing/edits.duckdb",directory); lineage_and_options(paths[0],missing); free(missing);
-    for (unsigned i=0;i<7;i++) { unlink(paths[i]); free(paths[i]); } CHECK(!rmdir(directory));
+    for (unsigned i=0;i<8;i++) { unlink(paths[i]); free(paths[i]); } CHECK(!rmdir(directory));
     printf("PASS: %u journal queue checks\n",checks); return 0;
 }

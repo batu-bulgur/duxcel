@@ -93,6 +93,13 @@ def queue_cases(binary, library, directory):
             fault_marker(output, mode)
             run(binary, "--inspect", path, marker="PASS: queue journal complete"); checks += 1
             print(f"Queue {name}: retained two owned records, repaired retry, exact reopened state", flush=True)
+    for mode in ("enospc", "eio", "partial", "fsync"):
+        path = Path(directory) / ("origin-" + mode + ".duckdb")
+        output = run(binary, "--origin-fault", path, env=environment(library, path, mode, True),
+                     marker="PASS: queue origin I/O retry retained exact records"); checks += 1
+        fault_marker(output, mode)
+        run(binary, "--inspect-origin", path, marker="PASS: queue origin journal complete"); checks += 1
+        print(f"Queue origin-{mode}: immutable origin and two exact records survive repair/retry", flush=True)
     return checks
 
 
@@ -108,7 +115,7 @@ def main():
         checks = (queue_cases if args.queue else storage_cases)(binary, library, directory)
     ensure_unchanged(provenance)
     print(f"Filesystem fault duration: {time.monotonic() - started:.3f}s")
-    print(f"PASS: journal {'queue ' if args.queue else ''}filesystem failures ({8 if args.queue else 6} cases, {checks} checks)")
+    print(f"PASS: journal {'queue ' if args.queue else ''}filesystem failures ({12 if args.queue else 6} cases, {checks} checks)")
 
 
 if __name__ == "__main__":

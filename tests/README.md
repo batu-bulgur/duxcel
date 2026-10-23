@@ -144,3 +144,13 @@ The journal primitive's default test now covers v2 origin ownership, full uint64
 IDs/sizes, exact retries after appends, generation/parent/digest/locator conflicts,
 unnamed-workbook origins, malformed rows/schema/digests/embedded NUL and refusal
 to infer an origin for a legacy nonempty tail. No startup recovery UI is implied.
+
+W10a2 extends `journal-session` with actual closed-checkpoint size/SHA-256,
+original named/unnamed locator and parent-generation assertions. Queue tests
+hold preparation, reject a missing/conflicting origin before acknowledgement,
+retain pending records and repair with the exact origin. The separate
+`journal-faults` matrix arms its private interposer only when binding begins,
+verifying four v2 origin write/fsync failure modes with exact two-record retry
+and fresh-process metadata/content checks. That named matrix remains deferred
+from ordinary App/UI edits. Streaming fingerprint integration is macOS-only;
+portable journal v2 accepts explicit caller-provided origin bytes on native C.

@@ -1,5 +1,6 @@
 #include "journal_session.h"
 #include "../platform/platform.h"
+#include "../data/source_digest.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +26,7 @@ typedef struct {
     Workbook *snapshot;
     char *directory,*checkpoint,*journal;
     size_t format_bytes;
+    JournalOrigin origin;
 } Checkpoint;
 typedef struct { WorkbookJournalQueue *queue; Checkpoint *checkpoint; } Generation;
 struct WorkbookJournalSession {
@@ -62,14 +64,27 @@ static bool matches(const ContentFence *f,const Workbook *b) {
 static void checkpoint_release(void *context) {
     Checkpoint *c=context;
     if (c->snapshot) { workbook_free(c->snapshot); free(c->snapshot); }
-    free(c->directory); free(c->checkpoint); free(c->journal); free(c);
+    free((void *)c->origin.original_path); free(c->directory); free(c->checkpoint); free(c->journal); free(c);
 }
 static bool checkpoint_prepare(void *context,char **error) {
     Checkpoint *c=context;
     if (!c->snapshot) return true;
     if (!workbook_save(c->snapshot,c->checkpoint,error)) return false;
+#ifdef __APPLE__
+    /* The existing streaming digest adapter is validated on native macOS.
+       Other native hosts retain unbound v1 backup behavior until their digest
+       boundary is implemented; no SDK dependency enters this C controller. */
+    char *wal=dx_printf("%s.wal",c->checkpoint),*unfinished=dx_absolute_path(wal); free(wal);
+    if (unfinished) { free(unfinished); return fail(error,"The recovery checkpoint still has a pending WAL. Retry after the storage error is resolved."); }
+    SourceDigest digest={0}; char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
+    if (source_digest_file(c->checkpoint,NULL,NULL,&digest,detail)!=SOURCE_DIGEST_OK) return fail(error,*detail ? detail : "Cannot fingerprint the recovery checkpoint.");
+    c->origin.baseline_bytes=digest.bytes; memcpy(c->origin.baseline_sha256,digest.sha256,DX_JOURNAL_DIGEST_BYTES);
+#endif
     workbook_free(c->snapshot); free(c->snapshot); c->snapshot=NULL; return true;
 }
+#ifdef __APPLE__
+static const JournalOrigin *checkpoint_origin(void *context) { return &((Checkpoint *)context)->origin; }
+#endif
 static void remove_owned(const Checkpoint *c) {
     /* Fixed private filenames only. Never recursively remove an unrecognized
        file or touch an external source/named workbook. */
@@ -114,12 +129,26 @@ static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,char **
     if (status!=FORMAT_BUDGET_OK) return fail(error,workbook_format_budget_message(status));
     if (!dx_make_directories(s->root)) return fail(error,"Cannot create the local backup folder. Your draft is kept.");
     Checkpoint *c=dx_alloc(sizeof(*c)); memset(c,0,sizeof(*c)); c->format_bytes=usage.current;
+    bool identified=false;
+    for (unsigned attempt=0;attempt<8 && !identified;attempt++) {
+        if (!dx_random_bytes(&c->origin.generation,sizeof(c->origin.generation))) break;
+        identified=c->origin.generation.high || c->origin.generation.low;
+    }
+    if (!identified) { checkpoint_release(c); return fail(error,"Cannot allocate a recovery generation identity. Your draft is kept."); }
+    c->origin.parent=s->active.checkpoint ? s->active.checkpoint->origin.generation : (WorkbookId){0};
+    if (b->path && strlen(b->path)>65536) { checkpoint_release(c); return fail(error,"The original workbook path exceeds the recovery metadata limit."); }
+    c->origin.original_path=dx_strdup(b->path ? b->path : "");
     c->directory=dx_private_directory(s->root);
     if (!c->directory) { checkpoint_release(c); return fail(error,"Cannot create a private local backup. Your draft is kept."); }
     c->checkpoint=dx_printf("%s/checkpoint.dxls",c->directory); c->journal=dx_printf("%s/journal.duckdb",c->directory);
     c->snapshot=workbook_snapshot(b);
     if (!c->snapshot) { remove_owned(c); checkpoint_release(c); return fail(error,"Cannot prepare this workbook for local backup. Your draft is kept."); }
     JournalQueueOptions options=s->options; options.setup=(JournalQueueSetup){checkpoint_prepare,checkpoint_release,c};
+#ifdef __APPLE__
+    options.origin=checkpoint_origin;
+#else
+    options.origin=NULL;
+#endif
     WorkbookJournalQueue *queue=workbook_journal_queue_start(c->journal,b->id,b->command_revision,b->command_revision,options,error);
     if (!queue) { remove_owned(c); checkpoint_release(c); return false; }
     if (s->active.queue) {
@@ -149,7 +178,7 @@ CellEditResult workbook_journal_session_apply(WorkbookJournalSession *s,Workbook
 JournalSessionState workbook_journal_session_state(WorkbookJournalSession *s,const Workbook *b) {
     JournalSessionState state={0}; if (!s) return state;
     state.active=s->active.queue!=NULL; state.covered=state.active && matches(&s->expected,b);
-    if (state.active) state.queue=workbook_journal_queue_state(s->active.queue);
+    if (state.active) { state.queue=workbook_journal_queue_state(s->active.queue); state.generation=s->active.checkpoint->origin.generation; state.parent=s->active.checkpoint->origin.parent; }
     state.checkpoint_format_bytes=generation_bytes(&s->active)+generation_bytes(&s->retired); return state;
 }
 bool workbook_journal_session_retry(WorkbookJournalSession *s,char **error) {

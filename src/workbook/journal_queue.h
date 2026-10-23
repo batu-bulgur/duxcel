@@ -14,6 +14,10 @@ typedef struct {
     size_t entries,bytes,batch; /* Nonzero, at most the journal's hard limits. */
     JournalQueueSetup setup;
     JournalControl observer; /* Optional writer-thread observation/cancellation. */
+    /* Optional writer-thread origin after prepare; context is setup.context.
+       Result is borrowed until setup.release. When installed, NULL is failure;
+       exact binding precedes readiness/acknowledgement and repeats on reopen. */
+    const JournalOrigin *(*origin)(void *context);
 } JournalQueueOptions;
 typedef struct {
     uint64_t accepted_revision,durable_revision;

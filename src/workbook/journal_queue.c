@@ -51,6 +51,11 @@ static void *writer(void *context) {
             dx_unlock(&q->mutex); char *error=NULL;
             bool prepared=already_prepared || !q->options.setup.prepare || q->options.setup.prepare(q->options.setup.context,&error);
             bool opened=prepared && workbook_journal_open(&journal,q->path,q->document,q->base,&error);
+            if (opened && q->options.origin) {
+                const JournalOrigin *origin=q->options.origin(q->options.setup.context);
+                opened=origin && workbook_journal_bind_origin(journal,origin,&error);
+                if (!origin) fail(&error,"Recovery checkpoint origin is not ready.");
+            }
             dx_lock(&q->mutex);
             q->state.prepared=prepared;
             uint64_t head=workbook_journal_durable_revision(journal);

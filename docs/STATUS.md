@@ -250,3 +250,10 @@ Save preserves the previous file/path and local recovery material. Focused
 optimized/sanitizer writer and worker checks plus 18 hidden real-App stages pass,
 including pointer Cancel at 150%, native pan, R+1 and failed Save. Startup recovery
 remains W10; retained durable Undo and full analytical outputs remain later slices.
+
+W10a now binds native macOS recovery generations to the actual closed checkpoint
+size/SHA-256, parent generation and original locator before acknowledging journal
+edits. Origin failure/mismatch keeps pending bytes for explicit Retry. Scoped
+optimized/sanitizer model, actual fingerprint/rotation, origin IO-fault and hidden
+App checks pass. Startup recovery/branch choice is still unavailable (W10b/W10c).
+Other native hosts retain unbound v1 backups pending their digest adapter.

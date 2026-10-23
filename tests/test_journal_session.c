@@ -3,6 +3,7 @@
 #include "workbook/journal_session.h"
 #include "workbook/lifecycle.h"
 #include "platform/platform.h"
+#include "data/source_digest.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,15 +43,25 @@ static bool replay(void *context,const JournalCellEdit *e,char **error) {
     bool changed=cells_set(&sheet->cells,e->row,e->column,after,error); free(after); CHECK(changed);
     worksheet_record(sheet,EDIT_CELLS); workbook_history_note_edit(b); b->command_revision=e->revision; return true;
 }
-static void recover(const char *checkpoint,const char *journal,Workbook *out,uint64_t head) {
+static void recover(const char *checkpoint,const char *journal,Workbook *out,uint64_t head,const char *original) {
     char *error=NULL; CHECK(workbook_load(out,checkpoint,&error)); WorkbookJournal *j=NULL;
     CHECK(workbook_journal_open(&j,journal,out->id,out->command_revision,&error)); CHECK(workbook_journal_durable_revision(j)==head);
+#ifdef __APPLE__
+    const JournalOrigin *origin=workbook_journal_origin(j); CHECK(origin && (origin->generation.high || origin->generation.low));
+    SourceDigest digest={0}; char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
+    CHECK(source_digest_file(checkpoint,NULL,NULL,&digest,detail)==SOURCE_DIGEST_OK);
+    CHECK(origin->baseline_bytes==digest.bytes && !memcmp(origin->baseline_sha256,digest.sha256,32));
+    CHECK(!strcmp(origin->original_path,original ? original : ""));
+#else
+    (void)original;
+#endif
     Replay context={out};
     while (out->command_revision<head) { size_t visited=0; CHECK(workbook_journal_read(j,out->command_revision,256,replay,&context,&visited,&error)); CHECK(visited); }
     CHECK(!error); workbook_journal_close(j);
 }
 static void initial_checkpoint(const char *root) {
     Workbook b,loaded; base(&b); workbook_init(&loaded); char *error=NULL;
+    char *locator=dx_absolute_path("build/tests"); CHECK(locator); b.path=dx_printf("%s/original named İstanbul.dxls",locator); free(locator);
     CHECK(cells_set(&b.sheets[0].cells,0,0,"9007199254740993.0123456789",&error)); worksheet_record(&b.sheets[0],EDIT_CELLS);
     WorkbookJournalSession *s=session(root,options()); CellEditCommand same=command(&b,0,"");
     CHECK(workbook_journal_session_apply(s,&b,&same,(CellEditPolicy){0,0,true},&error).status==CELL_EDIT_NOOP);
@@ -66,21 +77,24 @@ static void initial_checkpoint(const char *root) {
     CHECK(workbook_journal_session_close(s,false,&error)); CHECK(!error);
     CHECK(workbook_load(&loaded,checkpoint,&error)); CHECK(loaded.command_revision==0 && !*cells_get(&loaded.sheets[0].cells,3,2));
     CHECK(!strcmp(cells_get(&loaded.sheets[0].cells,0,0),"9007199254740993.0123456789"));
-    recover(checkpoint,journal,&loaded,2);
+    recover(checkpoint,journal,&loaded,2,b.path);
     CHECK(!strcmp(cells_get(&loaded.sheets[0].cells,3,2),"First") && !strcmp(cells_get(&loaded.sheets[1].cells,3,2),"NULL"));
     CHECK(loaded.id.high==b.id.high && loaded.id.low==b.id.low && loaded.sheets[0].id==b.sheets[0].id && loaded.sheets[1].id==b.sheets[1].id);
     cleanup_generation(checkpoint,journal); CHECK(!rmdir(root)); free(checkpoint); free(journal); workbook_free(&loaded); workbook_free(&b);
 }
 static void rotation_and_history(const char *root) {
     Workbook b,loaded; base(&b); workbook_init(&loaded); char *error=NULL;
-    WorkbookJournalSession *s=session(root,options()); apply(s,&b,0,"First"); ready(s,&b);
+    WorkbookJournalSession *s=session(root,options()); apply(s,&b,0,"First"); JournalSessionState first=ready(s,&b);
+    CHECK((first.generation.high || first.generation.low) && !first.parent.high && !first.parent.low);
     char *old=parent(workbook_journal_session_checkpoint(s));
     CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
     CHECK(format_apply(&b.sheets[1].formats,(FormatRange){3,3,2,2},FORMAT_BOLD,bold,&error)); worksheet_record(&b.sheets[1],EDIT_FORMAT);
     CHECK(!workbook_journal_session_state(s,&b).covered && workbook_journal_session_needs_checkpoint(s,&b));
     CellEditCommand noop=command(&b,0,"First"); CHECK(workbook_journal_session_apply(s,&b,&noop,(CellEditPolicy){0,0,true},&error).status==CELL_EDIT_NOOP);
     CHECK(!workbook_journal_session_state(s,&b).covered);
-    apply(s,&b,1,"Second"); ready(s,&b);
+    apply(s,&b,1,"Second"); JournalSessionState second=ready(s,&b);
+    CHECK(second.parent.high==first.generation.high && second.parent.low==first.generation.low);
+    CHECK(second.generation.high!=first.generation.high || second.generation.low!=first.generation.low);
     for (unsigned i=0;i<100 && !access(old,F_OK);i++) { workbook_journal_session_poll(s); dx_sleep_ms(1); }
     CHECK(access(old,F_OK)); free(old);
     CHECK(workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_RENAME,.sheet=1,.name="Renamed B"},NULL,&error));
@@ -92,7 +106,7 @@ static void rotation_and_history(const char *root) {
     CHECK(workbook_history_available(&b,true)); apply(s,&b,0,"Branch"); ready(s,&b); CHECK(!workbook_history_available(&b,true));
     char *checkpoint=dx_strdup(workbook_journal_session_checkpoint(s)),*journal=dx_strdup(workbook_journal_session_journal(s)); uint64_t head=b.command_revision;
     CHECK(workbook_journal_session_close(s,false,&error)); CHECK(!error);
-    recover(checkpoint,journal,&loaded,head);
+    recover(checkpoint,journal,&loaded,head,b.path);
     CHECK(!strcmp(loaded.sheets[0].name,"Renamed B") && !strcmp(cells_get(&loaded.sheets[0].cells,3,2),"Branch"));
     CHECK(format_at(&loaded.sheets[0].formats,3,2).flags==FORMAT_BOLD && !strcmp(cells_get(&loaded.sheets[1].cells,3,2),"First"));
     cleanup_generation(checkpoint,journal); CHECK(!rmdir(root)); free(checkpoint); free(journal); workbook_free(&loaded); workbook_free(&b);

@@ -5,6 +5,7 @@
 typedef struct WorkbookJournalSession WorkbookJournalSession;
 typedef struct {
     JournalQueueState queue;
+    WorkbookId generation,parent; /* Immutable current generation lineage, even while pending. */
     bool active,covered;
     size_t checkpoint_format_bytes;
 } JournalSessionState;

@@ -53,7 +53,7 @@ ENGINE_PROCESS_CHECKS = {
     "workbook_journal": EngineProcessCheck("tools/test_journal_process.py", "PASS: journal process boundaries",
         r"^PASS: journal process boundaries \(8 cases, 56 checks\)$", (JOURNAL_FAULT_LIBRARY,), ("--fault-library", JOURNAL_FAULT_LIBRARY), ("workbook-journal", "journal-faults")),
     "journal_queue": EngineProcessCheck("tools/test_journal_faults.py", "PASS: journal queue filesystem failures",
-        r"^PASS: journal queue filesystem failures \(8 cases, 20 checks\)$", (JOURNAL_FAULT_LIBRARY,), ("--fault-library", JOURNAL_FAULT_LIBRARY, "--queue"), ("journal-queue", "journal-faults")),
+        r"^PASS: journal queue filesystem failures \(12 cases, 28 checks\)$", (JOURNAL_FAULT_LIBRARY,), ("--fault-library", JOURNAL_FAULT_LIBRARY, "--queue"), ("journal-queue", "journal-faults")),
 }
 
 
