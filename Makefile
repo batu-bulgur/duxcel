@@ -816,7 +816,7 @@ PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
 	build/tests/test_workbook_lifecycle build/tests/test_workbook_lifecycle-debug build/tests/test_workbook_lifecycle-gui \
-	build/tests/test_workbook_journal build/tests/test_workbook_journal-debug build/tests/test_journal_queue build/tests/test_journal_queue-debug build/tests/test_journal_session build/tests/test_journal_session-debug build/tests/test_journal_session-gui build/tests/test_journal_performance build/tests/test_journal_performance-debug \
+	build/tests/test_workbook_journal build/tests/test_workbook_journal-debug build/tests/test_journal_queue build/tests/test_journal_queue-debug build/tests/test_journal_session build/tests/test_journal_session-debug build/tests/test_journal_session-gui build/tests/test_journal_performance build/tests/test_journal_performance-debug build/tests/test_workbook_save build/tests/test_workbook_save-debug \
 	build/tests/test_cell_command build/tests/test_cell_command-debug build/tests/test_cell_command-native \
 	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
@@ -1227,3 +1227,11 @@ build/tests/test_journal_performance: $(JOURNAL_PERF_OBJECTS) | build/tests
 build/tests/test_journal_performance-debug: $(JOURNAL_PERF_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_PERF_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm $(SANFLAGS))
 -include $(JOURNAL_PERF_OBJECTS:.o=.d) $(JOURNAL_PERF_SAN_OBJECTS:.o=.d)
+
+WORKBOOK_SAVE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/release/app/tests/test_workbook_save.o
+WORKBOOK_SAVE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/sanitize/app/tests/test_workbook_save.o
+build/tests/test_workbook_save: $(WORKBOOK_SAVE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(WORKBOOK_SAVE_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_workbook_save-debug: $(WORKBOOK_SAVE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(WORKBOOK_SAVE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(WORKBOOK_SAVE_OBJECTS:.o=.d) $(WORKBOOK_SAVE_SAN_OBJECTS:.o=.d)

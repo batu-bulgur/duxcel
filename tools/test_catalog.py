@@ -56,6 +56,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "workbook-save": Feature((), "journal-session",
+        ("python3 tools/test.py feature --feature journal-session", "python3 tools/test.py native --scenario document --config sanitize", "python3 tools/test.py formats --config both"),
+        ("src/workbook/save.h", "src/workbook/workbook.c: controlled transactional Save"), ("workbook_save",)),
     "journal-performance": Feature((), "",
         ("python3 tools/test.py feature --feature journal-session", "python3 tools/test.py feature --feature journal-faults"),
         ("src/workbook/journal_session.c: measured admission", "tests/test_journal_performance.c", "tools/benchmark_journal.py"),

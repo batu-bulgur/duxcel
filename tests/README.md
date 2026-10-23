@@ -115,3 +115,10 @@ version/library identity against its linkage and retains before/after hashes of
 the helper, library and input. Only optimized timings inform batching; sanitizer
 runs establish ownership/correctness. Producer API time is not physical input or
 frame latency. No App/desktop launch or unrelated filesystem matrix is needed.
+
+W09a uses `make test-feature FEATURE=workbook-save`: `test_workbook_save.c`
+links the real native writer and verifies six cancellation points on both new
+and existing destinations, rollback/retry boundaries, exact content/identity,
+unrelated user tables and refusal to cancel a completed publication. It also
+runs the existing narrow checkpoint/Save GUI. The primitive's callback performs
+no synthetic fixture generation or physical desktop interaction.

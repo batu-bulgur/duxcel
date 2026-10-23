@@ -5,6 +5,7 @@
 #include "../platform/platform.h"
 #ifndef DUXCEL_BROWSER_HOST
 #include <duckdb.h>
+#include "save.h"
 #endif
 #include <math.h>
 #include <stdlib.h>
@@ -1167,41 +1168,61 @@ static bool load_identity_package(duckdb_connection c,Workbook *book,char **erro
     return ok || range_fail(error,"Invalid workbook/worksheet identity rows; the current document was preserved.");
 }
 static bool source_archive_valid(duckdb_connection c,const char *target,int package,char **error);
-bool workbook_save(const Workbook *b,const char *path,char **error) {
-    if (!b || !path || !*path || (b->count && !b->sheets)) { if (error) error_set(error,"No valid workbook or destination to save."); return false; }
-    if (!b->count || b->count>DX_MAX_SHEETS || b->active>=b->count) { error_set(error,"No valid worksheet to save."); return false; }
-    if (b->sheets[b->active].hidden) { error_set(error,"The active worksheet must be visible."); return false; }
-    if (!isfinite(b->user_scale) || b->user_scale<.8 || b->user_scale>1.5) { error_set(error,"Invalid workspace zoom."); return false; }
+typedef struct {
+    WorkbookSaveControl control;
+    WorkbookSaveProgress progress;
+    bool cancelled;
+} SaveTracker;
+static bool save_progress(SaveTracker *tracker,WorkbookSavePhase phase,bool advance,char **error) {
+    tracker->progress.phase=phase;
+    if (advance) tracker->progress.completed++;
+    if (!tracker->control.update || tracker->control.update(tracker->control.context,tracker->progress) || phase==SAVE_PHASE_COMPLETE) return true;
+    tracker->cancelled=true; error_set(error,"Save cancelled. No new workbook state was published."); return false;
+}
+WorkbookSaveResult workbook_save_controlled(const Workbook *b,const char *path,WorkbookSaveControl control,char **error) {
+    if (!b || !path || !*path || (b->count && !b->sheets)) { if (error) error_set(error,"No valid workbook or destination to save."); return WORKBOOK_SAVE_FAILED; }
+    if (!b->count || b->count>DX_MAX_SHEETS || b->active>=b->count) { error_set(error,"No valid worksheet to save."); return WORKBOOK_SAVE_FAILED; }
+    if (b->sheets[b->active].hidden) { error_set(error,"The active worksheet must be visible."); return WORKBOOK_SAVE_FAILED; }
+    if (!isfinite(b->user_scale) || b->user_scale<.8 || b->user_scale>1.5) { error_set(error,"Invalid workspace zoom."); return WORKBOOK_SAVE_FAILED; }
+    SaveTracker tracker={.control=control,.progress={.total=8+b->count}};
+    for (size_t i=0;i<b->count;i++) {
+        if (b->sheets[i].view.column_count>16384 || b->sheets[i].cells.count>DX_MAX_EDIT_CELLS) {
+            error_set(error,"Worksheet contents exceed the supported Save bounds."); return WORKBOOK_SAVE_FAILED;
+        }
+        tracker.progress.total+=b->sheets[i].view.column_count+b->sheets[i].cells.count;
+    }
+    if (!save_progress(&tracker,SAVE_PHASE_VALIDATE,false,error)) return WORKBOOK_SAVE_CANCELLED;
     for (size_t i=0;i<b->count;i++) {
         const Worksheet *s=&b->sheets[i]; const Analysis *a=&s->analysis; const SheetView *v=&s->view;
-        if (!analysis_query_valid(a,error) || !analysis_filters_valid(a,error) || !analysis_sorts_valid(a,error)) return false;
+        if (!analysis_query_valid(a,error) || !analysis_filters_valid(a,error) || !analysis_sorts_valid(a,error)) return WORKBOOK_SAVE_FAILED;
         if (!s->name || strlen(s->name)>4096 || (a->path && strlen(a->path)>65536) ||
             a->kind<SOURCE_NONE || a->kind>SOURCE_DEMO || a->filter_op>FILTER_OP_MAX || a->aggregate>AGG_MAX ||
             !isfinite(v->horizontal) || v->horizontal<0 || !isfinite(v->fraction) || v->fraction<0 || v->fraction>=1 ||
             (v->canvas_zoom && (!isfinite(v->canvas_zoom)||v->canvas_zoom<.5f||v->canvas_zoom>2.5f)) ||
             v->row>=DX_SHEET_ROWS || v->anchor_row>=DX_SHEET_ROWS || v->end_row>=DX_SHEET_ROWS || v->top>=DX_SHEET_ROWS || v->col>=16384 || v->anchor_col>=16384 || v->end_col>=16384 || v->selection>3 || v->column_count>16384 || (v->column_count && (!v->columns || !v->widths))) {
-            error_set(error,"Invalid worksheet definition or presentation."); return false;
+            error_set(error,"Invalid worksheet definition or presentation."); return WORKBOOK_SAVE_FAILED;
         }
         for (size_t c=0;c<v->column_count;c++) if (!v->columns[c] || !isfinite(v->widths[c]) || v->widths[c]<52 || v->widths[c]>1200) {
-            error_set(error,"Invalid column presentation metadata."); return false;
+            error_set(error,"Invalid column presentation metadata."); return WORKBOOK_SAVE_FAILED;
         }
-        if (!objects_valid(&s->objects,error) || !format_valid(&s->formats,error)) return false;
+        if (!objects_valid(&s->objects,error) || !format_valid(&s->formats,error)) return WORKBOOK_SAVE_FAILED;
         for (size_t j=0;j<s->objects.count;j++) {
             const SheetObject *o=&s->objects.items[j];
             if (!o->id || !o->name || (unsigned)o->kind>OBJECT_TABLE || strlen(o->name)>4096 || !pivot_valid(&o->pivot,error) ||
-                !objects_fits(&s->objects,(int)j,o->row,o->col,o->rows,o->columns,&s->cells,0,0,error)) { if (!*error) error_set(error,"Invalid sheet object."); return false; }
+                !objects_fits(&s->objects,(int)j,o->row,o->col,o->rows,o->columns,&s->cells,0,0,error)) { if (!*error) error_set(error,"Invalid sheet object."); return WORKBOOK_SAVE_FAILED; }
         }
     }
     unsigned minimum=workbook_codec_min_write_version(b); bool source_metadata=workbook_codec_content_version(b)==14;
     if (!workbook_identity_valid(b)) return range_fail(error,"Invalid workbook/worksheet identities; the destination was not changed.");
     if (source_metadata && !source_model_valid(b,error)) {
-        char *detail=*error; *error=dx_printf("Unsupported workspace v14 source metadata (v12/v13 cannot preserve it): %s",detail ? detail : "invalid binding"); free(detail); return false;
+        char *detail=*error; *error=dx_printf("Unsupported workspace v14 source metadata (v12/v13 cannot preserve it): %s",detail ? detail : "invalid binding"); free(detail); return WORKBOOK_SAVE_FAILED;
     }
-    char *target=workbook_target_path(path); if (!target) { error_set(error,"Workspace directory does not exist."); return false; }
+    if (!save_progress(&tracker,SAVE_PHASE_VALIDATE,true,error)) return WORKBOOK_SAVE_CANCELLED;
+    char *target=workbook_target_path(path); if (!target) { error_set(error,"Workspace directory does not exist."); return WORKBOOK_SAVE_FAILED; }
     for (size_t i=0;i<b->count;i++) {
         const Worksheet *s=&b->sheets[i];
-        if (s->analysis.path && *s->analysis.path && dx_same_file(target,s->analysis.path)) { free(target); error_set(error,"Choose a workbook destination other than a data source."); return false; }
-        for (size_t j=0;j<s->objects.count;j++) if (s->objects.items[j].kind==OBJECT_TABLE && dx_same_file(target,s->objects.items[j].source.path)) { free(target); error_set(error,"Choose a workbook destination other than a table source."); return false; }
+        if (s->analysis.path && *s->analysis.path && dx_same_file(target,s->analysis.path)) { free(target); error_set(error,"Choose a workbook destination other than a data source."); return WORKBOOK_SAVE_FAILED; }
+        for (size_t j=0;j<s->objects.count;j++) if (s->objects.items[j].kind==OBJECT_TABLE && dx_same_file(target,s->objects.items[j].source.path)) { free(target); error_set(error,"Choose a workbook destination other than a table source."); return WORKBOOK_SAVE_FAILED; }
     }
     FILE *f=fopen(target,"rb"); bool existing=f!=NULL; if (f) fclose(f);
     duckdb_database db=NULL; duckdb_connection c=NULL; duckdb_prepared_statement sheet=NULL,column=NULL,meta=NULL,cell=NULL;
@@ -1211,6 +1232,7 @@ bool workbook_save(const Workbook *b,const char *path,char **error) {
     if (!workbook_codec_select_write_version(minimum,existing_version,&write_version)) { error_set(error,"Unsupported or invalid Duxcel workspace version."); goto done; }
     if (existing_version>=14 && !source_archive_valid(c,target,existing_version,error)) goto done;
     if (write_version>=14 && (!source_package_inventory(c,write_version,false,error) || !source_model_valid(b,error) || !source_target_valid(b,target,error))) goto done;
+    if (!save_progress(&tracker,SAVE_PHASE_PREPARE,true,error)) goto done;
     if (!exec(c,"BEGIN TRANSACTION",error)) goto done; transaction=true;
     if (!exec(c,"CREATE SCHEMA IF NOT EXISTS _duxcel_workspace; "
         "CREATE TABLE IF NOT EXISTS _duxcel_workspace.meta(version INTEGER,active_sheet UBIGINT,user_scale DOUBLE);"
@@ -1228,6 +1250,7 @@ bool workbook_save(const Workbook *b,const char *path,char **error) {
     if (!run(meta,error) || !prepare(c,"INSERT INTO _duxcel_workspace.sheets(" DX_WORKBOOK_SHEET_COLUMNS ",canvas_zoom) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",&sheet,error) ||
         !prepare(c,"INSERT INTO _duxcel_workspace.columns(sheet_id,column_id,name,width) VALUES (?,?,?,?)",&column,error) ||
         !prepare(c,"INSERT INTO _duxcel_workspace.cells(sheet_id,row_id,column_id,text) VALUES (?,?,?,?)",&cell,error)) goto done;
+    if (!save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
     for (size_t i=0;i<b->count;i++) {
         const Worksheet *s=&b->sheets[i]; const Analysis *a=&s->analysis; const SheetView *v=&s->view;
         char *ref=workbook_relative_path(target,a->path);
@@ -1239,27 +1262,31 @@ bool workbook_save(const Workbook *b,const char *path,char **error) {
         duckdb_bind_uint64(sheet,19,v->end_row); duckdb_bind_uint64(sheet,20,v->end_col); duckdb_bind_uint64(sheet,21,v->top);
         duckdb_bind_double(sheet,22,v->horizontal); duckdb_bind_double(sheet,23,v->fraction); duckdb_bind_uint32(sheet,24,v->selection);
         duckdb_bind_double(sheet,25,v->canvas_zoom ? v->canvas_zoom : 1);
-        if (!run(sheet,error)) goto done;
+        if (!run(sheet,error) || !save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
         for (size_t j=0;j<v->column_count;j++) {
             duckdb_bind_uint64(column,1,i); duckdb_bind_uint64(column,2,j); bind_text(column,3,v->columns[j]); duckdb_bind_double(column,4,v->widths[j]);
-            if (!run(column,error)) goto done;
+            if (!run(column,error) || !save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
         }
         for (size_t j=0;j<s->cells.count;j++) {
             const SheetCell *value=&s->cells.cells[j];
             duckdb_bind_uint64(cell,1,i); duckdb_bind_uint64(cell,2,value->row); duckdb_bind_uint64(cell,3,value->col); bind_text(cell,4,value->text);
-            if (!run(cell,error)) goto done;
+            if (!run(cell,error) || !save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
         }
     }
-    if (!save_objects(c,b,target,error) || !save_marks(c,b,error) || !save_formats(c,b,error) || (write_version>=13 && !save_owner_package(c,b,write_version>=14,error)) || (write_version>=14 && !save_source_package(c,b,target,error)) || !save_filters(c,b,error) || !save_sorts(c,b,error) || !save_queries(c,b,error) || !save_source_options(c,b,error) ||
+    if (!save_objects(c,b,target,error) || !save_marks(c,b,error) || !save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
+    if (!save_formats(c,b,error) || (write_version>=13 && !save_owner_package(c,b,write_version>=14,error)) || (write_version>=14 && !save_source_package(c,b,target,error)) || !save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
+    if (!save_filters(c,b,error) || !save_sorts(c,b,error) || !save_queries(c,b,error) || !save_source_options(c,b,error) ||
         !exec(c,"CREATE TABLE IF NOT EXISTS _duxcel_workspace.preferences(name VARCHAR PRIMARY KEY,value BOOLEAN); DELETE FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_')",error) ||
         !exec(c,b->reduced_motion ? "INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('reduce_motion',true)" : "INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('reduce_motion',false)",error)) goto done;
     for (size_t i=0;i<b->count;i++) if (b->sheets[i].hidden) {
         char sql[128]; snprintf(sql,sizeof(sql),"INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('sheet_hidden_%zu',true)",i);
         if (!exec(c,sql,error)) goto done;
     }
+    if (!save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
     if (!save_identity_package(c,b,error) || !source_package_shape(c,write_version,error)) goto done;
+    if (!save_progress(&tracker,SAVE_PHASE_WRITE,true,error) || !save_progress(&tracker,SAVE_PHASE_PUBLISH,false,error)) goto done;
     if (!exec(c,"COMMIT",error)) goto done;
-    transaction=false; ok=true;
+    transaction=false; ok=true; save_progress(&tracker,SAVE_PHASE_COMPLETE,true,error);
  done:
     if (transaction) { char *ignored=NULL; exec(c,"ROLLBACK",&ignored); free(ignored); }
     if (sheet) duckdb_destroy_prepare(&sheet); if (column) duckdb_destroy_prepare(&column); if (meta) duckdb_destroy_prepare(&meta);
@@ -1267,8 +1294,12 @@ bool workbook_save(const Workbook *b,const char *path,char **error) {
     if (c) duckdb_disconnect(&c); if (db) duckdb_close(&db);
     dx_remove_temp_directory(temporary); free(temporary);
     if (!ok && !existing) remove(target);
-    free(target); return ok;
+    free(target); return ok ? WORKBOOK_SAVE_COMPLETE : tracker.cancelled ? WORKBOOK_SAVE_CANCELLED : WORKBOOK_SAVE_FAILED;
 }
+bool workbook_save(const Workbook *b,const char *path,char **error) {
+    return workbook_save_controlled(b,path,(WorkbookSaveControl){0},error)==WORKBOOK_SAVE_COMPLETE;
+}
+
 static char *text_value(duckdb_result *r,idx_t c,idx_t row) {
     if (duckdb_value_is_null(r,c,row)) return NULL;
     char *s=duckdb_value_varchar(r,c,row); char *out=dx_strdup(s); duckdb_free(s); return out;

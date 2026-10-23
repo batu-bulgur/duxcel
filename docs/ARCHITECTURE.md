@@ -441,3 +441,11 @@ Proposed initial work: (1) isolate closing-related data loss by build and close 
 These source paths describe the dirty working tree inspected, not HEAD alone. The product source tree contained 135 files; the review examined module interfaces and App/input → model → worker/SQL → Page → render, plus Save/Open/review paths. Generated brand/icon derivatives were not treated as design authority. This section does not establish native visual or physical-keyboard acceptance; the user's application was not controlled.
 
 Focused checks passed for `grid`, `page`, `cellreadout`, `objects` and `selection_ladder` in release and ASan/UBSan configurations (11.933 s including builds). Native workbook `--formats-only` checks passed in release and ASan/UBSan (17.413 s). Both runs executed zero App scenario stages. Results, source/binary hashes and commands were recorded under ignored `build/tests/results/architecture-review/` and `architecture-persistence/`. Cleanup subsequently pruned these disposable payloads; its current acceptance summary is `build/tests/results/cleanup-summary.json`. Test sources and commands remain. These historical checks do not establish new autosave, general formulas or editable Parquet support.
+
+Native `workbook_save_controlled` (`src/workbook/save.h`) borrows an immutable
+snapshot and a synchronous, bounded saving-thread callback. Progress counts
+actual sheet/column/cell writes and bounded metadata stages. Returning false
+before COMMIT yields a distinct cancelled result and transactional rollback;
+post-COMMIT completion cannot be revoked. The original `workbook_save` uses
+empty control. This primitive does not itself provide App progress UI or make
+the latest-wins query worker an ordered writer; W09b owns that integration.
