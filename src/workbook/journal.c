@@ -10,7 +10,7 @@ struct WorkbookJournal {
     duckdb_connection connection;
     WorkbookId document;
     uint64_t base,head;
-    bool failed,bound;
+    bool failed,bound,read_only;
     unsigned version;
     JournalOrigin origin;
 };
@@ -102,6 +102,7 @@ static bool load_origin(WorkbookJournal *j,char **error) {
 }
 const JournalOrigin *workbook_journal_origin(const WorkbookJournal *j) { return j && j->bound ? &j->origin : NULL; }
 bool workbook_journal_bind_origin(WorkbookJournal *j,const JournalOrigin *origin,char **error) {
+    if (j && j->read_only) return fail(error,"A recovery inspection journal is read-only.");
     if (!j || j->failed) return fail(error,"Reopen the journal before binding its recovery origin.");
     if (!origin_valid(origin)) return fail(error,"Choose a valid generation, parent and checkpoint origin.");
     if (j->bound) return origin_equal(&j->origin,origin) || fail(error,"Journal recovery origin does not match this checkpoint generation.");
@@ -131,12 +132,12 @@ static void discard_failed_creation(const char *path,bool created) {
        proven absent before this single owner's attempt, never an existing file. */
     remove(path); char *wal=dx_printf("%s.wal",path); remove(wal); free(wal);
 }
-bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base,char **error) {
+static bool open_journal(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base,bool read_only,char **error) {
     if (!out || *out || !path || !*path || !strncmp(path,":memory:",8) || (!document.high && !document.low)) return fail(error,"Choose a private journal path and document identity.");
-    struct stat existing; bool created=stat(path,&existing)<0 && errno==ENOENT;
-    WorkbookJournal *j=dx_alloc(sizeof(*j)); memset(j,0,sizeof(*j)); j->document=document; j->base=base;
+    struct stat existing; bool created=!read_only && stat(path,&existing)<0 && errno==ENOENT;
+    WorkbookJournal *j=dx_alloc(sizeof(*j)); memset(j,0,sizeof(*j)); j->document=document; j->base=base; j->read_only=read_only;
     duckdb_config config=NULL; char *engine_error=NULL;
-    bool ok=duckdb_create_config(&config)==DuckDBSuccess && duckdb_set_config(config,"threads","1")==DuckDBSuccess &&
+    bool ok=duckdb_create_config(&config)==DuckDBSuccess && (!read_only || duckdb_set_config(config,"access_mode","READ_ONLY")==DuckDBSuccess) && duckdb_set_config(config,"threads","1")==DuckDBSuccess &&
         duckdb_set_config(config,"memory_limit","64MB")==DuckDBSuccess && duckdb_open_ext(path,&j->db,config,&engine_error)==DuckDBSuccess;
     duckdb_destroy_config(&config);
     if (!ok) { fail(error,engine_error ? engine_error : "Cannot open the journal engine."); duckdb_free(engine_error); workbook_journal_close(j); discard_failed_creation(path,created); return false; }
@@ -146,6 +147,7 @@ bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId doc
     if (!query(j,"SELECT count(*) FROM duckdb_tables() WHERE NOT internal",&r,error)) goto failed;
     uint64_t tables=duckdb_value_uint64(&r,0,0); duckdb_destroy_result(&r);
     if (!tables) {
+        if (read_only) { fail(error,"This file has no initialized recovery journal."); goto failed; }
         if (!execute(j,"BEGIN TRANSACTION",error)) goto failed;
         if (!execute(j,"CREATE TABLE duxcel_journal_meta(singleton BOOLEAN PRIMARY KEY CHECK(singleton),version UINTEGER NOT NULL,document_high UBIGINT NOT NULL,document_low UBIGINT NOT NULL,base_revision UBIGINT NOT NULL,head_revision UBIGINT NOT NULL);"
             "CREATE TABLE duxcel_journal_cells(operation_high UBIGINT NOT NULL,operation_low UBIGINT NOT NULL,previous_revision UBIGINT NOT NULL,revision UBIGINT UNIQUE NOT NULL,sheet UBIGINT NOT NULL,row_index UBIGINT NOT NULL,column_index UINTEGER NOT NULL,before_value BLOB NOT NULL,after_value BLOB NOT NULL,PRIMARY KEY(operation_high,operation_low))",error)) goto rollback;
@@ -175,6 +177,12 @@ rollback:
 failed:
     workbook_journal_close(j); discard_failed_creation(path,created); return false;
 }
+bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base,char **error) {
+    return open_journal(out,path,document,base,false,error);
+}
+bool workbook_journal_open_readonly(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base,char **error) {
+    return open_journal(out,path,document,base,true,error);
+}
 static bool decode(duckdb_result *r,idx_t row,JournalCellEdit *e,char **error) {
     duckdb_blob before=duckdb_value_blob(r,7,row),after=duckdb_value_blob(r,8,row);
     *e=(JournalCellEdit){.operation={duckdb_value_uint64(r,0,row),duckdb_value_uint64(r,1,row)},
@@ -198,6 +206,7 @@ static bool same(const JournalCellEdit *a,const JournalCellEdit *b) {
         (!a->before_bytes || !memcmp(a->before,b->before,a->before_bytes)) && (!a->after_bytes || !memcmp(a->after,b->after,a->after_bytes));
 }
 bool workbook_journal_append(WorkbookJournal *j,const JournalCellEdit *edits,size_t count,JournalControl control,JournalReceipt *receipt,char **error) {
+    if (j && j->read_only) return fail(error,"A recovery inspection journal is read-only.");
     if (!j || j->failed || !edits || !count || count>DX_JOURNAL_BATCH) return fail(error,"Use an open journal and a bounded nonempty batch; reopen after engine failure.");
     size_t bytes=0;
     for (size_t i=0;i<count;i++) {

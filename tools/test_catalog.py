@@ -51,7 +51,7 @@ ENGINE_PROCESS_CHECKS = {
     "journal_performance": EngineProcessCheck("tools/benchmark_journal.py", "PASS: journal workload provenance and measurements",
         r"^PASS: journal workload provenance and measurements$", arguments=("--input", "build/tests/generated/journal-paste.tsv"), primary=True),
     "workbook_journal": EngineProcessCheck("tools/test_journal_process.py", "PASS: journal process boundaries",
-        r"^PASS: journal process boundaries \(8 cases, 56 checks\)$", (JOURNAL_FAULT_LIBRARY,), ("--fault-library", JOURNAL_FAULT_LIBRARY), ("workbook-journal", "journal-faults")),
+        r"^PASS: journal process boundaries \(10 cases, 72 checks\)$", (JOURNAL_FAULT_LIBRARY,), ("--fault-library", JOURNAL_FAULT_LIBRARY), ("workbook-journal", "journal-faults")),
     "journal_queue": EngineProcessCheck("tools/test_journal_faults.py", "PASS: journal queue filesystem failures",
         r"^PASS: journal queue filesystem failures \(12 cases, 28 checks\)$", (JOURNAL_FAULT_LIBRARY,), ("--fault-library", JOURNAL_FAULT_LIBRARY, "--queue"), ("journal-queue", "journal-faults")),
 }

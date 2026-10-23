@@ -144,10 +144,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10a1 · P0 · Complete | Immutable journal origin codec; W09. | v2 generation/parent IDs, baseline byte length/SHA-256 and original locator bind atomically before the first edit. Exact retry is idempotent; conflicts/malformed metadata reject; legacy tails cannot infer a baseline. |
 | W10a2 · P0 · Complete | Checkpoint fingerprint and writer origin admission; W10a1. | Real prepared checkpoint bytes bind to the queued generation before acknowledgement; rotation records the parent. Preparation/binding retry retains payloads and exact origin. |
 | W10b · P0 · In progress | Bounded recovery discovery and candidate replay; W10a. | Validate known private artifacts, baseline and contiguous tail into an isolated candidate with progress/cancel. Equal clocks do not order branches; preserve all candidates on failure. |
-| W10b1 · P0 · In progress | Exclusive generation ownership and read-only journal access; W10a. | Another live process/instance cannot claim an active generation. Recovery inspection never creates or appends a journal; process death releases ownership. |
+| W10b1 · P0 · Complete | Exclusive generation ownership and read-only journal access; W10a. | Another live process/instance cannot claim an active generation. Recovery inspection never creates or appends a journal; process death releases ownership. |
 | W10b1a · P0 · Complete | OS-backed private generation lease; W10a. | Hold ownership from allocation through joined cleanup; another handle/process sees busy, and process death releases it. Acquisition/release never replaces the lock file; rejected paths/content stay intact. |
-| W10b1b · P0 · Next | Read-only journal inspection and interrupted v2 tail proof; W10b1a. | No create/bind/append through inspection; real pre/post-COMMIT kills retain a readable old/new complete state and immutable origin without checkpointing recovery material. |
-| W10b2 · P0 · Queued | Verified isolated recovery candidate and bounded discovery; W10b1. | Stream baseline validation and contiguous exact-before-image replay into a candidate; cancel/failure leaves current model/artifacts intact. Preserve ambiguous branches and legacy/unbound checkpoints explicitly. |
+| W10b1b · P0 · Complete | Read-only journal inspection and interrupted v2 tail proof; W10b1a. | No create/bind/append through inspection; real pre/post-COMMIT kills retain a readable old/new complete state and immutable origin without checkpointing recovery material. |
+| W10b2 · P0 · Next | Verified isolated recovery candidate and bounded discovery; W10b1. | Stream baseline validation and contiguous exact-before-image replay into a candidate; cancel/failure leaves current model/artifacts intact. Preserve ambiguous branches and legacy/unbound checkpoints explicitly. |
 | W10c · P0 · Queued | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
@@ -324,6 +324,16 @@ The updated maximum-paste/checkpoint workload passes optimized in 4.613s; 56 too
 contracts pass, including explicit browser source exclusion. macOS is validated;
 other native implementation paths are not an execution claim. Read-only crashed
 journal inspection is W10b1b; no startup recovery UI is active yet.
+
+W10b1b/W10b1 complete: journal inspection opens the existing file in DuckDB
+READ_ONLY and refuses create/bind/append without poisoning read access or changing
+receipts. Real v2 writers killed before/after COMMIT reopen read-only with exact
+old/new state and immutable origin; DB/WAL hashes and the artifact set stay
+unchanged. Normal inspection creates no WAL; a missing path creates no file.
+The focused journal gate passes 264 assertions per optimized/sanitizer variant
+plus 10 process/fault cases/72 checks each (14.989s). The expanded crash driver
+remains in the separate journal/fault plans, not ordinary UI iteration. All 56
+tool contracts pass (9.254s). Verified isolated candidate replay/discovery is next.
 
 ### Owned data, refresh and complete analytical results
 

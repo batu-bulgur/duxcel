@@ -37,6 +37,10 @@ typedef bool (*JournalVisitor)(void *context,const JournalCellEdit *borrowed,cha
    removes only its own new incomplete file/WAL; existing files are preserved. Payloads admit only
    W05 sparse text/clear edits, not typed cells, paste, lifecycle or full history. */
 bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base_revision,char **error);
+/* Existing archive inspection only. Never creates, binds or appends; DuckDB
+   opens with READ_ONLY. Caller must still hold the generation lease and match
+   the actual baseline/origin before candidate replay. */
+bool workbook_journal_open_readonly(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base_revision,char **error);
 void workbook_journal_close(WorkbookJournal *journal);
 /* Bind before the first edit, transactionally. Exact retries are idempotent;
    an existing origin cannot be replaced, nor inferred from an admitted clock.

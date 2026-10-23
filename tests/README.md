@@ -163,3 +163,10 @@ symlink/hardlink/nonzero content remains intact. Session tests verify active
 ownership and claimability after keep-close; fixed lease files are known private
 artifacts, not a fixture dataset or build-operation lock. The finite performance
 helper also cleans that artifact. Test output stays under ignored `build/tests/`.
+
+W10b1b extends the existing journal primitive/process plan with explicit READ_ONLY
+inspection, missing-file/no-WAL creation checks, refused bind/append with preserved
+receipts, and real v2 writer kills before/after COMMIT. The driver hashes the DB
+and any WAL before inspection and verifies both content and artifact-set identity
+after it. Exact same-ID retry remains valid afterward. Only private child writers
+are killed; no desktop or user's process is addressed.

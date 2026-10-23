@@ -19,8 +19,8 @@ def command(binary, *arguments):
     return result.stdout
 
 
-def kill_at_barrier(binary, path, phase):
-    process = subprocess.Popen([str(binary), "--hold-" + phase, str(path)], cwd=ROOT,
+def kill_at_barrier(binary, path, phase, *, origin=False):
+    process = subprocess.Popen([str(binary), "--hold-" + phase + ("-origin" if origin else ""), str(path)], cwd=ROOT,
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, text=True)
     try:
@@ -60,10 +60,25 @@ def main():
             command(binary, "--inspect", path, 2); checks += 1
             command(binary, "--retry", path); checks += 1
             command(binary, "--inspect", path, 2); checks += 1
+        for phase, expected in (("before", 0), ("after", 2)):
+            path = Path(directory) / ("origin-" + phase + ".duckdb")
+            command(binary, "--init", path); checks += 1
+            kill_at_barrier(binary, path, phase, origin=True); checks += 1
+            before = fingerprint([path, *([Path(str(path) + ".wal")] if Path(str(path) + ".wal").is_file() else [])])
+            command(binary, "--inspect-readonly", path, expected); checks += 1
+            ensure_unchanged(before)
+            after_paths = {str(path), *([str(path) + ".wal"] if Path(str(path) + ".wal").is_file() else [])}
+            if set(before) != after_paths:
+                raise RuntimeError("Read-only inspection changed the recovery artifact set")
+            checks += 1
+            command(binary, "--retry", path); checks += 1
+            command(binary, "--inspect-readonly", path, 2); checks += 1
+            command(binary, "--retry", path); checks += 1
+            command(binary, "--inspect-readonly", path, 2); checks += 1
         checks += storage_cases(binary, library, directory)
     ensure_unchanged(provenance)
     print(f"Journal crash/retry duration: {time.monotonic() - started:.3f}s")
-    print(f"PASS: journal process boundaries (8 cases, {checks} checks)")
+    print(f"PASS: journal process boundaries (10 cases, {checks} checks)")
 
 
 if __name__ == "__main__":

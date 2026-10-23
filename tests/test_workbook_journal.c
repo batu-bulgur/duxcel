@@ -117,18 +117,22 @@ static void batching(const char *path) {
     printf("Journal engine %s: 32 single commits %.3f ms; 256 edits/one commit %.3f ms\n",duckdb_library_version(),single*1000,batched*1000);
     workbook_journal_close(j);
 }
+static const JournalOrigin process_origin={.generation={42,43},.parent={41,42},.baseline_bytes=4096,.baseline_sha256={1},.original_path=""};
 static int process_mode(int argc,char **argv) {
     if (argc!=3 && argc!=4) return 2;
     WorkbookJournal *j=NULL; char *error=NULL;
-    if (!workbook_journal_open(&j,argv[2],document,0,&error)) { fprintf(stderr,"FAIL: %s\n",error); free(error); return 1; }
+    bool readonly=!strcmp(argv[1],"--inspect-readonly");
+    bool opened=readonly ? workbook_journal_open_readonly(&j,argv[2],document,0,&error) : workbook_journal_open(&j,argv[2],document,0,&error);
+    if (!opened) { fprintf(stderr,"FAIL: %s\n",error); free(error); return 1; }
     if (!strcmp(argv[1],"--init")) { workbook_journal_close(j); puts("PASS: journal initialized"); return 0; }
     JournalCellEdit edits[]={edit(1,"","First"),edit(2,"First","Second")};
     bool any=!strcmp(argv[1],"--inspect-any");
-    if (any || (!strcmp(argv[1],"--inspect") && argc==4)) {
+    if (any || ((!strcmp(argv[1],"--inspect") || readonly) && argc==4)) {
         uint64_t expected=any ? workbook_journal_durable_revision(j) : (uint64_t)strtoull(argv[3],NULL,10);
         if (any) { CHECK(expected==0 || expected==2); printf("STATE durable-head=%llu\n",(unsigned long long)expected); } size_t visited=0; Read read={edits,0};
         CHECK(workbook_journal_durable_revision(j)==expected && expected<=2);
         CHECK(workbook_journal_read(j,0,256,read_entry,&read,&visited,&error)); CHECK(read.next==expected && visited==expected);
+        if (readonly) { const JournalOrigin *origin=workbook_journal_origin(j); CHECK(origin && origin->generation.low==43 && origin->parent.low==42 && origin->baseline_bytes==4096); }
         workbook_journal_close(j); puts("PASS: complete journal state"); return 0;
     }
     JournalReceipt receipt={0};
@@ -148,8 +152,10 @@ static int process_mode(int argc,char **argv) {
         workbook_journal_close(j); puts("PASS: journal close fault completed"); return 0;
     }
     JournalControl control={0};
-    if (!strcmp(argv[1],"--hold-before")) control.before_commit=before_hold;
-    else if (!strcmp(argv[1],"--hold-after")) control.after_commit=after_hold;
+    bool origin=!strcmp(argv[1],"--hold-before-origin") || !strcmp(argv[1],"--hold-after-origin");
+    if (origin) CHECK(workbook_journal_bind_origin(j,&process_origin,&error));
+    if (!strcmp(argv[1],"--hold-before") || !strcmp(argv[1],"--hold-before-origin")) control.before_commit=before_hold;
+    else if (!strcmp(argv[1],"--hold-after") || !strcmp(argv[1],"--hold-after-origin")) control.after_commit=after_hold;
     else if (strcmp(argv[1],"--retry")) return 2;
     CHECK(workbook_journal_append(j,edits,2,control,&receipt,&error)); CHECK(receipt.durable_revision==2);
     workbook_journal_close(j); puts("PASS: journal commit"); return 0;
@@ -174,6 +180,14 @@ static void origins(const char *path) {
     CHECK(workbook_journal_bind_origin(j,&origin,&error) && workbook_journal_durable_revision(j)==1);
     CHECK(workbook_journal_append(j,&e,1,(JournalControl){0},&receipt,&error) && receipt.replayed==1 && !receipt.appended);
     workbook_journal_close(j); j=NULL;
+    char *readonly_wal=dx_printf("%s.wal",path); CHECK(access(readonly_wal,F_OK));
+    CHECK(workbook_journal_open_readonly(&j,path,document,0,&error));
+    CHECK(workbook_journal_origin(j) && workbook_journal_durable_revision(j)==1);
+    JournalReceipt unchanged={7,8,9},before=unchanged;
+    CHECK(!workbook_journal_append(j,&e,1,(JournalControl){0},&unchanged,&error) && error && !memcmp(&before,&unchanged,sizeof(before))); free(error); error=NULL;
+    CHECK(!workbook_journal_bind_origin(j,&origin,&error) && error); free(error); error=NULL;
+    size_t visited=0,read=0; CHECK(workbook_journal_read(j,0,31,count_entry,&read,&visited,&error)); CHECK(visited==1 && read==1 && !error);
+    workbook_journal_close(j); j=NULL; CHECK(access(readonly_wal,F_OK)); free(readonly_wal);
     const char *malformed[]={"UPDATE duxcel_journal_origin SET baseline_sha256='short'::BLOB", "INSERT INTO duxcel_journal_origin SELECT * FROM duxcel_journal_origin",
         "UPDATE duxcel_journal_origin SET generation_high=0,generation_low=0", "UPDATE duxcel_journal_origin SET original_path='relative.dxls'",
         "UPDATE duxcel_journal_origin SET original_path='/tmp/'||chr(0)||'hidden'", "ALTER TABLE duxcel_journal_origin ADD COLUMN unknown INTEGER"};
@@ -192,6 +206,8 @@ int main(int argc,char **argv) {
     if (argc>1) return process_mode(argc,argv);
     char directory[]="build/tests/journal-XXXXXX"; CHECK(mkdtemp(directory));
     char *path=dx_printf("%s/edits.duckdb",directory),*limit=dx_printf("%s/limit.duckdb",directory),*batch=dx_printf("%s/batch.duckdb",directory),*other=dx_printf("%s/other.duckdb",directory);
+    WorkbookJournal *missing=NULL; char *missing_error=NULL;
+    CHECK(!workbook_journal_open_readonly(&missing,path,document,0,&missing_error) && missing_error && !missing && access(path,F_OK)); free(missing_error);
     char *origin_path=dx_printf("%s/origin.duckdb",directory); origins(origin_path); free(origin_path);
     transactions(path); limits(limit); batching(batch);
     WorkbookJournal *j=NULL; char *error=NULL;

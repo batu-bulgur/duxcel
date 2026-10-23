@@ -487,3 +487,10 @@ nonblocking flock with close-on-exec/no-follow; Windows has an exclusive native
 handle boundary. Only macOS execution is validated. Recovery discovery must
 claim a generation before inspecting/adopting it and skip active leases. The
 module is excluded from the shared-C browser source inventory.
+
+`workbook_journal_open_readonly` opens an existing private archive with DuckDB
+READ_ONLY. It never initializes an empty/missing archive, and its handle rejects
+bind/append while retaining read/origin access. Actual v2 pre/post-COMMIT process
+kills establish read-only WAL recovery without changing the DB/WAL bytes or file
+set on the validated engine. A recovery controller must still hold its generation
+lease and verify the baseline digest before replay into an isolated candidate.
